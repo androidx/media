@@ -357,6 +357,10 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
     try {
       return readInternal(buffer, offset, length);
     } catch (IOException e) {
+      if (e instanceof InterruptedIOException) {
+        response.close();
+      }
+
       throw HttpDataSourceException.createForIOException(
           e, castNonNull(dataSpec), HttpDataSourceException.TYPE_READ);
     }
