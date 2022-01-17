@@ -283,6 +283,10 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
       responseBody = Assertions.checkNotNull(response.body());
       responseByteStream = responseBody.byteStream();
     } catch (IOException e) {
+      if (e instanceof InterruptedIOException) {
+        closeConnectionQuietly();
+      }
+
       throw HttpDataSourceException.createForIOException(
           e, dataSpec, HttpDataSourceException.TYPE_OPEN);
     }
@@ -358,7 +362,7 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
       return readInternal(buffer, offset, length);
     } catch (IOException e) {
       if (e instanceof InterruptedIOException) {
-        response.close();
+        closeConnectionQuietly();
       }
 
       throw HttpDataSourceException.createForIOException(
@@ -460,6 +464,10 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
       }
       return;
     } catch (IOException e) {
+      if (e instanceof InterruptedIOException) {
+        closeConnectionQuietly();
+      }
+
       if (e instanceof HttpDataSourceException) {
         throw (HttpDataSourceException) e;
       } else {
