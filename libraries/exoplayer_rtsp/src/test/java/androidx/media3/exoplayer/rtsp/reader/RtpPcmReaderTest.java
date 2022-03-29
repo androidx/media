@@ -63,7 +63,7 @@ public final class RtpPcmReaderTest {
   @Before
   public void setUp() {
     packetData = new ParsableByteArray();
-    trackOutput = new FakeTrackOutput(/* deduplicateConsecutiveFormats= */ true);
+    trackOutput = new FakeTrackOutput(/* deduplicateConsecutiveFormats= */ false);
     when(extractorOutput.track(anyInt(), anyInt())).thenReturn(trackOutput);
   }
 
