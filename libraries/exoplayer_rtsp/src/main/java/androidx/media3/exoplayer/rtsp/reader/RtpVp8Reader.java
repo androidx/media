@@ -66,7 +66,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.payloadFormat = payloadFormat;
     firstReceivedTimestamp = C.TIME_UNSET;
     previousSequenceNumber = C.INDEX_UNSET;
-    fragmentedSampleSizeBytes = C.LENGTH_UNSET;
+    fragmentedSampleSizeBytes = 0;
     // The start time offset must be 0 until the first seek.
     startTimeOffsetUs = 0;
     gotFirstPacketOfVp8Frame = false;
@@ -91,7 +91,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     boolean isValidVP8Descriptor = validateVp8Descriptor(data, sequenceNumber);
     if (isValidVP8Descriptor) {
       //  VP8 Payload Header is defined in RFC7741 Section 4.3.
-      if (fragmentedSampleSizeBytes == C.LENGTH_UNSET && gotFirstPacketOfVp8Frame) {
+      if (fragmentedSampleSizeBytes == 0 && gotFirstPacketOfVp8Frame) {
         isKeyFrame = (data.peekUnsignedByte() & 0x01) == 0;
       }
       if (!isOutputFormatSet) {
@@ -126,7 +126,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             fragmentedSampleSizeBytes,
             /* offset= */ 0,
             /* cryptoData= */ null);
-        fragmentedSampleSizeBytes = C.LENGTH_UNSET;
+        fragmentedSampleSizeBytes = 0;
         gotFirstPacketOfVp8Frame = false;
       }
       previousSequenceNumber = sequenceNumber;
@@ -136,7 +136,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   public void seek(long nextRtpTimestamp, long timeUs) {
     firstReceivedTimestamp = nextRtpTimestamp;
-    fragmentedSampleSizeBytes = C.LENGTH_UNSET;
+    fragmentedSampleSizeBytes = 0;
     startTimeOffsetUs = timeUs;
   }
 
@@ -150,7 +150,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (!gotFirstPacketOfVp8Frame) {
       // TODO(b/198620566) Consider using ParsableBitArray.
       // For start of VP8 partition S=1 and PID=0 as per RFC7741 Section 4.2.
-      if ((header & 0x10) != 0x1 || (header & 0x07) != 0) {
+      if ((header & 0x10) != 0x10 || (header & 0x07) != 0) {
         Log.w(TAG, "RTP packet is not the start of a new VP8 partition, skipping.");
         return false;
       }
