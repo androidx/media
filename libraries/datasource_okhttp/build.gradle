@@ -11,9 +11,15 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 
-android.defaultConfig.minSdkVersion 21
+apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
+apply plugin: 'kotlin-android'
+
+android {
+    defaultConfig {
+        minSdkVersion 21
+    }
+}
 
 dependencies {
     implementation project(modulePrefix + 'lib-common')
@@ -25,6 +31,14 @@ dependencies {
     testImplementation 'com.squareup.okhttp3:mockwebserver:' + okhttpVersion
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
     api 'com.squareup.okhttp3:okhttp:' + okhttpVersion
+
+    androidTestImplementation 'androidx.test:rules:' + androidxTestRulesVersion
+    androidTestImplementation 'androidx.test:runner:' + androidxTestRunnerVersion
+    androidTestImplementation 'androidx.multidex:multidex:' + androidxMultidexVersion
+    androidTestImplementation 'com.linkedin.dexmaker:dexmaker-mockito:' + dexmakerVersion
+    androidTestImplementation project(modulePrefix + 'test-utils')
+    androidTestImplementation project(modulePrefix + 'lib-exoplayer')
+    androidTestImplementation 'androidx.media:media:' + androidxMediaVersion
 }
 
 ext {

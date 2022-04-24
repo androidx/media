@@ -36,6 +36,7 @@ import androidx.media3.datasource.HttpUtil;
 import androidx.media3.datasource.TransferListener;
 import com.google.common.base.Predicate;
 import com.google.common.net.HttpHeaders;
+import com.google.common.util.concurrent.SettableFuture;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
@@ -43,8 +44,10 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import okhttp3.CacheControl;
 import okhttp3.Call;
+import okhttp3.Callback;
 import okhttp3.HttpUrl;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
@@ -300,7 +303,8 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
     Response response;
     ResponseBody responseBody;
     try {
-      this.response = callFactory.newCall(request).execute();
+      this.response = executeAsync(callFactory.newCall(request));
+
       response = this.response;
       responseBody = Assertions.checkNotNull(response.body());
       responseByteStream = responseBody.byteStream();
@@ -372,6 +376,30 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
     }
 
     return bytesToRead;
+  }
+
+  private Response executeAsync(Call call) throws IOException {
+    SettableFuture<Response> future = SettableFuture.create();
+    call.enqueue(new Callback() {
+      @Override
+      public void onFailure(Call call, IOException e) {
+        future.setException(e);
+      }
+
+      @Override
+      public void onResponse(Call call, Response response) {
+        future.set(response);
+      }
+    });
+
+    try {
+      return future.get();
+    } catch (InterruptedException e) {
+      call.cancel();
+      throw new InterruptedIOException();
+    } catch (ExecutionException e) {
+      throw (IOException) e.getCause();
+    }
   }
 
   @UnstableApi
