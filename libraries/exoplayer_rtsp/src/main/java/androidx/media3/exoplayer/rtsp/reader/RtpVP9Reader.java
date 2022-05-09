@@ -234,6 +234,24 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           height = payload.readUnsignedShort();
         }
       }
+
+      // Check G bit, skips all additional temporal layers.
+      if ((scalabilityStructure & 0x08) != 0) {
+        // Reads N_G.
+        int numOfPicInPictureGroup = payload.readUnsignedByte();
+        if (payload.bytesLeft() < numOfPicInPictureGroup) {
+          return false;
+        }
+        for (int picIndex = 0; picIndex < numOfPicInPictureGroup; picIndex++) {
+          int picture = payload.readUnsignedShort();
+          int referenceIndices = (picture & 0x0C) >> 2;
+          if (payload.bytesLeft() < referenceIndices) {
+            return false;
+          }
+          // Ignore Reference indices
+          payload.skipBytes(referenceIndices);
+        }
+      }
     }
     return true;
   }
