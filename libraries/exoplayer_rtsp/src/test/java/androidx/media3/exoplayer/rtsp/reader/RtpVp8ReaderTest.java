@@ -75,10 +75,9 @@ public final class RtpVp8ReaderTest {
       new RtpPayloadFormat(
           new Format.Builder()
               .setSampleMimeType(MimeTypes.VIDEO_VP8)
-              .setSampleRate(500000)
               .build(),
           /* rtpPayloadType= */ 97,
-          /* clockRate= */ 48_000,
+          /* clockRate= */ 90_000,
           /* fmtpParameters= */ ImmutableMap.of());
 
   @Rule
