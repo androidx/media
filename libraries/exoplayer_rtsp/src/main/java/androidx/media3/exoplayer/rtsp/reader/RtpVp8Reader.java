@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.rtsp.reader;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 
@@ -35,7 +36,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 /* package */ final class RtpVp8Reader implements RtpPayloadReader {
   private static final String TAG = "RtpVP8Reader";
 
-  /** VP9 uses a 90 KHz media clock (RFC7741 Section 4.1). */
+  /** VP8 uses a 90 KHz media clock (RFC7741 Section 4.1). */
   private static final long MEDIA_CLOCK_FREQUENCY = 90_000;
 
   private final RtpPayloadFormat payloadFormat;
@@ -51,7 +52,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private int previousSequenceNumber;
   /** The combined size of a sample that is fragmented into multiple RTP packets. */
   private int fragmentedSampleSizeBytes;
-  private long sampleTimeUsOfFragmentedSample;
+
+  private long fragmentedSampleTimeUs;
 
   private long startTimeOffsetUs;
   /**
@@ -69,7 +71,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     firstReceivedTimestamp = C.TIME_UNSET;
     previousSequenceNumber = C.INDEX_UNSET;
     fragmentedSampleSizeBytes = C.LENGTH_UNSET;
-    sampleTimeUsOfFragmentedSample = C.TIME_UNSET;
+    fragmentedSampleTimeUs = C.TIME_UNSET;
     // The start time offset must be 0 until the first seek.
     startTimeOffsetUs = 0;
     gotFirstPacketOfVp8Frame = false;
@@ -125,8 +127,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         fragmentedSampleSizeBytes += fragmentSize;
       }
 
-      sampleTimeUsOfFragmentedSample =
-          toSampleUs(startTimeOffsetUs, timestamp, firstReceivedTimestamp);
+      fragmentedSampleTimeUs = toSampleUs(startTimeOffsetUs, timestamp, firstReceivedTimestamp);
 
       if (rtpMarker) {
         outputSampleMetadataForFragmentedPackets();
@@ -201,9 +202,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   /**
-   * Outputs sample metadata.
+   * Outputs sample metadata of the received fragmented packets.
    *
-   * <p>Call this method only when receiving a end of VP8 partition
+   * <p>Call this method only after receiving an end of a VP8 partition.
    */
   private void outputSampleMetadataForFragmentedPackets() {
     trackOutput.sampleMetadata(

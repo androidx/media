@@ -17,163 +17,187 @@ package androidx.media3.exoplayer.rtsp.reader;
 
 import static androidx.media3.common.util.Util.getBytesFromHexString;
 import static com.google.common.truth.Truth.assertThat;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.when;
 
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ParsableByteArray;
+import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.rtsp.RtpPacket;
 import androidx.media3.exoplayer.rtsp.RtpPayloadFormat;
-import androidx.media3.extractor.ExtractorOutput;
+import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.primitives.Bytes;
+import java.util.Arrays;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnit;
-import org.mockito.junit.MockitoRule;
 
-/**
- * Unit test for {@link RtpVp8Reader}.
- */
+/** Unit test for {@link RtpVp8Reader}. */
 @RunWith(AndroidJUnit4.class)
 public final class RtpVp8ReaderTest {
 
-  private final RtpPacket frame1fragment1 =
-      createRtpPacket(
-          /* timestamp= */ 2599168056L,
-          /* sequenceNumber= */ 40289,
-          /* marker= */ false,
-          /* payloadData= */ getBytesFromHexString("10000102030405060708090A"));
-  private final RtpPacket frame1fragment2 =
-      createRtpPacket(
-          /* timestamp= */ 2599168056L,
-          /* sequenceNumber= */ 40290,
-          /* marker= */ true,
-          /* payloadData= */ getBytesFromHexString("000B0C0D0E"));
-  private final byte[] frame1Data = getBytesFromHexString("000102030405060708090A0B0C0D0E");
-  private final RtpPacket frame2fragment1 =
-      createRtpPacket(
-          /* timestamp= */ 2599168344L,
-          /* sequenceNumber= */ 40291,
-          /* marker= */ false,
-          /* payloadData= */ getBytesFromHexString("100D0C0B0A090807060504"));
-  // Add optional headers
-  private final RtpPacket frame2fragment2 =
-      createRtpPacket(
-          /* timestamp= */ 2599168344L,
-          /* sequenceNumber= */ 40292,
-          /* marker= */ true,
-          /* payloadData= */ getBytesFromHexString("80D6AA95396103020100"));
-  private final byte[] frame2Data = getBytesFromHexString("0D0C0B0A09080706050403020100");
+  /** VP8 uses a 90 KHz media clock (RFC7741 Section 4.1). */
+  private static final long MEDIA_CLOCK_FREQUENCY = 90_000;
 
-  private static final RtpPayloadFormat VP8_FORMAT =
-      new RtpPayloadFormat(
-          new Format.Builder()
-              .setSampleMimeType(MimeTypes.VIDEO_VP8)
-              .build(),
-          /* rtpPayloadType= */ 97,
-          /* clockRate= */ 90_000,
-          /* fmtpParameters= */ ImmutableMap.of());
+  private static final byte[] PARTITION_1 = getBytesFromHexString("000102030405060708090A0B0C0D0E");
+  // 000102030405060708090A
+  private static final byte[] PARTITION_1_FRAGMENT_1 =
+      Arrays.copyOf(PARTITION_1, /* newLength= */ 11);
+  // 0B0C0D0E
+  private static final byte[] PARTITION_1_FRAGMENT_2 =
+      Arrays.copyOfRange(PARTITION_1, /* from= */ 11, /* to= */ 15);
+  private static final long PARTITION_1_RTP_TIMESTAMP = 2599168056L;
+  private static final RtpPacket PACKET_PARTITION_1_FRAGMENT_1 =
+      new RtpPacket.Builder()
+          .setTimestamp(PARTITION_1_RTP_TIMESTAMP)
+          .setSequenceNumber(40289)
+          .setMarker(false)
+          .setPayloadData(Bytes.concat(getBytesFromHexString("10"), PARTITION_1_FRAGMENT_1))
+          .build();
+  private static final RtpPacket PACKET_PARTITION_1_FRAGMENT_2 =
+      new RtpPacket.Builder()
+          .setTimestamp(PARTITION_1_RTP_TIMESTAMP)
+          .setSequenceNumber(40290)
+          .setMarker(true)
+          .setPayloadData(Bytes.concat(getBytesFromHexString("00"), PARTITION_1_FRAGMENT_2))
+          .build();
 
-  @Rule
-  public final MockitoRule mockito = MockitoJUnit.rule();
+  private static final byte[] PARTITION_2 = getBytesFromHexString("0D0C0B0A09080706050403020100");
+  // 0D0C0B0A090807060504
+  private static final byte[] PARTITION_2_FRAGMENT_1 =
+      Arrays.copyOf(PARTITION_2, /* newLength= */ 10);
+  // 03020100
+  private static final byte[] PARTITION_2_FRAGMENT_2 =
+      Arrays.copyOfRange(PARTITION_2, /* from= */ 10, /* to= */ 14);
+  private static final long PARTITION_2_RTP_TIMESTAMP = 2599168344L;
+  private static final RtpPacket PACKET_PARTITION_2_FRAGMENT_1 =
+      new RtpPacket.Builder()
+          .setTimestamp(PARTITION_2_RTP_TIMESTAMP)
+          .setSequenceNumber(40291)
+          .setMarker(false)
+          .setPayloadData(Bytes.concat(getBytesFromHexString("10"), PARTITION_2_FRAGMENT_1))
+          .build();
+  private static final RtpPacket PACKET_PARTITION_2_FRAGMENT_2 =
+      new RtpPacket.Builder()
+          .setTimestamp(PARTITION_2_RTP_TIMESTAMP)
+          .setSequenceNumber(40292)
+          .setMarker(true)
+          .setPayloadData(
+              Bytes.concat(
+                  getBytesFromHexString("80"),
+                  // Optional header.
+                  getBytesFromHexString("D6AA953961"),
+                  PARTITION_2_FRAGMENT_2))
+          .build();
+  private static final long PARTITION_2_PRESENTATION_TIMESTAMP_US =
+      Util.scaleLargeTimestamp(
+          (PARTITION_2_RTP_TIMESTAMP - PARTITION_1_RTP_TIMESTAMP),
+          /* multiplier= */ C.MICROS_PER_SECOND,
+          /* divisor= */ MEDIA_CLOCK_FREQUENCY);
 
-  private ParsableByteArray packetData;
-
-  private RtpVp8Reader vp8Reader;
-  private FakeTrackOutput trackOutput;
-  @Mock
-  private ExtractorOutput extractorOutput;
+  private FakeExtractorOutput extractorOutput;
 
   @Before
   public void setUp() {
-    packetData = new ParsableByteArray();
-    trackOutput = new FakeTrackOutput(/* deduplicateConsecutiveFormats= */ true);
-    when(extractorOutput.track(anyInt(), anyInt())).thenReturn(trackOutput);
-    vp8Reader = new RtpVp8Reader(VP8_FORMAT);
-    vp8Reader.createTracks(extractorOutput, /* trackId= */ 0);
+    extractorOutput =
+        new FakeExtractorOutput(
+            (id, type) -> new FakeTrackOutput(/* deduplicateConsecutiveFormats= */ true));
   }
 
   @Test
   public void consume_validPackets() {
-    vp8Reader.onReceivingFirstPacket(frame1fragment1.timestamp, frame1fragment1.sequenceNumber);
-    consume(frame1fragment1);
-    consume(frame1fragment2);
-    consume(frame2fragment1);
-    consume(frame2fragment2);
+    RtpVp8Reader vp8Reader = createVp8Reader();
 
+    vp8Reader.createTracks(extractorOutput, /* trackId= */ 0);
+    vp8Reader.onReceivingFirstPacket(
+        PACKET_PARTITION_1_FRAGMENT_1.timestamp, PACKET_PARTITION_1_FRAGMENT_1.sequenceNumber);
+    consume(vp8Reader, PACKET_PARTITION_1_FRAGMENT_1);
+    consume(vp8Reader, PACKET_PARTITION_1_FRAGMENT_2);
+    consume(vp8Reader, PACKET_PARTITION_2_FRAGMENT_1);
+    consume(vp8Reader, PACKET_PARTITION_2_FRAGMENT_2);
+
+    FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(0);
     assertThat(trackOutput.getSampleCount()).isEqualTo(2);
-    assertThat(trackOutput.getSampleData(0)).isEqualTo(frame1Data);
+    assertThat(trackOutput.getSampleData(0)).isEqualTo(PARTITION_1);
     assertThat(trackOutput.getSampleTimeUs(0)).isEqualTo(0);
-    assertThat(trackOutput.getSampleData(1)).isEqualTo(frame2Data);
-    assertThat(trackOutput.getSampleTimeUs(1)).isEqualTo(3200);
+    assertThat(trackOutput.getSampleData(1)).isEqualTo(PARTITION_2);
+    assertThat(trackOutput.getSampleTimeUs(1)).isEqualTo(PARTITION_2_PRESENTATION_TIMESTAMP_US);
   }
 
   @Test
   public void consume_fragmentedFrameMissingFirstFragment() {
-    // First packet timing information is transmitted over RTSP, not RTP.
-    vp8Reader.onReceivingFirstPacket(frame1fragment1.timestamp, frame1fragment1.sequenceNumber);
-    consume(frame1fragment2);
-    consume(frame2fragment1);
-    consume(frame2fragment2);
+    RtpVp8Reader vp8Reader = createVp8Reader();
 
+    vp8Reader.createTracks(extractorOutput, /* trackId= */ 0);
+    // First packet timing information is transmitted over RTSP, not RTP.
+    vp8Reader.onReceivingFirstPacket(
+        PACKET_PARTITION_1_FRAGMENT_1.timestamp, PACKET_PARTITION_1_FRAGMENT_1.sequenceNumber);
+    consume(vp8Reader, PACKET_PARTITION_1_FRAGMENT_2);
+    consume(vp8Reader, PACKET_PARTITION_2_FRAGMENT_1);
+    consume(vp8Reader, PACKET_PARTITION_2_FRAGMENT_2);
+
+    FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(0);
     assertThat(trackOutput.getSampleCount()).isEqualTo(1);
-    assertThat(trackOutput.getSampleData(0)).isEqualTo(frame2Data);
-    assertThat(trackOutput.getSampleTimeUs(0)).isEqualTo(3200);
+    assertThat(trackOutput.getSampleData(0)).isEqualTo(PARTITION_2);
+    assertThat(trackOutput.getSampleTimeUs(0)).isEqualTo(PARTITION_2_PRESENTATION_TIMESTAMP_US);
   }
 
   @Test
   public void consume_fragmentedFrameMissingBoundaryFragment() {
-    vp8Reader.onReceivingFirstPacket(frame1fragment1.timestamp, frame1fragment1.sequenceNumber);
-    consume(frame1fragment1);
-    consume(frame2fragment1);
-    consume(frame2fragment2);
+    RtpVp8Reader vp8Reader = createVp8Reader();
 
+    vp8Reader.createTracks(extractorOutput, /* trackId= */ 0);
+    vp8Reader.onReceivingFirstPacket(
+        PACKET_PARTITION_1_FRAGMENT_1.timestamp, PACKET_PARTITION_1_FRAGMENT_1.sequenceNumber);
+    consume(vp8Reader, PACKET_PARTITION_1_FRAGMENT_1);
+    consume(vp8Reader, PACKET_PARTITION_2_FRAGMENT_1);
+    consume(vp8Reader, PACKET_PARTITION_2_FRAGMENT_2);
+
+    FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(0);
     assertThat(trackOutput.getSampleCount()).isEqualTo(2);
-    assertThat(trackOutput.getSampleData(0))
-        .isEqualTo(getBytesFromHexString("000102030405060708090A"));
+    assertThat(trackOutput.getSampleData(0)).isEqualTo(PARTITION_1_FRAGMENT_1);
     assertThat(trackOutput.getSampleTimeUs(0)).isEqualTo(0);
-    assertThat(trackOutput.getSampleData(1)).isEqualTo(frame2Data);
-    assertThat(trackOutput.getSampleTimeUs(1)).isEqualTo(3200);
+    assertThat(trackOutput.getSampleData(1)).isEqualTo(PARTITION_2);
+    assertThat(trackOutput.getSampleTimeUs(1)).isEqualTo(PARTITION_2_PRESENTATION_TIMESTAMP_US);
   }
 
   @Test
   public void consume_outOfOrderFragmentedFrame() {
-    vp8Reader.onReceivingFirstPacket(frame1fragment1.timestamp, frame1fragment1.sequenceNumber);
-    consume(frame1fragment1);
-    consume(frame2fragment1);
-    consume(frame1fragment2);
-    consume(frame2fragment2);
+    RtpVp8Reader vp8Reader = createVp8Reader();
 
+    vp8Reader.createTracks(extractorOutput, /* trackId= */ 0);
+    vp8Reader.onReceivingFirstPacket(
+        PACKET_PARTITION_1_FRAGMENT_1.timestamp, PACKET_PARTITION_1_FRAGMENT_1.sequenceNumber);
+    consume(vp8Reader, PACKET_PARTITION_1_FRAGMENT_1);
+    consume(vp8Reader, PACKET_PARTITION_2_FRAGMENT_1);
+    consume(vp8Reader, PACKET_PARTITION_1_FRAGMENT_2);
+    consume(vp8Reader, PACKET_PARTITION_2_FRAGMENT_2);
+
+    FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(0);
     assertThat(trackOutput.getSampleCount()).isEqualTo(2);
-    assertThat(trackOutput.getSampleData(0))
-        .isEqualTo(getBytesFromHexString("000102030405060708090A"));
+    assertThat(trackOutput.getSampleData(0)).isEqualTo(PARTITION_1_FRAGMENT_1);
     assertThat(trackOutput.getSampleTimeUs(0)).isEqualTo(0);
-    assertThat(trackOutput.getSampleData(1)).isEqualTo(frame2Data);
-    assertThat(trackOutput.getSampleTimeUs(1)).isEqualTo(3200);
+    assertThat(trackOutput.getSampleData(1)).isEqualTo(PARTITION_2);
+    assertThat(trackOutput.getSampleTimeUs(1)).isEqualTo(PARTITION_2_PRESENTATION_TIMESTAMP_US);
   }
 
-  private static RtpPacket createRtpPacket(
-      long timestamp, int sequenceNumber, boolean marker, byte[] payloadData) {
-    return new RtpPacket.Builder()
-        .setTimestamp((int) timestamp)
-        .setSequenceNumber(sequenceNumber)
-        .setMarker(marker)
-        .setPayloadData(payloadData)
-        .build();
+  private static RtpVp8Reader createVp8Reader() {
+    return new RtpVp8Reader(
+        new RtpPayloadFormat(
+            new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_VP8).build(),
+            /* rtpPayloadType= */ 96,
+            /* clockRate= */ (int) MEDIA_CLOCK_FREQUENCY,
+            /* fmtpParameters= */ ImmutableMap.of()));
   }
 
-  private void consume(RtpPacket rtpPacket) {
-    packetData.reset(rtpPacket.payloadData);
+  private static void consume(RtpVp8Reader vp8Reader, RtpPacket rtpPacket) {
     vp8Reader.consume(
-        packetData,
+        new ParsableByteArray(rtpPacket.payloadData),
         rtpPacket.timestamp,
         rtpPacket.sequenceNumber,
-        /* isFrameBoundary= */ rtpPacket.marker);
+        rtpPacket.marker);
   }
 }

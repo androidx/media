@@ -108,10 +108,9 @@ import org.checkerframework.dataflow.qual.Pure;
     boolean enableRequestSdrToneMapping = transformationRequest.enableRequestSdrToneMapping;
     // TODO(b/237674316): While HLG10 is correctly reported, HDR10 currently will be incorrectly
     //  processed as SDR, because the inputFormat.colorInfo reports the wrong value.
-    boolean useHdr = transformationRequest.enableHdrEditing && isHdr(inputFormat.colorInfo);
+    boolean useHdr =
+        transformationRequest.enableHdrEditing && ColorInfo.isHdr(inputFormat.colorInfo);
     if (useHdr && !encoderWrapper.supportsHdr()) {
-      // TODO(b/236316454): Also check whether GlEffectsFrameProcessor supports HDR, i.e., whether
-      //  EXT_YUV_target is supported.
       useHdr = false;
       enableRequestSdrToneMapping = true;
       encoderWrapper.signalFallbackToSdr();
@@ -151,6 +150,9 @@ import org.checkerframework.dataflow.qual.Pure;
               streamOffsetUs,
               effectsListBuilder.build(),
               debugViewProvider,
+              // HDR is only used if the MediaCodec encoder supports FEATURE_HdrEditing. This
+              // implies that the OpenGL EXT_YUV_target extension is supported and hence the
+              // GlEffectsFrameProcessor also supports HDR.
               useHdr);
     } catch (FrameProcessingException e) {
       throw TransformationException.createForFrameProcessingException(
@@ -165,11 +167,6 @@ import org.checkerframework.dataflow.qual.Pure;
     // TODO(b/236316454): Check in the decoder output format whether tone-mapping was actually
     //  applied and throw an exception if not.
     maxPendingFrameCount = decoder.getMaxPendingFrameCount();
-  }
-
-  /** Whether this is a supported HDR format. */
-  private static boolean isHdr(@Nullable ColorInfo colorInfo) {
-    return colorInfo != null && colorInfo.colorTransfer != C.COLOR_TRANSFER_SDR;
   }
 
   @Override
@@ -391,7 +388,7 @@ import org.checkerframework.dataflow.qual.Pure;
                   transformationRequest.videoMimeType != null
                       ? transformationRequest.videoMimeType
                       : inputFormat.sampleMimeType)
-              .setColorInfo(fallbackToSdr ? ColorInfo.SDR : inputFormat.colorInfo)
+              .setColorInfo(fallbackToSdr ? null : inputFormat.colorInfo)
               .build();
 
       encoder =

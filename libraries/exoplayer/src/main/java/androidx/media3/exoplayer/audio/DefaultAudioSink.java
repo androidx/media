@@ -29,11 +29,11 @@ import android.media.AudioManager;
 import android.media.AudioTrack;
 import android.media.PlaybackParams;
 import android.media.metrics.LogSessionId;
-import android.os.ConditionVariable;
 import android.os.Handler;
 import android.os.SystemClock;
 import android.util.Pair;
 import androidx.annotation.DoNotInline;
+import androidx.annotation.GuardedBy;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -44,6 +44,8 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -65,6 +67,7 @@ import java.nio.ByteOrder;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.concurrent.ExecutorService;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
@@ -471,6 +474,15 @@ public final class DefaultAudioSink implements AudioSink {
    */
   public static boolean failOnSpuriousAudioTimestamp = false;
 
+  private static final Object releaseExecutorLock = new Object();
+
+  @GuardedBy("releaseExecutorLock")
+  @Nullable
+  private static ExecutorService releaseExecutor;
+
+  @GuardedBy("releaseExecutorLock")
+  private static int pendingReleaseCount;
+
   private final AudioCapabilities audioCapabilities;
   private final AudioProcessorChain audioProcessorChain;
   private final boolean enableFloatOutput;
@@ -615,7 +627,8 @@ public final class DefaultAudioSink implements AudioSink {
     enableAudioTrackPlaybackParams = Util.SDK_INT >= 23 && builder.enableAudioTrackPlaybackParams;
     offloadMode = Util.SDK_INT >= 29 ? builder.offloadMode : OFFLOAD_MODE_DISABLED;
     audioTrackBufferSizeProvider = builder.audioTrackBufferSizeProvider;
-    releasingConditionVariable = new ConditionVariable(true);
+    releasingConditionVariable = new ConditionVariable(Clock.DEFAULT);
+    releasingConditionVariable.open();
     audioTrackPositionTracker = new AudioTrackPositionTracker(new PositionTrackerListener());
     channelMappingAudioProcessor = new ChannelMappingAudioProcessor();
     trimmingAudioProcessor = new TrimmingAudioProcessor();
@@ -840,13 +853,15 @@ public final class DefaultAudioSink implements AudioSink {
     }
   }
 
-  private void initializeAudioTrack() throws InitializationException {
-    // If we're asynchronously releasing a previous audio track then we block until it has been
+  private boolean initializeAudioTrack() throws InitializationException {
+    // If we're asynchronously releasing a previous audio track then we wait until it has been
     // released. This guarantees that we cannot end up in a state where we have multiple audio
     // track instances. Without this guarantee it would be possible, in extreme cases, to exhaust
     // the shared memory that's available for audio track buffers. This would in turn cause the
     // initialization of the audio track to fail.
-    releasingConditionVariable.block();
+    if (!releasingConditionVariable.isOpen()) {
+      return false;
+    }
 
     audioTrack = buildAudioTrackWithRetry();
     if (isOffloadedPlayback(audioTrack)) {
@@ -874,6 +889,7 @@ public final class DefaultAudioSink implements AudioSink {
     }
 
     startMediaTimeUsNeedsInit = true;
+    return true;
   }
 
   @Override
@@ -930,7 +946,10 @@ public final class DefaultAudioSink implements AudioSink {
 
     if (!isAudioTrackInitialized()) {
       try {
-        initializeAudioTrack();
+        if (!initializeAudioTrack()) {
+          // Not yet ready for initialization of a new AudioTrack.
+          return false;
+        }
       } catch (InitializationException e) {
         if (e.isRecoverable) {
           throw e; // Do not delay the exception if it can be recovered at higher level.
@@ -1416,9 +1435,6 @@ public final class DefaultAudioSink implements AudioSink {
       if (isOffloadedPlayback(audioTrack)) {
         checkNotNull(offloadStreamEventCallbackV29).unregister(audioTrack);
       }
-      // AudioTrack.release can take some time, so we call it on a background thread.
-      final AudioTrack toRelease = audioTrack;
-      audioTrack = null;
       if (Util.SDK_INT < 21 && !externalAudioSessionIdProvided) {
         // Prior to API level 21, audio sessions are not kept alive once there are no components
         // associated with them. If we generated the session ID internally, the only component
@@ -1432,18 +1448,8 @@ public final class DefaultAudioSink implements AudioSink {
         pendingConfiguration = null;
       }
       audioTrackPositionTracker.reset();
-      releasingConditionVariable.close();
-      new Thread("ExoPlayer:AudioTrackReleaseThread") {
-        @Override
-        public void run() {
-          try {
-            toRelease.flush();
-            toRelease.release();
-          } finally {
-            releasingConditionVariable.open();
-          }
-        }
-      }.start();
+      releaseAudioTrackAsync(audioTrack, releasingConditionVariable);
+      audioTrack = null;
     }
     writeExceptionPendingExceptionHolder.clear();
     initializationExceptionPendingExceptionHolder.clear();
@@ -1851,6 +1857,36 @@ public final class DefaultAudioSink implements AudioSink {
       audioTrackPositionTracker.handleEndOfStream(getWrittenFrames());
       audioTrack.stop();
       bytesUntilNextAvSync = 0;
+    }
+  }
+
+  private static void releaseAudioTrackAsync(
+      AudioTrack audioTrack, ConditionVariable releasedConditionVariable) {
+    // AudioTrack.release can take some time, so we call it on a background thread. The background
+    // thread is shared statically to avoid creating many threads when multiple players are released
+    // at the same time.
+    releasedConditionVariable.close();
+    synchronized (releaseExecutorLock) {
+      if (releaseExecutor == null) {
+        releaseExecutor = Util.newSingleThreadExecutor("ExoPlayer:AudioTrackReleaseThread");
+      }
+      pendingReleaseCount++;
+      releaseExecutor.execute(
+          () -> {
+            try {
+              audioTrack.flush();
+              audioTrack.release();
+            } finally {
+              releasedConditionVariable.open();
+              synchronized (releaseExecutorLock) {
+                pendingReleaseCount--;
+                if (pendingReleaseCount == 0) {
+                  releaseExecutor.shutdown();
+                  releaseExecutor = null;
+                }
+              }
+            }
+          });
     }
   }
 

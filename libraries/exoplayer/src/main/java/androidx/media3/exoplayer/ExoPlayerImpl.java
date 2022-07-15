@@ -294,6 +294,7 @@ import java.util.concurrent.TimeoutException;
                   COMMAND_GET_TIMELINE,
                   COMMAND_GET_MEDIA_ITEMS_METADATA,
                   COMMAND_SET_MEDIA_ITEMS_METADATA,
+                  COMMAND_SET_MEDIA_ITEM,
                   COMMAND_CHANGE_MEDIA_ITEMS,
                   COMMAND_GET_TRACKS,
                   COMMAND_GET_AUDIO_ATTRIBUTES,
@@ -303,8 +304,7 @@ import java.util.concurrent.TimeoutException;
                   COMMAND_SET_DEVICE_VOLUME,
                   COMMAND_ADJUST_DEVICE_VOLUME,
                   COMMAND_SET_VIDEO_SURFACE,
-                  COMMAND_GET_TEXT,
-                  COMMAND_SET_MEDIA_ITEM)
+                  COMMAND_GET_TEXT)
               .addIf(
                   COMMAND_SET_TRACK_SELECTION_PARAMETERS, trackSelector.isSetParametersSupported())
               .build();
@@ -1680,6 +1680,17 @@ import java.util.concurrent.TimeoutException;
   public void setDeviceMuted(boolean muted) {
     verifyApplicationThread();
     streamVolumeManager.setMuted(muted);
+  }
+
+  @Override
+  public boolean isTunnelingEnabled() {
+    verifyApplicationThread();
+    for (RendererConfiguration config : playbackInfo.trackSelectorResult.rendererConfigurations) {
+      if (config.tunneling) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /* package */ void setThrowsWhenUsingWrongThread(boolean throwsWhenUsingWrongThread) {
