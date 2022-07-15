@@ -212,7 +212,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         fragmentedSampleSizeBytes,
         /* offset= */ 0,
         /* cryptoData= */ null);
-    fragmentedSampleSizeBytes = 0;
+    fragmentedSampleSizeBytes = C.LENGTH_UNSET;
     sampleTimeUsOfFragmentedSample = C.TIME_UNSET;
     gotFirstPacketOfVp8Frame = false;
   }
