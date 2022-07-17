@@ -15,9 +15,8 @@
  */
 package androidx.media3.extractor.avi;
 
-import static java.lang.annotation.ElementType.TYPE_USE;
-
-import androidx.annotation.IntDef;
+import android.util.Log;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Util;
@@ -26,40 +25,34 @@ import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.SeekPoint;
 import androidx.media3.extractor.TrackOutput;
 import java.io.IOException;
-import java.lang.annotation.Documented;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Arrays;
 
 /** Reads chunks holding sample data. */
-/* package */ final class ChunkReader {
+/* package */ class ChunkReader {
 
-  /** Parser states. */
-  @Documented
-  @Retention(RetentionPolicy.SOURCE)
-  @Target(TYPE_USE)
-  @IntDef({
-    CHUNK_TYPE_VIDEO_COMPRESSED,
-    CHUNK_TYPE_VIDEO_UNCOMPRESSED,
-    CHUNK_TYPE_AUDIO,
-  })
-  private @interface ChunkType {}
-
-  private static final int INITIAL_INDEX_SIZE = 512;
-  private static final int CHUNK_TYPE_VIDEO_COMPRESSED = ('d' << 16) | ('c' << 24);
-  private static final int CHUNK_TYPE_VIDEO_UNCOMPRESSED = ('d' << 16) | ('b' << 24);
-  private static final int CHUNK_TYPE_AUDIO = ('w' << 16) | ('b' << 24);
+  public static final int CHUNK_TYPE_VIDEO = 'd' << 16;
+  public static final int CHUNK_TYPE_AUDIO = 'w' << 16;
+  private static final int CHUNK_TYPE_MASK = 0xff0000;
+  private static final int CHUNK_ID_MASK = 0xffffff;
 
   protected final TrackOutput trackOutput;
 
-  /** The chunk id fourCC (example: `01wb`), as defined in the index and the movi. */
+  /** The chunk id fourCC with the final char stripped (example: `01w`), as defined in the index and the movi. */
   private final int chunkId;
-  /** Secondary chunk id. Bad muxers sometimes use an uncompressed video id (db) for key frames */
-  private final int alternativeChunkId;
+
+  /**
+   * Map of file offsets to chunk indices for KeyFrames in this stream
+   */
+  private final LongIntMap keyFrameMap = new LongIntMap();
+
+  /**
+   * Map of file offsets to chunk indices for KeyFrames in other streams
+   */
+  private final LongIntMap foreignKeyFrameMap = new LongIntMap();
 
   private final long durationUs;
-  private final int streamHeaderChunkCount;
 
   private int currentChunkSize;
   private int bytesRemainingInCurrentChunk;
@@ -68,38 +61,26 @@ import java.util.Arrays;
   private int currentChunkIndex;
 
   private int indexChunkCount;
-  private int indexSize;
-  private long[] keyFrameOffsets;
-  private int[] keyFrameIndices;
 
   public ChunkReader(
       int id,
       @C.TrackType int trackType,
-      long durationnUs,
-      int streamHeaderChunkCount,
+      long durationUs,
       TrackOutput trackOutput) {
     Assertions.checkArgument(trackType == C.TRACK_TYPE_AUDIO || trackType == C.TRACK_TYPE_VIDEO);
-    this.durationUs = durationnUs;
-    this.streamHeaderChunkCount = streamHeaderChunkCount;
+    this.durationUs = durationUs;
     this.trackOutput = trackOutput;
-    @ChunkType
     int chunkType =
-        trackType == C.TRACK_TYPE_VIDEO ? CHUNK_TYPE_VIDEO_COMPRESSED : CHUNK_TYPE_AUDIO;
+        trackType == C.TRACK_TYPE_VIDEO ? CHUNK_TYPE_VIDEO : CHUNK_TYPE_AUDIO;
     chunkId = getChunkIdFourCc(id, chunkType);
-    alternativeChunkId =
-        trackType == C.TRACK_TYPE_VIDEO ? getChunkIdFourCc(id, CHUNK_TYPE_VIDEO_UNCOMPRESSED) : -1;
-    keyFrameOffsets = new long[INITIAL_INDEX_SIZE];
-    keyFrameIndices = new int[INITIAL_INDEX_SIZE];
   }
 
-  public void appendKeyFrameToIndex(long offset) {
-    if (indexSize == keyFrameIndices.length) {
-      keyFrameOffsets = Arrays.copyOf(keyFrameOffsets, keyFrameOffsets.length * 3 / 2);
-      keyFrameIndices = Arrays.copyOf(keyFrameIndices, keyFrameIndices.length * 3 / 2);
-    }
-    keyFrameOffsets[indexSize] = offset;
-    keyFrameIndices[indexSize] = indexChunkCount;
-    indexSize++;
+  public void appendKeyFrame(long offset) {
+    keyFrameMap.put(offset, indexChunkCount);
+  }
+
+  public void appendForeignKeyFrame(long offset) {
+    foreignKeyFrameMap.put(offset, indexChunkCount);
   }
 
   public void advanceCurrentChunk() {
@@ -111,32 +92,29 @@ import java.util.Arrays;
   }
 
   public long getFrameDurationUs() {
-    return getChunkTimestampUs(/* chunkIndex= */ 1);
+    return getChunkTimestampUs(1);
   }
 
   public void incrementIndexChunkCount() {
     indexChunkCount++;
   }
 
-  public void compactIndex() {
-    keyFrameOffsets = Arrays.copyOf(keyFrameOffsets, indexSize);
-    keyFrameIndices = Arrays.copyOf(keyFrameIndices, indexSize);
+  public void compactIndices() {
+    keyFrameMap.compact();
+    foreignKeyFrameMap.compact();
   }
 
   public boolean handlesChunkId(int chunkId) {
-    return this.chunkId == chunkId || alternativeChunkId == chunkId;
+    return (chunkId & CHUNK_ID_MASK) == this.chunkId;
   }
 
   public boolean isCurrentFrameAKeyFrame() {
-    return Arrays.binarySearch(keyFrameIndices, currentChunkIndex) >= 0;
+    return getChunkType() == CHUNK_TYPE_AUDIO ||
+        keyFrameMap.indexOf(currentChunkIndex) >= 0;
   }
 
-  public boolean isVideo() {
-    return (chunkId & CHUNK_TYPE_VIDEO_COMPRESSED) == CHUNK_TYPE_VIDEO_COMPRESSED;
-  }
-
-  public boolean isAudio() {
-    return (chunkId & CHUNK_TYPE_AUDIO) == CHUNK_TYPE_AUDIO;
+  public int getChunkType() {
+    return chunkId & CHUNK_TYPE_MASK;
   }
 
   /** Prepares for parsing a chunk with the given {@code size}. */
@@ -155,6 +133,10 @@ import java.util.Arrays;
     boolean done = bytesRemainingInCurrentChunk == 0;
     if (done) {
       if (currentChunkSize > 0) {
+        final ByteBuffer byteBuffer = ByteBuffer.allocate(4);
+        byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+        byteBuffer.putInt(chunkId);
+        Log.d("Test",new String(byteBuffer.array(),0,3) + " " + String.format("%.3f", getCurrentChunkTimestampUs() / 1_000_000.0) + " " + isCurrentFrameAKeyFrame());
         trackOutput.sampleMetadata(
             getCurrentChunkTimestampUs(),
             (isCurrentFrameAKeyFrame() ? C.BUFFER_FLAG_KEY_FRAME : 0),
@@ -168,27 +150,30 @@ import java.util.Arrays;
   }
 
   public void seekToPosition(long position) {
-    if (indexSize == 0) {
-      currentChunkIndex = 0;
+    int index = keyFrameMap.indexOf(position);
+    if (index >= 0) {
+      currentChunkIndex = keyFrameMap.getInt(index);
     } else {
-      int index =
-          Util.binarySearchFloor(
-              keyFrameOffsets, position, /* inclusive= */ true, /* stayInBounds= */ true);
-      currentChunkIndex = keyFrameIndices[index];
+      index = foreignKeyFrameMap.indexOf(position);
+      if (index >= 0) {
+        currentChunkIndex = foreignKeyFrameMap.getInt(index);
+      }
     }
   }
 
+  @Nullable
   public SeekMap.SeekPoints getSeekPoints(long timeUs) {
+    if (keyFrameMap.size == 0) {
+      return null;
+    }
     int targetFrameIndex = (int) (timeUs / getFrameDurationUs());
-    int keyFrameIndex =
-        Util.binarySearchFloor(
-            keyFrameIndices, targetFrameIndex, /* inclusive= */ true, /* stayInBounds= */ true);
-    if (keyFrameIndices[keyFrameIndex] == targetFrameIndex) {
+    int keyFrameIndex = keyFrameMap.getFloorIndex(targetFrameIndex);
+    if (keyFrameMap.getInt(keyFrameIndex) == targetFrameIndex) {
       return new SeekMap.SeekPoints(getSeekPoint(keyFrameIndex));
     }
     // The target frame is not a key frame, we look for the two closest ones.
     SeekPoint precedingKeyFrameSeekPoint = getSeekPoint(keyFrameIndex);
-    if (keyFrameIndex + 1 < keyFrameOffsets.length) {
+    if (keyFrameIndex + 1 < keyFrameMap.size) {
       return new SeekMap.SeekPoints(precedingKeyFrameSeekPoint, getSeekPoint(keyFrameIndex + 1));
     } else {
       return new SeekMap.SeekPoints(precedingKeyFrameSeekPoint);
@@ -196,17 +181,60 @@ import java.util.Arrays;
   }
 
   private long getChunkTimestampUs(int chunkIndex) {
-    return durationUs * chunkIndex / streamHeaderChunkCount;
+    return durationUs * chunkIndex / indexChunkCount;
   }
 
   private SeekPoint getSeekPoint(int keyFrameIndex) {
-    return new SeekPoint(
-        keyFrameIndices[keyFrameIndex] * getFrameDurationUs(), keyFrameOffsets[keyFrameIndex]);
+    return new SeekPoint(keyFrameMap.getInt(keyFrameIndex) * getFrameDurationUs(),
+        keyFrameMap.getLong(keyFrameIndex));
   }
 
-  private static int getChunkIdFourCc(int streamId, @ChunkType int chunkType) {
+  private static int getChunkIdFourCc(int streamId, int chunkType) {
     int tens = streamId / 10;
     int ones = streamId % 10;
     return (('0' + ones) << 8) | ('0' + tens) | chunkType;
+  }
+
+  private static class LongIntMap {
+    private static final int INITIAL_SIZE = 512;
+
+    private long[] longs = new long[INITIAL_SIZE];
+    private int[] ints = new int[INITIAL_SIZE];
+    private int size;
+
+    public void put(long l, int i) {
+      if (size == longs.length) {
+        longs = Arrays.copyOf(longs, size * 3 / 2);
+        ints = Arrays.copyOf(ints, size * 3 / 2);
+      }
+      longs[size] = l;
+      ints[size] = i;
+      size++;
+    }
+
+    public int indexOf(int i) {
+      return Arrays.binarySearch(ints, i);
+    }
+
+    public int indexOf(long l) {
+      return Arrays.binarySearch(longs, l);
+    }
+
+    public int getInt(int index) {
+      return ints[index];
+    }
+
+    public long getLong(int index) {
+      return longs[index];
+    }
+
+    public int getFloorIndex(int i) {
+      return Util.binarySearchFloor(ints, i, /* inclusive= */ true, /* stayInBounds= */ true);
+    }
+
+    public void compact() {
+      longs = Arrays.copyOf(longs, size);
+      ints = Arrays.copyOf(ints, size);
+    }
   }
 }
