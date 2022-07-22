@@ -207,15 +207,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * <p>Call this method only after receiving an end of a VP8 partition.
    */
   private void outputSampleMetadataForFragmentedPackets() {
-    checkNotNull(trackOutput)
-        .sampleMetadata(
-            fragmentedSampleTimeUs,
-            isKeyFrame ? C.BUFFER_FLAG_KEY_FRAME : 0,
-            fragmentedSampleSizeBytes,
-            /* offset= */ 0,
-            /* cryptoData= */ null);
-    fragmentedSampleSizeBytes = 0;
-    fragmentedSampleTimeUs = C.TIME_UNSET;
+    trackOutput.sampleMetadata(
+        sampleTimeUsOfFragmentedSample,
+        isKeyFrame ? C.BUFFER_FLAG_KEY_FRAME : 0,
+        fragmentedSampleSizeBytes,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+    fragmentedSampleSizeBytes = C.LENGTH_UNSET;
+    sampleTimeUsOfFragmentedSample = C.TIME_UNSET;
     gotFirstPacketOfVp8Frame = false;
   }
 
