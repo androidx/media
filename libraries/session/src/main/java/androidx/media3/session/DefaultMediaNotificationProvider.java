@@ -374,6 +374,7 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
     NotificationChannel channel =
         new NotificationChannel(
             NOTIFICATION_CHANNEL_ID, NOTIFICATION_CHANNEL_NAME, NotificationManager.IMPORTANCE_LOW);
+    channel.setShowBadge(false);
     notificationManager.createNotificationChannel(channel);
   }
 
