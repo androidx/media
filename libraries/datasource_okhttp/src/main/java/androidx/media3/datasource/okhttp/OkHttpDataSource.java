@@ -177,20 +177,20 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
     }
   }
 
-  private final Call.Factory callFactory;
-  private final RequestProperties requestProperties;
+  final Call.Factory callFactory;
+  final RequestProperties requestProperties;
 
-  @Nullable private final String userAgent;
-  @Nullable private final CacheControl cacheControl;
-  @Nullable private final RequestProperties defaultRequestProperties;
+  @Nullable final String userAgent;
+  @Nullable final CacheControl cacheControl;
+  @Nullable final RequestProperties defaultRequestProperties;
 
-  @Nullable private Predicate<String> contentTypePredicate;
-  @Nullable private DataSpec dataSpec;
-  @Nullable private Response response;
-  @Nullable private InputStream responseByteStream;
-  private boolean opened;
-  private long bytesToRead;
-  private long bytesRead;
+  @Nullable Predicate<String> contentTypePredicate;
+  @Nullable DataSpec dataSpec;
+  @Nullable Response response;
+  @Nullable InputStream responseByteStream;
+  boolean opened;
+  long bytesToRead;
+  long bytesRead;
 
   /**
    * @deprecated Use {@link OkHttpDataSource.Factory} instead.
@@ -403,7 +403,7 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
   }
 
   /** Establishes a connection. */
-  private Request makeRequest(DataSpec dataSpec) throws HttpDataSourceException {
+  Request makeRequest(DataSpec dataSpec) throws HttpDataSourceException {
     long position = dataSpec.position;
     long length = dataSpec.length;
 
@@ -459,7 +459,7 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
    * This method is an interrupt safe replacement of OkHttp Call.execute() which can get in bad
    * states if interrupted while writing to the shared connection socket.
    */
-  private Response executeCall(Call call) throws IOException {
+  Response executeCall(Call call) throws IOException {
     SettableFuture<Response> future = SettableFuture.create();
     call.enqueue(
         new Callback() {
@@ -493,7 +493,7 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
    *     occurs while reading from the source, or if the data ended before skipping the specified
    *     number of bytes.
    */
-  private void skipFully(long bytesToSkip, DataSpec dataSpec) throws HttpDataSourceException {
+  void skipFully(long bytesToSkip, DataSpec dataSpec) throws HttpDataSourceException {
     if (bytesToSkip == 0) {
       return;
     }
@@ -541,7 +541,7 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
    *     range is reached.
    * @throws IOException If an error occurs reading from the source.
    */
-  private int readInternal(byte[] buffer, int offset, int readLength) throws IOException {
+  int readInternal(byte[] buffer, int offset, int readLength) throws IOException {
     if (readLength == 0) {
       return 0;
     }
@@ -564,7 +564,7 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
   }
 
   /** Closes the current connection quietly, if there is one. */
-  private void closeConnectionQuietly() {
+  void closeConnectionQuietly() {
     if (response != null) {
       Assertions.checkNotNull(response.body()).close();
       response = null;
