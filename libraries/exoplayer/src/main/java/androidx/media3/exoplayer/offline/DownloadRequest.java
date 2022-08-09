@@ -120,7 +120,9 @@ public final class DownloadRequest implements Parcelable {
   @Nullable public final String customCacheKey;
   /** Application defined data associated with the download. May be empty. */
   public final byte[] data;
-
+  /** The request metadata for the item being downloaded. */
+  final public MediaItem.RequestMetadata requestMetadata;
+  
   /**
    * @param id See {@link #id}.
    * @param uri See {@link #uri}.
@@ -153,6 +155,7 @@ public final class DownloadRequest implements Parcelable {
     this.keySetId = keySetId != null ? Arrays.copyOf(keySetId, keySetId.length) : null;
     this.customCacheKey = customCacheKey;
     this.data = data != null ? Arrays.copyOf(data, data.length) : Util.EMPTY_BYTE_ARRAY;
+    this.requestMetadata = new MediaItem.RequestMetadata.Builder().setMediaUri(uri).build();
   }
 
   /* package */ DownloadRequest(Parcel in) {
@@ -168,6 +171,7 @@ public final class DownloadRequest implements Parcelable {
     keySetId = in.createByteArray();
     customCacheKey = in.readString();
     data = castNonNull(in.createByteArray());
+    requestMetadata = new MediaItem.RequestMetadata.Builder().setMediaUri(uri).build();
   }
 
   /**
@@ -234,6 +238,7 @@ public final class DownloadRequest implements Parcelable {
         .setCustomCacheKey(customCacheKey)
         .setMimeType(mimeType)
         .setStreamKeys(streamKeys)
+        .setRequestMetadata(requestMetadata)
         .build();
   }
 
