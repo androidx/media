@@ -150,13 +150,17 @@ import java.util.Arrays;
   }
 
   public void seekToPosition(long position) {
-    int index = keyFrameMap.indexOf(position);
-    if (index >= 0) {
-      currentChunkIndex = keyFrameMap.getInt(index);
+    if (position == 0L) {
+      currentChunkIndex = 0;
     } else {
-      index = foreignKeyFrameMap.indexOf(position);
+      int index = keyFrameMap.indexOf(position);
       if (index >= 0) {
-        currentChunkIndex = foreignKeyFrameMap.getInt(index);
+        currentChunkIndex = keyFrameMap.getInt(index);
+      } else {
+        index = foreignKeyFrameMap.indexOf(position);
+        if (index >= 0) {
+          currentChunkIndex = foreignKeyFrameMap.getInt(index);
+        }
       }
     }
   }
