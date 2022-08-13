@@ -15,7 +15,6 @@
  */
 package androidx.media3.extractor.avi;
 
-import android.util.Log;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Assertions;
@@ -25,8 +24,6 @@ import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.SeekPoint;
 import androidx.media3.extractor.TrackOutput;
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.Arrays;
 
 /** Reads chunks holding sample data. */
@@ -133,10 +130,6 @@ import java.util.Arrays;
     boolean done = bytesRemainingInCurrentChunk == 0;
     if (done) {
       if (currentChunkSize > 0) {
-        final ByteBuffer byteBuffer = ByteBuffer.allocate(4);
-        byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
-        byteBuffer.putInt(chunkId);
-        Log.d("Test",new String(byteBuffer.array(),0,3) + " " + String.format("%.3f", getCurrentChunkTimestampUs() / 1_000_000.0) + " " + isCurrentFrameAKeyFrame());
         trackOutput.sampleMetadata(
             getCurrentChunkTimestampUs(),
             (isCurrentFrameAKeyFrame() ? C.BUFFER_FLAG_KEY_FRAME : 0),
