@@ -276,7 +276,7 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
 
     // Set metadata info in the notification.
     MediaMetadata metadata = player.getMediaMetadata();
-    builder.setContentTitle(metadata.title).setContentText(metadata.artist);
+    builder.setContentTitle(metadata.title).setContentText(metadata.subtitle);
     @Nullable ListenableFuture<Bitmap> bitmapFuture = loadArtworkBitmap(metadata);
     if (bitmapFuture != null) {
       if (pendingOnBitmapLoadedFutureCallback != null) {
