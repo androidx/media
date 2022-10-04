@@ -94,7 +94,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if(fragmentedSampleSizeBytes > 0 && expectedSequenceNumber < sequenceNumber) {
       outputSampleMetadataForFragmentedPackets();
     }
-    int audioPayloadOffset = 0;
     for (int subFrame = 0; subFrame < numberOfSubframes; subFrame++) {
       int sampleLength = 0;
 
@@ -103,7 +102,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
        * one layer.
        * Each subframe starts with a variable length encoding.
        */
-      for (; audioPayloadOffset < data.bytesLeft(); audioPayloadOffset++) {
+      while(data.getPosition() < data.limit()) {
         int payloadMuxLength = data.readUnsignedByte();
         sampleLength += payloadMuxLength;
         if (payloadMuxLength != 0xff) {
@@ -113,7 +112,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
       // Write the audio sample
       trackOutput.sampleData(data, sampleLength);
-      audioPayloadOffset+= sampleLength;
       fragmentedSampleSizeBytes += sampleLength;
     }
     sampleTimeUsOfFragmentedSample = toSampleTimeUs(startTimeOffsetUs, timestamp,
