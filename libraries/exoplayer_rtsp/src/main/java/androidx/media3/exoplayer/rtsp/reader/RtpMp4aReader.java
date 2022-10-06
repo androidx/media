@@ -54,7 +54,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private int fragmentedSampleSizeBytes;
   private long startTimeOffsetUs;
   private long sampleTimeUsOfFragmentedSample;
-  private int numberOfSubframes;
+  private final int numberOfSubframes;
 
   /** Creates an instance. */
   public RtpMp4aReader(RtpPayloadFormat payloadFormat) {
@@ -65,6 +65,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     // The start time offset must be 0 until the first seek.
     startTimeOffsetUs = 0;
     sampleTimeUsOfFragmentedSample = C.TIME_UNSET;
+    try {
+      numberOfSubframes = getNumOfSubframesFromMpeg4AudioConfig(payloadFormat.fmtpParameters);
+    } catch (ParserException e) {
+      throw new IllegalArgumentException(e);
+    }
   }
 
   @Override
@@ -77,11 +82,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public void onReceivingFirstPacket(long timestamp, int sequenceNumber) {
     checkState(firstReceivedTimestamp == C.TIME_UNSET);
     firstReceivedTimestamp = timestamp;
-    try {
-      numberOfSubframes = getNumOfSubframesFromMpeg4AudioConfig(payloadFormat.fmtpParameters);
-    } catch (ParserException e) {
-      throw new IllegalArgumentException(e);
-    }
 }
 
   @Override
