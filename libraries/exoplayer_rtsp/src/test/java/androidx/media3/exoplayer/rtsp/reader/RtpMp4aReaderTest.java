@@ -43,7 +43,7 @@ public final class RtpMp4aReaderTest {
       getBytesFromHexString("0102");
   private static final RtpPacket FRAME_1_FRAGMENT_1 =
       new RtpPacket.Builder()
-          .setTimestamp((int) 2599168056L)
+          .setTimestamp(2599168056L)
           .setSequenceNumber(40289)
           .setMarker(false)
           .setPayloadData(Bytes.concat(
@@ -53,7 +53,7 @@ public final class RtpMp4aReaderTest {
       getBytesFromHexString("030405");
   private static final RtpPacket FRAME_1_FRAGMENT_2 =
       new RtpPacket.Builder()
-          .setTimestamp((int) 2599168056L)
+          .setTimestamp(2599168056L)
           .setSequenceNumber(40290)
           .setMarker(true)
           .setPayloadData(Bytes.concat(
@@ -66,7 +66,7 @@ public final class RtpMp4aReaderTest {
       getBytesFromHexString("0607");
   private static final RtpPacket FRAME_2_FRAGMENT_1 =
       new RtpPacket.Builder()
-          .setTimestamp((int) 2599168344L)
+          .setTimestamp(2599168344L)
           .setSequenceNumber(40291)
           .setMarker(false)
           .setPayloadData(Bytes.concat(
@@ -76,7 +76,7 @@ public final class RtpMp4aReaderTest {
       getBytesFromHexString("0809");
   private static final RtpPacket FRAME_2_FRAGMENT_2 =
       new RtpPacket.Builder()
-          .setTimestamp((int) 2599168344L)
+          .setTimestamp(2599168344L)
           .setSequenceNumber(40292)
           .setMarker(true)
           .setPayloadData(Bytes.concat(
@@ -88,15 +88,13 @@ public final class RtpMp4aReaderTest {
   private static final RtpPayloadFormat MP4ALATM_FORMAT =
       new RtpPayloadFormat(
           new Format.Builder()
+              .setChannelCount(1)
               .setSampleMimeType(MimeTypes.AUDIO_AAC)
-              .setWidth(352)
-              .setHeight(288)
+              .setSampleRate(44100)
               .build(),
-          /* rtpPayloadType= */ 96,
-          /* clockRate= */ 90_000,
+          /* rtpPayloadType= */ 97,
+          /* clockRate= */ 44100,
           /* fmtpParameters= */ ImmutableMap.of(), RtpPayloadFormat.RTP_MEDIA_MPEG4_AUDIO);
-
-  @Rule public final MockitoRule mockito = MockitoJUnit.rule();
 
   private FakeTrackOutput trackOutput;
 
@@ -123,7 +121,7 @@ public final class RtpMp4aReaderTest {
     assertThat(trackOutput.getSampleData(0)).isEqualTo(FRAME_1_DATA);
     assertThat(trackOutput.getSampleTimeUs(0)).isEqualTo(0);
     assertThat(trackOutput.getSampleData(1)).isEqualTo(FRAME_2_DATA);
-    assertThat(trackOutput.getSampleTimeUs(1)).isEqualTo(3200);
+    assertThat(trackOutput.getSampleTimeUs(1)).isEqualTo(6530);
   }
 
   @Test
@@ -141,7 +139,7 @@ public final class RtpMp4aReaderTest {
     assertThat(trackOutput.getSampleData(0)).isEqualTo(FRAME_1_FRAGMENT_2_DATA);
     assertThat(trackOutput.getSampleTimeUs(0)).isEqualTo(0);
     assertThat(trackOutput.getSampleData(1)).isEqualTo(FRAME_2_DATA);
-    assertThat(trackOutput.getSampleTimeUs(1)).isEqualTo(3200);
+    assertThat(trackOutput.getSampleTimeUs(1)).isEqualTo(6530);
   }
 
   @Test
@@ -159,7 +157,7 @@ public final class RtpMp4aReaderTest {
     assertThat(trackOutput.getSampleData(0)).isEqualTo(FRAME_1_FRAGMENT_1_DATA);
     assertThat(trackOutput.getSampleTimeUs(0)).isEqualTo(0);
     assertThat(trackOutput.getSampleData(1)).isEqualTo(FRAME_2_DATA);
-    assertThat(trackOutput.getSampleTimeUs(1)).isEqualTo(3200);
+    assertThat(trackOutput.getSampleTimeUs(1)).isEqualTo(6530);
   }
 
   private static void consume(RtpMp4aReader mpeg4Reader, RtpPacket rtpPacket)

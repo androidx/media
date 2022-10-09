@@ -219,12 +219,12 @@ import com.google.common.collect.ImmutableMap;
           }
           checkArgument(!isConfigPresent, "cpresent == 0 means we need to parse config");
           @Nullable String configInput = fmtpParameters.get(PARAMETER_MP4V_CONFIG);
-          if (configInput != null && configInput.length() % 2 == 0) {
-            Pair<Integer, Integer> configParameters = getSampleRateAndChannelCount(configInput);
-            channelCount = configParameters.first;
-            clockRate = configParameters.second;
-            formatBuilder.setSampleRate(clockRate).setChannelCount(channelCount);
-          }
+          checkArgument(configInput != null && configInput.length() % 2 == 0,
+              "only support out-band mode");
+          Pair<Integer, Integer> configParameters = getSampleRateAndChannelCount(configInput);
+          channelCount = configParameters.first;
+          clockRate = configParameters.second;
+          formatBuilder.setSampleRate(clockRate).setChannelCount(channelCount);
         }
         processAacFmtpAttribute(formatBuilder, fmtpParameters, channelCount, clockRate);
         break;
