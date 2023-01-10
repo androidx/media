@@ -23,6 +23,7 @@ import android.content.Context;
 import android.media.AudioDeviceInfo;
 import android.media.AudioTrack;
 import android.media.MediaCodec;
+import android.os.Build;
 import android.os.Looper;
 import android.os.Process;
 import android.view.Surface;
@@ -487,6 +488,7 @@ public interface ExoPlayer extends Player {
     /* package */ boolean pauseAtEndOfMediaItems;
     /* package */ boolean usePlatformDiagnostics;
     @Nullable /* package */ Looper playbackLooper;
+    @Nullable /* package */ EventHandlerRequestCallback eventHandlerRequestCallback;
     /* package */ boolean buildCalled;
 
     /**
@@ -800,6 +802,27 @@ public interface ExoPlayer extends Player {
       checkState(!buildCalled);
       checkNotNull(looper);
       this.looper = looper;
+      return this;
+    }
+
+    /**
+     * Sets the {@link Looper} that must be used for all calls to the player and that is used to
+     * call listeners on, and optionally requests ExoPlayer to announce when it submits work to said
+     * looper's thread via the given callback.
+     *
+     * @param looper A {@link Looper}.
+     * @param eventHandlerRequestCallback The callback to notify of work being submitted.
+     * @return This builder.
+     * @throws IllegalStateException If {@link #build()} has already been called.
+     * @see <a href="https://github.com/google/ExoPlayer/issues/10880#issuecomment-1371083675">Possibility of deadlocks when playing video on a background thread-managed ExoPlayer</a>
+     */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
+    public Builder setLooper(Looper looper, @Nullable EventHandlerRequestCallback eventHandlerRequestCallback) {
+      checkState(!buildCalled);
+      setLooper(looper);
+      this.eventHandlerRequestCallback = eventHandlerRequestCallback;
       return this;
     }
 

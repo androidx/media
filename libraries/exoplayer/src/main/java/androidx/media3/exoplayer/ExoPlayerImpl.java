@@ -46,7 +46,9 @@ import android.media.AudioFormat;
 import android.media.AudioTrack;
 import android.media.MediaFormat;
 import android.media.metrics.LogSessionId;
+import android.os.Build;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.Looper;
 import android.util.Pair;
 import android.view.Surface;
@@ -170,6 +172,7 @@ import java.util.concurrent.TimeoutException;
   private final WakeLockManager wakeLockManager;
   private final WifiLockManager wifiLockManager;
   private final long detachSurfaceTimeoutMs;
+  private final EventHandlerRunnableDispatcher eventHandlerRunnableDispatcher;
 
   private @RepeatMode int repeatMode;
   private boolean shuffleModeEnabled;
@@ -189,7 +192,7 @@ import java.util.concurrent.TimeoutException;
   @Nullable private AudioTrack keepSessionIdAudioTrack;
   @Nullable private Object videoOutput;
   @Nullable private Surface ownedSurface;
-  @Nullable private SurfaceHolder surfaceHolder;
+  @Nullable private Pair<SurfaceHolder, SurfaceHolder> surfaceHolderPair;
   @Nullable private SphericalGLSurfaceView sphericalGLSurfaceView;
   private boolean surfaceHolderSurfaceIsVideoOutput;
   @Nullable private TextureView textureView;
@@ -249,6 +252,19 @@ import java.util.concurrent.TimeoutException;
       componentListener = new ComponentListener();
       frameMetadataListener = new FrameMetadataListener();
       Handler eventHandler = new Handler(builder.looper);
+      if (builder.eventHandlerRequestCallback != null &&
+          Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+        HandlerThread handlerThread = new HandlerThread(
+            "ExoPlayer::EventHandlerRequestCallbackDispatcher"
+        );
+        handlerThread.start();
+        Handler eventHandlerRequestCallbackHandler = new Handler(handlerThread.getLooper());
+        eventHandlerRunnableDispatcher = new EventHandlerRunnableDispatcher(
+            eventHandler, eventHandlerRequestCallbackHandler, builder.eventHandlerRequestCallback
+        );
+      } else {
+        eventHandlerRunnableDispatcher = new EventHandlerRunnableDispatcher(eventHandler);
+      }
       renderers =
           builder
               .renderersFactorySupplier
@@ -1315,12 +1331,15 @@ import java.util.concurrent.TimeoutException;
     } else {
       removeSurfaceCallbacks();
       this.surfaceHolderSurfaceIsVideoOutput = true;
-      this.surfaceHolder = surfaceHolder;
-      surfaceHolder.addCallback(componentListener);
-      Surface surface = surfaceHolder.getSurface();
+      SurfaceHolder value = new SynchronousCallbackSurfaceHolder(
+          eventHandlerRunnableDispatcher, surfaceHolder
+      );
+      this.surfaceHolderPair = new Pair<>(surfaceHolder, value);
+      value.addCallback(componentListener);
+      Surface surface = value.getSurface();
       if (surface != null && surface.isValid()) {
         setVideoOutputInternal(surface);
-        Rect surfaceSize = surfaceHolder.getSurfaceFrame();
+        Rect surfaceSize = value.getSurfaceFrame();
         maybeNotifySurfaceSizeChanged(surfaceSize.width(), surfaceSize.height());
       } else {
         setVideoOutputInternal(/* videoOutput= */ null);
@@ -1332,7 +1351,8 @@ import java.util.concurrent.TimeoutException;
   @Override
   public void clearVideoSurfaceHolder(@Nullable SurfaceHolder surfaceHolder) {
     verifyApplicationThread();
-    if (surfaceHolder != null && surfaceHolder == this.surfaceHolder) {
+    if (surfaceHolder != null && this.surfaceHolderPair != null &&
+          surfaceHolder == this.surfaceHolderPair.first) {
       clearVideoSurface();
     }
   }
@@ -2522,9 +2542,9 @@ import java.util.concurrent.TimeoutException;
       }
       textureView = null;
     }
-    if (surfaceHolder != null) {
-      surfaceHolder.removeCallback(componentListener);
-      surfaceHolder = null;
+    if (surfaceHolderPair != null) {
+      surfaceHolderPair.second.removeCallback(componentListener);
+      surfaceHolderPair = null;
     }
   }
 
@@ -2589,11 +2609,14 @@ import java.util.concurrent.TimeoutException;
     // to query the surface size, to be informed in changes to the size via componentListener, and
     // for equality checking in clearVideoSurfaceHolder.
     surfaceHolderSurfaceIsVideoOutput = false;
-    surfaceHolder = nonVideoOutputSurfaceHolder;
-    surfaceHolder.addCallback(componentListener);
-    Surface surface = surfaceHolder.getSurface();
+    SurfaceHolder value = new SynchronousCallbackSurfaceHolder(
+        eventHandlerRunnableDispatcher, nonVideoOutputSurfaceHolder
+    );
+    surfaceHolderPair = new Pair<>(nonVideoOutputSurfaceHolder, value);
+    surfaceHolderPair.second.addCallback(componentListener);
+    Surface surface = surfaceHolderPair.second.getSurface();
     if (surface != null && surface.isValid()) {
-      Rect surfaceSize = surfaceHolder.getSurfaceFrame();
+      Rect surfaceSize = surfaceHolderPair.second.getSurfaceFrame();
       maybeNotifySurfaceSizeChanged(surfaceSize.width(), surfaceSize.height());
     } else {
       maybeNotifySurfaceSizeChanged(/* width= */ 0, /* height= */ 0);
