@@ -50,6 +50,8 @@ import androidx.media3.exoplayer.source.SampleStream.ReadFlags;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.extractor.TrackOutput;
 import java.io.IOException;
+import java.util.LinkedList;
+import java.util.Queue;
 import org.checkerframework.checker.nullness.compatqual.NullableType;
 
 /** A queue of media samples. */
@@ -108,6 +110,8 @@ public class SampleQueue implements TrackOutput {
 
   private long sampleOffsetUs;
   private boolean pendingSplice;
+
+  private final Queue<SampleMetadata> metadataQueue;
 
   /**
    * Creates a sample queue without DRM resource management.
@@ -181,6 +185,8 @@ public class SampleQueue implements TrackOutput {
     largestQueuedTimestampUs = Long.MIN_VALUE;
     upstreamFormatRequired = true;
     upstreamKeyframeRequired = true;
+
+    metadataQueue = new LinkedList<>();
   }
 
   // Called by the consuming thread when there is no loading thread.
@@ -642,7 +648,25 @@ public class SampleQueue implements TrackOutput {
     }
 
     long absoluteOffset = sampleDataQueue.getTotalBytesWritten() - size - offset;
-    commitSample(timeUs, flags, absoluteOffset, size, cryptoData);
+    if (timeUs < startTimeUs) {
+      if (isKeyframe) {
+        // encountered sync frame before playback began - clear waiting frames
+        metadataQueue.clear();
+      }
+
+      SampleMetadata metadata = new SampleMetadata(timeUs, flags, size, absoluteOffset, cryptoData);
+
+      metadataQueue.add(metadata);
+    } else {
+      // encountered start time, flush all waiting commits
+      while (!metadataQueue.isEmpty()) {
+        SampleMetadata metadata = metadataQueue.poll();
+        Assertions.checkNotNull(metadata);
+        commitSample(metadata.timeUs, metadata.flags, metadata.absoluteOffset, metadata.size, metadata.cryptoData);
+      }
+
+      commitSample(timeUs, flags, absoluteOffset, size, cryptoData);
+    }
   }
 
   /**
