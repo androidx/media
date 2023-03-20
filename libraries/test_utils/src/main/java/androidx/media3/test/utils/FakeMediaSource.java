@@ -339,6 +339,7 @@ public class FakeMediaSource extends BaseMediaSource {
    * @param allocator An {@link Allocator} from which to obtain media buffer allocations.
    * @param mediaSourceEventDispatcher An {@link MediaSourceEventListener.EventDispatcher} to
    *     dispatch media source events.
+   * @param drmSessionManager A {@link DrmSessionManager} to allow DRM interactions.
    * @param drmEventDispatcher An {@link MediaSourceEventListener.EventDispatcher} to dispatch DRM
    *     events.
    * @param transferListener The transfer listener which should be informed of any data transfers.
@@ -389,7 +390,7 @@ public class FakeMediaSource extends BaseMediaSource {
               C.SELECTION_REASON_UNKNOWN,
               /* trackSelectionData= */ null,
               /* mediaStartTimeMs= */ C.TIME_UNSET,
-              /* mediaEndTimeMs = */ C.TIME_UNSET);
+              /* mediaEndTimeMs= */ C.TIME_UNSET);
       long elapsedRealTimeMs = SystemClock.elapsedRealtime();
       MediaSourceEventListener.EventDispatcher eventDispatcher =
           createEventDispatcher(/* mediaPeriodId= */ null);

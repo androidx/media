@@ -599,6 +599,23 @@ import java.util.concurrent.atomic.AtomicBoolean;
           e = pendingRecoverableRendererError;
         }
         Log.e(TAG, "Playback error", e);
+        if (e.type == ExoPlaybackException.TYPE_RENDERER
+            && queue.getPlayingPeriod() != queue.getReadingPeriod()) {
+          // We encountered a renderer error while reading ahead. Force-update the playback position
+          // to the failing item to ensure the user-visible error is reported after the transition.
+          while (queue.getPlayingPeriod() != queue.getReadingPeriod()) {
+            queue.advancePlayingPeriod();
+          }
+          MediaPeriodHolder newPlayingPeriodHolder = checkNotNull(queue.getPlayingPeriod());
+          playbackInfo =
+              handlePositionDiscontinuity(
+                  newPlayingPeriodHolder.info.id,
+                  newPlayingPeriodHolder.info.startPositionUs,
+                  newPlayingPeriodHolder.info.requestedContentPositionUs,
+                  /* discontinuityStartPositionUs= */ newPlayingPeriodHolder.info.startPositionUs,
+                  /* reportDiscontinuity= */ true,
+                  Player.DISCONTINUITY_REASON_AUTO_TRANSITION);
+        }
         stopInternal(/* forceResetRenderers= */ true, /* acknowledgeStop= */ false);
         playbackInfo = playbackInfo.copyWithPlaybackError(e);
       }
@@ -895,7 +912,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
   }
 
   private void attemptRendererErrorRecovery() throws ExoPlaybackException {
-    seekToCurrentPosition(/* sendDiscontinuity= */ true);
+    reselectTracksInternalAndSeek();
   }
 
   private void updatePlaybackPositions() throws ExoPlaybackException {
@@ -929,7 +946,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
               /* isReadingAhead= */ playingPeriodHolder != queue.getReadingPeriod());
       long periodPositionUs = playingPeriodHolder.toPeriodTime(rendererPositionUs);
       maybeTriggerPendingMessages(playbackInfo.positionUs, periodPositionUs);
-      playbackInfo.positionUs = periodPositionUs;
+      playbackInfo.updatePositionUs(periodPositionUs);
     }
 
     // Update the buffered position and total buffered duration.
@@ -1477,6 +1494,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
             /* bufferedPositionUs= */ startPositionUs,
             /* totalBufferedDurationUs= */ 0,
             /* positionUs= */ startPositionUs,
+            /* positionUpdateTimeMs= */ 0,
             /* sleepingForOffload= */ false);
     if (releaseMediaSourceList) {
       mediaSourceList.release();
@@ -1677,6 +1695,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
     ensureStopped(renderer);
     renderer.disable();
     enabledRendererCount--;
+  }
+
+  private void reselectTracksInternalAndSeek() throws ExoPlaybackException {
+    reselectTracksInternal();
+    seekToCurrentPosition(/* sendDiscontinuity= */ true);
   }
 
   private void reselectTracksInternal() throws ExoPlaybackException {

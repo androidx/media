@@ -30,8 +30,10 @@ import static androidx.media3.exoplayer.Renderer.MSG_SET_CHANGE_FRAME_RATE_STRAT
 import static androidx.media3.exoplayer.Renderer.MSG_SET_PREFERRED_AUDIO_DEVICE;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_SCALING_MODE;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_SKIP_SILENCE_ENABLED;
+import static androidx.media3.exoplayer.Renderer.MSG_SET_VIDEO_EFFECTS;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_VIDEO_FRAME_METADATA_LISTENER;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_VIDEO_OUTPUT;
+import static androidx.media3.exoplayer.Renderer.MSG_SET_VIDEO_OUTPUT_RESOLUTION;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_VOLUME;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -60,6 +62,7 @@ import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.BasePlayer;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
+import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.IllegalSeekPositionException;
 import androidx.media3.common.MediaItem;
@@ -1010,6 +1013,9 @@ import java.util.concurrent.TimeoutException;
     listeners.release();
     playbackInfoUpdateHandler.removeCallbacksAndMessages(null);
     bandwidthMeter.removeEventListener(analyticsCollector);
+    if (playbackInfo.sleepingForOffload) {
+      playbackInfo = playbackInfo.copyWithEstimatedPosition();
+    }
     playbackInfo = playbackInfo.copyWithPlaybackState(Player.STATE_IDLE);
     playbackInfo = playbackInfo.copyWithLoadingMediaPeriodId(playbackInfo.periodId);
     playbackInfo.bufferedPositionUs = playbackInfo.positionUs;
@@ -1236,6 +1242,12 @@ import java.util.concurrent.TimeoutException;
   public Timeline getCurrentTimeline() {
     verifyApplicationThread();
     return playbackInfo.timeline;
+  }
+
+  @Override
+  public void setVideoEffects(List<Effect> videoEffects) {
+    verifyApplicationThread();
+    sendRendererMessage(TRACK_TYPE_VIDEO, MSG_SET_VIDEO_EFFECTS, videoEffects);
   }
 
   @Override
@@ -1794,11 +1806,18 @@ import java.util.concurrent.TimeoutException;
   private long getCurrentPositionUsInternal(PlaybackInfo playbackInfo) {
     if (playbackInfo.timeline.isEmpty()) {
       return Util.msToUs(maskingWindowPositionMs);
-    } else if (playbackInfo.periodId.isAd()) {
-      return playbackInfo.positionUs;
+    }
+
+    long positionUs =
+        playbackInfo.sleepingForOffload
+            ? playbackInfo.getEstimatedPositionUs()
+            : playbackInfo.positionUs;
+
+    if (playbackInfo.periodId.isAd()) {
+      return positionUs;
     } else {
       return periodPositionUsToWindowPositionUs(
-          playbackInfo.timeline, playbackInfo.periodId, playbackInfo.positionUs);
+          playbackInfo.timeline, playbackInfo.periodId, positionUs);
     }
   }
 
@@ -2011,10 +2030,10 @@ import java.util.concurrent.TimeoutException;
               listener.onPlaybackSuppressionReasonChanged(
                   newPlaybackInfo.playbackSuppressionReason));
     }
-    if (isPlaying(previousPlaybackInfo) != isPlaying(newPlaybackInfo)) {
+    if (previousPlaybackInfo.isPlaying() != newPlaybackInfo.isPlaying()) {
       listeners.queueEvent(
           Player.EVENT_IS_PLAYING_CHANGED,
-          listener -> listener.onIsPlayingChanged(isPlaying(newPlaybackInfo)));
+          listener -> listener.onIsPlayingChanged(newPlaybackInfo.isPlaying()));
     }
     if (!previousPlaybackInfo.playbackParameters.equals(newPlaybackInfo.playbackParameters)) {
       listeners.queueEvent(
@@ -2605,6 +2624,8 @@ import java.util.concurrent.TimeoutException;
       surfaceSize = new Size(width, height);
       listeners.sendEvent(
           EVENT_SURFACE_SIZE_CHANGED, listener -> listener.onSurfaceSizeChanged(width, height));
+      sendRendererMessage(
+          TRACK_TYPE_VIDEO, MSG_SET_VIDEO_OUTPUT_RESOLUTION, new Size(width, height));
     }
   }
 
@@ -2628,8 +2649,14 @@ import java.util.concurrent.TimeoutException;
       return;
     }
     pendingOperationAcks++;
+
+    // Position estimation and copy must occur before changing/masking playback state.
     PlaybackInfo playbackInfo =
-        this.playbackInfo.copyWithPlayWhenReady(playWhenReady, playbackSuppressionReason);
+        this.playbackInfo.sleepingForOffload
+            ? this.playbackInfo.copyWithEstimatedPosition()
+            : this.playbackInfo;
+    playbackInfo = playbackInfo.copyWithPlayWhenReady(playWhenReady, playbackSuppressionReason);
+
     internalPlayer.setPlayWhenReady(playWhenReady, playbackSuppressionReason);
     updatePlaybackInfo(
         playbackInfo,
@@ -2749,12 +2776,6 @@ import java.util.concurrent.TimeoutException;
     return playWhenReady && playerCommand != AudioFocusManager.PLAYER_COMMAND_PLAY_WHEN_READY
         ? PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS
         : PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST;
-  }
-
-  private static boolean isPlaying(PlaybackInfo playbackInfo) {
-    return playbackInfo.playbackState == Player.STATE_READY
-        && playbackInfo.playWhenReady
-        && playbackInfo.playbackSuppressionReason == PLAYBACK_SUPPRESSION_REASON_NONE;
   }
 
   private static final class MediaSourceHolderSnapshot implements MediaSourceInfoHolder {

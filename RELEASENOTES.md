@@ -1,5 +1,54 @@
 # Release notes
 
+### Unreleased changes
+
+*   Core library:
+    *   Add suppression reason for unsuitable audio route and play when ready
+        change reason for suppressed too long.
+        ([#15](https://github.com/androidx/media/issues/15)).
+    *   Add `ExoPlayer.setVideoEffects()` for using `Effect` during video
+        playback.
+    *   Update `SampleQueue` to store `sourceId` as a `long` rather than an
+        `int`. This changes the signatures of public methods
+        `SampleQueue.sourceId` and `SampleQueue.peekSourceId`.
+*   Audio:
+    *   Fix bug where some playbacks fail when tunneling is enabled and
+        `AudioProcessors` are active, e.g. for gapless trimming
+        ([#10847](https://github.com/google/ExoPlayer/issues/10847)).
+    *   Encapsulate Opus frames in Ogg packets in direct playbacks (offload).
+    *   Extrapolate current position during sleep with offload scheduling.
+*   DRM:
+    *   Reduce the visibility of several internal-only methods on
+        `DefaultDrmSession` that aren't expected to be called from outside the
+        DRM package:
+        *   `void onMediaDrmEvent(int)`
+        *   `void provision()`
+        *   `void onProvisionCompleted()`
+        *   `onProvisionError(Exception, boolean)`
+*   Transformer:
+    *   Remove `Transformer.Builder.setMediaSourceFactory(MediaSource.Factory)`.
+        Use `ExoPlayerAssetLoader.Factory(MediaSource.Factory)` and
+        `Transformer.Builder.setAssetLoaderFactory(AssetLoader.Factory)`
+        instead.
+    *   Remove `Transformer.startTransformation(MediaItem,
+        ParcelFileDescriptor)`.
+*   DASH:
+    *   Fix handling of empty segment timelines
+        ([#11014](https://github.com/google/ExoPlayer/issues/11014)).
+*   IMA DAI extension:
+    *   Fix a bug where a new ad group is inserted in live streams because the
+        calculated content position in consecutive timelines varies slightly.
+*   Remove deprecated symbols:
+    *   Remove `DefaultAudioSink` constructors, use `DefaultAudioSink.Builder`
+        instead.
+
+### 1.0.0 (2023-03-22)
+
+This release corresponds to the
+[ExoPlayer 2.18.5 release](https://github.com/google/ExoPlayer/releases/tag/r2.18.5).
+
+There are no changes since 1.0.0-rc02.
+
 ### 1.0.0-rc02 (2023-03-02)
 
 This release corresponds to the

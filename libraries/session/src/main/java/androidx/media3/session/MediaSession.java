@@ -54,6 +54,7 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
+import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
@@ -816,6 +817,7 @@ public class MediaSession {
    *
    * <p>A command is not accepted if it is not a custom command.
    *
+   * @param controller The controller to send the custom command to.
    * @param command A custom command.
    * @param args A {@link Bundle} for additional arguments. May be empty.
    * @return A {@link ListenableFuture} of {@link SessionResult} from the controller.
@@ -1040,6 +1042,10 @@ public class MediaSession {
     /**
      * Called when a controller sent a custom command through {@link
      * MediaController#sendCustomCommand(SessionCommand, Bundle)}.
+     *
+     * <p>{@link MediaController} instances are only allowed to send a command if the command has
+     * been added to the {@link MediaSession.ConnectionResult#availableSessionCommands list of
+     * available session commands} in {@link #onConnect} or set via {@link #setAvailableCommands}.
      *
      * <p>Interoperability: This will be also called by {@link
      * android.support.v4.media.MediaBrowserCompat#sendCustomAction}. If so, {@code extras} from

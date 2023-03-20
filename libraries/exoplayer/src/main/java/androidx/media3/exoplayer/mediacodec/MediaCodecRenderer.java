@@ -67,6 +67,7 @@ import androidx.media3.exoplayer.DecoderReuseEvaluation.DecoderDiscardReasons;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.FormatHolder;
 import androidx.media3.exoplayer.analytics.PlayerId;
+import androidx.media3.exoplayer.audio.OggOpusAudioPacketizer;
 import androidx.media3.exoplayer.drm.DrmSession;
 import androidx.media3.exoplayer.drm.DrmSession.DrmSessionException;
 import androidx.media3.exoplayer.drm.FrameworkCryptoConfig;
@@ -302,6 +303,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private final ArrayList<Long> decodeOnlyPresentationTimestamps;
   private final MediaCodec.BufferInfo outputBufferInfo;
   private final ArrayDeque<OutputStreamInfo> pendingOutputStreamChanges;
+  private final OggOpusAudioPacketizer oggOpusAudioPacketizer;
 
   @Nullable private Format inputFormat;
   @Nullable private Format outputFormat;
@@ -362,6 +364,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
 
   /**
    * @param trackType The {@link C.TrackType track type} that the renderer handles.
+   * @param codecAdapterFactory A factory for {@link MediaCodecAdapter} instances.
    * @param mediaCodecSelector A decoder selector.
    * @param enableDecoderFallback Whether to enable fallback to lower-priority decoders if decoder
    *     initialization fails. This may result in using a decoder that is less efficient or slower
@@ -399,6 +402,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     // endianness.
     bypassBatchBuffer.ensureSpaceForWrite(/* length= */ 0);
     bypassBatchBuffer.data.order(ByteOrder.nativeOrder());
+    oggOpusAudioPacketizer = new OggOpusAudioPacketizer();
 
     codecOperatingRate = CODEC_OPERATING_RATE_UNSET;
     codecAdaptationWorkaroundMode = ADAPTATION_WORKAROUND_MODE_NEVER;
@@ -709,6 +713,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     bypassSampleBuffer.clear();
     bypassSampleBufferPending = false;
     bypassEnabled = false;
+    oggOpusAudioPacketizer.reset();
   }
 
   protected void releaseCodec() {
@@ -1081,6 +1086,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     if (codecOperatingRate <= assumedMinimumCodecOperatingRate) {
       codecOperatingRate = CODEC_OPERATING_RATE_UNSET;
     }
+    onReadyToInitializeCodec(inputFormat);
     codecInitializingTimestamp = SystemClock.elapsedRealtime();
     MediaCodecAdapter.Configuration configuration =
         getMediaCodecConfiguration(codecInfo, inputFormat, crypto, codecOperatingRate);
@@ -1367,6 +1373,22 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     codecReconfigurationState = RECONFIGURATION_STATE_NONE;
     decoderCounters.queuedInputBufferCount++;
     return true;
+  }
+
+  /**
+   * Called when ready to initialize the {@link MediaCodecAdapter}.
+   *
+   * <p>This method is called just before the renderer obtains the {@linkplain
+   * #getMediaCodecConfiguration configuration} for the {@link MediaCodecAdapter} and creates the
+   * adapter via the passed in {@link MediaCodecAdapter.Factory}.
+   *
+   * <p>The default implementation is a no-op.
+   *
+   * @param format The {@link Format} for which the codec is being configured.
+   * @throws ExoPlaybackException If an error occurs preparing for initializing the codec.
+   */
+  protected void onReadyToInitializeCodec(Format format) throws ExoPlaybackException {
+    // Do nothing.
   }
 
   /**
@@ -2264,6 +2286,13 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
           }
           // Try to append the buffer to the batch buffer.
           bypassSampleBuffer.flip();
+
+          if (inputFormat != null
+              && inputFormat.sampleMimeType != null
+              && inputFormat.sampleMimeType.equals(MimeTypes.AUDIO_OPUS)) {
+            oggOpusAudioPacketizer.packetize(bypassSampleBuffer);
+          }
+
           if (!bypassBatchBuffer.append(bypassSampleBuffer)) {
             bypassSampleBufferPending = true;
             return;

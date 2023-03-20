@@ -169,16 +169,19 @@ public final class ServerSideAdInsertionMediaSourceTest {
     // Test with one ad group before the window, and the window starting within the second ad group.
     AdPlaybackState adPlaybackState =
         new AdPlaybackState(
-                /* adsId= */ new Object(), /* adGroupTimesUs= */ 15_000_000, 41_500_000, 42_200_000)
+                /* adsId= */ new Object(), /* adGroupTimesUs...= */
+                15_000_000,
+                41_500_000,
+                42_200_000)
             .withIsServerSideInserted(/* adGroupIndex= */ 0, /* isServerSideInserted= */ true)
             .withIsServerSideInserted(/* adGroupIndex= */ 1, /* isServerSideInserted= */ true)
             .withIsServerSideInserted(/* adGroupIndex= */ 2, /* isServerSideInserted= */ true)
             .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
             .withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 2)
             .withAdCount(/* adGroupIndex= */ 2, /* adCount= */ 1)
-            .withAdDurationsUs(/* adGroupIndex= */ 0, /* adDurationsUs= */ 500_000)
-            .withAdDurationsUs(/* adGroupIndex= */ 1, /* adDurationsUs= */ 300_000, 100_000)
-            .withAdDurationsUs(/* adGroupIndex= */ 2, /* adDurationsUs= */ 400_000)
+            .withAdDurationsUs(/* adGroupIndex= */ 0, /* adDurationsUs...= */ 500_000)
+            .withAdDurationsUs(/* adGroupIndex= */ 1, /* adDurationsUs...= */ 300_000, 100_000)
+            .withAdDurationsUs(/* adGroupIndex= */ 2, /* adDurationsUs...= */ 400_000)
             .withContentResumeOffsetUs(/* adGroupIndex= */ 0, /* contentResumeOffsetUs= */ 100_000)
             .withContentResumeOffsetUs(/* adGroupIndex= */ 1, /* contentResumeOffsetUs= */ 400_000)
             .withContentResumeOffsetUs(/* adGroupIndex= */ 2, /* contentResumeOffsetUs= */ 200_000);

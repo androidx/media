@@ -813,6 +813,7 @@ public abstract class Timeline implements Bundleable {
      * adGroupIndex}, or {@link AdPlaybackState#AD_STATE_UNAVAILABLE} if not yet known.
      *
      * @param adGroupIndex The ad group index.
+     * @param adIndexInAdGroup The index of the ad in the ad group.
      * @return The state of the ad, or {@link AdPlaybackState#AD_STATE_UNAVAILABLE} if not yet
      *     known.
      */
@@ -822,6 +823,18 @@ public abstract class Timeline implements Bundleable {
       return adGroup.count != C.LENGTH_UNSET
           ? adGroup.states[adIndexInAdGroup]
           : AD_STATE_UNAVAILABLE;
+    }
+
+    /**
+     * Returns whether the ad group at the given ad group index is a live postroll placeholder.
+     *
+     * @param adGroupIndex The ad group index.
+     * @return True if the ad group at the given index is a live postroll placeholder.
+     */
+    @UnstableApi
+    public boolean isLivePostrollPlaceholder(int adGroupIndex) {
+      return adGroupIndex == getAdGroupCount() - 1
+          && adPlaybackState.isLivePostrollPlaceholder(adGroupIndex);
     }
 
     /**

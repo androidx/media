@@ -528,7 +528,6 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
     this.contentMediaSourceFactory = contentMediaSourceFactory;
     this.applicationAdEventListener = applicationAdEventListener;
     this.applicationAdErrorListener = applicationAdErrorListener;
-    componentListener = new ComponentListener();
     Assertions.checkArgument(player.getApplicationLooper() == Looper.getMainLooper());
     mainHandler = new Handler(Looper.getMainLooper());
     Uri streamRequestUri = checkNotNull(mediaItem.localConfiguration).uri;
@@ -536,6 +535,12 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
     adsId = ImaServerSideAdInsertionUriBuilder.getAdsId(streamRequestUri);
     loadVideoTimeoutMs = ImaServerSideAdInsertionUriBuilder.getLoadVideoTimeoutMs(streamRequestUri);
     streamRequest = ImaServerSideAdInsertionUriBuilder.createStreamRequest(streamRequestUri);
+    boolean isDashStream = streamRequest.getFormat().equals(StreamRequest.StreamFormat.DASH);
+    componentListener =
+        new ComponentListener(
+            isLiveStream
+                ? (isDashStream ? new NoopAdEventListener() : new SinglePeriodLiveAdEventListener())
+                : new VodAdEventListener());
     adPlaybackState = adsLoader.getAdPlaybackState(adsId);
   }
 
@@ -673,12 +678,24 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
   @MainThread
   private void invalidateServerSideAdInsertionAdPlaybackState() {
     if (!adPlaybackState.equals(AdPlaybackState.NONE) && contentTimeline != null) {
-      ImmutableMap<Object, AdPlaybackState> splitAdPlaybackStates =
-          splitAdPlaybackStateForPeriods(adPlaybackState, contentTimeline);
+      ImmutableMap<Object, AdPlaybackState> splitAdPlaybackStates;
+      if (streamRequest.getFormat() == StreamRequest.StreamFormat.DASH) {
+        // DASH ad groups are always split by period.
+        splitAdPlaybackStates = splitAdPlaybackStateForPeriods(adPlaybackState, contentTimeline);
+      } else {
+        // The HLS single period timeline for VOD and live must not be split.
+        int firstPeriodIndex =
+            contentTimeline.getWindow(/* windowIndex= */ 0, new Timeline.Window()).firstPeriodIndex;
+        Object periodUid =
+            checkNotNull(
+                contentTimeline.getPeriod(
+                        firstPeriodIndex, new Timeline.Period(), /* setIds= */ true)
+                    .uid);
+        splitAdPlaybackStates = ImmutableMap.of(periodUid, adPlaybackState);
+      }
       streamPlayer.setAdPlaybackStates(adsId, splitAdPlaybackStates, contentTimeline);
       checkNotNull(serverSideAdInsertionMediaSource).setAdPlaybackStates(splitAdPlaybackStates);
-      if (!ImaServerSideAdInsertionUriBuilder.isLiveStream(
-          checkNotNull(mediaItem.localConfiguration).uri)) {
+      if (!isLiveStream) {
         adsLoader.setAdPlaybackState(adsId, adPlaybackState);
       }
     }
@@ -776,6 +793,13 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
 
   private final class ComponentListener
       implements AdEvent.AdEventListener, Player.Listener, AdPlaybackStateUpdater {
+
+    private final AdEventListener adEventListener;
+
+    /** Creates an new instance. */
+    public ComponentListener(AdEventListener adEventListener) {
+      this.adEventListener = adEventListener;
+    }
 
     // Implement Player.Listener.
 
@@ -887,56 +911,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
     @MainThread
     @Override
     public void onAdEvent(AdEvent event) {
-      AdPlaybackState newAdPlaybackState = adPlaybackState;
-      switch (event.getType()) {
-        case CUEPOINTS_CHANGED:
-          // CUEPOINTS_CHANGED event is firing multiple times with the same queue points.
-          if (!isLiveStream && newAdPlaybackState.equals(AdPlaybackState.NONE)) {
-            newAdPlaybackState =
-                setVodAdGroupPlaceholders(
-                    checkNotNull(streamManager).getCuePoints(), new AdPlaybackState(adsId));
-          }
-          break;
-        case LOADED:
-          if (isLiveStream) {
-            Timeline timeline = player.getCurrentTimeline();
-            Timeline.Window window =
-                timeline.getWindow(player.getCurrentMediaItemIndex(), new Timeline.Window());
-            if (window.lastPeriodIndex > window.firstPeriodIndex) {
-              // multi-period live not integrated
-              return;
-            }
-            long positionInWindowUs =
-                timeline.getPeriod(player.getCurrentPeriodIndex(), new Timeline.Period())
-                    .positionInWindowUs;
-            long currentContentPeriodPositionUs =
-                msToUs(player.getContentPosition()) - positionInWindowUs;
-            Ad ad = event.getAd();
-            AdPodInfo adPodInfo = ad.getAdPodInfo();
-            newAdPlaybackState =
-                addLiveAdBreak(
-                    currentContentPeriodPositionUs,
-                    /* adDurationUs= */ secToUsRounded(ad.getDuration()),
-                    /* adPositionInAdPod= */ adPodInfo.getAdPosition(),
-                    /* totalAdDurationUs= */ secToUsRounded(adPodInfo.getMaxDuration()),
-                    /* totalAdsInAdPod= */ adPodInfo.getTotalAds(),
-                    /* adPlaybackState= */ newAdPlaybackState.equals(AdPlaybackState.NONE)
-                        ? new AdPlaybackState(adsId)
-                        : newAdPlaybackState);
-          } else {
-            newAdPlaybackState = setVodAdInPlaceholder(event.getAd(), newAdPlaybackState);
-          }
-          break;
-        case SKIPPED:
-          if (!isLiveStream) {
-            newAdPlaybackState = skipAd(event.getAd(), newAdPlaybackState);
-          }
-          break;
-        default:
-          // Do nothing.
-          break;
-      }
-      setAdPlaybackState(newAdPlaybackState);
+      adEventListener.onAdEvent(event);
     }
 
     // Implement AdPlaybackStateUpdater (called on the playback thread).
@@ -1340,6 +1315,74 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
               "Multiple IMA server side ad insertion sources not supported.");
         }
       }
+    }
+  }
+
+  private class VodAdEventListener implements AdEventListener {
+    @Override
+    public void onAdEvent(AdEvent event) {
+      AdPlaybackState newAdPlaybackState = adPlaybackState;
+      switch (event.getType()) {
+        case CUEPOINTS_CHANGED:
+          if (newAdPlaybackState.equals(AdPlaybackState.NONE)) {
+            newAdPlaybackState =
+                setVodAdGroupPlaceholders(
+                    checkNotNull(streamManager).getCuePoints(), new AdPlaybackState(adsId));
+          }
+          break;
+        case LOADED:
+          newAdPlaybackState = setVodAdInPlaceholder(event.getAd(), newAdPlaybackState);
+          break;
+        case SKIPPED:
+          newAdPlaybackState = skipAd(event.getAd(), newAdPlaybackState);
+          break;
+        default:
+          // Do nothing.
+          break;
+      }
+      setAdPlaybackState(newAdPlaybackState);
+    }
+  }
+
+  private class SinglePeriodLiveAdEventListener implements AdEventListener {
+    @Override
+    public void onAdEvent(AdEvent event) {
+      if (event.getType() != AdEvent.AdEventType.LOADED) {
+        return;
+      }
+      AdPlaybackState newAdPlaybackState = adPlaybackState;
+      Timeline timeline = player.getCurrentTimeline();
+      Timeline.Period currentPeriod = new Timeline.Period();
+      long positionInWindowUs =
+          timeline.getPeriod(player.getCurrentPeriodIndex(), currentPeriod).positionInWindowUs;
+      long contentPositionUs =
+          player.isPlayingAd()
+              ? currentPeriod.getAdGroupTimeUs(player.getCurrentAdGroupIndex())
+              : msToUs(player.getContentPosition());
+      Ad ad = event.getAd();
+      AdPodInfo adPodInfo = ad.getAdPodInfo();
+      newAdPlaybackState =
+          addLiveAdBreak(
+              /* currentContentPeriodPositionUs= */ contentPositionUs - positionInWindowUs,
+              /* adDurationUs= */ secToUsRounded(ad.getDuration()),
+              /* adPositionInAdPod= */ adPodInfo.getAdPosition(),
+              /* totalAdDurationUs= */ secToUsRounded(adPodInfo.getMaxDuration()),
+              /* totalAdsInAdPod= */ adPodInfo.getTotalAds(),
+              /* adPlaybackState= */ newAdPlaybackState.equals(AdPlaybackState.NONE)
+                  ? new AdPlaybackState(adsId)
+                  : newAdPlaybackState);
+      setAdPlaybackState(newAdPlaybackState);
+    }
+  }
+
+  private static class NoopAdEventListener implements AdEventListener {
+    @Override
+    public void onAdEvent(AdEvent event) {
+      Log.w(
+          "ImaSSAIMediaSource",
+          String.format(
+              "Ignoring IMA ad event %s because the current stream type is not supported.",
+              event.getType().name()));
     }
   }
 }

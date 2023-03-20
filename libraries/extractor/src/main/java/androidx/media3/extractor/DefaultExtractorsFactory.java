@@ -130,13 +130,13 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
   private @Mp3Extractor.Flags int mp3Flags;
   private @TsExtractor.Mode int tsMode;
   private @DefaultTsPayloadReaderFactory.Flags int tsFlags;
-  private ImmutableList<Format> tsSubtitleFormats;
+  // TODO (b/260245332): Initialize tsSubtitleFormats in constructor once shrinking bug is fixed.
+  @Nullable private ImmutableList<Format> tsSubtitleFormats;
   private int tsTimestampSearchBytes;
 
   public DefaultExtractorsFactory() {
     tsMode = TsExtractor.MODE_SINGLE_PMT;
     tsTimestampSearchBytes = TsExtractor.DEFAULT_TIMESTAMP_SEARCH_BYTES;
-    tsSubtitleFormats = ImmutableList.of();
   }
 
   /**
@@ -434,6 +434,9 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
         extractors.add(new PsExtractor());
         break;
       case FileTypes.TS:
+        if (tsSubtitleFormats == null) {
+          tsSubtitleFormats = ImmutableList.of();
+        }
         extractors.add(
             new TsExtractor(
                 tsMode,
@@ -472,7 +475,9 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
 
   @Nullable
   private static Constructor<? extends Extractor> getFlacExtractorConstructor()
-      throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException,
+      throws ClassNotFoundException,
+          NoSuchMethodException,
+          InvocationTargetException,
           IllegalAccessException {
     @SuppressWarnings("nullness:argument")
     boolean isFlacNativeLibraryAvailable =
@@ -493,7 +498,9 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
     public interface ConstructorSupplier {
       @Nullable
       Constructor<? extends Extractor> getConstructor()
-          throws InvocationTargetException, IllegalAccessException, NoSuchMethodException,
+          throws InvocationTargetException,
+              IllegalAccessException,
+              NoSuchMethodException,
               ClassNotFoundException;
     }
 

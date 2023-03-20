@@ -37,6 +37,7 @@ import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
+import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
@@ -1143,7 +1144,7 @@ public interface ExoPlayer extends Player {
      * <p>The backing thread should run with priority {@link Process#THREAD_PRIORITY_AUDIO} and
      * should handle messages within 10ms.
      *
-     * @param playbackLooper A {@link looper}.
+     * @param playbackLooper A {@link Looper}.
      * @return This builder.
      * @throws IllegalStateException If {@link #build()} has already been called.
      */
@@ -1529,6 +1530,25 @@ public interface ExoPlayer extends Player {
   /** Returns whether skipping silences in the audio stream is enabled. */
   @UnstableApi
   boolean getSkipSilenceEnabled();
+
+  /**
+   * Sets a {@link List} of {@linkplain Effect video effects} that will be applied to each video
+   * frame.
+   *
+   * <p>The following limitations exist for using {@linkplain Effect video effects}:
+   *
+   * <ul>
+   *   <li>This feature works only with the default {@link MediaCodecVideoRenderer} and not custom
+   *       or extension {@linkplain Renderer video renderers}.
+   *   <li>This feature does not work with DRM-protected contents.
+   *   <li>This method should be called before calling {@link #prepare}.
+   * </ul>
+   *
+   * @param videoEffects The {@link List} of {@linkplain Effect video effects} to apply.
+   */
+  @RequiresApi(18)
+  @UnstableApi
+  void setVideoEffects(List<Effect> videoEffects);
 
   /**
    * Sets the {@link C.VideoScalingMode}.
