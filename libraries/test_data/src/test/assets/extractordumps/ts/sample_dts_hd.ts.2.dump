@@ -1,0 +1,101 @@
+seekMap:
+  isSeekable = true
+  duration = 4949333
+  getPosition(0) = [[timeUs=0, position=0]]
+  getPosition(1) = [[timeUs=1, position=0]]
+  getPosition(2474666) = [[timeUs=2474666, position=121170]]
+  getPosition(4949333) = [[timeUs=4949333, position=242529]]
+numberOfTracks = 1
+track 257:
+  total output bytes = 86016
+  sample count = 21
+  format 0:
+    id = 1/257
+    sampleMimeType = audio/vnd.dts.hd;profile=lbr
+    channelCount = 6
+    sampleRate = 48000
+  sample 0:
+    time = 3242666
+    flags = 1
+    data = length 4096, hash 4E12D3D1
+  sample 1:
+    time = 3328000
+    flags = 1
+    data = length 4096, hash E8E73BC3
+  sample 2:
+    time = 3413333
+    flags = 1
+    data = length 4096, hash 840FCCCC
+  sample 3:
+    time = 3498666
+    flags = 1
+    data = length 4096, hash 72F7DC5
+  sample 4:
+    time = 3584000
+    flags = 1
+    data = length 4096, hash 38CA001F
+  sample 5:
+    time = 3669333
+    flags = 1
+    data = length 4096, hash 20E7919B
+  sample 6:
+    time = 3754666
+    flags = 1
+    data = length 4096, hash 648FD608
+  sample 7:
+    time = 3840000
+    flags = 1
+    data = length 4096, hash E200ED47
+  sample 8:
+    time = 3925333
+    flags = 1
+    data = length 4096, hash 4BB0359D
+  sample 9:
+    time = 4010666
+    flags = 1
+    data = length 4096, hash ADF77DD1
+  sample 10:
+    time = 4096000
+    flags = 1
+    data = length 4096, hash 623247A7
+  sample 11:
+    time = 4181333
+    flags = 1
+    data = length 4096, hash 96DAB605
+  sample 12:
+    time = 4266666
+    flags = 1
+    data = length 4096, hash E59287C9
+  sample 13:
+    time = 4352000
+    flags = 1
+    data = length 4096, hash 82E0B9E0
+  sample 14:
+    time = 4437333
+    flags = 1
+    data = length 4096, hash 210F7D26
+  sample 15:
+    time = 4522666
+    flags = 1
+    data = length 4096, hash 19FE2659
+  sample 16:
+    time = 4608000
+    flags = 1
+    data = length 4096, hash 24DECA63
+  sample 17:
+    time = 4693333
+    flags = 1
+    data = length 4096, hash E1332A70
+  sample 18:
+    time = 4778666
+    flags = 1
+    data = length 4096, hash 8628F8A3
+  sample 19:
+    time = 4864000
+    flags = 1
+    data = length 4096, hash 672F121E
+  sample 20:
+    time = 4949333
+    flags = 1
+    data = length 4096, hash 35D556FB
+tracksEnded = true
