@@ -1,14 +1,14 @@
 seekMap:
   isSeekable = true
-  duration = 4992000
+  duration = 458666
   getPosition(0) = [[timeUs=0, position=0]]
   getPosition(1) = [[timeUs=1, position=0]]
-  getPosition(2496000) = [[timeUs=2496000, position=251280]]
-  getPosition(4992000) = [[timeUs=4992000, position=502749]]
+  getPosition(229333) = [[timeUs=229333, position=23565]]
+  getPosition(458666) = [[timeUs=458666, position=47319]]
 numberOfTracks = 1
 track 257:
-  total output bytes = 10240
-  sample count = 10
+  total output bytes = 2048
+  sample count = 2
   format 0:
     averageBitrate = 768000
     id = 1/257
@@ -16,43 +16,11 @@ track 257:
     channelCount = 6
     sampleRate = 48000
   sample 0:
-    time = 4896000
+    time = 448000
     flags = 1
-    data = length 1024, hash 36F0E034
+    data = length 1024, hash 7F8F62BB
   sample 1:
-    time = 4906666
+    time = 458666
     flags = 1
-    data = length 1024, hash 7A750BF2
-  sample 2:
-    time = 4917333
-    flags = 1
-    data = length 1024, hash 4C85752A
-  sample 3:
-    time = 4928000
-    flags = 1
-    data = length 1024, hash D7B8B633
-  sample 4:
-    time = 4938666
-    flags = 1
-    data = length 1024, hash 845ACAC0
-  sample 5:
-    time = 4949333
-    flags = 1
-    data = length 1024, hash BB42FD34
-  sample 6:
-    time = 4960000
-    flags = 1
-    data = length 1024, hash 42EC163
-  sample 7:
-    time = 4970666
-    flags = 1
-    data = length 1024, hash 1A71B565
-  sample 8:
-    time = 4981333
-    flags = 1
-    data = length 1024, hash 7224BE8
-  sample 9:
-    time = 4992000
-    flags = 1
-    data = length 1024, hash 7F6B2D36
+    data = length 1024, hash 4DF51924
 tracksEnded = true

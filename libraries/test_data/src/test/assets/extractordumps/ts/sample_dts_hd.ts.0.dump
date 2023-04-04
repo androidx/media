@@ -1,14 +1,14 @@
 seekMap:
   isSeekable = true
-  duration = 4949333
+  duration = 853333
   getPosition(0) = [[timeUs=0, position=0]]
   getPosition(1) = [[timeUs=1, position=0]]
-  getPosition(2474666) = [[timeUs=2474666, position=121170]]
-  getPosition(4949333) = [[timeUs=4949333, position=242529]]
+  getPosition(426666) = [[timeUs=426666, position=22583]]
+  getPosition(853333) = [[timeUs=853333, position=45355]]
 numberOfTracks = 1
 track 257:
-  total output bytes = 241664
-  sample count = 59
+  total output bytes = 45056
+  sample count = 11
   format 0:
     id = 1/257
     sampleMimeType = audio/vnd.dts.hd;profile=lbr
@@ -17,237 +17,45 @@ track 257:
   sample 0:
     time = 0
     flags = 1
-    data = length 4096, hash 8023FB7A
+    data = length 4096, hash 1F0B79C5
   sample 1:
     time = 85333
     flags = 1
-    data = length 4096, hash 6DE4FCB4
+    data = length 4096, hash 2EC282A1
   sample 2:
     time = 170666
     flags = 1
-    data = length 4096, hash 115C0649
+    data = length 4096, hash 6B7902F0
   sample 3:
     time = 256000
     flags = 1
-    data = length 4096, hash 3B2029BD
+    data = length 4096, hash 8FC4EE2C
   sample 4:
     time = 341333
     flags = 1
-    data = length 4096, hash 5EEBDE7D
+    data = length 4096, hash 67899547
   sample 5:
     time = 426666
     flags = 1
-    data = length 4096, hash DC38189A
+    data = length 4096, hash 1BE4CF1C
   sample 6:
     time = 512000
     flags = 1
-    data = length 4096, hash 64AE81FC
+    data = length 4096, hash 620F5E51
   sample 7:
     time = 597333
     flags = 1
-    data = length 4096, hash 5F65C535
+    data = length 4096, hash 4D3E0644
   sample 8:
     time = 682666
     flags = 1
-    data = length 4096, hash 4A5B0025
+    data = length 4096, hash F69B5FED
   sample 9:
     time = 768000
     flags = 1
-    data = length 4096, hash C2E605BD
+    data = length 4096, hash 93D31EA7
   sample 10:
     time = 853333
     flags = 1
-    data = length 4096, hash CD182BDC
-  sample 11:
-    time = 938666
-    flags = 1
-    data = length 4096, hash D69C0EDB
-  sample 12:
-    time = 1024000
-    flags = 1
-    data = length 4096, hash A41FC983
-  sample 13:
-    time = 1109333
-    flags = 1
-    data = length 4096, hash 22B11CC8
-  sample 14:
-    time = 1194666
-    flags = 1
-    data = length 4096, hash 9D70D352
-  sample 15:
-    time = 1280000
-    flags = 1
-    data = length 4096, hash C80F3D1F
-  sample 16:
-    time = 1365333
-    flags = 1
-    data = length 4096, hash 224EA409
-  sample 17:
-    time = 1450666
-    flags = 1
-    data = length 4096, hash 2B620D86
-  sample 18:
-    time = 1536000
-    flags = 1
-    data = length 4096, hash D3734C04
-  sample 19:
-    time = 1621333
-    flags = 1
-    data = length 4096, hash 30E54BDE
-  sample 20:
-    time = 1706666
-    flags = 1
-    data = length 4096, hash D26FAEEF
-  sample 21:
-    time = 1792000
-    flags = 1
-    data = length 4096, hash AE151B96
-  sample 22:
-    time = 1877333
-    flags = 1
-    data = length 4096, hash D120FC19
-  sample 23:
-    time = 1962666
-    flags = 1
-    data = length 4096, hash 51D67B8F
-  sample 24:
-    time = 2048000
-    flags = 1
-    data = length 4096, hash 6403F463
-  sample 25:
-    time = 2133333
-    flags = 1
-    data = length 4096, hash 77AC1190
-  sample 26:
-    time = 2218666
-    flags = 1
-    data = length 4096, hash FBEFF125
-  sample 27:
-    time = 2304000
-    flags = 1
-    data = length 4096, hash 94003AC1
-  sample 28:
-    time = 2389333
-    flags = 1
-    data = length 4096, hash 2007E06
-  sample 29:
-    time = 2474666
-    flags = 1
-    data = length 4096, hash 10734358
-  sample 30:
-    time = 2560000
-    flags = 1
-    data = length 4096, hash 72B05B24
-  sample 31:
-    time = 2645333
-    flags = 1
-    data = length 4096, hash A99FAC37
-  sample 32:
-    time = 2730666
-    flags = 1
-    data = length 4096, hash F690648A
-  sample 33:
-    time = 2816000
-    flags = 1
-    data = length 4096, hash 8BAFA641
-  sample 34:
-    time = 2901333
-    flags = 1
-    data = length 4096, hash 3FEE1AEE
-  sample 35:
-    time = 2986666
-    flags = 1
-    data = length 4096, hash 6D266480
-  sample 36:
-    time = 3072000
-    flags = 1
-    data = length 4096, hash BF25813F
-  sample 37:
-    time = 3157333
-    flags = 1
-    data = length 4096, hash 581B470
-  sample 38:
-    time = 3242666
-    flags = 1
-    data = length 4096, hash 4E12D3D1
-  sample 39:
-    time = 3328000
-    flags = 1
-    data = length 4096, hash E8E73BC3
-  sample 40:
-    time = 3413333
-    flags = 1
-    data = length 4096, hash 840FCCCC
-  sample 41:
-    time = 3498666
-    flags = 1
-    data = length 4096, hash 72F7DC5
-  sample 42:
-    time = 3584000
-    flags = 1
-    data = length 4096, hash 38CA001F
-  sample 43:
-    time = 3669333
-    flags = 1
-    data = length 4096, hash 20E7919B
-  sample 44:
-    time = 3754666
-    flags = 1
-    data = length 4096, hash 648FD608
-  sample 45:
-    time = 3840000
-    flags = 1
-    data = length 4096, hash E200ED47
-  sample 46:
-    time = 3925333
-    flags = 1
-    data = length 4096, hash 4BB0359D
-  sample 47:
-    time = 4010666
-    flags = 1
-    data = length 4096, hash ADF77DD1
-  sample 48:
-    time = 4096000
-    flags = 1
-    data = length 4096, hash 623247A7
-  sample 49:
-    time = 4181333
-    flags = 1
-    data = length 4096, hash 96DAB605
-  sample 50:
-    time = 4266666
-    flags = 1
-    data = length 4096, hash E59287C9
-  sample 51:
-    time = 4352000
-    flags = 1
-    data = length 4096, hash 82E0B9E0
-  sample 52:
-    time = 4437333
-    flags = 1
-    data = length 4096, hash 210F7D26
-  sample 53:
-    time = 4522666
-    flags = 1
-    data = length 4096, hash 19FE2659
-  sample 54:
-    time = 4608000
-    flags = 1
-    data = length 4096, hash 24DECA63
-  sample 55:
-    time = 4693333
-    flags = 1
-    data = length 4096, hash E1332A70
-  sample 56:
-    time = 4778666
-    flags = 1
-    data = length 4096, hash 8628F8A3
-  sample 57:
-    time = 4864000
-    flags = 1
-    data = length 4096, hash 672F121E
-  sample 58:
-    time = 4949333
-    flags = 1
-    data = length 4096, hash 35D556FB
+    data = length 4096, hash 41F1D921
 tracksEnded = true
