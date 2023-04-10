@@ -69,7 +69,8 @@ public final class DtsUhdReader implements ElementaryStreamReader {
 
   // Used when reading the samples.
   private long timeUs;
-  private int  sampleCount; //frame duration
+  private int sampleRate;
+  private int sampleCount; // frame duration
 
   /**
    * Constructs a new reader for DTS UHD elementary streams.
@@ -80,6 +81,7 @@ public final class DtsUhdReader implements ElementaryStreamReader {
     headerScratchBytes = new ParsableByteArray(new byte[FTOC_HEADER_SIZE_MAX]);
     state = STATE_FINDING_SYNC;
     timeUs = C.TIME_UNSET;
+    sampleRate = 48000; // initialize to a non-zero sampling rate
     this.language = language;
   }
 
@@ -231,12 +233,14 @@ public final class DtsUhdReader implements ElementaryStreamReader {
             .build();
         output.format(format);
       }
-      sampleCount = formatInfo.sampleCount; // Update the sample count only in FTOC Sync frame
+      // Update the sample rate and sample count information only in FTOC Sync frame
+      sampleRate = formatInfo.sampleRate;
+      sampleCount = formatInfo.sampleCount;
     }
     sampleSize = formatInfo.frameSize;
 
     // In this class a sample is an access unit (frame in DTS), but the format's sample rate
     // specifies the number of PCM audio samples per second.
-    sampleDurationUs = (int)(C.MICROS_PER_SECOND * sampleCount / format.sampleRate);
+    sampleDurationUs = (int)(C.MICROS_PER_SECOND * sampleCount / sampleRate);
   }
 }
