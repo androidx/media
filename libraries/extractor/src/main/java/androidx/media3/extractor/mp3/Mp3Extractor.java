@@ -278,6 +278,8 @@ public final class Mp3Extractor implements Extractor {
               .setEncoderDelay(gaplessInfoHolder.encoderDelay)
               .setEncoderPadding(gaplessInfoHolder.encoderPadding)
               .setMetadata((flags & FLAG_DISABLE_ID3_METADATA) != 0 ? null : metadata)
+              .setPeakBitrate(synchronizedHeader.bitrate)
+              .setAverageBitrate(synchronizedHeader.bitrate)
               .build());
       firstSamplePosition = input.getPosition();
     } else if (firstSamplePosition != 0) {
