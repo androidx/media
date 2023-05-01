@@ -19,6 +19,7 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 
 import android.content.ContentValues;
 import android.database.Cursor;
+import android.database.DatabaseUtils;
 import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
 import androidx.annotation.WorkerThread;
@@ -199,7 +200,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     Assertions.checkNotNull(tableName);
     try {
       SQLiteDatabase writableDatabase = databaseProvider.getWritableDatabase();
-      writableDatabase.delete(tableName, WHERE_NAME_EQUALS, new String[] {name});
+      writableDatabase.delete(tableName, WHERE_NAME_EQUALS, new String[] { DatabaseUtils.sqlEscapeString(name) });
     } catch (SQLException e) {
       throw new DatabaseIOException(e);
     }
@@ -221,7 +222,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       writableDatabase.beginTransactionNonExclusive();
       try {
         for (String name : names) {
-          writableDatabase.delete(tableName, WHERE_NAME_EQUALS, new String[] {name});
+          writableDatabase.delete(tableName, WHERE_NAME_EQUALS, new String[] { DatabaseUtils.sqlEscapeString(name) });
         }
         writableDatabase.setTransactionSuccessful();
       } finally {
