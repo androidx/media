@@ -2,6 +2,14 @@
 
 ### Unreleased changes
 
+*   Session:
+    *   Add `androidx.media3.session.MediaButtonReceiver` to enable apps to
+        implement playback resumption with media button events sent by, for
+        example, a Bluetooth headset
+        ([#167](https://github.com/androidx/media/issues/167)).
+
+### 1.1.0-alpha01 (2023-05-10)
+
 *   Core library:
     *   Add suppression reason for unsuitable audio route and play when ready
         change reason for suppressed too long.
