@@ -105,6 +105,10 @@ This release includes the following changes since
     *   Remove deprecated
         `DefaultLoadControl.Builder.createDefaultLoadControl()`, use `build()`
         instead.
+    *   Remove deprecated `MediaItem.PlaybackProperties`, use
+        `MediaItem.LocalConfiguration` instead. Deprecated field
+        `MediaItem.playbackProperties` is now of type
+        `MediaItem.LocalConfiguration`.
 
 ## 1.1
 
