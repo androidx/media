@@ -1,5 +1,78 @@
 # Release notes
 
+### Unreleased changes
+
+*   Common Library:
+    *   Add a `@Nullable Throwable` parameter to the methods in the `Log.Logger`
+        interface. The `message` parameter to these methods no longer contains
+        any information about the `Throwable` passed to the `Log.{d,i,w,e}()`
+        methods, so implementations will need to manually append this
+        information if desired (possibly using
+        `Logger.appendThrowableString(String, Throwable)`).
+*   ExoPlayer:
+*   Transformer:
+    *   Parse EXIF rotation data for image inputs.
+*   Track Selection:
+*   Extractors:
+*   Audio:
+*   Audio Offload:
+    *   Add `AudioSink.getFormatOffloadSupport(Format)` that retrieves level of
+        offload support the sink can provide for the format through a
+        `DefaultAudioOffloadSupportProvider`. It returns the new
+        `AudioOffloadSupport` that contains `isFormatSupported`,
+        `isGaplessSupported`, and `isSpeedChangeSupported`.
+    *   Add `AudioSink.setOffloadMode()` through which the offload configuration
+        on the audio sink is configured. Default is
+        `AudioSink.OFFLOAD_MODE_DISABLED`.
+    *   Offload can be enabled through `setAudioOffloadPreference` in
+        `TrackSelectionParameters`. If the set preference is to enable, the
+        device supports offload for the format, and the track selection is a
+        single audio track, then audio offload will be enabled.
+    *   If `audioOffloadModePreference` is set to
+        `AUDIO_OFFLOAD_MODE_PREFERENCE_REQUIRED`, then the
+        `DefaultTrackSelector` will only select an audio track and only if that
+        track's format is supported in offload. If no audio track is supported
+        in offload, then no track will be selected.
+    *   Remove parameter `enableOffload` from
+        `DefaultRenderersFactory.buildAudioSink` method signature.
+    *   Remove method `DefaultAudioSink.Builder.setOffloadMode`.
+    *   Remove intdef value
+        `DefaultAudioSink.OffloadMode.OFFLOAD_MODE_ENABLED_GAPLESS_DISABLED`.
+*   Video:
+    *   Allow `MediaCodecVideoRenderer` to use a custom
+        `VideoFrameProcessor.Factory`.
+*   Text:
+*   Metadata:
+*   DRM:
+*   Effect:
+*   Muxers:
+*   IMA extension:
+*   Session:
+    *   Add default implementation to `MediaSession.Callback.onAddMediaItems` to
+        allow requested `MediaItems` to be passed onto `Player` if they have
+        `LocalConfiguration` (e.g. URI)
+        ([#282](https://github.com/androidx/media/issues/282)).
+*   UI:
+*   Downloads:
+*   OkHttp Extension:
+*   Cronet Extension:
+*   RTMP Extension:
+*   DASH Extension:
+*   HLS Extension:
+*   Smooth Streaming Extension:
+*   RTSP Extension:
+*   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
+*   MIDI extension:
+    *   Release the MIDI decoder module, which provides support for playback of
+        standard MIDI files using the Jsyn library to synthesize audio.
+*   Cast Extension:
+*   Test Utilities:
+*   Remove deprecated symbols:
+    *   Remove deprecated `MediaItem.PlaybackProperties`, use
+        `MediaItem.LocalConfiguration` instead. Deprecated field
+        `MediaItem.playbackProperties` is now of type
+        `MediaItem.LocalConfiguration`.
+
 ## 1.1
 
 ### 1.1.0-beta01 (2023-06-07)
@@ -105,12 +178,6 @@ This release includes the following changes since
     *   Remove deprecated
         `DefaultLoadControl.Builder.createDefaultLoadControl()`, use `build()`
         instead.
-    *   Remove deprecated `MediaItem.PlaybackProperties`, use
-        `MediaItem.LocalConfiguration` instead. Deprecated field
-        `MediaItem.playbackProperties` is now of type
-        `MediaItem.LocalConfiguration`.
-
-## 1.1
 
 ### 1.1.0-alpha01 (2023-05-10)
 
