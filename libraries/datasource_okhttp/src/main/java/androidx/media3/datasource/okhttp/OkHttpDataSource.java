@@ -198,6 +198,9 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
   private long bytesToRead;
   private long bytesRead;
 
+  private static final CacheControl DISABLE_CACHE = new CacheControl.Builder().noCache().noStore()
+      .build();
+
   /**
    * @deprecated Use {@link OkHttpDataSource.Factory} instead.
    */
@@ -458,6 +461,10 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
       requestBody = RequestBody.create(null, Util.EMPTY_BYTE_ARRAY);
     }
     builder.method(dataSpec.getHttpMethodString(), requestBody);
+
+    // ExoPlayer implements it's own caching, so avoid a second cache.
+    builder.cacheControl(DISABLE_CACHE);
+
     return builder.build();
   }
 
