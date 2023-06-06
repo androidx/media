@@ -127,25 +127,7 @@ public class OkHttpDataSourceTest {
   }
 
   @Test
-  public void factory_setRequestPropertyAfterCreation_setsCorrectHeaders() throws Exception {
-    MockWebServer mockWebServer = new MockWebServer();
-    mockWebServer.enqueue(new MockResponse());
-    DataSpec dataSpec =
-        new DataSpec.Builder().setUri(mockWebServer.url("/test-path").toString()).build();
-    OkHttpDataSource.Factory factory = new OkHttpDataSource.Factory(new OkHttpClient());
-    OkHttpDataSource dataSource = factory.createDataSource();
-
-    Map<String, String> defaultRequestProperties = new HashMap<>();
-    defaultRequestProperties.put("0", "afterCreation");
-    factory.setDefaultRequestProperties(defaultRequestProperties);
-    dataSource.open(dataSpec);
-
-    Headers headers = mockWebServer.takeRequest(10, SECONDS).getHeaders();
-    assertThat(headers.get("0")).isEqualTo("afterCreation");
-  }
-
-  @Test
-  public void does_not_cache_in_okhttp() throws Exception {
+  public void open_doesNotCacheInOkHttp() throws Exception {
     MockWebServer mockWebServer = new MockWebServer();
     mockWebServer.enqueue(
         new MockResponse().setBody("1234").addHeader("Cache-Control: max-age=60"));
@@ -161,5 +143,23 @@ public class OkHttpDataSourceTest {
     dataSource.close();
 
     assertThat(cache.size()).isEqualTo(0);
+  }
+
+  @Test
+  public void factory_setRequestPropertyAfterCreation_setsCorrectHeaders() throws Exception {
+    MockWebServer mockWebServer = new MockWebServer();
+    mockWebServer.enqueue(new MockResponse());
+    DataSpec dataSpec =
+        new DataSpec.Builder().setUri(mockWebServer.url("/test-path").toString()).build();
+    OkHttpDataSource.Factory factory = new OkHttpDataSource.Factory(new OkHttpClient());
+    OkHttpDataSource dataSource = factory.createDataSource();
+
+    Map<String, String> defaultRequestProperties = new HashMap<>();
+    defaultRequestProperties.put("0", "afterCreation");
+    factory.setDefaultRequestProperties(defaultRequestProperties);
+    dataSource.open(dataSpec);
+
+    Headers headers = mockWebServer.takeRequest(10, SECONDS).getHeaders();
+    assertThat(headers.get("0")).isEqualTo("afterCreation");
   }
 }

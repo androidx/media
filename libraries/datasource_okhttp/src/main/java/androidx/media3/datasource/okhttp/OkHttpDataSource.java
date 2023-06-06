@@ -69,6 +69,9 @@ import okhttp3.ResponseBody;
  */
 public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
 
+  private static final CacheControl DISABLE_CACHE =
+      new CacheControl.Builder().noCache().noStore().build();
+
   static {
     MediaLibraryInfo.registerModule("media3.datasource.okhttp");
   }
@@ -197,9 +200,6 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
   private boolean opened;
   private long bytesToRead;
   private long bytesRead;
-
-  private static final CacheControl DISABLE_CACHE =
-      new CacheControl.Builder().noCache().noStore().build();
 
   /**
    * @deprecated Use {@link OkHttpDataSource.Factory} instead.
