@@ -23,6 +23,8 @@
 *   UI:
 *   Downloads:
 *   OkHttp Extension:
+    *   Disable internal caching of OkHttp
+        ([#441](https://github.com/androidx/media/pull/441)).
 *   Cronet Extension:
 *   RTMP Extension:
 *   DASH Extension:
