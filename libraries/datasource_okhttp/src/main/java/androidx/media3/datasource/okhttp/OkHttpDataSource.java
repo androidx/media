@@ -462,7 +462,7 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
     }
     builder.method(dataSpec.getHttpMethodString(), requestBody);
 
-    // ExoPlayer implements it's own caching, so avoid a second cache.
+    // ExoPlayer implements its own caching, so avoid a second cache.
     builder.cacheControl(DISABLE_CACHE);
 
     return builder.build();
