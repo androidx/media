@@ -40,8 +40,7 @@ import org.junit.runner.RunWith;
 /** Unit tests for {@link OkHttpDataSource}. */
 @RunWith(AndroidJUnit4.class)
 public class OkHttpDataSourceTest {
-  @Rule
-  public TemporaryFolder tempFolder = new TemporaryFolder();
+  @Rule public TemporaryFolder tempFolder = new TemporaryFolder();
 
   /**
    * This test will set HTTP default request parameters (1) in the OkHttpDataSource, (2) via
@@ -148,16 +147,13 @@ public class OkHttpDataSourceTest {
   @Test
   public void does_not_cache_in_okhttp() throws Exception {
     MockWebServer mockWebServer = new MockWebServer();
-    mockWebServer.enqueue(new MockResponse()
-        .setBody("1234")
-        .addHeader("Cache-Control: max-age=60"));
+    mockWebServer.enqueue(
+        new MockResponse().setBody("1234").addHeader("Cache-Control: max-age=60"));
     DataSpec dataSpec =
         new DataSpec.Builder().setUri(mockWebServer.url("/test-path").toString()).build();
 
     Cache cache = new Cache(tempFolder.getRoot(), 10_000_000);
-    OkHttpClient okHttpClient = new OkHttpClient.Builder()
-        .cache(cache)
-        .build();
+    OkHttpClient okHttpClient = new OkHttpClient.Builder().cache(cache).build();
     OkHttpDataSource.Factory factory = new OkHttpDataSource.Factory((Call.Factory) okHttpClient);
     OkHttpDataSource dataSource = factory.createDataSource();
 

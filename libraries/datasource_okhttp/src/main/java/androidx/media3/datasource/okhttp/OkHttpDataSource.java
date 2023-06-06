@@ -198,8 +198,8 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
   private long bytesToRead;
   private long bytesRead;
 
-  private static final CacheControl DISABLE_CACHE = new CacheControl.Builder().noCache().noStore()
-      .build();
+  private static final CacheControl DISABLE_CACHE =
+      new CacheControl.Builder().noCache().noStore().build();
 
   /**
    * @deprecated Use {@link OkHttpDataSource.Factory} instead.
