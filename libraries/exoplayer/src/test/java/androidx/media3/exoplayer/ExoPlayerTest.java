@@ -131,6 +131,7 @@ import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.metadata.MetadataOutput;
 import androidx.media3.exoplayer.source.ClippingMediaSource;
 import androidx.media3.exoplayer.source.ConcatenatingMediaSource;
+import androidx.media3.exoplayer.source.ForwardingTimeline;
 import androidx.media3.exoplayer.source.MaskingMediaSource;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource;
@@ -188,6 +189,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -1629,6 +1631,7 @@ public final class ExoPlayerTest {
             .blockUntilEnded(TIMEOUT_MS);
     testRunner.assertTimelineChangeReasonsEqual(
         Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED,
+        Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE,
         Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE);
     testRunner.assertPositionDiscontinuityReasonsEqual(Player.DISCONTINUITY_REASON_SEEK);
 
@@ -1665,6 +1668,119 @@ public final class ExoPlayerTest {
         .blockUntilEnded(TIMEOUT_MS);
 
     mediaSource.assertReleased();
+  }
+
+  @Test
+  public void stop_withLiveStream_currentPeriodIsPlaceholder() throws TimeoutException {
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    FakeTimeline fakeTimeline =
+        new FakeTimeline(
+            new TimelineWindowDefinition(
+                /* periodCount= */ 1,
+                /* id= */ 0,
+                /* isSeekable= */ true,
+                /* isDynamic= */ true,
+                /* isLive= */ true,
+                /* isPlaceholder= */ false,
+                /* durationUs= */ 1000 * C.MICROS_PER_SECOND,
+                /* defaultPositionUs= */ 0,
+                TimelineWindowDefinition.DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
+                AdPlaybackState.NONE));
+    player.addMediaSources(ImmutableList.of(new FakeMediaSource(fakeTimeline)));
+    player.prepare();
+    runUntilPlaybackState(player, Player.STATE_READY);
+    assertThat(
+            player
+                .getCurrentTimeline()
+                .getPeriod(player.getCurrentPeriodIndex(), new Timeline.Period())
+                .isPlaceholder)
+        .isFalse();
+
+    player.stop();
+
+    TestPlayerRunHelper.runUntilPendingCommandsAreFullyHandled(player);
+    assertThat(
+            player
+                .getCurrentTimeline()
+                .getPeriod(player.getCurrentPeriodIndex(), new Timeline.Period())
+                .isPlaceholder)
+        .isTrue();
+    player.release();
+  }
+
+  @Test
+  public void stop_withVodStream_currentPeriodIsPlaceholder() throws TimeoutException {
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    player.addMediaSources(ImmutableList.of(new FakeMediaSource()));
+    player.prepare();
+    runUntilPlaybackState(player, Player.STATE_READY);
+    assertThat(
+            player
+                .getCurrentTimeline()
+                .getPeriod(player.getCurrentPeriodIndex(), new Timeline.Period())
+                .isPlaceholder)
+        .isFalse();
+
+    player.stop();
+
+    TestPlayerRunHelper.runUntilPendingCommandsAreFullyHandled(player);
+    assertThat(
+            player
+                .getCurrentTimeline()
+                .getPeriod(player.getCurrentPeriodIndex(), new Timeline.Period())
+                .isPlaceholder)
+        .isTrue();
+    player.release();
+  }
+
+  @Test
+  public void playbackError_withLiveStream_currentPeriodIsPlaceholder() throws TimeoutException {
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    FakeTimeline fakeTimeline =
+        new FakeTimeline(
+            new TimelineWindowDefinition(
+                /* periodCount= */ 1,
+                /* id= */ 0,
+                /* isSeekable= */ true,
+                /* isDynamic= */ true,
+                /* isLive= */ true,
+                /* isPlaceholder= */ false,
+                /* durationUs= */ 1000 * C.MICROS_PER_SECOND,
+                /* defaultPositionUs= */ 0,
+                TimelineWindowDefinition.DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
+                AdPlaybackState.NONE));
+    FakeMediaSource fakeMediaSource =
+        new FakeMediaSource(fakeTimeline) {
+          @Override
+          public Timeline getInitialTimeline() {
+            return fakeTimeline;
+          }
+
+          @Override
+          public synchronized void prepareSourceInternal(
+              @Nullable TransferListener mediaTransferListener) {
+            super.prepareSourceInternal(mediaTransferListener);
+            throw new IllegalArgumentException();
+          }
+        };
+    player.addMediaSources(ImmutableList.of(fakeMediaSource));
+    player.prepare();
+    assertThat(
+            player
+                .getCurrentTimeline()
+                .getPeriod(player.getCurrentPeriodIndex(), new Timeline.Period())
+                .isPlaceholder)
+        .isFalse();
+
+    runUntilError(player);
+
+    assertThat(
+            player
+                .getCurrentTimeline()
+                .getPeriod(player.getCurrentPeriodIndex(), new Timeline.Period())
+                .isPlaceholder)
+        .isTrue();
+    player.release();
   }
 
   @Test
@@ -2001,9 +2117,11 @@ public final class ExoPlayerTest {
             .start()
             .blockUntilActionScheduleFinished(TIMEOUT_MS)
             .blockUntilEnded(TIMEOUT_MS);
-    testRunner.assertTimelinesSame(placeholderTimeline, timeline);
+    testRunner.assertTimelinesSame(
+        placeholderTimeline, timeline, createPlaceholderWrapperTimeline(timeline));
     testRunner.assertTimelineChangeReasonsEqual(
         Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED,
+        Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE,
         Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE);
   }
 
@@ -2018,7 +2136,7 @@ public final class ExoPlayerTest {
                     new IOException(), PlaybackException.ERROR_CODE_IO_UNSPECIFIED))
             .waitForPlaybackState(Player.STATE_IDLE)
             .prepare()
-            .waitForPlaybackState(Player.STATE_BUFFERING)
+            .waitForPlaybackState(Player.STATE_READY)
             .build();
     ExoPlayerTestRunner testRunner =
         new ExoPlayerTestRunner.Builder(context)
@@ -2031,10 +2149,13 @@ public final class ExoPlayerTest {
     } catch (ExoPlaybackException e) {
       // Expected exception.
     }
-    testRunner.assertTimelinesSame(placeholderTimeline, timeline);
     testRunner.assertTimelineChangeReasonsEqual(
         Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED,
+        Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE,
+        Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE,
         Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE);
+    testRunner.assertTimelinesSame(
+        placeholderTimeline, timeline, createPlaceholderWrapperTimeline(timeline), timeline);
   }
 
   @Test
@@ -2068,11 +2189,28 @@ public final class ExoPlayerTest {
     long positionWhenFullyReadyAfterReprepare = player.getCurrentPosition();
     player.release();
 
-    // Ensure we don't receive further timeline updates when repreparing.
-    verify(mockListener)
+    verify(mockListener, times(4)).onTimelineChanged(any(), anyInt());
+    InOrder inOrder = inOrder(mockListener);
+    inOrder
+        .verify(mockListener)
         .onTimelineChanged(any(), eq(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED));
-    verify(mockListener).onTimelineChanged(any(), eq(Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE));
-    verify(mockListener, times(2)).onTimelineChanged(any(), anyInt());
+    inOrder.verify(mockListener).onPlaybackStateChanged(Player.STATE_BUFFERING);
+    // Source update at reset after playback exception (isPlaceholder=true)
+    inOrder
+        .verify(mockListener)
+        .onTimelineChanged(any(), eq(Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE));
+    inOrder.verify(mockListener).onPlaybackStateChanged(Player.STATE_READY);
+    // Source update replacing wrapper timeline of reset (isPlaceholder=false)
+    inOrder
+        .verify(mockListener)
+        .onTimelineChanged(any(), eq(Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE));
+    inOrder.verify(mockListener).onPlaybackStateChanged(Player.STATE_IDLE);
+    inOrder.verify(mockListener).onPlaybackStateChanged(Player.STATE_BUFFERING);
+    // Source update at second preparation
+    inOrder
+        .verify(mockListener)
+        .onTimelineChanged(any(), eq(Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE));
+    inOrder.verify(mockListener).onPlaybackStateChanged(Player.STATE_READY);
 
     assertThat(positionAfterSeekHandled).isEqualTo(50);
     assertThat(positionAfterReprepareHandled).isEqualTo(50);
@@ -2330,9 +2468,15 @@ public final class ExoPlayerTest {
     } catch (ExoPlaybackException e) {
       // Expected exception.
     }
-    testRunner.assertTimelinesSame(placeholderTimeline, timeline, placeholderTimeline, timeline);
+    testRunner.assertTimelinesSame(
+        placeholderTimeline,
+        timeline,
+        createPlaceholderWrapperTimeline(timeline),
+        placeholderTimeline,
+        timeline);
     testRunner.assertTimelineChangeReasonsEqual(
         Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED,
+        Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE,
         Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE,
         Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED,
         Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE);
@@ -13141,5 +13285,20 @@ public final class ExoPlayerTest {
    */
   private static ArgumentMatcher<Timeline> noUid(Timeline timeline) {
     return argument -> timelinesAreSame(argument, timeline);
+  }
+
+  /**
+   * Creates a forwarding timeline that sets the {@link Timeline.Period#isPlaceholder} flag to true.
+   * This is what happens when the player is stopped or a playback exception is thrown.
+   */
+  private static Timeline createPlaceholderWrapperTimeline(Timeline timeline) {
+    return new ForwardingTimeline(timeline) {
+      @Override
+      public Period getPeriod(int periodIndex, Period period, boolean setIds) {
+        Period superPeriod = super.getPeriod(periodIndex, period, setIds);
+        superPeriod.isPlaceholder = true;
+        return superPeriod;
+      }
+    };
   }
 }
