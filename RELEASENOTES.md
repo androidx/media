@@ -1,14 +1,12 @@
 # Release notes
 
-### Unreleased changes
+## 1.1
 
-*   Common Library:
-    *   Add a `@Nullable Throwable` parameter to the methods in the `Log.Logger`
-        interface. The `message` parameter to these methods no longer contains
-        any information about the `Throwable` passed to the `Log.{d,i,w,e}()`
-        methods, so implementations will need to manually append this
-        information if desired (possibly using
-        `Logger.appendThrowableString(String, Throwable)`).
+### 1.1.0-rc01 (2023-06-21)
+
+This release includes the following changes since
+[1.1.0-beta01](#110-beta01-2023-06-07):
+
 *   ExoPlayer:
     *   Add support for including Common Media Client Data (CMCD) in the
         outgoing requests of adaptive streaming formats DASH, HLS, and
@@ -24,89 +22,13 @@
             out which keys are logged.
         *   Override `CmcdConfiguration.RequestConfig.getCustomData()` to enable
             custom key logging.
-    *   Add additional action to manifest of main demo for making it easier to
+    *   Add additional action to manifest of main demo to make it easier to
         start the demo app with a custom `*.exolist.json` file
         ([#439](https://github.com/androidx/media/pull/439)).
-*   Transformer:
-    *   Parse EXIF rotation data for image inputs.
-*   Track Selection:
 *   Extractors:
     *   FMP4: Fix issue where `TimestampAdjuster` initializes a wrong timestamp
         offset with metadata sample time from emsg atom
         ([#356](https://github.com/androidx/media/issues/356)).
-*   Audio:
-*   Audio Offload:
-    *   Add `AudioSink.getFormatOffloadSupport(Format)` that retrieves level of
-        offload support the sink can provide for the format through a
-        `DefaultAudioOffloadSupportProvider`. It returns the new
-        `AudioOffloadSupport` that contains `isFormatSupported`,
-        `isGaplessSupported`, and `isSpeedChangeSupported`.
-    *   Add `AudioSink.setOffloadMode()` through which the offload configuration
-        on the audio sink is configured. Default is
-        `AudioSink.OFFLOAD_MODE_DISABLED`.
-    *   Offload can be enabled through `setAudioOffloadPreference` in
-        `TrackSelectionParameters`. If the set preference is to enable, the
-        device supports offload for the format, and the track selection is a
-        single audio track, then audio offload will be enabled.
-    *   If `audioOffloadModePreference` is set to
-        `AUDIO_OFFLOAD_MODE_PREFERENCE_REQUIRED`, then the
-        `DefaultTrackSelector` will only select an audio track and only if that
-        track's format is supported in offload. If no audio track is supported
-        in offload, then no track will be selected.
-    *   Remove parameter `enableOffload` from
-        `DefaultRenderersFactory.buildAudioSink` method signature.
-    *   Remove method `DefaultAudioSink.Builder.setOffloadMode`.
-    *   Remove intdef value
-        `DefaultAudioSink.OffloadMode.OFFLOAD_MODE_ENABLED_GAPLESS_DISABLED`.
-*   Video:
-    *   Allow `MediaCodecVideoRenderer` to use a custom
-        `VideoFrameProcessor.Factory`.
-*   Text:
-*   Metadata:
-*   DRM:
-*   Effect:
-*   Muxers:
-*   IMA extension:
-*   Session:
-    *   Add default implementation to `MediaSession.Callback.onAddMediaItems` to
-        allow requested `MediaItems` to be passed onto `Player` if they have
-        `LocalConfiguration` (e.g. URI)
-        ([#282](https://github.com/androidx/media/issues/282)).
-    *   Add "seek to previous" and "seek to next" command buttons on compact
-        media notification view by default for Android 12 and below
-        ([#410](https://github.com/androidx/media/issues/410)).
-*   UI:
-*   Downloads:
-*   OkHttp Extension:
-*   Cronet Extension:
-*   RTMP Extension:
-*   DASH Extension:
-    *   Fix a bug where re-preparing a multi-period live Dash media source
-        produced a `IndexOutOfBoundsException`
-        ([#10838](https://github.com/google/ExoPlayer/issues/10838)).
-*   HLS Extension:
-    *   Add
-        `HlsMediaSource.Factory.setTimestampAdjusterInitializationTimeoutMs(long)`
-        to set a timeout for the loading thread to wait for the
-        `TimestampAdjuster` to initialize. If the initialization doesn't
-        complete before the timeout, a `PlaybackException` is thrown to avoid
-        the playback endless stalling. The timeout is set to zero by default
-        ([#323](https://github.com/androidx/media/issues//323)).
-*   Smooth Streaming Extension:
-*   RTSP Extension:
-*   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
-*   MIDI extension:
-    *   Release the MIDI decoder module, which provides support for playback of
-        standard MIDI files using the Jsyn library to synthesize audio.
-*   Cast Extension:
-*   Test Utilities:
-*   Remove deprecated symbols:
-    *   Remove deprecated `MediaItem.PlaybackProperties`, use
-        `MediaItem.LocalConfiguration` instead. Deprecated field
-        `MediaItem.playbackProperties` is now of type
-        `MediaItem.LocalConfiguration`.
-
-## 1.1
 
 ### 1.1.0-beta01 (2023-06-07)
 
