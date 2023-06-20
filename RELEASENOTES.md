@@ -1,5 +1,10 @@
 # Release notes
 
+### Unreleased changes
+
+*   ExoPlayer:
+    *   Fix issue in `PlaybackStatsListener` where spurious `PlaybackStats` are
+        created after the playlist is cleared.
 ## 1.1
 
 ### 1.1.0 (2023-07-05)
