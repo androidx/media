@@ -422,12 +422,18 @@ public final class CastPlayer extends BasePlayer {
       return;
     }
     MediaStatus mediaStatus = getMediaStatus();
-    // We assume the default position is 0. There is no support for seeking to the default position
-    // in RemoteMediaClient.
-    positionMs = positionMs != C.TIME_UNSET ? positionMs : 0;
     if (mediaStatus != null && remoteMediaClient != null) {
-      // The cast live content start position might not bet at 0, add offset if set.
       currentTimeline.getPeriod(mediaItemIndex, period, true);
+
+      // Resolve the default position for the window.
+      if (positionMs == C.TIME_UNSET) {
+        currentTimeline.getWindow(mediaItemIndex, window);
+        positionMs = window.defaultPositionUs != C.TIME_UNSET
+            ? Util.usToMs(window.defaultPositionUs)
+            : 0;
+      }
+
+      // The cast live content start position might not bet at 0, add offset if set.
       long periodPosInWindow = Util.usToMs(period.positionInWindowUs);
       long targetPosMs = positionMs - periodPosInWindow;
 

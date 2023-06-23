@@ -41,7 +41,6 @@ import java.util.Objects;
             /* windowDurationUs= */ C.TIME_UNSET,
             /* periodDurationUs= */ C.TIME_UNSET,
             /* windowStartOffsetUs= */ C.TIME_UNSET,
-            /* defaultPositionUs= */ C.TIME_UNSET,
             /* isLive= */ false,
             /* isMovingLiveWindow= */ false,
             MediaItem.EMPTY,
@@ -57,10 +56,6 @@ import java.util.Objects;
      * {@link C#TIME_UNSET} or the duration from 0 until the end of the stream.
      */
     public final long periodDurationUs;
-    /**
-     * The default start position of the item in microseconds, or {@link C#TIME_UNSET} if unknown.
-     */
-    public final long defaultPositionUs;
     /** Whether the item is live content, or {@code false} if unknown. */
     public final boolean isLive;
     /**
@@ -79,7 +74,6 @@ import java.util.Objects;
      * @param windowDurationUs See {@link #windowDurationsUs}.
      * @param periodDurationUs See {@link #periodDurationUs}.
      * @param windowStartOffsetUs See {@link #windowStartOffsetUs}
-     * @param defaultPositionUs See {@link #defaultPositionUs}.
      * @param isLive See {@link #isLive}.
      * @param isMovingLiveWindow See {@link #isMovingLiveWindow}.
      * @param mediaItem See {@link #mediaItem}.
@@ -89,7 +83,6 @@ import java.util.Objects;
         long windowDurationUs,
         long periodDurationUs,
         long windowStartOffsetUs,
-        long defaultPositionUs,
         boolean isLive,
         boolean isMovingLiveWindow,
         MediaItem mediaItem,
@@ -97,7 +90,6 @@ import java.util.Objects;
       this.windowDurationUs = windowDurationUs;
       this.periodDurationUs = periodDurationUs;
       this.windowStartOffsetUs = windowStartOffsetUs;
-      this.defaultPositionUs = defaultPositionUs;
       this.isLive = isLive;
       this.isMovingLiveWindow = isMovingLiveWindow;
       this.mediaItem = mediaItem;
@@ -110,7 +102,6 @@ import java.util.Objects;
      * @param windowDurationUs See {@link #windowDurationsUs}.
      * @param periodDurationUs See {@link #periodDurationUs}.
      * @param windowStartOffsetUs See {@link #windowStartOffsetUs}
-     * @param defaultPositionUs See {@link #defaultPositionUs}.
      * @param isLive See {@link #isLive}.
      * @param isMovingLiveWindow See {@link #isMovingLiveWindow}.
      * @param mediaItem See {@link #mediaItem}.
@@ -120,7 +111,6 @@ import java.util.Objects;
         long windowDurationUs,
         long periodDurationUs,
         long windowStartOffsetUs,
-        long defaultPositionUs,
         boolean isLive,
         boolean isMovingLiveWindow,
         MediaItem mediaItem,
@@ -128,7 +118,6 @@ import java.util.Objects;
       if (windowDurationUs == this.windowDurationUs
           && periodDurationUs == this.periodDurationUs
           && windowStartOffsetUs == this.windowStartOffsetUs
-          && defaultPositionUs == this.defaultPositionUs
           && isLive == this.isLive
           && isMovingLiveWindow == this.isMovingLiveWindow
           && contentId.equals(this.contentId)
@@ -136,7 +125,7 @@ import java.util.Objects;
         return this;
       }
       return new ItemData(windowDurationUs, periodDurationUs, windowStartOffsetUs,
-          defaultPositionUs, isLive, isMovingLiveWindow, mediaItem, contentId);
+          isLive, isMovingLiveWindow, mediaItem, contentId);
     }
   }
 
@@ -150,7 +139,6 @@ import java.util.Objects;
   private final long[] windowDurationsUs;
   private final long[] periodDurationsUs;
   private final long[] windowStartOffsetUs;
-  private final long[] defaultPositionsUs;
   private final boolean[] isLive;
   private final boolean[] isMovingLiveWindow;
   private final long creationUnixTimeMs;
@@ -169,7 +157,6 @@ import java.util.Objects;
     windowDurationsUs = new long[itemCount];
     periodDurationsUs = new long[itemCount];
     windowStartOffsetUs = new long[itemCount];
-    defaultPositionsUs = new long[itemCount];
     isLive = new boolean[itemCount];
     isMovingLiveWindow = new boolean[itemCount];
     mediaItems = new MediaItem[itemCount];
@@ -181,7 +168,6 @@ import java.util.Objects;
       windowDurationsUs[i] = data.windowDurationUs;
       periodDurationsUs[i] = data.periodDurationUs;
       windowStartOffsetUs[i] = data.windowStartOffsetUs;
-      defaultPositionsUs[i] = data.defaultPositionUs == C.TIME_UNSET ? 0 : data.defaultPositionUs;
       isLive[i] = data.isLive;
       isMovingLiveWindow[i] = data.isMovingLiveWindow;
     }
@@ -222,7 +208,7 @@ import java.util.Objects;
         /* isSeekable= */ windowDurationUs != C.TIME_UNSET,
         /* isDynamic= */ isDynamic,
         /* liveConfiguration= */ windowIsLive ? mediaItems[windowIndex].liveConfiguration : null,
-        /* defaultPositionUs= */ defaultPositionsUs[windowIndex],
+        /* defaultPositionUs= */ (windowIsLive && isDynamic) ? windowDurationUs : 0,
         /* durationUs= */ windowDurationUs,
         /* firstPeriodIndex= */ windowIndex,
         /* lastPeriodIndex= */ windowIndex,
@@ -270,7 +256,6 @@ import java.util.Objects;
         && Arrays.equals(windowDurationsUs, that.windowDurationsUs)
         && Arrays.equals(periodDurationsUs, that.periodDurationsUs)
         && Arrays.equals(windowStartOffsetUs, that.windowStartOffsetUs)
-        && Arrays.equals(defaultPositionsUs, that.defaultPositionsUs)
         && Arrays.equals(isLive, that.isLive)
         && Arrays.equals(isMovingLiveWindow, that.isMovingLiveWindow);
   }
@@ -282,7 +267,6 @@ import java.util.Objects;
     result = 31 * result + Arrays.hashCode(windowDurationsUs);
     result = 31 * result + Arrays.hashCode(periodDurationsUs);
     result = 31 * result + Arrays.hashCode(windowStartOffsetUs);
-    result = 31 * result + Arrays.hashCode(defaultPositionsUs);
     result = 31 * result + Arrays.hashCode(isLive);
     result = 31 * result + Arrays.hashCode(isMovingLiveWindow);
     return result;

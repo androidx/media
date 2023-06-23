@@ -117,7 +117,6 @@ import java.util.List;
 
     for (MediaQueueItem queueItem : mediaStatus.getQueueItems()) {
       int itemId = queueItem.getItemId();
-      long defaultPositionUs = (long) (queueItem.getStartTime() * C.MICROS_PER_SECOND);
       @Nullable MediaInfo mediaInfo = queueItem.getMedia();
       String contentId = mediaInfo != null ? mediaInfo.getContentId() : UNKNOWN_CONTENT_ID;
       @Nullable MediaItem existingMediaItem = mediaItemsByContentId.get(contentId);
@@ -131,8 +130,7 @@ import java.util.List;
             contentId,
             mediaItem,
             mediaStatus.getMediaInfo(),
-            mediaStatus.getLiveSeekableRange(),
-            defaultPositionUs);
+            mediaStatus.getLiveSeekableRange());
         currentItemDataSet = true;
       } else {
         updateItemData(
@@ -140,8 +138,7 @@ import java.util.List;
             contentId,
             mediaItem,
             mediaInfo,
-            null,
-            defaultPositionUs);
+            null);
       }
     }
 
@@ -154,8 +151,7 @@ import java.util.List;
           currentContentId,
           mediaItem != null ? mediaItem : MediaItem.EMPTY,
           mediaStatus.getMediaInfo(),
-          mediaStatus.getLiveSeekableRange(),
-          C.TIME_UNSET);
+          mediaStatus.getLiveSeekableRange());
     }
     return new CastTimeline(itemIds, itemIdToData);
   }
@@ -165,8 +161,7 @@ import java.util.List;
       String contentId,
       MediaItem mediaItem,
       @Nullable MediaInfo mediaInfo,
-      @Nullable MediaLiveSeekableRange liveSeekableRange,
-      long defaultPositionUs) {
+      @Nullable MediaLiveSeekableRange liveSeekableRange) {
     CastTimeline.ItemData previousData = itemIdToData.get(itemId, CastTimeline.ItemData.EMPTY);
     boolean isLive = mediaInfo == null
             ? previousData.isLive
@@ -203,8 +198,8 @@ import java.util.List;
     }
 
     CastTimeline.ItemData itemData = previousData
-        .copyWithNewValues(windowDurationUs, periodDurationUs, windowOffsetUs, defaultPositionUs,
-            isLive, isMovingLiveWindow, mediaItem, contentId);
+        .copyWithNewValues(windowDurationUs, periodDurationUs, windowOffsetUs, isLive,
+            isMovingLiveWindow, mediaItem, contentId);
     itemIdToData.put(itemId, itemData);
   }
 
