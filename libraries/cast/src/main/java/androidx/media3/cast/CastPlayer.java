@@ -425,15 +425,21 @@ public final class CastPlayer extends BasePlayer {
     // We assume the default position is 0. There is no support for seeking to the default position
     // in RemoteMediaClient.
     positionMs = positionMs != C.TIME_UNSET ? positionMs : 0;
-    if (mediaStatus != null) {
+    if (mediaStatus != null && remoteMediaClient != null) {
+      // The cast live content start position might not bet at 0, add offset if set.
+      currentTimeline.getPeriod(mediaItemIndex, period, true);
+      long periodPosInWindow = Util.usToMs(period.positionInWindowUs);
+      long targetPosMs = positionMs - periodPosInWindow;
+
       if (getCurrentMediaItemIndex() != mediaItemIndex) {
+        int targetItemId = (int) period.uid;
         remoteMediaClient
-            .queueJumpToItem(
-                (int) currentTimeline.getPeriod(mediaItemIndex, period).uid, positionMs, null)
+            .queueJumpToItem(targetItemId, targetPosMs, null)
             .setResultCallback(seekResultCallback);
       } else {
-        remoteMediaClient.seek(positionMs).setResultCallback(seekResultCallback);
+        remoteMediaClient.seek(targetPosMs).setResultCallback(seekResultCallback);
       }
+
       PositionInfo oldPosition = getCurrentPositionInfo();
       pendingSeekCount++;
       pendingSeekWindowIndex = mediaItemIndex;
@@ -628,11 +634,20 @@ public final class CastPlayer extends BasePlayer {
 
   @Override
   public long getCurrentPosition() {
-    return pendingSeekPositionMs != C.TIME_UNSET
-        ? pendingSeekPositionMs
-        : remoteMediaClient != null
-            ? remoteMediaClient.getApproximateStreamPosition()
-            : lastReportedPositionMs;
+    if (pendingSeekPositionMs != C.TIME_UNSET) {
+      return pendingSeekPositionMs;
+    }
+
+    long castPosition = remoteMediaClient != null
+        ? remoteMediaClient.getApproximateStreamPosition()
+        : lastReportedPositionMs;
+
+    Timeline timeline = getCurrentTimeline();
+    if (!timeline.isEmpty() && timeline.getWindow(getCurrentMediaItemIndex(), window).isSeekable) {
+      return castPosition - window.getPositionInFirstPeriodMs();
+    }
+
+    return castPosition;
   }
 
   @Override

@@ -25,7 +25,9 @@ import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
+import androidx.media3.common.util.Util;
 import com.google.android.gms.cast.MediaInfo;
+import com.google.android.gms.cast.MediaLiveSeekableRange;
 import com.google.android.gms.cast.MediaQueueItem;
 import com.google.android.gms.cast.MediaStatus;
 import com.google.android.gms.cast.framework.media.RemoteMediaClient;
@@ -111,51 +113,99 @@ import java.util.List;
 
     int currentItemId = mediaStatus.getCurrentItemId();
     String currentContentId = checkStateNotNull(mediaStatus.getMediaInfo()).getContentId();
-    MediaItem mediaItem = mediaItemsByContentId.get(currentContentId);
-    updateItemData(
-        currentItemId,
-        mediaItem != null ? mediaItem : MediaItem.EMPTY,
-        mediaStatus.getMediaInfo(),
-        currentContentId,
-        /* defaultPositionUs= */ C.TIME_UNSET);
+    boolean currentItemDataSet = false;
 
     for (MediaQueueItem queueItem : mediaStatus.getQueueItems()) {
+      int itemId = queueItem.getItemId();
       long defaultPositionUs = (long) (queueItem.getStartTime() * C.MICROS_PER_SECOND);
       @Nullable MediaInfo mediaInfo = queueItem.getMedia();
       String contentId = mediaInfo != null ? mediaInfo.getContentId() : UNKNOWN_CONTENT_ID;
-      mediaItem = mediaItemsByContentId.get(contentId);
+      @Nullable MediaItem existingMediaItem = mediaItemsByContentId.get(contentId);
+      MediaItem mediaItem = existingMediaItem != null
+          ? existingMediaItem
+          : mediaItemConverter.toMediaItem(queueItem);
+
+      if (itemId == currentItemId) {
+        updateItemData(
+            itemId,
+            contentId,
+            mediaItem,
+            mediaStatus.getMediaInfo(),
+            mediaStatus.getLiveSeekableRange(),
+            defaultPositionUs);
+        currentItemDataSet = true;
+      } else {
+        updateItemData(
+            itemId,
+            contentId,
+            mediaItem,
+            mediaInfo,
+            null,
+            defaultPositionUs);
+      }
+    }
+
+    // If the queue is empty or does not contain the active item update based on the current media
+    // status only.
+    if (!currentItemDataSet) {
+      MediaItem mediaItem = mediaItemsByContentId.get(currentContentId);
       updateItemData(
-          queueItem.getItemId(),
-          mediaItem != null ? mediaItem : mediaItemConverter.toMediaItem(queueItem),
-          mediaInfo,
-          contentId,
-          defaultPositionUs);
+          currentItemId,
+          currentContentId,
+          mediaItem != null ? mediaItem : MediaItem.EMPTY,
+          mediaStatus.getMediaInfo(),
+          mediaStatus.getLiveSeekableRange(),
+          C.TIME_UNSET);
     }
     return new CastTimeline(itemIds, itemIdToData);
   }
 
   private void updateItemData(
       int itemId,
+      String contentId,
       MediaItem mediaItem,
       @Nullable MediaInfo mediaInfo,
-      String contentId,
+      @Nullable MediaLiveSeekableRange liveSeekableRange,
       long defaultPositionUs) {
     CastTimeline.ItemData previousData = itemIdToData.get(itemId, CastTimeline.ItemData.EMPTY);
-    long durationUs = CastUtils.getStreamDurationUs(mediaInfo);
-    if (durationUs == C.TIME_UNSET) {
-      durationUs = previousData.durationUs;
-    }
-    boolean isLive =
-        mediaInfo == null
+    boolean isLive = mediaInfo == null
             ? previousData.isLive
             : mediaInfo.getStreamType() == MediaInfo.STREAM_TYPE_LIVE;
-    if (defaultPositionUs == C.TIME_UNSET) {
-      defaultPositionUs = previousData.defaultPositionUs;
+
+    long windowDurationUs;
+    long periodDurationUs;
+    long windowOffsetUs = 0;
+    boolean isMovingLiveWindow = false;
+
+    if (isLive && liveSeekableRange != null) {
+      long startTime = liveSeekableRange.getStartTime();
+      long endTime = liveSeekableRange.getEndTime();
+      long durationMs = endTime - startTime;
+      if (durationMs > 0) {
+        // Create a window that matches the seekable range of the stream. It might not start at 0.
+        windowOffsetUs = Util.msToUs(startTime);
+        windowDurationUs = Util.msToUs(durationMs);
+        isMovingLiveWindow = liveSeekableRange.isMovingWindow();
+        if (liveSeekableRange.isLiveDone()) {
+          periodDurationUs = Util.msToUs(endTime);
+        } else {
+          periodDurationUs = C.TIME_UNSET;
+        }
+      } else {
+        periodDurationUs = C.TIME_UNSET;
+        windowDurationUs = C.TIME_UNSET;
+      }
+    } else {
+      long mediaInfoDuration = CastUtils.getStreamDurationUs(mediaInfo);
+      windowDurationUs =
+          mediaInfoDuration == C.TIME_UNSET ? previousData.windowDurationUs : mediaInfoDuration;
+      periodDurationUs = windowDurationUs;
     }
-    itemIdToData.put(
-        itemId,
-        previousData.copyWithNewValues(
-            durationUs, defaultPositionUs, isLive, mediaItem, contentId));
+
+    CastTimeline.ItemData itemData = previousData
+        .copyWithNewValues(windowDurationUs, periodDurationUs, windowOffsetUs, defaultPositionUs,
+            isLive, isMovingLiveWindow, mediaItem, contentId);
+    itemIdToData.put(itemId, itemData);
   }
 
   private void removeUnusedItemDataEntries(int[] itemIds) {
