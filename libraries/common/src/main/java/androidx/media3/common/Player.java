@@ -1176,7 +1176,8 @@ public interface Player {
    * {@link #getPlayWhenReady()} is true, and paused otherwise.
    */
   int STATE_READY = 3;
-  /** The player has finished playing the media. */
+  /** The player has finished playing the media. Once the player has transitioned to STATE_ENDED,
+  you need to seek to a position before the end of the playlist to get out of STATE_ENDED.*/
   int STATE_ENDED = 4;
 
   /**
@@ -2250,6 +2251,8 @@ public interface Player {
    *
    * <p>This will move the player out of {@link #STATE_IDLE idle state} and the player will start
    * loading media and acquire resources needed for playback.
+   *
+   * <p>Once prepare() has been called, any subsequent calls to prepare() are no-ops.
    */
   void prepare();
 
