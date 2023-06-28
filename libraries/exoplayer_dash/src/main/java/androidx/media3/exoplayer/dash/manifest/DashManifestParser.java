@@ -393,7 +393,7 @@ public class DashManifestParser extends DefaultHandler
       long timeShiftBufferDepthMs,
       boolean dvbProfileDeclared)
       throws XmlPullParserException, IOException {
-    int id = parseInt(xpp, "id", AdaptationSet.ID_UNSET);
+    double id = parseDouble(xpp, "id", AdaptationSet.ID_UNSET);
     @C.TrackType int contentType = parseContentType(xpp);
 
     String mimeType = xpp.getAttributeValue(null, "mimeType");
@@ -532,7 +532,7 @@ public class DashManifestParser extends DefaultHandler
   }
 
   protected AdaptationSet buildAdaptationSet(
-      int id,
+      double id,
       @C.TrackType int contentType,
       List<Representation> representations,
       List<Descriptor> accessibilityDescriptors,
@@ -1935,6 +1935,11 @@ public class DashManifestParser extends DefaultHandler
   protected static long parseLong(XmlPullParser xpp, String name, long defaultValue) {
     String value = xpp.getAttributeValue(null, name);
     return value == null ? defaultValue : Long.parseLong(value);
+  }
+
+  protected static double parseDouble(XmlPullParser xpp, String name, double defaultValue) {
+    String value = xpp.getAttributeValue(null, name);
+    return value == null ? defaultValue : Double.parseDouble(value);
   }
 
   protected static float parseFloat(XmlPullParser xpp, String name, float defaultValue) {

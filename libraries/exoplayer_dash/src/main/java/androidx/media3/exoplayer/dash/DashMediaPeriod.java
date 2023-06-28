@@ -20,7 +20,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.util.Pair;
 import android.util.SparseArray;
-import android.util.SparseIntArray;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -65,8 +64,10 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.checkerframework.checker.nullness.compatqual.NullableType;
@@ -550,24 +551,23 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
    */
   private static int[][] getGroupedAdaptationSetIndices(List<AdaptationSet> adaptationSets) {
     int adaptationSetCount = adaptationSets.size();
-    SparseIntArray adaptationSetIdToIndex = new SparseIntArray(adaptationSetCount);
-    List<List<Integer>> adaptationSetGroupedIndices = new ArrayList<>(adaptationSetCount);
-    SparseArray<List<Integer>> adaptationSetIndexToGroupedIndices =
-        new SparseArray<>(adaptationSetCount);
+    Map<Double, Integer> adaptationSetIdToIndex = new HashMap<>(adaptationSetCount);
+    List<List<Double>> adaptationSetGroupedIndices = new ArrayList<>(adaptationSetCount);
+    Map<Integer, List<Double>> adaptationSetIndexToGroupedIndices = new HashMap<>(adaptationSetCount);
 
     // Initially make each adaptation set belong to its own group. Also build the
     // adaptationSetIdToIndex map.
     for (int i = 0; i < adaptationSetCount; i++) {
       adaptationSetIdToIndex.put(adaptationSets.get(i).id, i);
-      List<Integer> initialGroup = new ArrayList<>();
-      initialGroup.add(i);
+      List<Double> initialGroup = new ArrayList<>();
+      initialGroup.add((double) i);
       adaptationSetGroupedIndices.add(initialGroup);
       adaptationSetIndexToGroupedIndices.put(i, initialGroup);
     }
 
     // Merge adaptation set groups.
     for (int i = 0; i < adaptationSetCount; i++) {
-      int mergedGroupIndex = i;
+      double mergedGroupIndex = i;
       AdaptationSet adaptationSet = adaptationSets.get(i);
 
       // Trick-play adaptation sets are merged with their corresponding main adaptation sets.
@@ -579,8 +579,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
       }
       if (trickPlayProperty != null) {
         int mainAdaptationSetId = Integer.parseInt(trickPlayProperty.value);
-        int mainAdaptationSetIndex =
-            adaptationSetIdToIndex.get(mainAdaptationSetId, /* valueIfKeyNotFound= */ -1);
+        double mainAdaptationSetIndex =
+            adaptationSetIdToIndex.get(mainAdaptationSetId) != null ? adaptationSetIdToIndex.get(mainAdaptationSetId) : AdaptationSet.ID_UNSET;
         if (mainAdaptationSetIndex != -1) {
           mergedGroupIndex = mainAdaptationSetIndex;
         }
@@ -595,9 +595,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
         if (adaptationSetSwitchingProperty != null) {
           String[] otherAdaptationSetIds = Util.split(adaptationSetSwitchingProperty.value, ",");
           for (String adaptationSetId : otherAdaptationSetIds) {
-            int otherAdaptationSetId =
-                adaptationSetIdToIndex.get(
-                    Integer.parseInt(adaptationSetId), /* valueIfKeyNotFound= */ -1);
+            int otherAdaptationSetId = adaptationSetIdToIndex.get(adaptationSetId);
             if (otherAdaptationSetId != -1) {
               mergedGroupIndex = min(mergedGroupIndex, otherAdaptationSetId);
             }
@@ -607,8 +605,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
 
       // Merge the groups if necessary.
       if (mergedGroupIndex != i) {
-        List<Integer> thisGroup = adaptationSetIndexToGroupedIndices.get(i);
-        List<Integer> mergedGroup = adaptationSetIndexToGroupedIndices.get(mergedGroupIndex);
+        List<Double> thisGroup = adaptationSetIndexToGroupedIndices.get(i);
+        List<Double> mergedGroup = adaptationSetIndexToGroupedIndices.get(mergedGroupIndex);
         mergedGroup.addAll(thisGroup);
         adaptationSetIndexToGroupedIndices.put(i, mergedGroup);
         adaptationSetGroupedIndices.remove(thisGroup);
@@ -683,7 +681,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
       AdaptationSet firstAdaptationSet = adaptationSets.get(adaptationSetIndices[0]);
       String trackGroupId =
           firstAdaptationSet.id != AdaptationSet.ID_UNSET
-              ? Integer.toString(firstAdaptationSet.id)
+              ? Double.toString(firstAdaptationSet.id)
               : ("unset:" + i);
       int primaryTrackGroupIndex = trackGroupCount++;
       int eventMessageTrackGroupIndex =
