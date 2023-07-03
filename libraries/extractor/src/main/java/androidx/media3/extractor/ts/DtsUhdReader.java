@@ -151,7 +151,7 @@ public final class DtsUhdReader implements ElementaryStreamReader {
   }
 
   @Override
-  public void packetFinished() {
+  public void packetFinished(boolean isEndOfInput) {
     // Do nothing.
   }
 
