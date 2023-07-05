@@ -21,13 +21,11 @@ import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.session.SessionResult.RESULT_ERROR_SESSION_DISCONNECTED;
 import static androidx.media3.session.SessionResult.RESULT_ERROR_UNKNOWN;
 import static androidx.media3.session.SessionResult.RESULT_INFO_SKIPPED;
+import static java.lang.Math.min;
 
 import android.app.PendingIntent;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.DeadObjectException;
@@ -39,11 +37,14 @@ import android.os.Process;
 import android.os.RemoteException;
 import android.os.SystemClock;
 import android.support.v4.media.session.MediaSessionCompat;
+import androidx.annotation.CheckResult;
 import androidx.annotation.FloatRange;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
+import androidx.core.os.ExecutorCompat;
 import androidx.media.MediaBrowserServiceCompat;
 import androidx.media3.common.AudioAttributes;
+import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
@@ -60,40 +61,36 @@ import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.CueGroup;
+import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaSession.ControllerCb;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import androidx.media3.session.MediaSession.MediaItemsWithStartPosition;
 import androidx.media3.session.SequencedFutureManager.SequencedFuture;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import org.checkerframework.checker.initialization.qual.Initialized;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /* package */ class MediaSessionImpl {
-
-  // Create a static lock for synchronize methods below.
-  // We'd better not use MediaSessionImplBase.class for synchronized(), which indirectly exposes
-  // lock object to the outside of the class.
-  private static final Object STATIC_LOCK = new Object();
 
   private static final String WRONG_THREAD_ERROR_MESSAGE =
       "Player callback method is called from a wrong thread. "
           + "See javadoc of MediaSession for details.";
 
   private static final long DEFAULT_SESSION_POSITION_UPDATE_DELAY_MS = 3_000;
-
-  @GuardedBy("STATIC_LOCK")
-  private static boolean componentNamesInitialized = false;
-
-  @GuardedBy("STATIC_LOCK")
-  @Nullable
-  private static ComponentName serviceComponentName;
 
   public static final String TAG = "MSImplBase";
 
@@ -110,18 +107,17 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   private final String sessionId;
   private final SessionToken sessionToken;
   private final MediaSession instance;
-  @Nullable private final PendingIntent sessionActivity;
   private final Handler applicationHandler;
   private final BitmapLoader bitmapLoader;
   private final Runnable periodicSessionPositionInfoUpdateRunnable;
   private final Handler mainHandler;
 
-  @Nullable private PlayerListener playerListener;
-
-  @Nullable private MediaSession.Listener mediaSessionListener;
-
   private PlayerInfo playerInfo;
   private PlayerWrapper playerWrapper;
+  private @MonotonicNonNull PendingIntent sessionActivity;
+  @Nullable private PlayerListener playerListener;
+  @Nullable private MediaSession.Listener mediaSessionListener;
+  @Nullable private ControllerInfo controllerForCurrentRequest;
 
   @GuardedBy("lock")
   @Nullable
@@ -186,21 +182,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             sessionStub,
             tokenExtras);
 
-    synchronized (STATIC_LOCK) {
-      if (!componentNamesInitialized) {
-        MediaSessionImpl.serviceComponentName =
-            getServiceComponentByAction(context, MediaLibraryService.SERVICE_INTERFACE);
-        if (MediaSessionImpl.serviceComponentName == null) {
-          MediaSessionImpl.serviceComponentName =
-              getServiceComponentByAction(context, MediaSessionService.SERVICE_INTERFACE);
-        }
-        componentNamesInitialized = true;
-      }
-    }
-
     sessionLegacyStub =
-        new MediaSessionLegacyStub(
-            /* session= */ thisRef, sessionUri, serviceComponentName, applicationHandler);
+        new MediaSessionLegacyStub(/* session= */ thisRef, sessionUri, applicationHandler);
 
     PlayerWrapper playerWrapper = new PlayerWrapper(player);
     this.playerWrapper = playerWrapper;
@@ -277,6 +260,16 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     return playerWrapper;
   }
 
+  @CheckResult
+  public Runnable callWithControllerForCurrentRequestSet(
+      @Nullable ControllerInfo controllerForCurrentRequest, Runnable runnable) {
+    return () -> {
+      this.controllerForCurrentRequest = controllerForCurrentRequest;
+      runnable.run();
+      this.controllerForCurrentRequest = null;
+    };
+  }
+
   public String getId() {
     return sessionId;
   }
@@ -295,6 +288,11 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     controllers.addAll(
         sessionLegacyStub.getConnectedControllersManager().getConnectedControllers());
     return controllers;
+  }
+
+  @Nullable
+  public ControllerInfo getControllerForCurrentRequest() {
+    return controllerForCurrentRequest;
   }
 
   public boolean isConnected(ControllerInfo controller) {
@@ -408,7 +406,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
   public MediaSession.ConnectionResult onConnectOnHandler(ControllerInfo controller) {
     return checkNotNull(
-        callback.onConnect(instance, controller), "onConnect must return non-null future");
+        callback.onConnect(instance, controller), "Callback.onConnect must return non-null future");
   }
 
   public void onPostConnectOnHandler(ControllerInfo controller) {
@@ -419,6 +417,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     callback.onDisconnected(instance, controller);
   }
 
+  @SuppressWarnings("deprecation") // Calling deprecated callback method.
   public @SessionResult.Code int onPlayerCommandRequestOnHandler(
       ControllerInfo controller, @Player.Command int playerCommand) {
     return callback.onPlayerCommandRequest(instance, controller, playerCommand);
@@ -428,21 +427,21 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       ControllerInfo controller, String mediaId, Rating rating) {
     return checkNotNull(
         callback.onSetRating(instance, controller, mediaId, rating),
-        "onSetRating must return non-null future");
+        "Callback.onSetRating must return non-null future");
   }
 
   public ListenableFuture<SessionResult> onSetRatingOnHandler(
       ControllerInfo controller, Rating rating) {
     return checkNotNull(
         callback.onSetRating(instance, controller, rating),
-        "onSetRating must return non-null future");
+        "Callback.onSetRating must return non-null future");
   }
 
   public ListenableFuture<SessionResult> onCustomCommandOnHandler(
       ControllerInfo browser, SessionCommand command, Bundle extras) {
     return checkNotNull(
         callback.onCustomCommand(instance, browser, command, extras),
-        "onCustomCommandOnHandler must return non-null future");
+        "Callback.onCustomCommandOnHandler must return non-null future");
   }
 
   public void connectFromService(
@@ -483,14 +482,14 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       ControllerInfo controller, List<MediaItem> mediaItems) {
     return checkNotNull(
         callback.onAddMediaItems(instance, controller, mediaItems),
-        "onAddMediaItems must return a non-null future");
+        "Callback.onAddMediaItems must return a non-null future");
   }
 
   protected ListenableFuture<MediaItemsWithStartPosition> onSetMediaItemsOnHandler(
       ControllerInfo controller, List<MediaItem> mediaItems, int startIndex, long startPositionMs) {
     return checkNotNull(
         callback.onSetMediaItems(instance, controller, mediaItems, startIndex, startPositionMs),
-        "onSetMediaItems must return a non-null future");
+        "Callback.onSetMediaItems must return a non-null future");
   }
 
   protected boolean isReleased() {
@@ -502,6 +501,25 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   @Nullable
   protected PendingIntent getSessionActivity() {
     return sessionActivity;
+  }
+
+  @UnstableApi
+  protected void setSessionActivity(PendingIntent sessionActivity) {
+    if (Objects.equals(this.sessionActivity, sessionActivity)) {
+      return;
+    }
+    this.sessionActivity = sessionActivity;
+    sessionLegacyStub.getSessionCompat().setSessionActivity(sessionActivity);
+    ImmutableList<ControllerInfo> connectedControllers =
+        sessionStub.getConnectedControllersManager().getConnectedControllers();
+    for (int i = 0; i < connectedControllers.size(); i++) {
+      ControllerInfo controllerInfo = connectedControllers.get(i);
+      if (controllerInfo.getControllerVersion() >= 3) {
+        dispatchRemoteControllerTaskWithoutReturn(
+            controllerInfo,
+            (controller, seq) -> controller.onSessionActivityChanged(seq, sessionActivity));
+      }
+    }
   }
 
   /**
@@ -541,6 +559,10 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     }
   }
 
+  /* package */ boolean canResumePlaybackOnStart() {
+    return sessionLegacyStub.canResumePlaybackOnStart();
+  }
+
   /* package */ void setMediaSessionListener(MediaSession.Listener listener) {
     this.mediaSessionListener = listener;
   }
@@ -573,6 +595,70 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       return this.mediaSessionListener.onPlayRequested(instance);
     }
     return true;
+  }
+
+  /**
+   * Attempts to prepare and play for playback resumption.
+   *
+   * <p>If playlist data for playback resumption can be successfully obtained, the media items are
+   * set and the player is prepared. {@link Player#play()} is called regardless of success or
+   * failure of playback resumption.
+   *
+   * @param controller The controller requesting playback resumption.
+   * @param player The player to setup for playback resumption.
+   */
+  /* package */ void prepareAndPlayForPlaybackResumption(ControllerInfo controller, Player player) {
+    verifyApplicationThread();
+    @Nullable
+    ListenableFuture<MediaItemsWithStartPosition> future =
+        checkNotNull(
+            callback.onPlaybackResumption(instance, controller),
+            "Callback.onPlaybackResumption must return a non-null future");
+    // Use a direct executor when an immediate future is returned to execute the player setup in the
+    // caller's looper event on the application thread.
+    Executor executor =
+        future.isDone()
+            ? MoreExecutors.directExecutor()
+            : ExecutorCompat.create(getApplicationHandler());
+    Futures.addCallback(
+        future,
+        new FutureCallback<MediaItemsWithStartPosition>() {
+          @Override
+          public void onSuccess(MediaItemsWithStartPosition mediaItemsWithStartPosition) {
+            ImmutableList<MediaItem> mediaItems = mediaItemsWithStartPosition.mediaItems;
+            player.setMediaItems(
+                mediaItems,
+                mediaItemsWithStartPosition.startIndex != C.INDEX_UNSET
+                    ? min(mediaItems.size() - 1, mediaItemsWithStartPosition.startIndex)
+                    : 0,
+                mediaItemsWithStartPosition.startPositionMs);
+            if (player.getPlaybackState() == Player.STATE_IDLE) {
+              player.prepare();
+            }
+            player.play();
+          }
+
+          @Override
+          public void onFailure(Throwable t) {
+            if (t instanceof UnsupportedOperationException) {
+              Log.w(
+                  TAG,
+                  "UnsupportedOperationException: Make sure to implement"
+                      + " MediaSession.Callback.onPlaybackResumption() if you add a"
+                      + " media button receiver to your manifest or if you implement the recent"
+                      + " media item contract with your MediaLibraryService.",
+                  t);
+            } else {
+              Log.e(
+                  TAG,
+                  "Failure calling MediaSession.Callback.onPlaybackResumption(): " + t.getMessage(),
+                  t);
+            }
+            // Play as requested either way.
+            Util.handlePlayButtonAction(player);
+          }
+        },
+        executor);
   }
 
   private void dispatchRemoteControllerTaskToLegacyStub(RemoteControllerTask task) {
@@ -705,19 +791,6 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     // Note: Only removing from MediaSessionStub and ignoring (legacy) stubs would be fine for
     //       now. Because calls to the legacy stubs doesn't throw DeadObjectException.
     sessionStub.getConnectedControllersManager().removeController(controller);
-  }
-
-  @Nullable
-  private static ComponentName getServiceComponentByAction(Context context, String action) {
-    PackageManager pm = context.getPackageManager();
-    Intent queryIntent = new Intent(action);
-    queryIntent.setPackage(context.getPackageName());
-    List<ResolveInfo> resolveInfos = pm.queryIntentServices(queryIntent, /* flags= */ 0);
-    if (resolveInfos == null || resolveInfos.isEmpty()) {
-      return null;
-    }
-    ResolveInfo resolveInfo = resolveInfos.get(0);
-    return new ComponentName(resolveInfo.serviceInfo.packageName, resolveInfo.serviceInfo.name);
   }
 
   private void verifyApplicationThread() {

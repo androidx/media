@@ -33,7 +33,6 @@ import androidx.media3.common.Rating;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.util.BundleableUtil;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.test.session.common.IRemoteMediaController;
 import androidx.media3.test.session.common.TestHandler;
 import androidx.media3.test.session.common.TestUtils;
@@ -53,7 +52,6 @@ import java.util.concurrent.TimeoutException;
  * A Service that creates {@link MediaController} and calls its methods according to the service
  * app's requests.
  */
-@UnstableApi
 public class MediaControllerProviderService extends Service {
   private static final String TAG = "MCProviderService";
 
@@ -466,6 +464,28 @@ public class MediaControllerProviderService extends Service {
     }
 
     @Override
+    public void replaceMediaItem(String controllerId, int index, Bundle mediaItem)
+        throws RemoteException {
+      runOnHandler(
+          () -> {
+            MediaController controller = mediaControllerMap.get(controllerId);
+            controller.replaceMediaItem(index, MediaItem.CREATOR.fromBundle(mediaItem));
+          });
+    }
+
+    @Override
+    public void replaceMediaItems(
+        String controllerId, int fromIndex, int toIndex, List<Bundle> mediaItems)
+        throws RemoteException {
+      runOnHandler(
+          () -> {
+            MediaController controller = mediaControllerMap.get(controllerId);
+            controller.replaceMediaItems(
+                fromIndex, toIndex, BundleableUtil.fromBundleList(MediaItem.CREATOR, mediaItems));
+          });
+    }
+
+    @Override
     public void seekToPreviousMediaItem(String controllerId) throws RemoteException {
       runOnHandler(
           () -> {
@@ -525,7 +545,7 @@ public class MediaControllerProviderService extends Service {
       runOnHandler(
           () -> {
             MediaController controller = mediaControllerMap.get(controllerId);
-            controller.setDeviceVolume(value);
+            controller.setDeviceVolume(value, flags);
           });
     }
 
@@ -536,19 +556,19 @@ public class MediaControllerProviderService extends Service {
             MediaController controller = mediaControllerMap.get(controllerId);
             switch (direction) {
               case AudioManager.ADJUST_RAISE:
-                controller.increaseDeviceVolume();
+                controller.increaseDeviceVolume(flags);
                 break;
               case AudioManager.ADJUST_LOWER:
-                controller.decreaseDeviceVolume();
+                controller.decreaseDeviceVolume(flags);
                 break;
               case AudioManager.ADJUST_MUTE:
-                controller.setDeviceMuted(true);
+                controller.setDeviceMuted(true, flags);
                 break;
               case AudioManager.ADJUST_UNMUTE:
-                controller.setDeviceMuted(false);
+                controller.setDeviceMuted(false, flags);
                 break;
               case AudioManager.ADJUST_TOGGLE_MUTE:
-                controller.setDeviceMuted(controller.isDeviceMuted());
+                controller.setDeviceMuted(controller.isDeviceMuted(), flags);
                 break;
               default:
                 throw new IllegalArgumentException("Unknown direction: " + direction);
@@ -605,11 +625,31 @@ public class MediaControllerProviderService extends Service {
     }
 
     @Override
+    public void setDeviceVolumeWithFlags(String controllerId, int volume, int flags)
+        throws RemoteException {
+      runOnHandler(
+          () -> {
+            MediaController controller = mediaControllerMap.get(controllerId);
+            controller.setDeviceVolume(volume, flags);
+          });
+    }
+
+    @Override
     public void increaseDeviceVolume(String controllerId) throws RemoteException {
       runOnHandler(
           () -> {
             MediaController controller = mediaControllerMap.get(controllerId);
             controller.increaseDeviceVolume();
+          });
+    }
+
+    @Override
+    public void increaseDeviceVolumeWithFlags(String controllerId, int flags)
+        throws RemoteException {
+      runOnHandler(
+          () -> {
+            MediaController controller = mediaControllerMap.get(controllerId);
+            controller.increaseDeviceVolume(flags);
           });
     }
 
@@ -623,11 +663,31 @@ public class MediaControllerProviderService extends Service {
     }
 
     @Override
+    public void decreaseDeviceVolumeWithFlags(String controllerId, int flags)
+        throws RemoteException {
+      runOnHandler(
+          () -> {
+            MediaController controller = mediaControllerMap.get(controllerId);
+            controller.decreaseDeviceVolume(flags);
+          });
+    }
+
+    @Override
     public void setDeviceMuted(String controllerId, boolean muted) throws RemoteException {
       runOnHandler(
           () -> {
             MediaController controller = mediaControllerMap.get(controllerId);
             controller.setDeviceMuted(muted);
+          });
+    }
+
+    @Override
+    public void setDeviceMutedWithFlags(String controllerId, boolean muted, int flags)
+        throws RemoteException {
+      runOnHandler(
+          () -> {
+            MediaController controller = mediaControllerMap.get(controllerId);
+            controller.setDeviceMuted(muted, flags);
           });
     }
 

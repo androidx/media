@@ -59,6 +59,7 @@ import androidx.media3.common.ThumbRating;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.Tracks;
+import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.session.PlayerInfo.BundlingExclusions;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -496,8 +497,9 @@ public final class MediaUtilsTest {
             Player.COMMAND_GET_TIMELINE,
             Player.COMMAND_GET_CURRENT_MEDIA_ITEM,
             Player.COMMAND_GET_DEVICE_VOLUME,
-            Player.COMMAND_GET_MEDIA_ITEMS_METADATA,
-            Player.COMMAND_GET_AUDIO_ATTRIBUTES);
+            Player.COMMAND_GET_METADATA,
+            Player.COMMAND_GET_AUDIO_ATTRIBUTES,
+            Player.COMMAND_RELEASE);
   }
 
   @Test

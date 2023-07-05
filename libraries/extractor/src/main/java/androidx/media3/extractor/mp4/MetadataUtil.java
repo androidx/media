@@ -24,13 +24,13 @@ import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
+import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.extractor.GaplessInfoHolder;
 import androidx.media3.extractor.metadata.id3.ApicFrame;
 import androidx.media3.extractor.metadata.id3.CommentFrame;
 import androidx.media3.extractor.metadata.id3.Id3Frame;
 import androidx.media3.extractor.metadata.id3.InternalFrame;
 import androidx.media3.extractor.metadata.id3.TextInformationFrame;
-import androidx.media3.extractor.metadata.mp4.MdtaMetadataEntry;
 import com.google.common.collect.ImmutableList;
 import org.checkerframework.checker.nullness.compatqual.NullableType;
 
@@ -299,17 +299,20 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
       if (udtaMetaMetadata != null) {
         formatMetadata = udtaMetaMetadata;
       }
-    } else if (trackType == C.TRACK_TYPE_VIDEO) {
-      // Populate only metadata keys that are known to be specific to video.
-      if (mdtaMetadata != null) {
-        for (int i = 0; i < mdtaMetadata.length(); i++) {
-          Metadata.Entry entry = mdtaMetadata.get(i);
-          if (entry instanceof MdtaMetadataEntry) {
-            MdtaMetadataEntry mdtaMetadataEntry = (MdtaMetadataEntry) entry;
-            if (MdtaMetadataEntry.KEY_ANDROID_CAPTURE_FPS.equals(mdtaMetadataEntry.key)) {
-              formatMetadata = new Metadata(mdtaMetadataEntry);
-              break;
+    }
+
+    if (mdtaMetadata != null) {
+      for (int i = 0; i < mdtaMetadata.length(); i++) {
+        Metadata.Entry entry = mdtaMetadata.get(i);
+        if (entry instanceof MdtaMetadataEntry) {
+          MdtaMetadataEntry mdtaMetadataEntry = (MdtaMetadataEntry) entry;
+          // This key is present in the container level meta box.
+          if (mdtaMetadataEntry.key.equals(MdtaMetadataEntry.KEY_ANDROID_CAPTURE_FPS)) {
+            if (trackType == C.TRACK_TYPE_VIDEO) {
+              formatMetadata = formatMetadata.copyWithAppendedEntries(mdtaMetadataEntry);
             }
+          } else {
+            formatMetadata = formatMetadata.copyWithAppendedEntries(mdtaMetadataEntry);
           }
         }
       }

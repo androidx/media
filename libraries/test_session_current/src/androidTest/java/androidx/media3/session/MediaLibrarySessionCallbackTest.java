@@ -21,6 +21,9 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.content.Context;
 import androidx.annotation.Nullable;
+import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaMetadata;
+import androidx.media3.common.Player;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession;
 import androidx.media3.session.MediaSession.ControllerInfo;
@@ -29,8 +32,11 @@ import androidx.media3.test.session.common.MainLooperTestRule;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.MediumTest;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import java.util.ArrayList;
 import java.util.concurrent.CountDownLatch;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -131,5 +137,257 @@ public class MediaLibrarySessionCallbackTest {
     RemoteMediaBrowser browser = controllerTestRule.createRemoteBrowser(session.getToken());
     browser.unsubscribe(testParentId);
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+  }
+
+  @Test
+  public void onGetLibraryRoot_callForRecentRootNonSystemUiPackageName_notIntercepted()
+      throws Exception {
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setMediaId("rootMediaId")
+            .setMediaMetadata(
+                new MediaMetadata.Builder().setIsPlayable(false).setIsBrowsable(true).build())
+            .build();
+    MockMediaLibraryService service = new MockMediaLibraryService();
+    service.attachBaseContext(context);
+    CountDownLatch latch = new CountDownLatch(1);
+    MediaLibrarySession.Callback callback =
+        new MediaLibrarySession.Callback() {
+          @Override
+          public ListenableFuture<LibraryResult<MediaItem>> onGetLibraryRoot(
+              MediaLibrarySession session, ControllerInfo browser, @Nullable LibraryParams params) {
+            if (params != null && params.isRecent) {
+              latch.countDown();
+            }
+            return Futures.immediateFuture(LibraryResult.ofItem(mediaItem, params));
+          }
+        };
+    MediaLibrarySession session =
+        sessionTestRule.ensureReleaseAfterTest(
+            new MediaLibrarySession.Builder(service, player, callback)
+                .setId("onGetChildren_callForRecentRootNonSystemUiPackageName_notIntercepted")
+                .build());
+    RemoteMediaBrowser browser = controllerTestRule.createRemoteBrowser(session.getToken());
+
+    LibraryResult<MediaItem> libraryRoot =
+        browser.getLibraryRoot(new LibraryParams.Builder().setRecent(true).build());
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(libraryRoot.value).isEqualTo(mediaItem);
+  }
+
+  @Test
+  public void onGetChildren_systemUiCallForRecentItemsWhenIdle_callsOnPlaybackResumption()
+      throws Exception {
+    ArrayList<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
+    MockMediaLibraryService service = new MockMediaLibraryService();
+    service.attachBaseContext(context);
+    CountDownLatch latch = new CountDownLatch(2);
+    MediaLibrarySession.Callback callback =
+        new MediaLibrarySession.Callback() {
+          @Override
+          public ListenableFuture<MediaSession.MediaItemsWithStartPosition> onPlaybackResumption(
+              MediaSession mediaSession, ControllerInfo controller) {
+            latch.countDown();
+            return Futures.immediateFuture(
+                new MediaSession.MediaItemsWithStartPosition(
+                    mediaItems, /* startIndex= */ 1, /* startPositionMs= */ 1000L));
+          }
+
+          @Override
+          public ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> onGetChildren(
+              MediaLibrarySession session,
+              ControllerInfo browser,
+              String parentId,
+              int page,
+              int pageSize,
+              @Nullable LibraryParams params) {
+            latch.countDown();
+            return Futures.immediateFuture(
+                LibraryResult.ofItemList(mediaItems, /* params= */ null));
+          }
+        };
+    MediaLibrarySession session =
+        sessionTestRule.ensureReleaseAfterTest(
+            new MediaLibrarySession.Builder(service, player, callback)
+                .setId("onGetChildren_systemUiCallForRecentItems_returnsRecentItems")
+                .build());
+    RemoteMediaBrowser browser = controllerTestRule.createRemoteBrowser(session.getToken());
+
+    LibraryResult<ImmutableList<MediaItem>> recentItem =
+        browser.getChildren(
+            "androidx.media3.session.recent.root",
+            /* page= */ 0,
+            /* pageSize= */ 100,
+            /* params= */ null);
+    // Load children of a non recent root that must not be intercepted.
+    LibraryResult<ImmutableList<MediaItem>> children =
+        browser.getChildren("children", /* page= */ 0, /* pageSize= */ 100, /* params= */ null);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(recentItem.resultCode).isEqualTo(LibraryResult.RESULT_SUCCESS);
+    assertThat(Lists.transform(recentItem.value, (item) -> item.mediaId))
+        .containsExactly("mediaItem_2");
+    assertThat(children.value).isEqualTo(mediaItems);
+  }
+
+  @Test
+  public void
+      onGetChildren_systemUiCallForRecentItemsWhenIdleWithEmptyResumptionPlaylist_resultInvalidState()
+          throws Exception {
+    MockMediaLibraryService service = new MockMediaLibraryService();
+    service.attachBaseContext(context);
+    CountDownLatch latch = new CountDownLatch(1);
+    MediaLibrarySession.Callback callback =
+        new MediaLibrarySession.Callback() {
+          @Override
+          public ListenableFuture<MediaSession.MediaItemsWithStartPosition> onPlaybackResumption(
+              MediaSession mediaSession, ControllerInfo controller) {
+            latch.countDown();
+            return Futures.immediateFuture(
+                new MediaSession.MediaItemsWithStartPosition(
+                    ImmutableList.of(), /* startIndex= */ 11, /* startPositionMs= */ 1000L));
+          }
+        };
+    MediaLibrarySession session =
+        sessionTestRule.ensureReleaseAfterTest(
+            new MediaLibrarySession.Builder(service, player, callback)
+                .setId("onGetChildren_systemUiCallForRecentItems_returnsRecentItems")
+                .build());
+    RemoteMediaBrowser browser = controllerTestRule.createRemoteBrowser(session.getToken());
+
+    LibraryResult<ImmutableList<MediaItem>> recentItem =
+        browser.getChildren(
+            "androidx.media3.session.recent.root",
+            /* page= */ 0,
+            /* pageSize= */ 100,
+            /* params= */ null);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(recentItem.resultCode).isEqualTo(LibraryResult.RESULT_ERROR_INVALID_STATE);
+  }
+
+  @Test
+  public void
+      onGetChildren_systemUiCallForRecentItemsWhenIdleStartIndexTooHigh_setToLastItemItemInList()
+          throws Exception {
+    ArrayList<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
+    MockMediaLibraryService service = new MockMediaLibraryService();
+    service.attachBaseContext(context);
+    CountDownLatch latch = new CountDownLatch(1);
+    MediaLibrarySession.Callback callback =
+        new MediaLibrarySession.Callback() {
+          @Override
+          public ListenableFuture<MediaSession.MediaItemsWithStartPosition> onPlaybackResumption(
+              MediaSession mediaSession, ControllerInfo controller) {
+            latch.countDown();
+            return Futures.immediateFuture(
+                new MediaSession.MediaItemsWithStartPosition(
+                    mediaItems, /* startIndex= */ 11, /* startPositionMs= */ 1000L));
+          }
+        };
+    MediaLibrarySession session =
+        sessionTestRule.ensureReleaseAfterTest(
+            new MediaLibrarySession.Builder(service, player, callback)
+                .setId("onGetChildren_systemUiCallForRecentItems_returnsRecentItems")
+                .build());
+    RemoteMediaBrowser browser = controllerTestRule.createRemoteBrowser(session.getToken());
+
+    LibraryResult<ImmutableList<MediaItem>> recentItem =
+        browser.getChildren(
+            "androidx.media3.session.recent.root",
+            /* page= */ 0,
+            /* pageSize= */ 100,
+            /* params= */ null);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(recentItem.resultCode).isEqualTo(LibraryResult.RESULT_SUCCESS);
+    assertThat(Lists.transform(recentItem.value, (item) -> item.mediaId))
+        .containsExactly("mediaItem_3");
+  }
+
+  @Test
+  public void onGetChildren_systemUiCallForRecentItemsWhenIdleStartIndexNegative_setToZero()
+      throws Exception {
+    ArrayList<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
+    MockMediaLibraryService service = new MockMediaLibraryService();
+    service.attachBaseContext(context);
+    CountDownLatch latch = new CountDownLatch(1);
+    MediaLibrarySession.Callback callback =
+        new MediaLibrarySession.Callback() {
+          @Override
+          public ListenableFuture<MediaSession.MediaItemsWithStartPosition> onPlaybackResumption(
+              MediaSession mediaSession, ControllerInfo controller) {
+            latch.countDown();
+            return Futures.immediateFuture(
+                new MediaSession.MediaItemsWithStartPosition(
+                    mediaItems, /* startIndex= */ -11, /* startPositionMs= */ 1000L));
+          }
+        };
+    MediaLibrarySession session =
+        sessionTestRule.ensureReleaseAfterTest(
+            new MediaLibrarySession.Builder(service, player, callback)
+                .setId("onGetChildren_systemUiCallForRecentItems_returnsRecentItems")
+                .build());
+    RemoteMediaBrowser browser = controllerTestRule.createRemoteBrowser(session.getToken());
+
+    LibraryResult<ImmutableList<MediaItem>> recentItem =
+        browser.getChildren(
+            "androidx.media3.session.recent.root",
+            /* page= */ 0,
+            /* pageSize= */ 100,
+            /* params= */ null);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(recentItem.resultCode).isEqualTo(LibraryResult.RESULT_SUCCESS);
+    assertThat(Lists.transform(recentItem.value, (item) -> item.mediaId))
+        .containsExactly("mediaItem_1");
+  }
+
+  @Test
+  public void onGetChildren_systemUiCallForRecentItemsWhenNotIdle_returnsRecentItems()
+      throws Exception {
+    ArrayList<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
+    MockMediaLibraryService service = new MockMediaLibraryService();
+    service.attachBaseContext(context);
+    CountDownLatch latch = new CountDownLatch(1);
+    MediaLibrarySession.Callback callback =
+        new MediaLibrarySession.Callback() {
+          @Override
+          public ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> onGetChildren(
+              MediaLibrarySession session,
+              ControllerInfo browser,
+              String parentId,
+              int page,
+              int pageSize,
+              @Nullable LibraryParams params) {
+            latch.countDown();
+            return Futures.immediateFuture(
+                LibraryResult.ofItemList(mediaItems, /* params= */ null));
+          }
+        };
+    player.playbackState = Player.STATE_READY;
+    MediaLibrarySession session =
+        sessionTestRule.ensureReleaseAfterTest(
+            new MediaLibrarySession.Builder(service, player, callback)
+                .setId("onGetChildren_systemUiCallForRecentItems_returnsRecentItems")
+                .build());
+    RemoteMediaBrowser browser = controllerTestRule.createRemoteBrowser(session.getToken());
+
+    LibraryResult<ImmutableList<MediaItem>> recentItem =
+        browser.getChildren(
+            "androidx.media3.session.recent.root",
+            /* page= */ 0,
+            /* pageSize= */ 100,
+            /* params= */ null);
+    // Load children of a non recent root that must not be intercepted.
+    LibraryResult<ImmutableList<MediaItem>> children =
+        browser.getChildren("children", /* page= */ 0, /* pageSize= */ 100, /* params= */ null);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(recentItem.resultCode).isEqualTo(LibraryResult.RESULT_SUCCESS);
+    assertThat(Lists.transform(recentItem.value, (item) -> item.mediaId))
+        .containsExactly("androidx.media3.session.recent.item");
+    assertThat(children.value).isEqualTo(mediaItems);
   }
 }

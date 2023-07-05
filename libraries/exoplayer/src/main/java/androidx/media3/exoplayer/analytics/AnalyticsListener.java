@@ -622,14 +622,6 @@ public interface AnalyticsListener {
   default void onSeekStarted(EventTime eventTime) {}
 
   /**
-   * @deprecated Seeks are processed without delay. Use {@link #onPositionDiscontinuity(EventTime,
-   *     int)} with reason {@link Player#DISCONTINUITY_REASON_SEEK} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  default void onSeekProcessed(EventTime eventTime) {}
-
-  /**
    * Called when the playback parameters changed.
    *
    * @param eventTime The event time.
@@ -898,39 +890,6 @@ public interface AnalyticsListener {
    */
   @UnstableApi
   default void onCues(EventTime eventTime, CueGroup cueGroup) {}
-
-  /**
-   * @deprecated Use {@link #onAudioEnabled} and {@link #onVideoEnabled} instead.
-   */
-  @Deprecated
-  @UnstableApi
-  default void onDecoderEnabled(
-      EventTime eventTime, int trackType, DecoderCounters decoderCounters) {}
-
-  /**
-   * @deprecated Use {@link #onAudioDecoderInitialized} and {@link #onVideoDecoderInitialized}
-   *     instead.
-   */
-  @UnstableApi
-  @Deprecated
-  default void onDecoderInitialized(
-      EventTime eventTime, int trackType, String decoderName, long initializationDurationMs) {}
-
-  /**
-   * @deprecated Use {@link #onAudioInputFormatChanged(EventTime, Format, DecoderReuseEvaluation)}
-   *     and {@link #onVideoInputFormatChanged(EventTime, Format, DecoderReuseEvaluation)}. instead.
-   */
-  @UnstableApi
-  @Deprecated
-  default void onDecoderInputFormatChanged(EventTime eventTime, int trackType, Format format) {}
-
-  /**
-   * @deprecated Use {@link #onAudioDisabled} and {@link #onVideoDisabled} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  default void onDecoderDisabled(
-      EventTime eventTime, int trackType, DecoderCounters decoderCounters) {}
 
   /**
    * Called when an audio renderer is enabled.

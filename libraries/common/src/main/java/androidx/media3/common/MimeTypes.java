@@ -60,6 +60,7 @@ public final class MimeTypes {
   public static final String VIDEO_MJPEG = BASE_TYPE_VIDEO + "/mjpeg";
   public static final String VIDEO_MP42 = BASE_TYPE_VIDEO + "/mp42";
   public static final String VIDEO_MP43 = BASE_TYPE_VIDEO + "/mp43";
+  @UnstableApi public static final String VIDEO_RAW = BASE_TYPE_VIDEO + "/raw";
   @UnstableApi public static final String VIDEO_UNKNOWN = BASE_TYPE_VIDEO + "/x-unknown";
 
   // audio/ MIME types
@@ -130,7 +131,12 @@ public final class MimeTypes {
   public static final String APPLICATION_TX3G = BASE_TYPE_APPLICATION + "/x-quicktime-tx3g";
   public static final String APPLICATION_MP4VTT = BASE_TYPE_APPLICATION + "/x-mp4-vtt";
   public static final String APPLICATION_MP4CEA608 = BASE_TYPE_APPLICATION + "/x-mp4-cea-608";
-  public static final String APPLICATION_RAWCC = BASE_TYPE_APPLICATION + "/x-rawcc";
+  /**
+   * @deprecated RawCC is a Google-internal subtitle format that isn't supported by this version of
+   *     Media3. There is no replacement for this value.
+   */
+  @Deprecated public static final String APPLICATION_RAWCC = BASE_TYPE_APPLICATION + "/x-rawcc";
+
   public static final String APPLICATION_VOBSUB = BASE_TYPE_APPLICATION + "/vobsub";
   public static final String APPLICATION_PGS = BASE_TYPE_APPLICATION + "/pgs";
   @UnstableApi public static final String APPLICATION_SCTE35 = BASE_TYPE_APPLICATION + "/x-scte35";
@@ -147,7 +153,11 @@ public final class MimeTypes {
 
   // image/ MIME types
 
+  public static final String IMAGE_PNG = BASE_TYPE_IMAGE + "/png";
+  public static final String IMAGE_WEBP = BASE_TYPE_IMAGE + "/webp";
   public static final String IMAGE_JPEG = BASE_TYPE_IMAGE + "/jpeg";
+  public static final String IMAGE_HEIC = BASE_TYPE_IMAGE + "/heic";
+  public static final String IMAGE_HEIF = BASE_TYPE_IMAGE + "/heif";
 
   /**
    * A non-standard codec string for E-AC3-JOC. Use of this constant allows for disambiguation
@@ -585,6 +595,10 @@ public final class MimeTypes {
         return C.ENCODING_DTS;
       case MimeTypes.AUDIO_DTS_HD:
         return C.ENCODING_DTS_HD;
+      case MimeTypes.AUDIO_DTS_EXPRESS:
+        return C.ENCODING_DTS_HD;
+      case MimeTypes.AUDIO_DTS_X:
+        return C.ENCODING_DTS_UHD_P2;
       case MimeTypes.AUDIO_TRUEHD:
         return C.ENCODING_DOLBY_TRUEHD;
       case MimeTypes.AUDIO_OPUS:

@@ -437,6 +437,7 @@ public class MediaControllerStateMaskingTest {
   @Test
   public void setDeviceVolume() throws Exception {
     int testDeviceVolume = 2;
+    int volumeFlags = 0;
     Bundle playerConfig =
         new RemoteMediaSession.MockPlayerConfigBuilder().setDeviceVolume(0).build();
     remoteSession.setPlayer(playerConfig);
@@ -466,7 +467,7 @@ public class MediaControllerStateMaskingTest {
         .getHandler()
         .postAndSync(
             () -> {
-              controller.setDeviceVolume(testDeviceVolume);
+              controller.setDeviceVolume(testDeviceVolume, volumeFlags);
               deviceVolumeFromGetterRef.set(controller.getDeviceVolume());
             });
 
@@ -480,12 +481,12 @@ public class MediaControllerStateMaskingTest {
   @Test
   public void increaseDeviceVolume() throws Exception {
     int testDeviceVolume = 2;
+    int volumeFlags = 0;
     Bundle playerConfig =
         new RemoteMediaSession.MockPlayerConfigBuilder()
             .setDeviceVolume(1)
             .setDeviceInfo(
-                new DeviceInfo(
-                    DeviceInfo.PLAYBACK_TYPE_LOCAL, /* minVolume= */ 0, /* maxVolume= */ 2))
+                new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_LOCAL).setMaxVolume(2).build())
             .build();
     remoteSession.setPlayer(playerConfig);
 
@@ -514,7 +515,7 @@ public class MediaControllerStateMaskingTest {
         .getHandler()
         .postAndSync(
             () -> {
-              controller.increaseDeviceVolume();
+              controller.increaseDeviceVolume(volumeFlags);
               deviceVolumeFromGetterRef.set(controller.getDeviceVolume());
             });
 
@@ -552,12 +553,13 @@ public class MediaControllerStateMaskingTest {
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
 
+    int volumeFlags = 0;
     AtomicInteger deviceVolumeFromGetterRef = new AtomicInteger();
     threadTestRule
         .getHandler()
         .postAndSync(
             () -> {
-              controller.decreaseDeviceVolume();
+              controller.decreaseDeviceVolume(volumeFlags);
               deviceVolumeFromGetterRef.set(controller.getDeviceVolume());
             });
 
@@ -571,6 +573,7 @@ public class MediaControllerStateMaskingTest {
   @Test
   public void setDeviceMuted() throws Exception {
     boolean testDeviceMuted = true;
+    int volumeFlags = C.VOLUME_FLAG_VIBRATE;
     Bundle playerConfig =
         new RemoteMediaSession.MockPlayerConfigBuilder().setDeviceMuted(false).build();
     remoteSession.setPlayer(playerConfig);
@@ -600,7 +603,7 @@ public class MediaControllerStateMaskingTest {
         .getHandler()
         .postAndSync(
             () -> {
-              controller.setDeviceMuted(testDeviceMuted);
+              controller.setDeviceMuted(testDeviceMuted, volumeFlags);
               deviceMutedFromGetterRef.set(controller.isDeviceMuted());
             });
 
@@ -1305,7 +1308,7 @@ public class MediaControllerStateMaskingTest {
     int initialBufferedPosition = 0;
     int initialTotalBufferedPosition = 0;
     int testMediaItemIndex = 3;
-    int testPeriodIndex = initialPeriodIndex;
+    int testPeriodIndex = 3;
     long testSeekPositionMs = 3_000;
     long testPosition = testSeekPositionMs;
     long testBufferedPosition = testSeekPositionMs;
@@ -1574,6 +1577,39 @@ public class MediaControllerStateMaskingTest {
   }
 
   @Test
+  public void setMediaItems_toEmptyListAndResetPositionFalse_correctMasking() throws Exception {
+    Bundle playerConfig =
+        new RemoteMediaSession.MockPlayerConfigBuilder()
+            .setCurrentMediaItemIndex(2)
+            .setCurrentPeriodIndex(2)
+            .setCurrentPosition(8000)
+            .setContentPosition(8000)
+            .build();
+    remoteSession.setPlayer(playerConfig);
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+
+    AtomicReference<Timeline> currentTimelineRef = new AtomicReference<>();
+    AtomicInteger currentMediaItemIndexRef = new AtomicInteger();
+    AtomicLong currentPositionRef = new AtomicLong();
+    AtomicInteger currentPeriodIndexRef = new AtomicInteger();
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () -> {
+              controller.setMediaItems(ImmutableList.of(), /* resetPosition= */ false);
+              currentTimelineRef.set(controller.getCurrentTimeline());
+              currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
+              currentPositionRef.set((int) controller.getCurrentPosition());
+              currentPeriodIndexRef.set(controller.getCurrentPeriodIndex());
+            });
+
+    assertThat(currentPositionRef.get()).isEqualTo(8000);
+    assertThat(currentTimelineRef.get().isEmpty()).isTrue();
+    assertThat(currentMediaItemIndexRef.get()).isEqualTo(2);
+    assertThat(currentPeriodIndexRef.get()).isEqualTo(2);
+  }
+
+  @Test
   public void setMediaItems_withStartMediaItemIndexAndStartPosition() throws Exception {
     int initialMediaItemIndex = 2;
     long initialPosition = 8_000;
@@ -1684,7 +1720,7 @@ public class MediaControllerStateMaskingTest {
     long initialTotalBufferedDuration = 1_200;
     List<MediaItem> testMediaItemList = new ArrayList<>();
     int testMediaItemIndex = 1;
-    int testPeriodIndex = 0;
+    int testPeriodIndex = 1;
     long testPosition = 1_000;
     long testBufferedPosition = 1_000;
     long testTotalBufferedDuration = 0;
@@ -1797,16 +1833,21 @@ public class MediaControllerStateMaskingTest {
   }
 
   @Test
-  public void addMediaItems_toEmptyTimeline() throws Exception {
+  public void addMediaItems_withIdleStateAndEmptyTimeline() throws Exception {
     int testMediaItemCount = 2;
-    int testCurrentMediaItemIndex = 0;
-    int testNextMediaItemIndex = 1;
-    int testPreviousMediaItemIndex = C.INDEX_UNSET;
-    int testCurrentPeriodIndex = 0;
+    int testCurrentMediaItemIndex = 1;
+    int testNextMediaItemIndex = C.INDEX_UNSET;
+    int testPreviousMediaItemIndex = 0;
+    int testCurrentPeriodIndex = 1;
     List<MediaItem> testMediaItems = createMediaItems(testMediaItemCount);
     MediaItem testMediaItem = testMediaItems.get(testCurrentPeriodIndex);
 
-    Bundle playerConfig = new RemoteMediaSession.MockPlayerConfigBuilder().build();
+    Bundle playerConfig =
+        new RemoteMediaSession.MockPlayerConfigBuilder()
+            .setPlaybackState(Player.STATE_IDLE)
+            .setCurrentMediaItemIndex(1)
+            .setCurrentPeriodIndex(1)
+            .build();
     remoteSession.setPlayer(playerConfig);
 
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
@@ -1840,6 +1881,7 @@ public class MediaControllerStateMaskingTest {
     AtomicInteger nextMediaItemIndexRef = new AtomicInteger();
     AtomicInteger previousMediaItemIndexRef = new AtomicInteger();
     AtomicInteger currentPeriodIndexRef = new AtomicInteger();
+    AtomicInteger playbackStateRef = new AtomicInteger();
     threadTestRule
         .getHandler()
         .postAndSync(
@@ -1849,6 +1891,7 @@ public class MediaControllerStateMaskingTest {
               nextMediaItemIndexRef.set(controller.getNextMediaItemIndex());
               previousMediaItemIndexRef.set(controller.getPreviousMediaItemIndex());
               currentPeriodIndexRef.set(controller.getCurrentPeriodIndex());
+              playbackStateRef.set(controller.getPlaybackState());
             });
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -1865,6 +1908,89 @@ public class MediaControllerStateMaskingTest {
     assertThat(previousMediaItemIndexRef.get()).isEqualTo(testPreviousMediaItemIndex);
     assertThat(currentPeriodIndexRef.get()).isEqualTo(testCurrentPeriodIndex);
     assertThat(newMediaItemRef.get()).isEqualTo(testMediaItem);
+    assertThat(playbackStateRef.get()).isEqualTo(Player.STATE_IDLE);
+  }
+
+  @Test
+  public void addMediaItems_withEndedStateAndEmptyTimeline() throws Exception {
+    int testMediaItemCount = 2;
+    int testCurrentMediaItemIndex = 1;
+    int testNextMediaItemIndex = C.INDEX_UNSET;
+    int testPreviousMediaItemIndex = 0;
+    int testCurrentPeriodIndex = 1;
+    List<MediaItem> testMediaItems = createMediaItems(testMediaItemCount);
+    MediaItem testMediaItem = testMediaItems.get(testCurrentPeriodIndex);
+
+    Bundle playerConfig =
+        new RemoteMediaSession.MockPlayerConfigBuilder()
+            .setPlaybackState(Player.STATE_ENDED)
+            .setCurrentMediaItemIndex(1)
+            .setCurrentPeriodIndex(1)
+            .build();
+    remoteSession.setPlayer(playerConfig);
+
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    CountDownLatch latch = new CountDownLatch(3);
+    AtomicReference<Timeline> newTimelineRef = new AtomicReference<>();
+    AtomicReference<Player.Events> onEventsRef = new AtomicReference<>();
+    AtomicReference<MediaItem> newMediaItemRef = new AtomicReference<>();
+    Player.Listener listener =
+        new Player.Listener() {
+          @Override
+          public void onTimelineChanged(Timeline timeline, int reason) {
+            newTimelineRef.set(timeline);
+            latch.countDown();
+          }
+
+          @Override
+          public void onMediaItemTransition(@Nullable MediaItem mediaItem, int reason) {
+            newMediaItemRef.set(mediaItem);
+            latch.countDown();
+          }
+
+          @Override
+          public void onEvents(Player player, Player.Events events) {
+            onEventsRef.set(events);
+            latch.countDown();
+          }
+        };
+    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
+
+    AtomicInteger currentMediaItemIndexRef = new AtomicInteger();
+    AtomicInteger nextMediaItemIndexRef = new AtomicInteger();
+    AtomicInteger previousMediaItemIndexRef = new AtomicInteger();
+    AtomicInteger currentPeriodIndexRef = new AtomicInteger();
+    AtomicInteger playbackStateRef = new AtomicInteger();
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () -> {
+              controller.addMediaItems(testMediaItems);
+              currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
+              nextMediaItemIndexRef.set(controller.getNextMediaItemIndex());
+              previousMediaItemIndexRef.set(controller.getPreviousMediaItemIndex());
+              currentPeriodIndexRef.set(controller.getCurrentPeriodIndex());
+              playbackStateRef.set(controller.getPlaybackState());
+            });
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertTimeline(
+        newTimelineRef.get(),
+        testMediaItemCount,
+        testCurrentMediaItemIndex,
+        /* testFirstPeriodIndex= */ testCurrentPeriodIndex,
+        /* testLastPeriodIndex= */ testCurrentPeriodIndex);
+    assertThat(getEventsAsList(onEventsRef.get()))
+        .containsExactly(
+            Player.EVENT_TIMELINE_CHANGED,
+            Player.EVENT_MEDIA_ITEM_TRANSITION,
+            Player.EVENT_PLAYBACK_STATE_CHANGED);
+    assertThat(currentMediaItemIndexRef.get()).isEqualTo(testCurrentMediaItemIndex);
+    assertThat(nextMediaItemIndexRef.get()).isEqualTo(testNextMediaItemIndex);
+    assertThat(previousMediaItemIndexRef.get()).isEqualTo(testPreviousMediaItemIndex);
+    assertThat(currentPeriodIndexRef.get()).isEqualTo(testCurrentPeriodIndex);
+    assertThat(newMediaItemRef.get()).isEqualTo(testMediaItem);
+    assertThat(playbackStateRef.get()).isEqualTo(Player.STATE_BUFFERING);
   }
 
   @Test
@@ -3112,6 +3238,334 @@ public class MediaControllerStateMaskingTest {
             });
 
     assertThat(itemsAfterMove).containsExactly(items.get(1), items.get(0)).inOrder();
+  }
+
+  @Test
+  public void replaceMediaItems_notReplacingCurrentItem_correctMasking() throws Exception {
+    Bundle playerConfig =
+        new RemoteMediaSession.MockPlayerConfigBuilder()
+            .setTimeline(MediaTestUtils.createTimeline(3))
+            .setCurrentMediaItemIndex(2)
+            .build();
+    remoteSession.setPlayer(playerConfig);
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    CountDownLatch latch = new CountDownLatch(2);
+    AtomicReference<Timeline> newTimelineRef = new AtomicReference<>();
+    AtomicReference<Player.Events> onEventsRef = new AtomicReference<>();
+    Player.Listener listener =
+        new Player.Listener() {
+          @Override
+          public void onTimelineChanged(Timeline timeline, int reason) {
+            newTimelineRef.set(timeline);
+            latch.countDown();
+          }
+
+          @Override
+          public void onEvents(Player player, Player.Events events) {
+            onEventsRef.set(events);
+            latch.countDown();
+          }
+        };
+    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
+    AtomicInteger currentMediaItemIndexRef = new AtomicInteger();
+
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () -> {
+              controller.replaceMediaItems(
+                  /* fromIndex= */ 1, /* toIndex= */ 2, createMediaItems(2));
+              currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
+            });
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(newTimelineRef.get().getWindowCount()).isEqualTo(4);
+    assertThat(currentMediaItemIndexRef.get()).isEqualTo(3);
+    assertThat(getEventsAsList(onEventsRef.get())).containsExactly(Player.EVENT_TIMELINE_CHANGED);
+  }
+
+  @Test
+  public void replaceMediaItems_replacingCurrentItem_correctMasking() throws Exception {
+    Bundle playerConfig =
+        new RemoteMediaSession.MockPlayerConfigBuilder()
+            .setTimeline(MediaTestUtils.createTimeline(3))
+            .setCurrentMediaItemIndex(1)
+            .build();
+    remoteSession.setPlayer(playerConfig);
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    CountDownLatch latch = new CountDownLatch(2);
+    AtomicReference<Timeline> newTimelineRef = new AtomicReference<>();
+    AtomicReference<Player.Events> onEventsRef = new AtomicReference<>();
+    Player.Listener listener =
+        new Player.Listener() {
+          @Override
+          public void onTimelineChanged(Timeline timeline, int reason) {
+            newTimelineRef.set(timeline);
+            latch.countDown();
+          }
+
+          @Override
+          public void onEvents(Player player, Player.Events events) {
+            onEventsRef.set(events);
+            latch.countDown();
+          }
+        };
+    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
+    AtomicInteger currentMediaItemIndexRef = new AtomicInteger();
+
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () -> {
+              controller.replaceMediaItem(/* index= */ 1, createMediaItems(1).get(0));
+              currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
+            });
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(newTimelineRef.get().getWindowCount()).isEqualTo(3);
+    assertThat(currentMediaItemIndexRef.get()).isEqualTo(1);
+    assertThat(getEventsAsList(onEventsRef.get()))
+        .containsExactly(
+            Player.EVENT_TIMELINE_CHANGED,
+            Player.EVENT_POSITION_DISCONTINUITY,
+            Player.EVENT_MEDIA_ITEM_TRANSITION);
+  }
+
+  @Test
+  public void replaceMediaItems_replacingCurrentItemWithEmptyListAndSubsequentItem_correctMasking()
+      throws Exception {
+    Bundle playerConfig =
+        new RemoteMediaSession.MockPlayerConfigBuilder()
+            .setTimeline(MediaTestUtils.createTimeline(3))
+            .setCurrentMediaItemIndex(1)
+            .build();
+    remoteSession.setPlayer(playerConfig);
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    CountDownLatch latch = new CountDownLatch(2);
+    AtomicReference<Timeline> newTimelineRef = new AtomicReference<>();
+    AtomicReference<Player.Events> onEventsRef = new AtomicReference<>();
+    Player.Listener listener =
+        new Player.Listener() {
+          @Override
+          public void onTimelineChanged(Timeline timeline, int reason) {
+            newTimelineRef.set(timeline);
+            latch.countDown();
+          }
+
+          @Override
+          public void onEvents(Player player, Player.Events events) {
+            onEventsRef.set(events);
+            latch.countDown();
+          }
+        };
+    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
+    AtomicInteger currentMediaItemIndexRef = new AtomicInteger();
+
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () -> {
+              controller.replaceMediaItems(
+                  /* fromIndex= */ 1, /* toIndex= */ 2, ImmutableList.of());
+              currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
+            });
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(newTimelineRef.get().getWindowCount()).isEqualTo(2);
+    assertThat(currentMediaItemIndexRef.get()).isEqualTo(1);
+    assertThat(getEventsAsList(onEventsRef.get()))
+        .containsExactly(
+            Player.EVENT_TIMELINE_CHANGED,
+            Player.EVENT_POSITION_DISCONTINUITY,
+            Player.EVENT_MEDIA_ITEM_TRANSITION);
+  }
+
+  @Test
+  public void
+      replaceMediaItems_replacingCurrentItemWithEmptyListAndNoSubsequentItem_correctMasking()
+          throws Exception {
+    Bundle playerConfig =
+        new RemoteMediaSession.MockPlayerConfigBuilder()
+            .setTimeline(MediaTestUtils.createTimeline(2))
+            .setCurrentMediaItemIndex(1)
+            .setPlaybackState(Player.STATE_BUFFERING)
+            .build();
+    remoteSession.setPlayer(playerConfig);
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    CountDownLatch latch = new CountDownLatch(2);
+    AtomicReference<Timeline> newTimelineRef = new AtomicReference<>();
+    AtomicReference<Player.Events> onEventsRef = new AtomicReference<>();
+    Player.Listener listener =
+        new Player.Listener() {
+          @Override
+          public void onTimelineChanged(Timeline timeline, int reason) {
+            newTimelineRef.set(timeline);
+            latch.countDown();
+          }
+
+          @Override
+          public void onEvents(Player player, Player.Events events) {
+            onEventsRef.set(events);
+            latch.countDown();
+          }
+        };
+    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
+    AtomicInteger currentMediaItemIndexRef = new AtomicInteger();
+    AtomicInteger playbackStateRef = new AtomicInteger();
+
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () -> {
+              controller.replaceMediaItems(
+                  /* fromIndex= */ 1, /* toIndex= */ 2, ImmutableList.of());
+              currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
+              playbackStateRef.set(controller.getPlaybackState());
+            });
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(newTimelineRef.get().getWindowCount()).isEqualTo(1);
+    assertThat(currentMediaItemIndexRef.get()).isEqualTo(0);
+    assertThat(playbackStateRef.get()).isEqualTo(Player.STATE_ENDED);
+    assertThat(getEventsAsList(onEventsRef.get()))
+        .containsExactly(
+            Player.EVENT_TIMELINE_CHANGED,
+            Player.EVENT_POSITION_DISCONTINUITY,
+            Player.EVENT_MEDIA_ITEM_TRANSITION,
+            Player.EVENT_PLAYBACK_STATE_CHANGED);
+  }
+
+  @Test
+  public void replaceMediaItems_fromPreparedEmpty_correctMasking() throws Exception {
+    Bundle playerConfig =
+        new RemoteMediaSession.MockPlayerConfigBuilder()
+            .setTimeline(Timeline.EMPTY)
+            .setCurrentMediaItemIndex(1)
+            .setPlaybackState(Player.STATE_ENDED)
+            .build();
+    remoteSession.setPlayer(playerConfig);
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    CountDownLatch latch = new CountDownLatch(2);
+    AtomicReference<Timeline> newTimelineRef = new AtomicReference<>();
+    AtomicReference<Player.Events> onEventsRef = new AtomicReference<>();
+    Player.Listener listener =
+        new Player.Listener() {
+          @Override
+          public void onTimelineChanged(Timeline timeline, int reason) {
+            newTimelineRef.set(timeline);
+            latch.countDown();
+          }
+
+          @Override
+          public void onEvents(Player player, Player.Events events) {
+            onEventsRef.set(events);
+            latch.countDown();
+          }
+        };
+    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
+    AtomicInteger currentMediaItemIndexRef = new AtomicInteger();
+    AtomicInteger playbackStateRef = new AtomicInteger();
+
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () -> {
+              controller.replaceMediaItems(
+                  /* fromIndex= */ 0, /* toIndex= */ 0, createMediaItems(2));
+              currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
+              playbackStateRef.set(controller.getPlaybackState());
+            });
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(newTimelineRef.get().getWindowCount()).isEqualTo(2);
+    assertThat(currentMediaItemIndexRef.get()).isEqualTo(1);
+    assertThat(playbackStateRef.get()).isEqualTo(Player.STATE_BUFFERING);
+    assertThat(getEventsAsList(onEventsRef.get()))
+        .containsExactly(
+            Player.EVENT_TIMELINE_CHANGED,
+            Player.EVENT_MEDIA_ITEM_TRANSITION,
+            Player.EVENT_PLAYBACK_STATE_CHANGED);
+  }
+
+  @Test
+  public void replaceMediaItems_fromEmptyToEmpty_correctMasking() throws Exception {
+    Bundle playerConfig =
+        new RemoteMediaSession.MockPlayerConfigBuilder()
+            .setTimeline(Timeline.EMPTY)
+            .setCurrentMediaItemIndex(1)
+            .setPlaybackState(Player.STATE_ENDED)
+            .build();
+    remoteSession.setPlayer(playerConfig);
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    CountDownLatch latch = new CountDownLatch(1);
+    AtomicReference<Timeline> newTimelineRef = new AtomicReference<>();
+    AtomicInteger currentMediaItemIndexRef = new AtomicInteger();
+    AtomicInteger playbackStateRef = new AtomicInteger();
+
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () -> {
+              controller.replaceMediaItems(
+                  /* fromIndex= */ 0, /* toIndex= */ 0, ImmutableList.of());
+              newTimelineRef.set(controller.getCurrentTimeline());
+              currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
+              playbackStateRef.set(controller.getPlaybackState());
+              latch.countDown();
+            });
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(newTimelineRef.get().isEmpty()).isTrue();
+    assertThat(currentMediaItemIndexRef.get()).isEqualTo(1);
+    assertThat(playbackStateRef.get()).isEqualTo(Player.STATE_ENDED);
+  }
+
+  @Test
+  public void replaceMediaItems_withInvalidToIndex_correctMasking() throws Exception {
+    Bundle playerConfig =
+        new RemoteMediaSession.MockPlayerConfigBuilder()
+            .setTimeline(MediaTestUtils.createTimeline(3))
+            .setCurrentMediaItemIndex(2)
+            .build();
+    remoteSession.setPlayer(playerConfig);
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    CountDownLatch latch = new CountDownLatch(2);
+    AtomicReference<Timeline> newTimelineRef = new AtomicReference<>();
+    AtomicReference<Player.Events> onEventsRef = new AtomicReference<>();
+    Player.Listener listener =
+        new Player.Listener() {
+          @Override
+          public void onTimelineChanged(Timeline timeline, int reason) {
+            newTimelineRef.set(timeline);
+            latch.countDown();
+          }
+
+          @Override
+          public void onEvents(Player player, Player.Events events) {
+            onEventsRef.set(events);
+            latch.countDown();
+          }
+        };
+    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
+    AtomicInteger currentMediaItemIndexRef = new AtomicInteger();
+
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () -> {
+              controller.replaceMediaItems(
+                  /* fromIndex= */ 1, /* toIndex= */ 5000, createMediaItems(2));
+              currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
+            });
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(newTimelineRef.get().getWindowCount()).isEqualTo(3);
+    assertThat(currentMediaItemIndexRef.get()).isEqualTo(1);
+    assertThat(getEventsAsList(onEventsRef.get()))
+        .containsExactly(
+            Player.EVENT_TIMELINE_CHANGED,
+            Player.EVENT_MEDIA_ITEM_TRANSITION,
+            Player.EVENT_POSITION_DISCONTINUITY);
   }
 
   private void assertMoveMediaItems(

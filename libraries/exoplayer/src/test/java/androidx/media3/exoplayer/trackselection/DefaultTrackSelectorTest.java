@@ -28,6 +28,7 @@ import static androidx.media3.exoplayer.RendererCapabilities.HARDWARE_ACCELERATI
 import static androidx.media3.exoplayer.RendererCapabilities.TUNNELING_NOT_SUPPORTED;
 import static androidx.media3.exoplayer.RendererConfiguration.DEFAULT;
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -44,17 +45,21 @@ import androidx.media3.common.TrackGroup;
 import androidx.media3.common.TrackSelectionOverride;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
+import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.ExoPlaybackException;
+import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.RendererCapabilities.Capabilities;
 import androidx.media3.exoplayer.RendererConfiguration;
+import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector.Parameters;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector.SelectionOverride;
 import androidx.media3.exoplayer.trackselection.TrackSelector.InvalidationListener;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
+import androidx.media3.test.utils.FakeAudioRenderer;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
@@ -1621,7 +1626,7 @@ public final class DefaultTrackSelectorTest {
     Format aacAudioFormat = formatBuilder.setSampleMimeType(MimeTypes.AUDIO_AAC).build();
     Format opusAudioFormat = formatBuilder.setSampleMimeType(MimeTypes.AUDIO_OPUS).build();
 
-    // Should not adapt between mixed mime types by default, so we expect a fixed selection
+    // Should not adapt between mixed MIME types by default, so we expect a fixed selection
     // containing the first stream.
     TrackGroupArray trackGroups = singleTrackGroup(aacAudioFormat, opusAudioFormat);
     TrackSelectorResult result =
@@ -1638,7 +1643,7 @@ public final class DefaultTrackSelectorTest {
     assertThat(result.length).isEqualTo(1);
     assertFixedSelection(result.selections[0], trackGroups, opusAudioFormat);
 
-    // If we explicitly enable mixed mime type adaptiveness, expect an adaptive selection.
+    // If we explicitly enable mixed MIME type adaptiveness, expect an adaptive selection.
     trackSelector.setParameters(
         defaultParameters.buildUpon().setAllowAudioMixedMimeTypeAdaptiveness(true));
     result =
@@ -1970,7 +1975,7 @@ public final class DefaultTrackSelectorTest {
     Format h264VideoFormat = formatBuilder.setSampleMimeType(MimeTypes.VIDEO_H264).build();
     Format h265VideoFormat = formatBuilder.setSampleMimeType(MimeTypes.VIDEO_H265).build();
 
-    // Should not adapt between mixed mime types by default, so we expect a fixed selection
+    // Should not adapt between mixed MIME types by default, so we expect a fixed selection
     // containing the first stream.
     TrackGroupArray trackGroups = singleTrackGroup(h264VideoFormat, h265VideoFormat);
     TrackSelectorResult result =
@@ -1987,7 +1992,7 @@ public final class DefaultTrackSelectorTest {
     assertThat(result.length).isEqualTo(1);
     assertFixedSelection(result.selections[0], trackGroups, h265VideoFormat);
 
-    // If we explicitly enable mixed mime type adaptiveness, expect an adaptive selection.
+    // If we explicitly enable mixed MIME type adaptiveness, expect an adaptive selection.
     trackSelector.setParameters(
         defaultParameters.buildUpon().setAllowVideoMixedMimeTypeAdaptiveness(true));
     result =
@@ -2454,6 +2459,36 @@ public final class DefaultTrackSelectorTest {
     }
   }
 
+  @Test
+  public void onRendererCapabilitiesChangedWithDefaultParameters_notNotifyInvalidateListener() {
+    Renderer renderer =
+        new FakeAudioRenderer(
+            /* handler= */ mock(HandlerWrapper.class),
+            /* eventListener= */ mock(AudioRendererEventListener.class));
+
+    trackSelector.onRendererCapabilitiesChanged(renderer);
+
+    verify(invalidationListener, never()).onRendererCapabilitiesChanged(renderer);
+  }
+
+  @Test
+  public void
+      onRendererCapabilitiesChangedWithInvalidateSelectionsForRendererCapabilitiesChangeEnabled_notifyInvalidateListener() {
+    trackSelector.setParameters(
+        defaultParameters
+            .buildUpon()
+            .setAllowInvalidateSelectionsOnRendererCapabilitiesChange(true)
+            .build());
+    Renderer renderer =
+        new FakeAudioRenderer(
+            /* handler= */ mock(HandlerWrapper.class),
+            /* eventListener= */ mock(AudioRendererEventListener.class));
+
+    trackSelector.onRendererCapabilitiesChanged(renderer);
+
+    verify(invalidationListener).onRendererCapabilitiesChanged(renderer);
+  }
+
   private static void assertSelections(TrackSelectorResult result, TrackSelection[] expected) {
     assertThat(result.length).isEqualTo(expected.length);
     for (int i = 0; i < expected.length; i++) {
@@ -2574,6 +2609,7 @@ public final class DefaultTrackSelectorTest {
         .setExceedRendererCapabilitiesIfNecessary(false)
         .setTunnelingEnabled(true)
         .setAllowMultipleAdaptiveSelections(true)
+        .setAllowInvalidateSelectionsOnRendererCapabilitiesChange(false)
         .setSelectionOverride(
             /* rendererIndex= */ 2,
             new TrackGroupArray(VIDEO_TRACK_GROUP),

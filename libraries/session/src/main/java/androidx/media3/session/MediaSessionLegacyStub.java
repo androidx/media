@@ -31,8 +31,6 @@ import static androidx.media3.common.Player.COMMAND_SET_REPEAT_MODE;
 import static androidx.media3.common.Player.COMMAND_SET_SHUFFLE_MODE;
 import static androidx.media3.common.Player.COMMAND_SET_SPEED_AND_PITCH;
 import static androidx.media3.common.Player.COMMAND_STOP;
-import static androidx.media3.common.Player.STATE_ENDED;
-import static androidx.media3.common.Player.STATE_IDLE;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
@@ -137,11 +135,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
   @Nullable private FutureCallback<Bitmap> pendingBitmapLoadCallback;
   private int sessionFlags;
 
-  public MediaSessionLegacyStub(
-      MediaSessionImpl session,
-      Uri sessionUri,
-      @Nullable ComponentName serviceComponentName,
-      Handler handler) {
+  @SuppressWarnings("PendingIntentMutability") // We can't use SaferPendingIntent
+  public MediaSessionLegacyStub(MediaSessionImpl session, Uri sessionUri, Handler handler) {
     sessionImpl = session;
     Context context = sessionImpl.getContext();
     appPackageName = context.getPackageName();
@@ -160,8 +155,15 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     // Assume an app that intentionally puts a `MediaButtonReceiver` into the manifest has
     // implemented some kind of resumption of the last recently played media item.
     canResumePlaybackOnStart = receiverComponentName != null;
+    boolean isReceiverComponentAService = false;
     if (receiverComponentName == null) {
-      receiverComponentName = serviceComponentName;
+      receiverComponentName =
+          getServiceComponentByAction(context, MediaLibraryService.SERVICE_INTERFACE);
+      if (receiverComponentName == null) {
+        receiverComponentName =
+            getServiceComponentByAction(context, MediaSessionService.SERVICE_INTERFACE);
+      }
+      isReceiverComponentAService = receiverComponentName != null;
     }
     Intent intent = new Intent(Intent.ACTION_MEDIA_BUTTON, sessionUri);
     PendingIntent mediaButtonIntent;
@@ -182,7 +184,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     } else {
       intent.setComponent(receiverComponentName);
       mediaButtonIntent =
-          Objects.equals(serviceComponentName, receiverComponentName)
+          isReceiverComponentAService
               ? (Util.SDK_INT >= 26
                   ? PendingIntent.getForegroundService(
                       context, /* requestCode= */ 0, intent, PENDING_INTENT_FLAG_MUTABLE)
@@ -217,6 +219,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
   }
 
   @Nullable
+  @SuppressWarnings("QueryPermissionsNeeded") // Needs to be provided in the app manifest.
   private static ComponentName queryPackageManagerForMediaButtonReceiver(Context context) {
     PackageManager pm = context.getPackageManager();
     Intent queryIntent = new Intent(Intent.ACTION_MEDIA_BUTTON);
@@ -248,6 +251,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     if (runtimeBroadcastReceiver != null) {
       sessionImpl.getContext().unregisterReceiver(runtimeBroadcastReceiver);
     }
+    // No check for COMMAND_RELEASE needed as MediaControllers can always be released.
     sessionCompat.release();
   }
 
@@ -342,22 +346,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     mediaPlayPauseKeyHandler.clearPendingMediaPlayPauseKey();
     dispatchSessionTaskWithPlayerCommand(
         COMMAND_PLAY_PAUSE,
-        (controller) -> {
-          PlayerWrapper playerWrapper = sessionImpl.getPlayerWrapper();
-          @Player.State int playbackState = playerWrapper.getPlaybackState();
-          if (!playerWrapper.getPlayWhenReady()
-              || playbackState == STATE_ENDED
-              || playbackState == STATE_IDLE) {
-            if (playbackState == STATE_IDLE) {
-              playerWrapper.prepareIfCommandAvailable();
-            } else if (playbackState == STATE_ENDED) {
-              playerWrapper.seekToDefaultPositionIfCommandAvailable();
-            }
-            playerWrapper.play();
-          } else {
-            playerWrapper.pause();
-          }
-        },
+        controller -> Util.handlePlayPauseButtonAction(sessionImpl.getPlayerWrapper()),
         remoteUserInfo);
   }
 
@@ -397,15 +386,15 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     dispatchSessionTaskWithPlayerCommand(
         COMMAND_PLAY_PAUSE,
         controller -> {
-          PlayerWrapper playerWrapper = sessionImpl.getPlayerWrapper();
-          @Player.State int playbackState = playerWrapper.getPlaybackState();
-          if (playbackState == Player.STATE_IDLE) {
-            playerWrapper.prepareIfCommandAvailable();
-          } else if (playbackState == Player.STATE_ENDED) {
-            playerWrapper.seekToDefaultPositionIfCommandAvailable();
-          }
           if (sessionImpl.onPlayRequested()) {
-            playerWrapper.play();
+            PlayerWrapper playerWrapper = sessionImpl.getPlayerWrapper();
+            if (playerWrapper.getMediaItemCount() == 0) {
+              // The player is in IDLE or ENDED state and has no media items in the playlist yet.
+              // Handle the play command as a playback resumption command to try resume playback.
+              sessionImpl.prepareAndPlayForPlaybackResumption(controller, playerWrapper);
+            } else {
+              Util.handlePlayButtonAction(playerWrapper);
+            }
           }
         },
         sessionCompat.getCurrentControllerInfo());
@@ -438,7 +427,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
   public void onPause() {
     dispatchSessionTaskWithPlayerCommand(
         COMMAND_PLAY_PAUSE,
-        controller -> sessionImpl.getPlayerWrapper().pause(),
+        controller -> Util.handlePauseButtonAction(sessionImpl.getPlayerWrapper()),
         sessionCompat.getCurrentControllerInfo());
   }
 
@@ -641,6 +630,10 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     return connectedControllersManager;
   }
 
+  /* package */ boolean canResumePlaybackOnStart() {
+    return canResumePlaybackOnStart;
+  }
+
   private void dispatchSessionTaskWithPlayerCommand(
       @Player.Command int command, SessionTask task, @Nullable RemoteUserInfo remoteUserInfo) {
     if (sessionImpl.isReleased()) {
@@ -679,16 +672,22 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
             return;
           }
 
-          try {
-            task.run(controller);
-          } catch (RemoteException e) {
-            // Currently it's TransactionTooLargeException or DeadSystemException.
-            // We'd better to leave log for those cases because
-            //   - TransactionTooLargeException means that we may need to fix our code.
-            //     (e.g. add pagination or special way to deliver Bitmap)
-            //   - DeadSystemException means that errors around it can be ignored.
-            Log.w(TAG, "Exception in " + controller, e);
-          }
+          sessionImpl
+              .callWithControllerForCurrentRequestSet(
+                  controller,
+                  () -> {
+                    try {
+                      task.run(controller);
+                    } catch (RemoteException e) {
+                      // Currently it's TransactionTooLargeException or DeadSystemException.
+                      // We'd better to leave log for those cases because
+                      //   - TransactionTooLargeException means that we may need to fix our code.
+                      //     (e.g. add pagination or special way to deliver Bitmap)
+                      //   - DeadSystemException means that errors around it can be ignored.
+                      Log.w(TAG, "Exception in " + controller, e);
+                    }
+                  })
+              .run();
         });
   }
 
@@ -812,20 +811,22 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
                 public void onSuccess(MediaItemsWithStartPosition mediaItemsWithStartPosition) {
                   postOrRun(
                       sessionImpl.getApplicationHandler(),
-                      () -> {
-                        PlayerWrapper player = sessionImpl.getPlayerWrapper();
-                        MediaUtils.setMediaItemsWithStartIndexAndPosition(
-                            player, mediaItemsWithStartPosition);
-                        @Player.State int playbackState = player.getPlaybackState();
-                        if (playbackState == Player.STATE_IDLE) {
-                          player.prepareIfCommandAvailable();
-                        } else if (playbackState == Player.STATE_ENDED) {
-                          player.seekToDefaultPositionIfCommandAvailable();
-                        }
-                        if (play) {
-                          player.playIfCommandAvailable();
-                        }
-                      });
+                      sessionImpl.callWithControllerForCurrentRequestSet(
+                          controller,
+                          () -> {
+                            PlayerWrapper player = sessionImpl.getPlayerWrapper();
+                            MediaUtils.setMediaItemsWithStartIndexAndPosition(
+                                player, mediaItemsWithStartPosition);
+                            @Player.State int playbackState = player.getPlaybackState();
+                            if (playbackState == Player.STATE_IDLE) {
+                              player.prepareIfCommandAvailable();
+                            } else if (playbackState == Player.STATE_ENDED) {
+                              player.seekToDefaultPositionIfCommandAvailable();
+                            }
+                            if (play) {
+                              player.playIfCommandAvailable();
+                            }
+                          }));
                 }
 
                 @Override
@@ -860,13 +861,15 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
                 public void onSuccess(List<MediaItem> mediaItems) {
                   postOrRun(
                       sessionImpl.getApplicationHandler(),
-                      () -> {
-                        if (index == C.INDEX_UNSET) {
-                          sessionImpl.getPlayerWrapper().addMediaItems(mediaItems);
-                        } else {
-                          sessionImpl.getPlayerWrapper().addMediaItems(index, mediaItems);
-                        }
-                      });
+                      sessionImpl.callWithControllerForCurrentRequestSet(
+                          controller,
+                          () -> {
+                            if (index == C.INDEX_UNSET) {
+                              sessionImpl.getPlayerWrapper().addMediaItems(mediaItems);
+                            } else {
+                              sessionImpl.getPlayerWrapper().addMediaItems(index, mediaItems);
+                            }
+                          }));
                 }
 
                 @Override
@@ -886,9 +889,11 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
           SessionResult result;
           try {
             result = checkNotNull(future.get(), "SessionResult must not be null");
-          } catch (CancellationException unused) {
+          } catch (CancellationException e) {
+            Log.w(TAG, "Custom command cancelled", e);
             result = new SessionResult(RESULT_INFO_SKIPPED);
-          } catch (ExecutionException | InterruptedException unused) {
+          } catch (ExecutionException | InterruptedException e) {
+            Log.w(TAG, "Custom command failed", e);
             result = new SessionResult(RESULT_ERROR_UNKNOWN);
           }
           receiver.send(result.resultCode, result.extras);
@@ -1205,7 +1210,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
           try {
             bitmap = Futures.getDone(future);
           } catch (CancellationException | ExecutionException e) {
-            Log.d(TAG, "Failed to get bitmap");
+            Log.d(TAG, "Failed to get bitmap", e);
           }
         }
         queueItemList.add(MediaUtils.convertToQueueItem(mediaItems.get(i), i, bitmap));
@@ -1436,6 +1441,20 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
 
   private static String getBitmapLoadErrorMessage(Throwable throwable) {
     return "Failed to load bitmap: " + throwable.getMessage();
+  }
+
+  @Nullable
+  @SuppressWarnings("QueryPermissionsNeeded") // Needs to be provided in the app manifest.
+  private static ComponentName getServiceComponentByAction(Context context, String action) {
+    PackageManager pm = context.getPackageManager();
+    Intent queryIntent = new Intent(action);
+    queryIntent.setPackage(context.getPackageName());
+    List<ResolveInfo> resolveInfos = pm.queryIntentServices(queryIntent, /* flags= */ 0);
+    if (resolveInfos == null || resolveInfos.isEmpty()) {
+      return null;
+    }
+    ResolveInfo resolveInfo = resolveInfos.get(0);
+    return new ComponentName(resolveInfo.serviceInfo.packageName, resolveInfo.serviceInfo.name);
   }
 
   // TODO(b/193193462): Replace this with androidx.media.session.MediaButtonReceiver

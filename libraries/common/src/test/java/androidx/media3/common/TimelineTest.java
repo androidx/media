@@ -15,12 +15,15 @@
  */
 package androidx.media3.common;
 
+import static androidx.media3.test.utils.FakeMultiPeriodLiveTimeline.AD_PERIOD_DURATION_MS;
+import static androidx.media3.test.utils.FakeMultiPeriodLiveTimeline.PERIOD_DURATION_MS;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.os.Bundle;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem.LiveConfiguration;
 import androidx.media3.exoplayer.source.ShuffleOrder.DefaultShuffleOrder;
+import androidx.media3.test.utils.FakeMultiPeriodLiveTimeline;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition;
 import androidx.media3.test.utils.TimelineAsserts;
@@ -429,6 +432,34 @@ public class TimelineTest {
     assertThat(restoredPeriod.uid).isNull();
     TimelineAsserts.assertPeriodEqualsExceptIds(
         /* expectedPeriod= */ period, /* actualPeriod= */ restoredPeriod);
+  }
+
+  @Test
+  public void periodIsLivePostrollPlaceholder_recognizesLivePostrollPlaceholder() {
+    FakeMultiPeriodLiveTimeline timeline =
+        new FakeMultiPeriodLiveTimeline(
+            /* availabilityStartTimeMs= */ 0,
+            /* liveWindowDurationUs= */ 60_000_000,
+            /* nowUs= */ 60_000_000,
+            /* adSequencePattern= */ new boolean[] {false, true, true},
+            /* periodDurationMsPattern= */ new long[] {
+              PERIOD_DURATION_MS, AD_PERIOD_DURATION_MS, AD_PERIOD_DURATION_MS
+            },
+            /* isContentTimeline= */ false,
+            /* populateAds= */ true,
+            /* playedAds= */ false);
+
+    assertThat(timeline.getPeriodCount()).isEqualTo(4);
+    assertThat(
+            timeline
+                .getPeriod(/* periodIndex= */ 1, new Timeline.Period())
+                .isLivePostrollPlaceholder(/* adGroupIndex= */ 0))
+        .isFalse();
+    assertThat(
+            timeline
+                .getPeriod(/* periodIndex= */ 1, new Timeline.Period())
+                .isLivePostrollPlaceholder(/* adGroupIndex= */ 1))
+        .isTrue();
   }
 
   @SuppressWarnings("deprecation") // Populates the deprecated window.tag property.

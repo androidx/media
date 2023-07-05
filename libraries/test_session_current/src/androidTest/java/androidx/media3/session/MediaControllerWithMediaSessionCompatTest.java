@@ -68,6 +68,7 @@ import androidx.media3.common.Player.PositionInfo;
 import androidx.media3.common.Player.RepeatMode;
 import androidx.media3.common.Player.State;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.Util;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.media3.test.session.common.MainLooperTestRule;
@@ -245,6 +246,8 @@ public class MediaControllerWithMediaSessionCompatTest {
     AtomicLong repeatModeRef = new AtomicLong();
     AtomicReference<MediaMetadata> playlistMetadataRef = new AtomicReference<>();
     AtomicBoolean isPlayingAdRef = new AtomicBoolean();
+    AtomicLong durationRef = new AtomicLong();
+    AtomicLong durationInTimelineRef = new AtomicLong();
     threadTestRule
         .getHandler()
         .postAndSync(
@@ -259,6 +262,12 @@ public class MediaControllerWithMediaSessionCompatTest {
               shuffleModeEnabledRef.set(controller.getShuffleModeEnabled());
               playlistMetadataRef.set(controller.getPlaylistMetadata());
               isPlayingAdRef.set(controller.isPlayingAd());
+              durationRef.set(controller.getDuration());
+              durationInTimelineRef.set(
+                  controller
+                      .getCurrentTimeline()
+                      .getWindow(/* windowIndex= */ 0, new Timeline.Window())
+                      .getDurationMs());
             });
 
     assertThat(positionRef.get())
@@ -272,6 +281,8 @@ public class MediaControllerWithMediaSessionCompatTest {
     assertThat(repeatModeRef.get()).isEqualTo(Player.REPEAT_MODE_ALL);
     assertThat(playlistMetadataRef.get().title.toString()).isEqualTo(queueTitle.toString());
     assertThat(isPlayingAdRef.get()).isEqualTo(isPlayingAd);
+    assertThat(durationRef.get()).isEqualTo(duration);
+    assertThat(durationInTimelineRef.get()).isEqualTo(duration);
   }
 
   @Test
@@ -1537,6 +1548,7 @@ public class MediaControllerWithMediaSessionCompatTest {
     int volumeControlType = VolumeProviderCompat.VOLUME_CONTROL_ABSOLUTE;
     int maxVolume = 100;
     int currentVolume = 45;
+    String routingSessionId = Util.SDK_INT >= 30 ? "route" : null;
 
     AtomicReference<DeviceInfo> deviceInfoRef = new AtomicReference<>();
     CountDownLatch latchForDeviceInfo = new CountDownLatch(1);
@@ -1561,11 +1573,12 @@ public class MediaControllerWithMediaSessionCompatTest {
     MediaController controller = controllerTestRule.createController(session.getSessionToken());
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
 
-    session.setPlaybackToRemote(volumeControlType, maxVolume, currentVolume);
+    session.setPlaybackToRemote(volumeControlType, maxVolume, currentVolume, routingSessionId);
 
     assertThat(latchForDeviceInfo.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(latchForDeviceVolume.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(deviceInfoRef.get().maxVolume).isEqualTo(maxVolume);
+    assertThat(deviceInfoRef.get().routingControllerId).isEqualTo(routingSessionId);
   }
 
   @Test
@@ -1577,7 +1590,8 @@ public class MediaControllerWithMediaSessionCompatTest {
     session.setPlaybackToRemote(
         VolumeProviderCompat.VOLUME_CONTROL_ABSOLUTE,
         /* maxVolume= */ 100,
-        /* currentVolume= */ 45);
+        /* currentVolume= */ 45,
+        /* routingSessionId= */ "route");
 
     int testLocalStreamType = AudioManager.STREAM_ALARM;
     AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);

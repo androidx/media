@@ -33,6 +33,7 @@ import androidx.media3.common.Bundleable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
+import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaSession.ControllerInfo;
@@ -118,9 +119,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
      * An extended {@link MediaSession.Callback} for the {@link MediaLibrarySession}.
      *
      * <p>When you return {@link LibraryResult} with {@link MediaItem media items}, each item must
-     * have valid {@link MediaItem#mediaId} and specify {@link MediaMetadata#isBrowsable} (or {@link
-     * MediaMetadata#folderType}) and {@link MediaMetadata#isPlayable} in its {@link
-     * MediaItem#mediaMetadata}.
+     * have valid {@link MediaItem#mediaId} and specify {@link MediaMetadata#isBrowsable} and {@link
+     * MediaMetadata#isPlayable} in its {@link MediaItem#mediaMetadata}.
      */
     public interface Callback extends MediaSession.Callback {
 

@@ -22,7 +22,6 @@ import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.session.MediaUtils.calculateBufferedPercentage;
-import static androidx.media3.session.MediaUtils.intersect;
 import static androidx.media3.session.MediaUtils.mergePlayerInfo;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -146,7 +145,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     sessionCommands = SessionCommands.EMPTY;
     playerCommandsFromSession = Commands.EMPTY;
     playerCommandsFromPlayer = Commands.EMPTY;
-    intersectedPlayerCommands = Commands.EMPTY;
+    intersectedPlayerCommands =
+        createIntersectedCommands(playerCommandsFromSession, playerCommandsFromPlayer);
     listeners =
         new ListenerSet<>(
             applicationLooper,
@@ -250,6 +250,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
   @Override
   public void release() {
+    // No check for COMMAND_RELEASE needed as MediaControllers can always be released.
     @Nullable IMediaSession iSession = this.iSession;
     if (released) {
       return;
@@ -723,7 +724,9 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     }
 
     dispatchRemoteSessionTaskWithPlayerCommand(
-        (iSession, seq) -> iSession.setMediaItem(controllerStub, seq, mediaItem.toBundle()));
+        (iSession, seq) ->
+            iSession.setMediaItem(
+                controllerStub, seq, mediaItem.toBundleIncludeLocalConfiguration()));
 
     setMediaItemsInternal(
         Collections.singletonList(mediaItem),
@@ -741,7 +744,10 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     dispatchRemoteSessionTaskWithPlayerCommand(
         (iSession, seq) ->
             iSession.setMediaItemWithStartPosition(
-                controllerStub, seq, mediaItem.toBundle(), startPositionMs));
+                controllerStub,
+                seq,
+                mediaItem.toBundleIncludeLocalConfiguration(),
+                startPositionMs));
 
     setMediaItemsInternal(
         Collections.singletonList(mediaItem),
@@ -759,7 +765,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     dispatchRemoteSessionTaskWithPlayerCommand(
         (iSession, seq) ->
             iSession.setMediaItemWithResetPosition(
-                controllerStub, seq, mediaItem.toBundle(), resetPosition));
+                controllerStub, seq, mediaItem.toBundleIncludeLocalConfiguration(), resetPosition));
 
     setMediaItemsInternal(
         Collections.singletonList(mediaItem),
@@ -779,7 +785,9 @@ import org.checkerframework.checker.nullness.qual.NonNull;
             iSession.setMediaItems(
                 controllerStub,
                 seq,
-                new BundleListRetriever(BundleableUtil.toBundleList(mediaItems))));
+                new BundleListRetriever(
+                    BundleableUtil.toBundleList(
+                        mediaItems, MediaItem::toBundleIncludeLocalConfiguration))));
 
     setMediaItemsInternal(
         mediaItems,
@@ -799,7 +807,9 @@ import org.checkerframework.checker.nullness.qual.NonNull;
             iSession.setMediaItemsWithResetPosition(
                 controllerStub,
                 seq,
-                new BundleListRetriever(BundleableUtil.toBundleList(mediaItems)),
+                new BundleListRetriever(
+                    BundleableUtil.toBundleList(
+                        mediaItems, MediaItem::toBundleIncludeLocalConfiguration)),
                 resetPosition));
 
     setMediaItemsInternal(
@@ -820,7 +830,9 @@ import org.checkerframework.checker.nullness.qual.NonNull;
             iSession.setMediaItemsWithStartIndex(
                 controllerStub,
                 seq,
-                new BundleListRetriever(BundleableUtil.toBundleList(mediaItems)),
+                new BundleListRetriever(
+                    BundleableUtil.toBundleList(
+                        mediaItems, MediaItem::toBundleIncludeLocalConfiguration)),
                 startIndex,
                 startPositionMs));
 
@@ -830,7 +842,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
   @Override
   public void setPlaylistMetadata(MediaMetadata playlistMetadata) {
-    if (!isPlayerCommandAvailable(Player.COMMAND_SET_MEDIA_ITEMS_METADATA)) {
+    if (!isPlayerCommandAvailable(Player.COMMAND_SET_PLAYLIST_METADATA)) {
       return;
     }
 
@@ -859,7 +871,9 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     }
 
     dispatchRemoteSessionTaskWithPlayerCommand(
-        (iSession, seq) -> iSession.addMediaItem(controllerStub, seq, mediaItem.toBundle()));
+        (iSession, seq) ->
+            iSession.addMediaItem(
+                controllerStub, seq, mediaItem.toBundleIncludeLocalConfiguration()));
 
     addMediaItemsInternal(
         getCurrentTimeline().getWindowCount(), Collections.singletonList(mediaItem));
@@ -874,7 +888,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
     dispatchRemoteSessionTaskWithPlayerCommand(
         (iSession, seq) ->
-            iSession.addMediaItemWithIndex(controllerStub, seq, index, mediaItem.toBundle()));
+            iSession.addMediaItemWithIndex(
+                controllerStub, seq, index, mediaItem.toBundleIncludeLocalConfiguration()));
 
     addMediaItemsInternal(index, Collections.singletonList(mediaItem));
   }
@@ -890,7 +905,9 @@ import org.checkerframework.checker.nullness.qual.NonNull;
             iSession.addMediaItems(
                 controllerStub,
                 seq,
-                new BundleListRetriever(BundleableUtil.toBundleList(mediaItems))));
+                new BundleListRetriever(
+                    BundleableUtil.toBundleList(
+                        mediaItems, MediaItem::toBundleIncludeLocalConfiguration))));
 
     addMediaItemsInternal(getCurrentTimeline().getWindowCount(), mediaItems);
   }
@@ -908,7 +925,9 @@ import org.checkerframework.checker.nullness.qual.NonNull;
                 controllerStub,
                 seq,
                 index,
-                new BundleListRetriever(BundleableUtil.toBundleList(mediaItems))));
+                new BundleListRetriever(
+                    BundleableUtil.toBundleList(
+                        mediaItems, MediaItem::toBundleIncludeLocalConfiguration))));
 
     addMediaItemsInternal(index, mediaItems);
   }
@@ -917,9 +936,31 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     if (mediaItems.isEmpty()) {
       return;
     }
+    if (playerInfo.timeline.isEmpty()) {
+      // Handle initial items in a playlist as a set operation to ensure state changes and initial
+      // position are updated correctly.
+      setMediaItemsInternal(
+          mediaItems,
+          /* startIndex= */ C.INDEX_UNSET,
+          /* startPositionMs= */ C.TIME_UNSET,
+          /* resetToDefaultPosition= */ false);
+      return;
+    }
     // Add media items to the end of the timeline if the index exceeds the window count.
     index = min(index, playerInfo.timeline.getWindowCount());
+    PlayerInfo newPlayerInfo = maskPlaybackInfoForAddedItems(playerInfo, index, mediaItems);
+    updatePlayerInfo(
+        newPlayerInfo,
+        /* timelineChangeReason= */ Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED,
+        /* ignored */ Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+        /* positionDiscontinuity= */ false,
+        /* ignored */ Player.DISCONTINUITY_REASON_INTERNAL,
+        /* mediaItemTransition= */ playerInfo.timeline.isEmpty(),
+        Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED);
+  }
 
+  private static PlayerInfo maskPlaybackInfoForAddedItems(
+      PlayerInfo playerInfo, int index, List<MediaItem> mediaItems) {
     Timeline oldTimeline = playerInfo.timeline;
     List<Window> newWindows = new ArrayList<>();
     List<Period> newPeriods = new ArrayList<>();
@@ -947,21 +988,12 @@ import org.checkerframework.checker.nullness.qual.NonNull;
               ? playerInfo.sessionPositionInfo.positionInfo.periodIndex + mediaItems.size()
               : playerInfo.sessionPositionInfo.positionInfo.periodIndex;
     }
-    PlayerInfo newPlayerInfo =
-        maskTimelineAndPositionInfo(
-            playerInfo,
-            newTimeline,
-            newMediaItemIndex,
-            newPeriodIndex,
-            Player.DISCONTINUITY_REASON_INTERNAL);
-    updatePlayerInfo(
-        newPlayerInfo,
-        /* timelineChangeReason= */ Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED,
-        /* ignored */ Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
-        /* positionDiscontinuity= */ false,
-        /* ignored */ Player.DISCONTINUITY_REASON_INTERNAL,
-        /* mediaItemTransition= */ oldTimeline.isEmpty(),
-        Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED);
+    return maskTimelineAndPositionInfo(
+        playerInfo,
+        newTimeline,
+        newMediaItemIndex,
+        newPeriodIndex,
+        Player.DISCONTINUITY_REASON_INTERNAL);
   }
 
   @Override
@@ -1003,13 +1035,29 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   }
 
   private void removeMediaItemsInternal(int fromIndex, int toIndex) {
-    Timeline oldTimeline = playerInfo.timeline;
     int playlistSize = playerInfo.timeline.getWindowCount();
     toIndex = min(toIndex, playlistSize);
-    if (fromIndex >= playlistSize || fromIndex == toIndex) {
+    if (fromIndex >= playlistSize || fromIndex == toIndex || playlistSize == 0) {
       return;
     }
+    boolean currentItemRemoved =
+        getCurrentMediaItemIndex() >= fromIndex && getCurrentMediaItemIndex() < toIndex;
+    PlayerInfo newPlayerInfo = maskPlayerInfoForRemovedItems(playerInfo, fromIndex, toIndex);
+    updatePlayerInfo(
+        newPlayerInfo,
+        /* timelineChangeReason= */ Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED,
+        /* ignored */ Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+        /* positionDiscontinuity= */ currentItemRemoved,
+        Player.DISCONTINUITY_REASON_REMOVE,
+        /* mediaItemTransition= */ playerInfo.sessionPositionInfo.positionInfo.mediaItemIndex
+                >= fromIndex
+            && playerInfo.sessionPositionInfo.positionInfo.mediaItemIndex < toIndex,
+        Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED);
+  }
 
+  private static PlayerInfo maskPlayerInfoForRemovedItems(
+      PlayerInfo playerInfo, int fromIndex, int toIndex) {
+    Timeline oldTimeline = playerInfo.timeline;
     List<Window> newWindows = new ArrayList<>();
     List<Period> newPeriods = new ArrayList<>();
     for (int i = 0; i < oldTimeline.getWindowCount(); i++) {
@@ -1020,124 +1068,109 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     rebuildPeriods(oldTimeline, newWindows, newPeriods);
     Timeline newTimeline = createMaskingTimeline(newWindows, newPeriods);
 
-    int oldMediaItemIndex = getCurrentMediaItemIndex();
+    int oldMediaItemIndex = getCurrentMediaItemIndexInternal(playerInfo);
     int newMediaItemIndex = oldMediaItemIndex;
     int oldPeriodIndex = playerInfo.sessionPositionInfo.positionInfo.periodIndex;
     int newPeriodIndex = oldPeriodIndex;
-    boolean currentItemRemoved =
-        getCurrentMediaItemIndex() >= fromIndex && getCurrentMediaItemIndex() < toIndex;
     Window window = new Window();
-    if (oldTimeline.isEmpty()) {
-      // No masking required. Just forwarding command to session.
+    boolean currentItemRemoved = oldMediaItemIndex >= fromIndex && oldMediaItemIndex < toIndex;
+    if (newTimeline.isEmpty()) {
+      newMediaItemIndex = C.INDEX_UNSET;
+      newPeriodIndex = 0;
     } else {
-      if (newTimeline.isEmpty()) {
-        newMediaItemIndex = C.INDEX_UNSET;
-        newPeriodIndex = 0;
-      } else {
-        if (currentItemRemoved) {
-          int oldNextMediaItemIndex =
-              resolveSubsequentMediaItemIndex(
-                  getRepeatMode(),
-                  getShuffleModeEnabled(),
-                  oldMediaItemIndex,
-                  oldTimeline,
-                  fromIndex,
-                  toIndex);
-          if (oldNextMediaItemIndex == C.INDEX_UNSET) {
-            newMediaItemIndex = newTimeline.getFirstWindowIndex(getShuffleModeEnabled());
-          } else if (oldNextMediaItemIndex >= toIndex) {
-            newMediaItemIndex = oldNextMediaItemIndex - (toIndex - fromIndex);
-          } else {
-            newMediaItemIndex = oldNextMediaItemIndex;
-          }
-          newPeriodIndex = newTimeline.getWindow(newMediaItemIndex, window).firstPeriodIndex;
-        } else if (oldMediaItemIndex >= toIndex) {
-          newMediaItemIndex -= (toIndex - fromIndex);
-          newPeriodIndex =
-              getNewPeriodIndexWithoutRemovedPeriods(
-                  oldTimeline, oldPeriodIndex, fromIndex, toIndex);
-        }
-      }
-
-      PlayerInfo newPlayerInfo;
       if (currentItemRemoved) {
-        PositionInfo newPositionInfo;
-        if (newMediaItemIndex == C.INDEX_UNSET) {
-          newPositionInfo = SessionPositionInfo.DEFAULT_POSITION_INFO;
-          newPlayerInfo =
-              maskTimelineAndPositionInfo(
-                  playerInfo,
-                  newTimeline,
-                  newPositionInfo,
-                  SessionPositionInfo.DEFAULT,
-                  Player.DISCONTINUITY_REASON_REMOVE);
+        int oldNextMediaItemIndex =
+            resolveSubsequentMediaItemIndex(
+                playerInfo.repeatMode,
+                playerInfo.shuffleModeEnabled,
+                oldMediaItemIndex,
+                oldTimeline,
+                fromIndex,
+                toIndex);
+        if (oldNextMediaItemIndex == C.INDEX_UNSET) {
+          newMediaItemIndex = newTimeline.getFirstWindowIndex(playerInfo.shuffleModeEnabled);
+        } else if (oldNextMediaItemIndex >= toIndex) {
+          newMediaItemIndex = oldNextMediaItemIndex - (toIndex - fromIndex);
         } else {
-          Window newWindow = newTimeline.getWindow(newMediaItemIndex, new Window());
-          long defaultPositionMs = newWindow.getDefaultPositionMs();
-          long durationMs = newWindow.getDurationMs();
-          newPositionInfo =
-              new PositionInfo(
-                  /* windowUid= */ null,
-                  newMediaItemIndex,
-                  newWindow.mediaItem,
-                  /* periodUid= */ null,
-                  newPeriodIndex,
-                  /* positionMs= */ defaultPositionMs,
-                  /* contentPositionMs= */ defaultPositionMs,
-                  /* adGroupIndex= */ C.INDEX_UNSET,
-                  /* adIndexInAdGroup= */ C.INDEX_UNSET);
-          newPlayerInfo =
-              maskTimelineAndPositionInfo(
-                  playerInfo,
-                  newTimeline,
-                  newPositionInfo,
-                  new SessionPositionInfo(
-                      newPositionInfo,
-                      /* isPlayingAd= */ false,
-                      /* eventTimeMs= */ SystemClock.elapsedRealtime(),
-                      /* durationMs= */ durationMs,
-                      /* bufferedPositionMs= */ defaultPositionMs,
-                      /* bufferedPercentage= */ calculateBufferedPercentage(
-                          defaultPositionMs, durationMs),
-                      /* totalBufferedDurationMs= */ 0,
-                      /* currentLiveOffsetMs= */ C.TIME_UNSET,
-                      /* contentDurationMs= */ durationMs,
-                      /* contentBufferedPositionMs= */ defaultPositionMs),
-                  Player.DISCONTINUITY_REASON_REMOVE);
+          newMediaItemIndex = oldNextMediaItemIndex;
         }
-      } else {
+        newPeriodIndex = newTimeline.getWindow(newMediaItemIndex, window).firstPeriodIndex;
+      } else if (oldMediaItemIndex >= toIndex) {
+        newMediaItemIndex -= (toIndex - fromIndex);
+        newPeriodIndex =
+            getNewPeriodIndexWithoutRemovedPeriods(oldTimeline, oldPeriodIndex, fromIndex, toIndex);
+      }
+    }
+
+    PlayerInfo newPlayerInfo;
+    if (currentItemRemoved) {
+      PositionInfo newPositionInfo;
+      if (newMediaItemIndex == C.INDEX_UNSET) {
+        newPositionInfo = SessionPositionInfo.DEFAULT_POSITION_INFO;
         newPlayerInfo =
             maskTimelineAndPositionInfo(
                 playerInfo,
                 newTimeline,
+                newPositionInfo,
+                SessionPositionInfo.DEFAULT,
+                Player.DISCONTINUITY_REASON_REMOVE);
+      } else {
+        Window newWindow = newTimeline.getWindow(newMediaItemIndex, new Window());
+        long defaultPositionMs = newWindow.getDefaultPositionMs();
+        long durationMs = newWindow.getDurationMs();
+        newPositionInfo =
+            new PositionInfo(
+                /* windowUid= */ null,
                 newMediaItemIndex,
+                newWindow.mediaItem,
+                /* periodUid= */ null,
                 newPeriodIndex,
+                /* positionMs= */ defaultPositionMs,
+                /* contentPositionMs= */ defaultPositionMs,
+                /* adGroupIndex= */ C.INDEX_UNSET,
+                /* adIndexInAdGroup= */ C.INDEX_UNSET);
+        newPlayerInfo =
+            maskTimelineAndPositionInfo(
+                playerInfo,
+                newTimeline,
+                newPositionInfo,
+                new SessionPositionInfo(
+                    newPositionInfo,
+                    /* isPlayingAd= */ false,
+                    /* eventTimeMs= */ SystemClock.elapsedRealtime(),
+                    /* durationMs= */ durationMs,
+                    /* bufferedPositionMs= */ defaultPositionMs,
+                    /* bufferedPercentage= */ calculateBufferedPercentage(
+                        defaultPositionMs, durationMs),
+                    /* totalBufferedDurationMs= */ 0,
+                    /* currentLiveOffsetMs= */ C.TIME_UNSET,
+                    /* contentDurationMs= */ durationMs,
+                    /* contentBufferedPositionMs= */ defaultPositionMs),
                 Player.DISCONTINUITY_REASON_REMOVE);
       }
-
-      // Player transitions to Player.STATE_ENDED if the current index is part of the removed tail.
-      final boolean transitionsToEnded =
-          newPlayerInfo.playbackState != Player.STATE_IDLE
-              && newPlayerInfo.playbackState != Player.STATE_ENDED
-              && fromIndex < toIndex
-              && toIndex == oldTimeline.getWindowCount()
-              && getCurrentMediaItemIndex() >= fromIndex;
-      if (transitionsToEnded) {
-        newPlayerInfo =
-            newPlayerInfo.copyWithPlaybackState(Player.STATE_ENDED, /* playerError= */ null);
-      }
-
-      updatePlayerInfo(
-          newPlayerInfo,
-          /* timelineChangeReason= */ Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED,
-          /* ignored */ Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
-          /* positionDiscontinuity= */ currentItemRemoved,
-          Player.DISCONTINUITY_REASON_REMOVE,
-          /* mediaItemTransition= */ playerInfo.sessionPositionInfo.positionInfo.mediaItemIndex
-                  >= fromIndex
-              && playerInfo.sessionPositionInfo.positionInfo.mediaItemIndex < toIndex,
-          Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED);
+    } else {
+      newPlayerInfo =
+          maskTimelineAndPositionInfo(
+              playerInfo,
+              newTimeline,
+              newMediaItemIndex,
+              newPeriodIndex,
+              Player.DISCONTINUITY_REASON_REMOVE);
     }
+
+    // Player transitions to Player.STATE_ENDED if the current index is part of the removed tail.
+    final boolean transitionsToEnded =
+        newPlayerInfo.playbackState != Player.STATE_IDLE
+            && newPlayerInfo.playbackState != Player.STATE_ENDED
+            && fromIndex < toIndex
+            && toIndex == oldTimeline.getWindowCount()
+            && oldMediaItemIndex >= fromIndex;
+    if (transitionsToEnded) {
+      newPlayerInfo =
+          newPlayerInfo.copyWithPlaybackState(Player.STATE_ENDED, /* playerError= */ null);
+    }
+
+    return newPlayerInfo;
   }
 
   @Override
@@ -1169,15 +1202,90 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   }
 
   @Override
+  public void replaceMediaItem(int index, MediaItem mediaItem) {
+    if (!isPlayerCommandAvailable(Player.COMMAND_CHANGE_MEDIA_ITEMS)) {
+      return;
+    }
+    checkArgument(index >= 0);
+
+    dispatchRemoteSessionTaskWithPlayerCommand(
+        (iSession, seq) -> {
+          if (checkNotNull(connectedToken).getInterfaceVersion() >= 2) {
+            iSession.replaceMediaItem(
+                controllerStub, seq, index, mediaItem.toBundleIncludeLocalConfiguration());
+          } else {
+            iSession.addMediaItemWithIndex(
+                controllerStub, seq, index + 1, mediaItem.toBundleIncludeLocalConfiguration());
+            iSession.removeMediaItem(controllerStub, seq, index);
+          }
+        });
+    replaceMediaItemsInternal(
+        /* fromIndex= */ index, /* toIndex= */ index + 1, ImmutableList.of(mediaItem));
+  }
+
+  @Override
+  public void replaceMediaItems(int fromIndex, int toIndex, List<MediaItem> mediaItems) {
+    if (!isPlayerCommandAvailable(Player.COMMAND_CHANGE_MEDIA_ITEMS)) {
+      return;
+    }
+    checkArgument(fromIndex >= 0 && fromIndex <= toIndex);
+
+    dispatchRemoteSessionTaskWithPlayerCommand(
+        (iSession, seq) -> {
+          IBinder mediaItemsBundleBinder =
+              new BundleListRetriever(
+                  BundleableUtil.toBundleList(
+                      mediaItems, MediaItem::toBundleIncludeLocalConfiguration));
+          if (checkNotNull(connectedToken).getInterfaceVersion() >= 2) {
+            iSession.replaceMediaItems(
+                controllerStub, seq, fromIndex, toIndex, mediaItemsBundleBinder);
+          } else {
+            iSession.addMediaItemsWithIndex(controllerStub, seq, toIndex, mediaItemsBundleBinder);
+            iSession.removeMediaItems(controllerStub, seq, fromIndex, toIndex);
+          }
+        });
+    replaceMediaItemsInternal(fromIndex, toIndex, mediaItems);
+  }
+
+  private void replaceMediaItemsInternal(int fromIndex, int toIndex, List<MediaItem> mediaItems) {
+    int playlistSize = playerInfo.timeline.getWindowCount();
+    if (fromIndex > playlistSize) {
+      return;
+    }
+    if (playerInfo.timeline.isEmpty()) {
+      // Handle initial items in a playlist as a set operation to ensure state changes and initial
+      // position are updated correctly.
+      setMediaItemsInternal(
+          mediaItems,
+          /* startIndex= */ C.INDEX_UNSET,
+          /* startPositionMs= */ C.TIME_UNSET,
+          /* resetToDefaultPosition= */ false);
+      return;
+    }
+    toIndex = min(toIndex, playlistSize);
+    PlayerInfo newPlayerInfo = maskPlaybackInfoForAddedItems(playerInfo, toIndex, mediaItems);
+    newPlayerInfo = maskPlayerInfoForRemovedItems(newPlayerInfo, fromIndex, toIndex);
+    boolean replacedCurrentItem =
+        playerInfo.sessionPositionInfo.positionInfo.mediaItemIndex >= fromIndex
+            && playerInfo.sessionPositionInfo.positionInfo.mediaItemIndex < toIndex;
+    updatePlayerInfo(
+        newPlayerInfo,
+        /* timelineChangeReason= */ Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED,
+        /* ignored */ Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+        /* positionDiscontinuity= */ replacedCurrentItem,
+        Player.DISCONTINUITY_REASON_REMOVE,
+        /* mediaItemTransition= */ replacedCurrentItem,
+        Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED);
+  }
+
+  @Override
   public int getCurrentPeriodIndex() {
     return playerInfo.sessionPositionInfo.positionInfo.periodIndex;
   }
 
   @Override
   public int getCurrentMediaItemIndex() {
-    return playerInfo.sessionPositionInfo.positionInfo.mediaItemIndex == C.INDEX_UNSET
-        ? 0
-        : playerInfo.sessionPositionInfo.positionInfo.mediaItemIndex;
+    return getCurrentMediaItemIndexInternal(playerInfo);
   }
 
   // TODO(b/184479406): Get the index directly from Player rather than Timeline.
@@ -1385,6 +1493,10 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     return playerInfo.deviceMuted;
   }
 
+  /**
+   * @deprecated Use {@link #setDeviceVolume(int, int)} instead.
+   */
+  @Deprecated
   @Override
   public void setDeviceVolume(int volume) {
     if (!isPlayerCommandAvailable(Player.COMMAND_SET_DEVICE_VOLUME)) {
@@ -1394,7 +1506,10 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     dispatchRemoteSessionTaskWithPlayerCommand(
         (iSession, seq) -> iSession.setDeviceVolume(controllerStub, seq, volume));
 
-    if (playerInfo.deviceVolume != volume) {
+    DeviceInfo deviceInfo = getDeviceInfo();
+    if (playerInfo.deviceVolume != volume
+        && deviceInfo.minVolume <= volume
+        && (deviceInfo.maxVolume == 0 || volume <= deviceInfo.maxVolume)) {
       playerInfo = playerInfo.copyWithDeviceVolume(volume, playerInfo.deviceMuted);
 
       listeners.queueEvent(
@@ -1405,6 +1520,32 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   }
 
   @Override
+  public void setDeviceVolume(int volume, @C.VolumeFlags int flags) {
+    if (!isPlayerCommandAvailable(Player.COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS)) {
+      return;
+    }
+
+    dispatchRemoteSessionTaskWithPlayerCommand(
+        (iSession, seq) -> iSession.setDeviceVolumeWithFlags(controllerStub, seq, volume, flags));
+
+    DeviceInfo deviceInfo = getDeviceInfo();
+    if (playerInfo.deviceVolume != volume
+        && deviceInfo.minVolume <= volume
+        && (deviceInfo.maxVolume == 0 || volume <= deviceInfo.maxVolume)) {
+      playerInfo = playerInfo.copyWithDeviceVolume(volume, playerInfo.deviceMuted);
+
+      listeners.queueEvent(
+          /* eventFlag= */ Player.EVENT_DEVICE_VOLUME_CHANGED,
+          listener -> listener.onDeviceVolumeChanged(volume, playerInfo.deviceMuted));
+      listeners.flushEvents();
+    }
+  }
+
+  /**
+   * @deprecated Use {@link #increaseDeviceVolume(int)} instead.
+   */
+  @Deprecated
+  @Override
   public void increaseDeviceVolume() {
     if (!isPlayerCommandAvailable(Player.COMMAND_ADJUST_DEVICE_VOLUME)) {
       return;
@@ -1414,7 +1555,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
         (iSession, seq) -> iSession.increaseDeviceVolume(controllerStub, seq));
 
     int newDeviceVolume = playerInfo.deviceVolume + 1;
-    if (newDeviceVolume <= getDeviceInfo().maxVolume) {
+    int maxVolume = getDeviceInfo().maxVolume;
+    if (maxVolume == 0 || newDeviceVolume <= maxVolume) {
       playerInfo = playerInfo.copyWithDeviceVolume(newDeviceVolume, playerInfo.deviceMuted);
       listeners.queueEvent(
           /* eventFlag= */ Player.EVENT_DEVICE_VOLUME_CHANGED,
@@ -1423,6 +1565,30 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     }
   }
 
+  @Override
+  public void increaseDeviceVolume(@C.VolumeFlags int flags) {
+    if (!isPlayerCommandAvailable(Player.COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS)) {
+      return;
+    }
+
+    dispatchRemoteSessionTaskWithPlayerCommand(
+        (iSession, seq) -> iSession.increaseDeviceVolumeWithFlags(controllerStub, seq, flags));
+
+    int newDeviceVolume = playerInfo.deviceVolume + 1;
+    int maxVolume = getDeviceInfo().maxVolume;
+    if (maxVolume == 0 || newDeviceVolume <= maxVolume) {
+      playerInfo = playerInfo.copyWithDeviceVolume(newDeviceVolume, playerInfo.deviceMuted);
+      listeners.queueEvent(
+          /* eventFlag= */ Player.EVENT_DEVICE_VOLUME_CHANGED,
+          listener -> listener.onDeviceVolumeChanged(newDeviceVolume, playerInfo.deviceMuted));
+      listeners.flushEvents();
+    }
+  }
+
+  /**
+   * @deprecated Use {@link #decreaseDeviceVolume(int)} instead.
+   */
+  @Deprecated
   @Override
   public void decreaseDeviceVolume() {
     if (!isPlayerCommandAvailable(Player.COMMAND_ADJUST_DEVICE_VOLUME)) {
@@ -1443,6 +1609,29 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   }
 
   @Override
+  public void decreaseDeviceVolume(@C.VolumeFlags int flags) {
+    if (!isPlayerCommandAvailable(Player.COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS)) {
+      return;
+    }
+
+    dispatchRemoteSessionTaskWithPlayerCommand(
+        (iSession, seq) -> iSession.decreaseDeviceVolumeWithFlags(controllerStub, seq, flags));
+
+    int newDeviceVolume = playerInfo.deviceVolume - 1;
+    if (newDeviceVolume >= getDeviceInfo().minVolume) {
+      playerInfo = playerInfo.copyWithDeviceVolume(newDeviceVolume, playerInfo.deviceMuted);
+      listeners.queueEvent(
+          /* eventFlag= */ Player.EVENT_DEVICE_VOLUME_CHANGED,
+          listener -> listener.onDeviceVolumeChanged(newDeviceVolume, playerInfo.deviceMuted));
+      listeners.flushEvents();
+    }
+  }
+
+  /**
+   * @deprecated Use {@link #setDeviceMuted(boolean, int)} instead.
+   */
+  @Deprecated
+  @Override
   public void setDeviceMuted(boolean muted) {
     if (!isPlayerCommandAvailable(Player.COMMAND_ADJUST_DEVICE_VOLUME)) {
       return;
@@ -1450,6 +1639,24 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
     dispatchRemoteSessionTaskWithPlayerCommand(
         (iSession, seq) -> iSession.setDeviceMuted(controllerStub, seq, muted));
+
+    if (playerInfo.deviceMuted != muted) {
+      playerInfo = playerInfo.copyWithDeviceVolume(playerInfo.deviceVolume, muted);
+      listeners.queueEvent(
+          /* eventFlag= */ Player.EVENT_DEVICE_VOLUME_CHANGED,
+          listener -> listener.onDeviceVolumeChanged(playerInfo.deviceVolume, muted));
+      listeners.flushEvents();
+    }
+  }
+
+  @Override
+  public void setDeviceMuted(boolean muted, @C.VolumeFlags int flags) {
+    if (!isPlayerCommandAvailable(Player.COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS)) {
+      return;
+    }
+
+    dispatchRemoteSessionTaskWithPlayerCommand(
+        (iSession, seq) -> iSession.setDeviceMutedWithFlags(controllerStub, seq, muted, flags));
 
     if (playerInfo.deviceMuted != muted) {
       playerInfo = playerInfo.copyWithDeviceVolume(playerInfo.deviceVolume, muted);
@@ -1673,7 +1880,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     return null;
   }
 
-  private Timeline createMaskingTimeline(List<Window> windows, List<Period> periods) {
+  private static Timeline createMaskingTimeline(List<Window> windows, List<Period> periods) {
     return new RemotableTimeline(
         new ImmutableList.Builder<Window>().addAll(windows).build(),
         new ImmutableList.Builder<Period>().addAll(periods).build(),
@@ -1704,7 +1911,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     } else if (startIndex == C.INDEX_UNSET) {
       startIndex = playerInfo.sessionPositionInfo.positionInfo.mediaItemIndex;
       startPositionMs = playerInfo.sessionPositionInfo.positionInfo.positionMs;
-      if (startIndex >= newTimeline.getWindowCount()) {
+      if (!newTimeline.isEmpty() && startIndex >= newTimeline.getWindowCount()) {
         correctedStartIndex = true;
         startIndex = newTimeline.getFirstWindowIndex(playerInfo.shuffleModeEnabled);
         startPositionMs = C.TIME_UNSET;
@@ -1721,7 +1928,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
               startIndex,
               /* mediaItem= */ null,
               /* periodUid= */ null,
-              /* periodIndex= */ 0,
+              startIndex,
               /* positionMs= */ startPositionMs == C.TIME_UNSET ? 0 : startPositionMs,
               /* contentPositionMs= */ startPositionMs == C.TIME_UNSET ? 0 : startPositionMs,
               /* adGroupIndex= */ C.INDEX_UNSET,
@@ -1887,7 +2094,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
               windowIndex,
               /* mediaItem= */ null,
               /* periodUid= */ null,
-              /* periodIndex= */ 0,
+              windowIndex,
               /* positionMs= */ positionMs == C.TIME_UNSET ? 0 : positionMs,
               /* contentPositionMs= */ positionMs == C.TIME_UNSET ? 0 : positionMs,
               /* adGroupIndex= */ C.INDEX_UNSET,
@@ -2141,7 +2348,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     sessionCommands = result.sessionCommands;
     playerCommandsFromSession = result.playerCommandsFromSession;
     playerCommandsFromPlayer = result.playerCommandsFromPlayer;
-    intersectedPlayerCommands = intersect(playerCommandsFromSession, playerCommandsFromPlayer);
+    intersectedPlayerCommands =
+        createIntersectedCommands(playerCommandsFromSession, playerCommandsFromPlayer);
     playerInfo = result.playerInfo;
     try {
       // Implementation for the local binder is no-op,
@@ -2181,9 +2389,11 @@ import org.checkerframework.checker.nullness.qual.NonNull;
           SessionResult result;
           try {
             result = checkNotNull(future.get(), "SessionResult must not be null");
-          } catch (CancellationException unused) {
+          } catch (CancellationException e) {
+            Log.w(TAG, "Session operation cancelled", e);
             result = new SessionResult(SessionResult.RESULT_INFO_SKIPPED);
-          } catch (ExecutionException | InterruptedException unused) {
+          } catch (ExecutionException | InterruptedException e) {
+            Log.w(TAG, "Session operation failed", e);
             result = new SessionResult(SessionResult.RESULT_ERROR_UNKNOWN);
           }
           sendControllerResult(seq, result);
@@ -2420,7 +2630,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     if (playerCommandsChanged) {
       playerCommandsFromSession = playerCommands;
       Commands prevIntersectedPlayerCommands = intersectedPlayerCommands;
-      intersectedPlayerCommands = intersect(playerCommandsFromSession, playerCommandsFromPlayer);
+      intersectedPlayerCommands =
+          createIntersectedCommands(playerCommandsFromSession, playerCommandsFromPlayer);
       intersectedPlayerCommandsChanged =
           !Util.areEqual(intersectedPlayerCommands, prevIntersectedPlayerCommands);
     }
@@ -2449,7 +2660,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     }
     playerCommandsFromPlayer = commandsFromPlayer;
     Commands prevIntersectedPlayerCommands = intersectedPlayerCommands;
-    intersectedPlayerCommands = intersect(playerCommandsFromSession, playerCommandsFromPlayer);
+    intersectedPlayerCommands =
+        createIntersectedCommands(playerCommandsFromSession, playerCommandsFromPlayer);
     boolean intersectedPlayerCommandsChanged =
         !Util.areEqual(intersectedPlayerCommands, prevIntersectedPlayerCommands);
     if (intersectedPlayerCommandsChanged) {
@@ -2490,6 +2702,16 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     }
     getInstance()
         .notifyControllerListener(listener -> listener.onExtrasChanged(getInstance(), extras));
+  }
+
+  void onSetSessionActivity(int seq, PendingIntent sessionActivity) {
+    if (!isConnected()) {
+      return;
+    }
+    this.sessionActivity = sessionActivity;
+    getInstance()
+        .notifyControllerListener(
+            listener -> listener.onSessionActivityChanged(getInstance(), sessionActivity));
   }
 
   public void onRenderedFirstFrame() {
@@ -2636,7 +2858,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   }
 
   @Nullable
-  private PeriodInfo getPeriodInfo(
+  private static PeriodInfo getPeriodInfo(
       Timeline timeline, Window window, Period period, int windowIndex, long windowPositionUs) {
     checkIndex(windowIndex, 0, timeline.getWindowCount());
     timeline.getWindow(windowIndex, window);
@@ -2658,7 +2880,13 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     return new PeriodInfo(periodIndex, periodPositionUs);
   }
 
-  private PlayerInfo maskTimelineAndPositionInfo(
+  private static int getCurrentMediaItemIndexInternal(PlayerInfo playerInfo) {
+    return playerInfo.sessionPositionInfo.positionInfo.mediaItemIndex == C.INDEX_UNSET
+        ? 0
+        : playerInfo.sessionPositionInfo.positionInfo.mediaItemIndex;
+  }
+
+  private static PlayerInfo maskTimelineAndPositionInfo(
       PlayerInfo playerInfo,
       Timeline timeline,
       int newMediaItemIndex,
@@ -2693,7 +2921,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
         discontinuityReason);
   }
 
-  private PlayerInfo maskTimelineAndPositionInfo(
+  private static PlayerInfo maskTimelineAndPositionInfo(
       PlayerInfo playerInfo,
       Timeline timeline,
       PositionInfo newPositionInfo,
@@ -2738,14 +2966,15 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     currentPositionMs = estimatedPositionMs;
   }
 
-  private Period getPeriodWithNewWindowIndex(Timeline timeline, int periodIndex, int windowIndex) {
+  private static Period getPeriodWithNewWindowIndex(
+      Timeline timeline, int periodIndex, int windowIndex) {
     Period period = new Period();
     timeline.getPeriod(periodIndex, period);
     period.windowIndex = windowIndex;
     return period;
   }
 
-  private int getNewPeriodIndexWithoutRemovedPeriods(
+  private static int getNewPeriodIndexWithoutRemovedPeriods(
       Timeline timeline, int oldPeriodIndex, int fromIndex, int toIndex) {
     if (oldPeriodIndex == C.INDEX_UNSET) {
       return oldPeriodIndex;
@@ -2791,7 +3020,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
             /* isPlaceholder= */ true);
   }
 
-  private void rebuildPeriods(
+  private static void rebuildPeriods(
       Timeline oldTimeline, List<Window> newWindows, List<Period> newPeriods) {
     for (int i = 0; i < newWindows.size(); i++) {
       Window window = newWindows.get(i);
@@ -2834,6 +3063,19 @@ import org.checkerframework.checker.nullness.qual.NonNull;
       }
     }
     return newMediaItemIndex;
+  }
+
+  private static Commands createIntersectedCommands(
+      Commands commandFromSession, Commands commandsFromPlayer) {
+    Commands.Builder intersectCommandsBuilder = new Commands.Builder();
+    // Release is always available as it just releases the connection, not the underlying player.
+    intersectCommandsBuilder.add(Player.COMMAND_RELEASE);
+    for (int i = 0; i < commandFromSession.size(); i++) {
+      if (commandsFromPlayer.contains(commandFromSession.get(i))) {
+        intersectCommandsBuilder.add(commandFromSession.get(i));
+      }
+    }
+    return intersectCommandsBuilder.build();
   }
 
   // This will be called on the main thread.

@@ -17,7 +17,6 @@ package androidx.media3.demo.session
 
 import android.content.ComponentName
 import android.content.Context
-import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.MenuItem
@@ -70,13 +69,13 @@ class MainActivity : AppCompatActivity() {
 
     findViewById<ExtendedFloatingActionButton>(R.id.open_player_floating_button)
       .setOnClickListener {
-        // display the playing media items
-        val intent = Intent(this, PlayerActivity::class.java)
-        startActivity(intent)
+        // Start the session activity that shows the playback activity. The System UI uses the same
+        // intent in the same way to start the activity from the notification.
+        browser?.sessionActivity?.send()
       }
 
     onBackPressedDispatcher.addCallback(
-      object : OnBackPressedCallback(/* enabled= */ true) {
+      object : OnBackPressedCallback(true) {
         override fun handleOnBackPressed() {
           popPathStack()
         }

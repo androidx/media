@@ -62,6 +62,8 @@ import static androidx.media3.test.session.common.MediaSessionConstants.TEST_COM
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_CONTROLLER_LISTENER_SESSION_REJECTS;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_GET_SESSION_ACTIVITY;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_IS_SESSION_COMMAND_AVAILABLE;
+import static androidx.media3.test.session.common.MediaSessionConstants.TEST_ON_TRACKS_CHANGED_VIDEO_TO_AUDIO_TRANSITION;
+import static androidx.media3.test.session.common.MediaSessionConstants.TEST_ON_VIDEO_SIZE_CHANGED;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_WITH_CUSTOM_COMMANDS;
 
 import android.app.PendingIntent;
@@ -89,7 +91,6 @@ import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import androidx.media3.test.session.common.IRemoteMediaSession;
@@ -108,7 +109,6 @@ import java.util.concurrent.Callable;
  * A Service that creates {@link MediaSession} and calls its methods according to the client app's
  * requests.
  */
-@UnstableApi
 public class MediaSessionProviderService extends Service {
 
   private static final String TAG = "MSProviderService";
@@ -257,6 +257,13 @@ public class MediaSessionProviderService extends Service {
                         SessionCommands.EMPTY, commandBuilder.build());
                   }
                 });
+            break;
+          }
+        case TEST_ON_TRACKS_CHANGED_VIDEO_TO_AUDIO_TRANSITION:
+        case TEST_ON_VIDEO_SIZE_CHANGED:
+          {
+            mockPlayer.videoSize = MediaTestUtils.createDefaultVideoSize();
+            mockPlayer.currentTracks = MediaTestUtils.createDefaultVideoTracks();
             break;
           }
         default: // fall out
@@ -494,6 +501,12 @@ public class MediaSessionProviderService extends Service {
           });
     }
 
+    @Override
+    public void setSessionActivity(String sessionId, PendingIntent sessionActivity)
+        throws RemoteException {
+      runOnHandler(() -> sessionMap.get(sessionId).setSessionActivity(sessionActivity));
+    }
+
     ////////////////////////////////////////////////////////////////////////////////
     // MockPlayer methods
     ////////////////////////////////////////////////////////////////////////////////
@@ -661,6 +674,46 @@ public class MediaSessionProviderService extends Service {
             MediaSession session = sessionMap.get(sessionId);
             MockPlayer player = (MockPlayer) session.getPlayer();
             player.currentAdGroupIndex = currentAdGroupIndex;
+          });
+    }
+
+    @Override
+    public void setDeviceVolume(String sessionId, int volume, int flags) throws RemoteException {
+      runOnHandler(
+          () -> {
+            MediaSession session = sessionMap.get(sessionId);
+            MockPlayer player = (MockPlayer) session.getPlayer();
+            player.setDeviceVolume(volume, flags);
+          });
+    }
+
+    @Override
+    public void decreaseDeviceVolume(String sessionId, int flags) throws RemoteException {
+      runOnHandler(
+          () -> {
+            MediaSession session = sessionMap.get(sessionId);
+            MockPlayer player = (MockPlayer) session.getPlayer();
+            player.decreaseDeviceVolume(flags);
+          });
+    }
+
+    @Override
+    public void increaseDeviceVolume(String sessionId, int flags) throws RemoteException {
+      runOnHandler(
+          () -> {
+            MediaSession session = sessionMap.get(sessionId);
+            MockPlayer player = (MockPlayer) session.getPlayer();
+            player.increaseDeviceVolume(flags);
+          });
+    }
+
+    @Override
+    public void setDeviceMuted(String sessionId, boolean muted, int flags) throws RemoteException {
+      runOnHandler(
+          () -> {
+            MediaSession session = sessionMap.get(sessionId);
+            MockPlayer player = (MockPlayer) session.getPlayer();
+            player.setDeviceMuted(muted, flags);
           });
     }
 
@@ -876,7 +929,6 @@ public class MediaSessionProviderService extends Service {
             MediaSession session = sessionMap.get(sessionId);
             MockPlayer player = (MockPlayer) session.getPlayer();
             player.setVolume(volume);
-            player.notifyVolumeChanged();
           });
     }
 
@@ -981,36 +1033,21 @@ public class MediaSessionProviderService extends Service {
     }
 
     @Override
-    public void notifyDeviceVolumeChanged(String sessionId, int volume, boolean muted)
-        throws RemoteException {
+    public void notifyVolumeChanged(String sessionId) throws RemoteException {
       runOnHandler(
           () -> {
             MediaSession session = sessionMap.get(sessionId);
             MockPlayer player = (MockPlayer) session.getPlayer();
-            player.deviceVolume = volume;
-            player.deviceMuted = muted;
-            player.notifyDeviceVolumeChanged();
+            player.notifyVolumeChanged();
           });
     }
 
     @Override
-    public void decreaseDeviceVolume(String sessionId) throws RemoteException {
+    public void notifyDeviceVolumeChanged(String sessionId) throws RemoteException {
       runOnHandler(
           () -> {
             MediaSession session = sessionMap.get(sessionId);
             MockPlayer player = (MockPlayer) session.getPlayer();
-            player.decreaseDeviceVolume();
-            player.notifyDeviceVolumeChanged();
-          });
-    }
-
-    @Override
-    public void increaseDeviceVolume(String sessionId) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.increaseDeviceVolume();
             player.notifyDeviceVolumeChanged();
           });
     }

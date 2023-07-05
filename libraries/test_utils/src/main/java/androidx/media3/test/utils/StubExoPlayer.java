@@ -20,6 +20,7 @@ import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
+import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.Player;
 import androidx.media3.common.PriorityTaskManager;
@@ -126,15 +127,6 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
 
   @Override
   public ExoPlaybackException getPlayerError() {
-    throw new UnsupportedOperationException();
-  }
-
-  /**
-   * @deprecated Use {@link #prepare()} instead.
-   */
-  @Deprecated
-  @Override
-  public void retry() {
     throw new UnsupportedOperationException();
   }
 
@@ -249,6 +241,11 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
 
   @Override
   public boolean getSkipSilenceEnabled() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void setVideoEffects(List<Effect> videoEffects) {
     throw new UnsupportedOperationException();
   }
 
@@ -387,15 +384,6 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
 
   @Override
   public void setHandleAudioBecomingNoisy(boolean handleAudioBecomingNoisy) {
-    throw new UnsupportedOperationException();
-  }
-
-  /**
-   * @deprecated Use {@link #setWakeMode(int)} instead.
-   */
-  @Deprecated
-  @Override
-  public void setHandleWakeLock(boolean handleWakeLock) {
     throw new UnsupportedOperationException();
   }
 

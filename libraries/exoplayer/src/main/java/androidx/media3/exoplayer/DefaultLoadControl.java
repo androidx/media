@@ -21,6 +21,8 @@ import static java.lang.Math.min;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.MediaPeriodId;
+import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
@@ -230,14 +232,6 @@ public class DefaultLoadControl implements LoadControl {
       return this;
     }
 
-    /**
-     * @deprecated use {@link #build} instead.
-     */
-    @Deprecated
-    public DefaultLoadControl createDefaultLoadControl() {
-      return build();
-    }
-
     /** Creates a {@link DefaultLoadControl}. */
     public DefaultLoadControl build() {
       checkState(!buildCalled);
@@ -330,7 +324,11 @@ public class DefaultLoadControl implements LoadControl {
 
   @Override
   public void onTracksSelected(
-      Renderer[] renderers, TrackGroupArray trackGroups, ExoTrackSelection[] trackSelections) {
+      Timeline timeline,
+      MediaPeriodId mediaPeriodId,
+      Renderer[] renderers,
+      TrackGroupArray trackGroups,
+      ExoTrackSelection[] trackSelections) {
     targetBufferBytes =
         targetBufferBytesOverwrite == C.LENGTH_UNSET
             ? calculateTargetBufferBytes(renderers, trackSelections)
@@ -392,7 +390,12 @@ public class DefaultLoadControl implements LoadControl {
 
   @Override
   public boolean shouldStartPlayback(
-      long bufferedDurationUs, float playbackSpeed, boolean rebuffering, long targetLiveOffsetUs) {
+      Timeline timeline,
+      MediaPeriodId mediaPeriodId,
+      long bufferedDurationUs,
+      float playbackSpeed,
+      boolean rebuffering,
+      long targetLiveOffsetUs) {
     bufferedDurationUs = Util.getPlayoutDurationForMediaDuration(bufferedDurationUs, playbackSpeed);
     long minBufferDurationUs = rebuffering ? bufferForPlaybackAfterRebufferUs : bufferForPlaybackUs;
     if (targetLiveOffsetUs != C.TIME_UNSET) {

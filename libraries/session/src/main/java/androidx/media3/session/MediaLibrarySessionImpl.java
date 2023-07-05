@@ -19,10 +19,13 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.postOrRun;
+import static androidx.media3.session.LibraryResult.RESULT_ERROR_NOT_SUPPORTED;
 import static androidx.media3.session.LibraryResult.RESULT_ERROR_SESSION_AUTHENTICATION_EXPIRED;
 import static androidx.media3.session.LibraryResult.RESULT_SUCCESS;
 import static androidx.media3.session.MediaConstants.ERROR_CODE_AUTHENTICATION_EXPIRED_COMPAT;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_ERROR_RESOLUTION_ACTION_INTENT_COMPAT;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 
 import android.app.PendingIntent;
 import android.content.Context;
@@ -33,17 +36,23 @@ import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.collection.ArrayMap;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
+import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.Log;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession;
 import androidx.media3.session.MediaSession.ControllerCb;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -51,12 +60,16 @@ import java.util.concurrent.Future;
 
 /* package */ class MediaLibrarySessionImpl extends MediaSessionImpl {
 
+  private static final String RECENT_LIBRARY_ROOT_MEDIA_ID = "androidx.media3.session.recent.root";
+  private static final String SYSTEM_UI_PACKAGE_NAME = "com.android.systemui";
+
   private final MediaLibrarySession instance;
   private final MediaLibrarySession.Callback callback;
 
   @GuardedBy("lock")
   private final ArrayMap<ControllerCb, Set<String>> subscriptions;
 
+  /** Creates an instance. */
   public MediaLibrarySessionImpl(
       MediaLibrarySession instance,
       Context context,
@@ -122,6 +135,24 @@ import java.util.concurrent.Future;
 
   public ListenableFuture<LibraryResult<MediaItem>> onGetLibraryRootOnHandler(
       ControllerInfo browser, @Nullable LibraryParams params) {
+    if (params != null
+        && params.isRecent
+        && Objects.equals(browser.getPackageName(), SYSTEM_UI_PACKAGE_NAME)) {
+      // Advertise support for playback resumption, if enabled.
+      return !canResumePlaybackOnStart()
+          ? Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_NOT_SUPPORTED))
+          : Futures.immediateFuture(
+              LibraryResult.ofItem(
+                  new MediaItem.Builder()
+                      .setMediaId(RECENT_LIBRARY_ROOT_MEDIA_ID)
+                      .setMediaMetadata(
+                          new MediaMetadata.Builder()
+                              .setIsBrowsable(true)
+                              .setIsPlayable(false)
+                              .build())
+                      .build(),
+                  params));
+    }
     ListenableFuture<LibraryResult<MediaItem>> future =
         callback.onGetLibraryRoot(instance, browser, params);
     future.addListener(
@@ -141,6 +172,28 @@ import java.util.concurrent.Future;
       int page,
       int pageSize,
       @Nullable LibraryParams params) {
+    if (Objects.equals(parentId, RECENT_LIBRARY_ROOT_MEDIA_ID)) {
+      if (!canResumePlaybackOnStart()) {
+        return Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_NOT_SUPPORTED));
+      }
+      // Advertise support for playback resumption. If STATE_IDLE, the request arrives at boot time
+      // to get the full item data to build a notification. If not STATE_IDLE we don't need to
+      // deliver the full media item, so we do the minimal viable effort.
+      return getPlayerWrapper().getPlaybackState() == Player.STATE_IDLE
+          ? getRecentMediaItemAtDeviceBootTime(browser, params)
+          : Futures.immediateFuture(
+              LibraryResult.ofItemList(
+                  ImmutableList.of(
+                      new MediaItem.Builder()
+                          .setMediaId("androidx.media3.session.recent.item")
+                          .setMediaMetadata(
+                              new MediaMetadata.Builder()
+                                  .setIsBrowsable(false)
+                                  .setIsPlayable(true)
+                                  .build())
+                          .build()),
+                  params));
+    }
     ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> future =
         callback.onGetChildren(instance, browser, parentId, page, pageSize, params);
     future.addListener(
@@ -315,7 +368,8 @@ import java.util.concurrent.Future;
     checkState(future.isDone());
     try {
       return future.get();
-    } catch (CancellationException | ExecutionException | InterruptedException unused) {
+    } catch (CancellationException | ExecutionException | InterruptedException e) {
+      Log.w(TAG, "Library operation failed", e);
       return null;
     }
   }
@@ -340,5 +394,39 @@ import java.util.concurrent.Future;
         }
       }
     }
+  }
+
+  private ListenableFuture<LibraryResult<ImmutableList<MediaItem>>>
+      getRecentMediaItemAtDeviceBootTime(
+          ControllerInfo controller, @Nullable LibraryParams params) {
+    SettableFuture<LibraryResult<ImmutableList<MediaItem>>> settableFuture =
+        SettableFuture.create();
+    ListenableFuture<MediaSession.MediaItemsWithStartPosition> future =
+        callback.onPlaybackResumption(instance, controller);
+    Futures.addCallback(
+        future,
+        new FutureCallback<MediaSession.MediaItemsWithStartPosition>() {
+          @Override
+          public void onSuccess(MediaSession.MediaItemsWithStartPosition playlist) {
+            if (playlist.mediaItems.isEmpty()) {
+              settableFuture.set(
+                  LibraryResult.ofError(LibraryResult.RESULT_ERROR_INVALID_STATE, params));
+              return;
+            }
+            int sanitizedStartIndex =
+                max(0, min(playlist.startIndex, playlist.mediaItems.size() - 1));
+            settableFuture.set(
+                LibraryResult.ofItemList(
+                    ImmutableList.of(playlist.mediaItems.get(sanitizedStartIndex)), params));
+          }
+
+          @Override
+          public void onFailure(Throwable t) {
+            settableFuture.set(LibraryResult.ofError(LibraryResult.RESULT_ERROR_UNKNOWN, params));
+            Log.e(TAG, "Failed fetching recent media item at boot time: " + t.getMessage(), t);
+          }
+        },
+        MoreExecutors.directExecutor());
+    return settableFuture;
   }
 }

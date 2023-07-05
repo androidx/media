@@ -748,12 +748,12 @@ public final class Format implements Bundleable {
 
   // Container specific.
 
-  /** The mime type of the container, or null if unknown or not applicable. */
+  /** The MIME type of the container, or null if unknown or not applicable. */
   @Nullable public final String containerMimeType;
 
   // Sample specific.
 
-  /** The sample mime type, or null if unknown or not applicable. */
+  /** The sample MIME type, or null if unknown or not applicable. */
   @Nullable public final String sampleMimeType;
   /**
    * The maximum size of a buffer of data (typically one sample), or {@link #NO_VALUE} if unknown or
@@ -846,184 +846,6 @@ public final class Format implements Bundleable {
   // Lazily initialized hashcode.
   private int hashCode;
 
-  // Video.
-
-  /**
-   * @deprecated Use {@link Format.Builder}.
-   */
-  @UnstableApi
-  @Deprecated
-  public static Format createVideoSampleFormat(
-      @Nullable String id,
-      @Nullable String sampleMimeType,
-      @Nullable String codecs,
-      int bitrate,
-      int maxInputSize,
-      int width,
-      int height,
-      float frameRate,
-      @Nullable List<byte[]> initializationData,
-      @Nullable DrmInitData drmInitData) {
-    return new Builder()
-        .setId(id)
-        .setAverageBitrate(bitrate)
-        .setPeakBitrate(bitrate)
-        .setCodecs(codecs)
-        .setSampleMimeType(sampleMimeType)
-        .setMaxInputSize(maxInputSize)
-        .setInitializationData(initializationData)
-        .setDrmInitData(drmInitData)
-        .setWidth(width)
-        .setHeight(height)
-        .setFrameRate(frameRate)
-        .build();
-  }
-
-  /**
-   * @deprecated Use {@link Format.Builder}.
-   */
-  @UnstableApi
-  @Deprecated
-  public static Format createVideoSampleFormat(
-      @Nullable String id,
-      @Nullable String sampleMimeType,
-      @Nullable String codecs,
-      int bitrate,
-      int maxInputSize,
-      int width,
-      int height,
-      float frameRate,
-      @Nullable List<byte[]> initializationData,
-      int rotationDegrees,
-      float pixelWidthHeightRatio,
-      @Nullable DrmInitData drmInitData) {
-    return new Builder()
-        .setId(id)
-        .setAverageBitrate(bitrate)
-        .setPeakBitrate(bitrate)
-        .setCodecs(codecs)
-        .setSampleMimeType(sampleMimeType)
-        .setMaxInputSize(maxInputSize)
-        .setInitializationData(initializationData)
-        .setDrmInitData(drmInitData)
-        .setWidth(width)
-        .setHeight(height)
-        .setFrameRate(frameRate)
-        .setRotationDegrees(rotationDegrees)
-        .setPixelWidthHeightRatio(pixelWidthHeightRatio)
-        .build();
-  }
-
-  // Audio.
-
-  /**
-   * @deprecated Use {@link Format.Builder}.
-   */
-  @UnstableApi
-  @Deprecated
-  public static Format createAudioSampleFormat(
-      @Nullable String id,
-      @Nullable String sampleMimeType,
-      @Nullable String codecs,
-      int bitrate,
-      int maxInputSize,
-      int channelCount,
-      int sampleRate,
-      @Nullable List<byte[]> initializationData,
-      @Nullable DrmInitData drmInitData,
-      @C.SelectionFlags int selectionFlags,
-      @Nullable String language) {
-    return new Builder()
-        .setId(id)
-        .setLanguage(language)
-        .setSelectionFlags(selectionFlags)
-        .setAverageBitrate(bitrate)
-        .setPeakBitrate(bitrate)
-        .setCodecs(codecs)
-        .setSampleMimeType(sampleMimeType)
-        .setMaxInputSize(maxInputSize)
-        .setInitializationData(initializationData)
-        .setDrmInitData(drmInitData)
-        .setChannelCount(channelCount)
-        .setSampleRate(sampleRate)
-        .build();
-  }
-
-  /**
-   * @deprecated Use {@link Format.Builder}.
-   */
-  @UnstableApi
-  @Deprecated
-  public static Format createAudioSampleFormat(
-      @Nullable String id,
-      @Nullable String sampleMimeType,
-      @Nullable String codecs,
-      int bitrate,
-      int maxInputSize,
-      int channelCount,
-      int sampleRate,
-      @C.PcmEncoding int pcmEncoding,
-      @Nullable List<byte[]> initializationData,
-      @Nullable DrmInitData drmInitData,
-      @C.SelectionFlags int selectionFlags,
-      @Nullable String language) {
-    return new Builder()
-        .setId(id)
-        .setLanguage(language)
-        .setSelectionFlags(selectionFlags)
-        .setAverageBitrate(bitrate)
-        .setPeakBitrate(bitrate)
-        .setCodecs(codecs)
-        .setSampleMimeType(sampleMimeType)
-        .setMaxInputSize(maxInputSize)
-        .setInitializationData(initializationData)
-        .setDrmInitData(drmInitData)
-        .setChannelCount(channelCount)
-        .setSampleRate(sampleRate)
-        .setPcmEncoding(pcmEncoding)
-        .build();
-  }
-
-  // Generic.
-
-  /**
-   * @deprecated Use {@link Format.Builder}.
-   */
-  @UnstableApi
-  @Deprecated
-  public static Format createContainerFormat(
-      @Nullable String id,
-      @Nullable String label,
-      @Nullable String containerMimeType,
-      @Nullable String sampleMimeType,
-      @Nullable String codecs,
-      int bitrate,
-      @C.SelectionFlags int selectionFlags,
-      @C.RoleFlags int roleFlags,
-      @Nullable String language) {
-    return new Builder()
-        .setId(id)
-        .setLabel(label)
-        .setLanguage(language)
-        .setSelectionFlags(selectionFlags)
-        .setRoleFlags(roleFlags)
-        .setAverageBitrate(bitrate)
-        .setPeakBitrate(bitrate)
-        .setCodecs(codecs)
-        .setContainerMimeType(containerMimeType)
-        .setSampleMimeType(sampleMimeType)
-        .build();
-  }
-
-  /**
-   * @deprecated Use {@link Format.Builder}.
-   */
-  @UnstableApi
-  @Deprecated
-  public static Format createSampleFormat(@Nullable String id, @Nullable String sampleMimeType) {
-    return new Builder().setId(id).setSampleMimeType(sampleMimeType).build();
-  }
-
   private Format(Builder builder) {
     id = builder.id;
     label = builder.label;
@@ -1078,42 +900,6 @@ public final class Format implements Bundleable {
   @UnstableApi
   public Builder buildUpon() {
     return new Builder(this);
-  }
-
-  /**
-   * @deprecated Use {@link #buildUpon()} and {@link Builder#setMaxInputSize(int)}.
-   */
-  @UnstableApi
-  @Deprecated
-  public Format copyWithMaxInputSize(int maxInputSize) {
-    return buildUpon().setMaxInputSize(maxInputSize).build();
-  }
-
-  /**
-   * @deprecated Use {@link #buildUpon()} and {@link Builder#setSubsampleOffsetUs(long)}.
-   */
-  @UnstableApi
-  @Deprecated
-  public Format copyWithSubsampleOffsetUs(long subsampleOffsetUs) {
-    return buildUpon().setSubsampleOffsetUs(subsampleOffsetUs).build();
-  }
-
-  /**
-   * @deprecated Use {@link #buildUpon()} and {@link Builder#setLabel(String)} .
-   */
-  @UnstableApi
-  @Deprecated
-  public Format copyWithLabel(@Nullable String label) {
-    return buildUpon().setLabel(label).build();
-  }
-
-  /**
-   * @deprecated Use {@link #withManifestFormatInfo(Format)}.
-   */
-  @UnstableApi
-  @Deprecated
-  public Format copyWithManifestFormatInfo(Format manifestFormat) {
-    return withManifestFormatInfo(manifestFormat);
   }
 
   @UnstableApi
@@ -1184,63 +970,6 @@ public final class Format implements Bundleable {
         .build();
   }
 
-  /**
-   * @deprecated Use {@link #buildUpon()}, {@link Builder#setEncoderDelay(int)} and {@link
-   *     Builder#setEncoderPadding(int)}.
-   */
-  @UnstableApi
-  @Deprecated
-  public Format copyWithGaplessInfo(int encoderDelay, int encoderPadding) {
-    return buildUpon().setEncoderDelay(encoderDelay).setEncoderPadding(encoderPadding).build();
-  }
-
-  /**
-   * @deprecated Use {@link #buildUpon()} and {@link Builder#setFrameRate(float)}.
-   */
-  @UnstableApi
-  @Deprecated
-  public Format copyWithFrameRate(float frameRate) {
-    return buildUpon().setFrameRate(frameRate).build();
-  }
-
-  /**
-   * @deprecated Use {@link #buildUpon()} and {@link Builder#setDrmInitData(DrmInitData)}.
-   */
-  @UnstableApi
-  @Deprecated
-  public Format copyWithDrmInitData(@Nullable DrmInitData drmInitData) {
-    return buildUpon().setDrmInitData(drmInitData).build();
-  }
-
-  /**
-   * @deprecated Use {@link #buildUpon()} and {@link Builder#setMetadata(Metadata)}.
-   */
-  @UnstableApi
-  @Deprecated
-  public Format copyWithMetadata(@Nullable Metadata metadata) {
-    return buildUpon().setMetadata(metadata).build();
-  }
-
-  /**
-   * @deprecated Use {@link #buildUpon()} and {@link Builder#setAverageBitrate(int)} and {@link
-   *     Builder#setPeakBitrate(int)}.
-   */
-  @UnstableApi
-  @Deprecated
-  public Format copyWithBitrate(int bitrate) {
-    return buildUpon().setAverageBitrate(bitrate).setPeakBitrate(bitrate).build();
-  }
-
-  /**
-   * @deprecated Use {@link #buildUpon()}, {@link Builder#setWidth(int)} and {@link
-   *     Builder#setHeight(int)}.
-   */
-  @UnstableApi
-  @Deprecated
-  public Format copyWithVideoSize(int width, int height) {
-    return buildUpon().setWidth(width).setHeight(height).build();
-  }
-
   /** Returns a copy of this format with the specified {@link #cryptoType}. */
   @UnstableApi
   public Format copyWithCryptoType(@C.CryptoType int cryptoType) {
@@ -1278,6 +1007,8 @@ public final class Format implements Bundleable {
         + height
         + ", "
         + frameRate
+        + ", "
+        + colorInfo
         + "]"
         + ", ["
         + channelCount
@@ -1443,6 +1174,9 @@ public final class Format implements Bundleable {
     }
     if (format.width != NO_VALUE && format.height != NO_VALUE) {
       builder.append(", res=").append(format.width).append("x").append(format.height);
+    }
+    if (format.colorInfo != null && format.colorInfo.isValid()) {
+      builder.append(", color=").append(format.colorInfo.toLogString());
     }
     if (format.frameRate != NO_VALUE) {
       builder.append(", fps=").append(format.frameRate);

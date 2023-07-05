@@ -37,6 +37,7 @@ import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
+import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
@@ -478,6 +479,7 @@ public interface ExoPlayer extends Player {
     @C.WakeMode /* package */ int wakeMode;
     /* package */ boolean handleAudioBecomingNoisy;
     /* package */ boolean skipSilenceEnabled;
+    /* package */ boolean deviceVolumeControlEnabled;
     @C.VideoScalingMode /* package */ int videoScalingMode;
     @C.VideoChangeFrameRateStrategy /* package */ int videoChangeFrameRateStrategy;
     /* package */ boolean useLazyPreparation;
@@ -918,6 +920,21 @@ public interface ExoPlayer extends Player {
     }
 
     /**
+     * Sets whether the player is allowed to set, increase, decrease or mute device volume.
+     *
+     * @param deviceVolumeControlEnabled Whether controlling device volume is enabled.
+     * @return This builder.
+     * @throws IllegalStateException If {@link #build()} has already been called.
+     */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    public Builder setDeviceVolumeControlEnabled(boolean deviceVolumeControlEnabled) {
+      checkState(!buildCalled);
+      this.deviceVolumeControlEnabled = deviceVolumeControlEnabled;
+      return this;
+    }
+
+    /**
      * Sets the {@link C.VideoScalingMode} that will be used by the player.
      *
      * <p>The scaling mode only applies if a {@link MediaCodec}-based video {@link Renderer} is
@@ -1146,7 +1163,7 @@ public interface ExoPlayer extends Player {
      * <p>The backing thread should run with priority {@link Process#THREAD_PRIORITY_AUDIO} and
      * should handle messages within 10ms.
      *
-     * @param playbackLooper A {@link looper}.
+     * @param playbackLooper A {@link Looper}.
      * @return This builder.
      * @throws IllegalStateException If {@link #build()} has already been called.
      */
@@ -1338,13 +1355,6 @@ public interface ExoPlayer extends Player {
   Clock getClock();
 
   /**
-   * @deprecated Use {@link #prepare()} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  void retry();
-
-  /**
    * @deprecated Use {@link #setMediaSource(MediaSource)} and {@link #prepare()} instead.
    */
   @UnstableApi
@@ -1534,6 +1544,25 @@ public interface ExoPlayer extends Player {
   boolean getSkipSilenceEnabled();
 
   /**
+   * Sets a {@link List} of {@linkplain Effect video effects} that will be applied to each video
+   * frame.
+   *
+   * <p>The following limitations exist for using {@linkplain Effect video effects}:
+   *
+   * <ul>
+   *   <li>This feature works only with the default {@link MediaCodecVideoRenderer} and not custom
+   *       or extension {@linkplain Renderer video renderers}.
+   *   <li>This feature does not work with DRM-protected contents.
+   *   <li>This method should be called before calling {@link #prepare}.
+   * </ul>
+   *
+   * @param videoEffects The {@link List} of {@linkplain Effect video effects} to apply.
+   */
+  @RequiresApi(18)
+  @UnstableApi
+  void setVideoEffects(List<Effect> videoEffects);
+
+  /**
    * Sets the {@link C.VideoScalingMode}.
    *
    * <p>The scaling mode only applies if a {@link MediaCodec}-based video {@link Renderer} is
@@ -1714,13 +1743,6 @@ public interface ExoPlayer extends Player {
    *     rerouted from a headset to device speakers.
    */
   void setHandleAudioBecomingNoisy(boolean handleAudioBecomingNoisy);
-
-  /**
-   * @deprecated Use {@link #setWakeMode(int)} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  void setHandleWakeLock(boolean handleWakeLock);
 
   /**
    * Sets how the player should keep the device awake for playback when the screen is off.

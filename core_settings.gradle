@@ -21,10 +21,11 @@ if (gradle.ext.has('androidxMediaModulePrefix')) {
     modulePrefix += gradle.ext.androidxMediaModulePrefix
 }
 
-rootProject.name = gradle.ext.androidxMediaProjectName
-
 include modulePrefix + 'lib-common'
 project(modulePrefix + 'lib-common').projectDir = new File(rootDir, 'libraries/common')
+
+include modulePrefix + 'lib-container'
+project(modulePrefix + 'lib-container').projectDir = new File(rootDir, 'libraries/container')
 
 include modulePrefix + 'lib-session'
 project(modulePrefix + 'lib-session').projectDir = new File(rootDir, 'libraries/session')
@@ -82,6 +83,9 @@ project(modulePrefix + 'lib-cast').projectDir = new File(rootDir, 'libraries/cas
 
 include modulePrefix + 'lib-effect'
 project(modulePrefix + 'lib-effect').projectDir = new File(rootDir, 'libraries/effect')
+
+include modulePrefix + 'lib-muxer'
+project(modulePrefix + 'lib-muxer').projectDir = new File(rootDir, 'libraries/muxer')
 
 include modulePrefix + 'lib-transformer'
 project(modulePrefix + 'lib-transformer').projectDir = new File(rootDir, 'libraries/transformer')

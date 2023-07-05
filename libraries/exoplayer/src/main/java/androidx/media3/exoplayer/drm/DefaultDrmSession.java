@@ -219,7 +219,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     return Arrays.equals(this.sessionId, sessionId);
   }
 
-  public void onMediaDrmEvent(int what) {
+  /* package */ void onMediaDrmEvent(int what) {
     switch (what) {
       case ExoMediaDrm.EVENT_KEY_REQUIRED:
         onKeysRequired();
@@ -231,7 +231,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
   // Provisioning implementation.
 
-  public void provision() {
+  /* package */ void provision() {
     currentProvisionRequest = mediaDrm.getProvisionRequest();
     Util.castNonNull(requestHandler)
         .post(
@@ -240,13 +240,13 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
             /* allowRetry= */ true);
   }
 
-  public void onProvisionCompleted() {
+  /* package */ void onProvisionCompleted() {
     if (openInternal()) {
       doLicense(true);
     }
   }
 
-  public void onProvisionError(Exception error, boolean thrownByExoMediaDrm) {
+  /* package */ void onProvisionError(Exception error, boolean thrownByExoMediaDrm) {
     onError(
         error,
         thrownByExoMediaDrm

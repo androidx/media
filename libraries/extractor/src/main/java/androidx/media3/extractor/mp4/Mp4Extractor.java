@@ -15,6 +15,7 @@
  */
 package androidx.media3.extractor.mp4;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.extractor.mp4.AtomParsers.parseTraks;
 import static androidx.media3.extractor.mp4.Sniffer.BRAND_HEIC;
@@ -23,7 +24,6 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
-import android.util.Pair;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -34,6 +34,7 @@ import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.container.NalUnitUtil;
 import androidx.media3.extractor.Ac3Util;
 import androidx.media3.extractor.Ac4Util;
 import androidx.media3.extractor.Extractor;
@@ -41,7 +42,6 @@ import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.ExtractorsFactory;
 import androidx.media3.extractor.GaplessInfoHolder;
-import androidx.media3.extractor.NalUnitUtil;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.SeekPoint;
@@ -58,7 +58,6 @@ import java.lang.annotation.Target;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Extracts data from the MP4 container format. */
@@ -304,7 +303,7 @@ public final class Mp4Extractor implements Extractor, SeekMap {
     long firstTimeUs;
     long firstOffset;
     long secondTimeUs = C.TIME_UNSET;
-    long secondOffset = C.POSITION_UNSET;
+    long secondOffset = C.INDEX_UNSET;
 
     // Note that the id matches the index in tracks.
     int mainTrackIndex = trackId != C.INDEX_UNSET ? trackId : firstVideoTrackIndex;
@@ -494,14 +493,15 @@ public final class Mp4Extractor implements Extractor, SeekMap {
     // Process metadata.
     @Nullable Metadata udtaMetaMetadata = null;
     @Nullable Metadata smtaMetadata = null;
+    @Nullable Metadata xyzMetadata = null;
     boolean isQuickTime = fileType == FILE_TYPE_QUICKTIME;
     GaplessInfoHolder gaplessInfoHolder = new GaplessInfoHolder();
     @Nullable Atom.LeafAtom udta = moov.getLeafAtomOfType(Atom.TYPE_udta);
     if (udta != null) {
-      Pair<@NullableType Metadata, @NullableType Metadata> udtaMetadata =
-          AtomParsers.parseUdta(udta);
-      udtaMetaMetadata = udtaMetadata.first;
-      smtaMetadata = udtaMetadata.second;
+      AtomParsers.UdtaInfo udtaInfo = AtomParsers.parseUdta(udta);
+      udtaMetaMetadata = udtaInfo.metaMetadata;
+      smtaMetadata = udtaInfo.smtaMetadata;
+      xyzMetadata = udtaInfo.xyzMetadata;
       if (udtaMetaMetadata != null) {
         gaplessInfoHolder.setFromMetadata(udtaMetaMetadata);
       }
@@ -511,6 +511,9 @@ public final class Mp4Extractor implements Extractor, SeekMap {
     if (meta != null) {
       mdtaMetadata = AtomParsers.parseMdtaFromMeta(meta);
     }
+
+    Metadata mvhdMetadata =
+        AtomParsers.parseMvhd(checkNotNull(moov.getLeafAtomOfType(Atom.TYPE_mvhd)).data).metadata;
 
     boolean ignoreEditLists = (flags & FLAG_WORKAROUND_IGNORE_EDIT_LISTS) != 0;
     List<TrackSampleTable> trackSampleTables =
@@ -562,7 +565,9 @@ public final class Mp4Extractor implements Extractor, SeekMap {
           mdtaMetadata,
           formatBuilder,
           smtaMetadata,
-          slowMotionMetadataEntries.isEmpty() ? null : new Metadata(slowMotionMetadataEntries));
+          slowMotionMetadataEntries.isEmpty() ? null : new Metadata(slowMotionMetadataEntries),
+          xyzMetadata,
+          mvhdMetadata);
       mp4Track.trackOutput.format(formatBuilder.build());
 
       if (track.type == C.TRACK_TYPE_VIDEO && firstVideoTrackIndex == C.INDEX_UNSET) {

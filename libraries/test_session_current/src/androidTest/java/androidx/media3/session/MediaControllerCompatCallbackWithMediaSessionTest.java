@@ -25,7 +25,9 @@ import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
 import android.media.AudioManager;
 import android.os.Bundle;
 import android.support.v4.media.MediaDescriptionCompat;
@@ -51,6 +53,7 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Util;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.media3.test.session.common.PollingCheck;
+import androidx.media3.test.session.common.SurfaceActivity;
 import androidx.media3.test.session.common.TestHandler;
 import androidx.media3.test.session.common.TestUtils;
 import androidx.test.core.app.ApplicationProvider;
@@ -411,7 +414,7 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
   @Test
   public void setPlayer_playbackTypeChangedToRemote() throws Exception {
     DeviceInfo deviceInfo =
-        new DeviceInfo(DeviceInfo.PLAYBACK_TYPE_REMOTE, /* minVolume= */ 0, /* maxVolume= */ 25);
+        new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).setMaxVolume(25).build();
     int legacyPlaybackType = MediaControllerCompat.PlaybackInfo.PLAYBACK_TYPE_REMOTE;
     int deviceVolume = 10;
     CountDownLatch playbackInfoNotified = new CountDownLatch(1);
@@ -445,12 +448,12 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
   @Test
   public void setPlayer_playbackTypeChangedToLocal() throws Exception {
     DeviceInfo deviceInfo =
-        new DeviceInfo(DeviceInfo.PLAYBACK_TYPE_REMOTE, /* minVolume= */ 0, /* maxVolume= */ 10);
+        new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).setMaxVolume(10).build();
     Bundle playerConfig =
         new RemoteMediaSession.MockPlayerConfigBuilder().setDeviceInfo(deviceInfo).build();
     session.setPlayer(playerConfig);
     DeviceInfo deviceInfoToUpdate =
-        new DeviceInfo(DeviceInfo.PLAYBACK_TYPE_LOCAL, /* minVolume= */ 0, /* maxVolume= */ 10);
+        new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_LOCAL).setMaxVolume(10).build();
     int legacyPlaybackTypeToUpdate = MediaControllerCompat.PlaybackInfo.PLAYBACK_TYPE_LOCAL;
     int legacyStream = AudioManager.STREAM_RING;
     AudioAttributesCompat attrsCompat =
@@ -496,7 +499,7 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
   @Test
   public void setPlayer_playbackTypeNotChanged_local() throws Exception {
     DeviceInfo deviceInfo =
-        new DeviceInfo(DeviceInfo.PLAYBACK_TYPE_LOCAL, /* minVolume= */ 0, /* maxVolume= */ 10);
+        new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_LOCAL).setMaxVolume(10).build();
     int legacyPlaybackType = MediaControllerCompat.PlaybackInfo.PLAYBACK_TYPE_LOCAL;
     int legacyStream = AudioManager.STREAM_RING;
     AudioAttributesCompat attrsCompat =
@@ -542,7 +545,7 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
   @Test
   public void setPlayer_playbackTypeNotChanged_remote() throws Exception {
     DeviceInfo deviceInfo =
-        new DeviceInfo(DeviceInfo.PLAYBACK_TYPE_REMOTE, /* minVolume= */ 0, /* maxVolume= */ 10);
+        new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).setMaxVolume(10).build();
     Bundle playerConfig =
         new RemoteMediaSession.MockPlayerConfigBuilder()
             .setDeviceInfo(deviceInfo)
@@ -550,7 +553,7 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
             .build();
     session.setPlayer(playerConfig);
     DeviceInfo deviceInfoToUpdate =
-        new DeviceInfo(DeviceInfo.PLAYBACK_TYPE_REMOTE, /* minVolume= */ 0, /* maxVolume= */ 25);
+        new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).setMaxVolume(25).build();
     int legacyPlaybackTypeToUpdate = MediaControllerCompat.PlaybackInfo.PLAYBACK_TYPE_REMOTE;
     int deviceVolumeToUpdate = 10;
     CountDownLatch playbackInfoNotified = new CountDownLatch(1);
@@ -981,6 +984,32 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
   }
 
   @Test
+  public void setSessionActivity_changedWhenReceivedWithSetter() throws Exception {
+    Intent intent = new Intent(context, SurfaceActivity.class);
+    PendingIntent sessionActivity =
+        PendingIntent.getActivity(
+            context, 0, intent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+    CountDownLatch latch = new CountDownLatch(1);
+    MediaControllerCompat.Callback callback =
+        new MediaControllerCompat.Callback() {
+          @Override
+          public void onPlaybackStateChanged(PlaybackStateCompat state) {
+            latch.countDown();
+          }
+        };
+    controllerCompat.registerCallback(callback, handler);
+    assertThat(controllerCompat.getSessionActivity()).isNull();
+
+    session.setSessionActivity(sessionActivity);
+    // The legacy API has no change listener for the session activity. Changing the state to
+    // trigger a callback.
+    session.getMockPlayer().notifyPlaybackStateChanged(STATE_READY);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(controllerCompat.getSessionActivity()).isEqualTo(sessionActivity);
+  }
+
+  @Test
   public void broadcastCustomCommand_cnSessionEventCalled() throws Exception {
     Bundle commandCallExtras = new Bundle();
     commandCallExtras.putString("key-0", "value-0");
@@ -1316,7 +1345,7 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
   @Test
   public void onAudioInfoChanged_isCalledByVolumeChange() throws Exception {
     DeviceInfo deviceInfo =
-        new DeviceInfo(DeviceInfo.PLAYBACK_TYPE_REMOTE, /* minVolume= */ 0, /* maxVolume= */ 10);
+        new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).setMaxVolume(10).build();
     Bundle playerConfig =
         new RemoteMediaSession.MockPlayerConfigBuilder()
             .setDeviceInfo(deviceInfo)
@@ -1336,7 +1365,8 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
         };
     controllerCompat.registerCallback(callback, handler);
 
-    session.getMockPlayer().notifyDeviceVolumeChanged(targetVolume, /* muted= */ false);
+    session.getMockPlayer().setDeviceVolume(targetVolume, /* flags= */ 0);
+    session.getMockPlayer().notifyDeviceVolumeChanged();
 
     assertThat(targetVolumeNotified.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(controllerCompat.getPlaybackInfo().getCurrentVolume()).isEqualTo(targetVolume);

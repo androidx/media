@@ -57,6 +57,7 @@ import androidx.media3.common.util.TimedValueQueue;
 import androidx.media3.common.util.TraceUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.container.NalUnitUtil;
 import androidx.media3.decoder.CryptoConfig;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.decoder.DecoderInputBuffer.InsufficientCapacityException;
@@ -67,6 +68,7 @@ import androidx.media3.exoplayer.DecoderReuseEvaluation.DecoderDiscardReasons;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.FormatHolder;
 import androidx.media3.exoplayer.analytics.PlayerId;
+import androidx.media3.exoplayer.audio.OggOpusAudioPacketizer;
 import androidx.media3.exoplayer.drm.DrmSession;
 import androidx.media3.exoplayer.drm.DrmSession.DrmSessionException;
 import androidx.media3.exoplayer.drm.FrameworkCryptoConfig;
@@ -75,7 +77,6 @@ import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.SampleStream;
 import androidx.media3.exoplayer.source.SampleStream.ReadDataResult;
 import androidx.media3.exoplayer.source.SampleStream.ReadFlags;
-import androidx.media3.extractor.NalUnitUtil;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -97,7 +98,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     private static final int NO_SUITABLE_DECODER_ERROR = CUSTOM_ERROR_CODE_BASE + 1;
     private static final int DECODER_QUERY_ERROR = CUSTOM_ERROR_CODE_BASE + 2;
 
-    /** The mime type for which a decoder was being initialized. */
+    /** The MIME type for which a decoder was being initialized. */
     public final String mimeType;
 
     /** Whether it was required that the decoder support a secure output path. */
@@ -302,12 +303,26 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private final ArrayList<Long> decodeOnlyPresentationTimestamps;
   private final MediaCodec.BufferInfo outputBufferInfo;
   private final ArrayDeque<OutputStreamInfo> pendingOutputStreamChanges;
+  private final OggOpusAudioPacketizer oggOpusAudioPacketizer;
 
   @Nullable private Format inputFormat;
   @Nullable private Format outputFormat;
   @Nullable private DrmSession codecDrmSession;
   @Nullable private DrmSession sourceDrmSession;
+
+  /**
+   * A framework {@link MediaCrypto} for use with {@link MediaCodec#queueSecureInputBuffer(int, int,
+   * MediaCodec.CryptoInfo, long, int)} to play encrypted content.
+   *
+   * <p>Non-null if framework decryption is being used (i.e. {@link DrmSession#getCryptoConfig()
+   * codecDrmSession.getCryptoConfig()} returns an instance of {@link FrameworkCryptoConfig}).
+   *
+   * <p>Can be null if the content is not encrypted (in which case {@link #codecDrmSession} and
+   * {@link #sourceDrmSession} will also be null), or if decryption is happening without framework
+   * support ({@link #codecDrmSession} and {@link #sourceDrmSession} will be non-null).
+   */
   @Nullable private MediaCrypto mediaCrypto;
+
   private boolean mediaCryptoRequiresSecureDecoder;
   private long renderTimeLimitMs;
   private float currentPlaybackSpeed;
@@ -400,6 +415,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     // endianness.
     bypassBatchBuffer.ensureSpaceForWrite(/* length= */ 0);
     bypassBatchBuffer.data.order(ByteOrder.nativeOrder());
+    oggOpusAudioPacketizer = new OggOpusAudioPacketizer();
 
     codecOperatingRate = CODEC_OPERATING_RATE_UNSET;
     codecAdaptationWorkaroundMode = ADAPTATION_WORKAROUND_MODE_NEVER;
@@ -488,7 +504,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       return;
     }
 
-    if (sourceDrmSession == null && shouldUseBypass(inputFormat)) {
+    if (isBypassPossible(inputFormat)) {
       initBypass(inputFormat);
       return;
     }
@@ -497,10 +513,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
 
     String mimeType = inputFormat.sampleMimeType;
     if (codecDrmSession != null) {
+      @Nullable CryptoConfig cryptoConfig = codecDrmSession.getCryptoConfig();
       if (mediaCrypto == null) {
-        @Nullable
-        FrameworkCryptoConfig sessionCryptoConfig = getFrameworkCryptoConfig(codecDrmSession);
-        if (sessionCryptoConfig == null) {
+        if (cryptoConfig == null) {
           @Nullable DrmSessionException drmError = codecDrmSession.getError();
           if (drmError != null) {
             // Continue for now. We may be able to avoid failure if a new input format causes the
@@ -509,19 +524,22 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
             // The drm session isn't open yet.
             return;
           }
-        } else {
+        } else if (cryptoConfig instanceof FrameworkCryptoConfig) {
+          FrameworkCryptoConfig frameworkCryptoConfig = (FrameworkCryptoConfig) cryptoConfig;
           try {
-            mediaCrypto = new MediaCrypto(sessionCryptoConfig.uuid, sessionCryptoConfig.sessionId);
+            mediaCrypto =
+                new MediaCrypto(frameworkCryptoConfig.uuid, frameworkCryptoConfig.sessionId);
           } catch (MediaCryptoException e) {
             throw createRendererException(
                 e, inputFormat, PlaybackException.ERROR_CODE_DRM_SYSTEM_ERROR);
           }
           mediaCryptoRequiresSecureDecoder =
-              !sessionCryptoConfig.forceAllowInsecureDecoderComponents
+              !frameworkCryptoConfig.forceAllowInsecureDecoderComponents
                   && mediaCrypto.requiresSecureDecoderComponent(mimeType);
         }
       }
-      if (FrameworkCryptoConfig.WORKAROUND_DEVICE_NEEDS_KEYS_TO_CONFIGURE_CODEC) {
+      if (FrameworkCryptoConfig.WORKAROUND_DEVICE_NEEDS_KEYS_TO_CONFIGURE_CODEC
+          && cryptoConfig instanceof FrameworkCryptoConfig) {
         @DrmSession.State int drmSessionState = codecDrmSession.getState();
         if (drmSessionState == DrmSession.STATE_ERROR) {
           DrmSessionException drmSessionException =
@@ -541,6 +559,19 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       throw createRendererException(
           e, inputFormat, PlaybackException.ERROR_CODE_DECODER_INIT_FAILED);
     }
+  }
+
+  /**
+   * Returns whether buffers in the input format can be processed without a codec.
+   *
+   * <p>This method returns the possibility of bypass mode with checking both the renderer
+   * capabilities and DRM protection.
+   *
+   * @param format The input {@link Format}.
+   * @return Whether playback bypassing {@link MediaCodec} is possible.
+   */
+  protected final boolean isBypassPossible(Format format) {
+    return sourceDrmSession == null && shouldUseBypass(format);
   }
 
   /**
@@ -718,6 +749,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     bypassSampleBuffer.clear();
     bypassSampleBufferPending = false;
     bypassEnabled = false;
+    oggOpusAudioPacketizer.reset();
   }
 
   protected void releaseCodec() {
@@ -963,7 +995,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   }
 
   private void maybeInitCodecWithFallback(
-      MediaCrypto crypto, boolean mediaCryptoRequiresSecureDecoder)
+      @Nullable MediaCrypto crypto, boolean mediaCryptoRequiresSecureDecoder)
       throws DecoderInitializationException {
     if (availableCodecInfos == null) {
       try {
@@ -1079,7 +1111,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     bypassEnabled = true;
   }
 
-  private void initCodec(MediaCodecInfo codecInfo, MediaCrypto crypto) throws Exception {
+  private void initCodec(MediaCodecInfo codecInfo, @Nullable MediaCrypto crypto) throws Exception {
     long codecInitializingTimestamp;
     long codecInitializedTimestamp;
     String codecName = codecInfo.name;
@@ -1090,6 +1122,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     if (codecOperatingRate <= assumedMinimumCodecOperatingRate) {
       codecOperatingRate = CODEC_OPERATING_RATE_UNSET;
     }
+    onReadyToInitializeCodec(inputFormat);
     codecInitializingTimestamp = SystemClock.elapsedRealtime();
     MediaCodecAdapter.Configuration configuration =
         getMediaCodecConfiguration(codecInfo, inputFormat, crypto, codecOperatingRate);
@@ -1376,6 +1409,22 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     codecReconfigurationState = RECONFIGURATION_STATE_NONE;
     decoderCounters.queuedInputBufferCount++;
     return true;
+  }
+
+  /**
+   * Called when ready to initialize the {@link MediaCodecAdapter}.
+   *
+   * <p>This method is called just before the renderer obtains the {@linkplain
+   * #getMediaCodecConfiguration configuration} for the {@link MediaCodecAdapter} and creates the
+   * adapter via the passed in {@link MediaCodecAdapter.Factory}.
+   *
+   * <p>The default implementation is a no-op.
+   *
+   * @param format The {@link Format} for which the codec is being configured.
+   * @throws ExoPlaybackException If an error occurs preparing for initializing the codec.
+   */
+  protected void onReadyToInitializeCodec(Format format) throws ExoPlaybackException {
+    // Do nothing.
   }
 
   /**
@@ -2077,6 +2126,36 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       return true;
     }
 
+    @Nullable CryptoConfig newCryptoConfig = newSession.getCryptoConfig();
+    if (newCryptoConfig == null) {
+      // We'd only expect this to happen if the CDM from which newSession is obtained needs
+      // provisioning. This is unlikely to happen (it probably requires a switch from one DRM scheme
+      // to another, where the new CDM hasn't been used before and needs provisioning). It would be
+      // possible to handle this case without codec re-initialization, but it would require the
+      // re-use code path to be able to wait for provisioning to finish before calling
+      // MediaCrypto.setMediaDrmSession. The extra complexity is not warranted given how unlikely
+      // the case is to occur, so we re-initialize in this case.
+      return true;
+    }
+
+    @Nullable CryptoConfig oldCryptoConfig = oldSession.getCryptoConfig();
+    if (oldCryptoConfig == null || !newCryptoConfig.getClass().equals(oldCryptoConfig.getClass())) {
+      // Switching between different CryptoConfig implementations suggests we're switching between
+      // different forms of decryption (e.g. in-app vs framework-provided), which requires codec
+      // re-initialization.
+      return true;
+    }
+
+    if (!(newCryptoConfig instanceof FrameworkCryptoConfig)) {
+      // Assume that non-framework CryptoConfig implementations indicate the codec can be re-used
+      // (since it suggests that decryption is happening in-app before the data is passed to
+      // MediaCodec, and therefore a change in DRM keys has no affect on the (decrypted) data seen
+      // by MediaCodec).
+      return false;
+    }
+
+    FrameworkCryptoConfig newFrameworkCryptoConfig = (FrameworkCryptoConfig) newCryptoConfig;
+
     // Note: Both oldSession and newSession are non-null, and they are different sessions.
 
     if (!newSession.getSchemeUuid().equals(oldSession.getSchemeUuid())) {
@@ -2096,20 +2175,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       // TODO: Add an API check once [Internal ref: b/128835874] is fixed.
       return true;
     }
-    @Nullable FrameworkCryptoConfig newCryptoConfig = getFrameworkCryptoConfig(newSession);
-    if (newCryptoConfig == null) {
-      // We'd only expect this to happen if the CDM from which newSession is obtained needs
-      // provisioning. This is unlikely to happen (it probably requires a switch from one DRM scheme
-      // to another, where the new CDM hasn't been used before and needs provisioning). It would be
-      // possible to handle this case without codec re-initialization, but it would require the
-      // re-use code path to be able to wait for provisioning to finish before calling
-      // MediaCrypto.setMediaDrmSession. The extra complexity is not warranted given how unlikely
-      // the case is to occur, so we re-initialize in this case.
-      return true;
-    }
 
     boolean requiresSecureDecoder;
-    if (newCryptoConfig.forceAllowInsecureDecoderComponents) {
+    if (newFrameworkCryptoConfig.forceAllowInsecureDecoderComponents) {
       requiresSecureDecoder = false;
     } else {
       requiresSecureDecoder = newSession.requiresSecureDecoder(newFormat.sampleMimeType);
@@ -2143,30 +2211,18 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
 
   @RequiresApi(23)
   private void updateDrmSessionV23() throws ExoPlaybackException {
-    try {
-      mediaCrypto.setMediaDrmSession(getFrameworkCryptoConfig(sourceDrmSession).sessionId);
-    } catch (MediaCryptoException e) {
-      throw createRendererException(e, inputFormat, PlaybackException.ERROR_CODE_DRM_SYSTEM_ERROR);
+    CryptoConfig cryptoConfig = sourceDrmSession.getCryptoConfig();
+    if (cryptoConfig instanceof FrameworkCryptoConfig) {
+      try {
+        mediaCrypto.setMediaDrmSession(((FrameworkCryptoConfig) cryptoConfig).sessionId);
+      } catch (MediaCryptoException e) {
+        throw createRendererException(
+            e, inputFormat, PlaybackException.ERROR_CODE_DRM_SYSTEM_ERROR);
+      }
     }
     setCodecDrmSession(sourceDrmSession);
     codecDrainState = DRAIN_STATE_NONE;
     codecDrainAction = DRAIN_ACTION_NONE;
-  }
-
-  @Nullable
-  private FrameworkCryptoConfig getFrameworkCryptoConfig(DrmSession drmSession)
-      throws ExoPlaybackException {
-    @Nullable CryptoConfig cryptoConfig = drmSession.getCryptoConfig();
-    if (cryptoConfig != null && !(cryptoConfig instanceof FrameworkCryptoConfig)) {
-      // This should not happen if the track went through a supportsFormatDrm() check, during track
-      // selection.
-      throw createRendererException(
-          new IllegalArgumentException(
-              "Expecting FrameworkCryptoConfig but found: " + cryptoConfig),
-          inputFormat,
-          PlaybackException.ERROR_CODE_DRM_SCHEME_UNSUPPORTED);
-    }
-    return (FrameworkCryptoConfig) cryptoConfig;
   }
 
   /**
@@ -2273,6 +2329,13 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
           }
           // Try to append the buffer to the batch buffer.
           bypassSampleBuffer.flip();
+
+          if (inputFormat != null
+              && inputFormat.sampleMimeType != null
+              && inputFormat.sampleMimeType.equals(MimeTypes.AUDIO_OPUS)) {
+            oggOpusAudioPacketizer.packetize(bypassSampleBuffer);
+          }
+
           if (!bypassBatchBuffer.append(bypassSampleBuffer)) {
             bypassSampleBufferPending = true;
             return;

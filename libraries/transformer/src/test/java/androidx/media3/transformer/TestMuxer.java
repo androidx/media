@@ -15,7 +15,9 @@
  */
 package androidx.media3.transformer;
 
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.Metadata;
 import androidx.media3.test.utils.DumpableFormat;
 import androidx.media3.test.utils.Dumper;
 import java.nio.ByteBuffer;
@@ -50,10 +52,21 @@ public final class TestMuxer implements Muxer, Dumper.Dumpable {
 
   @Override
   public void writeSampleData(
-      int trackIndex, ByteBuffer data, boolean isKeyFrame, long presentationTimeUs)
+      int trackIndex, ByteBuffer data, long presentationTimeUs, @C.BufferFlags int flags)
       throws MuxerException {
-    dumpables.add(new DumpableSample(trackIndex, data, isKeyFrame, presentationTimeUs));
-    muxer.writeSampleData(trackIndex, data, isKeyFrame, presentationTimeUs);
+    dumpables.add(
+        new DumpableSample(
+            trackIndex,
+            data,
+            (flags & C.BUFFER_FLAG_KEY_FRAME) == C.BUFFER_FLAG_KEY_FRAME,
+            presentationTimeUs));
+    muxer.writeSampleData(trackIndex, data, presentationTimeUs, flags);
+  }
+
+  @Override
+  public void addMetadata(Metadata metadata) {
+    dumpables.add(dumper -> dumper.add("container metadata", metadata));
+    muxer.addMetadata(metadata);
   }
 
   @Override

@@ -24,7 +24,7 @@ import android.graphics.Bitmap;
 import android.opengl.GLES20;
 import android.opengl.GLUtils;
 import androidx.media3.common.Format;
-import androidx.media3.common.FrameProcessingException;
+import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -128,13 +128,13 @@ public class SingleColorLut implements ColorLut {
         Bitmap.Config.ARGB_8888);
   }
 
-  /** Must be called after {@link #toGlTextureProcessor(Context, boolean)}. */
+  /** Must be called after {@link #toGlShaderProgram(Context, boolean)}. */
   @Override
   public int getLutTextureId(long presentationTimeUs) {
     checkState(
         lutTextureId != Format.NO_VALUE,
         "The LUT has not been stored as a texture in OpenGL yet. You must to call"
-            + " #toGlTextureProcessor() first.");
+            + " #toGlShaderProgram() first.");
     return lutTextureId;
   }
 
@@ -149,17 +149,17 @@ public class SingleColorLut implements ColorLut {
   }
 
   @Override
-  public SingleFrameGlTextureProcessor toGlTextureProcessor(Context context, boolean useHdr)
-      throws FrameProcessingException {
+  public SingleFrameGlShaderProgram toGlShaderProgram(Context context, boolean useHdr)
+      throws VideoFrameProcessingException {
     checkState(!useHdr, "HDR is currently not supported.");
 
     try {
       lutTextureId = storeLutAsTexture(lut);
     } catch (GlUtil.GlException e) {
-      throw new FrameProcessingException("Could not store the LUT as a texture.", e);
+      throw new VideoFrameProcessingException("Could not store the LUT as a texture.", e);
     }
 
-    return new ColorLutProcessor(context, /* colorLut= */ this, useHdr);
+    return new ColorLutShaderProgram(context, /* colorLut= */ this, useHdr);
   }
 
   private static int storeLutAsTexture(Bitmap bitmap) throws GlUtil.GlException {

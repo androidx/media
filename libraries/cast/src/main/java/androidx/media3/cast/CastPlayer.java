@@ -85,7 +85,7 @@ public final class CastPlayer extends BasePlayer {
 
   /** The {@link DeviceInfo} returned by {@link #getDeviceInfo() this player}. */
   public static final DeviceInfo DEVICE_INFO =
-      new DeviceInfo(DeviceInfo.PLAYBACK_TYPE_REMOTE, /* minVolume= */ 0, /* maxVolume= */ 0);
+      new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).build();
 
   static {
     MediaLibraryInfo.registerModule("media3.cast");
@@ -104,11 +104,12 @@ public final class CastPlayer extends BasePlayer {
               COMMAND_SET_SPEED_AND_PITCH,
               COMMAND_GET_CURRENT_MEDIA_ITEM,
               COMMAND_GET_TIMELINE,
-              COMMAND_GET_MEDIA_ITEMS_METADATA,
-              COMMAND_SET_MEDIA_ITEMS_METADATA,
+              COMMAND_GET_METADATA,
+              COMMAND_SET_PLAYLIST_METADATA,
               COMMAND_SET_MEDIA_ITEM,
               COMMAND_CHANGE_MEDIA_ITEMS,
-              COMMAND_GET_TRACKS)
+              COMMAND_GET_TRACKS,
+              COMMAND_RELEASE)
           .build();
 
   public static final float MIN_SPEED_SUPPORTED = 0.5f;
@@ -321,6 +322,18 @@ public final class CastPlayer extends BasePlayer {
   }
 
   @Override
+  public void replaceMediaItems(int fromIndex, int toIndex, List<MediaItem> mediaItems) {
+    checkArgument(fromIndex >= 0 && fromIndex <= toIndex);
+    int playlistSize = currentTimeline.getWindowCount();
+    if (fromIndex > playlistSize) {
+      return;
+    }
+    toIndex = min(toIndex, playlistSize);
+    addMediaItems(toIndex, mediaItems);
+    removeMediaItems(fromIndex, toIndex);
+  }
+
+  @Override
   public void removeMediaItems(int fromIndex, int toIndex) {
     checkArgument(fromIndex >= 0 && toIndex >= fromIndex);
     int playlistSize = currentTimeline.getWindowCount();
@@ -393,8 +406,9 @@ public final class CastPlayer extends BasePlayer {
     return playWhenReady.value;
   }
 
-  // We still call Listener#onSeekProcessed() for backwards compatibility with listeners that
-  // don't implement onPositionDiscontinuity().
+  // We still call Listener#onPositionDiscontinuity(@DiscontinuityReason int) for backwards
+  // compatibility with listeners that don't implement
+  // onPositionDiscontinuity(PositionInfo, PositionInfo, @DiscontinuityReason int).
   @SuppressWarnings("deprecation")
   @Override
   @VisibleForTesting(otherwise = PROTECTED)
@@ -448,8 +462,6 @@ public final class CastPlayer extends BasePlayer {
         }
       }
       updateAvailableCommandsAndNotifyIfChanged();
-    } else if (pendingSeekCount == 0) {
-      listeners.queueEvent(/* eventFlag= */ C.INDEX_UNSET, Listener::onSeekProcessed);
     }
     listeners.flushEvents();
   }
@@ -476,17 +488,6 @@ public final class CastPlayer extends BasePlayer {
 
   @Override
   public void stop() {
-    stop(/* reset= */ false);
-  }
-
-  /**
-   * @deprecated Use {@link #stop()} and {@link #clearMediaItems()} (if {@code reset} is true) or
-   *     just {@link #stop()} (if {@code reset} is false). Any player error will be cleared when
-   *     {@link #prepare() re-preparing} the player.
-   */
-  @Deprecated
-  @Override
-  public void stop(boolean reset) {
     playbackState = STATE_IDLE;
     if (remoteMediaClient != null) {
       // TODO(b/69792021): Support or emulate stop without position reset.
@@ -765,21 +766,49 @@ public final class CastPlayer extends BasePlayer {
     return false;
   }
 
-  /** This method is not supported and does nothing. */
+  /**
+   * @deprecated Use {@link #setDeviceVolume(int, int)} instead.
+   */
+  @Deprecated
   @Override
   public void setDeviceVolume(int volume) {}
 
   /** This method is not supported and does nothing. */
   @Override
+  public void setDeviceVolume(int volume, @C.VolumeFlags int flags) {}
+
+  /**
+   * @deprecated Use {@link #increaseDeviceVolume(int)} instead.
+   */
+  @Deprecated
+  @Override
   public void increaseDeviceVolume() {}
 
   /** This method is not supported and does nothing. */
+  @Override
+  public void increaseDeviceVolume(@C.VolumeFlags int flags) {}
+
+  /**
+   * @deprecated Use {@link #decreaseDeviceVolume(int)} instead.
+   */
+  @Deprecated
   @Override
   public void decreaseDeviceVolume() {}
 
   /** This method is not supported and does nothing. */
   @Override
+  public void decreaseDeviceVolume(@C.VolumeFlags int flags) {}
+
+  /**
+   * @deprecated Use {@link #setDeviceMuted(boolean, int)} instead.
+   */
+  @Deprecated
+  @Override
   public void setDeviceMuted(boolean muted) {}
+
+  /** This method is not supported and does nothing. */
+  @Override
+  public void setDeviceMuted(boolean muted, @C.VolumeFlags int flags) {}
 
   // Internal methods.
 
@@ -1419,9 +1448,6 @@ public final class CastPlayer extends BasePlayer {
 
   private final class SeekResultCallback implements ResultCallback<MediaChannelResult> {
 
-    // We still call Listener#onSeekProcessed() for backwards compatibility with listeners that
-    // don't implement onPositionDiscontinuity().
-    @SuppressWarnings("deprecation")
     @Override
     public void onResult(MediaChannelResult result) {
       int statusCode = result.getStatus().getStatusCode();
@@ -1434,7 +1460,6 @@ public final class CastPlayer extends BasePlayer {
         currentWindowIndex = pendingSeekWindowIndex;
         pendingSeekWindowIndex = C.INDEX_UNSET;
         pendingSeekPositionMs = C.TIME_UNSET;
-        listeners.sendEvent(/* eventFlag= */ C.INDEX_UNSET, Listener::onSeekProcessed);
       }
     }
   }

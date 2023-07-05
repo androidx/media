@@ -55,6 +55,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Rule;
@@ -214,7 +215,8 @@ public class MediaSessionCallbackTest {
 
     controller.play();
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
-    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_PREPARE)).isFalse();
+    // If IDLE, Util.handlePlayButtonAction(player) calls prepare also.
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_PREPARE)).isTrue();
     assertThat(commands).hasSize(2);
     assertThat(commands.get(1)).isEqualTo(Player.COMMAND_PLAY_PAUSE);
   }
@@ -373,6 +375,85 @@ public class MediaSessionCallbackTest {
 
     assertThat(requestedMediaItems.get()).containsExactly(mediaItem);
     assertThat(player.mediaItems).containsExactly(updateMediaItemWithLocalConfiguration(mediaItem));
+  }
+
+  @Test
+  public void
+      onAddMediaItemsDefault_withSetMediaItemIncludeLocalConfiguration_mediaItemDoesntContainLocalConfiguration_noItemsSet()
+          throws Exception {
+    MediaItem mediaItemWithoutLocalConfiguration = createMediaItem("mediaId");
+    MediaSession session =
+        sessionTestRule.ensureReleaseAfterTest(new MediaSession.Builder(context, player).build());
+    RemoteMediaController controller =
+        controllerTestRule.createRemoteController(session.getToken());
+
+    // Default MediaSession.Callback.onAddMediaItems will be called
+    controller.setMediaItemIncludeLocalConfiguration(mediaItemWithoutLocalConfiguration);
+
+    Thread.sleep(NO_RESPONSE_TIMEOUT_MS);
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_SET_MEDIA_ITEMS_WITH_RESET_POSITION))
+        .isFalse();
+    assertThat(player.mediaItems).isEmpty();
+  }
+
+  @Test
+  public void
+      onAddMediaItemsDefault_withSetMediaItemsIncludeLocalConfiguration_mediaItemsDontContainLocalConfiguration_noItemsSet()
+          throws Exception {
+    MediaItem mediaItemWithoutLocalConfiguration1 = createMediaItem("mediaId1");
+    MediaItem mediaItemWithoutLocalConfiguration2 = createMediaItem("mediaId2");
+    List<MediaItem> mediaItemsWithoutLocalConfiguration =
+        ImmutableList.of(mediaItemWithoutLocalConfiguration1, mediaItemWithoutLocalConfiguration2);
+    MediaSession session =
+        sessionTestRule.ensureReleaseAfterTest(new MediaSession.Builder(context, player).build());
+    RemoteMediaController controller =
+        controllerTestRule.createRemoteController(session.getToken());
+
+    // Default MediaSession.Callback.onAddMediaItems will be called
+    controller.setMediaItemsIncludeLocalConfiguration(mediaItemsWithoutLocalConfiguration);
+
+    Thread.sleep(NO_RESPONSE_TIMEOUT_MS);
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_SET_MEDIA_ITEMS_WITH_RESET_POSITION))
+        .isFalse();
+    assertThat(player.mediaItems).isEmpty();
+  }
+
+  @Test
+  public void
+      onAddMediaItemsDefault_withSetMediaItemIncludeLocalConfiguration_mediaItemContainsLocalConfiguration_itemSet()
+          throws Exception {
+    MediaItem mediaItem = createMediaItem("mediaId");
+    MediaItem mediaItemWithLocalConfiguration = updateMediaItemWithLocalConfiguration(mediaItem);
+    MediaSession session =
+        sessionTestRule.ensureReleaseAfterTest(new MediaSession.Builder(context, player).build());
+    RemoteMediaController controller =
+        controllerTestRule.createRemoteController(session.getToken());
+
+    // Default MediaSession.Callback.onAddMediaItems will be called
+    controller.setMediaItemIncludeLocalConfiguration(mediaItemWithLocalConfiguration);
+    player.awaitMethodCalled(MockPlayer.METHOD_SET_MEDIA_ITEMS_WITH_RESET_POSITION, TIMEOUT_MS);
+
+    assertThat(player.mediaItems).containsExactly(mediaItemWithLocalConfiguration);
+  }
+
+  @Test
+  public void
+      onAddMediaItemsDefault_withSetMediaItemsIncludeLocalConfiguration_mediaItemsContainLocalConfiguration_itemsSet()
+          throws Exception {
+    MediaItem mediaItem1 = createMediaItem("mediaId1");
+    MediaItem mediaItem2 = createMediaItem("mediaId2");
+    List<MediaItem> fullMediaItems =
+        updateMediaItemsWithLocalConfiguration(ImmutableList.of(mediaItem1, mediaItem2));
+    MediaSession session =
+        sessionTestRule.ensureReleaseAfterTest(new MediaSession.Builder(context, player).build());
+    RemoteMediaController controller =
+        controllerTestRule.createRemoteController(session.getToken());
+
+    // Default MediaSession.Callback.onAddMediaItems will be called
+    controller.setMediaItemsIncludeLocalConfiguration(fullMediaItems);
+    player.awaitMethodCalled(MockPlayer.METHOD_SET_MEDIA_ITEMS_WITH_RESET_POSITION, TIMEOUT_MS);
+
+    assertThat(player.mediaItems).containsExactlyElementsIn(fullMediaItems).inOrder();
   }
 
   @Test
@@ -547,6 +628,83 @@ public class MediaSessionCallbackTest {
 
     assertThat(requestedMediaItems.get()).containsExactly(mediaItem);
     assertThat(player.mediaItems).containsExactly(updateMediaItemWithLocalConfiguration(mediaItem));
+  }
+
+  @Test
+  public void
+      onAddMediaItems_withAddMediaItemIncludeLocalConfiguration_mediaItemDoesntContainLocalConfiguration_noItemsAdded()
+          throws Exception {
+    MediaItem mediaItemWithoutLocalConfiguration = createMediaItem("mediaId");
+    MediaSession session =
+        sessionTestRule.ensureReleaseAfterTest(new MediaSession.Builder(context, player).build());
+    RemoteMediaController controller =
+        controllerTestRule.createRemoteController(session.getToken());
+
+    // Default MediaSession.Callback.onAddMediaItems will be called
+    controller.addMediaItemIncludeLocalConfiguration(mediaItemWithoutLocalConfiguration);
+
+    Thread.sleep(NO_RESPONSE_TIMEOUT_MS);
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_ADD_MEDIA_ITEMS)).isFalse();
+    assertThat(player.mediaItems).isEmpty();
+  }
+
+  @Test
+  public void
+      onAddMediaItems_withAddMediaItemsIncludeLocalConfiguration_mediaItemsDontContainLocalConfiguration_noItemsAdded()
+          throws Exception {
+    MediaItem mediaItemWithoutLocalConfiguration1 = createMediaItem("mediaId1");
+    MediaItem mediaItemWithoutLocalConfiguration2 = createMediaItem("mediaId2");
+    List<MediaItem> mediaItemsWithoutLocalConfiguration =
+        ImmutableList.of(mediaItemWithoutLocalConfiguration1, mediaItemWithoutLocalConfiguration2);
+    MediaSession session =
+        sessionTestRule.ensureReleaseAfterTest(new MediaSession.Builder(context, player).build());
+    RemoteMediaController controller =
+        controllerTestRule.createRemoteController(session.getToken());
+
+    // Default MediaSession.Callback.onAddMediaItems will be called
+    controller.addMediaItemsIncludeLocalConfiguration(mediaItemsWithoutLocalConfiguration);
+
+    Thread.sleep(NO_RESPONSE_TIMEOUT_MS);
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_ADD_MEDIA_ITEMS)).isFalse();
+    assertThat(player.mediaItems).isEmpty();
+  }
+
+  @Test
+  public void
+      onAddMediaItems_withAddMediaItemIncludeLocalConfiguration_mediaItemContainsLocalConfiguration_itemAdded()
+          throws Exception {
+    MediaItem mediaItem = createMediaItem("mediaId");
+    MediaItem mediaItemWithLocalConfiguration = updateMediaItemWithLocalConfiguration(mediaItem);
+    MediaSession session =
+        sessionTestRule.ensureReleaseAfterTest(new MediaSession.Builder(context, player).build());
+    RemoteMediaController controller =
+        controllerTestRule.createRemoteController(session.getToken());
+
+    // Default MediaSession.Callback.onAddMediaItems will be called
+    controller.addMediaItemIncludeLocalConfiguration(mediaItemWithLocalConfiguration);
+    player.awaitMethodCalled(MockPlayer.METHOD_ADD_MEDIA_ITEMS, TIMEOUT_MS);
+
+    assertThat(player.mediaItems).containsExactly(mediaItemWithLocalConfiguration);
+  }
+
+  @Test
+  public void
+      onAddMediaItems_withAddMediaItemsIncludeLocalConfiguration_mediaItemsContainLocalConfiguration_itemsAdded()
+          throws Exception {
+    MediaItem mediaItem1 = createMediaItem("mediaId1");
+    MediaItem mediaItem2 = createMediaItem("mediaId2");
+    List<MediaItem> fullMediaItems =
+        updateMediaItemsWithLocalConfiguration(ImmutableList.of(mediaItem1, mediaItem2));
+    MediaSession session =
+        sessionTestRule.ensureReleaseAfterTest(new MediaSession.Builder(context, player).build());
+    RemoteMediaController controller =
+        controllerTestRule.createRemoteController(session.getToken());
+
+    // Default MediaSession.Callback.onAddMediaItems will be called
+    controller.addMediaItemsIncludeLocalConfiguration(fullMediaItems);
+    player.awaitMethodCalled(MockPlayer.METHOD_ADD_MEDIA_ITEMS, TIMEOUT_MS);
+
+    assertThat(player.mediaItems).containsAtLeastElementsIn(fullMediaItems).inOrder();
   }
 
   @Test
@@ -808,6 +966,94 @@ public class MediaSessionCallbackTest {
         .inOrder();
     assertThat(player.startMediaItemIndex).isEqualTo(1);
     assertThat(player.startPositionMs).isEqualTo(200);
+  }
+
+  @Test
+  public void onPlay_withEmptyTimelinePlaybackResumptionOn_callsOnGetPlaybackResumptionPlaylist()
+      throws Exception {
+    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
+    MediaSession.Callback callback =
+        new MediaSession.Callback() {
+          @Override
+          public ListenableFuture<MediaSession.MediaItemsWithStartPosition> onPlaybackResumption(
+              MediaSession mediaSession, ControllerInfo controller) {
+            return Futures.immediateFuture(
+                new MediaSession.MediaItemsWithStartPosition(
+                    mediaItems, /* startIndex= */ 1, /* startPositionMs= */ 123L));
+          }
+        };
+    MediaSession session =
+        sessionTestRule.ensureReleaseAfterTest(
+            new MediaSession.Builder(context, player).setCallback(callback).build());
+    RemoteMediaController controller =
+        controllerTestRule.createRemoteController(session.getToken());
+
+    controller.play();
+
+    player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_PREPARE)).isTrue();
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_SET_MEDIA_ITEMS_WITH_START_INDEX))
+        .isTrue();
+    assertThat(player.startMediaItemIndex).isEqualTo(1);
+    assertThat(player.startPositionMs).isEqualTo(123L);
+    assertThat(player.mediaItems).isEqualTo(mediaItems);
+  }
+
+  @Test
+  public void onPlay_withEmptyTimelineCallbackFailure_callsHandlePlayButtonAction()
+      throws Exception {
+    player.startMediaItemIndex = 7;
+    player.startPositionMs = 321L;
+    MediaSession session =
+        sessionTestRule.ensureReleaseAfterTest(new MediaSession.Builder(context, player).build());
+    RemoteMediaController controller =
+        controllerTestRule.createRemoteController(session.getToken());
+
+    controller.play();
+
+    player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_PREPARE)).isTrue();
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_SET_MEDIA_ITEMS_WITH_START_INDEX))
+        .isFalse();
+    assertThat(player.startMediaItemIndex).isEqualTo(7);
+    assertThat(player.startPositionMs).isEqualTo(321L);
+    assertThat(player.mediaItems).isEmpty();
+  }
+
+  @Test
+  public void onPlay_withNonEmptyTimeline_callsHandlePlayButtonAction() throws Exception {
+    player.timeline = new PlaylistTimeline(MediaTestUtils.createMediaItems(/* size= */ 3));
+    player.mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
+    player.startMediaItemIndex = 1;
+    player.startPositionMs = 321L;
+    MediaSession.Callback callback =
+        new MediaSession.Callback() {
+          @Override
+          public ListenableFuture<MediaSession.MediaItemsWithStartPosition> onPlaybackResumption(
+              MediaSession mediaSession, ControllerInfo controller) {
+            Assert.fail();
+            return Futures.immediateFuture(
+                new MediaSession.MediaItemsWithStartPosition(
+                    MediaTestUtils.createMediaItems(/* size= */ 10),
+                    /* startIndex= */ 9,
+                    /* startPositionMs= */ C.TIME_UNSET));
+          }
+        };
+    MediaSession session =
+        sessionTestRule.ensureReleaseAfterTest(
+            new MediaSession.Builder(context, player).setCallback(callback).build());
+    RemoteMediaController controller =
+        controllerTestRule.createRemoteController(session.getToken());
+
+    controller.play();
+
+    player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_PREPARE)).isTrue();
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_SET_MEDIA_ITEMS_WITH_START_INDEX))
+        .isFalse();
+    assertThat(player.startMediaItemIndex).isEqualTo(1);
+    assertThat(player.startPositionMs).isEqualTo(321L);
+    assertThat(player.mediaItems).hasSize(3);
   }
 
   @Test

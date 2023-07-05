@@ -34,7 +34,6 @@ import androidx.media3.exoplayer.drm.DrmSession.DrmSessionException;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import com.google.common.util.concurrent.SettableFuture;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import org.checkerframework.checker.nullness.compatqual.NullableType;
 
@@ -125,25 +124,6 @@ public final class OfflineLicenseHelper {
             .build(
                 new HttpMediaDrmCallback(
                     defaultLicenseUrl, forceDefaultLicenseUrl, dataSourceFactory)),
-        eventDispatcher);
-  }
-
-  /**
-   * @deprecated Use {@link #OfflineLicenseHelper(DefaultDrmSessionManager,
-   *     DrmSessionEventListener.EventDispatcher)} instead.
-   */
-  @Deprecated
-  public OfflineLicenseHelper(
-      UUID uuid,
-      ExoMediaDrm.Provider mediaDrmProvider,
-      MediaDrmCallback callback,
-      @Nullable Map<String, String> optionalKeyRequestParameters,
-      DrmSessionEventListener.EventDispatcher eventDispatcher) {
-    this(
-        new DefaultDrmSessionManager.Builder()
-            .setUuidAndExoMediaDrmProvider(uuid, mediaDrmProvider)
-            .setKeyRequestParameters(optionalKeyRequestParameters)
-            .build(callback),
         eventDispatcher);
   }
 
@@ -376,27 +356,25 @@ public final class OfflineLicenseHelper {
     // (drmSession.state == STATE_ERROR).
     drmListenerConditionVariable.block();
 
-    SettableFuture<@NullableType DrmSessionException> drmSessionErrorFuture =
-        SettableFuture.create();
+    SettableFuture<@NullableType DrmSessionException> drmSessionError = SettableFuture.create();
     handler.post(
         () -> {
           try {
-            DrmSessionException drmSessionError = drmSession.getError();
+            DrmSessionException error = drmSession.getError();
             if (drmSession.getState() == DrmSession.STATE_ERROR) {
               drmSession.release(eventDispatcher);
               drmSessionManager.release();
             }
-            drmSessionErrorFuture.set(drmSessionError);
+            drmSessionError.set(error);
           } catch (Throwable e) {
-            drmSessionErrorFuture.setException(e);
+            drmSessionError.setException(e);
             drmSession.release(eventDispatcher);
             drmSessionManager.release();
           }
         });
     try {
-      DrmSessionException drmSessionError = drmSessionErrorFuture.get();
-      if (drmSessionError != null) {
-        throw drmSessionError;
+      if (drmSessionError.get() != null) {
+        throw drmSessionError.get();
       } else {
         return drmSession;
       }

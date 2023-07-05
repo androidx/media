@@ -15,8 +15,13 @@
  */
 package androidx.media3.common.util;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Assertions.checkState;
+
+import android.os.SystemClock;
 import androidx.annotation.GuardedBy;
 import androidx.media3.common.C;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Adjusts and offsets sample timestamps. MPEG-2 TS timestamps scaling and adjustment is supported,
@@ -100,21 +105,40 @@ public final class TimestampAdjuster {
    * @param canInitialize Whether the caller is able to initialize the adjuster, if needed.
    * @param nextSampleTimestampUs The desired timestamp for the next sample loaded by the calling
    *     thread, in microseconds. Only used if {@code canInitialize} is {@code true}.
+   * @param timeoutMs The timeout for the thread to wait for the timestamp adjuster to initialize,
+   *     in milliseconds. A timeout of zero is interpreted as an infinite timeout.
    * @throws InterruptedException If the thread is interrupted whilst blocked waiting for
    *     initialization to complete.
+   * @throws TimeoutException If the thread is timeout whilst blocked waiting for initialization to
+   *     complete.
    */
-  public synchronized void sharedInitializeOrWait(boolean canInitialize, long nextSampleTimestampUs)
-      throws InterruptedException {
-    Assertions.checkState(firstSampleTimestampUs == MODE_SHARED);
-    if (timestampOffsetUs != C.TIME_UNSET) {
-      // Already initialized.
+  public synchronized void sharedInitializeOrWait(
+      boolean canInitialize, long nextSampleTimestampUs, long timeoutMs)
+      throws InterruptedException, TimeoutException {
+    checkState(firstSampleTimestampUs == MODE_SHARED);
+    if (isInitialized()) {
       return;
     } else if (canInitialize) {
       this.nextSampleTimestampUs.set(nextSampleTimestampUs);
     } else {
       // Wait for another calling thread to complete initialization.
-      while (timestampOffsetUs == C.TIME_UNSET) {
-        wait();
+      long totalWaitDurationMs = 0;
+      long remainingTimeoutMs = timeoutMs;
+      while (!isInitialized()) {
+        if (timeoutMs == 0) {
+          wait();
+        } else {
+          checkState(remainingTimeoutMs > 0);
+          long waitStartingTimeMs = SystemClock.elapsedRealtime();
+          wait(remainingTimeoutMs);
+          totalWaitDurationMs += SystemClock.elapsedRealtime() - waitStartingTimeMs;
+          if (totalWaitDurationMs >= timeoutMs && !isInitialized()) {
+            String message =
+                "TimestampAdjuster failed to initialize in " + timeoutMs + " milliseconds";
+            throw new TimeoutException(message);
+          }
+          remainingTimeoutMs = timeoutMs - totalWaitDurationMs;
+        }
       }
     }
   }
@@ -195,10 +219,10 @@ public final class TimestampAdjuster {
     if (timeUs == C.TIME_UNSET) {
       return C.TIME_UNSET;
     }
-    if (timestampOffsetUs == C.TIME_UNSET) {
+    if (!isInitialized()) {
       long desiredSampleTimestampUs =
           firstSampleTimestampUs == MODE_SHARED
-              ? Assertions.checkNotNull(nextSampleTimestampUs.get())
+              ? checkNotNull(nextSampleTimestampUs.get())
               : firstSampleTimestampUs;
       timestampOffsetUs = desiredSampleTimestampUs - timeUs;
       // Notify threads waiting for the timestamp offset to be determined.
@@ -206,6 +230,11 @@ public final class TimestampAdjuster {
     }
     lastUnadjustedTimestampUs = timeUs;
     return timeUs + timestampOffsetUs;
+  }
+
+  /** Returns whether the instance is initialized with a timestamp offset. */
+  public synchronized boolean isInitialized() {
+    return timestampOffsetUs != C.TIME_UNSET;
   }
 
   /**

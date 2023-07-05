@@ -33,6 +33,7 @@ import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.BasePlayer;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
+import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
@@ -665,6 +666,12 @@ public class SimpleExoPlayer extends BasePlayer
   }
 
   @Override
+  public void setVideoEffects(List<Effect> videoEffects) {
+    blockUntilConstructorFinished();
+    player.setVideoEffects(videoEffects);
+  }
+
+  @Override
   public void setSkipSilenceEnabled(boolean skipSilenceEnabled) {
     blockUntilConstructorFinished();
     player.setSkipSilenceEnabled(skipSilenceEnabled);
@@ -809,17 +816,6 @@ public class SimpleExoPlayer extends BasePlayer
     return player.getPlayerError();
   }
 
-  /**
-   * @deprecated Use {@link #prepare()} instead.
-   */
-  @Deprecated
-  @Override
-  @SuppressWarnings("deprecation") // Calling deprecated method.
-  public void retry() {
-    blockUntilConstructorFinished();
-    player.retry();
-  }
-
   @Override
   public Commands getAvailableCommands() {
     blockUntilConstructorFinished();
@@ -938,6 +934,12 @@ public class SimpleExoPlayer extends BasePlayer
   public void moveMediaItems(int fromIndex, int toIndex, int newIndex) {
     blockUntilConstructorFinished();
     player.moveMediaItems(fromIndex, toIndex, newIndex);
+  }
+
+  @Override
+  public void replaceMediaItems(int fromIndex, int toIndex, List<MediaItem> mediaItems) {
+    blockUntilConstructorFinished();
+    player.replaceMediaItems(fromIndex, toIndex, mediaItems);
   }
 
   @Override
@@ -1070,18 +1072,6 @@ public class SimpleExoPlayer extends BasePlayer
   public void stop() {
     blockUntilConstructorFinished();
     player.stop();
-  }
-
-  /**
-   * @deprecated Use {@link #stop()} and {@link #clearMediaItems()} (if {@code reset} is true) or
-   *     just {@link #stop()} (if {@code reset} is false). Any player error will be cleared when
-   *     {@link #prepare() re-preparing} the player.
-   */
-  @Deprecated
-  @Override
-  public void stop(boolean reset) {
-    blockUntilConstructorFinished();
-    player.stop(reset);
   }
 
   @Override
@@ -1248,16 +1238,6 @@ public class SimpleExoPlayer extends BasePlayer
     return player.getContentBufferedPosition();
   }
 
-  /**
-   * @deprecated Use {@link #setWakeMode(int)} instead.
-   */
-  @Deprecated
-  @Override
-  public void setHandleWakeLock(boolean handleWakeLock) {
-    blockUntilConstructorFinished();
-    player.setHandleWakeLock(handleWakeLock);
-  }
-
   @Override
   public void setWakeMode(@C.WakeMode int wakeMode) {
     blockUntilConstructorFinished();
@@ -1282,6 +1262,10 @@ public class SimpleExoPlayer extends BasePlayer
     return player.isDeviceMuted();
   }
 
+  /**
+   * @deprecated Use {@link #setDeviceVolume(int, int)} instead.
+   */
+  @Deprecated
   @Override
   public void setDeviceVolume(int volume) {
     blockUntilConstructorFinished();
@@ -1289,11 +1273,31 @@ public class SimpleExoPlayer extends BasePlayer
   }
 
   @Override
+  public void setDeviceVolume(int volume, @C.VolumeFlags int flags) {
+    blockUntilConstructorFinished();
+    player.setDeviceVolume(volume, flags);
+  }
+
+  /**
+   * @deprecated Use {@link #increaseDeviceVolume(int)} instead.
+   */
+  @Deprecated
+  @Override
   public void increaseDeviceVolume() {
     blockUntilConstructorFinished();
     player.increaseDeviceVolume();
   }
 
+  @Override
+  public void increaseDeviceVolume(@C.VolumeFlags int flags) {
+    blockUntilConstructorFinished();
+    player.increaseDeviceVolume(flags);
+  }
+
+  /**
+   * @deprecated Use {@link #decreaseDeviceVolume(int)} instead.
+   */
+  @Deprecated
   @Override
   public void decreaseDeviceVolume() {
     blockUntilConstructorFinished();
@@ -1301,9 +1305,25 @@ public class SimpleExoPlayer extends BasePlayer
   }
 
   @Override
+  public void decreaseDeviceVolume(@C.VolumeFlags int flags) {
+    blockUntilConstructorFinished();
+    player.decreaseDeviceVolume(flags);
+  }
+
+  /**
+   * @deprecated Use {@link #setDeviceMuted(boolean, int)} instead.
+   */
+  @Deprecated
+  @Override
   public void setDeviceMuted(boolean muted) {
     blockUntilConstructorFinished();
     player.setDeviceMuted(muted);
+  }
+
+  @Override
+  public void setDeviceMuted(boolean muted, @C.VolumeFlags int flags) {
+    blockUntilConstructorFinished();
+    player.setDeviceMuted(muted, flags);
   }
 
   @Override

@@ -59,6 +59,7 @@ import static androidx.media3.test.session.common.TestUtils.SERVICE_CONNECTION_T
 import static com.google.common.truth.Truth.assertWithMessage;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -69,6 +70,7 @@ import android.os.RemoteException;
 import android.support.v4.media.session.MediaSessionCompat;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
+import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.PlaybackException;
@@ -82,7 +84,6 @@ import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.test.session.common.IRemoteMediaSession;
 import androidx.media3.test.session.common.TestUtils;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -91,10 +92,9 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
 /**
- * Represents remote {@link MediaSession} in the service app's MediaSessionProviderService. Users
- * can run {@link MediaSession} methods remotely with this object.
+ * Represents remote {@link MediaSession} in the service app's {@link MediaSessionProviderService}.
+ * Users can run {@link MediaSession} methods remotely with this object.
  */
-@UnstableApi
 public class RemoteMediaSession {
   private static final String TAG = "RemoteMediaSession";
 
@@ -208,6 +208,10 @@ public class RemoteMediaSession {
     binder.setSessionExtrasForController(sessionId, controllerKey, extras);
   }
 
+  public void setSessionActivity(PendingIntent sessionActivity) throws RemoteException {
+    binder.setSessionActivity(sessionId, sessionActivity);
+  }
+
   ////////////////////////////////////////////////////////////////////////////////
   // RemoteMockPlayer methods
   ////////////////////////////////////////////////////////////////////////////////
@@ -284,6 +288,22 @@ public class RemoteMediaSession {
 
     public void setVolume(float volume) throws RemoteException {
       binder.setVolume(sessionId, volume);
+    }
+
+    public void setDeviceVolume(int volume, @C.VolumeFlags int flags) throws RemoteException {
+      binder.setDeviceVolume(sessionId, volume, flags);
+    }
+
+    public void decreaseDeviceVolume(@C.VolumeFlags int flags) throws RemoteException {
+      binder.decreaseDeviceVolume(sessionId, flags);
+    }
+
+    public void increaseDeviceVolume(@C.VolumeFlags int flags) throws RemoteException {
+      binder.increaseDeviceVolume(sessionId, flags);
+    }
+
+    public void setDeviceMuted(boolean muted, @C.VolumeFlags int flags) throws RemoteException {
+      binder.setDeviceMuted(sessionId, muted, flags);
     }
 
     public void notifyPlayWhenReadyChanged(
@@ -399,16 +419,12 @@ public class RemoteMediaSession {
       return binder.surfaceExists(sessionId);
     }
 
-    public void notifyDeviceVolumeChanged(int volume, boolean muted) throws RemoteException {
-      binder.notifyDeviceVolumeChanged(sessionId, volume, muted);
+    public void notifyDeviceVolumeChanged() throws RemoteException {
+      binder.notifyDeviceVolumeChanged(sessionId);
     }
 
-    public void decreaseDeviceVolume() throws RemoteException {
-      binder.decreaseDeviceVolume(sessionId);
-    }
-
-    public void increaseDeviceVolume() throws RemoteException {
-      binder.increaseDeviceVolume(sessionId);
+    public void notifyVolumeChanged() throws RemoteException {
+      binder.notifyVolumeChanged(sessionId);
     }
 
     public void notifyCuesChanged(CueGroup cueGroup) throws RemoteException {

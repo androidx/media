@@ -17,15 +17,17 @@
 package androidx.media3.transformer.mh.analysis;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.transformer.AndroidTestUtil.MEDIA_CODEC_PRIORITY_NON_REALTIME;
+import static androidx.media3.transformer.AndroidTestUtil.MEDIA_CODEC_PRIORITY_REALTIME;
 import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
 
 import android.content.Context;
-import android.media.MediaFormat;
 import android.net.Uri;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.Util;
 import androidx.media3.transformer.AndroidTestUtil;
 import androidx.media3.transformer.DefaultEncoderFactory;
+import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.Transformer;
 import androidx.media3.transformer.TransformerAndroidTestRunner;
 import androidx.media3.transformer.VideoEncoderSettings;
@@ -34,6 +36,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.HashMap;
 import java.util.Map;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -42,20 +45,16 @@ import org.junit.runners.Parameterized.Parameters;
 
 /** Instrumentation tests for analyzing encoder performance settings. */
 @RunWith(Parameterized.class)
+@Ignore(
+    "Analysis tests are not used for confirming Transformer is running properly, and not configured"
+        + " for this use as they're missing skip checks for unsupported devices.")
 public class EncoderPerformanceAnalysisTest {
-
-  /** A realtime {@linkplain MediaFormat#KEY_PRIORITY encoder priority}. */
-  private static final int MEDIA_CODEC_PRIORITY_REALTIME = 0;
-  /**
-   * A non-realtime (as fast as possible) {@linkplain MediaFormat#KEY_PRIORITY encoder priority}.
-   */
-  private static final int MEDIA_CODEC_PRIORITY_NON_REALTIME = 1;
 
   private static final ImmutableList<String> INPUT_FILES =
       ImmutableList.of(
           AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_URI_STRING,
           AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_URI_STRING,
-          AndroidTestUtil.MP4_REMOTE_4K60_PORTRAIT_URI_STRING);
+          AndroidTestUtil.MP4_ASSET_4K60_PORTRAIT_URI_STRING);
 
   private static final ImmutableList<Integer> OPERATING_RATE_SETTINGS =
       ImmutableList.of(VideoEncoderSettings.NO_VALUE, 30, Integer.MAX_VALUE);
@@ -101,11 +100,11 @@ public class EncoderPerformanceAnalysisTest {
             "analyzePerformance_%s_OpRate_%d_Priority_%d", filename, operatingRate, priority);
     Context context = ApplicationProvider.getApplicationContext();
 
-    if (AndroidTestUtil.skipAndLogIfInsufficientCodecSupport(
+    if (AndroidTestUtil.skipAndLogIfFormatsUnsupported(
         context,
         testId,
-        /* decodingFormat= */ AndroidTestUtil.getFormatForTestFile(fileUri),
-        /* encodingFormat= */ AndroidTestUtil.getFormatForTestFile(fileUri))) {
+        /* inputFormat= */ AndroidTestUtil.getFormatForTestFile(fileUri),
+        /* outputFormat= */ AndroidTestUtil.getFormatForTestFile(fileUri))) {
       return;
     }
 
@@ -124,7 +123,6 @@ public class EncoderPerformanceAnalysisTest {
 
     Transformer transformer =
         new Transformer.Builder(context)
-            .setRemoveAudio(true)
             .setEncoderFactory(
                 new AndroidTestUtil.ForceEncodeEncoderFactory(
                     /* wrappedEncoderFactory= */ new DefaultEncoderFactory.Builder(context)
@@ -135,10 +133,14 @@ public class EncoderPerformanceAnalysisTest {
                         .setEnableFallback(false)
                         .build()))
             .build();
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(fileUri)))
+            .setRemoveAudio(true)
+            .build();
 
     new TransformerAndroidTestRunner.Builder(context, transformer)
         .setInputValues(inputValues)
         .build()
-        .run(testId, MediaItem.fromUri(Uri.parse(fileUri)));
+        .run(testId, editedMediaItem);
   }
 }
