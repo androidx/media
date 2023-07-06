@@ -2,6 +2,9 @@
 
 ### Unreleased changes
 
+*   Common Library:
+    *   Remove accidentally added `multidex` dependency from all modules
+        ([#499](https://github.com/androidx/media/issues/499)).
 *   ExoPlayer:
     *   Fix issue in `PlaybackStatsListener` where spurious `PlaybackStats` are
         created after the playlist is cleared.
