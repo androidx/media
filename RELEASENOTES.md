@@ -13,6 +13,15 @@
         Previously indent and tab offset were included when limiting the cue
         length to 32 characters (which was technically correct by the spec)
         ([#11019](https://github.com/google/ExoPlayer/issues/11019)).
+*   Session:
+    *   Add custom layout to the state of the controller and provide a getter to
+        access it. When the custom layout changes,
+        `MediaController.Listener.onCustomLayoutChanged` is called. The callback
+        `MediaController.Listener.onSetCustomLayout()` is deprecated. Apps that
+        want to send different custom layouts to different Media3 controller can
+        do this in `MediaSession.Callback.onConnect` by using an
+        `AcceptedResultBuilder` to make sure the custom layout is available to
+        the controller when connection completes.
 *   Test Utilities:
     *   Add a `nanoTime()` method to `Clock` to provide override support of
         `System.nanoTime()`
