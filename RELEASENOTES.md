@@ -8,6 +8,8 @@
 *   ExoPlayer:
     *   Fix issue in `PlaybackStatsListener` where spurious `PlaybackStats` are
         created after the playlist is cleared.
+    *   Add fields streaming format (sf), stream type (st) and version (v) to
+        Common Media Client Data (CMCD) logging.
 *   Text:
     *   CEA-608: Change cue truncation logic to only consider visible text.
         Previously indent and tab offset were included when limiting the cue
