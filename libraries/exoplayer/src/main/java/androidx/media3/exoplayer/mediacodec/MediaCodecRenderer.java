@@ -703,6 +703,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       bypassBatchBuffer.clear();
       bypassSampleBuffer.clear();
       bypassSampleBufferPending = false;
+      oggOpusAudioPacketizer.reset();
     } else {
       flushOrReinitializeCodec();
     }
@@ -2332,7 +2333,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
           if (inputFormat != null
               && inputFormat.sampleMimeType != null
               && inputFormat.sampleMimeType.equals(MimeTypes.AUDIO_OPUS)) {
-            oggOpusAudioPacketizer.packetize(bypassSampleBuffer);
+            oggOpusAudioPacketizer.packetize(bypassSampleBuffer, inputFormat.initializationData);
           }
 
           if (!bypassBatchBuffer.append(bypassSampleBuffer)) {
