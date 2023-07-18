@@ -10,6 +10,8 @@
         created after the playlist is cleared.
     *   Add fields streaming format (sf), stream type (st) and version (v) to
         Common Media Client Data (CMCD) logging.
+    *   Add fields top birate (tb) and object duration (d) to Common Media
+        Client Data (CMCD) logging.
 *   Audio Offload:
     *   Prepend Ogg ID Header and Comment Header Pages to bitstream for
         offloaded Opus playback in accordance with RFC 7845.
