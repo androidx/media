@@ -12,6 +12,9 @@
         Common Media Client Data (CMCD) logging.
     *   Add fields top birate (tb) and object duration (d) to Common Media
         Client Data (CMCD) logging.
+    *   Add additional fields to Common Media Client Data (CMCD) logging:
+        streaming format (sf), stream type (st), version (v), top birate (tb),
+        object duration (d) and measured throughput (mtp).
 *   Audio Offload:
     *   Prepend Ogg ID Header and Comment Header Pages to bitstream for
         offloaded Opus playback in accordance with RFC 7845.
