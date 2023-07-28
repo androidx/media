@@ -18,6 +18,8 @@
 *   Audio Offload:
     *   Prepend Ogg ID Header and Comment Header Pages to bitstream for
         offloaded Opus playback in accordance with RFC 7845.
+*   Video:
+    *   H.265/HEVC: Fix parsing SPS short and long term reference picture info.
 *   Text:
     *   CEA-608: Change cue truncation logic to only consider visible text.
         Previously indent and tab offset were included when limiting the cue
