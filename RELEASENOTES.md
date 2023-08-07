@@ -15,6 +15,10 @@
     *   Add additional fields to Common Media Client Data (CMCD) logging:
         streaming format (sf), stream type (st), version (v), top birate (tb),
         object duration (d) and measured throughput (mtp).
+*   Audio:
+    *   Fix a bug where `Player.getState()` never transitioned to `STATE_ENDED`
+        when playing very short files
+        ([#538](https://github.com/androidx/media/issues/538)).
 *   Audio Offload:
     *   Prepend Ogg ID Header and Comment Header Pages to bitstream for
         offloaded Opus playback in accordance with RFC 7845.
