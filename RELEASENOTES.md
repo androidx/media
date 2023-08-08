@@ -14,7 +14,8 @@
         Client Data (CMCD) logging.
     *   Add additional fields to Common Media Client Data (CMCD) logging:
         streaming format (sf), stream type (st), version (v), top birate (tb),
-        object duration (d) and measured throughput (mtp).
+        object duration (d), measured throughput (mtp) and object type(ot)
+        ([#8699](https://github.com/google/ExoPlayer/issues/8699)).
 *   Audio:
     *   Fix a bug where `Player.getState()` never transitioned to `STATE_ENDED`
         when playing very short files
