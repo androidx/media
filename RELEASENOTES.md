@@ -30,6 +30,8 @@
         Previously indent and tab offset were included when limiting the cue
         length to 32 characters (which was technically correct by the spec)
         ([#11019](https://github.com/google/ExoPlayer/issues/11019)).
+*   IMA extension:
+    *   Bump IMA SDK version to 3.30.3.
 *   Session:
     *   Add custom layout to the state of the controller and provide a getter to
         access it. When the custom layout changes,
