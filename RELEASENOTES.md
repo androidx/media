@@ -1,6 +1,14 @@
 # Release notes
 
-### Unreleased changes
+## 1.1
+
+### 1.1.1 (2023-08-14)
+
+This release corresponds to the
+[ExoPlayer 2.19.1 release](https://github.com/google/ExoPlayer/releases/tag/r2.19.1).
+
+This release includes the following changes since the
+[1.1.0 release](#110-2023-07-05):
 
 *   Common Library:
     *   Remove accidentally added `multidex` dependency from all modules
@@ -8,13 +16,9 @@
 *   ExoPlayer:
     *   Fix issue in `PlaybackStatsListener` where spurious `PlaybackStats` are
         created after the playlist is cleared.
-    *   Add fields streaming format (sf), stream type (st) and version (v) to
-        Common Media Client Data (CMCD) logging.
-    *   Add fields top birate (tb) and object duration (d) to Common Media
-        Client Data (CMCD) logging.
     *   Add additional fields to Common Media Client Data (CMCD) logging:
         streaming format (sf), stream type (st), version (v), top birate (tb),
-        object duration (d), measured throughput (mtp) and object type(ot)
+        object duration (d), measured throughput (mtp) and object type (ot)
         ([#8699](https://github.com/google/ExoPlayer/issues/8699)).
 *   Audio:
     *   Fix a bug where `Player.getState()` never transitioned to `STATE_ENDED`
@@ -35,8 +39,7 @@
 *   Session:
     *   Add custom layout to the state of the controller and provide a getter to
         access it. When the custom layout changes,
-        `MediaController.Listener.onCustomLayoutChanged` is called. The callback
-        `MediaController.Listener.onSetCustomLayout()` is deprecated. Apps that
+        `MediaController.Listener.onCustomLayoutChanged` is called. Apps that
         want to send different custom layouts to different Media3 controller can
         do this in `MediaSession.Callback.onConnect` by using an
         `AcceptedResultBuilder` to make sure the custom layout is available to
@@ -51,10 +54,6 @@
         commands (`COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS` and
         `COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS`)
         ([#554](https://github.com/androidx/media/issues/554)).
-*   Test Utilities:
-    *   Add a `nanoTime()` method to `Clock` to provide override support of
-        `System.nanoTime()`
-## 1.1
 
 ### 1.1.0 (2023-07-05)
 
