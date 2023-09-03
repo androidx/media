@@ -303,7 +303,7 @@ public final class GlProgram {
       GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, /* buffer= */ 0);
       GLES20.glVertexAttribPointer(
           location, size, GLES20.GL_FLOAT, /* normalized= */ false, /* stride= */ 0, buffer);
-      GLES20.glEnableVertexAttribArray(index);
+      GLES20.glEnableVertexAttribArray(location);
       GlUtil.checkGlError();
     }
   }
