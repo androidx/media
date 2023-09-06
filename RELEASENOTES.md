@@ -142,6 +142,8 @@ This release includes the following changes since
         inspected with `instanceof`. If you want runtime access to the
         implementation details of an `Extractor` you must first call
         `Extractor.getUnderlyingInstance`.
+    *   MPEG2-TS: Add DTS, DTS-LBR and DTS:X Profile2 support
+        ([#275](https://github.com/androidx/media/pull/275)).
 *   Audio:
     *   Add support for 24/32-bit big-endian PCM in MP4 and Matroska, and parse
         PCM encoding for `lpcm` in MP4.

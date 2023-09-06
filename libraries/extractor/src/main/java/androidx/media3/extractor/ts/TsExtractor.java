@@ -73,10 +73,8 @@ public final class TsExtractor implements Extractor {
 
   /** Behave as defined in ISO/IEC 13818-1. */
   public static final int MODE_MULTI_PMT = 0;
-
   /** Assume only one PMT will be contained in the stream, even if more are declared by the PAT. */
   public static final int MODE_SINGLE_PMT = 1;
-
   /**
    * Enable single PMT mode, map {@link TrackOutput}s by their type (instead of PID) and ignore
    * continuity counters.
@@ -102,7 +100,7 @@ public final class TsExtractor implements Extractor {
   public static final int TS_STREAM_TYPE_ID3 = 0x15;
   public static final int TS_STREAM_TYPE_SPLICE_INFO = 0x86;
   public static final int TS_STREAM_TYPE_DVBSUBS = 0x59;
-  public static final int TS_STREAM_TYPE_DTS_HD = 0x88; //As per ATSC Code Point Registry
+  public static final int TS_STREAM_TYPE_DTS_HD = 0x88; // As per ATSC Code Point Registry
   public static final int TS_STREAM_TYPE_DTS_UHD = 0x8B;
 
   // Stream types that aren't defined by the MPEG-2 TS specification.

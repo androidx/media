@@ -127,12 +127,14 @@ public final class TsExtractorTest {
 
   @Test
   public void sampleWithDtsHd() throws Exception {
-    ExtractorAsserts.assertBehavior(TsExtractor::new, "media/ts/sample_dts_hd.ts", simulationConfig);
+    ExtractorAsserts.assertBehavior(
+        TsExtractor::new, "media/ts/sample_dts_hd.ts", simulationConfig);
   }
 
   @Test
   public void sampleWithDtsUhd() throws Exception {
-    ExtractorAsserts.assertBehavior(TsExtractor::new, "media/ts/sample_dts_uhd.ts", simulationConfig);
+    ExtractorAsserts.assertBehavior(
+        TsExtractor::new, "media/ts/sample_dts_uhd.ts", simulationConfig);
   }
 
   @Test
