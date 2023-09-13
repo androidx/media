@@ -13,14 +13,14 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<resources>
-  <drawable name="media3_notification_play">@drawable/ic_media_play</drawable>
-  <drawable name="media3_notification_pause">@drawable/ic_media_pause</drawable>
-  <drawable name="media3_notification_seek_to_next">@drawable/ic_media_next</drawable>
-  <drawable name="media3_notification_seek_to_previous">@drawable/ic_media_previous</drawable>
-  <drawable name="media3_notification_seek_forward">@drawable/ic_media_ff</drawable>
-  <drawable name="media3_notification_seek_back">@drawable/ic_media_rew</drawable>
-  <drawable name="media3_notification_small_icon">@drawable/ic_media_circular_play</drawable>
-</resources>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+  android:width="32dp"
+  android:height="32dp"
+  android:viewportHeight="24.0"
+  android:viewportWidth="24.0">
 
+  <path
+    android:fillColor="#FFFFFFFF"
+    android:pathData="M6,19h4L10,5L6,5v14zM14,5v14h4L18,5h-4z"/>
 
+</vector>

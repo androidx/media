@@ -153,7 +153,7 @@ public class DefaultMediaNotificationProviderTest {
     CommandButton customCommandButton =
         new CommandButton.Builder()
             .setDisplayName("displayName")
-            .setIconResId(R.drawable.media3_icon_circular_play)
+            .setIconResId(R.drawable.ic_media_circular_play)
             .setSessionCommand(customSessionCommand)
             .build();
     Player player = new TestExoPlayerBuilder(context).build();
@@ -186,7 +186,7 @@ public class DefaultMediaNotificationProviderTest {
     CommandButton customCommandButton =
         new CommandButton.Builder()
             .setDisplayName("displayName")
-            .setIconResId(R.drawable.media3_icon_circular_play)
+            .setIconResId(R.drawable.ic_media_circular_play)
             .setSessionCommand(customSessionCommand)
             .build();
     Player player = new TestExoPlayerBuilder(context).build();
@@ -216,14 +216,14 @@ public class DefaultMediaNotificationProviderTest {
         new CommandButton.Builder()
             .setPlayerCommand(Player.COMMAND_PLAY_PAUSE)
             .setDisplayName("displayName")
-            .setIconResId(R.drawable.media3_icon_circular_play)
+            .setIconResId(R.drawable.ic_media_circular_play)
             .build();
     Bundle commandButton2Bundle = new Bundle();
     commandButton2Bundle.putInt(DefaultMediaNotificationProvider.COMMAND_KEY_COMPACT_VIEW_INDEX, 0);
     CommandButton commandButton2 =
         new CommandButton.Builder()
             .setDisplayName("displayName")
-            .setIconResId(R.drawable.media3_icon_circular_play)
+            .setIconResId(R.drawable.ic_media_circular_play)
             .setSessionCommand(new SessionCommand("action2", Bundle.EMPTY))
             .setExtras(commandButton2Bundle)
             .build();
@@ -232,7 +232,7 @@ public class DefaultMediaNotificationProviderTest {
     CommandButton commandButton3 =
         new CommandButton.Builder()
             .setDisplayName("displayName")
-            .setIconResId(R.drawable.media3_icon_circular_play)
+            .setIconResId(R.drawable.ic_media_circular_play)
             .setSessionCommand(new SessionCommand("action3", Bundle.EMPTY))
             .setExtras(commandButton3Bundle)
             .build();
@@ -241,7 +241,7 @@ public class DefaultMediaNotificationProviderTest {
     CommandButton commandButton4 =
         new CommandButton.Builder()
             .setDisplayName("displayName")
-            .setIconResId(R.drawable.media3_icon_circular_play)
+            .setIconResId(R.drawable.ic_media_circular_play)
             .setSessionCommand(new SessionCommand("action4", Bundle.EMPTY))
             .setExtras(commandButton4Bundle)
             .build();
@@ -288,26 +288,26 @@ public class DefaultMediaNotificationProviderTest {
     CommandButton commandButton1 =
         new CommandButton.Builder()
             .setDisplayName("displayName")
-            .setIconResId(R.drawable.media3_icon_circular_play)
+            .setIconResId(R.drawable.ic_media_circular_play)
             .setSessionCommand(new SessionCommand("action1", Bundle.EMPTY))
             .build();
     CommandButton commandButton2 =
         new CommandButton.Builder()
             .setPlayerCommand(Player.COMMAND_PLAY_PAUSE)
             .setDisplayName("displayName")
-            .setIconResId(R.drawable.media3_icon_circular_play)
+            .setIconResId(R.drawable.ic_media_circular_play)
             .build();
     CommandButton commandButton3 =
         new CommandButton.Builder()
             .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
             .setDisplayName("displayName")
-            .setIconResId(R.drawable.media3_icon_circular_play)
+            .setIconResId(R.drawable.ic_media_circular_play)
             .build();
     CommandButton commandButton4 =
         new CommandButton.Builder()
             .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
             .setDisplayName("displayName")
-            .setIconResId(R.drawable.media3_icon_circular_play)
+            .setIconResId(R.drawable.ic_media_circular_play)
             .build();
     Player player = new TestExoPlayerBuilder(context).build();
     MediaSession mediaSession = new MediaSession.Builder(context, player).build();
@@ -354,20 +354,20 @@ public class DefaultMediaNotificationProviderTest {
     CommandButton commandButton1 =
         new CommandButton.Builder()
             .setDisplayName("displayName")
-            .setIconResId(R.drawable.media3_icon_circular_play)
+            .setIconResId(R.drawable.ic_media_circular_play)
             .setSessionCommand(new SessionCommand("action1", Bundle.EMPTY))
             .build();
     CommandButton commandButton2 =
         new CommandButton.Builder()
             .setPlayerCommand(Player.COMMAND_PLAY_PAUSE)
             .setDisplayName("displayName")
-            .setIconResId(R.drawable.media3_icon_circular_play)
+            .setIconResId(R.drawable.ic_media_circular_play)
             .build();
     CommandButton commandButton3 =
         new CommandButton.Builder()
             .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
             .setDisplayName("displayName")
-            .setIconResId(R.drawable.media3_icon_circular_play)
+            .setIconResId(R.drawable.ic_media_circular_play)
             .build();
     Player player = new TestExoPlayerBuilder(context).build();
     MediaSession mediaSession = new MediaSession.Builder(context, player).build();
@@ -410,7 +410,7 @@ public class DefaultMediaNotificationProviderTest {
     CommandButton commandButton1 =
         new CommandButton.Builder()
             .setDisplayName("displayName")
-            .setIconResId(R.drawable.media3_icon_circular_play)
+            .setIconResId(R.drawable.ic_media_circular_play)
             .setSessionCommand(new SessionCommand("action1", Bundle.EMPTY))
             .build();
     Player player = new TestExoPlayerBuilder(context).build();
@@ -443,7 +443,7 @@ public class DefaultMediaNotificationProviderTest {
     CommandButton commandButton1 =
         new CommandButton.Builder()
             .setDisplayName("displayName")
-            .setIconResId(R.drawable.media3_icon_circular_play)
+            .setIconResId(R.drawable.ic_media_circular_play)
             .setSessionCommand(new SessionCommand("action1", Bundle.EMPTY))
             .setExtras(commandButtonBundle1)
             .build();
@@ -453,7 +453,7 @@ public class DefaultMediaNotificationProviderTest {
     CommandButton commandButton2 =
         new CommandButton.Builder()
             .setDisplayName("displayName2")
-            .setIconResId(R.drawable.media3_icon_circular_play)
+            .setIconResId(R.drawable.ic_media_circular_play)
             .setSessionCommand(new SessionCommand("action1", Bundle.EMPTY))
             .setExtras(commandButtonBundle2)
             .build();
@@ -493,7 +493,7 @@ public class DefaultMediaNotificationProviderTest {
     CommandButton commandButton1 =
         new CommandButton.Builder()
             .setDisplayName("displayName")
-            .setIconResId(R.drawable.media3_icon_circular_play)
+            .setIconResId(R.drawable.ic_media_circular_play)
             .setSessionCommand(new SessionCommand("action1", Bundle.EMPTY))
             .setExtras(commandButtonBundle)
             .build();
@@ -1102,7 +1102,7 @@ public class DefaultMediaNotificationProviderTest {
             defaultActionFactory,
             mock(MediaNotification.Provider.Callback.class));
     // Change the small icon.
-    defaultMediaNotificationProvider.setSmallIcon(R.drawable.media3_icon_circular_play);
+    defaultMediaNotificationProvider.setSmallIcon(R.drawable.ic_media_circular_play);
     MediaNotification notificationWithSmallIcon =
         defaultMediaNotificationProvider.createNotification(
             mediaSession,
@@ -1115,7 +1115,7 @@ public class DefaultMediaNotificationProviderTest {
     assertThat(notification.notification.getSmallIcon().getResId())
         .isEqualTo(R.drawable.media3_notification_small_icon);
     assertThat(notificationWithSmallIcon.notification.getSmallIcon().getResId())
-        .isEqualTo(R.drawable.media3_icon_circular_play);
+        .isEqualTo(R.drawable.ic_media_circular_play);
   }
 
   @Test
