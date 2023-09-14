@@ -874,6 +874,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
       bundle.putBoolean(FIELD_DEVICE_MUTED, deviceMuted);
     }
     bundle.putBoolean(FIELD_PLAY_WHEN_READY, playWhenReady);
+    bundle.putInt(FIELD_PLAY_WHEN_READY_CHANGE_REASON, playWhenReadyChangeReason);
     bundle.putInt(FIELD_PLAYBACK_SUPPRESSION_REASON, playbackSuppressionReason);
     bundle.putInt(FIELD_PLAYBACK_STATE, playbackState);
     bundle.putBoolean(FIELD_IS_PLAYING, isPlaying);
