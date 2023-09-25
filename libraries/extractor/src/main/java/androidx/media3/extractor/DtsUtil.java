@@ -484,10 +484,11 @@ public final class DtsUtil {
   }
 
   /**
-   * Returns the size of frame header in a DTS-HD frame by parsing a few bytes of data (minimum 8
-   * bytes) from the input bitstream(containing only Extension Sub-stream).
+   * Returns the size of frame header in a DTS-HD frame(containing only Extension Sub-stream).
+   * This function will parse upto 55 bits from the input bitstream.
    *
-   * @param frame The initial 8 bytes(minimum) of a DTS-HD frame(having only Extension Sub-stream).
+   * @param frame A DTS-HD frame(only Extension Sub-stream) containing at least 55 bits from the
+   * very beginning.
    * @return Size of the DTS-HD frame header in bytes.
    */
   public static int parseDtsHdHeaderSize(byte[] frame) {
@@ -511,9 +512,9 @@ public final class DtsUtil {
     int syncWord = frameBits.readBits(32);
     boolean syncFrameFlag = syncWord == SYNC_VALUE_UHD_FTOC_SYNC_BE;
 
-    int[] ucTable1 = new int[] {5, 8, 10, 12};
+    int[] fieldLenTable1 = new int[] {5, 8, 10, 12};
     int ftocPayloadInBytes =
-        parseUnsignedVarInt(frameBits, ucTable1, /* extractAndAddFlag= */ true) + 1;
+        parseUnsignedVarInt(frameBits, fieldLenTable1, /* extractAndAddFlag= */ true) + 1;
 
     int sampleRate = 0;
     int sampleCount = 0;
@@ -524,7 +525,7 @@ public final class DtsUtil {
             /* message= */ "Only supports full channel mask-based audio presentation");
       }
       int baseDuration = BASE_DURATION_BY_INDEX[frameBits.readBits(2)]; // m_unBaseDuration
-      sampleCount = baseDuration * frameBits.readBits(3) + 1; // m_unFrameDuration
+      int frameDuration = baseDuration * frameBits.readBits(3) + 1; // m_unFrameDuration
       int clockRateIndex = frameBits.readBits(2); // m_unClockRateInHz
       int clockRateHertz = 0;
       switch (clockRateIndex) {
@@ -548,15 +549,16 @@ public final class DtsUtil {
       }
       int sampleRateMultiplier = (1 << frameBits.readBits(2));
       sampleRate = clockRateHertz * sampleRateMultiplier; // m_unAudioSamplRate
+      sampleCount = frameDuration * sampleRateMultiplier; // ETSI TS 103 491 V1.2.1, Section 6.4.6.9
     }
 
     // ETSI TS 103 491 V1.2.1, Section 6.4.6.1.
     // m_bFullChannelBasedMixFlag == true as we throw unsupported container feature otherwise.
     int chunkPayloadBytes = 0;
     int numOfMdChunks = syncFrameFlag ? 1 : 0; // Metadata chunks
-    int[] ucTable2 = new int[] {6, 9, 12, 15};
+    int[] fieldLenTable2 = new int[] {6, 9, 12, 15};
     for (int i = 0; i < numOfMdChunks; i++) {
-      int mdChunkSize = parseUnsignedVarInt(frameBits, ucTable2, /* extractAndAddFlag= */ true);
+      int mdChunkSize = parseUnsignedVarInt(frameBits, fieldLenTable2, /* extractAndAddFlag= */ true);
       if (mdChunkSize > 32767) {
         throw ParserException.createForMalformedContainer(
             /* message= */ "Unsupported metadata chunk size in DTS UHD header: " + mdChunkSize,
@@ -568,17 +570,17 @@ public final class DtsUtil {
     // See ETSI TS 103 491 V1.2.1, Section 6.4.14.4.
     // m_bFullChannelBasedMixFlag == true as we throw unsupported container feature otherwise.
     int numAudioChunks = 1;
-    int[] ucTable3 = new int[] {2, 4, 6, 8};
-    int[] ucTable4 = new int[] {9, 11, 13, 16};
+    int[] fieldLenTable3 = new int[] {2, 4, 6, 8};
+    int[] fieldLenTable4 = new int[] {9, 11, 13, 16};
     for (int i = 0; i < numAudioChunks; i++) {
       // If syncFrameFlag is true the audio chunk ID will be present
       int audioChunkId =
           syncFrameFlag
-              ? parseUnsignedVarInt(frameBits, ucTable3, /* extractAndAddFlag= */ true)
-              : 256;
+              ? parseUnsignedVarInt(frameBits, fieldLenTable3, /* extractAndAddFlag= */ true)
+              : 256 /* invalid chunk ID */;
       int audioChunkSize =
           audioChunkId != 0
-              ? parseUnsignedVarInt(frameBits, ucTable4, /* extractAndAddFlag= */ true)
+              ? parseUnsignedVarInt(frameBits, fieldLenTable4, /* extractAndAddFlag= */ true)
               : 0;
       if (audioChunkSize > 65535) {
         throw ParserException.createForMalformedContainer(
@@ -611,8 +613,8 @@ public final class DtsUtil {
   public static int parseDtsUhdHeaderSize(byte[] frame) {
     ParsableBitArray frameBits = getNormalizedFrame(frame);
     frameBits.skipBits(32); // SYNC
-    int[] ucTable = new int[] {5, 8, 10, 12};
-    return parseUnsignedVarInt(frameBits, ucTable, /* extractAndAddFlag= */ true) + 1;
+    int[] fieldLenTable = new int[] {5, 8, 10, 12};
+    return parseUnsignedVarInt(frameBits, fieldLenTable, /* extractAndAddFlag= */ true) + 1;
   }
 
   // Helper function for the DTS UHD header parsing. Used to extract a field of variable length.
