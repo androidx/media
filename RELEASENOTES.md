@@ -1,36 +1,5 @@
 # Release notes
 
-### Unreleased changes
-
-*   Common Library:
-*   ExoPlayer:
-*   Transformer:
-*   Track Selection:
-*   Extractors:
-*   Audio:
-*   Video:
-*   Text:
-*   Metadata:
-*   DRM:
-*   Effect:
-*   Muxers:
-*   IMA extension:
-*   Session:
-*   UI:
-*   Downloads:
-*   OkHttp Extension:
-*   Cronet Extension:
-*   RTMP Extension:
-*   HLS Extension:
-*   Smooth Streaming Extension:
-*   RTSP Extension:
-*   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
-*   MIDI extension:
-*   Leanback extension:
-*   Cast Extension:
-*   Test Utilities:
-*   Remove deprecated symbols:
-
 ## 1.2
 
 ### 1.2.0-alpha02 (2023-089-29)
