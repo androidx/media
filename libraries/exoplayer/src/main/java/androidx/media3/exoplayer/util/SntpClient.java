@@ -49,6 +49,9 @@ public final class SntpClient {
   /** The default maximum time, in milliseconds, to wait for the SNTP request to complete. */
   public static final int DEFAULT_TIMEOUT_MS = 1_000;
 
+  /** Max time to allow before re-initializing with NTP server, default is 10 minutes */
+  private static final long MAX_ELAPSED_MS_TILL_UPDATE = 60 * 10 * 1_000L;
+
   /** Callback for calls to {@link #initialize(Loader, InitializationCallback)}. */
   public interface InitializationCallback {
 
@@ -96,6 +99,9 @@ public final class SntpClient {
   @GuardedBy("valueLock")
   private static int timeoutMs = DEFAULT_TIMEOUT_MS;
 
+  @GuardedBy("valueLock")
+  private static long lastUpdateElapsedRealtime = C.TIME_UNSET;
+
   private SntpClient() {}
 
   /** Returns the NTP host address used to retrieve {@link #getElapsedRealtimeOffsetMs()}. */
@@ -120,6 +126,7 @@ public final class SntpClient {
       if (!SntpClient.ntpHost.equals(ntpHost)) {
         SntpClient.ntpHost = ntpHost;
         isInitialized = false;
+        lastUpdateElapsedRealtime = C.TIME_UNSET;
       }
     }
   }
@@ -156,6 +163,10 @@ public final class SntpClient {
    */
   public static boolean isInitialized() {
     synchronized (valueLock) {
+      if (lastUpdateElapsedRealtime != C.TIME_UNSET) {
+        long deltaLastUpdate = SystemClock.elapsedRealtime() - lastUpdateElapsedRealtime;
+        isInitialized = isInitialized && deltaLastUpdate < MAX_ELAPSED_MS_TILL_UPDATE;
+      }
       return isInitialized;
     }
   }
@@ -353,6 +364,7 @@ public final class SntpClient {
         }
         long offsetMs = loadNtpTimeOffsetMs();
         synchronized (valueLock) {
+          lastUpdateElapsedRealtime = SystemClock.elapsedRealtime();
           elapsedRealtimeOffsetMs = offsetMs;
           isInitialized = true;
         }
