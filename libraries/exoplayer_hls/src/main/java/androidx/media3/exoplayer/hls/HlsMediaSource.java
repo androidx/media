@@ -57,6 +57,7 @@ import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
+import androidx.media3.exoplayer.util.SntpClient;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.text.SubtitleParser;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -598,7 +599,7 @@ public final class HlsMediaSource extends BaseMediaSource
     return new SinglePeriodTimeline(
         presentationStartTimeMs,
         windowStartTimeMs,
-        /* elapsedRealtimeEpochOffsetMs= */ C.TIME_UNSET,
+        SntpClient.getElapsedRealtimeOffsetMs(),
         periodDurationUs,
         /* windowDurationUs= */ playlist.durationUs,
         /* windowPositionInPeriodUs= */ offsetFromInitialStartTimeUs,
