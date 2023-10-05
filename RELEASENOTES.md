@@ -1,5 +1,14 @@
 # Release notes
 
+### Unreleased changes
+
+*   Video:
+*   Text:
+    *   Remove `ExoplayerCuesDecoder`. Text tracks with `sampleMimeType =
+        application/x-media3-cues` are now directly handled by `TextRenderer`
+        without needing a `SubtitleDecoder` instance.
+
+
 ## 1.2
 
 ### 1.2.0-beta01 (2023-10-18)
