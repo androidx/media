@@ -524,6 +524,12 @@ public final class DtsUtil {
         throw ParserException.createForUnsupportedContainerFeature(
             /* message= */ "Only supports full channel mask-based audio presentation");
       }
+      // ETSI TS 103 491 V1.2.1, Section 6.4.6.2.
+      if (!extractAndCheckCRC16(frame, ftocPayloadInBytes)) {
+        throw ParserException.createForMalformedContainer(
+            /* message= */ "CRC check failed",
+            /* cause= */ null);
+      }
       int baseDuration = BASE_DURATION_BY_INDEX[frameBits.readBits(2)]; // m_unBaseDuration
       int frameDuration = baseDuration * frameBits.readBits(3) + 1; // m_unFrameDuration
       int clockRateIndex = frameBits.readBits(2); // m_unClockRateInHz
@@ -639,6 +645,54 @@ public final class DtsUtil {
     }
     value += frameBits.readBits(lengths[index]);
     return value;
+  }
+
+  // Helper functions for CRC checking of UHD FTOC header
+  private static int crc16Update4BitsFast(short val, int mCRC16Register) {
+    int[] mCRC16Lookup = new int[] {
+        0x0000, 0x01021, 0x2042, 0x3063, 0x4084, 0x50A5, 0x60C6, 0x70E7,
+        0x8108, 0x9129, 0xA14A, 0xB16B, 0xC18C, 0xD1AD, 0xE1CE, 0xF1EF };
+    short t; // This will be handled as unsigned 8 bit data
+    // Step one, extract the most significant 4 bits of the CRC register
+    t = (short)((mCRC16Register >> 12) & 0xFF);
+    // XOR in the Message Data into the extracted bits
+    t = (short)((t ^ val)& 0xFF);
+    // Shift the CRC register left 4 bits
+    mCRC16Register = (mCRC16Register << 4) & 0xFFFF; // Handle as 16 bit, discard any sign extension
+    // Do the table look-ups and XOR the result into the CRC tables
+    mCRC16Register = (mCRC16Register ^ mCRC16Lookup[t]) & 0xFFFF;
+
+    return mCRC16Register;
+  }
+
+  // Process one Message Byte to update the current CRC Value
+  private static int crc16Update(short val, int mCRC16Register) {
+    // Process 4 bits of the message to update the CRC Value.
+    // Note that the data will be in the low nibble of val.
+    mCRC16Register = crc16Update4BitsFast((short)(val >> 4), mCRC16Register); // High nibble first
+    mCRC16Register = crc16Update4BitsFast((short)(val & 0x0F), mCRC16Register); // Low nibble
+    return mCRC16Register;
+  }
+
+  // Calculate the CRC value from the frame header
+  private static int calculateCRC16(byte[] frame, int length) {
+    // Initialize the CRC to 0xFFFF as per specification
+    int mCRC16Register = 0xFFFF; // This will be handled as unsigned 16 bit data
+    for (int counter = 0; counter < length; counter++) {
+      // Process one byte from the frame header
+      mCRC16Register = crc16Update((short)(frame[counter] & 0xFF), mCRC16Register);
+    }
+    return mCRC16Register;
+  }
+
+  // Check if calculated and extracted CRC16 words match
+  private static boolean extractAndCheckCRC16(byte[] frame, int sizeInBytes) {
+    // Calculate CRC
+    short calcCRC16 = (short)calculateCRC16(frame, sizeInBytes - 2);
+    // Extract the encoded CRC value from the header
+    short extractedCRC16 = (short)((((frame[sizeInBytes - 2] << 8)) & 0xFFFF) |
+        (frame[sizeInBytes - 1] & 0xFF));
+    return (calcCRC16 == extractedCRC16) ? true : false;
   }
 
   private static ParsableBitArray getNormalizedFrame(byte[] frame) {
