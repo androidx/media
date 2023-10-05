@@ -25,6 +25,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaItem.ClippingConfiguration;
+import androidx.media3.common.MediaItem.LiveConfiguration;
 import androidx.media3.common.MediaItem.SubtitleConfiguration;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.util.Util;
@@ -66,6 +67,9 @@ public class IntentUtil {
   public static final String SUBTITLE_URI_EXTRA = "subtitle_uri";
   public static final String SUBTITLE_MIME_TYPE_EXTRA = "subtitle_mime_type";
   public static final String SUBTITLE_LANGUAGE_EXTRA = "subtitle_language";
+
+  public static final String LIVE_OFFSET_TARGET_VALUE = "live_offset_target";
+  public static final String LIVE_OFFSET_ADJUSTMENT_SPEED = "live_offset_adjust_speed";
 
   /** Creates a list of {@link MediaItem media items} from an {@link Intent}. */
   public static List<MediaItem> createMediaItemsFromIntent(Intent intent) {
@@ -122,6 +126,9 @@ public class IntentUtil {
     @Nullable
     SubtitleConfiguration subtitleConfiguration =
         createSubtitleConfiguration(intent, extrasKeySuffix);
+    @Nullable
+    LiveConfiguration liveConfiguration = createLiveConfiguration(intent, extrasKeySuffix);
+
     MediaItem.Builder builder =
         new MediaItem.Builder()
             .setUri(uri)
@@ -143,7 +150,35 @@ public class IntentUtil {
       builder.setSubtitleConfigurations(ImmutableList.of(subtitleConfiguration));
     }
 
+    if (liveConfiguration != null) {
+      builder.setLiveConfiguration(liveConfiguration);
+    }
+
     return populateDrmPropertiesFromIntent(builder, intent, extrasKeySuffix).build();
+  }
+
+  @Nullable
+  private static LiveConfiguration createLiveConfiguration(Intent intent, String extrasKeySuffix) {
+    LiveConfiguration.Builder builder = null;
+    boolean fast_resync = intent.hasExtra(LIVE_OFFSET_ADJUSTMENT_SPEED + extrasKeySuffix);
+    if (fast_resync) {
+      float resyncPercentChange = intent.getFloatExtra(LIVE_OFFSET_ADJUSTMENT_SPEED, 0.0f) / 100.0f;
+      builder = new LiveConfiguration.Builder();
+      builder
+          .setMaxPlaybackSpeed(1.0f + resyncPercentChange)
+          .setMinPlaybackSpeed(1.0f - resyncPercentChange);
+    }
+
+    if (intent.hasExtra(LIVE_OFFSET_TARGET_VALUE)) {
+      int liveTargetOffsetMs = intent.getIntExtra(LIVE_OFFSET_TARGET_VALUE, 0) * 1000;
+      builder = builder == null ? new LiveConfiguration.Builder() : builder;
+
+      builder.setTargetOffsetMs(liveTargetOffsetMs);
+      if (fast_resync) {
+        builder.setMinOffsetMs(liveTargetOffsetMs).setMinOffsetMs(liveTargetOffsetMs);
+      }
+    }
+    return builder == null ? null : builder.build();
   }
 
   @Nullable
