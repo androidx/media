@@ -191,6 +191,11 @@ public final class DtsUtil {
   private static final int[] BASE_DURATION_BY_INDEX = new int[] {512, 480, 384};
 
   /**
+   * A state variable that stores the UHD audio chunk ID extracted from the FTOC sync frame.
+   * This value will be used in the subsequent FTOC non-sync frame */
+  private static int storedUhdAudioChunkId;
+
+  /**
    * Returns whether a given integer matches a DTS Core sync word. Synchronization and storage modes
    * are defined in ETSI TS 102 114 V1.6.1 (2019-08), Section 5.3.
    *
@@ -576,14 +581,18 @@ public final class DtsUtil {
     // See ETSI TS 103 491 V1.2.1, Section 6.4.14.4.
     // m_bFullChannelBasedMixFlag == true as we throw unsupported container feature otherwise.
     int numAudioChunks = 1;
+    int audioChunkId;
     int[] fieldLenTable3 = new int[] {2, 4, 6, 8};
     int[] fieldLenTable4 = new int[] {9, 11, 13, 16};
     for (int i = 0; i < numAudioChunks; i++) {
       // If syncFrameFlag is true the audio chunk ID will be present
-      int audioChunkId =
-          syncFrameFlag
-              ? parseUnsignedVarInt(frameBits, fieldLenTable3, /* extractAndAddFlag= */ true)
-              : 256 /* invalid chunk ID */;
+      if (syncFrameFlag) {
+        storedUhdAudioChunkId = audioChunkId = parseUnsignedVarInt(frameBits, fieldLenTable3,
+            /* extractAndAddFlag= */ true);
+      } else {
+        // Get the stored audio chunk ID
+        audioChunkId = storedUhdAudioChunkId < 256 ? storedUhdAudioChunkId : 0;
+      }
       int audioChunkSize =
           audioChunkId != 0
               ? parseUnsignedVarInt(frameBits, fieldLenTable4, /* extractAndAddFlag= */ true)
