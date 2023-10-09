@@ -1,37 +1,24 @@
 # Release notes
 
-### Unreleased changes
+## 1.2
 
-*   Common Library:
-*   ExoPlayer:
-*   Transformer:
-*   Track Selection:
-*   Extractors:
+### 1.2.0-beta01 (2023-10-18)
+
+This release includes the following changes since the
+[1.2.0-alpha02 release](#120-alpha02-2023-09-29)):
+
 *   Audio:
     *   Add `onAudioTrackInitialized` and `onAudioTrackReleased` callbacks to
         `AnalyticsListener`, `AudioRendererEventListener` and
         `AudioSink.Listener`.
-*   Video:
-*   Text:
 *   Metadata:
     *   `MetadataDecoder.decode` will no longer be called for "decode-only"
         samples as the implementation must return null anyway.
-*   DRM:
-*   Effect:
-*   Muxers:
-*   IMA extension:
 *   Session:
     *   Add session demo module for Automotive OS and enable session demo for
         Android Auto.
-*   UI:
-*   Downloads:
-*   OkHttp Extension:
-*   Cronet Extension:
-*   RTMP Extension:
-*   HLS Extension:
 *   DASH Extension:
     *   Allow multiple of the same DASH identifier in segment template url.
-*   Smooth Streaming Extension:
 *   RTSP Extension:
     *   Use RTSP Setup Response timeout value in time interval of sending
         keep-alive RTSP Options requests
@@ -44,14 +31,8 @@
         `SimpleDecoder.isAtLeastOutputStartTimeUs` to allow decoders to drop
         decode-only samples before the start time. This should be preferred to
         `Buffer.isDecodeOnly` that will be deprecated.
-*   Leanback extension:
-*   Cast Extension:
-*   Test Utilities:
-*   Remove deprecated symbols:
 
-## 1.2
-
-### 1.2.0-alpha02 (2023-089-29)
+### 1.2.0-alpha02 (2023-09-29)
 
 This release includes the following changes since the
 [1.2.0-alpha01 release](#120-alpha01-2023-08-17)):
