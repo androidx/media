@@ -100,6 +100,9 @@ public final class DtsReader implements ElementaryStreamReader {
   private int sampleRate;
   private int sampleCount; // frame duration
 
+  // Used for storing the DTS UHD frame parser state information.
+  private DtsUtil.DtsUhdState dtsUhdStateParam;
+
   /**
    * Constructs a new reader for DTS elementary streams.
    *
@@ -112,6 +115,7 @@ public final class DtsReader implements ElementaryStreamReader {
     timeUs = C.TIME_UNSET;
     sampleRate = 48000; // initialize to a non-zero sampling rate
     this.language = language;
+    dtsUhdStateParam = new DtsUtil.DtsUhdState();
   }
 
   @Override
@@ -309,7 +313,8 @@ public final class DtsReader implements ElementaryStreamReader {
   /** Parses the UHD frame header. */
   @RequiresNonNull({"output"})
   private void parseUhdHeader() throws ParserException {
-    DtsUtil.DtsAudioFormat dtsAudioFormat = DtsUtil.parseDtsUhdFormat(headerScratchBytes.getData());
+    DtsUtil.DtsAudioFormat dtsAudioFormat = DtsUtil.parseDtsUhdFormat(headerScratchBytes.getData(),
+        dtsUhdStateParam);
     if (isFtocSync) { // Format updates will happen only in FTOC sync frames.
       if (format == null
           || dtsAudioFormat.channelCount != format.channelCount

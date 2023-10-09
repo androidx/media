@@ -88,6 +88,13 @@ public final class DtsUtil {
     }
   }
 
+  /** Variables that are extracted in the FTOC sync frame and re-used in the subsequent
+   * FTOC non-sync frame. */
+  public static final class DtsUhdState {
+    /* A state variable that stores the UHD audio chunk ID extracted from the FTOC sync frame. */
+    private int storedUhdAudioChunkId;
+  }
+
   /**
    * Maximum rate for a DTS audio stream, in bytes per second.
    *
@@ -189,11 +196,6 @@ public final class DtsUtil {
    * (2019-05) Table 6-13.
    */
   private static final int[] BASE_DURATION_BY_INDEX = new int[] {512, 480, 384};
-
-  /**
-   * A state variable that stores the UHD audio chunk ID extracted from the FTOC sync frame.
-   * This value will be used in the subsequent FTOC non-sync frame */
-  private static int storedUhdAudioChunkId;
 
   /**
    * Returns whether a given integer matches a DTS Core sync word. Synchronization and storage modes
@@ -509,10 +511,12 @@ public final class DtsUtil {
    * Returns the DTS audio format given {@code data} containing the DTS-UHD(Profile 2) frame
    * according to ETSI TS 103 491 V1.2.1 (2019-05), Section 6.4.3.
    *
-   * @param frame The DTS-UHD frame to parse.
+   * @param frame            The DTS-UHD frame to parse.
+   * @param dtsUhdStateParam Holds the values extracted in the last FTOC sync-frame.
    * @return The DTS audio format parsed from data in the header.
    */
-  public static DtsAudioFormat parseDtsUhdFormat(byte[] frame) throws ParserException {
+  public static DtsAudioFormat parseDtsUhdFormat(byte[] frame,
+      DtsUhdState dtsUhdStateParam) throws ParserException {
     ParsableBitArray frameBits = getNormalizedFrame(frame);
     int syncWord = frameBits.readBits(32);
     boolean syncFrameFlag = syncWord == SYNC_VALUE_UHD_FTOC_SYNC_BE;
@@ -587,11 +591,13 @@ public final class DtsUtil {
     for (int i = 0; i < numAudioChunks; i++) {
       // If syncFrameFlag is true the audio chunk ID will be present
       if (syncFrameFlag) {
-        storedUhdAudioChunkId = audioChunkId = parseUnsignedVarInt(frameBits, fieldLenTable3,
+        audioChunkId = parseUnsignedVarInt(frameBits, fieldLenTable3,
             /* extractAndAddFlag= */ true);
+        dtsUhdStateParam.storedUhdAudioChunkId = audioChunkId;
       } else {
         // Get the stored audio chunk ID
-        audioChunkId = storedUhdAudioChunkId < 256 ? storedUhdAudioChunkId : 0;
+        audioChunkId = dtsUhdStateParam.storedUhdAudioChunkId < 256 /* invalid chunk ID */ ?
+            dtsUhdStateParam.storedUhdAudioChunkId : 0;
       }
       int audioChunkSize =
           audioChunkId != 0
