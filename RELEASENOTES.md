@@ -2,6 +2,15 @@
 
 ### Unreleased changes
 
+*   Common Library:
+*   ExoPlayer:
+*   Transformer:
+*   Track Selection:
+    *   Add `DefaultTrackSelector.Parameters.allowAudioNonSeamlessAdaptiveness`
+        to explicitly allow or disallow non-seamless adaptation. The default
+        stays at its current behavior of `true`.
+*   Extractors:
+*   Audio:
 *   Video:
 *   Text:
     *   Remove `ExoplayerCuesDecoder`. Text tracks with `sampleMimeType =
