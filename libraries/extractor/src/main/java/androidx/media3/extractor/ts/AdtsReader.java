@@ -50,6 +50,7 @@ public final class AdtsReader implements ElementaryStreamReader {
   private static final int STATE_READING_ID3_HEADER = 2;
   private static final int STATE_READING_ADTS_HEADER = 3;
   private static final int STATE_READING_SAMPLE = 4;
+  private static final int STATE_READING_AAC_PCE = 5;
 
   private static final int HEADER_SIZE = 5;
   private static final int CRC_SIZE = 2;
@@ -65,6 +66,9 @@ public final class AdtsReader implements ElementaryStreamReader {
   private static final int ID3_SIZE_OFFSET = 6;
   private static final byte[] ID3_IDENTIFIER = {'I', 'D', '3'};
   private static final int VERSION_UNSET = -1;
+
+  private static final int AAC_PCE_MIN_SIZE = 6;
+  private static final int AAC_PCE_MAX_SIZE = 49;
 
   private final boolean exposeId3;
   private final ParsableBitArray adtsScratch;
@@ -93,6 +97,10 @@ public final class AdtsReader implements ElementaryStreamReader {
   private boolean hasOutputFormat;
   private long sampleDurationUs;
   private int sampleSize;
+
+  // Used when reading the AAC PCE.
+  @Nullable private Format pendingOutputFormat;
+  @Nullable private ParsableBitArray pceBuffer;
 
   // Used when reading the samples.
   private long timeUs;
@@ -180,6 +188,11 @@ public final class AdtsReader implements ElementaryStreamReader {
           int targetLength = hasCrc ? HEADER_SIZE + CRC_SIZE : HEADER_SIZE;
           if (continueRead(data, adtsScratch.data, targetLength)) {
             parseAdtsHeader();
+          }
+          break;
+        case STATE_READING_AAC_PCE:
+          if (continueRead(data, pceBuffer.data, pceBuffer.data.length)) {
+            readAacProgramConfigElement();
           }
           break;
         case STATE_READING_SAMPLE:
@@ -270,6 +283,17 @@ public final class AdtsReader implements ElementaryStreamReader {
   private void setCheckingAdtsHeaderState() {
     state = STATE_CHECKING_ADTS_HEADER;
     bytesRead = 0;
+  }
+
+  /** Sets the state to STATE_READING_AAC_PCE. */
+  private void setReadingAacPceState(
+      TrackOutput outputToUse, long currentSampleDuration, int sampleSize) {
+    state = STATE_READING_AAC_PCE;
+    bytesRead = 0;
+    currentOutput = outputToUse;
+    this.currentSampleDuration = currentSampleDuration;
+    this.sampleSize = sampleSize;
+    pceBuffer = new ParsableBitArray(new byte[min(sampleSize, AAC_PCE_MAX_SIZE)]);
   }
 
   /**
@@ -515,8 +539,14 @@ public final class AdtsReader implements ElementaryStreamReader {
       // In this class a sample is an access unit, but the MediaFormat sample rate specifies the
       // number of PCM audio samples per second.
       sampleDurationUs = (C.MICROS_PER_SECOND * 1024) / format.sampleRate;
-      output.format(format);
-      hasOutputFormat = true;
+
+      if (channelConfig == 0) {
+        // Delay format submission until the AAC PCE is found and appended to audio specific config.
+        pendingOutputFormat = format;
+      } else {
+        output.format(format);
+        hasOutputFormat = true;
+      }
     } else {
       adtsScratch.skipBits(10);
     }
@@ -527,7 +557,73 @@ public final class AdtsReader implements ElementaryStreamReader {
       sampleSize -= CRC_SIZE;
     }
 
-    setReadingSampleState(output, sampleDurationUs, 0, sampleSize);
+    if (!hasOutputFormat && sampleSize >= AAC_PCE_MIN_SIZE) {
+      // As sample can fit a PCE, try reading it.
+      setReadingAacPceState(output, sampleDurationUs, sampleSize);
+    } else {
+      setReadingSampleState(output, sampleDurationUs, 0, sampleSize);
+    }
+  }
+
+  @RequiresNonNull({"pendingOutputFormat", "pceBuffer"})
+  void readAacProgramConfigElement() {
+    if (pceBuffer.readBits(3) == 5 /* PCE tag */) {
+      pceBuffer.skipBits(10); // Element instance tag, profile, sample frequency index
+
+      int extraBits = 0; // Number of bits beyond amount to be parsed.
+      extraBits += pceBuffer.readBits(4) * 5; // Front channel elements
+      extraBits += pceBuffer.readBits(4) * 5; // Side channel elements
+      extraBits += pceBuffer.readBits(4) * 5; // Back channel elements
+      extraBits += pceBuffer.readBits(2) * 4; // LFE channel elements
+      extraBits += pceBuffer.readBits(3) * 4; // Data elements
+      extraBits += pceBuffer.readBits(4) * 5; // Coupling channel elements
+
+      if (pceBuffer.readBit()) {
+        pceBuffer.skipBits(4); // Mono mixdown
+      }
+
+      if (pceBuffer.readBit()) {
+        pceBuffer.skipBits(4); // Stereo mixdown
+      }
+
+      if (pceBuffer.readBit()) {
+        pceBuffer.skipBits(3); // Matrix mixdown
+      }
+
+      // Calculate total PCE size including initial PCE tag and a zero length comment.
+      int pceSize = (pceBuffer.getPosition() + extraBits + 7) / 8 + 1;
+
+      if (sampleSize >= pceSize) {
+        // Calculate PCE size excluding initial PCE tag, alignment bits and a zero length comment.
+        int numPceBits = pceBuffer.getPosition() + extraBits - 3 /* PCE tag */;
+
+        // Append PCE to format's audio specific config.
+        byte[] oldConfig = pendingOutputFormat.initializationData.get(0);
+
+        int configSize = oldConfig.length;
+        configSize += (numPceBits + 7) / 8 + 1; // Byte align and add a zero length comment.
+        byte[] newConfig = new byte[configSize];
+
+        System.arraycopy(oldConfig, 0, newConfig, 0, oldConfig.length);
+        pceBuffer.setPosition(3 /* PCE tag */);
+        pceBuffer.readBits(newConfig, oldConfig.length, numPceBits);
+
+        pendingOutputFormat = pendingOutputFormat.buildUpon()
+            .setInitializationData(Collections.singletonList(newConfig)).build();
+
+        // Submit PCE-appended output format.
+        currentOutput.format(pendingOutputFormat);
+        hasOutputFormat = true;
+      }
+    }
+
+    pendingOutputFormat = null;
+
+    // Pass through all accumulated data as sample data.
+    ParsableByteArray data = new ParsableByteArray(pceBuffer.data);
+    pceBuffer = null;
+    setReadingSampleState(currentOutput, currentSampleDuration, 0, sampleSize);
+    readSample(data);
   }
 
   /** Reads the rest of the sample */
