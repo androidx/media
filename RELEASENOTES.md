@@ -18,7 +18,29 @@
     *   Remove `ExoplayerCuesDecoder`. Text tracks with `sampleMimeType =
         application/x-media3-cues` are now directly handled by `TextRenderer`
         without needing a `SubtitleDecoder` instance.
-
+*   Metadata:
+*   DRM:
+*   Effect:
+*   Muxers:
+*   IMA extension:
+*   Session:
+*   UI:
+*   Downloads:
+*   OkHttp Extension:
+*   Cronet Extension:
+*   RTMP Extension:
+*   HLS Extension:
+*   DASH Extension:
+*   Smooth Streaming Extension:
+*   RTSP Extension:
+*   Decoder Extensions (FFmpeg, VP9, AV1, MIDI, etc.):
+*   Leanback extension:
+*   Cast Extension:
+*   Test Utilities:
+*   Remove deprecated symbols:
+    *   Remove deprecated `DownloadNotificationHelper.buildProgressNotification`
+        method, use a non deprecated method that takes a `notMetRequirements`
+        parameter instead.
 
 ## 1.2
 
