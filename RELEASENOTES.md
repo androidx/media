@@ -1,5 +1,42 @@
 # Release notes
 
+### Unreleased changes
+
+*   Common Library:
+*   ExoPlayer:
+*   Transformer:
+*   Track Selection:
+*   Extractors:
+*   Audio:
+*   Video:
+    *   Add workaround for a device issue on Galaxy Tab S7 FE, Chromecast with
+        Google TV, and Lenovo M10 FHD Plus that causes 60fps AVC streams to be
+        marked as unsupported
+        ([#693](https://github.com/androidx/media/issues/693)).
+*   Text:
+*   Metadata:
+*   DRM:
+*   Effect:
+*   Muxers:
+*   IMA extension:
+*   Session:
+*   UI:
+*   Downloads:
+*   OkHttp Extension:
+*   Cronet Extension:
+*   HttpEngine Extension:
+*   RTMP Extension:
+*   HLS Extension:
+*   DASH Extension:
+*   Smooth Streaming Extension:
+*   RTSP Extension:
+*   Decoder Extensions (FFmpeg, VP9, AV1, MIDI, etc.):
+*   Leanback extension:
+*   Cast Extension:
+*   Test Utilities:
+*   Remove deprecated symbols:
+*   Demo app:
+
 ## 1.2
 
 ### 1.2.0 (2023-11-15)
