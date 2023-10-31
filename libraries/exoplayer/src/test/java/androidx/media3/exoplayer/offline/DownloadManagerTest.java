@@ -756,7 +756,7 @@ public class DownloadManagerTest {
             downloadManager =
                 new DownloadManager(
                     ApplicationProvider.getApplicationContext(),
-                    new DefaultDownloadIndex(TestUtil.getInMemoryDatabaseProvider()),
+                    new DefaultDownloadIndex(TestUtil.getInMemoryDatabaseProvider(ApplicationProvider.getApplicationContext())),
                     new FakeDownloaderFactory());
             downloadManager.setMaxParallelDownloads(maxParallelDownloads);
             downloadManager.setMinRetryCount(MIN_RETRY_COUNT);

@@ -18,8 +18,6 @@ package androidx.media3.test.utils;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
-import android.database.sqlite.SQLiteDatabase;
-import android.database.sqlite.SQLiteOpenHelper;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
@@ -32,7 +30,7 @@ import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.database.DatabaseProvider;
-import androidx.media3.database.DefaultDatabaseProvider;
+import androidx.media3.database.StandaloneDatabaseProvider;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
@@ -214,20 +212,8 @@ public class TestUtil {
   }
 
   /** Returns a {@link DatabaseProvider} that provides an in-memory database. */
-  public static DatabaseProvider getInMemoryDatabaseProvider() {
-    return new DefaultDatabaseProvider(
-        new SQLiteOpenHelper(
-            /* context= */ null, /* name= */ null, /* factory= */ null, /* version= */ 1) {
-          @Override
-          public void onCreate(SQLiteDatabase db) {
-            // Do nothing.
-          }
-
-          @Override
-          public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-            // Do nothing.
-          }
-        });
+  public static DatabaseProvider getInMemoryDatabaseProvider(Context context) {
+    return new StandaloneDatabaseProvider(context, null);
   }
 
   /**

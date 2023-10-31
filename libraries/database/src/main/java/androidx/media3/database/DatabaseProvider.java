@@ -18,6 +18,7 @@ package androidx.media3.database;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteException;
 import androidx.media3.common.util.UnstableApi;
+import androidx.sqlite.db.SupportSQLiteDatabase;
 
 /**
  * Provides {@link SQLiteDatabase} instances to media library components, which may read and write
@@ -39,7 +40,7 @@ public interface DatabaseProvider {
    * @throws SQLiteException If the database cannot be opened for writing.
    * @return A read/write database object.
    */
-  SQLiteDatabase getWritableDatabase();
+  SupportSQLiteDatabase getWritableDatabase();
 
   /**
    * Creates and/or opens a database. This will be the same object returned by {@link
@@ -54,5 +55,5 @@ public interface DatabaseProvider {
    * @throws SQLiteException If the database cannot be opened.
    * @return A database object valid until {@link #getWritableDatabase()} is called.
    */
-  SQLiteDatabase getReadableDatabase();
+  SupportSQLiteDatabase getReadableDatabase();
 }

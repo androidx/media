@@ -84,7 +84,7 @@ public final class CacheDataSourceTest {
     tempFolder =
         Util.createTempDirectory(ApplicationProvider.getApplicationContext(), "ExoPlayerTest");
     cache =
-        new SimpleCache(tempFolder, new NoOpCacheEvictor(), TestUtil.getInMemoryDatabaseProvider());
+        new SimpleCache(tempFolder, new NoOpCacheEvictor(), TestUtil.getInMemoryDatabaseProvider(ApplicationProvider.getApplicationContext()));
     upstreamDataSource = new FakeDataSource();
   }
 

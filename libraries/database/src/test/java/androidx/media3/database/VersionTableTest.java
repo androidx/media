@@ -17,14 +17,17 @@ package androidx.media3.database;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import android.database.sqlite.SQLiteDatabase;
 import androidx.media3.test.utils.TestUtil;
+import androidx.sqlite.db.SupportSQLiteDatabase;
+import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Unit tests for {@link VersionTable}. */
+/**
+ * Unit tests for {@link VersionTable}.
+ */
 @RunWith(AndroidJUnit4.class)
 public class VersionTableTest {
 
@@ -34,11 +37,12 @@ public class VersionTableTest {
   private static final String INSTANCE_2 = "2";
 
   private DatabaseProvider databaseProvider;
-  private SQLiteDatabase database;
+  private SupportSQLiteDatabase database;
 
   @Before
   public void setUp() {
-    databaseProvider = TestUtil.getInMemoryDatabaseProvider();
+    databaseProvider = TestUtil.getInMemoryDatabaseProvider(
+        ApplicationProvider.getApplicationContext() );
     database = databaseProvider.getWritableDatabase();
   }
 

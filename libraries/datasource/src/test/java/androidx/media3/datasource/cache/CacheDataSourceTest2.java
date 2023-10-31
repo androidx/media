@@ -155,7 +155,7 @@ public final class CacheDataSourceTest2 {
         new SimpleCache(
             new File(cacheDir, EXO_CACHE_DIR),
             new NoOpCacheEvictor(),
-            TestUtil.getInMemoryDatabaseProvider());
+            TestUtil.getInMemoryDatabaseProvider(ApplicationProvider.getApplicationContext()));
     emptyCache(cache);
 
     // Source and cipher

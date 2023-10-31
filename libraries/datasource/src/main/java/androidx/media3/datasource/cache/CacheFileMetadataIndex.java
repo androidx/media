@@ -26,6 +26,9 @@ import androidx.media3.common.util.Assertions;
 import androidx.media3.database.DatabaseIOException;
 import androidx.media3.database.DatabaseProvider;
 import androidx.media3.database.VersionTable;
+import androidx.sqlite.db.SupportSQLiteDatabase;
+import androidx.sqlite.db.SupportSQLiteQuery;
+import androidx.sqlite.db.SupportSQLiteQueryBuilder;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -79,7 +82,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     String hexUid = Long.toHexString(uid);
     try {
       String tableName = getTableName(hexUid);
-      SQLiteDatabase writableDatabase = databaseProvider.getWritableDatabase();
+      SupportSQLiteDatabase writableDatabase = databaseProvider.getWritableDatabase();
       writableDatabase.beginTransactionNonExclusive();
       try {
         VersionTable.removeVersion(
@@ -114,16 +117,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     try {
       String hexUid = Long.toHexString(uid);
       tableName = getTableName(hexUid);
-      SQLiteDatabase readableDatabase = databaseProvider.getReadableDatabase();
+      SupportSQLiteDatabase readableDatabase = databaseProvider.getReadableDatabase();
       int version =
           VersionTable.getVersion(
               readableDatabase, VersionTable.FEATURE_CACHE_FILE_METADATA, hexUid);
       if (version != TABLE_VERSION) {
-        SQLiteDatabase writableDatabase = databaseProvider.getWritableDatabase();
+        SupportSQLiteDatabase writableDatabase = databaseProvider.getWritableDatabase();
         writableDatabase.beginTransactionNonExclusive();
         try {
           VersionTable.setVersion(
-              writableDatabase, VersionTable.FEATURE_CACHE_FILE_METADATA, hexUid, TABLE_VERSION);
+              writableDatabase, VersionTable.FEATURE_CACHE_FILE_METADATA, hexUid,
+              TABLE_VERSION);
           dropTable(writableDatabase, tableName);
           writableDatabase.execSQL("CREATE TABLE " + tableName + " " + TABLE_SCHEMA);
           writableDatabase.setTransactionSuccessful();
@@ -166,8 +170,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    *
    * <p>This method may be slow and shouldn't normally be called on the main thread.
    *
-   * @param name The name of the file.
-   * @param length The file length.
+   * @param name               The name of the file.
+   * @param length             The file length.
    * @param lastTouchTimestamp The file last touch timestamp.
    * @throws DatabaseIOException If an error occurs setting the metadata.
    */
@@ -175,12 +179,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public void set(String name, long length, long lastTouchTimestamp) throws DatabaseIOException {
     Assertions.checkNotNull(tableName);
     try {
-      SQLiteDatabase writableDatabase = databaseProvider.getWritableDatabase();
+      SupportSQLiteDatabase writableDatabase = databaseProvider.getWritableDatabase();
       ContentValues values = new ContentValues();
       values.put(COLUMN_NAME, name);
       values.put(COLUMN_LENGTH, length);
       values.put(COLUMN_LAST_TOUCH_TIMESTAMP, lastTouchTimestamp);
-      writableDatabase.replaceOrThrow(tableName, /* nullColumnHack= */ null, values);
+      writableDatabase.insert(tableName, SQLiteDatabase.CONFLICT_REPLACE, values);
     } catch (SQLException e) {
       throw new DatabaseIOException(e);
     }
@@ -198,8 +202,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public void remove(String name) throws DatabaseIOException {
     Assertions.checkNotNull(tableName);
     try {
-      SQLiteDatabase writableDatabase = databaseProvider.getWritableDatabase();
-      writableDatabase.delete(tableName, WHERE_NAME_EQUALS, new String[] {name});
+      SupportSQLiteDatabase writableDatabase = databaseProvider.getWritableDatabase();
+      writableDatabase.delete(tableName, WHERE_NAME_EQUALS, new String[]{name});
     } catch (SQLException e) {
       throw new DatabaseIOException(e);
     }
@@ -217,11 +221,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public void removeAll(Set<String> names) throws DatabaseIOException {
     Assertions.checkNotNull(tableName);
     try {
-      SQLiteDatabase writableDatabase = databaseProvider.getWritableDatabase();
+      SupportSQLiteDatabase writableDatabase = databaseProvider.getWritableDatabase();
       writableDatabase.beginTransactionNonExclusive();
       try {
         for (String name : names) {
-          writableDatabase.delete(tableName, WHERE_NAME_EQUALS, new String[] {name});
+          writableDatabase.delete(tableName, WHERE_NAME_EQUALS, new String[]{name});
         }
         writableDatabase.setTransactionSuccessful();
       } finally {
@@ -234,19 +238,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private Cursor getCursor() {
     Assertions.checkNotNull(tableName);
+    SupportSQLiteQuery query = SupportSQLiteQueryBuilder.builder(tableName)
+        .columns(COLUMNS)
+        .create();
     return databaseProvider
         .getReadableDatabase()
-        .query(
-            tableName,
-            COLUMNS,
-            /* selection= */ null,
-            /* selectionArgs= */ null,
-            /* groupBy= */ null,
-            /* having= */ null,
-            /* orderBy= */ null);
+        .query(query);
   }
 
-  private static void dropTable(SQLiteDatabase writableDatabase, String tableName) {
+  private static void dropTable(SupportSQLiteDatabase writableDatabase, String tableName) {
     writableDatabase.execSQL("DROP TABLE IF EXISTS " + tableName);
   }
 

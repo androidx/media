@@ -15,30 +15,33 @@
  */
 package androidx.media3.database;
 
-import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import androidx.media3.common.util.UnstableApi;
+import androidx.sqlite.db.SupportSQLiteDatabase;
+import androidx.sqlite.db.SupportSQLiteOpenHelper;
 
-/** A {@link DatabaseProvider} that provides instances obtained from a {@link SQLiteOpenHelper}. */
+/**
+ * A {@link DatabaseProvider} that provides instances obtained from a {@link SQLiteOpenHelper}.
+ */
 @UnstableApi
 public final class DefaultDatabaseProvider implements DatabaseProvider {
 
-  private final SQLiteOpenHelper sqliteOpenHelper;
+  private final SupportSQLiteOpenHelper sqliteOpenHelper;
 
   /**
    * @param sqliteOpenHelper An {@link SQLiteOpenHelper} from which to obtain database instances.
    */
-  public DefaultDatabaseProvider(SQLiteOpenHelper sqliteOpenHelper) {
+  public DefaultDatabaseProvider(SupportSQLiteOpenHelper sqliteOpenHelper) {
     this.sqliteOpenHelper = sqliteOpenHelper;
   }
 
   @Override
-  public SQLiteDatabase getWritableDatabase() {
+  public SupportSQLiteDatabase getWritableDatabase() {
     return sqliteOpenHelper.getWritableDatabase();
   }
 
   @Override
-  public SQLiteDatabase getReadableDatabase() {
+  public SupportSQLiteDatabase getReadableDatabase() {
     return sqliteOpenHelper.getReadableDatabase();
   }
 }

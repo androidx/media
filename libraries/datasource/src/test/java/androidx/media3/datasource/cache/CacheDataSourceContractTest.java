@@ -85,7 +85,7 @@ public class CacheDataSourceContractTest extends DataSourceContractTest {
     File tempFolder =
         Util.createTempDirectory(ApplicationProvider.getApplicationContext(), "ExoPlayerTest");
     SimpleCache cache =
-        new SimpleCache(tempFolder, new NoOpCacheEvictor(), TestUtil.getInMemoryDatabaseProvider());
+        new SimpleCache(tempFolder, new NoOpCacheEvictor(), TestUtil.getInMemoryDatabaseProvider(ApplicationProvider.getApplicationContext()));
     upstreamDataSource = new FakeDataSource(fakeDataSet);
     return new CacheDataSource(cache, upstreamDataSource);
   }

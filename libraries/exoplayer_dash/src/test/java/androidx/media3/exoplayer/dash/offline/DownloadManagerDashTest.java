@@ -83,7 +83,7 @@ public class DownloadManagerDashTest {
     cacheFolder.mkdir();
     cache =
         new SimpleCache(
-            cacheFolder, new NoOpCacheEvictor(), TestUtil.getInMemoryDatabaseProvider());
+            cacheFolder, new NoOpCacheEvictor(), TestUtil.getInMemoryDatabaseProvider(ApplicationProvider.getApplicationContext()));
     MockitoAnnotations.initMocks(this);
     fakeDataSet =
         new FakeDataSet()
@@ -98,7 +98,7 @@ public class DownloadManagerDashTest {
 
     fakeStreamKey1 = new StreamKey(0, 0, 0);
     fakeStreamKey2 = new StreamKey(0, 1, 0);
-    downloadIndex = new DefaultDownloadIndex(TestUtil.getInMemoryDatabaseProvider());
+    downloadIndex = new DefaultDownloadIndex(TestUtil.getInMemoryDatabaseProvider(ApplicationProvider.getApplicationContext()));
     createDownloadManager();
   }
 

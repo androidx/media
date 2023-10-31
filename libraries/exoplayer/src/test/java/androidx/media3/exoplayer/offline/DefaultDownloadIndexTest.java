@@ -23,7 +23,6 @@ import static androidx.media3.exoplayer.offline.Download.STOP_REASON_NONE;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
-import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MimeTypes;
@@ -33,6 +32,7 @@ import androidx.media3.database.StandaloneDatabaseProvider;
 import androidx.media3.database.VersionTable;
 import androidx.media3.test.utils.DownloadBuilder;
 import androidx.media3.test.utils.TestUtil;
+import androidx.sqlite.db.SupportSQLiteDatabase;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -46,7 +46,9 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Unit tests for {@link DefaultDownloadIndex}. */
+/**
+ * Unit tests for {@link DefaultDownloadIndex}.
+ */
 @RunWith(AndroidJUnit4.class)
 public class DefaultDownloadIndexTest {
 
@@ -63,7 +65,7 @@ public class DefaultDownloadIndexTest {
 
   @After
   public void tearDown() {
-    databaseProvider.close();
+    databaseProvider.tearDown();
   }
 
   @Test
@@ -104,8 +106,8 @@ public class DefaultDownloadIndexTest {
             .setStreamKeys(
                 new StreamKey(/* periodIndex= */ 0, /* groupIndex= */ 1, /* streamIndex= */ 2),
                 new StreamKey(/* periodIndex= */ 3, /* groupIndex= */ 4, /* streamIndex= */ 5))
-            .setCustomMetadata(new byte[] {0, 1, 2, 3, 7, 8, 9, 10})
-            .setKeySetId(new byte[] {0, 1, 2, 3})
+            .setCustomMetadata(new byte[]{0, 1, 2, 3, 7, 8, 9, 10})
+            .setKeySetId(new byte[]{0, 1, 2, 3})
             .build();
     downloadIndex.putDownload(download);
     Download readDownload = downloadIndex.getDownload(id);
@@ -189,13 +191,15 @@ public class DefaultDownloadIndexTest {
 
   @Test
   public void putDownload_setsVersion() throws DatabaseIOException {
-    SQLiteDatabase readableDatabase = databaseProvider.getReadableDatabase();
-    assertThat(VersionTable.getVersion(readableDatabase, VersionTable.FEATURE_OFFLINE, EMPTY_NAME))
+    SupportSQLiteDatabase readableDatabase = databaseProvider.getReadableDatabase();
+    assertThat(
+        VersionTable.getVersion(readableDatabase, VersionTable.FEATURE_OFFLINE, EMPTY_NAME))
         .isEqualTo(VersionTable.VERSION_UNSET);
 
     downloadIndex.putDownload(new DownloadBuilder("id1").build());
 
-    assertThat(VersionTable.getVersion(readableDatabase, VersionTable.FEATURE_OFFLINE, EMPTY_NAME))
+    assertThat(
+        VersionTable.getVersion(readableDatabase, VersionTable.FEATURE_OFFLINE, EMPTY_NAME))
         .isEqualTo(DefaultDownloadIndex.TABLE_VERSION);
   }
 
@@ -207,7 +211,7 @@ public class DefaultDownloadIndexTest {
     assertThat(cursor.getCount()).isEqualTo(1);
     cursor.close();
 
-    SQLiteDatabase writableDatabase = databaseProvider.getWritableDatabase();
+    SupportSQLiteDatabase writableDatabase = databaseProvider.getWritableDatabase();
     VersionTable.setVersion(
         writableDatabase, VersionTable.FEATURE_OFFLINE, EMPTY_NAME, Integer.MAX_VALUE);
 
@@ -391,7 +395,7 @@ public class DefaultDownloadIndexTest {
             .setMimeType(mimeType)
             .setStreamKeys(streamKeys)
             .setCustomCacheKey(customCacheKey)
-            .setData(new byte[] {0, 1, 2, 3})
+            .setData(new byte[]{0, 1, 2, 3})
             .build();
     return new Download(
         downloadRequest,

@@ -58,7 +58,7 @@ public class ProgressiveDownloaderTest {
     assertThat(testDir.delete()).isTrue();
     assertThat(testDir.mkdirs()).isTrue();
 
-    DatabaseProvider databaseProvider = TestUtil.getInMemoryDatabaseProvider();
+    DatabaseProvider databaseProvider = TestUtil.getInMemoryDatabaseProvider(ApplicationProvider.getApplicationContext());
     downloadCache = new SimpleCache(testDir, new NoOpCacheEvictor(), databaseProvider);
   }
 

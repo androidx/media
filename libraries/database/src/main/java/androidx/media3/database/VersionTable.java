@@ -18,13 +18,14 @@ package androidx.media3.database;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.ContentValues;
-import android.database.Cursor;
 import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
 import androidx.annotation.IntDef;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.sqlite.db.SupportSQLiteDatabase;
+import androidx.sqlite.db.SupportSQLiteQuery;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -41,7 +42,9 @@ public final class VersionTable {
     MediaLibraryInfo.registerModule("media3.database");
   }
 
-  /** Returned by {@link #getVersion(SQLiteDatabase, int, String)} if the version is unset. */
+  /**
+   * Returned by {@link #getVersion(SupportSQLiteDatabase, int, String)} if the version is unset.
+   */
   public static final int VERSION_UNSET = -1;
 
   /** Version of tables used for offline functionality. */
@@ -102,8 +105,9 @@ public final class VersionTable {
    * @param version The version.
    * @throws DatabaseIOException If an error occurs executing the SQL.
    */
-  public static void setVersion(
-      SQLiteDatabase writableDatabase, @Feature int feature, String instanceUid, int version)
+  public static void setVersion(SupportSQLiteDatabase writableDatabase, @Feature int feature,
+      String instanceUid,
+      int version)
       throws DatabaseIOException {
     try {
       writableDatabase.execSQL(SQL_CREATE_TABLE_IF_NOT_EXISTS);
@@ -111,7 +115,8 @@ public final class VersionTable {
       values.put(COLUMN_FEATURE, feature);
       values.put(COLUMN_INSTANCE_UID, instanceUid);
       values.put(COLUMN_VERSION, version);
-      writableDatabase.replaceOrThrow(TABLE_NAME, /* nullColumnHack= */ null, values);
+      writableDatabase.insert(TABLE_NAME, SQLiteDatabase.CONFLICT_REPLACE,
+          values);
     } catch (SQLException e) {
       throw new DatabaseIOException(e);
     }
@@ -126,7 +131,7 @@ public final class VersionTable {
    * @throws DatabaseIOException If an error occurs executing the SQL.
    */
   public static void removeVersion(
-      SQLiteDatabase writableDatabase, @Feature int feature, String instanceUid)
+      SupportSQLiteDatabase writableDatabase, @Feature int feature, String instanceUid)
       throws DatabaseIOException {
     try {
       if (!Util.tableExists(writableDatabase, TABLE_NAME)) {
@@ -151,23 +156,21 @@ public final class VersionTable {
    * @return The version, or {@link #VERSION_UNSET} if no version is set.
    * @throws DatabaseIOException If an error occurs executing the SQL.
    */
-  public static int getVersion(SQLiteDatabase database, @Feature int feature, String instanceUid)
+  public static int getVersion(SupportSQLiteDatabase database, @Feature int feature,
+      String instanceUid)
       throws DatabaseIOException {
     try {
       if (!Util.tableExists(database, TABLE_NAME)) {
-        return VERSION_UNSET;
+        return -1;
       }
-      try (Cursor cursor =
-          database.query(
-              TABLE_NAME,
-              new String[] {COLUMN_VERSION},
-              WHERE_FEATURE_AND_INSTANCE_UID_EQUALS,
-              featureAndInstanceUidArguments(feature, instanceUid),
-              /* groupBy= */ null,
-              /* having= */ null,
-              /* orderBy= */ null)) {
+      SupportSQLiteQuery query = androidx.sqlite.db.SupportSQLiteQueryBuilder.builder(TABLE_NAME)
+          .columns(new String[]{COLUMN_VERSION})
+          .selection(WHERE_FEATURE_AND_INSTANCE_UID_EQUALS,
+              featureAndInstanceUidArguments(feature, instanceUid))
+          .create();
+      try (android.database.Cursor cursor = database.query(query)) {
         if (cursor.getCount() == 0) {
-          return VERSION_UNSET;
+          return -1;
         }
         cursor.moveToNext();
         return cursor.getInt(/* COLUMN_VERSION index */ 0);
@@ -178,6 +181,6 @@ public final class VersionTable {
   }
 
   private static String[] featureAndInstanceUidArguments(int feature, String instance) {
-    return new String[] {Integer.toString(feature), instance};
+    return new String[]{Integer.toString(feature), instance};
   }
 }

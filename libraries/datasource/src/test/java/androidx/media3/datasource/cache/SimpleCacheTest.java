@@ -61,7 +61,7 @@ public class SimpleCacheTest {
 
   @Before
   public void createDatabaseProvider() {
-    databaseProvider = TestUtil.getInMemoryDatabaseProvider();
+    databaseProvider = TestUtil.getInMemoryDatabaseProvider(ApplicationProvider.getApplicationContext());
   }
 
   @After
@@ -591,7 +591,9 @@ public class SimpleCacheTest {
   @Test
   public void exceptionDuringIndexStore_doesNotPreventEviction() throws Exception {
     CachedContentIndex contentIndex =
-        Mockito.spy(new CachedContentIndex(TestUtil.getInMemoryDatabaseProvider()));
+        Mockito.spy(new CachedContentIndex(TestUtil.getInMemoryDatabaseProvider(
+            ApplicationProvider.getApplicationContext()
+        )));
     SimpleCache simpleCache =
         new SimpleCache(
             cacheDir, new LeastRecentlyUsedCacheEvictor(20), contentIndex, /* fileIndex= */ null);

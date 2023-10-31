@@ -19,13 +19,16 @@ import static com.google.common.truth.Truth.assertThat;
 
 import androidx.media3.database.DatabaseIOException;
 import androidx.media3.test.utils.TestUtil;
+import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.util.HashSet;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Tests {@link CacheFileMetadataIndex}. */
+/**
+ * Tests {@link CacheFileMetadataIndex}.
+ */
 @RunWith(AndroidJUnit4.class)
 public class CacheFileMetadataIndexTest {
 
@@ -128,7 +131,8 @@ public class CacheFileMetadataIndexTest {
 
   private static CacheFileMetadataIndex newInitializedIndex() throws DatabaseIOException {
     CacheFileMetadataIndex index =
-        new CacheFileMetadataIndex(TestUtil.getInMemoryDatabaseProvider());
+        new CacheFileMetadataIndex(
+            TestUtil.getInMemoryDatabaseProvider(ApplicationProvider.getApplicationContext()));
     index.initialize(/* uid= */ 1234);
     return index;
   }

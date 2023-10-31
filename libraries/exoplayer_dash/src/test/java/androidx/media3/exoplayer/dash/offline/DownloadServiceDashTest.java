@@ -80,7 +80,7 @@ public class DownloadServiceDashTest {
     context = ApplicationProvider.getApplicationContext();
     tempFolder = Util.createTempDirectory(context, "ExoPlayerTest");
     cache =
-        new SimpleCache(tempFolder, new NoOpCacheEvictor(), TestUtil.getInMemoryDatabaseProvider());
+        new SimpleCache(tempFolder, new NoOpCacheEvictor(), TestUtil.getInMemoryDatabaseProvider(ApplicationProvider.getApplicationContext()));
 
     Runnable pauseAction =
         () -> {
@@ -113,7 +113,7 @@ public class DownloadServiceDashTest {
     testThread.runTestOnMainThread(
         () -> {
           DefaultDownloadIndex downloadIndex =
-              new DefaultDownloadIndex(TestUtil.getInMemoryDatabaseProvider());
+              new DefaultDownloadIndex(TestUtil.getInMemoryDatabaseProvider(ApplicationProvider.getApplicationContext()));
           DefaultDownloaderFactory downloaderFactory =
               new DefaultDownloaderFactory(
                   new CacheDataSource.Factory()

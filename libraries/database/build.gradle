@@ -32,6 +32,8 @@ android {
 dependencies {
     implementation project(modulePrefix + 'lib-common')
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
+    api 'androidx.sqlite:sqlite:' + androidxSqliteVersion
+    implementation 'androidx.sqlite:sqlite-framework:' + androidxSqliteVersion
     compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion
     testImplementation 'androidx.test:core:' + androidxTestCoreVersion
     testImplementation 'androidx.test.ext:junit:' + androidxTestJUnitVersion

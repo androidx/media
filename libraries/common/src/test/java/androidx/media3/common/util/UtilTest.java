@@ -32,7 +32,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-import android.database.sqlite.SQLiteDatabase;
+import android.content.Context;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.net.Uri;
 import android.os.Handler;
@@ -41,6 +41,8 @@ import android.os.Looper;
 import android.util.SparseLongArray;
 import androidx.media3.common.C;
 import androidx.media3.test.utils.TestUtil;
+import androidx.sqlite.db.SupportSQLiteDatabase;
+import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.Futures;
@@ -1156,7 +1158,7 @@ public class UtilTest {
 
   @Test
   public void tableExists_withExistingTable() {
-    SQLiteDatabase database = getInMemorySQLiteOpenHelper().getWritableDatabase();
+    SupportSQLiteDatabase database = getInMemoryDatabase(ApplicationProvider.getApplicationContext());
     database.execSQL("CREATE TABLE TestTable (ID INTEGER NOT NULL)");
 
     assertThat(Util.tableExists(database, "TestTable")).isTrue();
@@ -1164,8 +1166,7 @@ public class UtilTest {
 
   @Test
   public void tableExists_withNonExistingTable() {
-    SQLiteDatabase database = getInMemorySQLiteOpenHelper().getReadableDatabase();
-
+    SupportSQLiteDatabase database = getInMemoryDatabase(ApplicationProvider.getApplicationContext());
     assertThat(Util.tableExists(database, "table")).isFalse();
   }
 
@@ -1468,15 +1469,8 @@ public class UtilTest {
   }
 
   /** Returns a {@link SQLiteOpenHelper} that provides an in-memory database. */
-  private static SQLiteOpenHelper getInMemorySQLiteOpenHelper() {
-    return new SQLiteOpenHelper(
-        /* context= */ null, /* name= */ null, /* factory= */ null, /* version= */ 1) {
-      @Override
-      public void onCreate(SQLiteDatabase db) {}
-
-      @Override
-      public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {}
-    };
+  private static SupportSQLiteDatabase getInMemoryDatabase(Context context) {
+    return TestUtil.getInMemoryDatabaseProvider(context).getWritableDatabase();
   }
 
   /** Generates an array of random bytes with the specified length. */
