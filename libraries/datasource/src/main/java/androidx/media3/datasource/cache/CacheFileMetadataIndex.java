@@ -170,8 +170,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    *
    * <p>This method may be slow and shouldn't normally be called on the main thread.
    *
-   * @param name               The name of the file.
-   * @param length             The file length.
+   * @param name The name of the file.
+   * @param length The file length.
    * @param lastTouchTimestamp The file last touch timestamp.
    * @throws DatabaseIOException If an error occurs setting the metadata.
    */

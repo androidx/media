@@ -28,9 +28,7 @@ public final class DefaultDatabaseProvider implements DatabaseProvider {
 
   private final SupportSQLiteOpenHelper sqliteOpenHelper;
 
-  /**
-   * @param sqliteOpenHelper An {@link SQLiteOpenHelper} from which to obtain database instances.
-   */
+  /** A {@link DatabaseProvider} that provides instances obtained from a {@link SQLiteOpenHelper}. */
   public DefaultDatabaseProvider(SupportSQLiteOpenHelper sqliteOpenHelper) {
     this.sqliteOpenHelper = sqliteOpenHelper;
   }

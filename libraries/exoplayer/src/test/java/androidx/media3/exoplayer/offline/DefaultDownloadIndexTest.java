@@ -46,9 +46,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/**
- * Unit tests for {@link DefaultDownloadIndex}.
- */
+/** Unit tests for {@link DefaultDownloadIndex}. */
 @RunWith(AndroidJUnit4.class)
 public class DefaultDownloadIndexTest {
 
@@ -106,8 +104,8 @@ public class DefaultDownloadIndexTest {
             .setStreamKeys(
                 new StreamKey(/* periodIndex= */ 0, /* groupIndex= */ 1, /* streamIndex= */ 2),
                 new StreamKey(/* periodIndex= */ 3, /* groupIndex= */ 4, /* streamIndex= */ 5))
-            .setCustomMetadata(new byte[]{0, 1, 2, 3, 7, 8, 9, 10})
-            .setKeySetId(new byte[]{0, 1, 2, 3})
+            .setCustomMetadata(new byte[] {0, 1, 2, 3, 7, 8, 9, 10})
+            .setKeySetId(new byte[] {0, 1, 2, 3})
             .build();
     downloadIndex.putDownload(download);
     Download readDownload = downloadIndex.getDownload(id);
@@ -395,7 +393,7 @@ public class DefaultDownloadIndexTest {
             .setMimeType(mimeType)
             .setStreamKeys(streamKeys)
             .setCustomCacheKey(customCacheKey)
-            .setData(new byte[]{0, 1, 2, 3})
+            .setData(new byte[] {0, 1, 2, 3})
             .build();
     return new Download(
         downloadRequest,

@@ -42,9 +42,7 @@ public final class VersionTable {
     MediaLibraryInfo.registerModule("media3.database");
   }
 
-  /**
-   * Returned by {@link #getVersion(SupportSQLiteDatabase, int, String)} if the version is unset.
-   */
+  /** Returned by {@link #getVersion(SQLiteDatabase, int, String)} if the version is unset. */
   public static final int VERSION_UNSET = -1;
 
   /** Version of tables used for offline functionality. */

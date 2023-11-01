@@ -25,9 +25,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/**
- * Unit tests for {@link VersionTable}.
- */
+/** Unit tests for {@link VersionTable}. */
 @RunWith(AndroidJUnit4.class)
 public class VersionTableTest {
 

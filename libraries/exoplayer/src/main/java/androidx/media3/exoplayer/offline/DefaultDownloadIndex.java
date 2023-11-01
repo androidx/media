@@ -43,9 +43,7 @@ import androidx.sqlite.db.SupportSQLiteQueryBuilder;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * A {@link DownloadIndex} that uses SQLite to persist {@link Download Downloads}.
- */
+/** A {@link DownloadIndex} that uses SQLite to persist {@link Download Downloads}. */
 @UnstableApi
 public final class DefaultDownloadIndex implements WritableDownloadIndex {
 
@@ -175,8 +173,7 @@ public final class DefaultDownloadIndex implements WritableDownloadIndex {
    * by a {@link DatabaseProvider}.
    *
    * @param databaseProvider Provides the SQLite database in which downloads are persisted.
-   * @param name             The name of the index. This name is incorporated into the names of the SQLite
-   *                         tables in which downloads are persisted.
+   * @param name The name of the index. This name is incorporated into the names of the SQLite tables in which downloads are persisted.
    */
   public DefaultDownloadIndex(DatabaseProvider databaseProvider, String name) {
     this.name = name;
@@ -354,7 +351,7 @@ public final class DefaultDownloadIndex implements WritableDownloadIndex {
     }
 
     String[] columnsV2 =
-        new String[]{
+        new String[] {
             "id",
             "title",
             "uri",
@@ -380,9 +377,7 @@ public final class DefaultDownloadIndex implements WritableDownloadIndex {
     }
   }
 
-  /**
-   * Infers the MIME type from a v2 table row.
-   */
+  /** Infers the MIME type from a v2 table row. */
   private static String inferMimeType(@Nullable String downloadType) {
     if ("dash".equals(downloadType)) {
       return MimeTypes.APPLICATION_MPD;
@@ -450,8 +445,8 @@ public final class DefaultDownloadIndex implements WritableDownloadIndex {
     byte[] keySetId = cursor.getBlob(COLUMN_INDEX_KEY_SET_ID);
     DownloadRequest request =
         new DownloadRequest.Builder(
-            /* id= */ checkNotNull(cursor.getString(COLUMN_INDEX_ID)),
-            /* uri= */ Uri.parse(checkNotNull(cursor.getString(COLUMN_INDEX_URI))))
+              /* id= */ checkNotNull(cursor.getString(COLUMN_INDEX_ID)),
+              /* uri= */ Uri.parse(checkNotNull(cursor.getString(COLUMN_INDEX_URI))))
             .setMimeType(cursor.getString(COLUMN_INDEX_MIME_TYPE))
             .setStreamKeys(decodeStreamKeys(cursor.getString(COLUMN_INDEX_STREAM_KEYS)))
             .setKeySetId(keySetId.length > 0 ? keySetId : null)
@@ -480,9 +475,7 @@ public final class DefaultDownloadIndex implements WritableDownloadIndex {
         downloadProgress);
   }
 
-  /**
-   * Read a {@link Download} from a table row of version 2.
-   */
+  /** Read a {@link Download} from a table row of version 2. */
   private static Download getDownloadForCurrentRowV2(Cursor cursor) {
     /*
      * Version 2 schema
@@ -504,8 +497,8 @@ public final class DefaultDownloadIndex implements WritableDownloadIndex {
      */
     DownloadRequest request =
         new DownloadRequest.Builder(
-            /* id= */ checkNotNull(cursor.getString(0)),
-            /* uri= */ Uri.parse(checkNotNull(cursor.getString(2))))
+              /* id= */ checkNotNull(cursor.getString(0)),
+              /* uri= */ Uri.parse(checkNotNull(cursor.getString(2))))
             .setMimeType(inferMimeType(cursor.getString(1)))
             .setStreamKeys(decodeStreamKeys(cursor.getString(3)))
             .setCustomCacheKey(cursor.getString(4))
