@@ -89,7 +89,7 @@ public class StandaloneDatabaseProvider extends SupportSQLiteOpenHelper.Callback
   }
 
   @VisibleForTesting
-  public void tearDown() {
+  public void close() {
     this.openHelper.close();
   }
 

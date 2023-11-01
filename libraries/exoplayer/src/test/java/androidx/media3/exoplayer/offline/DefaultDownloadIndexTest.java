@@ -63,7 +63,7 @@ public class DefaultDownloadIndexTest {
 
   @After
   public void tearDown() {
-    databaseProvider.tearDown();
+    databaseProvider.close();
   }
 
   @Test
