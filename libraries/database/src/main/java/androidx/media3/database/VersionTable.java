@@ -159,7 +159,7 @@ public final class VersionTable {
       throws DatabaseIOException {
     try {
       if (!Util.tableExists(database, TABLE_NAME)) {
-        return -1;
+        return VERSION_UNSET;
       }
       SupportSQLiteQuery query = androidx.sqlite.db.SupportSQLiteQueryBuilder.builder(TABLE_NAME)
           .columns(new String[]{COLUMN_VERSION})
@@ -168,7 +168,7 @@ public final class VersionTable {
           .create();
       try (android.database.Cursor cursor = database.query(query)) {
         if (cursor.getCount() == 0) {
-          return -1;
+          return VERSION_UNSET;
         }
         cursor.moveToNext();
         return cursor.getInt(/* COLUMN_VERSION index */ 0);
