@@ -20,15 +20,15 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 import androidx.sqlite.db.SupportSQLiteOpenHelper;
 
-/**
- * A {@link DatabaseProvider} that provides instances obtained from a {@link SQLiteOpenHelper}.
- */
+/** A {@link DatabaseProvider} that provides instances obtained from a {@link SQLiteOpenHelper}. */
 @UnstableApi
 public final class DefaultDatabaseProvider implements DatabaseProvider {
 
   private final SupportSQLiteOpenHelper sqliteOpenHelper;
 
-  /** A {@link DatabaseProvider} that provides instances obtained from a {@link SQLiteOpenHelper}. */
+  /**
+   * A {@link DatabaseProvider} that provides instances obtained from a {@link SQLiteOpenHelper}.
+   */
   public DefaultDatabaseProvider(SupportSQLiteOpenHelper sqliteOpenHelper) {
     this.sqliteOpenHelper = sqliteOpenHelper;
   }
