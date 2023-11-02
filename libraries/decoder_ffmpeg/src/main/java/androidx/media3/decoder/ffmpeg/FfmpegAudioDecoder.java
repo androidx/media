@@ -15,11 +15,12 @@
  */
 package androidx.media3.decoder.ffmpeg;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
+
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
@@ -60,8 +61,8 @@ import java.util.List;
     if (!FfmpegLibrary.isAvailable()) {
       throw new FfmpegDecoderException("Failed to load decoder native libraries.");
     }
-    Assertions.checkNotNull(format.sampleMimeType);
-    codecName = Assertions.checkNotNull(FfmpegLibrary.getCodecName(format.sampleMimeType));
+    checkNotNull(format.sampleMimeType);
+    codecName = checkNotNull(FfmpegLibrary.getCodecName(format.sampleMimeType));
     extraData = getExtraData(format.sampleMimeType, format.initializationData);
     encoding = outputFloat ? C.ENCODING_PCM_FLOAT : C.ENCODING_PCM_16BIT;
     outputBufferSize = outputFloat ? OUTPUT_BUFFER_SIZE_32BIT : OUTPUT_BUFFER_SIZE_16BIT;
@@ -126,7 +127,7 @@ import java.util.List;
       channelCount = ffmpegGetChannelCount(nativeContext);
       sampleRate = ffmpegGetSampleRate(nativeContext);
       if (sampleRate == 0 && "alac".equals(codecName)) {
-        Assertions.checkNotNull(extraData);
+        checkNotNull(extraData);
         // ALAC decoder did not set the sample rate in earlier versions of FFmpeg. See
         // https://trac.ffmpeg.org/ticket/6096.
         ParsableByteArray parsableExtraData = new ParsableByteArray(extraData);
@@ -135,6 +136,9 @@ import java.util.List;
       }
       hasOutputFormat = true;
     }
+    // Get a new reference to the output ByteBuffer in case the native decode method reallocated the
+    // buffer to grow its size.
+    outputData = checkNotNull(outputBuffer.data);
     outputData.position(0);
     outputData.limit(result);
     return null;
