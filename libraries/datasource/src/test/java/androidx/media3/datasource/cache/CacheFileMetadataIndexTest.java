@@ -26,9 +26,7 @@ import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/**
- * Tests {@link CacheFileMetadataIndex}.
- */
+/** Tests {@link CacheFileMetadataIndex}. */
 @RunWith(AndroidJUnit4.class)
 public class CacheFileMetadataIndexTest {
 
