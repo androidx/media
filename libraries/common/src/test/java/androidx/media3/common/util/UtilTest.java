@@ -40,6 +40,7 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.util.SparseLongArray;
 import androidx.media3.common.C;
+import androidx.media3.database.DatabaseUtil;
 import androidx.media3.test.utils.TestUtil;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 import androidx.test.core.app.ApplicationProvider;
@@ -1161,13 +1162,13 @@ public class UtilTest {
     SupportSQLiteDatabase database = getInMemoryDatabase(ApplicationProvider.getApplicationContext());
     database.execSQL("CREATE TABLE TestTable (ID INTEGER NOT NULL)");
 
-    assertThat(Util.tableExists(database, "TestTable")).isTrue();
+    assertThat(DatabaseUtil.tableExists(database, "TestTable")).isTrue();
   }
 
   @Test
   public void tableExists_withNonExistingTable() {
     SupportSQLiteDatabase database = getInMemoryDatabase(ApplicationProvider.getApplicationContext());
-    assertThat(Util.tableExists(database, "table")).isFalse();
+    assertThat(DatabaseUtil.tableExists(database, "table")).isFalse();
   }
 
   @Test

@@ -65,7 +65,6 @@ dependencies {
     }
     api 'androidx.annotation:annotation-experimental:' + androidxAnnotationExperimentalVersion
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
-    implementation 'androidx.sqlite:sqlite:' + androidxSqliteVersion
     compileOnly 'com.google.code.findbugs:jsr305:' + jsr305Version
     compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion

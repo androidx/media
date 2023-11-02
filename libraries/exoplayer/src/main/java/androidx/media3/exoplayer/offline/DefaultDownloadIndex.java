@@ -34,6 +34,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.database.DatabaseIOException;
 import androidx.media3.database.DatabaseProvider;
+import androidx.media3.database.DatabaseUtil;
 import androidx.media3.database.VersionTable;
 import androidx.media3.exoplayer.offline.Download.FailureReason;
 import androidx.media3.exoplayer.offline.Download.State;
@@ -358,7 +359,7 @@ public final class DefaultDownloadIndex implements WritableDownloadIndex {
 
   private List<Download> loadDownloadsFromVersion2(SupportSQLiteDatabase database) {
     List<Download> downloads = new ArrayList<>();
-    if (!Util.tableExists(database, tableName)) {
+    if (!DatabaseUtil.tableExists(database, tableName)) {
       return downloads;
     }
 
