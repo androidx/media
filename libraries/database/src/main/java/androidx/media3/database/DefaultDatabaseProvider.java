@@ -1,45 +1,51 @@
-/*
- * Copyright (C) 2018 The Android Open Source Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 package androidx.media3.database;
 
+import android.content.Context;
 import android.database.sqlite.SQLiteOpenHelper;
-import androidx.media3.common.util.UnstableApi;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 import androidx.sqlite.db.SupportSQLiteOpenHelper;
+import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory;
 
-/** A {@link DatabaseProvider} that provides instances obtained from a {@link SQLiteOpenHelper}. */
-@UnstableApi
-public final class DefaultDatabaseProvider implements DatabaseProvider {
+/**
+ * @deprecated Use {@link SupportDatabaseProvider} instead.
+ */
+@Deprecated
+public class DefaultDatabaseProvider extends SupportSQLiteOpenHelper.Callback
+    implements DatabaseProvider {
 
-  private final SupportSQLiteOpenHelper sqliteOpenHelper;
+  private final SupportSQLiteOpenHelper helper;
 
-  /**
-   * A {@link DatabaseProvider} that provides instances obtained from a {@link SQLiteOpenHelper}.
-   */
-  public DefaultDatabaseProvider(SupportSQLiteOpenHelper sqliteOpenHelper) {
-    this.sqliteOpenHelper = sqliteOpenHelper;
+  private SupportSQLiteOpenHelper createHelper(Context context, SQLiteOpenHelper openHelper) {
+    SupportSQLiteOpenHelper.Configuration cfg =
+        SupportSQLiteOpenHelper.Configuration.builder(context)
+            .name(openHelper.getDatabaseName())
+            .callback(this)
+            .build();
+    return new FrameworkSQLiteOpenHelperFactory().create(cfg);
+  }
+
+  public DefaultDatabaseProvider(Context context, SQLiteOpenHelper openHelper) {
+    super();
+    this.helper = createHelper(context, openHelper);
   }
 
   @Override
   public SupportSQLiteDatabase getWritableDatabase() {
-    return sqliteOpenHelper.getWritableDatabase();
+    return helper.getWritableDatabase();
+  }
+
+  @Override
+  public void onCreate(SupportSQLiteDatabase supportSQLiteDatabase) {
+    // Features create their own tables.
+  }
+
+  @Override
+  public void onUpgrade(SupportSQLiteDatabase supportSQLiteDatabase, int i, int i1) {
+    // Features handle their own upgrades.
   }
 
   @Override
   public SupportSQLiteDatabase getReadableDatabase() {
-    return sqliteOpenHelper.getReadableDatabase();
+    return helper.getReadableDatabase();
   }
 }

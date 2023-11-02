@@ -34,7 +34,7 @@ import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory;
  *
  * <p>Suitable for use by applications that do not already have their own database, or that would
  * prefer to keep tables used by media library components isolated in their own database. Other
- * applications should prefer to use {@link DefaultDatabaseProvider} with their own {@link
+ * applications should prefer to use {@link SupportDatabaseProvider} with their own {@link
  * SQLiteOpenHelper}.
  */
 // TODO: Make this class final when ExoDatabaseProvider is removed.
