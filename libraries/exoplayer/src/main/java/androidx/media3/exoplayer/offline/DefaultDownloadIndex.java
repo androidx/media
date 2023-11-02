@@ -90,22 +90,22 @@ public final class DefaultDownloadIndex implements WritableDownloadIndex {
       getStateQuery(Download.STATE_COMPLETED, Download.STATE_FAILED);
 
   private static final String[] COLUMNS =
-      new String[]{
-          COLUMN_ID,
-          COLUMN_MIME_TYPE,
-          COLUMN_URI,
-          COLUMN_STREAM_KEYS,
-          COLUMN_CUSTOM_CACHE_KEY,
-          COLUMN_DATA,
-          COLUMN_STATE,
-          COLUMN_START_TIME_MS,
-          COLUMN_UPDATE_TIME_MS,
-          COLUMN_CONTENT_LENGTH,
-          COLUMN_STOP_REASON,
-          COLUMN_FAILURE_REASON,
-          COLUMN_PERCENT_DOWNLOADED,
-          COLUMN_BYTES_DOWNLOADED,
-          COLUMN_KEY_SET_ID
+      new String[] {
+        COLUMN_ID,
+        COLUMN_MIME_TYPE,
+        COLUMN_URI,
+        COLUMN_STREAM_KEYS,
+        COLUMN_CUSTOM_CACHE_KEY,
+        COLUMN_DATA,
+        COLUMN_STATE,
+        COLUMN_START_TIME_MS,
+        COLUMN_UPDATE_TIME_MS,
+        COLUMN_CONTENT_LENGTH,
+        COLUMN_STOP_REASON,
+        COLUMN_FAILURE_REASON,
+        COLUMN_PERCENT_DOWNLOADED,
+        COLUMN_BYTES_DOWNLOADED,
+        COLUMN_KEY_SET_ID
       };
 
   private static final String TABLE_SCHEMA =
@@ -173,7 +173,8 @@ public final class DefaultDownloadIndex implements WritableDownloadIndex {
    * by a {@link DatabaseProvider}.
    *
    * @param databaseProvider Provides the SQLite database in which downloads are persisted.
-   * @param name The name of the index. This name is incorporated into the names of the SQLite tables in which downloads are persisted.
+   * @param name The name of the index. This name is incorporated into the names of the SQLite
+   *     tables in which downloads are persisted.
    */
   public DefaultDownloadIndex(DatabaseProvider databaseProvider, String name) {
     this.name = name;
@@ -186,7 +187,7 @@ public final class DefaultDownloadIndex implements WritableDownloadIndex {
   @Nullable
   public Download getDownload(String id) throws DatabaseIOException {
     ensureInitialized();
-    try (Cursor cursor = getCursor(WHERE_ID_EQUALS, new String[]{id})) {
+    try (Cursor cursor = getCursor(WHERE_ID_EQUALS, new String[] {id})) {
       if (cursor.getCount() == 0) {
         return null;
       }
@@ -219,7 +220,7 @@ public final class DefaultDownloadIndex implements WritableDownloadIndex {
   public void removeDownload(String id) throws DatabaseIOException {
     ensureInitialized();
     try {
-      databaseProvider.getWritableDatabase().delete(tableName, WHERE_ID_EQUALS, new String[]{id});
+      databaseProvider.getWritableDatabase().delete(tableName, WHERE_ID_EQUALS, new String[] {id});
     } catch (SQLiteException e) {
       throw new DatabaseIOException(e);
     }
@@ -232,8 +233,12 @@ public final class DefaultDownloadIndex implements WritableDownloadIndex {
       ContentValues values = new ContentValues();
       values.put(COLUMN_STATE, Download.STATE_QUEUED);
       SupportSQLiteDatabase writableDatabase = databaseProvider.getWritableDatabase();
-      writableDatabase.update(tableName, SQLiteDatabase.CONFLICT_REPLACE, values,
-          WHERE_STATE_IS_DOWNLOADING, /* whereArgs= */ null);
+      writableDatabase.update(
+          tableName,
+          SQLiteDatabase.CONFLICT_REPLACE,
+          values,
+          WHERE_STATE_IS_DOWNLOADING,
+          /* whereArgs= */ null);
     } catch (SQLException e) {
       throw new DatabaseIOException(e);
     }
@@ -249,8 +254,12 @@ public final class DefaultDownloadIndex implements WritableDownloadIndex {
       // case we're moving downloads from STATE_FAILED to STATE_REMOVING.
       values.put(COLUMN_FAILURE_REASON, Download.FAILURE_REASON_NONE);
       SupportSQLiteDatabase writableDatabase = databaseProvider.getWritableDatabase();
-      writableDatabase.update(tableName, SQLiteDatabase.CONFLICT_REPLACE, values, /* whereClause= */
-          null, /* whereArgs= */ null);
+      writableDatabase.update(
+          tableName,
+          SQLiteDatabase.CONFLICT_REPLACE,
+          values,
+          /* whereClause= */ null,
+          /* whereArgs= */ null);
     } catch (SQLException e) {
       throw new DatabaseIOException(e);
     }
@@ -263,8 +272,12 @@ public final class DefaultDownloadIndex implements WritableDownloadIndex {
       ContentValues values = new ContentValues();
       values.put(COLUMN_STOP_REASON, stopReason);
       SupportSQLiteDatabase writableDatabase = databaseProvider.getWritableDatabase();
-      writableDatabase.update(tableName, SQLiteDatabase.CONFLICT_REPLACE, values,
-          WHERE_STATE_IS_TERMINAL, /* whereArgs= */ null);
+      writableDatabase.update(
+          tableName,
+          SQLiteDatabase.CONFLICT_REPLACE,
+          values,
+          WHERE_STATE_IS_TERMINAL,
+          /* whereArgs= */ null);
     } catch (SQLException e) {
       throw new DatabaseIOException(e);
     }
@@ -282,7 +295,7 @@ public final class DefaultDownloadIndex implements WritableDownloadIndex {
           SQLiteDatabase.CONFLICT_REPLACE,
           values,
           WHERE_STATE_IS_TERMINAL + " AND " + WHERE_ID_EQUALS,
-          new String[]{id});
+          new String[] {id});
     } catch (SQLException e) {
       throw new DatabaseIOException(e);
     }
@@ -295,8 +308,7 @@ public final class DefaultDownloadIndex implements WritableDownloadIndex {
       }
       try {
         SupportSQLiteDatabase readableDatabase = databaseProvider.getReadableDatabase();
-        int version = VersionTable.getVersion(readableDatabase,
-            VersionTable.FEATURE_OFFLINE, name);
+        int version = VersionTable.getVersion(readableDatabase, VersionTable.FEATURE_OFFLINE, name);
         if (version != TABLE_VERSION) {
           SupportSQLiteDatabase writableDatabase = databaseProvider.getWritableDatabase();
           writableDatabase.beginTransactionNonExclusive();
@@ -352,23 +364,23 @@ public final class DefaultDownloadIndex implements WritableDownloadIndex {
 
     String[] columnsV2 =
         new String[] {
-            "id",
-            "title",
-            "uri",
-            "stream_keys",
-            "custom_cache_key",
-            "data",
-            "state",
-            "start_time_ms",
-            "update_time_ms",
-            "content_length",
-            "stop_reason",
-            "failure_reason",
-            "percent_downloaded",
-            "bytes_downloaded"
+          "id",
+          "title",
+          "uri",
+          "stream_keys",
+          "custom_cache_key",
+          "data",
+          "state",
+          "start_time_ms",
+          "update_time_ms",
+          "content_length",
+          "stop_reason",
+          "failure_reason",
+          "percent_downloaded",
+          "bytes_downloaded"
         };
-    SupportSQLiteQuery query = SupportSQLiteQueryBuilder.builder(tableName).columns(columnsV2)
-        .create();
+    SupportSQLiteQuery query =
+        SupportSQLiteQueryBuilder.builder(tableName).columns(columnsV2).create();
     try (Cursor cursor = database.query(query)) {
       while (cursor.moveToNext()) {
         downloads.add(getDownloadForCurrentRowV2(cursor));
@@ -394,13 +406,13 @@ public final class DefaultDownloadIndex implements WritableDownloadIndex {
       throws DatabaseIOException {
     try {
       String sortOrder = COLUMN_START_TIME_MS + " ASC";
-      SupportSQLiteQuery query = SupportSQLiteQueryBuilder.builder(tableName).columns(COLUMNS)
-          .selection(
-              selection, selectionArgs
-          ).orderBy(sortOrder).create();
-      return databaseProvider
-          .getReadableDatabase()
-          .query(query);
+      SupportSQLiteQuery query =
+          SupportSQLiteQueryBuilder.builder(tableName)
+              .columns(COLUMNS)
+              .selection(selection, selectionArgs)
+              .orderBy(sortOrder)
+              .create();
+      return databaseProvider.getReadableDatabase().query(query);
     } catch (SQLiteException e) {
       throw new DatabaseIOException(e);
     }
@@ -445,8 +457,8 @@ public final class DefaultDownloadIndex implements WritableDownloadIndex {
     byte[] keySetId = cursor.getBlob(COLUMN_INDEX_KEY_SET_ID);
     DownloadRequest request =
         new DownloadRequest.Builder(
-              /* id= */ checkNotNull(cursor.getString(COLUMN_INDEX_ID)),
-              /* uri= */ Uri.parse(checkNotNull(cursor.getString(COLUMN_INDEX_URI))))
+                /* id= */ checkNotNull(cursor.getString(COLUMN_INDEX_ID)),
+                /* uri= */ Uri.parse(checkNotNull(cursor.getString(COLUMN_INDEX_URI))))
             .setMimeType(cursor.getString(COLUMN_INDEX_MIME_TYPE))
             .setStreamKeys(decodeStreamKeys(cursor.getString(COLUMN_INDEX_STREAM_KEYS)))
             .setKeySetId(keySetId.length > 0 ? keySetId : null)
@@ -497,8 +509,8 @@ public final class DefaultDownloadIndex implements WritableDownloadIndex {
      */
     DownloadRequest request =
         new DownloadRequest.Builder(
-              /* id= */ checkNotNull(cursor.getString(0)),
-              /* uri= */ Uri.parse(checkNotNull(cursor.getString(2))))
+                /* id= */ checkNotNull(cursor.getString(0)),
+                /* uri= */ Uri.parse(checkNotNull(cursor.getString(2))))
             .setMimeType(inferMimeType(cursor.getString(1)))
             .setStreamKeys(decodeStreamKeys(cursor.getString(3)))
             .setCustomCacheKey(cursor.getString(4))
