@@ -13,6 +13,7 @@ import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory;
 public class DefaultDatabaseProvider extends SupportSQLiteOpenHelper.Callback
     implements DatabaseProvider {
 
+  private static final int VERSION = 1;
   private final SupportSQLiteOpenHelper helper;
 
   private SupportSQLiteOpenHelper createHelper(Context context, SQLiteOpenHelper openHelper) {
@@ -25,7 +26,7 @@ public class DefaultDatabaseProvider extends SupportSQLiteOpenHelper.Callback
   }
 
   public DefaultDatabaseProvider(Context context, SQLiteOpenHelper openHelper) {
-    super();
+    super(VERSION);
     this.helper = createHelper(context, openHelper);
   }
 
