@@ -31,6 +31,8 @@
 *   RTMP Extension:
 *   HLS Extension:
 *   DASH Extension:
+    *   Parse "f800" as channel count of 5 for Dolby in DASH manifest
+        ([#688](https://github.com/androidx/media/issues/688)).
 *   Smooth Streaming Extension:
 *   RTSP Extension:
 *   Decoder Extensions (FFmpeg, VP9, AV1, MIDI, etc.):
