@@ -2628,6 +2628,46 @@ public final class Util {
   }
 
   /**
+   * Returns the result of updating a CRC-16 with the specified bytes in a "most significant bit
+   * first" order.
+   *
+   * @param bytes Array containing the bytes to update the crc value with.
+   * @param start The index to the first byte in the byte range to update the crc with.
+   * @param end The index after the last byte in the byte range to update the crc with.
+   * @param initialValue The initial value for the crc calculation.
+   * @return The result of updating the initial value with the specified bytes.
+   */
+  @UnstableApi
+  public static int crc16(byte[] bytes, int start, int end, int initialValue) {
+    for (int i = start; i < end; i++) {
+      short value = (short) (bytes[i] & 0xFF);
+      // Process one message byte to update the current CRC-16 value.
+      initialValue = crc16UpdateFourBits((short) (value >> 4), initialValue); // High nibble first.
+      initialValue = crc16UpdateFourBits((short) (value & 0x0F), initialValue); // Low nibble.
+    }
+    return initialValue;
+  }
+
+  /**
+   * Process 4 bits of the message to update the CRC Value. Note that the data will be in the low
+   * nibble of val.
+   */
+  private static int crc16UpdateFourBits(short val, int crc16Register) {
+    short t; // This will be handled as unsigned 8 bit data.
+
+    // Step one, extract the most significant 4 bits of the CRC register.
+    t = (short) ((crc16Register >> 12) & 0xFF);
+    // XOR in the Message Data into the extracted bits.
+    t = (short) ((t ^ val) & 0xFF);
+    // Shift the CRC register left 4 bits.
+    crc16Register = (crc16Register << 4) & 0xFFFF; // Handle as 16 bit, discard any sign extension.
+    // Do the table look-ups and XOR the result into the CRC tables.
+    crc16Register = (crc16Register ^ CRC16_BYTES_MSBF[t]) & 0xFFFF;
+
+    return crc16Register;
+  }
+
+  /**
    * Returns the result of updating a CRC-8 with the specified bytes in a "most significant bit
    * first" order.
    *
@@ -3510,6 +3550,16 @@ public final class Util {
     0X9E7D9662, 0X933EB0BB, 0X97FFAD0C, 0XAFB010B1, 0XAB710D06, 0XA6322BDF, 0XA2F33668,
     0XBCB4666D, 0XB8757BDA, 0XB5365D03, 0XB1F740B4
   };
+
+  /**
+   * Allows the CRC-16 calculation to be done byte by byte instead of bit per bit in the order "most
+   * significant bit first".
+   */
+  private static final int[] CRC16_BYTES_MSBF =
+      new int[] {
+        0x0000, 0x01021, 0x2042, 0x3063, 0x4084, 0x50A5, 0x60C6, 0x70E7,
+        0x8108, 0x9129, 0xA14A, 0xB16B, 0xC18C, 0xD1AD, 0xE1CE, 0xF1EF
+      };
 
   /**
    * Allows the CRC-8 calculation to be done byte by byte instead of bit per bit in the order "most

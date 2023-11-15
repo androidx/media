@@ -20,17 +20,20 @@ import static java.lang.annotation.RetentionPolicy.SOURCE;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.StringDef;
+import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /** Utility methods for parsing DTS frames. */
 @UnstableApi
@@ -88,13 +91,6 @@ public final class DtsUtil {
     }
   }
 
-  /** Variables that are extracted in the FTOC sync frame and re-used in the subsequent
-   * FTOC non-sync frame. */
-  public static final class DtsUhdState {
-    /* A state variable that stores the UHD audio chunk ID extracted from the FTOC sync frame. */
-    private int storedUhdAudioChunkId;
-  }
-
   /**
    * Maximum rate for a DTS audio stream, in bytes per second.
    *
@@ -103,9 +99,6 @@ public final class DtsUtil {
   public static final int DTS_MAX_RATE_BYTES_PER_SECOND = 1536 * 1000 / 8;
   /** Maximum rate for a DTS-HD audio stream, in bytes per second. */
   public static final int DTS_HD_MAX_RATE_BYTES_PER_SECOND = 18000 * 1000 / 8;
-
-  /** DTS UHD Channel count. */
-  public static final int DTS_UHD_CHANNEL_COUNT = 2;
 
   private static final int SYNC_VALUE_BE = 0x7FFE8001;
   private static final int SYNC_VALUE_14B_BE = 0x1FFFE800;
@@ -145,57 +138,39 @@ public final class DtsUtil {
   private static final byte FIRST_BYTE_UHD_FTOC_NONSYNC_LE =
       (byte) (SYNC_VALUE_UHD_FTOC_NONSYNC_LE >>> 24);
 
-  /** Maps AMODE to the number of channels. See ETSI TS 102 114 table 5-4. */
+  /** Maps AMODE to the number of channels. See ETSI TS 102 114 Table 5-4. */
   private static final int[] CHANNELS_BY_AMODE =
       new int[] {1, 2, 2, 2, 2, 3, 3, 4, 4, 5, 6, 6, 6, 7, 8, 8};
 
-  /** Maps SFREQ to the sampling frequency in Hz. See ETSI TS 102 114 table 5-5. */
+  /** Maps SFREQ to the sampling frequency in Hz. See ETSI TS 102 114 Table 5-5. */
   private static final int[] SAMPLE_RATE_BY_SFREQ =
       new int[] {
-          -1, 8_000, 16_000, 32_000, -1, -1, 11_025, 22_050, 44_100, -1, -1, 12_000, 24_000, 48_000,
-          -1, -1
+        -1, 8_000, 16_000, 32_000, -1, -1, 11_025, 22_050, 44_100, -1, -1, 12_000, 24_000, 48_000,
+        -1, -1
       };
 
-  /** Maps RATE to 2 * bitrate in kbit/s. See ETSI TS 102 114 table 5-7. */
+  /** Maps RATE to 2 * bitrate in kbit/s. See ETSI TS 102 114 Table 5-7. */
   private static final int[] TWICE_BITRATE_KBPS_BY_RATE =
       new int[] {
-          64, 112, 128, 192, 224, 256, 384, 448, 512, 640, 768, 896, 1_024, 1_152, 1_280, 1_536,
-          1_920, 2_048, 2_304, 2_560, 2_688, 2_816, 2_823, 2_944, 3_072, 3_840, 4_096, 6_144, 7_680
+        64, 112, 128, 192, 224, 256, 384, 448, 512, 640, 768, 896, 1_024, 1_152, 1_280, 1_536,
+        1_920, 2_048, 2_304, 2_560, 2_688, 2_816, 2_823, 2_944, 3_072, 3_840, 4_096, 6_144, 7_680
       };
 
   /**
    * Maps MaxSampleRate index to sampling frequency in Hz. See ETSI TS 102 114 V1.6.1 (2019-08)
-   * table 7-9.
+   * Table 7-9.
    */
   private static final int[] SAMPLE_RATE_BY_INDEX =
       new int[] {
-          8_000, 16_000, 32_000, 64_000, 128_000, 22_050, 44_100, 88_200, 176_400, 352_800, 12_000,
-          24_000, 48_000, 96_000, 192_000, 384_000
+        8_000, 16_000, 32_000, 64_000, 128_000, 22_050, 44_100, 88_200, 176_400, 352_800, 12_000,
+        24_000, 48_000, 96_000, 192_000, 384_000
       };
 
-  /**
-   * Maps RefClockCode (Reference Clock Code) to reference clock period. See ETSI TS 102 114 V1.6.1
-   * (2019-08) table 7-3.
-   */
-  private static final int[] REF_CLOCK_FREQUENCY_BY_CODE = new int[] {32_000, 44_100, 48_000};
-
-  /**
-   * Index look-up table corresponding to the prefix code read from the bitstream. See ETSI TS 103
-   * 491 V1.2.1 (2019-05) Table 5-2: ExtractVarLenBitFields.
-   */
-  private static final int[] VAR_INT_INDEX_TABLE = new int[] {0, 0, 0, 0, 1, 1, 2, 3};
-
-  /**
-   * Number of bits used to encode a field. See ETSI TS 103 491 V1.2.1 (2019-05) Table 5-2:
-   * ExtractVarLenBitFields.
-   */
-  private static final int[] VAR_INT_BITS_USED = new int[] {1, 1, 1, 1, 2, 2, 3, 3};
-
-  /**
-   * Maps index to number of clock cycles in the bfase duration period. See ETSI TS 103 491 V1.2.1
-   * (2019-05) Table 6-13.
-   */
-  private static final int[] BASE_DURATION_BY_INDEX = new int[] {512, 480, 384};
+  private static final int[] UHD_FTOC_PAYLOAD_LENGTH_TABLE = new int[] {5, 8, 10, 12};
+  private static final int[] UHD_METADATA_CHUNK_SIZE_LENGTH_TABLE = new int[] {6, 9, 12, 15};
+  private static final int[] UHD_AUDIO_CHUNK_ID_LENGTH_TABLE = new int[] {2, 4, 6, 8};
+  private static final int[] UHD_AUDIO_CHUNK_SIZE_LENGTH_TABLE = new int[] {9, 11, 13, 16};
+  private static final int[] UHD_HEADER_SIZE_LENGTH_TABLE = new int[] {5, 8, 10, 12};
 
   /**
    * Returns whether a given integer matches a DTS Core sync word. Synchronization and storage modes
@@ -378,25 +353,25 @@ public final class DtsUtil {
   }
 
   /**
-   * Returns the DTS audio format given {@code data} containing the DTS-HD frame(containing only
-   * Extension Sub-stream) according to ETSI TS 102 114 V1.6.1 (2019-08), Section 7.4/7.5.
+   * Parses the DTS audio format from the extension substream header of a DTS-HD frame according to
+   * ETSI TS 102 114 V1.6.1 (2019-08), Section 7.4/7.5.
    *
-   * @param frame The DTS-HD frame(containing only Extension Sub-stream) to parse.
-   * @return The DTS audio format parsed from data in the header.
+   * @param frame The DTS-HD frame containing extension substream header.
+   * @return The DTS audio format extracted from the header.
    */
   public static DtsAudioFormat parseDtsHdFormat(byte[] frame) throws ParserException {
     ParsableBitArray frameBits = getNormalizedFrame(frame);
     frameBits.skipBits(32 + 8); // SYNCEXTSSH, UserDefinedBits
 
     int extensionSubstreamIndex = frameBits.readBits(2); // nExtSSIndex
-    int headerBits;
-    int extensionSubstreamFrameSizeBits;
+    int headerBits; // nuBits4Header
+    int extensionSubstreamFrameSizeBits; // nuBits4ExSSFsize
     if (!frameBits.readBit()) { // bHeaderSizeType
-      headerBits = 8; // nuBits4Header
-      extensionSubstreamFrameSizeBits = 16; // nuBits4ExSSFsize
+      headerBits = 8;
+      extensionSubstreamFrameSizeBits = 16;
     } else {
-      headerBits = 12; // nuBits4Header
-      extensionSubstreamFrameSizeBits = 20; // nuBits4ExSSFsize
+      headerBits = 12;
+      extensionSubstreamFrameSizeBits = 20;
     }
     frameBits.skipBits(headerBits); // nuExtSSHeaderSize
     int extensionSubstreamFrameSize =
@@ -408,31 +383,27 @@ public final class DtsUtil {
 
     boolean staticFieldsPresent = frameBits.readBit(); // bStaticFieldsPresent
     if (staticFieldsPresent) {
-      referenceClockCode = frameBits.readBits(2); // nuRefClockCode
-      extensionSubstreamFrameDurationCode =
-          512 * (frameBits.readBits(3) + 1); // nuExSSFrameDurationCode
+      referenceClockCode = frameBits.readBits(2);
+      extensionSubstreamFrameDurationCode = 512 * (frameBits.readBits(3) + 1);
 
       if (frameBits.readBit()) { // bTimeStampFlag
         frameBits.skipBits(32 + 4); // nuTimeStamp, nLSB
       }
 
       int audioPresentationsCount = frameBits.readBits(3) + 1; // nuNumAudioPresnt
-      assetsCount = frameBits.readBits(3) + 1; // nuNumAssets
+      assetsCount = frameBits.readBits(3) + 1;
       if (audioPresentationsCount != 1 || assetsCount != 1) {
         throw ParserException.createForUnsupportedContainerFeature(
             /* message= */ "Multiple audio presentations or assets not supported");
       }
 
-      int[] activeExtensionSubstreamMask = new int[8]; // nuActiveExSSMask
-      for (int i = 0; i < audioPresentationsCount; i++) {
-        activeExtensionSubstreamMask[i] = frameBits.readBits(extensionSubstreamIndex + 1);
-      }
+      // We've already asserted audioPresentationsCount = 1.
+      int activeExtensionSubstreamMask =
+          frameBits.readBits(extensionSubstreamIndex + 1); // nuActiveExSSMask
 
-      for (int i = 0; i < audioPresentationsCount; i++) {
-        for (int j = 0; j < extensionSubstreamIndex + 1; j++) {
-          if (((activeExtensionSubstreamMask[i] >> j) & 0x1) == 1) {
-            frameBits.skipBits(8); // nuActiveAssetMask
-          }
+      for (int j = 0; j < extensionSubstreamIndex + 1; j++) {
+        if (((activeExtensionSubstreamMask >> j) & 0x1) == 1) {
+          frameBits.skipBits(8); // nuActiveAssetMask
         }
       }
 
@@ -447,40 +418,59 @@ public final class DtsUtil {
       }
     } else {
       assetsCount = 1;
-      referenceClockCode = 0; // nuRefClockCode defaults to 0
-      extensionSubstreamFrameDurationCode = 0; // nuExSSFrameDurationCode defaults to 0
+      referenceClockCode = C.INDEX_UNSET;
+      extensionSubstreamFrameDurationCode = 0;
     }
 
-    for (int i = 0; i < assetsCount; i++) {
-      frameBits.skipBits(extensionSubstreamFrameSizeBits); // nuAssetFsize
-    }
+    // We've already asserted assetsCount = 1.
+    frameBits.skipBits(extensionSubstreamFrameSizeBits); // nuAssetFsize
+    int maxSampleRate = 0; // nuMaxSampleRate
+    int channelCount = 0; // nuTotalNumChs
 
-    // Asset descriptor
-    int maxSampleRate = 0;
-    int channelCount = 0;
-    for (int i = 0; i < assetsCount; i++) {
-      frameBits.skipBits(9 + 3); // nuAssetDescriptFsize, nuAssetIndex
-      if (staticFieldsPresent) {
-        if (frameBits.readBit()) { // bAssetTypeDescrPresent
-          frameBits.skipBits(4); // nuAssetTypeDescriptor
-        }
-        if (frameBits.readBit()) { // bLanguageDescrPresent
-          frameBits.skipBits(24); // LanguageDescriptor
-        }
-        if (frameBits.readBit()) { // bInfoTextPresent
-          int infoTextByteSize = frameBits.readBits(10) + 1; // nuInfoTextByteSize
-          frameBits.skipBytes(infoTextByteSize); // InfoTextString
-        }
-        frameBits.skipBits(5); // nuBitResolution
-        maxSampleRate = SAMPLE_RATE_BY_INDEX[frameBits.readBits(4)]; // nuMaxSampleRate
-        channelCount = frameBits.readBits(8) + 1; // nuTotalNumChs
+    // Asset descriptor, see ETSI TS 102 114 V1.6.1 (2019-08) Table 7-5.
+    frameBits.skipBits(9 + 3); // nuAssetDescriptFsize, nuAssetIndex
+    if (staticFieldsPresent) {
+      if (frameBits.readBit()) { // bAssetTypeDescrPresent
+        frameBits.skipBits(4); // nuAssetTypeDescriptor
       }
+      if (frameBits.readBit()) { // bLanguageDescrPresent
+        frameBits.skipBits(24); // LanguageDescriptor
+      }
+      if (frameBits.readBit()) { // bInfoTextPresent
+        int infoTextByteSize = frameBits.readBits(10) + 1; // nuInfoTextByteSize
+        frameBits.skipBytes(infoTextByteSize); // InfoTextString
+      }
+      frameBits.skipBits(5); // nuBitResolution
+      maxSampleRate = SAMPLE_RATE_BY_INDEX[frameBits.readBits(4)];
+      channelCount = frameBits.readBits(8) + 1;
+      // Done reading necessary bits, ignoring the rest.
     }
 
     // Number of audio samples in a compressed DTS frame
-    int sampleCount =
-        extensionSubstreamFrameDurationCode
-            * (maxSampleRate / REF_CLOCK_FREQUENCY_BY_CODE[referenceClockCode]);
+    int sampleCount;
+    if (!staticFieldsPresent) {
+      sampleCount = 0;
+    } else {
+      int referenceClockFrequency;
+      //  ETSI TS 102 114 V1.6.1 (2019-08) Table 7-3.
+      switch (referenceClockCode) {
+        case 0:
+          referenceClockFrequency = 32_000;
+          break;
+        case 1:
+          referenceClockFrequency = 44_100;
+          break;
+        case 2:
+          referenceClockFrequency = 48_000;
+          break;
+        default:
+          throw ParserException.createForMalformedContainer(
+              /* message= */ "Unsupported reference clock code in DTS HD header: "
+                  + referenceClockCode,
+              /* cause= */ null);
+      }
+      sampleCount = extensionSubstreamFrameDurationCode * (maxSampleRate / referenceClockFrequency);
+    }
     return new DtsAudioFormat(
         MimeTypes.AUDIO_DTS_EXPRESS,
         channelCount,
@@ -491,11 +481,10 @@ public final class DtsUtil {
   }
 
   /**
-   * Returns the size of frame header in a DTS-HD frame(containing only Extension Sub-stream).
-   * This function will parse upto 55 bits from the input bitstream.
+   * Returns the size of the extension substream header in a DTS-HD frame according to ETSI TS 102
+   * 114 V1.6.1 (2019-08), Section 7.5.2.
    *
-   * @param frame A DTS-HD frame(only Extension Sub-stream) containing at least 55 bits from the
-   * very beginning.
+   * @param frame A byte array containing at least the first 55 bits of a DTS-HD frame.
    * @return Size of the DTS-HD frame header in bytes.
    */
   public static int parseDtsHdHeaderSize(byte[] frame) {
@@ -508,24 +497,29 @@ public final class DtsUtil {
   }
 
   /**
-   * Returns the DTS audio format given {@code data} containing the DTS-UHD(Profile 2) frame
-   * according to ETSI TS 103 491 V1.2.1 (2019-05), Section 6.4.3.
+   * Parses the DTS audio format from the headers of a DTS-UHD(Profile 2) frame according to ETSI TS
+   * 103 491 V1.2.1 (2019-05), Section 6.4.3.
    *
-   * @param frame            The DTS-UHD frame to parse.
-   * @param dtsUhdStateParam Holds the values extracted in the last FTOC sync-frame.
-   * @return The DTS audio format parsed from data in the header.
+   * @param frame The DTS-UHD frame to parse.
+   * @param uhdAudioChunkId An {@link AtomicInteger} containing the last read UHD audio chunk ID
+   *     from a synchronized frame, or zero if unset. This parameter is both an input and output
+   *     parameter. In synchronized frames, the input value is not used; instead, the parameter is
+   *     set to the current UHD audio chunk ID, which becomes the output value. For non-synchronized
+   *     frames, it is used without any modification.
+   * @return The DTS audio format extracted from the header.
    */
-  public static DtsAudioFormat parseDtsUhdFormat(byte[] frame,
-      DtsUhdState dtsUhdStateParam) throws ParserException {
+  public static DtsAudioFormat parseDtsUhdFormat(byte[] frame, AtomicInteger uhdAudioChunkId)
+      throws ParserException {
     ParsableBitArray frameBits = getNormalizedFrame(frame);
     int syncWord = frameBits.readBits(32);
     boolean syncFrameFlag = syncWord == SYNC_VALUE_UHD_FTOC_SYNC_BE;
 
-    int[] fieldLenTable1 = new int[] {5, 8, 10, 12};
     int ftocPayloadInBytes =
-        parseUnsignedVarInt(frameBits, fieldLenTable1, /* extractAndAddFlag= */ true) + 1;
+        parseUnsignedVarInt(frameBits, UHD_FTOC_PAYLOAD_LENGTH_TABLE, /* extractAndAddFlag= */ true)
+            + 1;
 
-    int sampleRate = 0;
+    // ETSI TS 103 491 V1.2.1, Section 6.4.5.
+    int sampleRate = 0; // m_unAudioSamplRate
     int sampleCount = 0;
     if (syncFrameFlag) {
       // ETSI TS 103 491 V1.2.1, Section 6.4.6.1.
@@ -533,16 +527,32 @@ public final class DtsUtil {
         throw ParserException.createForUnsupportedContainerFeature(
             /* message= */ "Only supports full channel mask-based audio presentation");
       }
+
       // ETSI TS 103 491 V1.2.1, Section 6.4.6.2.
-      if (!extractAndCheckCRC16(frame, ftocPayloadInBytes)) {
-        throw ParserException.createForMalformedContainer(
-            /* message= */ "CRC check failed",
-            /* cause= */ null);
+      checkCrc(frame, ftocPayloadInBytes);
+
+      int baseDurationIndex = frameBits.readBits(2);
+      int baseDuration; // m_unBaseDuration
+      // ETSI TS 103 491 V1.2.1 (2019-05) Table 6-13.
+      switch (baseDurationIndex) {
+        case 0:
+          baseDuration = 512;
+          break;
+        case 1:
+          baseDuration = 480;
+          break;
+        case 2:
+          baseDuration = 384;
+          break;
+        default:
+          throw ParserException.createForMalformedContainer(
+              /* message= */ "Unsupported base duration index in DTS UHD header: "
+                  + baseDurationIndex,
+              /* cause= */ null);
       }
-      int baseDuration = BASE_DURATION_BY_INDEX[frameBits.readBits(2)]; // m_unBaseDuration
-      int frameDuration = baseDuration * frameBits.readBits(3) + 1; // m_unFrameDuration
-      int clockRateIndex = frameBits.readBits(2); // m_unClockRateInHz
-      int clockRateHertz = 0;
+      int frameDuration = baseDuration * (frameBits.readBits(3) + 1); // m_unFrameDuration
+      int clockRateIndex = frameBits.readBits(2);
+      int clockRateHertz; // m_unClockRateInHz
       switch (clockRateIndex) {
         case 0:
           clockRateHertz = 32_000;
@@ -553,61 +563,46 @@ public final class DtsUtil {
         case 2:
           clockRateHertz = 48_000;
           break;
-        default: // this would be an error
+        default:
           throw ParserException.createForMalformedContainer(
               /* message= */ "Unsupported clock rate index in DTS UHD header: " + clockRateIndex,
               /* cause= */ null);
       }
-      // Skip time stamp information if present, See section 5.2.3.2.
+      // Skip time stamp information if present, see section 5.2.3.2.
       if (frameBits.readBit()) { // m_TimeStamp.m_bUpdateFlag
         frameBits.skipBits(32 + 4); // m_TimeStamp
       }
       int sampleRateMultiplier = (1 << frameBits.readBits(2));
-      sampleRate = clockRateHertz * sampleRateMultiplier; // m_unAudioSamplRate
+      sampleRate = clockRateHertz * sampleRateMultiplier;
       sampleCount = frameDuration * sampleRateMultiplier; // ETSI TS 103 491 V1.2.1, Section 6.4.6.9
     }
 
-    // ETSI TS 103 491 V1.2.1, Section 6.4.6.1.
+    // ETSI TS 103 491 V1.2.1, Table 6-20.
     // m_bFullChannelBasedMixFlag == true as we throw unsupported container feature otherwise.
     int chunkPayloadBytes = 0;
-    int numOfMdChunks = syncFrameFlag ? 1 : 0; // Metadata chunks
-    int[] fieldLenTable2 = new int[] {6, 9, 12, 15};
-    for (int i = 0; i < numOfMdChunks; i++) {
-      int mdChunkSize = parseUnsignedVarInt(frameBits, fieldLenTable2, /* extractAndAddFlag= */ true);
-      if (mdChunkSize > 32767) {
-        throw ParserException.createForMalformedContainer(
-            /* message= */ "Unsupported metadata chunk size in DTS UHD header: " + mdChunkSize,
-            /* cause= */ null);
-      }
-      chunkPayloadBytes += mdChunkSize;
+    int numOfMetadataChunks = syncFrameFlag ? 1 : 0; // Metadata chunks
+    for (int i = 0; i < numOfMetadataChunks; i++) {
+      int metadataChunkSize =
+          parseUnsignedVarInt(
+              frameBits, UHD_METADATA_CHUNK_SIZE_LENGTH_TABLE, /* extractAndAddFlag= */ true);
+      chunkPayloadBytes += metadataChunkSize;
     }
 
     // See ETSI TS 103 491 V1.2.1, Section 6.4.14.4.
     // m_bFullChannelBasedMixFlag == true as we throw unsupported container feature otherwise.
     int numAudioChunks = 1;
-    int audioChunkId;
-    int[] fieldLenTable3 = new int[] {2, 4, 6, 8};
-    int[] fieldLenTable4 = new int[] {9, 11, 13, 16};
     for (int i = 0; i < numAudioChunks; i++) {
-      // If syncFrameFlag is true the audio chunk ID will be present
+      // If syncFrameFlag is true the audio chunk ID will be present.
       if (syncFrameFlag) {
-        audioChunkId = parseUnsignedVarInt(frameBits, fieldLenTable3,
-            /* extractAndAddFlag= */ true);
-        dtsUhdStateParam.storedUhdAudioChunkId = audioChunkId;
-      } else {
-        // Get the stored audio chunk ID
-        audioChunkId = dtsUhdStateParam.storedUhdAudioChunkId < 256 /* invalid chunk ID */ ?
-            dtsUhdStateParam.storedUhdAudioChunkId : 0;
+        uhdAudioChunkId.set(
+            parseUnsignedVarInt(
+                frameBits, UHD_AUDIO_CHUNK_ID_LENGTH_TABLE, /* extractAndAddFlag= */ true));
       }
       int audioChunkSize =
-          audioChunkId != 0
-              ? parseUnsignedVarInt(frameBits, fieldLenTable4, /* extractAndAddFlag= */ true)
+          uhdAudioChunkId.get() != 0
+              ? parseUnsignedVarInt(
+                  frameBits, UHD_AUDIO_CHUNK_SIZE_LENGTH_TABLE, /* extractAndAddFlag= */ true)
               : 0;
-      if (audioChunkSize > 65535) {
-        throw ParserException.createForMalformedContainer(
-            /* message= */ "Unsupported audio chunk size in DTS UHD header: " + audioChunkSize,
-            /* cause= */ null);
-      }
       chunkPayloadBytes += audioChunkSize;
     }
 
@@ -617,7 +612,8 @@ public final class DtsUtil {
         // To determine the actual number of channels from a bit stream, we need to read the
         // metadata chunk bytes. If defining a constant channel count causes problems, we can
         // consider adding additional parsing logic for UHD frames.
-        DTS_UHD_CHANNEL_COUNT,
+        // For now, using the estimated number of channels for DTS UHD bitstreams as 2.
+        /* channelCount= */ 2,
         sampleRate,
         frameSize,
         sampleCount,
@@ -634,22 +630,39 @@ public final class DtsUtil {
   public static int parseDtsUhdHeaderSize(byte[] frame) {
     ParsableBitArray frameBits = getNormalizedFrame(frame);
     frameBits.skipBits(32); // SYNC
-    int[] fieldLenTable = new int[] {5, 8, 10, 12};
-    return parseUnsignedVarInt(frameBits, fieldLenTable, /* extractAndAddFlag= */ true) + 1;
+    return parseUnsignedVarInt(
+            frameBits, UHD_HEADER_SIZE_LENGTH_TABLE, /* extractAndAddFlag= */ true)
+        + 1;
   }
 
-  // Helper function for the DTS UHD header parsing. Used to extract a field of variable length.
-  // See ETSI TS 103 491 V1.2.1, Section 5.2.3.1.
+  /**
+   * Check if calculated and extracted CRC-16 words match. See ETSI TS 103 491 V1.2.1, Table 6-8.
+   */
+  private static void checkCrc(byte[] frame, int sizeInBytes) throws ParserException {
+    int initialValue = 0xFFFF;
+    short extractedCrc =
+        (short) (((frame[sizeInBytes - 2] << 8) & initialValue) | (frame[sizeInBytes - 1] & 0xFF));
+    short calculatedCrc =
+        (short) Util.crc16(frame, /* start= */ 0, /* end= */ sizeInBytes - 2, initialValue);
+    if (extractedCrc != calculatedCrc) {
+      throw ParserException.createForMalformedContainer(
+          /* message= */ "CRC check failed", /* cause= */ null);
+    }
+  }
+
+  /**
+   * Helper function for the DTS UHD header parsing. Used to extract a field of variable length. See
+   * ETSI TS 103 491 V1.2.1, Section 5.2.3.1.
+   */
   private static int parseUnsignedVarInt(
       ParsableBitArray frameBits, int[] lengths, boolean extractAndAddFlag) {
-    int code = frameBits.readBits(3); // uncode
-    int currentPosition = frameBits.getPosition();
-    int index = VAR_INT_INDEX_TABLE[code];
-    int unusedBits = 3 - VAR_INT_BITS_USED[code];
-    frameBits.setPosition(currentPosition - unusedBits); // Rewind unused bits
-
-    if (lengths[index] <= 0) {
-      return 0;
+    int index = 0;
+    for (int i = 0; i < 3; i++) {
+      if (frameBits.readBit()) {
+        index++;
+      } else {
+        break;
+      }
     }
 
     int value = 0;
@@ -658,56 +671,7 @@ public final class DtsUtil {
         value += (1 << lengths[i]);
       }
     }
-    value += frameBits.readBits(lengths[index]);
-    return value;
-  }
-
-  // Helper functions for CRC checking of UHD FTOC header
-  private static int crc16Update4BitsFast(short val, int mCRC16Register) {
-    int[] mCRC16Lookup = new int[] {
-        0x0000, 0x01021, 0x2042, 0x3063, 0x4084, 0x50A5, 0x60C6, 0x70E7,
-        0x8108, 0x9129, 0xA14A, 0xB16B, 0xC18C, 0xD1AD, 0xE1CE, 0xF1EF };
-    short t; // This will be handled as unsigned 8 bit data
-    // Step one, extract the most significant 4 bits of the CRC register
-    t = (short)((mCRC16Register >> 12) & 0xFF);
-    // XOR in the Message Data into the extracted bits
-    t = (short)((t ^ val)& 0xFF);
-    // Shift the CRC register left 4 bits
-    mCRC16Register = (mCRC16Register << 4) & 0xFFFF; // Handle as 16 bit, discard any sign extension
-    // Do the table look-ups and XOR the result into the CRC tables
-    mCRC16Register = (mCRC16Register ^ mCRC16Lookup[t]) & 0xFFFF;
-
-    return mCRC16Register;
-  }
-
-  // Process one Message Byte to update the current CRC Value
-  private static int crc16Update(short val, int mCRC16Register) {
-    // Process 4 bits of the message to update the CRC Value.
-    // Note that the data will be in the low nibble of val.
-    mCRC16Register = crc16Update4BitsFast((short)(val >> 4), mCRC16Register); // High nibble first
-    mCRC16Register = crc16Update4BitsFast((short)(val & 0x0F), mCRC16Register); // Low nibble
-    return mCRC16Register;
-  }
-
-  // Calculate the CRC value from the frame header
-  private static int calculateCRC16(byte[] frame, int length) {
-    // Initialize the CRC to 0xFFFF as per specification
-    int mCRC16Register = 0xFFFF; // This will be handled as unsigned 16 bit data
-    for (int counter = 0; counter < length; counter++) {
-      // Process one byte from the frame header
-      mCRC16Register = crc16Update((short)(frame[counter] & 0xFF), mCRC16Register);
-    }
-    return mCRC16Register;
-  }
-
-  // Check if calculated and extracted CRC16 words match
-  private static boolean extractAndCheckCRC16(byte[] frame, int sizeInBytes) {
-    // Calculate CRC
-    short calcCRC16 = (short)calculateCRC16(frame, sizeInBytes - 2);
-    // Extract the encoded CRC value from the header
-    short extractedCRC16 = (short)((((frame[sizeInBytes - 2] << 8)) & 0xFFFF) |
-        (frame[sizeInBytes - 1] & 0xFF));
-    return (calcCRC16 == extractedCRC16) ? true : false;
+    return value + frameBits.readBits(lengths[index]);
   }
 
   private static ParsableBitArray getNormalizedFrame(byte[] frame) {

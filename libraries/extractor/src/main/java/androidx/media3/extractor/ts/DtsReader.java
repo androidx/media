@@ -31,10 +31,11 @@ import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.ts.TsPayloadReader.TrackIdGenerator;
 import com.google.common.primitives.Ints;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
-/** Parses a continuous DTS or DTS HD byte stream and extracts individual samples. */
+/** Parses a continuous DTS or DTS UHD byte stream and extracts individual samples. */
 @UnstableApi
 public final class DtsReader implements ElementaryStreamReader {
 
@@ -56,24 +57,16 @@ public final class DtsReader implements ElementaryStreamReader {
   private static final int EXTSS_HEADER_SIZE_MAX = 4096;
 
   /**
-   * Minimum possible size of extension sub-stream header, in bytes, that is required to parse and
-   * extract header size information.
-   */
-  private static final int EXTSS_HEADER_SIZE_MIN = 10;
-
-  /**
    * Maximum size of DTS UHD(DTS:X) frame header, in bytes. See ETSI TS 103 491 V1.2.1 (2019-05)
-   * section 6.4.4.3.
+   * Section 6.4.4.3.
    */
   private static final int FTOC_MAX_HEADER_SIZE = 5408;
 
-  /**
-   * Minimum possible size of DTS UHD(DTS:X) frame header, in bytes, that is required to parse and
-   * extract header size information.
-   */
-  private static final int FTOC_MIN_HEADER_SIZE = 7;
-
   private final ParsableByteArray headerScratchBytes;
+
+  /** The chunk ID is read in synchronized frames and re-used in non-synchronized frames. */
+  private final AtomicInteger uhdAudioChunkId;
+
   @Nullable private final String language;
 
   private @MonotonicNonNull String formatId;
@@ -92,16 +85,11 @@ public final class DtsReader implements ElementaryStreamReader {
   private boolean isCoreSync;
   private boolean isFtocSync;
   private boolean isFtocNonSync;
-  private int extSubstreamHeaderSizeToRead;
-  private int uhdHeaderSizeToRead;
+  private int extensionSubstreamHeaderSize;
+  private int uhdHeaderSize;
 
   // Used when reading the samples.
   private long timeUs;
-  private int sampleRate;
-  private int sampleCount; // frame duration
-
-  // Used for storing the DTS UHD frame parser state information.
-  private DtsUtil.DtsUhdState dtsUhdStateParam;
 
   /**
    * Constructs a new reader for DTS elementary streams.
@@ -113,9 +101,10 @@ public final class DtsReader implements ElementaryStreamReader {
     headerScratchBytes = new ParsableByteArray(new byte[headerSize]);
     state = STATE_FINDING_SYNC;
     timeUs = C.TIME_UNSET;
-    sampleRate = 48000; // initialize to a non-zero sampling rate
+    uhdAudioChunkId = new AtomicInteger();
+    extensionSubstreamHeaderSize = C.LENGTH_UNSET;
+    uhdHeaderSize = C.LENGTH_UNSET;
     this.language = language;
-    dtsUhdStateParam = new DtsUtil.DtsUhdState();
   }
 
   @Override
@@ -147,7 +136,7 @@ public final class DtsReader implements ElementaryStreamReader {
       switch (state) {
         case STATE_FINDING_SYNC:
           if (skipToNextSync(data)) {
-            if(isFtocSync || isFtocNonSync) {
+            if (isFtocSync || isFtocNonSync) {
               state = STATE_FINDING_UHD_HEADER_SIZE;
             } else if (isCoreSync) {
               state = STATE_READING_CORE_HEADER;
@@ -166,36 +155,35 @@ public final class DtsReader implements ElementaryStreamReader {
           break;
         case STATE_FINDING_EXTSS_HEADER_SIZE:
           // Read enough bytes to parse the header size information.
-          if (continueRead(data, headerScratchBytes.getData(), EXTSS_HEADER_SIZE_MIN)) {
-            extSubstreamHeaderSizeToRead =
+          if (continueRead(data, headerScratchBytes.getData(), /* targetLength= */ 10)) {
+            extensionSubstreamHeaderSize =
                 DtsUtil.parseDtsHdHeaderSize(headerScratchBytes.getData());
             state = STATE_READING_EXTSS_HEADER;
           }
           break;
         case STATE_READING_EXTSS_HEADER:
-          if (continueRead(
-              data, headerScratchBytes.getData(), extSubstreamHeaderSizeToRead)) {
+          if (continueRead(data, headerScratchBytes.getData(), extensionSubstreamHeaderSize)) {
             parseExtensionSubstreamHeader();
             headerScratchBytes.setPosition(0);
-            output.sampleData(headerScratchBytes, extSubstreamHeaderSizeToRead);
+            output.sampleData(headerScratchBytes, extensionSubstreamHeaderSize);
             state = STATE_READING_SAMPLE;
           }
           break;
         case STATE_FINDING_UHD_HEADER_SIZE:
           // Read enough bytes to parse the header size information.
-          if (continueRead(data, headerScratchBytes.getData(), FTOC_MIN_HEADER_SIZE)) {
-            uhdHeaderSizeToRead = DtsUtil.parseDtsUhdHeaderSize(headerScratchBytes.getData());
+          if (continueRead(data, headerScratchBytes.getData(), /* targetLength= */ 7)) {
+            uhdHeaderSize = DtsUtil.parseDtsUhdHeaderSize(headerScratchBytes.getData());
             // If data read(FTOC_MIN_HEADER_SIZE) is more than the actual header size, set target
             // read length equal to bytesRead. Otherwise the continueRead() function will fail.
-            uhdHeaderSizeToRead = max(bytesRead, uhdHeaderSizeToRead);
+            uhdHeaderSize = max(bytesRead, uhdHeaderSize);
             state = STATE_READING_UHD_HEADER;
           }
           break;
         case STATE_READING_UHD_HEADER:
-          if (continueRead(data, headerScratchBytes.getData(), uhdHeaderSizeToRead)) {
+          if (continueRead(data, headerScratchBytes.getData(), uhdHeaderSize)) {
             parseUhdHeader();
             headerScratchBytes.setPosition(0);
-            output.sampleData(headerScratchBytes, uhdHeaderSizeToRead);
+            output.sampleData(headerScratchBytes, uhdHeaderSize);
             state = STATE_READING_SAMPLE;
           }
           break;
@@ -252,8 +240,10 @@ public final class DtsReader implements ElementaryStreamReader {
       isCoreSync = DtsUtil.isCoreSyncWord(syncBytes);
       isFtocSync = DtsUtil.isUhdFtocSyncWord(syncBytes);
       isFtocNonSync = DtsUtil.isUhdFtocNonSyncWord(syncBytes);
-      if (isCoreSync || DtsUtil.isExtensionSubstreamSyncWord(syncBytes) ||
-          isFtocSync || isFtocNonSync) {
+      if (isCoreSync
+          || DtsUtil.isExtensionSubstreamSyncWord(syncBytes)
+          || isFtocSync
+          || isFtocNonSync) {
         byte[] headerData = headerScratchBytes.getData();
         headerData[0] = (byte) ((syncBytes >> 24) & 0xFF);
         headerData[1] = (byte) ((syncBytes >> 16) & 0xFF);
@@ -287,6 +277,35 @@ public final class DtsReader implements ElementaryStreamReader {
   @RequiresNonNull("output")
   private void parseExtensionSubstreamHeader() throws ParserException {
     DtsUtil.DtsAudioFormat dtsAudioFormat = DtsUtil.parseDtsHdFormat(headerScratchBytes.getData());
+    updateFormatWithDtsInfo(dtsAudioFormat);
+    sampleSize = dtsAudioFormat.frameSize;
+    // In this class a sample is an access unit (frame in DTS), but the format's sample rate
+    // specifies the number of PCM audio samples per second.
+    sampleDurationUs =
+        Ints.checkedCast(
+            Util.sampleCountToDurationUs(dtsAudioFormat.sampleCount, format.sampleRate));
+  }
+
+  /** Parses the UHD frame header. */
+  @RequiresNonNull({"output"})
+  private void parseUhdHeader() throws ParserException {
+    DtsUtil.DtsAudioFormat dtsAudioFormat =
+        DtsUtil.parseDtsUhdFormat(headerScratchBytes.getData(), uhdAudioChunkId);
+    int sampleRate = 48000; // Default sampleRate for UHD streams.
+    int sampleCount = 0;
+    if (isFtocSync) { // Format updates will happen only in FTOC sync frames.
+      updateFormatWithDtsInfo(dtsAudioFormat);
+      // Update the sample rate and sample count information only in FTOC Sync frame.
+      sampleRate = dtsAudioFormat.sampleRate;
+      sampleCount = dtsAudioFormat.sampleCount; // Update the sample count only in FTOC Sync frame
+    }
+    sampleSize = dtsAudioFormat.frameSize;
+    // In this class a sample is an access unit (frame in DTS), but the format's sample rate
+    // specifies the number of PCM audio samples per second.
+    sampleDurationUs = Ints.checkedCast(Util.sampleCountToDurationUs(sampleCount, sampleRate));
+  }
+
+  private void updateFormatWithDtsInfo(DtsUtil.DtsAudioFormat dtsAudioFormat) {
     if (format == null
         || dtsAudioFormat.channelCount != format.channelCount
         || dtsAudioFormat.sampleRate != format.sampleRate
@@ -301,43 +320,5 @@ public final class DtsReader implements ElementaryStreamReader {
               .build();
       output.format(format);
     }
-    sampleSize = dtsAudioFormat.frameSize;
-    // In this class a sample is an access unit (frame in DTS), but the format's sample rate
-    // specifies the number of PCM audio samples per second.
-    sampleDurationUs =
-        Ints.checkedCast(
-            Util.scaleLargeTimestamp(
-                C.MICROS_PER_SECOND, dtsAudioFormat.sampleCount, format.sampleRate));
-  }
-
-  /** Parses the UHD frame header. */
-  @RequiresNonNull({"output"})
-  private void parseUhdHeader() throws ParserException {
-    DtsUtil.DtsAudioFormat dtsAudioFormat = DtsUtil.parseDtsUhdFormat(headerScratchBytes.getData(),
-        dtsUhdStateParam);
-    if (isFtocSync) { // Format updates will happen only in FTOC sync frames.
-      if (format == null
-          || dtsAudioFormat.channelCount != format.channelCount
-          || dtsAudioFormat.sampleRate != format.sampleRate
-          || !Util.areEqual(dtsAudioFormat.mimeType, format.sampleMimeType)) {
-        format =
-            new Format.Builder()
-                .setId(formatId)
-                .setSampleMimeType(dtsAudioFormat.mimeType)
-                .setChannelCount(dtsAudioFormat.channelCount)
-                .setSampleRate(dtsAudioFormat.sampleRate)
-                .setLanguage(language)
-                .build();
-        output.format(format);
-      }
-      // Update the sample rate and sample count information only in FTOC Sync frame.
-      sampleRate = dtsAudioFormat.sampleRate;
-      sampleCount = dtsAudioFormat.sampleCount; // Update the sample count only in FTOC Sync frame
-    }
-    sampleSize = dtsAudioFormat.frameSize;
-    // In this class a sample is an access unit (frame in DTS), but the format's sample rate
-    // specifies the number of PCM audio samples per second.
-    sampleDurationUs =
-        Ints.checkedCast(Util.scaleLargeTimestamp(C.MICROS_PER_SECOND, sampleCount, sampleRate));
   }
 }
