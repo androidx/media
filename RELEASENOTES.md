@@ -43,6 +43,9 @@
 *   Decoder Extensions (FFmpeg, VP9, AV1, MIDI, etc.):
 *   Leanback extension:
 *   Cast Extension:
+    *   Sanitize creation of a `Timeline` to not crash the app when loading
+        media fails on the cast device
+        ([#708](https://github.com/androidx/media/issues/708)).
 *   Test Utilities:
 *   Remove deprecated symbols:
 *   Demo app:
