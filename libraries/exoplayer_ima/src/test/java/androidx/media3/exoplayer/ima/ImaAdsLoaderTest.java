@@ -42,6 +42,7 @@ import androidx.media3.common.AdOverlayInfo;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AdViewProvider;
 import androidx.media3.common.C;
+import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
@@ -108,6 +109,7 @@ public final class ImaAdsLoaderTest {
   private static final long CONTENT_PERIOD_DURATION_US =
       CONTENT_TIMELINE.getPeriod(/* periodIndex= */ 0, new Period()).durationUs;
   private static final Uri TEST_URI = Uri.parse("https://www.google.com");
+  private static final MediaItem TEST_MEDIA_ITEM = MediaItem.fromUri(TEST_URI);
   private static final DataSpec TEST_DATA_SPEC = new DataSpec(TEST_URI);
   private static final Object TEST_ADS_ID = new Object();
   private static final AdMediaInfo TEST_AD_MEDIA_INFO = new AdMediaInfo("https://www.google.com");
@@ -282,6 +284,31 @@ public final class ImaAdsLoaderTest {
   }
 
   @Test
+  public void loadAd_withAdContentTypeSet_setsMimeTypeInAdPlaybackState() {
+    // Load the preroll ad with content type set. Intentionally use all lower-case HLS MIME type as
+    // this is what the IMA SDK sets.
+    when(mockPrerollSingleAd.getContentType()).thenReturn("application/x-mpegurl");
+    imaAdsLoader.start(
+        adsMediaSource, TEST_DATA_SPEC, TEST_ADS_ID, adViewProvider, adsLoaderListener);
+
+    adEventListener.onAdEvent(getAdEvent(AdEventType.LOADED, mockPrerollSingleAd));
+    videoAdPlayer.loadAd(TEST_AD_MEDIA_INFO, mockAdPodInfo);
+
+    // Verify that the preroll ad has been marked with the expected MIME type.
+    assertThat(getAdPlaybackState(/* periodIndex= */ 0))
+        .isEqualTo(
+            new AdPlaybackState(TEST_ADS_ID, /* adGroupTimesUs...= */ 0)
+                .withContentDurationUs(CONTENT_PERIOD_DURATION_US)
+                .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+                .withAvailableAdMediaItem(
+                    /* adGroupIndex= */ 0,
+                    /* adIndexInAdGroup= */ 0,
+                    TEST_MEDIA_ITEM.buildUpon().setMimeType(MimeTypes.APPLICATION_M3U8).build())
+                .withAdDurationsUs(new long[][] {{TEST_AD_DURATION_US}})
+                .withAdResumePositionUs(/* adResumePositionUs= */ 0));
+  }
+
+  @Test
   public void playback_withPrerollAd_marksAdAsPlayed() {
     // Load the preroll ad.
     imaAdsLoader.start(
@@ -315,7 +342,8 @@ public final class ImaAdsLoaderTest {
             new AdPlaybackState(TEST_ADS_ID, /* adGroupTimesUs...= */ 0)
                 .withContentDurationUs(CONTENT_PERIOD_DURATION_US)
                 .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
-                .withAvailableAdUri(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, TEST_URI)
+                .withAvailableAdMediaItem(
+                    /* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, TEST_MEDIA_ITEM)
                 .withAdDurationsUs(new long[][] {{TEST_AD_DURATION_US}})
                 .withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0)
                 .withAdResumePositionUs(/* adResumePositionUs= */ 0));
@@ -1063,7 +1091,8 @@ public final class ImaAdsLoaderTest {
             new AdPlaybackState(TEST_ADS_ID, getAdGroupTimesUsForCuePoints(cuePoints))
                 .withContentDurationUs(CONTENT_PERIOD_DURATION_US)
                 .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
-                .withAvailableAdUri(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, TEST_URI)
+                .withAvailableAdMediaItem(
+                    /* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, TEST_MEDIA_ITEM)
                 .withAdDurationsUs(new long[][] {{TEST_AD_DURATION_US}}));
   }
 
@@ -1117,7 +1146,8 @@ public final class ImaAdsLoaderTest {
             new AdPlaybackState(TEST_ADS_ID, /* adGroupTimesUs...= */ 0)
                 .withContentDurationUs(CONTENT_PERIOD_DURATION_US)
                 .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
-                .withAvailableAdUri(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, TEST_URI)
+                .withAvailableAdMediaItem(
+                    /* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, TEST_MEDIA_ITEM)
                 .withAdDurationsUs(new long[][] {{TEST_AD_DURATION_US}})
                 .withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0)
                 .withAdResumePositionUs(/* adResumePositionUs= */ 0));
@@ -1184,7 +1214,8 @@ public final class ImaAdsLoaderTest {
             new AdPlaybackState(TEST_ADS_ID, /* adGroupTimesUs...= */ 0)
                 .withContentDurationUs(CONTENT_PERIOD_DURATION_US)
                 .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
-                .withAvailableAdUri(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, TEST_URI)
+                .withAvailableAdMediaItem(
+                    /* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, TEST_MEDIA_ITEM)
                 .withAdDurationsUs(new long[][] {{TEST_AD_DURATION_US}})
                 .withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0)
                 .withAdResumePositionUs(/* adResumePositionUs= */ 0));
@@ -1404,7 +1435,7 @@ public final class ImaAdsLoaderTest {
       long[][] adDurationsUs = new long[adPlaybackState.adGroupCount][];
       for (int adGroupIndex = 0; adGroupIndex < adPlaybackState.adGroupCount; adGroupIndex++) {
         adDurationsUs[adGroupIndex] =
-            new long[adPlaybackState.getAdGroup(adGroupIndex).uris.length];
+            new long[adPlaybackState.getAdGroup(adGroupIndex).mediaItems.length];
         Arrays.fill(adDurationsUs[adGroupIndex], TEST_AD_DURATION_US);
       }
       adPlaybackState = adPlaybackState.withAdDurationsUs(adDurationsUs);

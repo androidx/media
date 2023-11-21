@@ -13,7 +13,17 @@
 // limitations under the License.
 apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 
-android.defaultConfig.minSdkVersion 17
+android {
+    namespace 'androidx.media3.ui.leanback'
+
+    defaultConfig.minSdkVersion 17
+
+    publishing {
+        singleVariant('release') {
+            withSourcesJar()
+        }
+    }
+}
 
 dependencies {
     implementation project(modulePrefix + 'lib-common')
@@ -21,11 +31,6 @@ dependencies {
     implementation 'androidx.leanback:leanback:1.0.0'
     compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion
 }
-
-ext {
-    javadocTitle = 'Leanback extension'
-}
-apply from: '../../javadoc_library.gradle'
 
 ext {
     releaseArtifactId = 'media3-ui-leanback'

@@ -22,6 +22,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import androidx.annotation.Nullable;
+import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -38,17 +39,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * A simple bitmap loader that delegates all tasks to an executor and supports fetching images from
- * URIs with {@code file}, {@code http} and {@code https} schemes.
- *
- * <p>Loading tasks are delegated to an {@link ExecutorService} (or {@link
- * ListeningExecutorService}) defined during construction. If no executor service is defined, all
- * tasks are delegated to a single-thread executor service that is shared between instances of this
- * class.
- *
- * <p>For HTTP(S) transfers, this class reads a resource only when the endpoint responds with an
- * {@code HTTP 200} after sending the HTTP request.
+ * @deprecated Use {@link androidx.media3.datasource.DataSourceBitmapLoader} instead.
  */
+@Deprecated
 @UnstableApi
 public final class SimpleBitmapLoader implements BitmapLoader {
 
@@ -75,21 +68,24 @@ public final class SimpleBitmapLoader implements BitmapLoader {
 
   @Override
   public ListenableFuture<Bitmap> decodeBitmap(byte[] data) {
-    return executorService.submit(() -> decode(data));
+    return executorService.submit(() -> decode(data, /* options= */ null));
   }
 
   @Override
-  public ListenableFuture<Bitmap> loadBitmap(Uri uri) {
-    return executorService.submit(() -> load(uri));
+  public ListenableFuture<Bitmap> loadBitmap(Uri uri, @Nullable BitmapFactory.Options options) {
+    return executorService.submit(() -> load(uri, options));
   }
 
-  private static Bitmap decode(byte[] data) {
-    @Nullable Bitmap bitmap = BitmapFactory.decodeByteArray(data, /* offset= */ 0, data.length);
+  // BitmapFactory's options parameter is null-ok.
+  @SuppressWarnings("nullness:argument.type.incompatible")
+  private static Bitmap decode(byte[] data, @Nullable BitmapFactory.Options options) {
+    @Nullable
+    Bitmap bitmap = BitmapFactory.decodeByteArray(data, /* offset= */ 0, data.length, options);
     checkArgument(bitmap != null, "Could not decode image data");
     return bitmap;
   }
 
-  private static Bitmap load(Uri uri) throws IOException {
+  private static Bitmap load(Uri uri, @Nullable BitmapFactory.Options options) throws IOException {
     if ("file".equals(uri.getScheme())) {
       @Nullable String path = uri.getPath();
       if (path == null) {
@@ -112,7 +108,7 @@ public final class SimpleBitmapLoader implements BitmapLoader {
       throw new IOException("Invalid response status code: " + responseCode);
     }
     try (InputStream inputStream = httpConnection.getInputStream()) {
-      return decode(ByteStreams.toByteArray(inputStream));
+      return decode(ByteStreams.toByteArray(inputStream), options);
     }
   }
 }

@@ -23,7 +23,6 @@ import static androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM;
 import static androidx.media3.common.Player.COMMAND_STOP;
-import static androidx.media3.common.Player.STATE_ENDED;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 
@@ -54,6 +53,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -223,11 +223,13 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
 
   /** The default ID used for the {@link MediaNotification#notificationId}. */
   public static final int DEFAULT_NOTIFICATION_ID = 1001;
+
   /**
    * The default ID used for the {@link NotificationChannel} on which created notifications are
    * posted on.
    */
   public static final String DEFAULT_CHANNEL_ID = "default_channel_id";
+
   /**
    * The default name used for the {@link NotificationChannel} on which created notifications are
    * posted on.
@@ -235,6 +237,13 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
   @StringRes
   public static final int DEFAULT_CHANNEL_NAME_RESOURCE_ID =
       R.string.default_notification_channel_name;
+
+  /**
+   * The group key used for the {@link NotificationCompat.Builder#setGroup(String)} to avoid the
+   * media notification being auto-grouped with the other notifications. The other notifications
+   * sent from the app shouldn't use this group key.
+   */
+  public static final String GROUP_KEY = "media3_group_key";
 
   private static final String TAG = "NotificationProvider";
 
@@ -296,6 +305,16 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
       Callback onNotificationChangedCallback) {
     ensureNotificationChannel();
 
+    ImmutableList.Builder<CommandButton> customLayoutWithEnabledCommandButtonsOnly =
+        new ImmutableList.Builder<>();
+    for (int i = 0; i < customLayout.size(); i++) {
+      CommandButton button = customLayout.get(i);
+      if (button.sessionCommand != null
+          && button.sessionCommand.commandCode == SessionCommand.COMMAND_CODE_CUSTOM
+          && button.isEnabled) {
+        customLayoutWithEnabledCommandButtonsOnly.add(customLayout.get(i));
+      }
+    }
     Player player = mediaSession.getPlayer();
     NotificationCompat.Builder builder = new NotificationCompat.Builder(context, channelId);
     int notificationId = notificationIdProvider.getNotificationId(mediaSession);
@@ -307,15 +326,15 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
             getMediaButtons(
                 mediaSession,
                 player.getAvailableCommands(),
-                customLayout,
-                /* showPauseButton= */ player.getPlayWhenReady()
-                    && player.getPlaybackState() != STATE_ENDED),
+                customLayoutWithEnabledCommandButtonsOnly.build(),
+                !Util.shouldShowPlayButton(
+                    player, mediaSession.getShowPlayButtonIfPlaybackIsSuppressed())),
             builder,
             actionFactory);
     mediaStyle.setShowActionsInCompactView(compactViewIndices);
 
     // Set metadata info in the notification.
-    if (player.isCommandAvailable(Player.COMMAND_GET_MEDIA_ITEMS_METADATA)) {
+    if (player.isCommandAvailable(Player.COMMAND_GET_METADATA)) {
       MediaMetadata metadata = player.getMediaMetadata();
       builder
           .setContentTitle(getNotificationContentTitle(metadata))
@@ -330,7 +349,7 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
         if (bitmapFuture.isDone()) {
           try {
             builder.setLargeIcon(Futures.getDone(bitmapFuture));
-          } catch (ExecutionException e) {
+          } catch (CancellationException | ExecutionException e) {
             Log.w(TAG, getBitmapLoadErrorMessage(e));
           }
         } else {
@@ -360,6 +379,10 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
         .setShowWhen(displayElapsedTimeWithChronometer)
         .setUsesChronometer(displayElapsedTimeWithChronometer);
 
+    if (Util.SDK_INT >= 31) {
+      Api31.setForegroundServiceBehavior(builder);
+    }
+
     Notification notification =
         builder
             .setContentIntent(mediaSession.getSessionActivity())
@@ -370,6 +393,7 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
             .setStyle(mediaStyle)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(false)
+            .setGroup(GROUP_KEY)
             .build();
     return new MediaNotification(notificationId, notification);
   }
@@ -401,9 +425,10 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
    * <p>Override this method to customize the buttons on the notification. Commands of the buttons
    * returned by this method must be contained in {@link MediaController#getAvailableCommands()}.
    *
-   * <p>By default, the notification shows {@link Player#COMMAND_PLAY_PAUSE} in {@linkplain
-   * Notification.MediaStyle#setShowActionsInCompactView(int...) compact view}. This can be
-   * customized by defining the index of the command in compact view of up to 3 commands in their
+   * <p>By default, the notification shows buttons for {@link Player#seekToPreviousMediaItem()},
+   * {@link Player#play()} or {@link Player#pause()}, {@link Player#seekToNextMediaItem()} in
+   * {@linkplain Notification.MediaStyle#setShowActionsInCompactView(int...) compact view}. This can
+   * be customized by defining the index of the command in compact view of up to 3 commands in their
    * extras with key {@link DefaultMediaNotificationProvider#COMMAND_KEY_COMPACT_VIEW_INDEX}.
    *
    * <p>To make the custom layout and commands work, you need to {@linkplain
@@ -491,9 +516,11 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
    * and define which actions are shown in compact view by returning the indices of the buttons to
    * be shown in compact view.
    *
-   * <p>By default, {@link Player#COMMAND_PLAY_PAUSE} is shown in compact view, unless some of the
-   * buttons are marked with {@link DefaultMediaNotificationProvider#COMMAND_KEY_COMPACT_VIEW_INDEX}
-   * to declare the index in compact view of the given command button in the button extras.
+   * <p>By default, the buttons for {@link Player#seekToPreviousMediaItem()}, {@link Player#play()}
+   * or {@link Player#pause()}, {@link Player#seekToNextMediaItem()} are shown in compact view,
+   * unless some of the buttons are marked with {@link
+   * DefaultMediaNotificationProvider#COMMAND_KEY_COMPACT_VIEW_INDEX} to declare the index in
+   * compact view of the given command button in the button extras.
    *
    * @param mediaSession The media session to which the actions will be sent.
    * @param mediaButtons The command buttons to be included in the notification.
@@ -509,7 +536,9 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
       NotificationCompat.Builder builder,
       MediaNotification.ActionFactory actionFactory) {
     int[] compactViewIndices = new int[3];
+    int[] defaultCompactViewIndices = new int[3];
     Arrays.fill(compactViewIndices, INDEX_UNSET);
+    Arrays.fill(defaultCompactViewIndices, INDEX_UNSET);
     int compactViewCommandCount = 0;
     for (int i = 0; i < mediaButtons.size(); i++) {
       CommandButton commandButton = mediaButtons.get(i);
@@ -534,10 +563,26 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
       if (compactViewIndex >= 0 && compactViewIndex < compactViewIndices.length) {
         compactViewCommandCount++;
         compactViewIndices[compactViewIndex] = i;
-      } else if (commandButton.playerCommand == COMMAND_PLAY_PAUSE
-          && compactViewCommandCount == 0) {
-        // If there is no custom configuration we use the play/pause action in compact view.
-        compactViewIndices[0] = i;
+      } else if (commandButton.playerCommand == COMMAND_SEEK_TO_PREVIOUS
+          || commandButton.playerCommand == COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM) {
+        defaultCompactViewIndices[0] = i;
+      } else if (commandButton.playerCommand == COMMAND_PLAY_PAUSE) {
+        defaultCompactViewIndices[1] = i;
+      } else if (commandButton.playerCommand == COMMAND_SEEK_TO_NEXT
+          || commandButton.playerCommand == COMMAND_SEEK_TO_NEXT_MEDIA_ITEM) {
+        defaultCompactViewIndices[2] = i;
+      }
+    }
+    if (compactViewCommandCount == 0) {
+      // If there is no custom configuration we use the seekPrev (if any), play/pause (if any),
+      // seekNext (if any) action in compact view.
+      int indexInCompactViewIndices = 0;
+      for (int i = 0; i < defaultCompactViewIndices.length; i++) {
+        if (defaultCompactViewIndices[i] == INDEX_UNSET) {
+          continue;
+        }
+        compactViewIndices[indexInCompactViewIndices] = defaultCompactViewIndices[i];
+        indexInCompactViewIndices++;
       }
     }
     for (int i = 0; i < compactViewIndices.length; i++) {
@@ -657,6 +702,14 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
         channel.setShowBadge(false);
       }
       notificationManager.createNotificationChannel(channel);
+    }
+  }
+
+  @RequiresApi(31)
+  private static class Api31 {
+    @DoNotInline
+    public static void setForegroundServiceBehavior(NotificationCompat.Builder builder) {
+      builder.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE);
     }
   }
 

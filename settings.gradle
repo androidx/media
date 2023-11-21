@@ -18,7 +18,8 @@ if (gradle.ext.has('androidxMediaModulePrefix')) {
     modulePrefix += gradle.ext.androidxMediaModulePrefix
 }
 
-gradle.ext.androidxMediaProjectName = 'media3'
+rootProject.name = 'androidx.media3'
+gradle.ext.rootProjectIsAndroidXMedia3 = true
 
 include modulePrefix + 'demo'
 project(modulePrefix + 'demo').projectDir = new File(rootDir, 'demos/main')
@@ -28,6 +29,10 @@ include modulePrefix + 'demo-gl'
 project(modulePrefix + 'demo-gl').projectDir = new File(rootDir, 'demos/gl')
 include modulePrefix + 'demo-session'
 project(modulePrefix + 'demo-session').projectDir = new File(rootDir, 'demos/session')
+include modulePrefix + 'demo-session-service'
+project(modulePrefix + 'demo-session-service').projectDir = new File(rootDir, 'demos/session_service')
+include modulePrefix + 'demo-session-automotive'
+project(modulePrefix + 'demo-session-automotive').projectDir = new File(rootDir, 'demos/session_automotive')
 include modulePrefix + 'demo-surface'
 project(modulePrefix + 'demo-surface').projectDir = new File(rootDir, 'demos/surface')
 include modulePrefix + 'demo-transformer'

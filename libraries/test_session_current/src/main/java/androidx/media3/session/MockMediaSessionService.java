@@ -23,24 +23,21 @@ import android.os.IBinder;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.ConditionVariable;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** A mock MediaSessionService */
-@UnstableApi
 public class MockMediaSessionService extends MediaSessionService {
   /** ID of the session that this service will create. */
   public static final String ID = "TestSession";
 
   private final AtomicInteger boundControllerCount;
+  private final ConditionVariable allControllersUnbound;
 
-  public MediaSession session;
-
-  private HandlerThread handlerThread;
-  private ConditionVariable allControllersUnbound;
+  @Nullable public MediaSession session;
+  @Nullable private HandlerThread handlerThread;
 
   public MockMediaSessionService() {
     boundControllerCount = new AtomicInteger(/* initialValue= */ 0);

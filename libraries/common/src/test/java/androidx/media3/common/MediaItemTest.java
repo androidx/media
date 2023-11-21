@@ -15,6 +15,8 @@
  */
 package androidx.media3.common;
 
+import static androidx.media3.common.MediaItem.ClippingConfiguration.FIELD_END_POSITION_US;
+import static androidx.media3.common.MediaItem.ClippingConfiguration.FIELD_START_POSITION_US;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
@@ -248,6 +250,25 @@ public class MediaItemTest {
   }
 
   @Test
+  public void createDrmConfigurationInstance_roundTripViaBundle_yieldsEqualInstance() {
+    MediaItem.DrmConfiguration drmConfiguration =
+        new MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID)
+            .setLicenseUri(URI_STRING + "/license")
+            .setLicenseRequestHeaders(ImmutableMap.of("Referer", "http://www.google.com"))
+            .setMultiSession(true)
+            .setForceDefaultLicenseUri(true)
+            .setPlayClearContentWithoutKey(true)
+            .setForcedSessionTrackTypes(ImmutableList.of(C.TRACK_TYPE_AUDIO))
+            .setKeySetId(new byte[] {1, 2, 3})
+            .build();
+
+    MediaItem.DrmConfiguration drmConfigurationFromBundle =
+        MediaItem.DrmConfiguration.fromBundle(drmConfiguration.toBundle());
+
+    assertThat(drmConfigurationFromBundle).isEqualTo(drmConfiguration);
+  }
+
+  @Test
   public void builderSetCustomCacheKey_setsCustomCacheKey() {
     MediaItem mediaItem =
         new MediaItem.Builder().setUri(URI_STRING).setCustomCacheKey("key").build();
@@ -320,6 +341,42 @@ public class MediaItemTest {
   }
 
   @Test
+  public void
+      createDefaultSubtitleConfigurationInstance_toBundleSkipsDefaultValues_fromBundleRestoresThem() {
+    MediaItem.SubtitleConfiguration subtitleConfiguration =
+        new MediaItem.SubtitleConfiguration.Builder(Uri.parse(URI_STRING + "/en")).build();
+
+    Bundle subtitleConfigurationBundle = subtitleConfiguration.toBundle();
+
+    // Check that default values are skipped when bundling, only Uri field (="0") is present
+    assertThat(subtitleConfigurationBundle.keySet()).containsExactly("0");
+
+    MediaItem.SubtitleConfiguration subtitleConfigurationFromBundle =
+        MediaItem.SubtitleConfiguration.fromBundle(subtitleConfigurationBundle);
+
+    assertThat(subtitleConfigurationFromBundle).isEqualTo(subtitleConfiguration);
+  }
+
+  @Test
+  public void createSubtitleConfigurationInstance_roundTripViaBundle_yieldsEqualInstance() {
+    // Creates instance by setting some non-default values
+    MediaItem.SubtitleConfiguration subtitleConfiguration =
+        new MediaItem.SubtitleConfiguration.Builder(Uri.parse(URI_STRING + "/en"))
+            .setMimeType(MimeTypes.APPLICATION_TTML)
+            .setLanguage("en")
+            .setSelectionFlags(C.SELECTION_FLAG_FORCED)
+            .setRoleFlags(C.ROLE_FLAG_ALTERNATE)
+            .setLabel("label")
+            .setId("id")
+            .build();
+
+    MediaItem.SubtitleConfiguration subtitleConfigurationFromBundle =
+        MediaItem.SubtitleConfiguration.fromBundle(subtitleConfiguration.toBundle());
+
+    assertThat(subtitleConfigurationFromBundle).isEqualTo(subtitleConfiguration);
+  }
+
+  @Test
   public void builderSetTag_isNullByDefault() {
     MediaItem mediaItem = new MediaItem.Builder().setUri(URI_STRING).build();
 
@@ -333,6 +390,22 @@ public class MediaItemTest {
     MediaItem mediaItem = new MediaItem.Builder().setUri(URI_STRING).setTag(tag).build();
 
     assertThat(mediaItem.localConfiguration.tag).isEqualTo(tag);
+  }
+
+  @Test
+  public void builderSetImageDurationMs_isTimeUnsetTByDefault() {
+    MediaItem mediaItem = new MediaItem.Builder().setUri(URI_STRING).build();
+
+    assertThat(mediaItem.localConfiguration.imageDurationMs).isEqualTo(C.TIME_UNSET);
+  }
+
+  @Test
+  public void builderSetImageDurationMs_setsImageDurationMs() {
+    long duration = 1;
+    MediaItem mediaItem =
+        new MediaItem.Builder().setUri(URI_STRING).setImageDurationMs(duration).build();
+
+    assertThat(mediaItem.localConfiguration.imageDurationMs).isEqualTo(duration);
   }
 
   @Test
@@ -367,7 +440,9 @@ public class MediaItemTest {
     // Please refrain from altering default values since doing so would cause issues with backwards
     // compatibility.
     assertThat(clippingConfiguration.startPositionMs).isEqualTo(0L);
+    assertThat(clippingConfiguration.startPositionUs).isEqualTo(0L);
     assertThat(clippingConfiguration.endPositionMs).isEqualTo(C.TIME_END_OF_SOURCE);
+    assertThat(clippingConfiguration.endPositionUs).isEqualTo(C.TIME_END_OF_SOURCE);
     assertThat(clippingConfiguration.relativeToLiveWindow).isFalse();
     assertThat(clippingConfiguration.relativeToDefaultPosition).isFalse();
     assertThat(clippingConfiguration.startsAtKeyFrame).isFalse();
@@ -386,7 +461,7 @@ public class MediaItemTest {
     assertThat(clippingConfigurationBundle.keySet()).isEmpty();
 
     MediaItem.ClippingConfiguration clippingConfigurationFromBundle =
-        MediaItem.ClippingConfiguration.CREATOR.fromBundle(clippingConfigurationBundle);
+        MediaItem.ClippingConfiguration.fromBundle(clippingConfigurationBundle);
 
     assertThat(clippingConfigurationFromBundle).isEqualTo(clippingConfiguration);
   }
@@ -397,13 +472,59 @@ public class MediaItemTest {
     MediaItem.ClippingConfiguration clippingConfiguration =
         new MediaItem.ClippingConfiguration.Builder()
             .setStartPositionMs(1000L)
+            .setEndPositionUs(2000_031L)
             .setStartsAtKeyFrame(true)
             .build();
 
     MediaItem.ClippingConfiguration clippingConfigurationFromBundle =
-        MediaItem.ClippingConfiguration.CREATOR.fromBundle(clippingConfiguration.toBundle());
+        MediaItem.ClippingConfiguration.fromBundle(clippingConfiguration.toBundle());
 
     assertThat(clippingConfigurationFromBundle).isEqualTo(clippingConfiguration);
+  }
+
+  @Test
+  public void createClippingConfigurationInstance_viaBundleWithOnlyMs_yieldsEqualInstance() {
+    // Creates instance by setting some non-default values
+    MediaItem.ClippingConfiguration clippingConfiguration =
+        new MediaItem.ClippingConfiguration.Builder()
+            .setStartPositionMs(1000L)
+            .setEndPositionMs(2000L)
+            .setStartsAtKeyFrame(true)
+            .build();
+    Bundle clippingConfigurationBundle = clippingConfiguration.toBundle();
+    clippingConfigurationBundle.remove(FIELD_START_POSITION_US);
+    clippingConfigurationBundle.remove(FIELD_END_POSITION_US);
+
+    MediaItem.ClippingConfiguration clippingConfigurationFromBundle =
+        MediaItem.ClippingConfiguration.CREATOR.fromBundle(clippingConfigurationBundle);
+
+    assertThat(clippingConfigurationFromBundle).isEqualTo(clippingConfiguration);
+  }
+
+  @Test
+  public void createClippingConfigurationInstance_setsStartPositionInMsAndUs_fieldsAreConsistent() {
+    // Creates instance by setting some non-default values
+    MediaItem.ClippingConfiguration clippingConfiguration =
+        new MediaItem.ClippingConfiguration.Builder()
+            .setStartPositionMs(1000L)
+            .setStartPositionUs(200_203L)
+            .build();
+
+    assertThat(clippingConfiguration.startPositionMs).isEqualTo(200L);
+    assertThat(clippingConfiguration.startPositionUs).isEqualTo(200_203L);
+  }
+
+  @Test
+  public void createClippingConfigurationInstance_setsEndPositionInMsAndUs_fieldsAreConsistent() {
+    // Creates instance by setting some non-default values
+    MediaItem.ClippingConfiguration clippingConfiguration =
+        new MediaItem.ClippingConfiguration.Builder()
+            .setEndPositionUs(1000L)
+            .setEndPositionMs(C.TIME_END_OF_SOURCE)
+            .build();
+
+    assertThat(clippingConfiguration.endPositionMs).isEqualTo(C.TIME_END_OF_SOURCE);
+    assertThat(clippingConfiguration.endPositionMs).isEqualTo(C.TIME_END_OF_SOURCE);
   }
 
   @Test
@@ -539,6 +660,21 @@ public class MediaItemTest {
   }
 
   @Test
+  public void createAdsConfigurationInstance_roundTripViaBundle_yieldsEqualInstanceExceptAdsId() {
+    Uri adTagUri = Uri.parse(URI_STRING + "/ad");
+    MediaItem.AdsConfiguration adsConfiguration =
+        new MediaItem.AdsConfiguration.Builder(adTagUri)
+            .setAdsId("Something that will be lost")
+            .build();
+
+    MediaItem.AdsConfiguration adsConfigurationFromBundle =
+        MediaItem.AdsConfiguration.fromBundle(adsConfiguration.toBundle());
+
+    assertThat(adsConfigurationFromBundle.adTagUri).isEqualTo(adsConfiguration.adTagUri);
+    assertThat(adsConfigurationFromBundle.adsId).isNull();
+  }
+
+  @Test
   public void builderSetMediaMetadata_setsMetadata() {
     MediaMetadata mediaMetadata = new MediaMetadata.Builder().setTitle("title").build();
 
@@ -575,7 +711,7 @@ public class MediaItemTest {
     assertThat(liveConfigurationBundle.keySet()).isEmpty();
 
     MediaItem.LiveConfiguration liveConfigurationFromBundle =
-        MediaItem.LiveConfiguration.CREATOR.fromBundle(liveConfigurationBundle);
+        MediaItem.LiveConfiguration.fromBundle(liveConfigurationBundle);
 
     assertThat(liveConfigurationFromBundle).isEqualTo(liveConfiguration);
   }
@@ -590,9 +726,70 @@ public class MediaItemTest {
             .build();
 
     MediaItem.LiveConfiguration liveConfigurationFromBundle =
-        MediaItem.LiveConfiguration.CREATOR.fromBundle(liveConfiguration.toBundle());
+        MediaItem.LiveConfiguration.fromBundle(liveConfiguration.toBundle());
 
     assertThat(liveConfigurationFromBundle).isEqualTo(liveConfiguration);
+  }
+
+  @Test
+  public void
+      createDefaultLocalConfigurationInstance_toBundleSkipsDefaultValues_fromBundleRestoresThem() {
+    MediaItem mediaItem = new MediaItem.Builder().setUri(URI_STRING).build();
+
+    Bundle localConfigurationBundle = mediaItem.localConfiguration.toBundle();
+
+    // Check that default values are skipped when bundling, only Uri field (="0") is present
+    assertThat(localConfigurationBundle.keySet()).containsExactly("0");
+
+    MediaItem.LocalConfiguration restoredLocalConfiguration =
+        MediaItem.LocalConfiguration.fromBundle(localConfigurationBundle);
+
+    assertThat(restoredLocalConfiguration).isEqualTo(mediaItem.localConfiguration);
+    assertThat(restoredLocalConfiguration.streamKeys).isEmpty();
+    assertThat(restoredLocalConfiguration.subtitleConfigurations).isEmpty();
+  }
+
+  @Test
+  public void createLocalConfigurationInstance_roundTripViaBundle_yieldsEqualInstance() {
+    Map<String, String> requestHeaders = new HashMap<>();
+    requestHeaders.put("Referer", "http://www.google.com");
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(URI_STRING)
+            .setMimeType(MimeTypes.APPLICATION_MP4)
+            .setCustomCacheKey("key")
+            .setSubtitleConfigurations(
+                ImmutableList.of(
+                    new MediaItem.SubtitleConfiguration.Builder(Uri.parse(URI_STRING + "/en"))
+                        .setMimeType(MimeTypes.APPLICATION_TTML)
+                        .setLanguage("en")
+                        .setSelectionFlags(C.SELECTION_FLAG_FORCED)
+                        .setRoleFlags(C.ROLE_FLAG_ALTERNATE)
+                        .setLabel("label")
+                        .setId("id")
+                        .build()))
+            .setDrmConfiguration(
+                new MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID)
+                    .setLicenseUri(Uri.parse(URI_STRING))
+                    .setLicenseRequestHeaders(requestHeaders)
+                    .setMultiSession(true)
+                    .setForceDefaultLicenseUri(true)
+                    .setPlayClearContentWithoutKey(true)
+                    .setForcedSessionTrackTypes(ImmutableList.of(C.TRACK_TYPE_AUDIO))
+                    .setKeySetId(new byte[] {1, 2, 3})
+                    .build())
+            .setAdsConfiguration(
+                new MediaItem.AdsConfiguration.Builder(Uri.parse(URI_STRING)).build())
+            .build();
+
+    MediaItem.LocalConfiguration localConfiguration = mediaItem.localConfiguration;
+    MediaItem.LocalConfiguration localConfigurationFromBundle =
+        MediaItem.LocalConfiguration.fromBundle(localConfiguration.toBundle());
+    MediaItem.LocalConfiguration localConfigurationFromMediaItemBundle =
+        MediaItem.fromBundle(mediaItem.toBundleIncludeLocalConfiguration()).localConfiguration;
+
+    assertThat(localConfigurationFromBundle).isEqualTo(localConfiguration);
+    assertThat(localConfigurationFromMediaItemBundle).isEqualTo(localConfiguration);
   }
 
   @Test
@@ -727,7 +924,7 @@ public class MediaItemTest {
     MediaItem copy = mediaItem.buildUpon().build();
 
     assertThat(copy).isEqualTo(mediaItem);
-    assertThat(copy.localConfiguration).isEqualTo(mediaItem.playbackProperties);
+    assertThat(copy.localConfiguration).isEqualTo(mediaItem.localConfiguration);
   }
 
   @Test
@@ -792,7 +989,7 @@ public class MediaItemTest {
   }
 
   @Test
-  public void roundTripViaBundle_withoutPlaybackProperties_yieldsEqualInstance() {
+  public void roundTripViaBundle_withoutLocalConfiguration_yieldsEqualInstance() {
     MediaItem mediaItem =
         new MediaItem.Builder()
             .setMediaId("mediaId")
@@ -818,15 +1015,27 @@ public class MediaItemTest {
             .build();
 
     assertThat(mediaItem.localConfiguration).isNull();
-    assertThat(MediaItem.CREATOR.fromBundle(mediaItem.toBundle())).isEqualTo(mediaItem);
+    assertThat(MediaItem.fromBundle(mediaItem.toBundle())).isEqualTo(mediaItem);
   }
 
   @Test
-  public void roundTripViaBundle_withPlaybackProperties_dropsPlaybackProperties() {
+  public void
+      roundTripViaDefaultBundle_mediaItemContainsLocalConfiguration_dropsLocalConfiguration() {
     MediaItem mediaItem = new MediaItem.Builder().setUri(URI_STRING).build();
 
     assertThat(mediaItem.localConfiguration).isNotNull();
-    assertThat(MediaItem.CREATOR.fromBundle(mediaItem.toBundle()).localConfiguration).isNull();
+    assertThat(MediaItem.fromBundle(mediaItem.toBundle()).localConfiguration).isNull();
+  }
+
+  @Test
+  public void
+      roundTripViaBundleIncludeLocalConfiguration_mediaItemContainsLocalConfiguration_restoresLocalConfiguration() {
+    MediaItem mediaItem = new MediaItem.Builder().setUri(URI_STRING).build();
+    MediaItem restoredMediaItem =
+        MediaItem.fromBundle(mediaItem.toBundleIncludeLocalConfiguration());
+
+    assertThat(mediaItem.localConfiguration).isNotNull();
+    assertThat(restoredMediaItem.localConfiguration).isEqualTo(mediaItem.localConfiguration);
   }
 
   @Test
@@ -852,7 +1061,7 @@ public class MediaItemTest {
     // Check that default values are skipped when bundling.
     assertThat(mediaItemBundle.keySet()).isEmpty();
 
-    MediaItem mediaItemFromBundle = MediaItem.CREATOR.fromBundle(mediaItem.toBundle());
+    MediaItem mediaItemFromBundle = MediaItem.fromBundle(mediaItem.toBundle());
 
     assertThat(mediaItemFromBundle).isEqualTo(mediaItem);
   }
@@ -880,7 +1089,7 @@ public class MediaItemTest {
                     .build())
             .build();
 
-    MediaItem mediaItemFromBundle = MediaItem.CREATOR.fromBundle(mediaItem.toBundle());
+    MediaItem mediaItemFromBundle = MediaItem.fromBundle(mediaItem.toBundle());
 
     assertThat(mediaItemFromBundle).isEqualTo(mediaItem);
     assertThat(mediaItemFromBundle.requestMetadata.extras)

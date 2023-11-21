@@ -27,6 +27,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.metadata.flac.PictureFrame;
 import androidx.media3.extractor.metadata.vorbis.VorbisComment;
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -59,22 +60,31 @@ public final class VorbisUtil {
 
     /** The {@code vorbis_version} field. */
     public final int version;
+
     /** The {@code audio_channels} field. */
     public final int channels;
+
     /** The {@code audio_sample_rate} field. */
     public final int sampleRate;
+
     /** The {@code bitrate_maximum} field, or {@link Format#NO_VALUE} if not greater than zero. */
     public final int bitrateMaximum;
+
     /** The {@code bitrate_nominal} field, or {@link Format#NO_VALUE} if not greater than zero. */
     public final int bitrateNominal;
+
     /** The {@code bitrate_minimum} field, or {@link Format#NO_VALUE} if not greater than zero. */
     public final int bitrateMinimum;
+
     /** The {@code blocksize_0} field. */
     public final int blockSize0;
+
     /** The {@code blocksize_1} field. */
     public final int blockSize1;
+
     /** The {@code framing_flag} field. */
     public final boolean framingFlag;
+
     /** The raw header data. */
     public final byte[] data;
 
@@ -148,6 +158,56 @@ public final class VorbisUtil {
       x >>>= 1;
     }
     return val;
+  }
+
+  /**
+   * Returns codec-specific data for configuring a media codec for decoding Vorbis.
+   *
+   * @param initializationData The initialization data from the ESDS box.
+   * @return Codec-specific data for configuring a media codec for decoding Vorbis.
+   */
+  public static ImmutableList<byte[]> parseVorbisCsdFromEsdsInitializationData(
+      byte[] initializationData) {
+    ParsableByteArray buffer = new ParsableByteArray(initializationData);
+    buffer.skipBytes(1); // 0x02 for vorbis audio
+
+    int identificationHeaderLength = 0;
+    while (buffer.bytesLeft() > 0 && buffer.peekUnsignedByte() == 0xFF) {
+      identificationHeaderLength += 0xFF;
+      buffer.skipBytes(1);
+    }
+    identificationHeaderLength += buffer.readUnsignedByte();
+
+    int commentHeaderLength = 0;
+    while (buffer.bytesLeft() > 0 && buffer.peekUnsignedByte() == 0xFF) {
+      commentHeaderLength += 0xFF;
+      buffer.skipBytes(1);
+    }
+    commentHeaderLength += buffer.readUnsignedByte();
+
+    // csd-0 is the identification header.
+    byte[] csd0 = new byte[identificationHeaderLength];
+    int identificationHeaderOffset = buffer.getPosition();
+    System.arraycopy(
+        /* src= */ initializationData,
+        /* srcPos= */ identificationHeaderOffset,
+        /* dest= */ csd0,
+        /* destPos= */ 0,
+        /* length= */ identificationHeaderLength);
+
+    // csd-1 is the setup header, which is the remaining data after the identification and comment
+    // headers.
+    int setupHeaderOffset =
+        identificationHeaderOffset + identificationHeaderLength + commentHeaderLength;
+    int setupHeaderLength = initializationData.length - setupHeaderOffset;
+    byte[] csd1 = new byte[setupHeaderLength];
+    System.arraycopy(
+        /* src= */ initializationData,
+        /* srcPos= */ setupHeaderOffset,
+        /* dest= */ csd1,
+        /* destPos= */ 0,
+        /* length= */ setupHeaderLength);
+    return ImmutableList.of(csd0, csd1);
   }
 
   /**
@@ -309,7 +369,7 @@ public final class VorbisUtil {
    * @param headerType the type of the header expected.
    * @param header the alleged header bytes.
    * @param quiet if {@code true} no exceptions are thrown. Instead {@code false} is returned.
-   * @return the number of bytes read.
+   * @return Whether the header is a Vorbis header.
    * @throws ParserException thrown if header type or capture pattern is not as expected.
    */
   public static boolean verifyVorbisHeaderCapturePattern(
@@ -372,7 +432,7 @@ public final class VorbisUtil {
     bitArray.skipBits(headerData.getPosition() * 8);
 
     for (int i = 0; i < numberOfBooks; i++) {
-      readBook(bitArray);
+      skipBook(bitArray);
     }
 
     int timeCount = bitArray.readBits(6) + 1;
@@ -536,7 +596,7 @@ public final class VorbisUtil {
     }
   }
 
-  private static CodeBook readBook(VorbisBitArray bitArray) throws ParserException {
+  private static void skipBook(VorbisBitArray bitArray) throws ParserException {
     if (bitArray.readBits(24) != 0x564342) {
       throw ParserException.createForMalformedContainer(
           "expected code book to start with [0x56, 0x43, 0x42] at " + bitArray.getPosition(),
@@ -544,30 +604,23 @@ public final class VorbisUtil {
     }
     int dimensions = bitArray.readBits(16);
     int entries = bitArray.readBits(24);
-    long[] lengthMap = new long[entries];
 
     boolean isOrdered = bitArray.readBit();
     if (!isOrdered) {
       boolean isSparse = bitArray.readBit();
-      for (int i = 0; i < lengthMap.length; i++) {
+      for (int i = 0; i < entries; i++) {
         if (isSparse) {
           if (bitArray.readBit()) {
-            lengthMap[i] = (long) (bitArray.readBits(5) + 1);
-          } else { // entry unused
-            lengthMap[i] = 0;
+            bitArray.skipBits(5); // lengthMap entry
           }
         } else { // not sparse
-          lengthMap[i] = (long) (bitArray.readBits(5) + 1);
+          bitArray.skipBits(5); // lengthMap entry
         }
       }
     } else {
-      int length = bitArray.readBits(5) + 1;
-      for (int i = 0; i < lengthMap.length; ) {
-        int num = bitArray.readBits(iLog(entries - i));
-        for (int j = 0; j < num && i < lengthMap.length; i++, j++) {
-          lengthMap[i] = length;
-        }
-        length++;
+      bitArray.skipBits(5); // length
+      for (int i = 0; i < entries; ) {
+        i += bitArray.readBits(iLog(entries - i)); // num
       }
     }
 
@@ -593,7 +646,6 @@ public final class VorbisUtil {
       // discard (no decoding required yet)
       bitArray.skipBits((int) (lookupValuesCount * valueBits));
     }
-    return new CodeBook(dimensions, entries, lengthMap, lookupType, isOrdered);
   }
 
   /**
@@ -606,23 +658,5 @@ public final class VorbisUtil {
 
   private VorbisUtil() {
     // Prevent instantiation.
-  }
-
-  private static final class CodeBook {
-
-    public final int dimensions;
-    public final int entries;
-    public final long[] lengthMap;
-    public final int lookupType;
-    public final boolean isOrdered;
-
-    public CodeBook(
-        int dimensions, int entries, long[] lengthMap, int lookupType, boolean isOrdered) {
-      this.dimensions = dimensions;
-      this.entries = entries;
-      this.lengthMap = lengthMap;
-      this.lookupType = lookupType;
-      this.isOrdered = isOrdered;
-    }
   }
 }

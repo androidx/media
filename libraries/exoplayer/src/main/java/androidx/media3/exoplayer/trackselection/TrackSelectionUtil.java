@@ -20,6 +20,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.Tracks;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.source.TrackGroupArray;
@@ -29,7 +30,6 @@ import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
 import java.util.List;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 
 /** Track selection related utility methods. */
 @UnstableApi
@@ -123,7 +123,7 @@ public final class TrackSelectionUtil {
     int numberOfTracks = trackSelection.length();
     int numberOfExcludedTracks = 0;
     for (int i = 0; i < numberOfTracks; i++) {
-      if (trackSelection.isBlacklisted(i, nowMs)) {
+      if (trackSelection.isTrackExcluded(i, nowMs)) {
         numberOfExcludedTracks++;
       }
     }

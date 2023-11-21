@@ -276,19 +276,25 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
   @Target(TYPE_USE)
   @IntDef({MODE_PLAYBACK, MODE_QUERY, MODE_DOWNLOAD, MODE_RELEASE})
   public @interface Mode {}
+
   /**
    * Loads and refreshes (if necessary) a license for playback. Supports streaming and offline
    * licenses.
    */
   public static final int MODE_PLAYBACK = 0;
+
   /** Restores an offline license to allow its status to be queried. */
   public static final int MODE_QUERY = 1;
+
   /** Downloads an offline license or renews an existing one. */
   public static final int MODE_DOWNLOAD = 2;
+
   /** Releases an existing offline license. */
   public static final int MODE_RELEASE = 3;
+
   /** Number of times to retry for initial provisioning and key request for reporting error. */
   public static final int INITIAL_DRM_REQUEST_RETRY_COUNT = 3;
+
   /** Default value for {@link Builder#setSessionKeepaliveMs(long)}. */
   public static final long DEFAULT_SESSION_KEEPALIVE_MS = 5 * 60 * C.MILLIS_PER_SECOND;
 
@@ -321,89 +327,6 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
   private @MonotonicNonNull PlayerId playerId;
 
   /* package */ @Nullable volatile MediaDrmHandler mediaDrmHandler;
-
-  /**
-   * @param uuid The UUID of the drm scheme.
-   * @param exoMediaDrm An underlying {@link ExoMediaDrm} for use by the manager.
-   * @param callback Performs key and provisioning requests.
-   * @param keyRequestParameters An optional map of parameters to pass as the last argument to
-   *     {@link ExoMediaDrm#getKeyRequest(byte[], List, int, HashMap)}. May be null.
-   * @deprecated Use {@link Builder} instead.
-   */
-  @SuppressWarnings("deprecation")
-  @Deprecated
-  public DefaultDrmSessionManager(
-      UUID uuid,
-      ExoMediaDrm exoMediaDrm,
-      MediaDrmCallback callback,
-      @Nullable HashMap<String, String> keyRequestParameters) {
-    this(
-        uuid,
-        exoMediaDrm,
-        callback,
-        keyRequestParameters == null ? new HashMap<>() : keyRequestParameters,
-        /* multiSession= */ false,
-        INITIAL_DRM_REQUEST_RETRY_COUNT);
-  }
-
-  /**
-   * @param uuid The UUID of the drm scheme.
-   * @param exoMediaDrm An underlying {@link ExoMediaDrm} for use by the manager.
-   * @param callback Performs key and provisioning requests.
-   * @param keyRequestParameters An optional map of parameters to pass as the last argument to
-   *     {@link ExoMediaDrm#getKeyRequest(byte[], List, int, HashMap)}. May be null.
-   * @param multiSession A boolean that specify whether multiple key session support is enabled.
-   *     Default is false.
-   * @deprecated Use {@link Builder} instead.
-   */
-  @SuppressWarnings("deprecation")
-  @Deprecated
-  public DefaultDrmSessionManager(
-      UUID uuid,
-      ExoMediaDrm exoMediaDrm,
-      MediaDrmCallback callback,
-      @Nullable HashMap<String, String> keyRequestParameters,
-      boolean multiSession) {
-    this(
-        uuid,
-        exoMediaDrm,
-        callback,
-        keyRequestParameters == null ? new HashMap<>() : keyRequestParameters,
-        multiSession,
-        INITIAL_DRM_REQUEST_RETRY_COUNT);
-  }
-
-  /**
-   * @param uuid The UUID of the drm scheme.
-   * @param exoMediaDrm An underlying {@link ExoMediaDrm} for use by the manager.
-   * @param callback Performs key and provisioning requests.
-   * @param keyRequestParameters An optional map of parameters to pass as the last argument to
-   *     {@link ExoMediaDrm#getKeyRequest(byte[], List, int, HashMap)}. May be null.
-   * @param multiSession A boolean that specify whether multiple key session support is enabled.
-   *     Default is false.
-   * @param initialDrmRequestRetryCount The number of times to retry for initial provisioning and
-   *     key request before reporting error.
-   * @deprecated Use {@link Builder} instead.
-   */
-  @Deprecated
-  public DefaultDrmSessionManager(
-      UUID uuid,
-      ExoMediaDrm exoMediaDrm,
-      MediaDrmCallback callback,
-      @Nullable HashMap<String, String> keyRequestParameters,
-      boolean multiSession,
-      int initialDrmRequestRetryCount) {
-    this(
-        uuid,
-        new ExoMediaDrm.AppManagedProvider(exoMediaDrm),
-        callback,
-        keyRequestParameters == null ? new HashMap<>() : keyRequestParameters,
-        multiSession,
-        /* useDrmSessionsForClearContentTrackTypes= */ new int[0],
-        /* playClearSamplesWithoutKeys= */ false,
-        new DefaultLoadErrorHandlingPolicy(initialDrmRequestRetryCount),
-        DEFAULT_SESSION_KEEPALIVE_MS);
-  }
 
   private DefaultDrmSessionManager(
       UUID uuid,

@@ -21,6 +21,7 @@ import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_MEDIA_ID_COMPAT;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_PLAYBACK_SPEED_COMPAT;
+import static androidx.media3.session.MediaUtils.intersect;
 
 import android.media.AudioManager;
 import android.os.Bundle;
@@ -64,15 +65,49 @@ import java.util.List;
 
   private static final int STATUS_CODE_SUCCESS_COMPAT = -1;
 
+  private final boolean playIfSuppressed;
+
   private int legacyStatusCode;
   @Nullable private String legacyErrorMessage;
   @Nullable private Bundle legacyErrorExtras;
   private ImmutableList<CommandButton> customLayout;
+  private SessionCommands availableSessionCommands;
+  private Commands availablePlayerCommands;
 
-  public PlayerWrapper(Player player) {
+  public PlayerWrapper(
+      Player player,
+      boolean playIfSuppressed,
+      ImmutableList<CommandButton> customLayout,
+      SessionCommands availableSessionCommands,
+      Commands availablePlayerCommands) {
     super(player);
+    this.playIfSuppressed = playIfSuppressed;
+    this.customLayout = customLayout;
+    this.availableSessionCommands = availableSessionCommands;
+    this.availablePlayerCommands = availablePlayerCommands;
     legacyStatusCode = STATUS_CODE_SUCCESS_COMPAT;
-    customLayout = ImmutableList.of();
+  }
+
+  public void setAvailableCommands(
+      SessionCommands availableSessionCommands, Commands availablePlayerCommands) {
+    this.availableSessionCommands = availableSessionCommands;
+    this.availablePlayerCommands = availablePlayerCommands;
+  }
+
+  public SessionCommands getAvailableSessionCommands() {
+    return availableSessionCommands;
+  }
+
+  public Commands getAvailablePlayerCommands() {
+    return availablePlayerCommands;
+  }
+
+  public void setCustomLayout(ImmutableList<CommandButton> customLayout) {
+    this.customLayout = customLayout;
+  }
+
+  /* package */ ImmutableList<CommandButton> getCustomLayout() {
+    return customLayout;
   }
 
   /**
@@ -99,11 +134,6 @@ import java.util.List;
   /** Returns the legacy status code. */
   public int getLegacyStatusCode() {
     return legacyStatusCode;
-  }
-
-  /** Sets the custom layout. */
-  public void setCustomLayout(ImmutableList<CommandButton> customLayout) {
-    this.customLayout = customLayout;
   }
 
   /** Clears the legacy error status. */
@@ -484,6 +514,18 @@ import java.util.List;
     super.moveMediaItems(fromIndex, toIndex, newIndex);
   }
 
+  @Override
+  public void replaceMediaItem(int index, MediaItem mediaItem) {
+    verifyApplicationThread();
+    super.replaceMediaItem(index, mediaItem);
+  }
+
+  @Override
+  public void replaceMediaItems(int fromIndex, int toIndex, List<MediaItem> mediaItems) {
+    verifyApplicationThread();
+    super.replaceMediaItems(fromIndex, toIndex, mediaItems);
+  }
+
   @Deprecated
   @Override
   public boolean hasPrevious() {
@@ -604,7 +646,7 @@ import java.util.List;
   }
 
   public MediaMetadata getPlaylistMetadataWithCommandCheck() {
-    return isCommandAvailable(Player.COMMAND_GET_MEDIA_ITEMS_METADATA)
+    return isCommandAvailable(Player.COMMAND_GET_METADATA)
         ? getPlaylistMetadata()
         : MediaMetadata.EMPTY;
   }
@@ -736,18 +778,28 @@ import java.util.List;
     return isCommandAvailable(Player.COMMAND_GET_DEVICE_VOLUME) && isDeviceMuted();
   }
 
+  /**
+   * @deprecated Use {@link #setDeviceVolume(int, int)} instead.
+   */
+  @SuppressWarnings("deprecation") // Forwarding to deprecated method
+  @Deprecated
   @Override
   public void setDeviceVolume(int volume) {
     verifyApplicationThread();
     super.setDeviceVolume(volume);
   }
 
-  public void setDeviceVolumeIfCommandAvailable(int volume) {
-    if (isCommandAvailable(COMMAND_SET_DEVICE_VOLUME)) {
-      setDeviceVolume(volume);
-    }
+  @Override
+  public void setDeviceVolume(int volume, @C.VolumeFlags int flags) {
+    verifyApplicationThread();
+    super.setDeviceVolume(volume, flags);
   }
 
+  /**
+   * @deprecated Use {@link #increaseDeviceVolume(int)} instead.
+   */
+  @SuppressWarnings("deprecation") // Forwarding to deprecated method
+  @Deprecated
   @Override
   public void increaseDeviceVolume() {
     verifyApplicationThread();
@@ -755,15 +807,43 @@ import java.util.List;
   }
 
   @Override
+  public void increaseDeviceVolume(@C.VolumeFlags int flags) {
+    verifyApplicationThread();
+    super.increaseDeviceVolume(flags);
+  }
+
+  /**
+   * @deprecated Use {@link #decreaseDeviceVolume(int)} instead.
+   */
+  @SuppressWarnings("deprecation") // Forwarding to deprecated method
+  @Deprecated
+  @Override
   public void decreaseDeviceVolume() {
     verifyApplicationThread();
     super.decreaseDeviceVolume();
   }
 
   @Override
+  public void decreaseDeviceVolume(@C.VolumeFlags int flags) {
+    verifyApplicationThread();
+    super.decreaseDeviceVolume(flags);
+  }
+
+  /**
+   * @deprecated Use {@link #setDeviceMuted(boolean, int)} instead.
+   */
+  @SuppressWarnings("deprecation") // Forwarding to deprecated method
+  @Deprecated
+  @Override
   public void setDeviceMuted(boolean muted) {
     verifyApplicationThread();
     super.setDeviceMuted(muted);
+  }
+
+  @Override
+  public void setDeviceMuted(boolean muted, @C.VolumeFlags int flags) {
+    verifyApplicationThread();
+    super.setDeviceMuted(muted, flags);
   }
 
   @Override
@@ -811,9 +891,7 @@ import java.util.List;
   }
 
   public MediaMetadata getMediaMetadataWithCommandCheck() {
-    return isCommandAvailable(COMMAND_GET_MEDIA_ITEMS_METADATA)
-        ? getMediaMetadata()
-        : MediaMetadata.EMPTY;
+    return isCommandAvailable(COMMAND_GET_METADATA) ? getMediaMetadata() : MediaMetadata.EMPTY;
   }
 
   @Override
@@ -921,17 +999,16 @@ import java.util.List;
     }
     @Nullable PlaybackException playerError = getPlayerError();
     int state =
-        MediaUtils.convertToPlaybackStateCompatState(
-            playerError, getPlaybackState(), getPlayWhenReady());
+        LegacyConversions.convertToPlaybackStateCompatState(/* player= */ this, playIfSuppressed);
     // Always advertise ACTION_SET_RATING.
     long actions = PlaybackStateCompat.ACTION_SET_RATING;
-    Commands availableCommands = getAvailableCommands();
+    Commands availableCommands = intersect(availablePlayerCommands, getAvailableCommands());
     for (int i = 0; i < availableCommands.size(); i++) {
       actions |= convertCommandToPlaybackStateActions(availableCommands.get(i));
     }
     long queueItemId =
         isCommandAvailable(COMMAND_GET_TIMELINE)
-            ? MediaUtils.convertToQueueItemId(getCurrentMediaItemIndex())
+            ? LegacyConversions.convertToQueueItemId(getCurrentMediaItemIndex())
             : MediaSessionCompat.QueueItem.UNKNOWN_ID;
     float playbackSpeed = getPlaybackParameters().speed;
     float sessionPlaybackSpeed = isPlaying() ? playbackSpeed : 0f;
@@ -957,7 +1034,9 @@ import java.util.List;
       CommandButton commandButton = customLayout.get(i);
       if (commandButton.sessionCommand != null) {
         SessionCommand sessionCommand = commandButton.sessionCommand;
-        if (sessionCommand.commandCode == SessionCommand.COMMAND_CODE_CUSTOM) {
+        if (sessionCommand.commandCode == SessionCommand.COMMAND_CODE_CUSTOM
+            && CommandButton.isEnabled(
+                commandButton, availableSessionCommands, availablePlayerCommands)) {
           builder.addCustomAction(
               new PlaybackStateCompat.CustomAction.Builder(
                       sessionCommand.customAction,
@@ -976,24 +1055,42 @@ import java.util.List;
   }
 
   @Nullable
+  @SuppressWarnings("deprecation") // Backwards compatibility with old volume commands
   public VolumeProviderCompat createVolumeProviderCompat() {
     if (getDeviceInfo().playbackType == DeviceInfo.PLAYBACK_TYPE_LOCAL) {
       return null;
     }
     Commands availableCommands = getAvailableCommands();
     int volumeControlType = VolumeProviderCompat.VOLUME_CONTROL_FIXED;
-    if (availableCommands.contains(COMMAND_ADJUST_DEVICE_VOLUME)) {
+    if (availableCommands.containsAny(
+        COMMAND_ADJUST_DEVICE_VOLUME, COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS)) {
       volumeControlType = VolumeProviderCompat.VOLUME_CONTROL_RELATIVE;
-      if (availableCommands.contains(COMMAND_SET_DEVICE_VOLUME)) {
+      if (availableCommands.containsAny(
+          COMMAND_SET_DEVICE_VOLUME, COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS)) {
         volumeControlType = VolumeProviderCompat.VOLUME_CONTROL_ABSOLUTE;
       }
     }
     Handler handler = new Handler(getApplicationLooper());
     int currentVolume = getDeviceVolumeWithCommandCheck();
-    return new VolumeProviderCompat(volumeControlType, getDeviceInfo().maxVolume, currentVolume) {
+    int legacyVolumeFlag = C.VOLUME_FLAG_SHOW_UI;
+    DeviceInfo deviceInfo = getDeviceInfo();
+    return new VolumeProviderCompat(
+        volumeControlType, deviceInfo.maxVolume, currentVolume, deviceInfo.routingControllerId) {
       @Override
       public void onSetVolumeTo(int volume) {
-        postOrRun(handler, () -> setDeviceVolumeIfCommandAvailable(volume));
+        postOrRun(
+            handler,
+            () -> {
+              if (!isCommandAvailable(COMMAND_SET_DEVICE_VOLUME)
+                  && !isCommandAvailable(COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS)) {
+                return;
+              }
+              if (isCommandAvailable(COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS)) {
+                setDeviceVolume(volume, legacyVolumeFlag);
+              } else {
+                setDeviceVolume(volume);
+              }
+            });
       }
 
       @Override
@@ -1001,24 +1098,45 @@ import java.util.List;
         postOrRun(
             handler,
             () -> {
-              if (!isCommandAvailable(COMMAND_ADJUST_DEVICE_VOLUME)) {
+              if (!isCommandAvailable(COMMAND_ADJUST_DEVICE_VOLUME)
+                  && !isCommandAvailable(COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS)) {
                 return;
               }
               switch (direction) {
                 case AudioManager.ADJUST_RAISE:
-                  increaseDeviceVolume();
+                  if (isCommandAvailable(COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS)) {
+                    increaseDeviceVolume(legacyVolumeFlag);
+                  } else {
+                    increaseDeviceVolume();
+                  }
                   break;
                 case AudioManager.ADJUST_LOWER:
-                  decreaseDeviceVolume();
+                  if (isCommandAvailable(COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS)) {
+                    decreaseDeviceVolume(legacyVolumeFlag);
+                  } else {
+                    decreaseDeviceVolume();
+                  }
                   break;
                 case AudioManager.ADJUST_MUTE:
-                  setDeviceMuted(true);
+                  if (isCommandAvailable(COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS)) {
+                    setDeviceMuted(true, legacyVolumeFlag);
+                  } else {
+                    setDeviceMuted(true);
+                  }
                   break;
                 case AudioManager.ADJUST_UNMUTE:
-                  setDeviceMuted(false);
+                  if (isCommandAvailable(COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS)) {
+                    setDeviceMuted(false, legacyVolumeFlag);
+                  } else {
+                    setDeviceMuted(false);
+                  }
                   break;
                 case AudioManager.ADJUST_TOGGLE_MUTE:
-                  setDeviceMuted(!isDeviceMutedWithCommandCheck());
+                  if (isCommandAvailable(COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS)) {
+                    setDeviceMuted(!isDeviceMutedWithCommandCheck(), legacyVolumeFlag);
+                  } else {
+                    setDeviceMuted(!isDeviceMutedWithCommandCheck());
+                  }
                   break;
                 default:
                   Log.w(
@@ -1084,6 +1202,7 @@ import java.util.List;
         getShuffleModeEnabled(),
         getVideoSize(),
         getCurrentTimelineWithCommandCheck(),
+        PlayerInfo.TIMELINE_CHANGE_REASON_DEFAULT,
         getPlaylistMetadataWithCommandCheck(),
         getVolumeWithCommandCheck(),
         getAudioAttributesWithCommandCheck(),
@@ -1155,7 +1274,7 @@ import java.util.List;
       case Player.COMMAND_GET_AUDIO_ATTRIBUTES:
       case Player.COMMAND_GET_CURRENT_MEDIA_ITEM:
       case Player.COMMAND_GET_DEVICE_VOLUME:
-      case Player.COMMAND_GET_MEDIA_ITEMS_METADATA:
+      case Player.COMMAND_GET_METADATA:
       case Player.COMMAND_GET_TEXT:
       case Player.COMMAND_GET_TIMELINE:
       case Player.COMMAND_GET_TRACKS:
@@ -1163,7 +1282,7 @@ import java.util.List;
       case Player.COMMAND_INVALID:
       case Player.COMMAND_SEEK_TO_DEFAULT_POSITION:
       case Player.COMMAND_SET_DEVICE_VOLUME:
-      case Player.COMMAND_SET_MEDIA_ITEMS_METADATA:
+      case Player.COMMAND_SET_PLAYLIST_METADATA:
       case Player.COMMAND_SET_TRACK_SELECTION_PARAMETERS:
       case Player.COMMAND_SET_VIDEO_SURFACE:
       case Player.COMMAND_SET_VOLUME:

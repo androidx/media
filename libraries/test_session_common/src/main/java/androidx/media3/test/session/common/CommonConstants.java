@@ -18,10 +18,8 @@ package androidx.media3.test.session.common;
 import android.content.ComponentName;
 import android.net.Uri;
 import android.os.Bundle;
-import androidx.media3.common.util.UnstableApi;
 
 /** Common constants for testing purpose. */
-@UnstableApi
 public class CommonConstants {
 
   public static final String SUPPORT_APP_PACKAGE_NAME = "androidx.media3.test.session";
@@ -104,6 +102,7 @@ public class CommonConstants {
   public static final String KEY_TRACK_SELECTION_PARAMETERS = "trackSelectionParameters";
   public static final String KEY_CURRENT_TRACKS = "currentTracks";
   public static final String KEY_AVAILABLE_COMMANDS = "availableCommands";
+  public static final String KEY_COMMAND_BUTTON_LIST = "command_button_list";
 
   // SessionCompat arguments
   public static final String KEY_SESSION_COMPAT_TOKEN = "sessionCompatToken";

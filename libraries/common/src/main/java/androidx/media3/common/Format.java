@@ -15,13 +15,20 @@
  */
 package androidx.media3.common;
 
+import static java.lang.annotation.ElementType.TYPE_USE;
+
 import android.os.Bundle;
+import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
-import androidx.media3.common.util.BundleableUtil;
+import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.base.Joiner;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.lang.annotation.Documented;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -172,6 +179,7 @@ public final class Format implements Bundleable {
     // Text specific.
 
     private int accessibilityChannel;
+    @UnstableApi private @CueReplacementBehavior int cueReplacementBehavior;
 
     // Image specific
 
@@ -201,6 +209,7 @@ public final class Format implements Bundleable {
       pcmEncoding = NO_VALUE;
       // Text specific.
       accessibilityChannel = NO_VALUE;
+      cueReplacementBehavior = CUE_REPLACEMENT_BEHAVIOR_MERGE;
       // Image specific.
       tileCountHorizontal = NO_VALUE;
       tileCountVertical = NO_VALUE;
@@ -248,6 +257,7 @@ public final class Format implements Bundleable {
       this.encoderPadding = format.encoderPadding;
       // Text specific.
       this.accessibilityChannel = format.accessibilityChannel;
+      this.cueReplacementBehavior = format.cueReplacementBehavior;
       // Image specific.
       this.tileCountHorizontal = format.tileCountHorizontal;
       this.tileCountVertical = format.tileCountVertical;
@@ -386,7 +396,7 @@ public final class Format implements Bundleable {
      */
     @CanIgnoreReturnValue
     public Builder setContainerMimeType(@Nullable String containerMimeType) {
-      this.containerMimeType = containerMimeType;
+      this.containerMimeType = MimeTypes.normalizeMimeType(containerMimeType);
       return this;
     }
 
@@ -400,7 +410,7 @@ public final class Format implements Bundleable {
      */
     @CanIgnoreReturnValue
     public Builder setSampleMimeType(@Nullable String sampleMimeType) {
-      this.sampleMimeType = sampleMimeType;
+      this.sampleMimeType = MimeTypes.normalizeMimeType(sampleMimeType);
       return this;
     }
 
@@ -626,6 +636,19 @@ public final class Format implements Bundleable {
       return this;
     }
 
+    /**
+     * Sets {@link Format#cueReplacementBehavior}. The default value is {@link
+     * #CUE_REPLACEMENT_BEHAVIOR_MERGE}.
+     *
+     * @param cueReplacementBehavior The {@link Format.CueReplacementBehavior}.
+     * @return The builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setCueReplacementBehavior(@CueReplacementBehavior int cueReplacementBehavior) {
+      this.cueReplacementBehavior = cueReplacementBehavior;
+      return this;
+    }
+
     // Image specific.
 
     /**
@@ -673,6 +696,36 @@ public final class Format implements Bundleable {
     }
   }
 
+  /**
+   * The replacement behaviors for consecutive samples in a {@linkplain C#TRACK_TYPE_TEXT text
+   * track} of type {@link MimeTypes#APPLICATION_MEDIA3_CUES}.
+   */
+  @UnstableApi
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target(TYPE_USE)
+  @IntDef({
+    CUE_REPLACEMENT_BEHAVIOR_MERGE,
+    CUE_REPLACEMENT_BEHAVIOR_REPLACE,
+  })
+  public @interface CueReplacementBehavior {}
+
+  /**
+   * Subsequent cues should be merged with any previous cues that should still be shown on screen.
+   *
+   * <p>Tracks with this behavior must not contain samples with an {@linkplain C#TIME_UNSET unset}
+   * duration.
+   */
+  @UnstableApi public static final int CUE_REPLACEMENT_BEHAVIOR_MERGE = 1;
+
+  /**
+   * Subsequent cues should replace all previous cues.
+   *
+   * <p>Tracks with this behavior may contain samples with an {@linkplain C#TIME_UNSET unset}
+   * duration (but the duration may also be set to a 'real' value).
+   */
+  @UnstableApi public static final int CUE_REPLACEMENT_BEHAVIOR_REPLACE = 2;
+
   /** A value for various fields to indicate that the field's value is unknown or not applicable. */
   public static final int NO_VALUE = -1;
 
@@ -686,14 +739,19 @@ public final class Format implements Bundleable {
 
   /** An identifier for the format, or null if unknown or not applicable. */
   @Nullable public final String id;
+
   /** The human readable label, or null if unknown or not applicable. */
   @Nullable public final String label;
+
   /** The language as an IETF BCP 47 conformant tag, or null if unknown or not applicable. */
   @Nullable public final String language;
+
   /** Track selection flags. */
   public final @C.SelectionFlags int selectionFlags;
+
   /** Track role flags. */
   public final @C.RoleFlags int roleFlags;
+
   /**
    * The average bitrate in bits per second, or {@link #NO_VALUE} if unknown or not applicable. The
    * way in which this field is populated depends on the type of media to which the format
@@ -716,6 +774,7 @@ public final class Format implements Bundleable {
    * </ul>
    */
   @UnstableApi public final int averageBitrate;
+
   /**
    * The peak bitrate in bits per second, or {@link #NO_VALUE} if unknown or not applicable. The way
    * in which this field is populated depends on the type of media to which the format corresponds:
@@ -735,36 +794,42 @@ public final class Format implements Bundleable {
    * </ul>
    */
   @UnstableApi public final int peakBitrate;
+
   /**
    * The bitrate in bits per second. This is the peak bitrate if known, or else the average bitrate
    * if known, or else {@link Format#NO_VALUE}. Equivalent to: {@code peakBitrate != NO_VALUE ?
    * peakBitrate : averageBitrate}.
    */
   @UnstableApi public final int bitrate;
+
   /** Codecs of the format as described in RFC 6381, or null if unknown or not applicable. */
   @Nullable public final String codecs;
+
   /** Metadata, or null if unknown or not applicable. */
   @UnstableApi @Nullable public final Metadata metadata;
 
   // Container specific.
 
-  /** The mime type of the container, or null if unknown or not applicable. */
+  /** The MIME type of the container, or null if unknown or not applicable. */
   @Nullable public final String containerMimeType;
 
   // Sample specific.
 
-  /** The sample mime type, or null if unknown or not applicable. */
+  /** The sample MIME type, or null if unknown or not applicable. */
   @Nullable public final String sampleMimeType;
+
   /**
    * The maximum size of a buffer of data (typically one sample), or {@link #NO_VALUE} if unknown or
    * not applicable.
    */
   @UnstableApi public final int maxInputSize;
+
   /**
    * Initialization data that must be provided to the decoder. Will not be null, but may be empty if
    * initialization data is not required.
    */
   @UnstableApi public final List<byte[]> initializationData;
+
   /** DRM initialization data if the stream is protected, or null otherwise. */
   @UnstableApi @Nullable public final DrmInitData drmInitData;
 
@@ -779,25 +844,32 @@ public final class Format implements Bundleable {
 
   /** The width of the video in pixels, or {@link #NO_VALUE} if unknown or not applicable. */
   public final int width;
+
   /** The height of the video in pixels, or {@link #NO_VALUE} if unknown or not applicable. */
   public final int height;
+
   /** The frame rate in frames per second, or {@link #NO_VALUE} if unknown or not applicable. */
   public final float frameRate;
+
   /**
    * The clockwise rotation that should be applied to the video for it to be rendered in the correct
    * orientation, or 0 if unknown or not applicable. Only 0, 90, 180 and 270 are supported.
    */
   @UnstableApi public final int rotationDegrees;
+
   /** The width to height ratio of pixels in the video, or 1.0 if unknown or not applicable. */
   public final float pixelWidthHeightRatio;
+
   /** The projection data for 360/VR video, or null if not applicable. */
   @UnstableApi @Nullable public final byte[] projectionData;
+
   /**
    * The stereo layout for 360/3D/VR video, or {@link #NO_VALUE} if not applicable. Valid stereo
    * modes are {@link C#STEREO_MODE_MONO}, {@link C#STEREO_MODE_TOP_BOTTOM}, {@link
    * C#STEREO_MODE_LEFT_RIGHT}, {@link C#STEREO_MODE_STEREO_MESH}.
    */
   @UnstableApi public final @C.StereoMode int stereoMode;
+
   /** The color metadata associated with the video, or null if not applicable. */
   @UnstableApi @Nullable public final ColorInfo colorInfo;
 
@@ -805,15 +877,19 @@ public final class Format implements Bundleable {
 
   /** The number of audio channels, or {@link #NO_VALUE} if unknown or not applicable. */
   public final int channelCount;
+
   /** The audio sampling rate in Hz, or {@link #NO_VALUE} if unknown or not applicable. */
   public final int sampleRate;
+
   /** The {@link C.PcmEncoding} for PCM audio. Set to {@link #NO_VALUE} for other media types. */
   @UnstableApi public final @C.PcmEncoding int pcmEncoding;
+
   /**
    * The number of frames to trim from the start of the decoded audio stream, or 0 if not
    * applicable.
    */
   @UnstableApi public final int encoderDelay;
+
   /**
    * The number of frames to trim from the end of the decoded audio stream, or 0 if not applicable.
    */
@@ -824,12 +900,19 @@ public final class Format implements Bundleable {
   /** The Accessibility channel, or {@link #NO_VALUE} if not known or applicable. */
   @UnstableApi public final int accessibilityChannel;
 
+  /**
+   * The replacement behavior that should be followed when handling consecutive samples in a
+   * {@linkplain C#TRACK_TYPE_TEXT text track} of type {@link MimeTypes#APPLICATION_MEDIA3_CUES}.
+   */
+  @UnstableApi public final @CueReplacementBehavior int cueReplacementBehavior;
+
   // Image specific.
 
   /**
    * The number of horizontal tiles in an image, or {@link #NO_VALUE} if not known or applicable.
    */
   @UnstableApi public final int tileCountHorizontal;
+
   /** The number of vertical tiles in an image, or {@link #NO_VALUE} if not known or applicable. */
   @UnstableApi public final int tileCountVertical;
 
@@ -845,184 +928,6 @@ public final class Format implements Bundleable {
 
   // Lazily initialized hashcode.
   private int hashCode;
-
-  // Video.
-
-  /**
-   * @deprecated Use {@link Format.Builder}.
-   */
-  @UnstableApi
-  @Deprecated
-  public static Format createVideoSampleFormat(
-      @Nullable String id,
-      @Nullable String sampleMimeType,
-      @Nullable String codecs,
-      int bitrate,
-      int maxInputSize,
-      int width,
-      int height,
-      float frameRate,
-      @Nullable List<byte[]> initializationData,
-      @Nullable DrmInitData drmInitData) {
-    return new Builder()
-        .setId(id)
-        .setAverageBitrate(bitrate)
-        .setPeakBitrate(bitrate)
-        .setCodecs(codecs)
-        .setSampleMimeType(sampleMimeType)
-        .setMaxInputSize(maxInputSize)
-        .setInitializationData(initializationData)
-        .setDrmInitData(drmInitData)
-        .setWidth(width)
-        .setHeight(height)
-        .setFrameRate(frameRate)
-        .build();
-  }
-
-  /**
-   * @deprecated Use {@link Format.Builder}.
-   */
-  @UnstableApi
-  @Deprecated
-  public static Format createVideoSampleFormat(
-      @Nullable String id,
-      @Nullable String sampleMimeType,
-      @Nullable String codecs,
-      int bitrate,
-      int maxInputSize,
-      int width,
-      int height,
-      float frameRate,
-      @Nullable List<byte[]> initializationData,
-      int rotationDegrees,
-      float pixelWidthHeightRatio,
-      @Nullable DrmInitData drmInitData) {
-    return new Builder()
-        .setId(id)
-        .setAverageBitrate(bitrate)
-        .setPeakBitrate(bitrate)
-        .setCodecs(codecs)
-        .setSampleMimeType(sampleMimeType)
-        .setMaxInputSize(maxInputSize)
-        .setInitializationData(initializationData)
-        .setDrmInitData(drmInitData)
-        .setWidth(width)
-        .setHeight(height)
-        .setFrameRate(frameRate)
-        .setRotationDegrees(rotationDegrees)
-        .setPixelWidthHeightRatio(pixelWidthHeightRatio)
-        .build();
-  }
-
-  // Audio.
-
-  /**
-   * @deprecated Use {@link Format.Builder}.
-   */
-  @UnstableApi
-  @Deprecated
-  public static Format createAudioSampleFormat(
-      @Nullable String id,
-      @Nullable String sampleMimeType,
-      @Nullable String codecs,
-      int bitrate,
-      int maxInputSize,
-      int channelCount,
-      int sampleRate,
-      @Nullable List<byte[]> initializationData,
-      @Nullable DrmInitData drmInitData,
-      @C.SelectionFlags int selectionFlags,
-      @Nullable String language) {
-    return new Builder()
-        .setId(id)
-        .setLanguage(language)
-        .setSelectionFlags(selectionFlags)
-        .setAverageBitrate(bitrate)
-        .setPeakBitrate(bitrate)
-        .setCodecs(codecs)
-        .setSampleMimeType(sampleMimeType)
-        .setMaxInputSize(maxInputSize)
-        .setInitializationData(initializationData)
-        .setDrmInitData(drmInitData)
-        .setChannelCount(channelCount)
-        .setSampleRate(sampleRate)
-        .build();
-  }
-
-  /**
-   * @deprecated Use {@link Format.Builder}.
-   */
-  @UnstableApi
-  @Deprecated
-  public static Format createAudioSampleFormat(
-      @Nullable String id,
-      @Nullable String sampleMimeType,
-      @Nullable String codecs,
-      int bitrate,
-      int maxInputSize,
-      int channelCount,
-      int sampleRate,
-      @C.PcmEncoding int pcmEncoding,
-      @Nullable List<byte[]> initializationData,
-      @Nullable DrmInitData drmInitData,
-      @C.SelectionFlags int selectionFlags,
-      @Nullable String language) {
-    return new Builder()
-        .setId(id)
-        .setLanguage(language)
-        .setSelectionFlags(selectionFlags)
-        .setAverageBitrate(bitrate)
-        .setPeakBitrate(bitrate)
-        .setCodecs(codecs)
-        .setSampleMimeType(sampleMimeType)
-        .setMaxInputSize(maxInputSize)
-        .setInitializationData(initializationData)
-        .setDrmInitData(drmInitData)
-        .setChannelCount(channelCount)
-        .setSampleRate(sampleRate)
-        .setPcmEncoding(pcmEncoding)
-        .build();
-  }
-
-  // Generic.
-
-  /**
-   * @deprecated Use {@link Format.Builder}.
-   */
-  @UnstableApi
-  @Deprecated
-  public static Format createContainerFormat(
-      @Nullable String id,
-      @Nullable String label,
-      @Nullable String containerMimeType,
-      @Nullable String sampleMimeType,
-      @Nullable String codecs,
-      int bitrate,
-      @C.SelectionFlags int selectionFlags,
-      @C.RoleFlags int roleFlags,
-      @Nullable String language) {
-    return new Builder()
-        .setId(id)
-        .setLabel(label)
-        .setLanguage(language)
-        .setSelectionFlags(selectionFlags)
-        .setRoleFlags(roleFlags)
-        .setAverageBitrate(bitrate)
-        .setPeakBitrate(bitrate)
-        .setCodecs(codecs)
-        .setContainerMimeType(containerMimeType)
-        .setSampleMimeType(sampleMimeType)
-        .build();
-  }
-
-  /**
-   * @deprecated Use {@link Format.Builder}.
-   */
-  @UnstableApi
-  @Deprecated
-  public static Format createSampleFormat(@Nullable String id, @Nullable String sampleMimeType) {
-    return new Builder().setId(id).setSampleMimeType(sampleMimeType).build();
-  }
 
   private Format(Builder builder) {
     id = builder.id;
@@ -1062,6 +967,7 @@ public final class Format implements Bundleable {
     encoderPadding = builder.encoderPadding == NO_VALUE ? 0 : builder.encoderPadding;
     // Text specific.
     accessibilityChannel = builder.accessibilityChannel;
+    cueReplacementBehavior = builder.cueReplacementBehavior;
     // Image specific.
     tileCountHorizontal = builder.tileCountHorizontal;
     tileCountVertical = builder.tileCountVertical;
@@ -1078,42 +984,6 @@ public final class Format implements Bundleable {
   @UnstableApi
   public Builder buildUpon() {
     return new Builder(this);
-  }
-
-  /**
-   * @deprecated Use {@link #buildUpon()} and {@link Builder#setMaxInputSize(int)}.
-   */
-  @UnstableApi
-  @Deprecated
-  public Format copyWithMaxInputSize(int maxInputSize) {
-    return buildUpon().setMaxInputSize(maxInputSize).build();
-  }
-
-  /**
-   * @deprecated Use {@link #buildUpon()} and {@link Builder#setSubsampleOffsetUs(long)}.
-   */
-  @UnstableApi
-  @Deprecated
-  public Format copyWithSubsampleOffsetUs(long subsampleOffsetUs) {
-    return buildUpon().setSubsampleOffsetUs(subsampleOffsetUs).build();
-  }
-
-  /**
-   * @deprecated Use {@link #buildUpon()} and {@link Builder#setLabel(String)} .
-   */
-  @UnstableApi
-  @Deprecated
-  public Format copyWithLabel(@Nullable String label) {
-    return buildUpon().setLabel(label).build();
-  }
-
-  /**
-   * @deprecated Use {@link #withManifestFormatInfo(Format)}.
-   */
-  @UnstableApi
-  @Deprecated
-  public Format copyWithManifestFormatInfo(Format manifestFormat) {
-    return withManifestFormatInfo(manifestFormat);
   }
 
   @UnstableApi
@@ -1184,63 +1054,6 @@ public final class Format implements Bundleable {
         .build();
   }
 
-  /**
-   * @deprecated Use {@link #buildUpon()}, {@link Builder#setEncoderDelay(int)} and {@link
-   *     Builder#setEncoderPadding(int)}.
-   */
-  @UnstableApi
-  @Deprecated
-  public Format copyWithGaplessInfo(int encoderDelay, int encoderPadding) {
-    return buildUpon().setEncoderDelay(encoderDelay).setEncoderPadding(encoderPadding).build();
-  }
-
-  /**
-   * @deprecated Use {@link #buildUpon()} and {@link Builder#setFrameRate(float)}.
-   */
-  @UnstableApi
-  @Deprecated
-  public Format copyWithFrameRate(float frameRate) {
-    return buildUpon().setFrameRate(frameRate).build();
-  }
-
-  /**
-   * @deprecated Use {@link #buildUpon()} and {@link Builder#setDrmInitData(DrmInitData)}.
-   */
-  @UnstableApi
-  @Deprecated
-  public Format copyWithDrmInitData(@Nullable DrmInitData drmInitData) {
-    return buildUpon().setDrmInitData(drmInitData).build();
-  }
-
-  /**
-   * @deprecated Use {@link #buildUpon()} and {@link Builder#setMetadata(Metadata)}.
-   */
-  @UnstableApi
-  @Deprecated
-  public Format copyWithMetadata(@Nullable Metadata metadata) {
-    return buildUpon().setMetadata(metadata).build();
-  }
-
-  /**
-   * @deprecated Use {@link #buildUpon()} and {@link Builder#setAverageBitrate(int)} and {@link
-   *     Builder#setPeakBitrate(int)}.
-   */
-  @UnstableApi
-  @Deprecated
-  public Format copyWithBitrate(int bitrate) {
-    return buildUpon().setAverageBitrate(bitrate).setPeakBitrate(bitrate).build();
-  }
-
-  /**
-   * @deprecated Use {@link #buildUpon()}, {@link Builder#setWidth(int)} and {@link
-   *     Builder#setHeight(int)}.
-   */
-  @UnstableApi
-  @Deprecated
-  public Format copyWithVideoSize(int width, int height) {
-    return buildUpon().setWidth(width).setHeight(height).build();
-  }
-
   /** Returns a copy of this format with the specified {@link #cryptoType}. */
   @UnstableApi
   public Format copyWithCryptoType(@C.CryptoType int cryptoType) {
@@ -1278,6 +1091,8 @@ public final class Format implements Bundleable {
         + height
         + ", "
         + frameRate
+        + ", "
+        + colorInfo
         + "]"
         + ", ["
         + channelCount
@@ -1443,6 +1258,9 @@ public final class Format implements Bundleable {
     }
     if (format.width != NO_VALUE && format.height != NO_VALUE) {
       builder.append(", res=").append(format.width).append("x").append(format.height);
+    }
+    if (format.colorInfo != null && format.colorInfo.isValid()) {
+      builder.append(", color=").append(format.colorInfo.toLogString());
     }
     if (format.frameRate != NO_VALUE) {
       builder.append(", fps=").append(format.frameRate);
@@ -1629,12 +1447,21 @@ public final class Format implements Bundleable {
     return bundle;
   }
 
-  /** Object that can restore {@code Format} from a {@link Bundle}. */
-  @UnstableApi public static final Creator<Format> CREATOR = Format::fromBundle;
+  /**
+   * Object that can restore {@code Format} from a {@link Bundle}.
+   *
+   * @deprecated Use {@link #fromBundle} instead.
+   */
+  @UnstableApi
+  @Deprecated
+  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
+  public static final Creator<Format> CREATOR = Format::fromBundle;
 
-  private static Format fromBundle(Bundle bundle) {
+  /** Restores a {@code Format} from a {@link Bundle}. */
+  @UnstableApi
+  public static Format fromBundle(Bundle bundle) {
     Builder builder = new Builder();
-    BundleableUtil.ensureClassLoader(bundle);
+    BundleCollectionUtil.ensureClassLoader(bundle);
     builder
         .setId(defaultIfNull(bundle.getString(FIELD_ID), DEFAULT.id))
         .setLabel(defaultIfNull(bundle.getString(FIELD_LABEL), DEFAULT.label))
@@ -1676,7 +1503,7 @@ public final class Format implements Bundleable {
         .setStereoMode(bundle.getInt(FIELD_STEREO_MODE, DEFAULT.stereoMode));
     Bundle colorInfoBundle = bundle.getBundle(FIELD_COLOR_INFO);
     if (colorInfoBundle != null) {
-      builder.setColorInfo(ColorInfo.CREATOR.fromBundle(colorInfoBundle));
+      builder.setColorInfo(ColorInfo.fromBundle(colorInfoBundle));
     }
     // Audio specific.
     builder

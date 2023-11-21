@@ -52,6 +52,7 @@ import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime;
+import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.drm.DrmSession;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
@@ -165,7 +166,6 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
 
   // Audio events.
 
-  @SuppressWarnings("deprecation") // Calling deprecated listener method.
   @Override
   public final void onAudioEnabled(DecoderCounters counters) {
     EventTime eventTime = generateReadingMediaPeriodEventTime();
@@ -174,7 +174,6 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
         AnalyticsListener.EVENT_AUDIO_ENABLED,
         listener -> {
           listener.onAudioEnabled(eventTime, counters);
-          listener.onDecoderEnabled(eventTime, C.TRACK_TYPE_AUDIO, counters);
         });
   }
 
@@ -190,8 +189,6 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
           listener.onAudioDecoderInitialized(eventTime, decoderName, initializationDurationMs);
           listener.onAudioDecoderInitialized(
               eventTime, decoderName, initializedTimestampMs, initializationDurationMs);
-          listener.onDecoderInitialized(
-              eventTime, C.TRACK_TYPE_AUDIO, decoderName, initializationDurationMs);
         });
   }
 
@@ -206,7 +203,6 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
         listener -> {
           listener.onAudioInputFormatChanged(eventTime, format);
           listener.onAudioInputFormatChanged(eventTime, format, decoderReuseEvaluation);
-          listener.onDecoderInputFormatChanged(eventTime, C.TRACK_TYPE_AUDIO, format);
         });
   }
 
@@ -240,7 +236,6 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
   }
 
   @Override
-  @SuppressWarnings("deprecation") // Calling deprecated listener method.
   public final void onAudioDisabled(DecoderCounters counters) {
     EventTime eventTime = generatePlayingMediaPeriodEventTime();
     sendEvent(
@@ -248,7 +243,6 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
         AnalyticsListener.EVENT_AUDIO_DISABLED,
         listener -> {
           listener.onAudioDisabled(eventTime, counters);
-          listener.onDecoderDisabled(eventTime, C.TRACK_TYPE_AUDIO, counters);
         });
   }
 
@@ -271,6 +265,24 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
   }
 
   @Override
+  public void onAudioTrackInitialized(AudioSink.AudioTrackConfig audioTrackConfig) {
+    EventTime eventTime = generateReadingMediaPeriodEventTime();
+    sendEvent(
+        eventTime,
+        AnalyticsListener.EVENT_AUDIO_TRACK_INITIALIZED,
+        listener -> listener.onAudioTrackInitialized(eventTime, audioTrackConfig));
+  }
+
+  @Override
+  public void onAudioTrackReleased(AudioSink.AudioTrackConfig audioTrackConfig) {
+    EventTime eventTime = generateReadingMediaPeriodEventTime();
+    sendEvent(
+        eventTime,
+        AnalyticsListener.EVENT_AUDIO_TRACK_RELEASED,
+        listener -> listener.onAudioTrackReleased(eventTime, audioTrackConfig));
+  }
+
+  @Override
   public final void onVolumeChanged(float volume) {
     EventTime eventTime = generateReadingMediaPeriodEventTime();
     sendEvent(
@@ -282,7 +294,6 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
   // Video events.
 
   @Override
-  @SuppressWarnings("deprecation") // Calling deprecated listener method.
   public final void onVideoEnabled(DecoderCounters counters) {
     EventTime eventTime = generateReadingMediaPeriodEventTime();
     sendEvent(
@@ -290,7 +301,6 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
         AnalyticsListener.EVENT_VIDEO_ENABLED,
         listener -> {
           listener.onVideoEnabled(eventTime, counters);
-          listener.onDecoderEnabled(eventTime, C.TRACK_TYPE_VIDEO, counters);
         });
   }
 
@@ -306,8 +316,6 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
           listener.onVideoDecoderInitialized(eventTime, decoderName, initializationDurationMs);
           listener.onVideoDecoderInitialized(
               eventTime, decoderName, initializedTimestampMs, initializationDurationMs);
-          listener.onDecoderInitialized(
-              eventTime, C.TRACK_TYPE_VIDEO, decoderName, initializationDurationMs);
         });
   }
 
@@ -322,7 +330,6 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
         listener -> {
           listener.onVideoInputFormatChanged(eventTime, format);
           listener.onVideoInputFormatChanged(eventTime, format, decoderReuseEvaluation);
-          listener.onDecoderInputFormatChanged(eventTime, C.TRACK_TYPE_VIDEO, format);
         });
   }
 
@@ -345,7 +352,6 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
   }
 
   @Override
-  @SuppressWarnings("deprecation") // Calling deprecated listener method.
   public final void onVideoDisabled(DecoderCounters counters) {
     EventTime eventTime = generatePlayingMediaPeriodEventTime();
     sendEvent(
@@ -353,7 +359,6 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
         AnalyticsListener.EVENT_VIDEO_DISABLED,
         listener -> {
           listener.onVideoDisabled(eventTime, counters);
-          listener.onDecoderDisabled(eventTime, C.TRACK_TYPE_VIDEO, counters);
         });
   }
 
@@ -725,14 +730,6 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
         eventTime, AnalyticsListener.EVENT_CUES, listener -> listener.onCues(eventTime, cueGroup));
   }
 
-  @SuppressWarnings("deprecation") // Implementing and calling deprecated listener method.
-  @Override
-  public final void onSeekProcessed() {
-    EventTime eventTime = generateCurrentPlayerMediaPeriodEventTime();
-    sendEvent(
-        eventTime, /* eventFlag= */ C.INDEX_UNSET, listener -> listener.onSeekProcessed(eventTime));
-  }
-
   @Override
   public final void onSkipSilenceEnabledChanged(boolean skipSilenceEnabled) {
     EventTime eventTime = generateReadingMediaPeriodEventTime();
@@ -1013,7 +1010,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
     if (error instanceof ExoPlaybackException) {
       ExoPlaybackException exoError = (ExoPlaybackException) error;
       if (exoError.mediaPeriodId != null) {
-        return generateEventTime(new MediaPeriodId(exoError.mediaPeriodId));
+        return generateEventTime(exoError.mediaPeriodId);
       }
     }
     return generateCurrentPlayerMediaPeriodEventTime();

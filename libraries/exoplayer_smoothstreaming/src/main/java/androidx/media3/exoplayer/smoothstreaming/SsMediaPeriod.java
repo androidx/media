@@ -15,12 +15,16 @@
  */
 package androidx.media3.exoplayer.smoothstreaming;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
+
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.TrackGroup;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.datasource.TransferListener;
+import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
@@ -34,12 +38,12 @@ import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.source.chunk.ChunkSampleStream;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.upstream.Allocator;
+import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoaderErrorThrower;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 
 /** A SmoothStreaming {@link MediaPeriod}. */
 /* package */ final class SsMediaPeriod
@@ -49,6 +53,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
   @Nullable private final TransferListener transferListener;
   private final LoaderErrorThrower manifestLoaderErrorThrower;
   private final DrmSessionManager drmSessionManager;
+  @Nullable private final CmcdConfiguration cmcdConfiguration;
   private final DrmSessionEventListener.EventDispatcher drmEventDispatcher;
   private final LoadErrorHandlingPolicy loadErrorHandlingPolicy;
   private final MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher;
@@ -66,6 +71,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
       SsChunkSource.Factory chunkSourceFactory,
       @Nullable TransferListener transferListener,
       CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory,
+      @Nullable CmcdConfiguration cmcdConfiguration,
       DrmSessionManager drmSessionManager,
       DrmSessionEventListener.EventDispatcher drmEventDispatcher,
       LoadErrorHandlingPolicy loadErrorHandlingPolicy,
@@ -76,6 +82,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     this.chunkSourceFactory = chunkSourceFactory;
     this.transferListener = transferListener;
     this.manifestLoaderErrorThrower = manifestLoaderErrorThrower;
+    this.cmcdConfiguration = cmcdConfiguration;
     this.drmSessionManager = drmSessionManager;
     this.drmEventDispatcher = drmEventDispatcher;
     this.loadErrorHandlingPolicy = loadErrorHandlingPolicy;
@@ -93,7 +100,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     for (ChunkSampleStream<SsChunkSource> sampleStream : sampleStreams) {
       sampleStream.getChunkSource().updateManifest(manifest);
     }
-    callback.onContinueLoadingRequested(this);
+    checkNotNull(callback).onContinueLoadingRequested(this);
   }
 
   public void release() {
@@ -137,7 +144,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
           stream.release();
           streams[i] = null;
         } else {
-          stream.getChunkSource().updateTrackSelection(selections[i]);
+          stream.getChunkSource().updateTrackSelection(checkNotNull(selections[i]));
           sampleStreamsList.add(stream);
         }
       }
@@ -181,8 +188,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
   }
 
   @Override
-  public boolean continueLoading(long positionUs) {
-    return compositeSequenceableLoader.continueLoading(positionUs);
+  public boolean continueLoading(LoadingInfo loadingInfo) {
+    return compositeSequenceableLoader.continueLoading(loadingInfo);
   }
 
   @Override
@@ -227,7 +234,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
 
   @Override
   public void onContinueLoadingRequested(ChunkSampleStream<SsChunkSource> sampleStream) {
-    callback.onContinueLoadingRequested(this);
+    checkNotNull(callback).onContinueLoadingRequested(this);
   }
 
   // Private methods.
@@ -237,7 +244,12 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     int streamElementIndex = trackGroups.indexOf(selection.getTrackGroup());
     SsChunkSource chunkSource =
         chunkSourceFactory.createChunkSource(
-            manifestLoaderErrorThrower, manifest, streamElementIndex, selection, transferListener);
+            manifestLoaderErrorThrower,
+            manifest,
+            streamElementIndex,
+            selection,
+            transferListener,
+            cmcdConfiguration);
     return new ChunkSampleStream<>(
         manifest.streamElements[streamElementIndex].type,
         null,

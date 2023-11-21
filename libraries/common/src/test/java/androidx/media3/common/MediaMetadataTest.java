@@ -30,6 +30,7 @@ public class MediaMetadataTest {
   private static final String EXTRAS_KEY = "exampleKey";
   private static final String EXTRAS_VALUE = "exampleValue";
 
+  @SuppressWarnings("deprecation") // Testing deprecated field.
   @Test
   public void builder_minimal_correctDefaults() {
     MediaMetadata mediaMetadata = new MediaMetadata.Builder().build();
@@ -115,7 +116,7 @@ public class MediaMetadataTest {
     // Check that default values are skipped when bundling.
     assertThat(mediaMetadataBundle.keySet()).isEmpty();
 
-    MediaMetadata mediaMetadataFromBundle = MediaMetadata.CREATOR.fromBundle(mediaMetadataBundle);
+    MediaMetadata mediaMetadataFromBundle = MediaMetadata.fromBundle(mediaMetadataBundle);
 
     assertThat(mediaMetadataFromBundle).isEqualTo(mediaMetadata);
     // Extras is not implemented in MediaMetadata.equals(Object o).
@@ -126,14 +127,14 @@ public class MediaMetadataTest {
   public void createFullyPopulatedMediaMetadata_roundTripViaBundle_yieldsEqualInstance() {
     MediaMetadata mediaMetadata = getFullyPopulatedMediaMetadata();
 
-    MediaMetadata mediaMetadataFromBundle =
-        MediaMetadata.CREATOR.fromBundle(mediaMetadata.toBundle());
+    MediaMetadata mediaMetadataFromBundle = MediaMetadata.fromBundle(mediaMetadata.toBundle());
 
     assertThat(mediaMetadataFromBundle).isEqualTo(mediaMetadata);
     // Extras is not implemented in MediaMetadata.equals(Object o).
     assertThat(mediaMetadataFromBundle.extras.getString(EXTRAS_KEY)).isEqualTo(EXTRAS_VALUE);
   }
 
+  @SuppressWarnings("deprecation") // Testing deprecated setter.
   @Test
   public void builderSetFolderType_toNone_setsIsBrowsableToFalse() {
     MediaMetadata mediaMetadata =
@@ -142,6 +143,7 @@ public class MediaMetadataTest {
     assertThat(mediaMetadata.isBrowsable).isFalse();
   }
 
+  @SuppressWarnings("deprecation") // Testing deprecated setter.
   @Test
   public void builderSetFolderType_toNotNone_setsIsBrowsableToTrueAndMatchingMediaType() {
     MediaMetadata mediaMetadata =
@@ -151,6 +153,7 @@ public class MediaMetadataTest {
     assertThat(mediaMetadata.mediaType).isEqualTo(MediaMetadata.MEDIA_TYPE_FOLDER_PLAYLISTS);
   }
 
+  @SuppressWarnings("deprecation") // Testing deprecated setter.
   @Test
   public void
       builderSetFolderType_toNotNoneWithManualMediaType_setsIsBrowsableToTrueAndDoesNotOverrideMediaType() {
@@ -164,6 +167,7 @@ public class MediaMetadataTest {
     assertThat(mediaMetadata.mediaType).isEqualTo(MediaMetadata.MEDIA_TYPE_FOLDER_PODCASTS);
   }
 
+  @SuppressWarnings("deprecation") // Testing deprecated field.
   @Test
   public void builderSetIsBrowsable_toTrueWithoutMediaType_setsFolderTypeToMixed() {
     MediaMetadata mediaMetadata = new MediaMetadata.Builder().setIsBrowsable(true).build();
@@ -171,6 +175,7 @@ public class MediaMetadataTest {
     assertThat(mediaMetadata.folderType).isEqualTo(MediaMetadata.FOLDER_TYPE_MIXED);
   }
 
+  @SuppressWarnings("deprecation") // Testing deprecated field.
   @Test
   public void builderSetIsBrowsable_toTrueWithMediaType_setsFolderTypeToMatchMediaType() {
     MediaMetadata mediaMetadata =
@@ -182,6 +187,7 @@ public class MediaMetadataTest {
     assertThat(mediaMetadata.folderType).isEqualTo(MediaMetadata.FOLDER_TYPE_ARTISTS);
   }
 
+  @SuppressWarnings("deprecation") // Testing deprecated field.
   @Test
   public void builderSetFolderType_toFalse_setsFolderTypeToNone() {
     MediaMetadata mediaMetadata = new MediaMetadata.Builder().setIsBrowsable(false).build();
@@ -189,6 +195,7 @@ public class MediaMetadataTest {
     assertThat(mediaMetadata.folderType).isEqualTo(MediaMetadata.FOLDER_TYPE_NONE);
   }
 
+  @SuppressWarnings("deprecation") // Setting deprecated fields.
   private static MediaMetadata getFullyPopulatedMediaMetadata() {
     Bundle extras = new Bundle();
     extras.putString(EXTRAS_KEY, EXTRAS_VALUE);

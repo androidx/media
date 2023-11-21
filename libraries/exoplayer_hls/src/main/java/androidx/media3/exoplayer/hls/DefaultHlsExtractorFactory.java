@@ -32,6 +32,8 @@ import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.mp3.Mp3Extractor;
 import androidx.media3.extractor.mp4.FragmentedMp4Extractor;
+import androidx.media3.extractor.text.SubtitleParser;
+import androidx.media3.extractor.text.SubtitleTranscodingExtractor;
 import androidx.media3.extractor.ts.Ac3Extractor;
 import androidx.media3.extractor.ts.Ac4Extractor;
 import androidx.media3.extractor.ts.AdtsExtractor;
@@ -63,6 +65,10 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
       };
 
   private final @DefaultTsPayloadReaderFactory.Flags int payloadReaderFactoryFlags;
+
+  /** Non-null if subtitles should be parsed during extraction, null otherwise. */
+  @Nullable private SubtitleParser.Factory subtitleParserFactory;
+
   private final boolean exposeCea608WhenMissingDeclarations;
 
   /**
@@ -127,7 +133,8 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
           checkNotNull(
               createExtractorByFileType(fileType, format, muxedCaptionFormats, timestampAdjuster));
       if (sniffQuietly(extractor, sniffingExtractorInput)) {
-        return new BundledHlsMediaChunkExtractor(extractor, format, timestampAdjuster);
+        return new BundledHlsMediaChunkExtractor(
+            extractor, format, timestampAdjuster, subtitleParserFactory);
       }
       if (fallBackExtractor == null
           && (fileType == formatInferredFileType
@@ -141,7 +148,24 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
     }
 
     return new BundledHlsMediaChunkExtractor(
-        checkNotNull(fallBackExtractor), format, timestampAdjuster);
+        checkNotNull(fallBackExtractor), format, timestampAdjuster, subtitleParserFactory);
+  }
+
+  /**
+   * Sets the {@link SubtitleParser.Factory} to use for parsing subtitles during extraction, or null
+   * to parse subtitles during decoding. The default is null (subtitles parsed after decoding).
+   *
+   * <p>This method is experimental. Its default value may change, or it may be renamed or removed
+   * in a future release.
+   *
+   * @param subtitleParserFactory The {@link SubtitleParser.Factory} for parsing subtitles during
+   *     extraction.
+   * @return This factory, for convenience.
+   */
+  public DefaultHlsExtractorFactory experimentalSetSubtitleParserFactory(
+      @Nullable SubtitleParser.Factory subtitleParserFactory) {
+    this.subtitleParserFactory = subtitleParserFactory;
+    return this;
   }
 
   private static void addFileTypeIfValidAndNotPresent(
@@ -159,9 +183,15 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
       Format format,
       @Nullable List<Format> muxedCaptionFormats,
       TimestampAdjuster timestampAdjuster) {
+    // LINT.IfChange(extractor_instantiation)
     switch (fileType) {
       case FileTypes.WEBVTT:
-        return new WebvttExtractor(format.language, timestampAdjuster);
+        if (subtitleParserFactory != null && subtitleParserFactory.supportsFormat(format)) {
+          return new SubtitleTranscodingExtractor(
+              new WebvttExtractor(format.language, timestampAdjuster), subtitleParserFactory);
+        } else {
+          return new WebvttExtractor(format.language, timestampAdjuster);
+        }
       case FileTypes.ADTS:
         return new AdtsExtractor();
       case FileTypes.AC3:
@@ -171,14 +201,22 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
       case FileTypes.MP3:
         return new Mp3Extractor(/* flags= */ 0, /* forcedFirstSampleTimestampUs= */ 0);
       case FileTypes.MP4:
-        return createFragmentedMp4Extractor(timestampAdjuster, format, muxedCaptionFormats);
+        Extractor mp4Extractor =
+            createFragmentedMp4Extractor(timestampAdjuster, format, muxedCaptionFormats);
+        return subtitleParserFactory != null
+            ? new SubtitleTranscodingExtractor(mp4Extractor, subtitleParserFactory)
+            : mp4Extractor;
       case FileTypes.TS:
-        return createTsExtractor(
-            payloadReaderFactoryFlags,
-            exposeCea608WhenMissingDeclarations,
-            format,
-            muxedCaptionFormats,
-            timestampAdjuster);
+        Extractor tsExtractor =
+            createTsExtractor(
+                payloadReaderFactoryFlags,
+                exposeCea608WhenMissingDeclarations,
+                format,
+                muxedCaptionFormats,
+                timestampAdjuster);
+        return subtitleParserFactory != null
+            ? new SubtitleTranscodingExtractor(tsExtractor, subtitleParserFactory)
+            : tsExtractor;
       default:
         return null;
     }

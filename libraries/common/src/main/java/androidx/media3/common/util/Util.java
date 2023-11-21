@@ -16,6 +16,8 @@
 package androidx.media3.common.util;
 
 import static android.content.Context.UI_MODE_SERVICE;
+import static androidx.media3.common.Player.COMMAND_PLAY_PAUSE;
+import static androidx.media3.common.Player.COMMAND_PREPARE;
 import static androidx.media3.common.Player.COMMAND_SEEK_BACK;
 import static androidx.media3.common.Player.COMMAND_SEEK_FORWARD;
 import static androidx.media3.common.Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM;
@@ -25,6 +27,7 @@ import static androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM;
+import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static java.lang.Math.abs;
 import static java.lang.Math.max;
@@ -33,6 +36,8 @@ import static java.lang.Math.min;
 import android.Manifest.permission;
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.Notification;
+import android.app.Service;
 import android.app.UiModeManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -51,6 +56,7 @@ import android.graphics.drawable.Drawable;
 import android.hardware.display.DisplayManager;
 import android.media.AudioFormat;
 import android.media.AudioManager;
+import android.media.MediaCodec;
 import android.media.MediaDrm;
 import android.net.Uri;
 import android.os.Build;
@@ -63,10 +69,12 @@ import android.security.NetworkSecurityPolicy;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Base64;
+import android.util.SparseArray;
 import android.util.SparseLongArray;
 import android.view.Display;
 import android.view.SurfaceView;
 import android.view.WindowManager;
+import androidx.annotation.ChecksSdkIntAtLeast;
 import androidx.annotation.DoNotInline;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.Nullable;
@@ -81,8 +89,11 @@ import androidx.media3.common.ParserException;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.Player.Commands;
+import androidx.media3.common.audio.AudioProcessor;
 import com.google.common.base.Ascii;
 import com.google.common.base.Charsets;
+import com.google.common.math.DoubleMath;
+import com.google.common.math.LongMath;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -95,6 +106,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayDeque;
@@ -114,14 +126,15 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.DataFormatException;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.Inflater;
 import org.checkerframework.checker.initialization.qual.UnknownInitialization;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
+import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 import org.checkerframework.checker.nullness.qual.PolyNull;
 
 /** Miscellaneous utility methods. */
@@ -158,6 +171,9 @@ public final class Util {
 
   /** An empty byte array. */
   @UnstableApi public static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
+
+  /** An empty long array. */
+  @UnstableApi public static final long[] EMPTY_LONG_ARRAY = new long[0];
 
   private static final String TAG = "Util";
   private static final Pattern XS_DATE_TIME_PATTERN =
@@ -199,6 +215,55 @@ public final class Util {
       outputStream.write(buffer, 0, bytesRead);
     }
     return outputStream.toByteArray();
+  }
+
+  /** Converts an integer into an equivalent byte array. */
+  @UnstableApi
+  public static byte[] toByteArray(int value) {
+    return new byte[] {
+      (byte) (value >> 24), (byte) (value >> 16), (byte) (value >> 8), (byte) value
+    };
+  }
+
+  /**
+   * Converts an array of integers into an equivalent byte array.
+   *
+   * <p>Each integer is converted into 4 sequential bytes.
+   */
+  @UnstableApi
+  public static byte[] toByteArray(int... values) {
+    byte[] array = new byte[values.length * 4];
+    int index = 0;
+    for (int value : values) {
+      byte[] byteArray = toByteArray(value);
+      array[index++] = byteArray[0];
+      array[index++] = byteArray[1];
+      array[index++] = byteArray[2];
+      array[index++] = byteArray[3];
+    }
+    return array;
+  }
+
+  /** Converts a float into an equivalent byte array. */
+  @UnstableApi
+  public static byte[] toByteArray(float value) {
+    return toByteArray(Float.floatToIntBits(value));
+  }
+
+  /** Converts a byte array into a float. */
+  @UnstableApi
+  public static float toFloat(byte[] bytes) {
+    checkArgument(bytes.length == 4);
+    int intBits =
+        bytes[0] << 24 | (bytes[1] & 0xFF) << 16 | (bytes[2] & 0xFF) << 8 | (bytes[3] & 0xFF);
+    return Float.intBitsToFloat(intBits);
+  }
+
+  /** Converts a byte array into an integer. */
+  @UnstableApi
+  public static int toInteger(byte[] bytes) {
+    checkArgument(bytes.length == 4);
+    return bytes[0] << 24 | bytes[1] << 16 | bytes[2] << 8 | bytes[3];
   }
 
   /**
@@ -245,19 +310,42 @@ public final class Util {
   }
 
   /**
-   * Checks whether it's necessary to request the {@link permission#READ_EXTERNAL_STORAGE}
-   * permission read the specified {@link Uri}s, requesting the permission if necessary.
+   * Sets the notification required for a foreground service.
    *
-   * @param activity The host activity for checking and requesting the permission.
-   * @param uris {@link Uri}s that may require {@link permission#READ_EXTERNAL_STORAGE} to read.
-   * @return Whether a permission request was made.
+   * @param service The foreground {@link Service}.
+   * @param notificationId The notification id.
+   * @param notification The {@link Notification}.
+   * @param foregroundServiceType The foreground service type defined in {@link
+   *     android.content.pm.ServiceInfo}.
+   * @param foregroundServiceManifestType The required foreground service type string for the {@code
+   *     <service>} element in the manifest.
    */
-  public static boolean maybeRequestReadExternalStoragePermission(Activity activity, Uri... uris) {
-    if (SDK_INT < 23) {
-      return false;
+  @UnstableApi
+  public static void setForegroundServiceNotification(
+      Service service,
+      int notificationId,
+      Notification notification,
+      int foregroundServiceType,
+      String foregroundServiceManifestType) {
+    if (Util.SDK_INT >= 29) {
+      Api29.startForeground(
+          service,
+          notificationId,
+          notification,
+          foregroundServiceType,
+          foregroundServiceManifestType);
+    } else {
+      service.startForeground(notificationId, notification);
     }
+  }
+
+  /**
+   * @deprecated Use {@link #maybeRequestReadStoragePermission(Activity, MediaItem...)} instead.
+   */
+  @Deprecated
+  public static boolean maybeRequestReadExternalStoragePermission(Activity activity, Uri... uris) {
     for (Uri uri : uris) {
-      if (maybeRequestReadExternalStoragePermission(activity, uri)) {
+      if (maybeRequestReadStoragePermission(activity, uri)) {
         return true;
       }
     }
@@ -265,16 +353,24 @@ public final class Util {
   }
 
   /**
-   * Checks whether it's necessary to request the {@link permission#READ_EXTERNAL_STORAGE}
-   * permission for the specified {@link MediaItem media items}, requesting the permission if
-   * necessary.
+   * @deprecated Use {@link #maybeRequestReadStoragePermission(Activity, MediaItem...)} instead.
+   */
+  @Deprecated
+  public static boolean maybeRequestReadExternalStoragePermission(
+      Activity activity, MediaItem... mediaItems) {
+    return maybeRequestReadStoragePermission(activity, mediaItems);
+  }
+
+  /**
+   * Checks whether it's necessary to request storage reading permissions for the specified {@link
+   * MediaItem media items}, requesting the permissions if necessary.
    *
    * @param activity The host activity for checking and requesting the permission.
-   * @param mediaItems {@link MediaItem Media items}s that may require {@link
-   *     permission#READ_EXTERNAL_STORAGE} to read.
+   * @param mediaItems {@link MediaItem Media items}s that may require storage reading permissions
+   *     to read.
    * @return Whether a permission request was made.
    */
-  public static boolean maybeRequestReadExternalStoragePermission(
+  public static boolean maybeRequestReadStoragePermission(
       Activity activity, MediaItem... mediaItems) {
     if (SDK_INT < 23) {
       return false;
@@ -283,13 +379,13 @@ public final class Util {
       if (mediaItem.localConfiguration == null) {
         continue;
       }
-      if (maybeRequestReadExternalStoragePermission(activity, mediaItem.localConfiguration.uri)) {
+      if (maybeRequestReadStoragePermission(activity, mediaItem.localConfiguration.uri)) {
         return true;
       }
       List<MediaItem.SubtitleConfiguration> subtitleConfigs =
           mediaItem.localConfiguration.subtitleConfigurations;
       for (int i = 0; i < subtitleConfigs.size(); i++) {
-        if (maybeRequestReadExternalStoragePermission(activity, subtitleConfigs.get(i).uri)) {
+        if (maybeRequestReadStoragePermission(activity, subtitleConfigs.get(i).uri)) {
           return true;
         }
       }
@@ -297,10 +393,50 @@ public final class Util {
     return false;
   }
 
-  private static boolean maybeRequestReadExternalStoragePermission(Activity activity, Uri uri) {
-    return SDK_INT >= 23
-        && (isLocalFileUri(uri) || isMediaStoreExternalContentUri(uri))
-        && requestExternalStoragePermission(activity);
+  private static boolean maybeRequestReadStoragePermission(Activity activity, Uri uri) {
+    if (!isReadStoragePermissionRequestNeeded(activity, uri)) {
+      return false;
+    }
+    if (SDK_INT < 33) {
+      return requestExternalStoragePermission(activity);
+    } else {
+      return requestReadMediaPermissions(activity);
+    }
+  }
+
+  @ChecksSdkIntAtLeast(api = 23)
+  private static boolean isReadStoragePermissionRequestNeeded(Activity activity, Uri uri) {
+    if (SDK_INT < 23) {
+      // Permission automatically granted via manifest below API 23.
+      return false;
+    }
+    if (isLocalFileUri(uri)) {
+      return !isAppSpecificStorageFileUri(activity, uri);
+    }
+    if (isMediaStoreExternalContentUri(uri)) {
+      return true;
+    }
+    return false;
+  }
+
+  private static boolean isAppSpecificStorageFileUri(Activity activity, Uri uri) {
+    try {
+      @Nullable String uriPath = uri.getPath();
+      if (uriPath == null) {
+        return false;
+      }
+      String filePath = new File(uriPath).getCanonicalPath();
+      String internalAppDirectoryPath = activity.getFilesDir().getCanonicalPath();
+      @Nullable File externalAppDirectory = activity.getExternalFilesDir(/* type= */ null);
+      @Nullable
+      String externalAppDirectoryPath =
+          externalAppDirectory == null ? null : externalAppDirectory.getCanonicalPath();
+      return filePath.startsWith(internalAppDirectoryPath)
+          || (externalAppDirectoryPath != null && filePath.startsWith(externalAppDirectoryPath));
+    } catch (IOException e) {
+      // Error while querying canonical paths.
+      return false;
+    }
   }
 
   private static boolean isMediaStoreExternalContentUri(Uri uri) {
@@ -389,6 +525,16 @@ public final class Util {
   }
 
   /**
+   * Tests whether a {@link SparseArray} contains a given {@code key}.
+   *
+   * <p>This implements {@code SparseArray#contains} for lower API versions.
+   */
+  @UnstableApi
+  public static <T> boolean contains(SparseArray<T> sparseArray, int key) {
+    return sparseArray.indexOfKey(key) >= 0;
+  }
+
+  /**
    * Removes an indexed range from a List.
    *
    * <p>Does nothing if the provided range is valid and {@code fromIndex == toIndex}.
@@ -440,7 +586,7 @@ public final class Util {
   @UnstableApi
   @SuppressWarnings({"nullness:argument", "nullness:return"})
   public static <T> T[] nullSafeArrayCopy(T[] input, int length) {
-    Assertions.checkArgument(length <= input.length);
+    checkArgument(length <= input.length);
     return Arrays.copyOf(input, length);
   }
 
@@ -455,8 +601,8 @@ public final class Util {
   @UnstableApi
   @SuppressWarnings({"nullness:argument", "nullness:return"})
   public static <T> T[] nullSafeArrayCopyOfRange(T[] input, int from, int to) {
-    Assertions.checkArgument(0 <= from);
-    Assertions.checkArgument(to <= input.length);
+    checkArgument(0 <= from);
+    checkArgument(to <= input.length);
     return Arrays.copyOfRange(input, from, to);
   }
 
@@ -721,6 +867,17 @@ public final class Util {
   }
 
   /**
+   * Instantiates a new single threaded scheduled executor whose thread has the specified name.
+   *
+   * @param threadName The name of the thread.
+   * @return The executor.
+   */
+  @UnstableApi
+  public static ScheduledExecutorService newSingleThreadScheduledExecutor(String threadName) {
+    return Executors.newSingleThreadScheduledExecutor(runnable -> new Thread(runnable, threadName));
+  }
+
+  /**
    * Closes a {@link Closeable}, suppressing any {@link IOException} that may occur. Both {@link
    * java.io.OutputStream} and {@link InputStream} are {@code Closeable}.
    *
@@ -814,6 +971,30 @@ public final class Util {
   }
 
   /**
+   * Loads a file from the assets folder.
+   *
+   * <p>This should only be used for known-small files. Generally, loading assets should be done
+   * with {@code AssetDataSource}.
+   *
+   * <p>The file is assumed to be encoded in UTF-8.
+   *
+   * @param context The {@link Context}.
+   * @param assetPath The path to the file to load, from the assets folder.
+   * @return The content of the file to load.
+   * @throws IOException If the file couldn't be read.
+   */
+  @UnstableApi
+  public static String loadAsset(Context context, String assetPath) throws IOException {
+    @Nullable InputStream inputStream = null;
+    try {
+      inputStream = context.getAssets().open(assetPath);
+      return Util.fromUtf8Bytes(Util.toByteArray(inputStream));
+    } finally {
+      Util.closeQuietly(inputStream);
+    }
+  }
+
+  /**
    * Returns a new {@link String} constructed by decoding UTF-8 encoded bytes.
    *
    * @param bytes The UTF-8 encoded bytes to decode.
@@ -849,7 +1030,7 @@ public final class Util {
   }
 
   /**
-   * Splits a string using {@code value.split(regex, -1}). Note: this is is similar to {@link
+   * Splits a string using {@code value.split(regex, -1}). Note: this is similar to {@link
    * String#split(String)} but empty matches at the end of the string will not be omitted from the
    * returned array.
    *
@@ -1365,6 +1546,40 @@ public final class Util {
   }
 
   /**
+   * Returns the total duration (in microseconds) of {@code sampleCount} samples of equal duration
+   * at {@code sampleRate}.
+   *
+   * <p>If {@code sampleRate} is less than {@link C#MICROS_PER_SECOND}, the duration produced by
+   * this method can be reversed to the original sample count using {@link
+   * #durationUsToSampleCount(long, int)}.
+   *
+   * @param sampleCount The number of samples.
+   * @param sampleRate The sample rate, in samples per second.
+   * @return The total duration, in microseconds, of {@code sampleCount} samples.
+   */
+  @UnstableApi
+  public static long sampleCountToDurationUs(long sampleCount, int sampleRate) {
+    return scaleLargeValue(sampleCount, C.MICROS_PER_SECOND, sampleRate, RoundingMode.FLOOR);
+  }
+
+  /**
+   * Returns the number of samples required to represent {@code durationUs} of media at {@code
+   * sampleRate}, assuming all samples are equal duration except the last one which may be shorter.
+   *
+   * <p>The result of this method <b>cannot</b> be generally reversed to the original duration with
+   * {@link #sampleCountToDurationUs(long, int)}, due to information lost when rounding to a whole
+   * number of samples.
+   *
+   * @param durationUs The duration in microseconds.
+   * @param sampleRate The sample rate in samples per second.
+   * @return The number of samples required to represent {@code durationUs}.
+   */
+  @UnstableApi
+  public static long durationUsToSampleCount(long durationUs, int sampleRate) {
+    return scaleLargeValue(durationUs, sampleRate, C.MICROS_PER_SECOND, RoundingMode.CEILING);
+  }
+
+  /**
    * Parses an xs:duration attribute value, returning the parsed duration in milliseconds.
    *
    * @param value The attribute value to decode.
@@ -1455,10 +1670,207 @@ public final class Util {
   }
 
   /**
+   * Scales a large value by a multiplier and a divisor.
+   *
+   * <p>The order of operations in this implementation is designed to minimize the probability of
+   * overflow. The implementation tries to stay in integer arithmetic as long as possible, but falls
+   * through to floating-point arithmetic if the values can't be combined without overflowing signed
+   * 64-bit longs.
+   *
+   * <p>If the mathematical result would overflow or underflow a 64-bit long, the result will be
+   * either {@link Long#MAX_VALUE} or {@link Long#MIN_VALUE}, respectively.
+   *
+   * @param value The value to scale.
+   * @param multiplier The multiplier.
+   * @param divisor The divisor.
+   * @param roundingMode The rounding mode to use if the result of the division is not an integer.
+   * @return The scaled value.
+   */
+  // LongMath.saturatedMultiply is @Beta in the version of Guava we currently depend on (31.1)
+  // but it is no longer @Beta from 32.0.0. This suppression is therefore safe because there's
+  // no version of Guava after 31.1 that doesn't contain this symbol.
+  @UnstableApi
+  public static long scaleLargeValue(
+      long value, long multiplier, long divisor, RoundingMode roundingMode) {
+    if (value == 0 || multiplier == 0) {
+      return 0;
+    }
+    if (divisor >= multiplier && (divisor % multiplier) == 0) {
+      long divisionFactor = LongMath.divide(divisor, multiplier, RoundingMode.UNNECESSARY);
+      return LongMath.divide(value, divisionFactor, roundingMode);
+    } else if (divisor < multiplier && (multiplier % divisor) == 0) {
+      long multiplicationFactor = LongMath.divide(multiplier, divisor, RoundingMode.UNNECESSARY);
+      return LongMath.saturatedMultiply(value, multiplicationFactor);
+    } else if (divisor >= value && (divisor % value) == 0) {
+      long divisionFactor = LongMath.divide(divisor, value, RoundingMode.UNNECESSARY);
+      return LongMath.divide(multiplier, divisionFactor, roundingMode);
+    } else if (divisor < value && (value % divisor) == 0) {
+      long multiplicationFactor = LongMath.divide(value, divisor, RoundingMode.UNNECESSARY);
+      return LongMath.saturatedMultiply(multiplier, multiplicationFactor);
+    } else {
+      return scaleLargeValueFallback(value, multiplier, divisor, roundingMode);
+    }
+  }
+
+  /**
+   * Applies {@link #scaleLargeValue(long, long, long, RoundingMode)} to a list of unscaled values.
+   *
+   * @param values The values to scale.
+   * @param multiplier The multiplier.
+   * @param divisor The divisor.
+   * @param roundingMode The rounding mode to use if the result of the division is not an integer.
+   * @return The scaled values.
+   */
+  // LongMath.saturatedMultiply is @Beta in the version of Guava we currently depend on (31.1)
+  // but it is no longer @Beta from 32.0.0. This suppression is therefore safe because there's
+  // no version of Guava after 31.1 that doesn't contain this symbol.
+  @UnstableApi
+  public static long[] scaleLargeValues(
+      List<Long> values, long multiplier, long divisor, RoundingMode roundingMode) {
+    long[] result = new long[values.size()];
+    if (multiplier == 0) {
+      // Array is initialized with all zeroes by default.
+      return result;
+    }
+    if (divisor >= multiplier && (divisor % multiplier) == 0) {
+      long divisionFactor = LongMath.divide(divisor, multiplier, RoundingMode.UNNECESSARY);
+      for (int i = 0; i < result.length; i++) {
+        result[i] = LongMath.divide(values.get(i), divisionFactor, roundingMode);
+      }
+      return result;
+    } else if (divisor < multiplier && (multiplier % divisor) == 0) {
+      long multiplicationFactor = LongMath.divide(multiplier, divisor, RoundingMode.UNNECESSARY);
+      for (int i = 0; i < result.length; i++) {
+        result[i] = LongMath.saturatedMultiply(values.get(i), multiplicationFactor);
+      }
+      return result;
+    } else {
+      for (int i = 0; i < result.length; i++) {
+        long value = values.get(i);
+        if (value == 0) {
+          // Array is initialized with all zeroes by default.
+          continue;
+        }
+        if (divisor >= value && (divisor % value) == 0) {
+          long divisionFactor = LongMath.divide(divisor, value, RoundingMode.UNNECESSARY);
+          result[i] = LongMath.divide(multiplier, divisionFactor, roundingMode);
+        } else if (divisor < value && (value % divisor) == 0) {
+          long multiplicationFactor = LongMath.divide(value, divisor, RoundingMode.UNNECESSARY);
+          result[i] = LongMath.saturatedMultiply(multiplier, multiplicationFactor);
+        } else {
+          result[i] = scaleLargeValueFallback(value, multiplier, divisor, roundingMode);
+        }
+      }
+      return result;
+    }
+  }
+
+  /**
+   * Applies {@link #scaleLargeValue(long, long, long, RoundingMode)} to an array of unscaled
+   * values.
+   *
+   * @param values The values to scale.
+   * @param multiplier The multiplier.
+   * @param divisor The divisor.
+   * @param roundingMode The rounding mode to use if the result of the division is not an integer.
+   */
+  @UnstableApi
+  public static void scaleLargeValuesInPlace(
+      long[] values, long multiplier, long divisor, RoundingMode roundingMode) {
+    if (multiplier == 0) {
+      Arrays.fill(values, 0);
+      return;
+    }
+    if (divisor >= multiplier && (divisor % multiplier) == 0) {
+      long divisionFactor = LongMath.divide(divisor, multiplier, RoundingMode.UNNECESSARY);
+      for (int i = 0; i < values.length; i++) {
+        values[i] = LongMath.divide(values[i], divisionFactor, roundingMode);
+      }
+    } else if (divisor < multiplier && (multiplier % divisor) == 0) {
+      long multiplicationFactor = LongMath.divide(multiplier, divisor, RoundingMode.UNNECESSARY);
+      for (int i = 0; i < values.length; i++) {
+        values[i] = LongMath.saturatedMultiply(values[i], multiplicationFactor);
+      }
+    } else {
+      for (int i = 0; i < values.length; i++) {
+        if (values[i] == 0) {
+          continue;
+        }
+        if (divisor >= values[i] && (divisor % values[i]) == 0) {
+          long divisionFactor = LongMath.divide(divisor, values[i], RoundingMode.UNNECESSARY);
+          values[i] = LongMath.divide(multiplier, divisionFactor, roundingMode);
+        } else if (divisor < values[i] && (values[i] % divisor) == 0) {
+          long multiplicationFactor = LongMath.divide(values[i], divisor, RoundingMode.UNNECESSARY);
+          values[i] = LongMath.saturatedMultiply(multiplier, multiplicationFactor);
+        } else {
+          values[i] = scaleLargeValueFallback(values[i], multiplier, divisor, roundingMode);
+        }
+      }
+    }
+  }
+
+  /**
+   * Scales a large value by a multiplier and a divisor.
+   *
+   * <p>If naively multiplying {@code value} and {@code multiplier} will overflow a 64-bit long,
+   * this implementation uses {@link LongMath#gcd(long, long)} to try and simplify the fraction
+   * before computing the result. If simplifying is not possible (or the simplified result will
+   * still result in an overflow) then the implementation falls back to floating-point arithmetic.
+   *
+   * <p>If the mathematical result would overflow or underflow a 64-bit long, the result will be
+   * either {@link Long#MAX_VALUE} or {@link Long#MIN_VALUE}, respectively.
+   *
+   * <p>This implementation should be used after simpler simplifying efforts have failed (such as
+   * checking if {@code value} or {@code multiplier} are exact multiples of {@code divisor}).
+   */
+  // LongMath.saturatedMultiply is @Beta in the version of Guava we currently depend on (31.1)
+  // but it is no longer @Beta from 32.0.0. This suppression is therefore safe because there's
+  // no version of Guava after 31.1 that doesn't contain this symbol.
+  private static long scaleLargeValueFallback(
+      long value, long multiplier, long divisor, RoundingMode roundingMode) {
+    long numerator = LongMath.saturatedMultiply(value, multiplier);
+    if (numerator != Long.MAX_VALUE && numerator != Long.MIN_VALUE) {
+      return LongMath.divide(numerator, divisor, roundingMode);
+    } else {
+      // Directly multiplying value and multiplier will overflow a long, so we try and cancel
+      // with GCD and try directly multiplying again below. If that still overflows we fall
+      // through to floating point arithmetic.
+      long gcdOfMultiplierAndDivisor = LongMath.gcd(Math.abs(multiplier), Math.abs(divisor));
+      long simplifiedMultiplier =
+          LongMath.divide(multiplier, gcdOfMultiplierAndDivisor, RoundingMode.UNNECESSARY);
+      long simplifiedDivisor =
+          LongMath.divide(divisor, gcdOfMultiplierAndDivisor, RoundingMode.UNNECESSARY);
+      long gcdOfValueAndSimplifiedDivisor =
+          LongMath.gcd(Math.abs(value), Math.abs(simplifiedDivisor));
+      long simplifiedValue =
+          LongMath.divide(value, gcdOfValueAndSimplifiedDivisor, RoundingMode.UNNECESSARY);
+      simplifiedDivisor =
+          LongMath.divide(
+              simplifiedDivisor, gcdOfValueAndSimplifiedDivisor, RoundingMode.UNNECESSARY);
+      long simplifiedNumerator = LongMath.saturatedMultiply(simplifiedValue, simplifiedMultiplier);
+      if (simplifiedNumerator != Long.MAX_VALUE && simplifiedNumerator != Long.MIN_VALUE) {
+        return LongMath.divide(simplifiedNumerator, simplifiedDivisor, roundingMode);
+      } else {
+        double multiplicationFactor = (double) simplifiedMultiplier / simplifiedDivisor;
+        double result = simplifiedValue * multiplicationFactor;
+        // Clamp values that are too large to be represented by 64-bit signed long. If we don't
+        // explicitly clamp then DoubleMath.roundToLong will throw ArithmeticException.
+        if (result > Long.MAX_VALUE) {
+          return Long.MAX_VALUE;
+        } else if (result < Long.MIN_VALUE) {
+          return Long.MIN_VALUE;
+        } else {
+          return DoubleMath.roundToLong(result, roundingMode);
+        }
+      }
+    }
+  }
+
+  /**
    * Scales a large timestamp.
    *
-   * <p>Logically, scaling consists of a multiplication followed by a division. The actual
-   * operations performed are designed to minimize the probability of overflow.
+   * <p>Equivalent to {@link #scaleLargeValue(long, long, long, RoundingMode)} with {@link
+   * RoundingMode#FLOOR}.
    *
    * @param timestamp The timestamp to scale.
    * @param multiplier The multiplier.
@@ -1467,16 +1879,7 @@ public final class Util {
    */
   @UnstableApi
   public static long scaleLargeTimestamp(long timestamp, long multiplier, long divisor) {
-    if (divisor >= multiplier && (divisor % multiplier) == 0) {
-      long divisionFactor = divisor / multiplier;
-      return timestamp / divisionFactor;
-    } else if (divisor < multiplier && (multiplier % divisor) == 0) {
-      long multiplicationFactor = multiplier / divisor;
-      return timestamp * multiplicationFactor;
-    } else {
-      double multiplicationFactor = (double) multiplier / divisor;
-      return (long) (timestamp * multiplicationFactor);
-    }
+    return scaleLargeValue(timestamp, multiplier, divisor, RoundingMode.FLOOR);
   }
 
   /**
@@ -1489,24 +1892,7 @@ public final class Util {
    */
   @UnstableApi
   public static long[] scaleLargeTimestamps(List<Long> timestamps, long multiplier, long divisor) {
-    long[] scaledTimestamps = new long[timestamps.size()];
-    if (divisor >= multiplier && (divisor % multiplier) == 0) {
-      long divisionFactor = divisor / multiplier;
-      for (int i = 0; i < scaledTimestamps.length; i++) {
-        scaledTimestamps[i] = timestamps.get(i) / divisionFactor;
-      }
-    } else if (divisor < multiplier && (multiplier % divisor) == 0) {
-      long multiplicationFactor = multiplier / divisor;
-      for (int i = 0; i < scaledTimestamps.length; i++) {
-        scaledTimestamps[i] = timestamps.get(i) * multiplicationFactor;
-      }
-    } else {
-      double multiplicationFactor = (double) multiplier / divisor;
-      for (int i = 0; i < scaledTimestamps.length; i++) {
-        scaledTimestamps[i] = (long) (timestamps.get(i) * multiplicationFactor);
-      }
-    }
-    return scaledTimestamps;
+    return scaleLargeValues(timestamps, multiplier, divisor, RoundingMode.FLOOR);
   }
 
   /**
@@ -1518,22 +1904,7 @@ public final class Util {
    */
   @UnstableApi
   public static void scaleLargeTimestampsInPlace(long[] timestamps, long multiplier, long divisor) {
-    if (divisor >= multiplier && (divisor % multiplier) == 0) {
-      long divisionFactor = divisor / multiplier;
-      for (int i = 0; i < timestamps.length; i++) {
-        timestamps[i] /= divisionFactor;
-      }
-    } else if (divisor < multiplier && (multiplier % divisor) == 0) {
-      long multiplicationFactor = multiplier / divisor;
-      for (int i = 0; i < timestamps.length; i++) {
-        timestamps[i] *= multiplicationFactor;
-      }
-    } else {
-      double multiplicationFactor = (double) multiplier / divisor;
-      for (int i = 0; i < timestamps.length; i++) {
-        timestamps[i] = (long) (timestamps[i] * multiplicationFactor);
-      }
-    }
+    scaleLargeValuesInPlace(timestamps, multiplier, divisor, RoundingMode.FLOOR);
   }
 
   /**
@@ -1575,7 +1946,7 @@ public final class Util {
   @UnstableApi
   public static int getIntegerCodeForString(String string) {
     int length = string.length();
-    Assertions.checkArgument(length <= 4);
+    checkArgument(length <= 4);
     int result = 0;
     for (int i = 0; i < length; i++) {
       result <<= 8;
@@ -1607,25 +1978,6 @@ public final class Util {
   @UnstableApi
   public static long toLong(int mostSignificantBits, int leastSignificantBits) {
     return (toUnsignedLong(mostSignificantBits) << 32) | toUnsignedLong(leastSignificantBits);
-  }
-
-  /**
-   * Truncates a sequence of ASCII characters to a maximum length.
-   *
-   * <p>This preserves span styling in the {@link CharSequence}. If that's not important, use {@link
-   * Ascii#truncate(CharSequence, int, String)}.
-   *
-   * <p><b>Note:</b> This is not safe to use in general on Unicode text because it may separate
-   * characters from combining characters or split up surrogate pairs.
-   *
-   * @param sequence The character sequence to truncate.
-   * @param maxLength The max length to truncate to.
-   * @return {@code sequence} directly if {@code sequence.length() <= maxLength}, otherwise {@code
-   *     sequence.subsequence(0, maxLength}.
-   */
-  @UnstableApi
-  public static CharSequence truncateAscii(CharSequence sequence, int maxLength) {
-    return sequence.length() <= maxLength ? sequence : sequence.subSequence(0, maxLength);
   }
 
   /**
@@ -1781,6 +2133,12 @@ public final class Util {
         .build();
   }
 
+  /** Gets a PCM {@link Format} based on the {@link AudioProcessor.AudioFormat}. */
+  @UnstableApi
+  public static Format getPcmFormat(AudioProcessor.AudioFormat audioFormat) {
+    return getPcmFormat(audioFormat.encoding, audioFormat.channelCount, audioFormat.sampleRate);
+  }
+
   /**
    * Converts a sample bit depth to a corresponding PCM encoding constant.
    *
@@ -1817,7 +2175,9 @@ public final class Util {
         || encoding == C.ENCODING_PCM_16BIT
         || encoding == C.ENCODING_PCM_16BIT_BIG_ENDIAN
         || encoding == C.ENCODING_PCM_24BIT
+        || encoding == C.ENCODING_PCM_24BIT_BIG_ENDIAN
         || encoding == C.ENCODING_PCM_32BIT
+        || encoding == C.ENCODING_PCM_32BIT_BIG_ENDIAN
         || encoding == C.ENCODING_PCM_FLOAT;
   }
 
@@ -1830,7 +2190,9 @@ public final class Util {
   @UnstableApi
   public static boolean isEncodingHighResolutionPcm(@C.PcmEncoding int encoding) {
     return encoding == C.ENCODING_PCM_24BIT
+        || encoding == C.ENCODING_PCM_24BIT_BIG_ENDIAN
         || encoding == C.ENCODING_PCM_32BIT
+        || encoding == C.ENCODING_PCM_32BIT_BIG_ENDIAN
         || encoding == C.ENCODING_PCM_FLOAT;
   }
 
@@ -1862,10 +2224,71 @@ public final class Util {
         return AudioFormat.CHANNEL_OUT_5POINT1 | AudioFormat.CHANNEL_OUT_BACK_CENTER;
       case 8:
         return AudioFormat.CHANNEL_OUT_7POINT1_SURROUND;
+      case 10:
+        if (Util.SDK_INT >= 32) {
+          return AudioFormat.CHANNEL_OUT_5POINT1POINT4;
+        } else {
+          // Before API 32, height channel masks are not available. For those 10-channel streams
+          // supported on the audio output devices (e.g. DTS:X P2), we use 7.1-surround instead.
+          return AudioFormat.CHANNEL_OUT_7POINT1_SURROUND;
+        }
       case 12:
         return AudioFormat.CHANNEL_OUT_7POINT1POINT4;
       default:
         return AudioFormat.CHANNEL_INVALID;
+    }
+  }
+
+  /** Creates {@link AudioFormat} with given sampleRate, channelConfig, and encoding. */
+  @UnstableApi
+  @RequiresApi(21)
+  public static AudioFormat getAudioFormat(int sampleRate, int channelConfig, int encoding) {
+    return new AudioFormat.Builder()
+        .setSampleRate(sampleRate)
+        .setChannelMask(channelConfig)
+        .setEncoding(encoding)
+        .build();
+  }
+
+  /**
+   * Retrieves the API Level that {@link AudioFormat} introduced an encoding.
+   *
+   * <p>Method returns {@link Integer#MAX_VALUE} if the encoding is unknown.
+   *
+   * @param encoding for which to get the API level.
+   */
+  @UnstableApi
+  public static int getApiLevelThatAudioFormatIntroducedAudioEncoding(int encoding) {
+    switch (encoding) {
+      case C.ENCODING_PCM_16BIT:
+      case C.ENCODING_PCM_8BIT:
+        return 3;
+      case C.ENCODING_PCM_FLOAT:
+      case C.ENCODING_AC3:
+      case C.ENCODING_E_AC3:
+        return 21;
+      case C.ENCODING_DTS:
+      case C.ENCODING_DTS_HD:
+        return 23;
+      case C.ENCODING_DOLBY_TRUEHD:
+        return 25;
+      case C.ENCODING_MP3:
+      case C.ENCODING_AAC_LC:
+      case C.ENCODING_AAC_HE_V1:
+      case C.ENCODING_AAC_HE_V2:
+      case C.ENCODING_AAC_ELD:
+      case C.ENCODING_AAC_XHE:
+      case C.ENCODING_AC4:
+      case C.ENCODING_E_AC3_JOC:
+        return 28;
+      case C.ENCODING_OPUS:
+        return 30;
+      case C.ENCODING_PCM_32BIT:
+        return 31;
+      case C.ENCODING_DTS_UHD_P2:
+        return 34;
+      default:
+        return Integer.MAX_VALUE;
     }
   }
 
@@ -1885,8 +2308,10 @@ public final class Util {
       case C.ENCODING_PCM_16BIT_BIG_ENDIAN:
         return channelCount * 2;
       case C.ENCODING_PCM_24BIT:
+      case C.ENCODING_PCM_24BIT_BIG_ENDIAN:
         return channelCount * 3;
       case C.ENCODING_PCM_32BIT:
+      case C.ENCODING_PCM_32BIT_BIG_ENDIAN:
       case C.ENCODING_PCM_FLOAT:
         return channelCount * 4;
       case C.ENCODING_INVALID:
@@ -1918,8 +2343,12 @@ public final class Util {
     }
   }
 
-  /** Returns the {@link C.AudioContentType} corresponding to the specified {@link C.StreamType}. */
+  /**
+   * @deprecated This method is no longer used by the media3 library, it does not work well and
+   *     should be avoided. There is no direct replacement.
+   */
   @UnstableApi
+  @Deprecated
   public static @C.AudioContentType int getAudioContentTypeForStreamType(
       @C.StreamType int streamType) {
     switch (streamType) {
@@ -2444,6 +2873,17 @@ public final class Util {
   }
 
   /**
+   * Returns a read-only view of the given {@link ByteBuffer}.
+   *
+   * <p>This behaves the same as {@link ByteBuffer#asReadOnlyBuffer} whilst preserving the {@link
+   * ByteOrder} of the original buffer.
+   */
+  @UnstableApi
+  public static ByteBuffer createReadOnlyByteBuffer(ByteBuffer byteBuffer) {
+    return byteBuffer.asReadOnlyBuffer().order(byteBuffer.order());
+  }
+
+  /**
    * Returns the upper-case ISO 3166-1 alpha-2 country code of the current registered operator's MCC
    * (Mobile Country Code), or the country code of the default Locale if not available.
    *
@@ -2559,6 +2999,18 @@ public final class Util {
   public static boolean isAutomotive(Context context) {
     return SDK_INT >= 23
         && context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
+  }
+
+  /**
+   * Returns whether the app is running on a Wear OS device.
+   *
+   * @param context Any context.
+   * @return Whether the app is running on a Wear OS device.
+   */
+  @UnstableApi
+  public static boolean isWear(Context context) {
+    return SDK_INT >= 20
+        && context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH);
   }
 
   /**
@@ -2768,6 +3220,49 @@ public final class Util {
     }
   }
 
+  @UnstableApi
+  public static boolean isFrameDropAllowedOnSurfaceInput(Context context) {
+    // Prior to API 29, decoders may drop frames to keep their output surface from growing out of
+    // bounds. From API 29, if the app targets API 29 or later, the {@link
+    // MediaFormat#KEY_ALLOW_FRAME_DROP} key prevents frame dropping even when the surface is
+    // full.
+    // Some API 30 devices might drop frames despite setting {@link
+    // MediaFormat#KEY_ALLOW_FRAME_DROP} to 0. See b/307518793 and b/289983935.
+    return SDK_INT < 29
+        || context.getApplicationInfo().targetSdkVersion < 29
+        || (SDK_INT == 30
+            && (Ascii.equalsIgnoreCase(MODEL, "moto g(20)")
+                || Ascii.equalsIgnoreCase(MODEL, "rmx3231")));
+  }
+
+  /**
+   * Returns the number of maximum pending output frames that are allowed on a {@link MediaCodec}
+   * decoder.
+   */
+  @UnstableApi
+  public static int getMaxPendingFramesCountForMediaCodecDecoders(Context context) {
+    if (isFrameDropAllowedOnSurfaceInput(context)) {
+      // Frame dropping is never desired, so a workaround is needed for older API levels.
+      // Allow a maximum of one frame to be pending at a time to prevent frame dropping.
+      // TODO(b/226330223): Investigate increasing this limit.
+      return 1;
+    }
+    // Limit the maximum amount of frames for all decoders. This is a tentative value that should be
+    // large enough to avoid significant performance degradation, but small enough to bypass decoder
+    // issues.
+    //
+    // TODO: b/278234847 - Evaluate whether this reduces decoder timeouts, and consider restoring
+    // prior higher limits as appropriate.
+    //
+    // Some OMX decoders don't correctly track their number of output buffers available, and get
+    // stuck if too many frames are rendered without being processed. This value is experimentally
+    // determined. See also
+    // b/213455700, b/230097284, b/229978305, and b/245491744.
+    //
+    // OMX video codecs should no longer exist from android.os.Build.DEVICE_INITIAL_SDK_INT 31+.
+    return 5;
+  }
+
   /**
    * Returns string representation of a {@link C.FormatSupport} flag.
    *
@@ -2872,6 +3367,123 @@ public final class Util {
     return Integer.toString(i, Character.MAX_RADIX);
   }
 
+  /**
+   * Returns whether a play button should be presented on a UI element for playback control. If
+   * {@code false}, a pause button should be shown instead.
+   *
+   * <p>Use {@link #handlePlayPauseButtonAction}, {@link #handlePlayButtonAction} or {@link
+   * #handlePauseButtonAction} to handle the interaction with the play or pause button UI element.
+   *
+   * @param player The {@link Player}. May be {@code null}.
+   */
+  @EnsuresNonNullIf(result = false, expression = "#1")
+  public static boolean shouldShowPlayButton(@Nullable Player player) {
+    return shouldShowPlayButton(player, /* playIfSuppressed= */ true);
+  }
+
+  /**
+   * Returns whether a play button should be presented on a UI element for playback control. If
+   * {@code false}, a pause button should be shown instead.
+   *
+   * <p>Use {@link #handlePlayPauseButtonAction}, {@link #handlePlayButtonAction} or {@link
+   * #handlePauseButtonAction} to handle the interaction with the play or pause button UI element.
+   *
+   * @param player The {@link Player}. May be {@code null}.
+   * @param playIfSuppressed Whether to show a play button if playback is {@linkplain
+   *     Player#getPlaybackSuppressionReason() suppressed}.
+   */
+  @UnstableApi
+  @EnsuresNonNullIf(result = false, expression = "#1")
+  public static boolean shouldShowPlayButton(@Nullable Player player, boolean playIfSuppressed) {
+    return player == null
+        || !player.getPlayWhenReady()
+        || player.getPlaybackState() == Player.STATE_IDLE
+        || player.getPlaybackState() == Player.STATE_ENDED
+        || (playIfSuppressed
+            && player.getPlaybackSuppressionReason() != Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+  }
+
+  /**
+   * Updates the player to handle an interaction with a play button.
+   *
+   * <p>This method assumes the play button is enabled if {@link #shouldShowPlayButton} returns
+   * {@code true}.
+   *
+   * @param player The {@link Player}. May be {@code null}.
+   * @return Whether a player method was triggered to handle this action.
+   */
+  public static boolean handlePlayButtonAction(@Nullable Player player) {
+    if (player == null) {
+      return false;
+    }
+    @Player.State int state = player.getPlaybackState();
+    boolean methodTriggered = false;
+    if (state == Player.STATE_IDLE && player.isCommandAvailable(COMMAND_PREPARE)) {
+      player.prepare();
+      methodTriggered = true;
+    } else if (state == Player.STATE_ENDED
+        && player.isCommandAvailable(COMMAND_SEEK_TO_DEFAULT_POSITION)) {
+      player.seekToDefaultPosition();
+      methodTriggered = true;
+    }
+    if (player.isCommandAvailable(COMMAND_PLAY_PAUSE)) {
+      player.play();
+      methodTriggered = true;
+    }
+    return methodTriggered;
+  }
+
+  /**
+   * Updates the player to handle an interaction with a pause button.
+   *
+   * <p>This method assumes the pause button is enabled if {@link #shouldShowPlayButton} returns
+   * {@code false}.
+   *
+   * @param player The {@link Player}. May be {@code null}.
+   * @return Whether a player method was triggered to handle this action.
+   */
+  public static boolean handlePauseButtonAction(@Nullable Player player) {
+    if (player != null && player.isCommandAvailable(COMMAND_PLAY_PAUSE)) {
+      player.pause();
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Updates the player to handle an interaction with a play or pause button.
+   *
+   * <p>This method assumes that the UI element enables a play button if {@link
+   * #shouldShowPlayButton} returns {@code true} and a pause button otherwise.
+   *
+   * @param player The {@link Player}. May be {@code null}.
+   * @return Whether a player method was triggered to handle this action.
+   */
+  public static boolean handlePlayPauseButtonAction(@Nullable Player player) {
+    return handlePlayPauseButtonAction(player, /* playIfSuppressed= */ true);
+  }
+
+  /**
+   * Updates the player to handle an interaction with a play or pause button.
+   *
+   * <p>This method assumes that the UI element enables a play button if {@link
+   * #shouldShowPlayButton(Player, boolean)} returns {@code true} and a pause button otherwise.
+   *
+   * @param player The {@link Player}. May be {@code null}.
+   * @param playIfSuppressed Whether to trigger a play action if playback is {@linkplain
+   *     Player#getPlaybackSuppressionReason() suppressed}.
+   * @return Whether a player method was triggered to handle this action.
+   */
+  @UnstableApi
+  public static boolean handlePlayPauseButtonAction(
+      @Nullable Player player, boolean playIfSuppressed) {
+    if (shouldShowPlayButton(player, playIfSuppressed)) {
+      return handlePlayButtonAction(player);
+    } else {
+      return handlePauseButtonAction(player);
+    }
+  }
+
   @Nullable
   private static String getSystemProperty(String name) {
     try {
@@ -2948,6 +3560,24 @@ public final class Util {
         != PackageManager.PERMISSION_GRANTED) {
       activity.requestPermissions(
           new String[] {permission.READ_EXTERNAL_STORAGE}, /* requestCode= */ 0);
+      return true;
+    }
+    return false;
+  }
+
+  @RequiresApi(api = 33)
+  private static boolean requestReadMediaPermissions(Activity activity) {
+    if (activity.checkSelfPermission(permission.READ_MEDIA_AUDIO)
+            != PackageManager.PERMISSION_GRANTED
+        || activity.checkSelfPermission(permission.READ_MEDIA_VIDEO)
+            != PackageManager.PERMISSION_GRANTED
+        || activity.checkSelfPermission(permission.READ_MEDIA_IMAGES)
+            != PackageManager.PERMISSION_GRANTED) {
+      activity.requestPermissions(
+          new String[] {
+            permission.READ_MEDIA_AUDIO, permission.READ_MEDIA_IMAGES, permission.READ_MEDIA_VIDEO
+          },
+          /* requestCode= */ 0);
       return true;
     }
     return false;
@@ -3115,5 +3745,30 @@ public final class Util {
     public static Drawable getDrawable(Context context, Resources resources, @DrawableRes int res) {
       return resources.getDrawable(res, context.getTheme());
     }
+  }
+
+  @RequiresApi(29)
+  private static class Api29 {
+
+    @DoNotInline
+    public static void startForeground(
+        Service mediaSessionService,
+        int notificationId,
+        Notification notification,
+        int foregroundServiceType,
+        String foregroundServiceManifestType) {
+      try {
+        // startForeground() will throw if the service's foregroundServiceType is not defined.
+        mediaSessionService.startForeground(notificationId, notification, foregroundServiceType);
+      } catch (RuntimeException e) {
+        Log.e(
+            TAG,
+            "The service must be declared with a foregroundServiceType that includes "
+                + foregroundServiceManifestType);
+        throw e;
+      }
+    }
+
+    private Api29() {}
   }
 }

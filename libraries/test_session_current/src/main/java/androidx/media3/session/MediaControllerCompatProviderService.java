@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.session.RemoteMediaControllerCompat.QUEUE_IS_NULL;
 import static androidx.media3.test.session.common.CommonConstants.ACTION_MEDIA_CONTROLLER_COMPAT;
 import static androidx.media3.test.session.common.CommonConstants.KEY_ARGUMENTS;
 import static androidx.media3.test.session.common.TestUtils.SERVICE_CONNECTION_TIMEOUT_MS;
@@ -34,10 +35,10 @@ import android.support.v4.media.session.MediaControllerCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.test.session.common.IRemoteMediaControllerCompat;
 import androidx.media3.test.session.common.TestHandler;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
@@ -46,7 +47,6 @@ import java.util.concurrent.Executor;
  * A Service that creates {@link MediaControllerCompat} and calls its methods according to the
  * service app's requests.
  */
-@UnstableApi
 public class MediaControllerCompatProviderService extends Service {
   private static final String TAG = "MCCProviderService";
 
@@ -127,6 +127,13 @@ public class MediaControllerCompatProviderService extends Service {
       MediaControllerCompat controller = mediaControllerCompatMap.get(controllerId);
       MediaDescriptionCompat desc = (MediaDescriptionCompat) getParcelable(descriptionBundle);
       controller.removeQueueItem(desc);
+    }
+
+    @Override
+    public int getQueueSize(String controllerId) throws RemoteException {
+      MediaControllerCompat controller = mediaControllerCompatMap.get(controllerId);
+      List<MediaSessionCompat.QueueItem> queue = controller.getQueue();
+      return queue != null ? controller.getQueue().size() : QUEUE_IS_NULL;
     }
 
     @Override

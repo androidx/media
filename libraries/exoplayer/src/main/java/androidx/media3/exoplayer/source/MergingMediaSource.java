@@ -57,6 +57,7 @@ public final class MergingMediaSource extends CompositeMediaSource<Integer> {
     @Target(TYPE_USE)
     @IntDef({REASON_PERIOD_COUNT_MISMATCH})
     public @interface Reason {}
+
     /** The sources have different period counts. */
     public static final int REASON_PERIOD_COUNT_MISMATCH = 0;
 
@@ -164,6 +165,16 @@ public final class MergingMediaSource extends CompositeMediaSource<Integer> {
   @Override
   public MediaItem getMediaItem() {
     return mediaSources.length > 0 ? mediaSources[0].getMediaItem() : PLACEHOLDER_MEDIA_ITEM;
+  }
+
+  @Override
+  public boolean canUpdateMediaItem(MediaItem mediaItem) {
+    return mediaSources.length > 0 && mediaSources[0].canUpdateMediaItem(mediaItem);
+  }
+
+  @Override
+  public void updateMediaItem(MediaItem mediaItem) {
+    mediaSources[0].updateMediaItem(mediaItem);
   }
 
   @Override

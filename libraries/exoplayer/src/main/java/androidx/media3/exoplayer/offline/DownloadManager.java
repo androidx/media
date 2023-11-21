@@ -148,8 +148,10 @@ public final class DownloadManager {
 
   /** The default maximum number of parallel downloads. */
   public static final int DEFAULT_MAX_PARALLEL_DOWNLOADS = 3;
+
   /** The default minimum number of times a download must be retried before failing. */
   public static final int DEFAULT_MIN_RETRY_COUNT = 5;
+
   /** The default requirement is that the device has network connectivity. */
   public static final Requirements DEFAULT_REQUIREMENTS = new Requirements(Requirements.NETWORK);
 
@@ -192,23 +194,6 @@ public final class DownloadManager {
   private boolean waitingForRequirements;
   private List<Download> downloads;
   private RequirementsWatcher requirementsWatcher;
-
-  /**
-   * Constructs a {@link DownloadManager}.
-   *
-   * @param context Any context.
-   * @param databaseProvider Provides the SQLite database in which downloads are persisted.
-   * @param cache A cache to be used to store downloaded data. The cache should be configured with
-   *     an {@link CacheEvictor} that will not evict downloaded content, for example {@link
-   *     NoOpCacheEvictor}.
-   * @param upstreamFactory A {@link Factory} for creating {@link DataSource}s for downloading data.
-   * @deprecated Use {@link #DownloadManager(Context, DatabaseProvider, Cache, Factory, Executor)}.
-   */
-  @Deprecated
-  public DownloadManager(
-      Context context, DatabaseProvider databaseProvider, Cache cache, Factory upstreamFactory) {
-    this(context, databaseProvider, cache, upstreamFactory, Runnable::run);
-  }
 
   /**
    * Constructs a {@link DownloadManager}.

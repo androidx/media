@@ -27,6 +27,9 @@ import android.media.MediaCodec;
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaMetadata;
+import androidx.media3.common.StreamKey;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
@@ -46,12 +49,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Bytes;
 import com.google.common.truth.Correspondence;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.FloatBuffer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -60,6 +66,7 @@ import java.util.List;
 import java.util.Queue;
 import java.util.Random;
 import java.util.Set;
+import java.util.UUID;
 
 /** Utility methods for tests. */
 @UnstableApi
@@ -123,12 +130,35 @@ public class TestUtil {
    * @return The equivalent byte array.
    */
   public static byte[] createByteArray(int... bytes) {
-    byte[] byteArray = new byte[bytes.length];
-    for (int i = 0; i < byteArray.length; i++) {
+    byte[] array = new byte[bytes.length];
+    for (int i = 0; i < array.length; i++) {
       Assertions.checkState(0x00 <= bytes[i] && bytes[i] <= 0xFF);
-      byteArray[i] = (byte) bytes[i];
+      array[i] = (byte) bytes[i];
     }
-    return byteArray;
+    return array;
+  }
+
+  /** Gets the underlying data of the {@link ByteBuffer} as a {@code float[]}. */
+  public static float[] createFloatArray(ByteBuffer byteBuffer) {
+    FloatBuffer buffer = byteBuffer.asFloatBuffer();
+    float[] content = new float[buffer.remaining()];
+    buffer.get(content);
+    return content;
+  }
+
+  /** Creates a {@link ByteBuffer} containing the {@code data}. */
+  public static ByteBuffer createByteBuffer(float[] data) {
+    ByteBuffer buffer =
+        ByteBuffer.allocateDirect(data.length * C.BYTES_PER_FLOAT).order(ByteOrder.nativeOrder());
+    buffer.asFloatBuffer().put(data);
+    return buffer;
+  }
+
+  /** Creates a {@link ByteBuffer} containing the {@code data}. */
+  public static ByteBuffer createByteBuffer(short[] data) {
+    ByteBuffer buffer = ByteBuffer.allocateDirect(data.length * 2).order(ByteOrder.nativeOrder());
+    buffer.asShortBuffer().put(data);
+    return buffer;
   }
 
   /**
@@ -164,6 +194,12 @@ public class TestUtil {
   /** Returns the bytes of an asset file. */
   public static byte[] getByteArray(Context context, String fileName) throws IOException {
     return Util.toByteArray(getInputStream(context, fileName));
+  }
+
+  /** Returns the bytes of a file using its file path. */
+  public static byte[] getByteArrayFromFilePath(String filePath) throws IOException {
+    InputStream inputStream = new FileInputStream(filePath);
+    return Util.toByteArray(inputStream);
   }
 
   /** Returns an {@link InputStream} for reading from an asset file. */
@@ -370,7 +406,7 @@ public class TestUtil {
   /**
    * Extracts all samples from the given file into a {@link FakeTrackOutput}.
    *
-   * @param extractor The {@link Extractor} to extractor from input.
+   * @param extractor The {@link Extractor} to be used.
    * @param context A {@link Context}.
    * @param fileName The name of the input file.
    * @return The {@link FakeTrackOutput} containing the extracted samples.
@@ -380,6 +416,26 @@ public class TestUtil {
   public static FakeExtractorOutput extractAllSamplesFromFile(
       Extractor extractor, Context context, String fileName) throws IOException {
     byte[] data = TestUtil.getByteArray(context, fileName);
+    return extractAllSamplesFromByteArray(extractor, data);
+  }
+
+  /**
+   * Extracts all samples from the given file into a {@link FakeTrackOutput}.
+   *
+   * @param extractor The {@link Extractor} to be used.
+   * @param filePath The file path.
+   * @return The {@link FakeTrackOutput} containing the extracted samples.
+   * @throws IOException If an error occurred reading from the input, or if the extractor finishes
+   *     reading from input without extracting any {@link SeekMap}.
+   */
+  public static FakeExtractorOutput extractAllSamplesFromFilePath(
+      Extractor extractor, String filePath) throws IOException {
+    byte[] data = getByteArrayFromFilePath(filePath);
+    return extractAllSamplesFromByteArray(extractor, data);
+  }
+
+  private static FakeExtractorOutput extractAllSamplesFromByteArray(
+      Extractor extractor, byte[] data) throws IOException {
     FakeExtractorOutput expectedOutput = new FakeExtractorOutput();
     extractor.init(expectedOutput);
     FakeExtractorInput input = new FakeExtractorInput.Builder().setData(data).build();
@@ -428,7 +484,7 @@ public class TestUtil {
     extractor.seek(initialSeekLoadPosition, seekTimeUs);
 
     PositionHolder positionHolder = new PositionHolder();
-    positionHolder.position = C.POSITION_UNSET;
+    positionHolder.position = C.INDEX_UNSET;
     ExtractorInput extractorInput =
         TestUtil.getExtractorInputFromPosition(dataSource, initialSeekLoadPosition, uri);
     int extractorReadResult = Extractor.RESULT_CONTINUE;
@@ -508,6 +564,33 @@ public class TestUtil {
     }
 
     return list;
+  }
+
+  /** Returns a {@link MediaItem} that has all fields set to non-default values. */
+  public static MediaItem buildFullyCustomizedMediaItem() {
+    return new MediaItem.Builder()
+        .setUri("http://custom.uri.test")
+        .setCustomCacheKey("custom.cache")
+        .setMediaId("custom.id")
+        .setMediaMetadata(new MediaMetadata.Builder().setTitle("custom.title").build())
+        .setClippingConfiguration(
+            new MediaItem.ClippingConfiguration.Builder().setStartPositionMs(123).build())
+        .setAdsConfiguration(
+            new MediaItem.AdsConfiguration.Builder(Uri.parse("http:://custom.ad.test")).build())
+        .setDrmConfiguration(new MediaItem.DrmConfiguration.Builder(UUID.randomUUID()).build())
+        .setLiveConfiguration(
+            new MediaItem.LiveConfiguration.Builder().setTargetOffsetMs(234).build())
+        .setMimeType("mime")
+        .setRequestMetadata(
+            new MediaItem.RequestMetadata.Builder().setSearchQuery("custom.query").build())
+        .setStreamKeys(ImmutableList.of(new StreamKey(/* groupIndex= */ 0, /* streamIndex= */ 0)))
+        .setTag("tag")
+        .setSubtitleConfigurations(
+            ImmutableList.of(
+                new MediaItem.SubtitleConfiguration.Builder(
+                        Uri.parse("http://custom.subtitle.test"))
+                    .build()))
+        .build();
   }
 
   private static final class NoUidOrShufflingTimeline extends Timeline {

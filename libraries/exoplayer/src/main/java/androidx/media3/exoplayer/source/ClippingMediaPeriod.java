@@ -20,15 +20,16 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.FormatHolder;
+import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.source.ClippingMediaSource.IllegalClippingException;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import java.io.IOException;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 
 /**
  * Wraps a {@link MediaPeriod} and clips its {@link SampleStream}s to provide a subsequence of their
@@ -222,8 +223,8 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
   }
 
   @Override
-  public boolean continueLoading(long positionUs) {
-    return mediaPeriod.continueLoading(positionUs);
+  public boolean continueLoading(LoadingInfo loadingInfo) {
+    return mediaPeriod.continueLoading(loadingInfo);
   }
 
   @Override
@@ -327,6 +328,7 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
         buffer.setFlags(C.BUFFER_FLAG_END_OF_STREAM);
         return C.RESULT_BUFFER_READ;
       }
+      long bufferedPositionUs = getBufferedPositionUs();
       @ReadDataResult int result = childStream.readData(formatHolder, buffer, readFlags);
       if (result == C.RESULT_FORMAT_READ) {
         Format format = Assertions.checkNotNull(formatHolder.format);
@@ -346,7 +348,7 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
       if (endUs != C.TIME_END_OF_SOURCE
           && ((result == C.RESULT_BUFFER_READ && buffer.timeUs >= endUs)
               || (result == C.RESULT_NOTHING_READ
-                  && getBufferedPositionUs() == C.TIME_END_OF_SOURCE
+                  && bufferedPositionUs == C.TIME_END_OF_SOURCE
                   && !buffer.waitingForKeys))) {
         buffer.clear();
         buffer.setFlags(C.BUFFER_FLAG_END_OF_STREAM);

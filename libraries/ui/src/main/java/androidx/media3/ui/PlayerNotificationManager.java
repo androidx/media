@@ -18,11 +18,8 @@ package androidx.media3.ui;
 import static androidx.media3.common.Player.COMMAND_CHANGE_MEDIA_ITEMS;
 import static androidx.media3.common.Player.COMMAND_GET_CURRENT_MEDIA_ITEM;
 import static androidx.media3.common.Player.COMMAND_GET_TIMELINE;
-import static androidx.media3.common.Player.COMMAND_PLAY_PAUSE;
-import static androidx.media3.common.Player.COMMAND_PREPARE;
 import static androidx.media3.common.Player.COMMAND_SEEK_BACK;
 import static androidx.media3.common.Player.COMMAND_SEEK_FORWARD;
-import static androidx.media3.common.Player.COMMAND_SEEK_TO_DEFAULT_POSITION;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS;
 import static androidx.media3.common.Player.COMMAND_STOP;
@@ -616,20 +613,28 @@ public class PlayerNotificationManager {
 
   /** The action which starts playback. */
   public static final String ACTION_PLAY = "androidx.media3.ui.notification.play";
+
   /** The action which pauses playback. */
   public static final String ACTION_PAUSE = "androidx.media3.ui.notification.pause";
+
   /** The action which skips to the previous media item. */
   public static final String ACTION_PREVIOUS = "androidx.media3.ui.notification.prev";
+
   /** The action which skips to the next media item. */
   public static final String ACTION_NEXT = "androidx.media3.ui.notification.next";
+
   /** The action which fast forwards. */
   public static final String ACTION_FAST_FORWARD = "androidx.media3.ui.notification.ffwd";
+
   /** The action which rewinds. */
   public static final String ACTION_REWIND = "androidx.media3.ui.notification.rewind";
+
   /** The action which stops playback. */
   public static final String ACTION_STOP = "androidx.media3.ui.notification.stop";
+
   /** The extra key of the instance id of the player notification manager. */
   public static final String EXTRA_INSTANCE_ID = "INSTANCE_ID";
+
   /**
    * The action which is executed when the notification is dismissed. It cancels the notification
    * and calls {@link NotificationListener#onNotificationCancelled(int, boolean)}.
@@ -707,6 +712,7 @@ public class PlayerNotificationManager {
   private boolean useRewindActionInCompactView;
   private boolean useFastForwardActionInCompactView;
   private boolean usePlayPauseActions;
+  private boolean showPlayButtonIfSuppressed;
   private boolean useStopAction;
   private int badgeIconType;
   private boolean colorized;
@@ -757,6 +763,7 @@ public class PlayerNotificationManager {
     usePreviousAction = true;
     useNextAction = true;
     usePlayPauseActions = true;
+    showPlayButtonIfSuppressed = true;
     useRewindAction = true;
     useFastForwardAction = true;
     colorized = true;
@@ -962,6 +969,22 @@ public class PlayerNotificationManager {
   public final void setUsePlayPauseActions(boolean usePlayPauseActions) {
     if (this.usePlayPauseActions != usePlayPauseActions) {
       this.usePlayPauseActions = usePlayPauseActions;
+      invalidate();
+    }
+  }
+
+  /**
+   * Sets whether a play button is shown if playback is {@linkplain
+   * Player#getPlaybackSuppressionReason() suppressed}.
+   *
+   * <p>The default is {@code true}.
+   *
+   * @param showPlayButtonIfSuppressed Whether to show a play button if playback is {@linkplain
+   *     Player#getPlaybackSuppressionReason() suppressed}.
+   */
+  public void setShowPlayButtonIfPlaybackIsSuppressed(boolean showPlayButtonIfSuppressed) {
+    if (this.showPlayButtonIfSuppressed != showPlayButtonIfSuppressed) {
+      this.showPlayButtonIfSuppressed = showPlayButtonIfSuppressed;
       invalidate();
     }
   }
@@ -1334,10 +1357,10 @@ public class PlayerNotificationManager {
       stringActions.add(ACTION_REWIND);
     }
     if (usePlayPauseActions) {
-      if (shouldShowPauseButton(player)) {
-        stringActions.add(ACTION_PAUSE);
-      } else {
+      if (Util.shouldShowPlayButton(player, showPlayButtonIfSuppressed)) {
         stringActions.add(ACTION_PLAY);
+      } else {
+        stringActions.add(ACTION_PAUSE);
       }
     }
     if (useFastForwardAction && enableFastForward) {
@@ -1382,10 +1405,10 @@ public class PlayerNotificationManager {
     if (leftSideActionIndex != -1) {
       actionIndices[actionCounter++] = leftSideActionIndex;
     }
-    boolean shouldShowPauseButton = shouldShowPauseButton(player);
-    if (pauseActionIndex != -1 && shouldShowPauseButton) {
+    boolean shouldShowPlayButton = Util.shouldShowPlayButton(player, showPlayButtonIfSuppressed);
+    if (pauseActionIndex != -1 && !shouldShowPlayButton) {
       actionIndices[actionCounter++] = pauseActionIndex;
-    } else if (playActionIndex != -1 && !shouldShowPauseButton) {
+    } else if (playActionIndex != -1 && shouldShowPlayButton) {
       actionIndices[actionCounter++] = playActionIndex;
     }
     if (rightSideActionIndex != -1) {
@@ -1398,12 +1421,6 @@ public class PlayerNotificationManager {
   protected boolean getOngoing(Player player) {
     int playbackState = player.getPlaybackState();
     return (playbackState == Player.STATE_BUFFERING || playbackState == Player.STATE_READY)
-        && player.getPlayWhenReady();
-  }
-
-  private boolean shouldShowPauseButton(Player player) {
-    return player.getPlaybackState() != Player.STATE_ENDED
-        && player.getPlaybackState() != Player.STATE_IDLE
         && player.getPlayWhenReady();
   }
 
@@ -1547,20 +1564,9 @@ public class PlayerNotificationManager {
       }
       String action = intent.getAction();
       if (ACTION_PLAY.equals(action)) {
-        if (player.getPlaybackState() == Player.STATE_IDLE
-            && player.isCommandAvailable(COMMAND_PREPARE)) {
-          player.prepare();
-        } else if (player.getPlaybackState() == Player.STATE_ENDED
-            && player.isCommandAvailable(COMMAND_SEEK_TO_DEFAULT_POSITION)) {
-          player.seekToDefaultPosition();
-        }
-        if (player.isCommandAvailable(COMMAND_PLAY_PAUSE)) {
-          player.play();
-        }
+        Util.handlePlayButtonAction(player);
       } else if (ACTION_PAUSE.equals(action)) {
-        if (player.isCommandAvailable(COMMAND_PLAY_PAUSE)) {
-          player.pause();
-        }
+        Util.handlePauseButtonAction(player);
       } else if (ACTION_PREVIOUS.equals(action)) {
         if (player.isCommandAvailable(COMMAND_SEEK_TO_PREVIOUS)) {
           player.seekToPrevious();

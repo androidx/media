@@ -61,23 +61,30 @@ import java.lang.annotation.Target;
     STATE_ERROR
   })
   private @interface State {}
+
   /** State when first initializing. */
   private static final int STATE_INITIALIZING = 0;
+
   /** State when we have a timestamp and we don't know if it's advancing. */
   private static final int STATE_TIMESTAMP = 1;
+
   /** State when we have a timestamp and we know it is advancing. */
   private static final int STATE_TIMESTAMP_ADVANCING = 2;
+
   /** State when the no timestamp is available. */
   private static final int STATE_NO_TIMESTAMP = 3;
+
   /** State when the last timestamp was rejected as invalid. */
   private static final int STATE_ERROR = 4;
 
   /** The polling interval for {@link #STATE_INITIALIZING} and {@link #STATE_TIMESTAMP}. */
   private static final int FAST_POLL_INTERVAL_US = 10_000;
+
   /**
    * The polling interval for {@link #STATE_TIMESTAMP_ADVANCING} and {@link #STATE_NO_TIMESTAMP}.
    */
   private static final int SLOW_POLL_INTERVAL_US = 10_000_000;
+
   /** The polling interval for {@link #STATE_ERROR}. */
   private static final int ERROR_POLL_INTERVAL_US = 500_000;
 
@@ -237,7 +244,7 @@ import java.lang.annotation.Target;
    */
   @TargetApi(19) // audioTimestamp will be null if Util.SDK_INT < 19.
   public long getTimestampPositionFrames() {
-    return audioTimestamp != null ? audioTimestamp.getTimestampPositionFrames() : C.POSITION_UNSET;
+    return audioTimestamp != null ? audioTimestamp.getTimestampPositionFrames() : C.INDEX_UNSET;
   }
 
   private void updateState(@State int state) {
@@ -246,7 +253,7 @@ import java.lang.annotation.Target;
       case STATE_INITIALIZING:
         // Force polling a timestamp immediately, and poll quickly.
         lastTimestampSampleTimeUs = 0;
-        initialTimestampPositionFrames = C.POSITION_UNSET;
+        initialTimestampPositionFrames = C.INDEX_UNSET;
         initializeSystemTimeUs = System.nanoTime() / 1000;
         sampleIntervalUs = FAST_POLL_INTERVAL_US;
         break;

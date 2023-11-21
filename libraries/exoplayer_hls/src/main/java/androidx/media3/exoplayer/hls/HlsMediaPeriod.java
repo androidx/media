@@ -26,10 +26,11 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.Assertions;
-import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.TransferListener;
+import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.drm.DrmSession;
@@ -47,8 +48,10 @@ import androidx.media3.exoplayer.source.SequenceableLoader;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.upstream.Allocator;
+import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.extractor.Extractor;
+import androidx.media3.extractor.text.SubtitleParser;
 import com.google.common.primitives.Ints;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -58,17 +61,17 @@ import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** A {@link MediaPeriod} that loads an HLS stream. */
-@UnstableApi
-public final class HlsMediaPeriod implements MediaPeriod, HlsPlaylistTracker.PlaylistEventListener {
+/* package */ final class HlsMediaPeriod
+    implements MediaPeriod, HlsPlaylistTracker.PlaylistEventListener {
 
   private final HlsExtractorFactory extractorFactory;
   private final HlsPlaylistTracker playlistTracker;
   private final HlsDataSourceFactory dataSourceFactory;
   @Nullable private final TransferListener mediaTransferListener;
+  @Nullable private final CmcdConfiguration cmcdConfiguration;
   private final DrmSessionManager drmSessionManager;
   private final DrmSessionEventListener.EventDispatcher drmEventDispatcher;
   private final LoadErrorHandlingPolicy loadErrorHandlingPolicy;
@@ -82,6 +85,8 @@ public final class HlsMediaPeriod implements MediaPeriod, HlsPlaylistTracker.Pla
   private final boolean useSessionKeys;
   private final PlayerId playerId;
   private final HlsSampleStreamWrapper.Callback sampleStreamWrapperCallback;
+  private final long timestampAdjusterInitializationTimeoutMs;
+  @Nullable private final SubtitleParser.Factory subtitleParserFactory;
 
   @Nullable private MediaPeriod.Callback mediaPeriodCallback;
   private int pendingPrepareCount;
@@ -102,6 +107,7 @@ public final class HlsMediaPeriod implements MediaPeriod, HlsPlaylistTracker.Pla
    *     and keys.
    * @param mediaTransferListener The transfer listener to inform of any media data transfers. May
    *     be null if no listener is available.
+   * @param cmcdConfiguration The {@link CmcdConfiguration} for the period.
    * @param drmSessionManager The {@link DrmSessionManager} to acquire {@link DrmSession
    *     DrmSessions} with.
    * @param drmEventDispatcher A {@link DrmSessionEventListener.EventDispatcher} used to distribute
@@ -115,12 +121,16 @@ public final class HlsMediaPeriod implements MediaPeriod, HlsPlaylistTracker.Pla
    * @param metadataType The type of metadata to extract from the period.
    * @param useSessionKeys Whether to use #EXT-X-SESSION-KEY tags.
    * @param playerId The ID of the current player.
+   * @param timestampAdjusterInitializationTimeoutMs The timeout for the loading thread to wait for
+   *     the timestamp adjuster to initialize, in milliseconds. A timeout of zero is interpreted as
+   *     an infinite timeout.
    */
   public HlsMediaPeriod(
       HlsExtractorFactory extractorFactory,
       HlsPlaylistTracker playlistTracker,
       HlsDataSourceFactory dataSourceFactory,
       @Nullable TransferListener mediaTransferListener,
+      @Nullable CmcdConfiguration cmcdConfiguration,
       DrmSessionManager drmSessionManager,
       DrmSessionEventListener.EventDispatcher drmEventDispatcher,
       LoadErrorHandlingPolicy loadErrorHandlingPolicy,
@@ -130,11 +140,14 @@ public final class HlsMediaPeriod implements MediaPeriod, HlsPlaylistTracker.Pla
       boolean allowChunklessPreparation,
       @HlsMediaSource.MetadataType int metadataType,
       boolean useSessionKeys,
-      PlayerId playerId) {
+      PlayerId playerId,
+      long timestampAdjusterInitializationTimeoutMs,
+      @Nullable SubtitleParser.Factory subtitleParserFactory) {
     this.extractorFactory = extractorFactory;
     this.playlistTracker = playlistTracker;
     this.dataSourceFactory = dataSourceFactory;
     this.mediaTransferListener = mediaTransferListener;
+    this.cmcdConfiguration = cmcdConfiguration;
     this.drmSessionManager = drmSessionManager;
     this.drmEventDispatcher = drmEventDispatcher;
     this.loadErrorHandlingPolicy = loadErrorHandlingPolicy;
@@ -145,6 +158,7 @@ public final class HlsMediaPeriod implements MediaPeriod, HlsPlaylistTracker.Pla
     this.metadataType = metadataType;
     this.useSessionKeys = useSessionKeys;
     this.playerId = playerId;
+    this.timestampAdjusterInitializationTimeoutMs = timestampAdjusterInitializationTimeoutMs;
     sampleStreamWrapperCallback = new SampleStreamWrapperCallback();
     compositeSequenceableLoader =
         compositeSequenceableLoaderFactory.createCompositeSequenceableLoader();
@@ -153,6 +167,7 @@ public final class HlsMediaPeriod implements MediaPeriod, HlsPlaylistTracker.Pla
     sampleStreamWrappers = new HlsSampleStreamWrapper[0];
     enabledSampleStreamWrappers = new HlsSampleStreamWrapper[0];
     manifestUrlIndicesPerWrapper = new int[0][];
+    this.subtitleParserFactory = subtitleParserFactory;
   }
 
   public void release() {
@@ -338,7 +353,7 @@ public final class HlsMediaPeriod implements MediaPeriod, HlsPlaylistTracker.Pla
           // The first enabled wrapper is always allowed to initialize timestamp adjusters. Note
           // that the first wrapper will correspond to a variant, or else an audio rendition, or
           // else a text rendition, in that order.
-          sampleStreamWrapper.setIsTimestampMaster(true);
+          sampleStreamWrapper.setIsPrimaryTimestampSource(true);
           if (wasReset
               || enabledSampleStreamWrappers.length == 0
               || sampleStreamWrapper != enabledSampleStreamWrappers[0]) {
@@ -352,7 +367,7 @@ public final class HlsMediaPeriod implements MediaPeriod, HlsPlaylistTracker.Pla
           // audio or video, since they are expected to contain dense samples. Text wrappers are not
           // permitted except in the case above in which no variant or audio rendition wrappers are
           // enabled.
-          sampleStreamWrapper.setIsTimestampMaster(i < audioVideoSampleStreamWrapperCount);
+          sampleStreamWrapper.setIsPrimaryTimestampSource(i < audioVideoSampleStreamWrapperCount);
         }
       }
     }
@@ -380,7 +395,7 @@ public final class HlsMediaPeriod implements MediaPeriod, HlsPlaylistTracker.Pla
   }
 
   @Override
-  public boolean continueLoading(long positionUs) {
+  public boolean continueLoading(LoadingInfo loadingInfo) {
     if (trackGroups == null) {
       // Preparation is still going on.
       for (HlsSampleStreamWrapper wrapper : sampleStreamWrappers) {
@@ -388,7 +403,7 @@ public final class HlsMediaPeriod implements MediaPeriod, HlsPlaylistTracker.Pla
       }
       return false;
     } else {
-      return compositeSequenceableLoader.continueLoading(positionUs);
+      return compositeSequenceableLoader.continueLoading(loadingInfo);
     }
   }
 
@@ -506,29 +521,51 @@ public final class HlsMediaPeriod implements MediaPeriod, HlsPlaylistTracker.Pla
     for (int i = 0; i < subtitleRenditions.size(); i++) {
       Rendition subtitleRendition = subtitleRenditions.get(i);
       String sampleStreamWrapperUid = "subtitle:" + i + ":" + subtitleRendition.name;
+      // Format for HlsChunkSource to createExtractor with
+      Format originalSubtitleFormat = subtitleRendition.format;
       HlsSampleStreamWrapper sampleStreamWrapper =
           buildSampleStreamWrapper(
               sampleStreamWrapperUid,
               C.TRACK_TYPE_TEXT,
               new Uri[] {subtitleRendition.url},
-              new Format[] {subtitleRendition.format},
+              new Format[] {originalSubtitleFormat},
               null,
               Collections.emptyList(),
               overridingDrmInitData,
               positionUs);
       manifestUrlIndicesPerWrapper.add(new int[] {i});
       sampleStreamWrappers.add(sampleStreamWrapper);
-      sampleStreamWrapper.prepareWithMultivariantPlaylistInfo(
-          new TrackGroup[] {new TrackGroup(sampleStreamWrapperUid, subtitleRendition.format)},
-          /* primaryTrackGroupIndex= */ 0);
+      if (subtitleParserFactory != null
+          && subtitleParserFactory.supportsFormat(originalSubtitleFormat)) {
+        Format updatedSubtitleFormat =
+            originalSubtitleFormat
+                .buildUpon()
+                .setSampleMimeType(MimeTypes.APPLICATION_MEDIA3_CUES)
+                .setCueReplacementBehavior(
+                    subtitleParserFactory.getCueReplacementBehavior(originalSubtitleFormat))
+                .setCodecs(
+                    originalSubtitleFormat.sampleMimeType
+                        + (originalSubtitleFormat.codecs != null
+                            ? " " + originalSubtitleFormat.codecs
+                            : ""))
+                .setSubsampleOffsetUs(Format.OFFSET_SAMPLE_RELATIVE)
+                .build();
+        sampleStreamWrapper.prepareWithMultivariantPlaylistInfo(
+            new TrackGroup[] {new TrackGroup(sampleStreamWrapperUid, updatedSubtitleFormat)},
+            /* primaryTrackGroupIndex= */ 0);
+      } else {
+        sampleStreamWrapper.prepareWithMultivariantPlaylistInfo(
+            new TrackGroup[] {new TrackGroup(sampleStreamWrapperUid, originalSubtitleFormat)},
+            /* primaryTrackGroupIndex= */ 0);
+      }
     }
 
     this.sampleStreamWrappers = sampleStreamWrappers.toArray(new HlsSampleStreamWrapper[0]);
     this.manifestUrlIndicesPerWrapper = manifestUrlIndicesPerWrapper.toArray(new int[0][]);
     pendingPrepareCount = this.sampleStreamWrappers.length;
-    // Set timestamp masters and trigger preparation (if not already prepared)
+    // Set primary timestamp source and trigger preparation (if not already prepared)
     for (int i = 0; i < audioVideoSampleStreamWrapperCount; i++) {
-      this.sampleStreamWrappers[i].setIsTimestampMaster(true);
+      this.sampleStreamWrappers[i].setIsPrimaryTimestampSource(true);
     }
     for (HlsSampleStreamWrapper sampleStreamWrapper : this.sampleStreamWrappers) {
       sampleStreamWrapper.continuePreparing();
@@ -776,8 +813,10 @@ public final class HlsMediaPeriod implements MediaPeriod, HlsPlaylistTracker.Pla
             dataSourceFactory,
             mediaTransferListener,
             timestampAdjusterProvider,
+            timestampAdjusterInitializationTimeoutMs,
             muxedCaptionFormats,
-            playerId);
+            playerId,
+            cmcdConfiguration);
     return new HlsSampleStreamWrapper(
         uid,
         trackType,

@@ -21,6 +21,7 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import androidx.annotation.IntDef;
 import androidx.media3.common.C;
 import androidx.media3.common.audio.AudioProcessor;
+import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -43,11 +44,13 @@ public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor {
    * minimumSilenceDurationUs}.
    */
   public static final long DEFAULT_MINIMUM_SILENCE_DURATION_US = 150_000;
+
   /**
    * The default value for {@link #SilenceSkippingAudioProcessor(long, long, short)
    * paddingSilenceUs}.
    */
   public static final long DEFAULT_PADDING_SILENCE_US = 20_000;
+
   /**
    * The default value for {@link #SilenceSkippingAudioProcessor(long, long, short)
    * silenceThresholdLevel}.
@@ -64,10 +67,13 @@ public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor {
     STATE_SILENT,
   })
   private @interface State {}
+
   /** State when the input is not silent. */
   private static final int STATE_NOISY = 0;
+
   /** State when the input may be silent but we haven't read enough yet to know. */
   private static final int STATE_MAYBE_SILENT = 1;
+
   /** State when the input is silent. */
   private static final int STATE_SILENT = 2;
 

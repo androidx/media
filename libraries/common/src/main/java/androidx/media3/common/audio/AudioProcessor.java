@@ -37,6 +37,13 @@ public interface AudioProcessor {
 
   /** PCM audio format that may be handled by an audio processor. */
   final class AudioFormat {
+    /**
+     * An {@link AudioFormat} instance to represent an unset {@link AudioFormat}. This should not be
+     * returned by {@link #configure(AudioFormat)} if the processor {@link #isActive()}.
+     *
+     * <p>Typically used to represent an inactive {@link AudioProcessor} {@linkplain
+     * #configure(AudioFormat) output format}.
+     */
     public static final AudioFormat NOT_SET =
         new AudioFormat(
             /* sampleRate= */ Format.NO_VALUE,
@@ -45,12 +52,23 @@ public interface AudioProcessor {
 
     /** The sample rate in Hertz. */
     public final int sampleRate;
+
     /** The number of interleaved channels. */
     public final int channelCount;
+
     /** The type of linear PCM encoding. */
     public final @C.PcmEncoding int encoding;
+
     /** The number of bytes used to represent one audio frame. */
     public final int bytesPerFrame;
+
+    /**
+     * Creates an instance using the {@link Format#sampleRate}, {@link Format#channelCount} and
+     * {@link Format#pcmEncoding}.
+     */
+    public AudioFormat(Format format) {
+      this(format.sampleRate, format.channelCount, format.pcmEncoding);
+    }
 
     public AudioFormat(int sampleRate, int channelCount, @C.PcmEncoding int encoding) {
       this.sampleRate = sampleRate;
@@ -94,11 +112,17 @@ public interface AudioProcessor {
     }
   }
 
-  /** Exception thrown when a processor can't be configured for a given input audio format. */
+  /** Exception thrown when the given {@link AudioFormat} can not be handled. */
   final class UnhandledAudioFormatException extends Exception {
+    public final AudioFormat inputAudioFormat;
 
     public UnhandledAudioFormatException(AudioFormat inputAudioFormat) {
-      super("Unhandled format: " + inputAudioFormat);
+      this("Unhandled input format:", inputAudioFormat);
+    }
+
+    public UnhandledAudioFormatException(String message, AudioFormat audioFormat) {
+      super(message + " " + audioFormat);
+      this.inputAudioFormat = audioFormat;
     }
   }
 

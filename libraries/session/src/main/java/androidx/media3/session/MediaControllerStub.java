@@ -17,13 +17,15 @@ package androidx.media3.session;
 
 import static androidx.media3.common.util.Util.postOrRun;
 
+import android.app.PendingIntent;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.RemoteException;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Player.Commands;
-import androidx.media3.common.util.BundleableUtil;
+import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
 import androidx.media3.session.PlayerInfo.BundlingExclusions;
@@ -36,7 +38,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   private static final String TAG = "MediaControllerStub";
 
   /** The version of the IMediaController interface. */
-  public static final int VERSION_INT = 2;
+  public static final int VERSION_INT = 3;
 
   private final WeakReference<MediaControllerImplBase> controller;
 
@@ -48,7 +50,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   public void onSessionResult(int sequenceNum, Bundle sessionResultBundle) {
     SessionResult result;
     try {
-      result = SessionResult.CREATOR.fromBundle(sessionResultBundle);
+      result = SessionResult.fromBundle(sessionResultBundle);
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for SessionResult", e);
       return;
@@ -63,7 +65,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   public void onLibraryResult(int sequenceNum, Bundle libraryResultBundle) {
     LibraryResult<?> result;
     try {
-      result = LibraryResult.UNKNOWN_TYPE_CREATOR.fromBundle(libraryResultBundle);
+      result = LibraryResult.fromUnknownBundle(libraryResultBundle);
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for LibraryResult", e);
       return;
@@ -78,7 +80,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   public void onConnected(int seq, Bundle connectionResultBundle) {
     ConnectionState connectionState;
     try {
-      connectionState = ConnectionState.CREATOR.fromBundle(connectionResultBundle);
+      connectionState = ConnectionState.fromBundle(connectionResultBundle);
     } catch (RuntimeException e) {
       Log.w(TAG, "Malformed Bundle for ConnectionResult. Disconnected from the session.", e);
       onDisconnected(seq);
@@ -98,7 +100,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   public void onSetCustomLayout(int seq, List<Bundle> commandButtonBundleList) {
     List<CommandButton> layout;
     try {
-      layout = BundleableUtil.fromBundleList(CommandButton.CREATOR, commandButtonBundleList);
+      layout =
+          BundleCollectionUtil.fromBundleList(CommandButton::fromBundle, commandButtonBundleList);
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for CommandButton", e);
       return;
@@ -111,14 +114,14 @@ import org.checkerframework.checker.nullness.qual.NonNull;
       int seq, Bundle sessionCommandsBundle, Bundle playerCommandsBundle) {
     SessionCommands sessionCommands;
     try {
-      sessionCommands = SessionCommands.CREATOR.fromBundle(sessionCommandsBundle);
+      sessionCommands = SessionCommands.fromBundle(sessionCommandsBundle);
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for SessionCommands", e);
       return;
     }
     Commands playerCommands;
     try {
-      playerCommands = Commands.CREATOR.fromBundle(playerCommandsBundle);
+      playerCommands = Commands.fromBundle(playerCommandsBundle);
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for Commands", e);
       return;
@@ -132,7 +135,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   public void onAvailableCommandsChangedFromPlayer(int seq, Bundle commandsBundle) {
     Commands commandsFromPlayer;
     try {
-      commandsFromPlayer = Commands.CREATOR.fromBundle(commandsBundle);
+      commandsFromPlayer = Commands.fromBundle(commandsBundle);
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for Commands", e);
       return;
@@ -149,7 +152,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     }
     SessionCommand command;
     try {
-      command = SessionCommand.CREATOR.fromBundle(commandBundle);
+      command = SessionCommand.fromBundle(commandBundle);
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for SessionCommand", e);
       return;
@@ -158,10 +161,17 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   }
 
   @Override
+  public void onSessionActivityChanged(int seq, PendingIntent sessionActivity)
+      throws RemoteException {
+    dispatchControllerTaskOnHandler(
+        controller -> controller.onSetSessionActivity(seq, sessionActivity));
+  }
+
+  @Override
   public void onPeriodicSessionPositionInfoChanged(int seq, Bundle sessionPositionInfoBundle) {
     SessionPositionInfo sessionPositionInfo;
     try {
-      sessionPositionInfo = SessionPositionInfo.CREATOR.fromBundle(sessionPositionInfoBundle);
+      sessionPositionInfo = SessionPositionInfo.fromBundle(sessionPositionInfoBundle);
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for SessionPositionInfo", e);
       return;
@@ -189,14 +199,14 @@ import org.checkerframework.checker.nullness.qual.NonNull;
       int seq, Bundle playerInfoBundle, Bundle playerInfoExclusions) {
     PlayerInfo playerInfo;
     try {
-      playerInfo = PlayerInfo.CREATOR.fromBundle(playerInfoBundle);
+      playerInfo = PlayerInfo.fromBundle(playerInfoBundle);
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for PlayerInfo", e);
       return;
     }
     BundlingExclusions bundlingExclusions;
     try {
-      bundlingExclusions = BundlingExclusions.CREATOR.fromBundle(playerInfoExclusions);
+      bundlingExclusions = BundlingExclusions.fromBundle(playerInfoExclusions);
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for BundlingExclusions", e);
       return;
@@ -236,9 +246,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
                 browser.notifySearchResultChanged(
                     query,
                     itemCount,
-                    libraryParams == null
-                        ? null
-                        : LibraryParams.CREATOR.fromBundle(libraryParams)));
+                    libraryParams == null ? null : LibraryParams.fromBundle(libraryParams)));
   }
 
   @Override
@@ -258,9 +266,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
                 browser.notifyChildrenChanged(
                     parentId,
                     itemCount,
-                    libraryParams == null
-                        ? null
-                        : LibraryParams.CREATOR.fromBundle(libraryParams)));
+                    libraryParams == null ? null : LibraryParams.fromBundle(libraryParams)));
   }
 
   public void destroy() {

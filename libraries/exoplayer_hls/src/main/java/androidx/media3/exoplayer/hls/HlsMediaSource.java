@@ -21,6 +21,7 @@ import static java.lang.annotation.RetentionPolicy.SOURCE;
 
 import android.os.Looper;
 import android.os.SystemClock;
+import androidx.annotation.GuardedBy;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
@@ -53,9 +54,12 @@ import androidx.media3.exoplayer.source.MediaSourceFactory;
 import androidx.media3.exoplayer.source.SequenceableLoader;
 import androidx.media3.exoplayer.source.SinglePeriodTimeline;
 import androidx.media3.exoplayer.upstream.Allocator;
+import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.extractor.Extractor;
+import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
+import androidx.media3.extractor.text.SubtitleParser;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.lang.annotation.Documented;
@@ -92,6 +96,7 @@ public final class HlsMediaSource extends BaseMediaSource
 
   /** Type for ID3 metadata in HLS streams. */
   public static final int METADATA_TYPE_ID3 = 1;
+
   /** Type for ESMG metadata in HLS streams. */
   public static final int METADATA_TYPE_EMSG = 3;
 
@@ -105,12 +110,15 @@ public final class HlsMediaSource extends BaseMediaSource
     private HlsPlaylistParserFactory playlistParserFactory;
     private HlsPlaylistTracker.Factory playlistTrackerFactory;
     private CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory;
+    @Nullable private CmcdConfiguration.Factory cmcdConfigurationFactory;
     private DrmSessionManagerProvider drmSessionManagerProvider;
     private LoadErrorHandlingPolicy loadErrorHandlingPolicy;
+    @Nullable private SubtitleParser.Factory subtitleParserFactory;
     private boolean allowChunklessPreparation;
     private @MetadataType int metadataType;
     private boolean useSessionKeys;
     private long elapsedRealTimeOffsetMs;
+    private long timestampAdjusterInitializationTimeoutMs;
 
     /**
      * Creates a new factory for {@link HlsMediaSource}s.
@@ -188,6 +196,40 @@ public final class HlsMediaSource extends BaseMediaSource
               "MediaSource.Factory#setLoadErrorHandlingPolicy no longer handles null by"
                   + " instantiating a new DefaultLoadErrorHandlingPolicy. Explicitly construct and"
                   + " pass an instance in order to retain the old behavior.");
+      return this;
+    }
+
+    /**
+     * Sets whether subtitles should be parsed as part of extraction (before the sample queue) or as
+     * part of rendering (after the sample queue). Defaults to false (i.e. subtitles will be parsed
+     * as part of rendering).
+     *
+     * <p>This method is experimental. Its default value may change, or it may be renamed or removed
+     * in a future release.
+     *
+     * <p>This method may only be used with {@link DefaultHlsExtractorFactory}.
+     *
+     * @param parseSubtitlesDuringExtraction Whether to parse subtitles during extraction or
+     *     rendering.
+     * @return This factory, for convenience.
+     */
+    // TODO: b/289916598 - Flip the default of this to true (probably wired up to a single method on
+    //  DefaultMediaSourceFactory via the MediaSource.Factory interface).
+    public Factory experimentalParseSubtitlesDuringExtraction(
+        boolean parseSubtitlesDuringExtraction) {
+      if (parseSubtitlesDuringExtraction) {
+        if (subtitleParserFactory == null) {
+          this.subtitleParserFactory = new DefaultSubtitleParserFactory();
+        }
+      } else {
+        this.subtitleParserFactory = null;
+      }
+      if (extractorFactory instanceof DefaultHlsExtractorFactory) {
+        ((DefaultHlsExtractorFactory) extractorFactory)
+            .experimentalSetSubtitleParserFactory(subtitleParserFactory);
+      } else {
+        throw new IllegalStateException();
+      }
       return this;
     }
 
@@ -302,6 +344,13 @@ public final class HlsMediaSource extends BaseMediaSource
 
     @CanIgnoreReturnValue
     @Override
+    public Factory setCmcdConfigurationFactory(CmcdConfiguration.Factory cmcdConfigurationFactory) {
+      this.cmcdConfigurationFactory = checkNotNull(cmcdConfigurationFactory);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    @Override
     public Factory setDrmSessionManagerProvider(
         DrmSessionManagerProvider drmSessionManagerProvider) {
       this.drmSessionManagerProvider =
@@ -310,6 +359,21 @@ public final class HlsMediaSource extends BaseMediaSource
               "MediaSource.Factory#setDrmSessionManagerProvider no longer handles null by"
                   + " instantiating a new DefaultDrmSessionManagerProvider. Explicitly construct"
                   + " and pass an instance in order to retain the old behavior.");
+      return this;
+    }
+
+    /**
+     * Sets the timeout for the loading thread to wait for the timestamp adjuster to initialize, in
+     * milliseconds.The default value is zero, which is interpreted as an infinite timeout.
+     *
+     * @param timestampAdjusterInitializationTimeoutMs The timeout in milliseconds. A timeout of
+     *     zero is interpreted as an infinite timeout.
+     * @return This factory, for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Factory setTimestampAdjusterInitializationTimeoutMs(
+        long timestampAdjusterInitializationTimeoutMs) {
+      this.timestampAdjusterInitializationTimeoutMs = timestampAdjusterInitializationTimeoutMs;
       return this;
     }
 
@@ -344,12 +408,19 @@ public final class HlsMediaSource extends BaseMediaSource
         playlistParserFactory =
             new FilteringHlsPlaylistParserFactory(playlistParserFactory, streamKeys);
       }
+      @Nullable
+      CmcdConfiguration cmcdConfiguration =
+          cmcdConfigurationFactory == null
+              ? null
+              : cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
 
       return new HlsMediaSource(
           mediaItem,
           hlsDataSourceFactory,
           extractorFactory,
+          subtitleParserFactory,
           compositeSequenceableLoaderFactory,
+          cmcdConfiguration,
           drmSessionManagerProvider.get(mediaItem),
           loadErrorHandlingPolicy,
           playlistTrackerFactory.createTracker(
@@ -357,7 +428,8 @@ public final class HlsMediaSource extends BaseMediaSource
           elapsedRealTimeOffsetMs,
           allowChunklessPreparation,
           metadataType,
-          useSessionKeys);
+          useSessionKeys,
+          timestampAdjusterInitializationTimeoutMs);
     }
 
     @Override
@@ -367,9 +439,9 @@ public final class HlsMediaSource extends BaseMediaSource
   }
 
   private final HlsExtractorFactory extractorFactory;
-  private final MediaItem.LocalConfiguration localConfiguration;
   private final HlsDataSourceFactory dataSourceFactory;
   private final CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory;
+  @Nullable private final CmcdConfiguration cmcdConfiguration;
   private final DrmSessionManager drmSessionManager;
   private final LoadErrorHandlingPolicy loadErrorHandlingPolicy;
   private final boolean allowChunklessPreparation;
@@ -377,29 +449,37 @@ public final class HlsMediaSource extends BaseMediaSource
   private final boolean useSessionKeys;
   private final HlsPlaylistTracker playlistTracker;
   private final long elapsedRealTimeOffsetMs;
-  private final MediaItem mediaItem;
+  private final long timestampAdjusterInitializationTimeoutMs;
+  @Nullable private final SubtitleParser.Factory subtitleParserFactory;
 
   private MediaItem.LiveConfiguration liveConfiguration;
   @Nullable private TransferListener mediaTransferListener;
+
+  @GuardedBy("this")
+  private MediaItem mediaItem;
 
   private HlsMediaSource(
       MediaItem mediaItem,
       HlsDataSourceFactory dataSourceFactory,
       HlsExtractorFactory extractorFactory,
+      @Nullable SubtitleParser.Factory subtitleParserFactory,
       CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory,
+      @Nullable CmcdConfiguration cmcdConfiguration,
       DrmSessionManager drmSessionManager,
       LoadErrorHandlingPolicy loadErrorHandlingPolicy,
       HlsPlaylistTracker playlistTracker,
       long elapsedRealTimeOffsetMs,
       boolean allowChunklessPreparation,
       @MetadataType int metadataType,
-      boolean useSessionKeys) {
-    this.localConfiguration = checkNotNull(mediaItem.localConfiguration);
+      boolean useSessionKeys,
+      long timestampAdjusterInitializationTimeoutMs) {
     this.mediaItem = mediaItem;
     this.liveConfiguration = mediaItem.liveConfiguration;
     this.dataSourceFactory = dataSourceFactory;
     this.extractorFactory = extractorFactory;
+    this.subtitleParserFactory = subtitleParserFactory;
     this.compositeSequenceableLoaderFactory = compositeSequenceableLoaderFactory;
+    this.cmcdConfiguration = cmcdConfiguration;
     this.drmSessionManager = drmSessionManager;
     this.loadErrorHandlingPolicy = loadErrorHandlingPolicy;
     this.playlistTracker = playlistTracker;
@@ -407,11 +487,30 @@ public final class HlsMediaSource extends BaseMediaSource
     this.allowChunklessPreparation = allowChunklessPreparation;
     this.metadataType = metadataType;
     this.useSessionKeys = useSessionKeys;
+    this.timestampAdjusterInitializationTimeoutMs = timestampAdjusterInitializationTimeoutMs;
   }
 
   @Override
-  public MediaItem getMediaItem() {
+  public synchronized MediaItem getMediaItem() {
     return mediaItem;
+  }
+
+  @Override
+  public boolean canUpdateMediaItem(MediaItem mediaItem) {
+    MediaItem existingMediaItem = getMediaItem();
+    MediaItem.LocalConfiguration existingConfiguration =
+        checkNotNull(existingMediaItem.localConfiguration);
+    @Nullable MediaItem.LocalConfiguration newConfiguration = mediaItem.localConfiguration;
+    return newConfiguration != null
+        && newConfiguration.uri.equals(existingConfiguration.uri)
+        && newConfiguration.streamKeys.equals(existingConfiguration.streamKeys)
+        && Util.areEqual(newConfiguration.drmConfiguration, existingConfiguration.drmConfiguration)
+        && existingMediaItem.liveConfiguration.equals(mediaItem.liveConfiguration);
+  }
+
+  @Override
+  public synchronized void updateMediaItem(MediaItem mediaItem) {
+    this.mediaItem = mediaItem;
   }
 
   @Override
@@ -423,7 +522,9 @@ public final class HlsMediaSource extends BaseMediaSource
     MediaSourceEventListener.EventDispatcher eventDispatcher =
         createEventDispatcher(/* mediaPeriodId= */ null);
     playlistTracker.start(
-        localConfiguration.uri, eventDispatcher, /* primaryPlaylistListener= */ this);
+        checkNotNull(getMediaItem().localConfiguration).uri,
+        eventDispatcher,
+        /* primaryPlaylistListener= */ this);
   }
 
   @Override
@@ -440,6 +541,7 @@ public final class HlsMediaSource extends BaseMediaSource
         playlistTracker,
         dataSourceFactory,
         mediaTransferListener,
+        cmcdConfiguration,
         drmSessionManager,
         drmEventDispatcher,
         loadErrorHandlingPolicy,
@@ -449,7 +551,9 @@ public final class HlsMediaSource extends BaseMediaSource
         allowChunklessPreparation,
         metadataType,
         useSessionKeys,
-        getPlayerId());
+        getPlayerId(),
+        timestampAdjusterInitializationTimeoutMs,
+        subtitleParserFactory);
   }
 
   @Override
@@ -526,7 +630,7 @@ public final class HlsMediaSource extends BaseMediaSource
         /* isDynamic= */ !playlist.hasEndTag,
         suppressPositionProjection,
         manifest,
-        mediaItem,
+        getMediaItem(),
         liveConfiguration);
   }
 
@@ -559,7 +663,7 @@ public final class HlsMediaSource extends BaseMediaSource
         /* isDynamic= */ false,
         /* suppressPositionProjection= */ true,
         manifest,
-        mediaItem,
+        getMediaItem(),
         /* liveConfiguration= */ null);
   }
 
@@ -599,9 +703,10 @@ public final class HlsMediaSource extends BaseMediaSource
   }
 
   private void updateLiveConfiguration(HlsMediaPlaylist playlist, long targetLiveOffsetUs) {
+    MediaItem.LiveConfiguration mediaItemLiveConfiguration = getMediaItem().liveConfiguration;
     boolean disableSpeedAdjustment =
-        mediaItem.liveConfiguration.minPlaybackSpeed == C.RATE_UNSET
-            && mediaItem.liveConfiguration.maxPlaybackSpeed == C.RATE_UNSET
+        mediaItemLiveConfiguration.minPlaybackSpeed == C.RATE_UNSET
+            && mediaItemLiveConfiguration.maxPlaybackSpeed == C.RATE_UNSET
             && playlist.serverControl.holdBackUs == C.TIME_UNSET
             && playlist.serverControl.partHoldBackUs == C.TIME_UNSET;
     liveConfiguration =

@@ -93,11 +93,11 @@ public class PlayerActivity extends AppCompatActivity
 
   @Nullable private AdsLoader clientSideAdsLoader;
 
-  // TODO: Annotate this and serverSideAdsLoaderState below with @OptIn when it can be applied to
-  // fields (needs http://r.android.com/2004032 to be released into a version of
-  // androidx.annotation:annotation-experimental).
-  @Nullable private ImaServerSideAdInsertionMediaSource.AdsLoader serverSideAdsLoader;
+  @OptIn(markerClass = UnstableApi.class)
+  @Nullable
+  private ImaServerSideAdInsertionMediaSource.AdsLoader serverSideAdsLoader;
 
+  @OptIn(markerClass = UnstableApi.class)
   private ImaServerSideAdInsertionMediaSource.AdsLoader.@MonotonicNonNull State
       serverSideAdsLoaderState;
 
@@ -354,7 +354,7 @@ public class PlayerActivity extends AppCompatActivity
         finish();
         return Collections.emptyList();
       }
-      if (Util.maybeRequestReadExternalStoragePermission(/* activity= */ this, mediaItem)) {
+      if (Util.maybeRequestReadStoragePermission(/* activity= */ this, mediaItem)) {
         // The player will be reinitialized if the permission is granted.
         return Collections.emptyList();
       }
@@ -429,8 +429,7 @@ public class PlayerActivity extends AppCompatActivity
     Bundle adsLoaderStateBundle = savedInstanceState.getBundle(KEY_SERVER_SIDE_ADS_LOADER_STATE);
     if (adsLoaderStateBundle != null) {
       serverSideAdsLoaderState =
-          ImaServerSideAdInsertionMediaSource.AdsLoader.State.CREATOR.fromBundle(
-              adsLoaderStateBundle);
+          ImaServerSideAdInsertionMediaSource.AdsLoader.State.fromBundle(adsLoaderStateBundle);
     }
   }
 

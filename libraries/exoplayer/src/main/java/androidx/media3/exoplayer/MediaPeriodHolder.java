@@ -23,6 +23,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.exoplayer.source.ClippingMediaPeriod;
 import androidx.media3.exoplayer.source.EmptySampleStream;
 import androidx.media3.exoplayer.source.MediaPeriod;
@@ -33,7 +34,6 @@ import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.trackselection.TrackSelector;
 import androidx.media3.exoplayer.trackselection.TrackSelectorResult;
 import androidx.media3.exoplayer.upstream.Allocator;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 
 /** Holds a {@link MediaPeriod} with information required to play it as part of a timeline. */
 /* package */ final class MediaPeriodHolder {
@@ -42,8 +42,10 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
 
   /** The {@link MediaPeriod} wrapped by this class. */
   public final MediaPeriod mediaPeriod;
+
   /** The unique timeline period identifier the media period belongs to. */
   public final Object uid;
+
   /**
    * The sample streams for each renderer associated with this period. May contain null elements.
    */
@@ -51,17 +53,20 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
 
   /** Whether the media period has finished preparing. */
   public boolean prepared;
+
   /** Whether any of the tracks of this media period are enabled. */
   public boolean hasEnabledTracks;
+
   /** {@link MediaPeriodInfo} about this media period. */
   public MediaPeriodInfo info;
+
   /**
    * Whether all renderers are in the correct state for this {@link #mediaPeriod}.
    *
    * <p>Renderers that are needed must have been enabled with the {@link #sampleStreams} for this
    * {@link #mediaPeriod}. This means either {@link Renderer#enable(RendererConfiguration, Format[],
-   * SampleStream, long, boolean, boolean, long, long)} or {@link Renderer#replaceStream(Format[],
-   * SampleStream, long, long)} has been called.
+   * SampleStream, long, boolean, boolean, long, long, MediaPeriodId)} or {@link
+   * Renderer#replaceStream(Format[], SampleStream, long, long, MediaPeriodId)} has been called.
    *
    * <p>Renderers that are not needed must have been {@link Renderer#disable() disabled}.
    */
@@ -217,11 +222,21 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
    * this is the loading media period.
    *
    * @param rendererPositionUs The load position in renderer time, in microseconds.
+   * @param playbackSpeed The playback speed indicating the current rate of playback.
+   * @param lastRebufferRealtimeMs The time at which the last rebuffering occurred, in milliseconds
+   *     since boot including time spent in sleep. The time base used is the same as that measured
+   *     by {@link android.os.SystemClock#elapsedRealtime}.
    */
-  public void continueLoading(long rendererPositionUs) {
+  public void continueLoading(
+      long rendererPositionUs, float playbackSpeed, long lastRebufferRealtimeMs) {
     Assertions.checkState(isLoadingMediaPeriod());
     long loadingPeriodPositionUs = toPeriodTime(rendererPositionUs);
-    mediaPeriod.continueLoading(loadingPeriodPositionUs);
+    mediaPeriod.continueLoading(
+        new LoadingInfo.Builder()
+            .setPlaybackPositionUs(loadingPeriodPositionUs)
+            .setPlaybackSpeed(playbackSpeed)
+            .setLastRebufferRealtimeMs(lastRebufferRealtimeMs)
+            .build());
   }
 
   /**

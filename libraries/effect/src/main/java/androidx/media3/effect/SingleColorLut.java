@@ -21,17 +21,15 @@ import static androidx.media3.common.util.Assertions.checkState;
 
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.opengl.GLES20;
-import android.opengl.GLUtils;
 import androidx.media3.common.Format;
-import androidx.media3.common.FrameProcessingException;
+import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 
 /** Transforms the colors of a frame by applying the same color lookup table to each frame. */
 @UnstableApi
-public class SingleColorLut implements ColorLut {
+public final class SingleColorLut implements ColorLut {
   private final Bitmap lut;
   private int lutTextureId;
 
@@ -128,13 +126,13 @@ public class SingleColorLut implements ColorLut {
         Bitmap.Config.ARGB_8888);
   }
 
-  /** Must be called after {@link #toGlTextureProcessor(Context, boolean)}. */
+  /** Must be called after {@link #toGlShaderProgram(Context, boolean)}. */
   @Override
   public int getLutTextureId(long presentationTimeUs) {
     checkState(
         lutTextureId != Format.NO_VALUE,
         "The LUT has not been stored as a texture in OpenGL yet. You must to call"
-            + " #toGlTextureProcessor() first.");
+            + " #toGlShaderProgram() first.");
     return lutTextureId;
   }
 
@@ -149,25 +147,16 @@ public class SingleColorLut implements ColorLut {
   }
 
   @Override
-  public SingleFrameGlTextureProcessor toGlTextureProcessor(Context context, boolean useHdr)
-      throws FrameProcessingException {
+  public BaseGlShaderProgram toGlShaderProgram(Context context, boolean useHdr)
+      throws VideoFrameProcessingException {
     checkState(!useHdr, "HDR is currently not supported.");
 
     try {
-      lutTextureId = storeLutAsTexture(lut);
+      lutTextureId = GlUtil.createTexture(lut);
     } catch (GlUtil.GlException e) {
-      throw new FrameProcessingException("Could not store the LUT as a texture.", e);
+      throw new VideoFrameProcessingException("Could not store the LUT as a texture.", e);
     }
 
-    return new ColorLutProcessor(context, /* colorLut= */ this, useHdr);
-  }
-
-  private static int storeLutAsTexture(Bitmap bitmap) throws GlUtil.GlException {
-    int lutTextureId =
-        GlUtil.createTexture(
-            bitmap.getWidth(), bitmap.getHeight(), /* useHighPrecisionColorComponents= */ false);
-    GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, /* level= */ 0, bitmap, /* border= */ 0);
-    GlUtil.checkGlError();
-    return lutTextureId;
+    return new ColorLutShaderProgram(context, /* colorLut= */ this, useHdr);
   }
 }

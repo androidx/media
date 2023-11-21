@@ -58,7 +58,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.List;
 
-/** Information about a {@link MediaCodec} for a given mime type. */
+/** Information about a {@link MediaCodec} for a given MIME type. */
 @SuppressWarnings("InlinedApi")
 @UnstableApi
 public final class MediaCodecInfo {
@@ -151,10 +151,10 @@ public final class MediaCodecInfo {
    * Creates an instance.
    *
    * @param name The name of the {@link MediaCodec}.
-   * @param mimeType A mime type supported by the {@link MediaCodec}.
+   * @param mimeType A MIME type supported by the {@link MediaCodec}.
    * @param codecMimeType The MIME type that the codec uses for media of type {@code #mimeType}.
    *     Equal to {@code mimeType} unless the codec is known to use a non-standard MIME type alias.
-   * @param capabilities The capabilities of the {@link MediaCodec} for the specified mime type, or
+   * @param capabilities The capabilities of the {@link MediaCodec} for the specified MIME type, or
    *     {@code null} if not known.
    * @param hardwareAccelerated Whether the {@link MediaCodec} is hardware accelerated.
    * @param softwareOnly Whether the {@link MediaCodec} is software only.
@@ -522,14 +522,16 @@ public final class MediaCodecInfo {
     if (Util.SDK_INT >= 29) {
       @PerformancePointCoverageResult
       int evaluation =
-          Api29.areResolutionAndFrameRateCovered(videoCapabilities, width, height, frameRate);
+          Api29.areResolutionAndFrameRateCovered(
+              videoCapabilities, mimeType, width, height, frameRate);
       if (evaluation == COVERAGE_RESULT_YES) {
         return true;
       } else if (evaluation == COVERAGE_RESULT_NO) {
         logNoSupport("sizeAndRate.cover, " + width + "x" + height + "@" + frameRate);
         return false;
       }
-      // COVERAGE_RESULT_NO_EMPTY_LIST falls through to API 21+ code below
+      // If COVERAGE_RESULT_NO_PERFORMANCE_POINTS_UNSUPPORTED then logic falls through
+      // to API 21+ code below.
     }
 
     if (!areSizeAndRateSupportedV21(videoCapabilities, width, height, frameRate)) {
@@ -876,45 +878,44 @@ public final class MediaCodecInfo {
         && ("sailfish".equals(Util.DEVICE) || "marlin".equals(Util.DEVICE));
   }
 
-  /** Whether the device is known to have wrong {@link PerformancePoint} declarations. */
-  private static boolean needsIgnorePerformancePointsWorkaround() {
-    // See https://github.com/google/ExoPlayer/issues/10898 and [internal ref: b/267324685].
-    return /* Chromecast with Google TV */ Util.DEVICE.equals("sabrina")
-        || Util.DEVICE.equals("boreal")
-        /* Lenovo Tablet M10 FHD Plus */
-        || Util.MODEL.startsWith("Lenovo TB-X605")
-        || Util.MODEL.startsWith("Lenovo TB-X606")
-        || Util.MODEL.startsWith("Lenovo TB-X616");
-  }
-
   /** Possible outcomes of evaluating PerformancePoint coverage */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)
-  @IntDef({COVERAGE_RESULT_YES, COVERAGE_RESULT_NO, COVERAGE_RESULT_NO_EMPTY_LIST})
+  @IntDef({
+    COVERAGE_RESULT_NO_PERFORMANCE_POINTS_UNSUPPORTED,
+    COVERAGE_RESULT_NO,
+    COVERAGE_RESULT_YES
+  })
   private @interface PerformancePointCoverageResult {}
 
-  /** The decoder has a PerformancePoint that covers the resolution and frame rate */
-  private static final int COVERAGE_RESULT_YES = 2;
   /**
-   * The decoder has at least one PerformancePoint, but none of them cover the resolution and frame
-   * rate
+   * The VideoCapabilities does not contain any PerformancePoints or its PerformancePoints do not
+   * cover CDD requirements.
+   */
+  private static final int COVERAGE_RESULT_NO_PERFORMANCE_POINTS_UNSUPPORTED = 0;
+
+  /**
+   * The decoder has at least one PerformancePoint, but none cover the resolution and frame rate.
    */
   private static final int COVERAGE_RESULT_NO = 1;
-  /** The VideoCapabilities does not contain any PerformancePoints */
-  private static final int COVERAGE_RESULT_NO_EMPTY_LIST = 0;
+
+  /** The decoder has a PerformancePoint that covers the resolution and frame rate. */
+  private static final int COVERAGE_RESULT_YES = 2;
 
   @RequiresApi(29)
   private static final class Api29 {
     @DoNotInline
     public static @PerformancePointCoverageResult int areResolutionAndFrameRateCovered(
-        VideoCapabilities videoCapabilities, int width, int height, double frameRate) {
+        VideoCapabilities videoCapabilities,
+        String mimeType,
+        int width,
+        int height,
+        double frameRate) {
       List<PerformancePoint> performancePointList =
           videoCapabilities.getSupportedPerformancePoints();
-      if (performancePointList == null
-          || performancePointList.isEmpty()
-          || needsIgnorePerformancePointsWorkaround()) {
-        return COVERAGE_RESULT_NO_EMPTY_LIST;
+      if (performancePointList == null || performancePointList.isEmpty()) {
+        return COVERAGE_RESULT_NO_PERFORMANCE_POINTS_UNSUPPORTED;
       }
 
       // Round frame rate down to to avoid situations where a range check in
@@ -923,6 +924,27 @@ public final class MediaCodecInfo {
       PerformancePoint targetPerformancePoint =
           new PerformancePoint(width, height, (int) frameRate);
 
+      @PerformancePointCoverageResult
+      int performancePointCoverageResult =
+          evaluatePerformancePointCoverage(performancePointList, targetPerformancePoint);
+
+      if (performancePointCoverageResult == COVERAGE_RESULT_NO
+          && mimeType.equals(MimeTypes.VIDEO_H264)) {
+        if (evaluatePerformancePointCoverage(
+                performancePointList,
+                new PerformancePoint(/* width= */ 1280, /* height= */ 720, /* frameRate= */ 60))
+            != COVERAGE_RESULT_YES) {
+          // See https://github.com/google/ExoPlayer/issues/10898,
+          // https://github.com/androidx/media/issues/693 and [internal ref: b/267324685].
+          return COVERAGE_RESULT_NO_PERFORMANCE_POINTS_UNSUPPORTED;
+        }
+      }
+
+      return performancePointCoverageResult;
+    }
+
+    private static @PerformancePointCoverageResult int evaluatePerformancePointCoverage(
+        List<PerformancePoint> performancePointList, PerformancePoint targetPerformancePoint) {
       for (int i = 0; i < performancePointList.size(); i++) {
         if (performancePointList.get(i).covers(targetPerformancePoint)) {
           return COVERAGE_RESULT_YES;

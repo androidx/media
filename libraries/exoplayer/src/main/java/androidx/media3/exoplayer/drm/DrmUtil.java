@@ -57,8 +57,10 @@ public final class DrmUtil {
 
   /** Corresponds to failures caused by an {@link ExoMediaDrm} method call. */
   public static final int ERROR_SOURCE_EXO_MEDIA_DRM = 1;
+
   /** Corresponds to failures caused by an operation related to obtaining DRM licenses. */
   public static final int ERROR_SOURCE_LICENSE_ACQUISITION = 2;
+
   /** Corresponds to failures caused by an operation related to provisioning the device. */
   public static final int ERROR_SOURCE_PROVISIONING = 3;
 
@@ -84,7 +86,7 @@ public final class DrmUtil {
       return PlaybackException.ERROR_CODE_DRM_DEVICE_REVOKED;
     } else if (exception instanceof UnsupportedDrmException) {
       return PlaybackException.ERROR_CODE_DRM_SCHEME_UNSUPPORTED;
-    } else if (exception instanceof DefaultDrmSessionManager.MissingSchemeDataException) {
+    } else if (Util.SDK_INT >= 18 && Api18.isMissingSchemeDataException(exception)) {
       return PlaybackException.ERROR_CODE_DRM_CONTENT_ERROR;
     } else if (exception instanceof KeysExpiredException) {
       return PlaybackException.ERROR_CODE_DRM_LICENSE_EXPIRED;
@@ -115,6 +117,11 @@ public final class DrmUtil {
     @DoNotInline
     public static boolean isDeniedByServerException(@Nullable Throwable throwable) {
       return throwable instanceof DeniedByServerException;
+    }
+
+    @DoNotInline
+    public static boolean isMissingSchemeDataException(@Nullable Throwable throwable) {
+      return throwable instanceof DefaultDrmSessionManager.MissingSchemeDataException;
     }
   }
 

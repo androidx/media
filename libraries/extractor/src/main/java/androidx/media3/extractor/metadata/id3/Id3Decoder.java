@@ -18,6 +18,7 @@ package androidx.media3.extractor.metadata.id3;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Metadata;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.ParsableByteArray;
@@ -63,6 +64,7 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
 
   /** The first three bytes of a well formed ID3 tag header. */
   public static final int ID3_TAG = 0x00494433;
+
   /** Length of an ID3 tag header. */
   public static final int ID3_HEADER_LENGTH = 10;
 
@@ -556,7 +558,8 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
     id3Data.readBytes(data, 0, frameSize - 1);
 
     int mimeTypeEndIndex = indexOfZeroByte(data, 0);
-    String mimeType = new String(data, 0, mimeTypeEndIndex, Charsets.ISO_8859_1);
+    String mimeType =
+        MimeTypes.normalizeMimeType(new String(data, 0, mimeTypeEndIndex, Charsets.ISO_8859_1));
 
     int filenameStartIndex = mimeTypeEndIndex + 1;
     int filenameEndIndex = indexOfTerminator(data, filenameStartIndex, encoding);
@@ -659,11 +662,11 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
     int endTime = id3Data.readInt();
     long startOffset = id3Data.readUnsignedInt();
     if (startOffset == 0xFFFFFFFFL) {
-      startOffset = C.POSITION_UNSET;
+      startOffset = C.INDEX_UNSET;
     }
     long endOffset = id3Data.readUnsignedInt();
     if (endOffset == 0xFFFFFFFFL) {
-      endOffset = C.POSITION_UNSET;
+      endOffset = C.INDEX_UNSET;
     }
 
     ArrayList<Id3Frame> subFrames = new ArrayList<>();

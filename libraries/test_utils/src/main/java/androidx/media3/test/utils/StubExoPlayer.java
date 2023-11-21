@@ -20,6 +20,7 @@ import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
+import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.Player;
 import androidx.media3.common.PriorityTaskManager;
@@ -33,6 +34,7 @@ import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.analytics.AnalyticsCollector;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
+import androidx.media3.exoplayer.image.ImageOutput;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.ShuffleOrder;
 import androidx.media3.exoplayer.source.TrackGroupArray;
@@ -126,15 +128,6 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
 
   @Override
   public ExoPlaybackException getPlayerError() {
-    throw new UnsupportedOperationException();
-  }
-
-  /**
-   * @deprecated Use {@link #prepare()} instead.
-   */
-  @Deprecated
-  @Override
-  public void retry() {
     throw new UnsupportedOperationException();
   }
 
@@ -249,6 +242,11 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
 
   @Override
   public boolean getSkipSilenceEnabled() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void setVideoEffects(List<Effect> videoEffects) {
     throw new UnsupportedOperationException();
   }
 
@@ -390,15 +388,6 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
     throw new UnsupportedOperationException();
   }
 
-  /**
-   * @deprecated Use {@link #setWakeMode(int)} instead.
-   */
-  @Deprecated
-  @Override
-  public void setHandleWakeLock(boolean handleWakeLock) {
-    throw new UnsupportedOperationException();
-  }
-
   @Override
   public void setWakeMode(int wakeMode) {
     throw new UnsupportedOperationException();
@@ -410,17 +399,17 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
   }
 
   @Override
-  public void experimentalSetOffloadSchedulingEnabled(boolean offloadSchedulingEnabled) {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public boolean experimentalIsSleepingForOffload() {
+  public boolean isSleepingForOffload() {
     throw new UnsupportedOperationException();
   }
 
   @Override
   public boolean isTunnelingEnabled() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void setImageOutput(ImageOutput imageOutput) {
     throw new UnsupportedOperationException();
   }
 }

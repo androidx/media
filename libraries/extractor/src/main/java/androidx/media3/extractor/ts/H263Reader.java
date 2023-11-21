@@ -29,8 +29,8 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.container.NalUnitUtil;
 import androidx.media3.extractor.ExtractorOutput;
-import androidx.media3.extractor.NalUnitUtil;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.ts.TsPayloadReader.TrackIdGenerator;
 import java.lang.annotation.Documented;
@@ -217,8 +217,13 @@ public final class H263Reader implements ElementaryStreamReader {
   }
 
   @Override
-  public void packetFinished() {
-    // Do nothing.
+  public void packetFinished(boolean isEndOfInput) {
+    // Assert that createTracks has been called.
+    checkStateNotNull(sampleReader);
+    if (isEndOfInput) {
+      sampleReader.onDataEnd(totalBytesWritten, /* bytesWrittenPastPosition= */ 0, hasOutputFormat);
+      sampleReader.reset();
+    }
   }
 
   /**
@@ -426,6 +431,7 @@ public final class H263Reader implements ElementaryStreamReader {
 
     /** Byte offset of vop_coding_type after the start code value. */
     private static final int OFFSET_VOP_CODING_TYPE = 1;
+
     /** Value of vop_coding_type for intra video object planes. */
     private static final int VOP_CODING_TYPE_INTRA = 0;
 
