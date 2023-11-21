@@ -4,6 +4,9 @@
 
 *   Common Library:
 *   ExoPlayer:
+    *   Fix issue where manual seeks outside of the
+        `LiveConfiguration.min/maxOffset` range keep adjusting the offset back
+        to `min/maxOffset`.
 *   Transformer:
 *   Track Selection:
 *   Extractors:
