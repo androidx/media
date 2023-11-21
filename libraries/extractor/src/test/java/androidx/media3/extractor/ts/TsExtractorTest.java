@@ -246,6 +246,68 @@ public final class TsExtractorTest {
   }
 
   @Test
+  public void sampleWithMpeghBlCicp1Single() throws Exception {
+    ExtractorAsserts.assertBehavior(TsExtractor::new, "media/ts/sample_mpegh_bl_cicp1_single.ts", simulationConfig);
+  }
+
+  @Test
+  public void sampleWithMpeghLcBlCicp1Single() throws Exception {
+    ExtractorAsserts.assertBehavior(TsExtractor::new, "media/ts/sample_mpegh_lcbl_cicp1_single.ts", simulationConfig);
+  }
+
+  @Test
+  public void sampleWithMpeghBlConfigChangeSingle() throws Exception {
+    ExtractorAsserts.assertBehavior(TsExtractor::new, "media/ts/sample_mpegh_bl_configchange_single.ts", simulationConfig);
+  }
+
+  @Test
+  public void sampleWithMpeghLcBlConfigChangeSingle() throws Exception {
+    ExtractorAsserts.assertBehavior(TsExtractor::new, "media/ts/sample_mpegh_lcbl_configchange_single.ts", simulationConfig);
+  }
+
+
+  @Test
+  public void sampleWithMpeghBlCicp1Multi() throws Exception {
+    ExtractorAsserts.assertBehavior(TsExtractor::new, "media/ts/sample_mpegh_bl_cicp1_multi.ts", simulationConfig);
+  }
+
+  @Test
+  public void sampleWithMpeghLcBlCicp1Multi() throws Exception {
+    ExtractorAsserts.assertBehavior(TsExtractor::new, "media/ts/sample_mpegh_lcbl_cicp1_multi.ts", simulationConfig);
+  }
+
+  @Test
+  public void sampleWithMpeghBlConfigChangeMulti() throws Exception {
+    ExtractorAsserts.assertBehavior(TsExtractor::new, "media/ts/sample_mpegh_bl_configchange_multi.ts", simulationConfig);
+  }
+
+  @Test
+  public void sampleWithMpeghLcBlConfigChangeMulti() throws Exception {
+    ExtractorAsserts.assertBehavior(TsExtractor::new, "media/ts/sample_mpegh_lcbl_configchange_multi.ts", simulationConfig);
+  }
+
+
+  @Test
+  public void sampleWithMpeghBlCicp1Cont() throws Exception {
+    ExtractorAsserts.assertBehavior(TsExtractor::new, "media/ts/sample_mpegh_bl_cicp1_cont.ts", simulationConfig);
+  }
+
+  @Test
+  public void sampleWithMpeghLcBlCicp1Cont() throws Exception {
+    ExtractorAsserts.assertBehavior(TsExtractor::new, "media/ts/sample_mpegh_lcbl_cicp1_cont.ts", simulationConfig);
+  }
+
+  @Test
+  public void sampleWithMpeghBlConfigChangeCont() throws Exception {
+    ExtractorAsserts.assertBehavior(TsExtractor::new, "media/ts/sample_mpegh_bl_configchange_cont.ts", simulationConfig);
+  }
+
+  @Test
+  public void sampleWithMpeghLcBlConfigChangeCont() throws Exception {
+    ExtractorAsserts.assertBehavior(TsExtractor::new, "media/ts/sample_mpegh_lcbl_configchange_cont.ts", simulationConfig);
+  }
+
+  @Test
   public void customPesReader() throws Exception {
     CustomTsPayloadReaderFactory factory = new CustomTsPayloadReaderFactory(true, false);
     TsExtractor tsExtractor =
