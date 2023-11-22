@@ -608,8 +608,11 @@ public final class AdtsReader implements ElementaryStreamReader {
         pceBuffer.setPosition(3 /* PCE tag */);
         pceBuffer.readBits(newConfig, oldConfig.length, numPceBits);
 
-        pendingOutputFormat = pendingOutputFormat.buildUpon()
-            .setInitializationData(Collections.singletonList(newConfig)).build();
+        pendingOutputFormat =
+            pendingOutputFormat
+                .buildUpon()
+                .setInitializationData(Collections.singletonList(newConfig))
+                .build();
 
         // Submit PCE-appended output format.
         currentOutput.format(pendingOutputFormat);
