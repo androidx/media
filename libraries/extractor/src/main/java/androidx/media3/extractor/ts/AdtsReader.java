@@ -68,7 +68,7 @@ public final class AdtsReader implements ElementaryStreamReader {
   private static final int VERSION_UNSET = -1;
 
   private static final int AAC_PCE_MIN_SIZE = 6;
-  private static final int AAC_PCE_MAX_SIZE = 49;
+  private static final int AAC_PCE_MAX_SIZE = 50;
 
   private final boolean exposeId3;
   private final ParsableBitArray adtsScratch;
@@ -568,15 +568,16 @@ public final class AdtsReader implements ElementaryStreamReader {
   @RequiresNonNull({"pendingOutputFormat", "pceBuffer"})
   void readAacProgramConfigElement() {
     if (pceBuffer.readBits(3) == 5 /* PCE tag */) {
+      // See `ISO 13818-7 Advanced Audio Coding (2006) Table 25` for format of a PCE
       pceBuffer.skipBits(10); // Element instance tag, profile, sample frequency index
 
-      int extraBits = 0; // Number of bits beyond amount to be parsed.
-      extraBits += pceBuffer.readBits(4) * 5; // Front channel elements
-      extraBits += pceBuffer.readBits(4) * 5; // Side channel elements
-      extraBits += pceBuffer.readBits(4) * 5; // Back channel elements
-      extraBits += pceBuffer.readBits(2) * 4; // LFE channel elements
-      extraBits += pceBuffer.readBits(3) * 4; // Data elements
-      extraBits += pceBuffer.readBits(4) * 5; // Coupling channel elements
+      int channelBits = 0;
+      channelBits += pceBuffer.readBits(4) * 5; // Front channel elements
+      channelBits += pceBuffer.readBits(4) * 5; // Side channel elements
+      channelBits += pceBuffer.readBits(4) * 5; // Back channel elements
+      channelBits += pceBuffer.readBits(2) * 4; // LFE channel elements
+      channelBits += pceBuffer.readBits(3) * 4; // Data elements
+      channelBits += pceBuffer.readBits(4) * 5; // Coupling channel elements
 
       if (pceBuffer.readBit()) {
         pceBuffer.skipBits(4); // Mono mixdown
@@ -590,33 +591,43 @@ public final class AdtsReader implements ElementaryStreamReader {
         pceBuffer.skipBits(3); // Matrix mixdown
       }
 
-      // Calculate total PCE size including initial PCE tag and a zero length comment.
-      int pceSize = (pceBuffer.getPosition() + extraBits + 7) / 8 + 1;
+      // Beyond this point, pceBuffer may be empty, so check before consuming.
 
-      if (sampleSize >= pceSize) {
-        // Calculate PCE size excluding initial PCE tag, alignment bits and a zero length comment.
-        int numPceBits = pceBuffer.getPosition() + extraBits - 3 /* PCE tag */;
+      int numAlignmentBits = 8 - (pceBuffer.getPosition() + channelBits + 7) % 8 - 1;
 
-        // Append PCE to format's audio specific config.
-        byte[] oldConfig = pendingOutputFormat.initializationData.get(0);
+      if (pceBuffer.bitsLeft() >= channelBits + numAlignmentBits + 8)
+      {
+        pceBuffer.skipBits(channelBits);
 
-        int configSize = oldConfig.length;
-        configSize += (numPceBits + 7) / 8 + 1; // Byte align and add a zero length comment.
-        byte[] newConfig = new byte[configSize];
+        // Store PCE size excluding initial PCE tag, alignment bits and comment for later.
+        int numPceBits = pceBuffer.getPosition() - 3 /* PCE tag */;
 
-        System.arraycopy(oldConfig, 0, newConfig, 0, oldConfig.length);
-        pceBuffer.setPosition(3 /* PCE tag */);
-        pceBuffer.readBits(newConfig, oldConfig.length, numPceBits);
+        pceBuffer.skipBits(numAlignmentBits);
+        int commentSize = pceBuffer.readBits(8);
 
-        pendingOutputFormat =
-            pendingOutputFormat
-                .buildUpon()
-                .setInitializationData(Collections.singletonList(newConfig))
-                .build();
+        if (sampleSize >= pceBuffer.getBytePosition() + commentSize)
+        {
+          // Append PCE to format's audio specific config.
+          byte[] oldConfig = pendingOutputFormat.initializationData.get(0);
 
-        // Submit PCE-appended output format.
-        currentOutput.format(pendingOutputFormat);
-        hasOutputFormat = true;
+          int configSize = oldConfig.length;
+          configSize += (numPceBits + 7) / 8 + 1; // Byte align and add a zero length comment.
+          byte[] newConfig = new byte[configSize];
+
+          System.arraycopy(oldConfig, 0, newConfig, 0, oldConfig.length);
+          pceBuffer.setPosition(3 /* PCE tag */);
+          pceBuffer.readBits(newConfig, oldConfig.length, numPceBits);
+
+          pendingOutputFormat =
+              pendingOutputFormat
+                  .buildUpon()
+                  .setInitializationData(Collections.singletonList(newConfig))
+                  .build();
+
+          // Submit PCE-appended output format.
+          currentOutput.format(pendingOutputFormat);
+          hasOutputFormat = true;
+        }
       }
     }
 
