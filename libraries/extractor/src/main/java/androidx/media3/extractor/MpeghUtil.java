@@ -20,11 +20,18 @@
  ***************************************************************************/
 package androidx.media3.extractor;
 
+import static java.lang.annotation.ElementType.TYPE_USE;
+
+import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import java.io.IOException;
+import java.lang.annotation.Documented;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.util.Arrays;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
@@ -59,57 +66,70 @@ public final class MpeghUtil {
    * Enumeration of the MHAS packet types.
    * See ISO_IEC_23008-3;2022, 14.3.1, Table 226
    */
-  public enum MHASPacketType {
-    PACTYP_NONE(-1),
-    PACTYP_FILLDATA(0),
-    PACTYP_MPEGH3DACFG(1),
-    PACTYP_MPEGH3DAFRAME(2),
-    PACTYP_AUDIOSCENEINFO(3),
-    /* reserved for ISO use 4-5 */
-    PACTYP_SYNC(6),
-    PACTYP_SYNCGAP(7),
-    PACTYP_MARKER(8),
-    PACTYP_CRC16(9),
-    PACTYP_CRC32(10),
-    PACTYP_DESCRIPTOR(11),
-    PACTYP_USERINTERACTION(12),
-    PACTYP_LOUDNESS_DRC(13),
-    PACTYP_BUFFERINFO(14),
-    PACTYP_GLOBAL_CRC16(15),
-    PACTYP_GLOBAL_CRC32(16),
-    PACTYP_AUDIOTRUNCATION(17),
-    PACTYPE_EARCON(19),
-    PACTYPE_PCMCONFIG(20),
-    PACTYPE_PCMDATA(21),
-    PACTYP_LOUDNESS(22);
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target(TYPE_USE)
+  @IntDef({
+      PACTYP_FILLDATA,
+      PACTYP_MPEGH3DACFG,
+      PACTYP_MPEGH3DAFRAME,
+      PACTYP_AUDIOSCENEINFO,
+      PACTYP_SYNC,
+      PACTYP_SYNCGAP,
+      PACTYP_MARKER,
+      PACTYP_CRC16,
+      PACTYP_CRC32,
+      PACTYP_DESCRIPTOR,
+      PACTYP_USERINTERACTION,
+      PACTYP_LOUDNESS_DRC,
+      PACTYP_BUFFERINFO,
+      PACTYP_GLOBAL_CRC16,
+      PACTYP_GLOBAL_CRC32,
+      PACTYP_AUDIOTRUNCATION,
+      PACTYP_GENDATA,
+      PACTYPE_EARCON,
+      PACTYPE_PCMCONFIG,
+      PACTYPE_PCMDATA,
+      PACTYP_LOUDNESS
+  })
+  private @interface MHASPacketType {}
 
-    private final int id;
+  private static final int PACTYP_FILLDATA = 0;
+  private static final int PACTYP_MPEGH3DACFG = 1;
+  private static final int PACTYP_MPEGH3DAFRAME = 2;
+  private static final int PACTYP_AUDIOSCENEINFO = 3;
+  private static final int PACTYP_SYNC = 6;
+  private static final int PACTYP_SYNCGAP = 7;
+  private static final int PACTYP_MARKER = 8;
+  private static final int PACTYP_CRC16 = 9;
+  private static final int PACTYP_CRC32 = 10;
+  private static final int PACTYP_DESCRIPTOR = 11;
+  private static final int PACTYP_USERINTERACTION = 12;
+  private static final int PACTYP_LOUDNESS_DRC = 13;
+  private static final int PACTYP_BUFFERINFO = 14;
+  private static final int PACTYP_GLOBAL_CRC16 = 15;
+  private static final int PACTYP_GLOBAL_CRC32 = 16;
+  private static final int PACTYP_AUDIOTRUNCATION = 17;
+  private static final int PACTYP_GENDATA = 18;
+  private static final int PACTYPE_EARCON = 19;
+  private static final int PACTYPE_PCMCONFIG = 20;
+  private static final int PACTYPE_PCMDATA = 21;
+  private static final int PACTYP_LOUDNESS = 22;
 
-    MHASPacketType(int id) {
-      this.id = id;
-    }
 
-    public static MHASPacketType getById(int id) {
-      for (MHASPacketType e : values()) {
-        if (e.id == id) {
-          return e;
-        }
-      }
-      return PACTYP_NONE;
-    }
-  }
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target(TYPE_USE)
+  @IntDef({
+      END_OUTPUT,
+      PARSE_ERROR,
+      SUBSTREAM_UNSUPPORTED
+  })
+  private @interface ParseState {}
 
-  public enum ParseState {
-    END_OUTPUT(0), /* Input Data needed */
-    PARSE_ERROR(1), /* Parsing error */
-    SUBSTREAM_UNSUPPORTED(2); /* The bitstream has unsupported sub-streams. */
-
-    public final int id;
-
-    ParseState(int id) {
-      this.id = id;
-    }
-  }
+  private static final int END_OUTPUT = 0;
+  private static final int PARSE_ERROR = 1;
+  private static final int SUBSTREAM_UNSUPPORTED = 2;
 
 
   public static class FrameInfo {
@@ -200,7 +220,7 @@ public final class MpeghUtil {
    * enough data is available in the provided ParsableBitArray.
    *
    * @param data The bit array to parse.
-   * @return positive value on success, negative value on parse error and zero if not enough data is available
+   * @return Whether a complete MHAS frame could be parsed.
    */
   public static boolean canParseFrame(ParsableBitArray data) {
     boolean retVal = false;
@@ -219,7 +239,7 @@ public final class MpeghUtil {
       }
       data.skipBytes(header.packetLength);
 
-      if (header.packetType == MHASPacketType.PACTYP_MPEGH3DAFRAME) {
+      if (header.packetType == PACTYP_MPEGH3DAFRAME) {
         // An mpegh3daFrame packet has been found which signals the end of the MHAS frame.
         retVal = true;
         break;
@@ -230,11 +250,11 @@ public final class MpeghUtil {
   }
 
   private static class MHASPacketHeader {
-    MHASPacketType packetType;
+    @MHASPacketType int packetType;
     long packetLabel;
     int packetLength;
 
-    public MHASPacketHeader(MHASPacketType type, long label, int length) {
+    public MHASPacketHeader(@MHASPacketType int type, long label, int length) {
       packetType = type;
       packetLabel = label;
       packetLength = length;
@@ -250,8 +270,7 @@ public final class MpeghUtil {
    * @throws ParseException If parsing failed, i.e. there is not enough data available.
    */
   private static MHASPacketHeader parseMhasPacketHeader(ParsableBitArray data) throws ParseException {
-    int packetTypeVal = (int) readEscapedValue(data, 3, 8, 8);
-    MHASPacketType packetType = MHASPacketType.getById(packetTypeVal);
+    @MHASPacketType int packetType = (int) readEscapedValue(data, 3, 8, 8);
     long packetLabel = readEscapedValue(data, 2, 8, 32);
     int packetLength = (int) readEscapedValue(data, 11, 24, 24);
     return new MHASPacketHeader(packetType, packetLabel, packetLength);
@@ -739,7 +758,7 @@ public final class MpeghUtil {
           checkBitsAvailable(data, 1);
           if (data.readBit()) { // shiftIndex1
             checkBitsAvailable(data, nBits);
-            data.readBits(nBits); // shiftChannel1
+            data.skipBits(nBits); // shiftChannel1
           }
           if (sbrRatioIndex == 0 && qceIndex == 0) {
             checkBitsAvailable(data, 1);
@@ -819,24 +838,24 @@ public final class MpeghUtil {
 
   public static class ParseException extends IOException {
 
-    public final ParseState parseState;
+    public final @ParseState int parseState;
 
     public static ParseException createForNotEnoughData() {
-      return new ParseException(null, null, ParseState.END_OUTPUT);
+      return new ParseException(null, null, END_OUTPUT);
     }
 
     public static ParseException createForUnsupportedSubstream(@Nullable String message) {
-      return new ParseException(message, null, ParseState.SUBSTREAM_UNSUPPORTED);
+      return new ParseException(message, null, SUBSTREAM_UNSUPPORTED);
     }
 
     public static ParseException createForParsingError(@Nullable String message) {
-      return new ParseException(message, null, ParseState.PARSE_ERROR);
+      return new ParseException(message, null, PARSE_ERROR);
     }
 
     protected ParseException(
         @Nullable String message,
         @Nullable Throwable cause,
-        ParseState parseState) {
+        @ParseState int parseState) {
       super(message, cause);
       this.parseState = parseState;
     }
