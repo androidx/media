@@ -8,6 +8,8 @@
         `LiveConfiguration.min/maxOffset` range keep adjusting the offset back
         to `min/maxOffset`.
 *   Transformer:
+    *   Work around an issue where the encoder would throw at configuration time
+        due to setting a high operating rate.
 *   Track Selection:
 *   Extractors:
 *   Audio:
