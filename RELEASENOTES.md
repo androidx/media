@@ -44,6 +44,9 @@
         `ColorInfo.colorSpace`, `ColorInfo.colorTransfer`, and
         `ColorInfo.colorRange` values
         ([#692](https://github.com/androidx/media/pull/692)).
+    *   Fix playback of AAC in TS files when channel config is `0` by reading
+        Program Config Element (PCE)
+        ([#722](https://github.com/androidx/media/pull/722)).
 *   Audio:
 *   Video:
     *   Add workaround for a device issue on Galaxy Tab S7 FE, Chromecast with
