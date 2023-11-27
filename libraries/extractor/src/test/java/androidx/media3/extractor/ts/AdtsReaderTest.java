@@ -65,8 +65,7 @@ public class AdtsReaderTest {
       TestUtil.createByteArray(0xff, 0xf1, 0x50, 0x00, 0x02, 0x1f, 0xfc);
 
   private static final byte[] AAC_PCE_ADTS_CONTENT =
-      TestUtil.createByteArray(
-          0xa0, 0x99, 0x01, 0x20, 0x00, 0x21, 0x19, 0x00, 0x00);
+      TestUtil.createByteArray(0xa0, 0x99, 0x01, 0x20, 0x00, 0x21, 0x19, 0x00, 0x00);
 
   private static final byte[] AAC_PCE_TEST_DATA =
       Bytes.concat(AAC_PCE_ADTS_HEADER, AAC_PCE_ADTS_CONTENT);
@@ -202,16 +201,17 @@ public class AdtsReaderTest {
   @Test
   public void aacPceData() throws ParserException {
     data = new ParsableByteArray(AAC_PCE_TEST_DATA);
+
     feed();
+
     assertSampleCounts(0, 1);
     adtsOutput.assertSample(0, AAC_PCE_ADTS_CONTENT, 0, C.BUFFER_FLAG_KEY_FRAME, null);
   }
 
   @Test(expected = IllegalStateException.class)
   public void aacPceDataFail() throws ParserException {
-    data = new ParsableByteArray(AAC_PCE_TEST_DATA);
+    data = new ParsableByteArray(Arrays.copyOf(AAC_PCE_TEST_DATA, AAC_PCE_TEST_DATA.length));
     byte[] bytes = data.getData();
-
     // Remove PCE tag (first 3 bits of content).
     bytes[AAC_PCE_ADTS_HEADER.length] &= 0x1f;
     // Replace with CPE tag.

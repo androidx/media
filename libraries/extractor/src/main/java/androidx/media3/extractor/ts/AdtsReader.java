@@ -285,12 +285,18 @@ public final class AdtsReader implements ElementaryStreamReader {
     bytesRead = 0;
   }
 
-  /** Sets the state to STATE_READING_AAC_PCE. */
+  /**
+   * Sets the state to STATE_READING_AAC_PCE.
+   *
+   * @param outputToUse TrackOutput object to write the sample to
+   * @param currentSampleDuration Duration of the sample to be read
+   * @param sampleSize Size of the sample
+   */
   private void setReadingAacPceState(
       TrackOutput outputToUse, long currentSampleDuration, int sampleSize) {
     state = STATE_READING_AAC_PCE;
     bytesRead = 0;
-    currentOutput = outputToUse;
+    this.currentOutput = outputToUse;
     this.currentSampleDuration = currentSampleDuration;
     this.sampleSize = sampleSize;
     pceBuffer = new ParsableBitArray(new byte[min(sampleSize, AAC_PCE_MAX_SIZE)]);
@@ -567,46 +573,52 @@ public final class AdtsReader implements ElementaryStreamReader {
 
   @RequiresNonNull({"pendingOutputFormat", "pceBuffer"})
   void readAacProgramConfigElement() {
+    // See ISO 13818-7 Advanced Audio Coding (2006) Table 36 for PCE tag encoding.
     if (pceBuffer.readBits(3) == 5 /* PCE tag */) {
-      // See `ISO 13818-7 Advanced Audio Coding (2006) Table 25` for format of a PCE
-      pceBuffer.skipBits(10); // Element instance tag, profile, sample frequency index
+      // See ISO 13818-7 Advanced Audio Coding (2006) Table 25 for syntax of a PCE.
+      pceBuffer.skipBits(10); // element_instance_tag(4), profile(2), element_instance_tag(4)
 
       int channelBits = 0;
-      channelBits += pceBuffer.readBits(4) * 5; // Front channel elements
-      channelBits += pceBuffer.readBits(4) * 5; // Side channel elements
-      channelBits += pceBuffer.readBits(4) * 5; // Back channel elements
-      channelBits += pceBuffer.readBits(2) * 4; // LFE channel elements
-      channelBits += pceBuffer.readBits(3) * 4; // Data elements
-      channelBits += pceBuffer.readBits(4) * 5; // Coupling channel elements
+      // num_front_channel_elements, front_element_is_cpe(1), front_element_tag_select(4)
+      channelBits += pceBuffer.readBits(4) * 5;
+      // num_side_channel_elements, side_element_is_cpe(1), side_element_tag_select(4)
+      channelBits += pceBuffer.readBits(4) * 5;
+      // num_back_channel_elements, back_element_is_cpe(1), back_element_tag_select(4)
+      channelBits += pceBuffer.readBits(4) * 5;
+      // num_lfe_channel_elements, lfe_element_tag_select(4)
+      channelBits += pceBuffer.readBits(2) * 4;
+      // num_assoc_data_elements, assoc_data_element_tag_select(4)
+      channelBits += pceBuffer.readBits(3) * 4;
+      // num_valid_cc_elements, cc_element_is_ind_sw(1), valid_cc_element_tag_select(4)
+      channelBits += pceBuffer.readBits(4) * 5;
 
-      if (pceBuffer.readBit()) {
-        pceBuffer.skipBits(4); // Mono mixdown
+      if (pceBuffer.readBit()) { // mono_mixdown_present
+        pceBuffer.skipBits(4); // mono_mixdown_element_number
       }
 
-      if (pceBuffer.readBit()) {
-        pceBuffer.skipBits(4); // Stereo mixdown
+      if (pceBuffer.readBit()) { // stereo_mixdown_present
+        pceBuffer.skipBits(4); // stereo_mixdown_element_number
       }
 
-      if (pceBuffer.readBit()) {
-        pceBuffer.skipBits(3); // Matrix mixdown
+      if (pceBuffer.readBit()) { // matrix_mixdown_idx_present
+        pceBuffer.skipBits(3); // matrix_mixdown_idx(2), matrix_mixdown_idx(1)
       }
+
+      int numAlignmentBits =
+          8 - (pceBuffer.getPosition() + channelBits + 7) % 8 - 1; // byte_alignment
+      int commentSizeBits = 8; // comment_field_bytes
 
       // Beyond this point, pceBuffer may be empty, so check before consuming.
-
-      int numAlignmentBits = 8 - (pceBuffer.getPosition() + channelBits + 7) % 8 - 1;
-
-      if (pceBuffer.bitsLeft() >= channelBits + numAlignmentBits + 8)
-      {
+      if (pceBuffer.bitsLeft() >= channelBits + numAlignmentBits + commentSizeBits) {
         pceBuffer.skipBits(channelBits);
 
         // Store PCE size excluding initial PCE tag, alignment bits and comment for later.
         int numPceBits = pceBuffer.getPosition() - 3 /* PCE tag */;
 
         pceBuffer.skipBits(numAlignmentBits);
-        int commentSize = pceBuffer.readBits(8);
+        int commentSize = pceBuffer.readBits(commentSizeBits);
 
-        if (sampleSize >= pceBuffer.getBytePosition() + commentSize)
-        {
+        if (sampleSize >= pceBuffer.getBytePosition() + commentSize) {
           // Append PCE to format's audio specific config.
           byte[] oldConfig = pendingOutputFormat.initializationData.get(0);
 
