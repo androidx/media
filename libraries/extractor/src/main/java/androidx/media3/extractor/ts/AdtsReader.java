@@ -15,6 +15,7 @@
  */
 package androidx.media3.extractor.ts;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static java.lang.Math.min;
 
 import androidx.annotation.Nullable;
@@ -22,7 +23,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.ParsableByteArray;
@@ -33,6 +33,7 @@ import androidx.media3.extractor.DummyTrackOutput;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.ts.TsPayloadReader.TrackIdGenerator;
+import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
 import java.util.Collections;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
@@ -191,6 +192,7 @@ public final class AdtsReader implements ElementaryStreamReader {
           }
           break;
         case STATE_READING_AAC_PCE:
+          checkNotNull(pceBuffer);
           if (continueRead(data, pceBuffer.data, pceBuffer.data.length)) {
             readAacProgramConfigElement();
           }
@@ -571,8 +573,11 @@ public final class AdtsReader implements ElementaryStreamReader {
     }
   }
 
-  @RequiresNonNull({"pendingOutputFormat", "pceBuffer"})
+  @RequiresNonNull("currentOutput")
   void readAacProgramConfigElement() {
+    Format pendingOutputFormat = checkNotNull(this.pendingOutputFormat);
+    ParsableBitArray pceBuffer = checkNotNull(this.pceBuffer);
+
     // See ISO 13818-7 Advanced Audio Coding (2006) Table 36 for PCE tag encoding.
     if (pceBuffer.readBits(3) == 5 /* PCE tag */) {
       // See ISO 13818-7 Advanced Audio Coding (2006) Table 25 for syntax of a PCE.
@@ -624,16 +629,15 @@ public final class AdtsReader implements ElementaryStreamReader {
 
           int configSize = oldConfig.length;
           configSize += (numPceBits + 7) / 8 + 1; // Byte align and add a zero length comment.
-          byte[] newConfig = new byte[configSize];
+          byte[] newConfig = Arrays.copyOf(oldConfig, configSize);
 
-          System.arraycopy(oldConfig, 0, newConfig, 0, oldConfig.length);
           pceBuffer.setPosition(3 /* PCE tag */);
           pceBuffer.readBits(newConfig, oldConfig.length, numPceBits);
 
           pendingOutputFormat =
               pendingOutputFormat
                   .buildUpon()
-                  .setInitializationData(Collections.singletonList(newConfig))
+                  .setInitializationData(ImmutableList.of(newConfig))
                   .build();
 
           // Submit PCE-appended output format.
@@ -643,13 +647,13 @@ public final class AdtsReader implements ElementaryStreamReader {
       }
     }
 
-    pendingOutputFormat = null;
-
     // Pass through all accumulated data as sample data.
     ParsableByteArray data = new ParsableByteArray(pceBuffer.data);
-    pceBuffer = null;
     setReadingSampleState(currentOutput, currentSampleDuration, 0, sampleSize);
     readSample(data);
+
+    this.pendingOutputFormat = null;
+    this.pceBuffer = null;
   }
 
   /** Reads the rest of the sample */
@@ -669,7 +673,7 @@ public final class AdtsReader implements ElementaryStreamReader {
 
   @EnsuresNonNull({"output", "currentOutput", "id3Output"})
   private void assertTracksCreated() {
-    Assertions.checkNotNull(output);
+    checkNotNull(output);
     Util.castNonNull(currentOutput);
     Util.castNonNull(id3Output);
   }

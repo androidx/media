@@ -17,6 +17,7 @@ package androidx.media3.extractor.ts;
 
 import static androidx.media3.extractor.ts.TsPayloadReader.FLAG_DATA_ALIGNMENT_INDICATOR;
 import static java.lang.Math.min;
+import static org.junit.Assert.assertThrows;
 
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
@@ -208,7 +209,7 @@ public class AdtsReaderTest {
     adtsOutput.assertSample(0, AAC_PCE_ADTS_CONTENT, 0, C.BUFFER_FLAG_KEY_FRAME, null);
   }
 
-  @Test(expected = IllegalStateException.class)
+  @Test
   public void aacPceDataFail() throws ParserException {
     data = new ParsableByteArray(Arrays.copyOf(AAC_PCE_TEST_DATA, AAC_PCE_TEST_DATA.length));
     byte[] bytes = data.getData();
@@ -218,7 +219,7 @@ public class AdtsReaderTest {
     bytes[AAC_PCE_ADTS_HEADER.length] |= 0x20;
 
     // Should throw as FakeTrackOutput expects a format before sampleMetadata.
-    feed();
+    assertThrows(IllegalStateException.class, this::feed);
   }
 
   private void feedLimited(int limit) throws ParserException {
