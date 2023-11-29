@@ -210,6 +210,22 @@ public class AdtsReaderTest {
   }
 
   @Test
+  public void aacPceDataSplit() throws ParserException {
+    byte[] first = Arrays.copyOf(AAC_PCE_TEST_DATA, AAC_PCE_ADTS_HEADER.length + 1);
+    byte[] second =
+        Arrays.copyOfRange(
+            AAC_PCE_TEST_DATA, AAC_PCE_ADTS_HEADER.length + 1, AAC_PCE_TEST_DATA.length);
+
+    data = new ParsableByteArray(first);
+    feed();
+    data = new ParsableByteArray(second);
+    feed();
+
+    assertSampleCounts(0, 1);
+    adtsOutput.assertSample(0, AAC_PCE_ADTS_CONTENT, 0, C.BUFFER_FLAG_KEY_FRAME, null);
+  }
+
+  @Test
   public void aacPceDataFail() throws ParserException {
     data = new ParsableByteArray(Arrays.copyOf(AAC_PCE_TEST_DATA, AAC_PCE_TEST_DATA.length));
     byte[] bytes = data.getData();
