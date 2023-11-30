@@ -847,10 +847,14 @@ public final class Cue implements Bundleable {
   @Override
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
-    bundle.putCharSequence(FIELD_TEXT, text);
+    if (text != null) {
+      bundle.putCharSequence(FIELD_TEXT, text);
+    }
     bundle.putSerializable(FIELD_TEXT_ALIGNMENT, textAlignment);
     bundle.putSerializable(FIELD_MULTI_ROW_ALIGNMENT, multiRowAlignment);
-    bundle.putParcelable(FIELD_BITMAP, bitmap);
+    if (bitmap != null) {
+      bundle.putParcelable(FIELD_BITMAP, bitmap);
+    }
     bundle.putFloat(FIELD_LINE, line);
     bundle.putInt(FIELD_LINE_TYPE, lineType);
     bundle.putInt(FIELD_LINE_ANCHOR, lineAnchor);
