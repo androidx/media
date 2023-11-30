@@ -25,7 +25,6 @@ import static androidx.media3.extractor.ts.TsPayloadReader.FLAG_RANDOM_ACCESS_IN
 
 import android.util.Log;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import androidx.media3.common.C;
@@ -33,6 +32,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.ParsableByteArray;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.MpeghUtil;
 import androidx.media3.extractor.TrackOutput;
@@ -44,6 +44,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 /**
  * Parses a continuous MPEG-H audio byte stream and extracts MPEG-H frames.
  */
+@UnstableApi
 public final class MpeghReader implements ElementaryStreamReader {
 
   private static final String TAG = MpeghReader.class.getSimpleName();
@@ -107,7 +108,7 @@ public final class MpeghReader implements ElementaryStreamReader {
   }
 
   @Override
-  public void consume(@NonNull ParsableByteArray data) {
+  public void consume(ParsableByteArray data) {
     // write the PES payload to a data buffer until the packet is complete
     appendToDataBuffer(data);
   }
