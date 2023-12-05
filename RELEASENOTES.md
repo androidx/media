@@ -7,6 +7,9 @@
     *   Fix issue where manual seeks outside of the
         `LiveConfiguration.min/maxOffset` range keep adjusting the offset back
         to `min/maxOffset`.
+    *   Fix issue that OPUS and VORBIS channel layouts are wrong for 3, 5, 6, 7
+        and 8 channels
+        ([#8396](https://github.com/google/ExoPlayer/issues/8396)).
 *   Transformer:
     *   Work around an issue where the encoder would throw at configuration time
         due to setting a high operating rate.
