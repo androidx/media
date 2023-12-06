@@ -171,11 +171,14 @@ public final class DtsReader implements ElementaryStreamReader {
           break;
         case STATE_FINDING_UHD_HEADER_SIZE:
           // Read enough bytes to parse the header size information.
-          if (continueRead(data, headerScratchBytes.getData(), /* targetLength= */ 7)) {
+          if (continueRead(data, headerScratchBytes.getData(), /* targetLength= */ 6)) {
             uhdHeaderSize = DtsUtil.parseDtsUhdHeaderSize(headerScratchBytes.getData());
-            // If data read(FTOC_MIN_HEADER_SIZE) is more than the actual header size, set target
-            // read length equal to bytesRead. Otherwise the continueRead() function will fail.
-            uhdHeaderSize = max(bytesRead, uhdHeaderSize);
+            // Adjust the array read position if data read is more than the actual header size.
+            if (bytesRead > uhdHeaderSize) {
+              int extraBytes = bytesRead - uhdHeaderSize;
+              bytesRead -= extraBytes;
+              data.setPosition(data.getPosition() - extraBytes);
+            }
             state = STATE_READING_UHD_HEADER;
           }
           break;
