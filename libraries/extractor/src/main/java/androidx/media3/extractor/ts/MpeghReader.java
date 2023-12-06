@@ -47,23 +47,23 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 @UnstableApi
 public final class MpeghReader implements ElementaryStreamReader {
 
-  private static final String TAG = MpeghReader.class.getSimpleName();
+  private static final String TAG = "MpeghReader";
 
   private @MonotonicNonNull String formatId;
   private @MonotonicNonNull TrackOutput output;
   private final ParsableByteArray dataBuffer = new ParsableByteArray(0);
   private final ParsableBitArray dataBitBuffer = new ParsableBitArray();
-  private int dataInBuffer = 0;
+  private int dataInBuffer;
 
   private MpeghUtil.FrameInfo prevFrameInfo = new MpeghUtil.FrameInfo();
 
   // The timestamp to attach to the next sample in the current packet.
   private double timeUs;
   private double timeUsPending = C.TIME_UNSET;
-  private boolean dataPending = false;
+  private boolean dataPending;
   private boolean rapPending = true;
-  private boolean raiSet = false;
-  private boolean daiSet = false;
+  private boolean raiSet;
+  private boolean daiSet;
 
   public MpeghReader() {
     clearDataBuffer();

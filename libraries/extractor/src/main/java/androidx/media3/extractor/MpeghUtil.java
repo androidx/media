@@ -40,110 +40,6 @@ import java.util.Arrays;
 @UnstableApi
 public final class MpeghUtil {
 
-  /** See ISO_IEC_23003-3;2020, 6.1.1.1, Table 72. */
-  private static final int[] SAMPLING_RATE_TABLE =
-      new int[]{
-          96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350,
-          0, 0, 57600, 51200, 40000, 38400, 34150, 28800, 25600, 20000, 19200, 17075, 14400, 12800,
-          9600, 0, 0, 0, 0
-      };
-
-  /** See ISO_IEC_23003-3;2020, 6.1.1.1, Table 75. */
-  private static final int[] OUTPUT_FRAMELENGTH_TABLE =
-      new int[]{
-          768, 1024, 2048, 2048, 4096, 0, 0, 0
-      };
-
-  /** See ISO_IEC_23003-3;2020, 6.1.1.1, Table 75. */
-  private static final int[] SBR_RATIO_INDEX_TABLE =
-      new int[]{
-          0, 0, 2, 3, 1
-      };
-
-  /** See ISO_IEC_23003-8;2022, 14.4.4. */
-  private static final int MHAS_SYNCPACKET = 0xC001A5;
-
-
-  /**
-   * MHAS packet types. See ISO_IEC_23008-3;2022, 14.3.1, Table 226.
-   * One of {@link #PACTYP_FILLDATA}, {@link #PACTYP_MPEGH3DACFG}, {@link #PACTYP_MPEGH3DAFRAME},
-   * {@link #PACTYP_AUDIOSCENEINFO}, {@link #PACTYP_SYNC}, {@link #PACTYP_SYNCGAP},
-   * {@link #PACTYP_MARKER}, {@link #PACTYP_CRC16}, {@link #PACTYP_CRC32},
-   * {@link #PACTYP_DESCRIPTOR}, {@link #PACTYP_USERINTERACTION}, {@link #PACTYP_LOUDNESS_DRC},
-   * {@link #PACTYP_BUFFERINFO}, {@link #PACTYP_GLOBAL_CRC16}, {@link #PACTYP_GLOBAL_CRC32},
-   * {@link #PACTYP_AUDIOTRUNCATION}, {@link #PACTYP_GENDATA}, {@link #PACTYPE_EARCON},
-   * {@link #PACTYPE_PCMCONFIG}, {@link #PACTYPE_PCMDATA}, {@link #PACTYP_LOUDNESS}.
-   */
-  @Documented
-  @Retention(RetentionPolicy.SOURCE)
-  @Target(TYPE_USE)
-  @IntDef({
-      PACTYP_FILLDATA,
-      PACTYP_MPEGH3DACFG,
-      PACTYP_MPEGH3DAFRAME,
-      PACTYP_AUDIOSCENEINFO,
-      PACTYP_SYNC,
-      PACTYP_SYNCGAP,
-      PACTYP_MARKER,
-      PACTYP_CRC16,
-      PACTYP_CRC32,
-      PACTYP_DESCRIPTOR,
-      PACTYP_USERINTERACTION,
-      PACTYP_LOUDNESS_DRC,
-      PACTYP_BUFFERINFO,
-      PACTYP_GLOBAL_CRC16,
-      PACTYP_GLOBAL_CRC32,
-      PACTYP_AUDIOTRUNCATION,
-      PACTYP_GENDATA,
-      PACTYPE_EARCON,
-      PACTYPE_PCMCONFIG,
-      PACTYPE_PCMDATA,
-      PACTYP_LOUDNESS
-  })
-  private @interface MHASPacketType {}
-
-  private static final int PACTYP_FILLDATA = 0;
-  private static final int PACTYP_MPEGH3DACFG = 1;
-  private static final int PACTYP_MPEGH3DAFRAME = 2;
-  private static final int PACTYP_AUDIOSCENEINFO = 3;
-  private static final int PACTYP_SYNC = 6;
-  private static final int PACTYP_SYNCGAP = 7;
-  private static final int PACTYP_MARKER = 8;
-  private static final int PACTYP_CRC16 = 9;
-  private static final int PACTYP_CRC32 = 10;
-  private static final int PACTYP_DESCRIPTOR = 11;
-  private static final int PACTYP_USERINTERACTION = 12;
-  private static final int PACTYP_LOUDNESS_DRC = 13;
-  private static final int PACTYP_BUFFERINFO = 14;
-  private static final int PACTYP_GLOBAL_CRC16 = 15;
-  private static final int PACTYP_GLOBAL_CRC32 = 16;
-  private static final int PACTYP_AUDIOTRUNCATION = 17;
-  private static final int PACTYP_GENDATA = 18;
-  private static final int PACTYPE_EARCON = 19;
-  private static final int PACTYPE_PCMCONFIG = 20;
-  private static final int PACTYPE_PCMDATA = 21;
-  private static final int PACTYP_LOUDNESS = 22;
-
-
-  /**
-   * Represents the parsing state. One of {@link #STATE_END_OUTPUT},
-   * {@link #STATE_PARSE_ERROR}, {@link #STATE_SUBSTREAM_UNSUPPORTED}.
-   */
-  @Documented
-  @Retention(RetentionPolicy.SOURCE)
-  @Target(TYPE_USE)
-  @IntDef({
-      STATE_END_OUTPUT,
-      STATE_PARSE_ERROR,
-      STATE_SUBSTREAM_UNSUPPORTED
-  })
-  private @interface State {}
-
-  private static final int STATE_END_OUTPUT = 0;
-  private static final int STATE_PARSE_ERROR = 1;
-  private static final int STATE_SUBSTREAM_UNSUPPORTED = 2;
-
-
   public static class FrameInfo {
 
     public boolean containsConfig;
@@ -158,8 +54,6 @@ public final class MpeghUtil {
     public byte[] compatibleSetIndication;
 
     public FrameInfo() {
-      this.containsConfig = false;
-      this.configChanged = false;
       this.standardFrameSamples = Format.NO_VALUE;
       this.samplingRate = Format.NO_VALUE;
       this.frameSamples = Format.NO_VALUE;
@@ -198,6 +92,132 @@ public final class MpeghUtil {
       compatibleSetIndication = new byte[0];
     }
   }
+
+  public static class ParseException extends IOException {
+
+    public final @State int parseState;
+
+    public static ParseException createForNotEnoughData() {
+      return new ParseException(null, null, STATE_END_OUTPUT);
+    }
+
+    public static ParseException createForUnsupportedSubstream(@Nullable String message) {
+      return new ParseException(message, null, STATE_SUBSTREAM_UNSUPPORTED);
+    }
+
+    public static ParseException createForParsingError(@Nullable String message) {
+      return new ParseException(message, null, STATE_PARSE_ERROR);
+    }
+
+    protected ParseException(
+        @Nullable String message,
+        @Nullable Throwable cause,
+        @State int parseState) {
+      super(message, cause);
+      this.parseState = parseState;
+    }
+  }
+
+  /**
+   * MHAS packet types. See ISO_IEC_23008-3;2022, 14.3.1, Table 226.
+   * One of {@link #PACTYP_FILLDATA}, {@link #PACTYP_MPEGH3DACFG}, {@link #PACTYP_MPEGH3DAFRAME},
+   * {@link #PACTYP_AUDIOSCENEINFO}, {@link #PACTYP_SYNC}, {@link #PACTYP_SYNCGAP},
+   * {@link #PACTYP_MARKER}, {@link #PACTYP_CRC16}, {@link #PACTYP_CRC32},
+   * {@link #PACTYP_DESCRIPTOR}, {@link #PACTYP_USERINTERACTION}, {@link #PACTYP_LOUDNESS_DRC},
+   * {@link #PACTYP_BUFFERINFO}, {@link #PACTYP_GLOBAL_CRC16}, {@link #PACTYP_GLOBAL_CRC32},
+   * {@link #PACTYP_AUDIOTRUNCATION}, {@link #PACTYP_GENDATA}, {@link #PACTYPE_EARCON},
+   * {@link #PACTYPE_PCMCONFIG}, {@link #PACTYPE_PCMDATA}, {@link #PACTYP_LOUDNESS}.
+   */
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target(TYPE_USE)
+  @IntDef({
+      PACTYP_FILLDATA,
+      PACTYP_MPEGH3DACFG,
+      PACTYP_MPEGH3DAFRAME,
+      PACTYP_AUDIOSCENEINFO,
+      PACTYP_SYNC,
+      PACTYP_SYNCGAP,
+      PACTYP_MARKER,
+      PACTYP_CRC16,
+      PACTYP_CRC32,
+      PACTYP_DESCRIPTOR,
+      PACTYP_USERINTERACTION,
+      PACTYP_LOUDNESS_DRC,
+      PACTYP_BUFFERINFO,
+      PACTYP_GLOBAL_CRC16,
+      PACTYP_GLOBAL_CRC32,
+      PACTYP_AUDIOTRUNCATION,
+      PACTYP_GENDATA,
+      PACTYPE_EARCON,
+      PACTYPE_PCMCONFIG,
+      PACTYPE_PCMDATA,
+      PACTYP_LOUDNESS
+  })
+  private @interface MhasPacketType {}
+
+  private static final int PACTYP_FILLDATA = 0;
+  private static final int PACTYP_MPEGH3DACFG = 1;
+  private static final int PACTYP_MPEGH3DAFRAME = 2;
+  private static final int PACTYP_AUDIOSCENEINFO = 3;
+  private static final int PACTYP_SYNC = 6;
+  private static final int PACTYP_SYNCGAP = 7;
+  private static final int PACTYP_MARKER = 8;
+  private static final int PACTYP_CRC16 = 9;
+  private static final int PACTYP_CRC32 = 10;
+  private static final int PACTYP_DESCRIPTOR = 11;
+  private static final int PACTYP_USERINTERACTION = 12;
+  private static final int PACTYP_LOUDNESS_DRC = 13;
+  private static final int PACTYP_BUFFERINFO = 14;
+  private static final int PACTYP_GLOBAL_CRC16 = 15;
+  private static final int PACTYP_GLOBAL_CRC32 = 16;
+  private static final int PACTYP_AUDIOTRUNCATION = 17;
+  private static final int PACTYP_GENDATA = 18;
+  private static final int PACTYPE_EARCON = 19;
+  private static final int PACTYPE_PCMCONFIG = 20;
+  private static final int PACTYPE_PCMDATA = 21;
+  private static final int PACTYP_LOUDNESS = 22;
+
+  /**
+   * Represents the parsing state. One of {@link #STATE_END_OUTPUT},
+   * {@link #STATE_PARSE_ERROR}, {@link #STATE_SUBSTREAM_UNSUPPORTED}.
+   */
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target(TYPE_USE)
+  @IntDef({
+      STATE_END_OUTPUT,
+      STATE_PARSE_ERROR,
+      STATE_SUBSTREAM_UNSUPPORTED
+  })
+  private @interface State {}
+
+  private static final int STATE_END_OUTPUT = 0;
+  private static final int STATE_PARSE_ERROR = 1;
+  private static final int STATE_SUBSTREAM_UNSUPPORTED = 2;
+
+  /** See ISO_IEC_23003-3;2020, 6.1.1.1, Table 72. */
+  private static final int[] SAMPLING_RATE_TABLE =
+      new int[]{
+          96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350,
+          0, 0, 57600, 51200, 40000, 38400, 34150, 28800, 25600, 20000, 19200, 17075, 14400, 12800,
+          9600, 0, 0, 0, 0
+      };
+
+  /** See ISO_IEC_23003-3;2020, 6.1.1.1, Table 75. */
+  private static final int[] OUTPUT_FRAMELENGTH_TABLE =
+      new int[]{
+          768, 1024, 2048, 2048, 4096, 0, 0, 0
+      };
+
+  /** See ISO_IEC_23003-3;2020, 6.1.1.1, Table 75. */
+  private static final int[] SBR_RATIO_INDEX_TABLE =
+      new int[]{
+          0, 0, 2, 3, 1
+      };
+
+  /** See ISO_IEC_23003-8;2022, 14.4.4. */
+  private static final int MHAS_SYNCPACKET = 0xC001A5;
 
   /**
    * Validates that the provided number of bits is available in the bit array.
@@ -247,7 +267,7 @@ public final class MpeghUtil {
     boolean retVal = false;
     int dataPos = data.getPosition();
     while (true) {
-      MHASPacketHeader header;
+      MhasPacketHeader header;
       try {
         header = parseMhasPacketHeader(data);
       } catch (ParseException e) {
@@ -270,39 +290,12 @@ public final class MpeghUtil {
     return retVal;
   }
 
-  private static class MHASPacketHeader {
-    @MHASPacketType int packetType;
-    long packetLabel;
-    int packetLength;
-
-    public MHASPacketHeader(@MHASPacketType int type, long label, int length) {
-      packetType = type;
-      packetLabel = label;
-      packetLength = length;
-    }
-  }
-
-  /**
-   * Parses an MHAS packet header.
-   * See ISO_IEC_23008-3;2022, 14.2.1, Table 222.
-   *
-   * @param data The bit array to parse.
-   * @return MHASPacketHeader The MHAS packet header info.
-   * @throws {@link ParseException} if parsing failed, i.e. there is not enough data available.
-   */
-  private static MHASPacketHeader parseMhasPacketHeader(ParsableBitArray data) throws ParseException {
-    @MHASPacketType int packetType = (int) readEscapedValue(data, 3, 8, 8);
-    long packetLabel = readEscapedValue(data, 2, 8, 32);
-    int packetLength = (int) readEscapedValue(data, 11, 24, 24);
-    return new MHASPacketHeader(packetType, packetLabel, packetLength);
-  }
-
   /**
    * Parses the necessary info of an MPEG-H frame into the FrameInfo structure.
    *
    * @param data The bit array to parse, positioned at the start of the MHAS frame.
    * @param prevFrameInfo A previously obtained FrameInfo.
-   * @return FrameInfo of the current frame.
+   * @return {@link FrameInfo} of the current frame.
    * @throws {@link ParseException} if parsing failed.
    */
   public static FrameInfo parseFrame(ParsableBitArray data, FrameInfo prevFrameInfo)
@@ -329,7 +322,7 @@ public final class MpeghUtil {
 
     do {
       // parse MHAS packet header
-      MHASPacketHeader packetHeader = parseMhasPacketHeader(data);
+      MhasPacketHeader packetHeader = parseMhasPacketHeader(data);
       if (packetHeader.packetLabel > 0x10) {
         throw ParseException.createForUnsupportedSubstream(
             "Contains sub-stream with label " + packetHeader.packetLabel);
@@ -419,8 +412,7 @@ public final class MpeghUtil {
 
     } while (!frameFound);
 
-    int nBits = data.bitsLeft();
-    int parsedBytes = (nBitsIns - nBits) / 8;
+    int parsedBytes = (nBitsIns - data.bitsLeft()) / 8;
 
     if (samplingFrequency <= 0) {
       throw ParseException.createForParsingError(
@@ -437,6 +429,21 @@ public final class MpeghUtil {
   }
 
   /**
+   * Parses an MHAS packet header.
+   * See ISO_IEC_23008-3;2022, 14.2.1, Table 222.
+   *
+   * @param data The bit array to parse.
+   * @return The {@link MhasPacketHeader} info.
+   * @throws {@link ParseException} if parsing failed, i.e. there is not enough data available.
+   */
+  private static MhasPacketHeader parseMhasPacketHeader(ParsableBitArray data) throws ParseException {
+    @MhasPacketType int packetType = (int) readEscapedValue(data, 3, 8, 8);
+    long packetLabel = readEscapedValue(data, 2, 8, 32);
+    int packetLength = (int) readEscapedValue(data, 11, 24, 24);
+    return new MhasPacketHeader(packetType, packetLabel, packetLength);
+  }
+
+  /**
    * Obtains the sampling rate of the current MPEG-H frame.
    *
    * @param data The bit array holding the bits to be parsed.
@@ -445,10 +452,9 @@ public final class MpeghUtil {
    */
   public static int getSamplingFrequency(ParsableBitArray data) throws ParseException {
     int sampleRate;
-    int idx;
 
     validateBitsAvailability(data, 5);
-    idx = data.readBits(5);
+    int idx = data.readBits(5);
 
     if (idx == 0x1F) {
       validateBitsAvailability(data, 24);
@@ -472,15 +478,12 @@ public final class MpeghUtil {
    */
   public static long readEscapedValue(ParsableBitArray data, int bits1, int bits2, int bits3)
       throws ParseException {
-    long value;
-    long valueAdd;
-
     validateBitsAvailability(data, bits1);
-    value = data.readBitsToLong(bits1);
+    long value = data.readBitsToLong(bits1);
 
     if (value == (1L << bits1) - 1) {
       validateBitsAvailability(data, bits2);
-      valueAdd = data.readBitsToLong(bits2);
+      long valueAdd = data.readBitsToLong(bits2);
       value += valueAdd;
 
       if (valueAdd == (1L << bits2) - 1) {
@@ -492,29 +495,12 @@ public final class MpeghUtil {
     return value;
   }
 
-  private static class Mpegh3daConfig {
-
-    int mpegh3daProfileLevelIndication;
-    int samplingFrequency;
-    int standardFrameSamples;
-    @Nullable
-    byte[] compatibleProfileLevelSet;
-
-    private Mpegh3daConfig() {
-      this.mpegh3daProfileLevelIndication = Format.NO_VALUE;
-      this.samplingFrequency = Format.NO_VALUE;
-      this.standardFrameSamples = Format.NO_VALUE;
-      this.compatibleProfileLevelSet = null;
-    }
-  }
-
-
   /**
    * Obtains the necessary info of the Mpegh3daConfig from an MPEG-H bit stream.
    * See ISO_IEC_23008-3;2022, 5.2.2.1, Table 15.
    *
    * @param data  The bit array to be parsed.
-   * @return The Mpegh3daConfig.
+   * @return The {@link Mpegh3daConfig}.
    * @throws {@link ParseException} if parsing failed.
    */
   private static Mpegh3daConfig parseMpegh3daConfig(ParsableBitArray data) throws ParseException {
@@ -633,8 +619,7 @@ public final class MpeghUtil {
       if (speakerLayoutType == 1) {
         validateBitsAvailability(data, 7 * numSpeakers);
         data.skipBits(7 * numSpeakers); // cicpSpeakerIdx per speaker
-      }
-      if (speakerLayoutType == 2) {
+      } else if (speakerLayoutType == 2) {
         validateBitsAvailability(data, 1);
         boolean angularPrecision = data.readBit();
         int angularPrecisionDegrees = angularPrecision ? 1 : 5;
@@ -864,29 +849,31 @@ public final class MpeghUtil {
   private MpeghUtil() {
   }
 
+  private static class MhasPacketHeader {
+    @MhasPacketType int packetType;
+    long packetLabel;
+    int packetLength;
 
-  public static class ParseException extends IOException {
-
-    public final @State int parseState;
-
-    public static ParseException createForNotEnoughData() {
-      return new ParseException(null, null, STATE_END_OUTPUT);
+    public MhasPacketHeader(@MhasPacketType int type, long label, int length) {
+      packetType = type;
+      packetLabel = label;
+      packetLength = length;
     }
+  }
 
-    public static ParseException createForUnsupportedSubstream(@Nullable String message) {
-      return new ParseException(message, null, STATE_SUBSTREAM_UNSUPPORTED);
-    }
+  private static class Mpegh3daConfig {
 
-    public static ParseException createForParsingError(@Nullable String message) {
-      return new ParseException(message, null, STATE_PARSE_ERROR);
-    }
+    int mpegh3daProfileLevelIndication;
+    int samplingFrequency;
+    int standardFrameSamples;
+    @Nullable
+    byte[] compatibleProfileLevelSet;
 
-    protected ParseException(
-        @Nullable String message,
-        @Nullable Throwable cause,
-        @State int parseState) {
-      super(message, cause);
-      this.parseState = parseState;
+    private Mpegh3daConfig() {
+      this.mpegh3daProfileLevelIndication = Format.NO_VALUE;
+      this.samplingFrequency = Format.NO_VALUE;
+      this.standardFrameSamples = Format.NO_VALUE;
+      this.compatibleProfileLevelSet = null;
     }
   }
 }
