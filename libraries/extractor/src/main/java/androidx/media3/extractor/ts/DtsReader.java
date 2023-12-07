@@ -85,6 +85,7 @@ public final class DtsReader implements ElementaryStreamReader {
   private boolean isCoreSync;
   private boolean isFtocSync;
   private boolean isFtocNonSync;
+  private boolean uhdInSync;
   private int extensionSubstreamHeaderSize;
   private int uhdHeaderSize;
 
@@ -102,6 +103,7 @@ public final class DtsReader implements ElementaryStreamReader {
     state = STATE_FINDING_SYNC;
     timeUs = C.TIME_UNSET;
     uhdAudioChunkId = new AtomicInteger();
+    uhdInSync = false;
     extensionSubstreamHeaderSize = C.LENGTH_UNSET;
     uhdHeaderSize = C.LENGTH_UNSET;
     this.language = language;
@@ -113,6 +115,7 @@ public final class DtsReader implements ElementaryStreamReader {
     bytesRead = 0;
     syncBytes = 0;
     timeUs = C.TIME_UNSET;
+    uhdInSync = false;
   }
 
   @Override
@@ -136,7 +139,10 @@ public final class DtsReader implements ElementaryStreamReader {
       switch (state) {
         case STATE_FINDING_SYNC:
           if (skipToNextSync(data)) {
-            if (isFtocSync || isFtocNonSync) {
+            if (isFtocSync) {
+              uhdInSync = true;
+              state = STATE_FINDING_UHD_HEADER_SIZE;
+            } else if (isFtocNonSync) {
               state = STATE_FINDING_UHD_HEADER_SIZE;
             } else if (isCoreSync) {
               state = STATE_READING_CORE_HEADER;
@@ -246,7 +252,7 @@ public final class DtsReader implements ElementaryStreamReader {
       if (isCoreSync
           || DtsUtil.isExtensionSubstreamSyncWord(syncBytes)
           || isFtocSync
-          || isFtocNonSync) {
+          || (isFtocNonSync && uhdInSync)) {
         byte[] headerData = headerScratchBytes.getData();
         headerData[0] = (byte) ((syncBytes >> 24) & 0xFF);
         headerData[1] = (byte) ((syncBytes >> 16) & 0xFF);

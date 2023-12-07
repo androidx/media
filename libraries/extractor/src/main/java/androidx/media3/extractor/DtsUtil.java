@@ -570,7 +570,8 @@ public final class DtsUtil {
       }
       // Skip time stamp information if present, see section 5.2.3.2.
       if (frameBits.readBit()) { // m_bParamPresent
-        // m_bUpdateFlag == true as m_bSyncFramePredefValueExists is false.
+        // m_bUpdateFlag == true as m_bSyncFramePredefValueExists is set to false in the encoder
+        // for the m_TimeStamp field.
         frameBits.skipBits(32 + 4); // m_TimeStamp
       }
       int sampleRateMultiplier = (1 << frameBits.readBits(2));
