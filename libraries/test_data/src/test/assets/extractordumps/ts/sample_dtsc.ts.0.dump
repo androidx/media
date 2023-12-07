@@ -1,0 +1,46 @@
+seekMap:
+  isSeekable = true
+  duration = 74666
+  getPosition(0) = [[timeUs=0, position=0]]
+  getPosition(1) = [[timeUs=1, position=0]]
+  getPosition(37333) = [[timeUs=37333, position=3908]]
+  getPosition(74666) = [[timeUs=74666, position=8004]]
+numberOfTracks = 1
+track 80:
+  total output bytes = 7325
+  sample count = 7
+  format 0:
+    averageBitrate = 768000
+    id = 1/80
+    sampleMimeType = audio/vnd.dts
+    channelCount = 6
+    sampleRate = 48000
+  sample 0:
+    time = 0
+    flags = 1
+    data = length 1024, hash 1539E449
+  sample 1:
+    time = 10666
+    flags = 1
+    data = length 1024, hash 1539E449
+  sample 2:
+    time = 21333
+    flags = 1
+    data = length 1024, hash 1539E449
+  sample 3:
+    time = 32000
+    flags = 1
+    data = length 1024, hash 1539E449
+  sample 4:
+    time = 42666
+    flags = 1
+    data = length 1024, hash 1539E449
+  sample 5:
+    time = 53333
+    flags = 1
+    data = length 1024, hash 1539E449
+  sample 6:
+    time = 64000
+    flags = 1
+    data = length 1024, hash 1539E449
+tracksEnded = true

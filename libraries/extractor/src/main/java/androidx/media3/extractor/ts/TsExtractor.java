@@ -565,6 +565,7 @@ public final class TsExtractor implements Extractor {
     private static final int TS_PMT_DESC_DVBSUBS = 0x59;
 
     private static final int TS_PMT_DESC_DVB_EXT_AC4 = 0x15;
+    private static final int TS_PMT_DESC_DVB_EXT_DTS = 0x0E;
 
     private final ParsableBitArray pmtScratch;
     private final SparseArray<@NullableType TsPayloadReader> trackIdToReaderScratch;
@@ -754,6 +755,9 @@ public final class TsExtractor implements Extractor {
           if (descriptorTagExt == TS_PMT_DESC_DVB_EXT_AC4) {
             // AC-4_descriptor in DVB (ETSI EN 300 468).
             streamType = TS_STREAM_TYPE_AC4;
+          } else if (descriptorTagExt == TS_PMT_DESC_DVB_EXT_DTS) {
+            // DTS-HD_descriptor in DVB (ETSI EN 300 468 Section 6.3 and Annex G).
+            streamType = TS_STREAM_TYPE_DTS;
           }
         } else if (descriptorTag == TS_PMT_DESC_DTS) { // DTS_descriptor
           streamType = TS_STREAM_TYPE_DTS;

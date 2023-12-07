@@ -142,6 +142,11 @@ public final class TsExtractorTest {
   }
 
   @Test
+  public void sampleWithDtsc() throws Exception {
+    ExtractorAsserts.assertBehavior(TsExtractor::new, "media/ts/sample_dtsc.ts", simulationConfig);
+  }
+
+  @Test
   public void sampleWithLatm() throws Exception {
     ExtractorAsserts.assertBehavior(TsExtractor::new, "media/ts/sample_latm.ts", simulationConfig);
   }
