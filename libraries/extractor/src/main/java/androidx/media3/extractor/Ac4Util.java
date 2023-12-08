@@ -244,7 +244,7 @@ public final class Ac4Util {
     }
 
     if (ac4DsiVersion == 1) {
-      if (!parseBitrateDsi(dataBitArray)) {
+      if (!parseDsiBitrate(dataBitArray)) {
         throw ParserException.createForUnsupportedContainerFeature(
             "Invalid AC-4 DSI bitrate.");
       }
@@ -356,14 +356,14 @@ public final class Ac4Util {
 
         if (bSingleSubstreamGroup) {
           if (presentationVersion == 0) {
-            if (!parseSubstreamDSI(
+            if (!parseDsiSubstream(
                 dataBitArray, ac4Presentation, presentationIndex, 0)) {
               throw ParserException.createForUnsupportedContainerFeature(
                   "Can't parse substream DSI, presentation index = "
                       + presentationIndex + ", single substream.");
             }
           } else {
-            if (!parseSubstreamGroupDSI(
+            if (!parseDsiSubstreamGroup(
                 dataBitArray, ac4Presentation, presentationIndex, 0)) {
               throw ParserException.createForUnsupportedContainerFeature(
                   "Can't parse substream group DSI, presentation index = "
@@ -382,7 +382,7 @@ public final class Ac4Util {
             case 2:
               if (presentationVersion == 0) {
                 for (int substreamID = 0; substreamID < 2; substreamID++) {
-                  if (!parseSubstreamDSI(
+                  if (!parseDsiSubstream(
                       dataBitArray, ac4Presentation, presentationIndex, substreamID)) {
                     throw ParserException.createForUnsupportedContainerFeature(
                         "Can't parse substream DSI, presentation index = "
@@ -391,7 +391,7 @@ public final class Ac4Util {
                 }
               } else {
                 for (int substreamGroupID = 0; substreamGroupID < 2; substreamGroupID++) {
-                  if (!parseSubstreamGroupDSI(
+                  if (!parseDsiSubstreamGroup(
                       dataBitArray, ac4Presentation, presentationIndex, substreamGroupID)) {
                     throw ParserException.createForUnsupportedContainerFeature(
                         "Can't parse substream group DSI, presentation index = "
@@ -404,7 +404,7 @@ public final class Ac4Util {
             case 4:
               if (presentationVersion == 0) {
                 for (int substreamID = 0; substreamID < 3; substreamID++) {
-                  if (!parseSubstreamDSI(
+                  if (!parseDsiSubstream(
                       dataBitArray, ac4Presentation, presentationIndex, substreamID)) {
                     throw ParserException.createForUnsupportedContainerFeature(
                         "Can't parse substream DSI, presentation index = "
@@ -413,7 +413,7 @@ public final class Ac4Util {
                 }
               } else {
                 for (int substreamGroupID = 0; substreamGroupID < 3; substreamGroupID++) {
-                  if (!parseSubstreamGroupDSI(
+                  if (!parseDsiSubstreamGroup(
                       dataBitArray, ac4Presentation, presentationIndex, substreamGroupID)) {
                     throw ParserException.createForUnsupportedContainerFeature(
                         "Can't parse substream group DSI, presentation index = "
@@ -424,7 +424,7 @@ public final class Ac4Util {
               break;
             case 5:
               if (presentationVersion == 0) {
-                if (!parseSubstreamDSI(
+                if (!parseDsiSubstream(
                     dataBitArray, ac4Presentation, presentationIndex, 0)) {
                   throw ParserException.createForUnsupportedContainerFeature(
                       "Can't parse substream DSI, presentation index = "
@@ -434,7 +434,7 @@ public final class Ac4Util {
                 int nSubstreamGroupsMinus2 = dataBitArray.readBits(3);
                 for (int substreamGroupID = 0; substreamGroupID < nSubstreamGroupsMinus2 + 2;
                     substreamGroupID++) {
-                  if (!parseSubstreamGroupDSI(
+                  if (!parseDsiSubstreamGroup(
                       dataBitArray, ac4Presentation, presentationIndex, substreamGroupID)) {
                     throw ParserException.createForUnsupportedContainerFeature(
                         "Can't parse substream group DSI, presentation index = "
@@ -467,7 +467,7 @@ public final class Ac4Util {
       }
 
       if (bPresentationBitrateInfo) {
-        if (!parseBitrateDsi(dataBitArray)) {
+        if (!parseDsiBitrate(dataBitArray)) {
           throw ParserException.createForUnsupportedContainerFeature(
               "Can't parse bitrate DSI.");
         }
@@ -661,7 +661,7 @@ public final class Ac4Util {
     data[6] = (byte) (size & 0xFF);
   }
 
-  private static boolean parseBitrateDsi(ParsableBitArray dataBitArray) {
+  private static boolean parseDsiBitrate(ParsableBitArray dataBitArray) {
     if (dataBitArray.bitsLeft() < 2 + 32 + 32) {
       return false;
     }
@@ -763,14 +763,14 @@ public final class Ac4Util {
   }
 
   /**
-   * Parse AC-4 substream DSI according to TS 103 190-1 v1.2.1 E.5 and TS 103 190-2 v1.1.1 E.9
+   * Parse AC-4 DSI substream according to TS 103 190-1 v1.2.1 E.5 and TS 103 190-2 v1.1.1 E.9
    * @param dataBitArray A {@link ParsableBitArray} containing the AC-4 DSI to parse.
    * @param ac4Presentation A structure to store AC-4 presentation info.
    * @param presentationID The AC-4 presentation index.
    * @param substreamID The AC-4 presentation substream ID.
    * @return Whether there is an error during substream paring.
    */
-  private static boolean parseSubstreamDSI(ParsableBitArray dataBitArray,
+  private static boolean parseDsiSubstream(ParsableBitArray dataBitArray,
       Ac4Presentation ac4Presentation, int presentationID, int substreamID) {
     int channelMode = dataBitArray.readBits(5);  // channel_mode
     Log.d(TAG, presentationID + "." + substreamID + ": channel_mode = "
@@ -808,14 +808,14 @@ public final class Ac4Util {
   }
 
   /**
-   * Parse AC-4 substream group DSI according to ETSI TS 103 190-2 v1.1.1 section E.11
+   * Parse AC-4 DSI substream group according to ETSI TS 103 190-2 v1.1.1 section E.11
    * @param dataBitArray A {@link ParsableBitArray} containing the AC-4 DSI to parse.
    * @param ac4Presentation A structure to store AC-4 presentation info.
    * @param presentationID The AC-4 presentation index.
    * @param groupID The AC-4 presentation substream group ID.
    * @return Whether there is an error during substream group paring.
    */
-  private static boolean parseSubstreamGroupDSI(ParsableBitArray dataBitArray,
+  private static boolean parseDsiSubstreamGroup(ParsableBitArray dataBitArray,
       Ac4Presentation ac4Presentation, int presentationID, int groupID) {
     dataBitArray.skipBit();  // b_substreams_present
     dataBitArray.skipBit();  // b_hsf_ext
