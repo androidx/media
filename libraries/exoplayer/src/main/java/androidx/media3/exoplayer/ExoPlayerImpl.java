@@ -28,6 +28,8 @@ import static androidx.media3.exoplayer.Renderer.MSG_SET_AUDIO_SESSION_ID;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_AUX_EFFECT_INFO;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_CAMERA_MOTION_LISTENER;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_CHANGE_FRAME_RATE_STRATEGY;
+import static androidx.media3.exoplayer.Renderer.MSG_SET_CODEC_PARAMETER;
+import static androidx.media3.exoplayer.Renderer.MSG_SET_CODEC_PARAMETERS_CHANGED_LISTENER;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_IMAGE_OUTPUT;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_PREFERRED_AUDIO_DEVICE;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_PRIORITY;
@@ -62,6 +64,8 @@ import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.BasePlayer;
 import androidx.media3.common.C;
 import androidx.media3.common.C.TrackType;
+import androidx.media3.common.CodecParameter;
+import androidx.media3.common.CodecParametersChangeListener;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
@@ -2051,6 +2055,24 @@ import java.util.function.IntConsumer;
   public void setImageOutput(@Nullable ImageOutput imageOutput) {
     verifyApplicationThread();
     sendRendererMessage(TRACK_TYPE_IMAGE, MSG_SET_IMAGE_OUTPUT, imageOutput);
+  }
+
+  @Override
+  public void setCodecParameter(CodecParameter codecParameter) {
+    verifyApplicationThread();
+    for (Renderer renderer : renderers) {
+      createMessage(renderer).setType(MSG_SET_CODEC_PARAMETER).setPayload(codecParameter).send();
+    }
+  }
+
+  @Override
+  public void setCodecParametersChangeListener(
+      @Nullable CodecParametersChangeListener codecParametersChangeListener) {
+    verifyApplicationThread();
+    for (Renderer renderer : renderers) {
+      createMessage(renderer).setType(MSG_SET_CODEC_PARAMETERS_CHANGED_LISTENER)
+          .setPayload(codecParametersChangeListener).send();
+    }
   }
 
   @SuppressWarnings("deprecation") // Calling deprecated methods.

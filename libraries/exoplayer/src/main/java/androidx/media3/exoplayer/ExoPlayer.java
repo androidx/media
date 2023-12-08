@@ -39,6 +39,9 @@ import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.C;
+import androidx.media3.common.CodecParameter;
+import androidx.media3.common.CodecParametersChangeListener;
+import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -2025,4 +2028,12 @@ public interface ExoPlayer extends Player {
    */
   @UnstableApi
   void setImageOutput(@Nullable ImageOutput imageOutput);
+
+  /** Set the CodecParameters */
+  @UnstableApi
+  void setCodecParameter(CodecParameter codecParameter);
+
+  /** Set the CodecParametersChangeListener */
+  @UnstableApi
+  void setCodecParametersChangeListener(@Nullable CodecParametersChangeListener codecParametersChangeListener);
 }

@@ -21,6 +21,8 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.C;
+import androidx.media3.common.CodecParameter;
+import androidx.media3.common.CodecParametersChangeListener;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.PriorityTaskManager;
@@ -441,6 +443,17 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
 
   @Override
   public void setImageOutput(@Nullable ImageOutput imageOutput) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void setCodecParameter(@Nullable CodecParameter codecParameter) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void setCodecParametersChangeListener(
+      CodecParametersChangeListener codecParametersChangeListener) {
     throw new UnsupportedOperationException();
   }
 }

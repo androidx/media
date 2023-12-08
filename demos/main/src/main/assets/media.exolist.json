@@ -787,6 +787,10 @@
       {
         "name": "MPEG-H HD (MP4, H265)",
         "uri": "https://media.githubusercontent.com/media/Fraunhofer-IIS/mpegh-test-content/main/TRI_Fileset_17_514H_D1_D2_D3_O1_24bit1080p50.mp4"
+      },
+      {
+        "name": "xHE-AAC Test (MP4)",
+        "uri": "https://www2.iis.fraunhofer.de/AAC/Test_PRL-20.mp4"
       }
     ]
   },

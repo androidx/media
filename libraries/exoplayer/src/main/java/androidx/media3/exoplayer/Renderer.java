@@ -24,6 +24,8 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.C;
+import androidx.media3.common.CodecParameter;
+import androidx.media3.common.CodecParametersChangeListener;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.Player;
@@ -200,6 +202,10 @@ public interface Renderer extends PlayerMessage.Target {
    * #MSG_SET_VIDEO_OUTPUT_RESOLUTION}, {@link #MSG_SET_IMAGE_OUTPUT}, {@link #MSG_SET_PRIORITY},
    * {@link #MSG_TRANSFER_RESOURCES}, {@link #MSG_SET_SCRUBBING_MODE} or {@link
    * #MSG_SET_VIRTUAL_DEVICE_ID}. May also be an app-defined value (see {@link #MSG_CUSTOM_BASE}).
+   * #MSG_SET_AUDIO_SESSION_ID}, {@link #MSG_SET_WAKEUP_LISTENER}, {@link #MSG_SET_VIDEO_EFFECTS},
+   * {@link #MSG_SET_VIDEO_OUTPUT_RESOLUTION}, {@link #MSG_SET_IMAGE_OUTPUT},
+   * {@link #MSG_SET_CODEC_PARAMETER} or {@link #MSG_SET_CODEC_PARAMETERS_CHANGED_LISTENER}.
+   * May also be an app-defined value (see {@link #MSG_CUSTOM_BASE}).
    */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
@@ -226,6 +232,9 @@ public interface Renderer extends PlayerMessage.Target {
         MSG_TRANSFER_RESOURCES,
         MSG_SET_SCRUBBING_MODE,
         MSG_SET_VIRTUAL_DEVICE_ID
+        MSG_SET_SCRUBBING_MODE,
+        MSG_SET_CODEC_PARAMETER,
+        MSG_SET_CODEC_PARAMETERS_CHANGED_LISTENER
       })
   public @interface MessageType {}
 
@@ -376,6 +385,20 @@ public interface Renderer extends PlayerMessage.Target {
    * enable or {@code null} to disable scrubbing mode.
    */
   int MSG_SET_SCRUBBING_MODE = 18;
+
+  /** The type of a message that can be passed to renderers via {@link
+   * ExoPlayer#createMessage(PlayerMessage.Target)}. The message payload is a {@link CodecParameter}.
+   *
+   * <p>If the receiving renderer does not support the codec parameter, then it should ignore it
+   */
+  int MSG_SET_CODEC_PARAMETER = 19;
+
+  /**
+   * The type of a message that can be passed to renderers via {@link
+   * ExoPlayer#createMessage(PlayerMessage.Target)}. The message payload should be a {@link
+   * CodecParametersChangeListener} instance, or null.
+   */
+  int MSG_SET_CODEC_PARAMETERS_CHANGED_LISTENER = 20;
 
   /**
    * The type of a message that can be passed to audio renderers via {@link
