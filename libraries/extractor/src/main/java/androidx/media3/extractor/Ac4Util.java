@@ -222,7 +222,7 @@ public final class Ac4Util {
       throw ParserException.createForUnsupportedContainerFeature(
           "Unsupported AC-4 DSI version: " + ac4DsiVersion);
     }
-    final int bitstreamVersion = dataBitArray.readBits(7);  // bitstream_version
+    int bitstreamVersion = dataBitArray.readBits(7);  // bitstream_version
     int sampleRate = dataBitArray.readBit() ? 48000 : 44100;  // fs_index
     dataBitArray.skipBits(4);  // frame_rate_index
     int nPresentations = dataBitArray.readBits(9);  // n_presentations
