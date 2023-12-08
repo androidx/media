@@ -4167,13 +4167,23 @@ public class DefaultTrackSelector extends MappingTrackSelector
     }
 
     public boolean canBeSpatialized(AudioAttributes audioAttributes, Format format) {
-      // For E-AC3 JOC, the format is object based. When the channel count is 16, this maps to 12
-      // linear channels and the rest are used for objects. See
-      // https://github.com/google/ExoPlayer/pull/10322#discussion_r895265881
-      int linearChannelCount =
-          MimeTypes.AUDIO_E_AC3_JOC.equals(format.sampleMimeType) && format.channelCount == 16
-              ? 12
-              : format.channelCount;
+      int linearChannelCount;
+      if (MimeTypes.AUDIO_E_AC3_JOC.equals(format.sampleMimeType)) {
+        // For E-AC3 JOC, the format is object based. When the channel count is 16, this maps to 12
+        // linear channels and the rest are used for objects. See
+        // https://github.com/google/ExoPlayer/pull/10322#discussion_r895265881
+        linearChannelCount = format.channelCount == 16 ? 12 : format.channelCount;
+      } else if (MimeTypes.AUDIO_AC4.equals(format.sampleMimeType)) {
+        // For AC-4 level 3 or level 4, the format may be object based. When the channel count is
+        // 18 (level 3 17.1 OBI) or 21 (level 4 20.1 OBI), it is mapped to 24 linear channels
+        // (There are some channels used for metadata transfer).
+        linearChannelCount = (format.channelCount == 18 || format.channelCount == 21)
+            ? 24
+            : format.channelCount;
+      } else {
+        linearChannelCount = format.channelCount;
+      }
+
       AudioFormat.Builder builder =
           new AudioFormat.Builder()
               .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
