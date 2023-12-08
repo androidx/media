@@ -30,6 +30,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
@@ -51,23 +52,27 @@ public final class MpeghReader implements ElementaryStreamReader {
 
   private @MonotonicNonNull String formatId;
   private @MonotonicNonNull TrackOutput output;
-  private final ParsableByteArray dataBuffer = new ParsableByteArray(0);
-  private final ParsableBitArray dataBitBuffer = new ParsableBitArray();
+  private final ParsableByteArray dataBuffer;
+  private final ParsableBitArray dataBitBuffer;
   private int dataInBuffer;
 
-  private MpeghUtil.FrameInfo prevFrameInfo = new MpeghUtil.FrameInfo();
+  private MpeghUtil.FrameInfo prevFrameInfo;
 
   // The timestamp to attach to the next sample in the current packet.
   private double timeUs;
-  private double timeUsPending = C.TIME_UNSET;
+  private double timeUsPending;
   private boolean dataPending;
-  private boolean rapPending = true;
+  private boolean rapPending;
   private boolean raiSet;
   private boolean daiSet;
 
   public MpeghReader() {
+    dataBuffer = new ParsableByteArray(0);
+    dataBitBuffer = new ParsableBitArray();
     clearDataBuffer();
     timeUs = C.TIME_UNSET;
+    timeUsPending = C.TIME_UNSET;
+    prevFrameInfo = new MpeghUtil.FrameInfo();
   }
 
   @Override
@@ -131,7 +136,7 @@ public final class MpeghReader implements ElementaryStreamReader {
       MpeghUtil.FrameInfo frameInfo;
       try {
         frameInfo = MpeghUtil.parseFrame(dataBitBuffer, prevFrameInfo);
-      } catch (MpeghUtil.ParseException e) {
+      } catch (ParserException e) {
         // an error occurred --> maybe try to find sync and proceed with processing
         dataBitBuffer.byteAlign();
         removeUsedFromDataBuffer();
@@ -143,11 +148,11 @@ public final class MpeghReader implements ElementaryStreamReader {
       if (frameInfo.configChanged && frameInfo.containsConfig) {
         // set the output format
         String codecs = "mhm1";
-        if (frameInfo.mpegh3daProfileLevelIndication != Format.NO_VALUE) {
+        if (frameInfo.mpegh3daProfileLevelIndication != C.INDEX_UNSET) {
           codecs += String.format(".%02X", frameInfo.mpegh3daProfileLevelIndication);
         }
         @Nullable List<byte[]> initializationData = null;
-        if (frameInfo.compatibleSetIndication.length > 0) {
+        if (frameInfo.compatibleSetIndication != null && frameInfo.compatibleSetIndication.length > 0) {
           // The first entry in initializationData is reserved for the audio specific config.
           initializationData = ImmutableList.of(new byte[0], frameInfo.compatibleSetIndication);
         }
