@@ -15,6 +15,9 @@
         due to setting a high operating rate.
 *   Track Selection:
 *   Extractors:
+    *   Mark secondary (unplayable) HEVC tracks in JPEG motion photos as
+        `ROLE_FLAG_ALTERNATE` to prevent them being automatically selected for
+        playback because of their higher resolution.
 *   Audio:
 *   Video:
     *   Add workaround for a device issue on Galaxy Tab S7 FE, Chromecast with
