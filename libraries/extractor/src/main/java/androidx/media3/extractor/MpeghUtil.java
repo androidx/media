@@ -1,23 +1,18 @@
-/***************************************************************************
-
- Fraunhofer hereby grants to Google free of charge a worldwide, perpetual,
- irrevocable, non-exclusive copyright license with the right to sublicense
- through multiple tiers to use, copy, distribute, modify and create
- derivative works of the Software Patches for Exoplayer in source code form
- and/or object code versions of the software. For the avoidance of doubt,
- this license does not include any license to any Fraunhofer patents or any
- third-party patents. Since the license is granted without any charge,
- Fraunhofer provides the Software Patches for Exoplayer, in accordance with
- the laws of the Federal Republic of Germany, on an "as is" basis, WITHOUT
- WARRANTIES or conditions of any kind, either express or implied, including,
- without limitation, any warranties or conditions of title, non-infringement,
- merchantability, or fitness for a particular purpose.
-
- For the purpose of clarity, the provision of the Software Patches for
- Exoplayer by Fraunhofer and the use of the same by Google shall be subject
- solely to the license stated above.
-
- ***************************************************************************/
+/*
+ * Copyright 2023 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package androidx.media3.extractor;
 
 import static java.lang.annotation.ElementType.TYPE_USE;
@@ -69,9 +64,7 @@ public final class MpeghUtil {
     /** An array of compatible profile level indications of the audio in the frame. */
     @Nullable public byte[] compatibleSetIndication;
 
-    /**
-     * Initializes the {@link FrameInfo} with fields containing default values.
-     */
+    /** Initializes the {@link FrameInfo} with fields containing default values. */
     public FrameInfo() {
       standardFrameSamples = C.LENGTH_UNSET;
       samplingRate = C.RATE_UNSET_INT;
@@ -95,9 +88,16 @@ public final class MpeghUtil {
      * @param mpegh3daProfileLevelIndication See {@link #mpegh3daProfileLevelIndication}.
      * @param compatibleSetIndication See {@link #compatibleSetIndication}.
      */
-    public FrameInfo(boolean containsConfig, boolean configChanged, int standardFrameSamples,
-        int samplingRate, int frameSamples, int frameBytes, long mainStreamLabel,
-        int mpegh3daProfileLevelIndication, @Nullable byte[] compatibleSetIndication) {
+    public FrameInfo(
+        boolean containsConfig,
+        boolean configChanged,
+        int standardFrameSamples,
+        int samplingRate,
+        int frameSamples,
+        int frameBytes,
+        long mainStreamLabel,
+        int mpegh3daProfileLevelIndication,
+        @Nullable byte[] compatibleSetIndication) {
       this.containsConfig = containsConfig;
       this.configChanged = configChanged;
       this.standardFrameSamples = standardFrameSamples;
@@ -107,14 +107,12 @@ public final class MpeghUtil {
       this.mainStreamLabel = mainStreamLabel;
       this.mpegh3daProfileLevelIndication = mpegh3daProfileLevelIndication;
       if (compatibleSetIndication != null && compatibleSetIndication.length > 0) {
-        this.compatibleSetIndication = Arrays.copyOf(compatibleSetIndication,
-            compatibleSetIndication.length);
+        this.compatibleSetIndication =
+            Arrays.copyOf(compatibleSetIndication, compatibleSetIndication.length);
       }
     }
 
-    /**
-     * Resets the fields of the {@link FrameInfo} to its default values.
-     */
+    /** Resets the fields of the {@link FrameInfo} to its default values. */
     public void reset() {
       containsConfig = false;
       configChanged = false;
@@ -129,40 +127,40 @@ public final class MpeghUtil {
   }
 
   /**
-   * MHAS packet types. See ISO_IEC_23008-3;2022, 14.3.1, Table 226.
-   * One of {@link #PACTYP_FILLDATA}, {@link #PACTYP_MPEGH3DACFG}, {@link #PACTYP_MPEGH3DAFRAME},
-   * {@link #PACTYP_AUDIOSCENEINFO}, {@link #PACTYP_SYNC}, {@link #PACTYP_SYNCGAP},
-   * {@link #PACTYP_MARKER}, {@link #PACTYP_CRC16}, {@link #PACTYP_CRC32},
-   * {@link #PACTYP_DESCRIPTOR}, {@link #PACTYP_USERINTERACTION}, {@link #PACTYP_LOUDNESS_DRC},
-   * {@link #PACTYP_BUFFERINFO}, {@link #PACTYP_GLOBAL_CRC16}, {@link #PACTYP_GLOBAL_CRC32},
-   * {@link #PACTYP_AUDIOTRUNCATION}, {@link #PACTYP_GENDATA}, {@link #PACTYPE_EARCON},
-   * {@link #PACTYPE_PCMCONFIG}, {@link #PACTYPE_PCMDATA}, {@link #PACTYP_LOUDNESS}.
+   * MHAS packet types. See ISO_IEC_23008-3;2022, 14.3.1, Table 226. One of {@link
+   * #PACTYP_FILLDATA}, {@link #PACTYP_MPEGH3DACFG}, {@link #PACTYP_MPEGH3DAFRAME}, {@link
+   * #PACTYP_AUDIOSCENEINFO}, {@link #PACTYP_SYNC}, {@link #PACTYP_SYNCGAP}, {@link #PACTYP_MARKER},
+   * {@link #PACTYP_CRC16}, {@link #PACTYP_CRC32}, {@link #PACTYP_DESCRIPTOR}, {@link
+   * #PACTYP_USERINTERACTION}, {@link #PACTYP_LOUDNESS_DRC}, {@link #PACTYP_BUFFERINFO}, {@link
+   * #PACTYP_GLOBAL_CRC16}, {@link #PACTYP_GLOBAL_CRC32}, {@link #PACTYP_AUDIOTRUNCATION}, {@link
+   * #PACTYP_GENDATA}, {@link #PACTYPE_EARCON}, {@link #PACTYPE_PCMCONFIG}, {@link
+   * #PACTYPE_PCMDATA}, {@link #PACTYP_LOUDNESS}.
    */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)
   @IntDef({
-      PACTYP_FILLDATA,
-      PACTYP_MPEGH3DACFG,
-      PACTYP_MPEGH3DAFRAME,
-      PACTYP_AUDIOSCENEINFO,
-      PACTYP_SYNC,
-      PACTYP_SYNCGAP,
-      PACTYP_MARKER,
-      PACTYP_CRC16,
-      PACTYP_CRC32,
-      PACTYP_DESCRIPTOR,
-      PACTYP_USERINTERACTION,
-      PACTYP_LOUDNESS_DRC,
-      PACTYP_BUFFERINFO,
-      PACTYP_GLOBAL_CRC16,
-      PACTYP_GLOBAL_CRC32,
-      PACTYP_AUDIOTRUNCATION,
-      PACTYP_GENDATA,
-      PACTYPE_EARCON,
-      PACTYPE_PCMCONFIG,
-      PACTYPE_PCMDATA,
-      PACTYP_LOUDNESS
+    PACTYP_FILLDATA,
+    PACTYP_MPEGH3DACFG,
+    PACTYP_MPEGH3DAFRAME,
+    PACTYP_AUDIOSCENEINFO,
+    PACTYP_SYNC,
+    PACTYP_SYNCGAP,
+    PACTYP_MARKER,
+    PACTYP_CRC16,
+    PACTYP_CRC32,
+    PACTYP_DESCRIPTOR,
+    PACTYP_USERINTERACTION,
+    PACTYP_LOUDNESS_DRC,
+    PACTYP_BUFFERINFO,
+    PACTYP_GLOBAL_CRC16,
+    PACTYP_GLOBAL_CRC32,
+    PACTYP_AUDIOTRUNCATION,
+    PACTYP_GENDATA,
+    PACTYPE_EARCON,
+    PACTYPE_PCMCONFIG,
+    PACTYPE_PCMDATA,
+    PACTYP_LOUDNESS
   })
   private @interface MhasPacketType {}
 
@@ -188,43 +186,29 @@ public final class MpeghUtil {
   private static final int PACTYPE_PCMDATA = 21;
   private static final int PACTYP_LOUDNESS = 22;
 
-  /**
-   * See ISO_IEC_23003-3;2020, 6.1.1.1, Table 72.
-   */
+  /** See ISO_IEC_23003-3;2020, 6.1.1.1, Table 72. */
   private static final int[] SAMPLING_RATE_TABLE =
-      new int[]{
-          96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350,
-          C.RATE_UNSET_INT, C.RATE_UNSET_INT, 57600, 51200, 40000, 38400, 34150, 28800, 25600,
-          20000, 19200, 17075, 14400, 12800, 9600
+      new int[] {
+        96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350, 0,
+        0, 57600, 51200, 40000, 38400, 34150, 28800, 25600, 20000, 19200, 17075, 14400, 12800, 9600
       };
 
-  /**
-   * See ISO_IEC_23003-3;2020, 6.1.1.1, Table 75.
-   */
-  private static final int[] OUTPUT_FRAMELENGTH_TABLE =
-      new int[]{
-          768, 1024, 2048, 2048, 4096
-      };
+  /** See ISO_IEC_23003-3;2020, 6.1.1.1, Table 75. */
+  private static final int[] OUTPUT_FRAMELENGTH_TABLE = new int[] {768, 1024, 2048, 2048, 4096};
 
-  /**
-   * See ISO_IEC_23003-3;2020, 6.1.1.1, Table 75.
-   */
-  private static final int[] SBR_RATIO_INDEX_TABLE =
-      new int[]{
-          0, 0, 2, 3, 1
-      };
+  /** See ISO_IEC_23003-3;2020, 6.1.1.1, Table 75. */
+  private static final int[] SBR_RATIO_INDEX_TABLE = new int[] {0, 0, 2, 3, 1};
 
-  /**
-   * See ISO_IEC_23003-8;2022, 14.4.4.
-   */
+  /** See ISO_IEC_23003-8;2022, 14.4.4. */
   private static final int MHAS_SYNCPACKET = 0xC001A5;
 
   /**
-   * Finds the start position of the MHAS sync packet in the provided data buffer.
-   * See ISO_IEC_23008-3;2022, 14.4.4.
+   * Finds the start position of the MHAS sync packet in the provided data buffer. See
+   * ISO_IEC_23008-3;2022, 14.4.4.
    *
    * @param data The byte array to parse.
-   * @return Byte index in data of the MHAS sync packet on success, {@link C#INDEX_UNSET} on failure.
+   * @return Byte index in data of the MHAS sync packet on success, {@link C#INDEX_UNSET} on
+   *     failure.
    */
   public static int findSyncPacket(ParsableByteArray data) {
     int startPos = data.getPosition();
@@ -243,8 +227,8 @@ public final class MpeghUtil {
   }
 
   /**
-   * Checks if a complete MHAS frame could be parsed by calculating if enough data is available
-   * in the provided ParsableBitArray.
+   * Checks if a complete MHAS frame could be parsed by calculating if enough data is available in
+   * the provided ParsableBitArray.
    *
    * @param data The bit array to parse.
    * @return Whether a complete MHAS frame could be parsed.
@@ -299,12 +283,12 @@ public final class MpeghUtil {
     int availableBits = data.bitsLeft();
 
     if (availableBits == 0) {
-      throw ParserException.createForMalformedContainer(/* message= */
-          "Not enough data available", /* cause= */ null);
+      throw ParserException.createForMalformedContainer(
+          /* message= */ "Not enough data available", /* cause= */ null);
     }
     if (availableBits % C.BITS_PER_BYTE != 0) {
-      throw ParserException.createForMalformedContainer(/* message= */
-          "Input data buffer is not Byte aligned", /* cause= */ null);
+      throw ParserException.createForMalformedContainer(
+          /* message= */ "Input data buffer is not Byte aligned", /* cause= */ null);
     }
 
     do {
@@ -320,15 +304,16 @@ public final class MpeghUtil {
       switch (packetHeader.packetType) {
         case PACTYP_MPEGH3DACFG:
           if (packetHeader.packetLabel == 0) {
-            throw ParserException.createForMalformedContainer(/* message= */
-                "Mpegh3daConfig packet with wrong packet label "
-                    + packetHeader.packetLabel, /* cause= */ null);
+            throw ParserException.createForMalformedContainer(
+                /* message= */ "Mpegh3daConfig packet with wrong packet label "
+                    + packetHeader.packetLabel,
+                /* cause= */ null);
           }
 
           // we already found a mpegh3daConfig
           if (configFound) {
-            throw ParserException.createForMalformedContainer(/* message= */
-                "Found a second mpegh3daConfig packet", /* cause= */ null);
+            throw ParserException.createForMalformedContainer(
+                /* message= */ "Found a second mpegh3daConfig packet", /* cause= */ null);
           }
           configFound = true;
 
@@ -357,15 +342,16 @@ public final class MpeghUtil {
 
         case PACTYP_AUDIOTRUNCATION:
           if (packetHeader.packetLabel == 0) {
-            throw ParserException.createForMalformedContainer(/* message= */
-                "AudioTruncation packet with wrong packet label "
-                    + packetHeader.packetLabel, /* cause= */ null);
+            throw ParserException.createForMalformedContainer(
+                /* message= */ "AudioTruncation packet with wrong packet label "
+                    + packetHeader.packetLabel,
+                /* cause= */ null);
           }
 
           truncationSamples = parseAudioTruncationInfo(data);
           if (truncationSamples > standardFrameSamples) {
-            throw ParserException.createForMalformedContainer(/* message= */
-                "Truncation size is too big", /* cause= */ null);
+            throw ParserException.createForMalformedContainer(
+                /* message= */ "Truncation size is too big", /* cause= */ null);
           }
 
           data.setPosition(dataPos);
@@ -374,9 +360,10 @@ public final class MpeghUtil {
 
         case PACTYP_MPEGH3DAFRAME:
           if (packetHeader.packetLabel == 0) {
-            throw ParserException.createForMalformedContainer(/* message= */
-                "Mpegh3daFrame packet with wrong packet label "
-                    + packetHeader.packetLabel, /* cause= */ null);
+            throw ParserException.createForMalformedContainer(
+                /* message= */ "Mpegh3daFrame packet with wrong packet label "
+                    + packetHeader.packetLabel,
+                /* cause= */ null);
           }
 
           if (!configFound) {
@@ -385,8 +372,9 @@ public final class MpeghUtil {
 
           // check packet label
           if (packetHeader.packetLabel != mainStreamLabel) {
-            throw ParserException.createForMalformedContainer(/* message= */
-                "Mpegh3daFrame packet does not belong to main stream", /* cause= */ null);
+            throw ParserException.createForMalformedContainer(
+                /* message= */ "Mpegh3daFrame packet does not belong to main stream",
+                /* cause= */ null);
           }
           frameFound = true;
           data.skipBits(packetHeader.packetLength * C.BITS_PER_BYTE);
@@ -398,8 +386,8 @@ public final class MpeghUtil {
       }
 
       if (data.bitsLeft() % C.BITS_PER_BYTE != 0) {
-        throw ParserException.createForMalformedContainer(/* message= */
-            "Data buffer is not Byte aligned after parsing", /* cause= */ null);
+        throw ParserException.createForMalformedContainer(
+            /* message= */ "Data buffer is not Byte aligned after parsing", /* cause= */ null);
       }
 
     } while (!frameFound);
@@ -407,24 +395,29 @@ public final class MpeghUtil {
     int parsedBytes = (availableBits - data.bitsLeft()) / C.BITS_PER_BYTE;
 
     if (samplingFrequency <= 0) {
-      throw ParserException.createForUnsupportedContainerFeature(/* message= */
-          "Unsupported sampling frequency " + samplingFrequency);
+      throw ParserException.createForUnsupportedContainerFeature(
+          /* message= */ "Unsupported sampling frequency " + samplingFrequency);
     }
 
     if (standardFrameSamples <= 0) {
-      throw ParserException.createForUnsupportedContainerFeature(/* message= */
-          "Unsupported value of standardFrameSamples " + standardFrameSamples);
+      throw ParserException.createForUnsupportedContainerFeature(
+          /* message= */ "Unsupported value of standardFrameSamples " + standardFrameSamples);
     }
 
-    return new FrameInfo(configFound, configChanged, standardFrameSamples, /* samplingRate= */
-        samplingFrequency, /* frameSamples= */ standardFrameSamples - truncationSamples,
-        /* frameBytes= */ parsedBytes, mainStreamLabel, mpegh3daProfileLevelIndication,
+    return new FrameInfo(
+        configFound,
+        configChanged,
+        standardFrameSamples,
+        /* samplingRate= */ samplingFrequency,
+        /* frameSamples= */ standardFrameSamples - truncationSamples,
+        /* frameBytes= */ parsedBytes,
+        mainStreamLabel,
+        mpegh3daProfileLevelIndication,
         compatibleSetIndication);
   }
 
   /**
-   * Parses an MHAS packet header.
-   * See ISO_IEC_23008-3;2022, 14.2.1, Table 222.
+   * Parses an MHAS packet header. See ISO_IEC_23008-3;2022, 14.2.1, Table 222.
    *
    * @param data The bit array to parse.
    * @return The {@link MhasPacketHeader} info.
@@ -450,8 +443,8 @@ public final class MpeghUtil {
     if (idx == 0x1F) {
       sampleRate = data.readBits(24);
     } else if (idx == 13 || idx == 14 || idx >= SAMPLING_RATE_TABLE.length) {
-      throw ParserException.createForUnsupportedContainerFeature(/* message= */
-          "Unsupported sampling rate index " + idx);
+      throw ParserException.createForUnsupportedContainerFeature(
+          /* message= */ "Unsupported sampling rate index " + idx);
     } else {
       sampleRate = SAMPLING_RATE_TABLE[idx];
     }
@@ -459,8 +452,8 @@ public final class MpeghUtil {
   }
 
   /**
-   * Obtains the resampling ratio according to the provided sampling frequency.
-   * See ISO_IEC_23008-3;2022, 4.8.2, Table 10.
+   * Obtains the resampling ratio according to the provided sampling frequency. See
+   * ISO_IEC_23008-3;2022, 4.8.2, Table 10.
    *
    * @param usacSamplingFrequency The USAC sampling frequency.
    * @return The resampling ratio.
@@ -490,17 +483,16 @@ public final class MpeghUtil {
         resamplingRatio = 3;
         break;
       default:
-        throw ParserException.createForUnsupportedContainerFeature(/* message= */
-            "Unsupported sampling rate " + usacSamplingFrequency);
+        throw ParserException.createForUnsupportedContainerFeature(
+            /* message= */ "Unsupported sampling rate " + usacSamplingFrequency);
     }
     return resamplingRatio;
   }
 
   /**
-   * Obtains an escaped value from an MPEG-H bit stream.
-   * See ISO_IEC_23003-3;2020, 5.2, Table 19.
+   * Obtains an escaped value from an MPEG-H bit stream. See ISO_IEC_23003-3;2020, 5.2, Table 19.
    *
-   * @param data  The bit array to be parsed.
+   * @param data The bit array to be parsed.
    * @param bits1 number of bits to be parsed.
    * @param bits2 number of bits to be parsed.
    * @param bits3 number of bits to be parsed.
@@ -522,8 +514,8 @@ public final class MpeghUtil {
   }
 
   /**
-   * Obtains the necessary info of the Mpegh3daConfig from an MPEG-H bit stream.
-   * See ISO_IEC_23008-3;2022, 5.2.2.1, Table 15.
+   * Obtains the necessary info of the Mpegh3daConfig from an MPEG-H bit stream. See
+   * ISO_IEC_23008-3;2022, 5.2.2.1, Table 15.
    *
    * @param data The bit array to be parsed.
    * @return The {@link Mpegh3daConfig}.
@@ -538,10 +530,10 @@ public final class MpeghUtil {
     int coreSbrFrameLengthIndex = data.readBits(3);
     data.skipBits(2); // cfg_reserved(1), receiverDelayCompensation(1)
 
-    if (coreSbrFrameLengthIndex >= OUTPUT_FRAMELENGTH_TABLE.length ||
-        coreSbrFrameLengthIndex >= SBR_RATIO_INDEX_TABLE.length) {
-      throw ParserException.createForUnsupportedContainerFeature(/* message= */
-          "Unsupported coreSbrFrameLengthIndex " + coreSbrFrameLengthIndex);
+    if (coreSbrFrameLengthIndex >= OUTPUT_FRAMELENGTH_TABLE.length
+        || coreSbrFrameLengthIndex >= SBR_RATIO_INDEX_TABLE.length) {
+      throw ParserException.createForUnsupportedContainerFeature(
+          /* message= */ "Unsupported coreSbrFrameLengthIndex " + coreSbrFrameLengthIndex);
     }
 
     int outputFrameLength = OUTPUT_FRAMELENGTH_TABLE[coreSbrFrameLengthIndex];
@@ -553,7 +545,7 @@ public final class MpeghUtil {
 
     if (data.readBit()) { // usacConfigExtensionPresent
       // Mpegh3daConfigExtension
-      int numConfigExtensions = (int) readEscapedValue(data, 2, 4, 8) + 1;
+      int numConfigExtensions = (int) (readEscapedValue(data, 2, 4, 8) + 1);
       for (int confExtIdx = 0; confExtIdx < numConfigExtensions; confExtIdx++) {
         int usacConfigExtType = (int) readEscapedValue(data, 4, 8, 16);
         int usacConfigExtLength = (int) readEscapedValue(data, 4, 8, 16);
@@ -580,7 +572,6 @@ public final class MpeghUtil {
     return mpegh3daConfig;
   }
 
-
   /**
    * Obtains the number of truncated samples of the AudioTruncationInfo from an MPEG-H bit stream.
    * See ISO_IEC_23008-3;2022, 14.2.2, Table 225.
@@ -599,10 +590,9 @@ public final class MpeghUtil {
     return truncationSamples;
   }
 
-
   /**
-   * Parses the SpeakerConfig3d from an MPEG-H bit stream.
-   * See ISO_IEC_23008-3;2022, 5.2.2.2, Table 18.
+   * Parses the SpeakerConfig3d from an MPEG-H bit stream. See ISO_IEC_23008-3;2022, 5.2.2.2, Table
+   * 18.
    *
    * @param data The bit array to be parsed.
    */
@@ -611,7 +601,7 @@ public final class MpeghUtil {
     if (speakerLayoutType == 0) {
       data.skipBits(6); // cicpSpeakerLayoutIdx
     } else {
-      int numSpeakers = (int) readEscapedValue(data, 5, 8, 16) + 1;
+      int numSpeakers = (int) (readEscapedValue(data, 5, 8, 16) + 1);
       if (speakerLayoutType == 1) {
         data.skipBits(7 * numSpeakers); // cicpSpeakerIdx per speaker
       } else if (speakerLayoutType == 2) {
@@ -653,8 +643,8 @@ public final class MpeghUtil {
   }
 
   /**
-   * Obtains the necessary info of Signals3d from an MPEG-H bit stream.
-   * See ISO_IEC_23008-3;2022, 5.2.2.1, Table 17.
+   * Obtains the necessary info of Signals3d from an MPEG-H bit stream. See ISO_IEC_23008-3;2022,
+   * 5.2.2.1, Table 17.
    *
    * @param data The bit array to be parsed.
    * @return The number of overall signals in the bit stream.
@@ -668,8 +658,8 @@ public final class MpeghUtil {
       int bsNumberOfSignals = (int) readEscapedValue(data, 5, 8, 16);
 
       numSignals += bsNumberOfSignals + 1;
-      if (signalGroupType == 0 /*SignalGroupTypeChannels*/ ||
-          signalGroupType == 2 /*SignalGroupTypeSAOC*/) {
+      if (signalGroupType == 0 /*SignalGroupTypeChannels*/
+          || signalGroupType == 2 /*SignalGroupTypeSAOC*/) {
         if (data.readBit()) { // differsFromReferenceLayout OR saocDmxLayoutPresent
           parseSpeakerConfig3d(data); // audioChannelLayout[grp] OR saocDmxChannelLayout
         }
@@ -679,17 +669,17 @@ public final class MpeghUtil {
   }
 
   /**
-   * Parses the Mpegh3daDecoderConfig from an MPEG-H bit stream.
-   * See ISO_IEC_23008-3;2022, 5.2.2.3, Table 21.
+   * Parses the Mpegh3daDecoderConfig from an MPEG-H bit stream. See ISO_IEC_23008-3;2022, 5.2.2.3,
+   * Table 21.
    *
    * @param data The bit array to be parsed.
    * @param numSignals The number of overall signals.
    * @param sbrRatioIndex The SBR ration index.
    */
-  private static void parseMpegh3daDecoderConfig(ParsableBitArray data,
-      int numSignals, int sbrRatioIndex) {
+  private static void parseMpegh3daDecoderConfig(
+      ParsableBitArray data, int numSignals, int sbrRatioIndex) {
 
-    int numElements = (int) readEscapedValue(data, 4, 8, 16) + 1;
+    int numElements = (int) (readEscapedValue(data, 4, 8, 16) + 1);
     data.skipBit(); // elementLengthPresent
 
     for (int elemIdx = 0; elemIdx < numElements; elemIdx++) {
@@ -716,7 +706,7 @@ public final class MpeghUtil {
             // mps212Config
             data.skipBits(6); // bsFreqRes(3), bsFixedGainDMX(3),
             int bsTempShapeConfig = data.readBits(2);
-            data.skipBits(4);// bsDecorrConfig(2), bsHighRateMode(1), bsPhaseCoding(1)
+            data.skipBits(4); // bsDecorrConfig(2), bsHighRateMode(1), bsPhaseCoding(1)
             if (data.readBit()) { // bsOttBandsPhasePresent
               data.skipBits(5); // bsOttBandsPhase
             }
@@ -747,7 +737,7 @@ public final class MpeghUtil {
           int usacExtElementConfigLength = (int) readEscapedValue(data, 4, 8, 16);
 
           if (data.readBit()) { // usacExtElementDefaultLengthPresent
-            readEscapedValue(data, 8, 16, 0)/*+1*/; // usacExtElementDefaultLength
+            readEscapedValue(data, 8, 16, 0) /*+1*/; // usacExtElementDefaultLength
           }
           data.skipBit(); // usacExtElementPayloadFrag
 
@@ -762,8 +752,8 @@ public final class MpeghUtil {
   }
 
   /**
-   * Obtains the necessary info of the Mpegh3daCoreConfig from an MPEG-H bit stream.
-   * See ISO_IEC_23008-3;2022, 5.2.2.3, Table 24.
+   * Obtains the necessary info of the Mpegh3daCoreConfig from an MPEG-H bit stream. See
+   * ISO_IEC_23008-3;2022, 5.2.2.3, Table 24.
    *
    * @param data The bit array to be parsed.
    * @return The enhanced noise filling flag.
@@ -772,32 +762,32 @@ public final class MpeghUtil {
     data.skipBits(3); // tw_mdct(1), fullbandLpd(1), noiseFilling(1)
     boolean enhancedNoiseFilling = data.readBit();
     if (enhancedNoiseFilling) {
-      data.skipBits(13); // igfUseEnf(1), igfUseHighRes(1), igfUseWhitening(1), igfAfterTnsSynth(1), igfStartIndex(5), igfStopIndex(4)
+      data.skipBits(13); // igfUseEnf(1), igfUseHighRes(1), igfUseWhitening(1), igfAfterTnsSynth(1),
+      // igfStartIndex(5), igfStopIndex(4)
     }
     return enhancedNoiseFilling;
   }
 
   /**
-   * Parses the SbrConfig from an MPEG-H bit stream.
-   * See ISO_IEC_23003-3;2020, 5.2, Table 14.
+   * Parses the SbrConfig from an MPEG-H bit stream. See ISO_IEC_23003-3;2020, 5.2, Table 14.
    *
    * @param data The bit array to be parsed.
    */
   private static void parseSbrConfig(ParsableBitArray data) {
     data.skipBits(3); // harmonicSBR(1), bs_interTes(1), bs_pvc(1)
     data.skipBits(8); // dflt_start_freq(4), dflt_stop_freq(4)
-    boolean dflt_header_extra1 = data.readBit();
-    boolean dflt_header_extra2 = data.readBit();
-    if (dflt_header_extra1) {
+    boolean dfltHeaderExtra1 = data.readBit();
+    boolean dfltHeaderExtra2 = data.readBit();
+    if (dfltHeaderExtra1) {
       data.skipBits(5); // dflt_freq_scale(2), dflt_alter_scale(1), dflt_noise_bands(2)
     }
-    if (dflt_header_extra2) {
-      data.skipBits(6); // dflt_limiter_bands(2), dflt_limiter_gains(2), dflt_interpol_freq(1), dflt_smoothing_mode(1)
+    if (dfltHeaderExtra2) {
+      data.skipBits(6); // dflt_limiter_bands(2), dflt_limiter_gains(2), dflt_interpol_freq(1),
+      // dflt_smoothing_mode(1)
     }
   }
 
-  private MpeghUtil() {
-  }
+  private MpeghUtil() {}
 
   private static class MhasPacketHeader {
     @MhasPacketType int packetType;

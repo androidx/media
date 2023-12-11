@@ -1,32 +1,25 @@
-/***************************************************************************
-
- Fraunhofer hereby grants to Google free of charge a worldwide, perpetual,
- irrevocable, non-exclusive copyright license with the right to sublicense
- through multiple tiers to use, copy, distribute, modify and create
- derivative works of the Software Patches for Exoplayer in source code form
- and/or object code versions of the software. For the avoidance of doubt,
- this license does not include any license to any Fraunhofer patents or any
- third-party patents. Since the license is granted without any charge,
- Fraunhofer provides the Software Patches for Exoplayer, in accordance with
- the laws of the Federal Republic of Germany, on an "as is" basis, WITHOUT
- WARRANTIES or conditions of any kind, either express or implied, including,
- without limitation, any warranties or conditions of title, non-infringement,
- merchantability, or fitness for a particular purpose.
-
- For the purpose of clarity, the provision of the Software Patches for
- Exoplayer by Fraunhofer and the use of the same by Google shall be subject
- solely to the license stated above.
-
- ***************************************************************************/
+/*
+ * Copyright 2023 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package androidx.media3.extractor.ts;
 
 import static androidx.media3.extractor.ts.TsPayloadReader.FLAG_DATA_ALIGNMENT_INDICATOR;
 import static androidx.media3.extractor.ts.TsPayloadReader.FLAG_RANDOM_ACCESS_INDICATOR;
 
 import android.util.Log;
-
 import androidx.annotation.Nullable;
-
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -41,10 +34,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
-
-/**
- * Parses a continuous MPEG-H audio byte stream and extracts MPEG-H frames.
- */
+/** Parses a continuous MPEG-H audio byte stream and extracts MPEG-H frames. */
 @UnstableApi
 public final class MpeghReader implements ElementaryStreamReader {
 
@@ -82,8 +72,8 @@ public final class MpeghReader implements ElementaryStreamReader {
   }
 
   @Override
-  public void createTracks(ExtractorOutput extractorOutput,
-      TsPayloadReader.TrackIdGenerator idGenerator) {
+  public void createTracks(
+      ExtractorOutput extractorOutput, TsPayloadReader.TrackIdGenerator idGenerator) {
     idGenerator.generateNewId();
     formatId = idGenerator.getFormatId();
     output = extractorOutput.track(idGenerator.getTrackId(), C.TRACK_TYPE_AUDIO);
@@ -152,17 +142,19 @@ public final class MpeghReader implements ElementaryStreamReader {
           codecs += String.format(".%02X", frameInfo.mpegh3daProfileLevelIndication);
         }
         @Nullable List<byte[]> initializationData = null;
-        if (frameInfo.compatibleSetIndication != null && frameInfo.compatibleSetIndication.length > 0) {
+        if (frameInfo.compatibleSetIndication != null
+            && frameInfo.compatibleSetIndication.length > 0) {
           // The first entry in initializationData is reserved for the audio specific config.
           initializationData = ImmutableList.of(new byte[0], frameInfo.compatibleSetIndication);
         }
-        Format format = new Format.Builder()
-            .setId(formatId)
-            .setSampleMimeType(MimeTypes.AUDIO_MPEGH_MHM1)
-            .setSampleRate(frameInfo.samplingRate)
-            .setCodecs(codecs)
-            .setInitializationData(initializationData)
-            .build();
+        Format format =
+            new Format.Builder()
+                .setId(formatId)
+                .setSampleMimeType(MimeTypes.AUDIO_MPEGH_MHM1)
+                .setSampleRate(frameInfo.samplingRate)
+                .setCodecs(codecs)
+                .setInitializationData(initializationData)
+                .build();
         output.format(format);
       }
 
@@ -176,7 +168,8 @@ public final class MpeghReader implements ElementaryStreamReader {
         flag = C.BUFFER_FLAG_KEY_FRAME;
         rapPending = false;
       }
-      double sampleDurationUs = (double)C.MICROS_PER_SECOND * frameInfo.frameSamples / frameInfo.samplingRate;
+      double sampleDurationUs =
+          (double) C.MICROS_PER_SECOND * frameInfo.frameSamples / frameInfo.samplingRate;
       long pts = Math.round(timeUs);
       if (dataPending) {
         dataPending = false;
@@ -190,7 +183,6 @@ public final class MpeghReader implements ElementaryStreamReader {
       prevFrameInfo = frameInfo;
     }
   }
-
 
   private void maybeFindSync() {
     // we are still waiting for a RAP frame
@@ -215,7 +207,6 @@ public final class MpeghReader implements ElementaryStreamReader {
     }
   }
 
-
   private void clearDataBuffer() {
     dataPending = false;
     rapPending = true;
@@ -226,8 +217,8 @@ public final class MpeghReader implements ElementaryStreamReader {
   private void appendToDataBuffer(ParsableByteArray data) {
     int bytesToRead = data.bytesLeft();
     dataBuffer.ensureCapacity(dataInBuffer + bytesToRead);
-    System.arraycopy(data.getData(), data.getPosition(), dataBuffer.getData(),
-        dataInBuffer, bytesToRead);
+    System.arraycopy(
+        data.getData(), data.getPosition(), dataBuffer.getData(), dataInBuffer, bytesToRead);
     data.skipBytes(bytesToRead);
     dataInBuffer += bytesToRead;
     dataBuffer.reset(dataInBuffer);
@@ -235,8 +226,8 @@ public final class MpeghReader implements ElementaryStreamReader {
 
   private void removeUsedFromDataBuffer() {
     dataInBuffer -= dataBuffer.getPosition();
-    System.arraycopy(dataBuffer.getData(), dataBuffer.getPosition(), dataBuffer.getData(),
-        0, dataInBuffer);
+    System.arraycopy(
+        dataBuffer.getData(), dataBuffer.getPosition(), dataBuffer.getData(), 0, dataInBuffer);
     dataBuffer.reset(dataInBuffer);
   }
 }
