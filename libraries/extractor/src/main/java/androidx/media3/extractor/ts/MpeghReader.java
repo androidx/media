@@ -15,6 +15,7 @@
  */
 package androidx.media3.extractor.ts;
 
+import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.extractor.ts.TsPayloadReader.FLAG_DATA_ALIGNMENT_INDICATOR;
 import static androidx.media3.extractor.ts.TsPayloadReader.FLAG_RANDOM_ACCESS_INDICATOR;
 
@@ -59,7 +60,7 @@ public final class MpeghReader implements ElementaryStreamReader {
   public MpeghReader() {
     dataBuffer = new ParsableByteArray(0);
     dataBitBuffer = new ParsableBitArray();
-    clearDataBuffer();
+    rapPending = true;
     timeUs = C.TIME_UNSET;
     timeUsPending = C.TIME_UNSET;
     prevFrameInfo = new MpeghUtil.FrameInfo();
@@ -110,6 +111,7 @@ public final class MpeghReader implements ElementaryStreamReader {
 
   @Override
   public void packetFinished(boolean isEndOfInput) {
+    checkStateNotNull(output); // Asserts that createTracks has been called.
     // try to find the sync packet and adjust the data buffer if necessary
     maybeFindSync();
 

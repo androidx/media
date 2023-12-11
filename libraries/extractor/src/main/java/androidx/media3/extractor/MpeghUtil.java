@@ -15,6 +15,7 @@
  */
 package androidx.media3.extractor;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
@@ -72,7 +73,6 @@ public final class MpeghUtil {
       frameBytes = C.LENGTH_UNSET;
       mainStreamLabel = C.INDEX_UNSET;
       mpegh3daProfileLevelIndication = C.INDEX_UNSET;
-      compatibleSetIndication = null;
     }
 
     /**
@@ -555,8 +555,9 @@ public final class MpeghUtil {
           data.skipBits(4); // reserved
           mpegh3daConfig.compatibleProfileLevelSet = new byte[numCompatibleSets];
           for (int idx = 0; idx < numCompatibleSets; idx++) {
-            mpegh3daConfig.compatibleProfileLevelSet[idx] = (byte) data.readBits(8);
+            checkNotNull(mpegh3daConfig.compatibleProfileLevelSet)[idx] = (byte) data.readBits(8);
           }
+
         } else {
           data.skipBits(C.BITS_PER_BYTE * usacConfigExtLength);
         }
@@ -812,7 +813,6 @@ public final class MpeghUtil {
       mpegh3daProfileLevelIndication = C.INDEX_UNSET;
       samplingFrequency = C.RATE_UNSET_INT;
       standardFrameSamples = C.LENGTH_UNSET;
-      compatibleProfileLevelSet = null;
     }
   }
 }
