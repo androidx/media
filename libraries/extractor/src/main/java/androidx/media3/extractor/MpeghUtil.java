@@ -220,21 +220,6 @@ public final class MpeghUtil {
   private static final int MHAS_SYNCPACKET = 0xC001A5;
 
   /**
-   * Validates that the provided number of bits is available in the bit array.
-   *
-   * @param data The byte array to parse.
-   * @param numBits The number of bits to check for.
-   * @throws ParserException if not enough bits are available.
-   */
-  public static void validateBitsAvailability(ParsableBitArray data, int numBits)
-      throws ParserException {
-    if (data.bitsLeft() < numBits) {
-      throw ParserException.createForMalformedContainer(/* message= */
-          "Not enough bits available", /* cause= */ null);
-    }
-  }
-
-  /**
    * Finds the start position of the MHAS sync packet in the provided data buffer.
    * See ISO_IEC_23008-3;2022, 14.4.4.
    *
@@ -271,7 +256,7 @@ public final class MpeghUtil {
       MhasPacketHeader header;
       try {
         header = parseMhasPacketHeader(data);
-      } catch (ParserException e) {
+      } catch (Exception e) {
         // There is not enough data available to parse the MHAS packet header.
         break;
       }
@@ -330,8 +315,6 @@ public final class MpeghUtil {
             "Contains sub-stream with label " + packetHeader.packetLabel);
       }
 
-      // check if the complete packet could be parsed
-      validateBitsAvailability(data, packetHeader.packetLength * C.BITS_PER_BYTE);
       int dataPos = data.getPosition();
 
       switch (packetHeader.packetType) {
@@ -445,9 +428,8 @@ public final class MpeghUtil {
    *
    * @param data The bit array to parse.
    * @return The {@link MhasPacketHeader} info.
-   * @throws ParserException if parsing failed, i.e. there is not enough data available.
    */
-  private static MhasPacketHeader parseMhasPacketHeader(ParsableBitArray data) throws ParserException {
+  private static MhasPacketHeader parseMhasPacketHeader(ParsableBitArray data) {
     @MhasPacketType int packetType = (int) readEscapedValue(data, 3, 8, 8);
     long packetLabel = readEscapedValue(data, 2, 8, 32);
     int packetLength = (int) readEscapedValue(data, 11, 24, 24);
@@ -463,12 +445,9 @@ public final class MpeghUtil {
    */
   public static int getSamplingFrequency(ParsableBitArray data) throws ParserException {
     int sampleRate;
-
-    validateBitsAvailability(data, 5);
     int idx = data.readBits(5);
 
     if (idx == 0x1F) {
-      validateBitsAvailability(data, 24);
       sampleRate = data.readBits(24);
     } else if (idx == 13 || idx == 14 || idx >= SAMPLING_RATE_TABLE.length) {
       throw ParserException.createForUnsupportedContainerFeature(/* message= */
@@ -526,20 +505,15 @@ public final class MpeghUtil {
    * @param bits2 number of bits to be parsed.
    * @param bits3 number of bits to be parsed.
    * @return The escaped value.
-   * @throws ParserException if parsing failed.
    */
-  public static long readEscapedValue(ParsableBitArray data, int bits1, int bits2, int bits3)
-      throws ParserException {
-    validateBitsAvailability(data, bits1);
+  public static long readEscapedValue(ParsableBitArray data, int bits1, int bits2, int bits3) {
     long value = data.readBitsToLong(bits1);
 
     if (value == (1L << bits1) - 1) {
-      validateBitsAvailability(data, bits2);
       long valueAdd = data.readBitsToLong(bits2);
       value += valueAdd;
 
       if (valueAdd == (1L << bits2) - 1) {
-        validateBitsAvailability(data, bits3);
         valueAdd = data.readBitsToLong(bits3);
         value += valueAdd;
       }
@@ -557,12 +531,10 @@ public final class MpeghUtil {
    */
   private static Mpegh3daConfig parseMpegh3daConfig(ParsableBitArray data) throws ParserException {
     Mpegh3daConfig mpegh3daConfig = new Mpegh3daConfig();
-    validateBitsAvailability(data, 8);
     mpegh3daConfig.mpegh3daProfileLevelIndication = data.readBits(8);
 
     int usacSamplingFrequency = getSamplingFrequency(data);
 
-    validateBitsAvailability(data, 5);
     int coreSbrFrameLengthIndex = data.readBits(3);
     data.skipBits(2); // cfg_reserved(1), receiverDelayCompensation(1)
 
@@ -579,7 +551,6 @@ public final class MpeghUtil {
     int numSignals = parseSignals3d(data); // frameworkConfig3d
     parseMpegh3daDecoderConfig(data, numSignals, sbrRatioIndex); // decoderConfig
 
-    validateBitsAvailability(data, 1);
     if (data.readBit()) { // usacConfigExtensionPresent
       // Mpegh3daConfigExtension
       int numConfigExtensions = (int) readEscapedValue(data, 2, 4, 8) + 1;
@@ -588,16 +559,13 @@ public final class MpeghUtil {
         int usacConfigExtLength = (int) readEscapedValue(data, 4, 8, 16);
 
         if (usacConfigExtType == 7 /*ID_CONFIG_EXT_COMPATIBLE_PROFILELVL_SET*/) {
-          validateBitsAvailability(data, 8);
           int numCompatibleSets = data.readBits(4) + 1;
           data.skipBits(4); // reserved
           mpegh3daConfig.compatibleProfileLevelSet = new byte[numCompatibleSets];
           for (int idx = 0; idx < numCompatibleSets; idx++) {
-            validateBitsAvailability(data, 8);
             mpegh3daConfig.compatibleProfileLevelSet[idx] = (byte) data.readBits(8);
           }
         } else {
-          validateBitsAvailability(data, C.BITS_PER_BYTE * usacConfigExtLength);
           data.skipBits(C.BITS_PER_BYTE * usacConfigExtLength);
         }
       }
@@ -619,11 +587,9 @@ public final class MpeghUtil {
    *
    * @param data The bit array to be parsed.
    * @return The number of truncated samples.
-   * @throws ParserException if parsing failed.
    */
-  private static int parseAudioTruncationInfo(ParsableBitArray data) throws ParserException {
+  private static int parseAudioTruncationInfo(ParsableBitArray data) {
     int truncationSamples = 0;
-    validateBitsAvailability(data, 16);
     boolean isActive = data.readBit();
     data.skipBits(2); // reserved(1), truncFromBegin(1)
     int trunc = data.readBits(13);
@@ -639,21 +605,16 @@ public final class MpeghUtil {
    * See ISO_IEC_23008-3;2022, 5.2.2.2, Table 18.
    *
    * @param data The bit array to be parsed.
-   * @throws ParserException if parsing failed.
    */
-  private static void parseSpeakerConfig3d(ParsableBitArray data) throws ParserException {
-    validateBitsAvailability(data, 2);
+  private static void parseSpeakerConfig3d(ParsableBitArray data) {
     int speakerLayoutType = data.readBits(2);
     if (speakerLayoutType == 0) {
-      validateBitsAvailability(data, 6);
       data.skipBits(6); // cicpSpeakerLayoutIdx
     } else {
       int numSpeakers = (int) readEscapedValue(data, 5, 8, 16) + 1;
       if (speakerLayoutType == 1) {
-        validateBitsAvailability(data, 7 * numSpeakers);
         data.skipBits(7 * numSpeakers); // cicpSpeakerIdx per speaker
       } else if (speakerLayoutType == 2) {
-        validateBitsAvailability(data, 1);
         boolean angularPrecision = data.readBit();
         int angularPrecisionDegrees = angularPrecision ? 1 : 5;
         int elevationAngleBits = angularPrecision ? 7 : 5;
@@ -662,35 +623,26 @@ public final class MpeghUtil {
         // Mpegh3daSpeakerDescription array
         for (int i = 0; i < numSpeakers; i++) {
           int azimuthAngle = 0;
-          validateBitsAvailability(data, 1);
           if (data.readBit()) { // isCICPspeakerIdx
-            validateBitsAvailability(data, 7);
             data.skipBits(7); // cicpSpeakerIdx
           } else {
-            validateBitsAvailability(data, 2);
             int elevationClass = data.readBits(2);
             if (elevationClass == 3) {
-              validateBitsAvailability(data, elevationAngleBits);
               int elevationAngleIdx = data.readBits(elevationAngleBits);
               int elevationAngle = elevationAngleIdx * angularPrecisionDegrees;
               if (elevationAngle != 0) {
-                validateBitsAvailability(data, 1);
                 data.skipBit(); // elevationDirection
               }
             }
-            validateBitsAvailability(data, azimuthAngleBits);
             int azimuthAngleIdx = data.readBits(azimuthAngleBits);
             azimuthAngle = azimuthAngleIdx * angularPrecisionDegrees;
             if ((azimuthAngle != 0) && (azimuthAngle != 180)) {
-              validateBitsAvailability(data, 1);
               data.skipBit(); // azimuthDirection
             }
-            validateBitsAvailability(data, 1);
             data.skipBit(); // isLFE
           }
 
           if ((azimuthAngle != 0) && (azimuthAngle != 180)) {
-            validateBitsAvailability(data, 1);
             if (data.readBit()) { // alsoAddSymmetricPair
               i++;
             }
@@ -706,23 +658,18 @@ public final class MpeghUtil {
    *
    * @param data The bit array to be parsed.
    * @return The number of overall signals in the bit stream.
-   * @throws ParserException if parsing failed.
    */
-  private static int parseSignals3d(ParsableBitArray data)
-      throws ParserException {
+  private static int parseSignals3d(ParsableBitArray data) {
     int numSignals = 0;
-    validateBitsAvailability(data, 5);
     int bsNumSignalGroups = data.readBits(5);
 
     for (int grp = 0; grp < bsNumSignalGroups + 1; grp++) {
-      validateBitsAvailability(data, 3);
       int signalGroupType = data.readBits(3);
       int bsNumberOfSignals = (int) readEscapedValue(data, 5, 8, 16);
 
       numSignals += bsNumberOfSignals + 1;
       if (signalGroupType == 0 /*SignalGroupTypeChannels*/ ||
           signalGroupType == 2 /*SignalGroupTypeSAOC*/) {
-        validateBitsAvailability(data, 1);
         if (data.readBit()) { // differsFromReferenceLayout OR saocDmxLayoutPresent
           parseSpeakerConfig3d(data); // audioChannelLayout[grp] OR saocDmxChannelLayout
         }
@@ -738,18 +685,14 @@ public final class MpeghUtil {
    * @param data The bit array to be parsed.
    * @param numSignals The number of overall signals.
    * @param sbrRatioIndex The SBR ration index.
-   * @throws ParserException if parsing failed.
    */
   private static void parseMpegh3daDecoderConfig(ParsableBitArray data,
-      int numSignals, int sbrRatioIndex)
-      throws ParserException {
+      int numSignals, int sbrRatioIndex) {
 
     int numElements = (int) readEscapedValue(data, 4, 8, 16) + 1;
-    validateBitsAvailability(data, 1);
     data.skipBit(); // elementLengthPresent
 
     for (int elemIdx = 0; elemIdx < numElements; elemIdx++) {
-      validateBitsAvailability(data, 2);
       int usacElementType = data.readBits(2);
 
       switch (usacElementType) {
@@ -762,53 +705,40 @@ public final class MpeghUtil {
         case 1 /*ID_USAC_CPE*/:
           boolean enhancedNoiseFilling = parseMpegh3daCoreConfig(data); // coreConfig
           if (enhancedNoiseFilling) {
-            validateBitsAvailability(data, 1);
             data.skipBit(); // igfIndependentTiling
           }
           int stereoConfigIndex = 0;
           if (sbrRatioIndex > 0) {
             parseSbrConfig(data); // sbrConfig
-            validateBitsAvailability(data, 2);
             stereoConfigIndex = data.readBits(2);
           }
           if (stereoConfigIndex > 0) {
             // mps212Config
-            validateBitsAvailability(data, 13);
             data.skipBits(6); // bsFreqRes(3), bsFixedGainDMX(3),
             int bsTempShapeConfig = data.readBits(2);
             data.skipBits(4);// bsDecorrConfig(2), bsHighRateMode(1), bsPhaseCoding(1)
             if (data.readBit()) { // bsOttBandsPhasePresent
-              validateBitsAvailability(data, 5);
               data.skipBits(5); // bsOttBandsPhase
             }
             if (stereoConfigIndex == 2 || stereoConfigIndex == 3) {
-              validateBitsAvailability(data, 6);
               data.skipBits(6); // bsResidualBands(5), bsPseudoLr(1)
             }
             if (bsTempShapeConfig == 2) {
-              validateBitsAvailability(data, 1);
               data.skipBit(); // bsEnvQuantMode
             }
           }
 
           int nBits = (int) Math.floor(Math.log(numSignals - 1) / Math.log(2.0)) + 1;
-
-          validateBitsAvailability(data, 2);
           int qceIndex = data.readBits(2);
           if (qceIndex > 0) {
-            validateBitsAvailability(data, 1);
             if (data.readBit()) { // shiftIndex0
-              validateBitsAvailability(data, nBits);
               data.skipBits(nBits); // shiftChannel0
             }
           }
-          validateBitsAvailability(data, 1);
           if (data.readBit()) { // shiftIndex1
-            validateBitsAvailability(data, nBits);
             data.skipBits(nBits); // shiftChannel1
           }
           if (sbrRatioIndex == 0 && qceIndex == 0) {
-            validateBitsAvailability(data, 1);
             data.skipBit(); // lpdStereoIndex
           }
           break;
@@ -816,15 +746,12 @@ public final class MpeghUtil {
           readEscapedValue(data, 4, 8, 16); // usacExtElementType
           int usacExtElementConfigLength = (int) readEscapedValue(data, 4, 8, 16);
 
-          validateBitsAvailability(data, 1);
           if (data.readBit()) { // usacExtElementDefaultLengthPresent
             readEscapedValue(data, 8, 16, 0)/*+1*/; // usacExtElementDefaultLength
           }
-          validateBitsAvailability(data, 1);
           data.skipBit(); // usacExtElementPayloadFrag
 
           if (usacExtElementConfigLength > 0) {
-            validateBitsAvailability(data, 8 * usacExtElementConfigLength);
             data.skipBits(8 * usacExtElementConfigLength);
           }
           break;
@@ -840,15 +767,11 @@ public final class MpeghUtil {
    *
    * @param data The bit array to be parsed.
    * @return The enhanced noise filling flag.
-   * @throws ParserException if parsing failed.
    */
-  private static boolean parseMpegh3daCoreConfig(ParsableBitArray data)
-      throws ParserException {
-    validateBitsAvailability(data, 4);
+  private static boolean parseMpegh3daCoreConfig(ParsableBitArray data) {
     data.skipBits(3); // tw_mdct(1), fullbandLpd(1), noiseFilling(1)
     boolean enhancedNoiseFilling = data.readBit();
     if (enhancedNoiseFilling) {
-      validateBitsAvailability(data, 13);
       data.skipBits(13); // igfUseEnf(1), igfUseHighRes(1), igfUseWhitening(1), igfAfterTnsSynth(1), igfStartIndex(5), igfStopIndex(4)
     }
     return enhancedNoiseFilling;
@@ -859,22 +782,16 @@ public final class MpeghUtil {
    * See ISO_IEC_23003-3;2020, 5.2, Table 14.
    *
    * @param data The bit array to be parsed.
-   * @throws ParserException if parsing failed.
    */
-  private static void parseSbrConfig(ParsableBitArray data) throws ParserException {
-    validateBitsAvailability(data, 3);
+  private static void parseSbrConfig(ParsableBitArray data) {
     data.skipBits(3); // harmonicSBR(1), bs_interTes(1), bs_pvc(1)
-
-    validateBitsAvailability(data, 10);
     data.skipBits(8); // dflt_start_freq(4), dflt_stop_freq(4)
     boolean dflt_header_extra1 = data.readBit();
     boolean dflt_header_extra2 = data.readBit();
     if (dflt_header_extra1) {
-      validateBitsAvailability(data, 5);
       data.skipBits(5); // dflt_freq_scale(2), dflt_alter_scale(1), dflt_noise_bands(2)
     }
     if (dflt_header_extra2) {
-      validateBitsAvailability(data, 6);
       data.skipBits(6); // dflt_limiter_bands(2), dflt_limiter_gains(2), dflt_interpol_freq(1), dflt_smoothing_mode(1)
     }
   }
