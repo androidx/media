@@ -17,6 +17,7 @@ package androidx.media3.extractor.ts;
 
 import static androidx.media3.extractor.ts.TsPayloadReader.FLAG_DATA_ALIGNMENT_INDICATOR;
 import static java.lang.Math.min;
+import static org.junit.Assert.assertThrows;
 
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
@@ -60,6 +61,15 @@ public class AdtsReaderTest {
 
   private static final byte[] TEST_DATA =
       Bytes.concat(ID3_DATA_1, ID3_DATA_2, ADTS_HEADER, ADTS_CONTENT);
+
+  private static final byte[] AAC_PCE_ADTS_HEADER =
+      TestUtil.createByteArray(0xff, 0xf1, 0x50, 0x00, 0x02, 0x1f, 0xfc);
+
+  private static final byte[] AAC_PCE_ADTS_CONTENT =
+      TestUtil.createByteArray(0xa0, 0x99, 0x01, 0x20, 0x00, 0x21, 0x19, 0x00, 0x00);
+
+  private static final byte[] AAC_PCE_TEST_DATA =
+      Bytes.concat(AAC_PCE_ADTS_HEADER, AAC_PCE_ADTS_CONTENT);
 
   private static final long ADTS_SAMPLE_DURATION = 23219L;
 
@@ -187,6 +197,45 @@ public class AdtsReaderTest {
     feed();
     assertSampleCounts(0, 1);
     adtsOutput.assertSample(0, ADTS_CONTENT, 0, C.BUFFER_FLAG_KEY_FRAME, null);
+  }
+
+  @Test
+  public void aacPceData() throws ParserException {
+    data = new ParsableByteArray(AAC_PCE_TEST_DATA);
+
+    feed();
+
+    assertSampleCounts(0, 1);
+    adtsOutput.assertSample(0, AAC_PCE_ADTS_CONTENT, 0, C.BUFFER_FLAG_KEY_FRAME, null);
+  }
+
+  @Test
+  public void aacPceDataSplit() throws ParserException {
+    byte[] first = Arrays.copyOf(AAC_PCE_TEST_DATA, AAC_PCE_ADTS_HEADER.length + 1);
+    byte[] second =
+        Arrays.copyOfRange(
+            AAC_PCE_TEST_DATA, AAC_PCE_ADTS_HEADER.length + 1, AAC_PCE_TEST_DATA.length);
+
+    data = new ParsableByteArray(first);
+    feed();
+    data = new ParsableByteArray(second);
+    feed();
+
+    assertSampleCounts(0, 1);
+    adtsOutput.assertSample(0, AAC_PCE_ADTS_CONTENT, 0, C.BUFFER_FLAG_KEY_FRAME, null);
+  }
+
+  @Test
+  public void aacPceDataFail() throws ParserException {
+    data = new ParsableByteArray(Arrays.copyOf(AAC_PCE_TEST_DATA, AAC_PCE_TEST_DATA.length));
+    byte[] bytes = data.getData();
+    // Remove PCE tag (first 3 bits of content).
+    bytes[AAC_PCE_ADTS_HEADER.length] &= 0x1f;
+    // Replace with CPE tag.
+    bytes[AAC_PCE_ADTS_HEADER.length] |= 0x20;
+
+    // Should throw as FakeTrackOutput expects a format before sampleMetadata.
+    assertThrows(IllegalStateException.class, this::feed);
   }
 
   private void feedLimited(int limit) throws ParserException {
