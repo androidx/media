@@ -17,6 +17,7 @@ package androidx.media3.common.util;
 
 import static java.lang.Math.min;
 
+import androidx.media3.common.C;
 import com.google.common.base.Charsets;
 import com.google.errorprone.annotations.CheckReturnValue;
 import java.nio.charset.Charset;
@@ -246,6 +247,16 @@ public final class ParsableBitArray {
     bitOffset = 0;
     byteOffset++;
     assertValidOffset();
+  }
+
+  /**
+   * Whether the position is byte-aligned. A bit position is considered byte-aligned if the number
+   * of bits left in the current position is a multiple of {@link C#BITS_PER_BYTE}.
+   *
+   * @return {@code true} if the position is byte-aligned, {@code false} otherwise.
+   */
+  public boolean isByteAligned() {
+    return bitsLeft() % C.BITS_PER_BYTE == 0;
   }
 
   /**

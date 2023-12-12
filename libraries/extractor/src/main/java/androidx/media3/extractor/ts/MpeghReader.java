@@ -28,6 +28,7 @@ import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.MpeghUtil;
 import androidx.media3.extractor.TrackOutput;
@@ -41,29 +42,26 @@ public final class MpeghReader implements ElementaryStreamReader {
 
   private static final String TAG = "MpeghReader";
 
+  private final ParsableByteArray dataBuffer;
+
   private @MonotonicNonNull String formatId;
   private @MonotonicNonNull TrackOutput output;
-  private final ParsableByteArray dataBuffer;
-  private final ParsableBitArray dataBitBuffer;
   private int dataInBuffer;
 
-  private MpeghUtil.FrameInfo prevFrameInfo;
+  @Nullable private MpeghUtil.FrameInfo prevFrameInfo;
 
   // The timestamp to attach to the next sample in the current packet.
   private double timeUs;
   private double timeUsPending;
   private boolean dataPending;
   private boolean rapPending;
-  private boolean raiSet;
-  private boolean daiSet;
+  private @TsPayloadReader.Flags int flags;
 
   public MpeghReader() {
-    dataBuffer = new ParsableByteArray(0);
-    dataBitBuffer = new ParsableBitArray();
+    dataBuffer = new ParsableByteArray();
     rapPending = true;
     timeUs = C.TIME_UNSET;
     timeUsPending = C.TIME_UNSET;
-    prevFrameInfo = new MpeghUtil.FrameInfo();
   }
 
   @Override
@@ -82,11 +80,10 @@ public final class MpeghReader implements ElementaryStreamReader {
 
   @Override
   public void packetStarted(long pesTimeUs, @TsPayloadReader.Flags int flags) {
-    raiSet = (flags & FLAG_RANDOM_ACCESS_INDICATOR) == FLAG_RANDOM_ACCESS_INDICATOR;
-    daiSet = (flags & FLAG_DATA_ALIGNMENT_INDICATOR) == FLAG_DATA_ALIGNMENT_INDICATOR;
+    this.flags = flags;
 
-    if (daiSet && dataInBuffer != 0) {
-      Log.w(TAG, "Internal bit buffer was unexpectedly not empty at data aligned PES");
+    if ((this.flags & FLAG_DATA_ALIGNMENT_INDICATOR) != 0 && dataInBuffer != 0) {
+      Log.w(TAG, "Internal byte buffer was unexpectedly not empty at data aligned PES");
       clearDataBuffer();
     }
 
@@ -115,6 +112,7 @@ public final class MpeghReader implements ElementaryStreamReader {
     // try to find the sync packet and adjust the data buffer if necessary
     maybeFindSync();
 
+    ParsableBitArray dataBitBuffer = new ParsableBitArray();
     // get as many MPEG-H AUs as possible from the data buffer
     while (true) {
       dataBitBuffer.reset(dataBuffer);
@@ -147,7 +145,8 @@ public final class MpeghReader implements ElementaryStreamReader {
         if (frameInfo.compatibleSetIndication != null
             && frameInfo.compatibleSetIndication.length > 0) {
           // The first entry in initializationData is reserved for the audio specific config.
-          initializationData = ImmutableList.of(new byte[0], frameInfo.compatibleSetIndication);
+          initializationData =
+              ImmutableList.of(Util.EMPTY_BYTE_ARRAY, frameInfo.compatibleSetIndication);
         }
         Format format =
             new Format.Builder()
@@ -164,7 +163,7 @@ public final class MpeghReader implements ElementaryStreamReader {
       dataBuffer.setPosition(0);
       output.sampleData(dataBuffer, frameInfo.frameBytes);
 
-      int flag = 0;
+      @C.BufferFlags int flag = 0;
       // if we have a frame with an mpegh3daConfig, set the first obtained AU to a key frame
       if (frameInfo.containsConfig) {
         flag = C.BUFFER_FLAG_KEY_FRAME;
@@ -189,20 +188,18 @@ public final class MpeghReader implements ElementaryStreamReader {
   private void maybeFindSync() {
     // we are still waiting for a RAP frame
     if (rapPending) {
-      if (!raiSet) {
+      if ((flags & FLAG_RANDOM_ACCESS_INDICATOR) == 0) {
         // RAI is not signalled -> drop the PES data
         clearDataBuffer();
       } else {
-        if (!daiSet) {
+        if ((flags & FLAG_DATA_ALIGNMENT_INDICATOR) == 0) {
           // if RAI is signalled but the data is not aligned we need to find the sync packet
-          int syncPosByte = MpeghUtil.findSyncPacket(dataBuffer);
-          if (syncPosByte < 0) {
+          if (!MpeghUtil.findSyncPacket(dataBuffer)) {
             // sync packet could not be found -> drop the PES data
             clearDataBuffer();
             return;
           }
           // sync packet was found -> remove PES data before the sync packet
-          dataBuffer.setPosition(syncPosByte);
           removeUsedFromDataBuffer();
         }
       }
