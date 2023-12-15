@@ -13,6 +13,10 @@
     *   Fix issue where track selections after seek to zero in a live stream
         incorrectly let the stream start at its default position
         ([#9347](https://github.com/google/ExoPlayer/issues/9347)).
+    *   Fix the issue where new instances of `CmcdData.Factory` were receiving
+        negative values for `bufferedDurationUs` from chunk sources, resulting
+        in an `IllegalArgumentException`
+        ([#888](https://github.com/androidx/media/issues/888)).
 *   Transformer:
     *   Work around an issue where the encoder would throw at configuration time
         due to setting a high operating rate.
