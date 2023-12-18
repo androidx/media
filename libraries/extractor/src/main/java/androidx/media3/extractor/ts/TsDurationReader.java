@@ -29,11 +29,12 @@ import java.io.IOException;
 /**
  * A reader that can extract the approximate duration from a given MPEG transport stream (TS).
  *
- * <p>This reader extracts the duration by reading PCR values of the PCR PID packets at the start
- * and at the end of the stream, calculating the difference, and converting that into stream
- * duration. This reader also handles the case when a single PCR wraparound takes place within the
- * stream, which can make PCR values at the beginning of the stream larger than PCR values at the
- * end. This class can only be used once to read duration from a given stream, and the usage of the
+ * <p>This reader extracts the duration by reading DTS values of the first PES PID packets at the
+ * start and at the end of the stream, calculating the difference, and converting that into stream
+ * duration. Should DTS not be available this reader falls back to using PCR in the same way and
+ * also handles the case when a single PCR wraparound takes place within the stream, which can make
+ * PCR values at the beginning of the stream larger than PCR values at the end.
+ * This class can only be used once to read duration from a given stream, and the usage of the
  * class is not thread-safe, so all calls should be made from the same thread.
  */
 /* package */ final class TsDurationReader {
