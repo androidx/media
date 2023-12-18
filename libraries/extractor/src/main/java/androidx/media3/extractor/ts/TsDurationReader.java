@@ -41,22 +41,35 @@ import java.io.IOException;
   private static final String TAG = "TsDurationReader";
 
   private final int timestampSearchBytes;
-  private final TimestampAdjuster pcrTimestampAdjuster;
+  private final TimestampAdjuster timestampAdjuster;
   private final ParsableByteArray packetBuffer;
 
   private boolean isDurationRead;
   private boolean isFirstPcrValueRead;
   private boolean isLastPcrValueRead;
+  private boolean isFirstDtsValueRead;
+  private boolean isSecondDtsValueRead;
+  private boolean isLastDtsValueRead;
 
   private long firstPcrValue;
   private long lastPcrValue;
+  private long firstDtsValue;
+  private long secondDtsValue;
+  private long lastDtsValue;
+
+  private int firstDtsPosition;
+
   private long durationUs;
 
   /* package */ TsDurationReader(int timestampSearchBytes) {
     this.timestampSearchBytes = timestampSearchBytes;
-    pcrTimestampAdjuster = new TimestampAdjuster(/* firstSampleTimestampUs= */ 0);
+    timestampAdjuster = new TimestampAdjuster(/* firstSampleTimestampUs= */ 0);
     firstPcrValue = C.TIME_UNSET;
     lastPcrValue = C.TIME_UNSET;
+    firstDtsValue = C.TIME_UNSET;
+    secondDtsValue = C.TIME_UNSET;
+    lastDtsValue = C.TIME_UNSET;
+    firstDtsPosition = -1;
     durationUs = C.TIME_UNSET;
     packetBuffer = new ParsableByteArray();
   }
@@ -97,10 +110,47 @@ import java.io.IOException;
       return finishReadDuration(input);
     }
 
-    long minPcrPositionUs = pcrTimestampAdjuster.adjustTsTimestamp(firstPcrValue);
-    long maxPcrPositionUs =
-        pcrTimestampAdjuster.adjustTsTimestampGreaterThanPreviousTimestamp(lastPcrValue);
+    long minPcrPositionUs = timestampAdjuster.adjustTsTimestamp(firstPcrValue);
+    long maxPcrPositionUs = timestampAdjuster.adjustTsTimestamp(lastPcrValue);
     durationUs = maxPcrPositionUs - minPcrPositionUs;
+    if (durationUs < 0) {
+      durationUs = C.TIME_UNSET;
+    }
+    return finishReadDuration(input);
+  }
+
+  public @Extractor.ReadResult int computeDuration(
+      ExtractorInput input, PositionHolder seekPositionHolder, int pesPid) throws IOException {
+    if (pesPid <= 0) {
+      return finishReadDuration(input);
+    }
+    if (!isLastDtsValueRead) {
+      return readLastDtsValue(input, seekPositionHolder, pesPid);
+    }
+    if (lastDtsValue == C.TIME_UNSET) {
+      return finishReadDuration(input);
+    }
+    if (!isFirstDtsValueRead) {
+      return readFirstDtsValue(input, seekPositionHolder, pesPid);
+    }
+    if (firstDtsValue == C.TIME_UNSET) {
+      return finishReadDuration(input);
+    }
+    if (!isSecondDtsValueRead) {
+      return readSecondDtsValue(input, seekPositionHolder, pesPid);
+    }
+    if (secondDtsValue == C.TIME_UNSET) {
+      return finishReadDuration(input);
+    }
+
+    long firstDtsPositionUs = timestampAdjuster.adjustTsTimestamp(firstDtsValue);
+    long secondDtsPositionUs = timestampAdjuster.adjustTsTimestamp(secondDtsValue);
+    long frameDurationUs = secondDtsPositionUs - firstDtsPositionUs;
+    long lastDtsPositionUs = timestampAdjuster.adjustTsTimestamp(lastDtsValue);
+    durationUs = lastDtsPositionUs - firstDtsPositionUs + frameDurationUs;
+    if (durationUs < 0) {
+      durationUs = C.TIME_UNSET;
+    }
     return finishReadDuration(input);
   }
 
@@ -115,8 +165,8 @@ import java.io.IOException;
    * Returns the {@link TimestampAdjuster} that this class uses to adjust timestamps read from the
    * input TS stream.
    */
-  public TimestampAdjuster getPcrTimestampAdjuster() {
-    return pcrTimestampAdjuster;
+  public TimestampAdjuster getTimestampAdjuster() {
+    return timestampAdjuster;
   }
 
   private int finishReadDuration(ExtractorInput input) {
@@ -195,6 +245,99 @@ import java.io.IOException;
       long pcrValue = TsUtil.readPcrFromPacket(packetBuffer, searchPosition, pcrPid);
       if (pcrValue != C.TIME_UNSET) {
         return pcrValue;
+      }
+    }
+    return C.TIME_UNSET;
+  }
+
+  private int readFirstDtsValue(ExtractorInput input, PositionHolder seekPositionHolder, int pesPid)
+      throws IOException {
+    int bytesToSearch = (int) min(timestampSearchBytes, input.getLength());
+    int searchStartPosition = 0;
+    if (input.getPosition() != searchStartPosition) {
+      seekPositionHolder.position = searchStartPosition;
+      return Extractor.RESULT_SEEK;
+    }
+
+    packetBuffer.reset(bytesToSearch);
+    input.resetPeekPosition();
+    input.peekFully(packetBuffer.getData(), /* offset= */ 0, bytesToSearch);
+
+    firstDtsValue = readFirstDtsValueFromBuffer(packetBuffer, pesPid);
+    isFirstDtsValueRead = true;
+    return Extractor.RESULT_CONTINUE;
+  }
+
+  private long readFirstDtsValueFromBuffer(ParsableByteArray packetBuffer, int pesPid) {
+    int searchStartPosition = packetBuffer.getPosition();
+    int searchEndPosition = packetBuffer.limit();
+    for (int searchPosition = searchStartPosition;
+        searchPosition < searchEndPosition;
+        searchPosition++) {
+      if (packetBuffer.getData()[searchPosition] != TsExtractor.TS_SYNC_BYTE) {
+        continue;
+      }
+      long dtsValue = TsUtil.readDtsFromPacket(packetBuffer, searchPosition, pesPid);
+      if (dtsValue != C.TIME_UNSET) {
+        firstDtsPosition = packetBuffer.getPosition();
+        return dtsValue;
+      }
+    }
+    return C.TIME_UNSET;
+  }
+
+  private int readSecondDtsValue(ExtractorInput input, PositionHolder seekPositionHolder, int pesPid)
+      throws IOException {
+    int bytesToSearch = (int) min(timestampSearchBytes, input.getLength());
+    int searchStartPosition = firstDtsPosition;
+    if (input.getPosition() != searchStartPosition) {
+      seekPositionHolder.position = searchStartPosition;
+      return Extractor.RESULT_SEEK;
+    }
+
+    packetBuffer.reset(bytesToSearch);
+    input.resetPeekPosition();
+    input.peekFully(packetBuffer.getData(), /* offset= */ 0, bytesToSearch);
+
+    secondDtsValue = readFirstDtsValueFromBuffer(packetBuffer, pesPid);
+    isSecondDtsValueRead = true;
+    return Extractor.RESULT_CONTINUE;
+  }
+
+  private int readLastDtsValue(ExtractorInput input, PositionHolder seekPositionHolder, int pesPid)
+      throws IOException {
+    long inputLength = input.getLength();
+    int bytesToSearch = (int) min(timestampSearchBytes, inputLength);
+    long searchStartPosition = inputLength - bytesToSearch;
+    if (input.getPosition() != searchStartPosition) {
+      seekPositionHolder.position = searchStartPosition;
+      return Extractor.RESULT_SEEK;
+    }
+
+    packetBuffer.reset(bytesToSearch);
+    input.resetPeekPosition();
+    input.peekFully(packetBuffer.getData(), /* offset= */ 0, bytesToSearch);
+
+    lastDtsValue = readLastDtsValueFromBuffer(packetBuffer, pesPid);
+    isLastDtsValueRead = true;
+    return Extractor.RESULT_CONTINUE;
+  }
+
+  private long readLastDtsValueFromBuffer(ParsableByteArray packetBuffer, int pesPid) {
+    int searchStartPosition = packetBuffer.getPosition();
+    int searchEndPosition = packetBuffer.limit();
+    // We start searching 'TsExtractor.TS_PACKET_SIZE' bytes from the end to prevent trying to read
+    // from an incomplete TS packet.
+    for (int searchPosition = searchEndPosition - TsExtractor.TS_PACKET_SIZE;
+        searchPosition >= searchStartPosition;
+        searchPosition--) {
+      if (!TsUtil.isStartOfTsPacket(
+          packetBuffer.getData(), searchStartPosition, searchEndPosition, searchPosition)) {
+        continue;
+      }
+      long dtsValue = TsUtil.readDtsFromPacket(packetBuffer, searchPosition, pesPid);
+      if (dtsValue != C.TIME_UNSET) {
+        return dtsValue;
       }
     }
     return C.TIME_UNSET;
