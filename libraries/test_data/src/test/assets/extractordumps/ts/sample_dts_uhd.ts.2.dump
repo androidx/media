@@ -1,157 +1,205 @@
 seekMap:
   isSeekable = true
-  duration = 1984000
+  duration = 4970666
   getPosition(0) = [[timeUs=0, position=0]]
   getPosition(1) = [[timeUs=1, position=0]]
-  getPosition(992000) = [[timeUs=992000, position=16779]]
-  getPosition(1984000) = [[timeUs=1984000, position=33746]]
+  getPosition(2485333) = [[timeUs=2485333, position=102149]]
+  getPosition(4970666) = [[timeUs=4970666, position=204487]]
 numberOfTracks = 1
 track 257:
-  total output bytes = 6090
-  sample count = 35
+  total output bytes = 36090
+  sample count = 47
   format 0:
     id = 1/257
     sampleMimeType = audio/vnd.dts.uhd;profile=p2
     channelCount = 2
     sampleRate = 48000
   sample 0:
-    time = 1258666
+    time = 3989333
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 776, hash BEA73ED6
   sample 1:
-    time = 1280000
+    time = 4010666
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 875, hash 173C290C
   sample 2:
-    time = 1301333
+    time = 4032000
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 787, hash 531B9CB3
   sample 3:
-    time = 1322666
+    time = 4053333
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 737, hash 75CB4A48
   sample 4:
-    time = 1344000
+    time = 4074666
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 603, hash DDE525EE
   sample 5:
-    time = 1365333
+    time = 4096000
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 645, hash F4666418
   sample 6:
-    time = 1386666
+    time = 4117333
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 704, hash F7E18921
   sample 7:
-    time = 1408000
+    time = 4138666
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 802, hash 822433B5
   sample 8:
-    time = 1429333
+    time = 4160000
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 990, hash E4712448
   sample 9:
-    time = 1450666
+    time = 4181333
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 602, hash 3265AF8E
   sample 10:
-    time = 1472000
+    time = 4202666
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 790, hash 6EF432BA
   sample 11:
-    time = 1493333
+    time = 4224000
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 746, hash E20E7B36
   sample 12:
-    time = 1514666
+    time = 4245333
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 439, hash 8C32DDA0
   sample 13:
-    time = 1536000
+    time = 4266666
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 932, hash AF323520
   sample 14:
-    time = 1557333
+    time = 4288000
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 1003, hash 3D70121B
   sample 15:
-    time = 1578666
+    time = 4309333
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 1158, hash 1215442E
   sample 16:
-    time = 1600000
+    time = 4330666
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 1047, hash 2A517450
   sample 17:
-    time = 1621333
+    time = 4352000
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 1123, hash 33387B5F
   sample 18:
-    time = 1642666
+    time = 4373333
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 1033, hash D82CF575
   sample 19:
-    time = 1664000
+    time = 4394666
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 1009, hash 30DC6A02
   sample 20:
-    time = 1685333
+    time = 4416000
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 1033, hash 82127054
   sample 21:
-    time = 1706666
+    time = 4437333
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 761, hash 4A5EA11F
   sample 22:
-    time = 1728000
+    time = 4458666
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 708, hash 53FA04E4
   sample 23:
-    time = 1749333
+    time = 4480000
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 750, hash 44F541A6
   sample 24:
-    time = 1770666
+    time = 4501333
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 902, hash 6688117A
   sample 25:
-    time = 1792000
+    time = 4522666
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 716, hash A19D938D
   sample 26:
-    time = 1813333
+    time = 4544000
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 395, hash 4EF7E6DE
   sample 27:
-    time = 1834666
+    time = 4565333
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 677, hash 57DF6F41
   sample 28:
-    time = 1856000
+    time = 4586666
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 566, hash 515BD3F0
   sample 29:
-    time = 1877333
+    time = 4608000
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 772, hash 957617C9
   sample 30:
-    time = 1898666
+    time = 4629333
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 777, hash 6BB742A3
   sample 31:
-    time = 1920000
+    time = 4650666
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 672, hash 97BA98A3
   sample 32:
-    time = 1941333
+    time = 4672000
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 695, hash F8190CDE
   sample 33:
-    time = 1962666
+    time = 4693333
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 668, hash 6D62BE54
   sample 34:
-    time = 1984000
+    time = 4714666
     flags = 1
-    data = length 174, hash 3A5A03E8
+    data = length 662, hash 36D886CD
+  sample 35:
+    time = 4736000
+    flags = 1
+    data = length 678, hash 87772FCA
+  sample 36:
+    time = 4757333
+    flags = 1
+    data = length 946, hash BBFB4C98
+  sample 37:
+    time = 4778666
+    flags = 1
+    data = length 594, hash CEDCD36C
+  sample 38:
+    time = 4800000
+    flags = 1
+    data = length 499, hash 3B933D5B
+  sample 39:
+    time = 4821333
+    flags = 1
+    data = length 784, hash 97BC8486
+  sample 40:
+    time = 4842666
+    flags = 1
+    data = length 510, hash 9A082552
+  sample 41:
+    time = 4864000
+    flags = 1
+    data = length 741, hash E17DAE88
+  sample 42:
+    time = 4885333
+    flags = 1
+    data = length 656, hash C8CC5738
+  sample 43:
+    time = 4906666
+    flags = 1
+    data = length 672, hash 84C28F77
+  sample 44:
+    time = 4928000
+    flags = 1
+    data = length 559, hash B563D0ED
+  sample 45:
+    time = 4949333
+    flags = 1
+    data = length 1503, hash 183821B0
+  sample 46:
+    time = 4970666
+    flags = 1
+    data = length 393, hash D807573D
 tracksEnded = true
