@@ -115,6 +115,7 @@ public final class DtsReader implements ElementaryStreamReader {
     bytesRead = 0;
     syncBytes = 0;
     timeUs = C.TIME_UNSET;
+    uhdAudioChunkId.set(0);
     uhdInSync = false;
   }
 
@@ -161,7 +162,7 @@ public final class DtsReader implements ElementaryStreamReader {
           break;
         case STATE_FINDING_EXTSS_HEADER_SIZE:
           // Read enough bytes to parse the header size information.
-          if (continueRead(data, headerScratchBytes.getData(), /* targetLength= */ 10)) {
+          if (continueRead(data, headerScratchBytes.getData(), /* targetLength= */ 7)) {
             extensionSubstreamHeaderSize =
                 DtsUtil.parseDtsHdHeaderSize(headerScratchBytes.getData());
             state = STATE_READING_EXTSS_HEADER;
