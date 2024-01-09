@@ -44,7 +44,7 @@ public abstract class BitmapOverlay extends TextureOverlay {
   private int lastTextureId;
   private @Nullable Bitmap lastBitmap;
 
-  BitmapOverlay() {
+  public BitmapOverlay() {
     lastTextureId = C.INDEX_UNSET;
   }
 
