@@ -1,8 +1,12 @@
 # Release notes
 
-### Unreleased changes
+## 1.2
 
-*   Common Library:
+### 1.2.1 (2024-01-09)
+
+This release includes the following changes since the
+[1.2.0 release](#120-2023-11-15):
+
 *   ExoPlayer:
     *   Fix issue where manual seeks outside of the
         `LiveConfiguration.min/maxOffset` range keep adjusting the offset back
@@ -20,7 +24,6 @@
 *   Transformer:
     *   Work around an issue where the encoder would throw at configuration time
         due to setting a high operating rate.
-*   Track Selection:
 *   Extractors:
     *   Mark secondary (unplayable) HEVC tracks in JPEG motion photos as
         `ROLE_FLAG_ALTERNATE` to prevent them being automatically selected for
@@ -37,7 +40,6 @@
         Google TV, and Lenovo M10 FHD Plus that causes 60fps AVC streams to be
         marked as unsupported
         ([#693](https://github.com/androidx/media/issues/693)).
-*   Text:
 *   Metadata:
     *   Fix bug where `MediaMetadata` was only populated from Vorbis comments
         with upper-case keys
@@ -52,9 +54,6 @@
     *   Fix `ERROR_DRM_SESSION_NOT_OPENED` when switching from encrypted to
         clear content without a surface attached to the player. The error was
         due to incorrectly using a secure decoder to play the clear content.
-*   Effect:
-*   Muxers:
-*   IMA extension:
 *   Session:
     *   Put the custom keys and values in `MediaMetadataCompat` to
         `MediaMetadata.extras` and `MediaMetadata.extras` to
@@ -76,33 +75,19 @@
     *   Fix issue where the numbers in the fast forward button of the
         `PlayerControlView` were misaligned
         ([#547](https://github.com/androidx/media/issues/547)).
-*   Downloads:
-*   OkHttp Extension:
-*   Cronet Extension:
-*   HttpEngine Extension:
-*   RTMP Extension:
-*   HLS Extension:
 *   DASH Extension:
     *   Parse "f800" as channel count of 5 for Dolby in DASH manifest
         ([#688](https://github.com/androidx/media/issues/688)).
-*   Smooth Streaming Extension:
-*   RTSP Extension:
 *   Decoder Extensions (FFmpeg, VP9, AV1, MIDI, etc.):
     *   MIDI: Fix issue where seeking forward skips the Program Change events
         ([#704](https://github.com/androidx/media/issues/704).
     *   Migrate to FFmpeg 6.0 and update supported NDK to `r26b`
         ([#707](https://github.com/androidx/media/pull/707),
         [#867](https://github.com/androidx/media/pull/867)).
-*   Leanback extension:
 *   Cast Extension:
     *   Sanitize creation of a `Timeline` to not crash the app when loading
         media fails on the cast device
         ([#708](https://github.com/androidx/media/issues/708)).
-*   Test Utilities:
-*   Remove deprecated symbols:
-*   Demo app:
-
-## 1.2
 
 ### 1.2.0 (2023-11-15)
 
