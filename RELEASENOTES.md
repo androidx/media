@@ -1,6 +1,11 @@
 # Release notes
 
-### Unreleased changes
+## 1.3
+
+### 1.3.0-alpha01 (2024-01-15)
+
+This release includes the following changes since the
+[1.2.1 release](#121-2024-01-09):
 
 *   Common Library:
     *   Implement support for `android.resource://package/[type/]name` raw
@@ -55,7 +60,6 @@
         `ColorInfo.colorSpace`, `ColorInfo.colorTransfer`, and
         `ColorInfo.colorRange` values
         ([#692](https://github.com/androidx/media/pull/692)).
-*   Audio:
 *   Video:
     *   Change the `MediaCodecVideoRenderer` constructor that takes a
         `VideoFrameProcessor.Factory` argument and replace it with a constructor
@@ -73,7 +77,6 @@
         `rowLock` and `columnLock` should both be assumed to be true, regardless
         of the values present in the stream (`columnLock` support is not
         implemented, so it's effectively assumed to always be false).
-*   Metadata:
 *   DRM:
     *   Play 'clear lead' unencrypted samples in DRM content immediately by
         default, even if the keys for the later encrypted samples aren't ready
@@ -84,33 +87,19 @@
         [`MediaItem.DrmConfiguration.Builder.setPlayClearContentWithoutKey`](https://developer.android.com/reference/androidx/media3/common/MediaItem.DrmConfiguration.Builder#setPlayClearContentWithoutKey\(boolean\))
         or
         [`DefaultDrmSessionManager.Builder.setPlayClearSamplesWithoutKeys`](https://developer.android.com/reference/androidx/media3/exoplayer/drm/DefaultDrmSessionManager.Builder#setPlayClearSamplesWithoutKeys\(boolean\)).
-*   Effect:
-*   Muxers:
 *   IMA extension:
     *   Fix issue where DASH and HLS ads without the appropriate file extension
         can't be played.
-*   Session:
-*   UI:
-*   Downloads:
-*   OkHttp Extension:
-*   Cronet Extension:
-*   RTMP Extension:
 *   HLS Extension:
     *   Reduce `HlsMediaPeriod` to package-private visibility. This type
         shouldn't be directly depended on from outside the HLS package.
-*   DASH Extension:
-*   Smooth Streaming Extension:
-*   RTSP Extension:
 *   Decoder Extensions (FFmpeg, VP9, AV1, MIDI, etc.):
     *   MIDI decoder: Ignore SysEx event messages
         ([#710](https://github.com/androidx/media/pull/710)).
-*   Leanback extension:
-*   Cast Extension:
 *   Test Utilities:
     *   Don't pause playback in `TestPlayerRunHelper.playUntilPosition`. The
         test keeps the playback in a playing state, but suspends progress until
         the test is able to add assertions and further actions.
-*   Remove deprecated symbols:
 *   Demo app:
     *   Add a shortform demo module to demo the usage of `PreloadMediaSource`
         with the short-form content use case.
