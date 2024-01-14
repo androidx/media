@@ -265,6 +265,8 @@ public class PlayerControlView extends FrameLayout {
   private static final int SETTINGS_PLAYBACK_SPEED_POSITION = 0;
   private static final int SETTINGS_AUDIO_TRACK_SELECTION_POSITION = 1;
 
+  private static final int SETTINGS_VIDEO_TRACK_SELECTION_POSITION = 2;
+
   private final PlayerControlViewLayoutManager controlViewLayoutManager;
   private final Resources resources;
   private final ComponentListener componentListener;
@@ -276,6 +278,7 @@ public class PlayerControlView extends FrameLayout {
   private final SettingsAdapter settingsAdapter;
   private final PlaybackSpeedAdapter playbackSpeedAdapter;
   private final TextTrackSelectionAdapter textTrackSelectionAdapter;
+  private final VideoTrackSelectionAdapter videoTrackSelectionAdapter;
   private final AudioTrackSelectionAdapter audioTrackSelectionAdapter;
   // TODO(insun): Add setTrackNameProvider to use customized track name provider.
   private final TrackNameProvider trackNameProvider;
@@ -298,6 +301,7 @@ public class PlayerControlView extends FrameLayout {
   @Nullable private final View settingsButton;
   @Nullable private final View playbackSpeedButton;
   @Nullable private final View audioTrackButton;
+  @Nullable private final View videoTrackButton;
   @Nullable private final TextView durationView;
   @Nullable private final TextView positionView;
   @Nullable private final TimeBar timeBar;
@@ -469,6 +473,11 @@ public class PlayerControlView extends FrameLayout {
       audioTrackButton.setOnClickListener(componentListener);
     }
 
+    videoTrackButton = findViewById(R.id.exo_video_track);
+    if (videoTrackButton != null) {
+      videoTrackButton.setOnClickListener(componentListener);
+    }
+
     TimeBar customTimeBar = findViewById(R.id.exo_progress);
     View timeBarPlaceholder = findViewById(R.id.exo_progress_placeholder);
     if (customTimeBar != null) {
@@ -546,16 +555,23 @@ public class PlayerControlView extends FrameLayout {
     controlViewLayoutManager = new PlayerControlViewLayoutManager(this);
     controlViewLayoutManager.setAnimationEnabled(animationEnabled);
 
-    String[] settingTexts = new String[2];
-    Drawable[] settingIcons = new Drawable[2];
+    String[] settingTexts = new String[3];
+    Drawable[] settingIcons = new Drawable[3];
     settingTexts[SETTINGS_PLAYBACK_SPEED_POSITION] =
         resources.getString(R.string.exo_controls_playback_speed);
     settingIcons[SETTINGS_PLAYBACK_SPEED_POSITION] =
         getDrawable(context, resources, R.drawable.exo_styled_controls_speed);
+
     settingTexts[SETTINGS_AUDIO_TRACK_SELECTION_POSITION] =
         resources.getString(R.string.exo_track_selection_title_audio);
     settingIcons[SETTINGS_AUDIO_TRACK_SELECTION_POSITION] =
         getDrawable(context, resources, R.drawable.exo_styled_controls_audiotrack);
+
+    settingTexts[SETTINGS_VIDEO_TRACK_SELECTION_POSITION] =
+        resources.getString(R.string.exo_track_selection_title_video);
+    settingIcons[SETTINGS_VIDEO_TRACK_SELECTION_POSITION] =
+        getDrawable(context, resources, R.drawable.exo_styled_controls_videotrack);
+
     settingsAdapter = new SettingsAdapter(settingTexts, settingIcons);
     settingsWindowMargin = resources.getDimensionPixelSize(R.dimen.exo_settings_offset);
     settingsView =
@@ -585,6 +601,7 @@ public class PlayerControlView extends FrameLayout {
         resources.getString(R.string.exo_controls_cc_disabled_description);
     textTrackSelectionAdapter = new TextTrackSelectionAdapter();
     audioTrackSelectionAdapter = new AudioTrackSelectionAdapter();
+    videoTrackSelectionAdapter = new VideoTrackSelectionAdapter();
     playbackSpeedAdapter =
         new PlaybackSpeedAdapter(
             resources.getStringArray(R.array.exo_controls_playback_speeds), PLAYBACK_SPEEDS);
@@ -1153,13 +1170,18 @@ public class PlayerControlView extends FrameLayout {
   private void initTrackSelectionAdapter() {
     textTrackSelectionAdapter.clear();
     audioTrackSelectionAdapter.clear();
+    videoTrackSelectionAdapter.clear();
+
     if (player == null
         || !player.isCommandAvailable(COMMAND_GET_TRACKS)
         || !player.isCommandAvailable(COMMAND_SET_TRACK_SELECTION_PARAMETERS)) {
       return;
     }
+
     Tracks tracks = player.getCurrentTracks();
     audioTrackSelectionAdapter.init(gatherSupportedTrackInfosOfType(tracks, C.TRACK_TYPE_AUDIO));
+    videoTrackSelectionAdapter.init(gatherSupportedTrackInfosOfType(tracks, C.TRACK_TYPE_VIDEO));
+
     if (controlViewLayoutManager.getShowButton(subtitleButton)) {
       textTrackSelectionAdapter.init(gatherSupportedTrackInfosOfType(tracks, C.TRACK_TYPE_TEXT));
     } else {
@@ -1439,6 +1461,8 @@ public class PlayerControlView extends FrameLayout {
       displaySettingsWindow(playbackSpeedAdapter, checkNotNull(settingsButton));
     } else if (position == SETTINGS_AUDIO_TRACK_SELECTION_POSITION) {
       displaySettingsWindow(audioTrackSelectionAdapter, checkNotNull(settingsButton));
+    } else if(position == SETTINGS_VIDEO_TRACK_SELECTION_POSITION) {
+      displaySettingsWindow(videoTrackSelectionAdapter, checkNotNull(settingsButton));
     } else {
       settingsWindow.dismiss();
     }
@@ -1554,7 +1578,7 @@ public class PlayerControlView extends FrameLayout {
     return player != null
         && player.isCommandAvailable(COMMAND_PLAY_PAUSE)
         && (!player.isCommandAvailable(COMMAND_GET_TIMELINE)
-            || !player.getCurrentTimeline().isEmpty());
+        || !player.getCurrentTimeline().isEmpty());
   }
 
   @SuppressLint("InlinedApi")
@@ -1745,7 +1769,10 @@ public class PlayerControlView extends FrameLayout {
       } else if (audioTrackButton == view) {
         controlViewLayoutManager.removeHideCallbacks();
         displaySettingsWindow(audioTrackSelectionAdapter, audioTrackButton);
-      } else if (subtitleButton == view) {
+      } else if (videoTrackButton == view) {
+        controlViewLayoutManager.removeHideCallbacks();
+        displaySettingsWindow(videoTrackSelectionAdapter, videoTrackButton);
+      }  else if (subtitleButton == view) {
         controlViewLayoutManager.removeHideCallbacks();
         displaySettingsWindow(textTrackSelectionAdapter, subtitleButton);
       }
@@ -2064,6 +2091,83 @@ public class PlayerControlView extends FrameLayout {
           if (track.isSelected()) {
             settingsAdapter.setSubTextAtPosition(
                 SETTINGS_AUDIO_TRACK_SELECTION_POSITION, track.trackName);
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  private final class VideoTrackSelectionAdapter extends TrackSelectionAdapter {
+
+    @Override
+    public void onBindViewHolderAtZeroPosition(SubSettingViewHolder holder) {
+      // Audio track selection option includes "Auto" at the top.
+      holder.textView.setText(R.string.exo_track_selection_auto);
+      // hasSelectionOverride is true means there is an explicit track selection, not "Auto".
+      TrackSelectionParameters parameters = checkNotNull(player).getTrackSelectionParameters();
+      boolean hasSelectionOverride = hasSelectionOverride(parameters);
+      holder.checkView.setVisibility(hasSelectionOverride ? INVISIBLE : VISIBLE);
+      holder.itemView.setOnClickListener(
+          v -> {
+            if (player == null
+                || !player.isCommandAvailable(COMMAND_SET_TRACK_SELECTION_PARAMETERS)) {
+              return;
+            }
+
+            TrackSelectionParameters trackSelectionParameters =
+                player.getTrackSelectionParameters();
+
+            castNonNull(player)
+                .setTrackSelectionParameters(
+                    trackSelectionParameters
+                        .buildUpon()
+                        .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
+                        .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, /* disabled= */ false)
+                        .build());
+
+            settingsAdapter.setSubTextAtPosition(
+                SETTINGS_VIDEO_TRACK_SELECTION_POSITION,
+                getResources().getString(R.string.exo_track_selection_auto));
+
+            settingsWindow.dismiss();
+          });
+    }
+
+    private boolean hasSelectionOverride(TrackSelectionParameters trackSelectionParameters) {
+      for (int i = 0; i < tracks.size(); i++) {
+        TrackGroup trackGroup = tracks.get(i).trackGroup.getMediaTrackGroup();
+        if (trackSelectionParameters.overrides.containsKey(trackGroup)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    @Override
+    public void onTrackSelection(String subtext) {
+      settingsAdapter.setSubTextAtPosition(SETTINGS_VIDEO_TRACK_SELECTION_POSITION, subtext);
+    }
+
+    @Override
+    public void init(List<TrackInformation> trackInformations) {
+      this.tracks = trackInformations;
+      // Update subtext in settings menu with current audio track selection.
+      TrackSelectionParameters params = checkNotNull(player).getTrackSelectionParameters();
+      if (trackInformations.isEmpty()) {
+        settingsAdapter.setSubTextAtPosition(
+            SETTINGS_VIDEO_TRACK_SELECTION_POSITION,
+            getResources().getString(R.string.exo_track_selection_none));
+      } else if (!hasSelectionOverride(params)) {
+        settingsAdapter.setSubTextAtPosition(
+            SETTINGS_VIDEO_TRACK_SELECTION_POSITION,
+            getResources().getString(R.string.exo_track_selection_auto));
+      } else {
+        for (int i = 0; i < trackInformations.size(); i++) {
+          TrackInformation track = trackInformations.get(i);
+          if (track.isSelected()) {
+            settingsAdapter.setSubTextAtPosition(
+                SETTINGS_VIDEO_TRACK_SELECTION_POSITION, track.trackName);
             break;
           }
         }
