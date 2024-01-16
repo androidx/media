@@ -26,7 +26,6 @@ import android.os.Looper;
 import android.widget.Toast;
 import androidx.annotation.Nullable;
 import androidx.annotation.OptIn;
-import androidx.annotation.RequiresApi;
 import androidx.fragment.app.FragmentManager;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
@@ -355,7 +354,6 @@ public class DownloadTracker {
   }
 
   /** Downloads a Widevine offline license in a background thread. */
-  @RequiresApi(18)
   private static final class WidevineOfflineLicenseFetchTask {
 
     private final Format format;
