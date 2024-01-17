@@ -164,22 +164,9 @@ AUDIO_DECODER_FUNC(jint, ffmpegDecode, jlong context, jobject inputData,
   packet->data = inputBuffer;
   packet->size = inputSize;
   const int ret =
-      decodePacket((AVCodecContext *)context, packet, outputBuffer, outputSize,
-                   GrowOutputBufferCallback{env, thiz, decoderOutputBuffer});
+      decodePacket((AVCodecContext *)context, packet, outputBuffer, outputSize);
   av_packet_free(&packet);
   return ret;
-}
-
-uint8_t *GrowOutputBufferCallback::operator()(int requiredSize) const {
-  jobject newOutputData = env->CallObjectMethod(
-      thiz, growOutputBufferMethod, decoderOutputBuffer, requiredSize);
-  if (env->ExceptionCheck()) {
-    LOGE("growOutputBuffer() failed");
-    env->ExceptionDescribe();
-    return nullptr;
-  }
-  return static_cast<uint8_t *>(env->GetDirectBufferAddress(newOutputData));
->>>>>>> 45b51d8c97 (Merge pull request #707 from equeim:ffmpeg-6.0)
 }
 
 AUDIO_DECODER_FUNC(jint, ffmpegGetChannelCount, jlong context) {
