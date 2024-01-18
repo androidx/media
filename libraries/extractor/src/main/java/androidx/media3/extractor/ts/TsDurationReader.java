@@ -31,11 +31,13 @@ import java.io.IOException;
  *
  * <p>This reader extracts the duration by reading DTS values of the first PES PID packets at the
  * start and at the end of the stream, calculating the difference, and converting that into stream
- * duration. Should DTS not be available this reader falls back to using PCR in the same way and
- * also handles the case when a single PCR wraparound takes place within the stream, which can make
- * PCR values at the beginning of the stream larger than PCR values at the end.
- * This class can only be used once to read duration from a given stream, and the usage of the
- * class is not thread-safe, so all calls should be made from the same thread.
+ * duration. Should DTS not be available this reader falls back to using PCR, reading its values
+ * from the PCR PID packets at the start and at the end of the stream, calculating the difference,
+ * and converting that into stream duration. This reader also handles the case when a single PCR
+ * wraparound takes place within the stream, which can make PCR values at the beginning of the
+ * stream larger than PCR values at the end. This class can only be used once to read duration from
+ * a given stream, and the usage of the class is not thread-safe, so all calls should be made from
+ * the same thread.
  */
 /* package */ final class TsDurationReader {
 
@@ -45,7 +47,8 @@ import java.io.IOException;
   private final TimestampAdjuster timestampAdjuster;
   private final ParsableByteArray packetBuffer;
 
-  private boolean isDurationRead;
+  private boolean isDurationReadFromDts;
+  private boolean isDurationReadFromPcr;
   private boolean isFirstPcrValueRead;
   private boolean isLastPcrValueRead;
   private boolean isFirstDtsValueRead;
@@ -70,18 +73,42 @@ import java.io.IOException;
     firstDtsValue = C.TIME_UNSET;
     secondDtsValue = C.TIME_UNSET;
     lastDtsValue = C.TIME_UNSET;
-    firstDtsPosition = -1;
+    firstDtsPosition = C.POSITION_UNSET;
     durationUs = C.TIME_UNSET;
     packetBuffer = new ParsableByteArray();
   }
 
   /** Returns true if a TS duration has been read. */
   public boolean isDurationReadFinished() {
-    return isDurationRead;
+    return isDurationReadFromDts && isDurationReadFromPcr;
   }
 
   /**
-   * Reads a TS duration from the input, using the given PCR PID.
+   * Reads a TS duration from the input, using the DTS values from the given PES PID,
+   * if the input lacks DTSes it falls back to using PCR values from the given PCR PID.
+   *
+   * <p>This reader reads the duration by reading DTS/PCR values of the PES/PCR PID packets at the
+   * start and at the end of the stream, calculating the difference, and converting that into
+   * stream duration. The DTS reader also adjusts for frame duration of the last frame.
+   *
+   * @param input The {@link ExtractorInput} from which data should be read.
+   * @param seekPositionHolder If {@link Extractor#RESULT_SEEK} is returned, this holder is updated
+   *     to hold the position of the required seek.
+   * @param pesPid The PID of the packet stream within this TS stream that contains DTS values.
+   * @param pcrPid The PID of the packet stream within this TS stream that contains PCR values.
+   * @return One of the {@code RESULT_} values defined in {@link Extractor}.
+   * @throws IOException If an error occurred reading from the input.
+   */
+  public @Extractor.ReadResult int readDuration(
+      ExtractorInput input, PositionHolder seekPositionHolder, int pesPid, int pcrPid) throws IOException {
+    if (!isDurationReadFromDts) {
+      return readDurationFromDts(input, seekPositionHolder, pesPid);
+    }
+    return readDurationFromPcr(input, seekPositionHolder, pcrPid);
+  }
+
+  /**
+   * Reads a TS duration from the input, using the PCR values from the given PCR PID.
    *
    * <p>This reader reads the duration by reading PCR values of the PCR PID packets at the start and
    * at the end of the stream, calculating the difference, and converting that into stream duration.
@@ -93,22 +120,25 @@ import java.io.IOException;
    * @return One of the {@code RESULT_} values defined in {@link Extractor}.
    * @throws IOException If an error occurred reading from the input.
    */
-  public @Extractor.ReadResult int readDuration(
+  private @Extractor.ReadResult int readDurationFromPcr(
       ExtractorInput input, PositionHolder seekPositionHolder, int pcrPid) throws IOException {
     if (pcrPid <= 0) {
-      return finishReadDuration(input);
+      isDurationReadFromPcr = true;
+      return Extractor.RESULT_CONTINUE;
     }
     if (!isLastPcrValueRead) {
       return readLastPcrValue(input, seekPositionHolder, pcrPid);
     }
     if (lastPcrValue == C.TIME_UNSET) {
-      return finishReadDuration(input);
+      isDurationReadFromPcr = true;
+      return Extractor.RESULT_CONTINUE;
     }
     if (!isFirstPcrValueRead) {
       return readFirstPcrValue(input, seekPositionHolder, pcrPid);
     }
     if (firstPcrValue == C.TIME_UNSET) {
-      return finishReadDuration(input);
+      isDurationReadFromPcr = true;
+      return Extractor.RESULT_CONTINUE;
     }
 
     long minPcrPositionUs = timestampAdjuster.adjustTsTimestamp(firstPcrValue);
@@ -120,35 +150,54 @@ import java.io.IOException;
     return finishReadDuration(input);
   }
 
-  public @Extractor.ReadResult int computeDuration(
+  /**
+   * Reads a TS duration from the input, using the DTS values from the given PES PID.
+   *
+   * <p>This reader reads the duration by reading first, second and last DTS values from the PES PID
+   * packets in the stream. The differences between second and first and between last
+   * and first give respectively frame duration and stream duration less one frame duration, so
+   * the total stream duration is the sum of these two differences.
+   *
+   * @param input The {@link ExtractorInput} from which data should be read.
+   * @param seekPositionHolder If {@link Extractor#RESULT_SEEK} is returned, this holder is updated
+   *     to hold the position of the required seek.
+   * @param pesPid The PID of the packet stream within this TS stream that contains DTS values.
+   * @return One of the {@code RESULT_} values defined in {@link Extractor}.
+   * @throws IOException If an error occurred reading from the input.
+   */
+  private @Extractor.ReadResult int readDurationFromDts(
       ExtractorInput input, PositionHolder seekPositionHolder, int pesPid) throws IOException {
     if (pesPid <= 0) {
-      return finishReadDuration(input);
+      isDurationReadFromDts = true;
+      return Extractor.RESULT_CONTINUE;
     }
     if (!isLastDtsValueRead) {
       return readLastDtsValue(input, seekPositionHolder, pesPid);
     }
     if (lastDtsValue == C.TIME_UNSET) {
-      return finishReadDuration(input);
+      isDurationReadFromDts = true;
+      return Extractor.RESULT_CONTINUE;
     }
     if (!isFirstDtsValueRead) {
       return readFirstDtsValue(input, seekPositionHolder, pesPid);
     }
     if (firstDtsValue == C.TIME_UNSET) {
-      return finishReadDuration(input);
+      isDurationReadFromDts = true;
+      return Extractor.RESULT_CONTINUE;
     }
     if (!isSecondDtsValueRead) {
       return readSecondDtsValue(input, seekPositionHolder, pesPid);
     }
     if (secondDtsValue == C.TIME_UNSET) {
-      return finishReadDuration(input);
+      isDurationReadFromDts = true;
+      return Extractor.RESULT_CONTINUE;
     }
 
     long firstDtsPositionUs = timestampAdjuster.adjustTsTimestamp(firstDtsValue);
     long secondDtsPositionUs = timestampAdjuster.adjustTsTimestamp(secondDtsValue);
     long frameDurationUs = secondDtsPositionUs - firstDtsPositionUs;
     long lastDtsPositionUs = timestampAdjuster.adjustTsTimestamp(lastDtsValue);
-    durationUs = lastDtsPositionUs - firstDtsPositionUs + frameDurationUs;
+    durationUs = frameDurationUs + lastDtsPositionUs - firstDtsPositionUs;
     if (durationUs < 0) {
       durationUs = C.TIME_UNSET;
     }
@@ -156,7 +205,7 @@ import java.io.IOException;
   }
 
   /**
-   * Returns the duration last read from {@link #readDuration(ExtractorInput, PositionHolder, int)}.
+   * Returns the duration last read from {@link #readDuration(ExtractorInput, PositionHolder, int, int)}.
    */
   public long getDurationUs() {
     return durationUs;
@@ -172,7 +221,8 @@ import java.io.IOException;
 
   private int finishReadDuration(ExtractorInput input) {
     packetBuffer.reset(Util.EMPTY_BYTE_ARRAY);
-    isDurationRead = true;
+    isDurationReadFromDts = true;
+    isDurationReadFromPcr = true;
     input.resetPeekPosition();
     return Extractor.RESULT_CONTINUE;
   }
