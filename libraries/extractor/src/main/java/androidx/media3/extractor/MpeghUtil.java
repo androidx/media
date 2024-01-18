@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 The Android Open Source Project
+ * Copyright 2024 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -72,10 +72,10 @@ public final class MpeghUtil {
       switch (packetType) {
         case MhasPacketHeader.PACTYP_MPEGH3DACFG:
           throw ParserException.createForMalformedContainer(
-              "Mpegh3daConfig packet with invalid packet label 0", /* cause= */  null);
+              "Mpegh3daConfig packet with invalid packet label 0", /* cause= */ null);
         case MhasPacketHeader.PACTYP_AUDIOTRUNCATION:
           throw ParserException.createForMalformedContainer(
-              "AudioTruncation packet with invalid packet label 0", /* cause= */  null);
+              "AudioTruncation packet with invalid packet label 0", /* cause= */ null);
         case MhasPacketHeader.PACTYP_MPEGH3DAFRAME:
           throw ParserException.createForMalformedContainer(
               "Mpegh3daFrame packet with invalid packet label 0", /* cause= */ null);
@@ -612,7 +612,8 @@ public final class MpeghUtil {
     public final int packetLength;
     public final int headerLength;
 
-    public MhasPacketHeader(@Type int packetType, long packetLabel, int packetLength, int headerLength) {
+    public MhasPacketHeader(
+        @Type int packetType, long packetLabel, int packetLength, int headerLength) {
       this.packetType = packetType;
       this.packetLabel = packetLabel;
       this.packetLength = packetLength;

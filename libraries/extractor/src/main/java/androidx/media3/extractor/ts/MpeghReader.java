@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 The Android Open Source Project
+ * Copyright 2024 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,7 +61,6 @@ public final class MpeghReader implements ElementaryStreamReader {
   private @MonotonicNonNull String formatId;
   private @MonotonicNonNull TrackOutput output;
 
-
   // The timestamp to attach to the next sample in the current packet.
   private double timeUs;
   private double timeUsPending;
@@ -79,33 +78,21 @@ public final class MpeghReader implements ElementaryStreamReader {
   private int payloadBytesRead;
   private int frameBytes;
 
-  @Nullable
-  private MpeghUtil.MhasPacketHeader header;
+  @Nullable private MpeghUtil.MhasPacketHeader header;
   private int samplingRate;
   private int standardFrameLength;
   private int truncationSamples;
   private long mainStreamLabel;
   private boolean configFound;
 
-
-  /**
-   * Constructs a new reader for MPEG-H elementary streams.
-   */
+  /** Constructs a new reader for MPEG-H elementary streams. */
   public MpeghReader() {
     state = STATE_FINDING_SYNC;
-    syncBytes = 0;
     headerScratchBytes = new ParsableByteArray(new byte[MpeghUtil.MAX_MHAS_PACKET_HEADER_SIZE]);
     dataScratchBytes = new ParsableByteArray();
-    header = null;
-    headerDataFinished = false;
-    payloadBytesRead = 0;
-    frameBytes = 0;
     samplingRate = C.RATE_UNSET_INT;
     standardFrameLength = C.LENGTH_UNSET;
-    truncationSamples = 0;
     mainStreamLabel = C.INDEX_UNSET;
-    configFound = false;
-    dataPending = false;
     rapPending = true;
     timeUs = C.TIME_UNSET;
     timeUsPending = C.TIME_UNSET;
@@ -172,10 +159,15 @@ public final class MpeghReader implements ElementaryStreamReader {
           }
           break;
         case STATE_READING_PACKET_HEADER:
-          // check if the gathering of data in header scratch buffer was finished and adjust remaining bytes
+          // check if the gathering of data in header scratch buffer was finished and adjust
+          // remaining bytes
           if (headerDataFinished && headerScratchBytes.getPosition() > 0) {
-            System.arraycopy(headerScratchBytes.getData(), headerScratchBytes.getPosition(),
-                headerScratchBytes.getData(), 0, headerScratchBytes.bytesLeft());
+            System.arraycopy(
+                headerScratchBytes.getData(),
+                headerScratchBytes.getPosition(),
+                headerScratchBytes.getData(),
+                0,
+                headerScratchBytes.bytesLeft());
             headerScratchBytes.setPosition(headerScratchBytes.bytesLeft());
             headerDataFinished = false;
           }
@@ -195,8 +187,8 @@ public final class MpeghReader implements ElementaryStreamReader {
             payloadBytesRead = 0;
             frameBytes += header.packetLength + header.headerLength;
 
-            if (header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_AUDIOTRUNCATION ||
-                header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_MPEGH3DACFG) {
+            if (header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_AUDIOTRUNCATION
+                || header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_MPEGH3DACFG) {
               dataScratchBytes.ensureCapacity(header.packetLength);
               dataScratchBytes.setPosition(0);
               dataScratchBytes.setLimit(header.packetLength);
@@ -207,11 +199,8 @@ public final class MpeghReader implements ElementaryStreamReader {
           }
           break;
         case STATE_READING_PACKET_PAYLOAD:
-          if (header == null) {
-            throw new IllegalStateException();
-          }
-          if (header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_MPEGH3DACFG ||
-              header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_AUDIOTRUNCATION) {
+          if (header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_MPEGH3DACFG
+              || header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_AUDIOTRUNCATION) {
             // read bytes from header scratch buffer into the data scratch buffer
             headerDataPos = headerScratchBytes.getPosition();
             if (headerDataPos != MpeghUtil.MAX_MHAS_PACKET_HEADER_SIZE) {
@@ -228,8 +217,8 @@ public final class MpeghReader implements ElementaryStreamReader {
           // read bytes from header scratch buffer and write them into the output
           headerDataPos = headerScratchBytes.getPosition();
           if (headerDataPos != MpeghUtil.MAX_MHAS_PACKET_HEADER_SIZE) {
-            bytesToRead = min(headerScratchBytes.bytesLeft(),
-                header.packetLength - payloadBytesRead);
+            bytesToRead =
+                min(headerScratchBytes.bytesLeft(), header.packetLength - payloadBytesRead);
             output.sampleData(headerScratchBytes, bytesToRead);
             payloadBytesRead += bytesToRead;
           }
@@ -255,9 +244,10 @@ public final class MpeghReader implements ElementaryStreamReader {
                 @Nullable List<byte[]> initializationData = null;
                 if (config.compatibleProfileLevelSet != null
                     && config.compatibleProfileLevelSet.length > 0) {
-                  // The first entry in initializationData is reserved for the audio specific config.
-                  initializationData = ImmutableList.of(Util.EMPTY_BYTE_ARRAY,
-                      config.compatibleProfileLevelSet);
+                  // The first entry in initializationData is reserved for the audio specific
+                  // config.
+                  initializationData =
+                      ImmutableList.of(Util.EMPTY_BYTE_ARRAY, config.compatibleProfileLevelSet);
                 }
                 Format format =
                     new Format.Builder()
@@ -280,7 +270,8 @@ public final class MpeghReader implements ElementaryStreamReader {
                 rapPending = false;
               }
               double sampleDurationUs =
-                  (double) C.MICROS_PER_SECOND * (standardFrameLength - truncationSamples)
+                  (double) C.MICROS_PER_SECOND
+                      * (standardFrameLength - truncationSamples)
                       / samplingRate;
               long pts = Math.round(timeUs);
               if (dataPending) {
@@ -310,17 +301,16 @@ public final class MpeghReader implements ElementaryStreamReader {
     // Do nothing.
   }
 
-
   /**
    * Continues a read from the provided {@code source} into a given {@code target}.
    *
-   * @param source       The source from which to read.
-   * @param target       The target into which data is to be read.
+   * @param source The source from which to read.
+   * @param target The target into which data is to be read.
    * @param targetLength The target length of the read.
    * @return Whether the target length was reached.
    */
-  private boolean continueRead(ParsableByteArray source, ParsableByteArray target,
-      int targetLength) {
+  private boolean continueRead(
+      ParsableByteArray source, ParsableByteArray target, int targetLength) {
     int bytesToRead = min(source.bytesLeft(), targetLength - target.getPosition());
     source.readBytes(target.getData(), target.getPosition(), bytesToRead);
     target.setPosition(target.getPosition() + bytesToRead);
@@ -340,21 +330,22 @@ public final class MpeghReader implements ElementaryStreamReader {
       if ((flags & FLAG_RANDOM_ACCESS_INDICATOR) == 0) {
         // RAI is not signalled -> drop the PES data
         pesBuffer.setPosition(pesBuffer.limit());
-      } else {
-        if ((flags & FLAG_DATA_ALIGNMENT_INDICATOR) == 0) {
-          // if RAI is signalled but the data is not aligned we need to find the sync packet
-          while (pesBuffer.bytesLeft() > 0) {
-            syncBytes <<= C.BITS_PER_BYTE;
-            syncBytes |= pesBuffer.readUnsignedByte();
-            if (MpeghUtil.isSyncWord(syncBytes)) {
-              pesBuffer.setPosition(pesBuffer.getPosition() - MpeghUtil.MHAS_SYNC_WORD_LENGTH);
-              syncBytes = 0;
-              return true;
-            }
+        return false;
+      }
+
+      if ((flags & FLAG_DATA_ALIGNMENT_INDICATOR) == 0) {
+        // if RAI is signalled but the data is not aligned we need to find the sync packet
+        while (pesBuffer.bytesLeft() > 0) {
+          syncBytes <<= C.BITS_PER_BYTE;
+          syncBytes |= pesBuffer.readUnsignedByte();
+          if (MpeghUtil.isSyncWord(syncBytes)) {
+            pesBuffer.setPosition(pesBuffer.getPosition() - MpeghUtil.MHAS_SYNC_WORD_LENGTH);
+            syncBytes = 0;
+            return true;
           }
-        } else {
-          return true;
         }
+      } else {
+        return true;
       }
     } else {
       pesBuffer.setPosition(pesBuffer.limit());
