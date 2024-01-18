@@ -23,274 +23,31 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableBitArray;
-import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import java.util.Arrays;
 
 /** Utility methods for parsing MPEG-H frames, which are access units in MPEG-H bitstreams. */
 @UnstableApi
 public final class MpeghUtil {
 
-  /** Holds information contained in the parsed MPEG-H frame. */
-  public static final class FrameInfo {
-
-    /** Signals if the MPEG-H frame contains a mpegh3daConfig packet. */
-    public final boolean containsConfig;
-
-    /** Signals if the mpegh3daConfig packet in the MPEG-H frame has changed. */
-    public final boolean configChanged;
-
-    /** The default number of audio samples in the frame. */
-    public final int standardFrameSamples;
-
-    /** The audio sampling rate in Hz. */
-    public final int samplingRate;
-
-    /** The actual number of audio samples in the frame. */
-    public final int frameSamples;
-
-    /** The number of bytes building the frame. */
-    public final int frameBytes;
-
-    /** The label of the main stream in the frame. */
-    public final long mainStreamLabel;
-
-    /** The profile level indication of the audio in the frame. */
-    public final int mpegh3daProfileLevelIndication;
-
-    /** An array of compatible profile level indications of the audio in the frame. */
-    @Nullable public final byte[] compatibleSetIndication;
-
-    /**
-     * Initializes the {@link FrameInfo} with fields containing certain values.
-     *
-     * @param containsConfig See {@link #containsConfig}.
-     * @param configChanged See {@link #configChanged}.
-     * @param standardFrameSamples See {@link #standardFrameSamples}.
-     * @param samplingRate See {@link #samplingRate}.
-     * @param frameSamples See {@link #frameSamples}.
-     * @param frameBytes See {@link #frameBytes}.
-     * @param mainStreamLabel See {@link #mainStreamLabel}.
-     * @param mpegh3daProfileLevelIndication See {@link #mpegh3daProfileLevelIndication}.
-     * @param compatibleSetIndication See {@link #compatibleSetIndication}.
-     */
-    public FrameInfo(
-        boolean containsConfig,
-        boolean configChanged,
-        int standardFrameSamples,
-        int samplingRate,
-        int frameSamples,
-        int frameBytes,
-        long mainStreamLabel,
-        int mpegh3daProfileLevelIndication,
-        @Nullable byte[] compatibleSetIndication) {
-      this.containsConfig = containsConfig;
-      this.configChanged = configChanged;
-      this.standardFrameSamples = standardFrameSamples;
-      this.samplingRate = samplingRate;
-      this.frameSamples = frameSamples;
-      this.frameBytes = frameBytes;
-      this.mainStreamLabel = mainStreamLabel;
-      this.mpegh3daProfileLevelIndication = mpegh3daProfileLevelIndication;
-      this.compatibleSetIndication =
-          compatibleSetIndication != null
-              ? Arrays.copyOf(compatibleSetIndication, compatibleSetIndication.length)
-              : null;
-    }
-  }
-
   /** See ISO_IEC_23003-8;2022, 14.4.4. */
-  private static final byte[] MHAS_SYNC_PACKET = new byte[] {(byte) 0xC0, (byte) 0x01, (byte) 0xA5};
+  private static final int MHAS_SYNC_WORD = 0xC001A5;
 
-  private static final int MHAS_SYNC_PACKET_LENGTH = 3;
+  public static final int MHAS_SYNC_WORD_LENGTH = 3;
 
-  /**
-   * Locates the next MHAS sync packet, advancing the position to the start of the sync packet. If a
-   * sync packet was not located, the position is advanced to the limit. See ISO_IEC_23008-3;2022,
-   * 14.4.4.
-   *
-   * @param data The byte array whose position should be advanced.
-   * @return Whether a sync packet position was found.
-   */
-  public static boolean findSyncPacket(ParsableByteArray data) {
-    int syncIndex = 0;
-    while (syncIndex < MHAS_SYNC_PACKET_LENGTH
-        && data.bytesLeft() >= MHAS_SYNC_PACKET_LENGTH - syncIndex) {
-      if (data.readUnsignedByte() == MHAS_SYNC_PACKET[syncIndex]) {
-        syncIndex++;
-      } else {
-        syncIndex = 0; // Restart comparison from the beginning
-      }
-    }
-
-    if (syncIndex == MHAS_SYNC_PACKET_LENGTH) {
-      data.setPosition(data.getPosition() - MHAS_SYNC_PACKET_LENGTH - 1);
-      return true;
-    }
-
-    data.setPosition(data.limit());
-    return false;
-  }
+  public static final int MAX_MHAS_PACKET_HEADER_SIZE = 15;
 
   /**
-   * Checks if a complete MHAS frame could be parsed by calculating if enough data is available in
-   * the provided {@link ParsableBitArray}.
+   * Returns whether a given integer matches an MHAS sync word. See ISO_IEC_23008-3;2022, 14.4.4.
    *
-   * @param data The bit array to parse.
-   * @return Whether a complete MHAS frame could be parsed.
+   * @param word An integer.
+   * @return Whether a given integer matches an MHAS sync word.
    */
-  public static boolean canParseFrame(ParsableBitArray data) {
-    boolean result = false;
-    int originalPosition = data.getPosition();
-    while (true) {
-      MhasPacketHeader header;
-      try {
-        header = parseMhasPacketHeader(data);
-      } catch (Exception e) {
-        // There is not enough data available to parse the MHAS packet header.
-        break;
-      }
-      if (data.bitsLeft() < header.packetLength * C.BITS_PER_BYTE) {
-        // There is not enough data available to parse the current MHAS packet.
-        break;
-      }
-      data.skipBytes(header.packetLength);
-
-      if (header.packetType == MhasPacketHeader.PACTYP_MPEGH3DAFRAME) {
-        // An mpegh3daFrame packet has been found which signals the end of the MHAS frame.
-        result = true;
-        break;
-      }
-    }
-    data.setPosition(originalPosition);
-    return result;
-  }
-
-  /**
-   * Parses the necessary info of an MPEG-H frame into the FrameInfo structure.
-   *
-   * @param data The bit array to parse, positioned at the start of the MHAS frame.
-   * @param prevFrameInfo A {@link FrameInfo} derived from the previous frame in the stream or
-   *     {@code null} when there is no previous frame.
-   * @return {@link FrameInfo} of the current frame.
-   * @throws ParserException if a valid {@link FrameInfo} cannot be parsed.
-   */
-  public static FrameInfo parseFrame(ParsableBitArray data, @Nullable FrameInfo prevFrameInfo)
-      throws ParserException {
-    int standardFrameSamples;
-    int samplingFrequency;
-    long mainStreamLabel;
-    boolean frameFound = false;
-    boolean configFound = false;
-    boolean configChanged = false;
-    int truncationSamples = C.LENGTH_UNSET;
-    int mpegh3daProfileLevelIndication = -1;
-    @Nullable byte[] compatibleSetIndication = null;
-
-    if (prevFrameInfo != null) {
-      standardFrameSamples = prevFrameInfo.standardFrameSamples;
-      samplingFrequency = prevFrameInfo.samplingRate;
-      mainStreamLabel = prevFrameInfo.mainStreamLabel;
-    } else {
-      standardFrameSamples = C.LENGTH_UNSET;
-      samplingFrequency = C.RATE_UNSET_INT;
-      mainStreamLabel = -1;
-    }
-
-    int initialBitsLeft = data.bitsLeft();
-
-    if (!data.isByteAligned()) {
-      throw ParserException.createForMalformedContainer(
-          "Input data buffer is not Byte aligned", /* cause= */ null);
-    }
-
-    do {
-      // parse MHAS packet header
-      MhasPacketHeader packetHeader = parseMhasPacketHeader(data);
-      int originalPosition = data.getPosition();
-
-      switch (packetHeader.packetType) {
-        case MhasPacketHeader.PACTYP_MPEGH3DACFG:
-          // we already found a mpegh3daConfig
-          if (configFound) {
-            throw ParserException.createForMalformedContainer(
-                "Found a second mpegh3daConfig packet", /* cause= */ null);
-          }
-          configFound = true;
-
-          // check for config change
-          if (packetHeader.packetLabel != mainStreamLabel) {
-            configChanged = true;
-          }
-          // save new packet label
-          mainStreamLabel = packetHeader.packetLabel;
-
-          // parse the mpegh3daConfig
-          Mpegh3daConfig mpegh3daConfig = parseMpegh3daConfig(data);
-
-          // get the necessary data from mpegh3daConfig
-          samplingFrequency = mpegh3daConfig.samplingFrequency;
-          standardFrameSamples = mpegh3daConfig.standardFrameSamples;
-          mpegh3daProfileLevelIndication = mpegh3daConfig.profileLevelIndication;
-          if (mpegh3daConfig.compatibleProfileLevelSet != null) {
-            compatibleSetIndication = mpegh3daConfig.compatibleProfileLevelSet;
-          }
-
-          data.setPosition(originalPosition);
-          data.skipBytes(packetHeader.packetLength);
-          break;
-
-        case MhasPacketHeader.PACTYP_AUDIOTRUNCATION:
-          truncationSamples = parseAudioTruncationInfo(data);
-          if (truncationSamples > standardFrameSamples) {
-            throw ParserException.createForMalformedContainer(
-                "Truncation size is too big", /* cause= */ null);
-          }
-
-          data.setPosition(originalPosition);
-          data.skipBytes(packetHeader.packetLength);
-          break;
-
-        case MhasPacketHeader.PACTYP_MPEGH3DAFRAME:
-          // check packet label
-          if (packetHeader.packetLabel != mainStreamLabel) {
-            throw ParserException.createForMalformedContainer(
-                "Mpegh3daFrame packet does not belong to main stream", /* cause= */ null);
-          }
-          frameFound = true;
-          data.skipBytes(packetHeader.packetLength);
-          break;
-
-        default:
-          data.skipBytes(packetHeader.packetLength);
-          break;
-      }
-
-      if (!data.isByteAligned()) {
-        throw ParserException.createForMalformedContainer(
-            "Data buffer is not Byte aligned after parsing", /* cause= */ null);
-      }
-
-    } while (!frameFound);
-
-    int parsedBytes = (initialBitsLeft - data.bitsLeft()) / C.BITS_PER_BYTE;
-
-    return new FrameInfo(
-        configFound,
-        configChanged,
-        standardFrameSamples,
-        /* samplingRate= */ samplingFrequency,
-        /* frameSamples= */ (truncationSamples == C.LENGTH_UNSET
-            ? standardFrameSamples
-            : standardFrameSamples - truncationSamples),
-        /* frameBytes= */ parsedBytes,
-        mainStreamLabel,
-        mpegh3daProfileLevelIndication,
-        compatibleSetIndication);
+  public static boolean isSyncWord(int word) {
+    return (word & 0xFFFFFF) == MHAS_SYNC_WORD;
   }
 
   /**
@@ -300,8 +57,9 @@ public final class MpeghUtil {
    * @return The {@link MhasPacketHeader} info.
    * @throws ParserException if a valid {@link MhasPacketHeader} cannot be parsed.
    */
-  private static MhasPacketHeader parseMhasPacketHeader(ParsableBitArray data)
+  public static MhasPacketHeader parseMhasPacketHeader(ParsableBitArray data)
       throws ParserException {
+    int dataStartPos = data.getPosition();
     @MhasPacketHeader.Type int packetType = checkedCast(readEscapedValue(data, 3, 8, 8));
     long packetLabel = readEscapedValue(data, 2, 8, 32);
 
@@ -314,10 +72,10 @@ public final class MpeghUtil {
       switch (packetType) {
         case MhasPacketHeader.PACTYP_MPEGH3DACFG:
           throw ParserException.createForMalformedContainer(
-              "Mpegh3daConfig packet with invalid packet label 0", /* cause= */ null);
+              "Mpegh3daConfig packet with invalid packet label 0", /* cause= */  null);
         case MhasPacketHeader.PACTYP_AUDIOTRUNCATION:
           throw ParserException.createForMalformedContainer(
-              "AudioTruncation packet with invalid packet label 0", /* cause= */ null);
+              "AudioTruncation packet with invalid packet label 0", /* cause= */  null);
         case MhasPacketHeader.PACTYP_MPEGH3DAFRAME:
           throw ParserException.createForMalformedContainer(
               "Mpegh3daFrame packet with invalid packet label 0", /* cause= */ null);
@@ -327,7 +85,10 @@ public final class MpeghUtil {
     }
 
     int packetLength = checkedCast(readEscapedValue(data, 11, 24, 24));
-    return new MhasPacketHeader(packetType, packetLabel, packetLength);
+
+    int headerLength = (data.getPosition() - dataStartPos) / C.BITS_PER_BYTE;
+
+    return new MhasPacketHeader(packetType, packetLabel, packetLength, headerLength);
   }
 
   /**
@@ -518,7 +279,7 @@ public final class MpeghUtil {
    * @return The {@link Mpegh3daConfig}.
    * @throws ParserException if a valid {@link Mpegh3daConfig} cannot be parsed.
    */
-  private static Mpegh3daConfig parseMpegh3daConfig(ParsableBitArray data) throws ParserException {
+  public static Mpegh3daConfig parseMpegh3daConfig(ParsableBitArray data) throws ParserException {
     @Nullable byte[] compatibleProfileLevelSet = null;
     int profileLevelIndication = data.readBits(8);
 
@@ -573,15 +334,14 @@ public final class MpeghUtil {
    * See ISO_IEC_23008-3;2022, 14.2.2, Table 225.
    *
    * @param data The bit array to be parsed.
-   * @return The number of truncated samples or {@link C#LENGTH_UNSET} if decoder should ignore the
-   *     info.
+   * @return The number of truncated samples.
    */
-  private static int parseAudioTruncationInfo(ParsableBitArray data) {
+  public static int parseAudioTruncationInfo(ParsableBitArray data) {
     if (data.readBit()) { // isActive
       data.skipBits(2); // reserved(1), truncFromBegin(1)
       return data.readBits(13);
     }
-    return C.LENGTH_UNSET;
+    return 0;
   }
 
   /**
@@ -794,7 +554,7 @@ public final class MpeghUtil {
 
   private MpeghUtil() {}
 
-  private static class MhasPacketHeader {
+  public static class MhasPacketHeader {
 
     /** MHAS packet types. See ISO_IEC_23008-3;2022, 14.4. */
     @Documented
@@ -823,47 +583,49 @@ public final class MpeghUtil {
       PACTYPE_PCMDATA,
       PACTYP_LOUDNESS
     })
-    private @interface Type {}
+    public @interface Type {}
 
-    private static final int PACTYP_FILLDATA = 0;
-    private static final int PACTYP_MPEGH3DACFG = 1;
-    private static final int PACTYP_MPEGH3DAFRAME = 2;
-    private static final int PACTYP_AUDIOSCENEINFO = 3;
-    private static final int PACTYP_SYNC = 6;
-    private static final int PACTYP_SYNCGAP = 7;
-    private static final int PACTYP_MARKER = 8;
-    private static final int PACTYP_CRC16 = 9;
-    private static final int PACTYP_CRC32 = 10;
-    private static final int PACTYP_DESCRIPTOR = 11;
-    private static final int PACTYP_USERINTERACTION = 12;
-    private static final int PACTYP_LOUDNESS_DRC = 13;
-    private static final int PACTYP_BUFFERINFO = 14;
-    private static final int PACTYP_GLOBAL_CRC16 = 15;
-    private static final int PACTYP_GLOBAL_CRC32 = 16;
-    private static final int PACTYP_AUDIOTRUNCATION = 17;
-    private static final int PACTYP_GENDATA = 18;
-    private static final int PACTYPE_EARCON = 19;
-    private static final int PACTYPE_PCMCONFIG = 20;
-    private static final int PACTYPE_PCMDATA = 21;
-    private static final int PACTYP_LOUDNESS = 22;
+    public static final int PACTYP_FILLDATA = 0;
+    public static final int PACTYP_MPEGH3DACFG = 1;
+    public static final int PACTYP_MPEGH3DAFRAME = 2;
+    public static final int PACTYP_AUDIOSCENEINFO = 3;
+    public static final int PACTYP_SYNC = 6;
+    public static final int PACTYP_SYNCGAP = 7;
+    public static final int PACTYP_MARKER = 8;
+    public static final int PACTYP_CRC16 = 9;
+    public static final int PACTYP_CRC32 = 10;
+    public static final int PACTYP_DESCRIPTOR = 11;
+    public static final int PACTYP_USERINTERACTION = 12;
+    public static final int PACTYP_LOUDNESS_DRC = 13;
+    public static final int PACTYP_BUFFERINFO = 14;
+    public static final int PACTYP_GLOBAL_CRC16 = 15;
+    public static final int PACTYP_GLOBAL_CRC32 = 16;
+    public static final int PACTYP_AUDIOTRUNCATION = 17;
+    public static final int PACTYP_GENDATA = 18;
+    public static final int PACTYPE_EARCON = 19;
+    public static final int PACTYPE_PCMCONFIG = 20;
+    public static final int PACTYPE_PCMDATA = 21;
+    public static final int PACTYP_LOUDNESS = 22;
 
-    private @Type int packetType;
-    private long packetLabel;
-    private int packetLength;
+    public final @Type int packetType;
+    public final long packetLabel;
+    public final int packetLength;
+    public final int headerLength;
 
-    public MhasPacketHeader(@Type int type, long label, int length) {
-      packetType = type;
-      packetLabel = label;
-      packetLength = length;
+    public MhasPacketHeader(@Type int packetType, long packetLabel, int packetLength, int headerLength) {
+      this.packetType = packetType;
+      this.packetLabel = packetLabel;
+      this.packetLength = packetLength;
+      this.headerLength = headerLength;
     }
   }
 
-  private static class Mpegh3daConfig {
+  public static class Mpegh3daConfig {
 
-    private final int profileLevelIndication;
-    private final int samplingFrequency;
-    private final int standardFrameSamples;
-    @Nullable private final byte[] compatibleProfileLevelSet;
+    public final int profileLevelIndication;
+    public final int samplingFrequency;
+    public final int standardFrameSamples;
+    @Nullable public final byte[] compatibleProfileLevelSet;
 
     private Mpegh3daConfig(
         int profileLevelIndication,
