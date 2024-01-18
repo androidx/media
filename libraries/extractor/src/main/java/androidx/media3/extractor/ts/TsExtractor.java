@@ -120,7 +120,7 @@ public final class TsExtractor implements Extractor {
           };
 
   public static final int TS_PACKET_SIZE = 188;
-  public static final int DEFAULT_TIMESTAMP_SEARCH_BYTES = 600 * TS_PACKET_SIZE;
+  public static final int DEFAULT_TIMESTAMP_SEARCH_BYTES = 900 * TS_PACKET_SIZE;
 
   public static final int TS_STREAM_TYPE_MPA = 0x03;
   public static final int TS_STREAM_TYPE_MPA_LSF = 0x04;
@@ -428,9 +428,9 @@ public final class TsExtractor implements Extractor {
     boolean isModeHls = mode == MODE_HLS;
     if (tracksEnded) {
       boolean canReadDuration = inputLength != C.LENGTH_UNSET && mode != MODE_HLS;
-      int pesPid = getFirstPesReaderPid();
-      if (canReadDuration && !durationReader.isDurationReadFinished() && pesPid > 0) {
-        return durationReader.computeDuration(input, seekPosition, pesPid);
+      if (canReadDuration && !durationReader.isDurationReadFinished()) {
+        int pesPid = getFirstPesReaderPid();
+        return durationReader.readDuration(input, seekPosition, pesPid, pcrPid);
       }
       maybeOutputSeekMap(inputLength);
 
