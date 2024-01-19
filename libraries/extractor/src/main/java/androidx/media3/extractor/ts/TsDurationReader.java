@@ -73,7 +73,7 @@ import java.io.IOException;
     firstDtsValue = C.TIME_UNSET;
     secondDtsValue = C.TIME_UNSET;
     lastDtsValue = C.TIME_UNSET;
-    firstDtsPosition = C.POSITION_UNSET;
+    firstDtsPosition = C.INDEX_UNSET;
     durationUs = C.TIME_UNSET;
     packetBuffer = new ParsableByteArray();
   }
@@ -339,8 +339,8 @@ import java.io.IOException;
 
   private int readSecondDtsValue(ExtractorInput input, PositionHolder seekPositionHolder, int pesPid)
       throws IOException {
-    int bytesToSearch = (int) min(timestampSearchBytes, input.getLength());
     int searchStartPosition = firstDtsPosition;
+    int bytesToSearch = (int) min(timestampSearchBytes, input.getLength() - searchStartPosition);
     if (input.getPosition() != searchStartPosition) {
       seekPositionHolder.position = searchStartPosition;
       return Extractor.RESULT_SEEK;
