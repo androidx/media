@@ -1461,7 +1461,7 @@ public class PlayerControlView extends FrameLayout {
       displaySettingsWindow(playbackSpeedAdapter, checkNotNull(settingsButton));
     } else if (position == SETTINGS_AUDIO_TRACK_SELECTION_POSITION) {
       displaySettingsWindow(audioTrackSelectionAdapter, checkNotNull(settingsButton));
-    } else if(position == SETTINGS_VIDEO_TRACK_SELECTION_POSITION) {
+    } else if (position == SETTINGS_VIDEO_TRACK_SELECTION_POSITION) {
       displaySettingsWindow(videoTrackSelectionAdapter, checkNotNull(settingsButton));
     } else {
       settingsWindow.dismiss();
@@ -2102,7 +2102,7 @@ public class PlayerControlView extends FrameLayout {
 
     @Override
     public void onBindViewHolderAtZeroPosition(SubSettingViewHolder holder) {
-      // Audio track selection option includes "Auto" at the top.
+      // Video track selection option includes "Auto" at the top.
       holder.textView.setText(R.string.exo_track_selection_auto);
       // hasSelectionOverride is true means there is an explicit track selection, not "Auto".
       TrackSelectionParameters parameters = checkNotNull(player).getTrackSelectionParameters();
@@ -2152,7 +2152,7 @@ public class PlayerControlView extends FrameLayout {
     @Override
     public void init(List<TrackInformation> trackInformations) {
       this.tracks = trackInformations;
-      // Update subtext in settings menu with current audio track selection.
+      // Update subtext in settings menu with current video track selection.
       TrackSelectionParameters params = checkNotNull(player).getTrackSelectionParameters();
       if (trackInformations.isEmpty()) {
         settingsAdapter.setSubTextAtPosition(
