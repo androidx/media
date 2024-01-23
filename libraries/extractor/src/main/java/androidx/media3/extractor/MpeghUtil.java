@@ -52,8 +52,9 @@ public final class MpeghUtil {
 
   /**
    * Parses an MHAS packet header. See ISO_IEC_23008-3;2022, 14.2.1, Table 222.
+   * The reading position of {@code data} will be modified.
    *
-   * @param data The bit array to parse.
+   * @param data The data to parse, positioned at the start of the MHAS packet header.
    * @return The {@link MhasPacketHeader} info.
    * @throws ParserException if a valid {@link MhasPacketHeader} cannot be parsed.
    */
@@ -93,8 +94,10 @@ public final class MpeghUtil {
 
   /**
    * Obtains the sampling rate of the current MPEG-H frame. See ISO_IEC_23003-3;2020, 5.2, Table 7.
+   * The reading position of {@code data} will be modified.
    *
-   * @param data The bit array holding the bits to be parsed.
+   * @param data The data to parse, positioned at the start of the fields to obtain the sampling
+   *             rate from.
    * @return The sampling frequency.
    * @throws ParserException if sampling frequency could not be obtained.
    */
@@ -249,8 +252,9 @@ public final class MpeghUtil {
 
   /**
    * Obtains an escaped value from an MPEG-H bit stream. See ISO_IEC_23003-3;2020, 5.2, Table 19.
+   * The reading position of {@code data} will be modified.
    *
-   * @param data The bit array to be parsed.
+   * @param data The data to parse, positioned at the start of the escaped value.
    * @param bits1 number of bits to be parsed.
    * @param bits2 number of bits to be parsed.
    * @param bits3 number of bits to be parsed.
@@ -274,8 +278,10 @@ public final class MpeghUtil {
   /**
    * Obtains the necessary info of the Mpegh3daConfig from an MPEG-H bit stream. See
    * ISO_IEC_23008-3;2022, 5.2.2.1, Table 15.
+   * The reading position of {@code data} will be modified.
    *
-   * @param data The bit array to be parsed.
+   * @param data The data to parse, positioned at the start of the payload of an Mpegh3daConfig
+   *             packet.
    * @return The {@link Mpegh3daConfig}.
    * @throws ParserException if a valid {@link Mpegh3daConfig} cannot be parsed.
    */
@@ -332,8 +338,10 @@ public final class MpeghUtil {
   /**
    * Obtains the number of truncated samples of the AudioTruncationInfo from an MPEG-H bit stream.
    * See ISO_IEC_23008-3;2022, 14.2.2, Table 225.
+   * The reading position of {@code data} will be modified.
    *
-   * @param data The bit array to be parsed.
+   * @param data The data to parse, positioned at the start of the payload of an AudioTruncation
+   *             packet.
    * @return The number of truncated samples.
    */
   public static int parseAudioTruncationInfo(ParsableBitArray data) {
@@ -346,9 +354,9 @@ public final class MpeghUtil {
 
   /**
    * Skips the SpeakerConfig3d from an MPEG-H bit stream. See ISO_IEC_23008-3;2022, 5.2.2.2, Table
-   * 18.
+   * 18. The reading position of {@code data} will be modified.
    *
-   * @param data The bit array to be parsed.
+   * @param data The data to parse, positioned at the start of the SpeakerConfig3d field.
    */
   private static void skipSpeakerConfig3d(ParsableBitArray data) {
     int speakerLayoutType = data.readBits(2);
@@ -367,7 +375,10 @@ public final class MpeghUtil {
 
   /**
    * Skips the mpegh3daFlexibleSpeakerConfig from an MPEG-H bit stream. See ISO_IEC_23008-3;2022,
-   * 5.2.2.2, Table 19.
+   * 5.2.2.2, Table 19. The reading position of {@code data} will be modified.
+   *
+   * @param data The data to parse, positioned at the start of the Mpegh3daFlexibleSpeakerConfig
+   *             field.
    */
   private static void skipMpegh3daFlexibleSpeakerConfig(
       ParsableBitArray data, int numberOfSpeakers) {
@@ -408,9 +419,9 @@ public final class MpeghUtil {
 
   /**
    * Obtains the necessary info of Signals3d from an MPEG-H bit stream. See ISO_IEC_23008-3;2022,
-   * 5.2.2.1, Table 17.
+   * 5.2.2.1, Table 17. The reading position of {@code data} will be modified.
    *
-   * @param data The bit array to be parsed.
+   * @param data The data to parse, positioned at the start of the Signals3d field.
    * @return The number of overall signals in the bit stream.
    */
   private static int parseSignals3d(ParsableBitArray data) {
@@ -434,9 +445,9 @@ public final class MpeghUtil {
 
   /**
    * Skips the Mpegh3daDecoderConfig from an MPEG-H bit stream. See ISO_IEC_23008-3;2022, 5.2.2.3,
-   * Table 21.
+   * Table 21. The reading position of {@code data} will be modified.
    *
-   * @param data The bit array to be parsed.
+   * @param data The data to parse, positioned at the start of the Mpegh3daDecoderConfig field.
    * @param numSignals The number of overall signals.
    * @param sbrRatioIndex The SBR ration index.
    */
@@ -517,9 +528,9 @@ public final class MpeghUtil {
 
   /**
    * Obtains the necessary info of the Mpegh3daCoreConfig from an MPEG-H bit stream. See
-   * ISO_IEC_23008-3;2022, 5.2.2.3, Table 24.
+   * ISO_IEC_23008-3;2022, 5.2.2.3, Table 24. The reading position of {@code data} will be modified.
    *
-   * @param data The bit array to be parsed.
+   * @param data The data to parse, positioned at the start of the Mpegh3daCoreConfig field.
    * @return The enhanced noise filling flag.
    */
   private static boolean parseMpegh3daCoreConfig(ParsableBitArray data) {
@@ -535,8 +546,9 @@ public final class MpeghUtil {
 
   /**
    * Skips the SbrConfig from an MPEG-H bit stream. See ISO_IEC_23003-3;2020, 5.2, Table 14.
+   * The reading position of {@code data} will be modified.
    *
-   * @param data The bit array to be parsed.
+   * @param data The data to parse, positioned at the start of the SbrConfig field.
    */
   private static void skipSbrConfig(ParsableBitArray data) {
     data.skipBits(3); // harmonicSBR(1), bs_interTes(1), bs_pvc(1)

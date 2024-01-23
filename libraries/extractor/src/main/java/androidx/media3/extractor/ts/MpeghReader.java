@@ -132,6 +132,8 @@ public final class MpeghReader implements ElementaryStreamReader {
   public void packetStarted(long pesTimeUs, @TsPayloadReader.Flags int flags) {
     this.flags = flags;
 
+    // check if data is pending (an MPEG-H frame could not be completed or parsing the header
+    // could not be finished)
     if (!rapPending && (frameBytes != 0 || !headerDataFinished)) {
       dataPending = true;
     }
@@ -149,8 +151,6 @@ public final class MpeghReader implements ElementaryStreamReader {
   public void consume(ParsableByteArray data) throws ParserException {
     Assertions.checkStateNotNull(output); // Asserts that createTracks has been called.
 
-    int headerDataPos;
-    ParsableBitArray bitArray = new ParsableBitArray();
     while (data.bytesLeft() > 0) {
       switch (state) {
         case STATE_FINDING_SYNC:
@@ -159,133 +159,29 @@ public final class MpeghReader implements ElementaryStreamReader {
           }
           break;
         case STATE_READING_PACKET_HEADER:
-          // check if the gathering of data in header scratch buffer was finished and adjust
-          // remaining bytes
-          if (headerDataFinished && headerScratchBytes.getPosition() > 0) {
-            System.arraycopy(
-                headerScratchBytes.getData(),
-                headerScratchBytes.getPosition(),
-                headerScratchBytes.getData(),
-                0,
-                headerScratchBytes.bytesLeft());
-            headerScratchBytes.setPosition(headerScratchBytes.bytesLeft());
-            headerDataFinished = false;
-          }
-
+          maybeAdjustHeaderScratchBuffer();
           // read into header scratch buffer
           if (continueRead(data, headerScratchBytes, MpeghUtil.MAX_MHAS_PACKET_HEADER_SIZE)) {
-            // make the scratch bytes available for parsing
-            headerScratchBytes.setPosition(0);
-            bitArray.reset(headerScratchBytes);
-
-            // parse the MHAS packet header
-            header = MpeghUtil.parseMhasPacketHeader(bitArray);
-
+            parseHeader();
             // write the packet header to output
             output.sampleData(headerScratchBytes, header.headerLength);
-
-            payloadBytesRead = 0;
-            frameBytes += header.packetLength + header.headerLength;
-
-            if (header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_AUDIOTRUNCATION
-                || header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_MPEGH3DACFG) {
-              dataScratchBytes.ensureCapacity(header.packetLength);
-              dataScratchBytes.setPosition(0);
-              dataScratchBytes.setLimit(header.packetLength);
-            }
             // MHAS packet header finished -> obtain the packet payload
             state = STATE_READING_PACKET_PAYLOAD;
-            headerDataFinished = true;
           }
           break;
         case STATE_READING_PACKET_PAYLOAD:
-          if (header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_MPEGH3DACFG
-              || header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_AUDIOTRUNCATION) {
-            // read bytes from header scratch buffer into the data scratch buffer
-            headerDataPos = headerScratchBytes.getPosition();
-            if (headerDataPos != MpeghUtil.MAX_MHAS_PACKET_HEADER_SIZE) {
-              continueRead(headerScratchBytes, dataScratchBytes, header.packetLength);
-            }
-            headerScratchBytes.setPosition(headerDataPos);
-            // read bytes from input data into the data scratch buffer
-            int dataStartPos = data.getPosition();
-            continueRead(data, dataScratchBytes, header.packetLength);
-            data.setPosition(dataStartPos);
-          }
-
-          int bytesToRead;
-          // read bytes from header scratch buffer and write them into the output
-          headerDataPos = headerScratchBytes.getPosition();
-          if (headerDataPos != MpeghUtil.MAX_MHAS_PACKET_HEADER_SIZE) {
-            bytesToRead =
-                min(headerScratchBytes.bytesLeft(), header.packetLength - payloadBytesRead);
-            output.sampleData(headerScratchBytes, bytesToRead);
-            payloadBytesRead += bytesToRead;
-          }
-          // read bytes from input data and write them into the output
-          bytesToRead = min(data.bytesLeft(), header.packetLength - payloadBytesRead);
-          output.sampleData(data, bytesToRead);
-          payloadBytesRead += bytesToRead;
-
+          maybeCopyToDataScratchBuffer(data);
+          writeSampleData(data);
           if (payloadBytesRead == header.packetLength) {
             dataScratchBytes.setPosition(0);
-            bitArray.reset(dataScratchBytes);
+            ParsableBitArray bitArray = new ParsableBitArray(dataScratchBytes.getData());
             if (header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_MPEGH3DACFG) {
-              MpeghUtil.Mpegh3daConfig config = MpeghUtil.parseMpegh3daConfig(bitArray);
-              samplingRate = config.samplingFrequency;
-              standardFrameLength = config.standardFrameSamples;
-              if (mainStreamLabel != header.packetLabel) {
-                mainStreamLabel = header.packetLabel;
-                // set the output format
-                String codecs = "mhm1";
-                if (config.profileLevelIndication != C.INDEX_UNSET) {
-                  codecs += String.format(".%02X", config.profileLevelIndication);
-                }
-                @Nullable List<byte[]> initializationData = null;
-                if (config.compatibleProfileLevelSet != null
-                    && config.compatibleProfileLevelSet.length > 0) {
-                  // The first entry in initializationData is reserved for the audio specific
-                  // config.
-                  initializationData =
-                      ImmutableList.of(Util.EMPTY_BYTE_ARRAY, config.compatibleProfileLevelSet);
-                }
-                Format format =
-                    new Format.Builder()
-                        .setId(formatId)
-                        .setSampleMimeType(MimeTypes.AUDIO_MPEGH_MHM1)
-                        .setSampleRate(samplingRate)
-                        .setCodecs(codecs)
-                        .setInitializationData(initializationData)
-                        .build();
-                output.format(format);
-              }
-              configFound = true;
+              parseConfig(bitArray);
             } else if (header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_AUDIOTRUNCATION) {
               truncationSamples = MpeghUtil.parseAudioTruncationInfo(bitArray);
             } else if (header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_MPEGH3DAFRAME) {
-              @C.BufferFlags int flag = 0;
-              // if we have a frame with an mpegh3daConfig, set the first obtained AU to a key frame
-              if (configFound) {
-                flag = C.BUFFER_FLAG_KEY_FRAME;
-                rapPending = false;
-              }
-              double sampleDurationUs =
-                  (double) C.MICROS_PER_SECOND
-                      * (standardFrameLength - truncationSamples)
-                      / samplingRate;
-              long pts = Math.round(timeUs);
-              if (dataPending) {
-                dataPending = false;
-                timeUs = timeUsPending;
-              } else {
-                timeUs += sampleDurationUs;
-              }
-              output.sampleMetadata(pts, flag, frameBytes, 0, null);
-              configFound = false;
-              truncationSamples = 0;
-              frameBytes = 0;
+              finalizeFrame();
             }
-            header = null;
             // MHAS packet payload finished -> obtain a new packet header
             state = STATE_READING_PACKET_HEADER;
           }
@@ -318,6 +214,23 @@ public final class MpeghReader implements ElementaryStreamReader {
   }
 
   /**
+   * Copies data from the provided {@code source} into a given {@code target} without progressing
+   * the position of the {@code source}.
+   *
+   * @param source The source from which to read.
+   * @param target The target into which data is to be read.
+   * @param targetLength The target length of the read.
+   */
+  private void copyData(
+      ParsableByteArray source, ParsableByteArray target, int targetLength) {
+    int sourcePosition = source.getPosition();
+    int bytesToRead = min(source.bytesLeft(), targetLength - target.getPosition());
+    source.readBytes(target.getData(), target.getPosition(), bytesToRead);
+    target.setPosition(target.getPosition() + bytesToRead);
+    source.setPosition(sourcePosition);
+  }
+
+  /**
    * Locates the next SYNC value in the buffer, advancing the position to the byte that immediately
    * follows it. If SYNC was not located, the position is advanced to the limit.
    *
@@ -325,31 +238,166 @@ public final class MpeghReader implements ElementaryStreamReader {
    * @return Whether SYNC was found.
    */
   private boolean skipToNextSync(ParsableByteArray pesBuffer) {
-    // we are still waiting for a RAP frame
-    if (rapPending) {
-      if ((flags & FLAG_RANDOM_ACCESS_INDICATOR) == 0) {
-        // RAI is not signalled -> drop the PES data
-        pesBuffer.setPosition(pesBuffer.limit());
-        return false;
-      }
+    if ((flags & FLAG_RANDOM_ACCESS_INDICATOR) == 0) {
+      // RAI is not signalled -> drop the PES data
+      pesBuffer.setPosition(pesBuffer.limit());
+      return false;
+    }
 
-      if ((flags & FLAG_DATA_ALIGNMENT_INDICATOR) == 0) {
-        // if RAI is signalled but the data is not aligned we need to find the sync packet
-        while (pesBuffer.bytesLeft() > 0) {
-          syncBytes <<= C.BITS_PER_BYTE;
-          syncBytes |= pesBuffer.readUnsignedByte();
-          if (MpeghUtil.isSyncWord(syncBytes)) {
-            pesBuffer.setPosition(pesBuffer.getPosition() - MpeghUtil.MHAS_SYNC_WORD_LENGTH);
-            syncBytes = 0;
-            return true;
-          }
+    if ((flags & FLAG_DATA_ALIGNMENT_INDICATOR) == 0) {
+      // if RAI is signalled but the data is not aligned we need to find the sync packet
+      while (pesBuffer.bytesLeft() > 0) {
+        syncBytes <<= C.BITS_PER_BYTE;
+        syncBytes |= pesBuffer.readUnsignedByte();
+        if (MpeghUtil.isSyncWord(syncBytes)) {
+          pesBuffer.setPosition(pesBuffer.getPosition() - MpeghUtil.MHAS_SYNC_WORD_LENGTH);
+          syncBytes = 0;
+          return true;
         }
-      } else {
-        return true;
       }
     } else {
-      pesBuffer.setPosition(pesBuffer.limit());
+      return true;
     }
     return false;
+  }
+
+  /** Parses the MHAS packet header.
+   * 
+   * @throws ParserException if a valid {@link MpeghUtil.Mpegh3daConfig} cannot be parsed.
+   */
+  private void parseHeader() throws ParserException {
+    headerScratchBytes.setPosition(0);
+    ParsableBitArray bitArray = new ParsableBitArray(headerScratchBytes.getData());
+
+    // parse the MHAS packet header
+    header = MpeghUtil.parseMhasPacketHeader(bitArray);
+
+    payloadBytesRead = 0;
+    frameBytes += header.packetLength + header.headerLength;
+
+    if (header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_AUDIOTRUNCATION
+        || header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_MPEGH3DACFG) {
+      // prepare data scratch buffer
+      dataScratchBytes.ensureCapacity(header.packetLength);
+      dataScratchBytes.setPosition(0);
+      dataScratchBytes.setLimit(header.packetLength);
+    }
+    headerDataFinished = true;
+  }
+
+  /** Adjust the header scratch buffer. */
+  private void maybeAdjustHeaderScratchBuffer() {
+    // check if the gathering of data in header scratch buffer was finished and move
+    // remaining bytes to the start of the buffer.
+    if (headerDataFinished && headerScratchBytes.getPosition() > 0) {
+      System.arraycopy(
+          headerScratchBytes.getData(),
+          headerScratchBytes.getPosition(),
+          headerScratchBytes.getData(),
+          0,
+          headerScratchBytes.bytesLeft());
+      headerScratchBytes.setPosition(headerScratchBytes.bytesLeft());
+      headerDataFinished = false;
+    }
+  }
+
+  /**
+   * Copies data to the data scratch buffer.
+   *
+   * @param data A {@link ParsableByteArray} from which to read the sample data. Its position
+   *             will not be changed.
+   */
+  private void maybeCopyToDataScratchBuffer(ParsableByteArray data) {
+    if (header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_MPEGH3DACFG
+        || header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_AUDIOTRUNCATION) {
+      // read bytes from header scratch buffer into the data scratch buffer
+      if (headerScratchBytes.getPosition() != MpeghUtil.MAX_MHAS_PACKET_HEADER_SIZE) {
+        copyData(headerScratchBytes, dataScratchBytes, header.packetLength);
+      }
+      // read bytes from input data into the data scratch buffer
+      copyData(data, dataScratchBytes, header.packetLength);
+    }
+  }
+
+  /**
+   * Writes sample data to the output.
+   *
+   * @param data A {@link ParsableByteArray} from which to read the sample data.
+   */
+  private void writeSampleData(ParsableByteArray data) {
+    int bytesToRead;
+    // read bytes from header scratch buffer and write them into the output
+    if (headerScratchBytes.getPosition() != MpeghUtil.MAX_MHAS_PACKET_HEADER_SIZE) {
+      bytesToRead =
+          min(headerScratchBytes.bytesLeft(), header.packetLength - payloadBytesRead);
+      output.sampleData(headerScratchBytes, bytesToRead);
+      payloadBytesRead += bytesToRead;
+    }
+    // read bytes from input data and write them into the output
+    bytesToRead = min(data.bytesLeft(), header.packetLength - payloadBytesRead);
+    output.sampleData(data, bytesToRead);
+    payloadBytesRead += bytesToRead;
+  }
+
+  /**
+   * Parses the config and sets the output format.
+   *
+   * @param bitArray The data to parse, positioned at the start of the
+   *                 {@link MpeghUtil.Mpegh3daConfig} field.
+   * @throws ParserException if a valid {@link MpeghUtil.Mpegh3daConfig} cannot be parsed.
+   */
+  private void parseConfig(ParsableBitArray bitArray) throws ParserException {
+    MpeghUtil.Mpegh3daConfig config = MpeghUtil.parseMpegh3daConfig(bitArray);
+    samplingRate = config.samplingFrequency;
+    standardFrameLength = config.standardFrameSamples;
+    if (mainStreamLabel != header.packetLabel) {
+      mainStreamLabel = header.packetLabel;
+      // set the output format
+      String codecs = "mhm1";
+      if (config.profileLevelIndication != C.INDEX_UNSET) {
+        codecs += String.format(".%02X", config.profileLevelIndication);
+      }
+      @Nullable List<byte[]> initializationData = null;
+      if (config.compatibleProfileLevelSet != null
+          && config.compatibleProfileLevelSet.length > 0) {
+        // The first entry in initializationData is reserved for the audio specific
+        // config.
+        initializationData =
+            ImmutableList.of(Util.EMPTY_BYTE_ARRAY, config.compatibleProfileLevelSet);
+      }
+      Format format =
+          new Format.Builder()
+              .setId(formatId)
+              .setSampleMimeType(MimeTypes.AUDIO_MPEGH_MHM1)
+              .setSampleRate(samplingRate)
+              .setCodecs(codecs)
+              .setInitializationData(initializationData)
+              .build();
+      output.format(format);
+    }
+    configFound = true;
+  }
+
+  /** Finalizes an MPEG-H frame. */
+  private void finalizeFrame() {
+    @C.BufferFlags int flag = 0;
+    // if we have a frame with an mpegh3daConfig, set the obtained AU to a key frame
+    if (configFound) {
+      flag = C.BUFFER_FLAG_KEY_FRAME;
+      rapPending = false;
+    }
+    double sampleDurationUs =
+        (double) C.MICROS_PER_SECOND * (standardFrameLength - truncationSamples) / samplingRate;
+    long pts = Math.round(timeUs);
+    if (dataPending) {
+      dataPending = false;
+      timeUs = timeUsPending;
+    } else {
+      timeUs += sampleDurationUs;
+    }
+    output.sampleMetadata(pts, flag, frameBytes, 0, null);
+    configFound = false;
+    truncationSamples = 0;
+    frameBytes = 0;
   }
 }
