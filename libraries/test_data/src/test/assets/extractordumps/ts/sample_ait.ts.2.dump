@@ -1,0 +1,57 @@
+seekMap:
+  isSeekable = true
+  duration = 768000
+  getPosition(0) = [[timeUs=0, position=0]]
+  getPosition(1) = [[timeUs=1, position=0]]
+  getPosition(384000) = [[timeUs=384000, position=14136]]
+  getPosition(768000) = [[timeUs=768000, position=28460]]
+numberOfTracks = 2
+track 330:
+  total output bytes = 3784
+  sample count = 7
+  format 0:
+    peakBitrate = 128000
+    id = 1031/330
+    sampleMimeType = audio/eac3
+    channelCount = 2
+    sampleRate = 48000
+    language = fr
+  sample 0:
+    time = 384000
+    flags = 1
+    data = length 512, hash 157489A0
+  sample 1:
+    time = 416000
+    flags = 1
+    data = length 512, hash A37CB66E
+  sample 2:
+    time = 448000
+    flags = 1
+    data = length 512, hash 932F07D4
+  sample 3:
+    time = 480000
+    flags = 1
+    data = length 512, hash 91F50161
+  sample 4:
+    time = 512000
+    flags = 1
+    data = length 512, hash 7F9D6CCB
+  sample 5:
+    time = 544000
+    flags = 1
+    data = length 512, hash 3955F015
+  sample 6:
+    time = 576000
+    flags = 1
+    data = length 512, hash A8E5C938
+track 370:
+  total output bytes = 471
+  sample count = 1
+  format 0:
+    sampleMimeType = application/vnd.dvb.ait
+    subsampleOffsetUs = -43622564033
+  sample 0:
+    time = 384000
+    flags = 1
+    data = length 471, hash B189052F
+tracksEnded = true

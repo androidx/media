@@ -16,6 +16,7 @@
 package androidx.media3.extractor.ts;
 
 import static java.lang.Math.min;
+import static java.lang.Math.max;
 
 import androidx.media3.common.C;
 import androidx.media3.common.util.ParsableByteArray;
@@ -61,6 +62,7 @@ import java.io.IOException;
   private long secondDtsValue;
   private long lastDtsValue;
 
+  private int firstPcrPosition;
   private int firstDtsPosition;
 
   private long durationUs;
@@ -73,6 +75,7 @@ import java.io.IOException;
     firstDtsValue = C.TIME_UNSET;
     secondDtsValue = C.TIME_UNSET;
     lastDtsValue = C.TIME_UNSET;
+    firstPcrPosition = C.INDEX_UNSET;
     firstDtsPosition = C.INDEX_UNSET;
     durationUs = C.TIME_UNSET;
     packetBuffer = new ParsableByteArray();
@@ -126,17 +129,17 @@ import java.io.IOException;
       isDurationReadFromPcr = true;
       return Extractor.RESULT_CONTINUE;
     }
-    if (!isLastPcrValueRead) {
-      return readLastPcrValue(input, seekPositionHolder, pcrPid);
-    }
-    if (lastPcrValue == C.TIME_UNSET) {
-      isDurationReadFromPcr = true;
-      return Extractor.RESULT_CONTINUE;
-    }
     if (!isFirstPcrValueRead) {
       return readFirstPcrValue(input, seekPositionHolder, pcrPid);
     }
     if (firstPcrValue == C.TIME_UNSET) {
+      isDurationReadFromPcr = true;
+      return Extractor.RESULT_CONTINUE;
+    }
+    if (!isLastPcrValueRead) {
+      return readLastPcrValue(input, seekPositionHolder, pcrPid);
+    }
+    if (lastPcrValue == C.TIME_UNSET) {
       isDurationReadFromPcr = true;
       return Extractor.RESULT_CONTINUE;
     }
@@ -171,13 +174,6 @@ import java.io.IOException;
       isDurationReadFromDts = true;
       return Extractor.RESULT_CONTINUE;
     }
-    if (!isLastDtsValueRead) {
-      return readLastDtsValue(input, seekPositionHolder, pesPid);
-    }
-    if (lastDtsValue == C.TIME_UNSET) {
-      isDurationReadFromDts = true;
-      return Extractor.RESULT_CONTINUE;
-    }
     if (!isFirstDtsValueRead) {
       return readFirstDtsValue(input, seekPositionHolder, pesPid);
     }
@@ -189,6 +185,13 @@ import java.io.IOException;
       return readSecondDtsValue(input, seekPositionHolder, pesPid);
     }
     if (secondDtsValue == C.TIME_UNSET) {
+      isDurationReadFromDts = true;
+      return Extractor.RESULT_CONTINUE;
+    }
+    if (!isLastDtsValueRead) {
+      return readLastDtsValue(input, seekPositionHolder, pesPid);
+    }
+    if (lastDtsValue == C.TIME_UNSET) {
       isDurationReadFromDts = true;
       return Extractor.RESULT_CONTINUE;
     }
@@ -256,6 +259,7 @@ import java.io.IOException;
       }
       long pcrValue = TsUtil.readPcrFromPacket(packetBuffer, searchPosition, pcrPid);
       if (pcrValue != C.TIME_UNSET) {
+        firstPcrPosition = packetBuffer.getPosition();
         return pcrValue;
       }
     }
@@ -265,7 +269,7 @@ import java.io.IOException;
   private int readLastPcrValue(ExtractorInput input, PositionHolder seekPositionHolder, int pcrPid)
       throws IOException {
     long inputLength = input.getLength();
-    int bytesToSearch = (int) min(timestampSearchBytes, inputLength);
+    int bytesToSearch = (int) min(timestampSearchBytes, inputLength - firstPcrPosition);
     long searchStartPosition = inputLength - bytesToSearch;
     if (input.getPosition() != searchStartPosition) {
       seekPositionHolder.position = searchStartPosition;
@@ -358,7 +362,7 @@ import java.io.IOException;
   private int readLastDtsValue(ExtractorInput input, PositionHolder seekPositionHolder, int pesPid)
       throws IOException {
     long inputLength = input.getLength();
-    int bytesToSearch = (int) min(timestampSearchBytes, inputLength);
+    int bytesToSearch = (int) min(timestampSearchBytes, inputLength - firstDtsPosition);
     long searchStartPosition = inputLength - bytesToSearch;
     if (input.getPosition() != searchStartPosition) {
       seekPositionHolder.position = searchStartPosition;

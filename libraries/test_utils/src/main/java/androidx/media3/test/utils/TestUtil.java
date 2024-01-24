@@ -401,6 +401,7 @@ public class TestUtil {
         throw new IOException("EOF encountered without seekmap");
       }
       if (output.seekMap != null) {
+        DataSourceUtil.closeQuietly(dataSource);
         return output.seekMap;
       }
     }
