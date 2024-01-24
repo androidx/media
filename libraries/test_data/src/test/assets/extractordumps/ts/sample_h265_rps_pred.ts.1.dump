@@ -1,10 +1,10 @@
 seekMap:
   isSeekable = true
-  duration = 1000000
+  duration = 1066667
   getPosition(0) = [[timeUs=0, position=0]]
   getPosition(1) = [[timeUs=1, position=0]]
-  getPosition(500000) = [[timeUs=500000, position=7134]]
-  getPosition(1000000) = [[timeUs=1000000, position=14457]]
+  getPosition(533333) = [[timeUs=533333, position=7134]]
+  getPosition(1066667) = [[timeUs=1066667, position=14457]]
 numberOfTracks = 1
 track 256:
   total output bytes = 856
@@ -38,7 +38,7 @@ track 256:
     flags = 0
     data = length 49, hash F9A023E1
   sample 4:
-    time = 666666
+    time = 666667
     flags = 0
     data = length 58, hash 74F1E9D9
   sample 5:
@@ -50,11 +50,11 @@ track 256:
     flags = 0
     data = length 87, hash 1A1C57E4
   sample 7:
-    time = 866666
+    time = 866667
     flags = 0
     data = length 65, hash 59F937BE
   sample 8:
-    time = 1066666
+    time = 1066667
     flags = 0
     data = length 94, hash 5D02AC81
   sample 9:
@@ -66,7 +66,7 @@ track 256:
     flags = 0
     data = length 46, hash CE770A40
   sample 11:
-    time = 1266666
+    time = 1266667
     flags = 0
     data = length 7, hash 680F23CB
   sample 12:

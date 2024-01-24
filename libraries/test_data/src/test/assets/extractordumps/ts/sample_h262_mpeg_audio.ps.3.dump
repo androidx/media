@@ -1,10 +1,10 @@
 seekMap:
   isSeekable = true
-  duration = 766
+  duration = 767
   getPosition(0) = [[timeUs=0, position=0]]
   getPosition(1) = [[timeUs=1, position=0]]
-  getPosition(383) = [[timeUs=383, position=23128]]
-  getPosition(766) = [[timeUs=766, position=46445]]
+  getPosition(383) = [[timeUs=383, position=23099]]
+  getPosition(767) = [[timeUs=767, position=46446]]
 numberOfTracks = 2
 track 192:
   total output bytes = 0
