@@ -1578,7 +1578,7 @@ public class PlayerControlView extends FrameLayout {
     return player != null
         && player.isCommandAvailable(COMMAND_PLAY_PAUSE)
         && (!player.isCommandAvailable(COMMAND_GET_TIMELINE)
-        || !player.getCurrentTimeline().isEmpty());
+            || !player.getCurrentTimeline().isEmpty());
   }
 
   @SuppressLint("InlinedApi")
@@ -1772,7 +1772,7 @@ public class PlayerControlView extends FrameLayout {
       } else if (videoTrackButton == view) {
         controlViewLayoutManager.removeHideCallbacks();
         displaySettingsWindow(videoTrackSelectionAdapter, videoTrackButton);
-      }  else if (subtitleButton == view) {
+      } else if (subtitleButton == view) {
         controlViewLayoutManager.removeHideCallbacks();
         displaySettingsWindow(textTrackSelectionAdapter, subtitleButton);
       }
