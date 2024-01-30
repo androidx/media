@@ -7,7 +7,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 
-/** A Label, as defined by ISO 23009-1, 2019 edition, 5.3.7.2. */
+/** A Label, as defined by ISO 23009-1, 4th edition, 5.3.7.2. */
 @UnstableApi
 public class Label implements Parcelable {
   /** The Label identifier, if one exists. */
