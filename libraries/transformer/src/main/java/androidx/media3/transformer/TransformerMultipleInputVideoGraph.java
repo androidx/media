@@ -22,7 +22,6 @@ import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoGraph;
-import androidx.media3.common.util.Log;
 import androidx.media3.effect.MultipleInputVideoGraph;
 import androidx.media3.effect.VideoCompositorSettings;
 import java.util.List;

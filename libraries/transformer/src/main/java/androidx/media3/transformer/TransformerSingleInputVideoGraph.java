@@ -110,11 +110,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     checkState(videoFrameProcessingWrapper == null);
     int inputId = registerInput(sequenceIndex);
     videoFrameProcessingWrapper =
-            new VideoFrameProcessingWrapper(
-                    getProcessor(inputId),
-                    getInputColorInfo(),
-                    getPresentation(),
-                    getInitialTimestampOffsetUs());
+        new VideoFrameProcessingWrapper(
+            getProcessor(inputId),
+            getInputColorInfo(),
+            getPresentation(),
+            getInitialTimestampOffsetUs());
     return videoFrameProcessingWrapper;
   }
 }

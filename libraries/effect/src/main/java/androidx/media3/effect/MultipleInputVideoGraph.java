@@ -46,7 +46,6 @@ import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.util.GlUtil;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.util.ArrayDeque;
@@ -76,7 +75,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
   private final Executor listenerExecutor;
   private final VideoCompositorSettings videoCompositorSettings;
   private final List<Effect> compositionEffects;
-  private final List<@NullableType VideoFrameProcessor> preProcessors;
+  private final SparseArray<VideoFrameProcessor> preProcessors;
 
   private final ExecutorService sharedExecutorService;
 
@@ -115,7 +114,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
     this.compositionEffects = new ArrayList<>(compositionEffects);
     this.initialTimestampOffsetUs = initialTimestampOffsetUs;
     lastRenderedPresentationTimeUs = C.TIME_UNSET;
-    preProcessors = new ArrayList<>();
+    preProcessors = new SparseArray<>();
     sharedExecutorService = newSingleThreadScheduledExecutor(SHARED_EXECUTOR_NAME);
     glObjectsProvider = new SingleContextGlObjectsProvider();
     // TODO - b/289986435: Support injecting VideoFrameProcessor.Factory.
@@ -137,7 +136,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
   @Override
   public void initialize() throws VideoFrameProcessingException {
     checkState(
-        preProcessors.isEmpty()
+        preProcessors.size() == 0
             && videoCompositor == null
             && compositionVideoFrameProcessor == null
             && !released);
@@ -212,11 +211,10 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
   }
 
   @Override
-  public int registerInput(int forceId) throws VideoFrameProcessingException {
+  public int registerInput(int sequenceIndex) throws VideoFrameProcessingException {
     checkStateNotNull(videoCompositor);
 
-    int videoCompositorInputId;
-    videoCompositorInputId = videoCompositor.registerInputSource(forceId);
+    int videoCompositorInputId = videoCompositor.registerInputSource(sequenceIndex);
     // Creating a new VideoFrameProcessor for the input.
     VideoFrameProcessor preProcessor =
         videoFrameProcessorFactory
@@ -260,17 +258,13 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
                   }
                 });
 
-    while (preProcessors.size() <= videoCompositorInputId) {
-      //noinspection DataFlowIssue
-      preProcessors.add(null);
-    }
-    preProcessors.set(videoCompositorInputId, preProcessor);
+    preProcessors.put(videoCompositorInputId, preProcessor);
     return videoCompositorInputId;
   }
 
   @Override
   public VideoFrameProcessor getProcessor(int inputId) {
-    checkState(inputId < preProcessors.size());
+    checkState(preProcessors.indexOfKey(inputId) >= 0);
     return preProcessors.get(inputId);
   }
 
@@ -292,7 +286,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
 
     // Needs to release the frame processors before their internal executor services are released.
     for (int i = 0; i < preProcessors.size(); i++) {
-      preProcessors.get(i).release();
+      preProcessors.get(preProcessors.keyAt(i)).release();
     }
     preProcessors.clear();
 
