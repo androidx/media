@@ -26,6 +26,8 @@ import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
 import android.opengl.EGLSurface;
 import android.opengl.GLES20;
+import android.util.SparseArray;
+
 import androidx.annotation.GuardedBy;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
@@ -41,16 +43,18 @@ import androidx.media3.common.util.LongArrayQueue;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+
 import java.io.IOException;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ExecutorService;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
  * A basic {@link VideoCompositor} implementation that takes in frames from input sources' streams
@@ -88,7 +92,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
   private final VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor;
 
   @GuardedBy("this")
-  private final List<InputSource> inputSources;
+  private final SparseArray<InputSource> inputSources;
 
   @GuardedBy("this")
   private boolean allInputsEnded; // Whether all inputSources have signaled end of input.
@@ -124,7 +128,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
     this.settings = settings;
     this.compositorGlProgram = new CompositorGlProgram(context);
 
-    inputSources = new ArrayList<>();
+    inputSources = new SparseArray<>();
     outputTexturePool =
         new TexturePool(/* useHighPrecisionColorComponents= */ false, textureOutputCapacity);
     outputTextureTimestamps = new LongArrayQueue(textureOutputCapacity);
@@ -142,9 +146,9 @@ public final class DefaultVideoCompositor implements VideoCompositor {
   }
 
   @Override
-  public synchronized int registerInputSource() {
-    inputSources.add(new InputSource());
-    return inputSources.size() - 1;
+  public synchronized int registerInputSource(int sequenceId) {
+    inputSources.put(sequenceId, new InputSource());
+    return sequenceId;
   }
 
   @Override
@@ -152,7 +156,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
     inputSources.get(inputId).isInputEnded = true;
     boolean allInputsEnded = true;
     for (int i = 0; i < inputSources.size(); i++) {
-      if (!inputSources.get(i).isInputEnded) {
+      if (!inputSources.get(inputSources.keyAt(i)).isInputEnded) {
         allInputsEnded = false;
         break;
       }
@@ -229,7 +233,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
       if (i == PRIMARY_INPUT_ID) {
         continue;
       }
-      releaseExcessFramesInSecondaryStream(inputSources.get(i));
+      releaseExcessFramesInSecondaryStream(inputSources.get(inputSources.keyAt(i)));
     }
   }
 
@@ -334,7 +338,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
       return ImmutableList.of();
     }
     for (int inputId = 0; inputId < inputSources.size(); inputId++) {
-      if (inputSources.get(inputId).frameInfos.isEmpty()) {
+      if (inputSources.get(inputSources.keyAt(inputId)).frameInfos.isEmpty()) {
         return ImmutableList.of();
       }
     }
@@ -353,7 +357,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
       //   2. Two or more frames, and at least one frame has timestamp greater than the target
       //      timestamp.
       // The smaller timestamp is taken if two timestamps have the same distance from the primary.
-      InputSource secondaryInputSource = inputSources.get(inputId);
+      InputSource secondaryInputSource = inputSources.get(inputSources.keyAt(inputId));
       if (secondaryInputSource.frameInfos.size() == 1 && !secondaryInputSource.isInputEnded) {
         return ImmutableList.of();
       }

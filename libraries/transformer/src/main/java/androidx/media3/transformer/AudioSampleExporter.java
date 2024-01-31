@@ -97,7 +97,7 @@ import org.checkerframework.dataflow.qual.Pure;
   }
 
   @Override
-  public AudioGraphInput getInput(EditedMediaItem editedMediaItem, Format format)
+  public AudioGraphInput getInput(EditedMediaItem editedMediaItem, Format format, int sequenceIndex)
       throws ExportException {
     if (!returnedFirstInput) {
       // First input initialized in constructor because output AudioFormat is needed.

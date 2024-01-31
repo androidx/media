@@ -38,7 +38,7 @@ import java.util.concurrent.Executor;
 @UnstableApi
 public abstract class SingleInputVideoGraph implements VideoGraph {
 
-  /** The ID {@link #registerInput()} returns. */
+  /** The ID {@link #registerInput(int)} returns. */
   public static final int SINGLE_INPUT_INDEX = 0;
 
   private final Context context;
@@ -99,7 +99,7 @@ public abstract class SingleInputVideoGraph implements VideoGraph {
   }
 
   @Override
-  public int registerInput() throws VideoFrameProcessingException {
+  public int registerInput(int sequenceIndex) throws VideoFrameProcessingException {
     checkStateNotNull(videoFrameProcessor == null && !released);
 
     videoFrameProcessor =

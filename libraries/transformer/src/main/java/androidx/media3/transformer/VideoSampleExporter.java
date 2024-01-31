@@ -30,6 +30,7 @@ import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.util.Pair;
 import android.view.Surface;
+
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
@@ -48,13 +49,16 @@ import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.VideoCompositorSettings;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.MoreExecutors;
-import java.nio.ByteBuffer;
-import java.util.List;
+
 import org.checkerframework.checker.initialization.qual.Initialized;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.dataflow.qual.Pure;
+
+import java.nio.ByteBuffer;
+import java.util.List;
 
 /** Processes, encodes and muxes raw video frames. */
 /* package */ final class VideoSampleExporter extends SampleExporter {
@@ -146,10 +150,9 @@ import org.checkerframework.dataflow.qual.Pure;
   }
 
   @Override
-  public GraphInput getInput(EditedMediaItem editedMediaItem, Format format)
-      throws ExportException {
+  public GraphInput getInput(EditedMediaItem editedMediaItem, Format format, int sequenceIndex) throws ExportException {
     try {
-      return videoGraph.createInput();
+      return videoGraph.createInput(sequenceIndex);
     } catch (VideoFrameProcessingException e) {
       throw ExportException.createForVideoFrameProcessingException(e);
     }
@@ -535,8 +538,8 @@ import org.checkerframework.dataflow.qual.Pure;
     }
 
     @Override
-    public int registerInput() throws VideoFrameProcessingException {
-      return videoGraph.registerInput();
+    public int registerInput(int sequenceIndex) throws VideoFrameProcessingException {
+      return videoGraph.registerInput(sequenceIndex);
     }
 
     @Override
@@ -545,8 +548,8 @@ import org.checkerframework.dataflow.qual.Pure;
     }
 
     @Override
-    public GraphInput createInput() throws VideoFrameProcessingException {
-      return videoGraph.createInput();
+    public GraphInput createInput(int sequenceIndex) throws VideoFrameProcessingException {
+      return videoGraph.createInput(sequenceIndex);
     }
 
     @Override
