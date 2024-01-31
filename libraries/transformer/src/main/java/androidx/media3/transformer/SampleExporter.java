@@ -64,10 +64,10 @@ import java.util.List;
    *
    * @param editedMediaItem The initial {@link EditedMediaItem} of the input.
    * @param format The initial {@link Format} of the input.
+   * @param sequenceIndex The sequence index of the input.
    * @throws ExportException If an error occurs getting the input.
    */
-  public abstract GraphInput getInput(EditedMediaItem editedMediaItem, Format format)
-      throws ExportException;
+  public abstract GraphInput getInput(EditedMediaItem editedMediaItem, Format format, int sequenceIndex) throws ExportException;
 
   /**
    * Processes the input data and returns whether it may be possible to process more data by calling

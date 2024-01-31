@@ -856,7 +856,7 @@ public final class DefaultVideoCompositorPixelTest {
         VideoCompositor videoCompositor,
         @Nullable ExecutorService executorService,
         GlObjectsProvider glObjectsProvider) {
-      int inputId = videoCompositor.registerInputSource();
+      int inputId = videoCompositor.registerInputSource(0);
       DefaultVideoFrameProcessor.Factory.Builder defaultVideoFrameProcessorFactoryBuilder =
           new DefaultVideoFrameProcessor.Factory.Builder()
               .setGlObjectsProvider(glObjectsProvider)

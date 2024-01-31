@@ -46,6 +46,7 @@ import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.util.GlUtil;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.util.ArrayDeque;
@@ -75,7 +76,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
   private final Executor listenerExecutor;
   private final VideoCompositorSettings videoCompositorSettings;
   private final List<Effect> compositionEffects;
-  private final List<VideoFrameProcessor> preProcessors;
+  private final List<@NullableType VideoFrameProcessor> preProcessors;
 
   private final ExecutorService sharedExecutorService;
 
@@ -211,10 +212,11 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
   }
 
   @Override
-  public int registerInput() throws VideoFrameProcessingException {
+  public int registerInput(int forceId) throws VideoFrameProcessingException {
     checkStateNotNull(videoCompositor);
 
-    int videoCompositorInputId = videoCompositor.registerInputSource();
+    int videoCompositorInputId;
+    videoCompositorInputId = videoCompositor.registerInputSource(forceId);
     // Creating a new VideoFrameProcessor for the input.
     VideoFrameProcessor preProcessor =
         videoFrameProcessorFactory
@@ -257,7 +259,12 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
                     onPreProcessingVideoFrameProcessorEnded(videoCompositorInputId);
                   }
                 });
-    preProcessors.add(preProcessor);
+
+    while (preProcessors.size() <= videoCompositorInputId) {
+      //noinspection DataFlowIssue
+      preProcessors.add(null);
+    }
+    preProcessors.set(videoCompositorInputId, preProcessor);
     return videoCompositorInputId;
   }
 

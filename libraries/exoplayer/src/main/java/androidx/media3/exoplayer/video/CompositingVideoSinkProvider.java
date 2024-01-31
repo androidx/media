@@ -550,6 +550,8 @@ public final class CompositingVideoSinkProvider
       //  reduces decoder timeouts, and consider restoring.
       videoFrameProcessorMaxPendingFrameCount =
           Util.getMaxPendingFramesCountForMediaCodecDecoders(context);
+      int videoGraphInputId = videoGraph.registerInput(0);
+      videoFrameProcessor = videoGraph.getProcessor(videoGraphInputId);
 
       videoEffects = new ArrayList<>();
       finalBufferPresentationTimeUs = C.TIME_UNSET;
