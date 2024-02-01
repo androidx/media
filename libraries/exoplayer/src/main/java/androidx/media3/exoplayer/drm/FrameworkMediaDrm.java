@@ -26,6 +26,7 @@ import android.media.MediaDrmException;
 import android.media.NotProvisionedException;
 import android.media.UnsupportedSchemeException;
 import android.media.metrics.LogSessionId;
+import android.os.Build;
 import android.os.PersistableBundle;
 import android.text.TextUtils;
 import androidx.annotation.DoNotInline;
@@ -587,5 +588,15 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
         playbackComponent.setLogSessionId(logSessionId);
       }
     }
+  }
+
+  // MIREGO
+  public void unprovisionDevice() throws DeniedByServerException {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+      return;
+    }
+
+    byte[] response = "unprovision".getBytes();
+    provideProvisionResponse(response);
   }
 }

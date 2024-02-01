@@ -553,6 +553,9 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         || DrmUtil.isFailureToConstructNotProvisionedException(e)) {
       provisioningManager.provisionRequired(this);
     } else {
+      // MIREGO
+      callback.onKeyError(e);
+
       onError(
           e,
           thrownByExoMediaDrm
