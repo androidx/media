@@ -228,7 +228,8 @@ public final class DashMediaPeriodTest {
         mock(Allocator.class),
         mock(CompositeSequenceableLoaderFactory.class),
         mock(PlayerEmsgCallback.class),
-        PlayerId.UNSET);
+        PlayerId.UNSET, 
+        false);
   }
 
   private static DashManifest parseManifest(String fileName) throws IOException {

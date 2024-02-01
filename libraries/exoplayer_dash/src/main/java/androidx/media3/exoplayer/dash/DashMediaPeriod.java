@@ -132,7 +132,9 @@ import java.util.regex.Pattern;
       Allocator allocator,
       CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory,
       PlayerEmsgCallback playerEmsgCallback,
-      PlayerId playerId) {
+      PlayerId playerId,
+      /* MIREGO */ boolean forceCEAFormatIfMissing
+      ) {
     this.id = id;
     this.manifest = manifest;
     this.baseUrlExclusionList = baseUrlExclusionList;
@@ -158,7 +160,7 @@ import java.util.regex.Pattern;
     eventStreams = period.eventStreams;
     Pair<TrackGroupArray, TrackGroupInfo[]> result =
         buildTrackGroups(
-            drmSessionManager, chunkSourceFactory, period.adaptationSets, eventStreams);
+            drmSessionManager, chunkSourceFactory, period.adaptationSets, eventStreams, /* MIREGO */ forceCEAFormatIfMissing);
     trackGroups = result.first;
     trackGroupInfos = result.second;
   }
@@ -507,7 +509,8 @@ import java.util.regex.Pattern;
       DrmSessionManager drmSessionManager,
       DashChunkSource.Factory chunkSourceFactory,
       List<AdaptationSet> adaptationSets,
-      List<EventStream> eventStreams) {
+      List<EventStream> eventStreams,
+      /* MIREGO */ boolean forceCEAFormatIfMissing) {
     int[][] groupedAdaptationSetIndices = getGroupedAdaptationSetIndices(adaptationSets);
 
     int primaryGroupCount = groupedAdaptationSetIndices.length;
@@ -519,7 +522,8 @@ import java.util.regex.Pattern;
             adaptationSets,
             groupedAdaptationSetIndices,
             primaryGroupHasEventMessageTrackFlags,
-            primaryGroupClosedCaptionTrackFormats);
+            primaryGroupClosedCaptionTrackFormats,
+            /* MIREGO */ forceCEAFormatIfMissing);
 
     int totalGroupCount = primaryGroupCount + totalEmbeddedTrackGroupCount + eventStreams.size();
     TrackGroup[] trackGroups = new TrackGroup[totalGroupCount];
@@ -650,7 +654,8 @@ import java.util.regex.Pattern;
       List<AdaptationSet> adaptationSets,
       int[][] groupedAdaptationSetIndices,
       boolean[] primaryGroupHasEventMessageTrackFlags,
-      Format[][] primaryGroupClosedCaptionTrackFormats) {
+      Format[][] primaryGroupClosedCaptionTrackFormats,
+      /* MIREGO */ boolean forceCEAFormatIfMissing) {
     int numEmbeddedTrackGroups = 0;
     for (int i = 0; i < primaryGroupCount; i++) {
       if (hasEventMessageTrack(adaptationSets, groupedAdaptationSetIndices[i])) {
@@ -658,7 +663,7 @@ import java.util.regex.Pattern;
         numEmbeddedTrackGroups++;
       }
       primaryGroupClosedCaptionTrackFormats[i] =
-          getClosedCaptionTrackFormats(adaptationSets, groupedAdaptationSetIndices[i]);
+          getClosedCaptionTrackFormats(adaptationSets, groupedAdaptationSetIndices[i], /* MIREGO */ forceCEAFormatIfMissing);
       if (primaryGroupClosedCaptionTrackFormats[i].length != 0) {
         numEmbeddedTrackGroups++;
       }
@@ -868,32 +873,60 @@ import java.util.regex.Pattern;
   }
 
   private static Format[] getClosedCaptionTrackFormats(
-      List<AdaptationSet> adaptationSets, int[] adaptationSetIndices) {
+      List<AdaptationSet> adaptationSets, int[] adaptationSetIndices,
+      /* MIREGO */ boolean forceCEAFormatIfMissing) {
     for (int i : adaptationSetIndices) {
       AdaptationSet adaptationSet = adaptationSets.get(i);
       List<Descriptor> descriptors = adaptationSets.get(i).accessibilityDescriptors;
+
+      // MIREGO: Force CEA-608 Accessibility descriptor as it's not present (yet)
+      // in our manifest.
+      if (forceCEAFormatIfMissing && adaptationSet.type == C.TRACK_TYPE_VIDEO && descriptors.isEmpty()) {
+        Descriptor descriptor = new Descriptor("urn:scte:dash:cc:cea-608:2015", null, null);
+        return buildCEAFormat(MimeTypes.APPLICATION_CEA608, adaptationSet, descriptor);
+      }
+
       for (int j = 0; j < descriptors.size(); j++) {
         Descriptor descriptor = descriptors.get(j);
         if ("urn:scte:dash:cc:cea-608:2015".equals(descriptor.schemeIdUri)) {
-          Format cea608Format =
-              new Format.Builder()
-                  .setSampleMimeType(MimeTypes.APPLICATION_CEA608)
-                  .setId(adaptationSet.id + ":cea608")
-                  .build();
-          return parseClosedCaptionDescriptor(
-              descriptor, CEA608_SERVICE_DESCRIPTOR_REGEX, cea608Format);
+          // MIREGO
+          return buildCEAFormat(MimeTypes.APPLICATION_CEA608, adaptationSet, descriptor);
         } else if ("urn:scte:dash:cc:cea-708:2015".equals(descriptor.schemeIdUri)) {
-          Format cea708Format =
-              new Format.Builder()
-                  .setSampleMimeType(MimeTypes.APPLICATION_CEA708)
-                  .setId(adaptationSet.id + ":cea708")
-                  .build();
-          return parseClosedCaptionDescriptor(
-              descriptor, CEA708_SERVICE_DESCRIPTOR_REGEX, cea708Format);
+          // MIREGO
+          return buildCEAFormat(MimeTypes.APPLICATION_CEA708, adaptationSet, descriptor);
         }
       }
     }
     return new Format[0];
+  }
+
+  // MIREGO
+  private static Format[] buildCEAFormat(String mimeType, AdaptationSet adaptationSet, Descriptor descriptor) {
+    String formatId;
+    Pattern pattern;
+
+    switch (mimeType) {
+      case MimeTypes.APPLICATION_CEA608:
+        formatId = adaptationSet.id + ":cea608";
+        pattern = CEA608_SERVICE_DESCRIPTOR_REGEX;
+        break;
+
+      case MimeTypes.APPLICATION_CEA708:
+        formatId = adaptationSet.id + ":cea708";
+        pattern = CEA708_SERVICE_DESCRIPTOR_REGEX;
+        break;
+
+      default:
+        throw new IllegalArgumentException();
+    }
+
+    Format format = new Format.Builder()
+        .setSampleMimeType(mimeType)
+        .setId(formatId)
+        .setRoleFlags(C.ROLE_FLAG_CAPTION | C.ROLE_FLAG_SUBTITLE)
+        .build();
+
+    return parseClosedCaptionDescriptor(descriptor, pattern, format);
   }
 
   private static Format[] parseClosedCaptionDescriptor(
