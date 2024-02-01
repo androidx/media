@@ -25,6 +25,7 @@ import androidx.media3.common.PriorityTaskManager;
 import androidx.media3.common.PriorityTaskManager.PriorityTooLowException;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.RunnableFutureTask;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -54,16 +55,26 @@ import java.util.concurrent.Executor;
 @UnstableApi
 public abstract class SegmentDownloader<M extends FilterableManifest<M>> implements Downloader {
 
-  /** Smallest unit of content to be downloaded. */
+  private static final String TAG = "SegmentDownloader"; // MIREGO ADDED
+
+  /**
+   * Smallest unit of content to be downloaded.
+   */
   protected static class Segment implements Comparable<Segment> {
 
-    /** The start time of the segment in microseconds. */
+    /**
+     * The start time of the segment in microseconds.
+     */
     public final long startTimeUs;
 
-    /** The {@link DataSpec} of the segment. */
+    /**
+     * The {@link DataSpec} of the segment.
+     */
     public final DataSpec dataSpec;
 
-    /** Constructs a Segment. */
+    /**
+     * Constructs a Segment.
+     */
     public Segment(long startTimeUs, DataSpec dataSpec) {
       this.startTimeUs = startTimeUs;
       this.dataSpec = dataSpec;
@@ -85,7 +96,8 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
   private final CacheDataSource.Factory cacheDataSourceFactory;
   private final Cache cache;
   private final CacheKeyFactory cacheKeyFactory;
-  @Nullable private final PriorityTaskManager priorityTaskManager;
+  @Nullable
+  private final PriorityTaskManager priorityTaskManager;
   private final Executor executor;
   private final long maxMergedSegmentStartTimeDiffUs;
 
@@ -103,7 +115,7 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
 
   /**
    * @deprecated Use {@link SegmentDownloader#SegmentDownloader(MediaItem, Parser,
-   *     CacheDataSource.Factory, Executor, long)} instead.
+   * CacheDataSource.Factory, Executor, long)} instead.
    */
   @Deprecated
   public SegmentDownloader(
@@ -120,16 +132,16 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
   }
 
   /**
-   * @param mediaItem The {@link MediaItem} to be downloaded.
-   * @param manifestParser A parser for manifests belonging to the media to be downloaded.
-   * @param cacheDataSourceFactory A {@link CacheDataSource.Factory} for the cache into which the
-   *     download will be written.
-   * @param executor An {@link Executor} used to make requests for the media being downloaded.
-   *     Providing an {@link Executor} that uses multiple threads will speed up the download by
-   *     allowing parts of it to be executed in parallel.
+   * @param mediaItem                       The {@link MediaItem} to be downloaded.
+   * @param manifestParser                  A parser for manifests belonging to the media to be downloaded.
+   * @param cacheDataSourceFactory          A {@link CacheDataSource.Factory} for the cache into which the
+   *                                        download will be written.
+   * @param executor                        An {@link Executor} used to make requests for the media being downloaded.
+   *                                        Providing an {@link Executor} that uses multiple threads will speed up the download by
+   *                                        allowing parts of it to be executed in parallel.
    * @param maxMergedSegmentStartTimeDiffMs The maximum difference of the start time of two
-   *     segments, up to which the segments (of the same URI) should be merged into a single
-   *     download segment, in milliseconds.
+   *                                        segments, up to which the segments (of the same URI) should be merged into a single
+   *                                        download segment, in milliseconds.
    */
   public SegmentDownloader(
       MediaItem mediaItem,
@@ -138,6 +150,11 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
       Executor executor,
       long maxMergedSegmentStartTimeDiffMs) {
     checkNotNull(mediaItem.localConfiguration);
+
+    // MIREGO
+    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "SegmentDownloader()  Uri: %s (this: %s)",
+        mediaItem.requestMetadata.mediaUri, this);
+
     this.manifestDataSpec = getCompressibleDataSpec(mediaItem.localConfiguration.uri);
     this.manifestParser = manifestParser;
     this.streamKeys = new ArrayList<>(mediaItem.localConfiguration.streamKeys);
@@ -155,6 +172,10 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
       throws IOException, InterruptedException {
     ArrayDeque<Segment> pendingSegments = new ArrayDeque<>();
     ArrayDeque<SegmentDownloadRunnable> recycledRunnables = new ArrayDeque<>();
+
+    // MIREGO
+    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "download()");
+
     if (priorityTaskManager != null) {
       priorityTaskManager.add(C.PRIORITY_DOWNLOAD);
     }
@@ -205,19 +226,38 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
         }
       }
 
+      // MIREGO
+      Log.v(Log.LOG_LEVEL_VERBOSE1, TAG,
+          "download  contentLength: %d  segmentsDownloaded: %d bytesDownloaded: %d ", contentLength,
+          segmentsDownloaded, bytesDownloaded);
+
       // Download the segments.
       @Nullable
       ProgressNotifier progressNotifier =
           progressListener != null
               ? new ProgressNotifier(
-                  progressListener,
-                  contentLength,
-                  totalSegments,
-                  bytesDownloaded,
-                  segmentsDownloaded)
+              progressListener,
+              contentLength,
+              totalSegments,
+              bytesDownloaded,
+              segmentsDownloaded)
               : null;
       pendingSegments.addAll(segments);
+
+      // MIREGO START
+      Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "download pendingSegments: %d ", pendingSegments.size());
+      int lastLogSize = pendingSegments.size() + 1000000;
+      // NIREGO END
+
       while (!isCanceled && !pendingSegments.isEmpty()) {
+        // MIREGO START
+        if (lastLogSize > pendingSegments.size() + 100) {
+          lastLogSize = pendingSegments.size();
+          Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "download looping pendingSegments: %d ",
+              pendingSegments.size());
+        }
+        // MIREGO END
+
         // Block until there aren't any higher priority tasks.
         if (priorityTaskManager != null) {
           priorityTaskManager.proceed(C.PRIORITY_DOWNLOAD);
@@ -274,6 +314,9 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
         downloadRunnable.blockUntilStarted();
       }
     } finally {
+      // MIREGO
+      Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "download done");
+
       // If one of the runnables has thrown an exception, then it's possible there are other active
       // runnables still doing work. We need to wait until they finish before exiting this method.
       // Cancel them to speed this up.
@@ -327,11 +370,11 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
    * Loads and parses a manifest.
    *
    * @param dataSource The source to use when loading the manifest.
-   * @param dataSpec The manifest {@link DataSpec}.
-   * @param removing Whether the manifest is being loaded as part of the download being removed.
+   * @param dataSpec   The manifest {@link DataSpec}.
+   * @param removing   Whether the manifest is being loaded as part of the download being removed.
    * @return The loaded manifest.
    * @throws InterruptedException If the thread on which the method is called is interrupted.
-   * @throws IOException If an error occurs during execution.
+   * @throws IOException          If an error occurs during execution.
    */
   protected final M getManifest(DataSource dataSource, DataSpec dataSpec, boolean removing)
       throws InterruptedException, IOException {
@@ -352,7 +395,7 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
    * @param removing Whether the execution is part of the download being removed.
    * @return The result.
    * @throws InterruptedException If the thread on which the method is called is interrupted.
-   * @throws IOException If an error occurs during execution.
+   * @throws IOException          If an error occurs during execution.
    */
   protected final <T> T execute(RunnableFutureTask<T, ?> runnable, boolean removing)
       throws InterruptedException, IOException {
@@ -405,13 +448,13 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
    * should be loaded using {@link #getManifest} or {@link #execute}.
    *
    * @param dataSource The {@link DataSource} through which to load any required data.
-   * @param manifest The manifest containing the segments.
-   * @param removing Whether the segments are being obtained as part of a removal. If true then a
-   *     partial segment list is returned in the case that a load error prevents all segments from
-   *     being listed. If false then an {@link IOException} will be thrown in this case.
+   * @param manifest   The manifest containing the segments.
+   * @param removing   Whether the segments are being obtained as part of a removal. If true then a
+   *                   partial segment list is returned in the case that a load error prevents all segments from
+   *                   being listed. If false then an {@link IOException} will be thrown in this case.
    * @return The list of downloadable {@link Segment}s.
    * @throws IOException Thrown if {@code allowPartialIndex} is false and an execution error occurs,
-   *     or if the media is not in a form that allows for its segments to be listed.
+   *                     or if the media is not in a form that allows for its segments to be listed.
    */
   protected abstract List<Segment> getSegments(DataSource dataSource, M manifest, boolean removing)
       throws IOException, InterruptedException;
@@ -446,6 +489,10 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
       List<Segment> segments, CacheKeyFactory keyFactory, long maxMergedSegmentStartTimeDiffUs) {
     HashMap<String, Integer> lastIndexByCacheKey = new HashMap<>();
     int nextOutIndex = 0;
+
+    // MIREGO
+    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "mergeSegments()");
+
     for (int i = 0; i < segments.size(); i++) {
       Segment segment = segments.get(i);
       String cacheKey = keyFactory.buildCacheKey(segment.dataSpec);
@@ -485,7 +532,8 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
 
     public final Segment segment;
     public final CacheDataSource dataSource;
-    @Nullable private final ProgressNotifier progressNotifier;
+    @Nullable
+    private final ProgressNotifier progressNotifier;
     public final byte[] temporaryBuffer;
     private final CacheWriter cacheWriter;
 
