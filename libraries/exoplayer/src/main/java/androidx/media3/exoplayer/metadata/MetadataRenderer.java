@@ -27,6 +27,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.BaseRenderer;
@@ -37,7 +38,9 @@ import androidx.media3.exoplayer.source.SampleStream.ReadDataResult;
 import androidx.media3.extractor.metadata.MetadataDecoder;
 import androidx.media3.extractor.metadata.MetadataInputBuffer;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Queue;
 import org.checkerframework.dataflow.qual.SideEffectFree;
 
 /**
@@ -62,7 +65,11 @@ public final class MetadataRenderer extends BaseRenderer implements Callback {
   private boolean inputStreamEnded;
   private boolean outputStreamEnded;
   private long subsampleOffsetUs;
-  @Nullable private Metadata pendingMetadata;
+  // MIREGO: replaced single pending metaData by a queue
+  // that allows us to read the entire stream earlier, preventing a late event
+  // from stalling audio/video pipelines before a period change
+  // (see ExoPlayerImplInternal: hasReadingPeriodFinishedReading()
+  private Queue<Metadata> pendingMetadataQueue = new LinkedList<>();
   private long outputStreamOffsetUs;
 
   /**
@@ -147,17 +154,20 @@ public final class MetadataRenderer extends BaseRenderer implements Callback {
       long offsetUs,
       MediaSource.MediaPeriodId mediaPeriodId) {
     decoder = decoderFactory.createDecoder(formats[0]);
-    if (pendingMetadata != null) {
-      pendingMetadata =
-          pendingMetadata.copyWithPresentationTimeUs(
-              pendingMetadata.presentationTimeUs + outputStreamOffsetUs - offsetUs);
+
+    // MIREGO begin: queue instead of single obj
+    Queue<Metadata> newQueue = new LinkedList<>();
+    for (Metadata data : pendingMetadataQueue) {
+      newQueue.add(data.copyWithPresentationTimeUs(data.presentationTimeUs + outputStreamOffsetUs - offsetUs));
     }
+    pendingMetadataQueue = newQueue; // MIREGO end
+
     outputStreamOffsetUs = offsetUs;
   }
 
   @Override
   protected void onPositionReset(long positionUs, boolean joining) {
-    pendingMetadata = null;
+    pendingMetadataQueue.clear(); // MIREGO
     inputStreamEnded = false;
     outputStreamEnded = false;
   }
@@ -203,7 +213,7 @@ public final class MetadataRenderer extends BaseRenderer implements Callback {
 
   @Override
   protected void onDisabled() {
-    pendingMetadata = null;
+    pendingMetadataQueue.clear(); // MIREGO
     decoder = null;
     outputStreamOffsetUs = C.TIME_UNSET;
   }
@@ -231,13 +241,15 @@ public final class MetadataRenderer extends BaseRenderer implements Callback {
   }
 
   private void readMetadata() {
-    if (!inputStreamEnded && pendingMetadata == null) {
+    if (!inputStreamEnded) {
       buffer.clear();
       FormatHolder formatHolder = getFormatHolder();
       @ReadDataResult int result = readSource(formatHolder, buffer, /* readFlags= */ 0);
+      Log.v(Log.LOG_LEVEL_VERBOSE3, TAG, "readMetadata result: %d", result);
       if (result == C.RESULT_BUFFER_READ) {
         if (buffer.isEndOfStream()) {
           inputStreamEnded = true;
+          Log.v(Log.LOG_LEVEL_VERBOSE2, TAG, "readMetadata buffer.isEndOfStream()");
         } else if (buffer.timeUs >= getLastResetPositionUs()) {
           // Ignore metadata before start position.
           buffer.subsampleOffsetUs = subsampleOffsetUs;
@@ -249,7 +261,8 @@ public final class MetadataRenderer extends BaseRenderer implements Callback {
             if (!entries.isEmpty()) {
               Metadata expandedMetadata =
                   new Metadata(getPresentationTimeUs(buffer.timeUs), entries);
-              pendingMetadata = expandedMetadata;
+              pendingMetadataQueue.add(expandedMetadata); // MIREGO
+              Log.v(Log.LOG_LEVEL_VERBOSE2, TAG, "readMetadata got metaData: %s (count: %d)", expandedMetadata, metadata.length());
             }
           }
         }
@@ -261,14 +274,17 @@ public final class MetadataRenderer extends BaseRenderer implements Callback {
 
   private boolean outputMetadata(long positionUs) {
     boolean didOutput = false;
+    // MIREGO modified function to handle metaData queue
+    Metadata pendingMetadata = pendingMetadataQueue.peek();
     if (pendingMetadata != null
         && (outputMetadataEarly
             || pendingMetadata.presentationTimeUs <= getPresentationTimeUs(positionUs))) {
+      Log.v(Log.LOG_LEVEL_VERBOSE2, TAG, "outputMetadata positionUs: %d metaData: %s", positionUs, pendingMetadata);
+      pendingMetadataQueue.poll();
       invokeRenderer(pendingMetadata);
-      pendingMetadata = null;
       didOutput = true;
     }
-    if (inputStreamEnded && pendingMetadata == null) {
+    if (inputStreamEnded && pendingMetadataQueue.isEmpty()) {
       outputStreamEnded = true;
     }
     return didOutput;
