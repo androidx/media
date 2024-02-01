@@ -176,7 +176,10 @@ public final class Util {
   /** An empty byte array. */
   @UnstableApi public static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
 
-  public static boolean shouldWorkaroundAudioSampleRateDataBug = false;  // MIREGO
+  // MIREGO
+  public static boolean shouldWorkaroundAudioSampleRateDataBug = false;
+  public static int timeSinceLastVideoRenderToLogErrorMs = 1000;
+  public static int audioVideoDeltaToLogErrorMs = 750;
 
   /** An empty long array. */
   @UnstableApi public static final long[] EMPTY_LONG_ARRAY = new long[0];
