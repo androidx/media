@@ -83,6 +83,8 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
   /** Default maximum weight for the sliding window. */
   public static final int DEFAULT_SLIDING_WINDOW_MAX_WEIGHT = 2000;
 
+  private static int MIN_SAMPLE_COUNT_TO_DECREASE_ESTIMATE = 4;  // MIREGO added
+
   /**
    * Index for the Wifi group index in the array returned by {@link
    * #getInitialBitrateCountryGroupAssignment}.
@@ -310,6 +312,8 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
   @GuardedBy("this") // Used in TransferListener methods that are called on a background thread.
   private long totalBytesTransferred;
 
+  private int totalSampleCount; // MIREGO added
+
   @GuardedBy("this") // Used in TransferListener methods that are called on a background thread.
   private long bitrateEstimate;
 
@@ -420,11 +424,16 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
         sampleElapsedTimeMs, sampleBytesTransferred);
 
     if (sampleElapsedTimeMs > 0) {
+      totalSampleCount++; // MIREGO added
       float bitsPerSecond = (sampleBytesTransferred * 8000f) / sampleElapsedTimeMs;
       slidingPercentile.addSample((int) Math.sqrt(sampleBytesTransferred), bitsPerSecond);
       if (totalElapsedTimeMs >= ELAPSED_MILLIS_FOR_ESTIMATE
           || totalBytesTransferred >= BYTES_TRANSFERRED_FOR_ESTIMATE) {
-        bitrateEstimate = (long) slidingPercentile.getPercentile(0.5f);
+        // MIREGO: avoid decreasing the initial estimate and potentially switching layer too fast because of only 1-2 slow transfers
+        long slidingEstimate = (long) slidingPercentile.getPercentile(0.5f);
+        if ((slidingEstimate > bitrateEstimate) || (totalSampleCount >= MIN_SAMPLE_COUNT_TO_DECREASE_ESTIMATE)) {
+          bitrateEstimate = slidingEstimate;
+        }
       }
       maybeNotifyBandwidthSample(sampleElapsedTimeMs, sampleBytesTransferred, bitrateEstimate);
       sampleStartTimeMs = nowMs;
@@ -464,6 +473,7 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
     sampleStartTimeMs = nowMs;
     sampleBytesTransferred = 0;
     totalBytesTransferred = 0;
+    totalSampleCount = 0; // MIREGO added
     totalElapsedTimeMs = 0;
     slidingPercentile.reset();
   }
