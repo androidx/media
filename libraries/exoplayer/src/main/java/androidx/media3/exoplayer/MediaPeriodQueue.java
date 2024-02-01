@@ -58,7 +58,8 @@ import com.google.common.collect.ImmutableList;
    *       original timestamp of the media is still visible.
    * </ul>
    */
-  public static final long INITIAL_RENDERER_POSITION_OFFSET_US = 1_000_000_000_000L;
+  // MIREGO decreased significantly, was creating an issue with an AC3 codec
+  public static final long INITIAL_RENDERER_POSITION_OFFSET_US = 1_000_000_000L;
 
   /**
    * Limits the maximum number of periods to buffer ahead of the current playing period. The
