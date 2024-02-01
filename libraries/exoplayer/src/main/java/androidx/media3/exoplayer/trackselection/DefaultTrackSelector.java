@@ -2384,6 +2384,12 @@ public class DefaultTrackSelector extends MappingTrackSelector
   @GuardedBy("lock")
   private AudioAttributes audioAttributes;
 
+  // MIREGO added
+  private boolean isTunnelingEffectivelyEnabled = false;
+  public boolean isTunnelingEffectivelyEnabled() {
+    return isTunnelingEffectivelyEnabled;
+  }
+
   /**
    * @param context Any {@link Context}.
    */
@@ -2629,9 +2635,12 @@ public class DefaultTrackSelector extends MappingTrackSelector
     }
 
     // Configure audio and video renderers to use tunneling if appropriate.
+    // MIREGO: set isTunnelingEffectivelyEnabled
     if (parameters.tunnelingEnabled) {
-      maybeConfigureRenderersForTunneling(
+      isTunnelingEffectivelyEnabled = maybeConfigureRenderersForTunneling(
           mappedTrackInfo, rendererFormatSupports, rendererConfigurations, rendererTrackSelections);
+    } else {
+      isTunnelingEffectivelyEnabled = false;
     }
 
     // Configure audio renderer to use offload if appropriate.
@@ -3156,7 +3165,8 @@ public class DefaultTrackSelector extends MappingTrackSelector
    *     ones that enable tunneling as a result of this call.
    * @param trackSelections The renderer track selections.
    */
-  private static void maybeConfigureRenderersForTunneling(
+  // MIREGO: returns result
+  private static boolean maybeConfigureRenderersForTunneling(
       MappedTrackInfo mappedTrackInfo,
       @Capabilities int[][][] rendererFormatSupports,
       @NullableType RendererConfiguration[] rendererConfigurations,
@@ -3198,6 +3208,8 @@ public class DefaultTrackSelector extends MappingTrackSelector
       rendererConfigurations[tunnelingAudioRendererIndex] = tunnelingRendererConfiguration;
       rendererConfigurations[tunnelingVideoRendererIndex] = tunnelingRendererConfiguration;
     }
+
+    return enableTunneling;
   }
 
   /**
