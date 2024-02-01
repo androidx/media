@@ -346,7 +346,8 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
   }
 
   @Override
-  public final void remove() {
+  // MIREGO: removed final
+  public void remove() {
     CacheDataSource dataSource = cacheDataSourceFactory.createDataSourceForRemovingDownload();
     try {
       M manifest = getManifest(dataSource, manifestDataSpec, /* removing= */ true);
