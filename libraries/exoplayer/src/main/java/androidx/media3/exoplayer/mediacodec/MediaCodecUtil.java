@@ -269,6 +269,13 @@ public final class MediaCodecUtil {
   public static List<MediaCodecInfo> getDecoderInfosSortedByFormatSupport(
       List<MediaCodecInfo> decoderInfos, Format format) {
     decoderInfos = new ArrayList<>(decoderInfos);
+
+    // MIREGO START
+    for(MediaCodecInfo info: decoderInfos) {
+      Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "getDecoderInfosSortedByFormatSupport info: %s  support: %s", info, info.isFormatFunctionallySupported(format));
+    }
+    // MIREGO END
+
     sortByScore(
         decoderInfos, decoderInfo -> decoderInfo.isFormatFunctionallySupported(format) ? 1 : 0);
     return decoderInfos;

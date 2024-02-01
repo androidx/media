@@ -243,6 +243,14 @@ public final class Log {
     }
   }
 
+  // MIREGO added for convenience
+  @Pure
+  public static void d(@Size(max = 23) String tag, String msgFormat, Object... msgArgs) {
+    if (logLevel <= LOG_LEVEL_ALL) {
+      logger.d(tag, String.format(msgFormat, msgArgs), null);
+    }
+  }
+
   /**
    * Logs a debug-level message.
    *

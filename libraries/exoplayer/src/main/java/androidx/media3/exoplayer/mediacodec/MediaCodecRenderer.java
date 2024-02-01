@@ -411,6 +411,10 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private long lastProcessedOutputBufferTimeUs;
   private boolean needToNotifyOutputFormatChangeAfterStreamChange;
 
+  // MIREGO for logging
+  int dequeuedInputCount = 0;
+  long lastLogMs = 0;
+
   /**
    * @param trackType The {@link C.TrackType track type} that the renderer handles.
    * @param codecAdapterFactory A factory for {@link MediaCodecAdapter} instances.
@@ -722,6 +726,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
 
   @Override
   protected void onPositionReset(long positionUs, boolean joining) throws ExoPlaybackException {
+    // MIREGO
+    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "onPositionReset %d (joining: %s)", positionUs, joining);
+
     inputStreamEnded = false;
     outputStreamEnded = false;
     pendingOutputEndOfStream = false;
@@ -839,8 +846,13 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       // We have a format.
       maybeInitCodecOrBypass();
 
-      // MIREGO
+      // MIREGO START
       Log.v(Log.LOG_LEVEL_VERBOSE3, TAG,"render positionUs %d bypassEnabled: %s codec: %s", positionUs, bypassEnabled, codec);
+      if (System.currentTimeMillis() > lastLogMs + 1000) {
+        lastLogMs = System.currentTimeMillis();
+        Log.d(TAG,"render positionUs %d this: %s bypassEnabled: %s codec: %s", positionUs, this, bypassEnabled, codec);
+      }
+      // MIREGO END
 
       if (bypassEnabled) {
         TraceUtil.beginSection("bypassRender");
@@ -911,6 +923,10 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     if (codec == null) {
       return false;
     }
+
+    // MIREGO
+    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "flushOrReleaseCodec codecDrainAction: %d", codecDrainAction);
+
     if (codecDrainAction == DRAIN_ACTION_REINITIALIZE
         || codecNeedsFlushWorkaround
         || (codecNeedsSosFlushWorkaround && !codecHasOutputMediaFormat)
@@ -1112,6 +1128,12 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
           DecoderInitializationException.NO_SUITABLE_DECODER_ERROR);
     }
 
+    // MIREGO START
+    for (MediaCodecInfo info: availableCodecInfos) {
+      Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "maybeInitCodecWithFallback availableCodecInfos: %s", info);
+    }
+    // MIREGO END
+
     ArrayDeque<MediaCodecInfo> availableCodecInfos = checkNotNull(this.availableCodecInfos);
     MediaCodecInfo preferredCodecInfo = availableCodecInfos.peekFirst();
     while (codec == null) {
@@ -1167,6 +1189,13 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     Format inputFormat = checkNotNull(this.inputFormat);
     List<MediaCodecInfo> codecInfos =
         getDecoderInfos(mediaCodecSelector, inputFormat, mediaCryptoRequiresSecureDecoder);
+
+    // MIREGO START
+    for(MediaCodecInfo info: codecInfos) {
+      Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "getAvailableCodecInfos availableCodecInfos: %s", info);
+    }
+    // MIREGO END
+
     if (codecInfos.isEmpty() && mediaCryptoRequiresSecureDecoder) {
       // The drm session indicates that a secure decoder is required, but the device does not
       // have one. Assuming that supportsFormat indicated support for the media being played, we
@@ -1307,8 +1336,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     DrmSession.replaceSession(codecDrmSession, session);
     codecDrmSession = session;
   }
-
-  int dequeuedInputCount = 0; // MIREGO for logging
 
   /**
    * @return Whether it may be possible to feed more input data.
@@ -2027,7 +2054,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
 
       if (outputIndex < 0) {
         // MIREGO
-        Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "drainOutputBuffer(type:%d) Failed dequeueOutputBufferIndex res: %d (dequeuedOutputCount: %d)",
+        Log.v(Log.LOG_LEVEL_VERBOSE2, TAG, "drainOutputBuffer(type:%d) Failed dequeueOutputBufferIndex res: %d (dequeuedOutputCount: %d)",
             getTrackType(), outputIndex, dequeuedOutputCount);
 
         if (outputIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED /* (-2) */) {
@@ -2242,6 +2269,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   // codecDrainAction == DRAIN_ACTION_FLUSH_AND_UPDATE_DRM_SESSION implies SDK_INT >= 23.
   @TargetApi(23)
   private void processEndOfStream() throws ExoPlaybackException {
+    // MIREGO
+    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "processEndOfStream codecDrainAction: %d", codecDrainAction);
+
     switch (codecDrainAction) {
       case DRAIN_ACTION_REINITIALIZE:
         reinitializeCodec();

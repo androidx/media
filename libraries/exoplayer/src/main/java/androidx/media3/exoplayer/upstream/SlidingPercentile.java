@@ -119,7 +119,7 @@ public class SlidingPercentile {
     }
 
     // MIREGO
-    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "Sliding added sample %f (w=%d) samples count: %d", value, weight, samples.size());
+    Log.v(Log.LOG_LEVEL_VERBOSE2, TAG, "Sliding added sample %f (w=%d) samples count: %d", value, weight, samples.size());
   }
 
   /**
@@ -137,7 +137,7 @@ public class SlidingPercentile {
       accumulatedWeight += currentSample.weight;
       if (accumulatedWeight >= desiredWeight) {
         // MIREGO
-        Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "sliding getPercentile returns sample %d of %d (%f)", i, samples.size(), currentSample.value);
+        Log.v(Log.LOG_LEVEL_VERBOSE2, TAG, "sliding getPercentile returns sample %d of %d (%f)", i, samples.size(), currentSample.value);
 
         return currentSample.value;
       }

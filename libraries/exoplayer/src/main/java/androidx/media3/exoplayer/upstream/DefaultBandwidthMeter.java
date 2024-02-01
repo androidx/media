@@ -420,7 +420,7 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
     totalBytesTransferred += sampleBytesTransferred;
 
     // MIREGO
-    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "onTransferEnd sampleElapsedTimeMs: %d  sampleBytesTransferred: %d",
+    Log.v(Log.LOG_LEVEL_VERBOSE2, TAG, "onTransferEnd sampleElapsedTimeMs: %d  sampleBytesTransferred: %d",
         sampleElapsedTimeMs, sampleBytesTransferred);
 
     if (sampleElapsedTimeMs > 0) {

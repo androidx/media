@@ -172,6 +172,9 @@ public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
 
   @Override
   public void flush() {
+    // MIREGO
+    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "flush codec: %s", codec);
+
     codec.flush();
   }
 
