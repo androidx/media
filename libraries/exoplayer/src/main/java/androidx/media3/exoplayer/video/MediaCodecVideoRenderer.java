@@ -1299,7 +1299,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   long lastRender = 0;
   long elapsedRealtimeNowUsPrev = 0;
   long elapsedRealtimeUsPrev = 0;
-  long cumulDelta = 0;
   long positionUsPrev = 0;
   long bufferPresentationTimeUsPrev = 0;
 
@@ -1347,23 +1346,18 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
     // MIREGO BEGIN
     long elapsedRealtimeNowUs = SystemClock.elapsedRealtime() * 1000;
-
-    if (getPlaybackSpeed() != 1.0) {
-      Log.v(Log.LOG_LEVEL_VERBOSE4, TAG,"playbackSpeed: %f", getPlaybackSpeed());
-    }
+    long elapsedRealtimeNowUsDelta = elapsedRealtimeNowUs - elapsedRealtimeNowUsPrev;
+    long elapsedRealtimeUsDelta = elapsedRealtimeUs - elapsedRealtimeUsPrev;
 
     if (positionUsPrev != 0) {
       long positionUsDelta = positionUs - positionUsPrev;
       long bufferPresentationTimeUsDelta = bufferPresentationTimeUs - bufferPresentationTimeUsPrev;
-      Log.v(Log.LOG_LEVEL_VERBOSE4, TAG,"processOutputBuffer positionDelta %dus bufferPresentationTimeUsDelta %dus", positionUsDelta, bufferPresentationTimeUsDelta);
+      Log.v(Log.LOG_LEVEL_VERBOSE4, TAG,"processOutputBuffer positionDelta %dus bufferPresentationTimeUsDelta %dus elapsedRealtimeNowUsDelta %dus elapsedRealtimeUsDelta %dus",
+          positionUsDelta, bufferPresentationTimeUsDelta, elapsedRealtimeNowUsDelta, elapsedRealtimeUsDelta);
     }
     positionUsPrev = positionUs;
     bufferPresentationTimeUsPrev = bufferPresentationTimeUs;
 
-    long elapsedRealtimeNowUsDelta = elapsedRealtimeNowUs - elapsedRealtimeNowUsPrev;
-    long elapsedRealtimeUsDelta = elapsedRealtimeUs - elapsedRealtimeUsPrev;
-    cumulDelta += elapsedRealtimeNowUs - elapsedRealtimeUs;
-    Log.v(Log.LOG_LEVEL_VERBOSE4, TAG,"processOutputBuffer elapsedRealtimeNowUsDelta %dus elapsedRealtimeUsDelta %dus", elapsedRealtimeNowUsDelta, elapsedRealtimeUsDelta);
     elapsedRealtimeNowUsPrev = elapsedRealtimeNowUs;
     elapsedRealtimeUsPrev = elapsedRealtimeUs;
     // MIREGO END

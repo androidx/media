@@ -360,6 +360,9 @@ import java.lang.reflect.Method;
     lastPositionUs = positionUs;
     lastSampleUsedGetTimestampMode = useGetTimestampMode;
 
+    //Mirego
+    Log.v(Log.LOG_LEVEL_VERBOSE4, TAG, "getCurrentPositionUs: %d (useGetTimestampMode: %s)", positionUs, useGetTimestampMode);
+
     return positionUs;
   }
 
@@ -524,7 +527,7 @@ import java.lang.reflect.Method;
         smoothedPlayheadOffsetUs += playheadOffsets[i] / playheadOffsetCount;
       }
       // MIREGO
-      Log.v(Log.LOG_LEVEL_VERBOSE2, TAG,"maybeSampleSyncParams offset: %dus smoothed: %d ", playbackPositionUs - systemTimeUs, smoothedPlayheadOffsetUs);
+      Log.v(Log.LOG_LEVEL_VERBOSE4, TAG,"maybeSampleSyncParams offset: %d us smoothed: %d us", playbackPositionUs - systemTimeUs, smoothedPlayheadOffsetUs);
     }
 
     if (needsPassthroughWorkarounds) {
@@ -553,7 +556,7 @@ import java.lang.reflect.Method;
       audioTimestampPoller.rejectTimestamp();
 
       // MIREGO
-      Log.v(Log.LOG_LEVEL_VERBOSE2, TAG,"system time mismatch timestamp: %d system: %d delta %d",
+      Log.v(Log.LOG_LEVEL_VERBOSE1, TAG,"maybePollAndCheckTimestamp system time mismatch timestamp: %d system: %d delta %d",
           timestampSystemTimeUs, systemTimeUs, timestampSystemTimeUs - systemTimeUs );
 
     } else if (Math.abs(
@@ -564,7 +567,7 @@ import java.lang.reflect.Method;
       audioTimestampPoller.rejectTimestamp();
 
       // MIREGO
-      Log.v(Log.LOG_LEVEL_VERBOSE2, TAG,"position frames mismatch timestamp: %d playback: %d delta: %d",
+      Log.v(Log.LOG_LEVEL_VERBOSE1, TAG,"maybePollAndCheckTimestamp position frames mismatch timestamp: %d playback: %d delta: %d",
           framesToDurationUs(timestampPositionFrames), playbackPositionUs, framesToDurationUs(timestampPositionFrames) - playbackPositionUs);
 
     } else {

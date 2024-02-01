@@ -527,13 +527,16 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
     int result = Assertions.checkNotNull(stream).readData(formatHolder, buffer, readFlags);
     if (result == C.RESULT_BUFFER_READ) {
       if (buffer.isEndOfStream()) {
+        // MIREGO
+        Log.v(Log.LOG_LEVEL_VERBOSE3, TAG, "readSource isEndOfStream() streamIsFinal: %s", streamIsFinal);
+
         readingPositionUs = C.TIME_END_OF_SOURCE;
         return streamIsFinal ? C.RESULT_BUFFER_READ : C.RESULT_NOTHING_READ;
       }
       buffer.timeUs += streamOffsetUs;
 
       // MIREGO
-      Log.v(Log.LOG_LEVEL_VERBOSE4, TAG,"readingPosition: %dms bufferTime: %dms delta: %dms (%s)",
+      Log.v(Log.LOG_LEVEL_VERBOSE4, TAG,"readSource readingPosition: %dms bufferTime: %dms delta: %dms (%s)",
           readingPositionUs / 1000, buffer.timeUs / 1000, (readingPositionUs - buffer.timeUs) / 1000, this);
 
       readingPositionUs = max(readingPositionUs, buffer.timeUs);

@@ -1014,6 +1014,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
           mediaClock.syncAndGetPositionUs(
               /* isReadingAhead= */ playingPeriodHolder != queue.getReadingPeriod());
       long periodPositionUs = playingPeriodHolder.toPeriodTime(rendererPositionUs);
+
+      // MIREGO
+      Log.v(Log.LOG_LEVEL_VERBOSE3, TAG, "updatePlaybackPositions rendererPositionUs: %d  (periodPositionUs: %d)", rendererPositionUs, periodPositionUs);
+
       maybeTriggerPendingMessages(playbackInfo.positionUs, periodPositionUs);
       if (mediaClock.hasSkippedSilenceSinceLastCall()) {
         playbackInfo =
@@ -1443,6 +1447,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
         playingMediaPeriod == null
             ? MediaPeriodQueue.INITIAL_RENDERER_POSITION_OFFSET_US + periodPositionUs
             : playingMediaPeriod.toRendererTime(periodPositionUs);
+
+    // MIREGO
+    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "resetRendererPosition: %d", rendererPositionUs);
+
     mediaClock.resetPosition(rendererPositionUs);
     for (Renderer renderer : renderers) {
       if (isRendererEnabled(renderer)) {
@@ -2178,6 +2186,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
       // We don't have a successor to advance the reading period to or we want to let them end
       // intentionally to pause at the end of the period.
       if (readingPeriodHolder.info.isFinal || pendingPauseAtEndOfPeriod) {
+        // MIREGO
+        Log.v(Log.LOG_LEVEL_VERBOSE2, TAG, "maybeUpdateReadingPeriod readingPeriodHolder.info.isFinal: %s pendingPauseAtEndOfPeriod: %s", readingPeriodHolder.info.isFinal, pendingPauseAtEndOfPeriod);
+
         for (int i = 0; i < renderers.length; i++) {
           Renderer renderer = renderers[i];
           SampleStream sampleStream = readingPeriodHolder.sampleStreams[i];
@@ -2191,6 +2202,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
                         && readingPeriodHolder.info.durationUs != C.TIME_END_OF_SOURCE
                     ? readingPeriodHolder.getRendererOffset() + readingPeriodHolder.info.durationUs
                     : C.TIME_UNSET;
+
+            //MIREGO
+            Log.v(Log.LOG_LEVEL_VERBOSE2, TAG, "maybeUpdateReadingPeriod setCurrentStreamFinal renderer: %s streamEndPositionUs: %d", renderer, streamEndPositionUs);
+
             setCurrentStreamFinal(renderer, streamEndPositionUs);
           }
         }
@@ -2199,8 +2214,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
     }
 
     if (!hasReadingPeriodFinishedReading()) {
+      // MIREGO
+      Log.v(Log.LOG_LEVEL_VERBOSE3, TAG, "maybeUpdateReadingPeriod not finished reading. Period durationUs: %d  rendererOffset: %d",
+          readingPeriodHolder.info.durationUs, readingPeriodHolder.getRendererOffset());
       return;
     }
+
+    Log.v(Log.LOG_LEVEL_VERBOSE2, TAG, "maybeUpdateReadingPeriod finished reading. Period durationUs: %d  rendererOffset: %d  next prepared: %s",
+        readingPeriodHolder.info.durationUs, readingPeriodHolder.getRendererOffset(), readingPeriodHolder.getNext().prepared);
 
     if (!readingPeriodHolder.getNext().prepared
         && rendererPositionUs < readingPeriodHolder.getNext().getStartPositionRendererTime()) {
@@ -2223,6 +2244,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
     if (readingPeriodHolder.prepared
         && readingPeriodHolder.mediaPeriod.readDiscontinuity() != C.TIME_UNSET) {
+      // MIREGO
+      Log.v(Log.LOG_LEVEL_VERBOSE2, TAG, "maybeUpdateReadingPeriod new period discontinuity");
+
       // The new period starts with a discontinuity, so the renderers will play out all data, then
       // be disabled and re-enabled when they start playing the next period.
       setAllRendererStreamsFinal(
@@ -2249,6 +2273,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
           // it's a no-sample renderer for which rendererOffsetUs should be updated only when
           // starting to play the next period. Mark the SampleStream as final to play out any
           // remaining data.
+          // MIREGO
+          Log.v(Log.LOG_LEVEL_VERBOSE2, TAG, "maybeUpdateReadingPeriod setting stream final for renderer: %s (new enabled: %s configs: %s %s)",
+              renderers[i], newRendererEnabled, newConfig, oldConfig);
+
           setCurrentStreamFinal(
               renderers[i],
               /* streamEndPositionUs= */ readingPeriodHolder.getStartPositionRendererTime());
@@ -2412,9 +2440,17 @@ import java.util.concurrent.atomic.AtomicBoolean;
               && !renderer.hasReadStreamToEnd()
               && !hasReachedServerSideInsertedAdsTransition(renderer, readingPeriodHolder))) {
         // The current reading period is still being read by at least one renderer.
+
+        // MIREGO
+        Log.v(Log.LOG_LEVEL_VERBOSE4, TAG, "hasReadingPeriodFinishedReading returns false renderer: %s  sampleStream: %s", renderer, sampleStream);
+
         return false;
       }
     }
+
+    // MIREGO
+    Log.v(Log.LOG_LEVEL_VERBOSE3, TAG, "hasReadingPeriodFinishedReading returns true");
+
     return true;
   }
 

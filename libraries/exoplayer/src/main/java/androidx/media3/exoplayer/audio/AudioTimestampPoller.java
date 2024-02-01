@@ -302,11 +302,20 @@ import java.lang.annotation.Target;
      * false} if no timestamp is available, in which case those methods should not be called.
      */
     public boolean maybeUpdateTimestamp() {
+      // MIREGO: added those to log
+      long lastFramePos = audioTimestamp.framePosition;
+      long lastTime = audioTimestamp.nanoTime;
+
       boolean updated = audioTrack.getTimestamp(audioTimestamp);
       if (updated) {
 
-        // MIREGO
-        Log.v(Log.LOG_LEVEL_VERBOSE2, TAG,"maybeUpdateTimestamp updated pos: %d  last: %d", audioTimestamp.framePosition, lastTimestampRawPositionFrames);
+        // MIREGO: added block to log
+        long deltaFrame = audioTimestamp.framePosition - lastFramePos;
+        long deltaTime = audioTimestamp.nanoTime - lastTime;
+        Log.v(Log.LOG_LEVEL_VERBOSE1, TAG,"maybeUpdateTimestamp updated frame pos: %d  time: %d us  deltaFrame: %d  deltaTime: %d us frame avg time: %d ns  last: %d (track: %s) playbackRate: %d sampleRate: %d",
+            audioTimestamp.framePosition, audioTimestamp.nanoTime / 1000, deltaFrame, deltaTime / 1000, deltaFrame > 0 ? deltaTime / deltaFrame: 0,
+            lastTimestampRawPositionFrames, audioTrack,
+            audioTrack.getPlaybackRate(), audioTrack.getSampleRate());
 
         long rawPositionFrames = audioTimestamp.framePosition;
         if (lastTimestampRawPositionFrames > rawPositionFrames) {

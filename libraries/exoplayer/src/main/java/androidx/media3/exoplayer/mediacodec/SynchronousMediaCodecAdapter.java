@@ -28,6 +28,7 @@ import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.TraceUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -40,6 +41,8 @@ import java.nio.ByteBuffer;
  */
 @UnstableApi
 public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
+
+  private static final String TAG = "SyncMediaCodecAdapter";  // MIREGO for logging
 
   /** A factory for {@link SynchronousMediaCodecAdapter} instances. */
   public static class Factory implements MediaCodecAdapter.Factory {
@@ -106,6 +109,10 @@ public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
     int index;
     do {
       index = codec.dequeueOutputBuffer(bufferInfo, 0);
+
+      // MIREGO
+      Log.v(Log.LOG_LEVEL_VERBOSE4, TAG, "dequeueOutputBufferIndex codec: %s  index: %d", codec, index);
+
       if (index == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED && Util.SDK_INT < 21) {
         outputByteBuffers = codec.getOutputBuffers();
       }
