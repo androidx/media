@@ -30,6 +30,7 @@ import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -161,6 +162,8 @@ import java.lang.reflect.Method;
   private static final int MAX_PLAYHEAD_OFFSET_COUNT = 10;
   private static final int MIN_PLAYHEAD_OFFSET_SAMPLE_INTERVAL_US = 30_000;
   private static final int MIN_LATENCY_SAMPLE_INTERVAL_US = 50_0000;
+
+  private static final String TAG = "AudioTrackPosTracker"; /* MIREGO */
 
   private final Listener listener;
   private final long[] playheadOffsets;
@@ -520,6 +523,8 @@ import java.lang.reflect.Method;
       for (int i = 0; i < playheadOffsetCount; i++) {
         smoothedPlayheadOffsetUs += playheadOffsets[i] / playheadOffsetCount;
       }
+      // MIREGO
+      Log.v(Log.LOG_LEVEL_VERBOSE2, TAG,"maybeSampleSyncParams offset: %dus smoothed: %d ", playbackPositionUs - systemTimeUs, smoothedPlayheadOffsetUs);
     }
 
     if (needsPassthroughWorkarounds) {
@@ -546,15 +551,30 @@ import java.lang.reflect.Method;
       listener.onSystemTimeUsMismatch(
           timestampPositionFrames, timestampSystemTimeUs, systemTimeUs, playbackPositionUs);
       audioTimestampPoller.rejectTimestamp();
+
+      // MIREGO
+      Log.v(Log.LOG_LEVEL_VERBOSE2, TAG,"system time mismatch timestamp: %d system: %d delta %d",
+          timestampSystemTimeUs, systemTimeUs, timestampSystemTimeUs - systemTimeUs );
+
     } else if (Math.abs(
             sampleCountToDurationUs(timestampPositionFrames, outputSampleRate) - playbackPositionUs)
         > MAX_AUDIO_TIMESTAMP_OFFSET_US) {
       listener.onPositionFramesMismatch(
           timestampPositionFrames, timestampSystemTimeUs, systemTimeUs, playbackPositionUs);
       audioTimestampPoller.rejectTimestamp();
+
+      // MIREGO
+      Log.v(Log.LOG_LEVEL_VERBOSE2, TAG,"position frames mismatch timestamp: %d playback: %d delta: %d",
+          framesToDurationUs(timestampPositionFrames), playbackPositionUs, framesToDurationUs(timestampPositionFrames) - playbackPositionUs);
+
     } else {
       audioTimestampPoller.acceptTimestamp();
     }
+  }
+
+  // MIREGO
+  private long framesToDurationUs(long frameCount) {
+    return (frameCount * C.MICROS_PER_SECOND) / outputSampleRate;
   }
 
   private void maybeUpdateLatency(long systemTimeUs) {

@@ -440,6 +440,11 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
         MimeTypes.AUDIO_RAW.equals(codecInfo.mimeType)
             && !MimeTypes.AUDIO_RAW.equals(format.sampleMimeType);
     decryptOnlyCodecFormat = decryptOnlyCodecEnabled ? format : null;
+
+    // MIREGO
+    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG,"getMediaCodecConfiguration codecInfo.mimeType: %s format.sampleMimeType: %s decryptOnlyCodecFormat: %s",
+        codecInfo.mimeType, format.sampleMimeType, decryptOnlyCodecFormat);
+
     return MediaCodecAdapter.Configuration.createForAudioDecoding(
         codecInfo, mediaFormat, format, crypto);
   }
@@ -524,6 +529,10 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
       throws ExoPlaybackException {
     Format audioSinkInputFormat;
     @Nullable int[] channelMap = null;
+
+    // MIREGO
+    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG,"onOutputFormatChanged format: %s decryptOnlyCodecFormat: %s codec: %s", format, decryptOnlyCodecFormat, getCodec());
+
     if (decryptOnlyCodecFormat != null) { // Direct playback with a codec for decryption.
       audioSinkInputFormat = decryptOnlyCodecFormat;
     } else if (getCodec() == null) { // Direct playback with codec bypass.
@@ -951,6 +960,8 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
               : max(currentPositionUs, newCurrentPositionUs);
       allowPositionDiscontinuity = false;
     }
+    // MIREGO
+    Log.v(Log.LOG_LEVEL_VERBOSE4, TAG,"updateCurrentPosition %dus (new: %dus)", currentPositionUs, newCurrentPositionUs);
   }
 
   /**

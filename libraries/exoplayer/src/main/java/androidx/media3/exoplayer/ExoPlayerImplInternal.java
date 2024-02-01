@@ -1110,6 +1110,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
         // again. The minimum of these values should then be used as the delay before the next
         // invocation of this method.
         renderer.render(rendererPositionUs, rendererPositionElapsedRealtimeUs);
+
+        // MIREGO
+        Log.v(Log.LOG_LEVEL_VERBOSE4, TAG,"renderer.render %s pos %d us  elapsed realtime: %d us", renderer, rendererPositionUs, rendererPositionElapsedRealtimeUs);
+
         renderersEnded = renderersEnded && renderer.isEnded();
         // Determine whether the renderer allows playback to continue. Playback can continue if the
         // renderer is ready or ended. Also continue playback if the renderer is reading ahead into

@@ -26,6 +26,7 @@ import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
@@ -60,6 +61,8 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
   private boolean streamIsFinal;
   private boolean throwRendererExceptionIsExecuting;
   private Timeline timeline;
+
+  private static final String TAG = "BaseRenderer"; /* MIREGO */
 
   @GuardedBy("lock")
   @Nullable
@@ -528,9 +531,18 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
         return streamIsFinal ? C.RESULT_BUFFER_READ : C.RESULT_NOTHING_READ;
       }
       buffer.timeUs += streamOffsetUs;
+
+      // MIREGO
+      Log.v(Log.LOG_LEVEL_VERBOSE4, TAG,"readingPosition: %dms bufferTime: %dms delta: %dms (%s)",
+          readingPositionUs / 1000, buffer.timeUs / 1000, (readingPositionUs - buffer.timeUs) / 1000, this);
+
       readingPositionUs = max(readingPositionUs, buffer.timeUs);
     } else if (result == C.RESULT_FORMAT_READ) {
       Format format = Assertions.checkNotNull(formatHolder.format);
+
+      // MIREGO
+      Log.v(Log.LOG_LEVEL_VERBOSE2, TAG,"readSource format: %s from stream %s (%s)", format, stream, this);
+
       if (format.subsampleOffsetUs != Format.OFFSET_SAMPLE_RELATIVE) {
         format =
             format

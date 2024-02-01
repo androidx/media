@@ -38,6 +38,7 @@ import android.media.MediaFormat;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.os.SystemClock;
 import android.util.Pair;
 import android.view.Display;
 import android.view.Surface;
@@ -1293,6 +1294,15 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     }
   }
 
+  // MIREGO added block
+  int skipCount = 0;
+  long lastRender = 0;
+  long elapsedRealtimeNowUsPrev = 0;
+  long elapsedRealtimeUsPrev = 0;
+  long cumulDelta = 0;
+  long positionUsPrev = 0;
+  long bufferPresentationTimeUsPrev = 0;
+
   @Override
   protected boolean processOutputBuffer(
       long positionUs,
@@ -1328,11 +1338,41 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     // and we want to have this information known as early as possible, especially during seeking.
     if (isDecodeOnlyBuffer && !isLastBuffer) {
       skipOutputBuffer(codec, bufferIndex, presentationTimeUs);
+
+      // MIREGO
+      Log.v(Log.LOG_LEVEL_VERBOSE4, TAG,"skipOutputBuffer");
+
       return true;
     }
 
+    // MIREGO BEGIN
+    long elapsedRealtimeNowUs = SystemClock.elapsedRealtime() * 1000;
+
+    if (getPlaybackSpeed() != 1.0) {
+      Log.v(Log.LOG_LEVEL_VERBOSE4, TAG,"playbackSpeed: %f", getPlaybackSpeed());
+    }
+
+    if (positionUsPrev != 0) {
+      long positionUsDelta = positionUs - positionUsPrev;
+      long bufferPresentationTimeUsDelta = bufferPresentationTimeUs - bufferPresentationTimeUsPrev;
+      Log.v(Log.LOG_LEVEL_VERBOSE4, TAG,"processOutputBuffer positionDelta %dus bufferPresentationTimeUsDelta %dus", positionUsDelta, bufferPresentationTimeUsDelta);
+    }
+    positionUsPrev = positionUs;
+    bufferPresentationTimeUsPrev = bufferPresentationTimeUs;
+
+    long elapsedRealtimeNowUsDelta = elapsedRealtimeNowUs - elapsedRealtimeNowUsPrev;
+    long elapsedRealtimeUsDelta = elapsedRealtimeUs - elapsedRealtimeUsPrev;
+    cumulDelta += elapsedRealtimeNowUs - elapsedRealtimeUs;
+    Log.v(Log.LOG_LEVEL_VERBOSE4, TAG,"processOutputBuffer elapsedRealtimeNowUsDelta %dus elapsedRealtimeUsDelta %dus", elapsedRealtimeNowUsDelta, elapsedRealtimeUsDelta);
+    elapsedRealtimeNowUsPrev = elapsedRealtimeNowUs;
+    elapsedRealtimeUsPrev = elapsedRealtimeUs;
+    // MIREGO END
+
     // We are not rendering on a surface, the renderer will wait until a surface is set.
     if (displaySurface == placeholderSurface) {
+      // MIREGO
+      Log.v(Log.LOG_LEVEL_VERBOSE4, TAG,"processOutputBuffer displaySurface == placeholderSurface");
+
       // Skip frames in sync with playback, so we'll be at the right frame if the mode changes.
       if (videoFrameReleaseInfo.getEarlyUs() < 30_000) {
         skipOutputBuffer(codec, bufferIndex, presentationTimeUs);

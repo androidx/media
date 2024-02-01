@@ -26,6 +26,7 @@ import androidx.media3.common.C.DataType;
 import androidx.media3.common.Format;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import java.io.IOException;
@@ -146,6 +147,9 @@ public interface MediaSourceEventListener {
   /** Dispatches events to {@link MediaSourceEventListener MediaSourceEventListeners}. */
   class EventDispatcher {
 
+    // MIREGO
+    private static final String TAG = "EventDispatcher";
+
     /** The timeline window index reported with the events. */
     public final int windowIndex;
 
@@ -259,6 +263,9 @@ public interface MediaSourceEventListener {
 
     /** Dispatches {@link #onLoadStarted(int, MediaPeriodId, LoadEventInfo, MediaLoadData)}. */
     public void loadStarted(LoadEventInfo loadEventInfo, MediaLoadData mediaLoadData) {
+      // MIREGO
+      Log.v(Log.LOG_LEVEL_VERBOSE1, TAG,"loadStarted (type: %d): startTime: %d endTime: %d duration: %d  (%s)", mediaLoadData.dataType, mediaLoadData.mediaStartTimeMs, mediaLoadData.mediaEndTimeMs, mediaLoadData.mediaEndTimeMs - mediaLoadData.mediaStartTimeMs, loadEventInfo.uri);
+
       for (ListenerAndHandler listenerAndHandler : listenerAndHandlers) {
         MediaSourceEventListener listener = listenerAndHandler.listener;
         postOrRun(

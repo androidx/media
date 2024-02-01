@@ -46,6 +46,19 @@ public final class Log {
   @IntDef({LOG_LEVEL_ALL, LOG_LEVEL_INFO, LOG_LEVEL_WARNING, LOG_LEVEL_ERROR, LOG_LEVEL_OFF})
   public @interface LogLevel {}
 
+  /**
+   * MIREGO added verbose
+   * Those are expected to flood the logcat
+   * The higher the number, the more logs you get
+   * Try to use the importance and frequency to determine the level
+   * Higher importance: lower verbose level
+   * Higher frequency: higher verbose level
+   */
+  public static final int LOG_LEVEL_VERBOSE4 = -4;
+  public static final int LOG_LEVEL_VERBOSE3 = -3;
+  public static final int LOG_LEVEL_VERBOSE2 = -2;
+  public static final int LOG_LEVEL_VERBOSE1 = -1;
+
   /** Log level to log all messages. */
   public static final int LOG_LEVEL_ALL = 0;
 
@@ -71,6 +84,10 @@ public final class Log {
     /** The default instance logging to {@link android.util.Log}. */
     Logger DEFAULT =
         new Logger() {
+          @Override //MIREGO: added
+          public void v(int level, String tag, String message) {
+            android.util.Log.v(tag, message);
+          }
           @Override
           public void d(String tag, String message, @Nullable Throwable throwable) {
             android.util.Log.d(tag, appendThrowableString(message, throwable));
@@ -91,6 +108,14 @@ public final class Log {
             android.util.Log.e(tag, appendThrowableString(message, throwable));
           }
         };
+
+    /**
+     * MIREGO ADDED: Logs a verbose-level message.
+     *
+     * @param tag The tag of the message.
+     * @param message The message.
+     */
+    void v(int level, String tag, String message);
 
     /**
      * Logs a debug-level message with an optional associated {@link Throwable}.
@@ -162,6 +187,25 @@ public final class Log {
   }
 
   /**
+   * @see android.util.Log#v(String, String)
+   */
+  @Pure
+  public static void v(int level, @Size(max = 23) String tag, String message) {
+    //intended to not lock here. I don't see the point.
+    if (logLevel <= level) {
+      logger.v(level, tag, message);
+    }
+  }
+
+  @Pure
+  public static void v(int level, @Size(max = 23) String tag, String msgFormat, Object... msgArgs) {
+    //intended to not lock here. I don't see the point.
+    if (logLevel <= level) {
+      logger.v(level, tag, String.format(msgFormat, msgArgs));
+    }
+  }
+
+  /**
    * Sets whether stack traces of {@link Throwable}s will be logged to logcat. Stack trace logging
    * is enabled by default.
    *
@@ -193,7 +237,7 @@ public final class Log {
   @Pure
   public static void d(@Size(max = 23) String tag, String message) {
     synchronized (lock) {
-      if (logLevel == LOG_LEVEL_ALL) {
+      if (logLevel <= LOG_LEVEL_ALL) {
         logger.d(tag, message, /* throwable= */ null);
       }
     }

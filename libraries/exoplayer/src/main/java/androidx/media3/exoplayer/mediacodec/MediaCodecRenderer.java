@@ -649,6 +649,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       outputFormatChanged = true;
     }
     if (outputFormatChanged || (codecOutputMediaFormatChanged && outputFormat != null)) {
+      // MIREGO
+      Log.v(Log.LOG_LEVEL_VERBOSE1, TAG,"updateOutputFormatForTime changed: %s (%s)", outputFormat, this);
+
       onOutputFormatChanged(checkNotNull(outputFormat), codecOutputMediaFormat);
       codecOutputMediaFormatChanged = false;
       needToNotifyOutputFormatChangeAfterStreamChange = false;
@@ -755,6 +758,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   }
 
   private void disableBypass() {
+    // MIREGO
+    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG,"disableBypass %s", this);
+
     bypassDrainAndReinitialize = false;
     bypassBatchBuffer.clear();
     bypassSampleBuffer.clear();
@@ -764,6 +770,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   }
 
   protected void releaseCodec() {
+    // MIREGO
+    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG,"releaseCodec %s", this);
+
     try {
       if (codec != null) {
         codec.release();
@@ -817,6 +826,10 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       }
       // We have a format.
       maybeInitCodecOrBypass();
+
+      // MIREGO
+      Log.v(Log.LOG_LEVEL_VERBOSE4, TAG,"render %s bypassEnabled: %s codec: %s", this, bypassEnabled, codec);
+
       if (bypassEnabled) {
         TraceUtil.beginSection("bypassRender");
         while (bypassRender(positionUs, elapsedRealtimeUs)) {}
@@ -830,6 +843,10 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         TraceUtil.endSection();
       } else {
         decoderCounters.skippedInputBufferCount += skipSource(positionUs);
+
+        // MIREGO
+        Log.v(Log.LOG_LEVEL_VERBOSE2, TAG,"skippedInputBufferCount %d (%s)", decoderCounters.skippedInputBufferCount, this);
+
         // We need to read any format changes despite not having a codec so that drmSession can be
         // updated, and so that we have the most recent format should the codec be initialized. We
         // may also reach the end of the stream. FLAG_PEEK is used because we don't want to advance
@@ -1157,6 +1174,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
 
   /** Configures rendering where no codec is used. */
   private void initBypass(Format format) {
+    // MIREGO
+    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG,"initBypass format: %s (%s)", format, this);
+
     disableBypass(); // In case of transition between 2 bypass formats.
 
     String mimeType = format.sampleMimeType;
@@ -1231,6 +1251,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     if (getState() == STATE_STARTED) {
       codecHotswapDeadlineMs = getClock().elapsedRealtime() + MAX_CODEC_HOTSWAP_TIME_MS;
     }
+
+    // MIREGO
+    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG,"initCodec success %s (%s)", codec, this);
 
     decoderCounters.decoderInitCount++;
     long elapsed = codecInitializedTimestamp - codecInitializingTimestamp;
@@ -1328,6 +1351,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     try {
       result = readSource(formatHolder, buffer, /* readFlags= */ 0);
     } catch (InsufficientCapacityException e) {
+      // MIREGO
+      Log.v(Log.LOG_LEVEL_VERBOSE1, TAG,"feedInputBuffer InsufficientCapacityException (%s)", outputFormat, this);
+
       onCodecError(e);
       // Skip the sample that's too large by reading it without its data. Then flush the codec so
       // that rendering will resume from the next key frame.
@@ -1537,6 +1563,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   @Nullable
   protected DecoderReuseEvaluation onInputFormatChanged(FormatHolder formatHolder)
       throws ExoPlaybackException {
+    // MIREGO
+    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG,"onInputFormatChanged format: %s (%s)", formatHolder.format, this);
+
     waitingForFirstSampleInFormat = true;
     Format newFormat = checkNotNull(formatHolder.format);
     if (newFormat.sampleMimeType == null) {
