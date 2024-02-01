@@ -616,6 +616,11 @@ public class ChunkSampleStream<T extends ChunkSource>
     long elapsedRealtimeMs =
         loader.startLoading(
             loadable, this, loadErrorHandlingPolicy.getMinimumLoadableRetryCount(loadable.type));
+
+    // MIREGO
+    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG,"loadStarted (type: %d): startTime: %d endTime: %d duration: %d  (%s)",
+        loadable.type, loadable.startTimeUs / 1000, loadable.endTimeUs / 1000, (loadable.endTimeUs - loadable.startTimeUs) / 1000, loadable.dataSpec.uri);
+
     mediaSourceEventDispatcher.loadStarted(
         new LoadEventInfo(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs),
         loadable.type,
