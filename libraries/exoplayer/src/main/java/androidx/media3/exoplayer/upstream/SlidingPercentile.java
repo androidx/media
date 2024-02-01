@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.upstream;
 
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -39,6 +40,11 @@ import java.util.Comparator;
  */
 @UnstableApi
 public class SlidingPercentile {
+
+  // MIREGO: added min sample count. UHD samples are so big, we were only using 2 samples to compute bandwidth.
+  // We were taking the slowest of the 2 most of the time. That was too sensitive to single slow measurements.
+  private static final int MIN_SAMPLE_COUNT_TO_KEEP = 7;
+  private static final String TAG = "BandwidthMeter";
 
   // Orderings.
   private static final Comparator<Sample> INDEX_COMPARATOR = (a, b) -> a.index - b.index;
@@ -96,7 +102,8 @@ public class SlidingPercentile {
     samples.add(newSample);
     totalWeight += weight;
 
-    while (totalWeight > maxWeight) {
+    // MIREGO
+    while ((totalWeight > maxWeight) && (samples.size() > MIN_SAMPLE_COUNT_TO_KEEP)) {
       int excessWeight = totalWeight - maxWeight;
       Sample oldestSample = samples.get(0);
       if (oldestSample.weight <= excessWeight) {
@@ -110,6 +117,9 @@ public class SlidingPercentile {
         totalWeight -= excessWeight;
       }
     }
+
+    // MIREGO
+    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "Sliding added sample %f (w=%d) samples count: %d", value, weight, samples.size());
   }
 
   /**
@@ -126,6 +136,9 @@ public class SlidingPercentile {
       Sample currentSample = samples.get(i);
       accumulatedWeight += currentSample.weight;
       if (accumulatedWeight >= desiredWeight) {
+        // MIREGO
+        Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "sliding getPercentile returns sample %d of %d (%f)", i, samples.size(), currentSample.value);
+
         return currentSample.value;
       }
     }

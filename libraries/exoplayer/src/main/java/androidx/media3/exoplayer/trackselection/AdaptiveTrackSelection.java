@@ -447,6 +447,11 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
     if (reason == C.SELECTION_REASON_UNKNOWN) {
       reason = C.SELECTION_REASON_INITIAL;
       selectedIndex = determineIdealSelectedIndex(nowMs, chunkDurationUs);
+
+      // MIREGO
+      Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "updateSelectedTrack initialSelection: %d bitrate: %d)",
+          selectedIndex, getFormat(selectedIndex).bitrate);
+
       return;
     }
 
@@ -468,6 +473,10 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
           minDurationForQualityIncreaseUs(availableDurationUs, chunkDurationUs);
       if (selectedFormat.bitrate > currentFormat.bitrate
           && bufferedDurationUs < minDurationForQualityIncreaseUs) {
+        // MIREGO
+        Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "updateSelectedTrack idealTrack: %d (bitrate %d), but not enough buffered duration (%d/%d) keep %d",
+            newSelectedIndex, getFormat(newSelectedIndex).bitrate, bufferedDurationUs, minDurationForQualityIncreaseUs, previousSelectedIndex);
+
         // The selected track is a higher quality, but we have insufficient buffer to safely switch
         // up. Defer switching up for now.
         newSelectedIndex = previousSelectedIndex;
@@ -475,7 +484,16 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
           && bufferedDurationUs >= maxDurationForQualityDecreaseUs) {
         // The selected track is a lower quality, but we have sufficient buffer to defer switching
         // down for now.
+
+        //MIREGO
+        Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "updateSelectedTrack idealTrack: %d (bitrate %d), but enough buffered duration to defer switch (%d/%d) keep %d",
+            newSelectedIndex, getFormat(newSelectedIndex).bitrate, bufferedDurationUs, minDurationForQualityIncreaseUs, previousSelectedIndex);
+
         newSelectedIndex = previousSelectedIndex;
+      } else {
+        // MIREGO
+        Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "updateSelectedTrack idealTrack: %d bitrate: %d (previous: %d bitrate: %d)",
+            newSelectedIndex, getFormat(newSelectedIndex).bitrate, previousSelectedIndex, getFormat(previousSelectedIndex).bitrate);
       }
     }
     // If we adapted, update the trigger.
@@ -599,6 +617,11 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
   private int determineIdealSelectedIndex(long nowMs, long chunkDurationUs) {
     long effectiveBitrate = getAllocatedBandwidth(chunkDurationUs);
     int lowestBitrateAllowedIndex = 0;
+
+    // MIREGO
+    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "determineIdealSelectedIndex effectiveBitrate: %d",
+        effectiveBitrate);
+
     for (int i = 0; i < length; i++) {
       if (nowMs == Long.MIN_VALUE || !isTrackExcluded(i, nowMs)) {
         Format format = getFormat(i);
