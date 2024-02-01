@@ -348,7 +348,8 @@ public abstract class MappingTrackSelector extends TrackSelector {
   }
 
   @Override
-  public final TrackSelectorResult selectTracks(
+  // MIREGO: Removed "final" as we need to hook on that function to get the source TrackGroupArray
+  public TrackSelectorResult selectTracks(
       RendererCapabilities[] rendererCapabilities,
       TrackGroupArray trackGroups,
       MediaPeriodId periodId,
