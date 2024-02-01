@@ -22,6 +22,7 @@ import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -49,6 +50,9 @@ public final class UdpDataSource extends BaseDataSource {
       super(cause, errorCode);
     }
   }
+
+  // MIREGO: Add tag for logs
+  private static final String TAG = "UdpDataSource";
 
   /** The default maximum datagram packet size, in bytes. */
   public static final int DEFAULT_MAX_PACKET_SIZE = 2000;
@@ -114,12 +118,19 @@ public final class UdpDataSource extends BaseDataSource {
         socket = new DatagramSocket(socketAddress);
       }
       socket.setSoTimeout(socketTimeoutMillis);
+      // MIREGO START
     } catch (SecurityException e) {
-      throw new UdpDataSourceException(e, PlaybackException.ERROR_CODE_IO_NO_PERMISSION);
+      UdpDataSourceException sourceException = new UdpDataSourceException(e,
+          PlaybackException.ERROR_CODE_IO_NO_PERMISSION);
+      Log.e(TAG, "open() ", sourceException);
+      throw sourceException;
     } catch (IOException e) {
-      throw new UdpDataSourceException(
+      UdpDataSourceException sourceException = new UdpDataSourceException(
           e, PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED);
+      Log.e(TAG, "open() ", sourceException);
+      throw sourceException;
     }
+    // MIREGO END
 
     opened = true;
     transferStarted(dataSpec);

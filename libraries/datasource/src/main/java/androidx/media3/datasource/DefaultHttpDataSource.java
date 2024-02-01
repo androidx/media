@@ -402,8 +402,12 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
       responseMessage = connection.getResponseMessage();
     } catch (IOException e) {
       closeConnectionQuietly();
-      throw HttpDataSourceException.createForIOException(
+      // MIREGO START
+      HttpDataSourceException ioException = HttpDataSourceException.createForIOException(
           e, dataSpec, HttpDataSourceException.TYPE_OPEN);
+      Log.e(TAG, "open() ", ioException);
+      throw ioException;
+      // MIREGO END
     }
 
     // Check for a valid response code.
@@ -510,8 +514,12 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
     try {
       return readInternal(buffer, offset, length);
     } catch (IOException e) {
-      throw HttpDataSourceException.createForIOException(
+      // MIREGO START
+      HttpDataSourceException ioException = HttpDataSourceException.createForIOException(
           e, castNonNull(dataSpec), HttpDataSourceException.TYPE_READ);
+      Log.e(TAG, "read() ", ioException);
+      throw ioException;
+      // MIREGO END
     }
   }
 
