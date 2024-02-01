@@ -694,6 +694,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     return videoFrameReleaseControl.isReady(readyToReleaseFrames);
   }
 
+  boolean hasNotifiedAvDesyncError = false;  // MIREGO
+  boolean hasNotifiedAvDesyncSkippedFramesError = false;  // MIREGO
+
   @Override
   protected void onStarted() {
     super.onStarted();
@@ -707,6 +710,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     // MIREGO added following block
     firstFrameRenderedSystemMs = 0;
     lastRenderedTunneledBufferPresentationTimeUs = 0;
+    hasNotifiedAvDesyncError = false;
+    hasNotifiedAvDesyncSkippedFramesError = false;
   }
 
   @Override
@@ -1425,7 +1430,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         throw new IllegalStateException(String.valueOf(frameReleaseAction));
     }
   }
-
+  
   private boolean maybeReleaseFrame(
       MediaCodecAdapter codec, int bufferIndex, long presentationTimeUs, Format format) {
     long releaseTimeNs = videoFrameReleaseInfo.getReleaseTimeNs();
