@@ -308,6 +308,10 @@ import java.lang.reflect.Method;
       elapsedSinceTimestampUs =
           Util.getMediaDurationForPlayoutDuration(elapsedSinceTimestampUs, audioTrackPlaybackSpeed);
       positionUs = timestampPositionUs + elapsedSinceTimestampUs;
+
+      // MIREGO
+      Log.v(Log.LOG_LEVEL_VERBOSE4, TAG, "getCurrentPositionUs timestampPositionFrames: %d  timestampPositionUs: %d  elapsedSinceTimestampUs: %d  positionUs: %d  speed: %f",
+          timestampPositionFrames, timestampPositionUs, elapsedSinceTimestampUs, positionUs, audioTrackPlaybackSpeed);
     } else {
       if (playheadOffsetCount == 0) {
         // The AudioTrack has started, but we don't have any samples to compute a smoothed position.

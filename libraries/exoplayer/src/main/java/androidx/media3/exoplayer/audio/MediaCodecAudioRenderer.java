@@ -733,8 +733,8 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     checkNotNull(buffer);
 
     // MIREGO
-    Log.v(Log.LOG_LEVEL_VERBOSE2, TAG, "processOutputBuffer (decryptOnlyCodecFormat %s  bufferFlags: %d isDecodeOnlyBuffer %s)",
-        decryptOnlyCodecFormat, bufferFlags, isDecodeOnlyBuffer);
+    Log.v(Log.LOG_LEVEL_VERBOSE2, TAG, "processOutputBuffer presentationTime: %d sampleCount: %d (decryptOnlyCodecFormat %s  bufferFlags: %d isDecodeOnlyBuffer %s)",
+        bufferPresentationTimeUs, sampleCount, decryptOnlyCodecFormat, bufferFlags, isDecodeOnlyBuffer);
 
     if (decryptOnlyCodecFormat != null
         && (bufferFlags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) {

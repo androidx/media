@@ -2044,8 +2044,8 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
 
       // MIREGO START
       dequeuedOutputCount++;
-      Log.v(Log.LOG_LEVEL_VERBOSE3, TAG, "drainOutputBuffer(type:%d) dequeuedOutputCount: %d outputIndex: %d",
-          getTrackType(), dequeuedOutputCount, outputIndex);
+      Log.v(Log.LOG_LEVEL_VERBOSE3, TAG, "drainOutputBuffer(type:%d) presentationTime: %d dequeuedOutputCount: %d outputIndex: %d",
+          getTrackType(), outputBufferInfo.presentationTimeUs, dequeuedOutputCount, outputIndex);
       // MIREGO END
 
       // We've dequeued a buffer.

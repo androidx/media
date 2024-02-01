@@ -22,6 +22,7 @@ import androidx.annotation.GuardedBy;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.Size;
+import androidx.media3.common.PlaybackException;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -107,6 +108,12 @@ public final class Log {
           public void e(String tag, String message, @Nullable Throwable throwable) {
             android.util.Log.e(tag, appendThrowableString(message, throwable));
           }
+
+          // MIREGO added
+          @Override
+          public void e(String tag, PlaybackException e) {
+            android.util.Log.e(tag, e.toString());
+          }
         };
 
     /**
@@ -152,6 +159,14 @@ public final class Log {
      * @param throwable The {@link Throwable} associated with the message, or null if not specified.
      */
     void e(String tag, String message, @Nullable Throwable throwable);
+
+    /** MIREGO added
+     * Logs an error-level exception.
+     *
+     * @param tag The tag of the message.
+     * @param exception The exception.
+     */
+    void e(String tag, PlaybackException exception);
   }
 
   private static final Object lock = new Object();
@@ -332,6 +347,16 @@ public final class Log {
     synchronized (lock) {
       if (logLevel <= LOG_LEVEL_ERROR) {
         logger.e(tag, message, /* throwable= */ null);
+      }
+    }
+  }
+
+  // MIREGO added
+  @Pure
+  public static void e(@Size(max = 23) String tag, PlaybackException e) {
+    synchronized (lock) {
+      if (logLevel <= LOG_LEVEL_ERROR) {
+        logger.e(tag, e);
       }
     }
   }

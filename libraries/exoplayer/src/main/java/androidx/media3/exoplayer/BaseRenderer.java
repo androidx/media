@@ -544,7 +544,7 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
       Format format = Assertions.checkNotNull(formatHolder.format);
 
       // MIREGO
-      Log.v(Log.LOG_LEVEL_VERBOSE2, TAG,"readSource format: %s from stream %s (%s)", format, stream, this);
+      Log.v(Log.LOG_LEVEL_VERBOSE2, TAG,"readSource buffer time: %d format: %s from stream %s (%s)", buffer.timeUs, format, stream, this);
 
       if (format.subsampleOffsetUs != Format.OFFSET_SAMPLE_RELATIVE) {
         format =
