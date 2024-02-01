@@ -300,6 +300,18 @@ public class DownloadManager {
   }
 
   /**
+   * MIREGO ADDED FUNCTION
+   * Tell the manager to check if it is currently idle.
+   */
+  public void checkIsIdle() {
+    if (isIdle()) {
+      for (Listener listener : listeners) {
+        listener.onIdle(this);
+      }
+    }
+  }
+
+  /**
    * Returns whether this manager has one or more downloads that are not progressing for the sole
    * reason that the {@link #getRequirements() Requirements} are not met. This is true if:
    *
@@ -651,11 +663,15 @@ public class DownloadManager {
   private void onMessageProcessed(int processedMessageCount, int activeTaskCount) {
     this.pendingMessages -= processedMessageCount;
     this.activeTaskCount = activeTaskCount;
+    // MIREGO added and commented block
+    checkIsIdle();
+    /*
     if (isIdle()) {
       for (Listener listener : listeners) {
         listener.onIdle(this);
       }
     }
+    } */
   }
 
   /* package */ static Download mergeRequest(
