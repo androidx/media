@@ -94,7 +94,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * The maximum number of frames that can be dropped between invocations of {@link
    * VideoRendererEventListener#onDroppedFrames(int, long)}.
    */
-  public static final int MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY = 50;
+  public static final int MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY = 1;  // MIREGO 1 instead of 50
 
   private static final String TAG = "DefaultRenderersFactory";
 
