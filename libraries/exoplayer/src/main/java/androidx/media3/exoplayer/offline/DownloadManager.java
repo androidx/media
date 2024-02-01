@@ -70,8 +70,11 @@ import java.util.concurrent.Executor;
  * the `Looper` of the thread from which the manager must be accessed can be queried using {@link
  * #getApplicationLooper()}.
  */
+
+// MIREGO: Removed "final" as we need to override the isIdle() function to avoid stopping the
+// download service when there is downloads waiting in an external queue.
 @UnstableApi
-public final class DownloadManager {
+public class DownloadManager {
 
   /** Listener for {@link DownloadManager} events. */
   public interface Listener {
