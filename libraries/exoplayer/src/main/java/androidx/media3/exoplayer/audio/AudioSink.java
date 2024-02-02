@@ -547,8 +547,8 @@ public interface AudioSink {
   @Nullable
   AudioAttributes getAudioAttributes();
 
-  /** Sets the audio session id. */
-  void setAudioSessionId(int audioSessionId);
+  // MIREGO: use 2 session ids (one for tunneling)
+  void setAudioSessionId(int audioSessionId, int tunnelingSessionId);
 
   /** Sets the auxiliary effect. */
   void setAuxEffectInfo(AuxEffectInfo auxEffectInfo);

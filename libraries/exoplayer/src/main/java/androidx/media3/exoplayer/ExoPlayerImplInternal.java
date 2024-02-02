@@ -699,7 +699,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
         errorCode = PlaybackException.ERROR_CODE_UNSPECIFIED;
       }
       ExoPlaybackException error = ExoPlaybackException.createForUnexpected(e, errorCode);
-      Log.e(TAG, "Playback error", error);
+
+      // MIREGO
+      Log.e(TAG, "Playback error handling msg " + msg.what, e);
+
       stopInternal(/* forceResetRenderers= */ true, /* acknowledgeStop= */ false);
       playbackInfo = playbackInfo.copyWithPlaybackError(error);
     }
@@ -1527,6 +1530,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
       boolean resetPosition,
       boolean releaseMediaSourceList,
       boolean resetError) {
+
+    // MIREGO
+    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "resetInternal(resetRenderers: %s, resetPosition: %s, releaseMediaSourceList: %s, resetError: %s)",
+        resetRenderers, resetPosition, releaseMediaSourceList, resetError);
+
     handler.removeMessages(MSG_DO_SOME_WORK);
     pendingRecoverableRendererError = null;
     updateRebufferingState(/* isRebuffering= */ false, /* resetLastRebufferRealtimeMs= */ true);
@@ -2724,6 +2732,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
     TrackSelectorResult trackSelectorResult = periodHolder.getTrackSelectorResult();
     RendererConfiguration rendererConfiguration =
         trackSelectorResult.rendererConfigurations[rendererIndex];
+
+    // MIREGO
+    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "enableRenderer %s with tunneling: %s", renderer, rendererConfiguration.tunneling);
+
     ExoTrackSelection newSelection = trackSelectorResult.selections[rendererIndex];
     Format[] formats = getFormats(newSelection);
     // The renderer needs enabling with its new track selection.

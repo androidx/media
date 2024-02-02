@@ -213,6 +213,7 @@ import java.util.concurrent.TimeoutException;
   @Nullable private DecoderCounters videoDecoderCounters;
   @Nullable private DecoderCounters audioDecoderCounters;
   private int audioSessionId;
+  private int tunnelingAudioSessionId; // MIREGO ADDED
   private AudioAttributes audioAttributes;
   private float volume;
   private boolean skipSilenceEnabled;
@@ -378,8 +379,14 @@ import java.util.concurrent.TimeoutException;
       maskingWindowIndex = C.INDEX_UNSET;
       if (Util.SDK_INT < 21) {
         audioSessionId = initializeKeepSessionIdAudioTrack(C.AUDIO_SESSION_ID_UNSET);
+
+        // MIREGO
+        tunnelingAudioSessionId = audioSessionId;
       } else {
         audioSessionId = Util.generateAudioSessionIdV21(applicationContext);
+
+        // MIREGO
+        tunnelingAudioSessionId = Util.generateAudioSessionIdV21(applicationContext);
       }
       currentCueGroup = CueGroup.EMPTY_TIME_ZERO;
       throwsWhenUsingWrongThread = true;
@@ -419,8 +426,15 @@ import java.util.concurrent.TimeoutException;
       surfaceSize = Size.UNKNOWN;
 
       trackSelector.setAudioAttributes(audioAttributes);
-      sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_AUDIO_SESSION_ID, audioSessionId);
-      sendRendererMessage(TRACK_TYPE_VIDEO, MSG_SET_AUDIO_SESSION_ID, audioSessionId);
+
+      // MIREGO START: send 2 session ids
+      Renderer.AudioSessionIdMessageData msgData = new Renderer.AudioSessionIdMessageData();
+      msgData.standardSessionId = audioSessionId;
+      msgData.tunnelingSessionId = tunnelingAudioSessionId;
+      sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_AUDIO_SESSION_ID, msgData);
+      sendRendererMessage(TRACK_TYPE_VIDEO, MSG_SET_AUDIO_SESSION_ID, msgData);
+      // MIREGO END
+
       sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_AUDIO_ATTRIBUTES, audioAttributes);
       sendRendererMessage(TRACK_TYPE_VIDEO, MSG_SET_SCALING_MODE, videoScalingMode);
       sendRendererMessage(
@@ -1504,8 +1518,16 @@ import java.util.concurrent.TimeoutException;
       initializeKeepSessionIdAudioTrack(audioSessionId);
     }
     this.audioSessionId = audioSessionId;
-    sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_AUDIO_SESSION_ID, audioSessionId);
-    sendRendererMessage(TRACK_TYPE_VIDEO, MSG_SET_AUDIO_SESSION_ID, audioSessionId);
+
+    // MIREGO START: replaced single session with AudioSessionIdMessageData
+    Log.e(TAG, "shouldn't use setAudioSessionId() since we need to use 2 session ids");
+    Renderer.AudioSessionIdMessageData msgData = new Renderer.AudioSessionIdMessageData();
+    msgData.standardSessionId = audioSessionId;
+    msgData.tunnelingSessionId = audioSessionId;
+    sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_AUDIO_SESSION_ID, msgData);
+    sendRendererMessage(TRACK_TYPE_VIDEO, MSG_SET_AUDIO_SESSION_ID, msgData);
+    // MIREGO END
+
     int finalAudioSessionId = audioSessionId;
     listeners.sendEvent(
         EVENT_AUDIO_SESSION_ID, listener -> listener.onAudioSessionIdChanged(finalAudioSessionId));

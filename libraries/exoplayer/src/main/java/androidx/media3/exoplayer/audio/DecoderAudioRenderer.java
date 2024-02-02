@@ -58,6 +58,7 @@ import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.FormatHolder;
 import androidx.media3.exoplayer.MediaClock;
 import androidx.media3.exoplayer.PlayerMessage.Target;
+import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener.EventDispatcher;
 import androidx.media3.exoplayer.audio.AudioSink.SinkFormatSupport;
@@ -744,7 +745,9 @@ public abstract class DecoderAudioRenderer<
         audioSink.setSkipSilenceEnabled((Boolean) message);
         break;
       case MSG_SET_AUDIO_SESSION_ID:
-        audioSink.setAudioSessionId((Integer) message);
+        // MIREGO: use 2 audio session ids
+        Renderer.AudioSessionIdMessageData msgData = (Renderer.AudioSessionIdMessageData) message;
+        audioSink.setAudioSessionId(msgData.standardSessionId, msgData.tunnelingSessionId);
         break;
       case MSG_SET_PREFERRED_AUDIO_DEVICE:
         if (Util.SDK_INT >= 23) {

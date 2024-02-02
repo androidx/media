@@ -216,6 +216,12 @@ public interface Renderer extends PlayerMessage.Target {
    */
   int MSG_SET_AUDIO_SESSION_ID = 10;
 
+  //MIREGO added to keep 2 audio sessions (standard and tunneling)
+  class AudioSessionIdMessageData {
+    public int standardSessionId;
+    public int tunnelingSessionId;
+  }
+
   /**
    * The type of a message that can be passed to a {@link Renderer} via {@link
    * ExoPlayer#createMessage(PlayerMessage.Target)}, to inform the renderer that it can schedule
