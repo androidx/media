@@ -23,6 +23,7 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.castNonNull;
+import static androidx.media3.common.util.Util.useDifferentAudioSessionIdForTunneling;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_AUDIO_ATTRIBUTES;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_AUDIO_SESSION_ID;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_AUX_EFFECT_INFO;
@@ -385,8 +386,12 @@ import java.util.concurrent.TimeoutException;
       } else {
         audioSessionId = Util.generateAudioSessionIdV21(applicationContext);
 
-        // MIREGO
-        tunnelingAudioSessionId = Util.generateAudioSessionIdV21(applicationContext);
+        // MIREGO: can use a different session for tunneling
+        if (useDifferentAudioSessionIdForTunneling) {
+          tunnelingAudioSessionId = Util.generateAudioSessionIdV21(applicationContext);
+        } else {
+          tunnelingAudioSessionId = audioSessionId;
+        }
       }
       currentCueGroup = CueGroup.EMPTY_TIME_ZERO;
       throwsWhenUsingWrongThread = true;
