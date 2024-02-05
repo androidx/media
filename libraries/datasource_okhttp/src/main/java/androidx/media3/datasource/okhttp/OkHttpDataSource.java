@@ -318,6 +318,10 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
     Response response;
     ResponseBody responseBody;
     Call call = callFactory.newCall(request);
+
+    // MIREGO
+    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "open dataSource: %s", dataSpec.uri.getPath());
+
     try {
       this.response = executeCall(call);
       response = this.response;
@@ -354,6 +358,10 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
       }
       Map<String, List<String>> headers = response.headers().toMultimap();
       closeConnectionQuietly();
+
+      // MIREGO added
+      Log.e(TAG, String.format("HTTP response error %d for %s", responseCode, dataSpec.uri.getPath()));
+
       @Nullable
       IOException cause =
           responseCode == 416

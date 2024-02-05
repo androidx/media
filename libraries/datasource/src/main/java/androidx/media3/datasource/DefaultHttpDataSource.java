@@ -393,6 +393,9 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
     bytesToRead = 0;
     transferInitializing(dataSpec);
 
+    // MIREGO
+    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "open dataSource: %s", dataSpec.uri.getPath());
+
     String responseMessage;
     HttpURLConnection connection;
     try {
