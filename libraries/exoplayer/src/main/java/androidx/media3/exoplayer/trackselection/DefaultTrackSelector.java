@@ -3027,7 +3027,11 @@ public class DefaultTrackSelector extends MappingTrackSelector
                   if (trackInfo.isCompatibleForAdaptationWith(otherTrackInfo)) {
                     selection.add(otherTrackInfo);
                     usedTrackInSelection[i] = true;
+                  } else { // MIREGO ADDED else block
+                    Log.d(TAG, "Track %d with format %s not added to adaptive group because it's not compatible with track %d (%s)", i, otherTrackInfo.format, trackIndex, trackInfo.format);
                   }
+                } else { // MIREGO ADDED else block
+                  Log.d(TAG, "Track %d with format %s not added to adaptive group because it's not eligible", i, otherTrackInfo.format);
                 }
               }
             }
@@ -3682,12 +3686,18 @@ public class DefaultTrackSelector extends MappingTrackSelector
         return SELECTION_ELIGIBILITY_NO;
       }
       if (!isSupported(rendererSupport, parameters.exceedRendererCapabilitiesIfNecessary)) {
+        // MIREGO
+        Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "VideoTrackInfo check eligibility format: %s returns SELECTION_ELIGIBILITY_NO (not supported)", format);
+
         return SELECTION_ELIGIBILITY_NO;
       }
       if (!isWithinMaxConstraints && !parameters.exceedVideoConstraintsIfNecessary) {
+        // MIREGO
+        Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "VideoTrackInfo check eligibility format: %s returns SELECTION_ELIGIBILITY_NO (exceeds max)", format);
+
         return SELECTION_ELIGIBILITY_NO;
       }
-      return isSupported(rendererSupport, /* allowExceedsCapabilities= */ false)
+      int result =  isSupported(rendererSupport, /* allowExceedsCapabilities= */ false)
               && isWithinMinConstraints
               && isWithinMaxConstraints
               && format.bitrate != Format.NO_VALUE
@@ -3696,6 +3706,12 @@ public class DefaultTrackSelector extends MappingTrackSelector
               && (rendererSupport & requiredAdaptiveSupport) != 0
           ? SELECTION_ELIGIBILITY_ADAPTIVE
           : SELECTION_ELIGIBILITY_FIXED;
+
+      // MIREGO
+      Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "VideoTrackInfo check eligibility can be adaptive = %s format: %s: isWithinMinConstraints = %s isWithinMaxConstraints = %s",
+          result == SELECTION_ELIGIBILITY_ADAPTIVE, format, isWithinMinConstraints, isWithinMinConstraints);
+
+      return result;
     }
 
     private static int compareNonQualityPreferences(VideoTrackInfo info1, VideoTrackInfo info2) {
