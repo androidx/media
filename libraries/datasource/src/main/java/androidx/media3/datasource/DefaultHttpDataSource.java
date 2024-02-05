@@ -432,6 +432,10 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
         errorResponseBody = Util.EMPTY_BYTE_ARRAY;
       }
       closeConnectionQuietly();
+
+      // MIREGO
+      Log.e(TAG, String.format("HTTP response error %d for %s", responseCode, dataSpec.uri.getPath()));
+
       @Nullable
       IOException cause =
           responseCode == 416

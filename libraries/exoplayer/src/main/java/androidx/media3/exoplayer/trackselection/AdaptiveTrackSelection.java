@@ -633,10 +633,9 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
     int lowestBitrateAllowedIndex = 0;
 
     // MIREGO START
-    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "determineIdealSelectedIndex effectiveBitrate: %d",
-        effectiveBitrate);
-
     effectiveBitrate = min(effectiveBitrate, initialMaxBitrate);
+    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "determineIdealSelectedIndex effectiveBitrate: %d initialMaxBitrate: %d",
+        effectiveBitrate, initialMaxBitrate);
     initialMaxBitrate = Integer.MAX_VALUE;
     // MIREGO END
 
