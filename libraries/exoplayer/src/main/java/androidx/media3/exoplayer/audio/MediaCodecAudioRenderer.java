@@ -424,12 +424,21 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     return audioSink.supportsFormat(format);
   }
 
+  @Override // MIREGO: added - fix format issue when switching from decrypt-only to bypass
+  protected void initBypass(Format format) {
+    decryptOnlyCodecFormat = null; //avoid forcing audioSink format to an obsolete value
+    super.initBypass(format);
+  }
+
   @Override
   protected MediaCodecAdapter.Configuration getMediaCodecConfiguration(
       MediaCodecInfo codecInfo,
       Format format,
       @Nullable MediaCrypto crypto,
       float codecOperatingRate) {
+    // MIREGO
+    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "getMediaCodecConfiguration format: %s", format);
+
     codecMaxInputSize = getCodecMaxInputSize(codecInfo, format, getStreamFormats());
     codecNeedsDiscardChannelsWorkaround = codecNeedsDiscardChannelsWorkaround(codecInfo.name);
     codecNeedsVorbisToAndroidChannelMappingWorkaround =
