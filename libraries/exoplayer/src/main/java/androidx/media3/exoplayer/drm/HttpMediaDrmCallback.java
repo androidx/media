@@ -20,6 +20,7 @@ import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
@@ -39,6 +40,8 @@ import java.util.UUID;
 /** A {@link MediaDrmCallback} that makes requests using {@link DataSource} instances. */
 @UnstableApi
 public final class HttpMediaDrmCallback implements MediaDrmCallback {
+
+  private static final String TAG = "HttpMediaDrmCallback";  // MIREGO for logging
 
   private static final int MAX_MANUAL_REDIRECTS = 5;
 
@@ -145,10 +148,14 @@ public final class HttpMediaDrmCallback implements MediaDrmCallback {
       @Nullable Map<String, String> keyRequestPropertiesOverride) throws MediaDrmCallbackException {
     String url = request.getLicenseServerUrl();
 
-    // MIREGO
+    // MIREGO START
+    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "executeKeyRequest (override: %s)", keyRequestPropertiesOverride != null);
+
     Map<String, String> keyRequestProperties = keyRequestPropertiesOverride != null ?
         keyRequestPropertiesOverride :
         this.keyRequestProperties;
+
+    // MIREGO END
 
     if (forceDefaultLicenseUrl || TextUtils.isEmpty(url)) {
       url = defaultLicenseUrl;
@@ -204,10 +211,12 @@ public final class HttpMediaDrmCallback implements MediaDrmCallback {
         try {
           return Util.toByteArray(inputStream);
         } catch (InvalidResponseCodeException e) {
+          Log.d(TAG, "executePost InvalidResponseCodeException code: %d", e.responseCode); // MIREGO added
           @Nullable String redirectUrl = getRedirectUrl(e, manualRedirectCount);
           if (redirectUrl == null) {
             throw e;
           }
+          Log.d(TAG, "executePost InvalidResponseCodeException try redirect"); // MIREGO added
           manualRedirectCount++;
           dataSpec = dataSpec.buildUpon().setUri(redirectUrl).build();
         } finally {
@@ -215,6 +224,7 @@ public final class HttpMediaDrmCallback implements MediaDrmCallback {
         }
       }
     } catch (Exception e) {
+      Log.d(TAG, "executePost exception %s", e); // MIREGO added
       throw new MediaDrmCallbackException(
           originalDataSpec,
           Assertions.checkNotNull(dataSource.getLastOpenedUri()),
