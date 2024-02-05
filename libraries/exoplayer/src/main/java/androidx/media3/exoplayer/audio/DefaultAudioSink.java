@@ -877,8 +877,8 @@ public final class DefaultAudioSink implements AudioSink {
       audioSessionId = audioTrack.getAudioSessionId();
     }
 
-    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "initializeAudioTrack audioTrackPositionTracker.setAudioTrack tunneling: %s track: %s config: %s sessionId: %d",
-        tunneling, audioTrack, configuration, audioSessionId);
+    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "initializeAudioTrack audioTrackPositionTracker.setAudioTrack tunneling: %s track: %s config: %s sessionId: %d tunnelingSessionId: %d",
+        tunneling, audioTrack, configuration, audioSessionId, tunnelingAudioSessionId);
     // MIREGO END
 
     audioTrackPositionTracker.setAudioTrack(
@@ -1165,8 +1165,9 @@ public final class DefaultAudioSink implements AudioSink {
     try {
 
       // MIREGO START: use 2 session ids
-      AudioTrack audioTrack = configuration.buildAudioTrack(audioAttributes, tunneling ? tunnelingAudioSessionId : audioSessionId);
-      Log.v(Log.LOG_LEVEL_VERBOSE2, TAG, "buildAudioTrack %s sessionId: %d", audioTrack, audioSessionId);
+      int audioSessionIdToUse = tunneling ? tunnelingAudioSessionId : audioSessionId;
+      AudioTrack audioTrack = configuration.buildAudioTrack(audioAttributes, audioSessionIdToUse);
+      Log.v(Log.LOG_LEVEL_VERBOSE2, TAG, "buildAudioTrack %s sessionId: %d", audioTrack, audioSessionIdToUse);
       // MIREGO END
 
       if (audioOffloadListener != null) {
@@ -2411,6 +2412,14 @@ public final class DefaultAudioSink implements AudioSink {
           Util.getAudioFormat(outputSampleRate, outputChannelConfig, outputEncoding);
       android.media.AudioAttributes audioTrackAttributes =
           getAudioTrackAttributesV21(audioAttributes, tunneling);
+
+      // MIREGO
+      Log.v(Log.LOG_LEVEL_VERBOSE2, TAG, "createAudioTrackV29 format: %s", audioFormat);
+      Log.v(Log.LOG_LEVEL_VERBOSE2, TAG, "createAudioTrackV29 attr: contentType: %d  flags: %d  usage: %d",
+          audioTrackAttributes.getContentType(), audioTrackAttributes.getFlags(), audioTrackAttributes.getUsage());
+      Log.v(Log.LOG_LEVEL_VERBOSE2, TAG, "createAudioTrackV29 bufferSize: %d  sessionId: %d outputMode: %d",
+          bufferSize, audioSessionId, outputMode);
+
       return new AudioTrack.Builder()
           .setAudioAttributes(audioTrackAttributes)
           .setAudioFormat(audioFormat)
