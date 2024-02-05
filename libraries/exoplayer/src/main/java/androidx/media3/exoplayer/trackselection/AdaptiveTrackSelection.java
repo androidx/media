@@ -321,6 +321,15 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
   @Nullable private MediaChunk lastBufferEvaluationMediaChunk;
   private long latestBitrateEstimate;
 
+  // MIREGO START
+  private int initialMaxBitrate = Integer.MAX_VALUE;
+
+  public void setInitialMaxBitrate(int maxBitrateBps) {
+    initialMaxBitrate = maxBitrateBps;
+  }
+
+  // MIREGO END
+
   /**
    * @param group The {@link TrackGroup}.
    * @param tracks The indices of the selected tracks within the {@link TrackGroup}. Must not be
@@ -471,6 +480,11 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
       Format selectedFormat = getFormat(newSelectedIndex);
       long minDurationForQualityIncreaseUs =
           minDurationForQualityIncreaseUs(availableDurationUs, chunkDurationUs);
+
+      //MIREGO
+      Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "updateSelectedTrack idealTrack: %d (bitrate %d) bufferedDurationUs: %d  minDurationForQualityIncreaseUs: %d",
+          newSelectedIndex, getFormat(newSelectedIndex).bitrate, bufferedDurationUs, minDurationForQualityIncreaseUs);
+
       if (selectedFormat.bitrate > currentFormat.bitrate
           && bufferedDurationUs < minDurationForQualityIncreaseUs) {
         // MIREGO
@@ -618,9 +632,13 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
     long effectiveBitrate = getAllocatedBandwidth(chunkDurationUs);
     int lowestBitrateAllowedIndex = 0;
 
-    // MIREGO
+    // MIREGO START
     Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "determineIdealSelectedIndex effectiveBitrate: %d",
         effectiveBitrate);
+
+    effectiveBitrate = min(effectiveBitrate, initialMaxBitrate);
+    initialMaxBitrate = Integer.MAX_VALUE;
+    // MIREGO END
 
     for (int i = 0; i < length; i++) {
       if (nowMs == Long.MIN_VALUE || !isTrackExcluded(i, nowMs)) {
