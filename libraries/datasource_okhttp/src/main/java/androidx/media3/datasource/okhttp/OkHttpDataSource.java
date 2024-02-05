@@ -320,7 +320,7 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
     Call call = callFactory.newCall(request);
 
     // MIREGO
-    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "open dataSource: %s", dataSpec.uri.getPath());
+    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "open dataSource: %s", dataSpec.uri);
 
     try {
       this.response = executeCall(call);
@@ -359,16 +359,16 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
       Map<String, List<String>> headers = response.headers().toMultimap();
       closeConnectionQuietly();
 
-      // MIREGO added
-      Log.e(TAG, String.format("HTTP response error %d for %s", responseCode, dataSpec.uri.getPath()));
-
       @Nullable
       IOException cause =
           responseCode == 416
               ? new DataSourceException(PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE)
               : null;
-      throw new InvalidResponseCodeException(
+      HttpDataSourceException e = new InvalidResponseCodeException(
           responseCode, response.message(), cause, headers, dataSpec, errorResponseBody);
+
+      Log.e(TAG, e);  // MIREGO added
+      throw e;
     }
 
     // Check for a valid content type.

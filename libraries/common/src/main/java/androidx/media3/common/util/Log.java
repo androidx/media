@@ -111,7 +111,7 @@ public final class Log {
 
           // MIREGO added
           @Override
-          public void e(String tag, PlaybackException e) {
+          public void e(String tag, Exception e) {
             android.util.Log.e(tag, e.toString());
           }
         };
@@ -166,7 +166,7 @@ public final class Log {
      * @param tag The tag of the message.
      * @param exception The exception.
      */
-    void e(String tag, PlaybackException exception);
+    void e(String tag, Exception exception);
   }
 
   private static final Object lock = new Object();
@@ -361,7 +361,7 @@ public final class Log {
 
   // MIREGO added
   @Pure
-  public static void e(@Size(max = 23) String tag, PlaybackException e) {
+  public static void e(@Size(max = 23) String tag, Exception e) {
     synchronized (lock) {
       if (logLevel <= LOG_LEVEL_ERROR) {
         logger.e(tag, e);

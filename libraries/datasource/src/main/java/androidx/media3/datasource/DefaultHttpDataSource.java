@@ -394,7 +394,7 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
     transferInitializing(dataSpec);
 
     // MIREGO
-    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "open dataSource: %s", dataSpec.uri.getPath());
+    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "open dataSource: %s", dataSpec.uri);
 
     String responseMessage;
     HttpURLConnection connection;
@@ -436,16 +436,16 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
       }
       closeConnectionQuietly();
 
-      // MIREGO
-      Log.e(TAG, String.format("HTTP response error %d for %s", responseCode, dataSpec.uri.getPath()));
-
       @Nullable
       IOException cause =
           responseCode == 416
               ? new DataSourceException(PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE)
               : null;
-      throw new InvalidResponseCodeException(
+      HttpDataSourceException e = new InvalidResponseCodeException(
           responseCode, responseMessage, cause, headers, dataSpec, errorResponseBody);
+
+      Log.e(TAG, e); // MIREGO added
+      throw e;
     }
 
     // Check for a valid content type.
