@@ -444,6 +444,9 @@ public interface AnalyticsListener {
   /** An audio track has been released. */
   @UnstableApi int EVENT_AUDIO_TRACK_RELEASED = 1032;
 
+  /** MIREGO added: to count queued video frames. */
+  int EVENT_QUEUED_VIDEO_FRAMES = 1090;
+
   /** Time information of an event. */
   @UnstableApi
   final class EventTime {
@@ -1239,6 +1242,16 @@ public interface AnalyticsListener {
    */
   @UnstableApi
   default void onDroppedVideoFrames(EventTime eventTime, int droppedFrames, long elapsedMs) {}
+
+  /**
+   * MIREGO added
+   * Called to report the number of frames queued by the renderer..
+   *
+   * @param eventTime The event time.
+   * @param queuedFrames The number of queued frames since the last call to this method.
+   * @param elapsedMs The duration in milliseconds since the last reported queued frames count.
+   */
+  default void onQueuedVideoFrames(EventTime eventTime, int queuedFrames, long elapsedMs) {}
 
   /**
    * Called when a video renderer releases a decoder.

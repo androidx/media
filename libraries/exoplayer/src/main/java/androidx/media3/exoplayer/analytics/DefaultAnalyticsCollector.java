@@ -342,6 +342,16 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
         listener -> listener.onDroppedVideoFrames(eventTime, count, elapsedMs));
   }
 
+  // MIREGO added
+  @Override
+  public final void onQueuedFrames(int count, long elapsedMs) {
+    EventTime eventTime = generatePlayingMediaPeriodEventTime();
+    sendEvent(
+        eventTime,
+        AnalyticsListener.EVENT_QUEUED_VIDEO_FRAMES,
+        listener -> listener.onQueuedVideoFrames(eventTime, count, elapsedMs));
+  }
+
   @Override
   public final void onVideoDecoderReleased(String decoderName) {
     EventTime eventTime = generateReadingMediaPeriodEventTime();

@@ -89,6 +89,15 @@ public interface VideoRendererEventListener {
   default void onDroppedFrames(int count, long elapsedMs) {}
 
   /**
+   * MIREGO ADDED: Called to report the number of frames queued by the renderer. Queued frames are reported
+   * whenever the count reaches a specified threshold whilst the renderer is started.
+   *
+   * @param count The number of queued frames.
+   * @param elapsedMs The duration in milliseconds since the last reported queued frames count.
+   */
+  default void onQueuedFrames(int count, long elapsedMs) {}
+
+  /**
    * Called to report the video processing offset of video frames processed by the video renderer.
    *
    * <p>Video processing offset represents how early a video frame is processed compared to the
@@ -211,6 +220,13 @@ public interface VideoRendererEventListener {
     public void droppedFrames(int droppedFrameCount, long elapsedMs) {
       if (handler != null) {
         handler.post(() -> castNonNull(listener).onDroppedFrames(droppedFrameCount, elapsedMs));
+      }
+    }
+
+    /** MIREGO added. Invokes {@link VideoRendererEventListener#onQueuedFrames(int, long)}. */
+    public void queuedFrames(int queuedFrameCount, long elapsedMs) {
+      if (handler != null) {
+        handler.post(() -> castNonNull(listener).onQueuedFrames(queuedFrameCount, elapsedMs));
       }
     }
 

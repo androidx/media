@@ -178,16 +178,19 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @Nullable private VideoSink videoSink;
 
   // MIREGO added block
-  int skipCount = 0;
-  long lastRender = 0;
-  long elapsedRealtimeNowUsPrev = 0;
-  long elapsedRealtimeUsPrev = 0;
-  long positionUsPrev = 0;
-  long bufferPresentationTimeUsPrev = 0;
-  long frameDurationUs = 0;
-  long firstFrameRenderedSystemMs = 0;
-  long lastRenderedTunneledBufferPresentationTimeUs = 0;
-  static final long IGNORE_PRIMING_DROPPED_FRAMES_MS = 400; // when the tunneling is priming, it's expected that we'll get dropped frames. Ignore them.
+  private int skipCount = 0;
+  private long lastRender = 0;
+  private long elapsedRealtimeNowUsPrev = 0;
+  private long elapsedRealtimeUsPrev = 0;
+  private long positionUsPrev = 0;
+  private long bufferPresentationTimeUsPrev = 0;
+  private long frameDurationUs = 0;
+  private long firstFrameRenderedSystemMs = 0;
+  private long lastRenderedTunneledBufferPresentationTimeUs = 0;
+  private int queuedFrames = 0;
+  private long queuedFrameAccumulationStartTimeMs;
+  private static final long IGNORE_PRIMING_DROPPED_FRAMES_MS = 400; // when the tunneling is priming, it's expected that we'll get dropped frames. Ignore them.
+  private static final long NOTIFY_QUEUED_FRAMES_THRESHOLD = 100;
 
   /**
    * @param context A context.
@@ -724,11 +727,14 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     lastRenderedTunneledBufferPresentationTimeUs = 0;
     hasNotifiedAvDesyncError = false;
     hasNotifiedAvDesyncSkippedFramesError = false;
+    queuedFrames = 0;
+    droppedFrameAccumulationStartTimeMs = SystemClock.elapsedRealtime();
     lastRender = 0;
   }
 
   @Override
   protected void onStopped() {
+    maybeNotifyQueuedFrames();  // MIREGO added
     maybeNotifyDroppedFrames();
     maybeNotifyVideoFrameProcessingOffset();
     videoFrameReleaseControl.onStopped();
@@ -1199,6 +1205,13 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @CallSuper
   @Override
   protected void onQueueInputBuffer(DecoderInputBuffer buffer) throws ExoPlaybackException {
+
+    // MIREGO: added
+    queuedFrames++;
+    if (queuedFrames >= NOTIFY_QUEUED_FRAMES_THRESHOLD) {
+      maybeNotifyQueuedFrames();
+    }
+
     // In tunneling mode the device may do frame rate conversion, so in general we can't keep track
     // of the number of buffers in the codec.
     if (!tunneling) {
@@ -1852,6 +1865,17 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       eventDispatcher.droppedFrames(droppedFrames, elapsedMs);
       droppedFrames = 0;
       droppedFrameAccumulationStartTimeMs = now;
+    }
+  }
+
+  // MIREGO added
+  private void maybeNotifyQueuedFrames() {
+    if (queuedFrames > 0) {
+      long now = SystemClock.elapsedRealtime();
+      long elapsedMs = now - queuedFrameAccumulationStartTimeMs;
+      eventDispatcher.queuedFrames(queuedFrames, elapsedMs);
+      queuedFrames = 0;
+      queuedFrameAccumulationStartTimeMs = now;
     }
   }
 

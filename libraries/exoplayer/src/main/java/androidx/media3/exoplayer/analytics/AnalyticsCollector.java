@@ -240,6 +240,15 @@ public interface AnalyticsCollector
   void onDroppedFrames(int count, long elapsedMs);
 
   /**
+   * MIREGO ADDED: Called to report the number of frames queued by the renderer. Queued frames are reported
+   * whenever the count reaches a specified threshold whilst the renderer is started.
+   *
+   * @param count The number of queued frames.
+   * @param elapsedMs The duration in milliseconds since the last reported queued frames count.
+   */
+  void onQueuedFrames(int count, long elapsedMs);
+
+  /**
    * Called when a video decoder is released.
    *
    * @param decoderName The video decoder that was released.
