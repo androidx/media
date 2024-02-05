@@ -180,6 +180,7 @@ public final class Util {
   public static boolean shouldWorkaroundAudioSampleRateDataBug = false;
   public static int timeSinceLastVideoRenderToLogErrorMs = 1000;
   public static int audioVideoDeltaToLogErrorMs = 750;
+  public static boolean shouldIgnoreCodecFpsLimitForResolution = false; // MIREGO ADDED
 
   /** An empty long array. */
   @UnstableApi public static final long[] EMPTY_LONG_ARRAY = new long[0];
