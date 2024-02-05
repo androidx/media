@@ -30,6 +30,7 @@ import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.BundleCollectionUtil;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
@@ -71,6 +72,8 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
  * }</pre>
  */
 public class TrackSelectionParameters implements Bundleable {
+
+  private static final String TAG = "TrackSelectionParams"; // MIREGO ADDED
 
   /**
    * A builder for {@link TrackSelectionParameters}. See the {@link TrackSelectionParameters}
@@ -1265,6 +1268,10 @@ public class TrackSelectionParameters implements Bundleable {
 
   @UnstableApi
   protected TrackSelectionParameters(Builder builder) {
+    // MIREGO
+    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "TrackSelectionParameters() maxBitrate: %d maxVideo: %d x %d  viewport: %d x %d (orientation can change: %s)",
+        builder.maxVideoBitrate, builder.maxVideoWidth, builder.maxVideoHeight, builder.viewportWidth, builder.viewportHeight, builder.viewportOrientationMayChange);
+
     // Video
     this.maxVideoWidth = builder.maxVideoWidth;
     this.maxVideoHeight = builder.maxVideoHeight;
