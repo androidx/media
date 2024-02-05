@@ -757,7 +757,24 @@ public final class MediaCodecInfo {
       // floor to avoid situations where a range check in areSizeAndRateSupported fails due to
       // slightly exceeding the limits for a standard format (e.g., 1080p at 30 fps).
       double floorFrameRate = Math.floor(frameRate);
-      return capabilities.areSizeAndRateSupported(width, height, floorFrameRate);
+
+      // MIREGO START
+      boolean supported = capabilities.areSizeAndRateSupported(width, height, floorFrameRate);
+      if (!supported) {
+        Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "areSizeAndRateSupportedV21 returns false for %d x %d at %f", width, height, floorFrameRate);
+        Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "isSizeSupported: %s  achievable rate: %s  supported frame rates: %s",
+            capabilities.isSizeSupported(width, height), capabilities.getAchievableFrameRatesFor(width, height), capabilities.getSupportedFrameRates());
+
+        List<PerformancePoint> perfPoints = capabilities.getSupportedPerformancePoints();
+        if (perfPoints != null) {
+          Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "Perf points:");
+          for (PerformancePoint point: perfPoints) {
+            Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "%s", point);
+          }
+        }
+      }
+      return supported;
+      // MIREGO END
     }
   }
 
