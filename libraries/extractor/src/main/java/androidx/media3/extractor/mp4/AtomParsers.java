@@ -1795,7 +1795,7 @@ import java.util.Objects;
             Ac3Util.parseAc3AnnexFFormat(parent, Integer.toString(trackId), language, drmInitData);
 
         // MIREGO added workaround for stream data issue where sample rate is inconsistent
-        if (Util.shouldWorkaroundAudioSampleRateDataBug && (out.format.sampleRate == 32000) && (sampleRate == 48000)) {
+        if (Util.shouldWorkaroundAudioSampleRateDataBug && (out.format.sampleRate != 48000) && (sampleRate == 48000)) {
           out.format = out.format.buildUpon().setSampleRate(sampleRate).build();
           Log.e(TAG, new PlaybackException("Inconsistent audio sample rate", new RuntimeException(), PlaybackException.ERROR_CODE_AUDIO_TRACK_INCONSISTENT_SAMPLE_RATE));
         }
