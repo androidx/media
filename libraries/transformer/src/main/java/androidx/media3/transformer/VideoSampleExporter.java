@@ -59,8 +59,6 @@ import java.util.Objects;
 import org.checkerframework.checker.initialization.qual.Initialized;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.dataflow.qual.Pure;
-import java.nio.ByteBuffer;
-import java.util.List;
 
 /** Processes, encodes and muxes raw video frames. */
 /* package */ final class VideoSampleExporter extends SampleExporter {
@@ -276,14 +274,16 @@ import java.util.List;
         ImmutableList<MediaCodecInfo> hdrEncoders =
             getSupportedEncodersForHdrEditing(requestedOutputMimeType, inputFormat.colorInfo);
         if (hdrEncoders.isEmpty()) {
-          // Fallback H.265/HEVC codecs for HDR content to avoid tonemapping.
-          hdrEncoders =
-              getSupportedEncodersForHdrEditing(MimeTypes.VIDEO_H265, inputFormat.colorInfo);
+          @Nullable
+          String alternativeMimeType = MediaCodecUtil.getAlternativeCodecMimeType(inputFormat);
+          if (alternativeMimeType != null) {
+            requestedOutputMimeType = alternativeMimeType;
+            hdrEncoders =
+                getSupportedEncodersForHdrEditing(alternativeMimeType, inputFormat.colorInfo);
+          }
         }
         if (hdrEncoders.isEmpty()) {
           hdrMode = HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
-        } else {
-          requestedOutputMimeType = MimeTypes.VIDEO_H265;
         }
       }
 

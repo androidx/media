@@ -27,7 +27,6 @@ import android.opengl.EGLDisplay;
 import android.opengl.EGLSurface;
 import android.opengl.GLES20;
 import android.util.SparseArray;
-
 import androidx.annotation.GuardedBy;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
@@ -43,18 +42,15 @@ import androidx.media3.common.util.LongArrayQueue;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ExecutorService;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
  * A basic {@link VideoCompositor} implementation that takes in frames from input sources' streams
@@ -146,9 +142,9 @@ public final class DefaultVideoCompositor implements VideoCompositor {
   }
 
   @Override
-  public synchronized int registerInputSource(int sequenceId) {
-    inputSources.put(sequenceId, new InputSource());
-    return sequenceId;
+  public synchronized int registerInputSource(int sequenceIndex) {
+    inputSources.put(sequenceIndex, new InputSource());
+    return sequenceIndex;
   }
 
   @Override
