@@ -2724,12 +2724,24 @@ import java.util.concurrent.TimeoutException;
       }
     }
     boolean messageDeliveryTimedOut = false;
+
+    // MIREGO START
+    PlayerMessage lastProcessingMessage = null;
+    int processedMsgCount = 0;
+    // MIREGO END
+
     if (this.videoOutput != null && this.videoOutput != videoOutput) {
       // We're replacing an output. Block to ensure that this output will not be accessed by the
       // renderers after this method returns.
       try {
         for (PlayerMessage message : messages) {
+          // MIREGO
+          lastProcessingMessage = message;
+
           message.blockUntilDelivered(detachSurfaceTimeoutMs);
+
+          // MIREGO
+          processedMsgCount ++;
         }
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
@@ -2744,10 +2756,14 @@ import java.util.concurrent.TimeoutException;
     }
     this.videoOutput = videoOutput;
     if (messageDeliveryTimedOut) {
-      // MIREGO
+      // MIREGO START
+      PlayerMessage.Target msgTarget = lastProcessingMessage != null ? lastProcessingMessage.getTarget() : null;
+
       Log.e(TAG,
-          String.format("setVideoOutputInternal() detachSurfaceTimeoutMs: %s, ERROR_CODE_TIMEOUT",
-              detachSurfaceTimeoutMs));
+          String.format("setVideoOutputInternal() detachSurfaceTimeoutMs: %s, ERROR_CODE_TIMEOUT, target: %s processed before: %d",
+              detachSurfaceTimeoutMs, msgTarget, processedMsgCount));
+      // MIREGO END
+
       stopInternal(
           ExoPlaybackException.createForUnexpected(
               new ExoTimeoutException(ExoTimeoutException.TIMEOUT_OPERATION_DETACH_SURFACE),
