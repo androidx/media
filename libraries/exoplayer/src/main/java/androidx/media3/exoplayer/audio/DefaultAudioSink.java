@@ -1588,6 +1588,10 @@ public final class DefaultAudioSink implements AudioSink {
   @Override
   public void pause() {
     playing = false;
+
+    // MIREGO
+    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "pause()");
+
     if (isAudioTrackInitialized()
         && (audioTrackPositionTracker.pause() || isOffloadedPlayback(audioTrack))) {
       audioTrack.pause();

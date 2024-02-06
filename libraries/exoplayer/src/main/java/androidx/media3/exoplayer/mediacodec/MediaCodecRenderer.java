@@ -1561,8 +1561,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
             .queueSecureInputBuffer(
                 inputIndex, /* offset= */ 0, buffer.cryptoInfo, presentationTimeUs, flags);
         // MIREGO
-        Log.v(Log.LOG_LEVEL_VERBOSE2, TAG, "feedInputBuffer queued encrypted inputBuffer presTime: %d", presentationTimeUs);
-      } else {
+        Log.v(Log.LOG_LEVEL_VERBOSE2, TAG, "feedInputBuffer(type:%d) queued encrypted inputBuffer presTime: %d", getTrackType(), presentationTimeUs);      } else {
         checkNotNull(codec)
             .queueInputBuffer(
                 inputIndex,
@@ -1572,8 +1571,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
                 flags);
 
         // MIREGO
-        Log.v(Log.LOG_LEVEL_VERBOSE2, TAG, "feedInputBuffer queued inputBuffer presTime: %d", presentationTimeUs);
-      }
+        Log.v(Log.LOG_LEVEL_VERBOSE2, TAG, "feedInputBuffer(type:%d) queued inputBuffer presTime: %d", getTrackType(), presentationTimeUs);      }
     } catch (CryptoException e) {
       throw createRendererException(
           e, inputFormat, Util.getErrorCodeForMediaDrmErrorCode(e.getErrorCode()));

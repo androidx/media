@@ -647,6 +647,9 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
 
   @Override
   protected void onStopped() {
+    // MIREGO
+    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "onStopped()");
+
     updateCurrentPosition();
     audioSink.pause();
     super.onStopped();
