@@ -20,10 +20,12 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ParsableByteArray;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
+import androidx.media3.datasource.HttpDataSource;
 import androidx.media3.exoplayer.source.chunk.ChunkExtractor.TrackOutputProvider;
 import androidx.media3.extractor.DefaultExtractorInput;
 import androidx.media3.extractor.Extractor;
@@ -34,6 +36,8 @@ import java.io.IOException;
 /** A {@link BaseMediaChunk} that uses an {@link Extractor} to decode sample data. */
 @UnstableApi
 public class ContainerMediaChunk extends BaseMediaChunk {
+
+  private static final String TAG = "ContainerMediaChunk"; // MIREGO: added
 
   private final int chunkCount;
   private final long sampleOffsetUs;
@@ -134,7 +138,15 @@ public class ContainerMediaChunk extends BaseMediaChunk {
       } finally {
         nextLoadPosition = input.getPosition() - dataSpec.position;
       }
-    } finally {
+    } catch (HttpDataSource.InvalidResponseCodeException e) {
+      // MIREGO: added catch block to silence error when it happens on a short chunk, to work around BE issue where empty segments are in the manifest but return 404
+      if (getDurationUs() > 50000) {
+        Log.d(TAG, "Got response error: throwing exception. duration: %d", getDurationUs());
+        throw e;
+      }
+      Log.d(TAG, "Got response error, silencing (short duration: %d)", getDurationUs());
+    }
+    finally {
       DataSourceUtil.closeQuietly(dataSource);
     }
     loadCompleted = !loadCanceled;

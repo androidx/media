@@ -320,7 +320,7 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
     Call call = callFactory.newCall(request);
 
     // MIREGO
-    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "open dataSource: %s", dataSpec.uri);
+    Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "open dataSource: %s", dataSpec);
 
     try {
       this.response = executeCall(call);
