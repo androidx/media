@@ -31,7 +31,7 @@ import java.util.PriorityQueue;
 /** Base class for subtitle parsers for CEA captions. */
 /* package */ abstract class CeaDecoder implements SubtitleDecoder {
 
-  private static final int NUM_INPUT_BUFFERS = 10;
+  private static final int NUM_INPUT_BUFFERS = 100; // MIREGO increased from 10 to avoid blocking the period transitions
   private static final int NUM_OUTPUT_BUFFERS = 2;
 
   private final ArrayDeque<CeaInputBuffer> availableInputBuffers;
