@@ -49,10 +49,10 @@ public interface VideoCompositor extends GlTextureProducer {
    * Registers a new input source, and returns a unique {@code inputId} corresponding to this
    * source, to be used in {@link #queueInputTexture}.
    *
-   * @param sequenceId The sequence ID of the input source, which is can be used to determine the
-   * order of the input sources.
+   * @param sequenceIndex The sequence index of the input source, which is can be used to determine
+   * the order of the input sources.
    */
-  int registerInputSource(int sequenceId);
+  int registerInputSource(int sequenceIndex);
   /**
    * Signals that no more frames will come from the upstream {@link GlTextureProducer.Listener}.
    *

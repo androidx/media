@@ -255,7 +255,6 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
                     onPreProcessingVideoFrameProcessorEnded(videoCompositorInputId);
                   }
                 });
-
     preProcessors.put(videoCompositorInputId, preProcessor);
     return videoCompositorInputId;
   }
