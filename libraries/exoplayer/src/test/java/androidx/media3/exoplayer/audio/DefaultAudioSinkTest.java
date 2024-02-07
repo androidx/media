@@ -330,7 +330,7 @@ public final class DefaultAudioSinkTest {
 
   @Test
   public void setPlaybackParameters_doesNothingWhenTunnelingIsEnabled() throws Exception {
-    defaultAudioSink.setAudioSessionId(1);
+    defaultAudioSink.setAudioSessionId(1,2);
     defaultAudioSink.enableTunnelingV21();
     defaultAudioSink.setPlaybackParameters(new PlaybackParameters(2));
     configureDefaultAudioSink(/* channelCount= */ 2);
