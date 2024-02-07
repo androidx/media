@@ -997,7 +997,7 @@ public final class DownloadHelper {
     }
   }
 
-  private static final class DownloadTrackSelection extends BaseTrackSelection {
+  public static final class DownloadTrackSelection extends BaseTrackSelection {
 
     private static final class Factory implements ExoTrackSelection.Factory {
 
