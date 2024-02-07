@@ -1160,8 +1160,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
             // Workaround for [internal b/191966399].
             // See also https://github.com/google/ExoPlayer/issues/8696.
             Log.w(TAG, "Preferred decoder instantiation failed. Sleeping for 50ms then retrying.");
-            Thread.sleep(/* millis= */ 50);
-            initCodec(codecInfo, crypto);
+
+            // Thread.sleep(/* millis= */ 50);  // MIREGO: sleep is now inside initCodecRetry
+            initCodecRetry(codecInfo, crypto);  // MIREGO: calling our own function that retries more than once
           } else {
             throw e;
           }
@@ -1189,6 +1190,26 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     }
 
     this.availableCodecInfos = null;
+  }
+
+  // MIREGO added function
+  private void initCodecRetry(MediaCodecInfo codecInfo, MediaCrypto crypto) throws Exception {
+
+    int currentDelayMs = 50;
+    Exception lastException = null;
+    for (int retry = 0; retry < 3; retry++) {
+      try {
+        Thread.sleep(/* millis= */ currentDelayMs);
+        Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "initCodec retry %s %s", codecInfo, crypto);
+        initCodec(codecInfo, crypto);
+        return;
+      } catch (Exception e) {
+        currentDelayMs += 50;
+        Log.w(TAG, "initCodec retry failed. Sleeping for " + currentDelayMs + " ms then retrying.");
+        lastException = e;
+      }
+    }
+    throw lastException;
   }
 
   private List<MediaCodecInfo> getAvailableCodecInfos(boolean mediaCryptoRequiresSecureDecoder)

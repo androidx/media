@@ -49,6 +49,9 @@ public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
 
     @Override
     public MediaCodecAdapter createAdapter(Configuration configuration) throws IOException {
+      // MIREGO
+      Log.v(Log.LOG_LEVEL_VERBOSE1, TAG, "createAdapter mediaFormat: %s  surface: %s", configuration.mediaFormat, configuration.surface);
+
       @Nullable MediaCodec codec = null;
       try {
         codec = createCodec(configuration);
