@@ -714,6 +714,15 @@ import java.lang.reflect.Method;
         sumRawPlaybackHeadPosition += this.rawPlaybackHeadPosition;
         expectRawPlaybackHeadReset = false;
       } else {
+        // MIREGO: workaround issue experienced on a low performance device where the audio track reports a
+        // rawPlaybackHeadPosition of 0 for a few seconds, before getting back to normal (might be stopped in native, but java layer lagging)
+        // we have to avoid incrementing the rawPlaybackHeadWrapCount, otherwise all the remaining timestamps will get rejected.
+        // If after 4GBs of data, we happen to wrap exactly at the position 0, then it will take a few more seconds before getting
+        // a timestamp update, which has no impact
+        if (rawPlaybackHeadPosition == 0) {
+          return;
+        }
+
         // The value must have wrapped around.
         rawPlaybackHeadWrapCount++;
       }
