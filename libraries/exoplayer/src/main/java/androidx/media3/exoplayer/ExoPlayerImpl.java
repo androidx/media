@@ -2757,6 +2757,15 @@ import java.util.concurrent.TimeoutException;
     this.videoOutput = videoOutput;
     if (messageDeliveryTimedOut) {
       // MIREGO START
+      // MIREGO: log playback thread callstack to investigate timeouts
+      StackTraceElement[] stack = internalPlayer.getPlaybackLooper().getThread().getStackTrace();
+      StringBuilder builder = new StringBuilder(2000);
+      builder.append("Hung playback thread Stack trace:\n");
+      for (StackTraceElement element : stack) {
+        builder.append(element).append("\n");
+      }
+      Log.e(TAG, builder.toString());
+
       PlayerMessage.Target msgTarget = lastProcessingMessage != null ? lastProcessingMessage.getTarget() : null;
 
       Log.e(TAG,
