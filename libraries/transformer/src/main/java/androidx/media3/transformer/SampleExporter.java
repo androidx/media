@@ -68,7 +68,7 @@ import java.util.List;
    * @throws ExportException If an error occurs getting the input.
    */
   public abstract GraphInput getInput(
-     EditedMediaItem editedMediaItem, Format format, int sequenceIndex) throws ExportException;
+      EditedMediaItem editedMediaItem, Format format, int sequenceIndex) throws ExportException;
 
   /**
    * Processes the input data and returns whether it may be possible to process more data by calling

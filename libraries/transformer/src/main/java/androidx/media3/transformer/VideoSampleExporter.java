@@ -154,7 +154,8 @@ import org.checkerframework.dataflow.qual.Pure;
   }
 
   @Override
-  public GraphInput getInput(EditedMediaItem editedMediaItem, Format format, int sequenceIndex) throws ExportException {
+  public GraphInput getInput(EditedMediaItem editedMediaItem, Format format, int sequenceIndex)
+      throws ExportException {
     try {
       return videoGraph.createInput(sequenceIndex);
     } catch (VideoFrameProcessingException e) {
