@@ -1,5 +1,10 @@
 # Release notes
 
+### Unreleased changes
+
+*   Effect:
+    *   Improved PQ to SDR tone-mapping by converting color spaces.
+
 ## 1.3
 
 ### 1.3.0 (2024-03-06)
