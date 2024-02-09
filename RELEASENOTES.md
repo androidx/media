@@ -4,23 +4,10 @@
 
 *   Common Library:
 *   ExoPlayer:
-    *   Add source prefix to all `Format.id` fields generated from
-        `MergingMediaSource`. This helps to identify which source produced a
-        `Format` ([#883](https://github.com/androidx/media/issues/883)).
-    *   Fix the regex used for validating custom Common Media Client Data (CMCD)
-        key names by modifying it to only check for hyphen
-        ([#1028](https://github.com/androidx/media/issues/1028)).
-    *   Stop double-encoding CMCD query parameters
-        ([#1075](https://github.com/androidx/media/issues/1075)).
 *   Transformer:
 *   Track Selection:
 *   Extractors:
 *   Audio:
-    *   Improve silence skipping algorithm with smooth volume ramp, retained
-        minimal silence and more natural silence durations
-        ([#7423](https://github.com/google/ExoPlayer/issues/7423)).
-    *   Report the skipped silence more deterministically
-        ([#1035](https://github.com/androidx/media/issues/1035)).
 *   Video:
 *   Text:
 *   Metadata:
@@ -30,18 +17,12 @@
 *   Muxers:
 *   IMA extension:
 *   Session:
-    *   Fix issue where `MediaItem.RequestMetadata` with just non-null extras is
-        not sent transmitted between media controllers and sessions.
-    *   Add constructor to `MediaLibrarySession.Builder` that only takes a
-        `Context` instead of a `MediaLibraryService`.
 *   UI:
 *   Downloads:
 *   OkHttp Extension:
 *   Cronet Extension:
 *   RTMP Extension:
 *   HLS Extension:
-    *   Resolve seeks to beginning of a segment more efficiently
-        ([#1031](https://github.com/androidx/media/pull/1031)).
 *   DASH Extension:
 *   Smooth Streaming Extension:
 *   RTSP Extension:
@@ -53,6 +34,35 @@
 *   Demo app:
 
 ## 1.3
+
+### 1.3.0-rc01 (2024-02-22)
+
+This release includes the following changes since the
+[1.3.0-beta01 release](#130-beta01-2024-02-07):
+
+*   ExoPlayer:
+    *   Add source prefix to all `Format.id` fields generated from
+        `MergingMediaSource`. This helps to identify which source produced a
+        `Format` ([#883](https://github.com/androidx/media/issues/883)).
+    *   Fix the regex used for validating custom Common Media Client Data (CMCD)
+        key names by modifying it to only check for hyphen
+        ([#1028](https://github.com/androidx/media/issues/1028)).
+    *   Stop double-encoding CMCD query parameters
+        ([#1075](https://github.com/androidx/media/issues/1075)).
+*   Audio:
+    *   Improve silence skipping algorithm with smooth volume ramp, retained
+        minimal silence and more natural silence durations
+        ([#7423](https://github.com/google/ExoPlayer/issues/7423)).
+    *   Report the skipped silence more deterministically
+        ([#1035](https://github.com/androidx/media/issues/1035)).
+*   Session:
+    *   Fix issue where `MediaItem.RequestMetadata` with just non-null extras is
+        not sent transmitted between media controllers and sessions.
+    *   Add constructor to `MediaLibrarySession.Builder` that only takes a
+        `Context` instead of a `MediaLibraryService`.
+*   HLS Extension:
+    *   Resolve seeks to beginning of a segment more efficiently
+        ([#1031](https://github.com/androidx/media/pull/1031)).
 
 ### 1.3.0-beta01 (2024-02-07)
 
