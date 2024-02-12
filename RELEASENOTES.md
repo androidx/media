@@ -4,6 +4,10 @@
 
 *   Effect:
     *   Improved PQ to SDR tone-mapping by converting color spaces.
+*   UI:
+    *   Fallback to include audio track language name if `Locale` cannot
+        identify a display name
+        ([#988](https://github.com/androidx/media/issues/988)).
 
 ## 1.3
 
