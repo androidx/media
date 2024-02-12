@@ -250,8 +250,12 @@ public final class MetadataRenderer extends BaseRenderer implements Callback {
         if (buffer.isEndOfStream()) {
           inputStreamEnded = true;
           Log.v(Log.LOG_LEVEL_VERBOSE2, TAG, "readMetadata buffer.isEndOfStream()");
-        } else if (buffer.timeUs >= getLastResetPositionUs()) {
+
+          // MIREGO START: One ads metadata happens before start position, we want to process it.
+        } else /* if (buffer.timeUs >= getLastResetPositionUs()) } */ {
           // Ignore metadata before start position.
+          // MIREGO END
+
           buffer.subsampleOffsetUs = subsampleOffsetUs;
           buffer.flip();
           @Nullable Metadata metadata = castNonNull(decoder).decode(buffer);
