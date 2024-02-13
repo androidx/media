@@ -99,7 +99,7 @@ public abstract class SingleInputVideoGraph implements VideoGraph {
   }
 
   @Override
-  public int registerInput(int sequenceIndex) throws VideoFrameProcessingException {
+  public void registerInput(int sequenceIndex) throws VideoFrameProcessingException {
     checkStateNotNull(videoFrameProcessor == null && !released);
 
     videoFrameProcessor =
@@ -159,7 +159,6 @@ public abstract class SingleInputVideoGraph implements VideoGraph {
     if (outputSurfaceInfo != null) {
       videoFrameProcessor.setOutputSurfaceInfo(outputSurfaceInfo);
     }
-    return SINGLE_INPUT_INDEX;
   }
 
   @Override
