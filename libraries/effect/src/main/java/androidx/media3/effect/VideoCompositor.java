@@ -52,7 +52,7 @@ public interface VideoCompositor extends GlTextureProducer {
    * @param sequenceIndex The sequence index of the input source, which is can be used to determine
    *     the order of the input sources.
    */
-  int registerInputSource(int sequenceIndex);
+  void registerInputSource(int sequenceIndex);
 
   /**
    * Signals that no more frames will come from the upstream {@link GlTextureProducer.Listener}.

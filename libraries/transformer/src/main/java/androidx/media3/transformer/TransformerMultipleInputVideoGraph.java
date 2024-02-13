@@ -80,8 +80,8 @@ import java.util.concurrent.Executor;
 
   @Override
   public GraphInput createInput(int sequenceIndex) throws VideoFrameProcessingException {
-    int inputId = registerInput(sequenceIndex);
+    registerInput(sequenceIndex);
     return new VideoFrameProcessingWrapper(
-        getProcessor(inputId), /* presentation= */ null, getInitialTimestampOffsetUs());
+        getProcessor(sequenceIndex), /* presentation= */ null, getInitialTimestampOffsetUs());
   }
 }

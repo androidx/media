@@ -543,8 +543,8 @@ import org.checkerframework.dataflow.qual.Pure;
     }
 
     @Override
-    public int registerInput(int sequenceIndex) throws VideoFrameProcessingException {
-      return videoGraph.registerInput(sequenceIndex);
+    public void registerInput(int sequenceIndex) throws VideoFrameProcessingException {
+      videoGraph.registerInput(sequenceIndex);
     }
 
     @Override

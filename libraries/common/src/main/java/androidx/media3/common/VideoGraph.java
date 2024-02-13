@@ -76,10 +76,8 @@ public interface VideoGraph {
    * <p>If the method throws, the caller must call {@link #release}.
    *
    * @param sequenceIndex The sequence index of the input which can aid ordering of the inputs.
-   * @return The id of the registered input, which can be used to get the underlying {@link
-   *     VideoFrameProcessor} via {@link #getProcessor(int)}.
    */
-  int registerInput(int sequenceIndex) throws VideoFrameProcessingException;
+  void registerInput(int sequenceIndex) throws VideoFrameProcessingException;
 
   /**
    * Returns the {@link VideoFrameProcessor} that handles the processing for an input registered via

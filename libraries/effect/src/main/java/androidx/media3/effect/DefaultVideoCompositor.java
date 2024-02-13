@@ -142,9 +142,8 @@ public final class DefaultVideoCompositor implements VideoCompositor {
   }
 
   @Override
-  public synchronized int registerInputSource(int sequenceIndex) {
+  public synchronized void registerInputSource(int sequenceIndex) {
     inputSources.put(sequenceIndex, new InputSource());
-    return sequenceIndex;
   }
 
   @Override

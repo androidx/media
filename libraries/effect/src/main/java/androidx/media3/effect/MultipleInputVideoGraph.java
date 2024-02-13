@@ -211,10 +211,9 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
   }
 
   @Override
-  public int registerInput(int sequenceIndex) throws VideoFrameProcessingException {
+  public void registerInput(int sequenceIndex) throws VideoFrameProcessingException {
     checkStateNotNull(videoCompositor);
-
-    int videoCompositorInputId = videoCompositor.registerInputSource(sequenceIndex);
+    videoCompositor.registerInputSource(sequenceIndex);
     // Creating a new VideoFrameProcessor for the input.
     VideoFrameProcessor preProcessor =
         videoFrameProcessorFactory
@@ -223,7 +222,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
                 // Texture output to compositor.
                 (textureProducer, texture, presentationTimeUs, syncObject) ->
                     queuePreProcessingOutputToCompositor(
-                        videoCompositorInputId, textureProducer, texture, presentationTimeUs),
+                        sequenceIndex, textureProducer, texture, presentationTimeUs),
                 PRE_COMPOSITOR_TEXTURE_OUTPUT_CAPACITY)
             .build()
             .create(
@@ -254,11 +253,10 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
 
                   @Override
                   public void onEnded() {
-                    onPreProcessingVideoFrameProcessorEnded(videoCompositorInputId);
+                    onPreProcessingVideoFrameProcessorEnded(sequenceIndex);
                   }
                 });
-    preProcessors.put(videoCompositorInputId, preProcessor);
-    return videoCompositorInputId;
+    preProcessors.put(sequenceIndex, preProcessor);
   }
 
   @Override
