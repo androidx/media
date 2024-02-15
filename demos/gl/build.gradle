@@ -55,6 +55,5 @@ dependencies {
     implementation project(modulePrefix + 'lib-exoplayer-smoothstreaming')
     implementation project(modulePrefix + 'lib-ui')
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
-    implementation 'androidx.multidex:multidex:' + androidxMultidexVersion
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
 }

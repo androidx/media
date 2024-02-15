@@ -570,11 +570,8 @@ public class MediaControllerWithMediaSessionCompatTest {
     assertThat(TextUtils.equals(metadata.subtitle, testSubtitle)).isTrue();
     assertThat(TextUtils.equals(metadata.description, testDescription)).isTrue();
     assertThat(metadata.artworkUri).isEqualTo(testIconUri);
-    if (Util.SDK_INT >= 21) {
-      // Bitmap conversion and back gives not exactly the same byte array below API 21
-      assertThat(metadata.artworkData).isEqualTo(testArtworkData);
-    }
-    if (Util.SDK_INT < 21 || Util.SDK_INT >= 23) {
+    assertThat(metadata.artworkData).isEqualTo(testArtworkData);
+    if (Util.SDK_INT >= 23) {
       // TODO(b/199055952): Test mediaUri for all API levels once the bug is fixed.
       assertThat(mediaItem.requestMetadata.mediaUri).isEqualTo(testMediaUri);
     }
@@ -938,19 +935,6 @@ public class MediaControllerWithMediaSessionCompatTest {
         threadTestRule.getHandler().postAndSync(controller::getMediaMetadata);
 
     assertThat(mediaMetadata.artworkData).isNotNull();
-    if (Util.SDK_INT < 21) {
-      // Bitmap conversion and back gives not exactly the same byte array below API 21
-      mediaMetadata =
-          mediaMetadata
-              .buildUpon()
-              .setArtworkData(/* artworkData= */ null, /* artworkDataType= */ null)
-              .build();
-      testMediaMetadata =
-          testMediaMetadata
-              .buildUpon()
-              .setArtworkData(/* artworkData= */ null, /* artworkDataType= */ null)
-              .build();
-    }
     assertThat(mediaMetadata).isEqualTo(testMediaMetadata);
   }
 
@@ -1645,7 +1629,7 @@ public class MediaControllerWithMediaSessionCompatTest {
 
   @Test
   public void setPlaybackToLocal_notifiesDeviceInfoAndVolume() throws Exception {
-    if (Util.SDK_INT == 21 || Util.SDK_INT == 22) {
+    if (Util.SDK_INT <= 22) {
       // In API 21 and 22, onAudioInfoChanged is not called.
       return;
     }

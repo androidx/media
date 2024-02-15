@@ -17,7 +17,6 @@ package androidx.media3.test.utils;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
@@ -48,7 +47,6 @@ import java.io.OutputStream;
 import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
-import org.junit.AssumptionViolatedException;
 
 /** Utilities for pixel tests. */
 // TODO(b/263395272): After the bug is fixed and dependent tests are moved back to media3.effect,
@@ -497,14 +495,8 @@ public class BitmapPixelTestUtil {
   public static Bitmap flipBitmapVertically(Bitmap bitmap) {
     boolean wasPremultiplied = bitmap.isPremultiplied();
     if (!wasPremultiplied) {
-      if (SDK_INT >= 19) {
-        // Bitmap.createBitmap must be called on a premultiplied bitmap.
-        bitmap.setPremultiplied(true);
-      } else {
-        throw new AssumptionViolatedException(
-            "bitmap is not premultiplied and Bitmap.setPremultiplied is not supported under API 19."
-                + " unpremultiplied bitmaps cannot be flipped");
-      }
+      // Bitmap.createBitmap must be called on a premultiplied bitmap.
+      bitmap.setPremultiplied(true);
     }
 
     Matrix flip = new Matrix();
@@ -519,9 +511,7 @@ public class BitmapPixelTestUtil {
             bitmap.getHeight(),
             flip,
             /* filter= */ true);
-    if (SDK_INT >= 19) {
-      flippedBitmap.setPremultiplied(wasPremultiplied);
-    }
+    flippedBitmap.setPremultiplied(wasPremultiplied);
     return flippedBitmap;
   }
 

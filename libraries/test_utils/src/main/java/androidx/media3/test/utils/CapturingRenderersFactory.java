@@ -299,7 +299,6 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
       dequeuedOutputBuffers.delete(index);
     }
 
-    @RequiresApi(21)
     @Override
     public void releaseOutputBuffer(int index, long renderTimeStampNs) {
       MediaCodec.BufferInfo bufferInfo = checkNotNull(dequeuedOutputBuffers.get(index));

@@ -27,7 +27,6 @@ import android.media.session.PlaybackState;
 import android.os.HandlerThread;
 import androidx.media3.common.Player;
 import androidx.media3.common.Player.State;
-import androidx.media3.common.util.Util;
 import androidx.media3.test.session.common.MainLooperTestRule;
 import androidx.media3.test.session.common.TestHandler;
 import androidx.test.core.app.ApplicationProvider;
@@ -37,7 +36,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
-import org.junit.Assume;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
@@ -57,9 +55,6 @@ public class MediaControllerWithFrameworkMediaSessionTest {
 
   @Before
   public void setUp() {
-    if (Util.SDK_INT < 21) {
-      return;
-    }
     context = ApplicationProvider.getApplicationContext();
 
     HandlerThread handlerThread = new HandlerThread(TAG);
@@ -79,7 +74,6 @@ public class MediaControllerWithFrameworkMediaSessionTest {
   @SuppressWarnings("UnnecessarilyFullyQualified") // Intentionally fully qualified for fwk session.
   @Test
   public void createController() throws Exception {
-    Assume.assumeTrue(Util.SDK_INT >= 21); // For framework MediaSession.
     MediaSession fwkSession = new android.media.session.MediaSession(context, TAG);
     fwkSession.setActive(true);
     fwkSession.setFlags(
@@ -100,7 +94,6 @@ public class MediaControllerWithFrameworkMediaSessionTest {
   @SuppressWarnings("UnnecessarilyFullyQualified") // Intentionally fully qualified for fwk session.
   @Test
   public void onPlaybackStateChanged_isNotifiedByFwkSessionChanges() throws Exception {
-    Assume.assumeTrue(Util.SDK_INT >= 21); // For framework MediaSession.
     MediaSession fwkSession = new android.media.session.MediaSession(context, TAG);
     fwkSession.setActive(true);
     fwkSession.setFlags(

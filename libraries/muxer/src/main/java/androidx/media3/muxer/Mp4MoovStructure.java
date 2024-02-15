@@ -22,7 +22,6 @@ import android.media.MediaCodec.BufferInfo;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import java.nio.ByteBuffer;
@@ -212,8 +211,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       return null;
     }
 
-    Locale locale =
-        Util.SDK_INT >= 21 ? Locale.forLanguageTag(languageTag) : new Locale(languageTag);
+    Locale locale = Locale.forLanguageTag(languageTag);
 
     return locale.getISO3Language().isEmpty() ? languageTag : locale.getISO3Language();
   }

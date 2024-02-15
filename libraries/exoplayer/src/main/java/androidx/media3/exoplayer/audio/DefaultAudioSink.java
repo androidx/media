@@ -539,8 +539,6 @@ public final class DefaultAudioSink implements AudioSink {
   @Nullable private ByteBuffer inputBuffer;
   private int inputBufferAccessUnitCount;
   @Nullable private ByteBuffer outputBuffer;
-  private byte @MonotonicNonNull [] preV21OutputBuffer;
-  private int preV21OutputBufferOffset;
   private boolean handledEndOfStream;
   private boolean stoppedAudioTrack;
 
@@ -568,7 +566,7 @@ public final class DefaultAudioSink implements AudioSink {
             ? getCapabilities(context, audioAttributes, /* routedDevice= */ null)
             : builder.audioCapabilities;
     audioProcessorChain = builder.audioProcessorChain;
-    enableFloatOutput = Util.SDK_INT >= 21 && builder.enableFloatOutput;
+    enableFloatOutput = builder.enableFloatOutput;
     preferAudioTrackPlaybackParams = Util.SDK_INT >= 23 && builder.enableAudioTrackPlaybackParams;
     offloadMode = OFFLOAD_MODE_DISABLED;
     audioTrackBufferSizeProvider = builder.audioTrackBufferSizeProvider;
@@ -697,14 +695,6 @@ public final class DefaultAudioSink implements AudioSink {
       trimmingAudioProcessor.setTrimFrameCount(
           inputFormat.encoderDelay, inputFormat.encoderPadding);
 
-      if (Util.SDK_INT < 21 && inputFormat.channelCount == 8 && outputChannels == null) {
-        // AudioTrack doesn't support 8 channel output before Android L. Discard the last two (side)
-        // channels to give a 6 channel stream that is supported.
-        outputChannels = new int[6];
-        for (int i = 0; i < outputChannels.length; i++) {
-          outputChannels[i] = i;
-        }
-      }
       channelMappingAudioProcessor.setChannelMap(outputChannels);
 
       AudioProcessor.AudioFormat outputFormat = new AudioProcessor.AudioFormat(inputFormat);
@@ -1157,32 +1147,10 @@ public final class DefaultAudioSink implements AudioSink {
       Assertions.checkArgument(outputBuffer == buffer);
     } else {
       outputBuffer = buffer;
-      if (Util.SDK_INT < 21) {
-        int bytesRemaining = buffer.remaining();
-        if (preV21OutputBuffer == null || preV21OutputBuffer.length < bytesRemaining) {
-          preV21OutputBuffer = new byte[bytesRemaining];
-        }
-        int originalPosition = buffer.position();
-        buffer.get(preV21OutputBuffer, 0, bytesRemaining);
-        buffer.position(originalPosition);
-        preV21OutputBufferOffset = 0;
-      }
     }
     int bytesRemaining = buffer.remaining();
     int bytesWrittenOrError = 0; // Error if negative
-    if (Util.SDK_INT < 21) { // outputMode == OUTPUT_MODE_PCM.
-      // Work out how many bytes we can write without the risk of blocking.
-      int bytesToWrite = audioTrackPositionTracker.getAvailableBufferSize(writtenPcmBytes);
-      if (bytesToWrite > 0) {
-        bytesToWrite = min(bytesRemaining, bytesToWrite);
-        bytesWrittenOrError =
-            audioTrack.write(preV21OutputBuffer, preV21OutputBufferOffset, bytesToWrite);
-        if (bytesWrittenOrError > 0) { // No error
-          preV21OutputBufferOffset += bytesWrittenOrError;
-          buffer.position(buffer.position() + bytesWrittenOrError);
-        }
-      }
-    } else if (tunneling) {
+    if (tunneling) {
       Assertions.checkState(avSyncPresentationTimeUs != C.TIME_UNSET);
       if (avSyncPresentationTimeUs == C.TIME_END_OF_SOURCE) {
         // Audio processors during tunneling are required to produce buffers immediately when
@@ -1193,10 +1161,10 @@ public final class DefaultAudioSink implements AudioSink {
         lastTunnelingAvSyncPresentationTimeUs = avSyncPresentationTimeUs;
       }
       bytesWrittenOrError =
-          writeNonBlockingWithAvSyncV21(
+          writeNonBlockingWithAvSync(
               audioTrack, buffer, bytesRemaining, avSyncPresentationTimeUs);
     } else {
-      bytesWrittenOrError = writeNonBlockingV21(audioTrack, buffer, bytesRemaining);
+      bytesWrittenOrError = writeNonBlocking(audioTrack, buffer, bytesRemaining);
     }
 
     lastFeedElapsedRealtimeMs = SystemClock.elapsedRealtime();
@@ -1396,7 +1364,6 @@ public final class DefaultAudioSink implements AudioSink {
 
   @Override
   public void enableTunnelingV21() {
-    Assertions.checkState(Util.SDK_INT >= 21);
     Assertions.checkState(externalAudioSessionIdProvided);
     if (!tunneling) {
       tunneling = true;
@@ -1441,10 +1408,8 @@ public final class DefaultAudioSink implements AudioSink {
   private void setVolumeInternal() {
     if (!isAudioTrackInitialized()) {
       // Do nothing.
-    } else if (Util.SDK_INT >= 21) {
-      setVolumeInternalV21(audioTrack, volume);
     } else {
-      setVolumeInternalV3(audioTrack, volume);
+      audioTrack.setVolume(volume);
     }
   }
 
@@ -1467,14 +1432,6 @@ public final class DefaultAudioSink implements AudioSink {
       }
       if (isOffloadedPlayback(audioTrack)) {
         checkNotNull(offloadStreamEventCallbackV29).unregister(audioTrack);
-      }
-      if (Util.SDK_INT < 21 && !externalAudioSessionIdProvided) {
-        // Prior to API level 21, audio sessions are not kept alive once there are no components
-        // associated with them. If we generated the session ID internally, the only component
-        // associated with the session is the audio track that's being released, and therefore
-        // the session will not be kept alive. As a result, we need to generate a new session when
-        // we next create an audio track.
-        audioSessionId = C.AUDIO_SESSION_ID_UNSET;
       }
       AudioTrackConfig oldAudioTrackConfig = configuration.buildAudioTrackConfig();
       if (pendingConfiguration != null) {
@@ -1805,13 +1762,11 @@ public final class DefaultAudioSink implements AudioSink {
     }
   }
 
-  @RequiresApi(21)
-  private static int writeNonBlockingV21(AudioTrack audioTrack, ByteBuffer buffer, int size) {
+  private static int writeNonBlocking(AudioTrack audioTrack, ByteBuffer buffer, int size) {
     return audioTrack.write(buffer, size, AudioTrack.WRITE_NON_BLOCKING);
   }
 
-  @RequiresApi(21)
-  private int writeNonBlockingWithAvSyncV21(
+  private int writeNonBlockingWithAvSync(
       AudioTrack audioTrack, ByteBuffer buffer, int size, long presentationTimeUs) {
     if (Util.SDK_INT >= 26) {
       // The underlying platform AudioTrack writes AV sync headers directly.
@@ -1841,22 +1796,13 @@ public final class DefaultAudioSink implements AudioSink {
         return 0;
       }
     }
-    int result = writeNonBlockingV21(audioTrack, buffer, size);
+    int result = writeNonBlocking(audioTrack, buffer, size);
     if (result < 0) {
       bytesUntilNextAvSync = 0;
       return result;
     }
     bytesUntilNextAvSync -= result;
     return result;
-  }
-
-  @RequiresApi(21)
-  private static void setVolumeInternalV21(AudioTrack audioTrack, float volume) {
-    audioTrack.setVolume(volume);
-  }
-
-  private static void setVolumeInternalV3(AudioTrack audioTrack, float volume) {
-    audioTrack.setStereoVolume(volume, volume);
   }
 
   private void playPendingData() {
@@ -2222,10 +2168,8 @@ public final class DefaultAudioSink implements AudioSink {
     private AudioTrack createAudioTrack(AudioAttributes audioAttributes, int audioSessionId) {
       if (Util.SDK_INT >= 29) {
         return createAudioTrackV29(audioAttributes, audioSessionId);
-      } else if (Util.SDK_INT >= 21) {
-        return createAudioTrackV21(audioAttributes, audioSessionId);
       } else {
-        return createAudioTrackV9(audioAttributes, audioSessionId);
+        return createAudioTrackV21(audioAttributes, audioSessionId);
       }
     }
 
@@ -2234,7 +2178,7 @@ public final class DefaultAudioSink implements AudioSink {
       AudioFormat audioFormat =
           Util.getAudioFormat(outputSampleRate, outputChannelConfig, outputEncoding);
       android.media.AudioAttributes audioTrackAttributes =
-          getAudioTrackAttributesV21(audioAttributes, tunneling);
+          getAudioTrackAttributes(audioAttributes, tunneling);
       return new AudioTrack.Builder()
           .setAudioAttributes(audioTrackAttributes)
           .setAudioFormat(audioFormat)
@@ -2245,52 +2189,25 @@ public final class DefaultAudioSink implements AudioSink {
           .build();
     }
 
-    @RequiresApi(21)
     private AudioTrack createAudioTrackV21(AudioAttributes audioAttributes, int audioSessionId) {
       return new AudioTrack(
-          getAudioTrackAttributesV21(audioAttributes, tunneling),
+          getAudioTrackAttributes(audioAttributes, tunneling),
           Util.getAudioFormat(outputSampleRate, outputChannelConfig, outputEncoding),
           bufferSize,
           AudioTrack.MODE_STREAM,
           audioSessionId);
     }
 
-    @SuppressWarnings("deprecation") // Using deprecated AudioTrack constructor.
-    private AudioTrack createAudioTrackV9(AudioAttributes audioAttributes, int audioSessionId) {
-      int streamType = Util.getStreamTypeForAudioUsage(audioAttributes.usage);
-      if (audioSessionId == C.AUDIO_SESSION_ID_UNSET) {
-        return new AudioTrack(
-            streamType,
-            outputSampleRate,
-            outputChannelConfig,
-            outputEncoding,
-            bufferSize,
-            AudioTrack.MODE_STREAM);
-      } else {
-        // Re-attach to the same audio session.
-        return new AudioTrack(
-            streamType,
-            outputSampleRate,
-            outputChannelConfig,
-            outputEncoding,
-            bufferSize,
-            AudioTrack.MODE_STREAM,
-            audioSessionId);
-      }
-    }
-
-    @RequiresApi(21)
-    private static android.media.AudioAttributes getAudioTrackAttributesV21(
+    private static android.media.AudioAttributes getAudioTrackAttributes(
         AudioAttributes audioAttributes, boolean tunneling) {
       if (tunneling) {
-        return getAudioTrackTunnelingAttributesV21();
+        return getAudioTrackTunnelingAttributes();
       } else {
         return audioAttributes.getAudioAttributesV21().audioAttributes;
       }
     }
 
-    @RequiresApi(21)
-    private static android.media.AudioAttributes getAudioTrackTunnelingAttributesV21() {
+    private static android.media.AudioAttributes getAudioTrackTunnelingAttributes() {
       return new android.media.AudioAttributes.Builder()
           .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MOVIE)
           .setFlags(android.media.AudioAttributes.FLAG_HW_AV_SYNC)

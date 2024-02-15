@@ -56,7 +56,6 @@ import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import androidx.test.filters.SdkSuppress;
 import androidx.test.filters.SmallTest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -490,7 +489,6 @@ public final class LegacyConversionsTest {
         .isTrue();
   }
 
-  @SdkSuppress(minSdkVersion = 21)
   @Test
   public void convertToSessionCommands_whenSessionIsNotReadyOnSdk21_disallowsRating() {
     SessionCommands sessionCommands =

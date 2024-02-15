@@ -33,7 +33,6 @@ import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.os.Handler;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.UnstableApi;
@@ -43,7 +42,6 @@ import java.nio.ByteBuffer;
 
 /** A wrapper for decoding a video using {@link MediaCodec}. */
 @UnstableApi
-@RequiresApi(21)
 public final class VideoDecodingWrapper implements AutoCloseable {
 
   private static final int IMAGE_AVAILABLE_TIMEOUT_MS = 10_000;

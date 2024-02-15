@@ -542,7 +542,7 @@ public class MediaSession {
     /**
      * Returns the UID of the controller. Can be a negative value for interoperability.
      *
-     * <p>Interoperability: If {@code 21 <= SDK_INT < 28}, then UID would be a negative value
+     * <p>Interoperability: If {@code SDK_INT < 28}, then UID would be a negative value
      * because it cannot be obtained.
      */
     public int getUid() {

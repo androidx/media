@@ -1001,7 +1001,7 @@ public final class Util {
    */
   @UnstableApi
   public static String getLocaleLanguageTag(Locale locale) {
-    return SDK_INT >= 21 ? getLocaleLanguageTagV21(locale) : locale.toString();
+    return locale.toLanguageTag();
   }
 
   /**
@@ -2301,7 +2301,6 @@ public final class Util {
 
   /** Creates {@link AudioFormat} with given sampleRate, channelConfig, and encoding. */
   @UnstableApi
-  @RequiresApi(21)
   public static AudioFormat getAudioFormat(int sampleRate, int channelConfig, int encoding) {
     return new AudioFormat.Builder()
         .setSampleRate(sampleRate)
@@ -2465,7 +2464,6 @@ public final class Util {
    * @see AudioManager#generateAudioSessionId()
    */
   @UnstableApi
-  @RequiresApi(21)
   public static int generateAudioSessionIdV21(Context context) {
     @Nullable
     AudioManager audioManager = ((AudioManager) context.getSystemService(Context.AUDIO_SERVICE));
@@ -3113,8 +3111,7 @@ public final class Util {
    */
   @UnstableApi
   public static boolean isWear(Context context) {
-    return SDK_INT >= 20
-        && context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH);
+    return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH);
   }
 
   /**
@@ -3544,9 +3541,7 @@ public final class Util {
   @UnstableApi
   public static Drawable getDrawable(
       Context context, Resources resources, @DrawableRes int drawableRes) {
-    return SDK_INT >= 21
-        ? Api21.getDrawable(context, resources, drawableRes)
-        : resources.getDrawable(drawableRes);
+    return resources.getDrawable(drawableRes, context.getTheme());
   }
 
   /**
@@ -3706,11 +3701,6 @@ public final class Util {
   @RequiresApi(24)
   private static String[] getSystemLocalesV24(Configuration config) {
     return split(config.getLocales().toLanguageTags(), ",");
-  }
-
-  @RequiresApi(21)
-  private static String getLocaleLanguageTagV21(Locale locale) {
-    return locale.toLanguageTag();
   }
 
   private static HashMap<String, String> createIsoLanguageReplacementMap() {
@@ -3931,14 +3921,6 @@ public final class Util {
     0xDE, 0xD9, 0xD0, 0xD7, 0xC2, 0xC5, 0xCC, 0xCB, 0xE6, 0xE1, 0xE8, 0xEF, 0xFA, 0xFD, 0xF4,
     0xF3
   };
-
-  @RequiresApi(21)
-  private static final class Api21 {
-    @DoNotInline
-    public static Drawable getDrawable(Context context, Resources resources, @DrawableRes int res) {
-      return resources.getDrawable(res, context.getTheme());
-    }
-  }
 
   @RequiresApi(29)
   private static class Api29 {

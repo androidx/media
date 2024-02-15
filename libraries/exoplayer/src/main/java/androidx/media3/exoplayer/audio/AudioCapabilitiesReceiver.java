@@ -105,8 +105,7 @@ public final class AudioCapabilitiesReceiver {
     this.routedDevice = routedDevice;
     handler = Util.createHandlerForCurrentOrMainLooper();
     audioDeviceCallback = Util.SDK_INT >= 23 ? new AudioDeviceCallbackV23() : null;
-    hdmiAudioPlugBroadcastReceiver =
-        Util.SDK_INT >= 21 ? new HdmiAudioPlugBroadcastReceiver() : null;
+    hdmiAudioPlugBroadcastReceiver = new HdmiAudioPlugBroadcastReceiver();
     Uri externalSurroundSoundUri = AudioCapabilities.getExternalSurroundSoundGlobalSettingUri();
     externalSurroundSoundSettingObserver =
         externalSurroundSoundUri != null

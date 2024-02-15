@@ -17,9 +17,7 @@ package androidx.media3.exoplayer.mediacodec;
 
 import android.media.MediaCodec;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderException;
 
 /** Thrown when a failure occurs in a {@link MediaCodec} decoder. */
@@ -35,15 +33,11 @@ public class MediaCodecDecoderException extends DecoderException {
   public MediaCodecDecoderException(Throwable cause, @Nullable MediaCodecInfo codecInfo) {
     super("Decoder failed: " + (codecInfo == null ? null : codecInfo.name), cause);
     this.codecInfo = codecInfo;
-    diagnosticInfo = Util.SDK_INT >= 21 ? getDiagnosticInfoV21(cause) : null;
-  }
 
-  @RequiresApi(21)
-  @Nullable
-  private static String getDiagnosticInfoV21(Throwable cause) {
     if (cause instanceof MediaCodec.CodecException) {
-      return ((MediaCodec.CodecException) cause).getDiagnosticInfo();
+      diagnosticInfo =  ((MediaCodec.CodecException) cause).getDiagnosticInfo();
+    } else {
+      diagnosticInfo = null;
     }
-    return null;
   }
 }

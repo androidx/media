@@ -453,8 +453,7 @@ public final class CommandButton implements Bundleable {
      * Sets the resource id of a bitmap (e.g. PNG) icon of this button.
      *
      * <p>Non-bitmap (e.g. VectorDrawable) may cause unexpected behavior in a {@link
-     * MediaController} app, so please avoid using it especially for the older platforms ({@code
-     * SDK_INT < 21}).
+     * MediaController} app, so please avoid using it.
      *
      * @param resId The resource id of an icon.
      * @return This builder for chaining.

@@ -1230,8 +1230,7 @@ public class PlayerNotificationManager {
    * Creates the notification given the current player state.
    *
    * @param player The player for which state to build a notification.
-   * @param builder The builder used to build the last notification, or {@code null}. Re-using the
-   *     builder when possible can prevent notification flicker when {@code Util#SDK_INT} &lt; 21.
+   * @param builder The builder used to build the last notification, or {@code null}.
    * @param ongoing Whether the notification should be ongoing.
    * @param largeIcon The large icon to be used.
    * @return The {@link NotificationCompat.Builder} on which to call {@link
@@ -1297,9 +1296,7 @@ public class PlayerNotificationManager {
         .setPriority(priority)
         .setDefaults(defaults);
 
-    // Changing "showWhen" causes notification flicker if SDK_INT < 21.
-    if (Util.SDK_INT >= 21
-        && useChronometer
+    if (useChronometer
         && player.isCommandAvailable(COMMAND_GET_CURRENT_MEDIA_ITEM)
         && player.isPlaying()
         && !player.isPlayingAd()
@@ -1562,7 +1559,6 @@ public class PlayerNotificationManager {
 
   private class NotificationBroadcastReceiver extends BroadcastReceiver {
 
-    @SuppressWarnings("deprecation")
     @Override
     public void onReceive(Context context, Intent intent) {
       Player player = PlayerNotificationManager.this.player;

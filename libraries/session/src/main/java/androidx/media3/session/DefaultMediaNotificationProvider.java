@@ -366,8 +366,7 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
       }
     }
 
-    if (player.isCommandAvailable(COMMAND_STOP) || Util.SDK_INT < 21) {
-      // We must include a cancel intent for pre-L devices.
+    if (player.isCommandAvailable(COMMAND_STOP)) {
       mediaStyle.setCancelButtonIntent(
           actionFactory.createMediaActionPendingIntent(mediaSession, COMMAND_STOP));
     }
@@ -639,9 +638,7 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
   }
 
   private static long getPlaybackStartTimeEpochMs(Player player) {
-    // Changing "showWhen" causes notification flicker if SDK_INT < 21.
-    if (Util.SDK_INT >= 21
-        && player.isPlaying()
+    if (player.isPlaying()
         && !player.isPlayingAd()
         && !player.isCurrentMediaItemDynamic()
         && player.getPlaybackParameters().speed == 1f) {

@@ -1219,19 +1219,14 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
               : mediaFormat.getInteger(MediaFormat.KEY_HEIGHT);
     }
     pixelWidthHeightRatio = format.pixelWidthHeightRatio;
-    if (codecAppliesRotation()) {
-      // On API level 21 and above the decoder applies the rotation when rendering to the surface.
-      // Hence currentUnappliedRotation should always be 0. For 90 and 270 degree rotations, we need
-      // to flip the width, height and pixel aspect ratio to reflect the rotation that was applied.
-      if (format.rotationDegrees == 90 || format.rotationDegrees == 270) {
-        int rotatedHeight = width;
-        width = height;
-        height = rotatedHeight;
-        pixelWidthHeightRatio = 1 / pixelWidthHeightRatio;
-      }
-    } else if (videoSink == null) {
-      // Neither the codec nor the video sink applies the rotation.
-      unappliedRotationDegrees = format.rotationDegrees;
+    // On API level 21 and above the decoder applies the rotation when rendering to the surface.
+    // Hence currentUnappliedRotation should always be 0. For 90 and 270 degree rotations, we need
+    // to flip the width, height and pixel aspect ratio to reflect the rotation that was applied.
+    if (format.rotationDegrees == 90 || format.rotationDegrees == 270) {
+      int rotatedHeight = width;
+      width = height;
+      height = rotatedHeight;
+      pixelWidthHeightRatio = 1 / pixelWidthHeightRatio;
     }
     decodedVideoSize =
         new VideoSize(width, height, unappliedRotationDegrees, pixelWidthHeightRatio);
@@ -1387,42 +1382,20 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       MediaCodecAdapter codec, int bufferIndex, long presentationTimeUs, Format format) {
     long releaseTimeNs = videoFrameReleaseInfo.getReleaseTimeNs();
     long earlyUs = videoFrameReleaseInfo.getEarlyUs();
-    if (Util.SDK_INT >= 21) {
-      // Let the underlying framework time the release.
-      if (shouldSkipBuffersWithIdenticalReleaseTime() && releaseTimeNs == lastFrameReleaseTimeNs) {
-        // This frame should be displayed on the same vsync with the previous released frame. We
-        // are likely rendering frames at a rate higher than the screen refresh rate. Skip
-        // this buffer so that it's returned to MediaCodec sooner otherwise MediaCodec may not
-        // be able to keep decoding with this rate [b/263454203].
-        skipOutputBuffer(codec, bufferIndex, presentationTimeUs);
-      } else {
-        notifyFrameMetadataListener(presentationTimeUs, releaseTimeNs, format);
-        renderOutputBufferV21(codec, bufferIndex, presentationTimeUs, releaseTimeNs);
-      }
-      updateVideoFrameProcessingOffsetCounters(earlyUs);
-      lastFrameReleaseTimeNs = releaseTimeNs;
-      return true;
-    } else if (earlyUs < 30000) {
-      // We need to time the release ourselves.
-      if (earlyUs > 11000) {
-        // We're a little too early to render the frame. Sleep until the frame can be rendered.
-        // Note: The 11ms threshold was chosen fairly arbitrarily.
-        try {
-          // Subtracting 10000 rather than 11000 ensures the sleep time will be at least 1ms.
-          Thread.sleep((earlyUs - 10000) / 1000);
-        } catch (InterruptedException e) {
-          Thread.currentThread().interrupt();
-          return false;
-        }
-      }
-      notifyFrameMetadataListener(presentationTimeUs, releaseTimeNs, format);
-      renderOutputBuffer(codec, bufferIndex, presentationTimeUs);
-      updateVideoFrameProcessingOffsetCounters(earlyUs);
-      return true;
+    // Let the underlying framework time the release.
+    if (shouldSkipBuffersWithIdenticalReleaseTime() && releaseTimeNs == lastFrameReleaseTimeNs) {
+      // This frame should be displayed on the same vsync with the previous released frame. We
+      // are likely rendering frames at a rate higher than the screen refresh rate. Skip
+      // this buffer so that it's returned to MediaCodec sooner otherwise MediaCodec may not
+      // be able to keep decoding with this rate [b/263454203].
+      skipOutputBuffer(codec, bufferIndex, presentationTimeUs);
     } else {
-      // Too soon.
-      return false;
+      notifyFrameMetadataListener(presentationTimeUs, releaseTimeNs, format);
+      renderOutputBufferV21(codec, bufferIndex, presentationTimeUs, releaseTimeNs);
     }
+    updateVideoFrameProcessingOffsetCounters(earlyUs);
+    lastFrameReleaseTimeNs = releaseTimeNs;
+    return true;
   }
 
   private void notifyFrameMetadataListener(
@@ -1623,11 +1596,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
    */
   private void renderOutputBuffer(
       MediaCodecAdapter codec, int index, long presentationTimeUs, long releaseTimeNs) {
-    if (Util.SDK_INT >= 21) {
-      renderOutputBufferV21(codec, index, presentationTimeUs, releaseTimeNs);
-    } else {
-      renderOutputBuffer(codec, index, presentationTimeUs);
-    }
+    renderOutputBufferV21(codec, index, presentationTimeUs, releaseTimeNs);
   }
 
   /**
@@ -1659,7 +1628,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
    * @param presentationTimeUs The presentation time of the output buffer, in microseconds.
    * @param releaseTimeNs The wallclock time at which the frame should be displayed, in nanoseconds.
    */
-  @RequiresApi(21)
   protected void renderOutputBufferV21(
       MediaCodecAdapter codec, int index, long presentationTimeUs, long releaseTimeNs) {
     TraceUtil.beginSection("releaseOutputBuffer");
@@ -1767,8 +1735,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     codec.setOutputSurface(surface);
   }
 
-  @RequiresApi(21)
-  private static void configureTunnelingV21(MediaFormat mediaFormat, int tunnelingAudioSessionId) {
+  private static void configureTunneling(MediaFormat mediaFormat, int tunnelingAudioSessionId) {
     mediaFormat.setFeatureEnabled(CodecCapabilities.FEATURE_TunneledPlayback, true);
     mediaFormat.setInteger(MediaFormat.KEY_AUDIO_SESSION_ID, tunnelingAudioSessionId);
   }
@@ -1788,7 +1755,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
    * @return The framework {@link MediaFormat} that should be used to configure the decoder.
    */
   @SuppressLint("InlinedApi")
-  @TargetApi(21) // tunnelingAudioSessionId is unset if Util.SDK_INT < 21
   protected MediaFormat getMediaFormat(
       Format format,
       String codecMimeType,
@@ -1832,7 +1798,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       mediaFormat.setInteger("auto-frc", 0);
     }
     if (tunnelingAudioSessionId != C.AUDIO_SESSION_ID_UNSET) {
-      configureTunnelingV21(mediaFormat, tunnelingAudioSessionId);
+      configureTunneling(mediaFormat, tunnelingAudioSessionId);
     }
     return mediaFormat;
   }
@@ -1927,7 +1893,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       if (longEdgePx <= formatLongEdgePx || shortEdgePx <= formatShortEdgePx) {
         // Don't return a size not larger than the format for which the codec is being configured.
         return null;
-      } else if (Util.SDK_INT >= 21) {
+      } else {
         Point alignedSize =
             codecInfo.alignVideoSizeV21(
                 isVerticalVideo ? shortEdgePx : longEdgePx,
@@ -1936,20 +1902,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         if (alignedSize != null
             && codecInfo.isVideoSizeAndRateSupportedV21(alignedSize.x, alignedSize.y, frameRate)) {
           return alignedSize;
-        }
-      } else {
-        try {
-          // Conservatively assume the codec requires 16px width and height alignment.
-          longEdgePx = Util.ceilDivide(longEdgePx, 16) * 16;
-          shortEdgePx = Util.ceilDivide(shortEdgePx, 16) * 16;
-          if (longEdgePx * shortEdgePx <= MediaCodecUtil.maxH264DecodableFrameSize()) {
-            return new Point(
-                isVerticalVideo ? shortEdgePx : longEdgePx,
-                isVerticalVideo ? longEdgePx : shortEdgePx);
-          }
-        } catch (DecoderQueryException e) {
-          // We tried our best. Give up!
-          return null;
         }
       }
     }
@@ -1977,10 +1929,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     } else {
       return getCodecMaxInputSize(codecInfo, format);
     }
-  }
-
-  private static boolean codecAppliesRotation() {
-    return Util.SDK_INT >= 21;
   }
 
   /**

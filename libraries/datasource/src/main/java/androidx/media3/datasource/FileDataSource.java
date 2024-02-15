@@ -22,14 +22,11 @@ import android.net.Uri;
 import android.system.ErrnoException;
 import android.system.OsConstants;
 import android.text.TextUtils;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -196,25 +193,19 @@ public final class FileDataSource extends BaseDataSource {
             PlaybackException.ERROR_CODE_FAILED_RUNTIME_CHECK);
       }
 
+      Throwable cause = e.getCause();
+
       // TODO(internal b/193503588): Add tests to ensure the correct error codes are assigned under
       // different SDK versions.
       throw new FileDataSourceException(
           e,
-          Util.SDK_INT >= 21 && Api21.isPermissionError(e.getCause())
+          cause instanceof ErrnoException && ((ErrnoException) cause).errno == OsConstants.EACCES
               ? PlaybackException.ERROR_CODE_IO_NO_PERMISSION
               : PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND);
     } catch (SecurityException e) {
       throw new FileDataSourceException(e, PlaybackException.ERROR_CODE_IO_NO_PERMISSION);
     } catch (RuntimeException e) {
       throw new FileDataSourceException(e, PlaybackException.ERROR_CODE_IO_UNSPECIFIED);
-    }
-  }
-
-  @RequiresApi(21)
-  private static final class Api21 {
-    @DoNotInline
-    private static boolean isPermissionError(@Nullable Throwable e) {
-      return e instanceof ErrnoException && ((ErrnoException) e).errno == OsConstants.EACCES;
     }
   }
 }

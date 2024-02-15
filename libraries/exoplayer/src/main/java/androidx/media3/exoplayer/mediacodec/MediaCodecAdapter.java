@@ -220,7 +220,6 @@ public interface MediaCodecAdapter {
    *
    * @see MediaCodec#releaseOutputBuffer(int, long)
    */
-  @RequiresApi(21)
   void releaseOutputBuffer(int index, long renderTimeStampNs);
 
   /** Flushes the adapter and the underlying {@link MediaCodec}. */

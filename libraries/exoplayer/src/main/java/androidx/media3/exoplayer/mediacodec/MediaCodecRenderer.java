@@ -170,7 +170,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
           format.sampleMimeType,
           secureDecoderRequired,
           mediaCodecInfo,
-          Util.SDK_INT >= 21 ? getDiagnosticInfoV21(cause) : null,
+          getDiagnosticInfo(cause),
           /* fallbackDecoderInitializationException= */ null);
     }
 
@@ -203,9 +203,8 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
           fallbackException);
     }
 
-    @RequiresApi(21)
     @Nullable
-    private static String getDiagnosticInfoV21(@Nullable Throwable cause) {
+    private static String getDiagnosticInfo(@Nullable Throwable cause) {
       if (cause instanceof CodecException) {
         return ((CodecException) cause).getDiagnosticInfo();
       }
@@ -840,7 +839,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     } catch (IllegalStateException e) {
       if (isMediaCodecException(e)) {
         onCodecError(e);
-        boolean isRecoverable = Util.SDK_INT >= 21 && isRecoverableMediaCodecExceptionV21(e);
+        boolean isRecoverable = isRecoverableMediaCodecException(e);
         if (isRecoverable) {
           releaseCodec();
         }
@@ -1210,13 +1209,12 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     this.codecOperatingRate = codecOperatingRate;
     codecInputFormat = inputFormat;
     codecAdaptationWorkaroundMode = codecAdaptationWorkaroundMode(codecName);
-    codecNeedsDiscardToSpsWorkaround =
-        codecNeedsDiscardToSpsWorkaround(codecName, checkNotNull(codecInputFormat));
-    codecNeedsFlushWorkaround = codecNeedsFlushWorkaround(codecName);
+    codecNeedsDiscardToSpsWorkaround = false;
+    codecNeedsFlushWorkaround = false;
     codecNeedsSosFlushWorkaround = codecNeedsSosFlushWorkaround(codecName);
     codecNeedsEosFlushWorkaround = codecNeedsEosFlushWorkaround(codecName);
     codecNeedsEosOutputExceptionWorkaround = codecNeedsEosOutputExceptionWorkaround(codecName);
-    codecNeedsEosBufferTimestampWorkaround = codecNeedsEosBufferTimestampWorkaround(codecName);
+    codecNeedsEosBufferTimestampWorkaround = false;
     codecNeedsMonoChannelCountWorkaround = false;
     codecNeedsEosPropagation =
         codecNeedsEosPropagationWorkaround(codecInfo) || getCodecNeedsEosPropagation();
@@ -2466,41 +2464,18 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   }
 
   private static boolean isMediaCodecException(IllegalStateException error) {
-    if (Util.SDK_INT >= 21 && isMediaCodecExceptionV21(error)) {
+    if (error instanceof MediaCodec.CodecException) {
       return true;
     }
     StackTraceElement[] stackTrace = error.getStackTrace();
     return stackTrace.length > 0 && stackTrace[0].getClassName().equals("android.media.MediaCodec");
   }
 
-  @RequiresApi(21)
-  private static boolean isMediaCodecExceptionV21(IllegalStateException error) {
-    return error instanceof MediaCodec.CodecException;
-  }
-
-  @RequiresApi(21)
-  private static boolean isRecoverableMediaCodecExceptionV21(IllegalStateException error) {
+  private static boolean isRecoverableMediaCodecException(IllegalStateException error) {
     if (error instanceof MediaCodec.CodecException) {
       return ((MediaCodec.CodecException) error).isRecoverable();
     }
     return false;
-  }
-
-  /**
-   * Returns whether the decoder is known to fail when flushed.
-   *
-   * <p>If true is returned, the renderer will work around the issue by releasing the decoder and
-   * instantiating a new one rather than flushing the current instance.
-   *
-   * <p>See [Internal: b/8347958, b/8543366].
-   *
-   * @param name The name of the decoder.
-   * @return True if the decoder is known to fail when flushed.
-   */
-  private static boolean codecNeedsFlushWorkaround(String name) {
-    return Util.SDK_INT == 19
-        && Util.MODEL.startsWith("SM-G800")
-        && ("OMX.Exynos.avc.dec".equals(name) || "OMX.Exynos.avc.dec.secure".equals(name));
   }
 
   /**
@@ -2534,23 +2509,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     } else {
       return ADAPTATION_WORKAROUND_MODE_NEVER;
     }
-  }
-
-  /**
-   * Returns whether the decoder is an H.264/AVC decoder known to fail if NAL units are queued
-   * before the codec specific data.
-   *
-   * <p>If true is returned, the renderer will work around the issue by discarding data up to the
-   * SPS.
-   *
-   * @param name The name of the decoder.
-   * @param format The {@link Format} used to configure the decoder.
-   * @return True if the decoder is known to fail if NAL units are queued before CSD.
-   */
-  private static boolean codecNeedsDiscardToSpsWorkaround(String name, Format format) {
-    return Util.SDK_INT < 21
-        && format.initializationData.isEmpty()
-        && "OMX.MTK.VIDEO.DECODER.AVC".equals(name);
   }
 
   /**
@@ -2609,29 +2567,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    *     buffer with {@link MediaCodec#BUFFER_FLAG_END_OF_STREAM} set. False otherwise.
    */
   private static boolean codecNeedsEosFlushWorkaround(String name) {
-    return (Util.SDK_INT <= 23 && "OMX.google.vorbis.decoder".equals(name))
-        || (Util.SDK_INT == 19
-            && ("hb2000".equals(Util.DEVICE) || "stvm8".equals(Util.DEVICE))
-            && ("OMX.amlogic.avc.decoder.awesome".equals(name)
-                || "OMX.amlogic.avc.decoder.awesome.secure".equals(name)));
-  }
-
-  /**
-   * Returns whether the decoder may output a non-empty buffer with timestamp 0 as the end of stream
-   * buffer.
-   *
-   * <p>See <a href="https://github.com/google/ExoPlayer/issues/5045">GitHub issue #5045</a>.
-   */
-  private static boolean codecNeedsEosBufferTimestampWorkaround(String codecName) {
-    return Util.SDK_INT < 21
-        && "OMX.SEC.mp3.dec".equals(codecName)
-        && "samsung".equals(Util.MANUFACTURER)
-        && (Util.DEVICE.startsWith("baffin")
-            || Util.DEVICE.startsWith("grand")
-            || Util.DEVICE.startsWith("fortuna")
-            || Util.DEVICE.startsWith("gprimelte")
-            || Util.DEVICE.startsWith("j2y18lte")
-            || Util.DEVICE.startsWith("ms01"));
+    return Util.SDK_INT <= 23 && "OMX.google.vorbis.decoder".equals(name);
   }
 
   /**

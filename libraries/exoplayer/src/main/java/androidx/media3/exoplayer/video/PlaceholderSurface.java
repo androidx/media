@@ -80,8 +80,6 @@ public final class PlaceholderSurface extends Surface {
    * Returns a newly created placeholder surface. The surface must be released by calling {@link
    * #release} when it's no longer required.
    *
-   * <p>Must only be called if {@link Util#SDK_INT} is 17 or higher.
-   *
    * @param context Any {@link Context}.
    * @param secure Whether a secure surface is required. Must only be requested if {@link
    *     #isSecureSupported(Context)} returns {@code true}.

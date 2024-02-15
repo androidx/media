@@ -244,9 +244,7 @@ public abstract class DecoderAudioRenderer<
     if (formatSupport <= C.FORMAT_UNSUPPORTED_DRM) {
       return RendererCapabilities.create(formatSupport);
     }
-    @TunnelingSupport
-    int tunnelingSupport = Util.SDK_INT >= 21 ? TUNNELING_SUPPORTED : TUNNELING_NOT_SUPPORTED;
-    return RendererCapabilities.create(formatSupport, ADAPTIVE_NOT_SEAMLESS, tunnelingSupport);
+    return RendererCapabilities.create(formatSupport, ADAPTIVE_NOT_SEAMLESS, TUNNELING_SUPPORTED);
   }
 
   /**

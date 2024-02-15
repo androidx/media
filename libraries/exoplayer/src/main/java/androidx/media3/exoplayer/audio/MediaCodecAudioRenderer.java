@@ -275,7 +275,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
       return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
     }
     @TunnelingSupport
-    int tunnelingSupport = Util.SDK_INT >= 21 ? TUNNELING_SUPPORTED : TUNNELING_NOT_SUPPORTED;
+    int tunnelingSupport = TUNNELING_SUPPORTED;
     boolean formatHasDrm = format.cryptoType != C.CRYPTO_TYPE_NONE;
     boolean supportsFormatDrm = supportsFormatDrm(format);
 

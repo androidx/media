@@ -76,8 +76,11 @@ public final class DrmUtil {
    */
   public static @PlaybackException.ErrorCode int getErrorCodeForMediaDrmException(
       Exception exception, @ErrorSource int errorSource) {
-    if (Util.SDK_INT >= 21 && Api21.isMediaDrmStateException(exception)) {
-      return Api21.mediaDrmStateExceptionToErrorCode(exception);
+    if (exception instanceof MediaDrm.MediaDrmStateException) {
+      @Nullable
+      String diagnosticsInfo = ((MediaDrm.MediaDrmStateException) exception).getDiagnosticInfo();
+      int drmErrorCode = Util.getErrorCodeFromPlatformDiagnosticsInfo(diagnosticsInfo);
+      return Util.getErrorCodeForMediaDrmErrorCode(drmErrorCode);
     } else if (Util.SDK_INT >= 23 && Api23.isMediaDrmResetException(exception)) {
       return PlaybackException.ERROR_CODE_DRM_SYSTEM_ERROR;
     } else if (exception instanceof NotProvisionedException) {
@@ -105,24 +108,6 @@ public final class DrmUtil {
   }
 
   // Internal classes.
-
-  @RequiresApi(21)
-  private static final class Api21 {
-
-    @DoNotInline
-    public static boolean isMediaDrmStateException(@Nullable Throwable throwable) {
-      return throwable instanceof MediaDrm.MediaDrmStateException;
-    }
-
-    @DoNotInline
-    public static @PlaybackException.ErrorCode int mediaDrmStateExceptionToErrorCode(
-        Throwable throwable) {
-      @Nullable
-      String diagnosticsInfo = ((MediaDrm.MediaDrmStateException) throwable).getDiagnosticInfo();
-      int drmErrorCode = Util.getErrorCodeFromPlatformDiagnosticsInfo(diagnosticsInfo);
-      return Util.getErrorCodeForMediaDrmErrorCode(drmErrorCode);
-    }
-  }
 
   @RequiresApi(23)
   private static final class Api23 {

@@ -54,11 +54,9 @@ import android.support.v4.media.session.MediaSessionCompat;
 import android.view.KeyEvent;
 import android.view.ViewConfiguration;
 import androidx.annotation.CheckResult;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.FloatRange;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media.MediaBrowserServiceCompat;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.DeviceInfo;
@@ -1126,7 +1124,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
     // Double tap detection.
     int keyCode = keyEvent.getKeyCode();
-    boolean isTvApp = Util.SDK_INT >= 21 && Api21.isTvApp(context);
+    boolean isTvApp = context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK);
     boolean doubleTapCompleted = false;
     switch (keyCode) {
       case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
@@ -1820,14 +1818,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       if (!hasMessages(MSG_PLAYER_INFO_CHANGED)) {
         sendEmptyMessage(MSG_PLAYER_INFO_CHANGED);
       }
-    }
-  }
-
-  @RequiresApi(21)
-  private static final class Api21 {
-    @DoNotInline
-    public static boolean isTvApp(Context context) {
-      return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK);
     }
   }
 }

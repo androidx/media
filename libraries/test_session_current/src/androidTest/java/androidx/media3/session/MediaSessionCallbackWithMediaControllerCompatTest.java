@@ -88,7 +88,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
 
   private static final String TEST_URI = "http://test.test";
   private static final String EXPECTED_CONTROLLER_PACKAGE_NAME =
-      (Util.SDK_INT < 21 || Util.SDK_INT >= 24) ? SUPPORT_APP_PACKAGE_NAME : LEGACY_CONTROLLER;
+      Util.SDK_INT >= 24 ? SUPPORT_APP_PACKAGE_NAME : LEGACY_CONTROLLER;
 
   @ClassRule public static MainLooperTestRule mainLooperTestRule = new MainLooperTestRule();
 
@@ -1204,7 +1204,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
 
   @Test
   public void setVolumeWithLocalVolume() throws Exception {
-    if (Util.SDK_INT >= 21 && audioManager.isVolumeFixed()) {
+    if (audioManager.isVolumeFixed()) {
       // This test is not eligible for this device.
       return;
     }
@@ -1252,7 +1252,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
 
   @Test
   public void adjustVolumeWithLocalVolume() throws Exception {
-    if (Util.SDK_INT >= 21 && audioManager.isVolumeFixed()) {
+    if (audioManager.isVolumeFixed()) {
       // This test is not eligible for this device.
       return;
     }

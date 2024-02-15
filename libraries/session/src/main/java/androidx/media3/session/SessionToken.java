@@ -30,12 +30,12 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.ResultReceiver;
+import android.support.v4.media.session.IMediaSession;
 import android.support.v4.media.session.MediaControllerCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.text.TextUtils;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media.MediaBrowserServiceCompat;
 import androidx.media3.common.Bundleable;
 import androidx.media3.common.C;
@@ -269,7 +269,6 @@ public final class SessionToken implements Bundleable {
    */
   @SuppressWarnings("UnnecessarilyFullyQualified") // Avoiding clash with Media3 MediaSession.
   @UnstableApi
-  @RequiresApi(21)
   public static ListenableFuture<SessionToken> createSessionToken(
       Context context, android.media.session.MediaSession.Token token) {
     return createSessionToken(context, MediaSessionCompat.Token.fromToken(token));
@@ -287,7 +286,6 @@ public final class SessionToken implements Bundleable {
    */
   @SuppressWarnings("UnnecessarilyFullyQualified") // Avoiding clash with Media3 MediaSession.
   @UnstableApi
-  @RequiresApi(21)
   public static ListenableFuture<SessionToken> createSessionToken(
       Context context, android.media.session.MediaSession.Token token, Looper completionLooper) {
     return createSessionToken(context, MediaSessionCompat.Token.fromToken(token), completionLooper);

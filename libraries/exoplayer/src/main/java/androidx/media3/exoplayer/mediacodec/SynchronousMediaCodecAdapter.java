@@ -17,7 +17,6 @@
 package androidx.media3.exoplayer.mediacodec;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Util.castNonNull;
 
 import android.media.MediaCodec;
 import android.media.MediaFormat;
@@ -30,7 +29,6 @@ import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.util.TraceUtil;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.decoder.CryptoInfo;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -80,15 +78,9 @@ public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
   }
 
   private final MediaCodec codec;
-  @Nullable private ByteBuffer[] inputByteBuffers;
-  @Nullable private ByteBuffer[] outputByteBuffers;
 
   private SynchronousMediaCodecAdapter(MediaCodec mediaCodec) {
     this.codec = mediaCodec;
-    if (Util.SDK_INT < 21) {
-      inputByteBuffers = codec.getInputBuffers();
-      outputByteBuffers = codec.getOutputBuffers();
-    }
   }
 
   @Override
@@ -106,9 +98,6 @@ public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
     int index;
     do {
       index = codec.dequeueOutputBuffer(bufferInfo, 0);
-      if (index == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED && Util.SDK_INT < 21) {
-        outputByteBuffers = codec.getOutputBuffers();
-      }
     } while (index == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED);
 
     return index;
@@ -122,21 +111,13 @@ public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
   @Override
   @Nullable
   public ByteBuffer getInputBuffer(int index) {
-    if (Util.SDK_INT >= 21) {
-      return codec.getInputBuffer(index);
-    } else {
-      return castNonNull(inputByteBuffers)[index];
-    }
+    return codec.getInputBuffer(index);
   }
 
   @Override
   @Nullable
   public ByteBuffer getOutputBuffer(int index) {
-    if (Util.SDK_INT >= 21) {
-      return codec.getOutputBuffer(index);
-    } else {
-      return castNonNull(outputByteBuffers)[index];
-    }
+    return codec.getOutputBuffer(index);
   }
 
   @Override
@@ -158,7 +139,6 @@ public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
   }
 
   @Override
-  @RequiresApi(21)
   public void releaseOutputBuffer(int index, long renderTimeStampNs) {
     codec.releaseOutputBuffer(index, renderTimeStampNs);
   }
@@ -170,8 +150,6 @@ public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
 
   @Override
   public void release() {
-    inputByteBuffers = null;
-    outputByteBuffers = null;
     codec.release();
   }
 

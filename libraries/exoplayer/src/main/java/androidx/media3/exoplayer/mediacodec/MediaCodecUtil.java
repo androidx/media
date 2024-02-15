@@ -165,10 +165,7 @@ public final class MediaCodecUtil {
     if (cachedDecoderInfos != null) {
       return cachedDecoderInfos;
     }
-    MediaCodecListCompat mediaCodecList =
-        Util.SDK_INT >= 21
-            ? new MediaCodecListCompatV21(secure, tunneling)
-            : new MediaCodecListCompatV16();
+    MediaCodecListCompat mediaCodecList = new MediaCodecListCompatV21(secure, tunneling);
     ArrayList<MediaCodecInfo> decoderInfos = getDecoderInfosInternal(key, mediaCodecList);
     if (secure && decoderInfos.isEmpty() && 21 <= Util.SDK_INT && Util.SDK_INT <= 23) {
       // Some devices don't list secure decoders on API level 21 [Internal: b/18678462]. Try the
@@ -289,9 +286,8 @@ public final class MediaCodecUtil {
         for (CodecProfileLevel profileLevel : decoderInfo.getProfileLevels()) {
           result = max(avcLevelToMaxFrameSize(profileLevel.level), result);
         }
-        // We assume support for at least 480p (SDK_INT >= 21) or 360p (SDK_INT < 21), which are
-        // the levels mandated by the Android CDD.
-        result = max(result, Util.SDK_INT >= 21 ? (720 * 480) : (480 * 360));
+        // We assume support for at least 480p, which are the levels mandated by the Android CDD.
+        result = max(result, 720 * 480);
       }
       maxH264DecodableFrameSize = result;
     }
@@ -532,17 +528,6 @@ public final class MediaCodecUtil {
       return false;
     }
 
-    // Work around broken audio decoders.
-    if (Util.SDK_INT < 21
-        && ("CIPAACDecoder".equals(name)
-            || "CIPMP3Decoder".equals(name)
-            || "CIPVorbisDecoder".equals(name)
-            || "CIPAMRNBDecoder".equals(name)
-            || "AACDecoder".equals(name)
-            || "MP3Decoder".equals(name))) {
-      return false;
-    }
-
     // Work around https://github.com/google/ExoPlayer/issues/3249.
     if (Util.SDK_INT < 24
         && ("OMX.SEC.aac.dec".equals(name) || "OMX.Exynos.AAC.Decoder".equals(name))
@@ -555,26 +540,6 @@ public final class MediaCodecUtil {
             || "404SC".equals(Util.DEVICE) // Galaxy S6 Edge
             || "SC-04G".equals(Util.DEVICE)
             || "SCV31".equals(Util.DEVICE))) {
-      return false;
-    }
-
-    // Work around https://github.com/google/ExoPlayer/issues/548.
-    // VP8 decoder on Samsung Galaxy S3/S4/S4 Mini/Tab 3/Note 2 does not render video.
-    if (Util.SDK_INT == 19
-        && "OMX.SEC.vp8.dec".equals(name)
-        && "samsung".equals(Util.MANUFACTURER)
-        && (Util.DEVICE.startsWith("d2")
-            || Util.DEVICE.startsWith("serrano")
-            || Util.DEVICE.startsWith("jflte")
-            || Util.DEVICE.startsWith("santos")
-            || Util.DEVICE.startsWith("t0"))) {
-      return false;
-    }
-
-    // VP8 decoder on Samsung Galaxy S4 cannot be queried.
-    if (Util.SDK_INT == 19
-        && Util.DEVICE.startsWith("jflte")
-        && "OMX.qcom.video.decoder.vp8".equals(name)) {
       return false;
     }
 
@@ -631,19 +596,6 @@ public final class MediaCodecUtil {
             }
             return 0;
           });
-    }
-
-    if (Util.SDK_INT < 21 && decoderInfos.size() > 1) {
-      String firstCodecName = decoderInfos.get(0).name;
-      if ("OMX.SEC.mp3.dec".equals(firstCodecName)
-          || "OMX.SEC.MP3.Decoder".equals(firstCodecName)
-          || "OMX.brcm.audio.mp3.decoder".equals(firstCodecName)) {
-        // Prefer OMX.google codecs over OMX.SEC.mp3.dec, OMX.SEC.MP3.Decoder and
-        // OMX.brcm.audio.mp3.decoder on older devices. See:
-        // https://github.com/google/ExoPlayer/issues/398 and
-        // https://github.com/google/ExoPlayer/issues/4519.
-        sortByScore(decoderInfos, decoderInfo -> decoderInfo.name.startsWith("OMX.google") ? 1 : 0);
-      }
     }
 
     if (Util.SDK_INT < 32 && decoderInfos.size() > 1) {
@@ -1023,7 +975,6 @@ public final class MediaCodecUtil {
     boolean isFeatureRequired(String feature, String mimeType, CodecCapabilities capabilities);
   }
 
-  @RequiresApi(21)
   private static final class MediaCodecListCompatV21 implements MediaCodecListCompat {
 
     private final int codecKind;

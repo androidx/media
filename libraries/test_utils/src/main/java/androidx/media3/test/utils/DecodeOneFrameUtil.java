@@ -204,9 +204,6 @@ public final class DecodeOneFrameUtil {
    */
   @Nullable
   private static String getSupportedDecoderName(MediaFormat format) {
-    if (Util.SDK_INT < 21) {
-      throw new UnsupportedOperationException("Unable to detect decoder support under API 21.");
-    }
     // TODO(b/266923205): De-duplicate logic from EncoderUtil.java#findCodecForFormat().
     MediaCodecList mediaCodecList = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
     // Format must not include KEY_FRAME_RATE on API21.

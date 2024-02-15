@@ -265,19 +265,9 @@ public final class MediaCodecInfo {
       if (format.width <= 0 || format.height <= 0) {
         return true;
       }
-      if (Util.SDK_INT >= 21) {
-        return isVideoSizeAndRateSupportedV21(format.width, format.height, format.frameRate);
-      } else {
-        boolean isFormatSupported =
-            format.width * format.height <= MediaCodecUtil.maxH264DecodableFrameSize();
-        if (!isFormatSupported) {
-          logNoSupport("legacyFrameSize, " + format.width + "x" + format.height);
-        }
-        return isFormatSupported;
-      }
+      return isVideoSizeAndRateSupportedV21(format.width, format.height, format.frameRate);
     } else { // Audio
-      return Util.SDK_INT < 21
-          || ((format.sampleRate == Format.NO_VALUE
+      return ((format.sampleRate == Format.NO_VALUE
                   || isAudioSampleRateSupportedV21(format.sampleRate))
               && (format.channelCount == Format.NO_VALUE
                   || isAudioChannelCountSupportedV21(format.channelCount)));
@@ -507,7 +497,6 @@ public final class MediaCodecInfo {
    *     Format#NO_VALUE} or any value less than or equal to 0.
    * @return Whether the decoder supports video with the given width, height and frame rate.
    */
-  @RequiresApi(21)
   public boolean isVideoSizeAndRateSupportedV21(int width, int height, double frameRate) {
     if (capabilities == null) {
       logNoSupport("sizeAndRate.caps");
@@ -534,10 +523,10 @@ public final class MediaCodecInfo {
       // to API 21+ code below.
     }
 
-    if (!areSizeAndRateSupportedV21(videoCapabilities, width, height, frameRate)) {
+    if (!areSizeAndRateSupported(videoCapabilities, width, height, frameRate)) {
       if (width >= height
           || !needsRotatedVerticalResolutionWorkaround(name)
-          || !areSizeAndRateSupportedV21(videoCapabilities, height, width, frameRate)) {
+          || !areSizeAndRateSupported(videoCapabilities, height, width, frameRate)) {
         logNoSupport("sizeAndRate.support, " + width + "x" + height + "@" + frameRate);
         return false;
       }
@@ -559,7 +548,6 @@ public final class MediaCodecInfo {
    *     codec.
    */
   @Nullable
-  @RequiresApi(21)
   public Point alignVideoSizeV21(int width, int height) {
     if (capabilities == null) {
       return null;
@@ -568,7 +556,7 @@ public final class MediaCodecInfo {
     if (videoCapabilities == null) {
       return null;
     }
-    return alignVideoSizeV21(videoCapabilities, width, height);
+    return alignVideoSize(videoCapabilities, width, height);
   }
 
   /**
@@ -579,7 +567,6 @@ public final class MediaCodecInfo {
    * @param sampleRate The sample rate in Hz.
    * @return Whether the decoder supports audio with the given sample rate.
    */
-  @RequiresApi(21)
   public boolean isAudioSampleRateSupportedV21(int sampleRate) {
     if (capabilities == null) {
       logNoSupport("sampleRate.caps");
@@ -605,7 +592,6 @@ public final class MediaCodecInfo {
    * @param channelCount The channel count.
    * @return Whether the decoder supports audio with the given channel count.
    */
-  @RequiresApi(21)
   public boolean isAudioChannelCountSupportedV21(int channelCount) {
     if (capabilities == null) {
       logNoSupport("channelCount.caps");
@@ -699,28 +685,17 @@ public final class MediaCodecInfo {
   }
 
   private static boolean isTunneling(CodecCapabilities capabilities) {
-    return Util.SDK_INT >= 21 && isTunnelingV21(capabilities);
-  }
-
-  @RequiresApi(21)
-  private static boolean isTunnelingV21(CodecCapabilities capabilities) {
     return capabilities.isFeatureSupported(CodecCapabilities.FEATURE_TunneledPlayback);
   }
 
   private static boolean isSecure(CodecCapabilities capabilities) {
-    return Util.SDK_INT >= 21 && isSecureV21(capabilities);
-  }
-
-  @RequiresApi(21)
-  private static boolean isSecureV21(CodecCapabilities capabilities) {
     return capabilities.isFeatureSupported(CodecCapabilities.FEATURE_SecurePlayback);
   }
 
-  @RequiresApi(21)
-  private static boolean areSizeAndRateSupportedV21(
+  private static boolean areSizeAndRateSupported(
       VideoCapabilities capabilities, int width, int height, double frameRate) {
     // Don't ever fail due to alignment. See: https://github.com/google/ExoPlayer/issues/6551.
-    Point alignedSize = alignVideoSizeV21(capabilities, width, height);
+    Point alignedSize = alignVideoSize(capabilities, width, height);
     width = alignedSize.x;
     height = alignedSize.y;
 
@@ -737,8 +712,7 @@ public final class MediaCodecInfo {
     }
   }
 
-  @RequiresApi(21)
-  private static Point alignVideoSizeV21(VideoCapabilities capabilities, int width, int height) {
+  private static Point alignVideoSize(VideoCapabilities capabilities, int width, int height) {
     int widthAlignment = capabilities.getWidthAlignment();
     int heightAlignment = capabilities.getHeightAlignment();
     return new Point(

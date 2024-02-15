@@ -57,14 +57,11 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Executor;
 import org.checkerframework.checker.initialization.qual.Initialized;
-import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Handles composition of video sinks. */
@@ -571,21 +568,7 @@ public final class CompositingVideoSinkProvider
         default:
           throw new UnsupportedOperationException("Unsupported input type " + inputType);
       }
-      // MediaCodec applies rotation after API 21.
-      if (inputType == INPUT_TYPE_SURFACE
-          && Util.SDK_INT < 21
-          && format.rotationDegrees != Format.NO_VALUE
-          && format.rotationDegrees != 0) {
-        // We must apply a rotation effect.
-        if (rotationEffect == null
-            || this.inputFormat == null
-            || this.inputFormat.rotationDegrees != format.rotationDegrees) {
-          rotationEffect = ScaleAndRotateAccessor.createRotationEffect(format.rotationDegrees);
-        } // Else, the rotation effect matches the previous format's rotation degrees, keep the same
-        // instance.
-      } else {
-        rotationEffect = null;
-      }
+      rotationEffect = null;
       this.inputType = inputType;
       this.inputFormat = format;
 
@@ -725,45 +708,6 @@ public final class CompositingVideoSinkProvider
                   inputFormat.height)
               .setPixelWidthHeightRatio(inputFormat.pixelWidthHeightRatio)
               .build());
-    }
-
-    private static final class ScaleAndRotateAccessor {
-      private static @MonotonicNonNull Constructor<?>
-          scaleAndRotateTransformationBuilderConstructor;
-      private static @MonotonicNonNull Method setRotationMethod;
-      private static @MonotonicNonNull Method buildScaleAndRotateTransformationMethod;
-
-      public static Effect createRotationEffect(float rotationDegrees) {
-        try {
-          prepare();
-          Object builder = scaleAndRotateTransformationBuilderConstructor.newInstance();
-          setRotationMethod.invoke(builder, rotationDegrees);
-          return (Effect) checkNotNull(buildScaleAndRotateTransformationMethod.invoke(builder));
-        } catch (Exception e) {
-          throw new IllegalStateException(e);
-        }
-      }
-
-      @EnsuresNonNull({
-        "scaleAndRotateTransformationBuilderConstructor",
-        "setRotationMethod",
-        "buildScaleAndRotateTransformationMethod"
-      })
-      private static void prepare() throws NoSuchMethodException, ClassNotFoundException {
-        if (scaleAndRotateTransformationBuilderConstructor == null
-            || setRotationMethod == null
-            || buildScaleAndRotateTransformationMethod == null) {
-          // TODO: b/284964524 - Add LINT and proguard checks for media3.effect reflection.
-          Class<?> scaleAndRotateTransformationBuilderClass =
-              Class.forName("androidx.media3.effect.ScaleAndRotateTransformation$Builder");
-          scaleAndRotateTransformationBuilderConstructor =
-              scaleAndRotateTransformationBuilderClass.getConstructor();
-          setRotationMethod =
-              scaleAndRotateTransformationBuilderClass.getMethod("setRotationDegrees", float.class);
-          buildScaleAndRotateTransformationMethod =
-              scaleAndRotateTransformationBuilderClass.getMethod("build");
-        }
-      }
     }
   }
 

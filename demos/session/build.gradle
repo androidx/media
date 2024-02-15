@@ -63,7 +63,6 @@ dependencies {
     debugImplementation 'com.squareup.leakcanary:leakcanary-android:2.10'
     implementation 'androidx.core:core-ktx:' + androidxCoreVersion
     implementation 'androidx.appcompat:appcompat:' + androidxAppCompatVersion
-    implementation 'androidx.multidex:multidex:' + androidxMultidexVersion
     implementation 'com.google.android.material:material:' + androidxMaterialVersion
     implementation project(modulePrefix + 'lib-ui')
     implementation project(modulePrefix + 'lib-session')

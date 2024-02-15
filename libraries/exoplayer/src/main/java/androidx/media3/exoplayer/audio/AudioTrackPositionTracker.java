@@ -166,7 +166,6 @@ import java.lang.reflect.Method;
   private final long[] playheadOffsets;
 
   @Nullable private AudioTrack audioTrack;
-  private int outputPcmFrameSize;
   private int bufferSize;
   @Nullable private AudioTimestampPoller audioTimestampPoller;
   private int outputSampleRate;
@@ -251,7 +250,6 @@ import java.lang.reflect.Method;
       int outputPcmFrameSize,
       int bufferSize) {
     this.audioTrack = audioTrack;
-    this.outputPcmFrameSize = outputPcmFrameSize;
     this.bufferSize = bufferSize;
     audioTimestampPoller = new AudioTimestampPoller(audioTrack);
     outputSampleRate = audioTrack.getSampleRate();
@@ -404,20 +402,6 @@ import java.lang.reflect.Method;
     }
 
     return true;
-  }
-
-  /**
-   * Returns an estimate of the number of additional bytes that can be written to the audio track's
-   * buffer without running out of space.
-   *
-   * <p>May only be called if the output encoding is one of the PCM encodings.
-   *
-   * @param writtenBytes The number of bytes written to the audio track so far.
-   * @return An estimate of the number of bytes that can be written.
-   */
-  public int getAvailableBufferSize(long writtenBytes) {
-    int bytesPending = (int) (writtenBytes - (getPlaybackHeadPosition() * outputPcmFrameSize));
-    return bufferSize - bytesPending;
   }
 
   /** Returns whether the track is in an invalid state and must be recreated. */

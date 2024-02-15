@@ -23,7 +23,6 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.app.PendingIntent;
-import android.os.Build;
 import android.os.Bundle;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.view.View;
@@ -113,7 +112,6 @@ public class MediaStyleNotificationHelper {
 
     /* package */ final MediaSession session;
 
-    private boolean showCancelButton;
     /* package */ int @NullableType [] actionsToShowInCompact;
     @Nullable /* package */ PendingIntent cancelButtonIntent;
     /* package */ @MonotonicNonNull CharSequence remoteDeviceName;
@@ -166,9 +164,6 @@ public class MediaStyleNotificationHelper {
      */
     @CanIgnoreReturnValue
     public MediaStyle setShowCancelButton(boolean show) {
-      if (Build.VERSION.SDK_INT < 21) {
-        showCancelButton = show;
-      }
       return this;
     }
 
@@ -219,26 +214,22 @@ public class MediaStyleNotificationHelper {
     @Override
     public void apply(NotificationBuilderWithBuilderAccessor builder) {
       if (Util.SDK_INT >= 34 && remoteDeviceName != null) {
-        Api21Impl.setMediaStyle(
-            builder.getBuilder(),
+        builder.getBuilder().setStyle(
             Api21Impl.fillInMediaStyle(
                 Api34Impl.setRemotePlaybackInfo(
-                    Api21Impl.createMediaStyle(),
+                    new Notification.MediaStyle(),
                     remoteDeviceName,
                     remoteDeviceIconRes,
                     remoteDeviceIntent),
                 actionsToShowInCompact,
                 session));
-      } else if (Util.SDK_INT >= 21) {
-        Api21Impl.setMediaStyle(
-            builder.getBuilder(),
+      } else {
+        builder.getBuilder().setStyle(
             Api21Impl.fillInMediaStyle(
-                Api21Impl.createMediaStyle(), actionsToShowInCompact, session));
+                new Notification.MediaStyle(), actionsToShowInCompact, session));
         Bundle bundle = new Bundle();
         bundle.putBundle(EXTRA_MEDIA3_SESSION, session.getToken().toBundle());
         builder.getBuilder().addExtras(bundle);
-      } else if (showCancelButton) {
-        builder.getBuilder().setOngoing(true);
       }
     }
 
@@ -246,11 +237,8 @@ public class MediaStyleNotificationHelper {
     @Nullable
     @SuppressWarnings("nullness:override.return") // NotificationCompat doesn't annotate @Nullable
     public RemoteViews makeContentView(NotificationBuilderWithBuilderAccessor builder) {
-      if (Util.SDK_INT >= 21) {
-        // No custom content view required
-        return null;
-      }
-      return generateContentView();
+      // No custom content view required
+      return null;
     }
 
     /* package */ RemoteViews generateContentView() {
@@ -279,21 +267,8 @@ public class MediaStyleNotificationHelper {
           }
         }
       }
-      if (showCancelButton) {
-        view.setViewVisibility(androidx.media.R.id.end_padder, View.GONE);
-        view.setViewVisibility(androidx.media.R.id.cancel_action, View.VISIBLE);
-        view.setOnClickPendingIntent(androidx.media.R.id.cancel_action, cancelButtonIntent);
-        view.setInt(
-            androidx.media.R.id.cancel_action,
-            "setAlpha",
-            mBuilder
-                .mContext
-                .getResources()
-                .getInteger(androidx.media.R.integer.cancel_button_image_alpha));
-      } else {
-        view.setViewVisibility(androidx.media.R.id.end_padder, View.VISIBLE);
-        view.setViewVisibility(androidx.media.R.id.cancel_action, View.GONE);
-      }
+      view.setViewVisibility(androidx.media.R.id.end_padder, View.VISIBLE);
+      view.setViewVisibility(androidx.media.R.id.cancel_action, View.GONE);
       return view;
     }
 
@@ -323,11 +298,8 @@ public class MediaStyleNotificationHelper {
     @Nullable
     @SuppressWarnings("nullness:override.return") // NotificationCompat doesn't annotate @Nullable
     public RemoteViews makeBigContentView(NotificationBuilderWithBuilderAccessor builder) {
-      if (Util.SDK_INT >= 21) {
-        // No custom content view required
-        return null;
-      }
-      return generateBigContentView();
+      // No custom content view required
+      return null;
     }
 
     /* package */ RemoteViews generateBigContentView() {
@@ -345,19 +317,7 @@ public class MediaStyleNotificationHelper {
           big.addView(androidx.media.R.id.media_actions, button);
         }
       }
-      if (showCancelButton) {
-        big.setViewVisibility(androidx.media.R.id.cancel_action, View.VISIBLE);
-        big.setInt(
-            androidx.media.R.id.cancel_action,
-            "setAlpha",
-            mBuilder
-                .mContext
-                .getResources()
-                .getInteger(androidx.media.R.integer.cancel_button_image_alpha));
-        big.setOnClickPendingIntent(androidx.media.R.id.cancel_action, cancelButtonIntent);
-      } else {
-        big.setViewVisibility(androidx.media.R.id.cancel_action, View.GONE);
-      }
+      big.setViewVisibility(androidx.media.R.id.cancel_action, View.GONE);
       return big;
     }
 
@@ -411,8 +371,7 @@ public class MediaStyleNotificationHelper {
     @Override
     public void apply(NotificationBuilderWithBuilderAccessor builder) {
       if (Util.SDK_INT >= 34 && remoteDeviceName != null) {
-        Api21Impl.setMediaStyle(
-            builder.getBuilder(),
+        builder.getBuilder().setStyle(
             Api21Impl.fillInMediaStyle(
                 Api34Impl.setRemotePlaybackInfo(
                     Api24Impl.createDecoratedMediaCustomViewStyle(),
@@ -422,8 +381,7 @@ public class MediaStyleNotificationHelper {
                 actionsToShowInCompact,
                 session));
       } else if (Util.SDK_INT >= 24) {
-        Api21Impl.setMediaStyle(
-            builder.getBuilder(),
+        builder.getBuilder().setStyle(
             Api21Impl.fillInMediaStyle(
                 Api24Impl.createDecoratedMediaCustomViewStyle(), actionsToShowInCompact, session));
         Bundle bundle = new Bundle();
@@ -443,25 +401,17 @@ public class MediaStyleNotificationHelper {
         return null;
       }
       boolean hasContentView = mBuilder.getContentView() != null;
-      if (Util.SDK_INT >= 21) {
-        // If we are on L/M the media notification will only be colored if the expanded
-        // version is of media style, so we have to create a custom view for the collapsed
-        // version as well in that case.
-        boolean createCustomContent = hasContentView || mBuilder.getBigContentView() != null;
-        if (createCustomContent) {
-          RemoteViews contentView = generateContentView();
-          if (hasContentView) {
-            buildIntoRemoteViews(contentView, mBuilder.getContentView());
-          }
-          setBackgroundColor(contentView);
-          return contentView;
-        }
-      } else {
+      // If we are on L/M the media notification will only be colored if the expanded
+      // version is of media style, so we have to create a custom view for the collapsed
+      // version as well in that case.
+      boolean createCustomContent = hasContentView || mBuilder.getBigContentView() != null;
+      if (createCustomContent) {
         RemoteViews contentView = generateContentView();
         if (hasContentView) {
           buildIntoRemoteViews(contentView, mBuilder.getContentView());
-          return contentView;
         }
+        setBackgroundColor(contentView);
+        return contentView;
       }
       return null;
     }
@@ -491,9 +441,7 @@ public class MediaStyleNotificationHelper {
       }
       RemoteViews bigContentView = generateBigContentView();
       buildIntoRemoteViews(bigContentView, innerView);
-      if (Util.SDK_INT >= 21) {
-        setBackgroundColor(bigContentView);
-      }
+      setBackgroundColor(bigContentView);
       return bigContentView;
     }
 
@@ -522,9 +470,7 @@ public class MediaStyleNotificationHelper {
       }
       RemoteViews headsUpContentView = generateBigContentView();
       buildIntoRemoteViews(headsUpContentView, innerView);
-      if (Util.SDK_INT >= 21) {
-        setBackgroundColor(headsUpContentView);
-      }
+      setBackgroundColor(headsUpContentView);
       return headsUpContentView;
     }
 
@@ -542,19 +488,8 @@ public class MediaStyleNotificationHelper {
     }
   }
 
-  @RequiresApi(21)
   private static class Api21Impl {
     private Api21Impl() {}
-
-    @DoNotInline
-    static void setMediaStyle(Notification.Builder builder, Notification.MediaStyle style) {
-      builder.setStyle(style);
-    }
-
-    @DoNotInline
-    public static Notification.MediaStyle createMediaStyle() {
-      return new Notification.MediaStyle();
-    }
 
     @DoNotInline
     public static Notification.MediaStyle fillInMediaStyle(
@@ -564,16 +499,11 @@ public class MediaStyleNotificationHelper {
       checkNotNull(style);
       checkNotNull(session);
       if (actionsToShowInCompact != null) {
-        setShowActionsInCompactView(style, actionsToShowInCompact);
+        style.setShowActionsInCompactView(actionsToShowInCompact);
       }
       MediaSessionCompat.Token legacyToken = session.getSessionCompatToken();
       style.setMediaSession((android.media.session.MediaSession.Token) legacyToken.getToken());
       return style;
-    }
-
-    @DoNotInline
-    public static void setShowActionsInCompactView(Notification.MediaStyle style, int... actions) {
-      style.setShowActionsInCompactView(actions);
     }
   }
 

@@ -759,13 +759,8 @@ public class DefaultTimeBar extends View implements TimeBar {
     if (duration <= 0) {
       return;
     }
-    if (Util.SDK_INT >= 21) {
-      info.addAction(AccessibilityAction.ACTION_SCROLL_FORWARD);
-      info.addAction(AccessibilityAction.ACTION_SCROLL_BACKWARD);
-    } else {
-      info.addAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD);
-      info.addAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD);
-    }
+    info.addAction(AccessibilityAction.ACTION_SCROLL_FORWARD);
+    info.addAction(AccessibilityAction.ACTION_SCROLL_BACKWARD);
   }
 
   @Override

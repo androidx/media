@@ -35,7 +35,6 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.postOrRun;
-import static androidx.media3.session.MediaUtils.TRANSACTION_SIZE_LIMIT_IN_BYTES;
 import static androidx.media3.session.SessionCommand.COMMAND_CODE_CUSTOM;
 import static androidx.media3.session.SessionResult.RESULT_ERROR_UNKNOWN;
 import static androidx.media3.session.SessionResult.RESULT_INFO_SKIPPED;
@@ -1205,22 +1204,9 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         queueItemList.add(LegacyConversions.convertToQueueItem(mediaItems.get(i), i, bitmap));
       }
 
-      if (Util.SDK_INT < 21) {
-        // In order to avoid TransactionTooLargeException for below API 21, we need to
-        // cut the list so that it doesn't exceed the binder transaction limit.
-        List<QueueItem> truncatedList =
-            MediaUtils.truncateListBySize(queueItemList, TRANSACTION_SIZE_LIMIT_IN_BYTES);
-        if (truncatedList.size() != timeline.getWindowCount()) {
-          Log.i(
-              TAG,
-              "Sending " + truncatedList.size() + " items out of " + timeline.getWindowCount());
-        }
-        setQueue(sessionCompat, truncatedList);
-      } else {
-        // Framework MediaSession#setQueue() uses ParceledListSlice,
-        // which means we can safely send long lists.
-        setQueue(sessionCompat, queueItemList);
-      }
+      // Framework MediaSession#setQueue() uses ParceledListSlice,
+      // which means we can safely send long lists.
+      setQueue(sessionCompat, queueItemList);
     }
 
     @Override
