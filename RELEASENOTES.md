@@ -4,6 +4,9 @@
 
 *   Effect:
     *   Improved PQ to SDR tone-mapping by converting color spaces.
+*   Transformer:
+    *   Add workaround for exception thrown due to `MediaMuxer` not supporting
+        negative presentation timestamps before API 30.
 *   UI:
     *   Fallback to include audio track language name if `Locale` cannot
         identify a display name
