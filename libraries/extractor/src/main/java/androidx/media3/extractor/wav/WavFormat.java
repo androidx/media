@@ -15,6 +15,9 @@
  */
 package androidx.media3.extractor.wav;
 
+import java.util.UUID;
+import org.jetbrains.annotations.Nullable;
+
 /** Format information for a WAV file. */
 /* package */ final class WavFormat {
 
@@ -42,6 +45,16 @@ package androidx.media3.extractor.wav;
   /** Extra data appended to the format chunk. */
   public final byte[] extraData;
 
+  /** Number of valid bits */
+  public final int validBitsPerSample;
+
+  /** Speaker position mask */
+  public final int channelMask;
+
+  /** GUID, including the data format code */
+  @Nullable
+  public final UUID uuid;
+
   public WavFormat(
       int formatType,
       int numChannels,
@@ -57,5 +70,32 @@ package androidx.media3.extractor.wav;
     this.blockSize = blockSize;
     this.bitsPerSample = bitsPerSample;
     this.extraData = extraData;
+    this.validBitsPerSample = 0;
+    this.channelMask = 0;
+    this.uuid = null;
   }
+
+  public WavFormat(
+      int formatType,
+      int numChannels,
+      int frameRateHz,
+      int averageBytesPerSecond,
+      int blockSize,
+      int bitsPerSample,
+      byte[] extraData,
+      int validBitsPerSample,
+      int channelMask,
+      @Nullable UUID uuid) {
+    this.formatType = formatType;
+    this.numChannels = numChannels;
+    this.frameRateHz = frameRateHz;
+    this.averageBytesPerSecond = averageBytesPerSecond;
+    this.blockSize = blockSize;
+    this.bitsPerSample = bitsPerSample;
+    this.extraData = extraData;
+    this.validBitsPerSample = validBitsPerSample;
+    this.channelMask = channelMask;
+    this.uuid = uuid;
+  }
+
 }

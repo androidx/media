@@ -20,6 +20,8 @@ import androidx.media3.common.Format;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 
+import java.util.UUID;
+
 /** Utilities for handling WAVE files. */
 @UnstableApi
 public final class WavUtil {
@@ -59,6 +61,14 @@ public final class WavUtil {
 
   /** WAVE type value for extended WAVE format. */
   public static final int TYPE_WAVE_FORMAT_EXTENSIBLE = 0xFFFE;
+
+  public static final UUID KSDATAFORMAT_SUBTYPE_PCM = UUID.fromString("00000001-0000-0010-8000-00aa00389b71");
+
+  public static final UUID KSDATAFORMAT_SUBTYPE_IEEE_FLOAT = UUID.fromString("00000003-0000-0010-8000-00aa00389b71");
+
+  public static final UUID KSDATAFORMAT_SUBTYPE_ALAW = UUID.fromString("00000006-0000-0010-8000-00aa00389b71");
+
+  public static final UUID KSDATAFORMAT_SUBTYPE_MULAW = UUID.fromString("00000007-0000-0010-8000-00aa00389b71");
 
   /**
    * Returns the WAVE format type value for the given {@link C.PcmEncoding}.

@@ -24,6 +24,7 @@ import com.google.errorprone.annotations.CheckReturnValue;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.Arrays;
+import java.util.UUID;
 
 /**
  * Wraps a byte array, providing a set of methods for parsing data from it. Numerical values are
@@ -619,6 +620,26 @@ public final class ParsableByteArray {
       }
     }
     return null;
+  }
+
+  /**
+   * Reads microsoft GUID as java UUID
+   *
+   * @throws IllegalStateException if there is not enough data decoding
+   * @return Decoded UUID
+   * */
+  public UUID readMSGUID() {
+    if (bytesLeft() < 16) {
+      throw new IllegalStateException("Not enough data");
+    }
+    // flip little ending to big ending
+    // https://learn.microsoft.com/en-us/windows/win32/api/guiddef/ns-guiddef-guid
+    long d1 = readLittleEndianUnsignedInt();
+    long d2 = readLittleEndianUnsignedShort();
+    long d3 = readLittleEndianUnsignedShort();
+    long mostSigBits = d1 << 32 | d2 << 16 | d3;
+    long leastSigBits = readLong();
+    return new UUID(mostSigBits, leastSigBits);
   }
 
   /**
