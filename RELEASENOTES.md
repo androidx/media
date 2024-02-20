@@ -11,6 +11,9 @@
     *   Fallback to include audio track language name if `Locale` cannot
         identify a display name
         ([#988](https://github.com/androidx/media/issues/988)).
+*   RTSP Extension:
+    *   Skip empty session information values (i-tags) in SDP parsing
+        ([#1087](https://github.com/androidx/media/issues/1087)).
 
 ## 1.3
 
