@@ -2,6 +2,9 @@
 
 ### Unreleased changes
 
+*   ExoPlayer:
+    *   Fix issue where `PreloadMediaPeriod` cannot retain the streams when it
+        is preloaded again.
 *   Effect:
     *   Improved PQ to SDR tone-mapping by converting color spaces.
 *   Transformer:
