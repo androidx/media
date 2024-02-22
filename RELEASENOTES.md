@@ -5,11 +5,14 @@
 *   ExoPlayer:
     *   Fix issue where `PreloadMediaPeriod` cannot retain the streams when it
         is preloaded again.
-*   Effect:
-    *   Improved PQ to SDR tone-mapping by converting color spaces.
 *   Transformer:
     *   Add workaround for exception thrown due to `MediaMuxer` not supporting
         negative presentation timestamps before API 30.
+*   Audio:
+    *   Allow renderer recovery by disabling offload if audio track fails to
+        initialize in offload mode.
+*   Effect:
+    *   Improved PQ to SDR tone-mapping by converting color spaces.
 *   UI:
     *   Fallback to include audio track language name if `Locale` cannot
         identify a display name
