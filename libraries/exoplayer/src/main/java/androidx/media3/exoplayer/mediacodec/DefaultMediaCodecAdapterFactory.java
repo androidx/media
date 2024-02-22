@@ -17,6 +17,7 @@ package androidx.media3.exoplayer.mediacodec;
 
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import android.content.ContentResolver;
 import android.content.Context;
 import android.media.MediaCodec;
 import androidx.annotation.IntDef;
@@ -60,15 +61,14 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
 
   private @Mode int asynchronousMode;
   private boolean asyncCryptoFlagEnabled;
+  private boolean enableSynchronizeCodecInteractionsWithQueueing;
 
   /**
    * @deprecated Use {@link #DefaultMediaCodecAdapterFactory(Context)} instead.
    */
   @Deprecated
   public DefaultMediaCodecAdapterFactory() {
-    asynchronousMode = MODE_DEFAULT;
-    asyncCryptoFlagEnabled = true;
-    context = null;
+    this(null);
   }
 
   /**
@@ -81,6 +81,7 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
     asynchronousMode = MODE_DEFAULT;
     asyncCryptoFlagEnabled = true;
   }
+  // MIREGO - AMZN_CHANGE_END
 
   /**
    * Forces this factory to always create {@link AsynchronousMediaCodecAdapter} instances, provided
@@ -123,9 +124,17 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
   @Override
   public MediaCodecAdapter createAdapter(MediaCodecAdapter.Configuration configuration)
       throws IOException {
+
+    boolean isFireTvSmart = false; // MIREGO - AMZN_CHANGE
+    if(context != null) {
+      isFireTvSmart = context.getPackageManager().hasSystemFeature("com.amazon.hardware.tv_screen");
+    }
+
     if (Util.SDK_INT >= 23
         && (asynchronousMode == MODE_ENABLED
-            || (asynchronousMode == MODE_DEFAULT && shouldUseAsynchronousAdapterInDefaultMode()))) {
+            || (asynchronousMode == MODE_DEFAULT && shouldUseAsynchronousAdapterInDefaultMode())
+            || (asynchronousMode == MODE_DEFAULT && isFireTvSmart && Util.SDK_INT >= 28))) // MIREGO - AMZN_CHANGE
+    {
       int trackType = MimeTypes.getTrackType(configuration.format.sampleMimeType);
       Log.i(
           TAG,

@@ -64,6 +64,7 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecRenderer;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil.DecoderQueryException;
+import androidx.media3.exoplayer.util.AmazonQuirks;
 import androidx.media3.extractor.VorbisUtil;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
@@ -398,7 +399,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     if (format.sampleMimeType == null) {
       return ImmutableList.of();
     }
-    if (audioSink.supportsFormat(format)) {
+    if (audioSink.supportsFormat(format) && AmazonQuirks.useDefaultPassthroughDecoder()) { // MIREGO - AMZN_CHANGE_ONELINE
       // The format is supported directly, so a codec is only needed for decryption.
       @Nullable MediaCodecInfo codecInfo = MediaCodecUtil.getDecryptOnlyDecoderInfo();
       if (codecInfo != null) {
@@ -557,7 +558,15 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
         pcmEncoding = mediaFormat.getInteger(MediaFormat.KEY_PCM_ENCODING);
       } else if (mediaFormat.containsKey(VIVO_BITS_PER_SAMPLE_KEY)) {
         pcmEncoding = Util.getPcmEncoding(mediaFormat.getInteger(VIVO_BITS_PER_SAMPLE_KEY));
-      } else {
+      } // MIREGO - AMZN_CHANGE_BEGIN
+      else if (AmazonQuirks.isAmazonDevice()) {
+        // In Amazon Devices, some platform dolby decoders may output mime types depending on the
+        // audio capabilities of the connected device and Dolby settings. So, as a general rule, if
+        // platform decoder is being used instead of OMX.google.raw.decoder, need to
+        // configure audio track based on the output mime type returned by the media codec.
+        pcmEncoding = MimeTypes.getEncoding(mediaFormat.getString(MediaFormat.KEY_MIME), format.codecs);
+      } // MIREGO - AMZN_CHANGE_END
+      else {
         // If the format is anything other than PCM then we assume that the audio decoder will
         // output 16-bit PCM.
         pcmEncoding = C.ENCODING_PCM_16BIT;

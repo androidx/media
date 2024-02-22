@@ -42,7 +42,7 @@ import java.lang.reflect.Method;
  * Wraps an {@link AudioTrack}, exposing a position based on {@link
  * AudioTrack#getPlaybackHeadPosition()} and {@link AudioTrack#getTimestamp(AudioTimestamp)}.
  *
- * <p>Call {@link #setAudioTrack(AudioTrack, boolean, int, int, int)} to set the audio track to
+ * <p>Call {@link #setAudioTrack(AudioTrack, boolean, int, int, int, boolean)} to set the audio track to
  * wrap. Call {@link #mayHandleBuffer(long)} if there is input data to write to the track. If it
  * returns false, the audio track position is stabilizing and no data may be written. Call {@link
  * #start()} immediately before calling {@link AudioTrack#play()}. Call {@link #pause()} when
@@ -172,6 +172,7 @@ import java.lang.reflect.Method;
   private int outputPcmFrameSize;
   private int bufferSize;
   @Nullable private AudioTimestampPoller audioTimestampPoller;
+  private boolean applyDolbyPassThroughQuirk; // MIREGO - AMZN_CHANGE_ONELINE
   private int outputSampleRate;
   private boolean needsPassthroughWorkarounds;
   private long bufferSizeUs;
@@ -230,7 +231,7 @@ import java.lang.reflect.Method;
     if (Util.SDK_INT >= 18) {
       try {
         getLatencyMethod = AudioTrack.class.getMethod("getLatency", (Class<?>[]) null);
-      } catch (NoSuchMethodException e) {
+      } catch (Throwable e) { // MIREGO - AMZN_CHANGE_ONELINE: Some legacy devices throw unexpected errors
         // There's no guarantee this method exists. Do nothing.
       }
     }
@@ -254,10 +255,12 @@ import java.lang.reflect.Method;
       boolean isPassthrough,
       @C.Encoding int outputEncoding,
       int outputPcmFrameSize,
-      int bufferSize) {
+      int bufferSize,
+      boolean applyDolbyPassThroughQuirk) { // MIREGO - AMZN_CHANGE_ONELINE
     this.audioTrack = audioTrack;
     this.outputPcmFrameSize = outputPcmFrameSize;
     this.bufferSize = bufferSize;
+    this.applyDolbyPassThroughQuirk = applyDolbyPassThroughQuirk; // MIREGO - AMZN_CHANGE_ONELINE
     audioTimestampPoller = new AudioTimestampPoller(audioTrack);
     outputSampleRate = audioTrack.getSampleRate();
     needsPassthroughWorkarounds = isPassthrough && needsPassthroughWorkarounds(outputEncoding);
@@ -290,7 +293,10 @@ import java.lang.reflect.Method;
   }
 
   public long getCurrentPositionUs(boolean sourceEnded) {
-    if (checkNotNull(this.audioTrack).getPlayState() == PLAYSTATE_PLAYING) {
+    // MIREGO - AMZN_CHANGE_BEGIN
+    // for dolby passthrough case, we don't need to sync sample
+    // params because we don't depend on play head position for timestamp
+    if (checkNotNull(this.audioTrack).getPlayState() == PLAYSTATE_PLAYING && !applyDolbyPassThroughQuirk) {
       maybeSampleSyncParams();
     }
 
@@ -300,7 +306,19 @@ import java.lang.reflect.Method;
     long positionUs;
     AudioTimestampPoller audioTimestampPoller = checkNotNull(this.audioTimestampPoller);
     boolean useGetTimestampMode = audioTimestampPoller.hasAdvancingTimestamp();
-    if (useGetTimestampMode) {
+    // MIREGO - AMZN_CHANGE_BEGIN
+    // for dolby passthrough case, we just depend on getTimeStamp API
+    // for audio video synchronization.
+    if (applyDolbyPassThroughQuirk) {
+      boolean audioTimestampSet = audioTimestampPoller.maybePollTimestamp(systemTimeUs, true);
+      if (audioTimestampSet) {
+        positionUs = audioTimestampPoller.getTimestampSystemTimeUs();
+      } else {
+        positionUs = 0;
+      }
+      return positionUs;
+      // MIREGO - AMZN_CHANGE_END
+    } else if (useGetTimestampMode) { // AMZN_CHANGE_END
       // Calculate the speed-adjusted position using the timestamp (which may be in the future).
       long timestampPositionFrames = audioTimestampPoller.getTimestampPositionFrames();
       long timestampPositionUs = sampleCountToDurationUs(timestampPositionFrames, outputSampleRate);
@@ -392,7 +410,7 @@ import java.lang.reflect.Method;
    */
   public boolean mayHandleBuffer(long writtenFrames) {
     @PlayState int playState = checkNotNull(audioTrack).getPlayState();
-    if (needsPassthroughWorkarounds) {
+    if (needsPassthroughWorkarounds && !applyDolbyPassThroughQuirk) { // MIREGO - AMZN_CHANGE_ONELINE
       // An AC-3 audio track continues to play data written while it is paused. Stop writing so its
       // buffer empties. See [Internal: b/18899620].
       if (playState == PLAYSTATE_PAUSED) {
@@ -404,7 +422,7 @@ import java.lang.reflect.Method;
       // A new AC-3 audio track's playback position continues to increase from the old track's
       // position for a short time after is has been released. Avoid writing data until the playback
       // head position actually returns to zero.
-      if (playState == PLAYSTATE_STOPPED && getPlaybackHeadPosition() == 0) {
+      if (playState == PLAYSTATE_STOPPED && getPlaybackHeadPosition() != 0) { // MIREGO - AMZN_CHANGE_ONELINE
         return false;
       }
     }
@@ -460,7 +478,8 @@ import java.lang.reflect.Method;
    */
   public boolean hasPendingData(long writtenFrames) {
     long currentPositionUs = getCurrentPositionUs(/* sourceEnded= */ false);
-    return writtenFrames > durationUsToSampleCount(currentPositionUs, outputSampleRate)
+    return applyDolbyPassThroughQuirk // MIREGO - AMZN_CHANGE_ONELINE
+        || writtenFrames > durationUsToSampleCount(currentPositionUs, outputSampleRate)
         || forceHasPendingData();
   }
 
@@ -492,7 +511,7 @@ import java.lang.reflect.Method;
 
   /**
    * Resets the position tracker. Should be called when the audio track previously passed to {@link
-   * #setAudioTrack(AudioTrack, boolean, int, int, int)} is no longer in use.
+   * #setAudioTrack(AudioTrack, boolean, int, int, int, boolean)} is no longer in use.
    */
   public void reset() {
     resetSyncParams();
