@@ -5,6 +5,8 @@
 *   ExoPlayer:
     *   Fix issue where `PreloadMediaPeriod` cannot retain the streams when it
         is preloaded again.
+    *   Apply the correct corresponding `TrackSelectionResult` to the playing
+        period in track reselection.
 *   Transformer:
     *   Add workaround for exception thrown due to `MediaMuxer` not supporting
         negative presentation timestamps before API 30.
