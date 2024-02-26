@@ -144,7 +144,8 @@ public final class OfflineLicenseHelper {
     DrmSessionEventListener eventListener =
         new DrmSessionEventListener() {
           @Override
-          public void onDrmKeysLoaded(int windowIndex, @Nullable MediaPeriodId mediaPeriodId) {
+          public void onDrmKeysLoaded(int windowIndex, @Nullable MediaPeriodId mediaPeriodId,
+              @Nullable KeyLoadInfo keyLoadInfo) {
             drmListenerConditionVariable.open();
           }
 
