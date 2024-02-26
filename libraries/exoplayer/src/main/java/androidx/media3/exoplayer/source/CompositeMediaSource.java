@@ -26,6 +26,7 @@ import androidx.media3.common.util.Util;
 import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.drm.DrmSession;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
+import androidx.media3.exoplayer.drm.KeyLoadInfo;
 import java.io.IOException;
 import java.util.HashMap;
 
@@ -316,9 +317,10 @@ public abstract class CompositeMediaSource<T> extends BaseMediaSource {
     }
 
     @Override
-    public void onDrmKeysLoaded(int windowIndex, @Nullable MediaPeriodId mediaPeriodId) {
+    public void onDrmKeysLoaded(
+        int windowIndex, @Nullable MediaPeriodId mediaPeriodId, @Nullable KeyLoadInfo keyLoadInfo) {
       if (maybeUpdateEventDispatcher(windowIndex, mediaPeriodId)) {
-        drmEventDispatcher.drmKeysLoaded();
+        drmEventDispatcher.drmKeysLoaded(keyLoadInfo);
       }
     }
 
