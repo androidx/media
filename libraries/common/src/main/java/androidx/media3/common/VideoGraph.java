@@ -75,7 +75,8 @@ public interface VideoGraph {
    *
    * <p>If the method throws, the caller must call {@link #release}.
    *
-   * @param sequenceIndex The sequence index of the input which can aid ordering of the inputs.
+   * @param sequenceIndex The sequence index of the input which can aid ordering of the inputs. The
+   *     index must start from 0.
    */
   void registerInput(int sequenceIndex) throws VideoFrameProcessingException;
 
