@@ -64,7 +64,7 @@ import java.util.List;
    *
    * @param editedMediaItem The initial {@link EditedMediaItem} of the input.
    * @param format The initial {@link Format} of the input.
-   * @param sequenceIndex The sequence index of the input.
+   * @param sequenceIndex The index of the input sequence.
    * @throws ExportException If an error occurs getting the input.
    */
   public abstract GraphInput getInput(

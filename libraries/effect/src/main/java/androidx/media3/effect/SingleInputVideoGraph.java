@@ -38,7 +38,7 @@ import java.util.concurrent.Executor;
 @UnstableApi
 public abstract class SingleInputVideoGraph implements VideoGraph {
 
-  /** The ID {@link #registerInput(int)} returns. */
+  /** The index of the only {@linkplain #registerInput(int) registered} input. */
   public static final int SINGLE_INPUT_INDEX = 0;
 
   private final Context context;
