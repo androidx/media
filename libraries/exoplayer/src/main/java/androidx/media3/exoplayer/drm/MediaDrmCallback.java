@@ -15,9 +15,11 @@
  */
 package androidx.media3.exoplayer.drm;
 
+import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.drm.ExoMediaDrm.KeyRequest;
 import androidx.media3.exoplayer.drm.ExoMediaDrm.ProvisionRequest;
+import androidx.media3.exoplayer.source.LoadEventInfo;
 import java.util.UUID;
 
 /** Performs {@link ExoMediaDrm} key and provisioning requests. */
@@ -44,4 +46,15 @@ public interface MediaDrmCallback {
    * @throws MediaDrmCallbackException If an error occurred executing the request.
    */
   byte[] executeKeyRequest(UUID uuid, KeyRequest request) throws MediaDrmCallbackException;
+
+  /**
+   * Get the {@link LoadEventInfo} for the last executed request.
+   * <p></p>
+   * Valid after a call to {@link #executeKeyRequest(UUID, KeyRequest)} or
+   * {@link #executeProvisionRequest(UUID, ProvisionRequest)}, either contains
+   * the load event info for that request or null if no load is performed to execute the request
+   *
+   * @return the {@link LoadEventInfo} or null if no load was performed
+   */
+  @Nullable default LoadEventInfo getLastLoadEventInfo() { return null; }
 }
