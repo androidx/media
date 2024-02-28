@@ -10,7 +10,14 @@
 *   Transformer:
     *   Add workaround for exception thrown due to `MediaMuxer` not supporting
         negative presentation timestamps before API 30.
-*   Audio:
+*   Track Selection:
+    *   `DefaultTrackSelector`: Prefer video tracks with a 'reasonable' frame
+        rate (>=10fps) over those with a lower or unset frame rate. This ensures
+        the player selects the 'real' video track in MP4s extracted from motion
+        photos that can contain two HEVC tracks where one has a higher
+        resolution but a very small number of frames
+        ([#1051](https://github.com/androidx/media/issues/1051)).  
+* Audio:
     *   Allow renderer recovery by disabling offload if audio track fails to
         initialize in offload mode.
 *   Video:
