@@ -21,7 +21,6 @@ import static java.lang.Math.min;
 
 import android.annotation.SuppressLint;
 import android.media.NotProvisionedException;
-import android.net.Uri;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
@@ -37,11 +36,11 @@ import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.CopyOnWriteMultiset;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
-import androidx.media3.datasource.DataSpec;
 import androidx.media3.decoder.CryptoConfig;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.drm.ExoMediaDrm.KeyRequest;
 import androidx.media3.exoplayer.drm.ExoMediaDrm.ProvisionRequest;
+import androidx.media3.exoplayer.drm.KeyLoadInfo.Builder;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
@@ -151,7 +150,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   private byte @MonotonicNonNull [] offlineLicenseKeySetId;
 
   @Nullable private KeyRequest currentKeyRequest;
-  @Nullable private KeyLoadInfo currentKeyLoadInfo;
+  @Nullable private KeyLoadInfo.Builder currentKeyLoadInfo;
   @Nullable private ProvisionRequest currentProvisionRequest;
 
   /**
@@ -497,9 +496,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
   private void postKeyRequest(byte[] scope, int type, boolean allowRetry) {
     try {
-      if (type == ExoMediaDrm.KEY_TYPE_STREAMING) {
-        currentKeyLoadInfo = new KeyLoadInfo();
-      }
+      currentKeyLoadInfo = new Builder(schemeDatas);
       currentKeyRequest = mediaDrm.getKeyRequest(scope, schemeDatas, type, keyRequestParameters);
       Util.castNonNull(requestHandler)
           .post(MSG_KEYS, Assertions.checkNotNull(currentKeyRequest), allowRetry);
@@ -522,8 +519,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
     try {
       byte[] responseData = (byte[]) response;
+      KeyLoadInfo keyLoadInfo = currentKeyLoadInfo.build();
+      currentKeyLoadInfo = null;
       if (mode == DefaultDrmSessionManager.MODE_RELEASE) {
         mediaDrm.provideKeyResponse(Util.castNonNull(offlineLicenseKeySetId), responseData);
+        // TODO plumb the KeyLoadInfo up into drmKeysRemoved
         dispatchEvent(DrmSessionEventListener.EventDispatcher::drmKeysRemoved);
       } else {
         byte[] keySetId = mediaDrm.provideKeyResponse(sessionId, responseData);
@@ -535,8 +535,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
           offlineLicenseKeySetId = keySetId;
         }
         state = STATE_OPENED_WITH_KEYS;
-        dispatchEvent(eventDispatcher -> eventDispatcher.drmKeysLoaded(currentKeyLoadInfo));
-        currentKeyLoadInfo = null;
+        dispatchEvent(eventDispatcher -> eventDispatcher.drmKeysLoaded(keyLoadInfo));
       }
     } catch (Exception | NoSuchMethodError e) {
       onKeysError(e, /* thrownByExoMediaDrm= */ true);
@@ -674,16 +673,10 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
           case MSG_KEYS:
             response = callback.executeKeyRequest(uuid, (KeyRequest) requestTask.request);
             if (currentKeyLoadInfo != null) {
-              String requestUrl = ((KeyRequest) requestTask.request).getLicenseServerUrl();
-              LoadEventInfo loadEventInfo =
-                  new LoadEventInfo(
-                      requestTask.taskId,
-                      new DataSpec.Builder().setUri(requestUrl).build(),
-                      Uri.parse(requestUrl),
-                      Collections.emptyMap(),
-                      SystemClock.elapsedRealtime(),
-                      /* loadDurationMs= */ SystemClock.elapsedRealtime() - requestTask.startTimeMs,
-                      ((byte []) response).length);
+              LoadEventInfo loadEventInfo = callback.getLastLoadEventInfo();
+              loadEventInfo = loadEventInfo != null
+                  ? loadEventInfo.copyWithTaskId(requestTask.taskId)
+                  : null;
               currentKeyLoadInfo.setMainLoadRequest(loadEventInfo);
             }
             break;
