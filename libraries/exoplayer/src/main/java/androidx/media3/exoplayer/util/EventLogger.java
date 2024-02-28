@@ -41,6 +41,7 @@ import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.drm.DrmSession;
+import androidx.media3.exoplayer.drm.KeyLoadInfo;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.trackselection.MappingTrackSelector;
@@ -516,7 +517,7 @@ public class EventLogger implements AnalyticsListener {
 
   @UnstableApi
   @Override
-  public void onDrmKeysLoaded(EventTime eventTime) {
+  public void onDrmKeysLoaded(EventTime eventTime, @Nullable KeyLoadInfo info) {
     logd(eventTime, "drmKeysLoaded");
   }
 
