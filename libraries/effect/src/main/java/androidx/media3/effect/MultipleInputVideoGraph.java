@@ -46,8 +46,6 @@ import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
-
 import com.google.common.util.concurrent.MoreExecutors;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -260,9 +258,9 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
   }
 
   @Override
-  public VideoFrameProcessor getProcessor(int inputId) {
-    checkState(Util.contains(preProcessors, inputId));
-    return preProcessors.get(inputId);
+  public VideoFrameProcessor getProcessor(int sequenceIndex) {
+    checkState(contains(preProcessors, sequenceIndex));
+    return preProcessors.get(sequenceIndex);
   }
 
   @Override

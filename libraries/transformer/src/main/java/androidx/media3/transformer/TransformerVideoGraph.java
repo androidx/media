@@ -70,7 +70,7 @@ import java.util.concurrent.Executor;
    *
    * <p>If the method throws any {@link Exception}, the caller must call {@link #release}.
    *
-   * @param sequenceIndex The sequence index of the input, which can aid ordering of the inputs.
+   * @param sequenceIndex The index of the input sequence, which is used to order the inputs.
    */
   GraphInput createInput(int sequenceIndex) throws VideoFrameProcessingException;
 }
