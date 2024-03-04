@@ -548,8 +548,8 @@ import org.checkerframework.dataflow.qual.Pure;
     }
 
     @Override
-    public VideoFrameProcessor getProcessor(int inputId) {
-      return videoGraph.getProcessor(inputId);
+    public VideoFrameProcessor getProcessor(int sequenceIndex) {
+      return videoGraph.getProcessor(sequenceIndex);
     }
 
     @Override

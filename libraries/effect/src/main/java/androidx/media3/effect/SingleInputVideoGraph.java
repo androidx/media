@@ -162,7 +162,7 @@ public abstract class SingleInputVideoGraph implements VideoGraph {
   }
 
   @Override
-  public VideoFrameProcessor getProcessor(int inputId) {
+  public VideoFrameProcessor getProcessor(int sequenceIndex) {
     return checkStateNotNull(videoFrameProcessor);
   }
 

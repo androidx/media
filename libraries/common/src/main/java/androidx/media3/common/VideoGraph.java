@@ -82,10 +82,11 @@ public interface VideoGraph {
 
   /**
    * Returns the {@link VideoFrameProcessor} that handles the processing for an input registered via
-   * {@link #registerInput(int)}. If the {@code inputId} is not {@linkplain #registerInput(int)
-   * registered} before, this method will throw an {@link IllegalStateException}.
+   * {@link #registerInput(int)}. If the {@code sequenceIndex} is not {@linkplain
+   * #registerInput(int) registered} before, this method will throw an {@link
+   * IllegalStateException}.
    */
-  VideoFrameProcessor getProcessor(int inputId);
+  VideoFrameProcessor getProcessor(int sequenceIndex);
 
   /**
    * Sets the output surface and supporting information.
