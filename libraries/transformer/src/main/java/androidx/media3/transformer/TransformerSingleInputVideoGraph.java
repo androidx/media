@@ -106,12 +106,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public GraphInput createInput(int sequenceIndex) throws VideoFrameProcessingException {
+  public GraphInput createInput(int inputIndex) throws VideoFrameProcessingException {
     checkState(videoFrameProcessingWrapper == null);
-    registerInput(sequenceIndex);
+    registerInput(inputIndex);
     videoFrameProcessingWrapper =
         new VideoFrameProcessingWrapper(
-            getProcessor(sequenceIndex), getPresentation(), getInitialTimestampOffsetUs());
+            getProcessor(inputIndex), getPresentation(), getInitialTimestampOffsetUs());
     return videoFrameProcessingWrapper;
   }
 }

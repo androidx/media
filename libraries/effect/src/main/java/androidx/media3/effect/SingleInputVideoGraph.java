@@ -16,11 +16,13 @@
 
 package androidx.media3.effect;
 
+import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 
 import android.content.Context;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
@@ -38,9 +40,6 @@ import java.util.concurrent.Executor;
 @UnstableApi
 public abstract class SingleInputVideoGraph implements VideoGraph {
 
-  /** The index of the only {@linkplain #registerInput(int) registered} input. */
-  public static final int SINGLE_INPUT_INDEX = 0;
-
   private final Context context;
   private final VideoFrameProcessor.Factory videoFrameProcessorFactory;
   private final ColorInfo outputColorInfo;
@@ -56,6 +55,7 @@ public abstract class SingleInputVideoGraph implements VideoGraph {
   private boolean isEnded;
   private boolean released;
   private volatile boolean hasProducedFrameWithTimestampZero;
+  private int inputIndex;
 
   /**
    * Creates an instance.
@@ -86,6 +86,7 @@ public abstract class SingleInputVideoGraph implements VideoGraph {
     this.renderFramesAutomatically = renderFramesAutomatically;
     this.presentation = presentation;
     this.initialTimestampOffsetUs = initialTimestampOffsetUs;
+    this.inputIndex = C.INDEX_UNSET;
   }
 
   /**
@@ -99,9 +100,11 @@ public abstract class SingleInputVideoGraph implements VideoGraph {
   }
 
   @Override
-  public void registerInput(int sequenceIndex) throws VideoFrameProcessingException {
+  public void registerInput(int inputIndex) throws VideoFrameProcessingException {
     checkStateNotNull(videoFrameProcessor == null && !released);
+    checkState(this.inputIndex == C.INDEX_UNSET);
 
+    this.inputIndex = inputIndex;
     videoFrameProcessor =
         videoFrameProcessorFactory.create(
             context,
@@ -162,7 +165,8 @@ public abstract class SingleInputVideoGraph implements VideoGraph {
   }
 
   @Override
-  public VideoFrameProcessor getProcessor(int sequenceIndex) {
+  public VideoFrameProcessor getProcessor(int inputIndex) {
+    checkArgument(this.inputIndex != C.INDEX_UNSET && this.inputIndex == inputIndex);
     return checkStateNotNull(videoFrameProcessor);
   }
 
@@ -190,6 +194,10 @@ public abstract class SingleInputVideoGraph implements VideoGraph {
       videoFrameProcessor = null;
     }
     released = true;
+  }
+
+  protected int getInputIndex() {
+    return inputIndex;
   }
 
   protected long getInitialTimestampOffsetUs() {

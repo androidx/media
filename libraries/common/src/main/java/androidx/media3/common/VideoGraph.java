@@ -16,6 +16,7 @@
 
 package androidx.media3.common;
 
+import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 
@@ -73,20 +74,23 @@ public interface VideoGraph {
    * <p>A underlying processing {@link VideoFrameProcessor} is created every time this method is
    * called.
    *
+   * <p>All inputs must be registered before rendering frames to the underlying
+   * {@link #getProcessor(int) VideoFrameProcessor}.
+   *
    * <p>If the method throws, the caller must call {@link #release}.
    *
-   * @param sequenceIndex The sequence index of the input which can aid ordering of the inputs. The
-   *     index must start from 0.
+   * @param inputIndex The index of the input which could be used to order the inputs.
+   *     The index must start from 0.
    */
-  void registerInput(int sequenceIndex) throws VideoFrameProcessingException;
+  void registerInput(@IntRange(from = 0) int inputIndex) throws VideoFrameProcessingException;
 
   /**
    * Returns the {@link VideoFrameProcessor} that handles the processing for an input registered via
-   * {@link #registerInput(int)}. If the {@code sequenceIndex} is not {@linkplain
+   * {@link #registerInput(int)}. If the {@code inputIndex} is not {@linkplain
    * #registerInput(int) registered} before, this method will throw an {@link
    * IllegalStateException}.
    */
-  VideoFrameProcessor getProcessor(int sequenceIndex);
+  VideoFrameProcessor getProcessor(int inputIndex);
 
   /**
    * Sets the output surface and supporting information.

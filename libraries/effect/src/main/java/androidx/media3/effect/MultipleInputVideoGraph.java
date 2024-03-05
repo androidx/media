@@ -33,6 +33,7 @@ import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
 import android.opengl.EGLSurface;
 import android.util.SparseArray;
+import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -211,9 +212,10 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
   }
 
   @Override
-  public void registerInput(int sequenceIndex) throws VideoFrameProcessingException {
-    checkStateNotNull(videoCompositor);
-    videoCompositor.registerInputSource(sequenceIndex);
+  public void registerInput(@IntRange(from = 0) int inputIndex)
+      throws VideoFrameProcessingException {
+    checkState(!contains(preProcessors, inputIndex));
+    checkNotNull(videoCompositor).registerInputSource(inputIndex);
     // Creating a new VideoFrameProcessor for the input.
     VideoFrameProcessor preProcessor =
         videoFrameProcessorFactory
@@ -222,7 +224,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
                 // Texture output to compositor.
                 (textureProducer, texture, presentationTimeUs, syncObject) ->
                     queuePreProcessingOutputToCompositor(
-                        sequenceIndex, textureProducer, texture, presentationTimeUs),
+                        inputIndex, textureProducer, texture, presentationTimeUs),
                 PRE_COMPOSITOR_TEXTURE_OUTPUT_CAPACITY)
             .build()
             .create(
@@ -253,16 +255,16 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
 
                   @Override
                   public void onEnded() {
-                    onPreProcessingVideoFrameProcessorEnded(sequenceIndex);
+                    onPreProcessingVideoFrameProcessorEnded(inputIndex);
                   }
                 });
-    preProcessors.put(sequenceIndex, preProcessor);
+    preProcessors.put(inputIndex, preProcessor);
   }
 
   @Override
-  public VideoFrameProcessor getProcessor(int sequenceIndex) {
-    checkState(contains(preProcessors, sequenceIndex));
-    return preProcessors.get(sequenceIndex);
+  public VideoFrameProcessor getProcessor(int inputIndex) {
+    checkState(contains(preProcessors, inputIndex));
+    return preProcessors.get(inputIndex);
   }
 
   @Override

@@ -33,6 +33,7 @@ import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.util.Pair;
 import android.view.Surface;
+import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
@@ -154,10 +155,10 @@ import org.checkerframework.dataflow.qual.Pure;
   }
 
   @Override
-  public GraphInput getInput(EditedMediaItem editedMediaItem, Format format, int sequenceIndex)
+  public GraphInput getInput(EditedMediaItem editedMediaItem, Format format, int inputIndex)
       throws ExportException {
     try {
-      return videoGraph.createInput(sequenceIndex);
+      return videoGraph.createInput(inputIndex);
     } catch (VideoFrameProcessingException e) {
       throw ExportException.createForVideoFrameProcessingException(e);
     }
@@ -543,18 +544,19 @@ import org.checkerframework.dataflow.qual.Pure;
     }
 
     @Override
-    public void registerInput(int sequenceIndex) throws VideoFrameProcessingException {
-      videoGraph.registerInput(sequenceIndex);
+    public void registerInput(@IntRange(from = 0) int inputIndex)
+        throws VideoFrameProcessingException {
+      videoGraph.registerInput(inputIndex);
     }
 
     @Override
-    public VideoFrameProcessor getProcessor(int sequenceIndex) {
-      return videoGraph.getProcessor(sequenceIndex);
+    public VideoFrameProcessor getProcessor(int inputIndex) {
+      return videoGraph.getProcessor(inputIndex);
     }
 
     @Override
-    public GraphInput createInput(int sequenceIndex) throws VideoFrameProcessingException {
-      return videoGraph.createInput(sequenceIndex);
+    public GraphInput createInput(int inputIndex) throws VideoFrameProcessingException {
+      return videoGraph.createInput(inputIndex);
     }
 
     @Override
