@@ -16,10 +16,12 @@
 
 package androidx.media3.effect;
 
+import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 
 import android.content.Context;
+import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
@@ -39,7 +41,7 @@ import java.util.concurrent.Executor;
 public abstract class SingleInputVideoGraph implements VideoGraph {
 
   /** The index of the only {@linkplain #registerInput(int) registered} input. */
-  public static final int SINGLE_INPUT_INDEX = 0;
+  public static final int SINGLE_INPUT_SEQUENCE_INDEX = 0;
 
   private final Context context;
   private final VideoFrameProcessor.Factory videoFrameProcessorFactory;
@@ -99,7 +101,9 @@ public abstract class SingleInputVideoGraph implements VideoGraph {
   }
 
   @Override
-  public void registerInput(int sequenceIndex) throws VideoFrameProcessingException {
+  public void registerInput(@IntRange(from = 0, to = 0) int sequenceIndex)
+      throws VideoFrameProcessingException {
+    checkArgument(sequenceIndex == SINGLE_INPUT_SEQUENCE_INDEX);
     checkStateNotNull(videoFrameProcessor == null && !released);
 
     videoFrameProcessor =

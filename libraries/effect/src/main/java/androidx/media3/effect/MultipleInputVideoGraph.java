@@ -32,6 +32,7 @@ import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
 import android.opengl.EGLSurface;
 import android.util.SparseArray;
+import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -209,8 +210,10 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
   }
 
   @Override
-  public void registerInput(int sequenceIndex) throws VideoFrameProcessingException {
+  public void registerInput(@IntRange(from = 0) int sequenceIndex)
+      throws VideoFrameProcessingException {
     checkStateNotNull(videoCompositor);
+    checkState(!contains(preProcessors, sequenceIndex));
     videoCompositor.registerInputSource(sequenceIndex);
     // Creating a new VideoFrameProcessor for the input.
     VideoFrameProcessor preProcessor =

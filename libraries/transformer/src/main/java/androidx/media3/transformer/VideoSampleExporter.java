@@ -30,6 +30,7 @@ import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.util.Pair;
 import android.view.Surface;
+import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
@@ -535,7 +536,8 @@ import org.checkerframework.dataflow.qual.Pure;
     }
 
     @Override
-    public void registerInput(int sequenceIndex) throws VideoFrameProcessingException {
+    public void registerInput(@IntRange(from = 0) int sequenceIndex)
+        throws VideoFrameProcessingException {
       videoGraph.registerInput(sequenceIndex);
     }
 

@@ -16,6 +16,7 @@
 
 package androidx.media3.common;
 
+import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 
@@ -75,10 +76,10 @@ public interface VideoGraph {
    *
    * <p>If the method throws, the caller must call {@link #release}.
    *
-   * @param sequenceIndex The sequence index of the input which can aid ordering of the inputs. The
-   *     index must start from 0.
+   * @param sequenceIndex The index of the input sequence which is also used to order the inputs.
+   *     The index must start from 0.
    */
-  void registerInput(int sequenceIndex) throws VideoFrameProcessingException;
+  void registerInput(@IntRange(from = 0) int sequenceIndex) throws VideoFrameProcessingException;
 
   /**
    * Returns the {@link VideoFrameProcessor} that handles the processing for an input registered via

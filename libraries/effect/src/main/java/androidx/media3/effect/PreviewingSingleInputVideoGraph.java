@@ -109,6 +109,6 @@ public final class PreviewingSingleInputVideoGraph extends SingleInputVideoGraph
 
   @Override
   public void renderOutputFrame(long renderTimeNs) {
-    getProcessor(SINGLE_INPUT_INDEX).renderOutputFrame(renderTimeNs);
+    getProcessor(SINGLE_INPUT_SEQUENCE_INDEX).renderOutputFrame(renderTimeNs);
   }
 }
