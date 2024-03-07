@@ -28,6 +28,11 @@
         Google TV, and Lenovo M10 FHD Plus that causes 60fps H265 streams to be
         marked as unsupported
         ([#966](https://github.com/androidx/media/issues/966)).
+*   DRM:
+    *   Work around a `NoSuchMethodError` which can be thrown by the `MediaDrm`
+        framework instead of `ResourceBusyException` or
+        `NotProvisionedException` on some Android 14 devices
+        ([#1145](https://github.com/androidx/media/issues/1145)).
 *   Effect:
     *   Improved PQ to SDR tone-mapping by converting color spaces.
 *   Session:
