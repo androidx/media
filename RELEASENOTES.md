@@ -27,6 +27,9 @@
     *   Add workaround for a device issue on Galaxy Tab S7 FE, Chromecast with
         Google TV, and Lenovo M10 FHD Plus that causes 60fps H265 streams to be
         marked as unsupported
+    *   Add workaround that ensures the first frame is always rendered while
+        tunneling even if the device does not do this automatically as required
+        by the API ([#1169](https://github.com/androidx/media/issues/1169)).
         ([#966](https://github.com/androidx/media/issues/966)).
 *   DRM:
     *   Work around a `NoSuchMethodError` which can be thrown by the `MediaDrm`
