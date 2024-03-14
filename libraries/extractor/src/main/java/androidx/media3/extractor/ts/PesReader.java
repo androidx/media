@@ -36,10 +36,10 @@ public final class PesReader implements TsPayloadReader {
 
   private static final String TAG = "PesReader";
 
-  private static final int STATE_FINDING_HEADER = 0;
-  private static final int STATE_READING_HEADER = 1;
-  private static final int STATE_READING_HEADER_EXTENSION = 2;
-  private static final int STATE_READING_BODY = 3;
+  public static final int STATE_FINDING_HEADER = 0;
+  public static final int STATE_READING_HEADER = 1;
+  public static final int STATE_READING_HEADER_EXTENSION = 2;
+  public static final int STATE_READING_BODY = 3;
 
   private static final int HEADER_SIZE = 9;
   private static final int MAX_HEADER_EXTENSION_SIZE = 10;
@@ -163,6 +163,14 @@ public final class PesReader implements TsPayloadReader {
   private void setState(int state) {
     this.state = state;
     bytesRead = 0;
+  }
+
+  public int getState() {
+    return state;
+  }
+
+  public boolean hasPacketLength() {
+    return payloadSize != C.LENGTH_UNSET;
   }
 
   /**

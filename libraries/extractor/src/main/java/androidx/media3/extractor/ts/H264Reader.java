@@ -170,6 +170,7 @@ public final class H264Reader implements ElementaryStreamReader {
   public void packetFinished(boolean isEndOfInput) {
     assertTracksCreated();
     if (isEndOfInput) {
+      sampleReader.getSampleIsKeyframe();
       sampleReader.end(totalBytesWritten);
     }
   }
@@ -494,6 +495,10 @@ public final class H264Reader implements ElementaryStreamReader {
         sampleIsKeyframe = false;
         readingSample = true;
       }
+      return getSampleIsKeyframe();
+    }
+
+    public boolean getSampleIsKeyframe() {
       boolean treatIFrameAsKeyframe =
           allowNonIdrKeyframes ? sliceHeader.isISlice() : randomAccessIndicator;
       sampleIsKeyframe |=
@@ -513,8 +518,8 @@ public final class H264Reader implements ElementaryStreamReader {
 
     public void end(long position) {
       // Output a final sample with the NAL units currently held
-      nalUnitStartPosition = position;
-      outputSample(/* offset= */ 0);
+      nalUnitStartPosition = position + 1;
+      outputSample(/* offset= */ - 1);
       readingSample = false;
     }
 
