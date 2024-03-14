@@ -36,10 +36,10 @@ public final class PesReader implements TsPayloadReader {
 
   private static final String TAG = "PesReader";
 
-  public static final int STATE_FINDING_HEADER = 0;
-  public static final int STATE_READING_HEADER = 1;
-  public static final int STATE_READING_HEADER_EXTENSION = 2;
-  public static final int STATE_READING_BODY = 3;
+  private static final int STATE_FINDING_HEADER = 0;
+  private static final int STATE_READING_HEADER = 1;
+  private static final int STATE_READING_HEADER_EXTENSION = 2;
+  private static final int STATE_READING_BODY = 3;
 
   private static final int HEADER_SIZE = 9;
   private static final int MAX_HEADER_EXTENSION_SIZE = 10;
@@ -165,12 +165,14 @@ public final class PesReader implements TsPayloadReader {
     bytesRead = 0;
   }
 
-  public int getState() {
-    return state;
-  }
-
-  public boolean hasPacketLength() {
-    return payloadSize != C.LENGTH_UNSET;
+  public boolean canConsumeDummyEndOfInput() {
+    // Pusi only payload to trigger end of sample data is only applicable if
+    // pes does not have a length field and body is being read, another exclusion
+    // is due to H262 streams possibly having, in HLS mode, a pes across more than one segment
+    // which would trigger committing an unfinished sample in the middle of the access unit
+    return state == STATE_READING_BODY
+        && payloadSize != C.LENGTH_UNSET
+        && !(reader instanceof H262Reader);
   }
 
   /**
