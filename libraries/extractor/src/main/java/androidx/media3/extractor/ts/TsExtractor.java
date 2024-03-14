@@ -15,7 +15,6 @@
  */
 package androidx.media3.extractor.ts;
 
-import static androidx.media3.extractor.ts.PesReader.STATE_READING_BODY;
 import static androidx.media3.extractor.ts.TsPayloadReader.EsInfo.AUDIO_TYPE_UNDEFINED;
 import static androidx.media3.extractor.ts.TsPayloadReader.FLAG_PAYLOAD_UNIT_START_INDICATOR;
 import static java.lang.annotation.ElementType.TYPE_USE;
@@ -453,7 +452,7 @@ public final class TsExtractor implements Extractor {
         TsPayloadReader payloadReader = tsPayloadReaders.valueAt(i);
         if (payloadReader instanceof PesReader) {
           PesReader pesReader = (PesReader)payloadReader;
-          if (pesReader.getState() == STATE_READING_BODY && !pesReader.hasPacketLength()) {
+          if (pesReader.canConsumeDummyEndOfInput()) {
             pesReader.consume(new ParsableByteArray(), FLAG_PAYLOAD_UNIT_START_INDICATOR);
           }
         }
