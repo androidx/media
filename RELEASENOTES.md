@@ -19,7 +19,10 @@
         the player selects the 'real' video track in MP4s extracted from motion
         photos that can contain two HEVC tracks where one has a higher
         resolution but a very small number of frames
-        ([#1051](https://github.com/androidx/media/issues/1051)).  
+        ([#1051](https://github.com/androidx/media/issues/1051)).
+*   Extractors:
+    *   Fix issue where padding was not skipped when reading odd-sized chunks
+        from WAV files ([#1117](https://github.com/androidx/media/pull/1117)).
 * Audio:
     *   Allow renderer recovery by disabling offload if audio track fails to
         initialize in offload mode.
