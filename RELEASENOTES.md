@@ -34,6 +34,10 @@
         tunneling even if the device does not do this automatically as required
         by the API ([#1169](https://github.com/androidx/media/issues/1169)).
         ([#966](https://github.com/androidx/media/issues/966)).
+*   Text:
+    *   WebVTT: Prevent directly consecutive cues from creating spurious
+        additional `CuesWithTiming` instances from `WebvttParser.parse`
+        ([#1177](https://github.com/androidx/media/issues/1177)).
 *   DRM:
     *   Work around a `NoSuchMethodError` which can be thrown by the `MediaDrm`
         framework instead of `ResourceBusyException` or
