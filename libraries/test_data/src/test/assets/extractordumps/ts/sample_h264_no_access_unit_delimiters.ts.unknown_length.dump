@@ -5,13 +5,16 @@ seekMap:
 numberOfTracks = 1
 track 256:
   total output bytes = 12451
-  sample count = 4
+  sample count = 5
   format 0:
     id = 1/256
     sampleMimeType = video/avc
     codecs = avc1.64001E
     width = 640
     height = 426
+    colorInfo:
+      lumaBitdepth = 8
+      chromaBitdepth = 8
     initializationData:
       data = length 29, hash 4C2CAE9C
       data = length 9, hash D971CD89
@@ -31,4 +34,8 @@ track 256:
     time = 133466
     flags = 0
     data = length 518, hash 546C177
+  sample 4:
+    time = 100100
+    flags = 0
+    data = length 254, hash 36EBDA1
 tracksEnded = true

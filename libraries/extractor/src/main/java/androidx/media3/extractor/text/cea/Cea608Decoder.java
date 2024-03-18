@@ -33,9 +33,9 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.extractor.text.Subtitle;
 import androidx.media3.extractor.text.SubtitleDecoder;
 import androidx.media3.extractor.text.SubtitleDecoderException;
@@ -45,7 +45,6 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 
 /** A {@link SubtitleDecoder} for CEA-608 (also known as "line 21 captions" and "EIA-608"). */
 @UnstableApi
@@ -106,11 +105,13 @@ public final class Cea608Decoder extends CeaDecoder {
    * simultaneously.
    */
   private static final byte CTRL_ROLL_UP_CAPTIONS_2_ROWS = 0x25;
+
   /**
    * Command initiating roll-up style captioning, with the maximum of 3 rows displayed
    * simultaneously.
    */
   private static final byte CTRL_ROLL_UP_CAPTIONS_3_ROWS = 0x26;
+
   /**
    * Command initiating roll-up style captioning, with the maximum of 4 rows displayed
    * simultaneously.
@@ -122,6 +123,7 @@ public final class Cea608Decoder extends CeaDecoder {
    * to displayed memory without need for the {@link #CTRL_RESUME_CAPTION_LOADING} command.
    */
   private static final byte CTRL_RESUME_DIRECT_CAPTIONING = 0x29;
+
   /**
    * TEXT commands are switching to TEXT service. All consecutive incoming data must be filtered out
    * until a command is received that switches back to the CAPTION service.
@@ -949,8 +951,7 @@ public final class Cea608Decoder extends CeaDecoder {
     }
 
     public void append(char text) {
-      // Don't accept more than 32 chars. We'll trim further, considering indent & tabOffset, in
-      // build().
+      // Don't accept more than 32 chars.
       if (captionStringBuilder.length() < SCREEN_CHARWIDTH) {
         captionStringBuilder.append(text);
       }
@@ -968,17 +969,14 @@ public final class Cea608Decoder extends CeaDecoder {
 
     @Nullable
     public Cue build(@Cue.AnchorType int forcedPositionAnchor) {
-      // The number of empty columns before the start of the text, in the range [0-31].
-      int startPadding = indent + tabOffset;
-      int maxTextLength = SCREEN_CHARWIDTH - startPadding;
       SpannableStringBuilder cueString = new SpannableStringBuilder();
       // Add any rolled up captions, separated by new lines.
       for (int i = 0; i < rolledUpCaptions.size(); i++) {
-        cueString.append(Util.truncateAscii(rolledUpCaptions.get(i), maxTextLength));
+        cueString.append(rolledUpCaptions.get(i));
         cueString.append('\n');
       }
       // Add the current line.
-      cueString.append(Util.truncateAscii(buildCurrentLine(), maxTextLength));
+      cueString.append(buildCurrentLine());
 
       if (cueString.length() == 0) {
         // The cue is empty.
@@ -986,6 +984,8 @@ public final class Cea608Decoder extends CeaDecoder {
       }
 
       int positionAnchor;
+      // The number of empty columns before the start of the text, in the range [0-31].
+      int startPadding = indent + tabOffset;
       // The number of empty columns after the end of the text, in the same range.
       int endPadding = SCREEN_CHARWIDTH - startPadding - cueString.length();
       int startEndPaddingDelta = startPadding - endPadding;

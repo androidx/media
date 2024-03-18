@@ -295,10 +295,10 @@ public final class FakeTimeline extends Timeline {
       adPlaybackState = adPlaybackState.withAdCount(/* adGroupIndex= */ i, adsPerAdGroup);
       for (int j = 0; j < adsPerAdGroup; j++) {
         adPlaybackState =
-            adPlaybackState.withAvailableAdUri(
+            adPlaybackState.withAvailableAdMediaItem(
                 /* adGroupIndex= */ i,
                 /* adIndexInAdGroup= */ j,
-                Uri.parse("https://example.com/ad/" + i + "/" + j));
+                MediaItem.fromUri("https://example.com/ad/" + i + "/" + j));
       }
       adDurationsUs[i] = new long[adsPerAdGroup];
       Arrays.fill(adDurationsUs[i], AD_DURATION_US);
@@ -326,7 +326,7 @@ public final class FakeTimeline extends Timeline {
     AdPlaybackState contentPeriodState = new AdPlaybackState(/* adsId= */ "adsId");
     AdPlaybackState firstAdPeriodState =
         contentPeriodState
-            .withNewAdGroup(/* adGroupIndex= */ 0, /* adGroupTimesUs */ 0)
+            .withNewAdGroup(/* adGroupIndex= */ 0, /* adGroupTimeUs= */ 0)
             .withAdCount(/* adGroupIndex= */ 0, 1)
             .withAdDurationsUs(
                 /* adGroupIndex= */ 0, DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US + periodDurationUs)

@@ -52,14 +52,18 @@ import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.CueGroup;
+import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.datasource.DataSourceBitmapLoader;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.DoNotMock;
 import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -159,9 +163,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * the {@link MediaSessionCompat.Callback#onAddQueueItem onAddQueueItem} and {@link
  * MediaSessionCompat.Callback#onRemoveQueueItem} onRemoveQueueItem} callbacks. Check {@link
  * #getAvailableCommands()} to see if playlist modifications are {@linkplain
- * androidx.media3.common.Player.Command#COMMAND_CHANGE_MEDIA_ITEMS supported} by the legacy
- * session.
+ * androidx.media3.common.Player#COMMAND_CHANGE_MEDIA_ITEMS supported} by the legacy session.
  */
+@DoNotMock
 public class MediaController implements Player {
 
   /**
@@ -169,6 +173,24 @@ public class MediaController implements Player {
    * reached, the controller is unbound from the session service even if commands are still pending.
    */
   @UnstableApi public static final long RELEASE_UNBIND_TIMEOUT_MS = 30_000;
+
+  /**
+   * Key to mark the connection hints of the media notification controller.
+   *
+   * <p>For a controller to be {@linkplain
+   * MediaSession#isMediaNotificationController(MediaSession.ControllerInfo) recognized by the
+   * session as the media notification controller}, this key needs to be used to {@linkplain
+   * Bundle#putBoolean(String, boolean) set a boolean flag} in the connection hints to true. Only an
+   * internal controller that has the same package name as the session can be used as a media
+   * notification controller.
+   *
+   * <p>When using a session within a {@link MediaSessionService} or {@link MediaLibraryService},
+   * the service connects a media notification controller automatically. Apps can do this for
+   * standalone session to configure the platform session in the same way.
+   */
+  @UnstableApi
+  public static final String KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG =
+      "androidx.media3.session.MediaNotificationManager";
 
   private static final String TAG = "MediaController";
 
@@ -265,8 +287,8 @@ public class MediaController implements Player {
 
     /**
      * Sets a {@link BitmapLoader} for the {@link MediaController} to decode bitmaps from compressed
-     * binary data. If not set, a {@link CacheBitmapLoader} that wraps a {@link SimpleBitmapLoader}
-     * will be used.
+     * binary data. If not set, a {@link CacheBitmapLoader} that wraps a {@link
+     * DataSourceBitmapLoader} will be used.
      *
      * @param bitmapLoader The bitmap loader.
      * @return The builder to allow chaining.
@@ -308,7 +330,7 @@ public class MediaController implements Player {
       MediaControllerHolder<MediaController> holder =
           new MediaControllerHolder<>(applicationLooper);
       if (token.isLegacySession() && bitmapLoader == null) {
-        bitmapLoader = new CacheBitmapLoader(new SimpleBitmapLoader());
+        bitmapLoader = new CacheBitmapLoader(new DataSourceBitmapLoader(context));
       }
       MediaController controller =
           new MediaController(
@@ -340,21 +362,40 @@ public class MediaController implements Player {
     /**
      * Called when the session sets the custom layout through {@link MediaSession#setCustomLayout}.
      *
-     * <p>Return a {@link ListenableFuture} to reply with a {@link SessionResult} to the session
-     * asynchronously. You can also return a {@link SessionResult} directly by using Guava's {@link
-     * Futures#immediateFuture(Object)}.
+     * <p>This method will be deprecated. Use {@link #onCustomLayoutChanged(MediaController, List)}
+     * instead.
      *
-     * <p>The default implementation returns a {@link ListenableFuture} of {@link
-     * SessionResult#RESULT_ERROR_NOT_SUPPORTED}.
+     * <p>There is a slight difference in behaviour. This to be deprecated method may be
+     * consecutively called with an unchanged custom layout passed into it, in which case the new
+     * {@link #onCustomLayoutChanged(MediaController, List)} isn't called again for equal arguments.
      *
-     * @param controller The controller.
-     * @param layout The ordered list of {@link CommandButton}.
-     * @return The result of handling the custom layout.
+     * <p>Further, when the available commands of a controller change in a way that affect whether
+     * buttons of the custom layout are enabled or disabled, the new callback {@link
+     * #onCustomLayoutChanged(MediaController, List)} is called, in which case the deprecated
+     * callback isn't called.
      */
     default ListenableFuture<SessionResult> onSetCustomLayout(
         MediaController controller, List<CommandButton> layout) {
       return Futures.immediateFuture(new SessionResult(SessionResult.RESULT_ERROR_NOT_SUPPORTED));
     }
+
+    /**
+     * Called when the {@linkplain #getCustomLayout() custom layout} changed.
+     *
+     * <p>The custom layout can change when either the session {@linkplain
+     * MediaSession#setCustomLayout changes the custom layout}, or when the session {@linkplain
+     * MediaSession#setAvailableCommands(MediaSession.ControllerInfo, SessionCommands, Commands)
+     * changes the available commands} for a controller that affect whether buttons of the custom
+     * layout are enabled or disabled.
+     *
+     * <p>Note that the {@linkplain CommandButton#isEnabled enabled} flag is set to {@code false} if
+     * the available commands do not allow to use a button.
+     *
+     * @param controller The controller.
+     * @param layout The ordered list of {@linkplain CommandButton command buttons}.
+     */
+    @UnstableApi
+    default void onCustomLayoutChanged(MediaController controller, List<CommandButton> layout) {}
 
     /**
      * Called when the available session commands are changed by session.
@@ -387,12 +428,23 @@ public class MediaController implements Player {
     }
 
     /**
-     * Called when the session extras have changed.
+     * Called when the session extras are set on the session side.
      *
      * @param controller The controller.
-     * @param extras The session extras that have changed.
+     * @param extras The session extras that have been set on the session.
      */
     default void onExtrasChanged(MediaController controller, Bundle extras) {}
+
+    /**
+     * Called when the {@link PendingIntent} to launch the session activity {@link
+     * MediaSession#setSessionActivity(PendingIntent) has been changed} on the session side.
+     *
+     * @param controller The controller.
+     * @param sessionActivity The pending intent to launch the session activity.
+     */
+    @UnstableApi
+    default void onSessionActivityChanged(
+        MediaController controller, PendingIntent sessionActivity) {}
   }
 
   /* package */ interface ConnectionCallback {
@@ -419,6 +471,7 @@ public class MediaController implements Player {
   /* package */ final ConnectionCallback connectionCallback;
 
   /** Creates a {@link MediaController} from the {@link SessionToken}. */
+  // This constructor has to be package-private in order to prevent subclassing outside the package.
   /* package */ MediaController(
       Context context,
       SessionToken token,
@@ -460,28 +513,13 @@ public class MediaController implements Player {
   }
 
   @Override
-  public void stop() {
+  public final void stop() {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring stop().");
       return;
     }
     impl.stop();
-  }
-
-  /**
-   * @deprecated Use {@link #stop()} and {@link #clearMediaItems()} (if {@code reset} is true) or
-   *     just {@link #stop()} (if {@code reset} is false). Any player error will be cleared when
-   *     {@link #prepare() re-preparing} the player.
-   */
-  @UnstableApi
-  @Deprecated
-  @Override
-  public void stop(boolean reset) {
-    stop();
-    if (reset) {
-      clearMediaItems();
-    }
   }
 
   /**
@@ -492,7 +530,7 @@ public class MediaController implements Player {
    * <p>This method does not call {@link Player#release()} of the underlying player in the session.
    */
   @Override
-  public void release() {
+  public final void release() {
     verifyApplicationThread();
     if (released) {
       return;
@@ -521,7 +559,7 @@ public class MediaController implements Player {
    * controller.
    */
   public static void releaseFuture(Future<? extends MediaController> controllerFuture) {
-    if (controllerFuture.cancel(/* mayInterruptIfRunning= */ true)) {
+    if (controllerFuture.cancel(/* mayInterruptIfRunning= */ false)) {
       // Successfully canceled the Future. The controller will be released by MediaControllerHolder.
       return;
     }
@@ -529,6 +567,7 @@ public class MediaController implements Player {
     try {
       controller = Futures.getDone(controllerFuture);
     } catch (CancellationException | ExecutionException e) {
+      Log.w(TAG, "MediaController future failed (so we couldn't release it)", e);
       return;
     }
     controller.release();
@@ -543,17 +582,17 @@ public class MediaController implements Player {
    * for the {@link MediaSession} in the service.
    */
   @Nullable
-  public SessionToken getConnectedToken() {
+  public final SessionToken getConnectedToken() {
     return isConnected() ? impl.getConnectedToken() : null;
   }
 
   /** Returns whether this controller is connected to a {@link MediaSession} or not. */
-  public boolean isConnected() {
+  public final boolean isConnected() {
     return impl.isConnected();
   }
 
   @Override
-  public void play() {
+  public final void play() {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring play().");
@@ -563,7 +602,7 @@ public class MediaController implements Player {
   }
 
   @Override
-  public void pause() {
+  public final void pause() {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring pause().");
@@ -573,7 +612,7 @@ public class MediaController implements Player {
   }
 
   @Override
-  public void prepare() {
+  public final void prepare() {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring prepare().");
@@ -583,7 +622,7 @@ public class MediaController implements Player {
   }
 
   @Override
-  public void seekToDefaultPosition() {
+  public final void seekToDefaultPosition() {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring seekTo().");
@@ -593,7 +632,7 @@ public class MediaController implements Player {
   }
 
   @Override
-  public void seekToDefaultPosition(int mediaItemIndex) {
+  public final void seekToDefaultPosition(int mediaItemIndex) {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring seekTo().");
@@ -603,7 +642,7 @@ public class MediaController implements Player {
   }
 
   @Override
-  public void seekTo(long positionMs) {
+  public final void seekTo(long positionMs) {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring seekTo().");
@@ -613,7 +652,7 @@ public class MediaController implements Player {
   }
 
   @Override
-  public void seekTo(int mediaItemIndex, long positionMs) {
+  public final void seekTo(int mediaItemIndex, long positionMs) {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring seekTo().");
@@ -628,7 +667,7 @@ public class MediaController implements Player {
    * <p>Interoperability: When connected to {@link MediaSessionCompat}, it returns {code 0}.
    */
   @Override
-  public long getSeekBackIncrement() {
+  public final long getSeekBackIncrement() {
     verifyApplicationThread();
     return isConnected() ? impl.getSeekBackIncrement() : 0;
   }
@@ -640,7 +679,7 @@ public class MediaController implements Player {
    * MediaControllerCompat.TransportControls#rewind()}.
    */
   @Override
-  public void seekBack() {
+  public final void seekBack() {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring seekBack().");
@@ -655,7 +694,7 @@ public class MediaController implements Player {
    * <p>Interoperability: When connected to {@link MediaSessionCompat}, it returns {code 0}.
    */
   @Override
-  public long getSeekForwardIncrement() {
+  public final long getSeekForwardIncrement() {
     verifyApplicationThread();
     return isConnected() ? impl.getSeekForwardIncrement() : 0;
   }
@@ -667,7 +706,7 @@ public class MediaController implements Player {
    * MediaControllerCompat.TransportControls#fastForward()}.
    */
   @Override
-  public void seekForward() {
+  public final void seekForward() {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring seekForward().");
@@ -678,19 +717,19 @@ public class MediaController implements Player {
 
   /** Returns an intent for launching UI associated with the session if exists, or {@code null}. */
   @Nullable
-  public PendingIntent getSessionActivity() {
+  public final PendingIntent getSessionActivity() {
     return isConnected() ? impl.getSessionActivity() : null;
   }
 
   @Override
   @Nullable
-  public PlaybackException getPlayerError() {
+  public final PlaybackException getPlayerError() {
     verifyApplicationThread();
     return isConnected() ? impl.getPlayerError() : null;
   }
 
   @Override
-  public void setPlayWhenReady(boolean playWhenReady) {
+  public final void setPlayWhenReady(boolean playWhenReady) {
     verifyApplicationThread();
     if (isConnected()) {
       impl.setPlayWhenReady(playWhenReady);
@@ -698,13 +737,13 @@ public class MediaController implements Player {
   }
 
   @Override
-  public boolean getPlayWhenReady() {
+  public final boolean getPlayWhenReady() {
     verifyApplicationThread();
     return isConnected() && impl.getPlayWhenReady();
   }
 
   @Override
-  public @PlaybackSuppressionReason int getPlaybackSuppressionReason() {
+  public final @PlaybackSuppressionReason int getPlaybackSuppressionReason() {
     verifyApplicationThread();
     return isConnected()
         ? impl.getPlaybackSuppressionReason()
@@ -712,56 +751,56 @@ public class MediaController implements Player {
   }
 
   @Override
-  public @State int getPlaybackState() {
+  public final @State int getPlaybackState() {
     verifyApplicationThread();
     return isConnected() ? impl.getPlaybackState() : Player.STATE_IDLE;
   }
 
   @Override
-  public boolean isPlaying() {
+  public final boolean isPlaying() {
     verifyApplicationThread();
     return isConnected() && impl.isPlaying();
   }
 
   @Override
-  public boolean isLoading() {
+  public final boolean isLoading() {
     verifyApplicationThread();
     return isConnected() && impl.isLoading();
   }
 
   @Override
-  public long getDuration() {
+  public final long getDuration() {
     verifyApplicationThread();
     return isConnected() ? impl.getDuration() : C.TIME_UNSET;
   }
 
   @Override
-  public long getCurrentPosition() {
+  public final long getCurrentPosition() {
     verifyApplicationThread();
     return isConnected() ? impl.getCurrentPosition() : 0;
   }
 
   @Override
-  public long getBufferedPosition() {
+  public final long getBufferedPosition() {
     verifyApplicationThread();
     return isConnected() ? impl.getBufferedPosition() : 0;
   }
 
   @Override
   @IntRange(from = 0, to = 100)
-  public int getBufferedPercentage() {
+  public final int getBufferedPercentage() {
     verifyApplicationThread();
     return isConnected() ? impl.getBufferedPercentage() : 0;
   }
 
   @Override
-  public long getTotalBufferedDuration() {
+  public final long getTotalBufferedDuration() {
     verifyApplicationThread();
     return isConnected() ? impl.getTotalBufferedDuration() : 0;
   }
 
   @Override
-  public long getCurrentLiveOffset() {
+  public final long getCurrentLiveOffset() {
     verifyApplicationThread();
     return isConnected() ? impl.getCurrentLiveOffset() : C.TIME_UNSET;
   }
@@ -775,7 +814,7 @@ public class MediaController implements Player {
    * #getContentBufferedPosition()}.
    */
   @Override
-  public long getContentDuration() {
+  public final long getContentDuration() {
     verifyApplicationThread();
     return isConnected() ? impl.getContentDuration() : C.TIME_UNSET;
   }
@@ -788,7 +827,7 @@ public class MediaController implements Player {
    * #getCurrentPosition()} because content position isn't available.
    */
   @Override
-  public long getContentPosition() {
+  public final long getContentPosition() {
     verifyApplicationThread();
     return isConnected() ? impl.getContentPosition() : 0;
   }
@@ -801,31 +840,31 @@ public class MediaController implements Player {
    * #getBufferedPosition()} because content buffered position isn't available.
    */
   @Override
-  public long getContentBufferedPosition() {
+  public final long getContentBufferedPosition() {
     verifyApplicationThread();
     return isConnected() ? impl.getContentBufferedPosition() : 0;
   }
 
   @Override
-  public boolean isPlayingAd() {
+  public final boolean isPlayingAd() {
     verifyApplicationThread();
     return isConnected() && impl.isPlayingAd();
   }
 
   @Override
-  public int getCurrentAdGroupIndex() {
+  public final int getCurrentAdGroupIndex() {
     verifyApplicationThread();
     return isConnected() ? impl.getCurrentAdGroupIndex() : C.INDEX_UNSET;
   }
 
   @Override
-  public int getCurrentAdIndexInAdGroup() {
+  public final int getCurrentAdIndexInAdGroup() {
     verifyApplicationThread();
     return isConnected() ? impl.getCurrentAdIndexInAdGroup() : C.INDEX_UNSET;
   }
 
   @Override
-  public void setPlaybackParameters(PlaybackParameters playbackParameters) {
+  public final void setPlaybackParameters(PlaybackParameters playbackParameters) {
     verifyApplicationThread();
     checkNotNull(playbackParameters, "playbackParameters must not be null");
     if (!isConnected()) {
@@ -836,7 +875,7 @@ public class MediaController implements Player {
   }
 
   @Override
-  public void setPlaybackSpeed(float speed) {
+  public final void setPlaybackSpeed(float speed) {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring setPlaybackSpeed().");
@@ -846,13 +885,13 @@ public class MediaController implements Player {
   }
 
   @Override
-  public PlaybackParameters getPlaybackParameters() {
+  public final PlaybackParameters getPlaybackParameters() {
     verifyApplicationThread();
     return isConnected() ? impl.getPlaybackParameters() : PlaybackParameters.DEFAULT;
   }
 
   @Override
-  public AudioAttributes getAudioAttributes() {
+  public final AudioAttributes getAudioAttributes() {
     verifyApplicationThread();
     if (!isConnected()) {
       return AudioAttributes.DEFAULT;
@@ -873,7 +912,7 @@ public class MediaController implements Player {
    * @return A {@link ListenableFuture} of {@link SessionResult} representing the pending
    *     completion.
    */
-  public ListenableFuture<SessionResult> setRating(String mediaId, Rating rating) {
+  public final ListenableFuture<SessionResult> setRating(String mediaId, Rating rating) {
     verifyApplicationThread();
     checkNotNull(mediaId, "mediaId must not be null");
     checkNotEmpty(mediaId, "mediaId must not be empty");
@@ -896,7 +935,7 @@ public class MediaController implements Player {
    * @return A {@link ListenableFuture} of {@link SessionResult} representing the pending
    *     completion.
    */
-  public ListenableFuture<SessionResult> setRating(Rating rating) {
+  public final ListenableFuture<SessionResult> setRating(Rating rating) {
     verifyApplicationThread();
     checkNotNull(rating, "rating must not be null");
     if (isConnected()) {
@@ -921,7 +960,8 @@ public class MediaController implements Player {
    * @return A {@link ListenableFuture} of {@link SessionResult} representing the pending
    *     completion.
    */
-  public ListenableFuture<SessionResult> sendCustomCommand(SessionCommand command, Bundle args) {
+  public final ListenableFuture<SessionResult> sendCustomCommand(
+      SessionCommand command, Bundle args) {
     verifyApplicationThread();
     checkNotNull(command, "command must not be null");
     checkArgument(
@@ -933,11 +973,42 @@ public class MediaController implements Player {
     return createDisconnectedFuture();
   }
 
+  /**
+   * Returns the custom layout.
+   *
+   * <p>After being connected, a change of the custom layout is reported with {@link
+   * Listener#onCustomLayoutChanged(MediaController, List)}.
+   *
+   * <p>Note that the {@linkplain CommandButton#isEnabled enabled} flag is set to {@code false} if
+   * the available commands do not allow to use a button.
+   *
+   * @return The custom layout.
+   */
+  @UnstableApi
+  public final ImmutableList<CommandButton> getCustomLayout() {
+    verifyApplicationThread();
+    return isConnected() ? impl.getCustomLayout() : ImmutableList.of();
+  }
+
+  /**
+   * Returns the session extras.
+   *
+   * <p>After being connected, {@link Listener#onExtrasChanged(MediaController, Bundle)} is called
+   * when the extras on the session are set.
+   *
+   * @return The session extras.
+   */
+  @UnstableApi
+  public final Bundle getSessionExtras() {
+    verifyApplicationThread();
+    return isConnected() ? impl.getSessionExtras() : Bundle.EMPTY;
+  }
+
   /** Returns {@code null}. */
   @UnstableApi
   @Override
   @Nullable
-  public Object getCurrentManifest() {
+  public final Object getCurrentManifest() {
     return null;
   }
 
@@ -951,13 +1022,13 @@ public class MediaController implements Player {
    * Timeline#CREATOR}.
    */
   @Override
-  public Timeline getCurrentTimeline() {
+  public final Timeline getCurrentTimeline() {
     verifyApplicationThread();
     return isConnected() ? impl.getCurrentTimeline() : Timeline.EMPTY;
   }
 
   @Override
-  public void setMediaItem(MediaItem mediaItem) {
+  public final void setMediaItem(MediaItem mediaItem) {
     verifyApplicationThread();
     checkNotNull(mediaItem, "mediaItems must not be null");
     if (!isConnected()) {
@@ -968,7 +1039,7 @@ public class MediaController implements Player {
   }
 
   @Override
-  public void setMediaItem(MediaItem mediaItem, long startPositionMs) {
+  public final void setMediaItem(MediaItem mediaItem, long startPositionMs) {
     verifyApplicationThread();
     checkNotNull(mediaItem, "mediaItems must not be null");
     if (!isConnected()) {
@@ -979,7 +1050,7 @@ public class MediaController implements Player {
   }
 
   @Override
-  public void setMediaItem(MediaItem mediaItem, boolean resetPosition) {
+  public final void setMediaItem(MediaItem mediaItem, boolean resetPosition) {
     verifyApplicationThread();
     checkNotNull(mediaItem, "mediaItems must not be null");
     if (!isConnected()) {
@@ -990,7 +1061,7 @@ public class MediaController implements Player {
   }
 
   @Override
-  public void setMediaItems(List<MediaItem> mediaItems) {
+  public final void setMediaItems(List<MediaItem> mediaItems) {
     verifyApplicationThread();
     checkNotNull(mediaItems, "mediaItems must not be null");
     for (int i = 0; i < mediaItems.size(); i++) {
@@ -1004,7 +1075,7 @@ public class MediaController implements Player {
   }
 
   @Override
-  public void setMediaItems(List<MediaItem> mediaItems, boolean resetPosition) {
+  public final void setMediaItems(List<MediaItem> mediaItems, boolean resetPosition) {
     verifyApplicationThread();
     checkNotNull(mediaItems, "mediaItems must not be null");
     for (int i = 0; i < mediaItems.size(); i++) {
@@ -1018,7 +1089,8 @@ public class MediaController implements Player {
   }
 
   @Override
-  public void setMediaItems(List<MediaItem> mediaItems, int startIndex, long startPositionMs) {
+  public final void setMediaItems(
+      List<MediaItem> mediaItems, int startIndex, long startPositionMs) {
     verifyApplicationThread();
     checkNotNull(mediaItems, "mediaItems must not be null");
     for (int i = 0; i < mediaItems.size(); i++) {
@@ -1032,7 +1104,7 @@ public class MediaController implements Player {
   }
 
   @Override
-  public void setPlaylistMetadata(MediaMetadata playlistMetadata) {
+  public final void setPlaylistMetadata(MediaMetadata playlistMetadata) {
     verifyApplicationThread();
     checkNotNull(playlistMetadata, "playlistMetadata must not be null");
     if (!isConnected()) {
@@ -1043,13 +1115,13 @@ public class MediaController implements Player {
   }
 
   @Override
-  public MediaMetadata getPlaylistMetadata() {
+  public final MediaMetadata getPlaylistMetadata() {
     verifyApplicationThread();
     return isConnected() ? impl.getPlaylistMetadata() : MediaMetadata.EMPTY;
   }
 
   @Override
-  public void addMediaItem(MediaItem mediaItem) {
+  public final void addMediaItem(MediaItem mediaItem) {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring addMediaItem().");
@@ -1059,7 +1131,7 @@ public class MediaController implements Player {
   }
 
   @Override
-  public void addMediaItem(int index, MediaItem mediaItem) {
+  public final void addMediaItem(int index, MediaItem mediaItem) {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring addMediaItem().");
@@ -1068,14 +1140,8 @@ public class MediaController implements Player {
     impl.addMediaItem(index, mediaItem);
   }
 
-  /**
-   * {@inheritDoc}
-   *
-   * <p>Interoperability: When connected to {@link
-   * android.support.v4.media.session.MediaSessionCompat}, this doesn't atomically add items.
-   */
   @Override
-  public void addMediaItems(List<MediaItem> mediaItems) {
+  public final void addMediaItems(List<MediaItem> mediaItems) {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring addMediaItems().");
@@ -1084,14 +1150,8 @@ public class MediaController implements Player {
     impl.addMediaItems(mediaItems);
   }
 
-  /**
-   * {@inheritDoc}
-   *
-   * <p>Interoperability: When connected to {@link
-   * android.support.v4.media.session.MediaSessionCompat}, this doesn't atomically add items.
-   */
   @Override
-  public void addMediaItems(int index, List<MediaItem> mediaItems) {
+  public final void addMediaItems(int index, List<MediaItem> mediaItems) {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring addMediaItems().");
@@ -1101,7 +1161,7 @@ public class MediaController implements Player {
   }
 
   @Override
-  public void removeMediaItem(int index) {
+  public final void removeMediaItem(int index) {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring removeMediaItem().");
@@ -1110,14 +1170,8 @@ public class MediaController implements Player {
     impl.removeMediaItem(index);
   }
 
-  /**
-   * {@inheritDoc}
-   *
-   * <p>Interoperability: When connected to {@link
-   * android.support.v4.media.session.MediaSessionCompat}, this doesn't atomically remove items.
-   */
   @Override
-  public void removeMediaItems(int fromIndex, int toIndex) {
+  public final void removeMediaItems(int fromIndex, int toIndex) {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring removeMediaItems().");
@@ -1126,14 +1180,8 @@ public class MediaController implements Player {
     impl.removeMediaItems(fromIndex, toIndex);
   }
 
-  /**
-   * {@inheritDoc}
-   *
-   * <p>Interoperability: When connected to {@link
-   * android.support.v4.media.session.MediaSessionCompat}, this doesn't atomically clear items.
-   */
   @Override
-  public void clearMediaItems() {
+  public final void clearMediaItems() {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring clearMediaItems().");
@@ -1142,14 +1190,8 @@ public class MediaController implements Player {
     impl.clearMediaItems();
   }
 
-  /**
-   * {@inheritDoc}
-   *
-   * <p>Interoperability: When connected to {@link
-   * android.support.v4.media.session.MediaSessionCompat}, this doesn't atomically move items.
-   */
   @Override
-  public void moveMediaItem(int currentIndex, int newIndex) {
+  public final void moveMediaItem(int currentIndex, int newIndex) {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring moveMediaItem().");
@@ -1158,14 +1200,8 @@ public class MediaController implements Player {
     impl.moveMediaItem(currentIndex, newIndex);
   }
 
-  /**
-   * {@inheritDoc}
-   *
-   * <p>Interoperability: When connected to {@link
-   * android.support.v4.media.session.MediaSessionCompat}, this doesn't atomically move items.
-   */
   @Override
-  public void moveMediaItems(int fromIndex, int toIndex, int newIndex) {
+  public final void moveMediaItems(int fromIndex, int toIndex, int newIndex) {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring moveMediaItems().");
@@ -1174,18 +1210,38 @@ public class MediaController implements Player {
     impl.moveMediaItems(fromIndex, toIndex, newIndex);
   }
 
+  @Override
+  public final void replaceMediaItem(int index, MediaItem mediaItem) {
+    verifyApplicationThread();
+    if (!isConnected()) {
+      Log.w(TAG, "The controller is not connected. Ignoring replaceMediaItem().");
+      return;
+    }
+    impl.replaceMediaItem(index, mediaItem);
+  }
+
+  @Override
+  public final void replaceMediaItems(int fromIndex, int toIndex, List<MediaItem> mediaItems) {
+    verifyApplicationThread();
+    if (!isConnected()) {
+      Log.w(TAG, "The controller is not connected. Ignoring replaceMediaItems().");
+      return;
+    }
+    impl.replaceMediaItems(fromIndex, toIndex, mediaItems);
+  }
+
   /**
    * @deprecated Use {@link #isCurrentMediaItemDynamic()} instead.
    */
   @UnstableApi
   @Deprecated
   @Override
-  public boolean isCurrentWindowDynamic() {
+  public final boolean isCurrentWindowDynamic() {
     return isCurrentMediaItemDynamic();
   }
 
   @Override
-  public boolean isCurrentMediaItemDynamic() {
+  public final boolean isCurrentMediaItemDynamic() {
     verifyApplicationThread();
     Timeline timeline = getCurrentTimeline();
     return !timeline.isEmpty() && timeline.getWindow(getCurrentMediaItemIndex(), window).isDynamic;
@@ -1197,12 +1253,12 @@ public class MediaController implements Player {
   @UnstableApi
   @Deprecated
   @Override
-  public boolean isCurrentWindowLive() {
+  public final boolean isCurrentWindowLive() {
     return isCurrentMediaItemLive();
   }
 
   @Override
-  public boolean isCurrentMediaItemLive() {
+  public final boolean isCurrentMediaItemLive() {
     verifyApplicationThread();
     Timeline timeline = getCurrentTimeline();
     return !timeline.isEmpty() && timeline.getWindow(getCurrentMediaItemIndex(), window).isLive();
@@ -1214,12 +1270,12 @@ public class MediaController implements Player {
   @UnstableApi
   @Deprecated
   @Override
-  public boolean isCurrentWindowSeekable() {
+  public final boolean isCurrentWindowSeekable() {
     return isCurrentMediaItemSeekable();
   }
 
   @Override
-  public boolean isCurrentMediaItemSeekable() {
+  public final boolean isCurrentMediaItemSeekable() {
     verifyApplicationThread();
     Timeline timeline = getCurrentTimeline();
     return !timeline.isEmpty() && timeline.getWindow(getCurrentMediaItemIndex(), window).isSeekable;
@@ -1231,13 +1287,13 @@ public class MediaController implements Player {
    * <p>The MediaController returns {@code false}.
    */
   @Override
-  public boolean canAdvertiseSession() {
+  public final boolean canAdvertiseSession() {
     return false;
   }
 
   @Override
   @Nullable
-  public MediaItem getCurrentMediaItem() {
+  public final MediaItem getCurrentMediaItem() {
     Timeline timeline = getCurrentTimeline();
     return timeline.isEmpty()
         ? null
@@ -1245,17 +1301,17 @@ public class MediaController implements Player {
   }
 
   @Override
-  public int getMediaItemCount() {
+  public final int getMediaItemCount() {
     return getCurrentTimeline().getWindowCount();
   }
 
   @Override
-  public MediaItem getMediaItemAt(int index) {
+  public final MediaItem getMediaItemAt(int index) {
     return getCurrentTimeline().getWindow(index, window).mediaItem;
   }
 
   @Override
-  public int getCurrentPeriodIndex() {
+  public final int getCurrentPeriodIndex() {
     verifyApplicationThread();
     return isConnected() ? impl.getCurrentPeriodIndex() : C.INDEX_UNSET;
   }
@@ -1266,12 +1322,12 @@ public class MediaController implements Player {
   @UnstableApi
   @Deprecated
   @Override
-  public int getCurrentWindowIndex() {
+  public final int getCurrentWindowIndex() {
     return getCurrentMediaItemIndex();
   }
 
   @Override
-  public int getCurrentMediaItemIndex() {
+  public final int getCurrentMediaItemIndex() {
     verifyApplicationThread();
     return isConnected() ? impl.getCurrentMediaItemIndex() : C.INDEX_UNSET;
   }
@@ -1282,7 +1338,7 @@ public class MediaController implements Player {
   @UnstableApi
   @Deprecated
   @Override
-  public int getPreviousWindowIndex() {
+  public final int getPreviousWindowIndex() {
     return getPreviousMediaItemIndex();
   }
 
@@ -1294,7 +1350,7 @@ public class MediaController implements Player {
    * C#INDEX_UNSET} even when {@link #hasPreviousMediaItem()} is {@code true}.
    */
   @Override
-  public int getPreviousMediaItemIndex() {
+  public final int getPreviousMediaItemIndex() {
     verifyApplicationThread();
     return isConnected() ? impl.getPreviousMediaItemIndex() : C.INDEX_UNSET;
   }
@@ -1305,7 +1361,7 @@ public class MediaController implements Player {
   @UnstableApi
   @Deprecated
   @Override
-  public int getNextWindowIndex() {
+  public final int getNextWindowIndex() {
     return getNextMediaItemIndex();
   }
 
@@ -1317,7 +1373,7 @@ public class MediaController implements Player {
    * C#INDEX_UNSET} even when {@link #hasNextMediaItem()} is {@code true}.
    */
   @Override
-  public int getNextMediaItemIndex() {
+  public final int getNextMediaItemIndex() {
     verifyApplicationThread();
     return isConnected() ? impl.getNextMediaItemIndex() : C.INDEX_UNSET;
   }
@@ -1328,7 +1384,7 @@ public class MediaController implements Player {
   @UnstableApi
   @Deprecated
   @Override
-  public boolean hasPrevious() {
+  public final boolean hasPrevious() {
     return hasPreviousMediaItem();
   }
 
@@ -1338,7 +1394,7 @@ public class MediaController implements Player {
   @UnstableApi
   @Deprecated
   @Override
-  public boolean hasNext() {
+  public final boolean hasNext() {
     return hasNextMediaItem();
   }
 
@@ -1348,7 +1404,7 @@ public class MediaController implements Player {
   @UnstableApi
   @Deprecated
   @Override
-  public boolean hasPreviousWindow() {
+  public final boolean hasPreviousWindow() {
     return hasPreviousMediaItem();
   }
 
@@ -1358,18 +1414,18 @@ public class MediaController implements Player {
   @UnstableApi
   @Deprecated
   @Override
-  public boolean hasNextWindow() {
+  public final boolean hasNextWindow() {
     return hasNextMediaItem();
   }
 
   @Override
-  public boolean hasPreviousMediaItem() {
+  public final boolean hasPreviousMediaItem() {
     verifyApplicationThread();
     return isConnected() && impl.hasPreviousMediaItem();
   }
 
   @Override
-  public boolean hasNextMediaItem() {
+  public final boolean hasNextMediaItem() {
     verifyApplicationThread();
     return isConnected() && impl.hasNextMediaItem();
   }
@@ -1380,7 +1436,7 @@ public class MediaController implements Player {
   @UnstableApi
   @Deprecated
   @Override
-  public void previous() {
+  public final void previous() {
     seekToPreviousMediaItem();
   }
 
@@ -1390,7 +1446,7 @@ public class MediaController implements Player {
   @UnstableApi
   @Deprecated
   @Override
-  public void next() {
+  public final void next() {
     seekToNextMediaItem();
   }
 
@@ -1400,7 +1456,7 @@ public class MediaController implements Player {
   @UnstableApi
   @Deprecated
   @Override
-  public void seekToPreviousWindow() {
+  public final void seekToPreviousWindow() {
     seekToPreviousMediaItem();
   }
 
@@ -1411,7 +1467,7 @@ public class MediaController implements Player {
    * android.support.v4.media.session.MediaSessionCompat}, it's the same as {@link #seekToPrevious}.
    */
   @Override
-  public void seekToPreviousMediaItem() {
+  public final void seekToPreviousMediaItem() {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring seekToPreviousMediaItem().");
@@ -1426,7 +1482,7 @@ public class MediaController implements Player {
   @UnstableApi
   @Deprecated
   @Override
-  public void seekToNextWindow() {
+  public final void seekToNextWindow() {
     seekToNextMediaItem();
   }
 
@@ -1437,7 +1493,7 @@ public class MediaController implements Player {
    * android.support.v4.media.session.MediaSessionCompat}, it's the same as {@link #seekToNext}.
    */
   @Override
-  public void seekToNextMediaItem() {
+  public final void seekToNextMediaItem() {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring seekToNextMediaItem().");
@@ -1454,7 +1510,7 @@ public class MediaController implements Player {
    * index immediately because the previous media item index is unknown.
    */
   @Override
-  public void seekToPrevious() {
+  public final void seekToPrevious() {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring seekToPrevious().");
@@ -1470,7 +1526,7 @@ public class MediaController implements Player {
    * android.support.v4.media.session.MediaSessionCompat}, it always returns {@code 0}.
    */
   @Override
-  public long getMaxSeekToPreviousPosition() {
+  public final long getMaxSeekToPreviousPosition() {
     verifyApplicationThread();
     return isConnected() ? impl.getMaxSeekToPreviousPosition() : 0L;
   }
@@ -1483,7 +1539,7 @@ public class MediaController implements Player {
    * index immediately because the previous media item index is unknown.
    */
   @Override
-  public void seekToNext() {
+  public final void seekToNext() {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring seekToNext().");
@@ -1493,13 +1549,13 @@ public class MediaController implements Player {
   }
 
   @Override
-  public @RepeatMode int getRepeatMode() {
+  public final @RepeatMode int getRepeatMode() {
     verifyApplicationThread();
     return isConnected() ? impl.getRepeatMode() : Player.REPEAT_MODE_OFF;
   }
 
   @Override
-  public void setRepeatMode(@RepeatMode int repeatMode) {
+  public final void setRepeatMode(@RepeatMode int repeatMode) {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring setRepeatMode().");
@@ -1509,13 +1565,13 @@ public class MediaController implements Player {
   }
 
   @Override
-  public boolean getShuffleModeEnabled() {
+  public final boolean getShuffleModeEnabled() {
     verifyApplicationThread();
     return isConnected() && impl.getShuffleModeEnabled();
   }
 
   @Override
-  public void setShuffleModeEnabled(boolean shuffleModeEnabled) {
+  public final void setShuffleModeEnabled(boolean shuffleModeEnabled) {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring setShuffleMode().");
@@ -1525,20 +1581,20 @@ public class MediaController implements Player {
   }
 
   @Override
-  public VideoSize getVideoSize() {
+  public final VideoSize getVideoSize() {
     verifyApplicationThread();
     return isConnected() ? impl.getVideoSize() : VideoSize.UNKNOWN;
   }
 
   @UnstableApi
   @Override
-  public Size getSurfaceSize() {
+  public final Size getSurfaceSize() {
     verifyApplicationThread();
     return isConnected() ? impl.getSurfaceSize() : Size.UNKNOWN;
   }
 
   @Override
-  public void clearVideoSurface() {
+  public final void clearVideoSurface() {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring clearVideoSurface().");
@@ -1548,7 +1604,7 @@ public class MediaController implements Player {
   }
 
   @Override
-  public void clearVideoSurface(@Nullable Surface surface) {
+  public final void clearVideoSurface(@Nullable Surface surface) {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring clearVideoSurface().");
@@ -1558,7 +1614,7 @@ public class MediaController implements Player {
   }
 
   @Override
-  public void setVideoSurface(@Nullable Surface surface) {
+  public final void setVideoSurface(@Nullable Surface surface) {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring setVideoSurface().");
@@ -1568,7 +1624,7 @@ public class MediaController implements Player {
   }
 
   @Override
-  public void setVideoSurfaceHolder(@Nullable SurfaceHolder surfaceHolder) {
+  public final void setVideoSurfaceHolder(@Nullable SurfaceHolder surfaceHolder) {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring setVideoSurfaceHolder().");
@@ -1578,7 +1634,7 @@ public class MediaController implements Player {
   }
 
   @Override
-  public void clearVideoSurfaceHolder(@Nullable SurfaceHolder surfaceHolder) {
+  public final void clearVideoSurfaceHolder(@Nullable SurfaceHolder surfaceHolder) {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring clearVideoSurfaceHolder().");
@@ -1588,7 +1644,7 @@ public class MediaController implements Player {
   }
 
   @Override
-  public void setVideoSurfaceView(@Nullable SurfaceView surfaceView) {
+  public final void setVideoSurfaceView(@Nullable SurfaceView surfaceView) {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring setVideoSurfaceView().");
@@ -1598,7 +1654,7 @@ public class MediaController implements Player {
   }
 
   @Override
-  public void clearVideoSurfaceView(@Nullable SurfaceView surfaceView) {
+  public final void clearVideoSurfaceView(@Nullable SurfaceView surfaceView) {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring clearVideoSurfaceView().");
@@ -1608,7 +1664,7 @@ public class MediaController implements Player {
   }
 
   @Override
-  public void setVideoTextureView(@Nullable TextureView textureView) {
+  public final void setVideoTextureView(@Nullable TextureView textureView) {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring setVideoTextureView().");
@@ -1618,7 +1674,7 @@ public class MediaController implements Player {
   }
 
   @Override
-  public void clearVideoTextureView(@Nullable TextureView textureView) {
+  public final void clearVideoTextureView(@Nullable TextureView textureView) {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring clearVideoTextureView().");
@@ -1628,20 +1684,20 @@ public class MediaController implements Player {
   }
 
   @Override
-  public CueGroup getCurrentCues() {
+  public final CueGroup getCurrentCues() {
     verifyApplicationThread();
     return isConnected() ? impl.getCurrentCues() : CueGroup.EMPTY_TIME_ZERO;
   }
 
   @Override
   @FloatRange(from = 0, to = 1)
-  public float getVolume() {
+  public final float getVolume() {
     verifyApplicationThread();
     return isConnected() ? impl.getVolume() : 1;
   }
 
   @Override
-  public void setVolume(@FloatRange(from = 0, to = 1) float volume) {
+  public final void setVolume(@FloatRange(from = 0, to = 1) float volume) {
     verifyApplicationThread();
     checkArgument(volume >= 0 && volume <= 1, "volume must be between 0 and 1");
     if (!isConnected()) {
@@ -1652,7 +1708,7 @@ public class MediaController implements Player {
   }
 
   @Override
-  public DeviceInfo getDeviceInfo() {
+  public final DeviceInfo getDeviceInfo() {
     verifyApplicationThread();
     if (!isConnected()) {
       return DeviceInfo.UNKNOWN;
@@ -1662,7 +1718,7 @@ public class MediaController implements Player {
 
   @Override
   @IntRange(from = 0)
-  public int getDeviceVolume() {
+  public final int getDeviceVolume() {
     verifyApplicationThread();
     if (!isConnected()) {
       return 0;
@@ -1671,7 +1727,7 @@ public class MediaController implements Player {
   }
 
   @Override
-  public boolean isDeviceMuted() {
+  public final boolean isDeviceMuted() {
     verifyApplicationThread();
     if (!isConnected()) {
       return false;
@@ -1679,8 +1735,12 @@ public class MediaController implements Player {
     return impl.isDeviceMuted();
   }
 
+  /**
+   * @deprecated Use {@link #setDeviceVolume(int, int)} instead.
+   */
+  @Deprecated
   @Override
-  public void setDeviceVolume(@IntRange(from = 0) int volume) {
+  public final void setDeviceVolume(@IntRange(from = 0) int volume) {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring setDeviceVolume().");
@@ -1690,7 +1750,21 @@ public class MediaController implements Player {
   }
 
   @Override
-  public void increaseDeviceVolume() {
+  public final void setDeviceVolume(@IntRange(from = 0) int volume, @C.VolumeFlags int flags) {
+    verifyApplicationThread();
+    if (!isConnected()) {
+      Log.w(TAG, "The controller is not connected. Ignoring setDeviceVolume().");
+      return;
+    }
+    impl.setDeviceVolume(volume, flags);
+  }
+
+  /**
+   * @deprecated Use {@link #increaseDeviceVolume(int)} instead.
+   */
+  @Deprecated
+  @Override
+  public final void increaseDeviceVolume() {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring increaseDeviceVolume().");
@@ -1700,7 +1774,21 @@ public class MediaController implements Player {
   }
 
   @Override
-  public void decreaseDeviceVolume() {
+  public final void increaseDeviceVolume(@C.VolumeFlags int flags) {
+    verifyApplicationThread();
+    if (!isConnected()) {
+      Log.w(TAG, "The controller is not connected. Ignoring increaseDeviceVolume().");
+      return;
+    }
+    impl.increaseDeviceVolume(flags);
+  }
+
+  /**
+   * @deprecated Use {@link #decreaseDeviceVolume(int)} instead.
+   */
+  @Deprecated
+  @Override
+  public final void decreaseDeviceVolume() {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring decreaseDeviceVolume().");
@@ -1710,7 +1798,21 @@ public class MediaController implements Player {
   }
 
   @Override
-  public void setDeviceMuted(boolean muted) {
+  public final void decreaseDeviceVolume(@C.VolumeFlags int flags) {
+    verifyApplicationThread();
+    if (!isConnected()) {
+      Log.w(TAG, "The controller is not connected. Ignoring decreaseDeviceVolume().");
+      return;
+    }
+    impl.decreaseDeviceVolume(flags);
+  }
+
+  /**
+   * @deprecated Use {@link #setDeviceMuted(boolean, int)} instead.
+   */
+  @Deprecated
+  @Override
+  public final void setDeviceMuted(boolean muted) {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring setDeviceMuted().");
@@ -1720,19 +1822,39 @@ public class MediaController implements Player {
   }
 
   @Override
-  public MediaMetadata getMediaMetadata() {
+  public final void setDeviceMuted(boolean muted, @C.VolumeFlags int flags) {
+    verifyApplicationThread();
+    if (!isConnected()) {
+      Log.w(TAG, "The controller is not connected. Ignoring setDeviceMuted().");
+      return;
+    }
+    impl.setDeviceMuted(muted, flags);
+  }
+
+  @Override
+  public final void setAudioAttributes(AudioAttributes audioAttributes, boolean handleAudioFocus) {
+    verifyApplicationThread();
+    if (!isConnected()) {
+      Log.w(TAG, "The controller is not connected. Ignoring setAudioAttributes().");
+      return;
+    }
+    impl.setAudioAttributes(audioAttributes, handleAudioFocus);
+  }
+
+  @Override
+  public final MediaMetadata getMediaMetadata() {
     verifyApplicationThread();
     return isConnected() ? impl.getMediaMetadata() : MediaMetadata.EMPTY;
   }
 
   @Override
-  public Tracks getCurrentTracks() {
+  public final Tracks getCurrentTracks() {
     verifyApplicationThread();
     return isConnected() ? impl.getCurrentTracks() : Tracks.EMPTY;
   }
 
   @Override
-  public TrackSelectionParameters getTrackSelectionParameters() {
+  public final TrackSelectionParameters getTrackSelectionParameters() {
     verifyApplicationThread();
     if (!isConnected()) {
       return TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT;
@@ -1741,7 +1863,7 @@ public class MediaController implements Player {
   }
 
   @Override
-  public void setTrackSelectionParameters(TrackSelectionParameters parameters) {
+  public final void setTrackSelectionParameters(TrackSelectionParameters parameters) {
     verifyApplicationThread();
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring setTrackSelectionParameters().");
@@ -1750,7 +1872,7 @@ public class MediaController implements Player {
   }
 
   @Override
-  public Looper getApplicationLooper() {
+  public final Looper getApplicationLooper() {
     // Don't verify application thread. We allow calls to this method from any thread.
     return applicationHandler.getLooper();
   }
@@ -1759,7 +1881,7 @@ public class MediaController implements Player {
    * Gets the optional time diff (in milliseconds) used for calculating the current position, or
    * {@link C#TIME_UNSET} if no diff should be applied.
    */
-  /* package */ long getTimeDiffMs() {
+  /* package */ final long getTimeDiffMs() {
     return timeDiffMs;
   }
 
@@ -1769,32 +1891,32 @@ public class MediaController implements Player {
    * @param timeDiffMs {@link C#TIME_UNSET} for reset.
    */
   @VisibleForTesting(otherwise = NONE)
-  /* package */ void setTimeDiffMs(long timeDiffMs) {
+  /* package */ final void setTimeDiffMs(long timeDiffMs) {
     verifyApplicationThread();
     this.timeDiffMs = timeDiffMs;
   }
 
   @Override
-  public void addListener(Player.Listener listener) {
+  public final void addListener(Player.Listener listener) {
     // Don't verify application thread. We allow calls to this method from any thread.
     checkNotNull(listener, "listener must not be null");
     impl.addListener(listener);
   }
 
   @Override
-  public void removeListener(Player.Listener listener) {
+  public final void removeListener(Player.Listener listener) {
     verifyApplicationThread();
     checkNotNull(listener, "listener must not be null");
     impl.removeListener(listener);
   }
 
   @Override
-  public boolean isCommandAvailable(@Command int command) {
+  public final boolean isCommandAvailable(@Command int command) {
     return getAvailableCommands().contains(command);
   }
 
   @Override
-  public Commands getAvailableCommands() {
+  public final Commands getAvailableCommands() {
     verifyApplicationThread();
     if (!isConnected()) {
       return Commands.EMPTY;
@@ -1807,12 +1929,13 @@ public class MediaController implements Player {
    * sessionCommandCode} must not be {@link SessionCommand#COMMAND_CODE_CUSTOM}. Use {@link
    * #isSessionCommandAvailable(SessionCommand)} for custom commands.
    */
-  public boolean isSessionCommandAvailable(@SessionCommand.CommandCode int sessionCommandCode) {
+  public final boolean isSessionCommandAvailable(
+      @SessionCommand.CommandCode int sessionCommandCode) {
     return getAvailableSessionCommands().contains(sessionCommandCode);
   }
 
   /** Returns whether the {@link SessionCommand} is available. */
-  public boolean isSessionCommandAvailable(SessionCommand sessionCommand) {
+  public final boolean isSessionCommandAvailable(SessionCommand sessionCommand) {
     return getAvailableSessionCommands().contains(sessionCommand);
   }
 
@@ -1823,7 +1946,7 @@ public class MediaController implements Player {
    *
    * @return The available session commands.
    */
-  public SessionCommands getAvailableSessionCommands() {
+  public final SessionCommands getAvailableSessionCommands() {
     verifyApplicationThread();
     if (!isConnected()) {
       return SessionCommands.EMPTY;
@@ -1836,27 +1959,34 @@ public class MediaController implements Player {
         new SessionResult(SessionResult.RESULT_ERROR_SESSION_DISCONNECTED));
   }
 
-  /* package */ void runOnApplicationLooper(Runnable runnable) {
+  /* package */ final void runOnApplicationLooper(Runnable runnable) {
     postOrRun(applicationHandler, runnable);
   }
 
-  /* package */ void notifyControllerListener(Consumer<Listener> listenerConsumer) {
+  /* package */ final void notifyControllerListener(Consumer<Listener> listenerConsumer) {
     checkState(Looper.myLooper() == getApplicationLooper());
     listenerConsumer.accept(listener);
   }
 
-  /* package */ void notifyAccepted() {
+  /* package */ final void notifyAccepted() {
     checkState(Looper.myLooper() == getApplicationLooper());
     checkState(!connectionNotified);
     connectionNotified = true;
     connectionCallback.onAccepted();
   }
 
+  /** Returns the binder object used to connect to the session. */
+  @Nullable
+  @VisibleForTesting(otherwise = NONE)
+  /* package */ final IMediaController getBinder() {
+    return impl.getBinder();
+  }
+
   private void verifyApplicationThread() {
     checkState(Looper.myLooper() == getApplicationLooper(), WRONG_THREAD_ERROR_MESSAGE);
   }
 
-  interface MediaControllerImpl {
+  /* package */ interface MediaControllerImpl {
 
     void connect(@UnderInitialization MediaControllerImpl this);
 
@@ -1941,6 +2071,10 @@ public class MediaController implements Player {
 
     ListenableFuture<SessionResult> sendCustomCommand(SessionCommand command, Bundle args);
 
+    ImmutableList<CommandButton> getCustomLayout();
+
+    Bundle getSessionExtras();
+
     Timeline getCurrentTimeline();
 
     void setMediaItem(MediaItem mediaItem);
@@ -1976,6 +2110,10 @@ public class MediaController implements Player {
     void moveMediaItem(int currentIndex, int newIndex);
 
     void moveMediaItems(int fromIndex, int toIndex, int newIndex);
+
+    void replaceMediaItem(int index, MediaItem mediaItem);
+
+    void replaceMediaItems(int fromIndex, int toIndex, List<MediaItem> mediaItems);
 
     int getCurrentPeriodIndex();
 
@@ -2044,11 +2182,21 @@ public class MediaController implements Player {
 
     void setDeviceVolume(int volume);
 
+    void setDeviceVolume(int volume, @C.VolumeFlags int flags);
+
     void increaseDeviceVolume();
+
+    void increaseDeviceVolume(@C.VolumeFlags int flags);
 
     void decreaseDeviceVolume();
 
+    void decreaseDeviceVolume(@C.VolumeFlags int flags);
+
     void setDeviceMuted(boolean muted);
+
+    void setDeviceMuted(boolean muted, @C.VolumeFlags int flags);
+
+    void setAudioAttributes(AudioAttributes audioAttributes, boolean handleAudioFocus);
 
     boolean getPlayWhenReady();
 
@@ -2079,5 +2227,8 @@ public class MediaController implements Player {
 
     @Nullable
     MediaBrowserCompat getBrowserCompat();
+
+    @Nullable
+    IMediaController getBinder();
   }
 }

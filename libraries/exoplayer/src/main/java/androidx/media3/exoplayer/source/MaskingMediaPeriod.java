@@ -21,13 +21,14 @@ import static androidx.media3.common.util.Util.castNonNull;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.upstream.Allocator;
 import java.io.IOException;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -182,8 +183,8 @@ public final class MaskingMediaPeriod implements MediaPeriod, MediaPeriod.Callba
       long positionUs) {
     if (preparePositionOverrideUs != C.TIME_UNSET && positionUs == preparePositionUs) {
       positionUs = preparePositionOverrideUs;
-      preparePositionOverrideUs = C.TIME_UNSET;
     }
+    preparePositionOverrideUs = C.TIME_UNSET;
     return castNonNull(mediaPeriod)
         .selectTracks(selections, mayRetainStreamFlags, streams, streamResetFlags, positionUs);
   }
@@ -224,8 +225,8 @@ public final class MaskingMediaPeriod implements MediaPeriod, MediaPeriod.Callba
   }
 
   @Override
-  public boolean continueLoading(long positionUs) {
-    return mediaPeriod != null && mediaPeriod.continueLoading(positionUs);
+  public boolean continueLoading(LoadingInfo loadingInfo) {
+    return mediaPeriod != null && mediaPeriod.continueLoading(loadingInfo);
   }
 
   @Override

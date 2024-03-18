@@ -24,10 +24,10 @@ import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
+import androidx.media3.container.NalUnitUtil;
 import androidx.media3.exoplayer.rtsp.RtpPacket;
 import androidx.media3.exoplayer.rtsp.RtpPayloadFormat;
 import androidx.media3.extractor.ExtractorOutput;
-import androidx.media3.extractor.NalUnitUtil;
 import androidx.media3.extractor.TrackOutput;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
@@ -40,12 +40,16 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
   private static final String TAG = "RtpH265Reader";
   private static final int MEDIA_CLOCK_FREQUENCY = 90_000;
+
   /** Offset of payload data within a FU payload. */
   private static final int FU_PAYLOAD_OFFSET = 3;
+
   /** Aggregation Packet. RFC7798 Section 4.4.2. */
   private static final int RTP_PACKET_TYPE_AP = 48;
+
   /** Fragmentation Unit. RFC7798 Section 4.4.3. */
   private static final int RTP_PACKET_TYPE_FU = 49;
+
   /** IDR NAL unit types. */
   private static final int NAL_IDR_W_RADL = 19;
 
@@ -61,6 +65,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   private @C.BufferFlags int bufferFlags;
   private long firstReceivedTimestamp;
   private int previousSequenceNumber;
+
   /** The combined size of a sample that is fragmented into multiple RTP packets. */
   private int fragmentedSampleSizeBytes;
 

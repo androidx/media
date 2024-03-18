@@ -15,16 +15,17 @@
  */
 package androidx.media3.exoplayer.audio;
 
-import static androidx.media3.exoplayer.audio.AudioSink.CURRENT_POSITION_NOT_SET;
 import static androidx.media3.exoplayer.audio.AudioSink.SINK_FORMAT_SUPPORTED_DIRECTLY;
 import static androidx.media3.exoplayer.audio.AudioSink.SINK_FORMAT_SUPPORTED_WITH_TRANSCODING;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.exoplayer.audio.DefaultAudioSink.DefaultAudioProcessorChain;
+import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -65,7 +66,6 @@ public final class DefaultAudioSinkTest {
     defaultAudioSink =
         new DefaultAudioSink.Builder()
             .setAudioProcessorChain(new DefaultAudioProcessorChain(teeAudioProcessor))
-            .setOffloadMode(DefaultAudioSink.OFFLOAD_MODE_DISABLED)
             .build();
   }
 
@@ -317,42 +317,6 @@ public final class DefaultAudioSinkTest {
   }
 
   @Test
-  public void handlesBufferAfterExperimentalFlush() throws Exception {
-    // This is demonstrating that no Exceptions are thrown as a result of handling a buffer after an
-    // experimental flush.
-    configureDefaultAudioSink(CHANNEL_COUNT_STEREO);
-    assertThat(
-            defaultAudioSink.handleBuffer(
-                createDefaultSilenceBuffer(),
-                /* presentationTimeUs= */ 0,
-                /* encodedAccessUnitCount= */ 1))
-        .isTrue();
-
-    // After the experimental flush we can successfully queue more input.
-    defaultAudioSink.experimentalFlushWithoutAudioTrackRelease();
-    assertThat(
-            defaultAudioSink.handleBuffer(
-                createDefaultSilenceBuffer(),
-                /* presentationTimeUs= */ 5_000,
-                /* encodedAccessUnitCount= */ 1))
-        .isTrue();
-  }
-
-  @Test
-  public void getCurrentPosition_returnsUnset_afterExperimentalFlush() throws Exception {
-    configureDefaultAudioSink(CHANNEL_COUNT_STEREO);
-    assertThat(
-            defaultAudioSink.handleBuffer(
-                createDefaultSilenceBuffer(),
-                /* presentationTimeUs= */ 5 * C.MICROS_PER_SECOND,
-                /* encodedAccessUnitCount= */ 1))
-        .isTrue();
-    defaultAudioSink.experimentalFlushWithoutAudioTrackRelease();
-    assertThat(defaultAudioSink.getCurrentPositionUs(/* sourceEnded= */ false))
-        .isEqualTo(CURRENT_POSITION_NOT_SET);
-  }
-
-  @Test
   public void configure_throwsConfigurationException_withInvalidInput() {
     Format format = new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).build();
     AudioSink.ConfigurationException thrown =
@@ -378,6 +342,15 @@ public final class DefaultAudioSinkTest {
         .isTrue();
 
     assertThat(defaultAudioSink.getPlaybackParameters().speed).isEqualTo(1);
+  }
+
+  @Test
+  public void build_calledTwice_throwsIllegalStateException() throws Exception {
+    DefaultAudioSink.Builder defaultAudioSinkBuilder =
+        new DefaultAudioSink.Builder(ApplicationProvider.getApplicationContext());
+    defaultAudioSinkBuilder.build();
+
+    assertThrows(IllegalStateException.class, defaultAudioSinkBuilder::build);
   }
 
   private void configureDefaultAudioSink(int channelCount) throws AudioSink.ConfigurationException {

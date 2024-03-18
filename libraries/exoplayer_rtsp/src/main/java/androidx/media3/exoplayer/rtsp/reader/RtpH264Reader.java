@@ -25,10 +25,10 @@ import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
+import androidx.media3.container.NalUnitUtil;
 import androidx.media3.exoplayer.rtsp.RtpPacket;
 import androidx.media3.exoplayer.rtsp.RtpPayloadFormat;
 import androidx.media3.extractor.ExtractorOutput;
-import androidx.media3.extractor.NalUnitUtil;
 import androidx.media3.extractor.TrackOutput;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
@@ -44,6 +44,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
   /** Single Time Aggregation Packet type A. */
   private static final int RTP_PACKET_TYPE_STAP_A = 24;
+
   /** Fragmentation Unit type A. */
   private static final int RTP_PACKET_TYPE_FU_A = 28;
 
@@ -63,6 +64,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
   private long firstReceivedTimestamp;
   private int previousSequenceNumber;
+
   /** The combined size of a sample that is fragmented into multiple RTP packets. */
   private int fragmentedSampleSizeBytes;
 

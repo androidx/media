@@ -27,8 +27,10 @@ public final class PrivateCommand extends SpliceCommand {
 
   /** The {@code pts_adjustment} as defined in SCTE35, Section 9.2. */
   public final long ptsAdjustment;
+
   /** The identifier as defined in SCTE35, Section 9.3.6. */
   public final long identifier;
+
   /** The private bytes as defined in SCTE35, Section 9.3.6. */
   public final byte[] commandBytes;
 
@@ -50,6 +52,15 @@ public final class PrivateCommand extends SpliceCommand {
     byte[] privateBytes = new byte[commandLength - 4 /* identifier size */];
     sectionData.readBytes(privateBytes, 0, privateBytes.length);
     return new PrivateCommand(identifier, privateBytes, ptsAdjustment);
+  }
+
+  @Override
+  public String toString() {
+    return "SCTE-35 PrivateCommand { ptsAdjustment="
+        + ptsAdjustment
+        + ", identifier= "
+        + identifier
+        + " }";
   }
 
   // Parcelable implementation.

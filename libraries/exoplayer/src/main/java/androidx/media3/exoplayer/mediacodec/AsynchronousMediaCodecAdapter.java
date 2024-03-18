@@ -26,12 +26,16 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.PersistableBundle;
 import android.view.Surface;
+import androidx.annotation.ChecksSdkIntAtLeast;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
+import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.TraceUtil;
+import androidx.media3.common.util.Util;
 import androidx.media3.decoder.CryptoInfo;
 import com.google.common.base.Supplier;
 import java.io.IOException;
@@ -53,35 +57,41 @@ import java.nio.ByteBuffer;
   public static final class Factory implements MediaCodecAdapter.Factory {
     private final Supplier<HandlerThread> callbackThreadSupplier;
     private final Supplier<HandlerThread> queueingThreadSupplier;
-    private final boolean synchronizeCodecInteractionsWithQueueing;
+
+    private boolean enableSynchronousBufferQueueingWithAsyncCryptoFlag;
 
     /**
      * Creates an factory for {@link AsynchronousMediaCodecAdapter} instances.
      *
      * @param trackType One of {@link C#TRACK_TYPE_AUDIO} or {@link C#TRACK_TYPE_VIDEO}. Used for
      *     labelling the internal thread accordingly.
-     * @param synchronizeCodecInteractionsWithQueueing Whether the adapter should synchronize {@link
-     *     MediaCodec} interactions with asynchronous buffer queueing. When {@code true}, codec
-     *     interactions will wait until all input buffers pending queueing wil be submitted to the
-     *     {@link MediaCodec}.
      */
-    public Factory(@C.TrackType int trackType, boolean synchronizeCodecInteractionsWithQueueing) {
+    public Factory(@C.TrackType int trackType) {
       this(
           /* callbackThreadSupplier= */ () ->
               new HandlerThread(createCallbackThreadLabel(trackType)),
           /* queueingThreadSupplier= */ () ->
-              new HandlerThread(createQueueingThreadLabel(trackType)),
-          synchronizeCodecInteractionsWithQueueing);
+              new HandlerThread(createQueueingThreadLabel(trackType)));
     }
 
     @VisibleForTesting
     /* package */ Factory(
         Supplier<HandlerThread> callbackThreadSupplier,
-        Supplier<HandlerThread> queueingThreadSupplier,
-        boolean synchronizeCodecInteractionsWithQueueing) {
+        Supplier<HandlerThread> queueingThreadSupplier) {
       this.callbackThreadSupplier = callbackThreadSupplier;
       this.queueingThreadSupplier = queueingThreadSupplier;
-      this.synchronizeCodecInteractionsWithQueueing = synchronizeCodecInteractionsWithQueueing;
+      enableSynchronousBufferQueueingWithAsyncCryptoFlag = true;
+    }
+
+    /**
+     * Sets whether to enable {@link MediaCodec#CONFIGURE_FLAG_USE_CRYPTO_ASYNC} on API 34 and
+     * above.
+     *
+     * <p>This method is experimental. Its default value may change, or it may be renamed or removed
+     * in a future release.
+     */
+    public void experimentalSetAsyncCryptoFlagEnabled(boolean enableAsyncCryptoFlag) {
+      enableSynchronousBufferQueueingWithAsyncCryptoFlag = enableAsyncCryptoFlag;
     }
 
     @Override
@@ -93,18 +103,21 @@ import java.nio.ByteBuffer;
       try {
         TraceUtil.beginSection("createCodec:" + codecName);
         codec = MediaCodec.createByCodecName(codecName);
+        int flags = configuration.flags;
+        MediaCodecBufferEnqueuer bufferEnqueuer;
+        if (enableSynchronousBufferQueueingWithAsyncCryptoFlag
+            && useSynchronousBufferQueueingWithAsyncCryptoFlag(configuration.format)) {
+          bufferEnqueuer = new SynchronousMediaCodecBufferEnqueuer(codec);
+          flags |= MediaCodec.CONFIGURE_FLAG_USE_CRYPTO_ASYNC;
+        } else {
+          bufferEnqueuer =
+              new AsynchronousMediaCodecBufferEnqueuer(codec, queueingThreadSupplier.get());
+        }
         codecAdapter =
-            new AsynchronousMediaCodecAdapter(
-                codec,
-                callbackThreadSupplier.get(),
-                queueingThreadSupplier.get(),
-                synchronizeCodecInteractionsWithQueueing);
+            new AsynchronousMediaCodecAdapter(codec, callbackThreadSupplier.get(), bufferEnqueuer);
         TraceUtil.endSection();
         codecAdapter.initialize(
-            configuration.mediaFormat,
-            configuration.surface,
-            configuration.crypto,
-            configuration.flags);
+            configuration.mediaFormat, configuration.surface, configuration.crypto, flags);
         return codecAdapter;
       } catch (Exception e) {
         if (codecAdapter != null) {
@@ -114,6 +127,16 @@ import java.nio.ByteBuffer;
         }
         throw e;
       }
+    }
+
+    @ChecksSdkIntAtLeast(api = 34)
+    private static boolean useSynchronousBufferQueueingWithAsyncCryptoFlag(Format format) {
+      if (Util.SDK_INT < 34) {
+        return false;
+      }
+      // TODO: b/316565675 - Remove restriction to video once MediaCodec supports
+      //  CONFIGURE_FLAG_USE_CRYPTO_ASYNC for audio too
+      return MimeTypes.isVideo(format.sampleMimeType);
     }
   }
 
@@ -129,20 +152,15 @@ import java.nio.ByteBuffer;
 
   private final MediaCodec codec;
   private final AsynchronousMediaCodecCallback asynchronousMediaCodecCallback;
-  private final AsynchronousMediaCodecBufferEnqueuer bufferEnqueuer;
-  private final boolean synchronizeCodecInteractionsWithQueueing;
+  private final MediaCodecBufferEnqueuer bufferEnqueuer;
   private boolean codecReleased;
   private @State int state;
 
   private AsynchronousMediaCodecAdapter(
-      MediaCodec codec,
-      HandlerThread callbackThread,
-      HandlerThread enqueueingThread,
-      boolean synchronizeCodecInteractionsWithQueueing) {
+      MediaCodec codec, HandlerThread callbackThread, MediaCodecBufferEnqueuer bufferEnqueuer) {
     this.codec = codec;
     this.asynchronousMediaCodecCallback = new AsynchronousMediaCodecCallback(callbackThread);
-    this.bufferEnqueuer = new AsynchronousMediaCodecBufferEnqueuer(codec, enqueueingThread);
-    this.synchronizeCodecInteractionsWithQueueing = synchronizeCodecInteractionsWithQueueing;
+    this.bufferEnqueuer = bufferEnqueuer;
     this.state = STATE_CREATED;
   }
 
@@ -250,7 +268,6 @@ import java.nio.ByteBuffer;
 
   @Override
   public void setOnFrameRenderedListener(OnFrameRenderedListener listener, Handler handler) {
-    maybeBlockOnQueueing();
     codec.setOnFrameRenderedListener(
         (codec, presentationTimeUs, nanoTime) ->
             listener.onFrameRendered(
@@ -260,26 +277,22 @@ import java.nio.ByteBuffer;
 
   @Override
   public void setOutputSurface(Surface surface) {
-    maybeBlockOnQueueing();
     codec.setOutputSurface(surface);
   }
 
   @Override
   public void setParameters(Bundle params) {
-    maybeBlockOnQueueing();
-    codec.setParameters(params);
+    bufferEnqueuer.setParameters(params);
   }
 
   @Override
   public void setVideoScalingMode(@C.VideoScalingMode int scalingMode) {
-    maybeBlockOnQueueing();
     codec.setVideoScalingMode(scalingMode);
   }
 
   @Override
   @RequiresApi(26)
   public PersistableBundle getMetrics() {
-    maybeBlockOnQueueing();
     return codec.getMetrics();
   }
 
@@ -291,19 +304,6 @@ import java.nio.ByteBuffer;
   @VisibleForTesting
   /* package */ void onOutputFormatChanged(MediaFormat format) {
     asynchronousMediaCodecCallback.onOutputFormatChanged(codec, format);
-  }
-
-  private void maybeBlockOnQueueing() {
-    if (synchronizeCodecInteractionsWithQueueing) {
-      try {
-        bufferEnqueuer.waitUntilQueueingComplete();
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        // The playback thread should not be interrupted. Raising this as an
-        // IllegalStateException.
-        throw new IllegalStateException(e);
-      }
-    }
   }
 
   private static String createCallbackThreadLabel(@C.TrackType int trackType) {

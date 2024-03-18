@@ -33,6 +33,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.UriUtil;
 import androidx.media3.common.util.Util;
@@ -56,7 +57,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 import org.xml.sax.helpers.DefaultHandler;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -393,7 +393,7 @@ public class DashManifestParser extends DefaultHandler
       long timeShiftBufferDepthMs,
       boolean dvbProfileDeclared)
       throws XmlPullParserException, IOException {
-    int id = parseInt(xpp, "id", AdaptationSet.ID_UNSET);
+    long id = parseLong(xpp, "id", AdaptationSet.ID_UNSET);
     @C.TrackType int contentType = parseContentType(xpp);
 
     String mimeType = xpp.getAttributeValue(null, "mimeType");
@@ -532,7 +532,7 @@ public class DashManifestParser extends DefaultHandler
   }
 
   protected AdaptationSet buildAdaptationSet(
-      int id,
+      long id,
       @C.TrackType int contentType,
       List<Representation> representations,
       List<Descriptor> accessibilityDescriptors,
@@ -593,6 +593,11 @@ public class DashManifestParser extends DefaultHandler
             }
             data = PsshAtomUtil.buildPsshAtom(C.COMMON_PSSH_UUID, defaultKids, null);
             uuid = C.COMMON_PSSH_UUID;
+          } else {
+            Log.w(
+                TAG,
+                "Ignoring <ContentProtection> with schemeIdUri=\"urn:mpeg:dash:mp4protection:2011\""
+                    + " (ClearKey) due to missing required default_KID attribute.");
           }
           break;
         case "urn:uuid:9a04f079-9840-4286-ab92-e65be0885f95":
@@ -643,9 +648,11 @@ public class DashManifestParser extends DefaultHandler
   }
 
   /**
-   * Parses children of AdaptationSet elements not specifically parsed elsewhere.
+   * Parses a child of an {@link AdaptationSet} element.
    *
-   * @param xpp The XmpPullParser from which the AdaptationSet child should be parsed.
+   * <p>Called for child elements that are not specifically parsed elsewhere.
+   *
+   * @param xpp The {@link XmlPullParser} from which the child should be parsed.
    * @throws XmlPullParserException If an error occurs parsing the element.
    * @throws IOException If an error occurs reading the element.
    */
@@ -2015,6 +2022,8 @@ public class DashManifestParser extends DefaultHandler
         return 1;
       case "a000":
         return 2;
+      case "f800":
+        return 5;
       case "f801":
         return 6;
       case "fa01":

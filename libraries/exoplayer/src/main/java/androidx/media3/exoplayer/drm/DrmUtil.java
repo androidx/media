@@ -25,6 +25,7 @@ import android.media.DeniedByServerException;
 import android.media.MediaDrm;
 import android.media.MediaDrmResetException;
 import android.media.NotProvisionedException;
+import android.media.ResourceBusyException;
 import androidx.annotation.DoNotInline;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
@@ -57,8 +58,10 @@ public final class DrmUtil {
 
   /** Corresponds to failures caused by an {@link ExoMediaDrm} method call. */
   public static final int ERROR_SOURCE_EXO_MEDIA_DRM = 1;
+
   /** Corresponds to failures caused by an operation related to obtaining DRM licenses. */
   public static final int ERROR_SOURCE_LICENSE_ACQUISITION = 2;
+
   /** Corresponds to failures caused by an operation related to provisioning the device. */
   public static final int ERROR_SOURCE_PROVISIONING = 3;
 
@@ -73,14 +76,15 @@ public final class DrmUtil {
    *     exception.
    */
   public static @PlaybackException.ErrorCode int getErrorCodeForMediaDrmException(
-      Exception exception, @ErrorSource int errorSource) {
+      Throwable exception, @ErrorSource int errorSource) {
     if (Util.SDK_INT >= 21 && Api21.isMediaDrmStateException(exception)) {
       return Api21.mediaDrmStateExceptionToErrorCode(exception);
     } else if (Util.SDK_INT >= 23 && Api23.isMediaDrmResetException(exception)) {
       return PlaybackException.ERROR_CODE_DRM_SYSTEM_ERROR;
-    } else if (Util.SDK_INT >= 18 && Api18.isNotProvisionedException(exception)) {
+    } else if (exception instanceof NotProvisionedException
+        || isFailureToConstructNotProvisionedException(exception)) {
       return PlaybackException.ERROR_CODE_DRM_PROVISIONING_FAILED;
-    } else if (Util.SDK_INT >= 18 && Api18.isDeniedByServerException(exception)) {
+    } else if (exception instanceof DeniedByServerException) {
       return PlaybackException.ERROR_CODE_DRM_DEVICE_REVOKED;
     } else if (exception instanceof UnsupportedDrmException) {
       return PlaybackException.ERROR_CODE_DRM_SCHEME_UNSUPPORTED;
@@ -102,21 +106,29 @@ public final class DrmUtil {
     }
   }
 
-  // Internal classes.
-
-  @RequiresApi(18)
-  private static final class Api18 {
-
-    @DoNotInline
-    public static boolean isNotProvisionedException(@Nullable Throwable throwable) {
-      return throwable instanceof NotProvisionedException;
-    }
-
-    @DoNotInline
-    public static boolean isDeniedByServerException(@Nullable Throwable throwable) {
-      return throwable instanceof DeniedByServerException;
-    }
+  /**
+   * Returns true if {@code e} represents a failure to construct a {@link NotProvisionedException}.
+   * See b/291440132.
+   */
+  public static boolean isFailureToConstructNotProvisionedException(@Nullable Throwable e) {
+    return Util.SDK_INT == 34
+        && e instanceof NoSuchMethodError
+        && e.getMessage() != null
+        && e.getMessage().contains("Landroid/media/NotProvisionedException;.<init>(");
   }
+
+  /**
+   * Returns true if {@code e} represents a failure to construct a {@link ResourceBusyException}.
+   * See b/291440132.
+   */
+  public static boolean isFailureToConstructResourceBusyException(@Nullable Throwable e) {
+    return Util.SDK_INT == 34
+        && e instanceof NoSuchMethodError
+        && e.getMessage() != null
+        && e.getMessage().contains("Landroid/media/ResourceBusyException;.<init>(");
+  }
+
+  // Internal classes.
 
   @RequiresApi(21)
   private static final class Api21 {

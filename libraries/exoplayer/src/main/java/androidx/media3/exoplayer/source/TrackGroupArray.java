@@ -20,11 +20,12 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.Bundleable;
 import androidx.media3.common.C;
 import androidx.media3.common.TrackGroup;
-import androidx.media3.common.util.BundleableUtil;
+import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import java.util.List;
 
 /**
@@ -90,6 +91,11 @@ public final class TrackGroupArray implements Bundleable {
     return length == 0;
   }
 
+  /** Returns the {@link TrackGroup#type} of each track group in this array. */
+  public ImmutableList<@C.TrackType Integer> getTrackTypes() {
+    return ImmutableList.copyOf(Lists.transform(trackGroups, t -> t.type));
+  }
+
   @Override
   public int hashCode() {
     if (hashCode == 0) {
@@ -118,22 +124,30 @@ public final class TrackGroupArray implements Bundleable {
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
     bundle.putParcelableArrayList(
-        FIELD_TRACK_GROUPS, BundleableUtil.toBundleArrayList(trackGroups));
+        FIELD_TRACK_GROUPS,
+        BundleCollectionUtil.toBundleArrayList(trackGroups, TrackGroup::toBundle));
     return bundle;
   }
 
-  /** Object that can restores a TrackGroupArray from a {@link Bundle}. */
-  public static final Creator<TrackGroupArray> CREATOR =
-      bundle -> {
-        @Nullable
-        List<Bundle> trackGroupBundles = bundle.getParcelableArrayList(FIELD_TRACK_GROUPS);
-        if (trackGroupBundles == null) {
-          return new TrackGroupArray();
-        }
-        return new TrackGroupArray(
-            BundleableUtil.fromBundleList(TrackGroup.CREATOR, trackGroupBundles)
-                .toArray(new TrackGroup[0]));
-      };
+  /**
+   * Object that can restores a TrackGroupArray from a {@link Bundle}.
+   *
+   * @deprecated Use {@link #fromBundle} instead.
+   */
+  @Deprecated
+  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
+  public static final Creator<TrackGroupArray> CREATOR = TrackGroupArray::fromBundle;
+
+  /** Restores a {@code TrackGroupArray} from a {@link Bundle}. */
+  public static TrackGroupArray fromBundle(Bundle bundle) {
+    @Nullable List<Bundle> trackGroupBundles = bundle.getParcelableArrayList(FIELD_TRACK_GROUPS);
+    if (trackGroupBundles == null) {
+      return new TrackGroupArray();
+    }
+    return new TrackGroupArray(
+        BundleCollectionUtil.fromBundleList(TrackGroup::fromBundle, trackGroupBundles)
+            .toArray(new TrackGroup[0]));
+  }
 
   private void verifyCorrectness() {
     for (int i = 0; i < trackGroups.size(); i++) {

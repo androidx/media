@@ -18,8 +18,11 @@ package androidx.media3.exoplayer.util;
 import android.annotation.SuppressLint;
 import android.os.Looper;
 import android.widget.TextView;
+import androidx.annotation.Nullable;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.Player;
+import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.DecoderCounters;
@@ -125,6 +128,7 @@ public class DebugTextViewHelper {
   @UnstableApi
   protected String getVideoString() {
     Format format = player.getVideoFormat();
+    VideoSize videoSize = player.getVideoSize();
     DecoderCounters decoderCounters = player.getVideoDecoderCounters();
     if (format == null || decoderCounters == null) {
       return "";
@@ -134,10 +138,11 @@ public class DebugTextViewHelper {
         + "(id:"
         + format.id
         + " r:"
-        + format.width
+        + videoSize.width
         + "x"
-        + format.height
-        + getPixelAspectRatioString(format.pixelWidthHeightRatio)
+        + videoSize.height
+        + getColorInfoString(format.colorInfo)
+        + getPixelAspectRatioString(videoSize.pixelWidthHeightRatio)
         + getDecoderCountersBufferCountString(decoderCounters)
         + " vfpo: "
         + getVideoFrameProcessingOffsetAverageString(
@@ -183,6 +188,10 @@ public class DebugTextViewHelper {
         + counters.maxConsecutiveDroppedBufferCount
         + " dk:"
         + counters.droppedToKeyframeCount;
+  }
+
+  private static String getColorInfoString(@Nullable ColorInfo colorInfo) {
+    return colorInfo != null && colorInfo.isValid() ? " colr:" + colorInfo.toLogString() : "";
   }
 
   private static String getPixelAspectRatioString(float pixelAspectRatio) {

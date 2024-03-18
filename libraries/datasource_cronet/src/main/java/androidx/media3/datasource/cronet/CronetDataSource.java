@@ -93,6 +93,7 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
     private int requestPriority;
     private int connectTimeoutMs;
     private int readTimeoutMs;
+    private int readBufferSize;
     private boolean resetTimeoutOnRedirects;
     private boolean handleSetCookieRequests;
     private boolean keepPostFor302Redirects;
@@ -117,6 +118,7 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
       requestPriority = REQUEST_PRIORITY_MEDIUM;
       connectTimeoutMs = DEFAULT_CONNECT_TIMEOUT_MILLIS;
       readTimeoutMs = DEFAULT_READ_TIMEOUT_MILLIS;
+      readBufferSize = DEFAULT_READ_BUFFER_SIZE_BYTES;
     }
 
     /**
@@ -133,6 +135,7 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
      *     CronetEngineWrapper#getCronetEngine()} would have returned {@code null}.
      */
     @UnstableApi
+    @SuppressWarnings("deprecation") // Intentionally using deprecated parameter
     @Deprecated
     public Factory(CronetEngineWrapper cronetEngineWrapper, Executor executor) {
       this.cronetEngine = cronetEngineWrapper.getCronetEngine();
@@ -141,6 +144,7 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
       internalFallbackFactory = new DefaultHttpDataSource.Factory();
       connectTimeoutMs = DEFAULT_CONNECT_TIMEOUT_MILLIS;
       readTimeoutMs = DEFAULT_READ_TIMEOUT_MILLIS;
+      readBufferSize = DEFAULT_READ_BUFFER_SIZE_BYTES;
     }
 
     @CanIgnoreReturnValue
@@ -325,10 +329,24 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
      *     {@link CronetEngine} is not available. Use the fallback factory directly in such cases.
      */
     @CanIgnoreReturnValue
+    @SuppressWarnings("deprecation") // Intentionally referring to deprecated parameter
     @UnstableApi
     @Deprecated
     public Factory setFallbackFactory(@Nullable HttpDataSource.Factory fallbackFactory) {
       this.fallbackFactory = fallbackFactory;
+      return this;
+    }
+
+    /**
+     * Sets the read buffer size, in bytes.
+     *
+     * @param readBufferSize The read buffer size, in bytes.
+     * @return This factory.
+     */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    public Factory setReadBufferSize(int readBufferSize) {
+      this.readBufferSize = readBufferSize;
       return this;
     }
 
@@ -352,7 +370,8 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
               userAgent,
               defaultRequestProperties,
               contentTypePredicate,
-              keepPostFor302Redirects);
+              keepPostFor302Redirects,
+              readBufferSize);
       if (transferListener != null) {
         dataSource.addTransferListener(transferListener);
       }
@@ -415,13 +434,14 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
 
   /** The default connection timeout, in milliseconds. */
   @UnstableApi public static final int DEFAULT_CONNECT_TIMEOUT_MILLIS = 8 * 1000;
+
   /** The default read timeout, in milliseconds. */
   @UnstableApi public static final int DEFAULT_READ_TIMEOUT_MILLIS = 8 * 1000;
 
-  /* package */ final UrlRequest.Callback urlRequestCallback;
-
   // The size of read buffer passed to cronet UrlRequest.read().
-  private static final int READ_BUFFER_SIZE_BYTES = 32 * 1024;
+  private static final int DEFAULT_READ_BUFFER_SIZE_BYTES = 32 * 1024;
+
+  /* package */ final UrlRequest.Callback urlRequestCallback;
 
   private final CronetEngine cronetEngine;
   private final Executor executor;
@@ -435,6 +455,7 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
   private final RequestProperties requestProperties;
   private final ConditionVariable operation;
   private final Clock clock;
+  private final int readBufferSize;
 
   @Nullable private Predicate<String> contentTypePredicate;
   private final boolean keepPostFor302Redirects;
@@ -473,7 +494,8 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
       @Nullable String userAgent,
       @Nullable RequestProperties defaultRequestProperties,
       @Nullable Predicate<String> contentTypePredicate,
-      boolean keepPostFor302Redirects) {
+      boolean keepPostFor302Redirects,
+      int readBufferSize) {
     super(/* isNetwork= */ true);
     this.cronetEngine = Assertions.checkNotNull(cronetEngine);
     this.executor = Assertions.checkNotNull(executor);
@@ -487,6 +509,7 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
     this.contentTypePredicate = contentTypePredicate;
     this.keepPostFor302Redirects = keepPostFor302Redirects;
     clock = Clock.DEFAULT;
+    this.readBufferSize = readBufferSize;
     urlRequestCallback = new UrlRequestCallback();
     requestProperties = new RequestProperties();
     operation = new ConditionVariable();
@@ -1022,7 +1045,7 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
 
   private ByteBuffer getOrCreateReadBuffer() {
     if (readBuffer == null) {
-      readBuffer = ByteBuffer.allocateDirect(READ_BUFFER_SIZE_BYTES);
+      readBuffer = ByteBuffer.allocateDirect(readBufferSize);
       readBuffer.limit(0);
     }
     return readBuffer;

@@ -43,7 +43,7 @@ public final class PlaybackParameters implements Bundleable {
    *
    * @param speed The factor by which playback will be sped up. Must be greater than zero.
    */
-  public PlaybackParameters(float speed) {
+  public PlaybackParameters(@FloatRange(from = 0, fromInclusive = false) float speed) {
     this(speed, /* pitch= */ 1f);
   }
 
@@ -127,12 +127,22 @@ public final class PlaybackParameters implements Bundleable {
     return bundle;
   }
 
-  /** Object that can restore {@link PlaybackParameters} from a {@link Bundle}. */
+  /**
+   * Object that can restore {@link PlaybackParameters} from a {@link Bundle}.
+   *
+   * @deprecated Use {@link #fromBundle} instead.
+   */
   @UnstableApi
-  public static final Creator<PlaybackParameters> CREATOR =
-      bundle -> {
-        float speed = bundle.getFloat(FIELD_SPEED, /* defaultValue= */ 1f);
-        float pitch = bundle.getFloat(FIELD_PITCH, /* defaultValue= */ 1f);
-        return new PlaybackParameters(speed, pitch);
-      };
+  @Deprecated
+  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
+  public static final Creator<PlaybackParameters> CREATOR = PlaybackParameters::fromBundle;
+
+  /** Restores a {@code PlaybackParameters} from a {@link Bundle}. */
+  @UnstableApi
+  public static PlaybackParameters fromBundle(Bundle bundle) {
+    float speed = bundle.getFloat(FIELD_SPEED, /* defaultValue= */ 1f);
+    float pitch = bundle.getFloat(FIELD_PITCH, /* defaultValue= */ 1f);
+    return new PlaybackParameters(speed, pitch);
+  }
+  ;
 }

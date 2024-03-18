@@ -147,6 +147,7 @@ public final class Cea708Decoder extends CeaDecoder {
   private final ParsableByteArray ccData;
   private final ParsableBitArray captionChannelPacketData;
   private int previousSequenceNumber;
+
   // TODO: Use isWideAspectRatio in decoding.
   @SuppressWarnings({"unused", "FieldCanBeLocal"})
   private final boolean isWideAspectRatio;
@@ -161,6 +162,14 @@ public final class Cea708Decoder extends CeaDecoder {
   @Nullable private DtvCcPacket currentDtvCcPacket;
   private int currentWindow;
 
+  /**
+   * Constructs an instance.
+   *
+   * @param accessibilityChannel The accessibility channel, or {@link Format#NO_VALUE} if unknown.
+   * @param initializationData Optional initialization data for the decoder. If present, it must
+   *     conform to the structure created by {@link
+   *     CodecSpecificDataUtil#buildCea708InitializationData}.
+   */
   public Cea708Decoder(int accessibilityChannel, @Nullable List<byte[]> initializationData) {
     ccData = new ParsableByteArray();
     captionChannelPacketData = new ParsableBitArray();
@@ -1007,10 +1016,10 @@ public final class Cea708Decoder extends CeaDecoder {
     public void clear() {
       rolledUpCaptions.clear();
       captionStringBuilder.clear();
-      italicsStartPosition = C.POSITION_UNSET;
-      underlineStartPosition = C.POSITION_UNSET;
-      foregroundColorStartPosition = C.POSITION_UNSET;
-      backgroundColorStartPosition = C.POSITION_UNSET;
+      italicsStartPosition = C.INDEX_UNSET;
+      underlineStartPosition = C.INDEX_UNSET;
+      foregroundColorStartPosition = C.INDEX_UNSET;
+      backgroundColorStartPosition = C.INDEX_UNSET;
       row = 0;
     }
 
@@ -1122,27 +1131,27 @@ public final class Cea708Decoder extends CeaDecoder {
       // TODO: Add support for other offsets.
       // TODO: Add support for other pen sizes.
 
-      if (italicsStartPosition != C.POSITION_UNSET) {
+      if (italicsStartPosition != C.INDEX_UNSET) {
         if (!italicsToggle) {
           captionStringBuilder.setSpan(
               new StyleSpan(Typeface.ITALIC),
               italicsStartPosition,
               captionStringBuilder.length(),
               Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-          italicsStartPosition = C.POSITION_UNSET;
+          italicsStartPosition = C.INDEX_UNSET;
         }
       } else if (italicsToggle) {
         italicsStartPosition = captionStringBuilder.length();
       }
 
-      if (underlineStartPosition != C.POSITION_UNSET) {
+      if (underlineStartPosition != C.INDEX_UNSET) {
         if (!underlineToggle) {
           captionStringBuilder.setSpan(
               new UnderlineSpan(),
               underlineStartPosition,
               captionStringBuilder.length(),
               Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-          underlineStartPosition = C.POSITION_UNSET;
+          underlineStartPosition = C.INDEX_UNSET;
         }
       } else if (underlineToggle) {
         underlineStartPosition = captionStringBuilder.length();
@@ -1153,7 +1162,7 @@ public final class Cea708Decoder extends CeaDecoder {
     }
 
     public void setPenColor(int foregroundColor, int backgroundColor, int edgeColor) {
-      if (foregroundColorStartPosition != C.POSITION_UNSET) {
+      if (foregroundColorStartPosition != C.INDEX_UNSET) {
         if (this.foregroundColor != foregroundColor) {
           captionStringBuilder.setSpan(
               new ForegroundColorSpan(this.foregroundColor),
@@ -1167,7 +1176,7 @@ public final class Cea708Decoder extends CeaDecoder {
         this.foregroundColor = foregroundColor;
       }
 
-      if (backgroundColorStartPosition != C.POSITION_UNSET) {
+      if (backgroundColorStartPosition != C.INDEX_UNSET) {
         if (this.backgroundColor != backgroundColor) {
           captionStringBuilder.setSpan(
               new BackgroundColorSpan(this.backgroundColor),
@@ -1209,16 +1218,16 @@ public final class Cea708Decoder extends CeaDecoder {
         rolledUpCaptions.add(buildSpannableString());
         captionStringBuilder.clear();
 
-        if (italicsStartPosition != C.POSITION_UNSET) {
+        if (italicsStartPosition != C.INDEX_UNSET) {
           italicsStartPosition = 0;
         }
-        if (underlineStartPosition != C.POSITION_UNSET) {
+        if (underlineStartPosition != C.INDEX_UNSET) {
           underlineStartPosition = 0;
         }
-        if (foregroundColorStartPosition != C.POSITION_UNSET) {
+        if (foregroundColorStartPosition != C.INDEX_UNSET) {
           foregroundColorStartPosition = 0;
         }
-        if (backgroundColorStartPosition != C.POSITION_UNSET) {
+        if (backgroundColorStartPosition != C.INDEX_UNSET) {
           backgroundColorStartPosition = 0;
         }
 
@@ -1237,7 +1246,7 @@ public final class Cea708Decoder extends CeaDecoder {
       int length = spannableStringBuilder.length();
 
       if (length > 0) {
-        if (italicsStartPosition != C.POSITION_UNSET) {
+        if (italicsStartPosition != C.INDEX_UNSET) {
           spannableStringBuilder.setSpan(
               new StyleSpan(Typeface.ITALIC),
               italicsStartPosition,
@@ -1245,7 +1254,7 @@ public final class Cea708Decoder extends CeaDecoder {
               Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         }
 
-        if (underlineStartPosition != C.POSITION_UNSET) {
+        if (underlineStartPosition != C.INDEX_UNSET) {
           spannableStringBuilder.setSpan(
               new UnderlineSpan(),
               underlineStartPosition,
@@ -1253,7 +1262,7 @@ public final class Cea708Decoder extends CeaDecoder {
               Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         }
 
-        if (foregroundColorStartPosition != C.POSITION_UNSET) {
+        if (foregroundColorStartPosition != C.INDEX_UNSET) {
           spannableStringBuilder.setSpan(
               new ForegroundColorSpan(foregroundColor),
               foregroundColorStartPosition,
@@ -1261,7 +1270,7 @@ public final class Cea708Decoder extends CeaDecoder {
               Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         }
 
-        if (backgroundColorStartPosition != C.POSITION_UNSET) {
+        if (backgroundColorStartPosition != C.INDEX_UNSET) {
           spannableStringBuilder.setSpan(
               new BackgroundColorSpan(backgroundColor),
               backgroundColorStartPosition,

@@ -28,14 +28,19 @@ import android.os.SystemClock;
 import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.Assertions;
-import androidx.media3.common.util.BundleUtil;
+import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.InlineMe;
 import java.util.ArrayList;
 import java.util.List;
+import org.checkerframework.checker.nullness.qual.NonNull;
+
+// TODO: b/288080357 - Replace developer.android.com fully-qualified SVG URLs below with relative
+// URLs once we stop publishing exoplayer2 javadoc.
 
 /**
  * A flexible representation of the structure of media. A timeline is able to represent the
@@ -62,7 +67,7 @@ import java.util.List;
  * <h2 id="single-file">Single media file or on-demand stream</h2>
  *
  * <p style="align:center"><img
- * src="https://exoplayer.dev/doc/reference/com/google/android/exoplayer2/doc-files/timeline-single-file.svg"
+ * src="https://developer.android.com/static/images/reference/androidx/media3/common/timeline-single-file.svg"
  * alt="Example timeline for a single file">
  *
  * <p>A timeline for a single media file or on-demand stream consists of a single period and window.
@@ -73,7 +78,7 @@ import java.util.List;
  * <h2>Playlist of media files or on-demand streams</h2>
  *
  * <p style="align:center"><img
- * src="https://exoplayer.dev/doc/reference/com/google/android/exoplayer2/doc-files/timeline-playlist.svg"
+ * src="https://developer.android.com/static/images/reference/androidx/media3/common/timeline-playlist.svg"
  * alt="Example timeline for a playlist of files">
  *
  * <p>A timeline for a playlist of media files or on-demand streams consists of multiple periods,
@@ -85,7 +90,7 @@ import java.util.List;
  * <h2 id="live-limited">Live stream with limited availability</h2>
  *
  * <p style="align:center"><img
- * src="https://exoplayer.dev/doc/reference/com/google/android/exoplayer2/doc-files/timeline-live-limited.svg"
+ * src="https://developer.android.com/static/images/reference/androidx/media3/common/timeline-live-limited.svg"
  * alt="Example timeline for a live stream with limited availability">
  *
  * <p>A timeline for a live stream consists of a period whose duration is unknown, since it's
@@ -99,7 +104,7 @@ import java.util.List;
  * <h2>Live stream with indefinite availability</h2>
  *
  * <p style="align:center"><img
- * src="https://exoplayer.dev/doc/reference/com/google/android/exoplayer2/doc-files/timeline-live-indefinite.svg"
+ * src="https://developer.android.com/static/images/reference/androidx/media3/common/timeline-live-indefinite.svg"
  * alt="Example timeline for a live stream with indefinite availability">
  *
  * <p>A timeline for a live stream with indefinite availability is similar to the <a
@@ -110,7 +115,7 @@ import java.util.List;
  * <h2 id="live-multi-period">Live stream with multiple periods</h2>
  *
  * <p style="align:center"><img
- * src="https://exoplayer.dev/doc/reference/com/google/android/exoplayer2/doc-files/timeline-live-multi-period.svg"
+ * src="https://developer.android.com/static/images/reference/androidx/media3/common/timeline-live-multi-period.svg"
  * alt="Example timeline for a live stream with multiple periods">
  *
  * <p>This case arises when a live stream is explicitly divided into separate periods, for example
@@ -121,7 +126,7 @@ import java.util.List;
  * <h2>On-demand stream followed by live stream</h2>
  *
  * <p style="align:center"><img
- * src="https://exoplayer.dev/doc/reference/com/google/android/exoplayer2/doc-files/timeline-advanced.svg"
+ * src="https://developer.android.com/static/images/reference/androidx/media3/common/timeline-advanced.svg"
  * alt="Example timeline for an on-demand stream followed by a live stream">
  *
  * <p>This case is the concatenation of the <a href="#single-file">Single media file or on-demand
@@ -132,14 +137,12 @@ import java.util.List;
  * <h2 id="single-file-midrolls">On-demand stream with mid-roll ads</h2>
  *
  * <p style="align:center"><img
- * src="https://exoplayer.dev/doc/reference/com/google/android/exoplayer2/doc-files/timeline-single-file-midrolls.svg"
+ * src="https://developer.android.com/static/images/reference/androidx/media3/common/timeline-single-file-midrolls.svg"
  * alt="Example timeline for an on-demand stream with mid-roll ad groups">
  *
  * <p>This case includes mid-roll ad groups, which are defined as part of the timeline's single
  * period. The period can be queried for information about the ad groups and the ads they contain.
  */
-// TODO(b/276289331): Revert to media3-hosted SVG links above once they're available on
-// developer.android.com.
 public abstract class Timeline implements Bundleable {
 
   /**
@@ -149,8 +152,9 @@ public abstract class Timeline implements Bundleable {
    * shows some of the information defined by a window, as well as how this information relates to
    * corresponding {@link Period Periods} in the timeline.
    *
-   * <p style="align:center"><img src="doc-files/timeline-window.svg" alt="Information defined by a
-   * timeline window">
+   * <p style="align:center"><img
+   * src="https://developer.android.com/static/images/reference/androidx/media3/common/timeline-window.svg"
+   * alt="Information defined by a timeline window">
    */
   public static final class Window implements Bundleable {
 
@@ -498,14 +502,21 @@ public abstract class Timeline implements Bundleable {
      *
      * <p>The {@link #uid} of a restored instance will be a fake {@link Object} and the {@link
      * #manifest} of the instance will be {@code null}.
+     *
+     * @deprecated Use {@link #fromBundle} instead.
      */
-    @UnstableApi public static final Creator<Window> CREATOR = Window::fromBundle;
+    @UnstableApi
+    @Deprecated
+    @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
+    public static final Creator<Window> CREATOR = Window::fromBundle;
 
-    private static Window fromBundle(Bundle bundle) {
+    /** Restores a {@code Window} from a {@link Bundle}. */
+    @UnstableApi
+    public static Window fromBundle(Bundle bundle) {
       @Nullable Bundle mediaItemBundle = bundle.getBundle(FIELD_MEDIA_ITEM);
       @Nullable
       MediaItem mediaItem =
-          mediaItemBundle != null ? MediaItem.CREATOR.fromBundle(mediaItemBundle) : MediaItem.EMPTY;
+          mediaItemBundle != null ? MediaItem.fromBundle(mediaItemBundle) : MediaItem.EMPTY;
       long presentationStartTimeMs =
           bundle.getLong(FIELD_PRESENTATION_START_TIME_MS, /* defaultValue= */ C.TIME_UNSET);
       long windowStartTimeMs =
@@ -518,7 +529,7 @@ public abstract class Timeline implements Bundleable {
       @Nullable
       MediaItem.LiveConfiguration liveConfiguration =
           liveConfigurationBundle != null
-              ? MediaItem.LiveConfiguration.CREATOR.fromBundle(liveConfigurationBundle)
+              ? MediaItem.LiveConfiguration.fromBundle(liveConfigurationBundle)
               : null;
       boolean isPlaceHolder = bundle.getBoolean(FIELD_IS_PLACEHOLDER, /* defaultValue= */ false);
       long defaultPositionUs = bundle.getLong(FIELD_DEFAULT_POSITION_US, /* defaultValue= */ 0);
@@ -557,8 +568,9 @@ public abstract class Timeline implements Bundleable {
    * <p>The figure below shows some of the information defined by a period, as well as how this
    * information relates to a corresponding {@link Window} in the timeline.
    *
-   * <p style="align:center"><img src="doc-files/timeline-period.svg" alt="Information defined by a
-   * period">
+   * <p style="align:center"><img
+   * src="https://developer.android.com/static/images/reference/androidx/media3/common/timeline-period.svg"
+   * alt="Information defined by a period">
    */
   public static final class Period implements Bundleable {
 
@@ -835,6 +847,18 @@ public abstract class Timeline implements Bundleable {
     }
 
     /**
+     * Returns whether the ad group at the given ad group index is a live postroll placeholder.
+     *
+     * @param adGroupIndex The ad group index.
+     * @return True if the ad group at the given index is a live postroll placeholder.
+     */
+    @UnstableApi
+    public boolean isLivePostrollPlaceholder(int adGroupIndex) {
+      return adGroupIndex == getAdGroupCount() - 1
+          && adPlaybackState.isLivePostrollPlaceholder(adGroupIndex);
+    }
+
+    /**
      * Returns the position offset in the first unplayed ad at which to begin playback, in
      * microseconds.
      */
@@ -937,10 +961,17 @@ public abstract class Timeline implements Bundleable {
      * Object that can restore {@link Period} from a {@link Bundle}.
      *
      * <p>The {@link #id} and {@link #uid} of restored instances will always be {@code null}.
+     *
+     * @deprecated Use {@link #fromBundle} instead.
      */
-    @UnstableApi public static final Creator<Period> CREATOR = Period::fromBundle;
+    @UnstableApi
+    @Deprecated
+    @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
+    public static final Creator<Period> CREATOR = Period::fromBundle;
 
-    private static Period fromBundle(Bundle bundle) {
+    /** Restores a {@code Period} from a {@link Bundle}. */
+    @UnstableApi
+    public static Period fromBundle(Bundle bundle) {
       int windowIndex = bundle.getInt(FIELD_WINDOW_INDEX, /* defaultValue= */ 0);
       long durationUs = bundle.getLong(FIELD_DURATION_US, /* defaultValue= */ C.TIME_UNSET);
       long positionInWindowUs = bundle.getLong(FIELD_POSITION_IN_WINDOW_US, /* defaultValue= */ 0);
@@ -948,7 +979,7 @@ public abstract class Timeline implements Bundleable {
       @Nullable Bundle adPlaybackStateBundle = bundle.getBundle(FIELD_AD_PLAYBACK_STATE);
       AdPlaybackState adPlaybackState =
           adPlaybackStateBundle != null
-              ? AdPlaybackState.CREATOR.fromBundle(adPlaybackStateBundle)
+              ? AdPlaybackState.fromBundle(adPlaybackStateBundle)
               : AdPlaybackState.NONE;
 
       Period period = new Period();
@@ -1173,6 +1204,7 @@ public abstract class Timeline implements Bundleable {
       Window window, Period period, int windowIndex, long windowPositionUs) {
     return getPeriodPositionUs(window, period, windowIndex, windowPositionUs);
   }
+
   /**
    * @deprecated Use {@link #getPeriodPositionUs(Window, Period, int, long, long)} instead.
    */
@@ -1420,43 +1452,36 @@ public abstract class Timeline implements Bundleable {
     }
 
     Bundle bundle = new Bundle();
-    BundleUtil.putBinder(bundle, FIELD_WINDOWS, new BundleListRetriever(windowBundles));
-    BundleUtil.putBinder(bundle, FIELD_PERIODS, new BundleListRetriever(periodBundles));
+    bundle.putBinder(FIELD_WINDOWS, new BundleListRetriever(windowBundles));
+    bundle.putBinder(FIELD_PERIODS, new BundleListRetriever(periodBundles));
     bundle.putIntArray(FIELD_SHUFFLED_WINDOW_INDICES, shuffledWindowIndices);
     return bundle;
   }
 
   /**
-   * Returns a {@link Bundle} containing just the specified {@link Window}.
+   * Returns a copy of this timeline containing just the single specified {@link Window}.
    *
-   * <p>The {@link #getWindow(int, Window)} windows} and {@link #getPeriod(int, Period) periods} of
-   * an instance restored by {@link #CREATOR} may have missing fields as described in {@link
-   * Window#toBundle()} and {@link Period#toBundle()}.
+   * <p>The method returns the same instance if there is only one window.
    *
-   * @param windowIndex The index of the {@link Window} to include in the {@link Bundle}.
+   * @param windowIndex The index of the {@link Window} to include in the copy.
+   * @return A {@link Timeline} with just the single specified {@link Window}.
    */
   @UnstableApi
-  public final Bundle toBundleWithOneWindowOnly(int windowIndex) {
-    Window window = getWindow(windowIndex, new Window(), /* defaultPositionProjectionUs= */ 0);
-
-    List<Bundle> periodBundles = new ArrayList<>();
-    Period period = new Period();
-    for (int i = window.firstPeriodIndex; i <= window.lastPeriodIndex; i++) {
-      getPeriod(i, period, /* setIds= */ false);
-      period.windowIndex = 0;
-      periodBundles.add(period.toBundle());
+  public final Timeline copyWithSingleWindow(int windowIndex) {
+    if (getWindowCount() == 1) {
+      return this;
     }
-
+    Window window = getWindow(windowIndex, new Window(), /* defaultPositionProjectionUs= */ 0);
+    ImmutableList.Builder<Period> periods = ImmutableList.builder();
+    for (int i = window.firstPeriodIndex; i <= window.lastPeriodIndex; i++) {
+      Period period = getPeriod(i, new Period(), /* setIds= */ true);
+      period.windowIndex = 0;
+      periods.add(period);
+    }
     window.lastPeriodIndex = window.lastPeriodIndex - window.firstPeriodIndex;
     window.firstPeriodIndex = 0;
-    Bundle windowBundle = window.toBundle();
-
-    Bundle bundle = new Bundle();
-    BundleUtil.putBinder(
-        bundle, FIELD_WINDOWS, new BundleListRetriever(ImmutableList.of(windowBundle)));
-    BundleUtil.putBinder(bundle, FIELD_PERIODS, new BundleListRetriever(periodBundles));
-    bundle.putIntArray(FIELD_SHUFFLED_WINDOW_INDICES, new int[] {0});
-    return bundle;
+    return new RemotableTimeline(
+        ImmutableList.of(window), periods.build(), /* shuffledWindowIndices= */ new int[] {0});
   }
 
   /**
@@ -1465,14 +1490,21 @@ public abstract class Timeline implements Bundleable {
    * <p>The {@link #getWindow(int, Window)} windows} and {@link #getPeriod(int, Period) periods} of
    * a restored instance may have missing fields as described in {@link Window#CREATOR} and {@link
    * Period#CREATOR}.
+   *
+   * @deprecated Use {@link #fromBundle} instead.
    */
-  @UnstableApi public static final Creator<Timeline> CREATOR = Timeline::fromBundle;
+  @UnstableApi
+  @Deprecated
+  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
+  public static final Creator<Timeline> CREATOR = Timeline::fromBundle;
 
-  private static Timeline fromBundle(Bundle bundle) {
+  /** Restores a {@code Timeline} from a {@link Bundle}. */
+  @UnstableApi
+  public static Timeline fromBundle(Bundle bundle) {
     ImmutableList<Window> windows =
-        fromBundleListRetriever(Window.CREATOR, BundleUtil.getBinder(bundle, FIELD_WINDOWS));
+        fromBundleListRetriever(Window::fromBundle, bundle.getBinder(FIELD_WINDOWS));
     ImmutableList<Period> periods =
-        fromBundleListRetriever(Period.CREATOR, BundleUtil.getBinder(bundle, FIELD_PERIODS));
+        fromBundleListRetriever(Period::fromBundle, bundle.getBinder(FIELD_PERIODS));
     @Nullable int[] shuffledWindowIndices = bundle.getIntArray(FIELD_SHUFFLED_WINDOW_INDICES);
     return new RemotableTimeline(
         windows,
@@ -1482,17 +1514,12 @@ public abstract class Timeline implements Bundleable {
             : shuffledWindowIndices);
   }
 
-  private static <T extends Bundleable> ImmutableList<T> fromBundleListRetriever(
-      Creator<T> creator, @Nullable IBinder binder) {
+  private static <T extends @NonNull Object> ImmutableList<T> fromBundleListRetriever(
+      Function<Bundle, T> fromBundleFunc, @Nullable IBinder binder) {
     if (binder == null) {
       return ImmutableList.of();
     }
-    ImmutableList.Builder<T> builder = new ImmutableList.Builder<>();
-    List<Bundle> bundleList = BundleListRetriever.getList(binder);
-    for (int i = 0; i < bundleList.size(); i++) {
-      builder.add(creator.fromBundle(bundleList.get(i)));
-    }
-    return builder.build();
+    return BundleCollectionUtil.fromBundleList(fromBundleFunc, BundleListRetriever.getList(binder));
   }
 
   private static int[] generateUnshuffledIndices(int n) {

@@ -20,7 +20,7 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 import android.os.Bundle;
 import androidx.annotation.CheckResult;
 import androidx.annotation.Nullable;
-import androidx.media3.common.util.BundleableUtil;
+import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -54,8 +54,10 @@ public final class TrackGroup implements Bundleable {
 
   /** The number of tracks in the group. */
   @UnstableApi public final int length;
+
   /** An identifier for the track group. */
   @UnstableApi public final String id;
+
   /** The type of tracks in the group. */
   @UnstableApi public final @C.TrackType int type;
 
@@ -176,18 +178,27 @@ public final class TrackGroup implements Bundleable {
     return bundle;
   }
 
-  /** Object that can restore {@code TrackGroup} from a {@link Bundle}. */
+  /**
+   * Object that can restore {@code TrackGroup} from a {@link Bundle}.
+   *
+   * @deprecated Use {@link #fromBundle} instead.
+   */
   @UnstableApi
-  public static final Creator<TrackGroup> CREATOR =
-      bundle -> {
-        @Nullable List<Bundle> formatBundles = bundle.getParcelableArrayList(FIELD_FORMATS);
-        List<Format> formats =
-            formatBundles == null
-                ? ImmutableList.of()
-                : BundleableUtil.fromBundleList(Format.CREATOR, formatBundles);
-        String id = bundle.getString(FIELD_ID, /* defaultValue= */ "");
-        return new TrackGroup(id, formats.toArray(new Format[0]));
-      };
+  @Deprecated
+  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
+  public static final Creator<TrackGroup> CREATOR = TrackGroup::fromBundle;
+
+  /** Restores a {@code TrackGroup} from a {@link Bundle}. */
+  @UnstableApi
+  public static TrackGroup fromBundle(Bundle bundle) {
+    @Nullable List<Bundle> formatBundles = bundle.getParcelableArrayList(FIELD_FORMATS);
+    List<Format> formats =
+        formatBundles == null
+            ? ImmutableList.of()
+            : BundleCollectionUtil.fromBundleList(Format::fromBundle, formatBundles);
+    String id = bundle.getString(FIELD_ID, /* defaultValue= */ "");
+    return new TrackGroup(id, formats.toArray(new Format[0]));
+  }
 
   private void verifyCorrectness() {
     // TrackGroups should only contain tracks with exactly the same content (but in different

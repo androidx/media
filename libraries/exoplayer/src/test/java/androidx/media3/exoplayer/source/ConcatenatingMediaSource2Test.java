@@ -41,11 +41,14 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.util.EventLogger;
 import androidx.media3.test.utils.FakeMediaSource;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
+import androidx.media3.test.utils.TestUtil;
+import androidx.media3.test.utils.robolectric.RobolectricUtil;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
@@ -104,6 +107,68 @@ public final class ConcatenatingMediaSource2Test {
                         /* isSeekable= */ true,
                         /* isDynamic= */ false,
                         /* durationMs= */ 1800))),
+            /* expectedAdDiscontinuities= */ 3,
+            new ExpectedTimelineData(
+                    /* isSeekable= */ false,
+                    /* isDynamic= */ false,
+                    /* defaultPositionMs= */ 123,
+                    /* periodDurationsMs= */ new long[] {550, 500, 1250, 1250, 500, 600, 600, 600},
+                    /* periodOffsetsInWindowMs= */ new long[] {
+                      -50, 500, 1000, 2250, 3500, 4000, 4600, 5200
+                    },
+                    /* periodIsPlaceholder= */ new boolean[] {
+                      false, false, false, false, false, false, false, false
+                    },
+                    /* windowDurationMs= */ 5800,
+                    /* manifest= */ null)
+                .withAdPlaybackState(/* periodIndex= */ 4, adPlaybackState)));
+
+    // Second full example with additional offsets in all other windows (including multiple windows
+    // per source and a single last period with an offset).
+    builder.add(
+        new TestConfig(
+            "offset_in_multiple_windows_and_ads",
+            buildConcatenatingMediaSource(
+                buildMediaSource(
+                    buildWindow(
+                        /* periodCount= */ 2,
+                        /* isSeekable= */ true,
+                        /* isDynamic= */ false,
+                        /* durationMs= */ 1000,
+                        /* defaultPositionMs= */ 123,
+                        /* windowOffsetInFirstPeriodMs= */ 50),
+                    buildWindow(
+                        /* periodCount= */ 2,
+                        /* isSeekable= */ false,
+                        /* isDynamic= */ false,
+                        /* durationMs= */ 2500,
+                        /* defaultPositionMs= */ 234,
+                        /* windowOffsetInFirstPeriodMs= */ 300)),
+                buildMediaSource(
+                    buildWindow(
+                        /* periodCount= */ 1,
+                        /* isSeekable= */ true,
+                        /* isDynamic= */ false,
+                        /* durationMs= */ 500,
+                        /* defaultPositionMs= */ 234,
+                        /* windowOffsetInFirstPeriodMs= */ 100,
+                        adPlaybackState)),
+                buildMediaSource(
+                    buildWindow(
+                        /* periodCount= */ 2,
+                        /* isSeekable= */ true,
+                        /* isDynamic= */ false,
+                        /* durationMs= */ 1200,
+                        /* defaultPositionMs= */ 234,
+                        /* windowOffsetInFirstPeriodMs= */ 250)),
+                buildMediaSource(
+                    buildWindow(
+                        /* periodCount= */ 1,
+                        /* isSeekable= */ true,
+                        /* isDynamic= */ false,
+                        /* durationMs= */ 600,
+                        /* defaultPositionMs= */ 234,
+                        /* windowOffsetInFirstPeriodMs= */ 200))),
             /* expectedAdDiscontinuities= */ 3,
             new ExpectedTimelineData(
                     /* isSeekable= */ false,
@@ -691,6 +756,38 @@ public final class ConcatenatingMediaSource2Test {
     }
   }
 
+  @Test
+  public void canUpdateMediaItem_withFieldsChanged_returnsTrue() {
+    MediaItem updatedMediaItem =
+        TestUtil.buildFullyCustomizedMediaItem().buildUpon().setUri("http://test.test").build();
+    MediaSource mediaSource = config.mediaSourceSupplier.get();
+
+    boolean canUpdateMediaItem = mediaSource.canUpdateMediaItem(updatedMediaItem);
+
+    assertThat(canUpdateMediaItem).isTrue();
+  }
+
+  @Test
+  public void updateMediaItem_createsTimelineWithUpdatedItem() throws Exception {
+    MediaItem updatedMediaItem = new MediaItem.Builder().setUri("http://test.test").build();
+    MediaSource mediaSource = config.mediaSourceSupplier.get();
+    AtomicReference<Timeline> timelineReference = new AtomicReference<>();
+
+    mediaSource.updateMediaItem(updatedMediaItem);
+    mediaSource.prepareSource(
+        (source, timeline) -> timelineReference.set(timeline),
+        /* mediaTransferListener= */ null,
+        PlayerId.UNSET);
+    RobolectricUtil.runMainLooperUntil(() -> timelineReference.get() != null);
+
+    assertThat(
+            timelineReference
+                .get()
+                .getWindow(/* windowIndex= */ 0, new Timeline.Window())
+                .mediaItem)
+        .isEqualTo(updatedMediaItem);
+  }
+
   private static void blockingPrepareMediaPeriod(MediaPeriod mediaPeriod) {
     ConditionVariable mediaPeriodPrepared = new ConditionVariable();
     mediaPeriod.prepare(
@@ -702,7 +799,7 @@ public final class ConcatenatingMediaSource2Test {
 
           @Override
           public void onContinueLoadingRequested(MediaPeriod source) {
-            mediaPeriod.continueLoading(/* positionUs= */ 0);
+            mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
           }
         },
         /* positionUs= */ 0);
