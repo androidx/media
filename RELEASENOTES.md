@@ -37,6 +37,9 @@
         tunneling even if the device does not do this automatically as required
         by the API ([#1169](https://github.com/androidx/media/issues/1169)).
         ([#966](https://github.com/androidx/media/issues/966)).
+    *   Fix issue where HDR color info handling causes codec mishavior and
+        prevents adaptive format switches for SDR video tracks
+        ([#1158](https://github.com/androidx/media/issues/1158)).
 *   Text:
     *   WebVTT: Prevent directly consecutive cues from creating spurious
         additional `CuesWithTiming` instances from `WebvttParser.parse`
