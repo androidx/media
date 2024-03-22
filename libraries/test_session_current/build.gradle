@@ -18,6 +18,7 @@ group 'androidx.media3'
 
 android {
     namespace 'androidx.media3.test.session'
+    testNamespace 'androidx.media3.test.session.test'
 
     compileSdkVersion project.ext.compileSdkVersion
 

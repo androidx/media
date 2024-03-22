@@ -17,6 +17,7 @@ android.buildTypes.debug.testCoverageEnabled true
 
 android {
     namespace 'androidx.media3.ui'
+    testNamespace 'androidx.media3.ui.test'
 
     lint {
         baseline = file("lint-baseline.xml")

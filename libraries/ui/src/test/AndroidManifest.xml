@@ -15,6 +15,6 @@
   ~ limitations under the License.
   -->
 
-<manifest package="androidx.media3.ui.test">
+<manifest>
   <uses-sdk/>
 </manifest>

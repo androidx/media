@@ -16,6 +16,7 @@ apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 
 android {
     namespace 'androidx.media3.test.utils.robolectric'
+    testNamespace 'androidx.media3.test.utils.robolectric.test'
 
     publishing {
         singleVariant('release') {

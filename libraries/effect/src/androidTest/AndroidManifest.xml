@@ -15,8 +15,7 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    package="androidx.media3.effect.test">
+    xmlns:tools="http://schemas.android.com/tools">
 
   <uses-sdk/>
 

@@ -26,6 +26,7 @@ rootProject.allprojects.forEach {
 
 android {
     namespace 'androidx.media3.common'
+    testNamespace 'androidx.media3.common.test'
 
     buildTypes {
         debug {
