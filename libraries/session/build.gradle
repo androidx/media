@@ -13,9 +13,6 @@
 // limitations under the License.
 apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 
-// TODO(b/178560255): Remove the "group" override after the "group" in build.gradle changed
-group 'androidx.media3'
-
 android {
     namespace 'androidx.media3.session'
 
