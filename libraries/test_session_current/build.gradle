@@ -14,9 +14,6 @@
 apply from: "$gradle.ext.androidxMediaSettingsDir/constants.gradle"
 apply plugin: 'com.android.application'
 
-// TODO(b/178560255): Remove the "group" override after the "group" in build.gradle changed
-group 'androidx.media3'
-
 android {
     namespace 'androidx.media3.test.session'
 
