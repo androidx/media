@@ -90,6 +90,9 @@
         available.
     *   Add icon constants for `CommandButton` that should be used instead of
         custom icon resources.
+    *   Fix issue where `MediaMetadata` with just non-null `extras` is not
+        transmitted between media controllers and sessions
+        ([#1176](https://github.com/androidx/media/issues/1176)).
 *   UI:
     *   Fallback to include audio track language name if `Locale` cannot
         identify a display name
