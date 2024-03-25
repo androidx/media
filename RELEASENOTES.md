@@ -55,6 +55,9 @@
     *   Fix issue where the current position jumps back when the controller
         replaces the current item
         ([#951](https://github.com/androidx/media/issues/951)).
+    *   Fix issue where `MediaMetadata` with just non-null `extras` is not
+        transmitted between media controllers and sessions
+        ([#1176](https://github.com/androidx/media/issues/1176)).
 * UI:
     *   Fallback to include audio track language name if `Locale` cannot
         identify a display name
