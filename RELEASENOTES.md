@@ -39,6 +39,7 @@
     *   Relax trim optimization H.264 level checks.
     *   Add support for changing between SDR and HDR input media in a sequence.
     *   Add support for composition-level audio effects.
+    *   Add support for transcoding Ultra HDR images into HDR videos.
 *   Track Selection:
     *   `DefaultTrackSelector`: Prefer video tracks with a 'reasonable' frame
         rate (>=10fps) over those with a lower or unset frame rate. This ensures

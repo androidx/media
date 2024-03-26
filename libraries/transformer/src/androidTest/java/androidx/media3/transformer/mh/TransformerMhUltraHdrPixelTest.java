@@ -22,11 +22,15 @@ import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePix
 import static androidx.media3.test.utils.BitmapPixelTestUtil.maybeSaveTestBitmap;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_1080P_5_SECOND_HLG10;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT;
 import static androidx.media3.transformer.AndroidTestUtil.ULTRA_HDR_URI_STRING;
 import static androidx.media3.transformer.AndroidTestUtil.extractBitmapsFromVideo;
 import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
+import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
 import static androidx.media3.transformer.SequenceEffectTestUtil.NO_EFFECT;
+import static androidx.media3.transformer.SequenceEffectTestUtil.clippedVideo;
+import static androidx.media3.transformer.SequenceEffectTestUtil.createComposition;
 import static androidx.media3.transformer.SequenceEffectTestUtil.oneFrameFromImage;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
@@ -63,6 +67,7 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public final class TransformerMhUltraHdrPixelTest {
 
+  private static final int ONE_FRAME_END_POSITION_MS = 30;
   private static final String PNG_ASSET_BASE_PATH =
       "test-generated-goldens/TransformerUltraHdrPixelTest";
 
@@ -77,10 +82,12 @@ public final class TransformerMhUltraHdrPixelTest {
   }
 
   @Test
-  public void exportUltraHdrImage_withUltraHdrEnabledOnSupportedDevice_succeeds() throws Exception {
+  public void exportUltraHdrImage_withUltraHdrEnabledOnSupportedDevice_exportsHdr()
+      throws Exception {
     assumeDeviceSupportsUltraHdrEditing();
     Composition composition =
-        createUltraHdrComposition(oneFrameFromImage(ULTRA_HDR_URI_STRING, NO_EFFECT));
+        createUltraHdrComposition(
+            /* tonemap= */ false, oneFrameFromImage(ULTRA_HDR_URI_STRING, NO_EFFECT));
 
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
@@ -94,6 +101,70 @@ public final class TransformerMhUltraHdrPixelTest {
     assertThat(colorInfo.colorTransfer).isEqualTo(C.COLOR_TRANSFER_HLG);
     assertFp16BitmapsMatchExpectedAndSave(
         extractBitmapsFromVideo(context, result.filePath, Config.RGBA_F16), testId);
+  }
+
+  @Test
+  public void exportHdrVideoThenUltraHdrImage_exportsHdr() throws Exception {
+    assumeDeviceSupportsUltraHdrEditing();
+    Composition composition =
+        createComposition(
+            /* presentation= */ null,
+            clippedVideo(MP4_ASSET_1080P_5_SECOND_HLG10, NO_EFFECT, ONE_FRAME_END_POSITION_MS),
+            oneFrameFromImage(ULTRA_HDR_URI_STRING, NO_EFFECT));
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
+            .build()
+            .run(testId, composition);
+
+    assertThat(result.filePath).isNotNull();
+    ColorInfo colorInfo =
+        retrieveTrackFormat(context, result.filePath, C.TRACK_TYPE_VIDEO).colorInfo;
+    assertThat(colorInfo.colorSpace).isEqualTo(C.COLOR_SPACE_BT2020);
+    assertThat(colorInfo.colorTransfer).isEqualTo(C.COLOR_TRANSFER_HLG);
+    assertFp16BitmapsMatchExpectedAndSave(
+        extractBitmapsFromVideo(context, result.filePath, Config.RGBA_F16), testId);
+  }
+
+  @Test
+  public void exportUltraHdrImageThenHdrVideo_exportsHdr() throws Exception {
+    assumeDeviceSupportsUltraHdrEditing();
+    Composition composition =
+        createComposition(
+            /* presentation= */ null,
+            oneFrameFromImage(ULTRA_HDR_URI_STRING, NO_EFFECT),
+            clippedVideo(MP4_ASSET_1080P_5_SECOND_HLG10, NO_EFFECT, ONE_FRAME_END_POSITION_MS));
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
+            .build()
+            .run(testId, composition);
+
+    assertThat(result.filePath).isNotNull();
+    ColorInfo colorInfo =
+        retrieveTrackFormat(context, result.filePath, C.TRACK_TYPE_VIDEO).colorInfo;
+    assertThat(colorInfo.colorSpace).isEqualTo(C.COLOR_SPACE_BT2020);
+    assertThat(colorInfo.colorTransfer).isEqualTo(C.COLOR_TRANSFER_HLG);
+  }
+
+  @Test
+  public void exportTonemappedHdrVideoThenUltraHdrImage_exportsSdr() throws Exception {
+    Composition composition =
+        createUltraHdrComposition(
+            /* tonemap= */ true,
+            clippedVideo(MP4_ASSET_1080P_5_SECOND_HLG10, NO_EFFECT, ONE_FRAME_END_POSITION_MS),
+            oneFrameFromImage(ULTRA_HDR_URI_STRING, NO_EFFECT));
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
+            .build()
+            .run(testId, composition);
+
+    assertThat(result.filePath).isNotNull();
+    ColorInfo colorInfo =
+        retrieveTrackFormat(context, result.filePath, C.TRACK_TYPE_VIDEO).colorInfo;
+    assertThat(colorInfo.colorSpace).isEqualTo(C.COLOR_SPACE_BT709);
+    assertThat(colorInfo.colorTransfer).isEqualTo(C.COLOR_TRANSFER_SDR);
   }
 
   @RequiresApi(29) // getBitmapAveragePixelAbsoluteDifferenceFp16()
@@ -117,6 +188,17 @@ public final class TransformerMhUltraHdrPixelTest {
     }
   }
 
+  private static Composition createUltraHdrComposition(
+      boolean tonemap, EditedMediaItem editedMediaItem, EditedMediaItem... editedMediaItems) {
+    Composition.Builder builder =
+        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem, editedMediaItems))
+            .experimentalSetRetainHdrFromUltraHdrImage(true);
+    if (tonemap) {
+      builder.setHdrMode(HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL);
+    }
+    return builder.build();
+  }
+
   private void assumeDeviceSupportsUltraHdrEditing()
       throws JSONException, IOException, DecoderQueryException {
     if (Util.SDK_INT < 34) {
@@ -129,13 +211,5 @@ public final class TransformerMhUltraHdrPixelTest {
         testId,
         /* inputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT,
         /* outputFormat= */ null);
-  }
-
-  private static Composition createUltraHdrComposition(
-      EditedMediaItem editedMediaItem, EditedMediaItem... editedMediaItems) {
-    Composition.Builder builder =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem, editedMediaItems))
-            .experimentalSetRetainHdrFromUltraHdrImage(true);
-    return builder.build();
   }
 }
