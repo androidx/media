@@ -29,14 +29,14 @@ import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.ParserException;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.datasource.DataSourceUtil;
+import androidx.media3.datasource.BitmapUtil;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.decoder.SimpleDecoder;
 import androidx.media3.exoplayer.RendererCapabilities;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Objects;
 
 /**
  * An image decoder that uses {@link BitmapFactory} to decode images.
@@ -159,20 +159,17 @@ public final class BitmapFactoryImageDecoder
    */
   private static Bitmap decode(byte[] data, int length) throws ImageDecoderException {
     try {
-      return DataSourceUtil.decode(data, length, /* options= */ null);
+      return BitmapUtil.decode(data, length, /* options= */ null);
+    } catch (ParserException e) {
+      throw new ImageDecoderException(
+          "Could not decode image data with BitmapFactory. (data.length = "
+              + data.length
+              + ", input length = "
+              + length
+              + ")",
+          e);
     } catch (IOException e) {
       throw new ImageDecoderException(e);
-    } catch (IllegalArgumentException e) {
-      if (Objects.equals(e.getMessage(), DataSourceUtil.BITMAP_DECODING_EXCEPTION_MESSAGE)) {
-        throw new ImageDecoderException(
-            "Could not decode image data with BitmapFactory. (data.length = "
-                + data.length
-                + ", input length = "
-                + length
-                + ")");
-      } else {
-        throw e;
-      }
     }
   }
 }
