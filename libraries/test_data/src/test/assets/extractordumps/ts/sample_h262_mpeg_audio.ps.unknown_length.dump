@@ -13,19 +13,19 @@ track 192:
     channelCount = 1
     sampleRate = 44100
   sample 0:
-    time = 29088
+    time = 29089
     flags = 1
     data = length 417, hash 5C710F78
   sample 1:
-    time = 55210
+    time = 55211
     flags = 1
     data = length 418, hash 79CF71F8
   sample 2:
-    time = 81332
+    time = 81333
     flags = 1
     data = length 418, hash 79CF71F8
   sample 3:
-    time = 107454
+    time = 107455
     flags = 1
     data = length 418, hash 79CF71F8
 track 224:
