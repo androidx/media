@@ -26,6 +26,8 @@
 *   Extractors:
     *   Fix issue where padding was not skipped when reading odd-sized chunks
         from WAV files ([#1117](https://github.com/androidx/media/pull/1117)).
+    *   MP3: Populate `Format.averageBitrate` from metadata frames such as
+        `XING` and `VBRI`.
 * Audio:
     *   Allow renderer recovery by disabling offload if audio track fails to
         initialize in offload mode.
