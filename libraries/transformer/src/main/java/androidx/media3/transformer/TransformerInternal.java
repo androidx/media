@@ -55,11 +55,13 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
+import androidx.media3.common.util.Util;
 import androidx.media3.transformer.AssetLoader.CompositionSettings;
 import com.google.common.collect.ImmutableList;
 import java.lang.annotation.Documented;
@@ -201,6 +203,19 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.clock = clock;
     this.videoSampleTimestampOffsetUs = videoSampleTimestampOffsetUs;
     this.muxerWrapper = muxerWrapper;
+
+    // It's safe to use "this" because the reference won't change.
+    @SuppressWarnings("nullness:argument.type.incompatible")
+    String referenceName = Integer.toHexString(System.identityHashCode(this));
+    Log.i(
+        TAG,
+        "Init "
+            + referenceName
+            + " ["
+            + MediaLibraryInfo.VERSION_SLASHY
+            + "] ["
+            + Util.DEVICE_DEBUG_INFO
+            + "]");
     internalHandlerThread = new HandlerThread("Transformer:Internal");
     internalHandlerThread.start();
     sequenceAssetLoaders = new ArrayList<>();
@@ -382,6 +397,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         progressValue = 0;
       }
 
+      Log.i(
+          TAG,
+          "Release "
+              + Integer.toHexString(System.identityHashCode(this))
+              + " ["
+              + MediaLibraryInfo.VERSION_SLASHY
+              + "] ["
+              + Util.DEVICE_DEBUG_INFO
+              + "] ["
+              + MediaLibraryInfo.registeredModules()
+              + "]");
       // VideoSampleExporter can hold buffers from the asset loader's decoder in a surface texture,
       // so we release the VideoSampleExporter first to avoid releasing the codec while its buffers
       // are pending processing.
