@@ -238,7 +238,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               sequence,
               composition.forceAudioTrack,
               assetLoaderFactory,
-              new CompositionSettings(transformationRequest.hdrMode),
+              new CompositionSettings(
+                  transformationRequest.hdrMode, composition.retainHdrFromUltraHdrImage),
               sequenceAssetLoaderListener,
               clock,
               internalLooper));
@@ -689,17 +690,23 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 muxerWrapper,
                 fallbackListener));
       } else {
-        ColorInfo decoderOutputColor;
+        Format firstFormat;
         if (MimeTypes.isVideo(assetLoaderOutputFormat.sampleMimeType)) {
           // TODO(b/267301878): Pass firstAssetLoaderOutputFormat once surface creation not in VSP.
           boolean isMediaCodecToneMappingRequested =
               transformationRequest.hdrMode == HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC;
-          decoderOutputColor =
+          ColorInfo decoderOutputColor =
               getDecoderOutputColor(
                   getValidColor(firstAssetLoaderInputFormat.colorInfo),
                   isMediaCodecToneMappingRequested);
+          firstFormat =
+              firstAssetLoaderInputFormat.buildUpon().setColorInfo(decoderOutputColor).build();
         } else if (MimeTypes.isImage(assetLoaderOutputFormat.sampleMimeType)) {
-          decoderOutputColor = getValidColor(assetLoaderOutputFormat.colorInfo);
+          firstFormat =
+              firstAssetLoaderInputFormat
+                  .buildUpon()
+                  .setColorInfo(getValidColor(assetLoaderOutputFormat.colorInfo))
+                  .build();
         } else {
           throw ExportException.createForUnexpected(
               new IllegalArgumentException(
@@ -710,7 +717,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             C.TRACK_TYPE_VIDEO,
             new VideoSampleExporter(
                 context,
-                firstAssetLoaderInputFormat.buildUpon().setColorInfo(decoderOutputColor).build(),
+                firstFormat,
                 transformationRequest,
                 composition.videoCompositorSettings,
                 composition.effects.videoEffects,
