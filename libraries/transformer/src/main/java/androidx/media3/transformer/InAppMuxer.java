@@ -65,7 +65,7 @@ public final class InAppMuxer implements Muxer {
     /** A builder for {@link Factory} instances. */
     public static final class Builder {
       private @Nullable MetadataProvider metadataProvider;
-      private boolean fragmentedMp4Enabled;
+      private boolean outputFragmentedMp4;
       private int fragmentDurationUs;
 
       /** Creates a {@link Builder} instance with default values. */
@@ -87,15 +87,15 @@ public final class InAppMuxer implements Muxer {
         return this;
       }
 
-      /** Sets whether to produce a fragmented MP4. */
+      /** Sets whether to output a fragmented MP4. */
       @CanIgnoreReturnValue
-      public Builder setFragmentedMp4Enabled(boolean fragmentedMp4Enabled) {
-        this.fragmentedMp4Enabled = fragmentedMp4Enabled;
+      public Builder setOutputFragmentedMp4(boolean outputFragmentedMp4) {
+        this.outputFragmentedMp4 = outputFragmentedMp4;
         return this;
       }
 
       /**
-       * Sets the fragment duration if the output file is {@link #setFragmentedMp4Enabled(boolean)
+       * Sets the fragment duration if the output file is {@link #setOutputFragmentedMp4(boolean)
        * fragmented}.
        */
       @CanIgnoreReturnValue
@@ -106,7 +106,7 @@ public final class InAppMuxer implements Muxer {
 
       /** Builds a {@link Factory} instance. */
       public Factory build() {
-        return new Factory(metadataProvider, fragmentedMp4Enabled, fragmentDurationUs);
+        return new Factory(metadataProvider, outputFragmentedMp4, fragmentDurationUs);
       }
     }
 
@@ -119,15 +119,15 @@ public final class InAppMuxer implements Muxer {
         ImmutableList.of(MimeTypes.AUDIO_AAC);
 
     private final @Nullable MetadataProvider metadataProvider;
-    private final boolean fragmentedMp4Enabled;
+    private final boolean outputFragmentedMp4;
     private final int fragmentDurationUs;
 
     private Factory(
         @Nullable MetadataProvider metadataProvider,
-        boolean fragmentedMp4Enabled,
+        boolean outputFragmentedMp4,
         int fragmentDurationUs) {
       this.metadataProvider = metadataProvider;
-      this.fragmentedMp4Enabled = fragmentedMp4Enabled;
+      this.outputFragmentedMp4 = outputFragmentedMp4;
       this.fragmentDurationUs = fragmentDurationUs;
     }
 
@@ -141,7 +141,7 @@ public final class InAppMuxer implements Muxer {
       }
 
       androidx.media3.muxer.Muxer muxer =
-          fragmentedMp4Enabled
+          outputFragmentedMp4
               ? fragmentDurationUs != C.LENGTH_UNSET
                   ? new FragmentedMp4Muxer(outputStream, fragmentDurationUs)
                   : new FragmentedMp4Muxer(outputStream)
