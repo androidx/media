@@ -47,6 +47,8 @@
         resolution but a very small number of frames
         ([#1051](https://github.com/androidx/media/issues/1051)).
 *   Extractors:
+    *   MP3: Populate `Format.averageBitrate` from metadata frames such as
+        `XING` and `VBRI`.
 *   Audio:
     *   Allow renderer recovery by disabling offload if audio track fails to
         initialize in offload mode.
