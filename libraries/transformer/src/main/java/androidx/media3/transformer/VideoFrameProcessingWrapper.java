@@ -24,13 +24,11 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import android.graphics.Bitmap;
 import android.view.Surface;
 import androidx.annotation.Nullable;
-import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.FrameInfo;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.OnInputFrameProcessedListener;
-import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.TimestampIterator;
@@ -43,19 +41,15 @@ import java.util.concurrent.atomic.AtomicLong;
 /* package */ final class VideoFrameProcessingWrapper implements GraphInput {
   private final VideoFrameProcessor videoFrameProcessor;
   private final AtomicLong mediaItemOffsetUs;
-  private final ColorInfo inputColorInfo;
   private final long initialTimestampOffsetUs;
   @Nullable final Presentation presentation;
 
   public VideoFrameProcessingWrapper(
       VideoFrameProcessor videoFrameProcessor,
-      ColorInfo inputColorInfo,
       @Nullable Presentation presentation,
       long initialTimestampOffsetUs) {
     this.videoFrameProcessor = videoFrameProcessor;
     this.mediaItemOffsetUs = new AtomicLong();
-    // TODO: b/307952514 - Remove inputColorInfo reference.
-    this.inputColorInfo = inputColorInfo;
     this.initialTimestampOffsetUs = initialTimestampOffsetUs;
     this.presentation = presentation;
   }
@@ -64,15 +58,18 @@ import java.util.concurrent.atomic.AtomicLong;
   public void onMediaItemChanged(
       EditedMediaItem editedMediaItem,
       long durationUs,
-      @Nullable Format trackFormat,
+      @Nullable Format decodedFormat,
       boolean isLast) {
-    if (trackFormat != null) {
-      Size decodedSize = getDecodedSize(trackFormat);
+    if (decodedFormat != null) {
+      Size decodedSize = getDecodedSize(decodedFormat);
       videoFrameProcessor.registerInputStream(
-          getInputType(checkNotNull(trackFormat.sampleMimeType)),
+          getInputType(checkNotNull(decodedFormat.sampleMimeType)),
           createEffectListWithPresentation(editedMediaItem.effects.videoEffects, presentation),
-          new FrameInfo.Builder(inputColorInfo, decodedSize.getWidth(), decodedSize.getHeight())
-              .setPixelWidthHeightRatio(trackFormat.pixelWidthHeightRatio)
+          new FrameInfo.Builder(
+                  checkNotNull(decodedFormat.colorInfo),
+                  decodedSize.getWidth(),
+                  decodedSize.getHeight())
+              .setPixelWidthHeightRatio(decodedFormat.pixelWidthHeightRatio)
               .setOffsetToAddUs(initialTimestampOffsetUs + mediaItemOffsetUs.get())
               .build());
     }
@@ -105,11 +102,6 @@ import java.util.concurrent.atomic.AtomicLong;
   }
 
   @Override
-  public ColorInfo getExpectedInputColorInfo() {
-    return inputColorInfo;
-  }
-
-  @Override
   public int getPendingVideoFrameCount() {
     return videoFrameProcessor.getPendingInputFrameCount();
   }
@@ -122,10 +114,6 @@ import java.util.concurrent.atomic.AtomicLong;
   @Override
   public void signalEndOfVideoInput() {
     videoFrameProcessor.signalEndOfInput();
-  }
-
-  public void setOutputSurfaceInfo(@Nullable SurfaceInfo outputSurfaceInfo) {
-    videoFrameProcessor.setOutputSurfaceInfo(outputSurfaceInfo);
   }
 
   public void release() {

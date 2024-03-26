@@ -28,7 +28,6 @@ import static androidx.media3.common.util.Util.contains;
 import android.content.Context;
 import android.util.SparseArray;
 import android.view.Surface;
-import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.FrameInfo;
 import androidx.media3.common.GlObjectsProvider;
@@ -64,7 +63,8 @@ import org.checkerframework.checker.nullness.qual.Nullable;
       VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor,
       Executor errorListenerExecutor,
       GlShaderProgram.ErrorListener samplingShaderProgramErrorListener,
-      boolean enableColorTransfers)
+      boolean enableColorTransfers,
+      boolean repeatLastRegisteredFrame)
       throws VideoFrameProcessingException {
     this.context = context;
     this.outputColorInfo = outputColorInfo;
@@ -78,7 +78,9 @@ import org.checkerframework.checker.nullness.qual.Nullable;
     // TODO(b/274109008): Investigate lazy instantiating the texture managers.
     inputs.put(
         INPUT_TYPE_SURFACE,
-        new Input(new ExternalTextureManager(glObjectsProvider, videoFrameProcessingTaskExecutor)));
+        new Input(
+            new ExternalTextureManager(
+                glObjectsProvider, videoFrameProcessingTaskExecutor, repeatLastRegisteredFrame)));
     inputs.put(
         INPUT_TYPE_BITMAP,
         new Input(new BitmapTextureManager(glObjectsProvider, videoFrameProcessingTaskExecutor)));
@@ -99,16 +101,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
                 context, inputColorInfo, outputColorInfo, enableColorTransfers);
         break;
       case INPUT_TYPE_BITMAP:
-        // HDR bitmap input is not supported. Bitmaps are always sRGB/Full range/BT.709.
-        checkState(!ColorInfo.isTransferHdr(inputColorInfo));
-        ColorInfo bitmapColorInfo = ColorInfo.SRGB_BT709_FULL;
-        samplingShaderProgram =
-            DefaultShaderProgram.createWithInternalSampler(
-                context, bitmapColorInfo, outputColorInfo, enableColorTransfers, inputType);
-        break;
       case INPUT_TYPE_TEXTURE_ID:
-        // Image and textureId concatenation not supported.
-        checkState(inputColorInfo.colorTransfer != C.COLOR_TRANSFER_SRGB);
         samplingShaderProgram =
             DefaultShaderProgram.createWithInternalSampler(
                 context, inputColorInfo, outputColorInfo, enableColorTransfers, inputType);

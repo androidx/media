@@ -36,9 +36,7 @@ import androidx.media3.common.util.Size;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.IOException;
-import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -60,18 +58,17 @@ public final class AlphaScaleShaderProgramPixelTest {
   // TODO: b/262694346 - Use media3test_srgb instead of media3test, throughout our tests. This is
   //  this test image is intended to be interpreted as sRGB, but media3test is stored in a niche
   //  color transfer, which can make alpha tests more difficult to debug.
-  private static final String ORIGINAL_PNG_ASSET_PATH =
-      "media/bitmap/input_images/media3test_srgb.png";
+  private static final String ORIGINAL_PNG_ASSET_PATH = "media/png/media3test_srgb.png";
   private static final String DECREASE_ALPHA_PNG_ASSET_PATH =
-      "media/bitmap/sample_mp4_first_frame/electrical_colors/decrease_alpha.png";
+      "test-generated-goldens/sample_mp4_first_frame/electrical_colors/decrease_alpha.png";
   private static final String INCREASE_ALPHA_PNG_ASSET_PATH =
-      "media/bitmap/sample_mp4_first_frame/electrical_colors/increase_alpha.png";
+      "test-generated-goldens/sample_mp4_first_frame/electrical_colors/increase_alpha.png";
   private static final String ZERO_ALPHA_PNG_ASSET_PATH =
-      "media/bitmap/sample_mp4_first_frame/electrical_colors/zero_alpha.png";
+      "test-generated-goldens/sample_mp4_first_frame/electrical_colors/zero_alpha.png";
 
   private final Context context = getApplicationContext();
 
-  private @MonotonicNonNull String testId;
+  private String testId;
   private @MonotonicNonNull EGLDisplay eglDisplay;
   private @MonotonicNonNull EGLContext eglContext;
   private @MonotonicNonNull AlphaScaleShaderProgram alphaScaleShaderProgram;
@@ -105,7 +102,6 @@ public final class AlphaScaleShaderProgramPixelTest {
   }
 
   @Before
-  @EnsuresNonNull("testId")
   public void setUpTestId() {
     testId = testName.getMethodName();
   }
@@ -119,7 +115,6 @@ public final class AlphaScaleShaderProgramPixelTest {
   }
 
   @Test
-  @RequiresNonNull("testId")
   public void noOpAlpha_matchesGoldenFile() throws Exception {
     alphaScaleShaderProgram = new AlphaScale(1.0f).toGlShaderProgram(context, /* useHdr= */ false);
     Size outputSize = alphaScaleShaderProgram.configure(inputWidth, inputHeight);
@@ -139,7 +134,6 @@ public final class AlphaScaleShaderProgramPixelTest {
   }
 
   @Test
-  @RequiresNonNull("testId")
   public void zeroAlpha_matchesGoldenFile() throws Exception {
     alphaScaleShaderProgram = new AlphaScale(0.0f).toGlShaderProgram(context, /* useHdr= */ false);
     Size outputSize = alphaScaleShaderProgram.configure(inputWidth, inputHeight);
@@ -158,7 +152,6 @@ public final class AlphaScaleShaderProgramPixelTest {
   }
 
   @Test
-  @RequiresNonNull("testId")
   public void decreaseAlpha_matchesGoldenFile() throws Exception {
     alphaScaleShaderProgram = new AlphaScale(0.5f).toGlShaderProgram(context, /* useHdr= */ false);
     Size outputSize = alphaScaleShaderProgram.configure(inputWidth, inputHeight);
@@ -177,7 +170,6 @@ public final class AlphaScaleShaderProgramPixelTest {
   }
 
   @Test
-  @RequiresNonNull("testId")
   public void increaseAlpha_matchesGoldenFile() throws Exception {
     alphaScaleShaderProgram = new AlphaScale(1.5f).toGlShaderProgram(context, /* useHdr= */ false);
     Size outputSize = alphaScaleShaderProgram.configure(inputWidth, inputHeight);

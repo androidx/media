@@ -2366,9 +2366,6 @@ public class DefaultTrackSelector extends MappingTrackSelector
                   ? (second == Format.NO_VALUE ? 0 : -1)
                   : (second == Format.NO_VALUE ? 1 : (first - second)));
 
-  /** Ordering where all elements are equal. */
-  private static final Ordering<Integer> NO_ORDER = Ordering.from((first, second) -> 0);
-
   private final Object lock;
   @Nullable public final Context context;
   private final ExoTrackSelection.Factory trackSelectionFactory;
@@ -3516,6 +3513,12 @@ public class DefaultTrackSelector extends MappingTrackSelector
 
   private static final class VideoTrackInfo extends TrackInfo<VideoTrackInfo> {
 
+    /**
+     * Frame rate below which video playback will definitely not be considered smooth by the human
+     * eye.
+     */
+    private static final float MIN_REASONABLE_FRAME_RATE = 10;
+
     public static ImmutableList<VideoTrackInfo> createForTrackGroup(
         int rendererIndex,
         TrackGroup trackGroup,
@@ -3551,6 +3554,12 @@ public class DefaultTrackSelector extends MappingTrackSelector
     private final Parameters parameters;
     private final boolean isWithinMinConstraints;
     private final boolean isWithinRendererCapabilities;
+
+    /**
+     * True if {@link Format#frameRate} is set and is at least {@link #MIN_REASONABLE_FRAME_RATE}.
+     */
+    private final boolean hasReasonableFrameRate;
+
     private final int bitrate;
     private final int pixelCount;
     private final int preferredMimeTypeMatchIndex;
@@ -3599,6 +3608,8 @@ public class DefaultTrackSelector extends MappingTrackSelector
                   || format.bitrate >= parameters.minVideoBitrate);
       isWithinRendererCapabilities =
           isSupported(formatSupport, /* allowExceedsCapabilities= */ false);
+      hasReasonableFrameRate =
+          format.frameRate != Format.NO_VALUE && format.frameRate >= MIN_REASONABLE_FRAME_RATE;
       bitrate = format.bitrate;
       pixelCount = format.getPixelCount();
       preferredRoleFlagsScore =
@@ -3669,16 +3680,19 @@ public class DefaultTrackSelector extends MappingTrackSelector
               .compare(info1.preferredRoleFlagsScore, info2.preferredRoleFlagsScore)
               // 2. Compare match with implicit content preferences set by the media.
               .compareFalseFirst(info1.hasMainOrNoRoleFlag, info2.hasMainOrNoRoleFlag)
-              // 3. Compare match with technical preferences set by the parameters.
+              // 3. Compare match with 'reasonable' frame rate threshold.
+              .compareFalseFirst(info1.hasReasonableFrameRate, info2.hasReasonableFrameRate)
+              // 4. Compare match with technical preferences set by the parameters.
               .compareFalseFirst(info1.isWithinMaxConstraints, info2.isWithinMaxConstraints)
               .compareFalseFirst(info1.isWithinMinConstraints, info2.isWithinMinConstraints)
               .compare(
                   info1.preferredMimeTypeMatchIndex,
                   info2.preferredMimeTypeMatchIndex,
                   Ordering.natural().reverse())
-              // 4. Compare match with renderer capability preferences.
+              // 5. Compare match with renderer capability preferences.
               .compareFalseFirst(info1.usesPrimaryDecoder, info2.usesPrimaryDecoder)
               .compareFalseFirst(info1.usesHardwareAcceleration, info2.usesHardwareAcceleration);
+
       if (info1.usesPrimaryDecoder && info1.usesHardwareAcceleration) {
         chain = chain.compare(info1.codecPreferenceScore, info2.codecPreferenceScore);
       }
@@ -3698,11 +3712,12 @@ public class DefaultTrackSelector extends MappingTrackSelector
           info1.isWithinMaxConstraints && info1.isWithinRendererCapabilities
               ? FORMAT_VALUE_ORDERING
               : FORMAT_VALUE_ORDERING.reverse();
-      return ComparisonChain.start()
-          .compare(
-              info1.bitrate,
-              info2.bitrate,
-              info1.parameters.forceLowestBitrate ? FORMAT_VALUE_ORDERING.reverse() : NO_ORDER)
+      ComparisonChain comparisonChain = ComparisonChain.start();
+      if (info1.parameters.forceLowestBitrate) {
+        comparisonChain =
+            comparisonChain.compare(info1.bitrate, info2.bitrate, FORMAT_VALUE_ORDERING.reverse());
+      }
+      return comparisonChain
           .compare(info1.pixelCount, info2.pixelCount, qualityOrdering)
           .compare(info1.bitrate, info2.bitrate, qualityOrdering)
           .result();
@@ -3888,45 +3903,48 @@ public class DefaultTrackSelector extends MappingTrackSelector
           isWithinConstraints && isWithinRendererCapabilities
               ? FORMAT_VALUE_ORDERING
               : FORMAT_VALUE_ORDERING.reverse();
-      return ComparisonChain.start()
-          .compareFalseFirst(this.isWithinRendererCapabilities, other.isWithinRendererCapabilities)
-          // 1. Compare match with specific content preferences set by the parameters.
-          .compare(
-              this.preferredLanguageIndex,
-              other.preferredLanguageIndex,
-              Ordering.natural().reverse())
-          .compare(this.preferredLanguageScore, other.preferredLanguageScore)
-          .compare(this.preferredRoleFlagsScore, other.preferredRoleFlagsScore)
-          // 2. Compare match with implicit content preferences set by the media or the system.
-          .compareFalseFirst(this.isDefaultSelectionFlag, other.isDefaultSelectionFlag)
-          .compareFalseFirst(this.hasMainOrNoRoleFlag, other.hasMainOrNoRoleFlag)
-          .compare(
-              this.localeLanguageMatchIndex,
-              other.localeLanguageMatchIndex,
-              Ordering.natural().reverse())
-          .compare(this.localeLanguageScore, other.localeLanguageScore)
-          // 3. Compare match with technical preferences set by the parameters.
-          .compareFalseFirst(this.isWithinConstraints, other.isWithinConstraints)
-          .compare(
-              this.preferredMimeTypeMatchIndex,
-              other.preferredMimeTypeMatchIndex,
-              Ordering.natural().reverse())
-          .compare(
-              this.bitrate,
-              other.bitrate,
-              parameters.forceLowestBitrate ? FORMAT_VALUE_ORDERING.reverse() : NO_ORDER)
-          // 4. Compare match with renderer capability preferences.
-          .compareFalseFirst(this.usesPrimaryDecoder, other.usesPrimaryDecoder)
-          .compareFalseFirst(this.usesHardwareAcceleration, other.usesHardwareAcceleration)
-          // 5. Compare technical quality.
-          .compare(this.channelCount, other.channelCount, qualityOrdering)
-          .compare(this.sampleRate, other.sampleRate, qualityOrdering)
-          .compare(
-              this.bitrate,
-              other.bitrate,
-              // Only compare bit rates of tracks with matching language information.
-              Util.areEqual(this.language, other.language) ? qualityOrdering : NO_ORDER)
-          .result();
+      ComparisonChain comparisonChain =
+          ComparisonChain.start()
+              .compareFalseFirst(
+                  this.isWithinRendererCapabilities, other.isWithinRendererCapabilities)
+              // 1. Compare match with specific content preferences set by the parameters.
+              .compare(
+                  this.preferredLanguageIndex,
+                  other.preferredLanguageIndex,
+                  Ordering.natural().reverse())
+              .compare(this.preferredLanguageScore, other.preferredLanguageScore)
+              .compare(this.preferredRoleFlagsScore, other.preferredRoleFlagsScore)
+              // 2. Compare match with implicit content preferences set by the media or the system.
+              .compareFalseFirst(this.isDefaultSelectionFlag, other.isDefaultSelectionFlag)
+              .compareFalseFirst(this.hasMainOrNoRoleFlag, other.hasMainOrNoRoleFlag)
+              .compare(
+                  this.localeLanguageMatchIndex,
+                  other.localeLanguageMatchIndex,
+                  Ordering.natural().reverse())
+              .compare(this.localeLanguageScore, other.localeLanguageScore)
+              // 3. Compare match with technical preferences set by the parameters.
+              .compareFalseFirst(this.isWithinConstraints, other.isWithinConstraints)
+              .compare(
+                  this.preferredMimeTypeMatchIndex,
+                  other.preferredMimeTypeMatchIndex,
+                  Ordering.natural().reverse());
+      if (parameters.forceLowestBitrate) {
+        comparisonChain =
+            comparisonChain.compare(this.bitrate, other.bitrate, FORMAT_VALUE_ORDERING.reverse());
+      }
+      // 4. Compare match with renderer capability preferences.
+      comparisonChain =
+          comparisonChain
+              .compareFalseFirst(this.usesPrimaryDecoder, other.usesPrimaryDecoder)
+              .compareFalseFirst(this.usesHardwareAcceleration, other.usesHardwareAcceleration)
+              // 5. Compare technical quality.
+              .compare(this.channelCount, other.channelCount, qualityOrdering)
+              .compare(this.sampleRate, other.sampleRate, qualityOrdering);
+      if (Util.areEqual(this.language, other.language)) {
+        // Only compare bit rates of tracks with matching language information.
+        comparisonChain = comparisonChain.compare(this.bitrate, other.bitrate, qualityOrdering);
+      }
+      return comparisonChain.result();
     }
 
     private @SelectionEligibility int evaluateSelectionEligibility(

@@ -241,13 +241,13 @@ public final class TextRenderer extends BaseRenderer implements Callback {
         replaceSubtitleDecoder();
       } else {
         releaseSubtitleBuffers();
-        checkNotNull(subtitleDecoder).flush();
+        SubtitleDecoder subtitleDecoder = checkNotNull(this.subtitleDecoder);
+        subtitleDecoder.flush();
+        subtitleDecoder.setOutputStartTimeUs(getLastResetPositionUs());
       }
     }
   }
 
-  // Setting deprecated decode-only flag for compatibility with decoders that are still using it.
-  @SuppressWarnings("deprecation")
   @Override
   public void render(long positionUs, long elapsedRealtimeUs) {
     if (isCurrentStreamFinal()
@@ -445,9 +445,6 @@ public final class TextRenderer extends BaseRenderer implements Callback {
             waitingForKeyFrame &= !nextInputBuffer.isKeyFrame();
           }
           if (!waitingForKeyFrame) {
-            if (nextInputBuffer.timeUs < getLastResetPositionUs()) {
-              nextInputBuffer.addFlag(C.BUFFER_FLAG_DECODE_ONLY);
-            }
             checkNotNull(subtitleDecoder).queueInputBuffer(nextInputBuffer);
             this.nextSubtitleInputBuffer = null;
           }
@@ -507,6 +504,7 @@ public final class TextRenderer extends BaseRenderer implements Callback {
   private void initSubtitleDecoder() {
     waitingForKeyFrame = true;
     subtitleDecoder = subtitleDecoderFactory.createDecoder(checkNotNull(streamFormat));
+    subtitleDecoder.setOutputStartTimeUs(getLastResetPositionUs());
   }
 
   private void replaceSubtitleDecoder() {

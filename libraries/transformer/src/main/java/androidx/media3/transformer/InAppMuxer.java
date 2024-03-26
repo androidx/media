@@ -15,23 +15,20 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.muxer.Mp4Muxer.SUPPORTED_AUDIO_SAMPLE_MIME_TYPES;
-import static androidx.media3.muxer.Mp4Muxer.SUPPORTED_VIDEO_SAMPLE_MIME_TYPES;
-
 import android.media.MediaCodec.BufferInfo;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
+import androidx.media3.container.Mp4OrientationData;
 import androidx.media3.container.Mp4TimestampData;
-import androidx.media3.container.Mp4Util;
 import androidx.media3.container.XmpData;
+import androidx.media3.muxer.FragmentedMp4Muxer;
 import androidx.media3.muxer.Mp4Muxer;
-import androidx.media3.muxer.Mp4Muxer.TrackToken;
+import androidx.media3.muxer.Muxer.TrackToken;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.FileNotFoundException;
@@ -44,7 +41,7 @@ import java.util.List;
 import java.util.Set;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
-/** {@link Muxer} implementation that uses a {@link Mp4Muxer}. */
+/** {@link Muxer} implementation that uses an {@link Mp4Muxer} or {@link FragmentedMp4Muxer}. */
 @UnstableApi
 public final class InAppMuxer implements Muxer {
 
@@ -57,14 +54,7 @@ public final class InAppMuxer implements Muxer {
      * <p>A {@link Metadata.Entry} can be added or removed. To modify an existing {@link
      * Metadata.Entry}, first remove it and then add a new one.
      *
-     * <p>List of supported {@linkplain Metadata.Entry metadata entries}:
-     *
-     * <ul>
-     *   <li>{@link Mp4LocationData}
-     *   <li>{@link XmpData}
-     *   <li>{@link Mp4TimestampData}
-     *   <li>{@link MdtaMetadataEntry}
-     * </ul>
+     * <p>For the list of supported metadata refer to {@link Mp4Muxer#addMetadata(Metadata.Entry)}.
      */
     void updateMetadataEntries(Set<Metadata.Entry> metadataEntries);
   }
@@ -74,22 +64,13 @@ public final class InAppMuxer implements Muxer {
 
     /** A builder for {@link Factory} instances. */
     public static final class Builder {
-      private long maxDelayBetweenSamplesMs;
       private @Nullable MetadataProvider metadataProvider;
-      private boolean fragmentedMp4Enabled;
+      private boolean outputFragmentedMp4;
       private int fragmentDurationUs;
 
       /** Creates a {@link Builder} instance with default values. */
       public Builder() {
-        maxDelayBetweenSamplesMs = DefaultMuxer.Factory.DEFAULT_MAX_DELAY_BETWEEN_SAMPLES_MS;
-        fragmentDurationUs = Mp4Muxer.DEFAULT_FRAGMENT_DURATION_US;
-      }
-
-      /** See {@link Muxer#getMaxDelayBetweenSamplesMs()}. */
-      @CanIgnoreReturnValue
-      public Builder setMaxDelayBetweenSamplesMs(long maxDelayBetweenSamplesMs) {
-        this.maxDelayBetweenSamplesMs = maxDelayBetweenSamplesMs;
-        return this;
+        fragmentDurationUs = C.LENGTH_UNSET;
       }
 
       /**
@@ -106,14 +87,17 @@ public final class InAppMuxer implements Muxer {
         return this;
       }
 
-      /** See {@link Mp4Muxer.Builder#setFragmentedMp4Enabled(boolean)}. */
+      /** Sets whether to output a fragmented MP4. */
       @CanIgnoreReturnValue
-      public Builder setFragmentedMp4Enabled(boolean fragmentedMp4Enabled) {
-        this.fragmentedMp4Enabled = fragmentedMp4Enabled;
+      public Builder setOutputFragmentedMp4(boolean outputFragmentedMp4) {
+        this.outputFragmentedMp4 = outputFragmentedMp4;
         return this;
       }
 
-      /** See {@link Mp4Muxer.Builder#setFragmentDurationUs(int)}. */
+      /**
+       * Sets the fragment duration if the output file is {@link #setOutputFragmentedMp4(boolean)
+       * fragmented}.
+       */
       @CanIgnoreReturnValue
       public Builder setFragmentDurationUs(int fragmentDurationUs) {
         this.fragmentDurationUs = fragmentDurationUs;
@@ -122,24 +106,28 @@ public final class InAppMuxer implements Muxer {
 
       /** Builds a {@link Factory} instance. */
       public Factory build() {
-        return new Factory(
-            maxDelayBetweenSamplesMs, metadataProvider, fragmentedMp4Enabled, fragmentDurationUs);
+        return new Factory(metadataProvider, outputFragmentedMp4, fragmentDurationUs);
       }
     }
 
-    private final long maxDelayBetweenSamplesMs;
+    /** A list of supported video sample MIME types. */
+    private static final ImmutableList<String> SUPPORTED_VIDEO_SAMPLE_MIME_TYPES =
+        ImmutableList.of(MimeTypes.VIDEO_H264, MimeTypes.VIDEO_H265, MimeTypes.VIDEO_AV1);
+
+    /** A list of supported audio sample MIME types. */
+    private static final ImmutableList<String> SUPPORTED_AUDIO_SAMPLE_MIME_TYPES =
+        ImmutableList.of(MimeTypes.AUDIO_AAC);
+
     private final @Nullable MetadataProvider metadataProvider;
-    private final boolean fragmentedMp4Enabled;
+    private final boolean outputFragmentedMp4;
     private final int fragmentDurationUs;
 
     private Factory(
-        long maxDelayBetweenSamplesMs,
         @Nullable MetadataProvider metadataProvider,
-        boolean fragmentedMp4Enabled,
+        boolean outputFragmentedMp4,
         int fragmentDurationUs) {
-      this.maxDelayBetweenSamplesMs = maxDelayBetweenSamplesMs;
       this.metadataProvider = metadataProvider;
-      this.fragmentedMp4Enabled = fragmentedMp4Enabled;
+      this.outputFragmentedMp4 = outputFragmentedMp4;
       this.fragmentDurationUs = fragmentDurationUs;
     }
 
@@ -152,12 +140,13 @@ public final class InAppMuxer implements Muxer {
         throw new MuxerException("Error creating file output stream", e);
       }
 
-      Mp4Muxer mp4Muxer =
-          new Mp4Muxer.Builder(outputStream)
-              .setFragmentedMp4Enabled(fragmentedMp4Enabled)
-              .setFragmentDurationUs(fragmentDurationUs)
-              .build();
-      return new InAppMuxer(mp4Muxer, maxDelayBetweenSamplesMs, metadataProvider);
+      androidx.media3.muxer.Muxer muxer =
+          outputFragmentedMp4
+              ? fragmentDurationUs != C.LENGTH_UNSET
+                  ? new FragmentedMp4Muxer(outputStream, fragmentDurationUs)
+                  : new FragmentedMp4Muxer(outputStream)
+              : new Mp4Muxer.Builder(outputStream).build();
+      return new InAppMuxer(muxer, metadataProvider);
     }
 
     @Override
@@ -171,19 +160,15 @@ public final class InAppMuxer implements Muxer {
     }
   }
 
-  private final Mp4Muxer mp4Muxer;
-  private final long maxDelayBetweenSamplesMs;
+  private final androidx.media3.muxer.Muxer muxer;
   private final @Nullable MetadataProvider metadataProvider;
   private final List<TrackToken> trackTokenList;
   private final BufferInfo bufferInfo;
   private final Set<Metadata.Entry> metadataEntries;
 
   private InAppMuxer(
-      Mp4Muxer mp4Muxer,
-      long maxDelayBetweenSamplesMs,
-      @Nullable MetadataProvider metadataProvider) {
-    this.mp4Muxer = mp4Muxer;
-    this.maxDelayBetweenSamplesMs = maxDelayBetweenSamplesMs;
+      androidx.media3.muxer.Muxer muxer, @Nullable MetadataProvider metadataProvider) {
+    this.muxer = muxer;
     this.metadataProvider = metadataProvider;
     trackTokenList = new ArrayList<>();
     bufferInfo = new BufferInfo();
@@ -192,12 +177,11 @@ public final class InAppMuxer implements Muxer {
 
   @Override
   public int addTrack(Format format) {
-    // Keep same sort key as no specific sort order is required.
-    TrackToken trackToken = mp4Muxer.addTrack(/* sortKey= */ 0, format);
+    TrackToken trackToken = muxer.addTrack(format);
     trackTokenList.add(trackToken);
 
     if (MimeTypes.isVideo(format.sampleMimeType)) {
-      mp4Muxer.setOrientation(format.rotationDegrees);
+      muxer.addMetadata(new Mp4OrientationData(format.rotationDegrees));
     }
 
     return trackTokenList.size() - 1;
@@ -225,7 +209,7 @@ public final class InAppMuxer implements Muxer {
           bufferInfo.presentationTimeUs,
           bufferInfo.flags);
 
-      mp4Muxer.writeSampleData(trackTokenList.get(trackIndex), byteBufferCopy, bufferInfoCopy);
+      muxer.writeSampleData(trackTokenList.get(trackIndex), byteBufferCopy, bufferInfoCopy);
     } catch (IOException e) {
       throw new MuxerException(
           "Failed to write sample for trackIndex="
@@ -242,17 +226,7 @@ public final class InAppMuxer implements Muxer {
   public void addMetadata(Metadata metadata) {
     for (int i = 0; i < metadata.length(); i++) {
       Metadata.Entry entry = metadata.get(i);
-      // Keep only supported metadata.
-      // LINT.IfChange(added_metadata)
-      if (entry instanceof Mp4LocationData
-          || entry instanceof XmpData
-          || entry instanceof Mp4TimestampData
-          || (entry instanceof MdtaMetadataEntry
-              && (((MdtaMetadataEntry) entry).key.equals(MdtaMetadataEntry.KEY_ANDROID_CAPTURE_FPS)
-                  || ((MdtaMetadataEntry) entry).typeIndicator
-                      == MdtaMetadataEntry.TYPE_INDICATOR_STRING
-                  || ((MdtaMetadataEntry) entry).typeIndicator
-                      == MdtaMetadataEntry.TYPE_INDICATOR_FLOAT32))) {
+      if (isMetadataSupported(entry)) {
         metadataEntries.add(entry);
       }
     }
@@ -263,15 +237,10 @@ public final class InAppMuxer implements Muxer {
     writeMetadata();
 
     try {
-      mp4Muxer.close();
+      muxer.close();
     } catch (IOException e) {
       throw new MuxerException("Error closing muxer", e);
     }
-  }
-
-  @Override
-  public long getMaxDelayBetweenSamplesMs() {
-    return maxDelayBetweenSamplesMs;
   }
 
   private void writeMetadata() {
@@ -283,31 +252,22 @@ public final class InAppMuxer implements Muxer {
     }
 
     for (Metadata.Entry entry : metadataEntries) {
-      // LINT.IfChange(written_metadata)
-      if (entry instanceof Mp4LocationData) {
-        mp4Muxer.setLocation(
-            ((Mp4LocationData) entry).latitude, ((Mp4LocationData) entry).longitude);
-      } else if (entry instanceof XmpData) {
-        mp4Muxer.addXmp(ByteBuffer.wrap(((XmpData) entry).data));
-      } else if (entry instanceof Mp4TimestampData) {
-        // TODO: b/285281716 - Use creation time specific API.
-        mp4Muxer.setModificationTime(
-            Mp4Util.mp4TimeToUnixTimeMs(((Mp4TimestampData) entry).creationTimestampSeconds));
-      } else if (entry instanceof MdtaMetadataEntry) {
-        MdtaMetadataEntry mdtaMetadataEntry = (MdtaMetadataEntry) entry;
-        if (mdtaMetadataEntry.key.equals(MdtaMetadataEntry.KEY_ANDROID_CAPTURE_FPS)) {
-          byte[] captureFps = mdtaMetadataEntry.value;
-          mp4Muxer.setCaptureFps(ByteBuffer.wrap(captureFps).getFloat());
-        } else if (mdtaMetadataEntry.typeIndicator == MdtaMetadataEntry.TYPE_INDICATOR_STRING) {
-          mp4Muxer.addMetadata(mdtaMetadataEntry.key, Util.fromUtf8Bytes(mdtaMetadataEntry.value));
-        } else if (mdtaMetadataEntry.typeIndicator == MdtaMetadataEntry.TYPE_INDICATOR_FLOAT32) {
-          mp4Muxer.addMetadata(mdtaMetadataEntry.key, Util.toFloat(mdtaMetadataEntry.value));
-        } else {
-          throw new IllegalStateException("Unsupported MdtaMetadataEntry " + mdtaMetadataEntry.key);
-        }
-      } else {
-        throw new IllegalStateException("Unsupported Metadata.Entry " + entry.getClass().getName());
-      }
+      muxer.addMetadata(entry);
     }
+  }
+
+  /** Returns whether a given {@link Metadata.Entry metadata} is supported. */
+  private static boolean isMetadataSupported(Metadata.Entry metadata) {
+    return metadata instanceof Mp4OrientationData
+        || metadata instanceof Mp4LocationData
+        || metadata instanceof Mp4TimestampData
+        || (metadata instanceof MdtaMetadataEntry
+            && isMdtaMetadataEntrySupported((MdtaMetadataEntry) metadata))
+        || metadata instanceof XmpData;
+  }
+
+  private static boolean isMdtaMetadataEntrySupported(MdtaMetadataEntry mdtaMetadataEntry) {
+    return mdtaMetadataEntry.typeIndicator == MdtaMetadataEntry.TYPE_INDICATOR_STRING
+        || mdtaMetadataEntry.typeIndicator == MdtaMetadataEntry.TYPE_INDICATOR_FLOAT32;
   }
 }

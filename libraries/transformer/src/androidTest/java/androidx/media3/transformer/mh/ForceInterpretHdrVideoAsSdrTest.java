@@ -16,13 +16,14 @@
 package androidx.media3.transformer.mh;
 
 import static androidx.media3.common.util.Util.SDK_INT;
+import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_1080P_5_SECOND_HLG10;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_720P_4_SECOND_HDR10;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_720P_4_SECOND_HDR10_FORMAT;
+import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
-import static androidx.media3.transformer.AndroidTestUtil.skipAndLogIfFormatsUnsupported;
-import static androidx.media3.transformer.mh.FileUtil.assertFileHasColorTransfer;
+import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 import android.net.Uri;
@@ -38,7 +39,10 @@ import androidx.media3.transformer.Transformer;
 import androidx.media3.transformer.TransformerAndroidTestRunner;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 /**
@@ -48,10 +52,17 @@ import org.junit.runner.RunWith;
  */
 @RunWith(AndroidJUnit4.class)
 public class ForceInterpretHdrVideoAsSdrTest {
+  @Rule public final TestName testName = new TestName();
+
+  private String testId;
+
+  @Before
+  public void setUpTestId() {
+    testId = testName.getMethodName();
+  }
 
   @Test
   public void forceInterpretHdrVideoAsSdrTest_hdr10File_transformsOrThrows() throws Exception {
-    String testId = "forceInterpretHdrVideoAsSdrTest_hdr10File_transformsOrThrows";
     Context context = ApplicationProvider.getApplicationContext();
 
     if (SDK_INT < 29) {
@@ -67,10 +78,7 @@ public class ForceInterpretHdrVideoAsSdrTest {
             .buildUpon()
             .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
             .build();
-    if (skipAndLogIfFormatsUnsupported(
-        context, testId, decoderInputFormat, /* outputFormat= */ null)) {
-      return;
-    }
+    assumeFormatsSupported(context, testId, decoderInputFormat, /* outputFormat= */ null);
 
     Transformer transformer = new Transformer.Builder(context).build();
     EditedMediaItem editedMediaItem =
@@ -85,12 +93,16 @@ public class ForceInterpretHdrVideoAsSdrTest {
             .build()
             .run(testId, composition);
 
-    assertFileHasColorTransfer(context, exportTestResult.filePath, C.COLOR_TRANSFER_SDR);
+    @C.ColorTransfer
+    int actualColorTransfer =
+        retrieveTrackFormat(context, exportTestResult.filePath, C.TRACK_TYPE_VIDEO)
+            .colorInfo
+            .colorTransfer;
+    assertThat(actualColorTransfer).isEqualTo(C.COLOR_TRANSFER_SDR);
   }
 
   @Test
   public void forceInterpretHdrVideoAsSdrTest_hlg10File_transformsOrThrows() throws Exception {
-    String testId = "forceInterpretHdrVideoAsSdrTest_hlg10File_transformsOrThrows";
     Context context = ApplicationProvider.getApplicationContext();
 
     if (SDK_INT < 29) {
@@ -106,10 +118,7 @@ public class ForceInterpretHdrVideoAsSdrTest {
             .buildUpon()
             .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
             .build();
-    if (skipAndLogIfFormatsUnsupported(
-        context, testId, decoderInputFormat, /* outputFormat= */ null)) {
-      return;
-    }
+    assumeFormatsSupported(context, testId, decoderInputFormat, /* outputFormat= */ null);
 
     Transformer transformer = new Transformer.Builder(context).build();
     EditedMediaItem editedMediaItem =
@@ -124,6 +133,11 @@ public class ForceInterpretHdrVideoAsSdrTest {
             .build()
             .run(testId, composition);
 
-    assertFileHasColorTransfer(context, exportTestResult.filePath, C.COLOR_TRANSFER_SDR);
+    @C.ColorTransfer
+    int actualColorTransfer =
+        retrieveTrackFormat(context, exportTestResult.filePath, C.TRACK_TYPE_VIDEO)
+            .colorInfo
+            .colorTransfer;
+    assertThat(actualColorTransfer).isEqualTo(C.COLOR_TRANSFER_SDR);
   }
 }

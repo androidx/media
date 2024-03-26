@@ -33,9 +33,9 @@ public final class ConstantRateTimestampIterator implements TimestampIterator {
   private final long durationUs;
   private final float frameRate;
   private final double framesDurationUs;
-  private final long startingTimestampUs;
-  private double currentTimestampUs;
-  private int framesToAdd;
+  private final int totalNumberOfFramesToAdd;
+
+  private int framesAdded;
 
   /**
    * Creates an instance that outputs timestamps from {@code 0}.
@@ -46,47 +46,43 @@ public final class ConstantRateTimestampIterator implements TimestampIterator {
   public ConstantRateTimestampIterator(
       @IntRange(from = 1) long durationUs,
       @FloatRange(from = 0, fromInclusive = false) float frameRate) {
-    this(durationUs, frameRate, /* startingTimestampUs= */ 0);
-  }
-
-  /**
-   * Creates an instance that outputs timestamps from {@code startingTimestampUs}.
-   *
-   * @param durationUs The duration the timestamps should span over, in microseconds.
-   * @param frameRate The frame rate in frames per second.
-   * @param startingTimestampUs The first timestamp output from the iterator.
-   */
-  public ConstantRateTimestampIterator(
-      @IntRange(from = 1) long durationUs,
-      @FloatRange(from = 0, fromInclusive = false) float frameRate,
-      @IntRange(from = 0) long startingTimestampUs) {
     checkArgument(durationUs > 0);
     checkArgument(frameRate > 0);
-    checkArgument(startingTimestampUs >= 0);
     this.durationUs = durationUs;
     this.frameRate = frameRate;
-    this.startingTimestampUs = startingTimestampUs;
-    this.currentTimestampUs = startingTimestampUs;
-    framesToAdd = round(frameRate * (durationUs / (float) C.MICROS_PER_SECOND));
+    this.totalNumberOfFramesToAdd = round(frameRate * (durationUs / (float) C.MICROS_PER_SECOND));
     framesDurationUs = C.MICROS_PER_SECOND / frameRate;
   }
 
   @Override
   public boolean hasNext() {
-    return framesToAdd != 0;
+    return framesAdded < totalNumberOfFramesToAdd;
   }
 
   @Override
   public long next() {
     checkState(hasNext());
-    framesToAdd--;
-    long next = round(currentTimestampUs);
-    currentTimestampUs += framesDurationUs;
-    return next;
+    return getTimestampUsAfter(framesAdded++);
   }
 
   @Override
   public ConstantRateTimestampIterator copyOf() {
-    return new ConstantRateTimestampIterator(durationUs, frameRate, startingTimestampUs);
+    return new ConstantRateTimestampIterator(durationUs, frameRate);
+  }
+
+  @Override
+  public long getLastTimestampUs() {
+    if (totalNumberOfFramesToAdd == 0) {
+      return C.TIME_UNSET;
+    }
+    return getTimestampUsAfter(totalNumberOfFramesToAdd - 1);
+  }
+
+  /** Returns the timestamp after {@code numberOfFrames}, in microseconds. */
+  private long getTimestampUsAfter(int numberOfFrames) {
+    long timestampUs = round(framesDurationUs * numberOfFrames);
+    // Check for possible overflow.
+    checkState(timestampUs >= 0);
+    return timestampUs;
   }
 }

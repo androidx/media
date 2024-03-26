@@ -163,8 +163,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * the {@link MediaSessionCompat.Callback#onAddQueueItem onAddQueueItem} and {@link
  * MediaSessionCompat.Callback#onRemoveQueueItem} onRemoveQueueItem} callbacks. Check {@link
  * #getAvailableCommands()} to see if playlist modifications are {@linkplain
- * androidx.media3.common.Player.Command#COMMAND_CHANGE_MEDIA_ITEMS supported} by the legacy
- * session.
+ * androidx.media3.common.Player#COMMAND_CHANGE_MEDIA_ITEMS supported} by the legacy session.
  */
 @DoNotMock
 public class MediaController implements Player {
@@ -388,6 +387,9 @@ public class MediaController implements Player {
      * MediaSession#setAvailableCommands(MediaSession.ControllerInfo, SessionCommands, Commands)
      * changes the available commands} for a controller that affect whether buttons of the custom
      * layout are enabled or disabled.
+     *
+     * <p>Note that the {@linkplain CommandButton#isEnabled enabled} flag is set to {@code false} if
+     * the available commands do not allow to use a button.
      *
      * @param controller The controller.
      * @param layout The ordered list of {@linkplain CommandButton command buttons}.
@@ -976,6 +978,9 @@ public class MediaController implements Player {
    *
    * <p>After being connected, a change of the custom layout is reported with {@link
    * Listener#onCustomLayoutChanged(MediaController, List)}.
+   *
+   * <p>Note that the {@linkplain CommandButton#isEnabled enabled} flag is set to {@code false} if
+   * the available commands do not allow to use a button.
    *
    * @return The custom layout.
    */

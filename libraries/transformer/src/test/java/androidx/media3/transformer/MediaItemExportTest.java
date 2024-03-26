@@ -19,15 +19,19 @@ package androidx.media3.transformer;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runLooperUntil;
 import static androidx.media3.transformer.AssetLoader.SUPPORTED_OUTPUT_TYPE_DECODED;
 import static androidx.media3.transformer.AssetLoader.SUPPORTED_OUTPUT_TYPE_ENCODED;
+import static androidx.media3.transformer.ExportResult.CONVERSION_PROCESS_NA;
+import static androidx.media3.transformer.ExportResult.CONVERSION_PROCESS_TRANSMUXED;
 import static androidx.media3.transformer.ExportResult.OPTIMIZATION_ABANDONED_KEYFRAME_PLACEMENT_OPTIMAL_FOR_TRIM;
 import static androidx.media3.transformer.ExportResult.OPTIMIZATION_FAILED_EXTRACTION_FAILED;
 import static androidx.media3.transformer.TestUtil.ASSET_URI_PREFIX;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_AMR_NB;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_AMR_WB;
+import static androidx.media3.transformer.TestUtil.FILE_AUDIO_ELST_SKIP_500MS;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_VIDEO;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S;
 import static androidx.media3.transformer.TestUtil.FILE_UNKNOWN_DURATION;
+import static androidx.media3.transformer.TestUtil.FILE_VIDEO_ELST_TRIM_IDR_DURATION;
 import static androidx.media3.transformer.TestUtil.FILE_VIDEO_ONLY;
 import static androidx.media3.transformer.TestUtil.FILE_WITH_SEF_SLOW_MOTION;
 import static androidx.media3.transformer.TestUtil.FILE_WITH_SUBTITLES;
@@ -66,6 +70,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.audio.SonicAudioProcessor;
+import androidx.media3.effect.Contrast;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
@@ -101,6 +106,7 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
+import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowMediaCodec;
 
 /**
@@ -167,6 +173,39 @@ public final class MediaItemExportTest {
             .build();
 
     transformer.start(mediaItem, outputDir.newFile().getPath());
+    ExportResult result = TransformerTestRunner.runLooper(transformer);
+
+    assertThat(result.optimizationResult)
+        .isEqualTo(OPTIMIZATION_ABANDONED_KEYFRAME_PLACEMENT_OPTIMAL_FOR_TRIM);
+    // Asserts against file generated when experimentalSetTrimOptimizationEnabled is set to false.
+    DumpFileAsserts.assertOutput(
+        context,
+        muxerFactory.getCreatedMuxer(),
+        getDumpFileName(/* originalFileName= */ FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S));
+    assertThat(result.videoConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
+    assertThat(result.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
+  }
+
+  @Test
+  public void
+      start_trimOptimizationEnabled_clippingConfigurationUnsetAndRotated_outputMatchesOriginalRotated()
+          throws Exception {
+    Transformer transformer =
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false)
+            .experimentalSetTrimOptimizationEnabled(true)
+            .build();
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S)
+            .build();
+    ImmutableList<Effect> videoEffects =
+        ImmutableList.of(
+            new ScaleAndRotateTransformation.Builder().setRotationDegrees(180).build());
+    Effects effects = new Effects(/* audioProcessors= */ ImmutableList.of(), videoEffects);
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(mediaItem).setEffects(effects).build();
+
+    transformer.start(editedMediaItem, outputDir.newFile().getPath());
     ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
 
     assertThat(exportResult.optimizationResult)
@@ -175,7 +214,9 @@ public final class MediaItemExportTest {
     DumpFileAsserts.assertOutput(
         context,
         muxerFactory.getCreatedMuxer(),
-        getDumpFileName(/* originalFileName= */ FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S));
+        getDumpFileName(
+            /* originalFileName= */ FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S,
+            /* modifications...= */ "rotated"));
   }
 
   @Test
@@ -196,9 +237,9 @@ public final class MediaItemExportTest {
             .build();
 
     transformer.start(mediaItem, outputDir.newFile().getPath());
-    ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
+    ExportResult result = TransformerTestRunner.runLooper(transformer);
 
-    assertThat(exportResult.optimizationResult)
+    assertThat(result.optimizationResult)
         .isEqualTo(OPTIMIZATION_ABANDONED_KEYFRAME_PLACEMENT_OPTIMAL_FOR_TRIM);
     DumpFileAsserts.assertOutput(
         context,
@@ -206,6 +247,8 @@ public final class MediaItemExportTest {
         getDumpFileName(
             /* originalFileName= */ FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S,
             /* modifications...= */ "clipped"));
+    assertThat(result.videoConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
+    assertThat(result.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
   }
 
   @Test
@@ -225,13 +268,15 @@ public final class MediaItemExportTest {
             .build();
 
     transformer.start(mediaItem, outputDir.newFile().getPath());
-    ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
+    ExportResult result = TransformerTestRunner.runLooper(transformer);
 
-    assertThat(exportResult.optimizationResult).isEqualTo(OPTIMIZATION_FAILED_EXTRACTION_FAILED);
+    assertThat(result.optimizationResult).isEqualTo(OPTIMIZATION_FAILED_EXTRACTION_FAILED);
     DumpFileAsserts.assertOutput(
         context,
         muxerFactory.getCreatedMuxer(),
         getDumpFileName(/* originalFileName= */ FILE_AUDIO_RAW, /* modifications...= */ "clipped"));
+    assertThat(result.videoConversionProcess).isEqualTo(CONVERSION_PROCESS_NA);
+    assertThat(result.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
   }
 
   @Test
@@ -871,13 +916,12 @@ public final class MediaItemExportTest {
         new ExoPlayerAssetLoader.Factory(
             context,
             decoderFactory,
-            /* forceInterpretHdrAsSdr= */ false,
             new FakeClock(/* isAutoAdvancing= */ true),
             mediaSourceFactory);
-    CapturingMuxer.Factory muxerFactory =
-        new CapturingMuxer.Factory(/* maxDelayBetweenSamplesMs= */ 1);
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory();
     Transformer transformer =
         createTransformerBuilder(muxerFactory, /* enableFallback= */ false)
+            .setMaxDelayBetweenMuxerSamplesMs(1)
             .setAssetLoaderFactory(assetLoaderFactory)
             .build();
     MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO);
@@ -891,10 +935,11 @@ public final class MediaItemExportTest {
 
   @Test
   public void start_withUnsetMaxDelayBetweenSamples_completesSuccessfully() throws Exception {
-    CapturingMuxer.Factory muxerFactory =
-        new CapturingMuxer.Factory(/* maxDelayBetweenSamplesMs= */ C.TIME_UNSET);
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory();
     Transformer transformer =
-        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false)
+            .setMaxDelayBetweenMuxerSamplesMs(C.TIME_UNSET)
+            .build();
     MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO);
 
     transformer.start(mediaItem, outputDir.newFile().getPath());
@@ -1035,11 +1080,13 @@ public final class MediaItemExportTest {
         new EditedMediaItem.Builder(mediaItem).setEffects(effects).build();
 
     transformer.start(editedMediaItem, outputDir.newFile().getPath());
-    TransformerTestRunner.runLooper(transformer);
+    ExportResult result = TransformerTestRunner.runLooper(transformer);
 
     // Video transcoding in unit tests is not supported.
     DumpFileAsserts.assertOutput(
         context, muxerFactory.getCreatedMuxer(), getDumpFileName(FILE_VIDEO_ONLY));
+    assertThat(result.videoConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
+    assertThat(result.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_NA);
   }
 
   @Test
@@ -1053,6 +1100,35 @@ public final class MediaItemExportTest {
     Effects effects = new Effects(/* audioProcessors= */ ImmutableList.of(), videoEffects);
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem).setEffects(effects).build();
+
+    transformer.start(editedMediaItem, outputDir.newFile().getPath());
+    ExportResult result = TransformerTestRunner.runLooper(transformer);
+
+    // Video transcoding in unit tests is not supported.
+    DumpFileAsserts.assertOutput(
+        context,
+        muxerFactory.getCreatedMuxer(),
+        getDumpFileName(
+            /* originalFileName= */ FILE_AUDIO_VIDEO, /* modifications...= */ "rotated"));
+    assertThat(result.videoConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
+    assertThat(result.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
+  }
+
+  @Test
+  public void start_regularRotationsAndNoOps_transmuxes() throws Exception {
+    Transformer transformer =
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+    // Total rotation is 270.
+    ImmutableList<Effect> videoEffects =
+        ImmutableList.of(
+            new ScaleAndRotateTransformation.Builder().setRotationDegrees(90).build(),
+            new Contrast(0f),
+            new ScaleAndRotateTransformation.Builder().setRotationDegrees(180).build(),
+            Presentation.createForHeight(1080));
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO))
+            .setEffects(new Effects(ImmutableList.of(), videoEffects))
+            .build();
 
     transformer.start(editedMediaItem, outputDir.newFile().getPath());
     TransformerTestRunner.runLooper(transformer);
@@ -1381,6 +1457,78 @@ public final class MediaItemExportTest {
     assertThat(illegalStateException.get()).isNotNull();
   }
 
+  @Test
+  @Config(minSdk = 30)
+  // This test requires Android SDK >= 30 for MediaMuxer negative PTS support.
+  public void transmux_audioWithEditList_api30_correctDuration() throws Exception {
+    Transformer transformer =
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+    MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_ELST_SKIP_500MS);
+
+    transformer.start(mediaItem, outputDir.newFile().getPath());
+    ExportResult result = TransformerTestRunner.runLooper(transformer);
+
+    // TODO: b/324245196 - Update this test when bugs are fixed.
+    //  Duration is actually 68267 / 44100 = 1548ms.
+    //  Last frame PTS is 67866 / 44100 = 1.53891 which rounds down to 1538ms.
+    assertThat(result.durationMs).isEqualTo(1538);
+    // TODO: b/325020444 - Update this test when bugs are fixed.
+    //  Dump incorrectly includes the last clipped audio sample from input file.
+    DumpFileAsserts.assertOutput(
+        context,
+        muxerFactory.getCreatedMuxer(),
+        getDumpFileName(
+            /* originalFileName= */ FILE_AUDIO_ELST_SKIP_500MS,
+            /* modifications...= */ "transmuxed"));
+  }
+
+  @Test
+  @Config(minSdk = 21, maxSdk = 29)
+  // This test requires Android SDK < 30 with no MediaMuxer negative PTS support.
+  public void transmux_audioWithEditList_api29_frameworkMuxerDoesNotThrow() throws Exception {
+    // Do not use CapturingMuxer.Factory(), as this test checks for a workaround in
+    // FrameworkMuxer.
+    Transformer transformer =
+        createTransformerBuilder(
+                new FrameworkMuxer.Factory(C.TIME_UNSET), /* enableFallback= */ false)
+            .build();
+    MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_ELST_SKIP_500MS);
+
+    transformer.start(mediaItem, outputDir.newFile().getPath());
+    ExportResult result = TransformerTestRunner.runLooper(transformer);
+
+    // TODO: b/324842222 - Update this test when bugs are fixed.
+    //  The result.durationMs is incorrect in this test because
+    //  FrameworkMuxer workaround doesn't propagate changed timestamps to MuxerWrapper.
+    assertThat(result.durationMs).isEqualTo(1538);
+    assertThat(result.exportException).isNull();
+  }
+
+  @Test
+  @Config(minSdk = 25)
+  // This test requires Android SDK < 30 for lack of MediaMuxer negative PTS support
+  // and SDK >= 25 for B-frame support.
+  public void transmux_trimsFirstIDRDuration() throws Exception {
+    Transformer transformer =
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+    MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_VIDEO_ELST_TRIM_IDR_DURATION);
+
+    transformer.start(mediaItem, outputDir.newFile().getPath());
+    ExportResult result = TransformerTestRunner.runLooper(transformer);
+
+    // TODO: b/324245196 - Update this test when bugs are fixed.
+    //  Duration is actually 12_500. Last frame PTS is 11_500.
+    assertThat(result.durationMs).isEqualTo(11_500);
+    int inputFrameCount = 13;
+    assertThat(result.videoFrameCount).isEqualTo(inputFrameCount);
+    DumpFileAsserts.assertOutput(
+        context,
+        muxerFactory.getCreatedMuxer(),
+        getDumpFileName(
+            /* originalFileName= */ FILE_VIDEO_ELST_TRIM_IDR_DURATION,
+            /* modifications...= */ "transmuxed"));
+  }
+
   private static final class SlowExtractorsFactory implements ExtractorsFactory {
 
     private final long delayBetweenReadsMs;
@@ -1467,7 +1615,10 @@ public final class MediaItemExportTest {
 
       @Override
       public AssetLoader createAssetLoader(
-          EditedMediaItem editedMediaItem, Looper looper, Listener listener) {
+          EditedMediaItem editedMediaItem,
+          Looper looper,
+          Listener listener,
+          CompositionSettings compositionSettings) {
         return new FakeAssetLoader(listener, supportedOutputTypes, sampleConsumerRef);
       }
     }

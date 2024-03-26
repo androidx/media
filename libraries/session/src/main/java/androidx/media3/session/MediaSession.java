@@ -34,8 +34,10 @@ import android.os.RemoteException;
 import android.support.v4.media.session.MediaControllerCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.view.KeyEvent;
+import androidx.annotation.DoNotInline;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.core.app.NotificationCompat;
 import androidx.media.MediaSessionManager.RemoteUserInfo;
@@ -386,6 +388,9 @@ public class MediaSession {
      * <p>Use {@code MediaSession.setCustomLayout(..)} to update the custom layout during the life
      * time of the session.
      *
+     * <p>On the controller side, the {@linkplain CommandButton#isEnabled enabled} flag is set to
+     * {@code false} if the available commands of a controller do not allow to use a button.
+     *
      * @param customLayout The ordered list of {@link CommandButton command buttons}.
      * @return The builder to allow chaining.
      */
@@ -728,6 +733,9 @@ public class MediaSession {
    */
   @UnstableApi
   public final void setSessionActivity(PendingIntent activityPendingIntent) {
+    if (Util.SDK_INT >= 31) {
+      checkArgument(Api31.isActivity(activityPendingIntent));
+    }
     impl.setSessionActivity(activityPendingIntent);
   }
 
@@ -906,7 +914,8 @@ public class MediaSession {
    * MediaController#getCustomLayout() controller already has available}. Note that this comparison
    * uses {@link CommandButton#equals} and therefore ignores {@link CommandButton#extras}.
    *
-   * <p>It's up to controller's decision how to represent the layout in its own UI.
+   * <p>On the controller side, the {@linkplain CommandButton#isEnabled enabled} flag is set to
+   * {@code false} if the available commands of the controller do not allow to use a button.
    *
    * <p>Interoperability: This call has no effect when called for a {@linkplain
    * ControllerInfo#LEGACY_CONTROLLER_VERSION legacy controller}.
@@ -928,9 +937,8 @@ public class MediaSession {
    * <p>Calling this method broadcasts the custom layout to all connected Media3 controllers,
    * including the {@linkplain #getMediaNotificationControllerInfo() media notification controller}.
    *
-   * <p>On the controller side, the {@linkplain CommandButton#isEnabled enabled} flag is set
-   * according to the available commands of the controller which overrides a value that has been set
-   * by the session.
+   * <p>On the controller side, the {@linkplain CommandButton#isEnabled enabled} flag is set to
+   * {@code false} if the available commands of a controller do not allow to use a button.
    *
    * <p>{@link MediaController.Listener#onCustomLayoutChanged(MediaController, List)} is only called
    * if the new custom layout is different to the custom layout the {@linkplain
@@ -1362,7 +1370,7 @@ public class MediaSession {
      *   <li>{@link MediaControllerCompat.TransportControls#playFromMediaId playFromMediaId}
      *   <li>{@link MediaControllerCompat.TransportControls#prepareFromSearch prepareFromSearch}
      *   <li>{@link MediaControllerCompat.TransportControls#playFromSearch playFromSearch}
-     *   <li>{@link MediaControllerCompat.TransportControls#addQueueItem addQueueItem}
+     *   <li>{@link MediaControllerCompat#addQueueItem addQueueItem}
      * </ul>
      *
      * The values of {@link MediaItem#mediaId}, {@link MediaItem.RequestMetadata#mediaUri}, {@link
@@ -1428,7 +1436,7 @@ public class MediaSession {
      *   <li>{@link MediaControllerCompat.TransportControls#playFromMediaId playFromMediaId}
      *   <li>{@link MediaControllerCompat.TransportControls#prepareFromSearch prepareFromSearch}
      *   <li>{@link MediaControllerCompat.TransportControls#playFromSearch playFromSearch}
-     *   <li>{@link MediaControllerCompat.TransportControls#addQueueItem addQueueItem}
+     *   <li>{@link MediaControllerCompat#addQueueItem addQueueItem}
      * </ul>
      *
      * The values of {@link MediaItem#mediaId}, {@link MediaItem.RequestMetadata#mediaUri}, {@link
@@ -1648,7 +1656,9 @@ public class MediaSession {
        *
        * <p>Make sure to have the session commands of all command buttons of the custom layout
        * included in the {@linkplain #setAvailableSessionCommands(SessionCommands)} available
-       * session commands}.
+       * session commands} On the controller side, the {@linkplain CommandButton#isEnabled enabled}
+       * flag is set to {@code false} if the available commands of the controller do not allow to
+       * use a button.
        */
       @CanIgnoreReturnValue
       public AcceptedResultBuilder setCustomLayout(@Nullable List<CommandButton> customLayout) {
@@ -1943,6 +1953,9 @@ public class MediaSession {
 
     @SuppressWarnings("unchecked")
     public BuilderT setSessionActivity(PendingIntent pendingIntent) {
+      if (Util.SDK_INT >= 31) {
+        checkArgument(Api31.isActivity(pendingIntent));
+      }
       sessionActivity = checkNotNull(pendingIntent);
       return (BuilderT) this;
     }
@@ -1997,5 +2010,13 @@ public class MediaSession {
     }
 
     public abstract SessionT build();
+  }
+
+  @RequiresApi(31)
+  private static final class Api31 {
+    @DoNotInline
+    public static boolean isActivity(PendingIntent pendingIntent) {
+      return pendingIntent.isActivity();
+    }
   }
 }

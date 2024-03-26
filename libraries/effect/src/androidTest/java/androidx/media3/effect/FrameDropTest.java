@@ -30,9 +30,7 @@ import androidx.media3.common.util.Consumer;
 import androidx.media3.test.utils.TextureBitmapReader;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
-import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -44,12 +42,11 @@ import org.junit.runner.RunWith;
 public class FrameDropTest {
   @Rule public final TestName testName = new TestName();
 
-  private static final String ASSET_PATH = "media/bitmap/FrameDropTest";
+  private static final String ASSET_PATH = "test-generated-goldens/FrameDropTest";
 
   private @MonotonicNonNull TextureBitmapReader textureBitmapReader;
-  private @MonotonicNonNull String testId;
+  private String testId;
 
-  @EnsuresNonNull({"textureBitmapReader", "testId"})
   @Before
   public void setUp() {
     textureBitmapReader = new TextureBitmapReader();
@@ -57,7 +54,6 @@ public class FrameDropTest {
   }
 
   @Test
-  @RequiresNonNull({"textureBitmapReader", "testId"})
   public void frameDrop_withDefaultStrategy_outputsFramesAtTheCorrectPresentationTimesUs()
       throws Exception {
     ImmutableList<Long> frameTimesUs =
@@ -73,7 +69,6 @@ public class FrameDropTest {
   }
 
   @Test
-  @RequiresNonNull({"textureBitmapReader", "testId"})
   public void frameDrop_withSimpleStrategy_outputsFramesAtTheCorrectPresentationTimesUs()
       throws Exception {
     ImmutableList<Long> frameTimesUs =
@@ -90,7 +85,6 @@ public class FrameDropTest {
   }
 
   @Test
-  @RequiresNonNull({"textureBitmapReader", "testId"})
   public void frameDrop_withSimpleStrategy_outputsAllFrames() throws Exception {
     ImmutableList<Long> frameTimesUs = ImmutableList.of(0L, 333_333L, 666_667L);
     FrameDropEffect frameDropEffect =

@@ -144,6 +144,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   private final Context context;
   private final VideoSinkProvider videoSinkProvider;
+  private final boolean ownsVideoSinkProvider;
   private final EventDispatcher eventDispatcher;
   private final int maxDroppedFramesToNotify;
   private final boolean deviceNeedsNoPostProcessWorkaround;
@@ -221,7 +222,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       int maxDroppedFramesToNotify) {
     this(
         context,
-        MediaCodecAdapter.Factory.DEFAULT,
+        MediaCodecAdapter.Factory.getDefault(context),
         mediaCodecSelector,
         allowedJoiningTimeMs,
         /* enableDecoderFallback= */ false,
@@ -255,7 +256,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       int maxDroppedFramesToNotify) {
     this(
         context,
-        MediaCodecAdapter.Factory.DEFAULT,
+        MediaCodecAdapter.Factory.getDefault(context),
         mediaCodecSelector,
         allowedJoiningTimeMs,
         enableDecoderFallback,
@@ -393,9 +394,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     this.maxDroppedFramesToNotify = maxDroppedFramesToNotify;
     this.context = context.getApplicationContext();
     eventDispatcher = new EventDispatcher(eventHandler, eventListener);
+    ownsVideoSinkProvider = videoSinkProvider == null;
     if (videoSinkProvider == null) {
       videoSinkProvider = new CompositingVideoSinkProvider.Builder(this.context).build();
     }
+
     if (videoSinkProvider.getVideoFrameReleaseControl() == null) {
       @SuppressWarnings("nullness:assignment")
       VideoFrameReleaseControl.@Initialized FrameTimingEvaluator thisRef = this;
@@ -659,7 +662,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (joining) {
       videoFrameReleaseControl.join();
     }
-    maybeUpdateOnFrameRenderedListener();
+    maybeSetupTunnelingForFirstFrame();
     consecutiveDroppedFrameCount = 0;
   }
 
@@ -704,7 +707,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   protected void onDisabled() {
     reportedVideoSize = null;
     videoFrameReleaseControl.onDisabled();
-    maybeUpdateOnFrameRenderedListener();
+    maybeSetupTunnelingForFirstFrame();
     haveReportedFirstFrameRenderedForCurrentSurface = false;
     tunnelingOnFrameRenderedListener = null;
     try {
@@ -715,7 +718,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     }
   }
 
-  @TargetApi(17) // Needed for placeholderSurface usage, as it is always null on API level 16.
   @Override
   protected void onReset() {
     try {
@@ -731,7 +733,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @Override
   protected void onRelease() {
     super.onRelease();
-    if (videoSinkProvider.isInitialized()) {
+    if (ownsVideoSinkProvider && videoSinkProvider.isInitialized()) {
       videoSinkProvider.release();
     }
   }
@@ -804,7 +806,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       } else {
         MediaCodecInfo codecInfo = getCodecInfo();
         if (codecInfo != null && shouldUsePlaceholderSurface(codecInfo)) {
-          placeholderSurface = PlaceholderSurface.newInstanceV17(context, codecInfo.secure);
+          placeholderSurface = PlaceholderSurface.newInstance(context, codecInfo.secure);
           displaySurface = placeholderSurface;
         }
       }
@@ -846,7 +848,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
           videoSinkProvider.clearOutputSurfaceInfo();
         }
       }
-      maybeUpdateOnFrameRenderedListener();
+      maybeSetupTunnelingForFirstFrame();
     } else if (displaySurface != null && displaySurface != placeholderSurface) {
       // The display surface is set and unchanged. If we know the video size and/or have already
       // rendered to the display surface, report these again immediately.
@@ -866,7 +868,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     return tunneling && Util.SDK_INT < 23;
   }
 
-  @TargetApi(17) // Needed for placeHolderSurface usage, as it is always null on API level 16.
   @Override
   protected MediaCodecAdapter.Configuration getMediaCodecConfiguration(
       MediaCodecInfo codecInfo,
@@ -892,7 +893,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         throw new IllegalStateException();
       }
       if (placeholderSurface == null) {
-        placeholderSurface = PlaceholderSurface.newInstanceV17(context, codecInfo.secure);
+        placeholderSurface = PlaceholderSurface.newInstance(context, codecInfo.secure);
       }
       displaySurface = placeholderSurface;
     }
@@ -1129,9 +1130,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     codecNeedsSetOutputSurfaceWorkaround = codecNeedsSetOutputSurfaceWorkaround(name);
     codecHandlesHdr10PlusOutOfBandMetadata =
         checkNotNull(getCodecInfo()).isHdr10PlusOutOfBandMetadataSupported();
-    if (Util.SDK_INT >= 23 && tunneling) {
-      tunnelingOnFrameRenderedListener = new OnFrameRenderedListenerV23(checkNotNull(getCodec()));
-    }
+    maybeSetupTunnelingForFirstFrame();
   }
 
   @Override
@@ -1334,7 +1333,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     }
 
     // We are not rendering on a surface, the renderer will wait until a surface is set.
-    if (displaySurface == placeholderSurface) {
+    // Opportunistically render to VideoFrameProcessor if effects are enabled.
+    if (displaySurface == placeholderSurface && !videoSinkProvider.isInitialized()) {
       // Skip frames in sync with playback, so we'll be at the right frame if the mode changes.
       if (videoFrameReleaseInfo.getEarlyUs() < 30_000) {
         skipOutputBuffer(codec, bufferIndex, presentationTimeUs);
@@ -1462,7 +1462,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   protected void onProcessedStreamChange() {
     super.onProcessedStreamChange();
     videoFrameReleaseControl.onProcessedStreamChange();
-    maybeUpdateOnFrameRenderedListener();
+    maybeSetupTunnelingForFirstFrame();
     if (videoSinkProvider.isInitialized()) {
       videoSinkProvider.setStreamOffsetUs(getOutputStreamOffsetUs());
     }
@@ -1682,7 +1682,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         && (!codecInfo.secure || PlaceholderSurface.isSecureSupported(context));
   }
 
-  @RequiresApi(17)
   private void releasePlaceholderSurface() {
     if (displaySurface == placeholderSurface) {
       displaySurface = null;
@@ -1693,17 +1692,25 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     }
   }
 
-  private void maybeUpdateOnFrameRenderedListener() {
-    // The first frame notification is triggered by renderOutputBuffer or renderOutputBufferV21 for
-    // non-tunneled playback, onQueueInputBuffer for tunneled playback prior to API level 23, and
-    // OnFrameRenderedListenerV23.onFrameRenderedListener for tunneled playback on API level 23 and
-    // above.
-    if (Util.SDK_INT >= 23 && tunneling) {
-      @Nullable MediaCodecAdapter codec = getCodec();
-      // If codec is null then the listener will be instantiated in configureCodec.
-      if (codec != null) {
-        tunnelingOnFrameRenderedListener = new OnFrameRenderedListenerV23(codec);
-      }
+  private void maybeSetupTunnelingForFirstFrame() {
+    if (!tunneling || Util.SDK_INT < 23) {
+      // The first frame notification for tunneling is triggered by onQueueInputBuffer prior to API
+      // level 23 and no setup is needed here.
+      return;
+    }
+    @Nullable MediaCodecAdapter codec = getCodec();
+    if (codec == null) {
+      // If codec is null, then the setup will be triggered again in onCodecInitialized.
+      return;
+    }
+    tunnelingOnFrameRenderedListener = new OnFrameRenderedListenerV23(codec);
+    if (Util.SDK_INT >= 33) {
+      // This should be the default anyway according to the API contract, but some devices are known
+      // to not adhere to this contract and need to get the parameter explicitly. See
+      // https://github.com/androidx/media/issues/1169.
+      Bundle codecParameters = new Bundle();
+      codecParameters.putInt(MediaCodec.PARAMETER_KEY_TUNNEL_PEEK, 1);
+      codec.setParameters(codecParameters);
     }
   }
 

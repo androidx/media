@@ -13,6 +13,12 @@
 -keepclassmembers class androidx.media3.decoder.midi.MidiExtractor {
   <init>();
 }
+# copybara:strip_begin
+# See b/329087264
+-keep class androidx.media3.extractor.BinarySearchSeeker {
+  getSeekMap();
+}
+# copybara:strip_end
 
 # Don't warn about checkerframework and Kotlin annotations
 -dontwarn org.checkerframework.**

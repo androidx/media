@@ -81,7 +81,7 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
    */
   public CapturingRenderersFactory(Context context) {
     this.context = context;
-    this.mediaCodecAdapterFactory = new CapturingMediaCodecAdapter.Factory();
+    this.mediaCodecAdapterFactory = new CapturingMediaCodecAdapter.Factory(context);
     this.audioSink = new CapturingAudioSink(new DefaultAudioSink.Builder(context).build());
     this.imageOutput = new CapturingImageOutput();
     this.imageDecoderFactory = ImageDecoder.Factory.DEFAULT;
@@ -168,18 +168,19 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
 
     private static class Factory implements MediaCodecAdapter.Factory, Dumper.Dumpable {
 
+      private final Context context;
       private final List<CapturingMediaCodecAdapter> constructedAdapters;
 
-      private Factory() {
+      private Factory(Context context) {
+        this.context = context;
         constructedAdapters = new ArrayList<>();
       }
 
-      @RequiresApi(18)
       @Override
       public MediaCodecAdapter createAdapter(Configuration configuration) throws IOException {
         CapturingMediaCodecAdapter adapter =
             new CapturingMediaCodecAdapter(
-                MediaCodecAdapter.Factory.DEFAULT.createAdapter(configuration),
+                MediaCodecAdapter.Factory.getDefault(context).createAdapter(configuration),
                 configuration.codecInfo.name);
         constructedAdapters.add(adapter);
         return adapter;
@@ -343,7 +344,6 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
       delegate.setOutputSurface(surface);
     }
 
-    @RequiresApi(19)
     @Override
     public void setParameters(Bundle params) {
       delegate.setParameters(params);

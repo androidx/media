@@ -54,6 +54,7 @@ import androidx.media3.datasource.DataSource;
 import androidx.media3.exoplayer.analytics.AnalyticsCollector;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.analytics.DefaultAnalyticsCollector;
+import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.MediaCodecAudioRenderer;
 import androidx.media3.exoplayer.image.ImageOutput;
@@ -478,6 +479,7 @@ public interface ExoPlayer extends Player {
     @Nullable /* package */ Looper playbackLooper;
     /* package */ boolean buildCalled;
     /* package */ boolean suppressPlaybackOnUnsuitableOutput;
+    /* package */ String playerName;
 
     /**
      * Creates a builder.
@@ -678,6 +680,7 @@ public interface ExoPlayer extends Player {
       releaseTimeoutMs = DEFAULT_RELEASE_TIMEOUT_MS;
       detachSurfaceTimeoutMs = DEFAULT_DETACH_SURFACE_TIMEOUT_MS;
       usePlatformDiagnostics = true;
+      playerName = "";
     }
 
     /**
@@ -1188,6 +1191,24 @@ public interface ExoPlayer extends Player {
     }
 
     /**
+     * Sets the player name that is included in the {@link PlayerId} for informational purpose to
+     * recognize the player by its {@link PlayerId}.
+     *
+     * <p>The default is an empty string.
+     *
+     * @param playerName A name for the player in the {@link PlayerId}.
+     * @return This builder.
+     * @throws IllegalStateException If {@link #build()} has already been called.
+     */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    public Builder setName(String playerName) {
+      checkState(!buildCalled);
+      this.playerName = playerName;
+      return this;
+    }
+
+    /**
      * Builds an {@link ExoPlayer} instance.
      *
      * @throws IllegalStateException If this method has already been called.
@@ -1566,7 +1587,8 @@ public interface ExoPlayer extends Player {
    * frame.
    *
    * <p>If {@linkplain #setVideoSurface passing a surface to the player directly}, the output
-   * resolution needs to be signaled by passing a renderer message with type {@link
+   * resolution needs to be signaled by passing a {@linkplain #createMessage(PlayerMessage.Target)
+   * message} to the {@linkplain Renderer video renderer} with type {@link
    * Renderer#MSG_SET_VIDEO_OUTPUT_RESOLUTION} after calling this method. For {@link SurfaceView},
    * {@link TextureView} and {@link SurfaceHolder} output this happens automatically.
    *
@@ -1579,14 +1601,14 @@ public interface ExoPlayer extends Player {
    *       version as the rest of the {@code androidx.media3} modules being used by the app.
    *   <li>This feature works only with the default {@link MediaCodecVideoRenderer} and not custom
    *       or extension {@linkplain Renderer video renderers}.
-   *   <li>This feature does not work with {@linkplain Effect effects} updating the timestamps.
+   *   <li>This feature does not work with {@linkplain Effect effects} that update the frame
+   *       timestamps.
    *   <li>This feature does not work with DRM-protected content.
    *   <li>This method should be called before calling {@link #prepare()}.
    * </ul>
    *
    * @param videoEffects The {@link List} of {@linkplain Effect video effects} to apply.
    */
-  @RequiresApi(18)
   @UnstableApi
   void setVideoEffects(List<Effect> videoEffects);
 

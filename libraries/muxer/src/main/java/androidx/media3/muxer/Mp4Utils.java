@@ -15,6 +15,13 @@
  */
 package androidx.media3.muxer;
 
+import androidx.media3.common.Metadata;
+import androidx.media3.container.MdtaMetadataEntry;
+import androidx.media3.container.Mp4LocationData;
+import androidx.media3.container.Mp4OrientationData;
+import androidx.media3.container.Mp4TimestampData;
+import androidx.media3.container.XmpData;
+
 /** Utilities for MP4 files. */
 /* package */ final class Mp4Utils {
   /* Total number of bytes in an integer. */
@@ -47,5 +54,26 @@ package androidx.media3.muxer;
   /** Converts video units to microseconds, using the provided timebase. */
   public static long usFromVu(long timestampVu, long videoUnitTimebase) {
     return timestampVu * 1_000_000L / videoUnitTimebase;
+  }
+
+  /** Returns whether a given {@link Metadata.Entry metadata} is supported. */
+  public static boolean isMetadataSupported(Metadata.Entry metadata) {
+    return metadata instanceof Mp4OrientationData
+        || metadata instanceof Mp4LocationData
+        || (metadata instanceof Mp4TimestampData
+            && isMp4TimestampDataSupported((Mp4TimestampData) metadata))
+        || (metadata instanceof MdtaMetadataEntry
+            && isMdtaMetadataEntrySupported((MdtaMetadataEntry) metadata))
+        || metadata instanceof XmpData;
+  }
+
+  private static boolean isMdtaMetadataEntrySupported(MdtaMetadataEntry mdtaMetadataEntry) {
+    return mdtaMetadataEntry.typeIndicator == MdtaMetadataEntry.TYPE_INDICATOR_STRING
+        || mdtaMetadataEntry.typeIndicator == MdtaMetadataEntry.TYPE_INDICATOR_FLOAT32;
+  }
+
+  private static boolean isMp4TimestampDataSupported(Mp4TimestampData timestampData) {
+    return timestampData.creationTimestampSeconds <= UNSIGNED_INT_MAX_VALUE
+        && timestampData.modificationTimestampSeconds <= UNSIGNED_INT_MAX_VALUE;
   }
 }

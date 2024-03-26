@@ -59,7 +59,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 @UnstableApi
 public abstract class MultipleInputVideoGraph implements VideoGraph {
 
-  private static final String SHARED_EXECUTOR_NAME = "Transformer:MultipleInputVideoGraph:Thread";
+  private static final String SHARED_EXECUTOR_NAME = "Effect:MultipleInputVideoGraph:Thread";
 
   private static final long RELEASE_WAIT_TIME_MS = 1_000;
   private static final int PRE_COMPOSITOR_TEXTURE_OUTPUT_CAPACITY = 2;
@@ -67,7 +67,6 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
 
   private final Context context;
 
-  private final ColorInfo inputColorInfo;
   private final ColorInfo outputColorInfo;
   private final GlObjectsProvider glObjectsProvider;
   private final DebugViewProvider debugViewProvider;
@@ -98,16 +97,14 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
 
   protected MultipleInputVideoGraph(
       Context context,
-      ColorInfo inputColorInfo,
       ColorInfo outputColorInfo,
       DebugViewProvider debugViewProvider,
-      VideoGraph.Listener listener,
+      Listener listener,
       Executor listenerExecutor,
       VideoCompositorSettings videoCompositorSettings,
       List<Effect> compositionEffects,
       long initialTimestampOffsetUs) {
     this.context = context;
-    this.inputColorInfo = inputColorInfo;
     this.outputColorInfo = outputColorInfo;
     this.debugViewProvider = debugViewProvider;
     this.listener = listener;
@@ -309,10 +306,6 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
     }
 
     released = true;
-  }
-
-  protected ColorInfo getInputColorInfo() {
-    return inputColorInfo;
   }
 
   protected long getInitialTimestampOffsetUs() {

@@ -158,22 +158,37 @@ public class MediaSessionServiceTest {
       throws TimeoutException {
     SessionCommand command1 = new SessionCommand("command1", Bundle.EMPTY);
     SessionCommand command2 = new SessionCommand("command2", Bundle.EMPTY);
+    SessionCommand command3 = new SessionCommand("command3", Bundle.EMPTY);
+    SessionCommand command4 = new SessionCommand("command4", Bundle.EMPTY);
     CommandButton button1 =
-        new CommandButton.Builder()
+        new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("customAction1")
             .setIconResId(R.drawable.media3_notification_small_icon)
             .setSessionCommand(command1)
             .build();
     CommandButton button2 =
-        new CommandButton.Builder()
+        new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("customAction2")
             .setIconResId(R.drawable.media3_notification_small_icon)
             .setSessionCommand(command2)
             .build();
+    CommandButton button3 =
+        new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+            .setDisplayName("customAction3")
+            .setEnabled(false)
+            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setSessionCommand(command3)
+            .build();
+    CommandButton button4 =
+        new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+            .setDisplayName("customAction4")
+            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setSessionCommand(command4)
+            .build();
     ExoPlayer player = new TestExoPlayerBuilder(context).build();
     MediaSession session =
         new MediaSession.Builder(context, player)
-            .setCustomLayout(ImmutableList.of(button1, button2))
+            .setCustomLayout(ImmutableList.of(button1, button2, button3, button4))
             .setCallback(
                 new MediaSession.Callback() {
                   @Override
@@ -186,6 +201,7 @@ public class MediaSessionServiceTest {
                                   .buildUpon()
                                   .add(command1)
                                   .add(command2)
+                                  .add(command3)
                                   .build())
                           .build();
                     }
@@ -249,13 +265,13 @@ public class MediaSessionServiceTest {
     SessionCommand command1 = new SessionCommand("command1", Bundle.EMPTY);
     SessionCommand command2 = new SessionCommand("command2", Bundle.EMPTY);
     CommandButton button1 =
-        new CommandButton.Builder()
+        new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("customAction1")
             .setIconResId(R.drawable.media3_notification_small_icon)
             .setSessionCommand(command1)
             .build();
     CommandButton button2 =
-        new CommandButton.Builder()
+        new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("customAction2")
             .setIconResId(R.drawable.media3_notification_small_icon)
             .setSessionCommand(command2)

@@ -360,7 +360,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    */
   @Nullable private MediaCrypto mediaCrypto;
 
-  private boolean mediaCryptoRequiresSecureDecoder;
   private long renderTimeLimitMs;
   private float currentPlaybackSpeed;
   private float targetPlaybackSpeed;
@@ -539,6 +538,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       // We have a codec, are bypassing it, or don't have a format to decide how to render.
       return;
     }
+    Format inputFormat = this.inputFormat;
 
     if (isBypassPossible(inputFormat)) {
       initBypass(inputFormat);
@@ -548,6 +548,10 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     setCodecDrmSession(sourceDrmSession);
     if (codecDrmSession == null || initMediaCryptoIfDrmSessionReady()) {
       try {
+        boolean mediaCryptoRequiresSecureDecoder =
+            codecDrmSession != null
+                && codecDrmSession.requiresSecureDecoder(
+                    checkStateNotNull(inputFormat.sampleMimeType));
         maybeInitCodecWithFallback(mediaCrypto, mediaCryptoRequiresSecureDecoder);
       } catch (DecoderInitializationException e) {
         throw createRendererException(
@@ -558,7 +562,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       // mediaCrypto was created, but a codec wasn't, so release the mediaCrypto before returning.
       mediaCrypto.release();
       mediaCrypto = null;
-      mediaCryptoRequiresSecureDecoder = false;
     }
   }
 
@@ -968,7 +971,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     codecNeedsEosPropagation = false;
     codecReconfigured = false;
     codecReconfigurationState = RECONFIGURATION_STATE_NONE;
-    mediaCryptoRequiresSecureDecoder = false;
   }
 
   protected MediaCodecDecoderException createDecoderException(
@@ -1011,7 +1013,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private boolean initMediaCryptoIfDrmSessionReady() throws ExoPlaybackException {
     checkState(mediaCrypto == null);
     DrmSession codecDrmSession = this.codecDrmSession;
-    String mimeType = checkNotNull(inputFormat).sampleMimeType;
     @Nullable CryptoConfig cryptoConfig = codecDrmSession.getCryptoConfig();
     if (FrameworkCryptoConfig.WORKAROUND_DEVICE_NEEDS_KEYS_TO_CONFIGURE_CODEC
         && cryptoConfig instanceof FrameworkCryptoConfig) {
@@ -1044,9 +1045,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         throw createRendererException(
             e, inputFormat, PlaybackException.ERROR_CODE_DRM_SYSTEM_ERROR);
       }
-      mediaCryptoRequiresSecureDecoder =
-          !frameworkCryptoConfig.forceAllowInsecureDecoderComponents
-              && mediaCrypto.requiresSecureDecoderComponent(checkStateNotNull(mimeType));
     }
     return true;
   }
@@ -1217,8 +1215,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     codecNeedsEosFlushWorkaround = codecNeedsEosFlushWorkaround(codecName);
     codecNeedsEosOutputExceptionWorkaround = codecNeedsEosOutputExceptionWorkaround(codecName);
     codecNeedsEosBufferTimestampWorkaround = codecNeedsEosBufferTimestampWorkaround(codecName);
-    codecNeedsMonoChannelCountWorkaround =
-        codecNeedsMonoChannelCountWorkaround(codecName, checkNotNull(codecInputFormat));
+    codecNeedsMonoChannelCountWorkaround = false;
     codecNeedsEosPropagation =
         codecNeedsEosPropagationWorkaround(codecInfo) || getCodecNeedsEosPropagation();
     if (checkNotNull(codec).needsReconfiguration()) {
@@ -2229,8 +2226,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       return false;
     }
 
-    FrameworkCryptoConfig newFrameworkCryptoConfig = (FrameworkCryptoConfig) newCryptoConfig;
-
     // Note: Both oldSession and newSession are non-null, and they are different sessions.
 
     if (!newSession.getSchemeUuid().equals(oldSession.getSchemeUuid())) {
@@ -2251,20 +2246,10 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       return true;
     }
 
-    boolean requiresSecureDecoder;
-    if (newFrameworkCryptoConfig.forceAllowInsecureDecoderComponents) {
-      requiresSecureDecoder = false;
-    } else {
-      requiresSecureDecoder =
-          newSession.requiresSecureDecoder(checkNotNull(newFormat.sampleMimeType));
-    }
-    if (!codecInfo.secure && requiresSecureDecoder) {
-      // Re-initialization is required because newSession might require switching to the secure
-      // output path.
-      return true;
-    }
-
-    return false;
+    // Re-initialization is required if newSession might require switching to the secure output
+    // path.
+    return !codecInfo.secure
+        && newSession.requiresSecureDecoder(checkNotNull(newFormat.sampleMimeType));
   }
 
   private void reinitializeCodec() throws ExoPlaybackException {
@@ -2499,12 +2484,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    * @return True if the decoder is known to fail when flushed.
    */
   private static boolean codecNeedsFlushWorkaround(String name) {
-    return Util.SDK_INT < 18
-        || (Util.SDK_INT == 18
-            && ("OMX.SEC.avc.dec".equals(name) || "OMX.SEC.avc.dec.secure".equals(name)))
-        || (Util.SDK_INT == 19
-            && Util.MODEL.startsWith("SM-G800")
-            && ("OMX.Exynos.avc.dec".equals(name) || "OMX.Exynos.avc.dec.secure".equals(name)));
+    return Util.SDK_INT == 19
+        && Util.MODEL.startsWith("SM-G800")
+        && ("OMX.Exynos.avc.dec".equals(name) || "OMX.Exynos.avc.dec.secure".equals(name));
   }
 
   /**
@@ -2589,7 +2571,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private static boolean codecNeedsEosPropagationWorkaround(MediaCodecInfo codecInfo) {
     String name = codecInfo.name;
     return (Util.SDK_INT <= 25 && "OMX.rk.video_decoder.avc".equals(name))
-        || (Util.SDK_INT <= 17 && "OMX.allwinner.video.decoder.avc".equals(name))
         || (Util.SDK_INT <= 29
             && ("OMX.broadcom.video_decoder.tunnel".equals(name)
                 || "OMX.broadcom.video_decoder.tunnel.secure".equals(name)
@@ -2615,7 +2596,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    */
   private static boolean codecNeedsEosFlushWorkaround(String name) {
     return (Util.SDK_INT <= 23 && "OMX.google.vorbis.decoder".equals(name))
-        || (Util.SDK_INT <= 19
+        || (Util.SDK_INT == 19
             && ("hb2000".equals(Util.DEVICE) || "stvm8".equals(Util.DEVICE))
             && ("OMX.amlogic.avc.decoder.awesome".equals(name)
                 || "OMX.amlogic.avc.decoder.awesome.secure".equals(name)));
@@ -2652,26 +2633,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    */
   private static boolean codecNeedsEosOutputExceptionWorkaround(String name) {
     return Util.SDK_INT == 21 && "OMX.google.aac.decoder".equals(name);
-  }
-
-  /**
-   * Returns whether the decoder is known to set the number of audio channels in the output {@link
-   * Format} to 2 for the given input {@link Format}, whilst only actually outputting a single
-   * channel.
-   *
-   * <p>If true is returned then we explicitly override the number of channels in the output {@link
-   * Format}, setting it to 1.
-   *
-   * @param name The decoder name.
-   * @param format The input {@link Format}.
-   * @return True if the decoder is known to set the number of audio channels in the output {@link
-   *     Format} to 2 for the given input {@link Format}, whilst only actually outputting a single
-   *     channel. False otherwise.
-   */
-  private static boolean codecNeedsMonoChannelCountWorkaround(String name, Format format) {
-    return Util.SDK_INT <= 18
-        && format.channelCount == 1
-        && "OMX.MTK.AUDIO.DECODER.MP3".equals(name);
   }
 
   private static final class OutputStreamInfo {

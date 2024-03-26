@@ -16,6 +16,7 @@
 
 package androidx.media3.transformer.mh;
 
+import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeFalse;
 
@@ -33,25 +34,34 @@ import androidx.media3.transformer.TransformerAndroidTestRunner;
 import androidx.media3.transformer.VideoEncoderSettings;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 /** Checks transcoding quality. */
 @RunWith(AndroidJUnit4.class)
 public final class TranscodeQualityTest {
+  @Rule public final TestName testName = new TestName();
+
+  private String testId;
+
+  @Before
+  public void setUpTestId() {
+    testId = testName.getMethodName();
+  }
+
   @Test
   public void exportHighQualityTargetingAvcToAvc1920x1080_ssimIsGreaterThan95Percent()
       throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
-    String testId = "transformHighQualityTargetingAvcToAvc1920x1080_ssim";
 
-    if (AndroidTestUtil.skipAndLogIfFormatsUnsupported(
+    assumeFormatsSupported(
         context,
         testId,
         /* inputFormat= */ AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_FORMAT,
-        /* outputFormat= */ AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_FORMAT)) {
-      return;
-    }
+        /* outputFormat= */ AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_FORMAT);
     // Skip on specific pre-API 34 devices where calculating SSIM fails.
     assumeFalse(
         (Util.SDK_INT < 33 && (Util.MODEL.equals("SM-F711U1") || Util.MODEL.equals("SM-F926U1")))
@@ -89,18 +99,15 @@ public final class TranscodeQualityTest {
   @Test
   public void transcodeAvcToHevc_ssimIsGreaterThan90Percent() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
-    String testId = "transcodeAvcToHevc_ssim";
 
-    if (AndroidTestUtil.skipAndLogIfFormatsUnsupported(
+    assumeFormatsSupported(
         context,
         testId,
         /* inputFormat= */ AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_FORMAT,
         /* outputFormat= */ AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_FORMAT
             .buildUpon()
             .setSampleMimeType(MimeTypes.VIDEO_H265)
-            .build())) {
-      return;
-    }
+            .build());
     assumeFalse(
         (Util.SDK_INT < 33 && (Util.MODEL.equals("SM-F711U1") || Util.MODEL.equals("SM-F926U1")))
             || (Util.SDK_INT == 33 && Util.MODEL.equals("LE2121")));
@@ -126,7 +133,6 @@ public final class TranscodeQualityTest {
   @Test
   public void transcodeAvcToAvc320x240_ssimIsGreaterThan90Percent() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
-    String testId = "transcodeAvcToAvc320x240_ssim";
 
     // Don't skip based on format support as input and output formats should be within CDD
     // requirements on all supported API versions, except for wearable devices.

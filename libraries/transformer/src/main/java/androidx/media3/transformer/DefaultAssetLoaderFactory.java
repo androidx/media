@@ -16,6 +16,7 @@
 
 package androidx.media3.transformer;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 
 import android.content.ContentResolver;
@@ -24,7 +25,6 @@ import android.graphics.BitmapFactory;
 import android.graphics.ColorSpace;
 import android.os.Looper;
 import androidx.annotation.Nullable;
-import androidx.media3.common.FileTypes;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.BitmapLoader;
@@ -34,6 +34,7 @@ import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.exoplayer.source.MediaSource;
+import androidx.media3.transformer.AssetLoader.CompositionSettings;
 import com.google.common.base.Ascii;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.util.Objects;
@@ -46,7 +47,6 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
 
   private final Context context;
   private final Codec.DecoderFactory decoderFactory;
-  private final boolean forceInterpretHdrAsSdr;
   private final Clock clock;
   private final MediaSource.@MonotonicNonNull Factory mediaSourceFactory;
   private final BitmapLoader bitmapLoader;
@@ -64,19 +64,13 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
    * @param context The {@link Context}.
    * @param decoderFactory The {@link Codec.DecoderFactory} to use to decode the samples (if
    *     necessary).
-   * @param forceInterpretHdrAsSdr Whether to apply {@link
-   *     Composition#HDR_MODE_EXPERIMENTAL_FORCE_INTERPRET_HDR_AS_SDR}.
    * @param clock The {@link Clock} to use. It should always be {@link Clock#DEFAULT}, except for
    *     testing.
    */
   public DefaultAssetLoaderFactory(
-      Context context,
-      Codec.DecoderFactory decoderFactory,
-      boolean forceInterpretHdrAsSdr,
-      Clock clock) {
+      Context context, Codec.DecoderFactory decoderFactory, Clock clock) {
     this.context = context.getApplicationContext();
     this.decoderFactory = decoderFactory;
-    this.forceInterpretHdrAsSdr = forceInterpretHdrAsSdr;
     this.clock = clock;
     this.mediaSourceFactory = null;
     @Nullable BitmapFactory.Options options = null;
@@ -98,15 +92,11 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
    * The frame loaded is determined by the {@link BitmapLoader} implementation.
    *
    * @param context The {@link Context}.
-   * @param forceInterpretHdrAsSdr Whether to apply {@link
-   *     Composition#HDR_MODE_EXPERIMENTAL_FORCE_INTERPRET_HDR_AS_SDR}.
    * @param bitmapLoader The {@link BitmapLoader} to use to load and decode images.
    */
-  public DefaultAssetLoaderFactory(
-      Context context, boolean forceInterpretHdrAsSdr, BitmapLoader bitmapLoader) {
+  public DefaultAssetLoaderFactory(Context context, BitmapLoader bitmapLoader) {
     this.context = context.getApplicationContext();
     this.decoderFactory = new DefaultDecoderFactory(context);
-    this.forceInterpretHdrAsSdr = forceInterpretHdrAsSdr;
     this.clock = Clock.DEFAULT;
     this.mediaSourceFactory = null;
     this.bitmapLoader = bitmapLoader;
@@ -118,8 +108,6 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
    * @param context The {@link Context}.
    * @param decoderFactory The {@link Codec.DecoderFactory} to use to decode the samples (if
    *     necessary).
-   * @param forceInterpretHdrAsSdr Whether to apply {@link
-   *     Composition#HDR_MODE_EXPERIMENTAL_FORCE_INTERPRET_HDR_AS_SDR}.
    * @param clock The {@link Clock} to use. It should always be {@link Clock#DEFAULT}, except for
    *     testing.
    * @param mediaSourceFactory The {@link MediaSource.Factory} to use to retrieve the samples to
@@ -129,13 +117,11 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
   public DefaultAssetLoaderFactory(
       Context context,
       Codec.DecoderFactory decoderFactory,
-      boolean forceInterpretHdrAsSdr,
       Clock clock,
       MediaSource.Factory mediaSourceFactory,
       BitmapLoader bitmapLoader) {
     this.context = context.getApplicationContext();
     this.decoderFactory = decoderFactory;
-    this.forceInterpretHdrAsSdr = forceInterpretHdrAsSdr;
     this.clock = clock;
     this.mediaSourceFactory = mediaSourceFactory;
     this.bitmapLoader = bitmapLoader;
@@ -143,23 +129,26 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
 
   @Override
   public AssetLoader createAssetLoader(
-      EditedMediaItem editedMediaItem, Looper looper, AssetLoader.Listener listener) {
+      EditedMediaItem editedMediaItem,
+      Looper looper,
+      AssetLoader.Listener listener,
+      CompositionSettings compositionSettings) {
     MediaItem mediaItem = editedMediaItem.mediaItem;
     if (isImage(mediaItem.localConfiguration)) {
       if (imageAssetLoaderFactory == null) {
         imageAssetLoaderFactory = new ImageAssetLoader.Factory(bitmapLoader);
       }
-      return imageAssetLoaderFactory.createAssetLoader(editedMediaItem, looper, listener);
+      return imageAssetLoaderFactory.createAssetLoader(
+          editedMediaItem, looper, listener, compositionSettings);
     }
     if (exoPlayerAssetLoaderFactory == null) {
       exoPlayerAssetLoaderFactory =
           mediaSourceFactory != null
-              ? new ExoPlayerAssetLoader.Factory(
-                  context, decoderFactory, forceInterpretHdrAsSdr, clock, mediaSourceFactory)
-              : new ExoPlayerAssetLoader.Factory(
-                  context, decoderFactory, forceInterpretHdrAsSdr, clock);
+              ? new ExoPlayerAssetLoader.Factory(context, decoderFactory, clock, mediaSourceFactory)
+              : new ExoPlayerAssetLoader.Factory(context, decoderFactory, clock);
     }
-    return exoPlayerAssetLoaderFactory.createAssetLoader(editedMediaItem, looper, listener);
+    return exoPlayerAssetLoaderFactory.createAssetLoader(
+        editedMediaItem, looper, listener, compositionSettings);
   }
 
   private boolean isImage(@Nullable MediaItem.LocalConfiguration localConfiguration) {
@@ -172,8 +161,12 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
         ContentResolver cr = context.getContentResolver();
         mimeType = cr.getType(localConfiguration.uri);
       } else {
-        String fileExtension = FileTypes.getFileExtensionFromUri(localConfiguration.uri);
-        mimeType = getCommonImageMimeTypeFromExtension(Ascii.toLowerCase(fileExtension));
+        String uriPath = checkNotNull(localConfiguration.uri.getPath());
+        int fileExtensionStart = uriPath.lastIndexOf(".");
+        if (fileExtensionStart != -1) {
+          String extension = Ascii.toLowerCase(uriPath.substring(fileExtensionStart + 1));
+          mimeType = getCommonImageMimeTypeFromExtension(Ascii.toLowerCase(extension));
+        }
       }
     }
     if (mimeType == null) {

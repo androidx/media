@@ -15,17 +15,21 @@
  */
 package androidx.media3.muxer;
 
+import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.media.MediaCodec.BufferInfo;
-import androidx.annotation.FloatRange;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
-import androidx.media3.common.MimeTypes;
+import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
-import com.google.common.collect.ImmutableList;
+import androidx.media3.container.MdtaMetadataEntry;
+import androidx.media3.container.Mp4LocationData;
+import androidx.media3.container.Mp4OrientationData;
+import androidx.media3.container.Mp4TimestampData;
+import androidx.media3.container.XmpData;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -63,9 +67,7 @@ import java.nio.ByteBuffer;
  * </ul>
  */
 @UnstableApi
-public final class Mp4Muxer {
-  /** A token representing an added track. */
-  public interface TrackToken {}
+public final class Mp4Muxer implements Muxer {
 
   /** Behavior for the last sample duration. */
   @Documented
@@ -91,8 +93,6 @@ public final class Mp4Muxer {
     private final FileOutputStream fileOutputStream;
 
     private @LastFrameDurationBehavior int lastFrameDurationBehavior;
-    private boolean fragmentedMp4Enabled;
-    private int fragmentDurationUs;
     @Nullable private AnnexBToAvccConverter annexBToAvccConverter;
 
     /**
@@ -103,7 +103,6 @@ public final class Mp4Muxer {
     public Builder(FileOutputStream fileOutputStream) {
       this.fileOutputStream = checkNotNull(fileOutputStream);
       lastFrameDurationBehavior = LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME;
-      fragmentDurationUs = DEFAULT_FRAGMENT_DURATION_US;
     }
 
     /**
@@ -131,37 +130,6 @@ public final class Mp4Muxer {
       return this;
     }
 
-    /**
-     * Sets whether to enable writing a fragmented MP4.
-     *
-     * <p>The default value is {@code false}.
-     */
-    @CanIgnoreReturnValue
-    public Mp4Muxer.Builder setFragmentedMp4Enabled(boolean enabled) {
-      fragmentedMp4Enabled = enabled;
-      return this;
-    }
-
-    /**
-     * Sets fragment duration for the {@linkplain #setFragmentedMp4Enabled(boolean) fragmented MP4}.
-     *
-     * <p>Muxer will attempt to create fragments of the given duration but the actual duration might
-     * be greater depending upon the frequency of sync samples.
-     *
-     * <p>The duration is ignored for {@linkplain #setFragmentedMp4Enabled(boolean) non fragmented
-     * MP4}.
-     *
-     * <p>The default value is {@link #DEFAULT_FRAGMENT_DURATION_US}.
-     *
-     * @param fragmentDurationUs The fragment duration in microseconds.
-     * @return The {@link Mp4Muxer.Builder}.
-     */
-    @CanIgnoreReturnValue
-    public Mp4Muxer.Builder setFragmentDurationUs(int fragmentDurationUs) {
-      this.fragmentDurationUs = fragmentDurationUs;
-      return this;
-    }
-
     /** Builds an {@link Mp4Muxer} instance. */
     public Mp4Muxer build() {
       MetadataCollector metadataCollector = new MetadataCollector();
@@ -169,95 +137,34 @@ public final class Mp4Muxer {
           new Mp4MoovStructure(metadataCollector, lastFrameDurationBehavior);
       AnnexBToAvccConverter avccConverter =
           annexBToAvccConverter == null ? AnnexBToAvccConverter.DEFAULT : annexBToAvccConverter;
-      Mp4Writer mp4Writer =
-          fragmentedMp4Enabled
-              ? new FragmentedMp4Writer(
-                  fileOutputStream, moovStructure, avccConverter, fragmentDurationUs)
-              : new DefaultMp4Writer(fileOutputStream, moovStructure, avccConverter);
+      BasicMp4Writer mp4Writer = new BasicMp4Writer(fileOutputStream, moovStructure, avccConverter);
 
       return new Mp4Muxer(mp4Writer, metadataCollector);
     }
   }
 
-  /** A list of supported video sample mime types. */
-  public static final ImmutableList<String> SUPPORTED_VIDEO_SAMPLE_MIME_TYPES =
-      ImmutableList.of(MimeTypes.VIDEO_H264, MimeTypes.VIDEO_H265, MimeTypes.VIDEO_AV1);
-
-  /** A list of supported audio sample mime types. */
-  public static final ImmutableList<String> SUPPORTED_AUDIO_SAMPLE_MIME_TYPES =
-      ImmutableList.of(MimeTypes.AUDIO_AAC);
-
-  // TODO: b/262704382 - Optimize the default duration.
-  /**
-   * The default fragment duration for the {@linkplain Builder#setFragmentedMp4Enabled(boolean)
-   * fragmented MP4}.
-   */
-  public static final int DEFAULT_FRAGMENT_DURATION_US = 2_000_000;
-
-  private final Mp4Writer mp4Writer;
+  private final BasicMp4Writer mp4Writer;
   private final MetadataCollector metadataCollector;
 
-  private Mp4Muxer(Mp4Writer mp4Writer, MetadataCollector metadataCollector) {
+  private Mp4Muxer(BasicMp4Writer mp4Writer, MetadataCollector metadataCollector) {
     this.mp4Writer = mp4Writer;
     this.metadataCollector = metadataCollector;
   }
 
   /**
-   * Sets the orientation hint for the video playback.
+   * {@inheritDoc}
    *
-   * @param orientation The orientation, in degrees.
-   */
-  public void setOrientation(int orientation) {
-    metadataCollector.setOrientation(orientation);
-  }
-
-  /**
-   * Sets the location.
+   * <p>Tracks can be added at any point before the muxer is closed, even after writing samples to
+   * other tracks.
    *
-   * @param latitude The latitude, in degrees. Its value must be in the range [-90, 90].
-   * @param longitude The longitude, in degrees. Its value must be in the range [-180, 180].
-   */
-  public void setLocation(
-      @FloatRange(from = -90.0, to = 90.0) float latitude,
-      @FloatRange(from = -180.0, to = 180.0) float longitude) {
-    metadataCollector.setLocation(latitude, longitude);
-  }
-
-  /**
-   * Sets the capture frame rate.
+   * <p>The order of tracks remains same in which they are added.
    *
-   * @param captureFps The frame rate.
+   * @param format The {@link Format} for the track.
+   * @return A unique {@link TrackToken}. It should be used in {@link #writeSampleData}.
    */
-  public void setCaptureFps(float captureFps) {
-    metadataCollector.setCaptureFps(captureFps);
-  }
-
-  /**
-   * Sets the file modification time.
-   *
-   * @param timestampMs The modification time UTC in milliseconds since the Unix epoch.
-   */
-  public void setModificationTime(long timestampMs) {
-    metadataCollector.setModificationTime(timestampMs);
-  }
-
-  /**
-   * Adds custom metadata.
-   *
-   * @param key The metadata key in {@link String} format.
-   * @param value The metadata value in {@link String} or {@link Float} format.
-   */
-  public void addMetadata(String key, Object value) {
-    metadataCollector.addMetadata(key, value);
-  }
-
-  /**
-   * Adds xmp data.
-   *
-   * @param xmp The xmp {@link ByteBuffer}.
-   */
-  public void addXmp(ByteBuffer xmp) {
-    metadataCollector.addXmp(xmp);
+  @Override
+  public TrackToken addTrack(Format format) {
+    return addTrack(/* sortKey= */ 1, format);
   }
 
   /**
@@ -279,10 +186,10 @@ public final class Mp4Muxer {
   }
 
   /**
-   * Writes encoded sample data.
+   * {@inheritDoc}
    *
-   * <p>The samples are cached and are written in batches so the caller must not change/release the
-   * {@link ByteBuffer} and the {@link BufferInfo} after calling this method.
+   * <p>The samples are cached and are written in batches so the caller must not change the {@link
+   * ByteBuffer} and the {@link BufferInfo} after calling this method.
    *
    * <p>Note: Out of order B-frames are currently not supported.
    *
@@ -291,12 +198,37 @@ public final class Mp4Muxer {
    * @param bufferInfo The {@link BufferInfo} related to this sample.
    * @throws IOException If there is any error while writing data to the disk.
    */
+  @Override
   public void writeSampleData(TrackToken trackToken, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws IOException {
     mp4Writer.writeSampleData(trackToken, byteBuffer, bufferInfo);
   }
 
-  /** Closes the MP4 file. */
+  /**
+   * {@inheritDoc}
+   *
+   * <p>List of supported {@linkplain Metadata.Entry metadata entries}:
+   *
+   * <ul>
+   *   <li>{@link Mp4OrientationData}
+   *   <li>{@link Mp4LocationData}
+   *   <li>{@link Mp4TimestampData}
+   *   <li>{@link MdtaMetadataEntry}: Only {@linkplain MdtaMetadataEntry#TYPE_INDICATOR_STRING
+   *       string type} or {@linkplain MdtaMetadataEntry#TYPE_INDICATOR_FLOAT32 float type} value is
+   *       supported.
+   *   <li>{@link XmpData}
+   * </ul>
+   *
+   * @param metadata The {@linkplain Metadata.Entry metadata}. An {@link IllegalArgumentException}
+   *     is thrown if the {@linkplain Metadata.Entry metadata} is not supported.
+   */
+  @Override
+  public void addMetadata(Metadata.Entry metadata) {
+    checkArgument(Mp4Utils.isMetadataSupported(metadata), "Unsupported metadata");
+    metadataCollector.addMetadata(metadata);
+  }
+
+  @Override
   public void close() throws IOException {
     mp4Writer.close();
   }
