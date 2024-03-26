@@ -81,10 +81,8 @@ public final class TsExtractor implements Extractor {
 
   /** Behave as defined in ISO/IEC 13818-1. */
   public static final int MODE_MULTI_PMT = 0;
-
   /** Assume only one PMT will be contained in the stream, even if more are declared by the PAT. */
   public static final int MODE_SINGLE_PMT = 1;
-
   /**
    * Enable single PMT mode, map {@link TrackOutput}s by their type (instead of PID) and ignore
    * continuity counters.
@@ -135,6 +133,7 @@ public final class TsExtractor implements Extractor {
   public static final int TS_STREAM_TYPE_H263 = 0x10; // MPEG-4 Part 2 and H.263
   public static final int TS_STREAM_TYPE_H264 = 0x1B;
   public static final int TS_STREAM_TYPE_H265 = 0x24;
+  public static final int TS_STREAM_TYPE_MHAS = 0x2D;
   public static final int TS_STREAM_TYPE_ID3 = 0x15;
   public static final int TS_STREAM_TYPE_SPLICE_INFO = 0x86;
   public static final int TS_STREAM_TYPE_DVBSUBS = 0x59;
