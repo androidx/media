@@ -143,6 +143,8 @@ public final class RtpPacket {
   public static final int MIN_SEQUENCE_NUMBER = 0;
   public static final int MAX_SEQUENCE_NUMBER = 0xFFFF;
   public static final int CSRC_SIZE = 4;
+  public static final int EXTENSION_SIZE = 16;
+
 
   /** Returns the next sequence number of the {@code sequenceNumber}. */
   public static int getNextSequenceNumber(int sequenceNumber) {
@@ -205,6 +207,8 @@ public final class RtpPacket {
     byte version = (byte) (firstByte >> 6);
     boolean padding = ((firstByte >> 5) & 0x1) == 1;
     byte csrcCount = (byte) (firstByte & 0xF);
+    boolean hasExtension = ((firstByte & 0x10) >> 4) == 1;
+
 
     if (version != RTP_VERSION) {
       return null;
@@ -231,6 +235,12 @@ public final class RtpPacket {
       }
     } else {
       csrc = EMPTY;
+    }
+
+    //Extension.
+    if (hasExtension){
+      byte[] extension = new byte[EXTENSION_SIZE];
+      packetBuffer.readBytes(extension, 0, EXTENSION_SIZE);
     }
 
     // Everything else will be RTP payload.
