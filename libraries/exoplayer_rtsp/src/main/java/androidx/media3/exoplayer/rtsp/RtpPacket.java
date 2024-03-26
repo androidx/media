@@ -145,7 +145,6 @@ public final class RtpPacket {
   public static final int CSRC_SIZE = 4;
   public static final int EXTENSION_SIZE = 16;
 
-
   /** Returns the next sequence number of the {@code sequenceNumber}. */
   public static int getNextSequenceNumber(int sequenceNumber) {
     return IntMath.mod(sequenceNumber + 1, MAX_SEQUENCE_NUMBER + 1);
@@ -208,7 +207,6 @@ public final class RtpPacket {
     boolean padding = ((firstByte >> 5) & 0x1) == 1;
     byte csrcCount = (byte) (firstByte & 0xF);
     boolean hasExtension = ((firstByte & 0x10) >> 4) == 1;
-
 
     if (version != RTP_VERSION) {
       return null;
