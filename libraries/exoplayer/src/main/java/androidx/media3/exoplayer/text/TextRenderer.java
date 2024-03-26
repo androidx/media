@@ -248,8 +248,6 @@ public final class TextRenderer extends BaseRenderer implements Callback {
     }
   }
 
-  // Setting deprecated decode-only flag for compatibility with decoders that are still using it.
-  @SuppressWarnings("deprecation")
   @Override
   public void render(long positionUs, long elapsedRealtimeUs) {
     if (isCurrentStreamFinal()
@@ -349,7 +347,6 @@ public final class TextRenderer extends BaseRenderer implements Callback {
     }
   }
 
-  @SuppressWarnings("deprecation") // Using deprecated C.BUFFER_FLAG_DECODE_ONLY for compatibility
   private void renderFromSubtitles(long positionUs) {
     lastRendererPositionUs = positionUs;
     if (nextSubtitle == null) {
@@ -447,9 +444,6 @@ public final class TextRenderer extends BaseRenderer implements Callback {
             waitingForKeyFrame &= !nextInputBuffer.isKeyFrame();
           }
           if (!waitingForKeyFrame) {
-            if (nextInputBuffer.timeUs < getLastResetPositionUs()) {
-              nextInputBuffer.addFlag(C.BUFFER_FLAG_DECODE_ONLY);
-            }
             checkNotNull(subtitleDecoder).queueInputBuffer(nextInputBuffer);
             this.nextSubtitleInputBuffer = null;
           }

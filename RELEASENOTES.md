@@ -22,6 +22,14 @@
     *   Add missing return type to proguard `-keepclasseswithmembers` rule for
         `DefaultVideoFrameProcessor.Factory.Builder.build()`
         ([#1187](https://github.com/androidx/media/issues/1187)).
+    *   Remove `Buffer.isDecodeOnly()` and `C.BUFFER_FLAG_DECODE_ONLY`. There is
+        no need to set this flag as renderers and decoders will decide to skip
+        buffers based on timestamp. Custom `Renderer` implementations should
+        check if the buffer time is at least
+        `BaseRenderer.getLastResetPositionUs()` to decide whether a sample
+        should be shown. Custom `SimpleDecoder` implementations can check
+        `isAtLeastOutputStartTimeUs` if needed or mark other buffers with
+        `DecoderOutputBuffer.shouldBeSkipped` to skip them.
 *   Transformer:
     *   Add `audioConversionProcess` and `videoConversionProcess` to
         `ExportResult` indicating how the respective track in the output file
