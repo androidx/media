@@ -17,7 +17,6 @@ package androidx.media3.exoplayer.source.preload;
 
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static java.lang.Math.abs;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -233,12 +232,13 @@ public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
       @Nullable
       TargetPreloadStatusControl.PreloadStatus targetPreloadStatus =
           getTargetPreloadStatus(mediaSource);
-      checkState(targetPreloadStatus instanceof Status);
-      Status status = (Status) targetPreloadStatus;
-      if (continueLoadingPredicate.apply(checkNotNull(status))) {
-        return true;
+      if (targetPreloadStatus != null) {
+        Status status = (Status) targetPreloadStatus;
+        if (continueLoadingPredicate.apply(checkNotNull(status))) {
+          return true;
+        }
+        onPreloadCompleted(mediaSource);
       }
-      onPreloadCompleted(mediaSource);
       return false;
     }
   }

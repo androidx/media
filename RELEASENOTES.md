@@ -30,6 +30,9 @@
         should be shown. Custom `SimpleDecoder` implementations can check
         `isAtLeastOutputStartTimeUs` if needed or mark other buffers with
         `DecoderOutputBuffer.shouldBeSkipped` to skip them.
+    *   Allow a null value to be returned by
+        `TargetPreloadStatusControl.getTargetPreloadStatus(T)` to indicate not
+        to preload a `MediaSource` with the given `rankingData`.
 *   Transformer:
     *   Add `audioConversionProcess` and `videoConversionProcess` to
         `ExportResult` indicating how the respective track in the output file
