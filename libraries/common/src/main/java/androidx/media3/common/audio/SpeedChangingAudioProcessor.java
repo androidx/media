@@ -16,6 +16,7 @@
 
 package androidx.media3.common.audio;
 
+import static androidx.media3.common.util.Assertions.checkArgument;
 import static java.lang.Math.min;
 import static java.lang.Math.round;
 
@@ -60,8 +61,11 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
 
   private float currentSpeed;
   private long bytesRead;
-  private long lastProcessedInputTime;
+  private long lastProcessedInputTimeUs;
+  private long lastSpeedAdjustedInputTimeUs;
+  private long lastSpeedAdjustedOutputTimeUs;
   private boolean endOfStreamQueuedToSonic;
+  private long speedAdjustedTimeAsyncInputTimeUs;
 
   public SpeedChangingAudioProcessor(SpeedProvider speedProvider) {
     this.speedProvider = speedProvider;
@@ -74,6 +78,7 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
     inputSegmentStartTimesUs.add(0);
     outputSegmentStartTimesUs.add(0);
     currentSpeed = 1f;
+    speedAdjustedTimeAsyncInputTimeUs = C.TIME_UNSET;
   }
 
   @Override
@@ -143,7 +148,7 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
       buffer.flip();
     }
     bytesRead += inputBuffer.position() - startPosition;
-    lastProcessedInputTime = updateLastProcessedInputTime();
+    lastProcessedInputTimeUs = updateLastProcessedInputTime();
     inputBuffer.limit(inputBufferLimit);
   }
 
@@ -200,8 +205,11 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
    *     from the caller of this method.
    */
   public void getSpeedAdjustedTimeAsync(long inputTimeUs, LongConsumer callback) {
+    checkArgument(speedAdjustedTimeAsyncInputTimeUs < inputTimeUs);
+    speedAdjustedTimeAsyncInputTimeUs = inputTimeUs;
     synchronized (pendingCallbacksLock) {
-      if (inputTimeUs <= lastProcessedInputTime || isEnded()) {
+      if ((inputTimeUs <= lastProcessedInputTimeUs && pendingCallbackInputTimesUs.isEmpty())
+          || isEnded()) {
         callback.accept(calculateSpeedAdjustedTime(inputTimeUs));
         return;
       }
@@ -219,11 +227,16 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
     while (floorIndex > 0 && inputSegmentStartTimesUs.get(floorIndex) > inputTimeUs) {
       floorIndex--;
     }
-    long lastSegmentInputDuration = inputTimeUs - inputSegmentStartTimesUs.get(floorIndex);
     long lastSegmentOutputDuration;
     if (floorIndex == inputSegmentStartTimesUs.size() - 1) {
+      if (lastSpeedAdjustedInputTimeUs < inputSegmentStartTimesUs.get(floorIndex)) {
+        lastSpeedAdjustedInputTimeUs = inputSegmentStartTimesUs.get(floorIndex);
+        lastSpeedAdjustedOutputTimeUs = outputSegmentStartTimesUs.get(floorIndex);
+      }
+      long lastSegmentInputDuration = inputTimeUs - lastSpeedAdjustedInputTimeUs;
       lastSegmentOutputDuration = getPlayoutDurationAtCurrentSpeed(lastSegmentInputDuration);
     } else {
+      long lastSegmentInputDuration = inputTimeUs - lastSpeedAdjustedInputTimeUs;
       lastSegmentOutputDuration =
           round(
               lastSegmentInputDuration
@@ -233,7 +246,9 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
                       inputSegmentStartTimesUs.get(floorIndex + 1)
                           - inputSegmentStartTimesUs.get(floorIndex)));
     }
-    return outputSegmentStartTimesUs.get(floorIndex) + lastSegmentOutputDuration;
+    lastSpeedAdjustedInputTimeUs = inputTimeUs;
+    lastSpeedAdjustedOutputTimeUs += lastSegmentOutputDuration;
+    return lastSpeedAdjustedOutputTimeUs;
   }
 
   private static double divide(long dividend, long divisor) {
@@ -243,7 +258,7 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
   private void processPendingCallbacks() {
     synchronized (pendingCallbacksLock) {
       while (!pendingCallbacks.isEmpty()
-          && (pendingCallbackInputTimesUs.element() <= lastProcessedInputTime || isEnded())) {
+          && (pendingCallbackInputTimesUs.element() <= lastProcessedInputTimeUs || isEnded())) {
         pendingCallbacks
             .remove()
             .accept(calculateSpeedAdjustedTime(pendingCallbackInputTimesUs.remove()));
