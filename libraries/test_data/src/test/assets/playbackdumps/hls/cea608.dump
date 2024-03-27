@@ -980,6 +980,9 @@ MediaCodecAdapter (exotest.video.avc):
       timeUs = 1000002416666
       contents = length 1035, hash 324B27D0
     input buffer #57:
+      timeUs = 1000002458322
+      contents = length 788, hash 11292B64
+    input buffer #58:
       timeUs = 0
       flags = 4
       contents = length 0, hash 1
@@ -1212,6 +1215,10 @@ MediaCodecAdapter (exotest.video.avc):
     output buffer #56:
       timeUs = 1000002416666
       size = 1035
+      rendered = true
+    output buffer #57:
+      timeUs = 1000002458322
+      size = 788
       rendered = true
 AudioSink:
   buffer count = 114
