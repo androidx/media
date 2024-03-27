@@ -968,6 +968,16 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   }
 
   /**
+   * Sets whether {@linkplain PlayerControlView#isAnimationEnabled() controller animation is
+   * enabled}.
+   */
+  @UnstableApi
+  public void setControllerAnimationEnabled(boolean animationEnabled) {
+    Assertions.checkStateNotNull(controller);
+    controller.setAnimationEnabled(animationEnabled);
+  }
+
+  /**
    * Sets the {@link PlayerControlView.VisibilityListener}.
    *
    * <p>If {@code listener} is non-null then any listener set by {@link
