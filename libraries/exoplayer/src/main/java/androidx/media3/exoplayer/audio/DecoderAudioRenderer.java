@@ -451,6 +451,7 @@ public abstract class DecoderAudioRenderer<
               .setMetadata(inputFormat.metadata)
               .setId(inputFormat.id)
               .setLabel(inputFormat.label)
+              .setLabels(inputFormat.labels)
               .setLanguage(inputFormat.language)
               .setSelectionFlags(inputFormat.selectionFlags)
               .setRoleFlags(inputFormat.roleFlags)

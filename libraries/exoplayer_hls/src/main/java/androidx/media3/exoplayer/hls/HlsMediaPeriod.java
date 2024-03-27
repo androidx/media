@@ -21,6 +21,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
+import androidx.media3.common.Label;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.StreamKey;
@@ -852,6 +853,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     return new Format.Builder()
         .setId(variantFormat.id)
         .setLabel(variantFormat.label)
+        .setLabels(variantFormat.labels)
         .setContainerMimeType(variantFormat.containerMimeType)
         .setSampleMimeType(sampleMimeType)
         .setCodecs(codecs)
@@ -875,6 +877,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     int roleFlags = 0;
     @Nullable String language = null;
     @Nullable String label = null;
+    List<Label> labels = ImmutableList.of();
     if (mediaTagFormat != null) {
       codecs = mediaTagFormat.codecs;
       metadata = mediaTagFormat.metadata;
@@ -883,6 +886,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       roleFlags = mediaTagFormat.roleFlags;
       language = mediaTagFormat.language;
       label = mediaTagFormat.label;
+      labels = mediaTagFormat.labels;
     } else {
       codecs = Util.getCodecsOfType(variantFormat.codecs, C.TRACK_TYPE_AUDIO);
       metadata = variantFormat.metadata;
@@ -892,6 +896,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         roleFlags = variantFormat.roleFlags;
         language = variantFormat.language;
         label = variantFormat.label;
+        labels = variantFormat.labels;
       }
     }
     @Nullable String sampleMimeType = MimeTypes.getMediaMimeType(codecs);
@@ -900,6 +905,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     return new Format.Builder()
         .setId(variantFormat.id)
         .setLabel(label)
+        .setLabels(labels)
         .setContainerMimeType(variantFormat.containerMimeType)
         .setSampleMimeType(sampleMimeType)
         .setCodecs(codecs)
