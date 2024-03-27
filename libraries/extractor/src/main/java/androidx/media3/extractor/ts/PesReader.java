@@ -171,7 +171,7 @@ public final class PesReader implements TsPayloadReader {
     // is due to H262 streams possibly having, in HLS mode, a pes across more than one segment
     // which would trigger committing an unfinished sample in the middle of the access unit
     return state == STATE_READING_BODY
-        && payloadSize != C.LENGTH_UNSET
+        && payloadSize == C.LENGTH_UNSET
         && !(reader instanceof H262Reader);
   }
 
