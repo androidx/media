@@ -2,6 +2,8 @@
 
 ### Unreleased changes
 
+*   Common Library:
+    *   Add `Format.labels` to allow localized or other alternative labels.
 *   ExoPlayer:
     *   Fix issue where `PreloadMediaPeriod` cannot retain the streams when it
         is preloaded again.
@@ -28,7 +30,7 @@
         from WAV files ([#1117](https://github.com/androidx/media/pull/1117)).
     *   MP3: Populate `Format.averageBitrate` from metadata frames such as
         `XING` and `VBRI`.
-* Audio:
+*   Audio:
     *   Allow renderer recovery by disabling offload if audio track fails to
         initialize in offload mode.
 *   Video:
@@ -60,10 +62,13 @@
     *   Fix issue where `MediaMetadata` with just non-null `extras` is not
         transmitted between media controllers and sessions
         ([#1176](https://github.com/androidx/media/issues/1176)).
-* UI:
+*   UI:
     *   Fallback to include audio track language name if `Locale` cannot
         identify a display name
         ([#988](https://github.com/androidx/media/issues/988)).
+*   DASH Extension:
+    *   Populate all `Label` elements from the manifest into `Format.labels`
+        ([#1054](https://github.com/androidx/media/pull/1054)).  
 *   RTSP Extension:
     *   Skip empty session information values (i-tags) in SDP parsing
         ([#1087](https://github.com/androidx/media/issues/1087)).

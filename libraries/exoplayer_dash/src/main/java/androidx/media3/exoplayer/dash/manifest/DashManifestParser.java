@@ -29,6 +29,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.DrmInitData.SchemeData;
 import androidx.media3.common.Format;
+import androidx.media3.common.Label;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Assertions;
@@ -405,6 +406,7 @@ public class DashManifestParser extends DefaultHandler
     int audioSamplingRate = parseInt(xpp, "audioSamplingRate", Format.NO_VALUE);
     String language = xpp.getAttributeValue(null, "lang");
     String label = xpp.getAttributeValue(null, "label");
+    List<Label> labels = new ArrayList<>();
     String drmSchemeType = null;
     ArrayList<SchemeData> drmSchemeDatas = new ArrayList<>();
     ArrayList<Descriptor> inbandEventStreams = new ArrayList<>();
@@ -504,7 +506,7 @@ public class DashManifestParser extends DefaultHandler
       } else if (XmlPullParserUtil.isStartTag(xpp, "InbandEventStream")) {
         inbandEventStreams.add(parseDescriptor(xpp, "InbandEventStream"));
       } else if (XmlPullParserUtil.isStartTag(xpp, "Label")) {
-        label = parseLabel(xpp);
+        labels.add(parseLabel(xpp));
       } else if (XmlPullParserUtil.isStartTag(xpp)) {
         parseAdaptationSetChild(xpp);
       }
@@ -517,6 +519,7 @@ public class DashManifestParser extends DefaultHandler
           buildRepresentation(
               representationInfos.get(i),
               label,
+              labels,
               drmSchemeType,
               drmSchemeDatas,
               inbandEventStreams));
@@ -856,12 +859,15 @@ public class DashManifestParser extends DefaultHandler
   protected Representation buildRepresentation(
       RepresentationInfo representationInfo,
       @Nullable String label,
+      List<Label> labels,
       @Nullable String extraDrmSchemeType,
       ArrayList<SchemeData> extraDrmSchemeDatas,
       ArrayList<Descriptor> extraInbandEventStreams) {
     Format.Builder formatBuilder = representationInfo.format.buildUpon();
-    if (label != null) {
+    if (label != null && labels.isEmpty()) {
       formatBuilder.setLabel(label);
+    } else {
+      formatBuilder.setLabels(labels);
     }
     @Nullable String drmSchemeType = representationInfo.drmSchemeType;
     if (drmSchemeType == null) {
@@ -1405,8 +1411,10 @@ public class DashManifestParser extends DefaultHandler
    * @throws IOException If an error occurs reading the element.
    * @return The parsed label.
    */
-  protected String parseLabel(XmlPullParser xpp) throws XmlPullParserException, IOException {
-    return parseText(xpp, "Label");
+  protected Label parseLabel(XmlPullParser xpp) throws XmlPullParserException, IOException {
+    String lang = xpp.getAttributeValue(null, "lang");
+    String value = parseText(xpp, "Label");
+    return new Label(lang, value);
   }
 
   /**
