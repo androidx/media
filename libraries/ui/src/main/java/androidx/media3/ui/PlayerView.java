@@ -951,7 +951,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   }
 
   /**
-   * Sets the {@link PlayerControlView.VisibilityListener}.
+   * Sets the {@link ControllerVisibilityListener}.
    *
    * <p>If {@code listener} is non-null then any listener set by {@link
    * #setControllerVisibilityListener(PlayerControlView.VisibilityListener)} is removed.
