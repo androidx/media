@@ -43,10 +43,10 @@ import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
- * An {@link Mp4Writer} implementation which writes samples into multiple fragments as per the
- * fragmented MP4 (ISO/IEC 14496-12) standard.
+ * Writes media samples into multiple fragments as per the fragmented MP4 (ISO/IEC 14496-12)
+ * standard.
  */
-/* package */ final class FragmentedMp4Writer implements Mp4Writer {
+/* package */ final class FragmentedMp4Writer {
   /** Provides a limited set of sample metadata. */
   public static class SampleMetadata {
     public final long durationVu;
@@ -88,7 +88,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     currentFragmentSequenceNumber = 1;
   }
 
-  @Override
   public TrackToken addTrack(int sortKey, Format format) {
     Track track = new Track(format);
     tracks.add(track);
@@ -98,7 +97,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     return track;
   }
 
-  @Override
   public void writeSampleData(
       TrackToken token, ByteBuffer byteBuffer, MediaCodec.BufferInfo bufferInfo)
       throws IOException {
@@ -122,7 +120,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             lastPendingSample.presentationTimeUs - firstPendingSample.presentationTimeUs);
   }
 
-  @Override
   public void close() throws IOException {
     try {
       createFragment();
