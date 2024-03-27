@@ -16,6 +16,7 @@
 package androidx.media3.muxer;
 
 import androidx.media3.common.Metadata;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.Mp4OrientationData;
@@ -23,38 +24,12 @@ import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.container.XmpData;
 
 /** Utilities for MP4 files. */
-/* package */ final class Mp4Utils {
-  /* Total number of bytes in an integer. */
-  public static final int BYTES_PER_INTEGER = 4;
-
-  /**
-   * The maximum length of boxes which have fixed sizes.
-   *
-   * <p>Technically, we'd know how long they actually are; this upper bound is much simpler to
-   * produce though and we'll throw if we overflow anyway.
-   */
-  public static final int MAX_FIXED_LEAF_BOX_SIZE = 200;
-
+@UnstableApi
+public final class Mp4Utils {
   /** The maximum value of a 32-bit unsigned int. */
   public static final long UNSIGNED_INT_MAX_VALUE = 4_294_967_295L;
 
-  /**
-   * The per-video timebase, used for durations in MVHD and TKHD even if the per-track timebase is
-   * different (e.g. typically the sample rate for audio).
-   */
-  public static final long MVHD_TIMEBASE = 10_000L;
-
   private Mp4Utils() {}
-
-  /** Converts microseconds to video units, using the provided timebase. */
-  public static long vuFromUs(long timestampUs, long videoUnitTimebase) {
-    return timestampUs * videoUnitTimebase / 1_000_000L; // (division for us to s conversion)
-  }
-
-  /** Converts video units to microseconds, using the provided timebase. */
-  public static long usFromVu(long timestampVu, long videoUnitTimebase) {
-    return timestampVu * 1_000_000L / videoUnitTimebase;
-  }
 
   /** Returns whether a given {@link Metadata.Entry metadata} is supported. */
   public static boolean isMetadataSupported(Metadata.Entry metadata) {

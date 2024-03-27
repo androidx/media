@@ -21,13 +21,10 @@ import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.container.MdtaMetadataEntry;
-import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.Mp4OrientationData;
-import androidx.media3.container.Mp4TimestampData;
-import androidx.media3.container.XmpData;
 import androidx.media3.muxer.FragmentedMp4Muxer;
 import androidx.media3.muxer.Mp4Muxer;
+import androidx.media3.muxer.Mp4Utils;
 import androidx.media3.muxer.Muxer.TrackToken;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -226,7 +223,7 @@ public final class InAppMuxer implements Muxer {
   public void addMetadata(Metadata metadata) {
     for (int i = 0; i < metadata.length(); i++) {
       Metadata.Entry entry = metadata.get(i);
-      if (isMetadataSupported(entry)) {
+      if (Mp4Utils.isMetadataSupported(entry)) {
         metadataEntries.add(entry);
       }
     }
@@ -254,20 +251,5 @@ public final class InAppMuxer implements Muxer {
     for (Metadata.Entry entry : metadataEntries) {
       muxer.addMetadata(entry);
     }
-  }
-
-  /** Returns whether a given {@link Metadata.Entry metadata} is supported. */
-  private static boolean isMetadataSupported(Metadata.Entry metadata) {
-    return metadata instanceof Mp4OrientationData
-        || metadata instanceof Mp4LocationData
-        || metadata instanceof Mp4TimestampData
-        || (metadata instanceof MdtaMetadataEntry
-            && isMdtaMetadataEntrySupported((MdtaMetadataEntry) metadata))
-        || metadata instanceof XmpData;
-  }
-
-  private static boolean isMdtaMetadataEntrySupported(MdtaMetadataEntry mdtaMetadataEntry) {
-    return mdtaMetadataEntry.typeIndicator == MdtaMetadataEntry.TYPE_INDICATOR_STRING
-        || mdtaMetadataEntry.typeIndicator == MdtaMetadataEntry.TYPE_INDICATOR_FLOAT32;
   }
 }
