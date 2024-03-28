@@ -69,6 +69,8 @@ import java.util.concurrent.Executor;
    * <p>This method must called exactly once for every input stream.
    *
    * <p>If the method throws any {@link Exception}, the caller must call {@link #release}.
+   *
+   * @param sequenceIndex The index of the input sequence, which is used to order the inputs.
    */
-  GraphInput createInput() throws VideoFrameProcessingException;
+  GraphInput createInput(int sequenceIndex) throws VideoFrameProcessingException;
 }

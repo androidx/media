@@ -856,7 +856,8 @@ public final class DefaultVideoCompositorPixelTest {
         VideoCompositor videoCompositor,
         @Nullable ExecutorService executorService,
         GlObjectsProvider glObjectsProvider) {
-      int inputId = videoCompositor.registerInputSource();
+      int sequenceIndex = 0;
+      videoCompositor.registerInputSource(sequenceIndex);
       DefaultVideoFrameProcessor.Factory.Builder defaultVideoFrameProcessorFactoryBuilder =
           new DefaultVideoFrameProcessor.Factory.Builder()
               .setGlObjectsProvider(glObjectsProvider)
@@ -869,7 +870,7 @@ public final class DefaultVideoCompositorPixelTest {
                     textureBitmapReader.readBitmapUnpremultipliedAlpha(
                         outputTexture, presentationTimeUs);
                     videoCompositor.queueInputTexture(
-                        inputId,
+                        sequenceIndex,
                         outputTextureProducer,
                         outputTexture,
                         ColorInfo.SRGB_BT709_FULL,
@@ -883,7 +884,7 @@ public final class DefaultVideoCompositorPixelTest {
           .setTestId(testId)
           .setVideoFrameProcessorFactory(defaultVideoFrameProcessorFactoryBuilder.build())
           .setBitmapReader(textureBitmapReader)
-          .setOnEndedListener(() -> videoCompositor.signalEndOfInputSource(inputId));
+          .setOnEndedListener(() -> videoCompositor.signalEndOfInputSource(sequenceIndex));
     }
   }
 

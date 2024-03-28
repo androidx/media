@@ -79,9 +79,9 @@ import java.util.concurrent.Executor;
   }
 
   @Override
-  public GraphInput createInput() throws VideoFrameProcessingException {
-    int inputId = registerInput();
+  public GraphInput createInput(int sequenceIndex) throws VideoFrameProcessingException {
+    registerInput(sequenceIndex);
     return new VideoFrameProcessingWrapper(
-        getProcessor(inputId), /* presentation= */ null, getInitialTimestampOffsetUs());
+        getProcessor(sequenceIndex), /* presentation= */ null, getInitialTimestampOffsetUs());
   }
 }

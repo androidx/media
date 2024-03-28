@@ -129,7 +129,7 @@ import java.util.concurrent.atomic.AtomicLong;
   }
 
   @Override
-  public GraphInput getInput(EditedMediaItem item, Format format) {
+  public GraphInput getInput(EditedMediaItem item, Format format, int sequenceIndex) {
     return this;
   }
 
