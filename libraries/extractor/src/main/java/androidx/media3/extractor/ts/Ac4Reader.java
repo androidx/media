@@ -161,7 +161,7 @@ public final class Ac4Reader implements ElementaryStreamReader {
   }
 
   @Override
-  public void packetFinished(boolean isEndOfInput) {
+  public void packetFinished() {
     // Do nothing.
   }
 
