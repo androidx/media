@@ -421,7 +421,7 @@ public final class ColorInfo implements Bundleable {
       case C.COLOR_SPACE_BT2020:
         return "BT2020";
       default:
-        return "Undefined color space";
+        return "Undefined color space " + colorSpace;
     }
   }
 
@@ -443,7 +443,7 @@ public final class ColorInfo implements Bundleable {
       case C.COLOR_TRANSFER_HLG:
         return "HLG";
       default:
-        return "Undefined color transfer";
+        return "Undefined color transfer " + colorTransfer;
     }
   }
 
@@ -457,7 +457,7 @@ public final class ColorInfo implements Bundleable {
       case C.COLOR_RANGE_FULL:
         return "Full range";
       default:
-        return "Undefined color range";
+        return "Undefined color range " + colorRange;
     }
   }
 
