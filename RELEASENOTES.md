@@ -121,6 +121,10 @@
         identify a display name
         ([#988](https://github.com/androidx/media/issues/988)).
 *   Downloads:
+    *   Ensure that `DownloadHelper` doesn't leak unreleased `Renderer`
+        instances, which can eventually result in an app crashing with
+        `IllegalStateException: Too many receivers, total of 1000, registered
+        for pid` ([#1224](https://github.com/androidx/media/issues/1224)).
 *   OkHttp Extension:
 *   Cronet Extension:
 *   RTMP Extension:

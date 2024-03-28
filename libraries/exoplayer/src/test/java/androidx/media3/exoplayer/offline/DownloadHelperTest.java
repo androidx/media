@@ -29,6 +29,7 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.TrackSelectionOverride;
 import androidx.media3.common.TrackSelectionParameters;
+import androidx.media3.exoplayer.DefaultRendererCapabilitiesList;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RenderersFactory;
 import androidx.media3.exoplayer.offline.DownloadHelper.Callback;
@@ -39,6 +40,7 @@ import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.trackselection.MappingTrackSelector.MappedTrackInfo;
 import androidx.media3.exoplayer.upstream.Allocator;
+import androidx.media3.test.utils.FakeDataSource;
 import androidx.media3.test.utils.FakeMediaPeriod;
 import androidx.media3.test.utils.FakeMediaSource;
 import androidx.media3.test.utils.FakeRenderer;
@@ -123,7 +125,8 @@ public class DownloadHelperTest {
             testMediaItem,
             new TestMediaSource(),
             DownloadHelper.DEFAULT_TRACK_SELECTOR_PARAMETERS_WITHOUT_CONTEXT,
-            DownloadHelper.getRendererCapabilities(renderersFactory));
+            new DefaultRendererCapabilitiesList.Factory(renderersFactory)
+                .createRendererCapabilitiesList());
   }
 
   @Test
@@ -437,6 +440,33 @@ public class DownloadHelperTest {
         .containsExactly(
             new StreamKey(/* periodIndex= */ 0, /* groupIndex= */ 1, /* streamIndex= */ 0),
             new StreamKey(/* periodIndex= */ 0, /* groupIndex= */ 2, /* streamIndex= */ 0));
+  }
+
+  // https://github.com/androidx/media/issues/1224
+  @Test
+  public void prepareThenRelease_renderersReleased() throws Exception {
+    // We can't use this.downloadHelper because we need access to the FakeRenderer instances for
+    // later assertions, so we recreate a local DownloadHelper.
+    FakeRenderer videoRenderer = new FakeRenderer(C.TRACK_TYPE_VIDEO);
+    FakeRenderer audioRenderer = new FakeRenderer(C.TRACK_TYPE_AUDIO);
+    FakeRenderer textRenderer = new FakeRenderer(C.TRACK_TYPE_TEXT);
+    RenderersFactory renderersFactory =
+        (handler, videoListener, audioListener, metadata, text) ->
+            new Renderer[] {textRenderer, audioRenderer, videoRenderer};
+
+    DownloadHelper downloadHelper =
+        DownloadHelper.forMediaItem(
+            testMediaItem,
+            DownloadHelper.DEFAULT_TRACK_SELECTOR_PARAMETERS_WITHOUT_CONTEXT,
+            renderersFactory,
+            new FakeDataSource.Factory());
+
+    prepareDownloadHelper(downloadHelper);
+    downloadHelper.release();
+
+    assertThat(videoRenderer.isReleased).isTrue();
+    assertThat(audioRenderer.isReleased).isTrue();
+    assertThat(textRenderer.isReleased).isTrue();
   }
 
   private static void prepareDownloadHelper(DownloadHelper downloadHelper) throws Exception {
