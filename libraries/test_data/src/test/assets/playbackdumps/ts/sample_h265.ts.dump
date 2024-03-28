@@ -90,7 +90,7 @@ MediaCodecAdapter (exotest.video.hevc):
       contents = length 87, hash EEC4D98C
     input buffer #29:
       timeUs = 1000001000000
-      contents = length 167, hash EAE2DF9A
+      contents = length 168, hash 717913A6
     input buffer #30:
       timeUs = 0
       flags = 4
@@ -215,5 +215,5 @@ MediaCodecAdapter (exotest.video.hevc):
       rendered = true
     output buffer #29:
       timeUs = 1000001000000
-      size = 167
+      size = 168
       rendered = true
