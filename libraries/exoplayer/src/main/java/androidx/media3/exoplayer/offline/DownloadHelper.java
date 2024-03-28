@@ -140,29 +140,11 @@ public final class DownloadHelper {
     void onPrepareError(DownloadHelper helper, IOException e);
   }
 
-  /** Thrown at an attempt to download live content. */
-  public static class LiveContentUnsupportedException extends IOException {}
-
   /**
-   * Extracts renderer capabilities for the renderers created by the provided renderers factory.
-   *
-   * @param renderersFactory A {@link RenderersFactory}.
-   * @return The {@link RendererCapabilities} for each renderer created by the {@code
-   *     renderersFactory}.
+   * Thrown at an attempt to download live content.
    */
-  public static RendererCapabilities[] getRendererCapabilities(RenderersFactory renderersFactory) {
-    Renderer[] renderers =
-        renderersFactory.createRenderers(
-            Util.createHandlerForCurrentOrMainLooper(),
-            new VideoRendererEventListener() {},
-            new AudioRendererEventListener() {},
-            (cues) -> {},
-            (metadata) -> {});
-    RendererCapabilities[] capabilities = new RendererCapabilities[renderers.length];
-    for (int i = 0; i < renderers.length; i++) {
-      capabilities[i] = renderers[i].getCapabilities();
-    }
-    return capabilities;
+  public static class LiveContentUnsupportedException extends IOException {
+
   }
 
   /**
@@ -273,9 +255,7 @@ public final class DownloadHelper {
             : createMediaSourceInternal(
                 mediaItem, castNonNull(dataSourceFactory), drmSessionManager),
         trackSelectionParameters,
-        renderersFactory != null
-            ? getRendererCapabilities(renderersFactory)
-            : new RendererCapabilities[0]);
+        renderersFactory);
   }
 
   /**
@@ -321,6 +301,7 @@ public final class DownloadHelper {
   private List<ExoTrackSelection> @MonotonicNonNull [][] trackSelectionsByPeriodAndRenderer;
   private List<ExoTrackSelection> @MonotonicNonNull [][]
       immutableTrackSelectionsByPeriodAndRenderer;
+  @Nullable private Renderer[] renderers;
 
   /**
    * Creates download helper.
@@ -330,23 +311,48 @@ public final class DownloadHelper {
    *     selection needs to be made.
    * @param trackSelectionParameters {@link TrackSelectionParameters} for selecting tracks for
    *     downloading.
-   * @param rendererCapabilities The {@link RendererCapabilities} of the renderers for which tracks
-   *     are selected.
+   * @param renderersFactory A {@link RenderersFactory} creating the renderers for which tracks are
+   *     selected.
    */
   public DownloadHelper(
       MediaItem mediaItem,
       @Nullable MediaSource mediaSource,
       TrackSelectionParameters trackSelectionParameters,
-      RendererCapabilities[] rendererCapabilities) {
+      @Nullable RenderersFactory renderersFactory) {
     this.localConfiguration = checkNotNull(mediaItem.localConfiguration);
     this.mediaSource = mediaSource;
     this.trackSelector =
         new DefaultTrackSelector(trackSelectionParameters, new DownloadTrackSelection.Factory());
-    this.rendererCapabilities = rendererCapabilities;
+    if (renderersFactory != null) {
+      this.rendererCapabilities = getRendererCapabilities(renderersFactory);
+    } else {
+      this.rendererCapabilities = new RendererCapabilities[0];
+    }
     this.scratchSet = new SparseIntArray();
     trackSelector.init(/* listener= */ () -> {}, new FakeBandwidthMeter());
     callbackHandler = Util.createHandlerForCurrentOrMainLooper();
     window = new Timeline.Window();
+  }
+
+  /**
+   * Extracts renderer capabilities for the renderers created by the provided renderers factory.
+   *
+   * @param renderersFactory A {@link RenderersFactory}.
+   * @return The {@link RendererCapabilities} for each renderer created by the {@code
+   * renderersFactory}.
+   */
+  public RendererCapabilities[] getRendererCapabilities(RenderersFactory renderersFactory) {
+    renderers = renderersFactory.createRenderers(
+        Util.createHandlerForCurrentOrMainLooper(),
+        new VideoRendererEventListener() {},
+        new AudioRendererEventListener() {},
+        (cues) -> {},
+        (metadata) -> {});
+    RendererCapabilities[] capabilities = new RendererCapabilities[renderers.length];
+    for (int i = 0; i < renderers.length; i++) {
+      capabilities[i] = renderers[i].getCapabilities();
+    }
+    return capabilities;
   }
 
   /**
@@ -371,6 +377,13 @@ public final class DownloadHelper {
       mediaPreparer.release();
     }
     trackSelector.release();
+
+    if (renderers != null) {
+      for (int i = 0; i < renderers.length; i++) {
+        rendererCapabilities[i].clearListener();
+        renderers[i].release();
+      }
+    }
   }
 
   /**
