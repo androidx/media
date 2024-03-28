@@ -703,7 +703,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               firstAssetLoaderInputFormat.buildUpon().setColorInfo(decoderOutputColor).build();
         } else if (MimeTypes.isImage(assetLoaderOutputFormat.sampleMimeType)) {
           firstFormat =
-              firstAssetLoaderInputFormat
+              assetLoaderOutputFormat
                   .buildUpon()
                   .setColorInfo(getValidColor(assetLoaderOutputFormat.colorInfo))
                   .build();
