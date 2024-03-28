@@ -44,6 +44,8 @@
     *   Add support for changing between SDR and HDR input media in a sequence.
     *   Add support for composition-level audio effects.
     *   Add support for transcoding Ultra HDR images into HDR videos.
+    *   Fix issue where the `DefaultAudioMixer` doesn’t output the correct
+        amount of bytes after being reset and reused.
 *   Track Selection:
     *   `DefaultTrackSelector`: Prefer video tracks with a 'reasonable' frame
         rate (>=10fps) over those with a lower or unset frame rate. This ensures
