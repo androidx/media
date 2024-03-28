@@ -56,6 +56,12 @@
 *   Extractors:
     *   MP3: Populate `Format.averageBitrate` from metadata frames such as
         `XING` and `VBRI`.
+    *   MPEG-TS: Revert a change that aimed to ensure the last frame is rendered
+        by passing the last access unit of a stream to the sample queue
+        ([#7909](https://github.com/google/ExoPlayer/issues/7909)). This is due
+        to the change causing new problems with I-frame only HLS streams
+        ([#1150](https://github.com/google/ExoPlayer/issues/1150)) and H.262 HLS
+        streams ([#1126](https://github.com/google/ExoPlayer/issues/1126)).
 *   Audio:
     *   Allow renderer recovery by disabling offload if audio track fails to
         initialize in offload mode.
