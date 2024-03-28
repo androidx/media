@@ -35,6 +35,7 @@ import androidx.media3.common.OnInputFrameProcessedListener;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.TimestampIterator;
+import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -280,7 +281,13 @@ import java.util.concurrent.atomic.AtomicInteger;
       sampleConsumer =
           checkStateNotNull(
               sampleConsumersByTrackType.get(trackType),
-              "The preceding MediaItem does not contain any track of type " + trackType);
+              Util.formatInvariant(
+                  "The preceding MediaItem does not contain any track of type %d. If the"
+                      + " Composition contains a sequence that starts with items without audio"
+                      + " tracks (like images), followed by items with audio tracks,"
+                      + " Composition.Builder.experimentalSetForceAudioTrack() needs to be set to"
+                      + " true.",
+                  trackType));
     }
     onMediaItemChanged(trackType, format);
     if (nonEndedTracks.get() == 1 && sampleConsumersByTrackType.size() == 2) {
