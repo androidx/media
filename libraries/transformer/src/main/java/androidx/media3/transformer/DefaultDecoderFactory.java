@@ -135,6 +135,9 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
     if (SDK_INT >= 31 && requestSdrToneMapping) {
       mediaFormat.setInteger(
           MediaFormat.KEY_COLOR_TRANSFER_REQUEST, MediaFormat.COLOR_TRANSFER_SDR_VIDEO);
+    } else if (SDK_INT >= 31 && MimeTypes.VIDEO_DOLBY_VISION.equals(format.sampleMimeType)) {
+      mediaFormat.setInteger(
+          MediaFormat.KEY_COLOR_TRANSFER_REQUEST, MediaFormat.COLOR_TRANSFER_HLG);
     }
 
     @Nullable
