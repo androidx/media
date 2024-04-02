@@ -150,6 +150,13 @@ public final class EncoderUtil {
           return ImmutableList.of(MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10HDR10);
         }
         break;
+      case MimeTypes.VIDEO_DOLBY_VISION:
+        if (colorTransfer == C.COLOR_TRANSFER_HLG) {
+          return ImmutableList.of(
+              MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvheSt);
+        }
+        // CodecProfileLevel does not support PQ for Dolby Vision.
+        break;
       default:
         break;
     }
