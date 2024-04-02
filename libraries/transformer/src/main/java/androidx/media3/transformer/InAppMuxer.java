@@ -63,11 +63,11 @@ public final class InAppMuxer implements Muxer {
     public static final class Builder {
       private @Nullable MetadataProvider metadataProvider;
       private boolean outputFragmentedMp4;
-      private int fragmentDurationUs;
+      private long fragmentDurationMs;
 
       /** Creates a {@link Builder} instance with default values. */
       public Builder() {
-        fragmentDurationUs = C.LENGTH_UNSET;
+        fragmentDurationMs = C.TIME_UNSET;
       }
 
       /**
@@ -92,18 +92,18 @@ public final class InAppMuxer implements Muxer {
       }
 
       /**
-       * Sets the fragment duration if the output file is {@link #setOutputFragmentedMp4(boolean)
-       * fragmented}.
+       * Sets the fragment duration (in milliseconds) if the output file is {@link
+       * #setOutputFragmentedMp4(boolean) fragmented}.
        */
       @CanIgnoreReturnValue
-      public Builder setFragmentDurationUs(int fragmentDurationUs) {
-        this.fragmentDurationUs = fragmentDurationUs;
+      public Builder setFragmentDurationMs(long fragmentDurationMs) {
+        this.fragmentDurationMs = fragmentDurationMs;
         return this;
       }
 
       /** Builds a {@link Factory} instance. */
       public Factory build() {
-        return new Factory(metadataProvider, outputFragmentedMp4, fragmentDurationUs);
+        return new Factory(metadataProvider, outputFragmentedMp4, fragmentDurationMs);
       }
     }
 
@@ -117,15 +117,15 @@ public final class InAppMuxer implements Muxer {
 
     private final @Nullable MetadataProvider metadataProvider;
     private final boolean outputFragmentedMp4;
-    private final int fragmentDurationUs;
+    private final long fragmentDurationMs;
 
     private Factory(
         @Nullable MetadataProvider metadataProvider,
         boolean outputFragmentedMp4,
-        int fragmentDurationUs) {
+        long fragmentDurationMs) {
       this.metadataProvider = metadataProvider;
       this.outputFragmentedMp4 = outputFragmentedMp4;
-      this.fragmentDurationUs = fragmentDurationUs;
+      this.fragmentDurationMs = fragmentDurationMs;
     }
 
     @Override
@@ -139,8 +139,8 @@ public final class InAppMuxer implements Muxer {
 
       androidx.media3.muxer.Muxer muxer =
           outputFragmentedMp4
-              ? fragmentDurationUs != C.LENGTH_UNSET
-                  ? new FragmentedMp4Muxer(outputStream, fragmentDurationUs)
+              ? fragmentDurationMs != C.TIME_UNSET
+                  ? new FragmentedMp4Muxer(outputStream, fragmentDurationMs)
                   : new FragmentedMp4Muxer(outputStream)
               : new Mp4Muxer.Builder(outputStream).build();
       return new InAppMuxer(muxer, metadataProvider);

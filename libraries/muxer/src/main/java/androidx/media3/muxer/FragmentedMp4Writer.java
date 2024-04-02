@@ -65,7 +65,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final Mp4MoovStructure moovGenerator;
   private final AnnexBToAvccConverter annexBToAvccConverter;
   private final List<Track> tracks;
-  private final int fragmentDurationUs;
+  private final long fragmentDurationUs;
 
   private @MonotonicNonNull Track videoTrack;
   private int currentFragmentSequenceNumber;
@@ -77,13 +77,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       FileOutputStream outputStream,
       Mp4MoovStructure moovGenerator,
       AnnexBToAvccConverter annexBToAvccConverter,
-      int fragmentDurationUs) {
+      long fragmentDurationMs) {
     this.outputStream = outputStream;
     this.output = outputStream.getChannel();
     this.moovGenerator = moovGenerator;
     this.annexBToAvccConverter = annexBToAvccConverter;
     tracks = new ArrayList<>();
-    this.fragmentDurationUs = fragmentDurationUs;
+    this.fragmentDurationUs = fragmentDurationMs * 1_000;
     minInputPresentationTimeUs = Long.MAX_VALUE;
     currentFragmentSequenceNumber = 1;
   }

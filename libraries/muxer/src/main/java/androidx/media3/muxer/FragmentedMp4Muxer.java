@@ -59,25 +59,26 @@ import java.nio.ByteBuffer;
  */
 @UnstableApi
 public final class FragmentedMp4Muxer implements Muxer {
-  private static final int DEFAULT_FRAGMENT_DURATION_US = 2_000_000;
+  /** The default fragment duration. */
+  public static final long DEFAULT_FRAGMENT_DURATION_MS = 2_000;
 
   private final FragmentedMp4Writer fragmentedMp4Writer;
   private final MetadataCollector metadataCollector;
 
-  /** Creates an instance with default fragment duration. */
+  /** Creates an instance with {@link #DEFAULT_FRAGMENT_DURATION_MS}. */
   public FragmentedMp4Muxer(FileOutputStream fileOutputStream) {
-    this(fileOutputStream, DEFAULT_FRAGMENT_DURATION_US);
+    this(fileOutputStream, DEFAULT_FRAGMENT_DURATION_MS);
   }
 
   /**
    * Creates an instance.
    *
    * @param fileOutputStream The {@link FileOutputStream} to write the media data to.
-   * @param fragmentDurationUs The fragment duration (in microseconds). The muxer will attempt to
+   * @param fragmentDurationMs The fragment duration (in milliseconds). The muxer will attempt to
    *     create fragments of the given duration but the actual duration might be greater depending
    *     upon the frequency of sync samples.
    */
-  public FragmentedMp4Muxer(FileOutputStream fileOutputStream, int fragmentDurationUs) {
+  public FragmentedMp4Muxer(FileOutputStream fileOutputStream, long fragmentDurationMs) {
     checkNotNull(fileOutputStream);
     metadataCollector = new MetadataCollector();
     Mp4MoovStructure moovStructure =
@@ -85,7 +86,7 @@ public final class FragmentedMp4Muxer implements Muxer {
             metadataCollector, Mp4Muxer.LAST_FRAME_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION);
     fragmentedMp4Writer =
         new FragmentedMp4Writer(
-            fileOutputStream, moovStructure, AnnexBToAvccConverter.DEFAULT, fragmentDurationUs);
+            fileOutputStream, moovStructure, AnnexBToAvccConverter.DEFAULT, fragmentDurationMs);
   }
 
   @Override
