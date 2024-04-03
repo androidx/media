@@ -63,9 +63,6 @@ import org.checkerframework.dataflow.qual.SideEffectFree;
  * <p>This implementations decodes sample data to {@link Cue} instances. The actual rendering is
  * delegated to a {@link TextOutput}.
  */
-// TODO: b/289916598 - Add an opt-in method for the legacy subtitle decoding flow, and throw an
-//  exception if it's not used and a recognized subtitle MIME type (that isn't
-//  application/x-media3-cues) is passed in.
 @UnstableApi
 public final class TextRenderer extends BaseRenderer implements Callback {
 
@@ -174,7 +171,7 @@ public final class TextRenderer extends BaseRenderer implements Callback {
 
   @Override
   public @Capabilities int supportsFormat(Format format) {
-    // TODO: b/289983417 - Return UNSUPPORTED for non-media3-queues once we stop supporting them
+    // TODO: b/289983417 - Return UNSUPPORTED for non-media3-cues once we stop supporting them
     //   completely. In the meantime, we return SUPPORTED here and then throw later  if
     //   legacyDecodingEnabled is false (when receiving the first Format or sample). This ensures
     //   apps are aware (via the playback failure) they're using a legacy/deprecated code path.
