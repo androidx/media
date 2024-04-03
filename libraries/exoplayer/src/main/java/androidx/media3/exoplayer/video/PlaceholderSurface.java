@@ -32,7 +32,6 @@ import androidx.media3.common.util.EGLSurfaceTexture.SecureMode;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import com.google.errorprone.annotations.InlineMe;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -79,8 +78,6 @@ public final class PlaceholderSurface extends Surface {
   /**
    * Returns a newly created placeholder surface. The surface must be released by calling {@link
    * #release} when it's no longer required.
-   *
-   * <p>Must only be called if {@link Util#SDK_INT} is 17 or higher.
    *
    * @param context Any {@link Context}.
    * @param secure Whether a secure surface is required. Must only be requested if {@link
