@@ -97,6 +97,9 @@ public final class CommandButton implements Bundleable {
     ICON_MINUS,
     ICON_PLAYLIST_ADD,
     ICON_PLAYLIST_REMOVE,
+    ICON_QUEUE_ADD,
+    ICON_QUEUE_NEXT,
+    ICON_QUEUE_REMOVE,
     ICON_BLOCK,
     ICON_PLUS_CIRCLE_FILLED,
     ICON_PLUS_CIRCLE_UNFILLED,
@@ -285,6 +288,18 @@ public final class CommandButton implements Bundleable {
    * An icon showing an remove from playlist symbol (multiple horizontal bars with a small minus).
    */
   @UnstableApi public static final int ICON_PLAYLIST_REMOVE = 0xeb80;
+
+  /** An icon showing an add to queue symbol (a stylized TV with a plus). */
+  @UnstableApi public static final int ICON_QUEUE_ADD = 0xe05c;
+
+  /**
+   * An icon showing a play next queue item symbol (a stylized TV with a plus and a right-facing
+   * arrow).
+   */
+  @UnstableApi public static final int ICON_QUEUE_NEXT = 0xe066;
+
+  /** An icon showing a remove from queue symbol (a stylized TV with a minus). */
+  @UnstableApi public static final int ICON_QUEUE_REMOVE = 0xe067;
 
   /** An icon showing a block symbol (a circle with a diagonal line). */
   @UnstableApi public static final int ICON_BLOCK = 0xe14b;
@@ -653,6 +668,12 @@ public final class CommandButton implements Bundleable {
           return R.drawable.media3_icon_playlist_add;
         case ICON_PLAYLIST_REMOVE:
           return R.drawable.media3_icon_playlist_remove;
+        case ICON_QUEUE_ADD:
+          return R.drawable.media3_icon_queue_add;
+        case ICON_QUEUE_NEXT:
+          return R.drawable.media3_icon_queue_next;
+        case ICON_QUEUE_REMOVE:
+          return R.drawable.media3_icon_queue_remove;
         case ICON_BLOCK:
           return R.drawable.media3_icon_block;
         case ICON_PLUS_CIRCLE_FILLED:
