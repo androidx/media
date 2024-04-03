@@ -171,7 +171,7 @@ public class OverlayShaderProgramPixelTest {
     Bitmap overlayBitmap = readBitmap(OVERLAY_PNG_ASSET_PATH);
     OverlaySettings overlaySettings =
         new OverlaySettings.Builder()
-            .setOverlayFrameAnchor(/* x= */ 1f, /* y= */ -1f)
+            .setOverlayFrameAnchor(/* x= */ -1f, /* y= */ 1f)
             .setBackgroundFrameAnchor(/* x= */ -1f, /* y= */ 1f)
             .build();
     BitmapOverlay staticBitmapOverlay =
@@ -199,7 +199,7 @@ public class OverlayShaderProgramPixelTest {
           throws Exception {
     Bitmap overlayBitmap = readBitmap(OVERLAY_PNG_ASSET_PATH);
     OverlaySettings overlaySettings =
-        new OverlaySettings.Builder().setOverlayFrameAnchor(/* x= */ 1f, /* y= */ -1f).build();
+        new OverlaySettings.Builder().setOverlayFrameAnchor(/* x= */ -1f, /* y= */ 1f).build();
     BitmapOverlay staticBitmapOverlay =
         BitmapOverlay.createStaticBitmapOverlay(overlayBitmap, overlaySettings);
     overlayShaderProgram =

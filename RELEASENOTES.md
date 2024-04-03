@@ -102,6 +102,11 @@
     *   Add support for EGL_GL_COLORSPACE_BT2020_HLG_EXT, which improves HLG
         surface output in ExoPlayer.setVideoEffect and Transformer's Debug
         SurfaceView.
+    *   Update Overlay matrix implementation to make it consistent with the
+        documentation by flipping the x and y values applied in
+        `setOverlayFrameAnchor()`. If using
+        `OverlaySettings.Builder.setOverlayFrameAnchor()`, please flip their x
+        and y values by multiplying them by `-1`.
 *   Muxers:
 *   IMA extension:
 *   Session:
