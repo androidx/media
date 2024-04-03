@@ -137,6 +137,8 @@ import java.util.Objects;
    */
   public ByteBuffer getOutput() throws ExportException {
     if (mixerSourcesToAdd > 0) {
+      // TODO(b/303029174): Consider adding the mixer sources at the start of playback and after a
+      //    seek at the same place in the code.
       addMixerSources();
       if (mixerSourcesToAdd > 0) {
         return EMPTY_BUFFER;
