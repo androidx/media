@@ -47,6 +47,7 @@
   <string name="exo_track_selection_none">ਕੋਈ ਨਹੀਂ</string>
   <string name="exo_track_selection_auto">ਸਵੈਚਲਿਤ</string>
   <string name="exo_track_unknown">ਅਗਿਆਤ</string>
+  <string name="exo_track_unknown_name">ਅਗਿਆਤ (%1$s)</string>
   <string name="exo_track_resolution">%1$d × %2$d</string>
   <string name="exo_track_mono">ਮੋਨੋ</string>
   <string name="exo_track_stereo">ਸਟੀਰਿਓ</string>

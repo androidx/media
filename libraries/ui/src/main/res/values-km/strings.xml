@@ -47,6 +47,7 @@
   <string name="exo_track_selection_none">គ្មាន</string>
   <string name="exo_track_selection_auto">ស្វ័យប្រវត្តិ</string>
   <string name="exo_track_unknown">មិនស្គាល់</string>
+  <string name="exo_track_unknown_name">មិនស្គាល់ (%1$s)</string>
   <string name="exo_track_resolution">%1$d × %2$d</string>
   <string name="exo_track_mono">ម៉ូ​ណូ</string>
   <string name="exo_track_stereo">ស្តេរ៉េអូ</string>

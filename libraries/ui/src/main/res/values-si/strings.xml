@@ -47,6 +47,7 @@
   <string name="exo_track_selection_none">කිසිවක් නැත</string>
   <string name="exo_track_selection_auto">ස්වයං</string>
   <string name="exo_track_unknown">නොදනී</string>
+  <string name="exo_track_unknown_name">නොදන්නා (%1$s)</string>
   <string name="exo_track_resolution">%1$d × %2$d</string>
   <string name="exo_track_mono">ඒකල</string>
   <string name="exo_track_stereo">ස්ටීරියෝ</string>
