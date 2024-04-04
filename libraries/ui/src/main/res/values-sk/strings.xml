@@ -51,6 +51,7 @@
   <string name="exo_track_selection_none">Žiadne</string>
   <string name="exo_track_selection_auto">Automaticky</string>
   <string name="exo_track_unknown">Neznáme</string>
+  <string name="exo_track_unknown_name">Neznáme (%1$s)</string>
   <string name="exo_track_resolution">%1$d × %2$d</string>
   <string name="exo_track_mono">Mono</string>
   <string name="exo_track_stereo">Stereo</string>

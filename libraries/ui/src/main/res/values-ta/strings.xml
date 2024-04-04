@@ -47,6 +47,7 @@
   <string name="exo_track_selection_none">ஏதுமில்லை</string>
   <string name="exo_track_selection_auto">தானியங்கு</string>
   <string name="exo_track_unknown">தெரியாதவை</string>
+  <string name="exo_track_unknown_name">தெரியாதது (%1$s)</string>
   <string name="exo_track_resolution">%1$d × %2$d</string>
   <string name="exo_track_mono">மோனோ</string>
   <string name="exo_track_stereo">ஸ்டீரியோ</string>
