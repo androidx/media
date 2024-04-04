@@ -121,6 +121,15 @@
     *   Fix issue where `MediaMetadata` with just non-null `extras` is not
         transmitted between media controllers and sessions
         ([#1176](https://github.com/androidx/media/issues/1176)).
+    *   Add `MediaSessionService.isPlaybackOngoing()` to let apps query whether
+        the service needs to be stopped in `onTaskRemoved()`
+        ([#1219](https://github.com/androidx/media/issues/1219)).
+    *   Add `MediaSessionService.pauseAllPlayersAndStopSelf()` that conveniently
+        allows to pause playback of all sessions and call `stopSelf` to
+        terminate the lifecyce of the `MediaSessionService`.
+    *   Override `MediaSessionService.onTaskRemoved(Intent)` to provide a safe
+        default implementation that keeps the service running in the foreground
+        if playback is ongoing or stops the service otherwise.
 *   UI:
     *   Fallback to include audio track language name if `Locale` cannot
         identify a display name

@@ -20,6 +20,7 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.postOrRun;
 
+import android.app.Activity;
 import android.app.ForegroundServiceStartNotAllowedException;
 import android.app.Service;
 import android.content.ComponentName;
@@ -467,6 +468,62 @@ public abstract class MediaSessionService extends Service {
         /* trusted= */ false,
         /* cb= */ null,
         /* connectionHints= */ Bundle.EMPTY);
+  }
+
+  /**
+   * Returns whether there is a session with ongoing playback that must be paused or stopped before
+   * being able to terminate the service by calling {@link #stopSelf()}.
+   */
+  @UnstableApi
+  public boolean isPlaybackOngoing() {
+    return getMediaNotificationManager().isStartedInForeground();
+  }
+
+  /**
+   * Pauses the player of each session managed by the service and calls {@link #stopSelf()}.
+   *
+   * <p>This terminates the service lifecycle and triggers {@link #onDestroy()} that an app can
+   * override to release the sessions and other resources.
+   */
+  @UnstableApi
+  public void pauseAllPlayersAndStopSelf() {
+    List<MediaSession> sessionList = getSessions();
+    for (int i = 0; i < sessionList.size(); i++) {
+      sessionList.get(i).getPlayer().setPlayWhenReady(false);
+    }
+    stopSelf();
+  }
+
+  /**
+   * {@inheritDoc}
+   *
+   * <p>If {@linkplain #isPlaybackOngoing() playback is ongoing}, the service continues running in
+   * the foreground when the app is dismissed from the recent apps. Otherwise, the service is
+   * stopped by calling {@link #stopSelf()} which terminates the service lifecycle and triggers
+   * {@link #onDestroy()} that an app can override to release the sessions and other resources.
+   *
+   * <p>An app can safely override this method without calling super to implement a different
+   * behaviour, for instance unconditionally calling {@link #pauseAllPlayersAndStopSelf()} to stop
+   * the service even when playing. However, if {@linkplain #isPlaybackOngoing() playback is not
+   * ongoing}, the service must be terminated otherwise the service will be crashed and restarted by
+   * the system.
+   *
+   * <p>Note: The service <a
+   * href="https://developer.android.com/develop/background-work/services/bound-services#Lifecycle">can't
+   * be stopped</a> until all media controllers have been unbound. Hence, an app needs to release
+   * all internal controllers that have connected to the service (for instance from an activity in
+   * {@link Activity#onStop()}). If an app allows external apps to connect a {@link MediaController}
+   * to the service, these controllers also need to be disconnected. In such a scenario of external
+   * bound clients, an app needs to override this method to release the session before calling
+   * {@link #stopSelf()}.
+   */
+  @Override
+  public void onTaskRemoved(@Nullable Intent rootIntent) {
+    if (!isPlaybackOngoing()) {
+      // The service needs to be stopped when playback is not ongoing and the service is not in the
+      // foreground.
+      stopSelf();
+    }
   }
 
   /**
