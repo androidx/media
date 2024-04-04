@@ -25,6 +25,7 @@ import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -55,6 +56,14 @@ public final class EditedMediaItem {
      * @param mediaItem The {@link MediaItem} on which transformations are applied.
      */
     public Builder(MediaItem mediaItem) {
+      long clippingStartPositionUs = mediaItem.clippingConfiguration.startPositionUs;
+      long clippingEndPositionUs = mediaItem.clippingConfiguration.endPositionUs;
+      checkArgument(
+          clippingEndPositionUs == C.TIME_END_OF_SOURCE
+              || clippingEndPositionUs > clippingStartPositionUs,
+          Util.formatInvariant(
+              "Clipping end position (%d us) should be larger than start position (%d us)",
+              clippingEndPositionUs, clippingStartPositionUs));
       this.mediaItem = mediaItem;
       durationUs = C.TIME_UNSET;
       frameRate = C.RATE_UNSET_INT;
