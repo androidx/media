@@ -51,53 +51,14 @@ class MainActivity : AppCompatActivity() {
       }
     )
 
-    var mediaItemsBackwardCacheSize = 2
-    val mediaItemsBCacheSizeView = findViewById<EditText>(R.id.media_items_b_cache_size)
-    mediaItemsBCacheSizeView.addTextChangedListener(
-      object : TextWatcher {
-        override fun beforeTextChanged(s: CharSequence, start: Int, count: Int, after: Int) = Unit
-
-        override fun onTextChanged(s: CharSequence, start: Int, before: Int, count: Int) = Unit
-
-        override fun afterTextChanged(s: Editable) {
-          val newText = mediaItemsBCacheSizeView.text.toString()
-          if (newText != "") {
-            mediaItemsBackwardCacheSize = max(1, min(newText.toInt(), 20))
-          }
-        }
-      }
-    )
-
-    var mediaItemsForwardCacheSize = 3
-    val mediaItemsFCacheSizeView = findViewById<EditText>(R.id.media_items_f_cache_size)
-    mediaItemsFCacheSizeView.addTextChangedListener(
-      object : TextWatcher {
-        override fun beforeTextChanged(s: CharSequence, start: Int, count: Int, after: Int) = Unit
-
-        override fun onTextChanged(s: CharSequence, start: Int, before: Int, count: Int) = Unit
-
-        override fun afterTextChanged(s: Editable) {
-          val newText = mediaItemsFCacheSizeView.text.toString()
-          if (newText != "") {
-            mediaItemsForwardCacheSize = max(1, min(newText.toInt(), 20))
-          }
-        }
-      }
-    )
-
     findViewById<View>(R.id.view_pager_button).setOnClickListener {
       startActivity(
-        Intent(this, ViewPagerActivity::class.java)
-          .putExtra(NUM_PLAYERS_EXTRA, numberOfPlayers)
-          .putExtra(MEDIA_ITEMS_BACKWARD_CACHE_SIZE, mediaItemsBackwardCacheSize)
-          .putExtra(MEDIA_ITEMS_FORWARD_CACHE_SIZE, mediaItemsForwardCacheSize)
+        Intent(this, ViewPagerActivity::class.java).putExtra(NUM_PLAYERS_EXTRA, numberOfPlayers)
       )
     }
   }
 
   companion object {
-    const val MEDIA_ITEMS_BACKWARD_CACHE_SIZE = "media_items_backward_cache_size"
-    const val MEDIA_ITEMS_FORWARD_CACHE_SIZE = "media_items_forward_cache_size"
     const val NUM_PLAYERS_EXTRA = "number_of_players"
   }
 }

@@ -44,35 +44,5 @@
     android:hint="@string/num_of_players"
     android:inputType="numberDecimal"
     android:textColorHint="@color/grey" />
-  <com.google.android.material.textfield.TextInputEditText
-    android:id="@+id/media_items_b_cache_size"
-    android:layout_width="match_parent"
-    android:layout_height="40dp"
-    android:layout_marginTop="20dp"
-    android:layout_marginStart="12dp"
-    android:layout_marginEnd="12dp"
-    android:layout_marginLeft="12dp"
-    android:layout_marginRight="12dp"
-    android:layout_gravity="center_horizontal"
-    android:background="@color/purple_700"
-    android:gravity="center"
-    android:hint="@string/how_many_previous_videos_cached"
-    android:inputType="numberDecimal"
-    android:textColorHint="@color/grey" />
-  <com.google.android.material.textfield.TextInputEditText
-    android:id="@+id/media_items_f_cache_size"
-    android:layout_width="match_parent"
-    android:layout_height="40dp"
-    android:layout_marginTop="20dp"
-    android:layout_marginStart="12dp"
-    android:layout_marginEnd="12dp"
-    android:layout_marginLeft="12dp"
-    android:layout_marginRight="12dp"
-    android:layout_gravity="center_horizontal"
-    android:background="@color/purple_700"
-    android:gravity="center"
-    android:hint="@string/how_many_future_videos_cached"
-    android:inputType="numberDecimal"
-    android:textColorHint="@color/grey" />
 
 </LinearLayout>

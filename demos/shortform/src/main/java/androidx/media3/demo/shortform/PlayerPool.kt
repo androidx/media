@@ -39,7 +39,7 @@ class PlayerPool(
   playbackLooper: Looper,
   loadControl: LoadControl,
   renderersFactory: RenderersFactory,
-  bandwidthMeter: BandwidthMeter
+  bandwidthMeter: BandwidthMeter,
 ) {
 
   /** Creates a player instance to be used by the pool. */
@@ -56,12 +56,6 @@ class PlayerPool(
 
   fun acquirePlayer(token: Int, callback: (ExoPlayer) -> Unit) {
     synchronized(playerMap) {
-      if (playerMap.size < numberOfPlayers) {
-        val player = playerFactory.createPlayer()
-        playerMap[playerMap.size] = player
-        callback.invoke(player)
-        return
-      }
       // Add token to set of views requesting players
       playerRequestTokenSet.add(token)
       acquirePlayerInternal(token, callback)
@@ -73,6 +67,12 @@ class PlayerPool(
       if (!availablePlayerQueue.isEmpty()) {
         val playerNumber = availablePlayerQueue.remove()
         playerMap[playerNumber]?.let { callback.invoke(it) }
+        playerRequestTokenSet.remove(token)
+        return
+      } else if (playerMap.size < numberOfPlayers) {
+        val player = playerFactory.createPlayer()
+        playerMap[playerMap.size] = player
+        callback.invoke(player)
         playerRequestTokenSet.remove(token)
         return
       } else if (playerRequestTokenSet.contains(token)) {
@@ -130,7 +130,7 @@ class PlayerPool(
     private val playbackLooper: Looper,
     private val loadControl: LoadControl,
     private val renderersFactory: RenderersFactory,
-    private val bandwidthMeter: BandwidthMeter
+    private val bandwidthMeter: BandwidthMeter,
   ) : PlayerFactory {
     private var playerCounter = 0
 

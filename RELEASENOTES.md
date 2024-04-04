@@ -165,6 +165,7 @@
         `TestPlayerRunHelper.run(player).ignoringNonFatalErrors().untilXXX()`
         method chain to disable this behavior.
 *   Demo app:
+    *   Use `DefaultPreloadManager` in the shortform demo app.
 *   Remove deprecated symbols:
     *   Remove `CronetDataSourceFactory`. Use `CronetDataSource.Factory`
         instead.
