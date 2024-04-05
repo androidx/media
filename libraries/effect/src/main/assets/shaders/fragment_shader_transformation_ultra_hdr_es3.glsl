@@ -64,7 +64,7 @@ const int COLOR_TRANSFER_ST2084 = 6;
 const int COLOR_TRANSFER_HLG = 7;
 
 // Matrix values based on computeXYZMatrix(BT2020Primaries, BT2020WhitePoint)
-// https://cs.android.com/android/platform/superproject/+/master:frameworks/base/libs/hwui/utils/HostColorSpace.cpp;l=200-232;drc=86bd214059cd6150304888a285941bf74af5b687
+// https://cs.android.com/android/platform/superproject/+/main:frameworks/base/libs/hwui/utils/HostColorSpace.cpp;l=200-232;drc=86bd214059cd6150304888a285941bf74af5b687
 const mat3 RGB_BT2020_TO_XYZ =
     mat3(0.63695805f, 0.26270021f, 0.00000000f, 0.14461690f, 0.67799807f,
          0.02807269f, 0.16888098f, 0.05930172f, 1.06098506f);
@@ -112,7 +112,7 @@ highp float hlgOetfSingleChannel(highp float linearChannel) {
   // Specification:
   // https://www.khronos.org/registry/DataFormat/specs/1.3/dataformat.1.3.inline.html#TRANSFER_HLG
   // Reference implementation:
-  // https://cs.android.com/android/platform/superproject/+/master:frameworks/native/libs/renderengine/gl/ProgramCache.cpp;l=529-543;drc=de09f10aa504fd8066370591a00c9ff1cafbb7fa
+  // https://cs.android.com/android/platform/superproject/+/main:frameworks/native/libs/renderengine/gl/ProgramCache.cpp;l=529-543;drc=de09f10aa504fd8066370591a00c9ff1cafbb7fa
   const highp float a = 0.17883277;
   const highp float b = 0.28466892;
   const highp float c = 0.55991073;
@@ -133,7 +133,7 @@ highp vec3 pqOetf(highp vec3 linearColor) {
   // Specification:
   // https://registry.khronos.org/DataFormat/specs/1.3/dataformat.1.3.inline.html#TRANSFER_PQ
   // Reference implementation:
-  // https://cs.android.com/android/platform/superproject/+/master:frameworks/native/libs/renderengine/gl/ProgramCache.cpp;l=514-527;drc=de09f10aa504fd8066370591a00c9ff1cafbb7fa
+  // https://cs.android.com/android/platform/superproject/+/main:frameworks/native/libs/renderengine/gl/ProgramCache.cpp;l=514-527;drc=de09f10aa504fd8066370591a00c9ff1cafbb7fa
   const highp float m1 = (2610.0 / 16384.0);
   const highp float m2 = (2523.0 / 4096.0) * 128.0;
   const highp float c1 = (3424.0 / 4096.0);
@@ -187,7 +187,7 @@ vec2 getVTexSamplingCoord() {
 // Reference:
 // https://developer.android.com/reference/android/graphics/Gainmap#applying-a-gainmap-manually
 // Reference Implementation:
-// https://source.corp.google.com/h/googleplex-android/platform/superproject/main/+/main:frameworks/base/libs/hwui/effects/GainmapRenderer.cpp;l=97-147;drc=45fd4a5013383f37c8e8a354b1626a8e1aebe29a
+// https://cs.android.com/android/platform/superproject/main/+/main:frameworks/base/libs/hwui/effects/GainmapRenderer.cpp;l=117?q=GainmapRenderer.cpp&ss=android
 highp vec3 applyGainmapToBase(vec4 S) {
   vec4 G = texture(uGainmapTexSampler, getVTexSamplingCoord());
   float W = clamp((log(HDR_SDR_RATIO) - log(uDisplayRatioSdr)) /
