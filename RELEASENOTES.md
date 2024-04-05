@@ -1,6 +1,11 @@
 # Release notes
 
-### Unreleased changes
+## 1.3
+
+### 1.3.1 (2024-04-11)
+
+This release includes the following changes since the
+[1.3.0 release](#130-2024-03-06):
 
 *   Common Library:
     *   Add `Format.labels` to allow localized or other alternative labels.
@@ -47,7 +52,7 @@
         tunneling even if the device does not do this automatically as required
         by the API ([#1169](https://github.com/androidx/media/issues/1169)).
         ([#966](https://github.com/androidx/media/issues/966)).
-    *   Fix issue where HDR color info handling causes codec mishavior and
+    *   Fix issue where HDR color info handling causes codec misbehavior and
         prevents adaptive format switches for SDR video tracks
         ([#1158](https://github.com/androidx/media/issues/1158)).
 *   Text:
@@ -74,7 +79,7 @@
         ([#988](https://github.com/androidx/media/issues/988)).
 *   DASH Extension:
     *   Populate all `Label` elements from the manifest into `Format.labels`
-        ([#1054](https://github.com/androidx/media/pull/1054)).  
+        ([#1054](https://github.com/androidx/media/pull/1054)).
 *   RTSP Extension:
     *   Skip empty session information values (i-tags) in SDP parsing
         ([#1087](https://github.com/androidx/media/issues/1087)).
@@ -83,8 +88,6 @@
         requires an additional Maven repository to be configured. Users who need
         this module from a local dependency
         [can re-enable it](https://github.com/androidx/media/blob/main/README.md#midi-module).
-
-## 1.3
 
 ### 1.3.0 (2024-03-06)
 
