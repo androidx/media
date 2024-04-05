@@ -411,7 +411,7 @@ public class DefaultPreloadManagerTest {
   }
 
   @Test
-  public void removeMediaItemPreviouslyAdded_returnsCorrectCountAndNullSource_sourceReleased() {
+  public void removeByMediaItems_correspondingHeldSourceRemovedAndReleased() {
     TargetPreloadStatusControl<Integer> targetPreloadStatusControl =
         rankingData ->
             new DefaultPreloadManager.Status(DefaultPreloadManager.Status.STAGE_TIMELINE_REFRESHED);
@@ -449,16 +449,75 @@ public class DefaultPreloadManagerTest {
               };
             });
     preloadManager.add(mediaItem1, /* rankingData= */ 1);
-    preloadManager.add(mediaItem2, /* rankingData= */ 2);
     preloadManager.invalidate();
     shadowOf(Looper.getMainLooper()).idle();
 
-    preloadManager.remove(mediaItem1);
+    boolean mediaItem1Removed = preloadManager.remove(mediaItem1);
+    boolean mediaItem2Removed = preloadManager.remove(mediaItem2);
     shadowOf(Looper.getMainLooper()).idle();
 
-    assertThat(preloadManager.getSourceCount()).isEqualTo(1);
-    assertThat(preloadManager.getMediaSource(mediaItem1)).isNull();
-    assertThat(preloadManager.getMediaSource(mediaItem2).getMediaItem()).isEqualTo(mediaItem2);
+    assertThat(mediaItem1Removed).isTrue();
+    assertThat(mediaItem2Removed).isFalse();
+    assertThat(preloadManager.getSourceCount()).isEqualTo(0);
+    assertThat(internalSourceToReleaseReferenceByMediaId).containsExactly("mediaId1");
+  }
+
+  @Test
+  public void removeByMediaSources_heldSourceRemovedAndReleased() {
+    TargetPreloadStatusControl<Integer> targetPreloadStatusControl =
+        rankingData ->
+            new DefaultPreloadManager.Status(DefaultPreloadManager.Status.STAGE_TIMELINE_REFRESHED);
+    MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
+    DefaultPreloadManager preloadManager =
+        new DefaultPreloadManager(
+            targetPreloadStatusControl,
+            mockMediaSourceFactory,
+            trackSelector,
+            bandwidthMeter,
+            rendererCapabilitiesListFactory,
+            allocator,
+            Util.getCurrentOrMainLooper());
+    MediaItem.Builder mediaItemBuilder = new MediaItem.Builder();
+    MediaItem mediaItem1 =
+        mediaItemBuilder.setMediaId("mediaId1").setUri("http://exoplayer.dev/video1").build();
+    MediaItem mediaItem2 =
+        mediaItemBuilder.setMediaId("mediaId2").setUri("http://exoplayer.dev/video2").build();
+    ArrayList<String> internalSourceToReleaseReferenceByMediaId = new ArrayList<>();
+    when(mockMediaSourceFactory.createMediaSource(any()))
+        .thenAnswer(
+            invocation -> {
+              MediaItem mediaItem = invocation.getArgument(0);
+              return new FakeMediaSource() {
+                @Override
+                public MediaItem getMediaItem() {
+                  return mediaItem;
+                }
+
+                @Override
+                protected void releaseSourceInternal() {
+                  internalSourceToReleaseReferenceByMediaId.add(mediaItem.mediaId);
+                  super.releaseSourceInternal();
+                }
+              };
+            });
+    preloadManager.add(mediaItem1, /* rankingData= */ 1);
+    preloadManager.invalidate();
+    shadowOf(Looper.getMainLooper()).idle();
+    MediaSource mediaSource1 = preloadManager.getMediaSource(mediaItem1);
+    DefaultMediaSourceFactory defaultMediaSourceFactory =
+        new DefaultMediaSourceFactory((Context) ApplicationProvider.getApplicationContext());
+    MediaSource mediaSource2 = defaultMediaSourceFactory.createMediaSource(mediaItem1);
+    MediaSource mediaSource3 = defaultMediaSourceFactory.createMediaSource(mediaItem2);
+
+    boolean mediaSource1Removed = preloadManager.remove(mediaSource1);
+    boolean mediaSource2Removed = preloadManager.remove(mediaSource2);
+    boolean mediaSource3Removed = preloadManager.remove(mediaSource3);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    assertThat(mediaSource1Removed).isTrue();
+    assertThat(mediaSource2Removed).isFalse();
+    assertThat(mediaSource3Removed).isFalse();
+    assertThat(preloadManager.getSourceCount()).isEqualTo(0);
     assertThat(internalSourceToReleaseReferenceByMediaId).containsExactly("mediaId1");
   }
 

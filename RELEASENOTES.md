@@ -34,6 +34,7 @@
     *   Allow a null value to be returned by
         `TargetPreloadStatusControl.getTargetPreloadStatus(T)` to indicate not
         to preload a `MediaSource` with the given `rankingData`.
+    *   Add `remove(MediaSource)` to `BasePreloadManager`.
 *   Transformer:
     *   Add `audioConversionProcess` and `videoConversionProcess` to
         `ExportResult` indicating how the respective track in the output file

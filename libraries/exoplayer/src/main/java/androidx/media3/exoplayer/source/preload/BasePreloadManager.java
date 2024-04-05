@@ -151,13 +151,37 @@ public abstract class BasePreloadManager<T> {
    * Removes a {@link MediaItem} from the preload manager.
    *
    * @param mediaItem The {@link MediaItem} to remove.
+   * @return {@code true} if the preload manager is holding a {@link MediaSource} of the given
+   *     {@link MediaItem} and it has been removed, otherwise {@code false}.
    */
-  public final void remove(MediaItem mediaItem) {
+  public final boolean remove(MediaItem mediaItem) {
     if (mediaItemMediaSourceHolderMap.containsKey(mediaItem)) {
       MediaSource mediaSource = mediaItemMediaSourceHolderMap.get(mediaItem).mediaSource;
       mediaItemMediaSourceHolderMap.remove(mediaItem);
       releaseSourceInternal(mediaSource);
+      return true;
     }
+    return false;
+  }
+
+  /**
+   * Removes a {@link MediaSource} from the preload manager.
+   *
+   * @param mediaSource The {@link MediaSource} to remove.
+   * @return {@code true} if the preload manager is holding the given {@link MediaSource} instance
+   *     and it has been removed, otherwise {@code false}.
+   */
+  public final boolean remove(MediaSource mediaSource) {
+    MediaItem mediaItem = mediaSource.getMediaItem();
+    if (mediaItemMediaSourceHolderMap.containsKey(mediaItem)) {
+      MediaSource heldMediaSource = mediaItemMediaSourceHolderMap.get(mediaItem).mediaSource;
+      if (mediaSource == heldMediaSource) {
+        mediaItemMediaSourceHolderMap.remove(mediaItem);
+        releaseSourceInternal(mediaSource);
+        return true;
+      }
+    }
+    return false;
   }
 
   /** Releases the preload manager. */
