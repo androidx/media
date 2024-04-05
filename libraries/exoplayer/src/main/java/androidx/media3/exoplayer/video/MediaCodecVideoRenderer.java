@@ -660,7 +660,10 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     }
     videoFrameReleaseControl.reset();
     if (joining) {
-      videoFrameReleaseControl.join();
+      // Don't render next frame immediately to let the codec catch up with the playback position
+      // first. This prevents a stuttering effect caused by showing the first frame and then
+      // dropping many of the subsequent frames during the catch up phase.
+      videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ false);
     }
     maybeSetupTunnelingForFirstFrame();
     consecutiveDroppedFrameCount = 0;
@@ -835,7 +838,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         // If we know the video size, report it again immediately.
         maybeRenotifyVideoSizeChanged();
         if (state == STATE_STARTED) {
-          videoFrameReleaseControl.join();
+          // We want to "join" playback to prevent an intermediate buffering state in the player
+          // before we rendered the new first frame. Since there is no reason to believe the next
+          // frame is delayed and the renderer needs to catch up, we still request to render the
+          // next frame as soon as possible.
+          videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ true);
         }
         // When effects previewing is enabled, set display surface and an unknown size.
         if (videoSinkProvider.isInitialized()) {

@@ -76,6 +76,8 @@
     *   Fix issue where HDR color info handling causes codec mishavior and
         prevents adaptive format switches for SDR video tracks
         ([#1158](https://github.com/androidx/media/issues/1158)).
+    *   Fix issue where `Listener.onRenderedFirstFrame()` arrives too early when
+        switching surfaces mid-playback.
 *   Text:
     *   WebVTT: Prevent directly consecutive cues from creating spurious
         additional `CuesWithTiming` instances from `WebvttParser.parse`
