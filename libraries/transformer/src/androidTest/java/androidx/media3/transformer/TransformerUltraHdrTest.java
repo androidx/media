@@ -20,6 +20,7 @@ package androidx.media3.transformer;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static androidx.media3.transformer.AndroidTestUtil.JPG_ASSET_URI_STRING;
 import static androidx.media3.transformer.AndroidTestUtil.ULTRA_HDR_URI_STRING;
+import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
 import static androidx.media3.transformer.SequenceEffectTestUtil.NO_EFFECT;
 import static androidx.media3.transformer.SequenceEffectTestUtil.oneFrameFromImage;
@@ -31,6 +32,8 @@ import android.graphics.Bitmap;
 import android.net.Uri;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
+import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceBitmapLoader;
@@ -53,6 +56,16 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public final class TransformerUltraHdrTest {
 
+  private static final int DOWNSCALED_WIDTH_HEIGHT = 120;
+  private static final Format DOWNSCALED_ULTRA_HDR_FORMAT =
+      new Format.Builder()
+          .setSampleMimeType(MimeTypes.VIDEO_H265)
+          .setWidth(DOWNSCALED_WIDTH_HEIGHT)
+          .setHeight(DOWNSCALED_WIDTH_HEIGHT)
+          .setFrameRate(30)
+          .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
+          .build();
+
   @Rule public final TestName testName = new TestName();
   private final Context context = ApplicationProvider.getApplicationContext();
 
@@ -67,6 +80,11 @@ public final class TransformerUltraHdrTest {
   public void exportUltraHdrImage_withUltraHdrEnabledOnUnsupportedApiLevel_fallbackToExportSdr()
       throws Exception {
     assumeTrue(Util.SDK_INT < 34);
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ DOWNSCALED_ULTRA_HDR_FORMAT,
+        /* outputFormat= */ DOWNSCALED_ULTRA_HDR_FORMAT);
     Composition composition =
         createUltraHdrComposition(
             /* tonemap= */ false, oneFrameFromImage(ULTRA_HDR_URI_STRING, NO_EFFECT));
@@ -86,6 +104,11 @@ public final class TransformerUltraHdrTest {
 
   @Test
   public void exportUltraHdrImage_withUltraHdrAndTonemappingEnabled_exportsSdr() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ DOWNSCALED_ULTRA_HDR_FORMAT,
+        /* outputFormat= */ DOWNSCALED_ULTRA_HDR_FORMAT);
     Composition composition =
         createUltraHdrComposition(
             /* tonemap= */ true, oneFrameFromImage(ULTRA_HDR_URI_STRING, NO_EFFECT));
@@ -105,6 +128,11 @@ public final class TransformerUltraHdrTest {
 
   @Test
   public void exportUltraHdrImage_withUltraHdrDisabled_exportsSdr() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ DOWNSCALED_ULTRA_HDR_FORMAT,
+        /* outputFormat= */ DOWNSCALED_ULTRA_HDR_FORMAT);
     Composition composition =
         new Composition.Builder(
                 new EditedMediaItemSequence(oneFrameFromImage(ULTRA_HDR_URI_STRING, NO_EFFECT)))
@@ -176,7 +204,6 @@ public final class TransformerUltraHdrTest {
     BitmapLoader downscalingBitmapLoader =
         new BitmapLoader() {
 
-          static final int DOWNSCALED_WIDTH_HEIGHT = 120;
           final BitmapLoader bitmapLoader;
 
           {
