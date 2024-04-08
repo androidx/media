@@ -29,6 +29,7 @@ import android.media.AudioTrack;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
@@ -207,6 +208,9 @@ import java.lang.reflect.Method;
   // Results from the last call to getCurrentPositionUs that used a different sample mode.
   private long previousModePositionUs;
   private long previousModeSystemTimeUs;
+
+  private long waitingForHeadResetTimeMs = 0;  // MIREGO for error reporting
+  private boolean waitingForHeadResetTimeoutErrorSent = false;
 
   /**
    * Whether to expect a raw playback head reset.
@@ -416,6 +420,7 @@ import java.lang.reflect.Method;
       if (playState == PLAYSTATE_PAUSED) {
         // We force an underrun to pause the track, so don't notify the listener in this case.
         hasData = false;
+        waitingForHeadResetTimeMs = 0; // MIREGO error reporting
         return false;
       }
 
@@ -423,9 +428,22 @@ import java.lang.reflect.Method;
       // position for a short time after is has been released. Avoid writing data until the playback
       // head position actually returns to zero.
       if (playState == PLAYSTATE_STOPPED && getPlaybackHeadPosition() != 0) { // MIREGO - AMZN_CHANGE_ONELINE
+
+        // MIREGO: added ERROR_CODE_AUDIO_WAITING_FOR_HEAD_RESET error
+        long now = System.currentTimeMillis();
+        if (waitingForHeadResetTimeMs == 0) {
+          waitingForHeadResetTimeMs = now;
+        } else if (now - waitingForHeadResetTimeMs > 2000 && !waitingForHeadResetTimeoutErrorSent){
+          waitingForHeadResetTimeoutErrorSent = true;
+          Log.e(TAG, new PlaybackException("Audio track head position taking too long to reset ",
+              new RuntimeException(), PlaybackException.ERROR_CODE_AUDIO_WAITING_FOR_HEAD_POSITION_RESET));
+        }
+
         return false;
       }
     }
+    waitingForHeadResetTimeMs = 0; // MIREGO error reporting
+    waitingForHeadResetTimeoutErrorSent = false;
 
     boolean hadData = hasData;
     hasData = hasPendingData(writtenFrames);

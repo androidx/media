@@ -49,6 +49,7 @@ import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.audio.AudioProcessingPipeline;
 import androidx.media3.common.audio.AudioProcessor;
@@ -1357,8 +1358,8 @@ public final class DefaultAudioSink implements AudioSink {
     if (bytesWrittenOrError < 0) {
       int error = bytesWrittenOrError;
 
-      // MIREGO
-      Log.v(Log.LOG_LEVEL_VERBOSE2, TAG, "writeBuffer error: %d", error);
+      // MIREGO error reporting
+      Log.e(TAG, new PlaybackException("DefaultAudioSink write error " + bytesWrittenOrError, new RuntimeException(), PlaybackException.ERROR_CODE_AUDIO_SINK_WRITE));
 
       // Treat a write error on a previously successful offload channel as recoverable
       // without disabling offload. Offload will be disabled if offload channel was not successfully

@@ -235,6 +235,12 @@ public class PlaybackException extends Exception implements Bundleable {
   /** MIREGO: Caused by the audio and video being out of sync */
   public static final int ERROR_CODE_AUDIO_VIDEO_DESYNC = 5902;
 
+  /** MIREGO: Caused by the audio sink returning an error on write */
+  public static final int ERROR_CODE_AUDIO_SINK_WRITE = 5903;
+
+  /** MIREGO: Caused by a long delay before the stopped audio track position is reset (potential cause of stuck playback) */
+  public static final int ERROR_CODE_AUDIO_WAITING_FOR_HEAD_POSITION_RESET = 5904;
+  
   // DRM errors (6xxx).
 
   /** Caused by an unspecified error related to DRM protection. */
