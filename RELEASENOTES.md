@@ -154,6 +154,8 @@ This release includes the following changes since the
 *   Audio:
     *   Allow renderer recovery by disabling offload if audio track fails to
         initialize in offload mode.
+    *   For offloaded playback, use the `AudioTrack.StreamEventCallback` method
+        `onPresentationEnded` to identify when all pending data has been played.
 *   Video:
     *   Add workaround for a device issue on Galaxy Tab S7 FE, Chromecast with
         Google TV, and Lenovo M10 FHD Plus that causes 60fps H265 streams to be
