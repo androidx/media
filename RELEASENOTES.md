@@ -1,40 +1,5 @@
 # Release notes
 
-### Unreleased changes
-
-*   Common Library:
-*   ExoPlayer:
-    *   Add `reset` to `BasePreloadManager` to release all the holding sources
-        while keep the preload manager instance.
-*   Transformer:
-*   Track Selection:
-*   Extractors:
-*   Audio:
-*   Video:
-*   Text:
-*   Metadata:
-*   Image:
-*   DRM:
-*   Effect:
-*   Muxers:
-*   IMA extension:
-*   Session:
-*   UI:
-*   Downloads:
-*   OkHttp Extension:
-*   Cronet Extension:
-*   RTMP Extension:
-*   HLS Extension:
-*   DASH Extension:
-*   Smooth Streaming Extension:
-*   RTSP Extension:
-*   Decoder Extensions (FFmpeg, VP9, AV1, MIDI, etc.):
-*   Leanback extension:
-*   Cast Extension:
-*   Test Utilities:
-*   Remove deprecated symbols:
-*   Demo app:
-
 ## 1.4
 
 ### 1.4.0-alpha01 (2024-04-11)
@@ -93,7 +58,7 @@ This release includes the following changes since the
     *   Update Overlay matrix implementation to make it consistent with the
         documentation by flipping the x and y values applied in
         `setOverlayFrameAnchor()`. If using
-        `OverlaySettings.Builder.setOverlayFrameAnchor()`, please flip their x
+        `OverlaySettings.Builder.setOverlayFrameAnchor()`, flip their x
         and y values by multiplying them by `-1`.
 *   Session:
     *   Change default of `CommandButton.enabled` to `true` and ensure the value
@@ -106,7 +71,7 @@ This release includes the following changes since the
         ([#1219](https://github.com/androidx/media/issues/1219)).
     *   Add `MediaSessionService.pauseAllPlayersAndStopSelf()` that conveniently
         allows to pause playback of all sessions and call `stopSelf` to
-        terminate the lifecyce of the `MediaSessionService`.
+        terminate the lifecycle of the `MediaSessionService`.
     *   Override `MediaSessionService.onTaskRemoved(Intent)` to provide a safe
         default implementation that keeps the service running in the foreground
         if playback is ongoing or stops the service otherwise.
@@ -118,7 +83,7 @@ This release includes the following changes since the
 *   Test Utilities:
     *   Implement `onInit()` and `onRelease()` in `FakeRenderer`.
     *   Change `TestPlayerRunHelper.runUntil/playUntil` methods to fail on
-        non-fatal errors (e.g. those reported to
+        nonfatal errors (e.g. those reported to
         `AnalyticsListener.onVideoCodecError`). Use the new
         `TestPlayerRunHelper.run(player).ignoringNonFatalErrors().untilXXX()`
         method chain to disable this behavior.
