@@ -320,7 +320,7 @@ public class MuxerWrapperTest {
           throws Exception {
     String testId = testName.getMethodName();
     Context context = ApplicationProvider.getApplicationContext();
-    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory();
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
     muxerWrapper =
         new MuxerWrapper(
             temporaryFolder.newFile().getPath(),

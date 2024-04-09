@@ -56,7 +56,6 @@ public class CompositionExportTest {
   @Rule public final TemporaryFolder outputDir = new TemporaryFolder();
 
   private final Context context = ApplicationProvider.getApplicationContext();
-  private final CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory();
 
   @Before
   public void setUp() {
@@ -72,6 +71,7 @@ public class CompositionExportTest {
   @Test
   public void start_audioVideoTransmuxedFromDifferentSequences_matchesSingleSequenceResult()
       throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
     Transformer transformer =
         createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
     MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO);
@@ -96,6 +96,8 @@ public class CompositionExportTest {
 
   @Test
   public void start_loopingTransmuxedAudio_producesExpectedResult() throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
+
     Transformer transformer =
         createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
     EditedMediaItem audioEditedMediaItem =
@@ -129,6 +131,7 @@ public class CompositionExportTest {
 
   @Test
   public void start_loopingTransmuxedVideo_producesExpectedResult() throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
     Transformer transformer =
         createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
     EditedMediaItem audioEditedMediaItem =
@@ -162,6 +165,7 @@ public class CompositionExportTest {
 
   @Test
   public void start_longVideoCompositionWithLoopingAudio_producesExpectedResult() throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     Transformer transformer =
         createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
     EditedMediaItemSequence loopingAudioSequence =
@@ -192,6 +196,7 @@ public class CompositionExportTest {
 
   @Test
   public void start_compositionOfConcurrentAudio_isCorrect() throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     Transformer transformer =
         createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
     EditedMediaItem rawAudioEditedMediaItem =
@@ -215,6 +220,7 @@ public class CompositionExportTest {
 
   @Test
   public void start_audioVideoCompositionWithExtraAudio_isCorrect() throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     Transformer transformer =
         createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
     EditedMediaItem audioVideoEditedMediaItem =
@@ -247,6 +253,7 @@ public class CompositionExportTest {
 
   @Test
   public void start_audioVideoCompositionWithMutedAudio_matchesSingleSequence() throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     Transformer transformer =
         createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
     EditedMediaItem audioVideoEditedMediaItem =
@@ -282,6 +289,7 @@ public class CompositionExportTest {
 
   @Test
   public void start_audioVideoCompositionWithLoopingAudio_isCorrect() throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     Transformer transformer =
         createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
     EditedMediaItem audioVideoEditedMediaItem =
@@ -318,6 +326,7 @@ public class CompositionExportTest {
 
   @Test
   public void start_adjustSampleRateWithComposition_completesSuccessfully() throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     SonicAudioProcessor sonicAudioProcessor = new SonicAudioProcessor();
     sonicAudioProcessor.setOutputSampleRateHz(48000);
     Transformer transformer =
@@ -344,6 +353,7 @@ public class CompositionExportTest {
 
   @Test
   public void start_compositionOfConcurrentAudio_changesSampleRateWithEffect() throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     SonicAudioProcessor sonicAudioProcessor = new SonicAudioProcessor();
     sonicAudioProcessor.setOutputSampleRateHz(48000);
     Transformer transformer =
