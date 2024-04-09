@@ -157,8 +157,9 @@ public final class EditedMediaItem {
     /**
      * Sets the frame rate of the output video in frames per second.
      *
-     * <p>This should be set for inputs that don't have an implicit frame rate (e.g. images). It
-     * will be ignored for inputs that do have an implicit frame rate (e.g. video).
+     * <p>This should be set for inputs that don't have an implicit frame rate (e.g. images, which
+     * are recommended to be set for a frame rate of 30). It will be ignored for inputs that do have
+     * an implicit frame rate (e.g. video).
      *
      * <p>No frame rate is set by default.
      */
