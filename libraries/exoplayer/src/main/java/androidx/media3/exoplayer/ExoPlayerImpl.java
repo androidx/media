@@ -17,6 +17,7 @@ package androidx.media3.exoplayer;
 
 import static androidx.media3.common.C.TRACK_TYPE_AUDIO;
 import static androidx.media3.common.C.TRACK_TYPE_CAMERA_MOTION;
+import static androidx.media3.common.C.TRACK_TYPE_IMAGE;
 import static androidx.media3.common.C.TRACK_TYPE_VIDEO;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
@@ -27,6 +28,7 @@ import static androidx.media3.exoplayer.Renderer.MSG_SET_AUDIO_SESSION_ID;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_AUX_EFFECT_INFO;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_CAMERA_MOTION_LISTENER;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_CHANGE_FRAME_RATE_STRATEGY;
+import static androidx.media3.exoplayer.Renderer.MSG_SET_IMAGE_OUTPUT;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_PREFERRED_AUDIO_DEVICE;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_SCALING_MODE;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_SKIP_SILENCE_ENABLED;
@@ -79,6 +81,7 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
+import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueGroup;
@@ -97,6 +100,8 @@ import androidx.media3.exoplayer.analytics.DefaultAnalyticsCollector;
 import androidx.media3.exoplayer.analytics.MediaMetricsListener;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
+import androidx.media3.exoplayer.audio.AudioSink;
+import androidx.media3.exoplayer.image.ImageOutput;
 import androidx.media3.exoplayer.metadata.MetadataOutput;
 import androidx.media3.exoplayer.source.MaskingMediaSource;
 import androidx.media3.exoplayer.source.MediaSource;
@@ -314,6 +319,7 @@ import java.util.concurrent.TimeoutException;
                   COMMAND_CHANGE_MEDIA_ITEMS,
                   COMMAND_GET_TRACKS,
                   COMMAND_GET_AUDIO_ATTRIBUTES,
+                  COMMAND_SET_AUDIO_ATTRIBUTES,
                   COMMAND_GET_VOLUME,
                   COMMAND_SET_VOLUME,
                   COMMAND_SET_VIDEO_SURFACE,
@@ -466,16 +472,7 @@ import java.util.concurrent.TimeoutException;
   }
 
   @Override
-  public void experimentalSetOffloadSchedulingEnabled(boolean offloadSchedulingEnabled) {
-    verifyApplicationThread();
-    internalPlayer.experimentalSetOffloadSchedulingEnabled(offloadSchedulingEnabled);
-    for (AudioOffloadListener listener : audioOffloadListeners) {
-      listener.onExperimentalOffloadSchedulingEnabledChanged(offloadSchedulingEnabled);
-    }
-  }
-
-  @Override
-  public boolean experimentalIsSleepingForOffload() {
+  public boolean isSleepingForOffload() {
     verifyApplicationThread();
     return playbackInfo.sleepingForOffload;
   }
@@ -1281,6 +1278,13 @@ import java.util.concurrent.TimeoutException;
   @Override
   public void setVideoEffects(List<Effect> videoEffects) {
     verifyApplicationThread();
+    try {
+      // LINT.IfChange(set_video_effects)
+      Class.forName("androidx.media3.effect.PreviewingSingleInputVideoGraph$Factory")
+          .getConstructor(VideoFrameProcessor.Factory.class);
+    } catch (ClassNotFoundException | NoSuchMethodException e) {
+      throw new IllegalStateException("Could not find required lib-effect dependencies.", e);
+    }
     sendRendererMessage(TRACK_TYPE_VIDEO, MSG_SET_VIDEO_EFFECTS, videoEffects);
   }
 
@@ -1840,6 +1844,12 @@ import java.util.concurrent.TimeoutException;
     return false;
   }
 
+  @Override
+  public void setImageOutput(ImageOutput imageOutput) {
+    verifyApplicationThread();
+    sendRendererMessage(TRACK_TYPE_IMAGE, MSG_SET_IMAGE_OUTPUT, imageOutput);
+  }
+
   @SuppressWarnings("deprecation") // Calling deprecated methods.
   /* package */ void setThrowsWhenUsingWrongThread(boolean throwsWhenUsingWrongThread) {
     this.throwsWhenUsingWrongThread = throwsWhenUsingWrongThread;
@@ -2017,7 +2027,8 @@ import java.util.concurrent.TimeoutException;
       }
       staticAndDynamicMediaMetadata = MediaMetadata.EMPTY;
     }
-    if (!previousPlaybackInfo.staticMetadata.equals(newPlaybackInfo.staticMetadata)) {
+    if (mediaItemTransitioned
+        || !previousPlaybackInfo.staticMetadata.equals(newPlaybackInfo.staticMetadata)) {
       staticAndDynamicMediaMetadata =
           staticAndDynamicMediaMetadata
               .buildUpon()
@@ -2135,7 +2146,7 @@ import java.util.concurrent.TimeoutException;
 
     if (previousPlaybackInfo.sleepingForOffload != newPlaybackInfo.sleepingForOffload) {
       for (AudioOffloadListener listener : audioOffloadListeners) {
-        listener.onExperimentalSleepingForOffloadChanged(newPlaybackInfo.sleepingForOffload);
+        listener.onSleepingForOffloadChanged(newPlaybackInfo.sleepingForOffload);
       }
     }
   }
@@ -2817,7 +2828,7 @@ import java.util.concurrent.TimeoutException;
     switch (playbackState) {
       case Player.STATE_READY:
       case Player.STATE_BUFFERING:
-        boolean isSleeping = experimentalIsSleepingForOffload();
+        boolean isSleeping = isSleepingForOffload();
         wakeLockManager.setStayAwake(getPlayWhenReady() && !isSleeping);
         // The wifi lock is not released while sleeping to avoid interrupting downloads.
         wifiLockManager.setStayAwake(getPlayWhenReady());
@@ -3128,7 +3139,18 @@ import java.util.concurrent.TimeoutException;
       analyticsCollector.onAudioCodecError(audioCodecError);
     }
 
+    @Override
+    public void onAudioTrackInitialized(AudioSink.AudioTrackConfig audioTrackConfig) {
+      analyticsCollector.onAudioTrackInitialized(audioTrackConfig);
+    }
+
+    @Override
+    public void onAudioTrackReleased(AudioSink.AudioTrackConfig audioTrackConfig) {
+      analyticsCollector.onAudioTrackReleased(audioTrackConfig);
+    }
+
     // TextOutput implementation
+    @SuppressWarnings("deprecation") // Intentionally forwarding deprecating callback
     @Override
     public void onCues(List<Cue> cues) {
       listeners.sendEvent(EVENT_CUES, listener -> listener.onCues(cues));
@@ -3262,7 +3284,7 @@ import java.util.concurrent.TimeoutException;
     // Player.AudioOffloadListener implementation.
 
     @Override
-    public void onExperimentalSleepingForOffloadChanged(boolean sleepingForOffload) {
+    public void onSleepingForOffloadChanged(boolean sleepingForOffload) {
       updateWakeAndWifiLock();
     }
   }

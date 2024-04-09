@@ -73,7 +73,7 @@ import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.CueGroup;
-import androidx.media3.common.util.BundleableUtil;
+import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ListenerSet;
 import androidx.media3.common.util.Log;
@@ -134,6 +134,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   private long lastSetPlayWhenReadyCalledTimeMs;
   @Nullable private PlayerInfo pendingPlayerInfo;
   @Nullable private BundlingExclusions pendingBundlingExclusions;
+  private Bundle sessionExtras;
 
   public MediaControllerImplBase(
       Context context,
@@ -173,6 +174,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
                 .getInstance()
                 .runOnApplicationLooper(MediaControllerImplBase.this.getInstance()::release);
     surfaceCallback = new SurfaceCallback();
+    sessionExtras = Bundle.EMPTY;
 
     serviceConnection =
         (this.token.getType() == SessionToken.TYPE_SESSION)
@@ -314,7 +316,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     ListenableFuture<SessionResult> future =
         dispatchRemoteSessionTask(iSession, task, /* addToPendingMaskingOperations= */ true);
     try {
-      MediaUtils.getFutureResult(future, /* timeoutMs= */ 3_000);
+      LegacyConversions.getFutureResult(future, /* timeoutMs= */ 3_000);
     } catch (ExecutionException e) {
       // Never happens because future.setException will not be called.
       throw new IllegalStateException(e);
@@ -388,6 +390,11 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   @Override
   public void play() {
     if (!isPlayerCommandAvailable(Player.COMMAND_PLAY_PAUSE)) {
+      Log.w(
+          TAG,
+          "Calling play() omitted due to COMMAND_PLAY_PAUSE not being available. If this play"
+              + " command has started the service for instance for playback resumption, this may"
+              + " prevent the service from being started into the foreground.");
       return;
     }
 
@@ -522,6 +529,13 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   @Override
   public void setPlayWhenReady(boolean playWhenReady) {
     if (!isPlayerCommandAvailable(Player.COMMAND_PLAY_PAUSE)) {
+      if (playWhenReady) {
+        Log.w(
+            TAG,
+            "Calling play() omitted due to COMMAND_PLAY_PAUSE not being available. If this play"
+                + " command has started the service for instance for playback resumption, this may"
+                + " prevent the service from being started into the foreground.");
+      }
       return;
     }
 
@@ -571,7 +585,12 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
   @Override
   public long getCurrentPosition() {
-    maybeUpdateCurrentPositionMs();
+    currentPositionMs =
+        MediaUtils.getUpdatedCurrentPositionMs(
+            playerInfo,
+            currentPositionMs,
+            lastSetPlayWhenReadyCalledTimeMs,
+            getInstance().getTimeDiffMs());
     return currentPositionMs;
   }
 
@@ -711,6 +730,11 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   }
 
   @Override
+  public Bundle getSessionExtras() {
+    return sessionExtras;
+  }
+
+  @Override
   public Timeline getCurrentTimeline() {
     return playerInfo.timeline;
   }
@@ -784,7 +808,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
                 controllerStub,
                 seq,
                 new BundleListRetriever(
-                    BundleableUtil.toBundleList(
+                    BundleCollectionUtil.toBundleList(
                         mediaItems, MediaItem::toBundleIncludeLocalConfiguration))));
 
     setMediaItemsInternal(
@@ -806,7 +830,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
                 controllerStub,
                 seq,
                 new BundleListRetriever(
-                    BundleableUtil.toBundleList(
+                    BundleCollectionUtil.toBundleList(
                         mediaItems, MediaItem::toBundleIncludeLocalConfiguration)),
                 resetPosition));
 
@@ -829,7 +853,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
                 controllerStub,
                 seq,
                 new BundleListRetriever(
-                    BundleableUtil.toBundleList(
+                    BundleCollectionUtil.toBundleList(
                         mediaItems, MediaItem::toBundleIncludeLocalConfiguration)),
                 startIndex,
                 startPositionMs));
@@ -904,7 +928,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
                 controllerStub,
                 seq,
                 new BundleListRetriever(
-                    BundleableUtil.toBundleList(
+                    BundleCollectionUtil.toBundleList(
                         mediaItems, MediaItem::toBundleIncludeLocalConfiguration))));
 
     addMediaItemsInternal(getCurrentTimeline().getWindowCount(), mediaItems);
@@ -924,7 +948,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
                 seq,
                 index,
                 new BundleListRetriever(
-                    BundleableUtil.toBundleList(
+                    BundleCollectionUtil.toBundleList(
                         mediaItems, MediaItem::toBundleIncludeLocalConfiguration))));
 
     addMediaItemsInternal(index, mediaItems);
@@ -1237,7 +1261,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
         (iSession, seq) -> {
           IBinder mediaItemsBundleBinder =
               new BundleListRetriever(
-                  BundleableUtil.toBundleList(
+                  BundleCollectionUtil.toBundleList(
                       mediaItems, MediaItem::toBundleIncludeLocalConfiguration));
           if (checkNotNull(connectedToken).getInterfaceVersion() >= 2) {
             iSession.replaceMediaItems(
@@ -1501,6 +1525,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   /**
    * @deprecated Use {@link #setDeviceVolume(int, int)} instead.
    */
+  @SuppressWarnings("deprecation") // Checking deprecated command codes
   @Deprecated
   @Override
   public void setDeviceVolume(int volume) {
@@ -1549,6 +1574,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   /**
    * @deprecated Use {@link #increaseDeviceVolume(int)} instead.
    */
+  @SuppressWarnings("deprecation") // Checking deprecated command codes
   @Deprecated
   @Override
   public void increaseDeviceVolume() {
@@ -1593,6 +1619,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   /**
    * @deprecated Use {@link #decreaseDeviceVolume(int)} instead.
    */
+  @SuppressWarnings("deprecation") // Checking deprecated command codes
   @Deprecated
   @Override
   public void decreaseDeviceVolume() {
@@ -1635,6 +1662,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   /**
    * @deprecated Use {@link #setDeviceMuted(boolean, int)} instead.
    */
+  @SuppressWarnings("deprecation") // Checking deprecated command codes
   @Deprecated
   @Override
   public void setDeviceMuted(boolean muted) {
@@ -1668,6 +1696,26 @@ import org.checkerframework.checker.nullness.qual.NonNull;
       listeners.queueEvent(
           /* eventFlag= */ Player.EVENT_DEVICE_VOLUME_CHANGED,
           listener -> listener.onDeviceVolumeChanged(playerInfo.deviceVolume, muted));
+      listeners.flushEvents();
+    }
+  }
+
+  @Override
+  public void setAudioAttributes(AudioAttributes audioAttributes, boolean handleAudioFocus) {
+    if (!isPlayerCommandAvailable(Player.COMMAND_SET_AUDIO_ATTRIBUTES)) {
+      return;
+    }
+
+    dispatchRemoteSessionTaskWithPlayerCommand(
+        (iSession, seq) ->
+            iSession.setAudioAttributes(
+                controllerStub, seq, audioAttributes.toBundle(), handleAudioFocus));
+
+    if (!playerInfo.audioAttributes.equals(audioAttributes)) {
+      playerInfo = playerInfo.copyWithAudioAttributes(audioAttributes);
+      listeners.queueEvent(
+          /* eventFlag= */ Player.EVENT_AUDIO_ATTRIBUTES_CHANGED,
+          listener -> listener.onAudioAttributesChanged(audioAttributes));
       listeners.flushEvents();
     }
   }
@@ -1885,6 +1933,11 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     return null;
   }
 
+  @Override
+  public IMediaController getBinder() {
+    return controllerStub;
+  }
+
   private static Timeline createMaskingTimeline(List<Window> windows, List<Period> periods) {
     return new RemotableTimeline(
         new ImmutableList.Builder<Window>().addAll(windows).build(),
@@ -1900,8 +1953,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     List<Window> windows = new ArrayList<>();
     List<Period> periods = new ArrayList<>();
     for (int i = 0; i < mediaItems.size(); i++) {
-      windows.add(MediaUtils.convertToWindow(mediaItems.get(i), i));
-      periods.add(MediaUtils.convertToPeriod(i));
+      windows.add(LegacyConversions.convertToWindow(mediaItems.get(i), i));
+      periods.add(LegacyConversions.convertToPeriod(i));
     }
 
     Timeline newTimeline = createMaskingTimeline(windows, periods);
@@ -2159,7 +2212,12 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     }
 
     // Update position and then stop estimating until a new positionInfo arrives from the player.
-    maybeUpdateCurrentPositionMs();
+    currentPositionMs =
+        MediaUtils.getUpdatedCurrentPositionMs(
+            this.playerInfo,
+            currentPositionMs,
+            lastSetPlayWhenReadyCalledTimeMs,
+            getInstance().getTimeDiffMs());
     lastSetPlayWhenReadyCalledTimeMs = SystemClock.elapsedRealtime();
     PlayerInfo newPlayerInfo =
         this.playerInfo.copyWithPlayWhenReady(
@@ -2503,6 +2561,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
             token.getPackageName(),
             result.sessionBinder,
             result.tokenExtras);
+    sessionExtras = result.sessionExtras;
     getInstance().notifyAccepted();
   }
 
@@ -2721,6 +2780,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     if (!isConnected()) {
       return;
     }
+    sessionExtras = extras;
     getInstance()
         .notifyControllerListener(listener -> listener.onExtrasChanged(getInstance(), extras));
   }
@@ -2957,34 +3017,6 @@ import org.checkerframework.checker.nullness.qual.NonNull;
             .setDiscontinuityReason(discontinuityReason)
             .build();
     return playerInfo;
-  }
-
-  private void maybeUpdateCurrentPositionMs() {
-    boolean receivedUpdatedPositionInfo =
-        lastSetPlayWhenReadyCalledTimeMs < playerInfo.sessionPositionInfo.eventTimeMs;
-    if (!playerInfo.isPlaying) {
-      if (receivedUpdatedPositionInfo || currentPositionMs == C.TIME_UNSET) {
-        currentPositionMs = playerInfo.sessionPositionInfo.positionInfo.positionMs;
-      }
-      return;
-    }
-
-    if (!receivedUpdatedPositionInfo && currentPositionMs != C.TIME_UNSET) {
-      // Need an updated current position in order to make a new position estimation
-      return;
-    }
-
-    long elapsedTimeMs =
-        (getInstance().getTimeDiffMs() != C.TIME_UNSET)
-            ? getInstance().getTimeDiffMs()
-            : SystemClock.elapsedRealtime() - playerInfo.sessionPositionInfo.eventTimeMs;
-    long estimatedPositionMs =
-        playerInfo.sessionPositionInfo.positionInfo.positionMs
-            + (long) (elapsedTimeMs * playerInfo.playbackParameters.speed);
-    if (playerInfo.sessionPositionInfo.durationMs != C.TIME_UNSET) {
-      estimatedPositionMs = min(estimatedPositionMs, playerInfo.sessionPositionInfo.durationMs);
-    }
-    currentPositionMs = estimatedPositionMs;
   }
 
   private static Period getPeriodWithNewWindowIndex(

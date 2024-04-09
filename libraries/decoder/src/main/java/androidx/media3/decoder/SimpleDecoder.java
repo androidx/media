@@ -48,6 +48,7 @@ public abstract class SimpleDecoder<
   private boolean flushed;
   private boolean released;
   private int skippedOutputBufferCount;
+  private long outputStartTimeUs;
 
   /**
    * @param inputBuffers An array of nulls that will be used to store references to input buffers.
@@ -56,6 +57,7 @@ public abstract class SimpleDecoder<
   @SuppressWarnings("nullness:method.invocation")
   protected SimpleDecoder(I[] inputBuffers, O[] outputBuffers) {
     lock = new Object();
+    outputStartTimeUs = C.TIME_UNSET;
     queuedInputBuffers = new ArrayDeque<>();
     queuedOutputBuffers = new ArrayDeque<>();
     availableInputBuffers = inputBuffers;
@@ -90,6 +92,30 @@ public abstract class SimpleDecoder<
     Assertions.checkState(availableInputBufferCount == availableInputBuffers.length);
     for (I inputBuffer : availableInputBuffers) {
       inputBuffer.ensureSpaceForWrite(size);
+    }
+  }
+
+  /**
+   * Returns whether a sample time is greater or equal to the {@link #setOutputStartTimeUs output
+   * start time}, if set.
+   *
+   * <p>If this method returns false, the buffer will not be made available as an output buffer.
+   *
+   * @param timeUs The buffer time, in microseconds.
+   * @return Whether the buffer time is greater or equal to the output start time, or {@code true}
+   *     if the output start time is not set.
+   */
+  protected final boolean isAtLeastOutputStartTimeUs(long timeUs) {
+    synchronized (lock) {
+      return outputStartTimeUs == C.TIME_UNSET || timeUs >= outputStartTimeUs;
+    }
+  }
+
+  @Override
+  public final void setOutputStartTimeUs(long outputStartTimeUs) {
+    synchronized (lock) {
+      Assertions.checkState(availableInputBufferCount == availableInputBuffers.length || flushed);
+      this.outputStartTimeUs = outputStartTimeUs;
     }
   }
 
@@ -210,6 +236,9 @@ public abstract class SimpleDecoder<
     }
   }
 
+  // Setting and checking deprecated decode-only flag for compatibility with custom decoders that
+  // are still using it.
+  @SuppressWarnings("deprecation")
   private boolean decode() throws InterruptedException {
     I inputBuffer;
     O outputBuffer;
@@ -232,7 +261,8 @@ public abstract class SimpleDecoder<
     if (inputBuffer.isEndOfStream()) {
       outputBuffer.addFlag(C.BUFFER_FLAG_END_OF_STREAM);
     } else {
-      if (inputBuffer.isDecodeOnly()) {
+      outputBuffer.timeUs = inputBuffer.timeUs;
+      if (!isAtLeastOutputStartTimeUs(inputBuffer.timeUs) || inputBuffer.isDecodeOnly()) {
         outputBuffer.addFlag(C.BUFFER_FLAG_DECODE_ONLY);
       }
       if (inputBuffer.isFirstSample()) {
@@ -262,7 +292,9 @@ public abstract class SimpleDecoder<
     synchronized (lock) {
       if (flushed) {
         outputBuffer.release();
-      } else if (outputBuffer.isDecodeOnly()) {
+      } else if ((!outputBuffer.isEndOfStream() && !isAtLeastOutputStartTimeUs(outputBuffer.timeUs))
+          || outputBuffer.isDecodeOnly()
+          || outputBuffer.shouldBeSkipped) {
         skippedOutputBufferCount++;
         outputBuffer.release();
       } else {
@@ -309,11 +341,11 @@ public abstract class SimpleDecoder<
    * Decodes the {@code inputBuffer} and stores any decoded output in {@code outputBuffer}.
    *
    * @param inputBuffer The buffer to decode.
-   * @param outputBuffer The output buffer to store decoded data. The flag {@link
-   *     C#BUFFER_FLAG_DECODE_ONLY} will be set if the same flag is set on {@code inputBuffer}, but
-   *     may be set/unset as required. If the flag is set when the call returns then the output
-   *     buffer will not be made available to dequeue. The output buffer may not have been populated
-   *     in this case.
+   * @param outputBuffer The output buffer to store decoded data. The output buffer will not be made
+   *     available to dequeue if its {@link DecoderOutputBuffer#timeUs} is not {@linkplain
+   *     #isAtLeastOutputStartTimeUs at least the output start time} or when it's marked with {@link
+   *     DecoderOutputBuffer#shouldBeSkipped}. The output buffer may not have been populated in
+   *     these cases.
    * @param reset Whether the decoder must be reset before decoding.
    * @return A decoder exception if an error occurred, or null if decoding was successful.
    */

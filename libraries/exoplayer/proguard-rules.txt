@@ -9,8 +9,8 @@
 -keepclassmembers class androidx.media3.decoder.av1.Libgav1VideoRenderer {
   <init>(long, android.os.Handler, androidx.media3.exoplayer.video.VideoRendererEventListener, int);
 }
--dontnote androidx.media3.decoder.ffmpeg.FfmpegVideoRenderer
--keepclassmembers class androidx.media3.decoder.ffmpeg.FfmpegVideoRenderer {
+-dontnote androidx.media3.decoder.ffmpeg.ExperimentalFfmpegVideoRenderer
+-keepclassmembers class androidx.media3.decoder.ffmpeg.ExperimentalFfmpegVideoRenderer {
   <init>(long, android.os.Handler, androidx.media3.exoplayer.video.VideoRendererEventListener, int);
 }
 -dontnote androidx.media3.decoder.opus.LibopusAudioRenderer
@@ -60,4 +60,14 @@
 -dontnote androidx.media3.exoplayer.rtsp.RtspMediaSource$Factory
 -keepclasseswithmembers class androidx.media3.exoplayer.rtsp.RtspMediaSource$Factory {
   <init>();
+}
+
+# Constructors and methods accessed via reflection in CompositingVideoSinkProvider
+-dontnote androidx.media3.effect.PreviewingSingleInputVideoGraph$Factory
+-keepclasseswithmembers class androidx.media3.effect.PreviewingSingleInputVideoGraph$Factory {
+  <init>(androidx.media3.common.VideoFrameProcessor$Factory);
+}
+-dontnote androidx.media3.effect.DefaultVideoFrameProcessor$Factory$Builder
+-keepclasseswithmembers class androidx.media3.effect.DefaultVideoFrameProcessor$Factory$Builder {
+  build();
 }

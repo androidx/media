@@ -16,12 +16,14 @@
 package androidx.media3.common.util;
 
 import static android.opengl.EGL14.EGL_CONTEXT_CLIENT_VERSION;
+import static android.opengl.EGL14.EGL_NO_SURFACE;
 import static android.opengl.GLU.gluErrorString;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkState;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.opengl.EGL14;
 import android.opengl.EGLConfig;
 import android.opengl.EGLContext;
@@ -30,6 +32,7 @@ import android.opengl.EGLSurface;
 import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
 import android.opengl.GLES30;
+import android.opengl.GLUtils;
 import android.opengl.Matrix;
 import androidx.annotation.DoNotInline;
 import androidx.annotation.IntRange;
@@ -364,10 +367,22 @@ public final class GlUtil {
   }
 
   /**
+   * Returns the {@link EGL14#EGL_CONTEXT_CLIENT_VERSION} of the current context.
+   *
+   * <p>Returns {@code 0} if no {@link EGLContext} {@linkplain #createFocusedPlaceholderEglSurface
+   * is focused}.
+   */
+  @RequiresApi(17)
+  public static long getContextMajorVersion() throws GlException {
+    return Api17.getContextMajorVersion();
+  }
+
+  /**
    * Returns a newly created sync object and inserts it into the GL command stream.
    *
-   * <p>Returns {@code 0} if the operation failed or the {@link EGLContext} version is less than
-   * 3.0.
+   * <p>Returns {@code 0} if the operation failed, no {@link EGLContext} {@linkplain
+   * #createFocusedPlaceholderEglSurface is focused}, or the focused {@link EGLContext} version is
+   * less than 3.0.
    */
   @RequiresApi(17)
   public static long createGlSyncFence() throws GlException {
@@ -568,23 +583,41 @@ public final class GlUtil {
   }
 
   /**
+   * Allocates a new texture, initialized with the {@link Bitmap bitmap} data and size.
+   *
+   * @param bitmap The {@link Bitmap} for which the texture is created.
+   * @return The texture identifier for the newly-allocated texture.
+   * @throws GlException If the texture allocation fails.
+   */
+  public static int createTexture(Bitmap bitmap) throws GlException {
+    int texId = generateTexture();
+    setTexture(texId, bitmap);
+    return texId;
+  }
+
+  /**
    * Allocates a new RGBA texture with the specified dimensions and color component precision.
+   *
+   * <p>The created texture is not zero-initialized. To clear the texture, {@linkplain
+   * #focusFramebuffer(EGLDisplay, EGLContext, EGLSurface, int, int, int) focus} on the texture and
+   * {@linkplain #clearFocusedBuffers() clear} its content.
    *
    * @param width The width of the new texture in pixels.
    * @param height The height of the new texture in pixels.
    * @param useHighPrecisionColorComponents If {@code false}, uses colors with 8-bit unsigned bytes.
    *     If {@code true}, use 16-bit (half-precision) floating-point.
-   * @throws GlException If the texture allocation fails.
    * @return The texture identifier for the newly-allocated texture.
+   * @throws GlException If the texture allocation fails.
    */
   public static int createTexture(int width, int height, boolean useHighPrecisionColorComponents)
       throws GlException {
     // TODO(b/227624622): Implement a pixel test that confirms 16f has less posterization.
+    // TODO - b/309459038: Consider renaming the method, as the created textures are uninitialized.
     if (useHighPrecisionColorComponents) {
       checkState(Util.SDK_INT >= 18, "GLES30 extensions are not supported below API 18.");
-      return createTexture(width, height, GLES30.GL_RGBA16F, GLES30.GL_HALF_FLOAT);
+      return createTextureUninitialized(width, height, GLES30.GL_RGBA16F, GLES30.GL_HALF_FLOAT);
     }
-    return createTexture(width, height, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE);
+    return createTextureUninitialized(width, height, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE);
   }
 
   /**
@@ -597,12 +630,11 @@ public final class GlUtil {
    * @throws GlException If the texture allocation fails.
    * @return The texture identifier for the newly-allocated texture.
    */
-  private static int createTexture(int width, int height, int internalFormat, int type)
+  private static int createTextureUninitialized(int width, int height, int internalFormat, int type)
       throws GlException {
     assertValidTextureSize(width, height);
     int texId = generateTexture();
     bindTexture(GLES20.GL_TEXTURE_2D, texId);
-    ByteBuffer byteBuffer = ByteBuffer.allocateDirect(width * height * 4);
     GLES20.glTexImage2D(
         GLES20.GL_TEXTURE_2D,
         /* level= */ 0,
@@ -612,17 +644,25 @@ public final class GlUtil {
         /* border= */ 0,
         GLES20.GL_RGBA,
         type,
-        byteBuffer);
+        /* buffer= */ null);
     checkGlError();
     return texId;
   }
 
-  /** Returns a new GL texture identifier. */
-  private static int generateTexture() throws GlException {
+  /** Returns a new, unbound GL texture identifier. */
+  public static int generateTexture() throws GlException {
     int[] texId = new int[1];
     GLES20.glGenTextures(/* n= */ 1, texId, /* offset= */ 0);
     checkGlError();
     return texId[0];
+  }
+
+  /** Sets the {@code texId} to contain the {@link Bitmap bitmap} data and size. */
+  public static void setTexture(int texId, Bitmap bitmap) throws GlException {
+    assertValidTextureSize(bitmap.getWidth(), bitmap.getHeight());
+    bindTexture(GLES20.GL_TEXTURE_2D, texId);
+    GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, /* level= */ 0, bitmap, /* border= */ 0);
+    checkGlError();
   }
 
   /**
@@ -873,6 +913,10 @@ public final class GlUtil {
       if (eglDisplay == null || eglSurface == null) {
         return;
       }
+      if (EGL14.eglGetCurrentSurface(EGL14.EGL_DRAW) == EGL_NO_SURFACE) {
+        return;
+      }
+
       EGL14.eglDestroySurface(eglDisplay, eglSurface);
       checkEglException("Error destroying surface");
     }

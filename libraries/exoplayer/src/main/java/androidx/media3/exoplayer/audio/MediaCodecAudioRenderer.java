@@ -63,6 +63,7 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecRenderer;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil.DecoderQueryException;
+import androidx.media3.extractor.VorbisUtil;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -108,6 +109,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
 
   private int codecMaxInputSize;
   private boolean codecNeedsDiscardChannelsWorkaround;
+  private boolean codecNeedsVorbisToAndroidChannelMappingWorkaround;
   @Nullable private Format inputFormat;
 
   /** Codec used for DRM decryption only in passthrough and offload. */
@@ -117,9 +119,8 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   private boolean allowPositionDiscontinuity;
   private boolean audioSinkNeedsReset;
 
-  private boolean experimentalKeepAudioTrackOnSeek;
-
   @Nullable private WakeupListener wakeupListener;
+  private boolean hasPendingReportedSkippedSilence;
 
   /**
    * @param context A context.
@@ -146,21 +147,15 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
         mediaCodecSelector,
         eventHandler,
         eventListener,
-        AudioCapabilities.DEFAULT_AUDIO_CAPABILITIES);
+        new DefaultAudioSink.Builder(context).build());
   }
 
   /**
-   * @param context A context.
-   * @param mediaCodecSelector A decoder selector.
-   * @param eventHandler A handler to use when delivering events to {@code eventListener}. May be
-   *     null if delivery of events is not required.
-   * @param eventListener A listener of events. May be null if delivery of events is not required.
-   * @param audioCapabilities The audio capabilities for playback on this device. Use {@link
-   *     AudioCapabilities#DEFAULT_AUDIO_CAPABILITIES} if default capabilities (no encoded audio
-   *     passthrough support) should be assumed.
-   * @param audioProcessors Optional {@link AudioProcessor}s that will process PCM audio before
-   *     output.
+   * @deprecated Use a constructor without {@link AudioCapabilities}. These are obtained
+   *     automatically from the {@link Context}.
    */
+  @SuppressWarnings("deprecation") // Calling deprecated method for compatibility
+  @Deprecated
   public MediaCodecAudioRenderer(
       Context context,
       MediaCodecSelector mediaCodecSelector,
@@ -271,19 +266,6 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   @Override
   public String getName() {
     return TAG;
-  }
-
-  /**
-   * Sets whether to enable the experimental feature that keeps and flushes the {@link
-   * android.media.AudioTrack} when a seek occurs, as opposed to releasing and reinitialising. Off
-   * by default.
-   *
-   * <p>This method is experimental, and will be renamed or removed in a future release.
-   *
-   * @param enableKeepAudioTrackOnSeek Whether to keep the {@link android.media.AudioTrack} on seek.
-   */
-  public void experimentalSetEnableKeepAudioTrackOnSeek(boolean enableKeepAudioTrackOnSeek) {
-    this.experimentalKeepAudioTrackOnSeek = enableKeepAudioTrackOnSeek;
   }
 
   @Override
@@ -449,6 +431,8 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
       float codecOperatingRate) {
     codecMaxInputSize = getCodecMaxInputSize(codecInfo, format, getStreamFormats());
     codecNeedsDiscardChannelsWorkaround = codecNeedsDiscardChannelsWorkaround(codecInfo.name);
+    codecNeedsVorbisToAndroidChannelMappingWorkaround =
+        codecNeedsVorbisToAndroidChannelMappingWorkaround(codecInfo.name);
     MediaFormat mediaFormat =
         getMediaFormat(format, codecInfo.codecMimeType, codecMaxInputSize, codecOperatingRate);
     // Store the input MIME type if we're only using the codec for decryption.
@@ -581,6 +565,9 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
         for (int i = 0; i < format.channelCount; i++) {
           channelMap[i] = i;
         }
+      } else if (codecNeedsVorbisToAndroidChannelMappingWorkaround) {
+        channelMap =
+            VorbisUtil.getVorbisToAndroidChannelLayoutMapping(audioSinkInputFormat.channelCount);
       }
     }
     try {
@@ -625,13 +612,10 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   @Override
   protected void onPositionReset(long positionUs, boolean joining) throws ExoPlaybackException {
     super.onPositionReset(positionUs, joining);
-    if (experimentalKeepAudioTrackOnSeek) {
-      audioSink.experimentalFlushWithoutAudioTrackRelease();
-    } else {
-      audioSink.flush();
-    }
+    audioSink.flush();
 
     currentPositionUs = positionUs;
+    hasPendingReportedSkippedSilence = false;
     allowPositionDiscontinuity = true;
   }
 
@@ -665,6 +649,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
 
   @Override
   protected void onReset() {
+    hasPendingReportedSkippedSilence = false;
     try {
       super.onReset();
     } finally {
@@ -696,6 +681,13 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
       updateCurrentPosition();
     }
     return currentPositionUs;
+  }
+
+  @Override
+  public boolean hasSkippedSilenceSinceLastCall() {
+    boolean hasPendingReportedSkippedSilence = this.hasPendingReportedSkippedSilence;
+    this.hasPendingReportedSkippedSilence = false;
+    return hasPendingReportedSkippedSilence;
   }
 
   @Override
@@ -981,11 +973,29 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
             || Util.DEVICE.startsWith("heroqlte"));
   }
 
+  /**
+   * Returns whether the decoder is known to output PCM samples in VORBIS order, which does not
+   * match the channel layout required by AudioTrack.
+   *
+   * <p>See https://github.com/google/ExoPlayer/issues/8396#issuecomment-1833867901.
+   */
+  private static boolean codecNeedsVorbisToAndroidChannelMappingWorkaround(String codecName) {
+    return codecName.equals("OMX.google.opus.decoder")
+        || codecName.equals("c2.android.opus.decoder")
+        || codecName.equals("OMX.google.vorbis.decoder")
+        || codecName.equals("c2.android.vorbis.decoder");
+  }
+
   private final class AudioSinkListener implements AudioSink.Listener {
 
     @Override
     public void onPositionDiscontinuity() {
       MediaCodecAudioRenderer.this.onPositionDiscontinuity();
+    }
+
+    @Override
+    public void onSilenceSkipped() {
+      hasPendingReportedSkippedSilence = true;
     }
 
     @Override
@@ -1026,6 +1036,16 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     @Override
     public void onAudioCapabilitiesChanged() {
       MediaCodecAudioRenderer.this.onRendererCapabilitiesChanged();
+    }
+
+    @Override
+    public void onAudioTrackInitialized(AudioSink.AudioTrackConfig audioTrackConfig) {
+      eventDispatcher.audioTrackInitialized(audioTrackConfig);
+    }
+
+    @Override
+    public void onAudioTrackReleased(AudioSink.AudioTrackConfig audioTrackConfig) {
+      eventDispatcher.audioTrackReleased(audioTrackConfig);
     }
   }
 

@@ -41,6 +41,8 @@ import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoaderErrorThrower;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -89,10 +91,9 @@ import java.util.List;
     this.mediaSourceEventDispatcher = mediaSourceEventDispatcher;
     this.allocator = allocator;
     this.compositeSequenceableLoaderFactory = compositeSequenceableLoaderFactory;
-    trackGroups = buildTrackGroups(manifest, drmSessionManager);
+    trackGroups = buildTrackGroups(manifest, drmSessionManager, chunkSourceFactory);
     sampleStreams = newSampleStreamArray(0);
-    compositeSequenceableLoader =
-        compositeSequenceableLoaderFactory.createCompositeSequenceableLoader(sampleStreams);
+    compositeSequenceableLoader = compositeSequenceableLoaderFactory.empty();
   }
 
   public void updateManifest(SsManifest manifest) {
@@ -158,7 +159,9 @@ import java.util.List;
     sampleStreams = newSampleStreamArray(sampleStreamsList.size());
     sampleStreamsList.toArray(sampleStreams);
     compositeSequenceableLoader =
-        compositeSequenceableLoaderFactory.createCompositeSequenceableLoader(sampleStreams);
+        compositeSequenceableLoaderFactory.create(
+            sampleStreamsList,
+            Lists.transform(sampleStreamsList, s -> ImmutableList.of(s.primaryTrackType)));
     return positionUs;
   }
 
@@ -265,15 +268,21 @@ import java.util.List;
   }
 
   private static TrackGroupArray buildTrackGroups(
-      SsManifest manifest, DrmSessionManager drmSessionManager) {
+      SsManifest manifest,
+      DrmSessionManager drmSessionManager,
+      SsChunkSource.Factory chunkSourceFactory) {
     TrackGroup[] trackGroups = new TrackGroup[manifest.streamElements.length];
     for (int i = 0; i < manifest.streamElements.length; i++) {
       Format[] manifestFormats = manifest.streamElements[i].formats;
       Format[] exposedFormats = new Format[manifestFormats.length];
       for (int j = 0; j < manifestFormats.length; j++) {
         Format manifestFormat = manifestFormats[j];
-        exposedFormats[j] =
-            manifestFormat.copyWithCryptoType(drmSessionManager.getCryptoType(manifestFormat));
+        Format updatedFormatWithDrm =
+            manifestFormat
+                .buildUpon()
+                .setCryptoType(drmSessionManager.getCryptoType(manifestFormat))
+                .build();
+        exposedFormats[j] = chunkSourceFactory.getOutputTextFormat(updatedFormatWithDrm);
       }
       trackGroups[i] = new TrackGroup(/* id= */ Integer.toString(i), exposedFormats);
     }

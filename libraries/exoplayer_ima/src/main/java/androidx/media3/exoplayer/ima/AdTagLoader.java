@@ -27,7 +27,6 @@ import static java.lang.Math.max;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
-import android.net.Uri;
 import android.os.Handler;
 import android.os.SystemClock;
 import android.view.ViewGroup;
@@ -37,6 +36,7 @@ import androidx.media3.common.AdOverlayInfo;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AdViewProvider;
 import androidx.media3.common.C;
+import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
@@ -182,6 +182,9 @@ import java.util.Map;
 
   /** Whether IMA has been notified that playback of content has finished. */
   private boolean sentContentComplete;
+
+  /** The MIME type of the ad pod that is next requested via an {@link AdEventType#LOADED} event. */
+  @Nullable private String pendingAdMimeType;
 
   // Fields tracking the player/loader state.
 
@@ -775,6 +778,9 @@ import java.util.Map;
         String message = "AdEvent: " + adData;
         Log.i(TAG, message);
         break;
+      case LOADED:
+        pendingAdMimeType = adEvent.getAd().getContentType();
+        break;
       default:
         break;
     }
@@ -980,9 +986,14 @@ import java.util.Map;
       }
     }
 
-    Uri adUri = Uri.parse(adMediaInfo.getUrl());
+    MediaItem.Builder adMediaItem = new MediaItem.Builder().setUri(adMediaInfo.getUrl());
+    if (pendingAdMimeType != null) {
+      adMediaItem.setMimeType(pendingAdMimeType);
+      pendingAdMimeType = null;
+    }
     adPlaybackState =
-        adPlaybackState.withAvailableAdUri(adInfo.adGroupIndex, adInfo.adIndexInAdGroup, adUri);
+        adPlaybackState.withAvailableAdMediaItem(
+            adInfo.adGroupIndex, adInfo.adIndexInAdGroup, adMediaItem.build());
     updateAdPlaybackState();
   }
 

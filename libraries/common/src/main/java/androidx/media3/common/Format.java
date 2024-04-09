@@ -15,13 +15,20 @@
  */
 package androidx.media3.common;
 
+import static java.lang.annotation.ElementType.TYPE_USE;
+
 import android.os.Bundle;
+import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
-import androidx.media3.common.util.BundleableUtil;
+import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.base.Joiner;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.lang.annotation.Documented;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -35,8 +42,8 @@ import java.util.UUID;
  *
  * <p>When building formats, populate all fields whose values are known and relevant to the type of
  * format being constructed. For information about different types of format, see ExoPlayer's <a
- * href="https://developer.android.com/guide/topics/media/exoplayer/supported-formats">Supported
- * formats page</a>.
+ * href="https://developer.android.com/media/media3/exoplayer/supported-formats">Supported formats
+ * page</a>.
  *
  * <h2>Fields commonly relevant to all formats</h2>
  *
@@ -172,6 +179,7 @@ public final class Format implements Bundleable {
     // Text specific.
 
     private int accessibilityChannel;
+    @UnstableApi private @CueReplacementBehavior int cueReplacementBehavior;
 
     // Image specific
 
@@ -201,6 +209,7 @@ public final class Format implements Bundleable {
       pcmEncoding = NO_VALUE;
       // Text specific.
       accessibilityChannel = NO_VALUE;
+      cueReplacementBehavior = CUE_REPLACEMENT_BEHAVIOR_MERGE;
       // Image specific.
       tileCountHorizontal = NO_VALUE;
       tileCountVertical = NO_VALUE;
@@ -248,6 +257,7 @@ public final class Format implements Bundleable {
       this.encoderPadding = format.encoderPadding;
       // Text specific.
       this.accessibilityChannel = format.accessibilityChannel;
+      this.cueReplacementBehavior = format.cueReplacementBehavior;
       // Image specific.
       this.tileCountHorizontal = format.tileCountHorizontal;
       this.tileCountVertical = format.tileCountVertical;
@@ -386,7 +396,7 @@ public final class Format implements Bundleable {
      */
     @CanIgnoreReturnValue
     public Builder setContainerMimeType(@Nullable String containerMimeType) {
-      this.containerMimeType = containerMimeType;
+      this.containerMimeType = MimeTypes.normalizeMimeType(containerMimeType);
       return this;
     }
 
@@ -400,7 +410,7 @@ public final class Format implements Bundleable {
      */
     @CanIgnoreReturnValue
     public Builder setSampleMimeType(@Nullable String sampleMimeType) {
-      this.sampleMimeType = sampleMimeType;
+      this.sampleMimeType = MimeTypes.normalizeMimeType(sampleMimeType);
       return this;
     }
 
@@ -626,6 +636,19 @@ public final class Format implements Bundleable {
       return this;
     }
 
+    /**
+     * Sets {@link Format#cueReplacementBehavior}. The default value is {@link
+     * #CUE_REPLACEMENT_BEHAVIOR_MERGE}.
+     *
+     * @param cueReplacementBehavior The {@link Format.CueReplacementBehavior}.
+     * @return The builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setCueReplacementBehavior(@CueReplacementBehavior int cueReplacementBehavior) {
+      this.cueReplacementBehavior = cueReplacementBehavior;
+      return this;
+    }
+
     // Image specific.
 
     /**
@@ -672,6 +695,36 @@ public final class Format implements Bundleable {
       return new Format(/* builder= */ this);
     }
   }
+
+  /**
+   * The replacement behaviors for consecutive samples in a {@linkplain C#TRACK_TYPE_TEXT text
+   * track} of type {@link MimeTypes#APPLICATION_MEDIA3_CUES}.
+   */
+  @UnstableApi
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target(TYPE_USE)
+  @IntDef({
+    CUE_REPLACEMENT_BEHAVIOR_MERGE,
+    CUE_REPLACEMENT_BEHAVIOR_REPLACE,
+  })
+  public @interface CueReplacementBehavior {}
+
+  /**
+   * Subsequent cues should be merged with any previous cues that should still be shown on screen.
+   *
+   * <p>Tracks with this behavior must not contain samples with an {@linkplain C#TIME_UNSET unset}
+   * duration.
+   */
+  @UnstableApi public static final int CUE_REPLACEMENT_BEHAVIOR_MERGE = 1;
+
+  /**
+   * Subsequent cues should replace all previous cues.
+   *
+   * <p>Tracks with this behavior may contain samples with an {@linkplain C#TIME_UNSET unset}
+   * duration (but the duration may also be set to a 'real' value).
+   */
+  @UnstableApi public static final int CUE_REPLACEMENT_BEHAVIOR_REPLACE = 2;
 
   /** A value for various fields to indicate that the field's value is unknown or not applicable. */
   public static final int NO_VALUE = -1;
@@ -847,6 +900,12 @@ public final class Format implements Bundleable {
   /** The Accessibility channel, or {@link #NO_VALUE} if not known or applicable. */
   @UnstableApi public final int accessibilityChannel;
 
+  /**
+   * The replacement behavior that should be followed when handling consecutive samples in a
+   * {@linkplain C#TRACK_TYPE_TEXT text track} of type {@link MimeTypes#APPLICATION_MEDIA3_CUES}.
+   */
+  @UnstableApi public final @CueReplacementBehavior int cueReplacementBehavior;
+
   // Image specific.
 
   /**
@@ -908,6 +967,7 @@ public final class Format implements Bundleable {
     encoderPadding = builder.encoderPadding == NO_VALUE ? 0 : builder.encoderPadding;
     // Text specific.
     accessibilityChannel = builder.accessibilityChannel;
+    cueReplacementBehavior = builder.cueReplacementBehavior;
     // Image specific.
     tileCountHorizontal = builder.tileCountHorizontal;
     tileCountVertical = builder.tileCountVertical;
@@ -938,6 +998,8 @@ public final class Format implements Bundleable {
 
     // Use manifest value only.
     @Nullable String id = manifestFormat.id;
+    int tileCountHorizontal = manifestFormat.tileCountHorizontal;
+    int tileCountVertical = manifestFormat.tileCountVertical;
 
     // Prefer manifest values, but fill in from sample format if missing.
     @Nullable String label = manifestFormat.label != null ? manifestFormat.label : this.label;
@@ -991,6 +1053,8 @@ public final class Format implements Bundleable {
         .setMetadata(metadata)
         .setDrmInitData(drmInitData)
         .setFrameRate(frameRate)
+        .setTileCountHorizontal(tileCountHorizontal)
+        .setTileCountVertical(tileCountVertical)
         .build();
   }
 
@@ -1168,6 +1232,9 @@ public final class Format implements Bundleable {
     }
     StringBuilder builder = new StringBuilder();
     builder.append("id=").append(format.id).append(", mimeType=").append(format.sampleMimeType);
+    if (format.containerMimeType != null) {
+      builder.append(", container=").append(format.containerMimeType);
+    }
     if (format.bitrate != NO_VALUE) {
       builder.append(", bitrate=").append(format.bitrate);
     }
@@ -1218,71 +1285,13 @@ public final class Format implements Bundleable {
       builder.append(", label=").append(format.label);
     }
     if (format.selectionFlags != 0) {
-      List<String> selectionFlags = new ArrayList<>();
-      // LINT.IfChange(selection_flags)
-      if ((format.selectionFlags & C.SELECTION_FLAG_AUTOSELECT) != 0) {
-        selectionFlags.add("auto");
-      }
-      if ((format.selectionFlags & C.SELECTION_FLAG_DEFAULT) != 0) {
-        selectionFlags.add("default");
-      }
-      if ((format.selectionFlags & C.SELECTION_FLAG_FORCED) != 0) {
-        selectionFlags.add("forced");
-      }
       builder.append(", selectionFlags=[");
-      Joiner.on(',').appendTo(builder, selectionFlags);
+      Joiner.on(',').appendTo(builder, Util.getSelectionFlagStrings(format.selectionFlags));
       builder.append("]");
     }
     if (format.roleFlags != 0) {
-      // LINT.IfChange(role_flags)
-      List<String> roleFlags = new ArrayList<>();
-      if ((format.roleFlags & C.ROLE_FLAG_MAIN) != 0) {
-        roleFlags.add("main");
-      }
-      if ((format.roleFlags & C.ROLE_FLAG_ALTERNATE) != 0) {
-        roleFlags.add("alt");
-      }
-      if ((format.roleFlags & C.ROLE_FLAG_SUPPLEMENTARY) != 0) {
-        roleFlags.add("supplementary");
-      }
-      if ((format.roleFlags & C.ROLE_FLAG_COMMENTARY) != 0) {
-        roleFlags.add("commentary");
-      }
-      if ((format.roleFlags & C.ROLE_FLAG_DUB) != 0) {
-        roleFlags.add("dub");
-      }
-      if ((format.roleFlags & C.ROLE_FLAG_EMERGENCY) != 0) {
-        roleFlags.add("emergency");
-      }
-      if ((format.roleFlags & C.ROLE_FLAG_CAPTION) != 0) {
-        roleFlags.add("caption");
-      }
-      if ((format.roleFlags & C.ROLE_FLAG_SUBTITLE) != 0) {
-        roleFlags.add("subtitle");
-      }
-      if ((format.roleFlags & C.ROLE_FLAG_SIGN) != 0) {
-        roleFlags.add("sign");
-      }
-      if ((format.roleFlags & C.ROLE_FLAG_DESCRIBES_VIDEO) != 0) {
-        roleFlags.add("describes-video");
-      }
-      if ((format.roleFlags & C.ROLE_FLAG_DESCRIBES_MUSIC_AND_SOUND) != 0) {
-        roleFlags.add("describes-music");
-      }
-      if ((format.roleFlags & C.ROLE_FLAG_ENHANCED_DIALOG_INTELLIGIBILITY) != 0) {
-        roleFlags.add("enhanced-intelligibility");
-      }
-      if ((format.roleFlags & C.ROLE_FLAG_TRANSCRIBES_DIALOG) != 0) {
-        roleFlags.add("transcribes-dialog");
-      }
-      if ((format.roleFlags & C.ROLE_FLAG_EASY_TO_READ) != 0) {
-        roleFlags.add("easy-read");
-      }
-      if ((format.roleFlags & C.ROLE_FLAG_TRICK_PLAY) != 0) {
-        roleFlags.add("trick-play");
-      }
       builder.append(", roleFlags=[");
-      Joiner.on(',').appendTo(builder, roleFlags);
+      Joiner.on(',').appendTo(builder, Util.getRoleFlagStrings(format.roleFlags));
       builder.append("]");
     }
     return builder.toString();
@@ -1387,12 +1396,21 @@ public final class Format implements Bundleable {
     return bundle;
   }
 
-  /** Object that can restore {@code Format} from a {@link Bundle}. */
-  @UnstableApi public static final Creator<Format> CREATOR = Format::fromBundle;
+  /**
+   * Object that can restore {@code Format} from a {@link Bundle}.
+   *
+   * @deprecated Use {@link #fromBundle} instead.
+   */
+  @UnstableApi
+  @Deprecated
+  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
+  public static final Creator<Format> CREATOR = Format::fromBundle;
 
-  private static Format fromBundle(Bundle bundle) {
+  /** Restores a {@code Format} from a {@link Bundle}. */
+  @UnstableApi
+  public static Format fromBundle(Bundle bundle) {
     Builder builder = new Builder();
-    BundleableUtil.ensureClassLoader(bundle);
+    BundleCollectionUtil.ensureClassLoader(bundle);
     builder
         .setId(defaultIfNull(bundle.getString(FIELD_ID), DEFAULT.id))
         .setLabel(defaultIfNull(bundle.getString(FIELD_LABEL), DEFAULT.label))
@@ -1434,7 +1452,7 @@ public final class Format implements Bundleable {
         .setStereoMode(bundle.getInt(FIELD_STEREO_MODE, DEFAULT.stereoMode));
     Bundle colorInfoBundle = bundle.getBundle(FIELD_COLOR_INFO);
     if (colorInfoBundle != null) {
-      builder.setColorInfo(ColorInfo.CREATOR.fromBundle(colorInfoBundle));
+      builder.setColorInfo(ColorInfo.fromBundle(colorInfoBundle));
     }
     // Audio specific.
     builder

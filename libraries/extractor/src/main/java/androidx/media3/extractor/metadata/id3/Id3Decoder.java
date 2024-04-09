@@ -18,6 +18,7 @@ package androidx.media3.extractor.metadata.id3;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Metadata;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.ParsableByteArray;
@@ -371,8 +372,9 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
       frameSize = removeUnsynchronization(id3Data, frameSize);
     }
 
+    Id3Frame frame = null;
+    Throwable error = null;
     try {
-      Id3Frame frame;
       if (frameId0 == 'T'
           && frameId1 == 'X'
           && frameId2 == 'X'
@@ -429,18 +431,21 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
         String id = getFrameId(majorVersion, frameId0, frameId1, frameId2, frameId3);
         frame = decodeBinaryFrame(id3Data, frameSize, id);
       }
-      if (frame == null) {
-        Log.w(
-            TAG,
-            "Failed to decode frame: id="
-                + getFrameId(majorVersion, frameId0, frameId1, frameId2, frameId3)
-                + ", frameSize="
-                + frameSize);
-      }
-      return frame;
+    } catch (OutOfMemoryError | Exception e) {
+      error = e;
     } finally {
       id3Data.setPosition(nextFramePosition);
     }
+    if (frame == null) {
+      Log.w(
+          TAG,
+          "Failed to decode frame: id="
+              + getFrameId(majorVersion, frameId0, frameId1, frameId2, frameId3)
+              + ", frameSize="
+              + frameSize,
+          error);
+    }
+    return frame;
   }
 
   @Nullable
@@ -557,7 +562,8 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
     id3Data.readBytes(data, 0, frameSize - 1);
 
     int mimeTypeEndIndex = indexOfZeroByte(data, 0);
-    String mimeType = new String(data, 0, mimeTypeEndIndex, Charsets.ISO_8859_1);
+    String mimeType =
+        MimeTypes.normalizeMimeType(new String(data, 0, mimeTypeEndIndex, Charsets.ISO_8859_1));
 
     int filenameStartIndex = mimeTypeEndIndex + 1;
     int filenameEndIndex = indexOfTerminator(data, filenameStartIndex, encoding);

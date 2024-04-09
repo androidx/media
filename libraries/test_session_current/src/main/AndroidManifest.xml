@@ -23,7 +23,9 @@
     <package android:name="androidx.media3.test.session.test" />
   </queries>
 
-  <application android:allowBackup="false">
+  <application
+      android:name="androidx.multidex.MultiDexApplication"
+      android:allowBackup="false">
     <activity android:name="androidx.media3.test.session.common.SurfaceActivity"
         android:exported="false" />
 
@@ -90,17 +92,25 @@
     </service>
 
     <service android:name="androidx.media3.session.LocalMockMediaSessionService"
-        android:foregroundServiceType="mediaPlayback"
-        android:exported="true">
+      android:foregroundServiceType="mediaPlayback"
+      android:exported="true">
       <intent-filter>
         <action android:name="androidx.media3.session.MediaSessionService" />
       </intent-filter>
     </service>
 
     <service android:name="androidx.media3.session.MockMediaLibraryService"
-        android:foregroundServiceType="mediaPlayback"
-        android:exported="true"
-        android:process=":remote">
+      android:foregroundServiceType="mediaPlayback"
+      android:exported="true"
+      android:process=":remote">
+      <intent-filter>
+        <action android:name="androidx.media3.session.MediaLibraryService" />
+      </intent-filter>
+    </service>
+
+    <service android:name="androidx.media3.session.LocalMockMediaLibraryService"
+      android:foregroundServiceType="mediaPlayback"
+      android:exported="true">
       <intent-filter>
         <action android:name="androidx.media3.session.MediaLibraryService" />
       </intent-filter>

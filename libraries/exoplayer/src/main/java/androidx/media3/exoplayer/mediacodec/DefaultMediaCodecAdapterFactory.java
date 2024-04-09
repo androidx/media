@@ -17,6 +17,7 @@ package androidx.media3.exoplayer.mediacodec;
 
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import android.media.MediaCodec;
 import androidx.annotation.IntDef;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Log;
@@ -54,10 +55,11 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
   private static final String TAG = "DMCodecAdapterFactory";
 
   private @Mode int asynchronousMode;
-  private boolean enableSynchronizeCodecInteractionsWithQueueing;
+  private boolean asyncCryptoFlagEnabled;
 
   public DefaultMediaCodecAdapterFactory() {
     asynchronousMode = MODE_DEFAULT;
+    asyncCryptoFlagEnabled = true;
   }
 
   /**
@@ -85,15 +87,17 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
   }
 
   /**
-   * Enable synchronizing codec interactions with asynchronous buffer queueing.
+   * Sets whether to enable {@link MediaCodec#CONFIGURE_FLAG_USE_CRYPTO_ASYNC} on API 34 and above
+   * for {@link AsynchronousMediaCodecAdapter} instances.
    *
-   * <p>This method is experimental, and will be renamed or removed in a future release.
-   *
-   * @param enabled Whether codec interactions will be synchronized with asynchronous buffer
-   *     queueing.
+   * <p>This method is experimental. Its default value may change, or it may be renamed or removed
+   * in a future release.
    */
-  public void experimentalSetSynchronizeCodecInteractionsWithQueueingEnabled(boolean enabled) {
-    enableSynchronizeCodecInteractionsWithQueueing = enabled;
+  @CanIgnoreReturnValue
+  public DefaultMediaCodecAdapterFactory experimentalSetAsyncCryptoFlagEnabled(
+      boolean enableAsyncCryptoFlag) {
+    asyncCryptoFlagEnabled = enableAsyncCryptoFlag;
+    return this;
   }
 
   @Override
@@ -108,8 +112,8 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
           "Creating an asynchronous MediaCodec adapter for track type "
               + Util.getTrackTypeString(trackType));
       AsynchronousMediaCodecAdapter.Factory factory =
-          new AsynchronousMediaCodecAdapter.Factory(
-              trackType, enableSynchronizeCodecInteractionsWithQueueing);
+          new AsynchronousMediaCodecAdapter.Factory(trackType);
+      factory.experimentalSetAsyncCryptoFlagEnabled(asyncCryptoFlagEnabled);
       return factory.createAdapter(configuration);
     }
     return new SynchronousMediaCodecAdapter.Factory().createAdapter(configuration);

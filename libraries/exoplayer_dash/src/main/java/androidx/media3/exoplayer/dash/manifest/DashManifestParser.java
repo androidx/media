@@ -593,6 +593,11 @@ public class DashManifestParser extends DefaultHandler
             }
             data = PsshAtomUtil.buildPsshAtom(C.COMMON_PSSH_UUID, defaultKids, null);
             uuid = C.COMMON_PSSH_UUID;
+          } else {
+            Log.w(
+                TAG,
+                "Ignoring <ContentProtection> with schemeIdUri=\"urn:mpeg:dash:mp4protection:2011\""
+                    + " (ClearKey) due to missing required default_KID attribute.");
           }
           break;
         case "urn:uuid:9a04f079-9840-4286-ab92-e65be0885f95":
@@ -643,9 +648,11 @@ public class DashManifestParser extends DefaultHandler
   }
 
   /**
-   * Parses children of AdaptationSet elements not specifically parsed elsewhere.
+   * Parses a child of an {@link AdaptationSet} element.
    *
-   * @param xpp The XmpPullParser from which the AdaptationSet child should be parsed.
+   * <p>Called for child elements that are not specifically parsed elsewhere.
+   *
+   * @param xpp The {@link XmlPullParser} from which the child should be parsed.
    * @throws XmlPullParserException If an error occurs parsing the element.
    * @throws IOException If an error occurs reading the element.
    */
@@ -2015,6 +2022,8 @@ public class DashManifestParser extends DefaultHandler
         return 1;
       case "a000":
         return 2;
+      case "f800":
+        return 5;
       case "f801":
         return 6;
       case "fa01":

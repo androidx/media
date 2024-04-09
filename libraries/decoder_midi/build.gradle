@@ -17,6 +17,12 @@ android {
     namespace 'androidx.media3.decoder.midi'
 
     sourceSets.test.assets.srcDir '../test_data/src/test/assets/'
+
+    publishing {
+        singleVariant('release') {
+            withSourcesJar()
+        }
+    }
 }
 
 dependencies {
@@ -34,3 +40,9 @@ dependencies {
     testImplementation project(modulePrefix + 'test-data')
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
 }
+
+ext {
+    releaseArtifactId = 'media3-exoplayer-midi'
+    releaseName = 'Media3 MIDI decoder module'
+}
+apply from: '../../publish.gradle'

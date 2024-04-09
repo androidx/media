@@ -78,6 +78,8 @@ public interface GlShaderProgram {
      *
      * <p>The implementation shall not assume the {@link GlShaderProgram} is {@linkplain
      * #onReadyToAcceptInputFrame ready to accept another input frame} when this method is called.
+     * If the implementation manages a limited input capacity, it must clear all prior {@linkplain
+     * #onReadyToAcceptInputFrame input frame capacity}.
      */
     default void onFlush() {}
   }
@@ -186,6 +188,9 @@ public interface GlShaderProgram {
    * <p>The {@code GlShaderProgram} should reclaim the ownership of its allocated textures,
    * {@linkplain InputListener#onFlush notify} its {@link InputListener} about the flush event, and
    * {@linkplain InputListener#onReadyToAcceptInputFrame report its availability} if necessary.
+   *
+   * <p>The implementation must not {@linkplain OutputListener#onOutputFrameAvailable output frames}
+   * until after this method returns.
    */
   void flush();
 

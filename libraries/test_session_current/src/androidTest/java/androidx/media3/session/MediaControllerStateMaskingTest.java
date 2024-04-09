@@ -28,6 +28,7 @@ import android.content.Context;
 import android.os.Bundle;
 import android.os.RemoteException;
 import androidx.annotation.Nullable;
+import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.MediaItem;
@@ -712,6 +713,52 @@ public class MediaControllerStateMaskingTest {
   }
 
   @Test
+  public void setAudioAttributes() throws Exception {
+    AudioAttributes originalAttrs =
+        new AudioAttributes.Builder().setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build();
+    Bundle playerConfig =
+        new RemoteMediaSession.MockPlayerConfigBuilder().setAudioAttributes(originalAttrs).build();
+    remoteSession.setPlayer(playerConfig);
+
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    CountDownLatch latch = new CountDownLatch(2);
+    AtomicReference<AudioAttributes> audioAttributesFromCallbackRef = new AtomicReference<>();
+    AtomicReference<Player.Events> onEventsRef = new AtomicReference<>();
+    Player.Listener listener =
+        new Player.Listener() {
+          @Override
+          public void onAudioAttributesChanged(AudioAttributes audioAttributes) {
+            audioAttributesFromCallbackRef.set(originalAttrs);
+            latch.countDown();
+          }
+
+          @Override
+          public void onEvents(Player player, Player.Events events) {
+            onEventsRef.set(events);
+            latch.countDown();
+          }
+        };
+    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
+
+    AtomicReference<AudioAttributes> audioAttributesFromGetterRef = new AtomicReference<>();
+    AudioAttributes newAttributes =
+        new AudioAttributes.Builder().setContentType(C.AUDIO_CONTENT_TYPE_SPEECH).build();
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () -> {
+              controller.setAudioAttributes(newAttributes, /* handleAudioFocus= */ false);
+              audioAttributesFromGetterRef.set(controller.getAudioAttributes());
+            });
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(audioAttributesFromCallbackRef.get()).isEqualTo(originalAttrs);
+    assertThat(audioAttributesFromGetterRef.get()).isEqualTo(newAttributes);
+    assertThat(getEventsAsList(onEventsRef.get()))
+        .containsExactly(Player.EVENT_AUDIO_ATTRIBUTES_CHANGED);
+  }
+
+  @Test
   public void prepare() throws Exception {
     int testPlaybackState = Player.STATE_ENDED;
 
@@ -1215,9 +1262,9 @@ public class MediaControllerStateMaskingTest {
             () -> {
               controller.seekTo(testPosition);
               currentPeriodIndexRef.set(controller.getCurrentPeriodIndex());
-              currentPositionRef.set((int) controller.getCurrentPosition());
-              bufferedPositionRef.set((int) controller.getBufferedPosition());
-              totalBufferedDurationRef.set((int) controller.getTotalBufferedDuration());
+              currentPositionRef.set(controller.getCurrentPosition());
+              bufferedPositionRef.set(controller.getBufferedPosition());
+              totalBufferedDurationRef.set(controller.getTotalBufferedDuration());
             });
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -1361,14 +1408,14 @@ public class MediaControllerStateMaskingTest {
 
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
     AtomicInteger currentMediaItemIndexRef = new AtomicInteger();
-    AtomicInteger currentPositionRef = new AtomicInteger();
+    AtomicLong currentPositionRef = new AtomicLong();
     threadTestRule
         .getHandler()
         .postAndSync(
             () -> {
               controller.seekTo(seekPosition);
               currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
-              currentPositionRef.set((int) controller.getCurrentPosition());
+              currentPositionRef.set(controller.getCurrentPosition());
             });
 
     assertThat(currentMediaItemIndexRef.get()).isEqualTo(initialMediaItemIndex);
@@ -1391,14 +1438,14 @@ public class MediaControllerStateMaskingTest {
 
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
     AtomicInteger currentMediaItemIndexRef = new AtomicInteger();
-    AtomicInteger currentPositionRef = new AtomicInteger();
+    AtomicLong currentPositionRef = new AtomicLong();
     threadTestRule
         .getHandler()
         .postAndSync(
             () -> {
               controller.seekTo(seekPosition);
               currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
-              currentPositionRef.set((int) controller.getCurrentPosition());
+              currentPositionRef.set(controller.getCurrentPosition());
             });
 
     assertThat(currentMediaItemIndexRef.get()).isEqualTo(initialMediaItemIndex);
@@ -1415,9 +1462,6 @@ public class MediaControllerStateMaskingTest {
     int testMediaItemIndex = 3;
     int testPeriodIndex = 3;
     long testSeekPositionMs = 3_000;
-    long testPosition = testSeekPositionMs;
-    long testBufferedPosition = testSeekPositionMs;
-    long testTotalBufferedPosition = initialTotalBufferedPosition;
 
     Bundle playerConfig =
         new RemoteMediaSession.MockPlayerConfigBuilder()
@@ -1453,9 +1497,9 @@ public class MediaControllerStateMaskingTest {
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
     AtomicInteger currentMediaItemIndexRef = new AtomicInteger();
     AtomicInteger currentPeriodIndexRef = new AtomicInteger();
-    AtomicInteger currentPositionRef = new AtomicInteger();
-    AtomicInteger bufferedPositionRef = new AtomicInteger();
-    AtomicInteger totalBufferedDurationRef = new AtomicInteger();
+    AtomicLong currentPositionRef = new AtomicLong();
+    AtomicLong bufferedPositionRef = new AtomicLong();
+    AtomicLong totalBufferedDurationRef = new AtomicLong();
     threadTestRule
         .getHandler()
         .postAndSync(
@@ -1463,9 +1507,9 @@ public class MediaControllerStateMaskingTest {
               controller.seekTo(testMediaItemIndex, testSeekPositionMs);
               currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
               currentPeriodIndexRef.set(controller.getCurrentPeriodIndex());
-              currentPositionRef.set((int) controller.getCurrentPosition());
-              bufferedPositionRef.set((int) controller.getBufferedPosition());
-              totalBufferedDurationRef.set((int) controller.getTotalBufferedDuration());
+              currentPositionRef.set(controller.getCurrentPosition());
+              bufferedPositionRef.set(controller.getBufferedPosition());
+              totalBufferedDurationRef.set(controller.getTotalBufferedDuration());
             });
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -1474,8 +1518,8 @@ public class MediaControllerStateMaskingTest {
         .containsExactly(Player.EVENT_POSITION_DISCONTINUITY);
     assertThat(currentMediaItemIndexRef.get()).isEqualTo(testMediaItemIndex);
     assertThat(currentPeriodIndexRef.get()).isEqualTo(testPeriodIndex);
-    assertThat(currentPositionRef.get()).isEqualTo(testPosition);
-    assertThat(bufferedPositionRef.get()).isEqualTo(testBufferedPosition);
+    assertThat(currentPositionRef.get()).isEqualTo(testSeekPositionMs);
+    assertThat(bufferedPositionRef.get()).isEqualTo(testSeekPositionMs);
     assertThat(totalBufferedDurationRef.get()).isEqualTo(initialBufferedPosition);
   }
 
@@ -1655,9 +1699,9 @@ public class MediaControllerStateMaskingTest {
               controller.setMediaItems(
                   createMediaItems(testMediaItemCount), /* resetPosition= */ true);
               currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
-              currentPositionRef.set((int) controller.getCurrentPosition());
-              bufferedPositionRef.set((int) controller.getBufferedPosition());
-              totalBufferedDurationRef.set((int) controller.getTotalBufferedDuration());
+              currentPositionRef.set(controller.getCurrentPosition());
+              bufferedPositionRef.set(controller.getBufferedPosition());
+              totalBufferedDurationRef.set(controller.getTotalBufferedDuration());
               currentPeriodIndexRef.set(controller.getCurrentPeriodIndex());
             });
 
@@ -1704,7 +1748,7 @@ public class MediaControllerStateMaskingTest {
               controller.setMediaItems(ImmutableList.of(), /* resetPosition= */ false);
               currentTimelineRef.set(controller.getCurrentTimeline());
               currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
-              currentPositionRef.set((int) controller.getCurrentPosition());
+              currentPositionRef.set(controller.getCurrentPosition());
               currentPeriodIndexRef.set(controller.getCurrentPeriodIndex());
             });
 
@@ -1787,13 +1831,13 @@ public class MediaControllerStateMaskingTest {
             () -> {
               controller.setMediaItems(
                   createMediaItems(dummyMediaId, testMediaItemIndexMediaId),
-                  /* startMediaItemIndex= */ testMediaItemIndex,
+                  /* startIndex= */ testMediaItemIndex,
                   /* startPositionMs= */ testPosition);
               currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
               currentPeriodIndexRef.set(controller.getCurrentPeriodIndex());
-              currentPositionRef.set((int) controller.getCurrentPosition());
-              bufferedPositionRef.set((int) controller.getBufferedPosition());
-              totalBufferedDurationRef.set((int) controller.getTotalBufferedDuration());
+              currentPositionRef.set(controller.getCurrentPosition());
+              bufferedPositionRef.set(controller.getBufferedPosition());
+              totalBufferedDurationRef.set(controller.getTotalBufferedDuration());
             });
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -1888,13 +1932,13 @@ public class MediaControllerStateMaskingTest {
             () -> {
               controller.setMediaItems(
                   testMediaItemList,
-                  /* startMediaItemIndex= */ testMediaItemIndex,
+                  /* startIndex= */ testMediaItemIndex,
                   /* startPositionMs= */ testPosition);
               currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
               currentPeriodIndexRef.set(controller.getCurrentPeriodIndex());
-              currentPositionRef.set((int) controller.getCurrentPosition());
-              bufferedPositionRef.set((int) controller.getBufferedPosition());
-              totalBufferedDurationRef.set((int) controller.getTotalBufferedDuration());
+              currentPositionRef.set(controller.getCurrentPosition());
+              bufferedPositionRef.set(controller.getBufferedPosition());
+              totalBufferedDurationRef.set(controller.getTotalBufferedDuration());
             });
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -2601,9 +2645,9 @@ public class MediaControllerStateMaskingTest {
     assertTimeline(
         newTimelineRef.get(),
         testMediaItemCount,
-        /* ignored= */ C.INDEX_UNSET,
-        /* ignored= */ C.INDEX_UNSET,
-        /* ignored= */ C.INDEX_UNSET);
+        /* ignored */ C.INDEX_UNSET,
+        /* ignored */ C.INDEX_UNSET,
+        /* ignored */ C.INDEX_UNSET);
     assertThat(newMediaItemRef.get()).isNull();
     assertThat(newPlaybackStateRef.get()).isEqualTo(testPlaybackState);
     assertThat(getEventsAsList(onEventsRef.get()))
@@ -3199,7 +3243,7 @@ public class MediaControllerStateMaskingTest {
             () -> {
               controller.setMediaItem(MediaItem.fromUri("http://test"));
 
-              controller.seekTo(/* windowIndex= */ 1, /* positionMs= */ 1000);
+              controller.seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 1000);
 
               mediaItemIndexAfterSeek.set(controller.getCurrentMediaItemIndex());
             });

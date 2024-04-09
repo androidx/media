@@ -89,10 +89,12 @@ import androidx.media3.common.ParserException;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.Player.Commands;
+import androidx.media3.common.audio.AudioProcessor;
 import com.google.common.base.Ascii;
 import com.google.common.base.Charsets;
 import com.google.common.math.DoubleMath;
 import com.google.common.math.LongMath;
+import com.google.common.primitives.UnsignedBytes;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -109,6 +111,7 @@ import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collections;
@@ -119,6 +122,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.MissingResourceException;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.CancellationException;
@@ -134,6 +138,7 @@ import java.util.zip.Inflater;
 import org.checkerframework.checker.initialization.qual.UnknownInitialization;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
+import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.PolyNull;
 
 /** Miscellaneous utility methods. */
@@ -170,6 +175,9 @@ public final class Util {
 
   /** An empty byte array. */
   @UnstableApi public static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
+
+  /** An empty long array. */
+  @UnstableApi public static final long[] EMPTY_LONG_ARRAY = new long[0];
 
   private static final String TAG = "Util";
   private static final Pattern XS_DATE_TIME_PATTERN =
@@ -487,9 +495,18 @@ public final class Util {
     return TextUtils.isEmpty(scheme) || "file".equals(scheme);
   }
 
+  /** Returns true if the code path is currently running on an emulator. */
+  @UnstableApi
+  public static boolean isRunningOnEmulator() {
+    String deviceName = Ascii.toLowerCase(Util.DEVICE);
+    return deviceName.contains("emulator")
+        || deviceName.contains("emu64a")
+        || deviceName.contains("generic");
+  }
+
   /**
    * Tests two objects for {@link Object#equals(Object)} equality, handling the case where one or
-   * both may be null.
+   * both may be {@code null}.
    *
    * @param o1 The first object.
    * @param o2 The second object.
@@ -498,6 +515,64 @@ public final class Util {
   @UnstableApi
   public static boolean areEqual(@Nullable Object o1, @Nullable Object o2) {
     return o1 == null ? o2 == null : o1.equals(o2);
+  }
+
+  /**
+   * Tests two {@link SparseArray} instances for content equality, handling the case where one or
+   * both may be {@code null}.
+   *
+   * @see SparseArray#contentEquals(SparseArray)
+   * @param sparseArray1 The first {@link SparseArray} instance.
+   * @param sparseArray2 The second {@link SparseArray} instance.
+   * @return True if the two {@link SparseArray} instances are equal in contents.
+   */
+  @UnstableApi
+  public static <T> boolean contentEquals(
+      @Nullable SparseArray<T> sparseArray1, @Nullable SparseArray<T> sparseArray2) {
+    if (sparseArray1 == null) {
+      return sparseArray2 == null;
+    } else if (sparseArray2 == null) {
+      return false;
+    }
+
+    if (Util.SDK_INT >= 31) {
+      return sparseArray1.contentEquals(sparseArray2);
+    }
+
+    int size = sparseArray1.size();
+    if (size != sparseArray2.size()) {
+      return false;
+    }
+
+    for (int index = 0; index < size; index++) {
+      int key = sparseArray1.keyAt(index);
+      if (!Objects.equals(sparseArray1.valueAt(index), sparseArray2.get(key))) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Returns a hash code value for the contents of this {@link SparseArray}, combining the {@link
+   * Objects#hashCode(Object)} result of all its keys and values.
+   *
+   * @see SparseArray#contentHashCode()
+   * @param sparseArray The {@link SparseArray} instance.
+   * @return The hash code.
+   */
+  @UnstableApi
+  public static <T> int contentHashCode(SparseArray<T> sparseArray) {
+    if (Util.SDK_INT >= 31) {
+      return sparseArray.contentHashCode();
+    }
+    int hash = 17;
+    for (int index = 0; index < sparseArray.size(); index++) {
+      hash = 31 * hash + sparseArray.keyAt(index);
+      hash = 31 * hash + Objects.hashCode(sparseArray.valueAt(index));
+    }
+    return hash;
   }
 
   /**
@@ -967,6 +1042,30 @@ public final class Util {
   }
 
   /**
+   * Loads a file from the assets folder.
+   *
+   * <p>This should only be used for known-small files. Generally, loading assets should be done
+   * with {@code AssetDataSource}.
+   *
+   * <p>The file is assumed to be encoded in UTF-8.
+   *
+   * @param context The {@link Context}.
+   * @param assetPath The path to the file to load, from the assets folder.
+   * @return The content of the file to load.
+   * @throws IOException If the file couldn't be read.
+   */
+  @UnstableApi
+  public static String loadAsset(Context context, String assetPath) throws IOException {
+    @Nullable InputStream inputStream = null;
+    try {
+      inputStream = context.getAssets().open(assetPath);
+      return Util.fromUtf8Bytes(Util.toByteArray(inputStream));
+    } finally {
+      Util.closeQuietly(inputStream);
+    }
+  }
+
+  /**
    * Returns a new {@link String} constructed by decoding UTF-8 encoded bytes.
    *
    * @param bytes The UTF-8 encoded bytes to decode.
@@ -1002,7 +1101,7 @@ public final class Util {
   }
 
   /**
-   * Splits a string using {@code value.split(regex, -1}). Note: this is is similar to {@link
+   * Splits a string using {@code value.split(regex, -1}). Note: this is similar to {@link
    * String#split(String)} but empty matches at the end of the string will not be omitted from the
    * returned array.
    *
@@ -1658,11 +1757,6 @@ public final class Util {
    * @param roundingMode The rounding mode to use if the result of the division is not an integer.
    * @return The scaled value.
    */
-  // LongMath.saturatedMultiply is @Beta in the version of Guava we currently depend on (31.1)
-  // but it is no longer @Beta from 32.0.0. This suppression is therefore safe because there's
-  // no version of Guava after 31.1 that doesn't contain this symbol.
-  // TODO(b/290045069): Remove this suppression when we depend on Guava 32+.
-  @SuppressWarnings("UnstableApiUsage")
   @UnstableApi
   public static long scaleLargeValue(
       long value, long multiplier, long divisor, RoundingMode roundingMode) {
@@ -1695,11 +1789,6 @@ public final class Util {
    * @param roundingMode The rounding mode to use if the result of the division is not an integer.
    * @return The scaled values.
    */
-  // LongMath.saturatedMultiply is @Beta in the version of Guava we currently depend on (31.1)
-  // but it is no longer @Beta from 32.0.0. This suppression is therefore safe because there's
-  // no version of Guava after 31.1 that doesn't contain this symbol.
-  // TODO(b/290045069): Remove this suppression when we depend on Guava 32+.
-  @SuppressWarnings("UnstableApiUsage")
   @UnstableApi
   public static long[] scaleLargeValues(
       List<Long> values, long multiplier, long divisor, RoundingMode roundingMode) {
@@ -1799,11 +1888,6 @@ public final class Util {
    * <p>This implementation should be used after simpler simplifying efforts have failed (such as
    * checking if {@code value} or {@code multiplier} are exact multiples of {@code divisor}).
    */
-  // LongMath.saturatedMultiply is @Beta in the version of Guava we currently depend on (31.1)
-  // but it is no longer @Beta from 32.0.0. This suppression is therefore safe because there's
-  // no version of Guava after 31.1 that doesn't contain this symbol.
-  // TODO(b/290045069): Remove this suppression when we depend on Guava 32+.
-  @SuppressWarnings("UnstableApiUsage")
   private static long scaleLargeValueFallback(
       long value, long multiplier, long divisor, RoundingMode roundingMode) {
     long numerator = LongMath.saturatedMultiply(value, multiplier);
@@ -1813,12 +1897,13 @@ public final class Util {
       // Directly multiplying value and multiplier will overflow a long, so we try and cancel
       // with GCD and try directly multiplying again below. If that still overflows we fall
       // through to floating point arithmetic.
-      long gcdOfMultiplierAndDivisor = LongMath.gcd(multiplier, divisor);
+      long gcdOfMultiplierAndDivisor = LongMath.gcd(Math.abs(multiplier), Math.abs(divisor));
       long simplifiedMultiplier =
           LongMath.divide(multiplier, gcdOfMultiplierAndDivisor, RoundingMode.UNNECESSARY);
       long simplifiedDivisor =
           LongMath.divide(divisor, gcdOfMultiplierAndDivisor, RoundingMode.UNNECESSARY);
-      long gcdOfValueAndSimplifiedDivisor = LongMath.gcd(value, simplifiedDivisor);
+      long gcdOfValueAndSimplifiedDivisor =
+          LongMath.gcd(Math.abs(value), Math.abs(simplifiedDivisor));
       long simplifiedValue =
           LongMath.divide(value, gcdOfValueAndSimplifiedDivisor, RoundingMode.UNNECESSARY);
       simplifiedDivisor =
@@ -2110,6 +2195,12 @@ public final class Util {
         .build();
   }
 
+  /** Gets a PCM {@link Format} based on the {@link AudioProcessor.AudioFormat}. */
+  @UnstableApi
+  public static Format getPcmFormat(AudioProcessor.AudioFormat audioFormat) {
+    return getPcmFormat(audioFormat.encoding, audioFormat.channelCount, audioFormat.sampleRate);
+  }
+
   /**
    * Converts a sample bit depth to a corresponding PCM encoding constant.
    *
@@ -2314,8 +2405,12 @@ public final class Util {
     }
   }
 
-  /** Returns the {@link C.AudioContentType} corresponding to the specified {@link C.StreamType}. */
+  /**
+   * @deprecated This method is no longer used by the media3 library, it does not work well and
+   *     should be avoided. There is no direct replacement.
+   */
   @UnstableApi
+  @Deprecated
   public static @C.AudioContentType int getAudioContentTypeForStreamType(
       @C.StreamType int streamType) {
     switch (streamType) {
@@ -2522,7 +2617,7 @@ public final class Util {
         return C.CONTENT_TYPE_HLS;
       case "ism":
       case "isml":
-        return C.TYPE_SS;
+        return C.CONTENT_TYPE_SS;
       default:
         return C.CONTENT_TYPE_OTHER;
     }
@@ -2789,6 +2884,50 @@ public final class Util {
               ^ CRC32_BYTES_MSBF[((initialValue >>> 24) ^ (bytes[i] & 0xFF)) & 0xFF];
     }
     return initialValue;
+  }
+
+  /**
+   * Returns the result of updating a CRC-16 with the specified bytes in a "most significant bit
+   * first" order.
+   *
+   * @param bytes Array containing the bytes to update the crc value with.
+   * @param start The start index (inclusive) of the byte range to update the crc with.
+   * @param end The end index (exclusive) of the byte range to update the crc with.
+   * @param initialValue The initial value for the crc calculation. The lower 16 bits of this 32-bit
+   *     integer are used for the CRC computation.
+   * @return The result of updating the initial value with the specified bytes.
+   */
+  @UnstableApi
+  public static int crc16(byte[] bytes, int start, int end, int initialValue) {
+    for (int i = start; i < end; i++) {
+      int value = UnsignedBytes.toInt(bytes[i]);
+      // Process one message byte to update the current CRC-16 value.
+      initialValue = crc16UpdateFourBits(value >> 4, initialValue); // High nibble first.
+      initialValue = crc16UpdateFourBits(value & 0x0F, initialValue); // Low nibble.
+    }
+    return initialValue;
+  }
+
+  /**
+   * Process 4 bits of the message to update the CRC Value. Note that the data will be in the low
+   * nibble of value.
+   *
+   * @param value The 4-bit message data to be processed.
+   * @param crc16Register The current CRC-16 register to be updated. Only the lower 16 bits of this
+   *     32-bit integer are used for the CRC computation.
+   * @return The result of updating the CRC-16 register with the specified 4-bit message data.
+   */
+  private static int crc16UpdateFourBits(int value, int crc16Register) {
+    // Step one, extract the most significant 4 bits of the CRC register.
+    int mostSignificant4Bits = (crc16Register >> 12) & 0xFF;
+    // XOR in the Message Data into the extracted bits.
+    mostSignificant4Bits = (mostSignificant4Bits ^ value) & 0xFF;
+    // Shift the CRC register left 4 bits.
+    crc16Register = (crc16Register << 4) & 0xFFFF; // Handle as 16 bit, discard any sign extension.
+    // Do the table look-ups and XOR the result into the CRC tables.
+    crc16Register = (crc16Register ^ CRC16_BYTES_MSBF[mostSignificant4Bits]) & 0xFFFF;
+
+    return crc16Register;
   }
 
   /**
@@ -3116,6 +3255,101 @@ public final class Util {
   }
 
   /**
+   * Returns the image MIME types that can be decoded and loaded by {@link
+   * android.graphics.BitmapFactory} that Media3 aims to support.
+   */
+  @UnstableApi
+  public static boolean isBitmapFactorySupportedMimeType(String mimeType) {
+    switch (mimeType) {
+      case MimeTypes.IMAGE_PNG:
+      case MimeTypes.IMAGE_JPEG:
+      case MimeTypes.IMAGE_BMP:
+      case MimeTypes.IMAGE_WEBP:
+        return true;
+      case MimeTypes.IMAGE_HEIF:
+        return Util.SDK_INT >= 26;
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Returns a list of strings representing the {@link C.SelectionFlags} values present in {@code
+   * selectionFlags}.
+   */
+  @UnstableApi
+  public static List<String> getSelectionFlagStrings(@C.SelectionFlags int selectionFlags) {
+    List<String> result = new ArrayList<>();
+    // LINT.IfChange(selection_flags)
+    if ((selectionFlags & C.SELECTION_FLAG_AUTOSELECT) != 0) {
+      result.add("auto");
+    }
+    if ((selectionFlags & C.SELECTION_FLAG_DEFAULT) != 0) {
+      result.add("default");
+    }
+    if ((selectionFlags & C.SELECTION_FLAG_FORCED) != 0) {
+      result.add("forced");
+    }
+    return result;
+  }
+
+  /**
+   * Returns a list of strings representing the {@link C.RoleFlags} values present in {@code
+   * roleFlags}.
+   */
+  @UnstableApi
+  public static List<String> getRoleFlagStrings(@C.RoleFlags int roleFlags) {
+    List<String> result = new ArrayList<>();
+    // LINT.IfChange(role_flags)
+    if ((roleFlags & C.ROLE_FLAG_MAIN) != 0) {
+      result.add("main");
+    }
+    if ((roleFlags & C.ROLE_FLAG_ALTERNATE) != 0) {
+      result.add("alt");
+    }
+    if ((roleFlags & C.ROLE_FLAG_SUPPLEMENTARY) != 0) {
+      result.add("supplementary");
+    }
+    if ((roleFlags & C.ROLE_FLAG_COMMENTARY) != 0) {
+      result.add("commentary");
+    }
+    if ((roleFlags & C.ROLE_FLAG_DUB) != 0) {
+      result.add("dub");
+    }
+    if ((roleFlags & C.ROLE_FLAG_EMERGENCY) != 0) {
+      result.add("emergency");
+    }
+    if ((roleFlags & C.ROLE_FLAG_CAPTION) != 0) {
+      result.add("caption");
+    }
+    if ((roleFlags & C.ROLE_FLAG_SUBTITLE) != 0) {
+      result.add("subtitle");
+    }
+    if ((roleFlags & C.ROLE_FLAG_SIGN) != 0) {
+      result.add("sign");
+    }
+    if ((roleFlags & C.ROLE_FLAG_DESCRIBES_VIDEO) != 0) {
+      result.add("describes-video");
+    }
+    if ((roleFlags & C.ROLE_FLAG_DESCRIBES_MUSIC_AND_SOUND) != 0) {
+      result.add("describes-music");
+    }
+    if ((roleFlags & C.ROLE_FLAG_ENHANCED_DIALOG_INTELLIGIBILITY) != 0) {
+      result.add("enhanced-intelligibility");
+    }
+    if ((roleFlags & C.ROLE_FLAG_TRANSCRIBES_DIALOG) != 0) {
+      result.add("transcribes-dialog");
+    }
+    if ((roleFlags & C.ROLE_FLAG_EASY_TO_READ) != 0) {
+      result.add("easy-read");
+    }
+    if ((roleFlags & C.ROLE_FLAG_TRICK_PLAY) != 0) {
+      result.add("trick-play");
+    }
+    return result;
+  }
+
+  /**
    * Returns the current time in milliseconds since the epoch.
    *
    * @param elapsedRealtimeEpochOffsetMs The offset between {@link SystemClock#elapsedRealtime()}
@@ -3138,8 +3372,7 @@ public final class Util {
    * @param newFromIndex The new from index.
    */
   @UnstableApi
-  @SuppressWarnings("ExtendsObject") // See go/lsc-extends-object
-  public static <T extends Object> void moveItems(
+  public static <T extends @NonNull Object> void moveItems(
       List<T> items, int fromIndex, int toIndex, int newFromIndex) {
     ArrayDeque<T> removedItems = new ArrayDeque<>();
     int removedItemsLength = toIndex - fromIndex;
@@ -3164,11 +3397,10 @@ public final class Util {
    * <p>For example: android.media.MediaCodec.error_1 or android.media.MediaDrm.error_neg_2.
    *
    * @param diagnosticsInfo A string from which to parse the error code.
-   * @return The parser error code, or 0 if an error code could not be parsed.
+   * @return The parsed error code, or 0 if an error code could not be parsed.
    */
   @UnstableApi
   public static int getErrorCodeFromPlatformDiagnosticsInfo(@Nullable String diagnosticsInfo) {
-    // TODO (internal b/192337376): Change 0 for ERROR_UNKNOWN once available.
     if (diagnosticsInfo == null) {
       return 0;
     }
@@ -3180,7 +3412,7 @@ public final class Util {
     String digitsSection = strings[length - 1];
     boolean isNegative = length >= 3 && "neg".equals(strings[length - 2]);
     try {
-      int errorCode = Integer.parseInt(Assertions.checkNotNull(digitsSection));
+      int errorCode = Integer.parseInt(checkNotNull(digitsSection));
       return isNegative ? -errorCode : errorCode;
     } catch (NumberFormatException e) {
       return 0;
@@ -3193,7 +3425,13 @@ public final class Util {
     // bounds. From API 29, if the app targets API 29 or later, the {@link
     // MediaFormat#KEY_ALLOW_FRAME_DROP} key prevents frame dropping even when the surface is
     // full.
-    return Util.SDK_INT < 29 || context.getApplicationInfo().targetSdkVersion < 29;
+    // Some API 30 devices might drop frames despite setting {@link
+    // MediaFormat#KEY_ALLOW_FRAME_DROP} to 0. See b/307518793 and b/289983935.
+    return SDK_INT < 29
+        || context.getApplicationInfo().targetSdkVersion < 29
+        || (SDK_INT == 30
+            && (Ascii.equalsIgnoreCase(MODEL, "moto g(20)")
+                || Ascii.equalsIgnoreCase(MODEL, "rmx3231")));
   }
 
   /**
@@ -3674,6 +3912,16 @@ public final class Util {
     0X9E7D9662, 0X933EB0BB, 0X97FFAD0C, 0XAFB010B1, 0XAB710D06, 0XA6322BDF, 0XA2F33668,
     0XBCB4666D, 0XB8757BDA, 0XB5365D03, 0XB1F740B4
   };
+
+  /**
+   * Allows the CRC-16 calculation to be done byte by byte instead of bit per bit in the order "most
+   * significant bit first".
+   */
+  private static final int[] CRC16_BYTES_MSBF =
+      new int[] {
+        0x0000, 0x01021, 0x2042, 0x3063, 0x4084, 0x50A5, 0x60C6, 0x70E7,
+        0x8108, 0x9129, 0xA14A, 0xB16B, 0xC18C, 0xD1AD, 0xE1CE, 0xF1EF
+      };
 
   /**
    * Allows the CRC-8 calculation to be done byte by byte instead of bit per bit in the order "most

@@ -245,13 +245,13 @@ public final class C {
   @UnstableApi public static final int ENCODING_PCM_16BIT_BIG_ENDIAN = 0x10000000;
 
   /** PCM encoding with 24 bits per sample. */
-  @UnstableApi public static final int ENCODING_PCM_24BIT = 0x20000000;
+  @UnstableApi public static final int ENCODING_PCM_24BIT = AudioFormat.ENCODING_PCM_24BIT_PACKED;
 
   /** Like {@link #ENCODING_PCM_24BIT} but with the bytes in big endian order. */
   @UnstableApi public static final int ENCODING_PCM_24BIT_BIG_ENDIAN = 0x50000000;
 
   /** PCM encoding with 32 bits per sample. */
-  @UnstableApi public static final int ENCODING_PCM_32BIT = 0x30000000;
+  @UnstableApi public static final int ENCODING_PCM_32BIT = AudioFormat.ENCODING_PCM_32BIT;
 
   /** Like {@link #ENCODING_PCM_32BIT} but with the bytes in big endian order. */
   @UnstableApi public static final int ENCODING_PCM_32BIT_BIG_ENDIAN = 0x60000000;
@@ -298,8 +298,8 @@ public final class C {
   /** See {@link AudioFormat#ENCODING_DTS_HD}. */
   @UnstableApi public static final int ENCODING_DTS_HD = AudioFormat.ENCODING_DTS_HD;
 
-  // TODO(internal b/283949283): Use AudioFormat.ENCODING_DTS_UHD_P2 when Android 14 is released.
-  @UnstableApi public static final int ENCODING_DTS_UHD_P2 = 0x0000001e;
+  /** See {@link AudioFormat#ENCODING_DTS_UHD_P2}. */
+  @UnstableApi public static final int ENCODING_DTS_UHD_P2 = AudioFormat.ENCODING_DTS_UHD_P2;
 
   /** See {@link AudioFormat#ENCODING_DOLBY_TRUEHD}. */
   @UnstableApi public static final int ENCODING_DOLBY_TRUEHD = AudioFormat.ENCODING_DOLBY_TRUEHD;
@@ -618,6 +618,7 @@ public final class C {
    * {@link #BUFFER_FLAG_LAST_SAMPLE}, {@link #BUFFER_FLAG_ENCRYPTED} and {@link
    * #BUFFER_FLAG_DECODE_ONLY}.
    */
+  @SuppressWarnings("deprecation") // Includes deprecated BUFFER_FLAG_DECODE_ONLY flag.
   @UnstableApi
   @Documented
   @Retention(RetentionPolicy.SOURCE)
@@ -654,8 +655,12 @@ public final class C {
   /** Indicates that a buffer is (at least partially) encrypted. */
   @UnstableApi public static final int BUFFER_FLAG_ENCRYPTED = 1 << 30; // 0x40000000
 
-  /** Indicates that a buffer should be decoded but not rendered. */
-  @UnstableApi public static final int BUFFER_FLAG_DECODE_ONLY = 1 << 31; // 0x80000000
+  /**
+   * @deprecated Renderers and decoders will check whether the buffer time is greater or equal to
+   *     the desired start time without the need to set this flag. Custom decoders can mark other
+   *     buffers with {@code DecoderOutputBuffer.shouldBeSkipped} if needed.
+   */
+  @UnstableApi @Deprecated public static final int BUFFER_FLAG_DECODE_ONLY = 1 << 31; // 0x80000000
 
   /** A realtime {@linkplain MediaFormat#KEY_PRIORITY codec priority}. */
   @UnstableApi public static final int MEDIA_CODEC_PRIORITY_REALTIME = 0;

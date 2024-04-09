@@ -24,7 +24,6 @@ import androidx.media3.extractor.text.SubtitleDecoder;
 import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.extractor.text.cea.Cea608Decoder;
 import androidx.media3.extractor.text.cea.Cea708Decoder;
-import androidx.media3.extractor.text.ttml.TtmlDecoder;
 import java.util.Objects;
 
 /** A factory for {@link SubtitleDecoder} instances. */
@@ -55,10 +54,8 @@ public interface SubtitleDecoderFactory {
    * <p>Supports formats supported by {@link DefaultSubtitleParserFactory} as well as the following:
    *
    * <ul>
-   *   <li>TTML ({@link TtmlDecoder})
    *   <li>Cea608 ({@link Cea608Decoder})
    *   <li>Cea708 ({@link Cea708Decoder})
-   *   <li>Exoplayer Cues ({@link ExoplayerCuesDecoder})
    * </ul>
    */
   SubtitleDecoderFactory DEFAULT =
@@ -70,25 +67,16 @@ public interface SubtitleDecoderFactory {
         public boolean supportsFormat(Format format) {
           @Nullable String mimeType = format.sampleMimeType;
           return delegate.supportsFormat(format)
-              || Objects.equals(mimeType, MimeTypes.APPLICATION_TTML)
               || Objects.equals(mimeType, MimeTypes.APPLICATION_CEA608)
               || Objects.equals(mimeType, MimeTypes.APPLICATION_MP4CEA608)
-              || Objects.equals(mimeType, MimeTypes.APPLICATION_CEA708)
-              || Objects.equals(mimeType, MimeTypes.APPLICATION_MEDIA3_CUES);
+              || Objects.equals(mimeType, MimeTypes.APPLICATION_CEA708);
         }
 
         @Override
         public SubtitleDecoder createDecoder(Format format) {
-          if (delegate.supportsFormat(format)) {
-            SubtitleParser subtitleParser = delegate.create(format);
-            return new DelegatingSubtitleDecoder(
-                subtitleParser.getClass().getSimpleName() + "Decoder", subtitleParser);
-          }
           @Nullable String mimeType = format.sampleMimeType;
           if (mimeType != null) {
             switch (mimeType) {
-              case MimeTypes.APPLICATION_TTML:
-                return new TtmlDecoder();
               case MimeTypes.APPLICATION_CEA608:
               case MimeTypes.APPLICATION_MP4CEA608:
                 return new Cea608Decoder(
@@ -97,11 +85,14 @@ public interface SubtitleDecoderFactory {
                     Cea608Decoder.MIN_DATA_CHANNEL_TIMEOUT_MS);
               case MimeTypes.APPLICATION_CEA708:
                 return new Cea708Decoder(format.accessibilityChannel, format.initializationData);
-              case MimeTypes.APPLICATION_MEDIA3_CUES:
-                return new ExoplayerCuesDecoder();
               default:
                 break;
             }
+          }
+          if (delegate.supportsFormat(format)) {
+            SubtitleParser subtitleParser = delegate.create(format);
+            return new DelegatingSubtitleDecoder(
+                subtitleParser.getClass().getSimpleName() + "Decoder", subtitleParser);
           }
           throw new IllegalArgumentException(
               "Attempted to create decoder for unsupported MIME type: " + mimeType);

@@ -15,15 +15,19 @@
  */
 package androidx.media3.extractor.text.subrip;
 
+import static androidx.media3.common.Format.CUE_REPLACEMENT_BEHAVIOR_MERGE;
 import static com.google.common.truth.Truth.assertThat;
 
 import androidx.media3.common.text.Cue;
 import androidx.media3.extractor.text.CuesWithTiming;
+import androidx.media3.extractor.text.SubtitleParser;
+import androidx.media3.extractor.text.SubtitleParser.OutputOptions;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -49,11 +53,17 @@ public final class SubripParserTest {
       "media/subrip/typical_no_hours_and_millis";
 
   @Test
+  public void cueReplacementBehaviorIsMerge() {
+    SubripParser parser = new SubripParser();
+    assertThat(parser.getCueReplacementBehavior()).isEqualTo(CUE_REPLACEMENT_BEHAVIOR_MERGE);
+  }
+
+  @Test
   public void parseEmpty() throws IOException {
     SubripParser parser = new SubripParser();
     byte[] bytes = TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), EMPTY_FILE);
 
-    List<CuesWithTiming> allCues = parser.parse(bytes);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
 
     assertThat(allCues).isEmpty();
   }
@@ -63,7 +73,7 @@ public final class SubripParserTest {
     SubripParser parser = new SubripParser();
     byte[] bytes = TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TYPICAL_FILE);
 
-    List<CuesWithTiming> allCues = parser.parse(bytes);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
 
     assertThat(allCues).hasSize(3);
     assertTypicalCue1(allCues.get(0));
@@ -76,7 +86,8 @@ public final class SubripParserTest {
     SubripParser parser = new SubripParser();
     byte[] bytes = TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TYPICAL_FILE);
 
-    ImmutableList<CuesWithTiming> allCues = parser.parse(bytes, 10, bytes.length - 15);
+    List<CuesWithTiming> allCues = new ArrayList<>();
+    parser.parse(bytes, 10, bytes.length - 15, OutputOptions.allCues(), allCues::add);
 
     assertThat(allCues).hasSize(2);
     // Because of the offset, we skip the first line of dialogue
@@ -87,13 +98,43 @@ public final class SubripParserTest {
   }
 
   @Test
+  public void parseTypical_onlyCuesAfterTime() throws IOException {
+    SubripParser parser = new SubripParser();
+    byte[] bytes = TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TYPICAL_FILE);
+
+    List<CuesWithTiming> cues = new ArrayList<>();
+    parser.parse(bytes, OutputOptions.onlyCuesAfter(/* startTimeUs= */ 1_000_000), cues::add);
+
+    assertThat(cues).hasSize(2);
+    assertTypicalCue2(cues.get(0));
+    assertTypicalCue3(cues.get(1));
+  }
+
+  @Test
+  public void parseTypical_cuesAfterTimeThenCuesBefore() throws IOException {
+    SubripParser parser = new SubripParser();
+    byte[] bytes = TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TYPICAL_FILE);
+
+    List<CuesWithTiming> cues = new ArrayList<>();
+    parser.parse(
+        bytes,
+        OutputOptions.cuesAfterThenRemainingCuesBefore(/* startTimeUs= */ 1_000_000),
+        cues::add);
+
+    assertThat(cues).hasSize(3);
+    assertTypicalCue2(cues.get(0));
+    assertTypicalCue3(cues.get(1));
+    assertTypicalCue1(cues.get(2));
+  }
+
+  @Test
   public void parseTypicalWithByteOrderMark() throws IOException {
     SubripParser parser = new SubripParser();
     byte[] bytes =
         TestUtil.getByteArray(
             ApplicationProvider.getApplicationContext(), TYPICAL_WITH_BYTE_ORDER_MARK);
 
-    List<CuesWithTiming> allCues = parser.parse(bytes);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
 
     assertThat(allCues).hasSize(3);
     assertTypicalCue1(allCues.get(0));
@@ -108,7 +149,7 @@ public final class SubripParserTest {
         TestUtil.getByteArray(
             ApplicationProvider.getApplicationContext(), TYPICAL_EXTRA_BLANK_LINE);
 
-    List<CuesWithTiming> allCues = parser.parse(bytes);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
 
     assertThat(allCues).hasSize(3);
     assertTypicalCue1(allCues.get(0));
@@ -124,7 +165,7 @@ public final class SubripParserTest {
         TestUtil.getByteArray(
             ApplicationProvider.getApplicationContext(), TYPICAL_MISSING_TIMECODE);
 
-    List<CuesWithTiming> allCues = parser.parse(bytes);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
 
     assertThat(allCues).hasSize(2);
     assertTypicalCue1(allCues.get(0));
@@ -139,7 +180,7 @@ public final class SubripParserTest {
         TestUtil.getByteArray(
             ApplicationProvider.getApplicationContext(), TYPICAL_MISSING_SEQUENCE);
 
-    List<CuesWithTiming> allCues = parser.parse(bytes);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
 
     assertThat(allCues).hasSize(2);
     assertTypicalCue1(allCues.get(0));
@@ -154,7 +195,7 @@ public final class SubripParserTest {
         TestUtil.getByteArray(
             ApplicationProvider.getApplicationContext(), TYPICAL_NEGATIVE_TIMESTAMPS);
 
-    List<CuesWithTiming> allCues = parser.parse(bytes);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
 
     assertThat(allCues).hasSize(1);
     assertTypicalCue3(allCues.get(0));
@@ -167,7 +208,7 @@ public final class SubripParserTest {
     byte[] bytes =
         TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TYPICAL_UNEXPECTED_END);
 
-    List<CuesWithTiming> allCues = parser.parse(bytes);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
 
     assertThat(allCues).hasSize(2);
     assertTypicalCue1(allCues.get(0));
@@ -180,7 +221,7 @@ public final class SubripParserTest {
     byte[] bytes =
         TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TYPICAL_UTF16LE);
 
-    List<CuesWithTiming> allCues = parser.parse(bytes);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
 
     assertThat(allCues).hasSize(3);
     assertTypicalCue1(allCues.get(0));
@@ -194,7 +235,7 @@ public final class SubripParserTest {
     byte[] bytes =
         TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TYPICAL_UTF16BE);
 
-    List<CuesWithTiming> allCues = parser.parse(bytes);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
 
     assertThat(allCues).hasSize(3);
     assertTypicalCue1(allCues.get(0));
@@ -208,7 +249,7 @@ public final class SubripParserTest {
     byte[] bytes =
         TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TYPICAL_WITH_TAGS);
 
-    List<CuesWithTiming> allCues = parser.parse(bytes);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
 
     assertThat(allCues).isNotNull();
     assertThat(allCues.get(0).cues.get(0).text.toString()).isEqualTo("This is the first subtitle.");
@@ -237,19 +278,27 @@ public final class SubripParserTest {
         TestUtil.getByteArray(
             ApplicationProvider.getApplicationContext(), TYPICAL_NO_HOURS_AND_MILLIS);
 
-    List<CuesWithTiming> allCues = parser.parse(bytes);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
 
     assertThat(allCues).hasSize(3);
     assertTypicalCue1(allCues.get(0));
     assertThat(allCues.get(1).startTimeUs).isEqualTo(2_000_000);
     assertThat(allCues.get(1).durationUs).isEqualTo(1_000_000);
+    assertThat(allCues.get(1).endTimeUs).isEqualTo(3_000_000);
     assertTypicalCue3(allCues.get(2));
+  }
+
+  private static ImmutableList<CuesWithTiming> parseAllCues(SubtitleParser parser, byte[] data) {
+    ImmutableList.Builder<CuesWithTiming> cues = ImmutableList.builder();
+    parser.parse(data, OutputOptions.allCues(), cues::add);
+    return cues.build();
   }
 
   private static void assertTypicalCue1(CuesWithTiming cuesWithTiming) {
     assertThat(cuesWithTiming.startTimeUs).isEqualTo(0);
     assertThat(cuesWithTiming.cues.get(0).text.toString()).isEqualTo("This is the first subtitle.");
     assertThat(cuesWithTiming.durationUs).isEqualTo(1234000);
+    assertThat(cuesWithTiming.endTimeUs).isEqualTo(1234000);
   }
 
   private static void assertTypicalCue2(CuesWithTiming cuesWithTiming) {
@@ -257,6 +306,7 @@ public final class SubripParserTest {
     assertThat(cuesWithTiming.cues.get(0).text.toString())
         .isEqualTo("This is the second subtitle.\nSecond subtitle with second line.");
     assertThat(cuesWithTiming.durationUs).isEqualTo(3456000 - 2345000);
+    assertThat(cuesWithTiming.endTimeUs).isEqualTo(3456000);
   }
 
   private static void assertTypicalCue3(CuesWithTiming cuesWithTiming) {
@@ -265,6 +315,7 @@ public final class SubripParserTest {
     assertThat(cuesWithTiming.cues.get(0).text.toString()).isEqualTo("This is the third subtitle.");
     long expectedEndTimeUs = (((2L * 60L * 60L) + 8L) * 1000L + 901L) * 1000L;
     assertThat(cuesWithTiming.durationUs).isEqualTo(expectedEndTimeUs - expectedStartTimeUs);
+    assertThat(cuesWithTiming.endTimeUs).isEqualTo(expectedEndTimeUs);
   }
 
   private static void assertAlignmentCue(

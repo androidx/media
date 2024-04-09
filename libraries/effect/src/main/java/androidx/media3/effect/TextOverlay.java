@@ -22,6 +22,8 @@ import static java.lang.Math.ceil;
 import android.annotation.SuppressLint;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.PorterDuff;
 import android.text.Layout;
 import android.text.SpannableString;
 import android.text.StaticLayout;
@@ -97,10 +99,15 @@ public abstract class TextOverlay extends BitmapOverlay {
       textPaint.setTextSize(TEXT_SIZE_PIXELS);
       StaticLayout staticLayout =
           createStaticLayout(overlayText, textPaint, getSpannedTextWidth(overlayText, textPaint));
-      lastBitmap =
-          Bitmap.createBitmap(
-              staticLayout.getWidth(), staticLayout.getHeight(), Bitmap.Config.ARGB_8888);
+      if (lastBitmap == null
+          || lastBitmap.getWidth() != staticLayout.getWidth()
+          || lastBitmap.getHeight() != staticLayout.getHeight()) {
+        lastBitmap =
+            Bitmap.createBitmap(
+                staticLayout.getWidth(), staticLayout.getHeight(), Bitmap.Config.ARGB_8888);
+      }
       Canvas canvas = new Canvas(checkNotNull(lastBitmap));
+      canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
       staticLayout.draw(canvas);
     }
     return checkNotNull(lastBitmap);

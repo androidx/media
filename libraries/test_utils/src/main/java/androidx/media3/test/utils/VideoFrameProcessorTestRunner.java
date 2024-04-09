@@ -48,6 +48,7 @@ import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.ConstantRateTimestampIterator;
 import androidx.media3.common.util.GlUtil;
+import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
@@ -76,7 +77,6 @@ public final class VideoFrameProcessorTestRunner {
     private @MonotonicNonNull String outputFileLabel;
     private @MonotonicNonNull ImmutableList<Effect> effects;
     private float pixelWidthHeightRatio;
-    private @MonotonicNonNull ColorInfo inputColorInfo;
     private @MonotonicNonNull ColorInfo outputColorInfo;
     private OnOutputFrameAvailableForRenderingListener onOutputFrameAvailableListener;
     private OnVideoFrameProcessingEndedListener onEndedListener;
@@ -180,17 +180,6 @@ public final class VideoFrameProcessorTestRunner {
     }
 
     /**
-     * Sets the input {@link ColorInfo}.
-     *
-     * <p>The default value is {@link ColorInfo#SDR_BT709_LIMITED}.
-     */
-    @CanIgnoreReturnValue
-    public Builder setInputColorInfo(ColorInfo inputColorInfo) {
-      this.inputColorInfo = inputColorInfo;
-      return this;
-    }
-
-    /**
      * Sets the output {@link ColorInfo}.
      *
      * <p>The default value is {@link ColorInfo#SDR_BT709_LIMITED}.
@@ -204,6 +193,9 @@ public final class VideoFrameProcessorTestRunner {
     /**
      * Sets the method to be called in {@link
      * VideoFrameProcessor.Listener#onOutputFrameAvailableForRendering}.
+     *
+     * <p>The method will be called on the thread the {@link VideoFrameProcessorTestRunner} is
+     * created on.
      *
      * <p>The default value is a no-op.
      */
@@ -237,7 +229,6 @@ public final class VideoFrameProcessorTestRunner {
           outputFileLabel == null ? "" : outputFileLabel,
           effects == null ? ImmutableList.of() : effects,
           pixelWidthHeightRatio,
-          inputColorInfo == null ? ColorInfo.SDR_BT709_LIMITED : inputColorInfo,
           outputColorInfo == null ? ColorInfo.SDR_BT709_LIMITED : outputColorInfo,
           onOutputFrameAvailableListener,
           onEndedListener);
@@ -269,7 +260,6 @@ public final class VideoFrameProcessorTestRunner {
       String outputFileLabel,
       ImmutableList<Effect> effects,
       float pixelWidthHeightRatio,
-      ColorInfo inputColorInfo,
       ColorInfo outputColorInfo,
       OnOutputFrameAvailableForRenderingListener onOutputFrameAvailableForRenderingListener,
       OnVideoFrameProcessingEndedListener onEndedListener)
@@ -287,10 +277,9 @@ public final class VideoFrameProcessorTestRunner {
         videoFrameProcessorFactory.create(
             getApplicationContext(),
             DebugViewProvider.NONE,
-            inputColorInfo,
             outputColorInfo,
             /* renderFramesAutomatically= */ true,
-            MoreExecutors.directExecutor(),
+            /* listenerExecutor= */ MoreExecutors.directExecutor(),
             new VideoFrameProcessor.Listener() {
               @Override
               public void onInputStreamRegistered(
@@ -341,10 +330,12 @@ public final class VideoFrameProcessorTestRunner {
           @Override
           public void onContainerExtracted(MediaFormat mediaFormat) {
             videoFrameProcessorReadyCondition.close();
+            @Nullable ColorInfo colorInfo = MediaFormatUtil.getColorInfo(mediaFormat);
             videoFrameProcessor.registerInputStream(
                 INPUT_TYPE_SURFACE,
                 effects,
                 new FrameInfo.Builder(
+                        colorInfo == null ? ColorInfo.SDR_BT709_LIMITED : colorInfo,
                         mediaFormat.getInteger(MediaFormat.KEY_WIDTH),
                         mediaFormat.getInteger(MediaFormat.KEY_HEIGHT))
                     .setPixelWidthHeightRatio(pixelWidthHeightRatio)
@@ -370,11 +361,17 @@ public final class VideoFrameProcessorTestRunner {
   public void queueInputBitmap(
       Bitmap inputBitmap, long durationUs, long offsetToAddUs, float frameRate)
       throws InterruptedException {
+    queueInputBitmap(inputBitmap, durationUs, offsetToAddUs, frameRate, ColorInfo.SRGB_BT709_FULL);
+  }
+
+  public void queueInputBitmap(
+      Bitmap inputBitmap, long durationUs, long offsetToAddUs, float frameRate, ColorInfo colorInfo)
+      throws InterruptedException {
     videoFrameProcessorReadyCondition.close();
     videoFrameProcessor.registerInputStream(
         INPUT_TYPE_BITMAP,
         effects,
-        new FrameInfo.Builder(inputBitmap.getWidth(), inputBitmap.getHeight())
+        new FrameInfo.Builder(colorInfo, inputBitmap.getWidth(), inputBitmap.getHeight())
             .setPixelWidthHeightRatio(pixelWidthHeightRatio)
             .setOffsetToAddUs(offsetToAddUs)
             .build());
@@ -386,11 +383,17 @@ public final class VideoFrameProcessorTestRunner {
 
   public void queueInputBitmaps(int width, int height, Pair<Bitmap, TimestampIterator>... frames)
       throws InterruptedException {
+    queueInputBitmaps(width, height, ColorInfo.SRGB_BT709_FULL, frames);
+  }
+
+  public void queueInputBitmaps(
+      int width, int height, ColorInfo colorInfo, Pair<Bitmap, TimestampIterator>... frames)
+      throws InterruptedException {
     videoFrameProcessorReadyCondition.close();
     videoFrameProcessor.registerInputStream(
         INPUT_TYPE_BITMAP,
         effects,
-        new FrameInfo.Builder(width, height)
+        new FrameInfo.Builder(colorInfo, width, height)
             .setPixelWidthHeightRatio(pixelWidthHeightRatio)
             .build());
     videoFrameProcessorReadyCondition.block();
@@ -399,11 +402,12 @@ public final class VideoFrameProcessorTestRunner {
     }
   }
 
-  public void queueInputTexture(GlTextureInfo inputTexture, long pts) throws InterruptedException {
+  public void queueInputTexture(GlTextureInfo inputTexture, long pts, ColorInfo colorInfo)
+      throws InterruptedException {
     videoFrameProcessor.registerInputStream(
         INPUT_TYPE_TEXTURE_ID,
         effects,
-        new FrameInfo.Builder(inputTexture.width, inputTexture.height)
+        new FrameInfo.Builder(colorInfo, inputTexture.width, inputTexture.height)
             .setPixelWidthHeightRatio(pixelWidthHeightRatio)
             .build());
     videoFrameProcessor.setOnInputFrameProcessedListener(
@@ -442,6 +446,11 @@ public final class VideoFrameProcessorTestRunner {
    */
   public void signalEndOfInput() {
     videoFrameProcessor.signalEndOfInput();
+  }
+
+  /** Calls {@link VideoFrameProcessor#flush}. */
+  public void flush() {
+    videoFrameProcessor.flush();
   }
 
   /** After {@link #signalEndOfInput}, is called, wait for this instance to end. */

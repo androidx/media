@@ -15,7 +15,6 @@
  */
 package androidx.media3.extractor;
 
-import static androidx.media3.common.util.Assertions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.net.Uri;
@@ -89,7 +88,7 @@ public final class DefaultExtractorsFactoryTest {
   @Test
   public void createExtractors_withMediaInfo_startsWithExtractorsMatchingHeadersAndThenUri() {
     DefaultExtractorsFactory defaultExtractorsFactory = new DefaultExtractorsFactory();
-    Uri uri = Uri.parse("test.mp3");
+    Uri uri = Uri.parse("test-cbr-info-header.mp3");
     Map<String, List<String>> responseHeaders = new HashMap<>();
     responseHeaders.put("Content-Type", Collections.singletonList(MimeTypes.VIDEO_MP4));
 
@@ -104,7 +103,7 @@ public final class DefaultExtractorsFactoryTest {
   @Test
   public void createExtractors_withMediaInfo_optimizesSniffingOrder() {
     DefaultExtractorsFactory defaultExtractorsFactory = new DefaultExtractorsFactory();
-    Uri uri = Uri.parse("test.mp3");
+    Uri uri = Uri.parse("test-cbr-info-header.mp3");
     Map<String, List<String>> responseHeaders = new HashMap<>();
     responseHeaders.put("Content-Type", Collections.singletonList(MimeTypes.VIDEO_MP4));
 
@@ -142,44 +141,6 @@ public final class DefaultExtractorsFactoryTest {
     for (Extractor extractor : extractors) {
       assertThat(extractor.getClass()).isNotEqualTo(SubtitleTranscodingExtractor.class);
     }
-  }
-
-  @Test
-  public void subtitleTranscoding_ifEnabled_wrapsExtractorsThatSupportMuxedSubtitles() {
-    DefaultExtractorsFactory defaultExtractorsFactory =
-        new DefaultExtractorsFactory().setTextTrackTranscodingEnabled(true);
-
-    Extractor[] extractors = defaultExtractorsFactory.createExtractors();
-
-    Extractor aviExtractor = null;
-    Extractor matroskaExtractor = null;
-    Extractor mp4Extractor = null;
-    Extractor fragmentedMp4Extractor = null;
-    Extractor tsExtractor = null;
-
-    for (Extractor extractor : extractors) {
-      if (extractor.getUnderlyingImplementation() instanceof AviExtractor) {
-        checkState(aviExtractor == null);
-        aviExtractor = extractor;
-      } else if (extractor.getUnderlyingImplementation() instanceof MatroskaExtractor) {
-        checkState(matroskaExtractor == null);
-        matroskaExtractor = extractor;
-      } else if (extractor.getUnderlyingImplementation() instanceof Mp4Extractor) {
-        checkState(mp4Extractor == null);
-        mp4Extractor = extractor;
-      } else if (extractor.getUnderlyingImplementation() instanceof FragmentedMp4Extractor) {
-        checkState(fragmentedMp4Extractor == null);
-        fragmentedMp4Extractor = extractor;
-      } else if (extractor.getUnderlyingImplementation() instanceof TsExtractor) {
-        checkState(tsExtractor == null);
-        tsExtractor = extractor;
-      }
-    }
-    assertThat(aviExtractor).isInstanceOf(SubtitleTranscodingExtractor.class);
-    assertThat(matroskaExtractor).isInstanceOf(SubtitleTranscodingExtractor.class);
-    assertThat(mp4Extractor).isInstanceOf(SubtitleTranscodingExtractor.class);
-    assertThat(fragmentedMp4Extractor).isInstanceOf(SubtitleTranscodingExtractor.class);
-    assertThat(tsExtractor).isInstanceOf(SubtitleTranscodingExtractor.class);
   }
 
   private static List<Class<? extends Extractor>> getUnderlyingExtractorClasses(

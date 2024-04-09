@@ -15,6 +15,7 @@
  */
 package androidx.media3.extractor.ts;
 
+import static androidx.media3.common.util.Assertions.checkState;
 import static java.lang.Math.min;
 
 import androidx.annotation.Nullable;
@@ -70,6 +71,7 @@ public final class AdtsReader implements ElementaryStreamReader {
   private final ParsableBitArray adtsScratch;
   private final ParsableByteArray id3HeaderBuffer;
   @Nullable private final String language;
+  private final @C.RoleFlags int roleFlags;
 
   private @MonotonicNonNull String formatId;
   private @MonotonicNonNull TrackOutput output;
@@ -104,14 +106,15 @@ public final class AdtsReader implements ElementaryStreamReader {
    * @param exposeId3 True if the reader should expose ID3 information.
    */
   public AdtsReader(boolean exposeId3) {
-    this(exposeId3, null);
+    this(exposeId3, null, /* roleFlags= */ 0);
   }
 
   /**
    * @param exposeId3 True if the reader should expose ID3 information.
    * @param language Track language.
+   * @param roleFlags Track role flags.
    */
-  public AdtsReader(boolean exposeId3, @Nullable String language) {
+  public AdtsReader(boolean exposeId3, @Nullable String language, @C.RoleFlags int roleFlags) {
     adtsScratch = new ParsableBitArray(new byte[HEADER_SIZE + CRC_SIZE]);
     id3HeaderBuffer = new ParsableByteArray(Arrays.copyOf(ID3_IDENTIFIER, ID3_HEADER_SIZE));
     setFindingSampleState();
@@ -121,6 +124,7 @@ public final class AdtsReader implements ElementaryStreamReader {
     timeUs = C.TIME_UNSET;
     this.exposeId3 = exposeId3;
     this.language = language;
+    this.roleFlags = roleFlags;
   }
 
   /** Returns whether an integer matches an ADTS SYNC word. */
@@ -155,9 +159,7 @@ public final class AdtsReader implements ElementaryStreamReader {
 
   @Override
   public void packetStarted(long pesTimeUs, @TsPayloadReader.Flags int flags) {
-    if (pesTimeUs != C.TIME_UNSET) {
-      timeUs = pesTimeUs;
-    }
+    timeUs = pesTimeUs;
   }
 
   @Override
@@ -511,6 +513,7 @@ public final class AdtsReader implements ElementaryStreamReader {
               .setSampleRate(aacConfig.sampleRateHz)
               .setInitializationData(Collections.singletonList(audioSpecificConfig))
               .setLanguage(language)
+              .setRoleFlags(roleFlags)
               .build();
       // In this class a sample is an access unit, but the MediaFormat sample rate specifies the
       // number of PCM audio samples per second.
@@ -537,10 +540,10 @@ public final class AdtsReader implements ElementaryStreamReader {
     currentOutput.sampleData(data, bytesToRead);
     bytesRead += bytesToRead;
     if (bytesRead == sampleSize) {
-      if (timeUs != C.TIME_UNSET) {
-        currentOutput.sampleMetadata(timeUs, C.BUFFER_FLAG_KEY_FRAME, sampleSize, 0, null);
-        timeUs += currentSampleDuration;
-      }
+      // packetStarted method must be called before reading samples.
+      checkState(timeUs != C.TIME_UNSET);
+      currentOutput.sampleMetadata(timeUs, C.BUFFER_FLAG_KEY_FRAME, sampleSize, 0, null);
+      timeUs += currentSampleDuration;
       setFindingSampleState();
     }
   }

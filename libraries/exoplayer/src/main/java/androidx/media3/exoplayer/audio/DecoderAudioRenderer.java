@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.audio;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_DRM_SESSION_CHANGED;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_REUSE_NOT_IMPLEMENTED;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.REUSE_RESULT_NO;
@@ -144,7 +145,6 @@ public abstract class DecoderAudioRenderer<
   private int encoderDelay;
   private int encoderPadding;
 
-  private boolean experimentalKeepAudioTrackOnSeek;
   private boolean firstStreamSampleRead;
 
   @Nullable private T decoder;
@@ -165,6 +165,7 @@ public abstract class DecoderAudioRenderer<
   private long outputStreamOffsetUs;
   private final long[] pendingOutputStreamOffsetsUs;
   private int pendingOutputStreamOffsetCount;
+  private boolean hasPendingReportedSkippedSilence;
 
   public DecoderAudioRenderer() {
     this(/* eventHandler= */ null, /* eventListener= */ null);
@@ -226,19 +227,6 @@ public abstract class DecoderAudioRenderer<
     audioTrackNeedsConfigure = true;
     setOutputStreamOffsetUs(C.TIME_UNSET);
     pendingOutputStreamOffsetsUs = new long[MAX_PENDING_OUTPUT_STREAM_OFFSET_COUNT];
-  }
-
-  /**
-   * Sets whether to enable the experimental feature that keeps and flushes the {@link
-   * android.media.AudioTrack} when a seek occurs, as opposed to releasing and reinitialising. Off
-   * by default.
-   *
-   * <p>This method is experimental, and will be renamed or removed in a future release.
-   *
-   * @param enableKeepAudioTrackOnSeek Whether to keep the {@link android.media.AudioTrack} on seek.
-   */
-  public void experimentalSetEnableKeepAudioTrackOnSeek(boolean enableKeepAudioTrackOnSeek) {
-    this.experimentalKeepAudioTrackOnSeek = enableKeepAudioTrackOnSeek;
   }
 
   @Override
@@ -386,6 +374,18 @@ public abstract class DecoderAudioRenderer<
   protected abstract Format getOutputFormat(T decoder);
 
   /**
+   * Returns the channel layout mapping that should be applied when sending this data to the output,
+   * or null to not change the channel layout.
+   *
+   * @param decoder The decoder.
+   */
+  @ForOverride
+  @Nullable
+  protected int[] getChannelMapping(T decoder) {
+    return null;
+  }
+
+  /**
    * Evaluates whether the existing decoder can be reused for a new {@link Format}.
    *
    * <p>The default implementation does not allow decoder reuse.
@@ -455,7 +455,7 @@ public abstract class DecoderAudioRenderer<
               .setSelectionFlags(inputFormat.selectionFlags)
               .setRoleFlags(inputFormat.roleFlags)
               .build();
-      audioSink.configure(outputFormat, /* specifiedBufferSize= */ 0, /* outputChannels= */ null);
+      audioSink.configure(outputFormat, /* specifiedBufferSize= */ 0, getChannelMapping(decoder));
       audioTrackNeedsConfigure = false;
     }
 
@@ -491,6 +491,8 @@ public abstract class DecoderAudioRenderer<
     }
   }
 
+  // Setting deprecated decode-only flag for compatibility with decoders that are still using it.
+  @SuppressWarnings("deprecation")
   private boolean feedInputBuffer() throws DecoderException, ExoPlaybackException {
     if (decoder == null
         || decoderReinitializationState == REINITIALIZATION_STATE_WAIT_END_OF_STREAM
@@ -532,6 +534,9 @@ public abstract class DecoderAudioRenderer<
           firstStreamSampleRead = true;
           inputBuffer.addFlag(C.BUFFER_FLAG_FIRST_SAMPLE);
         }
+        if (inputBuffer.timeUs < getLastResetPositionUs()) {
+          inputBuffer.addFlag(C.BUFFER_FLAG_DECODE_ONLY);
+        }
         inputBuffer.flip();
         inputBuffer.format = inputFormat;
         decoder.queueInputBuffer(inputBuffer);
@@ -559,7 +564,9 @@ public abstract class DecoderAudioRenderer<
         outputBuffer.release();
         outputBuffer = null;
       }
+      Decoder<?, ?, ?> decoder = checkNotNull(this.decoder);
       decoder.flush();
+      decoder.setOutputStartTimeUs(getLastResetPositionUs());
       decoderReceivedBuffers = false;
     }
   }
@@ -581,6 +588,13 @@ public abstract class DecoderAudioRenderer<
       updateCurrentPosition();
     }
     return currentPositionUs;
+  }
+
+  @Override
+  public boolean hasSkippedSilenceSinceLastCall() {
+    boolean hasPendingReportedSkippedSilence = this.hasPendingReportedSkippedSilence;
+    this.hasPendingReportedSkippedSilence = false;
+    return hasPendingReportedSkippedSilence;
   }
 
   @Override
@@ -609,13 +623,10 @@ public abstract class DecoderAudioRenderer<
 
   @Override
   protected void onPositionReset(long positionUs, boolean joining) throws ExoPlaybackException {
-    if (experimentalKeepAudioTrackOnSeek) {
-      audioSink.experimentalFlushWithoutAudioTrackRelease();
-    } else {
-      audioSink.flush();
-    }
+    audioSink.flush();
 
     currentPositionUs = positionUs;
+    hasPendingReportedSkippedSilence = false;
     allowPositionDiscontinuity = true;
     inputStreamEnded = false;
     outputStreamEnded = false;
@@ -640,6 +651,7 @@ public abstract class DecoderAudioRenderer<
     inputFormat = null;
     audioTrackNeedsConfigure = true;
     setOutputStreamOffsetUs(C.TIME_UNSET);
+    hasPendingReportedSkippedSilence = false;
     try {
       setSourceDrmSession(null);
       releaseDecoder();
@@ -737,6 +749,7 @@ public abstract class DecoderAudioRenderer<
       long codecInitializingTimestamp = SystemClock.elapsedRealtime();
       TraceUtil.beginSection("createAudioDecoder");
       decoder = createDecoder(inputFormat, cryptoConfig);
+      decoder.setOutputStartTimeUs(getLastResetPositionUs());
       TraceUtil.endSection();
       long codecInitializedTimestamp = SystemClock.elapsedRealtime();
       eventDispatcher.decoderInitialized(
@@ -839,6 +852,11 @@ public abstract class DecoderAudioRenderer<
     }
 
     @Override
+    public void onSilenceSkipped() {
+      hasPendingReportedSkippedSilence = true;
+    }
+
+    @Override
     public void onPositionAdvancing(long playoutStartSystemTimeMs) {
       eventDispatcher.positionAdvancing(playoutStartSystemTimeMs);
     }
@@ -857,6 +875,16 @@ public abstract class DecoderAudioRenderer<
     public void onAudioSinkError(Exception audioSinkError) {
       Log.e(TAG, "Audio sink error", audioSinkError);
       eventDispatcher.audioSinkError(audioSinkError);
+    }
+
+    @Override
+    public void onAudioTrackInitialized(AudioSink.AudioTrackConfig audioTrackConfig) {
+      eventDispatcher.audioTrackInitialized(audioTrackConfig);
+    }
+
+    @Override
+    public void onAudioTrackReleased(AudioSink.AudioTrackConfig audioTrackConfig) {
+      eventDispatcher.audioTrackReleased(audioTrackConfig);
     }
   }
 

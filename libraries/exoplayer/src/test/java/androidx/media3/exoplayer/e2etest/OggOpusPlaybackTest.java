@@ -15,13 +15,14 @@
  */
 package androidx.media3.exoplayer.e2etest;
 
-import static androidx.media3.common.TrackSelectionParameters.AUDIO_OFFLOAD_MODE_PREFERENCE_ENABLED;
+import static androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_REQUIRED;
 
 import android.content.Context;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
+import androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.audio.AudioOffloadSupport;
@@ -39,12 +40,13 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
-public class OggOpusPlaybackTest {
+public final class OggOpusPlaybackTest {
 
   public static final String INPUT_FILE = "bear.opus";
 
@@ -52,23 +54,31 @@ public class OggOpusPlaybackTest {
   public ShadowMediaCodecConfig mediaCodecConfig =
       ShadowMediaCodecConfig.forAllSupportedMimeTypes();
 
-  @Test
-  public void checkOggOpusEncodings() throws Exception {
-    Context applicationContext = ApplicationProvider.getApplicationContext();
-    OffloadRenderersFactory offloadRenderersFactory =
-        new OffloadRenderersFactory(applicationContext);
-    DefaultTrackSelector trackSelector = new DefaultTrackSelector(applicationContext);
+  public FakeClock fakeClock;
+  public OffloadRenderersFactory offloadRenderersFactory;
+  public DefaultTrackSelector trackSelector;
+
+  @Before
+  public void setUp() {
+    fakeClock = new FakeClock(/* isAutoAdvancing= */ true);
+    offloadRenderersFactory =
+        new OffloadRenderersFactory(ApplicationProvider.getApplicationContext());
+    trackSelector = new DefaultTrackSelector(ApplicationProvider.getApplicationContext());
     trackSelector.setParameters(
         trackSelector
             .buildUponParameters()
-            .setAudioOffloadPreference(
-                AUDIO_OFFLOAD_MODE_PREFERENCE_ENABLED,
-                /* isGaplessSupportRequired= */ false,
-                /* isSpeedChangeSupportRequired= */ false)
+            .setAudioOffloadPreferences(
+                new AudioOffloadPreferences.Builder()
+                    .setAudioOffloadMode(AUDIO_OFFLOAD_MODE_REQUIRED)
+                    .build())
             .build());
+  }
+
+  @Test
+  public void oggOpusPlayback_generatesCorrectOggOpusEncodings() throws Exception {
     ExoPlayer player =
-        new ExoPlayer.Builder(applicationContext, offloadRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+        new ExoPlayer.Builder(ApplicationProvider.getApplicationContext(), offloadRenderersFactory)
+            .setClock(fakeClock)
             .setTrackSelector(trackSelector)
             .build();
     player.setMediaItem(MediaItem.fromUri("asset:///media/ogg/" + INPUT_FILE));
@@ -79,12 +89,33 @@ public class OggOpusPlaybackTest {
     player.release();
 
     DumpFileAsserts.assertOutput(
-        applicationContext,
+        ApplicationProvider.getApplicationContext(),
         offloadRenderersFactory,
         "playbackdumps/ogg/" + INPUT_FILE + ".oggOpus.dump");
   }
 
-  private static class OffloadRenderersFactory extends DefaultRenderersFactory
+  @Test
+  public void oggOpusPlayback_withSeek_generatesCorrectOggOpusEncodings() throws Exception {
+    ExoPlayer player =
+        new ExoPlayer.Builder(ApplicationProvider.getApplicationContext(), offloadRenderersFactory)
+            .setClock(fakeClock)
+            .setTrackSelector(trackSelector)
+            .build();
+    player.setMediaItem(MediaItem.fromUri("asset:///media/ogg/" + INPUT_FILE));
+    player.prepare();
+    player.seekTo(/* positionMs= */ 1415);
+    player.play();
+
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    player.release();
+
+    DumpFileAsserts.assertOutput(
+        ApplicationProvider.getApplicationContext(),
+        offloadRenderersFactory,
+        "playbackdumps/ogg/" + INPUT_FILE + ".oggOpusWithSeek.dump");
+  }
+
+  private static final class OffloadRenderersFactory extends DefaultRenderersFactory
       implements Dumper.Dumpable {
 
     private DumpingAudioSink dumpingAudioSink;
@@ -114,7 +145,8 @@ public class OggOpusPlaybackTest {
     }
   }
 
-  private static class DumpingAudioSink extends ForwardingAudioSink implements Dumper.Dumpable {
+  private static final class DumpingAudioSink extends ForwardingAudioSink
+      implements Dumper.Dumpable {
     /** All handleBuffer interactions recorded with this audio sink. */
     private final List<CapturedInputBuffer> capturedInteractions;
 
@@ -171,14 +203,14 @@ public class OggOpusPlaybackTest {
       buffer.position(originalPosition);
       return bytes;
     }
-  }
 
-  /** Data record */
-  private static class CapturedInputBuffer {
-    private final byte[] contents;
+    /** Data record */
+    private static final class CapturedInputBuffer {
+      private final byte[] contents;
 
-    private CapturedInputBuffer(byte[] contents) {
-      this.contents = contents;
+      private CapturedInputBuffer(byte[] contents) {
+        this.contents = contents;
+      }
     }
   }
 }

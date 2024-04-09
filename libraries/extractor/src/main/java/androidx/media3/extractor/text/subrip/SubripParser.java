@@ -22,8 +22,12 @@ import android.text.Spanned;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
+import androidx.media3.common.C;
+import androidx.media3.common.Format;
+import androidx.media3.common.Format.CueReplacementBehavior;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
@@ -33,12 +37,20 @@ import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** A {@link SubtitleParser} for SubRip. */
 @UnstableApi
 public final class SubripParser implements SubtitleParser {
+
+  /**
+   * The {@link CueReplacementBehavior} for consecutive {@link CuesWithTiming} emitted by this
+   * implementation.
+   */
+  public static final @CueReplacementBehavior int CUE_REPLACEMENT_BEHAVIOR =
+      Format.CUE_REPLACEMENT_BEHAVIOR_MERGE;
 
   // Fractional positions for use when alignment tags are present.
   private static final float START_FRACTION = 0.08f;
@@ -77,15 +89,27 @@ public final class SubripParser implements SubtitleParser {
     parsableByteArray = new ParsableByteArray();
   }
 
-  @Nullable
   @Override
-  public ImmutableList<CuesWithTiming> parse(byte[] data, int offset, int length) {
-    ImmutableList.Builder<CuesWithTiming> cues = new ImmutableList.Builder<>();
+  public @CueReplacementBehavior int getCueReplacementBehavior() {
+    return CUE_REPLACEMENT_BEHAVIOR;
+  }
 
+  @Override
+  public void parse(
+      byte[] data,
+      int offset,
+      int length,
+      OutputOptions outputOptions,
+      Consumer<CuesWithTiming> output) {
     parsableByteArray.reset(data, /* limit= */ offset + length);
     parsableByteArray.setPosition(offset);
     Charset charset = detectUtfCharset(parsableByteArray);
 
+    @Nullable
+    List<CuesWithTiming> cuesWithTimingBeforeRequestedStartTimeUs =
+        outputOptions.startTimeUs != C.TIME_UNSET && outputOptions.outputAllCues
+            ? new ArrayList<>()
+            : null;
     @Nullable String currentLine;
     while ((currentLine = parsableByteArray.readLine(charset)) != null) {
       if (currentLine.length() == 0) {
@@ -142,13 +166,25 @@ public final class SubripParser implements SubtitleParser {
           break;
         }
       }
-      cues.add(
-          new CuesWithTiming(
-              ImmutableList.of(buildCue(text, alignmentTag)),
-              startTimeUs,
-              /* durationUs= */ endTimeUs - startTimeUs));
+      if (outputOptions.startTimeUs == C.TIME_UNSET || startTimeUs >= outputOptions.startTimeUs) {
+        output.accept(
+            new CuesWithTiming(
+                ImmutableList.of(buildCue(text, alignmentTag)),
+                startTimeUs,
+                /* durationUs= */ endTimeUs - startTimeUs));
+      } else if (cuesWithTimingBeforeRequestedStartTimeUs != null) {
+        cuesWithTimingBeforeRequestedStartTimeUs.add(
+            new CuesWithTiming(
+                ImmutableList.of(buildCue(text, alignmentTag)),
+                startTimeUs,
+                /* durationUs= */ endTimeUs - startTimeUs));
+      }
     }
-    return cues.build();
+    if (cuesWithTimingBeforeRequestedStartTimeUs != null) {
+      for (CuesWithTiming cuesWithTiming : cuesWithTimingBeforeRequestedStartTimeUs) {
+        output.accept(cuesWithTiming);
+      }
+    }
   }
 
   /**

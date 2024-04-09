@@ -17,6 +17,8 @@ package androidx.media3.common.util;
 
 import static androidx.media3.common.util.Util.binarySearchCeil;
 import static androidx.media3.common.util.Util.binarySearchFloor;
+import static androidx.media3.common.util.Util.contentEquals;
+import static androidx.media3.common.util.Util.contentHashCode;
 import static androidx.media3.common.util.Util.escapeFileName;
 import static androidx.media3.common.util.Util.getCodecsOfType;
 import static androidx.media3.common.util.Util.getStringForTime;
@@ -42,6 +44,7 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
+import android.util.SparseArray;
 import android.util.SparseLongArray;
 import androidx.media3.common.C;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -55,6 +58,7 @@ import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Formatter;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
@@ -851,6 +855,26 @@ public class UtilTest {
   }
 
   @Test
+  public void durationToSampleCount_doesntOverflowWithLargeDuration() {
+    // Choose a durationUs & sampleRate that will overflow a signed 64-bit integer if they are
+    // multiplied together, but not if the durationUs is converted to seconds first.
+    long sampleCount =
+        Util.durationUsToSampleCount(
+            /* durationUs= */ Long.MAX_VALUE / 100_000, /* sampleRate= */ 192_000);
+    assertThat(sampleCount).isEqualTo(17708874310762L);
+  }
+
+  @Test
+  public void sampleCountToDuration_doesntOverflowWithLargeDuration() {
+    // Choose a sampleCount that will overflow a signed 64-bit integer if it is multiplied directly
+    // by C.MICROS_PER_SECOND, but not if it is divided by sampleRate first.
+    long durationUs =
+        Util.sampleCountToDurationUs(
+            /* sampleCount= */ Long.MAX_VALUE / 100_000, /* sampleRate= */ 192_000);
+    assertThat(durationUs).isEqualTo(480383960252848L);
+  }
+
+  @Test
   public void parseXsDuration_returnsParsedDurationInMillis() {
     assertThat(parseXsDuration("PT150.279S")).isEqualTo(150279L);
     assertThat(parseXsDuration("PT1.500S")).isEqualTo(1500L);
@@ -1237,7 +1261,6 @@ public class UtilTest {
 
   @Test
   public void getErrorCodeFromPlatformDiagnosticsInfo_withInvalidInput_returnsZero() {
-    // TODO (internal b/192337376): Change 0 for ERROR_UNKNOWN once available.
     assertThat(Util.getErrorCodeFromPlatformDiagnosticsInfo("")).isEqualTo(0);
     assertThat(Util.getErrorCodeFromPlatformDiagnosticsInfo("android.media.MediaDrm.empty"))
         .isEqualTo(0);
@@ -1485,6 +1508,93 @@ public class UtilTest {
 
     assertThat(outputFuture.isDone()).isTrue();
     assertThat(outputFuture.get()).isEqualTo(expectedOutput);
+  }
+
+  @Test
+  public void getSelectionFlagStrings() {
+    List<String> selectionFlags =
+        Util.getSelectionFlagStrings(C.SELECTION_FLAG_AUTOSELECT | C.SELECTION_FLAG_FORCED);
+
+    assertThat(selectionFlags).containsExactly("auto", "forced");
+  }
+
+  @Test
+  public void getRoleFlagStrings() {
+    List<String> roleFlags =
+        Util.getRoleFlagStrings(C.ROLE_FLAG_DESCRIBES_MUSIC_AND_SOUND | C.ROLE_FLAG_EASY_TO_READ);
+
+    assertThat(roleFlags).containsExactly("describes-music", "easy-read");
+  }
+
+  @Test
+  public void contentEquals_twoNullSparseArrays_returnsTrue() {
+    assertThat(contentEquals(null, null)).isTrue();
+  }
+
+  @Test
+  public void contentEquals_oneNullSparseArrayAndOneNonNullSparseArray_returnsFalse() {
+    SparseArray<Integer> sparseArray = new SparseArray<>();
+    sparseArray.put(1, 2);
+
+    assertThat(contentEquals(sparseArray, null)).isFalse();
+    assertThat(contentEquals(null, sparseArray)).isFalse();
+  }
+
+  @Test
+  @Config(minSdk = 16) // Specifies the minimum SDK to enforce the test to run with all API levels.
+  public void contentEquals_sparseArraysWithEqualContent_returnsTrue() {
+    SparseArray<Integer> sparseArray1 = new SparseArray<>();
+    sparseArray1.put(1, 2);
+    sparseArray1.put(3, 4);
+    SparseArray<Integer> sparseArray2 = new SparseArray<>();
+    sparseArray2.put(3, 4);
+    sparseArray2.put(1, 2);
+
+    assertThat(contentEquals(sparseArray1, sparseArray2)).isTrue();
+  }
+
+  @Test
+  @Config(minSdk = 16) // Specifies the minimum SDK to enforce the test to run with all API levels.
+  public void contentEquals_sparseArraysWithDifferentContents_returnsFalse() {
+    SparseArray<Integer> sparseArray1 = new SparseArray<>();
+    sparseArray1.put(1, 2);
+    sparseArray1.put(3, 4);
+    SparseArray<Integer> sparseArray2 = new SparseArray<>();
+    sparseArray2.put(3, 4);
+    SparseArray<Integer> sparseArray3 = new SparseArray<>();
+    sparseArray3.put(1, 3);
+    sparseArray3.put(3, 4);
+
+    assertThat(contentEquals(sparseArray1, sparseArray2)).isFalse();
+    assertThat(contentEquals(sparseArray1, sparseArray3)).isFalse();
+  }
+
+  @Test
+  @Config(minSdk = 16) // Specifies the minimum SDK to enforce the test to run with all API levels.
+  public void contentHashCode_sparseArraysWithEqualContent_returnsEqualContentHashCode() {
+    SparseArray<Integer> sparseArray1 = new SparseArray<>();
+    sparseArray1.put(1, 2);
+    sparseArray1.put(3, 4);
+    SparseArray<Integer> sparseArray2 = new SparseArray<>();
+    sparseArray2.put(3, 4);
+    sparseArray2.put(1, 2);
+
+    assertThat(contentHashCode(sparseArray1)).isEqualTo(contentHashCode(sparseArray2));
+  }
+
+  @Test
+  @Config(minSdk = 16) // Specifies the minimum SDK to enforce the test to run with all API levels.
+  public void contentHashCode_sparseArraysWithDifferentContent_returnsDifferentContentHashCode() {
+    // In theory this is not guaranteed though, adding this test to ensure a sensible
+    // contentHashCode implementation.
+    SparseArray<Integer> sparseArray1 = new SparseArray<>();
+    sparseArray1.put(1, 2);
+    sparseArray1.put(3, 4);
+    SparseArray<Integer> sparseArray2 = new SparseArray<>();
+    sparseArray2.put(3, 2);
+    sparseArray2.put(1, 4);
+
+    assertThat(contentHashCode(sparseArray1)).isNotEqualTo(contentHashCode(sparseArray2));
   }
 
   private static void assertEscapeUnescapeFileName(String fileName, String escapedFileName) {

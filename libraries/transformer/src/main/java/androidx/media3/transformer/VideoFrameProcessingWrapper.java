@@ -21,26 +21,22 @@ import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_SURFACE;
 import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_TEXTURE_ID;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 
-import android.content.Context;
 import android.graphics.Bitmap;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.ColorInfo;
-import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.FrameInfo;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.OnInputFrameProcessedListener;
 import androidx.media3.common.SurfaceInfo;
-import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.effect.Presentation;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
-import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 
 /** A wrapper for {@link VideoFrameProcessor} that handles {@link GraphInput} events. */
@@ -52,31 +48,16 @@ import java.util.concurrent.atomic.AtomicLong;
   @Nullable final Presentation presentation;
 
   public VideoFrameProcessingWrapper(
-      Context context,
-      VideoFrameProcessor.Factory videoFrameProcessorFactory,
+      VideoFrameProcessor videoFrameProcessor,
       ColorInfo inputColorInfo,
-      ColorInfo outputColorInfo,
-      DebugViewProvider debugViewProvider,
-      Executor listenerExecutor,
-      VideoFrameProcessor.Listener listener,
-      boolean renderFramesAutomatically,
       @Nullable Presentation presentation,
-      long initialTimestampOffsetUs)
-      throws VideoFrameProcessingException {
+      long initialTimestampOffsetUs) {
+    this.videoFrameProcessor = videoFrameProcessor;
     this.mediaItemOffsetUs = new AtomicLong();
+    // TODO: b/307952514 - Remove inputColorInfo reference.
     this.inputColorInfo = inputColorInfo;
     this.initialTimestampOffsetUs = initialTimestampOffsetUs;
     this.presentation = presentation;
-
-    videoFrameProcessor =
-        videoFrameProcessorFactory.create(
-            context,
-            debugViewProvider,
-            inputColorInfo,
-            outputColorInfo,
-            renderFramesAutomatically,
-            listenerExecutor,
-            listener);
   }
 
   @Override
@@ -90,7 +71,7 @@ import java.util.concurrent.atomic.AtomicLong;
       videoFrameProcessor.registerInputStream(
           getInputType(checkNotNull(trackFormat.sampleMimeType)),
           createEffectListWithPresentation(editedMediaItem.effects.videoEffects, presentation),
-          new FrameInfo.Builder(decodedSize.getWidth(), decodedSize.getHeight())
+          new FrameInfo.Builder(inputColorInfo, decodedSize.getWidth(), decodedSize.getHeight())
               .setPixelWidthHeightRatio(trackFormat.pixelWidthHeightRatio)
               .setOffsetToAddUs(initialTimestampOffsetUs + mediaItemOffsetUs.get())
               .build());
@@ -100,8 +81,8 @@ import java.util.concurrent.atomic.AtomicLong;
 
   @Override
   public @InputResult int queueInputBitmap(
-      Bitmap inputBitmap, TimestampIterator inStreamOffsetsUs) {
-    return videoFrameProcessor.queueInputBitmap(inputBitmap, inStreamOffsetsUs)
+      Bitmap inputBitmap, TimestampIterator timestampIterator) {
+    return videoFrameProcessor.queueInputBitmap(inputBitmap, timestampIterator)
         ? INPUT_RESULT_SUCCESS
         : INPUT_RESULT_TRY_AGAIN_LATER;
   }

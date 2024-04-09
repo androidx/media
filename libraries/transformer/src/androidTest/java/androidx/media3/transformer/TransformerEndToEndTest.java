@@ -16,6 +16,7 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.transformer.AndroidTestUtil.JPG_ASSET_URI_STRING;
 import static androidx.media3.transformer.AndroidTestUtil.MP3_ASSET_URI_STRING;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_FORMAT;
@@ -23,11 +24,18 @@ import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_URI_STRING;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_URI_STRING;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_URI_STRING;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_URI_STRING;
 import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET_URI_STRING;
 import static androidx.media3.transformer.AndroidTestUtil.createOpenGlObjects;
 import static androidx.media3.transformer.AndroidTestUtil.generateTextureFromBitmap;
+import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
+import static androidx.media3.transformer.ExportResult.OPTIMIZATION_ABANDONED_KEYFRAME_PLACEMENT_OPTIMAL_FOR_TRIM;
+import static androidx.media3.transformer.ExportResult.OPTIMIZATION_ABANDONED_TRIM_AND_TRANSCODING_TRANSFORMATION_REQUESTED;
+import static androidx.media3.transformer.ExportResult.OPTIMIZATION_FAILED_FORMAT_MISMATCH;
+import static androidx.media3.transformer.ExportResult.OPTIMIZATION_SUCCEEDED;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -49,6 +57,7 @@ import androidx.media3.common.audio.ChannelMixingAudioProcessor;
 import androidx.media3.common.audio.ChannelMixingMatrix;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.util.GlUtil;
+import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.effect.Contrast;
 import androidx.media3.effect.DefaultGlObjectsProvider;
@@ -56,6 +65,7 @@ import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.FrameCache;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.RgbFilter;
+import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.effect.TimestampWrapper;
 import androidx.media3.exoplayer.audio.TeeAudioProcessor;
 import androidx.test.core.app.ApplicationProvider;
@@ -328,7 +338,7 @@ public class TransformerEndToEndTest {
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, transformer)
             .build()
-            .run(/* testId= */ "videoEditing_completesWithConsistentFrameCount", editedMediaItem);
+            .run(testId, editedMediaItem);
 
     assertThat(result.exportResult.videoFrameCount).isEqualTo(expectedFrameCount);
   }
@@ -369,9 +379,7 @@ public class TransformerEndToEndTest {
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, transformer)
             .build()
-            .run(
-                /* testId= */ "videoEditing_effectsOverTime_completesWithConsistentFrameCount",
-                editedMediaItem);
+            .run(testId, editedMediaItem);
 
     assertThat(result.exportResult.videoFrameCount).isEqualTo(expectedFrameCount);
   }
@@ -401,7 +409,7 @@ public class TransformerEndToEndTest {
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, transformer)
             .build()
-            .run(/* testId= */ "videoOnly_completesWithConsistentDuration", editedMediaItem);
+            .run(testId, editedMediaItem);
 
     assertThat(result.exportResult.durationMs).isEqualTo(expectedDurationMs);
   }
@@ -432,9 +440,225 @@ public class TransformerEndToEndTest {
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, transformer)
             .build()
-            .run(/* testId= */ "clippedMedia_completesWithClippedDuration", mediaItem);
+            .run(testId, mediaItem);
 
     assertThat(result.exportResult.durationMs).isAtMost(clippingEndMs - clippingStartMs);
+  }
+
+  @Test
+  public void clippedMedia_trimOptimizationEnabled_fallbackToNormalExportUponFormatMismatch()
+      throws Exception {
+    String testId = "clippedMedia_trimOptimizationEnabled_fallbackToNormalExportUponFormatMismatch";
+    if (AndroidTestUtil.skipAndLogIfFormatsUnsupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT)) {
+      return;
+    }
+    Transformer transformer =
+        new Transformer.Builder(context).experimentalSetTrimOptimizationEnabled(true).build();
+    long clippingStartMs = 10_000;
+    long clippingEndMs = 13_000;
+    // The file is made artificially on computer software so phones will not have the encoder
+    // available to match the csd.
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_URI_STRING))
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder()
+                    .setStartPositionMs(clippingStartMs)
+                    .setEndPositionMs(clippingEndMs)
+                    .build())
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, mediaItem);
+
+    assertThat(result.exportResult.optimizationResult)
+        .isEqualTo(OPTIMIZATION_FAILED_FORMAT_MISMATCH);
+    assertThat(result.exportResult.durationMs).isAtMost(clippingEndMs - clippingStartMs);
+  }
+
+  @Test
+  public void
+      clippedMedia_trimOptimizationEnabled_noKeyFrameBetweenClipTimes_fallbackToNormalExport()
+          throws Exception {
+    String testId =
+        "clippedMedia_trimOptimizationEnabled_noKeyFrameBetweenClipTimes_fallbackToNormalExport";
+    if (AndroidTestUtil.skipAndLogIfFormatsUnsupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT)) {
+      return;
+    }
+    Transformer transformer =
+        new Transformer.Builder(context).experimentalSetTrimOptimizationEnabled(true).build();
+    long clippingStartMs = 10_000;
+    long clippingEndMs = 11_000;
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_URI_STRING))
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder()
+                    .setStartPositionMs(clippingStartMs)
+                    .setEndPositionMs(clippingEndMs)
+                    .build())
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, mediaItem);
+
+    assertThat(result.exportResult.optimizationResult)
+        .isEqualTo(OPTIMIZATION_ABANDONED_KEYFRAME_PLACEMENT_OPTIMAL_FOR_TRIM);
+    assertThat(result.exportResult.durationMs).isAtMost(clippingEndMs - clippingStartMs);
+  }
+
+  @Test
+  public void
+      clippedMedia_trimOptimizationEnabled_noKeyFramesAfterClipStart_fallbackToNormalExport()
+          throws Exception {
+    String testId =
+        "clippedMedia_trimOptimizationEnabled_noKeyFramesAfterClipStart_fallbackToNormalExport";
+    if (AndroidTestUtil.skipAndLogIfFormatsUnsupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT)) {
+      return;
+    }
+    Transformer transformer =
+        new Transformer.Builder(context).experimentalSetTrimOptimizationEnabled(true).build();
+    long clippingStartMs = 14_500;
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_URI_STRING))
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder()
+                    .setStartPositionMs(clippingStartMs)
+                    .build())
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, mediaItem);
+
+    assertThat(result.exportResult.optimizationResult)
+        .isEqualTo(OPTIMIZATION_ABANDONED_KEYFRAME_PLACEMENT_OPTIMAL_FOR_TRIM);
+    // The asset is 15 s 537 ms long.
+    assertThat(result.exportResult.durationMs).isAtMost(1_017);
+  }
+
+  @Test
+  public void clippedMedia_trimOptimizationEnabled_completesWithOptimizationApplied()
+      throws Exception {
+    String testId = "clippedMedia_trimOptimizationEnabled_completesWithOptimizationApplied";
+    if (!isRunningOnEmulator() || Util.SDK_INT != 33) {
+      // The trim optimization is only guaranteed to work on emulator for this (emulator-transcoded)
+      // file.
+      recordTestSkipped(context, testId, /* reason= */ "SDK 33 Emulator only test");
+      assumeTrue(false);
+    }
+    Transformer transformer =
+        new Transformer.Builder(context).experimentalSetTrimOptimizationEnabled(true).build();
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(MP4_TRIM_OPTIMIZATION_URI_STRING)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder()
+                    .setStartPositionMs(500)
+                    .setEndPositionMs(2500)
+                    .build())
+            .build();
+    EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    assertThat(result.exportResult.optimizationResult).isEqualTo(OPTIMIZATION_SUCCEEDED);
+    assertThat(result.exportResult.durationMs).isAtMost(2000);
+  }
+
+  @Test
+  public void
+      clippedMedia_trimOptimizationEnabled_audioRemovedAndRotated_completesWithOptimizationApplied()
+          throws Exception {
+    String testId = "clippedMedia_trimOptimizationEnabled_completesWithOptimizationApplied";
+    if (!isRunningOnEmulator() || Util.SDK_INT != 33) {
+      // The trim optimization is only guaranteed to work on emulator for this (emulator-transcoded)
+      // file.
+      recordTestSkipped(context, testId, /* reason= */ "SDK 33 Emulator only test");
+      assumeTrue(false);
+    }
+    Transformer transformer =
+        new Transformer.Builder(context).experimentalSetTrimOptimizationEnabled(true).build();
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(MP4_TRIM_OPTIMIZATION_URI_STRING)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder()
+                    .setStartPositionMs(500)
+                    .setEndPositionMs(2500)
+                    .build())
+            .build();
+    Effects effects =
+        new Effects(
+            /* audioProcessors= */ ImmutableList.of(),
+            ImmutableList.of(
+                new ScaleAndRotateTransformation.Builder().setRotationDegrees(90).build()));
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(mediaItem).setRemoveAudio(true).setEffects(effects).build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    assertThat(result.exportResult.optimizationResult).isEqualTo(OPTIMIZATION_SUCCEEDED);
+    assertThat(result.exportResult.durationMs).isAtMost(2000);
+  }
+
+  @Test
+  public void videoEditing_trimOptimizationEnabled_fallbackToNormalExport() throws Exception {
+    String testId = "videoEditing_trimOptimizationEnabled_fallbackToNormalExport";
+    Transformer transformer =
+        new Transformer.Builder(context).experimentalSetTrimOptimizationEnabled(true).build();
+    if (!isRunningOnEmulator()) {
+      // The trim optimization is only guaranteed to work on emulator for this (emulator-transcoded)
+      // file.
+      recordTestSkipped(context, testId, /* reason= */ "Emulator only test");
+      assumeTrue(false);
+    }
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(MP4_TRIM_OPTIMIZATION_URI_STRING)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder()
+                    .setStartPositionMs(500)
+                    .setEndPositionMs(2500)
+                    .build())
+            .build();
+    ImmutableList<Effect> videoEffects = ImmutableList.of(Presentation.createForHeight(480));
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(mediaItem)
+            .setEffects(new Effects(/* audioProcessors= */ ImmutableList.of(), videoEffects))
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    assertThat(result.exportResult.optimizationResult)
+        .isEqualTo(OPTIMIZATION_ABANDONED_TRIM_AND_TRANSCODING_TRANSFORMATION_REQUESTED);
   }
 
   @Test
@@ -462,9 +686,7 @@ public class TransformerEndToEndTest {
             () ->
                 new TransformerAndroidTestRunner.Builder(context, transformer)
                     .build()
-                    .run(
-                        /* testId= */ "videoEncoderFormatUnsupported_completesWithError",
-                        editedMediaItem));
+                    .run(testId, editedMediaItem));
 
     assertThat(exception).hasCauseThat().isInstanceOf(IllegalArgumentException.class);
     assertThat(exception.errorCode).isEqualTo(ExportException.ERROR_CODE_ENCODER_INIT_FAILED);

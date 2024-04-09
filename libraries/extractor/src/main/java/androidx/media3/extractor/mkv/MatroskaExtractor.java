@@ -56,6 +56,8 @@ import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.TrueHdSampleRechunker;
+import androidx.media3.extractor.text.SubtitleParser;
+import androidx.media3.extractor.text.SubtitleTranscodingExtractorOutput;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.lang.annotation.Documented;
@@ -80,19 +82,24 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 @UnstableApi
 public class MatroskaExtractor implements Extractor {
 
-  /** Factory for {@link MatroskaExtractor} instances. */
-  public static final ExtractorsFactory FACTORY = () -> new Extractor[] {new MatroskaExtractor()};
+  /**
+   * Creates a factory for {@link MatroskaExtractor} instances with the provided {@link
+   * SubtitleParser.Factory}.
+   */
+  public static ExtractorsFactory newFactory(SubtitleParser.Factory subtitleParserFactory) {
+    return () -> new Extractor[] {new MatroskaExtractor(subtitleParserFactory)};
+  }
 
   /**
-   * Flags controlling the behavior of the extractor. Possible flag value is {@link
-   * #FLAG_DISABLE_SEEK_FOR_CUES}.
+   * Flags controlling the behavior of the extractor. Possible flag values are {@link
+   * #FLAG_DISABLE_SEEK_FOR_CUES} and {#FLAG_EMIT_RAW_SUBTITLE_DATA}.
    */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)
   @IntDef(
       flag = true,
-      value = {FLAG_DISABLE_SEEK_FOR_CUES})
+      value = {FLAG_DISABLE_SEEK_FOR_CUES, FLAG_EMIT_RAW_SUBTITLE_DATA})
   public @interface Flags {}
 
   /**
@@ -104,6 +111,22 @@ public class MatroskaExtractor implements Extractor {
    * media is treated as being unseekable.
    */
   public static final int FLAG_DISABLE_SEEK_FOR_CUES = 1;
+
+  /**
+   * Flag to use the source subtitle formats without modification. If unset, subtitles will be
+   * transcoded to {@link MimeTypes#APPLICATION_MEDIA3_CUES} during extraction.
+   */
+  public static final int FLAG_EMIT_RAW_SUBTITLE_DATA = 1 << 1; // 2
+
+  /**
+   * @deprecated Use {@link #newFactory(SubtitleParser.Factory)} instead.
+   */
+  @Deprecated
+  public static final ExtractorsFactory FACTORY =
+      () ->
+          new Extractor[] {
+            new MatroskaExtractor(SubtitleParser.Factory.UNSUPPORTED, FLAG_EMIT_RAW_SUBTITLE_DATA)
+          };
 
   private static final String TAG = "MatroskaExtractor";
 
@@ -232,6 +255,7 @@ public class MatroskaExtractor implements Extractor {
   private static final int ID_STEREO_MODE = 0x53B8;
   private static final int ID_COLOUR = 0x55B0;
   private static final int ID_COLOUR_RANGE = 0x55B9;
+  private static final int ID_COLOUR_BITS_PER_CHANNEL = 0x55B2;
   private static final int ID_COLOUR_TRANSFER = 0x55BA;
   private static final int ID_COLOUR_PRIMARIES = 0x55BB;
   private static final int ID_MAX_CLL = 0x55BC;
@@ -396,6 +420,8 @@ public class MatroskaExtractor implements Extractor {
   private final VarintReader varintReader;
   private final SparseArray<Track> tracks;
   private final boolean seekForCuesEnabled;
+  private final boolean parseSubtitlesDuringExtraction;
+  private final SubtitleParser.Factory subtitleParserFactory;
 
   // Temporary arrays.
   private final ParsableByteArray nalStartCode;
@@ -466,18 +492,53 @@ public class MatroskaExtractor implements Extractor {
   // Extractor outputs.
   private @MonotonicNonNull ExtractorOutput extractorOutput;
 
+  /**
+   * @deprecated Use {@link #MatroskaExtractor(SubtitleParser.Factory)} instead.
+   */
+  @Deprecated
   public MatroskaExtractor() {
-    this(0);
+    this(new DefaultEbmlReader(), FLAG_EMIT_RAW_SUBTITLE_DATA, SubtitleParser.Factory.UNSUPPORTED);
   }
 
+  /**
+   * @deprecated Use {@link #MatroskaExtractor(SubtitleParser.Factory, int)} instead.
+   */
+  @Deprecated
   public MatroskaExtractor(@Flags int flags) {
-    this(new DefaultEbmlReader(), flags);
+    this(
+        new DefaultEbmlReader(),
+        flags | FLAG_EMIT_RAW_SUBTITLE_DATA,
+        SubtitleParser.Factory.UNSUPPORTED);
   }
 
-  /* package */ MatroskaExtractor(EbmlReader reader, @Flags int flags) {
+  /**
+   * Constructs an instance.
+   *
+   * @param subtitleParserFactory The {@link SubtitleParser.Factory} for parsing subtitles during
+   *     extraction.
+   */
+  public MatroskaExtractor(SubtitleParser.Factory subtitleParserFactory) {
+    this(new DefaultEbmlReader(), /* flags= */ 0, subtitleParserFactory);
+  }
+
+  /**
+   * Constructs an instance.
+   *
+   * @param subtitleParserFactory The {@link SubtitleParser.Factory} for parsing subtitles during
+   *     extraction.
+   * @param flags Flags that control the extractor's behavior.
+   */
+  public MatroskaExtractor(SubtitleParser.Factory subtitleParserFactory, @Flags int flags) {
+    this(new DefaultEbmlReader(), flags, subtitleParserFactory);
+  }
+
+  /* package */ MatroskaExtractor(
+      EbmlReader reader, @Flags int flags, SubtitleParser.Factory subtitleParserFactory) {
     this.reader = reader;
     this.reader.init(new InnerEbmlProcessor());
+    this.subtitleParserFactory = subtitleParserFactory;
     seekForCuesEnabled = (flags & FLAG_DISABLE_SEEK_FOR_CUES) == 0;
+    parseSubtitlesDuringExtraction = (flags & FLAG_EMIT_RAW_SUBTITLE_DATA) == 0;
     varintReader = new VarintReader();
     tracks = new SparseArray<>();
     scratch = new ParsableByteArray(4);
@@ -501,6 +562,10 @@ public class MatroskaExtractor implements Extractor {
   @Override
   public final void init(ExtractorOutput output) {
     extractorOutput = output;
+    extractorOutput =
+        parseSubtitlesDuringExtraction
+            ? new SubtitleTranscodingExtractorOutput(output, subtitleParserFactory)
+            : output;
   }
 
   @CallSuper
@@ -608,6 +673,7 @@ public class MatroskaExtractor implements Extractor {
       case ID_CUE_CLUSTER_POSITION:
       case ID_REFERENCE_BLOCK:
       case ID_STEREO_MODE:
+      case ID_COLOUR_BITS_PER_CHANNEL:
       case ID_COLOUR_RANGE:
       case ID_COLOUR_TRANSFER:
       case ID_COLOUR_PRIMARIES:
@@ -1016,6 +1082,11 @@ public class MatroskaExtractor implements Extractor {
         if (colorTransfer != Format.NO_VALUE) {
           currentTrack.colorTransfer = colorTransfer;
         }
+        break;
+      case ID_COLOUR_BITS_PER_CHANNEL:
+        assertInTrackEntry(id);
+        currentTrack.hasColorInfo = true;
+        currentTrack.bitsPerChannel = (int) value;
         break;
       case ID_COLOUR_RANGE:
         assertInTrackEntry(id);
@@ -2013,6 +2084,7 @@ public class MatroskaExtractor implements Extractor {
     // Video elements.
     public int width = Format.NO_VALUE;
     public int height = Format.NO_VALUE;
+    public int bitsPerChannel = Format.NO_VALUE;
     public int displayWidth = Format.NO_VALUE;
     public int displayHeight = Format.NO_VALUE;
     public int displayUnit = DISPLAY_UNIT_PIXELS;
@@ -2300,7 +2372,15 @@ public class MatroskaExtractor implements Extractor {
         @Nullable ColorInfo colorInfo = null;
         if (hasColorInfo) {
           @Nullable byte[] hdrStaticInfo = getHdrStaticInfo();
-          colorInfo = new ColorInfo(colorSpace, colorRange, colorTransfer, hdrStaticInfo);
+          colorInfo =
+              new ColorInfo.Builder()
+                  .setColorSpace(colorSpace)
+                  .setColorRange(colorRange)
+                  .setColorTransfer(colorTransfer)
+                  .setHdrStaticInfo(hdrStaticInfo)
+                  .setLumaBitdepth(bitsPerChannel)
+                  .setChromaBitdepth(bitsPerChannel)
+                  .build();
         }
         int rotationDegrees = Format.NO_VALUE;
 

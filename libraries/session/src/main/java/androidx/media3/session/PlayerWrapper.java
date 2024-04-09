@@ -21,6 +21,7 @@ import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_MEDIA_ID_COMPAT;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_PLAYBACK_SPEED_COMPAT;
+import static androidx.media3.session.MediaUtils.intersect;
 
 import android.media.AudioManager;
 import android.os.Bundle;
@@ -70,12 +71,43 @@ import java.util.List;
   @Nullable private String legacyErrorMessage;
   @Nullable private Bundle legacyErrorExtras;
   private ImmutableList<CommandButton> customLayout;
+  private SessionCommands availableSessionCommands;
+  private Commands availablePlayerCommands;
 
-  public PlayerWrapper(Player player, boolean playIfSuppressed) {
+  public PlayerWrapper(
+      Player player,
+      boolean playIfSuppressed,
+      ImmutableList<CommandButton> customLayout,
+      SessionCommands availableSessionCommands,
+      Commands availablePlayerCommands) {
     super(player);
     this.playIfSuppressed = playIfSuppressed;
+    this.customLayout = customLayout;
+    this.availableSessionCommands = availableSessionCommands;
+    this.availablePlayerCommands = availablePlayerCommands;
     legacyStatusCode = STATUS_CODE_SUCCESS_COMPAT;
-    customLayout = ImmutableList.of();
+  }
+
+  public void setAvailableCommands(
+      SessionCommands availableSessionCommands, Commands availablePlayerCommands) {
+    this.availableSessionCommands = availableSessionCommands;
+    this.availablePlayerCommands = availablePlayerCommands;
+  }
+
+  public SessionCommands getAvailableSessionCommands() {
+    return availableSessionCommands;
+  }
+
+  public Commands getAvailablePlayerCommands() {
+    return availablePlayerCommands;
+  }
+
+  public void setCustomLayout(ImmutableList<CommandButton> customLayout) {
+    this.customLayout = customLayout;
+  }
+
+  /* package */ ImmutableList<CommandButton> getCustomLayout() {
+    return customLayout;
   }
 
   /**
@@ -102,11 +134,6 @@ import java.util.List;
   /** Returns the legacy status code. */
   public int getLegacyStatusCode() {
     return legacyStatusCode;
-  }
-
-  /** Sets the custom layout. */
-  public void setCustomLayout(ImmutableList<CommandButton> customLayout) {
-    this.customLayout = customLayout;
   }
 
   /** Clears the legacy error status. */
@@ -499,6 +526,7 @@ import java.util.List;
     super.replaceMediaItems(fromIndex, toIndex, mediaItems);
   }
 
+  @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @Override
   public boolean hasPrevious() {
@@ -506,6 +534,7 @@ import java.util.List;
     return super.hasPrevious();
   }
 
+  @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @Override
   public boolean hasNext() {
@@ -513,6 +542,7 @@ import java.util.List;
     return super.hasNext();
   }
 
+  @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @Override
   public boolean hasPreviousWindow() {
@@ -520,6 +550,7 @@ import java.util.List;
     return super.hasPreviousWindow();
   }
 
+  @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @Override
   public boolean hasNextWindow() {
@@ -539,6 +570,7 @@ import java.util.List;
     return super.hasNextMediaItem();
   }
 
+  @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @Override
   public void previous() {
@@ -546,6 +578,7 @@ import java.util.List;
     super.previous();
   }
 
+  @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @Override
   public void next() {
@@ -553,6 +586,7 @@ import java.util.List;
     super.next();
   }
 
+  @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @Override
   public void seekToPreviousWindow() {
@@ -560,6 +594,7 @@ import java.util.List;
     super.seekToPreviousWindow();
   }
 
+  @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @Override
   public void seekToNextWindow() {
@@ -660,6 +695,7 @@ import java.util.List;
     return super.getMediaItemAt(index);
   }
 
+  @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @Override
   public int getCurrentWindowIndex() {
@@ -673,6 +709,7 @@ import java.util.List;
     return super.getCurrentMediaItemIndex();
   }
 
+  @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @Override
   public int getPreviousWindowIndex() {
@@ -686,6 +723,7 @@ import java.util.List;
     return super.getPreviousMediaItemIndex();
   }
 
+  @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @Override
   public int getNextWindowIndex() {
@@ -971,16 +1009,17 @@ import java.util.List;
           .build();
     }
     @Nullable PlaybackException playerError = getPlayerError();
-    int state = MediaUtils.convertToPlaybackStateCompatState(/* player= */ this, playIfSuppressed);
+    int state =
+        LegacyConversions.convertToPlaybackStateCompatState(/* player= */ this, playIfSuppressed);
     // Always advertise ACTION_SET_RATING.
     long actions = PlaybackStateCompat.ACTION_SET_RATING;
-    Commands availableCommands = getAvailableCommands();
+    Commands availableCommands = intersect(availablePlayerCommands, getAvailableCommands());
     for (int i = 0; i < availableCommands.size(); i++) {
       actions |= convertCommandToPlaybackStateActions(availableCommands.get(i));
     }
     long queueItemId =
         isCommandAvailable(COMMAND_GET_TIMELINE)
-            ? MediaUtils.convertToQueueItemId(getCurrentMediaItemIndex())
+            ? LegacyConversions.convertToQueueItemId(getCurrentMediaItemIndex())
             : MediaSessionCompat.QueueItem.UNKNOWN_ID;
     float playbackSpeed = getPlaybackParameters().speed;
     float sessionPlaybackSpeed = isPlaying() ? playbackSpeed : 0f;
@@ -1006,7 +1045,9 @@ import java.util.List;
       CommandButton commandButton = customLayout.get(i);
       if (commandButton.sessionCommand != null) {
         SessionCommand sessionCommand = commandButton.sessionCommand;
-        if (sessionCommand.commandCode == SessionCommand.COMMAND_CODE_CUSTOM) {
+        if (sessionCommand.commandCode == SessionCommand.COMMAND_CODE_CUSTOM
+            && CommandButton.isEnabled(
+                commandButton, availableSessionCommands, availablePlayerCommands)) {
           builder.addCustomAction(
               new PlaybackStateCompat.CustomAction.Builder(
                       sessionCommand.customAction,

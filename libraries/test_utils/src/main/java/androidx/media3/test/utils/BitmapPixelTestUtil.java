@@ -18,6 +18,7 @@ package androidx.media3.test.utils;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.SDK_INT;
+import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
 import static java.lang.Math.abs;
@@ -33,14 +34,12 @@ import android.graphics.PixelFormat;
 import android.media.Image;
 import android.opengl.GLES20;
 import android.opengl.GLES30;
-import android.opengl.GLUtils;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import com.google.common.base.Ascii;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -96,10 +95,7 @@ public class BitmapPixelTestUtil {
    * if running on physical devices.
    */
   public static final float MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE =
-      Ascii.toLowerCase(Util.DEVICE).contains("emulator")
-              || Ascii.toLowerCase(Util.DEVICE).contains("generic")
-          ? 1f
-          : MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_DIFFERENT_DEVICE;
+      isRunningOnEmulator() ? 1f : MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_DIFFERENT_DEVICE;
 
   /**
    * Maximum allowed average pixel difference between bitmaps with 16-bit primaries generated using
@@ -117,6 +113,13 @@ public class BitmapPixelTestUtil {
    * larger variance in decoder outputs between different physical devices and emulators.
    */
   public static final float MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_DIFFERENT_DEVICE_FP16 = .01f;
+
+  /**
+   * Maximum allowed average pixel difference between bitmaps generated from luma values.
+   *
+   * @see #MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE
+   */
+  public static final float MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_LUMA = 8.0f;
 
   /**
    * Reads a bitmap from the specified asset location.
@@ -493,15 +496,9 @@ public class BitmapPixelTestUtil {
    */
   @RequiresApi(17) // #flipBitmapVertically.
   public static int createGlTextureFromBitmap(Bitmap bitmap) throws GlUtil.GlException {
-    int texId =
-        GlUtil.createTexture(
-            bitmap.getWidth(), bitmap.getHeight(), /* useHighPrecisionColorComponents= */ false);
     // Put the flipped bitmap in the OpenGL texture as the bitmap's positive y-axis points down
     // while OpenGL's positive y-axis points up.
-    GLUtils.texImage2D(
-        GLES20.GL_TEXTURE_2D, /* level= */ 0, flipBitmapVertically(bitmap), /* border= */ 0);
-    GlUtil.checkGlError();
-    return texId;
+    return GlUtil.createTexture(flipBitmapVertically(bitmap));
   }
 
   @RequiresApi(17) // Bitmap#isPremultiplied.

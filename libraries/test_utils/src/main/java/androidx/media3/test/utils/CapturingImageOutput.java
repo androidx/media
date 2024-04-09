@@ -58,12 +58,19 @@ public final class CapturingImageOutput implements Dumpable, ImageOutput {
   }
 
   @Override
+  public void onDisabled() {
+    // Do nothing.
+  }
+
+  @Override
   public void dump(Dumper dumper) {
-    dumper.startBlock("ImageOutput");
-    dumper.add("rendered image count", imageCount);
-    for (Dumpable dumpable : renderedBitmaps) {
-      dumpable.dump(dumper);
+    if (imageCount > 0) {
+      dumper.startBlock("ImageOutput");
+      dumper.add("rendered image count", imageCount);
+      for (Dumpable dumpable : renderedBitmaps) {
+        dumpable.dump(dumper);
+      }
+      dumper.endBlock();
     }
-    dumper.endBlock();
   }
 }

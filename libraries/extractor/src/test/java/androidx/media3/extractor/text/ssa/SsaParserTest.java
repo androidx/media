@@ -15,6 +15,7 @@
  */
 package androidx.media3.extractor.text.ssa;
 
+import static androidx.media3.common.Format.CUE_REPLACEMENT_BEHAVIOR_MERGE;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
@@ -23,6 +24,8 @@ import android.text.Layout;
 import android.text.Spanned;
 import androidx.media3.common.text.Cue;
 import androidx.media3.extractor.text.CuesWithTiming;
+import androidx.media3.extractor.text.SubtitleParser;
+import androidx.media3.extractor.text.SubtitleParser.OutputOptions;
 import androidx.media3.test.utils.TestUtil;
 import androidx.media3.test.utils.truth.SpannedSubject;
 import androidx.test.core.app.ApplicationProvider;
@@ -61,10 +64,16 @@ public final class SsaParserTest {
   private static final String STYLE_STRIKEOUT = "media/ssa/style_strikeout";
 
   @Test
+  public void cuesReplacementBehaviorIsMerge() throws IOException {
+    SsaParser parser = new SsaParser();
+    assertThat(parser.getCueReplacementBehavior()).isEqualTo(CUE_REPLACEMENT_BEHAVIOR_MERGE);
+  }
+
+  @Test
   public void parseEmpty() throws IOException {
     SsaParser parser = new SsaParser();
     byte[] bytes = TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), EMPTY);
-    List<CuesWithTiming> allCues = parser.parse(bytes);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
 
     assertThat(allCues).isEmpty();
   }
@@ -74,7 +83,7 @@ public final class SsaParserTest {
     SsaParser parser = new SsaParser();
     byte[] bytes =
         TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), EMPTY_STYLE_LINE);
-    List<CuesWithTiming> allCues = parser.parse(bytes);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
 
     assertThat(allCues).hasSize(1);
     Cue cue = Iterables.getOnlyElement(allCues.get(0).cues);
@@ -94,7 +103,7 @@ public final class SsaParserTest {
   public void parseTypical() throws IOException {
     SsaParser parser = new SsaParser();
     byte[] bytes = TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TYPICAL);
-    List<CuesWithTiming> allCues = parser.parse(bytes);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
 
     assertThat(allCues).hasSize(3);
     // Check position, line, anchors & alignment are set from Alignment Style (2 - bottom-center).
@@ -116,6 +125,34 @@ public final class SsaParserTest {
   }
 
   @Test
+  public void parseTypical_onlyCuesAfterTime() throws IOException {
+    SsaParser parser = new SsaParser();
+    byte[] bytes = TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TYPICAL);
+    List<CuesWithTiming> cues = new ArrayList<>();
+    parser.parse(bytes, OutputOptions.onlyCuesAfter(/* startTimeUs= */ 1_000_000), cues::add);
+
+    assertThat(cues).hasSize(2);
+    assertTypicalCue2(cues.get(0));
+    assertTypicalCue3(cues.get(1));
+  }
+
+  @Test
+  public void parseTypical_cuesAfterTimeThenCuesBefore() throws IOException {
+    SsaParser parser = new SsaParser();
+    byte[] bytes = TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TYPICAL);
+    List<CuesWithTiming> cues = new ArrayList<>();
+    parser.parse(
+        bytes,
+        OutputOptions.cuesAfterThenRemainingCuesBefore(/* startTimeUs= */ 1_000_000),
+        cues::add);
+
+    assertThat(cues).hasSize(3);
+    assertTypicalCue2(cues.get(0));
+    assertTypicalCue3(cues.get(1));
+    assertTypicalCue1(cues.get(2));
+  }
+
+  @Test
   public void parseTypicalWithInitializationData() throws IOException {
     byte[] headerBytes =
         TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TYPICAL_HEADER_ONLY);
@@ -127,7 +164,7 @@ public final class SsaParserTest {
     SsaParser parser = new SsaParser(initializationData);
     byte[] bytes =
         TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TYPICAL_DIALOGUE_ONLY);
-    List<CuesWithTiming> allCues = parser.parse(bytes);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
 
     assertThat(allCues).hasSize(3);
     assertTypicalCue1(allCues.get(0));
@@ -148,8 +185,13 @@ public final class SsaParserTest {
     SsaParser parser = new SsaParser(initializationData);
     byte[] bytes =
         TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TYPICAL_DIALOGUE_ONLY);
-    ImmutableList<CuesWithTiming> allCues =
-        parser.parse(bytes, /* offset= */ 10, /* length= */ bytes.length - 30);
+    List<CuesWithTiming> allCues = new ArrayList<>();
+    parser.parse(
+        bytes,
+        /* offset= */ 10,
+        /* length= */ bytes.length - 30,
+        OutputOptions.allCues(),
+        allCues::add);
 
     assertThat(allCues).hasSize(2);
     // Because of the offset, we skip the first line of dialogue
@@ -157,6 +199,7 @@ public final class SsaParserTest {
     // Because of the length restriction, we only partially parse the third line of dialogue
     assertThat(allCues.get(1).startTimeUs).isEqualTo(4560000);
     assertThat(allCues.get(1).durationUs).isEqualTo(8900000 - 4560000);
+    assertThat(allCues.get(1).endTimeUs).isEqualTo(8900000);
     assertThat(allCues.get(1).cues.get(0).text.toString()).isEqualTo("This is the third subt");
   }
 
@@ -165,7 +208,7 @@ public final class SsaParserTest {
     SsaParser parser = new SsaParser();
     byte[] bytes =
         TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TYPICAL_UTF16LE);
-    List<CuesWithTiming> allCues = parser.parse(bytes);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
 
     assertThat(allCues).hasSize(3);
     // Check position, line, anchors & alignment are set from Alignment Style (2 - bottom-center).
@@ -191,7 +234,7 @@ public final class SsaParserTest {
     SsaParser parser = new SsaParser();
     byte[] bytes =
         TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TYPICAL_UTF16BE);
-    List<CuesWithTiming> allCues = parser.parse(bytes);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
 
     assertThat(allCues).hasSize(3);
     // Check position, line, anchors & alignment are set from Alignment Style (2 - bottom-center).
@@ -217,7 +260,7 @@ public final class SsaParserTest {
     SsaParser parser = new SsaParser();
     byte[] bytes =
         TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), OVERLAPPING_TIMECODES);
-    List<CuesWithTiming> allCues = parser.parse(bytes);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
 
     String firstSubtitleText = "First subtitle - end overlaps second";
     String secondSubtitleText = "Second subtitle - beginning overlaps first";
@@ -230,41 +273,49 @@ public final class SsaParserTest {
     assertThat(allCues).hasSize(8);
     assertThat(allCues.get(0).startTimeUs).isEqualTo(1_000_000);
     assertThat(allCues.get(0).durationUs).isEqualTo(1_000_000);
+    assertThat(allCues.get(0).endTimeUs).isEqualTo(2_000_000);
     assertThat(Iterables.transform(allCues.get(0).cues, cue -> cue.text.toString()))
         .containsExactly(firstSubtitleText);
 
     assertThat(allCues.get(1).startTimeUs).isEqualTo(2_000_000);
     assertThat(allCues.get(1).durationUs).isEqualTo(2_230_000);
+    assertThat(allCues.get(1).endTimeUs).isEqualTo(4_230_000);
     assertThat(Iterables.transform(allCues.get(1).cues, cue -> cue.text.toString()))
         .containsExactly(firstSubtitleText, secondSubtitleText);
 
     assertThat(allCues.get(2).startTimeUs).isEqualTo(4_230_000);
     assertThat(allCues.get(2).durationUs).isEqualTo(1_000_000);
+    assertThat(allCues.get(2).endTimeUs).isEqualTo(5_230_000);
     assertThat(Iterables.transform(allCues.get(2).cues, cue -> cue.text.toString()))
         .containsExactly(secondSubtitleText);
 
     assertThat(allCues.get(3).startTimeUs).isEqualTo(6_000_000);
     assertThat(allCues.get(3).durationUs).isEqualTo(2_440_000);
+    assertThat(allCues.get(3).endTimeUs).isEqualTo(8_440_000);
     assertThat(Iterables.transform(allCues.get(3).cues, cue -> cue.text.toString()))
         .containsExactly(thirdSubtitleText);
 
     assertThat(allCues.get(4).startTimeUs).isEqualTo(8_440_000);
     assertThat(allCues.get(4).durationUs).isEqualTo(1_000_000);
+    assertThat(allCues.get(4).endTimeUs).isEqualTo(9_440_000);
     assertThat(Iterables.transform(allCues.get(4).cues, cue -> cue.text.toString()))
         .containsExactly(fourthSubtitleText, fifthSubtitleText);
 
     assertThat(allCues.get(5).startTimeUs).isEqualTo(10_720_000);
     assertThat(allCues.get(5).durationUs).isEqualTo(2_500_000);
+    assertThat(allCues.get(5).endTimeUs).isEqualTo(13_220_000);
     assertThat(Iterables.transform(allCues.get(5).cues, cue -> cue.text.toString()))
         .containsExactly(sixthSubtitleText);
 
     assertThat(allCues.get(6).startTimeUs).isEqualTo(13_220_000);
     assertThat(allCues.get(6).durationUs).isEqualTo(1_000_000);
+    assertThat(allCues.get(6).endTimeUs).isEqualTo(14_220_000);
     assertThat(Iterables.transform(allCues.get(6).cues, cue -> cue.text.toString()))
         .containsExactly(sixthSubtitleText, seventhSubtitleText);
 
     assertThat(allCues.get(7).startTimeUs).isEqualTo(14_220_000);
     assertThat(allCues.get(7).durationUs).isEqualTo(1_430_000);
+    assertThat(allCues.get(7).endTimeUs).isEqualTo(15_650_000);
     assertThat(Iterables.transform(allCues.get(7).cues, cue -> cue.text.toString()))
         .containsExactly(sixthSubtitleText);
   }
@@ -273,7 +324,7 @@ public final class SsaParserTest {
   public void parsePositions() throws IOException {
     SsaParser parser = new SsaParser();
     byte[] bytes = TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), POSITIONS);
-    List<CuesWithTiming> allCues = parser.parse(bytes);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
 
     // Check \pos() sets position & line
     Cue firstCue = Iterables.getOnlyElement(allCues.get(0).cues);
@@ -327,7 +378,7 @@ public final class SsaParserTest {
     SsaParser parser = new SsaParser();
     byte[] bytes =
         TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), INVALID_POSITIONS);
-    List<CuesWithTiming> allCues = parser.parse(bytes);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
 
     // Negative parameter to \pos() - fall back to the positions implied by middle-left alignment.
     Cue firstCue = Iterables.getOnlyElement(allCues.get(0).cues);
@@ -364,7 +415,7 @@ public final class SsaParserTest {
     byte[] bytes =
         TestUtil.getByteArray(
             ApplicationProvider.getApplicationContext(), POSITIONS_WITHOUT_PLAYRES);
-    List<CuesWithTiming> allCues = parser.parse(bytes);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
 
     // The dialogue line has a valid \pos() override, but it's ignored because PlayResY isn't
     // set (so we don't know the denominator).
@@ -380,7 +431,7 @@ public final class SsaParserTest {
     SsaParser parser = new SsaParser();
     byte[] bytes =
         TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), INVALID_TIMECODES);
-    List<CuesWithTiming> allCues = parser.parse(bytes);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
 
     assertThat(allCues).hasSize(1);
     assertTypicalCue3(Iterables.getOnlyElement(allCues));
@@ -391,7 +442,7 @@ public final class SsaParserTest {
     SsaParser parser = new SsaParser();
     byte[] bytes =
         TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), STYLE_PRIMARY_COLOR);
-    List<CuesWithTiming> allCues = parser.parse(bytes);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
     assertThat(allCues).hasSize(7);
     // &H000000FF (AABBGGRR) -> #FFFF0000 (AARRGGBB)
     Spanned firstCueText = (Spanned) Iterables.getOnlyElement(allCues.get(0).cues).text;
@@ -433,7 +484,7 @@ public final class SsaParserTest {
     SsaParser parser = new SsaParser();
     byte[] bytes =
         TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), STYLE_OUTLINE_COLOR);
-    List<CuesWithTiming> allCues = parser.parse(bytes);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
     assertThat(allCues).hasSize(2);
     Spanned firstCueText = (Spanned) Iterables.getOnlyElement(allCues.get(0).cues).text;
     SpannedSubject.assertThat(firstCueText)
@@ -451,7 +502,7 @@ public final class SsaParserTest {
     SsaParser parser = new SsaParser();
     byte[] bytes =
         TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), STYLE_FONT_SIZE);
-    List<CuesWithTiming> allCues = parser.parse(bytes);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
     assertThat(allCues).hasSize(2);
 
     Cue firstCue = Iterables.getOnlyElement(allCues.get(0).cues);
@@ -467,7 +518,7 @@ public final class SsaParserTest {
     SsaParser parser = new SsaParser();
     byte[] bytes =
         TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), STYLE_BOLD_ITALIC);
-    List<CuesWithTiming> allCues = parser.parse(bytes);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
     assertThat(allCues).hasSize(3);
 
     Spanned firstCueText = (Spanned) Iterables.getOnlyElement(allCues.get(0).cues).text;
@@ -483,7 +534,7 @@ public final class SsaParserTest {
     SsaParser parser = new SsaParser();
     byte[] bytes =
         TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), STYLE_UNDERLINE);
-    List<CuesWithTiming> allCues = parser.parse(bytes);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
     assertThat(allCues).hasSize(2);
 
     Spanned firstCueText = (Spanned) Iterables.getOnlyElement(allCues.get(0).cues).text;
@@ -497,7 +548,7 @@ public final class SsaParserTest {
     SsaParser parser = new SsaParser();
     byte[] bytes =
         TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), STYLE_STRIKEOUT);
-    List<CuesWithTiming> allCues = parser.parse(bytes);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
     assertThat(allCues).hasSize(2);
 
     Spanned firstCueText = (Spanned) Iterables.getOnlyElement(allCues.get(0).cues).text;
@@ -507,9 +558,16 @@ public final class SsaParserTest {
         .hasNoStrikethroughSpanBetween(0, secondCueText.length());
   }
 
+  private static ImmutableList<CuesWithTiming> parseAllCues(SubtitleParser parser, byte[] data) {
+    ImmutableList.Builder<CuesWithTiming> cues = ImmutableList.builder();
+    parser.parse(data, OutputOptions.allCues(), cues::add);
+    return cues.build();
+  }
+
   private static void assertTypicalCue1(CuesWithTiming cuesWithTiming) {
     assertThat(cuesWithTiming.startTimeUs).isEqualTo(0);
     assertThat(cuesWithTiming.durationUs).isEqualTo(1230000);
+    assertThat(cuesWithTiming.endTimeUs).isEqualTo(1230000);
     assertThat(cuesWithTiming.cues.get(0).text.toString()).isEqualTo("This is the first subtitle.");
     assertThat(Objects.requireNonNull(cuesWithTiming.cues.get(0).textAlignment))
         .isEqualTo(Layout.Alignment.ALIGN_CENTER);
@@ -518,6 +576,7 @@ public final class SsaParserTest {
   private static void assertTypicalCue2(CuesWithTiming cuesWithTiming) {
     assertThat(cuesWithTiming.startTimeUs).isEqualTo(2340000);
     assertThat(cuesWithTiming.durationUs).isEqualTo(3450000 - 2340000);
+    assertThat(cuesWithTiming.endTimeUs).isEqualTo(3450000);
     assertThat(cuesWithTiming.cues.get(0).text.toString())
         .isEqualTo("This is the second subtitle \nwith a newline \nand another.");
   }
@@ -525,6 +584,7 @@ public final class SsaParserTest {
   private static void assertTypicalCue3(CuesWithTiming cuesWithTiming) {
     assertThat(cuesWithTiming.startTimeUs).isEqualTo(4560000);
     assertThat(cuesWithTiming.durationUs).isEqualTo(8900000 - 4560000);
+    assertThat(cuesWithTiming.endTimeUs).isEqualTo(8900000);
     assertThat(cuesWithTiming.cues.get(0).text.toString())
         .isEqualTo("This is the third subtitle, with a comma.");
   }

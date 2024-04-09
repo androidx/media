@@ -58,6 +58,7 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.datasource.DataSourceBitmapLoader;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -174,6 +175,24 @@ public class MediaController implements Player {
    */
   @UnstableApi public static final long RELEASE_UNBIND_TIMEOUT_MS = 30_000;
 
+  /**
+   * Key to mark the connection hints of the media notification controller.
+   *
+   * <p>For a controller to be {@linkplain
+   * MediaSession#isMediaNotificationController(MediaSession.ControllerInfo) recognized by the
+   * session as the media notification controller}, this key needs to be used to {@linkplain
+   * Bundle#putBoolean(String, boolean) set a boolean flag} in the connection hints to true. Only an
+   * internal controller that has the same package name as the session can be used as a media
+   * notification controller.
+   *
+   * <p>When using a session within a {@link MediaSessionService} or {@link MediaLibraryService},
+   * the service connects a media notification controller automatically. Apps can do this for
+   * standalone session to configure the platform session in the same way.
+   */
+  @UnstableApi
+  public static final String KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG =
+      "androidx.media3.session.MediaNotificationManager";
+
   private static final String TAG = "MediaController";
 
   private static final String WRONG_THREAD_ERROR_MESSAGE =
@@ -269,8 +288,8 @@ public class MediaController implements Player {
 
     /**
      * Sets a {@link BitmapLoader} for the {@link MediaController} to decode bitmaps from compressed
-     * binary data. If not set, a {@link CacheBitmapLoader} that wraps a {@link SimpleBitmapLoader}
-     * will be used.
+     * binary data. If not set, a {@link CacheBitmapLoader} that wraps a {@link
+     * DataSourceBitmapLoader} will be used.
      *
      * @param bitmapLoader The bitmap loader.
      * @return The builder to allow chaining.
@@ -312,7 +331,7 @@ public class MediaController implements Player {
       MediaControllerHolder<MediaController> holder =
           new MediaControllerHolder<>(applicationLooper);
       if (token.isLegacySession() && bitmapLoader == null) {
-        bitmapLoader = new CacheBitmapLoader(new SimpleBitmapLoader());
+        bitmapLoader = new CacheBitmapLoader(new DataSourceBitmapLoader(context));
       }
       MediaController controller =
           new MediaController(
@@ -407,10 +426,10 @@ public class MediaController implements Player {
     }
 
     /**
-     * Called when the session extras have changed.
+     * Called when the session extras are set on the session side.
      *
      * @param controller The controller.
-     * @param extras The session extras that have changed.
+     * @param extras The session extras that have been set on the session.
      */
     default void onExtrasChanged(MediaController controller, Bundle extras) {}
 
@@ -538,7 +557,7 @@ public class MediaController implements Player {
    * controller.
    */
   public static void releaseFuture(Future<? extends MediaController> controllerFuture) {
-    if (controllerFuture.cancel(/* mayInterruptIfRunning= */ true)) {
+    if (controllerFuture.cancel(/* mayInterruptIfRunning= */ false)) {
       // Successfully canceled the Future. The controller will be released by MediaControllerHolder.
       return;
     }
@@ -964,6 +983,20 @@ public class MediaController implements Player {
   public final ImmutableList<CommandButton> getCustomLayout() {
     verifyApplicationThread();
     return isConnected() ? impl.getCustomLayout() : ImmutableList.of();
+  }
+
+  /**
+   * Returns the session extras.
+   *
+   * <p>After being connected, {@link Listener#onExtrasChanged(MediaController, Bundle)} is called
+   * when the extras on the session are set.
+   *
+   * @return The session extras.
+   */
+  @UnstableApi
+  public final Bundle getSessionExtras() {
+    verifyApplicationThread();
+    return isConnected() ? impl.getSessionExtras() : Bundle.EMPTY;
   }
 
   /** Returns {@code null}. */
@@ -1794,6 +1827,16 @@ public class MediaController implements Player {
   }
 
   @Override
+  public final void setAudioAttributes(AudioAttributes audioAttributes, boolean handleAudioFocus) {
+    verifyApplicationThread();
+    if (!isConnected()) {
+      Log.w(TAG, "The controller is not connected. Ignoring setAudioAttributes().");
+      return;
+    }
+    impl.setAudioAttributes(audioAttributes, handleAudioFocus);
+  }
+
+  @Override
   public final MediaMetadata getMediaMetadata() {
     verifyApplicationThread();
     return isConnected() ? impl.getMediaMetadata() : MediaMetadata.EMPTY;
@@ -1927,6 +1970,13 @@ public class MediaController implements Player {
     connectionCallback.onAccepted();
   }
 
+  /** Returns the binder object used to connect to the session. */
+  @Nullable
+  @VisibleForTesting(otherwise = NONE)
+  /* package */ final IMediaController getBinder() {
+    return impl.getBinder();
+  }
+
   private void verifyApplicationThread() {
     checkState(Looper.myLooper() == getApplicationLooper(), WRONG_THREAD_ERROR_MESSAGE);
   }
@@ -2017,6 +2067,8 @@ public class MediaController implements Player {
     ListenableFuture<SessionResult> sendCustomCommand(SessionCommand command, Bundle args);
 
     ImmutableList<CommandButton> getCustomLayout();
+
+    Bundle getSessionExtras();
 
     Timeline getCurrentTimeline();
 
@@ -2139,6 +2191,8 @@ public class MediaController implements Player {
 
     void setDeviceMuted(boolean muted, @C.VolumeFlags int flags);
 
+    void setAudioAttributes(AudioAttributes audioAttributes, boolean handleAudioFocus);
+
     boolean getPlayWhenReady();
 
     @PlaybackSuppressionReason
@@ -2168,5 +2222,8 @@ public class MediaController implements Player {
 
     @Nullable
     MediaBrowserCompat getBrowserCompat();
+
+    @Nullable
+    IMediaController getBinder();
   }
 }

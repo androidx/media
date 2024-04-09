@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.hls;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.extractor.ts.TsExtractor.DEFAULT_TIMESTAMP_SEARCH_BYTES;
 
 import android.annotation.SuppressLint;
 import android.net.Uri;
@@ -32,12 +33,16 @@ import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.mp3.Mp3Extractor;
 import androidx.media3.extractor.mp4.FragmentedMp4Extractor;
+import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
+import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.extractor.ts.Ac3Extractor;
 import androidx.media3.extractor.ts.Ac4Extractor;
 import androidx.media3.extractor.ts.AdtsExtractor;
 import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory;
 import androidx.media3.extractor.ts.TsExtractor;
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.EOFException;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -63,6 +68,10 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
       };
 
   private final @DefaultTsPayloadReaderFactory.Flags int payloadReaderFactoryFlags;
+
+  private SubtitleParser.Factory subtitleParserFactory;
+  private boolean parseSubtitlesDuringExtraction;
+
   private final boolean exposeCea608WhenMissingDeclarations;
 
   /**
@@ -89,6 +98,7 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
       int payloadReaderFactoryFlags, boolean exposeCea608WhenMissingDeclarations) {
     this.payloadReaderFactoryFlags = payloadReaderFactoryFlags;
     this.exposeCea608WhenMissingDeclarations = exposeCea608WhenMissingDeclarations;
+    subtitleParserFactory = new DefaultSubtitleParserFactory();
   }
 
   @Override
@@ -127,7 +137,12 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
           checkNotNull(
               createExtractorByFileType(fileType, format, muxedCaptionFormats, timestampAdjuster));
       if (sniffQuietly(extractor, sniffingExtractorInput)) {
-        return new BundledHlsMediaChunkExtractor(extractor, format, timestampAdjuster);
+        return new BundledHlsMediaChunkExtractor(
+            extractor,
+            format,
+            timestampAdjuster,
+            subtitleParserFactory,
+            parseSubtitlesDuringExtraction);
       }
       if (fallBackExtractor == null
           && (fileType == formatInferredFileType
@@ -141,7 +156,53 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
     }
 
     return new BundledHlsMediaChunkExtractor(
-        checkNotNull(fallBackExtractor), format, timestampAdjuster);
+        checkNotNull(fallBackExtractor),
+        format,
+        timestampAdjuster,
+        subtitleParserFactory,
+        parseSubtitlesDuringExtraction);
+  }
+
+  @CanIgnoreReturnValue
+  @Override
+  public DefaultHlsExtractorFactory setSubtitleParserFactory(
+      SubtitleParser.Factory subtitleParserFactory) {
+    this.subtitleParserFactory = subtitleParserFactory;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  @Override
+  public DefaultHlsExtractorFactory experimentalParseSubtitlesDuringExtraction(
+      boolean parseSubtitlesDuringExtraction) {
+    this.parseSubtitlesDuringExtraction = parseSubtitlesDuringExtraction;
+    return this;
+  }
+
+  /**
+   * {@inheritDoc}
+   *
+   * <p>This implementation performs transcoding of the original format to {@link
+   * MimeTypes#APPLICATION_MEDIA3_CUES} if it is supported by {@link SubtitleParser.Factory}.
+   *
+   * <p>To modify the support behavior, you can {@linkplain
+   * #setSubtitleParserFactory(SubtitleParser.Factory) set your own subtitle parser factory}.
+   */
+  @Override
+  public Format getOutputTextFormat(Format sourceFormat) {
+    if (parseSubtitlesDuringExtraction && subtitleParserFactory.supportsFormat(sourceFormat)) {
+      return sourceFormat
+          .buildUpon()
+          .setSampleMimeType(MimeTypes.APPLICATION_MEDIA3_CUES)
+          .setCueReplacementBehavior(subtitleParserFactory.getCueReplacementBehavior(sourceFormat))
+          .setCodecs(
+              sourceFormat.sampleMimeType
+                  + (sourceFormat.codecs != null ? " " + sourceFormat.codecs : ""))
+          .setSubsampleOffsetUs(Format.OFFSET_SAMPLE_RELATIVE)
+          .build();
+    } else {
+      return sourceFormat;
+    }
   }
 
   private static void addFileTypeIfValidAndNotPresent(
@@ -162,7 +223,11 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
     // LINT.IfChange(extractor_instantiation)
     switch (fileType) {
       case FileTypes.WEBVTT:
-        return new WebvttExtractor(format.language, timestampAdjuster);
+        return new WebvttExtractor(
+            format.language,
+            timestampAdjuster,
+            subtitleParserFactory,
+            parseSubtitlesDuringExtraction);
       case FileTypes.ADTS:
         return new AdtsExtractor();
       case FileTypes.AC3:
@@ -172,14 +237,21 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
       case FileTypes.MP3:
         return new Mp3Extractor(/* flags= */ 0, /* forcedFirstSampleTimestampUs= */ 0);
       case FileTypes.MP4:
-        return createFragmentedMp4Extractor(timestampAdjuster, format, muxedCaptionFormats);
+        return createFragmentedMp4Extractor(
+            subtitleParserFactory,
+            parseSubtitlesDuringExtraction,
+            timestampAdjuster,
+            format,
+            muxedCaptionFormats);
       case FileTypes.TS:
         return createTsExtractor(
             payloadReaderFactoryFlags,
             exposeCea608WhenMissingDeclarations,
             format,
             muxedCaptionFormats,
-            timestampAdjuster);
+            timestampAdjuster,
+            subtitleParserFactory,
+            parseSubtitlesDuringExtraction);
       default:
         return null;
     }
@@ -190,7 +262,9 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
       boolean exposeCea608WhenMissingDeclarations,
       Format format,
       @Nullable List<Format> muxedCaptionFormats,
-      TimestampAdjuster timestampAdjuster) {
+      TimestampAdjuster timestampAdjuster,
+      SubtitleParser.Factory subtitleParserFactory,
+      boolean parseSubtitlesDuringExtraction) {
     @DefaultTsPayloadReaderFactory.Flags
     int payloadReaderFactoryFlags =
         DefaultTsPayloadReaderFactory.FLAG_IGNORE_SPLICE_INFO_STREAM
@@ -219,24 +293,41 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
         payloadReaderFactoryFlags |= DefaultTsPayloadReaderFactory.FLAG_IGNORE_H264_STREAM;
       }
     }
-
+    @TsExtractor.Flags int extractorFlags = 0;
+    if (!parseSubtitlesDuringExtraction) {
+      subtitleParserFactory = SubtitleParser.Factory.UNSUPPORTED;
+      extractorFlags |= TsExtractor.FLAG_EMIT_RAW_SUBTITLE_DATA;
+    }
     return new TsExtractor(
         TsExtractor.MODE_HLS,
+        extractorFlags,
+        subtitleParserFactory,
         timestampAdjuster,
-        new DefaultTsPayloadReaderFactory(payloadReaderFactoryFlags, muxedCaptionFormats));
+        new DefaultTsPayloadReaderFactory(payloadReaderFactoryFlags, muxedCaptionFormats),
+        DEFAULT_TIMESTAMP_SEARCH_BYTES);
   }
 
   private static FragmentedMp4Extractor createFragmentedMp4Extractor(
+      SubtitleParser.Factory subtitleParserFactory,
+      boolean parseSubtitlesDuringExtraction,
       TimestampAdjuster timestampAdjuster,
       Format format,
       @Nullable List<Format> muxedCaptionFormats) {
     // Only enable the EMSG TrackOutput if this is the 'variant' track (i.e. the main one) to avoid
     // creating a separate EMSG track for every audio track in a video stream.
+    @FragmentedMp4Extractor.Flags
+    int flags = isFmp4Variant(format) ? FragmentedMp4Extractor.FLAG_ENABLE_EMSG_TRACK : 0;
+    if (!parseSubtitlesDuringExtraction) {
+      subtitleParserFactory = SubtitleParser.Factory.UNSUPPORTED;
+      flags |= FragmentedMp4Extractor.FLAG_EMIT_RAW_SUBTITLE_DATA;
+    }
     return new FragmentedMp4Extractor(
-        /* flags= */ isFmp4Variant(format) ? FragmentedMp4Extractor.FLAG_ENABLE_EMSG_TRACK : 0,
+        subtitleParserFactory,
+        flags,
         timestampAdjuster,
         /* sideloadedTrack= */ null,
-        muxedCaptionFormats != null ? muxedCaptionFormats : Collections.emptyList());
+        muxedCaptionFormats != null ? muxedCaptionFormats : ImmutableList.of(),
+        /* additionalEmsgTrackOutput= */ null);
   }
 
   /** Returns true if this {@code format} represents a 'variant' track (i.e. the main one). */

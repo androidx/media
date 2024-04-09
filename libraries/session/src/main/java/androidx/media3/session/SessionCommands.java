@@ -82,6 +82,18 @@ public final class SessionCommands implements Bundleable {
     }
 
     /**
+     * Adds all of the commands in the specified collection.
+     *
+     * @param commands collection containing elements to be added to this set
+     * @return This builder for chaining.
+     */
+    @CanIgnoreReturnValue
+    public Builder addSessionCommands(Collection<SessionCommand> commands) {
+      this.commands.addAll(commands);
+      return this;
+    }
+
+    /**
      * Removes a command which matches a given {@link SessionCommand command}.
      *
      * @param command A command to find.
@@ -244,22 +256,32 @@ public final class SessionCommands implements Bundleable {
     return bundle;
   }
 
-  /** Object that can restore {@link SessionCommands} from a {@link Bundle}. */
+  /**
+   * Object that can restore {@link SessionCommands} from a {@link Bundle}.
+   *
+   * @deprecated Use {@link #fromBundle} instead.
+   */
   @UnstableApi
-  public static final Creator<SessionCommands> CREATOR =
-      bundle -> {
-        @Nullable
-        ArrayList<Bundle> sessionCommandBundleList =
-            bundle.getParcelableArrayList(FIELD_SESSION_COMMANDS);
-        if (sessionCommandBundleList == null) {
-          Log.w(TAG, "Missing commands. Creating an empty SessionCommands");
-          return SessionCommands.EMPTY;
-        }
+  @Deprecated
+  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
+  public static final Creator<SessionCommands> CREATOR = SessionCommands::fromBundle;
 
-        Builder builder = new Builder();
-        for (int i = 0; i < sessionCommandBundleList.size(); i++) {
-          builder.add(SessionCommand.CREATOR.fromBundle(sessionCommandBundleList.get(i)));
-        }
-        return builder.build();
-      };
+  /** Restores a {@code SessionCommands} from a {@link Bundle}. */
+  @UnstableApi
+  public static SessionCommands fromBundle(Bundle bundle) {
+    @Nullable
+    ArrayList<Bundle> sessionCommandBundleList =
+        bundle.getParcelableArrayList(FIELD_SESSION_COMMANDS);
+    if (sessionCommandBundleList == null) {
+      Log.w(TAG, "Missing commands. Creating an empty SessionCommands");
+      return SessionCommands.EMPTY;
+    }
+
+    Builder builder = new Builder();
+    for (int i = 0; i < sessionCommandBundleList.size(); i++) {
+      builder.add(SessionCommand.fromBundle(sessionCommandBundleList.get(i)));
+    }
+    return builder.build();
+  }
+  ;
 }

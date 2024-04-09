@@ -15,6 +15,7 @@
  */
 package androidx.media3.decoder;
 
+import androidx.annotation.CallSuper;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 
@@ -25,11 +26,19 @@ public abstract class Buffer {
   private @C.BufferFlags int flags;
 
   /** Clears the buffer. */
+  @CallSuper
   public void clear() {
     flags = 0;
   }
 
-  /** Returns whether the {@link C#BUFFER_FLAG_DECODE_ONLY} flag is set. */
+  /**
+   * @deprecated Check instead whether the buffer time is greater or equal to the desired start
+   *     time. In custom renderers, the start time is {@code BaseRenderer.getLastResetPositionUs()}.
+   *     In custom decoders, the check can be done with {@link
+   *     SimpleDecoder#isAtLeastOutputStartTimeUs}.
+   */
+  @Deprecated
+  @SuppressWarnings("deprecation") // Checking deprecated flag.
   public final boolean isDecodeOnly() {
     return getFlag(C.BUFFER_FLAG_DECODE_ONLY);
   }

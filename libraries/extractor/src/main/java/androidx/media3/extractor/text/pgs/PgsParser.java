@@ -20,13 +20,15 @@ import static java.lang.Math.min;
 import android.graphics.Bitmap;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.Format;
+import androidx.media3.common.Format.CueReplacementBehavior;
 import androidx.media3.common.text.Cue;
+import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.text.CuesWithTiming;
 import androidx.media3.extractor.text.SubtitleParser;
-import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.zip.Inflater;
@@ -34,6 +36,13 @@ import java.util.zip.Inflater;
 /** A {@link SubtitleParser} for PGS subtitles. */
 @UnstableApi
 public final class PgsParser implements SubtitleParser {
+
+  /**
+   * The {@link CueReplacementBehavior} for consecutive {@link CuesWithTiming} emitted by this
+   * implementation.
+   */
+  public static final @CueReplacementBehavior int CUE_REPLACEMENT_BEHAVIOR =
+      Format.CUE_REPLACEMENT_BEHAVIOR_REPLACE;
 
   private static final int SECTION_TYPE_PALETTE = 0x14;
   private static final int SECTION_TYPE_BITMAP_PICTURE = 0x15;
@@ -54,7 +63,17 @@ public final class PgsParser implements SubtitleParser {
   }
 
   @Override
-  public ImmutableList<CuesWithTiming> parse(byte[] data, int offset, int length) {
+  public @CueReplacementBehavior int getCueReplacementBehavior() {
+    return CUE_REPLACEMENT_BEHAVIOR;
+  }
+
+  @Override
+  public void parse(
+      byte[] data,
+      int offset,
+      int length,
+      OutputOptions outputOptions,
+      Consumer<CuesWithTiming> output) {
     buffer.reset(data, /* limit= */ offset + length);
     buffer.setPosition(offset);
     maybeInflateData(buffer);
@@ -66,7 +85,7 @@ public final class PgsParser implements SubtitleParser {
         cues.add(cue);
       }
     }
-    return ImmutableList.of(
+    output.accept(
         new CuesWithTiming(cues, /* startTimeUs= */ C.TIME_UNSET, /* durationUs= */ C.TIME_UNSET));
   }
 

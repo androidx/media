@@ -16,7 +16,8 @@ format video:
     colorSpace = 1
     colorRange = 2
     colorTransfer = 3
-    hdrStaticInfo = length 0, hash 0
+    lumaBitdepth = 8
+    chromaBitdepth = 8
   metadata = entries=[Mp4Timestamp: creation time=3718109610, modification time=3718109610, timescale=1000]
   initializationData:
     data = length 29, hash 4746B5D9
@@ -282,8 +283,8 @@ sample:
   presentationTimeUs = 998458
 sample:
   trackType = audio
-  dataHashCode = 799574529
-  size = 176
+  dataHashCode = -1268670079
+  size = 180
   isKeyFrame = true
   presentationTimeUs = 1000000
 sample:
