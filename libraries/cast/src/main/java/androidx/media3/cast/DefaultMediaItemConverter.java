@@ -68,7 +68,7 @@ public final class DefaultMediaItemConverter implements MediaItemConverter {
         metadataBuilder.setAlbumArtist(metadata.getString(MediaMetadata.KEY_ALBUM_ARTIST));
       }
       if (metadata.containsKey(MediaMetadata.KEY_ALBUM_TITLE)) {
-        metadataBuilder.setArtist(metadata.getString(MediaMetadata.KEY_ALBUM_TITLE));
+        metadataBuilder.setAlbumTitle(metadata.getString(MediaMetadata.KEY_ALBUM_TITLE));
       }
       if (!metadata.getImages().isEmpty()) {
         metadataBuilder.setArtworkUri(metadata.getImages().get(0).getUrl());
