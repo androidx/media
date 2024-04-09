@@ -24,6 +24,8 @@
         `TargetPreloadStatusControl.getTargetPreloadStatus(T)` to indicate not
         to preload a `MediaSource` with the given `rankingData`.
     *   Add `remove(MediaSource)` to `BasePreloadManager`.
+    *   Add `reset` to `BasePreloadManager` to release all the holding sources
+        while keep the preload manager instance.
 *   Transformer:
     *   Add `audioConversionProcess` and `videoConversionProcess` to
         `ExportResult` indicating how the respective track in the output file

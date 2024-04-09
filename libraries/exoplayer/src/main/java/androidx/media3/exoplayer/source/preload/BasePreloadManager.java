@@ -184,8 +184,10 @@ public abstract class BasePreloadManager<T> {
     return false;
   }
 
-  /** Releases the preload manager. */
-  public final void release() {
+  /**
+   * Resets the preload manager. All sources that the preload manager is holding will be released.
+   */
+  public final void reset() {
     for (MediaSourceHolder sourceHolder : mediaItemMediaSourceHolderMap.values()) {
       releaseSourceInternal(sourceHolder.mediaSource);
     }
@@ -194,6 +196,15 @@ public abstract class BasePreloadManager<T> {
       sourceHolderPriorityQueue.clear();
       targetPreloadStatusOfCurrentPreloadingSource = null;
     }
+  }
+
+  /**
+   * Releases the preload manager.
+   *
+   * <p>The preload manager must not be used after calling this method.
+   */
+  public final void release() {
+    reset();
     releaseInternal();
   }
 

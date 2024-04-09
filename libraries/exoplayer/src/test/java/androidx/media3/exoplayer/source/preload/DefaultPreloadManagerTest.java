@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.source.preload;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -49,10 +48,8 @@ import androidx.media3.test.utils.FakeRenderer;
 import androidx.media3.test.utils.FakeVideoRenderer;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -522,31 +519,101 @@ public class DefaultPreloadManagerTest {
   }
 
   @Test
-  public void release_returnZeroCountAndNullSources_sourcesReleased() {
+  public void reset_returnZeroCount_sourcesButNotRendererCapabilitiesListReleased() {
     TargetPreloadStatusControl<Integer> targetPreloadStatusControl =
         rankingData ->
             new DefaultPreloadManager.Status(DefaultPreloadManager.Status.STAGE_TIMELINE_REFRESHED);
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
-    AtomicReference<List<FakeRenderer>> underlyingRenderersReference = new AtomicReference<>();
+    List<FakeRenderer> underlyingRenderers = new ArrayList<>();
     RenderersFactory renderersFactory =
         (eventHandler,
             videoRendererEventListener,
             audioRendererEventListener,
             textRendererOutput,
             metadataRendererOutput) -> {
-          FakeRenderer[] createdRenderers =
-              new FakeRenderer[] {
-                new FakeVideoRenderer(
-                    SystemClock.DEFAULT.createHandler(
-                        eventHandler.getLooper(), /* callback= */ null),
-                    videoRendererEventListener),
-                new FakeAudioRenderer(
-                    SystemClock.DEFAULT.createHandler(
-                        eventHandler.getLooper(), /* callback= */ null),
-                    audioRendererEventListener)
+          FakeRenderer fakeVideoRenderer =
+              new FakeVideoRenderer(
+                  SystemClock.DEFAULT.createHandler(eventHandler.getLooper(), /* callback= */ null),
+                  videoRendererEventListener);
+          underlyingRenderers.add(fakeVideoRenderer);
+          FakeRenderer fakeAudioRenderer =
+              new FakeAudioRenderer(
+                  SystemClock.DEFAULT.createHandler(eventHandler.getLooper(), /* callback= */ null),
+                  audioRendererEventListener);
+          underlyingRenderers.add(fakeAudioRenderer);
+          return underlyingRenderers.toArray(new Renderer[2]);
+        };
+    DefaultPreloadManager preloadManager =
+        new DefaultPreloadManager(
+            targetPreloadStatusControl,
+            mockMediaSourceFactory,
+            trackSelector,
+            bandwidthMeter,
+            new DefaultRendererCapabilitiesList.Factory(renderersFactory),
+            allocator,
+            Util.getCurrentOrMainLooper());
+    MediaItem.Builder mediaItemBuilder = new MediaItem.Builder();
+    MediaItem mediaItem1 =
+        mediaItemBuilder.setMediaId("mediaId1").setUri("http://exoplayer.dev/video1").build();
+    MediaItem mediaItem2 =
+        mediaItemBuilder.setMediaId("mediaId2").setUri("http://exoplayer.dev/video2").build();
+    ArrayList<String> internalSourceToReleaseReferenceByMediaId = new ArrayList<>();
+    when(mockMediaSourceFactory.createMediaSource(any()))
+        .thenAnswer(
+            invocation -> {
+              MediaItem mediaItem = invocation.getArgument(0);
+              return new FakeMediaSource() {
+                @Override
+                public MediaItem getMediaItem() {
+                  return mediaItem;
+                }
+
+                @Override
+                protected void releaseSourceInternal() {
+                  internalSourceToReleaseReferenceByMediaId.add(mediaItem.mediaId);
+                  super.releaseSourceInternal();
+                }
               };
-          underlyingRenderersReference.set(ImmutableList.copyOf(createdRenderers));
-          return createdRenderers;
+            });
+    preloadManager.add(mediaItem1, /* rankingData= */ 1);
+    preloadManager.add(mediaItem2, /* rankingData= */ 2);
+    preloadManager.invalidate();
+    shadowOf(Looper.getMainLooper()).idle();
+
+    preloadManager.reset();
+    shadowOf(Looper.getMainLooper()).idle();
+
+    assertThat(preloadManager.getSourceCount()).isEqualTo(0);
+    assertThat(internalSourceToReleaseReferenceByMediaId).containsExactly("mediaId1", "mediaId2");
+    for (FakeRenderer renderer : underlyingRenderers) {
+      assertThat(renderer.isReleased).isFalse();
+    }
+  }
+
+  @Test
+  public void release_returnZeroCount_sourcesAndRendererCapabilitiesListReleased() {
+    TargetPreloadStatusControl<Integer> targetPreloadStatusControl =
+        rankingData ->
+            new DefaultPreloadManager.Status(DefaultPreloadManager.Status.STAGE_TIMELINE_REFRESHED);
+    MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
+    List<FakeRenderer> underlyingRenderers = new ArrayList<>();
+    RenderersFactory renderersFactory =
+        (eventHandler,
+            videoRendererEventListener,
+            audioRendererEventListener,
+            textRendererOutput,
+            metadataRendererOutput) -> {
+          FakeRenderer fakeVideoRenderer =
+              new FakeVideoRenderer(
+                  SystemClock.DEFAULT.createHandler(eventHandler.getLooper(), /* callback= */ null),
+                  videoRendererEventListener);
+          underlyingRenderers.add(fakeVideoRenderer);
+          FakeRenderer fakeAudioRenderer =
+              new FakeAudioRenderer(
+                  SystemClock.DEFAULT.createHandler(eventHandler.getLooper(), /* callback= */ null),
+                  audioRendererEventListener);
+          underlyingRenderers.add(fakeAudioRenderer);
+          return underlyingRenderers.toArray(new Renderer[2]);
         };
     DefaultPreloadManager preloadManager =
         new DefaultPreloadManager(
@@ -589,10 +656,7 @@ public class DefaultPreloadManagerTest {
     shadowOf(Looper.getMainLooper()).idle();
 
     assertThat(preloadManager.getSourceCount()).isEqualTo(0);
-    assertThat(preloadManager.getMediaSource(mediaItem1)).isNull();
-    assertThat(preloadManager.getMediaSource(mediaItem2)).isNull();
     assertThat(internalSourceToReleaseReferenceByMediaId).containsExactly("mediaId1", "mediaId2");
-    List<FakeRenderer> underlyingRenderers = checkNotNull(underlyingRenderersReference.get());
     for (FakeRenderer renderer : underlyingRenderers) {
       assertThat(renderer.isReleased).isTrue();
     }
