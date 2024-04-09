@@ -149,7 +149,7 @@ highp vec3 applyPqBt2020ToBt709Ootf(highp vec3 linearRgbBt2020) {
   // Also happens to match Netflix's minimum HDR mastering guidelines:
   // https://partnerhelp.netflixstudios.com/hc/en-us/articles/360000599948-Dolby-Vision-HDR-Mastering-Guidelines
   //
-  // TODO: b/290553698 - Use max_display_mastering_luminance from
+  // TODO: b/314971953 - Use max_display_mastering_luminance from
   //  ColorInfo.hdrStaticInfo in the bitstream instead.
   const float maxMasteringLuminance = 1000.0;
 
