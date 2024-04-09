@@ -341,14 +341,10 @@ public class CompositionExportTest {
     transformer.start(composition, outputDir.newFile().getPath());
     TransformerTestRunner.runLooper(transformer);
 
-    // TODO: b/311614619 - Use the same dump as
-    //  {@link MediaItemExportTest#start_adjustSampleRate_completesSuccessfully}.
     DumpFileAsserts.assertOutput(
         context,
         muxerFactory.getCreatedMuxer(),
-        getDumpFileName(
-            /* originalFileName= */ FILE_AUDIO_RAW,
-            /* modifications...= */ "48000hzViaComposition"));
+        getDumpFileName(/* originalFileName= */ FILE_AUDIO_RAW, /* modifications...= */ "48000hz"));
   }
 
   @Test
