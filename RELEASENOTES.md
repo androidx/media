@@ -4,6 +4,45 @@
 
 *   Common Library:
 *   ExoPlayer:
+    *   Add `reset` to `BasePreloadManager` to release all the holding sources
+        while keep the preload manager instance.
+*   Transformer:
+*   Track Selection:
+*   Extractors:
+*   Audio:
+*   Video:
+*   Text:
+*   Metadata:
+*   Image:
+*   DRM:
+*   Effect:
+*   Muxers:
+*   IMA extension:
+*   Session:
+*   UI:
+*   Downloads:
+*   OkHttp Extension:
+*   Cronet Extension:
+*   RTMP Extension:
+*   HLS Extension:
+*   DASH Extension:
+*   Smooth Streaming Extension:
+*   RTSP Extension:
+*   Decoder Extensions (FFmpeg, VP9, AV1, MIDI, etc.):
+*   Leanback extension:
+*   Cast Extension:
+*   Test Utilities:
+*   Remove deprecated symbols:
+*   Demo app:
+
+## 1.4
+
+### 1.4.0-alpha01 (2024-04-11)
+
+This release includes the following changes since the
+[1.3.1 release](#131-2024-04-11):
+
+*   ExoPlayer:
     *   Add `BasePreloadManager` which coordinates the preloading for multiple
         sources based on the priorities defined by their `rankingData`.
         Customization is possible by extending this class. Add
@@ -24,8 +63,6 @@
         `TargetPreloadStatusControl.getTargetPreloadStatus(T)` to indicate not
         to preload a `MediaSource` with the given `rankingData`.
     *   Add `remove(MediaSource)` to `BasePreloadManager`.
-    *   Add `reset` to `BasePreloadManager` to release all the holding sources
-        while keep the preload manager instance.
 *   Transformer:
     *   Add `audioConversionProcess` and `videoConversionProcess` to
         `ExportResult` indicating how the respective track in the output file
@@ -34,18 +71,11 @@
     *   Add support for changing between SDR and HDR input media in a sequence.
     *   Add support for composition-level audio effects.
     *   Add support for transcoding Ultra HDR images into HDR videos.
-    *   Fix issue where the `DefaultAudioMixer` doesn’t output the correct
+    *   Fix issue where the `DefaultAudioMixer` does not output the correct
         amount of bytes after being reset and reused.
-*   Track Selection:
-*   Extractors:
-*   Audio:
 *   Video:
     *   Fix issue where `Listener.onRenderedFirstFrame()` arrives too early when
         switching surfaces mid-playback.
-*   Text:
-*   Metadata:
-*   Image:
-*   DRM:
 *   DataSource:
     *   Implement support for `android.resource://package/id` raw resource URIs
         where `package` is different to the package of the current application.
@@ -65,8 +95,6 @@
         `setOverlayFrameAnchor()`. If using
         `OverlaySettings.Builder.setOverlayFrameAnchor()`, please flip their x
         and y values by multiplying them by `-1`.
-*   Muxers:
-*   IMA extension:
 *   Session:
     *   Change default of `CommandButton.enabled` to `true` and ensure the value
         can stay false for controllers even if the associated command is
@@ -82,22 +110,11 @@
     *   Override `MediaSessionService.onTaskRemoved(Intent)` to provide a safe
         default implementation that keeps the service running in the foreground
         if playback is ongoing or stops the service otherwise.
-*   UI:
 *   Downloads:
-    *   Ensure that `DownloadHelper` doesn't leak unreleased `Renderer`
+    *   Ensure that `DownloadHelper` does not leak unreleased `Renderer`
         instances, which can eventually result in an app crashing with
         `IllegalStateException: Too many receivers, total of 1000, registered
         for pid` ([#1224](https://github.com/androidx/media/issues/1224)).
-*   OkHttp Extension:
-*   Cronet Extension:
-*   RTMP Extension:
-*   HLS Extension:
-*   DASH Extension:
-*   Smooth Streaming Extension:
-*   RTSP Extension:
-*   Decoder Extensions (FFmpeg, VP9, AV1, MIDI, etc.):
-*   Leanback extension:
-*   Cast Extension:
 *   Test Utilities:
     *   Implement `onInit()` and `onRelease()` in `FakeRenderer`.
     *   Change `TestPlayerRunHelper.runUntil/playUntil` methods to fail on
@@ -106,7 +123,7 @@
         `TestPlayerRunHelper.run(player).ignoringNonFatalErrors().untilXXX()`
         method chain to disable this behavior.
 *   Demo app:
-    *   Use `DefaultPreloadManager` in the shortform demo app.
+    *   Use `DefaultPreloadManager` in the short form demo app.
 *   Remove deprecated symbols:
     *   Remove `CronetDataSourceFactory`. Use `CronetDataSource.Factory`
         instead.
