@@ -25,6 +25,10 @@
 *   Cronet Extension:
 *   RTMP Extension:
 *   HLS Extension:
+    *   Fix bug where pending EMSG samples waiting for a discontinuity were
+        delegated in `HlsSampleStreamWrapper` with an incorrect offset causing
+        an `IndexOutOfBoundsException` or an `IllegalArgumentException`
+        ([#1002](https://github.com/androidx/media/issues/1002)).
 *   DASH Extension:
 *   Smooth Streaming Extension:
 *   RTSP Extension:

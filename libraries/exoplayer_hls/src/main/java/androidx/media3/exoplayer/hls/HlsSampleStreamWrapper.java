@@ -1882,7 +1882,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       int sampleSize = sampleForDelegate.bytesLeft();
 
       delegate.sampleData(sampleForDelegate, sampleSize);
-      delegate.sampleMetadata(timeUs, flags, sampleSize, offset, cryptoData);
+      delegate.sampleMetadata(timeUs, flags, sampleSize, /* offset= */ 0, cryptoData);
     }
 
     private boolean emsgContainsExpectedWrappedFormat(EventMessage emsg) {
