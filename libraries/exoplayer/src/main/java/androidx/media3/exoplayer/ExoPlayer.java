@@ -162,8 +162,6 @@ import java.util.List;
  *       may use background threads to load data. These are implementation specific.
  * </ul>
  */
-// TODO: b/288080357 - Replace developer.android.com fully-qualified SVG URL above with a relative
-// URL once we stop publishing exoplayer2 javadoc.
 public interface ExoPlayer extends Player {
 
   /**

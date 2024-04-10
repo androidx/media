@@ -39,9 +39,6 @@ import java.util.ArrayList;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-// TODO: b/288080357 - Replace developer.android.com fully-qualified SVG URLs below with relative
-// URLs once we stop publishing exoplayer2 javadoc.
-
 /**
  * A flexible representation of the structure of media. A timeline is able to represent the
  * structure of a wide variety of media, from simple cases like a single media file through to
