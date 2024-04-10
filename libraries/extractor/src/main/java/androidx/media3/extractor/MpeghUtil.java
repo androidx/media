@@ -51,8 +51,8 @@ public final class MpeghUtil {
   }
 
   /**
-   * Parses an MHAS packet header. See ISO_IEC_23008-3;2022, 14.2.1, Table 222.
-   * The reading position of {@code data} will be modified.
+   * Parses an MHAS packet header. See ISO_IEC_23008-3;2022, 14.2.1, Table 222. The reading position
+   * of {@code data} will be modified.
    *
    * @param data The data to parse, positioned at the start of the MHAS packet header.
    * @return The {@link MhasPacketHeader} info.
@@ -97,7 +97,7 @@ public final class MpeghUtil {
    * The reading position of {@code data} will be modified.
    *
    * @param data The data to parse, positioned at the start of the fields to obtain the sampling
-   *             rate from.
+   *     rate from.
    * @return The sampling frequency.
    * @throws ParserException if sampling frequency could not be obtained.
    */
@@ -277,11 +277,10 @@ public final class MpeghUtil {
 
   /**
    * Obtains the necessary info of the Mpegh3daConfig from an MPEG-H bit stream. See
-   * ISO_IEC_23008-3;2022, 5.2.2.1, Table 15.
-   * The reading position of {@code data} will be modified.
+   * ISO_IEC_23008-3;2022, 5.2.2.1, Table 15. The reading position of {@code data} will be modified.
    *
    * @param data The data to parse, positioned at the start of the payload of an Mpegh3daConfig
-   *             packet.
+   *     packet.
    * @return The {@link Mpegh3daConfig}.
    * @throws ParserException if a valid {@link Mpegh3daConfig} cannot be parsed.
    */
@@ -337,11 +336,11 @@ public final class MpeghUtil {
 
   /**
    * Obtains the number of truncated samples of the AudioTruncationInfo from an MPEG-H bit stream.
-   * See ISO_IEC_23008-3;2022, 14.2.2, Table 225.
-   * The reading position of {@code data} will be modified.
+   * See ISO_IEC_23008-3;2022, 14.2.2, Table 225. The reading position of {@code data} will be
+   * modified.
    *
    * @param data The data to parse, positioned at the start of the payload of an AudioTruncation
-   *             packet.
+   *     packet.
    * @return The number of truncated samples.
    */
   public static int parseAudioTruncationInfo(ParsableBitArray data) {
@@ -378,7 +377,7 @@ public final class MpeghUtil {
    * 5.2.2.2, Table 19. The reading position of {@code data} will be modified.
    *
    * @param data The data to parse, positioned at the start of the Mpegh3daFlexibleSpeakerConfig
-   *             field.
+   *     field.
    */
   private static void skipMpegh3daFlexibleSpeakerConfig(
       ParsableBitArray data, int numberOfSpeakers) {
@@ -545,8 +544,8 @@ public final class MpeghUtil {
   }
 
   /**
-   * Skips the SbrConfig from an MPEG-H bit stream. See ISO_IEC_23003-3;2020, 5.2, Table 14.
-   * The reading position of {@code data} will be modified.
+   * Skips the SbrConfig from an MPEG-H bit stream. See ISO_IEC_23003-3;2020, 5.2, Table 14. The
+   * reading position of {@code data} will be modified.
    *
    * @param data The data to parse, positioned at the start of the SbrConfig field.
    */

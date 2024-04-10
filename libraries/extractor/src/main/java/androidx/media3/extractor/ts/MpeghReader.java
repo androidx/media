@@ -221,8 +221,7 @@ public final class MpeghReader implements ElementaryStreamReader {
    * @param target The target into which data is to be read.
    * @param targetLength The target length of the read.
    */
-  private void copyData(
-      ParsableByteArray source, ParsableByteArray target, int targetLength) {
+  private void copyData(ParsableByteArray source, ParsableByteArray target, int targetLength) {
     int sourcePosition = source.getPosition();
     int bytesToRead = min(source.bytesLeft(), targetLength - target.getPosition());
     source.readBytes(target.getData(), target.getPosition(), bytesToRead);
@@ -261,8 +260,9 @@ public final class MpeghReader implements ElementaryStreamReader {
     return false;
   }
 
-  /** Parses the MHAS packet header.
-   * 
+  /**
+   * Parses the MHAS packet header.
+   *
    * @throws ParserException if a valid {@link MpeghUtil.Mpegh3daConfig} cannot be parsed.
    */
   private void parseHeader() throws ParserException {
@@ -304,8 +304,8 @@ public final class MpeghReader implements ElementaryStreamReader {
   /**
    * Copies data to the data scratch buffer.
    *
-   * @param data A {@link ParsableByteArray} from which to read the sample data. Its position
-   *             will not be changed.
+   * @param data A {@link ParsableByteArray} from which to read the sample data. Its position will
+   *     not be changed.
    */
   private void maybeCopyToDataScratchBuffer(ParsableByteArray data) {
     if (header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_MPEGH3DACFG
@@ -328,8 +328,7 @@ public final class MpeghReader implements ElementaryStreamReader {
     int bytesToRead;
     // read bytes from header scratch buffer and write them into the output
     if (headerScratchBytes.getPosition() != MpeghUtil.MAX_MHAS_PACKET_HEADER_SIZE) {
-      bytesToRead =
-          min(headerScratchBytes.bytesLeft(), header.packetLength - payloadBytesRead);
+      bytesToRead = min(headerScratchBytes.bytesLeft(), header.packetLength - payloadBytesRead);
       output.sampleData(headerScratchBytes, bytesToRead);
       payloadBytesRead += bytesToRead;
     }
@@ -342,8 +341,8 @@ public final class MpeghReader implements ElementaryStreamReader {
   /**
    * Parses the config and sets the output format.
    *
-   * @param bitArray The data to parse, positioned at the start of the
-   *                 {@link MpeghUtil.Mpegh3daConfig} field.
+   * @param bitArray The data to parse, positioned at the start of the {@link
+   *     MpeghUtil.Mpegh3daConfig} field.
    * @throws ParserException if a valid {@link MpeghUtil.Mpegh3daConfig} cannot be parsed.
    */
   private void parseConfig(ParsableBitArray bitArray) throws ParserException {
@@ -358,8 +357,7 @@ public final class MpeghReader implements ElementaryStreamReader {
         codecs += String.format(".%02X", config.profileLevelIndication);
       }
       @Nullable List<byte[]> initializationData = null;
-      if (config.compatibleProfileLevelSet != null
-          && config.compatibleProfileLevelSet.length > 0) {
+      if (config.compatibleProfileLevelSet != null && config.compatibleProfileLevelSet.length > 0) {
         // The first entry in initializationData is reserved for the audio specific
         // config.
         initializationData =
