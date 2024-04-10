@@ -193,7 +193,7 @@ public final class MpeghReader implements ElementaryStreamReader {
   }
 
   @Override
-  public void packetFinished(boolean isEndOfInput) {
+  public void packetFinished() {
     // Do nothing.
   }
 
