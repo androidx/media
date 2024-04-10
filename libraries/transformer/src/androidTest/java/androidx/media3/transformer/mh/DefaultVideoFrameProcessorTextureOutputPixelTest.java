@@ -643,7 +643,7 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
     textureProducer.releaseOutputTexture(presentationTimeUs);
   }
 
-  private VideoFrameProcessorTestRunner.Builder getDefaultFrameProcessorTestRunnerBuilder(
+  private static VideoFrameProcessorTestRunner.Builder getDefaultFrameProcessorTestRunnerBuilder(
       String testId) {
     TextureBitmapReader textureBitmapReader = new TextureBitmapReader();
     DefaultVideoFrameProcessor.Factory defaultVideoFrameProcessorFactory =
