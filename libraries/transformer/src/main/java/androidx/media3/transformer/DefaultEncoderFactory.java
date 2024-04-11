@@ -163,19 +163,20 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
    * @deprecated Use {@link Builder} instead.
    */
   @Deprecated
-  @SuppressWarnings("deprecation")
   public DefaultEncoderFactory(Context context) {
-    this(context, EncoderSelector.DEFAULT, /* enableFallback= */ true);
+    this(new Builder(context));
   }
 
   /**
    * @deprecated Use {@link Builder} instead.
    */
   @Deprecated
-  @SuppressWarnings("deprecation")
   public DefaultEncoderFactory(
       Context context, EncoderSelector videoEncoderSelector, boolean enableFallback) {
-    this(context, videoEncoderSelector, VideoEncoderSettings.DEFAULT, enableFallback);
+    this(
+        new Builder(context)
+            .setVideoEncoderSelector(videoEncoderSelector)
+            .setEnableFallback(enableFallback));
   }
 
   /**
@@ -187,11 +188,11 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
       EncoderSelector videoEncoderSelector,
       VideoEncoderSettings requestedVideoEncoderSettings,
       boolean enableFallback) {
-    this.context = context;
-    this.videoEncoderSelector = videoEncoderSelector;
-    this.requestedVideoEncoderSettings = requestedVideoEncoderSettings;
-    this.enableFallback = enableFallback;
-    this.codecImportance = DEFAULT_CODEC_IMPORTANCE;
+    this(
+        new Builder(context)
+            .setVideoEncoderSelector(videoEncoderSelector)
+            .setEnableFallback(enableFallback)
+            .setRequestedVideoEncoderSettings(requestedVideoEncoderSettings));
   }
 
   private DefaultEncoderFactory(Builder builder) {
