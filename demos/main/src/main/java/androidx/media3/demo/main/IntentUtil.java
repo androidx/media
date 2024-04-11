@@ -27,6 +27,7 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaItem.ClippingConfiguration;
 import androidx.media3.common.MediaItem.SubtitleConfiguration;
 import androidx.media3.common.MediaMetadata;
+import androidx.media3.common.Player;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
@@ -66,6 +67,21 @@ public class IntentUtil {
   public static final String SUBTITLE_URI_EXTRA = "subtitle_uri";
   public static final String SUBTITLE_MIME_TYPE_EXTRA = "subtitle_mime_type";
   public static final String SUBTITLE_LANGUAGE_EXTRA = "subtitle_language";
+  public static final String PLAYER_REPEAT_MODE_EXTRA = "repeat_mode";
+
+  public static @Player.RepeatMode int parseRepeatModeExtra(String repeatMode) {
+    switch (repeatMode) {
+      case "OFF":
+        return Player.REPEAT_MODE_OFF;
+      case "ONE":
+        return Player.REPEAT_MODE_ONE;
+      case "ALL":
+        return Player.REPEAT_MODE_ALL;
+      default:
+        throw new IllegalArgumentException("Argument " + repeatMode +
+            " does not match any of the repeat modes: OFF|ONE|ALL");
+    }
+  }
 
   /** Creates a list of {@link MediaItem media items} from an {@link Intent}. */
   public static List<MediaItem> createMediaItemsFromIntent(Intent intent) {
