@@ -28,7 +28,6 @@ import android.os.Looper;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
@@ -36,6 +35,7 @@ import androidx.media3.common.OnInputFrameProcessedListener;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.TimestampIterator;
+import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -61,8 +61,9 @@ import java.util.concurrent.atomic.AtomicInteger;
   private final boolean isLooping;
   private final boolean forceAudioTrack;
   private final AssetLoader.Factory assetLoaderFactory;
-  private final HandlerWrapper handler;
+  private final CompositionSettings compositionSettings;
   private final Listener sequenceAssetLoaderListener;
+  private final HandlerWrapper handler;
 
   /**
    * A mapping from track types to {@link SampleConsumer} instances.
@@ -103,13 +104,15 @@ import java.util.concurrent.atomic.AtomicInteger;
       EditedMediaItemSequence sequence,
       boolean forceAudioTrack,
       AssetLoader.Factory assetLoaderFactory,
-      Looper looper,
+      CompositionSettings compositionSettings,
       Listener listener,
-      Clock clock) {
+      Clock clock,
+      Looper looper) {
     editedMediaItems = sequence.editedMediaItems;
     isLooping = sequence.isLooping;
     this.forceAudioTrack = forceAudioTrack;
     this.assetLoaderFactory = assetLoaderFactory;
+    this.compositionSettings = compositionSettings;
     sequenceAssetLoaderListener = listener;
     handler = clock.createHandler(looper, /* callback= */ null);
     sampleConsumersByTrackType = new HashMap<>();
@@ -121,7 +124,8 @@ import java.util.concurrent.atomic.AtomicInteger;
     // constructor.
     @SuppressWarnings("nullness:argument.type.incompatible")
     AssetLoader currentAssetLoader =
-        assetLoaderFactory.createAssetLoader(editedMediaItems.get(0), looper, /* listener= */ this);
+        assetLoaderFactory.createAssetLoader(
+            editedMediaItems.get(0), looper, /* listener= */ this, compositionSettings);
     this.currentAssetLoader = currentAssetLoader;
   }
 
@@ -277,7 +281,13 @@ import java.util.concurrent.atomic.AtomicInteger;
       sampleConsumer =
           checkStateNotNull(
               sampleConsumersByTrackType.get(trackType),
-              "The preceding MediaItem does not contain any track of type " + trackType);
+              Util.formatInvariant(
+                  "The preceding MediaItem does not contain any track of type %d. If the"
+                      + " Composition contains a sequence that starts with items without audio"
+                      + " tracks (like images), followed by items with audio tracks,"
+                      + " Composition.Builder.experimentalSetForceAudioTrack() needs to be set to"
+                      + " true.",
+                  trackType));
     }
     onMediaItemChanged(trackType, format);
     if (nonEndedTracks.get() == 1 && sampleConsumersByTrackType.size() == 2) {
@@ -285,24 +295,25 @@ import java.util.concurrent.atomic.AtomicInteger;
           sampleConsumersByTrackType.entrySet()) {
         int outputTrackType = entry.getKey();
         if (trackType != outputTrackType) {
-          onMediaItemChanged(outputTrackType, /* format= */ null);
+          onMediaItemChanged(outputTrackType, /* outputFormat= */ null);
         }
       }
     }
     return sampleConsumer;
   }
 
-  private void onMediaItemChanged(int trackType, @Nullable Format format) {
+  private void onMediaItemChanged(int trackType, @Nullable Format outputFormat) {
     @Nullable
     OnMediaItemChangedListener onMediaItemChangedListener =
         mediaItemChangedListenersByTrackType.get(trackType);
     if (onMediaItemChangedListener == null) {
       return;
     }
+
     onMediaItemChangedListener.onMediaItemChanged(
         editedMediaItems.get(currentMediaItemIndex),
         currentAssetDurationUs,
-        format,
+        /* decodedFormat= */ outputFormat,
         /* isLast= */ currentMediaItemIndex == editedMediaItems.size() - 1);
   }
 
@@ -331,6 +342,8 @@ import java.util.concurrent.atomic.AtomicInteger;
     checkArgument(
         durationUs != C.TIME_UNSET || currentMediaItemIndex == editedMediaItems.size() - 1,
         "Could not retrieve required duration for EditedMediaItem " + currentMediaItemIndex);
+    durationUs =
+        editedMediaItems.get(currentMediaItemIndex).getDurationAfterEffectsApplied(durationUs);
     currentAssetDurationUs = durationUs;
     if (editedMediaItems.size() == 1 && !isLooping) {
       sequenceAssetLoaderListener.onDurationUs(durationUs);
@@ -454,11 +467,6 @@ import java.util.concurrent.atomic.AtomicInteger;
     }
 
     @Override
-    public ColorInfo getExpectedInputColorInfo() {
-      return sampleConsumer.getExpectedInputColorInfo();
-    }
-
-    @Override
     public int getPendingVideoFrameCount() {
       return sampleConsumer.getPendingVideoFrameCount();
     }
@@ -510,7 +518,8 @@ import java.util.concurrent.atomic.AtomicInteger;
                   assetLoaderFactory.createAssetLoader(
                       editedMediaItem,
                       checkNotNull(Looper.myLooper()),
-                      /* listener= */ SequenceAssetLoader.this);
+                      /* listener= */ SequenceAssetLoader.this,
+                      compositionSettings);
               currentAssetLoader.start();
             } catch (RuntimeException e) {
               onError(

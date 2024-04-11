@@ -176,7 +176,6 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
         constructedAdapters = new ArrayList<>();
       }
 
-      @RequiresApi(18)
       @Override
       public MediaCodecAdapter createAdapter(Configuration configuration) throws IOException {
         CapturingMediaCodecAdapter adapter =
@@ -345,7 +344,6 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
       delegate.setOutputSurface(surface);
     }
 
-    @RequiresApi(19)
     @Override
     public void setParameters(Bundle params) {
       delegate.setParameters(params);

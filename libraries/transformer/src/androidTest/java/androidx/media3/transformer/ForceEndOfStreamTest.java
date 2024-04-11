@@ -19,6 +19,7 @@ package androidx.media3.transformer;
 import static androidx.media3.transformer.AndroidTestUtil.FORCE_TRANSCODE_VIDEO_EFFECTS;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_FORMAT;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_FRAME_COUNT;
+import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
@@ -36,7 +37,10 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import org.json.JSONException;
+import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 /**
@@ -50,20 +54,22 @@ import org.junit.runner.RunWith;
 public class ForceEndOfStreamTest {
 
   private final Context context = ApplicationProvider.getApplicationContext();
+  @Rule public final TestName testName = new TestName();
+
+  private String testId;
+
+  @Before
+  public void setUpTestId() {
+    testId = testName.getMethodName();
+  }
 
   @Test
   public void transcode_decoderDroppingLastFourFrames_exportSucceeds() throws Exception {
-    String testId = "transcode_decoderDroppingLastFourFrames_exportSucceeds";
     if (skipTestBelowApi29(context, testId)) {
       return;
     }
-    if (AndroidTestUtil.skipAndLogIfFormatsUnsupported(
-        context,
-        testId,
-        /* inputFormat= */ MP4_ASSET_FORMAT,
-        /* outputFormat= */ MP4_ASSET_FORMAT)) {
-      return;
-    }
+    assumeFormatsSupported(
+        context, testId, /* inputFormat= */ MP4_ASSET_FORMAT, /* outputFormat= */ MP4_ASSET_FORMAT);
     int framesToSkip = 4;
 
     ExportTestResult testResult =
@@ -79,17 +85,11 @@ public class ForceEndOfStreamTest {
 
   @Test
   public void transcode_decoderDroppingNoFrame_exportSucceeds() throws Exception {
-    String testId = "transcode_decoderDroppingNoFrame_exportSucceeds";
     if (skipTestBelowApi29(context, testId)) {
       return;
     }
-    if (AndroidTestUtil.skipAndLogIfFormatsUnsupported(
-        context,
-        testId,
-        /* inputFormat= */ MP4_ASSET_FORMAT,
-        /* outputFormat= */ MP4_ASSET_FORMAT)) {
-      return;
-    }
+    assumeFormatsSupported(
+        context, testId, /* inputFormat= */ MP4_ASSET_FORMAT, /* outputFormat= */ MP4_ASSET_FORMAT);
 
     ExportTestResult testResult =
         new TransformerAndroidTestRunner.Builder(
@@ -118,7 +118,6 @@ public class ForceEndOfStreamTest {
             new DefaultAssetLoaderFactory(
                 context,
                 new FrameDroppingDecoderFactory(context, MP4_ASSET_FRAME_COUNT, framesToSkip),
-                /* forceInterpretHdrAsSdr= */ false,
                 Clock.DEFAULT))
         .build();
   }

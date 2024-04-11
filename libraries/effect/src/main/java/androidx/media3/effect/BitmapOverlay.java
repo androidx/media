@@ -170,6 +170,12 @@ public abstract class BitmapOverlay extends TextureOverlay {
     return lastTextureId;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Flips the overlay vertically to convert between Android and OpenGL texture coordinate
+   * systems.
+   */
   @Override
   public float[] getVertexTransformation(long presentationTimeUs) {
     // Whereas the Android system uses the top-left corner as (0,0) of the

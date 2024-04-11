@@ -40,22 +40,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 @UnstableApi
 /* package */ final class BitmapTextureManager extends TextureManager {
 
-  private static final String UNSUPPORTED_IMAGE_CONFIGURATION =
-      "Unsupported Image Configuration: No more than 8 bits of precision should be used for each"
-          + " RGB channel.";
-
-  private final GlObjectsProvider glObjectsProvider;
-  private @MonotonicNonNull GlShaderProgram shaderProgram;
   // The queue holds all bitmaps with one or more frames pending to be sent downstream.
   private final Queue<BitmapFrameSequenceInfo> pendingBitmaps;
+  private final GlObjectsProvider glObjectsProvider;
 
-  private @MonotonicNonNull GlTextureInfo currentGlTextureInfo;
+  private @MonotonicNonNull GainmapShaderProgram gainmapShaderProgram;
+  private @MonotonicNonNull GlTextureInfo currentSdrGlTextureInfo;
   private int downstreamShaderProgramCapacity;
-
-  // TODO - b/262693274: Support HDR.
-  @SuppressWarnings({"UnusedVariable", "FieldCanBeLocal"})
-  private boolean useHdr;
-
   private boolean currentInputStreamEnded;
   private boolean isNextFrameInTexture;
 
@@ -74,10 +65,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     pendingBitmaps = new LinkedBlockingQueue<>();
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>{@link GlShaderProgram} must be a {@link GainmapShaderProgram}.
+   */
   @Override
   public void setSamplingGlShaderProgram(GlShaderProgram samplingGlShaderProgram) {
+    checkState(samplingGlShaderProgram instanceof GainmapShaderProgram);
     downstreamShaderProgramCapacity = 0;
-    this.shaderProgram = samplingGlShaderProgram;
+    this.gainmapShaderProgram = (GainmapShaderProgram) samplingGlShaderProgram;
   }
 
   @Override
@@ -91,13 +88,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public void queueInputBitmap(
-      Bitmap inputBitmap,
-      FrameInfo frameInfo,
-      TimestampIterator inStreamOffsetsUs,
-      boolean useHdr) {
+      Bitmap inputBitmap, FrameInfo frameInfo, TimestampIterator inStreamOffsetsUs) {
     videoFrameProcessingTaskExecutor.submit(
         () -> {
-          setupBitmap(inputBitmap, frameInfo, inStreamOffsetsUs, useHdr);
+          setupBitmap(inputBitmap, frameInfo, inStreamOffsetsUs);
           currentInputStreamEnded = false;
         });
   }
@@ -113,7 +107,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     videoFrameProcessingTaskExecutor.submit(
         () -> {
           if (pendingBitmaps.isEmpty()) {
-            checkNotNull(shaderProgram).signalEndOfCurrentInputStream();
+            checkNotNull(gainmapShaderProgram).signalEndOfCurrentInputStream();
             DebugTraceUtil.logEvent(
                 DebugTraceUtil.EVENT_BITMAP_TEXTURE_MANAGER_SIGNAL_EOS, C.TIME_END_OF_SOURCE);
           } else {
@@ -126,28 +120,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public void release() {
     videoFrameProcessingTaskExecutor.submit(
         () -> {
-          if (currentGlTextureInfo != null) {
-            currentGlTextureInfo.release();
+          if (currentSdrGlTextureInfo != null) {
+            currentSdrGlTextureInfo.release();
           }
           pendingBitmaps.clear();
         });
   }
 
   // Methods that must be called on the GL thread.
-  private void setupBitmap(
-      Bitmap bitmap, FrameInfo frameInfo, TimestampIterator inStreamOffsetsUs, boolean useHdr)
+  private void setupBitmap(Bitmap bitmap, FrameInfo frameInfo, TimestampIterator inStreamOffsetsUs)
       throws VideoFrameProcessingException {
-    if (Util.SDK_INT >= 26) {
-      checkState(
-          !checkNotNull(bitmap.getConfig()).equals(Bitmap.Config.RGBA_F16),
-          UNSUPPORTED_IMAGE_CONFIGURATION);
-    }
-    if (Util.SDK_INT >= 33) {
-      checkState(
-          !checkNotNull(bitmap.getConfig()).equals(Bitmap.Config.RGBA_1010102),
-          UNSUPPORTED_IMAGE_CONFIGURATION);
-    }
-    this.useHdr = useHdr;
     checkArgument(inStreamOffsetsUs.hasNext(), "Bitmap queued but no timestamps provided.");
     pendingBitmaps.add(new BitmapFrameSequenceInfo(bitmap, frameInfo, inStreamOffsetsUs));
     maybeQueueToShaderProgram();
@@ -170,9 +152,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     downstreamShaderProgramCapacity--;
-    checkNotNull(shaderProgram)
+    checkNotNull(gainmapShaderProgram)
         .queueInputFrame(
-            glObjectsProvider, checkNotNull(currentGlTextureInfo), currentPresentationTimeUs);
+            glObjectsProvider, checkNotNull(currentSdrGlTextureInfo), currentPresentationTimeUs);
     DebugTraceUtil.logEvent(
         DebugTraceUtil.EVENT_VFP_QUEUE_BITMAP,
         currentPresentationTimeUs,
@@ -186,7 +168,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       finishedBitmapInfo.bitmap.recycle();
       if (pendingBitmaps.isEmpty() && currentInputStreamEnded) {
         // Only signal end of stream after all pending bitmaps are processed.
-        checkNotNull(shaderProgram).signalEndOfCurrentInputStream();
+        checkNotNull(gainmapShaderProgram).signalEndOfCurrentInputStream();
         DebugTraceUtil.logEvent(
             DebugTraceUtil.EVENT_BITMAP_TEXTURE_MANAGER_SIGNAL_EOS, C.TIME_END_OF_SOURCE);
         currentInputStreamEnded = false;
@@ -218,19 +200,22 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       throws VideoFrameProcessingException {
     int currentTexId;
     try {
-      if (currentGlTextureInfo != null) {
-        currentGlTextureInfo.release();
+      if (currentSdrGlTextureInfo != null) {
+        currentSdrGlTextureInfo.release();
       }
       currentTexId = GlUtil.createTexture(bitmap);
+      currentSdrGlTextureInfo =
+          new GlTextureInfo(
+              currentTexId,
+              /* fboId= */ C.INDEX_UNSET,
+              /* rboId= */ C.INDEX_UNSET,
+              frameInfo.width,
+              frameInfo.height);
+      if (Util.SDK_INT >= 34 && bitmap.hasGainmap()) {
+        checkNotNull(gainmapShaderProgram).setGainmap(checkNotNull(bitmap.getGainmap()));
+      }
     } catch (GlUtil.GlException e) {
       throw VideoFrameProcessingException.from(e);
     }
-    currentGlTextureInfo =
-        new GlTextureInfo(
-            currentTexId,
-            /* fboId= */ C.INDEX_UNSET,
-            /* rboId= */ C.INDEX_UNSET,
-            frameInfo.width,
-            frameInfo.height);
   }
 }

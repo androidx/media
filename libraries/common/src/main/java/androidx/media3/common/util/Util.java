@@ -92,8 +92,10 @@ import androidx.media3.common.Player.Commands;
 import androidx.media3.common.audio.AudioProcessor;
 import com.google.common.base.Ascii;
 import com.google.common.base.Charsets;
+import com.google.common.io.ByteStreams;
 import com.google.common.math.DoubleMath;
 import com.google.common.math.LongMath;
+import com.google.common.primitives.Ints;
 import com.google.common.primitives.UnsignedBytes;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.Futures;
@@ -203,47 +205,30 @@ public final class Util {
   private Util() {}
 
   /**
-   * Converts the entirety of an {@link InputStream} to a byte array.
-   *
-   * @param inputStream the {@link InputStream} to be read. The input stream is not closed by this
-   *     method.
-   * @return a byte array containing all of the inputStream's bytes.
-   * @throws IOException if an error occurs reading from the stream.
+   * @deprecated Use Guava's {@link ByteStreams#toByteArray(InputStream)} instead.
    */
   @UnstableApi
+  @Deprecated
   public static byte[] toByteArray(InputStream inputStream) throws IOException {
-    byte[] buffer = new byte[1024 * 4];
-    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-    int bytesRead;
-    while ((bytesRead = inputStream.read(buffer)) != -1) {
-      outputStream.write(buffer, 0, bytesRead);
-    }
-    return outputStream.toByteArray();
-  }
-
-  /** Converts an integer into an equivalent byte array. */
-  @UnstableApi
-  public static byte[] toByteArray(int value) {
-    return new byte[] {
-      (byte) (value >> 24), (byte) (value >> 16), (byte) (value >> 8), (byte) value
-    };
+    return ByteStreams.toByteArray(inputStream);
   }
 
   /**
    * Converts an array of integers into an equivalent byte array.
    *
    * <p>Each integer is converted into 4 sequential bytes.
+   *
+   * <p>For a single integer, prefer Guava's {@link Ints#toByteArray(int)} implementation.
    */
   @UnstableApi
   public static byte[] toByteArray(int... values) {
     byte[] array = new byte[values.length * 4];
     int index = 0;
     for (int value : values) {
-      byte[] byteArray = toByteArray(value);
-      array[index++] = byteArray[0];
-      array[index++] = byteArray[1];
-      array[index++] = byteArray[2];
-      array[index++] = byteArray[3];
+      array[index++] = (byte) (value >> 24);
+      array[index++] = (byte) (value >> 16);
+      array[index++] = (byte) (value >> 8);
+      array[index++] = (byte) (value);
     }
     return array;
   }
@@ -251,23 +236,7 @@ public final class Util {
   /** Converts a float into an equivalent byte array. */
   @UnstableApi
   public static byte[] toByteArray(float value) {
-    return toByteArray(Float.floatToIntBits(value));
-  }
-
-  /** Converts a byte array into a float. */
-  @UnstableApi
-  public static float toFloat(byte[] bytes) {
-    checkArgument(bytes.length == 4);
-    int intBits =
-        bytes[0] << 24 | (bytes[1] & 0xFF) << 16 | (bytes[2] & 0xFF) << 8 | (bytes[3] & 0xFF);
-    return Float.intBitsToFloat(intBits);
-  }
-
-  /** Converts a byte array into an integer. */
-  @UnstableApi
-  public static int toInteger(byte[] bytes) {
-    checkArgument(bytes.length == 4);
-    return bytes[0] << 24 | bytes[1] << 16 | bytes[2] << 8 | bytes[3];
+    return Ints.toByteArray(Float.floatToIntBits(value));
   }
 
   /**
@@ -501,6 +470,7 @@ public final class Util {
     String deviceName = Ascii.toLowerCase(Util.DEVICE);
     return deviceName.contains("emulator")
         || deviceName.contains("emu64a")
+        || deviceName.contains("emu64x")
         || deviceName.contains("generic");
   }
 
@@ -1059,7 +1029,7 @@ public final class Util {
     @Nullable InputStream inputStream = null;
     try {
       inputStream = context.getAssets().open(assetPath);
-      return Util.fromUtf8Bytes(Util.toByteArray(inputStream));
+      return Util.fromUtf8Bytes(ByteStreams.toByteArray(inputStream));
     } finally {
       Util.closeQuietly(inputStream);
     }
@@ -1560,7 +1530,6 @@ public final class Util {
    * @throws NoSuchElementException If the array is empty.
    */
   @UnstableApi
-  @RequiresApi(18)
   public static long minValue(SparseLongArray sparseLongArray) {
     if (sparseLongArray.size() == 0) {
       throw new NoSuchElementException();
@@ -1580,7 +1549,6 @@ public final class Util {
    * @throws NoSuchElementException If the array is empty.
    */
   @UnstableApi
-  @RequiresApi(18)
   public static long maxValue(SparseLongArray sparseLongArray) {
     if (sparseLongArray.size() == 0) {
       throw new NoSuchElementException();
@@ -2296,6 +2264,22 @@ public final class Util {
         }
       case 12:
         return AudioFormat.CHANNEL_OUT_7POINT1POINT4;
+      case 24:
+        return Util.SDK_INT >= 32
+            ? AudioFormat.CHANNEL_OUT_7POINT1POINT4 |
+              AudioFormat.CHANNEL_OUT_FRONT_LEFT_OF_CENTER |
+              AudioFormat.CHANNEL_OUT_FRONT_RIGHT_OF_CENTER |
+              AudioFormat.CHANNEL_OUT_BACK_CENTER |
+              AudioFormat.CHANNEL_OUT_TOP_CENTER |
+              AudioFormat.CHANNEL_OUT_TOP_FRONT_CENTER |
+              AudioFormat.CHANNEL_OUT_TOP_BACK_CENTER |
+              AudioFormat.CHANNEL_OUT_TOP_SIDE_LEFT |
+              AudioFormat.CHANNEL_OUT_TOP_SIDE_RIGHT |
+              AudioFormat.CHANNEL_OUT_BOTTOM_FRONT_LEFT |
+              AudioFormat.CHANNEL_OUT_BOTTOM_FRONT_RIGHT |
+              AudioFormat.CHANNEL_OUT_BOTTOM_FRONT_CENTER |
+              AudioFormat.CHANNEL_OUT_LOW_FREQUENCY_2
+            : AudioFormat.CHANNEL_INVALID;
       default:
         return AudioFormat.CHANNEL_INVALID;
     }
@@ -3134,15 +3118,12 @@ public final class Util {
   @UnstableApi
   public static Point getCurrentDisplayModeSize(Context context) {
     @Nullable Display defaultDisplay = null;
-    if (SDK_INT >= 17) {
-      @Nullable
-      DisplayManager displayManager =
-          (DisplayManager) context.getSystemService(Context.DISPLAY_SERVICE);
-      // We don't expect displayManager to ever be null, so this check is just precautionary.
-      // Consider removing it when the library minSdkVersion is increased to 17 or higher.
-      if (displayManager != null) {
-        defaultDisplay = displayManager.getDisplay(Display.DEFAULT_DISPLAY);
-      }
+    @Nullable
+    DisplayManager displayManager =
+        (DisplayManager) context.getSystemService(Context.DISPLAY_SERVICE);
+    // We don't expect displayManager to ever be null, so this check is just precautionary.
+    if (displayManager != null) {
+      defaultDisplay = displayManager.getDisplay(Display.DEFAULT_DISPLAY);
     }
     if (defaultDisplay == null) {
       WindowManager windowManager =
@@ -3214,10 +3195,8 @@ public final class Util {
     Point displaySize = new Point();
     if (SDK_INT >= 23) {
       getDisplaySizeV23(display, displaySize);
-    } else if (SDK_INT >= 17) {
-      getDisplaySizeV17(display, displaySize);
     } else {
-      getDisplaySizeV16(display, displaySize);
+      display.getRealSize(displaySize);
     }
     return displaySize;
   }
@@ -3701,15 +3680,6 @@ public final class Util {
     Display.Mode mode = display.getMode();
     outSize.x = mode.getPhysicalWidth();
     outSize.y = mode.getPhysicalHeight();
-  }
-
-  @RequiresApi(17)
-  private static void getDisplaySizeV17(Display display, Point outSize) {
-    display.getRealSize(outSize);
-  }
-
-  private static void getDisplaySizeV16(Display display, Point outSize) {
-    display.getSize(outSize);
   }
 
   private static String[] getSystemLocales() {

@@ -2366,9 +2366,6 @@ public class DefaultTrackSelector extends MappingTrackSelector
                   ? (second == Format.NO_VALUE ? 0 : -1)
                   : (second == Format.NO_VALUE ? 1 : (first - second)));
 
-  /** Ordering where all elements are equal. */
-  private static final Ordering<Integer> NO_ORDER = Ordering.from((first, second) -> 0);
-
   private final Object lock;
   @Nullable public final Context context;
   private final ExoTrackSelection.Factory trackSelectionFactory;
@@ -3715,11 +3712,12 @@ public class DefaultTrackSelector extends MappingTrackSelector
           info1.isWithinMaxConstraints && info1.isWithinRendererCapabilities
               ? FORMAT_VALUE_ORDERING
               : FORMAT_VALUE_ORDERING.reverse();
-      return ComparisonChain.start()
-          .compare(
-              info1.bitrate,
-              info2.bitrate,
-              info1.parameters.forceLowestBitrate ? FORMAT_VALUE_ORDERING.reverse() : NO_ORDER)
+      ComparisonChain comparisonChain = ComparisonChain.start();
+      if (info1.parameters.forceLowestBitrate) {
+        comparisonChain =
+            comparisonChain.compare(info1.bitrate, info2.bitrate, FORMAT_VALUE_ORDERING.reverse());
+      }
+      return comparisonChain
           .compare(info1.pixelCount, info2.pixelCount, qualityOrdering)
           .compare(info1.bitrate, info2.bitrate, qualityOrdering)
           .result();
@@ -3905,45 +3903,48 @@ public class DefaultTrackSelector extends MappingTrackSelector
           isWithinConstraints && isWithinRendererCapabilities
               ? FORMAT_VALUE_ORDERING
               : FORMAT_VALUE_ORDERING.reverse();
-      return ComparisonChain.start()
-          .compareFalseFirst(this.isWithinRendererCapabilities, other.isWithinRendererCapabilities)
-          // 1. Compare match with specific content preferences set by the parameters.
-          .compare(
-              this.preferredLanguageIndex,
-              other.preferredLanguageIndex,
-              Ordering.natural().reverse())
-          .compare(this.preferredLanguageScore, other.preferredLanguageScore)
-          .compare(this.preferredRoleFlagsScore, other.preferredRoleFlagsScore)
-          // 2. Compare match with implicit content preferences set by the media or the system.
-          .compareFalseFirst(this.isDefaultSelectionFlag, other.isDefaultSelectionFlag)
-          .compareFalseFirst(this.hasMainOrNoRoleFlag, other.hasMainOrNoRoleFlag)
-          .compare(
-              this.localeLanguageMatchIndex,
-              other.localeLanguageMatchIndex,
-              Ordering.natural().reverse())
-          .compare(this.localeLanguageScore, other.localeLanguageScore)
-          // 3. Compare match with technical preferences set by the parameters.
-          .compareFalseFirst(this.isWithinConstraints, other.isWithinConstraints)
-          .compare(
-              this.preferredMimeTypeMatchIndex,
-              other.preferredMimeTypeMatchIndex,
-              Ordering.natural().reverse())
-          .compare(
-              this.bitrate,
-              other.bitrate,
-              parameters.forceLowestBitrate ? FORMAT_VALUE_ORDERING.reverse() : NO_ORDER)
-          // 4. Compare match with renderer capability preferences.
-          .compareFalseFirst(this.usesPrimaryDecoder, other.usesPrimaryDecoder)
-          .compareFalseFirst(this.usesHardwareAcceleration, other.usesHardwareAcceleration)
-          // 5. Compare technical quality.
-          .compare(this.channelCount, other.channelCount, qualityOrdering)
-          .compare(this.sampleRate, other.sampleRate, qualityOrdering)
-          .compare(
-              this.bitrate,
-              other.bitrate,
-              // Only compare bit rates of tracks with matching language information.
-              Util.areEqual(this.language, other.language) ? qualityOrdering : NO_ORDER)
-          .result();
+      ComparisonChain comparisonChain =
+          ComparisonChain.start()
+              .compareFalseFirst(
+                  this.isWithinRendererCapabilities, other.isWithinRendererCapabilities)
+              // 1. Compare match with specific content preferences set by the parameters.
+              .compare(
+                  this.preferredLanguageIndex,
+                  other.preferredLanguageIndex,
+                  Ordering.natural().reverse())
+              .compare(this.preferredLanguageScore, other.preferredLanguageScore)
+              .compare(this.preferredRoleFlagsScore, other.preferredRoleFlagsScore)
+              // 2. Compare match with implicit content preferences set by the media or the system.
+              .compareFalseFirst(this.isDefaultSelectionFlag, other.isDefaultSelectionFlag)
+              .compareFalseFirst(this.hasMainOrNoRoleFlag, other.hasMainOrNoRoleFlag)
+              .compare(
+                  this.localeLanguageMatchIndex,
+                  other.localeLanguageMatchIndex,
+                  Ordering.natural().reverse())
+              .compare(this.localeLanguageScore, other.localeLanguageScore)
+              // 3. Compare match with technical preferences set by the parameters.
+              .compareFalseFirst(this.isWithinConstraints, other.isWithinConstraints)
+              .compare(
+                  this.preferredMimeTypeMatchIndex,
+                  other.preferredMimeTypeMatchIndex,
+                  Ordering.natural().reverse());
+      if (parameters.forceLowestBitrate) {
+        comparisonChain =
+            comparisonChain.compare(this.bitrate, other.bitrate, FORMAT_VALUE_ORDERING.reverse());
+      }
+      // 4. Compare match with renderer capability preferences.
+      comparisonChain =
+          comparisonChain
+              .compareFalseFirst(this.usesPrimaryDecoder, other.usesPrimaryDecoder)
+              .compareFalseFirst(this.usesHardwareAcceleration, other.usesHardwareAcceleration)
+              // 5. Compare technical quality.
+              .compare(this.channelCount, other.channelCount, qualityOrdering)
+              .compare(this.sampleRate, other.sampleRate, qualityOrdering);
+      if (Util.areEqual(this.language, other.language)) {
+        // Only compare bit rates of tracks with matching language information.
+        comparisonChain = comparisonChain.compare(this.bitrate, other.bitrate, qualityOrdering);
+      }
+      return comparisonChain.result();
     }
 
     private @SelectionEligibility int evaluateSelectionEligibility(
@@ -4241,13 +4242,23 @@ public class DefaultTrackSelector extends MappingTrackSelector
     }
 
     public boolean canBeSpatialized(AudioAttributes audioAttributes, Format format) {
-      // For E-AC3 JOC, the format is object based. When the channel count is 16, this maps to 12
-      // linear channels and the rest are used for objects. See
-      // https://github.com/google/ExoPlayer/pull/10322#discussion_r895265881
-      int linearChannelCount =
-          MimeTypes.AUDIO_E_AC3_JOC.equals(format.sampleMimeType) && format.channelCount == 16
-              ? 12
-              : format.channelCount;
+      int linearChannelCount;
+      if (MimeTypes.AUDIO_E_AC3_JOC.equals(format.sampleMimeType)) {
+        // For E-AC3 JOC, the format is object based. When the channel count is 16, this maps to 12
+        // linear channels and the rest are used for objects. See
+        // https://github.com/google/ExoPlayer/pull/10322#discussion_r895265881
+        linearChannelCount = format.channelCount == 16 ? 12 : format.channelCount;
+      } else if (MimeTypes.AUDIO_AC4.equals(format.sampleMimeType)) {
+        // For AC-4 level 3 or level 4, the format may be object based. When the channel count is
+        // 18 (level 3 17.1 OBI) or 21 (level 4 20.1 OBI), it is mapped to 24 linear channels
+        // (There are some channels used for metadata transfer).
+        linearChannelCount = (format.channelCount == 18 || format.channelCount == 21)
+            ? 24
+            : format.channelCount;
+      } else {
+        linearChannelCount = format.channelCount;
+      }
+
       AudioFormat.Builder builder =
           new AudioFormat.Builder()
               .setEncoding(AudioFormat.ENCODING_PCM_16BIT)

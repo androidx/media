@@ -16,13 +16,13 @@
 package androidx.media3.test.utils;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Assertions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.media.MediaCodec;
 import android.net.Uri;
@@ -30,11 +30,12 @@ import android.os.Bundle;
 import android.os.Parcel;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.Assertions;
+import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.database.DatabaseProvider;
@@ -42,6 +43,8 @@ import androidx.media3.database.DefaultDatabaseProvider;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
+import androidx.media3.exoplayer.MetadataRetriever;
+import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.extractor.DefaultExtractorInput;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
@@ -49,7 +52,9 @@ import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.metadata.MetadataInputBuffer;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.ByteStreams;
 import com.google.common.primitives.Bytes;
+import com.google.common.primitives.UnsignedBytes;
 import com.google.common.truth.Correspondence;
 import java.io.File;
 import java.io.FileInputStream;
@@ -70,6 +75,7 @@ import java.util.Queue;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 
 /** Utility methods for tests. */
 @UnstableApi
@@ -135,8 +141,7 @@ public class TestUtil {
   public static byte[] createByteArray(int... bytes) {
     byte[] array = new byte[bytes.length];
     for (int i = 0; i < array.length; i++) {
-      Assertions.checkState(0x00 <= bytes[i] && bytes[i] <= 0xFF);
-      array[i] = (byte) bytes[i];
+      array[i] = UnsignedBytes.checkedCast(bytes[i]);
     }
     return array;
   }
@@ -186,23 +191,26 @@ public class TestUtil {
 
   /** Writes test data with the specified length to the file and returns it. */
   public static File createTestFile(File file, long length) throws IOException {
-    FileOutputStream output = new FileOutputStream(file);
-    for (long i = 0; i < length; i++) {
-      output.write((int) i);
+    try (FileOutputStream output = new FileOutputStream(file)) {
+      for (long i = 0; i < length; i++) {
+        output.write((int) i);
+      }
     }
-    output.close();
     return file;
   }
 
   /** Returns the bytes of an asset file. */
   public static byte[] getByteArray(Context context, String fileName) throws IOException {
-    return Util.toByteArray(getInputStream(context, fileName));
+    try (InputStream inputStream = getInputStream(context, fileName)) {
+      return ByteStreams.toByteArray(inputStream);
+    }
   }
 
   /** Returns the bytes of a file using its file path. */
   public static byte[] getByteArrayFromFilePath(String filePath) throws IOException {
-    InputStream inputStream = new FileInputStream(filePath);
-    return Util.toByteArray(inputStream);
+    try (InputStream inputStream = new FileInputStream(filePath)) {
+      return ByteStreams.toByteArray(inputStream);
+    }
   }
 
   /** Returns an {@link InputStream} for reading from an asset file. */
@@ -213,11 +221,6 @@ public class TestUtil {
   /** Returns a {@link String} read from an asset file. */
   public static String getString(Context context, String fileName) throws IOException {
     return Util.fromUtf8Bytes(getByteArray(context, fileName));
-  }
-
-  /** Returns a {@link Bitmap} read from an asset file. */
-  public static Bitmap getBitmap(Context context, String fileName) throws IOException {
-    return BitmapFactory.decodeStream(getInputStream(context, fileName));
   }
 
   /** Returns a {@link DatabaseProvider} that provides an in-memory database. */
@@ -354,6 +357,35 @@ public class TestUtil {
   /** Returns the {@link Uri} for the given asset path. */
   public static Uri buildAssetUri(String assetPath) {
     return Uri.parse("asset:///" + assetPath);
+  }
+
+  /**
+   * Returns the {@link Format} for a given {@link C.TrackType} from a media file.
+   *
+   * <p>If more than one track is present for the given {@link C.TrackType} then only one track's
+   * {@link Format} is returned.
+   *
+   * @param context The {@link Context};
+   * @param filePath The media file path.
+   * @param trackType The {@link C.TrackType}.
+   * @return The {@link Format} for the given {@link C.TrackType}.
+   * @throws ExecutionException If an error occurred while retrieving file's metadata.
+   * @throws InterruptedException If interrupted while retrieving file's metadata.
+   */
+  public static Format retrieveTrackFormat(
+      Context context, String filePath, @C.TrackType int trackType)
+      throws ExecutionException, InterruptedException {
+    TrackGroupArray trackGroupArray;
+    trackGroupArray =
+        MetadataRetriever.retrieveMetadata(context, MediaItem.fromUri("file://" + filePath)).get();
+    for (int i = 0; i < trackGroupArray.length; i++) {
+      TrackGroup trackGroup = trackGroupArray.get(i);
+      if (trackGroup.type == trackType) {
+        checkState(trackGroup.length == 1);
+        return trackGroup.getFormat(0);
+      }
+    }
+    throw new IllegalStateException("Couldn't find track");
   }
 
   /**

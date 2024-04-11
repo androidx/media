@@ -44,25 +44,52 @@ public class VideoFrameReleaseControlTest {
   }
 
   @Test
-  public void isReady_withinJoiningDeadline_returnsTrue() {
+  public void isReady_withinJoiningDeadlineWhenRenderingNextFrameImmediately_returnsTrue() {
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ false);
     VideoFrameReleaseControl videoFrameReleaseControl =
         createVideoFrameReleaseControl(/* allowedJoiningTimeMs= */ 100);
     videoFrameReleaseControl.setClock(clock);
 
-    videoFrameReleaseControl.join();
+    videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ true);
 
     assertThat(videoFrameReleaseControl.isReady(/* rendererReady= */ false)).isTrue();
   }
 
   @Test
-  public void isReady_joiningDeadlineExceeded_returnsFalse() {
+  public void isReady_withinJoiningDeadlineWhenNotRenderingNextFrameImmediately_returnsTrue() {
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ false);
     VideoFrameReleaseControl videoFrameReleaseControl =
         createVideoFrameReleaseControl(/* allowedJoiningTimeMs= */ 100);
     videoFrameReleaseControl.setClock(clock);
 
-    videoFrameReleaseControl.join();
+    videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ false);
+
+    assertThat(videoFrameReleaseControl.isReady(/* rendererReady= */ false)).isTrue();
+  }
+
+  @Test
+  public void isReady_joiningDeadlineExceededWhenRenderingNextFrameImmediately_returnsFalse() {
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ false);
+    VideoFrameReleaseControl videoFrameReleaseControl =
+        createVideoFrameReleaseControl(/* allowedJoiningTimeMs= */ 100);
+    videoFrameReleaseControl.setClock(clock);
+
+    videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ true);
+    assertThat(videoFrameReleaseControl.isReady(/* rendererReady= */ false)).isTrue();
+
+    clock.advanceTime(/* timeDiffMs= */ 101);
+
+    assertThat(videoFrameReleaseControl.isReady(/* rendererReady= */ false)).isFalse();
+  }
+
+  @Test
+  public void isReady_joiningDeadlineExceededWhenNotRenderingNextFrameImmediately_returnsFalse() {
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ false);
+    VideoFrameReleaseControl videoFrameReleaseControl =
+        createVideoFrameReleaseControl(/* allowedJoiningTimeMs= */ 100);
+    videoFrameReleaseControl.setClock(clock);
+
+    videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ false);
     assertThat(videoFrameReleaseControl.isReady(/* rendererReady= */ false)).isTrue();
 
     clock.advanceTime(/* timeDiffMs= */ 101);
@@ -323,7 +350,9 @@ public class VideoFrameReleaseControlTest {
   }
 
   @Test
-  public void getFrameReleaseAction_dropWhileJoining_returnsSkip() throws ExoPlaybackException {
+  public void
+      getFrameReleaseAction_lateFrameWhileJoiningWhenNotRenderingFirstFrameImmediately_returnsSkip()
+          throws ExoPlaybackException {
     VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
         new VideoFrameReleaseControl.FrameReleaseInfo();
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ false);
@@ -337,26 +366,12 @@ public class VideoFrameReleaseControlTest {
             /* allowedJoiningTimeMs= */ 1234);
     videoFrameReleaseControl.setClock(clock);
     videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ true);
-
     videoFrameReleaseControl.onStarted();
 
-    // First frame released.
-    assertThat(
-            videoFrameReleaseControl.getFrameReleaseAction(
-                /* presentationTimeUs= */ 0,
-                /* positionUs= */ 0,
-                /* elapsedRealtimeUs= */ 0,
-                /* outputStreamStartPositionUs= */ 0,
-                /* isLastFrame= */ false,
-                frameReleaseInfo))
-        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
-    videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
-    clock.advanceTime(/* timeDiffMs= */ 40);
-
     // Start joining.
-    videoFrameReleaseControl.join();
+    videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ false);
 
-    // Second frame.
+    // First output is TRY_AGAIN_LATER because the time hasn't moved yet
     assertThat(
             videoFrameReleaseControl.getFrameReleaseAction(
                 /* presentationTimeUs= */ 5_000,
@@ -365,7 +380,62 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isLastFrame= */ false,
                 frameReleaseInfo))
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER);
+    // Late frame should be marked as skipped
+    assertThat(
+            videoFrameReleaseControl.getFrameReleaseAction(
+                /* presentationTimeUs= */ 5_000,
+                /* positionUs= */ 11_000,
+                /* elapsedRealtimeUs= */ 0,
+                /* outputStreamStartPositionUs= */ 0,
+                /* isLastFrame= */ false,
+                frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_SKIP);
+  }
+
+  @Test
+  public void
+      getFrameReleaseAction_lateFrameWhileJoiningWhenRenderingFirstFrameImmediately_returnsDropAfterInitialImmediateRelease()
+          throws ExoPlaybackException {
+    VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
+        new VideoFrameReleaseControl.FrameReleaseInfo();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ false);
+    VideoFrameReleaseControl videoFrameReleaseControl =
+        new VideoFrameReleaseControl(
+            ApplicationProvider.getApplicationContext(),
+            new TestFrameTimingEvaluator(
+                /* shouldForceRelease= */ false,
+                /* shouldDropFrame= */ true,
+                /* shouldIgnoreFrame= */ false),
+            /* allowedJoiningTimeMs= */ 1234);
+    videoFrameReleaseControl.setClock(clock);
+    videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ true);
+    videoFrameReleaseControl.onStarted();
+
+    // Start joining.
+    videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ true);
+
+    // First output is to force render the next frame.
+    assertThat(
+            videoFrameReleaseControl.getFrameReleaseAction(
+                /* presentationTimeUs= */ 5_000,
+                /* positionUs= */ 10_000,
+                /* elapsedRealtimeUs= */ 0,
+                /* outputStreamStartPositionUs= */ 0,
+                /* isLastFrame= */ false,
+                frameReleaseInfo))
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
+    videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
+    // Further late frames should be marked as dropped.
+    assertThat(
+            videoFrameReleaseControl.getFrameReleaseAction(
+                /* presentationTimeUs= */ 6_000,
+                /* positionUs= */ 11_000,
+                /* elapsedRealtimeUs= */ 0,
+                /* outputStreamStartPositionUs= */ 0,
+                /* isLastFrame= */ false,
+                frameReleaseInfo))
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_DROP);
   }
 
   @Test

@@ -144,6 +144,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   private final Context context;
   private final VideoSinkProvider videoSinkProvider;
+  private final boolean ownsVideoSinkProvider;
   private final EventDispatcher eventDispatcher;
   private final int maxDroppedFramesToNotify;
   private final boolean deviceNeedsNoPostProcessWorkaround;
@@ -393,6 +394,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     this.maxDroppedFramesToNotify = maxDroppedFramesToNotify;
     this.context = context.getApplicationContext();
     eventDispatcher = new EventDispatcher(eventHandler, eventListener);
+    ownsVideoSinkProvider = videoSinkProvider == null;
     if (videoSinkProvider == null) {
       videoSinkProvider = new CompositingVideoSinkProvider.Builder(this.context).build();
     }
@@ -657,7 +659,10 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     }
     videoFrameReleaseControl.reset();
     if (joining) {
-      videoFrameReleaseControl.join();
+      // Don't render next frame immediately to let the codec catch up with the playback position
+      // first. This prevents a stuttering effect caused by showing the first frame and then
+      // dropping many of the subsequent frames during the catch up phase.
+      videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ false);
     }
     maybeSetupTunnelingForFirstFrame();
     consecutiveDroppedFrameCount = 0;
@@ -715,7 +720,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     }
   }
 
-  @TargetApi(17) // Needed for placeholderSurface usage, as it is always null on API level 16.
   @Override
   protected void onReset() {
     try {
@@ -731,7 +735,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @Override
   protected void onRelease() {
     super.onRelease();
-    if (videoSinkProvider.isInitialized()) {
+    if (ownsVideoSinkProvider && videoSinkProvider.isInitialized()) {
       videoSinkProvider.release();
     }
   }
@@ -804,7 +808,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       } else {
         MediaCodecInfo codecInfo = getCodecInfo();
         if (codecInfo != null && shouldUsePlaceholderSurface(codecInfo)) {
-          placeholderSurface = PlaceholderSurface.newInstanceV17(context, codecInfo.secure);
+          placeholderSurface = PlaceholderSurface.newInstance(context, codecInfo.secure);
           displaySurface = placeholderSurface;
         }
       }
@@ -833,7 +837,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         // If we know the video size, report it again immediately.
         maybeRenotifyVideoSizeChanged();
         if (state == STATE_STARTED) {
-          videoFrameReleaseControl.join();
+          // We want to "join" playback to prevent an intermediate buffering state in the player
+          // before we rendered the new first frame. Since there is no reason to believe the next
+          // frame is delayed and the renderer needs to catch up, we still request to render the
+          // next frame as soon as possible.
+          videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ true);
         }
         // When effects previewing is enabled, set display surface and an unknown size.
         if (videoSinkProvider.isInitialized()) {
@@ -866,7 +874,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     return tunneling && Util.SDK_INT < 23;
   }
 
-  @TargetApi(17) // Needed for placeHolderSurface usage, as it is always null on API level 16.
   @Override
   protected MediaCodecAdapter.Configuration getMediaCodecConfiguration(
       MediaCodecInfo codecInfo,
@@ -892,7 +899,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         throw new IllegalStateException();
       }
       if (placeholderSurface == null) {
-        placeholderSurface = PlaceholderSurface.newInstanceV17(context, codecInfo.secure);
+        placeholderSurface = PlaceholderSurface.newInstance(context, codecInfo.secure);
       }
       displaySurface = placeholderSurface;
     }
@@ -1332,7 +1339,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     }
 
     // We are not rendering on a surface, the renderer will wait until a surface is set.
-    if (displaySurface == placeholderSurface) {
+    // Opportunistically render to VideoFrameProcessor if effects are enabled.
+    if (displaySurface == placeholderSurface && !videoSinkProvider.isInitialized()) {
       // Skip frames in sync with playback, so we'll be at the right frame if the mode changes.
       if (videoFrameReleaseInfo.getEarlyUs() < 30_000) {
         skipOutputBuffer(codec, bufferIndex, presentationTimeUs);
@@ -1680,7 +1688,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         && (!codecInfo.secure || PlaceholderSurface.isSecureSupported(context));
   }
 
-  @RequiresApi(17)
   private void releasePlaceholderSurface() {
     if (displaySurface == placeholderSurface) {
       displaySurface = null;

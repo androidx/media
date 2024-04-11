@@ -15,9 +15,9 @@
  */
 package androidx.media3.test.utils;
 
+import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
@@ -48,13 +48,29 @@ import java.io.OutputStream;
 import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
-import org.junit.AssumptionViolatedException;
 
 /** Utilities for pixel tests. */
 // TODO(b/263395272): After the bug is fixed and dependent tests are moved back to media3.effect,
 //  move this back to the effect tests directory.
 @UnstableApi
 public class BitmapPixelTestUtil {
+
+  /** Represents a {@link ByteBuffer} read from an {@link Image}. */
+  public static final class ImageBuffer {
+    public final ByteBuffer buffer;
+    public final int width;
+    public final int height;
+    public final int rowStride;
+    public final int pixelStride;
+
+    public ImageBuffer(ByteBuffer buffer, int width, int height, int rowStride, int pixelStride) {
+      this.buffer = buffer;
+      this.width = width;
+      this.height = height;
+      this.rowStride = rowStride;
+      this.pixelStride = pixelStride;
+    }
+  }
 
   private static final String TAG = "BitmapPixelTestUtil";
 
@@ -145,7 +161,6 @@ public class BitmapPixelTestUtil {
    * @return A {@link Bitmap}.
    * @throws IOException If the bitmap can't be read.
    */
-  @RequiresApi(19) // BitmapFactory.Options#inPremultiplied.
   public static Bitmap readBitmapUnpremultipliedAlpha(String assetString) throws IOException {
     Bitmap bitmap;
     try (InputStream inputStream = getApplicationContext().getAssets().open(assetString)) {
@@ -161,33 +176,56 @@ public class BitmapPixelTestUtil {
    * Returns a bitmap with the same information as the provided alpha/red/green/blue 8-bits per
    * component image.
    */
-  @RequiresApi(19)
   public static Bitmap createArgb8888BitmapFromRgba8888Image(Image image) {
-    int width = image.getWidth();
-    int height = image.getHeight();
+    checkArgument(image.getPlanes().length == 1);
+    checkArgument(image.getFormat() == PixelFormat.RGBA_8888);
+    Image.Plane plane = image.getPlanes()[0];
+    return createArgb8888BitmapFromRgba8888ImageBuffer(
+        new ImageBuffer(
+            plane.getBuffer(),
+            image.getWidth(),
+            image.getHeight(),
+            plane.getRowStride(),
+            plane.getPixelStride()));
+  }
+
+  /** Returns the {@link ImageBuffer} that is copied from the {@link Image}'s internal buffer. */
+  public static ImageBuffer copyByteBufferFromRbga8888Image(Image image) {
     assertThat(image.getPlanes()).hasLength(1);
     assertThat(image.getFormat()).isEqualTo(PixelFormat.RGBA_8888);
     Image.Plane plane = image.getPlanes()[0];
-    ByteBuffer buffer = plane.getBuffer();
-    int[] colors = new int[width * height];
-    for (int y = 0; y < height; y++) {
-      for (int x = 0; x < width; x++) {
-        int offset = y * plane.getRowStride() + x * plane.getPixelStride();
-        int r = buffer.get(offset) & 0xFF;
-        int g = buffer.get(offset + 1) & 0xFF;
-        int b = buffer.get(offset + 2) & 0xFF;
-        int a = buffer.get(offset + 3) & 0xFF;
-        colors[y * width + x] = Color.argb(a, r, g, b);
+    ByteBuffer copiedBuffer = ByteBuffer.allocate(plane.getBuffer().remaining());
+    copiedBuffer.put(plane.getBuffer());
+    copiedBuffer.flip();
+    return new ImageBuffer(
+        copiedBuffer,
+        image.getWidth(),
+        image.getHeight(),
+        plane.getRowStride(),
+        plane.getPixelStride());
+  }
+
+  public static Bitmap createArgb8888BitmapFromRgba8888ImageBuffer(ImageBuffer imageBuffer) {
+    int[] colors = new int[imageBuffer.width * imageBuffer.height];
+    for (int y = 0; y < imageBuffer.height; y++) {
+      for (int x = 0; x < imageBuffer.width; x++) {
+        int offset = y * imageBuffer.rowStride + x * imageBuffer.pixelStride;
+        int r = imageBuffer.buffer.get(offset) & 0xFF;
+        int g = imageBuffer.buffer.get(offset + 1) & 0xFF;
+        int b = imageBuffer.buffer.get(offset + 2) & 0xFF;
+        int a = imageBuffer.buffer.get(offset + 3) & 0xFF;
+        colors[y * imageBuffer.width + x] = Color.argb(a, r, g, b);
       }
     }
-    return Bitmap.createBitmap(colors, width, height, Bitmap.Config.ARGB_8888);
+    return Bitmap.createBitmap(
+        colors, imageBuffer.width, imageBuffer.height, Bitmap.Config.ARGB_8888);
   }
 
   /**
    * Returns a grayscale bitmap from the Luma channel in the {@link ImageFormat#YUV_420_888} image.
    */
-  @RequiresApi(19)
-  public static Bitmap createGrayscaleArgb8888BitmapFromYuv420888Image(Image image) {
+  public static Bitmap createGrayscaleBitmapFromYuv420888Image(
+      Image image, Bitmap.Config bitmapConfig) {
     int width = image.getWidth();
     int height = image.getHeight();
     assertThat(image.getPlanes()).hasLength(3);
@@ -208,7 +246,7 @@ public class BitmapPixelTestUtil {
                 /* blue= */ lumaValue);
       }
     }
-    return Bitmap.createBitmap(colors, width, height, Bitmap.Config.ARGB_8888);
+    return Bitmap.createBitmap(colors, width, height, bitmapConfig);
   }
 
   /**
@@ -351,7 +389,6 @@ public class BitmapPixelTestUtil {
    */
   public static float getBitmapAveragePixelAbsoluteDifferenceArgb8888(
       Bitmap expected, Bitmap actual, @Nullable String testId) {
-    Log.e("TEST", "testId = " + testId);
     return getBitmapAveragePixelAbsoluteDifferenceArgb8888(
         expected, actual, testId, /* differencesBitmapPath= */ null);
   }
@@ -423,7 +460,6 @@ public class BitmapPixelTestUtil {
   //  createUnpremultipliedArgb8888BitmapFromFocusedGlFramebuffer back to
   //  createArgb8888BitmapFromFocusedGlFramebuffer. Also, apply
   //  setPremultiplied(false) to createBitmapFromFocusedGlFrameBuffer.
-  @RequiresApi(17) // #flipBitmapVertically.
   public static Bitmap createArgb8888BitmapFromFocusedGlFramebuffer(int width, int height)
       throws GlUtil.GlException {
     return createBitmapFromFocusedGlFrameBuffer(
@@ -440,7 +476,6 @@ public class BitmapPixelTestUtil {
    * @param height The height of the pixel rectangle to read.
    * @return A {@link Bitmap} with the framebuffer's values.
    */
-  @RequiresApi(19) // Bitmap#setPremultiplied.
   public static Bitmap createUnpremultipliedArgb8888BitmapFromFocusedGlFramebuffer(
       int width, int height) throws GlUtil.GlException {
     Bitmap bitmap =
@@ -471,7 +506,6 @@ public class BitmapPixelTestUtil {
         width, height, /* pixelSize= */ 8, GLES30.GL_HALF_FLOAT, Bitmap.Config.RGBA_F16);
   }
 
-  @RequiresApi(17) // #flipBitmapVertically.
   private static Bitmap createBitmapFromFocusedGlFrameBuffer(
       int width, int height, int pixelSize, int glReadPixelsFormat, Bitmap.Config bitmapConfig)
       throws GlUtil.GlException {
@@ -494,25 +528,17 @@ public class BitmapPixelTestUtil {
    * @param bitmap A {@link Bitmap}.
    * @return The identifier of the newly created texture.
    */
-  @RequiresApi(17) // #flipBitmapVertically.
   public static int createGlTextureFromBitmap(Bitmap bitmap) throws GlUtil.GlException {
     // Put the flipped bitmap in the OpenGL texture as the bitmap's positive y-axis points down
     // while OpenGL's positive y-axis points up.
     return GlUtil.createTexture(flipBitmapVertically(bitmap));
   }
 
-  @RequiresApi(17) // Bitmap#isPremultiplied.
   public static Bitmap flipBitmapVertically(Bitmap bitmap) {
     boolean wasPremultiplied = bitmap.isPremultiplied();
     if (!wasPremultiplied) {
-      if (SDK_INT >= 19) {
-        // Bitmap.createBitmap must be called on a premultiplied bitmap.
-        bitmap.setPremultiplied(true);
-      } else {
-        throw new AssumptionViolatedException(
-            "bitmap is not premultiplied and Bitmap.setPremultiplied is not supported under API 19."
-                + " unpremultiplied bitmaps cannot be flipped");
-      }
+      // Bitmap.createBitmap must be called on a premultiplied bitmap.
+      bitmap.setPremultiplied(true);
     }
 
     Matrix flip = new Matrix();
@@ -527,9 +553,7 @@ public class BitmapPixelTestUtil {
             bitmap.getHeight(),
             flip,
             /* filter= */ true);
-    if (SDK_INT >= 19) {
-      flippedBitmap.setPremultiplied(wasPremultiplied);
-    }
+    flippedBitmap.setPremultiplied(wasPremultiplied);
     return flippedBitmap;
   }
 

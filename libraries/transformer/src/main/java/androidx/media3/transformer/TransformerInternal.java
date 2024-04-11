@@ -23,11 +23,18 @@ import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.contains;
 import static androidx.media3.transformer.AssetLoader.SUPPORTED_OUTPUT_TYPE_DECODED;
 import static androidx.media3.transformer.AssetLoader.SUPPORTED_OUTPUT_TYPE_ENCODED;
+import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC;
 import static androidx.media3.transformer.ExportException.ERROR_CODE_FAILED_RUNTIME_CHECK;
 import static androidx.media3.transformer.ExportException.ERROR_CODE_MUXING_FAILED;
+import static androidx.media3.transformer.MuxerWrapper.MUXER_RELEASE_REASON_CANCELLED;
+import static androidx.media3.transformer.MuxerWrapper.MUXER_RELEASE_REASON_COMPLETED;
+import static androidx.media3.transformer.MuxerWrapper.MUXER_RELEASE_REASON_ERROR;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_AVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED;
+import static androidx.media3.transformer.TransformerUtil.getDecoderOutputColor;
 import static androidx.media3.transformer.TransformerUtil.getProcessedTrackType;
+import static androidx.media3.transformer.TransformerUtil.getValidColor;
+import static androidx.media3.transformer.TransformerUtil.maybeSetMuxerWrapperAdditionalRotationDegrees;
 import static androidx.media3.transformer.TransformerUtil.shouldTranscodeAudio;
 import static androidx.media3.transformer.TransformerUtil.shouldTranscodeVideo;
 import static java.lang.Math.max;
@@ -44,14 +51,18 @@ import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
+import androidx.media3.common.util.Util;
+import androidx.media3.transformer.AssetLoader.CompositionSettings;
 import com.google.common.collect.ImmutableList;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -192,6 +203,19 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.clock = clock;
     this.videoSampleTimestampOffsetUs = videoSampleTimestampOffsetUs;
     this.muxerWrapper = muxerWrapper;
+
+    // It's safe to use "this" because the reference won't change.
+    @SuppressWarnings("nullness:argument.type.incompatible")
+    String referenceName = Integer.toHexString(System.identityHashCode(this));
+    Log.i(
+        TAG,
+        "Init "
+            + referenceName
+            + " ["
+            + MediaLibraryInfo.VERSION_SLASHY
+            + "] ["
+            + Util.DEVICE_DEBUG_INFO
+            + "]");
     internalHandlerThread = new HandlerThread("Transformer:Internal");
     internalHandlerThread.start();
     sequenceAssetLoaders = new ArrayList<>();
@@ -214,9 +238,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               sequence,
               composition.forceAudioTrack,
               assetLoaderFactory,
-              internalLooper,
+              new CompositionSettings(
+                  transformationRequest.hdrMode, composition.retainHdrFromUltraHdrImage),
               sequenceAssetLoaderListener,
-              clock));
+              clock,
+              internalLooper));
       if (!sequence.isLooping) {
         // All sequences have a non-final duration at this point, as the AssetLoaders haven't
         // started loading yet.
@@ -372,6 +398,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         progressValue = 0;
       }
 
+      Log.i(
+          TAG,
+          "Release "
+              + Integer.toHexString(System.identityHashCode(this))
+              + " ["
+              + MediaLibraryInfo.VERSION_SLASHY
+              + "] ["
+              + Util.DEVICE_DEBUG_INFO
+              + "] ["
+              + MediaLibraryInfo.registeredModules()
+              + "]");
       // VideoSampleExporter can hold buffers from the asset loader's decoder in a surface texture,
       // so we release the VideoSampleExporter first to avoid releasing the codec while its buffers
       // are pending processing.
@@ -398,7 +435,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         }
       }
       try {
-        muxerWrapper.release(forCancellation);
+        muxerWrapper.finishWritingAndMaybeRelease(getMuxerReleaseReason(endReason));
       } catch (Muxer.MuxerException e) {
         if (releaseExportException == null) {
           releaseExportException = ExportException.createForMuxer(e, ERROR_CODE_MUXING_FAILED);
@@ -454,6 +491,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                       encoderFactory.getAudioEncoderName(),
                       encoderFactory.getVideoEncoderName())));
     }
+  }
+
+  private @MuxerWrapper.MuxerReleaseReason int getMuxerReleaseReason(
+      @EndReason int exportEndReason) {
+    if (exportEndReason == END_REASON_COMPLETED) {
+      return MUXER_RELEASE_REASON_COMPLETED;
+    } else if (exportEndReason == END_REASON_CANCELLED) {
+      return MUXER_RELEASE_REASON_CANCELLED;
+    } else if (exportEndReason == END_REASON_ERROR) {
+      return MUXER_RELEASE_REASON_ERROR;
+    }
+    throw new IllegalStateException("Unexpected end reason " + exportEndReason);
   }
 
   private void updateProgressInternal() {
@@ -553,6 +602,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
         boolean shouldTranscode =
             shouldTranscode(firstAssetLoaderInputFormat, supportedOutputTypes);
+        if (!shouldTranscode
+            && getProcessedTrackType(firstAssetLoaderInputFormat.sampleMimeType)
+                == TRACK_TYPE_VIDEO) {
+          maybeSetMuxerWrapperAdditionalRotationDegrees(
+              muxerWrapper, firstEditedMediaItem.effects.videoEffects, firstAssetLoaderInputFormat);
+        }
         assetLoaderInputTracker.setShouldTranscode(trackType, shouldTranscode);
         return shouldTranscode;
       }
@@ -584,10 +639,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         GraphInput sampleExporterInput =
             sampleExporter.getInput(firstEditedMediaItem, assetLoaderOutputFormat);
         OnMediaItemChangedListener onMediaItemChangedListener =
-            (editedMediaItem, durationUs, trackFormat, isLast) -> {
+            (editedMediaItem, durationUs, decodedFormat, isLast) -> {
               onMediaItemChanged(trackType, durationUs, isLast);
               sampleExporterInput.onMediaItemChanged(
-                  editedMediaItem, durationUs, trackFormat, isLast);
+                  editedMediaItem, durationUs, decodedFormat, isLast);
             };
         sequenceAssetLoaders
             .get(sequenceIndex)
@@ -629,17 +684,40 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 /* firstInputFormat= */ assetLoaderOutputFormat,
                 transformationRequest,
                 firstEditedMediaItem,
+                composition.effects.audioProcessors,
                 audioMixerFactory,
                 encoderFactory,
                 muxerWrapper,
                 fallbackListener));
       } else {
-        // TODO(b/267301878): Pass firstAssetLoaderOutputFormat once surface creation not in VSP.
+        Format firstFormat;
+        if (MimeTypes.isVideo(assetLoaderOutputFormat.sampleMimeType)) {
+          // TODO(b/267301878): Pass firstAssetLoaderOutputFormat once surface creation not in VSP.
+          boolean isMediaCodecToneMappingRequested =
+              transformationRequest.hdrMode == HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC;
+          ColorInfo decoderOutputColor =
+              getDecoderOutputColor(
+                  getValidColor(firstAssetLoaderInputFormat.colorInfo),
+                  isMediaCodecToneMappingRequested);
+          firstFormat =
+              firstAssetLoaderInputFormat.buildUpon().setColorInfo(decoderOutputColor).build();
+        } else if (MimeTypes.isImage(assetLoaderOutputFormat.sampleMimeType)) {
+          firstFormat =
+              assetLoaderOutputFormat
+                  .buildUpon()
+                  .setColorInfo(getValidColor(assetLoaderOutputFormat.colorInfo))
+                  .build();
+        } else {
+          throw ExportException.createForUnexpected(
+              new IllegalArgumentException(
+                  "assetLoaderOutputFormat has to have a audio, video or image mimetype."));
+        }
+
         assetLoaderInputTracker.registerSampleExporter(
             C.TRACK_TYPE_VIDEO,
             new VideoSampleExporter(
                 context,
-                firstAssetLoaderInputFormat,
+                firstFormat,
                 transformationRequest,
                 composition.videoCompositorSettings,
                 composition.effects.videoEffects,

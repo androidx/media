@@ -326,18 +326,13 @@ public final class TransformerActivity extends AppCompatActivity {
               .setEnableFallback(bundle.getBoolean(ConfigurationActivity.ENABLE_FALLBACK))
               .build());
 
-      long maxDelayBetweenSamplesMs = DefaultMuxer.Factory.DEFAULT_MAX_DELAY_BETWEEN_SAMPLES_MS;
       if (!bundle.getBoolean(ConfigurationActivity.ABORT_SLOW_EXPORT)) {
-        maxDelayBetweenSamplesMs = C.TIME_UNSET;
+        transformerBuilder.setMaxDelayBetweenMuxerSamplesMs(C.TIME_UNSET);
       }
 
-      Muxer.Factory muxerFactory = new DefaultMuxer.Factory(maxDelayBetweenSamplesMs);
+      Muxer.Factory muxerFactory = new DefaultMuxer.Factory();
       if (bundle.getBoolean(ConfigurationActivity.PRODUCE_FRAGMENTED_MP4)) {
-        muxerFactory =
-            new InAppMuxer.Factory.Builder()
-                .setMaxDelayBetweenSamplesMs(maxDelayBetweenSamplesMs)
-                .setFragmentedMp4Enabled(true)
-                .build();
+        muxerFactory = new InAppMuxer.Factory.Builder().setOutputFragmentedMp4(true).build();
       }
       transformerBuilder.setMuxerFactory(muxerFactory);
 
@@ -628,7 +623,7 @@ public final class TransformerActivity extends AppCompatActivity {
           new OverlaySettings.Builder()
               // Place the logo in the bottom left corner of the screen with some padding from the
               // edges.
-              .setOverlayFrameAnchor(/* x= */ 1f, /* y= */ 1f)
+              .setOverlayFrameAnchor(/* x= */ -1f, /* y= */ -1f)
               .setBackgroundFrameAnchor(/* x= */ -0.95f, /* y= */ -0.95f)
               .build();
       Drawable logo;
