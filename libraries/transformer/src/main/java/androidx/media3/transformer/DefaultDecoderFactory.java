@@ -27,6 +27,7 @@ import android.media.MediaFormat;
 import android.os.Build;
 import android.util.Pair;
 import android.view.Surface;
+import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -40,6 +41,7 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -51,9 +53,8 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
 
   private static final String TAG = "DefaultDecoderFactory";
 
-  private final Context context;
-  private final boolean enableDecoderFallback;
-  private final Listener listener;
+  /** The platform's default value of {@code MediaFormat#KEY_IMPORTANCE}. */
+  private static final int DEFAULT_CODEC_IMPORTANCE = 0;
 
   /** Listener for decoder factory events. */
   public interface Listener {
@@ -70,12 +71,78 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
     void onCodecInitialized(String codecName, List<ExportException> codecInitializationExceptions);
   }
 
-  /** Creates a new factory that selects the most preferred decoder for the format. */
+  /** A builder for {@link DefaultDecoderFactory} instances. */
+  public static final class Builder {
+    private final Context context;
+    private Listener listener;
+    private boolean enableDecoderFallback;
+    private int codecImportance;
+
+    /** Creates a new {@link Builder}. */
+    public Builder(Context context) {
+      this.context = context.getApplicationContext();
+      listener = (codecName, codecInitializationExceptions) -> {};
+      codecImportance = DEFAULT_CODEC_IMPORTANCE;
+    }
+
+    /** Sets the {@link Listener}. */
+    @CanIgnoreReturnValue
+    public Builder setListener(Listener listener) {
+      this.listener = listener;
+      return this;
+    }
+
+    /**
+     * Sets whether the decoder can fallback.
+     *
+     * <p>This decides whether to enable fallback to lower-priority decoders if decoder
+     * initialization fails. This may result in using a decoder that is less efficient or slower
+     * than the primary decoder.
+     *
+     * <p>The default value is {@code false}.
+     */
+    @CanIgnoreReturnValue
+    public Builder setEnableDecoderFallback(boolean enableDecoderFallback) {
+      this.enableDecoderFallback = enableDecoderFallback;
+      return this;
+    }
+
+    /**
+     * Sets the codec importance value.
+     *
+     * <p>Specifying codec importance allows the resource manager in the platform to reclaim less
+     * important codecs (higher importance values) before more important codecs. For example, codecs
+     * used for background operations should have higher importance values so they are reclaimed if
+     * required for foreground operations.
+     *
+     * <p>This method is a no-op on API versions before 35.
+     *
+     * <p>The default value is {@code 0}.
+     */
+    // TODO: b/333552477 - Link documentation after API35 is released.
+    @CanIgnoreReturnValue
+    public Builder setCodecImportance(@IntRange(from = 0) int codecImportance) {
+      this.codecImportance = codecImportance;
+      return this;
+    }
+
+    /** Creates an instance of {@link DefaultDecoderFactory}, using defaults if values are unset. */
+    public DefaultDecoderFactory build() {
+      return new DefaultDecoderFactory(this);
+    }
+  }
+
+  private final Context context;
+  private final boolean enableDecoderFallback;
+  private final Listener listener;
+  private final int codecImportance;
+
+  /**
+   * @deprecated Use {@link Builder} instead.
+   */
+  @Deprecated
   public DefaultDecoderFactory(Context context) {
-    this(
-        context,
-        /* enableDecoderFallback= */ false,
-        (codecName, codecInitializationExceptions) -> {});
+    this(new Builder(context));
   }
 
   /**
@@ -87,11 +154,19 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
    *     initialization fails. This may result in using a decoder that is less efficient or slower
    *     than the primary decoder.
    * @param listener Listener for codec initialization errors.
+   * @deprecated Use {@link Builder} instead.
    */
+  @Deprecated
   public DefaultDecoderFactory(Context context, boolean enableDecoderFallback, Listener listener) {
-    this.context = context.getApplicationContext();
-    this.enableDecoderFallback = enableDecoderFallback;
-    this.listener = listener;
+    this(
+        new Builder(context).setEnableDecoderFallback(enableDecoderFallback).setListener(listener));
+  }
+
+  private DefaultDecoderFactory(Builder builder) {
+    this.context = builder.context;
+    this.enableDecoderFallback = builder.enableDecoderFallback;
+    this.listener = builder.listener;
+    this.codecImportance = builder.codecImportance;
   }
 
   @Override
@@ -144,6 +219,12 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
           mediaFormat, MediaFormat.KEY_PROFILE, codecProfileAndLevel.first);
       MediaFormatUtil.maybeSetInteger(
           mediaFormat, MediaFormat.KEY_LEVEL, codecProfileAndLevel.second);
+    }
+
+    if (SDK_INT >= 35) {
+      // TODO: b/333552477 - Redefinition of MediaFormat.KEY_IMPORTANCE, remove after API35 is
+      //  released.
+      mediaFormat.setInteger("importance", codecImportance);
     }
 
     return createCodecForMediaFormat(mediaFormat, format, outputSurface);

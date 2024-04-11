@@ -32,6 +32,7 @@ import android.media.MediaFormat;
 import android.os.Build;
 import android.util.Pair;
 import android.util.Size;
+import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -54,18 +55,25 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
   /** Best effort, or as-fast-as-possible priority setting for {@link MediaFormat#KEY_PRIORITY}. */
   private static final int PRIORITY_BEST_EFFORT = 1;
 
+  /** The platform's default value of {@code MediaFormat#KEY_IMPORTANCE}. */
+  private static final int DEFAULT_CODEC_IMPORTANCE = 0;
+
   /** A builder for {@link DefaultEncoderFactory} instances. */
   public static final class Builder {
     private final Context context;
 
-    @Nullable private EncoderSelector videoEncoderSelector;
-    @Nullable private VideoEncoderSettings requestedVideoEncoderSettings;
+    private EncoderSelector videoEncoderSelector;
+    private VideoEncoderSettings requestedVideoEncoderSettings;
     private boolean enableFallback;
+    private int codecImportance;
 
     /** Creates a new {@link Builder}. */
     public Builder(Context context) {
-      this.context = context;
-      this.enableFallback = true;
+      this.context = context.getApplicationContext();
+      videoEncoderSelector = EncoderSelector.DEFAULT;
+      requestedVideoEncoderSettings = VideoEncoderSettings.DEFAULT;
+      enableFallback = true;
+      codecImportance = DEFAULT_CODEC_IMPORTANCE;
     }
 
     /**
@@ -120,17 +128,28 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
       return this;
     }
 
+    /**
+     * Sets the codec importance value.
+     *
+     * <p>Specifying codec importance allows the resource manager in the platform to reclaim less
+     * important codecs (higher importance values) before more important codecs. For example, codecs
+     * used for background operations should have higher importance values so they are reclaimed if
+     * required for foreground operations.
+     *
+     * <p>This method is a no-op on API versions before 35.
+     *
+     * <p>The default value is {@code 0}.
+     */
+    // TODO: b/333552477 - Link documentation after API35 is released.
+    @CanIgnoreReturnValue
+    public Builder setCodecImportance(@IntRange(from = 0) int codecImportance) {
+      this.codecImportance = codecImportance;
+      return this;
+    }
+
     /** Creates an instance of {@link DefaultEncoderFactory}, using defaults if values are unset. */
-    @SuppressWarnings("deprecation")
     public DefaultEncoderFactory build() {
-      if (videoEncoderSelector == null) {
-        videoEncoderSelector = EncoderSelector.DEFAULT;
-      }
-      if (requestedVideoEncoderSettings == null) {
-        requestedVideoEncoderSettings = VideoEncoderSettings.DEFAULT;
-      }
-      return new DefaultEncoderFactory(
-          context, videoEncoderSelector, requestedVideoEncoderSettings, enableFallback);
+      return new DefaultEncoderFactory(this);
     }
   }
 
@@ -138,6 +157,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
   private final EncoderSelector videoEncoderSelector;
   private final VideoEncoderSettings requestedVideoEncoderSettings;
   private final boolean enableFallback;
+  private final int codecImportance;
 
   /**
    * @deprecated Use {@link Builder} instead.
@@ -171,6 +191,15 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     this.videoEncoderSelector = videoEncoderSelector;
     this.requestedVideoEncoderSettings = requestedVideoEncoderSettings;
     this.enableFallback = enableFallback;
+    this.codecImportance = DEFAULT_CODEC_IMPORTANCE;
+  }
+
+  private DefaultEncoderFactory(Builder builder) {
+    this.context = builder.context;
+    this.videoEncoderSelector = builder.videoEncoderSelector;
+    this.requestedVideoEncoderSettings = builder.requestedVideoEncoderSettings;
+    this.enableFallback = builder.enableFallback;
+    this.codecImportance = builder.codecImportance;
   }
 
   @Override
@@ -324,6 +353,12 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
           mediaFormat.setInteger(MediaFormat.KEY_PRIORITY, supportedVideoEncoderSettings.priority);
         }
       }
+    }
+
+    if (Util.SDK_INT >= 35) {
+      // TODO: b/333552477 - Redefinition of MediaFormat.KEY_IMPORTANCE, remove after API35 is
+      //  released.
+      mediaFormat.setInteger("importance", codecImportance);
     }
 
     return new DefaultCodec(
