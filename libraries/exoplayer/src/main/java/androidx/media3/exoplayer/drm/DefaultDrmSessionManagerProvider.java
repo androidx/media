@@ -25,6 +25,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultHttpDataSource;
+import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import com.google.common.primitives.Ints;
 import java.util.Map;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -43,6 +44,7 @@ public final class DefaultDrmSessionManagerProvider implements DrmSessionManager
 
   @Nullable private DataSource.Factory drmHttpDataSourceFactory;
   @Nullable private String userAgent;
+  private LoadErrorHandlingPolicy drmLoadErrorHandlingPolicy;
 
   public DefaultDrmSessionManagerProvider() {
     lock = new Object();
@@ -67,6 +69,16 @@ public final class DefaultDrmSessionManagerProvider implements DrmSessionManager
   @Deprecated
   public void setDrmUserAgent(@Nullable String userAgent) {
     this.userAgent = userAgent;
+  }
+
+  /**
+   * Set a load error handling policy to user for the {@link DefaultDrmSessionManager}'s created
+   * by this provider
+   *
+   * @param drmLoadErrorHandlingPolicy - LoadErrorHandlingPolicy for DRM session management
+   */
+  public void setDrmLoadErrorHandlingPolicy(LoadErrorHandlingPolicy drmLoadErrorHandlingPolicy) {
+    this.drmLoadErrorHandlingPolicy = drmLoadErrorHandlingPolicy;
   }
 
   @Override
@@ -100,15 +112,18 @@ public final class DefaultDrmSessionManagerProvider implements DrmSessionManager
     for (Map.Entry<String, String> entry : drmConfiguration.licenseRequestHeaders.entrySet()) {
       httpDrmCallback.setKeyRequestProperty(entry.getKey(), entry.getValue());
     }
-    DefaultDrmSessionManager drmSessionManager =
+    DefaultDrmSessionManager.Builder drmSessionManagerBuilder =
         new DefaultDrmSessionManager.Builder()
             .setUuidAndExoMediaDrmProvider(
                 drmConfiguration.scheme, FrameworkMediaDrm.DEFAULT_PROVIDER)
             .setMultiSession(drmConfiguration.multiSession)
             .setPlayClearSamplesWithoutKeys(drmConfiguration.playClearContentWithoutKey)
             .setUseDrmSessionsForClearContent(
-                Ints.toArray(drmConfiguration.forcedSessionTrackTypes))
-            .build(httpDrmCallback);
+                Ints.toArray(drmConfiguration.forcedSessionTrackTypes));
+    if (drmLoadErrorHandlingPolicy != null) {
+      drmSessionManagerBuilder.setLoadErrorHandlingPolicy(drmLoadErrorHandlingPolicy);
+    }
+    DefaultDrmSessionManager drmSessionManager = drmSessionManagerBuilder.build(httpDrmCallback);
     drmSessionManager.setMode(MODE_PLAYBACK, drmConfiguration.getKeySetId());
     return drmSessionManager;
   }
