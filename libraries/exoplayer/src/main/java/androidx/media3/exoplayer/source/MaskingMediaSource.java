@@ -78,6 +78,23 @@ public final class MaskingMediaSource extends WrappingMediaSource {
   }
 
   @Override
+  public boolean canUpdateMediaItem(MediaItem mediaItem) {
+    return mediaSource.canUpdateMediaItem(mediaItem);
+  }
+
+  @Override
+  public void updateMediaItem(MediaItem mediaItem) {
+    if (hasRealTimeline) {
+      timeline =
+          timeline.cloneWithUpdatedTimeline(
+              new TimelineWithUpdatedMediaItem(timeline.timeline, mediaItem));
+    } else {
+      timeline = MaskingTimeline.createWithPlaceholderTimeline(mediaItem);
+    }
+    mediaSource.updateMediaItem(mediaItem);
+  }
+
+  @Override
   public void prepareSourceInternal() {
     if (!useLazyPreparation) {
       hasStartedPreparing = true;
@@ -376,7 +393,7 @@ public final class MaskingMediaSource extends WrappingMediaSource {
           /* id= */ setIds ? 0 : null,
           /* uid= */ setIds ? MaskingTimeline.MASKING_EXTERNAL_PERIOD_UID : null,
           /* windowIndex= */ 0,
-          /* durationUs = */ C.TIME_UNSET,
+          /* durationUs= */ C.TIME_UNSET,
           /* positionInWindowUs= */ 0,
           /* adPlaybackState= */ AdPlaybackState.NONE,
           /* isPlaceholder= */ true);

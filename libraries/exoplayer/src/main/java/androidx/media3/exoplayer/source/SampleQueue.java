@@ -34,6 +34,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -50,7 +51,6 @@ import androidx.media3.exoplayer.source.SampleStream.ReadFlags;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.extractor.TrackOutput;
 import java.io.IOException;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 
 /** A queue of media samples. */
 @UnstableApi
@@ -81,7 +81,7 @@ public class SampleQueue implements TrackOutput {
   @Nullable private DrmSession currentDrmSession;
 
   private int capacity;
-  private int[] sourceIds;
+  private long[] sourceIds;
   private long[] offsets;
   private int[] sizes;
   private int[] flags;
@@ -102,8 +102,8 @@ public class SampleQueue implements TrackOutput {
   private boolean upstreamFormatAdjustmentRequired;
   @Nullable private Format unadjustedUpstreamFormat;
   @Nullable private Format upstreamFormat;
-  private int upstreamSourceId;
-  private boolean upstreamAllSamplesAreSyncSamples;
+  private long upstreamSourceId;
+  private boolean allSamplesAreSyncSamples;
   private boolean loggedUnexpectedNonSyncSample;
 
   private long sampleOffsetUs;
@@ -168,7 +168,7 @@ public class SampleQueue implements TrackOutput {
     sampleDataQueue = new SampleDataQueue(allocator);
     extrasHolder = new SampleExtrasHolder();
     capacity = SAMPLE_CAPACITY_INCREMENT;
-    sourceIds = new int[capacity];
+    sourceIds = new long[capacity];
     offsets = new long[capacity];
     timesUs = new long[capacity];
     flags = new int[capacity];
@@ -181,6 +181,7 @@ public class SampleQueue implements TrackOutput {
     largestQueuedTimestampUs = Long.MIN_VALUE;
     upstreamFormatRequired = true;
     upstreamKeyframeRequired = true;
+    allSamplesAreSyncSamples = true;
   }
 
   // Called by the consuming thread when there is no loading thread.
@@ -222,12 +223,14 @@ public class SampleQueue implements TrackOutput {
       unadjustedUpstreamFormat = null;
       upstreamFormat = null;
       upstreamFormatRequired = true;
+      allSamplesAreSyncSamples = true;
     }
   }
 
   /**
-   * Sets the start time for the queue. Samples with earlier timestamps will be discarded or have
-   * the {@link C#BUFFER_FLAG_DECODE_ONLY} flag set when read.
+   * Sets the start time for the queue. Samples with earlier timestamps will be discarded if
+   * {@linkplain MimeTypes#allSamplesAreSyncSamples all samples are sync samples} in the given input
+   * format.
    *
    * @param startTimeUs The start time, in microseconds.
    */
@@ -240,7 +243,7 @@ public class SampleQueue implements TrackOutput {
    *
    * @param sourceId The source identifier.
    */
-  public final void sourceId(int sourceId) {
+  public final void sourceId(long sourceId) {
     upstreamSourceId = sourceId;
   }
 
@@ -318,7 +321,7 @@ public class SampleQueue implements TrackOutput {
    *
    * @return The source id.
    */
-  public final synchronized int peekSourceId() {
+  public final synchronized long peekSourceId() {
     int relativeReadIndex = getRelativeIndex(readPosition);
     return hasNextSample() ? sourceIds[relativeReadIndex] : upstreamSourceId;
   }
@@ -463,6 +466,9 @@ public class SampleQueue implements TrackOutput {
   /**
    * Attempts to seek the read position to the keyframe before or at the specified time.
    *
+   * <p>For formats where {@linkplain MimeTypes#allSamplesAreSyncSamples all samples are sync
+   * samples}, it seeks the read position to the first sample at or after the specified time.
+   *
    * @param timeUs The time to seek to.
    * @param allowTimeBeyondBuffer Whether the operation can succeed if {@code timeUs} is beyond the
    *     end of the queue, by seeking to the last sample (or keyframe).
@@ -477,7 +483,11 @@ public class SampleQueue implements TrackOutput {
       return false;
     }
     int offset =
-        findSampleBefore(relativeReadIndex, length - readPosition, timeUs, /* keyframe= */ true);
+        allSamplesAreSyncSamples
+            ? findSampleAfter(
+                relativeReadIndex, length - readPosition, timeUs, allowTimeBeyondBuffer)
+            : findSampleBefore(
+                relativeReadIndex, length - readPosition, timeUs, /* keyframe= */ true);
     if (offset == -1) {
       return false;
     }
@@ -618,7 +628,7 @@ public class SampleQueue implements TrackOutput {
     }
 
     timeUs += sampleOffsetUs;
-    if (upstreamAllSamplesAreSyncSamples) {
+    if (allSamplesAreSyncSamples) {
       if (timeUs < startTimeUs) {
         // If we know that all samples are sync samples, we can discard those that come before the
         // start time on the write side of the queue.
@@ -683,7 +693,7 @@ public class SampleQueue implements TrackOutput {
     sampleDataQueue.rewind();
   }
 
-  @SuppressWarnings("ReferenceEquality") // See comments in setUpstreamFormat
+  @SuppressWarnings("ReferenceEquality") // See comments in setUpstreamFormat.
   private synchronized int peekSampleMetadata(
       FormatHolder formatHolder,
       DecoderInputBuffer buffer,
@@ -694,6 +704,7 @@ public class SampleQueue implements TrackOutput {
     if (!hasNextSample()) {
       if (loadingFinished || isLastSampleQueued) {
         buffer.setFlags(C.BUFFER_FLAG_END_OF_STREAM);
+        buffer.timeUs = C.TIME_END_OF_SOURCE;
         return C.RESULT_BUFFER_READ;
       } else if (upstreamFormat != null && (formatRequired || upstreamFormat != downstreamFormat)) {
         onFormatResult(Assertions.checkNotNull(upstreamFormat), formatHolder);
@@ -720,9 +731,6 @@ public class SampleQueue implements TrackOutput {
       buffer.addFlag(C.BUFFER_FLAG_LAST_SAMPLE);
     }
     buffer.timeUs = timesUs[relativeReadIndex];
-    if (buffer.timeUs < startTimeUs) {
-      buffer.addFlag(C.BUFFER_FLAG_DECODE_ONLY);
-    }
     extrasHolder.size = sizes[relativeReadIndex];
     extrasHolder.offset = offsets[relativeReadIndex];
     extrasHolder.cryptoData = cryptoDatas[relativeReadIndex];
@@ -748,7 +756,7 @@ public class SampleQueue implements TrackOutput {
     } else {
       upstreamFormat = format;
     }
-    upstreamAllSamplesAreSyncSamples =
+    allSamplesAreSyncSamples &=
         MimeTypes.allSamplesAreSyncSamples(upstreamFormat.sampleMimeType, upstreamFormat.codecs);
     loggedUnexpectedNonSyncSample = false;
     return true;
@@ -757,26 +765,26 @@ public class SampleQueue implements TrackOutput {
   private synchronized long discardSampleMetadataTo(
       long timeUs, boolean toKeyframe, boolean stopAtReadPosition) {
     if (length == 0 || timeUs < timesUs[relativeFirstIndex]) {
-      return C.POSITION_UNSET;
+      return C.INDEX_UNSET;
     }
     int searchLength = stopAtReadPosition && readPosition != length ? readPosition + 1 : length;
     int discardCount = findSampleBefore(relativeFirstIndex, searchLength, timeUs, toKeyframe);
     if (discardCount == -1) {
-      return C.POSITION_UNSET;
+      return C.INDEX_UNSET;
     }
     return discardSamples(discardCount);
   }
 
   public synchronized long discardSampleMetadataToRead() {
     if (readPosition == 0) {
-      return C.POSITION_UNSET;
+      return C.INDEX_UNSET;
     }
     return discardSamples(readPosition);
   }
 
   private synchronized long discardSampleMetadataToEnd() {
     if (length == 0) {
-      return C.POSITION_UNSET;
+      return C.INDEX_UNSET;
     }
     return discardSamples(length);
   }
@@ -817,21 +825,21 @@ public class SampleQueue implements TrackOutput {
 
     if (sharedSampleMetadata.isEmpty()
         || !sharedSampleMetadata.getEndValue().format.equals(upstreamFormat)) {
+      Format upstreamFormat = checkNotNull(this.upstreamFormat);
       DrmSessionReference drmSessionReference =
           drmSessionManager != null
               ? drmSessionManager.preacquireSession(drmEventDispatcher, upstreamFormat)
               : DrmSessionReference.EMPTY;
 
       sharedSampleMetadata.appendSpan(
-          getWriteIndex(),
-          new SharedSampleMetadata(checkNotNull(upstreamFormat), drmSessionReference));
+          getWriteIndex(), new SharedSampleMetadata(upstreamFormat, drmSessionReference));
     }
 
     length++;
     if (length == capacity) {
       // Increase the capacity.
       int newCapacity = capacity + SAMPLE_CAPACITY_INCREMENT;
-      int[] newSourceIds = new int[newCapacity];
+      long[] newSourceIds = new long[newCapacity];
       long[] newOffsets = new long[newCapacity];
       long[] newTimesUs = new long[newCapacity];
       int[] newFlags = new int[newCapacity];
@@ -908,7 +916,8 @@ public class SampleQueue implements TrackOutput {
    */
   private void onFormatResult(Format newFormat, FormatHolder outputFormatHolder) {
     boolean isFirstFormat = downstreamFormat == null;
-    @Nullable DrmInitData oldDrmInitData = isFirstFormat ? null : downstreamFormat.drmInitData;
+    @Nullable
+    DrmInitData oldDrmInitData = downstreamFormat == null ? null : downstreamFormat.drmInitData;
     downstreamFormat = newFormat;
     @Nullable DrmInitData newDrmInitData = newFormat.drmInitData;
 
@@ -950,14 +959,15 @@ public class SampleQueue implements TrackOutput {
   }
 
   /**
-   * Finds the sample in the specified range that's before or at the specified time. If {@code
-   * keyframe} is {@code true} then the sample is additionally required to be a keyframe.
+   * Finds the offset of the last sample in the specified range that's before or at the specified
+   * time. If {@code keyframe} is {@code true} then the sample is additionally required to be a
+   * keyframe.
    *
    * @param relativeStartIndex The relative index from which to start searching.
    * @param length The length of the range being searched.
-   * @param timeUs The specified time.
+   * @param timeUs The specified time, in microseconds.
    * @param keyframe Whether only keyframes should be considered.
-   * @return The offset from {@code relativeFirstIndex} to the found sample, or -1 if no matching
+   * @return The offset from {@code relativeStartIndex} to the found sample, or -1 if no matching
    *     sample was found.
    */
   private int findSampleBefore(int relativeStartIndex, int length, long timeUs, boolean keyframe) {
@@ -982,6 +992,33 @@ public class SampleQueue implements TrackOutput {
       }
     }
     return sampleCountToTarget;
+  }
+
+  /**
+   * Finds the offset of the first sample in the specified range that's at or after the specified
+   * time.
+   *
+   * @param relativeStartIndex The relative index from which to start searching.
+   * @param length The length of the range being searched.
+   * @param timeUs The specified time, in microseconds.
+   * @param allowTimeBeyondBuffer Whether {@code length} is returned if the {@code timeUs} is beyond
+   *     the last buffer in the specified range.
+   * @return The offset from {@code relativeStartIndex} to the found sample, -1 if no sample is at
+   *     or after the specified time.
+   */
+  private int findSampleAfter(
+      int relativeStartIndex, int length, long timeUs, boolean allowTimeBeyondBuffer) {
+    int searchIndex = relativeStartIndex;
+    for (int i = 0; i < length; i++) {
+      if (timesUs[searchIndex] >= timeUs) {
+        return i;
+      }
+      searchIndex++;
+      if (searchIndex == capacity) {
+        searchIndex = 0;
+      }
+    }
+    return allowTimeBeyondBuffer ? length : -1;
   }
 
   /**

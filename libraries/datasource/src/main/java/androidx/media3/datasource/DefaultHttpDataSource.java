@@ -33,6 +33,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ForwardingMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
+import com.google.common.io.ByteStreams;
 import com.google.common.net.HttpHeaders;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
@@ -86,7 +87,7 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
     @CanIgnoreReturnValue
     @UnstableApi
     @Override
-    public final Factory setDefaultRequestProperties(Map<String, String> defaultRequestProperties) {
+    public Factory setDefaultRequestProperties(Map<String, String> defaultRequestProperties) {
       this.defaultRequestProperties.clearAndSet(defaultRequestProperties);
       return this;
     }
@@ -220,6 +221,7 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
 
   /** The default connection timeout, in milliseconds. */
   @UnstableApi public static final int DEFAULT_CONNECT_TIMEOUT_MILLIS = 8 * 1000;
+
   /** The default read timeout, in milliseconds. */
   @UnstableApi public static final int DEFAULT_READ_TIMEOUT_MILLIS = 8 * 1000;
 
@@ -422,7 +424,7 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
       byte[] errorResponseBody;
       try {
         errorResponseBody =
-            errorStream != null ? Util.toByteArray(errorStream) : Util.EMPTY_BYTE_ARRAY;
+            errorStream != null ? ByteStreams.toByteArray(errorStream) : Util.EMPTY_BYTE_ARRAY;
       } catch (IOException e) {
         errorResponseBody = Util.EMPTY_BYTE_ARRAY;
       }
@@ -821,7 +823,7 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
    */
   private static void maybeTerminateInputStream(
       @Nullable HttpURLConnection connection, long bytesRemaining) {
-    if (connection == null || Util.SDK_INT < 19 || Util.SDK_INT > 20) {
+    if (connection == null || Util.SDK_INT > 20) {
       return;
     }
 

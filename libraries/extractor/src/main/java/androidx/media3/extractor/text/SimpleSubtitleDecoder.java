@@ -16,7 +16,6 @@
 package androidx.media3.extractor.text;
 
 import androidx.annotation.Nullable;
-import androidx.media3.common.C;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.SimpleDecoder;
@@ -79,8 +78,6 @@ public abstract class SimpleSubtitleDecoder
       ByteBuffer inputData = Assertions.checkNotNull(inputBuffer.data);
       Subtitle subtitle = decode(inputData.array(), inputData.limit(), reset);
       outputBuffer.setContent(inputBuffer.timeUs, subtitle, inputBuffer.subsampleOffsetUs);
-      // Clear BUFFER_FLAG_DECODE_ONLY (see [Internal: b/27893809]).
-      outputBuffer.clearFlag(C.BUFFER_FLAG_DECODE_ONLY);
       return null;
     } catch (SubtitleDecoderException e) {
       return e;

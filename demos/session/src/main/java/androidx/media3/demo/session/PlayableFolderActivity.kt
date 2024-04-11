@@ -43,7 +43,7 @@ import com.google.common.util.concurrent.ListenableFuture
 class PlayableFolderActivity : AppCompatActivity() {
   private lateinit var browserFuture: ListenableFuture<MediaBrowser>
   private val browser: MediaBrowser?
-    get() = if (browserFuture.isDone) browserFuture.get() else null
+    get() = if (browserFuture.isDone && !browserFuture.isCancelled) browserFuture.get() else null
 
   private lateinit var mediaList: ListView
   private lateinit var mediaListAdapter: PlayableMediaItemArrayAdapter
@@ -51,6 +51,7 @@ class PlayableFolderActivity : AppCompatActivity() {
 
   companion object {
     private const val MEDIA_ITEM_ID_KEY = "MEDIA_ITEM_ID_KEY"
+
     fun createIntent(context: Context, mediaItemID: String): Intent {
       val intent = Intent(context, PlayableFolderActivity::class.java)
       intent.putExtra(MEDIA_ITEM_ID_KEY, mediaItemID)
@@ -77,8 +78,7 @@ class PlayableFolderActivity : AppCompatActivity() {
         browser.shuffleModeEnabled = false
         browser.prepare()
         browser.play()
-        val intent = Intent(this, PlayerActivity::class.java)
-        startActivity(intent)
+        browser.sessionActivity?.send()
       }
     }
 
@@ -88,8 +88,7 @@ class PlayableFolderActivity : AppCompatActivity() {
       browser.shuffleModeEnabled = true
       browser.prepare()
       browser.play()
-      val intent = Intent(this, PlayerActivity::class.java)
-      startActivity(intent)
+      browser.sessionActivity?.send()
     }
 
     findViewById<Button>(R.id.play_button).setOnClickListener {
@@ -104,9 +103,9 @@ class PlayableFolderActivity : AppCompatActivity() {
 
     findViewById<ExtendedFloatingActionButton>(R.id.open_player_floating_button)
       .setOnClickListener {
-        // display the playing media items
-        val intent = Intent(this, PlayerActivity::class.java)
-        startActivity(intent)
+        // Start the session activity that shows the playback activity. The System UI uses the same
+        // intent in the same way to start the activity from the notification.
+        browser?.sessionActivity?.send()
       }
   }
 

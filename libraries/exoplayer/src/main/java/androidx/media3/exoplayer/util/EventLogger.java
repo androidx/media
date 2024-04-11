@@ -38,6 +38,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
+import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.drm.DrmSession;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
@@ -92,6 +93,7 @@ public class EventLogger implements AnalyticsListener {
    */
   @UnstableApi
   @Deprecated
+  @SuppressWarnings("unused") // Maintain backwards compatibility for callers.
   public EventLogger(@Nullable MappingTrackSelector trackSelector) {
     this(DEFAULT_TAG);
   }
@@ -105,6 +107,7 @@ public class EventLogger implements AnalyticsListener {
    */
   @UnstableApi
   @Deprecated
+  @SuppressWarnings("unused") // Maintain backwards compatibility for callers.
   public EventLogger(@Nullable MappingTrackSelector trackSelector, String tag) {
     this(tag);
   }
@@ -334,7 +337,10 @@ public class EventLogger implements AnalyticsListener {
   @UnstableApi
   @Override
   public void onAudioDecoderInitialized(
-      EventTime eventTime, String decoderName, long initializationDurationMs) {
+      EventTime eventTime,
+      String decoderName,
+      long initializedTimestampMs,
+      long initializationDurationMs) {
     logd(eventTime, "audioDecoderInitialized", decoderName);
   }
 
@@ -403,6 +409,20 @@ public class EventLogger implements AnalyticsListener {
 
   @UnstableApi
   @Override
+  public void onAudioTrackInitialized(
+      EventTime eventTime, AudioSink.AudioTrackConfig audioTrackConfig) {
+    logd(eventTime, "audioTrackInit", getAudioTrackConfigString(audioTrackConfig));
+  }
+
+  @UnstableApi
+  @Override
+  public void onAudioTrackReleased(
+      EventTime eventTime, AudioSink.AudioTrackConfig audioTrackConfig) {
+    logd(eventTime, "audioTrackReleased", getAudioTrackConfigString(audioTrackConfig));
+  }
+
+  @UnstableApi
+  @Override
   public void onVideoEnabled(EventTime eventTime, DecoderCounters decoderCounters) {
     logd(eventTime, "videoEnabled");
   }
@@ -410,7 +430,10 @@ public class EventLogger implements AnalyticsListener {
   @UnstableApi
   @Override
   public void onVideoDecoderInitialized(
-      EventTime eventTime, String decoderName, long initializationDurationMs) {
+      EventTime eventTime,
+      String decoderName,
+      long initializedTimestampMs,
+      long initializationDurationMs) {
     logd(eventTime, "videoDecoderInitialized", decoderName);
   }
 
@@ -684,6 +707,8 @@ public class EventLogger implements AnalyticsListener {
         return "SKIP";
       case Player.DISCONTINUITY_REASON_INTERNAL:
         return "INTERNAL";
+      case Player.DISCONTINUITY_REASON_SILENCE_SKIP:
+        return "SILENCE_SKIP";
       default:
         return "?";
     }
@@ -744,5 +769,19 @@ public class EventLogger implements AnalyticsListener {
       default:
         return "?";
     }
+  }
+
+  private static String getAudioTrackConfigString(AudioSink.AudioTrackConfig audioTrackConfig) {
+    return audioTrackConfig.encoding
+        + ","
+        + audioTrackConfig.channelConfig
+        + ","
+        + audioTrackConfig.sampleRate
+        + ","
+        + audioTrackConfig.tunneling
+        + ","
+        + audioTrackConfig.offload
+        + ","
+        + audioTrackConfig.bufferSize;
   }
 }

@@ -15,16 +15,21 @@
  */
 apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 
-dependencies {
-    implementation project(modulePrefix + 'lib-exoplayer')
-    implementation 'androidx.work:work-runtime:2.7.0'
-    compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion
+android {
+    namespace 'androidx.media3.exoplayer.workmanager'
+
+    publishing {
+        singleVariant('release') {
+            withSourcesJar()
+        }
+    }
 }
 
-ext {
-    javadocTitle = 'WorkManager extension'
+dependencies {
+    implementation project(modulePrefix + 'lib-exoplayer')
+    implementation 'androidx.work:work-runtime:2.8.1'
+    compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion
 }
-apply from: '../../javadoc_library.gradle'
 
 ext {
     releaseArtifactId = 'media3-exoplayer-workmanager'

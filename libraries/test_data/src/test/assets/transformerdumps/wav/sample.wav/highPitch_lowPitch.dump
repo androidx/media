@@ -1,0 +1,227 @@
+format audio:
+  averageBitrate = 131072
+  sampleMimeType = audio/mp4a-latm
+  channelCount = 1
+  sampleRate = 44100
+  pcmEncoding = 2
+sample:
+  trackType = audio
+  dataHashCode = 1742602241
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -1246841621
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = 1217270269
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -1536036726
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -1896009897
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -1302654735
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -2098810092
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = 1571288763
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = 1492183034
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -1224768894
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = 1602573019
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -1371878993
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -2040447586
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -303881903
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -257026275
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = 1688238734
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = 583964586
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = 269242131
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = 1900116530
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -1795286207
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -1839661951
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -1753287452
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = 736968887
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -996259377
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = 381474348
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = 1936702924
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -109208214
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = 1273086460
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = 1613472513
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -2016821547
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -1034210803
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = 792255198
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = 293085032
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = 1095941488
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = 1424391541
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -2035692412
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -846338004
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -621835681
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = 740553340
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = 1803399326
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -85529281
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -163099964
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -30119868
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -1106486435
+  size = 3822
+  isKeyFrame = true
+released = true

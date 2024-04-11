@@ -26,9 +26,10 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
 import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.TextUtils;
 import android.util.JsonReader;
 import android.view.Menu;
@@ -48,6 +49,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.OptIn;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaItem.ClippingConfiguration;
 import androidx.media3.common.MediaMetadata;
@@ -72,6 +74,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /** An activity for selecting from a list of media samples. */
 public class SampleChooserActivity extends AppCompatActivity
@@ -80,7 +84,6 @@ public class SampleChooserActivity extends AppCompatActivity
   private static final String TAG = "SampleChooserActivity";
   private static final String GROUP_POSITION_PREFERENCE_KEY = "sample_chooser_group_position";
   private static final String CHILD_POSITION_PREFERENCE_KEY = "sample_chooser_child_position";
-  private static final int POST_NOTIFICATION_PERMISSION_REQUEST_CODE = 100;
 
   private String[] uris;
   private boolean useExtensionRenderers;
@@ -179,14 +182,6 @@ public class SampleChooserActivity extends AppCompatActivity
   public void onRequestPermissionsResult(
       int requestCode, String[] permissions, int[] grantResults) {
     super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-    if (requestCode == POST_NOTIFICATION_PERMISSION_REQUEST_CODE) {
-      handlePostNotificationPermissionGrantResults(grantResults);
-    } else {
-      handleExternalStoragePermissionGrantResults(grantResults);
-    }
-  }
-
-  private void handlePostNotificationPermissionGrantResults(int[] grantResults) {
     if (!notificationPermissionToastShown
         && (grantResults.length == 0 || grantResults[0] != PackageManager.PERMISSION_GRANTED)) {
       Toast.makeText(
@@ -201,30 +196,8 @@ public class SampleChooserActivity extends AppCompatActivity
     }
   }
 
-  private void handleExternalStoragePermissionGrantResults(int[] grantResults) {
-    if (grantResults.length == 0) {
-      // Empty results are triggered if a permission is requested while another request was already
-      // pending and can be safely ignored in this case.
-      return;
-    } else if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-      loadSample();
-    } else {
-      Toast.makeText(getApplicationContext(), R.string.sample_list_load_error, Toast.LENGTH_LONG)
-          .show();
-      finish();
-    }
-  }
-
   private void loadSample() {
     checkNotNull(uris);
-
-    for (int i = 0; i < uris.length; i++) {
-      Uri uri = Uri.parse(uris[i]);
-      if (Util.maybeRequestReadExternalStoragePermission(this, uri)) {
-        return;
-      }
-    }
-
     SampleListLoader loaderTask = new SampleListLoader();
     loaderTask.execute(uris);
   }
@@ -279,8 +252,7 @@ public class SampleChooserActivity extends AppCompatActivity
             != PackageManager.PERMISSION_GRANTED) {
       downloadMediaItemWaitingForNotificationPermission = playlistHolder.mediaItems.get(0);
       requestPermissions(
-          new String[] {Api33.getPostNotificationPermissionString()},
-          /* requestCode= */ POST_NOTIFICATION_PERMISSION_REQUEST_CODE);
+          new String[] {Api33.getPostNotificationPermissionString()}, /* requestCode= */ 0);
     } else {
       toggleDownload(playlistHolder.mediaItems.get(0));
     }
@@ -302,6 +274,10 @@ public class SampleChooserActivity extends AppCompatActivity
     if (localConfiguration.adsConfiguration != null) {
       return R.string.download_ads_unsupported;
     }
+    @Nullable MediaItem.DrmConfiguration drmConfiguration = localConfiguration.drmConfiguration;
+    if (drmConfiguration != null && !drmConfiguration.scheme.equals(C.WIDEVINE_UUID)) {
+      return R.string.download_only_widevine_drm_supported;
+    }
     String scheme = localConfiguration.uri.getScheme();
     if (!("http".equals(scheme) || "https".equals(scheme))) {
       return R.string.download_scheme_unsupported;
@@ -314,34 +290,42 @@ public class SampleChooserActivity extends AppCompatActivity
     return menuItem != null && menuItem.isChecked();
   }
 
-  private final class SampleListLoader extends AsyncTask<String, Void, List<PlaylistGroup>> {
+  private final class SampleListLoader {
+
+    private final ExecutorService executorService;
 
     private boolean sawError;
 
-    @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
-    @Override
-    protected List<PlaylistGroup> doInBackground(String... uris) {
-      List<PlaylistGroup> result = new ArrayList<>();
-      Context context = getApplicationContext();
-      DataSource dataSource = DemoUtil.getDataSourceFactory(context).createDataSource();
-      for (String uri : uris) {
-        DataSpec dataSpec = new DataSpec(Uri.parse(uri));
-        InputStream inputStream = new DataSourceInputStream(dataSource, dataSpec);
-        try {
-          readPlaylistGroups(new JsonReader(new InputStreamReader(inputStream, "UTF-8")), result);
-        } catch (Exception e) {
-          Log.e(TAG, "Error loading sample list: " + uri, e);
-          sawError = true;
-        } finally {
-          DataSourceUtil.closeQuietly(dataSource);
-        }
-      }
-      return result;
+    public SampleListLoader() {
+      executorService = Executors.newSingleThreadExecutor();
     }
 
-    @Override
-    protected void onPostExecute(List<PlaylistGroup> result) {
-      onPlaylistGroups(result, sawError);
+    @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
+    public void execute(String... uris) {
+      executorService.execute(
+          () -> {
+            List<PlaylistGroup> result = new ArrayList<>();
+            Context context = getApplicationContext();
+            DataSource dataSource = DemoUtil.getDataSourceFactory(context).createDataSource();
+            for (String uri : uris) {
+              DataSpec dataSpec = new DataSpec(Uri.parse(uri));
+              InputStream inputStream = new DataSourceInputStream(dataSource, dataSpec);
+              try {
+                readPlaylistGroups(
+                    new JsonReader(new InputStreamReader(inputStream, "UTF-8")), result);
+              } catch (Exception e) {
+                Log.e(TAG, "Error loading sample list: " + uri, e);
+                sawError = true;
+              } finally {
+                DataSourceUtil.closeQuietly(dataSource);
+              }
+            }
+            new Handler(Looper.getMainLooper())
+                .post(
+                    () -> {
+                      onPlaylistGroups(result, sawError);
+                    });
+          });
     }
 
     private void readPlaylistGroups(JsonReader reader, List<PlaylistGroup> groups)

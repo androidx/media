@@ -19,10 +19,10 @@ import static java.lang.Math.max;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.util.Arrays;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 
 /** Default implementation of {@link Allocator}. */
 @UnstableApi
@@ -43,7 +43,8 @@ public final class DefaultAllocator implements Allocator {
    * Constructs an instance without creating any {@link Allocation}s up front.
    *
    * @param trimOnReset Whether memory is freed when the allocator is reset. Should be true unless
-   *     the allocator will be re-used by multiple player instances.
+   *     the allocator will be re-used by multiple player instances. If set to false, trimming can
+   *     be forced by calling {@link #setTargetBufferSize(int)} manually when required.
    * @param individualAllocationSize The length of each individual {@link Allocation}.
    */
   public DefaultAllocator(boolean trimOnReset, int individualAllocationSize) {
@@ -56,7 +57,8 @@ public final class DefaultAllocator implements Allocator {
    * <p>Note: {@link Allocation}s created up front will never be discarded by {@link #trim()}.
    *
    * @param trimOnReset Whether memory is freed when the allocator is reset. Should be true unless
-   *     the allocator will be re-used by multiple player instances.
+   *     the allocator will be re-used by multiple player instances. If set to false, trimming can
+   *     be forced by calling {@link #setTargetBufferSize(int)} manually when required.
    * @param individualAllocationSize The length of each individual {@link Allocation}.
    * @param initialAllocationCount The number of allocations to create up front.
    */

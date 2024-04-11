@@ -14,13 +14,17 @@
 apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 
 android {
-    defaultConfig {
-        multiDexEnabled true
-    }
+    namespace 'androidx.media3.decoder'
 
     buildTypes {
         debug {
             testCoverageEnabled = true
+        }
+    }
+
+    publishing {
+        singleVariant('release') {
+            withSourcesJar()
         }
     }
 }
@@ -34,11 +38,6 @@ dependencies {
     testImplementation 'com.google.truth:truth:' + truthVersion
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
 }
-
-ext {
-    javadocTitle = 'Decoder module'
-}
-apply from: '../../javadoc_library.gradle'
 
 ext {
     releaseArtifactId = 'media3-decoder'

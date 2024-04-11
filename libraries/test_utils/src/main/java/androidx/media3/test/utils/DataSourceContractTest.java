@@ -31,7 +31,6 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import android.net.Uri;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
@@ -68,7 +67,6 @@ import org.mockito.Mockito;
  * not required) to also annotate this {@link Ignore @Ignore} so that JUnit correctly reports the
  * test as skipped/ignored instead of passing.
  */
-@RequiresApi(19)
 @UnstableApi
 public abstract class DataSourceContractTest {
 
@@ -370,6 +368,44 @@ public abstract class DataSourceContractTest {
                     .setUri(resource.getUri())
                     .setFlags(DataSpec.FLAG_ALLOW_GZIP)
                     .build());
+        byte[] data =
+            unboundedReadsAreIndefinite()
+                ? DataSourceUtil.readExactly(dataSource, resource.getExpectedBytes().length)
+                : DataSourceUtil.readToEnd(dataSource);
+
+        if (length != C.LENGTH_UNSET) {
+          assertThat(length).isEqualTo(resource.getExpectedBytes().length);
+        }
+        assertThat(data).isEqualTo(resource.getExpectedBytes());
+      } finally {
+        dataSource.close();
+      }
+      additionalFailureInfo.setInfo(null);
+    }
+  }
+
+  @Test
+  public void uriSchemeIsCaseInsensitive() throws Exception {
+    ImmutableList<TestResource> resources = getTestResources();
+    Assertions.checkArgument(!resources.isEmpty(), "Must provide at least one test resource.");
+
+    for (int i = 0; i < resources.size(); i++) {
+      additionalFailureInfo.setInfo(getFailureLabel(resources, i));
+      TestResource resource = resources.get(i);
+      @Nullable String scheme = resource.getUri().getScheme();
+      if (scheme == null) {
+        // No scheme for which to check case-insensitivity.
+        continue;
+      }
+      DataSource dataSource = createDataSource();
+      Uri uri =
+          resource
+              .getUri()
+              .buildUpon()
+              .scheme(invertAsciiCaseOfEveryOtherCharacter(scheme))
+              .build();
+      try {
+        long length = dataSource.open(new DataSpec.Builder().setUri(uri).build());
         byte[] data =
             unboundedReadsAreIndefinite()
                 ? DataSourceUtil.readExactly(dataSource, resource.getExpectedBytes().length)

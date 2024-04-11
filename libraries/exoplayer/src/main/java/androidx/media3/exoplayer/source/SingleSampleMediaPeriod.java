@@ -22,6 +22,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSourceUtil;
@@ -30,6 +31,7 @@ import androidx.media3.datasource.StatsDataSource;
 import androidx.media3.datasource.TransferListener;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.FormatHolder;
+import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.source.MediaSourceEventListener.EventDispatcher;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
@@ -41,7 +43,6 @@ import androidx.media3.exoplayer.upstream.Loader.Loadable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** A {@link MediaPeriod} with a single sample. */
@@ -145,7 +146,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public boolean continueLoading(long positionUs) {
+  public boolean continueLoading(LoadingInfo loadingInfo) {
     if (loadingFinished || loader.isLoading() || loader.hasFatalError()) {
       return false;
     }

@@ -15,6 +15,7 @@
  */
 package androidx.media3.extractor.ts;
 
+import static androidx.media3.common.util.Assertions.checkState;
 import static java.lang.Math.min;
 
 import androidx.annotation.Nullable;
@@ -48,6 +49,7 @@ public final class LatmReader implements ElementaryStreamReader {
   private static final int SYNC_BYTE_SECOND = 0xE0;
 
   @Nullable private final String language;
+  private final @C.RoleFlags int roleFlags;
   private final ParsableByteArray sampleDataBuffer;
   private final ParsableBitArray sampleBitArray;
 
@@ -77,9 +79,11 @@ public final class LatmReader implements ElementaryStreamReader {
 
   /**
    * @param language Track language.
+   * @param roleFlags Track role flags.
    */
-  public LatmReader(@Nullable String language) {
+  public LatmReader(@Nullable String language, @C.RoleFlags int roleFlags) {
     this.language = language;
+    this.roleFlags = roleFlags;
     sampleDataBuffer = new ParsableByteArray(INITIAL_BUFFER_SIZE);
     sampleBitArray = new ParsableBitArray(sampleDataBuffer.getData());
     timeUs = C.TIME_UNSET;
@@ -101,9 +105,7 @@ public final class LatmReader implements ElementaryStreamReader {
 
   @Override
   public void packetStarted(long pesTimeUs, @TsPayloadReader.Flags int flags) {
-    if (pesTimeUs != C.TIME_UNSET) {
-      timeUs = pesTimeUs;
-    }
+    timeUs = pesTimeUs;
   }
 
   @Override
@@ -218,6 +220,7 @@ public final class LatmReader implements ElementaryStreamReader {
                 .setSampleRate(sampleRateHz)
                 .setInitializationData(Collections.singletonList(initData))
                 .setLanguage(language)
+                .setRoleFlags(roleFlags)
                 .build();
         if (!format.equals(this.format)) {
           this.format = format;
@@ -314,10 +317,10 @@ public final class LatmReader implements ElementaryStreamReader {
       sampleDataBuffer.setPosition(0);
     }
     output.sampleData(sampleDataBuffer, muxLengthBytes);
-    if (timeUs != C.TIME_UNSET) {
-      output.sampleMetadata(timeUs, C.BUFFER_FLAG_KEY_FRAME, muxLengthBytes, 0, null);
-      timeUs += sampleDurationUs;
-    }
+    // packetStarted method must be called before consuming samples.
+    checkState(timeUs != C.TIME_UNSET);
+    output.sampleMetadata(timeUs, C.BUFFER_FLAG_KEY_FRAME, muxLengthBytes, 0, null);
+    timeUs += sampleDurationUs;
   }
 
   private void resetBufferForSize(int newSize) {

@@ -52,7 +52,6 @@ import java.util.Map;
 import java.util.UUID;
 
 /** An {@link ExoMediaDrm} implementation that wraps the framework {@link MediaDrm}. */
-@RequiresApi(18)
 public final class FrameworkMediaDrm implements ExoMediaDrm {
 
   private static final String TAG = "FrameworkMediaDrm";
@@ -246,7 +245,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
   private static String adjustLicenseServerUrl(String licenseServerUrl) {
     if (MOCK_LA_URL.equals(licenseServerUrl)) {
       return "";
-    } else if (Util.SDK_INT == 33 && "https://default.url".equals(licenseServerUrl)) {
+    } else if (Util.SDK_INT >= 33 && "https://default.url".equals(licenseServerUrl)) {
       // Work around b/247808112
       return "";
     } else {
@@ -288,22 +287,24 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
   @UnstableApi
   @Override
   public boolean requiresSecureDecoder(byte[] sessionId, String mimeType) {
+    boolean result;
     if (Util.SDK_INT >= 31) {
-      return Api31.requiresSecureDecoder(mediaDrm, mimeType);
+      result = Api31.requiresSecureDecoder(mediaDrm, mimeType);
+    } else {
+      MediaCrypto mediaCrypto = null;
+      try {
+        mediaCrypto = new MediaCrypto(uuid, sessionId);
+        result = mediaCrypto.requiresSecureDecoderComponent(mimeType);
+      } catch (MediaCryptoException e) {
+        // This shouldn't happen, but if it does then assume that a secure decoder may be required.
+        result = true;
+      } finally {
+        if (mediaCrypto != null) {
+          mediaCrypto.release();
+        }
+      }
     }
-
-    MediaCrypto mediaCrypto;
-    try {
-      mediaCrypto = new MediaCrypto(uuid, sessionId);
-    } catch (MediaCryptoException e) {
-      // This shouldn't happen, but if it does then assume that a secure decoder may be required.
-      return true;
-    }
-    try {
-      return mediaCrypto.requiresSecureDecoderComponent(mimeType);
-    } finally {
-      mediaCrypto.release();
-    }
+    return result && !shouldForceAllowInsecureDecoderComponents();
   }
 
   @UnstableApi
@@ -325,6 +326,26 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
   @Override
   public void restoreKeys(byte[] sessionId, byte[] keySetId) {
     mediaDrm.restoreKeys(sessionId, keySetId);
+  }
+
+  @Override
+  @UnstableApi
+  @RequiresApi(29)
+  public void removeOfflineLicense(byte[] keySetId) {
+    if (Util.SDK_INT < 29) {
+      throw new UnsupportedOperationException();
+    }
+    mediaDrm.removeOfflineLicense(keySetId);
+  }
+
+  @Override
+  @UnstableApi
+  @RequiresApi(29)
+  public List<byte[]> getOfflineLicenseKeySetIds() {
+    if (Util.SDK_INT < 29) {
+      throw new UnsupportedOperationException();
+    }
+    return mediaDrm.getOfflineLicenseKeySetIds();
   }
 
   @UnstableApi
@@ -364,14 +385,17 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
   @UnstableApi
   @Override
   public FrameworkCryptoConfig createCryptoConfig(byte[] sessionId) throws MediaCryptoException {
-    // Work around a bug prior to Lollipop where L1 Widevine forced into L3 mode would still
-    // indicate that it required secure video decoders [Internal ref: b/11428937].
-    boolean forceAllowInsecureDecoderComponents =
-        Util.SDK_INT < 21
-            && C.WIDEVINE_UUID.equals(uuid)
-            && "L3".equals(getPropertyString("securityLevel"));
+    boolean forceAllowInsecureDecoderComponents = shouldForceAllowInsecureDecoderComponents();
     return new FrameworkCryptoConfig(
         adjustUuid(uuid), sessionId, forceAllowInsecureDecoderComponents);
+  }
+
+  // Work around a bug prior to Lollipop where L1 Widevine forced into L3 mode would still
+  // indicate that it required secure video decoders [Internal ref: b/11428937].
+  private boolean shouldForceAllowInsecureDecoderComponents() {
+    return Util.SDK_INT < 21
+        && C.WIDEVINE_UUID.equals(uuid)
+        && "L3".equals(getPropertyString("securityLevel"));
   }
 
   @UnstableApi

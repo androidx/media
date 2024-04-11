@@ -41,6 +41,7 @@ import java.util.PriorityQueue;
   @Nullable private CeaInputBuffer dequeuedInputBuffer;
   private long playbackPositionUs;
   private long queuedInputBufferCount;
+  private long outputStartTimeUs;
 
   @SuppressWarnings("nullness:methodref.receiver.bound")
   public CeaDecoder() {
@@ -53,10 +54,16 @@ import java.util.PriorityQueue;
       availableOutputBuffers.add(new CeaOutputBuffer(this::releaseOutputBuffer));
     }
     queuedInputBuffers = new PriorityQueue<>();
+    outputStartTimeUs = C.TIME_UNSET;
   }
 
   @Override
   public abstract String getName();
+
+  @Override
+  public final void setOutputStartTimeUs(long outputStartTimeUs) {
+    this.outputStartTimeUs = outputStartTimeUs;
+  }
 
   @Override
   public void setPositionUs(long positionUs) {
@@ -78,7 +85,7 @@ import java.util.PriorityQueue;
   public void queueInputBuffer(SubtitleInputBuffer inputBuffer) throws SubtitleDecoderException {
     Assertions.checkArgument(inputBuffer == dequeuedInputBuffer);
     CeaInputBuffer ceaInputBuffer = (CeaInputBuffer) inputBuffer;
-    if (ceaInputBuffer.isDecodeOnly()) {
+    if (outputStartTimeUs != C.TIME_UNSET && ceaInputBuffer.timeUs < outputStartTimeUs) {
       // We can start decoding anywhere in CEA formats, so discarding on the input side is fine.
       releaseInputBuffer(ceaInputBuffer);
     } else {

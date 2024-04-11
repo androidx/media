@@ -25,6 +25,7 @@ import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.extractor.metadata.dvbsi.AppInfoTable;
 import androidx.media3.extractor.metadata.emsg.EventMessage;
@@ -32,7 +33,6 @@ import androidx.media3.extractor.metadata.flac.PictureFrame;
 import androidx.media3.extractor.metadata.icy.IcyHeaders;
 import androidx.media3.extractor.metadata.icy.IcyInfo;
 import androidx.media3.extractor.metadata.id3.Id3Frame;
-import androidx.media3.extractor.metadata.mp4.MdtaMetadataEntry;
 import androidx.media3.extractor.metadata.mp4.MotionPhotoMetadata;
 import androidx.media3.extractor.metadata.mp4.SlowMotionData;
 import androidx.media3.extractor.metadata.mp4.SmtaMetadataEntry;
@@ -77,6 +77,7 @@ public final class PlaybackOutput implements Dumper.Dumpable {
             metadatas.add(metadata);
           }
 
+          @SuppressWarnings("deprecation") // Intentionally testing deprecated output
           @Override
           public void onCues(List<Cue> cues) {
             subtitlesFromDeprecatedTextOutput.add(cues);

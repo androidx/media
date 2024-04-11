@@ -24,6 +24,8 @@ import androidx.media3.extractor.MpegAudioUtil;
  */
 /* package */ final class ConstantBitrateSeeker extends ConstantBitrateSeekMap implements Seeker {
 
+  private final int bitrate;
+
   /**
    * @param inputLength The length of the stream in bytes, or {@link C#LENGTH_UNSET} if unknown.
    * @param firstFramePosition The position of the first frame in the stream.
@@ -45,6 +47,7 @@ import androidx.media3.extractor.MpegAudioUtil;
         mpegAudioHeader.bitrate,
         mpegAudioHeader.frameSize,
         allowSeeksIfLengthUnknown);
+    bitrate = mpegAudioHeader.bitrate;
   }
 
   @Override
@@ -54,6 +57,11 @@ import androidx.media3.extractor.MpegAudioUtil;
 
   @Override
   public long getDataEndPosition() {
-    return C.POSITION_UNSET;
+    return C.INDEX_UNSET;
+  }
+
+  @Override
+  public int getAverageBitrate() {
+    return bitrate;
   }
 }
