@@ -115,8 +115,8 @@ public final class TransformerMhUltraHdrTest {
   public void exportUltraHdrImageThenHdrVideo_exportsHdr() throws Exception {
     assumeDeviceSupportsUltraHdrEditing();
     Composition composition =
-        createComposition(
-            /* presentation= */ null,
+        createUltraHdrComposition(
+            /* tonemap= */ false,
             oneFrameFromImage(ULTRA_HDR_URI_STRING, NO_EFFECT),
             clippedVideo(MP4_ASSET_1080P_5_SECOND_HLG10, NO_EFFECT, ONE_FRAME_END_POSITION_MS));
 
