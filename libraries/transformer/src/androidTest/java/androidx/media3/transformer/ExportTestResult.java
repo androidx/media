@@ -15,7 +15,8 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.transformer.JsonUtil.exceptionAsJsonObject;
+import static androidx.media3.transformer.AndroidTestUtil.exceptionAsJsonObject;
+import static androidx.media3.transformer.AndroidTestUtil.processedInputsAsJsonArray;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -160,20 +161,55 @@ public class ExportTestResult {
   /** Returns a {@link JSONObject} representing all the values in {@code this}. */
   public JSONObject asJsonObject() throws JSONException {
     JSONObject jsonObject =
-        JsonUtil.exportResultAsJsonObject(exportResult)
+        new JSONObject()
+            .putOpt("audioEncoderName", exportResult.audioEncoderName)
             .putOpt(
                 "fallbackDetails", fallbackDetails != null ? fallbackDetails.asJsonObject() : null)
             .putOpt("filePath", filePath)
+            .putOpt("colorInfo", exportResult.colorInfo)
+            .putOpt("videoEncoderName", exportResult.videoEncoderName)
+            .putOpt("testException", exceptionAsJsonObject(exportResult.exportException))
             .putOpt("analysisException", exceptionAsJsonObject(analysisException));
 
+    if (!exportResult.processedInputs.isEmpty()) {
+      jsonObject.put("processedInputs", processedInputsAsJsonArray(exportResult.processedInputs));
+    }
+
+    if (exportResult.averageAudioBitrate != C.RATE_UNSET_INT) {
+      jsonObject.put("averageAudioBitrate", exportResult.averageAudioBitrate);
+    }
+    if (exportResult.averageVideoBitrate != C.RATE_UNSET_INT) {
+      jsonObject.put("averageVideoBitrate", exportResult.averageVideoBitrate);
+    }
+    if (exportResult.channelCount != C.LENGTH_UNSET) {
+      jsonObject.put("channelCount", exportResult.channelCount);
+    }
+    if (exportResult.durationMs != C.TIME_UNSET) {
+      jsonObject.put("durationMs", exportResult.durationMs);
+    }
     if (elapsedTimeMs != C.TIME_UNSET) {
       jsonObject.put("elapsedTimeMs", elapsedTimeMs);
+    }
+    if (exportResult.fileSizeBytes != C.LENGTH_UNSET) {
+      jsonObject.put("fileSizeBytes", exportResult.fileSizeBytes);
+    }
+    if (exportResult.height != C.LENGTH_UNSET) {
+      jsonObject.put("height", exportResult.height);
+    }
+    if (exportResult.sampleRate != C.RATE_UNSET_INT) {
+      jsonObject.put("sampleRate", exportResult.sampleRate);
     }
     if (ssim != ExportTestResult.SSIM_UNSET) {
       jsonObject.put("ssim", ssim);
     }
     if (throughputFps != C.RATE_UNSET) {
       jsonObject.put("throughputFps", throughputFps);
+    }
+    if (exportResult.videoFrameCount > 0) {
+      jsonObject.put("videoFrameCount", exportResult.videoFrameCount);
+    }
+    if (exportResult.width != C.LENGTH_UNSET) {
+      jsonObject.put("width", exportResult.width);
     }
     return jsonObject;
   }

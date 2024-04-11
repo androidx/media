@@ -34,8 +34,6 @@ import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.TrackOutput;
-import androidx.media3.extractor.text.SubtitleParser;
-import androidx.media3.extractor.text.SubtitleTranscodingExtractorOutput;
 import java.io.IOException;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -119,24 +117,6 @@ public final class AviExtractor implements Extractor {
   private static final int AVIIF_KEYFRAME = 16;
 
   /**
-   * Flags controlling the behavior of the extractor. Possible flag value is {@link
-   * #FLAG_EMIT_RAW_SUBTITLE_DATA}.
-   */
-  @Documented
-  @Retention(RetentionPolicy.SOURCE)
-  @Target(TYPE_USE)
-  @IntDef(
-      flag = true,
-      value = {FLAG_EMIT_RAW_SUBTITLE_DATA})
-  public @interface Flags {}
-
-  /**
-   * Flag to use the source subtitle formats without modification. If unset, subtitles will be
-   * transcoded to {@link MimeTypes#APPLICATION_MEDIA3_CUES} during extraction.
-   */
-  public static final int FLAG_EMIT_RAW_SUBTITLE_DATA = 1;
-
-  /**
    * Maximum size to skip using {@link ExtractorInput#skip}. Boxes larger than this size are skipped
    * using {@link #RESULT_SEEK}.
    */
@@ -144,8 +124,6 @@ public final class AviExtractor implements Extractor {
 
   private final ParsableByteArray scratch;
   private final ChunkHeaderHolder chunkHeaderHolder;
-  private final boolean parseSubtitlesDuringExtraction;
-  private final SubtitleParser.Factory subtitleParserFactory;
 
   private @State int state;
   private ExtractorOutput extractorOutput;
@@ -161,24 +139,7 @@ public final class AviExtractor implements Extractor {
   private int idx1BodySize;
   private boolean seekMapHasBeenOutput;
 
-  /**
-   * @deprecated Use {@link #AviExtractor(int, SubtitleParser.Factory)} instead.
-   */
-  @Deprecated
   public AviExtractor() {
-    this(FLAG_EMIT_RAW_SUBTITLE_DATA, SubtitleParser.Factory.UNSUPPORTED);
-  }
-
-  /**
-   * Constructs an instance.
-   *
-   * @param extractorFlags Flags that control the extractor's behavior.
-   * @param subtitleParserFactory The {@link SubtitleParser.Factory} for parsing subtitles during
-   *     extraction.
-   */
-  public AviExtractor(@Flags int extractorFlags, SubtitleParser.Factory subtitleParserFactory) {
-    this.subtitleParserFactory = subtitleParserFactory;
-    parseSubtitlesDuringExtraction = (extractorFlags & FLAG_EMIT_RAW_SUBTITLE_DATA) == 0;
     scratch = new ParsableByteArray(/* limit= */ 12);
     chunkHeaderHolder = new ChunkHeaderHolder();
     extractorOutput = new DummyExtractorOutput();
@@ -194,10 +155,7 @@ public final class AviExtractor implements Extractor {
   @Override
   public void init(ExtractorOutput output) {
     this.state = STATE_SKIPPING_TO_HDRL;
-    this.extractorOutput =
-        parseSubtitlesDuringExtraction
-            ? new SubtitleTranscodingExtractorOutput(output, subtitleParserFactory)
-            : output;
+    this.extractorOutput = output;
     pendingReposition = C.INDEX_UNSET;
   }
 

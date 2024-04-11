@@ -65,10 +65,9 @@ public final class EncodedSampleExporterTest {
             new TransformationRequest.Builder().build(),
             new MuxerWrapper(
                 /* outputPath= */ "unused",
-                new InAppMuxer.Factory.Builder().build(),
+                new InAppMuxer.Factory(),
                 mock(MuxerWrapper.Listener.class),
-                MuxerWrapper.MUXER_MODE_DEFAULT,
-                /* dropSamplesBeforeFirstVideoSample= */ false),
+                MuxerWrapper.MUXER_MODE_DEFAULT),
             fallbackListener,
             /* initialTimestampOffsetUs= */ 0);
   }

@@ -45,10 +45,7 @@ public final class CapturingAudioSink extends ForwardingAudioSink implements Dum
       throws ConfigurationException {
     interceptedData.add(
         new DumpableConfiguration(
-            inputFormat.pcmEncoding,
-            inputFormat.channelCount,
-            inputFormat.sampleRate,
-            outputChannels));
+            inputFormat.pcmEncoding, inputFormat.channelCount, inputFormat.sampleRate));
     super.configure(inputFormat, specifiedBufferSize, outputChannels);
   }
 
@@ -106,17 +103,12 @@ public final class CapturingAudioSink extends ForwardingAudioSink implements Dum
     private final @C.PcmEncoding int inputPcmEncoding;
     private final int inputChannelCount;
     private final int inputSampleRate;
-    @Nullable private final int[] outputChannels;
 
     public DumpableConfiguration(
-        @C.PcmEncoding int inputPcmEncoding,
-        int inputChannelCount,
-        int inputSampleRate,
-        @Nullable int[] outputChannels) {
+        @C.PcmEncoding int inputPcmEncoding, int inputChannelCount, int inputSampleRate) {
       this.inputPcmEncoding = inputPcmEncoding;
       this.inputChannelCount = inputChannelCount;
       this.inputSampleRate = inputSampleRate;
-      this.outputChannels = outputChannels;
     }
 
     @Override
@@ -125,11 +117,8 @@ public final class CapturingAudioSink extends ForwardingAudioSink implements Dum
           .startBlock("config")
           .add("pcmEncoding", inputPcmEncoding)
           .add("channelCount", inputChannelCount)
-          .add("sampleRate", inputSampleRate);
-      if (outputChannels != null) {
-        dumper.add("outputChannels", Arrays.toString(outputChannels));
-      }
-      dumper.endBlock();
+          .add("sampleRate", inputSampleRate)
+          .endBlock();
     }
   }
 

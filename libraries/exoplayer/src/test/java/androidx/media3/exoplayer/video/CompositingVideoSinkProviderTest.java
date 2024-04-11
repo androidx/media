@@ -28,6 +28,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.PreviewingVideoGraph;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoGraph;
+import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -40,16 +41,6 @@ import org.mockito.Mockito;
 /** Unit test for {@link CompositingVideoSinkProvider}. */
 @RunWith(AndroidJUnit4.class)
 public final class CompositingVideoSinkProviderTest {
-
-  @Test
-  public void builder_calledMultipleTimes_throws() {
-    CompositingVideoSinkProvider.Builder builder =
-        new CompositingVideoSinkProvider.Builder(ApplicationProvider.getApplicationContext());
-
-    builder.build();
-
-    assertThrows(IllegalStateException.class, builder::build);
-  }
 
   @Test
   public void initialize() throws VideoSink.VideoSinkException {
@@ -81,17 +72,6 @@ public final class CompositingVideoSinkProviderTest {
   }
 
   @Test
-  public void isInitialized_afterRelease_returnsFalse() throws VideoSink.VideoSinkException {
-    CompositingVideoSinkProvider provider = createCompositingVideoSinkProvider();
-    provider.setVideoEffects(ImmutableList.of());
-    provider.initialize(new Format.Builder().build());
-
-    provider.release();
-
-    assertThat(provider.isInitialized()).isFalse();
-  }
-
-  @Test
   public void initialize_afterRelease_throws() throws VideoSink.VideoSinkException {
     CompositingVideoSinkProvider provider = createCompositingVideoSinkProvider();
     provider.setVideoEffects(ImmutableList.of());
@@ -101,6 +81,20 @@ public final class CompositingVideoSinkProviderTest {
     provider.release();
 
     assertThrows(IllegalStateException.class, () -> provider.initialize(format));
+  }
+
+  @Test
+  public void registerInputStream_withInputTypeBitmap_throws() throws VideoSink.VideoSinkException {
+    CompositingVideoSinkProvider provider = createCompositingVideoSinkProvider();
+    provider.setVideoEffects(ImmutableList.of());
+    provider.initialize(new Format.Builder().build());
+    VideoSink videoSink = provider.getSink();
+
+    assertThrows(
+        UnsupportedOperationException.class,
+        () ->
+            videoSink.registerInputStream(
+                VideoSink.INPUT_TYPE_BITMAP, new Format.Builder().build()));
   }
 
   @Test
@@ -139,7 +133,6 @@ public final class CompositingVideoSinkProviderTest {
   }
 
   private static CompositingVideoSinkProvider createCompositingVideoSinkProvider() {
-    Context context = ApplicationProvider.getApplicationContext();
     VideoFrameReleaseControl.FrameTimingEvaluator frameTimingEvaluator =
         new VideoFrameReleaseControl.FrameTimingEvaluator() {
           @Override
@@ -159,17 +152,20 @@ public final class CompositingVideoSinkProviderTest {
               long positionUs,
               long elapsedRealtimeUs,
               boolean isLastFrame,
-              boolean treatDroppedBuffersAsSkipped) {
+              boolean treatDroppedBuffersAsSkipped)
+              throws ExoPlaybackException {
             return false;
           }
         };
-    CompositingVideoSinkProvider compositingVideoSinkProvider =
-        new CompositingVideoSinkProvider.Builder(context)
-            .setPreviewingVideoGraphFactory(new TestPreviewingVideoGraphFactory())
-            .build();
-    compositingVideoSinkProvider.setVideoFrameReleaseControl(
-        new VideoFrameReleaseControl(context, frameTimingEvaluator, /* allowedJoiningTimeMs= */ 0));
-    return compositingVideoSinkProvider;
+    VideoFrameReleaseControl releaseControl =
+        new VideoFrameReleaseControl(
+            ApplicationProvider.getApplicationContext(),
+            frameTimingEvaluator,
+            /* allowedJoiningTimeMs= */ 0);
+    return new CompositingVideoSinkProvider(
+        ApplicationProvider.getApplicationContext(),
+        new TestPreviewingVideoGraphFactory(),
+        releaseControl);
   }
 
   private static class TestPreviewingVideoGraphFactory implements PreviewingVideoGraph.Factory {

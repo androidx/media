@@ -70,7 +70,6 @@ import java.util.List;
  */
 @UnstableApi
 @Deprecated
-@SuppressWarnings("deprecation") // Supporting deprecated base classes
 public class SimpleExoPlayer extends BasePlayer
     implements ExoPlayer,
         ExoPlayer.AudioComponent,

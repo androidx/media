@@ -58,8 +58,7 @@ import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoaderErrorThrower;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
+import androidx.media3.extractor.text.SubtitleParser;
 import com.google.common.collect.Maps;
 import com.google.common.primitives.Ints;
 import java.io.IOException;
@@ -132,7 +131,8 @@ import java.util.regex.Pattern;
       Allocator allocator,
       CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory,
       PlayerEmsgCallback playerEmsgCallback,
-      PlayerId playerId) {
+      PlayerId playerId,
+      @Nullable SubtitleParser.Factory subtitleParserFactory) {
     this.id = id;
     this.manifest = manifest;
     this.baseUrlExclusionList = baseUrlExclusionList;
@@ -153,12 +153,13 @@ import java.util.regex.Pattern;
     sampleStreams = newSampleStreamArray(0);
     eventSampleStreams = new EventSampleStream[0];
     trackEmsgHandlerBySampleStream = new IdentityHashMap<>();
-    compositeSequenceableLoader = compositeSequenceableLoaderFactory.empty();
+    compositeSequenceableLoader =
+        compositeSequenceableLoaderFactory.createCompositeSequenceableLoader(sampleStreams);
     Period period = manifest.getPeriod(periodIndex);
     eventStreams = period.eventStreams;
     Pair<TrackGroupArray, TrackGroupInfo[]> result =
         buildTrackGroups(
-            drmSessionManager, chunkSourceFactory, period.adaptationSets, eventStreams);
+            drmSessionManager, subtitleParserFactory, period.adaptationSets, eventStreams);
     trackGroups = result.first;
     trackGroupInfos = result.second;
   }
@@ -302,9 +303,7 @@ import java.util.regex.Pattern;
     eventSampleStreamList.toArray(eventSampleStreams);
 
     compositeSequenceableLoader =
-        compositeSequenceableLoaderFactory.create(
-            sampleStreamList,
-            Lists.transform(sampleStreamList, s -> ImmutableList.of(s.primaryTrackType)));
+        compositeSequenceableLoaderFactory.createCompositeSequenceableLoader(sampleStreams);
     return positionUs;
   }
 
@@ -505,7 +504,7 @@ import java.util.regex.Pattern;
 
   private static Pair<TrackGroupArray, TrackGroupInfo[]> buildTrackGroups(
       DrmSessionManager drmSessionManager,
-      DashChunkSource.Factory chunkSourceFactory,
+      @Nullable SubtitleParser.Factory subtitleParserFactory,
       List<AdaptationSet> adaptationSets,
       List<EventStream> eventStreams) {
     int[][] groupedAdaptationSetIndices = getGroupedAdaptationSetIndices(adaptationSets);
@@ -528,7 +527,7 @@ import java.util.regex.Pattern;
     int trackGroupCount =
         buildPrimaryAndEmbeddedTrackGroupInfos(
             drmSessionManager,
-            chunkSourceFactory,
+            subtitleParserFactory,
             adaptationSets,
             groupedAdaptationSetIndices,
             primaryGroupCount,
@@ -668,7 +667,7 @@ import java.util.regex.Pattern;
 
   private static int buildPrimaryAndEmbeddedTrackGroupInfos(
       DrmSessionManager drmSessionManager,
-      DashChunkSource.Factory chunkSourceFactory,
+      @Nullable SubtitleParser.Factory subtitleParserFactory,
       List<AdaptationSet> adaptationSets,
       int[][] groupedAdaptationSetIndices,
       int primaryGroupCount,
@@ -690,6 +689,18 @@ import java.util.regex.Pattern;
             originalFormat
                 .buildUpon()
                 .setCryptoType(drmSessionManager.getCryptoType(originalFormat));
+        if (subtitleParserFactory != null && subtitleParserFactory.supportsFormat(originalFormat)) {
+          updatedFormat
+              .setSampleMimeType(MimeTypes.APPLICATION_MEDIA3_CUES)
+              .setCueReplacementBehavior(
+                  subtitleParserFactory.getCueReplacementBehavior(originalFormat))
+              .setCodecs(
+                  originalFormat.sampleMimeType
+                      + (originalFormat.codecs != null ? " " + originalFormat.codecs : ""))
+              // Reset this value to the default. All non-default timestamp adjustments are done
+              // by SubtitleTranscodingExtractor and there are no 'subsamples' after transcoding.
+              .setSubsampleOffsetUs(Format.OFFSET_SAMPLE_RELATIVE);
+        }
         formats[j] = updatedFormat.build();
       }
 
@@ -704,7 +715,6 @@ import java.util.regex.Pattern;
       int closedCaptionTrackGroupIndex =
           primaryGroupClosedCaptionTrackFormats[i].length != 0 ? trackGroupCount++ : C.INDEX_UNSET;
 
-      maybeUpdateFormatsForParsedText(chunkSourceFactory, formats);
       trackGroups[primaryTrackGroupIndex] = new TrackGroup(trackGroupId, formats);
       trackGroupInfos[primaryTrackGroupIndex] =
           TrackGroupInfo.primaryTrack(
@@ -726,15 +736,10 @@ import java.util.regex.Pattern;
       }
       if (closedCaptionTrackGroupIndex != C.INDEX_UNSET) {
         String closedCaptionTrackGroupId = trackGroupId + ":cc";
-        trackGroupInfos[closedCaptionTrackGroupIndex] =
-            TrackGroupInfo.embeddedClosedCaptionTrack(
-                adaptationSetIndices,
-                primaryTrackGroupIndex,
-                ImmutableList.copyOf(primaryGroupClosedCaptionTrackFormats[i]));
-        maybeUpdateFormatsForParsedText(
-            chunkSourceFactory, primaryGroupClosedCaptionTrackFormats[i]);
         trackGroups[closedCaptionTrackGroupIndex] =
             new TrackGroup(closedCaptionTrackGroupId, primaryGroupClosedCaptionTrackFormats[i]);
+        trackGroupInfos[closedCaptionTrackGroupIndex] =
+            TrackGroupInfo.embeddedClosedCaptionTrack(adaptationSetIndices, primaryTrackGroupIndex);
       }
     }
     return trackGroupCount;
@@ -769,12 +774,14 @@ import java.util.regex.Pattern;
           trackGroups.get(trackGroupInfo.embeddedEventMessageTrackGroupIndex);
       embeddedTrackCount++;
     }
-    ImmutableList<Format> embeddedClosedCaptionOriginalFormats =
-        trackGroupInfo.embeddedClosedCaptionTrackGroupIndex != C.INDEX_UNSET
-            ? trackGroupInfos[trackGroupInfo.embeddedClosedCaptionTrackGroupIndex]
-                .embeddedClosedCaptionTrackOriginalFormats
-            : ImmutableList.of();
-    embeddedTrackCount += embeddedClosedCaptionOriginalFormats.size();
+    boolean enableClosedCaptionTrack =
+        trackGroupInfo.embeddedClosedCaptionTrackGroupIndex != C.INDEX_UNSET;
+    TrackGroup embeddedClosedCaptionTrackGroup = null;
+    if (enableClosedCaptionTrack) {
+      embeddedClosedCaptionTrackGroup =
+          trackGroups.get(trackGroupInfo.embeddedClosedCaptionTrackGroupIndex);
+      embeddedTrackCount += embeddedClosedCaptionTrackGroup.length;
+    }
 
     Format[] embeddedTrackFormats = new Format[embeddedTrackCount];
     int[] embeddedTrackTypes = new int[embeddedTrackCount];
@@ -785,11 +792,13 @@ import java.util.regex.Pattern;
       embeddedTrackCount++;
     }
     List<Format> embeddedClosedCaptionTrackFormats = new ArrayList<>();
-    for (int i = 0; i < embeddedClosedCaptionOriginalFormats.size(); i++) {
-      embeddedTrackFormats[embeddedTrackCount] = embeddedClosedCaptionOriginalFormats.get(i);
-      embeddedTrackTypes[embeddedTrackCount] = C.TRACK_TYPE_TEXT;
-      embeddedClosedCaptionTrackFormats.add(embeddedTrackFormats[embeddedTrackCount]);
-      embeddedTrackCount++;
+    if (enableClosedCaptionTrack) {
+      for (int i = 0; i < embeddedClosedCaptionTrackGroup.length; i++) {
+        embeddedTrackFormats[embeddedTrackCount] = embeddedClosedCaptionTrackGroup.getFormat(i);
+        embeddedTrackTypes[embeddedTrackCount] = C.TRACK_TYPE_TEXT;
+        embeddedClosedCaptionTrackFormats.add(embeddedTrackFormats[embeddedTrackCount]);
+        embeddedTrackCount++;
+      }
     }
 
     PlayerTrackEmsgHandler trackPlayerEmsgHandler =
@@ -923,17 +932,6 @@ import java.util.regex.Pattern;
     return formats;
   }
 
-  /**
-   * Modifies the provided {@link Format} array if subtitle/caption parsing is configured to happen
-   * during extraction.
-   */
-  private static void maybeUpdateFormatsForParsedText(
-      DashChunkSource.Factory chunkSourceFactory, Format[] formats) {
-    for (int i = 0; i < formats.length; i++) {
-      formats[i] = chunkSourceFactory.getOutputTextFormat(formats[i]);
-    }
-  }
-
   // We won't assign the array to a variable that erases the generic type, and then write into it.
   @SuppressWarnings({"unchecked", "rawtypes"})
   private static ChunkSampleStream<DashChunkSource>[] newSampleStreamArray(int length) {
@@ -975,9 +973,6 @@ import java.util.regex.Pattern;
     public final int embeddedEventMessageTrackGroupIndex;
     public final int embeddedClosedCaptionTrackGroupIndex;
 
-    /** Only non-empty for track groups representing embedded caption tracks. */
-    public final ImmutableList<Format> embeddedClosedCaptionTrackOriginalFormats;
-
     public static TrackGroupInfo primaryTrack(
         int trackType,
         int[] adaptationSetIndices,
@@ -991,8 +986,7 @@ import java.util.regex.Pattern;
           primaryTrackGroupIndex,
           embeddedEventMessageTrackGroupIndex,
           embeddedClosedCaptionTrackGroupIndex,
-          /* eventStreamGroupIndex= */ -1,
-          /* embeddedClosedCaptionTrackOriginalFormats= */ ImmutableList.of());
+          /* eventStreamGroupIndex= */ -1);
     }
 
     public static TrackGroupInfo embeddedEmsgTrack(
@@ -1004,14 +998,11 @@ import java.util.regex.Pattern;
           primaryTrackGroupIndex,
           C.INDEX_UNSET,
           C.INDEX_UNSET,
-          /* eventStreamGroupIndex= */ -1,
-          /* embeddedClosedCaptionTrackOriginalFormats= */ ImmutableList.of());
+          /* eventStreamGroupIndex= */ -1);
     }
 
     public static TrackGroupInfo embeddedClosedCaptionTrack(
-        int[] adaptationSetIndices,
-        int primaryTrackGroupIndex,
-        ImmutableList<Format> originalFormats) {
+        int[] adaptationSetIndices, int primaryTrackGroupIndex) {
       return new TrackGroupInfo(
           C.TRACK_TYPE_TEXT,
           CATEGORY_EMBEDDED,
@@ -1019,8 +1010,7 @@ import java.util.regex.Pattern;
           primaryTrackGroupIndex,
           C.INDEX_UNSET,
           C.INDEX_UNSET,
-          /* eventStreamGroupIndex= */ -1,
-          originalFormats);
+          /* eventStreamGroupIndex= */ -1);
     }
 
     public static TrackGroupInfo mpdEventTrack(int eventStreamIndex) {
@@ -1031,8 +1021,7 @@ import java.util.regex.Pattern;
           /* primaryTrackGroupIndex= */ -1,
           C.INDEX_UNSET,
           C.INDEX_UNSET,
-          eventStreamIndex,
-          /* embeddedClosedCaptionTrackOriginalFormats= */ ImmutableList.of());
+          eventStreamIndex);
     }
 
     private TrackGroupInfo(
@@ -1042,8 +1031,7 @@ import java.util.regex.Pattern;
         int primaryTrackGroupIndex,
         int embeddedEventMessageTrackGroupIndex,
         int embeddedClosedCaptionTrackGroupIndex,
-        int eventStreamGroupIndex,
-        ImmutableList<Format> embeddedClosedCaptionTrackOriginalFormats) {
+        int eventStreamGroupIndex) {
       this.trackType = trackType;
       this.adaptationSetIndices = adaptationSetIndices;
       this.trackGroupCategory = trackGroupCategory;
@@ -1051,7 +1039,6 @@ import java.util.regex.Pattern;
       this.embeddedEventMessageTrackGroupIndex = embeddedEventMessageTrackGroupIndex;
       this.embeddedClosedCaptionTrackGroupIndex = embeddedClosedCaptionTrackGroupIndex;
       this.eventStreamGroupIndex = eventStreamGroupIndex;
-      this.embeddedClosedCaptionTrackOriginalFormats = embeddedClosedCaptionTrackOriginalFormats;
     }
   }
 }

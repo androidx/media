@@ -42,12 +42,6 @@ public final class Mp3ExtractorTest {
   }
 
   @Test
-  public void mp3SampleWithInfoHeader() throws Exception {
-    ExtractorAsserts.assertBehavior(
-        Mp3Extractor::new, "media/mp3/test-cbr-info-header.mp3", simulationConfig);
-  }
-
-  @Test
   public void mp3SampleWithCbrSeeker() throws Exception {
     ExtractorAsserts.assertBehavior(
         Mp3Extractor::new,

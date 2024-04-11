@@ -19,8 +19,6 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
 import androidx.media3.common.util.UnstableApi;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -53,17 +51,12 @@ public abstract class DrawableOverlay extends BitmapOverlay {
     //   of detecting the need to redraw the bitmap.
     if (!overlayDrawable.equals(lastDrawable)) {
       lastDrawable = overlayDrawable;
-      if (lastBitmap == null
-          || lastBitmap.getWidth() != lastDrawable.getIntrinsicWidth()
-          || lastBitmap.getHeight() != lastDrawable.getIntrinsicHeight()) {
-        lastBitmap =
-            Bitmap.createBitmap(
-                lastDrawable.getIntrinsicWidth(),
-                lastDrawable.getIntrinsicHeight(),
-                Bitmap.Config.ARGB_8888);
-      }
+      lastBitmap =
+          Bitmap.createBitmap(
+              lastDrawable.getIntrinsicWidth(),
+              lastDrawable.getIntrinsicHeight(),
+              Bitmap.Config.ARGB_8888);
       Canvas canvas = new Canvas(lastBitmap);
-      canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
       lastDrawable.draw(canvas);
     }
     return checkNotNull(lastBitmap);

@@ -19,7 +19,6 @@ import static androidx.annotation.VisibleForTesting.PRIVATE;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Util.isBitmapFactorySupportedMimeType;
 import static androidx.media3.decoder.DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL;
 
 import android.graphics.Bitmap;
@@ -32,9 +31,11 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.decoder.SimpleDecoder;
 import androidx.media3.exoplayer.RendererCapabilities;
+import com.google.common.collect.ImmutableSet;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -68,6 +69,7 @@ public final class BitmapFactoryImageDecoder
 
   /** A factory for {@link BitmapFactoryImageDecoder} instances. */
   public static final class Factory implements ImageDecoder.Factory {
+    private static final ImmutableSet<String> SUPPORTED_IMAGE_TYPES = getSupportedMimeTypes();
 
     private final BitmapDecoder bitmapDecoder;
 
@@ -89,10 +91,13 @@ public final class BitmapFactoryImageDecoder
 
     @Override
     public @RendererCapabilities.Capabilities int supportsFormat(Format format) {
-      if (format.sampleMimeType == null || !MimeTypes.isImage(format.sampleMimeType)) {
+      if (!MimeTypes.isImage(format.containerMimeType)) {
         return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
       }
-      return isBitmapFactorySupportedMimeType(format.sampleMimeType)
+      if (format.tileCountHorizontal != 1 || format.tileCountVertical != 1) {
+        return RendererCapabilities.create(C.FORMAT_EXCEEDS_CAPABILITIES);
+      }
+      return SUPPORTED_IMAGE_TYPES.contains(format.containerMimeType)
           ? RendererCapabilities.create(C.FORMAT_HANDLED)
           : RendererCapabilities.create(C.FORMAT_UNSUPPORTED_SUBTYPE);
     }
@@ -100,6 +105,16 @@ public final class BitmapFactoryImageDecoder
     @Override
     public BitmapFactoryImageDecoder createImageDecoder() {
       return new BitmapFactoryImageDecoder(bitmapDecoder);
+    }
+
+    private static ImmutableSet<String> getSupportedMimeTypes() {
+      ImmutableSet.Builder<String> supportedMimeTypes = ImmutableSet.builder();
+      supportedMimeTypes.add(
+          MimeTypes.IMAGE_PNG, MimeTypes.IMAGE_JPEG, MimeTypes.IMAGE_BMP, MimeTypes.IMAGE_WEBP);
+      if (Util.SDK_INT >= 26) {
+        supportedMimeTypes.add(MimeTypes.IMAGE_HEIF);
+      }
+      return supportedMimeTypes.build();
     }
   }
 

@@ -234,24 +234,6 @@ public class HlsChunkSourceTest {
             "bl=1000,dl=800,nor=\"..%2F3.mp4\",nrr=\"0-\"",
             "CMCD-Session",
             "cid=\"mediaId\",pr=1.25,sf=h,sid=\"" + cmcdConfiguration.sessionId + "\",st=v");
-
-    // Playing mid-chunk, where loadPositionUs is less than playbackPositionUs
-    testChunkSource.getNextChunk(
-        new LoadingInfo.Builder().setPlaybackPositionUs(5_000_000).setPlaybackSpeed(1.25f).build(),
-        /* loadPositionUs= */ 4_000_000,
-        /* queue= */ ImmutableList.of((HlsMediaChunk) output.chunk),
-        /* allowEndOfStream= */ true,
-        output);
-
-    // buffer length is set to 0 when bufferedDurationUs is negative
-    assertThat(output.chunk.dataSpec.httpRequestHeaders)
-        .containsExactly(
-            "CMCD-Object",
-            "br=800,d=4000,ot=v,tb=800",
-            "CMCD-Request",
-            "bl=0,dl=0,nor=\"..%2F3.mp4\",nrr=\"0-\"",
-            "CMCD-Session",
-            "cid=\"mediaId\",pr=1.25,sf=h,sid=\"" + cmcdConfiguration.sessionId + "\",st=v");
   }
 
   @Test
@@ -367,8 +349,8 @@ public class HlsChunkSourceTest {
                           @CmcdConfiguration.HeaderKey String, String>()
                       .put(CmcdConfiguration.KEY_CMCD_OBJECT, "key-1=1")
                       .put(CmcdConfiguration.KEY_CMCD_REQUEST, "key-2=\"stringValue\"")
-                      .put(CmcdConfiguration.KEY_CMCD_SESSION, "com.example-key3=3")
-                      .put(CmcdConfiguration.KEY_CMCD_STATUS, "com.example.test-key4=5.0")
+                      .put(CmcdConfiguration.KEY_CMCD_SESSION, "key-3=3")
+                      .put(CmcdConfiguration.KEY_CMCD_STATUS, "key-4=5.0")
                       .build();
                 }
               };
@@ -396,11 +378,9 @@ public class HlsChunkSourceTest {
             "CMCD-Request",
             "bl=0,dl=0,key-2=\"stringValue\",nor=\"..%2F3.mp4\",nrr=\"0-\",su",
             "CMCD-Session",
-            "cid=\"mediaId\",com.example-key3=3,sf=h,sid=\""
-                + cmcdConfiguration.sessionId
-                + "\",st=v",
+            "cid=\"mediaId\",key-3=3,sf=h,sid=\"" + cmcdConfiguration.sessionId + "\",st=v",
             "CMCD-Status",
-            "com.example.test-key4=5.0");
+            "key-4=5.0");
   }
 
   @Test
@@ -416,7 +396,7 @@ public class HlsChunkSourceTest {
                     getCustomData() {
                   return new ImmutableListMultimap.Builder<
                           @CmcdConfiguration.HeaderKey String, String>()
-                      .put(CmcdConfiguration.KEY_CMCD_OBJECT, "com.example.test-key-1=1")
+                      .put(CmcdConfiguration.KEY_CMCD_OBJECT, "key-1=1")
                       .put(CmcdConfiguration.KEY_CMCD_REQUEST, "key-2=\"stringValue\"")
                       .build();
                 }
@@ -442,11 +422,12 @@ public class HlsChunkSourceTest {
         output);
 
     assertThat(
-            output.chunk.dataSpec.uri.getQueryParameter(CmcdConfiguration.CMCD_QUERY_PARAMETER_KEY))
+            Uri.decode(
+                output.chunk.dataSpec.uri.getQueryParameter(
+                    CmcdConfiguration.CMCD_QUERY_PARAMETER_KEY)))
         .isEqualTo(
-            "bl=0,br=800,cid=\"mediaId\",com.example.test-key-1=1,d=4000,dl=0,"
-                + "key-2=\"stringValue\",nor=\"..%2F3.mp4\",nrr=\"0-\",ot=v,sf=h,"
-                + "sid=\"sessionId\",st=v,su,tb=800");
+            "bl=0,br=800,cid=\"mediaId\",d=4000,dl=0,key-1=1,key-2=\"stringValue\","
+                + "nor=\"..%2F3.mp4\",nrr=\"0-\",ot=v,sf=h,sid=\"sessionId\",st=v,su,tb=800");
   }
 
   private HlsChunkSource createHlsChunkSource(@Nullable CmcdConfiguration cmcdConfiguration) {

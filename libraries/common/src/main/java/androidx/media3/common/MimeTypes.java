@@ -219,7 +219,6 @@ public final class MimeTypes {
    * Returns whether the given string is a text MIME type, including known text types that use
    * &quot;application&quot; as their base type.
    */
-  @SuppressWarnings("deprecation") // Supporting deprecated MIME types
   @UnstableApi
   @Pure
   public static boolean isText(@Nullable String mimeType) {

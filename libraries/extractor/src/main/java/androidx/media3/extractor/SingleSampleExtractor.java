@@ -40,7 +40,7 @@ public final class SingleSampleExtractor implements Extractor {
 
   private final int fileSignature;
   private final int fileSignatureLength;
-  private final String sampleMimeType;
+  private final String containerMimeType;
 
   /** Parser states. */
   @Documented
@@ -72,12 +72,13 @@ public final class SingleSampleExtractor implements Extractor {
    *     method won't be used.
    * @param fileSignatureLength The length of file signature, or {@link C#LENGTH_UNSET} if the
    *     {@link #sniff} method won't be used.
-   * @param sampleMimeType The mime type of the sample.
+   * @param containerMimeType The mime type of the format being extracted.
    */
-  public SingleSampleExtractor(int fileSignature, int fileSignatureLength, String sampleMimeType) {
+  public SingleSampleExtractor(
+      int fileSignature, int fileSignatureLength, String containerMimeType) {
     this.fileSignature = fileSignature;
     this.fileSignatureLength = fileSignatureLength;
-    this.sampleMimeType = sampleMimeType;
+    this.containerMimeType = containerMimeType;
   }
 
   @Override
@@ -91,7 +92,7 @@ public final class SingleSampleExtractor implements Extractor {
   @Override
   public void init(ExtractorOutput output) {
     extractorOutput = output;
-    outputImageTrackAndSeekMap(sampleMimeType);
+    outputImageTrackAndSeekMap(containerMimeType);
   }
 
   @Override
@@ -136,9 +137,14 @@ public final class SingleSampleExtractor implements Extractor {
   }
 
   @RequiresNonNull("this.extractorOutput")
-  private void outputImageTrackAndSeekMap(String sampleMimeType) {
+  private void outputImageTrackAndSeekMap(String containerMimeType) {
     trackOutput = extractorOutput.track(IMAGE_TRACK_ID, C.TRACK_TYPE_IMAGE);
-    trackOutput.format(new Format.Builder().setSampleMimeType(sampleMimeType).build());
+    trackOutput.format(
+        new Format.Builder()
+            .setContainerMimeType(containerMimeType)
+            .setTileCountHorizontal(1)
+            .setTileCountVertical(1)
+            .build());
     extractorOutput.endTracks();
     extractorOutput.seekMap(new SingleSampleSeekMap(/* durationUs= */ C.TIME_UNSET));
     state = STATE_READING;

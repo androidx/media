@@ -70,8 +70,7 @@ public final class CueGroup implements Bundleable {
     Bundle bundle = new Bundle();
     bundle.putParcelableArrayList(
         FIELD_CUES,
-        BundleCollectionUtil.toBundleArrayList(
-            filterOutBitmapCues(cues), Cue::toBinderBasedBundle));
+        BundleCollectionUtil.toBundleArrayList(filterOutBitmapCues(cues), Cue::toBundle));
     bundle.putLong(FIELD_PRESENTATION_TIME_US, presentationTimeUs);
     return bundle;
   }

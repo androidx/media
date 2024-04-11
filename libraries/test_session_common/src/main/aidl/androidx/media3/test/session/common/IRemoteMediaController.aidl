@@ -29,7 +29,6 @@ interface IRemoteMediaController {
 
   // MediaController Methods
   Bundle getConnectedSessionToken(String controllerId);
-  Bundle getSessionExtras(String controllerId);
   void play(String controllerId);
   void pause(String controllerId);
   void setPlayWhenReady(String controllerId, boolean playWhenReady);

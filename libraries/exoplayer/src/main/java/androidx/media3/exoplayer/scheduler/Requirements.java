@@ -163,7 +163,6 @@ public final class Requirements implements Parcelable {
     return notMetRequirements;
   }
 
-  @SuppressWarnings("deprecation") // Using deprecated NetworkInfo for compatibility with older APIs
   private @RequirementFlags int getNotMetNetworkRequirements(Context context) {
     if (!isNetworkRequired()) {
       return 0;

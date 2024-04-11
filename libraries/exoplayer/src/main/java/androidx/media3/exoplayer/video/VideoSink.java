@@ -34,7 +34,7 @@ import java.util.concurrent.Executor;
 
 /** A sink that consumes decoded video frames. */
 @UnstableApi
-public interface VideoSink {
+/* package */ interface VideoSink {
 
   /** Thrown by {@link VideoSink} implementations. */
   final class VideoSinkException extends Exception {
@@ -58,30 +58,11 @@ public interface VideoSink {
     /** Called when the sink dropped a frame. */
     void onFrameDropped(VideoSink videoSink);
 
-    /**
-     * Called before a frame is rendered for the first time since setting the surface, and each time
-     * there's a change in the size, rotation or pixel aspect ratio of the video being rendered.
-     */
+    /** Called when the output video size changed. */
     void onVideoSizeChanged(VideoSink videoSink, VideoSize videoSize);
 
     /** Called when the {@link VideoSink} encountered an error. */
     void onError(VideoSink videoSink, VideoSinkException videoSinkException);
-
-    /** A no-op listener implementation. */
-    Listener NO_OP =
-        new Listener() {
-          @Override
-          public void onFirstFrameRendered(VideoSink videoSink) {}
-
-          @Override
-          public void onFrameDropped(VideoSink videoSink) {}
-
-          @Override
-          public void onVideoSizeChanged(VideoSink videoSink, VideoSize videoSize) {}
-
-          @Override
-          public void onError(VideoSink videoSink, VideoSinkException videoSinkException) {}
-        };
   }
 
   /**
@@ -158,12 +139,12 @@ public interface VideoSink {
    * Provides an input {@link Bitmap} to the video sink.
    *
    * @param inputBitmap The {@link Bitmap} queued to the video sink.
-   * @param timestampIterator The times within the current stream that the bitmap should be shown
+   * @param inStreamOffsetsUs The times within the current stream that the bitmap should be shown
    *     at. The timestamps should be monotonically increasing.
    * @return Whether the bitmap was queued successfully. A {@code false} value indicates the caller
    *     must try again later.
    */
-  boolean queueBitmap(Bitmap inputBitmap, TimestampIterator timestampIterator);
+  boolean queueBitmap(Bitmap inputBitmap, TimestampIterator inStreamOffsetsUs);
 
   /**
    * Incrementally renders processed video frames.

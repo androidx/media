@@ -41,12 +41,10 @@ import android.util.Log;
 import android.util.SparseArray;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.IntDef;
-import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Format;
-import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.Clock;
@@ -101,6 +99,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private static final int MSG_REGISTER_SAMPLE_EXPORTER = 1;
   private static final int MSG_DRAIN_EXPORTERS = 2;
   private static final int MSG_END = 3;
+  private static final int MSG_UPDATE_PROGRESS = 4;
 
   private static final String TAG = "TransformerInternal";
   private static final int DRAIN_EXPORTERS_DELAY_MS = 10;
@@ -128,45 +127,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final AssetLoaderInputTracker assetLoaderInputTracker;
 
   private final List<SampleExporter> sampleExporters;
-  private final MuxerWrapper muxerWrapper;
-  private final ConditionVariable canceledConditionVariable;
   private final Object setMaxSequenceDurationUsLock;
-  private final Object progressLock;
-  private final ProgressHolder internalProgressHolder;
+  private final MuxerWrapper muxerWrapper;
+  private final boolean matchInitializationData;
+  private final ConditionVariable transformerConditionVariable;
 
   private boolean isDrainingExporters;
-
-  @GuardedBy("setMaxSequenceDurationUsLock")
   private long currentMaxSequenceDurationUs;
-
-  @GuardedBy("setMaxSequenceDurationUsLock")
   private int nonLoopingSequencesWithNonFinalDuration;
-
+  private @Transformer.ProgressState int progressState;
   private @MonotonicNonNull RuntimeException cancelException;
 
-  /**
-   * The current {@link Transformer.ProgressState}.
-   *
-   * <p>Accessed and modified on the application and internal thread.
-   */
-  @GuardedBy("progressLock")
-  private @Transformer.ProgressState int progressState;
-
-  /**
-   * The current progress value, from 0 to 100.
-   *
-   * <p>Accessed and modified on the application and internal thread.
-   */
-  @GuardedBy("progressLock")
-  @IntRange(from = 0, to = 100)
-  private int progressValue;
-
-  /**
-   * The boolean tracking if this component has been released.
-   *
-   * <p>Modified on the internal thread. Accessed on the application thread (in {@link #getProgress}
-   * and {@link #cancel()}).
-   */
   private volatile boolean released;
 
   public TransformerInternal(
@@ -183,7 +154,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       HandlerWrapper applicationHandler,
       DebugViewProvider debugViewProvider,
       Clock clock,
-      long videoSampleTimestampOffsetUs) {
+      long videoSampleTimestampOffsetUs,
+      boolean matchInitializationData) {
     this.context = context;
     this.composition = composition;
     this.encoderFactory = new CapturingEncoderFactory(encoderFactory);
@@ -192,6 +164,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.clock = clock;
     this.videoSampleTimestampOffsetUs = videoSampleTimestampOffsetUs;
     this.muxerWrapper = muxerWrapper;
+    this.matchInitializationData = matchInitializationData;
     internalHandlerThread = new HandlerThread("Transformer:Internal");
     internalHandlerThread.start();
     sequenceAssetLoaders = new ArrayList<>();
@@ -225,12 +198,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
     compositionHasLoopingSequence =
         nonLoopingSequencesWithNonFinalDuration != composition.sequences.size();
-    setMaxSequenceDurationUsLock = new Object();
-    canceledConditionVariable = new ConditionVariable();
-    progressLock = new Object();
-    internalProgressHolder = new ProgressHolder();
     sampleExporters = new ArrayList<>();
-
+    setMaxSequenceDurationUsLock = new Object();
+    transformerConditionVariable = new ConditionVariable();
     // It's safe to use "this" because we don't send a message before exiting the constructor.
     @SuppressWarnings("nullness:methodref.receiver.bound")
     HandlerWrapper internalHandler =
@@ -241,23 +211,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public void start() {
     verifyInternalThreadAlive();
     internalHandler.sendEmptyMessage(MSG_START);
-    synchronized (progressLock) {
-      progressState = Transformer.PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
-      progressValue = 0;
-    }
   }
 
   public @Transformer.ProgressState int getProgress(ProgressHolder progressHolder) {
     if (released) {
       return PROGRESS_STATE_NOT_STARTED;
     }
-
-    synchronized (progressLock) {
-      if (progressState == PROGRESS_STATE_AVAILABLE) {
-        progressHolder.progress = progressValue;
-      }
-      return progressState;
-    }
+    verifyInternalThreadAlive();
+    internalHandler.obtainMessage(MSG_UPDATE_PROGRESS, progressHolder).sendToTarget();
+    // TODO: figure out why calling clock.onThreadBlocked() here makes the tests fail.
+    transformerConditionVariable.blockUninterruptible();
+    transformerConditionVariable.close();
+    return progressState;
   }
 
   public void cancel() {
@@ -269,8 +234,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         .obtainMessage(MSG_END, END_REASON_CANCELLED, /* unused */ 0, /* exportException */ null)
         .sendToTarget();
     clock.onThreadBlocked();
-    canceledConditionVariable.blockUninterruptible();
-    canceledConditionVariable.close();
+    transformerConditionVariable.blockUninterruptible();
+    transformerConditionVariable.close();
     if (cancelException != null) {
       throw cancelException;
     }
@@ -301,7 +266,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     // handled to report release timeouts and to unblock the transformer condition variable in case
     // of cancellation. Progress update messages must be handled to unblock the transformer
     // condition variable.
-    if (released && msg.what != MSG_END) {
+    if (released && msg.what != MSG_END && msg.what != MSG_UPDATE_PROGRESS) {
       return true;
     }
     try {
@@ -317,6 +282,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           break;
         case MSG_END:
           endInternal(/* endReason= */ msg.arg1, /* exportException= */ (ExportException) msg.obj);
+          break;
+        case MSG_UPDATE_PROGRESS:
+          updateProgressInternal(/* progressHolder= */ (ProgressHolder) msg.obj);
           break;
         default:
           return false;
@@ -348,8 +316,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       while (sampleExporters.get(i).processData()) {}
     }
 
-    updateProgressInternal();
-
     if (!muxerWrapper.isEnded()) {
       internalHandler.sendEmptyMessageDelayed(MSG_DRAIN_EXPORTERS, DRAIN_EXPORTERS_DELAY_MS);
     }
@@ -367,11 +333,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     boolean releasedPreviously = released;
     if (!released) {
       released = true;
-      synchronized (progressLock) {
-        progressState = PROGRESS_STATE_NOT_STARTED;
-        progressValue = 0;
-      }
-
       // VideoSampleExporter can hold buffers from the asset loader's decoder in a surface texture,
       // so we release the VideoSampleExporter first to avoid releasing the codec while its buffers
       // are pending processing.
@@ -414,8 +375,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       internalHandler.post(internalHandlerThread::quitSafely);
     }
 
+    // Update progress before opening variable to avoid getProgress returning an invalid combination
+    // of state and progress.
+    progressState = PROGRESS_STATE_NOT_STARTED;
+    transformerConditionVariable.open();
+
     if (forCancellation) {
-      canceledConditionVariable.open();
       return;
     }
 
@@ -456,37 +421,25 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
   }
 
-  private void updateProgressInternal() {
-    if (released) {
-      return;
-    }
-
+  private void updateProgressInternal(ProgressHolder progressHolder) {
     int progressSum = 0;
     int progressCount = 0;
+    ProgressHolder individualProgressHolder = new ProgressHolder();
     for (int i = 0; i < sequenceAssetLoaders.size(); i++) {
       if (composition.sequences.get(i).isLooping) {
         // Looping sequence progress is always unavailable. Skip it.
         continue;
       }
-      internalProgressHolder.progress = 0;
-      @Transformer.ProgressState
-      int assetLoaderProgressState =
-          sequenceAssetLoaders.get(i).getProgress(internalProgressHolder);
-      if (assetLoaderProgressState != PROGRESS_STATE_AVAILABLE) {
-        // TODO - b/322136131 : Check for inconsistent state transitions.
-        synchronized (progressLock) {
-          progressState = assetLoaderProgressState;
-          progressValue = 0;
-        }
+      progressState = sequenceAssetLoaders.get(i).getProgress(individualProgressHolder);
+      if (progressState != PROGRESS_STATE_AVAILABLE) {
+        transformerConditionVariable.open();
         return;
       }
-      progressSum += internalProgressHolder.progress;
+      progressSum += individualProgressHolder.progress;
       progressCount++;
     }
-    synchronized (progressLock) {
-      progressState = PROGRESS_STATE_AVAILABLE;
-      progressValue = progressSum / progressCount;
-    }
+    progressHolder.progress = progressSum / progressCount;
+    transformerConditionVariable.open();
   }
 
   private final class SequenceAssetLoaderListener implements AssetLoader.Listener {
@@ -632,7 +585,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 audioMixerFactory,
                 encoderFactory,
                 muxerWrapper,
-                fallbackListener));
+                fallbackListener,
+                matchInitializationData));
       } else {
         // TODO(b/267301878): Pass firstAssetLoaderOutputFormat once surface creation not in VSP.
         assetLoaderInputTracker.registerSampleExporter(
@@ -650,8 +604,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 fallbackListener,
                 debugViewProvider,
                 videoSampleTimestampOffsetUs,
-                /* hasMultipleInputs= */ assetLoaderInputTracker
-                    .hasMultipleConcurrentVideoTracks()));
+                /* hasMultipleInputs= */ assetLoaderInputTracker.hasMultipleConcurrentVideoTracks(),
+                matchInitializationData));
       }
     }
 
@@ -738,24 +692,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       } else if (trackType == C.TRACK_TYPE_VIDEO) {
         shouldTranscode =
             shouldTranscodeVideo(
-                    inputFormat,
-                    composition,
-                    sequenceIndex,
-                    transformationRequest,
-                    encoderFactory,
-                    muxerWrapper)
-                || clippingRequiresTranscode(firstEditedMediaItem.mediaItem);
+                inputFormat,
+                composition,
+                sequenceIndex,
+                transformationRequest,
+                encoderFactory,
+                muxerWrapper);
       }
 
       checkState(!shouldTranscode || assetLoaderCanOutputDecoded);
 
       return shouldTranscode;
     }
-  }
-
-  private static boolean clippingRequiresTranscode(MediaItem mediaItem) {
-    return mediaItem.clippingConfiguration.startPositionMs > 0
-        && !mediaItem.clippingConfiguration.startsAtKeyFrame;
   }
 
   /** Tracks the inputs and outputs of {@link AssetLoader AssetLoaders}. */

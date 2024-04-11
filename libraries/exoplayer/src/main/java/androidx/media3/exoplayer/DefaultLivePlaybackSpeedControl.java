@@ -379,16 +379,15 @@ public final class DefaultLivePlaybackSpeedControl implements LivePlaybackSpeedC
   private void maybeResetTargetLiveOffsetUs() {
     long idealOffsetUs = C.TIME_UNSET;
     if (mediaConfigurationTargetLiveOffsetUs != C.TIME_UNSET) {
-      if (targetLiveOffsetOverrideUs != C.TIME_UNSET) {
-        idealOffsetUs = targetLiveOffsetOverrideUs;
-      } else {
-        idealOffsetUs = mediaConfigurationTargetLiveOffsetUs;
-        if (minTargetLiveOffsetUs != C.TIME_UNSET && idealOffsetUs < minTargetLiveOffsetUs) {
-          idealOffsetUs = minTargetLiveOffsetUs;
-        }
-        if (maxTargetLiveOffsetUs != C.TIME_UNSET && idealOffsetUs > maxTargetLiveOffsetUs) {
-          idealOffsetUs = maxTargetLiveOffsetUs;
-        }
+      idealOffsetUs =
+          targetLiveOffsetOverrideUs != C.TIME_UNSET
+              ? targetLiveOffsetOverrideUs
+              : mediaConfigurationTargetLiveOffsetUs;
+      if (minTargetLiveOffsetUs != C.TIME_UNSET && idealOffsetUs < minTargetLiveOffsetUs) {
+        idealOffsetUs = minTargetLiveOffsetUs;
+      }
+      if (maxTargetLiveOffsetUs != C.TIME_UNSET && idealOffsetUs > maxTargetLiveOffsetUs) {
+        idealOffsetUs = maxTargetLiveOffsetUs;
       }
     }
     if (idealTargetLiveOffsetUs == idealOffsetUs) {

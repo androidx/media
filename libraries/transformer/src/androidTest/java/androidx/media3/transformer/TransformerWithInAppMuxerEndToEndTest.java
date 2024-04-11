@@ -17,6 +17,7 @@ package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_FORMAT;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_URI_STRING;
 import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
@@ -39,7 +40,7 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class TransformerWithInAppMuxerEndToEndTest {
   private static final String MP4_FILE_ASSET_DIRECTORY = "asset:///media/mp4/";
-  private static final String H264_MP4 = "sample_no_bframes.mp4";
+  private static final String H264_MP4 = "sample.mp4";
   private static final String H265_MP4 = "h265_with_metadata_track.mp4";
 
   @Parameters(name = "{0}")
@@ -65,9 +66,7 @@ public class TransformerWithInAppMuxerEndToEndTest {
       return;
     }
     Transformer transformer =
-        new Transformer.Builder(context)
-            .setMuxerFactory(new InAppMuxer.Factory.Builder().build())
-            .build();
+        new Transformer.Builder(context).setMuxerFactory(new InAppMuxer.Factory()).build();
     ImmutableList<Effect> videoEffects = ImmutableList.of(RgbFilter.createGrayscaleFilter());
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_FILE_ASSET_DIRECTORY + inputFile));
     EditedMediaItem editedMediaItem =
@@ -87,13 +86,11 @@ public class TransformerWithInAppMuxerEndToEndTest {
     assumeTrue(checkNotNull(inputFile).equals(H264_MP4));
     String testId = "audioEditing_completesSuccessfully";
     Transformer transformer =
-        new Transformer.Builder(context)
-            .setMuxerFactory(new InAppMuxer.Factory.Builder().build())
-            .build();
+        new Transformer.Builder(context).setMuxerFactory(new InAppMuxer.Factory()).build();
     ChannelMixingAudioProcessor channelMixingAudioProcessor = new ChannelMixingAudioProcessor();
     channelMixingAudioProcessor.putChannelMixingMatrix(
         ChannelMixingMatrix.create(/* inputChannelCount= */ 1, /* outputChannelCount= */ 2));
-    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_FILE_ASSET_DIRECTORY + H264_MP4));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_URI_STRING));
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem)
             .setEffects(

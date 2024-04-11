@@ -91,9 +91,7 @@ import java.util.concurrent.atomic.AtomicInteger;
   private boolean decodeVideo;
   private int sequenceLoopCount;
   private int processedInputsSize;
-
-  // Accessed when switching asset loader.
-  private volatile boolean released;
+  private boolean released;
 
   private volatile long currentAssetDurationUs;
   private volatile long maxSequenceDurationUs;
@@ -402,11 +400,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 
     @Override
     public @InputResult int queueInputBitmap(
-        Bitmap inputBitmap, TimestampIterator timestampIterator) {
+        Bitmap inputBitmap, TimestampIterator inStreamOffsetsUs) {
       if (isLooping) {
         long lastOffsetUs = C.TIME_UNSET;
-        while (timestampIterator.hasNext()) {
-          long offsetUs = timestampIterator.next();
+        while (inStreamOffsetsUs.hasNext()) {
+          long offsetUs = inStreamOffsetsUs.next();
           if (totalDurationUs + offsetUs > maxSequenceDurationUs) {
             if (!isMaxSequenceDurationUsFinal) {
               return INPUT_RESULT_TRY_AGAIN_LATER;
@@ -419,14 +417,14 @@ import java.util.concurrent.atomic.AtomicInteger;
               }
               return INPUT_RESULT_TRY_AGAIN_LATER;
             }
-            timestampIterator = new ClippingIterator(timestampIterator.copyOf(), lastOffsetUs);
+            inStreamOffsetsUs = new ClippingIterator(inStreamOffsetsUs.copyOf(), lastOffsetUs);
             videoLoopingEnded = true;
             break;
           }
           lastOffsetUs = offsetUs;
         }
       }
-      return sampleConsumer.queueInputBitmap(inputBitmap, timestampIterator.copyOf());
+      return sampleConsumer.queueInputBitmap(inputBitmap, inStreamOffsetsUs.copyOf());
     }
 
     @Override

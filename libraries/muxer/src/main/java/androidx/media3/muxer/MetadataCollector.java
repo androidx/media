@@ -17,7 +17,6 @@ package androidx.media3.muxer;
 
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.muxer.Mp4Utils.UNSIGNED_INT_MAX_VALUE;
 
 import androidx.media3.container.Mp4Util;
 import java.nio.ByteBuffer;
@@ -62,9 +61,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   public void setModificationTime(long unixTimestampMs) {
+    long maxUnsignedInt = 4294967295L;
     long timestampSeconds = Mp4Util.unixTimeToMp4TimeSeconds(unixTimestampMs);
-    checkArgument(
-        timestampSeconds <= UNSIGNED_INT_MAX_VALUE, "Only 32-bit long timestamp supported");
+    checkArgument(timestampSeconds <= maxUnsignedInt, "Only 32-bit long timestamp supported");
     this.modificationTimestampSeconds = (int) timestampSeconds;
   }
 }

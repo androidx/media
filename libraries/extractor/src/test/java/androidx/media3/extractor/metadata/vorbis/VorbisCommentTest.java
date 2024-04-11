@@ -54,9 +54,9 @@ public final class VorbisCommentTest {
     List<Metadata.Entry> entries =
         ImmutableList.of(
             new VorbisComment("TITLE", title),
-            new VorbisComment("ArTisT", artist),
+            new VorbisComment("ARTIST", artist),
             new VorbisComment("ALBUM", albumTitle),
-            new VorbisComment("albumartist", albumArtist),
+            new VorbisComment("ALBUMARTIST", albumArtist),
             new VorbisComment("DESCRIPTION", description));
     MediaMetadata.Builder builder = MediaMetadata.EMPTY.buildUpon();
 

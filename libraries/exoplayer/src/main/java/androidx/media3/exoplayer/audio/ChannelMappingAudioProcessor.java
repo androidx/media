@@ -21,6 +21,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.util.Assertions;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.ByteBuffer;
 
 /**
@@ -46,6 +47,7 @@ import java.nio.ByteBuffer;
   }
 
   @Override
+  @CanIgnoreReturnValue
   public AudioFormat onConfigure(AudioFormat inputAudioFormat)
       throws UnhandledAudioFormatException {
     @Nullable int[] outputChannels = pendingOutputChannels;

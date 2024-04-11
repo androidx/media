@@ -384,7 +384,9 @@ public class TransformerPauseResumeTest {
             testId,
             /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT,
             /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT)
-        || (Util.SDK_INT == 26 && Util.isRunningOnEmulator());
+        || (Util.SDK_INT == 26
+            && (Ascii.toLowerCase(Util.DEVICE).contains("emulator")
+                || Ascii.toLowerCase(Util.DEVICE).contains("generic")));
   }
 
   private static int getDeviceSpecificMissingFrameCount() {

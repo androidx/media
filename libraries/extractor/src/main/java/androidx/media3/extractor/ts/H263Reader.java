@@ -16,7 +16,6 @@
 package androidx.media3.extractor.ts;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
@@ -131,7 +130,9 @@ public final class H263Reader implements ElementaryStreamReader {
   @Override
   public void packetStarted(long pesTimeUs, @TsPayloadReader.Flags int flags) {
     // TODO (Internal b/32267012): Consider using random access indicator.
-    this.pesTimeUs = pesTimeUs;
+    if (pesTimeUs != C.TIME_UNSET) {
+      this.pesTimeUs = pesTimeUs;
+    }
   }
 
   @Override
@@ -216,8 +217,13 @@ public final class H263Reader implements ElementaryStreamReader {
   }
 
   @Override
-  public void packetFinished() {
-    // Do nothing.
+  public void packetFinished(boolean isEndOfInput) {
+    // Assert that createTracks has been called.
+    checkStateNotNull(sampleReader);
+    if (isEndOfInput) {
+      sampleReader.onDataEnd(totalBytesWritten, /* bytesWrittenPastPosition= */ 0, hasOutputFormat);
+      sampleReader.reset();
+    }
   }
 
   /**
@@ -473,9 +479,10 @@ public final class H263Reader implements ElementaryStreamReader {
     }
 
     public void onDataEnd(long position, int bytesWrittenPastPosition, boolean hasOutputFormat) {
-      // packetStarted method must be called before reading sample.
-      checkState(sampleTimeUs != C.TIME_UNSET);
-      if (startCodeValue == START_CODE_VALUE_VOP && hasOutputFormat && readingSample) {
+      if (startCodeValue == START_CODE_VALUE_VOP
+          && hasOutputFormat
+          && readingSample
+          && sampleTimeUs != C.TIME_UNSET) {
         int size = (int) (position - samplePosition);
         @C.BufferFlags int flags = sampleIsKeyframe ? C.BUFFER_FLAG_KEY_FRAME : 0;
         output.sampleMetadata(

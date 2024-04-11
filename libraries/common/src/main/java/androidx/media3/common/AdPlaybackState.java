@@ -117,7 +117,6 @@ public final class AdPlaybackState implements Bundleable {
           /* isServerSideInserted= */ false);
     }
 
-    @SuppressWarnings("deprecation") // Intentionally assigning deprecated field
     private AdGroup(
         long timeUs,
         int count,
@@ -503,9 +502,8 @@ public final class AdPlaybackState implements Bundleable {
     private static final String FIELD_ORIGINAL_COUNT = Util.intToStringMaxRadix(7);
     @VisibleForTesting static final String FIELD_MEDIA_ITEMS = Util.intToStringMaxRadix(8);
 
-    // Intentionally assigning deprecated field.
     // putParcelableArrayList actually supports null elements.
-    @SuppressWarnings({"deprecation", "nullness:argument"})
+    @SuppressWarnings("nullness:argument")
     @Override
     public Bundle toBundle() {
       Bundle bundle = new Bundle();

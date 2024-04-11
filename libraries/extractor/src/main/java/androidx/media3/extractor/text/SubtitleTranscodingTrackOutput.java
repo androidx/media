@@ -20,6 +20,7 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static java.lang.Math.max;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -38,7 +39,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * MimeTypes#APPLICATION_SUBRIP} to ExoPlayer's internal binary cue representation ({@link
  * MimeTypes#APPLICATION_MEDIA3_CUES}).
  */
-/* package */ final class SubtitleTranscodingTrackOutput implements TrackOutput {
+/* package */ class SubtitleTranscodingTrackOutput implements TrackOutput {
 
   private final TrackOutput delegate;
   private final SubtitleParser.Factory subtitleParserFactory;
@@ -150,11 +151,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         SubtitleParser.OutputOptions.allCues(),
         cuesWithTiming -> outputSample(cuesWithTiming, timeUs, flags));
     sampleDataStart = sampleStart + size;
-    if (sampleDataStart == sampleDataEnd) {
-      // The array is now empty, so we can move the start and end pointers back to the start.
-      sampleDataStart = 0;
-      sampleDataEnd = 0;
-    }
   }
 
   // Clearing deprecated decode-only flag for compatibility with decoders that are still using it.
@@ -198,10 +194,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return;
     }
     int existingSampleDataLength = sampleDataEnd - sampleDataStart;
-    // Make sure there's enough space for the new sample (after we move existing data to the
-    // beginning of the array).
-    int targetLength =
-        Math.max(existingSampleDataLength * 2, existingSampleDataLength + newSampleSize);
+    int targetLength = max(existingSampleDataLength * 2, sampleDataEnd + newSampleSize);
     byte[] newSampleData = targetLength <= sampleData.length ? sampleData : new byte[targetLength];
     System.arraycopy(sampleData, sampleDataStart, newSampleData, 0, existingSampleDataLength);
     sampleDataStart = 0;

@@ -20,12 +20,9 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.muxer.ColorUtils.MEDIAFORMAT_STANDARD_TO_PRIMARIES_AND_MATRIX;
 import static androidx.media3.muxer.ColorUtils.MEDIAFORMAT_TRANSFER_TO_MP4_TRANSFER;
-import static androidx.media3.muxer.Mp4Utils.BYTES_PER_INTEGER;
 import static androidx.media3.muxer.Mp4Utils.MVHD_TIMEBASE;
-import static androidx.media3.muxer.Mp4Utils.UNSIGNED_INT_MAX_VALUE;
 
 import android.media.MediaCodec;
-import android.media.MediaCodec.BufferInfo;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -33,7 +30,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.NalUnitUtil;
-import androidx.media3.muxer.FragmentedMp4Writer.SampleMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Bytes;
@@ -51,19 +47,6 @@ import java.util.Locale;
  * buffers}.
  */
 /* package */ final class Boxes {
-  // Box size (4 bytes) + Box name (4 bytes)
-  public static final int BOX_HEADER_SIZE = 2 * BYTES_PER_INTEGER;
-
-  public static final int MFHD_BOX_CONTENT_SIZE = 2 * BYTES_PER_INTEGER;
-
-  public static final int TFHD_BOX_CONTENT_SIZE = 4 * BYTES_PER_INTEGER;
-
-  // unsigned int(2) sample_depends_on = 2 (bit index 25 and 24)
-  private static final int TRUN_BOX_SYNC_SAMPLE_FLAGS = 0b00000010_00000000_00000000_00000000;
-  // unsigned int(2) sample_depends_on = 1 (bit index 25 and 24)
-  // bit(1) sample_is_non_sync_sample = 1 (bit index 16)
-  private static final int TRUN_BOX_NON_SYNC_SAMPLE_FLAGS = 0b00000001_00000001_00000000_00000000;
-
   private Boxes() {}
 
   public static final ImmutableList<Byte> XMP_UUID =
@@ -362,7 +345,7 @@ import java.util.Locale;
     }
 
     String locationString =
-        Util.formatInvariant("%+.4f%+.4f/", location.latitude, location.longitude);
+        String.format(Locale.US, "%+.4f%+.4f/", location.latitude, location.longitude);
 
     ByteBuffer xyzBoxContents = ByteBuffer.allocate(locationString.length() + 2 + 2);
     xyzBoxContents.putShort((short) (xyzBoxContents.capacity() - 4));
@@ -597,55 +580,53 @@ import java.util.Locale;
   }
 
   /**
-   * Converts sample presentation times (in microseconds) to sample durations (in timebase units).
+   * Converts sample presentation times (in microseconds) to sample durations (in timebase units)
+   * that will go into the stts box.
    *
-   * <p>All the tracks must start from the same time. If all the tracks do not start from the same
-   * time, then the caller must pass the minimum presentation timestamp across all tracks to be set
-   * for the first sample. As a result, the duration of that first sample may be larger.
+   * <p>ISO/IEC 14496-12: 8.6.1.3.1 recommends each track starts at 0. Therefore, the first sample
+   * presentation timestamp is set to 0 and the duration of that sample may be larger as a result.
    *
-   * @param samplesInfo A list of {@linkplain BufferInfo sample info}.
-   * @param firstSamplePresentationTimeUs The presentation timestamp to override the first sample's
-   *     presentation timestamp, in microseconds. This should be the minimum presentation timestamp
-   *     across all tracks if the {@code samplesInfo} contains the first sample of the track.
-   *     Otherwise this should be equal to the presentation timestamp of first sample present in the
-   *     {@code samplesInfo} list.
+   * @param writtenSamples All the written samples.
+   * @param minInputPresentationTimestampUs The global minimum presentation timestamp which needs to
+   *     be subtracted from each sample's presentation timestamp.
    * @param videoUnitTimescale The timescale of the track.
    * @param lastDurationBehavior The behaviour for the last sample duration.
    * @return A list of all the sample durations.
    */
   // TODO: b/280084657 - Add support for setting last sample duration.
-  // TODO: b/317373578 - Consider changing return type to List<Integer>.
-  public static List<Long> convertPresentationTimestampsToDurationsVu(
-      List<BufferInfo> samplesInfo,
-      long firstSamplePresentationTimeUs,
+  public static List<Long> durationsVuForStts(
+      List<MediaCodec.BufferInfo> writtenSamples,
+      long minInputPresentationTimestampUs,
       int videoUnitTimescale,
       @Mp4Muxer.LastFrameDurationBehavior int lastDurationBehavior) {
-    List<Long> durationsVu = new ArrayList<>(samplesInfo.size());
+    List<Long> durationsVu = new ArrayList<>();
 
-    if (samplesInfo.isEmpty()) {
-      return durationsVu;
-    }
+    long currentTimeVu = 0L;
 
-    long currentSampleTimeUs = firstSamplePresentationTimeUs;
-    for (int nextSampleId = 1; nextSampleId < samplesInfo.size(); nextSampleId++) {
-      long nextSampleTimeUs = samplesInfo.get(nextSampleId).presentationTimeUs;
-      // TODO: b/316158030 - First calculate the duration and then convert us to vu to avoid
-      //  rounding error.
-      long currentSampleDurationVu =
-          Mp4Utils.vuFromUs(nextSampleTimeUs, videoUnitTimescale)
-              - Mp4Utils.vuFromUs(currentSampleTimeUs, videoUnitTimescale);
-      if (currentSampleDurationVu > Integer.MAX_VALUE) {
+    for (int sampleId = 0; sampleId < writtenSamples.size(); sampleId++) {
+      long samplePtsUs = writtenSamples.get(sampleId).presentationTimeUs;
+      long sampleSpanEndsAtUs =
+          sampleId == writtenSamples.size() - 1
+              ? samplePtsUs
+              : writtenSamples.get(sampleId + 1).presentationTimeUs;
+
+      sampleSpanEndsAtUs -= minInputPresentationTimestampUs;
+
+      long sampleSpanEndsAtVu = Mp4Utils.vuFromUs(sampleSpanEndsAtUs, videoUnitTimescale);
+
+      long durationVu = sampleSpanEndsAtVu - currentTimeVu;
+      currentTimeVu = sampleSpanEndsAtVu;
+
+      if (durationVu >= Integer.MAX_VALUE) {
         throw new IllegalArgumentException(
-            String.format(
-                Locale.US, "Timestamp delta %d doesn't fit into an int", currentSampleDurationVu));
+            String.format(Locale.US, "Timestamp delta %d doesn't fit into an int", durationVu));
       }
-      durationsVu.add(currentSampleDurationVu);
-      currentSampleTimeUs = nextSampleTimeUs;
+
+      durationsVu.add(durationVu);
     }
-    // Default duration for the last sample.
-    durationsVu.add(0L);
 
     adjustLastSampleDuration(durationsVu, lastDurationBehavior);
+
     return durationsVu;
   }
 
@@ -737,35 +718,16 @@ import java.util.Locale;
     return BoxUtils.wrapIntoBox("stsc", contents);
   }
 
-  /** Returns the stco (32-bit chunk offset) box. */
-  public static ByteBuffer stco(List<Long> writtenChunkOffsets) {
-    ByteBuffer contents =
-        ByteBuffer.allocate(2 * BYTES_PER_INTEGER + writtenChunkOffsets.size() * BYTES_PER_INTEGER);
-
-    contents.putInt(0x0); // version and flags
-    contents.putInt(writtenChunkOffsets.size()); // entry_count; unsigned int(32)
-
-    for (int i = 0; i < writtenChunkOffsets.size(); i++) {
-      long chunkOffset = writtenChunkOffsets.get(i);
-      checkState(chunkOffset <= UNSIGNED_INT_MAX_VALUE, "Only 32-bit offset is allowed");
-      contents.putInt((int) chunkOffset); // chunk_offset; unsigned int(32)
-    }
-
-    contents.flip();
-    return BoxUtils.wrapIntoBox("stco", contents);
-  }
-
-  /** Returns the co64 (64-bit chunk offset) box. */
+  /** Returns the co64 (chunk offset) box. */
   public static ByteBuffer co64(List<Long> writtenChunkOffsets) {
     ByteBuffer contents =
-        ByteBuffer.allocate(
-            2 * BYTES_PER_INTEGER + 2 * writtenChunkOffsets.size() * BYTES_PER_INTEGER);
+        ByteBuffer.allocate(writtenChunkOffsets.size() * 8 + Mp4Utils.MAX_FIXED_LEAF_BOX_SIZE);
 
-    contents.putInt(0x0); // version and flags
-    contents.putInt(writtenChunkOffsets.size()); // entry_count; unsigned int(32)
+    contents.putInt(0x0); // version.
+    contents.putInt(writtenChunkOffsets.size()); // entry_count.
 
     for (int i = 0; i < writtenChunkOffsets.size(); i++) {
-      contents.putLong(writtenChunkOffsets.get(i)); // chunk_offset; unsigned int(64)
+      contents.putLong(writtenChunkOffsets.get(i)); // chunk_offset.
     }
 
     contents.flip();
@@ -841,101 +803,16 @@ import java.util.Locale;
     return BoxUtils.wrapBoxesIntoBox("ftyp", boxBytes);
   }
 
-  /** Returns the movie fragment (moof) box. */
-  public static ByteBuffer moof(ByteBuffer mfhdBox, List<ByteBuffer> trafBoxes) {
-    return BoxUtils.wrapBoxesIntoBox(
-        "moof", new ImmutableList.Builder<ByteBuffer>().add(mfhdBox).addAll(trafBoxes).build());
-  }
-
-  /** Returns the movie fragment header (mfhd) box. */
-  public static ByteBuffer mfhd(int sequenceNumber) {
-    ByteBuffer contents = ByteBuffer.allocate(MFHD_BOX_CONTENT_SIZE);
-    contents.putInt(0x0); // version and flags
-    contents.putInt(sequenceNumber); // An unsigned int(32)
-    contents.flip();
-    return BoxUtils.wrapIntoBox("mfhd", contents);
-  }
-
-  /** Returns a track fragment (traf) box. */
-  public static ByteBuffer traf(ByteBuffer tfhdBox, ByteBuffer trunBox) {
-    return BoxUtils.wrapBoxesIntoBox("traf", ImmutableList.of(tfhdBox, trunBox));
-  }
-
-  /** Returns a track fragment header (tfhd) box. */
-  public static ByteBuffer tfhd(int trackId, long baseDataOffset) {
-    ByteBuffer contents = ByteBuffer.allocate(TFHD_BOX_CONTENT_SIZE);
-    // 0x000001 base-data-offset-present: indicates the presence of the base-data-offset field.
-    contents.putInt(0x0 | 0x000001); // version and flags
-    contents.putInt(trackId);
-    contents.putLong(baseDataOffset);
-    contents.flip();
-    return BoxUtils.wrapIntoBox("tfhd", contents);
-  }
-
-  /** Returns a track fragment run (trun) box. */
-  public static ByteBuffer trun(List<SampleMetadata> samplesMetadata, int dataOffset) {
-    ByteBuffer contents = ByteBuffer.allocate(getTrunBoxContentSize(samplesMetadata.size()));
-
-    // 0x000001 data-offset-present.
-    // 0x000100 sample-duration-present: indicates that each sample has its own duration, otherwise
-    // the default is used.
-    // 0x000200 sample-size-present: indicates that each sample has its own size, otherwise the
-    // default is used.
-    // 0x000400 sample-flags-present: indicates that each sample has its own flags, otherwise the
-    // default is used.
-    // Version is 0x0.
-    int versionAndFlags = 0x0 | 0x000001 | 0x000100 | 0x000200 | 0x000400;
-    contents.putInt(versionAndFlags);
-    contents.putInt(samplesMetadata.size()); // An unsigned int(32)
-    contents.putInt(dataOffset); // A signed int(32)
-    for (int i = 0; i < samplesMetadata.size(); i++) {
-      SampleMetadata currentSampleMetadata = samplesMetadata.get(i);
-      contents.putInt((int) currentSampleMetadata.durationVu); // An unsigned int(32)
-      contents.putInt(currentSampleMetadata.size); // An unsigned int(32)
-      contents.putInt(
-          (currentSampleMetadata.flags & MediaCodec.BUFFER_FLAG_KEY_FRAME) != 0
-              ? TRUN_BOX_SYNC_SAMPLE_FLAGS
-              : TRUN_BOX_NON_SYNC_SAMPLE_FLAGS);
-    }
-    contents.flip();
-    return BoxUtils.wrapIntoBox("trun", contents);
-  }
-
-  /** Returns the size required for {@link #trun(List, int)} box content. */
-  public static int getTrunBoxContentSize(int sampleCount) {
-    int trunBoxFixedSize = 3 * BYTES_PER_INTEGER;
-    // 3 int(32-bit) gets written for each sample.
-    return trunBoxFixedSize + 3 * sampleCount * BYTES_PER_INTEGER;
-  }
-
-  /** Returns a movie extends (mvex) box. */
-  public static ByteBuffer mvex(List<ByteBuffer> trexBoxes) {
-    return BoxUtils.wrapBoxesIntoBox("mvex", trexBoxes);
-  }
-
-  /** Returns a track extends (trex) box. */
-  public static ByteBuffer trex(int trackId) {
-    ByteBuffer contents = ByteBuffer.allocate(6 * BYTES_PER_INTEGER);
-    contents.putInt(0x0); // version and flags
-    contents.putInt(trackId);
-    contents.putInt(1); // default_sample_description_index
-    contents.putInt(0); // default_sample_duration
-    contents.putInt(0); // default_sample_size
-    contents.putInt(0); // default_sample_flags
-    contents.flip();
-    return BoxUtils.wrapIntoBox("trex", contents);
-  }
-
-  // TODO: b/317117431 - Change this method to getLastSampleDuration().
   /** Adjusts the duration of the very last sample if needed. */
   private static void adjustLastSampleDuration(
       List<Long> durationsToBeAdjustedVu, @Mp4Muxer.LastFrameDurationBehavior int behavior) {
-    // Technically, MP4 file stores frame durations, not timestamps. If a frame starts at a
-    // given timestamp then the duration of the last frame is not obvious. If samples follow each
-    // other in roughly regular intervals (e.g. in a normal, 30 fps video), it can be safely assumed
-    // that the last sample will have same duration (~33ms) as other samples. On the other hand, if
-    // there are just a few, irregularly spaced frames, with duplication, the entire duration of the
-    // video will increase, creating abnormal gaps.
+    // Technically, MP4 files store not timestamps but frame durations. Thus, if we interpret
+    // timestamps as the start of frames then it's not obvious what's the duration of the very
+    // last frame should be. If our samples follow each other in roughly regular intervals (e.g. in
+    // a normal, 30 fps video), it makes sense to assume that the last sample will last the same ~33
+    // ms as the all the other ones before. On the other hand, if we have just a few, irregularly
+    // spaced frames, with duplication, the entire duration of the video will increase, creating
+    // abnormal gaps.
 
     if (durationsToBeAdjustedVu.size() <= 2) {
       // Nothing to duplicate if there are 0 or 1 entries.

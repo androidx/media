@@ -17,7 +17,6 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS;
 import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS;
 import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_MAX_BUFFER_MS;
@@ -41,6 +40,7 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.Renderer;
@@ -54,6 +54,7 @@ import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.extractor.mp4.Mp4Extractor;
+import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableMap;
 
 /** An {@link AssetLoader} implementation that uses an {@link ExoPlayer} to load samples. */
@@ -374,7 +375,8 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
 
   private static long getReleaseTimeoutMs() {
     // b/297916906 - Emulators need a larger timeout for releasing.
-    return isRunningOnEmulator()
+    return Ascii.toLowerCase(Util.DEVICE).contains("emulator")
+            || Ascii.toLowerCase(Util.DEVICE).contains("generic")
         ? EMULATOR_RELEASE_TIMEOUT_MS
         : ExoPlayer.DEFAULT_RELEASE_TIMEOUT_MS;
   }

@@ -22,6 +22,7 @@ import static org.junit.Assert.assertThrows;
 
 import android.graphics.Bitmap;
 import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.test.utils.VideoFrameProcessorTestRunner;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -114,6 +115,7 @@ public class DefaultVideoFrameProcessorFlushTest {
     return new VideoFrameProcessorTestRunner.Builder()
         .setTestId(testId)
         .setVideoFrameProcessorFactory(new DefaultVideoFrameProcessor.Factory.Builder().build())
+        .setInputColorInfo(ColorInfo.SRGB_BT709_FULL)
         .setOnOutputFrameAvailableForRenderingListener(unused -> outputFrameCount++)
         .build();
   }

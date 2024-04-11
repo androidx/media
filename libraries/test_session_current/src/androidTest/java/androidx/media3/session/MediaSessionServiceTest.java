@@ -312,7 +312,7 @@ public class MediaSessionServiceTest {
                 .get(0)
                 .getConnectionHints()
                 .getBoolean(
-                    MediaController.KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG,
+                    MediaNotificationManager.KEY_MEDIA_NOTIFICATION_MANAGER,
                     /* defaultValue= */ false))
         .isTrue();
     assertThat(TestUtils.equals(controllerInfoList.get(1).getConnectionHints(), testHints))

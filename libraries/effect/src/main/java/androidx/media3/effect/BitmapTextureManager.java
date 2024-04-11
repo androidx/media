@@ -45,7 +45,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           + " RGB channel.";
 
   private final GlObjectsProvider glObjectsProvider;
-  private @MonotonicNonNull GlShaderProgram shaderProgram;
+  private final GlShaderProgram shaderProgram;
   // The queue holds all bitmaps with one or more frames pending to be sent downstream.
   private final Queue<BitmapFrameSequenceInfo> pendingBitmaps;
 
@@ -63,21 +63,19 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * Creates a new instance.
    *
    * @param glObjectsProvider The {@link GlObjectsProvider} for using EGL and GLES.
+   * @param shaderProgram The {@link GlShaderProgram} for which this {@code BitmapTextureManager}
+   *     will be set as the {@link GlShaderProgram.InputListener}.
    * @param videoFrameProcessingTaskExecutor The {@link VideoFrameProcessingTaskExecutor} that the
    *     methods of this class run on.
    */
   public BitmapTextureManager(
       GlObjectsProvider glObjectsProvider,
+      GlShaderProgram shaderProgram,
       VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor) {
     super(videoFrameProcessingTaskExecutor);
     this.glObjectsProvider = glObjectsProvider;
+    this.shaderProgram = shaderProgram;
     pendingBitmaps = new LinkedBlockingQueue<>();
-  }
-
-  @Override
-  public void setSamplingGlShaderProgram(GlShaderProgram samplingGlShaderProgram) {
-    downstreamShaderProgramCapacity = 0;
-    this.shaderProgram = samplingGlShaderProgram;
   }
 
   @Override
@@ -113,7 +111,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     videoFrameProcessingTaskExecutor.submit(
         () -> {
           if (pendingBitmaps.isEmpty()) {
-            checkNotNull(shaderProgram).signalEndOfCurrentInputStream();
+            shaderProgram.signalEndOfCurrentInputStream();
             DebugTraceUtil.logEvent(
                 DebugTraceUtil.EVENT_BITMAP_TEXTURE_MANAGER_SIGNAL_EOS, C.TIME_END_OF_SOURCE);
           } else {
@@ -139,13 +137,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       throws VideoFrameProcessingException {
     if (Util.SDK_INT >= 26) {
       checkState(
-          !checkNotNull(bitmap.getConfig()).equals(Bitmap.Config.RGBA_F16),
-          UNSUPPORTED_IMAGE_CONFIGURATION);
+          !bitmap.getConfig().equals(Bitmap.Config.RGBA_F16), UNSUPPORTED_IMAGE_CONFIGURATION);
     }
     if (Util.SDK_INT >= 33) {
       checkState(
-          !checkNotNull(bitmap.getConfig()).equals(Bitmap.Config.RGBA_1010102),
-          UNSUPPORTED_IMAGE_CONFIGURATION);
+          !bitmap.getConfig().equals(Bitmap.Config.RGBA_1010102), UNSUPPORTED_IMAGE_CONFIGURATION);
     }
     this.useHdr = useHdr;
     checkArgument(inStreamOffsetsUs.hasNext(), "Bitmap queued but no timestamps provided.");
@@ -158,7 +154,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return;
     }
 
-    BitmapFrameSequenceInfo currentBitmapInfo = pendingBitmaps.element();
+    BitmapFrameSequenceInfo currentBitmapInfo = checkNotNull(pendingBitmaps.peek());
     FrameInfo currentFrameInfo = currentBitmapInfo.frameInfo;
     TimestampIterator inStreamOffsetsUs = currentBitmapInfo.inStreamOffsetsUs;
     checkState(currentBitmapInfo.inStreamOffsetsUs.hasNext());
@@ -170,15 +166,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     downstreamShaderProgramCapacity--;
-    checkNotNull(shaderProgram)
-        .queueInputFrame(
-            glObjectsProvider, checkNotNull(currentGlTextureInfo), currentPresentationTimeUs);
+    shaderProgram.queueInputFrame(
+        glObjectsProvider, checkNotNull(currentGlTextureInfo), currentPresentationTimeUs);
     DebugTraceUtil.logEvent(
         DebugTraceUtil.EVENT_VFP_QUEUE_BITMAP,
         currentPresentationTimeUs,
-        /* extraFormat= */ "%dx%d",
-        /* extraArgs...= */ currentFrameInfo.width,
-        currentFrameInfo.height);
+        /* extra= */ currentFrameInfo.width + "x" + currentFrameInfo.height);
 
     if (!currentBitmapInfo.inStreamOffsetsUs.hasNext()) {
       isNextFrameInTexture = false;
@@ -186,7 +179,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       finishedBitmapInfo.bitmap.recycle();
       if (pendingBitmaps.isEmpty() && currentInputStreamEnded) {
         // Only signal end of stream after all pending bitmaps are processed.
-        checkNotNull(shaderProgram).signalEndOfCurrentInputStream();
+        shaderProgram.signalEndOfCurrentInputStream();
         DebugTraceUtil.logEvent(
             DebugTraceUtil.EVENT_BITMAP_TEXTURE_MANAGER_SIGNAL_EOS, C.TIME_END_OF_SOURCE);
         currentInputStreamEnded = false;

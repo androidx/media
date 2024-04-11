@@ -18,7 +18,6 @@ package androidx.media3.test.utils;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.SDK_INT;
-import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
 import static java.lang.Math.abs;
@@ -40,6 +39,7 @@ import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import com.google.common.base.Ascii;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -95,7 +95,10 @@ public class BitmapPixelTestUtil {
    * if running on physical devices.
    */
   public static final float MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE =
-      isRunningOnEmulator() ? 1f : MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_DIFFERENT_DEVICE;
+      Ascii.toLowerCase(Util.DEVICE).contains("emulator")
+              || Ascii.toLowerCase(Util.DEVICE).contains("generic")
+          ? 1f
+          : MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_DIFFERENT_DEVICE;
 
   /**
    * Maximum allowed average pixel difference between bitmaps with 16-bit primaries generated using

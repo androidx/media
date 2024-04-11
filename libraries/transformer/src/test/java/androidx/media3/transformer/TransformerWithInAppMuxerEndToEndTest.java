@@ -16,6 +16,7 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.transformer.TestUtil.ASSET_URI_PREFIX;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_VIDEO;
 import static com.google.common.truth.Truth.assertThat;
 
@@ -43,7 +44,8 @@ import org.junit.runner.RunWith;
 /** End-to-end test for {@link Transformer} with {@link InAppMuxer}. */
 @RunWith(AndroidJUnit4.class)
 public class TransformerWithInAppMuxerEndToEndTest {
-  private static final String MP4_FILE = "asset:///media/mp4/sample_no_bframes.mp4";
+  private static final String XMP_SAMPLE_DATA = "media/xmp/sample_datetime_xmp.xmp";
+
   @Rule public final TemporaryFolder outputDir = new TemporaryFolder();
 
   private final Context context = ApplicationProvider.getApplicationContext();
@@ -57,21 +59,18 @@ public class TransformerWithInAppMuxerEndToEndTest {
   @Test
   public void transmux_withLocationMetadata_outputMatchesExpected() throws Exception {
     Muxer.Factory inAppMuxerFactory =
-        new InAppMuxer.Factory.Builder()
-            .setMetadataProvider(
-                metadataEntries -> {
-                  metadataEntries.removeIf(
-                      (Metadata.Entry entry) -> entry instanceof Mp4LocationData);
-                  metadataEntries.add(
-                      new Mp4LocationData(/* latitude= */ 45f, /* longitude= */ -90f));
-                })
-            .build();
+        new InAppMuxer.Factory(
+            DefaultMuxer.Factory.DEFAULT_MAX_DELAY_BETWEEN_SAMPLES_MS,
+            metadataEntries -> {
+              metadataEntries.removeIf((Metadata.Entry entry) -> entry instanceof Mp4LocationData);
+              metadataEntries.add(new Mp4LocationData(/* latitude= */ 45f, /* longitude= */ -90f));
+            });
     Transformer transformer =
         new Transformer.Builder(context)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .setMuxerFactory(inAppMuxerFactory)
             .build();
-    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_FILE));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO));
 
     transformer.start(mediaItem, outputPath);
     TransformerTestRunner.runLooper(transformer);
@@ -90,18 +89,17 @@ public class TransformerWithInAppMuxerEndToEndTest {
 
   @Test
   public void transmux_withXmpData_completesSuccessfully() throws Exception {
-    String xmpSampleData = "media/xmp/sample_datetime_xmp.xmp";
-    byte[] xmpData = androidx.media3.test.utils.TestUtil.getByteArray(context, xmpSampleData);
+    byte[] xmpData = androidx.media3.test.utils.TestUtil.getByteArray(context, XMP_SAMPLE_DATA);
     Muxer.Factory inAppMuxerFactory =
-        new InAppMuxer.Factory.Builder()
-            .setMetadataProvider(metadataEntries -> metadataEntries.add(new XmpData(xmpData)))
-            .build();
+        new InAppMuxer.Factory(
+            DefaultMuxer.Factory.DEFAULT_MAX_DELAY_BETWEEN_SAMPLES_MS,
+            metadataEntries -> metadataEntries.add(new XmpData(xmpData)));
     Transformer transformer =
         new Transformer.Builder(context)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .setMuxerFactory(inAppMuxerFactory)
             .build();
-    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_FILE));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO));
 
     transformer.start(mediaItem, outputPath);
     ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
@@ -113,24 +111,23 @@ public class TransformerWithInAppMuxerEndToEndTest {
   @Test
   public void transmux_withCaptureFps_outputMatchesExpected() throws Exception {
     Muxer.Factory inAppMuxerFactory =
-        new InAppMuxer.Factory.Builder()
-            .setMetadataProvider(
-                metadataEntries -> {
-                  float captureFps = 60.0f;
-                  metadataEntries.add(
-                      new MdtaMetadataEntry(
-                          MdtaMetadataEntry.KEY_ANDROID_CAPTURE_FPS,
-                          /* value= */ Util.toByteArray(captureFps),
-                          /* localeIndicator= */ 0,
-                          MdtaMetadataEntry.TYPE_INDICATOR_FLOAT32));
-                })
-            .build();
+        new InAppMuxer.Factory(
+            DefaultMuxer.Factory.DEFAULT_MAX_DELAY_BETWEEN_SAMPLES_MS,
+            metadataEntries -> {
+              float captureFps = 60.0f;
+              metadataEntries.add(
+                  new MdtaMetadataEntry(
+                      MdtaMetadataEntry.KEY_ANDROID_CAPTURE_FPS,
+                      /* value= */ Util.toByteArray(captureFps),
+                      /* localeIndicator= */ 0,
+                      MdtaMetadataEntry.TYPE_INDICATOR_FLOAT32));
+            });
     Transformer transformer =
         new Transformer.Builder(context)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .setMuxerFactory(inAppMuxerFactory)
             .build();
-    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_FILE));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO));
 
     transformer.start(mediaItem, outputPath);
     TransformerTestRunner.runLooper(transformer);
@@ -149,19 +146,17 @@ public class TransformerWithInAppMuxerEndToEndTest {
   @Test
   public void transmux_withCreationTime_outputMatchesExpected() throws Exception {
     Muxer.Factory inAppMuxerFactory =
-        new InAppMuxer.Factory.Builder()
-            .setMetadataProvider(
-                metadataEntries ->
-                    metadataEntries.add(
-                        new Mp4TimestampData(/* creationTimestampSeconds= */ 2_000_000_000L)))
-            .build();
-
+        new InAppMuxer.Factory(
+            DefaultMuxer.Factory.DEFAULT_MAX_DELAY_BETWEEN_SAMPLES_MS,
+            metadataEntries ->
+                metadataEntries.add(
+                    new Mp4TimestampData(/* creationTimestampSeconds= */ 2_000_000_000L)));
     Transformer transformer =
         new Transformer.Builder(context)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .setMuxerFactory(inAppMuxerFactory)
             .build();
-    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_FILE));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO));
 
     transformer.start(mediaItem, outputPath);
     TransformerTestRunner.runLooper(transformer);
@@ -181,33 +176,32 @@ public class TransformerWithInAppMuxerEndToEndTest {
   @Test
   public void transmux_withCustomeMetadata_outputMatchesExpected() throws Exception {
     Muxer.Factory inAppMuxerFactory =
-        new InAppMuxer.Factory.Builder()
-            .setMetadataProvider(
-                metadataEntries -> {
-                  String stringKey = "StringKey";
-                  String stringValue = "StringValue";
-                  metadataEntries.add(
-                      new MdtaMetadataEntry(
-                          stringKey,
-                          Util.getUtf8Bytes(stringValue),
-                          /* localeIndicator= */ 0,
-                          MdtaMetadataEntry.TYPE_INDICATOR_STRING));
-                  String floatKey = "FloatKey";
-                  float floatValue = 600.0f;
-                  metadataEntries.add(
-                      new MdtaMetadataEntry(
-                          floatKey,
-                          Util.toByteArray(floatValue),
-                          /* localeIndicator= */ 0,
-                          MdtaMetadataEntry.TYPE_INDICATOR_FLOAT32));
-                })
-            .build();
+        new InAppMuxer.Factory(
+            DefaultMuxer.Factory.DEFAULT_MAX_DELAY_BETWEEN_SAMPLES_MS,
+            metadataEntries -> {
+              String stringKey = "StringKey";
+              String stringValue = "StringValue";
+              metadataEntries.add(
+                  new MdtaMetadataEntry(
+                      stringKey,
+                      Util.getUtf8Bytes(stringValue),
+                      /* localeIndicator= */ 0,
+                      MdtaMetadataEntry.TYPE_INDICATOR_STRING));
+              String floatKey = "FloatKey";
+              float floatValue = 600.0f;
+              metadataEntries.add(
+                  new MdtaMetadataEntry(
+                      floatKey,
+                      Util.toByteArray(floatValue),
+                      /* localeIndicator= */ 0,
+                      MdtaMetadataEntry.TYPE_INDICATOR_FLOAT32));
+            });
     Transformer transformer =
         new Transformer.Builder(context)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .setMuxerFactory(inAppMuxerFactory)
             .build();
-    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_FILE));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO));
 
     transformer.start(mediaItem, outputPath);
     TransformerTestRunner.runLooper(transformer);

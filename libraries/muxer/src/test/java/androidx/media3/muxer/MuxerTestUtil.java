@@ -15,9 +15,6 @@
  */
 package androidx.media3.muxer;
 
-import static androidx.media3.common.MimeTypes.AUDIO_AAC;
-import static androidx.media3.common.MimeTypes.VIDEO_H264;
-
 import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
 import android.util.Pair;
@@ -28,24 +25,9 @@ import java.nio.ByteBuffer;
 
 /** Utilities for muxer test cases. */
 /* package */ class MuxerTestUtil {
-
-  public static final byte[] FAKE_CSD_0 =
+  private static final byte[] FAKE_CSD_0 =
       BaseEncoding.base16().decode("0000000167F4000A919B2BF3CB3640000003004000000C83C4896580");
-  public static final byte[] FAKE_CSD_1 = BaseEncoding.base16().decode("0000000168EBE3C448");
-  public static final Format FAKE_AUDIO_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(AUDIO_AAC)
-          .setSampleRate(40000)
-          .setChannelCount(2)
-          .build();
-  public static final Format FAKE_VIDEO_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(12)
-          .setHeight(10)
-          .setInitializationData(ImmutableList.of(FAKE_CSD_0, FAKE_CSD_1))
-          .build();
-
+  private static final byte[] FAKE_CSD_1 = BaseEncoding.base16().decode("0000000168EBE3C448");
   private static final byte[] FAKE_H264_SAMPLE =
       BaseEncoding.base16()
           .decode(
@@ -56,6 +38,23 @@ import java.nio.ByteBuffer;
 
   public static String getExpectedDumpFilePath(String originalFileName) {
     return DUMP_FILE_OUTPUT_DIRECTORY + '/' + originalFileName + '.' + DUMP_FILE_EXTENSION;
+  }
+
+  public static Format getFakeVideoFormat() {
+    return new Format.Builder()
+        .setSampleMimeType("video/avc")
+        .setWidth(12)
+        .setHeight(10)
+        .setInitializationData(ImmutableList.of(FAKE_CSD_0, FAKE_CSD_1))
+        .build();
+  }
+
+  public static Format getFakeAudioFormat() {
+    return new Format.Builder()
+        .setSampleMimeType("audio/mp4a-latm")
+        .setSampleRate(40000)
+        .setChannelCount(2)
+        .build();
   }
 
   public static Pair<ByteBuffer, BufferInfo> getFakeSampleAndSampleInfo(long presentationTimeUs) {

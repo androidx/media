@@ -22,7 +22,6 @@ import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.test.utils.ThreadTestUtil;
 import com.google.common.base.Supplier;
 import java.util.concurrent.TimeoutException;
 import org.robolectric.shadows.ShadowLooper;
@@ -117,7 +116,6 @@ public final class RobolectricUtil {
     if (Looper.myLooper() != looper) {
       throw new IllegalStateException();
     }
-    ThreadTestUtil.unblockThreadsWaitingForProgressOnCurrentLooper();
     ShadowLooper shadowLooper = shadowOf(looper);
     long timeoutTimeMs = clock.currentTimeMillis() + timeoutMs;
     while (!condition.get()) {

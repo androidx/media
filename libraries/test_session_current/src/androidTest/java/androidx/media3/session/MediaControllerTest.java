@@ -423,23 +423,6 @@ public class MediaControllerTest {
   }
 
   @Test
-  public void getSessionExtras_includedInConnectionStateWhenConnecting() throws Exception {
-    RemoteMediaSession session =
-        createRemoteMediaSession(TEST_GET_CUSTOM_LAYOUT, /* tokenExtras= */ null);
-    Bundle sessionExtras = new Bundle();
-    sessionExtras.putString("key1", "value1");
-    session.setSessionExtras(sessionExtras);
-
-    MediaController controller = controllerTestRule.createController(session.getToken());
-
-    assertThat(
-            threadTestRule.getHandler().postAndSync(controller::getSessionExtras).getString("key1"))
-        .isEqualTo("value1");
-
-    session.cleanUp();
-  }
-
-  @Test
   public void getAvailableCommands_emptyPlayerCommands_commandReleaseStillAvailable()
       throws Exception {
     CountDownLatch latch = new CountDownLatch(1);
@@ -789,7 +772,7 @@ public class MediaControllerTest {
       session.setAvailableCommands(builder.build(), Player.Commands.EMPTY);
 
       String testMediaId = "testMediaId";
-      Rating testRating = new HeartRating(/* isHeart= */ true);
+      Rating testRating = new HeartRating(/* hasHeart= */ true);
       threadTestRule
           .getHandler()
           .postAndSync(

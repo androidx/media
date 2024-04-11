@@ -176,11 +176,6 @@ public class MediaControllerProviderService extends Service {
     }
 
     @Override
-    public Bundle getSessionExtras(String controllerId) throws RemoteException {
-      return runOnHandler(mediaControllerMap.get(controllerId)::getSessionExtras);
-    }
-
-    @Override
     public void play(String controllerId) throws RemoteException {
       runOnHandler(
           () -> {
@@ -630,7 +625,6 @@ public class MediaControllerProviderService extends Service {
           });
     }
 
-    @SuppressWarnings("deprecation") // Forwarding deprecated method call
     @Override
     public void setDeviceVolume(String controllerId, int volume) throws RemoteException {
       runOnHandler(
@@ -650,7 +644,6 @@ public class MediaControllerProviderService extends Service {
           });
     }
 
-    @SuppressWarnings("deprecation") // Forwarding deprecated method call
     @Override
     public void increaseDeviceVolume(String controllerId) throws RemoteException {
       runOnHandler(
@@ -670,7 +663,6 @@ public class MediaControllerProviderService extends Service {
           });
     }
 
-    @SuppressWarnings("deprecation") // Forwarding deprecated method call
     @Override
     public void decreaseDeviceVolume(String controllerId) throws RemoteException {
       runOnHandler(
@@ -690,7 +682,6 @@ public class MediaControllerProviderService extends Service {
           });
     }
 
-    @SuppressWarnings("deprecation") // Forwarding deprecated method call
     @Override
     public void setDeviceMuted(String controllerId, boolean muted) throws RemoteException {
       runOnHandler(

@@ -292,9 +292,10 @@ public final class CommandButton implements Bundleable {
    */
   /* package */ static boolean isEnabled(
       CommandButton button, SessionCommands sessionCommands, Player.Commands playerCommands) {
-    return (button.sessionCommand != null && sessionCommands.contains(button.sessionCommand))
+    return playerCommands.contains(button.playerCommand)
+        || (button.sessionCommand != null && sessionCommands.contains(button.sessionCommand))
         || (button.playerCommand != Player.COMMAND_INVALID
-            && playerCommands.contains(button.playerCommand));
+            && sessionCommands.contains(button.playerCommand));
   }
 
   // Bundleable implementation.

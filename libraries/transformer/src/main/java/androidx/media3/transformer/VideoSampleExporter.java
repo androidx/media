@@ -44,6 +44,7 @@ import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.util.Consumer;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.effect.DebugTraceUtil;
@@ -87,7 +88,8 @@ import org.checkerframework.dataflow.qual.Pure;
       FallbackListener fallbackListener,
       DebugViewProvider debugViewProvider,
       long initialTimestampOffsetUs,
-      boolean hasMultipleInputs)
+      boolean hasMultipleInputs,
+      boolean matchInitializationData)
       throws ExportException {
     // TODO(b/278259383) Consider delaying configuration of VideoSampleExporter to use the decoder
     //  output format instead of the extractor output format, to match AudioSampleExporter behavior.
@@ -97,6 +99,7 @@ import org.checkerframework.dataflow.qual.Pure;
 
     ColorInfo decoderInputColor;
     if (firstInputFormat.colorInfo == null || !firstInputFormat.colorInfo.isDataSpaceValid()) {
+      Log.d(TAG, "colorInfo is null or invalid. Defaulting to SDR_BT709_LIMITED.");
       decoderInputColor = ColorInfo.SDR_BT709_LIMITED;
     } else {
       decoderInputColor = firstInputFormat.colorInfo;
@@ -107,7 +110,8 @@ import org.checkerframework.dataflow.qual.Pure;
             firstInputFormat.buildUpon().setColorInfo(decoderInputColor).build(),
             muxerWrapper.getSupportedSampleMimeTypes(C.TRACK_TYPE_VIDEO),
             transformationRequest,
-            fallbackListener);
+            fallbackListener,
+            matchInitializationData);
     encoderOutputBuffer =
         new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DISABLED);
 
@@ -237,6 +241,7 @@ import org.checkerframework.dataflow.qual.Pure;
     private final FallbackListener fallbackListener;
     private final String requestedOutputMimeType;
     private final @Composition.HdrMode int hdrModeAfterFallback;
+    private final boolean matchInitializationData;
 
     private @MonotonicNonNull SurfaceInfo encoderSurfaceInfo;
 
@@ -249,13 +254,15 @@ import org.checkerframework.dataflow.qual.Pure;
         Format inputFormat,
         List<String> muxerSupportedMimeTypes,
         TransformationRequest transformationRequest,
-        FallbackListener fallbackListener) {
+        FallbackListener fallbackListener,
+        boolean matchInitializationData) {
       checkArgument(inputFormat.colorInfo != null);
       this.encoderFactory = encoderFactory;
       this.inputFormat = inputFormat;
       this.muxerSupportedMimeTypes = muxerSupportedMimeTypes;
       this.transformationRequest = transformationRequest;
       this.fallbackListener = fallbackListener;
+      this.matchInitializationData = matchInitializationData;
       Pair<String, Integer> outputMimeTypeAndHdrModeAfterFallback =
           getRequestedOutputMimeTypeAndHdrModeAfterFallback(inputFormat, transformationRequest);
       requestedOutputMimeType = outputMimeTypeAndHdrModeAfterFallback.first;
@@ -330,7 +337,8 @@ import org.checkerframework.dataflow.qual.Pure;
               .setFrameRate(inputFormat.frameRate)
               .setSampleMimeType(requestedOutputMimeType)
               .setColorInfo(getSupportedInputColor())
-              .setCodecs(inputFormat.codecs)
+              .setInitializationData(
+                  matchInitializationData ? inputFormat.initializationData : null)
               .build();
 
       encoder =
@@ -399,7 +407,7 @@ import org.checkerframework.dataflow.qual.Pure;
         Format requestedFormat,
         Format supportedFormat,
         @Composition.HdrMode int supportedHdrMode) {
-      // TODO(b/255953153): Consider including bitrate in the revised fallback.
+      // TODO(b/259570024): Consider including bitrate in the revised fallback design.
 
       TransformationRequest.Builder supportedRequestBuilder = transformationRequest.buildUpon();
       if (transformationRequest.hdrMode != supportedHdrMode) {

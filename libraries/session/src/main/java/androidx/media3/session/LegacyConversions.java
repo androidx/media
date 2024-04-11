@@ -17,6 +17,7 @@ package androidx.media3.session;
 
 import static android.support.v4.media.session.MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS;
 import static androidx.media.utils.MediaConstants.BROWSER_ROOT_HINTS_KEY_ROOT_CHILDREN_SUPPORTED_FLAGS;
+import static androidx.media3.common.Player.COMMAND_ADJUST_DEVICE_VOLUME;
 import static androidx.media3.common.Player.COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS;
 import static androidx.media3.common.Player.COMMAND_CHANGE_MEDIA_ITEMS;
 import static androidx.media3.common.Player.COMMAND_GET_AUDIO_ATTRIBUTES;
@@ -35,6 +36,7 @@ import static androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM;
+import static androidx.media3.common.Player.COMMAND_SET_DEVICE_VOLUME;
 import static androidx.media3.common.Player.COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS;
 import static androidx.media3.common.Player.COMMAND_SET_MEDIA_ITEM;
 import static androidx.media3.common.Player.COMMAND_SET_REPEAT_MODE;
@@ -1167,12 +1169,12 @@ import java.util.concurrent.TimeoutException;
     }
     if (volumeControlType == VolumeProviderCompat.VOLUME_CONTROL_RELATIVE) {
       playerCommandsBuilder.addAll(
-          Player.COMMAND_ADJUST_DEVICE_VOLUME, COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS);
+          COMMAND_ADJUST_DEVICE_VOLUME, COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS);
     } else if (volumeControlType == VolumeProviderCompat.VOLUME_CONTROL_ABSOLUTE) {
       playerCommandsBuilder.addAll(
-          Player.COMMAND_ADJUST_DEVICE_VOLUME,
+          COMMAND_ADJUST_DEVICE_VOLUME,
           COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS,
-          Player.COMMAND_SET_DEVICE_VOLUME,
+          COMMAND_SET_DEVICE_VOLUME,
           COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS);
     }
     playerCommandsBuilder.addAll(

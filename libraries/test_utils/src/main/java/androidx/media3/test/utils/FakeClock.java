@@ -182,8 +182,7 @@ public class FakeClock implements Clock {
       // This isn't a looper message created by this class, so no need to handle the blocking.
       return;
     }
-    busyLoopers.add(currentLooper);
-    ThreadTestUtil.unblockThreadsWaitingForProgressOnCurrentLooper();
+    busyLoopers.add(checkNotNull(Looper.myLooper()));
     waitingForMessage = false;
     maybeTriggerMessage();
   }

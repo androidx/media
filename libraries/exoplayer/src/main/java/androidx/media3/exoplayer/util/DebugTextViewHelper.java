@@ -22,7 +22,6 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.Player;
-import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.DecoderCounters;
@@ -128,7 +127,6 @@ public class DebugTextViewHelper {
   @UnstableApi
   protected String getVideoString() {
     Format format = player.getVideoFormat();
-    VideoSize videoSize = player.getVideoSize();
     DecoderCounters decoderCounters = player.getVideoDecoderCounters();
     if (format == null || decoderCounters == null) {
       return "";
@@ -138,11 +136,11 @@ public class DebugTextViewHelper {
         + "(id:"
         + format.id
         + " r:"
-        + videoSize.width
+        + format.width
         + "x"
-        + videoSize.height
+        + format.height
         + getColorInfoString(format.colorInfo)
-        + getPixelAspectRatioString(videoSize.pixelWidthHeightRatio)
+        + getPixelAspectRatioString(format.pixelWidthHeightRatio)
         + getDecoderCountersBufferCountString(decoderCounters)
         + " vfpo: "
         + getVideoFrameProcessingOffsetAverageString(

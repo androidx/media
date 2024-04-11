@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package androidx.media3.exoplayer.mediacodec;
 
 import static androidx.annotation.VisibleForTesting.NONE;
@@ -20,7 +21,6 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
 
 import android.media.MediaCodec;
-import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
@@ -38,16 +38,17 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
- * Performs {@link MediaCodec} input buffer queueing on a background thread. This is required on API
- * 33 and below because queuing secure buffers blocks until decryption is complete.
+ * Performs {@link MediaCodec} input buffer queueing on a background thread.
+ *
+ * <p>The implementation of this class assumes that its public methods will be called from the same
+ * thread.
  */
 @RequiresApi(23)
-/* package */ class AsynchronousMediaCodecBufferEnqueuer implements MediaCodecBufferEnqueuer {
+class AsynchronousMediaCodecBufferEnqueuer {
 
   private static final int MSG_QUEUE_INPUT_BUFFER = 0;
   private static final int MSG_QUEUE_SECURE_INPUT_BUFFER = 1;
   private static final int MSG_OPEN_CV = 2;
-  private static final int MSG_SET_PARAMETERS = 3;
 
   @GuardedBy("MESSAGE_PARAMS_INSTANCE_POOL")
   private static final ArrayDeque<MessageParams> MESSAGE_PARAMS_INSTANCE_POOL = new ArrayDeque<>();
@@ -80,7 +81,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     pendingRuntimeException = new AtomicReference<>();
   }
 
-  @Override
+  /**
+   * Starts this instance.
+   *
+   * <p>Call this method after creating an instance and before queueing input buffers.
+   */
   public void start() {
     if (!started) {
       handlerThread.start();
@@ -95,7 +100,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
   }
 
-  @Override
+  /**
+   * Submits an input buffer for decoding.
+   *
+   * @see android.media.MediaCodec#queueInputBuffer
+   */
   public void queueInputBuffer(
       int index, int offset, int size, long presentationTimeUs, int flags) {
     maybeThrowException();
@@ -105,7 +114,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     message.sendToTarget();
   }
 
-  @Override
+  /**
+   * Submits an input buffer that potentially contains encrypted data for decoding.
+   *
+   * <p>Note: This method behaves as {@link MediaCodec#queueSecureInputBuffer} with the difference
+   * that {@code info} is of type {@link CryptoInfo} and not {@link
+   * android.media.MediaCodec.CryptoInfo}.
+   *
+   * @see android.media.MediaCodec#queueSecureInputBuffer
+   */
   public void queueSecureInputBuffer(
       int index, int offset, CryptoInfo info, long presentationTimeUs, int flags) {
     maybeThrowException();
@@ -117,13 +134,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     message.sendToTarget();
   }
 
-  @Override
-  public void setParameters(Bundle params) {
-    maybeThrowException();
-    castNonNull(handler).obtainMessage(MSG_SET_PARAMETERS, params).sendToTarget();
-  }
-
-  @Override
+  /** Flushes the instance. */
   public void flush() {
     if (started) {
       try {
@@ -137,7 +148,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
   }
 
-  @Override
+  /** Shuts down the instance. Make sure to call this method to release its internal resources. */
   public void shutdown() {
     if (started) {
       flush();
@@ -146,12 +157,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     started = false;
   }
 
-  @Override
+  /** Blocks the current thread until all input buffers pending queueing are submitted. */
   public void waitUntilQueueingComplete() throws InterruptedException {
     blockUntilHandlerThreadIsIdle();
   }
 
-  @Override
+  /** Throw any exception that occurred on the enqueuer's background queueing thread. */
   public void maybeThrowException() {
     @Nullable RuntimeException exception = pendingRuntimeException.getAndSet(null);
     if (exception != null) {
@@ -201,10 +212,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       case MSG_OPEN_CV:
         conditionVariable.open();
         break;
-      case MSG_SET_PARAMETERS:
-        Bundle parameters = (Bundle) msg.obj;
-        doSetParameters(parameters);
-        break;
       default:
         pendingRuntimeException.compareAndSet(
             null, new IllegalStateException(String.valueOf(msg.what)));
@@ -232,14 +239,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       synchronized (QUEUE_SECURE_LOCK) {
         codec.queueSecureInputBuffer(index, offset, info, presentationTimeUs, flags);
       }
-    } catch (RuntimeException e) {
-      pendingRuntimeException.compareAndSet(null, e);
-    }
-  }
-
-  private void doSetParameters(Bundle parameters) {
-    try {
-      codec.setParameters(parameters);
     } catch (RuntimeException e) {
       pendingRuntimeException.compareAndSet(null, e);
     }

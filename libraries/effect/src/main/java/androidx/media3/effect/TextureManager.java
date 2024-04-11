@@ -65,14 +65,6 @@ import androidx.media3.common.util.TimestampIterator;
   }
 
   /**
-   * Sets the {@link GlShaderProgram} that consumes the {@link TextureManager}'s output.
-   *
-   * <p>Must be called before any method that queues input or {@link
-   * #signalEndOfCurrentInputStream()}.
-   */
-  public abstract void setSamplingGlShaderProgram(GlShaderProgram samplingGlShaderProgram);
-
-  /**
    * Provides an input {@link Bitmap} to put into the video frames.
    *
    * @param inputBitmap The {@link Bitmap} queued to the {@code VideoFrameProcessor}.
@@ -160,7 +152,8 @@ import androidx.media3.common.util.TimestampIterator;
    */
   public abstract void release() throws VideoFrameProcessingException;
 
-  /** Clears any pending data. Must be called on the GL thread. */
+  // Methods that must be called on the GL thread.
+
   protected void flush() {
     synchronized (lock) {
       if (onFlushCompleteTask != null) {

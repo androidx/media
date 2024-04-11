@@ -50,8 +50,6 @@ import androidx.media3.extractor.TrueHdSampleRechunker;
 import androidx.media3.extractor.metadata.mp4.MotionPhotoMetadata;
 import androidx.media3.extractor.metadata.mp4.SlowMotionData;
 import androidx.media3.extractor.mp4.Atom.ContainerAtom;
-import androidx.media3.extractor.text.SubtitleParser;
-import androidx.media3.extractor.text.SubtitleTranscodingExtractorOutput;
 import java.io.IOException;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -66,13 +64,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 @UnstableApi
 public final class Mp4Extractor implements Extractor, SeekMap {
 
-  /**
-   * Creates a factory for {@link Mp4Extractor} instances with the provided {@link
-   * SubtitleParser.Factory}.
-   */
-  public static ExtractorsFactory newFactory(SubtitleParser.Factory subtitleParserFactory) {
-    return () -> new Extractor[] {new Mp4Extractor(subtitleParserFactory)};
-  }
+  /** Factory for {@link Mp4Extractor} instances. */
+  public static final ExtractorsFactory FACTORY = () -> new Extractor[] {new Mp4Extractor()};
 
   /**
    * Flags controlling the behavior of the extractor. Possible flag values are {@link
@@ -87,9 +80,7 @@ public final class Mp4Extractor implements Extractor, SeekMap {
       value = {
         FLAG_WORKAROUND_IGNORE_EDIT_LISTS,
         FLAG_READ_MOTION_PHOTO_METADATA,
-        FLAG_READ_SEF_DATA,
-        FLAG_MARK_FIRST_VIDEO_TRACK_WITH_MAIN_ROLE,
-        FLAG_EMIT_RAW_SUBTITLE_DATA
+        FLAG_READ_SEF_DATA
       })
   public @interface Flags {}
 
@@ -110,24 +101,6 @@ public final class Mp4Extractor implements Extractor, SeekMap {
    * videos.
    */
   public static final int FLAG_READ_SEF_DATA = 1 << 2;
-
-  /**
-   * Flag to mark the first video track encountered as {@link C#ROLE_FLAG_MAIN} and all subsequent
-   * video tracks as {@link C#ROLE_FLAG_ALTERNATE}.
-   */
-  public static final int FLAG_MARK_FIRST_VIDEO_TRACK_WITH_MAIN_ROLE = 1 << 3;
-
-  public static final int FLAG_EMIT_RAW_SUBTITLE_DATA = 1 << 4;
-
-  /**
-   * @deprecated Use {@link #newFactory(SubtitleParser.Factory)} instead.
-   */
-  @Deprecated
-  public static final ExtractorsFactory FACTORY =
-      () ->
-          new Extractor[] {
-            new Mp4Extractor(SubtitleParser.Factory.UNSUPPORTED, FLAG_EMIT_RAW_SUBTITLE_DATA)
-          };
 
   /** Parser states. */
   @Documented
@@ -169,7 +142,6 @@ public final class Mp4Extractor implements Extractor, SeekMap {
    */
   private static final long MAXIMUM_READ_AHEAD_BYTES_STREAM = 10 * 1024 * 1024;
 
-  private final SubtitleParser.Factory subtitleParserFactory;
   private final @Flags int flags;
 
   // Temporary arrays.
@@ -204,42 +176,18 @@ public final class Mp4Extractor implements Extractor, SeekMap {
   private @FileType int fileType;
   @Nullable private MotionPhotoMetadata motionPhotoMetadata;
 
-  /**
-   * @deprecated Use {@link #Mp4Extractor(SubtitleParser.Factory)} instead
-   */
-  @Deprecated
+  /** Creates a new extractor for unfragmented MP4 streams. */
   public Mp4Extractor() {
-    this(SubtitleParser.Factory.UNSUPPORTED, /* flags= */ FLAG_EMIT_RAW_SUBTITLE_DATA);
-  }
-
-  /**
-   * Creates a new extractor for unfragmented MP4 streams.
-   *
-   * @param subtitleParserFactory The {@link SubtitleParser.Factory} for parsing subtitles during
-   *     extraction.
-   */
-  public Mp4Extractor(SubtitleParser.Factory subtitleParserFactory) {
-    this(subtitleParserFactory, /* flags= */ 0);
-  }
-
-  /**
-   * @deprecated Use {@link #Mp4Extractor(SubtitleParser.Factory, int)} instead
-   */
-  @Deprecated
-  public Mp4Extractor(@Flags int flags) {
-    this(SubtitleParser.Factory.UNSUPPORTED, flags);
+    this(/* flags= */ 0);
   }
 
   /**
    * Creates a new extractor for unfragmented MP4 streams, using the specified flags to control the
    * extractor's behavior.
    *
-   * @param subtitleParserFactory The {@link SubtitleParser.Factory} for parsing subtitles during
-   *     extraction.
    * @param flags Flags that control the extractor's behavior.
    */
-  public Mp4Extractor(SubtitleParser.Factory subtitleParserFactory, @Flags int flags) {
-    this.subtitleParserFactory = subtitleParserFactory;
+  public Mp4Extractor(@Flags int flags) {
     this.flags = flags;
     parserState =
         ((flags & FLAG_READ_SEF_DATA) != 0) ? STATE_READING_SEF : STATE_READING_ATOM_HEADER;
@@ -263,10 +211,7 @@ public final class Mp4Extractor implements Extractor, SeekMap {
 
   @Override
   public void init(ExtractorOutput output) {
-    extractorOutput =
-        (flags & FLAG_EMIT_RAW_SUBTITLE_DATA) == 0
-            ? new SubtitleTranscodingExtractorOutput(output, subtitleParserFactory)
-            : output;
+    extractorOutput = output;
   }
 
   @Override
@@ -585,8 +530,8 @@ public final class Mp4Extractor implements Extractor, SeekMap {
             isQuickTime,
             /* modifyTrackFunction= */ track -> track);
 
-    int trackIndex = 0;
-    for (int i = 0; i < trackSampleTables.size(); i++) {
+    int trackCount = trackSampleTables.size();
+    for (int i = 0; i < trackCount; i++) {
       TrackSampleTable trackSampleTable = trackSampleTables.get(i);
       if (trackSampleTable.sampleCount == 0) {
         continue;
@@ -596,7 +541,7 @@ public final class Mp4Extractor implements Extractor, SeekMap {
           track.durationUs != C.TIME_UNSET ? track.durationUs : trackSampleTable.durationUs;
       durationUs = max(durationUs, trackDurationUs);
       Mp4Track mp4Track =
-          new Mp4Track(track, trackSampleTable, extractorOutput.track(trackIndex++, track.type));
+          new Mp4Track(track, trackSampleTable, extractorOutput.track(i, track.type));
 
       int maxInputSize;
       if (MimeTypes.AUDIO_TRUEHD.equals(track.format.sampleMimeType)) {
@@ -610,18 +555,11 @@ public final class Mp4Extractor implements Extractor, SeekMap {
 
       Format.Builder formatBuilder = track.format.buildUpon();
       formatBuilder.setMaxInputSize(maxInputSize);
-      if (track.type == C.TRACK_TYPE_VIDEO) {
-        if ((flags & FLAG_MARK_FIRST_VIDEO_TRACK_WITH_MAIN_ROLE) != 0) {
-          formatBuilder.setRoleFlags(
-              track.format.roleFlags
-                  | (firstVideoTrackIndex == C.INDEX_UNSET
-                      ? C.ROLE_FLAG_MAIN
-                      : C.ROLE_FLAG_ALTERNATE));
-        }
-        if (trackDurationUs > 0 && trackSampleTable.sampleCount > 0) {
-          float frameRate = trackSampleTable.sampleCount / (trackDurationUs / 1000000f);
-          formatBuilder.setFrameRate(frameRate);
-        }
+      if (track.type == C.TRACK_TYPE_VIDEO
+          && trackDurationUs > 0
+          && trackSampleTable.sampleCount > 1) {
+        float frameRate = trackSampleTable.sampleCount / (trackDurationUs / 1000000f);
+        formatBuilder.setFrameRate(frameRate);
       }
 
       MetadataUtil.setFormatGaplessInfo(track.type, gaplessInfoHolder, formatBuilder);

@@ -27,7 +27,6 @@ import androidx.annotation.CheckResult;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
-import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.UriUtil;
 import androidx.media3.common.util.Util;
@@ -63,7 +62,6 @@ import androidx.media3.exoplayer.upstream.LoaderErrorThrower;
 import androidx.media3.extractor.ChunkIndex;
 import androidx.media3.extractor.text.SubtitleParser;
 import com.google.common.collect.ImmutableMap;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -114,19 +112,18 @@ public class DefaultDashChunkSource implements DashChunkSource {
       this.maxSegmentsPerLoad = maxSegmentsPerLoad;
     }
 
-    @CanIgnoreReturnValue
-    @Override
-    public Factory setSubtitleParserFactory(SubtitleParser.Factory subtitleParserFactory) {
-      chunkExtractorFactory.setSubtitleParserFactory(subtitleParserFactory);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    @Override
-    public Factory experimentalParseSubtitlesDuringExtraction(
-        boolean parseSubtitlesDuringExtraction) {
-      chunkExtractorFactory.experimentalParseSubtitlesDuringExtraction(
-          parseSubtitlesDuringExtraction);
+    /**
+     * Sets the {@link SubtitleParser.Factory} to be used for parsing subtitles during extraction,
+     * or null to parse subtitles during decoding.
+     *
+     * <p>This may only be used with {@link BundledChunkExtractor.Factory}.
+     */
+    /* package */ Factory setSubtitleParserFactory(
+        @Nullable SubtitleParser.Factory subtitleParserFactory) {
+      if (chunkExtractorFactory instanceof BundledChunkExtractor.Factory) {
+        ((BundledChunkExtractor.Factory) chunkExtractorFactory)
+            .experimentalSetSubtitleParserFactory(subtitleParserFactory);
+      }
       return this;
     }
 
@@ -167,17 +164,6 @@ public class DefaultDashChunkSource implements DashChunkSource {
           playerEmsgHandler,
           playerId,
           cmcdConfiguration);
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * <p>This implementation delegates determining of the output format to the {@link
-     * ChunkExtractor.Factory} passed to the constructor of this class.
-     */
-    @Override
-    public Format getOutputTextFormat(Format sourceFormat) {
-      return chunkExtractorFactory.getOutputTextFormat(sourceFormat);
     }
   }
 
@@ -424,7 +410,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
             : new CmcdData.Factory(
                 cmcdConfiguration,
                 trackSelection,
-                max(0, bufferedDurationUs),
+                bufferedDurationUs,
                 /* playbackRate= */ loadingInfo.playbackSpeed,
                 /* streamingFormat= */ CmcdData.Factory.STREAMING_FORMAT_DASH,
                 /* isLive= */ manifest.dynamic,
@@ -866,9 +852,6 @@ public class DefaultDashChunkSource implements DashChunkSource {
         dataSpec = cmcdData.addToDataSpec(dataSpec);
       }
       long sampleOffsetUs = -representation.presentationTimeOffsetUs;
-      if (MimeTypes.isImage(trackFormat.sampleMimeType)) {
-        sampleOffsetUs += startTimeUs;
-      }
       return new ContainerMediaChunk(
           dataSource,
           dataSpec,

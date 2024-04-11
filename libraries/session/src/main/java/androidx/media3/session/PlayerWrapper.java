@@ -526,7 +526,6 @@ import java.util.List;
     super.replaceMediaItems(fromIndex, toIndex, mediaItems);
   }
 
-  @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @Override
   public boolean hasPrevious() {
@@ -534,7 +533,6 @@ import java.util.List;
     return super.hasPrevious();
   }
 
-  @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @Override
   public boolean hasNext() {
@@ -542,7 +540,6 @@ import java.util.List;
     return super.hasNext();
   }
 
-  @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @Override
   public boolean hasPreviousWindow() {
@@ -550,7 +547,6 @@ import java.util.List;
     return super.hasPreviousWindow();
   }
 
-  @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @Override
   public boolean hasNextWindow() {
@@ -570,7 +566,6 @@ import java.util.List;
     return super.hasNextMediaItem();
   }
 
-  @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @Override
   public void previous() {
@@ -578,7 +573,6 @@ import java.util.List;
     super.previous();
   }
 
-  @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @Override
   public void next() {
@@ -586,7 +580,6 @@ import java.util.List;
     super.next();
   }
 
-  @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @Override
   public void seekToPreviousWindow() {
@@ -594,7 +587,6 @@ import java.util.List;
     super.seekToPreviousWindow();
   }
 
-  @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @Override
   public void seekToNextWindow() {
@@ -695,7 +687,6 @@ import java.util.List;
     return super.getMediaItemAt(index);
   }
 
-  @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @Override
   public int getCurrentWindowIndex() {
@@ -709,7 +700,6 @@ import java.util.List;
     return super.getCurrentMediaItemIndex();
   }
 
-  @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @Override
   public int getPreviousWindowIndex() {
@@ -723,7 +713,6 @@ import java.util.List;
     return super.getPreviousMediaItemIndex();
   }
 
-  @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @Override
   public int getNextWindowIndex() {

@@ -117,7 +117,9 @@ public final class H265Reader implements ElementaryStreamReader {
   @Override
   public void packetStarted(long pesTimeUs, @TsPayloadReader.Flags int flags) {
     // TODO (Internal b/32267012): Consider using random access indicator.
-    this.pesTimeUs = pesTimeUs;
+    if (pesTimeUs != C.TIME_UNSET) {
+      this.pesTimeUs = pesTimeUs;
+    }
   }
 
   @Override
@@ -172,8 +174,11 @@ public final class H265Reader implements ElementaryStreamReader {
   }
 
   @Override
-  public void packetFinished() {
-    // Do nothing.
+  public void packetFinished(boolean isEndOfInput) {
+    assertTracksCreated();
+    if (isEndOfInput) {
+      sampleReader.end(totalBytesWritten);
+    }
   }
 
   @RequiresNonNull("sampleReader")
@@ -381,6 +386,13 @@ public final class H265Reader implements ElementaryStreamReader {
       @C.BufferFlags int flags = sampleIsKeyframe ? C.BUFFER_FLAG_KEY_FRAME : 0;
       int size = (int) (nalUnitPosition - samplePosition);
       output.sampleMetadata(sampleTimeUs, flags, size, offset, null);
+    }
+
+    public void end(long position) {
+      // Output a final sample with the NAL units currently held
+      nalUnitPosition = position;
+      outputSample(/* offset= */ 0);
+      readingSample = false;
     }
 
     /** Returns whether a NAL unit type is one that occurs before any VCL NAL units in a sample. */

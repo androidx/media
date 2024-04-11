@@ -24,6 +24,7 @@ import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.util.concurrent.MoreExecutors;
+import java.util.NoSuchElementException;
 import java.util.concurrent.Executor;
 
 /**
@@ -156,7 +157,7 @@ public abstract class BaseGlShaderProgram implements GlShaderProgram {
       drawFrame(inputTexture.texId, presentationTimeUs);
       inputListener.onInputFrameProcessed(inputTexture);
       outputListener.onOutputFrameAvailable(outputTexture, presentationTimeUs);
-    } catch (VideoFrameProcessingException | GlUtil.GlException e) {
+    } catch (VideoFrameProcessingException | GlUtil.GlException | NoSuchElementException e) {
       errorListenerExecutor.execute(
           () -> errorListener.onError(VideoFrameProcessingException.from(e)));
     }
@@ -164,14 +165,6 @@ public abstract class BaseGlShaderProgram implements GlShaderProgram {
 
   @Override
   public void releaseOutputFrame(GlTextureInfo outputTexture) {
-    if (!outputTexturePool.isUsingTexture(outputTexture)) {
-      // This allows us to ignore outputTexture instances not associated with this
-      // BaseGlShaderProgram instance. This may happen if a BaseGlShaderProgram is introduced into
-      // the GlShaderProgram chain after frames already exist in the pipeline.
-      // TODO - b/320481157: Consider removing this if condition and disallowing disconnecting a
-      //  GlShaderProgram while it still has in-use frames.
-      return;
-    }
     outputTexturePool.freeTexture(outputTexture);
     inputListener.onReadyToAcceptInputFrame();
   }

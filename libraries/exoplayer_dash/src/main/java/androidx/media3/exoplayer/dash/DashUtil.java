@@ -37,7 +37,6 @@ import androidx.media3.extractor.ChunkIndex;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.mkv.MatroskaExtractor;
 import androidx.media3.extractor.mp4.FragmentedMp4Extractor;
-import androidx.media3.extractor.text.SubtitleParser;
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.util.List;
@@ -343,13 +342,7 @@ public final class DashUtil {
         mimeType != null
             && (mimeType.startsWith(MimeTypes.VIDEO_WEBM)
                 || mimeType.startsWith(MimeTypes.AUDIO_WEBM));
-    Extractor extractor =
-        isWebm
-            ? new MatroskaExtractor(
-                SubtitleParser.Factory.UNSUPPORTED, MatroskaExtractor.FLAG_EMIT_RAW_SUBTITLE_DATA)
-            : new FragmentedMp4Extractor(
-                SubtitleParser.Factory.UNSUPPORTED,
-                FragmentedMp4Extractor.FLAG_EMIT_RAW_SUBTITLE_DATA);
+    Extractor extractor = isWebm ? new MatroskaExtractor() : new FragmentedMp4Extractor();
     return new BundledChunkExtractor(extractor, trackType, format);
   }
 

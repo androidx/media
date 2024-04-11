@@ -25,8 +25,7 @@ import java.nio.ByteBuffer;
 @UnstableApi
 public final class DumpableMp4Box implements Dumper.Dumpable {
   private static final ImmutableSet<String> CONTAINER_BOXES =
-      ImmutableSet.of(
-          "moov", "trak", "mdia", "minf", "stbl", "edts", "meta", "mvex", "moof", "traf");
+      ImmutableSet.of("moov", "trak", "mdia", "minf", "stbl", "edts", "meta");
   private final ParsableByteArray box;
 
   /***
@@ -35,9 +34,7 @@ public final class DumpableMp4Box implements Dumper.Dumpable {
    * @param box The Mp4 box to wrap.
    */
   public DumpableMp4Box(ByteBuffer box) {
-    byte[] boxArray = new byte[box.remaining()];
-    box.get(boxArray);
-    this.box = new ParsableByteArray(boxArray);
+    this.box = new ParsableByteArray(box.array());
   }
 
   @Override

@@ -40,18 +40,6 @@ public final class PreviewingSingleInputVideoGraph extends SingleInputVideoGraph
 
     private final VideoFrameProcessor.Factory videoFrameProcessorFactory;
 
-    /**
-     * Creates a new factory that uses the {@link DefaultVideoFrameProcessor.Factory} with its
-     * default values.
-     */
-    public Factory() {
-      this(new DefaultVideoFrameProcessor.Factory.Builder().build());
-    }
-
-    /**
-     * Creates an instance that uses the supplied {@code videoFrameProcessorFactory} to create
-     * {@link VideoFrameProcessor} instances.
-     */
     public Factory(VideoFrameProcessor.Factory videoFrameProcessorFactory) {
       this.videoFrameProcessorFactory = videoFrameProcessorFactory;
     }
@@ -109,10 +97,5 @@ public final class PreviewingSingleInputVideoGraph extends SingleInputVideoGraph
         /* renderFramesAutomatically= */ false,
         presentation,
         initialTimestampOffsetUs);
-  }
-
-  @Override
-  public void renderOutputFrame(long renderTimeNs) {
-    getProcessor(SINGLE_INPUT_INDEX).renderOutputFrame(renderTimeNs);
   }
 }

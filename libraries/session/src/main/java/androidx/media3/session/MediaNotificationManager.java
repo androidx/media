@@ -55,6 +55,8 @@ import java.util.concurrent.TimeoutException;
  */
 /* package */ final class MediaNotificationManager {
 
+  /* package */ static final String KEY_MEDIA_NOTIFICATION_MANAGER =
+      "androidx.media3.session.MediaNotificationManager";
   private static final String TAG = "MediaNtfMng";
 
   private final MediaSessionService mediaSessionService;
@@ -90,7 +92,7 @@ import java.util.concurrent.TimeoutException;
     }
     MediaControllerListener listener = new MediaControllerListener(mediaSessionService, session);
     Bundle connectionHints = new Bundle();
-    connectionHints.putBoolean(MediaController.KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG, true);
+    connectionHints.putBoolean(KEY_MEDIA_NOTIFICATION_MANAGER, true);
     ListenableFuture<MediaController> controllerFuture =
         new MediaController.Builder(mediaSessionService, session.getToken())
             .setConnectionHints(connectionHints)
@@ -203,9 +205,6 @@ import java.util.concurrent.TimeoutException;
     }
   }
 
-  // POST_NOTIFICATIONS permission is not required for media session related notifications.
-  // https://developer.android.com/develop/ui/views/notifications/notification-permission#exemptions-media-sessions
-  @SuppressLint("MissingPermission")
   private void updateNotificationInternal(
       MediaSession session,
       MediaNotification mediaNotification,
@@ -263,7 +262,7 @@ import java.util.concurrent.TimeoutException;
   @Nullable
   private MediaController getConnectedControllerForSession(MediaSession session) {
     ListenableFuture<MediaController> controller = controllerMap.get(session);
-    if (controller == null || !controller.isDone()) {
+    if (controller == null) {
       return null;
     }
     try {

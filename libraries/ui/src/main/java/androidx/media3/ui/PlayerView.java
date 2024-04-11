@@ -147,8 +147,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
  *       {@code video_decoder_gl_surface_view} and {@code none}. Using {@code none} is recommended
  *       for audio only applications, since creating the surface can be expensive. Using {@code
  *       surface_view} is recommended for video applications. See <a
- *       href="https://developer.android.com/media/media3/ui/playerview#surfacetype">Choosing a
- *       surface type</a> for more information.
+ *       href="https://developer.android.com/guide/topics/media/ui/playerview#surfacetype">Choosing
+ *       a surface type</a> for more information.
  *       <ul>
  *         <li>Corresponding method: None
  *         <li>Default: {@code surface_view}
@@ -306,8 +306,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
     this(context, attrs, /* defStyleAttr= */ 0);
   }
 
-  // Using deprecated PlayerControlView.VisibilityListener internally
-  @SuppressWarnings({"nullness:argument", "nullness:method.invocation", "deprecation"})
+  @SuppressWarnings({"nullness:argument", "nullness:method.invocation"})
   public PlayerView(Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
     super(context, attrs, defStyleAttr);
 
@@ -951,7 +950,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   }
 
   /**
-   * Sets the {@link ControllerVisibilityListener}.
+   * Sets the {@link PlayerControlView.VisibilityListener}.
    *
    * <p>If {@code listener} is non-null then any listener set by {@link
    * #setControllerVisibilityListener(PlayerControlView.VisibilityListener)} is removed.
@@ -965,16 +964,6 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
     if (listener != null) {
       setControllerVisibilityListener((PlayerControlView.VisibilityListener) null);
     }
-  }
-
-  /**
-   * Sets whether {@linkplain PlayerControlView#isAnimationEnabled() controller animation is
-   * enabled}.
-   */
-  @UnstableApi
-  public void setControllerAnimationEnabled(boolean animationEnabled) {
-    Assertions.checkStateNotNull(controller);
-    controller.setAnimationEnabled(animationEnabled);
   }
 
   /**
@@ -1032,7 +1021,6 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    * @deprecated Use {@link #setFullscreenButtonClickListener(FullscreenButtonClickListener)}
    *     instead.
    */
-  @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @UnstableApi
   public void setControllerOnFullScreenModeChangedListener(
@@ -1304,13 +1292,13 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
     List<AdOverlayInfo> overlayViews = new ArrayList<>();
     if (overlayFrameLayout != null) {
       overlayViews.add(
-          new AdOverlayInfo.Builder(overlayFrameLayout, AdOverlayInfo.PURPOSE_NOT_VISIBLE)
-              .setDetailedReason("Transparent overlay does not impact viewability")
-              .build());
+          new AdOverlayInfo(
+              overlayFrameLayout,
+              AdOverlayInfo.PURPOSE_NOT_VISIBLE,
+              /* detailedReason= */ "Transparent overlay does not impact viewability"));
     }
     if (controller != null) {
-      overlayViews.add(
-          new AdOverlayInfo.Builder(controller, AdOverlayInfo.PURPOSE_CONTROLS).build());
+      overlayViews.add(new AdOverlayInfo(controller, AdOverlayInfo.PURPOSE_CONTROLS));
     }
     return ImmutableList.copyOf(overlayViews);
   }

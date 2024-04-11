@@ -166,7 +166,8 @@ import java.util.List;
 public interface ExoPlayer extends Player {
 
   /**
-   * @deprecated Use {@link ExoPlayer}, as all methods are defined by that interface.
+   * @deprecated Use {@link ExoPlayer}, as the {@link AudioComponent} methods are defined by that
+   *     interface.
    */
   @UnstableApi
   @Deprecated
@@ -234,7 +235,8 @@ public interface ExoPlayer extends Player {
   }
 
   /**
-   * @deprecated Use {@link ExoPlayer}, as all methods are defined by that interface.
+   * @deprecated Use {@link ExoPlayer}, as the {@link VideoComponent} methods are defined by that
+   *     interface.
    */
   @UnstableApi
   @Deprecated
@@ -355,7 +357,8 @@ public interface ExoPlayer extends Player {
   }
 
   /**
-   * @deprecated Use {@link Player}, as all methods are defined by that interface.
+   * @deprecated Use {@link Player}, as the {@link TextComponent} methods are defined by that
+   *     interface.
    */
   @UnstableApi
   @Deprecated
@@ -369,7 +372,8 @@ public interface ExoPlayer extends Player {
   }
 
   /**
-   * @deprecated Use {@link Player}, as all methods are defined by that interface.
+   * @deprecated Use {@link Player}, as the {@link DeviceComponent} methods are defined by that
+   *     interface.
    */
   @UnstableApi
   @Deprecated
@@ -901,8 +905,8 @@ public interface ExoPlayer extends Player {
     /**
      * Sets whether the player should pause automatically when audio is rerouted from a headset to
      * device speakers. See the <a
-     * href="https://developer.android.com/media/platform/output#becoming-noisy">audio becoming
-     * noisy</a> documentation for more information.
+     * href="https://developer.android.com/guide/topics/media-apps/volume-and-earphones#becoming-noisy">
+     * audio becoming noisy</a> documentation for more information.
      *
      * @param handleAudioBecomingNoisy Whether the player should pause automatically when audio is
      *     rerouted from a headset to device speakers.
@@ -1226,7 +1230,6 @@ public interface ExoPlayer extends Player {
    * @deprecated Use {@link ExoPlayer}, as the {@link AudioComponent} methods are defined by that
    *     interface.
    */
-  @SuppressWarnings("deprecation") // Intentionally returning deprecated type
   @UnstableApi
   @Nullable
   @Deprecated
@@ -1236,7 +1239,6 @@ public interface ExoPlayer extends Player {
    * @deprecated Use {@link ExoPlayer}, as the {@link VideoComponent} methods are defined by that
    *     interface.
    */
-  @SuppressWarnings("deprecation") // Intentionally returning deprecated type
   @UnstableApi
   @Nullable
   @Deprecated
@@ -1246,7 +1248,6 @@ public interface ExoPlayer extends Player {
    * @deprecated Use {@link Player}, as the {@link TextComponent} methods are defined by that
    *     interface.
    */
-  @SuppressWarnings("deprecation") // Intentionally returning deprecated type
   @UnstableApi
   @Nullable
   @Deprecated
@@ -1256,7 +1257,6 @@ public interface ExoPlayer extends Player {
    * @deprecated Use {@link Player}, as the {@link DeviceComponent} methods are defined by that
    *     interface.
    */
-  @SuppressWarnings("deprecation") // Intentionally returning deprecated type
   @UnstableApi
   @Nullable
   @Deprecated
@@ -1565,23 +1565,14 @@ public interface ExoPlayer extends Player {
    * Sets a {@link List} of {@linkplain Effect video effects} that will be applied to each video
    * frame.
    *
-   * <p>If {@linkplain #setVideoSurface passing a surface to the player directly}, the output
-   * resolution needs to be signaled by passing a renderer message with type {@link
-   * Renderer#MSG_SET_VIDEO_OUTPUT_RESOLUTION} after calling this method. For {@link SurfaceView},
-   * {@link TextureView} and {@link SurfaceHolder} output this happens automatically.
-   *
    * <p>The following limitations exist for using {@linkplain Effect video effects}:
    *
    * <ul>
-   *   <li>The {@code androidx.media3:media3-effect} module must be available on the runtime
-   *       classpath. {@code androidx.media3:media3-exoplayer} does not explicitly depend on the
-   *       effect module, so apps must make sure it's available themselves. It must be the same
-   *       version as the rest of the {@code androidx.media3} modules being used by the app.
    *   <li>This feature works only with the default {@link MediaCodecVideoRenderer} and not custom
    *       or extension {@linkplain Renderer video renderers}.
    *   <li>This feature does not work with {@linkplain Effect effects} updating the timestamps.
-   *   <li>This feature does not work with DRM-protected content.
-   *   <li>This method should be called before calling {@link #prepare()}.
+   *   <li>This feature does not work with DRM-protected contents.
+   *   <li>This method should be called before calling {@link #prepare}.
    * </ul>
    *
    * @param videoEffects The {@link List} of {@linkplain Effect video effects} to apply.

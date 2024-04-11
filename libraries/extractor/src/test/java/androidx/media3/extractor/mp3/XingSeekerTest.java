@@ -44,11 +44,8 @@ public final class XingSeekerTest {
   /** Data size, as encoded in {@link #XING_FRAME_PAYLOAD}. */
   private static final int DATA_SIZE_BYTES = 948505;
 
-  /**
-   * Duration of the audio stream in microseconds, encoded as a frame count in {@link
-   * #XING_FRAME_PAYLOAD}.
-   */
-  private static final int STREAM_DURATION_US = 59271814;
+  /** Duration of the audio stream in microseconds, encoded in {@link #XING_FRAME_PAYLOAD}. */
+  private static final int STREAM_DURATION_US = 59271836;
 
   /** The length of the stream in bytes. */
   private static final int STREAM_LENGTH = XING_FRAME_POSITION + DATA_SIZE_BYTES;
@@ -64,13 +61,15 @@ public final class XingSeekerTest {
     seeker =
         XingSeeker.create(
             C.LENGTH_UNSET,
-            XingFrame.parse(xingFrameHeader, new ParsableByteArray(XING_FRAME_PAYLOAD)),
-            XING_FRAME_POSITION);
+            XING_FRAME_POSITION,
+            xingFrameHeader,
+            new ParsableByteArray(XING_FRAME_PAYLOAD));
     seekerWithInputLength =
         XingSeeker.create(
-            C.LENGTH_UNSET,
-            XingFrame.parse(xingFrameHeader, new ParsableByteArray(XING_FRAME_PAYLOAD)),
-            XING_FRAME_POSITION);
+            STREAM_LENGTH,
+            XING_FRAME_POSITION,
+            xingFrameHeader,
+            new ParsableByteArray(XING_FRAME_PAYLOAD));
     xingFrameSize = xingFrameHeader.frameSize;
   }
 

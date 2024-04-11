@@ -52,7 +52,6 @@ import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.jpeg.JpegExtractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.extractor.text.SubtitleExtractor;
-import androidx.media3.extractor.text.SubtitleParser;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -76,17 +75,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  *   <li>{@code DashMediaSource.Factory} if the item's {@link MediaItem.LocalConfiguration#uri uri}
  *       ends in '.mpd' or if its {@link MediaItem.LocalConfiguration#mimeType mimeType field} is
  *       explicitly set to {@link MimeTypes#APPLICATION_MPD} (Requires the <a
- *       href="https://developer.android.com/media/media3/exoplayer/hello-world#add-exoplayer-modules">exoplayer-dash
+ *       href="https://developer.android.com/guide/topics/media/exoplayer/hello-world#add-exoplayer-modules">exoplayer-dash
  *       module to be added</a> to the app).
  *   <li>{@code HlsMediaSource.Factory} if the item's {@link MediaItem.LocalConfiguration#uri uri}
  *       ends in '.m3u8' or if its {@link MediaItem.LocalConfiguration#mimeType mimeType field} is
  *       explicitly set to {@link MimeTypes#APPLICATION_M3U8} (Requires the <a
- *       href="https://developer.android.com/media/media3/exoplayer/hello-world#add-exoplayer-modules">exoplayer-hls
+ *       href="https://developer.android.com/guide/topics/media/exoplayer/hello-world#add-exoplayer-modules">exoplayer-hls
  *       module to be added</a> to the app).
  *   <li>{@code SsMediaSource.Factory} if the item's {@link MediaItem.LocalConfiguration#uri uri}
  *       ends in '.ism', '.ism/Manifest' or if its {@link MediaItem.LocalConfiguration#mimeType
  *       mimeType field} is explicitly set to {@link MimeTypes#APPLICATION_SS} (Requires the <a
- *       href="https://developer.android.com/media/media3/exoplayer/hello-world#add-exoplayer-modules">
+ *       href="https://developer.android.com/guide/topics/media/exoplayer/hello-world#add-exoplayer-modules">
  *       exoplayer-smoothstreaming module to be added</a> to the app).
  *   <li>{@link ProgressiveMediaSource.Factory} serves as a fallback if the item's {@link
  *       MediaItem.LocalConfiguration#uri uri} doesn't match one of the above. It tries to infer the
@@ -116,7 +115,6 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
   private final DelegateFactoryLoader delegateFactoryLoader;
 
   private DataSource.Factory dataSourceFactory;
-  private SubtitleParser.Factory subtitleParserFactory;
   @Nullable private MediaSource.Factory serverSideAdInsertionMediaSourceFactory;
   @Nullable private ExternalLoader externalImageLoader;
   @Nullable private AdsLoader.Provider adsLoaderProvider;
@@ -127,7 +125,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
   private long liveMaxOffsetMs;
   private float liveMinSpeed;
   private float liveMaxSpeed;
-  private boolean parseSubtitlesDuringExtraction;
+  private boolean useProgressiveMediaSourceForSubtitles;
 
   /**
    * Creates a new instance.
@@ -183,8 +181,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
   public DefaultMediaSourceFactory(
       DataSource.Factory dataSourceFactory, ExtractorsFactory extractorsFactory) {
     this.dataSourceFactory = dataSourceFactory;
-    this.subtitleParserFactory = new DefaultSubtitleParserFactory();
-    delegateFactoryLoader = new DelegateFactoryLoader(extractorsFactory, subtitleParserFactory);
+    delegateFactoryLoader = new DelegateFactoryLoader(extractorsFactory);
     delegateFactoryLoader.setDataSourceFactory(dataSourceFactory);
     liveTargetOffsetMs = C.TIME_UNSET;
     liveMinOffsetMs = C.TIME_UNSET;
@@ -193,23 +190,22 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
     liveMaxSpeed = C.RATE_UNSET;
   }
 
+  /**
+   * Sets whether a {@link ProgressiveMediaSource} or {@link SingleSampleMediaSource} is constructed
+   * to handle {@link MediaItem.LocalConfiguration#subtitleConfigurations}. Defaults to false (i.e.
+   * {@link SingleSampleMediaSource}.
+   *
+   * <p>This method is experimental, and will be renamed or removed in a future release.
+   *
+   * @param useProgressiveMediaSourceForSubtitles Indicates that {@link ProgressiveMediaSource}
+   *     should be used for subtitles instead of {@link SingleSampleMediaSource}.
+   * @return This factory, for convenience.
+   */
   @CanIgnoreReturnValue
   @UnstableApi
-  @Override
-  public DefaultMediaSourceFactory experimentalParseSubtitlesDuringExtraction(
-      boolean parseSubtitlesDuringExtraction) {
-    this.parseSubtitlesDuringExtraction = parseSubtitlesDuringExtraction;
-    delegateFactoryLoader.setParseSubtitlesDuringExtraction(parseSubtitlesDuringExtraction);
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  @Override
-  @UnstableApi
-  public DefaultMediaSourceFactory setSubtitleParserFactory(
-      SubtitleParser.Factory subtitleParserFactory) {
-    this.subtitleParserFactory = checkNotNull(subtitleParserFactory);
-    delegateFactoryLoader.setSubtitleParserFactory(subtitleParserFactory);
+  public DefaultMediaSourceFactory experimentalUseProgressiveMediaSourceForSubtitles(
+      boolean useProgressiveMediaSourceForSubtitles) {
+    this.useProgressiveMediaSourceForSubtitles = useProgressiveMediaSourceForSubtitles;
     return this;
   }
 
@@ -512,7 +508,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
       MediaSource[] mediaSources = new MediaSource[subtitleConfigurations.size() + 1];
       mediaSources[0] = mediaSource;
       for (int i = 0; i < subtitleConfigurations.size(); i++) {
-        if (parseSubtitlesDuringExtraction) {
+        if (useProgressiveMediaSourceForSubtitles) {
           Format format =
               new Format.Builder()
                   .setSampleMimeType(subtitleConfigurations.get(i).mimeType)
@@ -522,6 +518,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
                   .setLabel(subtitleConfigurations.get(i).label)
                   .setId(subtitleConfigurations.get(i).id)
                   .build();
+          DefaultSubtitleParserFactory subtitleParserFactory = new DefaultSubtitleParserFactory();
           ExtractorsFactory extractorsFactory =
               () ->
                   new Extractor[] {
@@ -613,16 +610,12 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
     private final Map<Integer, MediaSource.Factory> mediaSourceFactories;
 
     private DataSource.@MonotonicNonNull Factory dataSourceFactory;
-    private boolean parseSubtitlesDuringExtraction;
-    private SubtitleParser.Factory subtitleParserFactory;
     @Nullable private CmcdConfiguration.Factory cmcdConfigurationFactory;
     @Nullable private DrmSessionManagerProvider drmSessionManagerProvider;
     @Nullable private LoadErrorHandlingPolicy loadErrorHandlingPolicy;
 
-    public DelegateFactoryLoader(
-        ExtractorsFactory extractorsFactory, SubtitleParser.Factory subtitleParserFactory) {
+    public DelegateFactoryLoader(ExtractorsFactory extractorsFactory) {
       this.extractorsFactory = extractorsFactory;
-      this.subtitleParserFactory = subtitleParserFactory;
       mediaSourceFactorySuppliers = new HashMap<>();
       supportedTypes = new HashSet<>();
       mediaSourceFactories = new HashMap<>();
@@ -656,8 +649,6 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
       if (loadErrorHandlingPolicy != null) {
         mediaSourceFactory.setLoadErrorHandlingPolicy(loadErrorHandlingPolicy);
       }
-      mediaSourceFactory.setSubtitleParserFactory(subtitleParserFactory);
-      mediaSourceFactory.experimentalParseSubtitlesDuringExtraction(parseSubtitlesDuringExtraction);
       mediaSourceFactories.put(contentType, mediaSourceFactory);
       return mediaSourceFactory;
     }
@@ -669,23 +660,6 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
         // exists on the interface.
         mediaSourceFactorySuppliers.clear();
         mediaSourceFactories.clear();
-      }
-    }
-
-    public void setParseSubtitlesDuringExtraction(boolean parseSubtitlesDuringExtraction) {
-      this.parseSubtitlesDuringExtraction = parseSubtitlesDuringExtraction;
-      extractorsFactory.experimentalSetTextTrackTranscodingEnabled(parseSubtitlesDuringExtraction);
-      for (MediaSource.Factory mediaSourceFactory : mediaSourceFactories.values()) {
-        mediaSourceFactory.experimentalParseSubtitlesDuringExtraction(
-            parseSubtitlesDuringExtraction);
-      }
-    }
-
-    public void setSubtitleParserFactory(SubtitleParser.Factory subtitleParserFactory) {
-      this.subtitleParserFactory = subtitleParserFactory;
-      extractorsFactory.setSubtitleParserFactory(subtitleParserFactory);
-      for (MediaSource.Factory mediaSourceFactory : mediaSourceFactories.values()) {
-        mediaSourceFactory.setSubtitleParserFactory(subtitleParserFactory);
       }
     }
 

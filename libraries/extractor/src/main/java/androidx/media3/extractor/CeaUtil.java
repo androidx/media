@@ -15,8 +15,6 @@
  */
 package androidx.media3.extractor;
 
-import static androidx.media3.common.util.Assertions.checkState;
-
 import androidx.media3.common.C;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
@@ -106,13 +104,14 @@ public final class CeaUtil {
     for (TrackOutput output : outputs) {
       ccDataBuffer.setPosition(sampleStartPosition);
       output.sampleData(ccDataBuffer, sampleLength);
-      checkState(presentationTimeUs != C.TIME_UNSET);
-      output.sampleMetadata(
-          presentationTimeUs,
-          C.BUFFER_FLAG_KEY_FRAME,
-          sampleLength,
-          /* offset= */ 0,
-          /* cryptoData= */ null);
+      if (presentationTimeUs != C.TIME_UNSET) {
+        output.sampleMetadata(
+            presentationTimeUs,
+            C.BUFFER_FLAG_KEY_FRAME,
+            sampleLength,
+            /* offset= */ 0,
+            /* cryptoData= */ null);
+      }
     }
   }
 

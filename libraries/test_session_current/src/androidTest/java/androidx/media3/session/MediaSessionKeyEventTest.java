@@ -192,7 +192,7 @@ public class MediaSessionKeyEventTest {
                 .get(0)
                 .getConnectionHints()
                 .getBoolean(
-                    MediaController.KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG,
+                    MediaNotificationManager.KEY_MEDIA_NOTIFICATION_MANAGER,
                     /* defaultValue= */ false))
         .isTrue();
     threadTestRule.getHandler().postAndSync(controller::release);
@@ -234,7 +234,7 @@ public class MediaSessionKeyEventTest {
                 .get(0)
                 .getConnectionHints()
                 .getBoolean(
-                    MediaController.KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG,
+                    MediaNotificationManager.KEY_MEDIA_NOTIFICATION_MANAGER,
                     /* defaultValue= */ false))
         .isTrue();
     threadTestRule.getHandler().postAndSync(controller::release);
@@ -351,7 +351,7 @@ public class MediaSessionKeyEventTest {
             () -> {
               Bundle connectionHints = new Bundle();
               connectionHints.putBoolean(
-                  MediaController.KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG, /* value= */ true);
+                  MediaNotificationManager.KEY_MEDIA_NOTIFICATION_MANAGER, /* value= */ true);
               return new MediaController.Builder(
                       ApplicationProvider.getApplicationContext(), session.getToken())
                   .setConnectionHints(connectionHints)

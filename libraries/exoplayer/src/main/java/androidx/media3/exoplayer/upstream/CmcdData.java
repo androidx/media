@@ -89,12 +89,8 @@ public final class CmcdData {
     /** Represents the object type for muxed audio and video content in a media container. */
     public static final String OBJECT_TYPE_MUXED_AUDIO_AND_VIDEO = "av";
 
-    /**
-     * Custom key names MUST carry a hyphenated prefix to ensure that there will not be a namespace
-     * collision with future revisions to this specification. Clients SHOULD use a reverse-DNS
-     * syntax when defining their own prefix.
-     */
-    private static final Pattern CUSTOM_KEY_NAME_PATTERN = Pattern.compile(".*-.*");
+    private static final Pattern CUSTOM_KEY_NAME_PATTERN =
+        Pattern.compile("[a-zA-Z0-9]+(-[a-zA-Z0-9]+)+");
 
     private final CmcdConfiguration cmcdConfiguration;
     private final ExoTrackSelection trackSelection;
@@ -125,8 +121,7 @@ public final class CmcdData {
      *     and this one, {@code false} otherwise.
      * @param isBufferEmpty {@code true} if the queue of buffered chunks is empty, {@code false}
      *     otherwise.
-     * @throws IllegalArgumentException If {@code bufferedDurationUs} is negative or {@code
-     *     playbackRate} is non-positive.
+     * @throws IllegalArgumentException If {@code bufferedDurationUs} is negative.
      */
     public Factory(
         CmcdConfiguration cmcdConfiguration,
@@ -417,7 +412,8 @@ public final class CmcdData {
               .uri
               .buildUpon()
               .appendQueryParameter(
-                  CmcdConfiguration.CMCD_QUERY_PARAMETER_KEY, COMMA_JOINER.join(keyValuePairs));
+                  CmcdConfiguration.CMCD_QUERY_PARAMETER_KEY,
+                  Uri.encode(COMMA_JOINER.join(keyValuePairs)));
       return dataSpec.buildUpon().setUri(uriBuilder.build()).build();
     }
   }

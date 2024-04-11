@@ -144,7 +144,6 @@ public final class NetworkTypeObserver {
     }
   }
 
-  @SuppressWarnings("deprecation") // Using deprecated NetworkInfo for compatibility to older APIs
   private static @C.NetworkType int getNetworkTypeFromConnectivityManager(Context context) {
     NetworkInfo networkInfo;
     @Nullable

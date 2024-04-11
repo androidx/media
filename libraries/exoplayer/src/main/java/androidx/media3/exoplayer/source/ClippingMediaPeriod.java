@@ -19,7 +19,6 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.StreamKey;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
@@ -31,7 +30,6 @@ import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.source.ClippingMediaSource.IllegalClippingException;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import java.io.IOException;
-import java.util.List;
 
 /**
  * Wraps a {@link MediaPeriod} and clips its {@link SampleStream}s to provide a subsequence of their
@@ -107,11 +105,6 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
       throw clippingError;
     }
     mediaPeriod.maybeThrowPrepareError();
-  }
-
-  @Override
-  public List<StreamKey> getStreamKeys(List<ExoTrackSelection> trackSelections) {
-    return mediaPeriod.getStreamKeys(trackSelections);
   }
 
   @Override

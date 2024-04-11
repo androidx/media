@@ -74,7 +74,6 @@ import java.util.concurrent.Future;
       ImmutableList<CommandButton> customLayout,
       MediaLibrarySession.Callback callback,
       Bundle tokenExtras,
-      Bundle sessionExtras,
       BitmapLoader bitmapLoader,
       boolean playIfSuppressed,
       boolean isPeriodicPositionUpdateEnabled) {
@@ -87,7 +86,6 @@ import java.util.concurrent.Future;
         customLayout,
         callback,
         tokenExtras,
-        sessionExtras,
         bitmapLoader,
         playIfSuppressed,
         isPeriodicPositionUpdateEnabled);
@@ -256,10 +254,12 @@ import java.util.concurrent.Future;
 
   public void notifyChildrenChanged(
       String parentId, int itemCount, @Nullable LibraryParams params) {
-    List<ControllerInfo> connectedControllers = instance.getConnectedControllers();
-    for (int i = 0; i < connectedControllers.size(); i++) {
-      notifyChildrenChanged(connectedControllers.get(i), parentId, itemCount, params);
-    }
+    dispatchRemoteControllerTaskWithoutReturn(
+        (callback, seq) -> {
+          if (isSubscribed(callback, parentId)) {
+            callback.onChildrenChanged(seq, parentId, itemCount, params);
+          }
+        });
   }
 
   public void notifyChildrenChanged(

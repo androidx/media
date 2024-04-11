@@ -25,7 +25,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.audio.AudioProcessor.AudioFormat;
 import androidx.media3.common.audio.AudioProcessor.UnhandledAudioFormatException;
 import java.nio.ByteBuffer;
-import java.util.Objects;
 
 /** Processes raw audio samples. */
 /* package */ final class AudioGraph {
@@ -58,38 +57,16 @@ import java.util.Objects;
     return true;
   }
 
-  /**
-   * Configures the graph.
-   *
-   * <p>Must be called before {@linkplain #getOutput() accessing output}.
-   *
-   * <p>Should be called at most once, before {@link #registerInput registering input}.
-   *
-   * @param requestedAudioFormat The {@link AudioFormat} requested for output from the mixer.
-   * @throws UnhandledAudioFormatException If the audio format is not supported by the {@link
-   *     AudioMixer}.
-   */
-  public void configure(AudioFormat requestedAudioFormat) throws UnhandledAudioFormatException {
-    this.outputAudioFormat = requestedAudioFormat;
-    mixer.configure(requestedAudioFormat, /* bufferSizeMs= */ C.LENGTH_UNSET, /* startTimeUs= */ 0);
-  }
-
-  /**
-   * Returns a new {@link AudioGraphInput} instance.
-   *
-   * <p>Calls {@link #configure} if not already configured, using the {@linkplain
-   * AudioGraphInput#getOutputAudioFormat() outputAudioFormat} of the input.
-   */
-  public AudioGraphInput registerInput(EditedMediaItem editedMediaItem, Format format)
-      throws ExportException {
+  /** Returns a new {@link AudioGraphInput} instance. */
+  public AudioGraphInput registerInput(EditedMediaItem item, Format format) throws ExportException {
     checkArgument(format.pcmEncoding != Format.NO_VALUE);
     try {
-      AudioGraphInput audioGraphInput =
-          new AudioGraphInput(outputAudioFormat, editedMediaItem, format);
+      AudioGraphInput audioGraphInput = new AudioGraphInput(item, format);
 
-      if (Objects.equals(outputAudioFormat, AudioFormat.NOT_SET)) {
-        // Graph not configured, configure before doing anything else.
-        configure(audioGraphInput.getOutputAudioFormat());
+      if (inputs.size() == 0) {
+        outputAudioFormat = audioGraphInput.getOutputAudioFormat();
+        mixer.configure(
+            outputAudioFormat, /* bufferSizeMs= */ C.LENGTH_UNSET, /* startTimeUs= */ 0);
       }
 
       int sourceId = mixer.addSource(audioGraphInput.getOutputAudioFormat(), /* startTimeUs= */ 0);
@@ -101,8 +78,10 @@ import java.util.Objects;
   }
 
   /**
-   * Returns the {@link AudioFormat} of the {@linkplain #getOutput() output}, or {@link
-   * AudioFormat#NOT_SET} if not {@linkplain #configure configured}.
+   * Returns the {@link AudioFormat} of the {@linkplain #getOutput() output}.
+   *
+   * <p>{@link AudioFormat#NOT_SET} is returned if no inputs have been {@linkplain #registerInput
+   * registered}.
    */
   public AudioFormat getOutputAudioFormat() {
     return outputAudioFormat;
@@ -124,17 +103,13 @@ import java.util.Objects;
     return currentOutput;
   }
 
-  /** Resets the graph to an unconfigured state, releasing any underlying resources. */
-  public void reset() {
+  /** Releases underlying resources, including clearing the inputs. */
+  public void release() {
     for (int i = 0; i < inputs.size(); i++) {
       inputs.valueAt(i).release();
     }
     inputs.clear();
     mixer.reset();
-
-    finishedInputs = 0;
-    currentOutput = EMPTY_BUFFER;
-    outputAudioFormat = AudioFormat.NOT_SET;
   }
 
   /** Returns whether the input has ended and all queued data has been output. */

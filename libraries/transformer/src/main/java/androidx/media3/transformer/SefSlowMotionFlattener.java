@@ -42,9 +42,10 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
  * Sample transformer that flattens SEF slow motion videos in H.264/AVC and H.265/HEVC format using
  * temporal layers.
  *
- * <p>If the input is not an SEF slow motion video, samples will be unchanged.
+ * <p>If the input is not an SEF slow motion video, samples will be unchanged. The mathematical
+ * formulas used in this class are explained in [Internal ref:
+ * http://go/exoplayer-sef-slomo-video-flattening].
  */
-
 /* package */ final class SefSlowMotionFlattener {
 
   /**

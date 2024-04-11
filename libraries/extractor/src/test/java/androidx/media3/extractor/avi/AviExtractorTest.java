@@ -15,7 +15,6 @@
  */
 package androidx.media3.extractor.avi;
 
-import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.test.utils.ExtractorAsserts;
 import com.google.common.collect.ImmutableList;
 import org.junit.Test;
@@ -37,9 +36,6 @@ public final class AviExtractorTest {
 
   @Test
   public void aviSample() throws Exception {
-    ExtractorAsserts.assertBehavior(
-        () -> new AviExtractor(/* extractorFlags= */ 0, SubtitleParser.Factory.UNSUPPORTED),
-        "media/avi/sample.avi",
-        simulationConfig);
+    ExtractorAsserts.assertBehavior(AviExtractor::new, "media/avi/sample.avi", simulationConfig);
   }
 }

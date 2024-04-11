@@ -21,7 +21,6 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
-import androidx.media3.common.Label;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.StreamKey;
@@ -52,8 +51,7 @@ import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.extractor.Extractor;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
+import androidx.media3.extractor.text.SubtitleParser;
 import com.google.common.primitives.Ints;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -88,6 +86,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final PlayerId playerId;
   private final HlsSampleStreamWrapper.Callback sampleStreamWrapperCallback;
   private final long timestampAdjusterInitializationTimeoutMs;
+  @Nullable private final SubtitleParser.Factory subtitleParserFactory;
 
   @Nullable private MediaPeriod.Callback mediaPeriodCallback;
   private int pendingPrepareCount;
@@ -142,7 +141,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       @HlsMediaSource.MetadataType int metadataType,
       boolean useSessionKeys,
       PlayerId playerId,
-      long timestampAdjusterInitializationTimeoutMs) {
+      long timestampAdjusterInitializationTimeoutMs,
+      @Nullable SubtitleParser.Factory subtitleParserFactory) {
     this.extractorFactory = extractorFactory;
     this.playlistTracker = playlistTracker;
     this.dataSourceFactory = dataSourceFactory;
@@ -160,12 +160,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.playerId = playerId;
     this.timestampAdjusterInitializationTimeoutMs = timestampAdjusterInitializationTimeoutMs;
     sampleStreamWrapperCallback = new SampleStreamWrapperCallback();
-    compositeSequenceableLoader = compositeSequenceableLoaderFactory.empty();
+    compositeSequenceableLoader =
+        compositeSequenceableLoaderFactory.createCompositeSequenceableLoader();
     streamWrapperIndices = new IdentityHashMap<>();
     timestampAdjusterProvider = new TimestampAdjusterProvider();
     sampleStreamWrappers = new HlsSampleStreamWrapper[0];
     enabledSampleStreamWrappers = new HlsSampleStreamWrapper[0];
     manifestUrlIndicesPerWrapper = new int[0][];
+    this.subtitleParserFactory = subtitleParserFactory;
   }
 
   public void release() {
@@ -374,14 +376,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     // Update the local state.
     enabledSampleStreamWrappers =
         Util.nullSafeArrayCopy(newEnabledSampleStreamWrappers, newEnabledSampleStreamWrapperCount);
-    ImmutableList<HlsSampleStreamWrapper> enabledSampleStreamWrappersList =
-        ImmutableList.copyOf(enabledSampleStreamWrappers);
     compositeSequenceableLoader =
-        compositeSequenceableLoaderFactory.create(
-            enabledSampleStreamWrappersList,
-            Lists.transform(
-                enabledSampleStreamWrappersList,
-                sampleStreamWrapper -> sampleStreamWrapper.getTrackGroups().getTrackTypes()));
+        compositeSequenceableLoaderFactory.createCompositeSequenceableLoader(
+            enabledSampleStreamWrappers);
     return positionUs;
   }
 
@@ -538,13 +535,29 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               positionUs);
       manifestUrlIndicesPerWrapper.add(new int[] {i});
       sampleStreamWrappers.add(sampleStreamWrapper);
-      sampleStreamWrapper.prepareWithMultivariantPlaylistInfo(
-          new TrackGroup[] {
-            new TrackGroup(
-                sampleStreamWrapperUid,
-                extractorFactory.getOutputTextFormat(originalSubtitleFormat))
-          },
-          /* primaryTrackGroupIndex= */ 0);
+      if (subtitleParserFactory != null
+          && subtitleParserFactory.supportsFormat(originalSubtitleFormat)) {
+        Format updatedSubtitleFormat =
+            originalSubtitleFormat
+                .buildUpon()
+                .setSampleMimeType(MimeTypes.APPLICATION_MEDIA3_CUES)
+                .setCueReplacementBehavior(
+                    subtitleParserFactory.getCueReplacementBehavior(originalSubtitleFormat))
+                .setCodecs(
+                    originalSubtitleFormat.sampleMimeType
+                        + (originalSubtitleFormat.codecs != null
+                            ? " " + originalSubtitleFormat.codecs
+                            : ""))
+                .setSubsampleOffsetUs(Format.OFFSET_SAMPLE_RELATIVE)
+                .build();
+        sampleStreamWrapper.prepareWithMultivariantPlaylistInfo(
+            new TrackGroup[] {new TrackGroup(sampleStreamWrapperUid, updatedSubtitleFormat)},
+            /* primaryTrackGroupIndex= */ 0);
+      } else {
+        sampleStreamWrapper.prepareWithMultivariantPlaylistInfo(
+            new TrackGroup[] {new TrackGroup(sampleStreamWrapperUid, originalSubtitleFormat)},
+            /* primaryTrackGroupIndex= */ 0);
+      }
     }
 
     this.sampleStreamWrappers = sampleStreamWrappers.toArray(new HlsSampleStreamWrapper[0]);
@@ -689,8 +702,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         if (ccFormats != null) {
           for (int i = 0; i < ccFormats.size(); i++) {
             String ccId = sampleStreamWrapperUid + ":cc:" + i;
-            muxedTrackGroups.add(
-                new TrackGroup(ccId, extractorFactory.getOutputTextFormat(ccFormats.get(i))));
+            muxedTrackGroups.add(new TrackGroup(ccId, ccFormats.get(i)));
           }
         }
       } else /* numberOfAudioCodecs > 0 */ {
@@ -853,7 +865,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     return new Format.Builder()
         .setId(variantFormat.id)
         .setLabel(variantFormat.label)
-        .setLabels(variantFormat.labels)
         .setContainerMimeType(variantFormat.containerMimeType)
         .setSampleMimeType(sampleMimeType)
         .setCodecs(codecs)
@@ -877,7 +888,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     int roleFlags = 0;
     @Nullable String language = null;
     @Nullable String label = null;
-    List<Label> labels = ImmutableList.of();
     if (mediaTagFormat != null) {
       codecs = mediaTagFormat.codecs;
       metadata = mediaTagFormat.metadata;
@@ -886,7 +896,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       roleFlags = mediaTagFormat.roleFlags;
       language = mediaTagFormat.language;
       label = mediaTagFormat.label;
-      labels = mediaTagFormat.labels;
     } else {
       codecs = Util.getCodecsOfType(variantFormat.codecs, C.TRACK_TYPE_AUDIO);
       metadata = variantFormat.metadata;
@@ -896,7 +905,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         roleFlags = variantFormat.roleFlags;
         language = variantFormat.language;
         label = variantFormat.label;
-        labels = variantFormat.labels;
       }
     }
     @Nullable String sampleMimeType = MimeTypes.getMediaMimeType(codecs);
@@ -905,7 +913,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     return new Format.Builder()
         .setId(variantFormat.id)
         .setLabel(label)
-        .setLabels(labels)
         .setContainerMimeType(variantFormat.containerMimeType)
         .setSampleMimeType(sampleMimeType)
         .setCodecs(codecs)

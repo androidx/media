@@ -56,13 +56,7 @@ public class DefaultTrackNameProvider implements TrackNameProvider {
     } else {
       trackName = buildLanguageOrLabelString(format);
     }
-    if (trackName.length() != 0) {
-      return trackName;
-    }
-    @Nullable String language = format.language;
-    return (language == null || language.trim().isEmpty())
-        ? resources.getString(R.string.exo_track_unknown)
-        : resources.getString(R.string.exo_track_unknown_name, language);
+    return trackName.length() == 0 ? resources.getString(R.string.exo_track_unknown) : trackName;
   }
 
   private String buildResolutionString(Format format) {

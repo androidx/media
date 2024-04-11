@@ -224,6 +224,7 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
     ColorInfo colorInfo = checkNotNull(format.colorInfo);
     videoFrameProcessorTestRunner =
         getSurfaceInputFrameProcessorTestRunnerBuilder(testId)
+            .setInputColorInfo(colorInfo)
             .setOutputColorInfo(colorInfo)
             .setVideoAssetPath(INPUT_HLG10_MP4_ASSET_STRING)
             .build();
@@ -292,6 +293,7 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
     ColorInfo colorInfo = checkNotNull(format.colorInfo);
     videoFrameProcessorTestRunner =
         getSurfaceInputFrameProcessorTestRunnerBuilder(testId)
+            .setInputColorInfo(colorInfo)
             .setOutputColorInfo(colorInfo)
             .setVideoAssetPath(INPUT_PQ_MP4_ASSET_STRING)
             .build();
@@ -360,6 +362,7 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
     ColorInfo colorInfo = checkNotNull(format.colorInfo);
     videoFrameProcessorTestRunner =
         getSurfaceInputFrameProcessorTestRunnerBuilder(testId)
+            .setInputColorInfo(colorInfo)
             .setOutputColorInfo(colorInfo)
             .setVideoAssetPath(INPUT_HLG10_MP4_ASSET_STRING)
             .setEffects(NO_OP_EFFECT)
@@ -429,6 +432,7 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
     ColorInfo colorInfo = checkNotNull(format.colorInfo);
     videoFrameProcessorTestRunner =
         getSurfaceInputFrameProcessorTestRunnerBuilder(testId)
+            .setInputColorInfo(colorInfo)
             .setOutputColorInfo(colorInfo)
             .setVideoAssetPath(INPUT_PQ_MP4_ASSET_STRING)
             .setEffects(NO_OP_EFFECT)
@@ -509,6 +513,7 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
         .setTestId(testId)
         .setVideoFrameProcessorFactory(defaultVideoFrameProcessorFactory)
         .setVideoAssetPath(videoAssetPath)
+        .setInputColorInfo(colorInfo)
         .setOutputColorInfo(colorInfo)
         .setBitmapReader(producersBitmapReader)
         .build();
@@ -540,13 +545,14 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
         new VideoFrameProcessorTestRunner.Builder()
             .setTestId(testId)
             .setVideoFrameProcessorFactory(defaultVideoFrameProcessorFactory)
+            .setInputColorInfo(colorInfo)
             .setOutputColorInfo(colorInfo)
             .setBitmapReader(bitmapReader)
             .setEffects(effects)
             .build();
     GlUtil.awaitSyncObject(syncObject);
     try {
-      videoFrameProcessorTestRunner.queueInputTexture(texture, presentationTimeUs, colorInfo);
+      videoFrameProcessorTestRunner.queueInputTexture(texture, presentationTimeUs);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw VideoFrameProcessingException.from(e);

@@ -25,7 +25,6 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.source.chunk.MediaChunk;
 import androidx.media3.exoplayer.source.chunk.MediaChunkIterator;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
-import com.google.common.base.Objects;
 import java.util.List;
 
 /**
@@ -36,19 +35,13 @@ import java.util.List;
 public final class FakeTrackSelection implements ExoTrackSelection {
 
   private final TrackGroup rendererTrackGroup;
-  private final int selectedIndex;
 
   public int enableCount;
   public int releaseCount;
   public boolean isEnabled;
 
   public FakeTrackSelection(TrackGroup rendererTrackGroup) {
-    this(rendererTrackGroup, /* selectedIndex= */ 0);
-  }
-
-  public FakeTrackSelection(TrackGroup rendererTrackGroup, int selectedIndex) {
     this.rendererTrackGroup = rendererTrackGroup;
-    this.selectedIndex = selectedIndex;
   }
 
   // TrackSelection implementation.
@@ -75,23 +68,18 @@ public final class FakeTrackSelection implements ExoTrackSelection {
 
   @Override
   public int getIndexInTrackGroup(int index) {
-    return index;
+    return 0;
   }
 
   @Override
   public int indexOf(Format format) {
     assertThat(isEnabled).isTrue();
-    for (int i = 0; i < rendererTrackGroup.length; i++) {
-      if (rendererTrackGroup.getFormat(i).equals(format)) {
-        return i;
-      }
-    }
-    return -1;
+    return 0;
   }
 
   @Override
   public int indexOf(int indexInTrackGroup) {
-    return indexInTrackGroup;
+    return 0;
   }
 
   // ExoTrackSelection specific methods.
@@ -114,17 +102,17 @@ public final class FakeTrackSelection implements ExoTrackSelection {
 
   @Override
   public Format getSelectedFormat() {
-    return rendererTrackGroup.getFormat(selectedIndex);
+    return rendererTrackGroup.getFormat(0);
   }
 
   @Override
   public int getSelectedIndexInTrackGroup() {
-    return selectedIndex;
+    return 0;
   }
 
   @Override
   public int getSelectedIndex() {
-    return selectedIndex;
+    return 0;
   }
 
   @Override
@@ -169,27 +157,5 @@ public final class FakeTrackSelection implements ExoTrackSelection {
   public boolean isTrackExcluded(int index, long nowMs) {
     assertThat(isEnabled).isTrue();
     return false;
-  }
-
-  @Override
-  public boolean equals(@Nullable Object o) {
-    if (this == o) {
-      return true;
-    }
-    if (!(o instanceof FakeTrackSelection)) {
-      return false;
-    }
-    FakeTrackSelection that = (FakeTrackSelection) o;
-    return enableCount == that.enableCount
-        && releaseCount == that.releaseCount
-        && isEnabled == that.isEnabled
-        && selectedIndex == that.selectedIndex
-        && Objects.equal(rendererTrackGroup, that.rendererTrackGroup);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hashCode(
-        rendererTrackGroup, enableCount, releaseCount, isEnabled, selectedIndex);
   }
 }

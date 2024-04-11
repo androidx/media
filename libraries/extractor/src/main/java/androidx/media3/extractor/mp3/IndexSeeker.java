@@ -20,7 +20,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.util.LongArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.SeekPoint;
-import java.math.RoundingMode;
 
 /** MP3 seeker that builds a time-to-byte mapping as the stream is read. */
 /* package */ final class IndexSeeker implements Seeker {
@@ -31,7 +30,6 @@ import java.math.RoundingMode;
   private final long dataEndPosition;
   private final LongArray timesUs;
   private final LongArray positions;
-  private final int averageBitrate;
 
   private long durationUs;
 
@@ -42,15 +40,6 @@ import java.math.RoundingMode;
     positions = new LongArray();
     timesUs.add(0L);
     positions.add(dataStartPosition);
-    if (durationUs != C.TIME_UNSET) {
-      long bitrate =
-          Util.scaleLargeValue(
-              dataStartPosition - dataEndPosition, 8, durationUs, RoundingMode.HALF_UP);
-      this.averageBitrate =
-          bitrate > 0 && bitrate <= Integer.MAX_VALUE ? (int) bitrate : C.RATE_UNSET_INT;
-    } else {
-      this.averageBitrate = C.RATE_UNSET_INT;
-    }
   }
 
   @Override
@@ -88,11 +77,6 @@ import java.math.RoundingMode;
           new SeekPoint(timesUs.get(targetIndex + 1), positions.get(targetIndex + 1));
       return new SeekPoints(seekPoint, nextSeekPoint);
     }
-  }
-
-  @Override
-  public int getAverageBitrate() {
-    return averageBitrate;
   }
 
   /**

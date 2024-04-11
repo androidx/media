@@ -462,9 +462,6 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
   @Override
   public void onSetPlaybackSpeed(float speed) {
-    if (!(speed > 0f)) {
-      return;
-    }
     dispatchSessionTaskWithPlayerCommand(
         COMMAND_SET_SPEED_AND_PITCH,
         controller -> sessionImpl.getPlayerWrapper().setPlaybackSpeed(speed),
@@ -473,9 +470,6 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
   @Override
   public void onSkipToQueueItem(long queueId) {
-    if (queueId < 0) {
-      return;
-    }
     dispatchSessionTaskWithPlayerCommand(
         COMMAND_SEEK_TO_MEDIA_ITEM,
         controller -> {
@@ -582,7 +576,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
           }
           PlayerWrapper player = sessionImpl.getPlayerWrapper();
           if (!player.isCommandAvailable(Player.COMMAND_GET_TIMELINE)) {
-            Log.w(TAG, "Can't remove item by ID without COMMAND_GET_TIMELINE being available");
+            Log.w(TAG, "Can't remove item by id without availabe COMMAND_GET_TIMELINE");
             return;
           }
           Timeline timeline = player.getCurrentTimeline();
@@ -594,6 +588,20 @@ import org.checkerframework.checker.initialization.qual.Initialized;
               return;
             }
           }
+        },
+        sessionCompat.getCurrentControllerInfo());
+  }
+
+  @Override
+  public void onRemoveQueueItemAt(int index) {
+    dispatchSessionTaskWithPlayerCommand(
+        COMMAND_CHANGE_MEDIA_ITEMS,
+        controller -> {
+          if (index < 0) {
+            Log.w(TAG, "onRemoveQueueItem(): index shouldn't be negative");
+            return;
+          }
+          sessionImpl.getPlayerWrapper().removeMediaItem(index);
         },
         sessionCompat.getCurrentControllerInfo());
   }
@@ -843,7 +851,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   }
 
   private void handleOnAddQueueItem(@Nullable MediaDescriptionCompat description, int index) {
-    if (description == null || (index != C.INDEX_UNSET && index < 0)) {
+    if (description == null) {
       return;
     }
     dispatchSessionTaskWithPlayerCommand(

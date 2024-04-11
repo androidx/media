@@ -33,7 +33,6 @@ import androidx.media3.exoplayer.trackselection.AdaptiveTrackSelection;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter;
 import androidx.media3.exoplayer.upstream.LoaderErrorThrower;
-import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.test.utils.FakeDataSource;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
@@ -88,23 +87,6 @@ public class DefaultSsChunkSourceTest {
             "br=308,d=898,ot=v,tb=1536",
             "CMCD-Request",
             "bl=1000,dl=500,mtp=1000,nor=\"..%2FFragments(video%3D28660000)\"",
-            "CMCD-Session",
-            "cid=\"mediaId\",pr=2.00,sf=s,sid=\"" + cmcdConfiguration.sessionId + "\",st=v");
-
-    // Playing mid-chunk, where loadPositionUs is less than playbackPositionUs
-    chunkSource.getNextChunk(
-        new LoadingInfo.Builder().setPlaybackPositionUs(5_000_000).setPlaybackSpeed(2.0f).build(),
-        /* loadPositionUs= */ 4_000_000,
-        /* queue= */ ImmutableList.of((MediaChunk) output.chunk),
-        output);
-
-    // buffer length is set to 0 when bufferedDurationUs is negative
-    assertThat(output.chunk.dataSpec.httpRequestHeaders)
-        .containsExactly(
-            "CMCD-Object",
-            "br=308,d=898,ot=v,tb=1536",
-            "CMCD-Request",
-            "bl=0,dl=0,mtp=1000",
             "CMCD-Session",
             "cid=\"mediaId\",pr=2.00,sf=s,sid=\"" + cmcdConfiguration.sessionId + "\",st=v");
   }
@@ -210,8 +192,8 @@ public class DefaultSsChunkSourceTest {
                           @CmcdConfiguration.HeaderKey String, String>()
                       .put(CmcdConfiguration.KEY_CMCD_OBJECT, "key-1=1")
                       .put(CmcdConfiguration.KEY_CMCD_REQUEST, "key-2=\"stringValue\"")
-                      .put(CmcdConfiguration.KEY_CMCD_SESSION, "com.example-key3=3")
-                      .put(CmcdConfiguration.KEY_CMCD_STATUS, "com.example.test-key4=5.0")
+                      .put(CmcdConfiguration.KEY_CMCD_SESSION, "key-3=3")
+                      .put(CmcdConfiguration.KEY_CMCD_STATUS, "key-4=5.0")
                       .build();
                 }
               };
@@ -238,11 +220,9 @@ public class DefaultSsChunkSourceTest {
             "CMCD-Request",
             "bl=0,dl=0,key-2=\"stringValue\",mtp=1000,nor=\"..%2FFragments(video%3D19680000)\",su",
             "CMCD-Session",
-            "cid=\"mediaId\",com.example-key3=3,sf=s,sid=\""
-                + cmcdConfiguration.sessionId
-                + "\",st=v",
+            "cid=\"mediaId\",key-3=3,sf=s,sid=\"" + cmcdConfiguration.sessionId + "\",st=v",
             "CMCD-Status",
-            "com.example.test-key4=5.0");
+            "key-4=5.0");
   }
 
   @Test
@@ -258,7 +238,7 @@ public class DefaultSsChunkSourceTest {
                     getCustomData() {
                   return new ImmutableListMultimap.Builder<
                           @CmcdConfiguration.HeaderKey String, String>()
-                      .put(CmcdConfiguration.KEY_CMCD_OBJECT, "com.example.test-key-1=1")
+                      .put(CmcdConfiguration.KEY_CMCD_OBJECT, "key-1=1")
                       .put(CmcdConfiguration.KEY_CMCD_REQUEST, "key-2=\"stringValue\"")
                       .build();
                 }
@@ -283,11 +263,13 @@ public class DefaultSsChunkSourceTest {
         output);
 
     assertThat(
-            output.chunk.dataSpec.uri.getQueryParameter(CmcdConfiguration.CMCD_QUERY_PARAMETER_KEY))
+            Uri.decode(
+                output.chunk.dataSpec.uri.getQueryParameter(
+                    CmcdConfiguration.CMCD_QUERY_PARAMETER_KEY)))
         .isEqualTo(
-            "bl=0,br=308,cid=\"mediaId\",com.example.test-key-1=1,d=1968,dl=0,"
-                + "key-2=\"stringValue\",mtp=1000,nor=\"..%2FFragments(video%3D19680000)\",ot=v,"
-                + "sf=s,sid=\"sessionId\",st=v,su,tb=1536");
+            "bl=0,br=308,cid=\"mediaId\",d=1968,dl=0,key-1=1,key-2=\"stringValue\","
+                + "mtp=1000,nor=\"..%2FFragments(video%3D19680000)\",ot=v,sf=s,sid=\"sessionId\","
+                + "st=v,su,tb=1536");
   }
 
   private SsChunkSource createSsChunkSource(
@@ -315,8 +297,6 @@ public class DefaultSsChunkSourceTest {
         /* streamElementIndex= */ 0,
         adaptiveTrackSelection,
         new FakeDataSource(),
-        cmcdConfiguration,
-        SubtitleParser.Factory.UNSUPPORTED,
-        /* parseSubtitlesDuringExtraction= */ false);
+        cmcdConfiguration);
   }
 }

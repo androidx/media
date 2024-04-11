@@ -18,27 +18,25 @@ package androidx.media3.demo.shortform.viewpager
 import android.util.Log
 import android.view.View
 import androidx.annotation.OptIn
-import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.demo.shortform.PlayerPool
 import androidx.media3.demo.shortform.R
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.source.preload.PreloadMediaSource
+import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.ui.PlayerView
 import androidx.recyclerview.widget.RecyclerView
 
-@OptIn(UnstableApi::class) // Using PreloadMediaSource.
 class ViewPagerMediaHolder(
   itemView: View,
   private val viewCounter: Int,
   private val playerPool: PlayerPool
 ) : RecyclerView.ViewHolder(itemView), View.OnAttachStateChangeListener {
   private val playerView: PlayerView = itemView.findViewById(R.id.player_view)
-  private var exoPlayer: ExoPlayer? = null
+  private var player: ExoPlayer? = null
   private var isInView: Boolean = false
   private var token: Int = -1
 
-  private lateinit var mediaSource: PreloadMediaSource
+  private lateinit var mediaSource: MediaSource
 
   init {
     // Define click listener for the ViewHolder's View
@@ -49,16 +47,7 @@ class ViewPagerMediaHolder(
     }
   }
 
-  val currentToken: Int
-    get() {
-      return token
-    }
-
-  val player: Player?
-    get() {
-      return exoPlayer
-    }
-
+  @OptIn(UnstableApi::class)
   override fun onViewAttachedToWindow(view: View) {
     Log.d("viewpager", "onViewAttachedToWindow: $viewCounter")
     isInView = true
@@ -70,37 +59,36 @@ class ViewPagerMediaHolder(
   override fun onViewDetachedFromWindow(view: View) {
     Log.d("viewpager", "onViewDetachedFromWindow: $viewCounter")
     isInView = false
-    releasePlayer(exoPlayer)
-    // This is a hacky way of keep preloading sources that are removed from players. This does only
-    // work because the demo app cycles endlessly through the same 5 URIs. Preloading is still
-    // uncoordinated meaning it just preloading as soon as this method is called.
-    mediaSource.preload(0)
+    releasePlayer(player)
   }
 
-  fun bindData(token: Int, mediaSource: PreloadMediaSource) {
+  fun bindData(token: Int, mediaSource: MediaSource) {
     this.mediaSource = mediaSource
     this.token = token
   }
 
+  @OptIn(UnstableApi::class)
   fun releasePlayer(player: ExoPlayer?) {
-    playerPool.releasePlayer(token, player ?: exoPlayer)
-    this.exoPlayer = null
+    playerPool.releasePlayer(token, player ?: this.player)
+    this.player = null
     playerView.player = null
   }
 
+  @OptIn(UnstableApi::class)
   fun setupPlayer(player: ExoPlayer) {
     if (!isInView) {
       releasePlayer(player)
     } else {
-      if (player != exoPlayer) {
-        releasePlayer(exoPlayer)
+      if (player != this.player) {
+        releasePlayer(this.player)
       }
 
       player.run {
         repeatMode = ExoPlayer.REPEAT_MODE_ONE
         setMediaSource(mediaSource)
         seekTo(currentPosition)
-        this@ViewPagerMediaHolder.exoPlayer = player
+        playWhenReady = true
+        this@ViewPagerMediaHolder.player = player
         player.prepare()
         playerView.player = player
       }

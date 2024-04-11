@@ -414,19 +414,6 @@ public abstract class MediaLibraryService extends MediaSessionService {
       }
 
       /**
-       * Creates a builder for {@link MediaLibrarySession}.
-       *
-       * @param context The {@link Context}.
-       * @param player The underlying player to perform playback and handle transport controls.
-       * @param callback The callback to handle requests from {@link MediaBrowser}.
-       * @throws IllegalArgumentException if {@link Player#canAdvertiseSession()} returns false.
-       */
-      @UnstableApi
-      public Builder(Context context, Player player, Callback callback) {
-        super(context, player, callback);
-      }
-
-      /**
        * Sets a {@link PendingIntent} to launch an {@link android.app.Activity} for the {@link
        * MediaLibrarySession}. This can be used as a quick link to an ongoing media screen.
        *
@@ -453,34 +440,16 @@ public abstract class MediaLibraryService extends MediaSessionService {
       }
 
       /**
-       * Sets an extras {@link Bundle} for the {@linkplain MediaLibrarySession#getToken() session
-       * token}. If not set, {@link Bundle#EMPTY} is used.
+       * Sets an extra {@link Bundle} for the {@link MediaLibrarySession}. The {@link
+       * MediaLibrarySession#getToken()} session token} will have the {@link
+       * SessionToken#getExtras() extras}. If not set, an empty {@link Bundle} will be used.
        *
-       * <p>A controller has access to these extras through the {@linkplain
-       * MediaController#getConnectedToken() connected token}.
-       *
-       * @param tokenExtras The extras {@link Bundle}.
+       * @param extras The extra {@link Bundle}.
        * @return The builder to allow chaining.
        */
       @Override
-      public Builder setExtras(Bundle tokenExtras) {
-        return super.setExtras(tokenExtras);
-      }
-
-      /**
-       * Sets the {@linkplain MediaLibrarySession#getSessionExtras() session extras}. If not set,
-       * {@link Bundle#EMPTY} is used.
-       *
-       * <p>A controller has access to session extras through {@link
-       * MediaController#getSessionExtras()}.
-       *
-       * @param sessionExtras The session extras {@link Bundle}.
-       * @return The builder to allow chaining.
-       */
-      @UnstableApi
-      @Override
-      public Builder setSessionExtras(Bundle sessionExtras) {
-        return super.setSessionExtras(sessionExtras);
+      public Builder setExtras(Bundle extras) {
+        return super.setExtras(extras);
       }
 
       /**
@@ -582,8 +551,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
             sessionActivity,
             customLayout,
             callback,
-            tokenExtras,
-            sessionExtras,
+            extras,
             checkNotNull(bitmapLoader),
             playIfSuppressed,
             isPeriodicPositionUpdateEnabled);
@@ -598,7 +566,6 @@ public abstract class MediaLibraryService extends MediaSessionService {
         ImmutableList<CommandButton> customLayout,
         MediaSession.Callback callback,
         Bundle tokenExtras,
-        Bundle sessionExtras,
         BitmapLoader bitmapLoader,
         boolean playIfSuppressed,
         boolean isPeriodicPositionUpdateEnabled) {
@@ -610,7 +577,6 @@ public abstract class MediaLibraryService extends MediaSessionService {
           customLayout,
           callback,
           tokenExtras,
-          sessionExtras,
           bitmapLoader,
           playIfSuppressed,
           isPeriodicPositionUpdateEnabled);
@@ -625,7 +591,6 @@ public abstract class MediaLibraryService extends MediaSessionService {
         ImmutableList<CommandButton> customLayout,
         MediaSession.Callback callback,
         Bundle tokenExtras,
-        Bundle sessionExtras,
         BitmapLoader bitmapLoader,
         boolean playIfSuppressed,
         boolean isPeriodicPositionUpdateEnabled) {
@@ -638,7 +603,6 @@ public abstract class MediaLibraryService extends MediaSessionService {
           customLayout,
           (Callback) callback,
           tokenExtras,
-          sessionExtras,
           bitmapLoader,
           playIfSuppressed,
           isPeriodicPositionUpdateEnabled);

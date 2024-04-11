@@ -112,12 +112,12 @@ public interface SampleConsumer {
    * <p>Should only be used for image data.
    *
    * @param inputBitmap The {@link Bitmap} to queue to the consumer.
-   * @param timestampIterator A {@link TimestampIterator} generating the exact timestamps that the
-   *     bitmap should be shown at.
+   * @param inStreamOffsetsUs The times within the current stream that the bitmap should be
+   *     displayed at. The timestamps should be monotonically increasing.
    * @return The {@link InputResult} describing the result of the operation.
    */
   default @InputResult int queueInputBitmap(
-      Bitmap inputBitmap, TimestampIterator timestampIterator) {
+      Bitmap inputBitmap, TimestampIterator inStreamOffsetsUs) {
     throw new UnsupportedOperationException();
   }
 

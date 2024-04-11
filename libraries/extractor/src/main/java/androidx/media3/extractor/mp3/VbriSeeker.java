@@ -94,23 +94,19 @@ import androidx.media3.extractor.SeekPoint;
     if (inputLength != C.LENGTH_UNSET && inputLength != position) {
       Log.w(TAG, "VBRI data size mismatch: " + inputLength + ", " + position);
     }
-    return new VbriSeeker(
-        timesUs, positions, durationUs, /* dataEndPosition= */ position, mpegAudioHeader.bitrate);
+    return new VbriSeeker(timesUs, positions, durationUs, /* dataEndPosition= */ position);
   }
 
   private final long[] timesUs;
   private final long[] positions;
   private final long durationUs;
   private final long dataEndPosition;
-  private final int bitrate;
 
-  private VbriSeeker(
-      long[] timesUs, long[] positions, long durationUs, long dataEndPosition, int bitrate) {
+  private VbriSeeker(long[] timesUs, long[] positions, long durationUs, long dataEndPosition) {
     this.timesUs = timesUs;
     this.positions = positions;
     this.durationUs = durationUs;
     this.dataEndPosition = dataEndPosition;
-    this.bitrate = bitrate;
   }
 
   @Override
@@ -143,10 +139,5 @@ import androidx.media3.extractor.SeekPoint;
   @Override
   public long getDataEndPosition() {
     return dataEndPosition;
-  }
-
-  @Override
-  public int getAverageBitrate() {
-    return bitrate;
   }
 }

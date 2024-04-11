@@ -40,7 +40,6 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLooper;
 
 /** Tests for {@link DefaultDrmSessionManager} and {@link DefaultDrmSession}. */
@@ -259,21 +258,6 @@ public class DefaultDrmSessionManagerTest {
 
   @Test(timeout = 10_000)
   public void maxConcurrentSessionsExceeded_allKeepAliveSessionsEagerlyReleased() throws Exception {
-    maxConcurrentSessionsExceededAllKeepAliveSessionsEagerlyReleased(
-        /* throwNoSuchMethodErrorForResourceBusy= */ false);
-  }
-
-  /** Testing workarounds for b/291440132. */
-  @Config(sdk = 34)
-  @Test(timeout = 10_000)
-  public void maxConcurrentSessionsExceeded_allKeepAliveSessionsEagerlyReleased_noSuchMethodError()
-      throws Exception {
-    maxConcurrentSessionsExceededAllKeepAliveSessionsEagerlyReleased(
-        /* throwNoSuchMethodErrorForResourceBusy= */ true);
-  }
-
-  private static void maxConcurrentSessionsExceededAllKeepAliveSessionsEagerlyReleased(
-      boolean throwNoSuchMethodErrorForResourceBusy) {
     ImmutableList<DrmInitData.SchemeData> secondSchemeDatas =
         ImmutableList.of(DRM_SCHEME_DATAS.get(0).copyWithData(TestUtil.createByteArray(4, 5, 6)));
     FakeExoMediaDrm.LicenseServer licenseServer =
@@ -283,13 +267,7 @@ public class DefaultDrmSessionManagerTest {
     DrmSessionManager drmSessionManager =
         new DefaultDrmSessionManager.Builder()
             .setUuidAndExoMediaDrmProvider(
-                DRM_SCHEME_UUID,
-                uuid ->
-                    new FakeExoMediaDrm.Builder()
-                        .setMaxConcurrentSessions(1)
-                        .throwNoSuchMethodErrorForProvisioningAndResourceBusy(
-                            throwNoSuchMethodErrorForResourceBusy)
-                        .build())
+                DRM_SCHEME_UUID, uuid -> new FakeExoMediaDrm(/* maxConcurrentSessions= */ 1))
             .setSessionKeepaliveMs(10_000)
             .setMultiSession(true)
             .build(/* mediaDrmCallback= */ licenseServer);
@@ -320,23 +298,6 @@ public class DefaultDrmSessionManagerTest {
   @Test(timeout = 10_000)
   public void maxConcurrentSessionsExceeded_allPreacquiredAndKeepaliveSessionsEagerlyReleased()
       throws Exception {
-    maxConcurrentSessionsExceededAllPreacquiredAndKeepaliveSessionsEagerlyReleased(
-        /* throwNoSuchMethodErrorForResourceBusy= */ false);
-  }
-
-  /** Testing workarounds for b/291440132. */
-  @Config(sdk = 34)
-  @Test(timeout = 10_000)
-  public void
-      maxConcurrentSessionsExceeded_allPreacquiredAndKeepaliveSessionsEagerlyReleased_noSuchMethodError()
-          throws Exception {
-    maxConcurrentSessionsExceededAllPreacquiredAndKeepaliveSessionsEagerlyReleased(
-        /* throwNoSuchMethodErrorForResourceBusy= */ true);
-  }
-
-  private static void
-      maxConcurrentSessionsExceededAllPreacquiredAndKeepaliveSessionsEagerlyReleased(
-          boolean throwNoSuchMethodErrorForResourceBusy) {
     ImmutableList<DrmInitData.SchemeData> secondSchemeDatas =
         ImmutableList.of(DRM_SCHEME_DATAS.get(0).copyWithData(TestUtil.createByteArray(4, 5, 6)));
     FakeExoMediaDrm.LicenseServer licenseServer =
@@ -347,12 +308,7 @@ public class DefaultDrmSessionManagerTest {
         new DefaultDrmSessionManager.Builder()
             .setUuidAndExoMediaDrmProvider(
                 DRM_SCHEME_UUID,
-                uuid ->
-                    new FakeExoMediaDrm.Builder()
-                        .setMaxConcurrentSessions(1)
-                        .throwNoSuchMethodErrorForProvisioningAndResourceBusy(
-                            throwNoSuchMethodErrorForResourceBusy)
-                        .build())
+                uuid -> new FakeExoMediaDrm.Builder().setMaxConcurrentSessions(1).build())
             .setSessionKeepaliveMs(10_000)
             .setMultiSession(true)
             .build(/* mediaDrmCallback= */ licenseServer);
@@ -650,22 +606,6 @@ public class DefaultDrmSessionManagerTest {
   @Test
   public void
       deviceNotProvisioned_exceptionThrownFromOpenSession_provisioningDoneAndOpenSessionRetried() {
-    deviceNotProvisionedExceptionThrownFromOpenSessionProvisioningDoneAndOpenSessionRetried(
-        /* throwNoSuchMethodErrorForNotProvisioned= */ false);
-  }
-
-  /** Testing workarounds for b/291440132. */
-  @Config(sdk = 34)
-  @Test
-  public void
-      deviceNotProvisioned_exceptionThrownFromOpenSession_provisioningDoneAndOpenSessionRetried_noSuchMethodError() {
-    deviceNotProvisionedExceptionThrownFromOpenSessionProvisioningDoneAndOpenSessionRetried(
-        /* throwNoSuchMethodErrorForNotProvisioned= */ true);
-  }
-
-  private static void
-      deviceNotProvisionedExceptionThrownFromOpenSessionProvisioningDoneAndOpenSessionRetried(
-          boolean throwNoSuchMethodErrorForNotProvisioned) {
     FakeExoMediaDrm.LicenseServer licenseServer =
         FakeExoMediaDrm.LicenseServer.allowingSchemeDatas(DRM_SCHEME_DATAS);
 
@@ -673,12 +613,7 @@ public class DefaultDrmSessionManagerTest {
         new DefaultDrmSessionManager.Builder()
             .setUuidAndExoMediaDrmProvider(
                 DRM_SCHEME_UUID,
-                uuid ->
-                    new FakeExoMediaDrm.Builder()
-                        .setProvisionsRequired(1)
-                        .throwNoSuchMethodErrorForProvisioningAndResourceBusy(
-                            throwNoSuchMethodErrorForNotProvisioned)
-                        .build())
+                uuid -> new FakeExoMediaDrm.Builder().setProvisionsRequired(1).build())
             .build(/* mediaDrmCallback= */ licenseServer);
     drmSessionManager.setPlayer(/* playbackLooper= */ Looper.myLooper(), PlayerId.UNSET);
     drmSessionManager.prepare();
@@ -700,22 +635,6 @@ public class DefaultDrmSessionManagerTest {
   @Test
   public void
       deviceNotProvisioned_exceptionThrownFromGetKeyRequest_provisioningDoneAndOpenSessionRetried() {
-    deviceNotProvisionedExceptionThrownFromGetKeyRequestProvisioningDoneAndOpenSessionRetried(
-        /* throwNoSuchMethodErrorForNotProvisioned= */ false);
-  }
-
-  /** Testing workarounds for b/291440132. */
-  @Config(sdk = 34)
-  @Test
-  public void
-      deviceNotProvisioned_exceptionThrownFromGetKeyRequest_provisioningDoneAndOpenSessionRetried_noSuchMethodError() {
-    deviceNotProvisionedExceptionThrownFromGetKeyRequestProvisioningDoneAndOpenSessionRetried(
-        /* throwNoSuchMethodErrorForNotProvisioned= */ true);
-  }
-
-  private static void
-      deviceNotProvisionedExceptionThrownFromGetKeyRequestProvisioningDoneAndOpenSessionRetried(
-          boolean throwNoSuchMethodErrorForNotProvisioned) {
     FakeExoMediaDrm.LicenseServer licenseServer =
         FakeExoMediaDrm.LicenseServer.allowingSchemeDatas(DRM_SCHEME_DATAS);
 
@@ -727,8 +646,6 @@ public class DefaultDrmSessionManagerTest {
                     new FakeExoMediaDrm.Builder()
                         .setProvisionsRequired(1)
                         .throwNotProvisionedExceptionFromGetKeyRequest()
-                        .throwNoSuchMethodErrorForProvisioningAndResourceBusy(
-                            throwNoSuchMethodErrorForNotProvisioned)
                         .build())
             .build(/* mediaDrmCallback= */ licenseServer);
     drmSessionManager.setPlayer(/* playbackLooper= */ Looper.myLooper(), PlayerId.UNSET);
@@ -748,21 +665,6 @@ public class DefaultDrmSessionManagerTest {
 
   @Test
   public void deviceNotProvisioned_doubleProvisioningHandledAndOpenSessionRetried() {
-    deviceNotProvisionedDoubleProvisioningHandledAndOpenSessionRetried(
-        /* throwNoSuchMethodErrorForNotProvisioned= */ false);
-  }
-
-  /** Testing workarounds for b/291440132. */
-  @Config(sdk = 34)
-  @Test
-  public void
-      deviceNotProvisioned_doubleProvisioningHandledAndOpenSessionRetried_noSuchMethodError() {
-    deviceNotProvisionedDoubleProvisioningHandledAndOpenSessionRetried(
-        /* throwNoSuchMethodErrorForNotProvisioned= */ true);
-  }
-
-  private static void deviceNotProvisionedDoubleProvisioningHandledAndOpenSessionRetried(
-      boolean throwNoSuchMethodErrorForNotProvisioned) {
     FakeExoMediaDrm.LicenseServer licenseServer =
         FakeExoMediaDrm.LicenseServer.allowingSchemeDatas(DRM_SCHEME_DATAS);
 
@@ -770,12 +672,7 @@ public class DefaultDrmSessionManagerTest {
         new DefaultDrmSessionManager.Builder()
             .setUuidAndExoMediaDrmProvider(
                 DRM_SCHEME_UUID,
-                uuid ->
-                    new FakeExoMediaDrm.Builder()
-                        .setProvisionsRequired(2)
-                        .throwNoSuchMethodErrorForProvisioningAndResourceBusy(
-                            throwNoSuchMethodErrorForNotProvisioned)
-                        .build())
+                uuid -> new FakeExoMediaDrm.Builder().setProvisionsRequired(2).build())
             .build(/* mediaDrmCallback= */ licenseServer);
     drmSessionManager.setPlayer(/* playbackLooper= */ Looper.myLooper(), PlayerId.UNSET);
     drmSessionManager.prepare();
@@ -796,20 +693,6 @@ public class DefaultDrmSessionManagerTest {
 
   @Test
   public void keyResponseIndicatesProvisioningRequired_provisioningDone() {
-    keyResponseIndicatesProvisioningRequiredProvisioningDone(
-        /* throwNoSuchMethodErrorForNotProvisioned= */ false);
-  }
-
-  /** Testing workarounds for b/291440132. */
-  @Config(sdk = 34)
-  @Test
-  public void keyResponseIndicatesProvisioningRequired_provisioningDone_noSuchMethodError() {
-    keyResponseIndicatesProvisioningRequiredProvisioningDone(
-        /* throwNoSuchMethodErrorForNotProvisioned= */ true);
-  }
-
-  private static void keyResponseIndicatesProvisioningRequiredProvisioningDone(
-      boolean throwNoSuchMethodErrorForNotProvisioned) {
     FakeExoMediaDrm.LicenseServer licenseServer =
         FakeExoMediaDrm.LicenseServer.requiringProvisioningThenAllowingSchemeDatas(
             DRM_SCHEME_DATAS);
@@ -817,12 +700,7 @@ public class DefaultDrmSessionManagerTest {
     DefaultDrmSessionManager drmSessionManager =
         new DefaultDrmSessionManager.Builder()
             .setUuidAndExoMediaDrmProvider(
-                DRM_SCHEME_UUID,
-                uuid ->
-                    new FakeExoMediaDrm.Builder()
-                        .throwNoSuchMethodErrorForProvisioningAndResourceBusy(
-                            throwNoSuchMethodErrorForNotProvisioned)
-                        .build())
+                DRM_SCHEME_UUID, uuid -> new FakeExoMediaDrm.Builder().build())
             .build(/* mediaDrmCallback= */ licenseServer);
     drmSessionManager.setPlayer(/* playbackLooper= */ Looper.myLooper(), PlayerId.UNSET);
     drmSessionManager.prepare();
@@ -841,29 +719,10 @@ public class DefaultDrmSessionManagerTest {
 
   @Test
   public void provisioningUndoneWhileManagerIsActive_deviceReprovisioned() {
-    provisioningUndoneWhileManagerIsActiveDeviceReprovisioned(
-        /* throwNoSuchMethodErrorForNotProvisioned= */ false);
-  }
-
-  /** Testing workarounds for b/291440132. */
-  @Config(sdk = 34)
-  @Test
-  public void provisioningUndoneWhileManagerIsActive_deviceReprovisioned_noSuchMethodError() {
-    provisioningUndoneWhileManagerIsActiveDeviceReprovisioned(
-        /* throwNoSuchMethodErrorForNotProvisioned= */ true);
-  }
-
-  private static void provisioningUndoneWhileManagerIsActiveDeviceReprovisioned(
-      boolean throwNoSuchMethodErrorForNotProvisioned) {
     FakeExoMediaDrm.LicenseServer licenseServer =
         FakeExoMediaDrm.LicenseServer.allowingSchemeDatas(DRM_SCHEME_DATAS);
 
-    FakeExoMediaDrm mediaDrm =
-        new FakeExoMediaDrm.Builder()
-            .setProvisionsRequired(2)
-            .throwNoSuchMethodErrorForProvisioningAndResourceBusy(
-                throwNoSuchMethodErrorForNotProvisioned)
-            .build();
+    FakeExoMediaDrm mediaDrm = new FakeExoMediaDrm.Builder().setProvisionsRequired(2).build();
     DefaultDrmSessionManager drmSessionManager =
         new DefaultDrmSessionManager.Builder()
             .setUuidAndExoMediaDrmProvider(DRM_SCHEME_UUID, new AppManagedProvider(mediaDrm))

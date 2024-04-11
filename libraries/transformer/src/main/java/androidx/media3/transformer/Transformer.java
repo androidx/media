@@ -19,17 +19,7 @@ package androidx.media3.transformer;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.extractor.AacUtil.AAC_LC_AUDIO_SAMPLE_COUNT;
 import static androidx.media3.transformer.Composition.HDR_MODE_EXPERIMENTAL_FORCE_INTERPRET_HDR_AS_SDR;
-import static androidx.media3.transformer.ExportResult.OPTIMIZATION_ABANDONED_KEYFRAME_PLACEMENT_OPTIMAL_FOR_TRIM;
-import static androidx.media3.transformer.ExportResult.OPTIMIZATION_ABANDONED_OTHER;
-import static androidx.media3.transformer.ExportResult.OPTIMIZATION_ABANDONED_TRIM_AND_TRANSCODING_TRANSFORMATION_REQUESTED;
-import static androidx.media3.transformer.ExportResult.OPTIMIZATION_FAILED_EXTRACTION_FAILED;
-import static androidx.media3.transformer.ExportResult.OPTIMIZATION_FAILED_FORMAT_MISMATCH;
-import static androidx.media3.transformer.TransformerUtil.shouldTranscodeAudio;
-import static androidx.media3.transformer.TransformerUtil.shouldTranscodeVideo;
-import static androidx.media3.transformer.TransmuxTranscodeHelper.buildNewCompositionWithClipTimes;
-import static java.lang.Math.round;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
@@ -109,8 +99,6 @@ public final class Transformer {
     private boolean removeAudio;
     private boolean removeVideo;
     private boolean flattenForSlowMotion;
-    private boolean trimOptimizationEnabled;
-    private boolean fileStartsOnVideoFrameEnabled;
     private ListenerSet<Transformer.Listener> listeners;
     private AssetLoader.@MonotonicNonNull Factory assetLoaderFactory;
     private AudioMixer.Factory audioMixerFactory;
@@ -150,8 +138,6 @@ public final class Transformer {
       this.videoEffects = transformer.videoEffects;
       this.removeAudio = transformer.removeAudio;
       this.removeVideo = transformer.removeVideo;
-      this.trimOptimizationEnabled = transformer.trimOptimizationEnabled;
-      this.fileStartsOnVideoFrameEnabled = transformer.fileStartsOnVideoFrameEnabled;
       this.listeners = transformer.listeners;
       this.assetLoaderFactory = transformer.assetLoaderFactory;
       this.audioMixerFactory = transformer.audioMixerFactory;
@@ -293,54 +279,6 @@ public final class Transformer {
     @Deprecated
     public Builder setFlattenForSlowMotion(boolean flattenForSlowMotion) {
       this.flattenForSlowMotion = flattenForSlowMotion;
-      return this;
-    }
-
-    /**
-     * Sets whether to attempt to optimize trims from the start of the {@link EditedMediaItem} by
-     * transcoding as little of the file as possible and transmuxing the rest.
-     *
-     * <p>This optimization has the following limitations:
-     *
-     * <ul>
-     *   <li>Only supported for single-asset (i.e. only one {@link EditedMediaItem} in the whole
-     *       {@link Composition}) exports of mp4 files.
-     *   <li>Not guaranteed to work with any effects.
-     * </ul>
-     *
-     * <p>This process relies on the given {@linkplain #setEncoderFactory EncoderFactory} providing
-     * the right encoder level and profiles when transcoding, so that the transcoded and transmuxed
-     * segments of the file can be stitched together. If the file segments can't be stitched
-     * together, Transformer throw away any progress and proceed with unoptimized export instead.
-     *
-     * <p>The {@link ExportResult#optimizationResult} will indicate whether the optimization was
-     * applied.
-     *
-     * @param enabled Whether to enable trim optimization.
-     * @return This builder.
-     */
-    @CanIgnoreReturnValue
-    public Builder experimentalSetTrimOptimizationEnabled(boolean enabled) {
-      trimOptimizationEnabled = enabled;
-      return this;
-    }
-
-    /**
-     * Set whether to ensure that the output file starts on a video frame.
-     *
-     * <p>Any audio samples that are earlier than the first video frame will be dropped. This can
-     * make the output of trimming operations more compatible with player implementations that don't
-     * show the first video frame until its presentation timestamp.
-     *
-     * <p>Ignored when {@linkplain #experimentalSetTrimOptimizationEnabled trim optimization} is
-     * set.
-     *
-     * @param enabled Whether to ensure that the file starts on a video frame.
-     * @return This builder.
-     */
-    @CanIgnoreReturnValue
-    public Builder setEnsureFileStartsOnVideoFrameEnabled(boolean enabled) {
-      fileStartsOnVideoFrameEnabled = enabled;
       return this;
     }
 
@@ -559,8 +497,6 @@ public final class Transformer {
           removeAudio,
           removeVideo,
           flattenForSlowMotion,
-          trimOptimizationEnabled,
-          fileStartsOnVideoFrameEnabled,
           listeners,
           assetLoaderFactory,
           audioMixerFactory,
@@ -598,7 +534,6 @@ public final class Transformer {
     /**
      * @deprecated Use {@link #onCompleted(Composition, ExportResult)} instead.
      */
-    @SuppressWarnings("deprecation") // Using deprecated type in callback
     @Deprecated
     default void onTransformationCompleted(MediaItem inputMediaItem, TransformationResult result) {
       onTransformationCompleted(inputMediaItem);
@@ -625,7 +560,6 @@ public final class Transformer {
     /**
      * @deprecated Use {@link #onError(Composition, ExportResult, ExportException)} instead.
      */
-    @SuppressWarnings("deprecation") // Using deprecated type in callback
     @Deprecated
     default void onTransformationError(
         MediaItem inputMediaItem, TransformationException exception) {
@@ -635,7 +569,6 @@ public final class Transformer {
     /**
      * @deprecated Use {@link #onError(Composition, ExportResult, ExportException)} instead.
      */
-    @SuppressWarnings("deprecation") // Using deprecated type in callback
     @Deprecated
     default void onTransformationError(
         MediaItem inputMediaItem, TransformationResult result, TransformationException exception) {
@@ -735,67 +668,16 @@ public final class Transformer {
     TRANSFORMER_STATE_REMUX_PROCESSED_VIDEO,
     TRANSFORMER_STATE_PROCESS_REMAINING_VIDEO,
     TRANSFORMER_STATE_PROCESS_AUDIO,
-    TRANSFORMER_STATE_COPY_OUTPUT,
-    TRANSFORMER_STATE_PROCESS_MEDIA_START,
-    TRANSFORMER_STATE_REMUX_REMAINING_MEDIA
+    TRANSFORMER_STATE_COPY_OUTPUT
   })
   private @interface TransformerState {}
 
-  /** The default Transformer state. */
   private static final int TRANSFORMER_STATE_PROCESS_FULL_INPUT = 0;
-
-  /**
-   * The first state of a {@link #resume(Composition composition, String outputFilePath, String
-   * oldFilePath)} export.
-   *
-   * <p>In this state, the paused export file's encoded video track is muxed into a video-only file,
-   * stored at {@code oldFilePath}.
-   *
-   * <p>The video-only file is kept open to allow the {@link
-   * #TRANSFORMER_STATE_PROCESS_REMAINING_VIDEO} to continue writing to the same file & video track.
-   *
-   * <p>A successful operation in this state moves the Transformer to the {@link
-   * #TRANSFORMER_STATE_PROCESS_REMAINING_VIDEO} state.
-   */
   private static final int TRANSFORMER_STATE_REMUX_PROCESSED_VIDEO = 1;
-
-  /**
-   * The second state of a {@link #resume(Composition composition, String outputFilePath, String
-   * oldFilePath)} export.
-   *
-   * <p>In this state, the remaining {@link Composition} video data is processed and muxed into the
-   * same video-only file, stored at {@code oldFilePath}.
-   *
-   * <p>A successful operation in this state moves the Transformer to the {@link
-   * #TRANSFORMER_STATE_PROCESS_AUDIO} state.
-   */
   private static final int TRANSFORMER_STATE_PROCESS_REMAINING_VIDEO = 2;
-
-  /**
-   * The third state of a {@link #resume(Composition composition, String outputFilePath, String
-   * oldFilePath)} resumed export.
-   *
-   * <p>In this state, the entire {@link Composition} audio is processed and muxed. This same
-   * operation also transmuxes the video-only file produced by {@link
-   * #TRANSFORMER_STATE_PROCESS_REMAINING_VIDEO}, interleaving of the audio and video tracks. The
-   * output is stored at {@code oldFilePath}.
-   *
-   * <p>A successful operation in this state moves the Transformer to the {@link
-   * #TRANSFORMER_STATE_COPY_OUTPUT} state.
-   */
   private static final int TRANSFORMER_STATE_PROCESS_AUDIO = 3;
-
-  /**
-   * The final state of a {@link #resume(Composition composition, String outputFilePath, String
-   * oldFilePath)} export.
-   *
-   * <p>In this state, the successful exported file (stored at {@code oldFilePath}) is copied to the
-   * {@code outputFilePath}.
-   */
   private static final int TRANSFORMER_STATE_COPY_OUTPUT = 4;
 
-  private static final int TRANSFORMER_STATE_PROCESS_MEDIA_START = 5;
-  private static final int TRANSFORMER_STATE_REMUX_REMAINING_MEDIA = 6;
   private final Context context;
   private final TransformationRequest transformationRequest;
   private final ImmutableList<AudioProcessor> audioProcessors;
@@ -803,8 +685,6 @@ public final class Transformer {
   private final boolean removeAudio;
   private final boolean removeVideo;
   private final boolean flattenForSlowMotion;
-  private final boolean trimOptimizationEnabled;
-  private final boolean fileStartsOnVideoFrameEnabled;
   private final ListenerSet<Transformer.Listener> listeners;
   @Nullable private final AssetLoader.Factory assetLoaderFactory;
   private final AudioMixer.Factory audioMixerFactory;
@@ -824,11 +704,10 @@ public final class Transformer {
   private @MonotonicNonNull String outputFilePath;
   private @MonotonicNonNull String oldFilePath;
   private @TransformerState int transformerState;
-  private TransmuxTranscodeHelper.@MonotonicNonNull ResumeMetadata resumeMetadata;
-  private @MonotonicNonNull ListenableFuture<TransmuxTranscodeHelper.ResumeMetadata>
+  private ExportResumeHelper.@MonotonicNonNull ResumeMetadata resumeMetadata;
+  private @MonotonicNonNull ListenableFuture<ExportResumeHelper.ResumeMetadata>
       getResumeMetadataFuture;
   private @MonotonicNonNull ListenableFuture<Void> copyOutputFuture;
-  @Nullable private Mp4Info mediaItemInfo;
 
   private Transformer(
       Context context,
@@ -838,8 +717,6 @@ public final class Transformer {
       boolean removeAudio,
       boolean removeVideo,
       boolean flattenForSlowMotion,
-      boolean trimOptimizationEnabled,
-      boolean fileStartsOnVideoFrameEnabled,
       ListenerSet<Listener> listeners,
       @Nullable AssetLoader.Factory assetLoaderFactory,
       AudioMixer.Factory audioMixerFactory,
@@ -857,8 +734,6 @@ public final class Transformer {
     this.removeAudio = removeAudio;
     this.removeVideo = removeVideo;
     this.flattenForSlowMotion = flattenForSlowMotion;
-    this.trimOptimizationEnabled = trimOptimizationEnabled;
-    this.fileStartsOnVideoFrameEnabled = fileStartsOnVideoFrameEnabled;
     this.listeners = listeners;
     this.assetLoaderFactory = assetLoaderFactory;
     this.audioMixerFactory = audioMixerFactory;
@@ -868,7 +743,6 @@ public final class Transformer {
     this.looper = looper;
     this.debugViewProvider = debugViewProvider;
     this.clock = clock;
-    transformerState = TRANSFORMER_STATE_PROCESS_FULL_INPUT;
     applicationHandler = clock.createHandler(looper, /* callback= */ null);
     componentListener = new ComponentListener();
     exportResultBuilder = new ExportResult.Builder();
@@ -994,22 +868,12 @@ public final class Transformer {
    * @throws IllegalStateException If an export is already in progress.
    */
   public void start(Composition composition, String path) {
-    verifyApplicationThread();
     initialize(composition, path);
-    if (!trimOptimizationEnabled || isMultiAsset()) {
-      startInternal(
-          composition,
-          new MuxerWrapper(
-              path,
-              muxerFactory,
-              componentListener,
-              MuxerWrapper.MUXER_MODE_DEFAULT,
-              /* dropSamplesBeforeFirstVideoSample= */ fileStartsOnVideoFrameEnabled),
-          componentListener,
-          /* initialTimestampOffsetUs= */ 0);
-    } else {
-      processMediaBeforeFirstSyncSampleAfterTrimStartTime();
-    }
+    startInternal(
+        composition,
+        new MuxerWrapper(path, muxerFactory, componentListener, MuxerWrapper.MUXER_MODE_DEFAULT),
+        componentListener,
+        /* initialTimestampOffsetUs= */ 0);
   }
 
   /**
@@ -1117,66 +981,12 @@ public final class Transformer {
    */
   public @ProgressState int getProgress(ProgressHolder progressHolder) {
     verifyApplicationThread();
-    if (isExportResumed()) {
-      // Progress updates are unavailable for resumed exports.
+    if (transformerState != TRANSFORMER_STATE_PROCESS_FULL_INPUT) {
       return PROGRESS_STATE_UNAVAILABLE;
     }
-
-    if (transformerState != TRANSFORMER_STATE_PROCESS_FULL_INPUT) {
-      return getTrimOptimizationProgress(progressHolder);
-    }
-
     return transformerInternal == null
         ? PROGRESS_STATE_NOT_STARTED
         : transformerInternal.getProgress(progressHolder);
-  }
-
-  private boolean isExportResumed() {
-    return transformerState == TRANSFORMER_STATE_REMUX_PROCESSED_VIDEO
-        || transformerState == TRANSFORMER_STATE_PROCESS_REMAINING_VIDEO
-        || transformerState == TRANSFORMER_STATE_PROCESS_AUDIO
-        || transformerState == TRANSFORMER_STATE_COPY_OUTPUT;
-  }
-
-  private @ProgressState int getTrimOptimizationProgress(ProgressHolder progressHolder) {
-    if (mediaItemInfo == null) {
-      return PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
-    }
-    MediaItem firstMediaItem =
-        checkNotNull(composition).sequences.get(0).editedMediaItems.get(0).mediaItem;
-    long trimStartTimeUs = firstMediaItem.clippingConfiguration.startPositionUs;
-    long transcodeDuration = mediaItemInfo.firstSyncSampleTimestampUsAfterTimeUs - trimStartTimeUs;
-    float transcodeWeighting = (float) transcodeDuration / mediaItemInfo.durationUs;
-
-    if (transformerState == TRANSFORMER_STATE_PROCESS_MEDIA_START) {
-      if (transformerInternal == null) {
-        return PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
-      }
-      @ProgressState
-      int processMediaStartProgressState = transformerInternal.getProgress(progressHolder);
-      if (processMediaStartProgressState == PROGRESS_STATE_AVAILABLE) {
-        progressHolder.progress = round(progressHolder.progress * transcodeWeighting);
-      }
-      return processMediaStartProgressState;
-    }
-
-    float fullTranscodeProgress = 100 * transcodeWeighting;
-    if (transformerInternal == null) {
-      // Transformer has not started remuxing the remaining media yet.
-      progressHolder.progress = round(fullTranscodeProgress);
-      return PROGRESS_STATE_AVAILABLE;
-    }
-    @ProgressState
-    int remuxRemainingMediaProgressState = transformerInternal.getProgress(progressHolder);
-    if (remuxRemainingMediaProgressState == PROGRESS_STATE_NOT_STARTED
-        || remuxRemainingMediaProgressState == PROGRESS_STATE_WAITING_FOR_AVAILABILITY) {
-      progressHolder.progress = round(fullTranscodeProgress);
-      return PROGRESS_STATE_AVAILABLE;
-    } else if (remuxRemainingMediaProgressState == PROGRESS_STATE_AVAILABLE) {
-      progressHolder.progress =
-          round(fullTranscodeProgress + (1 - transcodeWeighting) * progressHolder.progress);
-    }
-    return remuxRemainingMediaProgressState;
   }
 
   /**
@@ -1216,10 +1026,6 @@ public final class Transformer {
    *   <li>The output is an MP4 file.
    * </ul>
    *
-   * <p>Note that export optimizations (such as {@linkplain
-   * Builder#experimentalSetTrimOptimizationEnabled trim optimization}) will not be applied upon
-   * resumption.
-   *
    * @param composition The {@link Composition} to resume export.
    * @param outputFilePath The path to the output file. This must be different from the output path
    *     of the cancelled export.
@@ -1246,8 +1052,7 @@ public final class Transformer {
             checkNotNull(outputFilePath),
             muxerFactory,
             componentListener,
-            MuxerWrapper.MUXER_MODE_DEFAULT,
-            /* dropSamplesBeforeFirstVideoSample= */ false),
+            MuxerWrapper.MUXER_MODE_DEFAULT),
         componentListener,
         /* initialTimestampOffsetUs= */ 0);
   }
@@ -1255,13 +1060,13 @@ public final class Transformer {
   private void remuxProcessedVideo() {
     transformerState = TRANSFORMER_STATE_REMUX_PROCESSED_VIDEO;
     getResumeMetadataFuture =
-        TransmuxTranscodeHelper.getResumeMetadataAsync(
+        ExportResumeHelper.getResumeMetadataAsync(
             context, checkNotNull(oldFilePath), checkNotNull(composition));
     Futures.addCallback(
         getResumeMetadataFuture,
-        new FutureCallback<TransmuxTranscodeHelper.ResumeMetadata>() {
+        new FutureCallback<ExportResumeHelper.ResumeMetadata>() {
           @Override
-          public void onSuccess(TransmuxTranscodeHelper.ResumeMetadata resumeMetadata) {
+          public void onSuccess(ExportResumeHelper.ResumeMetadata resumeMetadata) {
             // If there is no video track to remux or the last sync sample is actually the first
             // sample, then start the normal Export.
             if (resumeMetadata.lastSyncSampleTimestampUs == C.TIME_UNSET
@@ -1277,11 +1082,10 @@ public final class Transformer {
                     checkNotNull(outputFilePath),
                     muxerFactory,
                     componentListener,
-                    MuxerWrapper.MUXER_MODE_MUX_PARTIAL,
-                    /* dropSamplesBeforeFirstVideoSample= */ false);
+                    MuxerWrapper.MUXER_MODE_MUX_PARTIAL_VIDEO);
 
             startInternal(
-                TransmuxTranscodeHelper.createVideoOnlyComposition(
+                ExportResumeHelper.createVideoOnlyComposition(
                     oldFilePath,
                     /* clippingEndPositionUs= */ resumeMetadata.lastSyncSampleTimestampUs),
                 checkNotNull(remuxingMuxerWrapper),
@@ -1301,14 +1105,14 @@ public final class Transformer {
   private void processRemainingVideo() {
     transformerState = TRANSFORMER_STATE_PROCESS_REMAINING_VIDEO;
     Composition videoOnlyComposition =
-        TransmuxTranscodeHelper.buildUponComposition(
+        ExportResumeHelper.buildUponComposition(
             checkNotNull(composition),
             /* removeAudio= */ true,
             /* removeVideo= */ false,
             resumeMetadata);
 
     checkNotNull(remuxingMuxerWrapper);
-    remuxingMuxerWrapper.changeToAppendMode();
+    remuxingMuxerWrapper.changeToAppendVideoMode();
 
     startInternal(
         videoOnlyComposition,
@@ -1321,14 +1125,13 @@ public final class Transformer {
     transformerState = TRANSFORMER_STATE_PROCESS_AUDIO;
 
     startInternal(
-        TransmuxTranscodeHelper.createAudioTranscodeAndVideoTransmuxComposition(
+        ExportResumeHelper.createAudioTranscodeAndVideoTransmuxComposition(
             checkNotNull(composition), checkNotNull(outputFilePath)),
         new MuxerWrapper(
             checkNotNull(oldFilePath),
             muxerFactory,
             componentListener,
-            MuxerWrapper.MUXER_MODE_DEFAULT,
-            /* dropSamplesBeforeFirstVideoSample= */ false),
+            MuxerWrapper.MUXER_MODE_DEFAULT),
         componentListener,
         /* initialTimestampOffsetUs= */ 0);
   }
@@ -1337,7 +1140,7 @@ public final class Transformer {
   private void copyOutput() {
     transformerState = TRANSFORMER_STATE_COPY_OUTPUT;
     copyOutputFuture =
-        TransmuxTranscodeHelper.copyFileAsync(
+        ExportResumeHelper.copyFileAsync(
             new File(checkNotNull(oldFilePath)), new File(checkNotNull(outputFilePath)));
 
     Futures.addCallback(
@@ -1358,159 +1161,6 @@ public final class Transformer {
         applicationHandler::post);
   }
 
-  private void processMediaBeforeFirstSyncSampleAfterTrimStartTime() {
-    transformerState = TRANSFORMER_STATE_PROCESS_MEDIA_START;
-    MediaItem firstMediaItem =
-        checkNotNull(composition).sequences.get(0).editedMediaItems.get(0).mediaItem;
-    long trimStartTimeUs = firstMediaItem.clippingConfiguration.startPositionUs;
-    long trimEndTimeUs = firstMediaItem.clippingConfiguration.endPositionUs;
-    ListenableFuture<Mp4Info> getMp4InfoFuture =
-        TransmuxTranscodeHelper.getMp4Info(
-            context,
-            checkNotNull(firstMediaItem.localConfiguration).uri.toString(),
-            trimStartTimeUs);
-    Futures.addCallback(
-        getMp4InfoFuture,
-        new FutureCallback<Mp4Info>() {
-          @Override
-          public void onSuccess(Mp4Info mp4Info) {
-            if (mp4Info.firstSyncSampleTimestampUsAfterTimeUs == C.TIME_UNSET) {
-              exportResultBuilder.setOptimizationResult(OPTIMIZATION_ABANDONED_OTHER);
-              processFullInput();
-              return;
-            }
-            if (mp4Info.firstSyncSampleTimestampUsAfterTimeUs == C.TIME_END_OF_SOURCE
-                || (trimEndTimeUs != C.TIME_END_OF_SOURCE
-                    && trimEndTimeUs < mp4Info.firstSyncSampleTimestampUsAfterTimeUs)) {
-              exportResultBuilder.setOptimizationResult(
-                  OPTIMIZATION_ABANDONED_KEYFRAME_PLACEMENT_OPTIMAL_FOR_TRIM);
-              processFullInput();
-              return;
-            }
-            long maxEncodedAudioBufferDurationUs = 0;
-            if (mp4Info.audioFormat != null && mp4Info.audioFormat.sampleRate != Format.NO_VALUE) {
-              // Ensure there is an audio sample to mux between the two clip times to prevent
-              // Transformer from hanging because it received an audio track but no audio samples.
-              maxEncodedAudioBufferDurationUs =
-                  Util.sampleCountToDurationUs(
-                      AAC_LC_AUDIO_SAMPLE_COUNT, mp4Info.audioFormat.sampleRate);
-            }
-            if (mp4Info.firstSyncSampleTimestampUsAfterTimeUs - trimStartTimeUs
-                <= maxEncodedAudioBufferDurationUs) {
-              Transformer.this.composition =
-                  buildNewCompositionWithClipTimes(
-                      composition,
-                      mp4Info.firstSyncSampleTimestampUsAfterTimeUs,
-                      firstMediaItem.clippingConfiguration.endPositionUs,
-                      mp4Info.durationUs,
-                      /* startsAtKeyFrame= */ true);
-              exportResultBuilder.setOptimizationResult(
-                  OPTIMIZATION_ABANDONED_KEYFRAME_PLACEMENT_OPTIMAL_FOR_TRIM);
-              processFullInput();
-              return;
-            }
-            remuxingMuxerWrapper =
-                new MuxerWrapper(
-                    checkNotNull(outputFilePath),
-                    muxerFactory,
-                    componentListener,
-                    MuxerWrapper.MUXER_MODE_MUX_PARTIAL,
-                    /* dropSamplesBeforeFirstVideoSample= */ false);
-            if (shouldTranscodeVideo(
-                    checkNotNull(mp4Info.videoFormat),
-                    composition,
-                    /* sequenceIndex= */ 0,
-                    transformationRequest,
-                    encoderFactory,
-                    remuxingMuxerWrapper)
-                || (mp4Info.audioFormat != null
-                    && shouldTranscodeAudio(
-                        mp4Info.audioFormat,
-                        composition,
-                        /* sequenceIndex= */ 0,
-                        transformationRequest,
-                        encoderFactory,
-                        remuxingMuxerWrapper))) {
-              remuxingMuxerWrapper = null;
-              exportResultBuilder.setOptimizationResult(
-                  OPTIMIZATION_ABANDONED_TRIM_AND_TRANSCODING_TRANSFORMATION_REQUESTED);
-              processFullInput();
-              return;
-            }
-            Transformer.this.mediaItemInfo = mp4Info;
-            Composition trancodeComposition =
-                buildNewCompositionWithClipTimes(
-                    composition,
-                    trimStartTimeUs,
-                    mp4Info.firstSyncSampleTimestampUsAfterTimeUs,
-                    mp4Info.durationUs,
-                    /* startsAtKeyFrame= */ false);
-
-            startInternal(
-                trancodeComposition,
-                checkNotNull(remuxingMuxerWrapper),
-                componentListener,
-                /* initialTimestampOffsetUs= */ 0);
-          }
-
-          @Override
-          public void onFailure(Throwable t) {
-            exportResultBuilder.setOptimizationResult(OPTIMIZATION_FAILED_EXTRACTION_FAILED);
-            processFullInput();
-          }
-        },
-        applicationHandler::post);
-  }
-
-  private void remuxRemainingMedia() {
-    transformerState = TRANSFORMER_STATE_REMUX_REMAINING_MEDIA;
-    EditedMediaItem firstEditedMediaItem =
-        checkNotNull(composition).sequences.get(0).editedMediaItems.get(0);
-    Mp4Info mediaItemInfo = checkNotNull(this.mediaItemInfo);
-    if (!doesFormatsMatch(mediaItemInfo, firstEditedMediaItem)) {
-      remuxingMuxerWrapper = null;
-      transformerInternal = null;
-      exportResultBuilder.setOptimizationResult(OPTIMIZATION_FAILED_FORMAT_MISMATCH);
-      processFullInput();
-      return;
-    }
-    long trimStartTimeUs = firstEditedMediaItem.mediaItem.clippingConfiguration.startPositionUs;
-    long trimEndTimeUs = firstEditedMediaItem.mediaItem.clippingConfiguration.endPositionUs;
-    Composition transmuxComposition =
-        buildNewCompositionWithClipTimes(
-            composition,
-            mediaItemInfo.firstSyncSampleTimestampUsAfterTimeUs,
-            trimEndTimeUs,
-            mediaItemInfo.durationUs,
-            /* startsAtKeyFrame= */ true);
-    checkNotNull(remuxingMuxerWrapper);
-    remuxingMuxerWrapper.changeToAppendMode();
-    startInternal(
-        transmuxComposition,
-        remuxingMuxerWrapper,
-        componentListener,
-        /* initialTimestampOffsetUs= */ mediaItemInfo.firstSyncSampleTimestampUsAfterTimeUs
-            - trimStartTimeUs);
-  }
-
-  private boolean doesFormatsMatch(Mp4Info mediaItemInfo, EditedMediaItem firstMediaItem) {
-    boolean videoFormatMatches =
-        checkNotNull(remuxingMuxerWrapper)
-            .getTrackFormat(C.TRACK_TYPE_VIDEO)
-            .initializationDataEquals(checkNotNull(mediaItemInfo.videoFormat));
-    boolean audioFormatMatches =
-        mediaItemInfo.audioFormat == null
-            || firstMediaItem.removeAudio
-            || mediaItemInfo.audioFormat.initializationDataEquals(
-                checkNotNull(remuxingMuxerWrapper).getTrackFormat(C.TRACK_TYPE_AUDIO));
-    return videoFormatMatches && audioFormatMatches;
-  }
-
-  private boolean isMultiAsset() {
-    return checkNotNull(composition).sequences.size() > 1
-        || composition.sequences.get(0).editedMediaItems.size() > 1;
-  }
-
   private void verifyApplicationThread() {
     if (Looper.myLooper() != looper) {
       throw new IllegalStateException("Transformer is accessed on the wrong thread.");
@@ -1523,6 +1173,7 @@ public final class Transformer {
       ComponentListener componentListener,
       long initialTimestampOffsetUs) {
     checkArgument(composition.effects.audioProcessors.isEmpty());
+    verifyApplicationThread();
     checkState(transformerInternal == null, "There is already an export in progress.");
     TransformationRequest transformationRequest = this.transformationRequest;
     if (composition.hdrMode != Composition.HDR_MODE_KEEP_HDR) {
@@ -1557,7 +1208,8 @@ public final class Transformer {
             applicationHandler,
             debugViewProvider,
             clock,
-            initialTimestampOffsetUs);
+            initialTimestampOffsetUs,
+            /* matchInitializationData= */ false);
     transformerInternal.start();
   }
 
@@ -1606,13 +1258,6 @@ public final class Transformer {
         processAudio();
       } else if (transformerState == TRANSFORMER_STATE_PROCESS_AUDIO) {
         copyOutput();
-      } else if (transformerState == TRANSFORMER_STATE_PROCESS_MEDIA_START) {
-        remuxRemainingMedia();
-      } else if (transformerState == TRANSFORMER_STATE_REMUX_REMAINING_MEDIA) {
-        transformerState = TRANSFORMER_STATE_PROCESS_FULL_INPUT;
-        mediaItemInfo = null;
-        exportResultBuilder.setOptimizationResult(ExportResult.OPTIMIZATION_SUCCEEDED);
-        onExportCompletedWithSuccess();
       } else {
         onExportCompletedWithSuccess();
       }

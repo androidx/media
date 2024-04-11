@@ -49,9 +49,7 @@ public class TransformerWithInAppMuxerEndToEndTest {
       return;
     }
     Transformer transformer =
-        new Transformer.Builder(context)
-            .setMuxerFactory(new InAppMuxer.Factory.Builder().build())
-            .build();
+        new Transformer.Builder(context).setMuxerFactory(new InAppMuxer.Factory()).build();
     ImmutableList<Effect> videoEffects = ImmutableList.of(RgbFilter.createGrayscaleFilter());
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_AV1_VIDEO_URI_STRING));
     EditedMediaItem editedMediaItem =

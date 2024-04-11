@@ -18,6 +18,7 @@ package androidx.media3.session;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.BitmapLoader;
@@ -49,11 +50,6 @@ public final class CacheBitmapLoader implements BitmapLoader {
   }
 
   @Override
-  public boolean supportsMimeType(String mimeType) {
-    return bitmapLoader.supportsMimeType(mimeType);
-  }
-
-  @Override
   public ListenableFuture<Bitmap> decodeBitmap(byte[] data) {
     if (lastBitmapLoadRequest != null && lastBitmapLoadRequest.matches(data)) {
       return lastBitmapLoadRequest.getFuture();
@@ -64,11 +60,11 @@ public final class CacheBitmapLoader implements BitmapLoader {
   }
 
   @Override
-  public ListenableFuture<Bitmap> loadBitmap(Uri uri) {
+  public ListenableFuture<Bitmap> loadBitmap(Uri uri, @Nullable BitmapFactory.Options options) {
     if (lastBitmapLoadRequest != null && lastBitmapLoadRequest.matches(uri)) {
       return lastBitmapLoadRequest.getFuture();
     }
-    ListenableFuture<Bitmap> future = bitmapLoader.loadBitmap(uri);
+    ListenableFuture<Bitmap> future = bitmapLoader.loadBitmap(uri, options);
     lastBitmapLoadRequest = new BitmapLoadRequest(uri, future);
     return future;
   }

@@ -108,7 +108,7 @@ public class CmcdDataTest {
                       getCustomData() {
                     return new ImmutableListMultimap.Builder<String, String>()
                         .put("CMCD-Object", "key-1=1")
-                        .put("CMCD-Request", "key-2=\"stringVälue1,stringVälue2\"")
+                        .put("CMCD-Request", "key-2=\"stringValue1,stringValue2\"")
                         .build();
                   }
 
@@ -143,13 +143,11 @@ public class CmcdDataTest {
 
     dataSpec = cmcdData.addToDataSpec(dataSpec);
 
-    // Confirm that the values above are URL-encoded
-    assertThat(dataSpec.uri.toString()).doesNotContain("ä");
-    assertThat(dataSpec.uri.toString()).contains(Uri.encode("ä"));
-    assertThat(dataSpec.uri.getQueryParameter(CmcdConfiguration.CMCD_QUERY_PARAMETER_KEY))
+    assertThat(
+            Uri.decode(dataSpec.uri.getQueryParameter(CmcdConfiguration.CMCD_QUERY_PARAMETER_KEY)))
         .isEqualTo(
             "bl=1800,br=840,bs,cid=\"mediaId\",d=3000,dl=900,key-1=1,"
-                + "key-2=\"stringVälue1,stringVälue2\",mtp=500,pr=2.00,rtp=1700,sf=d,"
+                + "key-2=\"stringValue1,stringValue2\",mtp=500,pr=2.00,rtp=1700,sf=d,"
                 + "sid=\"sessionId\",st=l,su,tb=1000");
   }
 

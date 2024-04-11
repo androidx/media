@@ -244,8 +244,7 @@ import java.util.List;
       long lastSetPlayWhenReadyCalledTimeMs,
       long timeDiffMs) {
     boolean receivedUpdatedPositionInfo =
-        playerInfo.sessionPositionInfo.equals(SessionPositionInfo.DEFAULT)
-            || (lastSetPlayWhenReadyCalledTimeMs < playerInfo.sessionPositionInfo.eventTimeMs);
+        lastSetPlayWhenReadyCalledTimeMs < playerInfo.sessionPositionInfo.eventTimeMs;
     if (!playerInfo.isPlaying) {
       if (receivedUpdatedPositionInfo || currentPositionMs == C.TIME_UNSET) {
         return playerInfo.sessionPositionInfo.positionInfo.positionMs;

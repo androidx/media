@@ -26,6 +26,7 @@ import static com.google.common.truth.Truth.assertThat;
 import android.content.Context;
 import android.net.Uri;
 import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.transformer.AndroidTestUtil;
 import androidx.media3.transformer.Composition;
@@ -58,7 +59,10 @@ public class ToneMapHdrToSdrUsingMediaCodecTest {
         context,
         testId,
         /* inputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10_FORMAT,
-        /* outputFormat= */ null)) {
+        /* outputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10_FORMAT
+            .buildUpon()
+            .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
+            .build())) {
       return;
     }
 
@@ -116,7 +120,10 @@ public class ToneMapHdrToSdrUsingMediaCodecTest {
         context,
         testId,
         /* inputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT,
-        /* outputFormat= */ null)) {
+        /* outputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT
+            .buildUpon()
+            .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
+            .build())) {
       return;
     }
 
@@ -174,7 +181,10 @@ public class ToneMapHdrToSdrUsingMediaCodecTest {
         context,
         testId,
         /* inputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10_FORMAT,
-        /* outputFormat= */ null)) {
+        /* outputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10_FORMAT
+            .buildUpon()
+            .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
+            .build())) {
       return;
     }
 
@@ -233,7 +243,10 @@ public class ToneMapHdrToSdrUsingMediaCodecTest {
         context,
         testId,
         /* inputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT,
-        /* outputFormat= */ null)) {
+        /* outputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT
+            .buildUpon()
+            .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
+            .build())) {
       return;
     }
 

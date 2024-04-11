@@ -63,7 +63,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     paint = new Paint();
     paint.setTextSize(64);
     paint.setAntiAlias(true);
-    paint.setColor(Color.WHITE);
+    paint.setARGB(0xFF, 0xFF, 0xFF, 0xFF);
     textures = new int[1];
     overlayBitmap = Bitmap.createBitmap(OVERLAY_WIDTH, OVERLAY_HEIGHT, Bitmap.Config.ARGB_8888);
     overlayCanvas = new Canvas(overlayBitmap);

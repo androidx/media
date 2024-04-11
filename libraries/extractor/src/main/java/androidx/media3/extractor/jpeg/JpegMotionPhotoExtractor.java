@@ -17,7 +17,6 @@ package androidx.media3.extractor.jpeg;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.extractor.SingleSampleExtractor.IMAGE_TRACK_ID;
-import static androidx.media3.extractor.mp4.Mp4Extractor.FLAG_MARK_FIRST_VIDEO_TRACK_WITH_MAIN_ROLE;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
@@ -36,7 +35,6 @@ import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.metadata.mp4.MotionPhotoMetadata;
 import androidx.media3.extractor.mp4.Mp4Extractor;
-import androidx.media3.extractor.text.SubtitleParser;
 import java.io.IOException;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -202,7 +200,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       if (mp4StartPosition != C.INDEX_UNSET) {
         state = STATE_SNIFFING_MOTION_PHOTO_VIDEO;
       } else {
-        endReading();
+        endReadingWithImageTrack();
       }
     } else if ((marker < 0xFFD0 || marker > 0xFFD9) && marker != 0xFF01) {
       state = STATE_READING_SEGMENT_LENGTH;
@@ -242,13 +240,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         input.peekFully(
             scratch.getData(), /* offset= */ 0, /* length= */ 1, /* allowEndOfInput= */ true);
     if (!peekedData) {
-      endReading();
+      endReadingWithImageTrack();
     } else {
       input.resetPeekPosition();
       if (mp4Extractor == null) {
-        mp4Extractor =
-            new Mp4Extractor(
-                SubtitleParser.Factory.UNSUPPORTED, FLAG_MARK_FIRST_VIDEO_TRACK_WITH_MAIN_ROLE);
+        mp4Extractor = new Mp4Extractor();
       }
       mp4ExtractorStartOffsetExtractorInput =
           new StartOffsetExtractorInput(input, mp4StartPosition);
@@ -257,7 +253,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             new StartOffsetExtractorOutput(mp4StartPosition, checkNotNull(extractorOutput)));
         startReadingMotionPhoto();
       } else {
-        endReading();
+        endReadingWithImageTrack();
       }
     }
   }
@@ -267,19 +263,21 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     state = STATE_READING_MOTION_PHOTO_VIDEO;
   }
 
-  private void endReading() {
+  private void endReadingWithImageTrack() {
+    outputImageTrack();
     checkNotNull(extractorOutput).endTracks();
     extractorOutput.seekMap(new SeekMap.Unseekable(/* durationUs= */ C.TIME_UNSET));
     state = STATE_ENDED;
   }
 
-  private void outputImageTrack(MotionPhotoMetadata motionPhotoMetadata) {
+  private void outputImageTrack(Metadata.Entry... metadataEntries) {
     TrackOutput imageTrackOutput =
         checkNotNull(extractorOutput).track(IMAGE_TRACK_ID, C.TRACK_TYPE_IMAGE);
+    // TODO(b/289989902): Set the rotationDegrees in format so images can be decoded correctly.
     imageTrackOutput.format(
         new Format.Builder()
             .setContainerMimeType(MimeTypes.IMAGE_JPEG)
-            .setMetadata(new Metadata(motionPhotoMetadata))
+            .setMetadata(new Metadata(metadataEntries))
             .build());
   }
 

@@ -167,72 +167,6 @@ public final class DashPlaybackTest {
         applicationContext, playbackOutput, "playbackdumps/dash/ttml-in-mp4.dump");
   }
 
-  /**
-   * This test and {@link #cea608_parseDuringExtraction()} use the same output dump file, to
-   * demonstrate the flag has no effect on the resulting subtitles.
-   */
-  @Test
-  public void cea608_parseDuringRendering() throws Exception {
-    Context applicationContext = ApplicationProvider.getApplicationContext();
-    CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
-    ExoPlayer player =
-        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setMediaSourceFactory(
-                new DashMediaSource.Factory(new DefaultDataSource.Factory(applicationContext))
-                    .experimentalParseSubtitlesDuringExtraction(false))
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
-            .build();
-    player.setVideoSurface(new Surface(new SurfaceTexture(/* texName= */ 1)));
-    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
-
-    // Ensure the subtitle track is selected.
-    DefaultTrackSelector trackSelector =
-        checkNotNull((DefaultTrackSelector) player.getTrackSelector());
-    trackSelector.setParameters(trackSelector.buildUponParameters().setPreferredTextLanguage("en"));
-    player.setMediaItem(MediaItem.fromUri("asset:///media/dash/cea608/manifest.mpd"));
-    player.prepare();
-    player.play();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
-    player.release();
-
-    DumpFileAsserts.assertOutput(
-        applicationContext, playbackOutput, "playbackdumps/dash/cea608.dump");
-  }
-
-  /**
-   * This test and {@link #cea608_parseDuringRendering()} use the same output dump file, to
-   * demonstrate the flag has no effect on the resulting subtitles.
-   */
-  @Test
-  public void cea608_parseDuringExtraction() throws Exception {
-    Context applicationContext = ApplicationProvider.getApplicationContext();
-    CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
-    ExoPlayer player =
-        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setMediaSourceFactory(
-                new DashMediaSource.Factory(new DefaultDataSource.Factory(applicationContext))
-                    .experimentalParseSubtitlesDuringExtraction(true))
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
-            .build();
-    player.setVideoSurface(new Surface(new SurfaceTexture(/* texName= */ 1)));
-    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
-
-    // Ensure the subtitle track is selected.
-    DefaultTrackSelector trackSelector =
-        checkNotNull((DefaultTrackSelector) player.getTrackSelector());
-    trackSelector.setParameters(trackSelector.buildUponParameters().setPreferredTextLanguage("en"));
-    player.setMediaItem(MediaItem.fromUri("asset:///media/dash/cea608/manifest.mpd"));
-    player.prepare();
-    player.play();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
-    player.release();
-
-    DumpFileAsserts.assertOutput(
-        applicationContext, playbackOutput, "playbackdumps/dash/cea608.dump");
-  }
-
   // https://github.com/google/ExoPlayer/issues/8710
   @Test
   public void emsgNearToPeriodBoundary() throws Exception {
@@ -322,11 +256,6 @@ public final class DashPlaybackTest {
         applicationContext, playbackOutput, "playbackdumps/dash/metadata_from_early_output.dump");
   }
 
-  /**
-   * This test might be flaky. The {@link ExoPlayer} instantiated in this test uses a {@link
-   * FakeClock} that runs much faster than real time. This might cause the {@link ExoPlayer} to skip
-   * and not present some images. That will cause the test to fail.
-   */
   @Test
   public void playThumbnailGrid() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
@@ -346,29 +275,5 @@ public final class DashPlaybackTest {
 
     DumpFileAsserts.assertOutput(
         applicationContext, playbackOutput, "playbackdumps/dash/loadimage.dump");
-  }
-
-  @Test
-  public void playThumbnailGrid_withSeekAfterEoS() throws Exception {
-    Context applicationContext = ApplicationProvider.getApplicationContext();
-    CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
-    ExoPlayer player =
-        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
-            .build();
-    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
-    player.setMediaItem(MediaItem.fromUri("asset:///media/dash/thumbnails/sample.mpd"));
-    player.seekTo(55_000L);
-    player.prepare();
-    player.play();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
-
-    player.seekTo(55_000L);
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
-    player.release();
-
-    DumpFileAsserts.assertOutput(
-        applicationContext, playbackOutput, "playbackdumps/dash/image_with_seek_after_eos.dump");
   }
 }
