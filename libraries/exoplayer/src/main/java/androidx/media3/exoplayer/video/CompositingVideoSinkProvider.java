@@ -242,6 +242,42 @@ public final class CompositingVideoSinkProvider
   // VideoSinkProvider methods
 
   @Override
+  public void setVideoFrameReleaseControl(VideoFrameReleaseControl videoFrameReleaseControl) {
+    checkState(!isInitialized());
+    this.videoFrameReleaseControl = videoFrameReleaseControl;
+    videoFrameRenderControl =
+        new VideoFrameRenderControl(/* frameRenderer= */ this, videoFrameReleaseControl);
+  }
+
+  @Override
+  @Nullable
+  public VideoFrameReleaseControl getVideoFrameReleaseControl() {
+    return videoFrameReleaseControl;
+  }
+
+  @Override
+  public void setClock(Clock clock) {
+    checkState(!isInitialized());
+    this.clock = clock;
+  }
+
+  @Override
+  public void setVideoEffects(List<Effect> videoEffects) {
+    this.videoEffects = videoEffects;
+    if (isInitialized()) {
+      checkStateNotNull(videoSinkImpl).setVideoEffects(videoEffects);
+    }
+  }
+
+  @Override
+  public void setPendingVideoEffects(List<Effect> videoEffects) {
+    this.videoEffects = videoEffects;
+    if (isInitialized()) {
+      checkStateNotNull(videoSinkImpl).setPendingVideoEffects(videoEffects);
+    }
+  }
+
+  @Override
   public void initialize(Format sourceFormat) throws VideoSink.VideoSinkException {
     checkState(state == STATE_CREATED);
     checkStateNotNull(videoEffects);
@@ -292,41 +328,8 @@ public final class CompositingVideoSinkProvider
   }
 
   @Override
-  public void release() {
-    if (state == STATE_RELEASED) {
-      return;
-    }
-
-    if (handler != null) {
-      handler.removeCallbacksAndMessages(/* token= */ null);
-    }
-
-    if (videoGraph != null) {
-      videoGraph.release();
-    }
-    currentSurfaceAndSize = null;
-    state = STATE_RELEASED;
-  }
-
-  @Override
   public VideoSink getSink() {
     return checkStateNotNull(videoSinkImpl);
-  }
-
-  @Override
-  public void setVideoEffects(List<Effect> videoEffects) {
-    this.videoEffects = videoEffects;
-    if (isInitialized()) {
-      checkStateNotNull(videoSinkImpl).setVideoEffects(videoEffects);
-    }
-  }
-
-  @Override
-  public void setPendingVideoEffects(List<Effect> videoEffects) {
-    this.videoEffects = videoEffects;
-    if (isInitialized()) {
-      checkStateNotNull(videoSinkImpl).setPendingVideoEffects(videoEffects);
-    }
   }
 
   @Override
@@ -347,14 +350,6 @@ public final class CompositingVideoSinkProvider
   }
 
   @Override
-  public void setVideoFrameReleaseControl(VideoFrameReleaseControl videoFrameReleaseControl) {
-    checkState(!isInitialized());
-    this.videoFrameReleaseControl = videoFrameReleaseControl;
-    videoFrameRenderControl =
-        new VideoFrameRenderControl(/* frameRenderer= */ this, videoFrameReleaseControl);
-  }
-
-  @Override
   public void clearOutputSurfaceInfo() {
     maybeSetOutputSurfaceInfo(
         /* surface= */ null,
@@ -369,15 +364,20 @@ public final class CompositingVideoSinkProvider
   }
 
   @Override
-  @Nullable
-  public VideoFrameReleaseControl getVideoFrameReleaseControl() {
-    return videoFrameReleaseControl;
-  }
+  public void release() {
+    if (state == STATE_RELEASED) {
+      return;
+    }
 
-  @Override
-  public void setClock(Clock clock) {
-    checkState(!isInitialized());
-    this.clock = clock;
+    if (handler != null) {
+      handler.removeCallbacksAndMessages(/* token= */ null);
+    }
+
+    if (videoGraph != null) {
+      videoGraph.release();
+    }
+    currentSurfaceAndSize = null;
+    state = STATE_RELEASED;
   }
 
   // VideoGraph.Listener
