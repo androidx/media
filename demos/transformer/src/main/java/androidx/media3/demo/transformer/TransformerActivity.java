@@ -58,6 +58,7 @@ import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.effect.BitmapOverlay;
 import androidx.media3.effect.Contrast;
@@ -87,6 +88,9 @@ import androidx.media3.transformer.EditedMediaItemSequence;
 import androidx.media3.transformer.Effects;
 import androidx.media3.transformer.ExportException;
 import androidx.media3.transformer.ExportResult;
+import androidx.media3.transformer.InAppMuxer;
+import androidx.media3.transformer.JsonUtil;
+import androidx.media3.transformer.Muxer;
 import androidx.media3.transformer.ProgressHolder;
 import androidx.media3.transformer.Transformer;
 import androidx.media3.ui.AspectRatioFrameLayout;
@@ -108,6 +112,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /** An {@link Activity} that exports and plays media using {@link Transformer}. */
 public final class TransformerActivity extends AppCompatActivity {
@@ -320,10 +326,20 @@ public final class TransformerActivity extends AppCompatActivity {
               .setEnableFallback(bundle.getBoolean(ConfigurationActivity.ENABLE_FALLBACK))
               .build());
 
+      long maxDelayBetweenSamplesMs = DefaultMuxer.Factory.DEFAULT_MAX_DELAY_BETWEEN_SAMPLES_MS;
       if (!bundle.getBoolean(ConfigurationActivity.ABORT_SLOW_EXPORT)) {
-        transformerBuilder.setMuxerFactory(
-            new DefaultMuxer.Factory(/* maxDelayBetweenSamplesMs= */ C.TIME_UNSET));
+        maxDelayBetweenSamplesMs = C.TIME_UNSET;
       }
+
+      Muxer.Factory muxerFactory = new DefaultMuxer.Factory(maxDelayBetweenSamplesMs);
+      if (bundle.getBoolean(ConfigurationActivity.PRODUCE_FRAGMENTED_MP4)) {
+        muxerFactory =
+            new InAppMuxer.Factory.Builder()
+                .setMaxDelayBetweenSamplesMs(maxDelayBetweenSamplesMs)
+                .setFragmentedMp4Enabled(true)
+                .build();
+      }
+      transformerBuilder.setMuxerFactory(muxerFactory);
 
       if (bundle.getBoolean(ConfigurationActivity.ENABLE_DEBUG_PREVIEW)) {
         transformerBuilder.setDebugViewProvider(new DemoDebugViewProvider());
@@ -335,7 +351,7 @@ public final class TransformerActivity extends AppCompatActivity {
             new Transformer.Listener() {
               @Override
               public void onCompleted(Composition composition, ExportResult exportResult) {
-                TransformerActivity.this.onCompleted(inputUri, filePath);
+                TransformerActivity.this.onCompleted(inputUri, filePath, exportResult);
               }
 
               @Override
@@ -693,13 +709,11 @@ public final class TransformerActivity extends AppCompatActivity {
     "debugFrame",
     "exportStopwatch",
   })
-  private void onCompleted(Uri inputUri, String filePath) {
+  private void onCompleted(Uri inputUri, String filePath, ExportResult exportResult) {
     exportStopwatch.stop();
+    long elapsedTimeMs = exportStopwatch.elapsed(TimeUnit.MILLISECONDS);
     informationTextView.setText(
-        getString(
-            R.string.export_completed,
-            exportStopwatch.elapsed(TimeUnit.MILLISECONDS) / 1000.f,
-            filePath));
+        getString(R.string.export_completed, elapsedTimeMs / 1000.f, filePath));
     progressViewGroup.setVisibility(View.GONE);
     debugFrame.removeAllViews();
     inputCardView.setVisibility(View.VISIBLE);
@@ -717,6 +731,17 @@ public final class TransformerActivity extends AppCompatActivity {
     }
     playMediaItems(MediaItem.fromUri(inputUri), MediaItem.fromUri("file://" + filePath));
     Log.d(TAG, "Output file path: file://" + filePath);
+    try {
+      JSONObject resultJson =
+          JsonUtil.exportResultAsJsonObject(exportResult)
+              .put("elapsedTimeMs", elapsedTimeMs)
+              .put("device", JsonUtil.getDeviceDetailsAsJsonObject());
+      for (String line : Util.split(resultJson.toString(2), "\n")) {
+        Log.d(TAG, line);
+      }
+    } catch (JSONException e) {
+      Log.d(TAG, "Unable to convert exportResult to JSON", e);
+    }
   }
 
   @RequiresNonNull({

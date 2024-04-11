@@ -15,15 +15,18 @@
  */
 package androidx.media3.common;
 
+import static androidx.media3.common.util.Assertions.checkState;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.os.Bundle;
+import android.text.TextUtils;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -42,14 +45,15 @@ import java.util.UUID;
  *
  * <p>When building formats, populate all fields whose values are known and relevant to the type of
  * format being constructed. For information about different types of format, see ExoPlayer's <a
- * href="https://developer.android.com/guide/topics/media/exoplayer/supported-formats">Supported
- * formats page</a>.
+ * href="https://developer.android.com/media/media3/exoplayer/supported-formats">Supported formats
+ * page</a>.
  *
  * <h2>Fields commonly relevant to all formats</h2>
  *
  * <ul>
  *   <li>{@link #id}
  *   <li>{@link #label}
+ *   <li>{@link #labels}
  *   <li>{@link #language}
  *   <li>{@link #selectionFlags}
  *   <li>{@link #roleFlags}
@@ -137,6 +141,7 @@ public final class Format implements Bundleable {
 
     @Nullable private String id;
     @Nullable private String label;
+    private List<Label> labels;
     @Nullable private String language;
     private @C.SelectionFlags int selectionFlags;
     private @C.RoleFlags int roleFlags;
@@ -192,6 +197,7 @@ public final class Format implements Bundleable {
 
     /** Creates a new instance with default values. */
     public Builder() {
+      labels = ImmutableList.of();
       averageBitrate = NO_VALUE;
       peakBitrate = NO_VALUE;
       // Sample specific.
@@ -225,6 +231,7 @@ public final class Format implements Bundleable {
     private Builder(Format format) {
       this.id = format.id;
       this.label = format.label;
+      this.labels = format.labels;
       this.language = format.language;
       this.selectionFlags = format.selectionFlags;
       this.roleFlags = format.roleFlags;
@@ -293,12 +300,30 @@ public final class Format implements Bundleable {
     /**
      * Sets {@link Format#label}. The default value is {@code null}.
      *
+     * <p>If both this default label and a list of {@link #setLabels labels} are set, this default
+     * label must be part of label list.
+     *
      * @param label The {@link Format#label}.
      * @return The builder.
      */
     @CanIgnoreReturnValue
     public Builder setLabel(@Nullable String label) {
       this.label = label;
+      return this;
+    }
+
+    /**
+     * Sets {@link Format#labels}. The default value is an empty list.
+     *
+     * <p>If both the default {@linkplain #setLabel label} and this list are set, the default label
+     * must be part of this list of labels.
+     *
+     * @param labels The {@link Format#labels}.
+     * @return The builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setLabels(List<Label> labels) {
+      this.labels = ImmutableList.copyOf(labels);
       return this;
     }
 
@@ -740,8 +765,21 @@ public final class Format implements Bundleable {
   /** An identifier for the format, or null if unknown or not applicable. */
   @Nullable public final String id;
 
-  /** The human readable label, or null if unknown or not applicable. */
+  /**
+   * The default human readable label, or null if unknown or not applicable.
+   *
+   * <p>If non-null, the same label will be part of {@link #labels} too. If null, {@link #labels}
+   * will be empty.
+   */
   @Nullable public final String label;
+
+  /**
+   * The human readable list of labels, or an empty list if unknown or not applicable.
+   *
+   * <p>If non-empty, the default {@link #label} will be part of this list. If empty, the default
+   * {@link #label} will be null.
+   */
+  @UnstableApi public final List<Label> labels;
 
   /** The language as an IETF BCP 47 conformant tag, or null if unknown or not applicable. */
   @Nullable public final String language;
@@ -931,8 +969,20 @@ public final class Format implements Bundleable {
 
   private Format(Builder builder) {
     id = builder.id;
-    label = builder.label;
     language = Util.normalizeLanguageCode(builder.language);
+    if (builder.labels.isEmpty() && builder.label != null) {
+      labels = ImmutableList.of(new Label(language, builder.label));
+      label = builder.label;
+    } else if (!builder.labels.isEmpty() && builder.label == null) {
+      labels = builder.labels;
+      label = getDefaultLabel(builder.labels, language);
+    } else {
+      checkState(
+          (builder.labels.isEmpty() && builder.label == null)
+              || (builder.labels.stream().anyMatch(l -> l.value.equals(builder.label))));
+      labels = builder.labels;
+      label = builder.label;
+    }
     selectionFlags = builder.selectionFlags;
     roleFlags = builder.roleFlags;
     averageBitrate = builder.averageBitrate;
@@ -998,9 +1048,12 @@ public final class Format implements Bundleable {
 
     // Use manifest value only.
     @Nullable String id = manifestFormat.id;
+    int tileCountHorizontal = manifestFormat.tileCountHorizontal;
+    int tileCountVertical = manifestFormat.tileCountVertical;
 
     // Prefer manifest values, but fill in from sample format if missing.
     @Nullable String label = manifestFormat.label != null ? manifestFormat.label : this.label;
+    List<Label> labels = !manifestFormat.labels.isEmpty() ? manifestFormat.labels : this.labels;
     @Nullable String language = this.language;
     if ((trackType == C.TRACK_TYPE_TEXT || trackType == C.TRACK_TYPE_AUDIO)
         && manifestFormat.language != null) {
@@ -1042,6 +1095,7 @@ public final class Format implements Bundleable {
     return buildUpon()
         .setId(id)
         .setLabel(label)
+        .setLabels(labels)
         .setLanguage(language)
         .setSelectionFlags(selectionFlags)
         .setRoleFlags(roleFlags)
@@ -1051,6 +1105,8 @@ public final class Format implements Bundleable {
         .setMetadata(metadata)
         .setDrmInitData(drmInitData)
         .setFrameRate(frameRate)
+        .setTileCountHorizontal(tileCountHorizontal)
+        .setTileCountVertical(tileCountVertical)
         .build();
   }
 
@@ -1107,7 +1163,8 @@ public final class Format implements Bundleable {
       // Some fields for which hashing is expensive are deliberately omitted.
       int result = 17;
       result = 31 * result + (id == null ? 0 : id.hashCode());
-      result = 31 * result + (label != null ? label.hashCode() : 0);
+      result = 31 * result + (label == null ? 0 : label.hashCode());
+      result = 31 * result + labels.hashCode();
       result = 31 * result + (language == null ? 0 : language.hashCode());
       result = 31 * result + selectionFlags;
       result = 31 * result + roleFlags;
@@ -1186,6 +1243,7 @@ public final class Format implements Bundleable {
         && Float.compare(pixelWidthHeightRatio, other.pixelWidthHeightRatio) == 0
         && Util.areEqual(id, other.id)
         && Util.areEqual(label, other.label)
+        && labels.equals(other.labels)
         && Util.areEqual(codecs, other.codecs)
         && Util.areEqual(containerMimeType, other.containerMimeType)
         && Util.areEqual(sampleMimeType, other.sampleMimeType)
@@ -1228,6 +1286,9 @@ public final class Format implements Bundleable {
     }
     StringBuilder builder = new StringBuilder();
     builder.append("id=").append(format.id).append(", mimeType=").append(format.sampleMimeType);
+    if (format.containerMimeType != null) {
+      builder.append(", container=").append(format.containerMimeType);
+    }
     if (format.bitrate != NO_VALUE) {
       builder.append(", bitrate=").append(format.bitrate);
     }
@@ -1274,75 +1335,19 @@ public final class Format implements Bundleable {
     if (format.language != null) {
       builder.append(", language=").append(format.language);
     }
-    if (format.label != null) {
-      builder.append(", label=").append(format.label);
+    if (!format.labels.isEmpty()) {
+      builder.append(", labels=[");
+      Joiner.on(',').appendTo(builder, format.labels);
+      builder.append("]");
     }
     if (format.selectionFlags != 0) {
-      List<String> selectionFlags = new ArrayList<>();
-      // LINT.IfChange(selection_flags)
-      if ((format.selectionFlags & C.SELECTION_FLAG_AUTOSELECT) != 0) {
-        selectionFlags.add("auto");
-      }
-      if ((format.selectionFlags & C.SELECTION_FLAG_DEFAULT) != 0) {
-        selectionFlags.add("default");
-      }
-      if ((format.selectionFlags & C.SELECTION_FLAG_FORCED) != 0) {
-        selectionFlags.add("forced");
-      }
       builder.append(", selectionFlags=[");
-      Joiner.on(',').appendTo(builder, selectionFlags);
+      Joiner.on(',').appendTo(builder, Util.getSelectionFlagStrings(format.selectionFlags));
       builder.append("]");
     }
     if (format.roleFlags != 0) {
-      // LINT.IfChange(role_flags)
-      List<String> roleFlags = new ArrayList<>();
-      if ((format.roleFlags & C.ROLE_FLAG_MAIN) != 0) {
-        roleFlags.add("main");
-      }
-      if ((format.roleFlags & C.ROLE_FLAG_ALTERNATE) != 0) {
-        roleFlags.add("alt");
-      }
-      if ((format.roleFlags & C.ROLE_FLAG_SUPPLEMENTARY) != 0) {
-        roleFlags.add("supplementary");
-      }
-      if ((format.roleFlags & C.ROLE_FLAG_COMMENTARY) != 0) {
-        roleFlags.add("commentary");
-      }
-      if ((format.roleFlags & C.ROLE_FLAG_DUB) != 0) {
-        roleFlags.add("dub");
-      }
-      if ((format.roleFlags & C.ROLE_FLAG_EMERGENCY) != 0) {
-        roleFlags.add("emergency");
-      }
-      if ((format.roleFlags & C.ROLE_FLAG_CAPTION) != 0) {
-        roleFlags.add("caption");
-      }
-      if ((format.roleFlags & C.ROLE_FLAG_SUBTITLE) != 0) {
-        roleFlags.add("subtitle");
-      }
-      if ((format.roleFlags & C.ROLE_FLAG_SIGN) != 0) {
-        roleFlags.add("sign");
-      }
-      if ((format.roleFlags & C.ROLE_FLAG_DESCRIBES_VIDEO) != 0) {
-        roleFlags.add("describes-video");
-      }
-      if ((format.roleFlags & C.ROLE_FLAG_DESCRIBES_MUSIC_AND_SOUND) != 0) {
-        roleFlags.add("describes-music");
-      }
-      if ((format.roleFlags & C.ROLE_FLAG_ENHANCED_DIALOG_INTELLIGIBILITY) != 0) {
-        roleFlags.add("enhanced-intelligibility");
-      }
-      if ((format.roleFlags & C.ROLE_FLAG_TRANSCRIBES_DIALOG) != 0) {
-        roleFlags.add("transcribes-dialog");
-      }
-      if ((format.roleFlags & C.ROLE_FLAG_EASY_TO_READ) != 0) {
-        roleFlags.add("easy-read");
-      }
-      if ((format.roleFlags & C.ROLE_FLAG_TRICK_PLAY) != 0) {
-        roleFlags.add("trick-play");
-      }
       builder.append(", roleFlags=[");
-      Joiner.on(',').appendTo(builder, roleFlags);
+      Joiner.on(',').appendTo(builder, Util.getRoleFlagStrings(format.roleFlags));
       builder.append("]");
     }
     return builder.toString();
@@ -1382,6 +1387,7 @@ public final class Format implements Bundleable {
   private static final String FIELD_CRYPTO_TYPE = Util.intToStringMaxRadix(29);
   private static final String FIELD_TILE_COUNT_HORIZONTAL = Util.intToStringMaxRadix(30);
   private static final String FIELD_TILE_COUNT_VERTICAL = Util.intToStringMaxRadix(31);
+  private static final String FIELD_LABELS = Util.intToStringMaxRadix(32);
 
   @UnstableApi
   @Override
@@ -1398,6 +1404,8 @@ public final class Format implements Bundleable {
     Bundle bundle = new Bundle();
     bundle.putString(FIELD_ID, id);
     bundle.putString(FIELD_LABEL, label);
+    bundle.putParcelableArrayList(
+        FIELD_LABELS, BundleCollectionUtil.toBundleArrayList(labels, Label::toBundle));
     bundle.putString(FIELD_LANGUAGE, language);
     bundle.putInt(FIELD_SELECTION_FLAGS, selectionFlags);
     bundle.putInt(FIELD_ROLE_FLAGS, roleFlags);
@@ -1464,7 +1472,14 @@ public final class Format implements Bundleable {
     BundleCollectionUtil.ensureClassLoader(bundle);
     builder
         .setId(defaultIfNull(bundle.getString(FIELD_ID), DEFAULT.id))
-        .setLabel(defaultIfNull(bundle.getString(FIELD_LABEL), DEFAULT.label))
+        .setLabel(defaultIfNull(bundle.getString(FIELD_LABEL), DEFAULT.label));
+    @Nullable List<Bundle> labelsBundles = bundle.getParcelableArrayList(FIELD_LABELS);
+    List<Label> labels =
+        labelsBundles == null
+            ? ImmutableList.of()
+            : BundleCollectionUtil.fromBundleList(Label::fromBundle, labelsBundles);
+    builder
+        .setLabels(labels)
         .setLanguage(defaultIfNull(bundle.getString(FIELD_LANGUAGE), DEFAULT.language))
         .setSelectionFlags(bundle.getInt(FIELD_SELECTION_FLAGS, DEFAULT.selectionFlags))
         .setRoleFlags(bundle.getInt(FIELD_ROLE_FLAGS, DEFAULT.roleFlags))
@@ -1542,5 +1557,14 @@ public final class Format implements Bundleable {
   @Nullable
   private static <T> T defaultIfNull(@Nullable T value, @Nullable T defaultValue) {
     return value != null ? value : defaultValue;
+  }
+
+  private static String getDefaultLabel(List<Label> labels, @Nullable String language) {
+    for (Label l : labels) {
+      if (TextUtils.equals(l.language, language)) {
+        return l.value;
+      }
+    }
+    return labels.get(0).value;
   }
 }

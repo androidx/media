@@ -17,7 +17,6 @@ package androidx.media3.exoplayer.hls;
 
 import static androidx.media3.common.util.Assertions.checkState;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.TimestampAdjuster;
@@ -29,7 +28,6 @@ import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.mp3.Mp3Extractor;
 import androidx.media3.extractor.mp4.FragmentedMp4Extractor;
 import androidx.media3.extractor.text.SubtitleParser;
-import androidx.media3.extractor.text.SubtitleTranscodingExtractor;
 import androidx.media3.extractor.ts.Ac3Extractor;
 import androidx.media3.extractor.ts.Ac4Extractor;
 import androidx.media3.extractor.ts.AdtsExtractor;
@@ -48,7 +46,8 @@ public final class BundledHlsMediaChunkExtractor implements HlsMediaChunkExtract
   @VisibleForTesting /* package */ final Extractor extractor;
   private final Format multivariantPlaylistFormat;
   private final TimestampAdjuster timestampAdjuster;
-  @Nullable private final SubtitleParser.Factory subtitleParserFactory;
+  private final SubtitleParser.Factory subtitleParserFactory;
+  private final boolean parseSubtitlesDuringExtraction;
 
   /**
    * Creates a new instance.
@@ -63,7 +62,8 @@ public final class BundledHlsMediaChunkExtractor implements HlsMediaChunkExtract
         extractor,
         multivariantPlaylistFormat,
         timestampAdjuster,
-        /* subtitleParserFactory= */ null);
+        SubtitleParser.Factory.UNSUPPORTED,
+        /* parseSubtitlesDuringExtraction= */ false);
   }
 
   /**
@@ -78,16 +78,18 @@ public final class BundledHlsMediaChunkExtractor implements HlsMediaChunkExtract
    *     multivariantPlaylistFormat.
    */
   // TODO(b/289983417): Once the subtitle-parsing-during-extraction is the only available flow, make
-  // this constructor public and remove @Nullable from subtitleParserFactory
+  // this constructor public and remove parseSubtitlesDuringExtraction parameter
   /* package */ BundledHlsMediaChunkExtractor(
       Extractor extractor,
       Format multivariantPlaylistFormat,
       TimestampAdjuster timestampAdjuster,
-      @Nullable SubtitleParser.Factory subtitleParserFactory) {
+      SubtitleParser.Factory subtitleParserFactory,
+      boolean parseSubtitlesDuringExtraction) {
     this.extractor = extractor;
     this.multivariantPlaylistFormat = multivariantPlaylistFormat;
     this.timestampAdjuster = timestampAdjuster;
     this.subtitleParserFactory = subtitleParserFactory;
+    this.parseSubtitlesDuringExtraction = parseSubtitlesDuringExtraction;
   }
 
   @Override
@@ -126,12 +128,11 @@ public final class BundledHlsMediaChunkExtractor implements HlsMediaChunkExtract
     // LINT.IfChange(extractor_instantiation)
     if (extractor instanceof WebvttExtractor) {
       newExtractorInstance =
-          new WebvttExtractor(multivariantPlaylistFormat.language, timestampAdjuster);
-      if (subtitleParserFactory != null
-          && subtitleParserFactory.supportsFormat(multivariantPlaylistFormat)) {
-        newExtractorInstance =
-            new SubtitleTranscodingExtractor(newExtractorInstance, subtitleParserFactory);
-      }
+          new WebvttExtractor(
+              multivariantPlaylistFormat.language,
+              timestampAdjuster,
+              subtitleParserFactory,
+              parseSubtitlesDuringExtraction);
     } else if (extractor instanceof AdtsExtractor) {
       newExtractorInstance = new AdtsExtractor();
     } else if (extractor instanceof Ac3Extractor) {
@@ -145,7 +146,11 @@ public final class BundledHlsMediaChunkExtractor implements HlsMediaChunkExtract
           "Unexpected extractor type for recreation: " + extractor.getClass().getSimpleName());
     }
     return new BundledHlsMediaChunkExtractor(
-        newExtractorInstance, multivariantPlaylistFormat, timestampAdjuster, subtitleParserFactory);
+        newExtractorInstance,
+        multivariantPlaylistFormat,
+        timestampAdjuster,
+        subtitleParserFactory,
+        parseSubtitlesDuringExtraction);
   }
 
   @Override

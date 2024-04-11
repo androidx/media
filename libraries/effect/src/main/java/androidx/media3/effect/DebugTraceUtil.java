@@ -17,8 +17,10 @@
 package androidx.media3.effect;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Util.formatInvariant;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import android.util.JsonWriter;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringDef;
@@ -29,6 +31,7 @@ import androidx.media3.common.util.Util;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
+import java.io.StringWriter;
 import java.io.Writer;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -41,9 +44,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 
-/** A debugging tracing utility. */
+/** A debugging tracing utility. Debug logging is disabled at compile time by default. */
 @UnstableApi
 public final class DebugTraceUtil {
+
+  /**
+   * Whether to store tracing events for debug logging. Should be set to {@code true} for testing
+   * and debugging purposes only, before running transformer.
+   */
+  @SuppressWarnings("NonFinalStaticField") // Only for debugging/testing.
+  public static boolean enableTracing = false;
+
   /** Events logged by {@link #logEvent}. */
   @Retention(RetentionPolicy.SOURCE)
   @StringDef({
@@ -153,25 +164,35 @@ public final class DebugTraceUtil {
   }
 
   /**
-   * Logs a new event.
+   * Logs a new event, if debug logging is enabled.
    *
    * @param eventName The {@linkplain DebugTraceEvent event name} to log.
    * @param presentationTimeUs The current presentation time of the media. Use {@link C#TIME_UNSET}
    *     if unknown, {@link C#TIME_END_OF_SOURCE} if EOS.
-   * @param extra Optional extra info about the event being logged.
+   * @param extraFormat Format string for optional extra information. See {@link
+   *     Util#formatInvariant(String, Object...)}.
+   * @param extraArgs Arguments for optional extra information.
    */
   public static synchronized void logEvent(
-      @DebugTraceEvent String eventName, long presentationTimeUs, @Nullable String extra) {
+      @DebugTraceEvent String eventName,
+      long presentationTimeUs,
+      @Nullable String extraFormat,
+      Object... extraArgs) {
+    if (!enableTracing) {
+      return;
+    }
     long eventTimeMs = SystemClock.DEFAULT.elapsedRealtime() - startTimeMs;
     if (!events.containsKey(eventName)) {
       events.put(eventName, new EventLogger());
     }
     EventLogger logger = events.get(eventName);
+    @Nullable
+    String extra = extraFormat != null ? Util.formatInvariant(extraFormat, extraArgs) : null;
     logger.addLog(new EventLog(presentationTimeUs, eventTimeMs, extra));
   }
 
   /**
-   * Logs a new event.
+   * Logs a new event, if debug logging is enabled.
    *
    * @param eventName The {@linkplain DebugTraceEvent event name} to log.
    * @param presentationTimeUs The current presentation time of the media. Use {@link C#TIME_UNSET}
@@ -179,39 +200,52 @@ public final class DebugTraceUtil {
    */
   public static synchronized void logEvent(
       @DebugTraceEvent String eventName, long presentationTimeUs) {
-    logEvent(eventName, presentationTimeUs, /* extra= */ null);
+    logEvent(eventName, presentationTimeUs, /* extraFormat= */ null);
   }
 
   /**
-   * Generate a summary of the traced events, containing the total number of times an event happened
-   * and the detailed log on the first and last {@link #MAX_FIRST_LAST_LOGS} times.
+   * Generate a summary of the logged events, containing the total number of times an event happened
+   * and the detailed log of a window of the oldest and newest events.
    */
   public static synchronized String generateTraceSummary() {
-    StringBuilder stringBuilder = new StringBuilder().append('{');
-    for (int i = 0; i < EVENT_TYPES.size(); i++) {
-      String eventType = EVENT_TYPES.get(i);
-      if (!events.containsKey(eventType)) {
-        stringBuilder.append(Util.formatInvariant("\"%s\": \"No events logged\",", eventType));
-        continue;
-      }
-      stringBuilder
-          .append(Util.formatInvariant("\"%s\":{", eventType))
-          .append(checkNotNull(events.get(eventType)))
-          .append("},");
+    if (!enableTracing) {
+      return "\"Tracing disabled\"";
     }
-    stringBuilder.append('}');
-    return stringBuilder.toString();
+    StringWriter stringWriter = new StringWriter();
+    JsonWriter jsonWriter = new JsonWriter(stringWriter);
+    try {
+      jsonWriter.beginObject();
+      for (int i = 0; i < EVENT_TYPES.size(); i++) {
+        String eventType = EVENT_TYPES.get(i);
+        jsonWriter.name(eventType);
+        if (!events.containsKey(eventType)) {
+          jsonWriter.value("No events");
+        } else {
+          checkNotNull(events.get(eventType)).toJson(jsonWriter);
+        }
+      }
+      jsonWriter.endObject();
+      return stringWriter.toString();
+    } catch (IOException e) {
+      return "\"Error generating trace summary\"";
+    } finally {
+      Util.closeQuietly(jsonWriter);
+    }
   }
 
-  /** Dumps all the stored events to a tsv file. */
+  /** Dumps all the logged events to a tsv file. */
   public static synchronized void dumpTsv(Writer writer) throws IOException {
+    if (!enableTracing) {
+      writer.write("Tracing disabled");
+      return;
+    }
     writer.write("event\ttimestamp\tpresentation\textra\n");
     for (Map.Entry<String, EventLogger> entry : events.entrySet()) {
       ImmutableList<EventLog> eventLogs = entry.getValue().getLogs();
       for (int i = 0; i < eventLogs.size(); i++) {
         EventLog eventLog = eventLogs.get(i);
         writer.write(
-            Util.formatInvariant(
+            formatInvariant(
                 "%s\t%d\t%s\t%s\n",
                 entry.getKey(),
                 eventLog.eventTimeMs,
@@ -244,14 +278,8 @@ public final class DebugTraceUtil {
 
     @Override
     public String toString() {
-      StringBuilder stringBuilder = new StringBuilder();
-      stringBuilder.append(
-          Util.formatInvariant(
-              "\"%s@%d", presentationTimeToString(presentationTimeUs), eventTimeMs));
-      if (extra != null) {
-        stringBuilder.append(Util.formatInvariant("(%s)", extra));
-      }
-      return stringBuilder.append('"').toString();
+      return formatInvariant("%s@%d", presentationTimeToString(presentationTimeUs), eventTimeMs)
+          + (extra != null ? formatInvariant("(%s)", extra) : "");
     }
   }
 
@@ -282,24 +310,16 @@ public final class DebugTraceUtil {
       return new ImmutableList.Builder<EventLog>().addAll(firstLogs).addAll(lastLogs).build();
     }
 
-    @Override
-    public String toString() {
-      StringBuilder stringBuilder =
-          new StringBuilder().append("\"Count\": ").append(totalCount).append(", \"first\":[");
-      for (int i = 0; i < firstLogs.size(); i++) {
-        stringBuilder.append(firstLogs.get(i)).append(",");
+    public void toJson(JsonWriter jsonWriter) throws IOException {
+      jsonWriter.beginObject().name("count").value(totalCount).name("first").beginArray();
+      for (EventLog eventLog : firstLogs) {
+        jsonWriter.value(eventLog.toString());
       }
-      stringBuilder.append("],");
-      if (lastLogs.isEmpty()) {
-        return stringBuilder.toString();
+      jsonWriter.endArray().name("last").beginArray();
+      for (EventLog eventLog : lastLogs) {
+        jsonWriter.value(eventLog.toString());
       }
-      ImmutableList<EventLog> lastLogsList = ImmutableList.copyOf(lastLogs);
-      stringBuilder.append("\"last\":[");
-      for (int i = 0; i < lastLogsList.size(); i++) {
-        stringBuilder.append(lastLogsList.get(i)).append(",");
-      }
-      stringBuilder.append(']');
-      return stringBuilder.toString();
+      jsonWriter.endArray().endObject();
     }
   }
 }

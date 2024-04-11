@@ -367,10 +367,22 @@ public final class GlUtil {
   }
 
   /**
+   * Returns the {@link EGL14#EGL_CONTEXT_CLIENT_VERSION} of the current context.
+   *
+   * <p>Returns {@code 0} if no {@link EGLContext} {@linkplain #createFocusedPlaceholderEglSurface
+   * is focused}.
+   */
+  @RequiresApi(17)
+  public static long getContextMajorVersion() throws GlException {
+    return Api17.getContextMajorVersion();
+  }
+
+  /**
    * Returns a newly created sync object and inserts it into the GL command stream.
    *
-   * <p>Returns {@code 0} if the operation failed or the {@link EGLContext} version is less than
-   * 3.0.
+   * <p>Returns {@code 0} if the operation failed, no {@link EGLContext} {@linkplain
+   * #createFocusedPlaceholderEglSurface is focused}, or the focused {@link EGLContext} version is
+   * less than 3.0.
    */
   @RequiresApi(17)
   public static long createGlSyncFence() throws GlException {
@@ -571,6 +583,19 @@ public final class GlUtil {
   }
 
   /**
+   * Allocates a new texture, initialized with the {@link Bitmap bitmap} data and size.
+   *
+   * @param bitmap The {@link Bitmap} for which the texture is created.
+   * @return The texture identifier for the newly-allocated texture.
+   * @throws GlException If the texture allocation fails.
+   */
+  public static int createTexture(Bitmap bitmap) throws GlException {
+    int texId = generateTexture();
+    setTexture(texId, bitmap);
+    return texId;
+  }
+
+  /**
    * Allocates a new RGBA texture with the specified dimensions and color component precision.
    *
    * <p>The created texture is not zero-initialized. To clear the texture, {@linkplain
@@ -593,24 +618,6 @@ public final class GlUtil {
       return createTextureUninitialized(width, height, GLES30.GL_RGBA16F, GLES30.GL_HALF_FLOAT);
     }
     return createTextureUninitialized(width, height, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE);
-  }
-
-  /**
-   * Allocates a new texture, initialized with the {@link Bitmap bitmap} data.
-   *
-   * <p>The created texture will have the same size as the specified {@link Bitmap}.
-   *
-   * @param bitmap The {@link Bitmap} for which the texture is created.
-   * @return The texture identifier for the newly-allocated texture.
-   * @throws GlException If the texture allocation fails.
-   */
-  public static int createTexture(Bitmap bitmap) throws GlException {
-    assertValidTextureSize(bitmap.getWidth(), bitmap.getHeight());
-    int texId = generateTexture();
-    bindTexture(GLES20.GL_TEXTURE_2D, texId);
-    GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, /* level= */ 0, bitmap, /* border= */ 0);
-    checkGlError();
-    return texId;
   }
 
   /**
@@ -642,12 +649,20 @@ public final class GlUtil {
     return texId;
   }
 
-  /** Returns a new GL texture identifier. */
-  private static int generateTexture() throws GlException {
+  /** Returns a new, unbound GL texture identifier. */
+  public static int generateTexture() throws GlException {
     int[] texId = new int[1];
     GLES20.glGenTextures(/* n= */ 1, texId, /* offset= */ 0);
     checkGlError();
     return texId[0];
+  }
+
+  /** Sets the {@code texId} to contain the {@link Bitmap bitmap} data and size. */
+  public static void setTexture(int texId, Bitmap bitmap) throws GlException {
+    assertValidTextureSize(bitmap.getWidth(), bitmap.getHeight());
+    bindTexture(GLES20.GL_TEXTURE_2D, texId);
+    GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, /* level= */ 0, bitmap, /* border= */ 0);
+    checkGlError();
   }
 
   /**

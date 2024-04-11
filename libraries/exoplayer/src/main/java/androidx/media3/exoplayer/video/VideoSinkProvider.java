@@ -19,9 +19,11 @@ package androidx.media3.exoplayer.video;
 import android.view.Surface;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
+import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
 import java.util.List;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /** A provider of {@link VideoSink VideoSinks}. */
 @UnstableApi
@@ -70,6 +72,15 @@ public interface VideoSinkProvider {
   void setOutputSurfaceInfo(Surface outputSurface, Size outputResolution);
 
   /**
+   * Sets the {@link VideoFrameReleaseControl} that will be used for releasing of video frames
+   * during rendering.
+   *
+   * <p>Must be called before, not after, the sink provider is {@linkplain #initialize(Format)
+   * initialized}.
+   */
+  void setVideoFrameReleaseControl(VideoFrameReleaseControl videoFrameReleaseControl);
+
+  /**
    * Clears the set output surface info.
    *
    * <p>Must be called after the sink provider is {@linkplain #initialize(Format) initialized}.
@@ -78,4 +89,20 @@ public interface VideoSinkProvider {
 
   /** Sets a {@link VideoFrameMetadataListener} which is used in the returned {@link VideoSink}. */
   void setVideoFrameMetadataListener(VideoFrameMetadataListener videoFrameMetadataListener);
+
+  /**
+   * Returns the {@link VideoFrameReleaseControl} that will be used for releasing of video frames
+   * during rendering.
+   *
+   * <p>If this value is {@code null}, it must be {@linkplain #setVideoFrameReleaseControl set} to a
+   * non-null value before rendering begins.
+   */
+  @Nullable VideoFrameReleaseControl getVideoFrameReleaseControl();
+
+  /**
+   * Sets the {@link Clock} that the provider should use internally.
+   *
+   * <p>Must be called before the sink provider is {@linkplain #initialize(Format) initialized}.
+   */
+  void setClock(Clock clock);
 }

@@ -29,7 +29,7 @@ import androidx.media3.exoplayer.RenderersFactory
 import androidx.media3.exoplayer.analytics.PlayerId
 import androidx.media3.exoplayer.audio.AudioRendererEventListener
 import androidx.media3.exoplayer.source.MediaSource
-import androidx.media3.exoplayer.source.PreloadMediaSource
+import androidx.media3.exoplayer.source.preload.PreloadMediaSource
 import androidx.media3.exoplayer.trackselection.TrackSelector
 import androidx.media3.exoplayer.upstream.Allocator
 import androidx.media3.exoplayer.upstream.BandwidthMeter
@@ -56,7 +56,6 @@ class MediaSourceManager(
     preloadMediaSourceFactory =
       PreloadMediaSource.Factory(
         mediaSourceFactory,
-        PlayerId.UNSET,
         PreloadControlImpl(targetPreloadPositionUs = 5_000_000L),
         trackSelector,
         bandwidthMeter,
@@ -82,7 +81,7 @@ class MediaSourceManager(
     }
   }
 
-  operator fun get(mediaItem: MediaItem): MediaSource {
+  operator fun get(mediaItem: MediaItem): PreloadMediaSource {
     if (!sourceMap.containsKey(mediaItem)) {
       add(mediaItem)
     }

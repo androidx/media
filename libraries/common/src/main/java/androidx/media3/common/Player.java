@@ -520,6 +520,7 @@ public interface Player {
     @UnstableApi
     public static final class Builder {
 
+      @SuppressWarnings("deprecation") // Includes deprecated commands
       private static final @Command int[] SUPPORTED_COMMANDS = {
         COMMAND_PLAY_PAUSE,
         COMMAND_PREPARE,
@@ -1315,6 +1316,7 @@ public interface Player {
    */
   // @Target list includes both 'default' targets and TYPE_USE, to ensure backwards compatibility
   // with Kotlin usages from before TYPE_USE was added.
+  @SuppressWarnings("deprecation") // Includes deprecated command
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target({FIELD, METHOD, PARAMETER, LOCAL_VARIABLE, TYPE_USE})
@@ -2173,6 +2175,9 @@ public interface Player {
    * Clears the playlist, adds the specified {@linkplain MediaItem media items} and resets the
    * position to the default position.
    *
+   * <p>To replace a span of media items (possibly seamlessly) without clearing the playlist, use
+   * {@link #replaceMediaItems}.
+   *
    * <p>This method must only be called if {@link #COMMAND_CHANGE_MEDIA_ITEMS} is {@linkplain
    * #getAvailableCommands() available}.
    *
@@ -2182,6 +2187,9 @@ public interface Player {
 
   /**
    * Clears the playlist and adds the specified {@linkplain MediaItem media items}.
+   *
+   * <p>To replace a span of media items (possibly seamlessly) without clearing the playlist, use
+   * {@link #replaceMediaItems}.
    *
    * <p>This method must only be called if {@link #COMMAND_CHANGE_MEDIA_ITEMS} is {@linkplain
    * #getAvailableCommands() available}.
@@ -2195,6 +2203,9 @@ public interface Player {
 
   /**
    * Clears the playlist and adds the specified {@linkplain MediaItem media items}.
+   *
+   * <p>To replace a span of media items (possibly seamlessly) without clearing the playlist, use
+   * {@link #replaceMediaItems}.
    *
    * <p>This method must only be called if {@link #COMMAND_CHANGE_MEDIA_ITEMS} is {@linkplain
    * #getAvailableCommands() available}.
@@ -2215,6 +2226,9 @@ public interface Player {
    * Clears the playlist, adds the specified {@link MediaItem} and resets the position to the
    * default position.
    *
+   * <p>To replace a media item (possibly seamlessly) without clearing the playlist, use {@link
+   * #replaceMediaItem}.
+   *
    * <p>This method must only be called if {@link #COMMAND_SET_MEDIA_ITEM} is {@linkplain
    * #getAvailableCommands() available}.
    *
@@ -2224,6 +2238,9 @@ public interface Player {
 
   /**
    * Clears the playlist and adds the specified {@link MediaItem}.
+   *
+   * <p>To replace a media item (possibly seamlessly) without clearing the playlist, use {@link
+   * #replaceMediaItem}.
    *
    * <p>This method must only be called if {@link #COMMAND_SET_MEDIA_ITEM} is {@linkplain
    * #getAvailableCommands() available}.
@@ -2236,6 +2253,9 @@ public interface Player {
 
   /**
    * Clears the playlist and adds the specified {@link MediaItem}.
+   *
+   * <p>To replace a media item (possibly seamlessly) without clearing the playlist, use {@link
+   * #replaceMediaItem}.
    *
    * <p>This method must only be called if {@link #COMMAND_SET_MEDIA_ITEM} is {@linkplain
    * #getAvailableCommands() available}.
@@ -2323,6 +2343,10 @@ public interface Player {
   /**
    * Replaces the media item at the given index of the playlist.
    *
+   * <p>Implementations of this method may attempt to seamlessly continue playback if the currently
+   * playing media item is replaced with a compatible one (e.g. same URL, only metadata has
+   * changed).
+   *
    * <p>This method must only be called if {@link #COMMAND_CHANGE_MEDIA_ITEMS} is {@linkplain
    * #getAvailableCommands() available}.
    *
@@ -2334,6 +2358,10 @@ public interface Player {
 
   /**
    * Replaces the media items at the given range of the playlist.
+   *
+   * <p>Implementations of this method may attempt to seamlessly continue playback if the currently
+   * playing media item is replaced with a compatible one (e.g. same URL, only metadata has
+   * changed).
    *
    * <p>This method must only be called if {@link #COMMAND_CHANGE_MEDIA_ITEMS} is {@linkplain
    * #getAvailableCommands() available}.
@@ -3436,7 +3464,7 @@ public interface Player {
    * @param volume The volume to set.
    * @param flags Either 0 or a bitwise combination of one or more {@link C.VolumeFlags}.
    */
-  void setDeviceVolume(@IntRange(from = 0) int volume, int flags);
+  void setDeviceVolume(@IntRange(from = 0) int volume, @C.VolumeFlags int flags);
 
   /**
    * @deprecated Use {@link #increaseDeviceVolume(int)} instead.

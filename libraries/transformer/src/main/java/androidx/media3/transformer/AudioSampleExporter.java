@@ -33,8 +33,6 @@ import org.checkerframework.dataflow.qual.Pure;
 /** Processes, encodes and muxes raw audio samples. */
 /* package */ final class AudioSampleExporter extends SampleExporter {
 
-  private static final int DEFAULT_ENCODER_BITRATE = 128 * 1024;
-
   private final Codec encoder;
   private final AudioFormat encoderInputAudioFormat;
   private final DecoderInputBuffer encoderInputBuffer;
@@ -55,8 +53,7 @@ import org.checkerframework.dataflow.qual.Pure;
       AudioMixer.Factory mixerFactory,
       Codec.EncoderFactory encoderFactory,
       MuxerWrapper muxerWrapper,
-      FallbackListener fallbackListener,
-      boolean matchInitializationData)
+      FallbackListener fallbackListener)
       throws ExportException {
     super(firstAssetLoaderTrackFormat, muxerWrapper);
     audioGraph = new AudioGraph(mixerFactory);
@@ -74,9 +71,7 @@ import org.checkerframework.dataflow.qual.Pure;
             .setSampleRate(encoderInputAudioFormat.sampleRate)
             .setChannelCount(encoderInputAudioFormat.channelCount)
             .setPcmEncoding(encoderInputAudioFormat.encoding)
-            .setAverageBitrate(DEFAULT_ENCODER_BITRATE)
-            .setInitializationData(
-                matchInitializationData ? firstInputFormat.initializationData : null)
+            .setCodecs(firstInputFormat.codecs)
             .build();
 
     encoder =
@@ -99,19 +94,20 @@ import org.checkerframework.dataflow.qual.Pure;
   }
 
   @Override
-  public AudioGraphInput getInput(EditedMediaItem item, Format format) throws ExportException {
+  public AudioGraphInput getInput(EditedMediaItem editedMediaItem, Format format)
+      throws ExportException {
     if (!returnedFirstInput) {
       // First input initialized in constructor because output AudioFormat is needed.
       returnedFirstInput = true;
       checkState(format.equals(this.firstInputFormat));
       return firstInput;
     }
-    return audioGraph.registerInput(item, format);
+    return audioGraph.registerInput(editedMediaItem, format);
   }
 
   @Override
   public void release() {
-    audioGraph.release();
+    audioGraph.reset();
     encoder.release();
   }
 
@@ -194,8 +190,8 @@ import org.checkerframework.dataflow.qual.Pure;
   @Pure
   private static TransformationRequest createFallbackTransformationRequest(
       TransformationRequest transformationRequest, Format requestedFormat, Format actualFormat) {
-    // TODO(b/259570024): Consider including bitrate and other audio characteristics in the revised
-    //  fallback design.
+    // TODO(b/255953153): Consider including bitrate and other audio characteristics in the revised
+    //  fallback.
     if (Util.areEqual(requestedFormat.sampleMimeType, actualFormat.sampleMimeType)) {
       return transformationRequest;
     }

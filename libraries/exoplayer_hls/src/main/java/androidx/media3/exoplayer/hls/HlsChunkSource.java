@@ -242,6 +242,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     return trackGroup;
   }
 
+  /** Returns whether the chunk source has independent segments. */
+  public boolean hasIndependentSegments() {
+    return independentSegments;
+  }
+
   /**
    * Sets the current track selection.
    *
@@ -495,7 +500,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           new CmcdData.Factory(
                   cmcdConfiguration,
                   trackSelection,
-                  bufferedDurationUs,
+                  max(0, bufferedDurationUs),
                   /* playbackRate= */ loadingInfo.playbackSpeed,
                   /* streamingFormat= */ CmcdData.Factory.STREAMING_FORMAT_HLS,
                   /* isLive= */ !playlist.hasEndTag,

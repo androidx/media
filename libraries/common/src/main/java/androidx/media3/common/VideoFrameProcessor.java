@@ -82,7 +82,6 @@ public interface VideoFrameProcessor {
      *
      * @param context A {@link Context}.
      * @param debugViewProvider A {@link DebugViewProvider}.
-     * @param inputColorInfo The {@link ColorInfo} for the input frames.
      * @param outputColorInfo The {@link ColorInfo} for the output frames.
      * @param renderFramesAutomatically If {@code true}, the instance will render output frames to
      *     the {@linkplain #setOutputSurfaceInfo(SurfaceInfo) output surface} automatically as
@@ -98,7 +97,6 @@ public interface VideoFrameProcessor {
     VideoFrameProcessor create(
         Context context,
         DebugViewProvider debugViewProvider,
-        ColorInfo inputColorInfo,
         ColorInfo outputColorInfo,
         boolean renderFramesAutomatically,
         Executor listenerExecutor,
@@ -177,14 +175,14 @@ public interface VideoFrameProcessor {
    * the input stream} to put multiple frames in the same input stream.
    *
    * @param inputBitmap The {@link Bitmap} queued to the {@code VideoFrameProcessor}.
-   * @param inStreamOffsetsUs The times within the current stream that the bitmap should be shown
-   *     at. The timestamps should be monotonically increasing.
+   * @param timestampIterator A {@link TimestampIterator} generating the exact timestamps that the
+   *     bitmap should be shown at.
    * @return Whether the {@link Bitmap} was successfully queued. A return value of {@code false}
    *     indicates the {@code VideoFrameProcessor} is not ready to accept input.
    * @throws UnsupportedOperationException If the {@code VideoFrameProcessor} does not accept
    *     {@linkplain #INPUT_TYPE_BITMAP bitmap input}.
    */
-  boolean queueInputBitmap(Bitmap inputBitmap, TimestampIterator inStreamOffsetsUs);
+  boolean queueInputBitmap(Bitmap inputBitmap, TimestampIterator timestampIterator);
 
   /**
    * Provides an input texture ID to the {@code VideoFrameProcessor}.

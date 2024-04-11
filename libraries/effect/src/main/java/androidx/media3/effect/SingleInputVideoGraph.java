@@ -16,7 +16,6 @@
 
 package androidx.media3.effect;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 
@@ -31,6 +30,7 @@ import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.util.UnstableApi;
+import com.google.common.util.concurrent.MoreExecutors;
 import java.util.List;
 import java.util.concurrent.Executor;
 
@@ -49,12 +49,12 @@ public abstract class SingleInputVideoGraph implements VideoGraph {
   private final DebugViewProvider debugViewProvider;
   private final Executor listenerExecutor;
   private final boolean renderFramesAutomatically;
-
   private final long initialTimestampOffsetUs;
   @Nullable private final Presentation presentation;
 
   @Nullable private VideoFrameProcessor videoFrameProcessor;
-
+  @Nullable private SurfaceInfo outputSurfaceInfo;
+  private boolean isEnded;
   private boolean released;
   private volatile boolean hasProducedFrameWithTimestampZero;
 
@@ -63,6 +63,7 @@ public abstract class SingleInputVideoGraph implements VideoGraph {
    *
    * <p>{@code videoCompositorSettings} must be {@link VideoCompositorSettings#DEFAULT}.
    */
+  // TODO: b/307952514 - Remove inputColorInfo reference in VideoGraph constructor.
   public SingleInputVideoGraph(
       Context context,
       VideoFrameProcessor.Factory videoFrameProcessorFactory,
@@ -109,10 +110,9 @@ public abstract class SingleInputVideoGraph implements VideoGraph {
         videoFrameProcessorFactory.create(
             context,
             debugViewProvider,
-            inputColorInfo,
             outputColorInfo,
             renderFramesAutomatically,
-            listenerExecutor,
+            /* listenerExecutor= */ MoreExecutors.directExecutor(),
             new VideoFrameProcessor.Listener() {
               private long lastProcessedFramePresentationTimeUs;
 
@@ -129,6 +129,12 @@ public abstract class SingleInputVideoGraph implements VideoGraph {
 
               @Override
               public void onOutputFrameAvailableForRendering(long presentationTimeUs) {
+                if (isEnded) {
+                  onError(
+                      new VideoFrameProcessingException(
+                          "onOutputFrameAvailableForRendering() received after onEnded()"));
+                  return;
+                }
                 // Frames are rendered automatically.
                 if (presentationTimeUs == 0) {
                   hasProducedFrameWithTimestampZero = true;
@@ -145,9 +151,18 @@ public abstract class SingleInputVideoGraph implements VideoGraph {
 
               @Override
               public void onEnded() {
-                listener.onEnded(lastProcessedFramePresentationTimeUs);
+                if (isEnded) {
+                  onError(new VideoFrameProcessingException("onEnded() received multiple times"));
+                  return;
+                }
+                isEnded = true;
+                listenerExecutor.execute(
+                    () -> listener.onEnded(lastProcessedFramePresentationTimeUs));
               }
             });
+    if (outputSurfaceInfo != null) {
+      videoFrameProcessor.setOutputSurfaceInfo(outputSurfaceInfo);
+    }
     return SINGLE_INPUT_INDEX;
   }
 
@@ -158,7 +173,10 @@ public abstract class SingleInputVideoGraph implements VideoGraph {
 
   @Override
   public void setOutputSurfaceInfo(@Nullable SurfaceInfo outputSurfaceInfo) {
-    checkNotNull(videoFrameProcessor).setOutputSurfaceInfo(outputSurfaceInfo);
+    this.outputSurfaceInfo = outputSurfaceInfo;
+    if (videoFrameProcessor != null) {
+      videoFrameProcessor.setOutputSurfaceInfo(outputSurfaceInfo);
+    }
   }
 
   @Override

@@ -48,6 +48,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -230,10 +231,7 @@ public final class HdrEditingTest {
         context,
         testId,
         /* inputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10_FORMAT,
-        /* outputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10_FORMAT
-            .buildUpon()
-            .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
-            .build())) {
+        /* outputFormat= */ null)) {
       return;
     }
 
@@ -268,13 +266,15 @@ public final class HdrEditingTest {
       assertThat(isToneMappingFallbackApplied.get()).isTrue();
       assertFileHasColorTransfer(context, exportTestResult.filePath, C.COLOR_TRANSFER_SDR);
     } catch (ExportException exception) {
-      if (exception.getCause() != null
-          && (Objects.equals(
-                  exception.getCause().getMessage(),
-                  "Decoding HDR is not supported on this device.")
-              || Objects.equals(
-                  exception.getCause().getMessage(), "Device lacks YUV extension support."))) {
-        return;
+      if (exception.getCause() != null) {
+        @Nullable String message = exception.getCause().getMessage();
+        if (message != null
+            && (Objects.equals(message, "Decoding HDR is not supported on this device.")
+                || message.contains(
+                    "OpenGL ES 3.0 context support is required for HDR input or output.")
+                || Objects.equals(message, "Device lacks YUV extension support."))) {
+          return;
+        }
       }
       throw exception;
     }
@@ -294,10 +294,7 @@ public final class HdrEditingTest {
         context,
         testId,
         /* inputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT,
-        /* outputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT
-            .buildUpon()
-            .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
-            .build())) {
+        /* outputFormat= */ null)) {
       return;
     }
 
@@ -330,13 +327,15 @@ public final class HdrEditingTest {
       assertThat(isToneMappingFallbackApplied.get()).isTrue();
       assertFileHasColorTransfer(context, exportTestResult.filePath, C.COLOR_TRANSFER_SDR);
     } catch (ExportException exception) {
-      if (exception.getCause() != null
-          && (Objects.equals(
-                  exception.getCause().getMessage(),
-                  "Decoding HDR is not supported on this device.")
-              || Objects.equals(
-                  exception.getCause().getMessage(), "Device lacks YUV extension support."))) {
-        return;
+      if (exception.getCause() != null) {
+        @Nullable String message = exception.getCause().getMessage();
+        if (message != null
+            && (Objects.equals(message, "Decoding HDR is not supported on this device.")
+                || message.contains(
+                    "OpenGL ES 3.0 context support is required for HDR input or output.")
+                || Objects.equals(message, "Device lacks YUV extension support."))) {
+          return;
+        }
       }
       throw exception;
     }

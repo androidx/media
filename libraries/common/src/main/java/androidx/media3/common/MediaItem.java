@@ -25,6 +25,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.UnstableApi;
@@ -99,6 +100,8 @@ public final class MediaItem implements Bundleable {
       imageDurationMs = C.TIME_UNSET;
     }
 
+    // Using deprecated DrmConfiguration.Builder to support deprecated methods.
+    @SuppressWarnings("deprecation")
     private Builder(MediaItem mediaItem) {
       this();
       clippingConfiguration = mediaItem.clippingConfiguration.buildUpon();
@@ -242,6 +245,8 @@ public final class MediaItem implements Bundleable {
     }
 
     /** Sets the optional DRM configuration. */
+    // Using deprecated DrmConfiguration.Builder to support deprecated methods.
+    @SuppressWarnings("deprecation")
     @CanIgnoreReturnValue
     public Builder setDrmConfiguration(@Nullable DrmConfiguration drmConfiguration) {
       this.drmConfiguration =
@@ -293,6 +298,7 @@ public final class MediaItem implements Bundleable {
      * @deprecated Use {@link #setDrmConfiguration(DrmConfiguration)} and pass the {@code uuid} to
      *     {@link DrmConfiguration.Builder#Builder(UUID)} instead.
      */
+    @SuppressWarnings("deprecation") // Forwarding deprecated call
     @CanIgnoreReturnValue
     @UnstableApi
     @Deprecated
@@ -413,6 +419,7 @@ public final class MediaItem implements Bundleable {
      *     #setSubtitleConfigurations(List)} doesn't accept null, use an empty list to clear the
      *     contents.
      */
+    @SuppressWarnings("deprecation") // Supporting deprecated type
     @CanIgnoreReturnValue
     @UnstableApi
     @Deprecated
@@ -449,6 +456,7 @@ public final class MediaItem implements Bundleable {
      *     with {@link Uri#parse(String)} and pass the result to {@link
      *     AdsConfiguration.Builder#Builder(Uri)} instead.
      */
+    @SuppressWarnings("deprecation") // Forwarding to other deprecated setter
     @CanIgnoreReturnValue
     @UnstableApi
     @Deprecated
@@ -460,6 +468,7 @@ public final class MediaItem implements Bundleable {
      * @deprecated Use {@link #setAdsConfiguration(AdsConfiguration)} and pass the {@code adTagUri}
      *     to {@link AdsConfiguration.Builder#Builder(Uri)} instead.
      */
+    @SuppressWarnings("deprecation") // Forwarding to other deprecated setter
     @CanIgnoreReturnValue
     @UnstableApi
     @Deprecated
@@ -592,6 +601,7 @@ public final class MediaItem implements Bundleable {
     }
 
     /** Returns a new {@link MediaItem} instance with the current builder values. */
+    @SuppressWarnings("deprecation") // Building deprecated ClippingProperties type
     public MediaItem build() {
       // TODO: remove this check once all the deprecated individual DRM setters are removed.
       checkState(drmConfiguration.licenseUri == null || drmConfiguration.scheme != null);
@@ -640,10 +650,10 @@ public final class MediaItem implements Bundleable {
        *
        * @param scheme The {@link UUID} of the protection scheme.
        */
+      @SuppressWarnings("deprecation") // Calling deprecated constructor to reduce code duplication.
       public Builder(UUID scheme) {
+        this();
         this.scheme = scheme;
-        this.licenseRequestHeaders = ImmutableMap.of();
-        this.forcedSessionTrackTypes = ImmutableList.of();
       }
 
       /**
@@ -653,6 +663,7 @@ public final class MediaItem implements Bundleable {
       @Deprecated
       private Builder() {
         this.licenseRequestHeaders = ImmutableMap.of();
+        this.playClearContentWithoutKey = true;
         this.forcedSessionTrackTypes = ImmutableList.of();
       }
 
@@ -706,7 +717,11 @@ public final class MediaItem implements Bundleable {
         return this;
       }
 
-      /** Sets whether multi session is enabled. */
+      /**
+       * Sets whether multi session is enabled.
+       *
+       * <p>The default is {@code false} (multi session disabled).
+       */
       @CanIgnoreReturnValue
       public Builder setMultiSession(boolean multiSession) {
         this.multiSession = multiSession;
@@ -716,6 +731,8 @@ public final class MediaItem implements Bundleable {
       /**
        * Sets whether to always use the default DRM license server URI even if the media specifies
        * its own DRM license server URI.
+       *
+       * <p>The default is {@code false}.
        */
       @CanIgnoreReturnValue
       public Builder setForceDefaultLicenseUri(boolean forceDefaultLicenseUri) {
@@ -726,6 +743,8 @@ public final class MediaItem implements Bundleable {
       /**
        * Sets whether clear samples within protected content should be played when keys for the
        * encrypted part of the content have yet to be loaded.
+       *
+       * <p>The default is {@code true}.
        */
       @CanIgnoreReturnValue
       public Builder setPlayClearContentWithoutKey(boolean playClearContentWithoutKey) {
@@ -753,6 +772,8 @@ public final class MediaItem implements Bundleable {
        *
        * <p>This method overrides what has been set by previously calling {@link
        * #setForcedSessionTrackTypes(List)}.
+       *
+       * <p>The default is {@code false}.
        */
       @CanIgnoreReturnValue
       public Builder setForceSessionsForAudioAndVideoTracks(
@@ -773,6 +794,8 @@ public final class MediaItem implements Bundleable {
        *
        * <p>This method overrides what has been set by previously calling {@link
        * #setForceSessionsForAudioAndVideoTracks(boolean)}.
+       *
+       * <p>The default is an empty list (i.e. DRM sessions are not forced for any track type).
        */
       @CanIgnoreReturnValue
       public Builder setForcedSessionTrackTypes(
@@ -917,7 +940,10 @@ public final class MediaItem implements Bundleable {
     private static final String FIELD_LICENSE_URI = Util.intToStringMaxRadix(1);
     private static final String FIELD_LICENSE_REQUEST_HEADERS = Util.intToStringMaxRadix(2);
     private static final String FIELD_MULTI_SESSION = Util.intToStringMaxRadix(3);
-    private static final String FIELD_PLAY_CLEAR_CONTENT_WITHOUT_KEY = Util.intToStringMaxRadix(4);
+
+    @VisibleForTesting
+    static final String FIELD_PLAY_CLEAR_CONTENT_WITHOUT_KEY = Util.intToStringMaxRadix(4);
+
     private static final String FIELD_FORCE_DEFAULT_LICENSE_URI = Util.intToStringMaxRadix(5);
     private static final String FIELD_FORCED_SESSION_TRACK_TYPES = Util.intToStringMaxRadix(6);
     private static final String FIELD_KEY_SET_ID = Util.intToStringMaxRadix(7);
@@ -1155,7 +1181,10 @@ public final class MediaItem implements Bundleable {
     /**
      * @deprecated Use {@link #subtitleConfigurations} instead.
      */
-    @UnstableApi @Deprecated public final List<Subtitle> subtitles;
+    @SuppressWarnings("deprecation") // Using deprecated type in deprecated field
+    @UnstableApi
+    @Deprecated
+    public final List<Subtitle> subtitles;
 
     /**
      * Optional tag for custom attributes. The tag for the media source which will be published in
@@ -1560,12 +1589,18 @@ public final class MediaItem implements Bundleable {
     /** Restores a {@code LiveConfiguration} from a {@link Bundle}. */
     @UnstableApi
     public static LiveConfiguration fromBundle(Bundle bundle) {
-      return new LiveConfiguration(
-          bundle.getLong(FIELD_TARGET_OFFSET_MS, /* defaultValue= */ UNSET.targetOffsetMs),
-          bundle.getLong(FIELD_MIN_OFFSET_MS, /* defaultValue= */ UNSET.minOffsetMs),
-          bundle.getLong(FIELD_MAX_OFFSET_MS, /* defaultValue= */ UNSET.maxOffsetMs),
-          bundle.getFloat(FIELD_MIN_PLAYBACK_SPEED, /* defaultValue= */ UNSET.minPlaybackSpeed),
-          bundle.getFloat(FIELD_MAX_PLAYBACK_SPEED, /* defaultValue= */ UNSET.maxPlaybackSpeed));
+      return new LiveConfiguration.Builder()
+          .setTargetOffsetMs(
+              bundle.getLong(FIELD_TARGET_OFFSET_MS, /* defaultValue= */ UNSET.targetOffsetMs))
+          .setMinOffsetMs(
+              bundle.getLong(FIELD_MIN_OFFSET_MS, /* defaultValue= */ UNSET.minOffsetMs))
+          .setMaxOffsetMs(
+              bundle.getLong(FIELD_MAX_OFFSET_MS, /* defaultValue= */ UNSET.maxOffsetMs))
+          .setMinPlaybackSpeed(
+              bundle.getFloat(FIELD_MIN_PLAYBACK_SPEED, /* defaultValue= */ UNSET.minPlaybackSpeed))
+          .setMaxPlaybackSpeed(
+              bundle.getFloat(FIELD_MAX_PLAYBACK_SPEED, /* defaultValue= */ UNSET.maxPlaybackSpeed))
+          .build();
     }
   }
 
@@ -1656,6 +1691,7 @@ public final class MediaItem implements Bundleable {
         return new SubtitleConfiguration(this);
       }
 
+      @SuppressWarnings("deprecation") // Building deprecated type to support deprecated builder
       private Subtitle buildSubtitle() {
         return new Subtitle(this);
       }
@@ -1828,6 +1864,7 @@ public final class MediaItem implements Bundleable {
     /**
      * @deprecated Use {@link Builder} instead.
      */
+    @SuppressWarnings("deprecation") // Forwarding to other deprecated constructor
     @UnstableApi
     @Deprecated
     public Subtitle(Uri uri, String mimeType, @Nullable String language) {
@@ -1837,6 +1874,7 @@ public final class MediaItem implements Bundleable {
     /**
      * @deprecated Use {@link Builder} instead.
      */
+    @SuppressWarnings("deprecation") // Forwarding to other deprecated constructor
     @UnstableApi
     @Deprecated
     public Subtitle(
@@ -1972,12 +2010,13 @@ public final class MediaItem implements Bundleable {
        * builder.
        */
       public ClippingConfiguration build() {
-        return buildClippingProperties();
+        return new ClippingConfiguration(this);
       }
 
       /**
        * @deprecated Use {@link #build()} instead.
        */
+      @SuppressWarnings("deprecation") // Building deprecated type to support deprecated methods
       @UnstableApi
       @Deprecated
       public ClippingProperties buildClippingProperties() {
@@ -2113,6 +2152,7 @@ public final class MediaItem implements Bundleable {
     public static final Creator<ClippingProperties> CREATOR = ClippingConfiguration::fromBundle;
 
     /** Restores a {@code ClippingProperties} from a {@link Bundle}. */
+    @SuppressWarnings("deprecation") // Building deprecated type for backwards compatibility
     @UnstableApi
     public static ClippingProperties fromBundle(Bundle bundle) {
       ClippingConfiguration.Builder clippingConfiguration =
@@ -2153,6 +2193,7 @@ public final class MediaItem implements Bundleable {
   @UnstableApi
   @Deprecated
   public static final class ClippingProperties extends ClippingConfiguration {
+    @SuppressWarnings("deprecation") // Using deprecated type
     public static final ClippingProperties UNSET =
         new ClippingConfiguration.Builder().buildClippingProperties();
 
@@ -2226,8 +2267,9 @@ public final class MediaItem implements Bundleable {
     /**
      * Optional extras {@link Bundle}.
      *
-     * <p>Given the complexities of checking the equality of two {@link Bundle}s, this is not
-     * considered in the {@link #equals(Object)} or {@link #hashCode()}.
+     * <p>Given the complexities of checking the equality of two {@link Bundle} instances, the
+     * contents of these extras are not considered in the {@link #equals(Object)} or {@link
+     * #hashCode()} implementation.
      */
     @Nullable public final Bundle extras;
 
@@ -2251,13 +2293,16 @@ public final class MediaItem implements Bundleable {
         return false;
       }
       RequestMetadata that = (RequestMetadata) o;
-      return Util.areEqual(mediaUri, that.mediaUri) && Util.areEqual(searchQuery, that.searchQuery);
+      return Util.areEqual(mediaUri, that.mediaUri)
+          && Util.areEqual(searchQuery, that.searchQuery)
+          && ((extras == null) == (that.extras == null));
     }
 
     @Override
     public int hashCode() {
       int result = mediaUri == null ? 0 : mediaUri.hashCode();
       result = 31 * result + (searchQuery == null ? 0 : searchQuery.hashCode());
+      result = 31 * result + (extras == null ? 0 : 1);
       return result;
     }
 
@@ -2339,7 +2384,10 @@ public final class MediaItem implements Bundleable {
   /**
    * @deprecated Use {@link #clippingConfiguration} instead.
    */
-  @UnstableApi @Deprecated public final ClippingProperties clippingProperties;
+  @SuppressWarnings("deprecation") // Keeping deprecated field with deprecated type
+  @UnstableApi
+  @Deprecated
+  public final ClippingProperties clippingProperties;
 
   /** The media {@link RequestMetadata}. */
   public final RequestMetadata requestMetadata;

@@ -112,7 +112,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
    */
   public DefaultRenderersFactory(Context context) {
     this.context = context;
-    codecAdapterFactory = new DefaultMediaCodecAdapterFactory();
+    codecAdapterFactory = new DefaultMediaCodecAdapterFactory(context);
     extensionRendererMode = EXTENSION_RENDERER_MODE_OFF;
     allowedVideoJoiningTimeMs = DEFAULT_ALLOWED_VIDEO_JOINING_TIME_MS;
     mediaCodecSelector = MediaCodecSelector.DEFAULT;
@@ -129,7 +129,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * @return This factory, for convenience.
    */
   @CanIgnoreReturnValue
-  public DefaultRenderersFactory setExtensionRendererMode(
+  public final DefaultRenderersFactory setExtensionRendererMode(
       @ExtensionRendererMode int extensionRendererMode) {
     this.extensionRendererMode = extensionRendererMode;
     return this;
@@ -145,7 +145,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * @return This factory, for convenience.
    */
   @CanIgnoreReturnValue
-  public DefaultRenderersFactory forceEnableMediaCodecAsynchronousQueueing() {
+  public final DefaultRenderersFactory forceEnableMediaCodecAsynchronousQueueing() {
     codecAdapterFactory.forceEnableAsynchronous();
     return this;
   }
@@ -158,24 +158,22 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * @return This factory, for convenience.
    */
   @CanIgnoreReturnValue
-  public DefaultRenderersFactory forceDisableMediaCodecAsynchronousQueueing() {
+  public final DefaultRenderersFactory forceDisableMediaCodecAsynchronousQueueing() {
     codecAdapterFactory.forceDisableAsynchronous();
     return this;
   }
 
   /**
-   * Enable synchronizing codec interactions with asynchronous buffer queueing.
+   * Sets whether to enable {@link MediaCodec#CONFIGURE_FLAG_USE_CRYPTO_ASYNC} on API 34 and above
+   * when operating the codec in asynchronous mode.
    *
-   * <p>This method is experimental, and will be renamed or removed in a future release.
-   *
-   * @param enabled Whether codec interactions will be synchronized with asynchronous buffer
-   *     queueing.
-   * @return This factory, for convenience.
+   * <p>This method is experimental. Its default value may change, or it may be renamed or removed
+   * in a future release.
    */
   @CanIgnoreReturnValue
-  public DefaultRenderersFactory experimentalSetSynchronizeCodecInteractionsWithQueueingEnabled(
-      boolean enabled) {
-    codecAdapterFactory.experimentalSetSynchronizeCodecInteractionsWithQueueingEnabled(enabled);
+  public final DefaultRenderersFactory experimentalSetMediaCodecAsyncCryptoFlagEnabled(
+      boolean enableAsyncCryptoFlag) {
+    codecAdapterFactory.experimentalSetAsyncCryptoFlagEnabled(enableAsyncCryptoFlag);
     return this;
   }
 
@@ -188,7 +186,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * @return This factory, for convenience.
    */
   @CanIgnoreReturnValue
-  public DefaultRenderersFactory setEnableDecoderFallback(boolean enableDecoderFallback) {
+  public final DefaultRenderersFactory setEnableDecoderFallback(boolean enableDecoderFallback) {
     this.enableDecoderFallback = enableDecoderFallback;
     return this;
   }
@@ -202,7 +200,8 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * @return This factory, for convenience.
    */
   @CanIgnoreReturnValue
-  public DefaultRenderersFactory setMediaCodecSelector(MediaCodecSelector mediaCodecSelector) {
+  public final DefaultRenderersFactory setMediaCodecSelector(
+      MediaCodecSelector mediaCodecSelector) {
     this.mediaCodecSelector = mediaCodecSelector;
     return this;
   }
@@ -219,7 +218,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * @return This factory, for convenience.
    */
   @CanIgnoreReturnValue
-  public DefaultRenderersFactory setEnableAudioFloatOutput(boolean enableFloatOutput) {
+  public final DefaultRenderersFactory setEnableAudioFloatOutput(boolean enableFloatOutput) {
     this.enableFloatOutput = enableFloatOutput;
     return this;
   }
@@ -243,7 +242,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * @return This factory, for convenience.
    */
   @CanIgnoreReturnValue
-  public DefaultRenderersFactory setEnableAudioTrackPlaybackParams(
+  public final DefaultRenderersFactory setEnableAudioTrackPlaybackParams(
       boolean enableAudioTrackPlaybackParams) {
     this.enableAudioTrackPlaybackParams = enableAudioTrackPlaybackParams;
     return this;
@@ -260,7 +259,8 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * @return This factory, for convenience.
    */
   @CanIgnoreReturnValue
-  public DefaultRenderersFactory setAllowedVideoJoiningTimeMs(long allowedVideoJoiningTimeMs) {
+  public final DefaultRenderersFactory setAllowedVideoJoiningTimeMs(
+      long allowedVideoJoiningTimeMs) {
     this.allowedVideoJoiningTimeMs = allowedVideoJoiningTimeMs;
     return this;
   }
