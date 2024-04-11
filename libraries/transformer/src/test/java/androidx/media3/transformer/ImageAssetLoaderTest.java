@@ -24,6 +24,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.datasource.DataSourceBitmapLoader;
+import androidx.media3.transformer.AssetLoader.CompositionSettings;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.time.Duration;
@@ -116,14 +117,18 @@ public class ImageAssetLoaderTest {
 
   private static AssetLoader getAssetLoader(AssetLoader.Listener listener) {
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(
-                MediaItem.fromUri("asset:///media/bitmap/input_images/media3test.png"))
+        new EditedMediaItem.Builder(MediaItem.fromUri("asset:///media/png/media3test.png"))
             .setDurationUs(1_000_000)
             .setFrameRate(30)
             .build();
     return new ImageAssetLoader.Factory(
             new DataSourceBitmapLoader(ApplicationProvider.getApplicationContext()))
-        .createAssetLoader(editedMediaItem, Looper.myLooper(), listener);
+        .createAssetLoader(
+            editedMediaItem,
+            Looper.myLooper(),
+            listener,
+            new CompositionSettings(
+                Composition.HDR_MODE_KEEP_HDR, /* retainHdrFromUltraHdrImage= */ false));
   }
 
   private static final class FakeSampleConsumer implements SampleConsumer {

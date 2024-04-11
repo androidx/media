@@ -29,7 +29,6 @@ import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.BundleCollectionUtil;
-import androidx.media3.common.util.BundleUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.base.Function;
@@ -39,9 +38,6 @@ import com.google.errorprone.annotations.InlineMe;
 import java.util.ArrayList;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.NonNull;
-
-// TODO: b/288080357 - Replace developer.android.com fully-qualified SVG URLs below with relative
-// URLs once we stop publishing exoplayer2 javadoc.
 
 /**
  * A flexible representation of the structure of media. A timeline is able to represent the
@@ -1453,8 +1449,8 @@ public abstract class Timeline implements Bundleable {
     }
 
     Bundle bundle = new Bundle();
-    BundleUtil.putBinder(bundle, FIELD_WINDOWS, new BundleListRetriever(windowBundles));
-    BundleUtil.putBinder(bundle, FIELD_PERIODS, new BundleListRetriever(periodBundles));
+    bundle.putBinder(FIELD_WINDOWS, new BundleListRetriever(windowBundles));
+    bundle.putBinder(FIELD_PERIODS, new BundleListRetriever(periodBundles));
     bundle.putIntArray(FIELD_SHUFFLED_WINDOW_INDICES, shuffledWindowIndices);
     return bundle;
   }
@@ -1503,9 +1499,9 @@ public abstract class Timeline implements Bundleable {
   @UnstableApi
   public static Timeline fromBundle(Bundle bundle) {
     ImmutableList<Window> windows =
-        fromBundleListRetriever(Window::fromBundle, BundleUtil.getBinder(bundle, FIELD_WINDOWS));
+        fromBundleListRetriever(Window::fromBundle, bundle.getBinder(FIELD_WINDOWS));
     ImmutableList<Period> periods =
-        fromBundleListRetriever(Period::fromBundle, BundleUtil.getBinder(bundle, FIELD_PERIODS));
+        fromBundleListRetriever(Period::fromBundle, bundle.getBinder(FIELD_PERIODS));
     @Nullable int[] shuffledWindowIndices = bundle.getIntArray(FIELD_SHUFFLED_WINDOW_INDICES);
     return new RemotableTimeline(
         windows,

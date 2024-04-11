@@ -60,6 +60,7 @@ import static androidx.media3.test.utils.TestUtil.timelinesAreSame;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.playUntilPosition;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.playUntilStartOfMediaItem;
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.run;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilError;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilPendingCommandsAreFullyHandled;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilPlayWhenReady;
@@ -137,6 +138,7 @@ import androidx.media3.common.util.Util;
 import androidx.media3.datasource.TransferListener;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
+import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
@@ -5931,12 +5933,20 @@ public final class ExoPlayerTest {
         new DefaultLoadControl() {
           @Override
           public boolean shouldContinueLoading(
-              long playbackPositionUs, long bufferedDurationUs, float playbackSpeed) {
+              PlayerId playerId,
+              Timeline timeline,
+              MediaPeriodId mediaPeriodid,
+              long playbackPositionUs,
+              long bufferedDurationUs,
+              float playbackSpeed) {
             return false;
           }
 
           @Override
           public boolean shouldStartPlayback(
+              PlayerId playerId,
+              Timeline timeline,
+              MediaPeriodId mediaPeriodid,
               long bufferedDurationUs,
               float playbackSpeed,
               boolean rebuffering,
@@ -5978,12 +5988,20 @@ public final class ExoPlayerTest {
         new DefaultLoadControl() {
           @Override
           public boolean shouldContinueLoading(
-              long playbackPositionUs, long bufferedDurationUs, float playbackSpeed) {
+              PlayerId playerId,
+              Timeline timeline,
+              MediaPeriodId mediaPeriodid,
+              long playbackPositionUs,
+              long bufferedDurationUs,
+              float playbackSpeed) {
             return bufferedDurationUs < maxBufferUs;
           }
 
           @Override
           public boolean shouldStartPlayback(
+              PlayerId playerId,
+              Timeline timeline,
+              MediaPeriodId mediaPeriodid,
               long bufferedDurationUs,
               float playbackSpeed,
               boolean rebuffering,
@@ -6058,12 +6076,20 @@ public final class ExoPlayerTest {
         new DefaultLoadControl() {
           @Override
           public boolean shouldContinueLoading(
-              long playbackPositionUs, long bufferedDurationUs, float playbackSpeed) {
+              PlayerId playerId,
+              Timeline timeline,
+              MediaPeriodId mediaPeriodid,
+              long playbackPositionUs,
+              long bufferedDurationUs,
+              float playbackSpeed) {
             return true;
           }
 
           @Override
           public boolean shouldStartPlayback(
+              PlayerId playerId,
+              Timeline timeline,
+              MediaPeriodId mediaPeriodid,
               long bufferedDurationUs,
               float playbackSpeed,
               boolean rebuffering,
@@ -12947,7 +12973,7 @@ public final class ExoPlayerTest {
         spy(
             new DefaultLoadControl() {
               @Override
-              public void onReleased() {
+              public void onReleased(PlayerId playerId) {
                 // Emulate a failure during player release.
                 throw new RuntimeException();
               }
@@ -12958,13 +12984,13 @@ public final class ExoPlayerTest {
             .build();
     player.addListener(listener);
     // Ensure load control has not thrown the exception yet.
-    verify(loadControl, never()).onReleased();
+    verify(loadControl, never()).onReleased(any());
 
     player.release();
     ShadowLooper.idleMainLooper();
 
     // Verify load control threw the exception.
-    verify(loadControl).onReleased();
+    verify(loadControl).onReleased(any());
     verify(listener, never()).onPlayerError(any());
   }
 
@@ -13222,12 +13248,12 @@ public final class ExoPlayerTest {
     player.prepare();
 
     // Play a bit until the second renderer has been enabled, but not yet started.
-    playUntilPosition(player, /* mediaItemIndex= */ 0, /* positionMs= */ 5000);
+    run(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 5000);
     @Renderer.State int videoState1 = videoRenderer.getState();
     @Renderer.State int audioState1 = audioRenderer.getState();
     // Play until we reached the start of the second item.
-    playUntilStartOfMediaItem(player, /* mediaItemIndex= */ 1);
-    runUntilPendingCommandsAreFullyHandled(player);
+    run(player).untilStartOfMediaItem(/* mediaItemIndex= */ 1);
+    run(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState2 = videoRenderer.getState();
     @Renderer.State int audioState2 = audioRenderer.getState();
     player.release();
@@ -13255,20 +13281,20 @@ public final class ExoPlayerTest {
     player.prepare();
 
     // Play until the second renderer has been enabled, but has not yet started.
-    playUntilPosition(player, /* mediaItemIndex= */ 0, /* positionMs= */ 5000);
+    run(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 5000);
     // Pause in this "Read Ahead" state.
     player.pause();
-    runUntilPendingCommandsAreFullyHandled(player);
+    run(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState1 = videoRenderer.getState();
     @Renderer.State int audioState1 = audioRenderer.getState();
     // Play in this "Read Ahead" state.
     player.play();
-    runUntilPendingCommandsAreFullyHandled(player);
+    run(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState2 = videoRenderer.getState();
     @Renderer.State int audioState2 = audioRenderer.getState();
     // Play until the start of the second item.
-    playUntilStartOfMediaItem(player, /* mediaItemIndex= */ 1);
-    runUntilPendingCommandsAreFullyHandled(player);
+    run(player).untilStartOfMediaItem(/* mediaItemIndex= */ 1);
+    run(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState3 = videoRenderer.getState();
     @Renderer.State int audioState3 = audioRenderer.getState();
     player.release();

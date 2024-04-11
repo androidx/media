@@ -15,7 +15,6 @@
  */
 package androidx.media3.muxer;
 
-import static androidx.media3.muxer.Mp4Utils.MVHD_TIMEBASE;
 import static java.lang.Math.max;
 
 import android.media.MediaCodec.BufferInfo;
@@ -60,6 +59,12 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   @SuppressWarnings("InlinedApi")
   public ByteBuffer moovMetadataHeader(
       List<? extends TrackMetadataProvider> tracks, long minInputPtsUs, boolean isFragmentedMp4) {
+    // The timestamp will always fit into a 32-bit integer. This is already validated in the
+    // Mp4Muxer.setTimestampData() API. The value after type casting might be negative, but it is
+    // still valid because it is meant to be read as an unsigned integer.
+    int creationTimestampSeconds = (int) metadataCollector.timestampData.creationTimestampSeconds;
+    int modificationTimestampSeconds =
+        (int) metadataCollector.timestampData.modificationTimestampSeconds;
     List<ByteBuffer> trakBoxes = new ArrayList<>();
     List<ByteBuffer> trexBoxes = new ArrayList<>();
 
@@ -86,8 +91,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         trackDurationInTrackUnitsVu += sampleDurationsVu.get(j);
       }
 
-      long trackDurationUs =
-          Mp4Utils.usFromVu(trackDurationInTrackUnitsVu, track.videoUnitTimebase());
+      long trackDurationUs = usFromVu(trackDurationInTrackUnitsVu, track.videoUnitTimebase());
 
       @C.TrackType int trackType = MimeTypes.getTrackType(format.sampleMimeType);
       ByteBuffer stts = Boxes.stts(sampleDurationsVu);
@@ -146,17 +150,17 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
           Boxes.trak(
               Boxes.tkhd(
                   nextTrackId,
-                  // Using the time base of the entire file, not that of the track; otherwise,
-                  // Quicktime will stretch the audio accordingly, see b/158120042.
-                  (int) Mp4Utils.vuFromUs(trackDurationUs, MVHD_TIMEBASE),
-                  metadataCollector.modificationTimestampSeconds,
-                  metadataCollector.orientation,
+                  trackDurationUs,
+                  creationTimestampSeconds,
+                  modificationTimestampSeconds,
+                  metadataCollector.orientationData.orientation,
                   format),
               Boxes.mdia(
                   Boxes.mdhd(
                       trackDurationInTrackUnitsVu,
                       track.videoUnitTimebase(),
-                      metadataCollector.modificationTimestampSeconds,
+                      creationTimestampSeconds,
+                      modificationTimestampSeconds,
                       languageCode),
                   Boxes.hdlr(handlerType, handlerName),
                   Boxes.minf(mhdBox, Boxes.dinf(Boxes.dref(Boxes.localUrl())), stblBox)));
@@ -168,15 +172,16 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     }
 
     ByteBuffer mvhdBox =
-        Boxes.mvhd(nextTrackId, metadataCollector.modificationTimestampSeconds, videoDurationUs);
-    ByteBuffer udtaBox = Boxes.udta(metadataCollector.location);
+        Boxes.mvhd(
+            nextTrackId, creationTimestampSeconds, modificationTimestampSeconds, videoDurationUs);
+    ByteBuffer udtaBox = Boxes.udta(metadataCollector.locationData);
     ByteBuffer metaBox =
-        metadataCollector.metadataPairs.isEmpty()
+        metadataCollector.metadataEntries.isEmpty()
             ? ByteBuffer.allocate(0)
             : Boxes.meta(
                 Boxes.hdlr(/* handlerType= */ "mdta", /* handlerName= */ ""),
-                Boxes.keys(Lists.newArrayList(metadataCollector.metadataPairs.keySet())),
-                Boxes.ilst(Lists.newArrayList(metadataCollector.metadataPairs.values())));
+                Boxes.keys(Lists.newArrayList(metadataCollector.metadataEntries)),
+                Boxes.ilst(Lists.newArrayList(metadataCollector.metadataEntries)));
 
     ByteBuffer moovBox;
     moovBox =
@@ -190,7 +195,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     // Also add XMP if needed
     if (metadataCollector.xmpData != null) {
       return BoxUtils.concatenateBuffers(
-          moovBox, Boxes.uuid(Boxes.XMP_UUID, metadataCollector.xmpData.duplicate()));
+          moovBox, Boxes.uuid(Boxes.XMP_UUID, ByteBuffer.wrap(metadataCollector.xmpData.data)));
     } else {
       // No need for another copy if there is no XMP to be appended.
       return moovBox;
@@ -207,5 +212,10 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         Util.SDK_INT >= 21 ? Locale.forLanguageTag(languageTag) : new Locale(languageTag);
 
     return locale.getISO3Language().isEmpty() ? languageTag : locale.getISO3Language();
+  }
+
+  /** Converts video units to microseconds, using the provided timebase. */
+  private static long usFromVu(long timestampVu, long videoUnitTimebase) {
+    return timestampVu * 1_000_000L / videoUnitTimebase;
   }
 }

@@ -613,12 +613,18 @@ public final class C {
   public static final int ALLOW_CAPTURE_BY_SYSTEM = AudioAttributes.ALLOW_CAPTURE_BY_SYSTEM;
 
   /**
-   * Flags which can apply to a buffer containing a media sample. Possible flag values are {@link
-   * #BUFFER_FLAG_KEY_FRAME}, {@link #BUFFER_FLAG_END_OF_STREAM}, {@link #BUFFER_FLAG_FIRST_SAMPLE},
-   * {@link #BUFFER_FLAG_LAST_SAMPLE}, {@link #BUFFER_FLAG_ENCRYPTED} and {@link
-   * #BUFFER_FLAG_DECODE_ONLY}.
+   * Flags which can apply to a buffer containing a media sample.
+   *
+   * <p>Possible flag values are:
+   *
+   * <ul>
+   *   <li>{@link #BUFFER_FLAG_KEY_FRAME}
+   *   <li>{@link #BUFFER_FLAG_END_OF_STREAM}
+   *   <li>{@link #BUFFER_FLAG_FIRST_SAMPLE}
+   *   <li>{@link #BUFFER_FLAG_LAST_SAMPLE}
+   *   <li>{@link #BUFFER_FLAG_ENCRYPTED}
+   * </ul>
    */
-  @SuppressWarnings("deprecation") // Includes deprecated BUFFER_FLAG_DECODE_ONLY flag.
   @UnstableApi
   @Documented
   @Retention(RetentionPolicy.SOURCE)
@@ -631,8 +637,7 @@ public final class C {
         BUFFER_FLAG_FIRST_SAMPLE,
         BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA,
         BUFFER_FLAG_LAST_SAMPLE,
-        BUFFER_FLAG_ENCRYPTED,
-        BUFFER_FLAG_DECODE_ONLY
+        BUFFER_FLAG_ENCRYPTED
       })
   public @interface BufferFlags {}
 
@@ -654,13 +659,6 @@ public final class C {
 
   /** Indicates that a buffer is (at least partially) encrypted. */
   @UnstableApi public static final int BUFFER_FLAG_ENCRYPTED = 1 << 30; // 0x40000000
-
-  /**
-   * @deprecated Renderers and decoders will check whether the buffer time is greater or equal to
-   *     the desired start time without the need to set this flag. Custom decoders can mark other
-   *     buffers with {@code DecoderOutputBuffer.shouldBeSkipped} if needed.
-   */
-  @UnstableApi @Deprecated public static final int BUFFER_FLAG_DECODE_ONLY = 1 << 31; // 0x80000000
 
   /** A realtime {@linkplain MediaFormat#KEY_PRIORITY codec priority}. */
   @UnstableApi public static final int MEDIA_CODEC_PRIORITY_REALTIME = 0;

@@ -39,28 +39,17 @@ import java.nio.ByteBuffer;
 
 /** {@link Muxer} implementation that uses a {@link MediaMuxer}. */
 /* package */ final class FrameworkMuxer implements Muxer {
-
   // MediaMuxer supported sample formats are documented in MediaMuxer.addTrack(MediaFormat).
   private static final ImmutableList<String> SUPPORTED_VIDEO_SAMPLE_MIME_TYPES =
-      Util.SDK_INT >= 24
-          ? ImmutableList.of(
-              MimeTypes.VIDEO_H265,
-              MimeTypes.VIDEO_H264,
-              MimeTypes.VIDEO_H263,
-              MimeTypes.VIDEO_MP4V)
-          : ImmutableList.of(MimeTypes.VIDEO_H264, MimeTypes.VIDEO_H263, MimeTypes.VIDEO_MP4V);
-
+      getSupportedVideoSampleMimeTypes();
   private static final ImmutableList<String> SUPPORTED_AUDIO_SAMPLE_MIME_TYPES =
       ImmutableList.of(MimeTypes.AUDIO_AAC, MimeTypes.AUDIO_AMR_NB, MimeTypes.AUDIO_AMR_WB);
 
   /** {@link Muxer.Factory} for {@link FrameworkMuxer}. */
   public static final class Factory implements Muxer.Factory {
-
-    private final long maxDelayBetweenSamplesMs;
     private final long videoDurationMs;
 
-    public Factory(long maxDelayBetweenSamplesMs, long videoDurationMs) {
-      this.maxDelayBetweenSamplesMs = maxDelayBetweenSamplesMs;
+    public Factory(long videoDurationMs) {
       this.videoDurationMs = videoDurationMs;
     }
 
@@ -72,7 +61,7 @@ import java.nio.ByteBuffer;
       } catch (IOException e) {
         throw new MuxerException("Error creating muxer", e);
       }
-      return new FrameworkMuxer(mediaMuxer, maxDelayBetweenSamplesMs, videoDurationMs);
+      return new FrameworkMuxer(mediaMuxer, videoDurationMs);
     }
 
     @Override
@@ -87,7 +76,6 @@ import java.nio.ByteBuffer;
   }
 
   private final MediaMuxer mediaMuxer;
-  private final long maxDelayBetweenSamplesMs;
   private final long videoDurationUs;
   private final MediaCodec.BufferInfo bufferInfo;
   private final SparseLongArray trackIndexToLastPresentationTimeUs;
@@ -97,10 +85,8 @@ import java.nio.ByteBuffer;
 
   private boolean isStarted;
 
-  private FrameworkMuxer(
-      MediaMuxer mediaMuxer, long maxDelayBetweenSamplesMs, long videoDurationMs) {
+  private FrameworkMuxer(MediaMuxer mediaMuxer, long videoDurationMs) {
     this.mediaMuxer = mediaMuxer;
-    this.maxDelayBetweenSamplesMs = maxDelayBetweenSamplesMs;
     this.videoDurationUs = Util.msToUs(videoDurationMs);
     bufferInfo = new MediaCodec.BufferInfo();
     trackIndexToLastPresentationTimeUs = new SparseLongArray();
@@ -244,11 +230,6 @@ import java.nio.ByteBuffer;
     }
   }
 
-  @Override
-  public long getMaxDelayBetweenSamplesMs() {
-    return maxDelayBetweenSamplesMs;
-  }
-
   // Accesses MediaMuxer state via reflection to ensure that muxer resources can be released even
   // if stopping fails.
   @SuppressLint("PrivateApi")
@@ -275,5 +256,18 @@ import java.nio.ByteBuffer;
       // Rethrow the original error.
       throw e;
     }
+  }
+
+  private static ImmutableList<String> getSupportedVideoSampleMimeTypes() {
+    ImmutableList.Builder<String> supportedMimeTypes =
+        new ImmutableList.Builder<String>()
+            .add(MimeTypes.VIDEO_H264, MimeTypes.VIDEO_H263, MimeTypes.VIDEO_MP4V);
+    if (SDK_INT >= 24) {
+      supportedMimeTypes.add(MimeTypes.VIDEO_H265);
+    }
+    if (SDK_INT >= 34) {
+      supportedMimeTypes.add(MimeTypes.VIDEO_AV1);
+    }
+    return supportedMimeTypes.build();
   }
 }

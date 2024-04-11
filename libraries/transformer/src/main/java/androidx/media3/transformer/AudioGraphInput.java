@@ -46,10 +46,14 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Processes a single stream of raw audio samples.
+ * Processes a single sequential stream of PCM audio samples.
  *
- * <p>Handles changes to the {@link Format} and {@link Effects} on {@linkplain #onMediaItemChanged
- * item boundaries}.
+ * <p>Supports changes to the input {@link Format} and {@link Effects} on {@linkplain
+ * #onMediaItemChanged item boundaries}.
+ *
+ * <p>Class has thread-safe support for input and processing happening on different threads. In that
+ * case, one is the upstream SampleConsumer "input" thread, and the other is the main internal
+ * "processing" thread.
  */
 /* package */ final class AudioGraphInput implements GraphInput {
   private static final int MAX_INPUT_BUFFER_COUNT = 10;
@@ -66,13 +70,24 @@ import java.util.concurrent.atomic.AtomicReference;
   private boolean processedFirstMediaItemChange;
   private boolean receivedEndOfStreamFromInput;
   private boolean queueEndOfStreamAfterSilence;
+  private long startTimeUs;
+  private boolean inputBlocked;
 
+  /**
+   * Creates an instance.
+   *
+   * @param requestedOutputAudioFormat The requested {@linkplain AudioFormat properties} of the
+   *     output audio. {@linkplain Format#NO_VALUE Unset} fields are ignored.
+   * @param editedMediaItem The initial {@link EditedMediaItem}.
+   * @param inputFormat The initial {@link Format} of audio input data.
+   */
   public AudioGraphInput(
       AudioFormat requestedOutputAudioFormat, EditedMediaItem editedMediaItem, Format inputFormat)
       throws UnhandledAudioFormatException {
     AudioFormat inputAudioFormat = new AudioFormat(inputFormat);
     checkArgument(isInputAudioFormatValid(inputAudioFormat), /* errorMessage= */ inputAudioFormat);
 
+    // TODO(b/323148735) - Use improved buffer assignment logic.
     availableInputBuffers = new ConcurrentLinkedQueue<>();
     ByteBuffer emptyBuffer = ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder());
     for (int i = 0; i < MAX_INPUT_BUFFER_COUNT; i++) {
@@ -89,14 +104,19 @@ import java.util.concurrent.atomic.AtomicReference;
     // APP configuration not active until flush called. getOutputAudioFormat based on active config.
     audioProcessingPipeline.flush();
     outputAudioFormat = audioProcessingPipeline.getOutputAudioFormat();
+    startTimeUs = C.TIME_UNSET;
   }
 
+  /** Returns the {@link AudioFormat} of {@linkplain #getOutput() output buffers}. */
   public AudioFormat getOutputAudioFormat() {
     return outputAudioFormat;
   }
 
   /**
-   * Returns a {@link ByteBuffer} of output.
+   * Returns a {@link ByteBuffer} of output, in the {@linkplain #getOutputAudioFormat() output audio
+   * format}.
+   *
+   * <p>Should only be called by the processing thread.
    *
    * @throws UnhandledAudioFormatException If the configuration of underlying components fails as a
    *     result of upstream changes.
@@ -115,49 +135,131 @@ import java.util.concurrent.atomic.AtomicReference;
     return EMPTY_BUFFER;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Should only be called by the input thread.
+   */
   @Override
   public void onMediaItemChanged(
       EditedMediaItem editedMediaItem,
       long durationUs,
-      @Nullable Format trackFormat,
+      @Nullable Format decodedFormat,
       boolean isLast) {
-    if (trackFormat == null) {
+    if (decodedFormat == null) {
       checkState(
           durationUs != C.TIME_UNSET,
           "Could not generate silent audio because duration is unknown.");
     } else {
-      checkState(MimeTypes.isAudio(trackFormat.sampleMimeType));
-      AudioFormat trackAudioFormat = new AudioFormat(trackFormat);
-      checkState(isInputAudioFormatValid(trackAudioFormat), /* errorMessage= */ trackAudioFormat);
+      checkState(MimeTypes.isAudio(decodedFormat.sampleMimeType));
+      AudioFormat audioFormat = new AudioFormat(decodedFormat);
+      checkState(isInputAudioFormatValid(audioFormat), /* errorMessage= */ audioFormat);
     }
     pendingMediaItemChange.set(
-        new MediaItemChange(editedMediaItem, durationUs, trackFormat, isLast));
+        new MediaItemChange(editedMediaItem, durationUs, decodedFormat, isLast));
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Should only be called by the input thread.
+   */
   @Override
   @Nullable
   public DecoderInputBuffer getInputBuffer() {
-    if (pendingMediaItemChange.get() != null) {
+    if (inputBlocked || (pendingMediaItemChange.get() != null)) {
       return null;
     }
     return availableInputBuffers.peek();
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Should only be called by the input thread.
+   */
   @Override
   public boolean queueInputBuffer() {
+    if (inputBlocked) {
+      return false;
+    }
     checkState(pendingMediaItemChange.get() == null);
     DecoderInputBuffer inputBuffer = availableInputBuffers.remove();
     pendingInputBuffers.add(inputBuffer);
+    if (startTimeUs == C.TIME_UNSET) {
+      startTimeUs = inputBuffer.timeUs;
+    }
     return true;
   }
 
-  /** Releases any underlying resources. */
+  /**
+   * Returns the stream start time in microseconds, or {@link C#TIME_UNSET} if unknown.
+   *
+   * <p>Should only be called if the input thread and processing thread are the same.
+   */
+  public long getStartTimeUs() {
+    return startTimeUs;
+  }
+
+  /**
+   * Instructs the {@code AudioGraphInput} to not queue any input buffer.
+   *
+   * <p>Should only be called if the input thread and processing thread are the same.
+   */
+  public void blockInput() {
+    inputBlocked = true;
+  }
+
+  /**
+   * Unblocks incoming data if {@linkplain #blockInput() blocked}.
+   *
+   * <p>Should only be called if the input thread and processing thread are the same.
+   */
+  public void unblockInput() {
+    inputBlocked = false;
+  }
+
+  /**
+   * Clears any pending data.
+   *
+   * <p>If an {@linkplain #getInputBuffer() input buffer} has been retrieved without being queued,
+   * it shouldn't be used after calling this method.
+   *
+   * <p>Should only be called if the input thread and processing thread are the same.
+   */
+  public void flush() {
+    pendingMediaItemChange.set(null);
+    processedFirstMediaItemChange = true;
+    if (!availableInputBuffers.isEmpty()) {
+      // Clear first available buffer in case the caller wrote data in the input buffer without
+      // queueing it.
+      clearAndAddToAvailableBuffers(availableInputBuffers.remove());
+    }
+    while (!pendingInputBuffers.isEmpty()) {
+      clearAndAddToAvailableBuffers(pendingInputBuffers.remove());
+    }
+    silentAudioGenerator.flush();
+    audioProcessingPipeline.flush();
+    currentInputBufferBeingOutput = null;
+    receivedEndOfStreamFromInput = false;
+    queueEndOfStreamAfterSilence = false;
+    startTimeUs = C.TIME_UNSET;
+  }
+
+  /**
+   * Releases any underlying resources.
+   *
+   * <p>Should only be called by the processing thread.
+   */
   public void release() {
-    // TODO(b/303029174): Impl flush(), reset() & decide if a separate release() is still needed.
     audioProcessingPipeline.reset();
   }
 
-  /** Returns whether the input has ended and all queued data has been output. */
+  /**
+   * Returns whether the input has ended and all queued data has been output.
+   *
+   * <p>Should only be called on the processing thread.
+   */
   public boolean isEnded() {
     if (hasDataToOutput()) {
       return false;
@@ -322,6 +424,16 @@ import java.util.concurrent.atomic.AtomicReference;
     processedFirstMediaItemChange = true;
   }
 
+  /**
+   * Returns a new configured {@link AudioProcessingPipeline}.
+   *
+   * <p>Additional {@link AudioProcessor} instances may be added to the returned pipeline that:
+   *
+   * <ul>
+   *   <li>Handle {@linkplain EditedMediaItem#flattenForSlowMotion slow motion flattening}.
+   *   <li>Modify the audio stream to match the {@code requiredOutputAudioFormat}.
+   * </ul>
+   */
   private static AudioProcessingPipeline configureProcessing(
       EditedMediaItem editedMediaItem,
       @Nullable Format inputFormat,
@@ -360,8 +472,12 @@ import java.util.concurrent.atomic.AtomicReference;
     AudioProcessingPipeline audioProcessingPipeline =
         new AudioProcessingPipeline(audioProcessors.build());
     AudioFormat outputAudioFormat = audioProcessingPipeline.configure(inputAudioFormat);
-    if (!requiredOutputAudioFormat.equals(AudioFormat.NOT_SET)
-        && !outputAudioFormat.equals(requiredOutputAudioFormat)) {
+    if ((requiredOutputAudioFormat.sampleRate != Format.NO_VALUE
+            && requiredOutputAudioFormat.sampleRate != outputAudioFormat.sampleRate)
+        || (requiredOutputAudioFormat.channelCount != Format.NO_VALUE
+            && requiredOutputAudioFormat.channelCount != outputAudioFormat.channelCount)
+        || (requiredOutputAudioFormat.encoding != Format.NO_VALUE
+            && requiredOutputAudioFormat.encoding != outputAudioFormat.encoding)) {
       throw new UnhandledAudioFormatException(
           "Audio can not be modified to match downstream format", inputAudioFormat);
     }

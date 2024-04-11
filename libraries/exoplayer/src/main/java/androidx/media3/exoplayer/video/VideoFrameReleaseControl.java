@@ -175,6 +175,7 @@ public final class VideoFrameReleaseControl {
   private long lastReleaseRealtimeUs;
   private long lastPresentationTimeUs;
   private long joiningDeadlineMs;
+  private boolean joiningRenderNextFrameImmediately;
   private float playbackSpeed;
   private Clock clock;
 
@@ -298,8 +299,17 @@ public final class VideoFrameReleaseControl {
     }
   }
 
-  /** Joins the release control to a new stream. */
-  public void join() {
+  /**
+   * Joins the release control to a new stream.
+   *
+   * <p>The release control will pretend to be {@linkplain #isReady ready} for short time even if
+   * the first frame hasn't been rendered yet to avoid interrupting an ongoing playback.
+   *
+   * @param renderNextFrameImmediately Whether the next frame should be released as soon as possible
+   *     or only at its preferred scheduled release time.
+   */
+  public void join(boolean renderNextFrameImmediately) {
+    joiningRenderNextFrameImmediately = renderNextFrameImmediately;
     joiningDeadlineMs =
         allowedJoiningTimeMs > 0 ? (clock.elapsedRealtime() + allowedJoiningTimeMs) : C.TIME_UNSET;
   }
@@ -353,8 +363,9 @@ public final class VideoFrameReleaseControl {
     frameReleaseInfo.releaseTimeNs =
         frameReleaseHelper.adjustReleaseTime(systemTimeNs + (frameReleaseInfo.earlyUs * 1_000));
     frameReleaseInfo.earlyUs = (frameReleaseInfo.releaseTimeNs - systemTimeNs) / 1_000;
-    // While joining, late frames are skipped.
-    boolean treatDropAsSkip = joiningDeadlineMs != C.TIME_UNSET;
+    // While joining, late frames are skipped while we catch up with the playback position.
+    boolean treatDropAsSkip =
+        joiningDeadlineMs != C.TIME_UNSET && !joiningRenderNextFrameImmediately;
     if (frameTimingEvaluator.shouldIgnoreFrame(
         frameReleaseInfo.earlyUs, positionUs, elapsedRealtimeUs, isLastFrame, treatDropAsSkip)) {
       return FRAME_RELEASE_IGNORE;
@@ -425,8 +436,8 @@ public final class VideoFrameReleaseControl {
   /** Returns whether a frame should be force released. */
   private boolean shouldForceRelease(
       long positionUs, long earlyUs, long outputStreamStartPositionUs) {
-    if (joiningDeadlineMs != C.TIME_UNSET) {
-      // No force releasing during joining.
+    if (joiningDeadlineMs != C.TIME_UNSET && !joiningRenderNextFrameImmediately) {
+      // No force releasing of the initial or late frames during joining unless requested.
       return false;
     }
     switch (firstFrameState) {

@@ -56,7 +56,7 @@ const int COLOR_TRANSFER_HLG = 7;
 
 // Matrix values based on computeXYZMatrix(BT2020Primaries, BT2020WhitePoint)
 // https://cs.android.com/android/platform/superproject/+/master:frameworks/base/libs/hwui/utils/HostColorSpace.cpp;l=200-232;drc=86bd214059cd6150304888a285941bf74af5b687
-const mat3 RGB_TO_XYZ_BT2020 =
+const mat3 RGB_BT2020_TO_XYZ =
     mat3(0.63695805f, 0.26270021f, 0.00000000f, 0.14461690f, 0.67799807f,
          0.02807269f, 0.16888098f, 0.05930172f, 1.06098506f);
 // Matrix values based on computeXYZMatrix(BT709Primaries, BT709WhitePoint)
@@ -129,7 +129,7 @@ highp vec3 applyHlgBt2020ToBt709Ootf(highp vec3 linearRgbBt2020) {
   // https://www.microsoft.com/applied-sciences/uploads/projects/investigation-of-hdr-vs-tone-mapped-sdr/investigation-of-hdr-vs-tone-mapped-sdr.pdf.
   const float hlgGamma = 1.0735674018211279;
 
-  vec3 linearXyz = RGB_TO_XYZ_BT2020 * linearRgbBt2020;
+  vec3 linearXyz = RGB_BT2020_TO_XYZ * linearRgbBt2020;
   linearXyz = linearXyz * pow(linearXyz[1], hlgGamma - 1.0);
   vec3 linearRgbBt709 = clamp((XYZ_TO_RGB_BT709 * linearXyz), 0.0, 1.0);
   return linearRgbBt709;
@@ -149,7 +149,7 @@ highp vec3 applyPqBt2020ToBt709Ootf(highp vec3 linearRgbBt2020) {
   // Also happens to match Netflix's minimum HDR mastering guidelines:
   // https://partnerhelp.netflixstudios.com/hc/en-us/articles/360000599948-Dolby-Vision-HDR-Mastering-Guidelines
   //
-  // TODO: b/290553698 - Use max_display_mastering_luminance from
+  // TODO: b/314971953 - Use max_display_mastering_luminance from
   //  ColorInfo.hdrStaticInfo in the bitstream instead.
   const float maxMasteringLuminance = 1000.0;
 
@@ -196,7 +196,7 @@ highp vec3 applyPqBt2020ToBt709Ootf(highp vec3 linearRgbBt2020) {
   // linearRgbBt2020.y is greater than 0 and is thus non-zero.
   linearRgbBt2020 = linearRgbBt2020 * (nits / linearRgbBt2020.y);
   linearRgbBt2020 = linearRgbBt2020 / sdrMaxLuminance;  // Normalize luminance.
-  vec3 linearRgbBt709 = XYZ_TO_RGB_BT709 * RGB_TO_XYZ_BT2020 * linearRgbBt2020;
+  vec3 linearRgbBt709 = XYZ_TO_RGB_BT709 * RGB_BT2020_TO_XYZ * linearRgbBt2020;
   return linearRgbBt709;
 }
 

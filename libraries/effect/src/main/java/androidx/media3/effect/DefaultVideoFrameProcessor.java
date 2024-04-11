@@ -111,7 +111,14 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       /**
        * Sets whether to transfer colors to an intermediate color space when applying effects.
        *
+       * <p>The default value is {@code true}.
+       *
        * <p>If the input or output is HDR, this must be {@code true}.
+       *
+       * <p>If all input and output content will be SDR, it's recommended to set this value to
+       * {@code false}. This is because 8-bit colors in SDR may result in color banding.
+       *
+       * <p>This doesn't currently work with overlay effects (ex. {@link TextureOverlay}).
        */
       @CanIgnoreReturnValue
       public Builder setEnableColorTransfers(boolean enableColorTransfers) {
@@ -247,9 +254,8 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
      *
      * <p>Using HDR {@code outputColorInfo} requires OpenGL ES 3.0.
      *
-     * <p>If outputting HDR content to a display, {@code EGL_GL_COLORSPACE_BT2020_PQ_EXT} is
-     * required, and {@link ColorInfo#colorTransfer outputColorInfo.colorTransfer} must be {@link
-     * C#COLOR_TRANSFER_ST2084}.
+     * <p>If outputting HDR content to a display, {@code EGL_GL_COLORSPACE_BT2020_PQ_EXT} or {@code
+     * EGL_GL_COLORSPACE_BT2020_HLG_EXT} is required.
      *
      * <p>{@code outputColorInfo}'s {@link ColorInfo#colorRange} values are currently ignored, in
      * favor of {@link C#COLOR_RANGE_FULL}.
@@ -426,14 +432,20 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     if (!inputStreamRegisteredCondition.isOpen()) {
       return false;
     }
+    if (ColorInfo.isTransferHdr(outputColorInfo)) {
+      checkArgument(
+          Util.SDK_INT >= 34 && inputBitmap.hasGainmap(),
+          "VideoFrameProcessor configured for HDR output, but either received SDR input, or is on"
+              + " an API level that doesn't support gainmaps. SDR to HDR tonemapping is not"
+              + " supported.");
+    }
     FrameInfo frameInfo = checkNotNull(this.nextInputFrameInfo);
     inputSwitcher
         .activeTextureManager()
         .queueInputBitmap(
             inputBitmap,
             new FrameInfo.Builder(frameInfo).setOffsetToAddUs(frameInfo.offsetToAddUs).build(),
-            timestampIterator,
-            /* useHdr= */ false);
+            timestampIterator);
     return true;
   }
 
@@ -672,18 +684,6 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     EGLContext eglContext =
         createFocusedEglContextWithFallback(glObjectsProvider, eglDisplay, configAttributes);
 
-    // Not renderFramesAutomatically means outputting to a display surface. HDR display surfaces
-    // require the BT2020 PQ GL extension.
-    if (!renderFramesAutomatically && ColorInfo.isTransferHdr(outputColorInfo)) {
-      // Display hardware supports PQ only.
-      checkArgument(outputColorInfo.colorTransfer == C.COLOR_TRANSFER_ST2084);
-      if (SDK_INT < 33 || !GlUtil.isBt2020PqExtensionSupported()) {
-        GlUtil.destroyEglContext(eglDisplay, eglContext);
-        // On API<33, the system cannot display PQ content correctly regardless of whether BT2020 PQ
-        // GL extension is supported.
-        throw new VideoFrameProcessingException("BT.2020 PQ OpenGL output isn't supported.");
-      }
-    }
     ColorInfo linearColorInfo =
         outputColorInfo
             .buildUpon()
@@ -907,14 +907,27 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     checkArgument(outputColorInfo.colorTransfer != C.COLOR_TRANSFER_LINEAR);
 
     if (ColorInfo.isTransferHdr(inputColorInfo) != ColorInfo.isTransferHdr(outputColorInfo)) {
-      // OpenGL tone mapping is only implemented for BT2020 to BT709 and HDR to SDR.
-      checkArgument(inputColorInfo.colorSpace == C.COLOR_SPACE_BT2020);
-      checkArgument(outputColorInfo.colorSpace != C.COLOR_SPACE_BT2020);
-      checkArgument(ColorInfo.isTransferHdr(inputColorInfo));
       checkArgument(
-          outputColorInfo.colorTransfer == C.COLOR_TRANSFER_GAMMA_2_2
-              || outputColorInfo.colorTransfer == C.COLOR_TRANSFER_SDR);
+          isSupportedToneMapping(inputColorInfo, outputColorInfo)
+              || isUltraHdr(inputColorInfo, outputColorInfo));
     }
+  }
+
+  private static boolean isSupportedToneMapping(
+      ColorInfo inputColorInfo, ColorInfo outputColorInfo) {
+    // OpenGL tone mapping is only implemented for BT2020 to BT709 and HDR to SDR.
+    return inputColorInfo.colorSpace == C.COLOR_SPACE_BT2020
+        && outputColorInfo.colorSpace != C.COLOR_SPACE_BT2020
+        && ColorInfo.isTransferHdr(inputColorInfo)
+        && (outputColorInfo.colorTransfer == C.COLOR_TRANSFER_GAMMA_2_2
+            || outputColorInfo.colorTransfer == C.COLOR_TRANSFER_SDR);
+  }
+
+  private static boolean isUltraHdr(ColorInfo inputColorInfo, ColorInfo outputColorInfo) {
+    // UltraHDR is is only implemented from SRGB_BT709_FULL to BT2020 HDR.
+    return inputColorInfo.equals(ColorInfo.SRGB_BT709_FULL)
+        && outputColorInfo.colorSpace == C.COLOR_SPACE_BT2020
+        && ColorInfo.isTransferHdr(outputColorInfo);
   }
 
   /**

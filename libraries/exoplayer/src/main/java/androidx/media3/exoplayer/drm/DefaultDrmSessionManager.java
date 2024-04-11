@@ -29,7 +29,6 @@ import android.os.Message;
 import android.os.SystemClock;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.DrmInitData.SchemeData;
@@ -68,7 +67,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * <p>This implementation supports pre-acquisition of sessions using {@link
  * #preacquireSession(DrmSessionEventListener.EventDispatcher, Format)}.
  */
-@RequiresApi(18)
 @UnstableApi
 public class DefaultDrmSessionManager implements DrmSessionManager {
 
@@ -660,11 +658,8 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
     if (session.getState() != DrmSession.STATE_ERROR) {
       return false;
     }
-
     @Nullable Throwable cause = checkNotNull(session.getError()).getCause();
-    // ResourceBusyException is only available at API 19, so on earlier versions we
-    // assume any error indicates resource shortage (ensuring we retry).
-    return Util.SDK_INT < 19 || cause instanceof ResourceBusyException
+    return cause instanceof ResourceBusyException
         || DrmUtil.isFailureToConstructResourceBusyException(cause);
   }
 

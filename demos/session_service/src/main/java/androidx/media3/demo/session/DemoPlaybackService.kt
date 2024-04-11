@@ -19,7 +19,6 @@ import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.annotation.OptIn
@@ -88,13 +87,6 @@ open class DemoPlaybackService : MediaLibraryService() {
 
   override fun onGetSession(controllerInfo: ControllerInfo): MediaLibrarySession {
     return mediaLibrarySession
-  }
-
-  override fun onTaskRemoved(rootIntent: Intent?) {
-    val player = mediaLibrarySession.player
-    if (!player.playWhenReady || player.mediaItemCount == 0) {
-      stopSelf()
-    }
   }
 
   // MediaSession.setSessionActivity
@@ -166,7 +158,7 @@ open class DemoPlaybackService : MediaLibraryService() {
       NotificationChannel(
         CHANNEL_ID,
         getString(R.string.notification_channel_name),
-        NotificationManager.IMPORTANCE_DEFAULT
+        NotificationManager.IMPORTANCE_DEFAULT,
       )
     notificationManagerCompat.createNotificationChannel(channel)
   }

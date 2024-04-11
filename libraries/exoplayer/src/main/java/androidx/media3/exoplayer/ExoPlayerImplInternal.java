@@ -211,6 +211,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
   private final MediaSourceList mediaSourceList;
   private final LivePlaybackSpeedControl livePlaybackSpeedControl;
   private final long releaseTimeoutMs;
+  private final PlayerId playerId;
 
   @SuppressWarnings("unused")
   private SeekParameters seekParameters;
@@ -269,11 +270,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
     this.setForegroundModeTimeoutMs = releaseTimeoutMs;
     this.pauseAtEndOfWindow = pauseAtEndOfWindow;
     this.clock = clock;
+    this.playerId = playerId;
 
     playbackMaybeBecameStuckAtMs = C.TIME_UNSET;
     lastRebufferRealtimeMs = C.TIME_UNSET;
-    backBufferDurationUs = loadControl.getBackBufferDurationUs();
-    retainBackBufferFromKeyframe = loadControl.retainBackBufferFromKeyframe();
+    backBufferDurationUs = loadControl.getBackBufferDurationUs(playerId);
+    retainBackBufferFromKeyframe = loadControl.retainBackBufferFromKeyframe(playerId);
 
     playbackInfo = PlaybackInfo.createDummy(emptyTrackSelectorResult);
     playbackInfoUpdate = new PlaybackInfoUpdate(playbackInfo);
@@ -775,7 +777,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
         /* resetPosition= */ false,
         /* releaseMediaSourceList= */ false,
         /* resetError= */ true);
-    loadControl.onPrepared();
+    loadControl.onPrepared(playerId);
     setState(playbackInfo.timeline.isEmpty() ? Player.STATE_ENDED : Player.STATE_BUFFERING);
     mediaSourceList.prepare(bandwidthMeter.getTransferListener());
     handler.sendEmptyMessage(MSG_DO_SOME_WORK);
@@ -1485,7 +1487,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
         /* releaseMediaSourceList= */ true,
         /* resetError= */ false);
     playbackInfoUpdate.incrementPendingOperationAcks(acknowledgeStop ? 1 : 0);
-    loadControl.onStopped();
+    loadControl.onStopped(playerId);
     setState(Player.STATE_IDLE);
   }
 
@@ -1497,7 +1499,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
           /* releaseMediaSourceList= */ true,
           /* resetError= */ false);
       releaseRenderers();
-      loadControl.onReleased();
+      loadControl.onReleased(playerId);
       setState(Player.STATE_IDLE);
     } finally {
       if (internalPlaybackThread != null) {
@@ -1950,6 +1952,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
     return isBufferedToEnd
         || isAdPendingPreparation
         || loadControl.shouldStartPlayback(
+            playerId,
             playbackInfo.timeline,
             playingPeriodHolder.info.id,
             getTotalBufferedDurationUs(),
@@ -2537,7 +2540,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
                 - loadingPeriodHolder.info.startPositionUs;
     boolean shouldContinueLoading =
         loadControl.shouldContinueLoading(
-            playbackPositionUs, bufferedDurationUs, mediaClock.getPlaybackParameters().speed);
+            playerId,
+            playbackInfo.timeline,
+            loadingPeriodHolder.info.id,
+            playbackPositionUs,
+            bufferedDurationUs,
+            mediaClock.getPlaybackParameters().speed);
     if (!shouldContinueLoading
         && bufferedDurationUs < PLAYBACK_BUFFER_EMPTY_THRESHOLD_US
         && (backBufferDurationUs > 0 || retainBackBufferFromKeyframe)) {
@@ -2549,7 +2557,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
           .discardBuffer(playbackInfo.positionUs, /* toKeyframe= */ false);
       shouldContinueLoading =
           loadControl.shouldContinueLoading(
-              playbackPositionUs, bufferedDurationUs, mediaClock.getPlaybackParameters().speed);
+              playerId,
+              playbackInfo.timeline,
+              loadingPeriodHolder.info.id,
+              playbackPositionUs,
+              bufferedDurationUs,
+              mediaClock.getPlaybackParameters().speed);
     }
     return shouldContinueLoading;
   }
@@ -2774,6 +2787,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
       TrackGroupArray trackGroups,
       TrackSelectorResult trackSelectorResult) {
     loadControl.onTracksSelected(
+        playerId,
         playbackInfo.timeline,
         mediaPeriodId,
         renderers,

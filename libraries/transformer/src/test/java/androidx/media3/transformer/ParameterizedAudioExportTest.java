@@ -117,7 +117,8 @@ public final class ParameterizedAudioExportTest {
 
   @Parameter public SequenceConfig sequence;
 
-  private final CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory();
+  private final CapturingMuxer.Factory muxerFactory =
+      new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
 
   @Before
   public void setUp() {

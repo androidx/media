@@ -21,6 +21,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import com.google.common.primitives.Ints;
 import java.util.Arrays;
 
 /**
@@ -32,6 +33,9 @@ public final class MdtaMetadataEntry implements Metadata.Entry {
 
   /** Key for the capture frame rate (in frames per second). */
   public static final String KEY_ANDROID_CAPTURE_FPS = "com.android.capture.fps";
+
+  /** The default locale indicator which implies all speakers in all countries. */
+  public static final int DEFAULT_LOCALE_INDICATOR = 0;
 
   /** The type indicator for UTF-8 string. */
   public static final int TYPE_INDICATOR_STRING = 1;
@@ -53,6 +57,14 @@ public final class MdtaMetadataEntry implements Metadata.Entry {
 
   /** The four byte type indicator. */
   public final int typeIndicator;
+
+  /**
+   * Creates a new metadata entry for the specified metadata key/value with {@linkplain
+   * #DEFAULT_LOCALE_INDICATOR default locale indicator}.
+   */
+  public MdtaMetadataEntry(String key, byte[] value, int typeIndicator) {
+    this(key, value, DEFAULT_LOCALE_INDICATOR, typeIndicator);
+  }
 
   /** Creates a new metadata entry for the specified metadata key/value. */
   public MdtaMetadataEntry(String key, byte[] value, int localeIndicator, int typeIndicator) {
@@ -102,10 +114,10 @@ public final class MdtaMetadataEntry implements Metadata.Entry {
         formattedValue = Util.fromUtf8Bytes(value);
         break;
       case TYPE_INDICATOR_FLOAT32:
-        formattedValue = String.valueOf(Util.toFloat(value));
+        formattedValue = String.valueOf(Float.intBitsToFloat(Ints.fromByteArray(value)));
         break;
       case TYPE_INDICATOR_INT32:
-        formattedValue = String.valueOf(Util.toInteger(value));
+        formattedValue = String.valueOf(Ints.fromByteArray(value));
         break;
       default:
         formattedValue = Util.toHexString(value);

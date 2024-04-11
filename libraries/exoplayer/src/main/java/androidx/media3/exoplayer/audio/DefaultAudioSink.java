@@ -543,6 +543,7 @@ public final class DefaultAudioSink implements AudioSink {
   private int preV21OutputBufferOffset;
   private boolean handledEndOfStream;
   private boolean stoppedAudioTrack;
+  private boolean handledOffloadOnPresentationEnded;
 
   private boolean playing;
   private boolean externalAudioSessionIdProvided;
@@ -1298,6 +1299,9 @@ public final class DefaultAudioSink implements AudioSink {
   @Override
   public boolean hasPendingData() {
     return isAudioTrackInitialized()
+        && (Util.SDK_INT < 29
+            || !audioTrack.isOffloadedPlayback()
+            || !handledOffloadOnPresentationEnded)
         && audioTrackPositionTracker.hasPendingData(getWrittenFrames());
   }
 
@@ -1553,6 +1557,7 @@ public final class DefaultAudioSink implements AudioSink {
     outputBuffer = null;
     stoppedAudioTrack = false;
     handledEndOfStream = false;
+    handledOffloadOnPresentationEnded = false;
     avSyncHeader = null;
     bytesUntilNextAvSync = 0;
     trimmingAudioProcessor.resetTrimmedFrameCount();
@@ -1964,6 +1969,15 @@ public final class DefaultAudioSink implements AudioSink {
                 // state.
                 listener.onOffloadBufferEmptying();
               }
+            }
+
+            @Override
+            public void onPresentationEnded(AudioTrack track) {
+              if (!track.equals(audioTrack)) {
+                // Stale event.
+                return;
+              }
+              handledOffloadOnPresentationEnded = true;
             }
 
             @Override

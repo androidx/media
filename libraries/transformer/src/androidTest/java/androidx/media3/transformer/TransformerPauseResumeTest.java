@@ -17,6 +17,7 @@ package androidx.media3.transformer;
 
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_URI_STRING;
+import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -41,9 +42,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 /** End-to-end instrumentation tests for {@link Transformer} pause and resume scenarios. */
@@ -56,10 +59,17 @@ public class TransformerPauseResumeTest {
   private static final int MP4_ASSET_FRAME_COUNT = 932;
 
   private final Context context = getApplicationContext();
+  @Rule public final TestName testName = new TestName();
+
+  private String testId;
+
+  @Before
+  public void setUpTestId() {
+    testId = testName.getMethodName();
+  }
 
   @Test
   public void resume_withSingleMediaItem_outputMatchesExpected() throws Exception {
-    String testId = "resume_withSingleMediaItem_outputMatchesExpected";
     if (shouldSkipDevice(testId)) {
       return;
     }
@@ -108,7 +118,6 @@ public class TransformerPauseResumeTest {
   @Test
   public void resume_withSingleMediaItemAfterImmediateCancellation_restartsExport()
       throws Exception {
-    String testId = "resume_withSingleMediaItemAfterImmediateCancellation_restartsExport";
     if (shouldSkipDevice(testId)) {
       return;
     }
@@ -140,7 +149,6 @@ public class TransformerPauseResumeTest {
 
   @Test
   public void resume_withSingleMediaItem_outputMatchesWithoutResume() throws Exception {
-    String testId = "resume_withSingleMediaItem_outputMatchesWithoutResume";
     if (shouldSkipDevice(testId)) {
       return;
     }
@@ -193,7 +201,6 @@ public class TransformerPauseResumeTest {
   @Test
   public void resume_withSingleMediaItemHavingClippingConfig_outputMatchesWithoutResume()
       throws Exception {
-    String testId = "resume_withSingleMediaItemHavingClippingConfig_outputMatchesWithoutResume";
     if (shouldSkipDevice(testId)) {
       return;
     }
@@ -243,7 +250,6 @@ public class TransformerPauseResumeTest {
 
   @Test
   public void resume_withTwoMediaItems_outputMatchesExpected() throws Exception {
-    String testId = "resume_withTwoMediaItems_outputMatchesExpected";
     if (shouldSkipDevice(testId)) {
       return;
     }
@@ -294,7 +300,6 @@ public class TransformerPauseResumeTest {
 
   @Test
   public void resume_withTwoMediaItems_outputMatchesWithoutResume() throws Exception {
-    String testId = "resume_withTwoMediaItems_outputMatchesWithoutResume";
     if (shouldSkipDevice(testId)) {
       return;
     }
@@ -377,14 +382,14 @@ public class TransformerPauseResumeTest {
   }
 
   private static boolean shouldSkipDevice(String testId) throws Exception {
+    assumeFormatsSupported(
+        getApplicationContext(),
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT);
     // v26 emulators are not producing I-frames, due to which resuming export does not work as
     // expected.
-    return AndroidTestUtil.skipAndLogIfFormatsUnsupported(
-            getApplicationContext(),
-            testId,
-            /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT,
-            /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT)
-        || (Util.SDK_INT == 26 && Util.isRunningOnEmulator());
+    return Util.SDK_INT == 26 && Util.isRunningOnEmulator();
   }
 
   private static int getDeviceSpecificMissingFrameCount() {
@@ -465,11 +470,6 @@ public class TransformerPauseResumeTest {
     @Override
     public void release(boolean forCancellation) throws MuxerException {
       wrappedMuxer.release(forCancellation);
-    }
-
-    @Override
-    public long getMaxDelayBetweenSamplesMs() {
-      return wrappedMuxer.getMaxDelayBetweenSamplesMs();
     }
   }
 }

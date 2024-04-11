@@ -24,6 +24,7 @@ import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.transformer.Composition.HdrMode;
 import com.google.common.collect.ImmutableMap;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -61,10 +62,14 @@ public interface AssetLoader {
      *     been created.
      * @param listener The {@link Listener} on which the {@link AssetLoader} should notify of
      *     events.
+     * @param compositionSettings The {@link CompositionSettings}.
      * @return An {@link AssetLoader}.
      */
     AssetLoader createAssetLoader(
-        EditedMediaItem editedMediaItem, Looper looper, Listener listener);
+        EditedMediaItem editedMediaItem,
+        Looper looper,
+        Listener listener,
+        CompositionSettings compositionSettings);
   }
 
   /** A listener of {@link AssetLoader} events. */
@@ -131,6 +136,22 @@ public interface AssetLoader {
      * <p>Can be called from any thread.
      */
     void onError(ExportException exportException);
+  }
+
+  /**
+   * Customizations set on the {@linkplain Composition composition-level} that are needed when
+   * {@linkplain AssetLoader loading} each of the {@linkplain EditedMediaItem individual assets} in
+   * the {@link Composition}.
+   */
+  /* package */ class CompositionSettings {
+
+    public final @HdrMode int hdrMode;
+    public final boolean retainHdrFromUltraHdrImage;
+
+    public CompositionSettings(@HdrMode int hdrMode, boolean retainHdrFromUltraHdrImage) {
+      this.hdrMode = hdrMode;
+      this.retainHdrFromUltraHdrImage = retainHdrFromUltraHdrImage;
+    }
   }
 
   /**

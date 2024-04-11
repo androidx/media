@@ -15,56 +15,51 @@
  */
 package androidx.media3.muxer;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.muxer.Mp4Utils.UNSIGNED_INT_MAX_VALUE;
+import static androidx.media3.container.Mp4TimestampData.unixTimeToMp4TimeSeconds;
 
-import androidx.media3.container.Mp4Util;
-import java.nio.ByteBuffer;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import androidx.media3.common.Metadata;
+import androidx.media3.container.MdtaMetadataEntry;
+import androidx.media3.container.Mp4LocationData;
+import androidx.media3.container.Mp4OrientationData;
+import androidx.media3.container.Mp4TimestampData;
+import androidx.media3.container.XmpData;
+import java.util.ArrayList;
+import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Collects and provides metadata: location, FPS, XMP data, etc. */
 /* package */ final class MetadataCollector {
-  public int orientation;
-  public @MonotonicNonNull Mp4Location location;
-  public Map<String, Object> metadataPairs;
-  public int modificationTimestampSeconds;
-  public @MonotonicNonNull ByteBuffer xmpData;
+  public Mp4OrientationData orientationData;
+  public @MonotonicNonNull Mp4LocationData locationData;
+  public List<MdtaMetadataEntry> metadataEntries;
+  public Mp4TimestampData timestampData;
+  public @MonotonicNonNull XmpData xmpData;
 
+  /** Creates an instance. */
   public MetadataCollector() {
-    orientation = 0;
-    metadataPairs = new LinkedHashMap<>();
-    modificationTimestampSeconds =
-        (int) Mp4Util.unixTimeToMp4TimeSeconds(System.currentTimeMillis());
+    orientationData = new Mp4OrientationData(/* orientation= */ 0);
+    metadataEntries = new ArrayList<>();
+    long currentTimeInMp4TimeSeconds = unixTimeToMp4TimeSeconds(System.currentTimeMillis());
+    timestampData =
+        new Mp4TimestampData(
+            /* creationTimestampSeconds= */ currentTimeInMp4TimeSeconds,
+            /* modificationTimestampSeconds= */ currentTimeInMp4TimeSeconds);
   }
 
-  public void addXmp(ByteBuffer xmpData) {
-    checkState(this.xmpData == null);
-    this.xmpData = xmpData;
-  }
-
-  public void setOrientation(int orientation) {
-    this.orientation = orientation;
-  }
-
-  public void setLocation(float latitude, float longitude) {
-    location = new Mp4Location(latitude, longitude);
-  }
-
-  public void setCaptureFps(float captureFps) {
-    metadataPairs.put("com.android.capture.fps", captureFps);
-  }
-
-  public void addMetadata(String key, Object value) {
-    metadataPairs.put(key, value);
-  }
-
-  public void setModificationTime(long unixTimestampMs) {
-    long timestampSeconds = Mp4Util.unixTimeToMp4TimeSeconds(unixTimestampMs);
-    checkArgument(
-        timestampSeconds <= UNSIGNED_INT_MAX_VALUE, "Only 32-bit long timestamp supported");
-    this.modificationTimestampSeconds = (int) timestampSeconds;
+  /** Adds metadata for the output file. */
+  public void addMetadata(Metadata.Entry metadata) {
+    if (metadata instanceof Mp4OrientationData) {
+      orientationData = (Mp4OrientationData) metadata;
+    } else if (metadata instanceof Mp4LocationData) {
+      locationData = (Mp4LocationData) metadata;
+    } else if (metadata instanceof Mp4TimestampData) {
+      timestampData = (Mp4TimestampData) metadata;
+    } else if (metadata instanceof MdtaMetadataEntry) {
+      metadataEntries.add((MdtaMetadataEntry) metadata);
+    } else if (metadata instanceof XmpData) {
+      xmpData = (XmpData) metadata;
+    } else {
+      throw new IllegalArgumentException("Unsupported metadata");
+    }
   }
 }

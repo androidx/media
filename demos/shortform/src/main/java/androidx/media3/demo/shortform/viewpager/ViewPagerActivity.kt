@@ -31,23 +31,21 @@ class ViewPagerActivity : AppCompatActivity() {
   private var numberOfPlayers = 3
   private var mediaItemDatabase = MediaItemDatabase()
 
+  companion object {
+    private const val TAG = "ViewPagerActivity"
+  }
+
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     setContentView(R.layout.activity_view_pager)
     numberOfPlayers = intent.getIntExtra(MainActivity.NUM_PLAYERS_EXTRA, numberOfPlayers)
-    mediaItemDatabase.lCacheSize =
-      intent.getIntExtra(MainActivity.MEDIA_ITEMS_BACKWARD_CACHE_SIZE, mediaItemDatabase.lCacheSize)
-    mediaItemDatabase.rCacheSize =
-      intent.getIntExtra(MainActivity.MEDIA_ITEMS_FORWARD_CACHE_SIZE, mediaItemDatabase.rCacheSize)
-    Log.d("viewpager", "Using a pool of $numberOfPlayers players")
-    Log.d("viewpager", "Backward cache is of size: ${mediaItemDatabase.lCacheSize}")
-    Log.d("viewpager", "Forward cache is of size: ${mediaItemDatabase.rCacheSize}")
+    Log.d(TAG, "Using a pool of $numberOfPlayers players")
     viewPagerView = findViewById(R.id.viewPager)
     viewPagerView.offscreenPageLimit = 1
     viewPagerView.registerOnPageChangeCallback(
       object : ViewPager2.OnPageChangeCallback() {
         override fun onPageSelected(position: Int) {
-          adapter.play(position)
+          adapter.onPageSelected(position)
         }
       }
     )

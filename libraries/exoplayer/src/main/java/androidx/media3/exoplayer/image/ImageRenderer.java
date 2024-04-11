@@ -461,8 +461,6 @@ public class ImageRenderer extends BaseRenderer {
             checkStateNotNull(inputBuffer.data).remaining() > 0
                 || checkStateNotNull(inputBuffer).isEndOfStream();
         if (shouldQueueBuffer) {
-          // TODO: b/318696449 - Don't use the deprecated BUFFER_FLAG_DECODE_ONLY with image chunks.
-          checkStateNotNull(inputBuffer).clearFlag(C.BUFFER_FLAG_DECODE_ONLY);
           checkStateNotNull(decoder).queueInputBuffer(checkStateNotNull(inputBuffer));
           currentTileIndex = 0;
         }

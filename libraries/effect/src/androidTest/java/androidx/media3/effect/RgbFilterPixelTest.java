@@ -37,9 +37,7 @@ import androidx.media3.common.util.Size;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.IOException;
-import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -60,15 +58,15 @@ public final class RgbFilterPixelTest {
   @Rule public final TestName testName = new TestName();
 
   private static final String ORIGINAL_PNG_ASSET_PATH =
-      "media/bitmap/sample_mp4_first_frame/linear_colors/original.png";
+      "test-generated-goldens/sample_mp4_first_frame/linear_colors/original.png";
   private static final String GRAYSCALE_PNG_ASSET_PATH =
-      "media/bitmap/sample_mp4_first_frame/linear_colors/grayscale.png";
+      "test-generated-goldens/sample_mp4_first_frame/linear_colors/grayscale.png";
   private static final String INVERT_PNG_ASSET_PATH =
-      "media/bitmap/sample_mp4_first_frame/linear_colors/invert.png";
+      "test-generated-goldens/sample_mp4_first_frame/linear_colors/invert.png";
 
   private final Context context = getApplicationContext();
 
-  private @MonotonicNonNull String testId;
+  private String testId;
   private @MonotonicNonNull EGLDisplay eglDisplay;
   private @MonotonicNonNull EGLContext eglContext;
   private @MonotonicNonNull BaseGlShaderProgram defaultShaderProgram;
@@ -101,7 +99,6 @@ public final class RgbFilterPixelTest {
   }
 
   @Before
-  @EnsuresNonNull("testId")
   public void setUpTestId() {
     testId = testName.getMethodName();
   }
@@ -115,7 +112,6 @@ public final class RgbFilterPixelTest {
   }
 
   @Test
-  @RequiresNonNull("testId")
   public void drawFrame_grayscale_producesGrayscaleImage() throws Exception {
     RgbMatrix grayscaleMatrix = RgbFilter.createGrayscaleFilter();
     defaultShaderProgram = grayscaleMatrix.toGlShaderProgram(context, /* useHdr= */ false);
@@ -133,7 +129,6 @@ public final class RgbFilterPixelTest {
   }
 
   @Test
-  @RequiresNonNull("testId")
   public void drawFrame_inverted_producesInvertedFrame() throws Exception {
     RgbMatrix invertedMatrix = RgbFilter.createInvertedFilter();
     defaultShaderProgram = invertedMatrix.toGlShaderProgram(context, /* useHdr= */ false);

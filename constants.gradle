@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 project.ext {
-    releaseVersion = '1.3.1'
-    releaseVersionCode = 1_003_001_3_00
+    releaseVersion = '1.4.0-alpha01'
+    releaseVersionCode = 1_004_000_0_01
     minSdkVersion = 19
     // See https://developer.android.com/training/cars/media/automotive-os#automotive-module
     automotiveMinSdkVersion = 28
@@ -28,14 +28,14 @@ project.ext {
     junitVersion = '4.13.2'
     // Use the same Guava version as the Android repo:
     // https://cs.android.com/android/platform/superproject/main/+/main:external/guava/METADATA
-    guavaVersion = '32.1.3-android'
+    guavaVersion = '33.0.0-android'
     mockitoVersion = '3.12.4'
     robolectricVersion = '4.11'
     // Keep this in sync with Google's internal Checker Framework version.
     checkerframeworkVersion = '3.13.0'
     errorProneVersion = '2.18.0'
     jsr305Version = '3.0.2'
-    kotlinAnnotationsVersion = '1.8.20'
+    kotlinAnnotationsVersion = '1.9.0'
     // Updating this to 1.4.0+ will import Kotlin stdlib [internal ref: b/277891049].
     androidxAnnotationVersion = '1.3.0'
     androidxAnnotationExperimentalVersion = '1.3.1'
