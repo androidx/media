@@ -182,6 +182,7 @@ public final class Util {
   public static int audioVideoDeltaToLogErrorMs = 750;
   public static boolean shouldIgnoreCodecFpsLimitForResolution = false; // MIREGO ADDED
   public static boolean useDifferentAudioSessionIdForTunneling = false; // MIREGO ADDED
+  public static int ntpTimeoutMs = 5000; // MIREGO ADDED
 
   /** An empty long array. */
   @UnstableApi public static final long[] EMPTY_LONG_ARRAY = new long[0];

@@ -240,7 +240,10 @@ public class PlaybackException extends Exception implements Bundleable {
 
   /** MIREGO: Caused by a long delay before the stopped audio track position is reset (potential cause of stuck playback) */
   public static final int ERROR_CODE_AUDIO_WAITING_FOR_HEAD_POSITION_RESET = 5904;
-  
+
+  /** MIREGO: Caused by a network error trying to get time from the NTP server */
+  public static final int ERROR_CODE_NTP = 5905;
+
   // DRM errors (6xxx).
 
   /** Caused by an unspecified error related to DRM protection. */
@@ -371,6 +374,18 @@ public class PlaybackException extends Exception implements Bundleable {
         return "ERROR_CODE_VIDEO_FRAME_PROCESSOR_INIT_FAILED";
       case ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED:
         return "ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED";
+      // MIREGO: added our custom error codes
+      case ERROR_CODE_AUDIO_TRACK_INCONSISTENT_SAMPLE_RATE:
+        return "ERROR_CODE_AUDIO_TRACK_INCONSISTENT_SAMPLE_RATE";
+      case ERROR_CODE_AUDIO_VIDEO_DESYNC:
+        return "ERROR_CODE_AUDIO_VIDEO_DESYNC";
+      case ERROR_CODE_AUDIO_SINK_WRITE:
+        return "ERROR_CODE_AUDIO_SINK_WRITE";
+      case ERROR_CODE_AUDIO_WAITING_FOR_HEAD_POSITION_RESET:
+        return "ERROR_CODE_AUDIO_WAITING_FOR_HEAD_POSITION_RESET";
+      case ERROR_CODE_NTP:
+        return "ERROR_CODE_NTP";
+
       default:
         if (errorCode >= CUSTOM_ERROR_CODE_BASE) {
           return "custom error code";

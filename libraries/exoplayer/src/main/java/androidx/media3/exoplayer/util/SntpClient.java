@@ -19,14 +19,19 @@ import android.os.SystemClock;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.PlaybackException;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.upstream.Loader;
 import androidx.media3.exoplayer.upstream.Loader.LoadErrorAction;
 import androidx.media3.exoplayer.upstream.Loader.Loadable;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.Inet4Address;
 import java.net.InetAddress;
+import java.net.SocketTimeoutException;
 import java.util.Arrays;
 import java.util.ConcurrentModificationException;
 
@@ -43,6 +48,8 @@ public final class SntpClient {
   /** The default NTP host address used to retrieve {@link #getElapsedRealtimeOffsetMs()}. */
   public static final String DEFAULT_NTP_HOST = "time.android.com";
 
+  private static final String TAG = "SntpClient"; /* MIREGO */
+
   /** Callback for calls to {@link #initialize(Loader, InitializationCallback)}. */
   public interface InitializationCallback {
 
@@ -57,7 +64,7 @@ public final class SntpClient {
     void onInitializationFailed(IOException error);
   }
 
-  private static final int TIMEOUT_MS = 10_000;
+  // private static final int TIMEOUT_MS = 10_000;  MIREGO: replaced by a static we can modify
 
   private static final int ORIGINATE_TIME_OFFSET = 24;
   private static final int RECEIVE_TIME_OFFSET = 32;
@@ -163,9 +170,9 @@ public final class SntpClient {
   }
 
   private static long loadNtpTimeOffsetMs() throws IOException {
-    InetAddress address = InetAddress.getByName(getNtpHost());
+    InetAddress address = Inet4Address.getByName(getNtpHost());  // MIREGO: force ipv4 to workaround a network issue
     try (DatagramSocket socket = new DatagramSocket()) {
-      socket.setSoTimeout(TIMEOUT_MS);
+      socket.setSoTimeout(Util.ntpTimeoutMs);
       byte[] buffer = new byte[NTP_PACKET_SIZE];
       DatagramPacket request = new DatagramPacket(buffer, buffer.length, address, NTP_PORT);
 
@@ -213,6 +220,9 @@ public final class SntpClient {
       long ntpTimeReference = responseTicks;
 
       return ntpTime - ntpTimeReference;
+    } catch (Exception e) { // MIREGO: added catch for error reporting
+      Log.e(TAG, new PlaybackException("loadNtpTimeOffsetMs error", e, PlaybackException.ERROR_CODE_NTP));
+      throw(e);
     }
   }
 
