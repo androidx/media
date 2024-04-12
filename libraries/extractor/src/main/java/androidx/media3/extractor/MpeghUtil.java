@@ -41,10 +41,8 @@ public final class MpeghUtil {
   public static final int MAX_MHAS_PACKET_HEADER_SIZE = 15;
 
   /**
-   * Returns whether a given integer matches an MHAS sync word. See ISO_IEC_23008-3;2022, 14.4.4.
-   *
-   * @param word An integer.
-   * @return Whether a given integer matches an MHAS sync word.
+   * Returns whether the lower 3 bytes of the given integer matches an MHAS sync word. See
+   * ISO_IEC_23008-3;2022, 14.4.4.
    */
   public static boolean isSyncWord(int word) {
     return (word & 0xFFFFFF) == MHAS_SYNC_WORD;
@@ -90,82 +88,6 @@ public final class MpeghUtil {
     int headerLength = (data.getPosition() - dataStartPos) / C.BITS_PER_BYTE;
 
     return new MhasPacketHeader(packetType, packetLabel, packetLength, headerLength);
-  }
-
-  /**
-   * Obtains the sampling rate of the current MPEG-H frame. See ISO_IEC_23003-3;2020, 5.2, Table 7.
-   * The reading position of {@code data} will be modified.
-   *
-   * @param data The data to parse, positioned at the start of the fields to obtain the sampling
-   *     rate from.
-   * @return The sampling frequency.
-   * @throws ParserException if sampling frequency could not be obtained.
-   */
-  private static int getSamplingFrequency(ParsableBitArray data) throws ParserException {
-    int samplingFrequencyIndex = data.readBits(5);
-
-    if (samplingFrequencyIndex == 0x1F) {
-      return data.readBits(24);
-    }
-
-    // See ISO_IEC_23003-3;2020, 6.1.1.1, Table 72.
-    switch (samplingFrequencyIndex) {
-      case 0:
-        return 96_000;
-      case 1:
-        return 88_200;
-      case 2:
-        return 64_000;
-      case 3:
-        return 48_000;
-      case 4:
-        return 44_100;
-      case 5:
-        return 32_000;
-      case 6:
-        return 24_000;
-      case 7:
-        return 22_050;
-      case 8:
-        return 16_000;
-      case 9:
-        return 12_000;
-      case 10:
-        return 11_025;
-      case 11:
-        return 8_000;
-      case 12:
-        return 7350;
-      case 15:
-        return 57_600;
-      case 16:
-        return 51_200;
-      case 17:
-        return 40_000;
-      case 18:
-        return 38_400;
-      case 19:
-        return 34_150;
-      case 20:
-        return 28_800;
-      case 21:
-        return 25_600;
-      case 22:
-        return 20_000;
-      case 23:
-        return 19_200;
-      case 24:
-        return 17_075;
-      case 25:
-        return 14_400;
-      case 26:
-        return 12_800;
-      case 27:
-        return 9_600;
-      default:
-        throw ParserException.createForUnsupportedContainerFeature(
-            "Unsupported sampling rate index " + samplingFrequencyIndex);
-    }
   }
 
   /**
@@ -289,14 +211,9 @@ public final class MpeghUtil {
     int profileLevelIndication = data.readBits(8);
 
     int usacSamplingFrequency = getSamplingFrequency(data);
-    if (usacSamplingFrequency <= 0) {
-      throw ParserException.createForUnsupportedContainerFeature(
-          "Unsupported sampling frequency " + usacSamplingFrequency);
-    }
-
     int coreSbrFrameLengthIndex = data.readBits(3);
-    int outputFrameLength = getOutputFrameLength(/* index= */ coreSbrFrameLengthIndex);
-    int sbrRatioIndex = getSbrRatioIndex(/* index= */ coreSbrFrameLengthIndex);
+    int outputFrameLength = getOutputFrameLength(coreSbrFrameLengthIndex);
+    int sbrRatioIndex = getSbrRatioIndex(coreSbrFrameLengthIndex);
 
     data.skipBits(2); // cfg_reserved(1), receiverDelayCompensation(1)
 
@@ -332,6 +249,82 @@ public final class MpeghUtil {
 
     return new Mpegh3daConfig(
         profileLevelIndication, samplingFrequency, standardFrameSamples, compatibleProfileLevelSet);
+  }
+
+  /**
+   * Obtains the sampling rate of the current MPEG-H frame. See ISO_IEC_23003-3;2020, 5.2, Table 7.
+   * The reading position of {@code data} will be modified.
+   *
+   * @param data The data to parse, positioned at the start of the fields to obtain the sampling
+   *     rate from.
+   * @return The sampling frequency.
+   * @throws ParserException if sampling frequency could not be obtained.
+   */
+  private static int getSamplingFrequency(ParsableBitArray data) throws ParserException {
+    int samplingFrequencyIndex = data.readBits(5);
+
+    if (samplingFrequencyIndex == 0x1F) {
+      return data.readBits(24);
+    }
+
+    // See ISO_IEC_23003-3;2020, 6.1.1.1, Table 72.
+    switch (samplingFrequencyIndex) {
+      case 0:
+        return 96_000;
+      case 1:
+        return 88_200;
+      case 2:
+        return 64_000;
+      case 3:
+        return 48_000;
+      case 4:
+        return 44_100;
+      case 5:
+        return 32_000;
+      case 6:
+        return 24_000;
+      case 7:
+        return 22_050;
+      case 8:
+        return 16_000;
+      case 9:
+        return 12_000;
+      case 10:
+        return 11_025;
+      case 11:
+        return 8_000;
+      case 12:
+        return 7350;
+      case 15:
+        return 57_600;
+      case 16:
+        return 51_200;
+      case 17:
+        return 40_000;
+      case 18:
+        return 38_400;
+      case 19:
+        return 34_150;
+      case 20:
+        return 28_800;
+      case 21:
+        return 25_600;
+      case 22:
+        return 20_000;
+      case 23:
+        return 19_200;
+      case 24:
+        return 17_075;
+      case 25:
+        return 14_400;
+      case 26:
+        return 12_800;
+      case 27:
+        return 9_600;
+      default:
+        throw ParserException.createForUnsupportedContainerFeature(
+            "Unsupported sampling rate index " + samplingFrequencyIndex);
+    }
   }
 
   /**
