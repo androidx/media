@@ -123,9 +123,7 @@ Next, add the following to your project's `settings.gradle.kts` file, replacing
 `path/to/media` with the path to your local copy:
 
 ```kotlin
-gradle.extra.apply {
-  set("androidxMediaModulePrefix", "media-")
-}
+(gradle as ExtensionAware).extra["androidxMediaModulePrefix"] = "media3-"
 apply(from = file("path/to/media/core_settings.gradle"))
 ```
 
