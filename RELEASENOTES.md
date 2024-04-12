@@ -38,6 +38,9 @@
 *   Decoder Extensions (FFmpeg, VP9, AV1, MIDI, etc.):
 *   Leanback extension:
 *   Cast Extension:
+    *   Fix bug that converted the album title of the `MediaQueueItem` to the
+        artist in the Media3 media item
+        ([#1255](https://github.com/androidx/media/pull/1255)).
 *   Test Utilities:
 *   Remove deprecated symbols:
 *   Demo app:
