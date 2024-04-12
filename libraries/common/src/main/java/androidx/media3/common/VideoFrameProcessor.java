@@ -81,7 +81,8 @@ public interface VideoFrameProcessor {
      * Creates a new {@link VideoFrameProcessor} instance.
      *
      * @param context A {@link Context}.
-     * @param debugViewProvider A {@link DebugViewProvider}.
+     * @param debugViewProvider A {@link DebugViewProvider}. In production usage, pass {@link
+     *     DebugViewProvider#NONE}.
      * @param outputColorInfo The {@link ColorInfo} for the output frames.
      * @param renderFramesAutomatically If {@code true}, the instance will render output frames to
      *     the {@linkplain #setOutputSurfaceInfo(SurfaceInfo) output surface} automatically as
