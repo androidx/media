@@ -19,6 +19,9 @@
 *   Muxers:
 *   IMA extension:
 *   Session:
+    *   Hide seekbar in the media notification for live streams by not setting
+        the duration into the platform session metadata
+        ([#1256](https://github.com/androidx/media/issues/1256)).
 *   UI:
 *   Downloads:
 *   OkHttp Extension:

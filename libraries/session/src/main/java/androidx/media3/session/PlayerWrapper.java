@@ -982,6 +982,10 @@ import java.util.List;
     return super.isCurrentMediaItemLive();
   }
 
+  public boolean isCurrentMediaItemLiveWithCommandCheck() {
+    return isCommandAvailable(COMMAND_GET_CURRENT_MEDIA_ITEM) && isCurrentMediaItemLive();
+  }
+
   @Override
   public boolean isCurrentMediaItemSeekable() {
     verifyApplicationThread();

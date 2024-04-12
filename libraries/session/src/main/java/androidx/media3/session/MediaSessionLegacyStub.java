@@ -1292,7 +1292,10 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       PlayerWrapper player = sessionImpl.getPlayerWrapper();
       @Nullable MediaItem currentMediaItem = player.getCurrentMediaItemWithCommandCheck();
       MediaMetadata newMediaMetadata = player.getMediaMetadataWithCommandCheck();
-      long newDurationMs = player.getDurationWithCommandCheck();
+      long newDurationMs =
+          player.isCurrentMediaItemLiveWithCommandCheck()
+              ? C.TIME_UNSET
+              : player.getDurationWithCommandCheck();
       String newMediaId =
           currentMediaItem != null ? currentMediaItem.mediaId : MediaItem.DEFAULT_MEDIA_ID;
       @Nullable
