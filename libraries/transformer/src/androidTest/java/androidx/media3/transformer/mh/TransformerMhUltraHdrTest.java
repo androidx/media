@@ -27,6 +27,7 @@ import static androidx.media3.transformer.SequenceEffectTestUtil.NO_EFFECT;
 import static androidx.media3.transformer.SequenceEffectTestUtil.clippedVideo;
 import static androidx.media3.transformer.SequenceEffectTestUtil.createComposition;
 import static androidx.media3.transformer.SequenceEffectTestUtil.oneFrameFromImage;
+import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceSupportsHdrEditing;
 import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceSupportsOpenGlToneMapping;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
@@ -35,8 +36,6 @@ import android.content.Context;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.util.Util;
-import androidx.media3.exoplayer.mediacodec.MediaCodecUtil.DecoderQueryException;
-import androidx.media3.transformer.AndroidTestUtil;
 import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.EditedMediaItemSequence;
@@ -164,17 +163,12 @@ public final class TransformerMhUltraHdrTest {
     return builder.build();
   }
 
-  private void assumeDeviceSupportsUltraHdrEditing()
-      throws JSONException, IOException, DecoderQueryException {
+  private void assumeDeviceSupportsUltraHdrEditing() throws JSONException, IOException {
     if (Util.SDK_INT < 34) {
       recordTestSkipped(
           getApplicationContext(), testId, "Ultra HDR is not supported on this API level.");
       throw new AssumptionViolatedException("Ultra HDR is not supported on this API level.");
     }
-    AndroidTestUtil.assumeFormatsSupported(
-        context,
-        testId,
-        /* inputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT,
-        /* outputFormat= */ null);
+    assumeDeviceSupportsHdrEditing(testId, MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT);
   }
 }
