@@ -212,14 +212,16 @@ public final class CompositingVideoSinkProvider
   @Nullable private Pair<Surface, Size> currentSurfaceAndSize;
   private int pendingFlushCount;
   private @State int state;
+  private float playbackSpeed;
 
   private CompositingVideoSinkProvider(Builder builder) {
-    this.context = builder.context;
+    context = builder.context;
     videoEffects = ImmutableList.of();
     previewingVideoGraphFactory = checkStateNotNull(builder.previewingVideoGraphFactory);
     listeners = new CopyOnWriteArraySet<>();
     clock = Clock.DEFAULT;
     state = STATE_CREATED;
+    playbackSpeed = 1f;
   }
 
   /**
@@ -248,6 +250,7 @@ public final class CompositingVideoSinkProvider
     this.videoFrameReleaseControl = videoFrameReleaseControl;
     videoFrameRenderControl =
         new VideoFrameRenderControl(/* frameRenderer= */ this, videoFrameReleaseControl);
+    videoFrameRenderControl.setPlaybackSpeed(playbackSpeed);
   }
 
   @Override
@@ -524,7 +527,10 @@ public final class CompositingVideoSinkProvider
   }
 
   private void setPlaybackSpeed(float speed) {
-    checkStateNotNull(videoFrameRenderControl).setPlaybackSpeed(speed);
+    this.playbackSpeed = speed;
+    if (videoFrameRenderControl != null) {
+      videoFrameRenderControl.setPlaybackSpeed(speed);
+    }
   }
 
   private void onStreamOffsetChange(long bufferPresentationTimeUs, long streamOffsetUs) {
