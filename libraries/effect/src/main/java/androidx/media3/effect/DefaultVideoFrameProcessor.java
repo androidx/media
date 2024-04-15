@@ -604,6 +604,9 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
    */
   @Override
   public void flush() {
+    if (!inputSwitcher.hasActiveInput()) {
+      return;
+    }
     try {
       videoFrameProcessingTaskExecutor.flush();
 
@@ -612,7 +615,6 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       inputSwitcher.activeTextureManager().setOnFlushCompleteListener(latch::countDown);
       videoFrameProcessingTaskExecutor.submit(finalShaderProgramWrapper::flush);
       latch.await();
-
       inputSwitcher.activeTextureManager().setOnFlushCompleteListener(null);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
