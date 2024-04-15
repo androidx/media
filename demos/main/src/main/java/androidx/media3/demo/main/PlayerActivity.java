@@ -294,7 +294,9 @@ public class PlayerActivity extends AppCompatActivity
     player.setMediaItems(mediaItems, /* resetPosition= */ !haveStartPosition);
     player.prepare();
     String requestedRepeatModeExtra;
-    if ((requestedRepeatModeExtra = this.getIntent().getStringExtra(IntentUtil.PLAYER_REPEAT_MODE_EXTRA)) != null) {
+    if ((requestedRepeatModeExtra =
+            this.getIntent().getStringExtra(IntentUtil.PLAYER_REPEAT_MODE_EXTRA))
+        != null) {
       player.setRepeatMode(IntentUtil.parseRepeatModeExtra(requestedRepeatModeExtra));
     }
     updateButtonVisibility();

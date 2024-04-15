@@ -78,8 +78,8 @@ public class IntentUtil {
       case "ALL":
         return Player.REPEAT_MODE_ALL;
       default:
-        throw new IllegalArgumentException("Argument " + repeatMode +
-            " does not match any of the repeat modes: OFF|ONE|ALL");
+        throw new IllegalArgumentException(
+            "Argument " + repeatMode + " does not match any of the repeat modes: OFF|ONE|ALL");
     }
   }
 
