@@ -315,8 +315,7 @@ public final class CompositingVideoSinkProvider
         Size size = currentSurfaceAndSize.second;
         maybeSetOutputSurfaceInfo(surface, size.getWidth(), size.getHeight());
       }
-      videoSinkImpl =
-          new VideoSinkImpl(context, /* compositingVideoSinkProvider= */ this, videoGraph);
+      videoSinkImpl = new VideoSinkImpl(context, videoGraph);
     } catch (VideoFrameProcessingException e) {
       throw new VideoSink.VideoSinkException(e, sourceFormat);
     }
@@ -548,10 +547,8 @@ public final class CompositingVideoSinkProvider
   }
 
   /** Receives input from an ExoPlayer renderer and forwards it to the video graph. */
-  private static final class VideoSinkImpl
-      implements VideoSink, CompositingVideoSinkProvider.Listener {
+  private final class VideoSinkImpl implements VideoSink, CompositingVideoSinkProvider.Listener {
     private final Context context;
-    private final CompositingVideoSinkProvider compositingVideoSinkProvider;
     private final VideoFrameProcessor videoFrameProcessor;
     private final int videoFrameProcessorMaxPendingFrameCount;
     private final ArrayList<Effect> videoEffects;
@@ -576,13 +573,9 @@ public final class CompositingVideoSinkProvider
     private Executor listenerExecutor;
 
     /** Creates a new instance. */
-    public VideoSinkImpl(
-        Context context,
-        CompositingVideoSinkProvider compositingVideoSinkProvider,
-        PreviewingVideoGraph videoGraph)
+    public VideoSinkImpl(Context context, PreviewingVideoGraph videoGraph)
         throws VideoFrameProcessingException {
       this.context = context;
-      this.compositingVideoSinkProvider = compositingVideoSinkProvider;
       // TODO b/226330223 - Investigate increasing frame count when frame dropping is
       //  allowed.
       // TODO b/278234847 - Evaluate whether limiting frame count when frame dropping is not allowed
@@ -607,7 +600,7 @@ public final class CompositingVideoSinkProvider
       hasRegisteredFirstInputStream = false;
       finalBufferPresentationTimeUs = C.TIME_UNSET;
       lastBufferPresentationTimeUs = C.TIME_UNSET;
-      compositingVideoSinkProvider.flush();
+      CompositingVideoSinkProvider.this.flush();
       // Don't change input stream offset or reset the pending input stream offset change so that
       // it's announced with the next input frame.
       // Don't reset pendingInputStreamBufferPresentationTimeUs because it's not guaranteed to
@@ -616,13 +609,13 @@ public final class CompositingVideoSinkProvider
 
     @Override
     public boolean isReady() {
-      return compositingVideoSinkProvider.isReady();
+      return CompositingVideoSinkProvider.this.isReady();
     }
 
     @Override
     public boolean isEnded() {
       return finalBufferPresentationTimeUs != C.TIME_UNSET
-          && compositingVideoSinkProvider.hasReleasedFrame(finalBufferPresentationTimeUs);
+          && CompositingVideoSinkProvider.this.hasReleasedFrame(finalBufferPresentationTimeUs);
     }
 
     @Override
@@ -689,7 +682,7 @@ public final class CompositingVideoSinkProvider
       // An input stream is fully decoded, wait until all of its frames are released before queueing
       // input frame from the next input stream.
       if (pendingInputStreamBufferPresentationTimeUs != C.TIME_UNSET) {
-        if (compositingVideoSinkProvider.hasReleasedFrame(
+        if (CompositingVideoSinkProvider.this.hasReleasedFrame(
             pendingInputStreamBufferPresentationTimeUs)) {
           maybeRegisterInputStream();
           pendingInputStreamBufferPresentationTimeUs = C.TIME_UNSET;
@@ -750,7 +743,7 @@ public final class CompositingVideoSinkProvider
     @Override
     public void render(long positionUs, long elapsedRealtimeUs) throws VideoSinkException {
       try {
-        compositingVideoSinkProvider.render(positionUs, elapsedRealtimeUs);
+        CompositingVideoSinkProvider.this.render(positionUs, elapsedRealtimeUs);
       } catch (ExoPlaybackException e) {
         throw new VideoSinkException(
             e, inputFormat != null ? inputFormat : new Format.Builder().build());
@@ -759,7 +752,7 @@ public final class CompositingVideoSinkProvider
 
     @Override
     public void setPlaybackSpeed(@FloatRange(from = 0, fromInclusive = false) float speed) {
-      compositingVideoSinkProvider.setPlaybackSpeed(speed);
+      CompositingVideoSinkProvider.this.setPlaybackSpeed(speed);
     }
 
     // Other methods
@@ -787,7 +780,7 @@ public final class CompositingVideoSinkProvider
 
     private void maybeSetStreamOffsetChange(long bufferPresentationTimeUs) {
       if (pendingInputStreamOffsetChange) {
-        compositingVideoSinkProvider.onStreamOffsetChange(
+        CompositingVideoSinkProvider.this.onStreamOffsetChange(
             /* bufferPresentationTimeUs= */ bufferPresentationTimeUs,
             /* streamOffsetUs= */ inputStreamOffsetUs);
         pendingInputStreamOffsetChange = false;
@@ -805,7 +798,7 @@ public final class CompositingVideoSinkProvider
       }
       // An input stream is fully decoded, wait until all of its frames are released before queueing
       // input frame from the next input stream.
-      if (compositingVideoSinkProvider.hasReleasedFrame(
+      if (CompositingVideoSinkProvider.this.hasReleasedFrame(
           pendingInputStreamBufferPresentationTimeUs)) {
         maybeRegisterInputStream();
         pendingInputStreamBufferPresentationTimeUs = C.TIME_UNSET;
@@ -871,45 +864,6 @@ public final class CompositingVideoSinkProvider
                   /* videoSink= */ this,
                   new VideoSinkException(
                       videoFrameProcessingException, checkStateNotNull(this.inputFormat))));
-    }
-
-    private static final class ScaleAndRotateAccessor {
-      private static @MonotonicNonNull Constructor<?>
-          scaleAndRotateTransformationBuilderConstructor;
-      private static @MonotonicNonNull Method setRotationMethod;
-      private static @MonotonicNonNull Method buildScaleAndRotateTransformationMethod;
-
-      public static Effect createRotationEffect(float rotationDegrees) {
-        try {
-          prepare();
-          Object builder = scaleAndRotateTransformationBuilderConstructor.newInstance();
-          setRotationMethod.invoke(builder, rotationDegrees);
-          return (Effect) checkNotNull(buildScaleAndRotateTransformationMethod.invoke(builder));
-        } catch (Exception e) {
-          throw new IllegalStateException(e);
-        }
-      }
-
-      @EnsuresNonNull({
-        "scaleAndRotateTransformationBuilderConstructor",
-        "setRotationMethod",
-        "buildScaleAndRotateTransformationMethod"
-      })
-      private static void prepare() throws NoSuchMethodException, ClassNotFoundException {
-        if (scaleAndRotateTransformationBuilderConstructor == null
-            || setRotationMethod == null
-            || buildScaleAndRotateTransformationMethod == null) {
-          // TODO: b/284964524 - Add LINT and proguard checks for media3.effect reflection.
-          Class<?> scaleAndRotateTransformationBuilderClass =
-              Class.forName("androidx.media3.effect.ScaleAndRotateTransformation$Builder");
-          scaleAndRotateTransformationBuilderConstructor =
-              scaleAndRotateTransformationBuilderClass.getConstructor();
-          setRotationMethod =
-              scaleAndRotateTransformationBuilderClass.getMethod("setRotationDegrees", float.class);
-          buildScaleAndRotateTransformationMethod =
-              scaleAndRotateTransformationBuilderClass.getMethod("build");
-        }
-      }
     }
   }
 
@@ -1005,6 +959,44 @@ public final class CompositingVideoSinkProvider
               renderFramesAutomatically,
               listenerExecutor,
               listener);
+    }
+  }
+
+  private static final class ScaleAndRotateAccessor {
+    private static @MonotonicNonNull Constructor<?> scaleAndRotateTransformationBuilderConstructor;
+    private static @MonotonicNonNull Method setRotationMethod;
+    private static @MonotonicNonNull Method buildScaleAndRotateTransformationMethod;
+
+    public static Effect createRotationEffect(float rotationDegrees) {
+      try {
+        prepare();
+        Object builder = scaleAndRotateTransformationBuilderConstructor.newInstance();
+        setRotationMethod.invoke(builder, rotationDegrees);
+        return (Effect) checkNotNull(buildScaleAndRotateTransformationMethod.invoke(builder));
+      } catch (Exception e) {
+        throw new IllegalStateException(e);
+      }
+    }
+
+    @EnsuresNonNull({
+      "scaleAndRotateTransformationBuilderConstructor",
+      "setRotationMethod",
+      "buildScaleAndRotateTransformationMethod"
+    })
+    private static void prepare() throws NoSuchMethodException, ClassNotFoundException {
+      if (scaleAndRotateTransformationBuilderConstructor == null
+          || setRotationMethod == null
+          || buildScaleAndRotateTransformationMethod == null) {
+        // TODO: b/284964524 - Add LINT and proguard checks for media3.effect reflection.
+        Class<?> scaleAndRotateTransformationBuilderClass =
+            Class.forName("androidx.media3.effect.ScaleAndRotateTransformation$Builder");
+        scaleAndRotateTransformationBuilderConstructor =
+            scaleAndRotateTransformationBuilderClass.getConstructor();
+        setRotationMethod =
+            scaleAndRotateTransformationBuilderClass.getMethod("setRotationDegrees", float.class);
+        buildScaleAndRotateTransformationMethod =
+            scaleAndRotateTransformationBuilderClass.getMethod("build");
+      }
     }
   }
 
