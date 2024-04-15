@@ -235,12 +235,16 @@ import java.util.concurrent.atomic.AtomicReference;
       // queueing it.
       clearAndAddToAvailableBuffers(availableInputBuffers.remove());
     }
+    if (currentInputBufferBeingOutput != null) {
+      clearAndAddToAvailableBuffers(currentInputBufferBeingOutput);
+      currentInputBufferBeingOutput = null;
+    }
     while (!pendingInputBuffers.isEmpty()) {
       clearAndAddToAvailableBuffers(pendingInputBuffers.remove());
     }
+    checkState(availableInputBuffers.size() == MAX_INPUT_BUFFER_COUNT);
     silentAudioGenerator.flush();
     audioProcessingPipeline.flush();
-    currentInputBufferBeingOutput = null;
     receivedEndOfStreamFromInput = false;
     queueEndOfStreamAfterSilence = false;
     startTimeUs = C.TIME_UNSET;
