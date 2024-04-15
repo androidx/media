@@ -49,6 +49,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 /** An {@link ExoMediaDrm} implementation that wraps the framework {@link MediaDrm}. */
@@ -242,15 +243,18 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
     return new KeyRequest(requestData, licenseServerUrl, requestType);
   }
 
-  private static String adjustLicenseServerUrl(String licenseServerUrl) {
+  private String adjustLicenseServerUrl(String licenseServerUrl) {
     if (MOCK_LA_URL.equals(licenseServerUrl)) {
       return "";
-    } else if (Util.SDK_INT >= 33 && "https://default.url".equals(licenseServerUrl)) {
-      // Work around b/247808112
-      return "";
-    } else {
-      return licenseServerUrl;
     }
+    if (Util.SDK_INT >= 33 && "https://default.url".equals(licenseServerUrl)) {
+      // Work around b/247808112
+      String pluginVersion = getPropertyString("version");
+      if (Objects.equals(pluginVersion, "1.2") || Objects.equals(pluginVersion, "aidl-1")) {
+        return "";
+      }
+    }
+    return licenseServerUrl;
   }
 
   @UnstableApi
