@@ -505,6 +505,9 @@ public final class CompositingVideoSinkProvider
   }
 
   private void flush() {
+    if (!isInitialized()) {
+      return;
+    }
     pendingFlushCount++;
     // Flush the render control now to ensure it has no data, eg calling isReady() must return false
     // and render() should not render any frames.
