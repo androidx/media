@@ -1065,9 +1065,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (hasEffects && !hasInitializedPlayback && !videoSinkProvider.isInitialized()) {
       try {
         videoSinkProvider.initialize(format);
-        if (frameMetadataListener != null) {
-          videoSinkProvider.setVideoFrameMetadataListener(frameMetadataListener);
-        }
         if (displaySurface != null && outputResolution != null) {
           videoSinkProvider.setOutputSurfaceInfo(displaySurface, outputResolution);
         }
