@@ -161,6 +161,32 @@ public final class MediaItemExportTest {
   }
 
   @Test
+  public void start_withClippingStartAndEndEqual_completesSuccessfully() throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
+    Transformer transformer =
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder()
+                    .setStartPositionMs(0)
+                    .setEndPositionMs(0)
+                    .build())
+            .build();
+
+    transformer.start(mediaItem, outputDir.newFile().getPath());
+    TransformerTestRunner.runLooper(transformer);
+
+    DumpFileAsserts.assertOutput(
+        context,
+        muxerFactory.getCreatedMuxer(),
+        getDumpFileName(
+            /* originalFileName= */ FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S,
+            /* modifications...= */ "clipped_to_empty"));
+  }
+
+  @Test
   public void start_trimOptimizationEnabled_clippingConfigurationUnset_outputMatchesOriginal()
       throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);

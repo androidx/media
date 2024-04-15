@@ -88,7 +88,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
   @Override
   public boolean isReady() {
-    return isSourceReady();
+    return true;
   }
 
   @Override

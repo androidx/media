@@ -561,13 +561,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   /**
-   * Notifies the muxer that all the samples have been {@linkplain #writeSample(int, ByteBuffer,
-   * boolean, long) written} for a given track.
+   * Attempts to notify the muxer that all the samples have been {@linkplain #writeSample(int,
+   * ByteBuffer, boolean, long) written} for a given track.
    *
    * @param trackType The {@link C.TrackType}.
    */
   public void endTrack(@C.TrackType int trackType) {
-    if (!contains(trackTypeToInfo, trackType)) {
+    if (!isReady || !contains(trackTypeToInfo, trackType)) {
       return;
     }
 

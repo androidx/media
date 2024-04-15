@@ -84,6 +84,7 @@ import java.nio.ByteBuffer;
   private int videoTrackIndex;
 
   private boolean isStarted;
+  private boolean isReleased;
 
   private FrameworkMuxer(MediaMuxer mediaMuxer, long videoDurationMs) {
     this.mediaMuxer = mediaMuxer;
@@ -140,15 +141,10 @@ import java.nio.ByteBuffer;
     }
 
     if (!isStarted) {
-      isStarted = true;
       if (Util.SDK_INT < 30 && presentationTimeUs < 0) {
         trackIndexToPresentationTimeOffsetUs.put(trackIndex, -presentationTimeUs);
       }
-      try {
-        mediaMuxer.start();
-      } catch (RuntimeException e) {
-        throw new MuxerException("Failed to start the muxer", e);
-      }
+      startMuxer();
     }
 
     int offset = data.position();
@@ -204,9 +200,14 @@ import java.nio.ByteBuffer;
 
   @Override
   public void release(boolean forCancellation) throws MuxerException {
-    if (!isStarted) {
-      mediaMuxer.release();
+    if (isReleased) {
       return;
+    }
+
+    if (!isStarted) {
+      // Start the muxer even if no samples have been written so that it throws instead of silently
+      // writing nothing to the output file.
+      startMuxer();
     }
 
     if (videoDurationUs != C.TIME_UNSET && videoTrackIndex != C.INDEX_UNSET) {
@@ -227,7 +228,17 @@ import java.nio.ByteBuffer;
       }
     } finally {
       mediaMuxer.release();
+      isReleased = true;
     }
+  }
+
+  private void startMuxer() throws MuxerException {
+    try {
+      mediaMuxer.start();
+    } catch (RuntimeException e) {
+      throw new MuxerException("Failed to start the muxer", e);
+    }
+    isStarted = true;
   }
 
   // Accesses MediaMuxer state via reflection to ensure that muxer resources can be released even
