@@ -45,6 +45,7 @@ public class IntentUtil {
   public static final String ACTION_VIEW_LIST = "androidx.media3.demo.main.action.VIEW_LIST";
 
   // Activity extras.
+  public static final String AV_ANALYSIS_MODE_EXTRA = "av_analysis_mode"; // copybara:strip
   public static final String PREFER_EXTENSION_DECODERS_EXTRA = "prefer_extension_decoders";
 
   // Media item configuration extras.
@@ -67,7 +68,7 @@ public class IntentUtil {
   public static final String SUBTITLE_URI_EXTRA = "subtitle_uri";
   public static final String SUBTITLE_MIME_TYPE_EXTRA = "subtitle_mime_type";
   public static final String SUBTITLE_LANGUAGE_EXTRA = "subtitle_language";
-  public static final String PLAYER_REPEAT_MODE_EXTRA = "repeat_mode";
+  public static final String REPEAT_MODE_EXTRA = "repeat_mode";
 
   public static @Player.RepeatMode int parseRepeatModeExtra(String repeatMode) {
     switch (repeatMode) {

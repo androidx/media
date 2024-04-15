@@ -44,7 +44,7 @@
 *   Test Utilities:
 *   Remove deprecated symbols:
 *   Demo app:
-    *   Allow setting repeat mode with Intent arguments from command line
+    *   Allow setting repeat mode with `Intent` arguments from command line
         ([#1266](https://github.com/androidx/media/pull/1266)).
 
 ## 1.4

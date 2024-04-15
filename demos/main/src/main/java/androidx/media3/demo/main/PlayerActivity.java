@@ -262,8 +262,8 @@ public class PlayerActivity extends AppCompatActivity
    * @return Whether initialization was successful.
    */
   protected boolean initializePlayer() {
+    Intent intent = getIntent();
     if (player == null) {
-      Intent intent = getIntent();
 
       mediaItems = createMediaItems(intent);
       if (mediaItems.isEmpty()) {
@@ -293,11 +293,9 @@ public class PlayerActivity extends AppCompatActivity
     }
     player.setMediaItems(mediaItems, /* resetPosition= */ !haveStartPosition);
     player.prepare();
-    String requestedRepeatModeExtra;
-    if ((requestedRepeatModeExtra =
-            this.getIntent().getStringExtra(IntentUtil.PLAYER_REPEAT_MODE_EXTRA))
-        != null) {
-      player.setRepeatMode(IntentUtil.parseRepeatModeExtra(requestedRepeatModeExtra));
+    String repeatModeExtra = intent.getStringExtra(IntentUtil.REPEAT_MODE_EXTRA);
+    if (repeatModeExtra != null) {
+      player.setRepeatMode(IntentUtil.parseRepeatModeExtra(repeatModeExtra));
     }
     updateButtonVisibility();
     return true;
