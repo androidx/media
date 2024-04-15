@@ -655,9 +655,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       videoSink.flush();
     }
     super.onPositionReset(positionUs, joining);
-    if (videoSinkProvider.isInitialized()) {
-      videoSinkProvider.setStreamOffsetUs(getOutputStreamOffsetUs());
-    }
     videoFrameReleaseControl.reset();
     if (joining) {
       // Don't render next frame immediately to let the codec catch up with the playback position
@@ -1068,7 +1065,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (hasEffects && !hasInitializedPlayback && !videoSinkProvider.isInitialized()) {
       try {
         videoSinkProvider.initialize(format);
-        videoSinkProvider.setStreamOffsetUs(getOutputStreamOffsetUs());
         if (frameMetadataListener != null) {
           videoSinkProvider.setVideoFrameMetadataListener(frameMetadataListener);
         }
@@ -1082,6 +1078,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     }
 
     if (videoSink == null && videoSinkProvider.isInitialized()) {
+      videoSinkProvider.setStreamOffsetUs(getOutputStreamOffsetUs());
       videoSink = videoSinkProvider.getSink();
       videoSink.setListener(
           new VideoSink.Listener() {
