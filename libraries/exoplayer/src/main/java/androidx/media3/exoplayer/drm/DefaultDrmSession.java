@@ -356,6 +356,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       currentKeyRequest = null;
       currentProvisionRequest = null;
       if (sessionId != null) {
+        Log.d(TAG, "DRM closeSession %s", sessionId); // MIREGO added logs
         mediaDrm.closeSession(sessionId);
         sessionId = null;
       }
@@ -386,6 +387,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
     try {
       sessionId = mediaDrm.openSession();
+      Log.d(TAG, "DRM openSession %s", sessionId); // MIREGO added logs
       mediaDrm.setPlayerIdForSession(sessionId, playerId);
       cryptoConfig = mediaDrm.createCryptoConfig(sessionId);
       state = STATE_OPENED;
