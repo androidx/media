@@ -30,7 +30,6 @@ import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoGraph;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.concurrent.Executor;
 import org.junit.Test;
@@ -54,7 +53,6 @@ public final class CompositingVideoSinkProviderTest {
   @Test
   public void initialize() throws VideoSink.VideoSinkException {
     CompositingVideoSinkProvider provider = createCompositingVideoSinkProvider();
-    provider.setVideoEffects(ImmutableList.of());
 
     provider.initialize(new Format.Builder().build());
 
@@ -62,18 +60,8 @@ public final class CompositingVideoSinkProviderTest {
   }
 
   @Test
-  public void initialize_withoutEffects_throws() {
-    CompositingVideoSinkProvider provider = createCompositingVideoSinkProvider();
-
-    assertThrows(
-        IllegalStateException.class,
-        () -> provider.initialize(new Format.Builder().setWidth(640).setHeight(480).build()));
-  }
-
-  @Test
   public void initialize_calledTwice_throws() throws VideoSink.VideoSinkException {
     CompositingVideoSinkProvider provider = createCompositingVideoSinkProvider();
-    provider.setVideoEffects(ImmutableList.of());
     provider.initialize(new Format.Builder().build());
 
     assertThrows(
@@ -83,7 +71,6 @@ public final class CompositingVideoSinkProviderTest {
   @Test
   public void isInitialized_afterRelease_returnsFalse() throws VideoSink.VideoSinkException {
     CompositingVideoSinkProvider provider = createCompositingVideoSinkProvider();
-    provider.setVideoEffects(ImmutableList.of());
     provider.initialize(new Format.Builder().build());
 
     provider.release();
@@ -94,7 +81,6 @@ public final class CompositingVideoSinkProviderTest {
   @Test
   public void initialize_afterRelease_throws() throws VideoSink.VideoSinkException {
     CompositingVideoSinkProvider provider = createCompositingVideoSinkProvider();
-    provider.setVideoEffects(ImmutableList.of());
     Format format = new Format.Builder().build();
 
     provider.initialize(format);
@@ -107,7 +93,6 @@ public final class CompositingVideoSinkProviderTest {
   public void setOutputStreamOffsetUs_frameReleaseTimesAreAdjusted()
       throws VideoSink.VideoSinkException {
     CompositingVideoSinkProvider provider = createCompositingVideoSinkProvider();
-    provider.setVideoEffects(ImmutableList.of());
     provider.initialize(new Format.Builder().build());
     VideoSink videoSink = provider.getSink();
     videoSink.registerInputStream(

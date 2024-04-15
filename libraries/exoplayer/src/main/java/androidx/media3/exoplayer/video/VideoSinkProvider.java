@@ -63,8 +63,7 @@ public interface VideoSinkProvider {
   void setPendingVideoEffects(List<Effect> videoEffects);
 
   /**
-   * Initializes the provider for video frame processing. Can be called up to one time and only
-   * after video effects are {@linkplain #setVideoEffects(List) set}.
+   * Initializes the provider for video frame processing. Can be called up to one time.
    *
    * @param sourceFormat The format of the compressed video.
    * @throws VideoSink.VideoSinkException If enabling the provider failed.

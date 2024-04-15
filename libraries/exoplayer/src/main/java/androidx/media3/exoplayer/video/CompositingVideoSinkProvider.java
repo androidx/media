@@ -201,6 +201,7 @@ public final class CompositingVideoSinkProvider
   private final CopyOnWriteArraySet<CompositingVideoSinkProvider.Listener> listeners;
 
   private Clock clock;
+  private List<Effect> videoEffects;
   private @MonotonicNonNull VideoFrameReleaseControl videoFrameReleaseControl;
   private @MonotonicNonNull VideoFrameRenderControl videoFrameRenderControl;
   private @MonotonicNonNull Format outputFormat;
@@ -208,15 +209,15 @@ public final class CompositingVideoSinkProvider
   private @MonotonicNonNull HandlerWrapper handler;
   private @MonotonicNonNull PreviewingVideoGraph videoGraph;
   private @MonotonicNonNull VideoSinkImpl videoSinkImpl;
-  private @MonotonicNonNull List<Effect> videoEffects;
   @Nullable private Pair<Surface, Size> currentSurfaceAndSize;
   private int pendingFlushCount;
   private @State int state;
 
   private CompositingVideoSinkProvider(Builder builder) {
     this.context = builder.context;
-    this.previewingVideoGraphFactory = checkStateNotNull(builder.previewingVideoGraphFactory);
-    this.listeners = new CopyOnWriteArraySet<>();
+    videoEffects = ImmutableList.of();
+    previewingVideoGraphFactory = checkStateNotNull(builder.previewingVideoGraphFactory);
+    listeners = new CopyOnWriteArraySet<>();
     clock = Clock.DEFAULT;
     state = STATE_CREATED;
   }
@@ -280,7 +281,6 @@ public final class CompositingVideoSinkProvider
   @Override
   public void initialize(Format sourceFormat) throws VideoSink.VideoSinkException {
     checkState(state == STATE_CREATED);
-    checkStateNotNull(videoEffects);
     checkState(videoFrameRenderControl != null && videoFrameReleaseControl != null);
 
     // Lazily initialize the handler here so it's initialized on the playback looper.
@@ -317,7 +317,9 @@ public final class CompositingVideoSinkProvider
     } catch (VideoFrameProcessingException e) {
       throw new VideoSink.VideoSinkException(e, sourceFormat);
     }
-    videoSinkImpl.setVideoEffects(checkNotNull(videoEffects));
+    if (!videoEffects.isEmpty()) {
+      videoSinkImpl.setVideoEffects(videoEffects);
+    }
     addListener(videoSinkImpl);
     state = STATE_INITIALIZED;
   }
