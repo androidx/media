@@ -17,9 +17,9 @@
 
 package androidx.media3.transformer;
 
-import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static androidx.media3.transformer.AndroidTestUtil.JPG_ASSET_URI_STRING;
 import static androidx.media3.transformer.AndroidTestUtil.ULTRA_HDR_URI_STRING;
+import static androidx.media3.transformer.AndroidTestUtil.assertSdrColors;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
 import static androidx.media3.transformer.SequenceEffectTestUtil.NO_EFFECT;
@@ -30,7 +30,6 @@ import static org.junit.Assume.assumeTrue;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.net.Uri;
-import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -96,10 +95,7 @@ public final class TransformerUltraHdrTest {
             .run(testId, composition);
 
     assertThat(result.filePath).isNotNull();
-    ColorInfo colorInfo =
-        retrieveTrackFormat(context, result.filePath, C.TRACK_TYPE_VIDEO).colorInfo;
-    assertThat(colorInfo.colorSpace).isEqualTo(C.COLOR_SPACE_BT709);
-    assertThat(colorInfo.colorTransfer).isEqualTo(C.COLOR_TRANSFER_SDR);
+    assertSdrColors(context, result.filePath);
   }
 
   @Test
@@ -120,10 +116,7 @@ public final class TransformerUltraHdrTest {
             .run(testId, composition);
 
     assertThat(result.filePath).isNotNull();
-    ColorInfo colorInfo =
-        retrieveTrackFormat(context, result.filePath, C.TRACK_TYPE_VIDEO).colorInfo;
-    assertThat(colorInfo.colorSpace).isEqualTo(C.COLOR_SPACE_BT709);
-    assertThat(colorInfo.colorTransfer).isEqualTo(C.COLOR_TRANSFER_SDR);
+    assertSdrColors(context, result.filePath);
   }
 
   @Test
@@ -145,10 +138,7 @@ public final class TransformerUltraHdrTest {
             .run(testId, composition);
 
     assertThat(result.filePath).isNotNull();
-    ColorInfo colorInfo =
-        retrieveTrackFormat(context, result.filePath, C.TRACK_TYPE_VIDEO).colorInfo;
-    assertThat(colorInfo.colorSpace).isEqualTo(C.COLOR_SPACE_BT709);
-    assertThat(colorInfo.colorTransfer).isEqualTo(C.COLOR_TRANSFER_SDR);
+    assertSdrColors(context, result.filePath);
   }
 
   @Test
@@ -163,10 +153,7 @@ public final class TransformerUltraHdrTest {
             .run(testId, composition);
 
     assertThat(result.filePath).isNotNull();
-    ColorInfo colorInfo =
-        retrieveTrackFormat(context, result.filePath, C.TRACK_TYPE_VIDEO).colorInfo;
-    assertThat(colorInfo.colorSpace).isEqualTo(C.COLOR_SPACE_BT709);
-    assertThat(colorInfo.colorTransfer).isEqualTo(C.COLOR_TRANSFER_SDR);
+    assertSdrColors(context, result.filePath);
   }
 
   @Test
@@ -183,10 +170,7 @@ public final class TransformerUltraHdrTest {
             .run(testId, composition);
 
     assertThat(result.filePath).isNotNull();
-    ColorInfo colorInfo =
-        retrieveTrackFormat(context, result.filePath, C.TRACK_TYPE_VIDEO).colorInfo;
-    assertThat(colorInfo.colorSpace).isEqualTo(C.COLOR_SPACE_BT709);
-    assertThat(colorInfo.colorTransfer).isEqualTo(C.COLOR_TRANSFER_SDR);
+    assertSdrColors(context, result.filePath);
   }
 
   private static Composition createUltraHdrComposition(

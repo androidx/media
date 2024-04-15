@@ -22,6 +22,8 @@ import static androidx.media3.common.MimeTypes.VIDEO_H265;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.SDK_INT;
+import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeFalse;
 
 import android.content.Context;
@@ -52,6 +54,7 @@ import com.google.common.collect.ImmutableList;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.concurrent.ExecutionException;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.junit.AssumptionViolatedException;
@@ -631,6 +634,15 @@ public final class AndroidTestUtil {
     testJson.put("skipReason", reason);
 
     writeTestSummaryToFile(context, testId, testJson);
+  }
+
+  public static void assertSdrColors(Context context, String filePath)
+      throws ExecutionException, InterruptedException {
+    ColorInfo colorInfo = retrieveTrackFormat(context, filePath, C.TRACK_TYPE_VIDEO).colorInfo;
+    assertThat(colorInfo.colorTransfer).isEqualTo(C.COLOR_TRANSFER_SDR);
+    // Before API 34 some encoders output a BT.601 bitstream even though we request BT.709 for SDR
+    // output, so allow both color spaces in output files when checking for SDR.
+    assertThat(colorInfo.colorSpace).isAnyOf(C.COLOR_SPACE_BT709, C.COLOR_SPACE_BT601);
   }
 
   public static ImmutableList<Bitmap> extractBitmapsFromVideo(Context context, String filePath)
