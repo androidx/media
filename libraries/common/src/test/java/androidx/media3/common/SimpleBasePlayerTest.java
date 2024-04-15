@@ -8013,6 +8013,62 @@ public class SimpleBasePlayerTest {
     verifyNoMoreInteractions(listener);
   }
 
+  @SuppressWarnings("deprecation") // Verifying deprecated listener calls.
+  @Test
+  public void seekTo_asyncHandlingForNoImpliedActionSeeks_usesCurrentStateAsPlaceholderState() {
+    MediaItem mediaItem = new MediaItem.Builder().setMediaId("2").build();
+    State state =
+        new State.Builder()
+            .setAvailableCommands(new Commands.Builder().addAllCommands().build())
+            .setPlaylist(
+                ImmutableList.of(
+                    new SimpleBasePlayer.MediaItemData.Builder(/* uid= */ 1)
+                        .setMediaItem(mediaItem)
+                        .build(),
+                    new SimpleBasePlayer.MediaItemData.Builder(/* uid= */ 2).build()))
+            .setCurrentMediaItemIndex(1)
+            .build();
+    // Change updated state to see a difference to the placeholder state.
+    State updatedState =
+        state
+            .buildUpon()
+            .setCurrentMediaItemIndex(0)
+            .setPositionDiscontinuity(
+                Player.DISCONTINUITY_REASON_SEEK, /* discontinuityPositionMs= */ 0)
+            .build();
+    SettableFuture<?> future = SettableFuture.create();
+    SimpleBasePlayer player =
+        new SimpleBasePlayer(Looper.myLooper()) {
+          @Override
+          protected State getState() {
+            return future.isDone() ? updatedState : state;
+          }
+
+          @Override
+          protected ListenableFuture<?> handleSeek(
+              int mediaItemIndex, long positionMs, @Player.Command int seekCommand) {
+            return future;
+          }
+        };
+    Listener listener = mock(Listener.class);
+    player.addListener(listener);
+
+    player.seekToNext();
+
+    // Verify placeholder state is the same as before with no listener updates.
+    assertThat(player.getCurrentMediaItemIndex()).isEqualTo(1);
+    verifyNoMoreInteractions(listener);
+
+    future.set(null);
+
+    // Verify actual state update.
+    assertThat(player.getCurrentMediaItemIndex()).isEqualTo(0);
+    verify(listener).onPositionDiscontinuity(Player.DISCONTINUITY_REASON_SEEK);
+    verify(listener).onPositionDiscontinuity(any(), any(), eq(Player.DISCONTINUITY_REASON_SEEK));
+    verify(listener).onMediaItemTransition(mediaItem, Player.MEDIA_ITEM_TRANSITION_REASON_SEEK);
+    verifyNoMoreInteractions(listener);
+  }
+
   @Test
   public void seekTo_withoutAvailableCommandForSeekToMediaItem_isNotForwarded() {
     State state =

@@ -890,12 +890,15 @@ import java.util.concurrent.TimeoutException;
       @Player.Command int seekCommand,
       boolean isRepeatingCurrentItem) {
     verifyApplicationThread();
+    if (mediaItemIndex == C.INDEX_UNSET) {
+      return;
+    }
     checkArgument(mediaItemIndex >= 0);
-    analyticsCollector.notifySeekStarted();
     Timeline timeline = playbackInfo.timeline;
     if (!timeline.isEmpty() && mediaItemIndex >= timeline.getWindowCount()) {
       return;
     }
+    analyticsCollector.notifySeekStarted();
     pendingOperationAcks++;
     if (isPlayingAd()) {
       // TODO: Investigate adding support for seeking during ads. This is complicated to do in

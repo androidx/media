@@ -3,6 +3,10 @@
 ### Unreleased changes
 
 *   Common Library:
+    *   Forward presumed no-op seek calls to the protected `BasePlayer.seekTo`
+        and `SimpleBasePlayer.handleSeek` methods instead of ignoring them. If
+        you are implementing these methods in a custom player, you may need to
+        handle these additional calls with `mediaItemIndex == C.INDEX_UNSET`.
 *   ExoPlayer:
     *   Add `reset` to `BasePreloadManager` to release all the holding sources
         while keep the preload manager instance.

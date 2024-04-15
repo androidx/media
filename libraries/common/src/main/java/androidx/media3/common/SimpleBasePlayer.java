@@ -2352,19 +2352,24 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       @Player.Command int seekCommand,
       boolean isRepeatingCurrentItem) {
     verifyApplicationThreadAndInitState();
-    checkArgument(mediaItemIndex >= 0);
+    checkArgument(mediaItemIndex == C.INDEX_UNSET || mediaItemIndex >= 0);
     // Use a local copy to ensure the lambda below uses the current state value.
     State state = this.state;
-    if (!shouldHandleCommand(seekCommand)
-        || isPlayingAd()
-        || (!state.playlist.isEmpty() && mediaItemIndex >= state.playlist.size())) {
+    if (!shouldHandleCommand(seekCommand)) {
       return;
     }
+    boolean ignoreSeekForPlaceholderState =
+        mediaItemIndex == C.INDEX_UNSET
+            || isPlayingAd()
+            || (!state.playlist.isEmpty() && mediaItemIndex >= state.playlist.size());
     updateStateForPendingOperation(
         /* pendingOperation= */ handleSeek(mediaItemIndex, positionMs, seekCommand),
         /* placeholderStateSupplier= */ () ->
-            getStateWithNewPlaylistAndPosition(state, state.playlist, mediaItemIndex, positionMs),
-        /* seeked= */ true,
+            ignoreSeekForPlaceholderState
+                ? state
+                : getStateWithNewPlaylistAndPosition(
+                    state, state.playlist, mediaItemIndex, positionMs),
+        /* forceSeekDiscontinuity= */ !ignoreSeekForPlaceholderState,
         isRepeatingCurrentItem);
   }
 
@@ -2921,7 +2926,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       return;
     }
     updateStateAndInformListeners(
-        getState(), /* seeked= */ false, /* isRepeatingCurrentItem= */ false);
+        getState(), /* forceSeekDiscontinuity= */ false, /* isRepeatingCurrentItem= */ false);
   }
 
   /**
@@ -3344,10 +3349,13 @@ public abstract class SimpleBasePlayer extends BasePlayer {
    * <p>Will only be called if the appropriate {@link Player.Command}, for example {@link
    * Player#COMMAND_SEEK_TO_MEDIA_ITEM} or {@link Player#COMMAND_SEEK_TO_NEXT}, is available.
    *
-   * @param mediaItemIndex The media item index to seek to. The index is in the range 0 &lt;= {@code
-   *     mediaItemIndex} &lt; {@code mediaItems.size()}.
+   * @param mediaItemIndex The media item index to seek to. If the original seek operation did not
+   *     directly specify an index, this is the most likely implied index based on the available
+   *     player state. If the implied action is to do nothing, this will be {@link C#INDEX_UNSET}.
    * @param positionMs The position in milliseconds to start playback from, or {@link C#TIME_UNSET}
-   *     to start at the default position in the media item.
+   *     to start at the default position in the media item. If the original seek operation did not
+   *     directly specify a position, this is the most likely implied position based on the
+   *     available player state.
    * @param seekCommand The {@link Player.Command} used to trigger the seek.
    * @return A {@link ListenableFuture} indicating the completion of all immediate {@link State}
    *     changes caused by this call.
@@ -3385,7 +3393,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   @SuppressWarnings("deprecation") // Calling deprecated listener methods.
   @RequiresNonNull("state")
   private void updateStateAndInformListeners(
-      State newState, boolean seeked, boolean isRepeatingCurrentItem) {
+      State newState, boolean forceSeekDiscontinuity, boolean isRepeatingCurrentItem) {
     State previousState = state;
     // Assign new state immediately such that all getters return the right values, but use a
     // snapshot of the previous and new state so that listener invocations are triggered correctly.
@@ -3407,7 +3415,8 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     MediaMetadata previousMediaMetadata = getMediaMetadataInternal(previousState);
     MediaMetadata newMediaMetadata = getMediaMetadataInternal(newState);
     int positionDiscontinuityReason =
-        getPositionDiscontinuityReason(previousState, newState, seeked, window, period);
+        getPositionDiscontinuityReason(
+            previousState, newState, forceSeekDiscontinuity, window, period);
     boolean timelineChanged = !previousState.timeline.equals(newState.timeline);
     int mediaItemTransitionReason =
         getMediaItemTransitionReason(
@@ -3618,7 +3627,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     updateStateForPendingOperation(
         pendingOperation,
         placeholderStateSupplier,
-        /* seeked= */ false,
+        /* forceSeekDiscontinuity= */ false,
         /* isRepeatingCurrentItem= */ false);
   }
 
@@ -3626,22 +3635,26 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   private void updateStateForPendingOperation(
       ListenableFuture<?> pendingOperation,
       Supplier<State> placeholderStateSupplier,
-      boolean seeked,
+      boolean forceSeekDiscontinuity,
       boolean isRepeatingCurrentItem) {
     if (pendingOperation.isDone() && pendingOperations.isEmpty()) {
-      updateStateAndInformListeners(getState(), seeked, isRepeatingCurrentItem);
+      updateStateAndInformListeners(getState(), forceSeekDiscontinuity, isRepeatingCurrentItem);
     } else {
       pendingOperations.add(pendingOperation);
       State suggestedPlaceholderState = placeholderStateSupplier.get();
       updateStateAndInformListeners(
-          getPlaceholderState(suggestedPlaceholderState), seeked, isRepeatingCurrentItem);
+          getPlaceholderState(suggestedPlaceholderState),
+          forceSeekDiscontinuity,
+          isRepeatingCurrentItem);
       pendingOperation.addListener(
           () -> {
             castNonNull(state); // Already checked by method @RequiresNonNull pre-condition.
             pendingOperations.remove(pendingOperation);
             if (pendingOperations.isEmpty() && !released) {
               updateStateAndInformListeners(
-                  getState(), /* seeked= */ false, /* isRepeatingCurrentItem= */ false);
+                  getState(),
+                  /* forceSeekDiscontinuity= */ false,
+                  /* isRepeatingCurrentItem= */ false);
             }
           },
           this::postOrRunOnApplicationHandler);
@@ -3740,14 +3753,14 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   private static int getPositionDiscontinuityReason(
       State previousState,
       State newState,
-      boolean seeked,
+      boolean forceSeekDiscontinuity,
       Timeline.Window window,
       Timeline.Period period) {
     if (newState.hasPositionDiscontinuity) {
       // We were asked to report a discontinuity.
       return newState.positionDiscontinuityReason;
     }
-    if (seeked) {
+    if (forceSeekDiscontinuity) {
       return Player.DISCONTINUITY_REASON_SEEK;
     }
     if (previousState.playlist.isEmpty()) {

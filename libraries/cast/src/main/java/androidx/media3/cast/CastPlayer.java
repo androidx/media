@@ -417,6 +417,9 @@ public final class CastPlayer extends BasePlayer {
       long positionMs,
       @Player.Command int seekCommand,
       boolean isRepeatingCurrentItem) {
+    if (mediaItemIndex == C.INDEX_UNSET) {
+      return;
+    }
     checkArgument(mediaItemIndex >= 0);
     if (!currentTimeline.isEmpty() && mediaItemIndex >= currentTimeline.getWindowCount()) {
       return;

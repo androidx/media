@@ -197,12 +197,15 @@ public abstract class BasePlayer implements Player {
   public final void seekToPrevious() {
     Timeline timeline = getCurrentTimeline();
     if (timeline.isEmpty() || isPlayingAd()) {
+      ignoreSeek(Player.COMMAND_SEEK_TO_PREVIOUS);
       return;
     }
     boolean hasPreviousMediaItem = hasPreviousMediaItem();
     if (isCurrentMediaItemLive() && !isCurrentMediaItemSeekable()) {
       if (hasPreviousMediaItem) {
         seekToPreviousMediaItemInternal(Player.COMMAND_SEEK_TO_PREVIOUS);
+      } else {
+        ignoreSeek(Player.COMMAND_SEEK_TO_PREVIOUS);
       }
     } else if (hasPreviousMediaItem && getCurrentPosition() <= getMaxSeekToPreviousPosition()) {
       seekToPreviousMediaItemInternal(Player.COMMAND_SEEK_TO_PREVIOUS);
@@ -261,12 +264,15 @@ public abstract class BasePlayer implements Player {
   public final void seekToNext() {
     Timeline timeline = getCurrentTimeline();
     if (timeline.isEmpty() || isPlayingAd()) {
+      ignoreSeek(Player.COMMAND_SEEK_TO_NEXT);
       return;
     }
     if (hasNextMediaItem()) {
       seekToNextMediaItemInternal(Player.COMMAND_SEEK_TO_NEXT);
     } else if (isCurrentMediaItemLive() && isCurrentMediaItemDynamic()) {
       seekToDefaultPositionInternal(getCurrentMediaItemIndex(), Player.COMMAND_SEEK_TO_NEXT);
+    } else {
+      ignoreSeek(Player.COMMAND_SEEK_TO_NEXT);
     }
   }
 
@@ -287,9 +293,13 @@ public abstract class BasePlayer implements Player {
   /**
    * Seeks to a position in the specified {@link MediaItem}.
    *
-   * @param mediaItemIndex The index of the {@link MediaItem}.
+   * @param mediaItemIndex The index of the {@link MediaItem}. If the original seek operation did
+   *     not directly specify an index, this is the most likely implied index based on the available
+   *     player state. If the implied action is to do nothing, this will be {@link C#INDEX_UNSET}.
    * @param positionMs The seek position in the specified {@link MediaItem} in milliseconds, or
-   *     {@link C#TIME_UNSET} to seek to the media item's default position.
+   *     {@link C#TIME_UNSET} to seek to the media item's default position. If the original seek
+   *     operation did not directly specify a position, this is the most likely implied position
+   *     based on the available player state.
    * @param seekCommand The {@link Player.Command} used to trigger the seek.
    * @param isRepeatingCurrentItem Whether this seeks repeats the current item.
    */
@@ -459,6 +469,14 @@ public abstract class BasePlayer implements Player {
     return repeatMode == REPEAT_MODE_ONE ? REPEAT_MODE_OFF : repeatMode;
   }
 
+  private void ignoreSeek(@Player.Command int seekCommand) {
+    seekTo(
+        /* mediaItemIndex= */ C.INDEX_UNSET,
+        /* positionMs= */ C.TIME_UNSET,
+        seekCommand,
+        /* isRepeatingCurrentItem= */ false);
+  }
+
   private void seekToCurrentItem(long positionMs, @Player.Command int seekCommand) {
     seekTo(
         getCurrentMediaItemIndex(), positionMs, seekCommand, /* isRepeatingCurrentItem= */ false);
@@ -485,6 +503,7 @@ public abstract class BasePlayer implements Player {
   private void seekToNextMediaItemInternal(@Player.Command int seekCommand) {
     int nextMediaItemIndex = getNextMediaItemIndex();
     if (nextMediaItemIndex == C.INDEX_UNSET) {
+      ignoreSeek(seekCommand);
       return;
     }
     if (nextMediaItemIndex == getCurrentMediaItemIndex()) {
@@ -497,6 +516,7 @@ public abstract class BasePlayer implements Player {
   private void seekToPreviousMediaItemInternal(@Player.Command int seekCommand) {
     int previousMediaItemIndex = getPreviousMediaItemIndex();
     if (previousMediaItemIndex == C.INDEX_UNSET) {
+      ignoreSeek(seekCommand);
       return;
     }
     if (previousMediaItemIndex == getCurrentMediaItemIndex()) {
