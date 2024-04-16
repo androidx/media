@@ -618,7 +618,7 @@ public final class MpeghUtil {
     /** A label indicating which packets belong together. */
     public final long packetLabel;
 
-    /** The length of MHAS packet in bytes. */
+    /** The length of MHAS packet payload in bytes. */
     public final int packetLength;
 
     /** The length of MHAS packet header in bytes. */
