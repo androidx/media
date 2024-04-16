@@ -19,6 +19,9 @@
 *   Metadata:
 *   Image:
 *   DRM:
+    *   Allow setting a `LoadErrorHandlingPolicy` on
+        `DefaultDrmSessionManagerProvider`
+        ([#1271](https://github.com/androidx/media/issues/1271)).
 *   Effect:
 *   Muxers:
 *   IMA extension:
