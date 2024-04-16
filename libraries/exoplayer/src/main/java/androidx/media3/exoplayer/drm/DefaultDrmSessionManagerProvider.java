@@ -76,7 +76,8 @@ public final class DefaultDrmSessionManagerProvider implements DrmSessionManager
    * DefaultDrmSessionManager.Builder#setLoadErrorHandlingPolicy(LoadErrorHandlingPolicy)}.
    *
    * <p>If {@code null} is passed the setter is not called, so the default {@link
-   * LoadErrorHandlingPolicy} defined by {@link DefaultDrmSessionManager.Builder()} is used instead.
+   * LoadErrorHandlingPolicy} defined by {@link DefaultDrmSessionManager.Builder#Builder()} is used
+   * instead.
    */
   public void setDrmLoadErrorHandlingPolicy(LoadErrorHandlingPolicy drmLoadErrorHandlingPolicy) {
     this.drmLoadErrorHandlingPolicy = drmLoadErrorHandlingPolicy;
