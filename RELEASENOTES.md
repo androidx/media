@@ -58,8 +58,8 @@ This release includes the following changes since the
     *   Update Overlay matrix implementation to make it consistent with the
         documentation by flipping the x and y values applied in
         `setOverlayFrameAnchor()`. If using
-        `OverlaySettings.Builder.setOverlayFrameAnchor()`, flip their x
-        and y values by multiplying them by `-1`.
+        `OverlaySettings.Builder.setOverlayFrameAnchor()`, flip their x and y
+        values by multiplying them by `-1`.
 *   Session:
     *   Change default of `CommandButton.enabled` to `true` and ensure the value
         can stay false for controllers even if the associated command is
