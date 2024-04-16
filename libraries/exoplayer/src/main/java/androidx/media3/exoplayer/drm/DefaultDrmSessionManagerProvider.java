@@ -44,7 +44,7 @@ public final class DefaultDrmSessionManagerProvider implements DrmSessionManager
 
   @Nullable private DataSource.Factory drmHttpDataSourceFactory;
   @Nullable private String userAgent;
-  private LoadErrorHandlingPolicy drmLoadErrorHandlingPolicy;
+  @Nullable private LoadErrorHandlingPolicy drmLoadErrorHandlingPolicy;
 
   public DefaultDrmSessionManagerProvider() {
     lock = new Object();
@@ -72,10 +72,11 @@ public final class DefaultDrmSessionManagerProvider implements DrmSessionManager
   }
 
   /**
-   * Set a load error handling policy to user for the {@link DefaultDrmSessionManager}'s created
-   * by this provider
+   * Sets a load error handling policy to pass to {@link
+   * DefaultDrmSessionManager.Builder#setLoadErrorHandlingPolicy(LoadErrorHandlingPolicy)}.
    *
-   * @param drmLoadErrorHandlingPolicy - LoadErrorHandlingPolicy for DRM session management
+   * <p>If {@code null} is passed the setter is not called, so the default {@link
+   * LoadErrorHandlingPolicy} defined by {@link DefaultDrmSessionManager.Builder()} is used instead.
    */
   public void setDrmLoadErrorHandlingPolicy(LoadErrorHandlingPolicy drmLoadErrorHandlingPolicy) {
     this.drmLoadErrorHandlingPolicy = drmLoadErrorHandlingPolicy;
