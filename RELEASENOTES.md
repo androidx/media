@@ -11,6 +11,8 @@
     *   Add `reset` to `BasePreloadManager` to release all the holding sources
         while keep the preload manager instance.
 *   Transformer:
+    *   Work around a decoder bug where the number of audio channels was capped
+        at stereo when handling PCM input.
 *   Track Selection:
 *   Extractors:
 *   Audio:

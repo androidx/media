@@ -262,6 +262,14 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         if (decoderOutputFormat == null) {
           return false;
         }
+
+        // TODO: b/332708880 - The raw decoder caps number of audio channels to stereo. Remove this
+        //  workaround and bypass MediaCodec for raw audio instead.
+        if (checkNotNull(inputFormat.sampleMimeType).equals(MimeTypes.AUDIO_RAW)) {
+          decoderOutputFormat =
+              decoderOutputFormat.buildUpon().setChannelCount(inputFormat.channelCount).build();
+        }
+
         outputFormat = overrideOutputFormat(decoderOutputFormat);
       } else {
         // TODO(b/278259383): Move surface creation out of video sampleConsumer. Init decoder and
