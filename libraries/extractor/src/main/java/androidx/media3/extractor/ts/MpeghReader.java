@@ -209,24 +209,8 @@ public final class MpeghReader implements ElementaryStreamReader {
       ParsableByteArray source, ParsableByteArray target, int targetLength) {
     int bytesToRead = min(source.bytesLeft(), targetLength - target.getPosition());
     source.readBytes(target.getData(), target.getPosition(), bytesToRead);
-    target.setPosition(target.getPosition() + bytesToRead);
+    target.skipBytes(bytesToRead);
     return target.getPosition() == targetLength;
-  }
-
-  /**
-   * Copies data from the provided {@code source} into a given {@code target} without progressing
-   * the position of the {@code source}.
-   *
-   * @param source The source from which to read.
-   * @param target The target into which data is to be read.
-   * @param targetLength The target length of the read.
-   */
-  private void copyData(ParsableByteArray source, ParsableByteArray target, int targetLength) {
-    int sourcePosition = source.getPosition();
-    int bytesToRead = min(source.bytesLeft(), targetLength - target.getPosition());
-    source.readBytes(target.getData(), target.getPosition(), bytesToRead);
-    target.setPosition(target.getPosition() + bytesToRead);
-    source.setPosition(sourcePosition);
   }
 
   /**
@@ -249,7 +233,6 @@ public final class MpeghReader implements ElementaryStreamReader {
         syncBytes <<= C.BITS_PER_BYTE;
         syncBytes |= pesBuffer.readUnsignedByte();
         if (MpeghUtil.isSyncWord(syncBytes)) {
-          pesBuffer.setPosition(pesBuffer.getPosition() - MpeghUtil.MHAS_SYNC_WORD_LENGTH);
           syncBytes = 0;
           return true;
         }
@@ -275,12 +258,9 @@ public final class MpeghReader implements ElementaryStreamReader {
     payloadBytesRead = 0;
     frameBytes += header.packetLength + header.headerLength;
 
-    if (header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_AUDIOTRUNCATION
-        || header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_MPEGH3DACFG) {
+    if (shouldParsePacket(header.packetType)) {
       // prepare data scratch buffer
-      dataScratchBytes.ensureCapacity(header.packetLength);
-      dataScratchBytes.setPosition(0);
-      dataScratchBytes.setLimit(header.packetLength);
+      dataScratchBytes.reset(header.packetLength);
     }
     headerDataFinished = true;
   }
@@ -308,8 +288,7 @@ public final class MpeghReader implements ElementaryStreamReader {
    *     not be changed.
    */
   private void maybeCopyToDataScratchBuffer(ParsableByteArray data) {
-    if (header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_MPEGH3DACFG
-        || header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_AUDIOTRUNCATION) {
+    if (shouldParsePacket(header.packetType)) {
       // read bytes from header scratch buffer into the data scratch buffer
       if (headerScratchBytes.getPosition() != MpeghUtil.MAX_MHAS_PACKET_HEADER_SIZE) {
         copyData(headerScratchBytes, dataScratchBytes, header.packetLength);
@@ -317,6 +296,35 @@ public final class MpeghReader implements ElementaryStreamReader {
       // read bytes from input data into the data scratch buffer
       copyData(data, dataScratchBytes, header.packetLength);
     }
+  }
+
+  /**
+   * Copies data from the provided {@code source} into a given {@code target} without progressing
+   * the position of the {@code source}.
+   *
+   * @param source The source from which to read.
+   * @param target The target into which data is to be read.
+   * @param targetLength The target length of the read.
+   */
+  private void copyData(ParsableByteArray source, ParsableByteArray target, int targetLength) {
+    int sourcePosition = source.getPosition();
+    int bytesToRead = min(source.bytesLeft(), targetLength - target.getPosition());
+    source.readBytes(target.getData(), target.getPosition(), bytesToRead);
+    target.skipBytes(bytesToRead);
+    source.setPosition(sourcePosition);
+  }
+
+  /**
+   * Determines whether a packet should be parsed based on its type.
+   *
+   * @param packetType The {@link MpeghUtil.MhasPacketHeader.Type} of the MHAS packet header.
+   * @return {@code true} if the packet type is either {@link
+   *     MpeghUtil.MhasPacketHeader#PACTYP_MPEGH3DACFG} or {@link
+   *     MpeghUtil.MhasPacketHeader#PACTYP_AUDIOTRUNCATION}, {@code false} otherwise.
+   */
+  private boolean shouldParsePacket(@MpeghUtil.MhasPacketHeader.Type int packetType) {
+    return packetType == MpeghUtil.MhasPacketHeader.PACTYP_MPEGH3DACFG
+        || packetType == MpeghUtil.MhasPacketHeader.PACTYP_AUDIOTRUNCATION;
   }
 
   /**
@@ -348,7 +356,7 @@ public final class MpeghReader implements ElementaryStreamReader {
   private void parseConfig(ParsableBitArray bitArray) throws ParserException {
     MpeghUtil.Mpegh3daConfig config = MpeghUtil.parseMpegh3daConfig(bitArray);
     samplingRate = config.samplingFrequency;
-    standardFrameLength = config.standardFrameSamples;
+    standardFrameLength = config.standardFrameLength;
     if (mainStreamLabel != header.packetLabel) {
       mainStreamLabel = header.packetLabel;
       // set the output format

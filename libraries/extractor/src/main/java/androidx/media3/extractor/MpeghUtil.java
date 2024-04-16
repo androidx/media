@@ -245,10 +245,10 @@ public final class MpeghUtil {
     // accordingly.
     double resamplingRatio = getResamplingRatio(usacSamplingFrequency);
     int samplingFrequency = (int) (usacSamplingFrequency * resamplingRatio);
-    int standardFrameSamples = (int) (outputFrameLength * resamplingRatio);
+    int standardFrameLength = (int) (outputFrameLength * resamplingRatio);
 
     return new Mpegh3daConfig(
-        profileLevelIndication, samplingFrequency, standardFrameSamples, compatibleProfileLevelSet);
+        profileLevelIndication, samplingFrequency, standardFrameLength, compatibleProfileLevelSet);
   }
 
   /**
@@ -558,6 +558,10 @@ public final class MpeghUtil {
 
   private MpeghUtil() {}
 
+  /**
+   * Represents the header of an MHAS (MPEG-H 3D Audio System) packet. This header provides
+   * essential information to identify and parse the packet's contents.
+   */
   public static class MhasPacketHeader {
 
     /** MHAS packet types. See ISO_IEC_23008-3;2022, 14.4. */
@@ -611,11 +615,19 @@ public final class MpeghUtil {
     public static final int PACTYPE_PCMDATA = 21;
     public static final int PACTYP_LOUDNESS = 22;
 
+    /** The payload type in the actual packet. */
     public final @Type int packetType;
+
+    /** A label indicating which packets belong together. */
     public final long packetLabel;
+
+    /** The length of MHAS packet in bytes. */
     public final int packetLength;
+
+    /** The length of MHAS packet header in bytes. */
     public final int headerLength;
 
+    /** Creates an instance. */
     public MhasPacketHeader(
         @Type int packetType, long packetLabel, int packetLength, int headerLength) {
       this.packetType = packetType;
@@ -625,21 +637,32 @@ public final class MpeghUtil {
     }
   }
 
+  /** Represents an MPEG-H 3D audio configuration. */
   public static class Mpegh3daConfig {
 
+    /** The MPEG-H 3D audio profile and level indication. */
     public final int profileLevelIndication;
+
+    /** The sampling frequency of the MPEG-H 3D Audio stream. */
     public final int samplingFrequency;
-    public final int standardFrameSamples;
+
+    /** The standard frame length in samples. */
+    public final int standardFrameLength;
+
+    /**
+     * A list of MPEG-H 3D audio profile-level set that are compatible with the current
+     * configuration.
+     */
     @Nullable public final byte[] compatibleProfileLevelSet;
 
     private Mpegh3daConfig(
         int profileLevelIndication,
         int samplingFrequency,
-        int standardFrameSamples,
+        int standardFrameLength,
         @Nullable byte[] compatibleProfileLevelSet) {
       this.profileLevelIndication = profileLevelIndication;
       this.samplingFrequency = samplingFrequency;
-      this.standardFrameSamples = standardFrameSamples;
+      this.standardFrameLength = standardFrameLength;
       this.compatibleProfileLevelSet = compatibleProfileLevelSet;
     }
   }
