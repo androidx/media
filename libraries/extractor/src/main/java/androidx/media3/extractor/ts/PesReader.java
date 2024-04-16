@@ -165,14 +165,14 @@ public final class PesReader implements TsPayloadReader {
     bytesRead = 0;
   }
 
-  public boolean canConsumeDummyEndOfInput() {
+  public boolean canConsumeDummyEndOfInput(boolean isModeHls) {
     // Pusi only payload to trigger end of sample data is only applicable if
     // pes does not have a length field and body is being read, another exclusion
     // is due to H262 streams possibly having, in HLS mode, a pes across more than one segment
     // which would trigger committing an unfinished sample in the middle of the access unit
     return state == STATE_READING_BODY
         && payloadSize == C.LENGTH_UNSET
-        && !(reader instanceof H262Reader);
+        && !(isModeHls && reader instanceof H262Reader);
   }
 
   /**

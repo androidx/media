@@ -393,9 +393,12 @@ public final class H265Reader implements ElementaryStreamReader {
     }
 
     public void end(long position) {
-      // Output a final sample with the NAL units currently held
-      nalUnitPosition = position + 1;
-      outputSample(/* offset= */ -1);
+      // Output a sample with the NAL units since the current nalUnitPosition
+      outputSample(/* offset= */ (int)(position - nalUnitPosition));
+      // Output a final sample with the remaining NAL units up to the passed position
+      samplePosition = nalUnitPosition;
+      nalUnitPosition = position;
+      outputSample(/* offset= */ 0);
       readingSample = false;
     }
 

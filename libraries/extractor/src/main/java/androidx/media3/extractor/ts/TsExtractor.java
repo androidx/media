@@ -452,7 +452,8 @@ public final class TsExtractor implements Extractor {
         TsPayloadReader payloadReader = tsPayloadReaders.valueAt(i);
         if (payloadReader instanceof PesReader) {
           PesReader pesReader = (PesReader) payloadReader;
-          if (pesReader.canConsumeDummyEndOfInput()) {
+          boolean isModeHls = (mode == MODE_HLS);
+          if (pesReader.canConsumeDummyEndOfInput(isModeHls)) {
             pesReader.consume(new ParsableByteArray(), FLAG_PAYLOAD_UNIT_START_INDICATOR);
           }
         }

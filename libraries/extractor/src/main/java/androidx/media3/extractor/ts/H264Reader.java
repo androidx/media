@@ -518,8 +518,8 @@ public final class H264Reader implements ElementaryStreamReader {
 
     public void end(long position) {
       // Output a final sample with the NAL units currently held
-      nalUnitStartPosition = position + 1;
-      outputSample(/* offset= */ -1);
+      nalUnitStartPosition = position;
+      outputSample(/* offset= */ 0);
       readingSample = false;
     }
 
