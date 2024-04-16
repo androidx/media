@@ -36,7 +36,7 @@ public interface Muxer {
       TrackToken trackToken, ByteBuffer byteBuffer, MediaCodec.BufferInfo bufferInfo)
       throws IOException;
 
-  /** Adds metadata for the output file. */
+  /** Adds {@linkplain Metadata.Entry metadata} about the output file. */
   void addMetadata(Metadata.Entry metadata);
 
   /** Closes the file. */

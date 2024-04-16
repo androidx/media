@@ -86,7 +86,7 @@ public final class CapturingMuxer implements Muxer, Dumpable {
   private final SparseArray<DumpableFormat> dumpableFormatByTrackType;
   private final SparseArray<DumpableStream> dumpableStreamByTrackType;
   private final Map<Integer, Integer> trackIndexToType;
-  private final ArrayList<Metadata> metadataList;
+  private final ArrayList<Metadata.Entry> metadataList;
   private boolean released;
 
   /** Creates a new test muxer. */
@@ -133,9 +133,9 @@ public final class CapturingMuxer implements Muxer, Dumpable {
   }
 
   @Override
-  public void addMetadata(Metadata metadata) {
-    metadataList.add(metadata);
-    wrappedMuxer.addMetadata(metadata);
+  public void addMetadataEntry(Metadata.Entry metadataEntry) {
+    metadataList.add(metadataEntry);
+    wrappedMuxer.addMetadataEntry(metadataEntry);
   }
 
   @Override
@@ -152,9 +152,13 @@ public final class CapturingMuxer implements Muxer, Dumpable {
       dumpableFormatByTrackType.valueAt(i).dump(dumper);
     }
 
-    Collections.sort(metadataList, Comparator.comparing(Metadata::toString));
-    for (Metadata metadata : metadataList) {
-      dumper.add("container metadata", metadata);
+    if (!metadataList.isEmpty()) {
+      Collections.sort(metadataList, Comparator.comparing(Metadata.Entry::toString));
+      dumper.startBlock("container metadata");
+      for (Metadata.Entry metadata : metadataList) {
+        dumper.add("entry", metadata);
+      }
+      dumper.endBlock();
     }
 
     for (int i = 0; i < dumpableStreamByTrackType.size(); i++) {

@@ -463,8 +463,8 @@ public class TransformerPauseResumeTest {
     }
 
     @Override
-    public void addMetadata(Metadata metadata) {
-      wrappedMuxer.addMetadata(metadata);
+    public void addMetadataEntry(Metadata.Entry metadataEntry) {
+      wrappedMuxer.addMetadataEntry(metadataEntry);
     }
 
     @Override

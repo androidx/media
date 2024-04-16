@@ -188,13 +188,10 @@ import java.nio.ByteBuffer;
   }
 
   @Override
-  public void addMetadata(Metadata metadata) {
-    for (int i = 0; i < metadata.length(); i++) {
-      Metadata.Entry entry = metadata.get(i);
-      if (entry instanceof Mp4LocationData) {
-        mediaMuxer.setLocation(
-            ((Mp4LocationData) entry).latitude, ((Mp4LocationData) entry).longitude);
-      }
+  public void addMetadataEntry(Metadata.Entry metadataEntry) {
+    if (metadataEntry instanceof Mp4LocationData) {
+      mediaMuxer.setLocation(
+          ((Mp4LocationData) metadataEntry).latitude, ((Mp4LocationData) metadataEntry).longitude);
     }
   }
 

@@ -11,7 +11,9 @@ format audio:
   metadata = entries=[TSSE: description=null: values=[Lavf60.3.100], Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
   initializationData:
     data = length 2, hash 5FF
-container metadata = entries=[TSSE: description=null: values=[Lavf60.3.100], Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
+container metadata:
+  entry = Mp4Timestamp: creation time=0, modification time=0, timescale=1000
+  entry = TSSE: description=null: values=[Lavf60.3.100]
 sample:
   trackType = audio
   dataHashCode = -620111888

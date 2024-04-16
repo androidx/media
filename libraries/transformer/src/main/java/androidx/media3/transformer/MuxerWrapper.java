@@ -472,7 +472,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     trackTypeToInfo.put(trackType, trackInfo);
 
     if (format.metadata != null) {
-      muxer.addMetadata(format.metadata);
+      for (int i = 0; i < format.metadata.length(); i++) {
+        muxer.addMetadataEntry(format.metadata.get(i));
+      }
     }
 
     if (trackTypeToInfo.size() == trackCount) {

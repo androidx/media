@@ -220,12 +220,9 @@ public final class InAppMuxer implements Muxer {
   }
 
   @Override
-  public void addMetadata(Metadata metadata) {
-    for (int i = 0; i < metadata.length(); i++) {
-      Metadata.Entry entry = metadata.get(i);
-      if (Mp4Utils.isMetadataSupported(entry)) {
-        metadataEntries.add(entry);
-      }
+  public void addMetadataEntry(Metadata.Entry metadataEntry) {
+    if (Mp4Utils.isMetadataSupported(metadataEntry)) {
+      metadataEntries.add(metadataEntry);
     }
   }
 

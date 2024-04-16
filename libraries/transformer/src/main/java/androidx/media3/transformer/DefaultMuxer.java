@@ -76,8 +76,8 @@ public final class DefaultMuxer implements Muxer {
   }
 
   @Override
-  public void addMetadata(Metadata metadata) {
-    muxer.addMetadata(metadata);
+  public void addMetadataEntry(Metadata.Entry metadataEntry) {
+    muxer.addMetadataEntry(metadataEntry);
   }
 
   @Override

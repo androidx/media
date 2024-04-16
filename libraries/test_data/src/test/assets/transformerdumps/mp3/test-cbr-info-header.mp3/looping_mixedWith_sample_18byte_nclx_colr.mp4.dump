@@ -25,8 +25,9 @@ format video:
   initializationData:
     data = length 29, hash 4746B5D9
     data = length 10, hash 7A0D0F2B
-container metadata = entries=[Mp4Timestamp: creation time=3718109610, modification time=3718109610, timescale=1000]
-container metadata = entries=[TSSE: description=null: values=[Lavf58.45.100]]
+container metadata:
+  entry = Mp4Timestamp: creation time=3718109610, modification time=3718109610, timescale=1000
+  entry = TSSE: description=null: values=[Lavf58.45.100]
 sample:
   trackType = audio
   dataHashCode = 1582745311

@@ -90,8 +90,8 @@ public interface Muxer {
       int trackIndex, ByteBuffer data, long presentationTimeUs, @C.BufferFlags int flags)
       throws MuxerException;
 
-  /** Adds {@link Metadata} about the output file. */
-  void addMetadata(Metadata metadata);
+  /** Adds {@linkplain Metadata.Entry metadata} about the output file. */
+  void addMetadataEntry(Metadata.Entry metadataEntry);
 
   /**
    * Finishes writing the output and releases any resources associated with muxing.
