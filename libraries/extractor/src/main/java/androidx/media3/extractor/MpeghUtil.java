@@ -36,8 +36,6 @@ public final class MpeghUtil {
   /** See ISO_IEC_23003-8;2022, 14.4.4. */
   private static final int MHAS_SYNC_WORD = 0xC001A5;
 
-  public static final int MHAS_SYNC_WORD_LENGTH = 3;
-
   public static final int MAX_MHAS_PACKET_HEADER_SIZE = 15;
 
   /**
@@ -210,7 +208,14 @@ public final class MpeghUtil {
     @Nullable byte[] compatibleProfileLevelSet = null;
     int profileLevelIndication = data.readBits(8);
 
-    int usacSamplingFrequency = getSamplingFrequency(data);
+    int usacSamplingFrequency;
+    int samplingFrequencyIndex = data.readBits(5);
+    if (samplingFrequencyIndex == 0x1F) {
+      usacSamplingFrequency = data.readBits(24);
+    } else {
+      usacSamplingFrequency = getSamplingFrequency(samplingFrequencyIndex);
+    }
+
     int coreSbrFrameLengthIndex = data.readBits(3);
     int outputFrameLength = getOutputFrameLength(coreSbrFrameLengthIndex);
     int sbrRatioIndex = getSbrRatioIndex(coreSbrFrameLengthIndex);
@@ -252,23 +257,15 @@ public final class MpeghUtil {
   }
 
   /**
-   * Obtains the sampling rate of the current MPEG-H frame. See ISO_IEC_23003-3;2020, 5.2, Table 7.
-   * The reading position of {@code data} will be modified.
+   * Obtains the sampling rate of the current MPEG-H frame. See ISO_IEC_23003-3;2020, 6.1.1.1, Table
+   * 72.
    *
-   * @param data The data to parse, positioned at the start of the fields to obtain the sampling
-   *     rate from.
+   * @param index The samplingFrequencyIndex which determines the sampling frequency.
    * @return The sampling frequency.
    * @throws ParserException if sampling frequency could not be obtained.
    */
-  private static int getSamplingFrequency(ParsableBitArray data) throws ParserException {
-    int samplingFrequencyIndex = data.readBits(5);
-
-    if (samplingFrequencyIndex == 0x1F) {
-      return data.readBits(24);
-    }
-
-    // See ISO_IEC_23003-3;2020, 6.1.1.1, Table 72.
-    switch (samplingFrequencyIndex) {
+  private static int getSamplingFrequency(int index) throws ParserException {
+    switch (index) {
       case 0:
         return 96_000;
       case 1:
@@ -323,7 +320,7 @@ public final class MpeghUtil {
         return 9_600;
       default:
         throw ParserException.createForUnsupportedContainerFeature(
-            "Unsupported sampling rate index " + samplingFrequencyIndex);
+            "Unsupported sampling rate index " + index);
     }
   }
 

@@ -198,12 +198,13 @@ public final class MpeghReader implements ElementaryStreamReader {
   }
 
   /**
-   * Continues a read from the provided {@code source} into a given {@code target}.
+   * Reads data from the provided {@code source} into a given {@code target}, attempting to fill the
+   * target buffer up to the specified {@code targetLength}.
    *
    * @param source The source from which to read.
    * @param target The target into which data is to be read.
-   * @param targetLength The target length of the read.
-   * @return Whether the target length was reached.
+   * @param targetLength The desired total length of data in the target after the read.
+   * @return Whether the target now contains {@code targetLength} bytes of data.
    */
   private boolean continueRead(
       ParsableByteArray source, ParsableByteArray target, int targetLength) {
@@ -299,12 +300,13 @@ public final class MpeghReader implements ElementaryStreamReader {
   }
 
   /**
-   * Copies data from the provided {@code source} into a given {@code target} without progressing
-   * the position of the {@code source}.
+   * Copies up to {@code targetLength} bytes from the {@code source} to the {@code target} without
+   * modifying the {@code source} position. Advances the {@code target} position to reflect the
+   * copied data.
    *
    * @param source The source from which to read.
-   * @param target The target into which data is to be read.
-   * @param targetLength The target length of the read.
+   * @param target The target into which data is to be written.
+   * @param targetLength The maximum number of bytes to copy.
    */
   private void copyData(ParsableByteArray source, ParsableByteArray target, int targetLength) {
     int sourcePosition = source.getPosition();
