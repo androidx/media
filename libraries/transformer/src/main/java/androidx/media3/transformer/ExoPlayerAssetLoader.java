@@ -160,6 +160,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
     trackSelector.setParameters(
         new DefaultTrackSelector.Parameters.Builder(context)
             .setForceHighestSupportedBitrate(true)
+            .setConstrainAudioChannelCountToDeviceCapabilities(false)
             .build());
     // Arbitrarily decrease buffers for playback so that samples start being sent earlier to the
     // exporters (rebuffers are less problematic for the export use case).

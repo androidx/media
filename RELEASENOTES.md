@@ -13,6 +13,8 @@
 *   Transformer:
     *   Work around a decoder bug where the number of audio channels was capped
         at stereo when handling PCM input.
+    *   When selecting tracks in `ExoPlayerAssetLoader`, ignore audio channel
+        count constraints as they only apply for playback.
 *   Track Selection:
 *   Extractors:
 *   Audio:
