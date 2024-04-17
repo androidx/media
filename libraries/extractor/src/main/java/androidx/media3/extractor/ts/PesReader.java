@@ -160,11 +160,12 @@ public final class PesReader implements TsPayloadReader {
     }
   }
 
-  private void setState(int state) {
-    this.state = state;
-    bytesRead = 0;
-  }
-
+  /**
+   * Determines if the parser can consume a dummy end of input indication.
+   *
+   * @param isModeHls {@code True} if operating in HLS (HTTP Live Streaming) mode, {@code false}
+   *     otherwise.
+   */
   public boolean canConsumeDummyEndOfInput(boolean isModeHls) {
     // Pusi only payload to trigger end of sample data is only applicable if
     // pes does not have a length field and body is being read, another exclusion
@@ -173,6 +174,11 @@ public final class PesReader implements TsPayloadReader {
     return state == STATE_READING_BODY
         && payloadSize == C.LENGTH_UNSET
         && !(isModeHls && reader instanceof H262Reader);
+  }
+
+  private void setState(int state) {
+    this.state = state;
+    bytesRead = 0;
   }
 
   /**

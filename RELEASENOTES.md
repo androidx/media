@@ -17,6 +17,13 @@
         count constraints as they only apply for playback.
 *   Track Selection:
 *   Extractors:
+    *   MPEG-TS: Roll forward the change ensuring the last frame is rendered by
+        passing the last access unit of a stream to the sample queue
+        ([#7909](https://github.com/google/ExoPlayer/issues/7909)).
+        Incorporating fixes to resolve the issues that emerged in I-frame only
+        HLS streams([#1150](https://github.com/google/ExoPlayer/issues/1150))
+        and H.262 HLS streams
+        ([#1126](https://github.com/google/ExoPlayer/issues/1126)).
 *   Audio:
 *   Video:
 *   Text:

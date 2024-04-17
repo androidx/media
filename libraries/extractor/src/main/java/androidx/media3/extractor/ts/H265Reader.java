@@ -175,7 +175,6 @@ public final class H265Reader implements ElementaryStreamReader {
   public void packetFinished(boolean isEndOfInput) {
     assertTracksCreated();
     if (isEndOfInput) {
-      sampleReader.getSampleIsKeyframe();
       sampleReader.end(totalBytesWritten);
     }
   }
@@ -378,9 +377,15 @@ public final class H265Reader implements ElementaryStreamReader {
       }
     }
 
-    public boolean getSampleIsKeyframe() {
+    public void end(long position) {
       sampleIsKeyframe = nalUnitHasKeyframeData;
-      return sampleIsKeyframe;
+      // Output a sample with the NAL units since the current nalUnitPosition
+      outputSample(/* offset= */ (int) (position - nalUnitPosition));
+      // Output a final sample with the remaining NAL units up to the passed position
+      samplePosition = nalUnitPosition;
+      nalUnitPosition = position;
+      outputSample(/* offset= */ 0);
+      readingSample = false;
     }
 
     private void outputSample(int offset) {
@@ -390,16 +395,6 @@ public final class H265Reader implements ElementaryStreamReader {
       @C.BufferFlags int flags = sampleIsKeyframe ? C.BUFFER_FLAG_KEY_FRAME : 0;
       int size = (int) (nalUnitPosition - samplePosition);
       output.sampleMetadata(sampleTimeUs, flags, size, offset, null);
-    }
-
-    public void end(long position) {
-      // Output a sample with the NAL units since the current nalUnitPosition
-      outputSample(/* offset= */ (int) (position - nalUnitPosition));
-      // Output a final sample with the remaining NAL units up to the passed position
-      samplePosition = nalUnitPosition;
-      nalUnitPosition = position;
-      outputSample(/* offset= */ 0);
-      readingSample = false;
     }
 
     /** Returns whether a NAL unit type is one that occurs before any VCL NAL units in a sample. */

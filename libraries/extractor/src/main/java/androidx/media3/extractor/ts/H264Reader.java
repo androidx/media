@@ -170,7 +170,6 @@ public final class H264Reader implements ElementaryStreamReader {
   public void packetFinished(boolean isEndOfInput) {
     assertTracksCreated();
     if (isEndOfInput) {
-      sampleReader.getSampleIsKeyframe();
       sampleReader.end(totalBytesWritten);
     }
   }
@@ -495,16 +494,24 @@ public final class H264Reader implements ElementaryStreamReader {
         sampleIsKeyframe = false;
         readingSample = true;
       }
-      return getSampleIsKeyframe();
+      setSampleIsKeyframe();
+      return sampleIsKeyframe;
     }
 
-    public boolean getSampleIsKeyframe() {
+    public void end(long position) {
+      setSampleIsKeyframe();
+      // Output a final sample with the NAL units currently held
+      nalUnitStartPosition = position;
+      outputSample(/* offset= */ 0);
+      readingSample = false;
+    }
+
+    private void setSampleIsKeyframe() {
       boolean treatIFrameAsKeyframe =
           allowNonIdrKeyframes ? sliceHeader.isISlice() : randomAccessIndicator;
       sampleIsKeyframe |=
           nalUnitType == NalUnitUtil.NAL_UNIT_TYPE_IDR
               || (treatIFrameAsKeyframe && nalUnitType == NalUnitUtil.NAL_UNIT_TYPE_NON_IDR);
-      return sampleIsKeyframe;
     }
 
     private void outputSample(int offset) {
@@ -514,13 +521,6 @@ public final class H264Reader implements ElementaryStreamReader {
       @C.BufferFlags int flags = sampleIsKeyframe ? C.BUFFER_FLAG_KEY_FRAME : 0;
       int size = (int) (nalUnitStartPosition - samplePosition);
       output.sampleMetadata(sampleTimeUs, flags, size, offset, null);
-    }
-
-    public void end(long position) {
-      // Output a final sample with the NAL units currently held
-      nalUnitStartPosition = position;
-      outputSample(/* offset= */ 0);
-      readingSample = false;
     }
 
     private static final class SliceHeaderData {
