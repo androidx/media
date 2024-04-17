@@ -4249,10 +4249,14 @@ public class DefaultTrackSelector extends MappingTrackSelector
           MimeTypes.AUDIO_E_AC3_JOC.equals(format.sampleMimeType) && format.channelCount == 16
               ? 12
               : format.channelCount;
+      int channelConfig = Util.getAudioTrackChannelConfig(linearChannelCount);
+      if (channelConfig == AudioFormat.CHANNEL_INVALID) {
+        return false;
+      }
       AudioFormat.Builder builder =
           new AudioFormat.Builder()
               .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-              .setChannelMask(Util.getAudioTrackChannelConfig(linearChannelCount));
+              .setChannelMask(channelConfig);
       if (format.sampleRate != Format.NO_VALUE) {
         builder.setSampleRate(format.sampleRate);
       }
