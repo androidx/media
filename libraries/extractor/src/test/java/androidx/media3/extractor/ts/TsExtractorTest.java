@@ -88,6 +88,7 @@ public final class TsExtractorTest {
   }
 
   @Test
+
   public void sampleWithH264() throws Exception {
     ExtractorAsserts.assertBehavior(
         getExtractorFactory(subtitlesParsedDuringExtraction),

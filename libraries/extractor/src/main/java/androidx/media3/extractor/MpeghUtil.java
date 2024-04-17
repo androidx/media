@@ -15,7 +15,6 @@
  */
 package androidx.media3.extractor;
 
-import static com.google.common.primitives.Ints.checkedCast;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
@@ -24,6 +23,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.UnstableApi;
+import com.google.common.primitives.Ints;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -50,14 +50,15 @@ public final class MpeghUtil {
    * Parses an MHAS packet header. See ISO_IEC_23008-3;2022, 14.2.1, Table 222. The reading position
    * of {@code data} will be modified.
    *
-   * @param data The data to parse, positioned at the start of the MHAS packet header.
+   * @param data The data to parse, positioned at the start of the MHAS packet header. Must be
+   *     byte-aligned.
    * @return The {@link MhasPacketHeader} info.
    * @throws ParserException if a valid {@link MhasPacketHeader} cannot be parsed.
    */
   public static MhasPacketHeader parseMhasPacketHeader(ParsableBitArray data)
       throws ParserException {
-    int dataStartPos = data.getPosition();
-    @MhasPacketHeader.Type int packetType = checkedCast(readEscapedValue(data, 3, 8, 8));
+    int dataStartPos = data.getBytePosition();
+    @MhasPacketHeader.Type int packetType = Ints.checkedCast(readEscapedValue(data, 3, 8, 8));
     long packetLabel = readEscapedValue(data, 2, 8, 32);
 
     if (packetLabel > 0x10) {
@@ -81,9 +82,9 @@ public final class MpeghUtil {
       }
     }
 
-    int packetLength = checkedCast(readEscapedValue(data, 11, 24, 24));
+    int packetLength = Ints.checkedCast(readEscapedValue(data, 11, 24, 24));
 
-    int headerLength = (data.getPosition() - dataStartPos) / C.BITS_PER_BYTE;
+    int headerLength = data.getBytePosition() - dataStartPos;
 
     return new MhasPacketHeader(packetType, packetLabel, packetLength, headerLength);
   }
@@ -171,36 +172,12 @@ public final class MpeghUtil {
   }
 
   /**
-   * Obtains an escaped value from an MPEG-H bit stream. See ISO_IEC_23003-3;2020, 5.2, Table 19.
-   * The reading position of {@code data} will be modified.
-   *
-   * @param data The data to parse, positioned at the start of the escaped value.
-   * @param bits1 number of bits to be parsed.
-   * @param bits2 number of bits to be parsed.
-   * @param bits3 number of bits to be parsed.
-   * @return The escaped value.
-   */
-  private static long readEscapedValue(ParsableBitArray data, int bits1, int bits2, int bits3) {
-    long value = data.readBitsToLong(bits1);
-
-    if (value == (1L << bits1) - 1) {
-      long valueAdd = data.readBitsToLong(bits2);
-      value += valueAdd;
-
-      if (valueAdd == (1L << bits2) - 1) {
-        valueAdd = data.readBitsToLong(bits3);
-        value += valueAdd;
-      }
-    }
-    return value;
-  }
-
-  /**
    * Obtains the necessary info of the Mpegh3daConfig from an MPEG-H bit stream. See
-   * ISO_IEC_23008-3;2022, 5.2.2.1, Table 15. The reading position of {@code data} will be modified.
+   * ISO_IEC_23008-3;2022, 5.2.2.1, Table 15. The reading position of {@code data} will be modified
+   * to be just after the end of the payload of an Mpegh3daConfig packet.
    *
    * @param data The data to parse, positioned at the start of the payload of an Mpegh3daConfig
-   *     packet.
+   *     packet. Must be byte-aligned.
    * @return The {@link Mpegh3daConfig}.
    * @throws ParserException if a valid {@link Mpegh3daConfig} cannot be parsed.
    */
@@ -228,12 +205,12 @@ public final class MpeghUtil {
 
     if (data.readBit()) { // usacConfigExtensionPresent
       // Mpegh3daConfigExtension
-      int numConfigExtensions = checkedCast(readEscapedValue(data, 2, 4, 8) + 1);
+      int numConfigExtensions = Ints.checkedCast(readEscapedValue(data, 2, 4, 8) + 1);
       for (int confExtIdx = 0; confExtIdx < numConfigExtensions; confExtIdx++) {
-        int usacConfigExtType = checkedCast(readEscapedValue(data, 4, 8, 16));
-        int usacConfigExtLength = checkedCast(readEscapedValue(data, 4, 8, 16));
+        int usacConfigExtType = Ints.checkedCast(readEscapedValue(data, 4, 8, 16));
+        int usacConfigExtLength = Ints.checkedCast(readEscapedValue(data, 4, 8, 16));
 
-        if (usacConfigExtType == 7 /*ID_CONFIG_EXT_COMPATIBLE_PROFILELVL_SET*/) {
+        if (usacConfigExtType == 7 /* ID_CONFIG_EXT_COMPATIBLE_PROFILELVL_SET */) {
           int numCompatibleSets = data.readBits(4) + 1;
           data.skipBits(4); // reserved
           compatibleProfileLevelSet = new byte[numCompatibleSets];
@@ -343,7 +320,8 @@ public final class MpeghUtil {
 
   /**
    * Skips the SpeakerConfig3d from an MPEG-H bit stream. See ISO_IEC_23008-3;2022, 5.2.2.2, Table
-   * 18. The reading position of {@code data} will be modified.
+   * 18. The reading position of {@code data} will be modified to be just after the end of the
+   * SpeakerConfig3d field.
    *
    * @param data The data to parse, positioned at the start of the SpeakerConfig3d field.
    */
@@ -354,7 +332,7 @@ public final class MpeghUtil {
       return;
     }
 
-    int numberOfSpeakers = checkedCast(readEscapedValue(data, 5, 8, 16) + 1);
+    int numberOfSpeakers = Ints.checkedCast(readEscapedValue(data, 5, 8, 16) + 1);
     if (speakerLayoutType == 1) {
       data.skipBits(7 * numberOfSpeakers); // cicpSpeakerIdx per speaker
     } else if (speakerLayoutType == 2) {
@@ -364,7 +342,8 @@ public final class MpeghUtil {
 
   /**
    * Skips the mpegh3daFlexibleSpeakerConfig from an MPEG-H bit stream. See ISO_IEC_23008-3;2022,
-   * 5.2.2.2, Table 19. The reading position of {@code data} will be modified.
+   * 5.2.2.2, Table 19. The reading position of {@code data} will be modified to be just after the
+   * end of the Mpegh3daFlexibleSpeakerConfig field.
    *
    * @param data The data to parse, positioned at the start of the Mpegh3daFlexibleSpeakerConfig
    *     field.
@@ -408,7 +387,8 @@ public final class MpeghUtil {
 
   /**
    * Obtains the necessary info of Signals3d from an MPEG-H bit stream. See ISO_IEC_23008-3;2022,
-   * 5.2.2.1, Table 17. The reading position of {@code data} will be modified.
+   * 5.2.2.1, Table 17. The reading position of {@code data} will be modified to be just after the
+   * end of the Signals3d field.
    *
    * @param data The data to parse, positioned at the start of the Signals3d field.
    * @return The number of overall signals in the bit stream.
@@ -419,7 +399,7 @@ public final class MpeghUtil {
 
     for (int grp = 0; grp < numberOfSignalGroupsInBitstream + 1; grp++) {
       int signalGroupType = data.readBits(3);
-      int bsNumberOfSignals = checkedCast(readEscapedValue(data, 5, 8, 16));
+      int bsNumberOfSignals = Ints.checkedCast(readEscapedValue(data, 5, 8, 16));
 
       numberOfSignals += bsNumberOfSignals + 1;
       if (signalGroupType == 0 /*SignalGroupTypeChannels*/
@@ -434,7 +414,8 @@ public final class MpeghUtil {
 
   /**
    * Skips the Mpegh3daDecoderConfig from an MPEG-H bit stream. See ISO_IEC_23008-3;2022, 5.2.2.3,
-   * Table 21. The reading position of {@code data} will be modified.
+   * Table 21. The reading position of {@code data} will be modified to be just after the end of the
+   * Mpegh3daDecoderConfig field.
    *
    * @param data The data to parse, positioned at the start of the Mpegh3daDecoderConfig field.
    * @param numSignals The number of overall signals.
@@ -443,7 +424,7 @@ public final class MpeghUtil {
   private static void skipMpegh3daDecoderConfig(
       ParsableBitArray data, int numSignals, int sbrRatioIndex) {
 
-    int numElements = checkedCast((readEscapedValue(data, 4, 8, 16) + 1));
+    int numElements = Ints.checkedCast((readEscapedValue(data, 4, 8, 16) + 1));
     data.skipBit(); // elementLengthPresent
 
     for (int elemIdx = 0; elemIdx < numElements; elemIdx++) {
@@ -498,7 +479,7 @@ public final class MpeghUtil {
           break;
         case 3 /*ID_USAC_EXT*/:
           readEscapedValue(data, 4, 8, 16); // usacExtElementType
-          int usacExtElementConfigLength = checkedCast(readEscapedValue(data, 4, 8, 16));
+          int usacExtElementConfigLength = Ints.checkedCast(readEscapedValue(data, 4, 8, 16));
 
           if (data.readBit()) { // usacExtElementDefaultLengthPresent
             readEscapedValue(data, 8, 16, 0) /*+1*/; // usacExtElementDefaultLength
@@ -517,7 +498,8 @@ public final class MpeghUtil {
 
   /**
    * Obtains the necessary info of the Mpegh3daCoreConfig from an MPEG-H bit stream. See
-   * ISO_IEC_23008-3;2022, 5.2.2.3, Table 24. The reading position of {@code data} will be modified.
+   * ISO_IEC_23008-3;2022, 5.2.2.3, Table 24. The reading position of {@code data} will be modified
+   * to be just after the end of the Mpegh3daCoreConfig field.
    *
    * @param data The data to parse, positioned at the start of the Mpegh3daCoreConfig field.
    * @return The enhanced noise filling flag.
@@ -551,6 +533,32 @@ public final class MpeghUtil {
       // dflt_limiter_bands(2), dflt_limiter_gains(2), dflt_interpol_freq(1), dflt_smoothing_mode(1)
       data.skipBits(6);
     }
+  }
+
+  /**
+   * Obtains an escaped value from an MPEG-H bit stream. See ISO_IEC_23003-3;2020, 5.2, Table 19.
+   * The reading position of {@code data} will be modified to be just after the end of the escaped
+   * value.
+   *
+   * @param data The data to parse, positioned at the start of the escaped value.
+   * @param bits1 number of bits to be parsed.
+   * @param bits2 number of bits to be parsed.
+   * @param bits3 number of bits to be parsed.
+   * @return The escaped value.
+   */
+  private static long readEscapedValue(ParsableBitArray data, int bits1, int bits2, int bits3) {
+    long value = data.readBitsToLong(bits1);
+
+    if (value == (1L << bits1) - 1) {
+      long valueAdd = data.readBitsToLong(bits2);
+      value += valueAdd;
+
+      if (valueAdd == (1L << bits2) - 1) {
+        valueAdd = data.readBitsToLong(bits3);
+        value += valueAdd;
+      }
+    }
+    return value;
   }
 
   private MpeghUtil() {}

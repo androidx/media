@@ -170,7 +170,11 @@ public final class MpeghReader implements ElementaryStreamReader {
           }
           break;
         case STATE_READING_PACKET_PAYLOAD:
-          maybeCopyToDataScratchBuffer(data);
+          if (shouldParsePacket(header.packetType)) {
+            // prepare data scratch buffer
+            dataScratchBytes.reset(header.packetLength);
+            copyToDataScratchBuffer(data);
+          }
           writeSampleData(data);
           if (payloadBytesRead == header.packetLength) {
             dataScratchBytes.setPosition(0);
@@ -251,18 +255,12 @@ public final class MpeghReader implements ElementaryStreamReader {
    */
   private void parseHeader() throws ParserException {
     headerScratchBytes.setPosition(0);
-    ParsableBitArray bitArray = new ParsableBitArray(headerScratchBytes.getData());
-
     // parse the MHAS packet header
-    header = MpeghUtil.parseMhasPacketHeader(bitArray);
+    header = MpeghUtil.parseMhasPacketHeader(new ParsableBitArray(headerScratchBytes.getData()));
 
     payloadBytesRead = 0;
     frameBytes += header.packetLength + header.headerLength;
 
-    if (shouldParsePacket(header.packetType)) {
-      // prepare data scratch buffer
-      dataScratchBytes.reset(header.packetLength);
-    }
     headerDataFinished = true;
   }
 
@@ -288,15 +286,13 @@ public final class MpeghReader implements ElementaryStreamReader {
    * @param data A {@link ParsableByteArray} from which to read the sample data. Its position will
    *     not be changed.
    */
-  private void maybeCopyToDataScratchBuffer(ParsableByteArray data) {
-    if (shouldParsePacket(header.packetType)) {
-      // read bytes from header scratch buffer into the data scratch buffer
-      if (headerScratchBytes.getPosition() != MpeghUtil.MAX_MHAS_PACKET_HEADER_SIZE) {
-        copyData(headerScratchBytes, dataScratchBytes, header.packetLength);
-      }
-      // read bytes from input data into the data scratch buffer
-      copyData(data, dataScratchBytes, header.packetLength);
+  private void copyToDataScratchBuffer(ParsableByteArray data) {
+    // read bytes from the end of the header scratch buffer into the data scratch buffer
+    if (headerScratchBytes.getPosition() != MpeghUtil.MAX_MHAS_PACKET_HEADER_SIZE) {
+      copyData(headerScratchBytes, dataScratchBytes, header.packetLength);
     }
+    // read bytes from input data into the data scratch buffer
+    copyData(data, dataScratchBytes, header.packetLength);
   }
 
   /**
@@ -336,7 +332,7 @@ public final class MpeghReader implements ElementaryStreamReader {
    */
   private void writeSampleData(ParsableByteArray data) {
     int bytesToRead;
-    // read bytes from header scratch buffer and write them into the output
+    // read bytes from the end of the header scratch buffer and write them into the output
     if (headerScratchBytes.getPosition() != MpeghUtil.MAX_MHAS_PACKET_HEADER_SIZE) {
       bytesToRead = min(headerScratchBytes.bytesLeft(), header.packetLength - payloadBytesRead);
       output.sampleData(headerScratchBytes, bytesToRead);
@@ -352,7 +348,7 @@ public final class MpeghReader implements ElementaryStreamReader {
    * Parses the config and sets the output format.
    *
    * @param bitArray The data to parse, positioned at the start of the {@link
-   *     MpeghUtil.Mpegh3daConfig} field.
+   *     MpeghUtil.Mpegh3daConfig} field. Must be byte-aligned.
    * @throws ParserException if a valid {@link MpeghUtil.Mpegh3daConfig} cannot be parsed.
    */
   private void parseConfig(ParsableBitArray bitArray) throws ParserException {
