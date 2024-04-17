@@ -161,12 +161,12 @@ public final class PesReader implements TsPayloadReader {
   }
 
   /**
-   * Determines if the parser can consume a dummy end of input indication.
+   * Determines if the parser can consume a synthesized empty pusi.
    *
    * @param isModeHls {@code True} if operating in HLS (HTTP Live Streaming) mode, {@code false}
    *     otherwise.
    */
-  public boolean canConsumeDummyEndOfInput(boolean isModeHls) {
+  public boolean canConsumeSynthesizedEmptyPusi(boolean isModeHls) {
     // Pusi only payload to trigger end of sample data is only applicable if
     // pes does not have a length field and body is being read, another exclusion
     // is due to H262 streams possibly having, in HLS mode, a pes across more than one segment
