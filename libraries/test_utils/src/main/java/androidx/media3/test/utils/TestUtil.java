@@ -366,18 +366,17 @@ public class TestUtil {
    * {@link Format} is returned.
    *
    * @param context The {@link Context};
-   * @param filePath The media file path.
+   * @param fileUri The media file uri.
    * @param trackType The {@link C.TrackType}.
    * @return The {@link Format} for the given {@link C.TrackType}.
    * @throws ExecutionException If an error occurred while retrieving file's metadata.
    * @throws InterruptedException If interrupted while retrieving file's metadata.
    */
   public static Format retrieveTrackFormat(
-      Context context, String filePath, @C.TrackType int trackType)
+      Context context, String fileUri, @C.TrackType int trackType)
       throws ExecutionException, InterruptedException {
     TrackGroupArray trackGroupArray;
-    trackGroupArray =
-        MetadataRetriever.retrieveMetadata(context, MediaItem.fromUri("file://" + filePath)).get();
+    trackGroupArray = MetadataRetriever.retrieveMetadata(context, MediaItem.fromUri(fileUri)).get();
     for (int i = 0; i < trackGroupArray.length; i++) {
       TrackGroup trackGroup = trackGroupArray.get(i);
       if (trackGroup.type == trackType) {
