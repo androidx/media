@@ -55,6 +55,8 @@ public final class MpeghReader implements ElementaryStreamReader {
   private static final int STATE_READING_PACKET_HEADER = 1;
   private static final int STATE_READING_PACKET_PAYLOAD = 2;
 
+  private static final int MAX_MHAS_PACKET_HEADER_SIZE = 15;
+
   private @State int state;
 
   private @MonotonicNonNull String formatId;
@@ -70,6 +72,7 @@ public final class MpeghReader implements ElementaryStreamReader {
   private int syncBytes;
 
   private final ParsableByteArray headerScratchBytes;
+  private final ParsableBitArray headerScratchBits;
   private boolean headerDataFinished;
 
   private final ParsableByteArray dataScratchBytes;
@@ -77,7 +80,7 @@ public final class MpeghReader implements ElementaryStreamReader {
   private int payloadBytesRead;
   private int frameBytes;
 
-  @Nullable private MpeghUtil.MhasPacketHeader header;
+  private MpeghUtil.MhasPacketHeader header;
   private int samplingRate;
   private int standardFrameLength;
   private int truncationSamples;
@@ -87,8 +90,10 @@ public final class MpeghReader implements ElementaryStreamReader {
   /** Constructs a new reader for MPEG-H elementary streams. */
   public MpeghReader() {
     state = STATE_FINDING_SYNC;
-    headerScratchBytes = new ParsableByteArray(new byte[MpeghUtil.MAX_MHAS_PACKET_HEADER_SIZE]);
+    headerScratchBytes = new ParsableByteArray(new byte[MAX_MHAS_PACKET_HEADER_SIZE]);
+    headerScratchBits = new ParsableBitArray();
     dataScratchBytes = new ParsableByteArray();
+    header = new MpeghUtil.MhasPacketHeader();
     samplingRate = C.RATE_UNSET_INT;
     standardFrameLength = C.LENGTH_UNSET;
     mainStreamLabel = C.INDEX_UNSET;
@@ -102,9 +107,9 @@ public final class MpeghReader implements ElementaryStreamReader {
     state = STATE_FINDING_SYNC;
     syncBytes = 0;
     headerScratchBytes.setPosition(0);
+    headerScratchBits.setPosition(0);
     dataScratchBytes.setPosition(0);
     dataScratchBytes.setLimit(0);
-    header = null;
     headerDataFinished = false;
     payloadBytesRead = 0;
     frameBytes = 0;
@@ -160,7 +165,7 @@ public final class MpeghReader implements ElementaryStreamReader {
         case STATE_READING_PACKET_HEADER:
           maybeAdjustHeaderScratchBuffer();
           // read into header scratch buffer
-          if (continueRead(data, headerScratchBytes, MpeghUtil.MAX_MHAS_PACKET_HEADER_SIZE)) {
+          if (continueRead(data, headerScratchBytes, MAX_MHAS_PACKET_HEADER_SIZE)) {
             parseHeader();
             // write the packet header to output
             headerScratchBytes.setPosition(0);
@@ -177,11 +182,12 @@ public final class MpeghReader implements ElementaryStreamReader {
           }
           writeSampleData(data);
           if (payloadBytesRead == header.packetLength) {
-            ParsableBitArray bitArray = new ParsableBitArray(dataScratchBytes.getData());
             if (header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_MPEGH3DACFG) {
-              parseConfig(bitArray);
+              parseConfig(new ParsableBitArray(dataScratchBytes.getData()));
             } else if (header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_AUDIOTRUNCATION) {
-              truncationSamples = MpeghUtil.parseAudioTruncationInfo(bitArray);
+              truncationSamples =
+                  MpeghUtil.parseAudioTruncationInfo(
+                      new ParsableBitArray(dataScratchBytes.getData()));
             } else if (header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_MPEGH3DAFRAME) {
               finalizeFrame();
             }
@@ -253,8 +259,9 @@ public final class MpeghReader implements ElementaryStreamReader {
    * @throws ParserException if a valid {@link MpeghUtil.Mpegh3daConfig} cannot be parsed.
    */
   private void parseHeader() throws ParserException {
+    headerScratchBits.reset(headerScratchBytes.getData());
     // parse the MHAS packet header
-    header = MpeghUtil.parseMhasPacketHeader(new ParsableBitArray(headerScratchBytes.getData()));
+    MpeghUtil.parseMhasPacketHeader(headerScratchBits, header);
 
     payloadBytesRead = 0;
     frameBytes += header.packetLength + header.headerLength;
@@ -286,7 +293,7 @@ public final class MpeghReader implements ElementaryStreamReader {
    */
   private void copyToDataScratchBuffer(ParsableByteArray data) {
     // read bytes from the end of the header scratch buffer into the data scratch buffer
-    if (headerScratchBytes.getPosition() != MpeghUtil.MAX_MHAS_PACKET_HEADER_SIZE) {
+    if (headerScratchBytes.getPosition() != MAX_MHAS_PACKET_HEADER_SIZE) {
       copyData(headerScratchBytes, dataScratchBytes, header.packetLength);
     }
     // read bytes from input data into the data scratch buffer
@@ -331,7 +338,7 @@ public final class MpeghReader implements ElementaryStreamReader {
   private void writeSampleData(ParsableByteArray data) {
     int bytesToRead;
     // read bytes from the end of the header scratch buffer and write them into the output
-    if (headerScratchBytes.getPosition() != MpeghUtil.MAX_MHAS_PACKET_HEADER_SIZE) {
+    if (headerScratchBytes.getPosition() != MAX_MHAS_PACKET_HEADER_SIZE) {
       bytesToRead = min(headerScratchBytes.bytesLeft(), header.packetLength - payloadBytesRead);
       output.sampleData(headerScratchBytes, bytesToRead);
       payloadBytesRead += bytesToRead;
