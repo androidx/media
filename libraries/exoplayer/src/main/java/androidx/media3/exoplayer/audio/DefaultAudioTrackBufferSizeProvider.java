@@ -303,6 +303,7 @@ public class DefaultAudioTrackBufferSizeProvider
         return Ac4Util.MAX_RATE_BYTES_PER_SECOND;
       case C.ENCODING_DTS:
         return DtsUtil.DTS_MAX_RATE_BYTES_PER_SECOND;
+      case C.ENCODING_DTS_UHD_P2:
       case C.ENCODING_DTS_HD:
         return DtsUtil.DTS_HD_MAX_RATE_BYTES_PER_SECOND;
       case C.ENCODING_DOLBY_TRUEHD:
