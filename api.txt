@@ -1388,6 +1388,29 @@ package androidx.media3.exoplayer.ima {
     method public androidx.media3.exoplayer.ima.ImaAdsLoader build();
   }
 
+  public final class ImaServerSideAdInsertionMediaSource implements androidx.media3.exoplayer.source.MediaSource {
+  }
+
+  public static final class ImaServerSideAdInsertionMediaSource.AdsLoader {
+    method public androidx.media3.exoplayer.ima.ImaServerSideAdInsertionMediaSource.AdsLoader.State release();
+    method public void setPlayer(androidx.media3.common.Player);
+  }
+
+  public static final class ImaServerSideAdInsertionMediaSource.AdsLoader.Builder {
+    ctor public ImaServerSideAdInsertionMediaSource.AdsLoader.Builder(android.content.Context, androidx.media3.common.AdViewProvider);
+    method public androidx.media3.exoplayer.ima.ImaServerSideAdInsertionMediaSource.AdsLoader build();
+    method public androidx.media3.exoplayer.ima.ImaServerSideAdInsertionMediaSource.AdsLoader.Builder setAdsLoaderState(androidx.media3.exoplayer.ima.ImaServerSideAdInsertionMediaSource.AdsLoader.State);
+  }
+
+  public static class ImaServerSideAdInsertionMediaSource.AdsLoader.State {
+    method public static androidx.media3.exoplayer.ima.ImaServerSideAdInsertionMediaSource.AdsLoader.State fromBundle(android.os.Bundle);
+    method public android.os.Bundle toBundle();
+  }
+
+  public static final class ImaServerSideAdInsertionMediaSource.Factory implements androidx.media3.exoplayer.source.MediaSource.Factory {
+    ctor public ImaServerSideAdInsertionMediaSource.Factory(androidx.media3.exoplayer.ima.ImaServerSideAdInsertionMediaSource.AdsLoader, androidx.media3.exoplayer.source.MediaSource.Factory);
+  }
+
 }
 
 package androidx.media3.exoplayer.source {
@@ -1397,6 +1420,7 @@ package androidx.media3.exoplayer.source {
     method public androidx.media3.exoplayer.source.DefaultMediaSourceFactory clearLocalAdInsertionComponents();
     method public androidx.media3.exoplayer.source.DefaultMediaSourceFactory setDataSourceFactory(androidx.media3.datasource.DataSource.Factory);
     method public androidx.media3.exoplayer.source.DefaultMediaSourceFactory setLocalAdInsertionComponents(androidx.media3.exoplayer.source.ads.AdsLoader.Provider, androidx.media3.common.AdViewProvider);
+    method public androidx.media3.exoplayer.source.DefaultMediaSourceFactory setServerSideAdInsertionMediaSourceFactory(@Nullable androidx.media3.exoplayer.source.MediaSource.Factory);
   }
 
   public interface MediaSource {

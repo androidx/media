@@ -93,11 +93,8 @@ public class PlayerActivity extends AppCompatActivity
 
   @Nullable private AdsLoader clientSideAdsLoader;
 
-  @OptIn(markerClass = UnstableApi.class)
-  @Nullable
-  private ImaServerSideAdInsertionMediaSource.AdsLoader serverSideAdsLoader;
+  @Nullable private ImaServerSideAdInsertionMediaSource.AdsLoader serverSideAdsLoader;
 
-  @OptIn(markerClass = UnstableApi.class)
   private ImaServerSideAdInsertionMediaSource.AdsLoader.@MonotonicNonNull State
       serverSideAdsLoaderState;
 
@@ -301,7 +298,7 @@ public class PlayerActivity extends AppCompatActivity
     return true;
   }
 
-  @OptIn(markerClass = UnstableApi.class) // SSAI configuration
+  @OptIn(markerClass = UnstableApi.class) // DRM configuration
   private MediaSource.Factory createMediaSourceFactory() {
     DefaultDrmSessionManagerProvider drmSessionManagerProvider =
         new DefaultDrmSessionManagerProvider();
@@ -334,7 +331,6 @@ public class PlayerActivity extends AppCompatActivity
     playerBuilder.setRenderersFactory(renderersFactory);
   }
 
-  @OptIn(markerClass = UnstableApi.class)
   private void configurePlayerWithServerSideAdsLoader() {
     serverSideAdsLoader.setPlayer(player);
   }
@@ -403,7 +399,6 @@ public class PlayerActivity extends AppCompatActivity
     }
   }
 
-  @OptIn(markerClass = UnstableApi.class)
   private void releaseServerSideAdsLoader() {
     serverSideAdsLoaderState = serverSideAdsLoader.release();
     serverSideAdsLoader = null;
@@ -417,14 +412,12 @@ public class PlayerActivity extends AppCompatActivity
     }
   }
 
-  @OptIn(markerClass = UnstableApi.class)
   private void saveServerSideAdsLoaderState(Bundle outState) {
     if (serverSideAdsLoaderState != null) {
       outState.putBundle(KEY_SERVER_SIDE_ADS_LOADER_STATE, serverSideAdsLoaderState.toBundle());
     }
   }
 
-  @OptIn(markerClass = UnstableApi.class)
   private void restoreServerSideAdsLoaderState(Bundle savedInstanceState) {
     Bundle adsLoaderStateBundle = savedInstanceState.getBundle(KEY_SERVER_SIDE_ADS_LOADER_STATE);
     if (adsLoaderStateBundle != null) {
@@ -513,7 +506,7 @@ public class PlayerActivity extends AppCompatActivity
 
   private class PlayerErrorMessageProvider implements ErrorMessageProvider<PlaybackException> {
 
-    @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
+    @OptIn(markerClass = UnstableApi.class) // Using decoder exceptions
     @Override
     public Pair<Integer, String> getErrorMessage(PlaybackException e) {
       String errorString = getString(R.string.error_generic);
@@ -554,7 +547,7 @@ public class PlayerActivity extends AppCompatActivity
     return mediaItems;
   }
 
-  @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
+  @OptIn(markerClass = UnstableApi.class) // Using Download API
   private static MediaItem maybeSetDownloadProperties(
       MediaItem item, @Nullable DownloadRequest downloadRequest) {
     if (downloadRequest == null) {

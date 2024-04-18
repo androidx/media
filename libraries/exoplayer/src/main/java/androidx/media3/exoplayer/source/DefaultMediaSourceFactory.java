@@ -313,7 +313,6 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
    * @return This factory, for convenience.
    */
   @CanIgnoreReturnValue
-  @UnstableApi
   public DefaultMediaSourceFactory setServerSideAdInsertionMediaSourceFactory(
       @Nullable MediaSource.Factory serverSideAdInsertionMediaSourceFactory) {
     this.serverSideAdInsertionMediaSourceFactory = serverSideAdInsertionMediaSourceFactory;

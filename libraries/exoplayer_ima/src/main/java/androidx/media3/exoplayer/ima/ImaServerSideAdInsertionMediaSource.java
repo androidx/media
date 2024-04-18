@@ -112,10 +112,10 @@ import java.util.Map;
 import java.util.Objects;
 
 /** MediaSource for IMA server side inserted ad streams. */
-@UnstableApi
 public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSource<Void> {
 
   /** A listener to be notified of stream events. */
+  @UnstableApi
   public interface StreamEventListener {
 
     /**
@@ -154,6 +154,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
       this.contentMediaSourceFactory = contentMediaSourceFactory;
     }
 
+    @UnstableApi
     @CanIgnoreReturnValue
     @Override
     public MediaSource.Factory setLoadErrorHandlingPolicy(
@@ -162,6 +163,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
       return this;
     }
 
+    @UnstableApi
     @CanIgnoreReturnValue
     @Override
     public MediaSource.Factory setDrmSessionManagerProvider(
@@ -170,11 +172,13 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
       return this;
     }
 
+    @UnstableApi
     @Override
     public @C.ContentType int[] getSupportedTypes() {
       return contentMediaSourceFactory.getSupportedTypes();
     }
 
+    @UnstableApi
     @Override
     public MediaSource createMediaSource(MediaItem mediaItem) {
       checkNotNull(mediaItem.localConfiguration);
@@ -248,6 +252,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
        * @param imaSdkSettings The {@link ImaSdkSettings}.
        * @return This builder, for convenience.
        */
+      @UnstableApi
       @CanIgnoreReturnValue
       public AdsLoader.Builder setImaSdkSettings(ImaSdkSettings imaSdkSettings) {
         this.imaSdkSettings = imaSdkSettings;
@@ -260,6 +265,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
        * @param streamEventListener The stream event listener.
        * @return This builder, for convenience.
        */
+      @UnstableApi
       @CanIgnoreReturnValue
       public AdsLoader.Builder setStreamEventListener(StreamEventListener streamEventListener) {
         this.streamEventListener = streamEventListener;
@@ -271,9 +277,14 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
        * StreamManager#addAdEventListener(AdEventListener)} when the stream manager becomes
        * available.
        *
+       * <p>Note: This method can be considered a stable API as long as the {@link AdEventListener}
+       * is provided by the IMA library. We can't declare this method stable because we don't have
+       * the same guarantee from the library we depend on.
+       *
        * @param adEventListener The ad event listener.
        * @return This builder, for convenience.
        */
+      @UnstableApi
       @CanIgnoreReturnValue
       public AdsLoader.Builder setAdEventListener(AdEventListener adEventListener) {
         this.adEventListener = adEventListener;
@@ -285,9 +296,14 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
        * StreamManager#addAdErrorListener(AdErrorEvent.AdErrorListener)} when the stream manager
        * becomes available.
        *
+       * <p>Note: This method can be considered a stable API as long as the {@link
+       * AdErrorEvent.AdErrorListener} is provided by the IMA library. We can't declare this method
+       * stable because we don't have the same guarantee from the library we depend on.
+       *
        * @param adErrorListener The {@link AdErrorEvent.AdErrorListener}.
        * @return This builder, for convenience.
        */
+      @UnstableApi
       @CanIgnoreReturnValue
       public AdsLoader.Builder setAdErrorListener(AdErrorEvent.AdErrorListener adErrorListener) {
         this.adErrorListener = adErrorListener;
@@ -301,6 +317,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
        * @return This builder, for convenience.
        * @see AdDisplayContainer#setCompanionSlots(Collection)
        */
+      @UnstableApi
       @CanIgnoreReturnValue
       public AdsLoader.Builder setCompanionAdSlots(Collection<CompanionAdSlot> companionAdSlots) {
         this.companionAdSlots = ImmutableList.copyOf(companionAdSlots);
@@ -330,6 +347,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
        * @return This builder, for convenience.
        * @see AdsRenderingSettings#setFocusSkipButtonWhenAvailable(boolean)
        */
+      @UnstableApi
       @CanIgnoreReturnValue
       public AdsLoader.Builder setFocusSkipButtonWhenAvailable(
           boolean focusSkipButtonWhenAvailable) {
@@ -405,6 +423,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
        *
        * @deprecated Use {@link #fromBundle} instead.
        */
+      @UnstableApi
       @Deprecated
       @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
       public static final Bundleable.Creator<State> CREATOR = State::fromBundle;
@@ -458,6 +477,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
      *
      * @see StreamManager#focus()
      */
+    @UnstableApi
     public void focusSkipButton() {
       if (player == null) {
         return;
@@ -600,11 +620,13 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
     adPlaybackState = adsLoader.getAdPlaybackState(adsId);
   }
 
+  @UnstableApi
   @Override
   public synchronized MediaItem getMediaItem() {
     return mediaItem;
   }
 
+  @UnstableApi
   @Override
   public boolean canUpdateMediaItem(MediaItem mediaItem) {
     MediaItem existingMediaItem = getMediaItem();
@@ -619,11 +641,13 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
         && existingMediaItem.liveConfiguration.equals(mediaItem.liveConfiguration);
   }
 
+  @UnstableApi
   @Override
   public synchronized void updateMediaItem(MediaItem mediaItem) {
     this.mediaItem = mediaItem;
   }
 
+  @UnstableApi
   @Override
   public void prepareSourceInternal(@Nullable TransferListener mediaTransferListener) {
     mainHandler.post(() -> assertSingleInstanceInPlaylist(checkNotNull(player)));
@@ -646,6 +670,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
     }
   }
 
+  @UnstableApi
   @Override
   protected void onChildSourceInfoRefreshed(
       Void childSourceId, MediaSource mediaSource, Timeline newTimeline) {
@@ -662,17 +687,20 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
         });
   }
 
+  @UnstableApi
   @Override
   public MediaPeriod createPeriod(MediaPeriodId id, Allocator allocator, long startPositionUs) {
     return checkNotNull(serverSideAdInsertionMediaSource)
         .createPeriod(id, allocator, startPositionUs);
   }
 
+  @UnstableApi
   @Override
   public void releasePeriod(MediaPeriod mediaPeriod) {
     checkNotNull(serverSideAdInsertionMediaSource).releasePeriod(mediaPeriod);
   }
 
+  @UnstableApi
   @Override
   public void maybeThrowSourceInfoRefreshError() throws IOException {
     super.maybeThrowSourceInfoRefreshError();
@@ -683,6 +711,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
     }
   }
 
+  @UnstableApi
   @Override
   protected void releaseSourceInternal() {
     super.releaseSourceInternal();
