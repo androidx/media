@@ -32,7 +32,6 @@ import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.ExtractorOutput;
-import androidx.media3.extractor.MpeghUtil;
 import androidx.media3.extractor.TrackOutput;
 import com.google.common.collect.ImmutableList;
 import java.lang.annotation.Documented;
@@ -164,6 +163,7 @@ public final class MpeghReader implements ElementaryStreamReader {
           if (continueRead(data, headerScratchBytes, MpeghUtil.MAX_MHAS_PACKET_HEADER_SIZE)) {
             parseHeader();
             // write the packet header to output
+            headerScratchBytes.setPosition(0);
             output.sampleData(headerScratchBytes, header.headerLength);
             // MHAS packet header finished -> obtain the packet payload
             state = STATE_READING_PACKET_PAYLOAD;
@@ -177,7 +177,6 @@ public final class MpeghReader implements ElementaryStreamReader {
           }
           writeSampleData(data);
           if (payloadBytesRead == header.packetLength) {
-            dataScratchBytes.setPosition(0);
             ParsableBitArray bitArray = new ParsableBitArray(dataScratchBytes.getData());
             if (header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_MPEGH3DACFG) {
               parseConfig(bitArray);
@@ -254,7 +253,6 @@ public final class MpeghReader implements ElementaryStreamReader {
    * @throws ParserException if a valid {@link MpeghUtil.Mpegh3daConfig} cannot be parsed.
    */
   private void parseHeader() throws ParserException {
-    headerScratchBytes.setPosition(0);
     // parse the MHAS packet header
     header = MpeghUtil.parseMhasPacketHeader(new ParsableBitArray(headerScratchBytes.getData()));
 

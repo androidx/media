@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.extractor;
+package androidx.media3.extractor.ts;
 
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -31,7 +31,7 @@ import java.lang.annotation.Target;
 
 /** Utility methods for parsing MPEG-H frames, which are access units in MPEG-H bitstreams. */
 @UnstableApi
-public final class MpeghUtil {
+/* package */ final class MpeghUtil {
 
   /** See ISO_IEC_23003-8;2022, 14.4.4. */
   private static final int MHAS_SYNC_WORD = 0xC001A5;
