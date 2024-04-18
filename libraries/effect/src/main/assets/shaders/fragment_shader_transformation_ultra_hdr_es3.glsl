@@ -64,7 +64,7 @@ const int COLOR_TRANSFER_ST2084 = 6;
 const int COLOR_TRANSFER_HLG = 7;
 
 // Matrix values based on computeXYZMatrix(BT2020Primaries, BT2020WhitePoint)
-// https://cs.android.com/android/platform/superproject/+/main:frameworks/base/libs/hwui/utils/HostColorSpace.cpp;l=200-232;drc=86bd214059cd6150304888a285941bf74af5b687
+// https://cs.android.com/android/platform/superproject/main/+/main:frameworks/native/libs/ui/ColorSpace.cpp;l=199-231;drc=ea6c713503b283eef9e6cd1d6674228f6a81d762
 const mat3 RGB_BT2020_TO_XYZ =
     mat3(0.63695805f, 0.26270021f, 0.00000000f, 0.14461690f, 0.67799807f,
          0.02807269f, 0.16888098f, 0.05930172f, 1.06098506f);
@@ -187,7 +187,7 @@ vec2 getVTexSamplingCoord() {
 // Reference:
 // https://developer.android.com/reference/android/graphics/Gainmap#applying-a-gainmap-manually
 // Reference Implementation:
-// https://cs.android.com/android/platform/superproject/main/+/main:frameworks/base/libs/hwui/effects/GainmapRenderer.cpp;l=117?q=GainmapRenderer.cpp&ss=android
+// https://cs.android.com/android/platform/superproject/main/+/main:frameworks/base/libs/hwui/effects/GainmapRenderer.cpp;l=117-146;drc=fadc20184ccb27fe15bb862e6e03fa6d05d41eac
 highp vec3 applyGainmapToBase(vec4 S) {
   vec4 G = texture(uGainmapTexSampler, getVTexSamplingCoord());
   float W = clamp((log(HDR_SDR_RATIO) - log(uDisplayRatioSdr)) /
