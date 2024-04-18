@@ -28,8 +28,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.support.v4.media.MediaBrowserCompat;
-import android.support.v4.media.session.MediaControllerCompat;
-import android.support.v4.media.session.MediaSessionCompat;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -119,7 +117,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  *
  * <p>The app targeting API level 30 or higher must include a {@code <queries>} element in their
  * manifest to connect to a service component of another app like {@link MediaSessionService},
- * {@link MediaLibraryService}, or {@link androidx.media.MediaBrowserServiceCompat}). See the
+ * {@link MediaLibraryService}, or {@code androidx.media.MediaBrowserServiceCompat}). See the
  * following example and <a href="//developer.android.com/training/package-visibility">this
  * guide</a> for more information.
  *
@@ -141,28 +139,29 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * <h2 id="BackwardCompatibility">Backward Compatibility with legacy media sessions</h2>
  *
  * <p>In addition to {@link MediaSession}, the controller also supports connecting to a legacy media
- * session - {@linkplain android.media.session.MediaSession framework session} and {@linkplain
- * MediaSessionCompat AndroidX session compat}.
+ * session - {@link android.media.session.MediaSession} and {@code
+ * android.support.v4.media.session.MediaSessionCompat}.
  *
  * <p>To request legacy sessions to play media, use one of the {@link #setMediaItem} methods and set
  * either {@link MediaItem#mediaId}, {@link MediaItem.RequestMetadata#mediaUri} or {@link
  * MediaItem.RequestMetadata#searchQuery}. Once the controller is {@linkplain #prepare() prepared},
- * the controller triggers one of the following callbacks depending on the provided information and
- * the value of {@link #getPlayWhenReady()}:
+ * the controller triggers one of the following methods on {@code
+ * android.support.v4.media.session.MediaSessionCompat.Callback} depending on the provided
+ * information and the value of {@link #getPlayWhenReady()}:
  *
  * <ul>
- *   <li>{@link MediaSessionCompat.Callback#onPrepareFromUri onPrepareFromUri}
- *   <li>{@link MediaSessionCompat.Callback#onPlayFromUri onPlayFromUri}
- *   <li>{@link MediaSessionCompat.Callback#onPrepareFromMediaId onPrepareFromMediaId}
- *   <li>{@link MediaSessionCompat.Callback#onPlayFromMediaId onPlayFromMediaId}
- *   <li>{@link MediaSessionCompat.Callback#onPrepareFromSearch onPrepareFromSearch}
- *   <li>{@link MediaSessionCompat.Callback#onPlayFromSearch onPlayFromSearch}
+ *   <li>{@code onPrepareFromUri}
+ *   <li>{@code onPlayFromUri}
+ *   <li>{@code onPrepareFromMediaId}
+ *   <li>{@code onPlayFromMediaId}
+ *   <li>{@code onPrepareFromSearch}
+ *   <li>{@code onPlayFromSearch}
  * </ul>
  *
  * Other playlist change methods, like {@link #addMediaItem} or {@link #removeMediaItem}, trigger
- * the {@link MediaSessionCompat.Callback#onAddQueueItem onAddQueueItem} and {@link
- * MediaSessionCompat.Callback#onRemoveQueueItem} onRemoveQueueItem} callbacks. Check {@link
- * #getAvailableCommands()} to see if playlist modifications are {@linkplain
+ * the {@code MediaSessionCompat.Callback.onAddQueueItem} and {@code
+ * MediaSessionCompat.Callback.onRemoveQueueItem} callbacks. Check {@link #getAvailableCommands()}
+ * to see if playlist modifications are {@linkplain
  * androidx.media3.common.Player#COMMAND_CHANGE_MEDIA_ITEMS supported} by the legacy session.
  */
 @DoNotMock
@@ -247,7 +246,7 @@ public class MediaController implements Player {
      * of this bundle may affect the connection result.
      *
      * <p>The hints are only used when connecting to the {@link MediaSession}. They will be ignored
-     * when connecting to {@link MediaSessionCompat}.
+     * when connecting to {@code android.support.v4.media.session.MediaSessionCompat}.
      *
      * @param connectionHints A bundle containing the connection hints.
      * @return The builder to allow chaining.
@@ -664,7 +663,8 @@ public class MediaController implements Player {
   /**
    * {@inheritDoc}
    *
-   * <p>Interoperability: When connected to {@link MediaSessionCompat}, it returns {code 0}.
+   * <p>Interoperability: When connected to {@code
+   * android.support.v4.media.session.MediaSessionCompat}, it returns {code 0}.
    */
   @Override
   public final long getSeekBackIncrement() {
@@ -675,8 +675,9 @@ public class MediaController implements Player {
   /**
    * {@inheritDoc}
    *
-   * <p>Interoperability: When connected to {@link MediaSessionCompat}, it calls {@link
-   * MediaControllerCompat.TransportControls#rewind()}.
+   * <p>Interoperability: When connected to {@code
+   * android.support.v4.media.session.MediaSessionCompat}, it calls {@code
+   * android.support.v4.media.session.MediaControllerCompat.TransportControls.rewind()}.
    */
   @Override
   public final void seekBack() {
@@ -691,7 +692,8 @@ public class MediaController implements Player {
   /**
    * {@inheritDoc}
    *
-   * <p>Interoperability: When connected to {@link MediaSessionCompat}, it returns {code 0}.
+   * <p>Interoperability: When connected to {@code
+   * android.support.v4.media.session.MediaSessionCompat}, it returns {code 0}.
    */
   @Override
   public final long getSeekForwardIncrement() {
@@ -702,8 +704,9 @@ public class MediaController implements Player {
   /**
    * {@inheritDoc}
    *
-   * <p>Interoperability: When connected to {@link MediaSessionCompat}, it calls {@link
-   * MediaControllerCompat.TransportControls#fastForward()}.
+   * <p>Interoperability: When connected to {@code
+   * android.support.v4.media.session.MediaSessionCompat}, it calls {@code
+   * android.support.v4.media.session.MediaControllerCompat.TransportControls.fastForward()}.
    */
   @Override
   public final void seekForward() {
@@ -808,7 +811,7 @@ public class MediaController implements Player {
   /**
    * {@inheritDoc}
    *
-   * <p>Interoperability: When connected to {@link
+   * <p>Interoperability: When connected to {@code
    * android.support.v4.media.session.MediaSessionCompat}, it's the same as {@link #getDuration()}
    * to match the behavior with {@link #getContentPosition()} and {@link
    * #getContentBufferedPosition()}.
@@ -822,7 +825,7 @@ public class MediaController implements Player {
   /**
    * {@inheritDoc}
    *
-   * <p>Interoperability: When connected to {@link
+   * <p>Interoperability: When connected to {@code
    * android.support.v4.media.session.MediaSessionCompat}, it's the same as {@link
    * #getCurrentPosition()} because content position isn't available.
    */
@@ -835,7 +838,7 @@ public class MediaController implements Player {
   /**
    * {@inheritDoc}
    *
-   * <p>Interoperability: When connected to {@link
+   * <p>Interoperability: When connected to {@code
    * android.support.v4.media.session.MediaSessionCompat}, it's the same as {@link
    * #getBufferedPosition()} because content buffered position isn't available.
    */
@@ -950,7 +953,7 @@ public class MediaController implements Player {
    * <p>A command is not accepted if it is not a custom command or the command is not in the list of
    * {@linkplain #getAvailableSessionCommands() available session commands}.
    *
-   * <p>Interoperability: When connected to {@link
+   * <p>Interoperability: When connected to {@code
    * android.support.v4.media.session.MediaSessionCompat}, {@link SessionResult#resultCode} will
    * return the custom result code from the {@code android.os.ResultReceiver#onReceiveResult(int,
    * Bundle)} instead of the standard result codes defined in the {@link SessionResult}.
@@ -1345,7 +1348,7 @@ public class MediaController implements Player {
   /**
    * {@inheritDoc}
    *
-   * <p>Interoperability: When connected to {@link
+   * <p>Interoperability: When connected to {@code
    * android.support.v4.media.session.MediaSessionCompat}, this will always return {@link
    * C#INDEX_UNSET} even when {@link #hasPreviousMediaItem()} is {@code true}.
    */
@@ -1368,7 +1371,7 @@ public class MediaController implements Player {
   /**
    * {@inheritDoc}
    *
-   * <p>Interoperability: When connected to {@link
+   * <p>Interoperability: When connected to {@code
    * android.support.v4.media.session.MediaSessionCompat}, this will always return {@link
    * C#INDEX_UNSET} even when {@link #hasNextMediaItem()} is {@code true}.
    */
@@ -1463,7 +1466,7 @@ public class MediaController implements Player {
   /**
    * {@inheritDoc}
    *
-   * <p>Interoperability: When connected to {@link
+   * <p>Interoperability: When connected to {@code
    * android.support.v4.media.session.MediaSessionCompat}, it's the same as {@link #seekToPrevious}.
    */
   @Override
@@ -1489,7 +1492,7 @@ public class MediaController implements Player {
   /**
    * {@inheritDoc}
    *
-   * <p>Interoperability: When connected to {@link
+   * <p>Interoperability: When connected to {@code
    * android.support.v4.media.session.MediaSessionCompat}, it's the same as {@link #seekToNext}.
    */
   @Override
@@ -1505,7 +1508,7 @@ public class MediaController implements Player {
   /**
    * {@inheritDoc}
    *
-   * <p>Interoperability: When connected to {@link
+   * <p>Interoperability: When connected to {@code
    * android.support.v4.media.session.MediaSessionCompat}, it won't update the current media item
    * index immediately because the previous media item index is unknown.
    */
@@ -1522,7 +1525,7 @@ public class MediaController implements Player {
   /**
    * {@inheritDoc}
    *
-   * <p>Interoperability: When connected to {@link
+   * <p>Interoperability: When connected to {@code
    * android.support.v4.media.session.MediaSessionCompat}, it always returns {@code 0}.
    */
   @Override
@@ -1534,7 +1537,7 @@ public class MediaController implements Player {
   /**
    * {@inheritDoc}
    *
-   * <p>Interoperability: When connected to {@link
+   * <p>Interoperability: When connected to {@code
    * android.support.v4.media.session.MediaSessionCompat}, it won't update the current media item
    * index immediately because the previous media item index is unknown.
    */

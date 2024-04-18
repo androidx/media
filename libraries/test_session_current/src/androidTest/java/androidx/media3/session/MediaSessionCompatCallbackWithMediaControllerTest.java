@@ -717,7 +717,8 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     controller.setRating(mediaId, rating);
     assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
     assertThat(sessionCallback.onSetRatingCalled).isTrue();
-    assertThat(LegacyConversions.convertToRating(sessionCallback.rating)).isEqualTo(rating);
+    assertThat(sessionCallback.rating.getRatingStyle()).isEqualTo(RatingCompat.RATING_5_STARS);
+    assertThat(sessionCallback.rating.getStarRating()).isEqualTo(3.5f);
   }
 
   @Test
@@ -730,7 +731,8 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     controller.setRating(rating);
     assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
     assertThat(sessionCallback.onSetRatingCalled).isTrue();
-    assertThat(LegacyConversions.convertToRating(sessionCallback.rating)).isEqualTo(rating);
+    assertThat(sessionCallback.rating.getRatingStyle()).isEqualTo(RatingCompat.RATING_5_STARS);
+    assertThat(sessionCallback.rating.getStarRating()).isEqualTo(3.5f);
   }
 
   @Test

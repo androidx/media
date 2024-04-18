@@ -19,8 +19,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.os.Bundle;
 import android.os.SystemClock;
-import android.support.v4.media.session.MediaControllerCompat;
-import android.support.v4.media.session.MediaSessionCompat;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Bundleable;
@@ -81,8 +79,9 @@ public final class SessionResult implements Bundleable {
    * Result code representing that the command is successfully completed.
    *
    * <p>Interoperability: This code is also used to tell that the command was successfully sent, but
-   * the result is unknown when connected with {@link MediaSessionCompat} or {@link
-   * MediaControllerCompat}.
+   * the result is unknown when connected with {@code
+   * android.support.v4.media.session.MediaSessionCompat} or {@code
+   * android.support.v4.media.session.MediaControllerCompat}.
    */
   public static final int RESULT_SUCCESS = 0;
 

@@ -39,7 +39,6 @@ import android.support.v4.media.session.MediaControllerCompat;
 import android.support.v4.media.session.MediaSessionCompat.QueueItem;
 import android.support.v4.media.session.PlaybackStateCompat;
 import android.text.TextUtils;
-import androidx.media.AudioAttributesCompat;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
@@ -155,12 +154,8 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
         handler);
 
     assertThat(latch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS)).isTrue();
-    assertThat(
-            LegacyConversions.convertToPlaybackState(
-                controller.getPlaybackState(),
-                controller.getMetadata(),
-                /* timeDiffMs= */ C.TIME_UNSET))
-        .isEqualTo(testState);
+    assertThat(controller.getPlaybackState().getState())
+        .isEqualTo(PlaybackStateCompat.STATE_PLAYING);
     assertThat(controller.getPlaybackState().getBufferedPosition())
         .isEqualTo(testBufferingPosition);
     assertThat(controller.getPlaybackState().getPlaybackSpeed()).isEqualTo(testSpeed);
@@ -396,11 +391,7 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
     assertThat(metadataRef.get().getString(METADATA_KEY_MEDIA_ID))
         .isEqualTo(testMediaItems.get(testItemIndex).mediaId);
     assertThat(metadataRef.get().getLong(METADATA_KEY_DURATION)).isEqualTo(testDurationMs);
-    @PlaybackStateCompat.State
-    int playbackStateFromControllerCompat =
-        LegacyConversions.convertToPlaybackState(
-            playbackStateRef.get(), metadataRef.get(), /* timeDiffMs= */ C.TIME_UNSET);
-    assertThat(playbackStateFromControllerCompat).isEqualTo(testState);
+    assertThat(playbackStateRef.get().getState()).isEqualTo(PlaybackStateCompat.STATE_PLAYING);
     assertThat(metadataRef.get().getRating(METADATA_KEY_USER_RATING).hasHeart()).isTrue();
     assertThat(latchForQueue.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     List<QueueItem> queue = controllerCompat.getQueue();
@@ -461,9 +452,11 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
         new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_LOCAL).setMaxVolume(10).build();
     int legacyPlaybackTypeToUpdate = MediaControllerCompat.PlaybackInfo.PLAYBACK_TYPE_LOCAL;
     int legacyStream = AudioManager.STREAM_RING;
-    AudioAttributesCompat attrsCompat =
-        new AudioAttributesCompat.Builder().setLegacyStreamType(legacyStream).build();
-    AudioAttributes attrs = LegacyConversions.convertToAudioAttributes(attrsCompat);
+    AudioAttributes attrs =
+        new AudioAttributes.Builder()
+            .setContentType(C.AUDIO_CONTENT_TYPE_SONIFICATION)
+            .setUsage(C.USAGE_NOTIFICATION_RINGTONE)
+            .build();
     CountDownLatch playbackInfoNotified = new CountDownLatch(1);
     MediaControllerCompat.Callback callback =
         new MediaControllerCompat.Callback() {
@@ -507,9 +500,11 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
         new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_LOCAL).setMaxVolume(10).build();
     int legacyPlaybackType = MediaControllerCompat.PlaybackInfo.PLAYBACK_TYPE_LOCAL;
     int legacyStream = AudioManager.STREAM_RING;
-    AudioAttributesCompat attrsCompat =
-        new AudioAttributesCompat.Builder().setLegacyStreamType(legacyStream).build();
-    AudioAttributes attrs = LegacyConversions.convertToAudioAttributes(attrsCompat);
+    AudioAttributes attrs =
+        new AudioAttributes.Builder()
+            .setContentType(C.AUDIO_CONTENT_TYPE_SONIFICATION)
+            .setUsage(C.USAGE_NOTIFICATION_RINGTONE)
+            .build();
     CountDownLatch playbackInfoNotified = new CountDownLatch(1);
     MediaControllerCompat.Callback callback =
         new MediaControllerCompat.Callback() {
@@ -961,13 +956,13 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
                 .setIconResId(2)
                 .build()
                 .copyWithIsEnabled(true));
-    List<ImmutableList<CommandButton>> reportedCustomLayouts = new ArrayList<>();
+    List<PlaybackStateCompat> reportedPlaybackStates = new ArrayList<>();
     CountDownLatch latch1 = new CountDownLatch(2);
     MediaControllerCompat.Callback callback =
         new MediaControllerCompat.Callback() {
           @Override
           public void onPlaybackStateChanged(PlaybackStateCompat state) {
-            reportedCustomLayouts.add(LegacyConversions.convertToCustomLayout(state));
+            reportedPlaybackStates.add(state);
             latch1.countDown();
           }
         };
@@ -979,8 +974,27 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
         Player.Commands.EMPTY);
 
     assertThat(latch1.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(reportedCustomLayouts.get(0)).containsExactly(customLayout.get(0));
-    assertThat(reportedCustomLayouts.get(1)).isEqualTo(customLayout);
+    assertThat(reportedPlaybackStates).hasSize(2);
+    assertThat(reportedPlaybackStates.get(0).getCustomActions()).hasSize(1);
+    PlaybackStateCompat.CustomAction action0 =
+        reportedPlaybackStates.get(0).getCustomActions().get(0);
+    assertThat(action0.getAction()).isEqualTo("command1");
+    assertThat(action0.getExtras().getString("key")).isEqualTo("value-1");
+    assertThat(action0.getIcon()).isEqualTo(1);
+    assertThat(action0.getName().toString()).isEqualTo("command1");
+    assertThat(reportedPlaybackStates.get(1).getCustomActions()).hasSize(2);
+    PlaybackStateCompat.CustomAction action1 =
+        reportedPlaybackStates.get(1).getCustomActions().get(0);
+    assertThat(action1.getAction()).isEqualTo("command1");
+    assertThat(action1.getExtras().getString("key")).isEqualTo("value-1");
+    assertThat(action1.getIcon()).isEqualTo(1);
+    assertThat(action1.getName().toString()).isEqualTo("command1");
+    PlaybackStateCompat.CustomAction action2 =
+        reportedPlaybackStates.get(1).getCustomActions().get(1);
+    assertThat(action2.getAction()).isEqualTo("command2");
+    assertThat(action2.getExtras().getString("key")).isEqualTo("value-2");
+    assertThat(action2.getIcon()).isEqualTo(2);
+    assertThat(action2.getName().toString()).isEqualTo("command2");
   }
 
   @Test
@@ -1128,10 +1142,8 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
     assertThat(latchForPlaybackState.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(playbackStateRef.get().getPosition()).isEqualTo(testPosition);
     assertThat(controllerCompat.getPlaybackState().getPosition()).isEqualTo(testPosition);
-    assertThat(playbackStateRef.get().getActiveQueueItemId())
-        .isEqualTo(LegacyConversions.convertToQueueItemId(testItemIndex));
-    assertThat(controllerCompat.getPlaybackState().getActiveQueueItemId())
-        .isEqualTo(LegacyConversions.convertToQueueItemId(testItemIndex));
+    assertThat(playbackStateRef.get().getActiveQueueItemId()).isEqualTo(testItemIndex);
+    assertThat(controllerCompat.getPlaybackState().getActiveQueueItemId()).isEqualTo(testItemIndex);
     assertThat(callbackOrder)
         .containsExactly("onMetadataChanged", "onPlaybackStateChanged")
         .inOrder();

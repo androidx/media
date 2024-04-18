@@ -19,9 +19,6 @@ import android.app.PendingIntent;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Parcelable;
-import android.support.v4.media.MediaDescriptionCompat;
-import android.support.v4.media.session.MediaControllerCompat;
-import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
@@ -108,9 +105,7 @@ public final class MediaConstants {
    * androidx.media3.common.Player#COMMAND_SEEK_TO_NEXT} by design.
    *
    * @see MediaSession#setSessionExtras(Bundle)
-   * @see MediaSessionCompat#setExtras(Bundle)
    * @see MediaController.Listener#onExtrasChanged(MediaController, Bundle)
-   * @see MediaControllerCompat.Callback#onExtrasChanged(Bundle)
    * @see androidx.media3.common.Player#COMMAND_SEEK_TO_NEXT
    * @see androidx.media3.common.Player#COMMAND_SEEK_TO_NEXT_MEDIA_ITEM
    */
@@ -126,9 +121,7 @@ public final class MediaConstants {
    * androidx.media3.common.Player#COMMAND_SEEK_TO_PREVIOUS} by design.
    *
    * @see MediaSession#setSessionExtras(Bundle)
-   * @see MediaSessionCompat#setExtras(Bundle)
    * @see MediaController.Listener#onExtrasChanged(MediaController, Bundle)
-   * @see MediaControllerCompat.Callback#onExtrasChanged(Bundle)
    * @see androidx.media3.common.Player#COMMAND_SEEK_TO_PREVIOUS
    * @see androidx.media3.common.Player#COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM
    */
@@ -457,9 +450,9 @@ public final class MediaConstants {
           .BROWSER_SERVICE_EXTRAS_KEY_APPLICATION_PREFERENCES_USING_CAR_APP_LIBRARY_INTENT;
 
   /**
-   * {@link Bundle} key used to indicate the {@link MediaMetadata.MediaType} in the legacy {@link
-   * MediaDescriptionCompat} as a long {@link MediaDescriptionCompat#getExtras() extra} and as a
-   * long value in {@link android.support.v4.media.MediaMetadataCompat}.
+   * {@link Bundle} key used to indicate the {@link MediaMetadata.MediaType} in the legacy {@code
+   * android.support.v4.media.MediaDescriptionCompat} as a long extra and as a long value in {@code
+   * android.support.v4.media.MediaMetadataCompat}.
    */
   @UnstableApi
   public static final String EXTRAS_KEY_MEDIA_TYPE_COMPAT =

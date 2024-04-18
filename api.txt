@@ -1761,6 +1761,7 @@ package androidx.media3.session {
     method public int getControllerVersion();
     method public String getPackageName();
     method public int getUid();
+    field public static final String LEGACY_CONTROLLER_PACKAGE_NAME = "android.media.session.MediaController";
     field public static final int LEGACY_CONTROLLER_VERSION = 0; // 0x0
   }
 

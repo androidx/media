@@ -30,7 +30,6 @@ import android.os.Bundle;
 import android.os.IBinder;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
-import androidx.media.MediaSessionManager.RemoteUserInfo;
 import androidx.media3.common.Bundleable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
@@ -63,7 +62,7 @@ import java.util.List;
  * }</pre>
  *
  * <p>You may also declare {@code android.media.browse.MediaBrowserService} for compatibility with
- * {@link android.support.v4.media.MediaBrowserCompat} so that this service can handle the case.
+ * {@code android.support.v4.media.MediaBrowserCompat} so that this service can handle the case.
  *
  * @see MediaSessionService
  */
@@ -78,7 +77,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
    *
    * <h2 id="BackwardCompatibility">Backward compatibility with legacy media browser APIs</h2>
    *
-   * <p>A library session supports connection from both {@link MediaBrowser} and {@link
+   * <p>A library session supports connection from both {@link MediaBrowser} and {@code
    * android.support.v4.media.MediaBrowserCompat}, but the {@link ControllerInfo} may not be
    * precise. Here are the details.
    *
@@ -107,7 +106,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
    *     {@code 21 <= SDK_INT < 28}<br>
    *     for other {@link Callback callbacks}
    *   </td>
-   *   <td>{@link RemoteUserInfo#LEGACY_CONTROLLER}</td>
+   *   <td>{@link ControllerInfo#LEGACY_CONTROLLER_PACKAGE_NAME}</td>
    *   <td>Negative value</td>
    * </tr>
    * <tr>
@@ -144,10 +143,10 @@ public abstract class MediaLibraryService extends MediaSessionService {
        * MediaItem#mediaId}. The media id is required for the browser to get the children under the
        * root.
        *
-       * <p>Interoperability: If this callback is called because a legacy {@link
-       * android.support.v4.media.MediaBrowserCompat} has requested a {@link
+       * <p>Interoperability: If this callback is called because a legacy {@code
+       * android.support.v4.media.MediaBrowserCompat} has requested a {@code
        * androidx.media.MediaBrowserServiceCompat.BrowserRoot}, then the main thread may be blocked
-       * until the returned future is done. If your service may be queried by a legacy {@link
+       * until the returned future is done. If your service may be queried by a legacy {@code
        * android.support.v4.media.MediaBrowserCompat}, you should ensure that the future completes
        * quickly to avoid blocking the main thread for a long period of time.
        *
@@ -246,8 +245,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
        * <p>The {@link LibraryResult#params} returned to the caller should be the same as the {@link
        * LibraryParams params} passed into this method.
        *
-       * <p>Interoperability: This will be called by {@link
-       * android.support.v4.media.MediaBrowserCompat#subscribe}, but won't be called by {@link
+       * <p>Interoperability: This will be called by {@code
+       * android.support.v4.media.MediaBrowserCompat.subscribe()}, but won't be called by {@link
        * android.media.browse.MediaBrowser#subscribe}.
        *
        * @param session The session for this event.
@@ -300,8 +299,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
        * #getSubscribedControllers(String)} to get subscribed controllers for which to call {@link
        * #notifyChildrenChanged}.
        *
-       * <p>Interoperability: This will be called by {@link
-       * android.support.v4.media.MediaBrowserCompat#unsubscribe}, but won't be called by {@link
+       * <p>Interoperability: This will be called by {@code
+       * android.support.v4.media.MediaBrowserCompat.unsubscribe()}, but won't be called by {@link
        * android.media.browse.MediaBrowser#unsubscribe}.
        *
        * @param session The session for this event.
@@ -363,8 +362,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
        * list for no children rather than using error codes.
        *
        * <p>Typically, the {@code query} is requested through {@link #onSearch(MediaLibrarySession,
-       * ControllerInfo, String, LibraryParams)} before, but it may not especially when {@link
-       * android.support.v4.media.MediaBrowserCompat#search} is used.
+       * ControllerInfo, String, LibraryParams)} before, but it may not especially when {@code
+       * android.support.v4.media.MediaBrowserCompat.search()} is used.
        *
        * @param session The session for this event.
        * @param browser The browser information.

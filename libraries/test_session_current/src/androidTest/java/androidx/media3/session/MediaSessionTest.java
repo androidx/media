@@ -990,15 +990,13 @@ public class MediaSessionTest {
   }
 
   private static ControllerInfo createMediaButtonCaller() {
-    return new ControllerInfo(
-        new MediaSessionManager.RemoteUserInfo(
-            "RANDOM_MEDIA_BUTTON_CALLER_PACKAGE",
-            MediaSessionManager.RemoteUserInfo.UNKNOWN_PID,
-            MediaSessionManager.RemoteUserInfo.UNKNOWN_UID),
+    return ControllerInfo.createTestOnlyControllerInfo(
+        "RANDOM_MEDIA_BUTTON_CALLER_PACKAGE",
+        MediaSessionManager.RemoteUserInfo.UNKNOWN_PID,
+        MediaSessionManager.RemoteUserInfo.UNKNOWN_UID,
         MediaLibraryInfo.VERSION_INT,
         MediaControllerStub.VERSION_INT,
         /* trusted= */ false,
-        /* cb= */ null,
         /* connectionHints= */ Bundle.EMPTY);
   }
 

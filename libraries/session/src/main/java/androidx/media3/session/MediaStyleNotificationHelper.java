@@ -78,7 +78,7 @@ public class MediaStyleNotificationHelper {
    *
    * <pre class="prettyprint">
    * Notification noti = new NotificationCompat.Builder()
-   *     .setSmallIcon(androidx.media.R.drawable.ic_stat_player)
+   *     .setSmallIcon(androidx.media3.R.drawable.media3_notification_small_icon)
    *     .setContentTitle(&quot;Track title&quot;)
    *     .setContentText(&quot;Artist - Album&quot;)
    *     .setLargeIcon(albumArtBitmap)
@@ -386,7 +386,7 @@ public class MediaStyleNotificationHelper {
    *
    * <pre class="prettyprint">
    * Notification noti = new NotificationCompat.Builder()
-   *     .setSmallIcon(androidx.media.R.drawable.ic_stat_player)
+   *     .setSmallIcon(androidx.media3.R.drawable.media3_notification_small_icon)
    *     .setLargeIcon(albumArtBitmap))
    *     .setCustomContentView(contentView)
    *     .setStyle(<b>new NotificationCompat.DecoratedMediaCustomViewStyle()</b>
@@ -566,7 +566,7 @@ public class MediaStyleNotificationHelper {
       if (actionsToShowInCompact != null) {
         setShowActionsInCompactView(style, actionsToShowInCompact);
       }
-      MediaSessionCompat.Token legacyToken = session.getSessionCompatToken();
+      MediaSessionCompat.Token legacyToken = session.getSessionCompat().getSessionToken();
       style.setMediaSession((android.media.session.MediaSession.Token) legacyToken.getToken());
       return style;
     }

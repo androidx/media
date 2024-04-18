@@ -55,8 +55,8 @@ import java.util.List;
 
 /**
  * A token that represents an ongoing {@link MediaSession} or a service ({@link
- * MediaSessionService}, {@link MediaLibraryService}, or {@link MediaBrowserServiceCompat}). If it
- * represents a service, it may not be ongoing.
+ * MediaSessionService}, {@link MediaLibraryService}, or {@code
+ * androix.media.MediaBrowserServiceCompat}). If it represents a service, it may not be ongoing.
  *
  * <p>This may be passed to apps by the session owner to allow them to create a {@link
  * MediaController} or a {@link MediaBrowser} to communicate with the session.
@@ -93,14 +93,15 @@ public final class SessionToken implements Bundleable {
   /** Type for {@link MediaSessionCompat}. */
   /* package */ static final int TYPE_SESSION_LEGACY = 100;
 
-  /** Type for {@link MediaBrowserServiceCompat}. */
+  /** Type for {@code androidx.media.MediaBrowserServiceCompat}. */
   /* package */ static final int TYPE_BROWSER_SERVICE_LEGACY = 101;
 
   private final SessionTokenImpl impl;
 
   /**
    * Creates a token for {@link MediaController} or {@link MediaBrowser} to connect to one of {@link
-   * MediaSessionService}, {@link MediaLibraryService}, or {@link MediaBrowserServiceCompat}.
+   * MediaSessionService}, {@link MediaLibraryService}, or {@code
+   * androidx.media.MediaBrowserServiceCompat}.
    *
    * @param context The context.
    * @param serviceComponent The component name of the service.
@@ -294,15 +295,16 @@ public final class SessionToken implements Bundleable {
   }
 
   /**
-   * Creates a token from a {@link MediaSessionCompat.Token}.
+   * Creates a token from a {@link android.support.v4.media.session.MediaSessionCompat.Token}.
    *
    * @param context A {@link Context}.
-   * @param compatToken The {@link MediaSessionCompat.Token}.
+   * @param compatToken The {@code android.support.v4.media.session.MediaSessionCompat.Token}.
    * @return A {@link ListenableFuture} for the {@link SessionToken}.
    */
+  @SuppressWarnings("UnnecessarilyFullyQualified") // Avoiding clash with Media3 MediaSession.
   @UnstableApi
   public static ListenableFuture<SessionToken> createSessionToken(
-      Context context, MediaSessionCompat.Token compatToken) {
+      Context context, android.support.v4.media.session.MediaSessionCompat.Token compatToken) {
     HandlerThread thread = new HandlerThread("SessionTokenThread");
     thread.start();
     ListenableFuture<SessionToken> tokenFuture =
@@ -312,18 +314,21 @@ public final class SessionToken implements Bundleable {
   }
 
   /**
-   * Creates a token from a {@link MediaSessionCompat.Token}.
+   * Creates a token from a {@link android.support.v4.media.session.MediaSessionCompat.Token}.
    *
    * @param context A {@link Context}.
-   * @param compatToken The {@link MediaSessionCompat.Token}.
+   * @param compatToken The {@link android.support.v4.media.session.MediaSessionCompat.Token}.
    * @param completionLooper The {@link Looper} on which the returned {@link ListenableFuture}
    *     completes. This {@link Looper} can't be used to call {@code future.get()} on the returned
    *     {@link ListenableFuture}.
    * @return A {@link ListenableFuture} for the {@link SessionToken}.
    */
+  @SuppressWarnings("UnnecessarilyFullyQualified") // Avoiding clash with Media3 MediaSession.
   @UnstableApi
   public static ListenableFuture<SessionToken> createSessionToken(
-      Context context, MediaSessionCompat.Token compatToken, Looper completionLooper) {
+      Context context,
+      android.support.v4.media.session.MediaSessionCompat.Token compatToken,
+      Looper completionLooper) {
     checkNotNull(context, "context must not be null");
     checkNotNull(compatToken, "compatToken must not be null");
 
@@ -364,7 +369,7 @@ public final class SessionToken implements Bundleable {
   /**
    * Returns an {@link ImmutableSet} of {@linkplain SessionToken session tokens} for media session
    * services; {@link MediaSessionService}, {@link MediaLibraryService}, and {@link
-   * MediaBrowserServiceCompat} regardless of their activeness.
+   * androidx.media.MediaBrowserServiceCompat} regardless of their activeness.
    *
    * <p>The app targeting API level 30 or higher must include a {@code <queries>} element in their
    * manifest to get service tokens of other apps. See the following example and <a

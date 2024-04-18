@@ -211,17 +211,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  *
  * <h2 id="BackwardCompatibility">Backward Compatibility with Legacy Session APIs</h2>
  *
- * <p>An active {@link MediaSessionCompat} is internally created with the session for backwards
- * compatibility. It's used to handle incoming connections and commands from {@link
- * MediaControllerCompat} instances, and helps to utilize existing APIs that are built with legacy
- * media session APIs.
+ * <p>An active {@code android.support.v4.media.session.MediaSessionCompat} is internally created
+ * with the session for backwards compatibility. It's used to handle incoming connections and
+ * commands from {@code android.support.v4.media.session.MediaControllerCompat} instances, and helps
+ * to utilize existing APIs that are built with legacy media session APIs.
  *
  * <h2 id="CompatibilityController">Backward Compatibility with Legacy Controller APIs</h2>
  *
  * <p>In addition to {@link MediaController}, the session also supports connections from the legacy
- * controller APIs - {@linkplain android.media.session.MediaController framework controller} and
- * {@linkplain MediaControllerCompat AndroidX controller compat}. However, {@link ControllerInfo}
- * may not be precise for legacy controllers. See {@link ControllerInfo} for the details.
+ * controller APIs - {@link android.media.session.MediaController} and {@code
+ * android.support.v4.media.session.MediaControllerCompat}. However, {@link ControllerInfo} may not
+ * be precise for legacy controllers. See {@link ControllerInfo} for the details.
  *
  * <p>Neither an unknown package name nor an unknown UID mean that you should disallow a connection
  * or commands per se. For SDK levels where such issues happen, session tokens can only be obtained
@@ -466,6 +466,12 @@ public class MediaSession {
     /** The {@linkplain #getInterfaceVersion()} interface version} of legacy controllers. */
     @UnstableApi public static final int LEGACY_CONTROLLER_INTERFACE_VERSION = 0;
 
+    /**
+     * The {@link #getPackageName()} of legacy controllers if a more precise package cannot be
+     * obtained.
+     */
+    public static final String LEGACY_CONTROLLER_PACKAGE_NAME = RemoteUserInfo.LEGACY_CONTROLLER;
+
     private final RemoteUserInfo remoteUserInfo;
     private final int libraryVersion;
     private final int interfaceVersion;
@@ -478,9 +484,10 @@ public class MediaSession {
      *
      * @param remoteUserInfo The remote user info.
      * @param trusted {@code true} if trusted, {@code false} otherwise.
-     * @param cb ControllerCb. Can be {@code null} only when a MediaBrowserCompat connects to
-     *     MediaSessionService and ControllerInfo is needed for {@link
-     *     MediaSession.Callback#onConnect(MediaSession, ControllerInfo)}.
+     * @param cb ControllerCb. Can be {@code null} only when a {@code
+     *     android.support.v4.media.MediaBrowserCompat} connects to {@link MediaSessionService} and
+     *     {@link ControllerInfo} is needed for {@link MediaSession.Callback#onConnect(MediaSession,
+     *     ControllerInfo)}.
      * @param connectionHints A session-specific argument sent from the controller for the
      *     connection. The contents of this bundle may affect the connection result.
      */
@@ -520,7 +527,7 @@ public class MediaSession {
     }
 
     /**
-     * Returns the package name. Can be {@link RemoteUserInfo#LEGACY_CONTROLLER} for
+     * Returns the package name. Can be {@link #LEGACY_CONTROLLER_PACKAGE_NAME} for
      * interoperability.
      *
      * <p>Interoperability: Package name may not be precisely obtained for legacy controller API on
@@ -535,7 +542,7 @@ public class MediaSession {
      *         It's sufficient for most cases, but doesn't precisely distinguish caller if it
      *         uses shared user ID.</td>
      * <tr><td>{@code 21 <= SDK_INT < 24}</td>
-     *     <td>{@link RemoteUserInfo#LEGACY_CONTROLLER}</td>
+     *     <td>{@link #LEGACY_CONTROLLER_PACKAGE_NAME}</td>
      * </table>
      */
     public String getPackageName() {
@@ -616,16 +623,40 @@ public class MediaSession {
           /* connectionHints= */ Bundle.EMPTY);
     }
 
-    /** Returns a {@link ControllerInfo} suitable for use when testing client code. */
+    /**
+     * @deprecated Use {@link #createTestOnlyControllerInfo(String, int, int, int, int, boolean,
+     *     Bundle)} instead.
+     */
     @VisibleForTesting(otherwise = PRIVATE)
+    @Deprecated
     public static ControllerInfo createTestOnlyControllerInfo(
         RemoteUserInfo remoteUserInfo,
         int libraryVersion,
         int interfaceVersion,
         boolean trusted,
         Bundle connectionHints) {
+      return createTestOnlyControllerInfo(
+          remoteUserInfo.getPackageName(),
+          remoteUserInfo.getPid(),
+          remoteUserInfo.getUid(),
+          libraryVersion,
+          interfaceVersion,
+          trusted,
+          connectionHints);
+    }
+
+    /** Returns a {@link ControllerInfo} suitable for use when testing client code. */
+    @VisibleForTesting(otherwise = PRIVATE)
+    public static ControllerInfo createTestOnlyControllerInfo(
+        String packageName,
+        int pid,
+        int uid,
+        int libraryVersion,
+        int interfaceVersion,
+        boolean trusted,
+        Bundle connectionHints) {
       return new MediaSession.ControllerInfo(
-          remoteUserInfo,
+          new RemoteUserInfo(packageName, pid, uid),
           libraryVersion,
           interfaceVersion,
           trusted,
@@ -1111,8 +1142,8 @@ public class MediaSession {
   }
 
   /**
-   * Returns the {@link MediaSessionCompat.Token} of the {@link MediaSessionCompat} created
-   * internally by this session.
+   * Returns the legacy {@code android.support.v4.media.session.MediaSessionCompat.Token} of the
+   * {@code android.support.v4.media.session.MediaSessionCompat} created internally by this session.
    */
   @UnstableApi
   public final MediaSessionCompat.Token getSessionCompatToken() {
@@ -1309,9 +1340,9 @@ public class MediaSession {
      * been added to the {@link MediaSession.ConnectionResult#availableSessionCommands list of
      * available session commands} in {@link #onConnect} or set via {@link #setAvailableCommands}.
      *
-     * <p>Interoperability: This will be also called by {@link
-     * android.support.v4.media.MediaBrowserCompat#sendCustomAction}. If so, {@code extras} from
-     * {@link android.support.v4.media.MediaBrowserCompat#sendCustomAction} will be considered as
+     * <p>Interoperability: This will be also called by {@code
+     * android.support.v4.media.MediaBrowserCompat.sendCustomAction()}. If so, {@code extras} from
+     * {@code android.support.v4.media.MediaBrowserCompat.sendCustomAction()} will be considered as
      * {@code args} and the custom command will have {@code null} {@link
      * SessionCommand#customExtras}.
      *
@@ -1340,9 +1371,10 @@ public class MediaSession {
      * Callback#onSetMediaItems} will direct {@code Player.setMediaItem(s)} to this method as well.
      *
      * <p>In addition, unless {@link Callback#onSetMediaItems} is overridden, this callback is also
-     * called when an app is using a legacy {@link MediaControllerCompat.TransportControls} to
-     * prepare or play media (for instance when browsing the catalogue and then selecting an item
-     * for preparation from Android Auto that is using the legacy Media1 library).
+     * called when an app is using a legacy {@link
+     * android.support.v4.media.session.MediaControllerCompat.TransportControls} to prepare or play
+     * media (for instance when browsing the catalogue and then selecting an item for preparation
+     * from Android Auto that is using the legacy Media1 library).
      *
      * <p>By default, if and only if each of the provided {@linkplain MediaItem media items} has a
      * set {@link MediaItem.LocalConfiguration} (for example, a URI), then the callback returns the
@@ -1361,16 +1393,17 @@ public class MediaSession {
      * Player#setMediaItems} or {@link Player#addMediaItems} as requested.
      *
      * <p>Interoperability: This method will be called, unless {@link Callback#onSetMediaItems} is
-     * overridden, in response to the following {@link MediaControllerCompat} methods:
+     * overridden, in response to the following {@link
+     * android.support.v4.media.session.MediaControllerCompat} methods:
      *
      * <ul>
-     *   <li>{@link MediaControllerCompat.TransportControls#prepareFromUri prepareFromUri}
-     *   <li>{@link MediaControllerCompat.TransportControls#playFromUri playFromUri}
-     *   <li>{@link MediaControllerCompat.TransportControls#prepareFromMediaId prepareFromMediaId}
-     *   <li>{@link MediaControllerCompat.TransportControls#playFromMediaId playFromMediaId}
-     *   <li>{@link MediaControllerCompat.TransportControls#prepareFromSearch prepareFromSearch}
-     *   <li>{@link MediaControllerCompat.TransportControls#playFromSearch playFromSearch}
-     *   <li>{@link MediaControllerCompat#addQueueItem addQueueItem}
+     *   <li>{@code prepareFromUri}
+     *   <li>{@code playFromUri}
+     *   <li>{@code prepareFromMediaId}
+     *   <li>{@code playFromMediaId}
+     *   <li>{@code prepareFromSearch}
+     *   <li>{@code playFromSearch}
+     *   <li>{@code addQueueItem}
      * </ul>
      *
      * The values of {@link MediaItem#mediaId}, {@link MediaItem.RequestMetadata#mediaUri}, {@link

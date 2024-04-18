@@ -19,14 +19,16 @@ import static android.support.v4.media.MediaBrowserCompat.MediaItem.FLAG_BROWSAB
 import static android.support.v4.media.MediaBrowserCompat.MediaItem.FLAG_PLAYABLE;
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_DURATION;
 import static androidx.media.utils.MediaConstants.BROWSER_ROOT_HINTS_KEY_ROOT_CHILDREN_SUPPORTED_FLAGS;
+import static androidx.media3.session.MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_ICON_COMPAT;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_MEDIA_TYPE_COMPAT;
 import static androidx.media3.session.MediaConstants.EXTRA_KEY_ROOT_CHILDREN_BROWSABLE_ONLY;
-import static androidx.media3.test.session.common.TestUtils.getCommandsAsList;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.junit.Assert.fail;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
 import android.service.media.MediaBrowserService;
@@ -41,7 +43,6 @@ import android.text.SpannedString;
 import androidx.annotation.Nullable;
 import androidx.media.AudioAttributesCompat;
 import androidx.media.VolumeProviderCompat;
-import androidx.media.utils.MediaConstants;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.HeartRating;
@@ -56,18 +57,18 @@ import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import androidx.test.filters.SdkSuppress;
-import androidx.test.filters.SmallTest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.Config;
 
 /** Tests for {@link LegacyConversions}. */
 @RunWith(AndroidJUnit4.class)
-@SmallTest
 public final class LegacyConversionsTest {
 
   private Context context;
@@ -108,19 +109,30 @@ public final class LegacyConversionsTest {
 
   @Test
   public void convertBrowserItemListToMediaItemList() {
-    int size = 3;
-    List<MediaBrowserCompat.MediaItem> browserItems = MediaTestUtils.createBrowserItems(size);
+    ImmutableList<MediaBrowserCompat.MediaItem> browserItems =
+        ImmutableList.of(
+            new MediaBrowserCompat.MediaItem(
+                new MediaDescriptionCompat.Builder().setMediaId("browserItem_1").build(),
+                /* flags= */ 0),
+            new MediaBrowserCompat.MediaItem(
+                new MediaDescriptionCompat.Builder().setMediaId("browserItem_2").build(),
+                /* flags= */ 0),
+            new MediaBrowserCompat.MediaItem(
+                new MediaDescriptionCompat.Builder().setMediaId("browserItem_3").build(),
+                /* flags= */ 0));
+
     List<MediaItem> mediaItems =
         LegacyConversions.convertBrowserItemListToMediaItemList(browserItems);
-    assertThat(mediaItems).hasSize(size);
-    for (int i = 0; i < size; ++i) {
-      assertThat(mediaItems.get(i).mediaId).isEqualTo(browserItems.get(i).getMediaId());
-    }
+
+    assertThat(mediaItems).hasSize(3);
+    assertThat(mediaItems.get(0).mediaId).isEqualTo(browserItems.get(0).getMediaId());
+    assertThat(mediaItems.get(1).mediaId).isEqualTo(browserItems.get(1).getMediaId());
+    assertThat(mediaItems.get(2).mediaId).isEqualTo(browserItems.get(2).getMediaId());
   }
 
   @Test
   public void convertToQueueItem_withArtworkData() throws Exception {
-    MediaItem mediaItem = MediaTestUtils.createMediaItemWithArtworkData("testId");
+    MediaItem mediaItem = createMediaItemWithArtworkData("testId");
     MediaMetadata mediaMetadata = mediaItem.mediaMetadata;
     ListenableFuture<Bitmap> bitmapFuture = bitmapLoader.decodeBitmap(mediaMetadata.artworkData);
     @Nullable Bitmap bitmap = bitmapFuture.get(10, SECONDS);
@@ -200,7 +212,7 @@ public final class LegacyConversionsTest {
   @Test
   public void convertToMediaMetadata_roundTripViaMediaMetadataCompat_returnsEqualMediaItemMetadata()
       throws Exception {
-    MediaItem testMediaItem = MediaTestUtils.createMediaItemWithArtworkData("testZZZ");
+    MediaItem testMediaItem = createMediaItemWithArtworkData("testZZZ");
     MediaMetadata testMediaMetadata = testMediaItem.mediaMetadata;
     @Nullable Bitmap testArtworkBitmap = null;
     @Nullable
@@ -227,7 +239,7 @@ public final class LegacyConversionsTest {
   public void
       convertToMediaMetadata_roundTripViaMediaDescriptionCompat_returnsEqualMediaItemMetadata()
           throws Exception {
-    MediaItem testMediaItem = MediaTestUtils.createMediaItemWithArtworkData("testZZZ");
+    MediaItem testMediaItem = createMediaItemWithArtworkData("testZZZ");
     MediaMetadata testMediaMetadata = testMediaItem.mediaMetadata;
     @Nullable Bitmap testArtworkBitmap = null;
     @Nullable
@@ -375,8 +387,7 @@ public final class LegacyConversionsTest {
     assertThat(LegacyConversions.convertToLibraryParams(context, null)).isNull();
     Bundle rootHints = new Bundle();
     rootHints.putString("key", "value");
-    rootHints.putInt(
-        MediaConstants.BROWSER_ROOT_HINTS_KEY_ROOT_CHILDREN_SUPPORTED_FLAGS, FLAG_BROWSABLE);
+    rootHints.putInt(BROWSER_ROOT_HINTS_KEY_ROOT_CHILDREN_SUPPORTED_FLAGS, FLAG_BROWSABLE);
     rootHints.putBoolean(MediaBrowserService.BrowserRoot.EXTRA_OFFLINE, true);
     rootHints.putBoolean(MediaBrowserService.BrowserRoot.EXTRA_RECENT, true);
     rootHints.putBoolean(MediaBrowserService.BrowserRoot.EXTRA_SUGGESTED, true);
@@ -396,7 +407,7 @@ public final class LegacyConversionsTest {
   @Test
   public void convertToLibraryParams_rootHintsBrowsableNoFlagSet_browsableOnlyFalse() {
     Bundle rootHints = new Bundle();
-    rootHints.putInt(MediaConstants.BROWSER_ROOT_HINTS_KEY_ROOT_CHILDREN_SUPPORTED_FLAGS, 0);
+    rootHints.putInt(BROWSER_ROOT_HINTS_KEY_ROOT_CHILDREN_SUPPORTED_FLAGS, 0);
 
     MediaLibraryService.LibraryParams params =
         LegacyConversions.convertToLibraryParams(context, rootHints);
@@ -408,8 +419,7 @@ public final class LegacyConversionsTest {
   public void convertToLibraryParams_rootHintsPlayableFlagSet_browsableOnlyFalse() {
     Bundle rootHints = new Bundle();
     rootHints.putInt(
-        MediaConstants.BROWSER_ROOT_HINTS_KEY_ROOT_CHILDREN_SUPPORTED_FLAGS,
-        FLAG_PLAYABLE | FLAG_BROWSABLE);
+        BROWSER_ROOT_HINTS_KEY_ROOT_CHILDREN_SUPPORTED_FLAGS, FLAG_PLAYABLE | FLAG_BROWSABLE);
 
     MediaLibraryService.LibraryParams params =
         LegacyConversions.convertToLibraryParams(context, rootHints);
@@ -490,7 +500,7 @@ public final class LegacyConversionsTest {
         .isTrue();
   }
 
-  @SdkSuppress(minSdkVersion = 21)
+  @Config(minSdk = 21)
   @Test
   public void convertToSessionCommands_whenSessionIsNotReadyOnSdk21_disallowsRating() {
     SessionCommands sessionCommands =
@@ -941,9 +951,7 @@ public final class LegacyConversionsTest {
     String displayName = "display_name";
     int iconRes = 21;
     Bundle extras = new Bundle();
-    extras.putInt(
-        androidx.media3.session.MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_ICON_COMPAT,
-        CommandButton.ICON_FAST_FORWARD);
+    extras.putInt(EXTRAS_KEY_COMMAND_BUTTON_ICON_COMPAT, CommandButton.ICON_FAST_FORWARD);
     PlaybackStateCompat.CustomAction action =
         new PlaybackStateCompat.CustomAction.Builder(actionStr, displayName, iconRes)
             .setExtras(extras)
@@ -1132,5 +1140,41 @@ public final class LegacyConversionsTest {
         LegacyConversions.convertToTotalBufferedDurationMs(
             state, /* metadataCompat= */ null, /* timeDiffMs= */ C.INDEX_UNSET);
     assertThat(totalBufferedDurationMs).isEqualTo(testTotalBufferedDurationMs);
+  }
+
+  // TODO(b/254265256): Move this method to a central place.
+  private static ImmutableList<@Player.Command Integer> getCommandsAsList(
+      Player.Commands commands) {
+    ImmutableList.Builder<@Player.Command Integer> list = new ImmutableList.Builder<>();
+    for (int i = 0; i < commands.size(); i++) {
+      list.add(commands.get(i));
+    }
+    return list.build();
+  }
+
+  private static MediaItem createMediaItemWithArtworkData(String mediaId) {
+    MediaMetadata.Builder mediaMetadataBuilder =
+        new MediaMetadata.Builder()
+            .setMediaType(MediaMetadata.MEDIA_TYPE_PLAYLIST)
+            .setIsBrowsable(false)
+            .setIsPlayable(true);
+    try {
+      byte[] artworkData;
+      Bitmap bitmap =
+          BitmapFactory.decodeStream(
+              ApplicationProvider.getApplicationContext()
+                  .getResources()
+                  .getAssets()
+                  .open("media/png/non-motion-photo-shortened.png"));
+      try (ByteArrayOutputStream stream = new ByteArrayOutputStream()) {
+        bitmap.compress(Bitmap.CompressFormat.PNG, /* ignored */ 0, stream);
+        artworkData = stream.toByteArray();
+      }
+      mediaMetadataBuilder.setArtworkData(artworkData, MediaMetadata.PICTURE_TYPE_FRONT_COVER);
+    } catch (IOException e) {
+      fail(e.getMessage());
+    }
+    MediaMetadata mediaMetadata = mediaMetadataBuilder.build();
+    return new MediaItem.Builder().setMediaId(mediaId).setMediaMetadata(mediaMetadata).build();
   }
 }

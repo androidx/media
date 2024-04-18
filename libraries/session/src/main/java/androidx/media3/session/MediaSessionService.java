@@ -77,7 +77,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * }</pre>
  *
  * <p>You may also declare the action {@code android.media.browse.MediaBrowserService} for
- * compatibility with {@link android.support.v4.media.MediaBrowserCompat}. This service can handle
+ * compatibility with {@code android.support.v4.media.MediaBrowserCompat}. This service can handle
  * the case automatically.
  *
  * <p>It's recommended for an app to have a single service declared in the manifest. Otherwise, your
@@ -227,10 +227,10 @@ public abstract class MediaSessionService extends Service {
    *   <li>When the service is started by a media button event, the package name will be {@link
    *       Intent#ACTION_MEDIA_BUTTON}. If you want to allow the service to be started by media
    *       button events, do not return {@code null}.
-   *   <li>When a legacy {@link android.media.browse.MediaBrowser} or a {@link
+   *   <li>When a legacy {@link android.media.browse.MediaBrowser} or a {@code
    *       android.support.v4.media.MediaBrowserCompat} tries to connect, the package name will be
-   *       {@link MediaBrowserServiceCompat#SERVICE_INTERFACE}. If you want to allow the service to
-   *       be bound by the legacy media browsers, do not return {@code null}.
+   *       {@link android.service.media.MediaBrowserService#SERVICE_INTERFACE}. If you want to allow
+   *       the service to be bound by the legacy media browsers, do not return {@code null}.
    * </ul>
    *
    * <p>For those special cases, the values returned by {@link ControllerInfo#getUid()} and {@link

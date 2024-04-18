@@ -32,7 +32,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Implementation of {@link MediaBrowserServiceCompat} for interoperability between {@link
- * MediaLibraryService} and {@link android.support.v4.media.MediaBrowserCompat}.
+ * MediaLibraryService} and {@code android.support.v4.media.MediaBrowserCompat}.
  */
 /* package */ class MediaSessionServiceLegacyStub extends MediaBrowserServiceCompat {
 

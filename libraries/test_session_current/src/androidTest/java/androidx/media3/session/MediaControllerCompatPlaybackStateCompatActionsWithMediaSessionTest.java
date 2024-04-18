@@ -45,6 +45,7 @@ import androidx.media3.common.util.Consumer;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.session.MediaSession.ConnectionResult;
 import androidx.media3.session.MediaSession.ConnectionResult.AcceptedResultBuilder;
+import androidx.media3.test.session.R;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -1482,8 +1483,15 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     connectMediaNotificationController(mediaSession);
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
 
-    assertThat(LegacyConversions.convertToCustomLayout(controllerCompat.getPlaybackState()))
-        .containsExactly(customLayout.get(0).copyWithIsEnabled(true));
+    assertThat(controllerCompat.getPlaybackState().getCustomActions()).hasSize(1);
+    PlaybackStateCompat.CustomAction customAction =
+        controllerCompat.getPlaybackState().getCustomActions().get(0);
+    assertThat(customAction.getAction()).isEqualTo("command1");
+    assertThat(customAction.getName().toString()).isEqualTo("button1");
+    assertThat(customAction.getIcon()).isEqualTo(R.drawable.media3_icon_play);
+    assertThat(customAction.getExtras().get("key1")).isEqualTo("value1");
+    assertThat(customAction.getExtras().get(MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_ICON_COMPAT))
+        .isEqualTo(CommandButton.ICON_PLAY);
     mediaSession.release();
     releasePlayer(player);
   }
@@ -1522,15 +1530,16 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaSession mediaSession = createMediaSession(player, callback);
     connectMediaNotificationController(mediaSession);
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
-    ImmutableList<CommandButton> initialCustomLayout =
-        LegacyConversions.convertToCustomLayout(controllerCompat.getPlaybackState());
-    AtomicReference<List<CommandButton>> reportedCustomLayout = new AtomicReference<>();
+    List<PlaybackStateCompat.CustomAction> initialCustomActions =
+        controllerCompat.getPlaybackState().getCustomActions();
+    AtomicReference<List<PlaybackStateCompat.CustomAction>> reportedCustomActions =
+        new AtomicReference<>();
     CountDownLatch latch = new CountDownLatch(1);
     controllerCompat.registerCallback(
         new MediaControllerCompat.Callback() {
           @Override
           public void onPlaybackStateChanged(PlaybackStateCompat state) {
-            reportedCustomLayout.set(LegacyConversions.convertToCustomLayout(state));
+            reportedCustomActions.set(state.getCustomActions());
             latch.countDown();
           }
         },
@@ -1539,9 +1548,19 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     getInstrumentation().runOnMainSync(() -> mediaSession.setCustomLayout(customLayout));
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(initialCustomLayout).isEmpty();
-    assertThat(reportedCustomLayout.get())
-        .containsExactly(customLayout.get(0).copyWithIsEnabled(true));
+    assertThat(initialCustomActions).isEmpty();
+    assertThat(reportedCustomActions.get()).hasSize(1);
+    assertThat(reportedCustomActions.get().get(0).getAction()).isEqualTo("command1");
+    assertThat(reportedCustomActions.get().get(0).getName().toString()).isEqualTo("button1");
+    assertThat(reportedCustomActions.get().get(0).getIcon()).isEqualTo(R.drawable.media3_icon_play);
+    assertThat(reportedCustomActions.get().get(0).getExtras().get("key1")).isEqualTo("value1");
+    assertThat(
+            reportedCustomActions
+                .get()
+                .get(0)
+                .getExtras()
+                .get(MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_ICON_COMPAT))
+        .isEqualTo(CommandButton.ICON_PLAY);
     mediaSession.release();
     releasePlayer(player);
   }
@@ -1581,15 +1600,16 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaSession mediaSession = createMediaSession(player, callback);
     connectMediaNotificationController(mediaSession);
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
-    ImmutableList<CommandButton> initialCustomLayout =
-        LegacyConversions.convertToCustomLayout(controllerCompat.getPlaybackState());
-    AtomicReference<List<CommandButton>> reportedCustomLayout = new AtomicReference<>();
+    List<PlaybackStateCompat.CustomAction> initialCustomActions =
+        controllerCompat.getPlaybackState().getCustomActions();
+    AtomicReference<List<PlaybackStateCompat.CustomAction>> reportedCustomActions =
+        new AtomicReference<>();
     CountDownLatch latch = new CountDownLatch(1);
     controllerCompat.registerCallback(
         new MediaControllerCompat.Callback() {
           @Override
           public void onPlaybackStateChanged(PlaybackStateCompat state) {
-            reportedCustomLayout.set(LegacyConversions.convertToCustomLayout(state));
+            reportedCustomActions.set(state.getCustomActions());
             latch.countDown();
           }
         },
@@ -1602,9 +1622,19 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
                     mediaSession.getMediaNotificationControllerInfo(), customLayout));
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(initialCustomLayout).isEmpty();
-    assertThat(reportedCustomLayout.get())
-        .containsExactly(customLayout.get(0).copyWithIsEnabled(true));
+    assertThat(initialCustomActions).isEmpty();
+    assertThat(reportedCustomActions.get()).hasSize(1);
+    assertThat(reportedCustomActions.get().get(0).getAction()).isEqualTo("command1");
+    assertThat(reportedCustomActions.get().get(0).getName().toString()).isEqualTo("button1");
+    assertThat(reportedCustomActions.get().get(0).getIcon()).isEqualTo(R.drawable.media3_icon_play);
+    assertThat(reportedCustomActions.get().get(0).getExtras().get("key1")).isEqualTo("value1");
+    assertThat(
+            reportedCustomActions
+                .get()
+                .get(0)
+                .getExtras()
+                .get(MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_ICON_COMPAT))
+        .isEqualTo(CommandButton.ICON_PLAY);
     mediaSession.release();
     releasePlayer(player);
   }
@@ -1691,8 +1721,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
 
   private static MediaControllerCompat createMediaControllerCompat(MediaSession mediaSession) {
     return new MediaControllerCompat(
-        ApplicationProvider.getApplicationContext(),
-        mediaSession.getSessionCompat().getSessionToken());
+        ApplicationProvider.getApplicationContext(), mediaSession.getSessionCompatToken());
   }
 
   /** Releases the {@code player} on the main thread. */

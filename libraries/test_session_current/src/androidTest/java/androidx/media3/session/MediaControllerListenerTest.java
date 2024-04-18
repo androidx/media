@@ -38,12 +38,10 @@ import static org.junit.Assert.assertThrows;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
-import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.RemoteException;
 import android.text.SpannedString;
 import androidx.annotation.Nullable;
-import androidx.media.AudioAttributesCompat;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
@@ -189,16 +187,15 @@ public class MediaControllerListenerTest {
   @Test
   public void connection_sessionReleased() throws Exception {
     CountDownLatch latch = new CountDownLatch(1);
-    MediaController controller =
-        controllerTestRule.createController(
-            remoteSession.getToken(),
-            /* connectionHints= */ null,
-            new MediaController.Listener() {
-              @Override
-              public void onDisconnected(MediaController controller) {
-                latch.countDown();
-              }
-            });
+    controllerTestRule.createController(
+        remoteSession.getToken(),
+        /* connectionHints= */ null,
+        new MediaController.Listener() {
+          @Override
+          public void onDisconnected(MediaController controller) {
+            latch.countDown();
+          }
+        });
     remoteSession.release();
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
   }
@@ -236,7 +233,7 @@ public class MediaControllerListenerTest {
   @LargeTest
   public void noInteractionAfterSessionClose_session() throws Exception {
     SessionToken token = remoteSession.getToken();
-    MediaController controller = controllerTestRule.createController(token);
+    controllerTestRule.createController(token);
     testControllerAfterSessionIsClosed(DEFAULT_TEST_NAME);
   }
 
@@ -322,10 +319,10 @@ public class MediaControllerListenerTest {
     Timeline testTimeline = MediaTestUtils.createTimeline(/* windowCount= */ 3);
     MediaMetadata testPlaylistMetadata = new MediaMetadata.Builder().setTitle("title").build();
     AudioAttributes testAudioAttributes =
-        LegacyConversions.convertToAudioAttributes(
-            new AudioAttributesCompat.Builder()
-                .setLegacyStreamType(AudioManager.STREAM_RING)
-                .build());
+        new AudioAttributes.Builder()
+            .setUsage(C.USAGE_ALARM)
+            .setContentType(C.AUDIO_CONTENT_TYPE_SONIFICATION)
+            .build();
     boolean testShuffleModeEnabled = true;
     @Player.RepeatMode int testRepeatMode = Player.REPEAT_MODE_ALL;
     int testCurrentAdGroupIndex = 33;
@@ -2173,9 +2170,8 @@ public class MediaControllerListenerTest {
             latch.countDown();
           }
         };
-    MediaController controller =
-        controllerTestRule.createController(
-            remoteSession.getToken(), /* connectionHints= */ null, listener);
+    controllerTestRule.createController(
+        remoteSession.getToken(), /* connectionHints= */ null, listener);
 
     SessionCommands commands =
         new SessionCommands.Builder()
@@ -2392,9 +2388,8 @@ public class MediaControllerListenerTest {
             return Futures.immediateFuture(new SessionResult(SessionResult.RESULT_SUCCESS));
           }
         };
-    MediaController controller =
-        controllerTestRule.createController(
-            remoteSession.getToken(), /* connectionHints= */ null, listener);
+    controllerTestRule.createController(
+        remoteSession.getToken(), /* connectionHints= */ null, listener);
 
     // TODO(b/245724167): Test with multiple controllers
     remoteSession.broadcastCustomCommand(testCommand, testArgs);
@@ -2448,9 +2443,7 @@ public class MediaControllerListenerTest {
           }
         };
     RemoteMediaSession session = createRemoteMediaSession(TEST_WITH_CUSTOM_COMMANDS);
-    MediaController controller =
-        controllerTestRule.createController(
-            session.getToken(), /* connectionHints= */ null, listener);
+    controllerTestRule.createController(session.getToken(), /* connectionHints= */ null, listener);
 
     session.setCustomLayout(buttons);
 
@@ -2480,9 +2473,8 @@ public class MediaControllerListenerTest {
             latch.countDown();
           }
         };
-    MediaController controller =
-        controllerTestRule.createController(
-            remoteSession.getToken(), /* connectionHints= */ null, listener);
+    controllerTestRule.createController(
+        remoteSession.getToken(), /* connectionHints= */ null, listener);
 
     remoteSession.setSessionExtras(sessionExtras);
 
@@ -2511,8 +2503,7 @@ public class MediaControllerListenerTest {
         };
     Bundle connectionHints = new Bundle();
     connectionHints.putString(KEY_CONTROLLER, "controller_key_1");
-    MediaController controller =
-        controllerTestRule.createController(remoteSession.getToken(), connectionHints, listener);
+    controllerTestRule.createController(remoteSession.getToken(), connectionHints, listener);
 
     remoteSession.setSessionExtras("controller_key_1", sessionExtras);
 
