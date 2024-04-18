@@ -15,6 +15,7 @@
  */
 package androidx.media3.extractor.ts;
 
+import static androidx.media3.common.util.Assertions.checkArgument;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
@@ -23,7 +24,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.UnstableApi;
-import com.google.common.primitives.Ints;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -58,8 +58,8 @@ import java.lang.annotation.Target;
   public static MhasPacketHeader parseMhasPacketHeader(ParsableBitArray data)
       throws ParserException {
     int dataStartPos = data.getBytePosition();
-    @MhasPacketHeader.Type int packetType = Ints.checkedCast(readEscapedValue(data, 3, 8, 8));
-    long packetLabel = readEscapedValue(data, 2, 8, 32);
+    @MhasPacketHeader.Type int packetType = readEscapedIntValue(data, 3, 8, 8);
+    long packetLabel = readEscapedLongValue(data, 2, 8, 32);
 
     if (packetLabel > 0x10) {
       throw ParserException.createForUnsupportedContainerFeature(
@@ -82,7 +82,7 @@ import java.lang.annotation.Target;
       }
     }
 
-    int packetLength = Ints.checkedCast(readEscapedValue(data, 11, 24, 24));
+    int packetLength = readEscapedIntValue(data, 11, 24, 24);
 
     int headerLength = data.getBytePosition() - dataStartPos;
 
@@ -205,10 +205,10 @@ import java.lang.annotation.Target;
 
     if (data.readBit()) { // usacConfigExtensionPresent
       // Mpegh3daConfigExtension
-      int numConfigExtensions = Ints.checkedCast(readEscapedValue(data, 2, 4, 8) + 1);
+      int numConfigExtensions = readEscapedIntValue(data, 2, 4, 8) + 1;
       for (int confExtIdx = 0; confExtIdx < numConfigExtensions; confExtIdx++) {
-        int usacConfigExtType = Ints.checkedCast(readEscapedValue(data, 4, 8, 16));
-        int usacConfigExtLength = Ints.checkedCast(readEscapedValue(data, 4, 8, 16));
+        int usacConfigExtType = readEscapedIntValue(data, 4, 8, 16);
+        int usacConfigExtLength = readEscapedIntValue(data, 4, 8, 16);
 
         if (usacConfigExtType == 7 /* ID_CONFIG_EXT_COMPATIBLE_PROFILELVL_SET */) {
           int numCompatibleSets = data.readBits(4) + 1;
@@ -332,7 +332,7 @@ import java.lang.annotation.Target;
       return;
     }
 
-    int numberOfSpeakers = Ints.checkedCast(readEscapedValue(data, 5, 8, 16) + 1);
+    int numberOfSpeakers = readEscapedIntValue(data, 5, 8, 16) + 1;
     if (speakerLayoutType == 1) {
       data.skipBits(7 * numberOfSpeakers); // cicpSpeakerIdx per speaker
     } else if (speakerLayoutType == 2) {
@@ -399,7 +399,7 @@ import java.lang.annotation.Target;
 
     for (int grp = 0; grp < numberOfSignalGroupsInBitstream + 1; grp++) {
       int signalGroupType = data.readBits(3);
-      int bsNumberOfSignals = Ints.checkedCast(readEscapedValue(data, 5, 8, 16));
+      int bsNumberOfSignals = readEscapedIntValue(data, 5, 8, 16);
 
       numberOfSignals += bsNumberOfSignals + 1;
       if (signalGroupType == 0 /*SignalGroupTypeChannels*/
@@ -424,7 +424,7 @@ import java.lang.annotation.Target;
   private static void skipMpegh3daDecoderConfig(
       ParsableBitArray data, int numSignals, int sbrRatioIndex) {
 
-    int numElements = Ints.checkedCast((readEscapedValue(data, 4, 8, 16) + 1));
+    int numElements = readEscapedIntValue(data, 4, 8, 16) + 1;
     data.skipBit(); // elementLengthPresent
 
     for (int elemIdx = 0; elemIdx < numElements; elemIdx++) {
@@ -478,11 +478,11 @@ import java.lang.annotation.Target;
           }
           break;
         case 3 /*ID_USAC_EXT*/:
-          readEscapedValue(data, 4, 8, 16); // usacExtElementType
-          int usacExtElementConfigLength = Ints.checkedCast(readEscapedValue(data, 4, 8, 16));
+          readEscapedIntValue(data, 4, 8, 16); // usacExtElementType
+          int usacExtElementConfigLength = readEscapedIntValue(data, 4, 8, 16);
 
           if (data.readBit()) { // usacExtElementDefaultLengthPresent
-            readEscapedValue(data, 8, 16, 0) /*+1*/; // usacExtElementDefaultLength
+            readEscapedIntValue(data, 8, 16, 0) /* +1 */; // usacExtElementDefaultLength
           }
           data.skipBit(); // usacExtElementPayloadFrag
 
@@ -536,17 +536,61 @@ import java.lang.annotation.Target;
   }
 
   /**
-   * Obtains an escaped value from an MPEG-H bit stream. See ISO_IEC_23003-3;2020, 5.2, Table 19.
-   * The reading position of {@code data} will be modified to be just after the end of the escaped
-   * value.
+   * Obtains an escaped value (up to {@link Integer#MAX_VALUE}) from an MPEG-H bit stream.
+   *
+   * <p>See ISO_IEC_23003-3;2020, 5.2, Table 19.
+   *
+   * <p>The reading position of {@code data} will be modified to be just after the end of the
+   * escaped value.
    *
    * @param data The data to parse, positioned at the start of the escaped value.
    * @param bits1 number of bits to be parsed.
    * @param bits2 number of bits to be parsed.
    * @param bits3 number of bits to be parsed.
    * @return The escaped value.
+   * @throws IllegalArgumentException if {@code bits1}, {@code bits2} and {@code bits3} could result
+   *     in reading a value greater than {@link Integer#MAX_VALUE}.
    */
-  private static long readEscapedValue(ParsableBitArray data, int bits1, int bits2, int bits3) {
+  private static int readEscapedIntValue(ParsableBitArray data, int bits1, int bits2, int bits3) {
+    // Check that a max possible escaped value doesn't exceed the max value that can be stored in an
+    // Integer.
+    checkArgument(Integer.MAX_VALUE - (1L << bits1) - (1L << bits2) - (1L << bits3) + 3 >= 0);
+
+    int value = data.readBits(bits1);
+
+    if (value == (1L << bits1) - 1) {
+      int valueAdd = data.readBits(bits2);
+      value += valueAdd;
+
+      if (valueAdd == (1L << bits2) - 1) {
+        valueAdd = data.readBits(bits3);
+        value += valueAdd;
+      }
+    }
+    return value;
+  }
+
+  /**
+   * Obtains an escaped value (up to {@link Long#MAX_VALUE}) from an MPEG-H bit stream.
+   *
+   * <p>See ISO_IEC_23003-3;2020, 5.2, Table 19.
+   *
+   * <p>The reading position of {@code data} will be modified to be just after the end of the
+   * escaped value.
+   *
+   * @param data The data to parse, positioned at the start of the escaped value.
+   * @param bits1 number of bits to be parsed.
+   * @param bits2 number of bits to be parsed.
+   * @param bits3 number of bits to be parsed.
+   * @return The escaped value.
+   * @throws IllegalArgumentException if {@code bits1}, {@code bits2} and {@code bits3} could result
+   *     in reading a value greater than {@link Long#MAX_VALUE}.
+   */
+  private static long readEscapedLongValue(ParsableBitArray data, int bits1, int bits2, int bits3) {
+    // Check that a max possible escaped value doesn't exceed the max value that can be stored in a
+    // Long.
+    checkArgument(Long.MAX_VALUE - (1L << bits1) - (1L << bits2) - (1L << bits3) + 3 >= 0);
+
     long value = data.readBitsToLong(bits1);
 
     if (value == (1L << bits1) - 1) {
