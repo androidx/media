@@ -82,12 +82,13 @@ import java.util.concurrent.atomic.AtomicInteger;
   private final Map<Integer, OnMediaItemChangedListener> mediaItemChangedListenersByTrackType;
 
   private final ImmutableList.Builder<ExportResult.ProcessedInput> processedInputsBuilder;
-  private final AtomicInteger nonEndedTracks;
+  private final AtomicInteger reportedTrackCount;
+  private final AtomicInteger nonEndedTrackCount;
 
   private boolean isCurrentAssetFirstAsset;
   private int currentMediaItemIndex;
   private AssetLoader currentAssetLoader;
-  private boolean trackCountReported;
+  private boolean isTrackCountReported;
   private boolean decodeAudio;
   private boolean decodeVideo;
   private int sequenceLoopCount;
@@ -118,7 +119,8 @@ import java.util.concurrent.atomic.AtomicInteger;
     sampleConsumersByTrackType = new HashMap<>();
     mediaItemChangedListenersByTrackType = new HashMap<>();
     processedInputsBuilder = new ImmutableList.Builder<>();
-    nonEndedTracks = new AtomicInteger();
+    reportedTrackCount = new AtomicInteger();
+    nonEndedTrackCount = new AtomicInteger();
     isCurrentAssetFirstAsset = true;
     // It's safe to use "this" because we don't start the AssetLoader before exiting the
     // constructor.
@@ -217,12 +219,12 @@ import java.util.concurrent.atomic.AtomicInteger;
       return isAudio ? decodeAudio : decodeVideo;
     }
 
-    boolean addForcedAudioTrack = forceAudioTrack && nonEndedTracks.get() == 1 && !isAudio;
+    boolean addForcedAudioTrack = forceAudioTrack && reportedTrackCount.get() == 1 && !isAudio;
 
-    if (!trackCountReported) {
-      int trackCount = nonEndedTracks.get() + (addForcedAudioTrack ? 1 : 0);
+    if (!isTrackCountReported) {
+      int trackCount = reportedTrackCount.get() + (addForcedAudioTrack ? 1 : 0);
       sequenceAssetLoaderListener.onTrackCount(trackCount);
-      trackCountReported = true;
+      isTrackCountReported = true;
     }
 
     boolean decodeOutput =
@@ -257,7 +259,7 @@ import java.util.concurrent.atomic.AtomicInteger;
       sampleConsumer = new SampleConsumerWrapper(wrappedSampleConsumer);
       sampleConsumersByTrackType.put(trackType, sampleConsumer);
 
-      if (forceAudioTrack && nonEndedTracks.get() == 1 && trackType == C.TRACK_TYPE_VIDEO) {
+      if (forceAudioTrack && reportedTrackCount.get() == 1 && trackType == C.TRACK_TYPE_VIDEO) {
         SampleConsumer wrappedAudioSampleConsumer =
             checkStateNotNull(
                 sequenceAssetLoaderListener.onOutputFormat(
@@ -272,7 +274,7 @@ import java.util.concurrent.atomic.AtomicInteger;
     } else {
       // TODO(b/270533049): Remove the check below when implementing blank video frames generation.
       boolean videoTrackDisappeared =
-          nonEndedTracks.get() == 1
+          reportedTrackCount.get() == 1
               && trackType == C.TRACK_TYPE_AUDIO
               && sampleConsumersByTrackType.size() == 2;
       checkState(
@@ -290,7 +292,7 @@ import java.util.concurrent.atomic.AtomicInteger;
                   trackType));
     }
     onMediaItemChanged(trackType, format);
-    if (nonEndedTracks.get() == 1 && sampleConsumersByTrackType.size() == 2) {
+    if (reportedTrackCount.get() == 1 && sampleConsumersByTrackType.size() == 2) {
       for (Map.Entry<Integer, SampleConsumerWrapper> entry :
           sampleConsumersByTrackType.entrySet()) {
         int outputTrackType = entry.getKey();
@@ -352,7 +354,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
   @Override
   public void onTrackCount(int trackCount) {
-    nonEndedTracks.set(trackCount);
+    reportedTrackCount.set(trackCount);
+    nonEndedTrackCount.set(trackCount);
   }
 
   @Override
@@ -392,17 +395,17 @@ import java.util.concurrent.atomic.AtomicInteger;
           // SampleConsumer so there is no need to handle the case where the sample wasn't queued.
           checkState(sampleConsumer.queueInputBuffer());
           audioLoopingEnded = true;
-          nonEndedTracks.decrementAndGet();
+          nonEndedTrackCount.decrementAndGet();
         }
         return false;
       }
 
       if (inputBuffer.isEndOfStream()) {
-        nonEndedTracks.decrementAndGet();
+        nonEndedTrackCount.decrementAndGet();
         if (currentMediaItemIndex < editedMediaItems.size() - 1 || isLooping) {
           inputBuffer.clear();
           inputBuffer.timeUs = 0;
-          if (nonEndedTracks.get() == 0) {
+          if (nonEndedTrackCount.get() == 0) {
             switchAssetLoader();
           }
           return true;
@@ -487,12 +490,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 
     @Override
     public void signalEndOfVideoInput() {
-      nonEndedTracks.decrementAndGet();
+      nonEndedTrackCount.decrementAndGet();
       boolean videoEnded =
           isLooping ? videoLoopingEnded : currentMediaItemIndex == editedMediaItems.size() - 1;
       if (videoEnded) {
         sampleConsumer.signalEndOfVideoInput();
-      } else if (nonEndedTracks.get() == 0) {
+      } else if (nonEndedTrackCount.get() == 0) {
         switchAssetLoader();
       }
     }
