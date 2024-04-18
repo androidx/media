@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.hls;
 
+import static androidx.media3.exoplayer.hls.HlsChunkSource.CHUNK_PUBLICATION_STATE_PRELOAD;
 import static androidx.media3.exoplayer.hls.HlsChunkSource.CHUNK_PUBLICATION_STATE_PUBLISHED;
 import static androidx.media3.exoplayer.hls.HlsChunkSource.CHUNK_PUBLICATION_STATE_REMOVED;
 import static androidx.media3.exoplayer.trackselection.TrackSelectionUtil.createFallbackOptions;
@@ -111,7 +112,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
     /**
      * Called to schedule a {@link #continueLoading(LoadingInfo)} call when the playlist referred by
-     * the given url changes.
+     * the given url changes, or it requires a refresh to check whether the hinted resource has been
+     * published or removed.
+     *
+     * <p>Note: This method will be called on a later handler loop than the one on which {@link
+     * #onPlaylistUpdated()} is invoked.
      */
     void onPlaylistRefreshRequired(Uri playlistUrl);
   }
@@ -543,6 +548,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     int chunkState = chunkSource.getChunkPublicationState(lastMediaChunk);
     if (chunkState == CHUNK_PUBLICATION_STATE_PUBLISHED) {
       lastMediaChunk.publish();
+    } else if (chunkState == CHUNK_PUBLICATION_STATE_PRELOAD) {
+      handler.post(() -> callback.onPlaylistRefreshRequired(lastMediaChunk.playlistUrl));
     } else if (chunkState == CHUNK_PUBLICATION_STATE_REMOVED
         && !loadingFinished
         && loader.isLoading()) {

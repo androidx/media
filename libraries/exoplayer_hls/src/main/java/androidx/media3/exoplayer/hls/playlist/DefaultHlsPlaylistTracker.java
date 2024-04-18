@@ -763,13 +763,10 @@ public final class DefaultHlsPlaylistTracker
       }
       earliestNextLoadTimeMs =
           currentTimeMs + Util.usToMs(durationUntilNextLoadUs) - loadEventInfo.loadDurationMs;
-      // Schedule a load if this is the primary playlist or a playlist of a low-latency stream and
-      // it doesn't have an end tag. Else the next load will be scheduled when refreshPlaylist is
-      // called, or when this playlist becomes the primary.
-      boolean scheduleLoad =
-          playlistSnapshot.partTargetDurationUs != C.TIME_UNSET
-              || playlistUrl.equals(primaryMediaPlaylistUrl);
-      if (scheduleLoad && !playlistSnapshot.hasEndTag) {
+      // Schedule a load if this is the primary playlist and it doesn't have an end tag. Else the
+      // next load will be scheduled when refreshPlaylist is called, or when this playlist becomes
+      // the primary.
+      if (playlistUrl.equals(primaryMediaPlaylistUrl) && !playlistSnapshot.hasEndTag) {
         loadPlaylistInternal(getMediaPlaylistUriForReload());
       }
     }

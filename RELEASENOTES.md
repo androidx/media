@@ -43,6 +43,8 @@
         delegated in `HlsSampleStreamWrapper` with an incorrect offset causing
         an `IndexOutOfBoundsException` or an `IllegalArgumentException`
         ([#1002](https://github.com/androidx/media/issues/1002)).
+    *   Fix bug where non-primary playlists keep reloading for LL-HLS streams
+        ([#1240](https://github.com/androidx/media/issues/1240)).
 *   DASH Extension:
 *   Smooth Streaming Extension:
 *   RTSP Extension:
