@@ -346,7 +346,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       checkArgument(
           outputColorTransfer == C.COLOR_TRANSFER_HLG
               || outputColorTransfer == C.COLOR_TRANSFER_ST2084);
-      checkArgument(enableColorTransfers);
       glProgram.setIntUniform("uOutputColorTransfer", outputColorTransfer);
     } else if (enableColorTransfers) {
       checkArgument(
@@ -375,8 +374,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             && outputColorInfo.colorSpace == C.COLOR_SPACE_BT2020;
     @C.ColorTransfer int outputColorTransfer = outputColorInfo.colorTransfer;
     if (isInputTransferHdr) {
-      checkArgument(inputColorInfo.colorSpace == C.COLOR_SPACE_BT2020);
-      checkArgument(enableColorTransfers);
       // TODO(b/239735341): Add a setBooleanUniform method to GlProgram.
       checkArgument(outputColorTransfer != Format.NO_VALUE);
       if (outputColorTransfer == C.COLOR_TRANSFER_SDR) {
@@ -386,7 +383,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
       glProgram.setIntUniform("uOutputColorTransfer", outputColorTransfer);
     } else if (isExpandingColorGamut) {
-      checkArgument(enableColorTransfers);
       glProgram.setIntUniform("uOutputColorTransfer", outputColorTransfer);
     } else {
       glProgram.setIntUniform("uEnableColorTransfer", enableColorTransfers ? GL_TRUE : GL_FALSE);

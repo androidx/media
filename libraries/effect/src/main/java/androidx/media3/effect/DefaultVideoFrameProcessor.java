@@ -889,6 +889,9 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   private static void checkColors(
       ColorInfo inputColorInfo, ColorInfo outputColorInfo, boolean enableColorTransfers)
       throws VideoFrameProcessingException {
+    if (ColorInfo.isTransferHdr(inputColorInfo)) {
+      checkArgument(inputColorInfo.colorSpace == C.COLOR_SPACE_BT2020);
+    }
     if ((ColorInfo.isTransferHdr(inputColorInfo) || ColorInfo.isTransferHdr(outputColorInfo))) {
       checkArgument(enableColorTransfers);
       long glVersion;
