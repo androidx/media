@@ -541,9 +541,11 @@ public final class CompositingVideoSinkProvider
   }
 
   private static ColorInfo getAdjustedInputColorInfo(@Nullable ColorInfo inputColorInfo) {
-    return inputColorInfo != null && ColorInfo.isTransferHdr(inputColorInfo)
-        ? inputColorInfo
-        : ColorInfo.SDR_BT709_LIMITED;
+    if (inputColorInfo == null || !inputColorInfo.isDataSpaceValid()) {
+      return ColorInfo.SDR_BT709_LIMITED;
+    }
+
+    return inputColorInfo;
   }
 
   /** Receives input from an ExoPlayer renderer and forwards it to the video graph. */
