@@ -41,7 +41,7 @@ public interface DrmSessionEventListener {
       int windowIndex, @Nullable MediaPeriodId mediaPeriodId, @DrmSession.State int state) {}
 
   /**
-   * @deprecated Implement {@link #onDrmKeysLoaded(int, MediaPeriodId, KeyLoadInfo)} instead
+   * @deprecated Implement {@link #onDrmKeysLoaded(int, MediaPeriodId, KeyRequestInfo)} instead
    */
   @Deprecated
   default void onDrmKeysLoaded(int windowIndex, @Nullable MediaPeriodId mediaPeriodId) {}
@@ -51,10 +51,10 @@ public interface DrmSessionEventListener {
    *
    * @param windowIndex The window index in the timeline this media period belongs to.
    * @param mediaPeriodId The {@link MediaPeriodId} associated with the drm session.
-   * @param keyLoadInfo The {@link KeyLoadInfo} with load info for the drm server request[s]
+   * @param keyRequestInfo The {@link KeyRequestInfo} with load info for the drm server request[s]
    */
   default void onDrmKeysLoaded(
-      int windowIndex, @Nullable MediaPeriodId mediaPeriodId, @Nullable KeyLoadInfo keyLoadInfo) {}
+      int windowIndex, @Nullable MediaPeriodId mediaPeriodId, @Nullable KeyRequestInfo keyRequestInfo) {}
 
   /**
    * Called when a drm error occurs.
@@ -175,15 +175,15 @@ public interface DrmSessionEventListener {
     }
 
     /** Dispatches {@link #onDrmKeysLoaded(int, MediaPeriodId)}.
-     * and {@link #onDrmKeysLoaded(int, MediaPeriodId, KeyLoadInfo)}*/
-    public void drmKeysLoaded(@Nullable KeyLoadInfo keyLoadInfo) {
+     * and {@link #onDrmKeysLoaded(int, MediaPeriodId, KeyRequestInfo)}*/
+    public void drmKeysLoaded(@Nullable KeyRequestInfo keyRequestInfo) {
       for (ListenerAndHandler listenerAndHandler : listenerAndHandlers) {
         DrmSessionEventListener listener = listenerAndHandler.listener;
         postOrRun(
             listenerAndHandler.handler,
             () -> {
               listener.onDrmKeysLoaded(windowIndex, mediaPeriodId);
-              listener.onDrmKeysLoaded(windowIndex, mediaPeriodId, keyLoadInfo);
+              listener.onDrmKeysLoaded(windowIndex, mediaPeriodId, keyRequestInfo);
             });
       }
     }
