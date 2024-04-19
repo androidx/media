@@ -1,9 +1,13 @@
 package androidx.media3.exoplayer.drm;
 
+import androidx.annotation.Nullable;
 import androidx.media3.common.DrmInitData.SchemeData;
+import androidx.media3.common.util.Assertions;
 import androidx.media3.exoplayer.source.LoadEventInfo;
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
  * Encapsulates info for the sequence of load requests ({@link LoadEventInfo}, which were required
@@ -12,11 +16,11 @@ import java.util.List;
 public class KeyRequestInfo {
 
   public static class Builder {
-    private LoadEventInfo loadEventInfo;
+    @MonotonicNonNull private LoadEventInfo loadEventInfo;
     private final List<LoadEventInfo> retriedLoadRequests;
-    private final List<SchemeData> schemeDatas;
+    @Nullable private final List<SchemeData> schemeDatas;
 
-    public Builder(List<SchemeData> schemeDatas) {
+    public Builder(@Nullable List<SchemeData> schemeDatas) {
       this.schemeDatas = schemeDatas;
       retriedLoadRequests = new ArrayList<>();
       loadEventInfo = null;
@@ -33,6 +37,7 @@ public class KeyRequestInfo {
     }
 
     public KeyRequestInfo build() {
+      Assertions.checkNotNull(loadEventInfo, "build() called before setMainLoadRequest()");
       return new KeyRequestInfo(this);
     }
   }
@@ -43,15 +48,19 @@ public class KeyRequestInfo {
 
   /** If the load required multiple retries, the {@link LoadEventInfo} for each retry
    */
-  public final List<LoadEventInfo> retriedLoadRequests;
+  public final ImmutableList<LoadEventInfo> retriedLoadRequests;
 
-  /** The DRM {@link SchemeData} that identifes the loaded key
+  /** The DRM {@link SchemeData} that identifies the loaded key, or null if this session uses
+   * offline keys.  // TODO add sessionId to the KeyLoadInfo maybe?
    */
-  public final List<SchemeData> schemeDatas;
+  @Nullable public final ImmutableList<SchemeData> schemeDatas;
 
   private KeyRequestInfo(Builder builder) {
-    retriedLoadRequests = builder.retriedLoadRequests;
+    retriedLoadRequests = new ImmutableList.Builder<LoadEventInfo>()
+        .addAll(builder.retriedLoadRequests)
+        .build();
     loadEventInfo = builder.loadEventInfo;
-    schemeDatas = builder.schemeDatas;
+    schemeDatas =
+        builder.schemeDatas == null ? null : ImmutableList.copyOf(builder.schemeDatas);
   }
 }
