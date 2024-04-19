@@ -27,6 +27,9 @@
         `DefaultDrmSessionManagerProvider`
         ([#1271](https://github.com/androidx/media/issues/1271)).
 *   Effect:
+    *   Fix bug where `TimestampWrapper` crashes when used with
+        `ExoPlayer#setVideoEffects`
+        ([#821](https://github.com/androidx/media/issues/821)).
 *   Muxers:
 *   IMA extension:
     *   Promote API that is required for apps to play
