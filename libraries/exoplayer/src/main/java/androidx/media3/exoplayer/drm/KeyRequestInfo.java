@@ -9,7 +9,7 @@ import java.util.List;
  * Encapsulates info for the sequence of load requests ({@link LoadEventInfo}, which were required
  * to complete loading a DRM key
  */
-public class KeyLoadInfo {
+public class KeyRequestInfo {
 
   public static class Builder {
     private LoadEventInfo loadEventInfo;
@@ -32,8 +32,8 @@ public class KeyLoadInfo {
       return this;
     }
 
-    public KeyLoadInfo build() {
-      return new KeyLoadInfo(this);
+    public KeyRequestInfo build() {
+      return new KeyRequestInfo(this);
     }
   }
 
@@ -49,7 +49,7 @@ public class KeyLoadInfo {
    */
   public final List<SchemeData> schemeDatas;
 
-  public KeyLoadInfo(Builder builder) {
+  private KeyRequestInfo(Builder builder) {
     retriedLoadRequests = builder.retriedLoadRequests;
     loadEventInfo = builder.loadEventInfo;
     schemeDatas = builder.schemeDatas;

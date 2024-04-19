@@ -35,7 +35,7 @@ import androidx.media3.exoplayer.analytics.AnalyticsCollector;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.drm.DrmSession;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
-import androidx.media3.exoplayer.drm.KeyLoadInfo;
+import androidx.media3.exoplayer.drm.KeyRequestInfo;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MaskingMediaPeriod;
 import androidx.media3.exoplayer.source.MaskingMediaSource;
@@ -693,7 +693,7 @@ import java.util.Set;
 
     @Override
     public void onDrmKeysLoaded(
-        int windowIndex, @Nullable MediaSource.MediaPeriodId mediaPeriodId, @Nullable KeyLoadInfo keyLoadInfo) {
+        int windowIndex, @Nullable MediaSource.MediaPeriodId mediaPeriodId, @Nullable KeyRequestInfo keyRequestInfo) {
       @Nullable
       Pair<Integer, MediaSource.@NullableType MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
@@ -701,7 +701,7 @@ import java.util.Set;
         eventHandler.post(
             () ->
                 eventListener.onDrmKeysLoaded(
-                    eventParameters.first, eventParameters.second, keyLoadInfo));
+                    eventParameters.first, eventParameters.second, keyRequestInfo));
       }
     }
 
