@@ -52,7 +52,8 @@ public interface MediaDrmCallback {
    * <p></p>
    * Valid after a call to {@link #executeKeyRequest(UUID, KeyRequest)} or
    * {@link #executeProvisionRequest(UUID, ProvisionRequest)}, either contains
-   * the load event info for that request or null if no load is performed to execute the request
+   * the load event info for that request or null if no load was performed or this
+   * implementation does not support reporting load info
    *
    * @return the {@link LoadEventInfo} or null if no load was performed
    */
