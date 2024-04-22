@@ -1376,7 +1376,7 @@ public interface AnalyticsListener {
    *
    * <p>Includes a {@link KeyRequestInfo} with details on the loaded key and any network request[s]
    * required to complete the load
-   * </p>
+   *
    * @param eventTime The event time.
    * @param keyRequestInfo information for any required load operation, null if none
    */

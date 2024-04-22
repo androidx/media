@@ -42,25 +42,24 @@ public class KeyRequestInfo {
     }
   }
 
-  /** The {@link LoadEventInfo} for the initial request to laod the key, or null if no load required
+  /**
+   * The {@link LoadEventInfo} for the initial request to laod the key, or null if no load required
    */
   public final LoadEventInfo loadEventInfo;
 
-  /** If the load required multiple retries, the {@link LoadEventInfo} for each retry
-   */
+  /** If the load required multiple retries, the {@link LoadEventInfo} for each retry */
   public final ImmutableList<LoadEventInfo> retriedLoadRequests;
 
-  /** The DRM {@link SchemeData} that identifies the loaded key, or null if this session uses
-   * offline keys.  // TODO add sessionId to the KeyLoadInfo maybe?
+  /**
+   * The DRM {@link SchemeData} that identifies the loaded key, or null if this session uses offline
+   * keys. // TODO add sessionId to the KeyLoadInfo maybe?
    */
   @Nullable public final ImmutableList<SchemeData> schemeDatas;
 
   private KeyRequestInfo(Builder builder) {
-    retriedLoadRequests = new ImmutableList.Builder<LoadEventInfo>()
-        .addAll(builder.retriedLoadRequests)
-        .build();
+    retriedLoadRequests =
+        new ImmutableList.Builder<LoadEventInfo>().addAll(builder.retriedLoadRequests).build();
     loadEventInfo = builder.loadEventInfo;
-    schemeDatas =
-        builder.schemeDatas == null ? null : ImmutableList.copyOf(builder.schemeDatas);
+    schemeDatas = builder.schemeDatas == null ? null : ImmutableList.copyOf(builder.schemeDatas);
   }
 }
