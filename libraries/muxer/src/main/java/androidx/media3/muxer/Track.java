@@ -41,11 +41,12 @@ import java.util.List;
   public final Deque<ByteBuffer> pendingSamplesByteBuffer;
   public boolean hadKeyframe;
 
+  private final boolean sampleCopyEnabled;
   private long lastSamplePresentationTimeUs;
 
   /** Creates an instance with {@code sortKey} set to 1. */
-  public Track(Format format) {
-    this(format, /* sortKey= */ 1);
+  public Track(Format format, boolean sampleCopyEnabled) {
+    this(format, /* sortKey= */ 1, sampleCopyEnabled);
   }
 
   /**
@@ -53,10 +54,12 @@ import java.util.List;
    *
    * @param format The {@link Format} for the track.
    * @param sortKey The key used for sorting the track list.
+   * @param sampleCopyEnabled Whether sample copying is enabled.
    */
-  public Track(Format format, int sortKey) {
+  public Track(Format format, int sortKey, boolean sampleCopyEnabled) {
     this.format = format;
     this.sortKey = sortKey;
+    this.sampleCopyEnabled = sampleCopyEnabled;
     writtenSamples = new ArrayList<>();
     writtenChunkOffsets = new ArrayList<>();
     writtenChunkSampleCounts = new ArrayList<>();
@@ -84,9 +87,26 @@ import java.util.List;
       return;
     }
 
-    pendingSamplesBufferInfo.addLast(bufferInfo);
-    pendingSamplesByteBuffer.addLast(byteBuffer);
-    lastSamplePresentationTimeUs = bufferInfo.presentationTimeUs;
+    ByteBuffer byteBufferToAdd = byteBuffer;
+    BufferInfo bufferInfoToAdd = bufferInfo;
+
+    if (sampleCopyEnabled) {
+      // Copy sample data and release the original buffer.
+      byteBufferToAdd = ByteBuffer.allocateDirect(byteBuffer.remaining());
+      byteBufferToAdd.put(byteBuffer);
+      byteBufferToAdd.rewind();
+
+      bufferInfoToAdd = new BufferInfo();
+      bufferInfoToAdd.set(
+          /* newOffset= */ byteBufferToAdd.position(),
+          /* newSize= */ byteBufferToAdd.remaining(),
+          bufferInfo.presentationTimeUs,
+          bufferInfo.flags);
+    }
+
+    pendingSamplesBufferInfo.addLast(bufferInfoToAdd);
+    pendingSamplesByteBuffer.addLast(byteBufferToAdd);
+    lastSamplePresentationTimeUs = bufferInfoToAdd.presentationTimeUs;
   }
 
   @Override

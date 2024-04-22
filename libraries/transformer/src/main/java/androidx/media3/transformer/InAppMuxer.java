@@ -140,8 +140,10 @@ public final class InAppMuxer implements Muxer {
       androidx.media3.muxer.Muxer muxer =
           outputFragmentedMp4
               ? fragmentDurationMs != C.TIME_UNSET
-                  ? new FragmentedMp4Muxer(outputStream, fragmentDurationMs)
-                  : new FragmentedMp4Muxer(outputStream)
+                  ? new FragmentedMp4Muxer.Builder(outputStream)
+                      .setFragmentDurationMs(fragmentDurationMs)
+                      .build()
+                  : new FragmentedMp4Muxer.Builder(outputStream).build()
               : new Mp4Muxer.Builder(outputStream).build();
       return new InAppMuxer(muxer, metadataProvider);
     }
@@ -194,19 +196,7 @@ public final class InAppMuxer implements Muxer {
         data.position(), size, presentationTimeUs, TransformerUtil.getMediaCodecFlags(flags));
 
     try {
-      // Copy sample data and release the original buffer.
-      ByteBuffer byteBufferCopy = ByteBuffer.allocateDirect(data.remaining());
-      byteBufferCopy.put(data);
-      byteBufferCopy.rewind();
-
-      BufferInfo bufferInfoCopy = new BufferInfo();
-      bufferInfoCopy.set(
-          /* newOffset= */ byteBufferCopy.position(),
-          /* newSize= */ byteBufferCopy.remaining(),
-          bufferInfo.presentationTimeUs,
-          bufferInfo.flags);
-
-      muxer.writeSampleData(trackTokenList.get(trackIndex), byteBufferCopy, bufferInfoCopy);
+      muxer.writeSampleData(trackTokenList.get(trackIndex), data, bufferInfo);
     } catch (IOException e) {
       throw new MuxerException(
           "Failed to write sample for trackIndex="

@@ -66,6 +66,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final AnnexBToAvccConverter annexBToAvccConverter;
   private final List<Track> tracks;
   private final long fragmentDurationUs;
+  private final boolean sampleCopyEnabled;
 
   private @MonotonicNonNull Track videoTrack;
   private int currentFragmentSequenceNumber;
@@ -73,15 +74,28 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private long minInputPresentationTimeUs;
   private long maxTrackDurationUs;
 
+  /**
+   * Creates an instance.
+   *
+   * @param outputStream The {@link FileOutputStream} to write the data to.
+   * @param moovGenerator An {@link Mp4MoovStructure} instance to generate the moov box.
+   * @param annexBToAvccConverter The {@link AnnexBToAvccConverter} to be used to convert H.264 and
+   *     H.265 NAL units from the Annex-B format (using start codes to delineate NAL units) to the
+   *     AVCC format (which uses length prefixes).
+   * @param fragmentDurationMs The fragment duration (in milliseconds).
+   * @param sampleCopyEnabled Whether sample copying is enabled.
+   */
   public FragmentedMp4Writer(
       FileOutputStream outputStream,
       Mp4MoovStructure moovGenerator,
       AnnexBToAvccConverter annexBToAvccConverter,
-      long fragmentDurationMs) {
+      long fragmentDurationMs,
+      boolean sampleCopyEnabled) {
     this.outputStream = outputStream;
     this.output = outputStream.getChannel();
     this.moovGenerator = moovGenerator;
     this.annexBToAvccConverter = annexBToAvccConverter;
+    this.sampleCopyEnabled = sampleCopyEnabled;
     tracks = new ArrayList<>();
     this.fragmentDurationUs = fragmentDurationMs * 1_000;
     minInputPresentationTimeUs = Long.MAX_VALUE;
@@ -89,7 +103,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   public TrackToken addTrack(int sortKey, Format format) {
-    Track track = new Track(format);
+    Track track = new Track(format, sampleCopyEnabled);
     tracks.add(track);
     if (MimeTypes.isVideo(format.sampleMimeType)) {
       videoTrack = track;

@@ -94,6 +94,7 @@ public final class Mp4Muxer implements Muxer {
 
     private @LastFrameDurationBehavior int lastFrameDurationBehavior;
     @Nullable private AnnexBToAvccConverter annexBToAvccConverter;
+    private boolean sampleCopyEnabled;
 
     /**
      * Creates a {@link Builder} instance with default values.
@@ -103,6 +104,7 @@ public final class Mp4Muxer implements Muxer {
     public Builder(FileOutputStream fileOutputStream) {
       this.fileOutputStream = checkNotNull(fileOutputStream);
       lastFrameDurationBehavior = LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME;
+      sampleCopyEnabled = true;
     }
 
     /**
@@ -130,14 +132,33 @@ public final class Mp4Muxer implements Muxer {
       return this;
     }
 
+    /**
+     * Sets whether to enable the sample copy.
+     *
+     * <p>If the sample copy is enabled, {@link #writeSampleData(TrackToken, ByteBuffer,
+     * BufferInfo)} copies the input {@link ByteBuffer} and {@link BufferInfo} before it returns, so
+     * it is safe to reuse them immediately. Otherwise, the muxer takes ownership of the {@link
+     * ByteBuffer} and the {@link BufferInfo} and the caller must not modify them.
+     *
+     * <p>The default value is {@code true}.
+     */
+    @CanIgnoreReturnValue
+    public Mp4Muxer.Builder setSampleCopyEnabled(boolean enabled) {
+      this.sampleCopyEnabled = enabled;
+      return this;
+    }
+
     /** Builds an {@link Mp4Muxer} instance. */
     public Mp4Muxer build() {
       MetadataCollector metadataCollector = new MetadataCollector();
       Mp4MoovStructure moovStructure =
           new Mp4MoovStructure(metadataCollector, lastFrameDurationBehavior);
-      AnnexBToAvccConverter avccConverter =
-          annexBToAvccConverter == null ? AnnexBToAvccConverter.DEFAULT : annexBToAvccConverter;
-      Mp4Writer mp4Writer = new Mp4Writer(fileOutputStream, moovStructure, avccConverter);
+      Mp4Writer mp4Writer =
+          new Mp4Writer(
+              fileOutputStream,
+              moovStructure,
+              annexBToAvccConverter == null ? AnnexBToAvccConverter.DEFAULT : annexBToAvccConverter,
+              sampleCopyEnabled);
 
       return new Mp4Muxer(mp4Writer, metadataCollector);
     }
@@ -188,13 +209,17 @@ public final class Mp4Muxer implements Muxer {
   /**
    * {@inheritDoc}
    *
-   * <p>The samples are cached and are written in batches so the caller must not change the {@link
-   * ByteBuffer} and the {@link BufferInfo} after calling this method.
+   * <p>Samples are written to the disk in batches. If {@link Builder#setSampleCopyEnabled(boolean)
+   * sample copying} is disabled, the {@code byteBuffer} and the {@code bufferInfo} must not be
+   * modified after calling this method. Otherwise, they are copied and it is safe to modify them
+   * after this method returns.
    *
    * <p>Note: Out of order B-frames are currently not supported.
    *
    * @param trackToken The {@link TrackToken} for which this sample is being written.
-   * @param byteBuffer The encoded sample.
+   * @param byteBuffer The encoded sample. The muxer takes ownership of the buffer if {@link
+   *     Builder#setSampleCopyEnabled(boolean) sample copying} is disabled. Otherwise, the position
+   *     of the buffer is updated but the caller retains ownership.
    * @param bufferInfo The {@link BufferInfo} related to this sample.
    * @throws IOException If there is any error while writing data to the disk.
    */

@@ -66,7 +66,7 @@ public class FragmentedMp4MuxerEndToEndAndroidTest {
     @Nullable Muxer fragmentedMp4Muxer = null;
 
     try {
-      fragmentedMp4Muxer = new FragmentedMp4Muxer(checkNotNull(outputStream));
+      fragmentedMp4Muxer = new FragmentedMp4Muxer.Builder(checkNotNull(outputStream)).build();
       fragmentedMp4Muxer.addMetadata(
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 100_000_000L,
@@ -93,7 +93,7 @@ public class FragmentedMp4MuxerEndToEndAndroidTest {
     @Nullable Muxer fragmentedMp4Muxer = null;
 
     try {
-      fragmentedMp4Muxer = new FragmentedMp4Muxer(checkNotNull(outputStream));
+      fragmentedMp4Muxer = new FragmentedMp4Muxer.Builder(checkNotNull(outputStream)).build();
       fragmentedMp4Muxer.addMetadata(
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 100_000_000L,

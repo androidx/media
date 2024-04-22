@@ -46,6 +46,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
   private final AnnexBToAvccConverter annexBToAvccConverter;
   private final List<Track> tracks;
   private final AtomicBoolean hasWrittenSamples;
+  private final boolean sampleCopyEnabled;
 
   private long mdatStart;
   private long mdatEnd;
@@ -62,22 +63,25 @@ import java.util.concurrent.atomic.AtomicBoolean;
    * @param annexBToAvccConverter The {@link AnnexBToAvccConverter} to be used to convert H.264 and
    *     H.265 NAL units from the Annex-B format (using start codes to delineate NAL units) to the
    *     AVCC format (which uses length prefixes).
+   * @param sampleCopyEnabled Whether sample copying is enabled.
    */
   public Mp4Writer(
       FileOutputStream outputStream,
       Mp4MoovStructure moovGenerator,
-      AnnexBToAvccConverter annexBToAvccConverter) {
+      AnnexBToAvccConverter annexBToAvccConverter,
+      boolean sampleCopyEnabled) {
     this.outputStream = outputStream;
     this.output = outputStream.getChannel();
     this.moovGenerator = moovGenerator;
     this.annexBToAvccConverter = annexBToAvccConverter;
+    this.sampleCopyEnabled = sampleCopyEnabled;
     tracks = new ArrayList<>();
     hasWrittenSamples = new AtomicBoolean(false);
     lastMoovWritten = Range.closed(0L, 0L);
   }
 
   public TrackToken addTrack(int sortKey, Format format) {
-    Track track = new Track(format, sortKey);
+    Track track = new Track(format, sortKey, sampleCopyEnabled);
     tracks.add(track);
     Collections.sort(tracks, (a, b) -> Integer.compare(a.sortKey, b.sortKey));
     return track;

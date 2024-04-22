@@ -18,7 +18,7 @@ package androidx.media3.muxer;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 
-import android.media.MediaCodec;
+import android.media.MediaCodec.BufferInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
@@ -27,6 +27,7 @@ import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.Mp4OrientationData;
 import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.container.XmpData;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -43,8 +44,8 @@ import java.nio.ByteBuffer;
  * <ul>
  *   <li>Add tracks using {@link #addTrack(Format)} which will return a {@link Mp4Muxer.TrackToken}.
  *   <li>Use the associated {@link Mp4Muxer.TrackToken} when {@linkplain
- *       #writeSampleData(Mp4Muxer.TrackToken, ByteBuffer, MediaCodec.BufferInfo) writing samples}
- *       for that track.
+ *       #writeSampleData(Mp4Muxer.TrackToken, ByteBuffer, BufferInfo) writing samples} for that
+ *       track.
  *   <li>{@link #close} the muxer when all data has been written.
  * </ul>
  *
@@ -54,7 +55,7 @@ import java.nio.ByteBuffer;
  *   <li>All tracks must be added before writing any samples.
  *   <li>The caller is responsible for ensuring that samples of different track types are well
  *       interleaved by calling {@link #writeSampleData(Mp4Muxer.TrackToken, ByteBuffer,
- *       MediaCodec.BufferInfo)} in an order that interleaves samples from different tracks.
+ *       BufferInfo)} in an order that interleaves samples from different tracks.
  * </ul>
  */
 @UnstableApi
@@ -62,23 +63,65 @@ public final class FragmentedMp4Muxer implements Muxer {
   /** The default fragment duration. */
   public static final long DEFAULT_FRAGMENT_DURATION_MS = 2_000;
 
+  /** A builder for {@link FragmentedMp4Muxer} instances. */
+  public static final class Builder {
+    private final FileOutputStream fileOutputStream;
+
+    private long fragmentDurationMs;
+    private boolean sampleCopyEnabled;
+
+    /**
+     * Creates a {@link Builder} instance with default values.
+     *
+     * @param fileOutputStream The {@link FileOutputStream} to write the media data to.
+     */
+    public Builder(FileOutputStream fileOutputStream) {
+      this.fileOutputStream = fileOutputStream;
+      fragmentDurationMs = DEFAULT_FRAGMENT_DURATION_MS;
+      sampleCopyEnabled = true;
+    }
+
+    /**
+     * Sets the fragment duration (in milliseconds).
+     *
+     * <p>The muxer will attempt to create fragments of the given duration but the actual duration
+     * might be greater depending upon the frequency of sync samples.
+     *
+     * <p>The default value is {@link #DEFAULT_FRAGMENT_DURATION_MS}.
+     */
+    @CanIgnoreReturnValue
+    public Builder setFragmentDurationMs(long fragmentDurationMs) {
+      this.fragmentDurationMs = fragmentDurationMs;
+      return this;
+    }
+
+    /**
+     * Sets whether to enable the sample copy.
+     *
+     * <p>If the sample copy is enabled, {@link #writeSampleData(TrackToken, ByteBuffer,
+     * BufferInfo)} copies the input {@link ByteBuffer} and {@link BufferInfo} before it returns, so
+     * it is safe to reuse them immediately. Otherwise, the muxer takes ownership of the {@link
+     * ByteBuffer} and the {@link BufferInfo} and the caller must not modify them.
+     *
+     * <p>The default value is {@code true}.
+     */
+    @CanIgnoreReturnValue
+    public Builder setSampleCopyEnabled(boolean enabled) {
+      this.sampleCopyEnabled = enabled;
+      return this;
+    }
+
+    /** Builds a {@link FragmentedMp4Muxer} instance. */
+    public FragmentedMp4Muxer build() {
+      return new FragmentedMp4Muxer(fileOutputStream, fragmentDurationMs, sampleCopyEnabled);
+    }
+  }
+
   private final FragmentedMp4Writer fragmentedMp4Writer;
   private final MetadataCollector metadataCollector;
 
-  /** Creates an instance with {@link #DEFAULT_FRAGMENT_DURATION_MS}. */
-  public FragmentedMp4Muxer(FileOutputStream fileOutputStream) {
-    this(fileOutputStream, DEFAULT_FRAGMENT_DURATION_MS);
-  }
-
-  /**
-   * Creates an instance.
-   *
-   * @param fileOutputStream The {@link FileOutputStream} to write the media data to.
-   * @param fragmentDurationMs The fragment duration (in milliseconds). The muxer will attempt to
-   *     create fragments of the given duration but the actual duration might be greater depending
-   *     upon the frequency of sync samples.
-   */
-  public FragmentedMp4Muxer(FileOutputStream fileOutputStream, long fragmentDurationMs) {
+  private FragmentedMp4Muxer(
+      FileOutputStream fileOutputStream, long fragmentDurationMs, boolean sampleCopyEnabled) {
     checkNotNull(fileOutputStream);
     metadataCollector = new MetadataCollector();
     Mp4MoovStructure moovStructure =
@@ -86,7 +129,11 @@ public final class FragmentedMp4Muxer implements Muxer {
             metadataCollector, Mp4Muxer.LAST_FRAME_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION);
     fragmentedMp4Writer =
         new FragmentedMp4Writer(
-            fileOutputStream, moovStructure, AnnexBToAvccConverter.DEFAULT, fragmentDurationMs);
+            fileOutputStream,
+            moovStructure,
+            AnnexBToAvccConverter.DEFAULT,
+            fragmentDurationMs,
+            sampleCopyEnabled);
   }
 
   @Override
@@ -97,19 +144,22 @@ public final class FragmentedMp4Muxer implements Muxer {
   /**
    * {@inheritDoc}
    *
-   * <p>The samples are cached and are written in batches so the caller must not change the {@link
-   * ByteBuffer} and the {@link MediaCodec.BufferInfo} after calling this method.
+   * <p>Samples are written to the disk in batches. If {@link Builder#setSampleCopyEnabled(boolean)
+   * sample copying} is disabled, the {@code byteBuffer} and the {@code bufferInfo} must not be
+   * modified after calling this method. Otherwise, they are copied and it is safe to modify them
+   * after this method returns.
    *
    * <p>Note: Out of order B-frames are currently not supported.
    *
    * @param trackToken The {@link TrackToken} for which this sample is being written.
-   * @param byteBuffer The encoded sample.
-   * @param bufferInfo The {@link MediaCodec.BufferInfo} related to this sample.
+   * @param byteBuffer The encoded sample. The muxer takes ownership of the buffer if {@link
+   *     Builder#setSampleCopyEnabled(boolean) sample copying} is disabled. Otherwise, the position
+   *     of the buffer is updated but the caller retains ownership.
+   * @param bufferInfo The {@link BufferInfo} related to this sample.
    * @throws IOException If there is any error while writing data to the disk.
    */
   @Override
-  public void writeSampleData(
-      TrackToken trackToken, ByteBuffer byteBuffer, MediaCodec.BufferInfo bufferInfo)
+  public void writeSampleData(TrackToken trackToken, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws IOException {
     fragmentedMp4Writer.writeSampleData(trackToken, byteBuffer, bufferInfo);
   }
