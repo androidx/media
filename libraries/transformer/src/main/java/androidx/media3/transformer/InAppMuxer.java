@@ -32,9 +32,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Set;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -161,7 +159,6 @@ public final class InAppMuxer implements Muxer {
 
   private final androidx.media3.muxer.Muxer muxer;
   private final @Nullable MetadataProvider metadataProvider;
-  private final List<TrackToken> trackTokenList;
   private final BufferInfo bufferInfo;
   private final Set<Metadata.Entry> metadataEntries;
 
@@ -169,26 +166,22 @@ public final class InAppMuxer implements Muxer {
       androidx.media3.muxer.Muxer muxer, @Nullable MetadataProvider metadataProvider) {
     this.muxer = muxer;
     this.metadataProvider = metadataProvider;
-    trackTokenList = new ArrayList<>();
     bufferInfo = new BufferInfo();
     metadataEntries = new LinkedHashSet<>();
   }
 
   @Override
-  public int addTrack(Format format) {
+  public TrackToken addTrack(Format format) {
     TrackToken trackToken = muxer.addTrack(format);
-    trackTokenList.add(trackToken);
-
     if (MimeTypes.isVideo(format.sampleMimeType)) {
       muxer.addMetadata(new Mp4OrientationData(format.rotationDegrees));
     }
-
-    return trackTokenList.size() - 1;
+    return trackToken;
   }
 
   @Override
   public void writeSampleData(
-      int trackIndex, ByteBuffer data, long presentationTimeUs, @C.BufferFlags int flags)
+      TrackToken trackToken, ByteBuffer data, long presentationTimeUs, @C.BufferFlags int flags)
       throws MuxerException {
 
     int size = data.remaining();
@@ -196,15 +189,10 @@ public final class InAppMuxer implements Muxer {
         data.position(), size, presentationTimeUs, TransformerUtil.getMediaCodecFlags(flags));
 
     try {
-      muxer.writeSampleData(trackTokenList.get(trackIndex), data, bufferInfo);
+      muxer.writeSampleData(trackToken, data, bufferInfo);
     } catch (IOException e) {
       throw new MuxerException(
-          "Failed to write sample for trackIndex="
-              + trackIndex
-              + ", presentationTimeUs="
-              + presentationTimeUs
-              + ", size="
-              + size,
+          "Failed to write sample for presentationTimeUs=" + presentationTimeUs + ", size=" + size,
           e);
     }
   }

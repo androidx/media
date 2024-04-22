@@ -20,6 +20,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.muxer.Muxer.TrackToken;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 
@@ -71,15 +72,17 @@ public interface Muxer {
    * Adds a track with the specified format.
    *
    * @param format The {@link Format} of the track.
-   * @return The index for this track, which should be passed to {@link #writeSampleData}.
+   * @return The {@link TrackToken} for this track, which should be passed to {@link
+   *     #writeSampleData}.
    * @throws MuxerException If the muxer encounters a problem while adding the track.
    */
-  int addTrack(Format format) throws MuxerException;
+  TrackToken addTrack(Format format) throws MuxerException;
 
   /**
    * Writes the specified sample.
    *
-   * @param trackIndex The index of the track, previously returned by {@link #addTrack(Format)}.
+   * @param trackToken The {@link TrackToken} of the track, previously returned by {@link
+   *     #addTrack(Format)}.
    * @param data A buffer containing the sample data to write to the container.
    * @param presentationTimeUs The presentation time of the sample in microseconds.
    * @param flags The {@link C.BufferFlags} associated with the data. Only {@link
@@ -87,7 +90,7 @@ public interface Muxer {
    * @throws MuxerException If the muxer fails to write the sample.
    */
   void writeSampleData(
-      int trackIndex, ByteBuffer data, long presentationTimeUs, @C.BufferFlags int flags)
+      TrackToken trackToken, ByteBuffer data, long presentationTimeUs, @C.BufferFlags int flags)
       throws MuxerException;
 
   /** Adds {@linkplain Metadata.Entry metadata} about the output file. */

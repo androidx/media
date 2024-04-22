@@ -23,6 +23,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 import android.content.Context;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
@@ -33,6 +34,7 @@ import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.RgbFilter;
+import androidx.media3.muxer.Muxer.TrackToken;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.base.Ascii;
@@ -430,28 +432,27 @@ public class TransformerPauseResumeTest {
     private final FrameBlockingMuxer.Listener listener;
 
     private boolean notifiedListener;
-    private int videoTrackIndex;
+    @Nullable private TrackToken videoTrackToken;
 
     private FrameBlockingMuxer(Muxer wrappedMuxer, FrameBlockingMuxer.Listener listener) {
       this.wrappedMuxer = wrappedMuxer;
       this.listener = listener;
-      videoTrackIndex = C.INDEX_UNSET;
     }
 
     @Override
-    public int addTrack(Format format) throws MuxerException {
-      int trackIndex = wrappedMuxer.addTrack(format);
+    public TrackToken addTrack(Format format) throws MuxerException {
+      TrackToken trackToken = wrappedMuxer.addTrack(format);
       if (MimeTypes.isVideo(format.sampleMimeType)) {
-        videoTrackIndex = trackIndex;
+        videoTrackToken = trackToken;
       }
-      return trackIndex;
+      return trackToken;
     }
 
     @Override
     public void writeSampleData(
-        int trackIndex, ByteBuffer data, long presentationTimeUs, @C.BufferFlags int flags)
+        TrackToken trackToken, ByteBuffer data, long presentationTimeUs, @C.BufferFlags int flags)
         throws MuxerException {
-      if (trackIndex == videoTrackIndex
+      if (trackToken == videoTrackToken
           && presentationTimeUs >= DEFAULT_PRESENTATION_TIME_US_TO_BLOCK_FRAME) {
         if (!notifiedListener) {
           listener.onFrameBlocked();
@@ -459,7 +460,7 @@ public class TransformerPauseResumeTest {
         }
         return;
       }
-      wrappedMuxer.writeSampleData(trackIndex, data, presentationTimeUs, flags);
+      wrappedMuxer.writeSampleData(trackToken, data, presentationTimeUs, flags);
     }
 
     @Override

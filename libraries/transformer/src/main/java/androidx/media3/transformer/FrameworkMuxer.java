@@ -24,7 +24,7 @@ import android.annotation.SuppressLint;
 import android.media.MediaCodec;
 import android.media.MediaFormat;
 import android.media.MediaMuxer;
-import android.util.SparseLongArray;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -32,10 +32,13 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.Mp4LocationData;
+import androidx.media3.muxer.Muxer.TrackToken;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
+import java.util.HashMap;
+import java.util.Map;
 
 /** {@link Muxer} implementation that uses a {@link MediaMuxer}. */
 /* package */ final class FrameworkMuxer implements Muxer {
@@ -78,10 +81,10 @@ import java.nio.ByteBuffer;
   private final MediaMuxer mediaMuxer;
   private final long videoDurationUs;
   private final MediaCodec.BufferInfo bufferInfo;
-  private final SparseLongArray trackIndexToLastPresentationTimeUs;
-  private final SparseLongArray trackIndexToPresentationTimeOffsetUs;
+  private final Map<TrackToken, Long> trackTokenToLastPresentationTimeUs;
+  private final Map<TrackToken, Long> trackTokenToPresentationTimeOffsetUs;
 
-  private int videoTrackIndex;
+  @Nullable private TrackToken videoTrackToken;
 
   private boolean isStarted;
   private boolean isReleased;
@@ -90,13 +93,12 @@ import java.nio.ByteBuffer;
     this.mediaMuxer = mediaMuxer;
     this.videoDurationUs = Util.msToUs(videoDurationMs);
     bufferInfo = new MediaCodec.BufferInfo();
-    trackIndexToLastPresentationTimeUs = new SparseLongArray();
-    trackIndexToPresentationTimeOffsetUs = new SparseLongArray();
-    videoTrackIndex = C.INDEX_UNSET;
+    trackTokenToLastPresentationTimeUs = new HashMap<>();
+    trackTokenToPresentationTimeOffsetUs = new HashMap<>();
   }
 
   @Override
-  public int addTrack(Format format) throws MuxerException {
+  public TrackToken addTrack(Format format) throws MuxerException {
     String sampleMimeType = checkNotNull(format.sampleMimeType);
     MediaFormat mediaFormat;
     boolean isVideo = MimeTypes.isVideo(sampleMimeType);
@@ -122,27 +124,27 @@ import java.nio.ByteBuffer;
       throw new MuxerException("Failed to add track with format=" + format, e);
     }
 
+    TrackToken trackToken = new TrackTokenImpl(trackIndex);
     if (isVideo) {
-      videoTrackIndex = trackIndex;
+      videoTrackToken = trackToken;
     }
 
-    return trackIndex;
+    return trackToken;
   }
 
   @Override
   public void writeSampleData(
-      int trackIndex, ByteBuffer data, long presentationTimeUs, @C.BufferFlags int flags)
+      TrackToken trackToken, ByteBuffer data, long presentationTimeUs, @C.BufferFlags int flags)
       throws MuxerException {
 
     if (videoDurationUs != C.TIME_UNSET
-        && trackIndex == videoTrackIndex
+        && trackToken == videoTrackToken
         && presentationTimeUs > videoDurationUs) {
       return;
     }
-
     if (!isStarted) {
       if (Util.SDK_INT < 30 && presentationTimeUs < 0) {
-        trackIndexToPresentationTimeOffsetUs.put(trackIndex, -presentationTimeUs);
+        trackTokenToPresentationTimeOffsetUs.put(trackToken, -presentationTimeUs);
       }
       startMuxer();
     }
@@ -150,11 +152,13 @@ import java.nio.ByteBuffer;
     int offset = data.position();
     int size = data.limit() - offset;
 
-    long presentationTimeOffsetUs = trackIndexToPresentationTimeOffsetUs.get(trackIndex);
+    long presentationTimeOffsetUs =
+        trackTokenToPresentationTimeOffsetUs.getOrDefault(trackToken, 0L);
     presentationTimeUs += presentationTimeOffsetUs;
 
     bufferInfo.set(offset, size, presentationTimeUs, TransformerUtil.getMediaCodecFlags(flags));
-    long lastSamplePresentationTimeUs = trackIndexToLastPresentationTimeUs.get(trackIndex);
+    long lastSamplePresentationTimeUs =
+        trackTokenToLastPresentationTimeUs.getOrDefault(trackToken, 0L);
     // writeSampleData blocks on old API versions, so check here to avoid calling the method.
     checkState(
         Util.SDK_INT > 24 || presentationTimeUs >= lastSamplePresentationTimeUs,
@@ -163,7 +167,7 @@ import java.nio.ByteBuffer;
             + " < "
             + lastSamplePresentationTimeUs
             + ") unsupported on this API version");
-    trackIndexToLastPresentationTimeUs.put(trackIndex, presentationTimeUs);
+    trackTokenToLastPresentationTimeUs.put(trackToken, presentationTimeUs);
 
     checkState(
         presentationTimeOffsetUs == 0 || presentationTimeUs >= lastSamplePresentationTimeUs,
@@ -174,15 +178,11 @@ import java.nio.ByteBuffer;
             + ") unsupported when using negative PTS workaround");
 
     try {
-      mediaMuxer.writeSampleData(trackIndex, data, bufferInfo);
+      checkState(trackToken instanceof TrackTokenImpl);
+      mediaMuxer.writeSampleData(((TrackTokenImpl) trackToken).trackIndex, data, bufferInfo);
     } catch (RuntimeException e) {
       throw new MuxerException(
-          "Failed to write sample for trackIndex="
-              + trackIndex
-              + ", presentationTimeUs="
-              + presentationTimeUs
-              + ", size="
-              + size,
+          "Failed to write sample for presentationTimeUs=" + presentationTimeUs + ", size=" + size,
           e);
     }
   }
@@ -207,9 +207,9 @@ import java.nio.ByteBuffer;
       startMuxer();
     }
 
-    if (videoDurationUs != C.TIME_UNSET && videoTrackIndex != C.INDEX_UNSET) {
+    if (videoDurationUs != C.TIME_UNSET && videoTrackToken != null) {
       writeSampleData(
-          videoTrackIndex,
+          videoTrackToken,
           ByteBuffer.allocateDirect(0),
           videoDurationUs,
           C.BUFFER_FLAG_END_OF_STREAM);
@@ -277,5 +277,13 @@ import java.nio.ByteBuffer;
       supportedMimeTypes.add(MimeTypes.VIDEO_AV1);
     }
     return supportedMimeTypes.build();
+  }
+
+  private static class TrackTokenImpl implements TrackToken {
+    public final int trackIndex;
+
+    public TrackTokenImpl(int trackIndex) {
+      this.trackIndex = trackIndex;
+    }
   }
 }

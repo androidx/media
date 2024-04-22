@@ -40,6 +40,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.NalUnitUtil;
 import androidx.media3.effect.DebugTraceUtil;
+import androidx.media3.muxer.Muxer.TrackToken;
 import com.google.common.collect.ImmutableList;
 import java.io.File;
 import java.lang.annotation.Documented;
@@ -552,7 +553,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     resetAbortTimer();
     checkStateNotNull(muxer);
     muxer.writeSampleData(
-        trackInfo.index, data, presentationTimeUs, isKeyFrame ? C.BUFFER_FLAG_KEY_FRAME : 0);
+        trackInfo.trackToken, data, presentationTimeUs, isKeyFrame ? C.BUFFER_FLAG_KEY_FRAME : 0);
     if (trackType == C.TRACK_TYPE_VIDEO) {
       DebugTraceUtil.logEvent(DebugTraceUtil.EVENT_MUXER_WRITE_SAMPLE_VIDEO, presentationTimeUs);
     } else if (trackType == C.TRACK_TYPE_AUDIO) {
@@ -737,15 +738,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private static final class TrackInfo {
     public final Format format;
-    public final int index;
+    public final TrackToken trackToken;
 
     public long bytesWritten;
     public int sampleCount;
     public long timeUs;
 
-    public TrackInfo(Format format, int index) {
+    public TrackInfo(Format format, TrackToken trackToken) {
       this.format = format;
-      this.index = index;
+      this.trackToken = trackToken;
     }
 
     /**
