@@ -862,6 +862,48 @@ public class TransformerEndToEndTest {
 
     // The input video is 15.537 seconds.
     // 3 / 0.5 + 3 / 0.75 + 3 + 3 / 1.5 + 3.537 / 2 rounds up to 16_770
+    assertThat(result.exportResult.durationMs).isAtLeast(16_750);
+    assertThat(result.exportResult.durationMs).isAtMost(16_770);
+  }
+
+  @Test
+  public void speedAdjustedMedia_removingAudioAndForcingAudioTrack_completesWithCorrectDuration()
+      throws Exception {
+    Transformer transformer = new Transformer.Builder(context).build();
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithStartTimes(
+            new long[] {
+              0L,
+              3 * C.MICROS_PER_SECOND,
+              6 * C.MICROS_PER_SECOND,
+              9 * C.MICROS_PER_SECOND,
+              12 * C.MICROS_PER_SECOND
+            },
+            new float[] {0.5f, 0.75f, 1f, 1.5f, 2f});
+    Pair<AudioProcessor, Effect> speedEffect =
+        Effects.createExperimentalSpeedChangingEffect(speedProvider);
+    Effects effects =
+        new Effects(
+            /* audioProcessors= */ ImmutableList.of(speedEffect.first),
+            /* videoEffects= */ ImmutableList.of(speedEffect.second));
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_URI_STRING))
+            .setEffects(effects)
+            .setRemoveAudio(true)
+            .build();
+    Composition composition =
+        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem))
+            .experimentalSetForceAudioTrack(true)
+            .build();
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, composition);
+
+    // The input video is 15.537 seconds.
+    // 3 / 0.5 + 3 / 0.75 + 3 + 3 / 1.5 + 3.537 / 2 rounds up to 16_770
+    assertThat(result.exportResult.durationMs).isAtLeast(16_750);
     assertThat(result.exportResult.durationMs).isAtMost(16_770);
   }
 
