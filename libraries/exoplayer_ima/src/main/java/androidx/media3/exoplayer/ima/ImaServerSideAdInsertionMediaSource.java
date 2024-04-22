@@ -473,6 +473,36 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
     }
 
     /**
+     * Replaces all the ad tag parameters used for the upcoming ad requests for a live stream.
+     *
+     * @see StreamManager#replaceAdTagParameters(Map<String, String>)
+     */
+    public void replaceAdTagParameters(Map<String, String> adTagParameters) {
+      if (player == null) {
+        return;
+      }
+      if (player.getPlaybackState() != Player.STATE_IDLE
+          && player.getPlaybackState() != Player.STATE_ENDED
+          && player.getMediaItemCount() > 0) {
+        int currentPeriodIndex = player.getCurrentPeriodIndex();
+        Object adsId =
+            player
+                .getCurrentTimeline()
+                .getPeriod(currentPeriodIndex, new Timeline.Period())
+                .getAdsId();
+        if (adsId instanceof String) {
+          MediaSourceResourceHolder mediaSourceResourceHolder = mediaSourceResources.get(adsId);
+          if (mediaSourceResourceHolder != null
+              && mediaSourceResourceHolder.imaServerSideAdInsertionMediaSource.streamManager
+                  != null) {
+            mediaSourceResourceHolder.imaServerSideAdInsertionMediaSource.streamManager
+                .replaceAdTagParameters(adTagParameters);
+          }
+        }
+      }
+    }
+
+    /**
      * Puts the focus on the skip button, if a skip button is present and an ad is playing.
      *
      * @see StreamManager#focus()

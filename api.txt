@@ -1393,6 +1393,7 @@ package androidx.media3.exoplayer.ima {
 
   public static final class ImaServerSideAdInsertionMediaSource.AdsLoader {
     method public androidx.media3.exoplayer.ima.ImaServerSideAdInsertionMediaSource.AdsLoader.State release();
+    method public void replaceAdTagParameters(java.util.Map<java.lang.String,java.lang.String>);
     method public void setPlayer(androidx.media3.common.Player);
   }
 

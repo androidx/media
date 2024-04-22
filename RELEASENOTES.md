@@ -35,6 +35,9 @@
     *   Promote API that is required for apps to play
         [DAI ad streams](https://developers.google.com/ad-manager/dynamic-ad-insertion/full-service)
         to stable.
+    *   Add `replaceAdTagParameters(Map <String, String>)` to
+        `ImaServerSideAdInsertionMediaSource.AdLoader` that allows replacing ad
+        tag parameters at runtime.
 *   Session:
     *   Hide seekbar in the media notification for live streams by not setting
         the duration into the platform session metadata
