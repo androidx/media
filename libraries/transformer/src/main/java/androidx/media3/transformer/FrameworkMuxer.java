@@ -21,7 +21,7 @@ import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.common.util.Util.castNonNull;
 
 import android.annotation.SuppressLint;
-import android.media.MediaCodec;
+import android.media.MediaCodec.BufferInfo;
 import android.media.MediaFormat;
 import android.media.MediaMuxer;
 import androidx.annotation.Nullable;
@@ -80,7 +80,6 @@ import java.util.Map;
 
   private final MediaMuxer mediaMuxer;
   private final long videoDurationUs;
-  private final MediaCodec.BufferInfo bufferInfo;
   private final Map<TrackToken, Long> trackTokenToLastPresentationTimeUs;
   private final Map<TrackToken, Long> trackTokenToPresentationTimeOffsetUs;
 
@@ -92,7 +91,6 @@ import java.util.Map;
   private FrameworkMuxer(MediaMuxer mediaMuxer, long videoDurationMs) {
     this.mediaMuxer = mediaMuxer;
     this.videoDurationUs = Util.msToUs(videoDurationMs);
-    bufferInfo = new MediaCodec.BufferInfo();
     trackTokenToLastPresentationTimeUs = new HashMap<>();
     trackTokenToPresentationTimeOffsetUs = new HashMap<>();
   }
@@ -133,10 +131,9 @@ import java.util.Map;
   }
 
   @Override
-  public void writeSampleData(
-      TrackToken trackToken, ByteBuffer data, long presentationTimeUs, @C.BufferFlags int flags)
+  public void writeSampleData(TrackToken trackToken, ByteBuffer data, BufferInfo bufferInfo)
       throws MuxerException {
-
+    long presentationTimeUs = bufferInfo.presentationTimeUs;
     if (videoDurationUs != C.TIME_UNSET
         && trackToken == videoTrackToken
         && presentationTimeUs > videoDurationUs) {
@@ -149,14 +146,10 @@ import java.util.Map;
       startMuxer();
     }
 
-    int offset = data.position();
-    int size = data.limit() - offset;
-
     long presentationTimeOffsetUs =
         trackTokenToPresentationTimeOffsetUs.getOrDefault(trackToken, 0L);
     presentationTimeUs += presentationTimeOffsetUs;
 
-    bufferInfo.set(offset, size, presentationTimeUs, TransformerUtil.getMediaCodecFlags(flags));
     long lastSamplePresentationTimeUs =
         trackTokenToLastPresentationTimeUs.getOrDefault(trackToken, 0L);
     // writeSampleData blocks on old API versions, so check here to avoid calling the method.
@@ -176,13 +169,17 @@ import java.util.Map;
             + " < "
             + lastSamplePresentationTimeUs
             + ") unsupported when using negative PTS workaround");
+    bufferInfo.set(bufferInfo.offset, bufferInfo.size, presentationTimeUs, bufferInfo.flags);
 
     try {
       checkState(trackToken instanceof TrackTokenImpl);
       mediaMuxer.writeSampleData(((TrackTokenImpl) trackToken).trackIndex, data, bufferInfo);
     } catch (RuntimeException e) {
       throw new MuxerException(
-          "Failed to write sample for presentationTimeUs=" + presentationTimeUs + ", size=" + size,
+          "Failed to write sample for presentationTimeUs="
+              + presentationTimeUs
+              + ", size="
+              + bufferInfo.size,
           e);
     }
   }
@@ -208,11 +205,13 @@ import java.util.Map;
     }
 
     if (videoDurationUs != C.TIME_UNSET && videoTrackToken != null) {
-      writeSampleData(
-          videoTrackToken,
-          ByteBuffer.allocateDirect(0),
+      BufferInfo bufferInfo = new BufferInfo();
+      bufferInfo.set(
+          /* newOffset= */ 0,
+          /* newSize= */ 0,
           videoDurationUs,
-          C.BUFFER_FLAG_END_OF_STREAM);
+          TransformerUtil.getMediaCodecFlags(C.BUFFER_FLAG_END_OF_STREAM));
+      writeSampleData(checkNotNull(videoTrackToken), ByteBuffer.allocateDirect(0), bufferInfo);
     }
 
     isStarted = false;

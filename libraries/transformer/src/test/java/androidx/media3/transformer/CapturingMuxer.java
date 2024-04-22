@@ -19,6 +19,7 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.transformer.TransformerUtil.getProcessedTrackType;
 
+import android.media.MediaCodec.BufferInfo;
 import android.util.SparseArray;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -122,15 +123,16 @@ public final class CapturingMuxer implements Muxer, Dumpable {
   }
 
   @Override
-  public void writeSampleData(
-      TrackToken trackToken, ByteBuffer data, long presentationTimeUs, @C.BufferFlags int flags)
+  public void writeSampleData(TrackToken trackToken, ByteBuffer data, BufferInfo bufferInfo)
       throws MuxerException {
     @C.TrackType int trackType = checkNotNull(trackTokenToType.get(trackToken));
     dumpableStreamByTrackType
         .get(trackType)
         .addSample(
-            data, (flags & C.BUFFER_FLAG_KEY_FRAME) == C.BUFFER_FLAG_KEY_FRAME, presentationTimeUs);
-    wrappedMuxer.writeSampleData(trackToken, data, presentationTimeUs, flags);
+            data,
+            (bufferInfo.flags & C.BUFFER_FLAG_KEY_FRAME) == C.BUFFER_FLAG_KEY_FRAME,
+            bufferInfo.presentationTimeUs);
+    wrappedMuxer.writeSampleData(trackToken, data, bufferInfo);
   }
 
   @Override

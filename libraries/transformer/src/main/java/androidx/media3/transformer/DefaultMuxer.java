@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import android.media.MediaCodec.BufferInfo;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -70,10 +71,9 @@ public final class DefaultMuxer implements Muxer {
   }
 
   @Override
-  public void writeSampleData(
-      TrackToken trackToken, ByteBuffer data, long presentationTimeUs, @C.BufferFlags int flags)
+  public void writeSampleData(TrackToken trackToken, ByteBuffer data, BufferInfo bufferInfo)
       throws MuxerException {
-    muxer.writeSampleData(trackToken, data, presentationTimeUs, flags);
+    muxer.writeSampleData(trackToken, data, bufferInfo);
   }
 
   @Override

@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import android.media.MediaCodec.BufferInfo;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -84,13 +85,10 @@ public interface Muxer {
    * @param trackToken The {@link TrackToken} of the track, previously returned by {@link
    *     #addTrack(Format)}.
    * @param data A buffer containing the sample data to write to the container.
-   * @param presentationTimeUs The presentation time of the sample in microseconds.
-   * @param flags The {@link C.BufferFlags} associated with the data. Only {@link
-   *     C#BUFFER_FLAG_KEY_FRAME} and {@link C#BUFFER_FLAG_END_OF_STREAM} are supported.
+   * @param bufferInfo The {@link BufferInfo} of the sample.
    * @throws MuxerException If the muxer fails to write the sample.
    */
-  void writeSampleData(
-      TrackToken trackToken, ByteBuffer data, long presentationTimeUs, @C.BufferFlags int flags)
+  void writeSampleData(TrackToken trackToken, ByteBuffer data, BufferInfo bufferInfo)
       throws MuxerException;
 
   /** Adds {@linkplain Metadata.Entry metadata} about the output file. */

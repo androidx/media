@@ -15,7 +15,7 @@
  */
 package androidx.media3.muxer;
 
-import android.media.MediaCodec;
+import android.media.MediaCodec.BufferInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
@@ -32,8 +32,7 @@ public interface Muxer {
   TrackToken addTrack(Format format);
 
   /** Writes encoded sample data. */
-  void writeSampleData(
-      TrackToken trackToken, ByteBuffer byteBuffer, MediaCodec.BufferInfo bufferInfo)
+  void writeSampleData(TrackToken trackToken, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws IOException;
 
   /** Adds {@linkplain Metadata.Entry metadata} about the output file. */

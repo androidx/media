@@ -23,6 +23,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 import android.content.Context;
+import android.media.MediaCodec.BufferInfo;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
@@ -449,18 +450,17 @@ public class TransformerPauseResumeTest {
     }
 
     @Override
-    public void writeSampleData(
-        TrackToken trackToken, ByteBuffer data, long presentationTimeUs, @C.BufferFlags int flags)
+    public void writeSampleData(TrackToken trackToken, ByteBuffer data, BufferInfo bufferInfo)
         throws MuxerException {
       if (trackToken == videoTrackToken
-          && presentationTimeUs >= DEFAULT_PRESENTATION_TIME_US_TO_BLOCK_FRAME) {
+          && bufferInfo.presentationTimeUs >= DEFAULT_PRESENTATION_TIME_US_TO_BLOCK_FRAME) {
         if (!notifiedListener) {
           listener.onFrameBlocked();
           notifiedListener = true;
         }
         return;
       }
-      wrappedMuxer.writeSampleData(trackToken, data, presentationTimeUs, flags);
+      wrappedMuxer.writeSampleData(trackToken, data, bufferInfo);
     }
 
     @Override

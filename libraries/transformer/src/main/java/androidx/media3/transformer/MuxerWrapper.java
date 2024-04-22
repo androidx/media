@@ -28,6 +28,7 @@ import static java.lang.Math.max;
 import static java.lang.annotation.ElementType.TYPE_USE;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import android.media.MediaCodec.BufferInfo;
 import android.util.SparseArray;
 import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
@@ -147,6 +148,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final ScheduledExecutorService abortScheduledExecutorService;
   private final @MonotonicNonNull Format appendVideoFormat;
   private final long maxDelayBetweenSamplesMs;
+  private final BufferInfo bufferInfo;
 
   private boolean isReady;
   private boolean isEnded;
@@ -206,6 +208,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     previousTrackType = C.TRACK_TYPE_NONE;
     firstVideoPresentationTimeUs = C.TIME_UNSET;
     abortScheduledExecutorService = Util.newSingleThreadScheduledExecutor(TIMER_THREAD_NAME);
+    bufferInfo = new BufferInfo();
   }
 
   /**
@@ -552,8 +555,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     resetAbortTimer();
     checkStateNotNull(muxer);
-    muxer.writeSampleData(
-        trackInfo.trackToken, data, presentationTimeUs, isKeyFrame ? C.BUFFER_FLAG_KEY_FRAME : 0);
+    bufferInfo.set(
+        data.position(),
+        data.remaining(),
+        presentationTimeUs,
+        TransformerUtil.getMediaCodecFlags(isKeyFrame ? C.BUFFER_FLAG_KEY_FRAME : 0));
+    muxer.writeSampleData(trackInfo.trackToken, data, bufferInfo);
     if (trackType == C.TRACK_TYPE_VIDEO) {
       DebugTraceUtil.logEvent(DebugTraceUtil.EVENT_MUXER_WRITE_SAMPLE_VIDEO, presentationTimeUs);
     } else if (trackType == C.TRACK_TYPE_AUDIO) {

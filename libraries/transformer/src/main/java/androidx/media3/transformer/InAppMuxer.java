@@ -159,14 +159,12 @@ public final class InAppMuxer implements Muxer {
 
   private final androidx.media3.muxer.Muxer muxer;
   private final @Nullable MetadataProvider metadataProvider;
-  private final BufferInfo bufferInfo;
   private final Set<Metadata.Entry> metadataEntries;
 
   private InAppMuxer(
       androidx.media3.muxer.Muxer muxer, @Nullable MetadataProvider metadataProvider) {
     this.muxer = muxer;
     this.metadataProvider = metadataProvider;
-    bufferInfo = new BufferInfo();
     metadataEntries = new LinkedHashSet<>();
   }
 
@@ -180,19 +178,17 @@ public final class InAppMuxer implements Muxer {
   }
 
   @Override
-  public void writeSampleData(
-      TrackToken trackToken, ByteBuffer data, long presentationTimeUs, @C.BufferFlags int flags)
+  public void writeSampleData(TrackToken trackToken, ByteBuffer data, BufferInfo bufferInfo)
       throws MuxerException {
-
-    int size = data.remaining();
-    bufferInfo.set(
-        data.position(), size, presentationTimeUs, TransformerUtil.getMediaCodecFlags(flags));
 
     try {
       muxer.writeSampleData(trackToken, data, bufferInfo);
     } catch (IOException e) {
       throw new MuxerException(
-          "Failed to write sample for presentationTimeUs=" + presentationTimeUs + ", size=" + size,
+          "Failed to write sample for presentationTimeUs="
+              + bufferInfo.presentationTimeUs
+              + ", size="
+              + bufferInfo.size,
           e);
     }
   }
