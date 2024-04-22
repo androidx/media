@@ -49,13 +49,16 @@ public interface MediaDrmCallback {
 
   /**
    * Get the {@link LoadEventInfo} for the last executed request.
-   * <p></p>
-   * Valid after a call to {@link #executeKeyRequest(UUID, KeyRequest)} or
-   * {@link #executeProvisionRequest(UUID, ProvisionRequest)}, either contains
-   * the load event info for that request or null if no load was performed or this
-   * implementation does not support reporting load info
+   *
+   * <p>Valid after a call to {@link #executeKeyRequest(UUID, KeyRequest)} or {@link
+   * #executeProvisionRequest(UUID, ProvisionRequest)}, either contains the load event info for that
+   * request or null if no load was performed or this implementation does not support reporting load
+   * info
    *
    * @return the {@link LoadEventInfo} or null if no load was performed
    */
-  @Nullable default LoadEventInfo getLastLoadEventInfo() { return null; }
+  @Nullable
+  default LoadEventInfo getLastLoadEventInfo() {
+    return null;
+  }
 }

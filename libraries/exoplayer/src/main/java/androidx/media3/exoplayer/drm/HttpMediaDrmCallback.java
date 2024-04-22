@@ -196,14 +196,14 @@ public final class HttpMediaDrmCallback implements MediaDrmCallback {
           byte[] response = ByteStreams.toByteArray(inputStream);
           lastLoadEventInfo =
               new LoadEventInfo(
-                  -1,   // note this is replaced with the actual taskId from the request
+                  -1, // note this is replaced with the actual taskId from the request
                   originalDataSpec,
                   dataSource.getLastOpenedUri(),
                   dataSource.getLastResponseHeaders(),
                   SystemClock.elapsedRealtime(),
                   /* loadDurationMs= */ SystemClock.elapsedRealtime() - startTimeMs,
-                  ((byte []) response).length);
-            return response;
+                  ((byte[]) response).length);
+          return response;
         } catch (InvalidResponseCodeException e) {
           @Nullable String redirectUrl = getRedirectUrl(e, manualRedirectCount);
           if (redirectUrl == null) {

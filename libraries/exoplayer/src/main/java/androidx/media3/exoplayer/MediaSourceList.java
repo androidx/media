@@ -687,7 +687,9 @@ import java.util.Set;
 
     @Override
     public void onDrmKeysLoaded(
-        int windowIndex, @Nullable MediaSource.MediaPeriodId mediaPeriodId, @Nullable KeyRequestInfo keyRequestInfo) {
+        int windowIndex,
+        @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+        @Nullable KeyRequestInfo keyRequestInfo) {
       @Nullable
       Pair<Integer, MediaSource.@NullableType MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);

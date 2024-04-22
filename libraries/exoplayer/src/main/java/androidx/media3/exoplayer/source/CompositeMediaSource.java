@@ -318,7 +318,9 @@ public abstract class CompositeMediaSource<T> extends BaseMediaSource {
 
     @Override
     public void onDrmKeysLoaded(
-        int windowIndex, @Nullable MediaPeriodId mediaPeriodId, @Nullable KeyRequestInfo keyRequestInfo) {
+        int windowIndex,
+        @Nullable MediaPeriodId mediaPeriodId,
+        @Nullable KeyRequestInfo keyRequestInfo) {
       if (maybeUpdateEventDispatcher(windowIndex, mediaPeriodId)) {
         drmEventDispatcher.drmKeysLoaded(keyRequestInfo);
       }
