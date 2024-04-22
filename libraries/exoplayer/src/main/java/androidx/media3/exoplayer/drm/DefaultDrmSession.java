@@ -668,9 +668,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
             response = callback.executeKeyRequest(uuid, (KeyRequest) requestTask.request);
             if (currentKeyRequestInfo != null) {
               LoadEventInfo loadEventInfo = callback.getLastLoadEventInfo();
-              loadEventInfo = loadEventInfo != null
-                  ? loadEventInfo.copyWithTaskId(requestTask.taskId)
-                  : null;
+              loadEventInfo =
+                  loadEventInfo != null ? loadEventInfo.copyWithTaskId(requestTask.taskId) : null;
               currentKeyRequestInfo.setMainLoadRequest(loadEventInfo);
             }
             break;

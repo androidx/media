@@ -359,7 +359,10 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
   }
 
   @Override
-  public void onDrmKeysLoaded(int windowIndex, @Nullable MediaPeriodId mediaPeriodId, @Nullable KeyRequestInfo keyRequestInfo) {
+  public void onDrmKeysLoaded(
+      int windowIndex,
+      @Nullable MediaPeriodId mediaPeriodId,
+      @Nullable KeyRequestInfo keyRequestInfo) {
     @Nullable
     MediaPeriodImpl mediaPeriod =
         getMediaPeriodForEvent(
