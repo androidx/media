@@ -146,7 +146,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final boolean dropSamplesBeforeFirstVideoSample;
   private final SparseArray<TrackInfo> trackTypeToInfo;
   private final ScheduledExecutorService abortScheduledExecutorService;
-  private final @MonotonicNonNull Format appendVideoFormat;
+  @Nullable private final Format appendVideoFormat;
   private final long maxDelayBetweenSamplesMs;
   private final BufferInfo bufferInfo;
 
@@ -354,7 +354,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * and all the formats must be added before any samples can be {@linkplain #writeSample(int,
    * ByteBuffer, boolean, long) written}.
    *
-   * <p>{@link Muxer#addMetadata(Metadata)} is called if the {@link Format#metadata} is present.
+   * <p>{@link Muxer#addMetadataEntry(Metadata.Entry)} is called if the {@link Format#metadata} is
+   * present.
    *
    * @param format The {@link Format} to be added. In {@link #MUXER_MODE_APPEND} mode, the added
    *     {@link Format} must match the existing {@link Format} set when the muxer was in {@link

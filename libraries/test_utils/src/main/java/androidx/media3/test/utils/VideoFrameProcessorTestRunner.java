@@ -239,15 +239,15 @@ public final class VideoFrameProcessorTestRunner {
   public static final int VIDEO_FRAME_PROCESSING_WAIT_MS = 5_000;
 
   private final String testId;
-  private final @MonotonicNonNull String videoAssetPath;
+  @Nullable private final String videoAssetPath;
   private final String outputFileLabel;
   private final float pixelWidthHeightRatio;
   private final ConditionVariable videoFrameProcessorReadyCondition;
-  private final @MonotonicNonNull CountDownLatch videoFrameProcessingEndedLatch;
+  @Nullable private final CountDownLatch videoFrameProcessingEndedLatch;
   private final AtomicReference<VideoFrameProcessingException> videoFrameProcessingException;
   private final VideoFrameProcessor videoFrameProcessor;
   private final ImmutableList<Effect> effects;
-  private final @MonotonicNonNull BitmapReader bitmapReader;
+  @Nullable private final BitmapReader bitmapReader;
 
   private VideoFrameProcessorTestRunner(
       String testId,

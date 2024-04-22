@@ -48,7 +48,7 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
   private final Context context;
   private final Codec.DecoderFactory decoderFactory;
   private final Clock clock;
-  private final MediaSource.@MonotonicNonNull Factory mediaSourceFactory;
+  @Nullable private final MediaSource.Factory mediaSourceFactory;
   private final BitmapLoader bitmapLoader;
 
   private AssetLoader.@MonotonicNonNull Factory imageAssetLoaderFactory;

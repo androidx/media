@@ -33,7 +33,6 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.List;
 import java.util.Objects;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Information about the result of an export. */
 @UnstableApi
@@ -289,13 +288,13 @@ public final class ExportResult {
      * The name of the audio decoder used to process {@code mediaItem}. This field is {@code null}
      * if no audio decoder was used.
      */
-    public final @MonotonicNonNull String audioDecoderName;
+    @Nullable public final String audioDecoderName;
 
     /**
      * The name of the video decoder used to process {@code mediaItem}. This field is {@code null}
      * if no video decoder was used.
      */
-    public final @MonotonicNonNull String videoDecoderName;
+    @Nullable public final String videoDecoderName;
 
     /** Creates an instance. */
     public ProcessedInput(

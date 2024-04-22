@@ -57,9 +57,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 public final class RawAssetLoader implements AssetLoader {
   private final EditedMediaItem editedMediaItem;
   private final Listener assetLoaderListener;
-  private final @MonotonicNonNull Format audioFormat;
-  private final @MonotonicNonNull Format videoFormat;
-  private final @MonotonicNonNull OnInputFrameProcessedListener frameProcessedListener;
+  @Nullable private final Format audioFormat;
+  @Nullable private final Format videoFormat;
+  @Nullable private final OnInputFrameProcessedListener frameProcessedListener;
 
   private @MonotonicNonNull SampleConsumer audioSampleConsumer;
   private @MonotonicNonNull SampleConsumer videoSampleConsumer;
@@ -121,6 +121,7 @@ public final class RawAssetLoader implements AssetLoader {
   public void start() {
     progressState = PROGRESS_STATE_AVAILABLE;
     assetLoaderListener.onDurationUs(editedMediaItem.durationUs);
+    // The constructor guarantees at least one track is present.
     int trackCount = 1;
     if (audioFormat != null && videoFormat != null) {
       trackCount = 2;
@@ -174,13 +175,14 @@ public final class RawAssetLoader implements AssetLoader {
       }
       if (videoSampleConsumer == null) {
         @Nullable
-        SampleConsumer sampleConsumer =
+        SampleConsumer videoSampleConsumer =
             assetLoaderListener.onOutputFormat(checkNotNull(videoFormat));
-        if (sampleConsumer == null) {
+        if (videoSampleConsumer == null) {
           return false;
         } else {
-          videoSampleConsumer = sampleConsumer;
-          sampleConsumer.setOnInputFrameProcessedListener(checkNotNull(frameProcessedListener));
+          this.videoSampleConsumer = videoSampleConsumer;
+          videoSampleConsumer.setOnInputFrameProcessedListener(
+              checkNotNull(frameProcessedListener));
         }
       }
       @SampleConsumer.InputResult
@@ -239,12 +241,12 @@ public final class RawAssetLoader implements AssetLoader {
       }
       if (audioSampleConsumer == null) {
         @Nullable
-        SampleConsumer sampleConsumer =
+        SampleConsumer audioSampleConsumer =
             assetLoaderListener.onOutputFormat(checkNotNull(audioFormat));
-        if (sampleConsumer == null) {
+        if (audioSampleConsumer == null) {
           return false;
         } else {
-          audioSampleConsumer = sampleConsumer;
+          this.audioSampleConsumer = audioSampleConsumer;
         }
       }
       DecoderInputBuffer decoderInputBuffer = audioSampleConsumer.getInputBuffer();
