@@ -629,15 +629,31 @@ import java.util.Locale;
       long firstSamplePresentationTimeUs,
       int videoUnitTimescale,
       @Mp4Muxer.LastFrameDurationBehavior int lastDurationBehavior) {
+    List<Long> presentationTimestampsUs = new ArrayList<>(samplesInfo.size());
     List<Long> durationsVu = new ArrayList<>(samplesInfo.size());
 
     if (samplesInfo.isEmpty()) {
       return durationsVu;
     }
 
+    boolean hasBframe = false;
+    long lastSamplePresentationTimeUs = 0L;
+    for (int sampleId = 0; sampleId < samplesInfo.size(); sampleId++) {
+      long currentSamplePresentationTimeUs = samplesInfo.get(sampleId).presentationTimeUs;
+      presentationTimestampsUs.add(currentSamplePresentationTimeUs);
+      if (currentSamplePresentationTimeUs < lastSamplePresentationTimeUs) {
+        hasBframe = true;
+      }
+      lastSamplePresentationTimeUs = currentSamplePresentationTimeUs;
+    }
+
+    if (hasBframe) {
+      Collections.sort(presentationTimestampsUs);
+    }
+
     long currentSampleTimeUs = firstSamplePresentationTimeUs;
-    for (int nextSampleId = 1; nextSampleId < samplesInfo.size(); nextSampleId++) {
-      long nextSampleTimeUs = samplesInfo.get(nextSampleId).presentationTimeUs;
+    for (int nextSampleId = 1; nextSampleId < presentationTimestampsUs.size(); nextSampleId++) {
+      long nextSampleTimeUs = presentationTimestampsUs.get(nextSampleId);
       // TODO: b/316158030 - First calculate the duration and then convert us to vu to avoid
       //  rounding error.
       long currentSampleDurationVu =

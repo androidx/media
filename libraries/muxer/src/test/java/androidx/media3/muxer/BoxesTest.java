@@ -462,6 +462,22 @@ public class BoxesTest {
   }
 
   @Test
+  public void
+      convertPresentationTimestampsToDurationsVu_withOutOfOrderSampleTimestamps_returnsExpectedDurations() {
+    List<MediaCodec.BufferInfo> sampleBufferInfos =
+        createBufferInfoListWithSamplePresentationTimestamps(0L, 10_000L, 1_000L, 2_000L, 11_000L);
+
+    List<Long> durationsVu =
+        Boxes.convertPresentationTimestampsToDurationsVu(
+            sampleBufferInfos,
+            /* firstSamplePresentationTimeUs= */ 0L,
+            VU_TIMEBASE,
+            LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME);
+
+    assertThat(durationsVu).containsExactly(100L, 100L, 800L, 100L, 0L);
+  }
+
+  @Test
   public void createSttsBox_withSingleSampleDuration_matchesExpected() throws IOException {
     ImmutableList<Long> sampleDurations = ImmutableList.of(500L);
 
