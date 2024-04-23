@@ -96,6 +96,14 @@ public final class TsExtractorTest {
   }
 
   @Test
+  public void sampleWithH264AndIFramesOnly() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_h264_iframes_only.ts",
+        simulationConfig);
+  }
+
+  @Test
   public void sampleWithH264AndMpegAudio() throws Exception {
     ExtractorAsserts.assertBehavior(
         getExtractorFactory(subtitlesParsedDuringExtraction),
