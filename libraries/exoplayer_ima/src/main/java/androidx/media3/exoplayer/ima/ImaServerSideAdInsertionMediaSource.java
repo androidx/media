@@ -477,6 +477,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
      *
      * @see StreamManager#replaceAdTagParameters(Map<String, String>)
      */
+    @UnstableApi
     public void replaceAdTagParameters(Map<String, String> adTagParameters) {
       if (player == null) {
         return;
