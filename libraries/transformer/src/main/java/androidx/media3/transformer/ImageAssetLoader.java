@@ -84,8 +84,6 @@ public final class ImageAssetLoader implements AssetLoader {
     }
   }
 
-  public static final String MIME_TYPE_IMAGE_ALL = MimeTypes.BASE_TYPE_IMAGE + "/*";
-
   private static final int QUEUE_BITMAP_INTERVAL_MS = 10;
 
   private final EditedMediaItem editedMediaItem;
@@ -136,7 +134,7 @@ public final class ImageAssetLoader implements AssetLoader {
                 new Format.Builder()
                     .setHeight(bitmap.getHeight())
                     .setWidth(bitmap.getWidth())
-                    .setSampleMimeType(MIME_TYPE_IMAGE_ALL)
+                    .setSampleMimeType(MimeTypes.IMAGE_RAW)
                     .setColorInfo(ColorInfo.SRGB_BT709_FULL)
                     .build();
             Format outputFormat =
