@@ -22,6 +22,7 @@ import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_MAX_INPUT_SIZE_EXCEEDED;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_VIDEO_MAX_RESOLUTION_EXCEEDED;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.REUSE_RESULT_NO;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -77,7 +78,6 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil.DecoderQueryException;
 import androidx.media3.exoplayer.video.VideoRendererEventListener.EventDispatcher;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.MoreExecutors;
 import java.nio.ByteBuffer;
 import java.util.List;
 import org.checkerframework.checker.initialization.qual.Initialized;
@@ -367,12 +367,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
    * @param assumedMinimumCodecOperatingRate A codec operating rate that all codecs instantiated by
    *     this renderer are assumed to meet implicitly (i.e. without the operating rate being set
    *     explicitly using {@link MediaFormat#KEY_OPERATING_RATE}).
-   * @param videoSinkProvider The {@link VideoSinkProvider} that will used be used for applying
-   *     video effects also providing the {@linkplain
-   *     VideoSinkProvider#getVideoFrameReleaseControl() VideoFrameReleaseControl} for releasing
-   *     video frames. If {@code null}, the {@link CompositingVideoSinkProvider} with its default
-   *     configuration will be used, and the renderer will drive releasing of video frames by
-   *     itself.
+   * @param videoSinkProvider The {@link VideoSinkProvider} that will be used for applying video
+   *     effects also providing the {@linkplain VideoSinkProvider#getVideoFrameReleaseControl()
+   *     VideoFrameReleaseControl} for releasing video frames. If {@code null}, the {@link
+   *     CompositingVideoSinkProvider} with its default configuration will be used, and the renderer
+   *     will drive releasing of video frames by itself.
    */
   public MediaCodecVideoRenderer(
       Context context,
@@ -733,7 +732,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @Override
   protected void onRelease() {
     super.onRelease();
-    if (ownsVideoSinkProvider && videoSinkProvider.isInitialized()) {
+    if (ownsVideoSinkProvider && videoSink != null) {
       videoSinkProvider.release();
     }
   }
@@ -777,7 +776,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         outputResolution = (Size) checkNotNull(message);
         // TODO: b/292111083 Set the surface on the videoSinkProvider before it's initialized
         //  otherwise the first frames are missed until a new video output resolution arrives.
-        if (videoSinkProvider.isInitialized()
+        if (videoSink != null
             && checkNotNull(outputResolution).getWidth() != 0
             && checkNotNull(outputResolution).getHeight() != 0
             && displaySurface != null) {
@@ -820,10 +819,10 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
       @State int state = getState();
       @Nullable MediaCodecAdapter codec = getCodec();
-      // The video sink provider is initialized just before the first codec is ever created, so
-      // the provider can be initialized only when the codec is non-null. Therefore, we don't have
-      // to check if the provider is initialized but the codec is not.
-      if (codec != null && !videoSinkProvider.isInitialized()) {
+      // The video sink is instantiated just before the first codec is ever created, so the sink can
+      // be non-null only when the codec is non-null. Therefore, we don't have to check if the sink
+      // is non-null but the codec is null.
+      if (codec != null && videoSink == null) {
         if (Util.SDK_INT >= 23 && displaySurface != null && !codecNeedsSetOutputSurfaceWorkaround) {
           setOutputSurfaceV23(codec, displaySurface);
         } else {
@@ -842,13 +841,13 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
           videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ true);
         }
         // When effects previewing is enabled, set display surface and an unknown size.
-        if (videoSinkProvider.isInitialized()) {
+        if (videoSink != null) {
           videoSinkProvider.setOutputSurfaceInfo(displaySurface, Size.UNKNOWN);
         }
       } else {
         // The display surface has been removed.
         reportedVideoSize = null;
-        if (videoSinkProvider.isInitialized()) {
+        if (videoSink != null) {
           videoSinkProvider.clearOutputSurfaceInfo();
         }
       }
@@ -1059,58 +1058,71 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @CallSuper
   @Override
   protected void onReadyToInitializeCodec(Format format) throws ExoPlaybackException {
-    // We only enable effects preview on the first time a codec is initialized and if effects are
+    // If the video sink provider is created by the renderer, we only enable effects preview (by
+    // using the video sink) on the first time a codec is initialized and if effects are
     // already set. We do not enable effects mid-playback. For effects to be enabled after
     // playback has started, the renderer needs to be reset first.
-    if (hasEffects && !hasInitializedPlayback && !videoSinkProvider.isInitialized()) {
+    boolean enableEffectsForOwnSinkProvider =
+        ownsVideoSinkProvider && hasEffects && !hasInitializedPlayback;
+    // We always use the video sink if the video sink provider is passed to the renderer.
+    boolean useVideoSink = enableEffectsForOwnSinkProvider || !ownsVideoSinkProvider;
+    if (useVideoSink && videoSink == null) {
       try {
-        videoSinkProvider.initialize(format);
-        if (displaySurface != null && outputResolution != null) {
-          videoSinkProvider.setOutputSurfaceInfo(displaySurface, outputResolution);
+        videoSinkProvider.setStreamOffsetUs(getOutputStreamOffsetUs());
+        videoSink = videoSinkProvider.getSink();
+        if (!videoSink.isInitialized()) {
+          try {
+            videoSink.initialize(format);
+          } catch (VideoSink.VideoSinkException e) {
+            throw createRendererException(
+                e, format, PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSOR_INIT_FAILED);
+          }
         }
-      } catch (VideoSink.VideoSinkException e) {
-        throw createRendererException(
-            e, format, PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSOR_INIT_FAILED);
+        videoSink.setListener(
+            new VideoSink.Listener() {
+              @Override
+              public void onFirstFrameRendered(VideoSink videoSink) {
+                checkStateNotNull(displaySurface);
+                notifyRenderedFirstFrame();
+              }
+
+              @Override
+              public void onFrameDropped(VideoSink videoSink) {
+                updateDroppedBufferCounters(
+                    /* droppedInputBufferCount= */ 0, /* droppedDecoderBufferCount= */ 1);
+              }
+
+              @Override
+              public void onVideoSizeChanged(VideoSink videoSink, VideoSize videoSize) {
+                // TODO: b/292111083 - Report video size change to app. Video size reporting is
+                //  removed at the moment to ensure the first frame is rendered, and the video is
+                //  rendered after switching on/off the screen.
+              }
+
+              @Override
+              public void onError(
+                  VideoSink videoSink, VideoSink.VideoSinkException videoSinkException) {
+                setPendingPlaybackException(
+                    createRendererException(
+                        videoSinkException,
+                        videoSinkException.format,
+                        PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED));
+              }
+            },
+            // Pass a direct executor since the callback handling involves posting on the app looper
+            // again, so there's no need to do two hops.
+            directExecutor());
+        if (enableEffectsForOwnSinkProvider) {
+          if (displaySurface != null && outputResolution != null) {
+            videoSinkProvider.setOutputSurfaceInfo(displaySurface, outputResolution);
+          }
+        }
+      } catch (Exception e) {
+        // Set videoSink back to null so that, if the try block fails and the renderer retries the
+        // codec initialization, the try block is re-executed.
+        videoSink = null;
+        throw e;
       }
-    }
-
-    if (videoSink == null && videoSinkProvider.isInitialized()) {
-      videoSinkProvider.setStreamOffsetUs(getOutputStreamOffsetUs());
-      videoSink = videoSinkProvider.getSink();
-      videoSink.setListener(
-          new VideoSink.Listener() {
-            @Override
-            public void onFirstFrameRendered(VideoSink videoSink) {
-              checkStateNotNull(displaySurface);
-              notifyRenderedFirstFrame();
-            }
-
-            @Override
-            public void onFrameDropped(VideoSink videoSink) {
-              updateDroppedBufferCounters(
-                  /* droppedInputBufferCount= */ 0, /* droppedDecoderBufferCount= */ 1);
-            }
-
-            @Override
-            public void onVideoSizeChanged(VideoSink videoSink, VideoSize videoSize) {
-              // TODO: b/292111083 - Report video size change to app. Video size reporting is
-              //  removed at the moment to ensure the first frame is rendered, and the video is
-              //  rendered after switching on/off the screen.
-            }
-
-            @Override
-            public void onError(
-                VideoSink videoSink, VideoSink.VideoSinkException videoSinkException) {
-              setPendingPlaybackException(
-                  createRendererException(
-                      videoSinkException,
-                      videoSinkException.format,
-                      PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED));
-            }
-          },
-          // Pass a direct executor since the callback handling involves posting on the app looper
-          // again, so there's no need to do two hops.
-          MoreExecutors.directExecutor());
     }
     hasInitializedPlayback = true;
   }
@@ -1335,7 +1347,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
     // We are not rendering on a surface, the renderer will wait until a surface is set.
     // Opportunistically render to VideoFrameProcessor if effects are enabled.
-    if (displaySurface == placeholderSurface && !videoSinkProvider.isInitialized()) {
+    if (displaySurface == placeholderSurface && videoSink == null) {
       // Skip frames in sync with playback, so we'll be at the right frame if the mode changes.
       if (videoFrameReleaseInfo.getEarlyUs() < 30_000) {
         skipOutputBuffer(codec, bufferIndex, presentationTimeUs);
@@ -1464,7 +1476,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     super.onProcessedStreamChange();
     videoFrameReleaseControl.onProcessedStreamChange();
     maybeSetupTunnelingForFirstFrame();
-    if (videoSinkProvider.isInitialized()) {
+    if (videoSink != null) {
       videoSinkProvider.setStreamOffsetUs(getOutputStreamOffsetUs());
     }
   }

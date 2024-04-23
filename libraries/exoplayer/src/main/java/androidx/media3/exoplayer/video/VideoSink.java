@@ -109,26 +109,45 @@ public interface VideoSink {
   void setListener(Listener listener, Executor executor);
 
   /**
+   * Initializes the video sink.
+   *
+   * @param sourceFormat The format of the compressed video.
+   * @throws VideoSink.VideoSinkException If initializing the sink failed.
+   */
+  void initialize(Format sourceFormat) throws VideoSinkException;
+
+  /** Returns whether the video sink is {@linkplain #initialize(Format) initialized}. */
+  boolean isInitialized();
+
+  /**
    * Flushes the video sink.
    *
    * <p>After calling this method, any frames stored inside the video sink are discarded.
    */
   void flush();
 
-  /** Whether the video sink is able to immediately render media from the current position. */
+  /**
+   * Returns whether the video sink is able to immediately render media from the current position.
+   */
   boolean isReady();
 
   /**
-   * Whether all queued video frames have been rendered, including the frame marked as last buffer.
+   * Returns whether all queued video frames have been rendered, including the frame marked as last
+   * buffer.
    */
   boolean isEnded();
 
   /**
-   * Whether frames could be dropped from the sink's {@linkplain #getInputSurface() input surface}.
+   * Returns whether frames could be dropped from the sink's {@linkplain #getInputSurface() input
+   * surface}.
    */
   boolean isFrameDropAllowedOnInput();
 
-  /** Returns the input {@link Surface} where the video sink consumes input frames from. */
+  /**
+   * Returns the input {@link Surface} where the video sink consumes input frames from.
+   *
+   * <p>Must be called after the sink is {@linkplain #initialize(Format) initialized}.
+   */
   Surface getInputSurface();
 
   /** Sets the playback speed. */
@@ -136,6 +155,8 @@ public interface VideoSink {
 
   /**
    * Informs the video sink that a new input stream will be queued.
+   *
+   * <p>Must be called after the sink is {@linkplain #initialize(Format) initialized}.
    *
    * @param inputType The {@link InputType} of the stream.
    * @param format The {@link Format} of the stream.
@@ -146,9 +167,11 @@ public interface VideoSink {
    * Informs the video sink that a frame will be queued to its {@linkplain #getInputSurface() input
    * surface}.
    *
+   * <p>Must be called after the sink is {@linkplain #initialize(Format) initialized}.
+   *
    * @param framePresentationTimeUs The frame's presentation time, in microseconds.
    * @param isLastFrame Whether this is the last frame of the video stream.
-   * @return a release timestamp, in nanoseconds, that should be associated when releasing this
+   * @return A release timestamp, in nanoseconds, that should be associated when releasing this
    *     frame, or {@link C#TIME_UNSET} if the sink was not able to register the frame and the
    *     caller must try again later.
    */
@@ -156,6 +179,8 @@ public interface VideoSink {
 
   /**
    * Provides an input {@link Bitmap} to the video sink.
+   *
+   * <p>Must be called after the sink is {@linkplain #initialize(Format) initialized}.
    *
    * @param inputBitmap The {@link Bitmap} queued to the video sink.
    * @param timestampIterator The times within the current stream that the bitmap should be shown
@@ -167,6 +192,8 @@ public interface VideoSink {
 
   /**
    * Incrementally renders processed video frames.
+   *
+   * <p>Must be called after the sink is {@linkplain #initialize(Format) initialized}.
    *
    * @param positionUs The current playback position, in microseconds.
    * @param elapsedRealtimeUs {@link android.os.SystemClock#elapsedRealtime()} in microseconds,

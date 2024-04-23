@@ -33,7 +33,8 @@ public interface VideoSinkProvider {
    * Sets the {@link VideoFrameReleaseControl} that will be used for releasing of video frames
    * during rendering.
    *
-   * <p>Must be called before the sink provider is {@linkplain #initialize(Format) initialized}.
+   * <p>Must be called before the first {@linkplain #getSink() sink} is {@linkplain
+   * VideoSink#initialize(Format) initialized}.
    */
   void setVideoFrameReleaseControl(VideoFrameReleaseControl videoFrameReleaseControl);
 
@@ -49,7 +50,8 @@ public interface VideoSinkProvider {
   /**
    * Sets the {@link Clock} that the provider should use internally.
    *
-   * <p>Must be called before the sink provider is {@linkplain #initialize(Format) initialized}.
+   * <p>Must be called before the first {@linkplain #getSink() sink} is {@linkplain
+   * VideoSink#initialize(Format) initialized}.
    */
   void setClock(Clock clock);
 
@@ -62,29 +64,12 @@ public interface VideoSinkProvider {
    */
   void setPendingVideoEffects(List<Effect> videoEffects);
 
-  /**
-   * Initializes the provider for video frame processing. Can be called up to one time.
-   *
-   * @param sourceFormat The format of the compressed video.
-   * @throws VideoSink.VideoSinkException If enabling the provider failed.
-   */
-  void initialize(Format sourceFormat) throws VideoSink.VideoSinkException;
-
-  /** Returns whether this provider is initialized for frame processing. */
-  boolean isInitialized();
-
-  /**
-   * Returns a {@link VideoSink} to forward video frames for processing.
-   *
-   * <p>Must be called after the sink provider is {@linkplain #initialize(Format) initialized}.
-   */
+  /** Returns a {@link VideoSink} to forward video frames for processing. */
   VideoSink getSink();
 
   /**
    * Sets the offset, in microseconds, that is added to the video frames presentation timestamps
    * from the player.
-   *
-   * <p>Must be called after the sink provider is {@linkplain #initialize(Format) initialized}.
    */
   void setStreamOffsetUs(long streamOffsetUs);
 

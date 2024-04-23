@@ -51,50 +51,33 @@ public final class CompositingVideoSinkProviderTest {
   }
 
   @Test
-  public void initialize() throws VideoSink.VideoSinkException {
-    CompositingVideoSinkProvider provider = createCompositingVideoSinkProvider();
-
-    provider.initialize(new Format.Builder().build());
-
-    assertThat(provider.isInitialized()).isTrue();
-  }
-
-  @Test
-  public void initialize_calledTwice_throws() throws VideoSink.VideoSinkException {
-    CompositingVideoSinkProvider provider = createCompositingVideoSinkProvider();
-    provider.initialize(new Format.Builder().build());
+  public void initializeSink_withoutReleaseControl_throws() {
+    CompositingVideoSinkProvider provider =
+        new CompositingVideoSinkProvider.Builder(ApplicationProvider.getApplicationContext())
+            .setPreviewingVideoGraphFactory(new TestPreviewingVideoGraphFactory())
+            .build();
+    VideoSink sink = provider.getSink();
 
     assertThrows(
-        IllegalStateException.class, () -> provider.initialize(new Format.Builder().build()));
+        IllegalStateException.class,
+        () -> sink.initialize(new Format.Builder().setWidth(640).setHeight(480).build()));
   }
 
   @Test
-  public void isInitialized_afterRelease_returnsFalse() throws VideoSink.VideoSinkException {
+  public void initializeSink_calledTwice_throws() throws VideoSink.VideoSinkException {
     CompositingVideoSinkProvider provider = createCompositingVideoSinkProvider();
-    provider.initialize(new Format.Builder().build());
+    VideoSink sink = provider.getSink();
+    sink.initialize(new Format.Builder().build());
 
-    provider.release();
-
-    assertThat(provider.isInitialized()).isFalse();
-  }
-
-  @Test
-  public void initialize_afterRelease_throws() throws VideoSink.VideoSinkException {
-    CompositingVideoSinkProvider provider = createCompositingVideoSinkProvider();
-    Format format = new Format.Builder().build();
-
-    provider.initialize(format);
-    provider.release();
-
-    assertThrows(IllegalStateException.class, () -> provider.initialize(format));
+    assertThrows(IllegalStateException.class, () -> sink.initialize(new Format.Builder().build()));
   }
 
   @Test
   public void setOutputStreamOffsetUs_frameReleaseTimesAreAdjusted()
       throws VideoSink.VideoSinkException {
     CompositingVideoSinkProvider provider = createCompositingVideoSinkProvider();
-    provider.initialize(new Format.Builder().build());
     VideoSink videoSink = provider.getSink();
+    videoSink.initialize(new Format.Builder().build());
     videoSink.registerInputStream(
         VideoSink.INPUT_TYPE_SURFACE, new Format.Builder().setWidth(640).setHeight(480).build());
 
