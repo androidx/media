@@ -387,11 +387,11 @@ import com.google.common.collect.ImmutableList;
       } else if (type == TYPE_SORT_TRACK_NAME) {
         return parseTextAttribute(type, "TSOT", ilst);
       } else if (type == TYPE_SORT_ALBUM) {
-        return parseTextAttribute(type, "TSO2", ilst);
-      } else if (type == TYPE_SORT_ARTIST) {
         return parseTextAttribute(type, "TSOA", ilst);
-      } else if (type == TYPE_SORT_ALBUM_ARTIST) {
+      } else if (type == TYPE_SORT_ARTIST) {
         return parseTextAttribute(type, "TSOP", ilst);
+      } else if (type == TYPE_SORT_ALBUM_ARTIST) {
+        return parseTextAttribute(type, "TSO2", ilst);
       } else if (type == TYPE_SORT_COMPOSER) {
         return parseTextAttribute(type, "TSOC", ilst);
       } else if (type == TYPE_RATING) {
