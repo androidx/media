@@ -46,6 +46,10 @@
 *   Downloads:
 *   OkHttp Extension:
 *   Cronet Extension:
+    *   Fix `SocketTimeoutException` in `CronetDataSource`. In some versions of
+        Cronet, the request provided by the callback is not always the same.
+        This leads to callback not completing and request timing out
+        (https://issuetracker.google.com/328442628).
 *   RTMP Extension:
 *   HLS Extension:
     *   Fix bug where pending EMSG samples waiting for a discontinuity were

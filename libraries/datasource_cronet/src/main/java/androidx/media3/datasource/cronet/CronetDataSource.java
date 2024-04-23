@@ -22,6 +22,7 @@ import static org.chromium.net.UrlRequest.Builder.REQUEST_PRIORITY_MEDIUM;
 import android.net.Uri;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.PlaybackException;
@@ -55,6 +56,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.Executor;
+import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
+import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.checkerframework.dataflow.qual.SideEffectFree;
 import org.chromium.net.CronetEngine;
 import org.chromium.net.CronetException;
 import org.chromium.net.NetworkException;
@@ -441,8 +445,6 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
   // The size of read buffer passed to cronet UrlRequest.read().
   private static final int DEFAULT_READ_BUFFER_SIZE_BYTES = 32 * 1024;
 
-  /* package */ final UrlRequest.Callback urlRequestCallback;
-
   private final CronetEngine cronetEngine;
   private final Executor executor;
   private final int requestPriority;
@@ -467,6 +469,7 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
   // Written from the calling thread only. currentUrlRequest.start() calls ensure writes are visible
   // to reads made by the Cronet thread.
   @Nullable private UrlRequest currentUrlRequest;
+  @VisibleForTesting @Nullable /* package */ UrlRequestCallback currentUrlRequestCallback;
   @Nullable private DataSpec currentDataSpec;
 
   // Reference written and read by calling thread only. Passed to Cronet thread as a local variable.
@@ -510,7 +513,6 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
     this.keepPostFor302Redirects = keepPostFor302Redirects;
     clock = Clock.DEFAULT;
     this.readBufferSize = readBufferSize;
-    urlRequestCallback = new UrlRequestCallback();
     requestProperties = new RequestProperties();
     operation = new ConditionVariable();
   }
@@ -576,8 +578,8 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
     currentDataSpec = dataSpec;
     UrlRequest urlRequest;
     try {
-      urlRequest = buildRequestBuilder(dataSpec).build();
-      currentUrlRequest = urlRequest;
+      createCurrentUrlRequestAndCallback(dataSpec);
+      urlRequest = currentUrlRequest;
     } catch (IOException e) {
       if (e instanceof HttpDataSourceException) {
         throw (HttpDataSourceException) e;
@@ -817,10 +819,7 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
   @UnstableApi
   @Override
   public synchronized void close() {
-    if (currentUrlRequest != null) {
-      currentUrlRequest.cancel();
-      currentUrlRequest = null;
-    }
+    closeCurrentUrlRequestAndCallback();
     if (readBuffer != null) {
       readBuffer.limit(0);
     }
@@ -831,6 +830,18 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
     if (opened) {
       opened = false;
       transferEnded();
+    }
+  }
+
+  private void closeCurrentUrlRequestAndCallback() {
+    if (currentUrlRequest != null) {
+      currentUrlRequest.cancel();
+      currentUrlRequest = null;
+    }
+
+    if (currentUrlRequestCallback != null) {
+      currentUrlRequestCallback.close();
+      currentUrlRequestCallback = null;
     }
   }
 
@@ -848,11 +859,26 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
     return responseInfo;
   }
 
+  // The nullness checker can't prove that UrlRequest.Builder.build() doesn't null out
+  // this.currentUrlRequestCallback.
+  // TODO: Add @SideEffectFree to the UrlRequest.Builder.build() stub
+  @SuppressWarnings("nullness:contracts.postcondition.not.satisfied")
+  @EnsuresNonNull({"this.currentUrlRequestCallback", "this.currentUrlRequest"})
+  private void createCurrentUrlRequestAndCallback(DataSpec dataSpec) throws IOException {
+    currentUrlRequestCallback = new UrlRequestCallback();
+    currentUrlRequest = buildRequestBuilder(dataSpec).build();
+  }
+
+  /**
+   * Returns {@link UrlRequest.Builder} from dataSpec. Would not work if data source is not opened.
+   */
   @UnstableApi
+  @SideEffectFree
+  @RequiresNonNull("this.currentUrlRequestCallback")
   protected UrlRequest.Builder buildRequestBuilder(DataSpec dataSpec) throws IOException {
     UrlRequest.Builder requestBuilder =
         cronetEngine
-            .newUrlRequestBuilder(dataSpec.uri.toString(), urlRequestCallback, executor)
+            .newUrlRequestBuilder(dataSpec.uri.toString(), currentUrlRequestCallback, executor)
             .setPriority(requestPriority)
             .allowDirectExecutor();
 
@@ -1068,13 +1094,6 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
     return TextUtils.join(";", setCookieHeaders);
   }
 
-  private static void attachCookies(UrlRequest.Builder requestBuilder, @Nullable String cookies) {
-    if (TextUtils.isEmpty(cookies)) {
-      return;
-    }
-    requestBuilder.addHeader(HttpHeaders.COOKIE, cookies);
-  }
-
   private static int getStatus(UrlRequest request) throws InterruptedException {
     final ConditionVariable conditionVariable = new ConditionVariable();
     final int[] statusHolder = new int[1];
@@ -1107,15 +1126,23 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
     return remaining;
   }
 
-  private final class UrlRequestCallback extends UrlRequest.Callback {
+  @VisibleForTesting
+  /* package */ final class UrlRequestCallback extends UrlRequest.Callback {
+
+    private volatile boolean isClosed = false;
+
+    public void close() {
+      this.isClosed = true;
+    }
 
     @Override
     public synchronized void onRedirectReceived(
         UrlRequest request, UrlResponseInfo info, String newLocationUrl) {
-      if (request != currentUrlRequest) {
+      if (isClosed) {
         return;
       }
-      UrlRequest urlRequest = Assertions.checkNotNull(currentUrlRequest);
+      Assertions.checkNotNull(currentUrlRequest);
+      Assertions.checkNotNull(currentUrlRequestCallback);
       DataSpec dataSpec = Assertions.checkNotNull(currentDataSpec);
       int responseCode = info.getHttpStatusCode();
       if (dataSpec.httpMethod == DataSpec.HTTP_METHOD_POST) {
@@ -1156,7 +1183,6 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
         return;
       }
 
-      urlRequest.cancel();
       DataSpec redirectUrlDataSpec;
       if (!shouldKeepPost && dataSpec.httpMethod == DataSpec.HTTP_METHOD_POST) {
         // For POST redirects that aren't 307 or 308, the redirect is followed but request is
@@ -1171,21 +1197,29 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
       } else {
         redirectUrlDataSpec = dataSpec.withUri(Uri.parse(newLocationUrl));
       }
-      UrlRequest.Builder requestBuilder;
+
+      if (!TextUtils.isEmpty(cookieHeadersValue)) {
+        Map<String, String> requestHeaders = new HashMap<>();
+        requestHeaders.putAll(dataSpec.httpRequestHeaders);
+        requestHeaders.put(HttpHeaders.COOKIE, cookieHeadersValue);
+        redirectUrlDataSpec =
+            redirectUrlDataSpec.buildUpon().setHttpRequestHeaders(requestHeaders).build();
+      }
+
+      closeCurrentUrlRequestAndCallback();
       try {
-        requestBuilder = buildRequestBuilder(redirectUrlDataSpec);
+        createCurrentUrlRequestAndCallback(redirectUrlDataSpec);
       } catch (IOException e) {
         exception = e;
         return;
       }
-      attachCookies(requestBuilder, cookieHeadersValue);
-      currentUrlRequest = requestBuilder.build();
+
       currentUrlRequest.start();
     }
 
     @Override
     public synchronized void onResponseStarted(UrlRequest request, UrlResponseInfo info) {
-      if (request != currentUrlRequest) {
+      if (isClosed) {
         return;
       }
       responseInfo = info;
@@ -1195,7 +1229,7 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
     @Override
     public synchronized void onReadCompleted(
         UrlRequest request, UrlResponseInfo info, ByteBuffer buffer) {
-      if (request != currentUrlRequest) {
+      if (isClosed) {
         return;
       }
       operation.open();
@@ -1203,7 +1237,7 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
 
     @Override
     public synchronized void onSucceeded(UrlRequest request, UrlResponseInfo info) {
-      if (request != currentUrlRequest) {
+      if (isClosed) {
         return;
       }
       finished = true;
@@ -1213,7 +1247,7 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
     @Override
     public synchronized void onFailed(
         UrlRequest request, UrlResponseInfo info, CronetException error) {
-      if (request != currentUrlRequest) {
+      if (isClosed) {
         return;
       }
       if (error instanceof NetworkException
