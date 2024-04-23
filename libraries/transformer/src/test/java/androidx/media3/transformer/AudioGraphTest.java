@@ -18,7 +18,6 @@ package androidx.media3.transformer;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.getPcmFormat;
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertThrows;
 
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
@@ -59,7 +58,8 @@ public class AudioGraphTest {
 
   @Test
   public void silentItem_outputsCorrectAmountOfBytes() throws Exception {
-    AudioGraph audioGraph = new AudioGraph(new DefaultAudioMixer.Factory());
+    AudioGraph audioGraph =
+        new AudioGraph(new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of());
 
     GraphInput input = audioGraph.registerInput(FAKE_ITEM, getPcmFormat(SURROUND_50000));
     input.onMediaItemChanged(
@@ -75,8 +75,9 @@ public class AudioGraphTest {
   public void silentItem_withSampleRateChange_outputsCorrectAmountOfBytes() throws Exception {
     SonicAudioProcessor changeTo100000Hz = new SonicAudioProcessor();
     changeTo100000Hz.setOutputSampleRateHz(100_000);
-    AudioGraph audioGraph = new AudioGraph(new DefaultAudioMixer.Factory());
-    audioGraph.configure(ImmutableList.of(changeTo100000Hz));
+    AudioGraph audioGraph =
+        new AudioGraph(
+            new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of(changeTo100000Hz));
 
     GraphInput input = audioGraph.registerInput(FAKE_ITEM, getPcmFormat(SURROUND_50000));
     input.onMediaItemChanged(
@@ -90,14 +91,16 @@ public class AudioGraphTest {
 
   @Test
   public void getOutputAudioFormat_afterInitialization_isNotSet() {
-    AudioGraph audioGraph = new AudioGraph(new DefaultAudioMixer.Factory());
+    AudioGraph audioGraph =
+        new AudioGraph(new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of());
 
     assertThat(audioGraph.getOutputAudioFormat()).isEqualTo(AudioFormat.NOT_SET);
   }
 
   @Test
   public void getOutputAudioFormat_afterRegisterInput_matchesInputFormat() throws Exception {
-    AudioGraph audioGraph = new AudioGraph(new DefaultAudioMixer.Factory());
+    AudioGraph audioGraph =
+        new AudioGraph(new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of());
 
     audioGraph.registerInput(FAKE_ITEM, getPcmFormat(MONO_48000));
 
@@ -106,7 +109,8 @@ public class AudioGraphTest {
 
   @Test
   public void getOutputAudioFormat_afterFlush_isSet() throws Exception {
-    AudioGraph audioGraph = new AudioGraph(new DefaultAudioMixer.Factory());
+    AudioGraph audioGraph =
+        new AudioGraph(new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of());
     audioGraph.registerInput(FAKE_ITEM, getPcmFormat(MONO_48000));
 
     audioGraph.flush();
@@ -116,7 +120,8 @@ public class AudioGraphTest {
 
   @Test
   public void registerInput_afterRegisterInput_doesNotChangeOutputFormat() throws Exception {
-    AudioGraph audioGraph = new AudioGraph(new DefaultAudioMixer.Factory());
+    AudioGraph audioGraph =
+        new AudioGraph(new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of());
 
     audioGraph.registerInput(FAKE_ITEM, getPcmFormat(STEREO_48000));
     audioGraph.registerInput(FAKE_ITEM, getPcmFormat(MONO_44100));
@@ -126,7 +131,8 @@ public class AudioGraphTest {
 
   @Test
   public void registerInput_afterReset_changesOutputFormat() throws Exception {
-    AudioGraph audioGraph = new AudioGraph(new DefaultAudioMixer.Factory());
+    AudioGraph audioGraph =
+        new AudioGraph(new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of());
 
     audioGraph.registerInput(FAKE_ITEM, getPcmFormat(STEREO_48000));
     audioGraph.reset();
@@ -139,8 +145,9 @@ public class AudioGraphTest {
   public void registerInput_withAudioProcessor_affectsOutputFormat() throws Exception {
     SonicAudioProcessor sonicAudioProcessor = new SonicAudioProcessor();
     sonicAudioProcessor.setOutputSampleRateHz(48_000);
-    AudioGraph audioGraph = new AudioGraph(new DefaultAudioMixer.Factory());
-    audioGraph.configure(ImmutableList.of(sonicAudioProcessor));
+    AudioGraph audioGraph =
+        new AudioGraph(
+            new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of(sonicAudioProcessor));
 
     audioGraph.registerInput(FAKE_ITEM, getPcmFormat(SURROUND_50000));
 
@@ -153,8 +160,10 @@ public class AudioGraphTest {
     changeTo96000Hz.setOutputSampleRateHz(96_000);
     SonicAudioProcessor changeTo48000Hz = new SonicAudioProcessor();
     changeTo48000Hz.setOutputSampleRateHz(48_000);
-    AudioGraph audioGraph = new AudioGraph(new DefaultAudioMixer.Factory());
-    audioGraph.configure(ImmutableList.of(changeTo96000Hz, changeTo48000Hz));
+    AudioGraph audioGraph =
+        new AudioGraph(
+            new DefaultAudioMixer.Factory(),
+            /* effects= */ ImmutableList.of(changeTo96000Hz, changeTo48000Hz));
 
     audioGraph.registerInput(FAKE_ITEM, getPcmFormat(SURROUND_50000));
 
@@ -162,11 +171,12 @@ public class AudioGraphTest {
   }
 
   @Test
-  public void configure_changesOutputFormat() throws Exception {
-    AudioGraph audioGraph = new AudioGraph(new DefaultAudioMixer.Factory());
+  public void createAudioGraphWithEffect_changesOutputFormat() throws Exception {
     SonicAudioProcessor sonicAudioProcessor = new SonicAudioProcessor();
     sonicAudioProcessor.setOutputSampleRateHz(48_000);
-    audioGraph.configure(ImmutableList.of(sonicAudioProcessor));
+    AudioGraph audioGraph =
+        new AudioGraph(
+            new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of(sonicAudioProcessor));
 
     audioGraph.registerInput(FAKE_ITEM, getPcmFormat(STEREO_44100));
 
@@ -174,22 +184,9 @@ public class AudioGraphTest {
   }
 
   @Test
-  public void configure_afterRegisterInput_throws() throws Exception {
-    AudioGraph audioGraph = new AudioGraph(new DefaultAudioMixer.Factory());
-    SonicAudioProcessor sonicAudioProcessor = new SonicAudioProcessor();
-    sonicAudioProcessor.setOutputSampleRateHz(48_000);
-
-    audioGraph.registerInput(FAKE_ITEM, getPcmFormat(STEREO_44100));
-
-    assertThrows(
-        IllegalStateException.class,
-        () -> audioGraph.configure(ImmutableList.of(sonicAudioProcessor)));
-  }
-
-  @Test
   public void blockInput_blocksInputData() throws Exception {
-    AudioGraph audioGraph = new AudioGraph(new DefaultAudioMixer.Factory());
-    audioGraph.configure(ImmutableList.of());
+    AudioGraph audioGraph =
+        new AudioGraph(new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of());
     AudioGraphInput audioGraphInput =
         audioGraph.registerInput(FAKE_ITEM, getPcmFormat(STEREO_44100));
     audioGraphInput.onMediaItemChanged(
@@ -210,8 +207,8 @@ public class AudioGraphTest {
 
   @Test
   public void unblockInput_unblocksInputData() throws Exception {
-    AudioGraph audioGraph = new AudioGraph(new DefaultAudioMixer.Factory());
-    audioGraph.configure(ImmutableList.of());
+    AudioGraph audioGraph =
+        new AudioGraph(new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of());
     AudioGraphInput audioGraphInput =
         audioGraph.registerInput(FAKE_ITEM, getPcmFormat(STEREO_44100));
     audioGraphInput.onMediaItemChanged(
@@ -233,8 +230,8 @@ public class AudioGraphTest {
 
   @Test
   public void setPendingStartTimeUs_discardsPrecedingData() throws Exception {
-    AudioGraph audioGraph = new AudioGraph(new DefaultAudioMixer.Factory());
-    audioGraph.configure(ImmutableList.of());
+    AudioGraph audioGraph =
+        new AudioGraph(new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of());
     AudioGraphInput audioGraphInput =
         audioGraph.registerInput(FAKE_ITEM, getPcmFormat(STEREO_44100));
     audioGraphInput.onMediaItemChanged(
@@ -263,8 +260,8 @@ public class AudioGraphTest {
 
   @Test
   public void setPendingStartTimeUs_doesNotDiscardFollowingData() throws Exception {
-    AudioGraph audioGraph = new AudioGraph(new DefaultAudioMixer.Factory());
-    audioGraph.configure(ImmutableList.of());
+    AudioGraph audioGraph =
+        new AudioGraph(new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of());
     AudioGraphInput audioGraphInput =
         audioGraph.registerInput(FAKE_ITEM, getPcmFormat(STEREO_44100));
     audioGraphInput.onMediaItemChanged(
@@ -294,8 +291,8 @@ public class AudioGraphTest {
 
   @Test
   public void flush_withoutAudioProcessor_clearsPendingData() throws Exception {
-    AudioGraph audioGraph = new AudioGraph(new DefaultAudioMixer.Factory());
-    audioGraph.configure(ImmutableList.of());
+    AudioGraph audioGraph =
+        new AudioGraph(new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of());
     AudioGraphInput audioGraphInput =
         audioGraph.registerInput(FAKE_ITEM, getPcmFormat(STEREO_44100));
     audioGraphInput.onMediaItemChanged(
@@ -321,10 +318,11 @@ public class AudioGraphTest {
 
   @Test
   public void flush_withAudioProcessor_clearsPendingData() throws Exception {
-    AudioGraph audioGraph = new AudioGraph(new DefaultAudioMixer.Factory());
     SonicAudioProcessor sonicAudioProcessor = new SonicAudioProcessor();
     sonicAudioProcessor.setOutputSampleRateHz(48_000);
-    audioGraph.configure(ImmutableList.of(sonicAudioProcessor));
+    AudioGraph audioGraph =
+        new AudioGraph(
+            new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of(sonicAudioProcessor));
     AudioGraphInput audioGraphInput =
         audioGraph.registerInput(FAKE_ITEM, getPcmFormat(STEREO_44100));
     audioGraphInput.onMediaItemChanged(
@@ -350,8 +348,8 @@ public class AudioGraphTest {
 
   @Test
   public void isEnded_afterFlushAndWithoutAudioProcessor_isFalse() throws Exception {
-    AudioGraph audioGraph = new AudioGraph(new DefaultAudioMixer.Factory());
-    audioGraph.configure(ImmutableList.of());
+    AudioGraph audioGraph =
+        new AudioGraph(new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of());
     AudioGraphInput audioGraphInput =
         audioGraph.registerInput(FAKE_ITEM, getPcmFormat(STEREO_44100));
     audioGraphInput.onMediaItemChanged(
@@ -372,10 +370,11 @@ public class AudioGraphTest {
 
   @Test
   public void isEnded_afterFlushAndWithAudioProcessor_isFalse() throws Exception {
-    AudioGraph audioGraph = new AudioGraph(new DefaultAudioMixer.Factory());
     SonicAudioProcessor sonicAudioProcessor = new SonicAudioProcessor();
     sonicAudioProcessor.setOutputSampleRateHz(48_000);
-    audioGraph.configure(ImmutableList.of(sonicAudioProcessor));
+    AudioGraph audioGraph =
+        new AudioGraph(
+            new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of(sonicAudioProcessor));
     AudioGraphInput audioGraphInput =
         audioGraph.registerInput(FAKE_ITEM, getPcmFormat(STEREO_44100));
     audioGraphInput.onMediaItemChanged(

@@ -18,7 +18,6 @@ package androidx.media3.transformer;
 
 import static androidx.media3.common.audio.AudioProcessor.EMPTY_BUFFER;
 import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkState;
 
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -40,21 +39,27 @@ import java.util.Objects;
 
   private final List<InputInfo> inputInfos;
   private final AudioMixer mixer;
+  private final AudioProcessingPipeline audioProcessingPipeline;
 
   private AudioFormat mixerAudioFormat;
   private long pendingStartTimeUs;
   private int mixerSourcesToAdd;
   private ByteBuffer mixerOutput;
-  private AudioProcessingPipeline audioProcessingPipeline;
   private int finishedInputs;
 
-  /** Creates an instance. */
-  public AudioGraph(AudioMixer.Factory mixerFactory) {
+  /**
+   * Creates an instance.
+   *
+   * @param mixerFactory The {@linkplain AudioMixer.Factory factory} used to {@linkplain
+   *     AudioMixer.Factory#create() create} the underlying {@link AudioMixer}.
+   * @param effects The composition-level audio effects that are applied after mixing.
+   */
+  public AudioGraph(AudioMixer.Factory mixerFactory, ImmutableList<AudioProcessor> effects) {
     inputInfos = new ArrayList<>();
     mixer = mixerFactory.create();
     mixerAudioFormat = AudioFormat.NOT_SET;
     mixerOutput = EMPTY_BUFFER;
-    audioProcessingPipeline = new AudioProcessingPipeline(ImmutableList.of());
+    audioProcessingPipeline = new AudioProcessingPipeline(effects);
   }
 
   /** Returns whether an {@link AudioFormat} is valid as an input format. */
@@ -71,23 +76,6 @@ import java.util.Objects;
       return false;
     }
     return true;
-  }
-
-  /**
-   * Configures the composition-level audio effects to be applied after mixing.
-   *
-   * <p>Must be called before {@linkplain #registerInput(EditedMediaItem, Format) registering
-   * inputs}.
-   *
-   * @param effects The composition-level audio effects.
-   * @throws IllegalStateException If {@link #registerInput(EditedMediaItem, Format)} was already
-   *     called.
-   */
-  public void configure(ImmutableList<AudioProcessor> effects) {
-    checkState(
-        mixerAudioFormat.equals(AudioFormat.NOT_SET),
-        "AudioGraph can't configure effects after input registration.");
-    audioProcessingPipeline = new AudioProcessingPipeline(effects);
   }
 
   /**
