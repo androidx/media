@@ -29,6 +29,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 /** Utility {@link Player.Listener} for testing. */
 public final class PlayerTestListener implements Player.Listener, AnalyticsListener {
 
+  private final ConditionVariable playerIdle;
   private final ConditionVariable playerReady;
   private final ConditionVariable playerEnded;
   private final ConditionVariable firstFrameRendered;
@@ -43,11 +44,17 @@ public final class PlayerTestListener implements Player.Listener, AnalyticsListe
    *     #waitUntilPlayerReady()} and {@link #waitUntilPlayerEnded()} waits.
    */
   public PlayerTestListener(long testTimeoutMs) {
+    playerIdle = new ConditionVariable();
     playerReady = new ConditionVariable();
     playerEnded = new ConditionVariable();
     firstFrameRendered = new ConditionVariable();
     playbackException = new AtomicReference<>();
     this.testTimeoutMs = testTimeoutMs;
+  }
+
+  /** Waits until the {@link Player player} is {@linkplain Player#STATE_IDLE idle}. */
+  public void waitUntilPlayerIdle() throws PlaybackException, TimeoutException {
+    waitOrThrow(playerIdle);
   }
 
   /** Waits until the {@link Player player} is {@linkplain Player#STATE_READY ready}. */
@@ -81,7 +88,9 @@ public final class PlayerTestListener implements Player.Listener, AnalyticsListe
 
   @Override
   public void onPlaybackStateChanged(int playbackState) {
-    if (playbackState == Player.STATE_READY) {
+    if (playbackState == Player.STATE_IDLE) {
+      playerIdle.open();
+    } else if (playbackState == Player.STATE_READY) {
       playerReady.open();
     } else if (playbackState == Player.STATE_ENDED) {
       playerEnded.open();
@@ -96,6 +105,7 @@ public final class PlayerTestListener implements Player.Listener, AnalyticsListe
   @Override
   public void onPlayerError(PlaybackException error) {
     playbackException.set(error);
+    playerIdle.open();
     playerReady.open();
     playerEnded.open();
     firstFrameRendered.open();

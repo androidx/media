@@ -200,7 +200,8 @@ public class ImageRenderer extends BaseRenderer {
   }
 
   @Override
-  protected void onEnabled(boolean joining, boolean mayRenderStartOfStream) {
+  protected void onEnabled(boolean joining, boolean mayRenderStartOfStream)
+      throws ExoPlaybackException {
     firstFrameState =
         mayRenderStartOfStream
             ? C.FIRST_FRAME_NOT_RENDERED
