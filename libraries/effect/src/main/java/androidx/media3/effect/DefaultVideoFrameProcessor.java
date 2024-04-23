@@ -113,7 +113,8 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
        *
        * <p>The default value is {@code true}.
        *
-       * <p>If the input or output is HDR, this must be {@code true}.
+       * <p>If the output is HDR, this is ignored as the working color space must have a linear
+       * transfer function.
        *
        * <p>If all input and output content will be SDR, it's recommended to set this value to
        * {@code false}. This is because 8-bit colors in SDR may result in color banding.
@@ -348,7 +349,6 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
 
   private final List<Effect> activeEffects;
   private final Object lock;
-  private final boolean enableColorTransfers;
   private final ColorInfo outputColorInfo;
 
   private volatile @MonotonicNonNull FrameInfo nextInputFrameInfo;
@@ -365,7 +365,6 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       Executor listenerExecutor,
       FinalShaderProgramWrapper finalShaderProgramWrapper,
       boolean renderFramesAutomatically,
-      boolean enableColorTransfers,
       ColorInfo outputColorInfo) {
     this.context = context;
     this.glObjectsProvider = glObjectsProvider;
@@ -378,7 +377,6 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     this.renderFramesAutomatically = renderFramesAutomatically;
     this.activeEffects = new ArrayList<>();
     this.lock = new Object();
-    this.enableColorTransfers = enableColorTransfers;
     this.outputColorInfo = outputColorInfo;
     this.finalShaderProgramWrapper = finalShaderProgramWrapper;
     this.intermediateGlShaderPrograms = new ArrayList<>();
@@ -692,10 +690,14 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
             .setColorTransfer(C.COLOR_TRANSFER_LINEAR)
             .setHdrStaticInfo(null)
             .build();
+    ColorInfo intermediateColorInfo =
+        ColorInfo.isTransferHdr(outputColorInfo)
+            ? linearColorInfo
+            : enableColorTransfers ? linearColorInfo : outputColorInfo;
     InputSwitcher inputSwitcher =
         new InputSwitcher(
             context,
-            /* outputColorInfo= */ linearColorInfo,
+            /* outputColorInfo= */ intermediateColorInfo,
             glObjectsProvider,
             videoFrameProcessingTaskExecutor,
             /* errorListenerExecutor= */ videoFrameProcessorListenerExecutor,
@@ -729,7 +731,6 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         videoFrameProcessorListenerExecutor,
         finalShaderProgramWrapper,
         renderFramesAutomatically,
-        enableColorTransfers,
         outputColorInfo);
   }
 
@@ -846,10 +847,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
    */
   private void configureEffects(InputStreamInfo inputStreamInfo, boolean forceReconfigure)
       throws VideoFrameProcessingException {
-    checkColors(
-        /* inputColorInfo= */ inputStreamInfo.frameInfo.colorInfo,
-        outputColorInfo,
-        enableColorTransfers);
+    checkColors(/* inputColorInfo= */ inputStreamInfo.frameInfo.colorInfo, outputColorInfo);
     if (forceReconfigure || !activeEffects.equals(inputStreamInfo.effects)) {
       if (!intermediateGlShaderPrograms.isEmpty()) {
         for (int i = 0; i < intermediateGlShaderPrograms.size(); i++) {
@@ -886,14 +884,12 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   }
 
   /** Checks that color configuration is valid for {@link DefaultVideoFrameProcessor}. */
-  private static void checkColors(
-      ColorInfo inputColorInfo, ColorInfo outputColorInfo, boolean enableColorTransfers)
+  private static void checkColors(ColorInfo inputColorInfo, ColorInfo outputColorInfo)
       throws VideoFrameProcessingException {
     if (ColorInfo.isTransferHdr(inputColorInfo)) {
       checkArgument(inputColorInfo.colorSpace == C.COLOR_SPACE_BT2020);
     }
     if ((ColorInfo.isTransferHdr(inputColorInfo) || ColorInfo.isTransferHdr(outputColorInfo))) {
-      checkArgument(enableColorTransfers);
       long glVersion;
       try {
         glVersion = GlUtil.getContextMajorVersion();

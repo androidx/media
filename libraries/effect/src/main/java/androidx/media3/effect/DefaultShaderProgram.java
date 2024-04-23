@@ -335,10 +335,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     String fragmentShaderFilePath =
         outputIsHdr
             ? FRAGMENT_SHADER_OETF_ES3_PATH
-            : FRAGMENT_SHADER_TRANSFORMATION_SDR_OETF_ES2_PATH;
-    if (!enableColorTransfers) {
-      fragmentShaderFilePath = FRAGMENT_SHADER_TRANSFORMATION_PATH;
-    }
+            : enableColorTransfers
+                ? FRAGMENT_SHADER_TRANSFORMATION_SDR_OETF_ES2_PATH
+                : FRAGMENT_SHADER_TRANSFORMATION_PATH;
     GlProgram glProgram = createGlProgram(context, vertexShaderFilePath, fragmentShaderFilePath);
 
     @C.ColorTransfer int outputColorTransfer = outputColorInfo.colorTransfer;

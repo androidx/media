@@ -279,6 +279,46 @@ public final class ToneMapHdrToSdrUsingOpenGlPixelTest {
         .isAtMost(MAXIMUM_DEVICE_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
   }
 
+  @Test
+  public void toneMap_withDisabledColorTransfers_matchesGoldenFile() throws Exception {
+    assumeDeviceSupportsOpenGlToneMapping(testId, HLG_ASSET_FORMAT);
+    videoFrameProcessorTestRunner =
+        new VideoFrameProcessorTestRunner.Builder()
+            .setTestId(testId)
+            .setVideoFrameProcessorFactory(
+                new DefaultVideoFrameProcessor.Factory.Builder()
+                    .setEnableColorTransfers(false)
+                    .build())
+            .setVideoAssetPath(HLG_ASSET_STRING)
+            .setOutputColorInfo(TONE_MAP_SDR_COLOR)
+            .build();
+    Bitmap expectedBitmap = readBitmap(TONE_MAP_HLG_TO_SDR_PNG_ASSET_PATH);
+
+    Bitmap actualBitmap;
+    try {
+      videoFrameProcessorTestRunner.processFirstFrameAndEnd();
+      actualBitmap = videoFrameProcessorTestRunner.getOutputBitmap();
+    } catch (UnsupportedOperationException e) {
+      if (e.getMessage() != null
+          && e.getMessage().equals(DecodeOneFrameUtil.NO_DECODER_SUPPORT_ERROR_STRING)) {
+        recordTestSkipped(
+            getApplicationContext(),
+            testId,
+            /* reason= */ DecodeOneFrameUtil.NO_DECODER_SUPPORT_ERROR_STRING);
+        return;
+      } else {
+        throw e;
+      }
+    }
+
+    Log.i(TAG, "Successfully tone mapped.");
+    // TODO(b/207848601): Switch to using proper tooling for testing against golden data.
+    float averagePixelAbsoluteDifference =
+        getBitmapAveragePixelAbsoluteDifferenceArgb8888(expectedBitmap, actualBitmap, testId);
+    assertThat(averagePixelAbsoluteDifference)
+        .isAtMost(MAXIMUM_DEVICE_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
+  }
+
   private static VideoFrameProcessorTestRunner.Builder getDefaultFrameProcessorTestRunnerBuilder(
       String testId) {
     return new VideoFrameProcessorTestRunner.Builder()

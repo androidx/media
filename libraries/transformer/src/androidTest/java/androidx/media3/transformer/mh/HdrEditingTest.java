@@ -37,6 +37,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.Util;
+import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.ExportException;
@@ -195,6 +196,39 @@ public final class HdrEditingTest {
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_DOLBY_VISION_HDR));
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem).setEffects(FORCE_TRANSCODE_VIDEO_EFFECTS).build();
+
+    ExportTestResult exportTestResult =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+    @C.ColorTransfer
+    int actualColorTransfer =
+        retrieveTrackFormat(context, exportTestResult.filePath, C.TRACK_TYPE_VIDEO)
+            .colorInfo
+            .colorTransfer;
+    assertThat(actualColorTransfer).isEqualTo(C.COLOR_TRANSFER_HLG);
+  }
+
+  @Test
+  public void exportAndTranscodeHdr_withDisabledColorTransfers_whenHdrEditingIsSupported()
+      throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    Format format = MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT;
+    assumeDeviceSupportsHdrEditing(testId, format);
+
+    assumeFormatsSupported(context, testId, /* inputFormat= */ format, /* outputFormat= */ format);
+
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setVideoFrameProcessorFactory(
+                new DefaultVideoFrameProcessor.Factory.Builder()
+                    .setEnableColorTransfers(false)
+                    .build())
+            .build();
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_1080P_5_SECOND_HLG10)))
+            .setEffects(FORCE_TRANSCODE_VIDEO_EFFECTS)
+            .build();
 
     ExportTestResult exportTestResult =
         new TransformerAndroidTestRunner.Builder(context, transformer)
