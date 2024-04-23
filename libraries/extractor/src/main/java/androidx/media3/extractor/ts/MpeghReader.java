@@ -203,7 +203,46 @@ public final class MpeghReader implements ElementaryStreamReader {
 
   @Override
   public void packetFinished() {
-    // Do nothing.
+    if(!headerDataFinished && headerScratchBytes.getPosition() > 0 && state == STATE_READING_PACKET_HEADER) {
+      try {
+        int position = headerScratchBytes.getPosition();
+        parseHeader();
+        // write the packet header to output
+        headerScratchBytes.setPosition(0);
+        headerScratchBytes.setLimit(position);
+        output.sampleData(headerScratchBytes, header.headerLength);
+        state = STATE_READING_PACKET_PAYLOAD;
+        if (shouldParsePacket(header.packetType)) {
+          // prepare data scratch buffer
+          dataScratchBytes.reset(header.packetLength);
+          // read bytes from the end of the header scratch buffer into the data scratch buffer
+          if (headerScratchBytes.getPosition() != position) {
+            copyData(headerScratchBytes, dataScratchBytes, header.packetLength);
+          }
+        }
+        // read bytes from the end of the header scratch buffer and write them into the output
+        if (headerScratchBytes.getPosition() != position) {
+          int bytesToRead = min(headerScratchBytes.bytesLeft(), header.packetLength - payloadBytesRead);
+          output.sampleData(headerScratchBytes, bytesToRead);
+          payloadBytesRead += bytesToRead;
+        }
+        if (payloadBytesRead == header.packetLength) {
+          if (header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_MPEGH3DACFG) {
+            parseConfig(new ParsableBitArray(dataScratchBytes.getData()));
+          } else if (header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_AUDIOTRUNCATION) {
+            truncationSamples =
+                MpeghUtil.parseAudioTruncationInfo(
+                    new ParsableBitArray(dataScratchBytes.getData()));
+          } else if (header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_MPEGH3DAFRAME) {
+            finalizeFrame();
+          }
+          // MHAS packet payload finished -> obtain a new packet header
+          state = STATE_READING_PACKET_HEADER;
+        }
+        headerScratchBytes.setLimit(MAX_MHAS_PACKET_HEADER_SIZE);
+      } catch (ParserException parserException) {
+      }
+    }
   }
 
   /**
@@ -259,7 +298,7 @@ public final class MpeghReader implements ElementaryStreamReader {
    * @throws ParserException if a valid {@link MpeghUtil.Mpegh3daConfig} cannot be parsed.
    */
   private void parseHeader() throws ParserException {
-    headerScratchBits.reset(headerScratchBytes.getData());
+    headerScratchBits.reset(headerScratchBytes.getData(), headerScratchBytes.getPosition());
     // parse the MHAS packet header
     MpeghUtil.parseMhasPacketHeader(headerScratchBits, header);
 
