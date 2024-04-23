@@ -12,17 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-apply plugin: 'maven-publish'
+apply plugin: 'mirego.publish'
 apply from: "$gradle.ext.androidxMediaSettingsDir/missing_aar_type_workaround.gradle"
 
 afterEvaluate {
     if (gradle.ext.has('rootProjectIsAndroidXMedia3') && gradle.ext.rootProjectIsAndroidXMedia3) {
         publishing {
-            repositories {
-                maven {
-                    url = findProperty('mavenRepo') ?: "${buildDir}/repo"
-                }
-            }
             publications {
                 release(MavenPublication) {
                     from components.release
@@ -31,12 +26,12 @@ afterEvaluate {
                     version = findProperty('releaseVersion') ?: ''
                     pom {
                         name =
-                            findProperty('releaseName')
-                            ?: ''
+                                findProperty('releaseName')
+                                        ?: ''
                         description =
-                            findProperty('releaseDescription')
-                            ?: findProperty('releaseName')
-                            ?: ''
+                                findProperty('releaseDescription')
+                                        ?: findProperty('releaseName')
+                                        ?: ''
                         licenses {
                             license {
                                 name = 'The Apache Software License, Version 2.0'
@@ -60,6 +55,8 @@ afterEvaluate {
                 }
             }
         }
+    }
+    miregoPublish {
     }
 }
 tasks.withType(PublishToMavenRepository) { it.dependsOn lint, test }

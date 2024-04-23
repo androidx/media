@@ -1,0 +1,62 @@
+name: "Release"
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: "Build Androix-media3"
+    runs-on: ubuntu-22.04
+    env:
+      MAVEN_AWS_KEY: ${{secrets.MIREGO_MAVEN_AWS_ACCESS_KEY_ID}}
+      MAVEN_AWS_SECRET: ${{secrets.MIREGO_MAVEN_AWS_SECRET_ACCESS_KEY}}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Increment Version
+        run: |
+          version=$(sed -nr "s/^.+releaseVersion.*=.*'[0-9]+\.[0-9]+\.[0-9]+\.([0-9]+)'.*$/\1/p" constants.gradle)
+          new_version=$(printf '%04d\n' "$(expr $version + 1)")
+          sed -ri "s/^(.+releaseVersion.*=.*'[0-9]+\.[0-9]+\.[0-9]+\.)[0-9]+('.*)$/\1$new_version\2/g" constants.gradle
+          sed -ri "s/^(.*public static final String VERSION = \"[0-9]+\.[0-9]+\.[0-9]+\.)[0-9]+(\";.*)$/\1$new_version\2/g" libraries/common/src/main/java/androidx/media3/common/MediaLibraryInfo.java
+          full_version=$(sed -nr "s/^.+releaseVersion.*=.*'([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)'.*$/\1/p" constants.gradle)
+          git config --global user.name "$GITHUB_ACTOR"
+          git config --global user.email "$GITHUB_ACTOR@users.noreply.github.com"
+          git commit -am "Increment version to $full_version"
+          git push
+
+      - name: Configure Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: "zulu"
+          java-version: 11
+          cache: "gradle"
+
+      - name: Build and publish exoplayer
+        run: cd libraries/exoplayer && ../../gradlew publish
+
+      - name: Build and publish dash
+        run: cd libraries/exoplayer_dash && ../../gradlew publish
+
+      - name: Build and publish ui
+        run: cd libraries/ui && ../../gradlew publish
+
+      - name: Build and publish common
+        run: cd libraries/common && ../../gradlew publish
+
+      - name: Build and publish datasource
+        run: cd libraries/datasource && ../../gradlew publish
+
+      - name: Build and publish extractor
+        run: cd libraries/extractor && ../../gradlew publish
+
+      - name: Build and publish decoder
+        run: cd libraries/decoder && ../../gradlew publish
+
+      - name: Build and publish database
+        run: cd libraries/database && ../../gradlew publish
+
+      - name: Build and publish okhttp
+        run: cd libraries/datasource_okhttp && ../../gradlew publish
