@@ -46,11 +46,11 @@ public interface MediaDrmCallback {
   byte[] executeKeyRequest(UUID uuid, KeyRequest request) throws MediaDrmCallbackException;
 
   // MIREGO
-  default void onProvisionError(Exception e) {
+  default void onProvisionError(Throwable e) {
     // NOOP
   }
 
-  default void onKeyError(Exception e) {
+  default void onKeyError(Throwable e) {
     // NOOP
   }
   // MIREGO END
