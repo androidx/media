@@ -159,7 +159,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @Nullable private PlaceholderSurface placeholderSurface;
   private boolean haveReportedFirstFrameRenderedForCurrentSurface;
   private @C.VideoScalingMode int scalingMode;
+
   private boolean readyToRenderFirstFrameAfterReset;  // MIREGO added
+
   private long droppedFrameAccumulationStartTimeMs;
   private int droppedFrames;
   private int consecutiveDroppedFrameCount;
@@ -179,8 +181,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @Nullable private VideoSink videoSink;
 
   // MIREGO added block
-  private int skipCount = 0;
-  private long lastRender = 0;
   private long elapsedRealtimeNowUsPrev = 0;
   private long elapsedRealtimeUsPrev = 0;
   private long positionUsPrev = 0;
@@ -703,11 +703,13 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   @Override
   public boolean isReady() {
+
     boolean readyToReleaseFrames = super.isReady() && (videoSink == null || videoSink.isReady());
     if (readyToReleaseFrames
-        && ((placeholderSurface != null && displaySurface == placeholderSurface)
-            || getCodec() == null
-            || tunneling)) {
+        && (readyToRenderFirstFrameAfterReset  // MIREGO added
+        || (placeholderSurface != null && displaySurface == placeholderSurface)
+        || getCodec() == null
+        || tunneling)) {
       // Not releasing frames.
       return true;
     }
@@ -725,7 +727,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     droppedFrameAccumulationStartTimeMs = elapsedRealtimeMs;
     totalVideoFrameProcessingOffsetUs = 0;
     videoFrameProcessingOffsetCount = 0;
-    videoFrameReleaseControl.onStarted();
 
     // MIREGO added following block
     firstFrameRenderedSystemMs = 0;
@@ -733,8 +734,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     hasNotifiedAvDesyncError = false;
     hasNotifiedAvDesyncSkippedFramesError = false;
     queuedFrames = 0;
-    droppedFrameAccumulationStartTimeMs = SystemClock.elapsedRealtime();
-    lastRender = 0;
+
+    videoFrameReleaseControl.onStarted();
   }
 
   @Override
@@ -1078,8 +1079,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       case MimeTypes.VIDEO_H264:
         if ("BRAVIA 4K 2015".equals(Util.MODEL) // Sony Bravia 4K
             || ("Amazon".equals(Util.MANUFACTURER)
-                && ("KFSOWI".equals(Util.MODEL) // Kindle Soho
-                    || ("AFTS".equals(Util.MODEL) && codecInfo.secure)))) { // Fire TV Gen 2
+            && ("KFSOWI".equals(Util.MODEL) // Kindle Soho
+            || ("AFTS".equals(Util.MODEL) && codecInfo.secure)))) { // Fire TV Gen 2
           // Use the default value for cases where platform limitations may prevent buffers of the
           // calculated maximum input size from being allocated.
           return Format.NO_VALUE;
@@ -1471,16 +1472,44 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       case VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER:
         return false;
       case VideoFrameReleaseControl.FRAME_RELEASE_SCHEDULED:
-        return maybeReleaseFrame(checkStateNotNull(codec), bufferIndex, presentationTimeUs, format);
+        return maybeReleaseFrame(checkStateNotNull(codec), bufferIndex, presentationTimeUs, format, bufferPresentationTimeUs, positionUs);
       default:
         throw new IllegalStateException(String.valueOf(frameReleaseAction));
     }
   }
-  
+
   private boolean maybeReleaseFrame(
-      MediaCodecAdapter codec, int bufferIndex, long presentationTimeUs, Format format) {
+      MediaCodecAdapter codec,
+      int bufferIndex,
+      long presentationTimeUs,
+      Format format,
+      long bufferPresentationTimeUs, // MIREGO added
+      long positionUs // MIREGO added
+  ) {
     long releaseTimeNs = videoFrameReleaseInfo.getReleaseTimeNs();
     long earlyUs = videoFrameReleaseInfo.getEarlyUs();
+
+    long systemTimeNs = getClock().nanoTime();
+    long unadjustedFrameReleaseTimeNs = systemTimeNs + (earlyUs * 1000);
+
+    // MIREGO START
+    if ( (earlyUs < -Util.audioVideoDeltaToLogErrorMs * 1000 || earlyUs > Util.audioVideoDeltaToLogErrorMs * 1000) && !hasNotifiedAvDesyncError) {
+      Log.e(TAG, new PlaybackException("AV desync: video is offset by " + (earlyUs / 1000) + " ms",
+          new RuntimeException(), PlaybackException.ERROR_CODE_AUDIO_VIDEO_DESYNC));
+      hasNotifiedAvDesyncError = true;
+    }
+    int logLevel;
+    long timeMs = System.currentTimeMillis();
+    if (timeMs > lastLogProcessOutputBufferMs + 1000) {
+      logLevel = Log.LOG_LEVEL_VERBOSE1;
+      lastLogProcessOutputBufferMs = timeMs;
+    } else {
+      logLevel = Log.LOG_LEVEL_VERBOSE3;
+    }
+    Log.v(logLevel, TAG, "processOutputBuffer unadjustedFrameReleaseTimeUs: %d  bufferPresentationTimeUs: %d  positionUs: %d  earlyUs %d  playbackSpeed: %f",
+        unadjustedFrameReleaseTimeNs / 1000, bufferPresentationTimeUs, positionUs, earlyUs, getPlaybackSpeed());
+    // END MIREGO
+
     if (Util.SDK_INT >= 21) {
       // Let the underlying framework time the release.
       if (shouldSkipBuffersWithIdenticalReleaseTime() && releaseTimeNs == lastFrameReleaseTimeNs) {
@@ -1826,6 +1855,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       placeholderSurface = null;
     }
   }
+
 
   private void maybeSetupTunnelingForFirstFrame() {
     if (!tunneling || Util.SDK_INT < 23) {
@@ -2252,7 +2282,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       return true;
     }
     switch (Util.MODEL) {
-        // Workaround for some Fire OS devices.
+      // Workaround for some Fire OS devices.
       case "AFTA":
       case "AFTN":
       case "AFTR":
