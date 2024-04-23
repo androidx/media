@@ -455,7 +455,8 @@ public final class MediaMetricsListener
       return PlaybackStateEvent.STATE_ENDED;
     } else if (playerPlaybackState == Player.STATE_BUFFERING) {
       if (currentPlaybackState == PlaybackStateEvent.STATE_NOT_STARTED
-          || currentPlaybackState == PlaybackStateEvent.STATE_JOINING_FOREGROUND) {
+          || currentPlaybackState == PlaybackStateEvent.STATE_JOINING_FOREGROUND
+          || currentPlaybackState == PlaybackStateEvent.STATE_STOPPED) {
         return PlaybackStateEvent.STATE_JOINING_FOREGROUND;
       }
       if (!player.getPlayWhenReady()) {
