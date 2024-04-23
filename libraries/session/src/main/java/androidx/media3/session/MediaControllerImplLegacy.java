@@ -1068,12 +1068,25 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
   @Override
   public int getDeviceVolume() {
-    return controllerInfo.playerInfo.deviceVolume;
+    if (controllerInfo.playerInfo.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE) {
+      return controllerInfo.playerInfo.deviceVolume;
+    }
+    // For PLAYBACK_TYPE_LOCAL, call the compat controller directly here because we don't get the
+    // onAudioInfoChanged() callback notified when the volume changes.
+    return controllerCompat != null
+        ? LegacyConversions.convertToDeviceVolume(controllerCompat.getPlaybackInfo())
+        : 0;
   }
 
   @Override
   public boolean isDeviceMuted() {
-    return controllerInfo.playerInfo.deviceMuted;
+    if (controllerInfo.playerInfo.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE) {
+      return controllerInfo.playerInfo.deviceMuted;
+    }
+    // For PLAYBACK_TYPE_LOCAL, call the compat controller directly here because we don't get the
+    // onAudioInfoChanged() callback notified when the volume changes.
+    return controllerCompat != null
+        && LegacyConversions.convertToIsDeviceMuted(controllerCompat.getPlaybackInfo());
   }
 
   /**
