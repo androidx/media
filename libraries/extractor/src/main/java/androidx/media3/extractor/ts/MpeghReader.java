@@ -55,6 +55,7 @@ public final class MpeghReader implements ElementaryStreamReader {
   private static final int STATE_READING_PACKET_HEADER = 1;
   private static final int STATE_READING_PACKET_PAYLOAD = 2;
 
+  private static final int MHAS_SYNC_WORD_LENGTH = 3;
   private static final int MAX_MHAS_PACKET_HEADER_SIZE = 15;
 
   private @State int state;
@@ -224,8 +225,8 @@ public final class MpeghReader implements ElementaryStreamReader {
   }
 
   /**
-   * Locates the next SYNC value in the buffer, advancing the position to the byte that immediately
-   * follows it. If SYNC was not located, the position is advanced to the limit.
+   * Locates the next SYNC value in the buffer, advancing the position to the byte starting with the
+   * SYNC value. If SYNC was not located, the position is advanced to the limit.
    *
    * @param pesBuffer The buffer whose position should be advanced.
    * @return Whether SYNC was found.
@@ -243,6 +244,7 @@ public final class MpeghReader implements ElementaryStreamReader {
         syncBytes <<= C.BITS_PER_BYTE;
         syncBytes |= pesBuffer.readUnsignedByte();
         if (MpeghUtil.isSyncWord(syncBytes)) {
+          pesBuffer.setPosition(pesBuffer.getPosition() - MHAS_SYNC_WORD_LENGTH);
           syncBytes = 0;
           return true;
         }

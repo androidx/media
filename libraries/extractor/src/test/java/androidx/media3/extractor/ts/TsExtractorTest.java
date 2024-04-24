@@ -343,6 +343,15 @@ public final class TsExtractorTest {
   }
 
   @Test
+  public void sampleWithMpeghBlContSetRaiUnsetDai() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_mpegh_bl_cicp1_cont_setrai_unsetdai.ts",
+        simulationConfig);
+  }
+
+
+  @Test
   public void customPesReader() throws Exception {
     CustomTsPayloadReaderFactory factory = new CustomTsPayloadReaderFactory(true, false);
     TsExtractor tsExtractor =
