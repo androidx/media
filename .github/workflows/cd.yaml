@@ -60,3 +60,6 @@ jobs:
 
       - name: Build and publish okhttp
         run: cd libraries/datasource_okhttp && ../../gradlew publish
+
+      - name: Build and publish container
+        run: cd libraries/container && ../../gradlew publish
