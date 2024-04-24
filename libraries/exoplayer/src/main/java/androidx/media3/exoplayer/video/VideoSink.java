@@ -150,6 +150,9 @@ public interface VideoSink {
    */
   Surface getInputSurface();
 
+  /** Sets the {@link VideoFrameMetadataListener}. */
+  void setVideoFrameMetadataListener(VideoFrameMetadataListener videoFrameMetadataListener);
+
   /** Sets the playback speed. */
   void setPlaybackSpeed(@FloatRange(from = 0, fromInclusive = false) float speed);
 

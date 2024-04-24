@@ -307,11 +307,6 @@ public final class CompositingVideoSinkProvider
   }
 
   @Override
-  public void setVideoFrameMetadataListener(VideoFrameMetadataListener videoFrameMetadataListener) {
-    this.videoFrameMetadataListener = videoFrameMetadataListener;
-  }
-
-  @Override
   public void release() {
     if (state == STATE_RELEASED) {
       return;
@@ -514,6 +509,11 @@ public final class CompositingVideoSinkProvider
     }
     // Flush the render control again.
     checkStateNotNull(videoFrameRenderControl).flush();
+  }
+
+  private void setVideoFrameMetadataListener(
+      VideoFrameMetadataListener videoFrameMetadataListener) {
+    this.videoFrameMetadataListener = videoFrameMetadataListener;
   }
 
   private void setPlaybackSpeed(float speed) {
@@ -756,6 +756,12 @@ public final class CompositingVideoSinkProvider
         throw new VideoSinkException(
             e, inputFormat != null ? inputFormat : new Format.Builder().build());
       }
+    }
+
+    @Override
+    public void setVideoFrameMetadataListener(
+        VideoFrameMetadataListener videoFrameMetadataListener) {
+      CompositingVideoSinkProvider.this.setVideoFrameMetadataListener(videoFrameMetadataListener);
     }
 
     @Override

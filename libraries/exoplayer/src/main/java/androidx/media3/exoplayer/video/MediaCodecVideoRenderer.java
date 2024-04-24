@@ -756,7 +756,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         break;
       case MSG_SET_VIDEO_FRAME_METADATA_LISTENER:
         frameMetadataListener = (VideoFrameMetadataListener) checkNotNull(message);
-        videoSinkProvider.setVideoFrameMetadataListener(frameMetadataListener);
+        if (videoSink != null) {
+          videoSink.setVideoFrameMetadataListener(frameMetadataListener);
+        }
         break;
       case MSG_SET_AUDIO_SESSION_ID:
         int tunnelingAudioSessionId = (int) checkNotNull(message);
@@ -1112,6 +1114,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
             // Pass a direct executor since the callback handling involves posting on the app looper
             // again, so there's no need to do two hops.
             directExecutor());
+        if (frameMetadataListener != null) {
+          videoSink.setVideoFrameMetadataListener(frameMetadataListener);
+        }
         if (enableEffectsForOwnSinkProvider) {
           if (displaySurface != null && outputResolution != null) {
             videoSinkProvider.setOutputSurfaceInfo(displaySurface, outputResolution);

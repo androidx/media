@@ -79,9 +79,6 @@ public interface VideoSinkProvider {
   /** Clears the set output surface info. */
   void clearOutputSurfaceInfo();
 
-  /** Sets a {@link VideoFrameMetadataListener} which is used in the returned {@link VideoSink}. */
-  void setVideoFrameMetadataListener(VideoFrameMetadataListener videoFrameMetadataListener);
-
   /** Releases the sink provider. */
   void release();
 }
