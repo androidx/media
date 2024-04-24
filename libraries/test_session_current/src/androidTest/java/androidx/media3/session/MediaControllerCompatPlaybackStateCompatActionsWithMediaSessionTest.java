@@ -85,8 +85,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaSession mediaSession = createMediaSession(player);
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
 
-    long actions =
-        getFirstPlaybackState(controllerCompat, threadTestRule.getHandler()).getActions();
+    long actions = controllerCompat.getPlaybackState().getActions();
 
     assertThat(actions & PlaybackStateCompat.ACTION_PLAY_PAUSE).isNotEqualTo(0);
     assertThat(actions & PlaybackStateCompat.ACTION_PLAY).isNotEqualTo(0);
@@ -123,8 +122,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaSession mediaSession = createMediaSession(player);
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
 
-    long actions =
-        getFirstPlaybackState(controllerCompat, threadTestRule.getHandler()).getActions();
+    long actions = controllerCompat.getPlaybackState().getActions();
 
     assertThat(actions & PlaybackStateCompat.ACTION_PLAY_PAUSE).isEqualTo(0);
     assertThat(actions & PlaybackStateCompat.ACTION_PLAY).isEqualTo(0);
@@ -169,8 +167,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
 
     assertThat(
-            getFirstPlaybackState(controllerCompat, threadTestRule.getHandler()).getActions()
-                & PlaybackStateCompat.ACTION_PREPARE)
+            controllerCompat.getPlaybackState().getActions() & PlaybackStateCompat.ACTION_PREPARE)
         .isNotEqualTo(0);
 
     CountDownLatch latch = new CountDownLatch(1);
@@ -201,8 +198,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
 
     assertThat(
-            getFirstPlaybackState(controllerCompat, threadTestRule.getHandler()).getActions()
-                & PlaybackStateCompat.ACTION_PREPARE)
+            controllerCompat.getPlaybackState().getActions() & PlaybackStateCompat.ACTION_PREPARE)
         .isEqualTo(0);
 
     AtomicInteger playbackStateChanges = new AtomicInteger();
@@ -247,9 +243,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaSession mediaSession = createMediaSession(player);
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
 
-    assertThat(
-            getFirstPlaybackState(controllerCompat, threadTestRule.getHandler()).getActions()
-                & PlaybackStateCompat.ACTION_REWIND)
+    assertThat(controllerCompat.getPlaybackState().getActions() & PlaybackStateCompat.ACTION_REWIND)
         .isNotEqualTo(0);
 
     AtomicInteger discontinuityReason = new AtomicInteger(-1);
@@ -291,9 +285,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaSession mediaSession = createMediaSession(player);
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
 
-    assertThat(
-            getFirstPlaybackState(controllerCompat, threadTestRule.getHandler()).getActions()
-                & PlaybackStateCompat.ACTION_REWIND)
+    assertThat(controllerCompat.getPlaybackState().getActions() & PlaybackStateCompat.ACTION_REWIND)
         .isEqualTo(0);
 
     AtomicBoolean receivedOnPositionDiscontinuity = new AtomicBoolean();
@@ -341,7 +333,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
 
     assertThat(
-            getFirstPlaybackState(controllerCompat, threadTestRule.getHandler()).getActions()
+            controllerCompat.getPlaybackState().getActions()
                 & PlaybackStateCompat.ACTION_FAST_FORWARD)
         .isNotEqualTo(0);
 
@@ -383,7 +375,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
 
     assertThat(
-            getFirstPlaybackState(controllerCompat, threadTestRule.getHandler()).getActions()
+            controllerCompat.getPlaybackState().getActions()
                 & PlaybackStateCompat.ACTION_FAST_FORWARD)
         .isEqualTo(0);
 
@@ -432,8 +424,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
 
     assertThat(
-            getFirstPlaybackState(controllerCompat, threadTestRule.getHandler()).getActions()
-                & PlaybackStateCompat.ACTION_SEEK_TO)
+            controllerCompat.getPlaybackState().getActions() & PlaybackStateCompat.ACTION_SEEK_TO)
         .isNotEqualTo(0);
 
     AtomicInteger discontinuityReason = new AtomicInteger(-1);
@@ -475,8 +466,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
 
     assertThat(
-            getFirstPlaybackState(controllerCompat, threadTestRule.getHandler()).getActions()
-                & PlaybackStateCompat.ACTION_SEEK_TO)
+            controllerCompat.getPlaybackState().getActions() & PlaybackStateCompat.ACTION_SEEK_TO)
         .isEqualTo(0);
 
     AtomicBoolean receiovedOnPositionDiscontinuity = new AtomicBoolean();
@@ -526,7 +516,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
 
     assertThat(
-            getFirstPlaybackState(controllerCompat, threadTestRule.getHandler()).getActions()
+            controllerCompat.getPlaybackState().getActions()
                 & PlaybackStateCompat.ACTION_SKIP_TO_QUEUE_ITEM)
         .isNotEqualTo(0);
 
@@ -570,7 +560,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
 
     assertThat(
-            getFirstPlaybackState(controllerCompat, threadTestRule.getHandler()).getActions()
+            controllerCompat.getPlaybackState().getActions()
                 & PlaybackStateCompat.ACTION_SKIP_TO_QUEUE_ITEM)
         .isEqualTo(0);
 
@@ -626,7 +616,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
 
     assertThat(
-            getFirstPlaybackState(controllerCompat, threadTestRule.getHandler()).getActions()
+            controllerCompat.getPlaybackState().getActions()
                 & PlaybackStateCompat.ACTION_SKIP_TO_NEXT)
         .isNotEqualTo(0);
 
@@ -676,7 +666,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
 
     assertThat(
-            getFirstPlaybackState(controllerCompat, threadTestRule.getHandler()).getActions()
+            controllerCompat.getPlaybackState().getActions()
                 & PlaybackStateCompat.ACTION_SKIP_TO_NEXT)
         .isNotEqualTo(0);
 
@@ -724,7 +714,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
 
     assertThat(
-            getFirstPlaybackState(controllerCompat, threadTestRule.getHandler()).getActions()
+            controllerCompat.getPlaybackState().getActions()
                 & PlaybackStateCompat.ACTION_SKIP_TO_NEXT)
         .isEqualTo(0);
 
@@ -782,7 +772,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
 
     assertThat(
-            getFirstPlaybackState(controllerCompat, threadTestRule.getHandler()).getActions()
+            controllerCompat.getPlaybackState().getActions()
                 & PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS)
         .isNotEqualTo(0);
 
@@ -834,7 +824,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
 
     assertThat(
-            getFirstPlaybackState(controllerCompat, threadTestRule.getHandler()).getActions()
+            controllerCompat.getPlaybackState().getActions()
                 & PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS)
         .isNotEqualTo(0);
 
@@ -884,7 +874,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
 
     assertThat(
-            getFirstPlaybackState(controllerCompat, threadTestRule.getHandler()).getActions()
+            controllerCompat.getPlaybackState().getActions()
                 & PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS)
         .isEqualTo(0);
 
@@ -936,8 +926,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
             });
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
 
-    long actions =
-        getFirstPlaybackState(controllerCompat, threadTestRule.getHandler()).getActions();
+    long actions = controllerCompat.getPlaybackState().getActions();
 
     assertThat(actions & PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID).isNotEqualTo(0);
     assertThat(actions & PlaybackStateCompat.ACTION_PLAY_FROM_SEARCH).isNotEqualTo(0);
@@ -1009,8 +998,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
             });
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
 
-    long actions =
-        getFirstPlaybackState(controllerCompat, threadTestRule.getHandler()).getActions();
+    long actions = controllerCompat.getPlaybackState().getActions();
 
     assertThat(actions & PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID).isEqualTo(0);
     assertThat(actions & PlaybackStateCompat.ACTION_PLAY_FROM_SEARCH).isEqualTo(0);
@@ -1061,7 +1049,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
 
     assertThat(
-            getFirstPlaybackState(controllerCompat, threadTestRule.getHandler()).getActions()
+            controllerCompat.getPlaybackState().getActions()
                 & PlaybackStateCompat.ACTION_SET_REPEAT_MODE)
         .isNotEqualTo(0);
 
@@ -1092,7 +1080,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
 
     assertThat(
-            getFirstPlaybackState(controllerCompat, threadTestRule.getHandler()).getActions()
+            controllerCompat.getPlaybackState().getActions()
                 & PlaybackStateCompat.ACTION_SET_REPEAT_MODE)
         .isEqualTo(0);
 
@@ -1132,7 +1120,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
 
     assertThat(
-            getFirstPlaybackState(controllerCompat, threadTestRule.getHandler()).getActions()
+            controllerCompat.getPlaybackState().getActions()
                 & PlaybackStateCompat.ACTION_SET_PLAYBACK_SPEED)
         .isNotEqualTo(0);
 
@@ -1166,7 +1154,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
 
     assertThat(
-            getFirstPlaybackState(controllerCompat, threadTestRule.getHandler()).getActions()
+            controllerCompat.getPlaybackState().getActions()
                 & PlaybackStateCompat.ACTION_SET_PLAYBACK_SPEED)
         .isEqualTo(0);
 
@@ -1204,8 +1192,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaSession mediaSession = createMediaSession(player);
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
 
-    long actions =
-        getFirstPlaybackState(controllerCompat, threadTestRule.getHandler()).getActions();
+    long actions = controllerCompat.getPlaybackState().getActions();
 
     assertThat(actions & PlaybackStateCompat.ACTION_SET_SHUFFLE_MODE).isNotEqualTo(0);
     assertThat(actions & PlaybackStateCompat.ACTION_SET_SHUFFLE_MODE_ENABLED).isNotEqualTo(0);
@@ -1239,8 +1226,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaSession mediaSession = createMediaSession(player);
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
 
-    long actions =
-        getFirstPlaybackState(controllerCompat, threadTestRule.getHandler()).getActions();
+    long actions = controllerCompat.getPlaybackState().getActions();
 
     assertThat(actions & PlaybackStateCompat.ACTION_SET_SHUFFLE_MODE).isEqualTo(0);
     assertThat(actions & PlaybackStateCompat.ACTION_SET_SHUFFLE_MODE_ENABLED).isEqualTo(0);
@@ -1291,8 +1277,6 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
             });
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
 
-    // Wait until a playback state is sent to the controller.
-    getFirstPlaybackState(controllerCompat, threadTestRule.getHandler());
     assertThat(controllerCompat.getFlags() & MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS)
         .isNotEqualTo(0);
 
@@ -1348,8 +1332,6 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
             });
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
 
-    // Wait until a playback state is sent to the controller.
-    getFirstPlaybackState(controllerCompat, threadTestRule.getHandler());
     assertThat(controllerCompat.getFlags() & MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS)
         .isEqualTo(0);
     assertThrows(
@@ -1658,22 +1640,6 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     assertThat(connectionLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
   }
 
-  private PlaybackStateCompat getFirstPlaybackState(
-      MediaControllerCompat mediaControllerCompat, Handler handler) throws InterruptedException {
-    LinkedBlockingDeque<PlaybackStateCompat> playbackStateCompats = new LinkedBlockingDeque<>();
-    MediaControllerCompat.Callback callback =
-        new MediaControllerCompat.Callback() {
-          @Override
-          public void onPlaybackStateChanged(PlaybackStateCompat state) {
-            playbackStateCompats.add(state);
-          }
-        };
-    mediaControllerCompat.registerCallback(callback, handler);
-    PlaybackStateCompat playbackStateCompat = playbackStateCompats.take();
-    mediaControllerCompat.unregisterCallback(callback);
-    return playbackStateCompat;
-  }
-
   /**
    * Creates a default {@link ExoPlayer} instance on the main thread. Use {@link
    * #releasePlayer(Player)} to release the returned instance on the main thread.
@@ -1719,9 +1685,22 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     return session.build();
   }
 
-  private static MediaControllerCompat createMediaControllerCompat(MediaSession mediaSession) {
-    return new MediaControllerCompat(
-        ApplicationProvider.getApplicationContext(), mediaSession.getSessionCompatToken());
+  private static MediaControllerCompat createMediaControllerCompat(MediaSession mediaSession)
+      throws Exception {
+    MediaControllerCompat controllerCompat =
+        new MediaControllerCompat(
+            ApplicationProvider.getApplicationContext(), mediaSession.getSessionCompatToken());
+    CountDownLatch controllerReady = new CountDownLatch(1);
+    controllerCompat.registerCallback(
+        new MediaControllerCompat.Callback() {
+          @Override
+          public void onSessionReady() {
+            controllerReady.countDown();
+          }
+        },
+        new Handler(Looper.getMainLooper()));
+    controllerReady.await();
+    return controllerCompat;
   }
 
   /** Releases the {@code player} on the main thread. */
