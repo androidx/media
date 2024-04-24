@@ -69,7 +69,8 @@ public class AudioTrackPositionTrackerTest {
         /* isPassthrough= */ false,
         C.ENCODING_PCM_16BIT,
         OUTPUT_PCM_FRAME_SIZE,
-        MIN_BUFFER_SIZE);
+        MIN_BUFFER_SIZE,
+        false);
     audioTrackPositionTracker.start();
     audioTrack.play();
     // Advance and write to audio track at least twice to move rawHeadPosition past wrap point.
@@ -93,7 +94,8 @@ public class AudioTrackPositionTrackerTest {
         /* isPassthrough= */ false,
         C.ENCODING_PCM_16BIT,
         OUTPUT_PCM_FRAME_SIZE,
-        MIN_BUFFER_SIZE);
+        MIN_BUFFER_SIZE,
+        false);
     audioTrackPositionTracker.start();
     audioTrack.play();
     // Advance and write to audio track at least twice to move rawHeadPosition past wrap point.
@@ -120,7 +122,8 @@ public class AudioTrackPositionTrackerTest {
         /* isPassthrough= */ false,
         C.ENCODING_PCM_16BIT,
         OUTPUT_PCM_FRAME_SIZE,
-        MIN_BUFFER_SIZE);
+        MIN_BUFFER_SIZE,
+        false);
     audioTrackPositionTracker.start();
     audioTrack.play();
     // Advance and write to audio track at least twice to move rawHeadPosition past wrap point.
@@ -155,7 +158,8 @@ public class AudioTrackPositionTrackerTest {
         /* isPassthrough= */ false,
         C.ENCODING_PCM_16BIT,
         OUTPUT_PCM_FRAME_SIZE,
-        MIN_BUFFER_SIZE);
+        MIN_BUFFER_SIZE,
+        false);
     audioTrackPositionTracker.start();
     audioTrack1.play();
     // Advance and write to audio track at least twice to move rawHeadPosition past wrap point.
@@ -178,7 +182,8 @@ public class AudioTrackPositionTrackerTest {
         /* isPassthrough= */ false,
         C.ENCODING_PCM_16BIT,
         OUTPUT_PCM_FRAME_SIZE,
-        MIN_BUFFER_SIZE);
+        MIN_BUFFER_SIZE,
+        false);
     audioTrackPositionTracker.start();
     audioTrack2.play();
     writeBytesAndAdvanceTime(audioTrack2);
@@ -197,7 +202,8 @@ public class AudioTrackPositionTrackerTest {
         /* isPassthrough= */ false,
         C.ENCODING_PCM_16BIT,
         OUTPUT_PCM_FRAME_SIZE,
-        MIN_BUFFER_SIZE);
+        MIN_BUFFER_SIZE,
+        false);
     audioTrackPositionTracker.start();
     audioTrack.play();
 
@@ -221,7 +227,8 @@ public class AudioTrackPositionTrackerTest {
         /* isPassthrough= */ false,
         C.ENCODING_PCM_16BIT,
         OUTPUT_PCM_FRAME_SIZE,
-        MIN_BUFFER_SIZE);
+        MIN_BUFFER_SIZE,
+        false);
     audioTrackPositionTracker.start();
     audioTrack.play();
     for (int i = 0; i < 2; i++) {
@@ -245,7 +252,8 @@ public class AudioTrackPositionTrackerTest {
         /* isPassthrough= */ false,
         C.ENCODING_PCM_16BIT,
         OUTPUT_PCM_FRAME_SIZE,
-        MIN_BUFFER_SIZE);
+        MIN_BUFFER_SIZE,
+        false);
     audioTrackPositionTracker.start();
     audioTrack.play();
     for (int i = 0; i < 2; i++) {
