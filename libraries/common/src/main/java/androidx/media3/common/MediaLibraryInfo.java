@@ -29,7 +29,7 @@ public final class MediaLibraryInfo {
 
   /** The version of the library expressed as a string, for example "1.2.3" or "1.2.0-beta01". */
   // Intentionally hardcoded. Do not derive from other constants (e.g. VERSION_INT) or vice versa.
-  public static final String VERSION = "1.3.1.0003";
+  public static final String VERSION = "1.3.1.0004";
 
   /** The version of the library expressed as {@code TAG + "/" + VERSION}. */
   // Intentionally hardcoded. Do not derive from other constants (e.g. VERSION) or vice versa.
