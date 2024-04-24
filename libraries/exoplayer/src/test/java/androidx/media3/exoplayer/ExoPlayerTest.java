@@ -14474,7 +14474,7 @@ public final class ExoPlayerTest {
     MediaMetadata metadataAfterTransition = player.getMediaMetadata();
     player.release();
 
-    assertThat(metadataAfterTransition.title).isEqualTo("title");
+    assertThat(metadataAfterTransition.title.toString()).isEqualTo("title");
   }
 
   @Test
