@@ -134,9 +134,8 @@ import java.nio.ByteBuffer;
       if (Util.SDK_INT < 34) {
         return false;
       }
-      // TODO: b/316565675 - Remove restriction to video once MediaCodec supports
-      //  CONFIGURE_FLAG_USE_CRYPTO_ASYNC for audio too
-      return MimeTypes.isVideo(format.sampleMimeType);
+      // CONFIGURE_FLAG_USE_CRYPTO_ASYNC only works for audio on API 35+ (see b/316565675).
+      return Util.SDK_INT >= 35 || MimeTypes.isVideo(format.sampleMimeType);
     }
   }
 
