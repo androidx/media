@@ -201,7 +201,7 @@ public final class CompositingVideoSinkProvider
   private final PreviewingVideoGraph.Factory previewingVideoGraphFactory;
   private final CopyOnWriteArraySet<CompositingVideoSinkProvider.Listener> listeners;
 
-  private Clock clock;
+  private @MonotonicNonNull Clock clock;
   private @MonotonicNonNull VideoFrameReleaseControl videoFrameReleaseControl;
   private @MonotonicNonNull VideoFrameRenderControl videoFrameRenderControl;
   private @MonotonicNonNull Format outputFormat;
@@ -218,7 +218,6 @@ public final class CompositingVideoSinkProvider
     videoSinkImpl = new VideoSinkImpl(context);
     previewingVideoGraphFactory = checkStateNotNull(builder.previewingVideoGraphFactory);
     listeners = new CopyOnWriteArraySet<>();
-    clock = Clock.DEFAULT;
     state = STATE_CREATED;
     playbackSpeed = 1f;
     addListener(videoSinkImpl);
@@ -257,12 +256,6 @@ public final class CompositingVideoSinkProvider
   @Nullable
   public VideoFrameReleaseControl getVideoFrameReleaseControl() {
     return videoFrameReleaseControl;
-  }
-
-  @Override
-  public void setClock(Clock clock) {
-    checkState(!isInitialized());
-    this.clock = clock;
   }
 
   @Override
@@ -382,7 +375,7 @@ public final class CompositingVideoSinkProvider
       Format format = outputFormat == null ? new Format.Builder().build() : outputFormat;
       videoFrameMetadataListener.onVideoFrameAboutToBeRendered(
           /* presentationTimeUs= */ presentationTimeUs - streamOffsetUs,
-          clock.nanoTime(),
+          checkStateNotNull(clock).nanoTime(),
           format,
           /* mediaFormat= */ null);
     }
@@ -424,11 +417,12 @@ public final class CompositingVideoSinkProvider
 
   // Internal methods
 
-  private VideoFrameProcessor initialize(Format sourceFormat) throws VideoSink.VideoSinkException {
+  private VideoFrameProcessor initialize(Format sourceFormat, Clock clock)
+      throws VideoSink.VideoSinkException {
     checkState(state == STATE_CREATED);
     checkState(videoFrameRenderControl != null && videoFrameReleaseControl != null);
 
-    // Lazily initialize the handler here so it's initialized on the playback looper.
+    this.clock = clock;
     handler = clock.createHandler(checkStateNotNull(Looper.myLooper()), /* callback= */ null);
 
     ColorInfo inputColorInfo = getAdjustedInputColorInfo(sourceFormat.colorInfo);
@@ -582,9 +576,9 @@ public final class CompositingVideoSinkProvider
     // VideoSink impl
 
     @Override
-    public void initialize(Format sourceFormat) throws VideoSinkException {
+    public void initialize(Format sourceFormat, Clock clock) throws VideoSinkException {
       checkState(!isInitialized());
-      videoFrameProcessor = CompositingVideoSinkProvider.this.initialize(sourceFormat);
+      videoFrameProcessor = CompositingVideoSinkProvider.this.initialize(sourceFormat, clock);
     }
 
     @Override

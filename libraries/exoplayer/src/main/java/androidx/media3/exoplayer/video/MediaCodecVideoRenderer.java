@@ -53,7 +53,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.VideoSize;
-import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.Size;
@@ -622,9 +621,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @Override
   protected void onInit() {
     super.onInit();
-    Clock clock = getClock();
-    videoFrameReleaseControl.setClock(clock);
-    videoSinkProvider.setClock(clock);
+    videoFrameReleaseControl.setClock(getClock());
   }
 
   @Override
@@ -1073,7 +1070,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       videoSink = videoSinkProvider.getSink();
       if (!videoSink.isInitialized()) {
         try {
-          videoSink.initialize(format);
+          videoSink.initialize(format, getClock());
         } catch (VideoSink.VideoSinkException e) {
           throw createRendererException(
               e, format, PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSOR_INIT_FAILED);

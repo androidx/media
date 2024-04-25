@@ -34,7 +34,7 @@ public interface VideoSinkProvider {
    * during rendering.
    *
    * <p>Must be called before the first {@linkplain #getSink() sink} is {@linkplain
-   * VideoSink#initialize(Format) initialized}.
+   * VideoSink#initialize(Format, Clock) initialized}.
    */
   void setVideoFrameReleaseControl(VideoFrameReleaseControl videoFrameReleaseControl);
 
@@ -46,14 +46,6 @@ public interface VideoSinkProvider {
    * non-null value before rendering begins.
    */
   @Nullable VideoFrameReleaseControl getVideoFrameReleaseControl();
-
-  /**
-   * Sets the {@link Clock} that the provider should use internally.
-   *
-   * <p>Must be called before the first {@linkplain #getSink() sink} is {@linkplain
-   * VideoSink#initialize(Format) initialized}.
-   */
-  void setClock(Clock clock);
 
   /** Sets video effects on this provider to apply immediately. */
   void setVideoEffects(List<Effect> videoEffects);

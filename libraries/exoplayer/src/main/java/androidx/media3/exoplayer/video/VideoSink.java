@@ -24,6 +24,7 @@ import androidx.annotation.IntDef;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.VideoSize;
+import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.util.UnstableApi;
 import java.lang.annotation.Documented;
@@ -112,11 +113,12 @@ public interface VideoSink {
    * Initializes the video sink.
    *
    * @param sourceFormat The format of the compressed video.
+   * @param clock The {@link Clock} that should be used.
    * @throws VideoSink.VideoSinkException If initializing the sink failed.
    */
-  void initialize(Format sourceFormat) throws VideoSinkException;
+  void initialize(Format sourceFormat, Clock clock) throws VideoSinkException;
 
-  /** Returns whether the video sink is {@linkplain #initialize(Format) initialized}. */
+  /** Returns whether the video sink is {@linkplain #initialize(Format, Clock) initialized}. */
   boolean isInitialized();
 
   /**
@@ -146,7 +148,7 @@ public interface VideoSink {
   /**
    * Returns the input {@link Surface} where the video sink consumes input frames from.
    *
-   * <p>Must be called after the sink is {@linkplain #initialize(Format) initialized}.
+   * <p>Must be called after the sink is {@linkplain #initialize(Format, Clock) initialized}.
    */
   Surface getInputSurface();
 
@@ -159,7 +161,7 @@ public interface VideoSink {
   /**
    * Informs the video sink that a new input stream will be queued.
    *
-   * <p>Must be called after the sink is {@linkplain #initialize(Format) initialized}.
+   * <p>Must be called after the sink is {@linkplain #initialize(Format, Clock) initialized}.
    *
    * @param inputType The {@link InputType} of the stream.
    * @param format The {@link Format} of the stream.
@@ -170,7 +172,7 @@ public interface VideoSink {
    * Informs the video sink that a frame will be queued to its {@linkplain #getInputSurface() input
    * surface}.
    *
-   * <p>Must be called after the sink is {@linkplain #initialize(Format) initialized}.
+   * <p>Must be called after the sink is {@linkplain #initialize(Format, Clock) initialized}.
    *
    * @param framePresentationTimeUs The frame's presentation time, in microseconds.
    * @param isLastFrame Whether this is the last frame of the video stream.
@@ -183,7 +185,7 @@ public interface VideoSink {
   /**
    * Provides an input {@link Bitmap} to the video sink.
    *
-   * <p>Must be called after the sink is {@linkplain #initialize(Format) initialized}.
+   * <p>Must be called after the sink is {@linkplain #initialize(Format, Clock) initialized}.
    *
    * @param inputBitmap The {@link Bitmap} queued to the video sink.
    * @param timestampIterator The times within the current stream that the bitmap should be shown
@@ -196,7 +198,7 @@ public interface VideoSink {
   /**
    * Incrementally renders processed video frames.
    *
-   * <p>Must be called after the sink is {@linkplain #initialize(Format) initialized}.
+   * <p>Must be called after the sink is {@linkplain #initialize(Format, Clock) initialized}.
    *
    * @param positionUs The current playback position, in microseconds.
    * @param elapsedRealtimeUs {@link android.os.SystemClock#elapsedRealtime()} in microseconds,
