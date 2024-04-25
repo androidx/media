@@ -51,6 +51,9 @@ public final class Dumper {
   @CanIgnoreReturnValue
   public Dumper add(String field, @Nullable Object value) {
     checkNotNull(value);
+    if (value instanceof byte[]) {
+      return add(field, (byte[]) value);
+    }
     String[] lines = Util.split(value.toString(), "\n");
     addLine(field + " = " + lines[0]);
     int fieldValueAdditionalIndent = field.length() + 3;

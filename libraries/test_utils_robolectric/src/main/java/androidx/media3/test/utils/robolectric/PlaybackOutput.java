@@ -19,8 +19,16 @@ import static java.lang.Math.max;
 
 import android.graphics.Bitmap;
 import androidx.annotation.Nullable;
+import androidx.media3.common.HeartRating;
+import androidx.media3.common.MediaMetadata;
+import androidx.media3.common.MediaMetadata.MediaType;
+import androidx.media3.common.MediaMetadata.PictureType;
 import androidx.media3.common.Metadata;
+import androidx.media3.common.PercentageRating;
 import androidx.media3.common.Player;
+import androidx.media3.common.Rating;
+import androidx.media3.common.StarRating;
+import androidx.media3.common.ThumbRating;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.UnstableApi;
@@ -58,6 +66,7 @@ public final class PlaybackOutput implements Dumper.Dumpable {
   private final CapturingRenderersFactory capturingRenderersFactory;
 
   private final List<Metadata> metadatas;
+  private final List<MediaMetadata> mediaMetadatas;
   private final List<CueGroup> subtitles;
   private final List<List<Cue>> subtitlesFromDeprecatedTextOutput;
 
@@ -65,6 +74,7 @@ public final class PlaybackOutput implements Dumper.Dumpable {
     this.capturingRenderersFactory = capturingRenderersFactory;
 
     metadatas = Collections.synchronizedList(new ArrayList<>());
+    mediaMetadatas = Collections.synchronizedList(new ArrayList<>());
     subtitles = Collections.synchronizedList(new ArrayList<>());
     subtitlesFromDeprecatedTextOutput = Collections.synchronizedList(new ArrayList<>());
     // TODO: Consider passing playback position into MetadataOutput. Calling
@@ -75,6 +85,11 @@ public final class PlaybackOutput implements Dumper.Dumpable {
           @Override
           public void onMetadata(Metadata metadata) {
             metadatas.add(metadata);
+          }
+
+          @Override
+          public void onMediaMetadataChanged(MediaMetadata mediaMetadata) {
+            mediaMetadatas.add(mediaMetadata);
           }
 
           @SuppressWarnings("deprecation") // Intentionally testing deprecated output
@@ -112,6 +127,7 @@ public final class PlaybackOutput implements Dumper.Dumpable {
     capturingRenderersFactory.dump(dumper);
 
     dumpMetadata(dumper);
+    dumpMediaMetadata(dumper);
     dumpSubtitles(dumper);
   }
 
@@ -155,6 +171,206 @@ public final class PlaybackOutput implements Dumper.Dumpable {
     } else {
       return entry.getClass().getSimpleName();
     }
+  }
+
+  private void dumpMediaMetadata(Dumper dumper) {
+    if (mediaMetadatas.isEmpty()) {
+      return;
+    }
+    dumper.startBlock("Listener.onMediaMetadata");
+    for (int i = 0; i < mediaMetadatas.size(); i++) {
+      dumper.startBlock("MediaMetadata[" + i + "]");
+      MediaMetadata mediaMetadata = mediaMetadatas.get(i);
+      dumpIfNotEqual(dumper, "title", mediaMetadata.title, null);
+      dumpIfNotEqual(dumper, "artist", mediaMetadata.artist, null);
+      dumpIfNotEqual(dumper, "albumTitle", mediaMetadata.albumTitle, null);
+      dumpIfNotEqual(dumper, "albumArtist", mediaMetadata.albumArtist, null);
+      dumpIfNotEqual(dumper, "displayTitle", mediaMetadata.displayTitle, null);
+      dumpIfNotEqual(dumper, "subtitle", mediaMetadata.subtitle, null);
+      dumpIfNotEqual(dumper, "description", mediaMetadata.description, null);
+      dumpIfNotEqual(dumper, "userRating", ratingString(mediaMetadata.userRating), null);
+      dumpIfNotEqual(dumper, "overallRating", ratingString(mediaMetadata.overallRating), null);
+      dumpIfNotEqual(dumper, "artworkData", mediaMetadata.artworkData, null);
+      dumpIfNotEqual(
+          dumper, "artworkDataType", pictureTypeString(mediaMetadata.artworkDataType), null);
+      dumpIfNotEqual(dumper, "artworkUri", mediaMetadata.artworkUri, null);
+      dumpIfNotEqual(dumper, "trackNumber", mediaMetadata.trackNumber, null);
+      dumpIfNotEqual(dumper, "totalTrackCount", mediaMetadata.totalTrackCount, null);
+      dumpIfNotEqual(dumper, "isBrowsable", mediaMetadata.isBrowsable, null);
+      dumpIfNotEqual(dumper, "isPlayable", mediaMetadata.isPlayable, null);
+      dumpIfNotEqual(dumper, "recordingYear", mediaMetadata.recordingYear, null);
+      dumpIfNotEqual(dumper, "recordingMonth", mediaMetadata.recordingMonth, null);
+      dumpIfNotEqual(dumper, "recordingDay", mediaMetadata.recordingDay, null);
+      dumpIfNotEqual(dumper, "releaseYear", mediaMetadata.releaseYear, null);
+      dumpIfNotEqual(dumper, "releaseMonth", mediaMetadata.releaseMonth, null);
+      dumpIfNotEqual(dumper, "releaseDay", mediaMetadata.releaseDay, null);
+      dumpIfNotEqual(dumper, "writer", mediaMetadata.writer, null);
+      dumpIfNotEqual(dumper, "composer", mediaMetadata.composer, null);
+      dumpIfNotEqual(dumper, "conductor", mediaMetadata.conductor, null);
+      dumpIfNotEqual(dumper, "discNumber", mediaMetadata.discNumber, null);
+      dumpIfNotEqual(dumper, "totalDiscCount", mediaMetadata.totalDiscCount, null);
+      dumpIfNotEqual(dumper, "genre", mediaMetadata.genre, null);
+      dumpIfNotEqual(dumper, "compilation", mediaMetadata.compilation, null);
+      dumpIfNotEqual(dumper, "station", mediaMetadata.station, null);
+      dumpIfNotEqual(dumper, "mediaType", mediaTypeString(mediaMetadata.mediaType), null);
+      dumpIfNotEqual(dumper, "extras", mediaMetadata.extras, null);
+      dumper.endBlock();
+    }
+    dumper.endBlock();
+  }
+
+  @Nullable
+  private static String pictureTypeString(@Nullable @PictureType Integer pictureType) {
+    if (pictureType == null) {
+      return null;
+    }
+    switch (pictureType) {
+      case MediaMetadata.PICTURE_TYPE_OTHER:
+        return "other";
+      case MediaMetadata.PICTURE_TYPE_FILE_ICON:
+        return "file icon";
+      case MediaMetadata.PICTURE_TYPE_FILE_ICON_OTHER:
+        return "file icon (other)";
+      case MediaMetadata.PICTURE_TYPE_FRONT_COVER:
+        return "front cover";
+      case MediaMetadata.PICTURE_TYPE_BACK_COVER:
+        return "back cover";
+      case MediaMetadata.PICTURE_TYPE_LEAFLET_PAGE:
+        return "leaflet page";
+      case MediaMetadata.PICTURE_TYPE_MEDIA:
+        return "media";
+      case MediaMetadata.PICTURE_TYPE_LEAD_ARTIST_PERFORMER:
+        return "lead performer";
+      case MediaMetadata.PICTURE_TYPE_ARTIST_PERFORMER:
+        return "performer";
+      case MediaMetadata.PICTURE_TYPE_CONDUCTOR:
+        return "conductor";
+      case MediaMetadata.PICTURE_TYPE_BAND_ORCHESTRA:
+        return "orchestra";
+      case MediaMetadata.PICTURE_TYPE_COMPOSER:
+        return "composer";
+      case MediaMetadata.PICTURE_TYPE_LYRICIST:
+        return "lyricist";
+      case MediaMetadata.PICTURE_TYPE_RECORDING_LOCATION:
+        return "recording location";
+      case MediaMetadata.PICTURE_TYPE_DURING_RECORDING:
+        return "during recording";
+      case MediaMetadata.PICTURE_TYPE_DURING_PERFORMANCE:
+        return "during performance";
+      case MediaMetadata.PICTURE_TYPE_MOVIE_VIDEO_SCREEN_CAPTURE:
+        return "video capture";
+      case MediaMetadata.PICTURE_TYPE_A_BRIGHT_COLORED_FISH:
+        return "bright colored fish";
+      case MediaMetadata.PICTURE_TYPE_ILLUSTRATION:
+        return "illustration";
+      case MediaMetadata.PICTURE_TYPE_BAND_ARTIST_LOGO:
+        return "artist logo";
+      case MediaMetadata.PICTURE_TYPE_PUBLISHER_STUDIO_LOGO:
+        return "publisher logo";
+      default:
+        return "unrecognised: " + pictureType;
+    }
+  }
+
+  @Nullable
+  private static String mediaTypeString(@Nullable @MediaType Integer mediaType) {
+    if (mediaType == null) {
+      return null;
+    }
+    switch (mediaType) {
+      case MediaMetadata.MEDIA_TYPE_MIXED:
+        return "mixed";
+      case MediaMetadata.MEDIA_TYPE_MUSIC:
+        return "music";
+      case MediaMetadata.MEDIA_TYPE_AUDIO_BOOK_CHAPTER:
+        return "audiobook chapter";
+      case MediaMetadata.MEDIA_TYPE_PODCAST_EPISODE:
+        return "podcast episode";
+      case MediaMetadata.MEDIA_TYPE_RADIO_STATION:
+        return "radio station";
+      case MediaMetadata.MEDIA_TYPE_NEWS:
+        return "news";
+      case MediaMetadata.MEDIA_TYPE_VIDEO:
+        return "video";
+      case MediaMetadata.MEDIA_TYPE_TRAILER:
+        return "trailer";
+      case MediaMetadata.MEDIA_TYPE_MOVIE:
+        return "movie";
+      case MediaMetadata.MEDIA_TYPE_TV_SHOW:
+        return "tv show";
+      case MediaMetadata.MEDIA_TYPE_ALBUM:
+        return "album";
+      case MediaMetadata.MEDIA_TYPE_ARTIST:
+        return "artist";
+      case MediaMetadata.MEDIA_TYPE_GENRE:
+        return "genre";
+      case MediaMetadata.MEDIA_TYPE_PLAYLIST:
+        return "playlist";
+      case MediaMetadata.MEDIA_TYPE_YEAR:
+        return "year";
+      case MediaMetadata.MEDIA_TYPE_AUDIO_BOOK:
+        return "audiobook";
+      case MediaMetadata.MEDIA_TYPE_PODCAST:
+        return "podcast";
+      case MediaMetadata.MEDIA_TYPE_TV_CHANNEL:
+        return "tv channel";
+      case MediaMetadata.MEDIA_TYPE_TV_SERIES:
+        return "tv series";
+      case MediaMetadata.MEDIA_TYPE_TV_SEASON:
+        return "tv season";
+      case MediaMetadata.MEDIA_TYPE_FOLDER_MIXED:
+        return "folder (mixed)";
+      case MediaMetadata.MEDIA_TYPE_FOLDER_ALBUMS:
+        return "folder (albums)";
+      case MediaMetadata.MEDIA_TYPE_FOLDER_ARTISTS:
+        return "folder (artists)";
+      case MediaMetadata.MEDIA_TYPE_FOLDER_GENRES:
+        return "folder (genres)";
+      case MediaMetadata.MEDIA_TYPE_FOLDER_PLAYLISTS:
+        return "folder (playlists)";
+      case MediaMetadata.MEDIA_TYPE_FOLDER_YEARS:
+        return "folder (years)";
+      case MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS:
+        return "folder (audiobooks)";
+      case MediaMetadata.MEDIA_TYPE_FOLDER_PODCASTS:
+        return "folder (podcasts)";
+      case MediaMetadata.MEDIA_TYPE_FOLDER_TV_CHANNELS:
+        return "folder (tv channels)";
+      case MediaMetadata.MEDIA_TYPE_FOLDER_TV_SERIES:
+        return "folder (tv series)";
+      case MediaMetadata.MEDIA_TYPE_FOLDER_TV_SHOWS:
+        return "folder (tv shows)";
+      case MediaMetadata.MEDIA_TYPE_FOLDER_RADIO_STATIONS:
+        return "folder (radio stations)";
+      case MediaMetadata.MEDIA_TYPE_FOLDER_NEWS:
+        return "folder (news)";
+      case MediaMetadata.MEDIA_TYPE_FOLDER_VIDEOS:
+        return "folder (videos)";
+      case MediaMetadata.MEDIA_TYPE_FOLDER_TRAILERS:
+        return "folder (trailers)";
+      case MediaMetadata.MEDIA_TYPE_FOLDER_MOVIES:
+        return "folder (movies)";
+      default:
+        return "unrecognised: " + mediaType;
+    }
+  }
+
+  @Nullable
+  private static String ratingString(@Nullable Rating rating) {
+    if (rating == null) {
+      return null;
+    }
+    if (rating instanceof StarRating) {
+      StarRating starRating = (StarRating) rating;
+      return starRating.getStarRating() + "/" + starRating.getMaxStars() + " stars";
+    } else if (rating instanceof PercentageRating) {
+      return ((PercentageRating) rating).getPercent() + "%";
+    } else if (rating instanceof HeartRating) {
+      return ((HeartRating) rating).isHeart() ? "❤️" : "\uD83D\uDC94";
+    } else if (rating instanceof ThumbRating) {
+      return ((ThumbRating) rating).isThumbsUp() ? "\uD83D\uDC4D" : "\uD83D\uDC4E";
+    }
+    throw new IllegalStateException("Unrecognized Rating subclass: " + rating);
   }
 
   private void dumpSubtitles(Dumper dumper) {
