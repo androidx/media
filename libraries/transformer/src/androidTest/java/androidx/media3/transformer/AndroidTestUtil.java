@@ -639,10 +639,35 @@ public final class AndroidTestUtil {
   public static void assertSdrColors(Context context, String filePath)
       throws ExecutionException, InterruptedException {
     ColorInfo colorInfo = retrieveTrackFormat(context, filePath, C.TRACK_TYPE_VIDEO).colorInfo;
-    assertThat(colorInfo.colorTransfer).isEqualTo(C.COLOR_TRANSFER_SDR);
-    // Before API 34 some encoders output a BT.601 bitstream even though we request BT.709 for SDR
-    // output, so allow both color spaces in output files when checking for SDR.
-    assertThat(colorInfo.colorSpace).isAnyOf(C.COLOR_SPACE_BT709, C.COLOR_SPACE_BT601);
+    if (isInInvalidDataSpaceDeviceList()) {
+      assertThat(colorInfo.colorTransfer).isEqualTo(Format.NO_VALUE);
+      assertThat(colorInfo.colorSpace).isEqualTo(Format.NO_VALUE);
+    } else {
+      assertThat(colorInfo.colorTransfer).isEqualTo(C.COLOR_TRANSFER_SDR);
+      // Before API 34 some encoders output a BT.601 bitstream even though we request BT.709 for SDR
+      // output, so allow both color spaces in output files when checking for SDR.
+      assertThat(colorInfo.colorSpace).isAnyOf(C.COLOR_SPACE_BT709, C.COLOR_SPACE_BT601);
+    }
+  }
+
+  public static boolean isInInvalidDataSpaceDeviceList() {
+    switch (Util.SDK_INT) {
+      case 23:
+        return Util.MODEL.equals("vivo 1610")
+            || Util.MODEL.equals("sm-n920v")
+            || Util.MODEL.equals("nexus-5")
+            || Util.MODEL.equals("moto-g-play")
+            || Util.MODEL.equals("sm-g532g")
+            || Util.MODEL.equals("lg-as110");
+      case 27:
+        return Util.MODEL.equals("redmi 6a") || Util.MODEL.equals("vivo 1820");
+      case 28:
+        return Util.MODEL.equals("vivo 1901");
+      case 29:
+        return Util.MODEL.equals("cph2179");
+      default:
+        return false;
+    }
   }
 
   public static ImmutableList<Bitmap> extractBitmapsFromVideo(Context context, String filePath)
