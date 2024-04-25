@@ -1068,65 +1068,58 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         ownsVideoSinkProvider && hasEffects && !hasInitializedPlayback;
     // We always use the video sink if the video sink provider is passed to the renderer.
     boolean useVideoSink = enableEffectsForOwnSinkProvider || !ownsVideoSinkProvider;
-    if (useVideoSink && videoSink == null) {
-      try {
-        videoSinkProvider.setStreamOffsetUs(getOutputStreamOffsetUs());
-        videoSink = videoSinkProvider.getSink();
-        if (!videoSink.isInitialized()) {
-          try {
-            videoSink.initialize(format);
-          } catch (VideoSink.VideoSinkException e) {
-            throw createRendererException(
-                e, format, PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSOR_INIT_FAILED);
-          }
+    if (useVideoSink) {
+      videoSinkProvider.setStreamOffsetUs(getOutputStreamOffsetUs());
+      videoSink = videoSinkProvider.getSink();
+      if (!videoSink.isInitialized()) {
+        try {
+          videoSink.initialize(format);
+        } catch (VideoSink.VideoSinkException e) {
+          throw createRendererException(
+              e, format, PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSOR_INIT_FAILED);
         }
-        videoSink.setListener(
-            new VideoSink.Listener() {
-              @Override
-              public void onFirstFrameRendered(VideoSink videoSink) {
-                checkStateNotNull(displaySurface);
-                notifyRenderedFirstFrame();
-              }
+      }
+      videoSink.setListener(
+          new VideoSink.Listener() {
+            @Override
+            public void onFirstFrameRendered(VideoSink videoSink) {
+              checkStateNotNull(displaySurface);
+              notifyRenderedFirstFrame();
+            }
 
-              @Override
-              public void onFrameDropped(VideoSink videoSink) {
-                updateDroppedBufferCounters(
-                    /* droppedInputBufferCount= */ 0, /* droppedDecoderBufferCount= */ 1);
-              }
+            @Override
+            public void onFrameDropped(VideoSink videoSink) {
+              updateDroppedBufferCounters(
+                  /* droppedInputBufferCount= */ 0, /* droppedDecoderBufferCount= */ 1);
+            }
 
-              @Override
-              public void onVideoSizeChanged(VideoSink videoSink, VideoSize videoSize) {
-                // TODO: b/292111083 - Report video size change to app. Video size reporting is
-                //  removed at the moment to ensure the first frame is rendered, and the video is
-                //  rendered after switching on/off the screen.
-              }
+            @Override
+            public void onVideoSizeChanged(VideoSink videoSink, VideoSize videoSize) {
+              // TODO: b/292111083 - Report video size change to app. Video size reporting is
+              //  removed at the moment to ensure the first frame is rendered, and the video is
+              //  rendered after switching on/off the screen.
+            }
 
-              @Override
-              public void onError(
-                  VideoSink videoSink, VideoSink.VideoSinkException videoSinkException) {
-                setPendingPlaybackException(
-                    createRendererException(
-                        videoSinkException,
-                        videoSinkException.format,
-                        PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED));
-              }
-            },
-            // Pass a direct executor since the callback handling involves posting on the app looper
-            // again, so there's no need to do two hops.
-            directExecutor());
-        if (frameMetadataListener != null) {
-          videoSink.setVideoFrameMetadataListener(frameMetadataListener);
+            @Override
+            public void onError(
+                VideoSink videoSink, VideoSink.VideoSinkException videoSinkException) {
+              setPendingPlaybackException(
+                  createRendererException(
+                      videoSinkException,
+                      videoSinkException.format,
+                      PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED));
+            }
+          },
+          // Pass a direct executor since the callback handling involves posting on the app looper
+          // again, so there's no need to do two hops.
+          directExecutor());
+      if (frameMetadataListener != null) {
+        videoSink.setVideoFrameMetadataListener(frameMetadataListener);
+      }
+      if (enableEffectsForOwnSinkProvider) {
+        if (displaySurface != null && outputResolution != null) {
+          videoSinkProvider.setOutputSurfaceInfo(displaySurface, outputResolution);
         }
-        if (enableEffectsForOwnSinkProvider) {
-          if (displaySurface != null && outputResolution != null) {
-            videoSinkProvider.setOutputSurfaceInfo(displaySurface, outputResolution);
-          }
-        }
-      } catch (Exception e) {
-        // Set videoSink back to null so that, if the try block fails and the renderer retries the
-        // codec initialization, the try block is re-executed.
-        videoSink = null;
-        throw e;
       }
     }
     hasInitializedPlayback = true;
