@@ -241,8 +241,19 @@ public final class MediaTestUtils {
     List<MediaSessionCompat.QueueItem> list = new ArrayList<>();
     for (int i = 0; i < mediaItems.size(); i++) {
       MediaItem item = mediaItems.get(i);
-      MediaDescriptionCompat description =
+      androidx.media3.session.legacy.MediaDescriptionCompat media3Description =
           LegacyConversions.convertToMediaDescriptionCompat(item, null);
+      MediaDescriptionCompat description =
+          new MediaDescriptionCompat.Builder()
+              .setTitle(media3Description.getTitle())
+              .setSubtitle(media3Description.getSubtitle())
+              .setDescription(media3Description.getDescription())
+              .setIconUri(media3Description.getIconUri())
+              .setIconBitmap(media3Description.getIconBitmap())
+              .setMediaId(media3Description.getMediaId())
+              .setMediaUri(media3Description.getMediaUri())
+              .setExtras(media3Description.getExtras())
+              .build();
       long id = LegacyConversions.convertToQueueItemId(i);
       list.add(new MediaSessionCompat.QueueItem(description, id));
     }

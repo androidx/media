@@ -29,19 +29,20 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
+import android.os.Parcelable;
 import android.os.ResultReceiver;
-import android.support.v4.media.session.MediaControllerCompat;
-import android.support.v4.media.session.MediaSessionCompat;
 import android.text.TextUtils;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
-import androidx.media.MediaBrowserServiceCompat;
 import androidx.media3.common.Bundleable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.session.legacy.LegacyParcelableUtil;
+import androidx.media3.session.legacy.MediaBrowserServiceCompat;
+import androidx.media3.session.legacy.MediaControllerCompat;
+import androidx.media3.session.legacy.MediaSessionCompat;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -262,49 +263,51 @@ public final class SessionToken implements Bundleable {
   }
 
   /**
-   * Creates a token from a {@link android.media.session.MediaSession.Token}.
+   * Creates a token from a {@link android.media.session.MediaSession.Token} or {@code
+   * android.support.v4.media.session.MediaSessionCompat.Token}.
    *
    * @param context A {@link Context}.
-   * @param token The {@link android.media.session.MediaSession.Token}.
+   * @param token The {@link android.media.session.MediaSession.Token} or {@code
+   *     android.support.v4.media.session.MediaSessionCompat.Token}.
    * @return A {@link ListenableFuture} for the {@link SessionToken}.
    */
-  @SuppressWarnings("UnnecessarilyFullyQualified") // Avoiding clash with Media3 MediaSession.
   @UnstableApi
-  @RequiresApi(21)
   public static ListenableFuture<SessionToken> createSessionToken(
-      Context context, android.media.session.MediaSession.Token token) {
-    return createSessionToken(context, MediaSessionCompat.Token.fromToken(token));
+      Context context, Parcelable token) {
+    return createSessionToken(context, createCompatToken(token));
   }
 
   /**
-   * Creates a token from a {@link android.media.session.MediaSession.Token}.
+   * Creates a token from a {@link android.media.session.MediaSession.Token} or {@code
+   * android.support.v4.media.session.MediaSessionCompat.Token}.
    *
    * @param context A {@link Context}.
-   * @param token The {@link android.media.session.MediaSession.Token}.
+   * @param token The {@link android.media.session.MediaSession.Token} or {@code
+   *     android.support.v4.media.session.MediaSessionCompat.Token}..
    * @param completionLooper The {@link Looper} on which the returned {@link ListenableFuture}
    *     completes. This {@link Looper} can't be used to call {@code future.get()} on the returned
    *     {@link ListenableFuture}.
    * @return A {@link ListenableFuture} for the {@link SessionToken}.
    */
-  @SuppressWarnings("UnnecessarilyFullyQualified") // Avoiding clash with Media3 MediaSession.
   @UnstableApi
-  @RequiresApi(21)
   public static ListenableFuture<SessionToken> createSessionToken(
-      Context context, android.media.session.MediaSession.Token token, Looper completionLooper) {
-    return createSessionToken(context, MediaSessionCompat.Token.fromToken(token), completionLooper);
+      Context context, Parcelable token, Looper completionLooper) {
+    return createSessionToken(context, createCompatToken(token), completionLooper);
   }
 
-  /**
-   * Creates a token from a {@link android.support.v4.media.session.MediaSessionCompat.Token}.
-   *
-   * @param context A {@link Context}.
-   * @param compatToken The {@code android.support.v4.media.session.MediaSessionCompat.Token}.
-   * @return A {@link ListenableFuture} for the {@link SessionToken}.
-   */
-  @SuppressWarnings("UnnecessarilyFullyQualified") // Avoiding clash with Media3 MediaSession.
-  @UnstableApi
-  public static ListenableFuture<SessionToken> createSessionToken(
-      Context context, android.support.v4.media.session.MediaSessionCompat.Token compatToken) {
+  private static MediaSessionCompat.Token createCompatToken(
+      Parcelable platformOrLegacyCompatToken) {
+    if (Util.SDK_INT >= 21
+        && platformOrLegacyCompatToken instanceof android.media.session.MediaSession.Token) {
+      return MediaSessionCompat.Token.fromToken(platformOrLegacyCompatToken);
+    }
+    // Assume this is an android.support.v4.media.session.MediaSessionCompat.Token.
+    return LegacyParcelableUtil.convert(
+        platformOrLegacyCompatToken, MediaSessionCompat.Token.CREATOR);
+  }
+
+  private static ListenableFuture<SessionToken> createSessionToken(
+      Context context, MediaSessionCompat.Token compatToken) {
     HandlerThread thread = new HandlerThread("SessionTokenThread");
     thread.start();
     ListenableFuture<SessionToken> tokenFuture =
@@ -313,29 +316,15 @@ public final class SessionToken implements Bundleable {
     return tokenFuture;
   }
 
-  /**
-   * Creates a token from a {@link android.support.v4.media.session.MediaSessionCompat.Token}.
-   *
-   * @param context A {@link Context}.
-   * @param compatToken The {@link android.support.v4.media.session.MediaSessionCompat.Token}.
-   * @param completionLooper The {@link Looper} on which the returned {@link ListenableFuture}
-   *     completes. This {@link Looper} can't be used to call {@code future.get()} on the returned
-   *     {@link ListenableFuture}.
-   * @return A {@link ListenableFuture} for the {@link SessionToken}.
-   */
-  @SuppressWarnings("UnnecessarilyFullyQualified") // Avoiding clash with Media3 MediaSession.
-  @UnstableApi
-  public static ListenableFuture<SessionToken> createSessionToken(
-      Context context,
-      android.support.v4.media.session.MediaSessionCompat.Token compatToken,
-      Looper completionLooper) {
+  private static ListenableFuture<SessionToken> createSessionToken(
+      Context context, MediaSessionCompat.Token compatToken, Looper completionLooper) {
     checkNotNull(context, "context must not be null");
     checkNotNull(compatToken, "compatToken must not be null");
 
     SettableFuture<SessionToken> future = SettableFuture.create();
     // Try retrieving media3 token by connecting to the session.
     MediaControllerCompat controller = new MediaControllerCompat(context, compatToken);
-    String packageName = controller.getPackageName();
+    String packageName = checkNotNull(controller.getPackageName());
     Handler handler = new Handler(completionLooper);
     Runnable createFallbackLegacyToken =
         () -> {

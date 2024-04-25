@@ -25,10 +25,10 @@ import static androidx.media3.session.SessionToken.TYPE_SESSION_LEGACY;
 
 import android.content.ComponentName;
 import android.os.Bundle;
-import android.support.v4.media.session.MediaSessionCompat;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.SessionToken.SessionTokenImpl;
+import androidx.media3.session.legacy.MediaSessionCompat;
 import com.google.common.base.Objects;
 
 /* package */ final class SessionTokenImplLegacy implements SessionTokenImpl {

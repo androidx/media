@@ -57,21 +57,12 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.RemoteException;
 import android.os.ResultReceiver;
-import android.support.v4.media.MediaDescriptionCompat;
-import android.support.v4.media.MediaMetadataCompat;
-import android.support.v4.media.RatingCompat;
-import android.support.v4.media.session.MediaSessionCompat;
-import android.support.v4.media.session.MediaSessionCompat.QueueItem;
-import android.support.v4.media.session.PlaybackStateCompat;
 import android.text.TextUtils;
 import android.view.KeyEvent;
 import androidx.annotation.DoNotInline;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.core.util.ObjectsCompat;
-import androidx.media.MediaSessionManager;
-import androidx.media.MediaSessionManager.RemoteUserInfo;
-import androidx.media.VolumeProviderCompat;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
@@ -92,6 +83,15 @@ import androidx.media3.session.MediaSession.ControllerCb;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import androidx.media3.session.MediaSession.MediaItemsWithStartPosition;
 import androidx.media3.session.SessionCommand.CommandCode;
+import androidx.media3.session.legacy.MediaDescriptionCompat;
+import androidx.media3.session.legacy.MediaMetadataCompat;
+import androidx.media3.session.legacy.MediaSessionCompat;
+import androidx.media3.session.legacy.MediaSessionCompat.QueueItem;
+import androidx.media3.session.legacy.MediaSessionManager;
+import androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo;
+import androidx.media3.session.legacy.PlaybackStateCompat;
+import androidx.media3.session.legacy.RatingCompat;
+import androidx.media3.session.legacy.VolumeProviderCompat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -315,7 +315,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   public boolean onMediaButtonEvent(Intent intent) {
     return sessionImpl.onMediaButtonEvent(
         new ControllerInfo(
-            sessionCompat.getCurrentControllerInfo(),
+            checkNotNull(sessionCompat.getCurrentControllerInfo()),
             ControllerInfo.LEGACY_CONTROLLER_VERSION,
             ControllerInfo.LEGACY_CONTROLLER_INTERFACE_VERSION,
             /* trusted= */ false,
@@ -353,7 +353,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   }
 
   @Override
-  public void onPrepareFromMediaId(String mediaId, @Nullable Bundle extras) {
+  public void onPrepareFromMediaId(@Nullable String mediaId, @Nullable Bundle extras) {
     handleMediaRequest(
         createMediaItemForMediaRequest(
             mediaId, /* mediaUri= */ null, /* searchQuery= */ null, extras),
@@ -361,14 +361,14 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   }
 
   @Override
-  public void onPrepareFromSearch(String query, @Nullable Bundle extras) {
+  public void onPrepareFromSearch(@Nullable String query, @Nullable Bundle extras) {
     handleMediaRequest(
         createMediaItemForMediaRequest(/* mediaId= */ null, /* mediaUri= */ null, query, extras),
         /* play= */ false);
   }
 
   @Override
-  public void onPrepareFromUri(Uri mediaUri, @Nullable Bundle extras) {
+  public void onPrepareFromUri(@Nullable Uri mediaUri, @Nullable Bundle extras) {
     handleMediaRequest(
         createMediaItemForMediaRequest(
             /* mediaId= */ null, mediaUri, /* searchQuery= */ null, extras),
@@ -384,7 +384,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   }
 
   @Override
-  public void onPlayFromMediaId(String mediaId, @Nullable Bundle extras) {
+  public void onPlayFromMediaId(@Nullable String mediaId, @Nullable Bundle extras) {
     handleMediaRequest(
         createMediaItemForMediaRequest(
             mediaId, /* mediaUri= */ null, /* searchQuery= */ null, extras),
@@ -392,14 +392,14 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   }
 
   @Override
-  public void onPlayFromSearch(String query, @Nullable Bundle extras) {
+  public void onPlayFromSearch(@Nullable String query, @Nullable Bundle extras) {
     handleMediaRequest(
         createMediaItemForMediaRequest(/* mediaId= */ null, /* mediaUri= */ null, query, extras),
         /* play= */ true);
   }
 
   @Override
-  public void onPlayFromUri(Uri mediaUri, @Nullable Bundle extras) {
+  public void onPlayFromUri(@Nullable Uri mediaUri, @Nullable Bundle extras) {
     handleMediaRequest(
         createMediaItemForMediaRequest(
             /* mediaId= */ null, mediaUri, /* searchQuery= */ null, extras),
@@ -504,12 +504,12 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   }
 
   @Override
-  public void onSetRating(RatingCompat ratingCompat) {
+  public void onSetRating(@Nullable RatingCompat ratingCompat) {
     onSetRating(ratingCompat, null);
   }
 
   @Override
-  public void onSetRating(RatingCompat ratingCompat, @Nullable Bundle unusedExtras) {
+  public void onSetRating(@Nullable RatingCompat ratingCompat, @Nullable Bundle unusedExtras) {
     @Nullable Rating rating = LegacyConversions.convertToRating(ratingCompat);
     if (rating == null) {
       Log.w(TAG, "Ignoring invalid RatingCompat " + ratingCompat);
@@ -1442,7 +1442,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     @DoNotInline
     public static void setMediaButtonBroadcastReceiver(
         MediaSessionCompat mediaSessionCompat, ComponentName broadcastReceiver) {
-      ((android.media.session.MediaSession) mediaSessionCompat.getMediaSession())
+      ((android.media.session.MediaSession) checkNotNull(mediaSessionCompat.getMediaSession()))
           .setMediaButtonBroadcastReceiver(broadcastReceiver);
     }
   }

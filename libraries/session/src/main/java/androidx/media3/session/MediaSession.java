@@ -31,8 +31,6 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.RemoteException;
-import android.support.v4.media.session.MediaControllerCompat;
-import android.support.v4.media.session.MediaSessionCompat;
 import android.view.KeyEvent;
 import androidx.annotation.DoNotInline;
 import androidx.annotation.GuardedBy;
@@ -40,7 +38,6 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.core.app.NotificationCompat;
-import androidx.media.MediaSessionManager.RemoteUserInfo;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
@@ -64,6 +61,10 @@ import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession;
+import androidx.media3.session.legacy.LegacyParcelableUtil;
+import androidx.media3.session.legacy.MediaControllerCompat;
+import androidx.media3.session.legacy.MediaSessionCompat;
+import androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Longs;
@@ -628,9 +629,10 @@ public class MediaSession {
      *     Bundle)} instead.
      */
     @VisibleForTesting(otherwise = PRIVATE)
+    @SuppressWarnings("UnnecessarilyFullyQualified") // Avoiding clash with Media3 RemoteUserInfo.
     @Deprecated
     public static ControllerInfo createTestOnlyControllerInfo(
-        RemoteUserInfo remoteUserInfo,
+        androidx.media.MediaSessionManager.RemoteUserInfo remoteUserInfo,
         int libraryVersion,
         int interfaceVersion,
         boolean trusted,
@@ -1144,10 +1146,27 @@ public class MediaSession {
   /**
    * Returns the legacy {@code android.support.v4.media.session.MediaSessionCompat.Token} of the
    * {@code android.support.v4.media.session.MediaSessionCompat} created internally by this session.
+   *
+   * @deprecated Use {@link #getPlatformToken()} instead.
    */
+  @Deprecated
   @UnstableApi
-  public final MediaSessionCompat.Token getSessionCompatToken() {
-    return impl.getSessionCompat().getSessionToken();
+  public final android.support.v4.media.session.MediaSessionCompat.Token getSessionCompatToken() {
+    return LegacyParcelableUtil.convert(
+        impl.getSessionCompat().getSessionToken(),
+        android.support.v4.media.session.MediaSessionCompat.Token.CREATOR);
+  }
+
+  /**
+   * Returns the platform {@link android.media.session.MediaSession.Token} of the {@link
+   * android.media.session.MediaSession} created internally by this session.
+   */
+  @SuppressWarnings("UnnecessarilyFullyQualified") // Avoiding clash with Media3 token.
+  @RequiresApi(21)
+  @UnstableApi
+  public final android.media.session.MediaSession.Token getPlatformToken() {
+    return (android.media.session.MediaSession.Token)
+        impl.getSessionCompat().getSessionToken().getToken();
   }
 
   /**
@@ -1165,6 +1184,7 @@ public class MediaSession {
     impl.connectFromService(controller, controllerInfo);
   }
 
+  @Nullable
   /* package */ final IBinder getLegacyBrowserServiceBinder() {
     return impl.getLegacyBrowserServiceBinder();
   }

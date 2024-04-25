@@ -25,7 +25,6 @@ import android.app.Notification;
 import android.app.PendingIntent;
 import android.os.Build;
 import android.os.Bundle;
-import android.support.v4.media.session.MediaSessionCompat;
 import android.view.View;
 import android.widget.RemoteViews;
 import androidx.annotation.DoNotInline;
@@ -38,6 +37,7 @@ import androidx.core.graphics.drawable.IconCompat;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.session.legacy.MediaSessionCompat;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -262,7 +262,7 @@ public class MediaStyleNotificationHelper {
       if (actionsToShowInCompact != null) {
         int[] actions = actionsToShowInCompact;
         final int numActionsInCompact = Math.min(actions.length, MAX_MEDIA_BUTTONS_IN_COMPACT);
-        view.removeAllViews(androidx.media.R.id.media_actions);
+        view.removeAllViews(androidx.media3.session.R.id.media_actions);
         if (numActionsInCompact > 0) {
           for (int i = 0; i < numActionsInCompact; i++) {
             if (i >= numActions) {
@@ -275,24 +275,25 @@ public class MediaStyleNotificationHelper {
             final androidx.core.app.NotificationCompat.Action action =
                 mBuilder.mActions.get(actions[i]);
             final RemoteViews button = generateMediaActionButton(action);
-            view.addView(androidx.media.R.id.media_actions, button);
+            view.addView(androidx.media3.session.R.id.media_actions, button);
           }
         }
       }
       if (showCancelButton) {
-        view.setViewVisibility(androidx.media.R.id.end_padder, View.GONE);
-        view.setViewVisibility(androidx.media.R.id.cancel_action, View.VISIBLE);
-        view.setOnClickPendingIntent(androidx.media.R.id.cancel_action, cancelButtonIntent);
+        view.setViewVisibility(androidx.media3.session.R.id.end_padder, View.GONE);
+        view.setViewVisibility(androidx.media3.session.R.id.cancel_action, View.VISIBLE);
+        view.setOnClickPendingIntent(
+            androidx.media3.session.R.id.cancel_action, cancelButtonIntent);
         view.setInt(
-            androidx.media.R.id.cancel_action,
+            androidx.media3.session.R.id.cancel_action,
             "setAlpha",
             mBuilder
                 .mContext
                 .getResources()
-                .getInteger(androidx.media.R.integer.cancel_button_image_alpha));
+                .getInteger(androidx.media3.session.R.integer.cancel_button_image_alpha));
       } else {
-        view.setViewVisibility(androidx.media.R.id.end_padder, View.VISIBLE);
-        view.setViewVisibility(androidx.media.R.id.cancel_action, View.GONE);
+        view.setViewVisibility(androidx.media3.session.R.id.end_padder, View.VISIBLE);
+        view.setViewVisibility(androidx.media3.session.R.id.cancel_action, View.GONE);
       }
       return view;
     }
@@ -303,20 +304,21 @@ public class MediaStyleNotificationHelper {
       RemoteViews button =
           new RemoteViews(
               mBuilder.mContext.getPackageName(),
-              androidx.media.R.layout.notification_media_action);
+              androidx.media3.session.R.layout.media3_notification_media_action);
       IconCompat iconCompat = action.getIconCompat();
       if (iconCompat != null) {
-        button.setImageViewResource(androidx.media.R.id.action0, iconCompat.getResId());
+        button.setImageViewResource(androidx.media3.session.R.id.action0, iconCompat.getResId());
       }
       if (!tombstone) {
-        button.setOnClickPendingIntent(androidx.media.R.id.action0, action.getActionIntent());
+        button.setOnClickPendingIntent(
+            androidx.media3.session.R.id.action0, action.getActionIntent());
       }
-      button.setContentDescription(androidx.media.R.id.action0, action.getTitle());
+      button.setContentDescription(androidx.media3.session.R.id.action0, action.getTitle());
       return button;
     }
 
     /* package */ int getContentViewLayoutResource() {
-      return androidx.media.R.layout.notification_template_media;
+      return androidx.media3.session.R.layout.media3_notification_template_media;
     }
 
     @Override
@@ -338,33 +340,33 @@ public class MediaStyleNotificationHelper {
               getBigContentViewLayoutResource(actionCount),
               /* fitIn1U= */ false);
 
-      big.removeAllViews(androidx.media.R.id.media_actions);
+      big.removeAllViews(androidx.media3.session.R.id.media_actions);
       if (actionCount > 0) {
         for (int i = 0; i < actionCount; i++) {
           final RemoteViews button = generateMediaActionButton(mBuilder.mActions.get(i));
-          big.addView(androidx.media.R.id.media_actions, button);
+          big.addView(androidx.media3.session.R.id.media_actions, button);
         }
       }
       if (showCancelButton) {
-        big.setViewVisibility(androidx.media.R.id.cancel_action, View.VISIBLE);
+        big.setViewVisibility(androidx.media3.session.R.id.cancel_action, View.VISIBLE);
         big.setInt(
-            androidx.media.R.id.cancel_action,
+            androidx.media3.session.R.id.cancel_action,
             "setAlpha",
             mBuilder
                 .mContext
                 .getResources()
-                .getInteger(androidx.media.R.integer.cancel_button_image_alpha));
-        big.setOnClickPendingIntent(androidx.media.R.id.cancel_action, cancelButtonIntent);
+                .getInteger(androidx.media3.session.R.integer.cancel_button_image_alpha));
+        big.setOnClickPendingIntent(androidx.media3.session.R.id.cancel_action, cancelButtonIntent);
       } else {
-        big.setViewVisibility(androidx.media.R.id.cancel_action, View.GONE);
+        big.setViewVisibility(androidx.media3.session.R.id.cancel_action, View.GONE);
       }
       return big;
     }
 
     /* package */ int getBigContentViewLayoutResource(int actionCount) {
       return actionCount <= 3
-          ? androidx.media.R.layout.notification_template_big_media_narrow
-          : androidx.media.R.layout.notification_template_big_media;
+          ? androidx.media3.session.R.layout.media3_notification_template_big_media_narrow
+          : androidx.media3.session.R.layout.media3_notification_template_big_media;
     }
   }
 
@@ -395,9 +397,9 @@ public class MediaStyleNotificationHelper {
    * </pre>
    *
    * <p>If you are using this style, consider using the corresponding styles like {@link
-   * androidx.media.R.style#TextAppearance_Compat_Notification_Media} or {@link
-   * androidx.media.R.style#TextAppearance_Compat_Notification_Title_Media} in your custom views in
-   * order to get the correct styling on each platform version.
+   * androidx.media3.session.R.style#TextAppearance_Compat_Notification_Media} or {@link
+   * androidx.media3.session.R.style#TextAppearance_Compat_Notification_Title_Media} in your custom
+   * views in order to get the correct styling on each platform version.
    *
    * @see androidx.core.app.NotificationCompat.DecoratedCustomViewStyle
    * @see MediaStyle
@@ -469,7 +471,7 @@ public class MediaStyleNotificationHelper {
     @Override
     /* package */ int getContentViewLayoutResource() {
       return mBuilder.getContentView() != null
-          ? androidx.media.R.layout.notification_template_media_custom
+          ? androidx.media3.session.R.layout.media3_notification_template_media_custom
           : super.getContentViewLayoutResource();
     }
 
@@ -500,8 +502,8 @@ public class MediaStyleNotificationHelper {
     @Override
     /* package */ int getBigContentViewLayoutResource(int actionCount) {
       return actionCount <= 3
-          ? androidx.media.R.layout.notification_template_big_media_narrow_custom
-          : androidx.media.R.layout.notification_template_big_media_custom;
+          ? androidx.media3.session.R.layout.media3_notification_template_big_media_narrow_custom
+          : androidx.media3.session.R.layout.media3_notification_template_big_media_custom;
     }
 
     @Override
@@ -536,9 +538,12 @@ public class MediaStyleNotificationHelper {
                   .mContext
                   .getResources()
                   .getColor(
-                      androidx.media.R.color.notification_material_background_media_default_color);
+                      androidx.media3.session.R.color
+                          .notification_material_background_media_default_color);
       views.setInt(
-          androidx.media.R.id.status_bar_latest_event_content, "setBackgroundColor", color);
+          androidx.media3.session.R.id.status_bar_latest_event_content,
+          "setBackgroundColor",
+          color);
     }
   }
 

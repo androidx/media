@@ -50,7 +50,6 @@ import android.os.Message;
 import android.os.Process;
 import android.os.RemoteException;
 import android.os.SystemClock;
-import android.support.v4.media.session.MediaSessionCompat;
 import android.view.KeyEvent;
 import android.view.ViewConfiguration;
 import androidx.annotation.CheckResult;
@@ -59,7 +58,6 @@ import androidx.annotation.FloatRange;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
-import androidx.media.MediaBrowserServiceCompat;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.MediaItem;
@@ -85,6 +83,8 @@ import androidx.media3.session.MediaSession.ControllerCb;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import androidx.media3.session.MediaSession.MediaItemsWithStartPosition;
 import androidx.media3.session.SequencedFutureManager.SequencedFuture;
+import androidx.media3.session.legacy.MediaBrowserServiceCompat;
+import androidx.media3.session.legacy.MediaSessionCompat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -759,6 +759,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * Gets the service binder from the MediaBrowserServiceCompat. Should be only called by the thread
    * with a Looper.
    */
+  @Nullable
   protected IBinder getLegacyBrowserServiceBinder() {
     MediaSessionServiceLegacyStub legacyStub;
     synchronized (lock) {

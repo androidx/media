@@ -15,8 +15,6 @@
  */
 package androidx.media3.session;
 
-import static android.support.v4.media.session.MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS;
-import static androidx.media.utils.MediaConstants.BROWSER_ROOT_HINTS_KEY_ROOT_CHILDREN_SUPPORTED_FLAGS;
 import static androidx.media3.common.Player.COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS;
 import static androidx.media3.common.Player.COMMAND_CHANGE_MEDIA_ITEMS;
 import static androidx.media3.common.Player.COMMAND_GET_AUDIO_ATTRIBUTES;
@@ -44,6 +42,8 @@ import static androidx.media3.common.Player.COMMAND_STOP;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.constrainValue;
 import static androidx.media3.session.MediaConstants.EXTRA_KEY_ROOT_CHILDREN_BROWSABLE_ONLY;
+import static androidx.media3.session.legacy.MediaConstants.BROWSER_ROOT_HINTS_KEY_ROOT_CHILDREN_SUPPORTED_FLAGS;
+import static androidx.media3.session.legacy.MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS;
 import static java.lang.Math.max;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -54,19 +54,8 @@ import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.SystemClock;
-import android.support.v4.media.MediaBrowserCompat;
-import android.support.v4.media.MediaDescriptionCompat;
-import android.support.v4.media.MediaMetadataCompat;
-import android.support.v4.media.RatingCompat;
-import android.support.v4.media.session.MediaControllerCompat;
-import android.support.v4.media.session.MediaSessionCompat.QueueItem;
-import android.support.v4.media.session.PlaybackStateCompat;
-import android.support.v4.media.session.PlaybackStateCompat.CustomAction;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
-import androidx.media.AudioAttributesCompat;
-import androidx.media.MediaBrowserServiceCompat.BrowserRoot;
-import androidx.media.VolumeProviderCompat;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -87,6 +76,17 @@ import androidx.media3.common.Timeline.Window;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
+import androidx.media3.session.legacy.AudioAttributesCompat;
+import androidx.media3.session.legacy.MediaBrowserCompat;
+import androidx.media3.session.legacy.MediaBrowserServiceCompat.BrowserRoot;
+import androidx.media3.session.legacy.MediaControllerCompat;
+import androidx.media3.session.legacy.MediaDescriptionCompat;
+import androidx.media3.session.legacy.MediaMetadataCompat;
+import androidx.media3.session.legacy.MediaSessionCompat.QueueItem;
+import androidx.media3.session.legacy.PlaybackStateCompat;
+import androidx.media3.session.legacy.PlaybackStateCompat.CustomAction;
+import androidx.media3.session.legacy.RatingCompat;
+import androidx.media3.session.legacy.VolumeProviderCompat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.io.ByteArrayOutputStream;
@@ -1231,12 +1231,15 @@ import java.util.concurrent.TimeoutException;
       sessionCommandsBuilder.remove(SessionCommand.COMMAND_CODE_SESSION_SET_RATING);
     }
 
-    if (state != null && state.getCustomActions() != null) {
-      for (CustomAction customAction : state.getCustomActions()) {
-        String action = customAction.getAction();
-        @Nullable Bundle extras = customAction.getExtras();
-        sessionCommandsBuilder.add(
-            new SessionCommand(action, extras == null ? Bundle.EMPTY : extras));
+    if (state != null) {
+      List<PlaybackStateCompat.CustomAction> customActions = state.getCustomActions();
+      if (customActions != null) {
+        for (CustomAction customAction : customActions) {
+          String action = customAction.getAction();
+          @Nullable Bundle extras = customAction.getExtras();
+          sessionCommandsBuilder.add(
+              new SessionCommand(action, extras == null ? Bundle.EMPTY : extras));
+        }
       }
     }
     return sessionCommandsBuilder.build();
@@ -1254,8 +1257,12 @@ import java.util.concurrent.TimeoutException;
     if (state == null) {
       return ImmutableList.of();
     }
+    List<PlaybackStateCompat.CustomAction> customActions = state.getCustomActions();
+    if (customActions == null) {
+      return ImmutableList.of();
+    }
     ImmutableList.Builder<CommandButton> layout = new ImmutableList.Builder<>();
-    for (CustomAction customAction : state.getCustomActions()) {
+    for (CustomAction customAction : customActions) {
       String action = customAction.getAction();
       @Nullable Bundle extras = customAction.getExtras();
       @CommandButton.Icon

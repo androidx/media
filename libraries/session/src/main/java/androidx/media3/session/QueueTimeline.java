@@ -18,13 +18,13 @@ package androidx.media3.session;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Util.msToUs;
 
-import android.support.v4.media.MediaMetadataCompat;
-import android.support.v4.media.session.MediaSessionCompat.QueueItem;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Util;
+import androidx.media3.session.legacy.MediaMetadataCompat;
+import androidx.media3.session.legacy.MediaSessionCompat.QueueItem;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;

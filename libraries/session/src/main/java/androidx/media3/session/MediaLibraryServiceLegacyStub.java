@@ -15,28 +15,25 @@
  */
 package androidx.media3.session;
 
-import static android.support.v4.media.MediaBrowserCompat.EXTRA_PAGE;
-import static android.support.v4.media.MediaBrowserCompat.EXTRA_PAGE_SIZE;
-import static androidx.media.utils.MediaConstants.BROWSER_SERVICE_EXTRAS_KEY_SEARCH_SUPPORTED;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.session.LibraryResult.RESULT_SUCCESS;
 import static androidx.media3.session.MediaUtils.TRANSACTION_SIZE_LIMIT_IN_BYTES;
+import static androidx.media3.session.legacy.MediaBrowserCompat.EXTRA_PAGE;
+import static androidx.media3.session.legacy.MediaBrowserCompat.EXTRA_PAGE_SIZE;
+import static androidx.media3.session.legacy.MediaConstants.BROWSER_SERVICE_EXTRAS_KEY_SEARCH_SUPPORTED;
 
 import android.annotation.SuppressLint;
 import android.graphics.Bitmap;
 import android.os.BadParcelableException;
 import android.os.Bundle;
 import android.os.RemoteException;
-import android.support.v4.media.MediaBrowserCompat;
 import android.text.TextUtils;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.core.util.ObjectsCompat;
-import androidx.media.MediaBrowserServiceCompat;
-import androidx.media.MediaSessionManager.RemoteUserInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.util.ConditionVariable;
@@ -46,6 +43,9 @@ import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
 import androidx.media3.session.MediaSession.ControllerCb;
 import androidx.media3.session.MediaSession.ControllerInfo;
+import androidx.media3.session.legacy.MediaBrowserCompat;
+import androidx.media3.session.legacy.MediaBrowserServiceCompat;
+import androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.Futures;
@@ -82,7 +82,7 @@ import java.util.concurrent.atomic.AtomicReference;
   @Override
   @Nullable
   public BrowserRoot onGetRoot(
-      String clientPackageName, int clientUid, @Nullable Bundle rootHints) {
+      @Nullable String clientPackageName, int clientUid, @Nullable Bundle rootHints) {
     @Nullable BrowserRoot browserRoot = super.onGetRoot(clientPackageName, clientUid, rootHints);
     if (browserRoot == null) {
       return null;
@@ -140,7 +140,7 @@ import java.util.concurrent.atomic.AtomicReference;
   //                    content.
   @SuppressLint("RestrictedApi")
   @Override
-  public void onSubscribe(String id, Bundle option) {
+  public void onSubscribe(@Nullable String id, @Nullable Bundle option) {
     @Nullable ControllerInfo controller = getCurrentController();
     if (controller == null) {
       return;
@@ -166,7 +166,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
   @SuppressLint("RestrictedApi")
   @Override
-  public void onUnsubscribe(String id) {
+  public void onUnsubscribe(@Nullable String id) {
     @Nullable ControllerInfo controller = getCurrentController();
     if (controller == null) {
       return;
@@ -188,13 +188,14 @@ import java.util.concurrent.atomic.AtomicReference;
   }
 
   @Override
-  public void onLoadChildren(String parentId, Result<List<MediaBrowserCompat.MediaItem>> result) {
+  public void onLoadChildren(
+      @Nullable String parentId, Result<List<MediaBrowserCompat.MediaItem>> result) {
     onLoadChildren(parentId, result, /* options= */ null);
   }
 
   @Override
   public void onLoadChildren(
-      String parentId,
+      @Nullable String parentId,
       Result<List<MediaBrowserCompat.MediaItem>> result,
       @Nullable Bundle options) {
     @Nullable ControllerInfo controller = getCurrentController();
