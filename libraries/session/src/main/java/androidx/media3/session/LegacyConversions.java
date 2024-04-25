@@ -315,49 +315,6 @@ import java.util.concurrent.TimeoutException;
     return period;
   }
 
-  /** Converts a {@link MediaItem} to a {@link MediaDescriptionCompat} */
-  @SuppressWarnings("deprecation") // Converting deprecated fields.
-  public static MediaDescriptionCompat convertToMediaDescriptionCompat(
-      MediaItem item, @Nullable Bitmap artworkBitmap) {
-    MediaDescriptionCompat.Builder builder =
-        new MediaDescriptionCompat.Builder()
-            .setMediaId(item.mediaId.equals(MediaItem.DEFAULT_MEDIA_ID) ? null : item.mediaId);
-    MediaMetadata metadata = item.mediaMetadata;
-    if (artworkBitmap != null) {
-      builder.setIconBitmap(artworkBitmap);
-    }
-    @Nullable Bundle extras = metadata.extras;
-    boolean hasFolderType =
-        metadata.folderType != null && metadata.folderType != MediaMetadata.FOLDER_TYPE_NONE;
-    boolean hasMediaType = metadata.mediaType != null;
-    if (hasFolderType || hasMediaType) {
-      if (extras == null) {
-        extras = new Bundle();
-      } else {
-        extras = new Bundle(extras);
-      }
-      if (hasFolderType) {
-        extras.putLong(
-            MediaDescriptionCompat.EXTRA_BT_FOLDER_TYPE,
-            convertToExtraBtFolderType(checkNotNull(metadata.folderType)));
-      }
-      if (hasMediaType) {
-        extras.putLong(
-            MediaConstants.EXTRAS_KEY_MEDIA_TYPE_COMPAT, checkNotNull(metadata.mediaType));
-      }
-    }
-    return builder
-        .setTitle(metadata.title)
-        // The BT AVRPC service expects the subtitle of the media description to be the artist
-        // (see https://github.com/androidx/media/issues/148).
-        .setSubtitle(metadata.artist != null ? metadata.artist : metadata.subtitle)
-        .setDescription(metadata.description)
-        .setIconUri(metadata.artworkUri)
-        .setMediaUri(item.requestMetadata.mediaUri)
-        .setExtras(extras)
-        .build();
-  }
-
   /** Creates {@link MediaMetadata} from the {@link CharSequence queue title}. */
   public static MediaMetadata convertToMediaMetadata(@Nullable CharSequence queueTitle) {
     if (queueTitle == null) {
@@ -449,6 +406,15 @@ import java.util.concurrent.TimeoutException;
         .setAlbumArtist(metadataCompat.getText(MediaMetadataCompat.METADATA_KEY_ALBUM_ARTIST))
         .setOverallRating(
             convertToRating(metadataCompat.getRating(MediaMetadataCompat.METADATA_KEY_RATING)));
+
+    if (metadataCompat.containsKey(MediaMetadataCompat.METADATA_KEY_DURATION)) {
+      long durationMs = metadataCompat.getLong(MediaMetadataCompat.METADATA_KEY_DURATION);
+      if (durationMs >= 0) {
+        // Only set duration if a non-negative is set. Do not assert because we don't want the app
+        // to crash because an external app sends a negative value that is valid in media1.
+        builder.setDurationMs(durationMs);
+      }
+    }
 
     @Nullable
     Rating userRating =
@@ -621,6 +587,10 @@ import java.util.concurrent.TimeoutException;
           convertToExtraBtFolderType(metadata.folderType));
     }
 
+    if (durationMs == C.TIME_UNSET && metadata.durationMs != null) {
+      // If the actual media duration is unknown, use the manually declared value if available.
+      durationMs = metadata.durationMs;
+    }
     if (durationMs != C.TIME_UNSET) {
       builder.putLong(MediaMetadataCompat.METADATA_KEY_DURATION, durationMs);
     }
@@ -654,6 +624,49 @@ import java.util.concurrent.TimeoutException;
     }
 
     return builder.build();
+  }
+
+  /** Converts a {@link MediaItem} to a {@link MediaDescriptionCompat} */
+  @SuppressWarnings("deprecation") // Converting deprecated fields.
+  public static MediaDescriptionCompat convertToMediaDescriptionCompat(
+      MediaItem item, @Nullable Bitmap artworkBitmap) {
+    MediaDescriptionCompat.Builder builder =
+        new MediaDescriptionCompat.Builder()
+            .setMediaId(item.mediaId.equals(MediaItem.DEFAULT_MEDIA_ID) ? null : item.mediaId);
+    MediaMetadata metadata = item.mediaMetadata;
+    if (artworkBitmap != null) {
+      builder.setIconBitmap(artworkBitmap);
+    }
+    @Nullable Bundle extras = metadata.extras;
+    boolean hasFolderType =
+        metadata.folderType != null && metadata.folderType != MediaMetadata.FOLDER_TYPE_NONE;
+    boolean hasMediaType = metadata.mediaType != null;
+    if (hasFolderType || hasMediaType) {
+      if (extras == null) {
+        extras = new Bundle();
+      } else {
+        extras = new Bundle(extras);
+      }
+      if (hasFolderType) {
+        extras.putLong(
+            MediaDescriptionCompat.EXTRA_BT_FOLDER_TYPE,
+            convertToExtraBtFolderType(checkNotNull(metadata.folderType)));
+      }
+      if (hasMediaType) {
+        extras.putLong(
+            MediaConstants.EXTRAS_KEY_MEDIA_TYPE_COMPAT, checkNotNull(metadata.mediaType));
+      }
+    }
+    return builder
+        .setTitle(metadata.title)
+        // The BT AVRPC service expects the subtitle of the media description to be the artist
+        // (see https://github.com/androidx/media/issues/148).
+        .setSubtitle(metadata.artist != null ? metadata.artist : metadata.subtitle)
+        .setDescription(metadata.description)
+        .setIconUri(metadata.artworkUri)
+        .setMediaUri(item.requestMetadata.mediaUri)
+        .setExtras(extras)
+        .build();
   }
 
   @SuppressWarnings("deprecation") // Converting to deprecated constants.

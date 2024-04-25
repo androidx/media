@@ -42,6 +42,7 @@ public class MediaMetadataTest {
     assertThat(mediaMetadata.displayTitle).isNull();
     assertThat(mediaMetadata.subtitle).isNull();
     assertThat(mediaMetadata.description).isNull();
+    assertThat(mediaMetadata.durationMs).isNull();
     assertThat(mediaMetadata.userRating).isNull();
     assertThat(mediaMetadata.overallRating).isNull();
     assertThat(mediaMetadata.artworkData).isNull();
@@ -121,7 +122,7 @@ public class MediaMetadataTest {
   }
 
   @Test
-  public void populate_withArtworkDataOnly_updatesBothArtWorkUriAndArtworkData() {
+  public void populate_withArtworkDataOnly_updatesBothArtworkUriAndArtworkData() {
     byte[] artworkData = new byte[] {35, 12, 6, 77};
     MediaMetadata mediaMetadata =
         new MediaMetadata.Builder()
@@ -251,6 +252,7 @@ public class MediaMetadataTest {
         .setDisplayTitle("display title")
         .setSubtitle("subtitle")
         .setDescription("description")
+        .setDurationMs(10_000L)
         .setUserRating(new HeartRating(false))
         .setOverallRating(new PercentageRating(87.4f))
         .setArtworkData(

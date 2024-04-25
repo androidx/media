@@ -132,7 +132,7 @@ public final class LegacyConversionsTest {
 
   @Test
   public void convertToQueueItem_withArtworkData() throws Exception {
-    MediaItem mediaItem = createMediaItemWithArtworkData("testId");
+    MediaItem mediaItem = createMediaItemWithArtworkData("testId", /* durationMs= */ 10_000L);
     MediaMetadata mediaMetadata = mediaItem.mediaMetadata;
     ListenableFuture<Bitmap> bitmapFuture = bitmapLoader.decodeBitmap(mediaMetadata.artworkData);
     @Nullable Bitmap bitmap = bitmapFuture.get(10, SECONDS);
@@ -158,9 +158,11 @@ public final class LegacyConversionsTest {
             .setTitle(title)
             .setDescription(description)
             .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
+            .setDurationMs(10_000L)
             .build();
     MediaItem mediaItem =
         new MediaItem.Builder().setMediaId(mediaId).setMediaMetadata(metadata).build();
+
     MediaDescriptionCompat descriptionCompat =
         LegacyConversions.convertToMediaDescriptionCompat(mediaItem, /* artworkBitmap= */ null);
 
@@ -212,7 +214,7 @@ public final class LegacyConversionsTest {
   @Test
   public void convertToMediaMetadata_roundTripViaMediaMetadataCompat_returnsEqualMediaItemMetadata()
       throws Exception {
-    MediaItem testMediaItem = createMediaItemWithArtworkData("testZZZ");
+    MediaItem testMediaItem = createMediaItemWithArtworkData("testZZZ", /* durationMs= */ 10_000L);
     MediaMetadata testMediaMetadata = testMediaItem.mediaMetadata;
     @Nullable Bitmap testArtworkBitmap = null;
     @Nullable
@@ -225,7 +227,7 @@ public final class LegacyConversionsTest {
             testMediaMetadata,
             "mediaId",
             Uri.parse("http://example.com"),
-            /* durationMs= */ 100L,
+            /* durationMs= */ C.TIME_UNSET,
             testArtworkBitmap);
 
     MediaMetadata mediaMetadata =
@@ -239,7 +241,8 @@ public final class LegacyConversionsTest {
   public void
       convertToMediaMetadata_roundTripViaMediaDescriptionCompat_returnsEqualMediaItemMetadata()
           throws Exception {
-    MediaItem testMediaItem = createMediaItemWithArtworkData("testZZZ");
+    MediaItem testMediaItem =
+        createMediaItemWithArtworkData("testZZZ", /* durationMs= */ C.TIME_UNSET);
     MediaMetadata testMediaMetadata = testMediaItem.mediaMetadata;
     @Nullable Bitmap testArtworkBitmap = null;
     @Nullable
@@ -1152,12 +1155,21 @@ public final class LegacyConversionsTest {
     return list.build();
   }
 
-  private static MediaItem createMediaItemWithArtworkData(String mediaId) {
+  private static MediaItem createMediaItemWithArtworkData(String mediaId, long durationMs) {
+    Bundle extras = new Bundle();
+    extras.putLong(
+        MediaConstants.EXTRAS_KEY_IS_EXPLICIT, MediaConstants.EXTRAS_VALUE_ATTRIBUTE_PRESENT);
     MediaMetadata.Builder mediaMetadataBuilder =
         new MediaMetadata.Builder()
             .setMediaType(MediaMetadata.MEDIA_TYPE_PLAYLIST)
             .setIsBrowsable(false)
-            .setIsPlayable(true);
+            .setIsPlayable(true)
+            .setExtras(extras);
+
+    if (durationMs != C.TIME_UNSET) {
+      mediaMetadataBuilder.setDurationMs(durationMs);
+    }
+
     try {
       byte[] artworkData;
       Bitmap bitmap =
