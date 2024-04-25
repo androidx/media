@@ -159,6 +159,12 @@ public interface VideoSink {
   void setPlaybackSpeed(@FloatRange(from = 0, fromInclusive = false) float speed);
 
   /**
+   * Sets the offset, in microseconds, that is added to the video frames presentation timestamps
+   * from the player.
+   */
+  void setStreamOffsetUs(long streamOffsetUs);
+
+  /**
    * Informs the video sink that a new input stream will be queued.
    *
    * <p>Must be called after the sink is {@linkplain #initialize(Format, Clock) initialized}.

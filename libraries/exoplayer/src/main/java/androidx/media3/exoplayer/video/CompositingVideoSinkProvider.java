@@ -274,11 +274,6 @@ public final class CompositingVideoSinkProvider
   }
 
   @Override
-  public void setStreamOffsetUs(long streamOffsetUs) {
-    videoSinkImpl.setStreamOffsetUs(streamOffsetUs);
-  }
-
-  @Override
   public void setOutputSurfaceInfo(Surface outputSurface, Size outputResolution) {
     if (currentSurfaceAndSize != null
         && currentSurfaceAndSize.first.equals(outputSurface)
@@ -674,6 +669,23 @@ public final class CompositingVideoSinkProvider
     }
 
     @Override
+    public void setVideoFrameMetadataListener(
+        VideoFrameMetadataListener videoFrameMetadataListener) {
+      CompositingVideoSinkProvider.this.setVideoFrameMetadataListener(videoFrameMetadataListener);
+    }
+
+    @Override
+    public void setPlaybackSpeed(@FloatRange(from = 0, fromInclusive = false) float speed) {
+      CompositingVideoSinkProvider.this.setPlaybackSpeed(speed);
+    }
+
+    @Override
+    public void setStreamOffsetUs(long streamOffsetUs) {
+      pendingInputStreamOffsetChange = inputStreamOffsetUs != streamOffsetUs;
+      inputStreamOffsetUs = streamOffsetUs;
+    }
+
+    @Override
     public long registerInputFrame(long framePresentationTimeUs, boolean isLastFrame) {
       checkState(isInitialized());
       checkState(videoFrameProcessorMaxPendingFrameCount != C.LENGTH_UNSET);
@@ -752,17 +764,6 @@ public final class CompositingVideoSinkProvider
       }
     }
 
-    @Override
-    public void setVideoFrameMetadataListener(
-        VideoFrameMetadataListener videoFrameMetadataListener) {
-      CompositingVideoSinkProvider.this.setVideoFrameMetadataListener(videoFrameMetadataListener);
-    }
-
-    @Override
-    public void setPlaybackSpeed(@FloatRange(from = 0, fromInclusive = false) float speed) {
-      CompositingVideoSinkProvider.this.setPlaybackSpeed(speed);
-    }
-
     // Other methods
 
     /** Sets the {@linkplain Effect video effects}. */
@@ -778,12 +779,6 @@ public final class CompositingVideoSinkProvider
     public void setPendingVideoEffects(List<Effect> videoEffects) {
       this.videoEffects.clear();
       this.videoEffects.addAll(videoEffects);
-    }
-
-    /** Sets the stream offset, in microseconds. */
-    public void setStreamOffsetUs(long streamOffsetUs) {
-      pendingInputStreamOffsetChange = inputStreamOffsetUs != streamOffsetUs;
-      inputStreamOffsetUs = streamOffsetUs;
     }
 
     private void maybeSetStreamOffsetChange(long bufferPresentationTimeUs) {

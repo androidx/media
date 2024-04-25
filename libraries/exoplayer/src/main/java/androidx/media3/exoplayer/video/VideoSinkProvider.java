@@ -59,12 +59,6 @@ public interface VideoSinkProvider {
   /** Returns a {@link VideoSink} to forward video frames for processing. */
   VideoSink getSink();
 
-  /**
-   * Sets the offset, in microseconds, that is added to the video frames presentation timestamps
-   * from the player.
-   */
-  void setStreamOffsetUs(long streamOffsetUs);
-
   /** Sets the output surface info. */
   void setOutputSurfaceInfo(Surface outputSurface, Size outputResolution);
 

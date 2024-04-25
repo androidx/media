@@ -78,19 +78,18 @@ public final class CompositingVideoSinkProviderTest {
   }
 
   @Test
-  public void setOutputStreamOffsetUs_frameReleaseTimesAreAdjusted()
+  public void setSinkStreamOffsetUs_frameReleaseTimesAreAdjusted()
       throws VideoSink.VideoSinkException {
-    CompositingVideoSinkProvider provider = createCompositingVideoSinkProvider();
-    VideoSink videoSink = provider.getSink();
+    VideoSink videoSink = createCompositingVideoSinkProvider().getSink();
     videoSink.initialize(new Format.Builder().build(), Clock.DEFAULT);
     videoSink.registerInputStream(
         VideoSink.INPUT_TYPE_SURFACE, new Format.Builder().setWidth(640).setHeight(480).build());
 
     assertThat(videoSink.registerInputFrame(/* framePresentationTimeUs= */ 0, false)).isEqualTo(0);
-    provider.setStreamOffsetUs(1_000);
+    videoSink.setStreamOffsetUs(1_000);
     assertThat(videoSink.registerInputFrame(/* framePresentationTimeUs= */ 0, false))
         .isEqualTo(1_000_000);
-    provider.setStreamOffsetUs(2_000);
+    videoSink.setStreamOffsetUs(2_000);
     assertThat(videoSink.registerInputFrame(/* framePresentationTimeUs= */ 0, false))
         .isEqualTo(2_000_000);
   }

@@ -1066,7 +1066,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     // We always use the video sink if the video sink provider is passed to the renderer.
     boolean useVideoSink = enableEffectsForOwnSinkProvider || !ownsVideoSinkProvider;
     if (useVideoSink) {
-      videoSinkProvider.setStreamOffsetUs(getOutputStreamOffsetUs());
       videoSink = videoSinkProvider.getSink();
       if (!videoSink.isInitialized()) {
         try {
@@ -1113,6 +1112,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       if (frameMetadataListener != null) {
         videoSink.setVideoFrameMetadataListener(frameMetadataListener);
       }
+      videoSink.setStreamOffsetUs(getOutputStreamOffsetUs());
       if (enableEffectsForOwnSinkProvider) {
         if (displaySurface != null && outputResolution != null) {
           videoSinkProvider.setOutputSurfaceInfo(displaySurface, outputResolution);
@@ -1472,7 +1472,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     videoFrameReleaseControl.onProcessedStreamChange();
     maybeSetupTunnelingForFirstFrame();
     if (videoSink != null) {
-      videoSinkProvider.setStreamOffsetUs(getOutputStreamOffsetUs());
+      videoSink.setStreamOffsetUs(getOutputStreamOffsetUs());
     }
   }
 
