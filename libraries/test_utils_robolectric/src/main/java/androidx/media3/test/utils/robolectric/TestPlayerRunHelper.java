@@ -26,6 +26,7 @@ import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.ConditionVariable;
+import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -409,6 +410,47 @@ public final class TestPlayerRunHelper {
           .setLooper(Util.getCurrentOrMainLooper())
           .send();
       runMainLooperUntil(receivedMessageCallback::get);
+    }
+
+    /**
+     * Runs tasks of the main {@link Looper} until the specified condition becomes true independent
+     * of a message on the main {@link Looper}.
+     *
+     * <p>This method is useful for cases where the condition may change outside of a main {@link
+     * Looper} message, for example because it's checking a volatile variable or shared synchronized
+     * state that is updated on a background thread, or because checking the condition itself may
+     * cause it to become true.
+     *
+     * <p>This method ensures the condition is checked within artificially created main {@link
+     * Looper} messages. When using a {@link androidx.media3.test.utils.FakeClock}, this guarantees
+     * the remainder of the test method is not executed in parallel with other background thread
+     * messages.
+     *
+     * @param backgroundThreadCondition The condition to wait for.
+     * @throws TimeoutException If the {@link RobolectricUtil#DEFAULT_TIMEOUT_MS default timeout} is
+     *     exceeded.
+     */
+    public void untilBackgroundThreadCondition(Supplier<Boolean> backgroundThreadCondition)
+        throws Exception {
+      if (backgroundThreadCondition.get()) {
+        return;
+      }
+      AtomicBoolean conditionTrue = new AtomicBoolean();
+      HandlerWrapper handler =
+          player.getClock().createHandler(Util.getCurrentOrMainLooper(), /* callback= */ null);
+      Runnable checkCondition =
+          new Runnable() {
+            @Override
+            public void run() {
+              if (backgroundThreadCondition.get()) {
+                conditionTrue.set(true);
+              } else {
+                handler.postDelayed(this, /* delayMs= */ 1);
+              }
+            }
+          };
+      handler.post(checkCondition);
+      runUntil(conditionTrue::get);
     }
 
     @Override
