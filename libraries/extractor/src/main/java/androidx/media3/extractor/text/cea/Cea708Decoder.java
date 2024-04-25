@@ -1228,6 +1228,8 @@ public final class Cea708Decoder extends CeaDecoder {
             || rolledUpCaptions.size() >= MAXIMUM_ROW_COUNT) {
           rolledUpCaptions.remove(0);
         }
+        // update row value after newline
+        row = rolledUpCaptions.size();
       } else {
         captionStringBuilder.append(text);
       }
