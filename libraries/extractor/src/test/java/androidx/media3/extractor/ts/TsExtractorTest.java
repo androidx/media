@@ -350,7 +350,6 @@ public final class TsExtractorTest {
         simulationConfig);
   }
 
-
   @Test
   public void customPesReader() throws Exception {
     CustomTsPayloadReaderFactory factory = new CustomTsPayloadReaderFactory(true, false);

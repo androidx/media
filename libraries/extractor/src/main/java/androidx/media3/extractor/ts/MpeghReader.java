@@ -56,6 +56,7 @@ public final class MpeghReader implements ElementaryStreamReader {
   private static final int STATE_READING_PACKET_PAYLOAD = 2;
 
   private static final int MHAS_SYNC_WORD_LENGTH = 3;
+  private static final int MIN_MHAS_PACKET_HEADER_SIZE = 2;
   private static final int MAX_MHAS_PACKET_HEADER_SIZE = 15;
 
   private @State int state;
@@ -74,8 +75,6 @@ public final class MpeghReader implements ElementaryStreamReader {
 
   private final ParsableByteArray headerScratchBytes;
   private final ParsableBitArray headerScratchBits;
-  private boolean headerDataFinished;
-
   private final ParsableByteArray dataScratchBytes;
 
   private int payloadBytesRead;
@@ -91,7 +90,8 @@ public final class MpeghReader implements ElementaryStreamReader {
   /** Constructs a new reader for MPEG-H elementary streams. */
   public MpeghReader() {
     state = STATE_FINDING_SYNC;
-    headerScratchBytes = new ParsableByteArray(new byte[MAX_MHAS_PACKET_HEADER_SIZE]);
+    headerScratchBytes =
+        new ParsableByteArray(new byte[MAX_MHAS_PACKET_HEADER_SIZE], MIN_MHAS_PACKET_HEADER_SIZE);
     headerScratchBits = new ParsableBitArray();
     dataScratchBytes = new ParsableByteArray();
     header = new MpeghUtil.MhasPacketHeader();
@@ -107,11 +107,7 @@ public final class MpeghReader implements ElementaryStreamReader {
   public void seek() {
     state = STATE_FINDING_SYNC;
     syncBytes = 0;
-    headerScratchBytes.setPosition(0);
-    headerScratchBits.setPosition(0);
-    dataScratchBytes.setPosition(0);
-    dataScratchBytes.setLimit(0);
-    headerDataFinished = false;
+    headerScratchBytes.reset(MIN_MHAS_PACKET_HEADER_SIZE);
     payloadBytesRead = 0;
     frameBytes = 0;
     samplingRate = C.RATE_UNSET_INT;
@@ -137,9 +133,8 @@ public final class MpeghReader implements ElementaryStreamReader {
   public void packetStarted(long pesTimeUs, @TsPayloadReader.Flags int flags) {
     this.flags = flags;
 
-    // check if data is pending (an MPEG-H frame could not be completed or parsing the header
-    // could not be finished)
-    if (!rapPending && (frameBytes != 0 || !headerDataFinished)) {
+    // check if data is pending (an MPEG-H frame could not be completed)
+    if (!rapPending && frameBytes != 0) {
       dataPending = true;
     }
 
@@ -164,22 +159,29 @@ public final class MpeghReader implements ElementaryStreamReader {
           }
           break;
         case STATE_READING_PACKET_HEADER:
-          maybeAdjustHeaderScratchBuffer();
-          // read into header scratch buffer
-          if (continueRead(data, headerScratchBytes, MAX_MHAS_PACKET_HEADER_SIZE)) {
-            parseHeader();
-            // write the packet header to output
-            headerScratchBytes.setPosition(0);
-            output.sampleData(headerScratchBytes, header.headerLength);
-            // MHAS packet header finished -> obtain the packet payload
-            state = STATE_READING_PACKET_PAYLOAD;
+          copyData(data, headerScratchBytes, /* resetSourcePosition= */ false);
+          if (headerScratchBytes.bytesLeft() == 0) {
+            if (parseHeader()) {
+              // write the MHAS packet header to output
+              headerScratchBytes.setPosition(0);
+              output.sampleData(headerScratchBytes, headerScratchBytes.limit());
+
+              // Prepare headerScratchBytes to read next header in the stream
+              headerScratchBytes.reset(MIN_MHAS_PACKET_HEADER_SIZE);
+
+              // Prepare dataScratchBytes to read new MHAS packet
+              dataScratchBytes.reset(header.packetLength);
+
+              // MHAS packet header finished -> obtain the packet payload
+              state = STATE_READING_PACKET_PAYLOAD;
+            } else if (headerScratchBytes.limit() < MAX_MHAS_PACKET_HEADER_SIZE) {
+              headerScratchBytes.setLimit(headerScratchBytes.limit() + 1);
+            }
           }
           break;
         case STATE_READING_PACKET_PAYLOAD:
           if (shouldParsePacket(header.packetType)) {
-            // prepare data scratch buffer
-            dataScratchBytes.reset(header.packetLength);
-            copyToDataScratchBuffer(data);
+            copyData(data, dataScratchBytes, /* resetSourcePosition= */ true);
           }
           writeSampleData(data);
           if (payloadBytesRead == header.packetLength) {
@@ -208,20 +210,22 @@ public final class MpeghReader implements ElementaryStreamReader {
   }
 
   /**
-   * Reads data from the provided {@code source} into a given {@code target}, attempting to fill the
-   * target buffer up to the specified {@code targetLength}.
+   * Copies data from the provided {@code source} into a given {@code target}, attempting to fill
+   * the target buffer up to its limit.
    *
    * @param source The source from which to read.
    * @param target The target into which data is to be read.
-   * @param targetLength The desired total length of data in the target after the read.
-   * @return Whether the target now contains {@code targetLength} bytes of data.
+   * @param resetSourcePosition Whether to reset the source position to its original value
    */
-  private boolean continueRead(
-      ParsableByteArray source, ParsableByteArray target, int targetLength) {
-    int bytesToRead = min(source.bytesLeft(), targetLength - target.getPosition());
+  private void copyData(
+      ParsableByteArray source, ParsableByteArray target, boolean resetSourcePosition) {
+    int sourcePosition = source.getPosition();
+    int bytesToRead = min(source.bytesLeft(), target.bytesLeft());
     source.readBytes(target.getData(), target.getPosition(), bytesToRead);
     target.skipBytes(bytesToRead);
-    return target.getPosition() == targetLength;
+    if (resetSourcePosition) {
+      source.setPosition(sourcePosition);
+    }
   }
 
   /**
@@ -258,65 +262,22 @@ public final class MpeghReader implements ElementaryStreamReader {
   /**
    * Parses the MHAS packet header.
    *
-   * @throws ParserException if a valid {@link MpeghUtil.Mpegh3daConfig} cannot be parsed.
+   * @return {@code true} if the parsing is successful, {@code false} otherwise.
+   * @throws ParserException if an error occurred during parsing {@link MpeghUtil.MhasPacketHeader}.
    */
-  private void parseHeader() throws ParserException {
-    headerScratchBits.reset(headerScratchBytes.getData());
+  private boolean parseHeader() throws ParserException {
+    int headerLength = headerScratchBytes.limit();
+    headerScratchBits.reset(headerScratchBytes.getData(), headerLength);
+
     // parse the MHAS packet header
-    MpeghUtil.parseMhasPacketHeader(headerScratchBits, header);
+    boolean result = MpeghUtil.parseMhasPacketHeader(headerScratchBits, header);
 
-    payloadBytesRead = 0;
-    frameBytes += header.packetLength + header.headerLength;
-
-    headerDataFinished = true;
-  }
-
-  /** Adjust the header scratch buffer. */
-  private void maybeAdjustHeaderScratchBuffer() {
-    // check if the gathering of data in header scratch buffer was finished and move
-    // remaining bytes to the start of the buffer.
-    if (headerDataFinished && headerScratchBytes.getPosition() > 0) {
-      System.arraycopy(
-          headerScratchBytes.getData(),
-          headerScratchBytes.getPosition(),
-          headerScratchBytes.getData(),
-          0,
-          headerScratchBytes.bytesLeft());
-      headerScratchBytes.setPosition(headerScratchBytes.bytesLeft());
-      headerDataFinished = false;
+    if (result) {
+      payloadBytesRead = 0;
+      frameBytes += header.packetLength + headerLength;
     }
-  }
 
-  /**
-   * Copies data to the data scratch buffer.
-   *
-   * @param data A {@link ParsableByteArray} from which to read the sample data. Its position will
-   *     not be changed.
-   */
-  private void copyToDataScratchBuffer(ParsableByteArray data) {
-    // read bytes from the end of the header scratch buffer into the data scratch buffer
-    if (headerScratchBytes.getPosition() != MAX_MHAS_PACKET_HEADER_SIZE) {
-      copyData(headerScratchBytes, dataScratchBytes, header.packetLength);
-    }
-    // read bytes from input data into the data scratch buffer
-    copyData(data, dataScratchBytes, header.packetLength);
-  }
-
-  /**
-   * Copies up to {@code targetLength} bytes from the {@code source} to the {@code target} without
-   * modifying the {@code source} position. Advances the {@code target} position to reflect the
-   * copied data.
-   *
-   * @param source The source from which to read.
-   * @param target The target into which data is to be written.
-   * @param targetLength The maximum number of bytes to copy.
-   */
-  private void copyData(ParsableByteArray source, ParsableByteArray target, int targetLength) {
-    int sourcePosition = source.getPosition();
-    int bytesToRead = min(source.bytesLeft(), targetLength - target.getPosition());
-    source.readBytes(target.getData(), target.getPosition(), bytesToRead);
-    target.skipBytes(bytesToRead);
-    source.setPosition(sourcePosition);
+    return result;
   }
 
   /**
@@ -338,15 +299,8 @@ public final class MpeghReader implements ElementaryStreamReader {
    * @param data A {@link ParsableByteArray} from which to read the sample data.
    */
   private void writeSampleData(ParsableByteArray data) {
-    int bytesToRead;
-    // read bytes from the end of the header scratch buffer and write them into the output
-    if (headerScratchBytes.getPosition() != MAX_MHAS_PACKET_HEADER_SIZE) {
-      bytesToRead = min(headerScratchBytes.bytesLeft(), header.packetLength - payloadBytesRead);
-      output.sampleData(headerScratchBytes, bytesToRead);
-      payloadBytesRead += bytesToRead;
-    }
     // read bytes from input data and write them into the output
-    bytesToRead = min(data.bytesLeft(), header.packetLength - payloadBytesRead);
+    int bytesToRead = min(data.bytesLeft(), header.packetLength - payloadBytesRead);
     output.sampleData(data, bytesToRead);
     payloadBytesRead += bytesToRead;
   }

@@ -54,13 +54,21 @@ import java.lang.annotation.Target;
    *     byte-aligned.
    * @param header An instance of {@link MhasPacketHeader} that will be updated with the parsed
    *     information.
-   * @throws ParserException if a valid {@link MhasPacketHeader} cannot be parsed.
+   * @return {@code true} if the parsing is successful, {@code false} otherwise.
+   * @throws ParserException if an error occurred during parsing {@link MhasPacketHeader}.
    */
-  public static void parseMhasPacketHeader(ParsableBitArray data, MhasPacketHeader header)
+  public static boolean parseMhasPacketHeader(ParsableBitArray data, MhasPacketHeader header)
       throws ParserException {
     int dataStartPos = data.getBytePosition();
     header.packetType = readEscapedIntValue(data, 3, 8, 8);
+    if (header.packetType == -1) {
+      return false;
+    }
+
     header.packetLabel = readEscapedLongValue(data, 2, 8, 32);
+    if (header.packetLabel == -1) {
+      return false;
+    }
 
     if (header.packetLabel > 0x10) {
       throw ParserException.createForUnsupportedContainerFeature(
@@ -84,7 +92,7 @@ import java.lang.annotation.Target;
     }
 
     header.packetLength = readEscapedIntValue(data, 11, 24, 24);
-    header.headerLength = data.getBytePosition() - dataStartPos;
+    return header.packetLength != -1;
   }
 
   /**
@@ -545,7 +553,8 @@ import java.lang.annotation.Target;
    * @param bits1 number of bits to be parsed.
    * @param bits2 number of bits to be parsed.
    * @param bits3 number of bits to be parsed.
-   * @return The escaped value.
+   * @return The escaped integer value or -1 if end of the {@code data} is reached before fully
+   *     reading the value.
    * @throws IllegalArgumentException if {@code bits1}, {@code bits2} and {@code bits3} could result
    *     in reading a value greater than {@link Integer#MAX_VALUE}.
    */
@@ -557,12 +566,22 @@ import java.lang.annotation.Target;
     int unused =
         IntMath.checkedAdd(IntMath.checkedAdd((1 << bits1) - 1, (1 << bits2) - 1), (1 << bits3));
 
+    if (data.bitsLeft() < bits1) {
+      return -1;
+    }
+
     int value = data.readBits(bits1);
     if (value == (1 << bits1) - 1) {
+      if (data.bitsLeft() < bits2) {
+        return -1;
+      }
       int valueAdd = data.readBits(bits2);
       value += valueAdd;
 
       if (valueAdd == (1 << bits2) - 1) {
+        if (data.bitsLeft() < bits3) {
+          return -1;
+        }
         valueAdd = data.readBits(bits3);
         value += valueAdd;
       }
@@ -582,7 +601,8 @@ import java.lang.annotation.Target;
    * @param bits1 number of bits to be parsed.
    * @param bits2 number of bits to be parsed.
    * @param bits3 number of bits to be parsed.
-   * @return The escaped value.
+   * @return The escaped long value or -1 if end of the {@code data} is reached before fully reading
+   *     the value.
    * @throws IllegalArgumentException if {@code bits1}, {@code bits2} and {@code bits3} could result
    *     in reading a value greater than {@link Long#MAX_VALUE}.
    */
@@ -595,12 +615,24 @@ import java.lang.annotation.Target;
         LongMath.checkedAdd(
             LongMath.checkedAdd((1L << bits1) - 1, (1L << bits2) - 1), (1L << bits3));
 
+    if (data.bitsLeft() < bits1) {
+      return -1;
+    }
+
     long value = data.readBitsToLong(bits1);
     if (value == (1L << bits1) - 1) {
+      if (data.bitsLeft() < bits2) {
+        return -1;
+      }
+
       long valueAdd = data.readBitsToLong(bits2);
       value += valueAdd;
 
       if (valueAdd == (1L << bits2) - 1) {
+        if (data.bitsLeft() < bits3) {
+          return -1;
+        }
+
         valueAdd = data.readBitsToLong(bits3);
         value += valueAdd;
       }
@@ -675,9 +707,6 @@ import java.lang.annotation.Target;
 
     /** The length of MHAS packet payload in bytes. */
     public int packetLength;
-
-    /** The length of MHAS packet header in bytes. */
-    public int headerLength;
   }
 
   /** Represents an MPEG-H 3D audio configuration. */
