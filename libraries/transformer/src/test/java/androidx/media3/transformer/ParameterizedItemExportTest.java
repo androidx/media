@@ -54,7 +54,7 @@ import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
  *
  * <ul>
  *   <li>Video can not be transcoded, due to OpenGL not being supported with Robolectric.
- *   <li>Non RAW audio can not be trancoded, because AudioGraph requires decoded data but
+ *   <li>Non RAW audio can not be transcoded, because AudioGraph requires decoded data but
  *       Robolectric decoders do not decode.
  *   <li>RAW audio will always be transcoded, because the muxer does not support RAW audio as input.
  * </ul>

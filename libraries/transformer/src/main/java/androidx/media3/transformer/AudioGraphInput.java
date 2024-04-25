@@ -43,6 +43,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -64,13 +65,13 @@ import java.util.concurrent.atomic.AtomicReference;
   private final Queue<DecoderInputBuffer> availableInputBuffers;
   private final Queue<DecoderInputBuffer> pendingInputBuffers;
   private final AtomicReference<@NullableType MediaItemChange> pendingMediaItemChange;
+  private final AtomicLong startTimeUs;
 
   @Nullable private DecoderInputBuffer currentInputBufferBeingOutput;
   private AudioProcessingPipeline audioProcessingPipeline;
   private boolean processedFirstMediaItemChange;
   private boolean receivedEndOfStreamFromInput;
   private boolean queueEndOfStreamAfterSilence;
-  private long startTimeUs;
   private boolean inputBlocked;
 
   /**
@@ -104,7 +105,7 @@ import java.util.concurrent.atomic.AtomicReference;
     // APP configuration not active until flush called. getOutputAudioFormat based on active config.
     audioProcessingPipeline.flush();
     outputAudioFormat = audioProcessingPipeline.getOutputAudioFormat();
-    startTimeUs = C.TIME_UNSET;
+    startTimeUs = new AtomicLong(C.TIME_UNSET);
   }
 
   /** Returns the {@link AudioFormat} of {@linkplain #getOutput() output buffers}. */
@@ -186,19 +187,14 @@ import java.util.concurrent.atomic.AtomicReference;
     checkState(pendingMediaItemChange.get() == null);
     DecoderInputBuffer inputBuffer = availableInputBuffers.remove();
     pendingInputBuffers.add(inputBuffer);
-    if (startTimeUs == C.TIME_UNSET) {
-      startTimeUs = inputBuffer.timeUs;
-    }
+    startTimeUs.compareAndSet(
+        /* expectedValue= */ C.TIME_UNSET, /* newValue= */ inputBuffer.timeUs);
     return true;
   }
 
-  /**
-   * Returns the stream start time in microseconds, or {@link C#TIME_UNSET} if unknown.
-   *
-   * <p>Should only be called if the input thread and processing thread are the same.
-   */
+  /** Returns the stream start time in microseconds, or {@link C#TIME_UNSET} if unknown. */
   public long getStartTimeUs() {
-    return startTimeUs;
+    return startTimeUs.get();
   }
 
   /**
@@ -247,7 +243,7 @@ import java.util.concurrent.atomic.AtomicReference;
     audioProcessingPipeline.flush();
     receivedEndOfStreamFromInput = false;
     queueEndOfStreamAfterSilence = false;
-    startTimeUs = C.TIME_UNSET;
+    startTimeUs.set(C.TIME_UNSET);
   }
 
   /**
@@ -407,6 +403,7 @@ import java.util.concurrent.atomic.AtomicReference;
       pendingAudioFormat = new AudioFormat(pendingChange.format);
     } else { // Generating silence
       pendingAudioFormat = silentAudioGenerator.audioFormat;
+      startTimeUs.compareAndSet(/* expectedValue= */ C.TIME_UNSET, /* newValue= */ 0);
       silentAudioGenerator.addSilence(pendingChange.durationUs);
       if (pendingChange.isLast) {
         queueEndOfStreamAfterSilence = true;

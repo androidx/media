@@ -18,10 +18,14 @@ package androidx.media3.transformer;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.getPcmFormat;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import androidx.media3.common.C;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.AudioProcessor.AudioFormat;
+import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.test.utils.TestUtil;
@@ -87,6 +91,36 @@ public class AudioGraphTest {
     // 3 second stream with 100_000 frames per second.
     // 16 bit PCM has 2 bytes per channel.
     assertThat(bytesOutput).isEqualTo(3 * 100_000 * 2 * 6);
+  }
+
+  @Test
+  public void audioGraphInputOutputtingInvalidFormat_audioGraphThrows() throws Exception {
+    AudioGraph audioGraph =
+        new AudioGraph(new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of());
+    AudioProcessor audioProcessor =
+        new BaseAudioProcessor() {
+          @Override
+          public void queueInput(ByteBuffer inputBuffer) {}
+
+          @Override
+          protected AudioFormat onConfigure(AudioFormat inputAudioFormat) {
+            return new AudioFormat(
+                /* sampleRate= */ 44_100,
+                /* channelCount= */ Format.NO_VALUE,
+                C.ENCODING_PCM_16BIT);
+          }
+        };
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.EMPTY)
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(audioProcessor),
+                    /* videoEffects= */ ImmutableList.of()))
+            .build();
+
+    audioGraph.registerInput(editedMediaItem, getPcmFormat(SURROUND_50000));
+
+    assertThrows(ExportException.class, audioGraph::getOutput);
   }
 
   @Test
@@ -168,6 +202,18 @@ public class AudioGraphTest {
     audioGraph.registerInput(FAKE_ITEM, getPcmFormat(SURROUND_50000));
 
     assertThat(audioGraph.getOutputAudioFormat().sampleRate).isEqualTo(48_000);
+  }
+
+  @Test
+  public void registerInput_withUnsupportedFormat_throws() {
+    AudioGraph audioGraph =
+        new AudioGraph(new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of());
+    AudioFormat audioFormat =
+        new AudioFormat(/* sampleRate= */ 44_100, /* channelCount= */ 1, C.ENCODING_PCM_8BIT);
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> audioGraph.registerInput(FAKE_ITEM, getPcmFormat(audioFormat)));
   }
 
   @Test

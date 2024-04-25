@@ -27,113 +27,123 @@ container metadata:
   entry = xyz: latitude=40.68, longitude=-74.5
 sample:
   trackType = audio
-  dataHashCode = -1438864202
+  dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
 sample:
   trackType = audio
-  dataHashCode = 934871277
+  dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
 sample:
   trackType = audio
-  dataHashCode = 1134999182
+  dataHashCode = 413799331
   size = 4096
   isKeyFrame = true
 sample:
   trackType = audio
-  dataHashCode = -174912532
+  dataHashCode = 1108115494
   size = 4096
   isKeyFrame = true
 sample:
   trackType = audio
-  dataHashCode = -1005624952
+  dataHashCode = -1885521440
   size = 4096
   isKeyFrame = true
 sample:
   trackType = audio
-  dataHashCode = -1678870804
+  dataHashCode = 1112600185
   size = 4096
   isKeyFrame = true
 sample:
   trackType = audio
-  dataHashCode = -1663719904
+  dataHashCode = -377617286
   size = 4096
   isKeyFrame = true
 sample:
   trackType = audio
-  dataHashCode = -1735249329
+  dataHashCode = 1174897446
   size = 4096
   isKeyFrame = true
 sample:
   trackType = audio
-  dataHashCode = 1127436171
+  dataHashCode = -652005356
   size = 4096
   isKeyFrame = true
 sample:
   trackType = audio
-  dataHashCode = -508990108
+  dataHashCode = -1841655008
   size = 4096
   isKeyFrame = true
 sample:
   trackType = audio
-  dataHashCode = 1930479446
+  dataHashCode = 1815238174
   size = 4096
   isKeyFrame = true
 sample:
   trackType = audio
-  dataHashCode = -167569148
+  dataHashCode = -1745464927
   size = 4096
   isKeyFrame = true
 sample:
   trackType = audio
-  dataHashCode = 202160218
+  dataHashCode = -969133005
   size = 4096
   isKeyFrame = true
 sample:
   trackType = audio
-  dataHashCode = 1519515939
+  dataHashCode = 943244167
   size = 4096
   isKeyFrame = true
 sample:
   trackType = audio
-  dataHashCode = -1072406739
+  dataHashCode = 981350607
   size = 4096
   isKeyFrame = true
 sample:
   trackType = audio
-  dataHashCode = 33449818
+  dataHashCode = -1886507040
   size = 4096
   isKeyFrame = true
 sample:
   trackType = audio
-  dataHashCode = -271975432
+  dataHashCode = -502968940
   size = 4096
   isKeyFrame = true
 sample:
   trackType = audio
-  dataHashCode = -1029917087
+  dataHashCode = 1607535982
   size = 4096
   isKeyFrame = true
 sample:
   trackType = audio
-  dataHashCode = 1547114815
+  dataHashCode = -1557286731
   size = 4096
   isKeyFrame = true
 sample:
   trackType = audio
-  dataHashCode = 1307364090
+  dataHashCode = 1932764288
   size = 4096
   isKeyFrame = true
 sample:
   trackType = audio
-  dataHashCode = 1545711502
+  dataHashCode = -480251183
   size = 4096
   isKeyFrame = true
 sample:
   trackType = audio
-  dataHashCode = -1034138750
+  dataHashCode = 1508860307
   size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -1713708904
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = 2107276453
+  size = 2282
   isKeyFrame = true
 sample:
   trackType = video
