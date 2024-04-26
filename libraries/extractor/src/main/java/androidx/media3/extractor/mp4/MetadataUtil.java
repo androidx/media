@@ -377,9 +377,9 @@ import com.google.common.collect.ImmutableList;
       } else if (type == TYPE_TRACK_NUMBER) {
         return parseIndexAndCountAttribute(type, "TRCK", ilst);
       } else if (type == TYPE_TEMPO) {
-        return parseUint8Attribute(type, "TBPM", ilst, true, false);
+        return parseIntegerAttribute(type, "TBPM", ilst, true, false);
       } else if (type == TYPE_COMPILATION) {
-        return parseUint8Attribute(type, "TCMP", ilst, true, true);
+        return parseIntegerAttribute(type, "TCMP", ilst, true, true);
       } else if (type == TYPE_COVER_ART) {
         return parseCoverArt(ilst);
       } else if (type == TYPE_ALBUM_ARTIST) {
@@ -395,9 +395,9 @@ import com.google.common.collect.ImmutableList;
       } else if (type == TYPE_SORT_COMPOSER) {
         return parseTextAttribute(type, "TSOC", ilst);
       } else if (type == TYPE_RATING) {
-        return parseUint8Attribute(type, "ITUNESADVISORY", ilst, false, false);
+        return parseIntegerAttribute(type, "ITUNESADVISORY", ilst, false, false);
       } else if (type == TYPE_GAPLESS_ALBUM) {
-        return parseUint8Attribute(type, "ITUNESGAPLESS", ilst, false, true);
+        return parseIntegerAttribute(type, "ITUNESGAPLESS", ilst, false, true);
       } else if (type == TYPE_TV_SORT_SHOW) {
         return parseTextAttribute(type, "TVSHOWSORT", ilst);
       } else if (type == TYPE_TV_SHOW) {
@@ -468,13 +468,13 @@ import com.google.common.collect.ImmutableList;
   }
 
   @Nullable
-  private static Id3Frame parseUint8Attribute(
+  private static Id3Frame parseIntegerAttribute(
       int type,
       String id,
       ParsableByteArray data,
       boolean isTextInformationFrame,
       boolean isBoolean) {
-    int value = parseUint8AttributeValue(data);
+    int value = parseIntegerAttribute(data);
     if (isBoolean) {
       value = min(1, value);
     }
@@ -486,6 +486,28 @@ import com.google.common.collect.ImmutableList;
     }
     Log.w(TAG, "Failed to parse uint8 attribute: " + Atom.getAtomTypeString(type));
     return null;
+  }
+
+  private static int parseIntegerAttribute(ParsableByteArray data) {
+    int atomSize = data.readInt();
+    int atomType = data.readInt();
+    if (atomType == Atom.TYPE_data) {
+      data.skipBytes(8); // version (1), flags (3), empty (4)
+      switch (atomSize - 16) {
+        case 1:
+          return data.readUnsignedByte();
+        case 2:
+          return data.readUnsignedShort();
+        case 3:
+          return data.readUnsignedInt24();
+        case 4:
+          if ((data.peekUnsignedByte() & 0x80) == 0) {
+            return data.readUnsignedIntToInt();
+          }
+      }
+    }
+    Log.w(TAG, "Failed to parse data atom to int");
+    return -1;
   }
 
   @Nullable
@@ -512,7 +534,7 @@ import com.google.common.collect.ImmutableList;
 
   @Nullable
   private static TextInformationFrame parseStandardGenreAttribute(ParsableByteArray data) {
-    int genreCode = parseUint8AttributeValue(data);
+    int genreCode = parseIntegerAttribute(data);
     @Nullable
     String genreString =
         (0 < genreCode && genreCode <= STANDARD_GENRES.length)
@@ -581,16 +603,5 @@ import com.google.common.collect.ImmutableList;
     data.skipBytes(16); // size (4), type (4), version (1), flags (3), empty (4)
     String value = data.readNullTerminatedString(dataAtomSize - 16);
     return new InternalFrame(domain, name, value);
-  }
-
-  private static int parseUint8AttributeValue(ParsableByteArray data) {
-    data.skipBytes(4); // atomSize
-    int atomType = data.readInt();
-    if (atomType == Atom.TYPE_data) {
-      data.skipBytes(8); // version (1), flags (3), empty (4)
-      return data.readUnsignedByte();
-    }
-    Log.w(TAG, "Failed to parse uint8 attribute value");
-    return -1;
   }
 }

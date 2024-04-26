@@ -25,6 +25,8 @@
         (`soal`), 'artist sort' (`soar`) and 'album artist sort' (`soaa`) MP4
         tags were wrongly mapped to the `TSO2`, `TSOA` and `TSOP` ID3 tags
         ([#1302](https://github.com/androidx/media/issues/1302)).
+    *   Fix reading of MP4 (/iTunes) numeric `gnre` (genre) and `tmpo` (tempo)
+        tags when the value is more than one byte long.
 *   Image:
 *   DRM:
     *   Allow setting a `LoadErrorHandlingPolicy` on
