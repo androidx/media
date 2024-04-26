@@ -280,7 +280,7 @@ public final class CapturingMuxer implements Muxer, Dumpable {
           .add("size", sampleSize)
           .add("isKeyFrame", isKeyFrame);
       if (presentationTimeUs != C.TIME_UNSET) {
-        dumper.add("presentationTimeUs", presentationTimeUs);
+        dumper.addTime("presentationTimeUs", presentationTimeUs);
       }
       dumper.endBlock();
     }

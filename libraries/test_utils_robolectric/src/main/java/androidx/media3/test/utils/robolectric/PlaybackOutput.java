@@ -139,7 +139,7 @@ public final class PlaybackOutput implements Dumper.Dumpable {
     for (int i = 0; i < metadatas.size(); i++) {
       dumper.startBlock("Metadata[" + i + "]");
       Metadata metadata = metadatas.get(i);
-      dumper.add("presentationTimeUs", metadata.presentationTimeUs);
+      dumper.addTime("presentationTimeUs", metadata.presentationTimeUs);
       for (int j = 0; j < metadata.length(); j++) {
         dumper.add("entry[" + j + "]", getEntryAsString(metadata.get(j)));
       }
@@ -387,7 +387,7 @@ public final class PlaybackOutput implements Dumper.Dumpable {
       dumper.startBlock("Subtitle[" + i + "]");
       // TODO: Solving https://github.com/google/ExoPlayer/issues/9672 will allow us to remove this
       // hack of forcing presentationTimeUs to be >= 0.
-      dumper.add("presentationTimeUs", max(0, subtitles.get(i).presentationTimeUs));
+      dumper.addTime("presentationTimeUs", max(0, subtitles.get(i).presentationTimeUs));
       ImmutableList<Cue> subtitle = subtitles.get(i).cues;
       if (!subtitle.equals(subtitlesFromDeprecatedTextOutput.get(i))) {
         throw new IllegalStateException(

@@ -421,7 +421,7 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
       @Override
       public void dump(Dumper dumper) {
         dumper.startBlock("input buffer #" + inputBufferCounter);
-        dumper.add("timeUs", bufferTimeUs);
+        dumper.addTime("timeUs", bufferTimeUs);
         if (flags != 0) {
           dumper.add("flags", flags);
         }
@@ -450,7 +450,7 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
       @Override
       public void dump(Dumper dumper) {
         dumper.startBlock("output buffer #" + outputBufferCounter);
-        dumper.add("timeUs", bufferTimeUs);
+        dumper.addTime("timeUs", bufferTimeUs);
         if (flags != 0) {
           dumper.add("flags", flags);
         }
