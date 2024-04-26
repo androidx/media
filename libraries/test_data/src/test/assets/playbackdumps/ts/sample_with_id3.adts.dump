@@ -1459,7 +1459,7 @@ MetadataOutput:
     entry[0] = APIC: mimeType=image/jpeg, description=Hello World
   Metadata[1]:
     presentationTimeUs = 23219
-    entry[0] = COMM: language=eng, description=description
+    entry[0] = COMM: language=eng, description=description, text=text
     entry[1] = APIC: mimeType=image/jpeg, description=Hello World
 Listener.onMediaMetadata:
   MediaMetadata[0]:
