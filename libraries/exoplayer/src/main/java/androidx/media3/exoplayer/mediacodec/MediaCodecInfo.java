@@ -19,6 +19,7 @@ import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_AUDIO_CHANNEL_COUNT_CHANGED;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_AUDIO_ENCODING_CHANGED;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_AUDIO_SAMPLE_RATE_CHANGED;
+import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_CODEC_CHANGED;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_INITIALIZATION_DATA_CHANGED;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_MIME_TYPE_CHANGED;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_VIDEO_COLOR_INFO_CHANGED;
@@ -439,6 +440,9 @@ public final class MediaCodecInfo {
     if (!Objects.equals(oldFormat.sampleMimeType, newFormat.sampleMimeType)) {
       discardReasons |= DISCARD_REASON_MIME_TYPE_CHANGED;
     }
+    if (!Objects.equals(oldFormat.codecs, newFormat.codecs)) {
+      discardReasons |= DISCARD_REASON_CODEC_CHANGED;
+    }
 
     if (isVideo) {
       if (oldFormat.rotationDegrees != newFormat.rotationDegrees) {
@@ -514,6 +518,18 @@ public final class MediaCodecInfo {
                 /* discardReasons= */ 0);
           }
         }
+      }
+
+      // For eac3, eac3-joc and ac4 formats, adaptation is possible without reconfiguration or
+      // flushing.
+      if (discardReasons == 0 && (MimeTypes.AUDIO_E_AC3_JOC.equals(mimeType)
+          || MimeTypes.AUDIO_E_AC3.equals(mimeType) || MimeTypes.AUDIO_AC4.equals(mimeType))) {
+        return new DecoderReuseEvaluation(
+            name,
+            oldFormat,
+            newFormat,
+            REUSE_RESULT_YES_WITHOUT_RECONFIGURATION,
+            /* discardReasons= */ 0);
       }
 
       if (!oldFormat.initializationDataEquals(newFormat)) {
