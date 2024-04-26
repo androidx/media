@@ -15,9 +15,6 @@
  */
 package androidx.media3.test.utils;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -49,8 +46,7 @@ public final class Dumper {
   }
 
   @CanIgnoreReturnValue
-  public Dumper add(String field, @Nullable Object value) {
-    checkNotNull(value);
+  public Dumper add(String field, Object value) {
     if (value instanceof byte[]) {
       return add(field, (byte[]) value);
     }
@@ -72,14 +68,10 @@ public final class Dumper {
   }
 
   @CanIgnoreReturnValue
-  public Dumper add(String field, @Nullable byte[] value) {
+  public Dumper add(String field, byte[] value) {
     String string =
         String.format(
-            Locale.US,
-            "%s = length %d, hash %X",
-            field,
-            value == null ? 0 : value.length,
-            Arrays.hashCode(value));
+            Locale.US, "%s = length %d, hash %X", field, value.length, Arrays.hashCode(value));
     return addLine(string);
   }
 

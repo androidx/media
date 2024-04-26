@@ -15,6 +15,7 @@
  */
 package androidx.media3.test.utils.robolectric;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static java.lang.Math.max;
 
 import android.graphics.Bitmap;
@@ -426,6 +427,7 @@ public final class PlaybackOutput implements Dumper.Dumpable {
   private static void dumpIfNotEqual(
       Dumper dumper, String field, @Nullable Object actual, @Nullable Object comparison) {
     if (!Util.areEqual(actual, comparison)) {
+      checkNotNull(actual);
       dumper.add(field, actual);
     }
   }

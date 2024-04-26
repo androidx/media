@@ -15,6 +15,8 @@
  */
 package androidx.media3.test.utils;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
+
 import androidx.annotation.Nullable;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -154,6 +156,7 @@ public final class DumpableFormat implements Dumper.Dumpable {
     @Nullable Object fieldValue = getFieldFunction.apply(value);
     @Nullable Object defaultFieldValue = getFieldFunction.apply(defaultValue);
     if (!Util.areEqual(fieldValue, defaultFieldValue)) {
+      checkNotNull(fieldValue);
       dumper.add(field, fieldValue);
     }
   }
