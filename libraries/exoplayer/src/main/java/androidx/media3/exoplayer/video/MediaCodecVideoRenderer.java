@@ -645,11 +645,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   @Override
   protected void onPositionReset(long positionUs, boolean joining) throws ExoPlaybackException {
+    // When this renderer doesn't own the VideoSinkProvider, it's possible that the VideoSink is
+    // already initialized by another renderer, before this renderer is enabled.
     // Flush the video sink first to ensure it stops reading textures that will be owned by
     // MediaCodec once the codec is flushed.
-    if (videoSink != null) {
-      videoSink.flush();
-    }
+    videoSinkProvider.getSink().flush();
     super.onPositionReset(positionUs, joining);
     videoFrameReleaseControl.reset();
     if (joining) {
@@ -1471,9 +1471,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     super.onProcessedStreamChange();
     videoFrameReleaseControl.onProcessedStreamChange();
     maybeSetupTunnelingForFirstFrame();
-    if (videoSink != null) {
-      videoSink.setStreamOffsetUs(getOutputStreamOffsetUs());
-    }
+    // If the renderer does not own the VideoSinkProvider, it's possible the VideoSink is null when
+    // this method is invoked, that is when transitioning from another renderer.
+    videoSinkProvider.getSink().setStreamOffsetUs(getOutputStreamOffsetUs());
   }
 
   /**
