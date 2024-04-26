@@ -77,6 +77,7 @@ public final class MpeghReader implements ElementaryStreamReader {
   private final ParsableBitArray headerScratchBits;
   private final ParsableByteArray dataScratchBytes;
 
+  private boolean headerDataFinished;
   private int payloadBytesRead;
   private int frameBytes;
 
@@ -99,6 +100,7 @@ public final class MpeghReader implements ElementaryStreamReader {
     standardFrameLength = C.LENGTH_UNSET;
     mainStreamLabel = C.INDEX_UNSET;
     rapPending = true;
+    headerDataFinished = true;
     timeUs = C.TIME_UNSET;
     timeUsPending = C.TIME_UNSET;
   }
@@ -116,6 +118,7 @@ public final class MpeghReader implements ElementaryStreamReader {
     mainStreamLabel = C.INDEX_UNSET;
     configFound = false;
     dataPending = false;
+    headerDataFinished = true;
     rapPending = true;
     timeUs = C.TIME_UNSET;
     timeUsPending = C.TIME_UNSET;
@@ -134,7 +137,7 @@ public final class MpeghReader implements ElementaryStreamReader {
     this.flags = flags;
 
     // check if data is pending (an MPEG-H frame could not be completed)
-    if (!rapPending && frameBytes != 0) {
+    if (!rapPending && (frameBytes != 0 || !headerDataFinished)) {
       dataPending = true;
     }
 
@@ -172,11 +175,19 @@ public final class MpeghReader implements ElementaryStreamReader {
               // Prepare dataScratchBytes to read new MHAS packet
               dataScratchBytes.reset(header.packetLength);
 
+              // Signalize packet header processed completely
+              headerDataFinished = true;
+
               // MHAS packet header finished -> obtain the packet payload
               state = STATE_READING_PACKET_PAYLOAD;
             } else if (headerScratchBytes.limit() < MAX_MHAS_PACKET_HEADER_SIZE) {
               headerScratchBytes.setLimit(headerScratchBytes.limit() + 1);
+              // Signalize pending packet header processing
+              headerDataFinished = false;
             }
+          } else {
+            // Signalize pending packet header processing
+            headerDataFinished = false;
           }
           break;
         case STATE_READING_PACKET_PAYLOAD:
