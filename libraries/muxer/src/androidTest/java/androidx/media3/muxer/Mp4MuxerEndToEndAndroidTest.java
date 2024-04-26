@@ -45,13 +45,23 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class Mp4MuxerEndToEndAndroidTest {
   private static final String H264_MP4 = "sample_no_bframes.mp4";
+  private static final String H264_WITH_NON_REFERENCE_B_FRAMES_MP4 =
+      "bbb_800x640_768kbps_30fps_avc_non_reference_3b.mp4";
+  private static final String H264_WITH_PYRAMID_B_FRAMES_MP4 =
+      "bbb_800x640_768kbps_30fps_avc_pyramid_3b.mp4";
   private static final String H265_HDR10_MP4 = "hdr10-720p.mp4";
   private static final String H265_WITH_METADATA_TRACK_MP4 = "h265_with_metadata_track.mp4";
   private static final String AV1_MP4 = "sample_av1.mp4";
 
   @Parameters(name = "{0}")
   public static ImmutableList<String> mediaSamples() {
-    return ImmutableList.of(H264_MP4, H265_HDR10_MP4, H265_WITH_METADATA_TRACK_MP4, AV1_MP4);
+    return ImmutableList.of(
+        H264_MP4,
+        H264_WITH_NON_REFERENCE_B_FRAMES_MP4,
+        H264_WITH_PYRAMID_B_FRAMES_MP4,
+        H265_HDR10_MP4,
+        H265_WITH_METADATA_TRACK_MP4,
+        AV1_MP4);
   }
 
   @Parameter public @MonotonicNonNull String inputFile;

@@ -29,6 +29,7 @@ import static java.lang.Math.min;
 
 import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
@@ -73,6 +74,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private boolean headerCreated;
   private long minInputPresentationTimeUs;
   private long maxTrackDurationUs;
+  private long lastSamplePresentationTimeUs;
 
   /**
    * Creates an instance.
@@ -100,6 +102,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.fragmentDurationUs = fragmentDurationMs * 1_000;
     minInputPresentationTimeUs = Long.MAX_VALUE;
     currentFragmentSequenceNumber = 1;
+    lastSamplePresentationTimeUs = C.TIME_UNSET;
   }
 
   public TrackToken addTrack(int sortKey, Format format) {
@@ -115,6 +118,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       TrackToken token, ByteBuffer byteBuffer, MediaCodec.BufferInfo bufferInfo)
       throws IOException {
     checkArgument(token instanceof Track);
+    checkArgument(
+        bufferInfo.presentationTimeUs > lastSamplePresentationTimeUs,
+        "Out of order B-frames are not supported");
     if (!headerCreated) {
       createHeader();
       headerCreated = true;
@@ -124,6 +130,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       createFragment();
     }
     track.writeSampleData(byteBuffer, bufferInfo);
+    lastSamplePresentationTimeUs = bufferInfo.presentationTimeUs;
     BufferInfo firstPendingSample = checkNotNull(track.pendingSamplesBufferInfo.peekFirst());
     BufferInfo lastPendingSample = checkNotNull(track.pendingSamplesBufferInfo.peekLast());
     minInputPresentationTimeUs =

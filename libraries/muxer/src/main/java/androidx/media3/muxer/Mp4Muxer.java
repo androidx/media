@@ -214,8 +214,6 @@ public final class Mp4Muxer implements Muxer {
    * modified after calling this method. Otherwise, they are copied and it is safe to modify them
    * after this method returns.
    *
-   * <p>Note: Out of order B-frames are currently not supported.
-   *
    * @param trackToken The {@link TrackToken} for which this sample is being written.
    * @param byteBuffer The encoded sample. The muxer takes ownership of the buffer if {@link
    *     Builder#setSampleCopyEnabled(boolean) sample copying} is disabled. Otherwise, the position

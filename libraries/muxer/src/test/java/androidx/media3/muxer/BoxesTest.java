@@ -518,6 +518,60 @@ public class BoxesTest {
   }
 
   @Test
+  public void createCttsBox_withSingleSampleTimestamp_returnsEmptyBox() {
+    List<MediaCodec.BufferInfo> sampleBufferInfos =
+        createBufferInfoListWithSamplePresentationTimestamps(400);
+    List<Long> durationsVu =
+        Boxes.convertPresentationTimestampsToDurationsVu(
+            sampleBufferInfos,
+            /* firstSamplePresentationTimeUs= */ 0L,
+            VU_TIMEBASE,
+            LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME);
+
+    ByteBuffer cttsBox = Boxes.ctts(sampleBufferInfos, durationsVu, VU_TIMEBASE);
+
+    // Create empty box in case of 1 sample.
+    assertThat(cttsBox.hasRemaining()).isFalse();
+  }
+
+  @Test
+  public void createCttsBox_withNoBframesSampleTimestamps_returnsEmptyBox() throws IOException {
+    List<MediaCodec.BufferInfo> sampleBufferInfos =
+        createBufferInfoListWithSamplePresentationTimestamps(0L, 1000L, 2000L);
+    List<Long> durationsVu =
+        Boxes.convertPresentationTimestampsToDurationsVu(
+            sampleBufferInfos,
+            /* firstSamplePresentationTimeUs= */ 0L,
+            VU_TIMEBASE,
+            LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME);
+
+    ByteBuffer cttsBox = Boxes.ctts(sampleBufferInfos, durationsVu, VU_TIMEBASE);
+
+    // Create empty ctts box in case samples does not contain B-frames.
+    assertThat(cttsBox.hasRemaining()).isFalse();
+  }
+
+  @Test
+  public void createCttsBox_withBFramesSampleTimestamps_matchesExpected() throws IOException {
+    List<MediaCodec.BufferInfo> sampleBufferInfos =
+        createBufferInfoListWithSamplePresentationTimestamps(
+            0, 400, 200, 100, 300, 800, 600, 500, 700);
+
+    List<Long> durationsVu =
+        Boxes.convertPresentationTimestampsToDurationsVu(
+            sampleBufferInfos,
+            /* firstSamplePresentationTimeUs= */ 0L,
+            VU_TIMEBASE,
+            LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME);
+
+    ByteBuffer cttsBox = Boxes.ctts(sampleBufferInfos, durationsVu, VU_TIMEBASE);
+
+    DumpableMp4Box dumpableBox = new DumpableMp4Box(cttsBox);
+    DumpFileAsserts.assertOutput(
+        context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("ctts_box"));
+  }
+
+  @Test
   public void createStszBox_matchesExpected() throws IOException {
     List<MediaCodec.BufferInfo> sampleBufferInfos =
         createBufferInfoListWithSampleSizes(100, 200, 150, 200);

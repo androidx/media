@@ -15,11 +15,8 @@
  */
 package androidx.media3.muxer;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-
 import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
-import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.muxer.Muxer.TrackToken;
@@ -42,7 +39,6 @@ import java.util.List;
   public boolean hadKeyframe;
 
   private final boolean sampleCopyEnabled;
-  private long lastSamplePresentationTimeUs;
 
   /** Creates an instance with {@code sortKey} set to 1. */
   public Track(Format format, boolean sampleCopyEnabled) {
@@ -65,13 +61,9 @@ import java.util.List;
     writtenChunkSampleCounts = new ArrayList<>();
     pendingSamplesBufferInfo = new ArrayDeque<>();
     pendingSamplesByteBuffer = new ArrayDeque<>();
-    lastSamplePresentationTimeUs = C.TIME_UNSET;
   }
 
   public void writeSampleData(ByteBuffer byteBuffer, BufferInfo bufferInfo) {
-    checkArgument(
-        bufferInfo.presentationTimeUs > lastSamplePresentationTimeUs,
-        "Out of order B-frames are not supported");
     // TODO: b/279931840 - Confirm whether muxer should throw when writing empty samples.
     //  Skip empty samples.
     if (bufferInfo.size == 0 || byteBuffer.remaining() == 0) {
@@ -106,7 +98,6 @@ import java.util.List;
 
     pendingSamplesBufferInfo.addLast(bufferInfoToAdd);
     pendingSamplesByteBuffer.addLast(byteBufferToAdd);
-    lastSamplePresentationTimeUs = bufferInfoToAdd.presentationTimeUs;
   }
 
   @Override
