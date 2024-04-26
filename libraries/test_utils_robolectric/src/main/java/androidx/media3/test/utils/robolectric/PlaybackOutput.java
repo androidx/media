@@ -15,7 +15,6 @@
  */
 package androidx.media3.test.utils.robolectric;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static java.lang.Math.max;
 
 import android.graphics.Bitmap;
@@ -33,7 +32,6 @@ import androidx.media3.common.ThumbRating;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.extractor.metadata.dvbsi.AppInfoTable;
@@ -182,39 +180,39 @@ public final class PlaybackOutput implements Dumper.Dumpable {
     for (int i = 0; i < mediaMetadatas.size(); i++) {
       dumper.startBlock("MediaMetadata[" + i + "]");
       MediaMetadata mediaMetadata = mediaMetadatas.get(i);
-      dumpIfNotEqual(dumper, "title", mediaMetadata.title, null);
-      dumpIfNotEqual(dumper, "artist", mediaMetadata.artist, null);
-      dumpIfNotEqual(dumper, "albumTitle", mediaMetadata.albumTitle, null);
-      dumpIfNotEqual(dumper, "albumArtist", mediaMetadata.albumArtist, null);
-      dumpIfNotEqual(dumper, "displayTitle", mediaMetadata.displayTitle, null);
-      dumpIfNotEqual(dumper, "subtitle", mediaMetadata.subtitle, null);
-      dumpIfNotEqual(dumper, "description", mediaMetadata.description, null);
-      dumpIfNotEqual(dumper, "userRating", ratingString(mediaMetadata.userRating), null);
-      dumpIfNotEqual(dumper, "overallRating", ratingString(mediaMetadata.overallRating), null);
-      dumpIfNotEqual(dumper, "artworkData", mediaMetadata.artworkData, null);
-      dumpIfNotEqual(
-          dumper, "artworkDataType", pictureTypeString(mediaMetadata.artworkDataType), null);
-      dumpIfNotEqual(dumper, "artworkUri", mediaMetadata.artworkUri, null);
-      dumpIfNotEqual(dumper, "trackNumber", mediaMetadata.trackNumber, null);
-      dumpIfNotEqual(dumper, "totalTrackCount", mediaMetadata.totalTrackCount, null);
-      dumpIfNotEqual(dumper, "isBrowsable", mediaMetadata.isBrowsable, null);
-      dumpIfNotEqual(dumper, "isPlayable", mediaMetadata.isPlayable, null);
-      dumpIfNotEqual(dumper, "recordingYear", mediaMetadata.recordingYear, null);
-      dumpIfNotEqual(dumper, "recordingMonth", mediaMetadata.recordingMonth, null);
-      dumpIfNotEqual(dumper, "recordingDay", mediaMetadata.recordingDay, null);
-      dumpIfNotEqual(dumper, "releaseYear", mediaMetadata.releaseYear, null);
-      dumpIfNotEqual(dumper, "releaseMonth", mediaMetadata.releaseMonth, null);
-      dumpIfNotEqual(dumper, "releaseDay", mediaMetadata.releaseDay, null);
-      dumpIfNotEqual(dumper, "writer", mediaMetadata.writer, null);
-      dumpIfNotEqual(dumper, "composer", mediaMetadata.composer, null);
-      dumpIfNotEqual(dumper, "conductor", mediaMetadata.conductor, null);
-      dumpIfNotEqual(dumper, "discNumber", mediaMetadata.discNumber, null);
-      dumpIfNotEqual(dumper, "totalDiscCount", mediaMetadata.totalDiscCount, null);
-      dumpIfNotEqual(dumper, "genre", mediaMetadata.genre, null);
-      dumpIfNotEqual(dumper, "compilation", mediaMetadata.compilation, null);
-      dumpIfNotEqual(dumper, "station", mediaMetadata.station, null);
-      dumpIfNotEqual(dumper, "mediaType", mediaTypeString(mediaMetadata.mediaType), null);
-      dumpIfNotEqual(dumper, "extras", mediaMetadata.extras, null);
+      dumper.addIfNonDefault("title", mediaMetadata.title, null);
+      dumper.addIfNonDefault("artist", mediaMetadata.artist, null);
+      dumper.addIfNonDefault("albumTitle", mediaMetadata.albumTitle, null);
+      dumper.addIfNonDefault("albumArtist", mediaMetadata.albumArtist, null);
+      dumper.addIfNonDefault("displayTitle", mediaMetadata.displayTitle, null);
+      dumper.addIfNonDefault("subtitle", mediaMetadata.subtitle, null);
+      dumper.addIfNonDefault("description", mediaMetadata.description, null);
+      dumper.addIfNonDefault("userRating", ratingString(mediaMetadata.userRating), null);
+      dumper.addIfNonDefault("overallRating", ratingString(mediaMetadata.overallRating), null);
+      dumper.addIfNonDefault("artworkData", mediaMetadata.artworkData, null);
+      dumper.addIfNonDefault(
+          "artworkDataType", pictureTypeString(mediaMetadata.artworkDataType), null);
+      dumper.addIfNonDefault("artworkUri", mediaMetadata.artworkUri, null);
+      dumper.addIfNonDefault("trackNumber", mediaMetadata.trackNumber, null);
+      dumper.addIfNonDefault("totalTrackCount", mediaMetadata.totalTrackCount, null);
+      dumper.addIfNonDefault("isBrowsable", mediaMetadata.isBrowsable, null);
+      dumper.addIfNonDefault("isPlayable", mediaMetadata.isPlayable, null);
+      dumper.addIfNonDefault("recordingYear", mediaMetadata.recordingYear, null);
+      dumper.addIfNonDefault("recordingMonth", mediaMetadata.recordingMonth, null);
+      dumper.addIfNonDefault("recordingDay", mediaMetadata.recordingDay, null);
+      dumper.addIfNonDefault("releaseYear", mediaMetadata.releaseYear, null);
+      dumper.addIfNonDefault("releaseMonth", mediaMetadata.releaseMonth, null);
+      dumper.addIfNonDefault("releaseDay", mediaMetadata.releaseDay, null);
+      dumper.addIfNonDefault("writer", mediaMetadata.writer, null);
+      dumper.addIfNonDefault("composer", mediaMetadata.composer, null);
+      dumper.addIfNonDefault("conductor", mediaMetadata.conductor, null);
+      dumper.addIfNonDefault("discNumber", mediaMetadata.discNumber, null);
+      dumper.addIfNonDefault("totalDiscCount", mediaMetadata.totalDiscCount, null);
+      dumper.addIfNonDefault("genre", mediaMetadata.genre, null);
+      dumper.addIfNonDefault("compilation", mediaMetadata.compilation, null);
+      dumper.addIfNonDefault("station", mediaMetadata.station, null);
+      dumper.addIfNonDefault("mediaType", mediaTypeString(mediaMetadata.mediaType), null);
+      dumper.addIfNonDefault("extras", mediaMetadata.extras, null);
       dumper.endBlock();
     }
     dumper.endBlock();
@@ -401,35 +399,27 @@ public final class PlaybackOutput implements Dumper.Dumpable {
       for (int j = 0; j < subtitle.size(); j++) {
         dumper.startBlock("Cue[" + j + "]");
         Cue cue = subtitle.get(j);
-        dumpIfNotEqual(dumper, "text", cue.text, null);
-        dumpIfNotEqual(dumper, "textAlignment", cue.textAlignment, null);
+        dumper.addIfNonDefault("text", cue.text, null);
+        dumper.addIfNonDefault("textAlignment", cue.textAlignment, null);
         dumpBitmap(dumper, cue.bitmap);
-        dumpIfNotEqual(dumper, "line", cue.line, Cue.DIMEN_UNSET);
-        dumpIfNotEqual(dumper, "lineType", cue.lineType, Cue.TYPE_UNSET);
-        dumpIfNotEqual(dumper, "lineAnchor", cue.lineAnchor, Cue.TYPE_UNSET);
-        dumpIfNotEqual(dumper, "position", cue.position, Cue.DIMEN_UNSET);
-        dumpIfNotEqual(dumper, "positionAnchor", cue.positionAnchor, Cue.TYPE_UNSET);
-        dumpIfNotEqual(dumper, "size", cue.size, Cue.DIMEN_UNSET);
-        dumpIfNotEqual(dumper, "bitmapHeight", cue.bitmapHeight, Cue.DIMEN_UNSET);
+        dumper.addIfNonDefault("line", cue.line, Cue.DIMEN_UNSET);
+        dumper.addIfNonDefault("lineType", cue.lineType, Cue.TYPE_UNSET);
+        dumper.addIfNonDefault("lineAnchor", cue.lineAnchor, Cue.TYPE_UNSET);
+        dumper.addIfNonDefault("position", cue.position, Cue.DIMEN_UNSET);
+        dumper.addIfNonDefault("positionAnchor", cue.positionAnchor, Cue.TYPE_UNSET);
+        dumper.addIfNonDefault("size", cue.size, Cue.DIMEN_UNSET);
+        dumper.addIfNonDefault("bitmapHeight", cue.bitmapHeight, Cue.DIMEN_UNSET);
         if (cue.windowColorSet) {
           dumper.add("cue.windowColor", cue.windowColor);
         }
-        dumpIfNotEqual(dumper, "textSizeType", cue.textSizeType, Cue.TYPE_UNSET);
-        dumpIfNotEqual(dumper, "textSize", cue.textSize, Cue.DIMEN_UNSET);
-        dumpIfNotEqual(dumper, "verticalType", cue.verticalType, Cue.TYPE_UNSET);
+        dumper.addIfNonDefault("textSizeType", cue.textSizeType, Cue.TYPE_UNSET);
+        dumper.addIfNonDefault("textSize", cue.textSize, Cue.DIMEN_UNSET);
+        dumper.addIfNonDefault("verticalType", cue.verticalType, Cue.TYPE_UNSET);
         dumper.endBlock();
       }
       dumper.endBlock();
     }
     dumper.endBlock();
-  }
-
-  private static void dumpIfNotEqual(
-      Dumper dumper, String field, @Nullable Object actual, @Nullable Object comparison) {
-    if (!Util.areEqual(actual, comparison)) {
-      checkNotNull(actual);
-      dumper.add(field, actual);
-    }
   }
 
   private static void dumpBitmap(Dumper dumper, @Nullable Bitmap bitmap) {
