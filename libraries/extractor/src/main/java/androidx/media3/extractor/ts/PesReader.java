@@ -78,7 +78,7 @@ public final class PesReader implements TsPayloadReader {
   // TsPayloadReader implementation.
 
   @Override
-  public final void seek() {
+  public void seek() {
     state = STATE_FINDING_HEADER;
     bytesRead = 0;
     seenFirstDts = false;
@@ -86,7 +86,7 @@ public final class PesReader implements TsPayloadReader {
   }
 
   @Override
-  public final void consume(ParsableByteArray data, @Flags int flags) throws ParserException {
+  public void consume(ParsableByteArray data, @Flags int flags) throws ParserException {
     Assertions.checkStateNotNull(timestampAdjuster); // Asserts init has been called.
 
     if ((flags & FLAG_PAYLOAD_UNIT_START_INDICATOR) != 0) {
