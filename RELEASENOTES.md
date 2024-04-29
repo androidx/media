@@ -27,6 +27,8 @@
         ([#1302](https://github.com/androidx/media/issues/1302)).
     *   Fix reading of MP4 (/iTunes) numeric `gnre` (genre) and `tmpo` (tempo)
         tags when the value is more than one byte long.
+    *   Propagate ID3 `TCON` frame to `MediaMetadata.genre`
+        ([#1305](https://github.com/androidx/media/issues/1305)).
 *   Image:
 *   DRM:
     *   Allow setting a `LoadErrorHandlingPolicy` on

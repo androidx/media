@@ -682,3 +682,6 @@ AudioSink:
   buffer #44:
     time = 1000001065678
     data = 1
+Listener.onMediaMetadata:
+  MediaMetadata[0]:
+    genre = Metal
