@@ -101,4 +101,10 @@ public final class Mp3ExtractorTest {
             .build(),
         simulationConfig);
   }
+
+  @Test
+  public void mp3SampleWithId3NumericGenre() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        Mp3Extractor::new, "media/mp3/bear-id3-numeric-genre.mp3", simulationConfig);
+  }
 }
