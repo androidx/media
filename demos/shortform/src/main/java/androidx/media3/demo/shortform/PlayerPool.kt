@@ -33,6 +33,7 @@ import java.util.Collections
 import java.util.LinkedList
 import java.util.Queue
 
+@OptIn(UnstableApi::class)
 class PlayerPool(
   private val numberOfPlayers: Int,
   context: Context,
@@ -92,10 +93,10 @@ class PlayerPool(
    *
    * @param keepOngoingPlayer The optional player that should keep playing if not paused.
    */
-  fun pauseAllPlayers(keepOngoingPlayer: Player? = null) {
-    playerMap.values.forEach {
-      if (it != keepOngoingPlayer) {
-        it.pause()
+  private fun pauseAllPlayers(keepOngoingPlayer: Player? = null) {
+    for (player in playerMap.values) {
+      if (player != keepOngoingPlayer) {
+        player.pause()
       }
     }
   }

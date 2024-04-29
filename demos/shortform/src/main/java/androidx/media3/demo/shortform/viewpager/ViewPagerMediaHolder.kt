@@ -49,7 +49,7 @@ class ViewPagerMediaHolder(itemView: View, private val playerPool: PlayerPool) :
     }
   }
 
-  val player: ExoPlayer?
+  private val player: ExoPlayer?
     get() {
       return exoPlayer
     }

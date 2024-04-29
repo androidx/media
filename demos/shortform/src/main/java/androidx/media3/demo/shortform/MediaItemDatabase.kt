@@ -32,6 +32,6 @@ class MediaItemDatabase {
 
   fun get(index: Int): MediaItem {
     val uri = mediaUris.get(index.mod(mediaUris.size))
-    return return MediaItem.Builder().setUri(uri).setMediaId(index.toString()).build()
+    return MediaItem.Builder().setUri(uri).setMediaId(index.toString()).build()
   }
 }
