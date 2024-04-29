@@ -169,6 +169,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @Nullable private VideoSize reportedVideoSize;
   private boolean hasEffects;
   private boolean hasInitializedPlayback;
+  private int rendererPriority;
 
   private boolean tunneling;
   private int tunnelingAudioSessionId;
@@ -413,6 +414,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     decodedVideoSize = VideoSize.UNKNOWN;
     tunnelingAudioSessionId = C.AUDIO_SESSION_ID_UNSET;
     reportedVideoSize = null;
+    rendererPriority = C.PRIORITY_PLAYBACK;
   }
 
   // FrameTimingEvaluator methods
@@ -782,12 +784,10 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
           videoSinkProvider.setOutputSurfaceInfo(displaySurface, checkNotNull(outputResolution));
         }
         break;
-      case MSG_SET_AUDIO_ATTRIBUTES:
-      case MSG_SET_AUX_EFFECT_INFO:
-      case MSG_SET_CAMERA_MOTION_LISTENER:
-      case MSG_SET_SKIP_SILENCE_ENABLED:
-      case MSG_SET_VOLUME:
-      case MSG_SET_WAKEUP_LISTENER:
+      case MSG_SET_PRIORITY:
+        rendererPriority = (int) checkNotNull(message);
+        updateCodecImportance();
+        break;
       default:
         super.handleMessage(messageType, message);
     }
@@ -1722,6 +1722,20 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     }
   }
 
+  private void updateCodecImportance() {
+    @Nullable MediaCodecAdapter codec = getCodec();
+    if (codec == null) {
+      // If codec is null, then the importance will be set when initializing the codec.
+      return;
+    }
+    if (Util.SDK_INT >= 35) {
+      Bundle codecParameters = new Bundle();
+      // TODO: b/333552477 - Use MediaFormat.KEY_IMPORTANCE once compileSdk >= 35
+      codecParameters.putInt("importance", max(0, -rendererPriority));
+      codec.setParameters(codecParameters);
+    }
+  }
+
   private void maybeNotifyRenderedFirstFrame() {
     if (videoFrameReleaseControl.onFrameReleasedIsFirstFrame() && displaySurface != null) {
       notifyRenderedFirstFrame();
@@ -1851,6 +1865,10 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     }
     if (tunnelingAudioSessionId != C.AUDIO_SESSION_ID_UNSET) {
       configureTunnelingV21(mediaFormat, tunnelingAudioSessionId);
+    }
+    if (Util.SDK_INT >= 35) {
+      // TODO: b/333552477 - Use MediaFormat.KEY_IMPORTANCE once compileSdk >= 35
+      mediaFormat.setInteger("importance", max(0, -rendererPriority));
     }
     return mediaFormat;
   }

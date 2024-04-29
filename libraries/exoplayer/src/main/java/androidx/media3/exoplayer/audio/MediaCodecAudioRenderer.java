@@ -28,6 +28,7 @@ import android.media.AudioFormat;
 import android.media.MediaCodec;
 import android.media.MediaCrypto;
 import android.media.MediaFormat;
+import android.os.Bundle;
 import android.os.Handler;
 import androidx.annotation.CallSuper;
 import androidx.annotation.DoNotInline;
@@ -121,6 +122,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
 
   @Nullable private WakeupListener wakeupListener;
   private boolean hasPendingReportedSkippedSilence;
+  private int rendererPriority;
 
   /**
    * @param context A context.
@@ -259,6 +261,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     context = context.getApplicationContext();
     this.context = context;
     this.audioSink = audioSink;
+    rendererPriority = C.PRIORITY_PLAYBACK;
     eventDispatcher = new EventDispatcher(eventHandler, eventListener);
     audioSink.setListener(new AudioSinkListener());
   }
@@ -822,11 +825,10 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
       case MSG_SET_WAKEUP_LISTENER:
         this.wakeupListener = (WakeupListener) message;
         break;
-      case MSG_SET_CAMERA_MOTION_LISTENER:
-      case MSG_SET_CHANGE_FRAME_RATE_STRATEGY:
-      case MSG_SET_SCALING_MODE:
-      case MSG_SET_VIDEO_FRAME_METADATA_LISTENER:
-      case MSG_SET_VIDEO_OUTPUT:
+      case MSG_SET_PRIORITY:
+        rendererPriority = (int) checkNotNull(message);
+        updateCodecImportance();
+        break;
       default:
         super.handleMessage(messageType, message);
         break;
@@ -938,8 +940,25 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     if (Util.SDK_INT >= 32) {
       mediaFormat.setInteger(MediaFormat.KEY_MAX_OUTPUT_CHANNEL_COUNT, 99);
     }
-
+    if (Util.SDK_INT >= 35) {
+      // TODO: b/333552477 - Use MediaFormat.KEY_IMPORTANCE once compileSdk >= 35
+      mediaFormat.setInteger("importance", max(0, -rendererPriority));
+    }
     return mediaFormat;
+  }
+
+  private void updateCodecImportance() {
+    @Nullable MediaCodecAdapter codec = getCodec();
+    if (codec == null) {
+      // If codec is null, then the importance will be set when initializing the codec.
+      return;
+    }
+    if (Util.SDK_INT >= 35) {
+      Bundle codecParameters = new Bundle();
+      // TODO: b/333552477 - Use MediaFormat.KEY_IMPORTANCE once compileSdk >= 35
+      codecParameters.putInt("importance", max(0, -rendererPriority));
+      codec.setParameters(codecParameters);
+    }
   }
 
   private void updateCurrentPosition() {

@@ -116,7 +116,8 @@ public interface Renderer extends PlayerMessage.Target {
         MSG_SET_WAKEUP_LISTENER,
         MSG_SET_VIDEO_EFFECTS,
         MSG_SET_VIDEO_OUTPUT_RESOLUTION,
-        MSG_SET_IMAGE_OUTPUT
+        MSG_SET_IMAGE_OUTPUT,
+        MSG_SET_PRIORITY
       })
   public @interface MessageType {}
 
@@ -249,6 +250,13 @@ public interface Renderer extends PlayerMessage.Target {
    * message payload should be an {@link ImageOutput}.
    */
   int MSG_SET_IMAGE_OUTPUT = 15;
+
+  /**
+   * The type of message that can be passed to a renderer to set its priority. The message payload
+   * should be an {@link Integer} instance for the priority of the renderer. See {@code C.PRIORITY_}
+   * constants for predefined values.
+   */
+  int MSG_SET_PRIORITY = 16;
 
   /**
    * Applications or extensions may define custom {@code MSG_*} constants that can be passed to
