@@ -40,6 +40,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
 /** Parses a continuous MPEG-H audio byte stream and extracts MPEG-H frames. */
 @UnstableApi
@@ -59,6 +60,10 @@ public final class MpeghReader implements ElementaryStreamReader {
   private static final int MIN_MHAS_PACKET_HEADER_SIZE = 2;
   private static final int MAX_MHAS_PACKET_HEADER_SIZE = 15;
 
+  private final ParsableByteArray headerScratchBytes;
+  private final ParsableBitArray headerScratchBits;
+  private final ParsableByteArray dataScratchBytes;
+
   private @State int state;
 
   private @MonotonicNonNull String formatId;
@@ -72,10 +77,6 @@ public final class MpeghReader implements ElementaryStreamReader {
   private @TsPayloadReader.Flags int flags;
 
   private int syncBytes;
-
-  private final ParsableByteArray headerScratchBytes;
-  private final ParsableBitArray headerScratchBits;
-  private final ParsableByteArray dataScratchBytes;
 
   private boolean headerDataFinished;
   private int payloadBytesRead;
@@ -175,18 +176,15 @@ public final class MpeghReader implements ElementaryStreamReader {
               // Prepare dataScratchBytes to read new MHAS packet
               dataScratchBytes.reset(header.packetLength);
 
-              // Signalize packet header processed completely
               headerDataFinished = true;
 
               // MHAS packet header finished -> obtain the packet payload
               state = STATE_READING_PACKET_PAYLOAD;
             } else if (headerScratchBytes.limit() < MAX_MHAS_PACKET_HEADER_SIZE) {
               headerScratchBytes.setLimit(headerScratchBytes.limit() + 1);
-              // Signalize pending packet header processing
               headerDataFinished = false;
             }
           } else {
-            // Signalize pending packet header processing
             headerDataFinished = false;
           }
           break;
@@ -309,6 +307,7 @@ public final class MpeghReader implements ElementaryStreamReader {
    *
    * @param data A {@link ParsableByteArray} from which to read the sample data.
    */
+  @RequiresNonNull("output")
   private void writeSampleData(ParsableByteArray data) {
     // read bytes from input data and write them into the output
     int bytesToRead = min(data.bytesLeft(), header.packetLength - payloadBytesRead);
@@ -323,6 +322,7 @@ public final class MpeghReader implements ElementaryStreamReader {
    *     MpeghUtil.Mpegh3daConfig} field. Must be byte-aligned.
    * @throws ParserException if a valid {@link MpeghUtil.Mpegh3daConfig} cannot be parsed.
    */
+  @RequiresNonNull("output")
   private void parseConfig(ParsableBitArray bitArray) throws ParserException {
     MpeghUtil.Mpegh3daConfig config = MpeghUtil.parseMpegh3daConfig(bitArray);
     samplingRate = config.samplingFrequency;
@@ -355,6 +355,7 @@ public final class MpeghReader implements ElementaryStreamReader {
   }
 
   /** Finalizes an MPEG-H frame. */
+  @RequiresNonNull("output")
   private void finalizeFrame() {
     @C.BufferFlags int flag = 0;
     // if we have a frame with an mpegh3daConfig, set the obtained AU to a key frame
