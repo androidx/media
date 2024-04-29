@@ -225,7 +225,7 @@ public final class DefaultHlsPlaylistTracker
 
   @Override
   public void refreshPlaylist(Uri url) {
-    playlistBundles.get(url).loadPlaylist();
+    playlistBundles.get(url).loadPlaylist(/* allowDeliveryDirectives= */ true);
   }
 
   @Override
@@ -275,7 +275,7 @@ public final class DefaultHlsPlaylistTracker
       // We don't need to load the playlist again. We can use the same result.
       primaryBundle.processLoadedPlaylist((HlsMediaPlaylist) result, loadEventInfo);
     } else {
-      primaryBundle.loadPlaylist();
+      primaryBundle.loadPlaylist(/* allowDeliveryDirectives= */ false);
     }
     loadErrorHandlingPolicy.onLoadTaskConcluded(loadable.loadTaskId);
     eventDispatcher.loadCompleted(loadEventInfo, C.DATA_TYPE_MANIFEST);
@@ -552,8 +552,8 @@ public final class DefaultHlsPlaylistTracker
           || lastSnapshotLoadMs + snapshotValidityDurationMs > currentTimeMs;
     }
 
-    public void loadPlaylist() {
-      loadPlaylistInternal(playlistUrl);
+    public void loadPlaylist(boolean allowDeliveryDirectives) {
+      loadPlaylistInternal(allowDeliveryDirectives ? getMediaPlaylistUriForReload() : playlistUrl);
     }
 
     public void maybeThrowPlaylistRefreshError() throws IOException {
@@ -642,7 +642,7 @@ public final class DefaultHlsPlaylistTracker
           // Service Unavailable (503). In such cases, force a full, non-blocking request (see RFC
           // 8216, section 6.2.5.2 and 6.3.7).
           earliestNextLoadTimeMs = SystemClock.elapsedRealtime();
-          loadPlaylist();
+          loadPlaylist(/* allowDeliveryDirectives= */ false);
           castNonNull(eventDispatcher)
               .loadError(loadEventInfo, loadable.type, error, /* wasCanceled= */ true);
           return Loader.DONT_RETRY;

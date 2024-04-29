@@ -79,6 +79,9 @@ public class DefaultHlsPlaylistTrackerTest {
       SAMPLE_M3U8_LIVE_MEDIA_CAN_BLOCK_RELOAD_LOW_LATENCY_FULL_SEGMENT_NEXT =
           "media/m3u8/live_low_latency_media_can_block_reload_low_latency_full_segment_next";
   private static final String
+      SAMPLE_M3U8_LIVE_MEDIA_CAN_BLOCK_RELOAD_LOW_LATENCY_FULL_SEGMENT_NEXT2 =
+          "media/m3u8/live_low_latency_media_can_block_reload_low_latency_full_segment_next2";
+  private static final String
       SAMPLE_M3U8_LIVE_MEDIA_CAN_BLOCK_RELOAD_LOW_LATENCY_FULL_SEGMENT_PRELOAD =
           "media/m3u8/live_low_latency_media_can_block_reload_low_latency_full_segment_preload";
   private static final String
@@ -444,6 +447,80 @@ public class DefaultHlsPlaylistTrackerTest {
     assertThat(mediaPlaylists.get(1).mediaSequence).isEqualTo(10);
     assertThat(mediaPlaylists.get(1).segments).hasSize(4);
     assertThat(mediaPlaylists.get(1).trailingParts).hasSize(2);
+  }
+
+  @Test
+  public void
+      start_refreshPlaylistWithAllowingDeliveryDirectives_requestWithCorrectDeliveryDirectives()
+          throws Exception {
+    List<HttpUrl> httpUrls =
+        enqueueWebServerResponses(
+            new String[] {
+              "/multivariant.m3u8",
+              "/media0/playlist.m3u8",
+              "/media0/playlist.m3u8?_HLS_msn=14&_HLS_part=0",
+              "/media0/playlist.m3u8?_HLS_msn=14&_HLS_part=1"
+            },
+            getMockResponse(SAMPLE_M3U8_LIVE_MULTIVARIANT),
+            getMockResponse(SAMPLE_M3U8_LIVE_MEDIA_CAN_BLOCK_RELOAD_LOW_LATENCY_FULL_SEGMENT),
+            getMockResponse(SAMPLE_M3U8_LIVE_MEDIA_CAN_BLOCK_RELOAD_LOW_LATENCY_FULL_SEGMENT_NEXT),
+            getMockResponse(
+                SAMPLE_M3U8_LIVE_MEDIA_CAN_BLOCK_RELOAD_LOW_LATENCY_FULL_SEGMENT_NEXT2));
+
+    DefaultHlsPlaylistTracker defaultHlsPlaylistTracker =
+        new DefaultHlsPlaylistTracker(
+            dataType -> new DefaultHttpDataSource.Factory().createDataSource(),
+            new DefaultLoadErrorHandlingPolicy(),
+            new DefaultHlsPlaylistParserFactory());
+    List<HlsMediaPlaylist> mediaPlaylists = new ArrayList<>();
+    AtomicInteger playlistCounter = new AtomicInteger();
+    AtomicReference<TimeoutException> playlistRefreshExceptionRef = new AtomicReference<>();
+    defaultHlsPlaylistTracker.addListener(
+        new HlsPlaylistTracker.PlaylistEventListener() {
+          @Override
+          public void onPlaylistChanged() {
+            // Upon the first call of onPlaylistChanged(), we call refreshPlaylist(Uri) on the
+            // same url.
+            defaultHlsPlaylistTracker.refreshPlaylist(
+                defaultHlsPlaylistTracker.getMultivariantPlaylist().mediaPlaylistUrls.get(0));
+            try {
+              // Make sure that playlist reload triggered by refreshPlaylist(Uri) call comes before
+              // the one triggered by the regular scheduling, to ensure the playlists to be
+              // verified are in the expected order.
+              RobolectricUtil.runMainLooperUntil(() -> playlistCounter.get() >= 2);
+            } catch (TimeoutException e) {
+              playlistRefreshExceptionRef.set(e);
+            }
+          }
+
+          @Override
+          public boolean onPlaylistError(
+              Uri url, LoadErrorHandlingPolicy.LoadErrorInfo loadErrorInfo, boolean forceRetry) {
+            return false;
+          }
+        });
+
+    defaultHlsPlaylistTracker.start(
+        Uri.parse(mockWebServer.url("/multivariant.m3u8").toString()),
+        new MediaSourceEventListener.EventDispatcher(),
+        mediaPlaylist -> {
+          mediaPlaylists.add(mediaPlaylist);
+          playlistCounter.addAndGet(1);
+        });
+    RobolectricUtil.runMainLooperUntil(() -> playlistCounter.get() >= 3);
+    defaultHlsPlaylistTracker.stop();
+
+    assertThat(playlistRefreshExceptionRef.get()).isNull();
+    assertRequestUrlsCalled(httpUrls);
+    assertThat(mediaPlaylists.get(0).mediaSequence).isEqualTo(10);
+    assertThat(mediaPlaylists.get(0).segments).hasSize(4);
+    assertThat(mediaPlaylists.get(0).trailingParts).isEmpty();
+    assertThat(mediaPlaylists.get(1).mediaSequence).isEqualTo(10);
+    assertThat(mediaPlaylists.get(1).segments).hasSize(4);
+    assertThat(mediaPlaylists.get(1).trailingParts).hasSize(1);
+    assertThat(mediaPlaylists.get(2).mediaSequence).isEqualTo(10);
+    assertThat(mediaPlaylists.get(2).segments).hasSize(4);
+    assertThat(mediaPlaylists.get(2).trailingParts).hasSize(2);
   }
 
   @Test
