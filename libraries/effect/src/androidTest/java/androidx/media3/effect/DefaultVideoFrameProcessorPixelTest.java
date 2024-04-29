@@ -17,6 +17,7 @@ package androidx.media3.effect;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static androidx.media3.effect.DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_ORIGINAL;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
@@ -145,7 +146,7 @@ public final class DefaultVideoFrameProcessorPixelTest {
         getDefaultFrameProcessorTestRunnerBuilder(testId)
             .setVideoFrameProcessorFactory(
                 new DefaultVideoFrameProcessor.Factory.Builder()
-                    .setEnableColorTransfers(false)
+                    .setSdrWorkingColorSpace(WORKING_COLOR_SPACE_ORIGINAL)
                     .build())
             .build();
     Bitmap expectedBitmap = readBitmap(ORIGINAL_PNG_ASSET_PATH);
@@ -209,7 +210,7 @@ public final class DefaultVideoFrameProcessorPixelTest {
         getDefaultFrameProcessorTestRunnerBuilder(testId)
             .setVideoFrameProcessorFactory(
                 new DefaultVideoFrameProcessor.Factory.Builder()
-                    .setEnableColorTransfers(false)
+                    .setSdrWorkingColorSpace(WORKING_COLOR_SPACE_ORIGINAL)
                     .build())
             .setEffects(NO_OP_EFFECT)
             .build();

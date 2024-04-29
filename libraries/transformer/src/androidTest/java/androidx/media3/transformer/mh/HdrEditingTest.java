@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer.mh;
 
+import static androidx.media3.effect.DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_ORIGINAL;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static androidx.media3.transformer.AndroidTestUtil.FORCE_TRANSCODE_VIDEO_EFFECTS;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_1080P_5_SECOND_HLG10;
@@ -210,7 +211,7 @@ public final class HdrEditingTest {
   }
 
   @Test
-  public void exportAndTranscodeHdr_withDisabledColorTransfers_whenHdrEditingIsSupported()
+  public void exportAndTranscodeHdr_ignoringSdrWorkingColorSpace_whenHdrEditingIsSupported()
       throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     Format format = MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT;
@@ -222,7 +223,7 @@ public final class HdrEditingTest {
         new Transformer.Builder(context)
             .setVideoFrameProcessorFactory(
                 new DefaultVideoFrameProcessor.Factory.Builder()
-                    .setEnableColorTransfers(false)
+                    .setSdrWorkingColorSpace(WORKING_COLOR_SPACE_ORIGINAL)
                     .build())
             .build();
     EditedMediaItem editedMediaItem =

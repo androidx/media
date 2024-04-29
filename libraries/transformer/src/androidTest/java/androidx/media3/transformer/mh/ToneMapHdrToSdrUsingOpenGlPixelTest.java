@@ -16,6 +16,7 @@
 package androidx.media3.transformer.mh;
 
 import static androidx.media3.common.MimeTypes.VIDEO_H265;
+import static androidx.media3.effect.DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_ORIGINAL;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
 import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
@@ -280,14 +281,14 @@ public final class ToneMapHdrToSdrUsingOpenGlPixelTest {
   }
 
   @Test
-  public void toneMap_withDisabledColorTransfers_matchesGoldenFile() throws Exception {
+  public void toneMap_withWorkingColorSpaceSetToOriginal_matchesGoldenFile() throws Exception {
     assumeDeviceSupportsOpenGlToneMapping(testId, HLG_ASSET_FORMAT);
     videoFrameProcessorTestRunner =
         new VideoFrameProcessorTestRunner.Builder()
             .setTestId(testId)
             .setVideoFrameProcessorFactory(
                 new DefaultVideoFrameProcessor.Factory.Builder()
-                    .setEnableColorTransfers(false)
+                    .setSdrWorkingColorSpace(WORKING_COLOR_SPACE_ORIGINAL)
                     .build())
             .setVideoAssetPath(HLG_ASSET_STRING)
             .setOutputColorInfo(TONE_MAP_SDR_COLOR)

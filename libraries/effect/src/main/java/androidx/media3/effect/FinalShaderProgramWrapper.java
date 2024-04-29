@@ -17,6 +17,7 @@ package androidx.media3.effect;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.effect.DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_LINEAR;
 
 import android.content.Context;
 import android.opengl.EGL14;
@@ -44,6 +45,7 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.LongArrayQueue;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
+import androidx.media3.effect.DefaultVideoFrameProcessor.WorkingColorSpace;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
@@ -81,8 +83,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final EGLContext eglContext;
   private final DebugViewProvider debugViewProvider;
   private final ColorInfo outputColorInfo;
-  private final boolean enableColorTransfers;
-  private final boolean renderFramesAutomatically;
   private final VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor;
   private final Executor videoFrameProcessorListenerExecutor;
   private final VideoFrameProcessor.Listener videoFrameProcessorListener;
@@ -91,6 +91,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final LongArrayQueue outputTextureTimestamps; // Synchronized with outputTexturePool.
   private final LongArrayQueue syncObjects;
   @Nullable private final GlTextureProducer.Listener textureOutputListener;
+  private final @WorkingColorSpace int sdrWorkingColorSpace;
+  private final boolean renderFramesAutomatically;
 
   private int inputWidth;
   private int inputHeight;
@@ -122,13 +124,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       EGLContext eglContext,
       DebugViewProvider debugViewProvider,
       ColorInfo outputColorInfo,
-      boolean enableColorTransfers,
-      boolean renderFramesAutomatically,
       VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor,
       Executor videoFrameProcessorListenerExecutor,
       VideoFrameProcessor.Listener videoFrameProcessorListener,
-      @Nullable GlTextureProducer.Listener textureOutputListener,
-      int textureOutputCapacity) {
+      @Nullable Listener textureOutputListener,
+      int textureOutputCapacity,
+      @WorkingColorSpace int sdrWorkingColorSpace,
+      boolean renderFramesAutomatically) {
     this.context = context;
     this.matrixTransformations = new ArrayList<>();
     this.rgbMatrices = new ArrayList<>();
@@ -136,12 +138,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.eglContext = eglContext;
     this.debugViewProvider = debugViewProvider;
     this.outputColorInfo = outputColorInfo;
-    this.enableColorTransfers = enableColorTransfers;
-    this.renderFramesAutomatically = renderFramesAutomatically;
     this.videoFrameProcessingTaskExecutor = videoFrameProcessingTaskExecutor;
     this.videoFrameProcessorListenerExecutor = videoFrameProcessorListenerExecutor;
     this.videoFrameProcessorListener = videoFrameProcessorListener;
     this.textureOutputListener = textureOutputListener;
+    this.sdrWorkingColorSpace = sdrWorkingColorSpace;
+    this.renderFramesAutomatically = renderFramesAutomatically;
 
     inputListener = new InputListener() {};
     availableFrames = new ConcurrentLinkedQueue<>();
@@ -525,7 +527,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             expandedMatrixTransformations,
             rgbMatrices,
             outputColorInfo,
-            enableColorTransfers);
+            sdrWorkingColorSpace);
 
     Size outputSize = defaultShaderProgram.configure(inputWidth, inputHeight);
     if (outputSurfaceInfo != null) {
@@ -545,7 +547,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           .maybeRenderToSurfaceView(
               () -> {
                 GlUtil.clearFocusedBuffers();
-                if (enableColorTransfers) {
+                if (sdrWorkingColorSpace == WORKING_COLOR_SPACE_LINEAR) {
                   @C.ColorTransfer
                   int configuredColorTransfer = defaultShaderProgram.getOutputColorTransfer();
                   defaultShaderProgram.setOutputColorTransfer(

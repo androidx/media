@@ -20,6 +20,7 @@ import static android.opengl.GLES20.GL_TRUE;
 import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_BITMAP;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.effect.DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_LINEAR;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -38,6 +39,7 @@ import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.effect.DefaultVideoFrameProcessor.WorkingColorSpace;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.Arrays;
@@ -182,6 +184,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         createGlProgram(
             context, VERTEX_SHADER_TRANSFORMATION_PATH, FRAGMENT_SHADER_TRANSFORMATION_PATH);
 
+    // TODO: b/263306471 - when default working color space changes to WORKING_COLOR_SPACE_DEFAULT,
+    //  make sure no color transfers are applied in shader.
+
     // No transfer functions needed, because input and output are both optical colors.
     return new DefaultShaderProgram(
         glProgram,
@@ -206,8 +211,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param outputColorInfo The output electrical (nonlinear) or optical (linear) {@link ColorInfo}.
    *     If this is an optical color, it must be BT.2020 if {@code inputColorInfo} is {@linkplain
    *     ColorInfo#isTransferHdr(ColorInfo) HDR}, and RGB BT.709 if not.
-   * @param enableColorTransfers Whether to transfer colors to an intermediate color space when
-   *     applying effects. If the input or output is HDR, this must be {@code true}.
+   * @param sdrWorkingColorSpace The {@link WorkingColorSpace} to apply effects in.
    * @throws VideoFrameProcessingException If a problem occurs while reading shader files or an
    *     OpenGL operation fails or is unsupported.
    */
@@ -215,7 +219,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Context context,
       ColorInfo inputColorInfo,
       ColorInfo outputColorInfo,
-      boolean enableColorTransfers,
+      @WorkingColorSpace int sdrWorkingColorSpace,
       @InputType int inputType)
       throws VideoFrameProcessingException {
     checkState(
@@ -242,7 +246,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           "uApplyHdrToSdrToneMapping",
           outputColorInfo.colorSpace != C.COLOR_SPACE_BT2020 ? GL_TRUE : GL_FALSE);
     }
-    return createWithSampler(glProgram, inputColorInfo, outputColorInfo, enableColorTransfers);
+    return createWithSampler(glProgram, inputColorInfo, outputColorInfo, sdrWorkingColorSpace);
   }
 
   /**
@@ -262,8 +266,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param outputColorInfo The output electrical (nonlinear) or optical (linear) {@link ColorInfo}.
    *     If this is an optical color, it must be BT.2020 if {@code inputColorInfo} is {@linkplain
    *     ColorInfo#isTransferHdr(ColorInfo) HDR}, and RGB BT.709 if not.
-   * @param enableColorTransfers Whether to transfer colors to an intermediate color space when
-   *     applying effects. If the input or output is HDR, this must be {@code true}.
+   * @param sdrWorkingColorSpace The {@link WorkingColorSpace} to apply effects in.
    * @throws VideoFrameProcessingException If a problem occurs while reading shader files or an
    *     OpenGL operation fails or is unsupported.
    */
@@ -271,7 +274,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Context context,
       ColorInfo inputColorInfo,
       ColorInfo outputColorInfo,
-      boolean enableColorTransfers)
+      @WorkingColorSpace int sdrWorkingColorSpace)
       throws VideoFrameProcessingException {
     boolean isInputTransferHdr = ColorInfo.isTransferHdr(inputColorInfo);
     String vertexShaderFilePath =
@@ -300,7 +303,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           outputColorInfo.colorSpace != C.COLOR_SPACE_BT2020 ? GL_TRUE : GL_FALSE);
     }
 
-    return createWithSampler(glProgram, inputColorInfo, outputColorInfo, enableColorTransfers);
+    return createWithSampler(glProgram, inputColorInfo, outputColorInfo, sdrWorkingColorSpace);
   }
 
   /**
@@ -319,6 +322,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param rgbMatrices The {@link RgbMatrix RgbMatrices} to apply to each frame in order. Can be
    *     empty to apply no color transformations.
    * @param outputColorInfo The electrical (non-linear) {@link ColorInfo} describing output colors.
+   * @param sdrWorkingColorSpace The {@link WorkingColorSpace} to apply effects in.
    * @throws VideoFrameProcessingException If a problem occurs while reading shader files or an
    *     OpenGL operation fails or is unsupported.
    */
@@ -327,15 +331,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       List<GlMatrixTransformation> matrixTransformations,
       List<RgbMatrix> rgbMatrices,
       ColorInfo outputColorInfo,
-      boolean enableColorTransfers)
+      @WorkingColorSpace int sdrWorkingColorSpace)
       throws VideoFrameProcessingException {
     boolean outputIsHdr = ColorInfo.isTransferHdr(outputColorInfo);
+    boolean shouldApplyOetf = sdrWorkingColorSpace == WORKING_COLOR_SPACE_LINEAR;
     String vertexShaderFilePath =
         outputIsHdr ? VERTEX_SHADER_TRANSFORMATION_ES3_PATH : VERTEX_SHADER_TRANSFORMATION_PATH;
     String fragmentShaderFilePath =
         outputIsHdr
             ? FRAGMENT_SHADER_OETF_ES3_PATH
-            : enableColorTransfers
+            : shouldApplyOetf
                 ? FRAGMENT_SHADER_TRANSFORMATION_SDR_OETF_ES2_PATH
                 : FRAGMENT_SHADER_TRANSFORMATION_PATH;
     GlProgram glProgram = createGlProgram(context, vertexShaderFilePath, fragmentShaderFilePath);
@@ -346,7 +351,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           outputColorTransfer == C.COLOR_TRANSFER_HLG
               || outputColorTransfer == C.COLOR_TRANSFER_ST2084);
       glProgram.setIntUniform("uOutputColorTransfer", outputColorTransfer);
-    } else if (enableColorTransfers) {
+    } else if (shouldApplyOetf) {
       checkArgument(
           outputColorTransfer == C.COLOR_TRANSFER_SDR
               || outputColorTransfer == C.COLOR_TRANSFER_GAMMA_2_2);
@@ -365,7 +370,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       GlProgram glProgram,
       ColorInfo inputColorInfo,
       ColorInfo outputColorInfo,
-      boolean enableColorTransfers) {
+      @WorkingColorSpace int sdrWorkingColorSpace) {
     boolean isInputTransferHdr = ColorInfo.isTransferHdr(inputColorInfo);
     boolean isExpandingColorGamut =
         (inputColorInfo.colorSpace == C.COLOR_SPACE_BT709
@@ -384,7 +389,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     } else if (isExpandingColorGamut) {
       glProgram.setIntUniform("uOutputColorTransfer", outputColorTransfer);
     } else {
-      glProgram.setIntUniform("uEnableColorTransfer", enableColorTransfers ? GL_TRUE : GL_FALSE);
+      glProgram.setIntUniform("uSdrWorkingColorSpace", sdrWorkingColorSpace);
       checkArgument(
           outputColorTransfer == C.COLOR_TRANSFER_SDR
               || outputColorTransfer == C.COLOR_TRANSFER_LINEAR);

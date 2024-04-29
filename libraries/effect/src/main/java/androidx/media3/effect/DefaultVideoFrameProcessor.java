@@ -25,6 +25,7 @@ import static androidx.media3.effect.DebugTraceUtil.EVENT_VFP_REGISTER_NEW_INPUT
 import static androidx.media3.effect.DebugTraceUtil.EVENT_VFP_SIGNAL_ENDED;
 import static androidx.media3.effect.DebugTraceUtil.logEvent;
 import static com.google.common.collect.Iterables.getFirst;
+import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -35,6 +36,7 @@ import android.opengl.GLES20;
 import android.opengl.GLES30;
 import android.view.Surface;
 import androidx.annotation.GuardedBy;
+import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
@@ -57,6 +59,10 @@ import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.lang.annotation.Documented;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -80,13 +86,52 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     void release(long presentationTimeUs);
   }
 
+  // LINT.IfChange(working_color_space)
+  /**
+   * Specifies the color space that frames passed to intermediate {@link GlShaderProgram}s will be
+   * represented in.
+   */
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target(TYPE_USE)
+  @IntDef({WORKING_COLOR_SPACE_DEFAULT, WORKING_COLOR_SPACE_ORIGINAL, WORKING_COLOR_SPACE_LINEAR})
+  public @interface WorkingColorSpace {}
+
+  /**
+   * Use BT709 color primaries with the standard SDR transfer function (SMPTE 170m) as the working
+   * color space.
+   *
+   * <p>Any SDR content in a different color space will be transferred to this one.
+   */
+  public static final int WORKING_COLOR_SPACE_DEFAULT = 0;
+
+  /**
+   * Use the original color space of the input as the working color space when the input is SDR.
+   *
+   * <p>Tonemapped HDR content will be represented with BT709 color primaries and the standard SDR
+   * transfer function (SMPTE 170m).
+   *
+   * <p>No color transfers will be applied when the input is SDR.
+   */
+  public static final int WORKING_COLOR_SPACE_ORIGINAL = 1;
+
+  /**
+   * The working color space will have the same primaries as the input and a linear transfer
+   * function.
+   *
+   * <p>This option is not recommended for SDR content since it may lead to color banding since
+   * 8-bit colors are used in SDR processing. It may also cause effects that modify a frame's output
+   * colors (for example {@linkplain OverlayEffect overlays}) to have incorrect output colors.
+   */
+  public static final int WORKING_COLOR_SPACE_LINEAR = 2;
+
   /** A factory for {@link DefaultVideoFrameProcessor} instances. */
   public static final class Factory implements VideoFrameProcessor.Factory {
     private static final String THREAD_NAME = "Effect:DefaultVideoFrameProcessor:GlThread";
 
     /** A builder for {@link DefaultVideoFrameProcessor.Factory} instances. */
     public static final class Builder {
-      private boolean enableColorTransfers;
+      private @WorkingColorSpace int sdrWorkingColorSpace;
       @Nullable private ExecutorService executorService;
       private @MonotonicNonNull GlObjectsProvider glObjectsProvider;
       private GlTextureProducer.@MonotonicNonNull Listener textureOutputListener;
@@ -95,12 +140,12 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
 
       /** Creates an instance. */
       public Builder() {
-        enableColorTransfers = true;
+        sdrWorkingColorSpace = WORKING_COLOR_SPACE_LINEAR;
         requireRegisteringAllInputFrames = true;
       }
 
       private Builder(Factory factory) {
-        enableColorTransfers = factory.enableColorTransfers;
+        sdrWorkingColorSpace = factory.sdrWorkingColorSpace;
         executorService = factory.executorService;
         glObjectsProvider = factory.glObjectsProvider;
         textureOutputListener = factory.textureOutputListener;
@@ -108,22 +153,19 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         requireRegisteringAllInputFrames = !factory.repeatLastRegisteredFrame;
       }
 
+      // TODO: b/263306471 - Change default to WORKING_COLOR_SPACE_DEFAULT.
       /**
-       * Sets whether to transfer colors to an intermediate color space when applying effects.
+       * Sets the {@link WorkingColorSpace} in which frames passed to intermediate effects will be
+       * represented.
        *
-       * <p>The default value is {@code true}.
+       * <p>The default value is {@link #WORKING_COLOR_SPACE_LINEAR}.
        *
-       * <p>If the output is HDR, this is ignored as the working color space must have a linear
-       * transfer function.
-       *
-       * <p>If all input and output content will be SDR, it's recommended to set this value to
-       * {@code false}. This is because 8-bit colors in SDR may result in color banding.
-       *
-       * <p>This doesn't currently work with overlay effects (ex. {@link TextureOverlay}).
+       * <p>This setter doesn't affect the working color space for HDR output, since the working
+       * color space must have a linear transfer function for HDR output.
        */
       @CanIgnoreReturnValue
-      public Builder setEnableColorTransfers(boolean enableColorTransfers) {
-        this.enableColorTransfers = enableColorTransfers;
+      public Builder setSdrWorkingColorSpace(@WorkingColorSpace int sdrWorkingColorSpace) {
+        this.sdrWorkingColorSpace = sdrWorkingColorSpace;
         return this;
       }
 
@@ -215,7 +257,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       /** Builds an {@link DefaultVideoFrameProcessor.Factory} instance. */
       public DefaultVideoFrameProcessor.Factory build() {
         return new DefaultVideoFrameProcessor.Factory(
-            enableColorTransfers,
+            sdrWorkingColorSpace,
             /* repeatLastRegisteredFrame= */ !requireRegisteringAllInputFrames,
             glObjectsProvider == null ? new DefaultGlObjectsProvider() : glObjectsProvider,
             executorService,
@@ -224,7 +266,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       }
     }
 
-    private final boolean enableColorTransfers;
+    private final @WorkingColorSpace int sdrWorkingColorSpace;
     private final boolean repeatLastRegisteredFrame;
     private final GlObjectsProvider glObjectsProvider;
     @Nullable private final ExecutorService executorService;
@@ -232,13 +274,13 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     private final int textureOutputCapacity;
 
     private Factory(
-        boolean enableColorTransfers,
+        @WorkingColorSpace int sdrWorkingColorSpace,
         boolean repeatLastRegisteredFrame,
         GlObjectsProvider glObjectsProvider,
         @Nullable ExecutorService executorService,
         @Nullable GlTextureProducer.Listener textureOutputListener,
         int textureOutputCapacity) {
-      this.enableColorTransfers = enableColorTransfers;
+      this.sdrWorkingColorSpace = sdrWorkingColorSpace;
       this.repeatLastRegisteredFrame = repeatLastRegisteredFrame;
       this.glObjectsProvider = glObjectsProvider;
       this.executorService = executorService;
@@ -298,7 +340,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
                       context,
                       debugViewProvider,
                       outputColorInfo,
-                      enableColorTransfers,
+                      sdrWorkingColorSpace,
                       renderFramesAutomatically,
                       videoFrameProcessingTaskExecutor,
                       listenerExecutor,
@@ -488,10 +530,6 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
    * {@link C#COLOR_TRANSFER_GAMMA_2_2}, for consistency with other tone-mapping and color behavior
    * in the Android ecosystem (for example, MediaFormat's COLOR_TRANSFER_SDR_VIDEO is defined as
    * SMPTE 170M, but most OEMs process it as Gamma 2.2).
-   *
-   * <p>If either {@link FrameInfo#colorInfo} or {@code outputColorInfo} {@linkplain
-   * ColorInfo#isTransferHdr} are HDR}, color transfers must {@linkplain
-   * Factory.Builder#setEnableColorTransfers be enabled}.
    */
   @Override
   public void registerInputStream(
@@ -666,7 +704,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       Context context,
       DebugViewProvider debugViewProvider,
       ColorInfo outputColorInfo,
-      boolean enableColorTransfers,
+      @WorkingColorSpace int sdrWorkingColorSpace,
       boolean renderFramesAutomatically,
       VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor,
       Executor videoFrameProcessorListenerExecutor,
@@ -693,7 +731,9 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     ColorInfo intermediateColorInfo =
         ColorInfo.isTransferHdr(outputColorInfo)
             ? linearColorInfo
-            : enableColorTransfers ? linearColorInfo : outputColorInfo;
+            : sdrWorkingColorSpace == WORKING_COLOR_SPACE_LINEAR
+                ? linearColorInfo
+                : outputColorInfo;
     InputSwitcher inputSwitcher =
         new InputSwitcher(
             context,
@@ -702,7 +742,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
             videoFrameProcessingTaskExecutor,
             /* errorListenerExecutor= */ videoFrameProcessorListenerExecutor,
             /* samplingShaderProgramErrorListener= */ listener::onError,
-            enableColorTransfers,
+            sdrWorkingColorSpace,
             repeatLastRegisteredFrame);
 
     FinalShaderProgramWrapper finalShaderProgramWrapper =
@@ -712,13 +752,13 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
             eglContext,
             debugViewProvider,
             outputColorInfo,
-            enableColorTransfers,
-            renderFramesAutomatically,
             videoFrameProcessingTaskExecutor,
             videoFrameProcessorListenerExecutor,
             listener,
             textureOutputListener,
-            textureOutputCapacity);
+            textureOutputCapacity,
+            sdrWorkingColorSpace,
+            renderFramesAutomatically);
 
     return new DefaultVideoFrameProcessor(
         context,

@@ -35,6 +35,7 @@ import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.OnInputFrameProcessedListener;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
+import androidx.media3.effect.DefaultVideoFrameProcessor.WorkingColorSpace;
 import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -51,7 +52,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
   private final GlShaderProgram.ErrorListener samplingShaderProgramErrorListener;
   private final Executor errorListenerExecutor;
   private final SparseArray<Input> inputs;
-  private final boolean enableColorTransfers;
+  private final @WorkingColorSpace int sdrWorkingColorSpace;
 
   private @MonotonicNonNull GlShaderProgram downstreamShaderProgram;
   private @MonotonicNonNull TextureManager activeTextureManager;
@@ -63,7 +64,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
       VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor,
       Executor errorListenerExecutor,
       GlShaderProgram.ErrorListener samplingShaderProgramErrorListener,
-      boolean enableColorTransfers,
+      @WorkingColorSpace int sdrWorkingColorSpace,
       boolean repeatLastRegisteredFrame)
       throws VideoFrameProcessingException {
     this.context = context;
@@ -73,7 +74,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
     this.errorListenerExecutor = errorListenerExecutor;
     this.samplingShaderProgramErrorListener = samplingShaderProgramErrorListener;
     this.inputs = new SparseArray<>();
-    this.enableColorTransfers = enableColorTransfers;
+    this.sdrWorkingColorSpace = sdrWorkingColorSpace;
 
     // TODO(b/274109008): Investigate lazy instantiating the texture managers.
     inputs.put(
@@ -98,13 +99,13 @@ import org.checkerframework.checker.nullness.qual.Nullable;
       case INPUT_TYPE_SURFACE:
         samplingShaderProgram =
             DefaultShaderProgram.createWithExternalSampler(
-                context, inputColorInfo, outputColorInfo, enableColorTransfers);
+                context, inputColorInfo, outputColorInfo, sdrWorkingColorSpace);
         break;
       case INPUT_TYPE_BITMAP:
       case INPUT_TYPE_TEXTURE_ID:
         samplingShaderProgram =
             DefaultShaderProgram.createWithInternalSampler(
-                context, inputColorInfo, outputColorInfo, enableColorTransfers, inputType);
+                context, inputColorInfo, outputColorInfo, sdrWorkingColorSpace, inputType);
         break;
       default:
         throw new VideoFrameProcessingException("Unsupported input type " + inputType);
