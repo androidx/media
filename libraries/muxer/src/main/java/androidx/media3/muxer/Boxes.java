@@ -769,7 +769,7 @@ import java.util.Locale;
 
     for (int i = 0; i < writtenChunkOffsets.size(); i++) {
       long chunkOffset = writtenChunkOffsets.get(i);
-      checkState(chunkOffset <= UNSIGNED_INT_MAX_VALUE, "Only 32-bit offset is allowed");
+      checkState(chunkOffset <= UNSIGNED_INT_MAX_VALUE, "Only 32-bit chunk offset is allowed");
       contents.putInt((int) chunkOffset); // chunk_offset; unsigned int(32)
     }
 
