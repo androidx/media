@@ -653,18 +653,21 @@ public final class AndroidTestUtil {
   public static boolean isInInvalidDataSpaceDeviceList() {
     switch (Util.SDK_INT) {
       case 23:
-        return Util.MODEL.equals("vivo 1610")
-            || Util.MODEL.equals("sm-n920v")
-            || Util.MODEL.equals("nexus-5")
-            || Util.MODEL.equals("moto-g-play")
-            || Util.MODEL.equals("sm-g532g")
-            || Util.MODEL.equals("lg-as110");
+        return Ascii.equalsIgnoreCase(Util.MODEL, "vivo-1610")
+            || Ascii.equalsIgnoreCase(Util.MODEL, "sm-n920v")
+            || Ascii.equalsIgnoreCase(Util.MODEL, "nexus-5")
+            || Ascii.equalsIgnoreCase(Util.MODEL, "moto-g-play")
+            || Ascii.equalsIgnoreCase(Util.MODEL, "sm-g532g")
+            || Ascii.equalsIgnoreCase(Util.MODEL, "lg-as110");
       case 27:
-        return Util.MODEL.equals("redmi 6a") || Util.MODEL.equals("vivo 1820");
+        return Ascii.equalsIgnoreCase(Util.MODEL, "redmi-6a")
+            || Ascii.equalsIgnoreCase(Util.MODEL, "vivo-1820");
       case 28:
-        return Util.MODEL.equals("vivo 1901");
+        return Ascii.equalsIgnoreCase(Util.MODEL, "vivo-1901");
       case 29:
-        return Util.MODEL.equals("cph2179");
+        return Ascii.equalsIgnoreCase(Util.MODEL, "cph2179");
+      case 30:
+        return Ascii.equalsIgnoreCase(Util.MODEL, "wembley_2gb_full");
       default:
         return false;
     }
@@ -902,7 +905,8 @@ public final class AndroidTestUtil {
         && format.height >= 4320
         && format.sampleMimeType != null
         && format.sampleMimeType.equals(MimeTypes.VIDEO_H265)
-        && (Util.MODEL.equals("SM-F711U1") || Util.MODEL.equals("SM-F926U1"));
+        && (Ascii.equalsIgnoreCase(Util.MODEL, "SM-F711U1")
+            || Ascii.equalsIgnoreCase(Util.MODEL, "SM-F926U1"));
   }
 
   private static boolean canEncode(Format format) {
