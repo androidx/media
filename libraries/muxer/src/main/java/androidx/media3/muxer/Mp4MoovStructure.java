@@ -95,10 +95,6 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
       @C.TrackType int trackType = MimeTypes.getTrackType(format.sampleMimeType);
       ByteBuffer stts = Boxes.stts(sampleDurationsVu);
-      ByteBuffer ctts =
-          MimeTypes.isVideo(format.sampleMimeType)
-              ? Boxes.ctts(track.writtenSamples(), sampleDurationsVu, track.videoUnitTimebase())
-              : ByteBuffer.allocate(0);
       ByteBuffer stsz = Boxes.stsz(track.writtenSamples());
       ByteBuffer stsc = Boxes.stsc(track.writtenChunkSampleCounts());
       ByteBuffer chunkOffsetBox =
@@ -122,13 +118,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
           stsdBox = Boxes.stsd(sampleEntryBox);
           stblBox =
               Boxes.stbl(
-                  stsdBox,
-                  stts,
-                  ctts,
-                  stsz,
-                  stsc,
-                  chunkOffsetBox,
-                  Boxes.stss(track.writtenSamples()));
+                  stsdBox, stts, stsz, stsc, chunkOffsetBox, Boxes.stss(track.writtenSamples()));
           break;
         case C.TRACK_TYPE_AUDIO:
           handlerType = "soun";

@@ -637,14 +637,14 @@ import java.util.Locale;
     }
 
     boolean hasBframe = false;
-    long lastSampleCompositionTimeUs = 0L;
+    long lastSamplePresentationTimeUs = 0L;
     for (int sampleId = 0; sampleId < samplesInfo.size(); sampleId++) {
-      long currentSampleCompositionTimeUs = samplesInfo.get(sampleId).presentationTimeUs;
-      presentationTimestampsUs.add(currentSampleCompositionTimeUs);
-      if (currentSampleCompositionTimeUs < lastSampleCompositionTimeUs) {
+      long currentSamplePresentationTimeUs = samplesInfo.get(sampleId).presentationTimeUs;
+      presentationTimestampsUs.add(currentSamplePresentationTimeUs);
+      if (currentSamplePresentationTimeUs < lastSamplePresentationTimeUs) {
         hasBframe = true;
       }
-      lastSampleCompositionTimeUs = currentSampleCompositionTimeUs;
+      lastSamplePresentationTimeUs = currentSamplePresentationTimeUs;
     }
 
     if (hasBframe) {
@@ -711,96 +711,6 @@ import java.util.Locale;
 
     contents.flip();
     return BoxUtils.wrapIntoBox("stts", contents);
-  }
-
-  /** Returns the ctts (composition time to sample) box. */
-  public static ByteBuffer ctts(
-      List<BufferInfo> samplesInfo, List<Long> durationVu, int videoUnitTimescale) {
-    // Generate the sample composition offsets list to create ctts box.
-    List<Integer> compositionOffsets =
-        Boxes.calculateSampleCompositionTimeOffsets(samplesInfo, durationVu, videoUnitTimescale);
-
-    if (compositionOffsets.isEmpty()) {
-      return ByteBuffer.allocate(0);
-    }
-
-    ByteBuffer contents =
-        ByteBuffer.allocate(
-            2 * BYTES_PER_INTEGER + 2 * compositionOffsets.size() * BYTES_PER_INTEGER);
-
-    contents.putInt(1); // version and flags.
-
-    // We will know total entry count only after processing all the composition offsets, so put in a
-    // placeholder for total entry count and store its index.
-    int totalEntryCountIndex = contents.position();
-    contents.putInt(0x0); // entry_count.
-
-    int totalEntryCount = 0;
-    int lastCompositionOffset = -1;
-    int lastSampleCountIndex = -1;
-
-    for (int i = 0; i < compositionOffsets.size(); i++) {
-      int currentCompositionOffset = compositionOffsets.get(i);
-      if (lastCompositionOffset != currentCompositionOffset) {
-        lastCompositionOffset = currentCompositionOffset;
-        lastSampleCountIndex = contents.position();
-
-        // sample_count; this will be updated instead of adding a new entry if the next sample has
-        // the same composition offset.
-        contents.putInt(1); // sample_count
-        contents.putInt(currentCompositionOffset); // sample_offset
-        totalEntryCount++;
-      } else {
-        contents.putInt(lastSampleCountIndex, contents.getInt(lastSampleCountIndex) + 1);
-      }
-    }
-
-    contents.putInt(totalEntryCountIndex, totalEntryCount);
-
-    contents.flip();
-    return BoxUtils.wrapIntoBox("ctts", contents);
-  }
-
-  /**
-   * Calculate sample composition time offsets (in timebase units).
-   *
-   * <p>The sample composition time offset gives offset between composition time (CT) and decoding
-   * time (DT), such that {@code CT(n) = DT(n) + sample_offset(n)}.
-   *
-   * @param samplesInfo A list of {@linkplain BufferInfo sample info}.
-   * @param durationVu A list of all the sample durations.
-   * @param videoUnitTimescale The timescale of the track.
-   * @return A list of all the sample composition time offsets.
-   */
-  private static List<Integer> calculateSampleCompositionTimeOffsets(
-      List<BufferInfo> samplesInfo, List<Long> durationVu, int videoUnitTimescale) {
-    List<Integer> compositionOffsets = new ArrayList<>(samplesInfo.size());
-    if (samplesInfo.isEmpty()) {
-      return compositionOffsets;
-    }
-
-    long currentSampleDecodeTime = 0L;
-    boolean hasBframe = false;
-    long lastSampleCompositionTimeUs = 0L;
-
-    for (int sampleId = 0; sampleId < samplesInfo.size(); sampleId++) {
-      long currentSampleCompositionTimeUs = samplesInfo.get(sampleId).presentationTimeUs;
-      long currentCompositionOffsetVu =
-          vuFromUs(currentSampleCompositionTimeUs, videoUnitTimescale) - currentSampleDecodeTime;
-      checkState(currentCompositionOffsetVu <= Integer.MAX_VALUE, "Only 32-bit offset is allowed");
-      currentSampleDecodeTime += durationVu.get(sampleId); // DT(n+1) = DT(n) + STTS(n)
-      compositionOffsets.add((int) currentCompositionOffsetVu);
-
-      if (currentSampleCompositionTimeUs < lastSampleCompositionTimeUs) {
-        hasBframe = true;
-      }
-      lastSampleCompositionTimeUs = currentSampleCompositionTimeUs;
-    }
-
-    if (!hasBframe) {
-      compositionOffsets.clear();
-    }
-    return compositionOffsets;
   }
 
   /** Returns the stsz (sample size) box. */

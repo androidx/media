@@ -19,6 +19,7 @@ import static androidx.media3.muxer.MuxerTestUtil.FAKE_VIDEO_FORMAT;
 import static androidx.media3.muxer.MuxerTestUtil.XMP_SAMPLE_DATA;
 import static androidx.media3.muxer.MuxerTestUtil.getFakeSampleAndSampleInfo;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
 import android.media.MediaCodec.BufferInfo;
@@ -30,7 +31,6 @@ import androidx.media3.container.Mp4OrientationData;
 import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.container.XmpData;
 import androidx.media3.extractor.mp4.Mp4Extractor;
-import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.muxer.Muxer.TrackToken;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.DumpableMp4Box;
@@ -157,38 +157,26 @@ public class Mp4MuxerEndToEndTest {
   }
 
   @Test
-  public void createMp4File_withOutOfOrderBframes_matchesExpected() throws IOException {
+  public void writeSampleData_withOutOfOrderSampleTimestamps_throws() throws IOException {
     String outputFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer mp4Muxer = new Mp4Muxer.Builder(new FileOutputStream(outputFilePath)).build();
-    mp4Muxer.addMetadata(
-        new Mp4TimestampData(
-            /* creationTimestampSeconds= */ 100_000_000L,
-            /* modificationTimestampSeconds= */ 500_000_000L));
     Pair<ByteBuffer, BufferInfo> track1Sample1 =
         getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 0L);
     Pair<ByteBuffer, BufferInfo> track1Sample2 =
-        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 3000L);
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 2000L);
     Pair<ByteBuffer, BufferInfo> track1Sample3 =
         getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 1000L);
-    Pair<ByteBuffer, BufferInfo> track1Sample4 =
-        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 2000L);
-
     try {
       TrackToken track1 = mp4Muxer.addTrack(/* sortKey= */ 0, FAKE_VIDEO_FORMAT);
       mp4Muxer.writeSampleData(track1, track1Sample1.first, track1Sample1.second);
       mp4Muxer.writeSampleData(track1, track1Sample2.first, track1Sample2.second);
-      mp4Muxer.writeSampleData(track1, track1Sample3.first, track1Sample3.second);
-      mp4Muxer.writeSampleData(track1, track1Sample4.first, track1Sample4.second);
+
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> mp4Muxer.writeSampleData(track1, track1Sample3.first, track1Sample3.second));
     } finally {
       mp4Muxer.close();
     }
-    FakeExtractorOutput fakeExtractorOutput =
-        TestUtil.extractAllSamplesFromFilePath(
-            new Mp4Extractor(new DefaultSubtitleParserFactory()), outputFilePath);
-    DumpFileAsserts.assertOutput(
-        context,
-        fakeExtractorOutput,
-        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_b_frame.mp4"));
   }
 
   @Test
