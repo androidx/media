@@ -49,7 +49,8 @@ public final class InAppMuxer implements Muxer {
      * <p>A {@link Metadata.Entry} can be added or removed. To modify an existing {@link
      * Metadata.Entry}, first remove it and then add a new one.
      *
-     * <p>For the list of supported metadata refer to {@link Mp4Muxer#addMetadata(Metadata.Entry)}.
+     * <p>For the list of supported metadata refer to {@link
+     * Mp4Muxer#addMetadataEntry(Metadata.Entry)}.
      */
     void updateMetadataEntries(Set<Metadata.Entry> metadataEntries);
   }
@@ -172,7 +173,7 @@ public final class InAppMuxer implements Muxer {
   public TrackToken addTrack(Format format) {
     TrackToken trackToken = muxer.addTrack(format);
     if (MimeTypes.isVideo(format.sampleMimeType)) {
-      muxer.addMetadata(new Mp4OrientationData(format.rotationDegrees));
+      muxer.addMetadataEntry(new Mp4OrientationData(format.rotationDegrees));
     }
     return trackToken;
   }
@@ -220,7 +221,7 @@ public final class InAppMuxer implements Muxer {
     }
 
     for (Metadata.Entry entry : metadataEntries) {
-      muxer.addMetadata(entry);
+      muxer.addMetadataEntry(entry);
     }
   }
 }

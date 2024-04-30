@@ -36,7 +36,7 @@ public interface Muxer {
       throws IOException;
 
   /** Adds {@linkplain Metadata.Entry metadata} about the output file. */
-  void addMetadata(Metadata.Entry metadata);
+  void addMetadataEntry(Metadata.Entry metadataEntry);
 
   /** Closes the file. */
   void close() throws IOException;

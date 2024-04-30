@@ -244,13 +244,14 @@ public final class Mp4Muxer implements Muxer {
    *   <li>{@link XmpData}
    * </ul>
    *
-   * @param metadata The {@linkplain Metadata.Entry metadata}. An {@link IllegalArgumentException}
-   *     is thrown if the {@linkplain Metadata.Entry metadata} is not supported.
+   * @param metadataEntry The {@linkplain Metadata.Entry metadata}. An {@link
+   *     IllegalArgumentException} is thrown if the {@linkplain Metadata.Entry metadata} is not
+   *     supported.
    */
   @Override
-  public void addMetadata(Metadata.Entry metadata) {
-    checkArgument(Mp4Utils.isMetadataSupported(metadata), "Unsupported metadata");
-    metadataCollector.addMetadata(metadata);
+  public void addMetadataEntry(Metadata.Entry metadataEntry) {
+    checkArgument(Mp4Utils.isMetadataSupported(metadataEntry), "Unsupported metadata");
+    metadataCollector.addMetadata(metadataEntry);
   }
 
   @Override
