@@ -698,6 +698,12 @@ public class SimpleExoPlayer extends BasePlayer
   }
 
   @Override
+  public void setPriority(@C.Priority int priority) {
+    blockUntilConstructorFinished();
+    player.setPriority(priority);
+  }
+
+  @Override
   public void setPriorityTaskManager(@Nullable PriorityTaskManager priorityTaskManager) {
     blockUntilConstructorFinished();
     player.setPriorityTaskManager(priorityTaskManager);

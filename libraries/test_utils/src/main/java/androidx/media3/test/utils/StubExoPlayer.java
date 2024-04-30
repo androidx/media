@@ -20,6 +20,7 @@ import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
+import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.Player;
@@ -394,6 +395,11 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
 
   @Override
   public void setWakeMode(int wakeMode) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void setPriority(@C.Priority int priority) {
     throw new UnsupportedOperationException();
   }
 

@@ -456,6 +456,7 @@ public interface ExoPlayer extends Player {
     /* package */ Supplier<BandwidthMeter> bandwidthMeterSupplier;
     /* package */ Function<Clock, AnalyticsCollector> analyticsCollectorFunction;
     /* package */ Looper looper;
+    /* package */ @C.Priority int priority;
     @Nullable /* package */ PriorityTaskManager priorityTaskManager;
     /* package */ AudioAttributes audioAttributes;
     /* package */ boolean handleAudioFocus;
@@ -502,6 +503,7 @@ public interface ExoPlayer extends Player {
      *       Looper} of the application's main thread if the current thread doesn't have a {@link
      *       Looper}
      *   <li>{@link AnalyticsCollector}: {@link AnalyticsCollector} with {@link Clock#DEFAULT}
+     *   <li>{@link C.Priority}: {@link C#PRIORITY_PLAYBACK}
      *   <li>{@link PriorityTaskManager}: {@code null} (not used)
      *   <li>{@link AudioAttributes}: {@link AudioAttributes#DEFAULT}, not handling audio focus
      *   <li>{@link C.WakeMode}: {@link C#WAKE_MODE_NONE}
@@ -679,6 +681,7 @@ public interface ExoPlayer extends Player {
       detachSurfaceTimeoutMs = DEFAULT_DETACH_SURFACE_TIMEOUT_MS;
       usePlatformDiagnostics = true;
       playerName = "";
+      priority = C.PRIORITY_PLAYBACK;
     }
 
     /**
@@ -838,9 +841,29 @@ public interface ExoPlayer extends Player {
     }
 
     /**
+     * Sets the {@link C.Priority} for this player.
+     *
+     * <p>The priority may influence resource allocation between multiple players or other
+     * components running in the same app.
+     *
+     * <p>This priority is used for the {@link PriorityTaskManager}, if {@linkplain
+     * #setPriorityTaskManager set}.
+     *
+     * @param priority The {@link C.Priority}.
+     */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    public Builder setPriority(@C.Priority int priority) {
+      checkState(!buildCalled);
+      this.priority = priority;
+      return this;
+    }
+
+    /**
      * Sets an {@link PriorityTaskManager} that will be used by the player.
      *
-     * <p>The priority {@link C#PRIORITY_PLAYBACK} will be set while the player is loading.
+     * <p>The priority set via {@link #setPriority} (or {@link C#PRIORITY_PLAYBACK by default)} will
+     * be set while the player is loading.
      *
      * @param priorityTaskManager A {@link PriorityTaskManager}, or null to not use one.
      * @return This builder.
@@ -1810,9 +1833,24 @@ public interface ExoPlayer extends Player {
   void setWakeMode(@C.WakeMode int wakeMode);
 
   /**
+   * Sets the {@link C.Priority} for this player.
+   *
+   * <p>The priority may influence resource allocation between multiple players or other components
+   * running in the same app.
+   *
+   * <p>This priority is used for the {@link PriorityTaskManager}, if {@linkplain
+   * #setPriorityTaskManager set}.
+   *
+   * @param priority The {@link C.Priority}.
+   */
+  @UnstableApi
+  void setPriority(@C.Priority int priority);
+
+  /**
    * Sets a {@link PriorityTaskManager}, or null to clear a previously set priority task manager.
    *
-   * <p>The priority {@link C#PRIORITY_PLAYBACK} will be set while the player is loading.
+   * <p>The priority set via {@link #setPriority} (or {@link C#PRIORITY_PLAYBACK by default)} will
+   * be set while the player is loading.
    *
    * @param priorityTaskManager The {@link PriorityTaskManager}, or null to clear a previously set
    *     priority task manager.

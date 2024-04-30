@@ -30,6 +30,7 @@ import static androidx.media3.exoplayer.Renderer.MSG_SET_CAMERA_MOTION_LISTENER;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_CHANGE_FRAME_RATE_STRATEGY;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_IMAGE_OUTPUT;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_PREFERRED_AUDIO_DEVICE;
+import static androidx.media3.exoplayer.Renderer.MSG_SET_PRIORITY;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_SCALING_MODE;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_SKIP_SILENCE_ENABLED;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_VIDEO_EFFECTS;
@@ -221,6 +222,7 @@ import java.util.concurrent.TimeoutException;
   @Nullable private CameraMotionListener cameraMotionListener;
   private boolean throwsWhenUsingWrongThread;
   private boolean hasNotifiedFullWrongThreadWarning;
+  private @C.Priority int priority;
   @Nullable private PriorityTaskManager priorityTaskManager;
   private boolean isPriorityTaskManagerRegistered;
   private boolean playerReleased;
@@ -255,6 +257,7 @@ import java.util.concurrent.TimeoutException;
               + "]");
       applicationContext = builder.context.getApplicationContext();
       analyticsCollector = builder.analyticsCollectorFunction.apply(builder.clock);
+      priority = builder.priority;
       priorityTaskManager = builder.priorityTaskManager;
       audioAttributes = builder.audioAttributes;
       videoScalingMode = builder.videoScalingMode;
@@ -433,6 +436,7 @@ import java.util.concurrent.TimeoutException;
           TRACK_TYPE_VIDEO, MSG_SET_VIDEO_FRAME_METADATA_LISTENER, frameMetadataListener);
       sendRendererMessage(
           TRACK_TYPE_CAMERA_MOTION, MSG_SET_CAMERA_MOTION_LISTENER, frameMetadataListener);
+      sendRendererMessage(MSG_SET_PRIORITY, priority);
     } finally {
       constructorFinished.open();
     }
@@ -1075,7 +1079,7 @@ import java.util.concurrent.TimeoutException;
       ownedSurface = null;
     }
     if (isPriorityTaskManagerRegistered) {
-      checkNotNull(priorityTaskManager).remove(C.PRIORITY_PLAYBACK);
+      checkNotNull(priorityTaskManager).remove(priority);
       isPriorityTaskManagerRegistered = false;
     }
     currentCueGroup = CueGroup.EMPTY_TIME_ZERO;
@@ -1604,16 +1608,31 @@ import java.util.concurrent.TimeoutException;
   }
 
   @Override
+  public void setPriority(@C.Priority int priority) {
+    verifyApplicationThread();
+    if (this.priority == priority) {
+      return;
+    }
+    if (isPriorityTaskManagerRegistered) {
+      PriorityTaskManager priorityTaskManager = checkNotNull(this.priorityTaskManager);
+      priorityTaskManager.add(priority);
+      priorityTaskManager.remove(this.priority);
+    }
+    this.priority = priority;
+    sendRendererMessage(MSG_SET_PRIORITY, priority);
+  }
+
+  @Override
   public void setPriorityTaskManager(@Nullable PriorityTaskManager priorityTaskManager) {
     verifyApplicationThread();
     if (Util.areEqual(this.priorityTaskManager, priorityTaskManager)) {
       return;
     }
     if (isPriorityTaskManagerRegistered) {
-      checkNotNull(this.priorityTaskManager).remove(C.PRIORITY_PLAYBACK);
+      checkNotNull(this.priorityTaskManager).remove(priority);
     }
     if (priorityTaskManager != null && isLoading()) {
-      priorityTaskManager.add(C.PRIORITY_PLAYBACK);
+      priorityTaskManager.add(priority);
       isPriorityTaskManagerRegistered = true;
     } else {
       isPriorityTaskManagerRegistered = false;
@@ -2870,10 +2889,14 @@ import java.util.concurrent.TimeoutException;
     }
   }
 
+  private void sendRendererMessage(int messageType, @Nullable Object payload) {
+    sendRendererMessage(/* trackType= */ -1, messageType, payload);
+  }
+
   private void sendRendererMessage(
       @C.TrackType int trackType, int messageType, @Nullable Object payload) {
     for (Renderer renderer : renderers) {
-      if (renderer.getTrackType() == trackType) {
+      if (trackType == -1 || renderer.getTrackType() == trackType) {
         createMessageInternal(renderer).setType(messageType).setPayload(payload).send();
       }
     }
@@ -2916,10 +2939,10 @@ import java.util.concurrent.TimeoutException;
   private void updatePriorityTaskManagerForIsLoadingChange(boolean isLoading) {
     if (priorityTaskManager != null) {
       if (isLoading && !isPriorityTaskManagerRegistered) {
-        priorityTaskManager.add(C.PRIORITY_PLAYBACK);
+        priorityTaskManager.add(priority);
         isPriorityTaskManagerRegistered = true;
       } else if (!isLoading && isPriorityTaskManagerRegistered) {
-        priorityTaskManager.remove(C.PRIORITY_PLAYBACK);
+        priorityTaskManager.remove(priority);
         isPriorityTaskManagerRegistered = false;
       }
     }

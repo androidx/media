@@ -121,6 +121,7 @@ import androidx.media3.common.Player.DiscontinuityReason;
 import androidx.media3.common.Player.Listener;
 import androidx.media3.common.Player.PlayWhenReadyChangeReason;
 import androidx.media3.common.Player.PositionInfo;
+import androidx.media3.common.PriorityTaskManager;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.Timeline.Window;
@@ -14483,6 +14484,94 @@ public final class ExoPlayerTest {
     IllegalStateException expected =
         assertThrows(IllegalStateException.class, () -> player.setVideoEffects(ImmutableList.of()));
     assertThat(expected).hasMessageThat().contains("lib-effect dependencies");
+  }
+
+  @Test
+  public void setPriority_blocksOtherLowPriorityTasksInPriorityTaskManager() throws Exception {
+    PriorityTaskManager priorityTaskManager = new PriorityTaskManager();
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    player.setPriorityTaskManager(priorityTaskManager);
+    player.setPriority(C.PRIORITY_PLAYBACK);
+    // Add a source without EOS so it loads indefinitely.
+    player.setMediaSource(
+        new FakeMediaSource(
+            new FakeTimeline(),
+            DrmSessionManager.DRM_UNSUPPORTED,
+            (format, mediaPeriodId) -> ImmutableList.of(),
+            ExoPlayerTestRunner.VIDEO_FORMAT));
+    player.prepare();
+    run(player).untilPendingCommandsAreFullyHandled();
+    priorityTaskManager.add(C.PRIORITY_PLAYBACK + 1); // Higher priority than playback.
+
+    boolean canProcessOtherTask = priorityTaskManager.proceedNonBlocking(C.PRIORITY_PLAYBACK + 1);
+    player.setPriority(C.PRIORITY_PLAYBACK + 2);
+    boolean canProcessOtherTaskAfterUpdate =
+        priorityTaskManager.proceedNonBlocking(C.PRIORITY_PLAYBACK + 1);
+    player.release();
+    boolean canProcessOtherTaskAfterRelease =
+        priorityTaskManager.proceedNonBlocking(C.PRIORITY_PLAYBACK + 1);
+
+    assertThat(canProcessOtherTask).isTrue();
+    assertThat(canProcessOtherTaskAfterUpdate).isFalse();
+    assertThat(canProcessOtherTaskAfterRelease).isTrue();
+  }
+
+  @Test
+  public void setPriority_allowsOtherHighPriorityTasksInPriorityTaskManager() throws Exception {
+    PriorityTaskManager priorityTaskManager = new PriorityTaskManager();
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    player.setPriorityTaskManager(priorityTaskManager);
+    player.setPriority(C.PRIORITY_PLAYBACK);
+    // Add a source without EOS so it loads indefinitely.
+    player.setMediaSource(
+        new FakeMediaSource(
+            new FakeTimeline(),
+            DrmSessionManager.DRM_UNSUPPORTED,
+            (format, mediaPeriodId) -> ImmutableList.of(),
+            ExoPlayerTestRunner.VIDEO_FORMAT));
+    player.prepare();
+    run(player).untilPendingCommandsAreFullyHandled();
+    priorityTaskManager.add(C.PRIORITY_PLAYBACK - 1); // Lower priority than playback.
+
+    boolean canProcessOtherTask = priorityTaskManager.proceedNonBlocking(C.PRIORITY_PLAYBACK + 1);
+    player.setPriority(C.PRIORITY_PLAYBACK - 2);
+    boolean canProcessOtherTaskAfterUpdate =
+        priorityTaskManager.proceedNonBlocking(C.PRIORITY_PLAYBACK - 1);
+    player.release();
+    boolean canProcessOtherTaskAfterRelease =
+        priorityTaskManager.proceedNonBlocking(C.PRIORITY_PLAYBACK - 1);
+
+    assertThat(canProcessOtherTask).isFalse();
+    assertThat(canProcessOtherTaskAfterUpdate).isTrue();
+    assertThat(canProcessOtherTaskAfterRelease).isTrue();
+  }
+
+  @Test
+  public void setPriority_sendsSetPriorityMessageToRenderers() throws Exception {
+    ArrayList<Pair<Integer, Object>> receivedMessages = new ArrayList<>();
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setRenderers(
+                new FakeRenderer(C.TRACK_TYPE_VIDEO) {
+                  @Override
+                  public void handleMessage(@MessageType int messageType, @Nullable Object message)
+                      throws ExoPlaybackException {
+                    receivedMessages.add(Pair.create(messageType, message));
+                    super.handleMessage(messageType, message);
+                  }
+                })
+            .build();
+
+    player.setPriority(C.PRIORITY_DOWNLOAD);
+    run(player).untilPendingCommandsAreFullyHandled();
+    player.release();
+
+    // Assert default setting and updated setting arrived in the renderer.
+    assertThat(receivedMessages)
+        .containsAtLeast(
+            Pair.create(Renderer.MSG_SET_PRIORITY, C.PRIORITY_PLAYBACK),
+            Pair.create(Renderer.MSG_SET_PRIORITY, C.PRIORITY_DOWNLOAD))
+        .inOrder();
   }
 
   // Internal methods.
