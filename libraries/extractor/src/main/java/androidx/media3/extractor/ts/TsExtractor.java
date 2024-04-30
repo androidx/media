@@ -425,8 +425,9 @@ public final class TsExtractor implements Extractor {
   public @ReadResult int read(ExtractorInput input, PositionHolder seekPosition)
       throws IOException {
     long inputLength = input.getLength();
+    boolean isModeHls = mode == MODE_HLS;
     if (tracksEnded) {
-      boolean canReadDuration = inputLength != C.LENGTH_UNSET && mode != MODE_HLS;
+      boolean canReadDuration = inputLength != C.LENGTH_UNSET && !isModeHls;
       if (canReadDuration && !durationReader.isDurationReadFinished()) {
         return durationReader.readDuration(input, seekPosition, pcrPid);
       }
@@ -447,6 +448,16 @@ public final class TsExtractor implements Extractor {
     }
 
     if (!fillBufferWithAtLeastOnePacket(input)) {
+      // Send a synthesized empty pusi to allow for packetFinished to be triggered on the last unit.
+      for (int i = 0; i < tsPayloadReaders.size(); i++) {
+        TsPayloadReader payloadReader = tsPayloadReaders.valueAt(i);
+        if (payloadReader instanceof PesReader) {
+          PesReader pesReader = (PesReader) payloadReader;
+          if (pesReader.canConsumeSynthesizedEmptyPusi(isModeHls)) {
+            pesReader.consume(new ParsableByteArray(), FLAG_PAYLOAD_UNIT_START_INDICATOR);
+          }
+        }
+      }
       return RESULT_END_OF_INPUT;
     }
 

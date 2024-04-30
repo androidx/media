@@ -31,7 +31,7 @@ import androidx.media3.extractor.TrackOutput;
  *   <li>{@link #seek()} (optional, to reset the state)
  *   <li>{@link #packetStarted(long, int)} (to signal the start of a new packet)
  *   <li>{@link #consume(ParsableByteArray)} (zero or more times, to provide packet data)
- *   <li>{@link #packetFinished()} (to signal the end of the current packet)
+ *   <li>{@link #packetFinished(boolean)} (to signal the end of the current packet)
  *   <li>Repeat steps 3-5 for subsequent packets
  * </ol>
  */
@@ -67,5 +67,5 @@ public interface ElementaryStreamReader {
   void consume(ParsableByteArray data) throws ParserException;
 
   /** Called when a packet ends. */
-  void packetFinished();
+  void packetFinished(boolean isEndOfInput);
 }

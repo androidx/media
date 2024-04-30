@@ -545,7 +545,7 @@ public final class TsExtractorTest {
     public void consume(ParsableByteArray data) {}
 
     @Override
-    public void packetFinished() {
+    public void packetFinished(boolean isEndOfInput) {
       packetsRead++;
     }
 

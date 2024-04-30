@@ -172,8 +172,11 @@ public final class H265Reader implements ElementaryStreamReader {
   }
 
   @Override
-  public void packetFinished() {
-    // Do nothing.
+  public void packetFinished(boolean isEndOfInput) {
+    assertTracksCreated();
+    if (isEndOfInput) {
+      sampleReader.end(totalBytesWritten);
+    }
   }
 
   @RequiresNonNull("sampleReader")
@@ -372,6 +375,17 @@ public final class H265Reader implements ElementaryStreamReader {
         sampleIsKeyframe = nalUnitHasKeyframeData;
         readingSample = true;
       }
+    }
+
+    public void end(long position) {
+      sampleIsKeyframe = nalUnitHasKeyframeData;
+      // Output a sample with the NAL units since the current nalUnitPosition
+      outputSample(/* offset= */ (int) (position - nalUnitPosition));
+      // Output a final sample with the remaining NAL units up to the passed position
+      samplePosition = nalUnitPosition;
+      nalUnitPosition = position;
+      outputSample(/* offset= */ 0);
+      readingSample = false;
     }
 
     private void outputSample(int offset) {
