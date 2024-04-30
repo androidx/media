@@ -84,25 +84,16 @@ public class ImageRendererTest {
       Bitmap.createBitmap(/* width= */ 2, /* height= */ 2, Bitmap.Config.ARGB_8888);
   private final Bitmap fakeDecodedBitmap2 =
       Bitmap.createBitmap(/* width= */ 4, /* height= */ 4, Bitmap.Config.ARGB_8888);
-  private final Bitmap fakeDecodedBitmap3 =
-      Bitmap.createBitmap(/* width= */ 2, /* height= */ 3, Bitmap.Config.ARGB_8888);
 
   private ImageRenderer renderer;
   private int decodeCallCount;
-  private Bitmap overridenBitmap = null;
 
   @Before
   public void setUp() throws Exception {
     decodeCallCount = 0;
     ImageDecoder.Factory fakeDecoderFactory =
         new BitmapFactoryImageDecoder.Factory(
-            (data, length) -> {
-              if (overridenBitmap != null) {
-                return overridenBitmap;
-              } else {
-                return ++decodeCallCount == 1 ? fakeDecodedBitmap1 : fakeDecodedBitmap2;
-              }
-            });
+            (data, length) -> ++decodeCallCount == 1 ? fakeDecodedBitmap1 : fakeDecodedBitmap2);
     ImageOutput queuingImageOutput =
         new ImageOutput() {
           @Override
@@ -728,7 +719,26 @@ public class ImageRendererTest {
 
   @Test
   public void render_tiledImageNonSquare_rendersAllImagesToOutput() throws Exception {
-    overridenBitmap = fakeDecodedBitmap3;
+    ImageDecoder.Factory fakeDecoderFactory =
+        new BitmapFactoryImageDecoder.Factory(
+            (data, length) ->
+                Bitmap.createBitmap(/* width= */ 2, /* height= */ 3, Bitmap.Config.ARGB_8888));
+    ImageOutput queuingImageOutput =
+        new ImageOutput() {
+          @Override
+          public void onImageAvailable(long presentationTimeUs, Bitmap bitmap) {
+            renderedBitmaps.add(Pair.create(presentationTimeUs, bitmap));
+          }
+
+          @Override
+          public void onDisabled() {
+            // Do nothing.
+          }
+        };
+
+    renderer = new ImageRenderer(fakeDecoderFactory, queuingImageOutput);
+    renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+
     FakeSampleStream fakeSampleStream =
         createSampleStream(
             JPEG_FORMAT_WITH_SIX_TILES,
