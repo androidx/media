@@ -571,7 +571,7 @@ public class ImageRenderer extends BaseRenderer {
     checkStateNotNull(outputBitmap);
     int tileWidth = outputBitmap.getWidth() / checkStateNotNull(inputFormat).tileCountHorizontal;
     int tileHeight = outputBitmap.getHeight() / checkStateNotNull(inputFormat).tileCountVertical;
-    int tileStartXCoordinate = tileWidth * (tileIndex % inputFormat.tileCountVertical);
+    int tileStartXCoordinate = tileWidth * (tileIndex % inputFormat.tileCountHorizontal);
     int tileStartYCoordinate = tileHeight * (tileIndex / inputFormat.tileCountHorizontal);
     return Bitmap.createBitmap(
         outputBitmap, tileStartXCoordinate, tileStartYCoordinate, tileWidth, tileHeight);
