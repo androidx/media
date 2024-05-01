@@ -1227,6 +1227,12 @@ import java.util.Objects;
             ColorInfo.isoTransferCharacteristicsToColorTransfer(transferCharacteristics);
       } else if (childAtomType == Atom.TYPE_av1C) {
         mimeType = MimeTypes.VIDEO_AV1;
+
+        int childAtomBodySize = childAtomSize - Atom.HEADER_SIZE;
+        byte[] initializationDataChunk = new byte[childAtomBodySize];
+        parent.readBytes(initializationDataChunk, /* offset= */ 0, childAtomBodySize);
+        initializationData = ImmutableList.of(initializationDataChunk);
+
         parent.setPosition(childStartPosition + Atom.HEADER_SIZE);
         ColorInfo colorInfo = parseAv1c(parent);
 
