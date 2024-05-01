@@ -30,6 +30,8 @@
 *   Audio:
 *   Video:
 *   Text:
+    *   Fix issue where subtitles starting before a seek position are skipped.
+        This issue was only introduced in Media3 1.4.0-alpha01.
 *   Metadata:
     *   Fix mapping of MP4 to ID3 sort tags. Previously the 'album sort'
         (`soal`), 'artist sort' (`soar`) and 'album artist sort' (`soaa`) MP4
