@@ -880,8 +880,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
       updatePlaybackPositions();
     } else {
       if (playbackInfo.playbackState == Player.STATE_READY) {
-        updateRebufferingState(
-            /* isRebuffering= */ false, /* resetLastRebufferRealtimeMs= */ false);
         mediaClock.start();
         startRenderers();
         handler.sendEmptyMessage(MSG_DO_SOME_WORK);
