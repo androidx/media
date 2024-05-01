@@ -21,6 +21,7 @@ import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.s
 import static com.google.common.truth.Truth.assertThat;
 
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.util.Pair;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -75,8 +76,8 @@ public class ImageRendererTest {
   private static final Format JPEG_FORMAT_WITH_SIX_TILES =
       new Format.Builder()
           .setSampleMimeType(MimeTypes.IMAGE_JPEG)
-          .setTileCountVertical(3)
-          .setTileCountHorizontal(2)
+          .setTileCountVertical(2)
+          .setTileCountHorizontal(3)
           .build();
 
   private final List<Pair<Long, Bitmap>> renderedBitmaps = new ArrayList<>();
@@ -721,8 +722,24 @@ public class ImageRendererTest {
   public void render_tiledImageNonSquare_rendersAllImagesToOutput() throws Exception {
     ImageDecoder.Factory fakeDecoderFactory =
         new BitmapFactoryImageDecoder.Factory(
-            (data, length) ->
-                Bitmap.createBitmap(/* width= */ 2, /* height= */ 3, Bitmap.Config.ARGB_8888));
+            (data, length) -> {
+              /*
+               * Thumbnail grid image is as depicted below.
+               *    0 1 2 3 4 5 6 7 8
+               *    -----------------
+               * 0 | T0  | T1  | T2  |
+               * 1 |     |     |     |
+               *    -----------------
+               * 2 | T3  | T4  | T5  |
+               * 3 |     |     |     |
+               *    -----------------
+               */
+              Bitmap bm =
+                  Bitmap.createBitmap(/* width= */ 9, /* height= */ 4, Bitmap.Config.ARGB_8888);
+              bm.setPixel(1, 2, Color.rgb(100, 0, 0));
+              bm.setPixel(4, 3, Color.rgb(0, 100, 0));
+              return bm;
+            });
     ImageOutput queuingImageOutput =
         new ImageOutput() {
           @Override
@@ -777,23 +794,25 @@ public class ImageRendererTest {
 
     assertThat(renderedBitmaps).hasSize(6);
     assertThat(renderedBitmaps.get(0).first).isEqualTo(0L);
-    assertThat(renderedBitmaps.get(0).second.getHeight()).isEqualTo(1);
-    assertThat(renderedBitmaps.get(0).second.getWidth()).isEqualTo(1);
+    assertThat(renderedBitmaps.get(0).second.getHeight()).isEqualTo(2);
+    assertThat(renderedBitmaps.get(0).second.getWidth()).isEqualTo(3);
     assertThat(renderedBitmaps.get(1).first).isEqualTo(100_000L);
-    assertThat(renderedBitmaps.get(1).second.getHeight()).isEqualTo(1);
-    assertThat(renderedBitmaps.get(1).second.getWidth()).isEqualTo(1);
+    assertThat(renderedBitmaps.get(1).second.getHeight()).isEqualTo(2);
+    assertThat(renderedBitmaps.get(1).second.getWidth()).isEqualTo(3);
     assertThat(renderedBitmaps.get(2).first).isEqualTo(200_000L);
-    assertThat(renderedBitmaps.get(2).second.getHeight()).isEqualTo(1);
-    assertThat(renderedBitmaps.get(2).second.getWidth()).isEqualTo(1);
+    assertThat(renderedBitmaps.get(2).second.getHeight()).isEqualTo(2);
+    assertThat(renderedBitmaps.get(2).second.getWidth()).isEqualTo(3);
     assertThat(renderedBitmaps.get(3).first).isEqualTo(300_000L);
-    assertThat(renderedBitmaps.get(3).second.getHeight()).isEqualTo(1);
-    assertThat(renderedBitmaps.get(3).second.getWidth()).isEqualTo(1);
+    assertThat(renderedBitmaps.get(3).second.getHeight()).isEqualTo(2);
+    assertThat(renderedBitmaps.get(3).second.getWidth()).isEqualTo(3);
+    assertThat(renderedBitmaps.get(3).second.getPixel(1, 0)).isEqualTo(Color.rgb(100, 0, 0));
     assertThat(renderedBitmaps.get(4).first).isEqualTo(400_000L);
-    assertThat(renderedBitmaps.get(4).second.getHeight()).isEqualTo(1);
-    assertThat(renderedBitmaps.get(4).second.getWidth()).isEqualTo(1);
+    assertThat(renderedBitmaps.get(4).second.getHeight()).isEqualTo(2);
+    assertThat(renderedBitmaps.get(4).second.getWidth()).isEqualTo(3);
+    assertThat(renderedBitmaps.get(4).second.getPixel(1,1)).isEqualTo(Color.rgb(0, 100, 0));
     assertThat(renderedBitmaps.get(5).first).isEqualTo(500_000L);
-    assertThat(renderedBitmaps.get(5).second.getHeight()).isEqualTo(1);
-    assertThat(renderedBitmaps.get(5).second.getWidth()).isEqualTo(1);
+    assertThat(renderedBitmaps.get(5).second.getHeight()).isEqualTo(2);
+    assertThat(renderedBitmaps.get(5).second.getWidth()).isEqualTo(3);
   }
 
   private static FakeSampleStream.FakeSampleStreamItem emptySample(
