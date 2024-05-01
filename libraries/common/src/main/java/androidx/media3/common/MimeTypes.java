@@ -515,6 +515,8 @@ public final class MimeTypes {
       case 0x69:
       case 0x6B:
         return MimeTypes.AUDIO_MPEG;
+      case 0x6C:
+        return MimeTypes.IMAGE_JPEG;
       case 0xA3:
         return MimeTypes.VIDEO_VC1;
       case 0xB1:
