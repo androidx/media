@@ -735,10 +735,8 @@ public class ImageRendererTest {
             // Do nothing.
           }
         };
-
     renderer = new ImageRenderer(fakeDecoderFactory, queuingImageOutput);
     renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
-
     FakeSampleStream fakeSampleStream =
         createSampleStream(
             JPEG_FORMAT_WITH_SIX_TILES,
