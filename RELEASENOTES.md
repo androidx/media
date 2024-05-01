@@ -45,6 +45,8 @@
     *   Propagate ID3 `TCON` frame to `MediaMetadata.genre`
         ([#1305](https://github.com/androidx/media/issues/1305)).
 *   Image:
+    *   Add support for non-square DASH thumbnail grids
+        ([#1255](https://github.com/androidx/media/pull/1300)).
 *   DRM:
     *   Allow setting a `LoadErrorHandlingPolicy` on
         `DefaultDrmSessionManagerProvider`
