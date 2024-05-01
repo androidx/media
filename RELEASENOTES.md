@@ -13,6 +13,9 @@
     *   Add `ExoPlayer.setPriority` (and `Builder.setPriority`) to define the
         priority value used in `PriorityTaskManager` and for MediaCodec
         importance from API 35.
+    *   Fix issue with updating the last rebuffer time which resulted in
+        incorrect `bs` (buffer starvation) key in CMCD
+        ([#1124](https://github.com/androidx/media/issues/1124)).
 *   Transformer:
     *   Work around a decoder bug where the number of audio channels was capped
         at stereo when handling PCM input.

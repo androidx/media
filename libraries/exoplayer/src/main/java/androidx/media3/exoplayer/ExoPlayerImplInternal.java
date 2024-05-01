@@ -3019,7 +3019,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
   private void updateRebufferingState(boolean isRebuffering, boolean resetLastRebufferRealtimeMs) {
     this.isRebuffering = isRebuffering;
     this.lastRebufferRealtimeMs =
-        resetLastRebufferRealtimeMs ? C.TIME_UNSET : clock.elapsedRealtime();
+        isRebuffering && !resetLastRebufferRealtimeMs ? clock.elapsedRealtime() : C.TIME_UNSET;
   }
 
   /**
