@@ -155,7 +155,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private boolean codecNeedsSetOutputSurfaceWorkaround;
   private boolean codecHandlesHdr10PlusOutOfBandMetadata;
   @Nullable private Surface displaySurface;
-  @Nullable private Size outputResolution;
   @Nullable private PlaceholderSurface placeholderSurface;
   private boolean haveReportedFirstFrameRenderedForCurrentSurface;
   private @C.VideoScalingMode int scalingMode;
@@ -774,13 +773,10 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         setVideoEffects(videoEffects);
         break;
       case MSG_SET_VIDEO_OUTPUT_RESOLUTION:
-        outputResolution = (Size) checkNotNull(message);
-        // TODO: b/292111083 Set the surface on the videoSinkProvider before it's initialized
-        //  otherwise the first frames are missed until a new video output resolution arrives.
-        if (checkNotNull(outputResolution).getWidth() != 0
-            && checkNotNull(outputResolution).getHeight() != 0
-            && displaySurface != null) {
-          videoSinkProvider.setOutputSurfaceInfo(displaySurface, checkNotNull(outputResolution));
+        Size outputResolution = (Size) checkNotNull(message);
+        if (outputResolution.getWidth() != 0 && outputResolution.getHeight() != 0) {
+          videoSinkProvider.setOutputSurfaceInfo(
+              checkStateNotNull(displaySurface), outputResolution);
         }
         break;
       case MSG_SET_PRIORITY:
@@ -1103,11 +1099,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
           // again, so there's no need to do two hops.
           directExecutor());
       videoSink.setStreamOffsetUs(getOutputStreamOffsetUs());
-      if (enableEffectsForOwnSinkProvider) {
-        if (displaySurface != null && outputResolution != null) {
-          videoSinkProvider.setOutputSurfaceInfo(displaySurface, outputResolution);
-        }
-      }
     }
     hasInitializedPlayback = true;
   }
