@@ -25,21 +25,16 @@ import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888Bitma
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapFromRgba8888ImageBuffer;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
+import static androidx.media3.transformer.mh.performance.PlaybackTestUtil.createTimestampOverlay;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assume.assumeTrue;
 
 import android.app.Instrumentation;
 import android.graphics.Bitmap;
-import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.media.Image;
 import android.media.ImageReader;
-import android.text.Spannable;
-import android.text.SpannableString;
-import android.text.style.AbsoluteSizeSpan;
-import android.text.style.ForegroundColorSpan;
-import android.text.style.TypefaceSpan;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -51,8 +46,6 @@ import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.Brightness;
-import androidx.media3.effect.OverlayEffect;
-import androidx.media3.effect.TextOverlay;
 import androidx.media3.effect.TimestampWrapper;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.Renderer;
@@ -416,34 +409,6 @@ public class EffectPlaybackTest {
         .setType(Renderer.MSG_SET_VIDEO_OUTPUT_RESOLUTION)
         .setPayload(outputSize)
         .send();
-  }
-
-  /** Creates an {@link OverlayEffect} that draws the timestamp onto frames. */
-  private static OverlayEffect createTimestampOverlay() {
-    return new OverlayEffect(
-        ImmutableList.of(
-            new TextOverlay() {
-              @Override
-              public SpannableString getText(long presentationTimeUs) {
-                SpannableString text = new SpannableString(String.valueOf(presentationTimeUs));
-                text.setSpan(
-                    new ForegroundColorSpan(Color.WHITE),
-                    /* start= */ 0,
-                    text.length(),
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                text.setSpan(
-                    new AbsoluteSizeSpan(/* size= */ 96),
-                    /* start= */ 0,
-                    text.length(),
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                text.setSpan(
-                    new TypefaceSpan(/* family= */ "sans-serif"),
-                    /* start= */ 0,
-                    text.length(),
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                return text;
-              }
-            }));
   }
 
   private static void release(@Nullable Player player, @Nullable ImageReader imageReader) {
