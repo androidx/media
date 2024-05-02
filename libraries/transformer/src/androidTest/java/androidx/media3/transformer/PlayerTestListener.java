@@ -118,6 +118,14 @@ public final class PlayerTestListener implements Player.Listener, AnalyticsListe
     this.decoderCounters = decoderCounters;
   }
 
+  public void resetStatus() {
+    playerIdle.close();
+    playerReady.close();
+    playerEnded.close();
+    firstFrameRendered.close();
+    playbackException.set(null);
+  }
+
   // Internal methods
 
   private void waitOrThrow(ConditionVariable conditionVariable)
