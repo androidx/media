@@ -835,7 +835,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
           // next frame as soon as possible.
           videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ true);
         }
-        videoSinkProvider.setOutputSurfaceInfo(displaySurface, Size.UNKNOWN);
       } else {
         // The display surface has been removed.
         reportedVideoSize = null;
