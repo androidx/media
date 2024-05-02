@@ -63,6 +63,9 @@
     *   Add `replaceAdTagParameters(Map <String, String>)` to
         `ImaServerSideAdInsertionMediaSource.AdLoader` that allows replacing ad
         tag parameters at runtime.
+    *   Fix bug where `VideoAdPlayer.VideoAdPlayerCallback.onError` was not
+        called when a player error happened during ad playback
+        ([#1334](https://github.com/androidx/media/issues/1334)).
 *   Session:
     *   Hide seekbar in the media notification for live streams by not setting
         the duration into the platform session metadata
