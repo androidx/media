@@ -30,8 +30,8 @@ uniform sampler2D uTexSampler;
 uniform sampler2D uGainmapTexSampler;
 uniform mat4 uRgbMatrix;
 // C.java#ColorTransfer value.
-// Only COLOR_TRANSFER_LINEAR, COLOR_TRANSFER_GAMMA_2_2, COLOR_TRANSFER_ST2084,
-// and COLOR_TRANSFER_HLG are allowed.
+// Only COLOR_TRANSFER_LINEAR, COLOR_TRANSFER_HLG, COLOR_TRANSFER_ST2084,
+// are allowed.
 uniform int uOutputColorTransfer;
 
 // Uniforms for applying gainmap to base.
@@ -62,6 +62,9 @@ const int COLOR_TRANSFER_LINEAR = 1;
 const int COLOR_TRANSFER_GAMMA_2_2 = 10;
 const int COLOR_TRANSFER_ST2084 = 6;
 const int COLOR_TRANSFER_HLG = 7;
+
+// Output color for an obviously visible error.
+const vec3 ERROR_COLOR_BLUE = vec3(0.0, 0.0, 1.0);
 
 // Matrix values based on computeXYZMatrix(BT2020Primaries, BT2020WhitePoint)
 // https://cs.android.com/android/platform/superproject/main/+/main:frameworks/native/libs/ui/ColorSpace.cpp;l=199-231;drc=ea6c713503b283eef9e6cd1d6674228f6a81d762
@@ -171,8 +174,7 @@ highp vec3 applyOetf(highp vec3 linearColor) {
   } else if (uOutputColorTransfer == COLOR_TRANSFER_LINEAR) {
     return linearColor;
   } else {
-    // Output blue as an obviously visible error.
-    return vec3(0.0, 0.0, 1.0);
+    return ERROR_COLOR_BLUE;
   }
 }
 

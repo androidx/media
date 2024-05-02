@@ -31,8 +31,8 @@ uniform int uOutputColorTransfer;
 uniform mat3 uColorTransform;
 uniform mat4 uRgbMatrix;
 
-// TODO(b/227624622): Consider using mediump to save precision, if it won't lead
-//  to noticeable quantization.
+// Output color for an obviously visible error.
+const vec3 ERROR_COLOR_RED = vec3(1.0, 0.0, 0.0);
 
 // HLG OETF for one channel.
 highp float hlgOetfSingleChannel(highp float linearChannel) {
@@ -83,8 +83,7 @@ highp vec3 applyOetf(highp vec3 linearColor) {
   } else if (uOutputColorTransfer == COLOR_TRANSFER_HLG) {
     return hlgOetf(linearColor);
   } else {
-    // Output red as an obviously visible error.
-    return vec3(1.0, 0.0, 0.0);
+    return ERROR_COLOR_RED;
   }
 }
 

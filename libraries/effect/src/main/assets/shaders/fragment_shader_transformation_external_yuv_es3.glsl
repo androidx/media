@@ -64,8 +64,10 @@ const mat3 XYZ_TO_RGB_BT709 =
     mat3(3.24096994f, -0.96924364f, 0.05563008f, -1.53738318f, 1.87596750f,
          -0.20397696f, -0.49861076f, 0.04155506f, 1.05697151f);
 
-// TODO(b/227624622): Consider using mediump to save precision, if it won't lead
-//  to noticeable quantization errors.
+// Output colors for an obviously visible error.
+const vec3 ERROR_COLOR_RED = vec3(1.0, 0.0, 0.0);
+const vec3 ERROR_COLOR_GREEN = vec3(0.0, 1.0, 0.0);
+const vec3 ERROR_COLOR_BLUE = vec3(0.0, 0.0, 1.0);
 
 // BT.2100 / BT.2020 HLG EOTF for one channel.
 highp float hlgEotfSingleChannel(highp float hlgChannel) {
@@ -112,8 +114,7 @@ highp vec3 applyEotf(highp vec3 electricalColor) {
   } else if (uInputColorTransfer == COLOR_TRANSFER_HLG) {
     return hlgEotf(electricalColor);
   } else {
-    // Output red as an obviously visible error.
-    return vec3(1.0, 0.0, 0.0);
+    return ERROR_COLOR_RED;
   }
 }
 
@@ -206,8 +207,7 @@ highp vec3 applyBt2020ToBt709Ootf(highp vec3 linearRgbBt2020) {
   } else if (uInputColorTransfer == COLOR_TRANSFER_HLG) {
     return applyHlgBt2020ToBt709Ootf(linearRgbBt2020);
   } else {
-    // Output green as an obviously visible error.
-    return vec3(0.0, 1.0, 0.0);
+    return ERROR_COLOR_GREEN;
   }
 }
 
@@ -275,8 +275,7 @@ highp vec3 applyOetf(highp vec3 linearColor) {
   } else if (uOutputColorTransfer == COLOR_TRANSFER_LINEAR) {
     return linearColor;
   } else {
-    // Output blue as an obviously visible error.
-    return vec3(0.0, 0.0, 1.0);
+    return ERROR_COLOR_BLUE;
   }
 }
 

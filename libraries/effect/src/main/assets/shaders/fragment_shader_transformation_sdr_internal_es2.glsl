@@ -48,6 +48,10 @@ const int WORKING_COLOR_SPACE_DEFAULT = 0;
 const int WORKING_COLOR_SPACE_ORIGINAL = 1;
 const int WORKING_COLOR_SPACE_LINEAR = 2;
 
+// Output colors for an obviously visible error.
+const vec3 ERROR_COLOR_RED = vec3(1.0, 0.0, 0.0);
+const vec3 ERROR_COLOR_BLUE = vec3(0.0, 0.0, 1.0);
+
 // Transforms a single channel from electrical to optical SDR using the sRGB
 // EOTF.
 float srgbEotfSingleChannel(float electricalChannel) {
@@ -108,8 +112,7 @@ vec3 convertToWorkingColors(vec3 inputColor) {
     } else if (uInputColorTransfer == COLOR_TRANSFER_SDR_VIDEO) {
       return inputColor;
     } else {
-      // Output blue as an obviously visible error.
-      return vec3(0.0, 0.0, 1.0);
+      return ERROR_COLOR_BLUE;
     }
   } else if (uSdrWorkingColorSpace == WORKING_COLOR_SPACE_ORIGINAL) {
     return inputColor;
@@ -119,12 +122,10 @@ vec3 convertToWorkingColors(vec3 inputColor) {
     } else if (uInputColorTransfer == COLOR_TRANSFER_SDR_VIDEO) {
       return smpte170mEotf(inputColor);
     } else {
-      // Output blue as an obviously visible error.
-      return vec3(0.0, 0.0, 1.0);
+      return ERROR_COLOR_BLUE;
     }
   } else {
-    // Output blue as an obviously visible error.
-    return vec3(0.0, 0.0, 1.0);
+    return ERROR_COLOR_BLUE;
   }
 }
 
@@ -137,8 +138,7 @@ highp vec3 convertToOutputColors(highp vec3 workingColors) {
     } else if (uOutputColorTransfer == COLOR_TRANSFER_SDR_VIDEO) {
       return workingColors;
     } else {
-      // Output red as an obviously visible error.
-      return vec3(1.0, 0.0, 0.0);
+      return ERROR_COLOR_RED;
     }
   } else if (uSdrWorkingColorSpace == WORKING_COLOR_SPACE_ORIGINAL) {
     return workingColors;
@@ -148,12 +148,10 @@ highp vec3 convertToOutputColors(highp vec3 workingColors) {
     } else if (uOutputColorTransfer == COLOR_TRANSFER_SDR_VIDEO) {
       return smpte170mOetf(workingColors);
     } else {
-      // Output red as an obviously visible error.
-      return vec3(1.0, 0.0, 0.0);
+      return ERROR_COLOR_RED;
     }
   } else {
-    // Output red as an obviously visible error.
-    return vec3(1.0, 0.0, 0.0);
+    return ERROR_COLOR_RED;
   }
 }
 
