@@ -204,6 +204,15 @@ public final class GlProgram {
     checkNotNull(uniformByName.get(name)).setFloats(value);
   }
 
+  /** Sets a {@code float[]} type uniform if {@code name} is present, no-op otherwise. */
+  public void setFloatsUniformIfPresent(String name, float[] value) {
+    @Nullable Uniform uniform = uniformByName.get(name);
+    if (uniform == null) {
+      return;
+    }
+    uniform.setFloats(value);
+  }
+
   /** Binds all attributes and uniforms in the program. */
   public void bindAttributesAndUniforms() throws GlUtil.GlException {
     for (Attribute attribute : attributes) {

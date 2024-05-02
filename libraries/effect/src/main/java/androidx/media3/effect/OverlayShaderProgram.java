@@ -188,21 +188,7 @@ import com.google.common.collect.ImmutableList;
             .append("  outputColor.a = overlayColor.a + videoColor.a * (1.0 - overlayColor.a);\n")
             .append("  return outputColor;\n")
             .append("}\n")
-            .append("\n")
-            .append("float srgbEotfSingleChannel(float srgb) {\n")
-            .append("  return srgb <= 0.04045 ? srgb / 12.92 : pow((srgb + 0.055) / 1.055, 2.4);\n")
-            .append("}\n")
-            .append("// sRGB EOTF.\n")
-            .append("vec3 applyEotf(const vec3 srgb) {\n")
-            .append("// Reference implementation:\n")
-            .append(
-                "// https://cs.android.com/android/platform/superproject/+/master:frameworks/native/libs/renderengine/gl/ProgramCache.cpp;drc=de09f10aa504fd8066370591a00c9ff1cafbb7fa;l=235\n")
-            .append("  return vec3(\n")
-            .append("    srgbEotfSingleChannel(srgb.r),\n")
-            .append("    srgbEotfSingleChannel(srgb.g),\n")
-            .append("    srgbEotfSingleChannel(srgb.b)\n")
-            .append("  );\n")
-            .append("}\n");
+            .append("\n");
 
     for (int texUnitIndex = 1; texUnitIndex <= numOverlays; texUnitIndex++) {
       shader
@@ -227,14 +213,10 @@ import com.google.common.collect.ImmutableList;
               formatInvariant(
                   "    uOverlayTexSampler%d, vOverlayTexSamplingCoord%d, uOverlayAlphaScale%d);\n",
                   texUnitIndex, texUnitIndex, texUnitIndex))
-          .append(formatInvariant("  vec4 opticalOverlayColor%d = vec4(\n", texUnitIndex))
           .append(
               formatInvariant(
-                  "    applyEotf(electricalOverlayColor%d.rgb), electricalOverlayColor%d.a);\n",
-                  texUnitIndex, texUnitIndex))
-          .append(
-              formatInvariant(
-                  "  fragColor = getMixColor(fragColor, opticalOverlayColor%d);\n", texUnitIndex));
+                  "  fragColor = getMixColor(fragColor, electricalOverlayColor%d);\n",
+                  texUnitIndex));
     }
 
     shader.append("  gl_FragColor = fragColor;\n").append("}\n");

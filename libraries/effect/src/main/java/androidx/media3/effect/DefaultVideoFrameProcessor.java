@@ -140,7 +140,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
 
       /** Creates an instance. */
       public Builder() {
-        sdrWorkingColorSpace = WORKING_COLOR_SPACE_LINEAR;
+        sdrWorkingColorSpace = WORKING_COLOR_SPACE_DEFAULT;
         requireRegisteringAllInputFrames = true;
       }
 
@@ -153,7 +153,6 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         requireRegisteringAllInputFrames = !factory.repeatLastRegisteredFrame;
       }
 
-      // TODO: b/263306471 - Change default to WORKING_COLOR_SPACE_DEFAULT.
       /**
        * Sets the {@link WorkingColorSpace} in which frames passed to intermediate effects will be
        * represented.

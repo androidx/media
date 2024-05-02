@@ -21,9 +21,7 @@
 //    colorspace with the colors transferred to either linear or SMPTE 170M as
 //    requested by uSdrWorkingColorSpace.
 // 3. Applies a 4x4 RGB color matrix to change the pixel colors.
-// 4. Outputs as requested by uOutputColorTransfer. Use COLOR_TRANSFER_LINEAR
-//    for outputting to intermediate shaders, or COLOR_TRANSFER_SDR_VIDEO to
-//    output electrical colors via an OETF (e.g. to an encoder).
+// 4. Outputs as requested by uOutputColorTransfer.
 
 precision mediump float;
 uniform sampler2D uTexSampler;

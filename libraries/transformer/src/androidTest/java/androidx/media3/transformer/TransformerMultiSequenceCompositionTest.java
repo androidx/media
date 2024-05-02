@@ -38,6 +38,7 @@ import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.AlphaScale;
 import androidx.media3.effect.Contrast;
+import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.OverlaySettings;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.ScaleAndRotateTransformation;
@@ -103,7 +104,7 @@ public final class TransformerMultiSequenceCompositionTest {
             VideoCompositorSettings.DEFAULT);
 
     ExportTestResult result =
-        new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
+        new TransformerAndroidTestRunner.Builder(context, getLinearColorSpaceTransformer())
             .build()
             .run(testId, composition);
 
@@ -137,7 +138,7 @@ public final class TransformerMultiSequenceCompositionTest {
             VideoCompositorSettings.DEFAULT);
 
     ExportTestResult result =
-        new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
+        new TransformerAndroidTestRunner.Builder(context, getLinearColorSpaceTransformer())
             .build()
             .run(testId, composition);
 
@@ -193,13 +194,23 @@ public final class TransformerMultiSequenceCompositionTest {
             pictureInPictureVideoCompositorSettings);
 
     ExportTestResult result =
-        new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
+        new TransformerAndroidTestRunner.Builder(context, getLinearColorSpaceTransformer())
             .build()
             .run(testId, composition);
 
     assertThat(result.filePath).isNotNull();
     assertBitmapsMatchExpected(
         extractBitmapsFromVideo(context, checkNotNull(result.filePath)), testId);
+  }
+
+  private Transformer getLinearColorSpaceTransformer() {
+    // Use linear color space for grayscale effects.
+    return new Transformer.Builder(context)
+        .setVideoFrameProcessorFactory(
+            new DefaultVideoFrameProcessor.Factory.Builder()
+                .setSdrWorkingColorSpace(DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_LINEAR)
+                .build())
+        .build();
   }
 
   private static EditedMediaItem editedMediaItemByClippingVideo(String uri, List<Effect> effects) {

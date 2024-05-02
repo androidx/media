@@ -23,6 +23,9 @@ import com.google.common.collect.ImmutableList;
 /**
  * Applies a list of {@link TextureOverlay}s to a frame in FIFO order (the last overlay in the list
  * is displayed on top).
+ *
+ * <p>This effect assumes a non-{@linkplain DefaultVideoFrameProcessor#WORKING_COLOR_SPACE_LINEAR
+ * linear} working color space.
  */
 @UnstableApi
 public final class OverlayEffect implements GlEffect {

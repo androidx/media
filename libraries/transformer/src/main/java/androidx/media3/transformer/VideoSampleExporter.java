@@ -132,15 +132,7 @@ import org.checkerframework.dataflow.qual.Pure;
         encoderWrapper.getHdrModeAfterFallback() == HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL
             && ColorInfo.isTransferHdr(videoGraphInputColor);
     if (isGlToneMapping) {
-      // For consistency with the Android platform, OpenGL tone mapping outputs colors with
-      // C.COLOR_TRANSFER_GAMMA_2_2 instead of C.COLOR_TRANSFER_SDR, and outputs this as
-      // C.COLOR_TRANSFER_SDR to the encoder.
-      videoGraphOutputColor =
-          new ColorInfo.Builder()
-              .setColorSpace(C.COLOR_SPACE_BT709)
-              .setColorRange(C.COLOR_RANGE_LIMITED)
-              .setColorTransfer(C.COLOR_TRANSFER_GAMMA_2_2)
-              .build();
+      videoGraphOutputColor = SDR_BT709_LIMITED;
     }
 
     try {

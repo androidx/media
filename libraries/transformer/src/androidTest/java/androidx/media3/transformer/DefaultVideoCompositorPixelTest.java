@@ -860,6 +860,7 @@ public final class DefaultVideoCompositorPixelTest {
       DefaultVideoFrameProcessor.Factory.Builder defaultVideoFrameProcessorFactoryBuilder =
           new DefaultVideoFrameProcessor.Factory.Builder()
               .setGlObjectsProvider(glObjectsProvider)
+              .setSdrWorkingColorSpace(DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_LINEAR)
               .setTextureOutput(
                   /* textureOutputListener= */ (outputTextureProducer,
                       outputTexture,

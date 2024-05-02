@@ -438,7 +438,13 @@ public final class DefaultVideoFrameProcessorPixelTest {
   @Test
   public void increaseBrightness_matchesGoldenFile() throws Exception {
     videoFrameProcessorTestRunner =
-        getDefaultFrameProcessorTestRunnerBuilder(testId).setEffects(new Brightness(0.5f)).build();
+        getDefaultFrameProcessorTestRunnerBuilder(testId)
+            .setVideoFrameProcessorFactory(
+                new DefaultVideoFrameProcessor.Factory.Builder()
+                    .setSdrWorkingColorSpace(DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_LINEAR)
+                    .build())
+            .setEffects(new Brightness(0.5f))
+            .build();
     Bitmap expectedBitmap = readBitmap(INCREASE_BRIGHTNESS_PNG_ASSET_PATH);
 
     videoFrameProcessorTestRunner.processFirstFrameAndEnd();
@@ -545,6 +551,10 @@ public final class DefaultVideoFrameProcessorPixelTest {
   public void grayscaleThenIncreaseRedChannel_matchesGoldenFile() throws Exception {
     videoFrameProcessorTestRunner =
         getDefaultFrameProcessorTestRunnerBuilder(testId)
+            .setVideoFrameProcessorFactory(
+                new DefaultVideoFrameProcessor.Factory.Builder()
+                    .setSdrWorkingColorSpace(DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_LINEAR)
+                    .build())
             .setEffects(
                 RgbFilter.createGrayscaleFilter(),
                 new RgbAdjustment.Builder().setRedScale(3).build())

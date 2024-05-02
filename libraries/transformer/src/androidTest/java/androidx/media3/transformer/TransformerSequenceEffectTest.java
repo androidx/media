@@ -43,6 +43,7 @@ import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.BitmapOverlay;
+import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.OverlayEffect;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.RgbFilter;
@@ -154,7 +155,7 @@ public final class TransformerSequenceEffectTest {
                 SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS));
 
     ExportTestResult result =
-        new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
+        new TransformerAndroidTestRunner.Builder(context, getLinearColorSpaceTransformer())
             .build()
             .run(testId, composition);
 
@@ -177,7 +178,7 @@ public final class TransformerSequenceEffectTest {
             oneFrameFromImage(JPG_PORTRAIT_ASSET_URI_STRING, NO_EFFECT));
 
     ExportTestResult result =
-        new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
+        new TransformerAndroidTestRunner.Builder(context, getLinearColorSpaceTransformer())
             .build()
             .run(testId, composition);
 
@@ -201,7 +202,7 @@ public final class TransformerSequenceEffectTest {
                 SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS));
 
     ExportTestResult result =
-        new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
+        new TransformerAndroidTestRunner.Builder(context, getLinearColorSpaceTransformer())
             .build()
             .run(testId, composition);
 
@@ -226,7 +227,7 @@ public final class TransformerSequenceEffectTest {
             clippedVideo(MP4_ASSET_URI_STRING, NO_EFFECT, SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS));
 
     ExportTestResult result =
-        new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
+        new TransformerAndroidTestRunner.Builder(context, getLinearColorSpaceTransformer())
             .build()
             .run(testId, composition);
 
@@ -251,13 +252,23 @@ public final class TransformerSequenceEffectTest {
             oneFrameFromImage(JPG_ASSET_URI_STRING, NO_EFFECT));
 
     ExportTestResult result =
-        new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
+        new TransformerAndroidTestRunner.Builder(context, getLinearColorSpaceTransformer())
             .build()
             .run(testId, composition);
 
     assertThat(result.filePath).isNotNull();
     assertBitmapsMatchExpectedAndSave(
         extractBitmapsFromVideo(context, checkNotNull(result.filePath)), testId);
+  }
+
+  private Transformer getLinearColorSpaceTransformer() {
+    // Use linear color space for grayscale effects.
+    return new Transformer.Builder(context)
+        .setVideoFrameProcessorFactory(
+            new DefaultVideoFrameProcessor.Factory.Builder()
+                .setSdrWorkingColorSpace(DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_LINEAR)
+                .build())
+        .build();
   }
 
   private static OverlayEffect createOverlayEffect() throws IOException {

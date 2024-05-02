@@ -25,6 +25,7 @@ import static androidx.media3.common.util.Util.newSingleThreadScheduledExecutor;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_COMPOSITOR_OUTPUT_TEXTURE_RENDERED;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_VFP_OUTPUT_TEXTURE_RENDERED;
 import static androidx.media3.effect.DebugTraceUtil.logEvent;
+import static androidx.media3.effect.DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_LINEAR;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.content.Context;
@@ -119,6 +120,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
     // TODO - b/289986435: Support injecting VideoFrameProcessor.Factory.
     videoFrameProcessorFactory =
         new DefaultVideoFrameProcessor.Factory.Builder()
+            .setSdrWorkingColorSpace(WORKING_COLOR_SPACE_LINEAR)
             .setGlObjectsProvider(glObjectsProvider)
             .setExecutorService(sharedExecutorService)
             .build();

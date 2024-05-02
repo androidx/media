@@ -55,6 +55,9 @@
     *   Fix bug where `TimestampWrapper` crashes when used with
         `ExoPlayer#setVideoEffects`
         ([#821](https://github.com/androidx/media/issues/821)).
+    *   Change default SDR color working space from linear colors to electrical
+        BT 709 SDR video. Also provides third option to retain the original
+        colorspace.
 *   Muxers:
 *   IMA extension:
     *   Promote API that is required for apps to play

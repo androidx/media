@@ -30,7 +30,6 @@ import android.opengl.Matrix;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
-import androidx.media3.common.Format;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor.InputType;
 import androidx.media3.common.util.GlProgram;
@@ -74,6 +73,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       "shaders/vertex_shader_transformation_es3.glsl";
   private static final String FRAGMENT_SHADER_TRANSFORMATION_PATH =
       "shaders/fragment_shader_transformation_es2.glsl";
+  private static final String FRAGMENT_SHADER_COPY_PATH = "shaders/fragment_shader_copy_es2.glsl";
   private static final String FRAGMENT_SHADER_OETF_ES3_PATH =
       "shaders/fragment_shader_oetf_es3.glsl";
   private static final String FRAGMENT_SHADER_TRANSFORMATION_SDR_OETF_ES2_PATH =
@@ -180,14 +180,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       List<RgbMatrix> rgbMatrices,
       boolean useHdr)
       throws VideoFrameProcessingException {
+    String fragmentShaderFilePath =
+        rgbMatrices.isEmpty()
+            // Ensure colors not multiplied by a uRgbMatrix (even the identity) as it can create
+            // color shifts on electrical pq tonemapped content.
+            ? FRAGMENT_SHADER_COPY_PATH
+            : FRAGMENT_SHADER_TRANSFORMATION_PATH;
     GlProgram glProgram =
-        createGlProgram(
-            context, VERTEX_SHADER_TRANSFORMATION_PATH, FRAGMENT_SHADER_TRANSFORMATION_PATH);
+        createGlProgram(context, VERTEX_SHADER_TRANSFORMATION_PATH, fragmentShaderFilePath);
 
-    // TODO: b/263306471 - when default working color space changes to WORKING_COLOR_SPACE_DEFAULT,
-    //  make sure no color transfers are applied in shader.
-
-    // No transfer functions needed, because input and output are both optical colors.
+    // No transfer functions needed/applied, because input and output are in the same color space.
     return new DefaultShaderProgram(
         glProgram,
         ImmutableList.copyOf(matrixTransformations),
@@ -239,6 +241,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 : FRAGMENT_SHADER_TRANSFORMATION_SDR_INTERNAL_PATH;
     GlProgram glProgram = createGlProgram(context, vertexShaderFilePath, fragmentShaderFilePath);
     if (!isUsingUltraHdr) {
+      checkArgument(
+          isInputTransferHdr
+              || inputColorInfo.colorTransfer == C.COLOR_TRANSFER_SRGB
+              || inputColorInfo.colorTransfer == C.COLOR_TRANSFER_SDR);
       glProgram.setIntUniform("uInputColorTransfer", inputColorInfo.colorTransfer);
     }
     if (isInputTransferHdr) {
@@ -342,7 +348,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             ? FRAGMENT_SHADER_OETF_ES3_PATH
             : shouldApplyOetf
                 ? FRAGMENT_SHADER_TRANSFORMATION_SDR_OETF_ES2_PATH
-                : FRAGMENT_SHADER_TRANSFORMATION_PATH;
+                : rgbMatrices.isEmpty()
+                    // Ensure colors not multiplied by a uRgbMatrix (even the identity) as it can
+                    // create color shifts on electrical pq tonemapped content.
+                    ? FRAGMENT_SHADER_COPY_PATH
+                    : FRAGMENT_SHADER_TRANSFORMATION_PATH;
     GlProgram glProgram = createGlProgram(context, vertexShaderFilePath, fragmentShaderFilePath);
 
     @C.ColorTransfer int outputColorTransfer = outputColorInfo.colorTransfer;
@@ -379,14 +389,22 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @C.ColorTransfer int outputColorTransfer = outputColorInfo.colorTransfer;
     if (isInputTransferHdr) {
       // TODO(b/239735341): Add a setBooleanUniform method to GlProgram.
-      checkArgument(outputColorTransfer != Format.NO_VALUE);
       if (outputColorTransfer == C.COLOR_TRANSFER_SDR) {
         // When tone-mapping from HDR to SDR, COLOR_TRANSFER_SDR is interpreted as
         // COLOR_TRANSFER_GAMMA_2_2.
         outputColorTransfer = C.COLOR_TRANSFER_GAMMA_2_2;
       }
+      checkArgument(
+          outputColorTransfer == C.COLOR_TRANSFER_LINEAR
+              || outputColorTransfer == C.COLOR_TRANSFER_GAMMA_2_2
+              || outputColorTransfer == C.COLOR_TRANSFER_ST2084
+              || outputColorTransfer == C.COLOR_TRANSFER_HLG);
       glProgram.setIntUniform("uOutputColorTransfer", outputColorTransfer);
     } else if (isExpandingColorGamut) {
+      checkArgument(
+          outputColorTransfer == C.COLOR_TRANSFER_LINEAR
+              || outputColorTransfer == C.COLOR_TRANSFER_ST2084
+              || outputColorTransfer == C.COLOR_TRANSFER_HLG);
       glProgram.setIntUniform("uOutputColorTransfer", outputColorTransfer);
     } else {
       glProgram.setIntUniform("uSdrWorkingColorSpace", sdrWorkingColorSpace);
@@ -479,7 +497,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       setGainmapSamplerAndUniforms();
       glProgram.setSamplerTexIdUniform("uTexSampler", inputTexId, /* texUnitIndex= */ 0);
       glProgram.setFloatsUniform("uTransformationMatrix", compositeTransformationMatrixArray);
-      glProgram.setFloatsUniform("uRgbMatrix", compositeRgbMatrixArray);
+      glProgram.setFloatsUniformIfPresent("uRgbMatrix", compositeRgbMatrixArray);
       glProgram.setBufferAttribute(
           "aFramePosition",
           GlUtil.createVertexBuffer(visiblePolygon),
