@@ -416,6 +416,26 @@ public interface RendererCapabilities {
   }
 
   /**
+   * Returns whether the {@link C.FormatSupport} from the combined {@link Capabilities} indicates
+   * the format is supported.
+   *
+   * <p>A format is considered supported if its {@link C.FormatSupport} value is {@link
+   * C#FORMAT_HANDLED}, or optionally {@link C#FORMAT_EXCEEDS_CAPABILITIES} if enabled by {@code
+   * allowExceedsCapabilities}.
+   *
+   * @param supportFlags The combined {@link Capabilities}.
+   * @param allowExceedsCapabilities Whether {@link C#FORMAT_EXCEEDS_CAPABILITIES} should be
+   *     considered as supported.
+   * @return Whether the {@link Capabilities} indicate a format is supported.
+   */
+  static boolean isFormatSupported(
+      @Capabilities int supportFlags, boolean allowExceedsCapabilities) {
+    @C.FormatSupport int formatSupport = getFormatSupport(supportFlags);
+    return formatSupport == C.FORMAT_HANDLED
+        || (allowExceedsCapabilities && formatSupport == C.FORMAT_EXCEEDS_CAPABILITIES);
+  }
+
+  /**
    * Returns the {@link AdaptiveSupport} from the combined {@link Capabilities}.
    *
    * @param supportFlags The combined {@link Capabilities}.

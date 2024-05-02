@@ -22,6 +22,7 @@ import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.exoplayer.RendererCapabilities.AUDIO_OFFLOAD_GAPLESS_SUPPORTED;
 import static androidx.media3.exoplayer.RendererCapabilities.AUDIO_OFFLOAD_NOT_SUPPORTED;
 import static androidx.media3.exoplayer.RendererCapabilities.AUDIO_OFFLOAD_SPEED_CHANGE_SUPPORTED;
+import static androidx.media3.exoplayer.RendererCapabilities.isFormatSupported;
 import static java.lang.annotation.ElementType.TYPE_USE;
 import static java.util.Collections.max;
 
@@ -45,7 +46,6 @@ import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.Bundleable;
 import androidx.media3.common.C;
-import androidx.media3.common.C.FormatSupport;
 import androidx.media3.common.C.RoleFlags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -2951,7 +2951,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
       TrackGroup trackGroup = groups.get(groupIndex);
       @Capabilities int[] trackFormatSupport = formatSupport[groupIndex];
       for (int trackIndex = 0; trackIndex < trackGroup.length; trackIndex++) {
-        if (isSupported(
+        if (isFormatSupported(
             trackFormatSupport[trackIndex], params.exceedRendererCapabilitiesIfNecessary)) {
           Format format = trackGroup.getFormat(trackIndex);
           OtherTrackScore trackScore = new OtherTrackScore(format, trackFormatSupport[trackIndex]);
@@ -3316,22 +3316,12 @@ public class DefaultTrackSelector extends MappingTrackSelector
   }
 
   /**
-   * Returns true if the {@link FormatSupport} in the given {@link Capabilities} is {@link
-   * C#FORMAT_HANDLED} or if {@code allowExceedsCapabilities} is set and the format support is
-   * {@link C#FORMAT_EXCEEDS_CAPABILITIES}.
-   *
-   * @param formatSupport {@link Capabilities}.
-   * @param allowExceedsCapabilities Whether to return true if {@link FormatSupport} is {@link
-   *     C#FORMAT_EXCEEDS_CAPABILITIES}.
-   * @return True if {@link FormatSupport} is {@link C#FORMAT_HANDLED}, or if {@code
-   *     allowExceedsCapabilities} is set and the format support is {@link
-   *     C#FORMAT_EXCEEDS_CAPABILITIES}.
+   * @deprecated Use {@link RendererCapabilities#isFormatSupported} instead.
    */
+  @Deprecated
   protected static boolean isSupported(
       @Capabilities int formatSupport, boolean allowExceedsCapabilities) {
-    @FormatSupport int maskedSupport = RendererCapabilities.getFormatSupport(formatSupport);
-    return maskedSupport == C.FORMAT_HANDLED
-        || (allowExceedsCapabilities && maskedSupport == C.FORMAT_EXCEEDS_CAPABILITIES);
+    return isFormatSupported(formatSupport, allowExceedsCapabilities);
   }
 
   /**
@@ -3607,7 +3597,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
               && (format.bitrate == Format.NO_VALUE
                   || format.bitrate >= parameters.minVideoBitrate);
       isWithinRendererCapabilities =
-          isSupported(formatSupport, /* allowExceedsCapabilities= */ false);
+          isFormatSupported(formatSupport, /* allowExceedsCapabilities= */ false);
       hasReasonableFrameRate =
           format.frameRate != Format.NO_VALUE && format.frameRate >= MIN_REASONABLE_FRAME_RATE;
       bitrate = format.bitrate;
@@ -3654,13 +3644,13 @@ public class DefaultTrackSelector extends MappingTrackSelector
         // Ignore trick-play tracks for now.
         return SELECTION_ELIGIBILITY_NO;
       }
-      if (!isSupported(rendererSupport, parameters.exceedRendererCapabilitiesIfNecessary)) {
+      if (!isFormatSupported(rendererSupport, parameters.exceedRendererCapabilitiesIfNecessary)) {
         return SELECTION_ELIGIBILITY_NO;
       }
       if (!isWithinMaxConstraints && !parameters.exceedVideoConstraintsIfNecessary) {
         return SELECTION_ELIGIBILITY_NO;
       }
-      return isSupported(rendererSupport, /* allowExceedsCapabilities= */ false)
+      return isFormatSupported(rendererSupport, /* allowExceedsCapabilities= */ false)
               && isWithinMinConstraints
               && isWithinMaxConstraints
               && format.bitrate != Format.NO_VALUE
@@ -3810,7 +3800,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
               && (mixedMimeTypeAdaptationSupport & requiredAdaptiveSupport) != 0;
       this.language = normalizeUndeterminedLanguageToNull(format.language);
       isWithinRendererCapabilities =
-          isSupported(formatSupport, /* allowExceedsCapabilities= */ false);
+          isFormatSupported(formatSupport, /* allowExceedsCapabilities= */ false);
       int bestLanguageScore = 0;
       int bestLanguageIndex = Integer.MAX_VALUE;
       for (int i = 0; i < parameters.preferredAudioLanguages.size(); i++) {
@@ -3951,7 +3941,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
         @Capabilities int rendererSupport,
         boolean hasMappedVideoTracks,
         @AdaptiveSupport int requiredAdaptiveSupport) {
-      if (!isSupported(rendererSupport, parameters.exceedRendererCapabilitiesIfNecessary)) {
+      if (!isFormatSupported(rendererSupport, parameters.exceedRendererCapabilitiesIfNecessary)) {
         return SELECTION_ELIGIBILITY_NO;
       }
       if (!isWithinConstraints && !parameters.exceedAudioConstraintsIfNecessary) {
@@ -3961,7 +3951,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
           && !rendererSupportsOffload(parameters, rendererSupport, format)) {
         return SELECTION_ELIGIBILITY_NO;
       }
-      return isSupported(rendererSupport, /* allowExceedsCapabilities= */ false)
+      return isFormatSupported(rendererSupport, /* allowExceedsCapabilities= */ false)
               && isWithinConstraints
               && format.bitrate != Format.NO_VALUE
               && !parameters.forceHighestSupportedBitrate
@@ -4021,7 +4011,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
         @Nullable String selectedAudioLanguage) {
       super(rendererIndex, trackGroup, trackIndex);
       isWithinRendererCapabilities =
-          isSupported(trackFormatSupport, /* allowExceedsCapabilities= */ false);
+          isFormatSupported(trackFormatSupport, /* allowExceedsCapabilities= */ false);
       int maskedSelectionFlags = format.selectionFlags & ~parameters.ignoredTextSelectionFlags;
       isDefault = (maskedSelectionFlags & C.SELECTION_FLAG_DEFAULT) != 0;
       isForced = (maskedSelectionFlags & C.SELECTION_FLAG_FORCED) != 0;
@@ -4059,7 +4049,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
               || isDefault
               || (isForced && selectedAudioLanguageScore > 0);
       selectionEligibility =
-          isSupported(trackFormatSupport, parameters.exceedRendererCapabilitiesIfNecessary)
+          isFormatSupported(trackFormatSupport, parameters.exceedRendererCapabilitiesIfNecessary)
                   && isWithinConstraints
               ? SELECTION_ELIGIBILITY_FIXED
               : SELECTION_ELIGIBILITY_NO;
@@ -4137,7 +4127,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
         @Capabilities int trackFormatSupport) {
       super(rendererIndex, trackGroup, trackIndex);
       selectionEligibility =
-          isSupported(trackFormatSupport, parameters.exceedRendererCapabilitiesIfNecessary)
+          isFormatSupported(trackFormatSupport, parameters.exceedRendererCapabilitiesIfNecessary)
               ? SELECTION_ELIGIBILITY_FIXED
               : SELECTION_ELIGIBILITY_NO;
       pixelCount = format.getPixelCount();
@@ -4171,7 +4161,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
     public OtherTrackScore(Format format, @Capabilities int trackFormatSupport) {
       isDefault = (format.selectionFlags & C.SELECTION_FLAG_DEFAULT) != 0;
       isWithinRendererCapabilities =
-          isSupported(trackFormatSupport, /* allowExceedsCapabilities= */ false);
+          isFormatSupported(trackFormatSupport, /* allowExceedsCapabilities= */ false);
     }
 
     @Override
