@@ -652,6 +652,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     // Flush the video sink first to ensure it stops reading textures that will be owned by
     // MediaCodec once the codec is flushed.
     videoSink.flush();
+    videoSink.setStreamOffsetUs(getOutputStreamOffsetUs());
     super.onPositionReset(positionUs, joining);
     videoFrameReleaseControl.reset();
     if (joining) {
@@ -1098,7 +1099,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
           // Pass a direct executor since the callback handling involves posting on the app looper
           // again, so there's no need to do two hops.
           directExecutor());
-      videoSink.setStreamOffsetUs(getOutputStreamOffsetUs());
     }
     hasInitializedPlayback = true;
   }
