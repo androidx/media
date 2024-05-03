@@ -31,6 +31,8 @@
         and H.262 HLS streams
         ([#1126](https://github.com/google/ExoPlayer/issues/1126)).
 *   Audio:
+    *   Fix DTS:X Profile 2 encoding attributes for passthrough playback
+        ([#1299](https://github.com/androidx/media/pull/1299)).
 *   Video:
 *   Text:
     *   Fix issue where subtitles starting before a seek position are skipped.
