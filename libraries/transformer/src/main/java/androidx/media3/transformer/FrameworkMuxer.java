@@ -42,6 +42,8 @@ import java.util.Map;
 
 /** {@link Muxer} implementation that uses a {@link MediaMuxer}. */
 /* package */ final class FrameworkMuxer implements Muxer {
+  public static final String MUXER_STOPPING_FAILED_ERROR_MESSAGE = "Failed to stop the MediaMuxer";
+
   // MediaMuxer supported sample formats are documented in MediaMuxer.addTrack(MediaFormat).
   private static final ImmutableList<String> SUPPORTED_VIDEO_SAMPLE_MIME_TYPES =
       getSupportedVideoSampleMimeTypes();
@@ -193,7 +195,7 @@ import java.util.Map;
   }
 
   @Override
-  public void release(boolean forCancellation) throws MuxerException {
+  public void release() throws MuxerException {
     if (isReleased) {
       return;
     }
@@ -218,10 +220,7 @@ import java.util.Map;
     try {
       stopMuxer(mediaMuxer);
     } catch (RuntimeException e) {
-      // It doesn't matter that stopping the muxer throws if the export is being cancelled.
-      if (!forCancellation) {
-        throw new MuxerException("Failed to stop the muxer", e);
-      }
+      throw new MuxerException(MUXER_STOPPING_FAILED_ERROR_MESSAGE, e);
     } finally {
       mediaMuxer.release();
       isReleased = true;

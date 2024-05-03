@@ -655,7 +655,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     isReady = false;
     abortScheduledExecutorService.shutdownNow();
     if (muxer != null) {
-      muxer.release(releaseReason == MUXER_RELEASE_REASON_CANCELLED);
+      try {
+        muxer.release();
+      } catch (Muxer.MuxerException e) {
+        if (releaseReason == MUXER_RELEASE_REASON_CANCELLED
+            && checkNotNull(e.getMessage())
+                .equals(FrameworkMuxer.MUXER_STOPPING_FAILED_ERROR_MESSAGE)) {
+          // When releasing the muxer, FrameworkMuxer may sometimes fail before the actual release.
+          // When the release is due to cancellation, swallow this exception.
+          return;
+        }
+        throw e;
+      }
     }
   }
 

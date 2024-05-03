@@ -82,7 +82,7 @@ public final class DefaultMuxer implements Muxer {
   }
 
   @Override
-  public void release(boolean forCancellation) throws MuxerException {
-    muxer.release(forCancellation);
+  public void release() throws MuxerException {
+    muxer.release();
   }
 }

@@ -202,7 +202,7 @@ public final class InAppMuxer implements Muxer {
   }
 
   @Override
-  public void release(boolean forCancellation) throws MuxerException {
+  public void release() throws MuxerException {
     writeMetadata();
 
     try {

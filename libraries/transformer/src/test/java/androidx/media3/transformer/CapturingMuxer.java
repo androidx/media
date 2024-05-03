@@ -142,9 +142,9 @@ public final class CapturingMuxer implements Muxer, Dumpable {
   }
 
   @Override
-  public void release(boolean forCancellation) throws MuxerException {
+  public void release() throws MuxerException {
     released = true;
-    wrappedMuxer.release(forCancellation);
+    wrappedMuxer.release();
   }
 
   // Dumper.Dumpable implementation.

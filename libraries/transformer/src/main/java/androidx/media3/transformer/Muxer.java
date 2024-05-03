@@ -31,8 +31,8 @@ import java.nio.ByteBuffer;
  * <p>Query whether {@linkplain Factory#getSupportedSampleMimeTypes(int) sample MIME types} are
  * supported and {@linkplain #addTrack(Format) add all tracks}, then {@linkplain #writeSampleData
  * write sample data} to mux samples. Once any sample data has been written, it is not possible to
- * add tracks. After writing all sample data, {@linkplain #release(boolean) release} the instance to
- * finish writing to the output and return any resources to the system.
+ * add tracks. After writing all sample data, {@linkplain #release() release} the instance to finish
+ * writing to the output and return any resources to the system.
  */
 @UnstableApi
 // TODO: b/330695864 - Replace with the Muxer interface from the Muxer module.
@@ -99,10 +99,8 @@ public interface Muxer {
    *
    * <p>The muxer cannot be used anymore once this method has been called.
    *
-   * @param forCancellation Whether the reason for releasing the resources is the export
-   *     cancellation.
    * @throws MuxerException If the muxer fails to finish writing the output and {@code
    *     forCancellation} is false.
    */
-  void release(boolean forCancellation) throws MuxerException;
+  void release() throws MuxerException;
 }

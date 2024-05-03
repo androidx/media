@@ -469,8 +469,8 @@ public class TransformerPauseResumeTest {
     }
 
     @Override
-    public void release(boolean forCancellation) throws MuxerException {
-      wrappedMuxer.release(forCancellation);
+    public void release() throws MuxerException {
+      wrappedMuxer.release();
     }
   }
 }
