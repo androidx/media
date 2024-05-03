@@ -415,7 +415,12 @@ import java.util.Locale;
    * <p>This box contains a list of metadata keys.
    */
   public static ByteBuffer keys(List<MdtaMetadataEntry> mdtaMetadataEntries) {
-    ByteBuffer contents = ByteBuffer.allocate(MAX_FIXED_LEAF_BOX_SIZE);
+    int totalSizeToStoreKeys = 0;
+    for (int i = 0; i < mdtaMetadataEntries.size(); i++) {
+      // Add header size to wrap each key into a "mdta" box.
+      totalSizeToStoreKeys += mdtaMetadataEntries.get(i).key.length() + BOX_HEADER_SIZE;
+    }
+    ByteBuffer contents = ByteBuffer.allocate(2 * BYTES_PER_INTEGER + totalSizeToStoreKeys);
     contents.putInt(0x0); // version and flags
     contents.putInt(mdtaMetadataEntries.size()); // Entry count
 
@@ -434,7 +439,15 @@ import java.util.Locale;
    * <p>This box contains a list of metadata values.
    */
   public static ByteBuffer ilst(List<MdtaMetadataEntry> mdtaMetadataEntries) {
-    ByteBuffer contents = ByteBuffer.allocate(MAX_FIXED_LEAF_BOX_SIZE);
+    int totalSizeToStoreValues = 0;
+    for (int i = 0; i < mdtaMetadataEntries.size(); i++) {
+      // Add additional 16 bytes for writing metadata associated to each value.
+      // Add header size to wrap each value into a "data" box.
+      totalSizeToStoreValues +=
+          mdtaMetadataEntries.get(i).value.length + 4 * BYTES_PER_INTEGER + BOX_HEADER_SIZE;
+    }
+
+    ByteBuffer contents = ByteBuffer.allocate(totalSizeToStoreValues);
 
     for (int i = 0; i < mdtaMetadataEntries.size(); i++) {
       int keyId = i + 1;
@@ -448,7 +461,7 @@ import java.util.Locale;
 
       valueContents.flip();
       ByteBuffer valueBox = BoxUtils.wrapIntoBox("data", valueContents);
-      contents.putInt(valueBox.remaining() + 8);
+      contents.putInt(valueBox.remaining() + BOX_HEADER_SIZE);
       contents.putInt(keyId);
       contents.put(valueBox);
     }

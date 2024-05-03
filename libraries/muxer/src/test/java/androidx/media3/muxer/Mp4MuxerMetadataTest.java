@@ -20,6 +20,7 @@ import static androidx.media3.container.MdtaMetadataEntry.TYPE_INDICATOR_FLOAT32
 import static androidx.media3.container.MdtaMetadataEntry.TYPE_INDICATOR_STRING;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_VIDEO_FORMAT;
 import static androidx.media3.muxer.MuxerTestUtil.XMP_SAMPLE_DATA;
+import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 import android.media.MediaCodec.BufferInfo;
@@ -275,6 +276,27 @@ public class Mp4MuxerMetadataTest {
         context,
         fakeExtractorOutput,
         MuxerTestUtil.getExpectedDumpFilePath("mp4_with_string_metadata.mp4"));
+  }
+
+  @Test
+  public void writeMp4File_addManyLargeStringMetadata_doesNotThrow() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    Mp4Muxer muxer = new Mp4Muxer.Builder(new FileOutputStream(outputFilePath)).build();
+
+    String metadataKey = "SomeStringKey";
+    byte[] metadataValue = Util.getUtf8Bytes("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    for (int i = 0; i < 100; i++) {
+      muxer.addMetadataEntry(
+          new MdtaMetadataEntry(metadataKey, metadataValue, TYPE_INDICATOR_STRING));
+    }
+    TrackToken token = muxer.addTrack(FAKE_VIDEO_FORMAT);
+
+    try {
+      muxer.writeSampleData(token, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
+      assertThat(sampleAndSampleInfo.first.remaining()).isEqualTo(0);
+    } finally {
+      muxer.close();
+    }
   }
 
   @Test
