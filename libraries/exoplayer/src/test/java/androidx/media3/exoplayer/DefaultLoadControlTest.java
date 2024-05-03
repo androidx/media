@@ -80,31 +80,34 @@ public class DefaultLoadControlTest {
   public void shouldContinueLoading_untilMaxBufferExceeded() {
     build();
     assertThat(
-            loadControl.shouldContinueLoading(
+            loadControl.shouldContinueLoading(new LoadParameters(
                 playerId,
                 timeline,
                 mediaPeriodId,
                 /* playbackPositionUs= */ 0L,
                 /* bufferedDurationUs= */ 0L,
-                SPEED))
+                SPEED,
+                false)))
         .isTrue();
     assertThat(
-            loadControl.shouldContinueLoading(
+            loadControl.shouldContinueLoading(new LoadParameters(
                 playerId,
                 timeline,
                 mediaPeriodId,
                 /* playbackPositionUs= */ 0L,
                 MAX_BUFFER_US - 1,
-                SPEED))
+                SPEED,
+                    false)))
         .isTrue();
     assertThat(
-            loadControl.shouldContinueLoading(
+            loadControl.shouldContinueLoading(new LoadParameters(
                 playerId,
                 timeline,
                 mediaPeriodId,
                 /* playbackPositionUs= */ 0L,
                 MAX_BUFFER_US,
-                SPEED))
+                SPEED,
+                    false)))
         .isFalse();
   }
 
@@ -125,51 +128,59 @@ public class DefaultLoadControlTest {
     loadControl.onPrepared(playerId2);
     // First player is fully buffered. Buffer starts depleting until it falls under min size.
     loadControl.shouldContinueLoading(
-        playerId, timeline, mediaPeriodId, /* playbackPositionUs= */ 0L, MAX_BUFFER_US, SPEED);
+        new LoadParameters(
+            playerId, timeline, mediaPeriodId,
+            /* playbackPositionUs= */ 0L, MAX_BUFFER_US, SPEED,
+            false));
     // Second player fell below min size and starts loading until max size is reached.
-    loadControl.shouldContinueLoading(
+    loadControl.shouldContinueLoading(new LoadParameters(
         playerId2,
         timeline2,
         mediaPeriodId2,
         /* playbackPositionUs= */ 0L,
         MIN_BUFFER_US - 1,
-        SPEED);
+        SPEED,
+        false));
 
     assertThat(
-            loadControl.shouldContinueLoading(
+            loadControl.shouldContinueLoading(new LoadParameters(
                 playerId,
                 timeline,
                 mediaPeriodId,
                 /* playbackPositionUs= */ 0L,
                 MAX_BUFFER_US - 1,
-                SPEED))
+                SPEED,
+                false)))
         .isFalse();
     assertThat(
-            loadControl.shouldContinueLoading(
+            loadControl.shouldContinueLoading(new LoadParameters(
                 playerId2,
                 timeline2,
                 mediaPeriodId2,
                 /* playbackPositionUs= */ 0L,
                 MIN_BUFFER_US,
-                SPEED))
+                SPEED,
+                false)))
         .isTrue();
     assertThat(
-            loadControl.shouldContinueLoading(
+            loadControl.shouldContinueLoading(new LoadParameters(
                 playerId,
                 timeline,
                 mediaPeriodId,
                 /* playbackPositionUs= */ 0L,
                 MIN_BUFFER_US,
-                SPEED))
+                SPEED,
+                false)))
         .isFalse();
     assertThat(
-            loadControl.shouldContinueLoading(
+            loadControl.shouldContinueLoading(new LoadParameters(
                 playerId2,
                 timeline2,
                 mediaPeriodId2,
                 /* playbackPositionUs= */ 0L,
                 MAX_BUFFER_US - 1,
-                SPEED))
+                SPEED,
+                false)))
         .isTrue();
   }
 
@@ -183,40 +194,44 @@ public class DefaultLoadControlTest {
     build();
 
     assertThat(
-            loadControl.shouldContinueLoading(
+            loadControl.shouldContinueLoading(new LoadParameters(
                 playerId,
                 timeline,
                 mediaPeriodId,
                 /* playbackPositionUs= */ 0L,
                 MAX_BUFFER_US,
-                SPEED))
+                SPEED,
+                false)))
         .isFalse();
     assertThat(
-            loadControl.shouldContinueLoading(
+            loadControl.shouldContinueLoading(new LoadParameters(
                 playerId,
                 timeline,
                 mediaPeriodId,
                 /* playbackPositionUs= */ 0L,
                 MAX_BUFFER_US - 1,
-                SPEED))
+                SPEED,
+                false)))
         .isFalse();
     assertThat(
-            loadControl.shouldContinueLoading(
+            loadControl.shouldContinueLoading(new LoadParameters(
                 playerId,
                 timeline,
                 mediaPeriodId,
                 /* playbackPositionUs= */ 0L,
                 MIN_BUFFER_US,
-                SPEED))
+                SPEED,
+                false)))
         .isFalse();
     assertThat(
-            loadControl.shouldContinueLoading(
+            loadControl.shouldContinueLoading(new LoadParameters(
                 playerId,
                 timeline,
                 mediaPeriodId,
                 /* playbackPositionUs= */ 0L,
                 MIN_BUFFER_US - 1,
-                SPEED))
+                SPEED,
+                false)))
         .isTrue();
   }
 
@@ -230,26 +245,30 @@ public class DefaultLoadControlTest {
     build();
 
     assertThat(
-            loadControl.shouldContinueLoading(
+            loadControl.shouldContinueLoading(new LoadParameters(
                 playerId,
                 timeline,
                 mediaPeriodId,
                 /* playbackPositionUs= */ 0L,
                 MAX_BUFFER_US,
-                SPEED))
+                SPEED,
+                false)))
         .isFalse();
     assertThat(
-            loadControl.shouldContinueLoading(
+            loadControl.shouldContinueLoading(new LoadParameters(
                 playerId,
                 timeline,
                 mediaPeriodId,
                 /* playbackPositionUs= */ 0L,
                 5 * C.MICROS_PER_SECOND,
-                SPEED))
+                SPEED,
+                false)))
         .isFalse();
     assertThat(
-            loadControl.shouldContinueLoading(
-                playerId, timeline, mediaPeriodId, /* playbackPositionUs= */ 0L, 500L, SPEED))
+            loadControl.shouldContinueLoading(new LoadParameters(
+                playerId, timeline, mediaPeriodId,
+                /* playbackPositionUs= */ 0L, 500L, SPEED,
+                false)))
         .isTrue();
   }
 
@@ -265,40 +284,44 @@ public class DefaultLoadControlTest {
     makeSureTargetBufferBytesReached();
 
     assertThat(
-            loadControl.shouldContinueLoading(
+            loadControl.shouldContinueLoading(new LoadParameters(
                 playerId,
                 timeline,
                 mediaPeriodId,
                 /* playbackPositionUs= */ 0L,
                 /* bufferedDurationUs= */ 0L,
-                SPEED))
+                SPEED,
+                false)))
         .isTrue();
     assertThat(
-            loadControl.shouldContinueLoading(
+            loadControl.shouldContinueLoading(new LoadParameters(
                 playerId,
                 timeline,
                 mediaPeriodId,
                 /* playbackPositionUs= */ 0L,
                 MIN_BUFFER_US - 1,
-                SPEED))
+                SPEED,
+                false)))
         .isTrue();
     assertThat(
-            loadControl.shouldContinueLoading(
+            loadControl.shouldContinueLoading(new LoadParameters(
                 playerId,
                 timeline,
                 mediaPeriodId,
                 /* playbackPositionUs= */ 0L,
                 MIN_BUFFER_US,
-                SPEED))
+                SPEED,
+                false)))
         .isFalse();
     assertThat(
-            loadControl.shouldContinueLoading(
+            loadControl.shouldContinueLoading(new LoadParameters(
                 playerId,
                 timeline,
                 mediaPeriodId,
                 /* playbackPositionUs= */ 0L,
                 MAX_BUFFER_US,
-                SPEED))
+                SPEED,
+                false)))
         .isFalse();
   }
 
@@ -310,51 +333,56 @@ public class DefaultLoadControlTest {
 
     // Put loadControl in buffering state.
     assertThat(
-            loadControl.shouldContinueLoading(
+            loadControl.shouldContinueLoading(new LoadParameters(
                 playerId,
                 timeline,
                 mediaPeriodId,
                 /* playbackPositionUs= */ 0L,
                 /* bufferedDurationUs= */ 0L,
-                SPEED))
+                SPEED,
+                    false)))
         .isTrue();
     makeSureTargetBufferBytesReached();
 
     assertThat(
-            loadControl.shouldContinueLoading(
+            loadControl.shouldContinueLoading(new LoadParameters(
                 playerId,
                 timeline,
                 mediaPeriodId,
                 /* playbackPositionUs= */ 0L,
                 /* bufferedDurationUs= */ 0L,
-                SPEED))
+                SPEED,
+                false)))
         .isFalse();
     assertThat(
-            loadControl.shouldContinueLoading(
+            loadControl.shouldContinueLoading(new LoadParameters(
                 playerId,
                 timeline,
                 mediaPeriodId,
                 /* playbackPositionUs= */ 0L,
                 MIN_BUFFER_US - 1,
-                SPEED))
+                SPEED,
+                false)))
         .isFalse();
     assertThat(
-            loadControl.shouldContinueLoading(
+            loadControl.shouldContinueLoading(new LoadParameters(
                 playerId,
                 timeline,
                 mediaPeriodId,
                 /* playbackPositionUs= */ 0L,
                 MIN_BUFFER_US,
-                SPEED))
+                SPEED,
+                false)))
         .isFalse();
     assertThat(
-            loadControl.shouldContinueLoading(
+            loadControl.shouldContinueLoading(new LoadParameters(
                 playerId,
                 timeline,
                 mediaPeriodId,
                 /* playbackPositionUs= */ 0L,
                 MAX_BUFFER_US,
-                SPEED))
+                SPEED,
+                false)))
         .isFalse();
   }
 
@@ -369,23 +397,25 @@ public class DefaultLoadControlTest {
 
     // At normal playback speed, we stop buffering when the buffer reaches the minimum.
     assertThat(
-            loadControl.shouldContinueLoading(
+            loadControl.shouldContinueLoading(new LoadParameters(
                 playerId,
                 timeline,
                 mediaPeriodId,
                 /* playbackPositionUs= */ 0L,
                 MIN_BUFFER_US,
-                SPEED))
+                SPEED,
+                false)))
         .isFalse();
     // At double playback speed, we continue loading.
     assertThat(
-            loadControl.shouldContinueLoading(
+            loadControl.shouldContinueLoading(new LoadParameters(
                 playerId,
                 timeline,
                 mediaPeriodId,
                 /* playbackPositionUs= */ 0L,
                 MIN_BUFFER_US,
-                /* playbackSpeed= */ 2f))
+                /* playbackSpeed= */ 2f,
+                false)))
         .isTrue();
   }
 
@@ -402,13 +432,14 @@ public class DefaultLoadControlTest {
         new ExoTrackSelection[0]);
 
     assertThat(
-            loadControl.shouldContinueLoading(
+            loadControl.shouldContinueLoading(new LoadParameters(
                 playerId,
                 timeline,
                 mediaPeriodId,
                 /* playbackPositionUs= */ 0L,
                 /* bufferedDurationUs= */ 0L,
-                /* playbackSpeed= */ 1f))
+                /* playbackSpeed= */ 1f,
+                false)))
         .isTrue();
   }
 
@@ -417,13 +448,14 @@ public class DefaultLoadControlTest {
     build();
 
     assertThat(
-            loadControl.shouldContinueLoading(
+            loadControl.shouldContinueLoading(new LoadParameters(
                 playerId,
                 timeline,
                 mediaPeriodId,
                 /* playbackPositionUs= */ 0L,
                 MAX_BUFFER_US,
-                /* playbackSpeed= */ 100f))
+                /* playbackSpeed= */ 100f,
+                false)))
         .isFalse();
   }
 
@@ -636,6 +668,32 @@ public class DefaultLoadControlTest {
     loadControl.onReleased(playerId2);
 
     assertThat(loadControl.calculateTotalTargetBufferBytes()).isEqualTo(0);
+  }
+
+  @Test
+  public void shouldContinueLoading_backwardCompatible() {
+    final LoadControl oldLoadControl =
+        new DefaultLoadControl() {
+          @Override
+          public boolean shouldContinueLoading(LoadParameters loadParameters) {
+            return super.shouldContinueLoading(loadParameters);
+          }
+
+          @Override
+          public boolean shouldContinueLoading(
+              long playbackPositionUs, long bufferedDurationUs, float playbackSpeed) {
+            return true;
+          }
+        };
+
+    oldLoadControl.onPrepared(playerId);
+
+    final LoadParameters loadParameters =
+        new LoadParameters(playerId, timeline, mediaPeriodId,
+            0, 0, SPEED, false);
+    assertThat(
+        oldLoadControl.shouldContinueLoading(loadParameters))
+        .isTrue();
   }
 
   private void build() {

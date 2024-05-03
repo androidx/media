@@ -2577,14 +2577,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
             ? loadingPeriodHolder.toPeriodTime(rendererPositionUs)
             : loadingPeriodHolder.toPeriodTime(rendererPositionUs)
                 - loadingPeriodHolder.info.startPositionUs;
-    boolean shouldContinueLoading =
-        loadControl.shouldContinueLoading(
-            playerId,
-            playbackInfo.timeline,
-            loadingPeriodHolder.info.id,
-            playbackPositionUs,
-            bufferedDurationUs,
-            mediaClock.getPlaybackParameters().speed);
+    LoadParameters loadParameters = new LoadParameters(
+        playerId,
+        playbackInfo.timeline,
+        loadingPeriodHolder.info.id,
+        playbackPositionUs,
+        bufferedDurationUs,
+        mediaClock.getPlaybackParameters().speed,
+        playbackInfo.playWhenReady);
+    boolean shouldContinueLoading = loadControl.shouldContinueLoading(loadParameters);
     MediaPeriodHolder playingPeriodHolder = queue.getPlayingPeriod();
     if (!shouldContinueLoading
         && playingPeriodHolder.prepared
@@ -2595,13 +2596,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
       playingPeriodHolder.mediaPeriod.discardBuffer(
           playbackInfo.positionUs, /* toKeyframe= */ false);
       shouldContinueLoading =
-          loadControl.shouldContinueLoading(
-              playerId,
-              playbackInfo.timeline,
-              loadingPeriodHolder.info.id,
-              playbackPositionUs,
-              bufferedDurationUs,
-              mediaClock.getPlaybackParameters().speed);
+          loadControl.shouldContinueLoading(loadParameters);
     }
     return shouldContinueLoading;
   }

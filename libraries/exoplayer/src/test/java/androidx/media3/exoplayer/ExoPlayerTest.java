@@ -6046,13 +6046,7 @@ public class ExoPlayerTest {
     LoadControl neverLoadingLoadControl =
         new DefaultLoadControl() {
           @Override
-          public boolean shouldContinueLoading(
-              PlayerId playerId,
-              Timeline timeline,
-              MediaPeriodId mediaPeriodid,
-              long playbackPositionUs,
-              long bufferedDurationUs,
-              float playbackSpeed) {
+          public boolean shouldContinueLoading(LoadParameters loadParameters) {
             return false;
           }
 

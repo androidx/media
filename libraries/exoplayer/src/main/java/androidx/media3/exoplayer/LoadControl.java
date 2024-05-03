@@ -220,20 +220,26 @@ public interface LoadControl {
    * returns true, the {@link MediaPeriod} identified in the most recent {@link #onTracksSelected}
    * call will continue being loaded.
    *
-   * @param playerId The {@linkplain PlayerId ID of the player} that wants to continue loading.
-   * @param timeline The current {@link Timeline} in ExoPlayer.
-   * @param mediaPeriodId Identifies (in the current timeline) the {@link MediaPeriod} that is
-   *     currently loading.
-   * @param playbackPositionUs The current playback position in microseconds, relative to the start
-   *     of the {@link Timeline.Period period} that will continue to be loaded if this method
-   *     returns {@code true}. If playback of this period has not yet started, the value will be
-   *     negative and equal in magnitude to the duration of any media in previous periods still to
-   *     be played.
-   * @param bufferedDurationUs The duration of media that's currently buffered.
-   * @param playbackSpeed The current factor by which playback is sped up.
+   * @param loadParameters Parameters for Load Control. Refer to {@link LoadParameters} for more
+   *                       information on the individual parameters
    * @return Whether the loading should continue.
    */
+  @SuppressWarnings("deprecation")
+  default boolean shouldContinueLoading(final LoadParameters loadParameters) {
+    return shouldContinueLoading(
+        loadParameters.playerId,
+        loadParameters.timeline,
+        loadParameters.mediaPeriodId,
+        loadParameters.playbackPositionUs,
+        loadParameters.bufferedDurationUs,
+        loadParameters.playbackSpeed);
+  }
+
+  /**
+   * @deprecated Implement {@link #shouldContinueLoading(LoadParameters)} instead.
+   */
   @SuppressWarnings("deprecation") // Calling deprecated version of this method.
+  @Deprecated
   default boolean shouldContinueLoading(
       PlayerId playerId,
       Timeline timeline,
@@ -245,8 +251,7 @@ public interface LoadControl {
   }
 
   /**
-   * @deprecated Implement {@link #shouldContinueLoading(PlayerId, Timeline, MediaPeriodId, long,
-   *     long, float)} instead.
+   * @deprecated Implement {@link #shouldContinueLoading(LoadParameters)} instead.
    */
   @Deprecated
   default boolean shouldContinueLoading(
