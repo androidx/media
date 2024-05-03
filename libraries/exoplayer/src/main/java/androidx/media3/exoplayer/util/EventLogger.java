@@ -89,7 +89,7 @@ public class EventLogger implements AnalyticsListener {
    * Creates an instance.
    *
    * @param trackSelector This parameter is ignored.
-   * @deprecated Use {@link EventLogger()}
+   * @deprecated Use {@link #EventLogger()}
    */
   @UnstableApi
   @Deprecated
@@ -103,7 +103,7 @@ public class EventLogger implements AnalyticsListener {
    *
    * @param trackSelector This parameter is ignored.
    * @param tag The tag used for logging.
-   * @deprecated Use {@link EventLogger(String)}
+   * @deprecated Use {@link #EventLogger(String)}
    */
   @UnstableApi
   @Deprecated
