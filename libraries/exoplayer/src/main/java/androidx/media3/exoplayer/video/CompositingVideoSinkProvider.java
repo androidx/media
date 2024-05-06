@@ -259,16 +259,6 @@ public final class CompositingVideoSinkProvider
   }
 
   @Override
-  public void setVideoEffects(List<Effect> videoEffects) {
-    videoSinkImpl.setVideoEffects(videoEffects);
-  }
-
-  @Override
-  public void setPendingVideoEffects(List<Effect> videoEffects) {
-    videoSinkImpl.setPendingVideoEffects(videoEffects);
-  }
-
-  @Override
   public VideoSink getSink() {
     return videoSinkImpl;
   }
@@ -680,6 +670,18 @@ public final class CompositingVideoSinkProvider
     }
 
     @Override
+    public void setVideoEffects(List<Effect> videoEffects) {
+      setPendingVideoEffects(videoEffects);
+      maybeRegisterInputStream();
+    }
+
+    @Override
+    public void setPendingVideoEffects(List<Effect> videoEffects) {
+      this.videoEffects.clear();
+      this.videoEffects.addAll(videoEffects);
+    }
+
+    @Override
     public void setStreamOffsetUs(long streamOffsetUs) {
       pendingInputStreamOffsetChange = inputStreamOffsetUs != streamOffsetUs;
       inputStreamOffsetUs = streamOffsetUs;
@@ -770,21 +772,6 @@ public final class CompositingVideoSinkProvider
     }
 
     // Other methods
-
-    /** Sets the {@linkplain Effect video effects}. */
-    public void setVideoEffects(List<Effect> videoEffects) {
-      setPendingVideoEffects(videoEffects);
-      maybeRegisterInputStream();
-    }
-
-    /**
-     * Sets the {@linkplain Effect video effects} to apply when the next stream is {@linkplain
-     * #registerInputStream(int, Format) registered}.
-     */
-    public void setPendingVideoEffects(List<Effect> videoEffects) {
-      this.videoEffects.clear();
-      this.videoEffects.addAll(videoEffects);
-    }
 
     private void maybeSetStreamOffsetChange(long bufferPresentationTimeUs) {
       if (pendingInputStreamOffsetChange) {

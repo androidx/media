@@ -22,6 +22,7 @@ import android.view.Surface;
 import androidx.annotation.FloatRange;
 import androidx.annotation.IntDef;
 import androidx.media3.common.C;
+import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.Clock;
@@ -31,6 +32,7 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.util.List;
 import java.util.concurrent.Executor;
 
 /** A sink that consumes decoded video frames. */
@@ -157,6 +159,15 @@ public interface VideoSink {
 
   /** Sets the playback speed. */
   void setPlaybackSpeed(@FloatRange(from = 0, fromInclusive = false) float speed);
+
+  /** Sets {@linkplain Effect video effects} to apply immediately. */
+  void setVideoEffects(List<Effect> videoEffects);
+
+  /**
+   * Sets {@linkplain Effect video effects} to apply after the next stream is {@linkplain
+   * VideoSink#registerInputStream(int, Format) registered}.
+   */
+  void setPendingVideoEffects(List<Effect> videoEffects);
 
   /**
    * Sets the offset, in microseconds, that is added to the video frames presentation timestamps

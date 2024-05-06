@@ -17,12 +17,10 @@
 package androidx.media3.exoplayer.video;
 
 import android.view.Surface;
-import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
-import java.util.List;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /** A provider of {@link VideoSink VideoSinks}. */
@@ -46,15 +44,6 @@ public interface VideoSinkProvider {
    * non-null value before rendering begins.
    */
   @Nullable VideoFrameReleaseControl getVideoFrameReleaseControl();
-
-  /** Sets video effects on this provider to apply immediately. */
-  void setVideoEffects(List<Effect> videoEffects);
-
-  /**
-   * Sets video effects on this provider to apply when the next stream is {@linkplain
-   * VideoSink#registerInputStream(int, Format) registered} on the {@link #getSink() VideoSink}.
-   */
-  void setPendingVideoEffects(List<Effect> videoEffects);
 
   /** Returns a {@link VideoSink} to forward video frames for processing. */
   VideoSink getSink();

@@ -1104,7 +1104,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   /** Sets the {@linkplain Effect video effects} to apply. */
   public void setVideoEffects(List<Effect> effects) {
-    videoSinkProvider.setVideoEffects(effects);
+    videoSink.setVideoEffects(effects);
     hasEffects = true;
   }
 
