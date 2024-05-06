@@ -290,7 +290,7 @@ public class PlayerActivity extends AppCompatActivity
         public void onCodecParametersChanged(CodecParameters codecParameters) {
           HashMap<String, CodecParameter> parameters = codecParameters.get();
           for (String key : parameters.keySet()) {
-            Log.e("PlayerActivity", "key = " + key + "  value = " + parameters.get(key));
+            Log.e("PlayerActivity", "key = " + key + "  value = " + parameters.get(key).value);
           }
         }
 
