@@ -764,6 +764,11 @@ public final class CompositingVideoSinkProvider
       }
     }
 
+    @Override
+    public void release() {
+      CompositingVideoSinkProvider.this.release();
+    }
+
     // Other methods
 
     /** Sets the {@linkplain Effect video effects}. */

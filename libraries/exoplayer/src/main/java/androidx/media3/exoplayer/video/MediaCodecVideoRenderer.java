@@ -734,7 +734,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   protected void onRelease() {
     super.onRelease();
     if (ownsVideoSinkProvider) {
-      videoSinkProvider.release();
+      videoSink.release();
     }
   }
 

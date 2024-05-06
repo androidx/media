@@ -212,4 +212,7 @@ public interface VideoSink {
    * @throws VideoSinkException If an error occurs during rendering.
    */
   void render(long positionUs, long elapsedRealtimeUs) throws VideoSinkException;
+
+  /** Releases the sink. */
+  void release();
 }
