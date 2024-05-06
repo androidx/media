@@ -56,6 +56,7 @@ public class TestExoPlayerBuilder {
   private long seekForwardIncrementMs;
   private boolean deviceVolumeControlEnabled;
   private boolean suppressPlaybackWhenUnsuitableOutput;
+  @Nullable private ExoPlayer.PreloadConfiguration preloadConfiguration;
 
   public TestExoPlayerBuilder(Context context) {
     this.context = context;
@@ -157,6 +158,18 @@ public class TestExoPlayerBuilder {
   public TestExoPlayerBuilder setRenderers(Renderer... renderers) {
     assertThat(renderersFactory).isNull();
     this.renderers = renderers;
+    return this;
+  }
+
+  /**
+   * Sets the preload configuration.
+   *
+   * @see ExoPlayer#setPreloadConfiguration(ExoPlayer.PreloadConfiguration)
+   */
+  @CanIgnoreReturnValue
+  public TestExoPlayerBuilder setPreloadConfiguration(
+      ExoPlayer.PreloadConfiguration preloadConfiguration) {
+    this.preloadConfiguration = preloadConfiguration;
     return this;
   }
 
@@ -357,6 +370,10 @@ public class TestExoPlayerBuilder {
     if (mediaSourceFactory != null) {
       builder.setMediaSourceFactory(mediaSourceFactory);
     }
-    return builder.build();
+    ExoPlayer exoPlayer = builder.build();
+    if (preloadConfiguration != null) {
+      exoPlayer.setPreloadConfiguration(preloadConfiguration);
+    }
+    return exoPlayer;
   }
 }
