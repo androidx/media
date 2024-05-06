@@ -26,6 +26,7 @@ import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.Size;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.util.UnstableApi;
 import java.lang.annotation.Documented;
@@ -174,6 +175,12 @@ public interface VideoSink {
    * from the player.
    */
   void setStreamOffsetUs(long streamOffsetUs);
+
+  /** Sets the output surface info. */
+  void setOutputSurfaceInfo(Surface outputSurface, Size outputResolution);
+
+  /** Clears the set output surface info. */
+  void clearOutputSurfaceInfo();
 
   /**
    * Informs the video sink that a new input stream will be queued.

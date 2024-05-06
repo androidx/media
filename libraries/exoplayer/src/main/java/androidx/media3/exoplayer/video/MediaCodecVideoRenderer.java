@@ -776,8 +776,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       case MSG_SET_VIDEO_OUTPUT_RESOLUTION:
         Size outputResolution = (Size) checkNotNull(message);
         if (outputResolution.getWidth() != 0 && outputResolution.getHeight() != 0) {
-          videoSinkProvider.setOutputSurfaceInfo(
-              checkStateNotNull(displaySurface), outputResolution);
+          videoSink.setOutputSurfaceInfo(checkStateNotNull(displaySurface), outputResolution);
         }
         break;
       case MSG_SET_PRIORITY:
@@ -838,7 +837,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       } else {
         // The display surface has been removed.
         reportedVideoSize = null;
-        videoSinkProvider.clearOutputSurfaceInfo();
+        videoSink.clearOutputSurfaceInfo();
       }
       maybeSetupTunnelingForFirstFrame();
     } else if (displaySurface != null && displaySurface != placeholderSurface) {

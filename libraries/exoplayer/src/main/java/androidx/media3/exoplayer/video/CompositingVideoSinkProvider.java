@@ -688,6 +688,16 @@ public final class CompositingVideoSinkProvider
     }
 
     @Override
+    public void setOutputSurfaceInfo(Surface outputSurface, Size outputResolution) {
+      CompositingVideoSinkProvider.this.setOutputSurfaceInfo(outputSurface, outputResolution);
+    }
+
+    @Override
+    public void clearOutputSurfaceInfo() {
+      CompositingVideoSinkProvider.this.clearOutputSurfaceInfo();
+    }
+
+    @Override
     public long registerInputFrame(long framePresentationTimeUs, boolean isLastFrame) {
       checkState(isInitialized());
       checkState(videoFrameProcessorMaxPendingFrameCount != C.LENGTH_UNSET);
