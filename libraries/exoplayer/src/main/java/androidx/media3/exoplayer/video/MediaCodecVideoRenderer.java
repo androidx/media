@@ -142,9 +142,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private static boolean deviceNeedsSetOutputSurfaceWorkaround;
 
   private final Context context;
-  private final VideoSinkProvider videoSinkProvider;
-  private final boolean ownsVideoSinkProvider;
   private final VideoSink videoSink;
+  private final boolean ownsVideoSink;
   private final EventDispatcher eventDispatcher;
   private final int maxDroppedFramesToNotify;
   private final boolean deviceNeedsNoPostProcessWorkaround;
@@ -392,11 +391,10 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     this.maxDroppedFramesToNotify = maxDroppedFramesToNotify;
     this.context = context.getApplicationContext();
     eventDispatcher = new EventDispatcher(eventHandler, eventListener);
-    ownsVideoSinkProvider = videoSinkProvider == null;
+    ownsVideoSink = videoSinkProvider == null;
     if (videoSinkProvider == null) {
       videoSinkProvider = new CompositingVideoSinkProvider.Builder(this.context).build();
     }
-
     if (videoSinkProvider.getVideoFrameReleaseControl() == null) {
       @SuppressWarnings("nullness:assignment")
       VideoFrameReleaseControl.@Initialized FrameTimingEvaluator thisRef = this;
@@ -404,10 +402,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
           new VideoFrameReleaseControl(
               this.context, /* frameTimingEvaluator= */ thisRef, allowedJoiningTimeMs));
     }
-    this.videoSinkProvider = videoSinkProvider;
     videoSink = videoSinkProvider.getSink();
-    videoFrameReleaseControl =
-        checkStateNotNull(this.videoSinkProvider.getVideoFrameReleaseControl());
+    videoFrameReleaseControl = checkStateNotNull(videoSinkProvider.getVideoFrameReleaseControl());
     videoFrameReleaseInfo = new VideoFrameReleaseControl.FrameReleaseInfo();
     deviceNeedsNoPostProcessWorkaround = deviceNeedsNoPostProcessWorkaround();
     scalingMode = C.VIDEO_SCALING_MODE_DEFAULT;
@@ -733,7 +729,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @Override
   protected void onRelease() {
     super.onRelease();
-    if (ownsVideoSinkProvider) {
+    if (ownsVideoSink) {
       videoSink.release();
     }
   }
@@ -1051,9 +1047,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     // already set. We do not enable effects mid-playback. For effects to be enabled after
     // playback has started, the renderer needs to be reset first.
     boolean enableEffectsForOwnSinkProvider =
-        ownsVideoSinkProvider && hasEffects && !hasInitializedPlayback;
+        ownsVideoSink && hasEffects && !hasInitializedPlayback;
     // We always use the video sink if the video sink provider is passed to the renderer.
-    boolean useVideoSink = enableEffectsForOwnSinkProvider || !ownsVideoSinkProvider;
+    boolean useVideoSink = enableEffectsForOwnSinkProvider || !ownsVideoSink;
     if (useVideoSink) {
       if (!videoSink.isInitialized()) {
         try {
