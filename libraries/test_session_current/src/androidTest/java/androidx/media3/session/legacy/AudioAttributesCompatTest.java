@@ -45,16 +45,18 @@ public class AudioAttributesCompatTest {
 
   // some objects we'll toss around
   Object mMediaAA;
-  AudioAttributesCompat mMediaAAC,
-      mMediaLegacyAAC,
-      mMediaAACFromAA,
-      mNotificationAAC,
-      mNotificationLegacyAAC;
+  AudioAttributesCompat mMediaAAC;
+  AudioAttributesCompat mMediaLegacyAAC;
+  AudioAttributesCompat mMediaAACFromAA;
+  AudioAttributesCompat mNotificationAAC;
+  AudioAttributesCompat mNotificationLegacyAAC;
 
   @Before
   @SdkSuppress(minSdkVersion = 21)
   public void setUpApi21() {
-    if (Build.VERSION.SDK_INT < 21) return;
+    if (Build.VERSION.SDK_INT < 21) {
+      return;
+    }
     mMediaAA =
         new AudioAttributes.Builder()
             .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
