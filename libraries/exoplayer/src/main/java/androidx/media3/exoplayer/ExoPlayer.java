@@ -437,6 +437,31 @@ public interface ExoPlayer extends Player {
     default void onOffloadedPlayback(boolean isOffloadedPlayback) {}
   }
 
+  /** Configuration options for preloading playlist items. */
+  @UnstableApi
+  class PreloadConfiguration {
+
+    /** Default preload configuration that disables playlist preloading. */
+    public static final PreloadConfiguration DEFAULT =
+        new PreloadConfiguration(/* targetPreloadDurationUs= */ C.TIME_UNSET);
+
+    /**
+     * The target duration to buffer when preloading, in microseconds or {@link C#TIME_UNSET} to
+     * disable preloading.
+     */
+    public final long targetPreloadDurationUs;
+
+    /**
+     * Creates an instance.
+     *
+     * @param targetPreloadDurationUs The target duration to preload, in microseconds or {@link
+     *     C#TIME_UNSET} to disable preloading.
+     */
+    public PreloadConfiguration(long targetPreloadDurationUs) {
+      this.targetPreloadDurationUs = targetPreloadDurationUs;
+    }
+  }
+
   /**
    * A builder for {@link ExoPlayer} instances.
    *
@@ -1535,6 +1560,19 @@ public interface ExoPlayer extends Player {
    */
   @UnstableApi
   void setShuffleOrder(ShuffleOrder shuffleOrder);
+
+  /**
+   * Sets the {@linkplain PreloadConfiguration preload configuration} to configure playlist
+   * preloading.
+   *
+   * @param preloadConfiguration The preload configuration.
+   */
+  @UnstableApi
+  void setPreloadConfiguration(PreloadConfiguration preloadConfiguration);
+
+  /** Returns the {@linkplain PreloadConfiguration preload configuration}. */
+  @UnstableApi
+  PreloadConfiguration getPreloadConfiguration();
 
   /**
    * {@inheritDoc}

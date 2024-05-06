@@ -195,6 +195,7 @@ import java.util.concurrent.TimeoutException;
   private boolean foregroundMode;
   private SeekParameters seekParameters;
   private ShuffleOrder shuffleOrder;
+  private PreloadConfiguration preloadConfiguration;
   private boolean pauseAtEndOfMediaItems;
   private Commands availableCommands;
   private MediaMetadata mediaMetadata;
@@ -298,6 +299,7 @@ import java.util.concurrent.TimeoutException;
       audioOffloadListeners = new CopyOnWriteArraySet<>();
       mediaSourceHolderSnapshots = new ArrayList<>();
       shuffleOrder = new ShuffleOrder.DefaultShuffleOrder(/* length= */ 0);
+      preloadConfiguration = PreloadConfiguration.DEFAULT;
       emptyTrackSelectorResult =
           new TrackSelectorResult(
               new RendererConfiguration[renderers.length],
@@ -374,7 +376,8 @@ import java.util.concurrent.TimeoutException;
               clock,
               playbackInfoUpdateListener,
               playerId,
-              builder.playbackLooper);
+              builder.playbackLooper,
+              preloadConfiguration);
 
       volume = 1;
       repeatMode = Player.REPEAT_MODE_OFF;
@@ -879,6 +882,21 @@ import java.util.concurrent.TimeoutException;
   public boolean getShuffleModeEnabled() {
     verifyApplicationThread();
     return shuffleModeEnabled;
+  }
+
+  @Override
+  public void setPreloadConfiguration(PreloadConfiguration preloadConfiguration) {
+    verifyApplicationThread();
+    if (this.preloadConfiguration.equals(preloadConfiguration)) {
+      return;
+    }
+    this.preloadConfiguration = preloadConfiguration;
+    internalPlayer.setPreloadConfiguration(preloadConfiguration);
+  }
+
+  @Override
+  public PreloadConfiguration getPreloadConfiguration() {
+    return preloadConfiguration;
   }
 
   @Override

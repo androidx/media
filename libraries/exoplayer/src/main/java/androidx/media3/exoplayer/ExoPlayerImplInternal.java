@@ -57,6 +57,7 @@ import androidx.media3.common.util.TraceUtil;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceException;
 import androidx.media3.exoplayer.DefaultMediaClock.PlaybackParametersListener;
+import androidx.media3.exoplayer.ExoPlayer.PreloadConfiguration;
 import androidx.media3.exoplayer.analytics.AnalyticsCollector;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.drm.DrmSession;
@@ -171,6 +172,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
   private static final int MSG_ATTEMPT_RENDERER_ERROR_RECOVERY = 25;
   private static final int MSG_RENDERER_CAPABILITIES_CHANGED = 26;
   private static final int MSG_UPDATE_MEDIA_SOURCES_WITH_MEDIA_ITEMS = 27;
+  private static final int MSG_SET_PRELOAD_CONFIGURATION = 28;
 
   private static final int ACTIVE_INTERVAL_MS = 10;
   private static final int IDLE_INTERVAL_MS = 1000;
@@ -237,6 +239,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
   @Nullable private ExoPlaybackException pendingRecoverableRendererError;
   private long setForegroundModeTimeoutMs;
   private long playbackMaybeBecameStuckAtMs;
+  private PreloadConfiguration preloadConfiguration;
+  private Timeline lastPreloadPoolInvalidationTimeline;
 
   public ExoPlayerImplInternal(
       Renderer[] renderers,
@@ -255,7 +259,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
       Clock clock,
       PlaybackInfoUpdateListener playbackInfoUpdateListener,
       PlayerId playerId,
-      Looper playbackLooper) {
+      Looper playbackLooper,
+      PreloadConfiguration preloadConfiguration) {
     this.playbackInfoUpdateListener = playbackInfoUpdateListener;
     this.renderers = renderers;
     this.trackSelector = trackSelector;
@@ -271,11 +276,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
     this.pauseAtEndOfWindow = pauseAtEndOfWindow;
     this.clock = clock;
     this.playerId = playerId;
+    this.preloadConfiguration = preloadConfiguration;
 
     playbackMaybeBecameStuckAtMs = C.TIME_UNSET;
     lastRebufferRealtimeMs = C.TIME_UNSET;
     backBufferDurationUs = loadControl.getBackBufferDurationUs(playerId);
     retainBackBufferFromKeyframe = loadControl.retainBackBufferFromKeyframe(playerId);
+    lastPreloadPoolInvalidationTimeline = Timeline.EMPTY;
 
     playbackInfo = PlaybackInfo.createDummy(emptyTrackSelectorResult);
     playbackInfoUpdate = new PlaybackInfoUpdate(playbackInfo);
@@ -300,7 +307,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
     deliverPendingMessageAtStartPositionRequired = true;
 
     HandlerWrapper eventHandler = clock.createHandler(applicationLooper, /* callback= */ null);
-    queue = new MediaPeriodQueue(analyticsCollector, eventHandler, this::createMediaPeriodHolder);
+    queue =
+        new MediaPeriodQueue(
+            analyticsCollector, eventHandler, this::createMediaPeriodHolder, preloadConfiguration);
     mediaSourceList =
         new MediaSourceList(/* listener= */ this, analyticsCollector, eventHandler, playerId);
 
@@ -357,6 +366,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
   public void setShuffleModeEnabled(boolean shuffleModeEnabled) {
     handler.obtainMessage(MSG_SET_SHUFFLE_ENABLED, shuffleModeEnabled ? 1 : 0, 0).sendToTarget();
+  }
+
+  public void setPreloadConfiguration(PreloadConfiguration preloadConfiguration) {
+    handler.obtainMessage(MSG_SET_PRELOAD_CONFIGURATION, preloadConfiguration).sendToTarget();
   }
 
   public void seekTo(Timeline timeline, int windowIndex, long positionUs) {
@@ -542,6 +555,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
           break;
         case MSG_SET_SHUFFLE_ENABLED:
           setShuffleModeEnabledInternal(msg.arg1 != 0);
+          break;
+        case MSG_SET_PRELOAD_CONFIGURATION:
+          setPreloadConfigurationInternal((PreloadConfiguration) msg.obj);
           break;
         case MSG_DO_SOME_WORK:
           doSomeWork();
@@ -928,6 +944,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
       seekToCurrentPosition(/* sendDiscontinuity= */ true);
     }
     handleLoadingMediaPeriodChanged(/* loadingTrackSelectionChanged= */ false);
+  }
+
+  private void setPreloadConfigurationInternal(PreloadConfiguration preloadConfiguration) {
+    this.preloadConfiguration = preloadConfiguration;
+    queue.updatePreloadConfiguration(playbackInfo.timeline, preloadConfiguration);
   }
 
   private void seekToCurrentPosition(boolean sendDiscontinuity) throws ExoPlaybackException {
@@ -1605,6 +1626,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
             /* positionUpdateTimeMs= */ 0,
             /* sleepingForOffload= */ false);
     if (releaseMediaSourceList) {
+      queue.releasePreloadPool();
       mediaSourceList.release();
     }
   }
@@ -2137,13 +2159,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
       // No periods available.
       return;
     }
-    maybeUpdateLoadingPeriod();
+    boolean loadingPeriodChanged = maybeUpdateLoadingPeriod();
     maybeUpdateReadingPeriod();
     maybeUpdateReadingRenderers();
     maybeUpdatePlayingPeriod();
+    maybeUpdatePreloadPeriods(loadingPeriodChanged);
   }
 
-  private void maybeUpdateLoadingPeriod() throws ExoPlaybackException {
+  private boolean maybeUpdateLoadingPeriod() throws ExoPlaybackException {
+    boolean loadingPeriodChanged = false;
     queue.reevaluateBuffer(rendererPositionUs);
     if (queue.shouldLoadNextMediaPeriod()) {
       @Nullable
@@ -2155,6 +2179,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
           resetRendererPosition(info.startPositionUs);
         }
         handleLoadingMediaPeriodChanged(/* loadingTrackSelectionChanged= */ false);
+        loadingPeriodChanged = true;
       }
     }
     if (shouldContinueLoading) {
@@ -2165,6 +2190,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
     } else {
       maybeContinueLoading();
     }
+    return loadingPeriodChanged;
   }
 
   private void maybeUpdateReadingPeriod() throws ExoPlaybackException {
@@ -2267,6 +2293,17 @@ import java.util.concurrent.atomic.AtomicBoolean;
     if (replaceStreamsOrDisableRendererForTransition()) {
       enableRenderers();
     }
+  }
+
+  private void maybeUpdatePreloadPeriods(boolean loadingPeriodChanged) {
+    if (preloadConfiguration.targetPreloadDurationUs == C.TIME_UNSET
+        || (!loadingPeriodChanged
+            && playbackInfo.timeline.equals(lastPreloadPoolInvalidationTimeline))) {
+      // Do nothing if preloading disabled or no change in loading period or timeline has occurred.
+      return;
+    }
+    lastPreloadPoolInvalidationTimeline = playbackInfo.timeline;
+    queue.invalidatePreloadPool(playbackInfo.timeline);
   }
 
   private boolean replaceStreamsOrDisableRendererForTransition() throws ExoPlaybackException {

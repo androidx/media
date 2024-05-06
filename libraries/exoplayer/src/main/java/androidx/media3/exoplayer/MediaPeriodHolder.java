@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer;
 
+import static androidx.media3.exoplayer.MediaPeriodQueue.areDurationsCompatible;
 import static java.lang.Math.max;
 
 import androidx.annotation.Nullable;
@@ -469,6 +470,12 @@ import androidx.media3.exoplayer.upstream.Allocator;
       // There's nothing we can do.
       Log.e(TAG, "Period release failed.", e);
     }
+  }
+
+  public boolean canBeUsedForMediaPeriodInfo(MediaPeriodInfo info) {
+    return areDurationsCompatible(this.info.durationUs, info.durationUs)
+        && this.info.startPositionUs == info.startPositionUs
+        && this.info.id.equals(info.id);
   }
 
   /* package */ interface Factory {
