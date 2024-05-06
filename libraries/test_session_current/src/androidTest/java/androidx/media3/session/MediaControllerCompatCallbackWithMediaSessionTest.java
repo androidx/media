@@ -1081,12 +1081,13 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
       throws Exception {
     int testItemIndex = 3;
     long testPosition = 1234;
+    String testTitle = "title";
     String testDisplayTitle = "displayTitle";
     long testDurationMs = 30_000;
     List<MediaItem> testMediaItems = MediaTestUtils.createMediaItems(/* size= */ 5);
     String testCurrentMediaId = testMediaItems.get(testItemIndex).mediaId;
     MediaMetadata testMediaMetadata =
-        new MediaMetadata.Builder().setTitle(testDisplayTitle).build();
+        new MediaMetadata.Builder().setTitle(testTitle).setDisplayTitle(testDisplayTitle).build();
     testMediaItems.set(
         testItemIndex,
         new MediaItem.Builder()
@@ -1129,6 +1130,10 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
     assertThat(latchForMetadata.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     MediaMetadataCompat parameterMetadataCompat = metadataRef.get();
     MediaMetadataCompat getterMetadataCompat = controllerCompat.getMetadata();
+    assertThat(parameterMetadataCompat.getString(MediaMetadataCompat.METADATA_KEY_TITLE))
+        .isEqualTo(testTitle);
+    assertThat(getterMetadataCompat.getString(MediaMetadataCompat.METADATA_KEY_TITLE))
+        .isEqualTo(testTitle);
     assertThat(parameterMetadataCompat.getString(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE))
         .isEqualTo(testDisplayTitle);
     assertThat(getterMetadataCompat.getString(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE))
@@ -1154,12 +1159,13 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
       onMediaMetadataChanged_withGetMetadataAndGetCurrentMediaItemCommand_updatesLegacyMetadata()
           throws Exception {
     int testItemIndex = 3;
+    String testTitle = "title";
     String testDisplayTitle = "displayTitle";
     long testDurationMs = 30_000;
     List<MediaItem> testMediaItems = MediaTestUtils.createMediaItems(/* size= */ 5);
     String testCurrentMediaId = testMediaItems.get(testItemIndex).mediaId;
     MediaMetadata testMediaMetadata =
-        new MediaMetadata.Builder().setTitle(testDisplayTitle).build();
+        new MediaMetadata.Builder().setTitle(testTitle).setDisplayTitle(testDisplayTitle).build();
     testMediaItems.set(
         testItemIndex,
         new MediaItem.Builder()
@@ -1192,6 +1198,10 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
     assertThat(latchForMetadata.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     MediaMetadataCompat parameterMetadataCompat = metadataRef.get();
     MediaMetadataCompat getterMetadataCompat = controllerCompat.getMetadata();
+    assertThat(parameterMetadataCompat.getString(MediaMetadataCompat.METADATA_KEY_TITLE))
+        .isEqualTo(testTitle);
+    assertThat(getterMetadataCompat.getString(MediaMetadataCompat.METADATA_KEY_TITLE))
+        .isEqualTo(testTitle);
     assertThat(parameterMetadataCompat.getString(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE))
         .isEqualTo(testDisplayTitle);
     assertThat(getterMetadataCompat.getString(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE))
@@ -1207,10 +1217,11 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
   public void onMediaMetadataChanged_withGetMetadataCommandOnly_updatesLegacyMetadata()
       throws Exception {
     int testItemIndex = 3;
-    String testDisplayTitle = "displayTitle";
+    String testTitle = "title";
+    String testDisplayTitle = "title";
     List<MediaItem> testMediaItems = MediaTestUtils.createMediaItems(/* size= */ 5);
     MediaMetadata testMediaMetadata =
-        new MediaMetadata.Builder().setTitle(testDisplayTitle).build();
+        new MediaMetadata.Builder().setTitle(testTitle).setDisplayTitle(testDisplayTitle).build();
     testMediaItems.set(
         testItemIndex,
         new MediaItem.Builder()
@@ -1240,6 +1251,10 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
     assertThat(latchForMetadata.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     MediaMetadataCompat parameterMetadataCompat = metadataRef.get();
     MediaMetadataCompat getterMetadataCompat = controllerCompat.getMetadata();
+    assertThat(parameterMetadataCompat.getString(MediaMetadataCompat.METADATA_KEY_TITLE))
+        .isEqualTo(testTitle);
+    assertThat(getterMetadataCompat.getString(MediaMetadataCompat.METADATA_KEY_TITLE))
+        .isEqualTo(testTitle);
     assertThat(parameterMetadataCompat.getString(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE))
         .isEqualTo(testDisplayTitle);
     assertThat(getterMetadataCompat.getString(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE))
@@ -1345,9 +1360,9 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
     MediaDescriptionCompat description = queueFromParam.get(0).getDescription();
     assertThat(description.getMediaId()).isEqualTo(mediaItem.mediaId);
     assertThat(TextUtils.equals(description.getTitle(), mediaItem.mediaMetadata.title)).isTrue();
-    assertThat(TextUtils.equals(description.getSubtitle(), mediaItem.mediaMetadata.subtitle))
+    assertThat(TextUtils.equals(description.getSubtitle(), mediaItem.mediaMetadata.artist))
         .isTrue();
-    assertThat(TextUtils.equals(description.getDescription(), mediaItem.mediaMetadata.description))
+    assertThat(TextUtils.equals(description.getDescription(), mediaItem.mediaMetadata.albumTitle))
         .isTrue();
     assertThat(description.getIconUri()).isEqualTo(mediaItem.mediaMetadata.artworkUri);
     assertThat(description.getMediaUri()).isEqualTo(mediaItem.requestMetadata.mediaUri);

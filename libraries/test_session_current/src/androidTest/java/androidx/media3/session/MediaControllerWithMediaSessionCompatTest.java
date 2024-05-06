@@ -21,7 +21,6 @@ import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_ARTIST;
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_DISPLAY_DESCRIPTION;
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_DISPLAY_ICON_URI;
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE;
-import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE;
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_DURATION;
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_MEDIA_ID;
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_MEDIA_URI;
@@ -32,6 +31,7 @@ import static androidx.media3.common.Player.STATE_READY;
 import static androidx.media3.session.MediaConstants.ARGUMENT_CAPTIONING_ENABLED;
 import static androidx.media3.session.MediaConstants.SESSION_COMMAND_ON_CAPTIONING_ENABLED_CHANGED;
 import static androidx.media3.session.SessionResult.RESULT_SUCCESS;
+import static androidx.media3.session.legacy.MediaMetadataCompat.METADATA_KEY_TITLE;
 import static androidx.media3.test.session.common.CommonConstants.DEFAULT_TEST_NAME;
 import static androidx.media3.test.session.common.CommonConstants.KEY_DURATION;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_ALBUM_TITLE;
@@ -654,7 +654,7 @@ public class MediaControllerWithMediaSessionCompatTest {
     MediaMetadataCompat metadataCompat =
         new MediaMetadataCompat.Builder()
             .putText(METADATA_KEY_MEDIA_ID, testMediaId)
-            .putText(METADATA_KEY_DISPLAY_TITLE, testTitle)
+            .putText(METADATA_KEY_TITLE, testTitle)
             .putText(METADATA_KEY_DISPLAY_SUBTITLE, testSubtitle)
             .putText(METADATA_KEY_DISPLAY_DESCRIPTION, testDescription)
             .putString(METADATA_KEY_DISPLAY_ICON_URI, testIconUri)

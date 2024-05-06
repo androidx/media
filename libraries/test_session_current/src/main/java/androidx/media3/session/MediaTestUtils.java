@@ -15,6 +15,8 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.test.session.common.CommonConstants.METADATA_ALBUM_TITLE;
+import static androidx.media3.test.session.common.CommonConstants.METADATA_ARTIST;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_ARTWORK_URI;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_DESCRIPTION;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_EXTRAS;
@@ -161,6 +163,8 @@ public final class MediaTestUtils {
         .setTitle(METADATA_TITLE)
         .setSubtitle(METADATA_SUBTITLE)
         .setDescription(METADATA_DESCRIPTION)
+        .setArtist(METADATA_ARTIST)
+        .setAlbumTitle(METADATA_ALBUM_TITLE)
         .setArtworkUri(METADATA_ARTWORK_URI)
         .setExtras(METADATA_EXTRAS)
         .build();
@@ -173,6 +177,8 @@ public final class MediaTestUtils {
             .setIsPlayable(true)
             .setTitle(METADATA_TITLE)
             .setSubtitle(METADATA_SUBTITLE)
+            .setArtist(METADATA_ARTIST)
+            .setAlbumTitle(METADATA_ALBUM_TITLE)
             .setDescription(METADATA_DESCRIPTION)
             .setArtworkUri(METADATA_ARTWORK_URI)
             .setExtras(METADATA_EXTRAS);

@@ -20,12 +20,12 @@ import static androidx.media3.session.MediaConstants.EXTRAS_KEY_COMPLETION_STATU
 import static androidx.media3.session.MediaConstants.EXTRAS_VALUE_COMPLETION_STATUS_PARTIALLY_PLAYED;
 import static androidx.media3.session.MockMediaLibraryService.CONNECTION_HINTS_CUSTOM_LIBRARY_ROOT;
 import static androidx.media3.session.MockMediaLibraryService.createNotifyChildrenChangedBundle;
+import static androidx.media3.test.session.common.CommonConstants.METADATA_ALBUM_TITLE;
+import static androidx.media3.test.session.common.CommonConstants.METADATA_ARTIST;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_ARTWORK_URI;
-import static androidx.media3.test.session.common.CommonConstants.METADATA_DESCRIPTION;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_EXTRA_KEY;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_EXTRA_VALUE;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_MEDIA_URI;
-import static androidx.media3.test.session.common.CommonConstants.METADATA_SUBTITLE;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_TITLE;
 import static androidx.media3.test.session.common.CommonConstants.MOCK_MEDIA3_LIBRARY_SERVICE;
 import static androidx.media3.test.session.common.MediaBrowserConstants.CHILDREN_COUNT;
@@ -181,8 +181,8 @@ public class MediaBrowserCompatWithMediaLibraryServiceTest
     assertThat(itemRef.get().getMediaId()).isEqualTo(mediaId);
     MediaDescriptionCompat description = itemRef.get().getDescription();
     assertThat(TextUtils.equals(description.getTitle(), METADATA_TITLE)).isTrue();
-    assertThat(TextUtils.equals(description.getSubtitle(), METADATA_SUBTITLE)).isTrue();
-    assertThat(TextUtils.equals(description.getDescription(), METADATA_DESCRIPTION)).isTrue();
+    assertThat(TextUtils.equals(description.getSubtitle(), METADATA_ARTIST)).isTrue();
+    assertThat(TextUtils.equals(description.getDescription(), METADATA_ALBUM_TITLE)).isTrue();
     assertThat(description.getIconUri()).isEqualTo(METADATA_ARTWORK_URI);
     assertThat(description.getMediaUri()).isEqualTo(METADATA_MEDIA_URI);
     BundleSubject.assertThat(description.getExtras())

@@ -43,6 +43,7 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.constrainValue;
 import static androidx.media3.session.MediaConstants.EXTRA_KEY_ROOT_CHILDREN_BROWSABLE_ONLY;
 import static androidx.media3.session.legacy.MediaConstants.BROWSER_ROOT_HINTS_KEY_ROOT_CHILDREN_SUPPORTED_FLAGS;
+import static androidx.media3.session.legacy.MediaMetadataCompat.PREFERRED_DESCRIPTION_ORDER;
 import static androidx.media3.session.legacy.MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS;
 import static java.lang.Math.max;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -342,7 +343,6 @@ import java.util.concurrent.TimeoutException;
     MediaMetadata.Builder builder = new MediaMetadata.Builder();
 
     builder
-        .setTitle(descriptionCompat.getTitle())
         .setSubtitle(descriptionCompat.getSubtitle())
         .setDescription(descriptionCompat.getDescription())
         .setArtworkUri(descriptionCompat.getIconUri())
@@ -373,6 +373,17 @@ import java.util.concurrent.TimeoutException;
       builder.setMediaType((int) extras.getLong(MediaConstants.EXTRAS_KEY_MEDIA_TYPE_COMPAT));
       extras.remove(MediaConstants.EXTRAS_KEY_MEDIA_TYPE_COMPAT);
     }
+
+    if (extras != null
+        && extras.containsKey(MediaConstants.EXTRAS_KEY_MEDIA_DESCRIPTION_COMPAT_TITLE)) {
+      builder.setTitle(
+          extras.getCharSequence(MediaConstants.EXTRAS_KEY_MEDIA_DESCRIPTION_COMPAT_TITLE));
+      builder.setDisplayTitle(descriptionCompat.getTitle());
+      extras.remove(MediaConstants.EXTRAS_KEY_MEDIA_DESCRIPTION_COMPAT_TITLE);
+    } else {
+      builder.setTitle(descriptionCompat.getTitle());
+    }
+
     if (extras != null && !extras.isEmpty()) {
       builder.setExtras(extras);
     }
@@ -392,12 +403,12 @@ import java.util.concurrent.TimeoutException;
 
     MediaMetadata.Builder builder = new MediaMetadata.Builder();
 
+    CharSequence title = metadataCompat.getText(MediaMetadataCompat.METADATA_KEY_TITLE);
+    CharSequence displayTitle =
+        metadataCompat.getText(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE);
     builder
-        .setTitle(
-            getFirstText(
-                metadataCompat,
-                MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE,
-                MediaMetadataCompat.METADATA_KEY_TITLE))
+        .setTitle(title != null ? title : displayTitle)
+        .setDisplayTitle(title != null ? displayTitle : null)
         .setSubtitle(metadataCompat.getText(MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE))
         .setDescription(
             metadataCompat.getText(MediaMetadataCompat.METADATA_KEY_DISPLAY_DESCRIPTION))
@@ -502,17 +513,6 @@ import java.util.concurrent.TimeoutException;
     return null;
   }
 
-  @Nullable
-  private static CharSequence getFirstText(
-      MediaMetadataCompat mediaMetadataCompat, String... keys) {
-    for (String key : keys) {
-      if (mediaMetadataCompat.containsKey(key)) {
-        return mediaMetadataCompat.getText(key);
-      }
-    }
-    return null;
-  }
-
   /**
    * Converts a {@link MediaMetadata} to a {@link MediaMetadataCompat}.
    *
@@ -538,7 +538,10 @@ import java.util.concurrent.TimeoutException;
 
     if (metadata.title != null) {
       builder.putText(MediaMetadataCompat.METADATA_KEY_TITLE, metadata.title);
-      builder.putText(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, metadata.title);
+    }
+
+    if (metadata.displayTitle != null) {
+      builder.putText(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, metadata.displayTitle);
     }
 
     if (metadata.subtitle != null) {
@@ -638,14 +641,15 @@ import java.util.concurrent.TimeoutException;
       builder.setIconBitmap(artworkBitmap);
     }
     @Nullable Bundle extras = metadata.extras;
+    if (extras != null) {
+      extras = new Bundle(extras);
+    }
     boolean hasFolderType =
         metadata.folderType != null && metadata.folderType != MediaMetadata.FOLDER_TYPE_NONE;
     boolean hasMediaType = metadata.mediaType != null;
     if (hasFolderType || hasMediaType) {
       if (extras == null) {
         extras = new Bundle();
-      } else {
-        extras = new Bundle(extras);
       }
       if (hasFolderType) {
         extras.putLong(
@@ -657,16 +661,65 @@ import java.util.concurrent.TimeoutException;
             MediaConstants.EXTRAS_KEY_MEDIA_TYPE_COMPAT, checkNotNull(metadata.mediaType));
       }
     }
+    CharSequence title;
+    CharSequence subtitle;
+    CharSequence description;
+    if (metadata.displayTitle != null) {
+      title = metadata.displayTitle;
+      subtitle = metadata.subtitle;
+      description = metadata.description;
+      if (extras == null) {
+        extras = new Bundle();
+      }
+      extras.putCharSequence(
+          MediaConstants.EXTRAS_KEY_MEDIA_DESCRIPTION_COMPAT_TITLE, metadata.title);
+    } else {
+      // The BT AVRPC service expects the subtitle of the media description to be the artist
+      // (see https://github.com/androidx/media/issues/148). This can be achieved by NOT setting the
+      // `displayTitle` when setting the `artist`, or by setting the `displayTitle` and writing the
+      // artist into the `subtitle`. When `displayTitle` is set, the artist is always ignored.
+      CharSequence[] texts = new CharSequence[3];
+      int textIndex = 0;
+      int keyIndex = 0;
+      while (textIndex < texts.length && keyIndex < PREFERRED_DESCRIPTION_ORDER.length) {
+        CharSequence next = getText(PREFERRED_DESCRIPTION_ORDER[keyIndex++], metadata);
+        if (!TextUtils.isEmpty(next)) {
+          // Fill in the next empty bit of text
+          texts[textIndex++] = next;
+        }
+      }
+      title = texts[0];
+      subtitle = texts[1];
+      description = texts[2];
+    }
     return builder
-        .setTitle(metadata.title)
-        // The BT AVRPC service expects the subtitle of the media description to be the artist
-        // (see https://github.com/androidx/media/issues/148).
-        .setSubtitle(metadata.artist != null ? metadata.artist : metadata.subtitle)
-        .setDescription(metadata.description)
+        .setTitle(title)
+        .setSubtitle(subtitle)
+        .setDescription(description)
         .setIconUri(metadata.artworkUri)
         .setMediaUri(item.requestMetadata.mediaUri)
         .setExtras(extras)
         .build();
+  }
+
+  @Nullable
+  private static CharSequence getText(String key, MediaMetadata metadata) {
+    switch (key) {
+      case MediaMetadataCompat.METADATA_KEY_TITLE:
+        return metadata.title;
+      case MediaMetadataCompat.METADATA_KEY_ARTIST:
+        return metadata.artist;
+      case MediaMetadataCompat.METADATA_KEY_ALBUM:
+        return metadata.albumTitle;
+      case MediaMetadataCompat.METADATA_KEY_ALBUM_ARTIST:
+        return metadata.albumArtist;
+      case MediaMetadataCompat.METADATA_KEY_WRITER:
+        return metadata.writer;
+      case MediaMetadataCompat.METADATA_KEY_COMPOSER:
+        return metadata.composer;
+      default:
+        return null;
+    }
   }
 
   @SuppressWarnings("deprecation") // Converting to deprecated constants.

@@ -479,6 +479,14 @@ public final class MediaConstants {
   public static final String EXTRAS_KEY_COMMAND_BUTTON_ICON_COMPAT =
       "androidx.media3.session.EXTRAS_KEY_COMMAND_BUTTON_ICON_COMPAT";
 
+  /**
+   * {@link Bundle} key used to store the title in case there was a display title that was given
+   * precedence when converting to a {@code MediaDescriptionCompat}. This key is only used to be
+   * able to convert back to the Media3 {@link MediaMetadata}.
+   */
+  /* package */ static final String EXTRAS_KEY_MEDIA_DESCRIPTION_COMPAT_TITLE =
+      "androidx.media3.mediadescriptioncompat.title";
+
   /* package */ static final String SESSION_COMMAND_ON_CAPTIONING_ENABLED_CHANGED =
       "androidx.media3.session.SESSION_COMMAND_ON_CAPTIONING_ENABLED_CHANGED";
   /* package */ static final String SESSION_COMMAND_REQUEST_SESSION3_TOKEN =

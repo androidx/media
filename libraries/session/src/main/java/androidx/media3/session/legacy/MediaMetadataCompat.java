@@ -310,7 +310,7 @@ public final class MediaMetadataCompat implements Parcelable {
     METADATA_KEYS_TYPE.put(METADATA_KEY_DOWNLOAD_STATUS, METADATA_TYPE_LONG);
   }
 
-  private static final @TextKey String[] PREFERRED_DESCRIPTION_ORDER = {
+  public static final @TextKey String[] PREFERRED_DESCRIPTION_ORDER = {
     METADATA_KEY_TITLE,
     METADATA_KEY_ARTIST,
     METADATA_KEY_ALBUM,

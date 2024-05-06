@@ -105,8 +105,8 @@ public class MediaControllerMediaSessionCompatCallbackAggregationTest {
     int testMediaItemIndex = 1;
     MediaMetadataCompat testMediaMetadataCompat =
         new MediaMetadataCompat.Builder()
+            .putText(MediaMetadataCompat.METADATA_KEY_TITLE, "title")
             .putText(MediaMetadataCompat.METADATA_KEY_ARTIST, "artist")
-            .putText(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, "title")
             .putLong(MediaConstants.EXTRAS_KEY_MEDIA_TYPE_COMPAT, MEDIA_TYPE_PLAYLIST)
             .build();
     @RatingCompat.Style int testRatingType = RatingCompat.RATING_HEART;
@@ -250,7 +250,7 @@ public class MediaControllerMediaSessionCompatCallbackAggregationTest {
     MediaMetadataCompat testMediaMetadataCompat =
         new MediaMetadataCompat.Builder()
             .putText(MediaMetadataCompat.METADATA_KEY_ARTIST, "artist")
-            .putText(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, "title")
+            .putText(MediaMetadataCompat.METADATA_KEY_TITLE, "title")
             .build();
     @RatingCompat.Style int testRatingType = RatingCompat.RATING_HEART;
     MediaMetadata testMediaMetadata =
@@ -453,7 +453,7 @@ public class MediaControllerMediaSessionCompatCallbackAggregationTest {
     MediaMetadataCompat testMediaMetadataCompat =
         new MediaMetadataCompat.Builder()
             .putText(MediaMetadataCompat.METADATA_KEY_ARTIST, "artist")
-            .putText(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, "title")
+            .putText(MediaMetadataCompat.METADATA_KEY_TITLE, "title")
             .build();
     @RatingCompat.Style int testRatingType = RatingCompat.RATING_HEART;
     MediaMetadata testMediaMetadata =

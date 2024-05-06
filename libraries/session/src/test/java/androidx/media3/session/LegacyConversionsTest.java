@@ -150,27 +150,184 @@ public final class LegacyConversionsTest {
 
   @Test
   public void convertToMediaDescriptionCompat_setsExpectedValues() {
-    String mediaId = "testId";
-    String title = "testTitle";
-    String description = "testDesc";
     MediaMetadata metadata =
         new MediaMetadata.Builder()
-            .setTitle(title)
-            .setDescription(description)
+            .setTitle("testTitle")
+            .setArtist("testArtist")
+            .setAlbumTitle("testAlbumTitle")
+            .setWriter("testWriter")
             .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
             .setDurationMs(10_000L)
             .build();
     MediaItem mediaItem =
-        new MediaItem.Builder().setMediaId(mediaId).setMediaMetadata(metadata).build();
+        new MediaItem.Builder().setMediaId("testId").setMediaMetadata(metadata).build();
 
     MediaDescriptionCompat descriptionCompat =
         LegacyConversions.convertToMediaDescriptionCompat(mediaItem, /* artworkBitmap= */ null);
 
-    assertThat(descriptionCompat.getMediaId()).isEqualTo(mediaId);
-    assertThat(descriptionCompat.getTitle().toString()).isEqualTo(title);
-    assertThat(descriptionCompat.getDescription().toString()).isEqualTo(description);
+    assertThat(descriptionCompat.getMediaId()).isEqualTo("testId");
+    assertThat(descriptionCompat.getTitle().toString()).isEqualTo("testTitle");
+    assertThat(descriptionCompat.getSubtitle().toString()).isEqualTo("testArtist");
+    assertThat(descriptionCompat.getDescription().toString()).isEqualTo("testAlbumTitle");
     assertThat(descriptionCompat.getExtras().getLong(EXTRAS_KEY_MEDIA_TYPE_COMPAT))
         .isEqualTo(MediaMetadata.MEDIA_TYPE_MUSIC);
+  }
+
+  @Test
+  public void convertToMediaDescriptionCompat_displayTitleAndTitleHandledCorrectly() {
+    MediaMetadata metadataWithTitleOnly =
+        new MediaMetadata.Builder()
+            .setTitle("title")
+            .setSubtitle("subtitle")
+            .setDescription("description")
+            .setArtist("artist")
+            .setAlbumTitle("albumTitle")
+            .setIsBrowsable(false)
+            .setIsPlayable(true)
+            .build();
+    MediaItem mediaItemWithTitleOnly =
+        new MediaItem.Builder().setMediaMetadata(metadataWithTitleOnly).build();
+    MediaMetadata metadataWithDisplayTitleOnly =
+        new MediaMetadata.Builder()
+            .setDisplayTitle("displayTitle")
+            .setSubtitle("subtitle")
+            .setDescription("description")
+            .setArtist("artist")
+            .setAlbumTitle("albumTitle")
+            .setIsBrowsable(false)
+            .setIsPlayable(true)
+            .build();
+    MediaItem mediaItemWithDisplayTitleOnly =
+        new MediaItem.Builder().setMediaMetadata(metadataWithDisplayTitleOnly).build();
+    MediaMetadata metadataWithDisplayTitleAndTitle =
+        new MediaMetadata.Builder()
+            .setDisplayTitle("displayTitle")
+            .setTitle("title")
+            .setSubtitle("subtitle")
+            .setDescription("description")
+            .setArtist("artist")
+            .setAlbumTitle("albumTitle")
+            .setIsBrowsable(false)
+            .setIsPlayable(true)
+            .build();
+    MediaItem mediaItemWithDisplayTitleAndTitle =
+        new MediaItem.Builder().setMediaMetadata(metadataWithDisplayTitleAndTitle).build();
+
+    MediaDescriptionCompat descriptionCompatWithTitleOnly =
+        LegacyConversions.convertToMediaDescriptionCompat(
+            mediaItemWithTitleOnly, /* artworkBitmap= */ null);
+    MediaDescriptionCompat descriptionCompatWithDisplayTitleOnly =
+        LegacyConversions.convertToMediaDescriptionCompat(
+            mediaItemWithDisplayTitleOnly, /* artworkBitmap= */ null);
+    MediaDescriptionCompat descriptionCompatWithDisplayTitleAndTitle =
+        LegacyConversions.convertToMediaDescriptionCompat(
+            mediaItemWithDisplayTitleAndTitle, /* artworkBitmap= */ null);
+
+    MediaItem convertedMediaItemWithTitleOnly =
+        LegacyConversions.convertToMediaItem(descriptionCompatWithTitleOnly);
+    MediaItem convertedMediaItemWithDisplayTitleOnly =
+        LegacyConversions.convertToMediaItem(descriptionCompatWithDisplayTitleOnly);
+    MediaItem convertedMediaItemWithDisplayTitleAndTitle =
+        LegacyConversions.convertToMediaItem(descriptionCompatWithDisplayTitleAndTitle);
+
+    assertThat(convertedMediaItemWithTitleOnly.mediaMetadata.title.toString()).isEqualTo("title");
+    assertThat(convertedMediaItemWithTitleOnly.mediaMetadata.subtitle.toString())
+        .isEqualTo("artist");
+    assertThat(convertedMediaItemWithTitleOnly.mediaMetadata.description.toString())
+        .isEqualTo("albumTitle");
+    assertThat(convertedMediaItemWithTitleOnly.mediaMetadata.displayTitle).isNull();
+    assertThat(convertedMediaItemWithTitleOnly.mediaMetadata.artist).isNull();
+    assertThat(convertedMediaItemWithTitleOnly.mediaMetadata.albumTitle).isNull();
+    assertThat(convertedMediaItemWithDisplayTitleOnly.mediaMetadata.title).isNull();
+    assertThat(convertedMediaItemWithDisplayTitleOnly.mediaMetadata.subtitle.toString())
+        .isEqualTo("subtitle");
+    assertThat(convertedMediaItemWithDisplayTitleOnly.mediaMetadata.description.toString())
+        .isEqualTo("description");
+    assertThat(convertedMediaItemWithDisplayTitleOnly.mediaMetadata.displayTitle.toString())
+        .isEqualTo("displayTitle");
+    assertThat(convertedMediaItemWithDisplayTitleOnly.mediaMetadata.artist).isNull();
+    assertThat(convertedMediaItemWithDisplayTitleOnly.mediaMetadata.albumTitle).isNull();
+    assertThat(convertedMediaItemWithDisplayTitleAndTitle.mediaMetadata.title.toString())
+        .isEqualTo("title");
+    assertThat(convertedMediaItemWithDisplayTitleAndTitle.mediaMetadata.subtitle.toString())
+        .isEqualTo("subtitle");
+    assertThat(convertedMediaItemWithDisplayTitleAndTitle.mediaMetadata.description.toString())
+        .isEqualTo("description");
+    assertThat(convertedMediaItemWithDisplayTitleAndTitle.mediaMetadata.displayTitle.toString())
+        .isEqualTo("displayTitle");
+    assertThat(convertedMediaItemWithDisplayTitleAndTitle.mediaMetadata.artist).isNull();
+    assertThat(convertedMediaItemWithDisplayTitleAndTitle.mediaMetadata.albumTitle).isNull();
+  }
+
+  @Test
+  public void convertToMediaMetadataCompat_displayTitleAndTitleHandledCorrectly() {
+    MediaMetadata mediaMetadataWithTitleOnly =
+        new MediaMetadata.Builder()
+            .setTitle("title")
+            .setSubtitle("subtitle")
+            .setDescription("description")
+            .setArtist("artist")
+            .setAlbumArtist("albumArtist")
+            .build();
+    MediaMetadata mediaMetadataWithDisplayTitleOnly =
+        new MediaMetadata.Builder()
+            .setDisplayTitle("displayTitle")
+            .setSubtitle("subtitle")
+            .setDescription("description")
+            .setArtist("artist")
+            .setAlbumArtist("albumArtist")
+            .build();
+    MediaMetadata mediaMetadataWithDisplayTitleAndTitle =
+        new MediaMetadata.Builder()
+            .setTitle("title")
+            .setDisplayTitle("displayTitle")
+            .setSubtitle("subtitle")
+            .setDescription("description")
+            .setArtist("artist")
+            .setAlbumArtist("albumArtist")
+            .build();
+
+    MediaDescriptionCompat mediaDescriptionCompatFromDisplayTitleAndTitle =
+        LegacyConversions.convertToMediaMetadataCompat(
+                mediaMetadataWithDisplayTitleAndTitle,
+                "mediaId",
+                /* mediaUri= */ null,
+                /* durationMs= */ 10_000L,
+                /* artworkBitmap= */ null)
+            .getDescription();
+    MediaDescriptionCompat mediaDescriptionCompatFromDisplayTitleOnly =
+        LegacyConversions.convertToMediaMetadataCompat(
+                mediaMetadataWithDisplayTitleOnly,
+                "mediaId",
+                /* mediaUri= */ null,
+                /* durationMs= */ 10_000L,
+                /* artworkBitmap= */ null)
+            .getDescription();
+    MediaDescriptionCompat mediaDescriptionCompatFromTitleOnly =
+        LegacyConversions.convertToMediaMetadataCompat(
+                mediaMetadataWithTitleOnly,
+                "mediaId",
+                /* mediaUri= */ null,
+                /* durationMs= */ 10_000L,
+                /* artworkBitmap= */ null)
+            .getDescription();
+
+    assertThat(mediaDescriptionCompatFromDisplayTitleAndTitle.getTitle().toString())
+        .isEqualTo("displayTitle");
+    assertThat(mediaDescriptionCompatFromDisplayTitleAndTitle.getSubtitle().toString())
+        .isEqualTo("subtitle");
+    assertThat(mediaDescriptionCompatFromDisplayTitleAndTitle.getDescription().toString())
+        .isEqualTo("description");
+    assertThat(mediaDescriptionCompatFromDisplayTitleOnly.getTitle().toString())
+        .isEqualTo("displayTitle");
+    assertThat(mediaDescriptionCompatFromDisplayTitleOnly.getSubtitle().toString())
+        .isEqualTo("subtitle");
+    assertThat(mediaDescriptionCompatFromDisplayTitleOnly.getDescription().toString())
+        .isEqualTo("description");
+    assertThat(mediaDescriptionCompatFromTitleOnly.getTitle().toString()).isEqualTo("title");
+    assertThat(mediaDescriptionCompatFromTitleOnly.getSubtitle().toString()).isEqualTo("artist");
+    assertThat(mediaDescriptionCompatFromTitleOnly.getDescription().toString())
+        .isEqualTo("albumArtist");
   }
 
   @Test
@@ -235,6 +392,20 @@ public final class LegacyConversionsTest {
 
     assertThat(mediaMetadata).isEqualTo(testMediaMetadata);
     assertThat(mediaMetadata.artworkData).isNotNull();
+  }
+
+  @Test
+  public void convertToMediaMetadata_displayTitleKeyOnly_movedToTitle() {
+    MediaMetadataCompat testMediaMetadataCompat =
+        new MediaMetadataCompat.Builder()
+            .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, "displayTitle")
+            .build();
+
+    MediaMetadata mediaMetadata =
+        LegacyConversions.convertToMediaMetadata(testMediaMetadataCompat, RatingCompat.RATING_NONE);
+
+    assertThat(mediaMetadata.title).isEqualTo("displayTitle");
+    assertThat(mediaMetadata.displayTitle).isNull();
   }
 
   @Test
@@ -1162,6 +1333,8 @@ public final class LegacyConversionsTest {
     MediaMetadata.Builder mediaMetadataBuilder =
         new MediaMetadata.Builder()
             .setMediaType(MediaMetadata.MEDIA_TYPE_PLAYLIST)
+            .setTitle("title")
+            .setDisplayTitle("displayTitle")
             .setIsBrowsable(false)
             .setIsPlayable(true)
             .setExtras(extras);

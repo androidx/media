@@ -73,6 +73,9 @@
     *   Hide seekbar in the media notification for live streams by not setting
         the duration into the platform session metadata
         ([#1256](https://github.com/androidx/media/issues/1256)).
+    *   Align conversion of `MediaMetadata` to `MediaDescriptionCompat`, to use
+        the same preferred order and logic when selecting metadata properties as
+        in media1.
 *   UI:
 *   Downloads:
 *   OkHttp Extension:
