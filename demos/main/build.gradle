@@ -19,9 +19,10 @@ apply plugin: 'kotlin-android'
 android {
     namespace 'androidx.media3.demo.main'
 
-    compileSdkVersion project.ext.compileSdkVersion
+    compileSdk project.ext.compileSdkVersion
 
     compileOptions {
+        coreLibraryDesugaringEnabled true
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
@@ -55,7 +56,7 @@ android {
         disable 'GoogleAppIndexingWarning','MissingTranslation','IconDensities'
     }
 
-    flavorDimensions "decoderExtensions"
+    flavorDimensions = ["decoderExtensions"]
 
     productFlavors {
         noDecoderExtensions {
@@ -90,6 +91,7 @@ dependencies {
     withDecoderExtensionsImplementation project(modulePrefix + 'lib-decoder-vp9')
     withDecoderExtensionsImplementation project(modulePrefix + 'lib-decoder-midi')
     withDecoderExtensionsImplementation project(modulePrefix + 'lib-datasource-rtmp')
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:1.1.5'
 }
 
 apply plugin: 'com.google.android.gms.strict-version-matcher-plugin'

@@ -17,7 +17,7 @@ apply plugin: 'com.android.application'
 android {
     namespace 'androidx.media3.test.session'
 
-    compileSdkVersion project.ext.compileSdkVersion
+    compileSdk project.ext.compileSdkVersion
 
     defaultConfig {
         versionName project.ext.releaseVersion

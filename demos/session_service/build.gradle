@@ -17,7 +17,7 @@ apply plugin: 'kotlin-android'
 android {
     namespace 'androidx.media3.demo.session.service'
 
-    compileSdkVersion project.ext.compileSdkVersion
+    compileSdk project.ext.compileSdkVersion
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
