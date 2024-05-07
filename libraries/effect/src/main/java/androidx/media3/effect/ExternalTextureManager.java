@@ -31,9 +31,11 @@ import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.Util;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -59,6 +61,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   private static final long SURFACE_TEXTURE_TIMEOUT_MS = isRunningOnEmulator() ? 10_000 : 500;
 
+  // Wait delay between checking whether a registered frame arrives on the SurfaceTexture.
+  private static final long SURFACE_TEXTURE_WAIT_DELAY_MS = 10;
+
   private final GlObjectsProvider glObjectsProvider;
   private @MonotonicNonNull ExternalShaderProgram externalShaderProgram;
   private final int externalTexId;
@@ -66,12 +71,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final SurfaceTexture surfaceTexture;
   private final float[] textureTransformMatrix;
   private final Queue<FrameInfo> pendingFrames;
-  private final ScheduledExecutorService forceEndOfStreamExecutorService;
+  private final ScheduledExecutorService scheduledExecutorService;
   private final AtomicInteger externalShaderProgramInputCapacity;
   private final boolean repeatLastRegisteredFrame;
 
-  // Counts the frames that are registered before flush but are made available after flush.
-  private int numberOfFramesToDropOnBecomingAvailable;
   private int availableFrameCount;
   private boolean currentInputStreamEnded;
 
@@ -81,6 +84,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Nullable private Future<?> forceSignalEndOfStreamFuture;
   private boolean shouldRejectIncomingFrames;
+  // The first time trying to remove all frames from MediaCodec, used to escape repeated waiting for
+  // a frame to arrive on the SurfaceTexture.
+  private long firstTryToRemoveAllFramesTimeMs;
 
   /**
    * Creates a new instance. The caller's thread must have a current GL context.
@@ -113,7 +119,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     surfaceTexture = new SurfaceTexture(externalTexId);
     textureTransformMatrix = new float[16];
     pendingFrames = new ConcurrentLinkedQueue<>();
-    forceEndOfStreamExecutorService = Util.newSingleThreadScheduledExecutor(TIMER_THREAD_NAME);
+    scheduledExecutorService = Util.newSingleThreadScheduledExecutor(TIMER_THREAD_NAME);
     externalShaderProgramInputCapacity = new AtomicInteger();
     surfaceTexture.setOnFrameAvailableListener(
         unused ->
@@ -121,25 +127,38 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 () -> {
                   DebugTraceUtil.logEvent(
                       DebugTraceUtil.EVENT_VFP_SURFACE_TEXTURE_INPUT, C.TIME_UNSET);
-                  if (numberOfFramesToDropOnBecomingAvailable > 0) {
-                    numberOfFramesToDropOnBecomingAvailable--;
-                    surfaceTexture.updateTexImage();
-                    maybeExecuteAfterFlushTask();
-                  } else if (shouldRejectIncomingFrames) {
+                  if (shouldRejectIncomingFrames) {
                     surfaceTexture.updateTexImage();
                     Log.w(
                         TAG,
                         "Dropping frame received on SurfaceTexture after forcing EOS: "
                             + surfaceTexture.getTimestamp() / 1000);
-                  } else {
-                    if (currentInputStreamEnded) {
-                      restartForceSignalEndOfStreamTimer();
-                    }
-                    availableFrameCount++;
-                    maybeQueueFrameToExternalShaderProgram();
+                    return;
                   }
+
+                  if (currentInputStreamEnded) {
+                    restartForceSignalEndOfStreamTimer();
+                  }
+                  availableFrameCount++;
+                  maybeQueueFrameToExternalShaderProgram();
                 }));
     surface = new Surface(surfaceTexture);
+    firstTryToRemoveAllFramesTimeMs = C.TIME_UNSET;
+  }
+
+  @Override
+  public void releaseAllRegisteredFrames() {
+    // Blocks the calling thread until all the registered frames are received and released.
+    CountDownLatch countDownLatch = new CountDownLatch(1);
+    videoFrameProcessingTaskExecutor.submit(() -> releaseAllFramesFromMediaCodec(countDownLatch));
+    try {
+      countDownLatch.await();
+    } catch (InterruptedException e) {
+      // Not re-thrown to not crash frame processing. Frame process can likely continue even when
+      // not all rendered frames arrive.
+      Thread.currentThread().interrupt();
+      Log.w(TAG, "Interrupted when waiting for MediaCodec frames to arrive.");
+    }
   }
 
   /**
@@ -150,7 +169,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   public void setSamplingGlShaderProgram(GlShaderProgram samplingGlShaderProgram) {
     checkState(samplingGlShaderProgram instanceof ExternalShaderProgram);
-    externalShaderProgramInputCapacity.set(0);
     this.externalShaderProgram = (ExternalShaderProgram) samplingGlShaderProgram;
   }
 
@@ -241,32 +259,22 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public void release() {
     surfaceTexture.release();
     surface.release();
-    forceEndOfStreamExecutorService.shutdownNow();
+    scheduledExecutorService.shutdownNow();
   }
 
   @Override
   protected void flush() {
-    // A frame that is registered before flush may arrive after flush.
-    numberOfFramesToDropOnBecomingAvailable = pendingFrames.size() - availableFrameCount;
-    removeAllSurfaceTextureFrames();
     externalShaderProgramInputCapacity.set(0);
     currentFrame = null;
     pendingFrames.clear();
     lastRegisteredFrame = null;
-    maybeExecuteAfterFlushTask();
-  }
-
-  private void maybeExecuteAfterFlushTask() {
-    if (numberOfFramesToDropOnBecomingAvailable > 0) {
-      return;
-    }
     super.flush();
   }
 
   private void restartForceSignalEndOfStreamTimer() {
     cancelForceSignalEndOfStreamTimer();
     forceSignalEndOfStreamFuture =
-        forceEndOfStreamExecutorService.schedule(
+        scheduledExecutorService.schedule(
             () -> videoFrameProcessingTaskExecutor.submit(this::forceSignalEndOfStream),
             SURFACE_TEXTURE_TIMEOUT_MS,
             MILLISECONDS);
@@ -289,7 +297,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     // Reset because there could be further input streams after the current one ends.
     currentInputStreamEnded = false;
     currentFrame = null;
-    pendingFrames.clear();
     shouldRejectIncomingFrames = true;
 
     // Frames could be made available while waiting for OpenGL to finish processing. That is,
@@ -297,13 +304,41 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     // when there are frames available on the SurfaceTexture. This has only been observed on
     // emulators.
     removeAllSurfaceTextureFrames();
+    pendingFrames.clear();
     signalEndOfCurrentInputStream();
+  }
+
+  private void releaseAllFramesFromMediaCodec(CountDownLatch latch) {
+    removeAllSurfaceTextureFrames();
+
+    if (pendingFrames.isEmpty()
+        // Assumes a frame that is registered would not take longer than SURFACE_TEXTURE_TIMEOUT_MS
+        // to arrive, otherwise unblock the waiting thread.
+        || (firstTryToRemoveAllFramesTimeMs != C.TIME_UNSET
+            && SystemClock.DEFAULT.currentTimeMillis() - firstTryToRemoveAllFramesTimeMs
+                >= SURFACE_TEXTURE_TIMEOUT_MS)) {
+      firstTryToRemoveAllFramesTimeMs = C.TIME_UNSET;
+      latch.countDown();
+      return;
+    }
+
+    if (firstTryToRemoveAllFramesTimeMs == C.TIME_UNSET) {
+      firstTryToRemoveAllFramesTimeMs = SystemClock.DEFAULT.currentTimeMillis();
+    }
+    Future<?> unusedFuture =
+        scheduledExecutorService.schedule(
+            () ->
+                videoFrameProcessingTaskExecutor.submit(
+                    () -> releaseAllFramesFromMediaCodec(latch)),
+            SURFACE_TEXTURE_WAIT_DELAY_MS,
+            MILLISECONDS);
   }
 
   private void removeAllSurfaceTextureFrames() {
     while (availableFrameCount > 0) {
       availableFrameCount--;
       surfaceTexture.updateTexImage();
+      pendingFrames.remove();
     }
   }
 

@@ -164,4 +164,7 @@ import androidx.media3.common.util.TimestampIterator;
       }
     }
   }
+
+  /** Releases all previously {@linkplain #registerInputFrame(FrameInfo) registered} frames. */
+  public void releaseAllRegisteredFrames() {}
 }
