@@ -364,7 +364,11 @@ public final class DefaultCodec implements Codec {
         // The raw audio decoder incorrectly sets the channel count for output format to stereo.
         if (isDecoder && Objects.equals(configurationFormat.sampleMimeType, MimeTypes.AUDIO_RAW)) {
           outputFormat =
-              outputFormat.buildUpon().setChannelCount(configurationFormat.channelCount).build();
+              outputFormat
+                  .buildUpon()
+                  .setChannelCount(configurationFormat.channelCount)
+                  .setPcmEncoding(configurationFormat.pcmEncoding)
+                  .build();
         }
       }
       return false;

@@ -105,6 +105,8 @@ import java.util.concurrent.atomic.AtomicReference;
     // APP configuration not active until flush called. getOutputAudioFormat based on active config.
     audioProcessingPipeline.flush();
     outputAudioFormat = audioProcessingPipeline.getOutputAudioFormat();
+    checkArgument(
+        outputAudioFormat.encoding == C.ENCODING_PCM_16BIT, /* errorMessage= */ outputAudioFormat);
     startTimeUs = new AtomicLong(C.TIME_UNSET);
   }
 

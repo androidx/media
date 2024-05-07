@@ -70,7 +70,7 @@ public final class ParameterizedItemExportTest {
           FILE_AUDIO_AMR_NB);
 
   private static final ImmutableList<String> AUDIO_VIDEO_ASSETS =
-      ImmutableList.of(FILE_AUDIO_RAW_VIDEO, "mp4/sample_twos_pcm.mp4", FILE_AUDIO_VIDEO);
+      ImmutableList.of(FILE_AUDIO_RAW_VIDEO, FILE_AUDIO_VIDEO);
 
   private static final ImmutableList<String> VIDEO_ONLY_ASSETS = ImmutableList.of(FILE_VIDEO_ONLY);
 
