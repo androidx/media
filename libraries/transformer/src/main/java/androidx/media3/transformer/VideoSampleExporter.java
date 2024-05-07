@@ -50,7 +50,6 @@ import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.VideoCompositorSettings;
-import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.nio.ByteBuffer;
@@ -275,16 +274,14 @@ import org.checkerframework.dataflow.qual.Pure;
         ImmutableList<MediaCodecInfo> hdrEncoders =
             getSupportedEncodersForHdrEditing(requestedOutputMimeType, inputFormat.colorInfo);
         if (hdrEncoders.isEmpty()) {
-          @Nullable
-          String alternativeMimeType = MediaCodecUtil.getAlternativeCodecMimeType(inputFormat);
-          if (alternativeMimeType != null) {
-            requestedOutputMimeType = alternativeMimeType;
-            hdrEncoders =
-                getSupportedEncodersForHdrEditing(alternativeMimeType, inputFormat.colorInfo);
-          }
+          // Fallback H.265/HEVC codecs for HDR content to avoid tonemapping.
+          hdrEncoders =
+              getSupportedEncodersForHdrEditing(MimeTypes.VIDEO_H265, inputFormat.colorInfo);
         }
         if (hdrEncoders.isEmpty()) {
           hdrMode = HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
+        } else {
+          requestedOutputMimeType = MimeTypes.VIDEO_H265;
         }
       }
 

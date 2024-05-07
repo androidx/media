@@ -230,6 +230,21 @@ public final class AndroidTestUtil {
           .setCodecs("hvc1.2.4.L153")
           .build();
 
+  public static final String MP4_ASSET_AV1_2_SECOND_HDR10 = "asset:///media/mp4/hdr10-av1.mp4";
+  public static final Format MP4_ASSET_AV1_2_SECOND_HDR10_FORMAT =
+      new Format.Builder()
+          .setSampleMimeType(VIDEO_AV1)
+          .setWidth(1920)
+          .setHeight(1080)
+          .setFrameRate(59.94f)
+          .setColorInfo(
+              new ColorInfo.Builder()
+                  .setColorSpace(C.COLOR_SPACE_BT2020)
+                  .setColorRange(C.COLOR_RANGE_LIMITED)
+                  .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+                  .build())
+          .build();
+
   // This file needs alternative MIME type, meaning the decoder needs to be configured with
   // video/hevc instead of video/dolby-vision.
   public static final String MP4_ASSET_DOLBY_VISION_HDR = "asset:///media/mp4/dolbyVision-hdr.MOV";
