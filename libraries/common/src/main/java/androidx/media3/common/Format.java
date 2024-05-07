@@ -967,6 +967,18 @@ public final class Format implements Bundleable {
   // Lazily initialized hashcode.
   private int hashCode;
 
+  private static boolean isLabelPartOfLabels(Builder builder) {
+    if (builder.labels.isEmpty() && builder.label == null) {
+      return true;
+    }
+    for (int i = 0; i < builder.labels.size(); i++) {
+      if (builder.labels.get(i).value.equals(builder.label)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private Format(Builder builder) {
     id = builder.id;
     language = Util.normalizeLanguageCode(builder.language);
@@ -977,9 +989,7 @@ public final class Format implements Bundleable {
       labels = builder.labels;
       label = getDefaultLabel(builder.labels, language);
     } else {
-      checkState(
-          (builder.labels.isEmpty() && builder.label == null)
-              || (builder.labels.stream().anyMatch(l -> l.value.equals(builder.label))));
+      checkState(isLabelPartOfLabels(builder));
       labels = builder.labels;
       label = builder.label;
     }

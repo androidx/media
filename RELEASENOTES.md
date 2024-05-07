@@ -7,6 +7,8 @@
         and `SimpleBasePlayer.handleSeek` methods instead of ignoring them. If
         you are implementing these methods in a custom player, you may need to
         handle these additional calls with `mediaItemIndex == C.INDEX_UNSET`.
+    *   Remove compile dependency on enhanced Java 8 desugaring
+        ([#1312](https://github.com/androidx/media/issues/1312)).
 *   ExoPlayer:
     *   Add `reset` to `BasePreloadManager` to release all the holding sources
         while keep the preload manager instance.

@@ -16,8 +16,8 @@
 package androidx.media3.effect;
 
 import android.content.Context;
+import androidx.media3.common.util.TimestampConsumer;
 import androidx.media3.common.util.UnstableApi;
-import java.util.function.LongConsumer;
 
 /**
  * Changes the frame timestamps using the {@link TimestampMap}.
@@ -43,7 +43,7 @@ public final class TimestampAdjustment implements GlEffect {
      * <p>The implementation should invoke the {@code outputTimeConsumer} with the output timestamp,
      * on any thread.
      */
-    void calculateOutputTimeUs(long inputTimeUs, LongConsumer outputTimeConsumer);
+    void calculateOutputTimeUs(long inputTimeUs, TimestampConsumer outputTimeConsumer);
   }
 
   private final TimestampMap timestampMap;

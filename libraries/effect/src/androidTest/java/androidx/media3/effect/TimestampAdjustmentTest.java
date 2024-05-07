@@ -66,7 +66,7 @@ public class TimestampAdjustmentTest {
                 Thread.currentThread().interrupt();
                 throw new IllegalStateException(e);
               }
-              callback.accept(inputTimeUs / 2);
+              callback.onTimestamp(inputTimeUs / 2);
             });
 
     ImmutableList<Long> actualPresentationTimesUs =

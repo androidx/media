@@ -149,11 +149,15 @@ import java.util.Map;
     }
 
     long presentationTimeOffsetUs =
-        trackTokenToPresentationTimeOffsetUs.getOrDefault(trackToken, 0L);
+        trackTokenToPresentationTimeOffsetUs.containsKey(trackToken)
+            ? trackTokenToPresentationTimeOffsetUs.get(trackToken)
+            : 0;
     presentationTimeUs += presentationTimeOffsetUs;
 
     long lastSamplePresentationTimeUs =
-        trackTokenToLastPresentationTimeUs.getOrDefault(trackToken, 0L);
+        trackTokenToLastPresentationTimeUs.containsKey(trackToken)
+            ? trackTokenToLastPresentationTimeUs.get(trackToken)
+            : 0;
     // writeSampleData blocks on old API versions, so check here to avoid calling the method.
     checkState(
         Util.SDK_INT > 24 || presentationTimeUs >= lastSamplePresentationTimeUs,

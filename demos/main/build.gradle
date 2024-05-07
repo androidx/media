@@ -22,7 +22,6 @@ android {
     compileSdk project.ext.compileSdkVersion
 
     compileOptions {
-        coreLibraryDesugaringEnabled true
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
@@ -91,7 +90,6 @@ dependencies {
     withDecoderExtensionsImplementation project(modulePrefix + 'lib-decoder-vp9')
     withDecoderExtensionsImplementation project(modulePrefix + 'lib-decoder-midi')
     withDecoderExtensionsImplementation project(modulePrefix + 'lib-datasource-rtmp')
-    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:1.1.5'
 }
 
 apply plugin: 'com.google.android.gms.strict-version-matcher-plugin'

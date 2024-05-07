@@ -24,6 +24,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.util.LongArray;
 import androidx.media3.common.util.LongArrayQueue;
 import androidx.media3.common.util.SpeedProviderUtil;
+import androidx.media3.common.util.TimestampConsumer;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.nio.ByteBuffer;
@@ -53,7 +54,7 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
 
   // Elements in the same positions in the queues are associated.
   private final LongArrayQueue pendingCallbackInputTimesUs;
-  private final Queue<LongConsumer> pendingCallbacks;
+  private final Queue<TimestampConsumer> pendingCallbacks;
 
   // Elements in the same positions in the arrays are associated.
   private final LongArray inputSegmentStartTimesUs;
@@ -204,13 +205,13 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
    * @param callback The callback called with the output time. May be called on a different thread
    *     from the caller of this method.
    */
-  public void getSpeedAdjustedTimeAsync(long inputTimeUs, LongConsumer callback) {
+  public void getSpeedAdjustedTimeAsync(long inputTimeUs, TimestampConsumer callback) {
     checkArgument(speedAdjustedTimeAsyncInputTimeUs < inputTimeUs);
     speedAdjustedTimeAsyncInputTimeUs = inputTimeUs;
     synchronized (pendingCallbacksLock) {
       if ((inputTimeUs <= lastProcessedInputTimeUs && pendingCallbackInputTimesUs.isEmpty())
           || isEnded()) {
-        callback.accept(calculateSpeedAdjustedTime(inputTimeUs));
+        callback.onTimestamp(calculateSpeedAdjustedTime(inputTimeUs));
         return;
       }
       pendingCallbackInputTimesUs.add(inputTimeUs);
@@ -261,7 +262,7 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
           && (pendingCallbackInputTimesUs.element() <= lastProcessedInputTimeUs || isEnded())) {
         pendingCallbacks
             .remove()
-            .accept(calculateSpeedAdjustedTime(pendingCallbackInputTimesUs.remove()));
+            .onTimestamp(calculateSpeedAdjustedTime(pendingCallbackInputTimesUs.remove()));
       }
     }
   }
