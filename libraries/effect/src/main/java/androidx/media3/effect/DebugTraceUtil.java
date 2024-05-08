@@ -246,7 +246,7 @@ public final class DebugTraceUtil {
         EventLog eventLog = eventLogs.get(i);
         writer.write(
             formatInvariant(
-                "%s\t%d\t%s\t%s\n",
+                "%s\t%dms\t%s\t%s\n",
                 entry.getKey(),
                 eventLog.eventTimeMs,
                 presentationTimeToString(eventLog.presentationTimeUs),
@@ -261,7 +261,7 @@ public final class DebugTraceUtil {
     } else if (presentationTimeUs == C.TIME_END_OF_SOURCE) {
       return "EOS";
     } else {
-      return String.valueOf(presentationTimeUs);
+      return presentationTimeUs + "us";
     }
   }
 
@@ -278,7 +278,7 @@ public final class DebugTraceUtil {
 
     @Override
     public String toString() {
-      return formatInvariant("%s@%d", presentationTimeToString(presentationTimeUs), eventTimeMs)
+      return formatInvariant("%s@%dms", presentationTimeToString(presentationTimeUs), eventTimeMs)
           + (extra != null ? formatInvariant("(%s)", extra) : "");
     }
   }
