@@ -192,7 +192,9 @@ public final class DefaultAudioSink implements AudioSink {
 
     @Override
     public long getMediaDuration(long playoutDuration) {
-      return sonicAudioProcessor.getMediaDuration(playoutDuration);
+      return sonicAudioProcessor.isActive()
+          ? sonicAudioProcessor.getMediaDuration(playoutDuration)
+          : playoutDuration;
     }
 
     @Override
@@ -1675,9 +1677,7 @@ public final class DefaultAudioSink implements AudioSink {
 
     long playoutDurationSinceLastCheckpointUs =
         positionUs - mediaPositionParameters.audioTrackPositionUs;
-    if (mediaPositionParameters.playbackParameters.equals(PlaybackParameters.DEFAULT)) {
-      return mediaPositionParameters.mediaTimeUs + playoutDurationSinceLastCheckpointUs;
-    } else if (mediaPositionParametersCheckpoints.isEmpty()) {
+    if (mediaPositionParametersCheckpoints.isEmpty()) {
       long mediaDurationSinceLastCheckpointUs =
           audioProcessorChain.getMediaDuration(playoutDurationSinceLastCheckpointUs);
       return mediaPositionParameters.mediaTimeUs + mediaDurationSinceLastCheckpointUs;
