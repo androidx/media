@@ -22,13 +22,11 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.util.JsonWriter;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.StringDef;
 import androidx.media3.common.C;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.io.StringWriter;
@@ -176,7 +174,7 @@ public final class DebugTraceUtil {
   public static synchronized void logEvent(
       @DebugTraceEvent String eventName,
       long presentationTimeUs,
-      @Nullable String extraFormat,
+      String extraFormat,
       Object... extraArgs) {
     if (!enableTracing) {
       return;
@@ -186,8 +184,7 @@ public final class DebugTraceUtil {
       events.put(eventName, new EventLogger());
     }
     EventLogger logger = events.get(eventName);
-    @Nullable
-    String extra = extraFormat != null ? Util.formatInvariant(extraFormat, extraArgs) : null;
+    String extra = Util.formatInvariant(extraFormat, extraArgs);
     logger.addLog(new EventLog(presentationTimeUs, eventTimeMs, extra));
   }
 
@@ -200,7 +197,7 @@ public final class DebugTraceUtil {
    */
   public static synchronized void logEvent(
       @DebugTraceEvent String eventName, long presentationTimeUs) {
-    logEvent(eventName, presentationTimeUs, /* extraFormat= */ null);
+    logEvent(eventName, presentationTimeUs, /* extraFormat= */ "");
   }
 
   /**
@@ -250,7 +247,7 @@ public final class DebugTraceUtil {
                 entry.getKey(),
                 eventLog.eventTimeMs,
                 presentationTimeToString(eventLog.presentationTimeUs),
-                Strings.nullToEmpty(eventLog.extra)));
+                eventLog.extra));
       }
     }
   }
@@ -268,9 +265,9 @@ public final class DebugTraceUtil {
   private static final class EventLog {
     public final long presentationTimeUs;
     public final long eventTimeMs;
-    @Nullable public final String extra;
+    public final String extra;
 
-    private EventLog(long presentationTimeUs, long eventTimeMs, @Nullable String extra) {
+    private EventLog(long presentationTimeUs, long eventTimeMs, String extra) {
       this.presentationTimeUs = presentationTimeUs;
       this.eventTimeMs = eventTimeMs;
       this.extra = extra;
@@ -279,7 +276,7 @@ public final class DebugTraceUtil {
     @Override
     public String toString() {
       return formatInvariant("%s@%dms", presentationTimeToString(presentationTimeUs), eventTimeMs)
-          + (extra != null ? formatInvariant("(%s)", extra) : "");
+          + (extra.isEmpty() ? "" : formatInvariant("(%s)", extra));
     }
   }
 
