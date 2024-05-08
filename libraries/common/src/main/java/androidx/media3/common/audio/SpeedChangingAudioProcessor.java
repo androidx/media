@@ -228,19 +228,19 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
     while (floorIndex > 0 && inputSegmentStartTimesUs.get(floorIndex) > inputTimeUs) {
       floorIndex--;
     }
-    long lastSegmentOutputDuration;
+    long lastSegmentOutputDurationUs;
     if (floorIndex == inputSegmentStartTimesUs.size() - 1) {
       if (lastSpeedAdjustedInputTimeUs < inputSegmentStartTimesUs.get(floorIndex)) {
         lastSpeedAdjustedInputTimeUs = inputSegmentStartTimesUs.get(floorIndex);
         lastSpeedAdjustedOutputTimeUs = outputSegmentStartTimesUs.get(floorIndex);
       }
-      long lastSegmentInputDuration = inputTimeUs - lastSpeedAdjustedInputTimeUs;
-      lastSegmentOutputDuration = getPlayoutDurationAtCurrentSpeed(lastSegmentInputDuration);
+      long lastSegmentInputDurationUs = inputTimeUs - lastSpeedAdjustedInputTimeUs;
+      lastSegmentOutputDurationUs = getPlayoutDurationUsAtCurrentSpeed(lastSegmentInputDurationUs);
     } else {
-      long lastSegmentInputDuration = inputTimeUs - lastSpeedAdjustedInputTimeUs;
-      lastSegmentOutputDuration =
+      long lastSegmentInputDurationUs = inputTimeUs - lastSpeedAdjustedInputTimeUs;
+      lastSegmentOutputDurationUs =
           round(
-              lastSegmentInputDuration
+              lastSegmentInputDurationUs
                   * divide(
                       outputSegmentStartTimesUs.get(floorIndex + 1)
                           - outputSegmentStartTimesUs.get(floorIndex),
@@ -248,7 +248,7 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
                           - inputSegmentStartTimesUs.get(floorIndex)));
     }
     lastSpeedAdjustedInputTimeUs = inputTimeUs;
-    lastSpeedAdjustedOutputTimeUs += lastSegmentOutputDuration;
+    lastSpeedAdjustedOutputTimeUs += lastSegmentOutputDurationUs;
     return lastSpeedAdjustedOutputTimeUs;
   }
 
@@ -277,11 +277,13 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
     inputSegmentStartTimesUs.add(currentSpeedChangeInputTimeUs);
     outputSegmentStartTimesUs.add(
         lastSpeedChangeOutputTimeUs
-            + getPlayoutDurationAtCurrentSpeed(lastSpeedSegmentMediaDurationUs));
+            + getPlayoutDurationUsAtCurrentSpeed(lastSpeedSegmentMediaDurationUs));
   }
 
-  private long getPlayoutDurationAtCurrentSpeed(long mediaDuration) {
-    return isUsingSonic() ? sonicAudioProcessor.getPlayoutDuration(mediaDuration) : mediaDuration;
+  private long getPlayoutDurationUsAtCurrentSpeed(long mediaDurationUs) {
+    return isUsingSonic()
+        ? sonicAudioProcessor.getPlayoutDuration(mediaDurationUs)
+        : mediaDurationUs;
   }
 
   private long updateLastProcessedInputTime() {
