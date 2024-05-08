@@ -33,6 +33,7 @@ import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
 import android.opengl.EGLSurface;
 import android.util.SparseArray;
+import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -75,7 +76,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
   private final Executor listenerExecutor;
   private final VideoCompositorSettings videoCompositorSettings;
   private final List<Effect> compositionEffects;
-  private final List<VideoFrameProcessor> preProcessors;
+  private final SparseArray<VideoFrameProcessor> preProcessors;
 
   private final ExecutorService sharedExecutorService;
 
@@ -114,7 +115,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
     this.compositionEffects = new ArrayList<>(compositionEffects);
     this.initialTimestampOffsetUs = initialTimestampOffsetUs;
     lastRenderedPresentationTimeUs = C.TIME_UNSET;
-    preProcessors = new ArrayList<>();
+    preProcessors = new SparseArray<>();
     sharedExecutorService = newSingleThreadScheduledExecutor(SHARED_EXECUTOR_NAME);
     glObjectsProvider = new SingleContextGlObjectsProvider();
     // TODO - b/289986435: Support injecting VideoFrameProcessor.Factory.
@@ -136,7 +137,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
   @Override
   public void initialize() throws VideoFrameProcessingException {
     checkState(
-        preProcessors.isEmpty()
+        preProcessors.size() == 0
             && videoCompositor == null
             && compositionVideoFrameProcessor == null
             && !released);
@@ -211,10 +212,10 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
   }
 
   @Override
-  public int registerInput() throws VideoFrameProcessingException {
-    checkStateNotNull(videoCompositor);
-
-    int videoCompositorInputId = videoCompositor.registerInputSource();
+  public void registerInput(@IntRange(from = 0) int inputIndex)
+      throws VideoFrameProcessingException {
+    checkState(!contains(preProcessors, inputIndex));
+    checkNotNull(videoCompositor).registerInputSource(inputIndex);
     // Creating a new VideoFrameProcessor for the input.
     VideoFrameProcessor preProcessor =
         videoFrameProcessorFactory
@@ -223,7 +224,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
                 // Texture output to compositor.
                 (textureProducer, texture, presentationTimeUs, syncObject) ->
                     queuePreProcessingOutputToCompositor(
-                        videoCompositorInputId, textureProducer, texture, presentationTimeUs),
+                        inputIndex, textureProducer, texture, presentationTimeUs),
                 PRE_COMPOSITOR_TEXTURE_OUTPUT_CAPACITY)
             .build()
             .create(
@@ -254,17 +255,16 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
 
                   @Override
                   public void onEnded() {
-                    onPreProcessingVideoFrameProcessorEnded(videoCompositorInputId);
+                    onPreProcessingVideoFrameProcessorEnded(inputIndex);
                   }
                 });
-    preProcessors.add(preProcessor);
-    return videoCompositorInputId;
+    preProcessors.put(inputIndex, preProcessor);
   }
 
   @Override
-  public VideoFrameProcessor getProcessor(int inputId) {
-    checkState(inputId < preProcessors.size());
-    return preProcessors.get(inputId);
+  public VideoFrameProcessor getProcessor(int inputIndex) {
+    checkState(contains(preProcessors, inputIndex));
+    return preProcessors.get(inputIndex);
   }
 
   @Override
@@ -285,7 +285,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
 
     // Needs to release the frame processors before their internal executor services are released.
     for (int i = 0; i < preProcessors.size(); i++) {
-      preProcessors.get(i).release();
+      preProcessors.get(preProcessors.keyAt(i)).release();
     }
     preProcessors.clear();
 

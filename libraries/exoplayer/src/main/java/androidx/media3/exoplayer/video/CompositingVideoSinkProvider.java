@@ -419,7 +419,6 @@ public final class CompositingVideoSinkProvider
       outputColorInfo =
           inputColorInfo.buildUpon().setColorTransfer(C.COLOR_TRANSFER_ST2084).build();
     }
-    int videoGraphInputId;
     try {
       videoGraph =
           previewingVideoGraphFactory.create(
@@ -435,12 +434,12 @@ public final class CompositingVideoSinkProvider
         Size size = currentSurfaceAndSize.second;
         maybeSetOutputSurfaceInfo(surface, size.getWidth(), size.getHeight());
       }
-      videoGraphInputId = videoGraph.registerInput();
+      videoGraph.registerInput(/* inputIndex= */ 0);
     } catch (VideoFrameProcessingException e) {
       throw new VideoSink.VideoSinkException(e, sourceFormat);
     }
     state = STATE_INITIALIZED;
-    return videoGraph.getProcessor(videoGraphInputId);
+    return videoGraph.getProcessor(/* inputIndex= */ 0);
   }
 
   private boolean isInitialized() {

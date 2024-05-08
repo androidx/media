@@ -62,6 +62,8 @@
     *   Change default SDR color working space from linear colors to electrical
         BT 709 SDR video. Also provides third option to retain the original
         colorspace.
+    *   Allow defining indeterminate z-order of EditedMediaItemSequences
+        ([#1055](https://github.com/androidx/media/pull/1055)).
 *   Muxers:
 *   IMA extension:
     *   Promote API that is required for apps to play
