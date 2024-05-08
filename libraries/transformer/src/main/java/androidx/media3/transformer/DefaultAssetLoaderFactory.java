@@ -16,8 +16,8 @@
 
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.transformer.ImageUtil.getCommonImageMimeTypeFromExtension;
 
 import android.content.ContentResolver;
 import android.content.Context;
@@ -35,7 +35,6 @@ import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.transformer.AssetLoader.CompositionSettings;
-import com.google.common.base.Ascii;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.util.Objects;
 import java.util.concurrent.Executors;
@@ -161,12 +160,7 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
         ContentResolver cr = context.getContentResolver();
         mimeType = cr.getType(localConfiguration.uri);
       } else {
-        String uriPath = checkNotNull(localConfiguration.uri.getPath());
-        int fileExtensionStart = uriPath.lastIndexOf(".");
-        if (fileExtensionStart != -1) {
-          String extension = Ascii.toLowerCase(uriPath.substring(fileExtensionStart + 1));
-          mimeType = getCommonImageMimeTypeFromExtension(Ascii.toLowerCase(extension));
-        }
+        mimeType = getCommonImageMimeTypeFromExtension(localConfiguration.uri);
       }
     }
     if (mimeType == null) {
@@ -179,47 +173,5 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
         bitmapLoader.supportsMimeType(mimeType),
         "Image format not supported by given bitmapLoader");
     return true;
-  }
-
-  @Nullable
-  private static String getCommonImageMimeTypeFromExtension(String extension) {
-    switch (extension) {
-      case "bmp":
-      case "dib":
-        return MimeTypes.IMAGE_BMP;
-      case "heif":
-      case "heic":
-        return MimeTypes.IMAGE_HEIF;
-      case "jpg":
-      case "jpeg":
-      case "jpe":
-      case "jif":
-      case "jfif":
-      case "jfi":
-        return MimeTypes.IMAGE_JPEG;
-      case "png":
-        return MimeTypes.IMAGE_PNG;
-      case "webp":
-        return MimeTypes.IMAGE_WEBP;
-      case "gif":
-        return "image/gif";
-      case "tiff":
-      case "tif":
-        return "image/tiff";
-      case "raw":
-      case "arw":
-      case "cr2":
-      case "k25":
-        return "image/raw";
-      case "svg":
-      case "svgz":
-        return "image/svg+xml";
-      case "ico":
-        return "image/x-icon";
-      case "avif":
-        return "image/avif";
-      default:
-        return null;
-    }
   }
 }
