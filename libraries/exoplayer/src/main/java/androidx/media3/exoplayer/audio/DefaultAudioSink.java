@@ -1869,6 +1869,11 @@ public final class DefaultAudioSink implements AudioSink {
     if (!stoppedAudioTrack) {
       stoppedAudioTrack = true;
       audioTrackPositionTracker.handleEndOfStream(getWrittenFrames());
+      if (isOffloadedPlayback(audioTrack)) {
+        // Reset handledOffloadOnPresentationEnded to track completion after
+        // this following stop call.
+        handledOffloadOnPresentationEnded = false;
+      }
       audioTrack.stop();
       bytesUntilNextAvSync = 0;
     }

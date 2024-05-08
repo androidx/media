@@ -35,6 +35,10 @@
 *   Audio:
     *   Fix DTS:X Profile 2 encoding attributes for passthrough playback
         ([#1299](https://github.com/androidx/media/pull/1299)).
+    *   For offloaded playback, reset the tracking field for stream completion
+        in `DefaultAudioSink` prior to calling `AudioTrack.stop()` so that
+        `AudioTrack.StreamEventCallback#onPresentationEnded` correctly
+        identifies when all pending data has been played.
 *   Video:
 *   Text:
     *   Fix issue where subtitles starting before a seek position are skipped.
