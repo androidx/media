@@ -26,11 +26,10 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.transformer.Composition.HDR_MODE_KEEP_HDR;
 import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
-import static androidx.media3.transformer.EncoderUtil.getSupportedEncodersForHdrEditing;
+import static androidx.media3.transformer.TransformerUtil.getOutputMimeTypeAndHdrModeAfterFallback;
 
 import android.content.Context;
 import android.media.MediaCodec;
-import android.media.MediaCodecInfo;
 import android.util.Pair;
 import android.view.Surface;
 import androidx.annotation.IntRange;
@@ -51,7 +50,6 @@ import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.VideoCompositorSettings;
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -268,25 +266,8 @@ import org.checkerframework.dataflow.qual.Pure;
         requestedOutputMimeType = inputSampleMimeType;
       }
 
-      // HdrMode fallback is only supported from HDR_MODE_KEEP_HDR to
-      // HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL.
-      @Composition.HdrMode int hdrMode = transformationRequest.hdrMode;
-      if (hdrMode == HDR_MODE_KEEP_HDR && isTransferHdr(inputFormat.colorInfo)) {
-        ImmutableList<MediaCodecInfo> hdrEncoders =
-            getSupportedEncodersForHdrEditing(requestedOutputMimeType, inputFormat.colorInfo);
-        if (hdrEncoders.isEmpty()) {
-          // Fallback H.265/HEVC codecs for HDR content to avoid tonemapping.
-          hdrEncoders =
-              getSupportedEncodersForHdrEditing(MimeTypes.VIDEO_H265, inputFormat.colorInfo);
-        }
-        if (hdrEncoders.isEmpty()) {
-          hdrMode = HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
-        } else {
-          requestedOutputMimeType = MimeTypes.VIDEO_H265;
-        }
-      }
-
-      return Pair.create(requestedOutputMimeType, hdrMode);
+      return getOutputMimeTypeAndHdrModeAfterFallback(
+          transformationRequest.hdrMode, requestedOutputMimeType, inputFormat.colorInfo);
     }
 
     public @Composition.HdrMode int getHdrModeAfterFallback() {
