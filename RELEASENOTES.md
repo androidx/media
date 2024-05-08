@@ -18,6 +18,12 @@
     *   Fix issue with updating the last rebuffer time which resulted in
         incorrect `bs` (buffer starvation) key in CMCD
         ([#1124](https://github.com/androidx/media/issues/1124)).
+    *   Add
+        `PreloadMediaSource.PreloadControl.onLoadedToTheEndOfSource(PreloadMediaSource)`
+        to indicate that the source has loaded to the end. This allows the
+        `DefaultPreloadManager` and the custom
+        `PreloadMediaSource.PreloadControl` implementations to preload the next
+        source or take other actions.
 *   Transformer:
     *   Work around a decoder bug where the number of audio channels was capped
         at stereo when handling PCM input.

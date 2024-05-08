@@ -203,13 +203,17 @@ public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
     @Override
     public boolean onTimelineRefreshed(PreloadMediaSource mediaSource) {
       return continueOrCompletePreloading(
-          mediaSource, status -> status.getStage() > Status.STAGE_TIMELINE_REFRESHED);
+          mediaSource,
+          /* continueLoadingPredicate= */ status ->
+              status.getStage() > Status.STAGE_TIMELINE_REFRESHED);
     }
 
     @Override
     public boolean onPrepared(PreloadMediaSource mediaSource) {
       return continueOrCompletePreloading(
-          mediaSource, status -> status.getStage() > Status.STAGE_SOURCE_PREPARED);
+          mediaSource,
+          /* continueLoadingPredicate= */ status ->
+              status.getStage() > Status.STAGE_SOURCE_PREPARED);
     }
 
     @Override
@@ -217,13 +221,18 @@ public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
         PreloadMediaSource mediaSource, long bufferedPositionUs) {
       return continueOrCompletePreloading(
           mediaSource,
-          status ->
-              (status.getStage() == Status.STAGE_LOADED_TO_POSITION_MS
-                  && status.getValue() > Util.usToMs(bufferedPositionUs)));
+          /* continueLoadingPredicate= */ status ->
+              status.getStage() == Status.STAGE_LOADED_TO_POSITION_MS
+                  && status.getValue() > Util.usToMs(bufferedPositionUs));
     }
 
     @Override
     public void onUsedByPlayer(PreloadMediaSource mediaSource) {
+      onPreloadCompleted(mediaSource);
+    }
+
+    @Override
+    public void onLoadedToTheEndOfSource(PreloadMediaSource mediaSource) {
       onPreloadCompleted(mediaSource);
     }
 

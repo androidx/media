@@ -81,9 +81,12 @@ public final class PreloadMediaSource extends WrappingMediaSource {
     /**
      * Called from {@link PreloadMediaSource} when it requests to continue loading.
      *
+     * <p>If fully loaded, then {@link #onLoadedToTheEndOfSource(PreloadMediaSource)} will be called
+     * instead.
+     *
      * @param mediaSource The {@link PreloadMediaSource} that requests to continue loading.
      * @param bufferedPositionUs An estimate of the absolute position in microseconds up to which
-     *     data is buffered, or {@link C#TIME_END_OF_SOURCE} if the track is fully buffered.
+     *     data is buffered.
      */
     boolean onContinueLoadingRequested(PreloadMediaSource mediaSource, long bufferedPositionUs);
 
@@ -93,6 +96,15 @@ public final class PreloadMediaSource extends WrappingMediaSource {
      * @param mediaSource The {@link PreloadMediaSource} that the player starts using.
      */
     void onUsedByPlayer(PreloadMediaSource mediaSource);
+
+    /**
+     * Called from {@link PreloadMediaSource} when it has loaded to the end of source.
+     *
+     * <p>The default implementation is a no-op.
+     *
+     * @param mediaSource The {@link PreloadMediaSource} that has loaded to the end of source.
+     */
+    default void onLoadedToTheEndOfSource(PreloadMediaSource mediaSource) {}
   }
 
   /** Factory for {@link PreloadMediaSource}. */
@@ -402,7 +414,9 @@ public final class PreloadMediaSource extends WrappingMediaSource {
         return;
       }
       PreloadMediaPeriod preloadMediaPeriod = (PreloadMediaPeriod) mediaPeriod;
-      if (!prepared
+      if (prepared && mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE) {
+        preloadControl.onLoadedToTheEndOfSource(PreloadMediaSource.this);
+      } else if (!prepared
           || preloadControl.onContinueLoadingRequested(
               PreloadMediaSource.this, preloadMediaPeriod.getBufferedPositionUs())) {
         preloadMediaPeriod.continueLoading(

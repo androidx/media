@@ -363,6 +363,80 @@ public final class PreloadMediaSourceTest {
   }
 
   @Test
+  public void preload_loadToTheEndOfSource() throws Exception {
+    AtomicBoolean onTimelineRefreshedCalled = new AtomicBoolean();
+    AtomicBoolean onPreparedCalled = new AtomicBoolean();
+    AtomicBoolean onContinueLoadingRequestedCalled = new AtomicBoolean();
+    AtomicBoolean onLoadedToTheEndOfSourceCalled = new AtomicBoolean();
+    AtomicBoolean onUsedByPlayerCalled = new AtomicBoolean();
+    PreloadMediaSource.PreloadControl preloadControl =
+        new PreloadMediaSource.PreloadControl() {
+          @Override
+          public boolean onTimelineRefreshed(PreloadMediaSource mediaSource) {
+            onTimelineRefreshedCalled.set(true);
+            return true;
+          }
+
+          @Override
+          public boolean onPrepared(PreloadMediaSource mediaSource) {
+            onPreparedCalled.set(true);
+            return true;
+          }
+
+          @Override
+          public boolean onContinueLoadingRequested(
+              PreloadMediaSource mediaSource, long bufferedPositionUs) {
+            // In fact, this method is not necessarily to be called if the
+            // LOADING_CHECK_INTERVAL_BYTES set for the ProgressiveMediaSource.Factory is large
+            // enough to have the media load to the end in one round. However, since we explicitly
+            // set with a small value below, we will still expect this method to be called for at
+            // least once.
+            onContinueLoadingRequestedCalled.set(true);
+            return true;
+          }
+
+          @Override
+          public void onUsedByPlayer(PreloadMediaSource mediaSource) {
+            onUsedByPlayerCalled.set(true);
+          }
+
+          @Override
+          public void onLoadedToTheEndOfSource(PreloadMediaSource mediaSource) {
+            onLoadedToTheEndOfSourceCalled.set(true);
+          }
+        };
+    ProgressiveMediaSource.Factory mediaSourceFactory =
+        new ProgressiveMediaSource.Factory(
+            new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()));
+    mediaSourceFactory.setContinueLoadingCheckIntervalBytes(LOADING_CHECK_INTERVAL_BYTES);
+    TrackSelector trackSelector =
+        new DefaultTrackSelector(ApplicationProvider.getApplicationContext());
+    trackSelector.init(() -> {}, bandwidthMeter);
+    PreloadMediaSource.Factory preloadMediaSourceFactory =
+        new PreloadMediaSource.Factory(
+            mediaSourceFactory,
+            preloadControl,
+            trackSelector,
+            bandwidthMeter,
+            getRendererCapabilities(renderersFactory),
+            allocator,
+            Util.getCurrentOrMainLooper());
+    PreloadMediaSource preloadMediaSource =
+        preloadMediaSourceFactory.createMediaSource(
+            new MediaItem.Builder()
+                .setUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"))
+                .build());
+
+    preloadMediaSource.preload(/* startPositionUs= */ 0L);
+    runMainLooperUntil(onLoadedToTheEndOfSourceCalled::get);
+
+    assertThat(onTimelineRefreshedCalled.get()).isTrue();
+    assertThat(onPreparedCalled.get()).isTrue();
+    assertThat(onContinueLoadingRequestedCalled.get()).isTrue();
+    assertThat(onUsedByPlayerCalled.get()).isFalse();
+  }
+
+  @Test
   public void
       prepareSource_beforeSourceInfoRefreshedForPreloading_onlyInvokeExternalCallerOnSourceInfoRefreshed() {
     AtomicBoolean onTimelineRefreshedCalled = new AtomicBoolean(false);
