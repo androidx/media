@@ -182,20 +182,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     super.flush();
   }
 
-  /** Information needed to generate all the frames associated with a specific {@link Bitmap}. */
-  private static final class BitmapFrameSequenceInfo {
-    public final Bitmap bitmap;
-    private final FrameInfo frameInfo;
-    private final TimestampIterator inStreamOffsetsUs;
-
-    public BitmapFrameSequenceInfo(
-        Bitmap bitmap, FrameInfo frameInfo, TimestampIterator inStreamOffsetsUs) {
-      this.bitmap = bitmap;
-      this.frameInfo = frameInfo;
-      this.inStreamOffsetsUs = inStreamOffsetsUs;
-    }
-  }
-
   private void updateCurrentGlTextureInfo(FrameInfo frameInfo, Bitmap bitmap)
       throws VideoFrameProcessingException {
     int currentTexId;
@@ -216,6 +202,20 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
     } catch (GlUtil.GlException e) {
       throw VideoFrameProcessingException.from(e);
+    }
+  }
+
+  /** Information needed to generate all the frames associated with a specific {@link Bitmap}. */
+  private static final class BitmapFrameSequenceInfo {
+    public final Bitmap bitmap;
+    private final FrameInfo frameInfo;
+    private final TimestampIterator inStreamOffsetsUs;
+
+    public BitmapFrameSequenceInfo(
+        Bitmap bitmap, FrameInfo frameInfo, TimestampIterator inStreamOffsetsUs) {
+      this.bitmap = bitmap;
+      this.frameInfo = frameInfo;
+      this.inStreamOffsetsUs = inStreamOffsetsUs;
     }
   }
 }
