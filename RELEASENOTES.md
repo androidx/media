@@ -85,6 +85,9 @@
     *   Fix bug where `VideoAdPlayer.VideoAdPlayerCallback.onError` was not
         called when a player error happened during ad playback
         ([#1334](https://github.com/androidx/media/issues/1334)).
+    *   Bump IMA SDK version to 3.33.0 to fix a `NullPointerException` when
+        using `data://` ad tag URIs
+        ([#700](https://github.com/androidx/media/issues/700)).
 *   Session:
     *   Hide seekbar in the media notification for live streams by not setting
         the duration into the platform session metadata
