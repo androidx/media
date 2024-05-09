@@ -28,6 +28,7 @@ import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
@@ -116,34 +117,52 @@ public final class DebugTraceUtil {
   public static final String EVENT_MUXER_TRACK_ENDED_AUDIO = "Muxer-TrackEnded_Audio";
   public static final String EVENT_MUXER_TRACK_ENDED_VIDEO = "Muxer-TrackEnded_Video";
 
-  /** List ordered based on expected event ordering. */
-  private static final ImmutableList<String> EVENT_TYPES =
-      ImmutableList.of(
-          EVENT_VIDEO_INPUT_FORMAT,
-          EVENT_DECODER_DECODED_FRAME,
-          EVENT_VFP_REGISTER_NEW_INPUT_STREAM,
-          EVENT_VFP_SURFACE_TEXTURE_INPUT,
-          EVENT_VFP_QUEUE_FRAME,
-          EVENT_VFP_QUEUE_BITMAP,
-          EVENT_VFP_QUEUE_TEXTURE,
-          EVENT_VFP_RENDERED_TO_OUTPUT_SURFACE,
-          EVENT_VFP_OUTPUT_TEXTURE_RENDERED,
-          EVENT_COMPOSITOR_OUTPUT_TEXTURE_RENDERED,
-          EVENT_ENCODER_ENCODED_FRAME,
-          EVENT_MUXER_CAN_WRITE_SAMPLE_VIDEO,
-          EVENT_MUXER_WRITE_SAMPLE_VIDEO,
-          EVENT_MUXER_CAN_WRITE_SAMPLE_AUDIO,
-          EVENT_MUXER_WRITE_SAMPLE_AUDIO,
-          EVENT_DECODER_RECEIVE_EOS,
-          EVENT_DECODER_SIGNAL_EOS,
-          EVENT_VFP_RECEIVE_END_OF_INPUT,
-          EVENT_EXTERNAL_TEXTURE_MANAGER_SIGNAL_EOS,
-          EVENT_BITMAP_TEXTURE_MANAGER_SIGNAL_EOS,
-          EVENT_TEX_ID_TEXTURE_MANAGER_SIGNAL_EOS,
-          EVENT_VFP_SIGNAL_ENDED,
-          EVENT_ENCODER_RECEIVE_EOS,
-          EVENT_MUXER_TRACK_ENDED_AUDIO,
-          EVENT_MUXER_TRACK_ENDED_VIDEO);
+  // TODO - b/339639306: Migrate COMPONENT_VIDEO usage to COMPONENT_ASSETLOADER.
+  private static final String COMPONENT_VIDEO = "Video";
+
+  private static final String COMPONENT_DECODER = "Decoder";
+  private static final String COMPONENT_VFP = "VFP";
+  private static final String COMPONENT_EXTERNAL_TEXTURE_MANAGER = "ExternalTextureManager";
+  private static final String COMPONENT_BITMAP_TEXTURE_MANAGER = "BitmapTextureManager";
+  private static final String COMPONENT_TEX_ID_TEXTURE_MANAGER = "TexIdTextureManager";
+  private static final String COMPONENT_COMPOSITOR = "Compositor";
+  private static final String COMPONENT_ENCODER = "Encoder";
+  private static final String COMPONENT_MUXER = "Muxer";
+
+  private static final ImmutableMap<String, List<String>> COMPONENTS_TO_EVENTS =
+      ImmutableMap.of(
+          COMPONENT_VIDEO, ImmutableList.of(EVENT_VIDEO_INPUT_FORMAT),
+          COMPONENT_DECODER,
+              ImmutableList.of(
+                  EVENT_DECODER_DECODED_FRAME, EVENT_DECODER_RECEIVE_EOS, EVENT_DECODER_SIGNAL_EOS),
+          COMPONENT_VFP,
+              ImmutableList.of(
+                  EVENT_VFP_REGISTER_NEW_INPUT_STREAM,
+                  EVENT_VFP_SURFACE_TEXTURE_INPUT,
+                  EVENT_VFP_QUEUE_FRAME,
+                  EVENT_VFP_QUEUE_BITMAP,
+                  EVENT_VFP_QUEUE_TEXTURE,
+                  EVENT_VFP_RENDERED_TO_OUTPUT_SURFACE,
+                  EVENT_VFP_OUTPUT_TEXTURE_RENDERED,
+                  EVENT_VFP_RECEIVE_END_OF_INPUT,
+                  EVENT_VFP_SIGNAL_ENDED),
+          COMPONENT_EXTERNAL_TEXTURE_MANAGER,
+              ImmutableList.of(EVENT_EXTERNAL_TEXTURE_MANAGER_SIGNAL_EOS),
+          COMPONENT_BITMAP_TEXTURE_MANAGER,
+              ImmutableList.of(EVENT_BITMAP_TEXTURE_MANAGER_SIGNAL_EOS),
+          COMPONENT_TEX_ID_TEXTURE_MANAGER,
+              ImmutableList.of(EVENT_TEX_ID_TEXTURE_MANAGER_SIGNAL_EOS),
+          COMPONENT_COMPOSITOR, ImmutableList.of(EVENT_COMPOSITOR_OUTPUT_TEXTURE_RENDERED),
+          COMPONENT_ENCODER,
+              ImmutableList.of(EVENT_ENCODER_ENCODED_FRAME, EVENT_ENCODER_RECEIVE_EOS),
+          COMPONENT_MUXER,
+              ImmutableList.of(
+                  EVENT_MUXER_CAN_WRITE_SAMPLE_VIDEO,
+                  EVENT_MUXER_WRITE_SAMPLE_VIDEO,
+                  EVENT_MUXER_CAN_WRITE_SAMPLE_AUDIO,
+                  EVENT_MUXER_WRITE_SAMPLE_AUDIO,
+                  EVENT_MUXER_TRACK_ENDED_AUDIO,
+                  EVENT_MUXER_TRACK_ENDED_VIDEO));
 
   private static final int MAX_FIRST_LAST_LOGS = 10;
 
@@ -209,13 +228,15 @@ public final class DebugTraceUtil {
     JsonWriter jsonWriter = new JsonWriter(stringWriter);
     try {
       jsonWriter.beginObject();
-      for (int i = 0; i < EVENT_TYPES.size(); i++) {
-        String eventType = EVENT_TYPES.get(i);
-        jsonWriter.name(eventType);
-        if (!events.containsKey(eventType)) {
-          jsonWriter.value("No events");
-        } else {
-          checkNotNull(events.get(eventType)).toJson(jsonWriter);
+      for (Map.Entry<String, List<String>> componentToEvents : COMPONENTS_TO_EVENTS.entrySet()) {
+        List<String> componentEvents = componentToEvents.getValue();
+        for (String eventType : componentEvents) {
+          jsonWriter.name(eventType);
+          if (!events.containsKey(eventType)) {
+            jsonWriter.value("No events");
+          } else {
+            checkNotNull(events.get(eventType)).toJson(jsonWriter);
+          }
         }
       }
       jsonWriter.endObject();
