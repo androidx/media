@@ -654,38 +654,13 @@ public final class AndroidTestUtil {
   public static void assertSdrColors(Context context, String filePath)
       throws ExecutionException, InterruptedException {
     ColorInfo colorInfo = retrieveTrackFormat(context, filePath, C.TRACK_TYPE_VIDEO).colorInfo;
-    if (isInInvalidDataSpaceDeviceList()) {
-      assertThat(colorInfo.colorTransfer).isEqualTo(Format.NO_VALUE);
-      assertThat(colorInfo.colorSpace).isEqualTo(Format.NO_VALUE);
-    } else {
-      assertThat(colorInfo.colorTransfer).isEqualTo(C.COLOR_TRANSFER_SDR);
-      // Before API 34 some encoders output a BT.601 bitstream even though we request BT.709 for SDR
-      // output, so allow both color spaces in output files when checking for SDR.
-      assertThat(colorInfo.colorSpace).isAnyOf(C.COLOR_SPACE_BT709, C.COLOR_SPACE_BT601);
-    }
-  }
-
-  public static boolean isInInvalidDataSpaceDeviceList() {
-    switch (Util.SDK_INT) {
-      case 23:
-        return Ascii.equalsIgnoreCase(Util.MODEL, "vivo-1610")
-            || Ascii.equalsIgnoreCase(Util.MODEL, "sm-n920v")
-            || Ascii.equalsIgnoreCase(Util.MODEL, "nexus-5")
-            || Ascii.equalsIgnoreCase(Util.MODEL, "moto-g-play")
-            || Ascii.equalsIgnoreCase(Util.MODEL, "sm-g532g")
-            || Ascii.equalsIgnoreCase(Util.MODEL, "lg-as110");
-      case 27:
-        return Ascii.equalsIgnoreCase(Util.MODEL, "redmi-6a")
-            || Ascii.equalsIgnoreCase(Util.MODEL, "vivo-1820");
-      case 28:
-        return Ascii.equalsIgnoreCase(Util.MODEL, "vivo-1901");
-      case 29:
-        return Ascii.equalsIgnoreCase(Util.MODEL, "cph2179");
-      case 30:
-        return Ascii.equalsIgnoreCase(Util.MODEL, "wembley_2gb_full");
-      default:
-        return false;
-    }
+    // Allow unset color values as some encoders don't encode color information for the standard SDR
+    // dataspace.
+    assertThat(colorInfo.colorTransfer).isAnyOf(C.COLOR_TRANSFER_SDR, Format.NO_VALUE);
+    // Before API 34 some encoders output a BT.601 bitstream even though we request BT.709 for SDR
+    // output, so allow both color spaces in output files when checking for SDR.
+    assertThat(colorInfo.colorSpace)
+        .isAnyOf(C.COLOR_SPACE_BT709, C.COLOR_SPACE_BT601, Format.NO_VALUE);
   }
 
   public static ImmutableList<Bitmap> extractBitmapsFromVideo(Context context, String filePath)
