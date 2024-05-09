@@ -79,8 +79,6 @@ public final class DefaultVideoCompositor implements VideoCompositor {
 
   private static final String THREAD_NAME = "Effect:DefaultVideoCompositor:GlThread";
   private static final String TAG = "DefaultVideoCompositor";
-  // TODO: b/338579287: Use the first registered index instead of a constant value.
-  private static final int PRIMARY_INPUT_INDEX = 0;
 
   private final VideoCompositor.Listener listener;
   private final GlTextureProducer.Listener textureOutputListener;
@@ -105,6 +103,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
   private @MonotonicNonNull EGLContext eglContext;
   private @MonotonicNonNull EGLDisplay eglDisplay;
   private @MonotonicNonNull EGLSurface placeholderEglSurface;
+  private int primaryInputIndex;
 
   /**
    * Creates an instance.
@@ -125,6 +124,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
     this.glObjectsProvider = glObjectsProvider;
     this.settings = settings;
     this.compositorGlProgram = new CompositorGlProgram(context);
+    primaryInputIndex = C.INDEX_UNSET;
 
     inputSources = new SparseArray<>();
     outputTexturePool =
@@ -143,15 +143,24 @@ public final class DefaultVideoCompositor implements VideoCompositor {
     videoFrameProcessingTaskExecutor.submit(this::setupGlObjects);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>The first registered input will be designated as the primary input.
+   */
   @Override
-  public synchronized void registerInputSource(@IntRange(from = 0) int inputIndex) {
+  public synchronized void registerInputSource(int inputIndex) {
     checkState(!contains(inputSources, inputIndex));
     inputSources.put(inputIndex, new InputSource());
+    if (primaryInputIndex == C.INDEX_UNSET) {
+      primaryInputIndex = inputIndex;
+    }
   }
 
   @Override
   public synchronized void signalEndOfInputSource(int inputIndex) {
     checkState(contains(inputSources, inputIndex));
+    checkState(primaryInputIndex != C.INDEX_UNSET);
     inputSources.get(inputIndex).isInputEnded = true;
     boolean allInputsEnded = true;
     for (int i = 0; i < inputSources.size(); i++) {
@@ -162,8 +171,8 @@ public final class DefaultVideoCompositor implements VideoCompositor {
     }
 
     this.allInputsEnded = allInputsEnded;
-    if (inputSources.get(PRIMARY_INPUT_INDEX).frameInfos.isEmpty()) {
-      if (inputIndex == PRIMARY_INPUT_INDEX) {
+    if (inputSources.get(primaryInputIndex).frameInfos.isEmpty()) {
+      if (inputIndex == primaryInputIndex) {
         releaseExcessFramesInAllSecondaryStreams();
       }
       if (allInputsEnded) {
@@ -171,7 +180,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
         return;
       }
     }
-    if (inputIndex != PRIMARY_INPUT_INDEX && inputSources.get(inputIndex).frameInfos.size() == 1) {
+    if (inputIndex != primaryInputIndex && inputSources.get(inputIndex).frameInfos.size() == 1) {
       // When a secondary stream ends input, composite if there was only one pending frame in the
       // stream.
       videoFrameProcessingTaskExecutor.submit(this::maybeComposite);
@@ -186,6 +195,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
       ColorInfo colorInfo,
       long presentationTimeUs) {
     checkState(contains(inputSources, inputIndex));
+
     InputSource inputSource = inputSources.get(inputIndex);
     checkState(!inputSource.isInputEnded);
     checkStateNotNull(!ColorInfo.isTransferHdr(colorInfo), "HDR input is not supported.");
@@ -203,7 +213,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
             settings.getOverlaySettings(inputIndex, presentationTimeUs));
     inputSource.frameInfos.add(inputFrameInfo);
 
-    if (inputIndex == PRIMARY_INPUT_INDEX) {
+    if (inputIndex == primaryInputIndex) {
       releaseExcessFramesInAllSecondaryStreams();
     } else {
       releaseExcessFramesInSecondaryStream(inputSource);
@@ -229,11 +239,11 @@ public final class DefaultVideoCompositor implements VideoCompositor {
   }
 
   private synchronized void releaseExcessFramesInAllSecondaryStreams() {
-    for (int inputIndex = 0; inputIndex < inputSources.size(); inputIndex++) {
-      if (inputIndex == PRIMARY_INPUT_INDEX) {
+    for (int i = 0; i < inputSources.size(); i++) {
+      if (inputSources.keyAt(i) == primaryInputIndex) {
         continue;
       }
-      releaseExcessFramesInSecondaryStream(inputSources.valueAt(inputIndex));
+      releaseExcessFramesInSecondaryStream(inputSources.valueAt(i));
     }
   }
 
@@ -245,7 +255,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
    * began.
    */
   private synchronized void releaseExcessFramesInSecondaryStream(InputSource secondaryInputSource) {
-    InputSource primaryInputSource = inputSources.get(PRIMARY_INPUT_INDEX);
+    InputSource primaryInputSource = inputSources.get(primaryInputIndex);
     // If the primary stream output is ended, all secondary frames can be released.
     if (primaryInputSource.frameInfos.isEmpty() && primaryInputSource.isInputEnded) {
       releaseFrames(
@@ -296,7 +306,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
       return;
     }
 
-    InputFrameInfo primaryInputFrame = framesToComposite.get(PRIMARY_INPUT_INDEX);
+    InputFrameInfo primaryInputFrame = framesToComposite.get(primaryInputIndex);
 
     ImmutableList.Builder<Size> inputSizes = new ImmutableList.Builder<>();
     for (int i = 0; i < framesToComposite.size(); i++) {
@@ -317,7 +327,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
     textureOutputListener.onTextureRendered(
         /* textureProducer= */ this, outputTexture, outputPresentationTimestampUs, syncObject);
 
-    InputSource primaryInputSource = inputSources.get(PRIMARY_INPUT_INDEX);
+    InputSource primaryInputSource = inputSources.get(primaryInputIndex);
     releaseFrames(primaryInputSource, /* numberOfFramesToRelease= */ 1);
     releaseExcessFramesInAllSecondaryStreams();
 
@@ -344,11 +354,11 @@ public final class DefaultVideoCompositor implements VideoCompositor {
     }
     ImmutableList.Builder<InputFrameInfo> framesToComposite = new ImmutableList.Builder<>();
     InputFrameInfo primaryFrameToComposite =
-        inputSources.get(PRIMARY_INPUT_INDEX).frameInfos.element();
+        inputSources.get(primaryInputIndex).frameInfos.element();
     framesToComposite.add(primaryFrameToComposite);
 
     for (int i = 0; i < inputSources.size(); i++) {
-      if (i == PRIMARY_INPUT_INDEX) {
+      if (inputSources.keyAt(i) == primaryInputIndex) {
         continue;
       }
       // Select the secondary streams' frame that would be composited next. The frame selected is

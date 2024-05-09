@@ -15,7 +15,6 @@
  */
 package androidx.media3.effect;
 
-import androidx.annotation.IntRange;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
@@ -50,12 +49,11 @@ public interface VideoCompositor extends GlTextureProducer {
    * Registers a new input source.
    *
    * @param inputIndex The index of the input source which could be used to determine the order of
-   *     the input sources. The same index should to be used in {@link #queueInputTexture}. The
-   *     index must start from 0. All inputs must be registered before {@linkplain
-   *     #queueInputTexture(int, GlTextureProducer, GlTextureInfo, ColorInfo, long) queueing}
-   *     textures.
+   *     the input sources. The same index should to be used in {@link #queueInputTexture}. All
+   *     inputs must be registered before {@linkplain #queueInputTexture(int, GlTextureProducer,
+   *     GlTextureInfo, ColorInfo, long) queueing} textures.
    */
-  void registerInputSource(@IntRange(from = 0) int inputIndex);
+  void registerInputSource(int inputIndex);
 
   /**
    * Signals that no more frames will come from the upstream {@link GlTextureProducer.Listener}.
