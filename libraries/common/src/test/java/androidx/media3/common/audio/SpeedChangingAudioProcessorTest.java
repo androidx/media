@@ -240,6 +240,25 @@ public class SpeedChangingAudioProcessorTest {
   }
 
   @Test
+  public void queueInput_multipleSpeedsInBufferWithLimitVeryClose_readsDataUntilSpeedLimit()
+      throws Exception {
+    long speedChangeTimeUs = 1; // Change speed very close to current position at 1us.
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithStartTimes(
+            /* startTimesUs= */ new long[] {0L, speedChangeTimeUs},
+            /* speeds= */ new float[] {1, 2});
+    SpeedChangingAudioProcessor speedChangingAudioProcessor =
+        getConfiguredSpeedChangingAudioProcessor(speedProvider);
+    ByteBuffer inputBuffer = getInputBuffer(/* frameCount= */ 5);
+    int inputBufferLimit = inputBuffer.limit();
+
+    speedChangingAudioProcessor.queueInput(inputBuffer);
+
+    assertThat(inputBuffer.position()).isEqualTo(AUDIO_FORMAT.bytesPerFrame);
+    assertThat(inputBuffer.limit()).isEqualTo(inputBufferLimit);
+  }
+
+  @Test
   public void queueEndOfStream_afterNoSpeedChangeAndWithOutputRetrieved_endsProcessor()
       throws Exception {
     SpeedProvider speedProvider =

@@ -27,6 +27,7 @@ import androidx.media3.common.util.SpeedProviderUtil;
 import androidx.media3.common.util.TimestampConsumer;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.Queue;
@@ -117,11 +118,12 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
     if (nextSpeedChangeTimeUs != C.TIME_UNSET) {
       bytesToNextSpeedChange =
           (int)
-              Util.scaleLargeTimestamp(
+              Util.scaleLargeValue(
                   /* timestamp= */ nextSpeedChangeTimeUs - timeUs,
                   /* multiplier= */ (long) inputAudioFormat.sampleRate
                       * inputAudioFormat.bytesPerFrame,
-                  /* divisor= */ C.MICROS_PER_SECOND);
+                  /* divisor= */ C.MICROS_PER_SECOND,
+                  RoundingMode.CEILING);
       int bytesToNextFrame =
           inputAudioFormat.bytesPerFrame - bytesToNextSpeedChange % inputAudioFormat.bytesPerFrame;
       if (bytesToNextFrame != inputAudioFormat.bytesPerFrame) {
