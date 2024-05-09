@@ -33,6 +33,7 @@ import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.extractor.metadata.mp4.SlowMotionData;
@@ -40,7 +41,8 @@ import androidx.media3.transformer.Composition.HdrMode;
 import com.google.common.collect.ImmutableList;
 
 /** Utility methods for Transformer. */
-/* package */ final class TransformerUtil {
+@UnstableApi
+public final class TransformerUtil {
 
   private TransformerUtil() {}
 
