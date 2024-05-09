@@ -65,7 +65,6 @@ public final class DebugTraceUtil {
     EVENT_VFP_QUEUE_TEXTURE,
     EVENT_VFP_RENDERED_TO_OUTPUT_SURFACE,
     EVENT_VFP_OUTPUT_TEXTURE_RENDERED,
-    EVENT_VFP_FINISH_PROCESSING_INPUT_STREAM,
     EVENT_COMPOSITOR_OUTPUT_TEXTURE_RENDERED,
     EVENT_ENCODER_ENCODED_FRAME,
     EVENT_MUXER_CAN_WRITE_SAMPLE_VIDEO,
@@ -96,7 +95,6 @@ public final class DebugTraceUtil {
   public static final String EVENT_VFP_QUEUE_TEXTURE = "VFP-QueueTexture";
   public static final String EVENT_VFP_RENDERED_TO_OUTPUT_SURFACE = "VFP-RenderedToOutputSurface";
   public static final String EVENT_VFP_OUTPUT_TEXTURE_RENDERED = "VFP-OutputTextureRendered";
-  public static final String EVENT_VFP_FINISH_PROCESSING_INPUT_STREAM = "VFP-FinishOneInputStream";
   public static final String EVENT_COMPOSITOR_OUTPUT_TEXTURE_RENDERED =
       "COMP-OutputTextureRendered";
   public static final String EVENT_ENCODER_ENCODED_FRAME = "Encoder-EncodedFrame";
@@ -130,7 +128,6 @@ public final class DebugTraceUtil {
           EVENT_VFP_QUEUE_TEXTURE,
           EVENT_VFP_RENDERED_TO_OUTPUT_SURFACE,
           EVENT_VFP_OUTPUT_TEXTURE_RENDERED,
-          EVENT_VFP_FINISH_PROCESSING_INPUT_STREAM,
           EVENT_COMPOSITOR_OUTPUT_TEXTURE_RENDERED,
           EVENT_ENCODER_ENCODED_FRAME,
           EVENT_MUXER_CAN_WRITE_SAMPLE_VIDEO,
