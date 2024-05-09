@@ -214,7 +214,6 @@ public final class Ac4Util {
       throws ParserException {
     ParsableBitArray dataBitArray = new ParsableBitArray();
     dataBitArray.reset(data);
-    Map<Integer, Ac4Presentation> ac4Presentations = new HashMap<>();
     long dsiSize = dataBitArray.bitsLeft();
 
     int ac4DsiVersion = dataBitArray.readBits(3);  // ac4_dsi_version
@@ -251,8 +250,10 @@ public final class Ac4Util {
       dataBitArray.byteAlign();
     }
 
-    for (int presentationIndex = 0; presentationIndex < nPresentations; presentationIndex++) {
-      Ac4Presentation ac4Presentation = new Ac4Presentation();
+    // Just parse the first presentation (default presentation)
+    int presentationIndex = 0;
+    Ac4Presentation ac4Presentation = new Ac4Presentation();
+    do {
       ac4Presentation.programID = shortProgramId;
       // known as b_single_substream in ac4_dsi_version 0
       boolean bSingleSubstreamGroup = false;
@@ -273,7 +274,6 @@ public final class Ac4Util {
         }
         if (presentationVersion > 2) {
           dataBitArray.skipBits(presBytes * 8);
-          ac4Presentations.put(presentationIndex, ac4Presentation);
           continue;
         }
         // record a marker, less the size of the presentation_config
@@ -420,7 +420,7 @@ public final class Ac4Util {
                             + presentationIndex + ", substream group ID = " + substreamGroupID);
                   }
                 }
-               }
+              }
               break;
             case 5:
               if (presentationVersion == 0) {
@@ -509,15 +509,9 @@ public final class Ac4Util {
         throw ParserException.createForUnsupportedContainerFeature(
             "Can't determine channel mode of presentation " + presentationIndex);
       }
-
-      ac4Presentations.put(presentationIndex, ac4Presentation);
-    }
+    } while (false);
 
     int channelCount = -1;
-    // Using first presentation (default presentation) channel count
-    int presentationIndex = 0;
-    Ac4Presentation ac4Presentation =
-        Objects.requireNonNull(ac4Presentations.get(presentationIndex));
     if (ac4Presentation.channelCoded) {
       channelCount = convertAc4ChannelModeToChannelCount(ac4Presentation.channelMode,
           ac4Presentation.backChannelsPresent, ac4Presentation.topChannelPairs);
