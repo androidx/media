@@ -20,6 +20,7 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 import static java.lang.Math.min;
 import static java.lang.Math.round;
 
+import androidx.annotation.GuardedBy;
 import androidx.media3.common.C;
 import androidx.media3.common.util.LongArray;
 import androidx.media3.common.util.LongArrayQueue;
@@ -32,6 +33,8 @@ import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.Queue;
 import java.util.function.LongConsumer;
+import org.checkerframework.checker.initialization.qual.UnknownInitialization;
+import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 
 /**
  * An {@link AudioProcessor} that changes the speed of audio samples depending on their timestamp.
@@ -54,12 +57,15 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
   private final Object pendingCallbacksLock;
 
   // Elements in the same positions in the queues are associated.
+  @GuardedBy("pendingCallbacksLock")
   private final LongArrayQueue pendingCallbackInputTimesUs;
+
+  @GuardedBy("pendingCallbacksLock")
   private final Queue<TimestampConsumer> pendingCallbacks;
 
   // Elements in the same positions in the arrays are associated.
-  private final LongArray inputSegmentStartTimesUs;
-  private final LongArray outputSegmentStartTimesUs;
+  private LongArray inputSegmentStartTimesUs;
+  private LongArray outputSegmentStartTimesUs;
 
   private float currentSpeed;
   private long bytesRead;
@@ -67,6 +73,8 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
   private long lastSpeedAdjustedInputTimeUs;
   private long lastSpeedAdjustedOutputTimeUs;
   private boolean endOfStreamQueuedToSonic;
+
+  @GuardedBy("pendingCallbacksLock")
   private long speedAdjustedTimeAsyncInputTimeUs;
 
   public SpeedChangingAudioProcessor(SpeedProvider speedProvider) {
@@ -75,12 +83,8 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
     pendingCallbacksLock = new Object();
     pendingCallbackInputTimesUs = new LongArrayQueue();
     pendingCallbacks = new ArrayDeque<>();
-    inputSegmentStartTimesUs = new LongArray();
-    outputSegmentStartTimesUs = new LongArray();
-    inputSegmentStartTimesUs.add(0);
-    outputSegmentStartTimesUs.add(0);
-    currentSpeed = 1f;
     speedAdjustedTimeAsyncInputTimeUs = C.TIME_UNSET;
+    resetState();
   }
 
   @Override
@@ -109,7 +113,10 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
         sonicAudioProcessor.setSpeed(newSpeed);
         sonicAudioProcessor.setPitch(newSpeed);
       }
-      flush();
+      // Invalidate any previously created buffers in SonicAudioProcessor and the base class.
+      sonicAudioProcessor.flush();
+      endOfStreamQueuedToSonic = false;
+      super.getOutput();
     }
 
     int inputBufferLimit = inputBuffer.limit();
@@ -177,16 +184,14 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
 
   @Override
   protected void onFlush() {
+    resetState();
     sonicAudioProcessor.flush();
-    endOfStreamQueuedToSonic = false;
   }
 
   @Override
   protected void onReset() {
-    currentSpeed = 1f;
-    bytesRead = 0;
+    resetState();
     sonicAudioProcessor.reset();
-    endOfStreamQueuedToSonic = false;
   }
 
   /**
@@ -208,9 +213,9 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
    *     from the caller of this method.
    */
   public void getSpeedAdjustedTimeAsync(long inputTimeUs, TimestampConsumer callback) {
-    checkArgument(speedAdjustedTimeAsyncInputTimeUs < inputTimeUs);
-    speedAdjustedTimeAsyncInputTimeUs = inputTimeUs;
     synchronized (pendingCallbacksLock) {
+      checkArgument(speedAdjustedTimeAsyncInputTimeUs < inputTimeUs);
+      speedAdjustedTimeAsyncInputTimeUs = inputTimeUs;
       if ((inputTimeUs <= lastProcessedInputTimeUs && pendingCallbackInputTimesUs.isEmpty())
           || isEnded()) {
         callback.onTimestamp(calculateSpeedAdjustedTime(inputTimeUs));
@@ -308,5 +313,23 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
 
   private boolean isUsingSonic() {
     return currentSpeed != 1f;
+  }
+
+  @EnsuresNonNull({"inputSegmentStartTimesUs", "outputSegmentStartTimesUs"})
+  private void resetState(@UnknownInitialization SpeedChangingAudioProcessor this) {
+    currentSpeed = 1f;
+    bytesRead = 0;
+    inputSegmentStartTimesUs = new LongArray();
+    outputSegmentStartTimesUs = new LongArray();
+    inputSegmentStartTimesUs.add(0);
+    outputSegmentStartTimesUs.add(0);
+    lastProcessedInputTimeUs = 0;
+    lastSpeedAdjustedInputTimeUs = 0;
+    lastSpeedAdjustedOutputTimeUs = 0;
+    endOfStreamQueuedToSonic = false;
+    // TODO: b/339842724 - This should ideally also reset speedAdjustedTimeAsyncInputTimeUs and
+    //  clear pendingCallbacks and pendingCallbacksInputTimes. We can't do this at the moment
+    //  because some clients register callbacks with getSpeedAdjustedTimeAsync before this audio
+    //  processor is flushed.
   }
 }

@@ -399,6 +399,46 @@ public class SpeedChangingAudioProcessorTest {
   }
 
   @Test
+  public void getSpeedAdjustedTimeAsync_afterFlush_callbacksCalledWithCorrectParameters()
+      throws Exception {
+    ArrayList<Long> outputTimesUs = new ArrayList<>();
+    // The speed change is at 113Us (5*MICROS_PER_SECOND/sampleRate). Also add another speed change
+    // to 3x at a later point that should not be used if the flush is handled correctly.
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithFrameCounts(
+            AUDIO_FORMAT,
+            /* frameCounts= */ new int[] {5, 5, 5},
+            /* speeds= */ new float[] {2, 1, 3});
+    SpeedChangingAudioProcessor speedChangingAudioProcessor =
+        getConfiguredSpeedChangingAudioProcessor(speedProvider);
+    ByteBuffer inputBuffer = getInputBuffer(/* frameCount= */ 5);
+    // Use the audio processor before a flush
+    speedChangingAudioProcessor.queueInput(inputBuffer);
+    getAudioProcessorOutput(speedChangingAudioProcessor);
+    inputBuffer.rewind();
+    speedChangingAudioProcessor.queueInput(inputBuffer);
+    getAudioProcessorOutput(speedChangingAudioProcessor);
+    inputBuffer.rewind();
+
+    // Flush and use it again.
+    speedChangingAudioProcessor.flush();
+    speedChangingAudioProcessor.getSpeedAdjustedTimeAsync(
+        /* inputTimeUs= */ 50L, outputTimesUs::add);
+    speedChangingAudioProcessor.queueInput(inputBuffer);
+    getAudioProcessorOutput(speedChangingAudioProcessor);
+    inputBuffer.rewind();
+    speedChangingAudioProcessor.queueInput(inputBuffer);
+    getAudioProcessorOutput(speedChangingAudioProcessor);
+    speedChangingAudioProcessor.getSpeedAdjustedTimeAsync(
+        /* inputTimeUs= */ 100L, outputTimesUs::add);
+    speedChangingAudioProcessor.getSpeedAdjustedTimeAsync(
+        /* inputTimeUs= */ 150L, outputTimesUs::add);
+
+    // 150 is after the speed change so floor(113 / 2 + (150 - 113)*1) -> 93
+    assertThat(outputTimesUs).containsExactly(25L, 50L, 93L);
+  }
+
+  @Test
   public void getSpeedAdjustedTimeAsync_timeAfterEndTime_callbacksCalledWithCorrectParameters()
       throws Exception {
     ArrayList<Long> outputTimesUs = new ArrayList<>();
