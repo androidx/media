@@ -254,7 +254,8 @@ public class TransformerEndToEndTest {
             .setDurationUs(C.MICROS_PER_SECOND)
             .setEffects(new Effects(/* audioProcessors= */ ImmutableList.of(), videoEffects))
             .build();
-    int texId = generateTextureFromBitmap(bitmap);
+    int texId1 = generateTextureFromBitmap(bitmap);
+    int texId2 = generateTextureFromBitmap(bitmap);
     HandlerThread textureQueuingThread = new HandlerThread("textureQueuingThread");
     textureQueuingThread.start();
     Looper looper = checkNotNull(textureQueuingThread.getLooper());
@@ -263,9 +264,9 @@ public class TransformerEndToEndTest {
           @Override
           public void handleMessage(Message msg) {
             if (textureAssetLoader != null
-                && textureAssetLoader.queueInputTexture(texId, /* presentationTimeUs= */ 0)) {
+                && textureAssetLoader.queueInputTexture(texId1, /* presentationTimeUs= */ 0)) {
               textureAssetLoader.queueInputTexture(
-                  texId, /* presentationTimeUs= */ C.MICROS_PER_SECOND / 2);
+                  texId2, /* presentationTimeUs= */ C.MICROS_PER_SECOND / 2);
               textureAssetLoader.signalEndOfVideoInput();
               return;
             }
@@ -305,7 +306,8 @@ public class TransformerEndToEndTest {
         new EditedMediaItem.Builder(MediaItem.fromUri(Uri.EMPTY))
             .setDurationUs(C.MICROS_PER_SECOND)
             .build();
-    int texId = generateTextureFromBitmap(bitmap);
+    int texId1 = generateTextureFromBitmap(bitmap);
+    int texId2 = generateTextureFromBitmap(bitmap);
     HandlerThread textureQueuingThread = new HandlerThread("textureQueuingThread");
     textureQueuingThread.start();
     Looper looper = checkNotNull(textureQueuingThread.getLooper());
@@ -314,9 +316,9 @@ public class TransformerEndToEndTest {
           @Override
           public void handleMessage(Message msg) {
             if (textureAssetLoader != null
-                && textureAssetLoader.queueInputTexture(texId, /* presentationTimeUs= */ 0)) {
+                && textureAssetLoader.queueInputTexture(texId1, /* presentationTimeUs= */ 0)) {
               textureAssetLoader.queueInputTexture(
-                  texId, /* presentationTimeUs= */ C.MICROS_PER_SECOND / 2);
+                  texId2, /* presentationTimeUs= */ C.MICROS_PER_SECOND / 2);
               textureAssetLoader.signalEndOfVideoInput();
               return;
             }
