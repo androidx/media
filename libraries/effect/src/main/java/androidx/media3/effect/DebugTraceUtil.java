@@ -229,8 +229,8 @@ public final class DebugTraceUtil {
     try {
       jsonWriter.beginObject();
       for (Map.Entry<String, List<String>> componentToEvents : COMPONENTS_TO_EVENTS.entrySet()) {
-        List<String> componentEvents = componentToEvents.getValue();
-        for (String eventType : componentEvents) {
+        jsonWriter.name(componentToEvents.getKey()).beginObject();
+        for (String eventType : componentToEvents.getValue()) {
           jsonWriter.name(eventType);
           if (!events.containsKey(eventType)) {
             jsonWriter.value("No events");
@@ -238,6 +238,7 @@ public final class DebugTraceUtil {
             checkNotNull(events.get(eventType)).toJson(jsonWriter);
           }
         }
+        jsonWriter.endObject();
       }
       jsonWriter.endObject();
       return stringWriter.toString();
