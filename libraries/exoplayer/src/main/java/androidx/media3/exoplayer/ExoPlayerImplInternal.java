@@ -1038,13 +1038,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
       long periodPositionUs = playingPeriodHolder.toPeriodTime(rendererPositionUs);
       maybeTriggerPendingMessages(playbackInfo.positionUs, periodPositionUs);
       if (mediaClock.hasSkippedSilenceSinceLastCall()) {
+        // Only report silence skipping if there isn't already another discontinuity.
+        boolean reportSilenceSkip = !playbackInfoUpdate.positionDiscontinuity;
         playbackInfo =
             handlePositionDiscontinuity(
                 playbackInfo.periodId,
                 /* positionUs= */ periodPositionUs,
                 playbackInfo.requestedContentPositionUs,
                 /* discontinuityStartPositionUs= */ periodPositionUs,
-                /* reportDiscontinuity= */ true,
+                /* reportDiscontinuity= */ reportSilenceSkip,
                 Player.DISCONTINUITY_REASON_SILENCE_SKIP);
       } else {
         playbackInfo.updatePositionUs(periodPositionUs);

@@ -14749,6 +14749,62 @@ public class ExoPlayerTest {
   }
 
   @Test
+  public void silenceSkipped_atItemTransition_doesNotHideAutoTransitionDiscontinuity()
+      throws Exception {
+    FakeMediaClockRenderer audioRenderer =
+        new FakeMediaClockRenderer(C.TRACK_TYPE_AUDIO) {
+          private long positionUs;
+
+          @Override
+          protected void onStreamChanged(
+              Format[] formats, long startPositionUs, long offsetUs, MediaPeriodId mediaPeriodId) {
+            positionUs = offsetUs;
+          }
+
+          @Override
+          public long getPositionUs() {
+            // Advance position to make playback progress.
+            positionUs += 10_000;
+            return positionUs;
+          }
+
+          @Override
+          public boolean hasSkippedSilenceSinceLastCall() {
+            // Contuniuosly report skipped silences to ensure they will overlap with other
+            // discontinuities like AUTO_TRANSITION.
+            return true;
+          }
+
+          @Override
+          public void setPlaybackParameters(PlaybackParameters playbackParameters) {}
+
+          @Override
+          public PlaybackParameters getPlaybackParameters() {
+            return PlaybackParameters.DEFAULT;
+          }
+        };
+    ExoPlayer player =
+        parameterizeTestExoPlayerBuilder(
+                new TestExoPlayerBuilder(context).setRenderers(audioRenderer))
+            .build();
+    Player.Listener mockPlayerListener = mock(Player.Listener.class);
+    player.addListener(mockPlayerListener);
+
+    player.setMediaSources(
+        ImmutableList.of(
+            new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT),
+            new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT),
+            new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT)));
+    player.prepare();
+    player.play();
+    runUntilPlaybackState(player, Player.STATE_ENDED);
+    player.release();
+
+    verify(mockPlayerListener, times(2))
+        .onPositionDiscontinuity(any(), any(), eq(Player.DISCONTINUITY_REASON_AUTO_TRANSITION));
+  }
+
+  @Test
   public void seekToZeroAndTrackSelection_withNonZeroDefaultPosition_startsPlaybackAtZero()
       throws Exception {
     // Create a timeline with a non-zero default position. It's important to use a
