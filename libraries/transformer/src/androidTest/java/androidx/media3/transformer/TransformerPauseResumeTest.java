@@ -38,7 +38,6 @@ import androidx.media3.effect.RgbFilter;
 import androidx.media3.muxer.Muxer.TrackToken;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
-import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -100,8 +99,7 @@ public class TransformerPauseResumeTest {
     ExportResult exportResult = testRunner.run(testId, composition, firstOutputPath).exportResult;
 
     assertThat(exportResult.processedInputs).hasSize(4);
-    assertThat(exportResult.videoFrameCount)
-        .isEqualTo(MP4_ASSET_FRAME_COUNT - getDeviceSpecificMissingFrameCount());
+    assertThat(exportResult.videoFrameCount).isEqualTo(MP4_ASSET_FRAME_COUNT);
     // The first processed media item corresponds to remuxing previous output video.
     assertThat(exportResult.processedInputs.get(0).audioDecoderName).isNull();
     assertThat(exportResult.processedInputs.get(0).videoDecoderName).isNull();
@@ -192,8 +190,7 @@ public class TransformerPauseResumeTest {
     assertThat(exportResultWithResume.videoEncoderName)
         .isEqualTo(exportResultWithoutResume.videoEncoderName);
     assertThat(exportResultWithResume.videoFrameCount)
-        .isEqualTo(
-            exportResultWithoutResume.videoFrameCount - getDeviceSpecificMissingFrameCount());
+        .isEqualTo(exportResultWithoutResume.videoFrameCount);
     // TODO: b/306595508 - Remove this expected difference once inconsistent behaviour of audio
     //  encoder is fixed.
     int maxDiffExpectedInDurationMs = 2;
@@ -244,8 +241,7 @@ public class TransformerPauseResumeTest {
     assertThat(exportResultWithResume.videoEncoderName)
         .isEqualTo(exportResultWithoutResume.videoEncoderName);
     assertThat(exportResultWithResume.videoFrameCount)
-        .isEqualTo(
-            exportResultWithoutResume.videoFrameCount - getDeviceSpecificMissingFrameCount());
+        .isEqualTo(exportResultWithoutResume.videoFrameCount);
     int maxDiffExpectedInDurationMs = 2;
     assertThat(exportResultWithResume.durationMs - exportResultWithoutResume.durationMs)
         .isLessThan(maxDiffExpectedInDurationMs);
@@ -279,7 +275,7 @@ public class TransformerPauseResumeTest {
     ExportResult exportResult = testRunner.run(testId, composition, firstOutputPath).exportResult;
 
     assertThat(exportResult.processedInputs).hasSize(6);
-    int expectedVideoFrameCount = MP4_ASSET_FRAME_COUNT * 2 - getDeviceSpecificMissingFrameCount();
+    int expectedVideoFrameCount = 2 * MP4_ASSET_FRAME_COUNT;
     assertThat(exportResult.videoFrameCount).isEqualTo(expectedVideoFrameCount);
     // The first processed media item corresponds to remuxing previous output video.
     assertThat(exportResult.processedInputs.get(0).audioDecoderName).isNull();
@@ -342,8 +338,7 @@ public class TransformerPauseResumeTest {
     assertThat(exportResultWithResume.videoEncoderName)
         .isEqualTo(exportResultWithoutResume.videoEncoderName);
     assertThat(exportResultWithResume.videoFrameCount)
-        .isEqualTo(
-            exportResultWithoutResume.videoFrameCount - getDeviceSpecificMissingFrameCount());
+        .isEqualTo(exportResultWithoutResume.videoFrameCount);
     int maxDiffExpectedInDurationMs = 2;
     assertThat(exportResultWithResume.durationMs - exportResultWithoutResume.durationMs)
         .isLessThan(maxDiffExpectedInDurationMs);
@@ -393,15 +388,6 @@ public class TransformerPauseResumeTest {
     // v26 emulators are not producing I-frames, due to which resuming export does not work as
     // expected.
     return Util.SDK_INT == 26 && Util.isRunningOnEmulator();
-  }
-
-  private static int getDeviceSpecificMissingFrameCount() {
-    // TODO: b/307700189 - Remove this after investigating pause/resume behaviour with B-frames.
-    return (Util.SDK_INT == 27
-            && (Ascii.equalsIgnoreCase(Util.MODEL, "asus_x00td")
-                || Ascii.equalsIgnoreCase(Util.MODEL, "tc77")))
-        ? 1
-        : 0;
   }
 
   private static final class FrameBlockingMuxerFactory implements Muxer.Factory {
