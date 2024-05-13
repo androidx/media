@@ -73,7 +73,7 @@ public class Mp4MuxerEndToEndAndroidTest {
   }
 
   @Test
-  public void createMp4File_fromInputFileSampleData_matchesExpected() throws IOException {
+  public void createMp4File_fromInputFileSampleData_matchesExpected() throws Exception {
     @Nullable Mp4Muxer mp4Muxer = null;
 
     try {
@@ -96,7 +96,7 @@ public class Mp4MuxerEndToEndAndroidTest {
   }
 
   @Test
-  public void createMp4File_muxerNotClosed_createsPartiallyWrittenValidFile() throws IOException {
+  public void createMp4File_muxerNotClosed_createsPartiallyWrittenValidFile() throws Exception {
     // Skip for all parameter values except when the input is a large file. The muxer writes samples
     // in batches (and flushes data only when it's closed), so a large input file is needed to
     // ensure some data has been written after taking all the inputs but before closing the muxer.

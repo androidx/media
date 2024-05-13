@@ -62,6 +62,7 @@ import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Util;
+import androidx.media3.muxer.Muxer.MuxerException;
 import androidx.media3.transformer.AssetLoader.CompositionSettings;
 import com.google.common.collect.ImmutableList;
 import java.lang.annotation.Documented;
@@ -436,7 +437,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
       try {
         muxerWrapper.finishWritingAndMaybeRelease(getMuxerReleaseReason(endReason));
-      } catch (Muxer.MuxerException e) {
+      } catch (MuxerException e) {
         if (releaseExportException == null) {
           releaseExportException = ExportException.createForMuxer(e, ERROR_CODE_MUXING_FAILED);
         }

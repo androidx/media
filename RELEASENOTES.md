@@ -32,6 +32,9 @@
         at stereo when handling PCM input.
     *   When selecting tracks in `ExoPlayerAssetLoader`, ignore audio channel
         count constraints as they only apply for playback.
+    *   Replace `androidx.media3.transformer.Muxer` interface with
+        `androidx.media3.muxer.Muxer` and remove
+        `androidx.media3.transformer.Muxer`.
 *   Track Selection:
 *   Extractors:
     *   MPEG-TS: Roll forward the change ensuring the last frame is rendered by

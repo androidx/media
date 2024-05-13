@@ -221,12 +221,21 @@ public final class Mp4Muxer implements Muxer {
    *     Builder#setSampleCopyEnabled(boolean) sample copying} is disabled. Otherwise, the position
    *     of the buffer is updated but the caller retains ownership.
    * @param bufferInfo The {@link BufferInfo} related to this sample.
-   * @throws IOException If there is any error while writing data to the disk.
+   * @throws MuxerException If there is any error while writing data to the disk.
    */
   @Override
   public void writeSampleData(TrackToken trackToken, ByteBuffer byteBuffer, BufferInfo bufferInfo)
-      throws IOException {
-    mp4Writer.writeSampleData(trackToken, byteBuffer, bufferInfo);
+      throws MuxerException {
+    try {
+      mp4Writer.writeSampleData(trackToken, byteBuffer, bufferInfo);
+    } catch (IOException e) {
+      throw new MuxerException(
+          "Failed to write sample for presentationTimeUs="
+              + bufferInfo.presentationTimeUs
+              + ", size="
+              + bufferInfo.size,
+          e);
+    }
   }
 
   /**
@@ -255,7 +264,11 @@ public final class Mp4Muxer implements Muxer {
   }
 
   @Override
-  public void close() throws IOException {
-    mp4Writer.close();
+  public void close() throws MuxerException {
+    try {
+      mp4Writer.close();
+    } catch (IOException e) {
+      throw new MuxerException("Failed to close the muxer", e);
+    }
   }
 }

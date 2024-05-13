@@ -59,6 +59,7 @@ import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.Presentation;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
+import androidx.media3.muxer.Muxer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;

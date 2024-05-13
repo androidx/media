@@ -36,7 +36,8 @@ import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.RgbFilter;
-import androidx.media3.muxer.Muxer.TrackToken;
+import androidx.media3.muxer.Muxer;
+import androidx.media3.muxer.Muxer.MuxerException;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.base.Ascii;
@@ -418,7 +419,7 @@ public class TransformerPauseResumeTest {
     }
 
     @Override
-    public Muxer create(String path) throws Muxer.MuxerException {
+    public Muxer create(String path) throws MuxerException {
       return new FrameBlockingMuxer(wrappedMuxerFactory.create(path), listener);
     }
 
@@ -473,8 +474,8 @@ public class TransformerPauseResumeTest {
     }
 
     @Override
-    public void release() throws MuxerException {
-      wrappedMuxer.release();
+    public void close() throws MuxerException {
+      wrappedMuxer.close();
     }
   }
 }

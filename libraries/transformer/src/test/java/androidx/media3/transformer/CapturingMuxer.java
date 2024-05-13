@@ -26,7 +26,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.Util;
-import androidx.media3.muxer.Muxer.TrackToken;
+import androidx.media3.muxer.Muxer;
 import androidx.media3.test.utils.DumpableFormat;
 import androidx.media3.test.utils.Dumper;
 import androidx.media3.test.utils.Dumper.Dumpable;
@@ -72,7 +72,7 @@ public final class CapturingMuxer implements Muxer, Dumpable {
     }
 
     @Override
-    public Muxer create(String path) throws Muxer.MuxerException {
+    public Muxer create(String path) throws MuxerException {
       muxer = new CapturingMuxer(wrappedFactory.create(path), handleAudioAsPcm);
       return muxer;
     }
@@ -142,9 +142,9 @@ public final class CapturingMuxer implements Muxer, Dumpable {
   }
 
   @Override
-  public void release() throws MuxerException {
+  public void close() throws MuxerException {
     released = true;
-    wrappedMuxer.release();
+    wrappedMuxer.close();
   }
 
   // Dumper.Dumpable implementation.

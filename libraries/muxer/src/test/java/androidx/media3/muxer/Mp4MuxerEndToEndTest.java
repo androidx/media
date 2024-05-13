@@ -39,7 +39,6 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import org.junit.Rule;
 import org.junit.Test;
@@ -54,7 +53,7 @@ public class Mp4MuxerEndToEndTest {
   private final Context context = ApplicationProvider.getApplicationContext();
 
   @Test
-  public void createMp4File_addTrackAndMetadataButNoSamples_createsEmptyFile() throws IOException {
+  public void createMp4File_addTrackAndMetadataButNoSamples_createsEmptyFile() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer mp4Muxer = new Mp4Muxer.Builder(new FileOutputStream(outputFilePath)).build();
 
@@ -75,7 +74,7 @@ public class Mp4MuxerEndToEndTest {
   }
 
   @Test
-  public void createMp4File_withSameTracksOffset_matchesExpected() throws IOException {
+  public void createMp4File_withSameTracksOffset_matchesExpected() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer mp4Muxer = new Mp4Muxer.Builder(new FileOutputStream(outputFilePath)).build();
     mp4Muxer.addMetadataEntry(
@@ -118,7 +117,7 @@ public class Mp4MuxerEndToEndTest {
   }
 
   @Test
-  public void createMp4File_withDifferentTracksOffset_matchesExpected() throws IOException {
+  public void createMp4File_withDifferentTracksOffset_matchesExpected() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer mp4Muxer = new Mp4Muxer.Builder(new FileOutputStream(outputFilePath)).build();
     mp4Muxer.addMetadataEntry(
@@ -157,7 +156,7 @@ public class Mp4MuxerEndToEndTest {
   }
 
   @Test
-  public void writeSampleData_withOutOfOrderSampleTimestamps_throws() throws IOException {
+  public void writeSampleData_withOutOfOrderSampleTimestamps_throws() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer mp4Muxer = new Mp4Muxer.Builder(new FileOutputStream(outputFilePath)).build();
     Pair<ByteBuffer, BufferInfo> track1Sample1 =

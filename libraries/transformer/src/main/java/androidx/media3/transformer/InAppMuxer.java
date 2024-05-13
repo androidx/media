@@ -25,12 +25,12 @@ import androidx.media3.container.Mp4OrientationData;
 import androidx.media3.muxer.FragmentedMp4Muxer;
 import androidx.media3.muxer.Mp4Muxer;
 import androidx.media3.muxer.Mp4Utils;
+import androidx.media3.muxer.Muxer;
 import androidx.media3.muxer.Muxer.TrackToken;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -170,7 +170,7 @@ public final class InAppMuxer implements Muxer {
   }
 
   @Override
-  public TrackToken addTrack(Format format) {
+  public TrackToken addTrack(Format format) throws MuxerException {
     TrackToken trackToken = muxer.addTrack(format);
     if (MimeTypes.isVideo(format.sampleMimeType)) {
       muxer.addMetadataEntry(new Mp4OrientationData(format.rotationDegrees));
@@ -179,19 +179,9 @@ public final class InAppMuxer implements Muxer {
   }
 
   @Override
-  public void writeSampleData(TrackToken trackToken, ByteBuffer data, BufferInfo bufferInfo)
+  public void writeSampleData(TrackToken trackToken, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws MuxerException {
-
-    try {
-      muxer.writeSampleData(trackToken, data, bufferInfo);
-    } catch (IOException e) {
-      throw new MuxerException(
-          "Failed to write sample for presentationTimeUs="
-              + bufferInfo.presentationTimeUs
-              + ", size="
-              + bufferInfo.size,
-          e);
-    }
+    muxer.writeSampleData(trackToken, byteBuffer, bufferInfo);
   }
 
   @Override
@@ -202,14 +192,9 @@ public final class InAppMuxer implements Muxer {
   }
 
   @Override
-  public void release() throws MuxerException {
+  public void close() throws MuxerException {
     writeMetadata();
-
-    try {
-      muxer.close();
-    } catch (IOException e) {
-      throw new MuxerException("Error closing muxer", e);
-    }
+    muxer.close();
   }
 
   private void writeMetadata() {

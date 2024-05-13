@@ -30,6 +30,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
+import androidx.media3.muxer.Muxer.MuxerException;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -74,7 +75,7 @@ public class MuxerWrapperTest {
   @Nullable private MuxerWrapper muxerWrapper;
 
   @After
-  public void tearDown() throws Muxer.MuxerException {
+  public void tearDown() throws MuxerException {
     if (muxerWrapper != null) {
       // Release with reason cancellation so that underlying resources are always released.
       muxerWrapper.finishWritingAndMaybeRelease(MuxerWrapper.MUXER_RELEASE_REASON_CANCELLED);

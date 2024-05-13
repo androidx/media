@@ -62,7 +62,7 @@ public class FragmentedMp4MuxerEndToEndAndroidTest {
   }
 
   @Test
-  public void createFragmentedMp4File_fromInputFileSampleData_matchesExpected() throws IOException {
+  public void createFragmentedMp4File_fromInputFileSampleData_matchesExpected() throws Exception {
     @Nullable Muxer fragmentedMp4Muxer = null;
 
     try {
@@ -89,7 +89,7 @@ public class FragmentedMp4MuxerEndToEndAndroidTest {
 
   @Test
   public void createFragmentedMp4File_fromInputFileSampleData_matchesExpectedBoxStructure()
-      throws IOException {
+      throws Exception {
     @Nullable Muxer fragmentedMp4Muxer = null;
 
     try {

@@ -32,7 +32,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.Mp4LocationData;
-import androidx.media3.muxer.Muxer.TrackToken;
+import androidx.media3.muxer.Muxer;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -199,7 +199,7 @@ import java.util.Map;
   }
 
   @Override
-  public void release() throws MuxerException {
+  public void close() throws MuxerException {
     if (isReleased) {
       return;
     }

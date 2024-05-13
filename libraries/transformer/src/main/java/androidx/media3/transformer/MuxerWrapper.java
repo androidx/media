@@ -48,6 +48,8 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.NalUnitUtil;
 import androidx.media3.effect.DebugTraceUtil;
+import androidx.media3.muxer.Muxer;
+import androidx.media3.muxer.Muxer.MuxerException;
 import androidx.media3.muxer.Muxer.TrackToken;
 import com.google.common.collect.ImmutableList;
 import java.io.File;
@@ -374,11 +376,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @throws IllegalStateException If the number of formats added exceeds the {@linkplain
    *     #setTrackCount track count}, if {@link #setTrackCount(int)} has not been called or if there
    *     is already a track of that {@link C.TrackType}.
-   * @throws Muxer.MuxerException If the underlying {@link Muxer} encounters a problem while adding
-   *     the track.
+   * @throws MuxerException If the underlying {@link Muxer} encounters a problem while adding the
+   *     track.
    */
-  public void addTrackFormat(Format format)
-      throws AppendTrackFormatException, Muxer.MuxerException {
+  public void addTrackFormat(Format format) throws AppendTrackFormatException, MuxerException {
     @Nullable String sampleMimeType = format.sampleMimeType;
     @C.TrackType int trackType = MimeTypes.getTrackType(sampleMimeType);
     checkArgument(
@@ -521,11 +522,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    *     received a format} for every {@linkplain #setTrackCount(int) track}.
    * @throws IllegalArgumentException If the muxer doesn't have a {@linkplain #endTrack(int)
    *     non-ended} track of the given {@link C.TrackType}.
-   * @throws Muxer.MuxerException If the underlying {@link Muxer} fails to write the sample.
+   * @throws MuxerException If the underlying {@link Muxer} fails to write the sample.
    */
   public boolean writeSample(
       @C.TrackType int trackType, ByteBuffer data, boolean isKeyFrame, long presentationTimeUs)
-      throws Muxer.MuxerException {
+      throws MuxerException {
     checkArgument(contains(trackTypeToInfo, trackType));
     TrackInfo trackInfo = trackTypeToInfo.get(trackType);
     boolean canWriteSample = canWriteSample(trackType, presentationTimeUs);
@@ -653,11 +654,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * #MUXER_RELEASE_REASON_CANCELLED} or {@link #MUXER_RELEASE_REASON_ERROR}.
    *
    * @param releaseReason The reason to release the muxer.
-   * @throws Muxer.MuxerException If the underlying {@link Muxer} fails to finish writing the output
-   *     and the {@code releaseReason} is not {@link #MUXER_RELEASE_REASON_CANCELLED}.
+   * @throws MuxerException If the underlying {@link Muxer} fails to finish writing the output and
+   *     the {@code releaseReason} is not {@link #MUXER_RELEASE_REASON_CANCELLED}.
    */
   public void finishWritingAndMaybeRelease(@MuxerReleaseReason int releaseReason)
-      throws Muxer.MuxerException {
+      throws MuxerException {
     if (releaseReason == MUXER_RELEASE_REASON_COMPLETED && muxerMode == MUXER_MODE_MUX_PARTIAL) {
       return;
     }
@@ -665,8 +666,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     abortScheduledExecutorService.shutdownNow();
     if (muxer != null) {
       try {
-        muxer.release();
-      } catch (Muxer.MuxerException e) {
+        muxer.close();
+      } catch (MuxerException e) {
         if (releaseReason == MUXER_RELEASE_REASON_CANCELLED
             && checkNotNull(e.getMessage())
                 .equals(FrameworkMuxer.MUXER_STOPPING_FAILED_ERROR_MESSAGE)) {
@@ -736,7 +737,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @EnsuresNonNull("muxer")
-  private void ensureMuxerInitialized() throws Muxer.MuxerException {
+  private void ensureMuxerInitialized() throws MuxerException {
     if (muxer == null) {
       muxer = muxerFactory.create(outputPath);
     }

@@ -20,6 +20,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.muxer.Muxer;
 import androidx.media3.muxer.Muxer.TrackToken;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
@@ -71,9 +72,9 @@ public final class DefaultMuxer implements Muxer {
   }
 
   @Override
-  public void writeSampleData(TrackToken trackToken, ByteBuffer data, BufferInfo bufferInfo)
+  public void writeSampleData(TrackToken trackToken, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws MuxerException {
-    muxer.writeSampleData(trackToken, data, bufferInfo);
+    muxer.writeSampleData(trackToken, byteBuffer, bufferInfo);
   }
 
   @Override
@@ -82,7 +83,7 @@ public final class DefaultMuxer implements Muxer {
   }
 
   @Override
-  public void release() throws MuxerException {
-    muxer.release();
+  public void close() throws MuxerException {
+    muxer.close();
   }
 }

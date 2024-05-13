@@ -30,6 +30,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.decoder.DecoderInputBuffer;
+import androidx.media3.muxer.Muxer.MuxerException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.util.List;
@@ -110,7 +111,7 @@ import java.util.List;
       }
       try {
         muxerWrapper.addTrackFormat(inputFormat);
-      } catch (Muxer.MuxerException e) {
+      } catch (MuxerException e) {
         throw ExportException.createForMuxer(e, ExportException.ERROR_CODE_MUXING_FAILED);
       } catch (MuxerWrapper.AppendTrackFormatException e) {
         throw ExportException.createForMuxer(e, ExportException.ERROR_CODE_MUXING_APPEND);
@@ -136,7 +137,7 @@ import java.util.List;
           muxerInputBuffer.timeUs)) {
         return false;
       }
-    } catch (Muxer.MuxerException e) {
+    } catch (MuxerException e) {
       throw ExportException.createForMuxer(e, ExportException.ERROR_CODE_MUXING_FAILED);
     }
 

@@ -24,6 +24,7 @@ import androidx.media3.common.audio.ChannelMixingMatrix;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.muxer.Muxer;
 import androidx.media3.test.utils.FakeClock;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
