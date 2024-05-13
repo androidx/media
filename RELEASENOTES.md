@@ -51,6 +51,10 @@
         in `DefaultAudioSink` prior to calling `AudioTrack.stop()` so that
         `AudioTrack.StreamEventCallback#onPresentationEnded` correctly
         identifies when all pending data has been played.
+    *   Fix bug in `SilenceSkippingAudioProcessor` where transitions between
+        different audio formats (for example stereo to mono) can cause the
+        processor to throw an exception
+        ([#1352](https://github.com/androidx/media/issues/1352)).
 *   Video:
 *   Text:
     *   Fix issue where subtitles starting before a seek position are skipped.

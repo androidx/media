@@ -178,6 +178,35 @@ public final class SilenceSkippingAudioProcessorTest {
   }
 
   @Test
+  public void
+      skipInAlternatingTestSignal_withEarlyConfigureForNextFormat_hasCorrectOutputAndSkippedFrameCounts()
+          throws Exception {
+    // Given a signal that alternates between silence and noise.
+    InputBufferProvider inputBufferProvider =
+        getInputBufferProviderForAlternatingSilenceAndNoise(
+            TEST_SIGNAL_SILENCE_DURATION_MS,
+            TEST_SIGNAL_NOISE_DURATION_MS,
+            TEST_SIGNAL_FRAME_COUNT);
+    SilenceSkippingAudioProcessor silenceSkippingAudioProcessor =
+        new SilenceSkippingAudioProcessor();
+    silenceSkippingAudioProcessor.setEnabled(true);
+    silenceSkippingAudioProcessor.configure(AUDIO_FORMAT);
+    silenceSkippingAudioProcessor.flush();
+
+    // Early configure the next format without flushing yet (this format should be ignored).
+    silenceSkippingAudioProcessor.configure(
+        new AudioFormat(
+            /* sampleRate= */ 1000, /* channelCount= */ 1, /* encoding= */ C.ENCODING_PCM_16BIT));
+    long totalOutputFrames =
+        process(silenceSkippingAudioProcessor, inputBufferProvider, INPUT_BUFFER_SIZE);
+
+    // The output has 50000 frames of noise, plus 50 * 0.2 * 1000 padding (plus rounding errors).
+    assertThat(totalOutputFrames).isIn(Range.closed(60000L - 500L, 60000L + 500L));
+    assertThat(silenceSkippingAudioProcessor.getSkippedFrames())
+        .isEqualTo(TEST_SIGNAL_FRAME_COUNT - totalOutputFrames);
+  }
+
+  @Test
   public void skipWithSmallerInputBufferSize_hasCorrectOutputAndSkippedFrameCounts()
       throws Exception {
     // Given a signal that alternates between silence and noise.
@@ -291,7 +320,6 @@ public final class SilenceSkippingAudioProcessorTest {
       InputBufferProvider inputBufferProvider,
       int inputBufferSize) {
     int bytesPerFrame = AUDIO_FORMAT.bytesPerFrame;
-    processor.flush();
     long totalOutputFrames = 0;
     while (inputBufferProvider.hasRemaining()) {
       ByteBuffer inputBuffer = inputBufferProvider.getNextInputBuffer(inputBufferSize);
