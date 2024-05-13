@@ -227,6 +227,41 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
   }
 
   /**
+   * Returns the input media duration for the given playout duration.
+   *
+   * <p>Both durations are counted from the last {@link #reset()} or {@link #flush()} of the audio
+   * processor.
+   *
+   * <p>The {@code playoutDurationUs} must be less than last processed buffer output time.
+   *
+   * @param playoutDurationUs The playout duration in microseconds.
+   * @return The corresponding input duration in microseconds.
+   */
+  public long getMediaDurationUs(long playoutDurationUs) {
+    int floorIndex = outputSegmentStartTimesUs.size() - 1;
+    while (floorIndex > 0 && outputSegmentStartTimesUs.get(floorIndex) > playoutDurationUs) {
+      floorIndex--;
+    }
+    long lastSegmentOutputDurationUs =
+        playoutDurationUs - outputSegmentStartTimesUs.get(floorIndex);
+    long lastSegmentInputDurationUs;
+    if (floorIndex == outputSegmentStartTimesUs.size() - 1) {
+      lastSegmentInputDurationUs = getMediaDurationUsAtCurrentSpeed(lastSegmentOutputDurationUs);
+
+    } else {
+      lastSegmentInputDurationUs =
+          round(
+              lastSegmentOutputDurationUs
+                  * divide(
+                      inputSegmentStartTimesUs.get(floorIndex + 1)
+                          - inputSegmentStartTimesUs.get(floorIndex),
+                      outputSegmentStartTimesUs.get(floorIndex + 1)
+                          - outputSegmentStartTimesUs.get(floorIndex)));
+    }
+    return inputSegmentStartTimesUs.get(floorIndex) + lastSegmentInputDurationUs;
+  }
+
+  /**
    * Assuming enough audio has been processed, calculates the time at which the {@code inputTimeUs}
    * is outputted at after the speed changes has been applied.
    */
@@ -291,6 +326,12 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
     return isUsingSonic()
         ? sonicAudioProcessor.getPlayoutDuration(mediaDurationUs)
         : mediaDurationUs;
+  }
+
+  private long getMediaDurationUsAtCurrentSpeed(long playoutDurationUs) {
+    return isUsingSonic()
+        ? sonicAudioProcessor.getMediaDuration(playoutDurationUs)
+        : playoutDurationUs;
   }
 
   private long updateLastProcessedInputTime() {

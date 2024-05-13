@@ -493,6 +493,44 @@ public class SpeedChangingAudioProcessorTest {
     assertThat(outputTimesUs).containsExactly(243L);
   }
 
+  @Test
+  public void getMediaDurationUs_returnsCorrectValues() throws Exception {
+    // The speed changes happen every 10ms (441 samples @ 441.KHz)
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithFrameCounts(
+            AUDIO_FORMAT,
+            /* frameCounts= */ new int[] {441, 441, 441, 441},
+            /* speeds= */ new float[] {2, 1, 5, 2});
+    SpeedChangingAudioProcessor speedChangingAudioProcessor =
+        getConfiguredSpeedChangingAudioProcessor(speedProvider);
+    ByteBuffer inputBuffer = getInputBuffer(/* frameCount= */ 441 * 4);
+    while (inputBuffer.position() < inputBuffer.limit()) {
+      speedChangingAudioProcessor.queueInput(inputBuffer);
+    }
+    getAudioProcessorOutput(speedChangingAudioProcessor);
+
+    // input (in ms) (0, 10, 20, 30, 40) ->
+    // output (in ms) (0, 10/2, 10/2 + 10, 10/2 + 10 + 10/5, 10/2 + 10 + 10/5 + 10/2)
+    assertThat(speedChangingAudioProcessor.getMediaDurationUs(/* playoutDurationUs= */ 0))
+        .isEqualTo(0);
+    assertThat(speedChangingAudioProcessor.getMediaDurationUs(/* playoutDurationUs= */ 3_000))
+        .isEqualTo(6_000);
+    assertThat(speedChangingAudioProcessor.getMediaDurationUs(/* playoutDurationUs= */ 5_000))
+        .isEqualTo(10_000);
+    assertThat(speedChangingAudioProcessor.getMediaDurationUs(/* playoutDurationUs= */ 10_000))
+        .isEqualTo(15_000);
+    assertThat(speedChangingAudioProcessor.getMediaDurationUs(/* playoutDurationUs= */ 15_000))
+        .isEqualTo(20_000);
+    assertThat(speedChangingAudioProcessor.getMediaDurationUs(/* playoutDurationUs= */ 16_000))
+        .isEqualTo(25_000);
+    assertThat(speedChangingAudioProcessor.getMediaDurationUs(/* playoutDurationUs= */ 17_000))
+        .isEqualTo(30_000);
+    assertThat(speedChangingAudioProcessor.getMediaDurationUs(/* playoutDurationUs= */ 18_000))
+        .isEqualTo(32_000);
+    assertThat(speedChangingAudioProcessor.getMediaDurationUs(/* playoutDurationUs= */ 22_000))
+        .isEqualTo(40_000);
+  }
+
   private static SpeedChangingAudioProcessor getConfiguredSpeedChangingAudioProcessor(
       SpeedProvider speedProvider) throws AudioProcessor.UnhandledAudioFormatException {
     SpeedChangingAudioProcessor speedChangingAudioProcessor =
