@@ -1237,7 +1237,8 @@ public final class C {
   /**
    * A value indicating the priority of a operation.
    *
-   * <p>Larger values indicate higher priorities.
+   * <p>Larger values indicate higher priorities, but values should not exceed {@link
+   * #PRIORITY_MAX}.
    *
    * <p>The predefined priority values are used by default and it's recommended to align any custom
    * values relative to these defaults (for example, {@code C.PRIORITY_PLAYBACK - 1}.
@@ -1245,7 +1246,11 @@ public final class C {
    * <p>Predefined values are (in descending priority order):
    *
    * <ul>
+   *   <li>{@link #PRIORITY_MAX}
    *   <li>{@link #PRIORITY_PLAYBACK}
+   *   <li>{@link #PRIORITY_PROCESSING_FOREGROUND}
+   *   <li>{@link #PRIORITY_PLAYBACK_PRELOAD}
+   *   <li>{@link #PRIORITY_PROCESSING_BACKGROUND}
    *   <li>{@link #PRIORITY_DOWNLOAD}
    * </ul>
    */
@@ -1255,14 +1260,42 @@ public final class C {
   @Target(TYPE_USE)
   @IntDef(
       open = true,
-      value = {PRIORITY_PLAYBACK, PRIORITY_DOWNLOAD})
+      value = {
+        PRIORITY_MAX,
+        PRIORITY_PLAYBACK,
+        PRIORITY_DOWNLOAD,
+        PRIORITY_PLAYBACK_PRELOAD,
+        PRIORITY_PROCESSING_BACKGROUND,
+        PRIORITY_PROCESSING_FOREGROUND
+      })
   public @interface Priority {}
 
+  /** The maximum supported {@link Priority}. */
+  @UnstableApi public static final int PRIORITY_MAX = 0;
+
   /** {@link Priority} for active media playback. */
-  @UnstableApi public static final int PRIORITY_PLAYBACK = 0;
+  @UnstableApi public static final int PRIORITY_PLAYBACK = PRIORITY_MAX - 1000;
+
+  /**
+   * {@link Priority} for processing media in the foreground (for example, while the user is waiting
+   * for the processing to complete).
+   */
+  @UnstableApi public static final int PRIORITY_PROCESSING_FOREGROUND = PRIORITY_PLAYBACK - 1000;
+
+  /**
+   * {@link Priority} for preloading media playback resources before the playback becomes active.
+   */
+  @UnstableApi
+  public static final int PRIORITY_PLAYBACK_PRELOAD = PRIORITY_PROCESSING_FOREGROUND - 1000;
 
   /** {@link Priority} for media downloading unrelated to active playback. */
-  @UnstableApi public static final int PRIORITY_DOWNLOAD = PRIORITY_PLAYBACK - 1000;
+  @UnstableApi public static final int PRIORITY_DOWNLOAD = PRIORITY_PLAYBACK_PRELOAD - 1000;
+
+  /**
+   * {@link Priority} for processing media in the background (for example, when the user is not
+   * waiting for the processing to complete).
+   */
+  @UnstableApi public static final int PRIORITY_PROCESSING_BACKGROUND = PRIORITY_DOWNLOAD;
 
   /**
    * Network connection type. One of {@link #NETWORK_TYPE_UNKNOWN}, {@link #NETWORK_TYPE_OFFLINE},

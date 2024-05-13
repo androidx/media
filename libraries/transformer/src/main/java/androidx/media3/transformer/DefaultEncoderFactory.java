@@ -24,6 +24,7 @@ import static androidx.media3.common.util.MediaFormatUtil.createMediaFormatFromF
 import static androidx.media3.common.util.Util.SDK_INT;
 import static java.lang.Math.abs;
 import static java.lang.Math.floor;
+import static java.lang.Math.max;
 import static java.lang.Math.round;
 
 import android.content.Context;
@@ -34,6 +35,7 @@ import android.util.Pair;
 import android.util.Size;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -55,9 +57,6 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
   /** Best effort, or as-fast-as-possible priority setting for {@link MediaFormat#KEY_PRIORITY}. */
   private static final int PRIORITY_BEST_EFFORT = 1;
 
-  /** The platform's default value of {@code MediaFormat#KEY_IMPORTANCE}. */
-  private static final int DEFAULT_CODEC_IMPORTANCE = 0;
-
   /** A builder for {@link DefaultEncoderFactory} instances. */
   public static final class Builder {
     private final Context context;
@@ -65,7 +64,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     private EncoderSelector videoEncoderSelector;
     private VideoEncoderSettings requestedVideoEncoderSettings;
     private boolean enableFallback;
-    private int codecImportance;
+    private @C.Priority int codecPriority;
 
     /** Creates a new {@link Builder}. */
     public Builder(Context context) {
@@ -73,7 +72,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
       videoEncoderSelector = EncoderSelector.DEFAULT;
       requestedVideoEncoderSettings = VideoEncoderSettings.DEFAULT;
       enableFallback = true;
-      codecImportance = DEFAULT_CODEC_IMPORTANCE;
+      codecPriority = C.PRIORITY_PROCESSING_FOREGROUND;
     }
 
     /**
@@ -129,21 +128,25 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     }
 
     /**
-     * Sets the codec importance value.
+     * Sets the codec priority.
      *
-     * <p>Specifying codec importance allows the resource manager in the platform to reclaim less
-     * important codecs (higher importance values) before more important codecs. For example, codecs
-     * used for background operations should have higher importance values so they are reclaimed if
-     * required for foreground operations.
+     * <p>Specifying codec priority allows the resource manager in the platform to reclaim less
+     * important codecs before more important codecs.
+     *
+     * <p>It is recommended to use predefined {@linkplain C.Priority priorities} like {@link
+     * C#PRIORITY_PROCESSING_FOREGROUND}, {@link C#PRIORITY_PROCESSING_BACKGROUND} or priority
+     * values defined relative to those defaults.
      *
      * <p>This method is a no-op on API versions before 35.
      *
-     * <p>The default value is {@code 0}.
+     * <p>The default value is {@link C#PRIORITY_PROCESSING_FOREGROUND}.
+     *
+     * @param codecPriority The {@link C.Priority} for the codec. Should be at most {@link
+     *     C#PRIORITY_MAX}.
      */
-    // TODO: b/333552477 - Link documentation after API35 is released.
     @CanIgnoreReturnValue
-    public Builder setCodecImportance(@IntRange(from = 0) int codecImportance) {
-      this.codecImportance = codecImportance;
+    public Builder setCodecPriority(@IntRange(to = C.PRIORITY_MAX) @C.Priority int codecPriority) {
+      this.codecPriority = codecPriority;
       return this;
     }
 
@@ -157,7 +160,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
   private final EncoderSelector videoEncoderSelector;
   private final VideoEncoderSettings requestedVideoEncoderSettings;
   private final boolean enableFallback;
-  private final int codecImportance;
+  private final @C.Priority int codecPriority;
 
   /**
    * @deprecated Use {@link Builder} instead.
@@ -200,7 +203,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     this.videoEncoderSelector = builder.videoEncoderSelector;
     this.requestedVideoEncoderSettings = builder.requestedVideoEncoderSettings;
     this.enableFallback = builder.enableFallback;
-    this.codecImportance = builder.codecImportance;
+    this.codecPriority = builder.codecPriority;
   }
 
   @Override
@@ -359,7 +362,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     if (Util.SDK_INT >= 35) {
       // TODO: b/333552477 - Redefinition of MediaFormat.KEY_IMPORTANCE, remove after API35 is
       //  released.
-      mediaFormat.setInteger("importance", codecImportance);
+      mediaFormat.setInteger("importance", max(0, -codecPriority));
     }
 
     return new DefaultCodec(

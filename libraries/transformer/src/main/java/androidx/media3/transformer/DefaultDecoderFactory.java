@@ -19,6 +19,7 @@ package androidx.media3.transformer;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.MediaFormatUtil.createMediaFormatFromFormat;
 import static androidx.media3.common.util.Util.SDK_INT;
+import static java.lang.Math.max;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -53,9 +54,6 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
 
   private static final String TAG = "DefaultDecoderFactory";
 
-  /** The platform's default value of {@code MediaFormat#KEY_IMPORTANCE}. */
-  private static final int DEFAULT_CODEC_IMPORTANCE = 0;
-
   /** Listener for decoder factory events. */
   public interface Listener {
     /**
@@ -76,13 +74,13 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
     private final Context context;
     private Listener listener;
     private boolean enableDecoderFallback;
-    private int codecImportance;
+    private @C.Priority int codecPriority;
 
     /** Creates a new {@link Builder}. */
     public Builder(Context context) {
       this.context = context.getApplicationContext();
       listener = (codecName, codecInitializationExceptions) -> {};
-      codecImportance = DEFAULT_CODEC_IMPORTANCE;
+      codecPriority = C.PRIORITY_PROCESSING_FOREGROUND;
     }
 
     /** Sets the {@link Listener}. */
@@ -108,21 +106,25 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
     }
 
     /**
-     * Sets the codec importance value.
+     * Sets the codec priority.
      *
-     * <p>Specifying codec importance allows the resource manager in the platform to reclaim less
-     * important codecs (higher importance values) before more important codecs. For example, codecs
-     * used for background operations should have higher importance values so they are reclaimed if
-     * required for foreground operations.
+     * <p>Specifying codec priority allows the resource manager in the platform to reclaim less
+     * important codecs before more important codecs.
+     *
+     * <p>It is recommended to use predefined {@linkplain C.Priority priorities} like {@link
+     * C#PRIORITY_PROCESSING_FOREGROUND}, {@link C#PRIORITY_PROCESSING_BACKGROUND} or priority
+     * values defined relative to those defaults.
      *
      * <p>This method is a no-op on API versions before 35.
      *
-     * <p>The default value is {@code 0}.
+     * <p>The default value is {@link C#PRIORITY_PROCESSING_FOREGROUND}.
+     *
+     * @param codecPriority The {@link C.Priority} for the codec. Should be at most {@link
+     *     C#PRIORITY_MAX}.
      */
-    // TODO: b/333552477 - Link documentation after API35 is released.
     @CanIgnoreReturnValue
-    public Builder setCodecImportance(@IntRange(from = 0) int codecImportance) {
-      this.codecImportance = codecImportance;
+    public Builder setCodecPriority(@IntRange(to = C.PRIORITY_MAX) @C.Priority int codecPriority) {
+      this.codecPriority = codecPriority;
       return this;
     }
 
@@ -135,7 +137,7 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
   private final Context context;
   private final boolean enableDecoderFallback;
   private final Listener listener;
-  private final int codecImportance;
+  private final @C.Priority int codecPriority;
 
   /**
    * @deprecated Use {@link Builder} instead.
@@ -166,7 +168,7 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
     this.context = builder.context;
     this.enableDecoderFallback = builder.enableDecoderFallback;
     this.listener = builder.listener;
-    this.codecImportance = builder.codecImportance;
+    this.codecPriority = builder.codecPriority;
   }
 
   @Override
@@ -224,7 +226,7 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
     if (SDK_INT >= 35) {
       // TODO: b/333552477 - Redefinition of MediaFormat.KEY_IMPORTANCE, remove after API35 is
       //  released.
-      mediaFormat.setInteger("importance", codecImportance);
+      mediaFormat.setInteger("importance", max(0, -codecPriority));
     }
 
     return createCodecForMediaFormat(mediaFormat, format, outputSurface);
