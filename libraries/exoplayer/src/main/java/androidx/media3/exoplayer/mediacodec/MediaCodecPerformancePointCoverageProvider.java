@@ -139,6 +139,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         // The same check as below is tested in CTS and we should get reliable results from API 35.
         return false;
       }
+
+      // MIREGO added to select devices on which we do not want to ignore the performance points
+      if (Util.doNotIgnorePerformancePointsForResolutionAndFrameRate) {
+        return false;
+      }
       try {
         Format formatH264 = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build();
         // Null check required to pass RequiresNonNull annotation on getDecoderInfosSoftMatch.

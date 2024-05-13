@@ -181,6 +181,7 @@ public final class Util {
   public static int timeSinceLastVideoRenderToLogErrorMs = 1000;
   public static int audioVideoDeltaToLogErrorMs = 750;
   public static boolean shouldIgnoreCodecFpsLimitForResolution = false; // MIREGO ADDED
+  public static boolean doNotIgnorePerformancePointsForResolutionAndFrameRate = false; // MIREGO ADDED
   public static boolean useDifferentAudioSessionIdForTunneling = false; // MIREGO ADDED
   public static int ntpTimeoutMs = 5000; // MIREGO ADDED
 
