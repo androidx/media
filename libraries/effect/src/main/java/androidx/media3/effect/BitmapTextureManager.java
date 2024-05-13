@@ -18,6 +18,10 @@ package androidx.media3.effect;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.effect.DebugTraceUtil.COMPONENT_BITMAP_TEXTURE_MANAGER;
+import static androidx.media3.effect.DebugTraceUtil.COMPONENT_VFP;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_BITMAP_TEXTURE_MANAGER_SIGNAL_EOS;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_VFP_QUEUE_BITMAP;
 
 import android.graphics.Bitmap;
 import androidx.media3.common.C;
@@ -109,7 +113,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           if (pendingBitmaps.isEmpty()) {
             checkNotNull(gainmapShaderProgram).signalEndOfCurrentInputStream();
             DebugTraceUtil.logEvent(
-                DebugTraceUtil.EVENT_BITMAP_TEXTURE_MANAGER_SIGNAL_EOS, C.TIME_END_OF_SOURCE);
+                COMPONENT_BITMAP_TEXTURE_MANAGER,
+                EVENT_BITMAP_TEXTURE_MANAGER_SIGNAL_EOS,
+                C.TIME_END_OF_SOURCE);
           } else {
             currentInputStreamEnded = true;
           }
@@ -156,7 +162,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         .queueInputFrame(
             glObjectsProvider, checkNotNull(currentSdrGlTextureInfo), currentPresentationTimeUs);
     DebugTraceUtil.logEvent(
-        DebugTraceUtil.EVENT_VFP_QUEUE_BITMAP,
+        COMPONENT_VFP,
+        EVENT_VFP_QUEUE_BITMAP,
         currentPresentationTimeUs,
         /* extraFormat= */ "%dx%d",
         /* extraArgs...= */ currentFrameInfo.width,
@@ -170,7 +177,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         // Only signal end of stream after all pending bitmaps are processed.
         checkNotNull(gainmapShaderProgram).signalEndOfCurrentInputStream();
         DebugTraceUtil.logEvent(
-            DebugTraceUtil.EVENT_BITMAP_TEXTURE_MANAGER_SIGNAL_EOS, C.TIME_END_OF_SOURCE);
+            COMPONENT_BITMAP_TEXTURE_MANAGER,
+            EVENT_BITMAP_TEXTURE_MANAGER_SIGNAL_EOS,
+            C.TIME_END_OF_SOURCE);
         currentInputStreamEnded = false;
       }
     }

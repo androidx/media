@@ -21,6 +21,10 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.SDK_INT;
+import static androidx.media3.effect.DebugTraceUtil.COMPONENT_DECODER;
+import static androidx.media3.effect.DebugTraceUtil.COMPONENT_ENCODER;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_DECODER_RECEIVE_EOS;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_ENCODER_RECEIVE_EOS;
 
 import android.content.Context;
 import android.media.MediaCodec;
@@ -220,7 +224,8 @@ public final class DefaultCodec implements Codec {
 
       if (isDecoder) {
         if (isVideo) {
-          DebugTraceUtil.logEvent(DebugTraceUtil.EVENT_DECODER_RECEIVE_EOS, C.TIME_END_OF_SOURCE);
+          DebugTraceUtil.logEvent(
+              COMPONENT_DECODER, EVENT_DECODER_RECEIVE_EOS, C.TIME_END_OF_SOURCE);
         }
         // EOS buffer on the decoder input should never carry data.
         checkState(inputBuffer.data == null || !inputBuffer.data.hasRemaining());
@@ -241,7 +246,7 @@ public final class DefaultCodec implements Codec {
 
   @Override
   public void signalEndOfInputStream() throws ExportException {
-    DebugTraceUtil.logEvent(DebugTraceUtil.EVENT_ENCODER_RECEIVE_EOS, C.TIME_END_OF_SOURCE);
+    DebugTraceUtil.logEvent(COMPONENT_ENCODER, EVENT_ENCODER_RECEIVE_EOS, C.TIME_END_OF_SOURCE);
     try {
       mediaCodec.signalEndOfInputStream();
     } catch (RuntimeException e) {

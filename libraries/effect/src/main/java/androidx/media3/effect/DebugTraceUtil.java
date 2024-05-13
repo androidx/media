@@ -22,6 +22,7 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.util.JsonWriter;
 import androidx.annotation.GuardedBy;
+import androidx.annotation.Nullable;
 import androidx.annotation.StringDef;
 import androidx.media3.common.C;
 import androidx.media3.common.util.SystemClock;
@@ -55,6 +56,7 @@ public final class DebugTraceUtil {
   public static boolean enableTracing = false;
 
   /** Events logged by {@link #logEvent}. */
+  @Documented
   @Retention(RetentionPolicy.SOURCE)
   @StringDef({
     EVENT_VIDEO_INPUT_FORMAT,
@@ -83,9 +85,8 @@ public final class DebugTraceUtil {
     EVENT_MUXER_TRACK_ENDED_AUDIO,
     EVENT_MUXER_TRACK_ENDED_VIDEO
   })
-  @Documented
   @Target(TYPE_USE)
-  public @interface DebugTraceEvent {}
+  public @interface Event {}
 
   public static final String EVENT_VIDEO_INPUT_FORMAT = "VideoInputFormat";
   public static final String EVENT_DECODER_DECODED_FRAME = "Decoder-DecodedFrame";
@@ -117,19 +118,37 @@ public final class DebugTraceUtil {
   public static final String EVENT_MUXER_TRACK_ENDED_AUDIO = "Muxer-TrackEnded_Audio";
   public static final String EVENT_MUXER_TRACK_ENDED_VIDEO = "Muxer-TrackEnded_Video";
 
+  /** Components logged by {@link #logEvent}. */
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @StringDef({
+    COMPONENT_VIDEO,
+    COMPONENT_DECODER,
+    COMPONENT_VFP,
+    COMPONENT_BITMAP_TEXTURE_MANAGER,
+    COMPONENT_EXTERNAL_TEXTURE_MANAGER,
+    COMPONENT_TEX_ID_TEXTURE_MANAGER,
+    COMPONENT_COMPOSITOR,
+    COMPONENT_ENCODER,
+    COMPONENT_MUXER
+  })
+  @Target(TYPE_USE)
+  public @interface Component {}
+
   // TODO - b/339639306: Migrate COMPONENT_VIDEO usage to COMPONENT_ASSETLOADER.
-  private static final String COMPONENT_VIDEO = "Video";
+  public static final String COMPONENT_VIDEO = "Video";
 
-  private static final String COMPONENT_DECODER = "Decoder";
-  private static final String COMPONENT_VFP = "VFP";
-  private static final String COMPONENT_EXTERNAL_TEXTURE_MANAGER = "ExternalTextureManager";
-  private static final String COMPONENT_BITMAP_TEXTURE_MANAGER = "BitmapTextureManager";
-  private static final String COMPONENT_TEX_ID_TEXTURE_MANAGER = "TexIdTextureManager";
-  private static final String COMPONENT_COMPOSITOR = "Compositor";
-  private static final String COMPONENT_ENCODER = "Encoder";
-  private static final String COMPONENT_MUXER = "Muxer";
+  public static final String COMPONENT_DECODER = "Decoder";
+  public static final String COMPONENT_VFP = "VFP";
+  public static final String COMPONENT_EXTERNAL_TEXTURE_MANAGER = "ExternalTextureManager";
+  public static final String COMPONENT_BITMAP_TEXTURE_MANAGER = "BitmapTextureManager";
+  public static final String COMPONENT_TEX_ID_TEXTURE_MANAGER = "TexIdTextureManager";
+  public static final String COMPONENT_COMPOSITOR = "Compositor";
+  public static final String COMPONENT_ENCODER = "Encoder";
+  public static final String COMPONENT_MUXER = "Muxer";
 
-  private static final ImmutableMap<String, List<String>> COMPONENTS_TO_EVENTS =
+  // For a given component, events are in the rough expected order that they occur.
+  private static final ImmutableMap<@Component String, List<@Event String>> COMPONENTS_TO_EVENTS =
       ImmutableMap.of(
           COMPONENT_VIDEO, ImmutableList.of(EVENT_VIDEO_INPUT_FORMAT),
           COMPONENT_DECODER,
@@ -167,28 +186,32 @@ public final class DebugTraceUtil {
   private static final int MAX_FIRST_LAST_LOGS = 10;
 
   @GuardedBy("DebugTraceUtil.class")
-  private static final Map<String, EventLogger> events = new LinkedHashMap<>();
+  private static final Map<@Component String, Map<@Event String, EventLogger>>
+      componentsToEventsToLogs = new LinkedHashMap<>();
 
   @GuardedBy("DebugTraceUtil.class")
   private static long startTimeMs = SystemClock.DEFAULT.elapsedRealtime();
 
   public static synchronized void reset() {
-    events.clear();
+    componentsToEventsToLogs.clear();
     startTimeMs = SystemClock.DEFAULT.elapsedRealtime();
   }
 
   /**
    * Logs a new event, if debug logging is enabled.
    *
-   * @param eventName The {@linkplain DebugTraceEvent event name} to log.
+   * @param component The {@link Component} to log.
+   * @param event The {@link Event} to log.
    * @param presentationTimeUs The current presentation time of the media. Use {@link C#TIME_UNSET}
    *     if unknown, {@link C#TIME_END_OF_SOURCE} if EOS.
    * @param extraFormat Format string for optional extra information. See {@link
    *     Util#formatInvariant(String, Object...)}.
    * @param extraArgs Arguments for optional extra information.
    */
+  @SuppressWarnings("ComputeIfAbsentContainsKey") // Avoid Java8 for visibility
   public static synchronized void logEvent(
-      @DebugTraceEvent String eventName,
+      @Component String component,
+      @Event String event,
       long presentationTimeUs,
       String extraFormat,
       Object... extraArgs) {
@@ -196,10 +219,15 @@ public final class DebugTraceUtil {
       return;
     }
     long eventTimeMs = SystemClock.DEFAULT.elapsedRealtime() - startTimeMs;
-    if (!events.containsKey(eventName)) {
-      events.put(eventName, new EventLogger());
+
+    if (!componentsToEventsToLogs.containsKey(component)) {
+      componentsToEventsToLogs.put(component, new LinkedHashMap<>());
     }
-    EventLogger logger = events.get(eventName);
+    Map<@Event String, EventLogger> events = componentsToEventsToLogs.get(component);
+    if (!events.containsKey(event)) {
+      events.put(event, new EventLogger());
+    }
+    EventLogger logger = events.get(event);
     String extra = Util.formatInvariant(extraFormat, extraArgs);
     logger.addLog(new EventLog(presentationTimeUs, eventTimeMs, extra));
   }
@@ -207,13 +235,14 @@ public final class DebugTraceUtil {
   /**
    * Logs a new event, if debug logging is enabled.
    *
-   * @param eventName The {@linkplain DebugTraceEvent event name} to log.
+   * @param component The {@link Component} to log.
+   * @param event The {@link Event} to log.
    * @param presentationTimeUs The current presentation time of the media. Use {@link C#TIME_UNSET}
    *     if unknown, {@link C#TIME_END_OF_SOURCE} if EOS.
    */
   public static synchronized void logEvent(
-      @DebugTraceEvent String eventName, long presentationTimeUs) {
-    logEvent(eventName, presentationTimeUs, /* extraFormat= */ "");
+      @Component String component, @Event String event, long presentationTimeUs) {
+    logEvent(component, event, presentationTimeUs, /* extraFormat= */ "");
   }
 
   /**
@@ -228,14 +257,21 @@ public final class DebugTraceUtil {
     JsonWriter jsonWriter = new JsonWriter(stringWriter);
     try {
       jsonWriter.beginObject();
-      for (Map.Entry<String, List<String>> componentToEvents : COMPONENTS_TO_EVENTS.entrySet()) {
-        jsonWriter.name(componentToEvents.getKey()).beginObject();
-        for (String eventType : componentToEvents.getValue()) {
-          jsonWriter.name(eventType);
-          if (!events.containsKey(eventType)) {
-            jsonWriter.value("No events");
+      for (Map.Entry<@Component String, List<@Event String>> componentToEvents :
+          COMPONENTS_TO_EVENTS.entrySet()) {
+        @Component String component = componentToEvents.getKey();
+        List<@Event String> componentEvents = componentToEvents.getValue();
+
+        jsonWriter.name(component);
+        @Nullable
+        Map<@Event String, EventLogger> eventsToLogs = componentsToEventsToLogs.get(component);
+        jsonWriter.beginObject();
+        for (@Event String event : componentEvents) {
+          jsonWriter.name(event);
+          if (eventsToLogs != null && eventsToLogs.containsKey(event)) {
+            checkNotNull(eventsToLogs.get(event)).toJson(jsonWriter);
           } else {
-            checkNotNull(events.get(eventType)).toJson(jsonWriter);
+            jsonWriter.value("No events");
           }
         }
         jsonWriter.endObject();
@@ -249,24 +285,30 @@ public final class DebugTraceUtil {
     }
   }
 
-  /** Dumps all the logged events to a tsv file. */
+  /** Dumps all the logged events to the {@link Writer} as tab separated values (tsv). */
   public static synchronized void dumpTsv(Writer writer) throws IOException {
     if (!enableTracing) {
       writer.write("Tracing disabled");
       return;
     }
-    writer.write("event\ttimestamp\tpresentation\textra\n");
-    for (Map.Entry<String, EventLogger> entry : events.entrySet()) {
-      ImmutableList<EventLog> eventLogs = entry.getValue().getLogs();
-      for (int i = 0; i < eventLogs.size(); i++) {
-        EventLog eventLog = eventLogs.get(i);
-        writer.write(
-            formatInvariant(
-                "%s\t%dms\t%s\t%s\n",
-                entry.getKey(),
-                eventLog.eventTimeMs,
-                presentationTimeToString(eventLog.presentationTimeUs),
-                eventLog.extra));
+    writer.write("component\tevent\ttimestamp\tpresentation\textra\n");
+    for (Map.Entry<@Component String, Map<@Event String, EventLogger>> componentToEventsToLogs :
+        componentsToEventsToLogs.entrySet()) {
+      @Component String component = componentToEventsToLogs.getKey();
+      Map<@Event String, EventLogger> eventsToLogs = componentToEventsToLogs.getValue();
+      for (Map.Entry<@Event String, EventLogger> eventToLogs : eventsToLogs.entrySet()) {
+        @Event String componentEvent = eventToLogs.getKey();
+        ImmutableList<EventLog> eventLogs = eventToLogs.getValue().getLogs();
+        for (EventLog eventLog : eventLogs) {
+          writer.write(
+              formatInvariant(
+                  "%s\t%s\t%dms\t%s\t%s\n",
+                  component,
+                  componentEvent,
+                  eventLog.eventTimeMs,
+                  presentationTimeToString(eventLog.presentationTimeUs),
+                  eventLog.extra));
+        }
       }
     }
   }

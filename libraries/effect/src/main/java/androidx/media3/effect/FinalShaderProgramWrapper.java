@@ -17,6 +17,8 @@ package androidx.media3.effect;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.effect.DebugTraceUtil.COMPONENT_VFP;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_VFP_RENDERED_TO_OUTPUT_SURFACE;
 import static androidx.media3.effect.DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_LINEAR;
 
 import android.content.Context;
@@ -390,7 +392,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             : renderTimeNs);
     EGL14.eglSwapBuffers(eglDisplay, outputEglSurface);
     DebugTraceUtil.logEvent(
-        DebugTraceUtil.EVENT_VFP_RENDERED_TO_OUTPUT_SURFACE, presentationTimeUs);
+        COMPONENT_VFP, EVENT_VFP_RENDERED_TO_OUTPUT_SURFACE, presentationTimeUs);
   }
 
   private void renderFrameToOutputTexture(GlTextureInfo inputTexture, long presentationTimeUs)

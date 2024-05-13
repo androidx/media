@@ -19,6 +19,11 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
+import static androidx.media3.effect.DebugTraceUtil.COMPONENT_EXTERNAL_TEXTURE_MANAGER;
+import static androidx.media3.effect.DebugTraceUtil.COMPONENT_VFP;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_EXTERNAL_TEXTURE_MANAGER_SIGNAL_EOS;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_VFP_QUEUE_FRAME;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_VFP_SURFACE_TEXTURE_INPUT;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.graphics.SurfaceTexture;
@@ -126,7 +131,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             videoFrameProcessingTaskExecutor.submit(
                 () -> {
                   DebugTraceUtil.logEvent(
-                      DebugTraceUtil.EVENT_VFP_SURFACE_TEXTURE_INPUT, C.TIME_UNSET);
+                      COMPONENT_VFP, EVENT_VFP_SURFACE_TEXTURE_INPUT, C.TIME_UNSET);
                   if (shouldRejectIncomingFrames) {
                     surfaceTexture.updateTexImage();
                     Log.w(
@@ -201,7 +206,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             currentInputStreamEnded = false;
             checkNotNull(externalShaderProgram).signalEndOfCurrentInputStream();
             DebugTraceUtil.logEvent(
-                DebugTraceUtil.EVENT_EXTERNAL_TEXTURE_MANAGER_SIGNAL_EOS, C.TIME_END_OF_SOURCE);
+                COMPONENT_EXTERNAL_TEXTURE_MANAGER,
+                EVENT_EXTERNAL_TEXTURE_MANAGER_SIGNAL_EOS,
+                C.TIME_END_OF_SOURCE);
             cancelForceSignalEndOfStreamTimer();
           } else {
             maybeQueueFrameToExternalShaderProgram();
@@ -246,7 +253,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           if (pendingFrames.isEmpty() && currentFrame == null) {
             checkNotNull(externalShaderProgram).signalEndOfCurrentInputStream();
             DebugTraceUtil.logEvent(
-                DebugTraceUtil.EVENT_EXTERNAL_TEXTURE_MANAGER_SIGNAL_EOS, C.TIME_END_OF_SOURCE);
+                COMPONENT_EXTERNAL_TEXTURE_MANAGER,
+                EVENT_EXTERNAL_TEXTURE_MANAGER_SIGNAL_EOS,
+                C.TIME_END_OF_SOURCE);
             cancelForceSignalEndOfStreamTimer();
           } else {
             currentInputStreamEnded = true;
@@ -376,7 +385,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (!repeatLastRegisteredFrame) {
       checkStateNotNull(pendingFrames.remove());
     }
-    DebugTraceUtil.logEvent(DebugTraceUtil.EVENT_VFP_QUEUE_FRAME, presentationTimeUs);
+    DebugTraceUtil.logEvent(COMPONENT_VFP, EVENT_VFP_QUEUE_FRAME, presentationTimeUs);
     // If the queued frame is the last frame, end of stream will be signaled onInputFrameProcessed.
   }
 }
