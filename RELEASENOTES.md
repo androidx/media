@@ -26,6 +26,7 @@
         source or take other actions.
     *   Fix bug where silence skipping at the end of items can trigger a
         playback exception.
+    *   Add `clear` to `PreloadMediaSource` to discard the preloading period.
 *   Transformer:
     *   Work around a decoder bug where the number of audio channels was capped
         at stereo when handling PCM input.

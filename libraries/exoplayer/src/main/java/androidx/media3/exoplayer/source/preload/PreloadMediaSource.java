@@ -259,6 +259,21 @@ public final class PreloadMediaSource extends WrappingMediaSource {
         });
   }
 
+  /**
+   * Clears the preloading {@link PreloadMediaPeriod} in {@link PreloadMediaSource}.
+   *
+   * <p>Can be called from any thread.
+   */
+  public void clear() {
+    preloadHandler.post(
+        () -> {
+          if (preloadingMediaPeriodAndKey != null) {
+            mediaSource.releasePeriod(preloadingMediaPeriodAndKey.first.mediaPeriod);
+            preloadingMediaPeriodAndKey = null;
+          }
+        });
+  }
+
   @Override
   protected void prepareSourceInternal() {
     if (isUsedByPlayer() && !onUsedByPlayerNotified) {
@@ -337,8 +352,7 @@ public final class PreloadMediaSource extends WrappingMediaSource {
         && preloadMediaPeriod == checkNotNull(playingPreloadedMediaPeriodAndId).first) {
       playingPreloadedMediaPeriodAndId = null;
     }
-    MediaPeriod periodToRelease = preloadMediaPeriod.mediaPeriod;
-    mediaSource.releasePeriod(periodToRelease);
+    mediaSource.releasePeriod(preloadMediaPeriod.mediaPeriod);
   }
 
   @Override

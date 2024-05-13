@@ -29,6 +29,7 @@ import static org.robolectric.Shadows.shadowOf;
 import android.net.Uri;
 import android.os.Looper;
 import android.util.Pair;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
@@ -36,16 +37,21 @@ import androidx.media3.common.Tracks;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DefaultDataSource;
+import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.RendererConfiguration;
 import androidx.media3.exoplayer.RenderersFactory;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
+import androidx.media3.exoplayer.drm.DrmSessionEventListener;
+import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.metadata.MetadataOutput;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource;
+import androidx.media3.exoplayer.source.MediaSourceEventListener;
 import androidx.media3.exoplayer.source.ProgressiveMediaSource;
+import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.text.TextOutput;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
@@ -57,6 +63,7 @@ import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.test.utils.FakeAudioRenderer;
+import androidx.media3.test.utils.FakeMediaPeriod;
 import androidx.media3.test.utils.FakeMediaSource;
 import androidx.media3.test.utils.FakeMediaSourceFactory;
 import androidx.media3.test.utils.FakeTimeline;
@@ -793,6 +800,83 @@ public final class PreloadMediaSourceTest {
 
     assertThat(onPreparedCalled.get()).isTrue();
     verify(internalSourceReference.get(), times(2)).createPeriod(any(), any(), anyLong());
+  }
+
+  @Test
+  public void clear_preloadingPeriodReleased() throws Exception {
+    AtomicBoolean onPreparedCalled = new AtomicBoolean();
+    PreloadMediaSource.PreloadControl preloadControl =
+        new PreloadMediaSource.PreloadControl() {
+          @Override
+          public boolean onTimelineRefreshed(PreloadMediaSource mediaSource) {
+            return true;
+          }
+
+          @Override
+          public boolean onPrepared(PreloadMediaSource mediaSource) {
+            onPreparedCalled.set(true);
+            return false;
+          }
+
+          @Override
+          public boolean onContinueLoadingRequested(
+              PreloadMediaSource mediaSource, long bufferedPositionUs) {
+            return false;
+          }
+
+          @Override
+          public void onUsedByPlayer(PreloadMediaSource mediaSource) {}
+        };
+    MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
+    AtomicBoolean preloadingMediaPeriodReleased = new AtomicBoolean();
+    when(mockMediaSourceFactory.createMediaSource(any()))
+        .thenReturn(
+            new FakeMediaSource() {
+              @Override
+              protected MediaPeriod createMediaPeriod(
+                  MediaPeriodId id,
+                  TrackGroupArray trackGroupArray,
+                  Allocator allocator,
+                  MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+                  DrmSessionManager drmSessionManager,
+                  DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+                  @Nullable TransferListener transferListener) {
+                return new FakeMediaPeriod(
+                    trackGroupArray,
+                    allocator,
+                    FakeTimeline.TimelineWindowDefinition.DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
+                    mediaSourceEventDispatcher) {
+                  @Override
+                  public void release() {
+                    preloadingMediaPeriodReleased.set(true);
+                  }
+                };
+              }
+            });
+    TrackSelector trackSelector =
+        new DefaultTrackSelector(ApplicationProvider.getApplicationContext());
+    trackSelector.init(() -> {}, bandwidthMeter);
+    PreloadMediaSource.Factory preloadMediaSourceFactory =
+        new PreloadMediaSource.Factory(
+            mockMediaSourceFactory,
+            preloadControl,
+            trackSelector,
+            bandwidthMeter,
+            getRendererCapabilities(renderersFactory),
+            allocator,
+            Util.getCurrentOrMainLooper());
+    PreloadMediaSource preloadMediaSource =
+        preloadMediaSourceFactory.createMediaSource(
+            new MediaItem.Builder()
+                .setUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"))
+                .build());
+    preloadMediaSource.preload(/* startPositionUs= */ 0L);
+    runMainLooperUntil(onPreparedCalled::get);
+
+    preloadMediaSource.clear();
+    shadowOf(Looper.getMainLooper()).idle();
+
+    assertThat(preloadingMediaPeriodReleased.get()).isTrue();
   }
 
   @Test
