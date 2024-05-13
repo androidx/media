@@ -18,8 +18,8 @@ package androidx.media3.effect;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_TEX_ID_TEXTURE_MANAGER;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_VFP;
-import static androidx.media3.effect.DebugTraceUtil.EVENT_TEX_ID_TEXTURE_MANAGER_SIGNAL_EOS;
-import static androidx.media3.effect.DebugTraceUtil.EVENT_VFP_QUEUE_TEXTURE;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_QUEUE_TEXTURE;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_SIGNAL_EOS;
 
 import android.opengl.GLES10;
 import androidx.media3.common.C;
@@ -91,7 +91,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           checkNotNull(frameConsumptionManager).queueInputFrame(inputTexture, presentationTimeUs);
           DebugTraceUtil.logEvent(
               COMPONENT_VFP,
-              EVENT_VFP_QUEUE_TEXTURE,
+              EVENT_QUEUE_TEXTURE,
               presentationTimeUs,
               /* extraFormat= */ "%dx%d",
               /* extraArgs...= */ frameInfo.width,
@@ -120,9 +120,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         () -> {
           checkNotNull(frameConsumptionManager).signalEndOfCurrentStream();
           DebugTraceUtil.logEvent(
-              COMPONENT_TEX_ID_TEXTURE_MANAGER,
-              EVENT_TEX_ID_TEXTURE_MANAGER_SIGNAL_EOS,
-              C.TIME_END_OF_SOURCE);
+              COMPONENT_TEX_ID_TEXTURE_MANAGER, EVENT_SIGNAL_EOS, C.TIME_END_OF_SOURCE);
         });
   }
 

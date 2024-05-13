@@ -25,7 +25,7 @@ import static androidx.media3.common.ColorInfo.isTransferHdr;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_ENCODER;
-import static androidx.media3.effect.DebugTraceUtil.EVENT_ENCODER_ENCODED_FRAME;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_ENCODED_FRAME;
 import static androidx.media3.transformer.Composition.HDR_MODE_KEEP_HDR;
 import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
 import static androidx.media3.transformer.TransformerUtil.getOutputMimeTypeAndHdrModeAfterFallback;
@@ -195,8 +195,7 @@ import org.checkerframework.dataflow.qual.Pure;
         hasMuxedTimestampZero = true;
       }
     }
-    DebugTraceUtil.logEvent(
-        COMPONENT_ENCODER, EVENT_ENCODER_ENCODED_FRAME, bufferInfo.presentationTimeUs);
+    DebugTraceUtil.logEvent(COMPONENT_ENCODER, EVENT_ENCODED_FRAME, bufferInfo.presentationTimeUs);
     encoderOutputBuffer.timeUs = bufferInfo.presentationTimeUs;
     encoderOutputBuffer.setFlags(bufferInfo.flags);
     return encoderOutputBuffer;

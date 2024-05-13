@@ -59,64 +59,50 @@ public final class DebugTraceUtil {
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @StringDef({
-    EVENT_VIDEO_INPUT_FORMAT,
-    EVENT_DECODER_DECODED_FRAME,
-    EVENT_VFP_REGISTER_NEW_INPUT_STREAM,
-    EVENT_VFP_SURFACE_TEXTURE_INPUT,
-    EVENT_VFP_QUEUE_FRAME,
-    EVENT_VFP_QUEUE_BITMAP,
-    EVENT_VFP_QUEUE_TEXTURE,
-    EVENT_VFP_RENDERED_TO_OUTPUT_SURFACE,
-    EVENT_VFP_OUTPUT_TEXTURE_RENDERED,
-    EVENT_COMPOSITOR_OUTPUT_TEXTURE_RENDERED,
-    EVENT_ENCODER_ENCODED_FRAME,
-    EVENT_MUXER_CAN_WRITE_SAMPLE_VIDEO,
-    EVENT_MUXER_WRITE_SAMPLE_VIDEO,
-    EVENT_MUXER_CAN_WRITE_SAMPLE_AUDIO,
-    EVENT_MUXER_WRITE_SAMPLE_AUDIO,
-    EVENT_DECODER_RECEIVE_EOS,
-    EVENT_DECODER_SIGNAL_EOS,
-    EVENT_VFP_RECEIVE_END_OF_INPUT,
-    EVENT_EXTERNAL_TEXTURE_MANAGER_SIGNAL_EOS,
-    EVENT_BITMAP_TEXTURE_MANAGER_SIGNAL_EOS,
-    EVENT_TEX_ID_TEXTURE_MANAGER_SIGNAL_EOS,
-    EVENT_VFP_SIGNAL_ENDED,
-    EVENT_ENCODER_RECEIVE_EOS,
-    EVENT_MUXER_TRACK_ENDED_AUDIO,
-    EVENT_MUXER_TRACK_ENDED_VIDEO
+    EVENT_INPUT_FORMAT,
+    EVENT_DECODED_FRAME,
+    EVENT_ENCODED_FRAME,
+    EVENT_REGISTER_NEW_INPUT_STREAM,
+    EVENT_SURFACE_TEXTURE_INPUT,
+    EVENT_QUEUE_FRAME,
+    EVENT_QUEUE_BITMAP,
+    EVENT_QUEUE_TEXTURE,
+    EVENT_OUTPUT_TEXTURE_RENDERED,
+    EVENT_RENDERED_TO_OUTPUT_SURFACE,
+    EVENT_RECEIVE_END_OF_ALL_INPUT,
+    EVENT_RECEIVE_EOS,
+    EVENT_SIGNAL_EOS,
+    EVENT_SIGNAL_ENDED,
+    EVENT_CAN_WRITE_SAMPLE_AUDIO,
+    EVENT_CAN_WRITE_SAMPLE_VIDEO,
+    EVENT_WRITE_SAMPLE_AUDIO,
+    EVENT_WRITE_SAMPLE_VIDEO,
+    EVENT_TRACK_ENDED_AUDIO,
+    EVENT_TRACK_ENDED_VIDEO
   })
   @Target(TYPE_USE)
   public @interface Event {}
 
-  public static final String EVENT_VIDEO_INPUT_FORMAT = "VideoInputFormat";
-  public static final String EVENT_DECODER_DECODED_FRAME = "Decoder-DecodedFrame";
-  public static final String EVENT_VFP_REGISTER_NEW_INPUT_STREAM = "VFP-RegisterNewInputStream";
-  public static final String EVENT_VFP_SURFACE_TEXTURE_INPUT = "VFP-SurfaceTextureInput";
-  public static final String EVENT_VFP_QUEUE_FRAME = "VFP-QueueFrame";
-  public static final String EVENT_VFP_QUEUE_BITMAP = "VFP-QueueBitmap";
-  public static final String EVENT_VFP_QUEUE_TEXTURE = "VFP-QueueTexture";
-  public static final String EVENT_VFP_RENDERED_TO_OUTPUT_SURFACE = "VFP-RenderedToOutputSurface";
-  public static final String EVENT_VFP_OUTPUT_TEXTURE_RENDERED = "VFP-OutputTextureRendered";
-  public static final String EVENT_COMPOSITOR_OUTPUT_TEXTURE_RENDERED =
-      "COMP-OutputTextureRendered";
-  public static final String EVENT_ENCODER_ENCODED_FRAME = "Encoder-EncodedFrame";
-  public static final String EVENT_MUXER_CAN_WRITE_SAMPLE_VIDEO = "Muxer-CanWriteSample_Video";
-  public static final String EVENT_MUXER_WRITE_SAMPLE_VIDEO = "Muxer-WriteSample_Video";
-  public static final String EVENT_MUXER_CAN_WRITE_SAMPLE_AUDIO = "Muxer-CanWriteSample_Audio";
-  public static final String EVENT_MUXER_WRITE_SAMPLE_AUDIO = "Muxer-WriteSample_Audio";
-  public static final String EVENT_DECODER_RECEIVE_EOS = "Decoder-ReceiveEOS";
-  public static final String EVENT_DECODER_SIGNAL_EOS = "Decoder-SignalEOS";
-  public static final String EVENT_VFP_RECEIVE_END_OF_INPUT = "VFP-ReceiveEndOfAllInput";
-  public static final String EVENT_EXTERNAL_TEXTURE_MANAGER_SIGNAL_EOS =
-      "ExternalTextureManager-SignalEOS";
-  public static final String EVENT_BITMAP_TEXTURE_MANAGER_SIGNAL_EOS =
-      "BitmapTextureManager-SignalEOS";
-  public static final String EVENT_TEX_ID_TEXTURE_MANAGER_SIGNAL_EOS =
-      "TexIdTextureManager-SignalEOS";
-  public static final String EVENT_VFP_SIGNAL_ENDED = "VFP-SignalEnded";
-  public static final String EVENT_ENCODER_RECEIVE_EOS = "Encoder-ReceiveEOS";
-  public static final String EVENT_MUXER_TRACK_ENDED_AUDIO = "Muxer-TrackEnded_Audio";
-  public static final String EVENT_MUXER_TRACK_ENDED_VIDEO = "Muxer-TrackEnded_Video";
+  public static final String EVENT_INPUT_FORMAT = "InputFormat";
+  public static final String EVENT_DECODED_FRAME = "DecodedFrame";
+  public static final String EVENT_ENCODED_FRAME = "EncodedFrame";
+  public static final String EVENT_REGISTER_NEW_INPUT_STREAM = "RegisterNewInputStream";
+  public static final String EVENT_SURFACE_TEXTURE_INPUT = "SurfaceTextureInput";
+  public static final String EVENT_QUEUE_FRAME = "QueueFrame";
+  public static final String EVENT_QUEUE_BITMAP = "QueueBitmap";
+  public static final String EVENT_QUEUE_TEXTURE = "QueueTexture";
+  public static final String EVENT_OUTPUT_TEXTURE_RENDERED = "OutputTextureRendered";
+  public static final String EVENT_RENDERED_TO_OUTPUT_SURFACE = "RenderedToOutputSurface";
+  public static final String EVENT_RECEIVE_END_OF_ALL_INPUT = "ReceiveEndOfAllInput";
+  public static final String EVENT_RECEIVE_EOS = "ReceiveEOS";
+  public static final String EVENT_SIGNAL_EOS = "SignalEOS";
+  public static final String EVENT_SIGNAL_ENDED = "SignalEnded";
+  public static final String EVENT_CAN_WRITE_SAMPLE_AUDIO = "CanWriteSample_Audio";
+  public static final String EVENT_CAN_WRITE_SAMPLE_VIDEO = "CanWriteSample_Video";
+  public static final String EVENT_WRITE_SAMPLE_AUDIO = "WriteSample_Audio";
+  public static final String EVENT_WRITE_SAMPLE_VIDEO = "WriteSample_Video";
+  public static final String EVENT_TRACK_ENDED_AUDIO = "TrackEnded_Audio";
+  public static final String EVENT_TRACK_ENDED_VIDEO = "TrackEnded_Video";
 
   /** Components logged by {@link #logEvent}. */
   @Documented
@@ -150,38 +136,33 @@ public final class DebugTraceUtil {
   // For a given component, events are in the rough expected order that they occur.
   private static final ImmutableMap<@Component String, List<@Event String>> COMPONENTS_TO_EVENTS =
       ImmutableMap.of(
-          COMPONENT_VIDEO, ImmutableList.of(EVENT_VIDEO_INPUT_FORMAT),
+          COMPONENT_VIDEO, ImmutableList.of(EVENT_INPUT_FORMAT),
           COMPONENT_DECODER,
-              ImmutableList.of(
-                  EVENT_DECODER_DECODED_FRAME, EVENT_DECODER_RECEIVE_EOS, EVENT_DECODER_SIGNAL_EOS),
+              ImmutableList.of(EVENT_DECODED_FRAME, EVENT_RECEIVE_EOS, EVENT_SIGNAL_EOS),
           COMPONENT_VFP,
               ImmutableList.of(
-                  EVENT_VFP_REGISTER_NEW_INPUT_STREAM,
-                  EVENT_VFP_SURFACE_TEXTURE_INPUT,
-                  EVENT_VFP_QUEUE_FRAME,
-                  EVENT_VFP_QUEUE_BITMAP,
-                  EVENT_VFP_QUEUE_TEXTURE,
-                  EVENT_VFP_RENDERED_TO_OUTPUT_SURFACE,
-                  EVENT_VFP_OUTPUT_TEXTURE_RENDERED,
-                  EVENT_VFP_RECEIVE_END_OF_INPUT,
-                  EVENT_VFP_SIGNAL_ENDED),
-          COMPONENT_EXTERNAL_TEXTURE_MANAGER,
-              ImmutableList.of(EVENT_EXTERNAL_TEXTURE_MANAGER_SIGNAL_EOS),
-          COMPONENT_BITMAP_TEXTURE_MANAGER,
-              ImmutableList.of(EVENT_BITMAP_TEXTURE_MANAGER_SIGNAL_EOS),
-          COMPONENT_TEX_ID_TEXTURE_MANAGER,
-              ImmutableList.of(EVENT_TEX_ID_TEXTURE_MANAGER_SIGNAL_EOS),
-          COMPONENT_COMPOSITOR, ImmutableList.of(EVENT_COMPOSITOR_OUTPUT_TEXTURE_RENDERED),
-          COMPONENT_ENCODER,
-              ImmutableList.of(EVENT_ENCODER_ENCODED_FRAME, EVENT_ENCODER_RECEIVE_EOS),
+                  EVENT_REGISTER_NEW_INPUT_STREAM,
+                  EVENT_SURFACE_TEXTURE_INPUT,
+                  EVENT_QUEUE_FRAME,
+                  EVENT_QUEUE_BITMAP,
+                  EVENT_QUEUE_TEXTURE,
+                  EVENT_RENDERED_TO_OUTPUT_SURFACE,
+                  EVENT_OUTPUT_TEXTURE_RENDERED,
+                  EVENT_RECEIVE_END_OF_ALL_INPUT,
+                  EVENT_SIGNAL_ENDED),
+          COMPONENT_EXTERNAL_TEXTURE_MANAGER, ImmutableList.of(EVENT_SIGNAL_EOS),
+          COMPONENT_BITMAP_TEXTURE_MANAGER, ImmutableList.of(EVENT_SIGNAL_EOS),
+          COMPONENT_TEX_ID_TEXTURE_MANAGER, ImmutableList.of(EVENT_SIGNAL_EOS),
+          COMPONENT_COMPOSITOR, ImmutableList.of(EVENT_OUTPUT_TEXTURE_RENDERED),
+          COMPONENT_ENCODER, ImmutableList.of(EVENT_ENCODED_FRAME, EVENT_RECEIVE_EOS),
           COMPONENT_MUXER,
               ImmutableList.of(
-                  EVENT_MUXER_CAN_WRITE_SAMPLE_VIDEO,
-                  EVENT_MUXER_WRITE_SAMPLE_VIDEO,
-                  EVENT_MUXER_CAN_WRITE_SAMPLE_AUDIO,
-                  EVENT_MUXER_WRITE_SAMPLE_AUDIO,
-                  EVENT_MUXER_TRACK_ENDED_AUDIO,
-                  EVENT_MUXER_TRACK_ENDED_VIDEO));
+                  EVENT_CAN_WRITE_SAMPLE_VIDEO,
+                  EVENT_WRITE_SAMPLE_VIDEO,
+                  EVENT_CAN_WRITE_SAMPLE_AUDIO,
+                  EVENT_WRITE_SAMPLE_AUDIO,
+                  EVENT_TRACK_ENDED_AUDIO,
+                  EVENT_TRACK_ENDED_VIDEO));
 
   private static final int MAX_FIRST_LAST_LOGS = 10;
 

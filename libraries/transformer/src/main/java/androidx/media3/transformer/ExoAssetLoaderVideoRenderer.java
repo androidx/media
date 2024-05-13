@@ -19,9 +19,9 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_DECODER;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_VIDEO;
-import static androidx.media3.effect.DebugTraceUtil.EVENT_DECODER_DECODED_FRAME;
-import static androidx.media3.effect.DebugTraceUtil.EVENT_DECODER_SIGNAL_EOS;
-import static androidx.media3.effect.DebugTraceUtil.EVENT_VIDEO_INPUT_FORMAT;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_DECODED_FRAME;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_INPUT_FORMAT;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_SIGNAL_EOS;
 import static androidx.media3.transformer.TransformerUtil.getDecoderOutputColor;
 
 import android.media.MediaCodec;
@@ -92,7 +92,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   protected void onInputFormatRead(Format inputFormat) {
     DebugTraceUtil.logEvent(
         COMPONENT_VIDEO,
-        EVENT_VIDEO_INPUT_FORMAT,
+        EVENT_INPUT_FORMAT,
         C.TIME_UNSET,
         /* extraFormat= */ "%s",
         /* extraArgs...= */ inputFormat);
@@ -157,7 +157,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   @RequiresNonNull({"sampleConsumer", "decoder"})
   protected boolean feedConsumerFromDecoder() throws ExportException {
     if (decoder.isEnded()) {
-      DebugTraceUtil.logEvent(COMPONENT_DECODER, EVENT_DECODER_SIGNAL_EOS, C.TIME_END_OF_SOURCE);
+      DebugTraceUtil.logEvent(COMPONENT_DECODER, EVENT_SIGNAL_EOS, C.TIME_END_OF_SOURCE);
       sampleConsumer.signalEndOfVideoInput();
       isEnded = true;
       return false;
@@ -184,7 +184,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     }
 
     decoder.releaseOutputBuffer(presentationTimeUs);
-    DebugTraceUtil.logEvent(COMPONENT_DECODER, EVENT_DECODER_DECODED_FRAME, presentationTimeUs);
+    DebugTraceUtil.logEvent(COMPONENT_DECODER, EVENT_DECODED_FRAME, presentationTimeUs);
     return true;
   }
 

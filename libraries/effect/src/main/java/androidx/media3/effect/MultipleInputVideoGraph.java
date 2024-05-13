@@ -24,8 +24,7 @@ import static androidx.media3.common.util.Util.contains;
 import static androidx.media3.common.util.Util.newSingleThreadScheduledExecutor;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_COMPOSITOR;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_VFP;
-import static androidx.media3.effect.DebugTraceUtil.EVENT_COMPOSITOR_OUTPUT_TEXTURE_RENDERED;
-import static androidx.media3.effect.DebugTraceUtil.EVENT_VFP_OUTPUT_TEXTURE_RENDERED;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_OUTPUT_TEXTURE_RENDERED;
 import static androidx.media3.effect.DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_LINEAR;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -321,7 +320,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
       GlTextureProducer textureProducer,
       GlTextureInfo texture,
       long presentationTimeUs) {
-    DebugTraceUtil.logEvent(COMPONENT_VFP, EVENT_VFP_OUTPUT_TEXTURE_RENDERED, presentationTimeUs);
+    DebugTraceUtil.logEvent(COMPONENT_VFP, EVENT_OUTPUT_TEXTURE_RENDERED, presentationTimeUs);
     checkNotNull(videoCompositor)
         .queueInputTexture(
             videoCompositorInputId,
@@ -341,7 +340,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
     checkStateNotNull(compositionVideoFrameProcessor);
     checkState(!compositorEnded);
     DebugTraceUtil.logEvent(
-        COMPONENT_COMPOSITOR, EVENT_COMPOSITOR_OUTPUT_TEXTURE_RENDERED, presentationTimeUs);
+        COMPONENT_COMPOSITOR, EVENT_OUTPUT_TEXTURE_RENDERED, presentationTimeUs);
 
     compositorOutputTextures.add(
         new CompositorOutputTextureInfo(outputTexture, presentationTimeUs));

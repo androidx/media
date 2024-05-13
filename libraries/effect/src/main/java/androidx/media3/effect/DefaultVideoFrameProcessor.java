@@ -21,9 +21,9 @@ import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_VFP;
-import static androidx.media3.effect.DebugTraceUtil.EVENT_VFP_RECEIVE_END_OF_INPUT;
-import static androidx.media3.effect.DebugTraceUtil.EVENT_VFP_REGISTER_NEW_INPUT_STREAM;
-import static androidx.media3.effect.DebugTraceUtil.EVENT_VFP_SIGNAL_ENDED;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_RECEIVE_END_OF_ALL_INPUT;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_REGISTER_NEW_INPUT_STREAM;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_SIGNAL_ENDED;
 import static com.google.common.collect.Iterables.getFirst;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -427,7 +427,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         () -> {
           if (inputStreamEnded) {
             listenerExecutor.execute(listener::onEnded);
-            DebugTraceUtil.logEvent(COMPONENT_VFP, EVENT_VFP_SIGNAL_ENDED, C.TIME_END_OF_SOURCE);
+            DebugTraceUtil.logEvent(COMPONENT_VFP, EVENT_SIGNAL_ENDED, C.TIME_END_OF_SOURCE);
           } else {
             synchronized (lock) {
               if (pendingInputStreamInfo != null) {
@@ -537,7 +537,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     // queued.
     DebugTraceUtil.logEvent(
         COMPONENT_VFP,
-        EVENT_VFP_REGISTER_NEW_INPUT_STREAM,
+        EVENT_REGISTER_NEW_INPUT_STREAM,
         /* presentationTimeUs= */ frameInfo.offsetToAddUs,
         /* extraFormat= */ "InputType %s - %dx%d",
         /* extraArgs...= */ getInputTypeString(inputType),
@@ -622,7 +622,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
 
   @Override
   public void signalEndOfInput() {
-    DebugTraceUtil.logEvent(COMPONENT_VFP, EVENT_VFP_RECEIVE_END_OF_INPUT, C.TIME_END_OF_SOURCE);
+    DebugTraceUtil.logEvent(COMPONENT_VFP, EVENT_RECEIVE_END_OF_ALL_INPUT, C.TIME_END_OF_SOURCE);
     checkState(!inputStreamEnded);
     inputStreamEnded = true;
     inputSwitcher.signalEndOfInputStream();
