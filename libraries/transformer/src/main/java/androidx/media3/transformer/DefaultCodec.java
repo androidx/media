@@ -21,9 +21,12 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.SDK_INT;
-import static androidx.media3.effect.DebugTraceUtil.COMPONENT_DECODER;
-import static androidx.media3.effect.DebugTraceUtil.COMPONENT_ENCODER;
-import static androidx.media3.effect.DebugTraceUtil.EVENT_RECEIVE_EOS;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_ACCEPTED_INPUT;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_INPUT_ENDED;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_INPUT_FORMAT;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_OUTPUT_ENDED;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_OUTPUT_FORMAT;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_PRODUCED_OUTPUT;
 
 import android.content.Context;
 import android.media.MediaCodec;
@@ -109,6 +112,8 @@ public final class DefaultCodec implements Codec {
     outputBufferInfo = new BufferInfo();
     inputBufferIndex = C.INDEX_UNSET;
     outputBufferIndex = C.INDEX_UNSET;
+    DebugTraceUtil.logCodecEvent(
+        isDecoder, isVideo, EVENT_INPUT_FORMAT, C.TIME_UNSET, "%s", configurationFormat);
 
     @Nullable MediaCodec mediaCodec = null;
     @Nullable Surface inputSurface = null;
@@ -221,10 +226,8 @@ public final class DefaultCodec implements Codec {
       inputStreamEnded = true;
       flags = MediaCodec.BUFFER_FLAG_END_OF_STREAM;
 
+      debugTraceLogEvent(EVENT_INPUT_ENDED, C.TIME_END_OF_SOURCE);
       if (isDecoder) {
-        if (isVideo) {
-          DebugTraceUtil.logEvent(COMPONENT_DECODER, EVENT_RECEIVE_EOS, C.TIME_END_OF_SOURCE);
-        }
         // EOS buffer on the decoder input should never carry data.
         checkState(inputBuffer.data == null || !inputBuffer.data.hasRemaining());
         offset = 0;
@@ -238,13 +241,14 @@ public final class DefaultCodec implements Codec {
       Log.d(TAG, "MediaCodec error", e);
       throw createExportException(e);
     }
+    debugTraceLogEvent(EVENT_ACCEPTED_INPUT, timestampUs, "bytes=%s", size);
     inputBufferIndex = C.INDEX_UNSET;
     inputBuffer.data = null;
   }
 
   @Override
   public void signalEndOfInputStream() throws ExportException {
-    DebugTraceUtil.logEvent(COMPONENT_ENCODER, EVENT_RECEIVE_EOS, C.TIME_END_OF_SOURCE);
+    debugTraceLogEvent(EVENT_INPUT_ENDED, C.TIME_END_OF_SOURCE);
     try {
       mediaCodec.signalEndOfInputStream();
     } catch (RuntimeException e) {
@@ -264,7 +268,16 @@ public final class DefaultCodec implements Codec {
   @Override
   @Nullable
   public ByteBuffer getOutputBuffer() throws ExportException {
-    return maybeDequeueOutputBuffer(/* setOutputBuffer= */ true) ? outputBuffer : null;
+    boolean outputAvailable = maybeDequeueOutputBuffer(/* setOutputBuffer= */ true);
+    if (!outputAvailable) {
+      return null;
+    }
+    debugTraceLogEvent(
+        EVENT_PRODUCED_OUTPUT,
+        outputBufferInfo.presentationTimeUs,
+        "bytesOutput=%s",
+        outputBufferInfo.size);
+    return outputBuffer;
   }
 
   @Override
@@ -295,6 +308,7 @@ public final class DefaultCodec implements Codec {
       if (render) {
         mediaCodec.releaseOutputBuffer(
             outputBufferIndex, /* renderTimestampNs= */ renderPresentationTimeUs * 1000);
+        debugTraceLogEvent(EVENT_PRODUCED_OUTPUT, renderPresentationTimeUs);
       } else {
         mediaCodec.releaseOutputBuffer(outputBufferIndex, /* render= */ false);
       }
@@ -373,11 +387,15 @@ public final class DefaultCodec implements Codec {
                   .setPcmEncoding(configurationFormat.pcmEncoding)
                   .build();
         }
+        debugTraceLogEvent(
+            EVENT_OUTPUT_FORMAT, outputBufferInfo.presentationTimeUs, "%s", outputFormat);
       }
       return false;
     }
     if ((outputBufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
       outputStreamEnded = true;
+      debugTraceLogEvent(EVENT_OUTPUT_ENDED, C.TIME_END_OF_SOURCE);
+
       if (outputBufferInfo.size == 0) {
         releaseOutputBuffer(/* render= */ false);
         return false;
@@ -464,6 +482,19 @@ public final class DefaultCodec implements Codec {
         && MediaFormatUtil.getInteger(
                 mediaFormat, MediaFormat.KEY_COLOR_TRANSFER_REQUEST, /* defaultValue= */ 0)
             == MediaFormat.COLOR_TRANSFER_SDR_VIDEO;
+  }
+
+  private void debugTraceLogEvent(@DebugTraceUtil.Event String event, long presentationTimeUs) {
+    debugTraceLogEvent(event, presentationTimeUs, /* extraFormat= */ "");
+  }
+
+  private void debugTraceLogEvent(
+      @DebugTraceUtil.Event String event,
+      long presentationTimeUs,
+      String extraFormat,
+      Object... extraArgs) {
+    DebugTraceUtil.logCodecEvent(
+        isDecoder, isVideo, event, presentationTimeUs, extraFormat, extraArgs);
   }
 
   @RequiresApi(29)

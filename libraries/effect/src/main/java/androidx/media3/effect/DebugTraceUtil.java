@@ -60,8 +60,11 @@ public final class DebugTraceUtil {
   @Retention(RetentionPolicy.SOURCE)
   @StringDef({
     EVENT_INPUT_FORMAT,
-    EVENT_DECODED_FRAME,
-    EVENT_ENCODED_FRAME,
+    EVENT_OUTPUT_FORMAT,
+    EVENT_ACCEPTED_INPUT,
+    EVENT_PRODUCED_OUTPUT,
+    EVENT_INPUT_ENDED,
+    EVENT_OUTPUT_ENDED,
     EVENT_REGISTER_NEW_INPUT_STREAM,
     EVENT_SURFACE_TEXTURE_INPUT,
     EVENT_QUEUE_FRAME,
@@ -84,8 +87,11 @@ public final class DebugTraceUtil {
   public @interface Event {}
 
   public static final String EVENT_INPUT_FORMAT = "InputFormat";
-  public static final String EVENT_DECODED_FRAME = "DecodedFrame";
-  public static final String EVENT_ENCODED_FRAME = "EncodedFrame";
+  public static final String EVENT_OUTPUT_FORMAT = "OutputFormat";
+  public static final String EVENT_ACCEPTED_INPUT = "AcceptedInput";
+  public static final String EVENT_PRODUCED_OUTPUT = "ProducedOutput";
+  public static final String EVENT_INPUT_ENDED = "InputEnded";
+  public static final String EVENT_OUTPUT_ENDED = "OutputEnded";
   public static final String EVENT_REGISTER_NEW_INPUT_STREAM = "RegisterNewInputStream";
   public static final String EVENT_SURFACE_TEXTURE_INPUT = "SurfaceTextureInput";
   public static final String EVENT_QUEUE_FRAME = "QueueFrame";
@@ -109,13 +115,15 @@ public final class DebugTraceUtil {
   @Retention(RetentionPolicy.SOURCE)
   @StringDef({
     COMPONENT_VIDEO,
-    COMPONENT_DECODER,
+    COMPONENT_AUDIO_DECODER,
+    COMPONENT_VIDEO_DECODER,
     COMPONENT_VFP,
     COMPONENT_BITMAP_TEXTURE_MANAGER,
     COMPONENT_EXTERNAL_TEXTURE_MANAGER,
     COMPONENT_TEX_ID_TEXTURE_MANAGER,
     COMPONENT_COMPOSITOR,
-    COMPONENT_ENCODER,
+    COMPONENT_AUDIO_ENCODER,
+    COMPONENT_VIDEO_ENCODER,
     COMPONENT_MUXER
   })
   @Target(TYPE_USE)
@@ -124,22 +132,41 @@ public final class DebugTraceUtil {
   // TODO - b/339639306: Migrate COMPONENT_VIDEO usage to COMPONENT_ASSETLOADER.
   public static final String COMPONENT_VIDEO = "Video";
 
-  public static final String COMPONENT_DECODER = "Decoder";
+  public static final String COMPONENT_AUDIO_DECODER = "AudioDecoder";
+  public static final String COMPONENT_VIDEO_DECODER = "VideoDecoder";
   public static final String COMPONENT_VFP = "VFP";
   public static final String COMPONENT_EXTERNAL_TEXTURE_MANAGER = "ExternalTextureManager";
   public static final String COMPONENT_BITMAP_TEXTURE_MANAGER = "BitmapTextureManager";
   public static final String COMPONENT_TEX_ID_TEXTURE_MANAGER = "TexIdTextureManager";
   public static final String COMPONENT_COMPOSITOR = "Compositor";
-  public static final String COMPONENT_ENCODER = "Encoder";
+  public static final String COMPONENT_AUDIO_ENCODER = "AudioEncoder";
+  public static final String COMPONENT_VIDEO_ENCODER = "VideoEncoder";
   public static final String COMPONENT_MUXER = "Muxer";
 
   // For a given component, events are in the rough expected order that they occur.
   private static final ImmutableMap<@Component String, List<@Event String>> COMPONENTS_TO_EVENTS =
-      ImmutableMap.of(
-          COMPONENT_VIDEO, ImmutableList.of(EVENT_INPUT_FORMAT),
-          COMPONENT_DECODER,
-              ImmutableList.of(EVENT_DECODED_FRAME, EVENT_RECEIVE_EOS, EVENT_SIGNAL_EOS),
-          COMPONENT_VFP,
+      ImmutableMap.<String, List<String>>builder()
+          .put(COMPONENT_VIDEO, ImmutableList.of(EVENT_INPUT_FORMAT))
+          .put(
+              COMPONENT_AUDIO_DECODER,
+              ImmutableList.of(
+                  EVENT_INPUT_FORMAT,
+                  EVENT_OUTPUT_FORMAT,
+                  EVENT_ACCEPTED_INPUT,
+                  EVENT_PRODUCED_OUTPUT,
+                  EVENT_INPUT_ENDED,
+                  EVENT_OUTPUT_ENDED))
+          .put(
+              COMPONENT_VIDEO_DECODER,
+              ImmutableList.of(
+                  EVENT_INPUT_FORMAT,
+                  EVENT_OUTPUT_FORMAT,
+                  EVENT_ACCEPTED_INPUT,
+                  EVENT_PRODUCED_OUTPUT,
+                  EVENT_INPUT_ENDED,
+                  EVENT_OUTPUT_ENDED))
+          .put(
+              COMPONENT_VFP,
               ImmutableList.of(
                   EVENT_REGISTER_NEW_INPUT_STREAM,
                   EVENT_SURFACE_TEXTURE_INPUT,
@@ -149,20 +176,39 @@ public final class DebugTraceUtil {
                   EVENT_RENDERED_TO_OUTPUT_SURFACE,
                   EVENT_OUTPUT_TEXTURE_RENDERED,
                   EVENT_RECEIVE_END_OF_ALL_INPUT,
-                  EVENT_SIGNAL_ENDED),
-          COMPONENT_EXTERNAL_TEXTURE_MANAGER, ImmutableList.of(EVENT_SIGNAL_EOS),
-          COMPONENT_BITMAP_TEXTURE_MANAGER, ImmutableList.of(EVENT_SIGNAL_EOS),
-          COMPONENT_TEX_ID_TEXTURE_MANAGER, ImmutableList.of(EVENT_SIGNAL_EOS),
-          COMPONENT_COMPOSITOR, ImmutableList.of(EVENT_OUTPUT_TEXTURE_RENDERED),
-          COMPONENT_ENCODER, ImmutableList.of(EVENT_ENCODED_FRAME, EVENT_RECEIVE_EOS),
-          COMPONENT_MUXER,
+                  EVENT_SIGNAL_ENDED))
+          .put(COMPONENT_EXTERNAL_TEXTURE_MANAGER, ImmutableList.of(EVENT_SIGNAL_EOS))
+          .put(COMPONENT_BITMAP_TEXTURE_MANAGER, ImmutableList.of(EVENT_SIGNAL_EOS))
+          .put(COMPONENT_TEX_ID_TEXTURE_MANAGER, ImmutableList.of(EVENT_SIGNAL_EOS))
+          .put(COMPONENT_COMPOSITOR, ImmutableList.of(EVENT_OUTPUT_TEXTURE_RENDERED))
+          .put(
+              COMPONENT_AUDIO_ENCODER,
+              ImmutableList.of(
+                  EVENT_INPUT_FORMAT,
+                  EVENT_OUTPUT_FORMAT,
+                  EVENT_ACCEPTED_INPUT,
+                  EVENT_PRODUCED_OUTPUT,
+                  EVENT_INPUT_ENDED,
+                  EVENT_OUTPUT_ENDED))
+          .put(
+              COMPONENT_VIDEO_ENCODER,
+              ImmutableList.of(
+                  EVENT_INPUT_FORMAT,
+                  EVENT_OUTPUT_FORMAT,
+                  EVENT_ACCEPTED_INPUT,
+                  EVENT_PRODUCED_OUTPUT,
+                  EVENT_INPUT_ENDED,
+                  EVENT_OUTPUT_ENDED))
+          .put(
+              COMPONENT_MUXER,
               ImmutableList.of(
                   EVENT_CAN_WRITE_SAMPLE_VIDEO,
                   EVENT_WRITE_SAMPLE_VIDEO,
                   EVENT_CAN_WRITE_SAMPLE_AUDIO,
                   EVENT_WRITE_SAMPLE_AUDIO,
                   EVENT_TRACK_ENDED_AUDIO,
-                  EVENT_TRACK_ENDED_VIDEO));
+                  EVENT_TRACK_ENDED_VIDEO))
+          .buildOrThrow();
 
   private static final int MAX_FIRST_LAST_LOGS = 10;
 
@@ -224,6 +270,33 @@ public final class DebugTraceUtil {
   public static synchronized void logEvent(
       @Component String component, @Event String event, long presentationTimeUs) {
     logEvent(component, event, presentationTimeUs, /* extraFormat= */ "");
+  }
+
+  /**
+   * Logs an {@link Event} for a codec, if debug logging is enabled.
+   *
+   * @param isDecoder Whether the codec is a decoder.
+   * @param isVideo Whether the codec is for video.
+   * @param eventName The {@link Event} to log.
+   * @param presentationTimeUs The current presentation time of the media. Use {@link C#TIME_UNSET}
+   *     if unknown, {@link C#TIME_END_OF_SOURCE} if EOS.
+   * @param extraFormat Format string for optional extra information. See {@link
+   *     Util#formatInvariant(String, Object...)}.
+   * @param extraArgs Arguments for optional extra information.
+   */
+  public static synchronized void logCodecEvent(
+      boolean isDecoder,
+      boolean isVideo,
+      @Event String eventName,
+      long presentationTimeUs,
+      String extraFormat,
+      Object... extraArgs) {
+    logEvent(
+        getCodecComponent(isDecoder, isVideo),
+        eventName,
+        presentationTimeUs,
+        extraFormat,
+        extraArgs);
   }
 
   /**
@@ -301,6 +374,22 @@ public final class DebugTraceUtil {
       return "EOS";
     } else {
       return presentationTimeUs + "us";
+    }
+  }
+
+  private static @Component String getCodecComponent(boolean isDecoder, boolean isVideo) {
+    if (isDecoder) {
+      if (isVideo) {
+        return COMPONENT_VIDEO_DECODER;
+      } else {
+        return COMPONENT_AUDIO_DECODER;
+      }
+    } else {
+      if (isVideo) {
+        return COMPONENT_VIDEO_ENCODER;
+      } else {
+        return COMPONENT_AUDIO_ENCODER;
+      }
     }
   }
 
