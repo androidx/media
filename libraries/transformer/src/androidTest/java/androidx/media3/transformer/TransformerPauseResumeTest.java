@@ -21,6 +21,7 @@ import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.junit.Assume.assumeFalse;
 
 import android.content.Context;
 import android.media.MediaCodec.BufferInfo;
@@ -38,6 +39,7 @@ import androidx.media3.effect.RgbFilter;
 import androidx.media3.muxer.Muxer.TrackToken;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
+import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -72,9 +74,12 @@ public class TransformerPauseResumeTest {
 
   @Test
   public void resume_withSingleMediaItem_outputMatchesExpected() throws Exception {
-    if (shouldSkipDevice(testId)) {
-      return;
-    }
+    assumeFalse(shouldSkipDevice());
+    assumeFormatsSupported(
+        getApplicationContext(),
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT);
     Composition composition =
         buildSingleSequenceComposition(
             /* clippingStartPositionMs= */ 0,
@@ -119,9 +124,12 @@ public class TransformerPauseResumeTest {
   @Test
   public void resume_withSingleMediaItemAfterImmediateCancellation_restartsExport()
       throws Exception {
-    if (shouldSkipDevice(testId)) {
-      return;
-    }
+    assumeFalse(shouldSkipDevice());
+    assumeFormatsSupported(
+        getApplicationContext(),
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT);
     Composition composition =
         buildSingleSequenceComposition(
             /* clippingStartPositionMs= */ 0,
@@ -150,9 +158,12 @@ public class TransformerPauseResumeTest {
 
   @Test
   public void resume_withSingleMediaItem_outputMatchesWithoutResume() throws Exception {
-    if (shouldSkipDevice(testId)) {
-      return;
-    }
+    assumeFalse(shouldSkipDevice());
+    assumeFormatsSupported(
+        getApplicationContext(),
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT);
     Composition composition =
         buildSingleSequenceComposition(
             /* clippingStartPositionMs= */ 0,
@@ -201,9 +212,12 @@ public class TransformerPauseResumeTest {
   @Test
   public void resume_withSingleMediaItemHavingClippingConfig_outputMatchesWithoutResume()
       throws Exception {
-    if (shouldSkipDevice(testId)) {
-      return;
-    }
+    assumeFalse(shouldSkipDevice());
+    assumeFormatsSupported(
+        getApplicationContext(),
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT);
     Composition composition =
         buildSingleSequenceComposition(
             /* clippingStartPositionMs= */ 2_000L,
@@ -249,9 +263,12 @@ public class TransformerPauseResumeTest {
 
   @Test
   public void resume_withTwoMediaItems_outputMatchesExpected() throws Exception {
-    if (shouldSkipDevice(testId)) {
-      return;
-    }
+    assumeFalse(shouldSkipDevice());
+    assumeFormatsSupported(
+        getApplicationContext(),
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT);
     Composition composition =
         buildSingleSequenceComposition(
             /* clippingStartPositionMs= */ 0,
@@ -299,9 +316,12 @@ public class TransformerPauseResumeTest {
 
   @Test
   public void resume_withTwoMediaItems_outputMatchesWithoutResume() throws Exception {
-    if (shouldSkipDevice(testId)) {
-      return;
-    }
+    assumeFalse(shouldSkipDevice());
+    assumeFormatsSupported(
+        getApplicationContext(),
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT);
     Composition composition =
         buildSingleSequenceComposition(
             /* clippingStartPositionMs= */ 0,
@@ -379,15 +399,13 @@ public class TransformerPauseResumeTest {
         .build();
   }
 
-  private static boolean shouldSkipDevice(String testId) throws Exception {
-    assumeFormatsSupported(
-        getApplicationContext(),
-        testId,
-        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT,
-        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT);
+  private static boolean shouldSkipDevice() {
     // v26 emulators are not producing I-frames, due to which resuming export does not work as
     // expected.
-    return Util.SDK_INT == 26 && Util.isRunningOnEmulator();
+    // On vivo 1820 and vivo 1906, the process crashes unexpectedly.
+    return (Util.SDK_INT == 26 && Util.isRunningOnEmulator())
+        || (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Util.MODEL, "vivo 1820"))
+        || (Util.SDK_INT == 28 && Ascii.equalsIgnoreCase(Util.MODEL, "vivo 1906"));
   }
 
   private static final class FrameBlockingMuxerFactory implements Muxer.Factory {
