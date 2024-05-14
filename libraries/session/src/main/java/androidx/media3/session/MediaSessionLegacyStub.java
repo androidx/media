@@ -1082,6 +1082,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       playerWrapper.setLegacyErrorStatus(errorCode, errorMessage, errorExtras);
       sessionCompat.setPlaybackState(playerWrapper.createPlaybackStateCompat());
       playerWrapper.clearLegacyErrorStatus();
+      sessionCompat.setPlaybackState(playerWrapper.createPlaybackStateCompat());
     }
 
     @Override

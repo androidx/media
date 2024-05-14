@@ -1024,7 +1024,7 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
   @Test
   public void sendError_toAllControllers_onPlaybackStateChangedToErrorStateAndWithCorrectErrorData()
       throws Exception {
-    CountDownLatch latch = new CountDownLatch(1);
+    CountDownLatch latch = new CountDownLatch(2);
     List<PlaybackStateCompat> playbackStates = new ArrayList<>();
     MediaControllerCompat.Callback callback =
         new MediaControllerCompat.Callback() {
@@ -1035,6 +1035,7 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
           }
         };
     controllerCompat.registerCallback(callback, handler);
+    PlaybackStateCompat initialPlaybackStateCompat = controllerCompat.getPlaybackState();
     Bundle errorBundle = new Bundle();
     errorBundle.putInt("intKey", 99);
 
@@ -1045,20 +1046,27 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
         errorBundle);
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(playbackStates).hasSize(1);
-    PlaybackStateCompat playbackStateCompat = playbackStates.get(0);
-    assertThat(playbackStateCompat.getState()).isEqualTo(PlaybackStateCompat.STATE_ERROR);
-    assertThat(playbackStateCompat.getErrorCode()).isEqualTo(1);
-    assertThat(playbackStateCompat.getErrorMessage().toString())
+    assertThat(playbackStates).hasSize(2);
+    PlaybackStateCompat errorPlaybackStateCompat = playbackStates.get(0);
+    assertThat(errorPlaybackStateCompat.getState()).isEqualTo(PlaybackStateCompat.STATE_ERROR);
+    assertThat(errorPlaybackStateCompat.getErrorCode()).isEqualTo(1);
+    assertThat(errorPlaybackStateCompat.getErrorMessage().toString())
         .isEqualTo(context.getString(R.string.authentication_required));
-    assertThat(TestUtils.equals(playbackStateCompat.getExtras(), errorBundle)).isTrue();
+    PlaybackStateCompat resolvedPlaybackStateCompat = playbackStates.get(1);
+    assertThat(resolvedPlaybackStateCompat.getState())
+        .isEqualTo(initialPlaybackStateCompat.getState());
+    assertThat(resolvedPlaybackStateCompat.getErrorCode())
+        .isEqualTo(initialPlaybackStateCompat.getErrorCode());
+    assertThat(resolvedPlaybackStateCompat.getErrorMessage()).isNull();
+    assertThat(resolvedPlaybackStateCompat.getActions())
+        .isEqualTo(initialPlaybackStateCompat.getActions());
   }
 
   @Test
   public void
       sendError_toMediaNotificationControllers_onPlaybackStateChangedToErrorStateAndWithCorrectErrorData()
           throws Exception {
-    CountDownLatch latch = new CountDownLatch(1);
+    CountDownLatch latch = new CountDownLatch(2);
     List<PlaybackStateCompat> playbackStates = new ArrayList<>();
     MediaControllerCompat.Callback callback =
         new MediaControllerCompat.Callback() {
@@ -1069,6 +1077,7 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
           }
         };
     controllerCompat.registerCallback(callback, handler);
+    PlaybackStateCompat initialPlaybackStateCompat = controllerCompat.getPlaybackState();
     Bundle errorBundle = new Bundle();
     errorBundle.putInt("intKey", 99);
 
@@ -1079,13 +1088,22 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
         errorBundle);
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(playbackStates).hasSize(1);
-    PlaybackStateCompat playbackStateCompat = playbackStates.get(0);
-    assertThat(playbackStateCompat.getState()).isEqualTo(PlaybackStateCompat.STATE_ERROR);
-    assertThat(playbackStateCompat.getErrorCode()).isEqualTo(1);
-    assertThat(playbackStateCompat.getErrorMessage().toString())
+    assertThat(playbackStates).hasSize(2);
+    PlaybackStateCompat errorPlaybackStateCompat = playbackStates.get(0);
+    assertThat(errorPlaybackStateCompat.getState()).isEqualTo(PlaybackStateCompat.STATE_ERROR);
+    assertThat(errorPlaybackStateCompat.getErrorCode()).isEqualTo(1);
+    assertThat(errorPlaybackStateCompat.getErrorMessage().toString())
         .isEqualTo(context.getString(R.string.authentication_required));
-    assertThat(TestUtils.equals(playbackStateCompat.getExtras(), errorBundle)).isTrue();
+    assertThat(errorPlaybackStateCompat.getActions()).isEqualTo(0);
+    assertThat(TestUtils.equals(errorPlaybackStateCompat.getExtras(), errorBundle)).isTrue();
+    PlaybackStateCompat resolvedPlaybackStateCompat = playbackStates.get(1);
+    assertThat(resolvedPlaybackStateCompat.getState())
+        .isEqualTo(initialPlaybackStateCompat.getState());
+    assertThat(resolvedPlaybackStateCompat.getErrorCode())
+        .isEqualTo(initialPlaybackStateCompat.getErrorCode());
+    assertThat(resolvedPlaybackStateCompat.getErrorMessage()).isNull();
+    assertThat(resolvedPlaybackStateCompat.getActions())
+        .isEqualTo(initialPlaybackStateCompat.getActions());
   }
 
   @Test
