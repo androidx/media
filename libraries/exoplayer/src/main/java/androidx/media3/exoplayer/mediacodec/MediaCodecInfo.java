@@ -31,6 +31,7 @@ import static androidx.media3.exoplayer.DecoderReuseEvaluation.REUSE_RESULT_YES_
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.REUSE_RESULT_YES_WITH_RECONFIGURATION;
 import static androidx.media3.exoplayer.mediacodec.MediaCodecPerformancePointCoverageProvider.COVERAGE_RESULT_NO;
 import static androidx.media3.exoplayer.mediacodec.MediaCodecPerformancePointCoverageProvider.COVERAGE_RESULT_YES;
+import static androidx.media3.exoplayer.mediacodec.MediaCodecPerformancePointCoverageProvider.COVERAGE_RESULT_NO_PERFORMANCE_POINTS_UNSUPPORTED;
 
 import android.graphics.Point;
 import android.media.MediaCodec;
@@ -537,6 +538,12 @@ public final class MediaCodecInfo {
       int evaluation =
           MediaCodecPerformancePointCoverageProvider.areResolutionAndFrameRateCovered(
               videoCapabilities, width, height, frameRate);
+
+      // MIREGO added support for doNotIgnorePerformancePointsForResolutionAndFrameRate
+      if (evaluation == COVERAGE_RESULT_NO_PERFORMANCE_POINTS_UNSUPPORTED && Util.doNotIgnorePerformancePointsForResolutionAndFrameRate) {
+        evaluation = COVERAGE_RESULT_NO;
+      }
+
       if (evaluation == COVERAGE_RESULT_YES) {
         return true;
       } else if (evaluation == COVERAGE_RESULT_NO) {
