@@ -100,8 +100,8 @@ public class TransformerWithInAppMuxerEndToEndTest {
 
   @Test
   public void transmux_tsFileHavingThreeByteNalStartCode_outputMatchesExpected() throws Exception {
-    String tsFilePath = "asset:///media/ts/sample_no_bframes.ts";
-    String tsFileName = "ts/sample_no_bframes.ts";
+    String tsFilePath = "asset:///media/ts/sample_h264.ts";
+    String tsFileName = "ts/sample_h264.ts";
     Muxer.Factory inAppMuxerFactory =
         new InAppMuxer.Factory.Builder()
             .setMetadataProvider(
