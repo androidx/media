@@ -72,5 +72,5 @@ dependencies {
     implementation project(modulePrefix + 'lib-exoplayer')
 
     // For detecting and debugging leaks only. LeakCanary is not needed for demo app to work.
-    debugImplementation 'com.squareup.leakcanary:leakcanary-android:2.10'
+    debugImplementation 'com.squareup.leakcanary:leakcanary-android:' + leakCanaryVersion
 }
