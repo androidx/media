@@ -459,11 +459,15 @@ public final class DebugTraceUtil {
       for (EventLog eventLog : firstLogs) {
         jsonWriter.value(eventLog.toString());
       }
-      jsonWriter.endArray().name("last").beginArray();
-      for (EventLog eventLog : lastLogs) {
-        jsonWriter.value(eventLog.toString());
+      jsonWriter.endArray();
+      if (!lastLogs.isEmpty()) {
+        jsonWriter.name("last").beginArray();
+        for (EventLog eventLog : lastLogs) {
+          jsonWriter.value(eventLog.toString());
+        }
+        jsonWriter.endArray();
       }
-      jsonWriter.endArray().endObject();
+      jsonWriter.endObject();
     }
   }
 }
