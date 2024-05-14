@@ -847,11 +847,13 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         if (isRecoverable) {
           releaseCodec();
         }
-        throw createRendererException(
-            createDecoderException(e, getCodecInfo()),
-            inputFormat,
-            isRecoverable,
-            PlaybackException.ERROR_CODE_DECODING_FAILED);
+        MediaCodecDecoderException exception = createDecoderException(e, getCodecInfo());
+        @PlaybackException.ErrorCode
+        int errorCode =
+            exception.errorCode == CodecException.ERROR_RECLAIMED
+                ? PlaybackException.ERROR_CODE_DECODING_RESOURCES_RECLAIMED
+                : PlaybackException.ERROR_CODE_DECODING_FAILED;
+        throw createRendererException(exception, inputFormat, isRecoverable, errorCode);
       }
       throw e;
     }

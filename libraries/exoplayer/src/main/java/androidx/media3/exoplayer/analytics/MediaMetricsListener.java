@@ -800,8 +800,7 @@ public final class MediaMetricsListener
       int subErrorCode = Util.getErrorCodeFromPlatformDiagnosticsInfo(diagnosticsInfo);
       return new ErrorInfo(PlaybackErrorEvent.ERROR_DECODER_INIT_FAILED, subErrorCode);
     } else if (cause instanceof MediaCodecDecoderException) {
-      @Nullable String diagnosticsInfo = ((MediaCodecDecoderException) cause).diagnosticInfo;
-      int subErrorCode = Util.getErrorCodeFromPlatformDiagnosticsInfo(diagnosticsInfo);
+      int subErrorCode = ((MediaCodecDecoderException) cause).errorCode;
       return new ErrorInfo(PlaybackErrorEvent.ERROR_DECODING_FAILED, subErrorCode);
     } else if (cause instanceof OutOfMemoryError) {
       return new ErrorInfo(PlaybackErrorEvent.ERROR_DECODING_FAILED, /* subErrorCode= */ 0);

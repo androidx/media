@@ -212,6 +212,10 @@ public class PlaybackException extends Exception implements Bundleable {
   /** Caused by trying to decode content whose format is not supported. */
   public static final int ERROR_CODE_DECODING_FORMAT_UNSUPPORTED = 4005;
 
+  // TODO: b/322943860 - Stabilize error code and add to IntDef
+  /** Caused by higher priority task reclaiming resources needed for decoding. */
+  @UnstableApi public static final int ERROR_CODE_DECODING_RESOURCES_RECLAIMED = 4006;
+
   // AudioTrack errors (5xxx).
 
   /** Caused by an AudioTrack initialization failure. */
@@ -327,6 +331,8 @@ public class PlaybackException extends Exception implements Bundleable {
         return "ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES";
       case ERROR_CODE_DECODING_FORMAT_UNSUPPORTED:
         return "ERROR_CODE_DECODING_FORMAT_UNSUPPORTED";
+      case ERROR_CODE_DECODING_RESOURCES_RECLAIMED:
+        return "ERROR_CODE_DECODING_RESOURCES_RECLAIMED";
       case ERROR_CODE_AUDIO_TRACK_INIT_FAILED:
         return "ERROR_CODE_AUDIO_TRACK_INIT_FAILED";
       case ERROR_CODE_AUDIO_TRACK_WRITE_FAILED:
