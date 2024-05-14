@@ -32,7 +32,6 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -86,19 +85,19 @@ public final class TtmlParserTest {
     assertThat(firstCue.startTimeUs).isEqualTo(10_000_000);
     assertThat(firstCue.durationUs).isEqualTo(8_000_000);
     assertThat(firstCue.endTimeUs).isEqualTo(18_000_000);
-    assertThat(Lists.transform(firstCue.cues, c -> c.text.toString())).containsExactly("cue 1");
+    assertThat(firstCue.cues.stream().map(c -> c.text.toString())).containsExactly("cue 1");
 
     CuesWithTiming secondCue = allCues.get(1);
     assertThat(secondCue.startTimeUs).isEqualTo(20_000_000);
     assertThat(secondCue.durationUs).isEqualTo(8_000_000);
     assertThat(secondCue.endTimeUs).isEqualTo(28_000_000);
-    assertThat(Lists.transform(secondCue.cues, c -> c.text.toString())).containsExactly("cue 2");
+    assertThat(secondCue.cues.stream().map(c -> c.text.toString())).containsExactly("cue 2");
 
     CuesWithTiming thirdCue = allCues.get(2);
     assertThat(thirdCue.startTimeUs).isEqualTo(30_000_000);
     assertThat(thirdCue.durationUs).isEqualTo(8_000_000);
     assertThat(thirdCue.endTimeUs).isEqualTo(38_000_000);
-    assertThat(Lists.transform(thirdCue.cues, c -> c.text.toString())).containsExactly("cue 3");
+    assertThat(thirdCue.cues.stream().map(c -> c.text.toString())).containsExactly("cue 3");
   }
 
   @Test
@@ -115,7 +114,7 @@ public final class TtmlParserTest {
     CuesWithTiming firstCue = cues.get(0);
     // First cue is truncated to OutputOptions.startTimeUs
     assertThat(firstCue.startTimeUs).isEqualTo(11_000_000);
-    assertThat(Lists.transform(firstCue.cues, c -> c.text.toString())).containsExactly("cue 1");
+    assertThat(firstCue.cues.stream().map(c -> c.text.toString())).containsExactly("cue 1");
     assertThat(getOnlyCueTextAtIndex(cues, 1).toString()).isEqualTo("cue 2");
     assertThat(getOnlyCueTextAtIndex(cues, 2).toString()).isEqualTo("cue 3");
   }
@@ -134,7 +133,7 @@ public final class TtmlParserTest {
     CuesWithTiming firstCue = cues.get(0);
     // First cue is truncated to OutputOptions.startTimeUs
     assertThat(firstCue.startTimeUs).isEqualTo(11_000_000);
-    assertThat(Lists.transform(firstCue.cues, c -> c.text.toString())).containsExactly("cue 1");
+    assertThat(firstCue.cues.stream().map(c -> c.text.toString())).containsExactly("cue 1");
 
     assertThat(getOnlyCueTextAtIndex(cues, 1).toString()).isEqualTo("cue 2");
     assertThat(getOnlyCueTextAtIndex(cues, 2).toString()).isEqualTo("cue 3");
@@ -143,7 +142,7 @@ public final class TtmlParserTest {
     // Last cue is the part of firstCue before OutputOptions.startTimeUs
     assertThat(fourthCue.startTimeUs).isEqualTo(10_000_000);
     assertThat(fourthCue.endTimeUs).isEqualTo(11_000_000);
-    assertThat(Lists.transform(fourthCue.cues, c -> c.text.toString())).containsExactly("cue 1");
+    assertThat(fourthCue.cues.stream().map(c -> c.text.toString())).containsExactly("cue 1");
   }
 
   @Test
@@ -156,34 +155,34 @@ public final class TtmlParserTest {
     assertThat(firstCue.startTimeUs).isEqualTo(10_000_000);
     assertThat(firstCue.durationUs).isEqualTo(5_000_000);
     assertThat(firstCue.endTimeUs).isEqualTo(15_000_000);
-    assertThat(Lists.transform(firstCue.cues, c -> c.text.toString())).containsExactly("cue 1");
+    assertThat(firstCue.cues.stream().map(c -> c.text.toString())).containsExactly("cue 1");
 
     CuesWithTiming secondCue = allCues.get(1);
     assertThat(secondCue.startTimeUs).isEqualTo(15_000_000);
     assertThat(secondCue.durationUs).isEqualTo(1_000_000);
     assertThat(secondCue.endTimeUs).isEqualTo(16_000_000);
-    assertThat(Lists.transform(secondCue.cues, c -> c.text.toString()))
+    assertThat(secondCue.cues.stream().map(c -> c.text.toString()))
         .containsExactly("cue 1\ncue 2: nested inside cue 1");
 
     CuesWithTiming thirdCue = allCues.get(2);
     assertThat(thirdCue.startTimeUs).isEqualTo(16_000_000);
     assertThat(thirdCue.durationUs).isEqualTo(4_000_000);
     assertThat(thirdCue.endTimeUs).isEqualTo(20_000_000);
-    assertThat(Lists.transform(thirdCue.cues, c -> c.text.toString()))
+    assertThat(thirdCue.cues.stream().map(c -> c.text.toString()))
         .containsExactly("cue 1\ncue 2: nested inside cue 1\ncue 3: overlaps with cue 2");
 
     CuesWithTiming fourthCue = allCues.get(3);
     assertThat(fourthCue.startTimeUs).isEqualTo(20_000_000);
     assertThat(fourthCue.durationUs).isEqualTo(5_000_000);
     assertThat(fourthCue.endTimeUs).isEqualTo(25_000_000);
-    assertThat(Lists.transform(fourthCue.cues, c -> c.text.toString()))
+    assertThat(fourthCue.cues.stream().map(c -> c.text.toString()))
         .containsExactly("cue 1\ncue 3: overlaps with cue 2");
 
     CuesWithTiming fifthCue = allCues.get(4);
     assertThat(fifthCue.startTimeUs).isEqualTo(25_000_000);
     assertThat(fifthCue.durationUs).isEqualTo(3_000_000);
     assertThat(fifthCue.endTimeUs).isEqualTo(28_000_000);
-    assertThat(Lists.transform(fifthCue.cues, c -> c.text.toString()))
+    assertThat(fifthCue.cues.stream().map(c -> c.text.toString()))
         .containsExactly("cue 3: overlaps with cue 2");
   }
 
@@ -202,7 +201,7 @@ public final class TtmlParserTest {
     CuesWithTiming firstCue = cues.get(0);
     // First cue is truncated to OutputOptions.startTimeUs
     assertThat(firstCue.startTimeUs).isEqualTo(11_000_000);
-    assertThat(Lists.transform(firstCue.cues, c -> c.text.toString())).containsExactly("cue 1");
+    assertThat(firstCue.cues.stream().map(c -> c.text.toString())).containsExactly("cue 1");
     assertThat(getOnlyCueTextAtIndex(cues, 1).toString())
         .isEqualTo("cue 1\ncue 2: nested inside cue 1");
     assertThat(getOnlyCueTextAtIndex(cues, 2).toString())
@@ -230,7 +229,7 @@ public final class TtmlParserTest {
     CuesWithTiming firstCue = cues.get(0);
     // First cue is truncated to OutputOptions.startTimeUs
     assertThat(firstCue.startTimeUs).isEqualTo(11_000_000);
-    assertThat(Lists.transform(firstCue.cues, c -> c.text.toString())).containsExactly("cue 1");
+    assertThat(firstCue.cues.stream().map(c -> c.text.toString())).containsExactly("cue 1");
 
     assertThat(getOnlyCueTextAtIndex(cues, 1).toString())
         .isEqualTo("cue 1\ncue 2: nested inside cue 1");
@@ -244,7 +243,7 @@ public final class TtmlParserTest {
     // Last cue is truncated to end at OutputOptions.startTimeUs
     assertThat(sixthCue.startTimeUs).isEqualTo(10_000_000);
     assertThat(sixthCue.endTimeUs).isEqualTo(11_000_000);
-    assertThat(Lists.transform(sixthCue.cues, c -> c.text.toString())).containsExactly("cue 1");
+    assertThat(sixthCue.cues.stream().map(c -> c.text.toString())).containsExactly("cue 1");
   }
 
   @Test

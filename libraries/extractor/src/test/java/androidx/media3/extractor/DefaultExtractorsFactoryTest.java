@@ -16,6 +16,7 @@
 package androidx.media3.extractor;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.Arrays.stream;
 
 import android.net.Uri;
 import androidx.media3.common.MimeTypes;
@@ -138,9 +139,8 @@ public final class DefaultExtractorsFactoryTest {
 
     Extractor[] extractors = defaultExtractorsFactory.createExtractors();
 
-    for (Extractor extractor : extractors) {
-      assertThat(extractor.getClass()).isNotEqualTo(SubtitleTranscodingExtractor.class);
-    }
+    assertThat(stream(extractors).map(Object::getClass))
+        .doesNotContain(SubtitleTranscodingExtractor.class);
   }
 
   private static List<Class<? extends Extractor>> getUnderlyingExtractorClasses(
