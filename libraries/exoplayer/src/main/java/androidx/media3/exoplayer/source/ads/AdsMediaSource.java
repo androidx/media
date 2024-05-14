@@ -38,6 +38,7 @@ import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.source.CompositeMediaSource;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MaskingMediaPeriod;
+import androidx.media3.exoplayer.source.MaskingMediaSource;
 import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource;
@@ -134,7 +135,7 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
   private static final MediaPeriodId CHILD_SOURCE_MEDIA_PERIOD_ID =
       new MediaPeriodId(/* periodUid= */ new Object());
 
-  private final MediaSource contentMediaSource;
+  private final MaskingMediaSource contentMediaSource;
   @Nullable final MediaItem.DrmConfiguration contentDrmConfiguration;
   private final MediaSource.Factory adMediaSourceFactory;
   private final AdsLoader adsLoader;
@@ -171,7 +172,8 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
       MediaSource.Factory adMediaSourceFactory,
       AdsLoader adsLoader,
       AdViewProvider adViewProvider) {
-    this.contentMediaSource = contentMediaSource;
+    this.contentMediaSource =
+        new MaskingMediaSource(contentMediaSource, /* useLazyPreparation= */ true);
     this.contentDrmConfiguration =
         checkNotNull(contentMediaSource.getMediaItem().localConfiguration).drmConfiguration;
     this.adMediaSourceFactory = adMediaSourceFactory;
@@ -206,6 +208,7 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
     super.prepareSourceInternal(mediaTransferListener);
     ComponentListener componentListener = new ComponentListener();
     this.componentListener = componentListener;
+    contentTimeline = contentMediaSource.getTimeline();
     prepareChildSource(CHILD_SOURCE_MEDIA_PERIOD_ID, contentMediaSource);
     mainHandler.post(
         () ->
