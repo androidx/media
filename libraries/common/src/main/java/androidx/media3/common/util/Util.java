@@ -3230,7 +3230,10 @@ public final class Util {
       case MimeTypes.IMAGE_WEBP:
         return true;
       case MimeTypes.IMAGE_HEIF:
+      case MimeTypes.IMAGE_HEIC:
         return Util.SDK_INT >= 26;
+      case MimeTypes.IMAGE_AVIF:
+        return Util.SDK_INT >= 34;
       default:
         return false;
     }

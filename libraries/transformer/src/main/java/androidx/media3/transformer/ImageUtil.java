@@ -47,8 +47,9 @@ public final class ImageUtil {
       case "dib":
         return MimeTypes.IMAGE_BMP;
       case "heif":
-      case "heic":
         return MimeTypes.IMAGE_HEIF;
+      case "heic":
+        return MimeTypes.IMAGE_HEIC;
       case "jpg":
       case "jpeg":
       case "jpe":
@@ -76,7 +77,7 @@ public final class ImageUtil {
       case "ico":
         return "image/x-icon";
       case "avif":
-        return "image/avif";
+        return MimeTypes.IMAGE_AVIF;
       default:
         return null;
     }

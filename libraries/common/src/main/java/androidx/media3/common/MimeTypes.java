@@ -164,6 +164,8 @@ public final class MimeTypes {
   @UnstableApi public static final String IMAGE_JPEG_R = BASE_TYPE_IMAGE + "/jpeg_r";
   @UnstableApi public static final String IMAGE_PNG = BASE_TYPE_IMAGE + "/png";
   @UnstableApi public static final String IMAGE_HEIF = BASE_TYPE_IMAGE + "/heif";
+  @UnstableApi public static final String IMAGE_HEIC = BASE_TYPE_IMAGE + "/heic";
+  @UnstableApi public static final String IMAGE_AVIF = BASE_TYPE_IMAGE + "/avif";
   @UnstableApi public static final String IMAGE_BMP = BASE_TYPE_IMAGE + "/bmp";
   @UnstableApi public static final String IMAGE_WEBP = BASE_TYPE_IMAGE + "/webp";
   @UnstableApi public static final String IMAGE_RAW = BASE_TYPE_IMAGE + "/raw";

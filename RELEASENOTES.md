@@ -38,6 +38,8 @@
     *   Replace `androidx.media3.transformer.Muxer` interface with
         `androidx.media3.muxer.Muxer` and remove
         `androidx.media3.transformer.Muxer`.
+    *   Fix HEIC image loading from content URI schemes.
+        ([#1373](https://github.com/androidx/media/issues/1373)).
 *   Track Selection:
 *   Extractors:
     *   MPEG-TS: Roll forward the change ensuring the last frame is rendered by
@@ -74,6 +76,7 @@
 *   Image:
     *   Add support for non-square DASH thumbnail grids
         ([#1300](https://github.com/androidx/media/pull/1300)).
+    *   Add AVIF decoding support for API 34+.
 *   DRM:
     *   Allow setting a `LoadErrorHandlingPolicy` on
         `DefaultDrmSessionManagerProvider`
