@@ -25,6 +25,7 @@ import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringDef;
 import androidx.media3.common.C;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -50,10 +51,21 @@ public final class DebugTraceUtil {
 
   /**
    * Whether to store tracing events for debug logging. Should be set to {@code true} for testing
-   * and debugging purposes only, before running transformer.
+   * and debugging purposes only.
    */
   @SuppressWarnings("NonFinalStaticField") // Only for debugging/testing.
   public static boolean enableTracing = false;
+
+  /**
+   * Whether to {@linkplain Log#d(String, String) log} tracing events to the logcat as they occur.
+   * Should be set to {@code true} for testing and debugging purposes only.
+   *
+   * <p>Note that enabling this can add a large amount of logcat lines.
+   *
+   * <p>Requires {@link #enableTracing} to be true.
+   */
+  @SuppressWarnings("NonFinalStaticField") // Only for debugging/testing.
+  public static boolean enableTracesInLogcat = false;
 
   /** Events logged by {@link #logEvent}. */
   @Documented
@@ -256,7 +268,11 @@ public final class DebugTraceUtil {
     }
     EventLogger logger = events.get(event);
     String extra = Util.formatInvariant(extraFormat, extraArgs);
-    logger.addLog(new EventLog(presentationTimeUs, eventTimeMs, extra));
+    EventLog eventLog = new EventLog(presentationTimeUs, eventTimeMs, extra);
+    logger.addLog(eventLog);
+    if (enableTracesInLogcat) {
+      Log.d("DebugTrace-" + component, event + ": " + eventLog);
+    }
   }
 
   /**
