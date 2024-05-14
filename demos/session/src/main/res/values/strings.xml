@@ -16,11 +16,11 @@
 <resources>
   <string name="app_name">Media3 Session Demo</string>
   <string name="current_playlist_name">Current playlist</string>
-  <string name="open_player_content_description">Click to view your play list</string>
+  <string name="open_player_content_description">Click to view your playlist</string>
   <string name="added_media_item_format">Added %1$s to playlist</string>
   <string name="shuffle">Shuffle</string>
   <string name="play_button">Play</string>
-  <string name="waiting_for_metadata">Waiting for playlist to load…</string>
+  <string name="waiting_for_metadata">Connecting…</string>
   <string name="notification_permission_denied">
     "Without notification access the app can't warn about failed background operations"</string>
 </resources>
