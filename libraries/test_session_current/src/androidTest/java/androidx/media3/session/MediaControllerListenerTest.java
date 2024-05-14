@@ -2635,6 +2635,78 @@ public class MediaControllerListenerTest {
   }
 
   @Test
+  public void onError_sendErrorToAllAndToSingleController_correctErrorDataReported()
+      throws Exception {
+    CountDownLatch errorLatch = new CountDownLatch(/* count= */ 3);
+    List<Integer> errorCodes1 = new ArrayList<>();
+    List<String> errorMessages1 = new ArrayList<>();
+    List<Bundle> errorExtras1 = new ArrayList<>();
+    Bundle connectionHints1 = new Bundle();
+    connectionHints1.putString(KEY_CONTROLLER, "ctrl-1");
+    controllerTestRule.createController(
+        remoteSession.getToken(),
+        connectionHints1,
+        new MediaController.Listener() {
+          @Override
+          public void onError(
+              MediaController controller, int errorCode, String errorMessage, Bundle extras) {
+            errorCodes1.add(errorCode);
+            errorMessages1.add(errorMessage);
+            errorExtras1.add(extras);
+            errorLatch.countDown();
+          }
+        });
+    List<Integer> errorCodes2 = new ArrayList<>();
+    List<String> errorMessages2 = new ArrayList<>();
+    List<Bundle> errorExtras2 = new ArrayList<>();
+    Bundle connectionHints2 = new Bundle();
+    connectionHints2.putString(KEY_CONTROLLER, "ctrl-2");
+    controllerTestRule.createController(
+        remoteSession.getToken(),
+        connectionHints2,
+        new MediaController.Listener() {
+          @Override
+          public void onError(
+              MediaController controller, int errorCode, String errorMessage, Bundle extras) {
+            errorCodes2.add(errorCode);
+            errorMessages2.add(errorMessage);
+            errorExtras2.add(extras);
+            errorLatch.countDown();
+          }
+        });
+    Bundle errorExtra1 = new Bundle();
+    errorExtra1.putInt("intKey", 1);
+    Bundle errorExtra2 = new Bundle();
+    errorExtra2.putInt("intKey", 2);
+
+    remoteSession.sendError(
+        /* controllerKey= */ null,
+        /* errorCode= */ 1,
+        R.string.authentication_required,
+        errorExtra1);
+    remoteSession.sendError(
+        /* controllerKey= */ "ctrl-2",
+        /* errorCode= */ 2,
+        R.string.default_notification_channel_name,
+        errorExtra2);
+
+    assertThat(errorLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(errorCodes1).containsExactly(1);
+    assertThat(errorMessages1).containsExactly(context.getString(R.string.authentication_required));
+    assertThat(TestUtils.equals(errorExtras1.get(0), errorExtra1)).isTrue();
+    assertThat(errorExtras1).hasSize(1);
+    assertThat(errorCodes2).containsExactly(1, 2).inOrder();
+    assertThat(errorMessages2)
+        .containsExactly(
+            context.getString(R.string.authentication_required),
+            context.getString(R.string.default_notification_channel_name))
+        .inOrder();
+    assertThat(TestUtils.equals(errorExtras2.get(0), errorExtra1)).isTrue();
+    assertThat(TestUtils.equals(errorExtras2.get(1), errorExtra2)).isTrue();
+    assertThat(errorExtras2).hasSize(2);
+  }
+
+  @Test
   public void getCurrentCues_afterConnected() throws Exception {
     Cue testCue1 = new Cue.Builder().setText(SpannedString.valueOf("cue1")).build();
     Cue testCue2 = new Cue.Builder().setText(SpannedString.valueOf("cue2")).build();

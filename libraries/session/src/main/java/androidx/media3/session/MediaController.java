@@ -24,6 +24,7 @@ import static androidx.media3.common.util.Util.postOrRun;
 
 import android.app.PendingIntent;
 import android.content.Context;
+import android.media.session.PlaybackState;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -444,6 +445,54 @@ public class MediaController implements Player {
     @UnstableApi
     default void onSessionActivityChanged(
         MediaController controller, PendingIntent sessionActivity) {}
+
+    /**
+     * Called when an non-fatal error {@linkplain
+     * MediaSession#sendError(MediaSession.ControllerInfo, int, int, Bundle) sent by the session} is
+     * received.
+     *
+     * <p>When connected to a legacy or platform session, this callback is called each time the
+     * callback {@link
+     * android.media.session.MediaController.Callback#onPlaybackStateChanged(PlaybackState)} is
+     * called in {@linkplain PlaybackState#STATE_ERROR state error} with a non-fatal error code.
+     *
+     * <p>Non-fatal legacy error codes:
+     *
+     * <ul>
+     *   <li>{@code PlaybackStateCompat.ERROR_CODE_ACTION_ABORTED}
+     *   <li>{@code PlaybackStateCompat.ERROR_CODE_APP_ERROR}
+     *   <li>{@code PlaybackStateCompat.ERROR_CODE_CONTENT_ALREADY_PLAYING}
+     *   <li>{@code PlaybackStateCompat.ERROR_CODE_END_OF_QUEUE}
+     *   <li>{@code PlaybackStateCompat.ERROR_CODE_NOT_SUPPORTED}
+     *   <li>In addition, all other error code values not defined as fatal errors in {@code
+     *       android.support.v4.media.session.PlaybackStateCompat} are handled as non-fatal.
+     * </ul>
+     *
+     * <p>Fatal legacy error codes of the {@link PlaybackState} in state {@link
+     * PlaybackState#STATE_ERROR} are converted to a player error. See {@link
+     * Player.Listener#onPlayerError(PlaybackException)} and {@link
+     * Player.Listener#onPlayerErrorChanged(PlaybackException)}.
+     *
+     * <p>Fatal legacy error codes:
+     *
+     * <ul>
+     *   <li>{@code PlaybackStateCompat.ERROR_CODE_UNKNOWN_ERROR}
+     *   <li>{@code PlaybackStateCompat.ERROR_CODE_AUTHENTICATION_EXPIRED}
+     *   <li>{@code PlaybackStateCompat.ERROR_CODE_PREMIUM_ACCOUNT_REQUIRED}
+     *   <li>{@code PlaybackStateCompat.ERROR_CODE_CONCURRENT_STREAM_LIMIT}
+     *   <li>{@code PlaybackStateCompat.ERROR_CODE_PARENTAL_CONTROL_RESTRICTED}
+     *   <li>{@code PlaybackStateCompat.ERROR_CODE_NOT_AVAILABLE_IN_REGION}
+     *   <li>{@code PlaybackStateCompat.ERROR_CODE_SKIP_LIMIT_REACHED}
+     * </ul>
+     *
+     * @param controller The {@link MediaController} that received the error.
+     * @param errorCode The error code.
+     * @param errorMessage The localized error message.
+     * @param errorExtras A bundle with additional custom error data.
+     */
+    @UnstableApi
+    default void onError(
+        MediaController controller, int errorCode, String errorMessage, Bundle errorExtras) {}
   }
 
   /* package */ interface ConnectionCallback {

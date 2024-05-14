@@ -2889,6 +2889,15 @@ import org.checkerframework.checker.nullness.qual.NonNull;
             listener -> listener.onSessionActivityChanged(getInstance(), sessionActivity));
   }
 
+  public void onError(int seq, int errorCode, String errorMessage, Bundle errorExtras) {
+    if (!isConnected()) {
+      return;
+    }
+    getInstance()
+        .notifyControllerListener(
+            listener -> listener.onError(getInstance(), errorCode, errorMessage, errorExtras));
+  }
+
   public void onRenderedFirstFrame() {
     listeners.sendEvent(
         /* eventFlag= */ Player.EVENT_RENDERED_FIRST_FRAME, Listener::onRenderedFirstFrame);

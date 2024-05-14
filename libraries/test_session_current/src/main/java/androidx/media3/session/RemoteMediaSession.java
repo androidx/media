@@ -56,6 +56,7 @@ import static androidx.media3.test.session.common.CommonConstants.KEY_VIDEO_SIZE
 import static androidx.media3.test.session.common.CommonConstants.KEY_VOLUME;
 import static androidx.media3.test.session.common.CommonConstants.MEDIA3_SESSION_PROVIDER_SERVICE;
 import static androidx.media3.test.session.common.TestUtils.SERVICE_CONNECTION_TIMEOUT_MS;
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -210,6 +211,13 @@ public class RemoteMediaSession {
 
   public void setSessionActivity(PendingIntent sessionActivity) throws RemoteException {
     binder.setSessionActivity(sessionId, sessionActivity);
+  }
+
+  public void sendError(
+      @Nullable String controllerKey, int errorCode, int errorMessageResId, Bundle errorExtras)
+      throws RemoteException {
+    binder.sendError(
+        sessionId, nullToEmpty(controllerKey), errorCode, errorMessageResId, errorExtras);
   }
 
   ////////////////////////////////////////////////////////////////////////////////

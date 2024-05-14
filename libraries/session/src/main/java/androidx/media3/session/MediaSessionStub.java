@@ -2138,6 +2138,12 @@ import java.util.concurrent.ExecutionException;
     }
 
     @Override
+    public void onError(int sequenceNumber, int errorCode, String errorMessage, Bundle errorExtras)
+        throws RemoteException {
+      iController.onError(sequenceNumber, errorCode, errorMessage, errorExtras);
+    }
+
+    @Override
     public int hashCode() {
       return ObjectsCompat.hash(getCallbackBinder());
     }

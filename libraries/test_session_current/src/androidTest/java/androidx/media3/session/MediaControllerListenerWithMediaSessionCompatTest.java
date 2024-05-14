@@ -34,6 +34,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.FlagSet;
 import androidx.media3.common.MediaMetadata;
+import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Util;
@@ -227,6 +228,72 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
                 threadTestRule.getHandler().postAndSync(controller::getSessionExtras),
                 sessionExtras))
         .isTrue();
+  }
+
+  @Test
+  public void sendError_fatalAndNonFatalErrorCodes_callsCorrectCallbackWithErrorData()
+      throws Exception {
+    CountDownLatch nonFatalErrorLatch = new CountDownLatch(/* count= */ 1);
+    List<Integer> nonFatalErrorCodes = new ArrayList<>();
+    List<String> nonFatalErrorMessages = new ArrayList<>();
+    List<Bundle> nonFatalErrorExtras = new ArrayList<>();
+    Bundle nonFatalErrorExtra = new Bundle();
+    nonFatalErrorExtra.putString("key-1", "value-1");
+    MediaController controller =
+        controllerTestRule.createController(
+            session.getSessionToken(),
+            new MediaController.Listener() {
+              @Override
+              public void onError(
+                  MediaController controller,
+                  int errorCode,
+                  String errorMessage,
+                  Bundle errorExtra) {
+                nonFatalErrorCodes.add(errorCode);
+                nonFatalErrorMessages.add(errorMessage);
+                nonFatalErrorExtras.add(errorExtra);
+                nonFatalErrorLatch.countDown();
+              }
+            });
+    CountDownLatch fatalErrorLatch = new CountDownLatch(/* count= */ 1);
+    List<PlaybackException> fatalErrorExceptions = new ArrayList<>();
+    Bundle fatalErrorExtra = new Bundle();
+    fatalErrorExtra.putString("key-2", "value-2");
+    controller.addListener(
+        new Player.Listener() {
+          @Override
+          public void onPlayerError(PlaybackException error) {
+            fatalErrorExceptions.add(error);
+            fatalErrorLatch.countDown();
+          }
+        });
+
+    // Send fatal errors code.
+    session.sendError(
+        /* errorCode= */ PlaybackStateCompat.ERROR_CODE_AUTHENTICATION_EXPIRED,
+        R.string.authentication_required,
+        fatalErrorExtra);
+    assertThat(fatalErrorLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    // Send non-fatal error code.
+    session.sendError(
+        /* errorCode= */ PlaybackStateCompat.ERROR_CODE_APP_ERROR,
+        R.string.default_notification_channel_name,
+        nonFatalErrorExtra);
+
+    assertThat(nonFatalErrorLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(nonFatalErrorCodes).containsExactly(PlaybackStateCompat.ERROR_CODE_APP_ERROR);
+    assertThat(nonFatalErrorMessages)
+        .containsExactly(context.getString(R.string.default_notification_channel_name));
+    assertThat(TestUtils.equals(nonFatalErrorExtras.get(0), nonFatalErrorExtra)).isTrue();
+    assertThat(fatalErrorExceptions).hasSize(1);
+    assertThat(fatalErrorExceptions.get(0))
+        .hasMessageThat()
+        .isEqualTo(
+            context.getString(R.string.authentication_required)
+                + ", code="
+                + PlaybackStateCompat.ERROR_CODE_AUTHENTICATION_EXPIRED);
+    assertThat(fatalErrorExceptions.get(0).errorCode)
+        .isEqualTo(PlaybackException.ERROR_CODE_REMOTE_ERROR);
   }
 
   @Test

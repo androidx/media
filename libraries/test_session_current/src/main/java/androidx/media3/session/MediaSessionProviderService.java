@@ -16,6 +16,7 @@
 package androidx.media3.session;
 
 import static androidx.media3.common.Player.COMMAND_GET_TRACKS;
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.session.MediaSession.ConnectionResult.accept;
 import static androidx.media3.test.session.common.CommonConstants.ACTION_MEDIA3_SESSION;
 import static androidx.media3.test.session.common.CommonConstants.KEY_AUDIO_ATTRIBUTES;
@@ -76,6 +77,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.RemoteException;
+import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -574,6 +576,42 @@ public class MediaSessionProviderService extends Service {
                   .equals(controllerKey)) {
                 mediaSession.setSessionExtras(controllerInfo, extras);
                 break;
+              }
+            }
+          });
+    }
+
+    @Override
+    public void sendError(
+        String sessionId,
+        String controllerKey,
+        int errorCode,
+        int errorMessageResId,
+        Bundle errorExtras)
+        throws RemoteException {
+      runOnHandler(
+          () -> {
+            MediaSession mediaSession = checkNotNull(sessionMap.get(sessionId));
+            if (TextUtils.isEmpty(controllerKey)) {
+              // Broadcast to all connected Media3 controller.
+              mediaSession.sendError(errorCode, errorMessageResId, errorExtras);
+            } else if (controllerKey.equals(
+                MediaController.KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG)) {
+              // Send to media notification controller.
+              mediaSession.sendError(
+                  checkNotNull(mediaSession.getMediaNotificationControllerInfo()),
+                  errorCode,
+                  errorMessageResId,
+                  errorExtras);
+            } else {
+              // Send to controller with the given controller key in connection hints.
+              for (ControllerInfo controllerInfo : mediaSession.getConnectedControllers()) {
+                if (controllerInfo
+                    .getConnectionHints()
+                    .getString(KEY_CONTROLLER, /* defaultValue= */ "")
+                    .equals(controllerKey)) {
+                  mediaSession.sendError(controllerInfo, errorCode, errorMessageResId, errorExtras);
+                }
               }
             }
           });

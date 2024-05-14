@@ -38,7 +38,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   private static final String TAG = "MediaControllerStub";
 
   /** The version of the IMediaController interface. */
-  public static final int VERSION_INT = 3;
+  public static final int VERSION_INT = 4;
 
   private final WeakReference<MediaControllerImplBase> controller;
 
@@ -262,6 +262,13 @@ import org.checkerframework.checker.nullness.qual.NonNull;
       return;
     }
     dispatchControllerTaskOnHandler(controller -> controller.onExtrasChanged(extras));
+  }
+
+  @Override
+  public void onError(int seq, int errorCode, String errorMessage, Bundle errorExtras)
+      throws RemoteException {
+    dispatchControllerTaskOnHandler(
+        controller -> controller.onError(seq, errorCode, errorMessage, errorExtras));
   }
 
   @Override

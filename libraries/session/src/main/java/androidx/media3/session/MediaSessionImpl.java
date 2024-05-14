@@ -602,6 +602,34 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         controller, (cb, seq) -> cb.sendCustomCommand(seq, command, args));
   }
 
+  public void sendError(
+      ControllerInfo controllerInfo,
+      int errorCode,
+      int errorMessageResourceId,
+      Bundle errorExtras) {
+    if (controllerInfo.getInterfaceVersion() < 4) {
+      // IMediaController.onError introduced with interface version 4.
+      return;
+    }
+    String errorMessage = context.getString(errorMessageResourceId);
+    dispatchRemoteControllerTaskWithoutReturn(
+        controllerInfo,
+        (callback, seq) -> callback.onError(seq, errorCode, errorMessage, errorExtras));
+    if (isMediaNotificationController(controllerInfo)) {
+      dispatchRemoteControllerTaskToLegacyStub(
+          (callback, seq) -> callback.onError(seq, errorCode, errorMessage, errorExtras));
+    }
+  }
+
+  public void sendError(int errorCode, int errorMessageResourceId, Bundle errorExtras) {
+    // Send error messages only to Media3 controllers.
+    ImmutableList<ControllerInfo> connectedControllers =
+        sessionStub.getConnectedControllersManager().getConnectedControllers();
+    for (int i = 0; i < connectedControllers.size(); i++) {
+      sendError(connectedControllers.get(i), errorCode, errorMessageResourceId, errorExtras);
+    }
+  }
+
   public MediaSession.ConnectionResult onConnectOnHandler(ControllerInfo controller) {
     if (isMediaNotificationControllerConnected && isSystemUiController(controller)) {
       // Hide System UI and provide the connection result from the `PlayerWrapper` state.

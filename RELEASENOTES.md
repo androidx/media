@@ -108,6 +108,12 @@
     *   Align conversion of `MediaMetadata` to `MediaDescriptionCompat`, to use
         the same preferred order and logic when selecting metadata properties as
         in media1.
+    *   Add `MediaSession.sendError()` that allows sending non-fatal errors to
+        Media3 controller. When using the notification controller (see
+        `MediaSession.getMediaNotificationControllerInfo()`), the custom error
+        is used to update the `PlaybackState` of the platform session to an
+        error state with the given error information
+        ([#543](https://github.com/androidx/media/issues/543)).
 *   UI:
 *   Downloads:
 *   OkHttp Extension:

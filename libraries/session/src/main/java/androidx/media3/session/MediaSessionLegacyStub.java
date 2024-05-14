@@ -1077,6 +1077,14 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     }
 
     @Override
+    public void onError(int seq, int errorCode, String errorMessage, Bundle errorExtras) {
+      PlayerWrapper playerWrapper = sessionImpl.getPlayerWrapper();
+      playerWrapper.setLegacyErrorStatus(errorCode, errorMessage, errorExtras);
+      sessionCompat.setPlaybackState(playerWrapper.createPlaybackStateCompat());
+      playerWrapper.clearLegacyErrorStatus();
+    }
+
+    @Override
     public void sendCustomCommand(int seq, SessionCommand command, Bundle args) {
       sessionCompat.sendSessionEvent(command.customAction, args);
     }

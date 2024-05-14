@@ -76,6 +76,7 @@ import androidx.media3.common.Timeline.Period;
 import androidx.media3.common.Timeline.Window;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
+import androidx.media3.session.MediaControllerImplLegacy.NonFatalErrorInfo;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
 import androidx.media3.session.legacy.AudioAttributesCompat;
 import androidx.media3.session.legacy.MediaBrowserCompat;
@@ -153,12 +154,23 @@ import java.util.concurrent.TimeoutException;
     }
   }
 
+  private static final ImmutableSet<Integer> FATAL_LEGACY_ERROR_CODES =
+      ImmutableSet.of(
+          PlaybackStateCompat.ERROR_CODE_UNKNOWN_ERROR,
+          PlaybackStateCompat.ERROR_CODE_AUTHENTICATION_EXPIRED,
+          PlaybackStateCompat.ERROR_CODE_PREMIUM_ACCOUNT_REQUIRED,
+          PlaybackStateCompat.ERROR_CODE_CONCURRENT_STREAM_LIMIT,
+          PlaybackStateCompat.ERROR_CODE_PARENTAL_CONTROL_RESTRICTED,
+          PlaybackStateCompat.ERROR_CODE_NOT_AVAILABLE_IN_REGION,
+          PlaybackStateCompat.ERROR_CODE_SKIP_LIMIT_REACHED);
+
   /** Converts {@link PlaybackStateCompat} to {@link PlaybackException}. */
   @Nullable
   public static PlaybackException convertToPlaybackException(
       @Nullable PlaybackStateCompat playbackStateCompat) {
     if (playbackStateCompat == null
-        || playbackStateCompat.getState() != PlaybackStateCompat.STATE_ERROR) {
+        || playbackStateCompat.getState() != PlaybackStateCompat.STATE_ERROR
+        || !FATAL_LEGACY_ERROR_CODES.contains(playbackStateCompat.getErrorCode())) {
       return null;
     }
     StringBuilder stringBuilder = new StringBuilder();
@@ -169,6 +181,24 @@ import java.util.concurrent.TimeoutException;
     String errorMessage = stringBuilder.toString();
     return new PlaybackException(
         errorMessage, /* cause= */ null, PlaybackException.ERROR_CODE_REMOTE_ERROR);
+  }
+
+  /** Converts {@link PlaybackStateCompat} to {@link NonFatalErrorInfo}. */
+  @Nullable
+  public static NonFatalErrorInfo convertToNonFatalErrorInfo(
+      @Nullable PlaybackStateCompat playbackStateCompat, String errorMessageFallback) {
+    if (playbackStateCompat == null
+        || playbackStateCompat.getState() != PlaybackStateCompat.STATE_ERROR
+        || FATAL_LEGACY_ERROR_CODES.contains(playbackStateCompat.getErrorCode())) {
+      return null;
+    }
+    @Nullable Bundle playbackStateCompatExtras = playbackStateCompat.getExtras();
+    return new NonFatalErrorInfo(
+        playbackStateCompat.getErrorCode(),
+        !TextUtils.isEmpty(playbackStateCompat.getErrorMessage())
+            ? playbackStateCompat.getErrorMessage().toString()
+            : errorMessageFallback,
+        playbackStateCompatExtras != null ? playbackStateCompatExtras : Bundle.EMPTY);
   }
 
   public static MediaBrowserCompat.MediaItem convertToBrowserItem(

@@ -1139,6 +1139,46 @@ public class MediaSession {
     return impl.sendCustomCommand(controller, command, args);
   }
 
+  /**
+   * Sends a non-fatal error to the given controller.
+   *
+   * <p>Use {@linkplain MediaSession#getMediaNotificationControllerInfo()} to set the error of the
+   * {@linkplain android.media.session.PlaybackState playback state} of the legacy platform session.
+   *
+   * <p>Only Media3 controllers are supported. If an error is attempted to be sent to a controller
+   * with {@link ControllerInfo#getControllerVersion() a controller version} of value {@link
+   * ControllerInfo#LEGACY_CONTROLLER_VERSION}, an {@link IllegalArgumentException} is thrown.
+   *
+   * @param controllerInfo The controller to send the error to.
+   * @param errorCode The error code.
+   * @param errorMessageResId A {@code R.string} resource ID.
+   * @param errorExtras A error extras bundle to send additional data.
+   * @exception IllegalArgumentException thrown if an error is attempted to be sent to a legacy
+   *     controller.
+   */
+  @UnstableApi
+  public final void sendError(
+      ControllerInfo controllerInfo, int errorCode, int errorMessageResId, Bundle errorExtras) {
+    checkArgument(
+        controllerInfo.getControllerVersion() != ControllerInfo.LEGACY_CONTROLLER_VERSION);
+    impl.sendError(controllerInfo, errorCode, errorMessageResId, errorExtras);
+  }
+
+  /**
+   * Sends a non-fatal error to all connected Media3 controllers.
+   *
+   * <p>See {@link #sendError(ControllerInfo, int, int, Bundle)} for sending an error to a specific
+   * controller only.
+   *
+   * @param errorCode The error code.
+   * @param errorMessageResourceId A {@code R.string} resource ID of a localized error message.
+   * @param errorExtras An error extras bundle to send additional data.
+   */
+  @UnstableApi
+  public final void sendError(int errorCode, int errorMessageResourceId, Bundle errorExtras) {
+    impl.sendError(errorCode, errorMessageResourceId, errorExtras);
+  }
+
   /* package */ final MediaSessionCompat getSessionCompat() {
     return impl.getSessionCompat();
   }
@@ -1944,6 +1984,9 @@ public class MediaSession {
         throws RemoteException {}
 
     default void onRenderedFirstFrame(int seq) throws RemoteException {}
+
+    default void onError(int seq, int errorCode, String errorMessage, Bundle errorExtras)
+        throws RemoteException {}
   }
 
   /**

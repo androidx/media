@@ -1022,6 +1022,73 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
   }
 
   @Test
+  public void sendError_toAllControllers_onPlaybackStateChangedToErrorStateAndWithCorrectErrorData()
+      throws Exception {
+    CountDownLatch latch = new CountDownLatch(1);
+    List<PlaybackStateCompat> playbackStates = new ArrayList<>();
+    MediaControllerCompat.Callback callback =
+        new MediaControllerCompat.Callback() {
+          @Override
+          public void onPlaybackStateChanged(PlaybackStateCompat state) {
+            playbackStates.add(state);
+            latch.countDown();
+          }
+        };
+    controllerCompat.registerCallback(callback, handler);
+    Bundle errorBundle = new Bundle();
+    errorBundle.putInt("intKey", 99);
+
+    session.sendError(
+        /* controllerKey= */ null,
+        /* errorCode= */ 1,
+        R.string.authentication_required,
+        errorBundle);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(playbackStates).hasSize(1);
+    PlaybackStateCompat playbackStateCompat = playbackStates.get(0);
+    assertThat(playbackStateCompat.getState()).isEqualTo(PlaybackStateCompat.STATE_ERROR);
+    assertThat(playbackStateCompat.getErrorCode()).isEqualTo(1);
+    assertThat(playbackStateCompat.getErrorMessage().toString())
+        .isEqualTo(context.getString(R.string.authentication_required));
+    assertThat(TestUtils.equals(playbackStateCompat.getExtras(), errorBundle)).isTrue();
+  }
+
+  @Test
+  public void
+      sendError_toMediaNotificationControllers_onPlaybackStateChangedToErrorStateAndWithCorrectErrorData()
+          throws Exception {
+    CountDownLatch latch = new CountDownLatch(1);
+    List<PlaybackStateCompat> playbackStates = new ArrayList<>();
+    MediaControllerCompat.Callback callback =
+        new MediaControllerCompat.Callback() {
+          @Override
+          public void onPlaybackStateChanged(PlaybackStateCompat state) {
+            playbackStates.add(state);
+            latch.countDown();
+          }
+        };
+    controllerCompat.registerCallback(callback, handler);
+    Bundle errorBundle = new Bundle();
+    errorBundle.putInt("intKey", 99);
+
+    session.sendError(
+        /* controllerKey= */ MediaController.KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG,
+        /* errorCode= */ 1,
+        R.string.authentication_required,
+        errorBundle);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(playbackStates).hasSize(1);
+    PlaybackStateCompat playbackStateCompat = playbackStates.get(0);
+    assertThat(playbackStateCompat.getState()).isEqualTo(PlaybackStateCompat.STATE_ERROR);
+    assertThat(playbackStateCompat.getErrorCode()).isEqualTo(1);
+    assertThat(playbackStateCompat.getErrorMessage().toString())
+        .isEqualTo(context.getString(R.string.authentication_required));
+    assertThat(TestUtils.equals(playbackStateCompat.getExtras(), errorBundle)).isTrue();
+  }
+
+  @Test
   public void setSessionActivity_changedWhenReceivedWithSetter() throws Exception {
     Intent intent = new Intent(context, SurfaceActivity.class);
     PendingIntent sessionActivity =

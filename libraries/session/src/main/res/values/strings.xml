@@ -29,4 +29,6 @@
     <!-- Accessibility description for a 'seek forward' or 'fast-forward' button on a media notification. [CHAR LIMIT=NONE]  -->
     <string name="media3_controls_seek_forward_description">Seek forward</string>
     <string name="authentication_required">Authentication required</string>
+    <!-- Fallback error message if a PlaybackStateCompat has an error code without an error message. [CHAR LIMIT=NONE] -->
+    <string name="legacy_error_message_fallback">No error message provided</string>
 </resources>

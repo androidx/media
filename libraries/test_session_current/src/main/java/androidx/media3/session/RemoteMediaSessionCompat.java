@@ -180,6 +180,11 @@ public class RemoteMediaSessionCompat {
     binder.setSessionExtras(sessionTag, extras);
   }
 
+  public void sendError(int errorCode, int errorMessageResInt, Bundle errorExtras)
+      throws RemoteException {
+    binder.sendError(sessionTag, errorCode, errorMessageResInt, errorExtras);
+  }
+
   ////////////////////////////////////////////////////////////////////////////////
   // Non-public methods
   ////////////////////////////////////////////////////////////////////////////////
