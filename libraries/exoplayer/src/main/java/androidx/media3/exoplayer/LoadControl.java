@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer;
 
 import androidx.media3.common.C;
+import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.UnstableApi;
@@ -29,6 +30,88 @@ import androidx.media3.exoplayer.upstream.Allocator;
 /** Controls buffering of media. */
 @UnstableApi
 public interface LoadControl {
+
+  /**
+   * Information about the current playback context and the {@link MediaPeriod} for which {@link
+   * LoadControl} methods are called.
+   */
+  final class Parameters {
+    /** The {@linkplain PlayerId ID of the player}. */
+    public final PlayerId playerId;
+
+    /** The current {@link Timeline} of the player. */
+    public final Timeline timeline;
+
+    /**
+     * The {@link MediaPeriodId} of the affected {@link MediaPeriod} in the current {@link
+     * #timeline}.
+     */
+    public final MediaPeriodId mediaPeriodId;
+
+    /**
+     * The current playback position in microseconds, relative to the start of the affected {@link
+     * MediaPeriod} identified by {@link #mediaPeriodId}. If playback of this period has not yet
+     * started, the value will be negative and equal in magnitude to the duration of any media in
+     * previous periods still to be played.
+     */
+    public final long playbackPositionUs;
+
+    /** The total duration of media that's currently buffered. */
+    public final long bufferedDurationUs;
+
+    /** The current factor by which playback is sped up. */
+    public final float playbackSpeed;
+
+    /** Whether playback should proceed when {@link Player#STATE_READY}. */
+    public final boolean playWhenReady;
+
+    /**
+     * Whether the player is rebuffering. A rebuffer is defined to be caused by buffer depletion
+     * rather than a user action. Hence this parameter is false during initial buffering and when
+     * buffering as a result of a seek operation.
+     */
+    public final boolean rebuffering;
+
+    /**
+     * The desired playback position offset to the live edge in microseconds, or {@link
+     * C#TIME_UNSET} if the media is not a live stream or no offset is configured.
+     */
+    public final long targetLiveOffsetUs;
+
+    /**
+     * Creates parameters for {@link LoadControl} methods.
+     *
+     * @param playerId See {@link #playerId}.
+     * @param timeline See {@link #timeline}.
+     * @param mediaPeriodId See {@link #mediaPeriodId}.
+     * @param playbackPositionUs See {@link #playbackPositionUs}.
+     * @param bufferedDurationUs See {@link #bufferedDurationUs}.
+     * @param playbackSpeed See {@link #playbackSpeed}.
+     * @param playWhenReady See {@link #playWhenReady}.
+     * @param rebuffering See {@link #rebuffering}.
+     * @param targetLiveOffsetUs See {@link #targetLiveOffsetUs}.
+     */
+    public Parameters(
+        PlayerId playerId,
+        Timeline timeline,
+        MediaPeriodId mediaPeriodId,
+        long playbackPositionUs,
+        long bufferedDurationUs,
+        float playbackSpeed,
+        boolean playWhenReady,
+        boolean rebuffering,
+        long targetLiveOffsetUs) {
+      this.playerId = playerId;
+      this.timeline = timeline;
+      this.mediaPeriodId = mediaPeriodId;
+      this.playbackPositionUs = playbackPositionUs;
+      this.bufferedDurationUs = bufferedDurationUs;
+      this.playbackSpeed = playbackSpeed;
+      this.playWhenReady = playWhenReady;
+      this.rebuffering = rebuffering;
+      this.targetLiveOffsetUs = targetLiveOffsetUs;
+    }
+  }
 
   /**
    * @deprecated Used as a placeholder when MediaPeriodId is unknown. Only used when the deprecated
@@ -220,38 +303,18 @@ public interface LoadControl {
    * returns true, the {@link MediaPeriod} identified in the most recent {@link #onTracksSelected}
    * call will continue being loaded.
    *
-   * @param loadParameters Parameters for Load Control. Refer to {@link LoadParameters} for more
-   *                       information on the individual parameters
+   * @param parameters Information about the playback context and the {@link MediaPeriod} that will
+   *     continue to load if this method returns {@code true}.
    * @return Whether the loading should continue.
    */
   @SuppressWarnings("deprecation")
-  default boolean shouldContinueLoading(final LoadParameters loadParameters) {
+  default boolean shouldContinueLoading(Parameters parameters) {
     return shouldContinueLoading(
-        loadParameters.playerId,
-        loadParameters.timeline,
-        loadParameters.mediaPeriodId,
-        loadParameters.playbackPositionUs,
-        loadParameters.bufferedDurationUs,
-        loadParameters.playbackSpeed);
+        parameters.playbackPositionUs, parameters.bufferedDurationUs, parameters.playbackSpeed);
   }
 
   /**
-   * @deprecated Implement {@link #shouldContinueLoading(LoadParameters)} instead.
-   */
-  @SuppressWarnings("deprecation") // Calling deprecated version of this method.
-  @Deprecated
-  default boolean shouldContinueLoading(
-      PlayerId playerId,
-      Timeline timeline,
-      MediaPeriodId mediaPeriodId,
-      long playbackPositionUs,
-      long bufferedDurationUs,
-      float playbackSpeed) {
-    return shouldContinueLoading(playbackPositionUs, bufferedDurationUs, playbackSpeed);
-  }
-
-  /**
-   * @deprecated Implement {@link #shouldContinueLoading(LoadParameters)} instead.
+   * @deprecated Implement {@link #shouldContinueLoading(Parameters)} instead.
    */
   @Deprecated
   default boolean shouldContinueLoading(
@@ -267,43 +330,25 @@ public interface LoadControl {
    * determines whether playback is actually started. The load control may opt to return {@code
    * false} until some condition has been met (e.g. a certain amount of media is buffered).
    *
-   * @param playerId The {@linkplain PlayerId ID of the player} that wants to start playback.
-   * @param timeline The current {@link Timeline} in ExoPlayer. Can be {@link Timeline#EMPTY} only
-   *     when the deprecated {@link #shouldStartPlayback(long, float, boolean, long)} was called.
-   * @param mediaPeriodId Identifies (in the current timeline) the {@link MediaPeriod} for which
-   *     playback will start. Will be {@link #EMPTY_MEDIA_PERIOD_ID} when {@code timeline} is empty.
-   * @param bufferedDurationUs The duration of media that's currently buffered.
-   * @param playbackSpeed The current factor by which playback is sped up.
-   * @param rebuffering Whether the player is rebuffering. A rebuffer is defined to be caused by
-   *     buffer depletion rather than a user action. Hence this parameter is false during initial
-   *     buffering and when buffering as a result of a seek operation.
-   * @param targetLiveOffsetUs The desired playback position offset to the live edge in
-   *     microseconds, or {@link C#TIME_UNSET} if the media is not a live stream or no offset is
-   *     configured.
+   * @param parameters Information about the playback context and the {@link MediaPeriod} that will
+   *     start playing if this method returns {@code true}.
    * @return Whether playback should be allowed to start or resume.
    */
   @SuppressWarnings("deprecation") // Calling deprecated version of this method.
-  default boolean shouldStartPlayback(
-      PlayerId playerId,
-      Timeline timeline,
-      MediaPeriodId mediaPeriodId,
-      long bufferedDurationUs,
-      float playbackSpeed,
-      boolean rebuffering,
-      long targetLiveOffsetUs) {
+  default boolean shouldStartPlayback(Parameters parameters) {
     return shouldStartPlayback(
-        timeline,
-        mediaPeriodId,
-        bufferedDurationUs,
-        playbackSpeed,
-        rebuffering,
-        targetLiveOffsetUs);
+        parameters.timeline,
+        parameters.mediaPeriodId,
+        parameters.bufferedDurationUs,
+        parameters.playbackSpeed,
+        parameters.rebuffering,
+        parameters.targetLiveOffsetUs);
   }
 
   /**
-   * @deprecated Implement {@link #shouldStartPlayback(PlayerId, Timeline, MediaPeriodId, long,
-   *     float, boolean, long)} instead.
+   * @deprecated Implement {@link #shouldStartPlayback(Parameters)} instead.
    */
+  @SuppressWarnings("deprecation") // Calling deprecated version of this method.
   @Deprecated
   default boolean shouldStartPlayback(
       Timeline timeline,
@@ -312,14 +357,13 @@ public interface LoadControl {
       float playbackSpeed,
       boolean rebuffering,
       long targetLiveOffsetUs) {
-    // Media3 ExoPlayer will never call this method. This default implementation provides an
-    // implementation to please the compiler only.
-    throw new IllegalStateException("shouldStartPlayback not implemented");
+    // Media3 ExoPlayer will never call this method. The default implementation is only used to
+    // forward to the deprecated version below.
+    return shouldStartPlayback(bufferedDurationUs, playbackSpeed, rebuffering, targetLiveOffsetUs);
   }
 
   /**
-   * @deprecated Implement {@link #shouldStartPlayback(PlayerId, Timeline, MediaPeriodId, long,
-   *     float, boolean, long)} instead.
+   * @deprecated Implement {@link #shouldStartPlayback(Parameters)} instead.
    */
   @Deprecated
   default boolean shouldStartPlayback(

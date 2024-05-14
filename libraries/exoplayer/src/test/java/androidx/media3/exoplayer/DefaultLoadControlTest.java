@@ -80,34 +80,43 @@ public class DefaultLoadControlTest {
   public void shouldContinueLoading_untilMaxBufferExceeded() {
     build();
     assertThat(
-            loadControl.shouldContinueLoading(new LoadParameters(
-                playerId,
-                timeline,
-                mediaPeriodId,
-                /* playbackPositionUs= */ 0L,
-                /* bufferedDurationUs= */ 0L,
-                SPEED,
-                false)))
+            loadControl.shouldContinueLoading(
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0L,
+                    /* bufferedDurationUs= */ 0L,
+                    SPEED,
+                    /* playWhenReady= */ false,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET)))
         .isTrue();
     assertThat(
-            loadControl.shouldContinueLoading(new LoadParameters(
-                playerId,
-                timeline,
-                mediaPeriodId,
-                /* playbackPositionUs= */ 0L,
-                MAX_BUFFER_US - 1,
-                SPEED,
-                    false)))
+            loadControl.shouldContinueLoading(
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0L,
+                    MAX_BUFFER_US - 1,
+                    SPEED,
+                    /* playWhenReady= */ false,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET)))
         .isTrue();
     assertThat(
-            loadControl.shouldContinueLoading(new LoadParameters(
-                playerId,
-                timeline,
-                mediaPeriodId,
-                /* playbackPositionUs= */ 0L,
-                MAX_BUFFER_US,
-                SPEED,
-                    false)))
+            loadControl.shouldContinueLoading(
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0L,
+                    MAX_BUFFER_US,
+                    SPEED,
+                    /* playWhenReady= */ false,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET)))
         .isFalse();
   }
 
@@ -128,59 +137,80 @@ public class DefaultLoadControlTest {
     loadControl.onPrepared(playerId2);
     // First player is fully buffered. Buffer starts depleting until it falls under min size.
     loadControl.shouldContinueLoading(
-        new LoadParameters(
-            playerId, timeline, mediaPeriodId,
-            /* playbackPositionUs= */ 0L, MAX_BUFFER_US, SPEED,
-            false));
+        new LoadControl.Parameters(
+            playerId,
+            timeline,
+            mediaPeriodId,
+            /* playbackPositionUs= */ 0L,
+            MAX_BUFFER_US,
+            SPEED,
+            /* playWhenReady= */ false,
+            /* rebuffering= */ false,
+            /* targetLiveOffsetUs= */ C.TIME_UNSET));
     // Second player fell below min size and starts loading until max size is reached.
-    loadControl.shouldContinueLoading(new LoadParameters(
-        playerId2,
-        timeline2,
-        mediaPeriodId2,
-        /* playbackPositionUs= */ 0L,
-        MIN_BUFFER_US - 1,
-        SPEED,
-        false));
+    loadControl.shouldContinueLoading(
+        new LoadControl.Parameters(
+            playerId2,
+            timeline2,
+            mediaPeriodId2,
+            /* playbackPositionUs= */ 0L,
+            MIN_BUFFER_US - 1,
+            SPEED,
+            /* playWhenReady= */ false,
+            /* rebuffering= */ false,
+            /* targetLiveOffsetUs= */ C.TIME_UNSET));
 
     assertThat(
-            loadControl.shouldContinueLoading(new LoadParameters(
-                playerId,
-                timeline,
-                mediaPeriodId,
-                /* playbackPositionUs= */ 0L,
-                MAX_BUFFER_US - 1,
-                SPEED,
-                false)))
+            loadControl.shouldContinueLoading(
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0L,
+                    MAX_BUFFER_US - 1,
+                    SPEED,
+                    /* playWhenReady= */ false,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET)))
         .isFalse();
     assertThat(
-            loadControl.shouldContinueLoading(new LoadParameters(
-                playerId2,
-                timeline2,
-                mediaPeriodId2,
-                /* playbackPositionUs= */ 0L,
-                MIN_BUFFER_US,
-                SPEED,
-                false)))
+            loadControl.shouldContinueLoading(
+                new LoadControl.Parameters(
+                    playerId2,
+                    timeline2,
+                    mediaPeriodId2,
+                    /* playbackPositionUs= */ 0L,
+                    MIN_BUFFER_US,
+                    SPEED,
+                    /* playWhenReady= */ false,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET)))
         .isTrue();
     assertThat(
-            loadControl.shouldContinueLoading(new LoadParameters(
-                playerId,
-                timeline,
-                mediaPeriodId,
-                /* playbackPositionUs= */ 0L,
-                MIN_BUFFER_US,
-                SPEED,
-                false)))
+            loadControl.shouldContinueLoading(
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0L,
+                    MIN_BUFFER_US,
+                    SPEED,
+                    /* playWhenReady= */ false,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET)))
         .isFalse();
     assertThat(
-            loadControl.shouldContinueLoading(new LoadParameters(
-                playerId2,
-                timeline2,
-                mediaPeriodId2,
-                /* playbackPositionUs= */ 0L,
-                MAX_BUFFER_US - 1,
-                SPEED,
-                false)))
+            loadControl.shouldContinueLoading(
+                new LoadControl.Parameters(
+                    playerId2,
+                    timeline2,
+                    mediaPeriodId2,
+                    /* playbackPositionUs= */ 0L,
+                    MAX_BUFFER_US - 1,
+                    SPEED,
+                    /* playWhenReady= */ false,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET)))
         .isTrue();
   }
 
@@ -194,44 +224,56 @@ public class DefaultLoadControlTest {
     build();
 
     assertThat(
-            loadControl.shouldContinueLoading(new LoadParameters(
-                playerId,
-                timeline,
-                mediaPeriodId,
-                /* playbackPositionUs= */ 0L,
-                MAX_BUFFER_US,
-                SPEED,
-                false)))
+            loadControl.shouldContinueLoading(
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0L,
+                    MAX_BUFFER_US,
+                    SPEED,
+                    /* playWhenReady= */ false,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET)))
         .isFalse();
     assertThat(
-            loadControl.shouldContinueLoading(new LoadParameters(
-                playerId,
-                timeline,
-                mediaPeriodId,
-                /* playbackPositionUs= */ 0L,
-                MAX_BUFFER_US - 1,
-                SPEED,
-                false)))
+            loadControl.shouldContinueLoading(
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0L,
+                    MAX_BUFFER_US - 1,
+                    SPEED,
+                    /* playWhenReady= */ false,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET)))
         .isFalse();
     assertThat(
-            loadControl.shouldContinueLoading(new LoadParameters(
-                playerId,
-                timeline,
-                mediaPeriodId,
-                /* playbackPositionUs= */ 0L,
-                MIN_BUFFER_US,
-                SPEED,
-                false)))
+            loadControl.shouldContinueLoading(
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0L,
+                    MIN_BUFFER_US,
+                    SPEED,
+                    /* playWhenReady= */ false,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET)))
         .isFalse();
     assertThat(
-            loadControl.shouldContinueLoading(new LoadParameters(
-                playerId,
-                timeline,
-                mediaPeriodId,
-                /* playbackPositionUs= */ 0L,
-                MIN_BUFFER_US - 1,
-                SPEED,
-                false)))
+            loadControl.shouldContinueLoading(
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0L,
+                    MIN_BUFFER_US - 1,
+                    SPEED,
+                    /* playWhenReady= */ false,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET)))
         .isTrue();
   }
 
@@ -245,30 +287,43 @@ public class DefaultLoadControlTest {
     build();
 
     assertThat(
-            loadControl.shouldContinueLoading(new LoadParameters(
-                playerId,
-                timeline,
-                mediaPeriodId,
-                /* playbackPositionUs= */ 0L,
-                MAX_BUFFER_US,
-                SPEED,
-                false)))
+            loadControl.shouldContinueLoading(
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0L,
+                    MAX_BUFFER_US,
+                    SPEED,
+                    /* playWhenReady= */ false,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET)))
         .isFalse();
     assertThat(
-            loadControl.shouldContinueLoading(new LoadParameters(
-                playerId,
-                timeline,
-                mediaPeriodId,
-                /* playbackPositionUs= */ 0L,
-                5 * C.MICROS_PER_SECOND,
-                SPEED,
-                false)))
+            loadControl.shouldContinueLoading(
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0L,
+                    5 * C.MICROS_PER_SECOND,
+                    SPEED,
+                    /* playWhenReady= */ false,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET)))
         .isFalse();
     assertThat(
-            loadControl.shouldContinueLoading(new LoadParameters(
-                playerId, timeline, mediaPeriodId,
-                /* playbackPositionUs= */ 0L, 500L, SPEED,
-                false)))
+            loadControl.shouldContinueLoading(
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0L,
+                    500L,
+                    SPEED,
+                    /* playWhenReady= */ false,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET)))
         .isTrue();
   }
 
@@ -284,44 +339,56 @@ public class DefaultLoadControlTest {
     makeSureTargetBufferBytesReached();
 
     assertThat(
-            loadControl.shouldContinueLoading(new LoadParameters(
-                playerId,
-                timeline,
-                mediaPeriodId,
-                /* playbackPositionUs= */ 0L,
-                /* bufferedDurationUs= */ 0L,
-                SPEED,
-                false)))
+            loadControl.shouldContinueLoading(
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0L,
+                    /* bufferedDurationUs= */ 0L,
+                    SPEED,
+                    /* playWhenReady= */ false,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET)))
         .isTrue();
     assertThat(
-            loadControl.shouldContinueLoading(new LoadParameters(
-                playerId,
-                timeline,
-                mediaPeriodId,
-                /* playbackPositionUs= */ 0L,
-                MIN_BUFFER_US - 1,
-                SPEED,
-                false)))
+            loadControl.shouldContinueLoading(
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0L,
+                    MIN_BUFFER_US - 1,
+                    SPEED,
+                    /* playWhenReady= */ false,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET)))
         .isTrue();
     assertThat(
-            loadControl.shouldContinueLoading(new LoadParameters(
-                playerId,
-                timeline,
-                mediaPeriodId,
-                /* playbackPositionUs= */ 0L,
-                MIN_BUFFER_US,
-                SPEED,
-                false)))
+            loadControl.shouldContinueLoading(
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0L,
+                    MIN_BUFFER_US,
+                    SPEED,
+                    /* playWhenReady= */ false,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET)))
         .isFalse();
     assertThat(
-            loadControl.shouldContinueLoading(new LoadParameters(
-                playerId,
-                timeline,
-                mediaPeriodId,
-                /* playbackPositionUs= */ 0L,
-                MAX_BUFFER_US,
-                SPEED,
-                false)))
+            loadControl.shouldContinueLoading(
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0L,
+                    MAX_BUFFER_US,
+                    SPEED,
+                    /* playWhenReady= */ false,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET)))
         .isFalse();
   }
 
@@ -333,56 +400,71 @@ public class DefaultLoadControlTest {
 
     // Put loadControl in buffering state.
     assertThat(
-            loadControl.shouldContinueLoading(new LoadParameters(
-                playerId,
-                timeline,
-                mediaPeriodId,
-                /* playbackPositionUs= */ 0L,
-                /* bufferedDurationUs= */ 0L,
-                SPEED,
-                    false)))
+            loadControl.shouldContinueLoading(
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0L,
+                    /* bufferedDurationUs= */ 0L,
+                    SPEED,
+                    /* playWhenReady= */ false,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET)))
         .isTrue();
     makeSureTargetBufferBytesReached();
 
     assertThat(
-            loadControl.shouldContinueLoading(new LoadParameters(
-                playerId,
-                timeline,
-                mediaPeriodId,
-                /* playbackPositionUs= */ 0L,
-                /* bufferedDurationUs= */ 0L,
-                SPEED,
-                false)))
+            loadControl.shouldContinueLoading(
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0L,
+                    /* bufferedDurationUs= */ 0L,
+                    SPEED,
+                    /* playWhenReady= */ false,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET)))
         .isFalse();
     assertThat(
-            loadControl.shouldContinueLoading(new LoadParameters(
-                playerId,
-                timeline,
-                mediaPeriodId,
-                /* playbackPositionUs= */ 0L,
-                MIN_BUFFER_US - 1,
-                SPEED,
-                false)))
+            loadControl.shouldContinueLoading(
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0L,
+                    MIN_BUFFER_US - 1,
+                    SPEED,
+                    /* playWhenReady= */ false,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET)))
         .isFalse();
     assertThat(
-            loadControl.shouldContinueLoading(new LoadParameters(
-                playerId,
-                timeline,
-                mediaPeriodId,
-                /* playbackPositionUs= */ 0L,
-                MIN_BUFFER_US,
-                SPEED,
-                false)))
+            loadControl.shouldContinueLoading(
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0L,
+                    MIN_BUFFER_US,
+                    SPEED,
+                    /* playWhenReady= */ false,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET)))
         .isFalse();
     assertThat(
-            loadControl.shouldContinueLoading(new LoadParameters(
-                playerId,
-                timeline,
-                mediaPeriodId,
-                /* playbackPositionUs= */ 0L,
-                MAX_BUFFER_US,
-                SPEED,
-                false)))
+            loadControl.shouldContinueLoading(
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0L,
+                    MAX_BUFFER_US,
+                    SPEED,
+                    /* playWhenReady= */ false,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET)))
         .isFalse();
   }
 
@@ -397,25 +479,31 @@ public class DefaultLoadControlTest {
 
     // At normal playback speed, we stop buffering when the buffer reaches the minimum.
     assertThat(
-            loadControl.shouldContinueLoading(new LoadParameters(
-                playerId,
-                timeline,
-                mediaPeriodId,
-                /* playbackPositionUs= */ 0L,
-                MIN_BUFFER_US,
-                SPEED,
-                false)))
+            loadControl.shouldContinueLoading(
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0L,
+                    MIN_BUFFER_US,
+                    SPEED,
+                    /* playWhenReady= */ false,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET)))
         .isFalse();
     // At double playback speed, we continue loading.
     assertThat(
-            loadControl.shouldContinueLoading(new LoadParameters(
-                playerId,
-                timeline,
-                mediaPeriodId,
-                /* playbackPositionUs= */ 0L,
-                MIN_BUFFER_US,
-                /* playbackSpeed= */ 2f,
-                false)))
+            loadControl.shouldContinueLoading(
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0L,
+                    MIN_BUFFER_US,
+                    /* playbackSpeed= */ 2f,
+                    /* playWhenReady= */ false,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET)))
         .isTrue();
   }
 
@@ -432,30 +520,36 @@ public class DefaultLoadControlTest {
         new ExoTrackSelection[0]);
 
     assertThat(
-            loadControl.shouldContinueLoading(new LoadParameters(
-                playerId,
-                timeline,
-                mediaPeriodId,
-                /* playbackPositionUs= */ 0L,
-                /* bufferedDurationUs= */ 0L,
-                /* playbackSpeed= */ 1f,
-                false)))
+            loadControl.shouldContinueLoading(
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0L,
+                    /* bufferedDurationUs= */ 0L,
+                    /* playbackSpeed= */ 1f,
+                    /* playWhenReady= */ false,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET)))
         .isTrue();
   }
 
   @Test
-  public void shouldNotContinueLoadingWithMaxBufferReached_inFastPlayback() {
+  public void shouldContinueLoading_withMaxBufferReachedInFastPlayback_returnsFalse() {
     build();
 
     assertThat(
-            loadControl.shouldContinueLoading(new LoadParameters(
-                playerId,
-                timeline,
-                mediaPeriodId,
-                /* playbackPositionUs= */ 0L,
-                MAX_BUFFER_US,
-                /* playbackSpeed= */ 100f,
-                false)))
+            loadControl.shouldContinueLoading(
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0L,
+                    MAX_BUFFER_US,
+                    /* playbackSpeed= */ 100f,
+                    /* playWhenReady= */ false,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET)))
         .isFalse();
   }
 
@@ -465,13 +559,16 @@ public class DefaultLoadControlTest {
 
     assertThat(
             loadControl.shouldStartPlayback(
-                playerId,
-                timeline,
-                mediaPeriodId,
-                MIN_BUFFER_US,
-                SPEED,
-                /* rebuffering= */ false,
-                /* targetLiveOffsetUs= */ C.TIME_UNSET))
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0,
+                    MIN_BUFFER_US,
+                    SPEED,
+                    /* playWhenReady= */ true,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET)))
         .isTrue();
   }
 
@@ -487,23 +584,29 @@ public class DefaultLoadControlTest {
 
     assertThat(
             loadControl.shouldStartPlayback(
-                playerId,
-                timeline,
-                mediaPeriodId,
-                /* bufferedDurationUs= */ 2_999_999L,
-                SPEED,
-                /* rebuffering= */ false,
-                /* targetLiveOffsetUs= */ C.TIME_UNSET))
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0,
+                    /* bufferedDurationUs= */ 2_999_999L,
+                    SPEED,
+                    /* playWhenReady= */ true,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET)))
         .isFalse();
     assertThat(
             loadControl.shouldStartPlayback(
-                playerId,
-                timeline,
-                mediaPeriodId,
-                /* bufferedDurationUs= */ 3_000_000L,
-                SPEED,
-                /* rebuffering= */ false,
-                /* targetLiveOffsetUs= */ C.TIME_UNSET))
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0,
+                    /* bufferedDurationUs= */ 3_000_000L,
+                    SPEED,
+                    /* playWhenReady= */ true,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET)))
         .isTrue();
   }
 
@@ -518,23 +621,29 @@ public class DefaultLoadControlTest {
 
     assertThat(
             loadControl.shouldStartPlayback(
-                playerId,
-                timeline,
-                mediaPeriodId,
-                /* bufferedDurationUs= */ 499_999L,
-                SPEED,
-                /* rebuffering= */ true,
-                /* targetLiveOffsetUs= */ 1_000_000L))
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0,
+                    /* bufferedDurationUs= */ 499_999L,
+                    SPEED,
+                    /* playWhenReady= */ true,
+                    /* rebuffering= */ true,
+                    /* targetLiveOffsetUs= */ 1_000_000L)))
         .isFalse();
     assertThat(
             loadControl.shouldStartPlayback(
-                playerId,
-                timeline,
-                mediaPeriodId,
-                /* bufferedDurationUs= */ 500_000L,
-                SPEED,
-                /* rebuffering= */ true,
-                /* targetLiveOffsetUs= */ 1_000_000L))
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0,
+                    /* bufferedDurationUs= */ 500_000L,
+                    SPEED,
+                    /* playWhenReady= */ true,
+                    /* rebuffering= */ true,
+                    /* targetLiveOffsetUs= */ 1_000_000L)))
         .isTrue();
   }
 
@@ -550,23 +659,29 @@ public class DefaultLoadControlTest {
 
     assertThat(
             loadControl.shouldStartPlayback(
-                playerId,
-                timeline,
-                mediaPeriodId,
-                /* bufferedDurationUs= */ 3_999_999L,
-                SPEED,
-                /* rebuffering= */ true,
-                /* targetLiveOffsetUs= */ C.TIME_UNSET))
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0,
+                    /* bufferedDurationUs= */ 3_999_999L,
+                    SPEED,
+                    /* playWhenReady= */ true,
+                    /* rebuffering= */ true,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET)))
         .isFalse();
     assertThat(
             loadControl.shouldStartPlayback(
-                playerId,
-                timeline,
-                mediaPeriodId,
-                /* bufferedDurationUs= */ 4_000_000L,
-                SPEED,
-                /* rebuffering= */ true,
-                /* targetLiveOffsetUs= */ C.TIME_UNSET))
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0,
+                    /* bufferedDurationUs= */ 4_000_000L,
+                    SPEED,
+                    /* playWhenReady= */ true,
+                    /* rebuffering= */ true,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET)))
         .isTrue();
   }
 
@@ -581,23 +696,29 @@ public class DefaultLoadControlTest {
 
     assertThat(
             loadControl.shouldStartPlayback(
-                playerId,
-                timeline,
-                mediaPeriodId,
-                /* bufferedDurationUs= */ 499_999L,
-                SPEED,
-                /* rebuffering= */ true,
-                /* targetLiveOffsetUs= */ 1_000_000L))
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0,
+                    /* bufferedDurationUs= */ 499_999L,
+                    SPEED,
+                    /* playWhenReady= */ true,
+                    /* rebuffering= */ true,
+                    /* targetLiveOffsetUs= */ 1_000_000L)))
         .isFalse();
     assertThat(
             loadControl.shouldStartPlayback(
-                playerId,
-                timeline,
-                mediaPeriodId,
-                /* bufferedDurationUs= */ 500_000L,
-                SPEED,
-                /* rebuffering= */ true,
-                /* targetLiveOffsetUs= */ 1_000_000L))
+                new LoadControl.Parameters(
+                    playerId,
+                    timeline,
+                    mediaPeriodId,
+                    /* playbackPositionUs= */ 0,
+                    /* bufferedDurationUs= */ 500_000L,
+                    SPEED,
+                    /* playWhenReady= */ true,
+                    /* rebuffering= */ true,
+                    /* targetLiveOffsetUs= */ 1_000_000L)))
         .isTrue();
   }
 
@@ -668,32 +789,6 @@ public class DefaultLoadControlTest {
     loadControl.onReleased(playerId2);
 
     assertThat(loadControl.calculateTotalTargetBufferBytes()).isEqualTo(0);
-  }
-
-  @Test
-  public void shouldContinueLoading_backwardCompatible() {
-    final LoadControl oldLoadControl =
-        new DefaultLoadControl() {
-          @Override
-          public boolean shouldContinueLoading(LoadParameters loadParameters) {
-            return super.shouldContinueLoading(loadParameters);
-          }
-
-          @Override
-          public boolean shouldContinueLoading(
-              long playbackPositionUs, long bufferedDurationUs, float playbackSpeed) {
-            return true;
-          }
-        };
-
-    oldLoadControl.onPrepared(playerId);
-
-    final LoadParameters loadParameters =
-        new LoadParameters(playerId, timeline, mediaPeriodId,
-            0, 0, SPEED, false);
-    assertThat(
-        oldLoadControl.shouldContinueLoading(loadParameters))
-        .isTrue();
   }
 
   private void build() {

@@ -6046,19 +6046,12 @@ public class ExoPlayerTest {
     LoadControl neverLoadingLoadControl =
         new DefaultLoadControl() {
           @Override
-          public boolean shouldContinueLoading(LoadParameters loadParameters) {
+          public boolean shouldContinueLoading(LoadControl.Parameters parameters) {
             return false;
           }
 
           @Override
-          public boolean shouldStartPlayback(
-              PlayerId playerId,
-              Timeline timeline,
-              MediaPeriodId mediaPeriodid,
-              long bufferedDurationUs,
-              float playbackSpeed,
-              boolean rebuffering,
-              long targetLiveOffsetUs) {
+          public boolean shouldStartPlayback(LoadControl.Parameters parameters) {
             return true;
           }
         };
@@ -6095,25 +6088,12 @@ public class ExoPlayerTest {
     LoadControl loadControlWithMaxBufferUs =
         new DefaultLoadControl() {
           @Override
-          public boolean shouldContinueLoading(
-              PlayerId playerId,
-              Timeline timeline,
-              MediaPeriodId mediaPeriodid,
-              long playbackPositionUs,
-              long bufferedDurationUs,
-              float playbackSpeed) {
-            return bufferedDurationUs < maxBufferUs;
+          public boolean shouldContinueLoading(LoadControl.Parameters parameters) {
+            return parameters.bufferedDurationUs < maxBufferUs;
           }
 
           @Override
-          public boolean shouldStartPlayback(
-              PlayerId playerId,
-              Timeline timeline,
-              MediaPeriodId mediaPeriodid,
-              long bufferedDurationUs,
-              float playbackSpeed,
-              boolean rebuffering,
-              long targetLiveOffsetUs) {
+          public boolean shouldStartPlayback(LoadControl.Parameters parameters) {
             return true;
           }
         };
@@ -6184,25 +6164,12 @@ public class ExoPlayerTest {
     LoadControl neverLoadingOrPlayingLoadControl =
         new DefaultLoadControl() {
           @Override
-          public boolean shouldContinueLoading(
-              PlayerId playerId,
-              Timeline timeline,
-              MediaPeriodId mediaPeriodid,
-              long playbackPositionUs,
-              long bufferedDurationUs,
-              float playbackSpeed) {
+          public boolean shouldContinueLoading(LoadControl.Parameters parameters) {
             return true;
           }
 
           @Override
-          public boolean shouldStartPlayback(
-              PlayerId playerId,
-              Timeline timeline,
-              MediaPeriodId mediaPeriodid,
-              long bufferedDurationUs,
-              float playbackSpeed,
-              boolean rebuffering,
-              long targetLiveOffsetUs) {
+          public boolean shouldStartPlayback(LoadControl.Parameters parameters) {
             return false;
           }
         };
