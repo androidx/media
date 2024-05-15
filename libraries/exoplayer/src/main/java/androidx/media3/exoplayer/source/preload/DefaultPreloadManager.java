@@ -169,15 +169,19 @@ public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
   @Override
   protected void preloadSourceInternal(MediaSource mediaSource, long startPositionsUs) {
     checkArgument(mediaSource instanceof PreloadMediaSource);
-    PreloadMediaSource preloadMediaSource = (PreloadMediaSource) mediaSource;
-    preloadMediaSource.preload(startPositionsUs);
+    ((PreloadMediaSource) mediaSource).preload(startPositionsUs);
+  }
+
+  @Override
+  protected void clearSourceInternal(MediaSource mediaSource) {
+    checkArgument(mediaSource instanceof PreloadMediaSource);
+    ((PreloadMediaSource) mediaSource).clear();
   }
 
   @Override
   protected void releaseSourceInternal(MediaSource mediaSource) {
     checkArgument(mediaSource instanceof PreloadMediaSource);
-    PreloadMediaSource preloadMediaSource = (PreloadMediaSource) mediaSource;
-    preloadMediaSource.releasePreloadMediaSource();
+    ((PreloadMediaSource) mediaSource).releasePreloadMediaSource();
   }
 
   @Override
@@ -202,28 +206,38 @@ public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
   private final class SourcePreloadControl implements PreloadMediaSource.PreloadControl {
     @Override
     public boolean onTimelineRefreshed(PreloadMediaSource mediaSource) {
+      // The PreloadMediaSource may have more data preloaded than the target preload status if it
+      // has been preloaded before, thus we set `clearExceededDataFromTargetPreloadStatus` to
+      // `true` to clear the exceeded data.
       return continueOrCompletePreloading(
           mediaSource,
           /* continueLoadingPredicate= */ status ->
-              status.getStage() > Status.STAGE_TIMELINE_REFRESHED);
+              status.getStage() > Status.STAGE_TIMELINE_REFRESHED,
+          /* clearExceededDataFromTargetPreloadStatus= */ true);
     }
 
     @Override
     public boolean onPrepared(PreloadMediaSource mediaSource) {
+      // Set `clearExceededDataFromTargetPreloadStatus` to `false` as clearing the exceeded data
+      // from the status STAGE_SOURCE_PREPARED is not supported.
       return continueOrCompletePreloading(
           mediaSource,
           /* continueLoadingPredicate= */ status ->
-              status.getStage() > Status.STAGE_SOURCE_PREPARED);
+              status.getStage() > Status.STAGE_SOURCE_PREPARED,
+          /* clearExceededDataFromTargetPreloadStatus= */ false);
     }
 
     @Override
     public boolean onContinueLoadingRequested(
         PreloadMediaSource mediaSource, long bufferedPositionUs) {
+      // Set `clearExceededDataFromTargetPreloadStatus` to `false` as clearing the exceeded data
+      // from the status STAGE_LOADED_TO_POSITION_MS is not supported.
       return continueOrCompletePreloading(
           mediaSource,
           /* continueLoadingPredicate= */ status ->
               status.getStage() == Status.STAGE_LOADED_TO_POSITION_MS
-                  && status.getValue() > Util.usToMs(bufferedPositionUs));
+                  && status.getValue() > Util.usToMs(bufferedPositionUs),
+          /* clearExceededDataFromTargetPreloadStatus= */ false);
     }
 
     @Override
@@ -237,7 +251,9 @@ public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
     }
 
     private boolean continueOrCompletePreloading(
-        MediaSource mediaSource, Predicate<Status> continueLoadingPredicate) {
+        PreloadMediaSource mediaSource,
+        Predicate<Status> continueLoadingPredicate,
+        boolean clearExceededDataFromTargetPreloadStatus) {
       @Nullable
       TargetPreloadStatusControl.PreloadStatus targetPreloadStatus =
           getTargetPreloadStatus(mediaSource);
@@ -246,8 +262,11 @@ public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
         if (continueLoadingPredicate.apply(checkNotNull(status))) {
           return true;
         }
-        onPreloadCompleted(mediaSource);
+        if (clearExceededDataFromTargetPreloadStatus) {
+          clearSourceInternal(mediaSource);
+        }
       }
+      onPreloadCompleted(mediaSource);
       return false;
     }
   }

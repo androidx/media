@@ -16,7 +16,9 @@
 package androidx.media3.exoplayer.source.preload;
 
 import static androidx.media3.exoplayer.source.preload.DefaultPreloadManager.Status.STAGE_LOADED_TO_POSITION_MS;
+import static androidx.media3.exoplayer.source.preload.DefaultPreloadManager.Status.STAGE_SOURCE_PREPARED;
 import static androidx.media3.exoplayer.source.preload.DefaultPreloadManager.Status.STAGE_TIMELINE_REFRESHED;
+import static androidx.media3.test.utils.FakeMediaSourceFactory.DEFAULT_WINDOW_UID;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static com.google.common.truth.Truth.assertThat;
 import static java.lang.Math.abs;
@@ -29,19 +31,26 @@ import android.content.Context;
 import android.net.Uri;
 import android.os.Looper;
 import androidx.annotation.Nullable;
+import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DefaultDataSource;
+import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.DefaultRendererCapabilitiesList;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RendererCapabilitiesList;
 import androidx.media3.exoplayer.RenderersFactory;
 import androidx.media3.exoplayer.analytics.PlayerId;
+import androidx.media3.exoplayer.drm.DrmSessionEventListener;
+import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
+import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource;
+import androidx.media3.exoplayer.source.MediaSourceEventListener;
 import androidx.media3.exoplayer.source.ProgressiveMediaSource;
+import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import androidx.media3.exoplayer.trackselection.TrackSelector;
 import androidx.media3.exoplayer.upstream.Allocator;
@@ -49,12 +58,15 @@ import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter;
 import androidx.media3.test.utils.FakeAudioRenderer;
+import androidx.media3.test.utils.FakeMediaPeriod;
 import androidx.media3.test.utils.FakeMediaSource;
 import androidx.media3.test.utils.FakeMediaSourceFactory;
 import androidx.media3.test.utils.FakeRenderer;
+import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.FakeVideoRenderer;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -66,6 +78,7 @@ import org.mockito.Mock;
 /** Unit test for {@link DefaultPreloadManager}. */
 @RunWith(AndroidJUnit4.class)
 public class DefaultPreloadManagerTest {
+
   @Mock private TargetPreloadStatusControl<Integer> mockTargetPreloadStatusControl;
   private TrackSelector trackSelector;
   private Allocator allocator;
@@ -430,6 +443,131 @@ public class DefaultPreloadManagerTest {
     shadowOf(Looper.getMainLooper()).idle();
 
     assertThat(targetPreloadStatusControlCallStates).containsExactly(0, 1, 2);
+  }
+
+  @Test
+  public void invalidate_clearsDeprioritizedSources() throws Exception {
+    final AtomicInteger currentPlayingIndex = new AtomicInteger();
+    ArrayList<Integer> targetPreloadStatusControlCallStates = new ArrayList<>();
+    TargetPreloadStatusControl<Integer> targetPreloadStatusControl =
+        rankingData -> {
+          targetPreloadStatusControlCallStates.add(rankingData);
+          if (abs(rankingData - currentPlayingIndex.get()) <= 2) {
+            return new DefaultPreloadManager.Status(STAGE_SOURCE_PREPARED);
+          } else if (abs(rankingData - currentPlayingIndex.get()) == 3) {
+            return new DefaultPreloadManager.Status(STAGE_TIMELINE_REFRESHED);
+          }
+          return null;
+        };
+    MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
+    ArrayList<String> releasedPreloadingPeriodMediaIds = new ArrayList<>();
+    when(mockMediaSourceFactory.createMediaSource(any()))
+        .thenAnswer(
+            invocation -> {
+              MediaItem mediaItem = invocation.getArgument(0);
+              FakeTimeline.TimelineWindowDefinition timelineWindowDefinition =
+                  new FakeTimeline.TimelineWindowDefinition(
+                      /* periodCount= */ 1,
+                      /* id= */ DEFAULT_WINDOW_UID,
+                      /* isSeekable= */ true,
+                      /* isDynamic= */ false,
+                      /* isLive= */ false,
+                      /* isPlaceholder= */ false,
+                      /* durationUs= */ 1000 * C.MICROS_PER_SECOND,
+                      /* defaultPositionUs= */ 2 * C.MICROS_PER_SECOND,
+                      /* windowOffsetInFirstPeriodUs= */ Util.msToUs(123456789),
+                      ImmutableList.of(AdPlaybackState.NONE),
+                      mediaItem);
+              return new FakeMediaSource(new FakeTimeline(timelineWindowDefinition)) {
+                @Override
+                protected MediaPeriod createMediaPeriod(
+                    MediaPeriodId id,
+                    TrackGroupArray trackGroupArray,
+                    Allocator allocator,
+                    MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+                    DrmSessionManager drmSessionManager,
+                    DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+                    @Nullable TransferListener transferListener) {
+                  return new FakeMediaPeriod(
+                      trackGroupArray,
+                      allocator,
+                      FakeTimeline.TimelineWindowDefinition
+                          .DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
+                      mediaSourceEventDispatcher) {
+                    @Override
+                    public void release() {
+                      releasedPreloadingPeriodMediaIds.add(mediaItem.mediaId);
+                    }
+                  };
+                }
+              };
+            });
+    DefaultPreloadManager preloadManager =
+        new DefaultPreloadManager(
+            targetPreloadStatusControl,
+            mockMediaSourceFactory,
+            trackSelector,
+            bandwidthMeter,
+            rendererCapabilitiesListFactory,
+            allocator,
+            Util.getCurrentOrMainLooper());
+    MediaItem.Builder mediaItemBuilder = new MediaItem.Builder();
+    MediaItem mediaItem0 =
+        mediaItemBuilder
+            .setMediaId("mediaId0")
+            .setUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"))
+            .build();
+    MediaItem mediaItem1 =
+        mediaItemBuilder
+            .setMediaId("mediaId1")
+            .setUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"))
+            .build();
+    MediaItem mediaItem2 =
+        mediaItemBuilder
+            .setMediaId("mediaId2")
+            .setUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"))
+            .build();
+    MediaItem mediaItem3 =
+        mediaItemBuilder
+            .setMediaId("mediaId3")
+            .setUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"))
+            .build();
+    MediaItem mediaItem4 =
+        mediaItemBuilder
+            .setMediaId("mediaId4")
+            .setUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"))
+            .build();
+    preloadManager.add(mediaItem0, /* rankingData= */ 0);
+    preloadManager.add(mediaItem1, /* rankingData= */ 1);
+    preloadManager.add(mediaItem2, /* rankingData= */ 2);
+    preloadManager.add(mediaItem3, /* rankingData= */ 3);
+    preloadManager.add(mediaItem4, /* rankingData= */ 4);
+    currentPlayingIndex.set(C.INDEX_UNSET);
+
+    preloadManager.invalidate();
+    runMainLooperUntil(() -> targetPreloadStatusControlCallStates.size() == 5);
+
+    assertThat(targetPreloadStatusControlCallStates).containsExactly(0, 1, 2, 3, 4).inOrder();
+    assertThat(releasedPreloadingPeriodMediaIds).isEmpty();
+
+    targetPreloadStatusControlCallStates.clear();
+    PreloadMediaSource preloadMediaSource4 =
+        (PreloadMediaSource) preloadManager.getMediaSource(mediaItem4);
+    // Simulate that preloadMediaSource4 is using by the player.
+    preloadMediaSource4.prepareSource(
+        (source, timeline) -> {}, bandwidthMeter.getTransferListener(), PlayerId.UNSET);
+    currentPlayingIndex.set(4);
+    preloadManager.setCurrentPlayingIndex(4);
+
+    preloadManager.invalidate();
+    runMainLooperUntil(() -> releasedPreloadingPeriodMediaIds.size() == 2);
+
+    assertThat(targetPreloadStatusControlCallStates).containsExactly(4, 3, 2, 1, 0).inOrder();
+    // The sources for mediaItem4, mediaItem3 and mediaItem2 either got used by the player or
+    // preload more after the second invalidate() call because their priorities increased. Thus the
+    // sources got cleared are the ones for mediaItem1 and mediaItem0 due to their decreased
+    // priorities.
+    assertThat(releasedPreloadingPeriodMediaIds).containsExactly("mediaId1", "mediaId0");
   }
 
   @Test

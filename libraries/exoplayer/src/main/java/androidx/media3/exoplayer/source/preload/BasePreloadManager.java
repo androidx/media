@@ -266,6 +266,14 @@ public abstract class BasePreloadManager<T> {
   protected abstract void preloadSourceInternal(MediaSource mediaSource, long startPositionsUs);
 
   /**
+   * Clears the preloaded data of the given {@link MediaSource}, while not releasing the instance of
+   * it.
+   *
+   * @param mediaSource The media source to clear.
+   */
+  protected abstract void clearSourceInternal(MediaSource mediaSource);
+
+  /**
    * Releases the given {@link MediaSource}.
    *
    * @param mediaSource The media source to release.
@@ -292,6 +300,8 @@ public abstract class BasePreloadManager<T> {
       if (targetPreloadStatusOfCurrentPreloadingSource != null) {
         preloadSourceInternal(preloadingHolder.mediaSource, preloadingHolder.startPositionUs);
         return true;
+      } else {
+        clearSourceInternal(preloadingHolder.mediaSource);
       }
     }
     return false;
