@@ -31,7 +31,6 @@ import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.TimestampIterator;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.util.Queue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -41,7 +40,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * Forwards a video frame produced from a {@link Bitmap} to a {@link GlShaderProgram} for
  * consumption.
  */
-@UnstableApi
 /* package */ final class BitmapTextureManager extends TextureManager {
 
   // The queue holds all bitmaps with one or more frames pending to be sent downstream.

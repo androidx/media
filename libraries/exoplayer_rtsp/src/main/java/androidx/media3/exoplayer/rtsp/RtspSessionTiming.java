@@ -21,7 +21,6 @@ import static androidx.media3.exoplayer.rtsp.RtspMessageUtil.checkManifestExpres
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -31,7 +30,6 @@ import java.util.regex.Pattern;
  *
  * <p>Currently only NPT is supported. See RFC2326 Section 3.6 for detail of NPT.
  */
-@UnstableApi
 /* package */ final class RtspSessionTiming {
   /** The default session timing starting from 0.000 and indefinite length, effectively live. */
   public static final RtspSessionTiming DEFAULT =

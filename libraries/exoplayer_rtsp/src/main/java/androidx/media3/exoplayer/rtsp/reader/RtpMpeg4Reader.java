@@ -22,7 +22,6 @@ import static androidx.media3.exoplayer.rtsp.reader.RtpReaderUtils.toSampleTimeU
 import androidx.media3.common.C;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.rtsp.RtpPacket;
 import androidx.media3.exoplayer.rtsp.RtpPayloadFormat;
@@ -35,7 +34,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * Parses an MPEG4 byte stream carried on RTP packets, and extracts MPEG4 Access Units. Refer to
  * RFC6416 for more details.
  */
-@UnstableApi
 /* package */ final class RtpMpeg4Reader implements RtpPayloadReader {
   private static final String TAG = "RtpMpeg4Reader";
 

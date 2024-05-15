@@ -15,10 +15,7 @@
  */
 package androidx.media3.exoplayer.rtsp;
 
-import androidx.media3.common.util.UnstableApi;
-
 /** Represents an RTSP DESCRIBE response. */
-@UnstableApi
 /* package */ final class RtspDescribeResponse {
   /** The response's headers. */
   public final RtspHeaders headers;

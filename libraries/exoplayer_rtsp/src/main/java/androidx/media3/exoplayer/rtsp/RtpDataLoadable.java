@@ -21,7 +21,6 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import android.os.Handler;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.exoplayer.upstream.Loader;
@@ -51,7 +50,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * <p>Received RTP packets' payloads will be extracted by an {@link RtpExtractor}, and will be
  * written to the {@link ExtractorOutput} instance provided at construction.
  */
-@UnstableApi
 /* package */ final class RtpDataLoadable implements Loader.Loadable {
 
   /** Called on loadable events. */

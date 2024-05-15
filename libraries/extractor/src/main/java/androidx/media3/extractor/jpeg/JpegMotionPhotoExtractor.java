@@ -27,7 +27,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ParsableByteArray;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
@@ -45,7 +44,6 @@ import java.lang.annotation.Target;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Extracts JPEG metadata and motion photo using the Exif format. */
-@UnstableApi
 /* package */ final class JpegMotionPhotoExtractor implements Extractor {
 
   /** Parser states. */

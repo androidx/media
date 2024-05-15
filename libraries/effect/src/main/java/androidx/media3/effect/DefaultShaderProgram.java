@@ -36,7 +36,6 @@ import androidx.media3.common.util.GlProgram;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.Size;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.DefaultVideoFrameProcessor.WorkingColorSpace;
 import com.google.common.collect.ImmutableList;
@@ -62,7 +61,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  *
  * <p>Can copy frames from an external texture and apply color transformations for HDR if needed.
  */
-@UnstableApi
 @SuppressWarnings("FunctionalInterfaceClash") // b/228192298
 /* package */ final class DefaultShaderProgram extends BaseGlShaderProgram
     implements ExternalShaderProgram, GainmapShaderProgram {

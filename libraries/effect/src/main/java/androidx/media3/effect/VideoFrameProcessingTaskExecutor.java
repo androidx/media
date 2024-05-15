@@ -21,7 +21,6 @@ import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlUtil;
-import androidx.media3.common.util.UnstableApi;
 import java.util.ArrayDeque;
 import java.util.Queue;
 import java.util.concurrent.CountDownLatch;
@@ -41,7 +40,6 @@ import java.util.concurrent.RejectedExecutionException;
  * {@linkplain #submit(Task) default priority tasks}. Tasks with equal priority are executed in FIFO
  * order.
  */
-@UnstableApi
 /* package */ final class VideoFrameProcessingTaskExecutor {
   /**
    * Interface for tasks that may throw a {@link GlUtil.GlException} or {@link

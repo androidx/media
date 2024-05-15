@@ -24,7 +24,6 @@ import androidx.annotation.IntDef;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -34,7 +33,6 @@ import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Utility class checking media codec support through PerformancePoints. */
-@UnstableApi
 /* package */ final class MediaCodecPerformancePointCoverageProvider {
 
   /**

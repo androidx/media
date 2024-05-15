@@ -22,12 +22,10 @@ import android.content.Context;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
-import androidx.media3.common.util.UnstableApi;
 import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Applies a {@link TimestampWrapper} to apply a wrapped {@link GlEffect} on certain timestamps. */
-@UnstableApi
 /* package */ final class TimestampWrapperShaderProgram
     implements GlShaderProgram, GlShaderProgram.InputListener {
 

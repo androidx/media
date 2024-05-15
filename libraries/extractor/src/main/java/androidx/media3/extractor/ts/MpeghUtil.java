@@ -23,7 +23,6 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableBitArray;
-import androidx.media3.common.util.UnstableApi;
 import com.google.common.math.IntMath;
 import com.google.common.math.LongMath;
 import java.lang.annotation.Documented;
@@ -32,7 +31,6 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /** Utility methods for parsing MPEG-H frames, which are access units in MPEG-H bitstreams. */
-@UnstableApi
 /* package */ final class MpeghUtil {
 
   /** See ISO_IEC_23003-8;2022, 14.4.4. */

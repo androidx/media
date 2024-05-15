@@ -27,7 +27,6 @@ import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.upstream.Loader;
 import androidx.media3.exoplayer.upstream.Loader.LoadErrorAction;
 import androidx.media3.exoplayer.upstream.Loader.Loadable;
@@ -55,7 +54,6 @@ import java.util.Map;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Sends and receives RTSP messages. */
-@UnstableApi
 /* package */ final class RtspMessageChannel implements Closeable {
 
   /** RTSP uses UTF-8 (RFC2326 Section 1.1). */

@@ -27,7 +27,6 @@ import androidx.annotation.StringDef;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.ParserException;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -37,7 +36,6 @@ import java.lang.annotation.RetentionPolicy;
 import java.util.HashMap;
 
 /** Represents one media description section in a SDP message. */
-@UnstableApi
 /* package */ final class MediaDescription {
 
   /** Represents the mandatory RTPMAP attribute in MediaDescription. Reference RFC 2327 Page 22. */

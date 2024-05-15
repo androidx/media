@@ -37,7 +37,6 @@ import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.base.Ascii;
 import com.google.common.base.Joiner;
@@ -48,7 +47,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** Utility methods for RTSP messages. */
-@UnstableApi
 /* package */ final class RtspMessageUtil {
   /** Represents a RTSP Session header (RFC2326 Section 12.37). */
   public static final class RtspSessionHeader {
