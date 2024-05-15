@@ -32,7 +32,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Parses an AC3 byte stream carried on RTP packets, and extracts AC3 frames. */
 @UnstableApi
-/* package */ public final class RtpAc3Reader implements RtpPayloadReader {
+public final class RtpAc3Reader implements RtpPayloadReader {
 
   /** AC3 frame types defined in RFC4184 Section 4.1.1. */
   private static final int AC3_FRAME_TYPE_COMPLETE_FRAME = 0;
