@@ -28,6 +28,7 @@ import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.AudioProcessor.AudioFormat;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
+import androidx.media3.effect.DebugTraceUtil;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import org.checkerframework.dataflow.qual.Pure;
@@ -124,6 +125,10 @@ import org.checkerframework.dataflow.qual.Pure;
     }
 
     if (audioGraph.isEnded()) {
+      DebugTraceUtil.logEvent(
+          DebugTraceUtil.COMPONENT_AUDIO_GRAPH,
+          DebugTraceUtil.EVENT_OUTPUT_ENDED,
+          C.TIME_END_OF_SOURCE);
       queueEndOfStreamToEncoder();
       return false;
     }

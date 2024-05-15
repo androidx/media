@@ -126,15 +126,17 @@ public final class DebugTraceUtil {
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @StringDef({
-    COMPONENT_VIDEO,
     COMPONENT_AUDIO_DECODER,
+    COMPONENT_AUDIO_GRAPH,
+    COMPONENT_AUDIO_MIXER,
+    COMPONENT_AUDIO_ENCODER,
+    COMPONENT_VIDEO,
     COMPONENT_VIDEO_DECODER,
     COMPONENT_VFP,
     COMPONENT_BITMAP_TEXTURE_MANAGER,
     COMPONENT_EXTERNAL_TEXTURE_MANAGER,
     COMPONENT_TEX_ID_TEXTURE_MANAGER,
     COMPONENT_COMPOSITOR,
-    COMPONENT_AUDIO_ENCODER,
     COMPONENT_VIDEO_ENCODER,
     COMPONENT_MUXER
   })
@@ -145,20 +147,21 @@ public final class DebugTraceUtil {
   public static final String COMPONENT_VIDEO = "Video";
 
   public static final String COMPONENT_AUDIO_DECODER = "AudioDecoder";
+  public static final String COMPONENT_AUDIO_GRAPH = "AudioGraph";
+  public static final String COMPONENT_AUDIO_MIXER = "AudioMixer";
+  public static final String COMPONENT_AUDIO_ENCODER = "AudioEncoder";
   public static final String COMPONENT_VIDEO_DECODER = "VideoDecoder";
   public static final String COMPONENT_VFP = "VFP";
   public static final String COMPONENT_EXTERNAL_TEXTURE_MANAGER = "ExternalTextureManager";
   public static final String COMPONENT_BITMAP_TEXTURE_MANAGER = "BitmapTextureManager";
   public static final String COMPONENT_TEX_ID_TEXTURE_MANAGER = "TexIdTextureManager";
   public static final String COMPONENT_COMPOSITOR = "Compositor";
-  public static final String COMPONENT_AUDIO_ENCODER = "AudioEncoder";
   public static final String COMPONENT_VIDEO_ENCODER = "VideoEncoder";
   public static final String COMPONENT_MUXER = "Muxer";
 
   // For a given component, events are in the rough expected order that they occur.
   private static final ImmutableMap<@Component String, List<@Event String>> COMPONENTS_TO_EVENTS =
       ImmutableMap.<String, List<String>>builder()
-          .put(COMPONENT_VIDEO, ImmutableList.of(EVENT_INPUT_FORMAT))
           .put(
               COMPONENT_AUDIO_DECODER,
               ImmutableList.of(
@@ -168,6 +171,23 @@ public final class DebugTraceUtil {
                   EVENT_PRODUCED_OUTPUT,
                   EVENT_INPUT_ENDED,
                   EVENT_OUTPUT_ENDED))
+          .put(
+              COMPONENT_AUDIO_GRAPH,
+              ImmutableList.of(EVENT_REGISTER_NEW_INPUT_STREAM, EVENT_OUTPUT_ENDED))
+          .put(
+              COMPONENT_AUDIO_MIXER,
+              ImmutableList.of(
+                  EVENT_REGISTER_NEW_INPUT_STREAM, EVENT_OUTPUT_FORMAT, EVENT_PRODUCED_OUTPUT))
+          .put(
+              COMPONENT_AUDIO_ENCODER,
+              ImmutableList.of(
+                  EVENT_INPUT_FORMAT,
+                  EVENT_OUTPUT_FORMAT,
+                  EVENT_ACCEPTED_INPUT,
+                  EVENT_PRODUCED_OUTPUT,
+                  EVENT_INPUT_ENDED,
+                  EVENT_OUTPUT_ENDED))
+          .put(COMPONENT_VIDEO, ImmutableList.of(EVENT_INPUT_FORMAT))
           .put(
               COMPONENT_VIDEO_DECODER,
               ImmutableList.of(
@@ -193,15 +213,6 @@ public final class DebugTraceUtil {
           .put(COMPONENT_BITMAP_TEXTURE_MANAGER, ImmutableList.of(EVENT_SIGNAL_EOS))
           .put(COMPONENT_TEX_ID_TEXTURE_MANAGER, ImmutableList.of(EVENT_SIGNAL_EOS))
           .put(COMPONENT_COMPOSITOR, ImmutableList.of(EVENT_OUTPUT_TEXTURE_RENDERED))
-          .put(
-              COMPONENT_AUDIO_ENCODER,
-              ImmutableList.of(
-                  EVENT_INPUT_FORMAT,
-                  EVENT_OUTPUT_FORMAT,
-                  EVENT_ACCEPTED_INPUT,
-                  EVENT_PRODUCED_OUTPUT,
-                  EVENT_INPUT_ENDED,
-                  EVENT_OUTPUT_ENDED))
           .put(
               COMPONENT_VIDEO_ENCODER,
               ImmutableList.of(

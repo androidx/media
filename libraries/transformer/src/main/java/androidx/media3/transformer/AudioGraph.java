@@ -25,6 +25,7 @@ import androidx.media3.common.audio.AudioProcessingPipeline;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.AudioProcessor.AudioFormat;
 import androidx.media3.common.audio.AudioProcessor.UnhandledAudioFormatException;
+import androidx.media3.effect.DebugTraceUtil;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -97,6 +98,12 @@ import java.util.Objects;
           e, "Error while registering input " + inputInfos.size());
     }
     inputInfos.add(new InputInfo(audioGraphInput));
+    DebugTraceUtil.logEvent(
+        DebugTraceUtil.COMPONENT_AUDIO_GRAPH,
+        DebugTraceUtil.EVENT_REGISTER_NEW_INPUT_STREAM,
+        C.TIME_UNSET,
+        "%s",
+        format);
     return audioGraphInput;
   }
 
