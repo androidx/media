@@ -11141,7 +11141,7 @@ public class ExoPlayerTest {
           @Override
           protected void onStreamChanged(
               Format[] formats, long startPositionUs, long offsetUs, MediaPeriodId mediaPeriodId) {
-            this.positionUs = offsetUs;
+            this.positionUs = startPositionUs;
           }
 
           @Override
@@ -14688,22 +14688,22 @@ public class ExoPlayerTest {
                 AdPlaybackState.NONE));
     FakeMediaClockRenderer audioRenderer =
         new FakeMediaClockRenderer(C.TRACK_TYPE_AUDIO) {
-          private long offsetUs;
+          private long startPositionUs;
           private long positionUs;
           private boolean hasPendingReportedSkippedSilence;
 
           @Override
           protected void onStreamChanged(
               Format[] formats, long startPositionUs, long offsetUs, MediaPeriodId mediaPeriodId) {
-            this.offsetUs = offsetUs;
-            this.positionUs = offsetUs;
+            this.startPositionUs = startPositionUs;
+            this.positionUs = startPositionUs;
           }
 
           @Override
           public long getPositionUs() {
             // Continuously increase position to let playback progress, and simulate the silence
             // skip until it reaches some points of time.
-            if (positionUs - offsetUs == 10_000) {
+            if (positionUs - startPositionUs == 10_000) {
               hasPendingReportedSkippedSilence = true;
               positionUs += 30_000;
             } else {
@@ -14758,7 +14758,7 @@ public class ExoPlayerTest {
           @Override
           protected void onStreamChanged(
               Format[] formats, long startPositionUs, long offsetUs, MediaPeriodId mediaPeriodId) {
-            positionUs = offsetUs;
+            positionUs = startPositionUs;
           }
 
           @Override
@@ -14770,7 +14770,7 @@ public class ExoPlayerTest {
 
           @Override
           public boolean hasSkippedSilenceSinceLastCall() {
-            // Contuniuosly report skipped silences to ensure they will overlap with other
+            // Continuously report skipped silences to ensure they will overlap with other
             // discontinuities like AUTO_TRANSITION.
             return true;
           }
