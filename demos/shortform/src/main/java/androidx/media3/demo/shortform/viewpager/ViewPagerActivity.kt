@@ -18,13 +18,11 @@ package androidx.media3.demo.shortform.viewpager
 import android.os.Bundle
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
-import androidx.media3.common.util.UnstableApi
 import androidx.media3.demo.shortform.MainActivity
 import androidx.media3.demo.shortform.MediaItemDatabase
 import androidx.media3.demo.shortform.R
 import androidx.viewpager2.widget.ViewPager2
 
-@UnstableApi
 class ViewPagerActivity : AppCompatActivity() {
   private lateinit var viewPagerView: ViewPager2
   private lateinit var adapter: ViewPagerMediaAdapter

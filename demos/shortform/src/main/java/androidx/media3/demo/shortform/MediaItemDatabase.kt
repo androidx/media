@@ -16,9 +16,7 @@
 package androidx.media3.demo.shortform
 
 import androidx.media3.common.MediaItem
-import androidx.media3.common.util.UnstableApi
 
-@UnstableApi
 class MediaItemDatabase {
 
   private val mediaUris =
