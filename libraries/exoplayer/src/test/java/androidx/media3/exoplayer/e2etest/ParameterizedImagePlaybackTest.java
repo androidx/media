@@ -63,7 +63,8 @@ public class ParameterizedImagePlaybackTest {
                     "png/media3test.png",
                     "bmp/non-motion-photo-shortened-cropped.bmp",
                     "png/non-motion-photo-shortened.png",
-                    "webp/ic_launcher_round.webp")),
+                    "webp/ic_launcher_round.webp",
+                    "avif/white-1x1.avif")),
             /* predicate= */ input -> !input.isEmpty()));
   }
 
