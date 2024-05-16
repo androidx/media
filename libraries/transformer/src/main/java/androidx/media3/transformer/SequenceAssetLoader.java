@@ -19,6 +19,9 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static androidx.media3.effect.DebugTraceUtil.COMPONENT_ASSET_LOADER;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_INPUT_FORMAT;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_OUTPUT_FORMAT;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_AVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED;
 import static androidx.media3.transformer.TransformerUtil.getProcessedTrackType;
@@ -37,6 +40,7 @@ import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
+import androidx.media3.effect.DebugTraceUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
@@ -215,6 +219,14 @@ import java.util.concurrent.atomic.AtomicInteger;
   @Override
   public boolean onTrackAdded(Format inputFormat, @SupportedOutputTypes int supportedOutputTypes) {
     boolean isAudio = getProcessedTrackType(inputFormat.sampleMimeType) == C.TRACK_TYPE_AUDIO;
+    DebugTraceUtil.logEvent(
+        COMPONENT_ASSET_LOADER,
+        EVENT_INPUT_FORMAT,
+        C.TIME_UNSET,
+        "%s:%s",
+        isAudio ? "audio" : "video",
+        inputFormat);
+
     if (!isCurrentAssetFirstAsset) {
       return isAudio ? decodeAudio : decodeVideo;
     }
@@ -249,6 +261,14 @@ import java.util.concurrent.atomic.AtomicInteger;
   @Override
   public SampleConsumerWrapper onOutputFormat(Format format) throws ExportException {
     @C.TrackType int trackType = getProcessedTrackType(format.sampleMimeType);
+    DebugTraceUtil.logEvent(
+        COMPONENT_ASSET_LOADER,
+        EVENT_OUTPUT_FORMAT,
+        C.TIME_UNSET,
+        "%s:%s",
+        Util.getTrackTypeString(trackType),
+        format);
+
     SampleConsumerWrapper sampleConsumer;
     if (isCurrentAssetFirstAsset) {
       @Nullable

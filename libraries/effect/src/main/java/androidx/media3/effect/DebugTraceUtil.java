@@ -126,11 +126,11 @@ public final class DebugTraceUtil {
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @StringDef({
+    COMPONENT_ASSET_LOADER,
     COMPONENT_AUDIO_DECODER,
     COMPONENT_AUDIO_GRAPH,
     COMPONENT_AUDIO_MIXER,
     COMPONENT_AUDIO_ENCODER,
-    COMPONENT_VIDEO,
     COMPONENT_VIDEO_DECODER,
     COMPONENT_VFP,
     COMPONENT_BITMAP_TEXTURE_MANAGER,
@@ -143,9 +143,7 @@ public final class DebugTraceUtil {
   @Target(TYPE_USE)
   public @interface Component {}
 
-  // TODO - b/339639306: Migrate COMPONENT_VIDEO usage to COMPONENT_ASSETLOADER.
-  public static final String COMPONENT_VIDEO = "Video";
-
+  public static final String COMPONENT_ASSET_LOADER = "AssetLoader";
   public static final String COMPONENT_AUDIO_DECODER = "AudioDecoder";
   public static final String COMPONENT_AUDIO_GRAPH = "AudioGraph";
   public static final String COMPONENT_AUDIO_MIXER = "AudioMixer";
@@ -162,6 +160,7 @@ public final class DebugTraceUtil {
   // For a given component, events are in the rough expected order that they occur.
   private static final ImmutableMap<@Component String, List<@Event String>> COMPONENTS_TO_EVENTS =
       ImmutableMap.<String, List<String>>builder()
+          .put(COMPONENT_ASSET_LOADER, ImmutableList.of(EVENT_INPUT_FORMAT, EVENT_OUTPUT_FORMAT))
           .put(
               COMPONENT_AUDIO_DECODER,
               ImmutableList.of(
@@ -187,7 +186,6 @@ public final class DebugTraceUtil {
                   EVENT_PRODUCED_OUTPUT,
                   EVENT_INPUT_ENDED,
                   EVENT_OUTPUT_ENDED))
-          .put(COMPONENT_VIDEO, ImmutableList.of(EVENT_INPUT_FORMAT))
           .put(
               COMPONENT_VIDEO_DECODER,
               ImmutableList.of(
