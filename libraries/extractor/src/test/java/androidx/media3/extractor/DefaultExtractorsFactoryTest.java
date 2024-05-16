@@ -137,8 +137,20 @@ public final class DefaultExtractorsFactoryTest {
   }
 
   @Test
-  public void subtitleTranscoding_notEnabledByDefault() {
+  public void subtitleTranscoding_enabledByDefault() {
     DefaultExtractorsFactory defaultExtractorsFactory = new DefaultExtractorsFactory();
+
+    Extractor[] extractors = defaultExtractorsFactory.createExtractors();
+
+    assertThat(stream(extractors).map(Object::getClass))
+        .contains(SubtitleTranscodingExtractor.class);
+  }
+
+  @SuppressWarnings("deprecation") // Testing legacy subtitle handling
+  @Test
+  public void subtitleTranscoding_noExtractorWrappingIfDisabled() {
+    DefaultExtractorsFactory defaultExtractorsFactory =
+        new DefaultExtractorsFactory().setTextTrackTranscodingEnabled(false);
 
     Extractor[] extractors = defaultExtractorsFactory.createExtractors();
 

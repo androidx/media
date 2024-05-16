@@ -67,6 +67,21 @@
 *   Text:
     *   Fix issue where subtitles starting before a seek position are skipped.
         This issue was only introduced in Media3 1.4.0-alpha01.
+    *   Change default subtitle parsing behavior so it happens during extraction
+        instead of during rendering (see
+        [ExoPlayer's architecture diagram](https://developer.android.com/media/media3/exoplayer/glossary#exoplayer)
+        for the difference between extraction and rendering).
+        *   This change can be overridden by calling **both**
+            `MediaSource.Factory.experimentalParseSubtitlesDuringExtraction(false)`
+            and `TextRenderer.experimentalSetLegacyDecodingEnabled(true)`. See
+            the
+            [docs on customization](https://developer.android.com/media/media3/exoplayer/customization)
+            for how to plumb these components into an `ExoPlayer` instance.
+            These methods (and all support for legacy subtitle decoding) will be
+            removed in a future release.
+        *   Apps with custom `SubtitleDecoder` implementations need to update
+            them to implement `SubtitleParser` instead (and
+            `SubtitleParser.Factory` instead of `SubtitleDecoderFactory`).
 *   Metadata:
     *   Fix mapping of MP4 to ID3 sort tags. Previously the 'album sort'
         (`soal`), 'artist sort' (`soar`) and 'album artist sort' (`soaa`) MP4

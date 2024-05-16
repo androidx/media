@@ -23,11 +23,13 @@ import android.media.MediaCodec;
 import android.media.MediaFormat;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.PersistableBundle;
 import android.util.SparseArray;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.CryptoInfo;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
@@ -50,6 +52,7 @@ import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -72,7 +75,9 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
   private final CapturingMediaCodecAdapter.Factory mediaCodecAdapterFactory;
   private final CapturingAudioSink audioSink;
   private final CapturingImageOutput imageOutput;
+
   private ImageDecoder.Factory imageDecoderFactory;
+  private TextRendererFactory textRendererFactory;
 
   /**
    * Creates an instance.
@@ -85,6 +90,7 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
     this.audioSink = new CapturingAudioSink(new DefaultAudioSink.Builder(context).build());
     this.imageOutput = new CapturingImageOutput();
     this.imageDecoderFactory = ImageDecoder.Factory.DEFAULT;
+    this.textRendererFactory = TextRenderer::new;
   }
 
   /**
@@ -96,6 +102,18 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
   public CapturingRenderersFactory setImageDecoderFactory(
       ImageDecoder.Factory imageDecoderFactory) {
     this.imageDecoderFactory = imageDecoderFactory;
+    return this;
+  }
+
+  /**
+   * Sets the factory for {@link Renderer} instances that handle {@link C#TRACK_TYPE_TEXT} tracks.
+   *
+   * @param textRendererFactory The {@link TextRendererFactory}.
+   * @return This factory, for convenience.
+   */
+  @CanIgnoreReturnValue
+  public CapturingRenderersFactory setTextRendererFactory(TextRendererFactory textRendererFactory) {
+    this.textRendererFactory = textRendererFactory;
     return this;
   }
 
@@ -146,7 +164,7 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
             eventHandler,
             audioRendererEventListener,
             audioSink));
-    renderers.add(new TextRenderer(textRendererOutput, eventHandler.getLooper()));
+    renderers.add(textRendererFactory.create(textRendererOutput, eventHandler.getLooper()));
     renderers.add(new MetadataRenderer(metadataRendererOutput, eventHandler.getLooper()));
     renderers.add(new ImageRenderer(imageDecoderFactory, imageOutput));
 
@@ -158,6 +176,18 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
     mediaCodecAdapterFactory.dump(dumper);
     audioSink.dump(dumper);
     imageOutput.dump(dumper);
+  }
+
+  /** A factory for {@link Renderer} instances that handle {@link C#TRACK_TYPE_TEXT} tracks. */
+  public interface TextRendererFactory {
+
+    /**
+     * Creates a new {@link Renderer} instance for a {@link C#TRACK_TYPE_TEXT} track.
+     *
+     * @param textOutput A {@link TextOutput} to handle the parsed subtitles.
+     * @param outputLooper The looper used to invoke {@code textOutput}.
+     */
+    Renderer create(TextOutput textOutput, Looper outputLooper);
   }
 
   /**

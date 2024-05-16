@@ -161,7 +161,7 @@ public final class TextRenderer extends BaseRenderer implements Callback {
     finalStreamEndPositionUs = C.TIME_UNSET;
     outputStreamOffsetUs = C.TIME_UNSET;
     lastRendererPositionUs = C.TIME_UNSET;
-    legacyDecodingEnabled = true;
+    legacyDecodingEnabled = false;
   }
 
   @Override
@@ -277,11 +277,15 @@ public final class TextRenderer extends BaseRenderer implements Callback {
    * MimeTypes#APPLICATION_MEDIA3_CUES} (which have been parsed from their original format during
    * extraction), and will throw an exception if passed data of a different type.
    *
-   * <p>This is enabled by default.
+   * <p>This is disabled by default.
    *
    * <p>This method is experimental. It may change behavior, be renamed, or removed in a future
    * release.
+   *
+   * @deprecated This method (and all support for 'legacy' subtitle decoding during rendering) will
+   *     be removed in a future release.
    */
+  @Deprecated
   public void experimentalSetLegacyDecodingEnabled(boolean legacyDecodingEnabled) {
     this.legacyDecodingEnabled = legacyDecodingEnabled;
   }

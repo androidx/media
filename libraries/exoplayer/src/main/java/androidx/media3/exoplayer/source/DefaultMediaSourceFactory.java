@@ -187,10 +187,12 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
     liveMaxOffsetMs = C.TIME_UNSET;
     liveMinSpeed = C.RATE_UNSET;
     liveMaxSpeed = C.RATE_UNSET;
+    parseSubtitlesDuringExtraction = true;
   }
 
   @CanIgnoreReturnValue
   @UnstableApi
+  @Deprecated
   @Override
   public DefaultMediaSourceFactory experimentalParseSubtitlesDuringExtraction(
       boolean parseSubtitlesDuringExtraction) {
@@ -620,6 +622,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
       this.subtitleParserFactory = subtitleParserFactory;
       mediaSourceFactorySuppliers = new HashMap<>();
       mediaSourceFactories = new HashMap<>();
+      parseSubtitlesDuringExtraction = true;
     }
 
     public @C.ContentType int[] getSupportedTypes() {

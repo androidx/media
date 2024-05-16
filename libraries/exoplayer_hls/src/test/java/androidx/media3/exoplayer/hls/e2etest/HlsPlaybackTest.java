@@ -53,9 +53,6 @@ public final class HlsPlaybackTest {
         new CapturingRenderersFactory(applicationContext);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setMediaSourceFactory(
-                new HlsMediaSource.Factory(new DefaultDataSource.Factory(applicationContext))
-                    .experimentalParseSubtitlesDuringExtraction(true))
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .build();
     player.setVideoSurface(new Surface(new SurfaceTexture(/* texName= */ 1)));
@@ -79,9 +76,6 @@ public final class HlsPlaybackTest {
         new CapturingRenderersFactory(applicationContext);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setMediaSourceFactory(
-                new HlsMediaSource.Factory(new DefaultDataSource.Factory(applicationContext))
-                    .experimentalParseSubtitlesDuringExtraction(true))
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .build();
     player.setVideoSurface(new Surface(new SurfaceTexture(/* texName= */ 1)));
@@ -102,6 +96,9 @@ public final class HlsPlaybackTest {
    * This test and {@link #cea608_parseDuringExtraction()} use the same output dump file, to
    * demonstrate the flag has no effect on the resulting subtitles.
    */
+  // Using deprecated MediaSource.Factory.experimentalParseSubtitlesDuringExtraction() method to
+  // ensure legacy subtitle handling keeps working.
+  @SuppressWarnings("deprecation")
   @Test
   public void cea608_parseDuringRendering() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
@@ -131,6 +128,9 @@ public final class HlsPlaybackTest {
    * This test and {@link #cea608_parseDuringRendering()} use the same output dump file, to
    * demonstrate the flag has no effect on the resulting subtitles.
    */
+  // Explicitly enable parsing during extraction (even though a) it's the default and b) currently
+  // all CEA-608 parsing happens during rendering) to make this test clearer & more future-proof.
+  @SuppressWarnings("deprecation")
   @Test
   public void cea608_parseDuringExtraction() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
@@ -164,9 +164,6 @@ public final class HlsPlaybackTest {
         new CapturingRenderersFactory(applicationContext);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setMediaSourceFactory(
-                new HlsMediaSource.Factory(new DefaultDataSource.Factory(applicationContext))
-                    .experimentalParseSubtitlesDuringExtraction(true))
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .setLoadControl(
                 new DefaultLoadControl.Builder()

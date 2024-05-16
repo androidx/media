@@ -103,6 +103,7 @@ public class SsMediaSourceTest {
   }
 
   @Test
+  @SuppressWarnings("deprecation") // Testing deprecated method
   public void
       setExperimentalParseSubtitlesDuringExtraction_withNonDefaultChunkSourceFactory_setSucceeds() {
     SsMediaSource.Factory ssMediaSourceFactory =
@@ -113,6 +114,7 @@ public class SsMediaSourceTest {
   }
 
   @Test
+  @SuppressWarnings("deprecation") // Testing deprecated method
   public void
       setExperimentalParseSubtitlesDuringExtraction_withDefaultChunkSourceFactory_setSucceeds() {
     SsMediaSource.Factory ssMediaSourceFactory =

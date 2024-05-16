@@ -22,7 +22,6 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
-import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.test.utils.CapturingRenderersFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
@@ -66,11 +65,8 @@ public final class MkvPlaybackTest {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     CapturingRenderersFactory capturingRenderersFactory =
         new CapturingRenderersFactory(applicationContext);
-    // TODO: b/289916598 - Remove this when transcoding is the default.
-    DefaultExtractorsFactory extractorsFactory =
-        new DefaultExtractorsFactory().setTextTrackTranscodingEnabled(true);
     DefaultMediaSourceFactory mediaSourceFactory =
-        new DefaultMediaSourceFactory(applicationContext, extractorsFactory);
+        new DefaultMediaSourceFactory(applicationContext);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory, mediaSourceFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))

@@ -163,6 +163,7 @@ public final class DashMediaSource extends BaseMediaSource {
       fallbackTargetLiveOffsetMs = DEFAULT_FALLBACK_TARGET_LIVE_OFFSET_MS;
       minLiveStartPositionUs = MIN_LIVE_DEFAULT_START_POSITION_US;
       compositeSequenceableLoaderFactory = new DefaultCompositeSequenceableLoaderFactory();
+      experimentalParseSubtitlesDuringExtraction(true);
     }
 
     @CanIgnoreReturnValue
@@ -205,6 +206,7 @@ public final class DashMediaSource extends BaseMediaSource {
     }
 
     @Override
+    @Deprecated
     @CanIgnoreReturnValue
     public Factory experimentalParseSubtitlesDuringExtraction(
         boolean parseSubtitlesDuringExtraction) {

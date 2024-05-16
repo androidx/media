@@ -161,6 +161,7 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
     tsMode = TsExtractor.MODE_SINGLE_PMT;
     tsTimestampSearchBytes = TsExtractor.DEFAULT_TIMESTAMP_SEARCH_BYTES;
     subtitleParserFactory = new DefaultSubtitleParserFactory();
+    textTrackTranscodingEnabled = true;
   }
 
   /**
@@ -361,7 +362,8 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
   }
 
   /**
-   * @deprecated Use {@link #experimentalSetTextTrackTranscodingEnabled(boolean)} instead.
+   * @deprecated This method (and all support for 'legacy' subtitle decoding during rendering) will
+   *     be removed in a future release.
    */
   @Deprecated
   @CanIgnoreReturnValue
@@ -370,6 +372,7 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
     return experimentalSetTextTrackTranscodingEnabled(textTrackTranscodingEnabled);
   }
 
+  @Deprecated
   @Override
   public synchronized DefaultExtractorsFactory experimentalSetTextTrackTranscodingEnabled(
       boolean textTrackTranscodingEnabled) {
