@@ -9,6 +9,8 @@
         handle these additional calls with `mediaItemIndex == C.INDEX_UNSET`.
     *   Remove compile dependency on enhanced Java 8 desugaring
         ([#1312](https://github.com/androidx/media/issues/1312)).
+    *   Ensure the duration passed to `MediaItem.Builder.setImageDurationMs` is
+        ignored for a non-image `MediaItem` (as documented).
 *   ExoPlayer:
     *   Add `reset` to `BasePreloadManager` to release all the holding sources
         while keep the preload manager instance.

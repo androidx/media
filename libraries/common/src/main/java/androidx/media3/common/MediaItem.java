@@ -573,7 +573,10 @@ public final class MediaItem implements Bundleable {
     /**
      * Sets the image duration in video output, in milliseconds.
      *
-     * <p>Must be set if {@linkplain #setUri the uri} is set and resolves to an image. Ignored
+     * <p>Must be set if {@linkplain #setUri the URI} is set and resolves to an image. Ignored
+     * otherwise.
+     *
+     * <p>Motion photos will be rendered as images if this parameter is set, and as videos
      * otherwise.
      *
      * <p>Default value is {@link C#TIME_UNSET}.
