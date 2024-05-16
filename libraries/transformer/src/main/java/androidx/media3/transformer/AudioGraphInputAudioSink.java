@@ -122,7 +122,7 @@ import java.util.Objects;
     EditedMediaItem editedMediaItem = checkStateNotNull(currentEditedMediaItemInfo).editedMediaItem;
     // TODO(b/303029969): Evaluate throwing vs ignoring for null outputChannels.
     checkArgument(outputChannels == null);
-    this.currentInputFormat = inputFormat;
+    currentInputFormat = inputFormat;
     if (outputGraphInput == null) {
       try {
         outputGraphInput = controller.getAudioGraphInput(editedMediaItem, currentInputFormat);
@@ -137,6 +137,9 @@ import java.util.Objects;
 
   @Override
   public boolean isEnded() {
+    if (currentInputFormat == null) { // Sink not configured.
+      return inputStreamEnded;
+    }
     // If we are playing the last media item in the sequence, we must also check that the controller
     // is ended.
     return inputStreamEnded
@@ -154,6 +157,9 @@ import java.util.Objects;
   @Override
   public void playToEndOfStream() {
     inputStreamEnded = true;
+    if (currentInputFormat == null) { // Sink not configured.
+      return;
+    }
     // Queue end-of-stream only if playing the last media item in the sequence.
     if (!signalledEndOfStream && checkStateNotNull(currentEditedMediaItemInfo).isLastInSequence) {
       signalledEndOfStream =
