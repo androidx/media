@@ -55,6 +55,7 @@ import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import com.google.common.collect.ImmutableMap;
+import java.util.ArrayList;
 
 /** An {@link AssetLoader} implementation that uses an {@link ExoPlayer} to load samples. */
 @UnstableApi
@@ -270,21 +271,17 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
         AudioRendererEventListener audioRendererEventListener,
         TextOutput textRendererOutput,
         MetadataOutput metadataRendererOutput) {
-      int rendererCount = removeAudio || removeVideo ? 1 : 2;
-      Renderer[] renderers = new Renderer[rendererCount];
-      int index = 0;
+      ArrayList<Renderer> renderers = new ArrayList<>();
       if (!removeAudio) {
-        renderers[index] =
-            new ExoAssetLoaderAudioRenderer(decoderFactory, mediaClock, assetLoaderListener);
-        index++;
+        renderers.add(
+            new ExoAssetLoaderAudioRenderer(decoderFactory, mediaClock, assetLoaderListener));
       }
       if (!removeVideo) {
-        renderers[index] =
+        renderers.add(
             new ExoAssetLoaderVideoRenderer(
-                flattenForSlowMotion, decoderFactory, hdrMode, mediaClock, assetLoaderListener);
-        index++;
+                flattenForSlowMotion, decoderFactory, hdrMode, mediaClock, assetLoaderListener));
       }
-      return renderers;
+      return renderers.toArray(new Renderer[renderers.size()]);
     }
   }
 
