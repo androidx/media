@@ -248,7 +248,8 @@ public final class PgsParser implements SubtitleParser {
                 (switchBits & 0x40) == 0
                     ? (switchBits & 0x3F)
                     : (((switchBits & 0x3F) << 8) | bitmapData.readUnsignedByte());
-            int color = (switchBits & 0x80) == 0 ? 0 : colors[bitmapData.readUnsignedByte()];
+            int color =
+                (switchBits & 0x80) == 0 ? colors[0] : colors[bitmapData.readUnsignedByte()];
             Arrays.fill(
                 argbBitmapData, argbBitmapDataIndex, argbBitmapDataIndex + runLength, color);
             argbBitmapDataIndex += runLength;

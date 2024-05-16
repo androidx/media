@@ -82,6 +82,9 @@
         *   Apps with custom `SubtitleDecoder` implementations need to update
             them to implement `SubtitleParser` instead (and
             `SubtitleParser.Factory` instead of `SubtitleDecoderFactory`).
+    *   PGS: Fix run-length decoding to resolve `0` as a color index, instead of
+        a literal color value
+        ([#1367](https://github.com/androidx/media/pull/1367)).
 *   Metadata:
     *   Fix mapping of MP4 to ID3 sort tags. Previously the 'album sort'
         (`soal`), 'artist sort' (`soar`) and 'album artist sort' (`soaa`) MP4
