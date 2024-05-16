@@ -179,6 +179,7 @@ public final class FileTypes {
   private static final String EXTENSION_BMP = ".bmp";
   private static final String EXTENSION_DIB = ".dib";
   private static final String EXTENSION_HEIC = ".heic";
+  private static final String EXTENSION_HEIF = ".heif";
   private static final String EXTENSION_AVIF = ".avif";
 
   private FileTypes() {}
@@ -329,7 +330,7 @@ public final class FileTypes {
       return FileTypes.WEBP;
     } else if (filename.endsWith(EXTENSION_BMP) || filename.endsWith(EXTENSION_DIB)) {
       return FileTypes.BMP;
-    } else if (filename.endsWith(EXTENSION_HEIC)) {
+    } else if (filename.endsWith(EXTENSION_HEIC) || filename.endsWith(EXTENSION_HEIF)) {
       return FileTypes.HEIF;
     } else if (filename.endsWith(EXTENSION_AVIF)) {
       return FileTypes.AVIF;
