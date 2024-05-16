@@ -40,7 +40,7 @@ import androidx.media3.extractor.SeekPoint;
    */
   @Nullable
   public static XingSeeker create(long inputLength, XingFrame xingFrame, long position) {
-    if (xingFrame.frameCount == C.LENGTH_UNSET && xingFrame.frameCount == 0) {
+    if (xingFrame.frameCount == C.LENGTH_UNSET || xingFrame.frameCount == 0) {
       // If the frame count is missing/invalid, the header can't be used to determine the duration.
       return null;
     }
