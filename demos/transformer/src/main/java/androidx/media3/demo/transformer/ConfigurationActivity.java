@@ -49,6 +49,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.transformer.Composition;
 import com.google.android.material.slider.RangeSlider;
 import com.google.android.material.slider.Slider;
@@ -230,6 +231,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
   private @MonotonicNonNull CheckBox trimCheckBox;
   private @MonotonicNonNull CheckBox enableFallbackCheckBox;
   private @MonotonicNonNull CheckBox enableDebugPreviewCheckBox;
+  private @MonotonicNonNull CheckBox enableDebugTracingCheckBox;
   private @MonotonicNonNull CheckBox abortSlowExportCheckBox;
   private @MonotonicNonNull CheckBox produceFragmentedMp4CheckBox;
   private @MonotonicNonNull Spinner hdrModeSpinner;
@@ -349,6 +351,9 @@ public final class ConfigurationActivity extends AppCompatActivity {
 
     enableFallbackCheckBox = findViewById(R.id.enable_fallback_checkbox);
     enableDebugPreviewCheckBox = findViewById(R.id.enable_debug_preview_checkbox);
+    enableDebugTracingCheckBox = findViewById(R.id.enable_debug_tracing_checkbox);
+    enableDebugTracingCheckBox.setOnCheckedChangeListener(
+        (buttonView, isChecked) -> DebugTraceUtil.enableTracing = isChecked);
 
     abortSlowExportCheckBox = findViewById(R.id.abort_slow_export_checkbox);
     produceFragmentedMp4CheckBox = findViewById(R.id.produce_fragmented_mp4_checkbox);

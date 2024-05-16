@@ -210,6 +210,16 @@
         android:layout_weight="1">
         <TextView
           android:layout_gravity="center_vertical"
+          android:text="@string/enable_debug_tracing" />
+        <CheckBox
+          android:id="@+id/enable_debug_tracing_checkbox"
+          android:layout_gravity="end"
+          android:checked="false"/>
+      </TableRow>
+      <TableRow
+        android:layout_weight="1">
+        <TextView
+          android:layout_gravity="center_vertical"
           android:text="@string/abort_slow_export" />
         <CheckBox
           android:id="@+id/abort_slow_export_checkbox"
