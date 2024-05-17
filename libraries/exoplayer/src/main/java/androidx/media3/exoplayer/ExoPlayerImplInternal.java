@@ -2585,15 +2585,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
             playbackPositionUs,
             bufferedDurationUs,
             mediaClock.getPlaybackParameters().speed);
+    MediaPeriodHolder playingPeriodHolder = queue.getPlayingPeriod();
     if (!shouldContinueLoading
+        && playingPeriodHolder.prepared
         && bufferedDurationUs < PLAYBACK_BUFFER_EMPTY_THRESHOLD_US
         && (backBufferDurationUs > 0 || retainBackBufferFromKeyframe)) {
       // LoadControl doesn't want to continue loading despite no buffered data. Clear back buffer
       // and try again in case it's blocked on memory usage of the back buffer.
-      queue
-          .getPlayingPeriod()
-          .mediaPeriod
-          .discardBuffer(playbackInfo.positionUs, /* toKeyframe= */ false);
+      playingPeriodHolder.mediaPeriod.discardBuffer(
+          playbackInfo.positionUs, /* toKeyframe= */ false);
       shouldContinueLoading =
           loadControl.shouldContinueLoading(
               playerId,
