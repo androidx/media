@@ -70,7 +70,7 @@ track 256:
     flags = 0
     data = length 7, hash 680F23CB
   sample 12:
-    time = 1266666
+    time = 1266667
     flags = 0
     data = length 92, hash 531EE3AD
 tracksEnded = true
