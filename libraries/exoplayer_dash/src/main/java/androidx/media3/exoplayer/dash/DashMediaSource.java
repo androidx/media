@@ -664,8 +664,7 @@ public final class DashMediaSource extends BaseMediaSource {
         // After discarding old periods, we should never have more periods than listed in the new
         // manifest. That would mean that a previously announced period is no longer advertised. If
         // this condition occurs, assume that we are hitting a manifest server that is out of sync
-        // and
-        // behind.
+        // and behind.
         Log.w(TAG, "Loaded out of sync manifest");
         isManifestStale = true;
       } else if (expiredManifestPublishTimeUs != C.TIME_UNSET
@@ -698,6 +697,7 @@ public final class DashMediaSource extends BaseMediaSource {
     manifestLoadPending &= manifest.dynamic;
     manifestLoadStartTimestampMs = elapsedRealtimeMs - loadDurationMs;
     manifestLoadEndTimestampMs = elapsedRealtimeMs;
+    firstPeriodId += removedPeriodCount;
 
     synchronized (manifestUriLock) {
       // Checks whether replaceManifestUri(Uri) was called to manually replace the URI between the
@@ -713,18 +713,14 @@ public final class DashMediaSource extends BaseMediaSource {
       }
     }
 
-    if (oldPeriodCount == 0) {
-      if (manifest.dynamic) {
-        if (manifest.utcTiming != null) {
-          resolveUtcTimingElement(manifest.utcTiming);
-        } else {
-          loadNtpTimeOffset();
-        }
+    if (manifest.dynamic && elapsedRealtimeOffsetMs == C.TIME_UNSET) {
+      // Determine elapsedRealtimeOffsetMs before processing the manifest further.
+      if (manifest.utcTiming != null) {
+        resolveUtcTimingElement(manifest.utcTiming);
       } else {
-        processManifest(true);
+        loadNtpTimeOffset();
       }
     } else {
-      firstPeriodId += removedPeriodCount;
       processManifest(true);
     }
   }
@@ -877,6 +873,7 @@ public final class DashMediaSource extends BaseMediaSource {
   private void onUtcTimestampResolutionError(IOException error) {
     Log.e(TAG, "Failed to resolve time offset.", error);
     // Be optimistic and continue in the hope that the device clock is correct.
+    this.elapsedRealtimeOffsetMs = System.currentTimeMillis() - SystemClock.elapsedRealtime();
     processManifest(true);
   }
 
