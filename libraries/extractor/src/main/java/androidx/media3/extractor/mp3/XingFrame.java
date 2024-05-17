@@ -23,8 +23,6 @@ import androidx.media3.extractor.MpegAudioUtil;
 /** Representation of a LAME Xing or Info frame. */
 /* package */ final class XingFrame {
 
-  private static final String TAG = "XingHeader";
-
   /** The header of the Xing or Info frame. */
   public final MpegAudioUtil.Header header;
 
@@ -81,9 +79,6 @@ import androidx.media3.extractor.MpegAudioUtil;
    *     'Xing' or 'Info' tag.
    */
   public static XingFrame parse(MpegAudioUtil.Header mpegAudioHeader, ParsableByteArray frame) {
-    int samplesPerFrame = mpegAudioHeader.samplesPerFrame;
-    int sampleRate = mpegAudioHeader.sampleRate;
-
     int flags = frame.readInt();
     int frameCount = (flags & 0x01) != 0 ? frame.readUnsignedIntToInt() : C.LENGTH_UNSET;
     long dataSize = (flags & 0x02) != 0 ? frame.readUnsignedInt() : C.LENGTH_UNSET;
