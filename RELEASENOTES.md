@@ -45,6 +45,7 @@
         `androidx.media3.transformer.Muxer`.
     *   Fix HEIC image loading from content URI schemes.
         ([#1373](https://github.com/androidx/media/issues/1373)).
+    *   Adjust audio track duration in `AudioGraphInput` to improve AV sync.
 *   Track Selection:
 *   Extractors:
     *   MPEG-TS: Roll forward the change ensuring the last frame is rendered by

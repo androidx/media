@@ -131,8 +131,10 @@ import java.util.Objects;
       }
     }
 
+    // During playback, AudioGraphInput doesn't know the full media duration upfront due to seeking.
+    // Pass in C.TIME_UNSET to AudioGraphInput.onMediaItemChanged.
     outputGraphInput.onMediaItemChanged(
-        editedMediaItem, editedMediaItem.durationUs, currentInputFormat, /* isLast= */ false);
+        editedMediaItem, C.TIME_UNSET, currentInputFormat, /* isLast= */ false);
   }
 
   @Override

@@ -102,6 +102,7 @@ import java.util.concurrent.atomic.AtomicInteger;
   private volatile boolean released;
 
   private volatile long currentAssetDurationUs;
+  private volatile long currentAssetDurationAfterEffectsAppliedUs;
   private volatile long maxSequenceDurationUs;
   private volatile boolean isMaxSequenceDurationUsFinal;
 
@@ -334,7 +335,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 
     onMediaItemChangedListener.onMediaItemChanged(
         editedMediaItems.get(currentMediaItemIndex),
-        currentAssetDurationUs,
+        /* durationUs= */ (trackType == C.TRACK_TYPE_AUDIO && isLooping && decodeAudio)
+            ? C.TIME_UNSET
+            : currentAssetDurationUs,
         /* decodedFormat= */ outputFormat,
         /* isLast= */ currentMediaItemIndex == editedMediaItems.size() - 1);
   }
@@ -364,11 +367,11 @@ import java.util.concurrent.atomic.AtomicInteger;
     checkArgument(
         durationUs != C.TIME_UNSET || currentMediaItemIndex == editedMediaItems.size() - 1,
         "Could not retrieve required duration for EditedMediaItem " + currentMediaItemIndex);
-    durationUs =
+    currentAssetDurationAfterEffectsAppliedUs =
         editedMediaItems.get(currentMediaItemIndex).getDurationAfterEffectsApplied(durationUs);
     currentAssetDurationUs = durationUs;
     if (editedMediaItems.size() == 1 && !isLooping) {
-      sequenceAssetLoaderListener.onDurationUs(durationUs);
+      sequenceAssetLoaderListener.onDurationUs(currentAssetDurationAfterEffectsAppliedUs);
     }
   }
 
@@ -528,7 +531,7 @@ import java.util.concurrent.atomic.AtomicInteger;
                 return;
               }
               addCurrentProcessedInput();
-              totalDurationUs += currentAssetDurationUs;
+              totalDurationUs += currentAssetDurationAfterEffectsAppliedUs;
               currentAssetLoader.release();
               isCurrentAssetFirstAsset = false;
               currentMediaItemIndex++;

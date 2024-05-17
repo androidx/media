@@ -161,6 +161,18 @@ public final class AndroidTestUtil {
           .setCodecs("avc1.42C015")
           .build();
 
+  public static final String MP4_ASSET_WITH_SHORTER_AUDIO_URI_STRING =
+      "asset:///media/mp4/sample_shorter_audio.mp4";
+
+  public static final Format MP4_ASSET_WITH_SHORTER_AUDIO_FORMAT =
+      new Format.Builder()
+          .setSampleMimeType(VIDEO_H264)
+          .setWidth(320)
+          .setHeight(240)
+          .setFrameRate(30.00f)
+          .setCodecs("avc1.42C015")
+          .build();
+
   public static final String MP4_ASSET_SEF_URI_STRING =
       "asset:///media/mp4/sample_sef_slow_motion.mp4";
   public static final Format MP4_ASSET_SEF_FORMAT =

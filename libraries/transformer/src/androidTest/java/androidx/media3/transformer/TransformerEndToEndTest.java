@@ -25,6 +25,8 @@ import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_URI_STRING;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_URI_STRING;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_URI_STRING;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_SHORTER_AUDIO_FORMAT;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_SHORTER_AUDIO_URI_STRING;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_180_URI_STRING;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_270_URI_STRING;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_URI_STRING;
@@ -184,6 +186,46 @@ public class TransformerEndToEndTest {
     // audioSequence duration: ~2s (2 inputs).
     // loopingAudioSequence: Matches max other sequence (~3.5s) -> 4 inputs of ~1s audio item.
     assertThat(result.exportResult.processedInputs).hasSize(9);
+  }
+
+  @Test
+  public void compositionEditing_withLongLoopingSequence_completes() throws Exception {
+    Transformer transformer = new Transformer.Builder(context).build();
+    assumeFormatsSupported(
+        context, testId, /* inputFormat= */ MP4_ASSET_FORMAT, /* outputFormat= */ MP4_ASSET_FORMAT);
+    EditedMediaItem imageItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(JPG_ASSET_URI_STRING))
+            .setDurationUs(500_000)
+            .setFrameRate(30)
+            .build();
+
+    EditedMediaItemSequence imageSequence = new EditedMediaItemSequence(imageItem);
+
+    EditedMediaItem.Builder audioBuilder =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET_URI_STRING)).setRemoveVideo(true);
+
+    EditedMediaItemSequence loopingAudioSequence =
+        new EditedMediaItemSequence(
+            ImmutableList.of(
+                audioBuilder
+                    .setEffects(
+                        new Effects(
+                            ImmutableList.of(createSonic(/* pitch= */ 0.4f)),
+                            /* videoEffects= */ ImmutableList.of()))
+                    .build()),
+            /* isLooping= */ true);
+
+    Composition composition = new Composition.Builder(imageSequence, loopingAudioSequence).build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, composition);
+
+    // Image asset duration is ~0.5s.
+    // loopingAudioSequence: Matches other sequence (~0.5s) and is cut short.
+    assertThat(result.exportResult.durationMs).isAtLeast(450);
+    assertThat(result.exportResult.durationMs).isAtMost(500);
   }
 
   @Test
@@ -905,7 +947,7 @@ public class TransformerEndToEndTest {
 
     // The input video is 15.537 seconds.
     // 3 / 0.5 + 3 / 0.75 + 3 + 3 / 1.5 + 3.537 / 2 rounds up to 16_770
-    assertThat(result.exportResult.durationMs).isAtLeast(16_750);
+    assertThat(result.exportResult.durationMs).isAtLeast(16_720);
     assertThat(result.exportResult.durationMs).isAtMost(16_770);
   }
 
@@ -1067,7 +1109,14 @@ public class TransformerEndToEndTest {
     assertThat(result.exportResult.processedInputs).hasSize(6);
     assertThat(result.exportResult.channelCount).isEqualTo(1);
     assertThat(result.exportResult.videoFrameCount).isEqualTo(90);
-    assertThat(result.exportResult.durationMs).isEqualTo(2980);
+    // Audio encoders on different API levels output different audio durations for the same input.
+    // On emulator, API 26 always outputs one access unit (23ms) of audio more than API 33.
+    // If the video track is a lot longer than the audio track, then this API difference wouldn't be
+    // seen in this check as the duration is determined by the last video frame.
+    // However, if the audio track is roughly as long as the video track, this API difference
+    // will be seen in result.exportResult.durationMs.
+    assertThat(result.exportResult.durationMs).isAtLeast(2970);
+    assertThat(result.exportResult.durationMs).isAtMost(3020);
   }
 
   @Test
@@ -1097,7 +1146,14 @@ public class TransformerEndToEndTest {
     assertThat(result.exportResult.processedInputs).hasSize(7);
     assertThat(result.exportResult.channelCount).isEqualTo(1);
     assertThat(result.exportResult.videoFrameCount).isEqualTo(92);
-    assertThat(result.exportResult.durationMs).isEqualTo(3105);
+    // Audio encoders on different API levels output different audio durations for the same input.
+    // On emulator, API 26 always outputs one access unit (23ms) of audio more than API 33.
+    // If the video track is a lot longer than the audio track, then this API difference wouldn't be
+    // seen in this check as the duration is determined by the last video frame.
+    // However, if the audio track is roughly as long as the video track, this API difference
+    // will be seen in result.exportResult.durationMs.
+    assertThat(result.exportResult.durationMs).isAtLeast(3100);
+    assertThat(result.exportResult.durationMs).isAtMost(3150);
   }
 
   @Test
@@ -1125,7 +1181,14 @@ public class TransformerEndToEndTest {
 
     assertThat(result.exportResult.processedInputs).hasSize(7);
     assertThat(result.exportResult.channelCount).isEqualTo(1);
-    assertThat(result.exportResult.durationMs).isEqualTo(3133);
+    // Audio encoders on different API levels output different audio durations for the same input.
+    // On emulator, API 26 always outputs one access unit (23ms) of audio more than API 33.
+    // If the video track is a lot longer than the audio track, then this API difference wouldn't be
+    // seen in this check as the duration is determined by the last video frame.
+    // However, if the audio track is roughly as long as the video track, this API difference
+    // will be seen in result.exportResult.durationMs.
+    assertThat(result.exportResult.durationMs).isAtLeast(3120);
+    assertThat(result.exportResult.durationMs).isAtMost(3140);
     assertThat(result.exportResult.videoFrameCount).isEqualTo(95);
   }
 
@@ -1152,7 +1215,14 @@ public class TransformerEndToEndTest {
 
     assertThat(result.exportResult.processedInputs).hasSize(3);
     assertThat(result.exportResult.channelCount).isEqualTo(1);
-    assertThat(result.exportResult.durationMs).isEqualTo(1000);
+    // Audio encoders on different API levels output different audio durations for the same input.
+    // On emulator, API 26 always outputs one access unit (23ms) of audio more than API 33.
+    // If the video track is a lot longer than the audio track, then this API difference wouldn't be
+    // seen in this check as the duration is determined by the last video frame.
+    // However, if the audio track is roughly as long as the video track, this API difference
+    // will be seen in result.exportResult.durationMs.
+    assertThat(result.exportResult.durationMs).isAtLeast(1000);
+    assertThat(result.exportResult.durationMs).isAtMost(1050);
   }
 
   @Test
@@ -1396,6 +1466,132 @@ public class TransformerEndToEndTest {
     assertThat(videoTrack.getSampleTimeUs(sampleIndexWithLargestSampleTime)).isEqualTo(11_500_000);
     assertThat(videoTrack.getSampleTimeUs(/* index= */ expectedSampleCount - 1))
         .isEqualTo(9_500_000);
+  }
+
+  @Test
+  public void transcode_shorterAudio_extendsAudioTrack() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_SHORTER_AUDIO_FORMAT,
+        /* outputFormat= */ MP4_ASSET_WITH_SHORTER_AUDIO_FORMAT);
+    Context context = ApplicationProvider.getApplicationContext();
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(new AndroidTestUtil.ForceEncodeEncoderFactory(context))
+            .build();
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_WITH_SHORTER_AUDIO_URI_STRING));
+
+    ExportTestResult exportTestResult =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, mediaItem);
+
+    Mp4Extractor mp4Extractor = new Mp4Extractor(new DefaultSubtitleParserFactory());
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(mp4Extractor, exportTestResult.filePath);
+    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isAtLeast(1_150_000);
+    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isAtMost(1_250_000);
+    assertThat(fakeExtractorOutput.numberOfTracks).isEqualTo(2);
+    for (int i = 0; i < fakeExtractorOutput.numberOfTracks; ++i) {
+      FakeTrackOutput trackOutput = fakeExtractorOutput.trackOutputs.get(i);
+      int sampleCount = trackOutput.getSampleCount();
+      assertThat(trackOutput.getSampleTimeUs(/* index= */ 0)).isEqualTo(0);
+      if (MimeTypes.isVideo(trackOutput.lastFormat.sampleMimeType)) {
+        assertThat(trackOutput.getSampleTimeUs(/* index= */ sampleCount - 1)).isEqualTo(1_183_333);
+      } else {
+        // Input has 800ms audio. Output should be closer to 1.2s
+        // Audio encoders on different API levels output different audio durations for the same
+        // input.
+        // E.g. on emulator, API 26 always outputs one access unit (23ms) of audio more than API 33.
+        assertThat(trackOutput.getSampleTimeUs(/* index= */ sampleCount - 1)).isAtLeast(1_150_000);
+        assertThat(trackOutput.getSampleTimeUs(/* index= */ sampleCount - 1)).isAtMost(1_250_000);
+      }
+    }
+  }
+
+  @Test
+  public void transcode_shorterAudioSequence_extendsAudioTrack() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_SHORTER_AUDIO_FORMAT,
+        /* outputFormat= */ MP4_ASSET_WITH_SHORTER_AUDIO_FORMAT);
+    assumeTrue(
+        "Old SDKs have large audio encoder buffer, and hits deadlocks due to b/329087277.",
+        Util.SDK_INT >= 31);
+    Context context = ApplicationProvider.getApplicationContext();
+    Transformer transformer = new Transformer.Builder(context).build();
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_WITH_SHORTER_AUDIO_URI_STRING));
+    EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
+
+    Composition composition =
+        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem, editedMediaItem))
+            .build();
+    ExportTestResult exportTestResult =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, composition);
+
+    Mp4Extractor mp4Extractor = new Mp4Extractor(new DefaultSubtitleParserFactory());
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(mp4Extractor, exportTestResult.filePath);
+    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isEqualTo(2_400_000);
+    assertThat(fakeExtractorOutput.numberOfTracks).isEqualTo(2);
+    // Check that both video and audio tracks have duration close to 1 second.
+    for (int i = 0; i < fakeExtractorOutput.numberOfTracks; ++i) {
+      FakeTrackOutput trackOutput = fakeExtractorOutput.trackOutputs.get(i);
+      int sampleCount = trackOutput.getSampleCount();
+      assertThat(trackOutput.getSampleTimeUs(/* index= */ 0)).isEqualTo(0);
+      if (MimeTypes.isVideo(trackOutput.lastFormat.sampleMimeType)) {
+        assertThat(trackOutput.getSampleTimeUs(/* index= */ sampleCount - 1)).isEqualTo(2_383_333);
+      } else {
+        // Input has 800ms audio. Output should be closer to 2.4s.
+        // Audio encoders on different API levels output different audio durations for the same
+        // input.
+        // On emulator, API 26 always outputs one access unit (23ms) of audio more than API 33.
+        assertThat(trackOutput.getSampleTimeUs(/* index= */ sampleCount - 1)).isAtLeast(2_300_000);
+        assertThat(trackOutput.getSampleTimeUs(/* index= */ sampleCount - 1)).isAtMost(2_400_000);
+      }
+    }
+  }
+
+  @Test
+  public void speedAdjustedMedia_shorterAudioTrack_completesWithCorrectDuration() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_SHORTER_AUDIO_FORMAT,
+        /* outputFormat= */ MP4_ASSET_WITH_SHORTER_AUDIO_FORMAT);
+    Transformer transformer = new Transformer.Builder(context).build();
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithStartTimes(
+            new long[] {0L, 1L * C.MICROS_PER_SECOND}, new float[] {1f, 0.5f});
+    Pair<AudioProcessor, Effect> speedEffect =
+        Effects.createExperimentalSpeedChangingEffect(speedProvider);
+    Effects effects =
+        new Effects(
+            /* audioProcessors= */ ImmutableList.of(speedEffect.first),
+            /* videoEffects= */ ImmutableList.of(speedEffect.second));
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET_WITH_SHORTER_AUDIO_URI_STRING))
+            .setEffects(effects)
+            .build();
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    // Last video frame PTS is 1.18333
+    // (1.183333 - 1) * 2 + 1 = 1.36667
+    // Audio encoders on different API levels output different audio durations for the same input.
+    // On emulator, API 26 always outputs one access unit (23ms) of audio more than API 33.
+    // If the video track is a lot longer than the audio track, then this API difference wouldn't be
+    // seen in this check as the duration is determined by the last video frame.
+    // However, if the audio track is roughly as long as the video track, this API difference
+    // will be seen in result.exportResult.durationMs.
+    assertThat(result.exportResult.durationMs).isAtLeast(1_360);
+    assertThat(result.exportResult.durationMs).isAtMost(1_400);
   }
 
   private static AudioProcessor createSonic(float pitch) {

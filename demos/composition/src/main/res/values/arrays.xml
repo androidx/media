@@ -32,6 +32,7 @@
     <item>720p H264 video with no audio</item>
     <item>London JPG image (plays for 5 secs at 30 fps)</item>
     <item>Tokyo JPG image (portrait, plays for 5 secs at 30 fps)</item>
+    <item>Pixel 7 shorter audio track</item>
   </string-array>
   <string-array name="preset_uris">
     <item>https://storage.googleapis.com/exoplayer-test-media-1/mp4/android-screens-10s.mp4</item>
@@ -51,6 +52,7 @@
     <item>https://storage.googleapis.com/exoplayer-test-media-1/mp4/sample_video_track_only.mp4</item>
     <item>https://storage.googleapis.com/exoplayer-test-media-1/jpg/london.jpg</item>
     <item>https://storage.googleapis.com/exoplayer-test-media-1/jpg/tokyo.jpg</item>
+    <item>https://storage.googleapis.com/exoplayer-temp/audio-blip/metronome_selfie_pixel.mp4</item>
   </string-array>
   <integer-array name="preset_durations">
     <item>10024000</item>
@@ -70,5 +72,6 @@
     <item>1001000</item>
     <item>5000000</item>
     <item>5000000</item>
+    <item>2170000</item>
   </integer-array>
 </resources>

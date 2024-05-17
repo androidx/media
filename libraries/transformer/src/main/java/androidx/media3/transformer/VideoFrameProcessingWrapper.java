@@ -60,6 +60,7 @@ import java.util.concurrent.atomic.AtomicLong;
       long durationUs,
       @Nullable Format decodedFormat,
       boolean isLast) {
+    durationUs = editedMediaItem.getDurationAfterEffectsApplied(durationUs);
     if (decodedFormat != null) {
       Size decodedSize = getDecodedSize(decodedFormat);
       videoFrameProcessor.registerInputStream(

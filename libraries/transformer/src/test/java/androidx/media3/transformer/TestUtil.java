@@ -84,6 +84,12 @@ public final class TestUtil {
     return sonicAudioProcessor;
   }
 
+  public static SonicAudioProcessor createSpeedChangingAudioProcessor(float speed) {
+    SonicAudioProcessor sonicAudioProcessor = new SonicAudioProcessor();
+    sonicAudioProcessor.setSpeed(speed);
+    return sonicAudioProcessor;
+  }
+
   public static ChannelMixingAudioProcessor createVolumeScalingAudioProcessor(float scale) {
     ChannelMixingAudioProcessor audioProcessor = new ChannelMixingAudioProcessor();
     for (int channel = 1; channel <= 6; channel++) {
