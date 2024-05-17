@@ -35,6 +35,9 @@
     *   Let `AdsMediaSource` load preroll ads before initial content media
         preparation completes
         ([#1358](https://github.com/androidx/media/issues/1358)).
+    *   Fix bug where playback moved to `STATE_ENDED` when re-preparing a
+        multi-period DASH live stream after the original period was already
+        removed from the manifest.
 *   Transformer:
     *   Work around a decoder bug where the number of audio channels was capped
         at stereo when handling PCM input.

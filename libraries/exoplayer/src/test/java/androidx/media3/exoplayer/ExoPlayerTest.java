@@ -182,6 +182,7 @@ import androidx.media3.test.utils.FakeMediaClockRenderer;
 import androidx.media3.test.utils.FakeMediaPeriod;
 import androidx.media3.test.utils.FakeMediaSource;
 import androidx.media3.test.utils.FakeMediaSourceFactory;
+import androidx.media3.test.utils.FakeMultiPeriodLiveTimeline;
 import androidx.media3.test.utils.FakeRenderer;
 import androidx.media3.test.utils.FakeSampleStream;
 import androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem;
@@ -14972,6 +14973,112 @@ public class ExoPlayerTest {
             Pair.create(Renderer.MSG_SET_PRIORITY, C.PRIORITY_PLAYBACK),
             Pair.create(Renderer.MSG_SET_PRIORITY, C.PRIORITY_DOWNLOAD))
         .inOrder();
+  }
+
+  @Test
+  public void timelineUpdate_currentWindowNoLongerExists_movesToNextWindow() throws Exception {
+    FakeTimeline timeline1 =
+        new FakeTimeline(new TimelineWindowDefinition(/* periodCount= */ 1, /* id= */ "a"));
+    FakeTimeline timeline2 =
+        new FakeTimeline(new TimelineWindowDefinition(/* periodCount= */ 1, /* id= */ "b"));
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    FakeMediaSource fakeMediaSource = new FakeMediaSource(timeline1);
+    player.setMediaSources(ImmutableList.of(fakeMediaSource, new FakeMediaSource()));
+    player.prepare();
+    run(player).untilState(Player.STATE_READY);
+
+    fakeMediaSource.setNewSourceInfo(timeline2);
+    run(player).untilTimelineChanges();
+    int windowIndexAfterUpdate = player.getCurrentMediaItemIndex();
+    player.release();
+
+    assertThat(windowIndexAfterUpdate).isEqualTo(1);
+  }
+
+  @Test
+  public void timelineUpdate_allPeriodsInCurrentWindowChange_keepsCurrentWindow() throws Exception {
+    FakeMultiPeriodLiveTimeline liveTimeline1 =
+        new FakeMultiPeriodLiveTimeline(
+            /* availabilityStartTimeMs= */ 0L,
+            /* liveWindowDurationUs= */ 10 * C.MICROS_PER_SECOND,
+            /* nowUs= */ 10 * C.MICROS_PER_SECOND,
+            /* adSequencePattern= */ new boolean[] {false},
+            /* periodDurationMsPattern= */ new long[] {5000},
+            /* isContentTimeline= */ true,
+            /* populateAds= */ false,
+            /* playedAds= */ false);
+    FakeMultiPeriodLiveTimeline liveTimeline2 =
+        new FakeMultiPeriodLiveTimeline(
+            /* availabilityStartTimeMs= */ 0L,
+            /* liveWindowDurationUs= */ 10 * C.MICROS_PER_SECOND,
+            /* nowUs= */ 10 * C.MICROS_PER_SECOND,
+            /* adSequencePattern= */ new boolean[] {false},
+            /* periodDurationMsPattern= */ new long[] {5000},
+            /* isContentTimeline= */ true,
+            /* populateAds= */ false,
+            /* playedAds= */ false);
+    liveTimeline2.advanceNowUs(20 * C.MICROS_PER_SECOND);
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    FakeMediaSource liveSource = new FakeMediaSource(liveTimeline1);
+    player.setMediaSources(ImmutableList.of(liveSource, new FakeMediaSource()));
+    player.prepare();
+    run(player).untilState(Player.STATE_READY);
+
+    liveSource.setNewSourceInfo(liveTimeline2);
+    run(player).untilTimelineChanges();
+    int windowIndexAfterUpdate = player.getCurrentMediaItemIndex();
+    player.release();
+
+    assertThat(windowIndexAfterUpdate).isEqualTo(0);
+  }
+
+  @Test
+  public void playbackErrorAndReprepare_withLiveTimelineAllPeriodsReplaced_keepsPlayingLiveSource()
+      throws Exception {
+    FakeMultiPeriodLiveTimeline liveTimeline1 =
+        new FakeMultiPeriodLiveTimeline(
+            /* availabilityStartTimeMs= */ 0L,
+            /* liveWindowDurationUs= */ 10 * C.MICROS_PER_SECOND,
+            /* nowUs= */ 10 * C.MICROS_PER_SECOND,
+            /* adSequencePattern= */ new boolean[] {false},
+            /* periodDurationMsPattern= */ new long[] {5000},
+            /* isContentTimeline= */ true,
+            /* populateAds= */ false,
+            /* playedAds= */ false);
+    FakeMultiPeriodLiveTimeline liveTimeline2 =
+        new FakeMultiPeriodLiveTimeline(
+            /* availabilityStartTimeMs= */ 0L,
+            /* liveWindowDurationUs= */ 10 * C.MICROS_PER_SECOND,
+            /* nowUs= */ 10 * C.MICROS_PER_SECOND,
+            /* adSequencePattern= */ new boolean[] {false},
+            /* periodDurationMsPattern= */ new long[] {5000},
+            /* isContentTimeline= */ true,
+            /* populateAds= */ false,
+            /* playedAds= */ false);
+    liveTimeline2.advanceNowUs(20 * C.MICROS_PER_SECOND);
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    FakeMediaSource liveSource = new FakeMediaSource(liveTimeline1);
+    player.setMediaSources(ImmutableList.of(liveSource, new FakeMediaSource()));
+    player.prepare();
+
+    run(player).untilState(Player.STATE_READY);
+    player
+        .createMessage(
+            (message, payload) -> {
+              throw new IllegalStateException();
+            })
+        .send();
+    run(player).untilPlayerError();
+    liveSource.setNewSourceInfo(liveTimeline2);
+    liveSource.setAllowPreparation(false); // Lazily update timeline to simulate new manifest load
+    player.prepare();
+    run(player).untilPendingCommandsAreFullyHandled();
+    liveSource.setAllowPreparation(true);
+    run(player).untilState(Player.STATE_READY);
+    int mediaItemIndexAfterReprepare = player.getCurrentMediaItemIndex();
+    player.release();
+
+    assertThat(mediaItemIndexAfterReprepare).isEqualTo(0);
   }
 
   // Internal methods.

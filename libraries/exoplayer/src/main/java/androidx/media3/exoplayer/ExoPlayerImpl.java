@@ -2617,17 +2617,15 @@ import java.util.concurrent.TimeoutException;
       return oldPeriodPositionUs;
     }
     // Period uid not found in new timeline. Try to get subsequent period.
-    @Nullable
-    Object nextPeriodUid =
+    int newWindowIndex =
         ExoPlayerImplInternal.resolveSubsequentPeriod(
             window, period, repeatMode, shuffleModeEnabled, periodUid, oldTimeline, newTimeline);
-    if (nextPeriodUid != null) {
+    if (newWindowIndex != C.INDEX_UNSET) {
       // Reset position to the default position of the window of the subsequent period.
-      newTimeline.getPeriodByUid(nextPeriodUid, period);
       return maskWindowPositionMsOrGetPeriodPositionUs(
           newTimeline,
-          period.windowIndex,
-          newTimeline.getWindow(period.windowIndex, window).getDefaultPositionMs());
+          newWindowIndex,
+          newTimeline.getWindow(newWindowIndex, window).getDefaultPositionMs());
     } else {
       // No subsequent period found and the new timeline is not empty. Use the default position.
       return maskWindowPositionMsOrGetPeriodPositionUs(

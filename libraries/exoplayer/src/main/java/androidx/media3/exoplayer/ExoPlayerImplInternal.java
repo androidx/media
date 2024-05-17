@@ -2904,8 +2904,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
     } else if (timeline.getIndexOfPeriod(newPeriodUid) == C.INDEX_UNSET) {
       // The current period isn't in the new timeline. Attempt to resolve a subsequent period whose
       // window we can restart from.
-      @Nullable
-      Object subsequentPeriodUid =
+      int newWindowIndex =
           resolveSubsequentPeriod(
               window,
               period,
@@ -2914,15 +2913,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
               newPeriodUid,
               playbackInfo.timeline,
               timeline);
-      if (subsequentPeriodUid == null) {
+      if (newWindowIndex == C.INDEX_UNSET) {
         // We failed to resolve a suitable restart position but the timeline is not empty.
         endPlayback = true;
         startAtDefaultPositionWindowIndex = timeline.getFirstWindowIndex(shuffleModeEnabled);
       } else {
         // We resolved a subsequent period. Start at the default position in the corresponding
         // window.
-        startAtDefaultPositionWindowIndex =
-            timeline.getPeriodByUid(subsequentPeriodUid, period).windowIndex;
+        startAtDefaultPositionWindowIndex = newWindowIndex;
       }
     } else if (oldContentPositionUs == C.TIME_UNSET) {
       // The content was requested to start from its default position and we haven't used the
@@ -3219,8 +3217,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
     }
     if (trySubsequentPeriods) {
       // Try and find a subsequent period from the seek timeline in the internal timeline.
-      @Nullable
-      Object periodUid =
+      int newWindowIndex =
           resolveSubsequentPeriod(
               window,
               period,
@@ -3229,13 +3226,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
               periodPositionUs.first,
               seekTimeline,
               timeline);
-      if (periodUid != null) {
+      if (newWindowIndex != C.INDEX_UNSET) {
         // We found one. Use the default position of the corresponding window.
         return timeline.getPeriodPositionUs(
-            window,
-            period,
-            timeline.getPeriodByUid(periodUid, period).windowIndex,
-            /* windowPositionUs= */ C.TIME_UNSET);
+            window, period, newWindowIndex, /* windowPositionUs= */ C.TIME_UNSET);
       }
     }
     // We didn't find one. Give up.
@@ -3243,8 +3237,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
   }
 
   /**
-   * Given a period index into an old timeline, finds the first subsequent period that also exists
-   * in a new timeline. The uid of this period in the new timeline is returned.
+   * Given a period index into an old timeline, searches for suitable subsequent periods in the new
+   * timeline and returns their window index if found.
    *
    * @param window A {@link Timeline.Window} to be used internally.
    * @param period A {@link Timeline.Period} to be used internally.
@@ -3253,11 +3247,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
    * @param oldPeriodUid The index of the period in the old timeline.
    * @param oldTimeline The old timeline.
    * @param newTimeline The new timeline.
-   * @return The uid in the new timeline of the first subsequent period, or null if no such period
-   *     was found.
+   * @return The most suitable window index in the new timeline to continue playing from, or {@link
+   *     C#INDEX_UNSET} if none was found.
    */
-  /* package */ @Nullable
-  static Object resolveSubsequentPeriod(
+  /* package */ static int resolveSubsequentPeriod(
       Timeline.Window window,
       Timeline.Period period,
       @Player.RepeatMode int repeatMode,
@@ -3265,6 +3258,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
       Object oldPeriodUid,
       Timeline oldTimeline,
       Timeline newTimeline) {
+    int oldWindowIndex = oldTimeline.getPeriodByUid(oldPeriodUid, period).windowIndex;
+    Object oldWindowUid = oldTimeline.getWindow(oldWindowIndex, window).uid;
+    // TODO: b/341049911 - Use more efficient UID based access rather than a full search.
+    for (int i = 0; i < newTimeline.getWindowCount(); i++) {
+      if (newTimeline.getWindow(/* windowIndex= */ i, window).uid.equals(oldWindowUid)) {
+        // Window still exists, resume from there.
+        return i;
+      }
+    }
     int oldPeriodIndex = oldTimeline.getIndexOfPeriod(oldPeriodUid);
     int newPeriodIndex = C.INDEX_UNSET;
     int maxIterations = oldTimeline.getPeriodCount();
@@ -3278,7 +3280,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
       }
       newPeriodIndex = newTimeline.getIndexOfPeriod(oldTimeline.getUidOfPeriod(oldPeriodIndex));
     }
-    return newPeriodIndex == C.INDEX_UNSET ? null : newTimeline.getUidOfPeriod(newPeriodIndex);
+    return newPeriodIndex == C.INDEX_UNSET
+        ? C.INDEX_UNSET
+        : newTimeline.getPeriod(newPeriodIndex, period).windowIndex;
   }
 
   private static Format[] getFormats(ExoTrackSelection newSelection) {
