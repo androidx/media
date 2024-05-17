@@ -354,7 +354,9 @@ public class WebvttPlaybackTest {
   private static void stallPlayerUntilCondition(ExoPlayer player, AtomicBoolean condition)
       throws Exception {
     long timeoutTimeMs = Clock.DEFAULT.currentTimeMillis() + RobolectricUtil.DEFAULT_TIMEOUT_MS;
-    while (!condition.get()) {
+    while (!condition.get()
+        && (player.getPlaybackState() == Player.STATE_READY
+            || player.getPlaybackState() == Player.STATE_BUFFERING)) {
       // Trigger more work at the current time until the condition is fulfilled.
       if (Clock.DEFAULT.currentTimeMillis() >= timeoutTimeMs) {
         throw new TimeoutException();
@@ -362,6 +364,9 @@ public class WebvttPlaybackTest {
       player.pause();
       player.play();
       run(player).untilPendingCommandsAreFullyHandled();
+    }
+    if (player.getPlayerError() != null) {
+      throw player.getPlayerError();
     }
   }
 }
