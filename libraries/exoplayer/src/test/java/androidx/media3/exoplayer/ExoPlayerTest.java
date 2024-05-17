@@ -13559,11 +13559,11 @@ public class ExoPlayerTest {
     player.prepare();
 
     // Play a bit until the second renderer has been enabled, but not yet started.
-    run(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 5000);
+    play(player).untilBackgroundThreadCondition(() -> player.getCurrentPosition() >= 5000);
     @Renderer.State int videoState1 = videoRenderer.getState();
     @Renderer.State int audioState1 = audioRenderer.getState();
     // Play until we reached the start of the second item.
-    run(player).untilStartOfMediaItem(/* mediaItemIndex= */ 1);
+    run(player).untilBackgroundThreadCondition(() -> player.getCurrentMediaItemIndex() == 1);
     run(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState2 = videoRenderer.getState();
     @Renderer.State int audioState2 = audioRenderer.getState();
@@ -13592,7 +13592,7 @@ public class ExoPlayerTest {
     player.prepare();
 
     // Play until the second renderer has been enabled, but has not yet started.
-    run(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 5000);
+    play(player).untilBackgroundThreadCondition(() -> player.getCurrentPosition() >= 5000);
     // Pause in this "Read Ahead" state.
     player.pause();
     run(player).untilPendingCommandsAreFullyHandled();
@@ -13604,7 +13604,7 @@ public class ExoPlayerTest {
     @Renderer.State int videoState2 = videoRenderer.getState();
     @Renderer.State int audioState2 = audioRenderer.getState();
     // Play until the start of the second item.
-    run(player).untilStartOfMediaItem(/* mediaItemIndex= */ 1);
+    run(player).untilBackgroundThreadCondition(() -> player.getCurrentMediaItemIndex() == 1);
     run(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState3 = videoRenderer.getState();
     @Renderer.State int audioState3 = audioRenderer.getState();
