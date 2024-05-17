@@ -604,7 +604,6 @@ public final class DashMediaSource extends BaseMediaSource {
     }
     manifestLoadStartTimestampMs = 0;
     manifestLoadEndTimestampMs = 0;
-    manifest = sideloadedManifest ? manifest : null;
     manifestUri = initialManifestUri;
     manifestFatalError = null;
     if (handler != null) {

@@ -161,6 +161,9 @@
     *   Fix bug where non-primary playlists keep reloading for LL-HLS streams
         ([#1240](https://github.com/androidx/media/issues/1240)).
 *   DASH Extension:
+    *   Fix bug where re-preparing a multi-period live stream can throw an
+        `IndexOutOfBoundsException`
+        ([#1329](https://github.com/androidx/media/issues/1329)).
 *   Smooth Streaming Extension:
 *   RTSP Extension:
 *   Decoder Extensions (FFmpeg, VP9, AV1, MIDI, etc.):
