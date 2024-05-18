@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.exoplayer.DefaultRenderersFactory.DEFAULT_ALLOWED_VIDEO_JOINING_TIME_MS;
@@ -292,8 +293,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     private ImmutableList<Effect> videoEffects;
     private @MonotonicNonNull ConstantRateTimestampIterator timestampIterator;
-    private boolean inputStreamPendingRegistration;
+    private @MonotonicNonNull EditedMediaItem editedMediaItem;
     @Nullable private ExoPlaybackException pendingExoPlaybackException;
+    private boolean inputStreamPendingRegistration;
     private long streamOffsetUs;
     private boolean mayRenderStartOfStream;
 
@@ -360,6 +362,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     protected void onPositionReset(long positionUs, boolean joining) throws ExoPlaybackException {
       videoSink.flush();
       super.onPositionReset(positionUs, joining);
+      timestampIterator =
+          new ConstantRateTimestampIterator(
+              /* startPositionUs= */ positionUs - streamOffsetUs,
+              /* endPositionUs= */ checkNotNull(editedMediaItem).getPresentationDurationUs(),
+              DEFAULT_FRAME_RATE);
       videoFrameReleaseControl.reset();
       if (joining) {
         videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ false);
@@ -388,13 +395,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       checkState(getTimeline().getWindowCount() == 1);
       super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
       streamOffsetUs = offsetUs;
-      EditedMediaItem editedMediaItem =
+      editedMediaItem =
           sequencePlayerRenderersWrapper.sequence.editedMediaItems.get(
               getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid));
-      videoEffects = editedMediaItem.effects.videoEffects;
       timestampIterator =
           new ConstantRateTimestampIterator(
-              editedMediaItem.getPresentationDurationUs(), /* frameRate= */ DEFAULT_FRAME_RATE);
+              /* startPositionUs= */ startPositionUs - streamOffsetUs,
+              /* endPositionUs= */ editedMediaItem.getPresentationDurationUs(),
+              DEFAULT_FRAME_RATE);
+      videoEffects = editedMediaItem.effects.videoEffects;
       inputStreamPendingRegistration = true;
     }
 

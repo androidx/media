@@ -27,6 +27,7 @@ import androidx.media3.common.FrameInfo;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.OnInputFrameProcessedListener;
+import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlUtil;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -132,7 +133,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   // Methods that must be called on the GL thread.
 
   @Override
-  protected synchronized void flush() {
+  protected synchronized void flush() throws VideoFrameProcessingException {
     checkNotNull(frameConsumptionManager).onFlush();
     super.flush();
   }

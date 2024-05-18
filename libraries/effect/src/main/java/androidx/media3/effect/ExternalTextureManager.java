@@ -267,7 +267,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  protected void flush() {
+  protected void flush() throws VideoFrameProcessingException {
     externalShaderProgramInputCapacity.set(0);
     currentFrame = null;
     pendingFrames.clear();

@@ -35,6 +35,7 @@ import androidx.media3.common.util.Util;
 import java.util.Queue;
 import java.util.concurrent.LinkedBlockingQueue;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Forwards a video frame produced from a {@link Bitmap} to a {@link GlShaderProgram} for
@@ -47,7 +48,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final GlObjectsProvider glObjectsProvider;
 
   private @MonotonicNonNull GainmapShaderProgram gainmapShaderProgram;
-  private @MonotonicNonNull GlTextureInfo currentSdrGlTextureInfo;
+  @Nullable private GlTextureInfo currentSdrGlTextureInfo;
   private int downstreamShaderProgramCapacity;
   private boolean currentInputStreamEnded;
   private boolean isNextFrameInTexture;
@@ -180,8 +181,19 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  protected void flush() {
+  protected void flush() throws VideoFrameProcessingException {
     pendingBitmaps.clear();
+    isNextFrameInTexture = false;
+    currentInputStreamEnded = false;
+    downstreamShaderProgramCapacity = 0;
+    if (currentSdrGlTextureInfo != null) {
+      try {
+        currentSdrGlTextureInfo.release();
+      } catch (GlUtil.GlException e) {
+        throw VideoFrameProcessingException.from(e);
+      }
+      currentSdrGlTextureInfo = null;
+    }
     super.flush();
   }
 
