@@ -55,9 +55,9 @@
         passing the last access unit of a stream to the sample queue
         ([#7909](https://github.com/google/ExoPlayer/issues/7909)).
         Incorporating fixes to resolve the issues that emerged in I-frame only
-        HLS streams([#1150](https://github.com/google/ExoPlayer/issues/1150))
-        and H.262 HLS streams
-        ([#1126](https://github.com/google/ExoPlayer/issues/1126)).
+        HLS streams([#1150](https://github.com/androidx/media/issues/1150)) and
+        H.262 HLS streams
+        ([#1126](https://github.com/androidx/media/issues/1126)).
 *   Audio:
     *   Fix DTS:X Profile 2 encoding attributes for passthrough playback
         ([#1299](https://github.com/androidx/media/pull/1299)).
@@ -311,8 +311,8 @@ This release includes the following changes since the
         by passing the last access unit of a stream to the sample queue
         ([#7909](https://github.com/google/ExoPlayer/issues/7909)). This is due
         to the change causing new problems with I-frame only HLS streams
-        ([#1150](https://github.com/google/ExoPlayer/issues/1150)) and H.262 HLS
-        streams ([#1126](https://github.com/google/ExoPlayer/issues/1126)).
+        ([#1150](https://github.com/androidx/media/issues/1150)) and H.262 HLS
+        streams ([#1126](https://github.com/androidx/media/issues/1126)).
 *   Audio:
     *   Allow renderer recovery by disabling offload if audio track fails to
         initialize in offload mode.
