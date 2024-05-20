@@ -42,7 +42,6 @@ import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -153,7 +152,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private ImmutableList<float[]> visiblePolygon;
 
   private @MonotonicNonNull Gainmap lastGainmap;
-  private int lastGainmapGenerationId;
   private int gainmapTexId;
   private @C.ColorTransfer int outputColorTransfer;
 
@@ -453,7 +451,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     tempResultMatrix = new float[16];
     visiblePolygon = NDC_SQUARE;
     gainmapTexId = C.INDEX_UNSET;
-    lastGainmapGenerationId = C.INDEX_UNSET;
   }
 
   private static GlProgram createGlProgram(
@@ -533,13 +530,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (!useHdr) {
       return;
     }
-    int gainmapGenerationId = gainmap.getGainmapContents().getGenerationId();
-    if (Objects.equals(this.lastGainmap, gainmap)
-        && gainmapGenerationId == this.lastGainmapGenerationId) {
+    if (lastGainmap != null && GainmapUtil.equals(this.lastGainmap, gainmap)) {
       return;
     }
     this.lastGainmap = gainmap;
-    this.lastGainmapGenerationId = gainmapGenerationId;
     if (gainmapTexId == C.INDEX_UNSET) {
       gainmapTexId = GlUtil.createTexture(gainmap.getGainmapContents());
     } else {
