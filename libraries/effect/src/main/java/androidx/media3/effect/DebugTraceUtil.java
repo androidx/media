@@ -56,17 +56,6 @@ public final class DebugTraceUtil {
   @SuppressWarnings("NonFinalStaticField") // Only for debugging/testing.
   public static boolean enableTracing = false;
 
-  /**
-   * Whether to {@linkplain Log#d(String, String) log} tracing events to the logcat as they occur.
-   * Should be set to {@code true} for testing and debugging purposes only.
-   *
-   * <p>Note that enabling this can add a large amount of logcat lines.
-   *
-   * <p>Requires {@link #enableTracing} to be true.
-   */
-  @SuppressWarnings("NonFinalStaticField") // Only for debugging/testing.
-  public static boolean enableTracesInLogcat = false;
-
   /** Events logged by {@link #logEvent}. */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
@@ -232,6 +221,16 @@ public final class DebugTraceUtil {
                   EVENT_OUTPUT_ENDED))
           .buildOrThrow();
 
+  /**
+   * Whether to {@linkplain Log#d(String, String) log} tracing events to the logcat as they occur.
+   * Should be set to {@code true} for testing and debugging purposes only.
+   *
+   * <p>Note that enabling this can add a large amount of logcat lines.
+   *
+   * <p>Requires {@link #enableTracing} to be true.
+   */
+  private static final boolean ENABLE_TRACES_IN_LOGCAT = false;
+
   private static final int MAX_FIRST_LAST_LOGS = 10;
 
   @GuardedBy("DebugTraceUtil.class")
@@ -280,7 +279,7 @@ public final class DebugTraceUtil {
     String extra = Util.formatInvariant(extraFormat, extraArgs);
     EventLog eventLog = new EventLog(presentationTimeUs, eventTimeMs, extra);
     logger.addLog(eventLog);
-    if (enableTracesInLogcat) {
+    if (ENABLE_TRACES_IN_LOGCAT) {
       Log.d("DebugTrace-" + component, event + ": " + eventLog);
     }
   }
