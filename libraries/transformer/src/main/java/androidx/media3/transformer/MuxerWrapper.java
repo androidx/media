@@ -27,6 +27,7 @@ import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_MUXER;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_CAN_WRITE_SAMPLE_AUDIO;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_CAN_WRITE_SAMPLE_VIDEO;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_OUTPUT_ENDED;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_TRACK_ENDED_AUDIO;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_TRACK_ENDED_VIDEO;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_WRITE_SAMPLE_AUDIO;
@@ -612,6 +613,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       trackTypeToInfo.delete(trackType);
       if (trackTypeToInfo.size() == 0) {
         isEnded = true;
+        DebugTraceUtil.logEvent(COMPONENT_MUXER, EVENT_OUTPUT_ENDED, maxEndedTrackTimeUs);
       }
     }
 

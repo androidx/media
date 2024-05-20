@@ -228,7 +228,8 @@ public final class DebugTraceUtil {
                   EVENT_CAN_WRITE_SAMPLE_AUDIO,
                   EVENT_WRITE_SAMPLE_AUDIO,
                   EVENT_TRACK_ENDED_AUDIO,
-                  EVENT_TRACK_ENDED_VIDEO))
+                  EVENT_TRACK_ENDED_VIDEO,
+                  EVENT_OUTPUT_ENDED))
           .buildOrThrow();
 
   private static final int MAX_FIRST_LAST_LOGS = 10;
