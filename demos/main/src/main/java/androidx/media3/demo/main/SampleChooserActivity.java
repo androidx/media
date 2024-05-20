@@ -67,6 +67,7 @@ import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -259,6 +260,7 @@ public class SampleChooserActivity extends AppCompatActivity
     }
   }
 
+  @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
   private void toggleDownload(MediaItem mediaItem) {
     RenderersFactory renderersFactory =
         DemoUtil.buildRenderersFactory(
@@ -313,7 +315,8 @@ public class SampleChooserActivity extends AppCompatActivity
               InputStream inputStream = new DataSourceInputStream(dataSource, dataSpec);
               try {
                 readPlaylistGroups(
-                    new JsonReader(new InputStreamReader(inputStream, "UTF-8")), result);
+                    new JsonReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8)),
+                    result);
               } catch (Exception e) {
                 Log.e(TAG, "Error loading sample list: " + uri, e);
                 sawError = true;

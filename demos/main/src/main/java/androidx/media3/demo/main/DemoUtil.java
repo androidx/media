@@ -60,11 +60,21 @@ public final class DemoUtil {
 
   private static DataSource.@MonotonicNonNull Factory dataSourceFactory;
   private static DataSource.@MonotonicNonNull Factory httpDataSourceFactory;
+
+  @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
   private static @MonotonicNonNull DatabaseProvider databaseProvider;
+
   private static @MonotonicNonNull File downloadDirectory;
+
+  @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
   private static @MonotonicNonNull Cache downloadCache;
+
+  @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
   private static @MonotonicNonNull DownloadManager downloadManager;
+
   private static @MonotonicNonNull DownloadTracker downloadTracker;
+
+  @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
   private static @MonotonicNonNull DownloadNotificationHelper downloadNotificationHelper;
 
   /** Returns whether extension renderers should be used. */
@@ -128,6 +138,7 @@ public final class DemoUtil {
     return downloadNotificationHelper;
   }
 
+  @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
   public static synchronized DownloadManager getDownloadManager(Context context) {
     ensureDownloadManagerInitialized(context);
     return downloadManager;
