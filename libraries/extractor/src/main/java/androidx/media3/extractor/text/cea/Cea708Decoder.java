@@ -353,6 +353,7 @@ public final class Cea708Decoder extends CeaDecoder {
       int endBlockPosition = captionChannelPacketData.getPosition() + (blockSize * 8);
       while (captionChannelPacketData.getPosition() < endBlockPosition) {
         int command = captionChannelPacketData.readBits(8);
+        Log.d("DatDoan", "Cea708 handleCommand " + command);
         if (command != COMMAND_EXT1) {
           if (command <= GROUP_C0_END) {
             handleC0Command(command);
