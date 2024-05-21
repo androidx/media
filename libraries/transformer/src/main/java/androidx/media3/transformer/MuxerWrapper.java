@@ -25,13 +25,10 @@ import static androidx.media3.common.util.Util.areEqual;
 import static androidx.media3.common.util.Util.contains;
 import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_MUXER;
-import static androidx.media3.effect.DebugTraceUtil.EVENT_CAN_WRITE_SAMPLE_AUDIO;
-import static androidx.media3.effect.DebugTraceUtil.EVENT_CAN_WRITE_SAMPLE_VIDEO;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_ACCEPTED_INPUT;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_CAN_WRITE_SAMPLE;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_INPUT_ENDED;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_OUTPUT_ENDED;
-import static androidx.media3.effect.DebugTraceUtil.EVENT_TRACK_ENDED_AUDIO;
-import static androidx.media3.effect.DebugTraceUtil.EVENT_TRACK_ENDED_VIDEO;
-import static androidx.media3.effect.DebugTraceUtil.EVENT_WRITE_SAMPLE_AUDIO;
-import static androidx.media3.effect.DebugTraceUtil.EVENT_WRITE_SAMPLE_VIDEO;
 import static java.lang.Math.max;
 import static java.lang.annotation.ElementType.TYPE_USE;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -484,6 +481,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     ensureMuxerInitialized();
     TrackInfo trackInfo = new TrackInfo(format, muxer.addTrack(format));
     trackTypeToInfo.put(trackType, trackInfo);
+    DebugTraceUtil.logEvent(
+        COMPONENT_MUXER,
+        DebugTraceUtil.EVENT_INPUT_FORMAT,
+        C.TIME_UNSET,
+        /* extraFormat= */ "%s:%s",
+        /* extraArgs...= */ Util.getTrackTypeString(trackType),
+        format);
 
     if (format.metadata != null) {
       for (int i = 0; i < format.metadata.length(); i++) {
@@ -531,23 +535,20 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     checkArgument(contains(trackTypeToInfo, trackType));
     TrackInfo trackInfo = trackTypeToInfo.get(trackType);
     boolean canWriteSample = canWriteSample(trackType, presentationTimeUs);
+
+    DebugTraceUtil.logEvent(
+        COMPONENT_MUXER,
+        EVENT_CAN_WRITE_SAMPLE,
+        presentationTimeUs,
+        /* extraFormat= */ "%s:%s",
+        /* extraArgs...= */ Util.getTrackTypeString(trackType),
+        canWriteSample);
+
     if (trackType == C.TRACK_TYPE_VIDEO) {
-      DebugTraceUtil.logEvent(
-          COMPONENT_MUXER,
-          EVENT_CAN_WRITE_SAMPLE_VIDEO,
-          presentationTimeUs,
-          /* extraFormat= */ "%s",
-          /* extraArgs...= */ canWriteSample);
       if (firstVideoPresentationTimeUs == C.TIME_UNSET) {
         firstVideoPresentationTimeUs = presentationTimeUs;
       }
     } else if (trackType == C.TRACK_TYPE_AUDIO) {
-      DebugTraceUtil.logEvent(
-          COMPONENT_MUXER,
-          EVENT_CAN_WRITE_SAMPLE_AUDIO,
-          presentationTimeUs,
-          /* extraFormat= */ "%s",
-          /* extraArgs...= */ canWriteSample);
       if (dropSamplesBeforeFirstVideoSample
           && contains(trackTypeToInfo, C.TRACK_TYPE_VIDEO)
           && firstVideoPresentationTimeUs != C.TIME_UNSET
@@ -573,11 +574,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         presentationTimeUs,
         TransformerUtil.getMediaCodecFlags(isKeyFrame ? C.BUFFER_FLAG_KEY_FRAME : 0));
     muxer.writeSampleData(trackInfo.trackToken, data, bufferInfo);
-    if (trackType == C.TRACK_TYPE_VIDEO) {
-      DebugTraceUtil.logEvent(COMPONENT_MUXER, EVENT_WRITE_SAMPLE_VIDEO, presentationTimeUs);
-    } else if (trackType == C.TRACK_TYPE_AUDIO) {
-      DebugTraceUtil.logEvent(COMPONENT_MUXER, EVENT_WRITE_SAMPLE_AUDIO, presentationTimeUs);
-    }
+
+    DebugTraceUtil.logEvent(
+        COMPONENT_MUXER,
+        EVENT_ACCEPTED_INPUT,
+        presentationTimeUs,
+        /* extraFormat= */ "%s",
+        /* extraArgs...= */ Util.getTrackTypeString(trackType));
     previousTrackType = trackType;
     return true;
   }
@@ -597,11 +600,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     maxEndedTrackTimeUs = max(maxEndedTrackTimeUs, trackInfo.timeUs);
     listener.onTrackEnded(
         trackType, trackInfo.format, trackInfo.getAverageBitrate(), trackInfo.sampleCount);
-    if (trackType == C.TRACK_TYPE_VIDEO) {
-      DebugTraceUtil.logEvent(COMPONENT_MUXER, EVENT_TRACK_ENDED_VIDEO, trackInfo.timeUs);
-    } else if (trackType == C.TRACK_TYPE_AUDIO) {
-      DebugTraceUtil.logEvent(COMPONENT_MUXER, EVENT_TRACK_ENDED_AUDIO, trackInfo.timeUs);
-    }
+    DebugTraceUtil.logEvent(
+        COMPONENT_MUXER,
+        EVENT_INPUT_ENDED,
+        trackInfo.timeUs,
+        /* extraFormat= */ "%s",
+        /* extraArgs...= */ Util.getTrackTypeString(trackType));
 
     if (muxerMode == MUXER_MODE_MUX_PARTIAL) {
       if (trackType == C.TRACK_TYPE_VIDEO) {

@@ -78,12 +78,7 @@ public final class DebugTraceUtil {
     EVENT_RECEIVE_EOS,
     EVENT_SIGNAL_EOS,
     EVENT_SIGNAL_ENDED,
-    EVENT_CAN_WRITE_SAMPLE_AUDIO,
-    EVENT_CAN_WRITE_SAMPLE_VIDEO,
-    EVENT_WRITE_SAMPLE_AUDIO,
-    EVENT_WRITE_SAMPLE_VIDEO,
-    EVENT_TRACK_ENDED_AUDIO,
-    EVENT_TRACK_ENDED_VIDEO
+    EVENT_CAN_WRITE_SAMPLE
   })
   @Target(TYPE_USE)
   public @interface Event {}
@@ -106,12 +101,7 @@ public final class DebugTraceUtil {
   public static final String EVENT_RECEIVE_EOS = "ReceiveEOS";
   public static final String EVENT_SIGNAL_EOS = "SignalEOS";
   public static final String EVENT_SIGNAL_ENDED = "SignalEnded";
-  public static final String EVENT_CAN_WRITE_SAMPLE_AUDIO = "CanWriteSample_Audio";
-  public static final String EVENT_CAN_WRITE_SAMPLE_VIDEO = "CanWriteSample_Video";
-  public static final String EVENT_WRITE_SAMPLE_AUDIO = "WriteSample_Audio";
-  public static final String EVENT_WRITE_SAMPLE_VIDEO = "WriteSample_Video";
-  public static final String EVENT_TRACK_ENDED_AUDIO = "TrackEnded_Audio";
-  public static final String EVENT_TRACK_ENDED_VIDEO = "TrackEnded_Video";
+  public static final String EVENT_CAN_WRITE_SAMPLE = "CanWriteSample";
 
   /** Components logged by {@link #logEvent}. */
   @Documented
@@ -216,12 +206,10 @@ public final class DebugTraceUtil {
           .put(
               COMPONENT_MUXER,
               ImmutableList.of(
-                  EVENT_CAN_WRITE_SAMPLE_VIDEO,
-                  EVENT_WRITE_SAMPLE_VIDEO,
-                  EVENT_CAN_WRITE_SAMPLE_AUDIO,
-                  EVENT_WRITE_SAMPLE_AUDIO,
-                  EVENT_TRACK_ENDED_AUDIO,
-                  EVENT_TRACK_ENDED_VIDEO,
+                  EVENT_INPUT_FORMAT,
+                  EVENT_CAN_WRITE_SAMPLE,
+                  EVENT_ACCEPTED_INPUT,
+                  EVENT_INPUT_ENDED,
                   EVENT_OUTPUT_ENDED))
           .buildOrThrow();
 
