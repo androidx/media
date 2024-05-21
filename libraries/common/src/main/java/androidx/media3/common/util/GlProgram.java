@@ -117,7 +117,7 @@ public final class GlProgram {
     int[] result = new int[] {GLES20.GL_FALSE};
     GLES20.glGetShaderiv(shader, GLES20.GL_COMPILE_STATUS, result, /* offset= */ 0);
     GlUtil.checkGlException(
-        result[0] == GLES20.GL_TRUE, GLES20.glGetShaderInfoLog(shader) + ", source: " + glsl);
+        result[0] == GLES20.GL_TRUE, GLES20.glGetShaderInfoLog(shader) + ", source: \n" + glsl);
 
     GLES20.glAttachShader(programId, shader);
     GLES20.glDeleteShader(shader);
