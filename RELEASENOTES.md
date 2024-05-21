@@ -91,6 +91,13 @@
     *   PGS: Fix run-length decoding to resolve `0` as a color index, instead of
         a literal color value
         ([#1367](https://github.com/androidx/media/pull/1367)).
+    *   CEA-708: Ignore `rowLock` value. The CEA-708-E S-2023 spec states that
+        `rowLock` and `columnLock` should both be assumed to be true, regardless
+        of the values present in the stream (`columnLock` support is not
+        implemented, so it's effectively assumed to always be false).
+        *   This was originally included in the `1.3.0-alpha01` release notes,
+            but the change was accidentally reverted before the `1.3.0-rc01`
+            release. This is now fixed, so the change is present again.
 *   Metadata:
     *   Fix mapping of MP4 to ID3 sort tags. Previously the 'album sort'
         (`soal`), 'artist sort' (`soar`) and 'album artist sort' (`soaa`) MP4
