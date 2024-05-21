@@ -248,7 +248,19 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           "uApplyHdrToSdrToneMapping",
           outputColorInfo.colorSpace != C.COLOR_SPACE_BT2020 ? GL_TRUE : GL_FALSE);
     }
-    return createWithSampler(glProgram, inputColorInfo, outputColorInfo, sdrWorkingColorSpace);
+    ImmutableList<GlMatrixTransformation> matrixTransformations = ImmutableList.of();
+    if (inputType == INPUT_TYPE_BITMAP) {
+      matrixTransformations =
+          ImmutableList.of(
+              (MatrixTransformation)
+                  presentationTimeUs -> {
+                    android.graphics.Matrix mirrorY = new android.graphics.Matrix();
+                    mirrorY.setScale(/* sx= */ 1, /* sy= */ -1);
+                    return mirrorY;
+                  });
+    }
+    return createWithSampler(
+        glProgram, inputColorInfo, outputColorInfo, sdrWorkingColorSpace, matrixTransformations);
   }
 
   /**
@@ -308,7 +320,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
     glProgram.setExternalTexturesRequireNearestSampling(sampleWithNearest);
 
-    return createWithSampler(glProgram, inputColorInfo, outputColorInfo, sdrWorkingColorSpace);
+    return createWithSampler(
+        glProgram,
+        inputColorInfo,
+        outputColorInfo,
+        sdrWorkingColorSpace,
+        /* matrixTransformations= */ ImmutableList.of());
   }
 
   /**
@@ -379,7 +396,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       GlProgram glProgram,
       ColorInfo inputColorInfo,
       ColorInfo outputColorInfo,
-      @WorkingColorSpace int sdrWorkingColorSpace) {
+      @WorkingColorSpace int sdrWorkingColorSpace,
+      ImmutableList<GlMatrixTransformation> matrixTransformations) {
     boolean isInputTransferHdr = ColorInfo.isTransferHdr(inputColorInfo);
     boolean isExpandingColorGamut =
         (inputColorInfo.colorSpace == C.COLOR_SPACE_BT709
@@ -416,7 +434,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     return new DefaultShaderProgram(
         glProgram,
-        /* matrixTransformations= */ ImmutableList.of(),
+        matrixTransformations,
         /* rgbMatrices= */ ImmutableList.of(),
         outputColorInfo.colorTransfer,
         /* useHdr= */ isInputTransferHdr || isExpandingColorGamut);

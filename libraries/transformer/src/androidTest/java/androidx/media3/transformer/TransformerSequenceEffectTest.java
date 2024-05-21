@@ -32,8 +32,10 @@ import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_CHECKERBOARD
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_FORMAT;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_URI_STRING;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_FORMAT;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_PORTRAIT_ASSET_FORMAT;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_PORTRAIT_ASSET_URI_STRING;
+import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET_LINES_1080P_URI_STRING;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static androidx.media3.transformer.AndroidTestUtil.extractBitmapsFromVideo;
 import static androidx.media3.transformer.SequenceEffectTestUtil.NO_EFFECT;
@@ -340,6 +342,59 @@ public final class TransformerSequenceEffectTest {
 
     String traceSummary = DebugTraceUtil.generateTraceSummary();
     assertThat(traceSummary.indexOf(EVENT_SURFACE_TEXTURE_TRANSFORM_FIX)).isNotEqualTo(-1);
+  }
+
+  @Test
+  public void export_image_samplesFromTextureCorrectly() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_FORMAT,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_FORMAT);
+    Composition composition =
+        createComposition(
+            /* presentation= */ null,
+            new EditedMediaItem.Builder(MediaItem.fromUri(PNG_ASSET_LINES_1080P_URI_STRING))
+                .setFrameRate(30)
+                .setDurationUs(C.MICROS_PER_SECOND / 4)
+                .build());
+    // Some devices need a very high bitrate to avoid encoding artifacts.
+    int bitrate = 30_000_000;
+    if (Ascii.equalsIgnoreCase(Util.MODEL, "mi a2 lite")
+        || Ascii.equalsIgnoreCase(Util.MODEL, "redmi 8")
+        || Ascii.equalsIgnoreCase(Util.MODEL, "sm-f711u1")
+        || Ascii.equalsIgnoreCase(Util.MODEL, "sm-f916u1")
+        || Ascii.equalsIgnoreCase(Util.MODEL, "sm-f926u1")
+        || Ascii.equalsIgnoreCase(Util.MODEL, "sm-g981u1")
+        || Ascii.equalsIgnoreCase(Util.MODEL, "tb-q706")) {
+      // And some devices need a lower bitrate because VideoDecodingWrapper fails to decode high
+      // bitrate output, or FrameworkMuxer fails to mux.
+      bitrate = 10_000_000;
+    }
+    Codec.EncoderFactory encoderFactory =
+        new DefaultEncoderFactory.Builder(context)
+            .setRequestedVideoEncoderSettings(
+                new VideoEncoderSettings.Builder().setBitrate(bitrate).build())
+            .build();
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(new AndroidTestUtil.ForceEncodeEncoderFactory(encoderFactory))
+            .setVideoMimeType("video/avc")
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, composition);
+
+    assertThat(checkNotNull(result).filePath).isNotNull();
+    // The PSNR threshold was chosen based on:
+    // Pixel 8 with coordinate rounding error during texture sampling, hits PSNR 23.4. With fix ->
+    // 29.5
+    // Realmi C11 with bug fix hits PSNR 29.94
+    // rmx3563 -> 28.8
+    assertFirstFrameMatchesExpectedPsnrAndSave(
+        context, testId, checkNotNull(result.filePath), 28.5f);
   }
 
   @Test

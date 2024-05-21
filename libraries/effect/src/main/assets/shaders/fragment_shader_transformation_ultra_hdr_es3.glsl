@@ -178,20 +178,12 @@ highp vec3 applyOetf(highp vec3 linearColor) {
   }
 }
 
-vec2 getVTexSamplingCoord() {
-  // Whereas the Android system uses the top-left corner as (0,0) of the
-  // coordinate system, OpenGL uses the bottom-left corner as (0,0), so the
-  // texture gets flipped. We flip the texture vertically to ensure the
-  // orientation of the output is correct.
-  return vec2(vTexSamplingCoord.x, 1.0 - vTexSamplingCoord.y);
-}
-
 // Reference:
 // https://developer.android.com/reference/android/graphics/Gainmap#applying-a-gainmap-manually
 // Reference Implementation:
 // https://cs.android.com/android/platform/superproject/main/+/main:frameworks/base/libs/hwui/effects/GainmapRenderer.cpp;l=117-146;drc=fadc20184ccb27fe15bb862e6e03fa6d05d41eac
 highp vec3 applyGainmapToBase(vec4 S) {
-  vec4 G = texture(uGainmapTexSampler, getVTexSamplingCoord());
+  vec4 G = texture(uGainmapTexSampler, vTexSamplingCoord);
   float W = clamp((log(HDR_SDR_RATIO) - log(uDisplayRatioSdr)) /
                       (log(uDisplayRatioHdr) - log(uDisplayRatioSdr)),
                   0.0, 1.0);
@@ -225,7 +217,7 @@ highp vec3 bt709ToBt2020(vec3 bt709Color) {
 }
 
 void main() {
-  vec4 baseElectricalColor = texture(uTexSampler, getVTexSamplingCoord());
+  vec4 baseElectricalColor = texture(uTexSampler, vTexSamplingCoord);
   float alpha = baseElectricalColor.a;
   vec4 baseOpticalColor = vec4(applyEotf(baseElectricalColor.xyz), alpha);
   vec3 opticalBt709Color = applyGainmapToBase(baseOpticalColor);

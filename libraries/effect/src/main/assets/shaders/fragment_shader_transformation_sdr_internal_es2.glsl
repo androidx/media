@@ -155,21 +155,8 @@ highp vec3 convertToOutputColors(highp vec3 workingColors) {
   }
 }
 
-vec2 getAdjustedTexSamplingCoord(vec2 originalTexSamplingCoord) {
-  if (uInputColorTransfer == COLOR_TRANSFER_SRGB) {
-    // Whereas the Android system uses the top-left corner as (0,0) of the
-    // coordinate system, OpenGL uses the bottom-left corner as (0,0), so the
-    // texture gets flipped. We flip the texture vertically to ensure the
-    // orientation of the output is correct.
-    return vec2(originalTexSamplingCoord.x, 1.0 - originalTexSamplingCoord.y);
-  } else {
-    return originalTexSamplingCoord;
-  }
-}
-
 void main() {
-  vec4 inputColor =
-      texture2D(uTexSampler, getAdjustedTexSamplingCoord(vTexSamplingCoord));
+  vec4 inputColor = texture2D(uTexSampler, vTexSamplingCoord);
   vec3 workingColors = convertToWorkingColors(inputColor.rgb);
   vec4 transformedColors = uRgbMatrix * vec4(workingColors, 1);
   gl_FragColor =

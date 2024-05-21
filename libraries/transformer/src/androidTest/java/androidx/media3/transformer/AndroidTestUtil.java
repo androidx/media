@@ -71,6 +71,8 @@ public final class AndroidTestUtil {
               new ScaleAndRotateTransformation.Builder().setRotationDegrees(45).build()));
 
   public static final String PNG_ASSET_URI_STRING = "asset:///media/png/media3test.png";
+  public static final String PNG_ASSET_LINES_1080P_URI_STRING =
+      "asset:///media/png/loremipsum_1920x720.png";
   public static final String JPG_ASSET_URI_STRING = "asset:///media/jpeg/london.jpg";
   public static final String JPG_PORTRAIT_ASSET_URI_STRING = "asset:///media/jpeg/tokyo.jpg";
   public static final String ULTRA_HDR_URI_STRING = "asset:///media/jpeg/ultraHDR.jpg";
