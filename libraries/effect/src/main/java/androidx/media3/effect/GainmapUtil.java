@@ -1,5 +1,3 @@
-package androidx.media3.effect;
-
 /*
  * Copyright 2024 The Android Open Source Project
  *
@@ -15,6 +13,8 @@ package androidx.media3.effect;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package androidx.media3.effect;
+
 import android.graphics.Gainmap;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.UnstableApi;
