@@ -108,7 +108,8 @@ public final class TransformerMultiSequenceCompositionTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotNull();
+    assertThat(result.filePath).isNotEmpty();
+    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
     assertBitmapsMatchExpected(
         extractBitmapsFromVideo(context, checkNotNull(result.filePath)), testId);
   }
@@ -142,7 +143,8 @@ public final class TransformerMultiSequenceCompositionTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotNull();
+    assertThat(result.filePath).isNotEmpty();
+    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
     assertBitmapsMatchExpected(
         extractBitmapsFromVideo(context, checkNotNull(result.filePath)), testId);
   }
@@ -198,7 +200,8 @@ public final class TransformerMultiSequenceCompositionTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotNull();
+    assertThat(result.filePath).isNotEmpty();
+    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
     assertBitmapsMatchExpected(
         extractBitmapsFromVideo(context, checkNotNull(result.filePath)), testId);
   }

@@ -107,7 +107,8 @@ public final class TransformerSequenceEffectTestWithHdr {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotNull();
+    assertThat(result.filePath).isNotEmpty();
+    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
     // Expected bitmaps were generated on the Pixel 7 Pro, because emulators don't
     // support decoding HDR.
     assertBitmapsMatchExpectedAndSave(
@@ -185,7 +186,8 @@ public final class TransformerSequenceEffectTestWithHdr {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotNull();
+    assertThat(result.filePath).isNotEmpty();
+    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
     // Expected bitmaps were generated on the Samsung S22 Ultra (US), because emulators don't
     // support decoding HDR, and the Pixel 7 Pro does support HDR editing.
     assertBitmapsMatchExpectedAndSave(

@@ -140,7 +140,8 @@ public final class TransformerSequenceEffectTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotNull();
+    assertThat(result.filePath).isNotEmpty();
+    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
     assertBitmapsMatchExpectedAndSave(
         extractBitmapsFromVideo(context, checkNotNull(result.filePath)), testId);
   }
@@ -437,7 +438,8 @@ public final class TransformerSequenceEffectTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotNull();
+    assertThat(result.filePath).isNotEmpty();
+    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
     assertBitmapsMatchExpectedAndSave(
         extractBitmapsFromVideo(context, checkNotNull(result.filePath)), testId);
   }
@@ -460,7 +462,8 @@ public final class TransformerSequenceEffectTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotNull();
+    assertThat(result.filePath).isNotEmpty();
+    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
     assertBitmapsMatchExpectedAndSave(
         extractBitmapsFromVideo(context, checkNotNull(result.filePath)), testId);
   }
@@ -484,7 +487,8 @@ public final class TransformerSequenceEffectTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotNull();
+    assertThat(result.filePath).isNotEmpty();
+    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
     assertBitmapsMatchExpectedAndSave(
         extractBitmapsFromVideo(context, checkNotNull(result.filePath)), testId);
   }
@@ -509,7 +513,8 @@ public final class TransformerSequenceEffectTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotNull();
+    assertThat(result.filePath).isNotEmpty();
+    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
     assertBitmapsMatchExpectedAndSave(
         extractBitmapsFromVideo(context, checkNotNull(result.filePath)), testId);
   }
@@ -534,7 +539,8 @@ public final class TransformerSequenceEffectTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotNull();
+    assertThat(result.filePath).isNotEmpty();
+    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
     assertBitmapsMatchExpectedAndSave(
         extractBitmapsFromVideo(context, checkNotNull(result.filePath)), testId);
   }

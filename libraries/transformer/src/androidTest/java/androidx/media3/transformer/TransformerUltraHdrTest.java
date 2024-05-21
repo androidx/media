@@ -94,7 +94,8 @@ public final class TransformerUltraHdrTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotNull();
+    assertThat(result.filePath).isNotEmpty();
+    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
     assertSdrColors(context, result.filePath);
   }
 
@@ -115,7 +116,8 @@ public final class TransformerUltraHdrTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotNull();
+    assertThat(result.filePath).isNotEmpty();
+    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
     assertSdrColors(context, result.filePath);
   }
 
@@ -137,7 +139,8 @@ public final class TransformerUltraHdrTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotNull();
+    assertThat(result.filePath).isNotEmpty();
+    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
     assertSdrColors(context, result.filePath);
   }
 
@@ -152,7 +155,8 @@ public final class TransformerUltraHdrTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotNull();
+    assertThat(result.filePath).isNotEmpty();
+    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
     assertSdrColors(context, result.filePath);
   }
 
@@ -169,7 +173,8 @@ public final class TransformerUltraHdrTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotNull();
+    assertThat(result.filePath).isNotEmpty();
+    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
     assertSdrColors(context, result.filePath);
   }
 

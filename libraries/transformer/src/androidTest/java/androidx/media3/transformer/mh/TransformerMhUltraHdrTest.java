@@ -83,7 +83,8 @@ public final class TransformerMhUltraHdrTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotNull();
+    assertThat(result.filePath).isNotEmpty();
+    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
     ColorInfo colorInfo =
         retrieveTrackFormat(context, result.filePath, C.TRACK_TYPE_VIDEO).colorInfo;
     assertThat(colorInfo.colorSpace).isEqualTo(C.COLOR_SPACE_BT2020);
@@ -104,7 +105,8 @@ public final class TransformerMhUltraHdrTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotNull();
+    assertThat(result.filePath).isNotEmpty();
+    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
     ColorInfo colorInfo =
         retrieveTrackFormat(context, result.filePath, C.TRACK_TYPE_VIDEO).colorInfo;
     assertThat(colorInfo.colorSpace).isEqualTo(C.COLOR_SPACE_BT2020);
@@ -125,7 +127,8 @@ public final class TransformerMhUltraHdrTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotNull();
+    assertThat(result.filePath).isNotEmpty();
+    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
     ColorInfo colorInfo =
         retrieveTrackFormat(context, result.filePath, C.TRACK_TYPE_VIDEO).colorInfo;
     assertThat(colorInfo.colorSpace).isEqualTo(C.COLOR_SPACE_BT2020);
@@ -146,7 +149,8 @@ public final class TransformerMhUltraHdrTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotNull();
+    assertThat(result.filePath).isNotEmpty();
+    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
     assertSdrColors(context, result.filePath);
   }
 
