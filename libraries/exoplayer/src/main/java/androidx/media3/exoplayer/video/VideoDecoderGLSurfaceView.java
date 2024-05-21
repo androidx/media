@@ -316,7 +316,7 @@ public final class VideoDecoderGLSurfaceView extends GLSurfaceView
         for (int i = 0; i < 3; i++) {
           GLES20.glUniform1i(program.getUniformLocation(TEXTURE_UNIFORMS[i]), i);
           GLES20.glActiveTexture(GLES20.GL_TEXTURE0 + i);
-          GlUtil.bindTexture(GLES20.GL_TEXTURE_2D, yuvTextures[i]);
+          GlUtil.bindTexture(GLES20.GL_TEXTURE_2D, yuvTextures[i], GLES20.GL_LINEAR);
         }
         GlUtil.checkGlError();
       } catch (GlUtil.GlException e) {

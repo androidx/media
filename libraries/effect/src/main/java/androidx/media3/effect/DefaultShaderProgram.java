@@ -269,6 +269,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    *     If this is an optical color, it must be BT.2020 if {@code inputColorInfo} is {@linkplain
    *     ColorInfo#isTransferHdr(ColorInfo) HDR}, and RGB BT.709 if not.
    * @param sdrWorkingColorSpace The {@link WorkingColorSpace} to apply effects in.
+   * @param sampleWithNearest Whether external textures require GL_NEAREST sampling.
    * @throws VideoFrameProcessingException If a problem occurs while reading shader files or an
    *     OpenGL operation fails or is unsupported.
    */
@@ -276,7 +277,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Context context,
       ColorInfo inputColorInfo,
       ColorInfo outputColorInfo,
-      @WorkingColorSpace int sdrWorkingColorSpace)
+      @WorkingColorSpace int sdrWorkingColorSpace,
+      boolean sampleWithNearest)
       throws VideoFrameProcessingException {
     boolean isInputTransferHdr = ColorInfo.isTransferHdr(inputColorInfo);
     String vertexShaderFilePath =
@@ -304,6 +306,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           "uApplyHdrToSdrToneMapping",
           outputColorInfo.colorSpace != C.COLOR_SPACE_BT2020 ? GL_TRUE : GL_FALSE);
     }
+    glProgram.setExternalTexturesRequireNearestSampling(sampleWithNearest);
 
     return createWithSampler(glProgram, inputColorInfo, outputColorInfo, sdrWorkingColorSpace);
   }

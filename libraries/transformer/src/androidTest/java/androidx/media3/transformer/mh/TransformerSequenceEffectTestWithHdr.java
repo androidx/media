@@ -18,15 +18,23 @@
 package androidx.media3.transformer.mh;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_1080P_5_SECOND_HLG10;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_720P_4_SECOND_HDR10;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_720P_4_SECOND_HDR10_FORMAT;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_AV1_2_SECOND_HDR10;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_AV1_2_SECOND_HDR10_FORMAT;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_PORTRAIT_ASSET_URI_STRING;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static androidx.media3.transformer.AndroidTestUtil.extractBitmapsFromVideo;
+import static androidx.media3.transformer.SequenceEffectTestUtil.NO_EFFECT;
+import static androidx.media3.transformer.SequenceEffectTestUtil.PSNR_THRESHOLD_HD;
 import static androidx.media3.transformer.SequenceEffectTestUtil.SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS;
 import static androidx.media3.transformer.SequenceEffectTestUtil.assertBitmapsMatchExpectedAndSave;
+import static androidx.media3.transformer.SequenceEffectTestUtil.assertFirstFrameMatchesExpectedPsnrAndSave;
 import static androidx.media3.transformer.SequenceEffectTestUtil.clippedVideo;
 import static androidx.media3.transformer.SequenceEffectTestUtil.createComposition;
+import static androidx.media3.transformer.SequenceEffectTestUtil.tryToExportCompositionWithDecoder;
 import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceDoesNotSupportHdrEditing;
 import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceSupportsHdrEditing;
 import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceSupportsOpenGlToneMapping;
@@ -34,11 +42,14 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.RgbFilter;
 import androidx.media3.effect.ScaleAndRotateTransformation;
+import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
+import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.EditedMediaItemSequence;
 import androidx.media3.transformer.ExportException;
@@ -48,6 +59,7 @@ import androidx.media3.transformer.TransformerAndroidTestRunner;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -178,5 +190,79 @@ public final class TransformerSequenceEffectTestWithHdr {
     // support decoding HDR, and the Pixel 7 Pro does support HDR editing.
     assertBitmapsMatchExpectedAndSave(
         extractBitmapsFromVideo(context, checkNotNull(result.filePath)), testId);
+  }
+
+  @Test
+  public void export1920x1080Hlg_withAllAvailableDecoders_doesNotStretchOutputOnAny()
+      throws Exception {
+    assumeDeviceSupportsHdrEditing(testId, MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT);
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT,
+        /* outputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT);
+    List<MediaCodecInfo> mediaCodecInfoList =
+        MediaCodecSelector.DEFAULT.getDecoderInfos(
+            checkNotNull(MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT.sampleMimeType),
+            /* requiresSecureDecoder= */ false,
+            /* requiresTunnelingDecoder= */ false);
+    Composition composition =
+        createComposition(
+            /* presentation= */ null,
+            clippedVideo(
+                MP4_ASSET_1080P_5_SECOND_HLG10,
+                NO_EFFECT,
+                /* endPositionMs= */ C.MILLIS_PER_SECOND / 4));
+
+    boolean atLeastOneDecoderSucceeds = false;
+    for (MediaCodecInfo mediaCodecInfo : mediaCodecInfoList) {
+      @Nullable
+      ExportTestResult result =
+          tryToExportCompositionWithDecoder(testId, context, mediaCodecInfo, composition);
+      if (result == null) {
+        continue;
+      }
+      atLeastOneDecoderSucceeds = true;
+
+      assertThat(checkNotNull(result).filePath).isNotNull();
+      assertFirstFrameMatchesExpectedPsnrAndSave(
+          context, testId, checkNotNull(result.filePath), PSNR_THRESHOLD_HD);
+    }
+    assertThat(atLeastOneDecoderSucceeds).isTrue();
+  }
+
+  @Test
+  public void export720x1280Av1Hdr10_withAllAvailableDecoders_doesNotStretchOutputOnAny()
+      throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_AV1_2_SECOND_HDR10_FORMAT,
+        /* outputFormat= */ MP4_ASSET_AV1_2_SECOND_HDR10_FORMAT);
+    List<MediaCodecInfo> mediaCodecInfoList =
+        MediaCodecSelector.DEFAULT.getDecoderInfos(
+            checkNotNull(MP4_ASSET_AV1_2_SECOND_HDR10_FORMAT.sampleMimeType),
+            /* requiresSecureDecoder= */ false,
+            /* requiresTunnelingDecoder= */ false);
+    Composition composition =
+        createComposition(
+            /* presentation= */ null,
+            clippedVideo(MP4_ASSET_AV1_2_SECOND_HDR10, NO_EFFECT, C.MILLIS_PER_SECOND / 4));
+
+    boolean atLeastOneDecoderSucceeds = false;
+    for (MediaCodecInfo mediaCodecInfo : mediaCodecInfoList) {
+      @Nullable
+      ExportTestResult result =
+          tryToExportCompositionWithDecoder(testId, context, mediaCodecInfo, composition);
+      if (result == null) {
+        continue;
+      }
+      atLeastOneDecoderSucceeds = true;
+
+      assertThat(checkNotNull(result).filePath).isNotNull();
+      assertFirstFrameMatchesExpectedPsnrAndSave(
+          context, testId, checkNotNull(result.filePath), PSNR_THRESHOLD_HD);
+    }
+    assertThat(atLeastOneDecoderSucceeds).isTrue();
   }
 }

@@ -137,6 +137,16 @@ public final class AndroidTestUtil {
           .setFrameRate(30.0f)
           .build();
 
+  public static final String MP4_ASSET_CHECKERBOARD_VIDEO_URI_STRING =
+      "asset:///media/mp4/checkerboard_854x356_avc_baseline.mp4";
+  public static final Format MP4_ASSET_CHECKERBOARD_VIDEO_FORMAT =
+      new Format.Builder()
+          .setSampleMimeType(VIDEO_H264)
+          .setWidth(854)
+          .setHeight(356)
+          .setFrameRate(25.0f)
+          .build();
+
   public static final String MP4_ASSET_WITH_INCREASING_TIMESTAMPS_URI_STRING =
       "asset:///media/mp4/sample_with_increasing_timestamps.mp4";
   public static final Format MP4_ASSET_WITH_INCREASING_TIMESTAMPS_FORMAT =
@@ -246,8 +256,8 @@ public final class AndroidTestUtil {
   public static final Format MP4_ASSET_AV1_2_SECOND_HDR10_FORMAT =
       new Format.Builder()
           .setSampleMimeType(VIDEO_AV1)
-          .setWidth(1920)
-          .setHeight(1080)
+          .setWidth(720)
+          .setHeight(1280)
           .setFrameRate(59.94f)
           .setColorInfo(
               new ColorInfo.Builder()

@@ -20,14 +20,20 @@ import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIX
 import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.maybeSaveTestBitmap;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
+import static androidx.media3.test.utils.TestUtil.assertBitmapsAreSimilar;
+import static androidx.media3.transformer.AndroidTestUtil.extractBitmapsFromVideo;
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import android.content.Context;
 import android.graphics.Bitmap;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Util;
+import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.Presentation;
+import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.List;
@@ -35,9 +41,19 @@ import java.util.List;
 /** Utility class for checking testing {@link EditedMediaItemSequence} instances. */
 public final class SequenceEffectTestUtil {
   public static final ImmutableList<Effect> NO_EFFECT = ImmutableList.of();
+  public static final long SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS = 50;
+
+  /**
+   * Luma PSNR values between 30 and 50 are considered good for lossy compression (See <a
+   * href="https://en.wikipedia.org/wiki/Peak_signal-to-noise_ratio#Quality_estimation_with_PSNR">Quality
+   * estimation with PSNR</a> ). Other than that, the values in this files are pretty arbitrary -- 1
+   * more and tests start failing on some devices.
+   */
+  public static final float PSNR_THRESHOLD = 35f;
+
+  public static final float PSNR_THRESHOLD_HD = 41f;
   private static final String PNG_ASSET_BASE_PATH =
       "test-generated-goldens/transformer_sequence_effect_test";
-  public static final long SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS = 50;
 
   private SequenceEffectTestUtil() {}
 
@@ -119,5 +135,107 @@ public final class SequenceEffectTestUtil {
           .that(averagePixelAbsoluteDifference)
           .isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_LUMA);
     }
+  }
+
+  /**
+   * Asserts that the first frame extracted from the video in filePath matches output in {@link
+   * #PNG_ASSET_BASE_PATH}/{@code testId}_0.png.
+   *
+   * <p>Also saves the first frame as a bitmap, in case they differ from expected.
+   */
+  public static void assertFirstFrameMatchesExpectedPsnrAndSave(
+      Context context, String testId, String filePath, float psnrThreshold)
+      throws IOException, InterruptedException {
+    Bitmap firstEncodedFrame = extractBitmapsFromVideo(context, filePath).get(0);
+    assertBitmapsMatchExpectedPsnrAndSave(
+        ImmutableList.of(firstEncodedFrame), testId, psnrThreshold);
+  }
+
+  private static void assertBitmapsMatchExpectedPsnrAndSave(
+      List<Bitmap> actualBitmaps, String testId, float psnrThreshold) throws IOException {
+    for (int i = 0; i < actualBitmaps.size(); i++) {
+      maybeSaveTestBitmap(
+          testId, /* bitmapLabel= */ String.valueOf(i), actualBitmaps.get(i), /* path= */ null);
+    }
+
+    for (int i = 0; i < actualBitmaps.size(); i++) {
+      String subTestId = testId + "_" + i;
+      String expectedPath = Util.formatInvariant("%s/%s.png", PNG_ASSET_BASE_PATH, subTestId);
+      Bitmap expectedBitmap = readBitmap(expectedPath);
+
+      assertBitmapsAreSimilar(expectedBitmap, actualBitmaps.get(i), psnrThreshold);
+    }
+  }
+
+  /**
+   * Returns whether the MediaCodecInfo decoder is known to produce incorrect colours on this
+   * device.
+   *
+   * <p>Washed out colours are probably caused by incorrect color space assumptions by MediaCodec.
+   */
+  public static boolean decoderProducesWashedOutColours(MediaCodecInfo mediaCodecInfo) {
+    return mediaCodecInfo.name.equals("OMX.google.h264.decoder")
+        && (Util.MODEL.equals("ANE-LX1")
+            || Util.MODEL.equals("MHA-L29")
+            || Util.MODEL.equals("COR-L29"));
+  }
+
+  /**
+   * Tries to export the {@link Composition} with a high quality {@link Transformer} created via
+   * {@link #createHqTransformer} with the requested {@code decoderMediaCodecInfo}.
+   *
+   * @return The {@link ExportTestResult} when successful, or {@code null} if decoding fails.
+   * @throws Exception The cause of the export not completing.
+   */
+  @Nullable
+  public static ExportTestResult tryToExportCompositionWithDecoder(
+      String testId, Context context, MediaCodecInfo decoderMediaCodecInfo, Composition composition)
+      throws Exception {
+    try {
+      return new TransformerAndroidTestRunner.Builder(
+              context, createHqTransformer(context, decoderMediaCodecInfo))
+          .build()
+          .run(testId, composition);
+    } catch (ExportException exportException) {
+      if (exportException.errorCode == ExportException.ERROR_CODE_DECODING_FAILED
+          || exportException.errorCode == ExportException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED
+          || exportException.errorCode == ExportException.ERROR_CODE_DECODER_INIT_FAILED) {
+        return null;
+      }
+      throw exportException;
+    }
+  }
+
+  /**
+   * Creates a high quality {@link Transformer} instance.
+   *
+   * <p>The {@link Transformer} is configured to select a specific decoder, use experimental
+   * high-quality {@link DefaultVideoFrameProcessor} configuration, and a large value for {@link
+   * VideoEncoderSettings#bitrate}.
+   */
+  public static Transformer createHqTransformer(
+      Context context, MediaCodecInfo decoderMediaCodecInfo) {
+    Codec.DecoderFactory decoderFactory =
+        new DefaultDecoderFactory.Builder(context)
+            .setMediaCodecSelector(
+                (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) ->
+                    ImmutableList.of(decoderMediaCodecInfo))
+            .build();
+    AssetLoader.Factory assetLoaderFactory =
+        new DefaultAssetLoaderFactory(context, decoderFactory, Clock.DEFAULT);
+    DefaultVideoFrameProcessor.Factory videoFrameProcessorFactory =
+        new DefaultVideoFrameProcessor.Factory.Builder()
+            .setExperimentalAdjustSurfaceTextureTransformationMatrix(true)
+            .build();
+    Codec.EncoderFactory encoderFactory =
+        new DefaultEncoderFactory.Builder(context)
+            .setRequestedVideoEncoderSettings(
+                new VideoEncoderSettings.Builder().setBitrate(30_000_000).build())
+            .build();
+    return new Transformer.Builder(context)
+        .setAssetLoaderFactory(assetLoaderFactory)
+        .setVideoFrameProcessorFactory(videoFrameProcessorFactory)
+        .setEncoderFactory(new AndroidTestUtil.ForceEncodeEncoderFactory(encoderFactory))
+        .build();
   }
 }

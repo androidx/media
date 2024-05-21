@@ -75,12 +75,14 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
     private Listener listener;
     private boolean enableDecoderFallback;
     private @C.Priority int codecPriority;
+    private MediaCodecSelector mediaCodecSelector;
 
     /** Creates a new {@link Builder}. */
     public Builder(Context context) {
       this.context = context.getApplicationContext();
       listener = (codecName, codecInitializationExceptions) -> {};
       codecPriority = C.PRIORITY_PROCESSING_FOREGROUND;
+      mediaCodecSelector = MediaCodecSelector.DEFAULT;
     }
 
     /** Sets the {@link Listener}. */
@@ -128,6 +130,17 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
       return this;
     }
 
+    /**
+     * Sets the {@link MediaCodecSelector} used when selecting a decoder.
+     *
+     * <p>The default value is {@link MediaCodecSelector#DEFAULT}
+     */
+    @CanIgnoreReturnValue
+    public Builder setMediaCodecSelector(MediaCodecSelector mediaCodecSelector) {
+      this.mediaCodecSelector = mediaCodecSelector;
+      return this;
+    }
+
     /** Creates an instance of {@link DefaultDecoderFactory}, using defaults if values are unset. */
     public DefaultDecoderFactory build() {
       return new DefaultDecoderFactory(this);
@@ -138,6 +151,7 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
   private final boolean enableDecoderFallback;
   private final Listener listener;
   private final @C.Priority int codecPriority;
+  private final MediaCodecSelector mediaCodecSelector;
 
   /**
    * @deprecated Use {@link Builder} instead.
@@ -169,6 +183,7 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
     this.enableDecoderFallback = builder.enableDecoderFallback;
     this.listener = builder.listener;
     this.codecPriority = builder.codecPriority;
+    this.mediaCodecSelector = builder.mediaCodecSelector;
   }
 
   @Override
@@ -241,7 +256,7 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
       decoderInfos =
           MediaCodecUtil.getDecoderInfosSortedByFormatSupport(
               MediaCodecUtil.getDecoderInfosSoftMatch(
-                  MediaCodecSelector.DEFAULT,
+                  mediaCodecSelector,
                   format,
                   /* requiresSecureDecoder= */ false,
                   /* requiresTunnelingDecoder= */ false),

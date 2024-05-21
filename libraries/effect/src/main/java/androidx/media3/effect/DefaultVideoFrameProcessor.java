@@ -137,6 +137,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       private GlTextureProducer.@MonotonicNonNull Listener textureOutputListener;
       private int textureOutputCapacity;
       private boolean requireRegisteringAllInputFrames;
+      private boolean experimentalAdjustSurfaceTextureTransformationMatrix;
 
       /** Creates an instance. */
       public Builder() {
@@ -151,6 +152,8 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         textureOutputListener = factory.textureOutputListener;
         textureOutputCapacity = factory.textureOutputCapacity;
         requireRegisteringAllInputFrames = !factory.repeatLastRegisteredFrame;
+        experimentalAdjustSurfaceTextureTransformationMatrix =
+            factory.experimentalAdjustSurfaceTextureTransformationMatrix;
       }
 
       /**
@@ -253,6 +256,21 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         return this;
       }
 
+      /**
+       * Sets whether the {@link SurfaceTexture#getTransformMatrix(float[])} is adjusted to remove
+       * the scale that cuts off a 1- or 2-texel border around the edge of a crop.
+       *
+       * <p>When set, programs sampling GL_TEXTURE_EXTERNAL_OES from {@link SurfaceTexture} must not
+       * attempt to access data in any cropped region, including via GL_LINEAR resampling filter.
+       */
+      @CanIgnoreReturnValue
+      public Builder setExperimentalAdjustSurfaceTextureTransformationMatrix(
+          boolean experimentalAdjustSurfaceTextureTransformationMatrix) {
+        this.experimentalAdjustSurfaceTextureTransformationMatrix =
+            experimentalAdjustSurfaceTextureTransformationMatrix;
+        return this;
+      }
+
       /** Builds an {@link DefaultVideoFrameProcessor.Factory} instance. */
       public DefaultVideoFrameProcessor.Factory build() {
         return new DefaultVideoFrameProcessor.Factory(
@@ -261,7 +279,8 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
             glObjectsProvider == null ? new DefaultGlObjectsProvider() : glObjectsProvider,
             executorService,
             textureOutputListener,
-            textureOutputCapacity);
+            textureOutputCapacity,
+            experimentalAdjustSurfaceTextureTransformationMatrix);
       }
     }
 
@@ -271,6 +290,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     @Nullable private final ExecutorService executorService;
     @Nullable private final GlTextureProducer.Listener textureOutputListener;
     private final int textureOutputCapacity;
+    private final boolean experimentalAdjustSurfaceTextureTransformationMatrix;
 
     private Factory(
         @WorkingColorSpace int sdrWorkingColorSpace,
@@ -278,13 +298,16 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         GlObjectsProvider glObjectsProvider,
         @Nullable ExecutorService executorService,
         @Nullable GlTextureProducer.Listener textureOutputListener,
-        int textureOutputCapacity) {
+        int textureOutputCapacity,
+        boolean experimentalAdjustSurfaceTextureTransformationMatrix) {
       this.sdrWorkingColorSpace = sdrWorkingColorSpace;
       this.repeatLastRegisteredFrame = repeatLastRegisteredFrame;
       this.glObjectsProvider = glObjectsProvider;
       this.executorService = executorService;
       this.textureOutputListener = textureOutputListener;
       this.textureOutputCapacity = textureOutputCapacity;
+      this.experimentalAdjustSurfaceTextureTransformationMatrix =
+          experimentalAdjustSurfaceTextureTransformationMatrix;
     }
 
     public Builder buildUpon() {
@@ -347,7 +370,8 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
                       glObjectsProvider,
                       textureOutputListener,
                       textureOutputCapacity,
-                      repeatLastRegisteredFrame));
+                      repeatLastRegisteredFrame,
+                      experimentalAdjustSurfaceTextureTransformationMatrix));
 
       try {
         return defaultVideoFrameProcessorFuture.get();
@@ -715,7 +739,8 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       GlObjectsProvider glObjectsProvider,
       @Nullable GlTextureProducer.Listener textureOutputListener,
       int textureOutputCapacity,
-      boolean repeatLastRegisteredFrame)
+      boolean repeatLastRegisteredFrame,
+      boolean experimentalAdjustSurfaceTextureTransformationMatrix)
       throws GlUtil.GlException, VideoFrameProcessingException {
     EGLDisplay eglDisplay = GlUtil.getDefaultEglDisplay();
     int[] configAttributes =
@@ -746,7 +771,8 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
             /* errorListenerExecutor= */ videoFrameProcessorListenerExecutor,
             /* samplingShaderProgramErrorListener= */ listener::onError,
             sdrWorkingColorSpace,
-            repeatLastRegisteredFrame);
+            repeatLastRegisteredFrame,
+            experimentalAdjustSurfaceTextureTransformationMatrix);
 
     FinalShaderProgramWrapper finalShaderProgramWrapper =
         new FinalShaderProgramWrapper(

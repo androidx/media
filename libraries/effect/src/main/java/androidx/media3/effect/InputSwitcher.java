@@ -53,6 +53,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
   private final Executor errorListenerExecutor;
   private final SparseArray<Input> inputs;
   private final @WorkingColorSpace int sdrWorkingColorSpace;
+  private final boolean experimentalAdjustSurfaceTextureTransformationMatrix;
 
   private @MonotonicNonNull GlShaderProgram downstreamShaderProgram;
   private @MonotonicNonNull TextureManager activeTextureManager;
@@ -65,7 +66,8 @@ import org.checkerframework.checker.nullness.qual.Nullable;
       Executor errorListenerExecutor,
       GlShaderProgram.ErrorListener samplingShaderProgramErrorListener,
       @WorkingColorSpace int sdrWorkingColorSpace,
-      boolean repeatLastRegisteredFrame)
+      boolean repeatLastRegisteredFrame,
+      boolean experimentalAdjustSurfaceTextureTransformationMatrix)
       throws VideoFrameProcessingException {
     this.context = context;
     this.outputColorInfo = outputColorInfo;
@@ -75,13 +77,18 @@ import org.checkerframework.checker.nullness.qual.Nullable;
     this.samplingShaderProgramErrorListener = samplingShaderProgramErrorListener;
     this.inputs = new SparseArray<>();
     this.sdrWorkingColorSpace = sdrWorkingColorSpace;
+    this.experimentalAdjustSurfaceTextureTransformationMatrix =
+        experimentalAdjustSurfaceTextureTransformationMatrix;
 
     // TODO(b/274109008): Investigate lazy instantiating the texture managers.
     inputs.put(
         INPUT_TYPE_SURFACE,
         new Input(
             new ExternalTextureManager(
-                glObjectsProvider, videoFrameProcessingTaskExecutor, repeatLastRegisteredFrame)));
+                glObjectsProvider,
+                videoFrameProcessingTaskExecutor,
+                repeatLastRegisteredFrame,
+                experimentalAdjustSurfaceTextureTransformationMatrix)));
     inputs.put(
         INPUT_TYPE_BITMAP,
         new Input(new BitmapTextureManager(glObjectsProvider, videoFrameProcessingTaskExecutor)));
@@ -99,7 +106,11 @@ import org.checkerframework.checker.nullness.qual.Nullable;
       case INPUT_TYPE_SURFACE:
         samplingShaderProgram =
             DefaultShaderProgram.createWithExternalSampler(
-                context, inputColorInfo, outputColorInfo, sdrWorkingColorSpace);
+                context,
+                inputColorInfo,
+                outputColorInfo,
+                sdrWorkingColorSpace,
+                experimentalAdjustSurfaceTextureTransformationMatrix);
         break;
       case INPUT_TYPE_BITMAP:
       case INPUT_TYPE_TEXTURE_ID:

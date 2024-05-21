@@ -24,9 +24,12 @@ import static androidx.media3.effect.DebugTraceUtil.COMPONENT_VFP;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_QUEUE_FRAME;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_SIGNAL_EOS;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_SURFACE_TEXTURE_INPUT;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_SURFACE_TEXTURE_TRANSFORM_FIX;
+import static java.lang.Math.abs;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.graphics.SurfaceTexture;
+import android.opengl.GLES31;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -54,6 +57,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private static final String TAG = "ExtTexMgr";
   private static final String TIMER_THREAD_NAME = "ExtTexMgr:Timer";
+  private static final int[] TRANSFORMATION_MATRIX_EXPECTED_ZERO_INDICES = {
+    2, 3, 6, 7, 8, 9, 11, 14
+  };
+  // In the worst case, we should be able to differentiate between numbers of the form
+  // A / B and (A + 1) / (B + 1) where A and B are around video resolution.
+  // For 8K, width = 7680.
+  // abs(7679 / 7680 - 7680 / 7681) > 1e-8. We pick EPSILON = 1e-9.
+  private static final float EPSILON = 1e-9f;
 
   /**
    * The time out in milliseconds after calling signalEndOfCurrentInputStream after which the input
@@ -79,6 +90,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final ScheduledExecutorService scheduledExecutorService;
   private final AtomicInteger externalShaderProgramInputCapacity;
   private final boolean repeatLastRegisteredFrame;
+  private final boolean experimentalAdjustSurfaceTextureTransformationMatrix;
 
   private int availableFrameCount;
   private boolean currentInputStreamEnded;
@@ -104,6 +116,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    *     can call {@link #registerInputFrame(FrameInfo)} only once. Else, every input frame needs to
    *     be {@linkplain #registerInputFrame(FrameInfo) registered} before they are made available on
    *     the {@linkplain #getInputSurface() input Surface}.
+   * @param experimentalAdjustSurfaceTextureTransformationMatrix if {@code true}, the {@link
+   *     SurfaceTexture#getTransformMatrix(float[])} will be adjusted to remove the scale that cuts
+   *     off a 1- or 2-texel border around the edge of a crop.
    * @throws VideoFrameProcessingException If a problem occurs while creating the external texture.
    */
   // The onFrameAvailableListener will not be invoked until the constructor returns.
@@ -111,11 +126,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public ExternalTextureManager(
       GlObjectsProvider glObjectsProvider,
       VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor,
-      boolean repeatLastRegisteredFrame)
+      boolean repeatLastRegisteredFrame,
+      boolean experimentalAdjustSurfaceTextureTransformationMatrix)
       throws VideoFrameProcessingException {
     super(videoFrameProcessingTaskExecutor);
     this.glObjectsProvider = glObjectsProvider;
     this.repeatLastRegisteredFrame = repeatLastRegisteredFrame;
+    this.experimentalAdjustSurfaceTextureTransformationMatrix =
+        experimentalAdjustSurfaceTextureTransformationMatrix;
     try {
       externalTexId = GlUtil.createExternalTexture();
     } catch (GlUtil.GlException e) {
@@ -362,11 +380,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     externalShaderProgramInputCapacity.decrementAndGet();
     surfaceTexture.getTransformMatrix(textureTransformMatrix);
-    checkNotNull(externalShaderProgram).setTextureTransformMatrix(textureTransformMatrix);
     long frameTimeNs = surfaceTexture.getTimestamp();
     long offsetToAddUs = currentFrame.offsetToAddUs;
     // Correct presentationTimeUs so that GlShaderPrograms don't see the stream offset.
     long presentationTimeUs = (frameTimeNs / 1000) + offsetToAddUs;
+    if (experimentalAdjustSurfaceTextureTransformationMatrix) {
+      removeSurfaceTextureScaleFromTransformMatrix(
+          textureTransformMatrix, presentationTimeUs, currentFrame.width, currentFrame.height);
+    }
+
+    checkNotNull(externalShaderProgram).setTextureTransformMatrix(textureTransformMatrix);
     checkNotNull(externalShaderProgram)
         .queueInputFrame(
             glObjectsProvider,
@@ -382,5 +405,155 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
     DebugTraceUtil.logEvent(COMPONENT_VFP, EVENT_QUEUE_FRAME, presentationTimeUs);
     // If the queued frame is the last frame, end of stream will be signaled onInputFrameProcessed.
+  }
+
+  /**
+   * Adjusts textureTransformMatrix inplace to remove any scaling applied by {@link
+   * SurfaceTexture#getTransformMatrix(float[])}. This method preserves cropping.
+   *
+   * <p>This method requires that textureTransformMatrix is a 4x4 column-major matrix that applies a
+   * linear scale and transform to OpenGL coordinates of the form (s, t, 0, 1).
+   *
+   * @param textureTransformMatrix The matrix to be modified inplace.
+   * @param presentationTimeUs The presentation time of the frame being processed.
+   * @param visibleWidth The expected visible width in pixels of the texture.
+   * @param visibleHeight The expected visible height in pixels of the texture.
+   */
+  private static void removeSurfaceTextureScaleFromTransformMatrix(
+      float[] textureTransformMatrix,
+      long presentationTimeUs,
+      int visibleWidth,
+      int visibleHeight) {
+    boolean isMatrixUnexpected = false;
+    isMatrixUnexpected |= (textureTransformMatrix.length != 16);
+    for (int i : TRANSFORMATION_MATRIX_EXPECTED_ZERO_INDICES) {
+      isMatrixUnexpected |= (abs(textureTransformMatrix[i]) > EPSILON);
+    }
+    isMatrixUnexpected |= (abs(textureTransformMatrix[10] - 1f) > EPSILON);
+    isMatrixUnexpected |= (abs(textureTransformMatrix[15] - 1f) > EPSILON);
+    int widthScaleIndex = C.INDEX_UNSET;
+    int widthTranslationIndex = C.INDEX_UNSET;
+    int heightScaleIndex = C.INDEX_UNSET;
+    int heightTranslationIndex = C.INDEX_UNSET;
+
+    if (abs(textureTransformMatrix[0]) > EPSILON && abs(textureTransformMatrix[5]) > EPSILON) {
+      // 0 or 180 degree rotation. T maps width to width.
+      widthScaleIndex = 0;
+      widthTranslationIndex = 12;
+      heightScaleIndex = 5;
+      heightTranslationIndex = 13;
+      isMatrixUnexpected |= (abs(textureTransformMatrix[1]) > EPSILON);
+      isMatrixUnexpected |= (abs(textureTransformMatrix[4]) > EPSILON);
+    } else if (abs(textureTransformMatrix[1]) > EPSILON
+        && abs(textureTransformMatrix[4]) > EPSILON) {
+      // 90 or 270 rotation. T swaps width and height.
+      widthScaleIndex = 1;
+      widthTranslationIndex = 13;
+      heightScaleIndex = 4;
+      heightTranslationIndex = 12;
+      isMatrixUnexpected |= (abs(textureTransformMatrix[0]) > EPSILON);
+      isMatrixUnexpected |= (abs(textureTransformMatrix[5]) > EPSILON);
+    } else {
+      isMatrixUnexpected = true;
+    }
+    if (isMatrixUnexpected) {
+      DebugTraceUtil.logEvent(
+          COMPONENT_EXTERNAL_TEXTURE_MANAGER,
+          EVENT_SURFACE_TEXTURE_TRANSFORM_FIX,
+          presentationTimeUs,
+          /* extraFormat= */ "Unable to apply SurfaceTexture fix");
+      return;
+    }
+    float widthScale = textureTransformMatrix[widthScaleIndex];
+    float widthTranslation = textureTransformMatrix[widthTranslationIndex];
+    if (abs(widthScale) + EPSILON < 1f) {
+      // Applying a scale to the width means that some region of the texture must be cropped.
+      // Try to guess what the scale would be if SurfaceTexture didn't trim a few more pixels, in
+      // addition to the required crop.
+      float adjustedWidthScale =
+          Math.copySign(
+              guessScaleWithoutSurfaceTextureTrim(abs(widthScale), visibleWidth), widthScale);
+      float adjustedWidthTranslation = 0.5f * (widthScale - adjustedWidthScale) + widthTranslation;
+      DebugTraceUtil.logEvent(
+          COMPONENT_EXTERNAL_TEXTURE_MANAGER,
+          EVENT_SURFACE_TEXTURE_TRANSFORM_FIX,
+          presentationTimeUs,
+          /* extraFormat= */ "Width scale adjusted.");
+      textureTransformMatrix[widthScaleIndex] = adjustedWidthScale;
+      // Update translation to preserve midpoint. T(0.5, 0, 0, 1) remains fixed.
+      textureTransformMatrix[widthTranslationIndex] = adjustedWidthTranslation;
+    }
+
+    float heightScale = textureTransformMatrix[heightScaleIndex];
+    float heightTranslation = textureTransformMatrix[heightTranslationIndex];
+    if (abs(heightScale) + EPSILON < 1f) {
+      // Applying a scale to the height means that some region of the texture must be cropped.
+      // Try to guess what the scale would be if SurfaceTexture didn't didn't trim a few more
+      // pixels, in addition to the required crop.
+      float adjustedHeightScale =
+          Math.copySign(
+              guessScaleWithoutSurfaceTextureTrim(abs(heightScale), visibleHeight), heightScale);
+      float adjustedHeightTranslation =
+          0.5f * (heightScale - adjustedHeightScale) + heightTranslation;
+      DebugTraceUtil.logEvent(
+          COMPONENT_EXTERNAL_TEXTURE_MANAGER,
+          EVENT_SURFACE_TEXTURE_TRANSFORM_FIX,
+          presentationTimeUs,
+          /* extraFormat= */ "Height scale adjusted.");
+      textureTransformMatrix[heightScaleIndex] = adjustedHeightScale;
+      // Update translation to preserve midpoint. T(0, 0.5, 0, 1) remains fixed.
+      textureTransformMatrix[heightTranslationIndex] = adjustedHeightTranslation;
+    }
+  }
+
+  /**
+   * Guess what the 1-D texture coordinate scale would be if SurfaceTexture was cropping without
+   * trimming a few extra pixels and stretching the image.
+   *
+   * <p>This method needs to guess:
+   *
+   * <ul>
+   *   <li>bufferSize = texture buffer size in texels. This should be the parameter value {@code
+   *       visibleLength}, rounded up to a near multiple of 2.
+   *       <p>Maybe it's rounded up to a multiple of 16 because of H.264 macroblock sizes. Maybe
+   *       it's rounded up to 128 because of SIMD instructions.
+   *       <p>bufferSize cannot be read reliably via {@link GLES31#glGetTexLevelParameteriv(int,
+   *       int, int, int[], int)} across devices.
+   *       <p>bufferSize cannot be read reliably from the decoder's {@link
+   *       android.media.MediaFormat} across decoder implementations.
+   *   <li>trim = number of pixels trimmed by {@link SurfaceTexture} in addition to the cropped
+   *       region required for buffer SIMD alignment. As of the time of writing, this will be 0, 1
+   *       or 2.
+   * </ul>
+   *
+   * <p>This method will use the guessed bufferSize and trim values that most closely approximate
+   * surfaceTextureScale.
+   *
+   * @param surfaceTextureScale the absolute value of the scaling factor from {@link
+   *     SurfaceTexture#getTransformMatrix(float[])}. It has the form {@code (visibleLength - trim)
+   *     / bufferSize}.
+   * @param visibleLength Expected size in pixels of the visible range.
+   * @return Scale without trim, of the form visibleLength / bufferSize.
+   */
+  private static float guessScaleWithoutSurfaceTextureTrim(
+      float surfaceTextureScale, int visibleLength) {
+    float bestGuess = 1;
+    float scaleWithoutTrim = 1;
+
+    for (int align = 2; align <= 256; align *= 2) {
+      int candidateBufferSize = ((visibleLength + align - 1) / align) * align;
+      for (int trimmedPixels = 0; trimmedPixels <= 2; trimmedPixels++) {
+        float guess = ((float) visibleLength - trimmedPixels) / candidateBufferSize;
+        if (abs(guess - surfaceTextureScale) < abs(bestGuess - surfaceTextureScale)) {
+          bestGuess = guess;
+          scaleWithoutTrim = (float) visibleLength / candidateBufferSize;
+        }
+      }
+    }
+    if (abs(bestGuess - surfaceTextureScale) > EPSILON) {
+      // Best guess is too far off. Accept that we'll scale.
+      return surfaceTextureScale;
+    }
+    return scaleWithoutTrim;
   }
 }

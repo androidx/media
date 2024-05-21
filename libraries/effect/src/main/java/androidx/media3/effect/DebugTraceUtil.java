@@ -68,6 +68,7 @@ public final class DebugTraceUtil {
     EVENT_OUTPUT_ENDED,
     EVENT_REGISTER_NEW_INPUT_STREAM,
     EVENT_SURFACE_TEXTURE_INPUT,
+    EVENT_SURFACE_TEXTURE_TRANSFORM_FIX,
     EVENT_QUEUE_FRAME,
     EVENT_QUEUE_BITMAP,
     EVENT_QUEUE_TEXTURE,
@@ -95,6 +96,7 @@ public final class DebugTraceUtil {
   public static final String EVENT_OUTPUT_ENDED = "OutputEnded";
   public static final String EVENT_REGISTER_NEW_INPUT_STREAM = "RegisterNewInputStream";
   public static final String EVENT_SURFACE_TEXTURE_INPUT = "SurfaceTextureInput";
+  public static final String EVENT_SURFACE_TEXTURE_TRANSFORM_FIX = "SurfaceTextureTransformFix";
   public static final String EVENT_QUEUE_FRAME = "QueueFrame";
   public static final String EVENT_QUEUE_BITMAP = "QueueBitmap";
   public static final String EVENT_QUEUE_TEXTURE = "QueueTexture";
@@ -196,7 +198,9 @@ public final class DebugTraceUtil {
                   EVENT_OUTPUT_TEXTURE_RENDERED,
                   EVENT_RECEIVE_END_OF_ALL_INPUT,
                   EVENT_SIGNAL_ENDED))
-          .put(COMPONENT_EXTERNAL_TEXTURE_MANAGER, ImmutableList.of(EVENT_SIGNAL_EOS))
+          .put(
+              COMPONENT_EXTERNAL_TEXTURE_MANAGER,
+              ImmutableList.of(EVENT_SIGNAL_EOS, EVENT_SURFACE_TEXTURE_TRANSFORM_FIX))
           .put(COMPONENT_BITMAP_TEXTURE_MANAGER, ImmutableList.of(EVENT_SIGNAL_EOS))
           .put(COMPONENT_TEX_ID_TEXTURE_MANAGER, ImmutableList.of(EVENT_SIGNAL_EOS))
           .put(COMPONENT_COMPOSITOR, ImmutableList.of(EVENT_OUTPUT_TEXTURE_RENDERED))

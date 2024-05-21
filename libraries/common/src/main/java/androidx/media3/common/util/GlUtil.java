@@ -632,7 +632,7 @@ public final class GlUtil {
    */
   public static int createExternalTexture() throws GlException {
     int texId = generateTexture();
-    bindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, texId);
+    bindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, texId, GLES20.GL_LINEAR);
     return texId;
   }
 
@@ -687,7 +687,7 @@ public final class GlUtil {
       throws GlException {
     assertValidTextureSize(width, height);
     int texId = generateTexture();
-    bindTexture(GLES20.GL_TEXTURE_2D, texId);
+    bindTexture(GLES20.GL_TEXTURE_2D, texId, GLES20.GL_LINEAR);
     GLES20.glTexImage2D(
         GLES20.GL_TEXTURE_2D,
         /* level= */ 0,
@@ -713,26 +713,29 @@ public final class GlUtil {
   /** Sets the {@code texId} to contain the {@link Bitmap bitmap} data and size. */
   public static void setTexture(int texId, Bitmap bitmap) throws GlException {
     assertValidTextureSize(bitmap.getWidth(), bitmap.getHeight());
-    bindTexture(GLES20.GL_TEXTURE_2D, texId);
+    bindTexture(GLES20.GL_TEXTURE_2D, texId, GLES20.GL_LINEAR);
     GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, /* level= */ 0, bitmap, /* border= */ 0);
     checkGlError();
   }
 
   /**
-   * Binds the texture of the given type with default configuration of GL_LINEAR filtering and
+   * Binds the texture of the given type with the specified MIN and MAG sampling filter and
    * GL_CLAMP_TO_EDGE wrapping.
    *
    * @param textureTarget The target to which the texture is bound, e.g. {@link
    *     GLES20#GL_TEXTURE_2D} for a two-dimensional texture or {@link
    *     GLES11Ext#GL_TEXTURE_EXTERNAL_OES} for an external texture.
    * @param texId The texture identifier.
+   * @param sampleFilter The texture sample filter for both {@link GLES20#GL_TEXTURE_MAG_FILTER} and
+   *     {@link GLES20#GL_TEXTURE_MIN_FILTER}.
    */
-  public static void bindTexture(int textureTarget, int texId) throws GlException {
+  public static void bindTexture(int textureTarget, int texId, int sampleFilter)
+      throws GlException {
     GLES20.glBindTexture(textureTarget, texId);
     checkGlError();
-    GLES20.glTexParameteri(textureTarget, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
+    GLES20.glTexParameteri(textureTarget, GLES20.GL_TEXTURE_MAG_FILTER, sampleFilter);
     checkGlError();
-    GLES20.glTexParameteri(textureTarget, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR);
+    GLES20.glTexParameteri(textureTarget, GLES20.GL_TEXTURE_MIN_FILTER, sampleFilter);
     checkGlError();
     GLES20.glTexParameteri(textureTarget, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
     checkGlError();

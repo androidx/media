@@ -46,6 +46,8 @@ public final class GlProgram {
   private final Map<String, Attribute> attributeByName;
   private final Map<String, Uniform> uniformByName;
 
+  private boolean externalTexturesRequireNearestSampling;
+
   /**
    * Compiles a GL shader program from vertex and fragment shader GLSL GLES20 code.
    *
@@ -219,8 +221,18 @@ public final class GlProgram {
       attribute.bind();
     }
     for (Uniform uniform : uniforms) {
-      uniform.bind();
+      uniform.bind(externalTexturesRequireNearestSampling);
     }
+  }
+
+  /**
+   * Sets whether to sample external textures with GL_NEAREST.
+   *
+   * <p>The default value is {@code false}.
+   */
+  public void setExternalTexturesRequireNearestSampling(
+      boolean externalTexturesRequireNearestSampling) {
+    this.externalTexturesRequireNearestSampling = externalTexturesRequireNearestSampling;
   }
 
   /** Returns the length of the null-terminated C string in {@code cString}. */
@@ -363,7 +375,8 @@ public final class GlProgram {
     }
 
     /**
-     * Configures {@link #bind()} to use the specified {@code texId} for this sampler uniform.
+     * Configures {@link #bind(boolean)} to use the specified {@code texId} for this sampler
+     * uniform.
      *
      * @param texId The GL texture identifier from which to sample.
      * @param texUnitIndex The GL texture unit index.
@@ -373,22 +386,22 @@ public final class GlProgram {
       this.texUnitIndex = texUnitIndex;
     }
 
-    /** Configures {@link #bind()} to use the specified {@code int} {@code value}. */
+    /** Configures {@link #bind(boolean)} to use the specified {@code int} {@code value}. */
     public void setInt(int value) {
       this.intValue[0] = value;
     }
 
-    /** Configures {@link #bind()} to use the specified {@code int[]} {@code value}. */
+    /** Configures {@link #bind(boolean)} to use the specified {@code int[]} {@code value}. */
     public void setInts(int[] value) {
       System.arraycopy(value, /* srcPos= */ 0, this.intValue, /* destPos= */ 0, value.length);
     }
 
-    /** Configures {@link #bind()} to use the specified {@code float} {@code value}. */
+    /** Configures {@link #bind(boolean)} to use the specified {@code float} {@code value}. */
     public void setFloat(float value) {
       this.floatValue[0] = value;
     }
 
-    /** Configures {@link #bind()} to use the specified {@code float[]} {@code value}. */
+    /** Configures {@link #bind(boolean)} to use the specified {@code float[]} {@code value}. */
     public void setFloats(float[] value) {
       System.arraycopy(value, /* srcPos= */ 0, this.floatValue, /* destPos= */ 0, value.length);
     }
@@ -398,8 +411,12 @@ public final class GlProgram {
      * #setFloat(float)} or {@link #setFloats(float[])}.
      *
      * <p>Should be called before each drawing call.
+     *
+     * @param externalTexturesRequireNearestSampling Whether the external texture requires
+     *     GL_NEAREST sampling to avoid sampling from undefined region, which could happen when
+     *     using GL_LINEAR.
      */
-    public void bind() throws GlUtil.GlException {
+    public void bind(boolean externalTexturesRequireNearestSampling) throws GlUtil.GlException {
       switch (type) {
         case GLES20.GL_INT:
           GLES20.glUniform1iv(location, /* count= */ 1, intValue, /* offset= */ 0);
@@ -455,7 +472,10 @@ public final class GlProgram {
               type == GLES20.GL_SAMPLER_2D
                   ? GLES20.GL_TEXTURE_2D
                   : GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
-              texIdValue);
+              texIdValue,
+              type == GLES20.GL_SAMPLER_2D && !externalTexturesRequireNearestSampling
+                  ? GLES20.GL_LINEAR
+                  : GLES20.GL_NEAREST);
           GLES20.glUniform1i(location, texUnitIndex);
           GlUtil.checkGlError();
           break;

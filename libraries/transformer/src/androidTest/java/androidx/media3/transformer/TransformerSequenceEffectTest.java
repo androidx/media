@@ -19,40 +19,59 @@ package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.SDK_INT;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_SURFACE_TEXTURE_TRANSFORM_FIX;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
 import static androidx.media3.transformer.AndroidTestUtil.BT601_ASSET_FORMAT;
 import static androidx.media3.transformer.AndroidTestUtil.BT601_ASSET_URI_STRING;
 import static androidx.media3.transformer.AndroidTestUtil.JPG_ASSET_URI_STRING;
 import static androidx.media3.transformer.AndroidTestUtil.JPG_PORTRAIT_ASSET_URI_STRING;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_AV1_VIDEO_FORMAT;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_AV1_VIDEO_URI_STRING;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_CHECKERBOARD_VIDEO_FORMAT;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_CHECKERBOARD_VIDEO_URI_STRING;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_FORMAT;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_URI_STRING;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_PORTRAIT_ASSET_FORMAT;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_PORTRAIT_ASSET_URI_STRING;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static androidx.media3.transformer.AndroidTestUtil.extractBitmapsFromVideo;
 import static androidx.media3.transformer.SequenceEffectTestUtil.NO_EFFECT;
+import static androidx.media3.transformer.SequenceEffectTestUtil.PSNR_THRESHOLD;
+import static androidx.media3.transformer.SequenceEffectTestUtil.PSNR_THRESHOLD_HD;
 import static androidx.media3.transformer.SequenceEffectTestUtil.SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS;
 import static androidx.media3.transformer.SequenceEffectTestUtil.assertBitmapsMatchExpectedAndSave;
+import static androidx.media3.transformer.SequenceEffectTestUtil.assertFirstFrameMatchesExpectedPsnrAndSave;
 import static androidx.media3.transformer.SequenceEffectTestUtil.clippedVideo;
 import static androidx.media3.transformer.SequenceEffectTestUtil.createComposition;
+import static androidx.media3.transformer.SequenceEffectTestUtil.decoderProducesWashedOutColours;
 import static androidx.media3.transformer.SequenceEffectTestUtil.oneFrameFromImage;
+import static androidx.media3.transformer.SequenceEffectTestUtil.tryToExportCompositionWithDecoder;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeFalse;
 
 import android.content.Context;
+import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.BitmapOverlay;
+import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.OverlayEffect;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.RgbFilter;
 import androidx.media3.effect.ScaleAndRotateTransformation;
+import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
+import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
+import java.util.List;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -78,6 +97,11 @@ public final class TransformerSequenceEffectTest {
   @Before
   public void setUpTestId() {
     testId = testName.getMethodName();
+  }
+
+  @After
+  public void tearDown() {
+    DebugTraceUtil.enableTracing = false;
   }
 
   @Test
@@ -117,6 +141,205 @@ public final class TransformerSequenceEffectTest {
     assertThat(result.filePath).isNotNull();
     assertBitmapsMatchExpectedAndSave(
         extractBitmapsFromVideo(context, checkNotNull(result.filePath)), testId);
+  }
+
+  @Test
+  public void export1080x720_withAllAvailableDecoders_doesNotStretchOutputOnAny() throws Exception {
+    assumeFormatsSupported(
+        context, testId, /* inputFormat= */ MP4_ASSET_FORMAT, /* outputFormat= */ MP4_ASSET_FORMAT);
+    List<MediaCodecInfo> mediaCodecInfoList =
+        MediaCodecSelector.DEFAULT.getDecoderInfos(
+            checkNotNull(MP4_ASSET_FORMAT.sampleMimeType),
+            /* requiresSecureDecoder= */ false,
+            /* requiresTunnelingDecoder= */ false);
+    Composition composition =
+        createComposition(
+            /* presentation= */ null,
+            clippedVideo(
+                MP4_ASSET_URI_STRING, NO_EFFECT, /* endPositionMs= */ C.MILLIS_PER_SECOND / 4));
+
+    boolean atLeastOneDecoderSucceeds = false;
+    for (MediaCodecInfo mediaCodecInfo : mediaCodecInfoList) {
+      if (decoderProducesWashedOutColours(mediaCodecInfo)) {
+        continue;
+      }
+      @Nullable
+      ExportTestResult result =
+          tryToExportCompositionWithDecoder(testId, context, mediaCodecInfo, composition);
+      if (result == null) {
+        continue;
+      }
+      atLeastOneDecoderSucceeds = true;
+
+      assertThat(checkNotNull(result).filePath).isNotNull();
+      assertFirstFrameMatchesExpectedPsnrAndSave(
+          context, testId, checkNotNull(result.filePath), PSNR_THRESHOLD_HD);
+    }
+    assertThat(atLeastOneDecoderSucceeds).isTrue();
+  }
+
+  @Test
+  public void export720x1080_withAllAvailableDecoders_doesNotStretchOutputOnAny() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_PORTRAIT_ASSET_FORMAT,
+        /* outputFormat= */ MP4_PORTRAIT_ASSET_FORMAT);
+    List<MediaCodecInfo> mediaCodecInfoList =
+        MediaCodecSelector.DEFAULT.getDecoderInfos(
+            checkNotNull(MP4_PORTRAIT_ASSET_FORMAT.sampleMimeType),
+            /* requiresSecureDecoder= */ false,
+            /* requiresTunnelingDecoder= */ false);
+    Composition composition =
+        createComposition(
+            /* presentation= */ null,
+            clippedVideo(
+                MP4_PORTRAIT_ASSET_URI_STRING,
+                NO_EFFECT,
+                /* endPositionMs= */ C.MILLIS_PER_SECOND / 4));
+
+    boolean atLeastOneDecoderSucceeds = false;
+    for (MediaCodecInfo mediaCodecInfo : mediaCodecInfoList) {
+      if (decoderProducesWashedOutColours(mediaCodecInfo)) {
+        continue;
+      }
+      @Nullable
+      ExportTestResult result =
+          tryToExportCompositionWithDecoder(testId, context, mediaCodecInfo, composition);
+      if (result == null) {
+        continue;
+      }
+      atLeastOneDecoderSucceeds = true;
+
+      assertThat(checkNotNull(result).filePath).isNotNull();
+      assertFirstFrameMatchesExpectedPsnrAndSave(
+          context, testId, checkNotNull(result.filePath), PSNR_THRESHOLD_HD);
+    }
+    assertThat(atLeastOneDecoderSucceeds).isTrue();
+  }
+
+  @Test
+  public void export640x428_withAllAvailableDecoders_doesNotStretchOutputOnAny() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ BT601_ASSET_FORMAT,
+        /* outputFormat= */ BT601_ASSET_FORMAT);
+    List<MediaCodecInfo> mediaCodecInfoList =
+        MediaCodecSelector.DEFAULT.getDecoderInfos(
+            checkNotNull(BT601_ASSET_FORMAT.sampleMimeType),
+            /* requiresSecureDecoder= */ false,
+            /* requiresTunnelingDecoder= */ false);
+    Composition composition =
+        createComposition(
+            /* presentation= */ null,
+            clippedVideo(
+                BT601_ASSET_URI_STRING, NO_EFFECT, /* endPositionMs= */ C.MILLIS_PER_SECOND / 4));
+
+    boolean atLeastOneDecoderSucceeds = false;
+    for (MediaCodecInfo mediaCodecInfo : mediaCodecInfoList) {
+      if (decoderProducesWashedOutColours(mediaCodecInfo)) {
+        continue;
+      }
+      @Nullable
+      ExportTestResult result =
+          tryToExportCompositionWithDecoder(testId, context, mediaCodecInfo, composition);
+      if (result == null) {
+        continue;
+      }
+      atLeastOneDecoderSucceeds = true;
+
+      assertThat(checkNotNull(result).filePath).isNotNull();
+      assertFirstFrameMatchesExpectedPsnrAndSave(
+          context, testId, checkNotNull(result.filePath), PSNR_THRESHOLD);
+    }
+    assertThat(atLeastOneDecoderSucceeds).isTrue();
+  }
+
+  @Test
+  public void export1080x720Av1_withAllAvailableDecoders_doesNotStretchOutputOnAny()
+      throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_AV1_VIDEO_FORMAT,
+        /* outputFormat= */ MP4_ASSET_AV1_VIDEO_FORMAT);
+    List<MediaCodecInfo> mediaCodecInfoList =
+        MediaCodecSelector.DEFAULT.getDecoderInfos(
+            checkNotNull(MP4_ASSET_AV1_VIDEO_FORMAT.sampleMimeType),
+            /* requiresSecureDecoder= */ false,
+            /* requiresTunnelingDecoder= */ false);
+    Composition composition =
+        createComposition(
+            /* presentation= */ null,
+            clippedVideo(
+                MP4_ASSET_AV1_VIDEO_URI_STRING,
+                NO_EFFECT,
+                /* endPositionMs= */ C.MILLIS_PER_SECOND / 4));
+
+    boolean atLeastOneDecoderSucceeds = false;
+    for (MediaCodecInfo mediaCodecInfo : mediaCodecInfoList) {
+      if (decoderProducesWashedOutColours(mediaCodecInfo)) {
+        continue;
+      }
+      @Nullable
+      ExportTestResult result =
+          tryToExportCompositionWithDecoder(testId, context, mediaCodecInfo, composition);
+      if (result == null) {
+        continue;
+      }
+      atLeastOneDecoderSucceeds = true;
+
+      assertThat(checkNotNull(result).filePath).isNotNull();
+      assertFirstFrameMatchesExpectedPsnrAndSave(
+          context, testId, checkNotNull(result.filePath), PSNR_THRESHOLD_HD);
+    }
+    assertThat(atLeastOneDecoderSucceeds).isTrue();
+  }
+
+  @Test
+  public void export854x356_withAllAvailableDecoders_doesNotStretchOutputOnAny() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_CHECKERBOARD_VIDEO_FORMAT,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT);
+    List<MediaCodecInfo> mediaCodecInfoList =
+        MediaCodecSelector.DEFAULT.getDecoderInfos(
+            checkNotNull(MP4_ASSET_CHECKERBOARD_VIDEO_FORMAT.sampleMimeType),
+            /* requiresSecureDecoder= */ false,
+            /* requiresTunnelingDecoder= */ false);
+    Composition composition =
+        createComposition(
+            Presentation.createForWidthAndHeight(
+                /* width= */ 320, /* height= */ 240, Presentation.LAYOUT_SCALE_TO_FIT),
+            clippedVideo(
+                MP4_ASSET_CHECKERBOARD_VIDEO_URI_STRING,
+                NO_EFFECT,
+                /* endPositionMs= */ C.MILLIS_PER_SECOND / 4));
+    DebugTraceUtil.enableTracing = true;
+
+    boolean atLeastOneDecoderSucceeds = false;
+    for (MediaCodecInfo mediaCodecInfo : mediaCodecInfoList) {
+      if (decoderProducesWashedOutColours(mediaCodecInfo)) {
+        continue;
+      }
+      @Nullable
+      ExportTestResult result =
+          tryToExportCompositionWithDecoder(testId, context, mediaCodecInfo, composition);
+      if (result == null) {
+        continue;
+      }
+      atLeastOneDecoderSucceeds = true;
+
+      assertThat(checkNotNull(result).filePath).isNotNull();
+      assertFirstFrameMatchesExpectedPsnrAndSave(
+          context, testId, checkNotNull(result.filePath), PSNR_THRESHOLD);
+    }
+    assertThat(atLeastOneDecoderSucceeds).isTrue();
+
+    String traceSummary = DebugTraceUtil.generateTraceSummary();
+    assertThat(traceSummary.indexOf(EVENT_SURFACE_TEXTURE_TRANSFORM_FIX)).isNotEqualTo(-1);
   }
 
   @Test
