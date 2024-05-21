@@ -621,6 +621,8 @@ public class DashManifestParser extends DefaultHandler
       xpp.next();
       if (XmlPullParserUtil.isStartTag(xpp, "clearkey:Laurl") && xpp.next() == XmlPullParser.TEXT) {
         licenseServerUrl = xpp.getText();
+      } else if (XmlPullParserUtil.isStartTag(xpp, "dashif:Laurl") && xpp.next() == XmlPullParser.TEXT) {
+        licenseServerUrl = xpp.getText();
       } else if (XmlPullParserUtil.isStartTag(xpp, "ms:laurl")) {
         licenseServerUrl = xpp.getAttributeValue(null, "licenseUrl");
       } else if (data == null
