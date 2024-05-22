@@ -1975,13 +1975,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
     return isBufferedToEnd
         || isAdPendingPreparation
         || loadControl.shouldStartPlayback(
-            playerId,
-            playbackInfo.timeline,
-            playingPeriodHolder.info.id,
-            getTotalBufferedDurationUs(),
-            mediaClock.getPlaybackParameters().speed,
-            isRebuffering,
-            targetLiveOffsetUs);
+            new LoadControl.Parameters(
+                playerId,
+                playbackInfo.timeline,
+                playingPeriodHolder.info.id,
+                playingPeriodHolder.toPeriodTime(rendererPositionUs),
+                getTotalBufferedDurationUs(),
+                mediaClock.getPlaybackParameters().speed,
+                playbackInfo.playWhenReady,
+                isRebuffering,
+                targetLiveOffsetUs));
   }
 
   private boolean isTimelineReady() {
@@ -2577,14 +2580,22 @@ import java.util.concurrent.atomic.AtomicBoolean;
             ? loadingPeriodHolder.toPeriodTime(rendererPositionUs)
             : loadingPeriodHolder.toPeriodTime(rendererPositionUs)
                 - loadingPeriodHolder.info.startPositionUs;
-    boolean shouldContinueLoading =
-        loadControl.shouldContinueLoading(
+    long targetLiveOffsetUs =
+        shouldUseLivePlaybackSpeedControl(playbackInfo.timeline, loadingPeriodHolder.info.id)
+            ? livePlaybackSpeedControl.getTargetLiveOffsetUs()
+            : C.TIME_UNSET;
+    LoadControl.Parameters loadParameters =
+        new LoadControl.Parameters(
             playerId,
             playbackInfo.timeline,
             loadingPeriodHolder.info.id,
             playbackPositionUs,
             bufferedDurationUs,
-            mediaClock.getPlaybackParameters().speed);
+            mediaClock.getPlaybackParameters().speed,
+            playbackInfo.playWhenReady,
+            isRebuffering,
+            targetLiveOffsetUs);
+    boolean shouldContinueLoading = loadControl.shouldContinueLoading(loadParameters);
     MediaPeriodHolder playingPeriodHolder = queue.getPlayingPeriod();
     if (!shouldContinueLoading
         && playingPeriodHolder.prepared
@@ -2594,14 +2605,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
       // and try again in case it's blocked on memory usage of the back buffer.
       playingPeriodHolder.mediaPeriod.discardBuffer(
           playbackInfo.positionUs, /* toKeyframe= */ false);
-      shouldContinueLoading =
-          loadControl.shouldContinueLoading(
-              playerId,
-              playbackInfo.timeline,
-              loadingPeriodHolder.info.id,
-              playbackPositionUs,
-              bufferedDurationUs,
-              mediaClock.getPlaybackParameters().speed);
+      shouldContinueLoading = loadControl.shouldContinueLoading(loadParameters);
     }
     return shouldContinueLoading;
   }
