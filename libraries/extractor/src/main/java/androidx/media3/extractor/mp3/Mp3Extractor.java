@@ -27,6 +27,7 @@ import androidx.media3.common.ParserException;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -45,11 +46,14 @@ import androidx.media3.extractor.metadata.id3.Id3Decoder.FramePredicate;
 import androidx.media3.extractor.metadata.id3.MlltFrame;
 import androidx.media3.extractor.metadata.id3.TextInformationFrame;
 import androidx.media3.extractor.mp3.Seeker.UnseekableSeeker;
+import com.google.common.math.LongMath;
+import com.google.common.primitives.Ints;
 import java.io.EOFException;
 import java.io.IOException;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
+import java.math.RoundingMode;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
@@ -121,6 +125,8 @@ public final class Mp3Extractor implements Extractor {
    * required.
    */
   public static final int FLAG_DISABLE_ID3_METADATA = 1 << 3;
+
+  private static final String TAG = "Mp3Extractor";
 
   /** Predicate that matches ID3 frames containing only required gapless/seeking metadata. */
   private static final FramePredicate REQUIRED_ID3_FRAME_PREDICATE =
@@ -528,22 +534,26 @@ public final class Mp3Extractor implements Extractor {
           gaplessInfoHolder.encoderPadding = xingFrame.encoderPadding;
         }
         long startPosition = input.getPosition();
+        if (input.getLength() != C.LENGTH_UNSET
+            && xingFrame.dataSize != C.LENGTH_UNSET
+            && input.getLength() != startPosition + xingFrame.dataSize) {
+          Log.i(
+              TAG,
+              "Data size mismatch between stream ("
+                  + input.getLength()
+                  + ") and Xing frame ("
+                  + (startPosition + xingFrame.dataSize)
+                  + "), using Xing value.");
+        }
         input.skipFully(synchronizedHeader.frameSize);
         // An Xing frame indicates the file is VBR (so we have to use the seek header for seeking)
         // while an Info header indicates the file is CBR, in which case ConstantBitrateSeeker will
         // give more accurate seeking than the low-resolution seek table in the Info header. We can
         // still use the length from the Info frame if we don't know the stream length directly.
         if (seekHeader == SEEK_HEADER_XING) {
-          seeker = XingSeeker.create(input.getLength(), xingFrame, startPosition);
+          seeker = XingSeeker.create(xingFrame, startPosition);
         } else { // seekHeader == SEEK_HEADER_INFO
-          long streamLength =
-              xingFrame.dataSize != C.LENGTH_UNSET
-                  ? startPosition + xingFrame.dataSize
-                  : C.LENGTH_UNSET;
-          // TODO: b/319235116 - Consider using the duration derived from the Xing/Info frame when
-          // it considers encoding delay and padding.
-          seeker =
-              getConstantBitrateSeeker(input, streamLength, /* allowSeeksIfLengthUnknown= */ false);
+          seeker = getConstantBitrateSeeker(startPosition, xingFrame, input.getLength());
         }
         break;
       case SEEK_HEADER_VBRI:
@@ -563,26 +573,67 @@ public final class Mp3Extractor implements Extractor {
   /** Peeks the next frame and returns a {@link ConstantBitrateSeeker} based on its bitrate. */
   private Seeker getConstantBitrateSeeker(ExtractorInput input, boolean allowSeeksIfLengthUnknown)
       throws IOException {
-    return getConstantBitrateSeeker(input, C.LENGTH_UNSET, allowSeeksIfLengthUnknown);
-  }
-
-  /**
-   * Peeks the next frame and returns a {@link ConstantBitrateSeeker} based on its bitrate. {@code
-   * streamLengthFallback} is used if {@link ExtractorInput#getLength() input.getLength()} is {@link
-   * C#LENGTH_UNSET}. {@code streamLengthFallback} may also be {@link C#LENGTH_UNSET} to indicate
-   * the length is unknown.
-   */
-  private Seeker getConstantBitrateSeeker(
-      ExtractorInput input, long streamLengthFallback, boolean allowSeeksIfLengthUnknown)
-      throws IOException {
     input.peekFully(scratch.getData(), 0, 4);
     scratch.setPosition(0);
     synchronizedHeader.setForHeaderData(scratch.readInt());
     return new ConstantBitrateSeeker(
-        input.getLength() != C.LENGTH_UNSET ? input.getLength() : streamLengthFallback,
-        input.getPosition(),
-        synchronizedHeader,
-        allowSeeksIfLengthUnknown);
+        input.getLength(), input.getPosition(), synchronizedHeader, allowSeeksIfLengthUnknown);
+  }
+
+  /**
+   * Returns a {@link ConstantBitrateSeeker} based on the provided {@link XingFrame Info frame}.
+   *
+   * @param infoFramePosition The position of the Info frame (from the beginning of the stream).
+   * @param infoFrame The parsed Info frame.
+   * @param fallbackStreamLength The complete length of the input stream (only used if {@link
+   *     XingFrame#dataSize} is unset). Can be {@link C#LENGTH_UNSET} if the length is not known.
+   * @return A {@link Seeker} if the {@link XingFrame} contains enough info to seek, or {@code null}
+   *     otherwise.
+   */
+  @Nullable
+  private Seeker getConstantBitrateSeeker(
+      long infoFramePosition, XingFrame infoFrame, long fallbackStreamLength) {
+    long durationUs = infoFrame.computeDurationUs();
+    if (durationUs == C.TIME_UNSET) {
+      return null;
+    }
+    long streamLength;
+    long audioLength;
+    // Prefer the stream length from the Info frame, because it may deliberately
+    // exclude some unplayable/non-MP3 trailer data (e.g. album artwork), see
+    // https://github.com/androidx/media/issues/1376#issuecomment-2117211184.
+    if (infoFrame.dataSize != C.LENGTH_UNSET) {
+      streamLength = infoFramePosition + infoFrame.dataSize;
+      audioLength = infoFrame.dataSize - infoFrame.header.frameSize;
+    } else if (fallbackStreamLength != C.LENGTH_UNSET) {
+      streamLength = fallbackStreamLength;
+      audioLength = fallbackStreamLength - infoFramePosition - infoFrame.header.frameSize;
+    } else {
+      return null;
+    }
+
+    // Derive the bitrate and frame size by averaging over the length of playable audio, to allow
+    // for 'mostly' CBR streams that might have a small number of frames with a different bitrate.
+    // We can assume infoFrame.frameCount is set, because otherwise computeDurationUs() would
+    // have returned C.TIME_UNSET above. See also https://github.com/androidx/media/issues/1376.
+    int averageBitrate =
+        Ints.checkedCast(
+            Util.scaleLargeValue(
+                audioLength,
+                C.BITS_PER_BYTE * C.MICROS_PER_SECOND,
+                durationUs,
+                RoundingMode.HALF_UP));
+    int frameSize =
+        Ints.checkedCast(LongMath.divide(audioLength, infoFrame.frameCount, RoundingMode.HALF_UP));
+    // Set the seeker frame size to the average frame size (even though some constant bitrate
+    // streams have variable frame sizes due to padding), to avoid the need to re-synchronize for
+    // constant frame size streams.
+    return new ConstantBitrateSeeker(
+        streamLength,
+        /* firstFramePosition= */ infoFramePosition + infoFrame.header.frameSize,
+        averageBitrate,
+        frameSize,
+        /* allowSeeksIfLengthUnknown= */ false);
   }
 
   @EnsuresNonNull({"extractorOutput", "realTrackOutput"})

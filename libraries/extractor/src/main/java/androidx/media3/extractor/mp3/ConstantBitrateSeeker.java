@@ -27,6 +27,8 @@ import androidx.media3.extractor.MpegAudioUtil;
   private final int bitrate;
 
   /**
+   * Constructs an instance.
+   *
    * @param inputLength The length of the stream in bytes, or {@link C#LENGTH_UNSET} if unknown.
    * @param firstFramePosition The position of the first frame in the stream.
    * @param mpegAudioHeader The MPEG audio header associated with the first frame.
@@ -39,15 +41,25 @@ import androidx.media3.extractor.MpegAudioUtil;
       MpegAudioUtil.Header mpegAudioHeader,
       boolean allowSeeksIfLengthUnknown) {
     // Set the seeker frame size to the size of the first frame (even though some constant bitrate
-    // streams have variable frame sizes) to avoid the need to re-synchronize for constant frame
-    // size streams.
-    super(
+    // streams have variable frame sizes due to padding) to avoid the need to re-synchronize for
+    // constant frame size streams.
+    this(
         inputLength,
         firstFramePosition,
         mpegAudioHeader.bitrate,
         mpegAudioHeader.frameSize,
         allowSeeksIfLengthUnknown);
-    bitrate = mpegAudioHeader.bitrate;
+  }
+
+  /** See {@link ConstantBitrateSeekMap#ConstantBitrateSeekMap(long, long, int, int, boolean)}. */
+  public ConstantBitrateSeeker(
+      long inputLength,
+      long firstFramePosition,
+      int bitrate,
+      int frameSize,
+      boolean allowSeeksIfLengthUnknown) {
+    super(inputLength, firstFramePosition, bitrate, frameSize, allowSeeksIfLengthUnknown);
+    this.bitrate = bitrate;
   }
 
   @Override

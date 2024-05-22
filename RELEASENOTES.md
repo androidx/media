@@ -58,6 +58,16 @@
         HLS streams([#1150](https://github.com/androidx/media/issues/1150)) and
         H.262 HLS streams
         ([#1126](https://github.com/androidx/media/issues/1126)).
+    *   MP3: Prefer the data size from an `Info` frame over the size reported by
+        the underlying stream (e.g. file size, or HTTP `Content-Length` header).
+        This helps to exclude non-playable trailer data (e.g. album artwork)
+        from constant bitrate seeking calculations, making seeks more accurate
+        ([#1376](https://github.com/androidx/media/issues/1376)).
+    *   MP3: Use the frame count and other data in an `Info` frame (if present)
+        to compute an average bitrate for constant bitrate seeking, rather than
+        extrapolating from the bitrate of the frame after the `Info` frame,
+        which may be artificially small, e.g. `PCUT` frame
+        ([#1376](https://github.com/androidx/media/issues/1376)).
 *   Audio:
     *   Fix DTS:X Profile 2 encoding attributes for passthrough playback
         ([#1299](https://github.com/androidx/media/pull/1299)).

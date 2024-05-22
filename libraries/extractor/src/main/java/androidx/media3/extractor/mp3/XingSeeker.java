@@ -18,7 +18,6 @@ package androidx.media3.extractor.mp3;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Assertions;
-import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.SeekPoint;
 
@@ -32,34 +31,21 @@ import androidx.media3.extractor.SeekPoint;
    * Returns {@code null} if not. On returning, {@code frame}'s position is not specified so the
    * caller should reset it.
    *
-   * @param inputLength The length of the stream in bytes, or {@link C#LENGTH_UNSET} if unknown.
+   * @param xingFrame The parsed Xing data from this audio frame.
    * @param position The position of the start of this frame in the stream.
-   * @param xingFrame The parsed XING data from this audio frame.
    * @return A {@link XingSeeker} for seeking in the stream, or {@code null} if the required
    *     information is not present.
    */
   @Nullable
-  public static XingSeeker create(long inputLength, XingFrame xingFrame, long position) {
-    if (xingFrame.frameCount == C.LENGTH_UNSET || xingFrame.frameCount == 0) {
-      // If the frame count is missing/invalid, the header can't be used to determine the duration.
+  public static XingSeeker create(XingFrame xingFrame, long position) {
+    long durationUs = xingFrame.computeDurationUs();
+    if (durationUs == C.TIME_UNSET) {
       return null;
     }
-    // TODO: b/319235116 - Handle encoder delay and padding when calculating duration.
-    // Audio requires both a start and end PCM sample, so subtract one from the sample count before
-    // calculating the duration.
-    long durationUs =
-        Util.sampleCountToDurationUs(
-            (xingFrame.frameCount * xingFrame.header.samplesPerFrame) - 1,
-            xingFrame.header.sampleRate);
     if (xingFrame.dataSize == C.LENGTH_UNSET || xingFrame.tableOfContents == null) {
       // If the size in bytes or table of contents is missing, the stream is not seekable.
       return new XingSeeker(
           position, xingFrame.header.frameSize, durationUs, xingFrame.header.bitrate);
-    }
-
-    if (inputLength != C.LENGTH_UNSET && inputLength != position + xingFrame.dataSize) {
-      Log.w(
-          TAG, "XING data size mismatch: " + inputLength + ", " + (position + xingFrame.dataSize));
     }
     return new XingSeeker(
         position,
