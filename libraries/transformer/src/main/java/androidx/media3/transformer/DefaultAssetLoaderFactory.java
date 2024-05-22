@@ -17,7 +17,6 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.transformer.ImageUtil.getCommonImageMimeTypeFromExtension;
 
 import android.content.ContentResolver;
 import android.content.Context;
@@ -35,6 +34,7 @@ import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.transformer.AssetLoader.CompositionSettings;
+import com.google.common.base.Ascii;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.util.Objects;
 import java.util.concurrent.Executors;
@@ -160,7 +160,15 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
         ContentResolver cr = context.getContentResolver();
         mimeType = cr.getType(localConfiguration.uri);
       } else {
-        mimeType = getCommonImageMimeTypeFromExtension(localConfiguration.uri);
+        @Nullable String uriPath = localConfiguration.uri.getPath();
+        if (uriPath == null) {
+          return false;
+        }
+        int fileExtensionStart = uriPath.lastIndexOf(".");
+        if (fileExtensionStart >= 0 && fileExtensionStart < uriPath.length() - 1) {
+          String extension = Ascii.toLowerCase(uriPath.substring(fileExtensionStart + 1));
+          mimeType = getCommonImageMimeTypeFromExtension(extension);
+        }
       }
     }
     if (mimeType == null) {
@@ -173,5 +181,48 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
         bitmapLoader.supportsMimeType(mimeType),
         "Image format not supported by given bitmapLoader");
     return true;
+  }
+
+  @Nullable
+  private static String getCommonImageMimeTypeFromExtension(String extension) {
+    switch (extension) {
+      case "bmp":
+      case "dib":
+        return MimeTypes.IMAGE_BMP;
+      case "heif":
+        return MimeTypes.IMAGE_HEIF;
+      case "heic":
+        return MimeTypes.IMAGE_HEIC;
+      case "jpg":
+      case "jpeg":
+      case "jpe":
+      case "jif":
+      case "jfif":
+      case "jfi":
+        return MimeTypes.IMAGE_JPEG;
+      case "png":
+        return MimeTypes.IMAGE_PNG;
+      case "webp":
+        return MimeTypes.IMAGE_WEBP;
+      case "gif":
+        return "image/gif";
+      case "tiff":
+      case "tif":
+        return "image/tiff";
+      case "raw":
+      case "arw":
+      case "cr2":
+      case "k25":
+        return "image/raw";
+      case "svg":
+      case "svgz":
+        return "image/svg+xml";
+      case "ico":
+        return "image/x-icon";
+      case "avif":
+        return MimeTypes.IMAGE_AVIF;
+      default:
+        return null;
+    }
   }
 }

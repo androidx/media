@@ -18,11 +18,9 @@ package androidx.media3.demo.composition;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
-import static androidx.media3.transformer.ImageUtil.getCommonImageMimeTypeFromExtension;
 
 import android.app.Activity;
 import android.content.DialogInterface;
-import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Toast;
@@ -33,7 +31,6 @@ import androidx.appcompat.widget.AppCompatButton;
 import androidx.appcompat.widget.AppCompatTextView;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.audio.SonicAudioProcessor;
@@ -163,14 +160,13 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
             MatrixTransformationFactory.createDizzyCropEffect(), RgbFilter.createGrayscaleFilter());
     for (int i = 0; i < checkNotNull(selectedMediaItems).length; i++) {
       if (checkNotNull(selectedMediaItems)[i]) {
-        Uri uri = Uri.parse(presetFileUris[i]);
-        MediaItem.Builder mediaItemBuilder = new MediaItem.Builder().setUri(uri);
-        if (MimeTypes.isImage(getCommonImageMimeTypeFromExtension(uri))) {
-          mediaItemBuilder.setImageDurationMs(Util.usToMs(presetDurationsUs[i]));
-        }
-        MediaItem mediaItem = mediaItemBuilder.build();
         SonicAudioProcessor pitchChanger = new SonicAudioProcessor();
         pitchChanger.setPitch(mediaItems.size() % 2 == 0 ? 2f : 0.2f);
+        MediaItem mediaItem =
+            new MediaItem.Builder()
+                .setUri(presetFileUris[i])
+                .setImageDurationMs(Util.usToMs(presetDurationsUs[i])) // Ignored for audio/video
+                .build();
         EditedMediaItem.Builder itemBuilder =
             new EditedMediaItem.Builder(mediaItem)
                 .setEffects(
