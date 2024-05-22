@@ -118,6 +118,76 @@ public class Cea708DecoderTest {
     assertThat(getOnlyCue(result).text.toString()).isEqualTo("row3\nrow4");
   }
 
+  @Test
+  public void setPenLocationTestWithNewLineTest1() throws Exception {
+    Cea708Decoder cea708Decoder =
+        new Cea708Decoder(
+
+            /* accessibilityChannel= */ Format.NO_VALUE, /* initializationData= */ null);
+    byte[] windowDefinition =
+        TestUtil.createByteArray(
+            0x98, // DF0 command (define window 0)
+            0b0010_0000, // visible=true, row lock and column lock disabled, priority=0
+            0xF0 | 50, // relative positioning, anchor vertical
+            50, // anchor horizontal
+            10, // anchor point = 0, row count = 10
+            30, // column count = 30
+            0b0000_1001); // window style = 1, pen style = 1
+    byte[] setCurrentWindow = TestUtil.createByteArray(0x80); // CW0 (set current window to 0)
+    byte[] setPenLocation = TestUtil.createByteArray(0x92,0x01,0x00); // COMMAND_SPL with row 1 and
+    byte[] newLine = TestUtil.createByteArray(0x0D); // new line
+    byte[] subtitleData =
+        encodePacketIntoBytePairs(
+            createPacket(
+                /* sequenceNumber= */ 0,
+                createServiceBlock(
+                    Bytes.concat(
+                        windowDefinition,
+                        setCurrentWindow,
+                        "line1".getBytes(Charsets.UTF_8),
+                        newLine,
+                        setPenLocation,
+                        "line2".getBytes(Charsets.UTF_8)))));
+
+    Subtitle firstSubtitle = decodeSampleAndCopyResult(cea708Decoder, subtitleData);
+
+    assertThat(getOnlyCue(firstSubtitle).text.toString()).isEqualTo("line1\nline2");
+  }
+
+  @Test
+  public void setPenLocationTestWithNewLineTest2() throws Exception {
+    Cea708Decoder cea708Decoder =
+        new Cea708Decoder(
+
+            /* accessibilityChannel= */ Format.NO_VALUE, /* initializationData= */ null);
+    byte[] windowDefinition =
+        TestUtil.createByteArray(
+            0x98, // DF0 command (define window 0)
+            0b0010_0000, // visible=true, row lock and column lock disabled, priority=0
+            0xF0 | 50, // relative positioning, anchor vertical
+            50, // anchor horizontal
+            10, // anchor point = 0, row count = 10
+            30, // column count = 30
+            0b0000_1001); // window style = 1, pen style = 1
+    byte[] setCurrentWindow = TestUtil.createByteArray(0x80); // CW0 (set current window to 0)
+    byte[] setPenLocation = TestUtil.createByteArray(0x92,0x01,0x00); // COMMAND_SPL with row 1 and
+    byte[] subtitleData =
+        encodePacketIntoBytePairs(
+            createPacket(
+                /* sequenceNumber= */ 0,
+                createServiceBlock(
+                    Bytes.concat(
+                        windowDefinition,
+                        setCurrentWindow,
+                        "line1".getBytes(Charsets.UTF_8),
+                        setPenLocation,
+                        "line2".getBytes(Charsets.UTF_8)))));
+
+    Subtitle firstSubtitle = decodeSampleAndCopyResult(cea708Decoder, subtitleData);
+
+    assertThat(getOnlyCue(firstSubtitle).text.toString()).isEqualTo("line1\nline2");
+  }
+
   /**
    * Queues {@code sample} to {@code decoder} and dequeues the result, then copies and returns it if
    * it's non-null.
