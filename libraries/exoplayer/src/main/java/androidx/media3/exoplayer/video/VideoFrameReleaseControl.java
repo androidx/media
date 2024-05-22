@@ -184,7 +184,7 @@ public final class VideoFrameReleaseControl {
    *
    * @param applicationContext The application context.
    * @param frameTimingEvaluator The {@link FrameTimingEvaluator} that will assist in {@linkplain
-   *     #getFrameReleaseAction(long, long, long, long, boolean, FrameReleaseInfo)} frame release
+   *     #getFrameReleaseAction(long, long, long, long, boolean, FrameReleaseInfo) frame release
    *     actions}.
    * @param allowedJoiningTimeMs The maximum duration in milliseconds for which the renderer can
    *     attempt to seamlessly join an ongoing playback.
@@ -248,7 +248,7 @@ public final class VideoFrameReleaseControl {
   }
 
   /**
-   * Called when a frame have been released.
+   * Called when a frame has been released.
    *
    * @return Whether this is the first released frame.
    */
@@ -358,7 +358,7 @@ public final class VideoFrameReleaseControl {
       return FRAME_RELEASE_TRY_AGAIN_LATER;
     }
 
-    // Calculate release time and and adjust earlyUs to screen vsync.
+    // Calculate release time and adjust earlyUs to screen vsync.
     long systemTimeNs = clock.nanoTime();
     frameReleaseInfo.releaseTimeNs =
         frameReleaseHelper.adjustReleaseTime(systemTimeNs + (frameReleaseInfo.earlyUs * 1_000));

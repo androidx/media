@@ -595,13 +595,13 @@ public final class CompositionPlayer extends SimpleBasePlayer
             new DefaultAudioMixer.Factory(),
             composition.effects.audioProcessors,
             checkNotNull(finalAudioSink));
+    VideoFrameReleaseControl videoFrameReleaseControl =
+        new VideoFrameReleaseControl(
+            context, new CompositionFrameTimingEvaluator(), /* allowedJoiningTimeMs= */ 0);
     CompositingVideoSinkProvider compositingVideoSinkProvider =
-        new CompositingVideoSinkProvider.Builder(context)
+        new CompositingVideoSinkProvider.Builder(context, videoFrameReleaseControl)
             .setPreviewingVideoGraphFactory(checkNotNull(previewingVideoGraphFactory))
             .build();
-    compositingVideoSinkProvider.setVideoFrameReleaseControl(
-        new VideoFrameReleaseControl(
-            context, new CompositionFrameTimingEvaluator(), /* allowedJoiningTimeMs= */ 0));
     compositingVideoSinkProvider.addListener(this);
     for (int i = 0; i < composition.sequences.size(); i++) {
       EditedMediaItemSequence editedMediaItemSequence = composition.sequences.get(i);

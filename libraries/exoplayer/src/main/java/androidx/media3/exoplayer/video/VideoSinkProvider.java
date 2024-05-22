@@ -17,33 +17,18 @@
 package androidx.media3.exoplayer.video;
 
 import android.view.Surface;
-import androidx.media3.common.Format;
-import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
-import org.checkerframework.checker.nullness.qual.Nullable;
 
 /** A provider of {@link VideoSink VideoSinks}. */
 @UnstableApi
 public interface VideoSinkProvider {
 
   /**
-   * Sets the {@link VideoFrameReleaseControl} that will be used for releasing of video frames
-   * during rendering.
-   *
-   * <p>Must be called before the first {@linkplain #getSink() sink} is {@linkplain
-   * VideoSink#initialize(Format, Clock) initialized}.
-   */
-  void setVideoFrameReleaseControl(VideoFrameReleaseControl videoFrameReleaseControl);
-
-  /**
    * Returns the {@link VideoFrameReleaseControl} that will be used for releasing of video frames
    * during rendering.
-   *
-   * <p>If this value is {@code null}, it must be {@linkplain #setVideoFrameReleaseControl set} to a
-   * non-null value before rendering begins.
    */
-  @Nullable VideoFrameReleaseControl getVideoFrameReleaseControl();
+  VideoFrameReleaseControl getVideoFrameReleaseControl();
 
   /** Returns a {@link VideoSink} to forward video frames for processing. */
   VideoSink getSink();

@@ -222,8 +222,6 @@ public interface VideoSink {
   /**
    * Incrementally renders processed video frames.
    *
-   * <p>Must be called after the sink is {@linkplain #initialize(Format, Clock) initialized}.
-   *
    * @param positionUs The current playback position, in microseconds.
    * @param elapsedRealtimeUs {@link android.os.SystemClock#elapsedRealtime()} in microseconds,
    *     taken approximately at the time the playback position was {@code positionUs}.

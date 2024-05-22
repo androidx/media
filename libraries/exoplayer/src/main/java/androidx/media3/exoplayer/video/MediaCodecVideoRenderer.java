@@ -393,14 +393,13 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     eventDispatcher = new EventDispatcher(eventHandler, eventListener);
     ownsVideoSink = videoSinkProvider == null;
     if (videoSinkProvider == null) {
-      videoSinkProvider = new CompositingVideoSinkProvider.Builder(this.context).build();
-    }
-    if (videoSinkProvider.getVideoFrameReleaseControl() == null) {
       @SuppressWarnings("nullness:assignment")
       VideoFrameReleaseControl.@Initialized FrameTimingEvaluator thisRef = this;
-      videoSinkProvider.setVideoFrameReleaseControl(
+      VideoFrameReleaseControl videoFrameReleaseControl =
           new VideoFrameReleaseControl(
-              this.context, /* frameTimingEvaluator= */ thisRef, allowedJoiningTimeMs));
+              this.context, /* frameTimingEvaluator= */ thisRef, allowedJoiningTimeMs);
+      videoSinkProvider =
+          new CompositingVideoSinkProvider.Builder(this.context, videoFrameReleaseControl).build();
     }
     videoSink = videoSinkProvider.getSink();
     videoFrameReleaseControl = checkStateNotNull(videoSinkProvider.getVideoFrameReleaseControl());

@@ -40,30 +40,15 @@ import org.mockito.Mockito;
 /** Unit test for {@link CompositingVideoSinkProvider}. */
 @RunWith(AndroidJUnit4.class)
 public final class CompositingVideoSinkProviderTest {
-
   @Test
   public void builder_calledMultipleTimes_throws() {
+    Context context = ApplicationProvider.getApplicationContext();
     CompositingVideoSinkProvider.Builder builder =
-        new CompositingVideoSinkProvider.Builder(ApplicationProvider.getApplicationContext());
+        new CompositingVideoSinkProvider.Builder(context, createVideoFrameReleaseControl());
 
     builder.build();
 
     assertThrows(IllegalStateException.class, builder::build);
-  }
-
-  @Test
-  public void initializeSink_withoutReleaseControl_throws() {
-    CompositingVideoSinkProvider provider =
-        new CompositingVideoSinkProvider.Builder(ApplicationProvider.getApplicationContext())
-            .setPreviewingVideoGraphFactory(new TestPreviewingVideoGraphFactory())
-            .build();
-    VideoSink sink = provider.getSink();
-
-    assertThrows(
-        IllegalStateException.class,
-        () ->
-            sink.initialize(
-                new Format.Builder().setWidth(640).setHeight(480).build(), Clock.DEFAULT));
   }
 
   @Test
@@ -96,6 +81,13 @@ public final class CompositingVideoSinkProviderTest {
 
   private static CompositingVideoSinkProvider createCompositingVideoSinkProvider() {
     Context context = ApplicationProvider.getApplicationContext();
+    return new CompositingVideoSinkProvider.Builder(context, createVideoFrameReleaseControl())
+        .setPreviewingVideoGraphFactory(new TestPreviewingVideoGraphFactory())
+        .build();
+  }
+
+  private static VideoFrameReleaseControl createVideoFrameReleaseControl() {
+    Context context = ApplicationProvider.getApplicationContext();
     VideoFrameReleaseControl.FrameTimingEvaluator frameTimingEvaluator =
         new VideoFrameReleaseControl.FrameTimingEvaluator() {
           @Override
@@ -119,13 +111,8 @@ public final class CompositingVideoSinkProviderTest {
             return false;
           }
         };
-    CompositingVideoSinkProvider compositingVideoSinkProvider =
-        new CompositingVideoSinkProvider.Builder(context)
-            .setPreviewingVideoGraphFactory(new TestPreviewingVideoGraphFactory())
-            .build();
-    compositingVideoSinkProvider.setVideoFrameReleaseControl(
-        new VideoFrameReleaseControl(context, frameTimingEvaluator, /* allowedJoiningTimeMs= */ 0));
-    return compositingVideoSinkProvider;
+    return new VideoFrameReleaseControl(
+        context, frameTimingEvaluator, /* allowedJoiningTimeMs= */ 0);
   }
 
   private static class TestPreviewingVideoGraphFactory implements PreviewingVideoGraph.Factory {
