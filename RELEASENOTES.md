@@ -181,6 +181,8 @@
     *   Fix bug where re-preparing a multi-period live stream can throw an
         `IndexOutOfBoundsException`
         ([#1329](https://github.com/androidx/media/issues/1329)).
+    *   Add support for `dashif:Laurl` license urls
+        ([#1345](https://github.com/androidx/media/issues/1345)).
 *   Smooth Streaming Extension:
 *   RTSP Extension:
 *   Decoder Extensions (FFmpeg, VP9, AV1, MIDI, etc.):
