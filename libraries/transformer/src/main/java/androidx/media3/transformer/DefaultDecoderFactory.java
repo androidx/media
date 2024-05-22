@@ -41,6 +41,7 @@ import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
+import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
@@ -189,7 +190,8 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
   @Override
   public DefaultCodec createForAudioDecoding(Format format) throws ExportException {
     MediaFormat mediaFormat = createMediaFormatFromFormat(format);
-    return createCodecForMediaFormat(mediaFormat, format, /* outputSurface= */ null);
+    return createCodecForMediaFormat(
+        mediaFormat, format, /* outputSurface= */ null, /* devicePrefersSoftwareDecoder= */ false);
   }
 
   @SuppressLint("InlinedApi")
@@ -244,11 +246,15 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
       mediaFormat.setInteger("importance", max(0, -codecPriority));
     }
 
-    return createCodecForMediaFormat(mediaFormat, format, outputSurface);
+    return createCodecForMediaFormat(
+        mediaFormat, format, outputSurface, devicePrefersSoftwareDecoder(format));
   }
 
   private DefaultCodec createCodecForMediaFormat(
-      MediaFormat mediaFormat, Format format, @Nullable Surface outputSurface)
+      MediaFormat mediaFormat,
+      Format format,
+      @Nullable Surface outputSurface,
+      boolean devicePrefersSoftwareDecoder)
       throws ExportException {
     List<MediaCodecInfo> decoderInfos = ImmutableList.of();
     checkNotNull(format.sampleMimeType);
@@ -265,9 +271,20 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
       Log.e(TAG, "Error querying decoders", e);
       throw createExportException(format, /* reason= */ "Querying codecs failed");
     }
-
     if (decoderInfos.isEmpty()) {
       throw createExportException(format, /* reason= */ "No decoders for format");
+    }
+    if (devicePrefersSoftwareDecoder) {
+      List<MediaCodecInfo> softwareDecoderInfos = new ArrayList<>();
+      for (int i = 0; i < decoderInfos.size(); ++i) {
+        MediaCodecInfo mediaCodecInfo = decoderInfos.get(i);
+        if (!mediaCodecInfo.hardwareAccelerated) {
+          softwareDecoderInfos.add(mediaCodecInfo);
+        }
+      }
+      if (!softwareDecoderInfos.isEmpty()) {
+        decoderInfos = softwareDecoderInfos;
+      }
     }
 
     List<ExportException> codecInitExceptions = new ArrayList<>();
@@ -352,6 +369,20 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
 
   private static boolean decoderSupportsKeyAllowFrameDrop(Context context) {
     return SDK_INT >= 29 && context.getApplicationInfo().targetSdkVersion >= 29;
+  }
+
+  private static boolean devicePrefersSoftwareDecoder(Format format) {
+    // TODO: b/255953153 - Capture this corner case with refactored fallback API.
+    // Some devices fail to configure a 1080p hardware encoder when a 1080p hardware decoder
+    // was created. Fall back to using a software decoder (see b/283768701).
+    // During a 1080p -> 180p export, using the hardware decoder would be faster than software
+    // decoder (68 fps vs 45 fps).
+    // When transcoding 1080p to 1080p, software decoder + hardware encoder (33 fps) outperforms
+    // hardware decoder + software encoder (17 fps).
+    // Due to b/267740292 using hardware to software encoder fallback is risky.
+    return format.width * format.height >= 1920 * 1080
+        && (Ascii.equalsIgnoreCase(Util.MODEL, "vivo 1906")
+            || Ascii.equalsIgnoreCase(Util.MODEL, "redmi 8"));
   }
 
   private static ExportException createExportException(Format format, String reason) {
