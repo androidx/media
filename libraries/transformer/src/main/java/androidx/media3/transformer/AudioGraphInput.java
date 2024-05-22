@@ -282,6 +282,14 @@ import java.util.concurrent.atomic.AtomicReference;
     if (pendingMediaItemChange.get() != null) {
       return false;
     }
+    if (currentItemExpectedInputDurationUs != C.TIME_UNSET) {
+      // When exporting a sequence of items, we rely on currentItemExpectedInputDurationUs and
+      // receivedEndOfStreamFromInput to determine silence padding.
+      // Use isCurrentItemLast to correctly propagate end of stream once for the entire sequence.
+      return isCurrentItemLast && (receivedEndOfStreamFromInput || queueEndOfStreamAfterSilence);
+    }
+    // For a looping sequence, currentItemExpectedInputDurationUs is unset, and
+    // there isn't a last item -- end of stream is passed through directly.
     return receivedEndOfStreamFromInput || queueEndOfStreamAfterSilence;
   }
 

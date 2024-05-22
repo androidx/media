@@ -277,7 +277,7 @@ import java.util.concurrent.atomic.AtomicInteger;
       if (wrappedSampleConsumer == null) {
         return null;
       }
-      sampleConsumer = new SampleConsumerWrapper(wrappedSampleConsumer);
+      sampleConsumer = new SampleConsumerWrapper(wrappedSampleConsumer, trackType);
       sampleConsumersByTrackType.put(trackType, sampleConsumer);
 
       if (forceAudioTrack && reportedTrackCount.get() == 1 && trackType == C.TRACK_TYPE_VIDEO) {
@@ -290,7 +290,7 @@ import java.util.concurrent.atomic.AtomicInteger;
                         .setPcmEncoding(C.ENCODING_PCM_16BIT)
                         .build()));
         sampleConsumersByTrackType.put(
-            C.TRACK_TYPE_AUDIO, new SampleConsumerWrapper(wrappedAudioSampleConsumer));
+            C.TRACK_TYPE_AUDIO, new SampleConsumerWrapper(wrappedAudioSampleConsumer, trackType));
       }
     } else {
       // TODO(b/270533049): Remove the check below when implementing blank video frames generation.
@@ -391,13 +391,15 @@ import java.util.concurrent.atomic.AtomicInteger;
   private final class SampleConsumerWrapper implements SampleConsumer {
 
     private final SampleConsumer sampleConsumer;
+    private final @C.TrackType int trackType;
 
     private long totalDurationUs;
     private boolean audioLoopingEnded;
     private boolean videoLoopingEnded;
 
-    public SampleConsumerWrapper(SampleConsumer sampleConsumer) {
+    public SampleConsumerWrapper(SampleConsumer sampleConsumer, @C.TrackType int trackType) {
       this.sampleConsumer = sampleConsumer;
+      this.trackType = trackType;
     }
 
     @Nullable
@@ -426,8 +428,15 @@ import java.util.concurrent.atomic.AtomicInteger;
       if (inputBuffer.isEndOfStream()) {
         nonEndedTrackCount.decrementAndGet();
         if (currentMediaItemIndex < editedMediaItems.size() - 1 || isLooping) {
-          inputBuffer.clear();
-          inputBuffer.timeUs = 0;
+          if (trackType == C.TRACK_TYPE_AUDIO && !isLooping && decodeAudio) {
+            // Trigger silence generation (if needed) for a decoded audio track when end of stream
+            // is first encountered. This helps us avoid a muxer deadlock when audio track is
+            // shorter than video track. Not applicable for looping sequences.
+            checkState(sampleConsumer.queueInputBuffer());
+          } else {
+            inputBuffer.clear();
+            inputBuffer.timeUs = 0;
+          }
           if (nonEndedTrackCount.get() == 0) {
             switchAssetLoader();
           }
