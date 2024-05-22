@@ -60,7 +60,7 @@ import androidx.media3.extractor.MpegAudioUtil;
       @Nullable long[] tableOfContents,
       int encoderDelay,
       int encoderPadding) {
-    this.header = header;
+    this.header = new MpegAudioUtil.Header(header);
     this.frameCount = frameCount;
     this.dataSize = dataSize;
     this.tableOfContents = tableOfContents;
