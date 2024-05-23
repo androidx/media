@@ -118,8 +118,14 @@ public class Cea708DecoderTest {
     assertThat(getOnlyCue(result).text.toString()).isEqualTo("row3\nrow4");
   }
 
+  /**
+   * ExoPlayer's incomplete implementation of the 'set pen location' command appends a newline if
+   * the 'new' row location is different to the 'current' row (this is to ensure that subtitles that
+   * are meant to be on different lines aren't concatenated together on a single line). This test
+   * demonstrates this, even though the target row is 2, only a single newline is appended.
+   */
   @Test
-  public void setPenLocationTestWithNewLineTest1() throws Exception {
+  public void setPenLocation_appendsNewlineIfRowChanges() throws Exception {
     Cea708Decoder cea708Decoder =
         new Cea708Decoder(
 
@@ -134,7 +140,50 @@ public class Cea708DecoderTest {
             30, // column count = 30
             0b0000_1001); // window style = 1, pen style = 1
     byte[] setCurrentWindow = TestUtil.createByteArray(0x80); // CW0 (set current window to 0)
-    byte[] setPenLocation = TestUtil.createByteArray(0x92,0x01,0x00); // COMMAND_SPL with row 1 and
+    // COMMAND_SPL with row 2 and column 0
+    byte[] setPenLocation = TestUtil.createByteArray(0x92, 0x02, 0x00);
+    byte[] subtitleData =
+        encodePacketIntoBytePairs(
+            createPacket(
+                /* sequenceNumber= */ 0,
+                createServiceBlock(
+                    Bytes.concat(
+                        windowDefinition,
+                        setCurrentWindow,
+                        "line1".getBytes(Charsets.UTF_8),
+                        setPenLocation,
+                        "line2".getBytes(Charsets.UTF_8)))));
+
+    Subtitle firstSubtitle = decodeSampleAndCopyResult(cea708Decoder, subtitleData);
+
+    assertThat(getOnlyCue(firstSubtitle).text.toString()).isEqualTo("line1\nline2");
+  }
+
+  /**
+   * ExoPlayer's incomplete implementation of the 'set pen location' command appends a newline if
+   * the 'new' row location is different to the 'current' row (this is to ensure that subtitles that
+   * are meant to be on different lines aren't concatenated together on a single line). This test
+   * ensures that if there's already an explicit newline appended before the command, a duplicate
+   * newline isn't appended.
+   */
+  @Test
+  public void setPenLocation_explicitNewLineBefore_secondNewlineNotAdded() throws Exception {
+    Cea708Decoder cea708Decoder =
+        new Cea708Decoder(
+
+            /* accessibilityChannel= */ Format.NO_VALUE, /* initializationData= */ null);
+    byte[] windowDefinition =
+        TestUtil.createByteArray(
+            0x98, // DF0 command (define window 0)
+            0b0010_0000, // visible=true, row lock and column lock disabled, priority=0
+            0xF0 | 50, // relative positioning, anchor vertical
+            50, // anchor horizontal
+            10, // anchor point = 0, row count = 10
+            30, // column count = 30
+            0b0000_1001); // window style = 1, pen style = 1
+    byte[] setCurrentWindow = TestUtil.createByteArray(0x80); // CW0 (set current window to 0)
+    // COMMAND_SPL with row 1 and column 0
+    byte[] setPenLocation = TestUtil.createByteArray(0x92, 0x01, 0x00);
     byte[] newLine = TestUtil.createByteArray(0x0D); // new line
     byte[] subtitleData =
         encodePacketIntoBytePairs(
@@ -146,40 +195,6 @@ public class Cea708DecoderTest {
                         setCurrentWindow,
                         "line1".getBytes(Charsets.UTF_8),
                         newLine,
-                        setPenLocation,
-                        "line2".getBytes(Charsets.UTF_8)))));
-
-    Subtitle firstSubtitle = decodeSampleAndCopyResult(cea708Decoder, subtitleData);
-
-    assertThat(getOnlyCue(firstSubtitle).text.toString()).isEqualTo("line1\nline2");
-  }
-
-  @Test
-  public void setPenLocationTestWithNewLineTest2() throws Exception {
-    Cea708Decoder cea708Decoder =
-        new Cea708Decoder(
-
-            /* accessibilityChannel= */ Format.NO_VALUE, /* initializationData= */ null);
-    byte[] windowDefinition =
-        TestUtil.createByteArray(
-            0x98, // DF0 command (define window 0)
-            0b0010_0000, // visible=true, row lock and column lock disabled, priority=0
-            0xF0 | 50, // relative positioning, anchor vertical
-            50, // anchor horizontal
-            10, // anchor point = 0, row count = 10
-            30, // column count = 30
-            0b0000_1001); // window style = 1, pen style = 1
-    byte[] setCurrentWindow = TestUtil.createByteArray(0x80); // CW0 (set current window to 0)
-    byte[] setPenLocation = TestUtil.createByteArray(0x92,0x01,0x00); // COMMAND_SPL with row 1 and
-    byte[] subtitleData =
-        encodePacketIntoBytePairs(
-            createPacket(
-                /* sequenceNumber= */ 0,
-                createServiceBlock(
-                    Bytes.concat(
-                        windowDefinition,
-                        setCurrentWindow,
-                        "line1".getBytes(Charsets.UTF_8),
                         setPenLocation,
                         "line2".getBytes(Charsets.UTF_8)))));
 
