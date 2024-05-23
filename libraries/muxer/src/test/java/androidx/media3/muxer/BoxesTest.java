@@ -681,14 +681,37 @@ public class BoxesTest {
           new SampleMetadata(
               /* durationsVu= */ 2_000L,
               /* size= */ 5_000,
-              /* flags= */ i == 0 ? MediaCodec.BUFFER_FLAG_KEY_FRAME : 0));
+              /* flags= */ i == 0 ? MediaCodec.BUFFER_FLAG_KEY_FRAME : 0,
+              /* compositionTimeOffsetVu= */ 0));
     }
 
-    ByteBuffer trunBox = Boxes.trun(samplesMetadata, /* dataOffset= */ 1_000);
+    ByteBuffer trunBox =
+        Boxes.trun(samplesMetadata, /* dataOffset= */ 1_000, /* hasBFrame= */ false);
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(trunBox);
     DumpFileAsserts.assertOutput(
         context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("trun_box"));
+  }
+
+  @Test
+  public void createTrunBox_withBFrame_matchesExpected() throws IOException {
+    int sampleCount = 5;
+    List<SampleMetadata> samplesMetadata = new ArrayList<>(sampleCount);
+    for (int i = 0; i < sampleCount; i++) {
+      samplesMetadata.add(
+          new SampleMetadata(
+              /* durationsVu= */ 2_000L,
+              /* size= */ 5_000,
+              /* flags= */ i == 0 ? MediaCodec.BUFFER_FLAG_KEY_FRAME : 0,
+              /* compositionTimeOffsetVu= */ 100));
+    }
+
+    ByteBuffer trunBox =
+        Boxes.trun(samplesMetadata, /* dataOffset= */ 1_000, /* hasBFrame= */ true);
+
+    DumpableMp4Box dumpableBox = new DumpableMp4Box(trunBox);
+    DumpFileAsserts.assertOutput(
+        context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("trun_box_with_b_frame"));
   }
 
   @Test

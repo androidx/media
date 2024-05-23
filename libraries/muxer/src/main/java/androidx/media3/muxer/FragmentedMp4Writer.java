@@ -29,7 +29,6 @@ import static java.lang.Math.min;
 
 import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
-import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
@@ -53,11 +52,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     public final long durationVu;
     public final int size;
     public final int flags;
+    public final int compositionTimeOffsetVu;
 
-    public SampleMetadata(long durationsVu, int size, int flags) {
+    public SampleMetadata(long durationsVu, int size, int flags, int compositionTimeOffsetVu) {
       this.durationVu = durationsVu;
       this.size = size;
       this.flags = flags;
+      this.compositionTimeOffsetVu = compositionTimeOffsetVu;
     }
   }
 
@@ -74,7 +75,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private boolean headerCreated;
   private long minInputPresentationTimeUs;
   private long maxTrackDurationUs;
-  private long lastSamplePresentationTimeUs;
 
   /**
    * Creates an instance.
@@ -102,7 +102,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.fragmentDurationUs = fragmentDurationMs * 1_000;
     minInputPresentationTimeUs = Long.MAX_VALUE;
     currentFragmentSequenceNumber = 1;
-    lastSamplePresentationTimeUs = C.TIME_UNSET;
   }
 
   public TrackToken addTrack(int sortKey, Format format) {
@@ -118,9 +117,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       TrackToken token, ByteBuffer byteBuffer, MediaCodec.BufferInfo bufferInfo)
       throws IOException {
     checkArgument(token instanceof Track);
-    checkArgument(
-        bufferInfo.presentationTimeUs > lastSamplePresentationTimeUs,
-        "Out of order B-frames are not supported");
     if (!headerCreated) {
       createHeader();
       headerCreated = true;
@@ -130,7 +126,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       createFragment();
     }
     track.writeSampleData(byteBuffer, bufferInfo);
-    lastSamplePresentationTimeUs = bufferInfo.presentationTimeUs;
     BufferInfo firstPendingSample = checkNotNull(track.pendingSamplesBufferInfo.peekFirst());
     BufferInfo lastPendingSample = checkNotNull(track.pendingSamplesBufferInfo.peekLast());
     minInputPresentationTimeUs =
@@ -163,7 +158,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       trafBoxes.add(
           Boxes.traf(
               Boxes.tfhd(currentTrackInfo.trackId, /* baseDataOffset= */ moofBoxStartPosition),
-              Boxes.trun(currentTrackInfo.pendingSamplesMetadata, dataOffset)));
+              Boxes.trun(
+                  currentTrackInfo.pendingSamplesMetadata,
+                  dataOffset,
+                  currentTrackInfo.hasBFrame)));
       dataOffset += currentTrackInfo.totalSamplesSize;
     }
     return trafBoxes.build();
@@ -189,7 +187,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     for (int i = 0; i < trackInfos.size(); i++) {
       ProcessedTrackInfo trackInfo = trackInfos.get(i);
       int trunBoxSize =
-          trunBoxHeaderFixedSize + getTrunBoxContentSize(trackInfo.pendingSamplesMetadata.size());
+          trunBoxHeaderFixedSize
+              + getTrunBoxContentSize(trackInfo.pendingSamplesMetadata.size(), trackInfo.hasBFrame);
       trafBoxesSize += trafBoxHeaderSize + tfhdBoxSize + trunBoxSize;
     }
 
@@ -319,6 +318,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       track.pendingSamplesBufferInfo.clear();
     }
 
+    boolean hasBFrame = false;
     ImmutableList<BufferInfo> pendingSamplesBufferInfo = pendingSamplesBufferInfoBuilder.build();
     List<Long> sampleDurations =
         Boxes.convertPresentationTimestampsToDurationsVu(
@@ -329,6 +329,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             track.videoUnitTimebase(),
             Mp4Muxer.LAST_FRAME_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION);
 
+    List<Integer> sampleCompositionTimeOffsets =
+        Boxes.calculateSampleCompositionTimeOffsets(
+            pendingSamplesBufferInfo, sampleDurations, track.videoUnitTimebase());
+    if (!sampleCompositionTimeOffsets.isEmpty()) {
+      hasBFrame = true;
+    }
+
     ImmutableList.Builder<SampleMetadata> pendingSamplesMetadata = new ImmutableList.Builder<>();
     int totalSamplesSize = 0;
     for (int i = 0; i < pendingSamplesBufferInfo.size(); i++) {
@@ -337,12 +344,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           new SampleMetadata(
               sampleDurations.get(i),
               pendingSamplesBufferInfo.get(i).size,
-              pendingSamplesBufferInfo.get(i).flags));
+              pendingSamplesBufferInfo.get(i).flags,
+              hasBFrame ? sampleCompositionTimeOffsets.get(i) : 0));
     }
 
     return new ProcessedTrackInfo(
         trackId,
         totalSamplesSize,
+        hasBFrame,
         pendingSamplesByteBuffer.build(),
         pendingSamplesMetadata.build());
   }
@@ -350,16 +359,19 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private static class ProcessedTrackInfo {
     public final int trackId;
     public final int totalSamplesSize;
+    public final boolean hasBFrame;
     public final ImmutableList<ByteBuffer> pendingSamplesByteBuffer;
     public final ImmutableList<SampleMetadata> pendingSamplesMetadata;
 
     public ProcessedTrackInfo(
         int trackId,
         int totalSamplesSize,
+        boolean hasBFrame,
         ImmutableList<ByteBuffer> pendingSamplesByteBuffer,
         ImmutableList<SampleMetadata> pendingSamplesMetadata) {
       this.trackId = trackId;
       this.totalSamplesSize = totalSamplesSize;
+      this.hasBFrame = hasBFrame;
       this.pendingSamplesByteBuffer = pendingSamplesByteBuffer;
       this.pendingSamplesMetadata = pendingSamplesMetadata;
     }

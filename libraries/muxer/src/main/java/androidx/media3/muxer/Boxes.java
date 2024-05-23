@@ -775,7 +775,7 @@ import java.util.Locale;
   }
 
   /**
-   * Calculate sample composition time offsets (in timebase units).
+   * Calculates sample composition time offsets (in timebase units).
    *
    * <p>The sample composition time offset gives offset between composition time (CT) and decoding
    * time (DT), such that {@code CT(n) = DT(n) + sample_offset(n)}.
@@ -785,7 +785,7 @@ import java.util.Locale;
    * @param videoUnitTimescale The timescale of the track.
    * @return A list of all the sample composition time offsets.
    */
-  private static List<Integer> calculateSampleCompositionTimeOffsets(
+  public static List<Integer> calculateSampleCompositionTimeOffsets(
       List<BufferInfo> samplesInfo, List<Long> durationVu, int videoUnitTimescale) {
     List<Integer> compositionOffsets = new ArrayList<>(samplesInfo.size());
     if (samplesInfo.isEmpty()) {
@@ -998,8 +998,10 @@ import java.util.Locale;
   }
 
   /** Returns a track fragment run (trun) box. */
-  public static ByteBuffer trun(List<SampleMetadata> samplesMetadata, int dataOffset) {
-    ByteBuffer contents = ByteBuffer.allocate(getTrunBoxContentSize(samplesMetadata.size()));
+  public static ByteBuffer trun(
+      List<SampleMetadata> samplesMetadata, int dataOffset, boolean hasBFrame) {
+    ByteBuffer contents =
+        ByteBuffer.allocate(getTrunBoxContentSize(samplesMetadata.size(), hasBFrame));
 
     // 0x000001 data-offset-present.
     // 0x000100 sample-duration-present: indicates that each sample has its own duration, otherwise
@@ -1008,8 +1010,13 @@ import java.util.Locale;
     // default is used.
     // 0x000400 sample-flags-present: indicates that each sample has its own flags, otherwise the
     // default is used.
-    // Version is 0x0.
-    int versionAndFlags = 0x0 | 0x000001 | 0x000100 | 0x000200 | 0x000400;
+    // 0x000800 sample-composition-time-offsets-present: indicates that each sample has its own
+    // composition time offset, otherwise default is used.
+    // Version (the most significant byte of versionAndFlags) is 0x1.
+    int versionAndFlags = 0x1 << 24 | 0x000001 | 0x000100 | 0x000200 | 0x000400;
+    if (hasBFrame) {
+      versionAndFlags |= 0x000800;
+    }
     contents.putInt(versionAndFlags);
     contents.putInt(samplesMetadata.size()); // An unsigned int(32)
     contents.putInt(dataOffset); // A signed int(32)
@@ -1021,16 +1028,19 @@ import java.util.Locale;
           (currentSampleMetadata.flags & MediaCodec.BUFFER_FLAG_KEY_FRAME) != 0
               ? TRUN_BOX_SYNC_SAMPLE_FLAGS
               : TRUN_BOX_NON_SYNC_SAMPLE_FLAGS);
+      if (hasBFrame) {
+        contents.putInt(currentSampleMetadata.compositionTimeOffsetVu);
+      }
     }
     contents.flip();
     return BoxUtils.wrapIntoBox("trun", contents);
   }
 
-  /** Returns the size required for {@link #trun(List, int)} box content. */
-  public static int getTrunBoxContentSize(int sampleCount) {
+  /** Returns the size required for {@link #trun(List, int, boolean)} box content. */
+  public static int getTrunBoxContentSize(int sampleCount, boolean hasBFrame) {
     int trunBoxFixedSize = 3 * BYTES_PER_INTEGER;
-    // 3 int(32-bit) gets written for each sample.
-    return trunBoxFixedSize + 3 * sampleCount * BYTES_PER_INTEGER;
+    int intWrittenPerSample = hasBFrame ? 4 : 3;
+    return trunBoxFixedSize + intWrittenPerSample * sampleCount * BYTES_PER_INTEGER;
   }
 
   /** Returns a movie extends (mvex) box. */

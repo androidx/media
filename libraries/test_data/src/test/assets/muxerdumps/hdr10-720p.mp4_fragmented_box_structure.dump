@@ -65,12 +65,12 @@ moof (2876 bytes):
     tfhd (24 bytes):
       Data = length 16, hash D37153D4
     trun (1100 bytes):
-      Data = length 1092, hash BA1962E9
+      Data = length 1092, hash 7B5FDF48
   traf (1720 bytes):
     tfhd (24 bytes):
       Data = length 16, hash 67B5C2D5
     trun (1688 bytes):
-      Data = length 1680, hash 2EDF9B97
+      Data = length 1680, hash 51194976
 mdat (5712387 bytes):
   Data = length 5712379, hash 86B2819D
 moof (1244 bytes):
@@ -80,11 +80,11 @@ moof (1244 bytes):
     tfhd (24 bytes):
       Data = length 16, hash D372A134
     trun (464 bytes):
-      Data = length 456, hash E01BEFF7
+      Data = length 456, hash AB9FD4D6
   traf (724 bytes):
     tfhd (24 bytes):
       Data = length 16, hash 67B71035
     trun (692 bytes):
-      Data = length 684, hash 73BBFD29
+      Data = length 684, hash 121FB688
 mdat (2364921 bytes):
   Data = length 2364913, hash D363A845
