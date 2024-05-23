@@ -232,10 +232,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 @DoNotMock
 public class MediaSession {
 
-  static {
-    MediaLibraryInfo.registerModule("media3.session");
-  }
-
   // It's better to have private static lock instead of using MediaSession.class because the
   // private lock object isn't exposed.
   private static final Object STATIC_LOCK = new Object();

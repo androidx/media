@@ -40,6 +40,7 @@ import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PlaybackParameters;
@@ -520,6 +521,7 @@ public class MediaController implements Player {
 
   /** Creates a {@link MediaController} from the {@link SessionToken}. */
   // This constructor has to be package-private in order to prevent subclassing outside the package.
+  @SuppressWarnings("argument.type.incompatible") // Using this in System.identityHashCode
   /* package */ MediaController(
       Context context,
       SessionToken token,
@@ -530,6 +532,15 @@ public class MediaController implements Player {
       @Nullable BitmapLoader bitmapLoader) {
     checkNotNull(context, "context must not be null");
     checkNotNull(token, "token must not be null");
+    Log.i(
+        TAG,
+        "Init "
+            + Integer.toHexString(System.identityHashCode(this))
+            + " ["
+            + MediaLibraryInfo.VERSION_SLASHY
+            + "] ["
+            + Util.DEVICE_DEBUG_INFO
+            + "]");
 
     // Initialize default values.
     window = new Timeline.Window();
@@ -583,6 +594,17 @@ public class MediaController implements Player {
     if (released) {
       return;
     }
+    Log.i(
+        TAG,
+        "Release "
+            + Integer.toHexString(System.identityHashCode(this))
+            + " ["
+            + MediaLibraryInfo.VERSION_SLASHY
+            + "] ["
+            + Util.DEVICE_DEBUG_INFO
+            + "] ["
+            + MediaLibraryInfo.registeredModules()
+            + "]");
     released = true;
     applicationHandler.removeCallbacksAndMessages(null);
     try {

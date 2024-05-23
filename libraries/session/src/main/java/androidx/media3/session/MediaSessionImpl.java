@@ -111,7 +111,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private static final long DEFAULT_SESSION_POSITION_UPDATE_DELAY_MS = 3_000;
 
-  public static final String TAG = "MSImplBase";
+  public static final String TAG = "MediaSessionImpl";
 
   private static final SessionResult RESULT_WHEN_CLOSED = new SessionResult(RESULT_INFO_SKIPPED);
 
@@ -154,6 +154,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private ImmutableList<CommandButton> customLayout;
   private Bundle sessionExtras;
 
+  @SuppressWarnings("argument.type.incompatible") // Using this in System.identityHashCode
   public MediaSessionImpl(
       MediaSession instance,
       Context context,
@@ -167,6 +168,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       BitmapLoader bitmapLoader,
       boolean playIfSuppressed,
       boolean isPeriodicPositionUpdateEnabled) {
+    Log.i(
+        TAG,
+        "Init "
+            + Integer.toHexString(System.identityHashCode(this))
+            + " ["
+            + MediaLibraryInfo.VERSION_SLASHY
+            + "] ["
+            + Util.DEVICE_DEBUG_INFO
+            + "]");
     this.instance = instance;
     this.context = context;
     sessionId = id;
@@ -283,6 +293,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   public void release() {
+    Log.i(
+        TAG,
+        "Release "
+            + Integer.toHexString(System.identityHashCode(this))
+            + " ["
+            + MediaLibraryInfo.VERSION_SLASHY
+            + "] ["
+            + Util.DEVICE_DEBUG_INFO
+            + "] ["
+            + MediaLibraryInfo.registeredModules()
+            + "]");
     synchronized (lock) {
       if (closed) {
         return;

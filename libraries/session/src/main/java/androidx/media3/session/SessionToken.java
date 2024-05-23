@@ -73,6 +73,10 @@ import java.util.List;
 //         android.media.session.MediaSessionManager.Callback#onAddressedPlayerChanged
 public final class SessionToken implements Bundleable {
 
+  static {
+    MediaLibraryInfo.registerModule("media3.session");
+  }
+
   private static final long WAIT_TIME_MS_FOR_SESSION3_TOKEN = 500;
 
   /** Types of {@link SessionToken}. */
