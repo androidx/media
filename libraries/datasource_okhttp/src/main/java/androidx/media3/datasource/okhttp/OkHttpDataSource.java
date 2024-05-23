@@ -32,12 +32,10 @@ import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSourceException;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.HttpDataSource;
-import androidx.media3.datasource.HttpDataSource.HttpDataSourceException;
-import androidx.media3.datasource.HttpDataSource.InvalidContentTypeException;
-import androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException;
 import androidx.media3.datasource.HttpUtil;
 import androidx.media3.datasource.TransferListener;
 import com.google.common.base.Predicate;
+import com.google.common.io.ByteStreams;
 import com.google.common.net.HttpHeaders;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -338,7 +336,7 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
 
       byte[] errorResponseBody;
       try {
-        errorResponseBody = Util.toByteArray(Assertions.checkNotNull(responseByteStream));
+        errorResponseBody = ByteStreams.toByteArray(Assertions.checkNotNull(responseByteStream));
       } catch (IOException e) {
         errorResponseBody = Util.EMPTY_BYTE_ARRAY;
       }
@@ -452,10 +450,10 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
 
     @Nullable RequestBody requestBody = null;
     if (dataSpec.httpBody != null) {
-      requestBody = RequestBody.create(null, dataSpec.httpBody);
+      requestBody = RequestBody.create(dataSpec.httpBody);
     } else if (dataSpec.httpMethod == DataSpec.HTTP_METHOD_POST) {
       // OkHttp requires a non-null body for POST requests.
-      requestBody = RequestBody.create(null, Util.EMPTY_BYTE_ARRAY);
+      requestBody = RequestBody.create(Util.EMPTY_BYTE_ARRAY);
     }
     builder.method(dataSpec.getHttpMethodString(), requestBody);
     return builder.build();

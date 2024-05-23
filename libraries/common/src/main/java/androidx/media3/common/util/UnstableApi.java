@@ -41,15 +41,24 @@ import java.lang.annotation.Target;
  * work during upgrades. However it is generally inadvisable for libraries (which get included on
  * users' CLASSPATHs, outside the library developers' control) to do so.
  *
+ * <h2>Requesting additions to the stable API</h2>
+ *
+ * The Media3 stable API (i.e. those public API symbols that are not annotated with this annotation)
+ * is designed to allow developers to achieve common media-related tasks. If you have a use-case
+ * that you are unable to achieve using the stable API, and think you should be able to, please file
+ * an issue on our <a href="https://github.com/androidx/media/issues">GitHub issue tracker</a> with
+ * the full context of what you're doing, and what symbols you would need to be part of the stable
+ * API. We will consider each request on a case-by-case basis.
+ *
  * <h2>Opting in to use unstable APIs</h2>
  *
  * <p>By default usages of APIs annotated with this annotation generate lint errors in Gradle and
  * Android Studio, in order to alert developers to the risk of breaking changes.
  *
- * <p>Individual usage sites can be opted-in to suppress the lint error by using the {@link
- * androidx.annotation.OptIn} annotation.
+ * <p>Individual usage sites or whole packages can be opted-in to suppress the lint error by using
+ * the {@link androidx.annotation.OptIn} annotation.
  *
- * <p>In Java:
+ * <p>In a Java class:
  *
  * <pre>{@code
  * import androidx.annotation.OptIn;
@@ -57,6 +66,16 @@ import java.lang.annotation.Target;
  * ...
  * @OptIn(markerClass = UnstableApi.class)
  * private void methodUsingUnstableApis() { ... }
+ * }</pre>
+ *
+ * <p>In a {@code package-info.java} file, to opt-in a whole package:
+ *
+ * <pre>{@code
+ * @OptIn(markerClass = UnstableApi.class)
+ * package name.of.your.package;
+ *
+ * import androidx.annotation.OptIn;
+ * import androidx.media3.common.util.UnstableApi;
  * }</pre>
  *
  * <p>In Kotlin:
@@ -76,8 +95,7 @@ import java.lang.annotation.Target;
  * <?xml version="1.0" encoding="utf-8"?>
  * <lint>
  *   <issue id="UnsafeOptInUsageError">
- *     <ignore
- *         regexp='\(markerClass = androidx\.media3\.common\.util\.UnstableApi\.class\)' />
+ *     <option name="opt-in" value="androidx.media3.common.util.UnstableApi" />
  *   </issue>
  * </lint>
  * }</pre>

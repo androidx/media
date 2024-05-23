@@ -54,6 +54,9 @@ public class TestExoPlayerBuilder {
   private @MonotonicNonNull Looper looper;
   private long seekBackIncrementMs;
   private long seekForwardIncrementMs;
+  private boolean deviceVolumeControlEnabled;
+  private boolean suppressPlaybackWhenUnsuitableOutput;
+  @Nullable private ExoPlayer.PreloadConfiguration preloadConfiguration;
 
   public TestExoPlayerBuilder(Context context) {
     this.context = context;
@@ -67,6 +70,7 @@ public class TestExoPlayerBuilder {
     }
     seekBackIncrementMs = C.DEFAULT_SEEK_BACK_INCREMENT_MS;
     seekForwardIncrementMs = C.DEFAULT_SEEK_FORWARD_INCREMENT_MS;
+    deviceVolumeControlEnabled = false;
   }
 
   /**
@@ -154,6 +158,18 @@ public class TestExoPlayerBuilder {
   public TestExoPlayerBuilder setRenderers(Renderer... renderers) {
     assertThat(renderersFactory).isNull();
     this.renderers = renderers;
+    return this;
+  }
+
+  /**
+   * Sets the preload configuration.
+   *
+   * @see ExoPlayer#setPreloadConfiguration(ExoPlayer.PreloadConfiguration)
+   */
+  @CanIgnoreReturnValue
+  public TestExoPlayerBuilder setPreloadConfiguration(
+      ExoPlayer.PreloadConfiguration preloadConfiguration) {
+    this.preloadConfiguration = preloadConfiguration;
     return this;
   }
 
@@ -282,9 +298,35 @@ public class TestExoPlayerBuilder {
     return this;
   }
 
+  /**
+   * Sets the variable controlling player's ability to get/set device volume.
+   *
+   * @param deviceVolumeControlEnabled Whether the player can get/set device volume.
+   * @return This builder.
+   */
+  @CanIgnoreReturnValue
+  public TestExoPlayerBuilder setDeviceVolumeControlEnabled(boolean deviceVolumeControlEnabled) {
+    this.deviceVolumeControlEnabled = deviceVolumeControlEnabled;
+    return this;
+  }
+
   /** Returns the seek forward increment used by the player. */
   public long getSeekForwardIncrementMs() {
     return seekForwardIncrementMs;
+  }
+
+  /**
+   * See {@link ExoPlayer.Builder#setSuppressPlaybackOnUnsuitableOutput(boolean)} for details.
+   *
+   * @param suppressPlaybackOnUnsuitableOutput Whether the player should suppress the playback when
+   *     it is attempted on an unsuitable output.
+   * @return This builder.
+   */
+  @CanIgnoreReturnValue
+  public TestExoPlayerBuilder setSuppressPlaybackOnUnsuitableOutput(
+      boolean suppressPlaybackOnUnsuitableOutput) {
+    this.suppressPlaybackWhenUnsuitableOutput = suppressPlaybackOnUnsuitableOutput;
+    return this;
   }
 
   /** Builds an {@link ExoPlayer} using the provided values or their defaults. */
@@ -322,10 +364,16 @@ public class TestExoPlayerBuilder {
             .setUseLazyPreparation(useLazyPreparation)
             .setLooper(looper)
             .setSeekBackIncrementMs(seekBackIncrementMs)
-            .setSeekForwardIncrementMs(seekForwardIncrementMs);
+            .setSeekForwardIncrementMs(seekForwardIncrementMs)
+            .setDeviceVolumeControlEnabled(deviceVolumeControlEnabled)
+            .setSuppressPlaybackOnUnsuitableOutput(suppressPlaybackWhenUnsuitableOutput);
     if (mediaSourceFactory != null) {
       builder.setMediaSourceFactory(mediaSourceFactory);
     }
-    return builder.build();
+    ExoPlayer exoPlayer = builder.build();
+    if (preloadConfiguration != null) {
+      exoPlayer.setPreloadConfiguration(preloadConfiguration);
+    }
+    return exoPlayer;
   }
 }

@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
+import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
 /** A utility class for querying the available codecs. */
 @SuppressLint("InlinedApi")
@@ -89,12 +90,12 @@ public final class MediaCodecUtil {
   private MediaCodecUtil() {}
 
   /**
-   * Optional call to warm the codec cache for a given mime type.
+   * Optional call to warm the codec cache for a given MIME type.
    *
    * <p>Calling this method may speed up subsequent calls to {@link #getDecoderInfo(String, boolean,
    * boolean)} and {@link #getDecoderInfos(String, boolean, boolean)}.
    *
-   * @param mimeType The mime type.
+   * @param mimeType The MIME type.
    * @param secure Whether the decoder is required to support secure decryption. Always pass false
    *     unless secure decryption really is required.
    * @param tunneling Whether the decoder is required to support tunneling. Always pass false unless
@@ -127,7 +128,7 @@ public final class MediaCodecUtil {
   }
 
   /**
-   * Returns information about the preferred decoder for a given mime type.
+   * Returns information about the preferred decoder for a given MIME type.
    *
    * @param mimeType The MIME type.
    * @param secure Whether the decoder is required to support secure decryption. Always pass false
@@ -145,7 +146,7 @@ public final class MediaCodecUtil {
   }
 
   /**
-   * Returns all {@link MediaCodecInfo}s for the given mime type, in the order given by {@link
+   * Returns all {@link MediaCodecInfo}s for the given MIME type, in the order given by {@link
    * MediaCodecList}.
    *
    * @param mimeType The MIME type.
@@ -153,7 +154,7 @@ public final class MediaCodecUtil {
    *     unless secure decryption really is required.
    * @param tunneling Whether the decoder is required to support tunneling. Always pass false unless
    *     tunneling really is required.
-   * @return An unmodifiable list of all {@link MediaCodecInfo}s for the given mime type, in the
+   * @return An unmodifiable list of all {@link MediaCodecInfo}s for the given MIME type, in the
    *     order given by {@link MediaCodecList}.
    * @throws DecoderQueryException If there was an error querying the available decoders.
    */
@@ -187,6 +188,77 @@ public final class MediaCodecUtil {
     ImmutableList<MediaCodecInfo> immutableDecoderInfos = ImmutableList.copyOf(decoderInfos);
     decoderInfosCache.put(key, immutableDecoderInfos);
     return immutableDecoderInfos;
+  }
+
+  /**
+   * Returns a list of decoders that can decode media in the specified format, in the priority order
+   * specified by the {@link MediaCodecSelector}.
+   *
+   * <p>Since the {@link MediaCodecSelector} only has access to {@link Format#sampleMimeType}, the
+   * list is not ordered to account for whether each decoder supports the details of the format
+   * (e.g., taking into account the format's profile, level, resolution and so on). {@link
+   * #getDecoderInfosSortedByFormatSupport} can be used to further sort the list into an order where
+   * decoders that fully support the format come first.
+   *
+   * <p>This list is more complete than {@link #getDecoderInfos}, as it also considers alternative
+   * MIME types that are a close match using {@link #getAlternativeCodecMimeType}.
+   *
+   * @param mediaCodecSelector The decoder selector.
+   * @param format The {@link Format} for which a decoder is required.
+   * @param requiresSecureDecoder Whether a secure decoder is required.
+   * @param requiresTunnelingDecoder Whether a tunneling decoder is required.
+   * @return A list of {@link MediaCodecInfo}s corresponding to decoders. May be empty.
+   * @throws DecoderQueryException Thrown if there was an error querying decoders.
+   */
+  @RequiresNonNull("#2.sampleMimeType")
+  public static List<MediaCodecInfo> getDecoderInfosSoftMatch(
+      MediaCodecSelector mediaCodecSelector,
+      Format format,
+      boolean requiresSecureDecoder,
+      boolean requiresTunnelingDecoder)
+      throws DecoderQueryException {
+    List<MediaCodecInfo> decoderInfos =
+        mediaCodecSelector.getDecoderInfos(
+            format.sampleMimeType, requiresSecureDecoder, requiresTunnelingDecoder);
+    List<MediaCodecInfo> alternativeDecoderInfos =
+        getAlternativeDecoderInfos(
+            mediaCodecSelector, format, requiresSecureDecoder, requiresTunnelingDecoder);
+    return ImmutableList.<MediaCodecInfo>builder()
+        .addAll(decoderInfos)
+        .addAll(alternativeDecoderInfos)
+        .build();
+  }
+
+  /**
+   * Returns a list of decoders for {@linkplain #getAlternativeCodecMimeType alternative MIME types}
+   * that can decode samples of the provided {@link Format}, in the priority order specified by the
+   * {@link MediaCodecSelector}.
+   *
+   * <p>Since the {@link MediaCodecSelector} only has access to {@link Format#sampleMimeType}, the
+   * list is not ordered to account for whether each decoder supports the details of the format
+   * (e.g., taking into account the format's profile, level, resolution and so on). {@link
+   * #getDecoderInfosSortedByFormatSupport} can be used to further sort the list into an order where
+   * decoders that fully support the format come first.
+   *
+   * @param mediaCodecSelector The decoder selector.
+   * @param format The {@link Format} for which an alternative decoder is required.
+   * @param requiresSecureDecoder Whether a secure decoder is required.
+   * @param requiresTunnelingDecoder Whether a tunneling decoder is required.
+   * @return A list of {@link MediaCodecInfo}s corresponding to alternative decoders. May be empty.
+   * @throws DecoderQueryException Thrown if there was an error querying decoders.
+   */
+  public static List<MediaCodecInfo> getAlternativeDecoderInfos(
+      MediaCodecSelector mediaCodecSelector,
+      Format format,
+      boolean requiresSecureDecoder,
+      boolean requiresTunnelingDecoder)
+      throws DecoderQueryException {
+    @Nullable String alternativeMimeType = getAlternativeCodecMimeType(format);
+    if (alternativeMimeType == null) {
+      return ImmutableList.of();
+    }
+    return mediaCodecSelector.getDecoderInfos(
+        alternativeMimeType, requiresSecureDecoder, requiresTunnelingDecoder);
   }
 
   /**
@@ -282,8 +354,7 @@ public final class MediaCodecUtil {
       // be done for profile CodecProfileLevel.DolbyVisionProfileDvheStn and profile
       // CodecProfileLevel.DolbyVisionProfileDvheDtb because the first one is not backward
       // compatible and the second one is deprecated and is not always backward compatible.
-      @Nullable
-      Pair<Integer, Integer> codecProfileAndLevel = MediaCodecUtil.getCodecProfileAndLevel(format);
+      @Nullable Pair<Integer, Integer> codecProfileAndLevel = getCodecProfileAndLevel(format);
       if (codecProfileAndLevel != null) {
         int profile = codecProfileAndLevel.first;
         if (profile == CodecProfileLevel.DolbyVisionProfileDvheDtr
@@ -472,44 +543,6 @@ public final class MediaCodecUtil {
       return false;
     }
 
-    // Work around https://github.com/google/ExoPlayer/issues/1528 and
-    // https://github.com/google/ExoPlayer/issues/3171.
-    if (Util.SDK_INT < 18
-        && "OMX.MTK.AUDIO.DECODER.AAC".equals(name)
-        && ("a70".equals(Util.DEVICE)
-            || ("Xiaomi".equals(Util.MANUFACTURER) && Util.DEVICE.startsWith("HM")))) {
-      return false;
-    }
-
-    // Work around an issue where querying/creating a particular MP3 decoder on some devices on
-    // platform API version 16 fails.
-    if (Util.SDK_INT == 16
-        && "OMX.qcom.audio.decoder.mp3".equals(name)
-        && ("dlxu".equals(Util.DEVICE) // HTC Butterfly
-            || "protou".equals(Util.DEVICE) // HTC Desire X
-            || "ville".equals(Util.DEVICE) // HTC One S
-            || "villeplus".equals(Util.DEVICE)
-            || "villec2".equals(Util.DEVICE)
-            || Util.DEVICE.startsWith("gee") // LGE Optimus G
-            || "C6602".equals(Util.DEVICE) // Sony Xperia Z
-            || "C6603".equals(Util.DEVICE)
-            || "C6606".equals(Util.DEVICE)
-            || "C6616".equals(Util.DEVICE)
-            || "L36h".equals(Util.DEVICE)
-            || "SO-02E".equals(Util.DEVICE))) {
-      return false;
-    }
-
-    // Work around an issue where large timestamps are not propagated correctly.
-    if (Util.SDK_INT == 16
-        && "OMX.qcom.audio.decoder.aac".equals(name)
-        && ("C1504".equals(Util.DEVICE) // Sony Xperia E
-            || "C1505".equals(Util.DEVICE)
-            || "C1604".equals(Util.DEVICE) // Sony Xperia E dual
-            || "C1605".equals(Util.DEVICE))) {
-      return false;
-    }
-
     // Work around https://github.com/google/ExoPlayer/issues/3249.
     if (Util.SDK_INT < 24
         && ("OMX.SEC.aac.dec".equals(name) || "OMX.Exynos.AAC.Decoder".equals(name))
@@ -527,7 +560,7 @@ public final class MediaCodecUtil {
 
     // Work around https://github.com/google/ExoPlayer/issues/548.
     // VP8 decoder on Samsung Galaxy S3/S4/S4 Mini/Tab 3/Note 2 does not render video.
-    if (Util.SDK_INT <= 19
+    if (Util.SDK_INT == 19
         && "OMX.SEC.vp8.dec".equals(name)
         && "samsung".equals(Util.MANUFACTURER)
         && (Util.DEVICE.startsWith("d2")
@@ -539,7 +572,7 @@ public final class MediaCodecUtil {
     }
 
     // VP8 decoder on Samsung Galaxy S4 cannot be queried.
-    if (Util.SDK_INT <= 19
+    if (Util.SDK_INT == 19
         && Util.DEVICE.startsWith("jflte")
         && "OMX.qcom.video.decoder.vp8".equals(name)) {
       return false;
@@ -1309,6 +1342,8 @@ public final class MediaCodecUtil {
         return CodecProfileLevel.DolbyVisionProfileDvheSt;
       case "09":
         return CodecProfileLevel.DolbyVisionProfileDvavSe;
+      case "10":
+        return CodecProfileLevel.DolbyVisionProfileDvav110;
       default:
         return null;
     }
@@ -1319,7 +1354,7 @@ public final class MediaCodecUtil {
     if (levelString == null) {
       return null;
     }
-    // TODO (Internal: b/179261323): use framework constants for levels 10 to 13.
+    // TODO (Internal: b/179261323): use framework constant for level 13.
     switch (levelString) {
       case "01":
         return CodecProfileLevel.DolbyVisionLevelHd24;
@@ -1340,11 +1375,11 @@ public final class MediaCodecUtil {
       case "09":
         return CodecProfileLevel.DolbyVisionLevelUhd60;
       case "10":
-        return 0x200;
+        return CodecProfileLevel.DolbyVisionLevelUhd120;
       case "11":
-        return 0x400;
+        return CodecProfileLevel.DolbyVisionLevel8k30;
       case "12":
-        return 0x800;
+        return CodecProfileLevel.DolbyVisionLevel8k60;
       case "13":
         return 0x1000;
       default:

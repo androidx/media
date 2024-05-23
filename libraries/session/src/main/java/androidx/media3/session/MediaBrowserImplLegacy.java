@@ -23,15 +23,16 @@ import static androidx.media3.session.LibraryResult.RESULT_ERROR_UNKNOWN;
 import android.content.Context;
 import android.os.Bundle;
 import android.os.Looper;
-import android.support.v4.media.MediaBrowserCompat;
-import android.support.v4.media.MediaBrowserCompat.ItemCallback;
-import android.support.v4.media.MediaBrowserCompat.SubscriptionCallback;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
+import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.Log;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
+import androidx.media3.session.legacy.MediaBrowserCompat;
+import androidx.media3.session.legacy.MediaBrowserCompat.ItemCallback;
+import androidx.media3.session.legacy.MediaBrowserCompat.SubscriptionCallback;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -99,7 +100,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       // Already connected with the given extras.
       result.set(LibraryResult.ofItem(createRootMediaItem(browserCompat), null));
     } else {
-      Bundle rootHints = MediaUtils.convertToRootHints(params);
+      Bundle rootHints = LegacyConversions.convertToRootHints(params);
       MediaBrowserCompat newBrowser =
           new MediaBrowserCompat(
               getContext(),
@@ -192,7 +193,8 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
           public void onItemLoaded(MediaBrowserCompat.MediaItem item) {
             if (item != null) {
               result.set(
-                  LibraryResult.ofItem(MediaUtils.convertToMediaItem(item), /* params= */ null));
+                  LibraryResult.ofItem(
+                      LegacyConversions.convertToMediaItem(item), /* params= */ null));
             } else {
               result.set(LibraryResult.ofError(RESULT_ERROR_BAD_VALUE));
             }
@@ -222,7 +224,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         new MediaBrowserCompat.SearchCallback() {
           @Override
           public void onSearchResult(
-              String query, Bundle extras, List<MediaBrowserCompat.MediaItem> items) {
+              String query, @Nullable Bundle extras, List<MediaBrowserCompat.MediaItem> items) {
             getInstance()
                 .notifyBrowserListener(
                     listener -> {
@@ -236,7 +238,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
           }
 
           @Override
-          public void onError(String query, Bundle extras) {
+          public void onError(String query, @Nullable Bundle extras) {
             getInstance()
                 .notifyBrowserListener(
                     listener -> {
@@ -274,14 +276,15 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         new MediaBrowserCompat.SearchCallback() {
           @Override
           public void onSearchResult(
-              String query, Bundle extrasSent, List<MediaBrowserCompat.MediaItem> items) {
+              String query, @Nullable Bundle extrasSent, List<MediaBrowserCompat.MediaItem> items) {
             future.set(
                 LibraryResult.ofItemList(
-                    MediaUtils.convertBrowserItemListToMediaItemList(items), /* params= */ null));
+                    LegacyConversions.convertBrowserItemListToMediaItemList(items),
+                    /* params= */ null));
           }
 
           @Override
-          public void onError(String query, Bundle extrasSent) {
+          public void onError(String query, @Nullable Bundle extrasSent) {
             future.set(LibraryResult.ofError(RESULT_ERROR_UNKNOWN));
           }
         });
@@ -341,7 +344,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         result.set(
             LibraryResult.ofItem(
                 createRootMediaItem(browserCompat),
-                MediaUtils.convertToLibraryParams(context, browserCompat.getExtras())));
+                LegacyConversions.convertToLibraryParams(context, browserCompat.getExtras())));
       }
     }
 
@@ -367,23 +370,26 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     }
 
     @Override
-    public void onError(String parentId) {
+    public void onError(@Nullable String parentId) {
       onErrorInternal();
     }
 
     @Override
-    public void onError(String parentId, Bundle options) {
+    public void onError(@Nullable String parentId, @Nullable Bundle options) {
       onErrorInternal();
     }
 
     @Override
-    public void onChildrenLoaded(String parentId, List<MediaBrowserCompat.MediaItem> children) {
+    public void onChildrenLoaded(
+        @Nullable String parentId, @Nullable List<MediaBrowserCompat.MediaItem> children) {
       onChildrenLoadedInternal(parentId, children);
     }
 
     @Override
     public void onChildrenLoaded(
-        String parentId, List<MediaBrowserCompat.MediaItem> children, Bundle options) {
+        @Nullable String parentId,
+        @Nullable List<MediaBrowserCompat.MediaItem> children,
+        @Nullable Bundle options) {
       onChildrenLoadedInternal(parentId, children);
     }
 
@@ -394,7 +400,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     }
 
     private void onChildrenLoadedInternal(
-        String parentId, @Nullable List<MediaBrowserCompat.MediaItem> children) {
+        @Nullable String parentId, @Nullable List<MediaBrowserCompat.MediaItem> children) {
       if (TextUtils.isEmpty(parentId)) {
         Log.w(TAG, "SubscribeCallback.onChildrenLoaded(): Ignoring empty parentId");
         return;
@@ -413,7 +419,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       }
 
       LibraryParams params =
-          MediaUtils.convertToLibraryParams(
+          LegacyConversions.convertToLibraryParams(
               context, browserCompat.getNotifyChildrenChangedOptions());
       getInstance()
           .notifyBrowserListener(
@@ -438,23 +444,26 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     }
 
     @Override
-    public void onError(String parentId) {
+    public void onError(@Nullable String parentId) {
       onErrorInternal();
     }
 
     @Override
-    public void onError(String parentId, Bundle options) {
+    public void onError(@Nullable String parentId, @Nullable Bundle options) {
       onErrorInternal();
     }
 
     @Override
-    public void onChildrenLoaded(String parentId, List<MediaBrowserCompat.MediaItem> children) {
+    public void onChildrenLoaded(
+        @Nullable String parentId, @Nullable List<MediaBrowserCompat.MediaItem> children) {
       onChildrenLoadedInternal(parentId, children);
     }
 
     @Override
     public void onChildrenLoaded(
-        String parentId, List<MediaBrowserCompat.MediaItem> children, Bundle options) {
+        @Nullable String parentId,
+        @Nullable List<MediaBrowserCompat.MediaItem> children,
+        Bundle options) {
       onChildrenLoadedInternal(parentId, children);
     }
 
@@ -463,7 +472,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     }
 
     private void onChildrenLoadedInternal(
-        String parentId, List<MediaBrowserCompat.MediaItem> children) {
+        @Nullable String parentId, @Nullable List<MediaBrowserCompat.MediaItem> children) {
       if (TextUtils.isEmpty(parentId)) {
         Log.w(TAG, "GetChildrenCallback.onChildrenLoaded(): Ignoring empty parentId");
         return;
@@ -485,7 +494,8 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         // - New API: Extra from MediaLibraryService to MediaBrowser
         future.set(
             LibraryResult.ofItemList(
-                MediaUtils.convertBrowserItemListToMediaItemList(children), /* params= */ null));
+                LegacyConversions.convertBrowserItemListToMediaItemList(children),
+                /* params= */ null));
       }
     }
   }

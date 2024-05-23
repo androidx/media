@@ -19,8 +19,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.os.Bundle;
 import android.os.SystemClock;
-import android.support.v4.media.session.MediaControllerCompat;
-import android.support.v4.media.session.MediaSessionCompat;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Bundleable;
@@ -81,8 +79,9 @@ public final class SessionResult implements Bundleable {
    * Result code representing that the command is successfully completed.
    *
    * <p>Interoperability: This code is also used to tell that the command was successfully sent, but
-   * the result is unknown when connected with {@link MediaSessionCompat} or {@link
-   * MediaControllerCompat}.
+   * the result is unknown when connected with {@code
+   * android.support.v4.media.session.MediaSessionCompat} or {@code
+   * android.support.v4.media.session.MediaControllerCompat}.
    */
   public static final int RESULT_SUCCESS = 0;
 
@@ -190,10 +189,19 @@ public final class SessionResult implements Bundleable {
     return bundle;
   }
 
-  /** Object that can restore a {@link SessionResult} from a {@link Bundle}. */
-  @UnstableApi public static final Creator<SessionResult> CREATOR = SessionResult::fromBundle;
+  /**
+   * Object that can restore a {@link SessionResult} from a {@link Bundle}.
+   *
+   * @deprecated Use {@link #fromBundle} instead.
+   */
+  @UnstableApi
+  @Deprecated
+  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
+  public static final Creator<SessionResult> CREATOR = SessionResult::fromBundle;
 
-  private static SessionResult fromBundle(Bundle bundle) {
+  /** Restores a {@code SessionResult} from a {@link Bundle}. */
+  @UnstableApi
+  public static SessionResult fromBundle(Bundle bundle) {
     int resultCode = bundle.getInt(FIELD_RESULT_CODE, /* defaultValue= */ RESULT_ERROR_UNKNOWN);
     @Nullable Bundle extras = bundle.getBundle(FIELD_EXTRAS);
     long completionTimeMs =

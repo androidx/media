@@ -125,6 +125,11 @@ import androidx.media3.extractor.metadata.id3.MlltFrame;
 
   @Override
   public long getDataEndPosition() {
-    return C.POSITION_UNSET;
+    return C.INDEX_UNSET;
+  }
+
+  @Override
+  public int getAverageBitrate() {
+    return C.RATE_UNSET_INT;
   }
 }

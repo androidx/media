@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.common.MediaMetadata.MEDIA_TYPE_PLAYLIST;
 import static androidx.media3.common.Player.DISCONTINUITY_REASON_AUTO_TRANSITION;
 import static androidx.media3.common.Player.EVENT_MEDIA_ITEM_TRANSITION;
 import static androidx.media3.common.Player.EVENT_MEDIA_METADATA_CHANGED;
@@ -30,6 +31,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.os.Bundle;
 import android.support.v4.media.MediaDescriptionCompat;
 import android.support.v4.media.MediaMetadataCompat;
 import android.support.v4.media.RatingCompat;
@@ -38,6 +40,7 @@ import android.support.v4.media.session.MediaSessionCompat.QueueItem;
 import android.support.v4.media.session.PlaybackStateCompat;
 import androidx.annotation.Nullable;
 import androidx.media3.common.FlagSet;
+import androidx.media3.common.HeartRating;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
@@ -45,11 +48,14 @@ import androidx.media3.common.Player.Events;
 import androidx.media3.common.Player.PositionInfo;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.Timeline.Window;
+import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.Util;
+import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.MediumTest;
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -83,7 +89,7 @@ public class MediaControllerMediaSessionCompatCallbackAggregationTest {
   public void setUp() throws Exception {
     context = ApplicationProvider.getApplicationContext();
     session = new RemoteMediaSessionCompat(DEFAULT_TEST_NAME, context);
-    bitmapLoader = new CacheBitmapLoader(new SimpleBitmapLoader());
+    bitmapLoader = new CacheBitmapLoader(new DataSourceBitmapLoader(context));
   }
 
   @After
@@ -97,10 +103,22 @@ public class MediaControllerMediaSessionCompatCallbackAggregationTest {
     List<MediaItem> testMediaItems = MediaTestUtils.createMediaItemsWithArtworkData(testSize);
     List<QueueItem> testQueue = convertToQueueItems(testMediaItems);
     int testMediaItemIndex = 1;
-    MediaMetadataCompat testMediaMetadataCompat = createMediaMetadataCompat();
+    MediaMetadataCompat testMediaMetadataCompat =
+        new MediaMetadataCompat.Builder()
+            .putText(MediaMetadataCompat.METADATA_KEY_TITLE, "title")
+            .putText(MediaMetadataCompat.METADATA_KEY_ARTIST, "artist")
+            .putLong(MediaConstants.EXTRAS_KEY_MEDIA_TYPE_COMPAT, MEDIA_TYPE_PLAYLIST)
+            .build();
     @RatingCompat.Style int testRatingType = RatingCompat.RATING_HEART;
     MediaMetadata testMediaMetadata =
-        MediaUtils.convertToMediaMetadata(testMediaMetadataCompat, testRatingType);
+        new MediaMetadata.Builder()
+            .setArtist("artist")
+            .setTitle("title")
+            .setUserRating(new HeartRating())
+            .setMediaType(MEDIA_TYPE_PLAYLIST)
+            .setIsBrowsable(false)
+            .setIsPlayable(true)
+            .build();
     MediaItem testCurrentMediaItem =
         new MediaItem.Builder()
             .setMediaId(testMediaItems.get(testMediaItemIndex).mediaId)
@@ -229,10 +247,20 @@ public class MediaControllerMediaSessionCompatCallbackAggregationTest {
     int testSize = 3;
     List<MediaItem> testMediaItems = MediaTestUtils.createMediaItems(testSize);
     List<QueueItem> testQueue = MediaTestUtils.convertToQueueItemsWithoutBitmap(testMediaItems);
-    MediaMetadataCompat testMediaMetadataCompat = createMediaMetadataCompat();
+    MediaMetadataCompat testMediaMetadataCompat =
+        new MediaMetadataCompat.Builder()
+            .putText(MediaMetadataCompat.METADATA_KEY_ARTIST, "artist")
+            .putText(MediaMetadataCompat.METADATA_KEY_TITLE, "title")
+            .build();
     @RatingCompat.Style int testRatingType = RatingCompat.RATING_HEART;
     MediaMetadata testMediaMetadata =
-        MediaUtils.convertToMediaMetadata(testMediaMetadataCompat, testRatingType);
+        new MediaMetadata.Builder()
+            .setArtist("artist")
+            .setTitle("title")
+            .setUserRating(new HeartRating())
+            .setIsBrowsable(false)
+            .setIsPlayable(true)
+            .build();
     Events testEvents =
         new Events(
             new FlagSet.Builder()
@@ -243,7 +271,7 @@ public class MediaControllerMediaSessionCompatCallbackAggregationTest {
                     EVENT_TIMELINE_CHANGED)
                 .build());
     int testMediaItemIndex = testSize; // Index of fake item.
-    testMediaItems.add(MediaUtils.convertToMediaItem(testMediaMetadataCompat, testRatingType));
+    testMediaItems.add(new MediaItem.Builder().setMediaMetadata(testMediaMetadata).build());
 
     MediaController controller = controllerTestRule.createController(session.getSessionToken());
     CountDownLatch latch = new CountDownLatch(5);
@@ -422,10 +450,20 @@ public class MediaControllerMediaSessionCompatCallbackAggregationTest {
 
   @Test
   public void getters_withMetadata() throws Exception {
-    MediaMetadataCompat testMediaMetadataCompat = createMediaMetadataCompat();
+    MediaMetadataCompat testMediaMetadataCompat =
+        new MediaMetadataCompat.Builder()
+            .putText(MediaMetadataCompat.METADATA_KEY_ARTIST, "artist")
+            .putText(MediaMetadataCompat.METADATA_KEY_TITLE, "title")
+            .build();
     @RatingCompat.Style int testRatingType = RatingCompat.RATING_HEART;
     MediaMetadata testMediaMetadata =
-        MediaUtils.convertToMediaMetadata(testMediaMetadataCompat, testRatingType);
+        new MediaMetadata.Builder()
+            .setArtist("artist")
+            .setTitle("title")
+            .setUserRating(new HeartRating())
+            .setIsBrowsable(false)
+            .setIsPlayable(true)
+            .build();
     Events testEvents =
         new Events(
             new FlagSet.Builder()
@@ -436,8 +474,8 @@ public class MediaControllerMediaSessionCompatCallbackAggregationTest {
                     EVENT_TIMELINE_CHANGED)
                 .build());
     int testMediaItemIndex = 0;
-    List<MediaItem> testMediaItems = new ArrayList<>();
-    testMediaItems.add(MediaUtils.convertToMediaItem(testMediaMetadataCompat, testRatingType));
+    ImmutableList<MediaItem> testMediaItems =
+        ImmutableList.of(new MediaItem.Builder().setMediaMetadata(testMediaMetadata).build());
 
     MediaController controller = controllerTestRule.createController(session.getSessionToken());
     CountDownLatch latch = new CountDownLatch(5);
@@ -519,13 +557,6 @@ public class MediaControllerMediaSessionCompatCallbackAggregationTest {
     assertThat(currentMediaMetadata).isEqualTo(currentMediaItem.mediaMetadata);
   }
 
-  private static MediaMetadataCompat createMediaMetadataCompat() {
-    return new MediaMetadataCompat.Builder()
-        .putText(MediaMetadataCompat.METADATA_KEY_ARTIST, "artist")
-        .putText(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, "title")
-        .build();
-  }
-
   private static void assertTimelineEqualsToMediaItems(
       Timeline currentTimeline, List<MediaItem> mediaItems) {
     assertThat(currentTimeline.getWindowCount()).isEqualTo(mediaItems.size());
@@ -545,8 +576,15 @@ public class MediaControllerMediaSessionCompatCallbackAggregationTest {
       MediaItem item = mediaItems.get(i);
       @Nullable
       Bitmap bitmap = bitmapLoader.decodeBitmap(item.mediaMetadata.artworkData).get(10, SECONDS);
-      MediaDescriptionCompat description = MediaUtils.convertToMediaDescriptionCompat(item, bitmap);
-      long id = MediaUtils.convertToQueueItemId(i);
+      Bundle extras = new Bundle();
+      extras.putLong(MediaConstants.EXTRAS_KEY_MEDIA_TYPE_COMPAT, item.mediaMetadata.mediaType);
+      MediaDescriptionCompat description =
+          new MediaDescriptionCompat.Builder()
+              .setMediaId(item.mediaId)
+              .setIconBitmap(bitmap)
+              .setExtras(extras)
+              .build();
+      long id = LegacyConversions.convertToQueueItemId(i);
       list.add(new MediaSessionCompat.QueueItem(description, id));
     }
     return list;

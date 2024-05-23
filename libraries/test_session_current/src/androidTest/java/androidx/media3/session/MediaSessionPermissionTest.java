@@ -23,7 +23,7 @@ import static androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM;
 import static androidx.media3.common.Player.COMMAND_SET_DEVICE_VOLUME;
 import static androidx.media3.common.Player.COMMAND_SET_MEDIA_ITEM;
-import static androidx.media3.common.Player.COMMAND_SET_MEDIA_ITEMS_METADATA;
+import static androidx.media3.common.Player.COMMAND_SET_PLAYLIST_METADATA;
 import static androidx.media3.common.Player.COMMAND_SET_TRACK_SELECTION_PARAMETERS;
 import static androidx.media3.session.MediaUtils.createPlayerCommandsWith;
 import static androidx.media3.session.MediaUtils.createPlayerCommandsWithout;
@@ -136,7 +136,7 @@ public class MediaSessionPermissionTest {
   @Test
   public void setPlaylistMetadata() throws Exception {
     testOnCommandRequest(
-        COMMAND_SET_MEDIA_ITEMS_METADATA,
+        COMMAND_SET_PLAYLIST_METADATA,
         controller -> controller.setPlaylistMetadata(MediaMetadata.EMPTY));
   }
 
@@ -166,6 +166,21 @@ public class MediaSessionPermissionTest {
         COMMAND_CHANGE_MEDIA_ITEMS,
         /* mediaItems= */ MediaTestUtils.createMediaItems(/* size= */ 5),
         controller -> controller.removeMediaItems(/* fromIndex= */ 0, /* toIndex= */ 1));
+  }
+
+  @Test
+  public void replaceMediaItem() throws Exception {
+    testOnCommandRequest(
+        COMMAND_CHANGE_MEDIA_ITEMS,
+        controller -> controller.replaceMediaItem(/* index= */ 0, MediaItem.EMPTY));
+  }
+
+  @Test
+  public void replaceMediaItems() throws Exception {
+    testOnCommandRequest(
+        COMMAND_CHANGE_MEDIA_ITEMS,
+        controller ->
+            controller.replaceMediaItems(/* fromIndex= */ 0, /* toIndex= */ 1, ImmutableList.of()));
   }
 
   @Test
@@ -279,7 +294,7 @@ public class MediaSessionPermissionTest {
             .build();
     // Set remote device info to ensure we also cover the volume provider compat setup.
     mockPlayer.deviceInfo =
-        new DeviceInfo(DeviceInfo.PLAYBACK_TYPE_REMOTE, /* minVolume= */ 0, /* maxVolume= */ 100);
+        new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).setMaxVolume(100).build();
     Player player =
         new ForwardingPlayer(mockPlayer) {
           @Override

@@ -51,14 +51,19 @@ public final class CaptionStyleCompat {
     EDGE_TYPE_DEPRESSED
   })
   public @interface EdgeType {}
+
   /** Edge type value specifying no character edges. */
   public static final int EDGE_TYPE_NONE = 0;
+
   /** Edge type value specifying uniformly outlined character edges. */
   public static final int EDGE_TYPE_OUTLINE = 1;
+
   /** Edge type value specifying drop-shadowed character edges. */
   public static final int EDGE_TYPE_DROP_SHADOW = 2;
+
   /** Edge type value specifying raised bevel character edges. */
   public static final int EDGE_TYPE_RAISED = 3;
+
   /** Edge type value specifying depressed bevel character edges. */
   public static final int EDGE_TYPE_DEPRESSED = 4;
 
@@ -109,15 +114,18 @@ public final class CaptionStyleCompat {
    * @param captionStyle A {@link CaptionStyle}.
    * @return The equivalent {@link CaptionStyleCompat}.
    */
-  @RequiresApi(19)
   public static CaptionStyleCompat createFromCaptionStyle(
       CaptioningManager.CaptionStyle captionStyle) {
     if (Util.SDK_INT >= 21) {
       return createFromCaptionStyleV21(captionStyle);
     } else {
-      // Note - Any caller must be on at least API level 19 or greater (because CaptionStyle did
-      // not exist in earlier API levels).
-      return createFromCaptionStyleV19(captionStyle);
+      return new CaptionStyleCompat(
+          captionStyle.foregroundColor,
+          captionStyle.backgroundColor,
+          Color.TRANSPARENT,
+          captionStyle.edgeType,
+          captionStyle.edgeColor,
+          captionStyle.getTypeface());
     }
   }
 
@@ -142,19 +150,6 @@ public final class CaptionStyleCompat {
     this.edgeType = edgeType;
     this.edgeColor = edgeColor;
     this.typeface = typeface;
-  }
-
-  @RequiresApi(19)
-  @SuppressWarnings("ResourceType")
-  private static CaptionStyleCompat createFromCaptionStyleV19(
-      CaptioningManager.CaptionStyle captionStyle) {
-    return new CaptionStyleCompat(
-        captionStyle.foregroundColor,
-        captionStyle.backgroundColor,
-        Color.TRANSPARENT,
-        captionStyle.edgeType,
-        captionStyle.edgeColor,
-        captionStyle.getTypeface());
   }
 
   @RequiresApi(21)

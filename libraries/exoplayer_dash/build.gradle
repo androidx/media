@@ -14,6 +14,8 @@
 apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 
 android {
+    namespace 'androidx.media3.exoplayer.dash'
+
     buildTypes {
         debug {
             testCoverageEnabled = true
@@ -21,24 +23,24 @@ android {
     }
 
     sourceSets.test.assets.srcDir '../test_data/src/test/assets/'
+
+    publishing {
+        singleVariant('release') {
+            withSourcesJar()
+        }
+    }
 }
 
 dependencies {
     implementation project(modulePrefix + 'lib-exoplayer')
     compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
-    compileOnly 'org.checkerframework:checker-compat-qual:' + checkerframeworkCompatVersion
     compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     testImplementation project(modulePrefix + 'test-utils-robolectric')
     testImplementation project(modulePrefix + 'test-utils')
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
 }
-
-ext {
-    javadocTitle = 'DASH module'
-}
-apply from: '../../javadoc_library.gradle'
 
 ext {
     releaseArtifactId = 'media3-exoplayer-dash'

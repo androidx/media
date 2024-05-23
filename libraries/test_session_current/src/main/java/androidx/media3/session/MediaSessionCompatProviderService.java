@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.test.session.common.CommonConstants.ACTION_MEDIA_SESSION_COMPAT;
 import static androidx.media3.test.session.common.CommonConstants.KEY_METADATA_COMPAT;
 import static androidx.media3.test.session.common.CommonConstants.KEY_PLAYBACK_STATE_COMPAT;
@@ -27,6 +28,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.RemoteException;
+import android.os.SystemClock;
 import android.support.v4.media.MediaMetadataCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.MediaSessionCompat.QueueItem;
@@ -34,7 +36,6 @@ import android.support.v4.media.session.PlaybackStateCompat;
 import androidx.annotation.Nullable;
 import androidx.media.VolumeProviderCompat;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.test.session.common.IRemoteMediaSessionCompat;
 import androidx.media3.test.session.common.TestHandler;
 import java.util.HashMap;
@@ -46,7 +47,6 @@ import java.util.concurrent.Executor;
  * A Service that creates {@link MediaSessionCompat} and calls its methods according to the client
  * app's requests.
  */
-@UnstableApi
 public class MediaSessionCompatProviderService extends Service {
 
   public static final String METHOD_ON_PREPARE_FROM_MEDIA_ID = "onPrepareFromMediaId";
@@ -122,11 +122,15 @@ public class MediaSessionCompatProviderService extends Service {
 
     @Override
     public void setPlaybackToRemote(
-        String sessionTag, int volumeControl, int maxVolume, int currentVolume)
+        String sessionTag,
+        int volumeControl,
+        int maxVolume,
+        int currentVolume,
+        @Nullable String routingControllerId)
         throws RemoteException {
       MediaSessionCompat session = sessionMap.get(sessionTag);
       session.setPlaybackToRemote(
-          new VolumeProviderCompat(volumeControl, maxVolume, currentVolume) {
+          new VolumeProviderCompat(volumeControl, maxVolume, currentVolume, routingControllerId) {
             @Override
             public void onSetVolumeTo(int volume) {
               setCurrentVolume(volume);
@@ -228,6 +232,24 @@ public class MediaSessionCompatProviderService extends Service {
     public void setSessionExtras(String sessionTag, Bundle extras) {
       MediaSessionCompat session = sessionMap.get(sessionTag);
       session.setExtras(extras);
+    }
+
+    @Override
+    public void sendError(
+        String sessionTag, int errorCode, int errorMessageResId, Bundle errorExtras) {
+      MediaSessionCompat session = sessionMap.get(sessionTag);
+      session.setPlaybackState(
+          new PlaybackStateCompat.Builder()
+              .setState(
+                  PlaybackStateCompat.STATE_ERROR,
+                  /* position= */ PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN,
+                  /* playbackSpeed= */ 0,
+                  /* updateTime= */ SystemClock.elapsedRealtime())
+              .setActions(0)
+              .setBufferedPosition(0)
+              .setErrorMessage(errorCode, checkNotNull(getString(errorMessageResId)))
+              .setExtras(checkNotNull(errorExtras))
+              .build());
     }
 
     @Override

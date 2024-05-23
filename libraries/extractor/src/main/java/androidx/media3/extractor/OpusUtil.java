@@ -67,6 +67,55 @@ public class OpusUtil {
   }
 
   /**
+   * Returns the number of audio samples in the given Ogg encapuslated Opus packet.
+   *
+   * <p>The buffer's position is not modified.
+   *
+   * @param buffer The audio packet.
+   * @return Returns the number of audio samples in the packet.
+   */
+  public static int parseOggPacketAudioSampleCount(ByteBuffer buffer) {
+    // RFC 3433 section 6 - The Ogg page format.
+    int preAudioPacketByteCount = parseOggPacketForPreAudioSampleByteCount(buffer);
+    int numPageSegments = buffer.get(/* index= */ 26 + preAudioPacketByteCount);
+    // Skip Ogg header + segment table.
+    int indexFirstOpusPacket = 27 + numPageSegments + preAudioPacketByteCount;
+    long packetDurationUs =
+        getPacketDurationUs(
+            buffer.get(indexFirstOpusPacket),
+            buffer.limit() - indexFirstOpusPacket > 1 ? buffer.get(indexFirstOpusPacket + 1) : 0);
+    return (int) (packetDurationUs * SAMPLE_RATE / C.MICROS_PER_SECOND);
+  }
+
+  /**
+   * Calculate the offset from the start of the buffer to audio sample Ogg packets.
+   *
+   * @param buffer containing the Ogg Encapsulated Opus audio bitstream.
+   * @return the offset before the Ogg packet containing audio samples.
+   */
+  public static int parseOggPacketForPreAudioSampleByteCount(ByteBuffer buffer) {
+    // Parse Ogg Packet Type from Header at index 5
+    if ((buffer.get(/* index= */ 5) & 0x02) == 0) {
+      // Ogg Page packet header type is not beginning of logical stream. Must be an Audio page.
+      return 0;
+    }
+    // ID Header Page size is Ogg packet header size + sum(lacing values: 1..number_page_segments).
+    int idHeaderPageSize = 28;
+    int idHeaderPageNumOfSegments = buffer.get(/* index= */ 26);
+    for (int i = 0; i < idHeaderPageNumOfSegments; i++) {
+      idHeaderPageSize += buffer.get(/* index= */ 27 + i);
+    }
+    // Comment Header Page size is Ogg packet header size + sum(lacing values:
+    // 1..number_page_segments).
+    int commentHeaderPageSize = 28;
+    int commentHeaderPageSizeNumOfSegments = buffer.get(/* index= */ idHeaderPageSize + 26);
+    for (int i = 0; i < commentHeaderPageSizeNumOfSegments; i++) {
+      commentHeaderPageSize += buffer.get(/* index= */ idHeaderPageSize + 27 + i);
+    }
+    return idHeaderPageSize + commentHeaderPageSize;
+  }
+
+  /**
    * Returns the number of audio samples in the given audio packet.
    *
    * <p>The buffer's position is not modified.
@@ -88,6 +137,33 @@ public class OpusUtil {
    */
   public static long getPacketDurationUs(byte[] buffer) {
     return getPacketDurationUs(buffer[0], buffer.length > 1 ? buffer[1] : 0);
+  }
+
+  /**
+   * Returns the number of pre-skip samples specified by the given Opus codec initialization data.
+   *
+   * @param header The Opus Identification header.
+   * @return The number of pre-skip samples.
+   */
+  public static int getPreSkipSamples(byte[] header) {
+    return ((header[11] & 0xFF) << 8) | (header[10] & 0xFF);
+  }
+
+  /**
+   * Returns whether an Opus frame should be sent to the decoder as it is either past the start
+   * position or within the seek-preroll duration.
+   *
+   * <p>The measure of whether an Opus frame should not be decoded is if its time precedes the start
+   * position by more than the default seek-preroll value.
+   *
+   * @param startTimeUs The time to start playing at.
+   * @param frameTimeUs The time of the Opus sample.
+   * @return Whether the frame should be decoded.
+   */
+  public static boolean needToDecodeOpusFrame(long startTimeUs, long frameTimeUs) {
+    // Divide by 1000 in rhs value to convert nanoseconds to microseconds.
+    return (startTimeUs - frameTimeUs)
+        <= (sampleCountToNanoseconds(DEFAULT_SEEK_PRE_ROLL_SAMPLES) / 1000);
   }
 
   private static long getPacketDurationUs(byte packetByte0, byte packetByte1) {
@@ -120,10 +196,6 @@ public class OpusUtil {
       frameDurationUs = 10000 << length;
     }
     return (long) frames * frameDurationUs;
-  }
-
-  private static int getPreSkipSamples(byte[] header) {
-    return ((header[11] & 0xFF) << 8) | (header[10] & 0xFF);
   }
 
   private static byte[] buildNativeOrderByteArray(long value) {

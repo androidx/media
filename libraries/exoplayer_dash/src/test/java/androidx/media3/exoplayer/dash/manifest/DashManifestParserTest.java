@@ -22,6 +22,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
+import androidx.media3.common.Label;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.dash.manifest.Representation.MultiSegmentRepresentation;
@@ -82,6 +83,8 @@ public class DashManifestParserTest {
       "media/mpd/sample_mpd_service_description_low_latency_only_target_latency";
   private static final String SAMPLE_MPD_CLEAR_KEY_LICENSE_URL =
       "media/mpd/sample_mpd_clear_key_license_url";
+  private static final String SAMPLE_MPD_DASHIF_LICENSE_URL =
+      "media/mpd/sample_mpd_dashif_license_url";
 
   private static final String NEXT_TAG_NAME = "Next";
   private static final String NEXT_TAG = "<" + NEXT_TAG_NAME + "/>";
@@ -280,6 +283,12 @@ public class DashManifestParserTest {
 
     assertThat(adaptationSets.get(0).representations.get(0).format.label).isEqualTo("audio label");
     assertThat(adaptationSets.get(1).representations.get(0).format.label).isEqualTo("video label");
+    assertThat(adaptationSets.get(0).representations.get(0).format.labels).hasSize(1);
+    assertThat(adaptationSets.get(0).representations.get(0).format.labels.get(0).value)
+        .isEqualTo("audio label");
+    assertThat(adaptationSets.get(1).representations.get(0).format.labels).hasSize(1);
+    assertThat(adaptationSets.get(1).representations.get(0).format.labels.get(0).value)
+        .isEqualTo("video label");
   }
 
   @Test
@@ -433,11 +442,24 @@ public class DashManifestParserTest {
   public void parseLabel() throws Exception {
     DashManifestParser parser = new DashManifestParser();
     XmlPullParser xpp = XmlPullParserFactory.newInstance().newPullParser();
+    xpp.setInput(new StringReader("<Label lang=\"en\">test label</Label>" + NEXT_TAG));
+    xpp.next();
+
+    Label label = parser.parseLabel(xpp);
+    assertThat(label.language).isEqualTo("en");
+    assertThat(label.value).isEqualTo("test label");
+    assertNextTag(xpp);
+  }
+
+  @Test
+  public void parseLabel_noLang() throws Exception {
+    DashManifestParser parser = new DashManifestParser();
+    XmlPullParser xpp = XmlPullParserFactory.newInstance().newPullParser();
     xpp.setInput(new StringReader("<Label>test label</Label>" + NEXT_TAG));
     xpp.next();
 
-    String label = parser.parseLabel(xpp);
-    assertThat(label).isEqualTo("test label");
+    Label label = parser.parseLabel(xpp);
+    assertThat(label.language).isNull();
     assertNextTag(xpp);
   }
 
@@ -448,8 +470,9 @@ public class DashManifestParserTest {
     xpp.setInput(new StringReader("<Label/>" + NEXT_TAG));
     xpp.next();
 
-    String label = parser.parseLabel(xpp);
-    assertThat(label).isEqualTo("");
+    Label label = parser.parseLabel(xpp);
+    assertThat(label.value).isNotNull();
+    assertThat(label.value).isEmpty();
     assertNextTag(xpp);
   }
 
@@ -926,6 +949,37 @@ public class DashManifestParserTest {
     DrmInitData.SchemeData schemeData1 = representation1.format.drmInitData.get(0);
     assertThat(schemeData0.uuid).isEqualTo(C.CLEARKEY_UUID);
     assertThat(schemeData1.uuid).isEqualTo(C.CLEARKEY_UUID);
+    assertThat(schemeData0.licenseServerUrl).isEqualTo("https://testserver1.test/AcquireLicense");
+    assertThat(schemeData1.licenseServerUrl).isEqualTo("https://testserver2.test/AcquireLicense");
+  }
+
+  @Test
+  public void contentProtection_withDashIfLicenseUrl() throws IOException {
+    DashManifestParser parser = new DashManifestParser();
+
+    DashManifest manifest =
+        parser.parse(
+            Uri.parse("https://example.com/test.mpd"),
+            TestUtil.getInputStream(
+                ApplicationProvider.getApplicationContext(), SAMPLE_MPD_DASHIF_LICENSE_URL));
+
+    assertThat(manifest.getPeriodCount()).isEqualTo(1);
+    Period period = manifest.getPeriod(0);
+    assertThat(period.adaptationSets).hasSize(2);
+    AdaptationSet adaptationSet0 = period.adaptationSets.get(0);
+    AdaptationSet adaptationSet1 = period.adaptationSets.get(1);
+    assertThat(adaptationSet0.representations).hasSize(1);
+    assertThat(adaptationSet1.representations).hasSize(1);
+    Representation representation0 = adaptationSet0.representations.get(0);
+    Representation representation1 = adaptationSet1.representations.get(0);
+    assertThat(representation0.format.drmInitData.schemeType).isEqualTo("cenc");
+    assertThat(representation1.format.drmInitData.schemeType).isEqualTo("cenc");
+    assertThat(representation0.format.drmInitData.schemeDataCount).isEqualTo(2);
+    assertThat(representation1.format.drmInitData.schemeDataCount).isEqualTo(2);
+    DrmInitData.SchemeData schemeData0 = representation0.format.drmInitData.get(0);
+    DrmInitData.SchemeData schemeData1 = representation1.format.drmInitData.get(0);
+    assertThat(schemeData0.uuid).isEqualTo(C.WIDEVINE_UUID);
+    assertThat(schemeData1.uuid).isEqualTo(C.WIDEVINE_UUID);
     assertThat(schemeData0.licenseServerUrl).isEqualTo("https://testserver1.test/AcquireLicense");
     assertThat(schemeData1.licenseServerUrl).isEqualTo("https://testserver2.test/AcquireLicense");
   }

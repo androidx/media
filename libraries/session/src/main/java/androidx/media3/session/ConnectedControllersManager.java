@@ -37,7 +37,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
  *
  * <p>The generic {@code T} denotes a key of connected {@link MediaController controllers}, and it
  * can be either {@link android.os.IBinder} or {@link
- * androidx.media.MediaSessionManager.RemoteUserInfo}.
+ * androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo}.
  *
  * <p>This class is thread-safe.
  */
@@ -270,20 +270,22 @@ import org.checkerframework.checker.nullness.qual.NonNull;
       AtomicBoolean commandExecuting = new AtomicBoolean(true);
       postOrRun(
           sessionImpl.getApplicationHandler(),
-          () ->
-              asyncCommand
-                  .run()
-                  .addListener(
-                      () -> {
-                        synchronized (lock) {
-                          if (!commandExecuting.get()) {
-                            flushCommandQueue(info);
-                          } else {
-                            continueRunning.set(true);
-                          }
-                        }
-                      },
-                      MoreExecutors.directExecutor()));
+          sessionImpl.callWithControllerForCurrentRequestSet(
+              getController(info.controllerKey),
+              () ->
+                  asyncCommand
+                      .run()
+                      .addListener(
+                          () -> {
+                            synchronized (lock) {
+                              if (!commandExecuting.get()) {
+                                flushCommandQueue(info);
+                              } else {
+                                continueRunning.set(true);
+                              }
+                            }
+                          },
+                          MoreExecutors.directExecutor())));
       commandExecuting.set(false);
     }
   }

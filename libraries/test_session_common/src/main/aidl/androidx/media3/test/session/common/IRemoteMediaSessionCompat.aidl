@@ -29,7 +29,7 @@ interface IRemoteMediaSessionCompat {
   Bundle getSessionToken(String sessionTag);
   void release(String sessionTag);
   void setPlaybackToLocal(String sessionTag, int stream);
-  void setPlaybackToRemote(String sessionTag, int volumeControl, int maxVolume, int currentVolume);
+  void setPlaybackToRemote(String sessionTag, int volumeControl, int maxVolume, int currentVolume, @nullable String routingControllerId);
   void setPlaybackState(String sessionTag, in Bundle stateBundle);
   void setMetadata(String sessionTag, in Bundle metadataBundle);
   void setQueue(String sessionTag, in Bundle queueBundle);
@@ -42,5 +42,6 @@ interface IRemoteMediaSessionCompat {
   void sendSessionEvent(String sessionTag, String event, in Bundle extras);
   void setCaptioningEnabled(String sessionTag, boolean enabled);
   void setSessionExtras(String sessionTag, in Bundle extras);
+  void sendError(String sessionTag, int errorCode, int errorMessageIntRes, in Bundle errorExtras);
   int getCallbackMethodCount(String sessionTag, String methodName);
 }

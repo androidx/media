@@ -15,7 +15,9 @@ apply from: '../../constants.gradle'
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion project.ext.compileSdkVersion
+    namespace 'androidx.media3.demo.gl'
+
+    compileSdk project.ext.compileSdkVersion
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
@@ -55,5 +57,4 @@ dependencies {
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     implementation 'androidx.multidex:multidex:' + androidxMultidexVersion
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
-    compileOnly 'org.checkerframework:checker-compat-qual:' + checkerframeworkCompatVersion
 }

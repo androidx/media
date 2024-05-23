@@ -17,14 +17,11 @@ package androidx.media3.exoplayer.audio;
 
 import static java.lang.annotation.ElementType.TYPE_USE;
 
-import android.annotation.TargetApi;
 import android.media.AudioTimestamp;
 import android.media.AudioTrack;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Util;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -61,23 +58,30 @@ import java.lang.annotation.Target;
     STATE_ERROR
   })
   private @interface State {}
+
   /** State when first initializing. */
   private static final int STATE_INITIALIZING = 0;
+
   /** State when we have a timestamp and we don't know if it's advancing. */
   private static final int STATE_TIMESTAMP = 1;
+
   /** State when we have a timestamp and we know it is advancing. */
   private static final int STATE_TIMESTAMP_ADVANCING = 2;
+
   /** State when the no timestamp is available. */
   private static final int STATE_NO_TIMESTAMP = 3;
+
   /** State when the last timestamp was rejected as invalid. */
   private static final int STATE_ERROR = 4;
 
   /** The polling interval for {@link #STATE_INITIALIZING} and {@link #STATE_TIMESTAMP}. */
   private static final int FAST_POLL_INTERVAL_US = 10_000;
+
   /**
    * The polling interval for {@link #STATE_TIMESTAMP_ADVANCING} and {@link #STATE_NO_TIMESTAMP}.
    */
   private static final int SLOW_POLL_INTERVAL_US = 10_000_000;
+
   /** The polling interval for {@link #STATE_ERROR}. */
   private static final int ERROR_POLL_INTERVAL_US = 500_000;
 
@@ -87,7 +91,7 @@ import java.lang.annotation.Target;
    */
   private static final int INITIALIZING_DURATION_US = 500_000;
 
-  @Nullable private final AudioTimestampV19 audioTimestamp;
+  @Nullable private final AudioTimestampWrapper audioTimestamp;
 
   private @State int state;
   private long initializeSystemTimeUs;
@@ -98,16 +102,11 @@ import java.lang.annotation.Target;
   /**
    * Creates a new audio timestamp poller.
    *
-   * @param audioTrack The audio track that will provide timestamps, if the platform supports it.
+   * @param audioTrack The audio track that will provide timestamps.
    */
   public AudioTimestampPoller(AudioTrack audioTrack) {
-    if (Util.SDK_INT >= 19) {
-      audioTimestamp = new AudioTimestampV19(audioTrack);
-      reset();
-    } else {
-      audioTimestamp = null;
-      updateState(STATE_NO_TIMESTAMP);
-    }
+    audioTimestamp = new AudioTimestampWrapper(audioTrack);
+    reset();
   }
 
   /**
@@ -120,7 +119,6 @@ import java.lang.annotation.Target;
    * @param systemTimeUs The current system time, in microseconds.
    * @return Whether the timestamp was updated.
    */
-  @TargetApi(19) // audioTimestamp will be null if Util.SDK_INT < 19.
   public boolean maybePollTimestamp(long systemTimeUs) {
     if (audioTimestamp == null || (systemTimeUs - lastTimestampSampleTimeUs) < sampleIntervalUs) {
       return false;
@@ -226,7 +224,6 @@ import java.lang.annotation.Target;
    * If {@link #maybePollTimestamp(long)} or {@link #hasTimestamp()} returned {@code true}, returns
    * the system time at which the latest timestamp was sampled, in microseconds.
    */
-  @TargetApi(19) // audioTimestamp will be null if Util.SDK_INT < 19.
   public long getTimestampSystemTimeUs() {
     return audioTimestamp != null ? audioTimestamp.getTimestampSystemTimeUs() : C.TIME_UNSET;
   }
@@ -235,9 +232,8 @@ import java.lang.annotation.Target;
    * If {@link #maybePollTimestamp(long)} or {@link #hasTimestamp()} returned {@code true}, returns
    * the latest timestamp's position in frames.
    */
-  @TargetApi(19) // audioTimestamp will be null if Util.SDK_INT < 19.
   public long getTimestampPositionFrames() {
-    return audioTimestamp != null ? audioTimestamp.getTimestampPositionFrames() : C.POSITION_UNSET;
+    return audioTimestamp != null ? audioTimestamp.getTimestampPositionFrames() : C.INDEX_UNSET;
   }
 
   private void updateState(@State int state) {
@@ -246,7 +242,7 @@ import java.lang.annotation.Target;
       case STATE_INITIALIZING:
         // Force polling a timestamp immediately, and poll quickly.
         lastTimestampSampleTimeUs = 0;
-        initialTimestampPositionFrames = C.POSITION_UNSET;
+        initialTimestampPositionFrames = C.INDEX_UNSET;
         initializeSystemTimeUs = System.nanoTime() / 1000;
         sampleIntervalUs = FAST_POLL_INTERVAL_US;
         break;
@@ -265,8 +261,7 @@ import java.lang.annotation.Target;
     }
   }
 
-  @RequiresApi(19)
-  private static final class AudioTimestampV19 {
+  private static final class AudioTimestampWrapper {
 
     private final AudioTrack audioTrack;
     private final AudioTimestamp audioTimestamp;
@@ -280,7 +275,7 @@ import java.lang.annotation.Target;
      *
      * @param audioTrack The audio track that will provide timestamps.
      */
-    public AudioTimestampV19(AudioTrack audioTrack) {
+    public AudioTimestampWrapper(AudioTrack audioTrack) {
       this.audioTrack = audioTrack;
       audioTimestamp = new AudioTimestamp();
     }

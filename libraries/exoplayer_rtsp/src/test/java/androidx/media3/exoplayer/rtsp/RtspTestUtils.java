@@ -16,7 +16,6 @@
 package androidx.media3.exoplayer.rtsp;
 
 import android.net.Uri;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
@@ -26,7 +25,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 /** Utility methods for RTSP tests. */
-@UnstableApi
 /* package */ final class RtspTestUtils {
 
   private static final String TEST_BASE_URI = "rtsp://localhost:%d/test";

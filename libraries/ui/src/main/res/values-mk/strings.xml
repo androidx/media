@@ -47,6 +47,7 @@
   <string name="exo_track_selection_none">Нема</string>
   <string name="exo_track_selection_auto">Автоматскa</string>
   <string name="exo_track_unknown">Непозната</string>
+  <string name="exo_track_unknown_name">Непознато (%1$s)</string>
   <string name="exo_track_resolution">%1$d × %2$d</string>
   <string name="exo_track_mono">Моно</string>
   <string name="exo_track_stereo">Стерео</string>

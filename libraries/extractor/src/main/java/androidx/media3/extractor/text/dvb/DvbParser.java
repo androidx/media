@@ -25,17 +25,33 @@ import android.graphics.PorterDuff;
 import android.graphics.PorterDuffXfermode;
 import android.util.SparseArray;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
+import androidx.media3.common.Format;
+import androidx.media3.common.Format.CueReplacementBehavior;
 import androidx.media3.common.text.Cue;
+import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableBitArray;
+import androidx.media3.common.util.ParsableByteArray;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.extractor.text.CuesWithTiming;
+import androidx.media3.extractor.text.SubtitleParser;
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
-/** Parses {@link Cue}s from a DVB subtitle bitstream. */
-/* package */ final class DvbParser {
+/** A {@link SubtitleParser} for DVB subtitles. */
+@UnstableApi
+public final class DvbParser implements SubtitleParser {
+
+  /**
+   * The {@link CueReplacementBehavior} for consecutive {@link CuesWithTiming} emitted by this
+   * implementation.
+   */
+  public static final @CueReplacementBehavior int CUE_REPLACEMENT_BEHAVIOR =
+      Format.CUE_REPLACEMENT_BEHAVIOR_REPLACE;
 
   private static final String TAG = "DvbParser";
 
@@ -89,12 +105,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private @MonotonicNonNull Bitmap bitmap;
 
   /**
-   * Construct an instance for the given subtitle and ancillary page ids.
+   * Constructs an instance for the given initialization data.
    *
-   * @param subtitlePageId The id of the subtitle page carrying the subtitle to be parsed.
-   * @param ancillaryPageId The id of the ancillary page containing additional data.
+   * @param initializationData The initialization data for the parser. It must consist of a single
+   *     byte array containing 4 bytes: composition_page (2) and ancillary_page (2).
    */
-  public DvbParser(int subtitlePageId, int ancillaryPageId) {
+  public DvbParser(List<byte[]> initializationData) {
+    ParsableByteArray data = new ParsableByteArray(initializationData.get(0));
+    int subtitleCompositionPage = data.readUnsignedShort();
+    int subtitleAncillaryPage = data.readUnsignedShort();
     defaultPaint = new Paint();
     defaultPaint.setStyle(Paint.Style.FILL_AND_STROKE);
     defaultPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC));
@@ -111,24 +130,33 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             generateDefault2BitClutEntries(),
             generateDefault4BitClutEntries(),
             generateDefault8BitClutEntries());
-    subtitleService = new SubtitleService(subtitlePageId, ancillaryPageId);
+    subtitleService = new SubtitleService(subtitleCompositionPage, subtitleAncillaryPage);
   }
 
-  /** Resets the parser. */
+  @Override
   public void reset() {
     subtitleService.reset();
   }
 
-  /**
-   * Decodes a subtitling packet, returning a list of parsed {@link Cue}s.
-   *
-   * @param data The subtitling packet data to decode.
-   * @param limit The limit in {@code data} at which to stop decoding.
-   * @return The parsed {@link Cue}s.
-   */
-  public List<Cue> decode(byte[] data, int limit) {
-    // Parse the input data.
-    ParsableBitArray dataBitArray = new ParsableBitArray(data, limit);
+  @Override
+  public @CueReplacementBehavior int getCueReplacementBehavior() {
+    return CUE_REPLACEMENT_BEHAVIOR;
+  }
+
+  @Override
+  public void parse(
+      byte[] data,
+      int offset,
+      int length,
+      OutputOptions outputOptions,
+      Consumer<CuesWithTiming> output) {
+    ParsableBitArray dataBitArray = new ParsableBitArray(data, /* limit= */ offset + length);
+    dataBitArray.setPosition(offset);
+    output.accept(parse(dataBitArray));
+  }
+
+  private CuesWithTiming parse(ParsableBitArray dataBitArray) {
+
     while (dataBitArray.bitsLeft() >= 48 // sync_byte (8) + segment header (40)
         && dataBitArray.readBits(8) == 0x0F) {
       parseSubtitlingSegment(dataBitArray, subtitleService);
@@ -136,7 +164,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     @Nullable PageComposition pageComposition = subtitleService.pageComposition;
     if (pageComposition == null) {
-      return Collections.emptyList();
+      return new CuesWithTiming(
+          ImmutableList.of(), /* startTimeUs= */ C.TIME_UNSET, /* durationUs= */ C.TIME_UNSET);
     }
 
     // Update the canvas bitmap if necessary.
@@ -247,7 +276,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       canvas.restore();
     }
 
-    return Collections.unmodifiableList(cues);
+    return new CuesWithTiming(
+        cues, /* startTimeUs= */ C.TIME_UNSET, /* durationUs= */ C.TIME_UNSET);
   }
 
   // Static parsing.

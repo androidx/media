@@ -30,12 +30,12 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.C.FormatSupport;
 import androidx.media3.common.Format;
-import androidx.media3.common.MediaPeriodId;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.source.MediaSource;
+import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import java.io.IOException;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -58,24 +58,28 @@ public final class ExoPlaybackException extends PlaybackException {
   @Target({FIELD, METHOD, PARAMETER, LOCAL_VARIABLE, TYPE_USE})
   @IntDef({TYPE_SOURCE, TYPE_RENDERER, TYPE_UNEXPECTED, TYPE_REMOTE})
   public @interface Type {}
+
   /**
    * The error occurred loading data from a {@link MediaSource}.
    *
    * <p>Call {@link #getSourceException()} to retrieve the underlying cause.
    */
   @UnstableApi public static final int TYPE_SOURCE = 0;
+
   /**
    * The error occurred in a {@link Renderer}.
    *
    * <p>Call {@link #getRendererException()} to retrieve the underlying cause.
    */
   @UnstableApi public static final int TYPE_RENDERER = 1;
+
   /**
    * The error was an unexpected {@link RuntimeException}.
    *
    * <p>Call {@link #getUnexpectedException()} to retrieve the underlying cause.
    */
   @UnstableApi public static final int TYPE_UNEXPECTED = 2;
+
   /**
    * The error occurred in a remote component.
    *
@@ -256,8 +260,7 @@ public final class ExoPlaybackException extends PlaybackException {
     rendererName = bundle.getString(FIELD_RENDERER_NAME);
     rendererIndex = bundle.getInt(FIELD_RENDERER_INDEX, /* defaultValue= */ C.INDEX_UNSET);
     @Nullable Bundle rendererFormatBundle = bundle.getBundle(FIELD_RENDERER_FORMAT);
-    rendererFormat =
-        rendererFormatBundle == null ? null : Format.CREATOR.fromBundle(rendererFormatBundle);
+    rendererFormat = rendererFormatBundle == null ? null : Format.fromBundle(rendererFormatBundle);
     rendererFormatSupport =
         bundle.getInt(FIELD_RENDERER_FORMAT_SUPPORT, /* defaultValue= */ C.FORMAT_HANDLED);
     isRecoverable = bundle.getBoolean(FIELD_IS_RECOVERABLE, /* defaultValue= */ false);
@@ -399,9 +402,21 @@ public final class ExoPlaybackException extends PlaybackException {
 
   // Bundleable implementation.
 
-  /** Object that can restore {@link ExoPlaybackException} from a {@link Bundle}. */
+  /**
+   * Object that can restore {@link ExoPlaybackException} from a {@link Bundle}.
+   *
+   * @deprecated Use {@link #ExoPlaybackException(Bundle)} instead.
+   */
   @UnstableApi
+  @Deprecated
+  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
   public static final Creator<ExoPlaybackException> CREATOR = ExoPlaybackException::new;
+
+  /** Restores a {@code ExoPlaybackException} from a {@link Bundle}. */
+  @UnstableApi
+  public static ExoPlaybackException fromBundle(Bundle bundle) {
+    return new ExoPlaybackException(bundle);
+  }
 
   private static final String FIELD_TYPE = Util.intToStringMaxRadix(FIELD_CUSTOM_ID_BASE + 1);
   private static final String FIELD_RENDERER_NAME =

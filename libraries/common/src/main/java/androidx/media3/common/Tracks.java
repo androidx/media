@@ -17,11 +17,11 @@ package androidx.media3.common;
 
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.BundleableUtil.toBundleArrayList;
+import static androidx.media3.common.util.BundleCollectionUtil.toBundleArrayList;
 
 import android.os.Bundle;
 import androidx.annotation.Nullable;
-import androidx.media3.common.util.BundleableUtil;
+import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.base.MoreObjects;
@@ -244,22 +244,31 @@ public final class Tracks implements Bundleable {
       return bundle;
     }
 
-    /** Object that can restore a group of tracks from a {@link Bundle}. */
+    /**
+     * Object that can restore a group of tracks from a {@link Bundle}.
+     *
+     * @deprecated Use {@link #fromBundle} instead.
+     */
     @UnstableApi
-    public static final Creator<Group> CREATOR =
-        bundle -> {
-          // Can't create a Tracks.Group without a TrackGroup
-          TrackGroup trackGroup =
-              TrackGroup.CREATOR.fromBundle(checkNotNull(bundle.getBundle(FIELD_TRACK_GROUP)));
-          final @C.FormatSupport int[] trackSupport =
-              MoreObjects.firstNonNull(
-                  bundle.getIntArray(FIELD_TRACK_SUPPORT), new int[trackGroup.length]);
-          boolean[] selected =
-              MoreObjects.firstNonNull(
-                  bundle.getBooleanArray(FIELD_TRACK_SELECTED), new boolean[trackGroup.length]);
-          boolean adaptiveSupported = bundle.getBoolean(FIELD_ADAPTIVE_SUPPORTED, false);
-          return new Group(trackGroup, adaptiveSupported, trackSupport, selected);
-        };
+    @Deprecated
+    @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
+    public static final Creator<Group> CREATOR = Group::fromBundle;
+
+    /** Restores a group of tracks from a {@link Bundle}. */
+    @UnstableApi
+    public static Group fromBundle(Bundle bundle) {
+      // Can't create a Tracks.Group without a TrackGroup
+      TrackGroup trackGroup =
+          TrackGroup.fromBundle(checkNotNull(bundle.getBundle(FIELD_TRACK_GROUP)));
+      final @C.FormatSupport int[] trackSupport =
+          MoreObjects.firstNonNull(
+              bundle.getIntArray(FIELD_TRACK_SUPPORT), new int[trackGroup.length]);
+      boolean[] selected =
+          MoreObjects.firstNonNull(
+              bundle.getBooleanArray(FIELD_TRACK_SELECTED), new boolean[trackGroup.length]);
+      boolean adaptiveSupported = bundle.getBoolean(FIELD_ADAPTIVE_SUPPORTED, false);
+      return new Group(trackGroup, adaptiveSupported, trackSupport, selected);
+    }
   }
 
   /** Empty tracks. */
@@ -374,6 +383,7 @@ public final class Tracks implements Bundleable {
   public int hashCode() {
     return groups.hashCode();
   }
+
   // Bundleable implementation.
 
   private static final String FIELD_TRACK_GROUPS = Util.intToStringMaxRadix(0);
@@ -382,19 +392,29 @@ public final class Tracks implements Bundleable {
   @Override
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
-    bundle.putParcelableArrayList(FIELD_TRACK_GROUPS, toBundleArrayList(groups));
+    bundle.putParcelableArrayList(FIELD_TRACK_GROUPS, toBundleArrayList(groups, Group::toBundle));
     return bundle;
   }
 
-  /** Object that can restore tracks from a {@link Bundle}. */
+  /**
+   * Object that can restore tracks from a {@link Bundle}.
+   *
+   * @deprecated Use {@link #fromBundle} instead.
+   */
   @UnstableApi
-  public static final Creator<Tracks> CREATOR =
-      bundle -> {
-        @Nullable List<Bundle> groupBundles = bundle.getParcelableArrayList(FIELD_TRACK_GROUPS);
-        List<Group> groups =
-            groupBundles == null
-                ? ImmutableList.of()
-                : BundleableUtil.fromBundleList(Group.CREATOR, groupBundles);
-        return new Tracks(groups);
-      };
+  @Deprecated
+  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
+  public static final Creator<Tracks> CREATOR = Tracks::fromBundle;
+
+  /** Restores a {@code Tracks} from a {@link Bundle}. */
+  @UnstableApi
+  public static Tracks fromBundle(Bundle bundle) {
+    @Nullable List<Bundle> groupBundles = bundle.getParcelableArrayList(FIELD_TRACK_GROUPS);
+    List<Group> groups =
+        groupBundles == null
+            ? ImmutableList.of()
+            : BundleCollectionUtil.fromBundleList(Group::fromBundle, groupBundles);
+    return new Tracks(groups);
+  }
+  ;
 }
