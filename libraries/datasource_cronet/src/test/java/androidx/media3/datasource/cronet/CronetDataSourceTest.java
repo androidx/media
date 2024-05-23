@@ -111,19 +111,8 @@ public final class CronetDataSourceTest {
   public void setUp() {
     MockitoAnnotations.initMocks(this);
 
-    Map<String, String> defaultRequestProperties = new HashMap<>();
-    defaultRequestProperties.put("defaultHeader1", "defaultValue1");
-    defaultRequestProperties.put("defaultHeader2", "defaultValue2");
-
     executorService = Executors.newSingleThreadExecutor();
-    dataSourceUnderTest =
-        (CronetDataSource)
-            new CronetDataSource.Factory(mockCronetEngine, executorService)
-                .setConnectionTimeoutMs(TEST_CONNECT_TIMEOUT_MS)
-                .setReadTimeoutMs(TEST_READ_TIMEOUT_MS)
-                .setResetTimeoutOnRedirects(true)
-                .setDefaultRequestProperties(defaultRequestProperties)
-                .createDataSource();
+    dataSourceUnderTest = (CronetDataSource) createCronetDataSourceFactory().createDataSource();
     dataSourceUnderTest.addTransferListener(mockTransferListener);
     when(mockCronetEngine.newUrlRequestBuilder(
             anyString(), any(UrlRequest.Callback.class), any(Executor.class)))
@@ -436,15 +425,18 @@ public final class CronetDataSourceTest {
   }
 
   @Test
-  public void requestOpenValidatesContentTypePredicate() {
-    mockResponseStartSuccess();
-
+  public void requestOpenValidatesContentTypePredicate() throws Exception {
     ArrayList<String> testedContentTypes = new ArrayList<>();
-    dataSourceUnderTest.setContentTypePredicate(
-        (String input) -> {
-          testedContentTypes.add(input);
-          return false;
-        });
+    dataSourceUnderTest =
+        (CronetDataSource)
+            createCronetDataSourceFactory()
+                .setContentTypePredicate(
+                    (String input) -> {
+                      testedContentTypes.add(input);
+                      return false;
+                    })
+                .createDataSource();
+    mockResponseStartSuccess();
 
     try {
       dataSourceUnderTest.open(testDataSpec);
@@ -1571,6 +1563,17 @@ public final class CronetDataSourceTest {
   }
 
   // Helper methods.
+
+  private CronetDataSource.Factory createCronetDataSourceFactory() {
+    Map<String, String> defaultRequestProperties = new HashMap<>();
+    defaultRequestProperties.put("defaultHeader1", "defaultValue1");
+    defaultRequestProperties.put("defaultHeader2", "defaultValue2");
+    return new CronetDataSource.Factory(mockCronetEngine, executorService)
+        .setConnectionTimeoutMs(TEST_CONNECT_TIMEOUT_MS)
+        .setReadTimeoutMs(TEST_READ_TIMEOUT_MS)
+        .setResetTimeoutOnRedirects(true)
+        .setDefaultRequestProperties(defaultRequestProperties);
+  }
 
   private void mockStatusResponse() {
     doAnswer(

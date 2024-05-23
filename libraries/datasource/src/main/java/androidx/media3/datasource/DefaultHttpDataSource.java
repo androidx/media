@@ -257,9 +257,9 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
   @Nullable private final String userAgent;
   @Nullable private final RequestProperties defaultRequestProperties;
   private final RequestProperties requestProperties;
+  @Nullable private final Predicate<String> contentTypePredicate;
   private final boolean keepPostFor302Redirects;
 
-  @Nullable private Predicate<String> contentTypePredicate;
   @Nullable private DataSpec dataSpec;
   @Nullable private HttpURLConnection connection;
   @Nullable private InputStream inputStream;
@@ -350,16 +350,6 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
     this.contentTypePredicate = contentTypePredicate;
     this.requestProperties = new RequestProperties();
     this.keepPostFor302Redirects = keepPostFor302Redirects;
-  }
-
-  /**
-   * @deprecated Use {@link DefaultHttpDataSource.Factory#setContentTypePredicate(Predicate)}
-   *     instead.
-   */
-  @UnstableApi
-  @Deprecated
-  public void setContentTypePredicate(@Nullable Predicate<String> contentTypePredicate) {
-    this.contentTypePredicate = contentTypePredicate;
   }
 
   @UnstableApi

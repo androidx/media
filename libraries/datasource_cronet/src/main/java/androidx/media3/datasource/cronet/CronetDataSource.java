@@ -459,7 +459,7 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
   private final Clock clock;
   private final int readBufferSize;
 
-  @Nullable private Predicate<String> contentTypePredicate;
+  @Nullable private final Predicate<String> contentTypePredicate;
   private final boolean keepPostFor302Redirects;
 
   // Accessed by the calling thread only.
@@ -515,15 +515,6 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
     this.readBufferSize = readBufferSize;
     requestProperties = new RequestProperties();
     operation = new ConditionVariable();
-  }
-
-  /**
-   * @deprecated Use {@link CronetDataSource.Factory#setContentTypePredicate(Predicate)} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  public void setContentTypePredicate(@Nullable Predicate<String> contentTypePredicate) {
-    this.contentTypePredicate = contentTypePredicate;
   }
 
   // HttpDataSource implementation.

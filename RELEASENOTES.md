@@ -192,10 +192,13 @@
         artist in the Media3 media item
         ([#1255](https://github.com/androidx/media/pull/1255)).
 *   Test Utilities:
-*   Remove deprecated symbols:
 *   Demo app:
     *   Allow setting repeat mode with `Intent` arguments from command line
         ([#1266](https://github.com/androidx/media/pull/1266)).
+*   Remove deprecated symbols:
+    *   Remove `setContentTypePredicate(Predicate)` method from
+        `DefaultHttpDataSource`, `OkHttpDataSource` and `CronetDataSource`. Use
+        the equivalent method on each `XXXDataSource.Factory` instead.
 
 ## 1.4
 
