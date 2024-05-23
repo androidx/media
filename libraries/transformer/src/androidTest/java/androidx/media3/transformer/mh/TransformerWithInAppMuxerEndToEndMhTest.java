@@ -34,6 +34,7 @@ import androidx.media3.transformer.TransformerAndroidTestRunner;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import java.io.File;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -74,5 +75,6 @@ public class TransformerWithInAppMuxerEndToEndMhTest {
             .run(testId, editedMediaItem);
 
     assertThat(result.exportResult.exportException).isNull();
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 }

@@ -63,6 +63,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
+import java.io.File;
 import org.junit.AssumptionViolatedException;
 import org.junit.Before;
 import org.junit.Rule;
@@ -93,7 +94,6 @@ public class ExportTest {
         testId,
         /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_FORMAT,
         /* outputFormat= */ null);
-
     Transformer transformer =
         new Transformer.Builder(context)
             .setEncoderFactory(new ForceEncodeEncoderFactory(context))
@@ -103,10 +103,14 @@ public class ExportTest {
     boolean skipCalculateSsim =
         (Util.SDK_INT < 33 && (Util.MODEL.equals("SM-F711U1") || Util.MODEL.equals("SM-F926U1")))
             || (Util.SDK_INT == 33 && Util.MODEL.equals("LE2121"));
-    new TransformerAndroidTestRunner.Builder(context, transformer)
-        .setRequestCalculateSsim(!skipCalculateSsim)
-        .build()
-        .run(testId, mediaItem);
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .setRequestCalculateSsim(!skipCalculateSsim)
+            .build()
+            .run(testId, mediaItem);
+
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -116,7 +120,13 @@ public class ExportTest {
     MediaItem mediaItem =
         MediaItem.fromUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_URI_STRING));
     // No need to calculate SSIM because no decode/encoding, so input frames match output frames.
-    new TransformerAndroidTestRunner.Builder(context, transformer).build().run(testId, mediaItem);
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, mediaItem);
+
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -143,10 +153,14 @@ public class ExportTest {
     boolean skipCalculateSsim =
         (Util.SDK_INT < 33 && (Util.MODEL.equals("SM-F711U1") || Util.MODEL.equals("SM-F926U1")))
             || (Util.SDK_INT == 33 && Util.MODEL.equals("LE2121"));
-    new TransformerAndroidTestRunner.Builder(context, transformer)
-        .setRequestCalculateSsim(!skipCalculateSsim)
-        .build()
-        .run(testId, editedMediaItem);
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .setRequestCalculateSsim(!skipCalculateSsim)
+            .build()
+            .run(testId, editedMediaItem);
+
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -161,18 +175,21 @@ public class ExportTest {
     assumeFalse(
         "Skip due to over-reported encoder capabilities",
         Util.SDK_INT == 29 && Ascii.equalsIgnoreCase(Util.MODEL, "pixel 3"));
-
     Transformer transformer =
         new Transformer.Builder(context)
             .setEncoderFactory(new ForceEncodeEncoderFactory(context))
             .build();
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_4K60_PORTRAIT_URI_STRING));
     boolean skipCalculateSsim = Util.SDK_INT < 30 && Util.DEVICE.equals("joyeuse");
-    new TransformerAndroidTestRunner.Builder(context, transformer)
-        .setRequestCalculateSsim(!skipCalculateSsim)
-        .setTimeoutSeconds(180)
-        .build()
-        .run(testId, mediaItem);
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .setRequestCalculateSsim(!skipCalculateSsim)
+            .setTimeoutSeconds(180)
+            .build()
+            .run(testId, mediaItem);
+
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -184,11 +201,9 @@ public class ExportTest {
             || Ascii.equalsIgnoreCase(Util.MODEL, "sm-f916u1")
             || Ascii.equalsIgnoreCase(Util.MODEL, "sm-g981u1")
             || Ascii.equalsIgnoreCase(Util.MODEL, "le2121"));
-
     Context context = ApplicationProvider.getApplicationContext();
     assumeFormatsSupported(
         context, testId, /* inputFormat= */ MP4_ASSET_8K24_FORMAT, /* outputFormat= */ null);
-
     Transformer transformer =
         new Transformer.Builder(context)
             .setEncoderFactory(new ForceEncodeEncoderFactory(context))
@@ -196,11 +211,15 @@ public class ExportTest {
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_8K24_URI_STRING));
     // TODO: b/281824052 - have requestCalculateSsim always be true after linked bug is fixed.
     boolean requestCalculateSsim = !Util.MODEL.equals("SM-G991B");
-    new TransformerAndroidTestRunner.Builder(context, transformer)
-        .setRequestCalculateSsim(requestCalculateSsim)
-        .setTimeoutSeconds(120)
-        .build()
-        .run(testId, mediaItem);
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .setRequestCalculateSsim(requestCalculateSsim)
+            .setTimeoutSeconds(120)
+            .build()
+            .run(testId, mediaItem);
+
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -208,7 +227,6 @@ public class ExportTest {
     // This test is to cover devices that are able to either decode or encode 8K, but not transcode.
     int downscaledWidth = 320;
     int downscaledHeight = 240;
-
     Context context = ApplicationProvider.getApplicationContext();
     assumeFormatsSupported(
         context,
@@ -220,21 +238,24 @@ public class ExportTest {
             .setHeight(downscaledHeight)
             .build());
 
-    new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
-        .setTimeoutSeconds(120)
-        .build()
-        .run(
-            testId,
-            new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_8K24_URI_STRING)))
-                .setEffects(
-                    new Effects(
-                        /* audioProcessors= */ ImmutableList.of(),
-                        /* videoEffects= */ ImmutableList.of(
-                            Presentation.createForWidthAndHeight(
-                                downscaledWidth,
-                                downscaledHeight,
-                                Presentation.LAYOUT_SCALE_TO_FIT))))
-                .build());
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
+            .setTimeoutSeconds(120)
+            .build()
+            .run(
+                testId,
+                new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_8K24_URI_STRING)))
+                    .setEffects(
+                        new Effects(
+                            /* audioProcessors= */ ImmutableList.of(),
+                            /* videoEffects= */ ImmutableList.of(
+                                Presentation.createForWidthAndHeight(
+                                    downscaledWidth,
+                                    downscaledHeight,
+                                    Presentation.LAYOUT_SCALE_TO_FIT))))
+                    .build());
+
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -245,7 +266,6 @@ public class ExportTest {
         testId,
         /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_FORMAT,
         /* outputFormat= */ null);
-
     Transformer transformer =
         new Transformer.Builder(context)
             .setEncoderFactory(new ForceEncodeEncoderFactory(context))
@@ -257,10 +277,14 @@ public class ExportTest {
     boolean skipCalculateSsim =
         (Util.SDK_INT < 33 && (Util.MODEL.equals("SM-F711U1") || Util.MODEL.equals("SM-F926U1")))
             || (Util.SDK_INT == 33 && Util.MODEL.equals("LE2121"));
-    new TransformerAndroidTestRunner.Builder(context, transformer)
-        .setRequestCalculateSsim(!skipCalculateSsim)
-        .build()
-        .run(testId, editedMediaItem);
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .setRequestCalculateSsim(!skipCalculateSsim)
+            .build()
+            .run(testId, editedMediaItem);
+
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -274,27 +298,30 @@ public class ExportTest {
         new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_URI_STRING)))
             .setRemoveVideo(true)
             .build();
-    new TransformerAndroidTestRunner.Builder(context, transformer)
-        .build()
-        .run(testId, editedMediaItem);
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
   public void exportSef() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
-
     if (SDK_INT < 25) {
       // TODO(b/210593256): Remove test skipping after using an in-app muxer that supports B-frames
       //  before API 25.
       recordTestSkipped(context, testId, /* reason= */ "API version lacks muxing support");
       return;
     }
-
     Transformer transformer = new Transformer.Builder(context).build();
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_SEF_URI_STRING)))
             .setFlattenForSlowMotion(true)
             .build();
+
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, transformer)
             .build()
@@ -302,27 +329,30 @@ public class ExportTest {
 
     assertThat(result.exportResult.durationMs).isGreaterThan(800);
     assertThat(result.exportResult.durationMs).isLessThan(950);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
   public void exportSefH265() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
-
     if (SDK_INT < 25) {
       // TODO(b/210593256): Remove test skipping after using an in-app muxer that supports B-frames
       //  before API 25.
       recordTestSkipped(context, testId, /* reason= */ "API version lacks muxing support");
       return;
     }
-
     Transformer transformer = new Transformer.Builder(context).build();
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_SEF_H265_URI_STRING)))
             .setFlattenForSlowMotion(true)
             .build();
-    new TransformerAndroidTestRunner.Builder(context, transformer)
-        .build()
-        .run(testId, editedMediaItem);
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -333,7 +363,6 @@ public class ExportTest {
         testId,
         /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_FORMAT,
         /* outputFormat= */ null);
-
     Transformer transformer = new Transformer.Builder(context).build();
     MediaItem mediaItem =
         MediaItem.fromUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_URI_STRING));
@@ -343,9 +372,12 @@ public class ExportTest {
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem).setEffects(effects).build();
 
-    new TransformerAndroidTestRunner.Builder(context, transformer)
-        .build()
-        .run(testId, editedMediaItem);
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -359,15 +391,17 @@ public class ExportTest {
     }
     assumeFormatsSupported(
         context, testId, /* inputFormat= */ MP4_ASSET_BT2020_SDR_FORMAT, /* outputFormat= */ null);
-
     Transformer transformer = new Transformer.Builder(context).build();
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_BT2020_SDR));
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem).setEffects(FORCE_TRANSCODE_VIDEO_EFFECTS).build();
 
-    new TransformerAndroidTestRunner.Builder(context, transformer)
-        .build()
-        .run(testId, editedMediaItem);
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -399,6 +433,7 @@ public class ExportTest {
         new TransformerAndroidTestRunner.Builder(context, transformer)
             .build()
             .run(testId, editedMediaItem);
+
     Mp4Extractor mp4Extractor = new Mp4Extractor(new DefaultSubtitleParserFactory());
     FakeExtractorOutput fakeExtractorOutput =
         TestUtil.extractAllSamplesFromFilePath(mp4Extractor, result.filePath);
@@ -406,7 +441,6 @@ public class ExportTest {
     byte[] sps = videoTrack.lastFormat.initializationData.get(0);
     // Skip 7 bytes: NAL unit start code (4) and NAL unit type, profile, and reserved fields.
     int spsLevelIndex = 7;
-
     assertThat(result.exportResult.optimizationResult).isEqualTo(OPTIMIZATION_SUCCEEDED);
     assertThat(result.exportResult.durationMs).isAtMost(700);
     assertThat(result.exportResult.videoConversionProcess)

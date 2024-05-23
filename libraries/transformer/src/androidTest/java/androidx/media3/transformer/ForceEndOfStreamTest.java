@@ -34,6 +34,7 @@ import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import org.json.JSONException;
@@ -81,6 +82,7 @@ public class ForceEndOfStreamTest {
     assertThat(testResult.analysisException).isNull();
     assertThat(testResult.exportResult.videoFrameCount)
         .isEqualTo(MP4_ASSET_FRAME_COUNT - framesToSkip);
+    assertThat(new File(testResult.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -100,6 +102,7 @@ public class ForceEndOfStreamTest {
 
     assertThat(testResult.analysisException).isNull();
     assertThat(testResult.exportResult.videoFrameCount).isEqualTo(MP4_ASSET_FRAME_COUNT);
+    assertThat(new File(testResult.filePath).length()).isGreaterThan(0);
   }
 
   private static boolean skipTestBelowApi29(Context context, String testId)

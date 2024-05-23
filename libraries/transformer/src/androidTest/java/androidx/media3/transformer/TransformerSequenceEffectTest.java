@@ -71,6 +71,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
+import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import org.junit.After;
@@ -140,8 +141,7 @@ public final class TransformerSequenceEffectTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotEmpty();
-    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
     assertBitmapsMatchExpectedAndSave(
         extractBitmapsFromVideo(context, checkNotNull(result.filePath)), testId);
   }
@@ -174,7 +174,7 @@ public final class TransformerSequenceEffectTest {
       }
       atLeastOneDecoderSucceeds = true;
 
-      assertThat(checkNotNull(result).filePath).isNotNull();
+      assertThat(new File(result.filePath).length()).isGreaterThan(0);
       assertFirstFrameMatchesExpectedPsnrAndSave(
           context, testId, checkNotNull(result.filePath), PSNR_THRESHOLD_HD);
     }
@@ -214,7 +214,7 @@ public final class TransformerSequenceEffectTest {
       }
       atLeastOneDecoderSucceeds = true;
 
-      assertThat(checkNotNull(result).filePath).isNotNull();
+      assertThat(new File(result.filePath).length()).isGreaterThan(0);
       assertFirstFrameMatchesExpectedPsnrAndSave(
           context, testId, checkNotNull(result.filePath), PSNR_THRESHOLD_HD);
     }
@@ -252,7 +252,7 @@ public final class TransformerSequenceEffectTest {
       }
       atLeastOneDecoderSucceeds = true;
 
-      assertThat(checkNotNull(result).filePath).isNotNull();
+      assertThat(new File(result.filePath).length()).isGreaterThan(0);
       assertFirstFrameMatchesExpectedPsnrAndSave(
           context, testId, checkNotNull(result.filePath), PSNR_THRESHOLD);
     }
@@ -293,7 +293,7 @@ public final class TransformerSequenceEffectTest {
       }
       atLeastOneDecoderSucceeds = true;
 
-      assertThat(checkNotNull(result).filePath).isNotNull();
+      assertThat(new File(result.filePath).length()).isGreaterThan(0);
       assertFirstFrameMatchesExpectedPsnrAndSave(
           context, testId, checkNotNull(result.filePath), PSNR_THRESHOLD_HD);
     }
@@ -335,7 +335,7 @@ public final class TransformerSequenceEffectTest {
       }
       atLeastOneDecoderSucceeds = true;
 
-      assertThat(checkNotNull(result).filePath).isNotNull();
+      assertThat(new File(result.filePath).length()).isGreaterThan(0);
       assertFirstFrameMatchesExpectedPsnrAndSave(
           context, testId, checkNotNull(result.filePath), PSNR_THRESHOLD);
     }
@@ -388,7 +388,7 @@ public final class TransformerSequenceEffectTest {
             .build()
             .run(testId, composition);
 
-    assertThat(checkNotNull(result).filePath).isNotNull();
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
     // The PSNR threshold was chosen based on:
     // Pixel 8 with coordinate rounding error during texture sampling, hits PSNR 23.4. With fix ->
     // 29.5
@@ -438,8 +438,7 @@ public final class TransformerSequenceEffectTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotEmpty();
-    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
     assertBitmapsMatchExpectedAndSave(
         extractBitmapsFromVideo(context, checkNotNull(result.filePath)), testId);
   }
@@ -462,8 +461,7 @@ public final class TransformerSequenceEffectTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotEmpty();
-    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
     assertBitmapsMatchExpectedAndSave(
         extractBitmapsFromVideo(context, checkNotNull(result.filePath)), testId);
   }
@@ -487,8 +485,7 @@ public final class TransformerSequenceEffectTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotEmpty();
-    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
     assertBitmapsMatchExpectedAndSave(
         extractBitmapsFromVideo(context, checkNotNull(result.filePath)), testId);
   }
@@ -513,8 +510,7 @@ public final class TransformerSequenceEffectTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotEmpty();
-    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
     assertBitmapsMatchExpectedAndSave(
         extractBitmapsFromVideo(context, checkNotNull(result.filePath)), testId);
   }
@@ -539,8 +535,7 @@ public final class TransformerSequenceEffectTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotEmpty();
-    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
     assertBitmapsMatchExpectedAndSave(
         extractBitmapsFromVideo(context, checkNotNull(result.filePath)), testId);
   }

@@ -24,7 +24,6 @@ import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported
 import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
 import static androidx.media3.transformer.SequenceEffectTestUtil.NO_EFFECT;
 import static androidx.media3.transformer.SequenceEffectTestUtil.oneFrameFromImage;
-import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
@@ -94,8 +93,6 @@ public final class TransformerUltraHdrTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotEmpty();
-    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
     assertSdrColors(context, result.filePath);
   }
 
@@ -116,8 +113,6 @@ public final class TransformerUltraHdrTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotEmpty();
-    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
     assertSdrColors(context, result.filePath);
   }
 
@@ -139,8 +134,6 @@ public final class TransformerUltraHdrTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotEmpty();
-    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
     assertSdrColors(context, result.filePath);
   }
 
@@ -155,8 +148,6 @@ public final class TransformerUltraHdrTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotEmpty();
-    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
     assertSdrColors(context, result.filePath);
   }
 
@@ -173,8 +164,6 @@ public final class TransformerUltraHdrTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotEmpty();
-    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
     assertSdrColors(context, result.filePath);
   }
 

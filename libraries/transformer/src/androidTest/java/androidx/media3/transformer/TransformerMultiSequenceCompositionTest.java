@@ -46,6 +46,7 @@ import androidx.media3.effect.VideoCompositorSettings;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import org.junit.Before;
@@ -108,8 +109,7 @@ public final class TransformerMultiSequenceCompositionTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotEmpty();
-    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
     assertBitmapsMatchExpected(
         extractBitmapsFromVideo(context, checkNotNull(result.filePath)), testId);
   }
@@ -143,8 +143,7 @@ public final class TransformerMultiSequenceCompositionTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotEmpty();
-    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
     assertBitmapsMatchExpected(
         extractBitmapsFromVideo(context, checkNotNull(result.filePath)), testId);
   }
@@ -200,8 +199,7 @@ public final class TransformerMultiSequenceCompositionTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotEmpty();
-    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
     assertBitmapsMatchExpected(
         extractBitmapsFromVideo(context, checkNotNull(result.filePath)), testId);
   }

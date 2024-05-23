@@ -432,11 +432,7 @@ public class TransformerAndroidTestRunner {
 
     // No exceptions raised, export has succeeded.
     ExportTestResult.Builder testResultBuilder =
-        new ExportTestResult.Builder(
-                checkNotNull(exportResultReference.get())
-                    .buildUpon()
-                    .setFileSizeBytes(outputVideoFile.length())
-                    .build())
+        new ExportTestResult.Builder(checkNotNull(exportResultReference.get()))
             .setElapsedTimeMs(elapsedTimeMs)
             .setFallbackDetails(fallbackDetails)
             .setFilePath(outputVideoFile.getPath());

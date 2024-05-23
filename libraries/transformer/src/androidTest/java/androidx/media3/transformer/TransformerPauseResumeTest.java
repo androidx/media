@@ -42,6 +42,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
+import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -97,13 +98,14 @@ public class TransformerPauseResumeTest {
           "Transformer timed out after " + DEFAULT_TIMEOUT_SECONDS + " seconds.");
     }
     InstrumentationRegistry.getInstrumentation().runOnMainSync(blockingTransformer::cancel);
-    TransformerAndroidTestRunner testRunner =
-        new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
-            .build();
 
     // Resume the export.
-    ExportResult exportResult = testRunner.run(testId, composition, firstOutputPath).exportResult;
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
+            .build()
+            .run(testId, composition, firstOutputPath);
 
+    ExportResult exportResult = result.exportResult;
     assertThat(exportResult.processedInputs).hasSize(4);
     assertThat(exportResult.videoFrameCount).isEqualTo(MP4_ASSET_FRAME_COUNT);
     // The first processed media item corresponds to remuxing previous output video.
@@ -120,6 +122,7 @@ public class TransformerPauseResumeTest {
     // The fourth processed media item corresponds to transmuxing processed video.
     assertThat(exportResult.processedInputs.get(3).audioDecoderName).isNull();
     assertThat(exportResult.processedInputs.get(3).videoDecoderName).isNull();
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -146,15 +149,16 @@ public class TransformerPauseResumeTest {
             });
 
     // Resume the export.
-    ExportResult exportResult =
+    ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, transformer)
             .build()
-            .run(testId, composition, firstOutputPath)
-            .exportResult;
+            .run(testId, composition, firstOutputPath);
 
+    ExportResult exportResult = result.exportResult;
     // The first export did not progress because of the immediate cancellation hence resuming
     // actually restarts the export.
     assertThat(exportResult.processedInputs).hasSize(1);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -190,12 +194,12 @@ public class TransformerPauseResumeTest {
     InstrumentationRegistry.getInstrumentation().runOnMainSync(blockingTransformer::cancel);
 
     // Resume the export.
-    ExportResult exportResultWithResume =
+    ExportTestResult resultWithResume =
         new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
             .build()
-            .run(testId, composition, firstOutputPath)
-            .exportResult;
+            .run(testId, composition, firstOutputPath);
 
+    ExportResult exportResultWithResume = resultWithResume.exportResult;
     assertThat(exportResultWithResume.processedInputs).hasSize(4);
     assertThat(exportResultWithResume.audioEncoderName)
         .isEqualTo(exportResultWithoutResume.audioEncoderName);
@@ -208,6 +212,7 @@ public class TransformerPauseResumeTest {
     int maxDiffExpectedInDurationMs = 2;
     assertThat(exportResultWithResume.durationMs - exportResultWithoutResume.durationMs)
         .isLessThan(maxDiffExpectedInDurationMs);
+    assertThat(new File(resultWithResume.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -244,12 +249,12 @@ public class TransformerPauseResumeTest {
     InstrumentationRegistry.getInstrumentation().runOnMainSync(blockingTransformer::cancel);
 
     // Resume the export.
-    ExportResult exportResultWithResume =
+    ExportTestResult resultWithResume =
         new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
             .build()
-            .run(testId, composition, firstOutputPath)
-            .exportResult;
+            .run(testId, composition, firstOutputPath);
 
+    ExportResult exportResultWithResume = resultWithResume.exportResult;
     assertThat(exportResultWithResume.processedInputs).hasSize(4);
     assertThat(exportResultWithResume.audioEncoderName)
         .isEqualTo(exportResultWithoutResume.audioEncoderName);
@@ -260,6 +265,7 @@ public class TransformerPauseResumeTest {
     int maxDiffExpectedInDurationMs = 2;
     assertThat(exportResultWithResume.durationMs - exportResultWithoutResume.durationMs)
         .isLessThan(maxDiffExpectedInDurationMs);
+    assertThat(new File(resultWithResume.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -286,12 +292,13 @@ public class TransformerPauseResumeTest {
           "Transformer timed out after " + DEFAULT_TIMEOUT_SECONDS + " seconds.");
     }
     InstrumentationRegistry.getInstrumentation().runOnMainSync(blockingTransformer::cancel);
-    TransformerAndroidTestRunner testRunner =
+
+    ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
-            .build();
+            .build()
+            .run(testId, composition, firstOutputPath);
 
-    ExportResult exportResult = testRunner.run(testId, composition, firstOutputPath).exportResult;
-
+    ExportResult exportResult = result.exportResult;
     assertThat(exportResult.processedInputs).hasSize(6);
     int expectedVideoFrameCount = 2 * MP4_ASSET_FRAME_COUNT;
     assertThat(exportResult.videoFrameCount).isEqualTo(expectedVideoFrameCount);
@@ -313,6 +320,7 @@ public class TransformerPauseResumeTest {
     // The last processed media item corresponds to transmuxing processed video.
     assertThat(exportResult.processedInputs.get(5).audioDecoderName).isNull();
     assertThat(exportResult.processedInputs.get(5).videoDecoderName).isNull();
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -346,13 +354,13 @@ public class TransformerPauseResumeTest {
           "Transformer timed out after " + DEFAULT_TIMEOUT_SECONDS + " seconds.");
     }
     InstrumentationRegistry.getInstrumentation().runOnMainSync(blockingTransformer::cancel);
-    TransformerAndroidTestRunner testRunner =
+
+    ExportTestResult resultWithResume =
         new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
-            .build();
+            .build()
+            .run(testId, composition, firstOutputPath);
 
-    ExportResult exportResultWithResume =
-        testRunner.run(testId, composition, firstOutputPath).exportResult;
-
+    ExportResult exportResultWithResume = resultWithResume.exportResult;
     assertThat(exportResultWithResume.processedInputs).hasSize(6);
     assertThat(exportResultWithResume.audioEncoderName)
         .isEqualTo(exportResultWithoutResume.audioEncoderName);
@@ -363,6 +371,7 @@ public class TransformerPauseResumeTest {
     int maxDiffExpectedInDurationMs = 2;
     assertThat(exportResultWithResume.durationMs - exportResultWithoutResume.durationMs)
         .isLessThan(maxDiffExpectedInDurationMs);
+    assertThat(new File(resultWithResume.filePath).length()).isGreaterThan(0);
   }
 
   private static Composition buildSingleSequenceComposition(

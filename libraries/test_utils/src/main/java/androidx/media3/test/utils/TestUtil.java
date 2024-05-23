@@ -375,6 +375,7 @@ public class TestUtil {
   public static Format retrieveTrackFormat(
       Context context, String fileUri, @C.TrackType int trackType)
       throws ExecutionException, InterruptedException {
+    checkState(new File(fileUri).length() > 0);
     TrackGroupArray trackGroupArray;
     trackGroupArray = MetadataRetriever.retrieveMetadata(context, MediaItem.fromUri(fileUri)).get();
     for (int i = 0; i < trackGroupArray.length; i++) {

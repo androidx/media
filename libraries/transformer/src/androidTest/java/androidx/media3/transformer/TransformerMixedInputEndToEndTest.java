@@ -34,6 +34,7 @@ import androidx.media3.effect.Presentation;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import java.io.File;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -84,6 +85,7 @@ public class TransformerMixedInputEndToEndTest {
 
     assertThat(result.exportResult.videoFrameCount)
         .isEqualTo(imageFrameCount + MP4_ASSET_FRAME_COUNT);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -109,6 +111,7 @@ public class TransformerMixedInputEndToEndTest {
 
     assertThat(result.exportResult.videoFrameCount)
         .isEqualTo(imageFrameCount + MP4_ASSET_FRAME_COUNT);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -146,6 +149,7 @@ public class TransformerMixedInputEndToEndTest {
 
     assertThat(result.exportResult.videoFrameCount)
         .isEqualTo(3 * imageFrameCount + 4 * MP4_ASSET_FRAME_COUNT);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -183,6 +187,7 @@ public class TransformerMixedInputEndToEndTest {
 
     assertThat(result.exportResult.videoFrameCount)
         .isEqualTo(4 * imageFrameCount + 3 * MP4_ASSET_FRAME_COUNT);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   /** Creates an {@link EditedMediaItem} with image, with duration of one second. */

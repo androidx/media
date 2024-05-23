@@ -59,6 +59,7 @@ import androidx.media3.transformer.TransformerAndroidTestRunner;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import java.io.File;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Rule;
@@ -107,8 +108,7 @@ public final class TransformerSequenceEffectTestWithHdr {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotEmpty();
-    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
     // Expected bitmaps were generated on the Pixel 7 Pro, because emulators don't
     // support decoding HDR.
     assertBitmapsMatchExpectedAndSave(
@@ -186,8 +186,7 @@ public final class TransformerSequenceEffectTestWithHdr {
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotEmpty();
-    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
     // Expected bitmaps were generated on the Samsung S22 Ultra (US), because emulators don't
     // support decoding HDR, and the Pixel 7 Pro does support HDR editing.
     assertBitmapsMatchExpectedAndSave(

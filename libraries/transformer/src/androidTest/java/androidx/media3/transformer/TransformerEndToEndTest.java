@@ -94,6 +94,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import java.io.File;
 import java.nio.ByteBuffer;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.Before;
@@ -186,6 +187,7 @@ public class TransformerEndToEndTest {
     // audioSequence duration: ~2s (2 inputs).
     // loopingAudioSequence: Matches max other sequence (~3.5s) -> 4 inputs of ~1s audio item.
     assertThat(result.exportResult.processedInputs).hasSize(9);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -226,6 +228,7 @@ public class TransformerEndToEndTest {
     // loopingAudioSequence: Matches other sequence (~0.5s) and is cut short.
     assertThat(result.exportResult.durationMs).isAtLeast(450);
     assertThat(result.exportResult.durationMs).isAtMost(500);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -250,6 +253,7 @@ public class TransformerEndToEndTest {
     // Expected timestamp of the last frame.
     assertThat(result.exportResult.durationMs)
         .isEqualTo((C.MILLIS_PER_SECOND / expectedFrameCount) * (expectedFrameCount - 1));
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -271,6 +275,7 @@ public class TransformerEndToEndTest {
     // Expected timestamp of the last frame.
     assertThat(result.exportResult.durationMs)
         .isEqualTo((C.MILLIS_PER_SECOND / expectedFrameCount) * (expectedFrameCount - 1));
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -325,6 +330,7 @@ public class TransformerEndToEndTest {
     assertThat(result.exportResult.videoFrameCount).isEqualTo(expectedFrameCount);
     // Expected timestamp of the last frame.
     assertThat(result.exportResult.durationMs).isEqualTo(C.MILLIS_PER_SECOND / 2);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -376,6 +382,7 @@ public class TransformerEndToEndTest {
     assertThat(result.exportResult.videoFrameCount).isEqualTo(expectedFrameCount);
     // Expected timestamp of the last frame.
     assertThat(result.exportResult.durationMs).isEqualTo(C.MILLIS_PER_SECOND / 2);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -402,6 +409,7 @@ public class TransformerEndToEndTest {
             .run(testId, editedMediaItem);
 
     assertThat(result.exportResult.videoFrameCount).isEqualTo(expectedFrameCount);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -437,6 +445,7 @@ public class TransformerEndToEndTest {
             .run(testId, editedMediaItem);
 
     assertThat(result.exportResult.videoFrameCount).isEqualTo(expectedFrameCount);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -461,6 +470,7 @@ public class TransformerEndToEndTest {
             .run(testId, editedMediaItem);
 
     assertThat(result.exportResult.durationMs).isEqualTo(expectedDurationMs);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -489,6 +499,7 @@ public class TransformerEndToEndTest {
             .run(testId, mediaItem);
 
     assertThat(result.exportResult.durationMs).isAtMost(clippingEndMs - clippingStartMs);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -565,6 +576,7 @@ public class TransformerEndToEndTest {
     assertThat(result.exportResult.durationMs).isAtMost(clippingEndMs - clippingStartMs);
     assertThat(result.exportResult.videoConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSCODED);
     assertThat(result.exportResult.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -646,6 +658,7 @@ public class TransformerEndToEndTest {
     assertThat(result.exportResult.durationMs).isAtMost(clippingEndMs - clippingStartMs);
     assertThat(result.exportResult.videoConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSCODED);
     assertThat(result.exportResult.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -680,6 +693,7 @@ public class TransformerEndToEndTest {
     assertThat(result.exportResult.durationMs).isAtMost(1_017);
     assertThat(result.exportResult.videoConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSCODED);
     assertThat(result.exportResult.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -714,6 +728,7 @@ public class TransformerEndToEndTest {
     assertThat(result.exportResult.videoConversionProcess)
         .isEqualTo(CONVERSION_PROCESS_TRANSMUXED_AND_TRANSCODED);
     assertThat(result.exportResult.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -873,6 +888,7 @@ public class TransformerEndToEndTest {
         .isEqualTo(OPTIMIZATION_ABANDONED_TRIM_AND_TRANSCODING_TRANSFORMATION_REQUESTED);
     assertThat(result.exportResult.videoConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSCODED);
     assertThat(result.exportResult.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -908,6 +924,7 @@ public class TransformerEndToEndTest {
     // 3 / 0.5 + 3 / 0.75 + 3 + 3 / 1.5 + 3.537 / 2 rounds up to 16_770
     assertThat(result.exportResult.durationMs).isAtLeast(16_750);
     assertThat(result.exportResult.durationMs).isAtMost(16_770);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -949,6 +966,7 @@ public class TransformerEndToEndTest {
     // 3 / 0.5 + 3 / 0.75 + 3 + 3 / 1.5 + 3.537 / 2 rounds up to 16_770
     assertThat(result.exportResult.durationMs).isAtLeast(16_720);
     assertThat(result.exportResult.durationMs).isAtMost(16_770);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -1003,6 +1021,7 @@ public class TransformerEndToEndTest {
             .run(testId, composition);
 
     assertThat(result.exportResult.durationMs).isEqualTo(10_351L);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -1032,6 +1051,7 @@ public class TransformerEndToEndTest {
             .run(testId, composition);
 
     assertThat(result.exportResult.durationMs).isAtMost(20_720L);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -1078,6 +1098,7 @@ public class TransformerEndToEndTest {
     assertThat(result.exportResult.videoFrameCount)
         .isEqualTo(expectedResult.exportResult.videoFrameCount);
     assertThat(result.exportResult.durationMs).isEqualTo(expectedResult.exportResult.durationMs);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -1117,6 +1138,7 @@ public class TransformerEndToEndTest {
     // will be seen in result.exportResult.durationMs.
     assertThat(result.exportResult.durationMs).isAtLeast(2970);
     assertThat(result.exportResult.durationMs).isAtMost(3020);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -1154,6 +1176,7 @@ public class TransformerEndToEndTest {
     // will be seen in result.exportResult.durationMs.
     assertThat(result.exportResult.durationMs).isAtLeast(3100);
     assertThat(result.exportResult.durationMs).isAtMost(3150);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -1190,6 +1213,7 @@ public class TransformerEndToEndTest {
     assertThat(result.exportResult.durationMs).isAtLeast(3120);
     assertThat(result.exportResult.durationMs).isAtMost(3140);
     assertThat(result.exportResult.videoFrameCount).isEqualTo(95);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -1223,6 +1247,7 @@ public class TransformerEndToEndTest {
     // will be seen in result.exportResult.durationMs.
     assertThat(result.exportResult.durationMs).isAtLeast(1000);
     assertThat(result.exportResult.durationMs).isAtMost(1050);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -1286,6 +1311,7 @@ public class TransformerEndToEndTest {
             .run(testId, composition);
 
     assertThat(result.exportResult.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -1306,6 +1332,7 @@ public class TransformerEndToEndTest {
             .run(testId, composition);
 
     assertThat(result.exportResult.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSCODED);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -1592,6 +1619,7 @@ public class TransformerEndToEndTest {
     // will be seen in result.exportResult.durationMs.
     assertThat(result.exportResult.durationMs).isAtLeast(1_360);
     assertThat(result.exportResult.durationMs).isAtMost(1_400);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   private static AudioProcessor createSonic(float pitch) {
