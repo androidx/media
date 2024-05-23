@@ -199,6 +199,8 @@
     *   Remove `setContentTypePredicate(Predicate)` method from
         `DefaultHttpDataSource`, `OkHttpDataSource` and `CronetDataSource`. Use
         the equivalent method on each `XXXDataSource.Factory` instead.
+    *   Remove `OkHttpDataSource` constructors and `OkHttpDataSourceFactory`.
+        Use `OkHttpDataSource.Factory` instead.
 
 ## 1.4
 

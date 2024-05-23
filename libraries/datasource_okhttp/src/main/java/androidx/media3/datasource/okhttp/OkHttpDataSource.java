@@ -196,44 +196,6 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
   private long bytesToRead;
   private long bytesRead;
 
-  /**
-   * @deprecated Use {@link OkHttpDataSource.Factory} instead.
-   */
-  @SuppressWarnings("deprecation")
-  @UnstableApi
-  @Deprecated
-  public OkHttpDataSource(Call.Factory callFactory) {
-    this(callFactory, /* userAgent= */ null);
-  }
-
-  /**
-   * @deprecated Use {@link OkHttpDataSource.Factory} instead.
-   */
-  @SuppressWarnings("deprecation")
-  @UnstableApi
-  @Deprecated
-  public OkHttpDataSource(Call.Factory callFactory, @Nullable String userAgent) {
-    this(callFactory, userAgent, /* cacheControl= */ null, /* defaultRequestProperties= */ null);
-  }
-
-  /**
-   * @deprecated Use {@link OkHttpDataSource.Factory} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  public OkHttpDataSource(
-      Call.Factory callFactory,
-      @Nullable String userAgent,
-      @Nullable CacheControl cacheControl,
-      @Nullable RequestProperties defaultRequestProperties) {
-    this(
-        callFactory,
-        userAgent,
-        cacheControl,
-        defaultRequestProperties,
-        /* contentTypePredicate= */ null);
-  }
-
   private OkHttpDataSource(
       Call.Factory callFactory,
       @Nullable String userAgent,
