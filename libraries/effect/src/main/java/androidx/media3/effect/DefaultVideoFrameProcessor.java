@@ -46,6 +46,7 @@ import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
 import androidx.media3.common.FrameInfo;
 import androidx.media3.common.GlObjectsProvider;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.OnInputFrameProcessedListener;
 import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoFrameProcessingException;
@@ -78,6 +79,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  */
 @UnstableApi
 public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
+
+  static {
+    MediaLibraryInfo.registerModule("media3.effect");
+  }
 
   /**
    * Releases the output information stored for textures before and at {@code presentationTimeUs}.
