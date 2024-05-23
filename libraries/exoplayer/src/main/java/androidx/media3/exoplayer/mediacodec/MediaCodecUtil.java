@@ -350,8 +350,8 @@ public final class MediaCodecUtil {
       return MimeTypes.AUDIO_E_AC3;
     }
     if (MimeTypes.VIDEO_DOLBY_VISION.equals(format.sampleMimeType)) {
-      // H.264/AVC or H.265/HEVC decoders can decode the base layer of some DV profiles. This can't
-      // be done for profile CodecProfileLevel.DolbyVisionProfileDvheStn and profile
+      // H.264/AVC, H.265/HEVC or AV1 decoders can decode the base layer of some DV profiles.
+      // This can't be done for profile CodecProfileLevel.DolbyVisionProfileDvheStn and profile
       // CodecProfileLevel.DolbyVisionProfileDvheDtb because the first one is not backward
       // compatible and the second one is deprecated and is not always backward compatible.
       @Nullable Pair<Integer, Integer> codecProfileAndLevel = getCodecProfileAndLevel(format);
@@ -362,6 +362,8 @@ public final class MediaCodecUtil {
           return MimeTypes.VIDEO_H265;
         } else if (profile == CodecProfileLevel.DolbyVisionProfileDvavSe) {
           return MimeTypes.VIDEO_H264;
+        } else if (profile == CodecProfileLevel.DolbyVisionProfileDvav110) {
+          return MimeTypes.VIDEO_AV1;
         }
       }
     }
