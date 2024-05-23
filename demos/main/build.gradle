@@ -57,6 +57,8 @@ android {
 
     flavorDimensions = ["decoderExtensions"]
 
+    buildFeatures.buildConfig true
+
     productFlavors {
         noDecoderExtensions {
             dimension "decoderExtensions"
