@@ -40,6 +40,12 @@ jobs:
       - name: Build and publish dash
         run: cd libraries/exoplayer_dash && ../../gradlew publish
 
+      - name: Build and publish hls
+        run: cd libraries/exoplayer_hls && ../../gradlew publish
+
+      - name: Build and publish ima
+        run: cd libraries/exoplayer_ima && ../../gradlew publish
+
       - name: Build and publish ui
         run: cd libraries/ui && ../../gradlew publish
 
