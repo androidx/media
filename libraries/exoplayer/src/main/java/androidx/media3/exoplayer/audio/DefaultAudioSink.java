@@ -1530,7 +1530,18 @@ public final class DefaultAudioSink implements AudioSink {
   // AudioCapabilitiesReceiver.Listener implementation.
 
   public void onAudioCapabilitiesChanged(AudioCapabilities audioCapabilities) {
-    checkState(playbackLooper == Looper.myLooper());
+    Looper myLooper = Looper.myLooper();
+    if (playbackLooper != myLooper) {
+      String playbackLooperName =
+          playbackLooper == null ? "null" : playbackLooper.getThread().getName();
+      String myLooperName = myLooper == null ? "null" : myLooper.getThread().getName();
+      throw new IllegalStateException(
+          "Current looper ("
+              + myLooperName
+              + ") is not the playback looper ("
+              + playbackLooperName
+              + ")");
+    }
     if (!audioCapabilities.equals(this.audioCapabilities)) {
       this.audioCapabilities = audioCapabilities;
       if (listener != null) {
