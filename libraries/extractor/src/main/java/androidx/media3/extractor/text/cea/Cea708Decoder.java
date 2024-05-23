@@ -778,11 +778,9 @@ public final class Cea708Decoder extends CeaDecoder {
     // first byte
     captionChannelPacketData.skipBits(2); // null padding
     boolean visible = captionChannelPacketData.readBit();
-
     // ANSI/CTA-708-E S-2023 spec (Section 8.4.7) indicates that rowLock and columnLock values in
     // the media should be ignored and assumed to be true.
     captionChannelPacketData.skipBits(2);
-
     int priority = captionChannelPacketData.readBits(3);
     // second byte
     boolean relativePositioning = captionChannelPacketData.readBit();
@@ -1228,6 +1226,8 @@ public final class Cea708Decoder extends CeaDecoder {
             || rolledUpCaptions.size() >= MAXIMUM_ROW_COUNT) {
           rolledUpCaptions.remove(0);
         }
+        // update row value after newline
+        row = rolledUpCaptions.size();
       } else {
         captionStringBuilder.append(text);
       }

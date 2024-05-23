@@ -512,6 +512,9 @@ This release includes the following changes since the
         `rowLock` and `columnLock` should both be assumed to be true, regardless
         of the values present in the stream (`columnLock` support is not
         implemented, so it's effectively assumed to always be false).
+    *   CEA-708: Avoid duplicate newlines being added by ExoPlayer's naive
+        handling of the 'set pen location' command
+        ([#1315](https://github.com/androidx/media/pull/1315)).
 *   Image:
     *   Add support for DASH thumbnails. Grid images are cropped and individual
         thumbnails are provided to `ImageOutput` close to their presentation
