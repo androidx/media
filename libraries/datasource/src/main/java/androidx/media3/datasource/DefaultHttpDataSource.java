@@ -268,64 +268,6 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
   private long bytesToRead;
   private long bytesRead;
 
-  /**
-   * @deprecated Use {@link DefaultHttpDataSource.Factory} instead.
-   */
-  @UnstableApi
-  @SuppressWarnings("deprecation")
-  @Deprecated
-  public DefaultHttpDataSource() {
-    this(/* userAgent= */ null, DEFAULT_CONNECT_TIMEOUT_MILLIS, DEFAULT_READ_TIMEOUT_MILLIS);
-  }
-
-  /**
-   * @deprecated Use {@link DefaultHttpDataSource.Factory} instead.
-   */
-  @UnstableApi
-  @SuppressWarnings("deprecation")
-  @Deprecated
-  public DefaultHttpDataSource(@Nullable String userAgent) {
-    this(userAgent, DEFAULT_CONNECT_TIMEOUT_MILLIS, DEFAULT_READ_TIMEOUT_MILLIS);
-  }
-
-  /**
-   * @deprecated Use {@link DefaultHttpDataSource.Factory} instead.
-   */
-  @UnstableApi
-  @SuppressWarnings("deprecation")
-  @Deprecated
-  public DefaultHttpDataSource(
-      @Nullable String userAgent, int connectTimeoutMillis, int readTimeoutMillis) {
-    this(
-        userAgent,
-        connectTimeoutMillis,
-        readTimeoutMillis,
-        /* allowCrossProtocolRedirects= */ false,
-        /* defaultRequestProperties= */ null);
-  }
-
-  /**
-   * @deprecated Use {@link DefaultHttpDataSource.Factory} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  public DefaultHttpDataSource(
-      @Nullable String userAgent,
-      int connectTimeoutMillis,
-      int readTimeoutMillis,
-      boolean allowCrossProtocolRedirects,
-      @Nullable RequestProperties defaultRequestProperties) {
-    this(
-        userAgent,
-        connectTimeoutMillis,
-        readTimeoutMillis,
-        allowCrossProtocolRedirects,
-        /* crossProtocolRedirectsForceOriginal= */ false,
-        defaultRequestProperties,
-        /* contentTypePredicate= */ null,
-        /* keepPostFor302Redirects= */ false);
-  }
-
   private DefaultHttpDataSource(
       @Nullable String userAgent,
       int connectTimeoutMillis,

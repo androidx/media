@@ -207,6 +207,8 @@
         instead.
     *   Remove `Timeline.Window.isLive` field. Use the `isLive()` method
         instead.
+    *   Remove `DefaultHttpDataSource` constructors. Use
+        `DefaultHttpDataSource.Factory` instead.
 
 ## 1.4
 
