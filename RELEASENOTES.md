@@ -213,6 +213,8 @@
         `DashMediaSource.DEFAULT_FALLBACK_TARGET_LIVE_OFFSET_MS` instead.
     *   Remove `MediaCodecInfo.isSeamlessAdaptationSupported(Format, Format,
         boolean)`. Use `MediaCodecInfo.canReuseCodec(Format, Format)` instead.
+    *   Remove `DrmSessionManager.DUMMY` and `getDummyDrmSessionManager()`
+        method. Use `DrmSessionManager.DRM_UNSUPPORTED` instead.
 
 ## 1.4
 
