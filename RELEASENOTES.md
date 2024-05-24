@@ -201,6 +201,8 @@
         the equivalent method on each `XXXDataSource.Factory` instead.
     *   Remove `OkHttpDataSource` constructors and `OkHttpDataSourceFactory`.
         Use `OkHttpDataSource.Factory` instead.
+    *   Remove `PlayerMessage.setHandler(Handler)`. Use `setLooper(Looper)`
+        instead.
 
 ## 1.4
 
