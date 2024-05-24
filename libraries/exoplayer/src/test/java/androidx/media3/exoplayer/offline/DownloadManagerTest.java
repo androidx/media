@@ -43,7 +43,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.shadows.ShadowLog;
 
 /** Tests {@link DownloadManager}. */
 @RunWith(AndroidJUnit4.class)
@@ -74,7 +73,6 @@ public class DownloadManagerTest {
 
   @Before
   public void setUp() throws Exception {
-    ShadowLog.stream = System.out;
     testThread = new DummyMainThread();
     setupDownloadManager(/* maxParallelDownloads= */ 100);
   }

@@ -38,10 +38,8 @@ import com.google.common.collect.Iterables;
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.UnsignedBytes;
 import java.nio.ByteBuffer;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.shadows.ShadowLog;
 
 /** Tests for {@link Cea708Decoder}. */
 @RunWith(AndroidJUnit4.class)
@@ -50,11 +48,6 @@ public class Cea708DecoderTest {
   private static final byte CHANNEL_PACKET_START = 0x7;
   private static final byte CHANNEL_PACKET_DATA = 0x6;
   private static final byte CHANNEL_PACKET_END = 0x2;
-
-  @Before
-  public void setupLogging() {
-    ShadowLog.stream = System.out;
-  }
 
   @Test
   public void singleServiceAndWindowDefinition() throws Exception {
