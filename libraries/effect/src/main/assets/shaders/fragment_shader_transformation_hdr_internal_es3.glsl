@@ -271,13 +271,25 @@ highp vec3 applyOetf(highp vec3 linearColor) {
   }
 }
 
+vec3 scaleHdrLuminance(vec3 inputColor) {
+  const float PQ_MAX_LUMINANCE = 10000.0;
+  const float HLG_MAX_LUMINANCE = 1000.0;
+  if (uInputColorTransfer == COLOR_TRANSFER_ST2084) {
+    return inputColor * PQ_MAX_LUMINANCE / HLG_MAX_LUMINANCE;
+  } else if (uInputColorTransfer == COLOR_TRANSFER_HLG) {
+    return inputColor;
+  } else {
+    return ERROR_COLOR_BLUE;
+  }
+}
+
 void main() {
   vec3 opticalColorBt2020 =
       applyEotf(texture(uTexSampler, vTexSamplingCoord).xyz);
   vec4 opticalColor =
       (uApplyHdrToSdrToneMapping == 1)
           ? vec4(applyBt2020ToBt709Ootf(opticalColorBt2020), 1.0)
-          : vec4(opticalColorBt2020, 1.0);
+          : vec4(scaleHdrLuminance(opticalColorBt2020), 1.0);
   vec4 transformedColors = uRgbMatrix * opticalColor;
   outColor = vec4(applyOetf(transformedColors.rgb), 1.0);
 }

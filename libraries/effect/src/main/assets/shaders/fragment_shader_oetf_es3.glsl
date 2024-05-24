@@ -31,8 +31,13 @@ uniform int uOutputColorTransfer;
 uniform mat3 uColorTransform;
 uniform mat4 uRgbMatrix;
 
-// Output color for an obviously visible error.
+// Output colors for an obviously visible error.
 const vec3 ERROR_COLOR_RED = vec3(1.0, 0.0, 0.0);
+const vec3 ERROR_COLOR_BLUE = vec3(0.0, 0.0, 1.0);
+
+// LINT.IfChange(color_transfer)
+const int COLOR_TRANSFER_ST2084 = 6;
+const int COLOR_TRANSFER_HLG = 7;
 
 // HLG OETF for one channel.
 highp float hlgOetfSingleChannel(highp float linearChannel) {
@@ -75,9 +80,6 @@ highp vec3 pqOetf(highp vec3 linearColor) {
 // Applies the appropriate OETF to convert linear optical signals to nonlinear
 // electrical signals. Input and output are both normalized to [0, 1].
 highp vec3 applyOetf(highp vec3 linearColor) {
-  // LINT.IfChange(color_transfer)
-  const int COLOR_TRANSFER_ST2084 = 6;
-  const int COLOR_TRANSFER_HLG = 7;
   if (uOutputColorTransfer == COLOR_TRANSFER_ST2084) {
     return pqOetf(linearColor);
   } else if (uOutputColorTransfer == COLOR_TRANSFER_HLG) {
@@ -87,9 +89,22 @@ highp vec3 applyOetf(highp vec3 linearColor) {
   }
 }
 
+vec3 normalizeHdrLuminance(vec3 inputColor) {
+  const float PQ_MAX_LUMINANCE = 10000.0;
+  const float HLG_MAX_LUMINANCE = 1000.0;
+  if (uOutputColorTransfer == COLOR_TRANSFER_ST2084) {
+    return inputColor * HLG_MAX_LUMINANCE / PQ_MAX_LUMINANCE;
+  } else if (uOutputColorTransfer == COLOR_TRANSFER_HLG) {
+    return inputColor;
+  } else {
+    return ERROR_COLOR_BLUE;
+  }
+}
+
 void main() {
   vec4 inputColor = texture(uTexSampler, vTexSamplingCoord);
   // transformedColors is an optical color.
   vec4 transformedColors = uRgbMatrix * vec4(inputColor.rgb, 1);
-  outColor = vec4(applyOetf(transformedColors.rgb), inputColor.a);
+  outColor = vec4(applyOetf(normalizeHdrLuminance(transformedColors.rgb)),
+                  inputColor.a);
 }

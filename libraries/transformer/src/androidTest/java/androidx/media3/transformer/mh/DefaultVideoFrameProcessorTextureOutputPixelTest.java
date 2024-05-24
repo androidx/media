@@ -90,6 +90,10 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
       "test-generated-goldens/hdr-goldens/ultrahdr_to_hlg.png";
   private static final String ULTRA_HDR_TO_PQ_PNG_ASSET_PATH =
       "test-generated-goldens/hdr-goldens/ultrahdr_to_pq.png";
+  private static final String HLG_TO_PQ_PNG_ASSET_PATH =
+      "test-generated-goldens/hdr-goldens/original_hlg10_to_pq.png";
+  private static final String PQ_TO_HLG_PNG_ASSET_PATH =
+      "test-generated-goldens/hdr-goldens/original_hdr10_to_hlg.png";
 
   /** Input SDR video of which we only use the first frame. */
   private static final String INPUT_SDR_MP4_ASSET_STRING = "media/mp4/sample.mp4";
@@ -244,6 +248,40 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
   }
 
   @Test
+  public void noEffects_hlg10InputAndHdr10Output_matchesGoldenFile() throws Exception {
+    Context context = getApplicationContext();
+    Format inputFormat = MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT;
+    Format outputFormat =
+        inputFormat
+            .buildUpon()
+            .setColorInfo(
+                new ColorInfo.Builder()
+                    .setColorSpace(C.COLOR_SPACE_BT2020)
+                    .setColorRange(C.COLOR_RANGE_LIMITED)
+                    .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+                    .build())
+            .build();
+    assumeDeviceSupportsHdrEditing(testId, inputFormat);
+    assumeFormatsSupported(context, testId, inputFormat, outputFormat);
+    videoFrameProcessorTestRunner =
+        getDefaultFrameProcessorTestRunnerBuilder(testId)
+            .setOutputColorInfo(outputFormat.colorInfo)
+            .setVideoAssetPath(INPUT_HLG10_MP4_ASSET_STRING)
+            .build();
+    Bitmap expectedBitmap = readBitmap(HLG_TO_PQ_PNG_ASSET_PATH);
+
+    videoFrameProcessorTestRunner.processFirstFrameAndEnd();
+    Bitmap actualBitmap = videoFrameProcessorTestRunner.getOutputBitmap();
+
+    // TODO(b/207848601): Switch to using proper tooling for testing against golden data.
+    float averagePixelAbsoluteDifference =
+        BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceFp16(
+            expectedBitmap, actualBitmap);
+    assertThat(averagePixelAbsoluteDifference)
+        .isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_DIFFERENT_DEVICE_FP16);
+  }
+
+  @Test
   public void noEffects_hlg10TextureInput_matchesGoldenFile() throws Exception {
     Context context = getApplicationContext();
     Format format = MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT;
@@ -318,6 +356,40 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
             .setVideoAssetPath(INPUT_PQ_MP4_ASSET_STRING)
             .build();
     Bitmap expectedBitmap = readBitmap(ORIGINAL_HDR10_PNG_ASSET_PATH);
+
+    videoFrameProcessorTestRunner.processFirstFrameAndEnd();
+    Bitmap actualBitmap = videoFrameProcessorTestRunner.getOutputBitmap();
+
+    // TODO(b/207848601): Switch to using proper tooling for testing against golden data.
+    float averagePixelAbsoluteDifference =
+        BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceFp16(
+            expectedBitmap, actualBitmap);
+    assertThat(averagePixelAbsoluteDifference)
+        .isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_DIFFERENT_DEVICE_FP16);
+  }
+
+  @Test
+  public void noEffects_hdr10InputAndHlg10Output_matchesGoldenFile() throws Exception {
+    Context context = getApplicationContext();
+    Format inputFormat = MP4_ASSET_720P_4_SECOND_HDR10_FORMAT;
+    Format outputFormat =
+        inputFormat
+            .buildUpon()
+            .setColorInfo(
+                new ColorInfo.Builder()
+                    .setColorSpace(C.COLOR_SPACE_BT2020)
+                    .setColorRange(C.COLOR_RANGE_LIMITED)
+                    .setColorTransfer(C.COLOR_TRANSFER_HLG)
+                    .build())
+            .build();
+    assumeDeviceSupportsHdrEditing(testId, inputFormat);
+    assumeFormatsSupported(context, testId, inputFormat, outputFormat);
+    videoFrameProcessorTestRunner =
+        getDefaultFrameProcessorTestRunnerBuilder(testId)
+            .setOutputColorInfo(outputFormat.colorInfo)
+            .setVideoAssetPath(INPUT_PQ_MP4_ASSET_STRING)
+            .build();
+    Bitmap expectedBitmap = readBitmap(PQ_TO_HLG_PNG_ASSET_PATH);
 
     videoFrameProcessorTestRunner.processFirstFrameAndEnd();
     Bitmap actualBitmap = videoFrameProcessorTestRunner.getOutputBitmap();

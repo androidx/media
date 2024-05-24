@@ -134,6 +134,8 @@
         colorspace.
     *   Allow defining indeterminate z-order of EditedMediaItemSequences
         ([#1055](https://github.com/androidx/media/pull/1055)).
+    *   Maintain a consistent luminance range across different HDR content (uses
+        the HLG range).
 *   Muxers:
 *   IMA extension:
     *   Promote API that is required for apps to play
