@@ -21,6 +21,7 @@ import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_BITMAP;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.effect.DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_LINEAR;
+import static java.lang.Math.log;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -705,8 +706,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     glProgram.setIntUniform("uGainmapIsAlpha", gainmapIsAlpha ? GL_TRUE : GL_FALSE);
     glProgram.setIntUniform("uNoGamma", noGamma ? GL_TRUE : GL_FALSE);
     glProgram.setIntUniform("uSingleChannel", singleChannel ? GL_TRUE : GL_FALSE);
-    glProgram.setFloatsUniform("uLogRatioMin", lastGainmap.getRatioMin());
-    glProgram.setFloatsUniform("uLogRatioMax", lastGainmap.getRatioMax());
+    glProgram.setFloatsUniform("uLogRatioMin", logRgb(lastGainmap.getRatioMin()));
+    glProgram.setFloatsUniform("uLogRatioMax", logRgb(lastGainmap.getRatioMax()));
     glProgram.setFloatsUniform("uEpsilonSdr", lastGainmap.getEpsilonSdr());
     glProgram.setFloatsUniform("uEpsilonHdr", lastGainmap.getEpsilonHdr());
     glProgram.setFloatsUniform("uGainmapGamma", gainmapGamma);
@@ -717,5 +718,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private static boolean areAllChannelsEqual(float[] channels) {
     return channels[0] == channels[1] && channels[1] == channels[2];
+  }
+
+  private static float[] logRgb(float[] values) {
+    return new float[] {(float) log(values[0]), (float) log(values[1]), (float) log(values[2])};
   }
 }

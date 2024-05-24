@@ -49,13 +49,11 @@ uniform float uDisplayRatioSdr;
 in vec2 vTexSamplingCoord;
 out vec4 outColor;
 
-// TODO - b/320237307: Investigate possible HDR/SDR ratios. The value is
-// calculated as targetHdrPeakBrightnessInNits / targetSdrWhitePointInNits. In
-// other effect HDR processing and some parts of the wider android ecosystem the
-// assumption is targetHdrPeakBrightnessInNits=1000 and
-// targetSdrWhitePointInNits=500, but 1 seems to have the best white balance
-// upon visual testing.
-const float HDR_SDR_RATIO = 1.0;
+// The value is calculated as targetHdrPeakBrightnessInNits /
+// targetSdrWhitePointInNits. In other effect HDR processing and some parts of
+// the wider android ecosystem the assumption is
+// targetHdrPeakBrightnessInNits=1000 and targetSdrWhitePointInNits=500
+const float HDR_SDR_RATIO = 2.0;
 
 // LINT.IfChange(color_transfer)
 const int COLOR_TRANSFER_LINEAR = 1;
@@ -216,12 +214,18 @@ highp vec3 bt709ToBt2020(vec3 bt709Color) {
   return XYZ_TO_RGB_BT2020 * RGB_BT709_TO_XYZ * bt709Color;
 }
 
+vec3 scaleHdrLuminance(vec3 linearColor) {
+  const float SDR_MAX_LUMINANCE = 500.0;
+  const float HDR_MAX_LUMINANCE = 1000.0;
+  return linearColor * SDR_MAX_LUMINANCE / HDR_MAX_LUMINANCE;
+}
+
 void main() {
   vec4 baseElectricalColor = texture(uTexSampler, vTexSamplingCoord);
   float alpha = baseElectricalColor.a;
   vec4 baseOpticalColor = vec4(applyEotf(baseElectricalColor.xyz), alpha);
   vec3 opticalBt709Color = applyGainmapToBase(baseOpticalColor);
-  vec3 opticalBt2020Color = bt709ToBt2020(opticalBt709Color);
+  vec3 opticalBt2020Color = scaleHdrLuminance(bt709ToBt2020(opticalBt709Color));
   vec4 transformedColors = uRgbMatrix * vec4(opticalBt2020Color, alpha);
   outColor = vec4(applyOetf(transformedColors.rgb), alpha);
 }
