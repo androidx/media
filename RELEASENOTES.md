@@ -209,6 +209,8 @@
         instead.
     *   Remove `DefaultHttpDataSource` constructors. Use
         `DefaultHttpDataSource.Factory` instead.
+    *   Remove `DashMediaSource.DEFAULT_LIVE_PRESENTATION_DELAY_MS`. Use
+        `DashMediaSource.DEFAULT_FALLBACK_TARGET_LIVE_OFFSET_MS` instead.
 
 ## 1.4
 
