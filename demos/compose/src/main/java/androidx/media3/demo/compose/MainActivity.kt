@@ -62,4 +62,10 @@ fun PlayerScreen(videoUrl: String) {
       prepare()
       playWhenReady = true
     }
+    val playerView = PlayerView(LocalContext.current)
+    playerView.player = exoPlayer
+
+  AndroidView(factory = {
+        playerView
+    })
 }
