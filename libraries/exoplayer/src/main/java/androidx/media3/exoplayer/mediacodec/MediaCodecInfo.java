@@ -50,7 +50,6 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.DecoderReuseEvaluation.DecoderDiscardReasons;
-import androidx.media3.exoplayer.DecoderReuseEvaluation.DecoderReuseResult;
 
 /** Information about a {@link MediaCodec} for a given MIME type. */
 @SuppressWarnings("InlinedApi")
@@ -357,8 +356,7 @@ public final class MediaCodecInfo {
    * format when the codec is configured to play media in the specified {@code format}.
    *
    * <p>For adaptation to succeed, the codec must also be configured with appropriate maximum values
-   * and {@link #isSeamlessAdaptationSupported(Format, Format, boolean)} must return {@code true}
-   * for the old/new formats.
+   * and {@link #canReuseCodec(Format, Format)} must return {@code true} for the old/new formats.
    *
    * @param format The format of media for which the decoder will be configured.
    * @return Whether adaptation may be possible
@@ -370,32 +368,6 @@ public final class MediaCodecInfo {
       Pair<Integer, Integer> profileLevel = MediaCodecUtil.getCodecProfileAndLevel(format);
       return profileLevel != null && profileLevel.first == CodecProfileLevel.AACObjectXHE;
     }
-  }
-
-  /**
-   * Returns whether it is possible to adapt an instance of this decoder seamlessly from {@code
-   * oldFormat} to {@code newFormat}. If {@code newFormat} may not be completely populated, pass
-   * {@code false} for {@code isNewFormatComplete}.
-   *
-   * <p>For adaptation to succeed, the codec must also be configured with maximum values that are
-   * compatible with the new format.
-   *
-   * @param oldFormat The format being decoded.
-   * @param newFormat The new format.
-   * @param isNewFormatComplete Whether {@code newFormat} is populated with format-specific
-   *     metadata.
-   * @return Whether it is possible to adapt the decoder seamlessly.
-   * @deprecated Use {@link #canReuseCodec}.
-   */
-  @Deprecated
-  public boolean isSeamlessAdaptationSupported(
-      Format oldFormat, Format newFormat, boolean isNewFormatComplete) {
-    if (!isNewFormatComplete && oldFormat.colorInfo != null && newFormat.colorInfo == null) {
-      newFormat = newFormat.buildUpon().setColorInfo(oldFormat.colorInfo).build();
-    }
-    @DecoderReuseResult int reuseResult = canReuseCodec(oldFormat, newFormat).result;
-    return reuseResult == REUSE_RESULT_YES_WITH_RECONFIGURATION
-        || reuseResult == REUSE_RESULT_YES_WITHOUT_RECONFIGURATION;
   }
 
   /**

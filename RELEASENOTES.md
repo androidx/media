@@ -211,6 +211,8 @@
         `DefaultHttpDataSource.Factory` instead.
     *   Remove `DashMediaSource.DEFAULT_LIVE_PRESENTATION_DELAY_MS`. Use
         `DashMediaSource.DEFAULT_FALLBACK_TARGET_LIVE_OFFSET_MS` instead.
+    *   Remove `MediaCodecInfo.isSeamlessAdaptationSupported(Format, Format,
+        boolean)`. Use `MediaCodecInfo.canReuseCodec(Format, Format)` instead.
 
 ## 1.4
 
