@@ -17,7 +17,6 @@ package androidx.media3.common;
 
 import static androidx.media3.common.AdPlaybackState.AD_STATE_UNAVAILABLE;
 import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -220,11 +219,6 @@ public abstract class Timeline implements Bundleable {
     public boolean isDynamic;
 
     /**
-     * @deprecated Use {@link #isLive()} instead.
-     */
-    @UnstableApi @Deprecated public boolean isLive;
-
-    /**
      * The {@link MediaItem.LiveConfiguration} that is used or null if {@link #isLive()} returns
      * false.
      */
@@ -296,7 +290,6 @@ public abstract class Timeline implements Bundleable {
       this.elapsedRealtimeEpochOffsetMs = elapsedRealtimeEpochOffsetMs;
       this.isSeekable = isSeekable;
       this.isDynamic = isDynamic;
-      this.isLive = liveConfiguration != null;
       this.liveConfiguration = liveConfiguration;
       this.defaultPositionUs = defaultPositionUs;
       this.durationUs = durationUs;
@@ -364,10 +357,7 @@ public abstract class Timeline implements Bundleable {
     }
 
     /** Returns whether this is a live stream. */
-    // Verifies whether the deprecated isLive member field is in a correct state.
-    @SuppressWarnings("deprecation")
     public boolean isLive() {
-      checkState(isLive == (liveConfiguration != null));
       return liveConfiguration != null;
     }
 

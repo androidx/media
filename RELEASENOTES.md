@@ -205,6 +205,8 @@
         Use `OkHttpDataSource.Factory` instead.
     *   Remove `PlayerMessage.setHandler(Handler)`. Use `setLooper(Looper)`
         instead.
+    *   Remove `Timeline.Window.isLive` field. Use the `isLive()` method
+        instead.
 
 ## 1.4
 
