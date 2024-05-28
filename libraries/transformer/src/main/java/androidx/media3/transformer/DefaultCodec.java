@@ -52,6 +52,7 @@ import androidx.media3.effect.DebugTraceUtil;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.checkerframework.checker.initialization.qual.UnknownInitialization;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -76,6 +77,9 @@ public final class DefaultCodec implements Codec {
   private final int maxPendingFrameCount;
   private final boolean isDecoder;
   private final boolean isVideo;
+  // Accessed concurrently by playback thread when reading output, and video effects thread
+  // when signaling end of stream.
+  private final AtomicBoolean videoOutputStarted;
 
   private @MonotonicNonNull Format outputFormat;
   @Nullable private ByteBuffer outputBuffer;
@@ -112,6 +116,7 @@ public final class DefaultCodec implements Codec {
     outputBufferInfo = new BufferInfo();
     inputBufferIndex = C.INDEX_UNSET;
     outputBufferIndex = C.INDEX_UNSET;
+    videoOutputStarted = new AtomicBoolean();
     DebugTraceUtil.logCodecEvent(
         isDecoder, isVideo, EVENT_INPUT_FORMAT, C.TIME_UNSET, "%s", configurationFormat);
 
@@ -248,6 +253,17 @@ public final class DefaultCodec implements Codec {
 
   @Override
   public void signalEndOfInputStream() throws ExportException {
+    if (!videoOutputStarted.get()) {
+      // When encoding a 1-frame video, there is a synchronization problem between feeding the frame
+      // to the encoder input surface and signaling end of stream. On some devices, sometimes,
+      // the frame gets lost and an empty output is produced. Waiting before signaling end of stream
+      // seems to resolve this issue. See b/301603935.
+      try {
+        Thread.sleep(10);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
+    }
     debugTraceLogEvent(EVENT_INPUT_ENDED, C.TIME_END_OF_SOURCE);
     try {
       mediaCodec.signalEndOfInputStream();
@@ -386,6 +402,9 @@ public final class DefaultCodec implements Codec {
                   .setChannelCount(configurationFormat.channelCount)
                   .setPcmEncoding(configurationFormat.pcmEncoding)
                   .build();
+        }
+        if (!isDecoder && isVideo) {
+          videoOutputStarted.set(true);
         }
         debugTraceLogEvent(
             EVENT_OUTPUT_FORMAT, outputBufferInfo.presentationTimeUs, "%s", outputFormat);
