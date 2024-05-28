@@ -80,6 +80,9 @@
         processor to throw an exception
         ([#1352](https://github.com/androidx/media/issues/1352)).
 *   Video:
+    *   Fix decoder fallback logic for Dolby Vision to use a compatible AV1
+        decoder if needed
+        ([#1389](https://github.com/androidx/media/pull/1389)).
 *   Text:
     *   Fix issue where subtitles starting before a seek position are skipped.
         This issue was only introduced in Media3 1.4.0-alpha01.
