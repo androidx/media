@@ -46,6 +46,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
   // The queue holds all bitmaps with one or more frames pending to be sent downstream.
   private final Queue<BitmapFrameSequenceInfo> pendingBitmaps;
   private final GlObjectsProvider glObjectsProvider;
+  private final boolean signalRepeatingSequence;
 
   private @MonotonicNonNull RepeatingGainmapShaderProgram repeatingGainmapShaderProgram;
   @Nullable private GlTextureInfo currentSdrGlTextureInfo;
@@ -59,13 +60,18 @@ import org.checkerframework.checker.nullness.qual.Nullable;
    * @param glObjectsProvider The {@link GlObjectsProvider} for using EGL and GLES.
    * @param videoFrameProcessingTaskExecutor The {@link VideoFrameProcessingTaskExecutor} that the
    *     methods of this class run on.
+   * @param signalRepeatingSequence Whether to repeat each input bitmap unchanged as a sequence of
+   *     output frames. Defaults to {@code false}. That is, each output frame is treated as a new
+   *     input bitmap.
    */
   public BitmapTextureManager(
       GlObjectsProvider glObjectsProvider,
-      VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor) {
+      VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor,
+      boolean signalRepeatingSequence) {
     super(videoFrameProcessingTaskExecutor);
     this.glObjectsProvider = glObjectsProvider;
     pendingBitmaps = new LinkedBlockingQueue<>();
+    this.signalRepeatingSequence = signalRepeatingSequence;
   }
 
   /**
@@ -215,7 +221,9 @@ import org.checkerframework.checker.nullness.qual.Nullable;
       if (Util.SDK_INT >= 34 && bitmap.hasGainmap()) {
         checkNotNull(repeatingGainmapShaderProgram).setGainmap(checkNotNull(bitmap.getGainmap()));
       }
-      checkNotNull(repeatingGainmapShaderProgram).signalNewRepeatingFrameSequence();
+      if (signalRepeatingSequence) {
+        checkNotNull(repeatingGainmapShaderProgram).signalNewRepeatingFrameSequence();
+      }
     } catch (GlUtil.GlException e) {
       throw VideoFrameProcessingException.from(e);
     }

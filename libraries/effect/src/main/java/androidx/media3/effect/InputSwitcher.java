@@ -67,7 +67,8 @@ import org.checkerframework.checker.nullness.qual.Nullable;
       GlShaderProgram.ErrorListener samplingShaderProgramErrorListener,
       @WorkingColorSpace int sdrWorkingColorSpace,
       boolean repeatLastRegisteredFrame,
-      boolean experimentalAdjustSurfaceTextureTransformationMatrix)
+      boolean experimentalAdjustSurfaceTextureTransformationMatrix,
+      boolean experimentalRepeatInputBitmapWithoutResampling)
       throws VideoFrameProcessingException {
     this.context = context;
     this.outputColorInfo = outputColorInfo;
@@ -91,7 +92,11 @@ import org.checkerframework.checker.nullness.qual.Nullable;
                 experimentalAdjustSurfaceTextureTransformationMatrix)));
     inputs.put(
         INPUT_TYPE_BITMAP,
-        new Input(new BitmapTextureManager(glObjectsProvider, videoFrameProcessingTaskExecutor)));
+        new Input(
+            new BitmapTextureManager(
+                glObjectsProvider,
+                videoFrameProcessingTaskExecutor,
+                /* signalRepeatingSequence= */ experimentalRepeatInputBitmapWithoutResampling)));
     inputs.put(
         INPUT_TYPE_TEXTURE_ID,
         new Input(new TexIdTextureManager(glObjectsProvider, videoFrameProcessingTaskExecutor)));

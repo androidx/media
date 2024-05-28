@@ -23,11 +23,11 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 import android.net.Uri;
-import android.os.Build;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
+import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.Presentation;
 import androidx.media3.transformer.AndroidTestUtil;
 import androidx.media3.transformer.EditedMediaItem;
@@ -103,9 +103,22 @@ public class TranscodeSpeedTest {
         testId,
         /* inputFormat= */ AndroidTestUtil.MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS_FORMAT,
         outputFormat);
+    DefaultVideoFrameProcessor.Factory videoFrameProcessorFactory =
+        new DefaultVideoFrameProcessor.Factory.Builder()
+            .setExperimentalRepeatInputBitmapWithoutResampling(true)
+            .build();
     Transformer transformer =
-        new Transformer.Builder(context).setVideoMimeType(MimeTypes.VIDEO_H264).build();
-    boolean isHighPerformance = Util.SDK_INT >= 31 && Build.SOC_MODEL.startsWith("Tensor");
+        new Transformer.Builder(context)
+            .setVideoMimeType(MimeTypes.VIDEO_H264)
+            .setVideoFrameProcessorFactory(videoFrameProcessorFactory)
+            .build();
+    boolean isHighPerformance =
+        Ascii.toLowerCase(Util.MODEL).contains("pixel")
+            && (Ascii.toLowerCase(Util.MODEL).contains("6")
+                || Ascii.toLowerCase(Util.MODEL).contains("7")
+                || Ascii.toLowerCase(Util.MODEL).contains("8")
+                || Ascii.toLowerCase(Util.MODEL).contains("fold")
+                || Ascii.toLowerCase(Util.MODEL).contains("tablet"));
     if (Util.SDK_INT == 33 && Ascii.toLowerCase(Util.MODEL).contains("pixel 6")) {
       // Pixel 6 is usually quick, unless it's on API 33.
       isHighPerformance = false;
