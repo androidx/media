@@ -59,6 +59,8 @@ import android.util.Pair;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
+import androidx.media3.common.GlObjectsProvider;
+import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.OnInputFrameProcessedListener;
@@ -77,6 +79,8 @@ import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.FrameCache;
 import androidx.media3.effect.GlEffect;
+import androidx.media3.effect.GlShaderProgram;
+import androidx.media3.effect.PassthroughShaderProgram;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.RgbFilter;
 import androidx.media3.effect.ScaleAndRotateTransformation;
@@ -96,6 +100,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.io.File;
 import java.nio.ByteBuffer;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.Before;
 import org.junit.Rule;
@@ -1336,6 +1341,105 @@ public class TransformerEndToEndTest {
   }
 
   @Test
+  public void analyzeAudio_completesSuccessfully() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT,
+        /* outputFormat= */ null);
+    Transformer transformer = ExperimentalAnalyzerModeFactory.buildAnalyzer(context);
+    AtomicInteger audioBytesSeen = new AtomicInteger(/* initialValue= */ 0);
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(
+                    Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_URI_STRING)))
+            .setRemoveVideo(true)
+            .setEffects(
+                new Effects(
+                    ImmutableList.of(createByteCountingAudioProcessor(audioBytesSeen)),
+                    /* videoEffects= */ ImmutableList.of()))
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    assertThat(audioBytesSeen.get()).isEqualTo(2_985_984);
+    // Confirm no data was written to file.
+    assertThat(result.exportResult.averageAudioBitrate).isEqualTo(C.RATE_UNSET_INT);
+    assertThat(result.exportResult.fileSizeBytes).isEqualTo(C.LENGTH_UNSET);
+  }
+
+  @Test
+  public void analyzeVideo_completesSuccessfully() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT,
+        /* outputFormat= */ null);
+    Transformer transformer = ExperimentalAnalyzerModeFactory.buildAnalyzer(context);
+    AtomicInteger videoFramesSeen = new AtomicInteger(/* initialValue= */ 0);
+    // Analysis must be added to item effects because composition effects are not applied to single
+    // input video.
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(
+                    Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_URI_STRING)))
+            .setRemoveAudio(true)
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    ImmutableList.of(createFrameCountingEffect(videoFramesSeen))))
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    assertThat(videoFramesSeen.get()).isEqualTo(932);
+    // Confirm no data was written to file.
+    assertThat(result.exportResult.videoFrameCount).isEqualTo(0);
+    assertThat(result.exportResult.fileSizeBytes).isEqualTo(C.LENGTH_UNSET);
+  }
+
+  @Test
+  public void analyzeAudioAndVideo_completesSuccessfully() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT,
+        /* outputFormat= */ null);
+    Transformer transformer = ExperimentalAnalyzerModeFactory.buildAnalyzer(context);
+    AtomicInteger audioBytesSeen = new AtomicInteger(/* initialValue= */ 0);
+    AtomicInteger videoFramesSeen = new AtomicInteger(/* initialValue= */ 0);
+    // Analysis must be added to item effects because composition effects are not applied to single
+    // input video.
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(
+                    Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_URI_STRING)))
+            .setEffects(
+                new Effects(
+                    ImmutableList.of(createByteCountingAudioProcessor(audioBytesSeen)),
+                    ImmutableList.of(createFrameCountingEffect(videoFramesSeen))))
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    assertThat(audioBytesSeen.get()).isEqualTo(2_985_984);
+    assertThat(videoFramesSeen.get()).isEqualTo(932);
+    // Confirm no data was written to file.
+    assertThat(result.exportResult.averageAudioBitrate).isEqualTo(C.RATE_UNSET_INT);
+    assertThat(result.exportResult.videoFrameCount).isEqualTo(0);
+    assertThat(result.exportResult.fileSizeBytes).isEqualTo(C.LENGTH_UNSET);
+  }
+
+  @Test
   public void transcode_withOutputVideoMimeTypeAv1_completesSuccessfully() throws Exception {
     assumeFormatsSupported(
         context,
@@ -1626,6 +1730,37 @@ public class TransformerEndToEndTest {
     SonicAudioProcessor sonic = new SonicAudioProcessor();
     sonic.setPitch(pitch);
     return sonic;
+  }
+
+  private static AudioProcessor createByteCountingAudioProcessor(AtomicInteger byteCount) {
+    return new TeeAudioProcessor(
+        new TeeAudioProcessor.AudioBufferSink() {
+          @Override
+          public void flush(int sampleRateHz, int channelCount, @C.PcmEncoding int encoding) {}
+
+          @Override
+          public void handleBuffer(ByteBuffer buffer) {
+            byteCount.addAndGet(buffer.remaining());
+          }
+        });
+  }
+
+  private static GlEffect createFrameCountingEffect(AtomicInteger frameCount) {
+    return new GlEffect() {
+      @Override
+      public GlShaderProgram toGlShaderProgram(Context context, boolean useHdr) {
+        return new PassthroughShaderProgram() {
+          @Override
+          public void queueInputFrame(
+              GlObjectsProvider glObjectsProvider,
+              GlTextureInfo inputTexture,
+              long presentationTimeUs) {
+            super.queueInputFrame(glObjectsProvider, inputTexture, presentationTimeUs);
+            frameCount.incrementAndGet();
+          }
+        };
+      }
+    };
   }
 
   private final class TestTextureAssetLoaderFactory implements AssetLoader.Factory {

@@ -46,6 +46,7 @@ import static androidx.media3.transformer.Transformer.PROGRESS_STATE_AVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_UNAVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
+import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -69,11 +70,13 @@ import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.audio.ToInt16PcmAudioProcessor;
 import androidx.media3.effect.Contrast;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.ScaleAndRotateTransformation;
+import androidx.media3.exoplayer.audio.TeeAudioProcessor;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.extractor.DefaultExtractorsFactory;
@@ -1232,6 +1235,93 @@ public final class MediaItemExportTest {
   }
 
   @Test
+  public void analyze_audioOnlyWithItemEffect_completesSuccessfully() throws Exception {
+    removeEncodersAndDecoders();
+    addAudioDecoders(MimeTypes.AUDIO_RAW);
+    addThrowingAudioEncoder(MimeTypes.AUDIO_AAC);
+    Transformer transformer =
+        ExperimentalAnalyzerModeFactory.buildAnalyzer(
+            getApplicationContext(),
+            new Transformer.Builder(getApplicationContext())
+                .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+                .build());
+    AtomicInteger bytesSeen = new AtomicInteger(0);
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
+            .setEffects(createAudioEffects(createByteCountingAudioProcessor(bytesSeen)))
+            .build();
+
+    transformer.start(item, outputDir.newFile().getPath());
+    ExportResult result = TransformerTestRunner.runLooper(transformer);
+
+    // Confirm that all the data was seen and no output file was created.
+    assertThat(bytesSeen.get()).isEqualTo(88200);
+    assertThat(result.fileSizeBytes).isEqualTo(C.LENGTH_UNSET);
+  }
+
+  @Test
+  public void analyze_audioOnlyWithCompositionEffect_completesSuccessfully() throws Exception {
+    removeEncodersAndDecoders();
+    addAudioDecoders(MimeTypes.AUDIO_RAW);
+    addThrowingAudioEncoder(MimeTypes.AUDIO_AAC);
+    Transformer transformer =
+        ExperimentalAnalyzerModeFactory.buildAnalyzer(
+            getApplicationContext(),
+            new Transformer.Builder(getApplicationContext())
+                .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+                .build());
+    AtomicInteger bytesSeen = new AtomicInteger(0);
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence(
+                    new EditedMediaItem.Builder(
+                            MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
+                        .build()))
+            .setEffects(createAudioEffects(createByteCountingAudioProcessor(bytesSeen)))
+            .build();
+
+    transformer.start(composition, outputDir.newFile().getPath());
+    ExportResult result = TransformerTestRunner.runLooper(transformer);
+
+    // Confirm that all the data was seen and no output file was created.
+    assertThat(bytesSeen.get()).isEqualTo(88200);
+    assertThat(result.fileSizeBytes).isEqualTo(C.LENGTH_UNSET);
+  }
+
+  @Test
+  public void analyze_audioOnly_itemAndMixerOutputMatch() throws Exception {
+    removeEncodersAndDecoders();
+    addAudioDecoders(MimeTypes.AUDIO_RAW);
+    addThrowingAudioEncoder(MimeTypes.AUDIO_AAC);
+    Transformer transformer =
+        ExperimentalAnalyzerModeFactory.buildAnalyzer(
+            getApplicationContext(),
+            new Transformer.Builder(getApplicationContext())
+                .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+                .build());
+    AtomicInteger itemEffectBytesSeen = new AtomicInteger(0);
+    AtomicInteger compositionEffectBytesSeen = new AtomicInteger(0);
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence(
+                    new EditedMediaItem.Builder(
+                            MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
+                        .setEffects(
+                            createAudioEffects(
+                                createByteCountingAudioProcessor(itemEffectBytesSeen)))
+                        .build()))
+            .setEffects(
+                createAudioEffects(createByteCountingAudioProcessor(compositionEffectBytesSeen)))
+            .build();
+
+    transformer.start(composition, outputDir.newFile().getPath());
+    TransformerTestRunner.runLooper(transformer);
+
+    assertThat(itemEffectBytesSeen.get()).isGreaterThan(0);
+    assertThat(itemEffectBytesSeen.get()).isEqualTo(compositionEffectBytesSeen.get());
+  }
+
+  @Test
   public void getProgress_unknownDuration_returnsConsistentStates() throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
     Transformer transformer =
@@ -1629,6 +1719,40 @@ public final class MediaItemExportTest {
         getDumpFileName(
             /* originalFileName= */ FILE_VIDEO_ELST_TRIM_IDR_DURATION,
             /* modifications...= */ "transmuxed"));
+  }
+
+  private static void addThrowingAudioEncoder(String mimeType) {
+    ShadowMediaCodec.CodecConfig.Codec codec =
+        new ShadowMediaCodec.CodecConfig.Codec() {
+          @Override
+          public void process(ByteBuffer byteBuffer, ByteBuffer byteBuffer1) {
+            throw new IllegalStateException();
+          }
+
+          @Override
+          public void onConfigured(
+              MediaFormat format, Surface surface, MediaCrypto crypto, int flags) {
+            throw new IllegalStateException();
+          }
+        };
+
+    addAudioEncoders(
+        new ShadowMediaCodec.CodecConfig(
+            /* inputBufferSize= */ 100_000, /* outputBufferSize= */ 100_000, codec),
+        mimeType);
+  }
+
+  private static AudioProcessor createByteCountingAudioProcessor(AtomicInteger byteCount) {
+    return new TeeAudioProcessor(
+        new TeeAudioProcessor.AudioBufferSink() {
+          @Override
+          public void flush(int sampleRateHz, int channelCount, @C.PcmEncoding int encoding) {}
+
+          @Override
+          public void handleBuffer(ByteBuffer buffer) {
+            byteCount.addAndGet(buffer.remaining());
+          }
+        });
   }
 
   private static final class SlowExtractorsFactory implements ExtractorsFactory {
