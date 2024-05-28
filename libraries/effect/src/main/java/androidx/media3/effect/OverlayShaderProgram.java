@@ -16,44 +16,78 @@
 package androidx.media3.effect;
 
 import static androidx.media3.common.util.Assertions.checkArgument;
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.formatInvariant;
+import static androidx.media3.common.util.Util.loadAsset;
 
+import android.annotation.SuppressLint;
+import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.Gainmap;
 import android.opengl.GLES20;
+import android.util.SparseArray;
+import android.util.SparseIntArray;
+import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlProgram;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Size;
+import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
+import java.io.IOException;
 
 /** Applies zero or more {@link TextureOverlay}s onto each frame. */
 /* package */ final class OverlayShaderProgram extends BaseGlShaderProgram {
 
+  private static final String ULTRA_HDR_INSERT = "shaders/insert_ultra_hdr.glsl";
+
   private final GlProgram glProgram;
   private final SamplerOverlayMatrixProvider samplerOverlayMatrixProvider;
   private final ImmutableList<TextureOverlay> overlays;
+  private final boolean useHdr;
+  private final SparseArray<Gainmap> lastGainmaps;
+  private final SparseIntArray gainmapTexIds;
 
   /**
    * Creates a new instance.
    *
+   * @param context The {@link Context}
    * @param useHdr Whether input textures come from an HDR source. If {@code true}, colors will be
-   *     in linear RGB BT.2020. If {@code false}, colors will be in linear RGB BT.709.
+   *     in linear RGB BT.2020. If {@code false}, colors will be in linear RGB BT.709. useHdr is
+   *     only supported on API 34+ for {@link BitmapOverlay}s, where the {@link Bitmap} contains a
+   *     {@link Gainmap}.
    * @throws VideoFrameProcessingException If a problem occurs while reading shader files.
    */
-  public OverlayShaderProgram(boolean useHdr, ImmutableList<TextureOverlay> overlays)
+  public OverlayShaderProgram(
+      Context context, boolean useHdr, ImmutableList<TextureOverlay> overlays)
       throws VideoFrameProcessingException {
     super(/* useHighPrecisionColorComponents= */ useHdr, /* texturePoolCapacity= */ 1);
-    checkArgument(!useHdr, "OverlayShaderProgram does not support HDR colors yet.");
-    // The maximum number of samplers allowed in a single GL program is 16.
-    // We use one for every overlay and one for the video.
-    checkArgument(
-        overlays.size() <= 15,
-        "OverlayShaderProgram does not support more than 15 overlays in the same instance.");
+    if (useHdr) {
+      // Each UltraHDR overlay uses an extra texture to apply the gainmap to the base in the shader.
+      checkArgument(
+          overlays.size() <= 7,
+          "OverlayShaderProgram does not support more than 7 HDR overlays in the same instance.");
+      checkArgument(Util.SDK_INT >= 34);
+    } else {
+      // The maximum number of samplers allowed in a single GL program is 16.
+      // We use one for every overlay and one for the video.
+      checkArgument(
+          overlays.size() <= 15,
+          "OverlayShaderProgram does not support more than 15 SDR overlays in the same instance.");
+    }
+
+    this.useHdr = useHdr;
     this.overlays = overlays;
     this.samplerOverlayMatrixProvider = new SamplerOverlayMatrixProvider();
+    lastGainmaps = new SparseArray<>();
+    gainmapTexIds = new SparseIntArray();
     try {
       glProgram =
-          new GlProgram(createVertexShader(overlays.size()), createFragmentShader(overlays.size()));
-    } catch (GlUtil.GlException e) {
+          new GlProgram(
+              createVertexShader(overlays.size()),
+              createFragmentShader(context, overlays.size(), useHdr));
+    } catch (GlUtil.GlException | IOException e) {
       throw new VideoFrameProcessingException(e);
     }
 
@@ -74,12 +108,34 @@ import com.google.common.collect.ImmutableList;
   }
 
   @Override
+  @SuppressLint("NewApi") // Checked API level in constructor
   public void drawFrame(int inputTexId, long presentationTimeUs)
       throws VideoFrameProcessingException {
     try {
       glProgram.use();
       for (int texUnitIndex = 1; texUnitIndex <= overlays.size(); texUnitIndex++) {
         TextureOverlay overlay = overlays.get(texUnitIndex - 1);
+
+        if (useHdr) {
+          checkArgument(overlay instanceof BitmapOverlay);
+          Bitmap bitmap = ((BitmapOverlay) overlay).getBitmap(presentationTimeUs);
+          checkArgument(bitmap.hasGainmap());
+          Gainmap gainmap = checkNotNull(bitmap.getGainmap());
+          @Nullable Gainmap lastGainmap = lastGainmaps.get(texUnitIndex);
+          if (lastGainmap == null || !GainmapUtil.equals(lastGainmap, gainmap)) {
+            lastGainmaps.put(texUnitIndex, gainmap);
+            if (gainmapTexIds.get(texUnitIndex, /* valueIfKeyNotFound= */ C.INDEX_UNSET)
+                == C.INDEX_UNSET) {
+              gainmapTexIds.put(texUnitIndex, GlUtil.createTexture(gainmap.getGainmapContents()));
+            } else {
+              GlUtil.setTexture(gainmapTexIds.get(texUnitIndex), gainmap.getGainmapContents());
+            }
+            glProgram.setSamplerTexIdUniform(
+                "uGainmapTexSampler" + texUnitIndex, gainmapTexIds.get(texUnitIndex), texUnitIndex);
+            GainmapUtil.setGainmapUniforms(glProgram, lastGainmaps.get(texUnitIndex), texUnitIndex);
+          }
+        }
+
         glProgram.setSamplerTexIdUniform(
             formatInvariant("uOverlayTexSampler%d", texUnitIndex),
             overlay.getTextureId(presentationTimeUs),
@@ -111,11 +167,17 @@ import com.google.common.collect.ImmutableList;
     super.release();
     try {
       glProgram.delete();
+      for (int i = 0; i < overlays.size(); i++) {
+        overlays.get(i).release();
+        if (useHdr) {
+          int gainmapTexId = gainmapTexIds.get(i, /* valueIfKeyNotFound= */ C.INDEX_UNSET);
+          if (gainmapTexId != C.INDEX_UNSET) {
+            GlUtil.deleteTexture(gainmapTexId);
+          }
+        }
+      }
     } catch (GlUtil.GlException e) {
       throw new VideoFrameProcessingException(e);
-    }
-    for (int i = 0; i < overlays.size(); i++) {
-      overlays.get(i).release();
     }
   }
 
@@ -159,13 +221,15 @@ import com.google.common.collect.ImmutableList;
     return shader.toString();
   }
 
-  private static String createFragmentShader(int numOverlays) {
+  private static String createFragmentShader(Context context, int numOverlays, boolean useHdr)
+      throws IOException {
     StringBuilder shader =
         new StringBuilder()
             .append("#version 100\n")
             .append("precision mediump float;\n")
             .append("uniform sampler2D uVideoTexSampler0;\n")
             .append("varying vec2 vVideoTexSamplingCoord0;\n")
+            .append("\n")
             .append("// Manually implementing the CLAMP_TO_BORDER texture wrapping option\n")
             .append(
                 "// (https://open.gl/textures) since it's not implemented until OpenGL ES 3.2.\n")
@@ -190,11 +254,32 @@ import com.google.common.collect.ImmutableList;
             .append("}\n")
             .append("\n");
 
+    if (useHdr) {
+      shader.append(loadAsset(context, ULTRA_HDR_INSERT));
+    }
+
     for (int texUnitIndex = 1; texUnitIndex <= numOverlays; texUnitIndex++) {
       shader
           .append(formatInvariant("uniform sampler2D uOverlayTexSampler%d;\n", texUnitIndex))
           .append(formatInvariant("uniform float uOverlayAlphaScale%d;\n", texUnitIndex))
-          .append(formatInvariant("varying vec2 vOverlayTexSamplingCoord%d;\n", texUnitIndex));
+          .append(formatInvariant("varying vec2 vOverlayTexSamplingCoord%d;\n", texUnitIndex))
+          .append("\n");
+      if (useHdr) {
+        shader
+            .append("// Uniforms for applying the gainmap to the base.\n")
+            .append(formatInvariant("uniform sampler2D uGainmapTexSampler%d;\n", texUnitIndex))
+            .append(formatInvariant("uniform int uGainmapIsAlpha%d;\n", texUnitIndex))
+            .append(formatInvariant("uniform int uNoGamma%d;\n", texUnitIndex))
+            .append(formatInvariant("uniform int uSingleChannel%d;\n", texUnitIndex))
+            .append(formatInvariant("uniform vec4 uLogRatioMin%d;\n", texUnitIndex))
+            .append(formatInvariant("uniform vec4 uLogRatioMax%d;\n", texUnitIndex))
+            .append(formatInvariant("uniform vec4 uEpsilonSdr%d;\n", texUnitIndex))
+            .append(formatInvariant("uniform vec4 uEpsilonHdr%d;\n", texUnitIndex))
+            .append(formatInvariant("uniform vec4 uGainmapGamma%d;\n", texUnitIndex))
+            .append(formatInvariant("uniform float uDisplayRatioHdr%d;\n", texUnitIndex))
+            .append(formatInvariant("uniform float uDisplayRatioSdr%d;\n", texUnitIndex))
+            .append("\n");
+      }
     }
 
     shader
@@ -212,11 +297,41 @@ import com.google.common.collect.ImmutableList;
           .append(
               formatInvariant(
                   "    uOverlayTexSampler%d, vOverlayTexSamplingCoord%d, uOverlayAlphaScale%d);\n",
-                  texUnitIndex, texUnitIndex, texUnitIndex))
-          .append(
-              formatInvariant(
-                  "  fragColor = getMixColor(fragColor, electricalOverlayColor%d);\n",
-                  texUnitIndex));
+                  texUnitIndex, texUnitIndex, texUnitIndex));
+      String overlayMixColor = "electricalOverlayColor";
+      if (useHdr) {
+        shader
+            .append(
+                formatInvariant(
+                    "  vec4 gainmap%d = texture2D(uGainmapTexSampler%d,"
+                        + " vOverlayTexSamplingCoord%d);\n",
+                    texUnitIndex, texUnitIndex, texUnitIndex))
+            .append(formatInvariant("  vec3 opticalBt709Color%d = applyGainmap(\n", texUnitIndex))
+            .append(
+                formatInvariant(
+                    "      srgbEotf(electricalOverlayColor%d), gainmap%d, uGainmapIsAlpha%d,\n",
+                    texUnitIndex, texUnitIndex, texUnitIndex))
+            .append(
+                formatInvariant(
+                    "      uNoGamma%d, uSingleChannel%d, uLogRatioMin%d, uLogRatioMax%d,"
+                        + " uEpsilonSdr%d,\n",
+                    texUnitIndex, texUnitIndex, texUnitIndex, texUnitIndex, texUnitIndex))
+            .append(
+                formatInvariant(
+                    "      uEpsilonHdr%d, uGainmapGamma%d, uDisplayRatioHdr%d,"
+                        + " uDisplayRatioSdr%d);\n",
+                    texUnitIndex, texUnitIndex, texUnitIndex, texUnitIndex))
+            .append(formatInvariant("  vec4 opticalBt2020OverlayColor%d =\n", texUnitIndex))
+            .append(
+                formatInvariant(
+                    "      vec4(scaleHdrLuminance(bt709ToBt2020(opticalBt709Color%d)),"
+                        + " electricalOverlayColor%d.a);\n",
+                    texUnitIndex, texUnitIndex));
+        overlayMixColor = "opticalBt2020OverlayColor";
+      }
+      shader.append(
+          formatInvariant(
+              "  fragColor = getMixColor(fragColor, %s%d);\n", overlayMixColor, texUnitIndex));
     }
 
     shader.append("  gl_FragColor = fragColor;\n").append("}\n");

@@ -34,6 +34,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.Matrix;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Effect;
@@ -94,6 +95,10 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
       "test-generated-goldens/hdr-goldens/original_hlg10_to_pq.png";
   private static final String PQ_TO_HLG_PNG_ASSET_PATH =
       "test-generated-goldens/hdr-goldens/original_hdr10_to_hlg.png";
+  private static final String ULTRA_HDR_OVERLAY_HLG_PNG_ASSET_PATH =
+      "test-generated-goldens/hdr-goldens/ultrahdr_overlay_hlg.png";
+  private static final String ULTRA_HDR_OVERLAY_PQ_PNG_ASSET_PATH =
+      "test-generated-goldens/hdr-goldens/ultrahdr_overlay_pq.png";
 
   /** Input SDR video of which we only use the first frame. */
   private static final String INPUT_SDR_MP4_ASSET_STRING = "media/mp4/sample.mp4";
@@ -220,6 +225,88 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
         getBitmapAveragePixelAbsoluteDifferenceArgb8888(expectedBitmap, actualBitmap, testId);
     assertThat(averagePixelAbsoluteDifference)
         .isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_DIFFERENT_DEVICE);
+  }
+
+  @Test
+  public void ultraHdrBitmapOverlay_hlg10Input_matchesGoldenFile() throws Exception {
+    Context context = getApplicationContext();
+    Format format = MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT;
+    assumeDeviceSupportsUltraHdrEditing();
+    assumeDeviceSupportsHdrEditing(testId, format);
+    assumeFormatsSupported(context, testId, /* inputFormat= */ format, /* outputFormat= */ null);
+    ColorInfo colorInfo = checkNotNull(format.colorInfo);
+    Bitmap inputBitmap = readBitmap(ULTRA_HDR_ASSET_PATH);
+    inputBitmap =
+        Bitmap.createScaledBitmap(
+            inputBitmap,
+            inputBitmap.getWidth() / 8,
+            inputBitmap.getHeight() / 8,
+            /* filter= */ true);
+    Matrix matrix = new Matrix();
+    matrix.postRotate(/* degrees= */ 90);
+    Bitmap rotatedBitmap =
+        Bitmap.createBitmap(
+            inputBitmap,
+            /* x= */ 0,
+            /* y= */ 0,
+            inputBitmap.getWidth(),
+            inputBitmap.getHeight(),
+            matrix,
+            /* filter= */ true);
+    BitmapOverlay bitmapOverlay1 = BitmapOverlay.createStaticBitmapOverlay(inputBitmap);
+    BitmapOverlay bitmapOverlay2 = BitmapOverlay.createStaticBitmapOverlay(rotatedBitmap);
+    videoFrameProcessorTestRunner =
+        getDefaultFrameProcessorTestRunnerBuilder(testId)
+            .setEffects(new OverlayEffect(ImmutableList.of(bitmapOverlay1, bitmapOverlay2)))
+            .setOutputColorInfo(colorInfo)
+            .setVideoAssetPath(INPUT_HLG10_MP4_ASSET_STRING)
+            .build();
+    Bitmap expectedBitmap = readBitmap(ULTRA_HDR_OVERLAY_HLG_PNG_ASSET_PATH);
+
+    videoFrameProcessorTestRunner.processFirstFrameAndEnd();
+    Bitmap actualBitmap = videoFrameProcessorTestRunner.getOutputBitmap();
+
+    // TODO(b/207848601): Switch to using proper tooling for testing against golden data.
+    float averagePixelAbsoluteDifference =
+        BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceFp16(
+            expectedBitmap, actualBitmap);
+    assertThat(averagePixelAbsoluteDifference)
+        .isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_DIFFERENT_DEVICE_FP16);
+  }
+
+  @Test
+  public void ultraHdrBitmapOverlay_hdr10Input_matchesGoldenFile() throws Exception {
+    Context context = getApplicationContext();
+    Format format = MP4_ASSET_720P_4_SECOND_HDR10_FORMAT;
+    assumeDeviceSupportsUltraHdrEditing();
+    assumeDeviceSupportsHdrEditing(testId, format);
+    assumeFormatsSupported(context, testId, /* inputFormat= */ format, /* outputFormat= */ null);
+    ColorInfo colorInfo = checkNotNull(format.colorInfo);
+    Bitmap overlayBitmap = readBitmap(ULTRA_HDR_ASSET_PATH);
+    overlayBitmap =
+        Bitmap.createScaledBitmap(
+            overlayBitmap,
+            overlayBitmap.getWidth() / 8,
+            overlayBitmap.getHeight() / 8,
+            /* filter= */ true);
+    BitmapOverlay bitmapOverlay = BitmapOverlay.createStaticBitmapOverlay(overlayBitmap);
+    videoFrameProcessorTestRunner =
+        getDefaultFrameProcessorTestRunnerBuilder(testId)
+            .setEffects(new OverlayEffect(ImmutableList.of(bitmapOverlay)))
+            .setOutputColorInfo(colorInfo)
+            .setVideoAssetPath(INPUT_PQ_MP4_ASSET_STRING)
+            .build();
+    Bitmap expectedBitmap = readBitmap(ULTRA_HDR_OVERLAY_PQ_PNG_ASSET_PATH);
+
+    videoFrameProcessorTestRunner.processFirstFrameAndEnd();
+    Bitmap actualBitmap = videoFrameProcessorTestRunner.getOutputBitmap();
+
+    // TODO(b/207848601): Switch to using proper tooling for testing against golden data.
+    float averagePixelAbsoluteDifference =
+        BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceFp16(
+            expectedBitmap, actualBitmap);
+    assertThat(averagePixelAbsoluteDifference)
+        .isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_DIFFERENT_DEVICE_FP16);
   }
 
   @Test

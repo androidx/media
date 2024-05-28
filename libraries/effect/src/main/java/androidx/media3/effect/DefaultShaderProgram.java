@@ -21,10 +21,8 @@ import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_BITMAP;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.effect.DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_LINEAR;
-import static java.lang.Math.log;
 
 import android.content.Context;
-import android.graphics.Bitmap;
 import android.graphics.Gainmap;
 import android.opengl.GLES20;
 import android.opengl.Matrix;
@@ -694,33 +692,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       throw new IllegalStateException("Gainmaps not supported under API 34.");
     }
     glProgram.setSamplerTexIdUniform("uGainmapTexSampler", gainmapTexId, /* texUnitIndex= */ 1);
-
-    boolean gainmapIsAlpha = lastGainmap.getGainmapContents().getConfig() == Bitmap.Config.ALPHA_8;
-    float[] gainmapGamma = lastGainmap.getGamma();
-    boolean noGamma = gainmapGamma[0] == 1f && gainmapGamma[1] == 1f && gainmapGamma[2] == 1f;
-    boolean singleChannel =
-        areAllChannelsEqual(gainmapGamma)
-            && areAllChannelsEqual(lastGainmap.getRatioMax())
-            && areAllChannelsEqual(lastGainmap.getRatioMin());
-
-    glProgram.setIntUniform("uGainmapIsAlpha", gainmapIsAlpha ? GL_TRUE : GL_FALSE);
-    glProgram.setIntUniform("uNoGamma", noGamma ? GL_TRUE : GL_FALSE);
-    glProgram.setIntUniform("uSingleChannel", singleChannel ? GL_TRUE : GL_FALSE);
-    glProgram.setFloatsUniform("uLogRatioMin", logRgb(lastGainmap.getRatioMin()));
-    glProgram.setFloatsUniform("uLogRatioMax", logRgb(lastGainmap.getRatioMax()));
-    glProgram.setFloatsUniform("uEpsilonSdr", lastGainmap.getEpsilonSdr());
-    glProgram.setFloatsUniform("uEpsilonHdr", lastGainmap.getEpsilonHdr());
-    glProgram.setFloatsUniform("uGainmapGamma", gainmapGamma);
-    glProgram.setFloatUniform("uDisplayRatioHdr", lastGainmap.getDisplayRatioForFullHdr());
-    glProgram.setFloatUniform("uDisplayRatioSdr", lastGainmap.getMinDisplayRatioForHdrTransition());
-    GlUtil.checkGlError();
-  }
-
-  private static boolean areAllChannelsEqual(float[] channels) {
-    return channels[0] == channels[1] && channels[1] == channels[2];
-  }
-
-  private static float[] logRgb(float[] values) {
-    return new float[] {(float) log(values[0]), (float) log(values[1]), (float) log(values[2])};
+    GainmapUtil.setGainmapUniforms(glProgram, lastGainmap, C.INDEX_UNSET);
   }
 }
