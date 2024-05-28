@@ -31,7 +31,7 @@ import static androidx.media3.transformer.SequenceEffectTestUtil.NO_EFFECT;
 import static androidx.media3.transformer.SequenceEffectTestUtil.PSNR_THRESHOLD_HD;
 import static androidx.media3.transformer.SequenceEffectTestUtil.SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS;
 import static androidx.media3.transformer.SequenceEffectTestUtil.assertBitmapsMatchExpectedAndSave;
-import static androidx.media3.transformer.SequenceEffectTestUtil.assertFirstFrameMatchesExpectedPsnrAndSave;
+import static androidx.media3.transformer.SequenceEffectTestUtil.assertFramesMatchExpectedPsnrAndSave;
 import static androidx.media3.transformer.SequenceEffectTestUtil.clippedVideo;
 import static androidx.media3.transformer.SequenceEffectTestUtil.createComposition;
 import static androidx.media3.transformer.SequenceEffectTestUtil.tryToExportCompositionWithDecoder;
@@ -226,8 +226,8 @@ public final class TransformerSequenceEffectTestWithHdr {
       atLeastOneDecoderSucceeds = true;
 
       assertThat(checkNotNull(result).filePath).isNotNull();
-      assertFirstFrameMatchesExpectedPsnrAndSave(
-          context, testId, checkNotNull(result.filePath), PSNR_THRESHOLD_HD);
+      assertFramesMatchExpectedPsnrAndSave(
+          context, testId, checkNotNull(result.filePath), PSNR_THRESHOLD_HD, /* frameCount= */ 1);
     }
     assertThat(atLeastOneDecoderSucceeds).isTrue();
   }
@@ -261,8 +261,8 @@ public final class TransformerSequenceEffectTestWithHdr {
       atLeastOneDecoderSucceeds = true;
 
       assertThat(checkNotNull(result).filePath).isNotNull();
-      assertFirstFrameMatchesExpectedPsnrAndSave(
-          context, testId, checkNotNull(result.filePath), PSNR_THRESHOLD_HD);
+      assertFramesMatchExpectedPsnrAndSave(
+          context, testId, checkNotNull(result.filePath), PSNR_THRESHOLD_HD, /* frameCount= */ 1);
     }
     assertThat(atLeastOneDecoderSucceeds).isTrue();
   }

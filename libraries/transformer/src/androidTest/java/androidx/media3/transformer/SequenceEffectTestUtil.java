@@ -138,17 +138,17 @@ public final class SequenceEffectTestUtil {
   }
 
   /**
-   * Asserts that the first frame extracted from the video in filePath matches output in {@link
-   * #PNG_ASSET_BASE_PATH}/{@code testId}_0.png.
+   * Asserts that the first {@code frameCount} frames extracted from the video in {@code filePath}
+   * match the expected output in {@link #PNG_ASSET_BASE_PATH}/{@code testId}_num.png.
    *
    * <p>Also saves the first frame as a bitmap, in case they differ from expected.
    */
-  public static void assertFirstFrameMatchesExpectedPsnrAndSave(
-      Context context, String testId, String filePath, float psnrThreshold)
+  public static void assertFramesMatchExpectedPsnrAndSave(
+      Context context, String testId, String filePath, float psnrThreshold, int frameCount)
       throws IOException, InterruptedException {
-    Bitmap firstEncodedFrame = extractBitmapsFromVideo(context, filePath).get(0);
-    assertBitmapsMatchExpectedPsnrAndSave(
-        ImmutableList.of(firstEncodedFrame), testId, psnrThreshold);
+    ImmutableList<Bitmap> frames =
+        extractBitmapsFromVideo(context, filePath).subList(0, frameCount);
+    assertBitmapsMatchExpectedPsnrAndSave(frames, testId, psnrThreshold);
   }
 
   private static void assertBitmapsMatchExpectedPsnrAndSave(

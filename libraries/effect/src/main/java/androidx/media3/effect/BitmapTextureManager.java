@@ -47,7 +47,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
   private final Queue<BitmapFrameSequenceInfo> pendingBitmaps;
   private final GlObjectsProvider glObjectsProvider;
 
-  private @MonotonicNonNull GainmapShaderProgram gainmapShaderProgram;
+  private @MonotonicNonNull RepeatingGainmapShaderProgram repeatingGainmapShaderProgram;
   @Nullable private GlTextureInfo currentSdrGlTextureInfo;
   private int downstreamShaderProgramCapacity;
   private boolean currentInputStreamEnded;
@@ -71,13 +71,13 @@ import org.checkerframework.checker.nullness.qual.Nullable;
   /**
    * {@inheritDoc}
    *
-   * <p>{@link GlShaderProgram} must be a {@link GainmapShaderProgram}.
+   * <p>{@link GlShaderProgram} must be a {@link RepeatingGainmapShaderProgram}.
    */
   @Override
   public void setSamplingGlShaderProgram(GlShaderProgram samplingGlShaderProgram) {
-    checkState(samplingGlShaderProgram instanceof GainmapShaderProgram);
+    checkState(samplingGlShaderProgram instanceof RepeatingGainmapShaderProgram);
     downstreamShaderProgramCapacity = 0;
-    this.gainmapShaderProgram = (GainmapShaderProgram) samplingGlShaderProgram;
+    this.repeatingGainmapShaderProgram = (RepeatingGainmapShaderProgram) samplingGlShaderProgram;
   }
 
   @Override
@@ -110,7 +110,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
     videoFrameProcessingTaskExecutor.submit(
         () -> {
           if (pendingBitmaps.isEmpty()) {
-            checkNotNull(gainmapShaderProgram).signalEndOfCurrentInputStream();
+            checkNotNull(repeatingGainmapShaderProgram).signalEndOfCurrentInputStream();
             DebugTraceUtil.logEvent(
                 COMPONENT_BITMAP_TEXTURE_MANAGER, EVENT_SIGNAL_EOS, C.TIME_END_OF_SOURCE);
           } else {
@@ -155,7 +155,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
     }
 
     downstreamShaderProgramCapacity--;
-    checkNotNull(gainmapShaderProgram)
+    checkNotNull(repeatingGainmapShaderProgram)
         .queueInputFrame(
             glObjectsProvider, checkNotNull(currentSdrGlTextureInfo), currentPresentationTimeUs);
     DebugTraceUtil.logEvent(
@@ -172,7 +172,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
       finishedBitmapInfo.bitmap.recycle();
       if (pendingBitmaps.isEmpty() && currentInputStreamEnded) {
         // Only signal end of stream after all pending bitmaps are processed.
-        checkNotNull(gainmapShaderProgram).signalEndOfCurrentInputStream();
+        checkNotNull(repeatingGainmapShaderProgram).signalEndOfCurrentInputStream();
         DebugTraceUtil.logEvent(
             COMPONENT_BITMAP_TEXTURE_MANAGER, EVENT_SIGNAL_EOS, C.TIME_END_OF_SOURCE);
         currentInputStreamEnded = false;
@@ -213,8 +213,9 @@ import org.checkerframework.checker.nullness.qual.Nullable;
               frameInfo.width,
               frameInfo.height);
       if (Util.SDK_INT >= 34 && bitmap.hasGainmap()) {
-        checkNotNull(gainmapShaderProgram).setGainmap(checkNotNull(bitmap.getGainmap()));
+        checkNotNull(repeatingGainmapShaderProgram).setGainmap(checkNotNull(bitmap.getGainmap()));
       }
+      checkNotNull(repeatingGainmapShaderProgram).signalNewRepeatingFrameSequence();
     } catch (GlUtil.GlException e) {
       throw VideoFrameProcessingException.from(e);
     }

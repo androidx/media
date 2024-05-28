@@ -61,7 +61,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  */
 @SuppressWarnings("FunctionalInterfaceClash") // b/228192298
 /* package */ final class DefaultShaderProgram extends BaseGlShaderProgram
-    implements ExternalShaderProgram, GainmapShaderProgram {
+    implements ExternalShaderProgram, RepeatingGainmapShaderProgram {
 
   private static final String VERTEX_SHADER_TRANSFORMATION_PATH =
       "shaders/vertex_shader_transformation_es2.glsl";
@@ -153,6 +153,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private @MonotonicNonNull Gainmap lastGainmap;
   private int gainmapTexId;
   private @C.ColorTransfer int outputColorTransfer;
+  private boolean shouldRepeatLastFrame;
+  private boolean isRepeatingFrameDrawn;
 
   /**
    * Creates a new instance.
@@ -501,12 +503,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   public void drawFrame(int inputTexId, long presentationTimeUs)
       throws VideoFrameProcessingException {
-    updateCompositeRgbMatrixArray(presentationTimeUs);
-    updateCompositeTransformationMatrixAndVisiblePolygon(presentationTimeUs);
+    boolean compositeRgbMatrixArrayChanged = updateCompositeRgbMatrixArray(presentationTimeUs);
+    boolean compositeTransformationMatrixAndVisiblePolygonChanged =
+        updateCompositeTransformationMatrixAndVisiblePolygon(presentationTimeUs);
+    boolean uniformsChanged =
+        compositeRgbMatrixArrayChanged || compositeTransformationMatrixAndVisiblePolygonChanged;
     if (visiblePolygon.size() < 3) {
       return; // Need at least three visible vertices for a triangle.
     }
 
+    if (shouldRepeatLastFrame && !uniformsChanged && isRepeatingFrameDrawn) {
+      return;
+    }
     try {
       glProgram.use();
       setGainmapSamplerAndUniforms();
@@ -524,6 +532,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     } catch (GlUtil.GlException e) {
       throw new VideoFrameProcessingException(e, presentationTimeUs);
     }
+    isRepeatingFrameDrawn = true;
   }
 
   @Override
@@ -553,12 +562,26 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (lastGainmap != null && GainmapUtil.equals(this.lastGainmap, gainmap)) {
       return;
     }
+    isRepeatingFrameDrawn = false;
     this.lastGainmap = gainmap;
     if (gainmapTexId == C.INDEX_UNSET) {
       gainmapTexId = GlUtil.createTexture(gainmap.getGainmapContents());
     } else {
       GlUtil.setTexture(gainmapTexId, gainmap.getGainmapContents());
     }
+  }
+
+  @Override
+  public void signalNewRepeatingFrameSequence() {
+    // Skipping drawFrame() is only allowed if there's only one possible output texture.
+    checkState(outputTexturePool.capacity() == 1);
+    shouldRepeatLastFrame = true;
+    isRepeatingFrameDrawn = false;
+  }
+
+  @Override
+  public boolean shouldClearTextureBuffer() {
+    return !(isRepeatingFrameDrawn && shouldRepeatLastFrame);
   }
 
   /**
@@ -581,8 +604,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   /**
    * Updates {@link #compositeTransformationMatrixArray} and {@link #visiblePolygon} based on the
    * given frame timestamp.
+   *
+   * <p>Returns whether the transformation matrix or visible polygon has changed.
    */
-  private void updateCompositeTransformationMatrixAndVisiblePolygon(long presentationTimeUs) {
+  private boolean updateCompositeTransformationMatrixAndVisiblePolygon(long presentationTimeUs) {
     float[][] matricesAtPresentationTime = new float[matrixTransformations.size()][16];
     for (int i = 0; i < matrixTransformations.size(); i++) {
       matricesAtPresentationTime[i] =
@@ -590,7 +615,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     if (!updateMatrixCache(transformationMatrixCache, matricesAtPresentationTime)) {
-      return;
+      return false;
     }
 
     // Compute the compositeTransformationMatrix and transform and clip the visiblePolygon for each
@@ -616,7 +641,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               MatrixUtils.transformPoints(transformationMatrix, visiblePolygon));
       if (visiblePolygon.size() < 3) {
         // Can ignore remaining matrices as there are not enough vertices left to form a polygon.
-        return;
+        return true;
       }
     }
     // Calculate the input frame vertices corresponding to the output frame's visible polygon.
@@ -626,17 +651,22 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         compositeTransformationMatrixArray,
         /* mOffset= */ 0);
     visiblePolygon = MatrixUtils.transformPoints(tempResultMatrix, visiblePolygon);
+    return true;
   }
 
-  /** Updates {@link #compositeRgbMatrixArray} based on the given frame timestamp. */
-  private void updateCompositeRgbMatrixArray(long presentationTimeUs) {
+  /**
+   * Updates {@link #compositeRgbMatrixArray} based on the given frame timestamp.
+   *
+   * <p>Returns whether the {@link #compositeRgbMatrixArray} has changed.
+   */
+  private boolean updateCompositeRgbMatrixArray(long presentationTimeUs) {
     float[][] matricesCurrTimestamp = new float[rgbMatrices.size()][16];
     for (int i = 0; i < rgbMatrices.size(); i++) {
       matricesCurrTimestamp[i] = rgbMatrices.get(i).getMatrix(presentationTimeUs, useHdr);
     }
 
     if (!updateMatrixCache(rgbMatrixCache, matricesCurrTimestamp)) {
-      return;
+      return false;
     }
 
     GlUtil.setToIdentity(compositeRgbMatrixArray);
@@ -656,6 +686,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           /* destPost= */ 0,
           /* length= */ tempResultMatrix.length);
     }
+    return true;
   }
 
   /**

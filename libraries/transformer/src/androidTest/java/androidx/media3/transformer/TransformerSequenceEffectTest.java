@@ -43,7 +43,7 @@ import static androidx.media3.transformer.SequenceEffectTestUtil.PSNR_THRESHOLD;
 import static androidx.media3.transformer.SequenceEffectTestUtil.PSNR_THRESHOLD_HD;
 import static androidx.media3.transformer.SequenceEffectTestUtil.SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS;
 import static androidx.media3.transformer.SequenceEffectTestUtil.assertBitmapsMatchExpectedAndSave;
-import static androidx.media3.transformer.SequenceEffectTestUtil.assertFirstFrameMatchesExpectedPsnrAndSave;
+import static androidx.media3.transformer.SequenceEffectTestUtil.assertFramesMatchExpectedPsnrAndSave;
 import static androidx.media3.transformer.SequenceEffectTestUtil.clippedVideo;
 import static androidx.media3.transformer.SequenceEffectTestUtil.createComposition;
 import static androidx.media3.transformer.SequenceEffectTestUtil.decoderProducesWashedOutColours;
@@ -175,8 +175,8 @@ public final class TransformerSequenceEffectTest {
       atLeastOneDecoderSucceeds = true;
 
       assertThat(new File(result.filePath).length()).isGreaterThan(0);
-      assertFirstFrameMatchesExpectedPsnrAndSave(
-          context, testId, checkNotNull(result.filePath), PSNR_THRESHOLD_HD);
+      assertFramesMatchExpectedPsnrAndSave(
+          context, testId, checkNotNull(result.filePath), PSNR_THRESHOLD_HD, /* frameCount= */ 1);
     }
     assertThat(atLeastOneDecoderSucceeds).isTrue();
   }
@@ -215,8 +215,8 @@ public final class TransformerSequenceEffectTest {
       atLeastOneDecoderSucceeds = true;
 
       assertThat(new File(result.filePath).length()).isGreaterThan(0);
-      assertFirstFrameMatchesExpectedPsnrAndSave(
-          context, testId, checkNotNull(result.filePath), PSNR_THRESHOLD_HD);
+      assertFramesMatchExpectedPsnrAndSave(
+          context, testId, checkNotNull(result.filePath), PSNR_THRESHOLD_HD, /* frameCount= */ 1);
     }
     assertThat(atLeastOneDecoderSucceeds).isTrue();
   }
@@ -253,8 +253,8 @@ public final class TransformerSequenceEffectTest {
       atLeastOneDecoderSucceeds = true;
 
       assertThat(new File(result.filePath).length()).isGreaterThan(0);
-      assertFirstFrameMatchesExpectedPsnrAndSave(
-          context, testId, checkNotNull(result.filePath), PSNR_THRESHOLD);
+      assertFramesMatchExpectedPsnrAndSave(
+          context, testId, checkNotNull(result.filePath), PSNR_THRESHOLD, /* frameCount= */ 1);
     }
     assertThat(atLeastOneDecoderSucceeds).isTrue();
   }
@@ -294,8 +294,8 @@ public final class TransformerSequenceEffectTest {
       atLeastOneDecoderSucceeds = true;
 
       assertThat(new File(result.filePath).length()).isGreaterThan(0);
-      assertFirstFrameMatchesExpectedPsnrAndSave(
-          context, testId, checkNotNull(result.filePath), PSNR_THRESHOLD_HD);
+      assertFramesMatchExpectedPsnrAndSave(
+          context, testId, checkNotNull(result.filePath), PSNR_THRESHOLD_HD, /* frameCount= */ 1);
     }
     assertThat(atLeastOneDecoderSucceeds).isTrue();
   }
@@ -336,8 +336,8 @@ public final class TransformerSequenceEffectTest {
       atLeastOneDecoderSucceeds = true;
 
       assertThat(new File(result.filePath).length()).isGreaterThan(0);
-      assertFirstFrameMatchesExpectedPsnrAndSave(
-          context, testId, checkNotNull(result.filePath), PSNR_THRESHOLD);
+      assertFramesMatchExpectedPsnrAndSave(
+          context, testId, checkNotNull(result.filePath), PSNR_THRESHOLD, /* frameCount= */ 1);
     }
     assertThat(atLeastOneDecoderSucceeds).isTrue();
 
@@ -390,12 +390,15 @@ public final class TransformerSequenceEffectTest {
 
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
     // The PSNR threshold was chosen based on:
-    // Pixel 8 with coordinate rounding error during texture sampling, hits PSNR 23.4. With fix ->
-    // 29.5
-    // Realmi C11 with bug fix hits PSNR 29.94
-    // rmx3563 -> 28.8
-    assertFirstFrameMatchesExpectedPsnrAndSave(
-        context, testId, checkNotNull(result.filePath), 28.5f);
+    // Pixel 8 with coordinate rounding error during texture sampling, gets PSNR 23.4.
+    // After fix -> 29.5
+    // rmx3563 with bug fix achieves PSNR 28.8
+    assertFramesMatchExpectedPsnrAndSave(
+        context,
+        testId,
+        checkNotNull(result.filePath),
+        /* psnrThreshold= */ 28.5f,
+        /* frameCount= */ 2);
   }
 
   @Test
