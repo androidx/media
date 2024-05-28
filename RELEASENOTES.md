@@ -218,6 +218,11 @@
         boolean)`. Use `MediaCodecInfo.canReuseCodec(Format, Format)` instead.
     *   Remove `DrmSessionManager.DUMMY` and `getDummyDrmSessionManager()`
         method. Use `DrmSessionManager.DRM_UNSUPPORTED` instead.
+    *   Remove `AnalyticsListener.onAudioInputFormatChanged(EventTime, Format)`,
+        `AnalyticsListener.onVideoInputFormatChanged(EventTime, Format)`,
+        `AudioRendererEventListener.onAudioInputFormatChanged(Format)`,
+        `VideoRendererEventListener.onVideoInputFormatChanged(Format)`. Use the
+        overloads that take a `DecoderReuseEvaluation` instead.
 
 ## 1.4
 

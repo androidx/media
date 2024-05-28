@@ -96,6 +96,7 @@ import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.DecoderCounters;
+import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.Renderer;
@@ -2212,7 +2213,10 @@ public final class DefaultAnalyticsCollectorTest {
     }
 
     @Override
-    public void onAudioInputFormatChanged(EventTime eventTime, Format format) {
+    public void onAudioInputFormatChanged(
+        EventTime eventTime,
+        Format format,
+        @Nullable DecoderReuseEvaluation decoderReuseEvaluation) {
       reportedEvents.add(new ReportedEvent(EVENT_AUDIO_INPUT_FORMAT_CHANGED, eventTime));
     }
 
@@ -2252,7 +2256,10 @@ public final class DefaultAnalyticsCollectorTest {
     }
 
     @Override
-    public void onVideoInputFormatChanged(EventTime eventTime, Format format) {
+    public void onVideoInputFormatChanged(
+        EventTime eventTime,
+        Format format,
+        @Nullable DecoderReuseEvaluation decoderReuseEvaluation) {
       reportedEvents.add(new ReportedEvent(EVENT_VIDEO_INPUT_FORMAT_CHANGED, eventTime));
     }
 
