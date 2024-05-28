@@ -224,6 +224,11 @@
         `AudioRendererEventListener.onAudioInputFormatChanged(Format)`,
         `VideoRendererEventListener.onVideoInputFormatChanged(Format)`. Use the
         overloads that take a `DecoderReuseEvaluation` instead.
+    *   Remove `RendererSupport.FormatSupport` IntDef and `FORMAT_HANDLED`,
+        `FORMAT_EXCEEDS_CAPABILITIES`, `FORMAT_UNSUPPORTED_DRM`,
+        `FORMAT_UNSUPPORTED_SUBTYPE`, `FORMAT_UNSUPPORTED_TYPE` constants. Use
+        the equivalent IntDef and constants in `androidx.media3.common.C`
+        instead (e.g. `C.FORMAT_HANDLED`).
 
 ## 1.4
 
