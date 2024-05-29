@@ -8,4 +8,5 @@
   <string name="media3_controls_seek_back_description">ফিরে যাওয়ার বোতাম</string>
   <string name="media3_controls_seek_forward_description">এগিয়ে যান</string>
   <string name="authentication_required">যাচাইকরণ প্রয়োজন</string>
+  <string name="legacy_error_message_fallback">কোনও সমস্যার মেসেজ দেওয়া হয়নি</string>
 </resources>

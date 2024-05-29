@@ -8,4 +8,5 @@
   <string name="media3_controls_seek_back_description">వెనుకకు దాటవేయండి</string>
   <string name="media3_controls_seek_forward_description">ముందుకు ఫార్వర్డ్ చేయండి</string>
   <string name="authentication_required">ప్రామాణీకరణ అవసరం</string>
+  <string name="legacy_error_message_fallback">ఎర్రర్ మెసేజ్ అందించబడలేదు</string>
 </resources>

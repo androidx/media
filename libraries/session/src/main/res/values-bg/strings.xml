@@ -8,4 +8,5 @@
   <string name="media3_controls_seek_back_description">Придвижване назад</string>
   <string name="media3_controls_seek_forward_description">Придвижване напред</string>
   <string name="authentication_required">Изисква се удостоверяване</string>
+  <string name="legacy_error_message_fallback">Не е посочено съобщение за грешка</string>
 </resources>

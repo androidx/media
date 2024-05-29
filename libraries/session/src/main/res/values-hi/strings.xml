@@ -8,4 +8,5 @@
   <string name="media3_controls_seek_back_description">वापस जाएं</string>
   <string name="media3_controls_seek_forward_description">आगे बढ़ाएं</string>
   <string name="authentication_required">पुष्टि करना ज़रूरी है</string>
+  <string name="legacy_error_message_fallback">गड़बड़ी का कोई मैसेज नहीं मिला</string>
 </resources>

@@ -8,4 +8,5 @@
   <string name="media3_controls_seek_back_description">巻き戻し</string>
   <string name="media3_controls_seek_forward_description">早送り</string>
   <string name="authentication_required">認証が必要です</string>
+  <string name="legacy_error_message_fallback">エラー メッセージはありません</string>
 </resources>

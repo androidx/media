@@ -8,4 +8,5 @@
   <string name="media3_controls_seek_back_description">मागे जा</string>
   <string name="media3_controls_seek_forward_description">पुढे जा</string>
   <string name="authentication_required">ऑथेंटिकेशन आवश्यक आहे</string>
+  <string name="legacy_error_message_fallback">कोणताही एरर मेसेज दिलेला नाही</string>
 </resources>

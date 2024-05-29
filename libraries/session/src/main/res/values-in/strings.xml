@@ -8,4 +8,5 @@
   <string name="media3_controls_seek_back_description">Mundur</string>
   <string name="media3_controls_seek_forward_description">Maju</string>
   <string name="authentication_required">Perlu autentikasi</string>
+  <string name="legacy_error_message_fallback">Tidak ada pesan error yang disediakan</string>
 </resources>

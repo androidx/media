@@ -8,4 +8,5 @@
   <string name="media3_controls_seek_back_description">Αναζήτηση προς τα πίσω</string>
   <string name="media3_controls_seek_forward_description">Αναζήτηση προς τα εμπρός</string>
   <string name="authentication_required">Απαιτείται έλεγχος ταυτότητας</string>
+  <string name="legacy_error_message_fallback">Δεν παρέχεται μήνυμα σφάλματος</string>
 </resources>

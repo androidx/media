@@ -8,4 +8,5 @@
   <string name="media3_controls_seek_back_description">Премотај наназад</string>
   <string name="media3_controls_seek_forward_description">Премотај нанапред</string>
   <string name="authentication_required">Потребна е проверка</string>
+  <string name="legacy_error_message_fallback">Нема порака за грешка</string>
 </resources>

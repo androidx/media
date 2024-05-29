@@ -8,4 +8,5 @@
   <string name="media3_controls_seek_back_description">Orqaga surish</string>
   <string name="media3_controls_seek_forward_description">Oldinga surish</string>
   <string name="authentication_required">Haqiqiylikni tekshirish talab etiladi</string>
+  <string name="legacy_error_message_fallback">Xatolik xabari taqdim qilinmagan</string>
 </resources>

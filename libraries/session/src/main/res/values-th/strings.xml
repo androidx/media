@@ -8,4 +8,5 @@
   <string name="media3_controls_seek_back_description">กรอกลับ</string>
   <string name="media3_controls_seek_forward_description">กรอไปข้างหน้า</string>
   <string name="authentication_required">ต้องมีการตรวจสอบสิทธิ์</string>
+  <string name="legacy_error_message_fallback">ไม่มีข้อความแสดงข้อผิดพลาด</string>
 </resources>

@@ -8,4 +8,5 @@
   <string name="media3_controls_seek_back_description">ወደኋላ ፈልግ</string>
   <string name="media3_controls_seek_forward_description">ወደፊት ፈልግ</string>
   <string name="authentication_required">ማረጋገጥ ያስፈልጋል</string>
+  <string name="legacy_error_message_fallback">ምንም የስህተት መልዕክት አልቀረበም</string>
 </resources>
