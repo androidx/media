@@ -41,6 +41,9 @@ import java.io.IOException;
 /* package */ final class OverlayShaderProgram extends BaseGlShaderProgram {
 
   private static final String ULTRA_HDR_INSERT = "shaders/insert_ultra_hdr.glsl";
+  private static final String FRAGMENT_SHADER_METHODS_INSERT =
+      "shaders/insert_overlay_fragment_shader_methods.glsl";
+  private static final String TEXTURE_INDEX_FORMAT_SPECIFIER = "%";
 
   private final GlProgram glProgram;
   private final SamplerOverlayMatrixProvider samplerOverlayMatrixProvider;
@@ -203,17 +206,12 @@ import java.io.IOException;
         .append("  gl_Position = aFramePosition;\n")
         .append("  vVideoTexSamplingCoord0 = getTexSamplingCoord(aFramePosition.xy);\n");
 
+    String variablesTemplate =
+        "      vec4 aOverlayPosition% =\n"
+            + "  uVertexTransformationMatrix% * uTransformationMatrix% * aFramePosition;\n"
+            + "vOverlayTexSamplingCoord% = getTexSamplingCoord(aOverlayPosition%.xy);";
     for (int texUnitIndex = 1; texUnitIndex <= numOverlays; texUnitIndex++) {
-      shader
-          .append(formatInvariant("  vec4 aOverlayPosition%d = \n", texUnitIndex))
-          .append(
-              formatInvariant(
-                  "  uVertexTransformationMatrix%s * uTransformationMatrix%s * aFramePosition;\n",
-                  texUnitIndex, texUnitIndex))
-          .append(
-              formatInvariant(
-                  "  vOverlayTexSamplingCoord%d = getTexSamplingCoord(aOverlayPosition%d.xy);\n",
-                  texUnitIndex, texUnitIndex));
+      shader.append(replaceFormatSpecifierWithIndex(variablesTemplate, texUnitIndex));
     }
 
     shader.append("}\n");
@@ -229,30 +227,9 @@ import java.io.IOException;
             .append("precision mediump float;\n")
             .append("uniform sampler2D uVideoTexSampler0;\n")
             .append("varying vec2 vVideoTexSamplingCoord0;\n")
-            .append("\n")
-            .append("// Manually implementing the CLAMP_TO_BORDER texture wrapping option\n")
-            .append(
-                "// (https://open.gl/textures) since it's not implemented until OpenGL ES 3.2.\n")
-            .append("vec4 getClampToBorderOverlayColor(\n")
-            .append("    sampler2D texSampler, vec2 texSamplingCoord, float alphaScale){\n")
-            .append("  if (texSamplingCoord.x > 1.0 || texSamplingCoord.x < 0.0\n")
-            .append("      || texSamplingCoord.y > 1.0 || texSamplingCoord.y < 0.0) {\n")
-            .append("    return vec4(0.0, 0.0, 0.0, 0.0);\n")
-            .append("  } else {\n")
-            .append("    vec4 overlayColor = vec4(texture2D(texSampler, texSamplingCoord));\n")
-            .append("    overlayColor.a = alphaScale * overlayColor.a;\n")
-            .append("    return overlayColor;\n")
-            .append("  }\n")
-            .append("}\n")
-            .append("\n")
-            .append("vec4 getMixColor(vec4 videoColor, vec4 overlayColor) {\n")
-            .append("  vec4 outputColor;\n")
-            .append("  outputColor.rgb = overlayColor.rgb * overlayColor.a\n")
-            .append("      + videoColor.rgb * (1.0 - overlayColor.a);\n")
-            .append("  outputColor.a = overlayColor.a + videoColor.a * (1.0 - overlayColor.a);\n")
-            .append("  return outputColor;\n")
-            .append("}\n")
             .append("\n");
+
+    shader.append(loadAsset(context, FRAGMENT_SHADER_METHODS_INSERT));
 
     if (useHdr) {
       shader.append(loadAsset(context, ULTRA_HDR_INSERT));
@@ -284,49 +261,26 @@ import java.io.IOException;
 
     shader
         .append("void main() {\n")
-        .append(
-            "  vec4 videoColor = vec4(texture2D(uVideoTexSampler0, vVideoTexSamplingCoord0));\n")
-        .append("  vec4 fragColor = videoColor;\n");
+        .append(" vec4 videoColor = vec4(texture2D(uVideoTexSampler0, vVideoTexSamplingCoord0));\n")
+        .append(" vec4 fragColor = videoColor;\n");
 
+    String eletricalColorTemplate =
+        "        vec4 electricalOverlayColor% = getClampToBorderOverlayColor(\n"
+            + "      uOverlayTexSampler%, vOverlayTexSamplingCoord%, uOverlayAlphaScale%);\n";
+    String gainmapApplicationTemplate =
+        "        vec4 gainmap% = texture2D(uGainmapTexSampler%, vOverlayTexSamplingCoord%);\n"
+            + "  vec3 opticalBt709Color% = applyGainmap(\n"
+            + "      srgbEotf(electricalOverlayColor%), gainmap%, uGainmapIsAlpha%, uNoGamma%,\n"
+            + "      uSingleChannel%, uLogRatioMin%, uLogRatioMax%, uEpsilonSdr%, uEpsilonHdr%,\n"
+            + "      uGainmapGamma%, uDisplayRatioHdr%, uDisplayRatioSdr%);\n"
+            + "  vec4 opticalBt2020OverlayColor% =\n"
+            + "      vec4(scaleHdrLuminance(bt709ToBt2020(opticalBt709Color%)),"
+            + "           electricalOverlayColor%.a);";
     for (int texUnitIndex = 1; texUnitIndex <= numOverlays; texUnitIndex++) {
-      shader
-          .append(
-              formatInvariant(
-                  "  vec4 electricalOverlayColor%d = getClampToBorderOverlayColor(\n",
-                  texUnitIndex))
-          .append(
-              formatInvariant(
-                  "    uOverlayTexSampler%d, vOverlayTexSamplingCoord%d, uOverlayAlphaScale%d);\n",
-                  texUnitIndex, texUnitIndex, texUnitIndex));
+      shader.append(replaceFormatSpecifierWithIndex(eletricalColorTemplate, texUnitIndex));
       String overlayMixColor = "electricalOverlayColor";
       if (useHdr) {
-        shader
-            .append(
-                formatInvariant(
-                    "  vec4 gainmap%d = texture2D(uGainmapTexSampler%d,"
-                        + " vOverlayTexSamplingCoord%d);\n",
-                    texUnitIndex, texUnitIndex, texUnitIndex))
-            .append(formatInvariant("  vec3 opticalBt709Color%d = applyGainmap(\n", texUnitIndex))
-            .append(
-                formatInvariant(
-                    "      srgbEotf(electricalOverlayColor%d), gainmap%d, uGainmapIsAlpha%d,\n",
-                    texUnitIndex, texUnitIndex, texUnitIndex))
-            .append(
-                formatInvariant(
-                    "      uNoGamma%d, uSingleChannel%d, uLogRatioMin%d, uLogRatioMax%d,"
-                        + " uEpsilonSdr%d,\n",
-                    texUnitIndex, texUnitIndex, texUnitIndex, texUnitIndex, texUnitIndex))
-            .append(
-                formatInvariant(
-                    "      uEpsilonHdr%d, uGainmapGamma%d, uDisplayRatioHdr%d,"
-                        + " uDisplayRatioSdr%d);\n",
-                    texUnitIndex, texUnitIndex, texUnitIndex, texUnitIndex))
-            .append(formatInvariant("  vec4 opticalBt2020OverlayColor%d =\n", texUnitIndex))
-            .append(
-                formatInvariant(
-                    "      vec4(scaleHdrLuminance(bt709ToBt2020(opticalBt709Color%d)),"
-                        + " electricalOverlayColor%d.a);\n",
-                    texUnitIndex, texUnitIndex));
+        shader.append(replaceFormatSpecifierWithIndex(gainmapApplicationTemplate, texUnitIndex));
         overlayMixColor = "opticalBt2020OverlayColor";
       }
       shader.append(
@@ -337,5 +291,9 @@ import java.io.IOException;
     shader.append("  gl_FragColor = fragColor;\n").append("}\n");
 
     return shader.toString();
+  }
+
+  private static String replaceFormatSpecifierWithIndex(String s, int index) {
+    return s.replace(TEXTURE_INDEX_FORMAT_SPECIFIER, Integer.toString(index));
   }
 }
