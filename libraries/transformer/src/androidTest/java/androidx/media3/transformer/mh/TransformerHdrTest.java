@@ -43,15 +43,12 @@ import static com.google.common.truth.Truth.assertThat;
 import android.content.Context;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.Effect;
-import androidx.media3.common.MediaItem;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.RgbFilter;
 import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.transformer.Composition;
-import androidx.media3.transformer.EditedMediaItemSequence;
 import androidx.media3.transformer.ExportException;
 import androidx.media3.transformer.ExportTestResult;
 import androidx.media3.transformer.Transformer;
@@ -67,12 +64,9 @@ import org.junit.Test;
 import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
-/**
- * Tests for using different {@linkplain Effect effects} for {@link MediaItem MediaItems} in one
- * {@link EditedMediaItemSequence}, with HDR assets.
- */
+/** Tests for HDR support in Transformer. */
 @RunWith(AndroidJUnit4.class)
-public final class TransformerSequenceEffectTestWithHdr {
+public final class TransformerHdrTest {
 
   private static final int EXPORT_HEIGHT = 240;
   @Rule public final TestName testName = new TestName();
