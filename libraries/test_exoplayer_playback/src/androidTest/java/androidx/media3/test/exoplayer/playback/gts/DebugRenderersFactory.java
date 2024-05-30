@@ -17,6 +17,7 @@ package androidx.media3.test.exoplayer.playback.gts;
 
 import static java.lang.Math.max;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.media.MediaCrypto;
 import android.media.MediaFormat;
@@ -243,6 +244,7 @@ import java.util.ArrayList;
       super.renderOutputBuffer(codec, index, presentationTimeUs);
     }
 
+    @SuppressLint("UseSdkSuppress") // Not a test class or method.
     @RequiresApi(21)
     @Override
     protected void renderOutputBufferV21(
