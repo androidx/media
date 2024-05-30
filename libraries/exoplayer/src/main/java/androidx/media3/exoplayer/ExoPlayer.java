@@ -1627,7 +1627,11 @@ public interface ExoPlayer extends Player {
   @UnstableApi
   void setAudioSessionId(int audioSessionId);
 
-  /** Returns the audio session identifier, or {@link C#AUDIO_SESSION_ID_UNSET} if not set. */
+  /**
+   * Returns the audio session identifier, or {@link C#AUDIO_SESSION_ID_UNSET} if not set.
+   *
+   * @see Listener#onAudioSessionIdChanged(int)
+   */
   @UnstableApi
   int getAudioSessionId();
 
@@ -1657,7 +1661,11 @@ public interface ExoPlayer extends Player {
   @UnstableApi
   void setSkipSilenceEnabled(boolean skipSilenceEnabled);
 
-  /** Returns whether skipping silences in the audio stream is enabled. */
+  /**
+   * Returns whether skipping silences in the audio stream is enabled.
+   *
+   * @see Listener#onSkipSilenceEnabledChanged(boolean)
+   */
   @UnstableApi
   boolean getSkipSilenceEnabled();
 

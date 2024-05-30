@@ -2433,7 +2433,7 @@ public interface Player {
    * change.
    *
    * @return The currently available {@link Commands}.
-   * @see Listener#onAvailableCommandsChanged
+   * @see Listener#onAvailableCommandsChanged(Commands)
    */
   Commands getAvailableCommands();
 
@@ -2935,6 +2935,8 @@ public interface Player {
    *
    * <p>This method must only be called if {@link #COMMAND_GET_METADATA} is {@linkplain
    * #getAvailableCommands() available}.
+   *
+   * @see Listener#onMediaMetadataChanged(MediaMetadata)
    */
   MediaMetadata getMediaMetadata();
 
@@ -2944,6 +2946,8 @@ public interface Player {
    *
    * <p>This method must only be called if {@link #COMMAND_GET_METADATA} is {@linkplain
    * #getAvailableCommands() available}.
+   *
+   * @see Listener#onPlaylistMetadataChanged(MediaMetadata)
    */
   MediaMetadata getPlaylistMetadata();
 
@@ -3242,6 +3246,8 @@ public interface Player {
    *
    * <p>This method must only be called if {@link #COMMAND_GET_AUDIO_ATTRIBUTES} is {@linkplain
    * #getAvailableCommands() available}.
+   *
+   * @see Listener#onAudioAttributesChanged(AudioAttributes)
    */
   AudioAttributes getAudioAttributes();
 
@@ -3263,6 +3269,7 @@ public interface Player {
    * #getAvailableCommands() available}.
    *
    * @return The linear gain applied to all audio channels.
+   * @see Listener#onVolumeChanged(float)
    */
   @FloatRange(from = 0, to = 1.0)
   float getVolume();
@@ -3409,6 +3416,8 @@ public interface Player {
    *
    * <p>This method must only be called if {@link #COMMAND_GET_TEXT} is {@linkplain
    * #getAvailableCommands() available}.
+   *
+   * @see Listener#onCues(CueGroup)
    */
   CueGroup getCurrentCues();
 
@@ -3431,6 +3440,8 @@ public interface Player {
    *
    * <p>This method must only be called if {@link #COMMAND_GET_DEVICE_VOLUME} is {@linkplain
    * #getAvailableCommands() available}.
+   *
+   * @see Listener#onDeviceVolumeChanged(int, boolean)
    */
   @IntRange(from = 0)
   int getDeviceVolume();
@@ -3443,6 +3454,8 @@ public interface Player {
    *
    * <p>This method must only be called if {@link #COMMAND_GET_DEVICE_VOLUME} is {@linkplain
    * #getAvailableCommands() available}.
+   *
+   * @see Listener#onDeviceVolumeChanged(int, boolean)
    */
   boolean isDeviceMuted();
 
