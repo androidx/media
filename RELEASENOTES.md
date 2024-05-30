@@ -38,6 +38,9 @@
     *   Fix bug where playback moved to `STATE_ENDED` when re-preparing a
         multi-period DASH live stream after the original period was already
         removed from the manifest.
+    *   Rename `onTimelineRefreshed` to `onSourcePrepared` and `onPrepared` to
+        `onTracksSelected` in `PreloadMediaSource.PreloadControl`. Also rename
+        the IntDefs in `DefaultPreloadManager.Stage` accordingly.
 *   Transformer:
     *   Work around a decoder bug where the number of audio channels was capped
         at stereo when handling PCM input.

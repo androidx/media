@@ -24,7 +24,6 @@ import android.os.Looper;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.Timeline;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.ExoPlayer;
@@ -57,25 +56,25 @@ public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
   public static class Status implements TargetPreloadStatusControl.PreloadStatus {
 
     /**
-     * Stages that for the preload status. One of {@link #STAGE_TIMELINE_REFRESHED}, {@link
-     * #STAGE_SOURCE_PREPARED} or {@link #STAGE_LOADED_TO_POSITION_MS}.
+     * Stages for the preload status. One of {@link #STAGE_SOURCE_PREPARED}, {@link
+     * #STAGE_TRACKS_SELECTED} or {@link #STAGE_LOADED_TO_POSITION_MS}.
      */
     @Documented
     @Retention(RetentionPolicy.SOURCE)
     @Target(TYPE_USE)
     @IntDef(
         value = {
-          STAGE_TIMELINE_REFRESHED,
           STAGE_SOURCE_PREPARED,
+          STAGE_TRACKS_SELECTED,
           STAGE_LOADED_TO_POSITION_MS,
         })
     public @interface Stage {}
 
-    /** The {@link PreloadMediaSource} has its {@link Timeline} refreshed. */
-    public static final int STAGE_TIMELINE_REFRESHED = 0;
+    /** The {@link PreloadMediaSource} has completed preparation. */
+    public static final int STAGE_SOURCE_PREPARED = 0;
 
-    /** The {@link PreloadMediaSource} is prepared. */
-    public static final int STAGE_SOURCE_PREPARED = 1;
+    /** The {@link PreloadMediaSource} has tracks selected. */
+    public static final int STAGE_TRACKS_SELECTED = 1;
 
     /** The {@link PreloadMediaSource} is loaded to a specific position in microseconds. */
     public static final int STAGE_LOADED_TO_POSITION_MS = 2;
@@ -205,25 +204,25 @@ public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
 
   private final class SourcePreloadControl implements PreloadMediaSource.PreloadControl {
     @Override
-    public boolean onTimelineRefreshed(PreloadMediaSource mediaSource) {
+    public boolean onSourcePrepared(PreloadMediaSource mediaSource) {
       // The PreloadMediaSource may have more data preloaded than the target preload status if it
       // has been preloaded before, thus we set `clearExceededDataFromTargetPreloadStatus` to
       // `true` to clear the exceeded data.
       return continueOrCompletePreloading(
           mediaSource,
           /* continueLoadingPredicate= */ status ->
-              status.getStage() > Status.STAGE_TIMELINE_REFRESHED,
+              status.getStage() > Status.STAGE_SOURCE_PREPARED,
           /* clearExceededDataFromTargetPreloadStatus= */ true);
     }
 
     @Override
-    public boolean onPrepared(PreloadMediaSource mediaSource) {
+    public boolean onTracksSelected(PreloadMediaSource mediaSource) {
       // Set `clearExceededDataFromTargetPreloadStatus` to `false` as clearing the exceeded data
-      // from the status STAGE_SOURCE_PREPARED is not supported.
+      // from the status STAGE_TRACKS_SELECTED is not supported.
       return continueOrCompletePreloading(
           mediaSource,
           /* continueLoadingPredicate= */ status ->
-              status.getStage() > Status.STAGE_SOURCE_PREPARED,
+              status.getStage() > Status.STAGE_TRACKS_SELECTED,
           /* clearExceededDataFromTargetPreloadStatus= */ false);
     }
 

@@ -68,8 +68,8 @@ public class PreloadAndPlaybackCoordinationTest {
   private final FakeMediaSource wrappedMediaSource;
   private final MediaSource.MediaSourceCaller playbackMediaSourceCaller;
 
-  private final AtomicInteger preloadControlOnSourceInfoRefreshedCalledCounter;
-  private final AtomicInteger preloadControlOnPreparedCalledCounter;
+  private final AtomicInteger preloadControlOnSourcePreparedCalledCounter;
+  private final AtomicInteger preloadControlOnTracksSelectedCalledCounter;
   private final AtomicInteger preloadControlOnUsedByPlayerCounter;
   private final AtomicBoolean playbackSourceCallerOnSourceInfoRefreshedCalled;
   private final AtomicBoolean playbackPeriodCallbackOnPreparedCalled;
@@ -93,8 +93,8 @@ public class PreloadAndPlaybackCoordinationTest {
                   SystemClock.DEFAULT.createHandler(handler.getLooper(), /* callback= */ null),
                   audioListener)
             };
-    preloadControlOnSourceInfoRefreshedCalledCounter = new AtomicInteger();
-    preloadControlOnPreparedCalledCounter = new AtomicInteger();
+    preloadControlOnSourcePreparedCalledCounter = new AtomicInteger();
+    preloadControlOnTracksSelectedCalledCounter = new AtomicInteger();
     preloadControlOnUsedByPlayerCounter = new AtomicInteger();
     playbackSourceCallerOnSourceInfoRefreshedCalled = new AtomicBoolean();
     playbackPeriodCallbackOnPreparedCalled = new AtomicBoolean();
@@ -103,14 +103,14 @@ public class PreloadAndPlaybackCoordinationTest {
     PreloadMediaSource.PreloadControl preloadControl =
         new PreloadMediaSource.PreloadControl() {
           @Override
-          public boolean onTimelineRefreshed(PreloadMediaSource mediaSource) {
-            preloadControlOnSourceInfoRefreshedCalledCounter.addAndGet(1);
+          public boolean onSourcePrepared(PreloadMediaSource mediaSource) {
+            preloadControlOnSourcePreparedCalledCounter.addAndGet(1);
             return true;
           }
 
           @Override
-          public boolean onPrepared(PreloadMediaSource mediaSource) {
-            preloadControlOnPreparedCalledCounter.addAndGet(1);
+          public boolean onTracksSelected(PreloadMediaSource mediaSource) {
+            preloadControlOnTracksSelectedCalledCounter.addAndGet(1);
             return true;
           }
 
@@ -173,8 +173,8 @@ public class PreloadAndPlaybackCoordinationTest {
         playbackMediaSourceCaller, bandwidthMeter.getTransferListener(), PlayerId.UNSET);
     ShadowLooper.idleMainLooper();
 
-    assertThat(preloadControlOnSourceInfoRefreshedCalledCounter.get()).isEqualTo(0);
-    assertThat(preloadControlOnPreparedCalledCounter.get()).isEqualTo(0);
+    assertThat(preloadControlOnSourcePreparedCalledCounter.get()).isEqualTo(0);
+    assertThat(preloadControlOnTracksSelectedCalledCounter.get()).isEqualTo(0);
     assertThat(preloadControlOnUsedByPlayerCounter.get()).isEqualTo(1);
     assertThat(playbackSourceCallerOnSourceInfoRefreshedCalled.get()).isTrue();
     assertThat(playbackPeriodCallbackOnPreparedCalled.get()).isTrue();
@@ -187,8 +187,8 @@ public class PreloadAndPlaybackCoordinationTest {
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     ShadowLooper.idleMainLooper();
 
-    assertThat(preloadControlOnSourceInfoRefreshedCalledCounter.get()).isEqualTo(1);
-    assertThat(preloadControlOnPreparedCalledCounter.get()).isEqualTo(1);
+    assertThat(preloadControlOnSourcePreparedCalledCounter.get()).isEqualTo(1);
+    assertThat(preloadControlOnTracksSelectedCalledCounter.get()).isEqualTo(1);
     assertThat(preloadControlOnUsedByPlayerCounter.get()).isEqualTo(1);
   }
 
@@ -199,8 +199,8 @@ public class PreloadAndPlaybackCoordinationTest {
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     ShadowLooper.idleMainLooper();
 
-    assertThat(preloadControlOnSourceInfoRefreshedCalledCounter.get()).isEqualTo(0);
-    assertThat(preloadControlOnPreparedCalledCounter.get()).isEqualTo(0);
+    assertThat(preloadControlOnSourcePreparedCalledCounter.get()).isEqualTo(0);
+    assertThat(preloadControlOnTracksSelectedCalledCounter.get()).isEqualTo(0);
     assertThat(preloadControlOnUsedByPlayerCounter.get()).isEqualTo(2);
     assertThat(playbackSourceCallerOnSourceInfoRefreshedCalled.get()).isTrue();
     assertThat(playbackPeriodCallbackOnPreparedCalled.get()).isTrue();
@@ -213,13 +213,13 @@ public class PreloadAndPlaybackCoordinationTest {
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     ShadowLooper.idleMainLooper();
 
-    assertThat(preloadControlOnSourceInfoRefreshedCalledCounter.get()).isEqualTo(1);
-    assertThat(preloadControlOnPreparedCalledCounter.get()).isEqualTo(1);
+    assertThat(preloadControlOnSourcePreparedCalledCounter.get()).isEqualTo(1);
+    assertThat(preloadControlOnTracksSelectedCalledCounter.get()).isEqualTo(1);
     assertThat(preloadControlOnUsedByPlayerCounter.get()).isEqualTo(2);
   }
 
   @Test
-  public void playbackBetweenPreloadStartAndTimelineInfoRefreshed_reusableForPreloadAfterRelease() {
+  public void playbackBetweenPreloadStartAndSourcePrepared_reusableForPreloadAfterRelease() {
     wrappedMediaSource.setAllowPreparation(false);
 
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
@@ -229,8 +229,8 @@ public class PreloadAndPlaybackCoordinationTest {
     wrappedMediaSource.setAllowPreparation(true);
     ShadowLooper.idleMainLooper();
 
-    assertThat(preloadControlOnSourceInfoRefreshedCalledCounter.get()).isEqualTo(0);
-    assertThat(preloadControlOnPreparedCalledCounter.get()).isEqualTo(0);
+    assertThat(preloadControlOnSourcePreparedCalledCounter.get()).isEqualTo(0);
+    assertThat(preloadControlOnTracksSelectedCalledCounter.get()).isEqualTo(0);
     assertThat(preloadControlOnUsedByPlayerCounter.get()).isEqualTo(1);
     assertThat(playbackSourceCallerOnSourceInfoRefreshedCalled.get()).isTrue();
     assertThat(playbackPeriodCallbackOnPreparedCalled.get()).isTrue();
@@ -243,14 +243,14 @@ public class PreloadAndPlaybackCoordinationTest {
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     ShadowLooper.idleMainLooper();
 
-    assertThat(preloadControlOnSourceInfoRefreshedCalledCounter.get()).isEqualTo(1);
-    assertThat(preloadControlOnPreparedCalledCounter.get()).isEqualTo(1);
+    assertThat(preloadControlOnSourcePreparedCalledCounter.get()).isEqualTo(1);
+    assertThat(preloadControlOnTracksSelectedCalledCounter.get()).isEqualTo(1);
     assertThat(preloadControlOnUsedByPlayerCounter.get()).isEqualTo(1);
   }
 
   @Test
   public void
-      playbackBetweenPreloadTimelineRefreshedAndPeriodPrepared_reusableForPreloadAfterRelease() {
+      playbackBetweenPreloadSourcePreparedAndTracksSelected_reusableForPreloadAfterRelease() {
     wrappedMediaSource.setPeriodDefersOnPreparedCallback(true);
 
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
@@ -262,8 +262,8 @@ public class PreloadAndPlaybackCoordinationTest {
     lastCreatedActiveMediaPeriod.setPreparationComplete();
     ShadowLooper.idleMainLooper();
 
-    assertThat(preloadControlOnSourceInfoRefreshedCalledCounter.get()).isEqualTo(1);
-    assertThat(preloadControlOnPreparedCalledCounter.get()).isEqualTo(0);
+    assertThat(preloadControlOnSourcePreparedCalledCounter.get()).isEqualTo(1);
+    assertThat(preloadControlOnTracksSelectedCalledCounter.get()).isEqualTo(0);
     assertThat(preloadControlOnUsedByPlayerCounter.get()).isEqualTo(1);
     assertThat(playbackSourceCallerOnSourceInfoRefreshedCalled.get()).isTrue();
     assertThat(playbackPeriodCallbackOnPreparedCalled.get()).isTrue();
@@ -277,8 +277,8 @@ public class PreloadAndPlaybackCoordinationTest {
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     ShadowLooper.idleMainLooper();
 
-    assertThat(preloadControlOnSourceInfoRefreshedCalledCounter.get()).isEqualTo(2);
-    assertThat(preloadControlOnPreparedCalledCounter.get()).isEqualTo(1);
+    assertThat(preloadControlOnSourcePreparedCalledCounter.get()).isEqualTo(2);
+    assertThat(preloadControlOnTracksSelectedCalledCounter.get()).isEqualTo(1);
     assertThat(preloadControlOnUsedByPlayerCounter.get()).isEqualTo(1);
   }
 
@@ -290,8 +290,8 @@ public class PreloadAndPlaybackCoordinationTest {
         playbackMediaSourceCaller, bandwidthMeter.getTransferListener(), PlayerId.UNSET);
     ShadowLooper.idleMainLooper();
 
-    assertThat(preloadControlOnSourceInfoRefreshedCalledCounter.get()).isEqualTo(1);
-    assertThat(preloadControlOnPreparedCalledCounter.get()).isEqualTo(1);
+    assertThat(preloadControlOnSourcePreparedCalledCounter.get()).isEqualTo(1);
+    assertThat(preloadControlOnTracksSelectedCalledCounter.get()).isEqualTo(1);
     assertThat(preloadControlOnUsedByPlayerCounter.get()).isEqualTo(1);
     assertThat(playbackSourceCallerOnSourceInfoRefreshedCalled.get()).isTrue();
     assertThat(playbackPeriodCallbackOnPreparedCalled.get()).isTrue();
@@ -304,8 +304,8 @@ public class PreloadAndPlaybackCoordinationTest {
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     ShadowLooper.idleMainLooper();
 
-    assertThat(preloadControlOnSourceInfoRefreshedCalledCounter.get()).isEqualTo(2);
-    assertThat(preloadControlOnPreparedCalledCounter.get()).isEqualTo(2);
+    assertThat(preloadControlOnSourcePreparedCalledCounter.get()).isEqualTo(2);
+    assertThat(preloadControlOnTracksSelectedCalledCounter.get()).isEqualTo(2);
     assertThat(preloadControlOnUsedByPlayerCounter.get()).isEqualTo(1);
   }
 

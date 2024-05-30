@@ -63,20 +63,20 @@ public final class PreloadMediaSource extends WrappingMediaSource {
   public interface PreloadControl {
 
     /**
-     * Called from {@link PreloadMediaSource} when the {@link Timeline} is refreshed.
+     * Called from {@link PreloadMediaSource} when it has completed preparation.
      *
-     * @param mediaSource The {@link PreloadMediaSource} that has its {@link Timeline} refreshed.
+     * @param mediaSource The {@link PreloadMediaSource} that has completed preparation.
      * @return True if the {@code mediaSource} should continue preloading, false otherwise.
      */
-    boolean onTimelineRefreshed(PreloadMediaSource mediaSource);
+    boolean onSourcePrepared(PreloadMediaSource mediaSource);
 
     /**
-     * Called from {@link PreloadMediaSource} when it is prepared.
+     * Called from {@link PreloadMediaSource} when it has tracks selected.
      *
-     * @param mediaSource The {@link PreloadMediaSource} it is prepared.
+     * @param mediaSource The {@link PreloadMediaSource} that has tracks selected.
      * @return True if the {@code mediaSource} should continue preloading, false otherwise.
      */
-    boolean onPrepared(PreloadMediaSource mediaSource);
+    boolean onTracksSelected(PreloadMediaSource mediaSource);
 
     /**
      * Called from {@link PreloadMediaSource} when it requests to continue loading.
@@ -291,7 +291,7 @@ public final class PreloadMediaSource extends WrappingMediaSource {
   protected void onChildSourceInfoRefreshed(Timeline newTimeline) {
     this.timeline = newTimeline;
     refreshSourceInfo(newTimeline);
-    if (isUsedByPlayer() || !preloadControl.onTimelineRefreshed(PreloadMediaSource.this)) {
+    if (isUsedByPlayer() || !preloadControl.onSourcePrepared(PreloadMediaSource.this)) {
       return;
     }
     Pair<Object, Long> periodPosition =
@@ -415,7 +415,7 @@ public final class PreloadMediaSource extends WrappingMediaSource {
       if (trackSelectorResult != null) {
         preloadMediaPeriod.selectTracksForPreloading(
             trackSelectorResult.selections, periodStartPositionUs);
-        if (preloadControl.onPrepared(PreloadMediaSource.this)) {
+        if (preloadControl.onTracksSelected(PreloadMediaSource.this)) {
           preloadMediaPeriod.continueLoading(
               new LoadingInfo.Builder().setPlaybackPositionUs(periodStartPositionUs).build());
         }
