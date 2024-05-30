@@ -216,6 +216,7 @@ public final class PreloadMediaSource extends WrappingMediaSource {
   @Nullable private Timeline timeline;
   @Nullable private Pair<PreloadMediaPeriod, MediaPeriodKey> preloadingMediaPeriodAndKey;
   @Nullable private Pair<PreloadMediaPeriod, MediaPeriodId> playingPreloadedMediaPeriodAndId;
+  private boolean onSourcePreparedNotified;
   private boolean onUsedByPlayerNotified;
 
   private PreloadMediaSource(
@@ -250,6 +251,7 @@ public final class PreloadMediaSource extends WrappingMediaSource {
         () -> {
           preloadCalled = true;
           this.startPositionUs = startPositionUs;
+          onSourcePreparedNotified = false;
           if (isUsedByPlayer()) {
             notifyOnUsedByPlayer();
           } else {
@@ -291,7 +293,11 @@ public final class PreloadMediaSource extends WrappingMediaSource {
   protected void onChildSourceInfoRefreshed(Timeline newTimeline) {
     this.timeline = newTimeline;
     refreshSourceInfo(newTimeline);
-    if (isUsedByPlayer() || !preloadControl.onSourcePrepared(PreloadMediaSource.this)) {
+    if (isUsedByPlayer() || onSourcePreparedNotified) {
+      return;
+    }
+    onSourcePreparedNotified = true;
+    if (!preloadControl.onSourcePrepared(this)) {
       return;
     }
     Pair<Object, Long> periodPosition =
@@ -377,6 +383,7 @@ public final class PreloadMediaSource extends WrappingMediaSource {
         () -> {
           preloadCalled = false;
           startPositionUs = C.TIME_UNSET;
+          onSourcePreparedNotified = false;
           if (preloadingMediaPeriodAndKey != null) {
             mediaSource.releasePeriod(preloadingMediaPeriodAndKey.first.mediaPeriod);
             preloadingMediaPeriodAndKey = null;
@@ -397,10 +404,10 @@ public final class PreloadMediaSource extends WrappingMediaSource {
 
     @Override
     public void onPrepared(MediaPeriod mediaPeriod) {
+      prepared = true;
       if (isUsedByPlayer()) {
         return;
       }
-      prepared = true;
       PreloadMediaPeriod preloadMediaPeriod = (PreloadMediaPeriod) mediaPeriod;
       TrackGroupArray trackGroups = preloadMediaPeriod.getTrackGroups();
       @Nullable TrackSelectorResult trackSelectorResult = null;

@@ -72,6 +72,7 @@ import androidx.media3.test.utils.FakeVideoRenderer;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
 import org.junit.Test;
@@ -107,7 +108,7 @@ public final class PreloadMediaSourceTest {
 
   @Test
   public void preload_loadPeriodToTargetPreloadPosition() throws Exception {
-    AtomicBoolean onSourcePreparedCalled = new AtomicBoolean();
+    AtomicInteger onSourcePreparedCounter = new AtomicInteger();
     AtomicBoolean onTracksSelectedCalled = new AtomicBoolean();
     AtomicBoolean onContinueLoadingStopped = new AtomicBoolean();
     AtomicReference<PreloadMediaSource> preloadMediaSourceReference = new AtomicReference<>();
@@ -116,7 +117,7 @@ public final class PreloadMediaSourceTest {
         new PreloadMediaSource.PreloadControl() {
           @Override
           public boolean onSourcePrepared(PreloadMediaSource mediaSource) {
-            onSourcePreparedCalled.set(true);
+            onSourcePreparedCounter.addAndGet(1);
             return true;
           }
 
@@ -167,7 +168,7 @@ public final class PreloadMediaSourceTest {
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     runMainLooperUntil(onContinueLoadingStopped::get);
 
-    assertThat(onSourcePreparedCalled.get()).isTrue();
+    assertThat(onSourcePreparedCounter.get()).isEqualTo(1);
     assertThat(onTracksSelectedCalled.get()).isTrue();
     assertThat(onUsedByPlayerCalled.get()).isFalse();
     assertThat(preloadMediaSourceReference.get()).isSameInstanceAs(preloadMediaSource);
@@ -175,7 +176,7 @@ public final class PreloadMediaSourceTest {
 
   @Test
   public void preload_stopWhenTracksSelectedByPreloadControl() throws Exception {
-    AtomicBoolean onSourcePreparedCalled = new AtomicBoolean();
+    AtomicInteger onSourcePreparedCounter = new AtomicInteger();
     AtomicBoolean onTracksSelectedCalled = new AtomicBoolean();
     AtomicReference<PreloadMediaSource> preloadMediaSourceReference = new AtomicReference<>();
     AtomicBoolean onContinueLoadingRequestedCalled = new AtomicBoolean();
@@ -184,7 +185,7 @@ public final class PreloadMediaSourceTest {
         new PreloadMediaSource.PreloadControl() {
           @Override
           public boolean onSourcePrepared(PreloadMediaSource mediaSource) {
-            onSourcePreparedCalled.set(true);
+            onSourcePreparedCounter.addAndGet(1);
             return true;
           }
 
@@ -232,7 +233,7 @@ public final class PreloadMediaSourceTest {
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     runMainLooperUntil(onTracksSelectedCalled::get);
 
-    assertThat(onSourcePreparedCalled.get()).isTrue();
+    assertThat(onSourcePreparedCounter.get()).isEqualTo(1);
     assertThat(preloadMediaSourceReference.get()).isSameInstanceAs(preloadMediaSource);
     assertThat(onContinueLoadingRequestedCalled.get()).isFalse();
     assertThat(onUsedByPlayerCalled.get()).isFalse();
@@ -240,7 +241,7 @@ public final class PreloadMediaSourceTest {
 
   @Test
   public void preload_stopWhenSourcePreparedByPreloadControl() throws Exception {
-    AtomicBoolean onSourcePreparedCalled = new AtomicBoolean();
+    AtomicInteger onSourcePreparedCounter = new AtomicInteger();
     AtomicReference<PreloadMediaSource> preloadMediaSourceReference = new AtomicReference<>();
     AtomicBoolean onTracksSelectedCalled = new AtomicBoolean();
     AtomicBoolean onContinueLoadingRequestedCalled = new AtomicBoolean();
@@ -250,7 +251,7 @@ public final class PreloadMediaSourceTest {
           @Override
           public boolean onSourcePrepared(PreloadMediaSource mediaSource) {
             preloadMediaSourceReference.set(mediaSource);
-            onSourcePreparedCalled.set(true);
+            onSourcePreparedCounter.addAndGet(1);
             return false;
           }
 
@@ -294,9 +295,10 @@ public final class PreloadMediaSourceTest {
                 .build());
 
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
-    runMainLooperUntil(onSourcePreparedCalled::get);
+    shadowOf(Looper.getMainLooper()).idle();
 
     assertThat(preloadMediaSourceReference.get()).isSameInstanceAs(preloadMediaSource);
+    assertThat(onSourcePreparedCounter.get()).isEqualTo(1);
     assertThat(onTracksSelectedCalled.get()).isFalse();
     assertThat(onContinueLoadingRequestedCalled.get()).isFalse();
     assertThat(onUsedByPlayerCalled.get()).isFalse();
@@ -366,7 +368,7 @@ public final class PreloadMediaSourceTest {
 
   @Test
   public void preload_loadToTheEndOfSource() throws Exception {
-    AtomicBoolean onSourcePreparedCalled = new AtomicBoolean();
+    AtomicInteger onSourcePreparedCounter = new AtomicInteger();
     AtomicBoolean onTracksSelectedCalled = new AtomicBoolean();
     AtomicBoolean onContinueLoadingRequestedCalled = new AtomicBoolean();
     AtomicBoolean onLoadedToTheEndOfSourceCalled = new AtomicBoolean();
@@ -375,7 +377,7 @@ public final class PreloadMediaSourceTest {
         new PreloadMediaSource.PreloadControl() {
           @Override
           public boolean onSourcePrepared(PreloadMediaSource mediaSource) {
-            onSourcePreparedCalled.set(true);
+            onSourcePreparedCounter.addAndGet(1);
             return true;
           }
 
@@ -432,7 +434,7 @@ public final class PreloadMediaSourceTest {
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     runMainLooperUntil(onLoadedToTheEndOfSourceCalled::get);
 
-    assertThat(onSourcePreparedCalled.get()).isTrue();
+    assertThat(onSourcePreparedCounter.get()).isEqualTo(1);
     assertThat(onTracksSelectedCalled.get()).isTrue();
     assertThat(onContinueLoadingRequestedCalled.get()).isTrue();
     assertThat(onUsedByPlayerCalled.get()).isFalse();
