@@ -512,10 +512,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                       : CmcdData.Factory.getObjectType(trackSelection));
 
       long nextChunkMediaSequence =
-          partIndex == C.LENGTH_UNSET
-              ? (chunkMediaSequence == C.LENGTH_UNSET ? C.LENGTH_UNSET : chunkMediaSequence + 1)
+          partIndex == C.INDEX_UNSET
+              ? (chunkMediaSequence == C.INDEX_UNSET ? C.INDEX_UNSET : chunkMediaSequence + 1)
               : chunkMediaSequence;
-      int nextPartIndex = partIndex == C.LENGTH_UNSET ? C.LENGTH_UNSET : partIndex + 1;
+      int nextPartIndex = partIndex == C.INDEX_UNSET ? C.INDEX_UNSET : partIndex + 1;
       SegmentBaseHolder nextSegmentBaseHolder =
           getNextSegmentHolder(playlist, nextChunkMediaSequence, nextPartIndex);
       if (nextSegmentBaseHolder != null) {
