@@ -123,6 +123,8 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   @Nullable private WakeupListener wakeupListener;
   private boolean hasPendingReportedSkippedSilence;
   private int rendererPriority;
+  private boolean isStarted;
+  private long nextBufferToWritePresentationTimeUs;
 
   /**
    * @param context A context.
@@ -263,6 +265,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     this.audioSink = audioSink;
     rendererPriority = C.PRIORITY_PLAYBACK;
     eventDispatcher = new EventDispatcher(eventHandler, eventListener);
+    nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
     audioSink.setListener(new AudioSinkListener());
   }
 
@@ -477,6 +480,23 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   }
 
   @Override
+  public long getDurationToProgressUs(long positionUs, long elapsedRealtimeUs) {
+    if (nextBufferToWritePresentationTimeUs != C.TIME_UNSET) {
+      long durationUs =
+          (long)
+              ((nextBufferToWritePresentationTimeUs - positionUs)
+                  / (getPlaybackParameters() != null ? getPlaybackParameters().speed : 1.0f)
+                  / 2);
+      if (isStarted) {
+        // Account for the elapsed time since the start of this iteration of the rendering loop.
+        durationUs -= Util.msToUs(getClock().elapsedRealtime()) - elapsedRealtimeUs;
+      }
+      return max(DEFAULT_DURATION_TO_PROGRESS_US, durationUs);
+    }
+    return super.getDurationToProgressUs(positionUs, elapsedRealtimeUs);
+  }
+
+  @Override
   protected float getCodecOperatingRateV23(
       float targetPlaybackSpeed, Format format, Format[] streamFormats) {
     // Use the highest known stream sample-rate up front, to avoid having to reconfigure the codec
@@ -627,11 +647,13 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   protected void onStarted() {
     super.onStarted();
     audioSink.play();
+    isStarted = true;
   }
 
   @Override
   protected void onStopped() {
     updateCurrentPosition();
+    isStarted = false;
     audioSink.pause();
     super.onStopped();
   }
@@ -725,6 +747,9 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
       Format format)
       throws ExoPlaybackException {
     checkNotNull(buffer);
+    // Reset nextBufferToWritePresentationTimeUs to default value C.TIME_UNSET for if
+    // buffer is skipped, dropped, or written.
+    nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
 
     if (decryptOnlyCodecFormat != null
         && (bufferFlags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) {
@@ -771,6 +796,10 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
       }
       decoderCounters.renderedOutputBufferCount += sampleCount;
       return true;
+    } else {
+      // Downstream buffers are full, set nextBufferToWritePresentationTimeUs to the presentation
+      // time of the current 'to be written' sample.
+      nextBufferToWritePresentationTimeUs = bufferPresentationTimeUs;
     }
 
     return false;
@@ -780,6 +809,9 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   protected void renderToEndOfStream() throws ExoPlaybackException {
     try {
       audioSink.playToEndOfStream();
+      if (getLastBufferInStreamPresentationTimeUs() != C.TIME_UNSET) {
+        nextBufferToWritePresentationTimeUs = getLastBufferInStreamPresentationTimeUs();
+      }
     } catch (AudioSink.WriteException e) {
       throw createRendererException(
           e,

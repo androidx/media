@@ -1707,6 +1707,18 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   }
 
   /**
+   * Returns the presentation time of the last buffer in the stream.
+   *
+   * <p>If the last buffer has not yet been read off the sample queue then the return value will be
+   * {@link C#TIME_UNSET}.
+   *
+   * @return The presentation time of the last buffer in the stream.
+   */
+  protected long getLastBufferInStreamPresentationTimeUs() {
+    return lastBufferInStreamPresentationTimeUs;
+  }
+
+  /**
    * Called when an output buffer is successfully processed.
    *
    * @param presentationTimeUs The timestamp associated with the output buffer.
@@ -2375,11 +2387,22 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
           onInputFormatChanged(formatHolder);
           return;
         case C.RESULT_NOTHING_READ:
+          if (hasReadStreamToEnd()) {
+            // Notify output queue of the last buffer's timestamp.
+            lastBufferInStreamPresentationTimeUs = largestQueuedPresentationTimeUs;
+          }
           return;
         case C.RESULT_BUFFER_READ:
           if (bypassSampleBuffer.isEndOfStream()) {
             inputStreamEnded = true;
+            lastBufferInStreamPresentationTimeUs = largestQueuedPresentationTimeUs;
             return;
+          }
+          largestQueuedPresentationTimeUs =
+              max(largestQueuedPresentationTimeUs, bypassSampleBuffer.timeUs);
+          if (hasReadStreamToEnd() || buffer.isLastSample()) {
+            // Notify output queue of the last buffer's timestamp.
+            lastBufferInStreamPresentationTimeUs = largestQueuedPresentationTimeUs;
           }
           if (waitingForFirstSampleInFormat) {
             // This is the first buffer in a new format, the output format must be updated.

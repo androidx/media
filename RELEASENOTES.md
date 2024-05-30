@@ -91,6 +91,9 @@
         different audio formats (for example stereo to mono) can cause the
         processor to throw an exception
         ([#1352](https://github.com/androidx/media/issues/1352)).
+    *   Implement `MediaCodecAudioRenderer.getDurationToProgressUs` so that
+        ExoPlayer will dynamically schedule its main work loop to when the
+        MediaCodecAudioRenderer can make progress.
 *   Video:
     *   Fix decoder fallback logic for Dolby Vision to use a compatible AV1
         decoder if needed
