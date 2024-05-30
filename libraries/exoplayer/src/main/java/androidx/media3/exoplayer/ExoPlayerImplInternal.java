@@ -174,8 +174,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
   private static final int MSG_UPDATE_MEDIA_SOURCES_WITH_MEDIA_ITEMS = 27;
   private static final int MSG_SET_PRELOAD_CONFIGURATION = 28;
 
-  private static final int ACTIVE_INTERVAL_MS = 10;
-  private static final int IDLE_INTERVAL_MS = 1000;
+  private static final long BUFFERING_MAXIMUM_INTERVAL_MS =
+      Util.usToMs(Renderer.DEFAULT_DURATION_TO_PROGRESS_US);
+  private static final long READY_MAXIMUM_INTERVAL_MS = 1000;
 
   /**
    * Duration for which the player needs to appear stuck before the playback is failed on the
@@ -214,6 +215,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
   private final LivePlaybackSpeedControl livePlaybackSpeedControl;
   private final long releaseTimeoutMs;
   private final PlayerId playerId;
+  private final boolean dynamicSchedulingEnabled;
 
   @SuppressWarnings("unused")
   private SeekParameters seekParameters;
@@ -234,6 +236,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
   private int enabledRendererCount;
   @Nullable private SeekPosition pendingInitialSeekPosition;
   private long rendererPositionUs;
+  private long rendererPositionElapsedRealtimeUs;
   private int nextPendingMessageIndexHint;
   private boolean deliverPendingMessageAtStartPositionRequired;
   @Nullable private ExoPlaybackException pendingRecoverableRendererError;
@@ -255,6 +258,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
       LivePlaybackSpeedControl livePlaybackSpeedControl,
       long releaseTimeoutMs,
       boolean pauseAtEndOfWindow,
+      boolean dynamicSchedulingEnabled,
       Looper applicationLooper,
       Clock clock,
       PlaybackInfoUpdateListener playbackInfoUpdateListener,
@@ -274,6 +278,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
     this.releaseTimeoutMs = releaseTimeoutMs;
     this.setForegroundModeTimeoutMs = releaseTimeoutMs;
     this.pauseAtEndOfWindow = pauseAtEndOfWindow;
+    this.dynamicSchedulingEnabled = dynamicSchedulingEnabled;
     this.clock = clock;
     this.playerId = playerId;
     this.preloadConfiguration = preloadConfiguration;
@@ -1111,7 +1116,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
     @Nullable MediaPeriodHolder playingPeriodHolder = queue.getPlayingPeriod();
     if (playingPeriodHolder == null) {
       // We're still waiting until the playing period is available.
-      scheduleNextWork(operationStartTimeMs, ACTIVE_INTERVAL_MS);
+      scheduleNextWork(operationStartTimeMs);
       return;
     }
 
@@ -1122,7 +1127,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
     boolean renderersEnded = true;
     boolean renderersAllowPlayback = true;
     if (playingPeriodHolder.prepared) {
-      long rendererPositionElapsedRealtimeUs = msToUs(clock.elapsedRealtime());
+      rendererPositionElapsedRealtimeUs = msToUs(clock.elapsedRealtime());
       playingPeriodHolder.mediaPeriod.discardBuffer(
           playbackInfo.positionUs - backBufferDurationUs, retainBackBufferFromKeyframe);
       for (int i = 0; i < renderers.length; i++) {
@@ -1230,12 +1235,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
     if (sleepingForOffload || playbackInfo.playbackState == Player.STATE_ENDED) {
       // No need to schedule next work.
-    } else if (isPlaying || playbackInfo.playbackState == Player.STATE_BUFFERING) {
-      // We are actively playing or waiting for data to be ready. Schedule next work quickly.
-      scheduleNextWork(operationStartTimeMs, ACTIVE_INTERVAL_MS);
-    } else if (playbackInfo.playbackState == Player.STATE_READY && enabledRendererCount != 0) {
-      // We are ready, but not playing. Schedule next work less often to handle non-urgent updates.
-      scheduleNextWork(operationStartTimeMs, IDLE_INTERVAL_MS);
+    } else if ((isPlaying || playbackInfo.playbackState == Player.STATE_BUFFERING)
+        || (playbackInfo.playbackState == Player.STATE_READY && enabledRendererCount != 0)) {
+      // Schedule next work as either we are actively playing, buffering, or we
+      // are ready but not playing.
+      scheduleNextWork(operationStartTimeMs);
     }
 
     TraceUtil.endSection();
@@ -1266,8 +1270,26 @@ import java.util.concurrent.atomic.AtomicBoolean;
     return window.isLive() && window.isDynamic && window.windowStartTimeMs != C.TIME_UNSET;
   }
 
-  private void scheduleNextWork(long thisOperationStartTimeMs, long intervalMs) {
-    handler.sendEmptyMessageAtTime(MSG_DO_SOME_WORK, thisOperationStartTimeMs + intervalMs);
+  private void scheduleNextWork(long thisOperationStartTimeMs) {
+    long wakeUpTimeIntervalMs =
+        playbackInfo.playbackState == Player.STATE_READY
+                && (dynamicSchedulingEnabled || !shouldPlayWhenReady())
+            ? READY_MAXIMUM_INTERVAL_MS
+            : BUFFERING_MAXIMUM_INTERVAL_MS;
+    if (dynamicSchedulingEnabled && shouldPlayWhenReady()) {
+      for (Renderer renderer : renderers) {
+        if (isRendererEnabled(renderer)) {
+          wakeUpTimeIntervalMs =
+              min(
+                  wakeUpTimeIntervalMs,
+                  Util.usToMs(
+                      renderer.getDurationToProgressUs(
+                          rendererPositionUs, rendererPositionElapsedRealtimeUs)));
+        }
+      }
+    }
+    handler.sendEmptyMessageAtTime(
+        MSG_DO_SOME_WORK, thisOperationStartTimeMs + wakeUpTimeIntervalMs);
   }
 
   private void seekToInternal(SeekPosition seekPosition) throws ExoPlaybackException {
@@ -2769,7 +2791,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
           @Override
           public void onWakeup() {
-            handler.sendEmptyMessage(MSG_DO_SOME_WORK);
+            if (dynamicSchedulingEnabled || offloadSchedulingEnabled) {
+              handler.sendEmptyMessage(MSG_DO_SOME_WORK);
+            }
           }
         });
 

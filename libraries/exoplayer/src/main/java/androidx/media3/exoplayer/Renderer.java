@@ -63,6 +63,14 @@ import java.util.List;
 public interface Renderer extends PlayerMessage.Target {
 
   /**
+   * Default minimum duration that the playback clock must advance before {@link #render} can make
+   * progress.
+   *
+   * @see #getDurationToProgressUs
+   */
+  long DEFAULT_DURATION_TO_PROGRESS_US = 10_000L;
+
+  /**
    * Some renderers can signal when {@link #render(long, long)} should be called.
    *
    * <p>That allows the player to sleep until the next wakeup, instead of calling {@link
@@ -433,6 +441,23 @@ public interface Renderer extends PlayerMessage.Target {
    * #STATE_ENABLED}, {@link #STATE_STARTED}.
    */
   long getReadingPositionUs();
+
+  /**
+   * Returns minimum amount of playback clock time that must pass in order for the {@link #render}
+   * call to make progress.
+   *
+   * <p>The default return time is {@link #DEFAULT_DURATION_TO_PROGRESS_US}.
+   *
+   * @param positionUs The current render position in microseconds, measured at the start of the
+   *     current iteration of the rendering loop.
+   * @param elapsedRealtimeUs {@link android.os.SystemClock#elapsedRealtime()} in microseconds,
+   *     measured at the start of the current iteration of the rendering loop.
+   * @return Minimum amount of playback clock time that must pass before renderer is able to make
+   *     progress.
+   */
+  default long getDurationToProgressUs(long positionUs, long elapsedRealtimeUs) {
+    return DEFAULT_DURATION_TO_PROGRESS_US;
+  }
 
   /**
    * Signals to the renderer that the current {@link SampleStream} will be the final one supplied

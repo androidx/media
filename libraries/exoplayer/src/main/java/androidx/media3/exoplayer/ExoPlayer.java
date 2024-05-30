@@ -504,6 +504,7 @@ public interface ExoPlayer extends Player {
     /* package */ boolean buildCalled;
     /* package */ boolean suppressPlaybackOnUnsuitableOutput;
     /* package */ String playerName;
+    /* package */ boolean dynamicSchedulingEnabled;
 
     /**
      * Creates a builder.
@@ -547,6 +548,7 @@ public interface ExoPlayer extends Player {
      *   <li>{@code usePlatformDiagnostics}: {@code true}
      *   <li>{@link Clock}: {@link Clock#DEFAULT}
      *   <li>{@code playbackLooper}: {@code null} (create new thread)
+     *   <li>{@code dynamicSchedulingEnabled}: {@code false}
      * </ul>
      *
      * @param context A {@link Context}.
@@ -723,6 +725,24 @@ public interface ExoPlayer extends Player {
     public Builder experimentalSetForegroundModeTimeoutMs(long timeoutMs) {
       checkState(!buildCalled);
       foregroundModeTimeoutMs = timeoutMs;
+      return this;
+    }
+
+    /**
+     * Sets whether dynamic scheduling is enabled.
+     *
+     * <p>If enabled, ExoPlayer's playback loop will run as rarely as possible by scheduling work
+     * for when {@link Renderer} progress can be made.
+     *
+     * <p>This method is experimental, and will be renamed or removed in a future release.
+     *
+     * @param dynamicSchedulingEnabled Whether to enable dynamic scheduling.
+     */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    public Builder experimentalSetDynamicSchedulingEnabled(boolean dynamicSchedulingEnabled) {
+      checkState(!buildCalled);
+      this.dynamicSchedulingEnabled = dynamicSchedulingEnabled;
       return this;
     }
 

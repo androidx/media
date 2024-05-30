@@ -372,6 +372,7 @@ import java.util.concurrent.TimeoutException;
               builder.livePlaybackSpeedControl,
               builder.releaseTimeoutMs,
               pauseAtEndOfMediaItems,
+              builder.dynamicSchedulingEnabled,
               applicationLooper,
               clock,
               playbackInfoUpdateListener,

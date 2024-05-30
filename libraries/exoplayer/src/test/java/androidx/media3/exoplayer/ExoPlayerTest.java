@@ -10529,6 +10529,162 @@ public class ExoPlayerTest {
   }
 
   @Test
+  public void play_withDynamicSchedulingEnabled_usesRendererDurationSchedulingInterval()
+      throws Exception {
+    AtomicInteger renderCounter = new AtomicInteger();
+    FakeDurationToProgressRenderer fakeRenderer =
+        new FakeDurationToProgressRenderer(
+            C.TRACK_TYPE_AUDIO, /* durationToProgressUs= */ 150_000L, renderCounter);
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setClock(clock)
+            .setDynamicSchedulingEnabled(true)
+            .setRenderers(fakeRenderer)
+            .build();
+    player.setMediaSource(
+        new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT));
+    player.prepare();
+    player.play();
+    runUntilPlaybackState(player, Player.STATE_READY);
+
+    run(player).untilBackgroundThreadCondition(() -> clock.currentTimeMillis() >= 500);
+    renderCounter.set(0);
+    run(player).untilBackgroundThreadCondition(() -> clock.currentTimeMillis() >= 800);
+
+    assertThat(renderCounter.get()).isEqualTo(2);
+
+    player.release();
+  }
+
+  @Test
+  public void play_withDynamicSchedulingDisabled_usesDefaultSchedulingInterval() throws Exception {
+    AtomicInteger renderCounter = new AtomicInteger();
+    FakeDurationToProgressRenderer fakeRenderer =
+        new FakeDurationToProgressRenderer(
+            C.TRACK_TYPE_AUDIO, /* durationToProgressUs= */ 150_000L, renderCounter);
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context).setClock(clock).setRenderers(fakeRenderer).build();
+    player.setMediaSource(
+        new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT));
+    player.prepare();
+    player.play();
+    runUntilPlaybackState(player, Player.STATE_READY);
+
+    run(player).untilBackgroundThreadCondition(() -> clock.currentTimeMillis() >= 500);
+    renderCounter.set(0);
+    run(player).untilBackgroundThreadCondition(() -> clock.currentTimeMillis() >= 800);
+
+    assertThat(renderCounter.get()).isEqualTo(30);
+
+    player.release();
+  }
+
+  @Test
+  public void
+      play_withDynamicSchedulingEnabledAndMultipleRenderers_usesMinimumDurationSchedulingInterval()
+          throws Exception {
+    AtomicInteger renderCounter = new AtomicInteger();
+    FakeDurationToProgressRenderer fakeAudioRenderer =
+        new FakeDurationToProgressRenderer(
+            C.TRACK_TYPE_AUDIO, /* durationToProgressUs= */ 150_000L, renderCounter);
+    FakeDurationToProgressRenderer fakeVideoRenderer =
+        new FakeDurationToProgressRenderer(
+            C.TRACK_TYPE_VIDEO, /* durationToProgressUs= */ 30_000L, /* renderCounter= */ null);
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setClock(clock)
+            .setDynamicSchedulingEnabled(true)
+            .setRenderers(fakeAudioRenderer, fakeVideoRenderer)
+            .build();
+    player.setMediaSource(
+        new FakeMediaSource(
+            new FakeTimeline(),
+            ExoPlayerTestRunner.AUDIO_FORMAT,
+            ExoPlayerTestRunner.VIDEO_FORMAT));
+    player.prepare();
+    player.play();
+    runUntilPlaybackState(player, Player.STATE_READY);
+
+    run(player).untilBackgroundThreadCondition(() -> clock.currentTimeMillis() >= 500);
+    renderCounter.set(0);
+    run(player).untilBackgroundThreadCondition(() -> clock.currentTimeMillis() >= 800);
+
+    assertThat(renderCounter.get()).isEqualTo(10);
+
+    player.release();
+  }
+
+  @Test
+  public void prepareOnly_withDynamicSchedulingEnabled_usesDefaultIdleSchedulingInterval()
+      throws Exception {
+    AtomicInteger renderCounter = new AtomicInteger();
+    FakeDurationToProgressRenderer fakeRenderer =
+        new FakeDurationToProgressRenderer(
+            C.TRACK_TYPE_AUDIO, /* durationToProgressUs= */ 150_000L, renderCounter);
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setClock(clock)
+            .setDynamicSchedulingEnabled(true)
+            .setRenderers(fakeRenderer)
+            .build();
+    player.setMediaSource(
+        new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT));
+    player.prepare();
+
+    run(player).untilBackgroundThreadCondition(() -> clock.currentTimeMillis() >= 1000);
+    renderCounter.set(0);
+    run(player).untilBackgroundThreadCondition(() -> clock.currentTimeMillis() >= 3000);
+
+    assertThat(renderCounter.get()).isEqualTo(2);
+
+    player.release();
+  }
+
+  @Test
+  public void play_withDynamicSchedulingEnabledAndInBufferingState_usesBufferingSchedulingInterval()
+      throws Exception {
+    AtomicInteger renderCounter = new AtomicInteger();
+    AtomicBoolean allowStreamRead = new AtomicBoolean();
+    FakeDurationToProgressRenderer fakeRenderer =
+        new FakeDurationToProgressRenderer(
+            C.TRACK_TYPE_AUDIO, /* durationToProgressUs= */ 150_000L, renderCounter) {
+          @Override
+          public boolean isReady() {
+            // Always return false so player will stay in a buffering state.
+            return false;
+          }
+          ;
+        };
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setClock(clock)
+            .setDynamicSchedulingEnabled(true)
+            .setRenderers(fakeRenderer)
+            .build();
+    // Prevent reading any samples to keep player in a buffering state.
+    FakeDelayedMediaSource fakeDelayedMediaSource =
+        new FakeDelayedMediaSource(
+            new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT, allowStreamRead);
+    player.setMediaSource(fakeDelayedMediaSource);
+    player.prepare();
+    player.play();
+    runUntilPlaybackState(player, Player.STATE_BUFFERING);
+
+    run(player).untilBackgroundThreadCondition(() -> clock.currentTimeMillis() >= 200);
+    renderCounter.set(0);
+    run(player).untilBackgroundThreadCondition(() -> clock.currentTimeMillis() >= 500);
+
+    assertThat(renderCounter.get()).isEqualTo(30);
+
+    player.release();
+  }
+
+  @Test
   public void enablingOffload_withAudioOnly_playerSleeps() throws Exception {
     FakeSleepRenderer sleepRenderer = new FakeSleepRenderer(C.TRACK_TYPE_AUDIO);
     ExoPlayer player =
@@ -14435,71 +14591,7 @@ public class ExoPlayerTest {
     Timeline timeline = new FakeTimeline();
     AtomicBoolean allowStreamRead = new AtomicBoolean();
     MediaSource delayedStreamSource =
-        new FakeMediaSource(timeline, ExoPlayerTestRunner.VIDEO_FORMAT) {
-          @Override
-          protected MediaPeriod createMediaPeriod(
-              MediaPeriodId id,
-              TrackGroupArray trackGroupArray,
-              Allocator allocator,
-              MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
-              DrmSessionManager drmSessionManager,
-              DrmSessionEventListener.EventDispatcher drmEventDispatcher,
-              @Nullable TransferListener transferListener) {
-            long startPositionUs =
-                -timeline
-                    .getPeriodByUid(id.periodUid, new Timeline.Period())
-                    .getPositionInWindowUs();
-            // Add enough samples to the source so that the decoder can't decode everything at once.
-            return new FakeMediaPeriod(
-                trackGroupArray,
-                allocator,
-                (format, mediaPerioid) ->
-                    ImmutableList.of(
-                        oneByteSample(startPositionUs, C.BUFFER_FLAG_KEY_FRAME),
-                        oneByteSample(startPositionUs + 10_000),
-                        oneByteSample(startPositionUs + 20_000),
-                        oneByteSample(startPositionUs + 30_000),
-                        oneByteSample(startPositionUs + 40_000),
-                        oneByteSample(startPositionUs + 50_000),
-                        oneByteSample(startPositionUs + 60_000),
-                        oneByteSample(startPositionUs + 70_000),
-                        oneByteSample(startPositionUs + 80_000),
-                        oneByteSample(startPositionUs + 90_000),
-                        oneByteSample(startPositionUs + 100_000),
-                        END_OF_STREAM_ITEM),
-                mediaSourceEventDispatcher,
-                drmSessionManager,
-                drmEventDispatcher,
-                /* deferOnPrepared= */ false) {
-              @Override
-              protected FakeSampleStream createSampleStream(
-                  Allocator allocator,
-                  @Nullable MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
-                  DrmSessionManager drmSessionManager,
-                  DrmSessionEventListener.EventDispatcher drmEventDispatcher,
-                  Format initialFormat,
-                  List<FakeSampleStreamItem> fakeSampleStreamItems) {
-                return new FakeSampleStream(
-                    allocator,
-                    mediaSourceEventDispatcher,
-                    drmSessionManager,
-                    drmEventDispatcher,
-                    initialFormat,
-                    fakeSampleStreamItems) {
-                  @Override
-                  public int readData(
-                      FormatHolder formatHolder,
-                      DecoderInputBuffer buffer,
-                      @ReadFlags int readFlags) {
-                    return allowStreamRead.get()
-                        ? super.readData(formatHolder, buffer, readFlags)
-                        : C.RESULT_NOTHING_READ;
-                  }
-                };
-              }
-            };
-          }
-        };
+        new FakeDelayedMediaSource(timeline, ExoPlayerTestRunner.VIDEO_FORMAT, allowStreamRead);
     player.addMediaSource(delayedStreamSource);
     Player.Listener listener = mock(Player.Listener.class);
     player.addListener(listener);
@@ -15219,6 +15311,36 @@ public class ExoPlayerTest {
     }
   }
 
+  /**
+   * {@link FakeRenderer} that supports dynamic scheduling through its capability to return how much
+   * playback time must advance before additional renderer progress can be made.
+   */
+  private static class FakeDurationToProgressRenderer extends FakeRenderer {
+    private final long durationToProgressUs;
+    @Nullable private final AtomicInteger renderCounter;
+
+    public FakeDurationToProgressRenderer(
+        int trackType, long durationToProgressUs, @Nullable AtomicInteger renderCounter) {
+      super(trackType);
+
+      this.durationToProgressUs = durationToProgressUs;
+      this.renderCounter = renderCounter;
+    }
+
+    @Override
+    public long getDurationToProgressUs(long positionUs, long elapsedRealtimeUs) {
+      return durationToProgressUs;
+    }
+
+    @Override
+    public void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
+      super.render(positionUs, elapsedRealtimeUs);
+      if (renderCounter != null) {
+        renderCounter.getAndIncrement();
+      }
+    }
+  }
+
   private static final class CountingMessageTarget implements PlayerMessage.Target {
 
     public int messageCount;
@@ -15280,6 +15402,69 @@ public class ExoPlayerTest {
     public void run(ExoPlayer player) {
       playbackStates[index] = player.getPlaybackState();
       timelineWindowCount[index] = player.getCurrentTimeline().getWindowCount();
+    }
+  }
+
+  /** {@link FakeMediaSource} that allows prevention of reading any samples off the sample queue. */
+  private static final class FakeDelayedMediaSource extends FakeMediaSource {
+    private final AtomicBoolean allowStreamRead;
+
+    public FakeDelayedMediaSource(Timeline timeline, Format format, AtomicBoolean allowStreamRead) {
+      super(timeline, format);
+      this.allowStreamRead = allowStreamRead;
+    }
+
+    @Override
+    protected MediaPeriod createMediaPeriod(
+        MediaPeriodId id,
+        TrackGroupArray trackGroupArray,
+        Allocator allocator,
+        MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+        DrmSessionManager drmSessionManager,
+        DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+        @Nullable TransferListener transferListener) {
+      long startPositionUs =
+          -getTimeline()
+              .getPeriodByUid(id.periodUid, new Timeline.Period())
+              .getPositionInWindowUs();
+      // Add enough samples to the source so that the decoder can't decode everything at once.
+      return new FakeMediaPeriod(
+          trackGroupArray,
+          allocator,
+          (format, mediaPeriodId) ->
+              ImmutableList.of(
+                  oneByteSample(startPositionUs, C.BUFFER_FLAG_KEY_FRAME),
+                  oneByteSample(startPositionUs + 10_000),
+                  END_OF_STREAM_ITEM),
+          mediaSourceEventDispatcher,
+          drmSessionManager,
+          drmEventDispatcher,
+          /* deferOnPrepared= */ false) {
+        @Override
+        protected FakeSampleStream createSampleStream(
+            Allocator allocator,
+            @Nullable MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+            DrmSessionManager drmSessionManager,
+            DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+            Format initialFormat,
+            List<FakeSampleStreamItem> fakeSampleStreamItems) {
+          return new FakeSampleStream(
+              allocator,
+              mediaSourceEventDispatcher,
+              drmSessionManager,
+              drmEventDispatcher,
+              initialFormat,
+              fakeSampleStreamItems) {
+            @Override
+            public int readData(
+                FormatHolder formatHolder, DecoderInputBuffer buffer, @ReadFlags int readFlags) {
+              return allowStreamRead.get()
+                  ? super.readData(formatHolder, buffer, readFlags)
+                  : C.RESULT_NOTHING_READ;
+            }
+          };
+        }
+      };
     }
   }
 

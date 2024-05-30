@@ -57,6 +57,7 @@ public class TestExoPlayerBuilder {
   private boolean deviceVolumeControlEnabled;
   private boolean suppressPlaybackWhenUnsuitableOutput;
   @Nullable private ExoPlayer.PreloadConfiguration preloadConfiguration;
+  private boolean dynamicSchedulingEnabled;
 
   public TestExoPlayerBuilder(Context context) {
     this.context = context;
@@ -329,6 +330,19 @@ public class TestExoPlayerBuilder {
     return this;
   }
 
+  /**
+   * See {@link ExoPlayer.Builder#experimentalSetDynamicSchedulingEnabled(boolean)} for details.
+   *
+   * @param dynamicSchedulingEnabled Whether the player should enable dynamically schedule its
+   *     playback loop for when {@link Renderer} progress can be made.
+   * @return This builder.
+   */
+  @CanIgnoreReturnValue
+  public TestExoPlayerBuilder setDynamicSchedulingEnabled(boolean dynamicSchedulingEnabled) {
+    this.dynamicSchedulingEnabled = dynamicSchedulingEnabled;
+    return this;
+  }
+
   /** Builds an {@link ExoPlayer} using the provided values or their defaults. */
   public ExoPlayer build() {
     Assertions.checkNotNull(
@@ -366,7 +380,8 @@ public class TestExoPlayerBuilder {
             .setSeekBackIncrementMs(seekBackIncrementMs)
             .setSeekForwardIncrementMs(seekForwardIncrementMs)
             .setDeviceVolumeControlEnabled(deviceVolumeControlEnabled)
-            .setSuppressPlaybackOnUnsuitableOutput(suppressPlaybackWhenUnsuitableOutput);
+            .setSuppressPlaybackOnUnsuitableOutput(suppressPlaybackWhenUnsuitableOutput)
+            .experimentalSetDynamicSchedulingEnabled(dynamicSchedulingEnabled);
     if (mediaSourceFactory != null) {
       builder.setMediaSourceFactory(mediaSourceFactory);
     }

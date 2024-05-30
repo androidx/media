@@ -41,6 +41,15 @@
     *   Rename `onTimelineRefreshed` to `onSourcePrepared` and `onPrepared` to
         `onTracksSelected` in `PreloadMediaSource.PreloadControl`. Also rename
         the IntDefs in `DefaultPreloadManager.Stage` accordingly.
+    *   Add experimental support for dynamic scheduling to better align work
+        with CPU wake-cycles and delay waking up to when renderers can progress.
+        You can enable this using `experimentalSetDynamicSchedulingEnabled` when
+        setting up your ExoPlayer instance.
+    *   Add `Renderer.getDurationToProgressMs`. A `Renderer` can implement this
+        method to return to ExoPlayer the duration that playback must advance in
+        order for the renderer to progress. If `ExoPlayer` is set with
+        `experimentalSetDynamicSchedulingEnabled` then `ExoPlayer` will call
+        this method when calculating the time to schedule its work task.
 *   Transformer:
     *   Work around a decoder bug where the number of audio channels was capped
         at stereo when handling PCM input.
