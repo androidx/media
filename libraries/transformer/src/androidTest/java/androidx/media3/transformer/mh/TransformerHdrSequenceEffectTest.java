@@ -43,12 +43,15 @@ import static com.google.common.truth.Truth.assertThat;
 import android.content.Context;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.Effect;
+import androidx.media3.common.MediaItem;
+import androidx.media3.effect.Crop;
 import androidx.media3.effect.Presentation;
-import androidx.media3.effect.RgbFilter;
 import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.transformer.Composition;
+import androidx.media3.transformer.EditedMediaItemSequence;
 import androidx.media3.transformer.ExportException;
 import androidx.media3.transformer.ExportTestResult;
 import androidx.media3.transformer.Transformer;
@@ -64,9 +67,12 @@ import org.junit.Test;
 import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
-/** Tests for HDR support in Transformer. */
+/**
+ * Tests for using different {@linkplain Effect effects} for {@link MediaItem MediaItems} in one
+ * {@link EditedMediaItemSequence}, with HDR assets.
+ */
 @RunWith(AndroidJUnit4.class)
-public final class TransformerHdrTest {
+public final class TransformerHdrSequenceEffectTest {
 
   private static final int EXPORT_HEIGHT = 240;
   @Rule public final TestName testName = new TestName();
@@ -89,13 +95,14 @@ public final class TransformerHdrTest {
             Presentation.createForHeight(EXPORT_HEIGHT),
             clippedVideo(
                 MP4_PORTRAIT_ASSET_URI_STRING,
-                ImmutableList.of(RgbFilter.createInvertedFilter()),
-                SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS),
+                ImmutableList.of(
+                    new Crop(/* left= */ -1, /* right= */ 0, /* bottom= */ -1, /* top= */ 0)),
+                /* endPositionMs= */ SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS),
             clippedVideo(
                 MP4_ASSET_720P_4_SECOND_HDR10,
                 ImmutableList.of(
                     new ScaleAndRotateTransformation.Builder().setRotationDegrees(45).build()),
-                SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS));
+                /* endPositionMs= */ SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS));
 
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
@@ -103,8 +110,7 @@ public final class TransformerHdrTest {
             .run(testId, composition);
 
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
-    // Expected bitmaps were generated on the Pixel 7 Pro, because emulators don't
-    // support decoding HDR.
+    // Expected bitmaps were generated on the Pixel 7, because emulators don't support decoding HDR.
     assertBitmapsMatchExpectedAndSave(
         extractBitmapsFromVideo(context, checkNotNull(result.filePath)), testId);
   }
@@ -129,11 +135,12 @@ public final class TransformerHdrTest {
                 MP4_ASSET_720P_4_SECOND_HDR10,
                 ImmutableList.of(
                     new ScaleAndRotateTransformation.Builder().setRotationDegrees(45).build()),
-                SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS),
+                /* endPositionMs= */ SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS),
             clippedVideo(
                 MP4_PORTRAIT_ASSET_URI_STRING,
-                ImmutableList.of(RgbFilter.createInvertedFilter()),
-                SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS));
+                ImmutableList.of(
+                    new Crop(/* left= */ -1, /* right= */ 0, /* bottom= */ -1, /* top= */ 0)),
+                /* endPositionMs= */ SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS));
 
     @Nullable ExportException expectedException = null;
     try {
@@ -169,11 +176,12 @@ public final class TransformerHdrTest {
                 MP4_ASSET_720P_4_SECOND_HDR10,
                 ImmutableList.of(
                     new ScaleAndRotateTransformation.Builder().setRotationDegrees(45).build()),
-                SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS),
+                /* endPositionMs= */ SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS),
             clippedVideo(
                 MP4_PORTRAIT_ASSET_URI_STRING,
-                ImmutableList.of(RgbFilter.createInvertedFilter()),
-                SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS));
+                ImmutableList.of(
+                    new Crop(/* left= */ -1, /* right= */ 0, /* bottom= */ -1, /* top= */ 0)),
+                /* endPositionMs= */ SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS));
 
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
@@ -181,8 +189,8 @@ public final class TransformerHdrTest {
             .run(testId, composition);
 
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
-    // Expected bitmaps were generated on the Samsung S22 Ultra (US), because emulators don't
-    // support decoding HDR, and the Pixel 7 Pro does support HDR editing.
+    // Expected bitmaps were generated on the Pixel 3a, because emulators don't support decoding
+    // HDR, and the Pixel 7 does support HDR editing.
     assertBitmapsMatchExpectedAndSave(
         extractBitmapsFromVideo(context, checkNotNull(result.filePath)), testId);
   }
