@@ -23,6 +23,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import android.os.Bundle;
+import androidx.media3.common.util.Util;
 import androidx.media3.test.utils.FakeMetadataEntry;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -34,6 +35,36 @@ import org.junit.runner.RunWith;
 /** Unit test for {@link Format}. */
 @RunWith(AndroidJUnit4.class)
 public final class FormatTest {
+
+  public static class ExoCustomData {
+    public final String extraMetadata;
+    public final int customInt;
+
+    public ExoCustomData(String extraMetadata, int customInt) {
+      this.extraMetadata = extraMetadata;
+      this.customInt = customInt;
+    }
+
+    @Override
+    public int hashCode() {
+      int result = 17;
+      result = 31 * result + (extraMetadata == null ? 0 : extraMetadata.hashCode());
+      result = 31 * result + customInt;
+      return result;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (obj == null || getClass() != obj.getClass()) {
+        return false;
+      }
+      ExoCustomData other = (ExoCustomData) obj;
+      return Util.areEqual(extraMetadata, other.extraMetadata) && customInt == other.customInt;
+    }
+  }
 
   @Test
   public void buildUponFormat_createsEqualFormat() {
@@ -116,7 +147,16 @@ public final class FormatTest {
                 .build());
   }
 
-  private static Format createTestFormat() {
+  @Test
+  public void copyFormat_copiesCustomData() {
+    Format format = createTestFormat().buildUpon().setCustomData(new ExoCustomData("CustomData", 100)).build();
+
+    Format copy = format.buildUpon().build();
+    assertThat(format.customData).isEqualTo(copy.customData);
+    assertThat(format.customData).isEqualTo(new ExoCustomData("CustomData", 100));
+  }
+
+private static Format createTestFormat() {
     byte[] initData1 = new byte[] {1, 2, 3};
     byte[] initData2 = new byte[] {4, 5, 6};
     List<byte[]> initializationData = new ArrayList<>();

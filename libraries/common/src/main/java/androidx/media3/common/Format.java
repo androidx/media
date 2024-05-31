@@ -196,6 +196,9 @@ public final class Format {
 
     private @C.CryptoType int cryptoType;
 
+    // Extra custom data added to the class.
+    @Nullable private Object customData;
+
     /** Creates a new instance with default values. */
     public Builder() {
       labels = ImmutableList.of();
@@ -273,6 +276,8 @@ public final class Format {
       this.tileCountVertical = format.tileCountVertical;
       // Provided by the source.
       this.cryptoType = format.cryptoType;
+      // Extra custom data added to the class.
+      this.customData = format.customData;
     }
 
     /**
@@ -729,6 +734,20 @@ public final class Format {
       return this;
     }
 
+    // Extra custom data added to the class.
+
+    /**
+     * Sets the opaque object {@link Format#customData}. The default value is null.
+     *
+     * @param customData The {@link Format#customData}.
+     * @return The builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setCustomData(@Nullable Object customData) {
+      this.customData = customData;
+      return this;
+    }
+
     // Build.
 
     public Format build() {
@@ -985,6 +1004,12 @@ public final class Format {
    */
   @UnstableApi public final @C.CryptoType int cryptoType;
 
+  /**
+   * An extra opaque object that can be added to the {@link Format} to provide additional information
+   * that can be passed through the player.
+   */
+  @UnstableApi @Nullable public final Object customData;
+
   // Lazily initialized hashcode.
   private int hashCode;
 
@@ -1060,6 +1085,8 @@ public final class Format {
     } else {
       cryptoType = builder.cryptoType;
     }
+    // Extra custom data added to the class.
+    customData = builder.customData;
   }
 
   /** Returns a {@link Format.Builder} initialized with the values of this instance. */
@@ -1234,6 +1261,8 @@ public final class Format {
       result = 31 * result + tileCountVertical;
       // Provided by the source.
       result = 31 * result + cryptoType;
+      // Extra custom data added to the class.
+      result = 31 * result + (customData == null ? 0 : customData.hashCode());
       hashCode = result;
     }
     return hashCode;
@@ -1284,7 +1313,8 @@ public final class Format {
         && Util.areEqual(metadata, other.metadata)
         && Util.areEqual(colorInfo, other.colorInfo)
         && Util.areEqual(drmInitData, other.drmInitData)
-        && initializationDataEquals(other);
+        && initializationDataEquals(other)
+        && Util.areEqual(customData, other.customData);
   }
 
   /**
@@ -1381,6 +1411,9 @@ public final class Format {
       builder.append(", roleFlags=[");
       Joiner.on(',').appendTo(builder, Util.getRoleFlagStrings(format.roleFlags));
       builder.append("]");
+    }
+    if (format.customData != null) {
+      builder.append(", customData=").append(format.customData);
     }
     return builder.toString();
   }
