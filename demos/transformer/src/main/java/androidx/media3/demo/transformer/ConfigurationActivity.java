@@ -129,66 +129,6 @@ public final class ConfigurationActivity extends AppCompatActivity {
   public static final int COLOR_FILTER_SEPIA = 2;
 
   public static final int FILE_PERMISSION_REQUEST_CODE = 1;
-  private static final String[] PRESET_FILE_URIS = {
-    "https://storage.googleapis.com/exoplayer-test-media-1/mp4/android-screens-10s.mp4",
-    "https://storage.googleapis.com/exoplayer-test-media-0/android-block-1080-hevc.mp4",
-    "https://html5demos.com/assets/dizzy.mp4",
-    "https://html5demos.com/assets/dizzy.webm",
-    "https://storage.googleapis.com/exoplayer-test-media-1/mp4/portrait_4k60.mp4",
-    "https://storage.googleapis.com/exoplayer-test-media-1/mp4/8k24fps_4s.mp4",
-    "https://storage.googleapis.com/exoplayer-test-media-1/mp4/1920w_1080h_4s.mp4",
-    "https://storage.googleapis.com/exoplayer-test-media-0/BigBuckBunny_320x180.mp4",
-    "https://storage.googleapis.com/exoplayer-test-media-1/mp4/portrait_avc_aac.mp4",
-    "https://storage.googleapis.com/exoplayer-test-media-1/mp4/portrait_rotated_avc_aac.mp4",
-    "https://storage.googleapis.com/exoplayer-test-media-1/jpg/london.jpg",
-    "https://storage.googleapis.com/exoplayer-test-media-1/jpg/tokyo.jpg",
-    "https://storage.googleapis.com/exoplayer-test-media-1/mp4/slow-motion/slowMotion_stopwatch_240fps_long.mp4",
-    "https://storage.googleapis.com/exoplayer-test-media-1/gen/screens/dash-vod-single-segment/manifest-baseline.mpd",
-    "https://storage.googleapis.com/exoplayer-test-media-1/mp4/samsung-s21-hdr-hdr10.mp4",
-    "https://storage.googleapis.com/exoplayer-test-media-1/mp4/Pixel7Pro_HLG_1080P.mp4",
-    "https://storage.googleapis.com/exoplayer-test-media-1/mp4/sample_video_track_only.mp4",
-  };
-  private static final String[] PRESET_FILE_URI_DESCRIPTIONS = { // same order as PRESET_FILE_URIS
-    "720p H264 video and AAC audio (B-frames)",
-    "1080p H265 video and AAC audio (B-frames)",
-    "360p H264 video and AAC audio",
-    "360p VP8 video and Vorbis audio",
-    "4K H264 video and AAC audio (portrait, no B-frames)",
-    "8k H265 video and AAC audio",
-    "Short 1080p H265 video and AAC audio",
-    "Long 180p H264 video and AAC audio",
-    "H264 video and AAC audio (portrait, H > W, 0°)",
-    "H264 video and AAC audio (portrait, H < W, 90°)",
-    "London JPG image (Plays for 5secs at 30fps)",
-    "Tokyo JPG image (Portrait, Plays for 5secs at 30fps)",
-    "SEF slow motion with 240 fps",
-    "480p DASH (non-square pixels)",
-    "HDR (HDR10) H265 limited range video (encoding may fail)",
-    "HDR (HLG) H265 limited range video (encoding may fail)",
-    "720p H264 video with no audio (B-frames)",
-  };
-  private static final String[] AUDIO_EFFECTS = {
-    "High pitched",
-    "Sample rate of 48000Hz",
-    "Skip silence",
-    "Mix channels into mono",
-    "Scale volume to 50%"
-  };
-  private static final String[] VIDEO_EFFECTS = {
-    "Dizzy crop",
-    "Edge detector (Media Pipe)",
-    "Color filters",
-    "Map White to Green Color Lookup Table",
-    "RGB Adjustments",
-    "HSL Adjustments",
-    "Contrast",
-    "Periodic vignette",
-    "3D spin",
-    "Zoom in start",
-    "Overlay logo & timer",
-    "Custom Bitmap Overlay",
-    "Custom Text Overlay",
-  };
   private static final ImmutableMap<String, @Composition.HdrMode Integer> HDR_MODE_DESCRIPTIONS =
       new ImmutableMap.Builder<String, @Composition.HdrMode Integer>()
           .put("Keep HDR", HDR_MODE_KEEP_HDR)
@@ -239,6 +179,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
   private @MonotonicNonNull Button selectVideoEffectsButton;
   private boolean @MonotonicNonNull [] audioEffectsSelections;
   private boolean @MonotonicNonNull [] videoEffectsSelections;
+  private String[] presetFileDescriptions = new String[0];
   private @Nullable Uri localFileUri;
   private int inputUriPosition;
   private long trimStartMs;
@@ -288,7 +229,8 @@ public final class ConfigurationActivity extends AppCompatActivity {
                 /* mimeTypes= */ new String[] {"image/*", "video/*", "audio/*"}));
 
     selectedFileTextView = findViewById(R.id.selected_file_text_view);
-    selectedFileTextView.setText(PRESET_FILE_URI_DESCRIPTIONS[inputUriPosition]);
+    presetFileDescriptions = getResources().getStringArray(R.array.preset_descriptions);
+    selectedFileTextView.setText(presetFileDescriptions[inputUriPosition]);
 
     removeAudioCheckbox = findViewById(R.id.remove_audio_checkbox);
     removeAudioCheckbox.setOnClickListener(this::onRemoveAudio);
@@ -365,13 +307,17 @@ public final class ConfigurationActivity extends AppCompatActivity {
     hdrModeSpinner.setAdapter(hdrModeAdapter);
     hdrModeAdapter.addAll(HDR_MODE_DESCRIPTIONS.keySet());
 
-    audioEffectsSelections = new boolean[AUDIO_EFFECTS.length];
+    String[] audioEffectsNames = getResources().getStringArray(R.array.audio_effects_names);
+    audioEffectsSelections = new boolean[audioEffectsNames.length];
     selectAudioEffectsButton = findViewById(R.id.select_audio_effects_button);
-    selectAudioEffectsButton.setOnClickListener(this::selectAudioEffects);
+    selectAudioEffectsButton.setOnClickListener(
+        view -> selectAudioEffects(view, audioEffectsNames));
 
-    videoEffectsSelections = new boolean[VIDEO_EFFECTS.length];
+    String[] videoEffectsNames = getResources().getStringArray(R.array.video_effects_names);
+    videoEffectsSelections = new boolean[videoEffectsNames.length];
     selectVideoEffectsButton = findViewById(R.id.select_video_effects_button);
-    selectVideoEffectsButton.setOnClickListener(this::selectVideoEffects);
+    selectVideoEffectsButton.setOnClickListener(
+        view -> selectVideoEffects(view, videoEffectsNames));
   }
 
   @Override
@@ -493,7 +439,8 @@ public final class ConfigurationActivity extends AppCompatActivity {
     } else if (localFileUri != null) {
       intentUri = localFileUri;
     } else {
-      intentUri = Uri.parse(PRESET_FILE_URIS[inputUriPosition]);
+      String[] presetFileUris = getResources().getStringArray(R.array.preset_uris);
+      intentUri = Uri.parse(presetFileUris[inputUriPosition]);
     }
     transformerIntent.setData(intentUri);
 
@@ -504,7 +451,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
     new AlertDialog.Builder(/* context= */ this)
         .setTitle(R.string.select_preset_file_title)
         .setSingleChoiceItems(
-            PRESET_FILE_URI_DESCRIPTIONS, inputUriPosition, this::selectPresetFileInDialog)
+            presetFileDescriptions, inputUriPosition, this::selectPresetFileInDialog)
         .setPositiveButton(android.R.string.ok, /* listener= */ null)
         .create()
         .show();
@@ -514,7 +461,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
   private void selectPresetFileInDialog(DialogInterface dialog, int which) {
     inputUriPosition = which;
     localFileUri = null;
-    selectedFileTextView.setText(PRESET_FILE_URI_DESCRIPTIONS[inputUriPosition]);
+    selectedFileTextView.setText(presetFileDescriptions[inputUriPosition]);
   }
 
   private void selectLocalFile(
@@ -566,21 +513,21 @@ public final class ConfigurationActivity extends AppCompatActivity {
     }
   }
 
-  private void selectAudioEffects(View view) {
+  private void selectAudioEffects(View view, String[] audioEffectsNames) {
     new AlertDialog.Builder(/* context= */ this)
         .setTitle(R.string.select_audio_effects)
         .setMultiChoiceItems(
-            AUDIO_EFFECTS, checkNotNull(audioEffectsSelections), this::selectAudioEffect)
+            audioEffectsNames, checkNotNull(audioEffectsSelections), this::selectAudioEffect)
         .setPositiveButton(android.R.string.ok, /* listener= */ null)
         .create()
         .show();
   }
 
-  private void selectVideoEffects(View view) {
+  private void selectVideoEffects(View view, String[] videoEffectsNames) {
     new AlertDialog.Builder(/* context= */ this)
         .setTitle(R.string.select_video_effects)
         .setMultiChoiceItems(
-            VIDEO_EFFECTS, checkNotNull(videoEffectsSelections), this::selectVideoEffect)
+            videoEffectsNames, checkNotNull(videoEffectsSelections), this::selectVideoEffect)
         .setPositiveButton(android.R.string.ok, /* listener= */ null)
         .create()
         .show();
