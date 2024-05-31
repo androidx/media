@@ -56,6 +56,8 @@
         callbacks and if `ExoPlayer` is set with
         `experimentalSetDynamicSchedulingEnabled`, then `ExoPlayer` will
         schedule its work loop as renderers can make progress.
+    *   Fix bug where enabling CMCD for HLS with initialization segments
+        resulted in `Source Error` and `IllegalArgumentException`.
 *   Transformer:
     *   Work around a decoder bug where the number of audio channels was capped
         at stereo when handling PCM input.
