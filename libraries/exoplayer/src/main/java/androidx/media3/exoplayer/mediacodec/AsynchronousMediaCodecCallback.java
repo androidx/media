@@ -77,6 +77,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Nullable
   private IllegalStateException internalException;
 
+  @GuardedBy("lock")
+  @Nullable
+  private MediaCodecAdapter.OnBufferAvailableListener onBufferAvailableListener;
+
   /**
    * Creates a new instance.
    *
@@ -210,6 +214,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public void onInputBufferAvailable(MediaCodec codec, int index) {
     synchronized (lock) {
       availableInputBuffers.addLast(index);
+      if (onBufferAvailableListener != null) {
+        onBufferAvailableListener.onInputBufferAvailable();
+      }
     }
   }
 
@@ -222,6 +229,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
       availableOutputBuffers.addLast(index);
       bufferInfos.add(info);
+      if (onBufferAvailableListener != null) {
+        onBufferAvailableListener.onOutputBufferAvailable();
+      }
     }
   }
 
@@ -244,6 +254,20 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     synchronized (lock) {
       addOutputFormat(format);
       pendingOutputFormat = null;
+    }
+  }
+
+  /**
+   * Sets the {@link MediaCodecAdapter.OnBufferAvailableListener} that will be notified when {@link
+   * #onInputBufferAvailable} and {@link #onOutputBufferAvailable} are called.
+   *
+   * @param onBufferAvailableListener The listener that will be notified when {@link
+   *     #onInputBufferAvailable} and {@link #onOutputBufferAvailable} are called.
+   */
+  public void setOnBufferAvailableListener(
+      MediaCodecAdapter.OnBufferAvailableListener onBufferAvailableListener) {
+    synchronized (lock) {
+      this.onBufferAvailableListener = onBufferAvailableListener;
     }
   }
 

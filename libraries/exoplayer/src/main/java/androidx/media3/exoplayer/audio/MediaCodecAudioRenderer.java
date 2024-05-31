@@ -119,8 +119,6 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   private long currentPositionUs;
   private boolean allowPositionDiscontinuity;
   private boolean audioSinkNeedsReset;
-
-  @Nullable private WakeupListener wakeupListener;
   private boolean hasPendingReportedSkippedSilence;
   private int rendererPriority;
   private boolean isStarted;
@@ -480,7 +478,8 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   }
 
   @Override
-  public long getDurationToProgressUs(long positionUs, long elapsedRealtimeUs) {
+  public long getDurationToProgressUs(
+      boolean isOnBufferAvailableListenerRegistered, long positionUs, long elapsedRealtimeUs) {
     if (nextBufferToWritePresentationTimeUs != C.TIME_UNSET) {
       long durationUs =
           (long)
@@ -493,7 +492,8 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
       }
       return max(DEFAULT_DURATION_TO_PROGRESS_US, durationUs);
     }
-    return super.getDurationToProgressUs(positionUs, elapsedRealtimeUs);
+    return super.getDurationToProgressUs(
+        isOnBufferAvailableListenerRegistered, positionUs, elapsedRealtimeUs);
   }
 
   @Override
@@ -854,9 +854,6 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
       case MSG_SET_AUDIO_SESSION_ID:
         audioSink.setAudioSessionId((Integer) checkNotNull(message));
         break;
-      case MSG_SET_WAKEUP_LISTENER:
-        this.wakeupListener = (WakeupListener) message;
-        break;
       case MSG_SET_PRIORITY:
         rendererPriority = (int) checkNotNull(message);
         updateCodecImportance();
@@ -1073,6 +1070,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
 
     @Override
     public void onOffloadBufferEmptying() {
+      WakeupListener wakeupListener = getWakeupListener();
       if (wakeupListener != null) {
         wakeupListener.onWakeup();
       }
@@ -1080,6 +1078,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
 
     @Override
     public void onOffloadBufferFull() {
+      WakeupListener wakeupListener = getWakeupListener();
       if (wakeupListener != null) {
         wakeupListener.onSleep();
       }

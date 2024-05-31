@@ -151,6 +151,23 @@ public interface MediaCodecAdapter {
     void onFrameRendered(MediaCodecAdapter codec, long presentationTimeUs, long nanoTime);
   }
 
+  /** Listener to be called when an input or output buffer becomes available. */
+  interface OnBufferAvailableListener {
+    /**
+     * Called when an input buffer becomes available.
+     *
+     * @see MediaCodec.Callback#onInputBufferAvailable(MediaCodec, int)
+     */
+    default void onInputBufferAvailable() {}
+
+    /**
+     * Called when an output buffer becomes available.
+     *
+     * @see MediaCodec.Callback#onOutputBufferAvailable(MediaCodec, int, MediaCodec.BufferInfo)
+     */
+    default void onOutputBufferAvailable() {}
+  }
+
   /**
    * Returns the next available input buffer index from the underlying {@link MediaCodec} or {@link
    * MediaCodec#INFO_TRY_AGAIN_LATER} if no such buffer exists.
@@ -251,6 +268,21 @@ public interface MediaCodecAdapter {
    */
   @RequiresApi(23)
   void setOnFrameRenderedListener(OnFrameRenderedListener listener, Handler handler);
+
+  /**
+   * Registers a listener that will be called when an input or output buffer becomes available.
+   *
+   * <p>Returns false if listener was not successfully registered for callbacks.
+   *
+   * @see MediaCodec.Callback#onInputBufferAvailable
+   * @see MediaCodec.Callback#onOutputBufferAvailable
+   * @return Whether listener was successfully registered.
+   */
+  @RequiresApi(21)
+  default boolean registerOnBufferAvailableListener(
+      MediaCodecAdapter.OnBufferAvailableListener listener) {
+    return false;
+  }
 
   /**
    * Dynamically sets the output surface of a {@link MediaCodec}.

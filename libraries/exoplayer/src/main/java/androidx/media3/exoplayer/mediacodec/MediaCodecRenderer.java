@@ -346,6 +346,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   @Nullable private Format outputFormat;
   @Nullable private DrmSession codecDrmSession;
   @Nullable private DrmSession sourceDrmSession;
+  @Nullable private WakeupListener wakeupListener;
 
   /**
    * A framework {@link MediaCrypto} for use with {@link MediaCodec#queueSecureInputBuffer(int, int,
@@ -382,6 +383,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private boolean codecNeedsAdaptationWorkaroundBuffer;
   private boolean shouldSkipAdaptationWorkaroundOutputBuffer;
   private boolean codecNeedsEosPropagation;
+  private boolean codecRegisteredOnBufferAvailableListener;
   private long codecHotswapDeadlineMs;
   private int inputIndex;
   private int outputIndex;
@@ -502,6 +504,37 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    */
   protected abstract @Capabilities int supportsFormat(
       MediaCodecSelector mediaCodecSelector, Format format) throws DecoderQueryException;
+
+  @Override
+  public final long getDurationToProgressUs(long positionUs, long elapsedRealtimeUs) {
+    return getDurationToProgressUs(
+        /* isOnBufferAvailableListenerRegistered= */ codecRegisteredOnBufferAvailableListener,
+        positionUs,
+        elapsedRealtimeUs);
+  }
+
+  /**
+   * Returns minimum time playback must advance in order for the {@link #render} call to make
+   * progress.
+   *
+   * <p>If the {@code Renderer} has a registered {@link
+   * MediaCodecAdapter.OnBufferAvailableListener}, then the {@code Renderer} will be notified when
+   * decoder input and output buffers become available. These callbacks may affect the calculated
+   * minimum time playback must advance before a {@link #render} call can make progress.
+   *
+   * @param isOnBufferAvailableListenerRegistered Whether the {@code Renderer} is using a {@link
+   *     MediaCodecAdapter} with successfully registered {@link
+   *     MediaCodecAdapter.OnBufferAvailableListener OnBufferAvailableListener}.
+   * @param positionUs The current media time in microseconds, measured at the start of the current
+   *     iteration of the rendering loop.
+   * @param elapsedRealtimeUs {@link android.os.SystemClock#elapsedRealtime()} in microseconds,
+   *     measured at the start of the current iteration of the rendering loop.
+   * @return minimum time playback must advance before renderer is able to make progress.
+   */
+  protected long getDurationToProgressUs(
+      boolean isOnBufferAvailableListenerRegistered, long positionUs, long elapsedRealtimeUs) {
+    return super.getDurationToProgressUs(positionUs, elapsedRealtimeUs);
+  }
 
   /**
    * Returns a list of decoders that can decode media in the specified format, in priority order.
@@ -798,6 +831,16 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   }
 
   @Override
+  public void handleMessage(@MessageType int messageType, @Nullable Object message)
+      throws ExoPlaybackException {
+    if (messageType == MSG_SET_WAKEUP_LISTENER) {
+      this.wakeupListener = (WakeupListener) message;
+    } else {
+      super.handleMessage(messageType, message);
+    }
+  }
+
+  @Override
   public void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
     if (pendingOutputEndOfStream) {
       pendingOutputEndOfStream = false;
@@ -971,6 +1014,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     codecNeedsEosBufferTimestampWorkaround = false;
     codecNeedsMonoChannelCountWorkaround = false;
     codecNeedsEosPropagation = false;
+    codecRegisteredOnBufferAvailableListener = false;
     codecReconfigured = false;
     codecReconfigurationState = RECONFIGURATION_STATE_NONE;
   }
@@ -1193,6 +1237,10 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     try {
       TraceUtil.beginSection("createCodec:" + codecName);
       codec = codecAdapterFactory.createAdapter(configuration);
+      codecRegisteredOnBufferAvailableListener =
+          Util.SDK_INT >= 21
+              && Api21.registerOnBufferAvailableListener(
+                  codec, new MediaCodecRendererCodecAdapterListener());
     } finally {
       TraceUtil.endSection();
     }
@@ -1811,6 +1859,12 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   protected float getCodecOperatingRateV23(
       float targetPlaybackSpeed, Format format, Format[] streamFormats) {
     return CODEC_OPERATING_RATE_UNSET;
+  }
+
+  /** Returns listener used to signal that {@link #render(long, long)} should be called. */
+  @Nullable
+  protected final WakeupListener getWakeupListener() {
+    return wakeupListener;
   }
 
   /**
@@ -2691,6 +2745,15 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     }
   }
 
+  @RequiresApi(21)
+  private static final class Api21 {
+    @DoNotInline
+    public static boolean registerOnBufferAvailableListener(
+        MediaCodecAdapter codec, MediaCodecRendererCodecAdapterListener listener) {
+      return codec.registerOnBufferAvailableListener(listener);
+    }
+  }
+
   @RequiresApi(31)
   private static final class Api31 {
     private Api31() {}
@@ -2701,6 +2764,23 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       LogSessionId logSessionId = playerId.getLogSessionId();
       if (!logSessionId.equals(LogSessionId.LOG_SESSION_ID_NONE)) {
         codecConfiguration.mediaFormat.setString("log-session-id", logSessionId.getStringId());
+      }
+    }
+  }
+
+  private final class MediaCodecRendererCodecAdapterListener
+      implements MediaCodecAdapter.OnBufferAvailableListener {
+    @Override
+    public void onInputBufferAvailable() {
+      if (wakeupListener != null) {
+        wakeupListener.onWakeup();
+      }
+    }
+
+    @Override
+    public void onOutputBufferAvailable() {
+      if (wakeupListener != null) {
+        wakeupListener.onWakeup();
       }
     }
   }

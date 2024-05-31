@@ -50,6 +50,12 @@
         order for the renderer to progress. If `ExoPlayer` is set with
         `experimentalSetDynamicSchedulingEnabled` then `ExoPlayer` will call
         this method when calculating the time to schedule its work task.
+    *   Add `MediaCodecAdapter#OnBufferAvailableListener` to alert when input
+        and output buffers are available for use by `MediaCodecRenderer`.
+        `MediaCodecRenderer` will signal `ExoPlayer` when receiving these
+        callbacks and if `ExoPlayer` is set with
+        `experimentalSetDynamicSchedulingEnabled`, then `ExoPlayer` will
+        schedule its work loop as renderers can make progress.
 *   Transformer:
     *   Work around a decoder bug where the number of audio channels was capped
         at stereo when handling PCM input.

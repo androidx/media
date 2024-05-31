@@ -275,6 +275,12 @@ import java.nio.ByteBuffer;
   }
 
   @Override
+  public boolean registerOnBufferAvailableListener(OnBufferAvailableListener listener) {
+    asynchronousMediaCodecCallback.setOnBufferAvailableListener(listener);
+    return true;
+  }
+
+  @Override
   public void setOutputSurface(Surface surface) {
     codec.setOutputSurface(surface);
   }
