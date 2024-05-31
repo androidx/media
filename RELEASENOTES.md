@@ -145,6 +145,10 @@
     *   Add support for non-square DASH thumbnail grids
         ([#1300](https://github.com/androidx/media/pull/1300)).
     *   Add support for AVIF for API 34+.
+*   DataSource:
+    *   Allow `ByteArrayDataSource` to resolve a URI to a byte array during
+        `open()`, instead of being hard-coded at construction
+        ([#1405](https://github.com/androidx/media/issues/1405)).
 *   DRM:
     *   Allow setting a `LoadErrorHandlingPolicy` on
         `DefaultDrmSessionManagerProvider`
