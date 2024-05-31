@@ -18,6 +18,7 @@ package androidx.media3.demo.session
 import android.content.ComponentName
 import android.content.Context
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -28,6 +29,9 @@ import android.widget.TextView
 import androidx.annotation.OptIn
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.media3.common.C.TRACK_TYPE_TEXT
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -40,13 +44,15 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import androidx.media3.ui.PlayerView
 import com.google.common.util.concurrent.ListenableFuture
-import com.google.common.util.concurrent.MoreExecutors
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.guava.await
+import kotlinx.coroutines.launch
+
+private const val TAG = "PlayerActivity"
 
 class PlayerActivity : AppCompatActivity() {
   private lateinit var controllerFuture: ListenableFuture<MediaController>
-  private val controller: MediaController?
-    get() =
-      if (controllerFuture.isDone && !controllerFuture.isCancelled) controllerFuture.get() else null
+  private lateinit var controller: MediaController
 
   private lateinit var playerView: PlayerView
   private lateinit var mediaItemListView: ListView
@@ -57,6 +63,18 @@ class PlayerActivity : AppCompatActivity() {
   @OptIn(UnstableApi::class) // PlayerView.hideController
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    lifecycleScope.launch {
+      lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+        try {
+          initializeController()
+          awaitCancellation()
+        } finally {
+          playerView.player = null
+          releaseController()
+        }
+      }
+    }
+
     setContentView(R.layout.activity_player)
     playerView = findViewById(R.id.player_view)
 
@@ -65,7 +83,6 @@ class PlayerActivity : AppCompatActivity() {
     mediaItemListView.adapter = mediaItemListAdapter
     mediaItemListView.setOnItemClickListener { _, _, position, _ ->
       run {
-        val controller = this.controller ?: return@run
         if (controller.currentMediaItemIndex == position) {
           controller.playWhenReady = !controller.playWhenReady
           if (controller.playWhenReady) {
@@ -79,18 +96,7 @@ class PlayerActivity : AppCompatActivity() {
     }
   }
 
-  override fun onStart() {
-    super.onStart()
-    initializeController()
-  }
-
-  override fun onStop() {
-    super.onStop()
-    playerView.player = null
-    releaseController()
-  }
-
-  private fun initializeController() {
+  private suspend fun initializeController() {
     controllerFuture =
       MediaController.Builder(
           this,
@@ -98,7 +104,7 @@ class PlayerActivity : AppCompatActivity() {
         )
         .buildAsync()
     updateMediaMetadataUI()
-    controllerFuture.addListener({ setController() }, MoreExecutors.directExecutor())
+    setController()
   }
 
   private fun releaseController() {
@@ -106,9 +112,13 @@ class PlayerActivity : AppCompatActivity() {
   }
 
   @OptIn(UnstableApi::class) // PlayerView.setShowSubtitleButton
-  private fun setController() {
-    val controller = this.controller ?: return
-
+  private suspend fun setController() {
+    try {
+      controller = controllerFuture.await()
+    } catch (t: Throwable) {
+      Log.w(TAG, "Failed to connect to MediaController", t)
+      return
+    }
     playerView.player = controller
 
     updateCurrentPlaylistUI()
@@ -137,8 +147,7 @@ class PlayerActivity : AppCompatActivity() {
   }
 
   private fun updateMediaMetadataUI() {
-    val controller = this.controller
-    if (controller == null || controller.mediaItemCount == 0) {
+    if (!::controller.isInitialized || controller.mediaItemCount == 0) {
       findViewById<TextView>(R.id.media_title).text = getString(R.string.waiting_for_metadata)
       findViewById<TextView>(R.id.media_artist).text = ""
       return
@@ -152,7 +161,9 @@ class PlayerActivity : AppCompatActivity() {
   }
 
   private fun updateCurrentPlaylistUI() {
-    val controller = this.controller ?: return
+    if (!::controller.isInitialized) {
+      return
+    }
     mediaItemList.clear()
     for (i in 0 until controller.mediaItemCount) {
       mediaItemList.add(controller.getMediaItemAt(i))
@@ -173,7 +184,7 @@ class PlayerActivity : AppCompatActivity() {
       returnConvertView.findViewById<TextView>(R.id.media_item).text = mediaItem.mediaMetadata.title
 
       val deleteButton = returnConvertView.findViewById<Button>(R.id.delete_button)
-      if (position == controller?.currentMediaItemIndex) {
+      if (::controller.isInitialized && position == controller.currentMediaItemIndex) {
         // Styles for the current media item list item.
         returnConvertView.setBackgroundColor(
           ContextCompat.getColor(context, R.color.playlist_item_background)
@@ -192,7 +203,6 @@ class PlayerActivity : AppCompatActivity() {
           .setTextColor(ContextCompat.getColor(context, R.color.white))
         deleteButton.visibility = View.VISIBLE
         deleteButton.setOnClickListener {
-          val controller = this@PlayerActivity.controller ?: return@setOnClickListener
           controller.removeMediaItem(position)
           updateCurrentPlaylistUI()
         }
