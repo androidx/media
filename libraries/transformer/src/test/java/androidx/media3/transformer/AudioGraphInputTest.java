@@ -482,6 +482,36 @@ public class AudioGraphInputTest {
   }
 
   @Test
+  public void getOutput_withThreeSilentMediaItemChanges_outputsCorrectAmountOfSilentBytes()
+      throws Exception {
+    AudioGraphInput audioGraphInput =
+        new AudioGraphInput(
+            /* requestedOutputAudioFormat= */ AudioFormat.NOT_SET,
+            /* editedMediaItem= */ FAKE_ITEM,
+            /* inputFormat= */ getPcmFormat(STEREO_44100));
+
+    audioGraphInput.onMediaItemChanged(
+        /* editedMediaItem= */ FAKE_ITEM,
+        /* durationUs= */ 200_000,
+        /* decodedFormat= */ null,
+        /* isLast= */ false);
+    audioGraphInput.onMediaItemChanged(
+        /* editedMediaItem= */ FAKE_ITEM,
+        /* durationUs= */ 300_000,
+        /* decodedFormat= */ null,
+        /* isLast= */ false);
+    audioGraphInput.onMediaItemChanged(
+        /* editedMediaItem= */ FAKE_ITEM,
+        /* durationUs= */ 500_000,
+        /* decodedFormat= */ null,
+        /* isLast= */ true);
+
+    int bytesOutput = drainAudioGraphInputUntilEnded(audioGraphInput).size();
+    long expectedSampleCount = Util.durationUsToSampleCount(1_000_000, STEREO_44100.sampleRate);
+    assertThat(bytesOutput).isEqualTo(expectedSampleCount * STEREO_44100.bytesPerFrame);
+  }
+
+  @Test
   public void getOutput_withSilentMediaItemAndEffectsChange_outputsCorrectAmountOfSilentBytes()
       throws Exception {
     AudioGraphInput audioGraphInput =

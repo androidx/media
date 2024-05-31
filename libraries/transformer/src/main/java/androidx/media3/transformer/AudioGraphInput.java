@@ -36,7 +36,6 @@ import androidx.media3.common.audio.ChannelMixingAudioProcessor;
 import androidx.media3.common.audio.ChannelMixingMatrix;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.audio.SpeedChangingAudioProcessor;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
 import com.google.common.collect.ImmutableList;
@@ -45,7 +44,6 @@ import java.nio.ByteOrder;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Processes a single sequential stream of PCM audio samples.
@@ -64,7 +62,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
   private final Queue<DecoderInputBuffer> availableInputBuffers;
   private final Queue<DecoderInputBuffer> pendingInputBuffers;
-  private final AtomicReference<@NullableType MediaItemChange> pendingMediaItemChange;
+  private final Queue<MediaItemChange> pendingMediaItemChanges;
   private final AtomicLong startTimeUs;
 
   // silentAudioGenerator.audioFormat must match the current media item's input format.
@@ -103,7 +101,7 @@ import java.util.concurrent.atomic.AtomicReference;
       availableInputBuffers.add(inputBuffer);
     }
     pendingInputBuffers = new ConcurrentLinkedQueue<>();
-    pendingMediaItemChange = new AtomicReference<>();
+    pendingMediaItemChanges = new ConcurrentLinkedQueue<>();
     silentAudioGenerator = new SilentAudioGenerator(inputAudioFormat);
     audioProcessingPipeline =
         configureProcessing(
@@ -138,7 +136,7 @@ import java.util.concurrent.atomic.AtomicReference;
       return outputBuffer;
     }
 
-    if (!hasDataToOutput() && pendingMediaItemChange.get() != null) {
+    if (!hasDataToOutput() && !pendingMediaItemChanges.isEmpty()) {
       configureForPendingMediaItemChange();
     }
 
@@ -167,7 +165,7 @@ import java.util.concurrent.atomic.AtomicReference;
       AudioFormat audioFormat = new AudioFormat(decodedFormat);
       checkState(isInputAudioFormatValid(audioFormat), /* errorMessage= */ audioFormat);
     }
-    pendingMediaItemChange.set(
+    pendingMediaItemChanges.add(
         new MediaItemChange(editedMediaItem, durationUs, decodedFormat, isLast));
   }
 
@@ -179,7 +177,7 @@ import java.util.concurrent.atomic.AtomicReference;
   @Override
   @Nullable
   public DecoderInputBuffer getInputBuffer() {
-    if (inputBlocked || (pendingMediaItemChange.get() != null)) {
+    if (inputBlocked || !pendingMediaItemChanges.isEmpty()) {
       return null;
     }
     return availableInputBuffers.peek();
@@ -195,7 +193,7 @@ import java.util.concurrent.atomic.AtomicReference;
     if (inputBlocked) {
       return false;
     }
-    checkState(pendingMediaItemChange.get() == null);
+    checkState(pendingMediaItemChanges.isEmpty());
     DecoderInputBuffer inputBuffer = availableInputBuffers.remove();
     pendingInputBuffers.add(inputBuffer);
     startTimeUs.compareAndSet(
@@ -235,7 +233,7 @@ import java.util.concurrent.atomic.AtomicReference;
    * <p>Should only be called if the input thread and processing thread are the same.
    */
   public void flush() {
-    pendingMediaItemChange.set(null);
+    pendingMediaItemChanges.clear();
     processedFirstMediaItemChange = true;
     if (!availableInputBuffers.isEmpty()) {
       // Clear first available buffer in case the caller wrote data in the input buffer without
@@ -279,7 +277,7 @@ import java.util.concurrent.atomic.AtomicReference;
     if (hasDataToOutput()) {
       return false;
     }
-    if (pendingMediaItemChange.get() != null) {
+    if (!pendingMediaItemChanges.isEmpty()) {
       return false;
     }
     if (currentItemExpectedInputDurationUs != C.TIME_UNSET) {
@@ -323,7 +321,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
     @Nullable DecoderInputBuffer pendingInputBuffer = pendingInputBuffers.peek();
     if (pendingInputBuffer == null) {
-      if (pendingMediaItemChange.get() != null) {
+      if (!pendingMediaItemChanges.isEmpty()) {
         if (shouldAppendSilence()) {
           appendSilence();
           return true;
@@ -377,7 +375,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
     @Nullable DecoderInputBuffer currentInputBuffer = pendingInputBuffers.poll();
     if (currentInputBuffer == null) {
-      if (pendingMediaItemChange.get() != null && shouldAppendSilence()) {
+      if (!pendingMediaItemChanges.isEmpty() && shouldAppendSilence()) {
         appendSilence();
       }
       return EMPTY_BUFFER;
@@ -439,7 +437,7 @@ import java.util.concurrent.atomic.AtomicReference;
    * through {@link #getOutput()}.
    */
   private void configureForPendingMediaItemChange() throws UnhandledAudioFormatException {
-    MediaItemChange pendingChange = checkStateNotNull(pendingMediaItemChange.get());
+    MediaItemChange pendingChange = checkStateNotNull(pendingMediaItemChanges.poll());
 
     currentItemInputBytesRead = 0;
     isCurrentItemLast = pendingChange.isLast;
@@ -476,7 +474,6 @@ import java.util.concurrent.atomic.AtomicReference;
               /* requiredOutputAudioFormat= */ outputAudioFormat);
     }
     audioProcessingPipeline.flush();
-    pendingMediaItemChange.set(null);
     receivedEndOfStreamFromInput = false;
     processedFirstMediaItemChange = true;
   }
