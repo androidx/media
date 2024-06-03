@@ -43,6 +43,24 @@ public final class TransformerTestRunner {
    */
   public static ExportResult runLooper(Transformer transformer)
       throws ExportException, TimeoutException {
+    return runLooperWithListener(transformer, () -> {});
+  }
+
+  /**
+   * Runs tasks of the {@linkplain Transformer#getApplicationLooper() transformer Looper} until the
+   * {@linkplain Transformer export} ends.
+   *
+   * @param transformer The {@link Transformer}.
+   * @param beforeLooperTaskListener The {@link Runnable} to {@linkplain Runnable#run() run} before
+   *     each looper task.
+   * @return The {@link ExportResult}.
+   * @throws ExportException If the export threw an exception.
+   * @throws TimeoutException If the {@link RobolectricUtil#DEFAULT_TIMEOUT_MS default timeout} is
+   *     exceeded.
+   */
+  public static ExportResult runLooperWithListener(
+      Transformer transformer, Runnable beforeLooperTaskListener)
+      throws ExportException, TimeoutException {
     AtomicReference<@NullableType ExportResult> exportResultRef = new AtomicReference<>();
 
     transformer.addListener(
@@ -61,7 +79,15 @@ public final class TransformerTestRunner {
             exportResultRef.set(exportResult);
           }
         });
-    runLooperUntil(transformer.getApplicationLooper(), () -> exportResultRef.get() != null);
+    runLooperUntil(
+        transformer.getApplicationLooper(),
+        () -> {
+          if (exportResultRef.get() != null) {
+            return true;
+          }
+          beforeLooperTaskListener.run();
+          return false;
+        });
 
     ExportResult exportResult = checkNotNull(exportResultRef.get());
     if (exportResult.exportException != null) {

@@ -62,7 +62,7 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
-import android.os.Message;
+import android.util.Pair;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -94,11 +94,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -1327,44 +1328,20 @@ public final class MediaItemExportTest {
     Transformer transformer =
         createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
     MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_UNKNOWN_DURATION);
-    AtomicInteger previousProgressState =
-        new AtomicInteger(PROGRESS_STATE_WAITING_FOR_AVAILABILITY);
-    AtomicBoolean foundInconsistentState = new AtomicBoolean();
-    Handler progressHandler =
-        new Handler(Looper.myLooper()) {
-          @Override
-          public void handleMessage(Message msg) {
-            @Transformer.ProgressState
-            int progressState = transformer.getProgress(new ProgressHolder());
-            switch (previousProgressState.get()) {
-              case PROGRESS_STATE_WAITING_FOR_AVAILABILITY:
-                break;
-              case PROGRESS_STATE_UNAVAILABLE:
-              case PROGRESS_STATE_AVAILABLE: // See [Internal: b/176145097].
-                if (progressState == PROGRESS_STATE_WAITING_FOR_AVAILABILITY) {
-                  foundInconsistentState.set(true);
-                  return;
-                }
-                break;
-              case PROGRESS_STATE_NOT_STARTED:
-                if (progressState != PROGRESS_STATE_NOT_STARTED) {
-                  foundInconsistentState.set(true);
-                  return;
-                }
-                break;
-              default:
-                throw new IllegalStateException();
-            }
-            previousProgressState.set(progressState);
-            sendEmptyMessage(0);
-          }
-        };
 
     transformer.start(mediaItem, outputDir.newFile().getPath());
-    progressHandler.sendEmptyMessage(0);
-    TransformerTestRunner.runLooper(transformer);
+    Pair<ImmutableList<@Transformer.ProgressState Integer>, ImmutableList<Integer>>
+        progressStatesAndValues = runTransformerForProgressStateAndValueUpdates(transformer);
+    ImmutableList<@Transformer.ProgressState Integer> progressStates =
+        progressStatesAndValues.first;
 
-    assertThat(foundInconsistentState.get()).isFalse();
+    assertThat(progressStates).isNotEmpty();
+    assertThat(progressStates)
+        .containsExactly(
+            PROGRESS_STATE_WAITING_FOR_AVAILABILITY,
+            PROGRESS_STATE_UNAVAILABLE,
+            PROGRESS_STATE_NOT_STARTED)
+        .inOrder();
   }
 
   @Test
@@ -1372,48 +1349,21 @@ public final class MediaItemExportTest {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
     Transformer transformer =
         createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
-    MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_VIDEO_ONLY);
-    AtomicInteger previousProgressState =
-        new AtomicInteger(PROGRESS_STATE_WAITING_FOR_AVAILABILITY);
-    AtomicBoolean foundInconsistentState = new AtomicBoolean();
-    Handler progressHandler =
-        new Handler(Looper.myLooper()) {
-          @Override
-          public void handleMessage(Message msg) {
-            @Transformer.ProgressState
-            int progressState = transformer.getProgress(new ProgressHolder());
-            if (progressState == PROGRESS_STATE_UNAVAILABLE) {
-              foundInconsistentState.set(true);
-              return;
-            }
-            switch (previousProgressState.get()) {
-              case PROGRESS_STATE_WAITING_FOR_AVAILABILITY:
-                break;
-              case PROGRESS_STATE_AVAILABLE:
-                if (progressState == PROGRESS_STATE_WAITING_FOR_AVAILABILITY) {
-                  foundInconsistentState.set(true);
-                  return;
-                }
-                break;
-              case PROGRESS_STATE_NOT_STARTED:
-                if (progressState != PROGRESS_STATE_NOT_STARTED) {
-                  foundInconsistentState.set(true);
-                  return;
-                }
-                break;
-              default:
-                throw new IllegalStateException();
-            }
-            previousProgressState.set(progressState);
-            sendEmptyMessage(0);
-          }
-        };
+    MediaItem mediaItem =
+        MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S);
 
     transformer.start(mediaItem, outputDir.newFile().getPath());
-    progressHandler.sendEmptyMessage(0);
-    TransformerTestRunner.runLooper(transformer);
+    Pair<ImmutableList<@Transformer.ProgressState Integer>, ImmutableList<Integer>>
+        progressStatesAndValues = runTransformerForProgressStateAndValueUpdates(transformer);
+    ImmutableList<@Transformer.ProgressState Integer> progressStates =
+        progressStatesAndValues.first;
 
-    assertThat(foundInconsistentState.get()).isFalse();
+    assertThat(progressStates)
+        .containsExactly(
+            PROGRESS_STATE_WAITING_FOR_AVAILABILITY,
+            PROGRESS_STATE_AVAILABLE,
+            PROGRESS_STATE_NOT_STARTED)
+        .inOrder();
   }
 
   @Test
@@ -1421,36 +1371,18 @@ public final class MediaItemExportTest {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
     Transformer transformer =
         createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
-    MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_VIDEO_ONLY);
-    List<Integer> progresses = new ArrayList<>();
-    Handler progressHandler =
-        new Handler(Looper.myLooper()) {
-          @Override
-          public void handleMessage(Message msg) {
-            ProgressHolder progressHolder = new ProgressHolder();
-            @Transformer.ProgressState int progressState = transformer.getProgress(progressHolder);
-            if (progressState == PROGRESS_STATE_NOT_STARTED) {
-              return;
-            }
-            if (progressState != PROGRESS_STATE_WAITING_FOR_AVAILABILITY
-                && (progresses.isEmpty()
-                    || Iterables.getLast(progresses) != progressHolder.progress)) {
-              progresses.add(progressHolder.progress);
-            }
-            sendEmptyMessage(0);
-          }
-        };
+    MediaItem mediaItem =
+        MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S);
 
     transformer.start(mediaItem, outputDir.newFile().getPath());
-    progressHandler.sendEmptyMessage(0);
-    TransformerTestRunner.runLooper(transformer);
+    Pair<ImmutableList<@Transformer.ProgressState Integer>, ImmutableList<Integer>>
+        progressStatesAndValues = runTransformerForProgressStateAndValueUpdates(transformer);
+    ImmutableList<Integer> progressValues = progressStatesAndValues.second;
 
-    assertThat(progresses).isInOrder();
-    if (!progresses.isEmpty()) {
-      // The progress list could be empty if the export ends before any progress can be retrieved.
-      assertThat(progresses.get(0)).isAtLeast(0);
-      assertThat(Iterables.getLast(progresses)).isLessThan(100);
-    }
+    assertThat(progressValues).isNotEmpty();
+    assertThat(progressValues.get(0)).isEqualTo(0);
+    assertThat(progressValues).isInStrictOrder();
+    assertThat(Iterables.getLast(progressValues)).isAtMost(100);
   }
 
   @Test
@@ -1458,120 +1390,6 @@ public final class MediaItemExportTest {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
     Transformer transformer =
         createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
-    MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_VIDEO_ONLY);
-    ProgressHolder progressHolder = new ProgressHolder();
-    @Transformer.ProgressState int stateBeforeTransform = transformer.getProgress(progressHolder);
-    transformer.start(mediaItem, outputDir.newFile().getPath());
-    TransformerTestRunner.runLooper(transformer);
-    @Transformer.ProgressState int stateAfterTransform = transformer.getProgress(progressHolder);
-
-    assertThat(stateBeforeTransform).isEqualTo(PROGRESS_STATE_NOT_STARTED);
-    assertThat(stateAfterTransform).isEqualTo(PROGRESS_STATE_NOT_STARTED);
-  }
-
-  @Test
-  public void
-      getProgress_trimOptimizationEnabledButNotApplied_withClippingConfigurationUnset_returnsConsistentStates()
-          throws Exception {
-    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
-    Transformer transformer =
-        createTransformerBuilder(muxerFactory, /* enableFallback= */ false)
-            .experimentalSetTrimOptimizationEnabled(true)
-            .build();
-    MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_VIDEO_ONLY);
-    AtomicInteger previousProgressState =
-        new AtomicInteger(PROGRESS_STATE_WAITING_FOR_AVAILABILITY);
-    AtomicBoolean foundInconsistentState = new AtomicBoolean();
-    Handler progressHandler =
-        new Handler(Looper.myLooper()) {
-          @Override
-          public void handleMessage(Message msg) {
-            @Transformer.ProgressState
-            int progressState = transformer.getProgress(new ProgressHolder());
-            if (progressState == PROGRESS_STATE_UNAVAILABLE) {
-              foundInconsistentState.set(true);
-              return;
-            }
-            switch (previousProgressState.get()) {
-              case PROGRESS_STATE_WAITING_FOR_AVAILABILITY:
-                break;
-              case PROGRESS_STATE_AVAILABLE:
-                if (progressState == PROGRESS_STATE_WAITING_FOR_AVAILABILITY) {
-                  foundInconsistentState.set(true);
-                  return;
-                }
-                break;
-              case PROGRESS_STATE_NOT_STARTED:
-                if (progressState != PROGRESS_STATE_NOT_STARTED) {
-                  foundInconsistentState.set(true);
-                  return;
-                }
-                break;
-              default:
-                throw new IllegalStateException();
-            }
-            previousProgressState.set(progressState);
-            sendEmptyMessageDelayed(/* what= */ 0, /* delayMillis= */ 50);
-          }
-        };
-
-    transformer.start(mediaItem, outputDir.newFile().getPath());
-    progressHandler.sendEmptyMessage(/* what= */ 0);
-    TransformerTestRunner.runLooper(transformer);
-
-    assertThat(foundInconsistentState.get()).isFalse();
-  }
-
-  @Test
-  public void
-      getProgress_trimOptimizationEnabledButNotApplied_withClippingConfigurationUnset_givesIncreasingPercentages()
-          throws Exception {
-    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
-    Transformer transformer =
-        createTransformerBuilder(muxerFactory, /* enableFallback= */ false)
-            .experimentalSetTrimOptimizationEnabled(true)
-            .build();
-    MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_VIDEO_ONLY);
-    List<Integer> progresses = new ArrayList<>();
-    Handler progressHandler =
-        new Handler(Looper.myLooper()) {
-          @Override
-          public void handleMessage(Message msg) {
-            ProgressHolder progressHolder = new ProgressHolder();
-            @Transformer.ProgressState int progressState = transformer.getProgress(progressHolder);
-            if (progressState == PROGRESS_STATE_NOT_STARTED) {
-              return;
-            }
-            if (progressState == PROGRESS_STATE_AVAILABLE
-                && (progresses.isEmpty()
-                    || Iterables.getLast(progresses) != progressHolder.progress)) {
-              progresses.add(progressHolder.progress);
-            }
-            sendEmptyMessageDelayed(/* what= */ 0, /* delayMillis= */ 50);
-          }
-        };
-
-    transformer.start(mediaItem, outputDir.newFile().getPath());
-    progressHandler.sendEmptyMessage(/* what= */ 0);
-    TransformerTestRunner.runLooper(transformer);
-
-    assertThat(progresses).isInOrder();
-    if (!progresses.isEmpty()) {
-      // The progress list could be empty if the export ends before any progress can be retrieved.
-      assertThat(progresses.get(0)).isAtLeast(0);
-      assertThat(Iterables.getLast(progresses)).isAtMost(100);
-    }
-  }
-
-  @Test
-  public void
-      getProgress_trimOptimizationEnabledButNotApplied_withClippingConfigurationUnset_noCurrentExport_returnsNotStarted()
-          throws Exception {
-    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
-    Transformer transformer =
-        createTransformerBuilder(muxerFactory, /* enableFallback= */ false)
-            .experimentalSetTrimOptimizationEnabled(true)
-            .build();
     MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_VIDEO_ONLY);
     ProgressHolder progressHolder = new ProgressHolder();
     @Transformer.ProgressState int stateBeforeTransform = transformer.getProgress(progressHolder);
@@ -1607,6 +1425,75 @@ public final class MediaItemExportTest {
     countDownLatch.await();
 
     assertThat(illegalStateException.get()).isNotNull();
+  }
+
+  @Test
+  public void
+      getProgress_trimOptimizationEnabledButNotApplied_withClippingConfigurationUnset_givesIncreasingPercentages()
+          throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
+    Transformer transformer =
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false)
+            .experimentalSetTrimOptimizationEnabled(true)
+            .build();
+    MediaItem mediaItem =
+        MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S);
+
+    transformer.start(mediaItem, outputDir.newFile().getPath());
+    Pair<ImmutableList<@Transformer.ProgressState Integer>, ImmutableList<Integer>>
+        progressStatesAndValues = runTransformerForProgressStateAndValueUpdates(transformer);
+    ImmutableList<Integer> progressValues = progressStatesAndValues.second;
+
+    assertThat(progressValues).isNotEmpty();
+    assertThat(progressValues.get(0)).isEqualTo(0);
+    assertThat(progressValues).isInStrictOrder();
+    assertThat(Iterables.getLast(progressValues)).isAtMost(100);
+  }
+
+  @Test
+  public void
+      getProgress_trimOptimizationEnabledButNotApplied_withClippingConfigurationUnset_returnsConsistentStates()
+          throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
+    Transformer transformer =
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false)
+            .experimentalSetTrimOptimizationEnabled(true)
+            .build();
+    MediaItem mediaItem =
+        MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S);
+
+    transformer.start(mediaItem, outputDir.newFile().getPath());
+    Pair<ImmutableList<@Transformer.ProgressState Integer>, ImmutableList<Integer>>
+        progressStatesAndValues = runTransformerForProgressStateAndValueUpdates(transformer);
+    ImmutableList<@Transformer.ProgressState Integer> progressStates =
+        progressStatesAndValues.first;
+
+    assertThat(progressStates)
+        .containsExactly(
+            PROGRESS_STATE_WAITING_FOR_AVAILABILITY,
+            PROGRESS_STATE_AVAILABLE,
+            PROGRESS_STATE_NOT_STARTED)
+        .inOrder();
+  }
+
+  @Test
+  public void
+      getProgress_trimOptimizationEnabledButNotApplied_withClippingConfigurationUnset_noCurrentExport_returnsNotStarted()
+          throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
+    Transformer transformer =
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false)
+            .experimentalSetTrimOptimizationEnabled(true)
+            .build();
+    MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_VIDEO_ONLY);
+    ProgressHolder progressHolder = new ProgressHolder();
+    @Transformer.ProgressState int stateBeforeTransform = transformer.getProgress(progressHolder);
+    transformer.start(mediaItem, outputDir.newFile().getPath());
+    TransformerTestRunner.runLooper(transformer);
+    @Transformer.ProgressState int stateAfterTransform = transformer.getProgress(progressHolder);
+
+    assertThat(stateBeforeTransform).isEqualTo(PROGRESS_STATE_NOT_STARTED);
+    assertThat(stateAfterTransform).isEqualTo(PROGRESS_STATE_NOT_STARTED);
   }
 
   @Test
@@ -1753,6 +1640,32 @@ public final class MediaItemExportTest {
             byteCount.addAndGet(buffer.remaining());
           }
         });
+  }
+
+  private Pair<ImmutableList<@Transformer.ProgressState Integer>, ImmutableList<Integer>>
+      runTransformerForProgressStateAndValueUpdates(Transformer transformer)
+          throws ExportException, TimeoutException {
+    ConcurrentLinkedDeque<@Transformer.ProgressState Integer> progressStates =
+        new ConcurrentLinkedDeque<>();
+    ConcurrentLinkedDeque<Integer> progressValues = new ConcurrentLinkedDeque<>();
+    ProgressHolder progressHolder = new ProgressHolder();
+
+    TransformerTestRunner.runLooperWithListener(
+        transformer,
+        () -> {
+          @Transformer.ProgressState int progressState = transformer.getProgress(progressHolder);
+          if (progressStates.isEmpty() || progressState != progressStates.getLast()) {
+            progressStates.add(progressState);
+          }
+
+          if (progressState == PROGRESS_STATE_AVAILABLE
+              && (progressValues.isEmpty()
+                  || progressHolder.progress != progressValues.getLast())) {
+            progressValues.add(progressHolder.progress);
+          }
+        });
+
+    return new Pair<>(ImmutableList.copyOf(progressStates), ImmutableList.copyOf(progressValues));
   }
 
   private static final class SlowExtractorsFactory implements ExtractorsFactory {
