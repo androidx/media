@@ -58,6 +58,8 @@
         schedule its work loop as renderers can make progress.
     *   Fix bug where enabling CMCD for HLS with initialization segments
         resulted in `Source Error` and `IllegalArgumentException`.
+    *   Use data class for `LoadControl` methods instead of individual
+        parameters.
 *   Transformer:
     *   Work around a decoder bug where the number of audio channels was capped
         at stereo when handling PCM input.
@@ -272,8 +274,6 @@ This release includes the following changes since the
         `DefaultPreloadManager` which uses `PreloadMediaSource` to preload media
         samples of the sources into memory, and uses an integer `rankingData`
         that indicates the index of an item on the UI.
-    *   Use data class for `LoadControl` methods instead of individual
-        parameters.
     *   Add `PlayerId` to most methods of `LoadControl` to enable `LoadControl`
         implementations to support multiple players.
     *   Remove `Buffer.isDecodeOnly()` and `C.BUFFER_FLAG_DECODE_ONLY`. There is
