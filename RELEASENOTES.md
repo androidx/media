@@ -136,6 +136,9 @@
         *   This was originally included in the `1.3.0-alpha01` release notes,
             but the change was accidentally reverted before the `1.3.0-rc01`
             release. This is now fixed, so the change is present again.
+    *   CEA-708: Avoid duplicate newlines being added by ExoPlayer's naive
+        handling of the 'set pen location' command
+        ([#1315](https://github.com/androidx/media/pull/1315)).
 *   Metadata:
     *   Fix mapping of MP4 to ID3 sort tags. Previously the 'album sort'
         (`soal`), 'artist sort' (`soar`) and 'album artist sort' (`soaa`) MP4
@@ -568,9 +571,6 @@ This release includes the following changes since the
         `rowLock` and `columnLock` should both be assumed to be true, regardless
         of the values present in the stream (`columnLock` support is not
         implemented, so it's effectively assumed to always be false).
-    *   CEA-708: Avoid duplicate newlines being added by ExoPlayer's naive
-        handling of the 'set pen location' command
-        ([#1315](https://github.com/androidx/media/pull/1315)).
 *   Image:
     *   Add support for DASH thumbnails. Grid images are cropped and individual
         thumbnails are provided to `ImageOutput` close to their presentation
