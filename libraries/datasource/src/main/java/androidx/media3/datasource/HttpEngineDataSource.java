@@ -31,7 +31,6 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
-import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Clock;
@@ -69,10 +68,6 @@ import java.util.concurrent.Executor;
 @RequiresApi(34)
 @UnstableApi
 public final class HttpEngineDataSource extends BaseDataSource implements HttpDataSource {
-
-  static {
-    MediaLibraryInfo.registerModule("media3.datasource.httpengine");
-  }
 
   /** {@link DataSource.Factory} for {@link HttpEngineDataSource} instances. */
   public static final class Factory implements HttpDataSource.Factory {
