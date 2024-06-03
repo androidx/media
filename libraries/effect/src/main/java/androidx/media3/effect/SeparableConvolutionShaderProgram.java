@@ -16,11 +16,10 @@
 package androidx.media3.effect;
 
 import android.content.Context;
-import android.graphics.Bitmap;
 import android.opengl.GLES20;
-import android.opengl.GLUtils;
+import android.opengl.GLES30;
 import androidx.annotation.CallSuper;
-import androidx.annotation.RequiresApi;
+import androidx.media3.common.C;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
@@ -31,7 +30,7 @@ import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.io.IOException;
-import java.nio.ShortBuffer;
+import java.nio.FloatBuffer;
 import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -41,30 +40,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * <p>A single {@link ConvolutionFunction1D} is applied horizontally on a first pass and vertically
  * on a second pass.
  */
-@RequiresApi(26) // Uses Bitmap.Config.RGBA_F16.
 @UnstableApi
 public class SeparableConvolutionShaderProgram implements GlShaderProgram {
   private static final String VERTEX_SHADER_PATH = "shaders/vertex_shader_transformation_es2.glsl";
   private static final String FRAGMENT_SHADER_PATH =
       "shaders/fragment_shader_separable_convolution_es2.glsl";
 
-  // Constants specifically for fp16FromFloat().
   // TODO (b/282767994): Fix TAP hanging issue and update samples per texel.
   private static final int RASTER_SAMPLES_PER_TEXEL = 5;
   // Apply some padding in the function LUT to avoid any issues from GL sampling off the texture.
   private static final int FUNCTION_LUT_PADDING = RASTER_SAMPLES_PER_TEXEL;
-
-  // BEGIN COPIED FP16 code.
-  // Source: libcore/luni/src/main/java/libcore/util/FP16.java
-  private static final int FP16_EXPONENT_BIAS = 15;
-  private static final int FP16_SIGN_SHIFT = 15;
-  private static final int FP16_EXPONENT_SHIFT = 10;
-  private static final int FP32_SIGN_SHIFT = 31;
-  private static final int FP32_EXPONENT_SHIFT = 23;
-  private static final int FP32_SHIFTED_EXPONENT_MASK = 0xff;
-  private static final int FP32_SIGNIFICAND_MASK = 0x7fffff;
-  private static final int FP32_EXPONENT_BIAS = 127;
-  // END FP16 copied code.
 
   private final GlProgram glProgram;
   private final boolean useHdr;
@@ -277,7 +262,7 @@ public class SeparableConvolutionShaderProgram implements GlShaderProgram {
     ConvolutionFunction1D currentConvolutionFunction =
         convolution.getConvolution(presentationTimeUs);
     if (!currentConvolutionFunction.equals(lastConvolutionFunction)) {
-      updateFunctionTexture(glObjectsProvider, currentConvolutionFunction);
+      updateFunctionTexture(currentConvolutionFunction);
       lastConvolutionFunction = currentConvolutionFunction;
     }
 
@@ -302,8 +287,7 @@ public class SeparableConvolutionShaderProgram implements GlShaderProgram {
    * Creates a function lookup table for the convolution, and stores it in a 16b floating point
    * texture for GPU access.
    */
-  private void updateFunctionTexture(
-      GlObjectsProvider glObjectsProvider, ConvolutionFunction1D convolutionFunction)
+  private void updateFunctionTexture(ConvolutionFunction1D convolutionFunction)
       throws GlUtil.GlException {
 
     int lutRasterSize =
@@ -317,10 +301,7 @@ public class SeparableConvolutionShaderProgram implements GlShaderProgram {
     // calculated based on the actual raster size.
     this.functionLutTexelStep = 1.0f / ((float) lutRasterSize / RASTER_SAMPLES_PER_TEXEL);
 
-    // The function values are stored in an FP16 texture. Setting FP16 values in a Bitmap requires
-    // multiple steps. For each step, calculate the function value as a Float, and then use the
-    // Half class to convert to FP16 and then read the value as a Short int
-    ShortBuffer functionShortBuffer = ShortBuffer.allocate(lutRasterSize * 4);
+    FloatBuffer functionValues = FloatBuffer.allocate(lutRasterSize);
     float rasterSampleStep = 1.0f / RASTER_SAMPLES_PER_TEXEL;
     float functionDomainStart = convolutionFunction.domainStart();
     int index = 0;
@@ -333,19 +314,7 @@ public class SeparableConvolutionShaderProgram implements GlShaderProgram {
       if (unpaddedI >= 0 && i <= lutRasterSize - FUNCTION_LUT_PADDING) {
         sampleValue = convolutionFunction.value(samplePosition);
       }
-
-      // Convert float to half (fp16) and read out the bits as a short.
-      // Texture for Bitmap is RGBA_F16, so we store the function value in RGB channels and 1.0
-      // in A.
-      short shortEncodedValue = fp16FromFloat(sampleValue);
-
-      // Set RGB
-      functionShortBuffer.put(index++, shortEncodedValue);
-      functionShortBuffer.put(index++, shortEncodedValue);
-      functionShortBuffer.put(index++, shortEncodedValue);
-
-      // Set Alpha
-      functionShortBuffer.put(index++, fp16FromFloat(1.0f));
+      functionValues.put(index++, sampleValue);
     }
 
     // Calculate the center of the function in the raster.  The formula below is a slight
@@ -362,25 +331,31 @@ public class SeparableConvolutionShaderProgram implements GlShaderProgram {
     this.functionLutDomainStart = convolutionFunction.domainStart();
     this.functionLutWidth = convolutionFunction.width();
 
-    // TODO(b/276982847): Use alternative to Bitmap to create function LUT texture.
-    Bitmap functionLookupBitmap =
-        Bitmap.createBitmap(lutRasterSize, /* height= */ 1, Bitmap.Config.RGBA_F16);
-    functionLookupBitmap.copyPixelsFromBuffer(functionShortBuffer);
-
     // Create new GL texture if needed.
     if (functionLutTexture == GlTextureInfo.UNSET || functionLutTexture.width != lutRasterSize) {
       functionLutTexture.release();
 
-      // Need to use high precision to force 16FP color.
-      int functionLutTextureId =
-          GlUtil.createTexture(
-              lutRasterSize, /* height= */ 1, /* useHighPrecisionColorComponents= */ true);
-
+      int functionLutTextureId = GlUtil.generateTexture();
+      // We do not render into lookup table. Do not generate framebuffer or renderbuffer.
       functionLutTexture =
-          glObjectsProvider.createBuffersForTexture(
-              functionLutTextureId, lutRasterSize, /* height= */ 1);
+          new GlTextureInfo(
+              functionLutTextureId,
+              /* fboId= */ C.INDEX_UNSET,
+              /* rboId= */ C.INDEX_UNSET,
+              /* width= */ lutRasterSize,
+              /* height= */ 1);
     }
-    GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, /* level= */ 0, functionLookupBitmap, /* border= */ 0);
+    GlUtil.bindTexture(GLES20.GL_TEXTURE_2D, functionLutTexture.texId, GLES20.GL_LINEAR);
+    GLES20.glTexImage2D(
+        GLES20.GL_TEXTURE_2D,
+        /* level= */ 0,
+        /* internalformat= */ GLES30.GL_R16F,
+        /* width= */ lutRasterSize,
+        /* height= */ 1,
+        /* border= */ 0,
+        /* format= */ GLES30.GL_RED,
+        /* type= */ GLES30.GL_FLOAT,
+        /* buffer= */ functionValues);
     GlUtil.checkGlError();
   }
 
@@ -396,57 +371,4 @@ public class SeparableConvolutionShaderProgram implements GlShaderProgram {
 
     return glObjectsProvider.createBuffersForTexture(texId, size.getWidth(), size.getHeight());
   }
-
-  // BEGIN COPIED FP16 code.
-  // Source: libcore/luni/src/main/java/libcore/util/FP16.java
-  // Float to half float conversion, copied from FP16.  This code is introduced in API26, so the
-  // one required method is copied here.
-  private static short fp16FromFloat(float f) {
-    int bits = Float.floatToRawIntBits(f);
-    int s = bits >>> FP32_SIGN_SHIFT;
-    int e = (bits >>> FP32_EXPONENT_SHIFT) & FP32_SHIFTED_EXPONENT_MASK;
-    int m = bits & FP32_SIGNIFICAND_MASK;
-    int outE = 0;
-    int outM = 0;
-    if (e == 0xff) { // Infinite or NaN
-      outE = 0x1f;
-      outM = (m != 0) ? 0x200 : 0;
-    } else {
-      e = e - FP32_EXPONENT_BIAS + FP16_EXPONENT_BIAS;
-      if (e >= 0x1f) { // Overflow
-        outE = 0x1f;
-      } else if (e <= 0) { // Underflow
-        if (e >= -10) {
-          // The fp32 value is a normalized float less than MIN_NORMAL,
-          // we convert to a denorm fp16
-          m |= 0x800000;
-          int shift = 14 - e;
-          outM = m >>> shift;
-          int lowm = m & ((1 << shift) - 1);
-          int hway = 1 << (shift - 1);
-          // if above halfway or exactly halfway and outM is odd
-          if (lowm + (outM & 1) > hway) {
-            // Round to nearest even
-            // Can overflow into exponent bit, which surprisingly is OK.
-            // This increment relies on the +outM in the return statement below
-            outM++;
-          }
-        }
-      } else {
-        outE = e;
-        outM = m >>> 13;
-        // if above halfway or exactly halfway and outM is odd
-        if ((m & 0x1fff) + (outM & 0x1) > 0x1000) {
-          // Round to nearest even
-          // Can overflow into exponent bit, which surprisingly is OK.
-          // This increment relies on the +outM in the return statement below
-          outM++;
-        }
-      }
-    }
-    // The outM is added here as the +1 increments for outM above can
-    // cause an overflow in the exponent bit which is OK.
-    return (short) ((s << FP16_SIGN_SHIFT) | ((outE << FP16_EXPONENT_SHIFT) + outM));
-  }
-  // END FP16 copied code.
 }

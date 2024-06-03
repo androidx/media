@@ -167,6 +167,7 @@
     *   Maintain a consistent luminance range across different HDR content (uses
         the HLG range).
     *   Add support for Ultra HDR (bitmap) overlays on HDR content.
+    *   Allow `SeparableConvolution` effects to be used before API 26.
 *   Muxers:
 *   IMA extension:
     *   Promote API that is required for apps to play

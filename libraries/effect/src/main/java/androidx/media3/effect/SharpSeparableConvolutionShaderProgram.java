@@ -19,7 +19,6 @@ import static androidx.media3.effect.MatrixUtils.getGlMatrixArray;
 
 import android.content.Context;
 import android.graphics.Matrix;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlProgram;
@@ -30,7 +29,6 @@ import java.io.IOException;
  * An extension of {@link SeparableConvolutionShaderProgram} that draws the sharp version of the
  * input frame on top of the output convolution.
  */
-@RequiresApi(26) // See SeparableConvolutionShaderProgram.
 /* package */ final class SharpSeparableConvolutionShaderProgram
     extends SeparableConvolutionShaderProgram {
   private final GlProgram sharpTransformGlProgram;

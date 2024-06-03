@@ -21,12 +21,14 @@ import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIX
 import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_DIFFERENT_DEVICE_FP16;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
+import static androidx.media3.test.utils.TestUtil.assertBitmapsAreSimilar;
 import static androidx.media3.test.utils.VideoFrameProcessorTestRunner.VIDEO_FRAME_PROCESSING_WAIT_MS;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_720P_4_SECOND_HDR10_FORMAT;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_FORMAT;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
+import static androidx.media3.transformer.SequenceEffectTestUtil.PSNR_THRESHOLD;
 import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceSupportsHdrEditing;
 import static androidx.media3.transformer.mh.UnoptimizedGlEffect.NO_OP_EFFECT;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
@@ -47,6 +49,7 @@ import androidx.media3.common.util.Util;
 import androidx.media3.effect.BitmapOverlay;
 import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
+import androidx.media3.effect.GaussianBlur;
 import androidx.media3.effect.GlTextureProducer;
 import androidx.media3.effect.OverlayEffect;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
@@ -80,6 +83,9 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
       "test-generated-goldens/sample_mp4_first_frame/electrical_colors/original.png";
   private static final String BITMAP_OVERLAY_PNG_ASSET_PATH =
       "test-generated-goldens/sample_mp4_first_frame/electrical_colors/overlay_bitmap_FrameProcessor.png";
+  private static final String GAUSSIAN_BLUR_PNG_ASSET_PATH =
+      "test-generated-goldens/sample_mp4_first_frame/electrical_colors/gaussian_blur.png";
+
   private static final String OVERLAY_PNG_ASSET_PATH = "media/png/media3test.png";
   private static final String ULTRA_HDR_ASSET_PATH = "media/jpeg/ultraHDR.jpg";
 
@@ -173,6 +179,24 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
         getBitmapAveragePixelAbsoluteDifferenceArgb8888(expectedBitmap, actualBitmap, testId);
     assertThat(averagePixelAbsoluteDifference)
         .isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_DIFFERENT_DEVICE);
+  }
+
+  @Test
+  public void gaussianBlur_matchesGoldenFile() throws Exception {
+    assumeFormatsSupported(
+        getApplicationContext(),
+        testId,
+        /* inputFormat= */ MP4_ASSET_FORMAT,
+        /* outputFormat= */ null);
+    videoFrameProcessorTestRunner =
+        getDefaultFrameProcessorTestRunnerBuilder(testId)
+            .setEffects(new GaussianBlur(/* sigma= */ 5f))
+            .build();
+    videoFrameProcessorTestRunner.processFirstFrameAndEnd();
+    Bitmap actualBitmap = videoFrameProcessorTestRunner.getOutputBitmap();
+    Bitmap expectedBitmap = readBitmap(GAUSSIAN_BLUR_PNG_ASSET_PATH);
+
+    assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
   }
 
   @Test
