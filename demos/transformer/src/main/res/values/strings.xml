@@ -28,6 +28,7 @@
   <string name="scale" translatable="false">Scale video</string>
   <string name="rotate" translatable="false">Rotate video (degrees)</string>
   <string name="enable_fallback" translatable="false">Enable fallback</string>
+  <string name="enable_analyzer_mode" translatable="false">Enable analyzer mode</string>
   <string name="enable_debug_preview" translatable="false">Enable debug preview</string>
   <string name="enable_debug_tracing" translatable="false">Enable debug tracing</string>
   <string name="abort_slow_export" translatable="false">Abort slow export</string>

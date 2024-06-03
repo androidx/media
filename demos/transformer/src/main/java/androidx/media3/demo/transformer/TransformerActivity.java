@@ -87,6 +87,7 @@ import androidx.media3.transformer.DefaultMuxer;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.EditedMediaItemSequence;
 import androidx.media3.transformer.Effects;
+import androidx.media3.transformer.ExperimentalAnalyzerModeFactory;
 import androidx.media3.transformer.ExportException;
 import androidx.media3.transformer.ExportResult;
 import androidx.media3.transformer.InAppMuxer;
@@ -310,7 +311,24 @@ public final class TransformerActivity extends AppCompatActivity {
     "debugFrame",
   })
   private Transformer createTransformer(@Nullable Bundle bundle, Uri inputUri, String filePath) {
-    Transformer.Builder transformerBuilder = new Transformer.Builder(/* context= */ this);
+    Transformer.Builder transformerBuilder =
+        new Transformer.Builder(/* context= */ this)
+            .addListener(
+                new Transformer.Listener() {
+                  @Override
+                  public void onCompleted(Composition composition, ExportResult exportResult) {
+                    TransformerActivity.this.onCompleted(inputUri, filePath, exportResult);
+                  }
+
+                  @Override
+                  public void onError(
+                      Composition composition,
+                      ExportResult exportResult,
+                      ExportException exportException) {
+                    TransformerActivity.this.onError(exportException);
+                  }
+                });
+
     if (bundle != null) {
       @Nullable String audioMimeType = bundle.getString(ConfigurationActivity.AUDIO_MIME_TYPE);
       if (audioMimeType != null) {
@@ -339,25 +357,14 @@ public final class TransformerActivity extends AppCompatActivity {
       if (bundle.getBoolean(ConfigurationActivity.ENABLE_DEBUG_PREVIEW)) {
         transformerBuilder.setDebugViewProvider(new DemoDebugViewProvider());
       }
+
+      if (bundle.getBoolean(ConfigurationActivity.ENABLE_ANALYZER_MODE)) {
+        return ExperimentalAnalyzerModeFactory.buildAnalyzer(
+            this.getApplicationContext(), transformerBuilder.build());
+      }
     }
 
-    return transformerBuilder
-        .addListener(
-            new Transformer.Listener() {
-              @Override
-              public void onCompleted(Composition composition, ExportResult exportResult) {
-                TransformerActivity.this.onCompleted(inputUri, filePath, exportResult);
-              }
-
-              @Override
-              public void onError(
-                  Composition composition,
-                  ExportResult exportResult,
-                  ExportException exportException) {
-                TransformerActivity.this.onError(exportException);
-              }
-            })
-        .build();
+    return transformerBuilder.build();
   }
 
   /** Creates a cache file, resetting it if it already exists. */

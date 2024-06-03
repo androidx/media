@@ -77,6 +77,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
   public static final String TRIM_START_MS = "trim_start_ms";
   public static final String TRIM_END_MS = "trim_end_ms";
   public static final String ENABLE_FALLBACK = "enable_fallback";
+  public static final String ENABLE_ANALYZER_MODE = "enable_analyzer_mode";
   public static final String ENABLE_DEBUG_PREVIEW = "enable_debug_preview";
   public static final String ABORT_SLOW_EXPORT = "abort_slow_export";
   public static final String PRODUCE_FRAGMENTED_MP4 = "produce_fragmented_mp4";
@@ -170,6 +171,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
   private @MonotonicNonNull Spinner rotateSpinner;
   private @MonotonicNonNull CheckBox trimCheckBox;
   private @MonotonicNonNull CheckBox enableFallbackCheckBox;
+  private @MonotonicNonNull CheckBox enableAnalyzerModeCheckBox;
   private @MonotonicNonNull CheckBox enableDebugPreviewCheckBox;
   private @MonotonicNonNull CheckBox enableDebugTracingCheckBox;
   private @MonotonicNonNull CheckBox abortSlowExportCheckBox;
@@ -292,6 +294,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
     trimEndMs = C.TIME_UNSET;
 
     enableFallbackCheckBox = findViewById(R.id.enable_fallback_checkbox);
+    enableAnalyzerModeCheckBox = findViewById(R.id.enable_analyzer_mode_checkbox);
     enableDebugPreviewCheckBox = findViewById(R.id.enable_debug_preview_checkbox);
     enableDebugTracingCheckBox = findViewById(R.id.enable_debug_tracing_checkbox);
     enableDebugTracingCheckBox.setOnCheckedChangeListener(
@@ -365,6 +368,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
     "rotateSpinner",
     "trimCheckBox",
     "enableFallbackCheckBox",
+    "enableAnalyzerModeCheckBox",
     "enableDebugPreviewCheckBox",
     "abortSlowExportCheckBox",
     "produceFragmentedMp4CheckBox",
@@ -407,6 +411,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
       bundle.putLong(TRIM_END_MS, trimEndMs);
     }
     bundle.putBoolean(ENABLE_FALLBACK, enableFallbackCheckBox.isChecked());
+    bundle.putBoolean(ENABLE_ANALYZER_MODE, enableAnalyzerModeCheckBox.isChecked());
     bundle.putBoolean(ENABLE_DEBUG_PREVIEW, enableDebugPreviewCheckBox.isChecked());
     bundle.putBoolean(ABORT_SLOW_EXPORT, abortSlowExportCheckBox.isChecked());
     bundle.putBoolean(PRODUCE_FRAGMENTED_MP4, produceFragmentedMp4CheckBox.isChecked());
