@@ -201,6 +201,10 @@
         error state with the given error information
         ([#543](https://github.com/androidx/media/issues/543)).
 *   UI:
+    *   Add customisation of various icons in `PlayerControlView` through xml
+        attributes to allow different drawables per `PlayerView` instance,
+        rather than global overrides
+        ([#1200](https://github.com/androidx/media/issues/1200)).
 *   Downloads:
 *   OkHttp Extension:
 *   Cronet Extension:
