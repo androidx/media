@@ -96,4 +96,43 @@ public class GaussianBlurTest {
     assertThat(actualPresentationTimesUs).containsExactly(22_000L);
     getAndAssertOutputBitmaps(textureBitmapReader, actualPresentationTimesUs, testId, ASSET_PATH);
   }
+
+  @Test
+  public void gaussianBlur_withNegativeCoefficients_blursFrame() throws Exception {
+    GaussianFunction gaussianFunction =
+        new GaussianFunction(/* sigma= */ 5f, /* numStandardDeviations= */ 2f);
+    ImmutableList<Long> frameTimesUs = ImmutableList.of(22_000L);
+    ImmutableList<Long> actualPresentationTimesUs =
+        generateAndProcessFrames(
+            BLANK_FRAME_WIDTH,
+            BLANK_FRAME_HEIGHT,
+            frameTimesUs,
+            new SeparableConvolution() {
+              @Override
+              public ConvolutionFunction1D getConvolution(long presentationTimeUs) {
+                return new ConvolutionFunction1D() {
+
+                  @Override
+                  public float domainStart() {
+                    return gaussianFunction.domainStart();
+                  }
+
+                  @Override
+                  public float domainEnd() {
+                    return gaussianFunction.domainEnd();
+                  }
+
+                  @Override
+                  public float value(float samplePosition) {
+                    return -gaussianFunction.value(samplePosition);
+                  }
+                };
+              }
+            },
+            textureBitmapReader,
+            TEXT_SPAN_CONSUMER);
+
+    assertThat(actualPresentationTimesUs).containsExactly(22_000L);
+    getAndAssertOutputBitmaps(textureBitmapReader, actualPresentationTimesUs, testId, ASSET_PATH);
+  }
 }

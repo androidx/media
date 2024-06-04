@@ -80,6 +80,12 @@ import java.util.concurrent.ExecutionException;
 /** Utility methods for tests. */
 @UnstableApi
 public class TestUtil {
+  /**
+   * Luma PSNR values between 30 and 50 are considered good for lossy compression (See <a
+   * href="https://en.wikipedia.org/wiki/Peak_signal-to-noise_ratio#Quality_estimation_with_PSNR">Quality
+   * estimation with PSNR</a> ).
+   */
+  public static final float PSNR_THRESHOLD = 35f;
 
   private TestUtil() {}
 
