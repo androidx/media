@@ -237,6 +237,7 @@ public final class TransformerHdrSequenceEffectTest {
   @Test
   public void export720x1280Av1Hdr10_withAllAvailableDecoders_doesNotStretchOutputOnAny()
       throws Exception {
+    assumeDeviceSupportsHdrEditing(testId, MP4_ASSET_AV1_2_SECOND_HDR10_FORMAT);
     assumeFormatsSupported(
         context,
         testId,
