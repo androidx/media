@@ -3,6 +3,48 @@
 ### Unreleased changes
 
 *   Common Library:
+*   ExoPlayer:
+    *   Add `ExoPlayer.isReleased()` to check whether `Exoplayer.release()` has
+        been called.
+*   Transformer:
+*   Track Selection:
+*   Extractors:
+*   Audio:
+*   Video:
+*   Text:
+*   Metadata:
+*   DRM:
+*   Effect:
+*   Muxers:
+*   IMA extension:
+*   Session:
+*   UI:
+    *   Add customisation of various icons in `PlayerControlView` through xml
+        attributes to allow different drawables per `PlayerView` instance,
+        rather than global overrides
+        ([#1200](https://github.com/androidx/media/issues/1200)).
+*   Downloads:
+*   OkHttp Extension:
+*   Cronet Extension:
+*   RTMP Extension:
+*   HLS Extension:
+*   Smooth Streaming Extension:
+*   RTSP Extension:
+*   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
+*   MIDI extension:
+*   Leanback extension:
+*   Cast Extension:
+*   Test Utilities:
+*   Remove deprecated symbols:
+
+## 1.4
+
+### 1.4.0-alpha02 (2024-06-06)
+
+This release includes the following changes since the
+[1.4.0-alpha01 release](#140-alpha01-2024-04-11):
+
+*   Common Library:
     *   Forward presumed no-op seek calls to the protected `BasePlayer.seekTo`
         and `SimpleBasePlayer.handleSeek` methods instead of ignoring them. If
         you are implementing these methods in a custom player, you may need to
@@ -46,8 +88,8 @@
         You can enable this using `experimentalSetDynamicSchedulingEnabled` when
         setting up your ExoPlayer instance.
     *   Add `Renderer.getDurationToProgressMs`. A `Renderer` can implement this
-        method to return to ExoPlayer the duration that playback must advance in
-        order for the renderer to progress. If `ExoPlayer` is set with
+        method to return to ExoPlayer the duration that playback must advance
+        for the renderer to progress. If `ExoPlayer` is set with
         `experimentalSetDynamicSchedulingEnabled` then `ExoPlayer` will call
         this method when calculating the time to schedule its work task.
     *   Add `MediaCodecAdapter#OnBufferAvailableListener` to alert when input
@@ -56,12 +98,8 @@
         callbacks and if `ExoPlayer` is set with
         `experimentalSetDynamicSchedulingEnabled`, then `ExoPlayer` will
         schedule its work loop as renderers can make progress.
-    *   Fix bug where enabling CMCD for HLS with initialization segments
-        resulted in `Source Error` and `IllegalArgumentException`.
     *   Use data class for `LoadControl` methods instead of individual
         parameters.
-    *   Add `ExoPlayer.isReleased()` to check whether `Exoplayer.release()` has
-        been called.
 *   Transformer:
     *   Work around a decoder bug where the number of audio channels was capped
         at stereo when handling PCM input.
@@ -73,7 +111,6 @@
     *   Fix HEIC image loading from content URI schemes.
         ([#1373](https://github.com/androidx/media/issues/1373)).
     *   Adjust audio track duration in `AudioGraphInput` to improve AV sync.
-*   Track Selection:
 *   Extractors:
     *   MPEG-TS: Roll forward the change ensuring the last frame is rendered by
         passing the last access unit of a stream to the sample queue
@@ -167,15 +204,14 @@
         `ExoPlayer#setVideoEffects`
         ([#821](https://github.com/androidx/media/issues/821)).
     *   Change default SDR color working space from linear colors to electrical
-        BT 709 SDR video. Also provides third option to retain the original
+        BT 709 SDR video. Also provide third option to retain the original
         colorspace.
     *   Allow defining indeterminate z-order of EditedMediaItemSequences
         ([#1055](https://github.com/androidx/media/pull/1055)).
-    *   Maintain a consistent luminance range across different HDR content (uses
-        the HLG range).
+    *   Maintain a consistent luminance range across different pieces of HDR
+        content (uses the HLG range).
     *   Add support for Ultra HDR (bitmap) overlays on HDR content.
     *   Allow `SeparableConvolution` effects to be used before API 26.
-*   Muxers:
 *   IMA extension:
     *   Promote API that is required for apps to play
         [DAI ad streams](https://developers.google.com/ad-manager/dynamic-ad-insertion/full-service)
@@ -202,19 +238,11 @@
         is used to update the `PlaybackState` of the platform session to an
         error state with the given error information
         ([#543](https://github.com/androidx/media/issues/543)).
-*   UI:
-    *   Add customisation of various icons in `PlayerControlView` through xml
-        attributes to allow different drawables per `PlayerView` instance,
-        rather than global overrides
-        ([#1200](https://github.com/androidx/media/issues/1200)).
-*   Downloads:
-*   OkHttp Extension:
 *   Cronet Extension:
     *   Fix `SocketTimeoutException` in `CronetDataSource`. In some versions of
         Cronet, the request provided by the callback is not always the same.
         This leads to callback not completing and request timing out
         (https://issuetracker.google.com/328442628).
-*   RTMP Extension:
 *   HLS Extension:
     *   Fix bug where pending EMSG samples waiting for a discontinuity were
         delegated in `HlsSampleStreamWrapper` with an incorrect offset causing
@@ -222,21 +250,18 @@
         ([#1002](https://github.com/androidx/media/issues/1002)).
     *   Fix bug where non-primary playlists keep reloading for LL-HLS streams
         ([#1240](https://github.com/androidx/media/issues/1240)).
+    *   Fix bug where enabling CMCD for HLS with initialization segments
+        resulted in `Source Error` and `IllegalArgumentException`.
 *   DASH Extension:
     *   Fix bug where re-preparing a multi-period live stream can throw an
         `IndexOutOfBoundsException`
         ([#1329](https://github.com/androidx/media/issues/1329)).
     *   Add support for `dashif:Laurl` license urls
         ([#1345](https://github.com/androidx/media/issues/1345)).
-*   Smooth Streaming Extension:
-*   RTSP Extension:
-*   Decoder Extensions (FFmpeg, VP9, AV1, MIDI, etc.):
-*   Leanback extension:
 *   Cast Extension:
     *   Fix bug that converted the album title of the `MediaQueueItem` to the
         artist in the Media3 media item
         ([#1255](https://github.com/androidx/media/pull/1255)).
-*   Test Utilities:
 *   Demo app:
     *   Allow setting repeat mode with `Intent` arguments from command line
         ([#1266](https://github.com/androidx/media/pull/1266)).
@@ -268,8 +293,6 @@
         `FORMAT_UNSUPPORTED_SUBTYPE`, `FORMAT_UNSUPPORTED_TYPE` constants. Use
         the equivalent IntDef and constants in `androidx.media3.common.C`
         instead (e.g. `C.FORMAT_HANDLED`).
-
-## 1.4
 
 ### 1.4.0-alpha01 (2024-04-11)
 
