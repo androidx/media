@@ -71,7 +71,9 @@
   <attr name="fullscreen_enter_icon" format="reference"/>
   <attr name="show_timeout" format="integer"/>
   <attr name="show_rewind_button" format="boolean"/>
+  <attr name="rewind_icon" format="reference"/>
   <attr name="show_fastforward_button" format="boolean"/>
+  <attr name="fastforward_icon" format="reference"/>
   <attr name="show_previous_button" format="boolean"/>
   <attr name="previous_icon" format="reference"/>
   <attr name="show_next_button" format="boolean"/>
@@ -148,6 +150,8 @@
     <attr name="fullscreen_exit_icon"/>
     <attr name="next_icon"/>
     <attr name="previous_icon"/>
+    <attr name="fastforward_icon"/>
+    <attr name="rewind_icon"/>
     <!-- DefaultTimeBar attributes -->
     <attr name="bar_height"/>
     <attr name="bar_gravity"/>
@@ -203,7 +207,9 @@
     <attr name="repeat_one_icon"/>
     <attr name="repeat_all_icon"/>
     <attr name="show_rewind_button"/>
+    <attr name="rewind_icon"/>
     <attr name="show_fastforward_button"/>
+    <attr name="fastforward_icon"/>
     <attr name="show_previous_button"/>
     <attr name="previous_icon"/>
     <attr name="show_next_button"/>
