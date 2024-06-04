@@ -60,6 +60,8 @@
         resulted in `Source Error` and `IllegalArgumentException`.
     *   Use data class for `LoadControl` methods instead of individual
         parameters.
+    *   Add `ExoPlayer.isReleased()` to check whether `Exoplayer.release()` has
+        been called.
 *   Transformer:
     *   Work around a decoder bug where the number of audio channels was capped
         at stereo when handling PCM input.

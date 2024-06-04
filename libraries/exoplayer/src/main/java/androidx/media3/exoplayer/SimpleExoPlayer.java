@@ -1347,6 +1347,11 @@ public class SimpleExoPlayer extends BasePlayer
   }
 
   @Override
+  public boolean isReleased() {
+    return player.isReleased();
+  }
+
+  @Override
   public void setImageOutput(ImageOutput imageOutput) {
     blockUntilConstructorFinished();
     player.setImageOutput(imageOutput);

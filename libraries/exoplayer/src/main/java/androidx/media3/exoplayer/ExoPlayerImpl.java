@@ -1106,6 +1106,12 @@ import java.util.concurrent.TimeoutException;
   }
 
   @Override
+  public boolean isReleased() {
+    verifyApplicationThread();
+    return playerReleased;
+  }
+
+  @Override
   public PlayerMessage createMessage(Target target) {
     verifyApplicationThread();
     return createMessageInternal(target);

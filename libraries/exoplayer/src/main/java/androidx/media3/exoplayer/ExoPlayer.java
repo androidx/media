@@ -1957,6 +1957,23 @@ public interface ExoPlayer extends Player {
   boolean isTunnelingEnabled();
 
   /**
+   * {@inheritDoc}
+   *
+   * <p>The exception to the above rule is {@link #isReleased()} which can be called on a released
+   * player.
+   */
+  @Override
+  void release();
+
+  /**
+   * Returns whether {@link #release()} has been called on the player.
+   *
+   * <p>This method is allowed to be called after {@link #release()}.
+   */
+  @UnstableApi
+  boolean isReleased();
+
+  /**
    * Sets the {@link ImageOutput} where rendered images will be forwarded.
    *
    * @param imageOutput The {@link ImageOutput}.

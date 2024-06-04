@@ -429,6 +429,11 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
   }
 
   @Override
+  public boolean isReleased() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   public void setImageOutput(ImageOutput imageOutput) {
     throw new UnsupportedOperationException();
   }
