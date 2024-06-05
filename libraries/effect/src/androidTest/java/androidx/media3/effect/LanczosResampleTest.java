@@ -95,9 +95,10 @@ public class LanczosResampleTest {
   @Test
   public void queueInputFrame_with6xDownscale_matchesGoldenFile() throws Exception {
     float scale = 1f / 6;
-    lanczosShaderProgram =
-        new LanczosResample(/* radius= */ 3, scale).toGlShaderProgram(context, /* useHdr= */ false);
     Size outputSize = new Size((int) (inputWidth * scale), (int) (inputHeight * scale));
+    lanczosShaderProgram =
+        LanczosResample.scaleToFit(outputSize.getWidth(), outputSize.getHeight())
+            .toGlShaderProgram(context, /* useHdr= */ false);
     setupOutputTexture(outputSize.getWidth(), outputSize.getHeight());
     Bitmap expectedBitmap = readBitmap(DOWNSCALED_6X_PNG_ASSET_PATH);
     GlTextureInfo inputTextureInfo =

@@ -15,31 +15,98 @@
  */
 package androidx.media3.effect;
 
+import static androidx.media3.common.util.Assertions.checkArgument;
+import static java.lang.Math.round;
+
+import android.content.Context;
+import androidx.annotation.FloatRange;
+import androidx.annotation.IntRange;
+import androidx.media3.common.VideoFrameProcessingException;
+import androidx.media3.common.util.Size;
+import androidx.media3.common.util.UnstableApi;
+
 /**
- * A {@link SeparableConvolution} that applies a Lanczos-windowed sinc function when resampling an
- * image. See Filters for Common Resampling Tasks, Ken Turkowski.
+ * A {@link GlEffect} that applies a Lanczos-windowed sinc function when resampling an image. See
+ * Filters for Common Resampling Tasks, Ken Turkowski.
  *
  * <p>The filter rescales images in both dimensions with the same scaling factor.
  */
-/* package */ final class LanczosResample extends SeparableConvolution {
+@UnstableApi
+public final class LanczosResample implements GlEffect {
+  // Default value for the radius, or alpha parameter used by Lanczos filter. A value of 3 is
+  // used by ffmpeg (https://ffmpeg.org/ffmpeg-scaler.html), libplacebo, or Apple's vImage library.
+  private static final float DEFAULT_RADIUS = 3f;
 
   private final float radius;
-  private final float scale;
+  private final int width;
+  private final int height;
 
   /**
    * Creates an instance.
    *
-   * @param radius The non-zero radius of the Lanczos reconstruction kernel.
-   * @param scale The scaling factor to be applied when scaling the input image.
+   * @param width The width inside which the output contents will fit.
+   * @param height The height inside which the output contents will fit.
    */
-  public LanczosResample(float radius, float scale) {
-    super(scale, scale);
+  public static LanczosResample scaleToFit(
+      @IntRange(from = 1) int width, @IntRange(from = 1) int height) {
+    checkArgument(width > 0);
+    checkArgument(height > 0);
+    return new LanczosResample(DEFAULT_RADIUS, width, height);
+  }
+
+  private LanczosResample(float radius, int width, int height) {
     this.radius = radius;
-    this.scale = scale;
+    this.width = width;
+    this.height = height;
   }
 
   @Override
-  public ConvolutionFunction1D getConvolution(long presentationTimeUs) {
-    return new ScaledLanczosFunction(radius, scale);
+  public GlShaderProgram toGlShaderProgram(Context context, boolean useHdr)
+      throws VideoFrameProcessingException {
+    return new SeparableConvolutionShaderProgram(
+        context, useHdr, new LanczosResampleScaledFunctionProvider(radius, width, height));
+  }
+
+  private static class LanczosResampleScaledFunctionProvider
+      implements ConvolutionFunction1D.Provider {
+    // Note: We deliberately don't use Float.MIN_VALUE because it's positive & very close to zero.
+    private static final float SCALE_UNSET = -Float.MAX_VALUE;
+    private final float radius;
+    private final int width;
+    private final int height;
+
+    private float scale;
+
+    private LanczosResampleScaledFunctionProvider(
+        @FloatRange(from = 0, fromInclusive = false) float radius,
+        @IntRange(from = 1) int width,
+        @IntRange(from = 1) int height) {
+      checkArgument(radius > 0);
+      checkArgument(width > 0);
+      checkArgument(height > 0);
+      this.radius = radius;
+      this.width = width;
+      this.height = height;
+      scale = SCALE_UNSET;
+    }
+
+    @Override
+    public ConvolutionFunction1D getConvolution(long presentationTimeUs) {
+      return new ScaledLanczosFunction(radius, scale);
+    }
+
+    @Override
+    public Size configure(Size inputSize) {
+      checkArgument(inputSize.getWidth() > 0);
+      checkArgument(inputSize.getHeight() > 0);
+      // Scale to fit, preserving aspect ratio.
+      if (inputSize.getHeight() * width <= height * inputSize.getWidth()) {
+        scale = (float) width / inputSize.getWidth();
+        return new Size(width, round(inputSize.getHeight() * scale));
+      } else {
+        scale = (float) height / inputSize.getHeight();
+        return new Size(round(inputSize.getWidth() * scale), height);
+      }
+    }
   }
 }

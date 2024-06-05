@@ -15,6 +15,7 @@
  */
 package androidx.media3.effect;
 
+import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
 
 /**
@@ -24,6 +25,28 @@ import androidx.media3.common.util.UnstableApi;
  */
 @UnstableApi
 public interface ConvolutionFunction1D {
+
+  /** A configurable provider for {@link ConvolutionFunction1D} instances. */
+  interface Provider {
+
+    /**
+     * Configures the provider to return {@linkplain ConvolutionFunction1D 1D convolution functions}
+     * based on the input frame dimensions.
+     *
+     * <p>This method must be called before {@link #getConvolution(long)}.
+     *
+     * @param inputSize The input frame size on which to apply a convolution.
+     * @return The output frame size after applying the convolution.
+     */
+    Size configure(Size inputSize);
+
+    /**
+     * Returns a {@linkplain ConvolutionFunction1D 1D convolution function}.
+     *
+     * @param presentationTimeUs The presentation timestamp of the input frame, in microseconds.
+     */
+    ConvolutionFunction1D getConvolution(long presentationTimeUs);
+  }
 
   /** Returns the start of the domain. */
   float domainStart();

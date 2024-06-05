@@ -56,11 +56,13 @@ import android.content.Context;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.BitmapOverlay;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
+import androidx.media3.effect.LanczosResample;
 import androidx.media3.effect.OverlayEffect;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.RgbFilter;
@@ -399,6 +401,62 @@ public final class TransformerSequenceEffectTest {
         checkNotNull(result.filePath),
         /* psnrThreshold= */ 28.5f,
         /* frameCount= */ 2);
+  }
+
+  @Test
+  public void export_imageWithLanczosResample_completesWithHighPsnr() throws Exception {
+    int exportWidth = 640;
+    int exportHeight = 240;
+    Format outputFormat =
+        MP4_ASSET_WITH_INCREASING_TIMESTAMPS_FORMAT
+            .buildUpon()
+            .setWidth(exportWidth)
+            .setHeight(exportHeight)
+            .build();
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_FORMAT,
+        outputFormat);
+    Composition composition =
+        createComposition(
+            /* presentation= */ null,
+            new EditedMediaItem.Builder(MediaItem.fromUri(PNG_ASSET_LINES_1080P_URI_STRING))
+                .setFrameRate(30)
+                .setDurationUs(C.MICROS_PER_SECOND / 4)
+                .setEffects(
+                    new Effects(
+                        ImmutableList.of(),
+                        ImmutableList.of(LanczosResample.scaleToFit(exportWidth, exportHeight))))
+                .build());
+    // Some devices need a high bitrate to avoid encoding artifacts.
+    int bitrate = 2_000_000;
+    Codec.EncoderFactory encoderFactory =
+        new DefaultEncoderFactory.Builder(context)
+            .setRequestedVideoEncoderSettings(
+                new VideoEncoderSettings.Builder().setBitrate(bitrate).build())
+            .build();
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(new AndroidTestUtil.ForceEncodeEncoderFactory(encoderFactory))
+            .setVideoMimeType("video/avc")
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, composition);
+
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+    // The PSNR threshold was chosen based on:
+    // Moto G20 with Lanczos: 30.1
+    // Moto G20 with bilinear: 16.3
+    assertFramesMatchExpectedPsnrAndSave(
+        context,
+        testId,
+        checkNotNull(result.filePath),
+        /* psnrThreshold= */ 24,
+        /* frameCount= */ 1);
   }
 
   @Test

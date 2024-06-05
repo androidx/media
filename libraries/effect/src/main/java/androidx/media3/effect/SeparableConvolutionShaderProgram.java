@@ -53,9 +53,7 @@ public class SeparableConvolutionShaderProgram implements GlShaderProgram {
 
   private final GlProgram glProgram;
   private final boolean useHdr;
-  private final SeparableConvolution convolution;
-  private final float scaleWidth;
-  private final float scaleHeight;
+  private final ConvolutionFunction1D.Provider convolutionFunction1DProvider;
 
   private GlShaderProgram.InputListener inputListener;
   private GlShaderProgram.OutputListener outputListener;
@@ -94,10 +92,24 @@ public class SeparableConvolutionShaderProgram implements GlShaderProgram {
       float scaleWidth,
       float scaleHeight)
       throws VideoFrameProcessingException {
+    this(context, useHdr, new SeparableConvolutionWrapper(convolution, scaleWidth, scaleHeight));
+  }
+
+  /**
+   * Creates an instance.
+   *
+   * @param context The {@link Context}.
+   * @param useHdr Whether input textures come from an HDR source. If {@code true}, colors will be
+   *     in linear RGB BT.2020. If {@code false}, colors will be in linear RGB BT.709.
+   * @param convolutionFunction1DProvider The {@link ConvolutionFunction1D.Provider} which will
+   *     provide the 1D convolution function to apply in each direction.
+   * @throws VideoFrameProcessingException If a problem occurs while reading shader files.
+   */
+  public SeparableConvolutionShaderProgram(
+      Context context, boolean useHdr, ConvolutionFunction1D.Provider convolutionFunction1DProvider)
+      throws VideoFrameProcessingException {
     this.useHdr = useHdr;
-    this.convolution = convolution;
-    this.scaleWidth = scaleWidth;
-    this.scaleHeight = scaleHeight;
+    this.convolutionFunction1DProvider = convolutionFunction1DProvider;
     inputListener = new InputListener() {};
     outputListener = new OutputListener() {};
     errorListener = (frameProcessingException) -> {};
@@ -226,20 +238,6 @@ public class SeparableConvolutionShaderProgram implements GlShaderProgram {
     GlUtil.checkGlError();
   }
 
-  private Size configure(Size inputSize) {
-    // Draw the frame on the entire normalized device coordinate space, from -1 to 1, for x and y.
-    glProgram.setBufferAttribute(
-        "aFramePosition",
-        GlUtil.getNormalizedCoordinateBounds(),
-        GlUtil.HOMOGENEOUS_COORDINATE_VECTOR_SIZE);
-    float[] identityMatrix = GlUtil.create4x4IdentityMatrix();
-    glProgram.setFloatsUniform("uTransformationMatrix", identityMatrix);
-    glProgram.setFloatsUniform("uTexTransformationMatrix", identityMatrix);
-
-    return new Size(
-        (int) (inputSize.getWidth() * scaleWidth), (int) (inputSize.getHeight() * scaleHeight));
-  }
-
   private void renderHorizontal(GlTextureInfo inputTexture) throws GlUtil.GlException {
     // Render horizontal reads from the input texture and renders to the intermediate texture.
     GlUtil.focusFramebufferUsingCurrentContext(
@@ -259,8 +257,9 @@ public class SeparableConvolutionShaderProgram implements GlShaderProgram {
   private void ensureTexturesAreConfigured(
       GlObjectsProvider glObjectsProvider, Size inputSize, long presentationTimeUs)
       throws GlUtil.GlException {
+    outputSize = convolutionFunction1DProvider.configure(inputSize);
     ConvolutionFunction1D currentConvolutionFunction =
-        convolution.getConvolution(presentationTimeUs);
+        convolutionFunction1DProvider.getConvolution(presentationTimeUs);
     if (!currentConvolutionFunction.equals(lastConvolutionFunction)) {
       updateFunctionTexture(currentConvolutionFunction);
       lastConvolutionFunction = currentConvolutionFunction;
@@ -271,7 +270,15 @@ public class SeparableConvolutionShaderProgram implements GlShaderProgram {
       return;
     }
 
-    outputSize = configure(inputSize);
+    // Draw the frame on the entire normalized device coordinate space, from -1 to 1, for x and y.
+    glProgram.setBufferAttribute(
+        "aFramePosition",
+        GlUtil.getNormalizedCoordinateBounds(),
+        GlUtil.HOMOGENEOUS_COORDINATE_VECTOR_SIZE);
+    float[] identityMatrix = GlUtil.create4x4IdentityMatrix();
+    glProgram.setFloatsUniform("uTransformationMatrix", identityMatrix);
+    glProgram.setFloatsUniform("uTexTransformationMatrix", identityMatrix);
+
     // If there is a size change with the filtering (for example, a scaling operation), the first
     // pass is applied horizontally.  As a result, width of the intermediate texture will match the
     // output size, while the height will be unchanged from the input
@@ -370,5 +377,29 @@ public class SeparableConvolutionShaderProgram implements GlShaderProgram {
     int texId = GlUtil.createTexture(size.getWidth(), size.getHeight(), useHdr);
 
     return glObjectsProvider.createBuffersForTexture(texId, size.getWidth(), size.getHeight());
+  }
+
+  private static final class SeparableConvolutionWrapper implements ConvolutionFunction1D.Provider {
+    private final SeparableConvolution separableConvolution;
+    private final float scaleWidth;
+    private final float scaleHeight;
+
+    public SeparableConvolutionWrapper(
+        SeparableConvolution separableConvolution, float scaleWidth, float scaleHeight) {
+      this.separableConvolution = separableConvolution;
+      this.scaleWidth = scaleWidth;
+      this.scaleHeight = scaleHeight;
+    }
+
+    @Override
+    public ConvolutionFunction1D getConvolution(long presentationTimeUs) {
+      return separableConvolution.getConvolution(presentationTimeUs);
+    }
+
+    @Override
+    public Size configure(Size inputSize) {
+      return new Size(
+          (int) (inputSize.getWidth() * scaleWidth), (int) (inputSize.getHeight() * scaleHeight));
+    }
   }
 }

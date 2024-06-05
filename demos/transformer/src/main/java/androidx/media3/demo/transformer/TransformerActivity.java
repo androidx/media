@@ -67,6 +67,7 @@ import androidx.media3.effect.DrawableOverlay;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
 import androidx.media3.effect.HslAdjustment;
+import androidx.media3.effect.LanczosResample;
 import androidx.media3.effect.OverlayEffect;
 import androidx.media3.effect.OverlaySettings;
 import androidx.media3.effect.Presentation;
@@ -616,6 +617,7 @@ public final class TransformerActivity extends AppCompatActivity {
     int resolutionHeight =
         bundle.getInt(ConfigurationActivity.RESOLUTION_HEIGHT, /* defaultValue= */ C.LENGTH_UNSET);
     if (resolutionHeight != C.LENGTH_UNSET) {
+      effects.add(LanczosResample.scaleToFit(10000, resolutionHeight));
       effects.add(Presentation.createForHeight(resolutionHeight));
     }
 
