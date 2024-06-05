@@ -67,6 +67,7 @@ import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo;
 import androidx.versionedparcelable.ParcelUtils;
@@ -4205,7 +4206,7 @@ public class MediaSessionCompat {
 
     private static class ExtraSession extends IMediaSession.Stub {
 
-      private final AtomicReference<MediaSessionImplApi21> mMediaSessionImplRef;
+      private final AtomicReference<@NullableType MediaSessionImplApi21> mMediaSessionImplRef;
 
       ExtraSession(MediaSessionImplApi21 mediaSessionImpl) {
         mMediaSessionImplRef = new AtomicReference<>(mediaSessionImpl);
@@ -4277,9 +4278,9 @@ public class MediaSessionCompat {
       @Override
       public Bundle getSessionInfo() {
         MediaSessionImplApi21 mediaSessionImpl = mMediaSessionImplRef.get();
-        return mediaSessionImpl.mSessionInfo == null
-            ? null
-            : new Bundle(mediaSessionImpl.mSessionInfo);
+        return mediaSessionImpl != null && mediaSessionImpl.mSessionInfo != null
+            ? new Bundle(mediaSessionImpl.mSessionInfo)
+            : null;
       }
 
       @Override
