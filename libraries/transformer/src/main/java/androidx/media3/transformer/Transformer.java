@@ -1196,6 +1196,9 @@ public final class Transformer {
       }
       @ProgressState
       int processMediaStartProgressState = transformerInternal.getProgress(progressHolder);
+      if (processMediaStartProgressState == PROGRESS_STATE_NOT_STARTED) {
+        return PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
+      }
       if (processMediaStartProgressState == PROGRESS_STATE_AVAILABLE) {
         progressHolder.progress = round(progressHolder.progress * transcodeWeighting);
       }
