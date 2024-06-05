@@ -1196,13 +1196,18 @@ public final class Transformer {
       }
       @ProgressState
       int processMediaStartProgressState = transformerInternal.getProgress(progressHolder);
-      if (processMediaStartProgressState == PROGRESS_STATE_NOT_STARTED) {
-        return PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
+      switch (processMediaStartProgressState) {
+        case PROGRESS_STATE_NOT_STARTED:
+        case PROGRESS_STATE_WAITING_FOR_AVAILABILITY:
+          return PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
+        case PROGRESS_STATE_AVAILABLE:
+          progressHolder.progress = round(progressHolder.progress * transcodeWeighting);
+          return PROGRESS_STATE_AVAILABLE;
+        case PROGRESS_STATE_UNAVAILABLE:
+          return PROGRESS_STATE_UNAVAILABLE;
+        default:
+          throw new IllegalStateException();
       }
-      if (processMediaStartProgressState == PROGRESS_STATE_AVAILABLE) {
-        progressHolder.progress = round(progressHolder.progress * transcodeWeighting);
-      }
-      return processMediaStartProgressState;
     }
 
     float fullTranscodeProgress = 100 * transcodeWeighting;
@@ -1213,15 +1218,20 @@ public final class Transformer {
     }
     @ProgressState
     int remuxRemainingMediaProgressState = transformerInternal.getProgress(progressHolder);
-    if (remuxRemainingMediaProgressState == PROGRESS_STATE_NOT_STARTED
-        || remuxRemainingMediaProgressState == PROGRESS_STATE_WAITING_FOR_AVAILABILITY) {
-      progressHolder.progress = round(fullTranscodeProgress);
-      return PROGRESS_STATE_AVAILABLE;
-    } else if (remuxRemainingMediaProgressState == PROGRESS_STATE_AVAILABLE) {
-      progressHolder.progress =
-          round(fullTranscodeProgress + (1 - transcodeWeighting) * progressHolder.progress);
+    switch (remuxRemainingMediaProgressState) {
+      case PROGRESS_STATE_NOT_STARTED:
+      case PROGRESS_STATE_WAITING_FOR_AVAILABILITY:
+        progressHolder.progress = round(fullTranscodeProgress);
+        return PROGRESS_STATE_AVAILABLE;
+      case PROGRESS_STATE_AVAILABLE:
+        progressHolder.progress =
+            round(fullTranscodeProgress + (1 - transcodeWeighting) * progressHolder.progress);
+        return PROGRESS_STATE_AVAILABLE;
+      case PROGRESS_STATE_UNAVAILABLE:
+        return PROGRESS_STATE_UNAVAILABLE;
+      default:
+        throw new IllegalStateException();
     }
-    return remuxRemainingMediaProgressState;
   }
 
   /**
