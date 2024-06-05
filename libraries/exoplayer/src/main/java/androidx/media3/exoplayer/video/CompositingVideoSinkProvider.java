@@ -707,7 +707,6 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
 
     @Override
     public void render(long positionUs, long elapsedRealtimeUs) throws VideoSinkException {
-      checkState(isInitialized());
       try {
         CompositingVideoSinkProvider.this.render(positionUs, elapsedRealtimeUs);
       } catch (ExoPlaybackException e) {
