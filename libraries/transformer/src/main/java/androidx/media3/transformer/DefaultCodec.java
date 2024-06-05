@@ -53,7 +53,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.checkerframework.checker.initialization.qual.UnknownInitialization;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -163,7 +162,8 @@ public final class DefaultCodec implements Codec {
       } else {
         errorCode = ExportException.ERROR_CODE_FAILED_RUNTIME_CHECK;
       }
-      throw createExportException(e, errorCode, mediaCodecName);
+      throw createExportException(
+          configurationMediaFormat, isVideo, isDecoder, e, errorCode, mediaCodecName);
     }
     this.mediaCodec = mediaCodec;
     this.inputSurface = inputSurface;
@@ -442,6 +442,9 @@ public final class DefaultCodec implements Codec {
 
   private ExportException createExportException(Exception cause) {
     return createExportException(
+        configurationMediaFormat,
+        isVideo,
+        isDecoder,
         cause,
         isDecoder
             ? ExportException.ERROR_CODE_DECODING_FAILED
@@ -450,8 +453,10 @@ public final class DefaultCodec implements Codec {
   }
 
   /** Creates an {@link ExportException} with specific {@link MediaCodec} details. */
-  private ExportException createExportException(
-      @UnknownInitialization DefaultCodec this,
+  private static ExportException createExportException(
+      MediaFormat configurationMediaFormat,
+      boolean isVideo,
+      boolean isDecoder,
       Exception cause,
       @ExportException.ErrorCode int errorCode,
       String mediaCodecName) {
