@@ -639,7 +639,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       shouldUseVideoSink = hasEffects || !ownsVideoSink;
       hasSetShouldUseVideoSink = true;
     }
-    videoFrameReleaseControl.onEnabled(mayRenderStartOfStream);
+    if (shouldUseVideoSink) {
+      videoSink.onRendererEnabled(mayRenderStartOfStream);
+    } else {
+      videoFrameReleaseControl.onEnabled(mayRenderStartOfStream);
+    }
   }
 
   @Override
@@ -693,21 +697,33 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     droppedFrameAccumulationStartTimeMs = elapsedRealtimeMs;
     totalVideoFrameProcessingOffsetUs = 0;
     videoFrameProcessingOffsetCount = 0;
-    videoFrameReleaseControl.onStarted();
+    if (shouldUseVideoSink) {
+      videoSink.onRendererStarted();
+    } else {
+      videoFrameReleaseControl.onStarted();
+    }
   }
 
   @Override
   protected void onStopped() {
     maybeNotifyDroppedFrames();
     maybeNotifyVideoFrameProcessingOffset();
-    videoFrameReleaseControl.onStopped();
+    if (shouldUseVideoSink) {
+      videoSink.onRendererStopped();
+    } else {
+      videoFrameReleaseControl.onStopped();
+    }
     super.onStopped();
   }
 
   @Override
   protected void onDisabled() {
     reportedVideoSize = null;
-    videoFrameReleaseControl.onDisabled();
+    if (shouldUseVideoSink) {
+      videoSink.onRendererDisabled();
+    } else {
+      videoFrameReleaseControl.onDisabled();
+    }
     maybeSetupTunnelingForFirstFrame();
     haveReportedFirstFrameRenderedForCurrentSurface = false;
     tunnelingOnFrameRenderedListener = null;

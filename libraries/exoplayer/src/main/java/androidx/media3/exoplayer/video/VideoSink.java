@@ -36,7 +36,10 @@ import java.lang.annotation.Target;
 import java.util.List;
 import java.util.concurrent.Executor;
 
-/** A sink that consumes decoded video frames. */
+/**
+ * A sink that consumes decoded video frames from a video {@link
+ * androidx.media3.exoplayer.Renderer}.
+ */
 @UnstableApi
 public interface VideoSink {
 
@@ -103,6 +106,18 @@ public interface VideoSink {
 
   /** Input frames come from a {@link Bitmap}. */
   int INPUT_TYPE_BITMAP = 2;
+
+  /** Called when the renderer is enabled. */
+  void onRendererEnabled(boolean releaseFirstFrameBeforeStarted);
+
+  /** Called when the renderer is disabled. */
+  void onRendererDisabled();
+
+  /** Called when the renderer is started. */
+  void onRendererStarted();
+
+  /** Called when the renderer is stopped. */
+  void onRendererStopped();
 
   /**
    * Sets a {@link Listener} on this sink. Callbacks are triggered on the supplied {@link Executor}.

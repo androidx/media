@@ -501,6 +501,32 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
     // VideoSink impl
 
     @Override
+    public void onRendererEnabled(boolean releaseFirstFrameBeforeStarted) {
+      videoFrameReleaseControl.onEnabled(releaseFirstFrameBeforeStarted);
+    }
+
+    @Override
+    public void onRendererDisabled() {
+      videoFrameReleaseControl.onDisabled();
+    }
+
+    @Override
+    public void onRendererStarted() {
+      videoFrameReleaseControl.onStarted();
+    }
+
+    @Override
+    public void onRendererStopped() {
+      videoFrameReleaseControl.onStopped();
+    }
+
+    @Override
+    public void setListener(Listener listener, Executor executor) {
+      this.listener = listener;
+      listenerExecutor = executor;
+    }
+
+    @Override
     public void initialize(Format sourceFormat, Clock clock) throws VideoSinkException {
       checkState(!isInitialized());
       videoFrameProcessor = CompositingVideoSinkProvider.this.initialize(sourceFormat, clock);
@@ -579,12 +605,6 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
         checkState(lastBufferPresentationTimeUs != C.TIME_UNSET);
         pendingInputStreamBufferPresentationTimeUs = lastBufferPresentationTimeUs;
       }
-    }
-
-    @Override
-    public void setListener(Listener listener, Executor executor) {
-      this.listener = listener;
-      listenerExecutor = executor;
     }
 
     @Override

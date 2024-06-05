@@ -319,7 +319,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         throws ExoPlaybackException {
       super.onEnabled(joining, mayRenderStartOfStream);
       this.mayRenderStartOfStream = mayRenderStartOfStream;
-      videoFrameReleaseControl.onEnabled(mayRenderStartOfStream);
+      videoSink.onRendererEnabled(mayRenderStartOfStream);
       if (joining) {
         videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ false);
       }
@@ -340,7 +340,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     protected void onDisabled() {
       super.onDisabled();
-      videoFrameReleaseControl.onDisabled();
+      videoSink.onRendererDisabled();
     }
 
     @Override
@@ -376,13 +376,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     protected void onStarted() throws ExoPlaybackException {
       super.onStarted();
-      videoFrameReleaseControl.onStarted();
+      videoSink.onRendererStarted();
     }
 
     @Override
     protected void onStopped() {
       super.onStopped();
-      videoFrameReleaseControl.onStopped();
+      videoSink.onRendererStopped();
     }
 
     @Override
