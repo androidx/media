@@ -93,7 +93,7 @@ public class HlsChunkSourceTest {
   }
 
   @Test
-  public void getAdjustedSeekPositionUs_previousSync() throws IOException {
+  public void getAdjustedSeekPositionUs_previousSync() {
     HlsChunkSource testChunkSource = createHlsChunkSource(/* cmcdConfiguration= */ null);
 
     long adjustedPositionUs =
@@ -104,7 +104,7 @@ public class HlsChunkSourceTest {
   }
 
   @Test
-  public void getAdjustedSeekPositionUs_nextSync() throws IOException {
+  public void getAdjustedSeekPositionUs_nextSync() {
     HlsChunkSource testChunkSource = createHlsChunkSource(/* cmcdConfiguration= */ null);
 
     long adjustedPositionUs =
@@ -115,7 +115,7 @@ public class HlsChunkSourceTest {
   }
 
   @Test
-  public void getAdjustedSeekPositionUs_nextSyncAtEnd() throws IOException {
+  public void getAdjustedSeekPositionUs_nextSyncAtEnd() {
     HlsChunkSource testChunkSource = createHlsChunkSource(/* cmcdConfiguration= */ null);
 
     long adjustedPositionUs =
@@ -126,7 +126,7 @@ public class HlsChunkSourceTest {
   }
 
   @Test
-  public void getAdjustedSeekPositionUs_closestSyncBefore() throws IOException {
+  public void getAdjustedSeekPositionUs_closestSyncBefore() {
     HlsChunkSource testChunkSource = createHlsChunkSource(/* cmcdConfiguration= */ null);
 
     long adjustedPositionUs =
@@ -137,7 +137,7 @@ public class HlsChunkSourceTest {
   }
 
   @Test
-  public void getAdjustedSeekPositionUs_closestSyncAfter() throws IOException {
+  public void getAdjustedSeekPositionUs_closestSyncAfter() {
     HlsChunkSource testChunkSource = createHlsChunkSource(/* cmcdConfiguration= */ null);
 
     long adjustedPositionUs =
@@ -148,7 +148,7 @@ public class HlsChunkSourceTest {
   }
 
   @Test
-  public void getAdjustedSeekPositionUs_exact() throws IOException {
+  public void getAdjustedSeekPositionUs_exact() {
     HlsChunkSource testChunkSource = createHlsChunkSource(/* cmcdConfiguration= */ null);
 
     long adjustedPositionUs =
@@ -354,8 +354,7 @@ public class HlsChunkSourceTest {
 
   @Test
   public void
-      getNextChunk_chunkSourceWithCustomCmcdConfigurationAndCustomData_setsCmcdHttpRequestHeaders()
-          throws Exception {
+      getNextChunk_chunkSourceWithCustomCmcdConfigurationAndCustomData_setsCmcdHttpRequestHeaders() {
     CmcdConfiguration.Factory cmcdConfigurationFactory =
         mediaItem -> {
           CmcdConfiguration.RequestConfig cmcdRequestConfig =
@@ -405,8 +404,7 @@ public class HlsChunkSourceTest {
 
   @Test
   public void
-      getNextChunk_chunkSourceWithCustomCmcdConfigurationAndCustomData_setsCmcdHttpQueryParameters()
-          throws Exception {
+      getNextChunk_chunkSourceWithCustomCmcdConfigurationAndCustomData_setsCmcdHttpQueryParameters() {
     CmcdConfiguration.Factory cmcdConfigurationFactory =
         mediaItem -> {
           CmcdConfiguration.RequestConfig cmcdRequestConfig =
