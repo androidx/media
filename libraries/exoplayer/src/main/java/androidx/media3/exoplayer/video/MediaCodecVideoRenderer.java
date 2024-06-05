@@ -825,7 +825,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     // We only need to update the codec if the display surface has changed.
     if (this.displaySurface != displaySurface) {
       this.displaySurface = displaySurface;
-      videoFrameReleaseControl.setOutputSurface(displaySurface);
+      if (!shouldUseVideoSink) {
+        videoFrameReleaseControl.setOutputSurface(displaySurface);
+      }
       haveReportedFirstFrameRenderedForCurrentSurface = false;
 
       @State int state = getState();
@@ -1230,7 +1232,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     }
     decodedVideoSize =
         new VideoSize(width, height, unappliedRotationDegrees, pixelWidthHeightRatio);
-    videoFrameReleaseControl.setFrameRate(format.frameRate);
 
     if (shouldUseVideoSink) {
       onReadyToRegisterVideoSinkInputStream();
@@ -1243,6 +1244,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
               .setRotationDegrees(unappliedRotationDegrees)
               .setPixelWidthHeightRatio(pixelWidthHeightRatio)
               .build());
+    } else {
+      videoFrameReleaseControl.setFrameRate(format.frameRate);
     }
   }
 
@@ -1454,9 +1457,12 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @Override
   protected void onProcessedStreamChange() {
     super.onProcessedStreamChange();
-    videoFrameReleaseControl.onProcessedStreamChange();
+    if (shouldUseVideoSink) {
+      videoSink.setStreamOffsetUs(getOutputStreamOffsetUs());
+    } else {
+      videoFrameReleaseControl.onProcessedStreamChange();
+    }
     maybeSetupTunnelingForFirstFrame();
-    videoSink.setStreamOffsetUs(getOutputStreamOffsetUs());
   }
 
   /**

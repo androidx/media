@@ -575,6 +575,7 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
         default:
           throw new UnsupportedOperationException("Unsupported input type " + inputType);
       }
+      videoFrameReleaseControl.setFrameRate(format.frameRate);
       // MediaCodec applies rotation after API 21.
       if (inputType == INPUT_TYPE_SURFACE
           && Util.SDK_INT < 21

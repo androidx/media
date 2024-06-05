@@ -432,8 +432,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 .setWidth(outputImage.getWidth())
                 .setHeight(outputImage.getHeight())
                 .setColorInfo(ColorInfo.SRGB_BT709_FULL)
+                .setFrameRate(/* frameRate= */ DEFAULT_FRAME_RATE)
                 .build());
-        videoFrameReleaseControl.setFrameRate(/* frameRate= */ DEFAULT_FRAME_RATE);
         inputStreamPendingRegistration = false;
       }
       return videoSink.queueBitmap(outputImage, checkStateNotNull(timestampIterator));
