@@ -1319,6 +1319,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
             isLastBuffer,
             videoFrameReleaseInfo);
 
+    if (frameReleaseAction == VideoFrameReleaseControl.FRAME_RELEASE_IGNORE) {
+      // The buffer is no longer valid and needs to be ignored.
+      return false;
+    }
+
     // Skip decode-only buffers, e.g. after seeking, immediately. This check must be performed after
     // getting the release action from the video frame release control although not necessary.
     // That's because the release control estimates the content frame rate from frame timestamps
@@ -1370,8 +1375,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         dropOutputBuffer(codec, bufferIndex, presentationTimeUs);
         updateVideoFrameProcessingOffsetCounters(videoFrameReleaseInfo.getEarlyUs());
         return true;
-      case VideoFrameReleaseControl.FRAME_RELEASE_IGNORE:
-        // Falls with next case.
       case VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER:
         return false;
       case VideoFrameReleaseControl.FRAME_RELEASE_SCHEDULED:

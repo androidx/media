@@ -147,6 +147,8 @@ This release includes the following changes since the
     *   Fix decoder fallback logic for Dolby Vision to use a compatible AV1
         decoder if needed
         ([#1389](https://github.com/androidx/media/pull/1389)).
+    *   Fix codec exception that may be caused by enabling a video renderer
+        mid-playback.
 *   Text:
     *   Fix issue where subtitles starting before a seek position are skipped.
         This issue was only introduced in Media3 1.4.0-alpha01.
