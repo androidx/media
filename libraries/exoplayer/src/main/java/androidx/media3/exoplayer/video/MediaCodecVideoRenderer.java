@@ -150,6 +150,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private final VideoFrameReleaseControl videoFrameReleaseControl;
   private final VideoFrameReleaseControl.FrameReleaseInfo videoFrameReleaseInfo;
 
+  private boolean shouldUseVideoSink;
+  private boolean hasSetShouldUseVideoSink;
   private @MonotonicNonNull CodecMaxValues codecMaxValues;
   private boolean codecNeedsSetOutputSurfaceWorkaround;
   private boolean codecHandlesHdr10PlusOutOfBandMetadata;
@@ -167,7 +169,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private VideoSize decodedVideoSize;
   @Nullable private VideoSize reportedVideoSize;
   private boolean hasEffects;
-  private boolean hasInitializedPlayback;
   private int rendererPriority;
 
   private boolean tunneling;
@@ -632,6 +633,16 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       releaseCodec();
     }
     eventDispatcher.enabled(decoderCounters);
+    if (!hasSetShouldUseVideoSink) {
+      // If the video sink provider is created by the renderer, we only enable effects preview (by
+      // using the video sink) on the first time the renderer is enabled and if effects are
+      // already set. We do not enable effects mid-playback. For effects to be enabled after
+      // playback has started, the renderer needs to be reset first.
+      boolean enableEffectsForOwnSinkProvider = ownsVideoSink && hasEffects;
+      // We always use the video sink if the video sink provider is passed to the renderer.
+      shouldUseVideoSink = enableEffectsForOwnSinkProvider || !ownsVideoSink;
+      hasSetShouldUseVideoSink = true;
+    }
     videoFrameReleaseControl.onEnabled(mayRenderStartOfStream);
   }
 
@@ -718,7 +729,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     try {
       super.onReset();
     } finally {
-      hasInitializedPlayback = false;
+      hasSetShouldUseVideoSink = false;
       if (placeholderSurface != null) {
         releasePlaceholderSurface();
       }
@@ -1041,15 +1052,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @CallSuper
   @Override
   protected void onReadyToInitializeCodec(Format format) throws ExoPlaybackException {
-    // If the video sink provider is created by the renderer, we only enable effects preview (by
-    // using the video sink) on the first time a codec is initialized and if effects are
-    // already set. We do not enable effects mid-playback. For effects to be enabled after
-    // playback has started, the renderer needs to be reset first.
-    boolean enableEffectsForOwnSinkProvider =
-        ownsVideoSink && hasEffects && !hasInitializedPlayback;
-    // We always use the video sink if the video sink provider is passed to the renderer.
-    boolean useVideoSink = enableEffectsForOwnSinkProvider || !ownsVideoSink;
-    if (useVideoSink) {
+    if (shouldUseVideoSink) {
       if (!videoSink.isInitialized()) {
         try {
           videoSink.initialize(format, getClock());
@@ -1093,7 +1096,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
           // again, so there's no need to do two hops.
           directExecutor());
     }
-    hasInitializedPlayback = true;
   }
 
   /** Sets the {@linkplain Effect video effects} to apply. */
