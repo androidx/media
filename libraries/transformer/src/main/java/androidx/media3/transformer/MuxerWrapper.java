@@ -230,7 +230,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   @Nullable
   @VisibleForTesting(otherwise = PRIVATE)
-  public static List<byte[]> getMostComatibleInitializationData(
+  public static List<byte[]> getMostCompatibleInitializationData(
       Format existingVideoTrackFormat, Format newVideoTrackFormat) {
     if (existingVideoTrackFormat.initializationDataEquals(newVideoTrackFormat)) {
       return existingVideoTrackFormat.initializationData;
@@ -391,7 +391,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               .build();
       if (muxerMode == MUXER_MODE_MUX_PARTIAL) {
         List<byte[]> mostCompatibleInitializationData =
-            getMostComatibleInitializationData(format, checkNotNull(appendVideoFormat));
+            getMostCompatibleInitializationData(format, checkNotNull(appendVideoFormat));
         if (mostCompatibleInitializationData == null) {
           throw new AppendTrackFormatException("Switching to MUXER_MODE_APPEND will fail.");
         }

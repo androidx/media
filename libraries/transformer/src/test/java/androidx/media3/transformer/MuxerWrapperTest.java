@@ -449,7 +449,7 @@ public class MuxerWrapperTest {
             .setInitializationData(ImmutableList.of(new byte[] {1, 2, 3, 4}))
             .build();
 
-    assertThat(MuxerWrapper.getMostComatibleInitializationData(existingFormat, otherFormat))
+    assertThat(MuxerWrapper.getMostCompatibleInitializationData(existingFormat, otherFormat))
         .isNull();
   }
 
@@ -467,7 +467,7 @@ public class MuxerWrapperTest {
             .build();
 
     List<byte[]> initializationData =
-        MuxerWrapper.getMostComatibleInitializationData(existingFormat, otherFormat);
+        MuxerWrapper.getMostCompatibleInitializationData(existingFormat, otherFormat);
 
     assertThat(initializationData).hasSize(1);
     Byte[] expectedInitializationData = new Byte[] {1, 2, 3, 4};
@@ -491,7 +491,7 @@ public class MuxerWrapperTest {
             .build();
 
     List<byte[]> initializationData =
-        MuxerWrapper.getMostComatibleInitializationData(existingFormat, otherFormat);
+        MuxerWrapper.getMostCompatibleInitializationData(existingFormat, otherFormat);
 
     assertThat(initializationData).hasSize(1);
     Byte[] expectedInitializationData = new Byte[] {1, 2, 3, 4};
@@ -517,7 +517,7 @@ public class MuxerWrapperTest {
             .build();
 
     List<byte[]> initializationData =
-        MuxerWrapper.getMostComatibleInitializationData(existingFormat, otherFormat);
+        MuxerWrapper.getMostCompatibleInitializationData(existingFormat, otherFormat);
 
     assertThat(initializationData).hasSize(2);
     Byte[] expectedInitializationDataSps = new Byte[] {0, 0, 0, 1, 103, 100, 0, 41};
@@ -547,7 +547,7 @@ public class MuxerWrapperTest {
                 ImmutableList.of(new byte[] {0, 0, 0, 1, 103, 100, 0, 41}, new byte[] {0, 0, 0, 1}))
             .build();
 
-    assertThat(MuxerWrapper.getMostComatibleInitializationData(existingFormat, otherFormat))
+    assertThat(MuxerWrapper.getMostCompatibleInitializationData(existingFormat, otherFormat))
         .isNull();
   }
 
@@ -565,7 +565,7 @@ public class MuxerWrapperTest {
                 ImmutableList.of(new byte[] {0, 0, 0, 1, 103, 100, 0, 41}, new byte[] {0, 0, 0, 1}))
             .build();
 
-    assertThat(MuxerWrapper.getMostComatibleInitializationData(existingFormat, otherFormat))
+    assertThat(MuxerWrapper.getMostCompatibleInitializationData(existingFormat, otherFormat))
         .isNull();
   }
 
