@@ -79,6 +79,8 @@ public class PlaybackException extends Exception implements Bundleable {
         ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
         ERROR_CODE_AUDIO_TRACK_INIT_FAILED,
         ERROR_CODE_AUDIO_TRACK_WRITE_FAILED,
+        ERROR_CODE_AUDIO_TRACK_OFFLOAD_INIT_FAILED,
+        ERROR_CODE_AUDIO_TRACK_OFFLOAD_WRITE_FAILED,
         ERROR_CODE_DRM_UNSPECIFIED,
         ERROR_CODE_DRM_SCHEME_UNSUPPORTED,
         ERROR_CODE_DRM_PROVISIONING_FAILED,
@@ -224,12 +226,11 @@ public class PlaybackException extends Exception implements Bundleable {
   /** Caused by an AudioTrack write operation failure. */
   public static final int ERROR_CODE_AUDIO_TRACK_WRITE_FAILED = 5002;
 
-  // TODO(b/299907254): Stabilize error code, remove @UnstableApi annotation, and add to IntDef
   /** Caused by an AudioTrack write operation failure in offload mode. */
-  @UnstableApi public static final int ERROR_CODE_AUDIO_TRACK_OFFLOAD_WRITE_FAILED = 5003;
+  public static final int ERROR_CODE_AUDIO_TRACK_OFFLOAD_WRITE_FAILED = 5003;
 
-  /** Caused by an AudioTrack write operation failure in offload mode. */
-  @UnstableApi public static final int ERROR_CODE_AUDIO_TRACK_OFFLOAD_INIT_FAILED = 5004;
+  /** Caused by an AudioTrack init operation failure in offload mode. */
+  public static final int ERROR_CODE_AUDIO_TRACK_OFFLOAD_INIT_FAILED = 5004;
 
   // DRM errors (6xxx).
 
