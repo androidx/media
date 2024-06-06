@@ -997,7 +997,7 @@ public class TransformerEndToEndTest {
 
     assertThat(exception).hasCauseThat().isInstanceOf(IllegalArgumentException.class);
     assertThat(exception.errorCode).isEqualTo(ExportException.ERROR_CODE_ENCODER_INIT_FAILED);
-    assertThat(exception).hasMessageThat().contains("video");
+    assertThat(exception.codecInfo.isVideo).isTrue();
   }
 
   @Test
@@ -1813,9 +1813,8 @@ public class TransformerEndToEndTest {
       throw ExportException.createForCodec(
           new IllegalArgumentException(),
           ExportException.ERROR_CODE_ENCODER_INIT_FAILED,
-          /* isVideo= */ true,
-          /* isDecoder= */ false,
-          format);
+          new ExportException.CodecInfo(
+              format.toString(), /* isVideo= */ true, /* isDecoder= */ false, /* name= */ null));
     }
 
     @Override

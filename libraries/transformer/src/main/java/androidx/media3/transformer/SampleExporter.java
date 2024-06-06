@@ -208,8 +208,7 @@ import java.util.List;
     return ExportException.createForCodec(
         new IllegalArgumentException(errorMessage),
         errorCode,
-        isVideo,
-        /* isDecoder= */ false,
-        format);
+        new ExportException.CodecInfo(
+            format.toString(), isVideo, /* isDecoder= */ false, /* name= */ null));
   }
 }

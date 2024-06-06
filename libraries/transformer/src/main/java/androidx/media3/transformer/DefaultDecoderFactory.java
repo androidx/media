@@ -389,8 +389,10 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
     return ExportException.createForCodec(
         new IllegalArgumentException(reason),
         ExportException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
-        MimeTypes.isVideo(checkNotNull(format.sampleMimeType)),
-        /* isDecoder= */ true,
-        format);
+        new ExportException.CodecInfo(
+            format.toString(),
+            MimeTypes.isVideo(checkNotNull(format.sampleMimeType)),
+            /* isDecoder= */ true,
+            /* name= */ null));
   }
 }

@@ -711,9 +711,11 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     return ExportException.createForCodec(
         new IllegalArgumentException(errorString),
         ExportException.ERROR_CODE_ENCODING_FORMAT_UNSUPPORTED,
-        MimeTypes.isVideo(format.sampleMimeType),
-        /* isDecoder= */ false,
-        format);
+        new ExportException.CodecInfo(
+            format.toString(),
+            MimeTypes.isVideo(format.sampleMimeType),
+            /* isDecoder= */ false,
+            /* name= */ null));
   }
 
   private static boolean deviceNeedsDefaultFrameRateWorkaround() {

@@ -460,9 +460,10 @@ public final class DefaultCodec implements Codec {
       Exception cause,
       @ExportException.ErrorCode int errorCode,
       String mediaCodecName) {
-    String codecDetails =
-        "mediaFormat=" + configurationMediaFormat + ", mediaCodecName=" + mediaCodecName;
-    return ExportException.createForCodec(cause, errorCode, isVideo, isDecoder, codecDetails);
+    ExportException.CodecInfo codecInfo =
+        new ExportException.CodecInfo(
+            configurationMediaFormat.toString(), isVideo, isDecoder, mediaCodecName);
+    return ExportException.createForCodec(cause, errorCode, codecInfo);
   }
 
   private static Format convertToFormat(
