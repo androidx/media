@@ -61,7 +61,7 @@ import java.util.List;
  * MediaSession#setPlayer(Player)}. Use this wrapper for extra checks before calling methods and/or
  * overriding the behavior.
  */
-/* package */ class PlayerWrapper extends ForwardingPlayer {
+/* package */ final class PlayerWrapper extends ForwardingPlayer {
 
   private static final int STATUS_CODE_SUCCESS_COMPAT = -1;
 
