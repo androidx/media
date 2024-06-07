@@ -21,8 +21,8 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_SURFACE_TEXTURE_TRANSFORM_FIX;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
-import static androidx.media3.transformer.AndroidTestUtil.BT601_ASSET_FORMAT;
-import static androidx.media3.transformer.AndroidTestUtil.BT601_ASSET_URI_STRING;
+import static androidx.media3.transformer.AndroidTestUtil.BT601_MOV_ASSET_FORMAT;
+import static androidx.media3.transformer.AndroidTestUtil.BT601_MOV_ASSET_URI_STRING;
 import static androidx.media3.transformer.AndroidTestUtil.JPG_ASSET_URI_STRING;
 import static androidx.media3.transformer.AndroidTestUtil.JPG_PORTRAIT_ASSET_URI_STRING;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_AV1_VIDEO_FORMAT;
@@ -228,18 +228,20 @@ public final class TransformerSequenceEffectTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ BT601_ASSET_FORMAT,
-        /* outputFormat= */ BT601_ASSET_FORMAT);
+        /* inputFormat= */ BT601_MOV_ASSET_FORMAT,
+        /* outputFormat= */ BT601_MOV_ASSET_FORMAT);
     List<MediaCodecInfo> mediaCodecInfoList =
         MediaCodecSelector.DEFAULT.getDecoderInfos(
-            checkNotNull(BT601_ASSET_FORMAT.sampleMimeType),
+            checkNotNull(BT601_MOV_ASSET_FORMAT.sampleMimeType),
             /* requiresSecureDecoder= */ false,
             /* requiresTunnelingDecoder= */ false);
     Composition composition =
         createComposition(
             /* presentation= */ null,
             clippedVideo(
-                BT601_ASSET_URI_STRING, NO_EFFECT, /* endPositionMs= */ C.MILLIS_PER_SECOND / 4));
+                BT601_MOV_ASSET_URI_STRING,
+                NO_EFFECT,
+                /* endPositionMs= */ C.MILLIS_PER_SECOND / 4));
 
     boolean atLeastOneDecoderSucceeds = false;
     for (MediaCodecInfo mediaCodecInfo : mediaCodecInfoList) {
@@ -556,12 +558,12 @@ public final class TransformerSequenceEffectTest {
     assumeFormatsSupported(
         context, testId, /* inputFormat= */ MP4_ASSET_FORMAT, /* outputFormat= */ MP4_ASSET_FORMAT);
     assumeFormatsSupported(
-        context, testId, /* inputFormat= */ BT601_ASSET_FORMAT, /* outputFormat= */ null);
+        context, testId, /* inputFormat= */ BT601_MOV_ASSET_FORMAT, /* outputFormat= */ null);
     Composition composition =
         createComposition(
             Presentation.createForHeight(EXPORT_HEIGHT),
             clippedVideo(
-                BT601_ASSET_URI_STRING,
+                BT601_MOV_ASSET_URI_STRING,
                 ImmutableList.of(RgbFilter.createInvertedFilter()),
                 SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS),
             clippedVideo(MP4_ASSET_URI_STRING, NO_EFFECT, SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS));
@@ -581,12 +583,12 @@ public final class TransformerSequenceEffectTest {
     assumeFormatsSupported(
         context, testId, /* inputFormat= */ MP4_ASSET_FORMAT, /* outputFormat= */ MP4_ASSET_FORMAT);
     assumeFormatsSupported(
-        context, testId, /* inputFormat= */ BT601_ASSET_FORMAT, /* outputFormat= */ null);
+        context, testId, /* inputFormat= */ BT601_MOV_ASSET_FORMAT, /* outputFormat= */ null);
     Composition composition =
         createComposition(
             Presentation.createForHeight(EXPORT_HEIGHT),
             clippedVideo(
-                BT601_ASSET_URI_STRING,
+                BT601_MOV_ASSET_URI_STRING,
                 ImmutableList.of(RgbFilter.createInvertedFilter()),
                 SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS),
             oneFrameFromImage(JPG_ASSET_URI_STRING, NO_EFFECT));

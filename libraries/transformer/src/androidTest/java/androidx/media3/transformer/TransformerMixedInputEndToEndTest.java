@@ -17,6 +17,9 @@
 
 package androidx.media3.transformer;
 
+import static androidx.media3.transformer.AndroidTestUtil.BT601_MP4_ASSET_FORMAT;
+import static androidx.media3.transformer.AndroidTestUtil.BT601_MP4_ASSET_FRAME_COUNT;
+import static androidx.media3.transformer.AndroidTestUtil.BT601_MP4_ASSET_URI_STRING;
 import static androidx.media3.transformer.AndroidTestUtil.JPG_ASSET_URI_STRING;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_FORMAT;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_FRAME_COUNT;
@@ -28,7 +31,10 @@ import static com.google.common.truth.Truth.assertThat;
 import android.content.Context;
 import android.net.Uri;
 import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.effect.Presentation;
 import androidx.test.core.app.ApplicationProvider;
@@ -51,6 +57,16 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class TransformerMixedInputEndToEndTest {
 
+  // Image by default are encoded in H265 and BT709 SDR.
+  private static final Format IMAGE_VIDEO_ENCODING_FORMAT =
+      new Format.Builder()
+          .setSampleMimeType(MimeTypes.VIDEO_H265)
+          .setFrameRate(30.f)
+          .setWidth(480)
+          .setHeight(360)
+          .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
+          .build();
+
   private final Context context = ApplicationProvider.getApplicationContext();
   @Rule public final TestName testName = new TestName();
 
@@ -65,7 +81,10 @@ public class TransformerMixedInputEndToEndTest {
   public void videoEditing_withImageThenVideoInputs_completesWithCorrectFrameCount()
       throws Exception {
     assumeFormatsSupported(
-        context, testId, /* inputFormat= */ MP4_ASSET_FORMAT, /* outputFormat= */ MP4_ASSET_FORMAT);
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_FORMAT,
+        /* outputFormat= */ IMAGE_VIDEO_ENCODING_FORMAT);
     Transformer transformer =
         new Transformer.Builder(context)
             .setEncoderFactory(
@@ -116,10 +135,18 @@ public class TransformerMixedInputEndToEndTest {
 
   @Test
   public void
-      videoEditing_withComplexVideoAndImageInputsEndWithVideo_completesWithCorrectFrameCount()
+      videoEditing_withComplexMixedColorSpaceSdrVideoAndImageInputsEndWithVideo_completesWithCorrectFrameCount()
           throws Exception {
     assumeFormatsSupported(
-        context, testId, /* inputFormat= */ MP4_ASSET_FORMAT, /* outputFormat= */ MP4_ASSET_FORMAT);
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_FORMAT,
+        /* outputFormat= */ BT601_MP4_ASSET_FORMAT);
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ BT601_MP4_ASSET_FORMAT,
+        /* outputFormat= */ BT601_MP4_ASSET_FORMAT);
     Transformer transformer =
         new Transformer.Builder(context)
             .setEncoderFactory(
@@ -131,7 +158,9 @@ public class TransformerMixedInputEndToEndTest {
         createImageEditedMediaItem(PNG_ASSET_URI_STRING, /* frameCount= */ imageFrameCount);
     EditedMediaItem imageEditedMediaItem2 =
         createImageEditedMediaItem(JPG_ASSET_URI_STRING, /* frameCount= */ imageFrameCount);
-    EditedMediaItem videoEditedMediaItem =
+    EditedMediaItem bt601VideoEditedMediaItem =
+        createVideoEditedMediaItem(BT601_MP4_ASSET_URI_STRING, /* height= */ 360);
+    EditedMediaItem bt709VideoEditedMediaItem =
         createVideoEditedMediaItem(MP4_ASSET_URI_STRING, /* height= */ 360);
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, transformer)
@@ -139,25 +168,35 @@ public class TransformerMixedInputEndToEndTest {
             .run(
                 testId,
                 buildComposition(
-                    videoEditedMediaItem,
-                    videoEditedMediaItem,
+                    bt601VideoEditedMediaItem,
+                    bt709VideoEditedMediaItem,
                     imageEditedMediaItem1,
                     imageEditedMediaItem2,
-                    videoEditedMediaItem,
+                    bt709VideoEditedMediaItem,
                     imageEditedMediaItem1,
-                    videoEditedMediaItem));
+                    bt601VideoEditedMediaItem));
 
     assertThat(result.exportResult.videoFrameCount)
-        .isEqualTo(3 * imageFrameCount + 4 * MP4_ASSET_FRAME_COUNT);
+        .isEqualTo(
+            3 * imageFrameCount + 2 * MP4_ASSET_FRAME_COUNT + 2 * BT601_MP4_ASSET_FRAME_COUNT);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
   public void
-      videoEditing_withComplexVideoAndImageInputsEndWithImage_completesWithCorrectFrameCount()
+      videoEditing_withComplexMixedColorSpaceSdrVideoAndImageInputsEndWithImage_completesWithCorrectFrameCount()
           throws Exception {
+
     assumeFormatsSupported(
-        context, testId, /* inputFormat= */ MP4_ASSET_FORMAT, /* outputFormat= */ MP4_ASSET_FORMAT);
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_FORMAT,
+        /* outputFormat= */ IMAGE_VIDEO_ENCODING_FORMAT);
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ BT601_MP4_ASSET_FORMAT,
+        /* outputFormat= */ IMAGE_VIDEO_ENCODING_FORMAT);
     Transformer transformer =
         new Transformer.Builder(context)
             .setEncoderFactory(
@@ -167,9 +206,9 @@ public class TransformerMixedInputEndToEndTest {
     int imageFrameCount = 34;
     EditedMediaItem imageEditedMediaItem =
         createImageEditedMediaItem(PNG_ASSET_URI_STRING, /* frameCount= */ imageFrameCount);
-    // Result of the following command:
-    // ffprobe -count_frames -select_streams v:0 -show_entries stream=nb_read_frames sample.mp4
-    EditedMediaItem videoEditedMediaItem =
+    EditedMediaItem bt601VideoEditedMediaItem =
+        createVideoEditedMediaItem(BT601_MP4_ASSET_URI_STRING, /* height= */ 480);
+    EditedMediaItem bt709VideoEditedMediaItem =
         createVideoEditedMediaItem(MP4_ASSET_URI_STRING, /* height= */ 480);
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, transformer)
@@ -178,15 +217,107 @@ public class TransformerMixedInputEndToEndTest {
                 testId,
                 buildComposition(
                     imageEditedMediaItem,
-                    videoEditedMediaItem,
-                    videoEditedMediaItem,
+                    bt709VideoEditedMediaItem,
+                    bt601VideoEditedMediaItem,
                     imageEditedMediaItem,
                     imageEditedMediaItem,
-                    videoEditedMediaItem,
+                    bt601VideoEditedMediaItem,
                     imageEditedMediaItem));
 
     assertThat(result.exportResult.videoFrameCount)
-        .isEqualTo(4 * imageFrameCount + 3 * MP4_ASSET_FRAME_COUNT);
+        .isEqualTo(4 * imageFrameCount + MP4_ASSET_FRAME_COUNT + 2 * BT601_MP4_ASSET_FRAME_COUNT);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+  }
+
+  @Test
+  public void
+      videoEditing_withComplexVideoAndImageInputsEndWithVideo_completesWithCorrectFrameCount()
+          throws Exception {
+    assumeFormatsSupported(
+        context, testId, /* inputFormat= */ MP4_ASSET_FORMAT, /* outputFormat= */ MP4_ASSET_FORMAT);
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ BT601_MP4_ASSET_FORMAT,
+        /* outputFormat= */ MP4_ASSET_FORMAT);
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(
+                new DefaultEncoderFactory.Builder(context).setEnableFallback(false).build())
+            .build();
+
+    int imageFrameCount = 33;
+    EditedMediaItem imageEditedMediaItem1 =
+        createImageEditedMediaItem(PNG_ASSET_URI_STRING, /* frameCount= */ imageFrameCount);
+    EditedMediaItem imageEditedMediaItem2 =
+        createImageEditedMediaItem(JPG_ASSET_URI_STRING, /* frameCount= */ imageFrameCount);
+    EditedMediaItem videoEditedMediaItem1 =
+        createVideoEditedMediaItem(MP4_ASSET_URI_STRING, /* height= */ 360);
+    EditedMediaItem videoEditedMediaItem2 =
+        createVideoEditedMediaItem(BT601_MP4_ASSET_URI_STRING, /* height= */ 360);
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(
+                testId,
+                buildComposition(
+                    videoEditedMediaItem1,
+                    videoEditedMediaItem2,
+                    imageEditedMediaItem1,
+                    imageEditedMediaItem2,
+                    videoEditedMediaItem1,
+                    imageEditedMediaItem1,
+                    videoEditedMediaItem2));
+
+    assertThat(result.exportResult.videoFrameCount)
+        .isEqualTo(
+            3 * imageFrameCount + 2 * MP4_ASSET_FRAME_COUNT + 2 * BT601_MP4_ASSET_FRAME_COUNT);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+  }
+
+  @Test
+  public void
+      videoEditing_withComplexVideoAndImageInputsEndWithImage_completesWithCorrectFrameCount()
+          throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_FORMAT,
+        /* outputFormat= */ IMAGE_VIDEO_ENCODING_FORMAT);
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ BT601_MP4_ASSET_FORMAT,
+        /* outputFormat= */ IMAGE_VIDEO_ENCODING_FORMAT);
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(
+                new DefaultEncoderFactory.Builder(context).setEnableFallback(false).build())
+            .build();
+
+    int imageFrameCount = 34;
+    EditedMediaItem imageEditedMediaItem =
+        createImageEditedMediaItem(PNG_ASSET_URI_STRING, /* frameCount= */ imageFrameCount);
+    EditedMediaItem videoEditedMediaItem1 =
+        createVideoEditedMediaItem(MP4_ASSET_URI_STRING, /* height= */ 480);
+    EditedMediaItem videoEditedMediaItem2 =
+        createVideoEditedMediaItem(BT601_MP4_ASSET_URI_STRING, /* height= */ 480);
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(
+                testId,
+                buildComposition(
+                    imageEditedMediaItem,
+                    videoEditedMediaItem1,
+                    videoEditedMediaItem2,
+                    imageEditedMediaItem,
+                    imageEditedMediaItem,
+                    videoEditedMediaItem2,
+                    imageEditedMediaItem));
+
+    assertThat(result.exportResult.videoFrameCount)
+        .isEqualTo(4 * imageFrameCount + MP4_ASSET_FRAME_COUNT + 2 * BT601_MP4_ASSET_FRAME_COUNT);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
