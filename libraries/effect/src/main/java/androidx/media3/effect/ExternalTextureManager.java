@@ -46,7 +46,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -88,10 +87,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final float[] textureTransformMatrix;
   private final Queue<FrameInfo> pendingFrames;
   private final ScheduledExecutorService scheduledExecutorService;
-  private final AtomicInteger externalShaderProgramInputCapacity;
   private final boolean repeatLastRegisteredFrame;
   private final boolean experimentalAdjustSurfaceTextureTransformationMatrix;
 
+  // Must be accessed on the GL thread.
+  private int externalShaderProgramInputCapacity;
   private int availableFrameCount;
   private boolean currentInputStreamEnded;
 
@@ -143,7 +143,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     textureTransformMatrix = new float[16];
     pendingFrames = new ConcurrentLinkedQueue<>();
     scheduledExecutorService = Util.newSingleThreadScheduledExecutor(TIMER_THREAD_NAME);
-    externalShaderProgramInputCapacity = new AtomicInteger();
     surfaceTexture.setOnFrameAvailableListener(
         unused ->
             videoFrameProcessingTaskExecutor.submit(
@@ -193,7 +192,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     checkState(samplingGlShaderProgram instanceof ExternalShaderProgram);
     videoFrameProcessingTaskExecutor.submit(
         () -> {
-          externalShaderProgramInputCapacity.set(0);
+          externalShaderProgramInputCapacity = 0;
           this.externalShaderProgram = (ExternalShaderProgram) samplingGlShaderProgram;
         });
   }
@@ -212,7 +211,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public void onReadyToAcceptInputFrame() {
     videoFrameProcessingTaskExecutor.submit(
         () -> {
-          externalShaderProgramInputCapacity.incrementAndGet();
+          externalShaderProgramInputCapacity++;
           maybeQueueFrameToExternalShaderProgram();
         });
   }
@@ -290,7 +289,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   protected void flush() throws VideoFrameProcessingException {
-    externalShaderProgramInputCapacity.set(0);
+    externalShaderProgramInputCapacity = 0;
     currentFrame = null;
     pendingFrames.clear();
     lastRegisteredFrame = null;
@@ -369,7 +368,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private void maybeQueueFrameToExternalShaderProgram() {
-    if (externalShaderProgramInputCapacity.get() == 0
+    if (externalShaderProgramInputCapacity == 0
         || availableFrameCount == 0
         || currentFrame != null) {
       return;
@@ -382,7 +381,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         repeatLastRegisteredFrame ? checkNotNull(lastRegisteredFrame) : pendingFrames.element();
     this.currentFrame = currentFrame;
 
-    externalShaderProgramInputCapacity.decrementAndGet();
+    externalShaderProgramInputCapacity--;
     surfaceTexture.getTransformMatrix(textureTransformMatrix);
     long frameTimeNs = surfaceTexture.getTimestamp();
     long offsetToAddUs = currentFrame.offsetToAddUs;
