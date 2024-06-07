@@ -1569,7 +1569,7 @@ public class TransformerEndToEndTest {
   }
 
   @Test
-  public void transmux_videoWithEditList_trimsFirstIDRFrameDuration() throws Exception {
+  public void transmux_videoWithEditList_trimsFirstIdrFrameDuration() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     assumeTrue(
         "MediaMuxer doesn't support B frames reliably on older SDK versions", Util.SDK_INT >= 29);

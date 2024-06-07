@@ -405,7 +405,7 @@ public class ExportTest {
   }
 
   @Test
-  public void clippedMedia_trimOptimizationEnabled_pixel7Plus_completesWithOptimizationApplied()
+  public void clippedMedia_trimOptimizationEnabled_pixel7Pro_completesWithOptimizationApplied()
       throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     // Devices with Tensor G2 & G3 chipsets should work, but Pixel 7a is flaky.
