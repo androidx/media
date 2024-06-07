@@ -21,16 +21,12 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextAlign
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.media3.demo.compose.data.videos
 import androidx.media3.exoplayer.ExoPlayer
 
@@ -40,26 +36,25 @@ class MainActivity : ComponentActivity() {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
     setContent {
-      Surface(modifier = Modifier.fillMaxSize()) {
+      Surface {
         Column(
-          modifier = Modifier.fillMaxWidth(),
           verticalArrangement = Arrangement.Center,
           horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-          Text(text = "Placeholder for your Player", textAlign = TextAlign.Center)
-          PlayerScreen(videos[0])
+          val exoPlayer =
+            ExoPlayer.Builder(LocalContext.current).build().apply {
+              setMediaItem(MediaItem.fromUri(videos[0]))
+              prepare()
+              playWhenReady = true
+              repeatMode = Player.REPEAT_MODE_ONE
+            }
+          PlayerSurface(
+            player = exoPlayer,
+            surfaceType = SURFACE_TYPE_SURFACE_VIEW,
+            modifier = Modifier.align(Alignment.CenterHorizontally),
+          )
         }
       }
     }
   }
-}
-
-@Composable
-fun PlayerScreen(videoUrl: String) {
-  val exoPlayer =
-    ExoPlayer.Builder(LocalContext.current).build().apply {
-      setMediaItem(MediaItem.fromUri(videoUrl))
-      prepare()
-      playWhenReady = true
-    }
 }
