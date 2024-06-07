@@ -213,6 +213,13 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
   private int pendingFlushCount;
   private @State int state;
 
+  /**
+   * Converts the buffer timestamp (the player position, with renderer offset) to the composition
+   * timestamp, in microseconds. The composition time starts from zero, add this adjustment to
+   * buffer timestamp to get the composition time.
+   */
+  private long bufferTimestampAdjustmentUs;
+
   private CompositingVideoSinkProvider(Builder builder) {
     context = builder.context;
     videoSinkImpl = new VideoSinkImpl(context);
@@ -302,12 +309,15 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
   }
 
   @Override
-  public void onOutputFrameAvailableForRendering(long presentationTimeUs) {
+  public void onOutputFrameAvailableForRendering(long framePresentationTimeUs) {
     if (pendingFlushCount > 0) {
       // Ignore available frames while the sink provider is flushing
       return;
     }
-    videoFrameRenderControl.onOutputFrameAvailableForRendering(presentationTimeUs);
+    // The frame presentation time is relative to the start of the Composition and without the
+    // renderer offset
+    videoFrameRenderControl.onOutputFrameAvailableForRendering(
+        framePresentationTimeUs - bufferTimestampAdjustmentUs);
   }
 
   @Override
@@ -443,7 +453,9 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
     videoFrameRenderControl.setPlaybackSpeed(speed);
   }
 
-  private void onStreamOffsetChange(long bufferPresentationTimeUs, long streamOffsetUs) {
+  private void onStreamOffsetChange(
+      long bufferTimestampAdjustmentUs, long bufferPresentationTimeUs, long streamOffsetUs) {
+    this.bufferTimestampAdjustmentUs = bufferTimestampAdjustmentUs;
     videoFrameRenderControl.onStreamOffsetChange(bufferPresentationTimeUs, streamOffsetUs);
   }
 
@@ -466,6 +478,7 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
     @Nullable private Format inputFormat;
     private @InputType int inputType;
     private long inputStreamOffsetUs;
+    private long inputBufferTimestampAdjustmentUs;
     private boolean pendingInputStreamOffsetChange;
 
     /** The buffer presentation time, in microseconds, of the final frame in the stream. */
@@ -562,7 +575,8 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
     public boolean isEnded() {
       return isInitialized()
           && finalBufferPresentationTimeUs != C.TIME_UNSET
-          && CompositingVideoSinkProvider.this.hasReleasedFrame(finalBufferPresentationTimeUs);
+          && CompositingVideoSinkProvider.this.hasReleasedFrame(
+              finalBufferPresentationTimeUs + inputBufferTimestampAdjustmentUs);
     }
 
     @Override
@@ -643,9 +657,14 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
     }
 
     @Override
-    public void setStreamOffsetUs(long streamOffsetUs) {
-      pendingInputStreamOffsetChange = inputStreamOffsetUs != streamOffsetUs;
+    public void setStreamOffsetAndAdjustmentUs(
+        long streamOffsetUs, long bufferTimestampAdjustmentUs) {
+      // Ors because this method could be called multiple times on a stream offset change.
+      pendingInputStreamOffsetChange |=
+          inputStreamOffsetUs != streamOffsetUs
+              || inputBufferTimestampAdjustmentUs != bufferTimestampAdjustmentUs;
       inputStreamOffsetUs = streamOffsetUs;
+      inputBufferTimestampAdjustmentUs = bufferTimestampAdjustmentUs;
     }
 
     @Override
@@ -688,13 +707,17 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
       // timestamp of the said frame would be 0s, but the streamOffset is incremented 10s to include
       // the duration of the first video. Thus this correction is need to correct for the different
       // handling of presentation timestamps in ExoPlayer and VideoFrameProcessor.
-      long bufferPresentationTimeUs = framePresentationTimeUs + inputStreamOffsetUs;
+      //
+      // inputBufferTimestampAdjustmentUs adjusts the frame presentation time (which is relative to
+      // the start of a composition, to the buffer timestamp that is offset, and correspond to the
+      // player position).
+      long bufferPresentationTimeUs = framePresentationTimeUs - inputBufferTimestampAdjustmentUs;
       maybeSetStreamOffsetChange(bufferPresentationTimeUs);
       lastBufferPresentationTimeUs = bufferPresentationTimeUs;
       if (isLastFrame) {
         finalBufferPresentationTimeUs = bufferPresentationTimeUs;
       }
-      return bufferPresentationTimeUs * 1000;
+      return framePresentationTimeUs * 1000;
     }
 
     @Override
@@ -705,18 +728,14 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
         return false;
       }
 
-      // The sink takes bitmaps with monotonically increasing, non-offset frame timestamps. Ensure
-      // the produced timestamps include the stream offset.
-      OffsetTimestampIterator offsetTimestampIterator =
-          new OffsetTimestampIterator(timestampIterator, inputStreamOffsetUs);
       if (!checkStateNotNull(videoFrameProcessor)
-          .queueInputBitmap(inputBitmap, offsetTimestampIterator)) {
+          .queueInputBitmap(inputBitmap, timestampIterator)) {
         return false;
       }
 
       // Create a copy of iterator because we need to take the next timestamp but we must not alter
       // the state of the iterator.
-      TimestampIterator copyTimestampIterator = offsetTimestampIterator.copyOf();
+      TimestampIterator copyTimestampIterator = timestampIterator.copyOf();
       long bufferPresentationTimeUs = copyTimestampIterator.next();
       long lastBufferPresentationTimeUs = copyTimestampIterator.getLastTimestampUs();
       checkState(lastBufferPresentationTimeUs != C.TIME_UNSET);
@@ -746,7 +765,8 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
     private void maybeSetStreamOffsetChange(long bufferPresentationTimeUs) {
       if (pendingInputStreamOffsetChange) {
         CompositingVideoSinkProvider.this.onStreamOffsetChange(
-            /* bufferPresentationTimeUs= */ bufferPresentationTimeUs,
+            inputBufferTimestampAdjustmentUs,
+            bufferPresentationTimeUs,
             /* streamOffsetUs= */ inputStreamOffsetUs);
         pendingInputStreamOffsetChange = false;
       }
@@ -850,7 +870,10 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
 
     @Override
     public void renderFrame(
-        long renderTimeNs, long presentationTimeUs, long streamOffsetUs, boolean isFirstFrame) {
+        long renderTimeNs,
+        long bufferPresentationTimeUs,
+        long streamOffsetUs,
+        boolean isFirstFrame) {
       if (isFirstFrame && currentSurfaceAndSize != null) {
         for (CompositingVideoSinkProvider.Listener listener : listeners) {
           listener.onFirstFrameRendered(CompositingVideoSinkProvider.this);
@@ -861,7 +884,7 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
         //  onVideoSizeChanged is announced after the first frame is available for rendering.
         Format format = outputFormat == null ? new Format.Builder().build() : outputFormat;
         videoFrameMetadataListener.onVideoFrameAboutToBeRendered(
-            /* presentationTimeUs= */ presentationTimeUs - streamOffsetUs,
+            /* presentationTimeUs= */ bufferPresentationTimeUs,
             checkStateNotNull(clock).nanoTime(),
             format,
             /* mediaFormat= */ null);
@@ -1008,45 +1031,6 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
         buildScaleAndRotateTransformationMethod =
             scaleAndRotateTransformationBuilderClass.getMethod("build");
       }
-    }
-  }
-
-  /**
-   * A {@link TimestampIterator} that wraps another {@link TimestampIterator} and adds an offset to
-   * the returnd timestamps.
-   */
-  private static class OffsetTimestampIterator implements TimestampIterator {
-
-    private final TimestampIterator timestampIterator;
-    private final long offset;
-
-    public OffsetTimestampIterator(TimestampIterator timestampIterator, long offset) {
-      this.timestampIterator = timestampIterator;
-      this.offset = offset;
-    }
-
-    @Override
-    public boolean hasNext() {
-      return timestampIterator.hasNext();
-    }
-
-    @Override
-    public long next() {
-      return offset + timestampIterator.next();
-    }
-
-    @Override
-    public long getLastTimestampUs() {
-      long last = timestampIterator.getLastTimestampUs();
-      if (last != C.TIME_UNSET) {
-        last += offset;
-      }
-      return last;
-    }
-
-    @Override
-    public TimestampIterator copyOf() {
-      return new OffsetTimestampIterator(timestampIterator.copyOf(), offset);
     }
   }
 }

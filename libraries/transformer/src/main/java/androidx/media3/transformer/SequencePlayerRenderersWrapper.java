@@ -134,6 +134,25 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     return renderers.toArray(new Renderer[0]);
   }
 
+  private long getOffsetToCompositionTimeUs(int mediaItemIndex, long offsetUs) {
+    // Reverse engineer how timestamps and offsets are computed with a ConcatenatingMediaSource2
+    // to compute an offset converting buffer timestamps to composition timestamps.
+    // startPositionUs is not used because it is equal to offsetUs + clipping start time + seek
+    // position when seeking from any MediaItem in the playlist to the first MediaItem.
+    // The offset to convert the sample timestamps to composition time is negative because we need
+    // to remove the large offset added by ExoPlayer to make sure the decoder doesn't received any
+    // negative timestamps. We also need to remove the clipping start position.
+    long offsetToCompositionTimeUs = -offsetUs;
+    if (mediaItemIndex == 0) {
+      offsetToCompositionTimeUs -=
+          sequence.editedMediaItems.get(0).mediaItem.clippingConfiguration.startPositionUs;
+    }
+    for (int i = 0; i < mediaItemIndex; i++) {
+      offsetToCompositionTimeUs += sequence.editedMediaItems.get(i).getPresentationDurationUs();
+    }
+    return offsetToCompositionTimeUs;
+  }
+
   private static final class SequenceAudioRenderer extends MediaCodecAudioRenderer {
     private final SequencePlayerRenderersWrapper sequencePlayerRenderersWrapper;
     private final AudioGraphInputAudioSink audioSink;
@@ -183,28 +202,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       // because the super method will call onProcessedStreamChange()
       pendingEditedMediaItem =
           sequencePlayerRenderersWrapper.sequence.editedMediaItems.get(mediaItemIndex);
-      // Reverse engineer how timestamps and offsets are computed with a ConcatenatingMediaSource2
-      // to compute an offset converting buffer timestamps to composition timestamps.
-      // startPositionUs is not used because it is equal to offsetUs + clipping start time + seek
-      // position when seeking from any MediaItem in the playlist to the first MediaItem.
-      // TODO(b/331547894): remove this reverse-engineered logic by moving away from using a
-      //  ConcatenatingMediaSource2.
-      // The offset to convert the sample timestamps to composition time is negative because we need
-      // to remove the large offset added by ExoPlayer to make sure the decoder doesn't received any
-      // negative timestamps. We also need to remove the clipping start position.
-      pendingOffsetToCompositionTimeUs = -offsetUs;
-      if (mediaItemIndex == 0) {
-        pendingOffsetToCompositionTimeUs -=
-            pendingEditedMediaItem.mediaItem.clippingConfiguration.startPositionUs;
-      }
-      for (int i = 0; i < mediaItemIndex; i++) {
-        pendingOffsetToCompositionTimeUs +=
-            sequencePlayerRenderersWrapper
-                .sequence
-                .editedMediaItems
-                .get(i)
-                .getPresentationDurationUs();
-      }
+      pendingOffsetToCompositionTimeUs =
+          sequencePlayerRenderersWrapper.getOffsetToCompositionTimeUs(mediaItemIndex, offsetUs);
       super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
     }
 
@@ -237,6 +236,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private final SequencePlayerRenderersWrapper sequencePlayerRenderersWrapper;
     private final VideoSink videoSink;
     @Nullable private ImmutableList<Effect> pendingEffect;
+    private long offsetToCompositionTimeUs;
 
     public SequenceVideoRenderer(
         Context context,
@@ -268,11 +268,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         throws ExoPlaybackException {
       checkState(getTimeline().getWindowCount() == 1);
       super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
+      int mediaItemIndex = getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid);
+      offsetToCompositionTimeUs =
+          sequencePlayerRenderersWrapper.getOffsetToCompositionTimeUs(mediaItemIndex, offsetUs);
       pendingEffect =
-          sequencePlayerRenderersWrapper.sequence.editedMediaItems.get(
-                  getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid))
+          sequencePlayerRenderersWrapper.sequence.editedMediaItems.get(mediaItemIndex)
               .effects
               .videoEffects;
+    }
+
+    @Override
+    protected long getBufferTimestampAdjustmentUs() {
+      return offsetToCompositionTimeUs;
     }
 
     @Override
@@ -298,6 +305,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private boolean inputStreamPendingRegistration;
     private long streamOffsetUs;
     private boolean mayRenderStartOfStream;
+    private long offsetToCompositionTimeUs;
 
     public SequenceImageRenderer(SequencePlayerRenderersWrapper sequencePlayerRenderersWrapper) {
       super(
@@ -362,11 +370,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     protected void onPositionReset(long positionUs, boolean joining) throws ExoPlaybackException {
       videoSink.flush();
       super.onPositionReset(positionUs, joining);
-      timestampIterator =
-          new ConstantRateTimestampIterator(
-              /* startPositionUs= */ positionUs - streamOffsetUs,
-              /* endPositionUs= */ checkNotNull(editedMediaItem).getPresentationDurationUs(),
-              DEFAULT_FRAME_RATE);
+      timestampIterator = createTimestampIterator(positionUs);
       videoFrameReleaseControl.reset();
       if (joining) {
         videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ false);
@@ -395,14 +399,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       checkState(getTimeline().getWindowCount() == 1);
       super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
       streamOffsetUs = offsetUs;
+      int mediaItemIndex = getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid);
       editedMediaItem =
-          sequencePlayerRenderersWrapper.sequence.editedMediaItems.get(
-              getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid));
-      timestampIterator =
-          new ConstantRateTimestampIterator(
-              /* startPositionUs= */ startPositionUs - streamOffsetUs,
-              /* endPositionUs= */ editedMediaItem.getPresentationDurationUs(),
-              DEFAULT_FRAME_RATE);
+          sequencePlayerRenderersWrapper.sequence.editedMediaItems.get(mediaItemIndex);
+      offsetToCompositionTimeUs =
+          sequencePlayerRenderersWrapper.getOffsetToCompositionTimeUs(mediaItemIndex, offsetUs);
+      timestampIterator = createTimestampIterator(/* positionUs= */ startPositionUs);
       videoEffects = editedMediaItem.effects.videoEffects;
       inputStreamPendingRegistration = true;
     }
@@ -424,7 +426,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       if (inputStreamPendingRegistration) {
         checkState(streamOffsetUs != C.TIME_UNSET);
         videoSink.setPendingVideoEffects(videoEffects);
-        videoSink.setStreamOffsetUs(streamOffsetUs);
+        videoSink.setStreamOffsetAndAdjustmentUs(
+            streamOffsetUs, /* bufferTimestampAdjustmentUs= */ offsetToCompositionTimeUs);
         videoSink.registerInputStream(
             VideoSink.INPUT_TYPE_BITMAP,
             new Format.Builder()
@@ -437,6 +440,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         inputStreamPendingRegistration = false;
       }
       return videoSink.queueBitmap(outputImage, checkStateNotNull(timestampIterator));
+    }
+
+    private ConstantRateTimestampIterator createTimestampIterator(long positionUs) {
+      long imageBaseTimestampUs = streamOffsetUs + offsetToCompositionTimeUs;
+      long positionWithinImage = positionUs - streamOffsetUs;
+      long firstBitmapTimeUs = imageBaseTimestampUs + positionWithinImage;
+      long lastBitmapTimeUs =
+          imageBaseTimestampUs + checkNotNull(editedMediaItem).getPresentationDurationUs();
+      return new ConstantRateTimestampIterator(
+          /* startPositionUs= */ firstBitmapTimeUs,
+          /* endPositionUs= */ lastBitmapTimeUs,
+          DEFAULT_FRAME_RATE);
     }
   }
 }

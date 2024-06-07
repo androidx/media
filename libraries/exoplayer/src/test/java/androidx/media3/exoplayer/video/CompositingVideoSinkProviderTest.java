@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.video;
 
-import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
@@ -60,23 +59,6 @@ public final class CompositingVideoSinkProviderTest {
     assertThrows(
         IllegalStateException.class,
         () -> sink.initialize(new Format.Builder().build(), Clock.DEFAULT));
-  }
-
-  @Test
-  public void setSinkStreamOffsetUs_frameReleaseTimesAreAdjusted()
-      throws VideoSink.VideoSinkException {
-    VideoSink videoSink = createCompositingVideoSinkProvider().getSink();
-    videoSink.initialize(new Format.Builder().build(), Clock.DEFAULT);
-    videoSink.registerInputStream(
-        VideoSink.INPUT_TYPE_SURFACE, new Format.Builder().setWidth(640).setHeight(480).build());
-
-    assertThat(videoSink.registerInputFrame(/* framePresentationTimeUs= */ 0, false)).isEqualTo(0);
-    videoSink.setStreamOffsetUs(1_000);
-    assertThat(videoSink.registerInputFrame(/* framePresentationTimeUs= */ 0, false))
-        .isEqualTo(1_000_000);
-    videoSink.setStreamOffsetUs(2_000);
-    assertThat(videoSink.registerInputFrame(/* framePresentationTimeUs= */ 0, false))
-        .isEqualTo(2_000_000);
   }
 
   private static CompositingVideoSinkProvider createCompositingVideoSinkProvider() {

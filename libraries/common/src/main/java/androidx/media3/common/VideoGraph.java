@@ -36,12 +36,12 @@ public interface VideoGraph {
     void onOutputSizeChanged(int width, int height);
 
     /**
-     * Called when an output frame with the given {@code presentationTimeUs} becomes available for
-     * rendering.
+     * Called when an output frame with the given {@code framePresentationTimeUs} becomes available
+     * for rendering.
      *
-     * @param presentationTimeUs The presentation time of the frame, in microseconds.
+     * @param framePresentationTimeUs The presentation time of the frame, in microseconds.
      */
-    void onOutputFrameAvailableForRendering(long presentationTimeUs);
+    void onOutputFrameAvailableForRendering(long framePresentationTimeUs);
 
     /**
      * Called after the {@link VideoGraph} has rendered its final output frame.

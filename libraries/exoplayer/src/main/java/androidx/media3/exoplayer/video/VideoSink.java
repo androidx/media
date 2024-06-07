@@ -186,10 +186,14 @@ public interface VideoSink {
   void setPendingVideoEffects(List<Effect> videoEffects);
 
   /**
-   * Sets the offset, in microseconds, that is added to the video frames presentation timestamps
-   * from the player.
+   * Sets the stream offset and buffer time adjustment, in microseconds.
+   *
+   * @param streamOffsetUs The offset that is added to the video frames presentation timestamps from
+   *     the player.
+   * @param bufferTimestampAdjustmentUs The timestamp adjustment to convert the player position to
+   *     the frame presentation timestamp.
    */
-  void setStreamOffsetUs(long streamOffsetUs);
+  void setStreamOffsetAndAdjustmentUs(long streamOffsetUs, long bufferTimestampAdjustmentUs);
 
   /** Sets the output surface info. */
   void setOutputSurfaceInfo(Surface outputSurface, Size outputResolution);

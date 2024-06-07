@@ -658,7 +658,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     // Flush the video sink first to ensure it stops reading textures that will be owned by
     // MediaCodec once the codec is flushed.
     videoSink.flush();
-    videoSink.setStreamOffsetUs(getOutputStreamOffsetUs());
+    videoSink.setStreamOffsetAndAdjustmentUs(
+        getOutputStreamOffsetUs(), getBufferTimestampAdjustmentUs());
     super.onPositionReset(positionUs, joining);
     videoFrameReleaseControl.reset();
     if (joining) {
@@ -1352,7 +1353,10 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         throw createRendererException(
             e, e.format, PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED);
       }
-      long releaseTimeNs = videoSink.registerInputFrame(presentationTimeUs, isLastBuffer);
+
+      long releaseTimeNs =
+          videoSink.registerInputFrame(
+              bufferPresentationTimeUs + getBufferTimestampAdjustmentUs(), isLastBuffer);
       if (releaseTimeNs == C.TIME_UNSET) {
         return false;
       }
@@ -1382,6 +1386,15 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       default:
         throw new IllegalStateException(String.valueOf(frameReleaseAction));
     }
+  }
+
+  /**
+   * Returns the timestamp that is added to the buffer presentation time (the player decoding
+   * position) to the frame presentation time, in microseconds.
+   */
+  protected long getBufferTimestampAdjustmentUs() {
+    // TODO - b/333514379: Make effect-enabled effect timestamp start from zero.
+    return 0;
   }
 
   private boolean maybeReleaseFrame(
@@ -1461,7 +1474,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   protected void onProcessedStreamChange() {
     super.onProcessedStreamChange();
     if (shouldUseVideoSink) {
-      videoSink.setStreamOffsetUs(getOutputStreamOffsetUs());
+      videoSink.setStreamOffsetAndAdjustmentUs(
+          getOutputStreamOffsetUs(), getBufferTimestampAdjustmentUs());
     } else {
       videoFrameReleaseControl.onProcessedStreamChange();
     }

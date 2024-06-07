@@ -494,7 +494,7 @@ import org.checkerframework.dataflow.qual.Pure;
     }
 
     @Override
-    public void onOutputFrameAvailableForRendering(long presentationTimeUs) {
+    public void onOutputFrameAvailableForRendering(long framePresentationTimeUs) {
       // Do nothing.
     }
 
