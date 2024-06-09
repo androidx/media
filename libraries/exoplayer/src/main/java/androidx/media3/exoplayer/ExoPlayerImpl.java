@@ -174,6 +174,7 @@ import java.util.concurrent.TimeoutException;
   private final BandwidthMeter bandwidthMeter;
   private final long seekBackIncrementMs;
   private final long seekForwardIncrementMs;
+  private final long maxSeekToPreviousPositionMs;
   private final Clock clock;
   private final ComponentListener componentListener;
   private final FrameMetadataListener frameMetadataListener;
@@ -286,6 +287,7 @@ import java.util.concurrent.TimeoutException;
       this.seekParameters = builder.seekParameters;
       this.seekBackIncrementMs = builder.seekBackIncrementMs;
       this.seekForwardIncrementMs = builder.seekForwardIncrementMs;
+      this.maxSeekToPreviousPositionMs = builder.maxSeekToPreviousPositionMs;
       this.pauseAtEndOfMediaItems = builder.pauseAtEndOfMediaItems;
       this.applicationLooper = builder.looper;
       this.clock = builder.clock;
@@ -972,7 +974,7 @@ import java.util.concurrent.TimeoutException;
   @Override
   public long getMaxSeekToPreviousPosition() {
     verifyApplicationThread();
-    return C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS;
+    return maxSeekToPreviousPositionMs;
   }
 
   @Override
