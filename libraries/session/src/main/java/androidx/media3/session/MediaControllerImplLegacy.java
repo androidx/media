@@ -938,7 +938,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
   @Override
   public long getMaxSeekToPreviousPosition() {
-    return 0L;
+    return controllerInfo.playerInfo.maxSeekToPreviousPositionMs;
   }
 
   @Override
