@@ -20,6 +20,7 @@ import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_MEDIA_ID
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_USER_RATING;
 import static androidx.media3.common.Player.STATE_ENDED;
 import static androidx.media3.common.Player.STATE_READY;
+import static androidx.media3.test.session.common.MediaSessionConstants.NOTIFICATION_CONTROLLER_KEY;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_MEDIA_CONTROLLER_COMPAT_CALLBACK_WITH_MEDIA_SESSION_TEST;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_SET_SHOW_PLAY_BUTTON_IF_SUPPRESSED_TO_FALSE;
 import static androidx.media3.test.session.common.TestUtils.LONG_TIMEOUT_MS;
@@ -1082,7 +1083,7 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
     errorBundle.putInt("intKey", 99);
 
     session.sendError(
-        /* controllerKey= */ MediaController.KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG,
+        /* controllerKey= */ NOTIFICATION_CONTROLLER_KEY,
         /* errorCode= */ 1,
         R.string.authentication_required,
         errorBundle);

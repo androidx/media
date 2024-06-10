@@ -60,6 +60,7 @@ import static androidx.media3.test.session.common.CommonConstants.KEY_VOLUME;
 import static androidx.media3.test.session.common.MediaSessionConstants.KEY_AVAILABLE_SESSION_COMMANDS;
 import static androidx.media3.test.session.common.MediaSessionConstants.KEY_COMMAND_GET_TASKS_UNAVAILABLE;
 import static androidx.media3.test.session.common.MediaSessionConstants.KEY_CONTROLLER;
+import static androidx.media3.test.session.common.MediaSessionConstants.NOTIFICATION_CONTROLLER_KEY;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_COMMAND_GET_TRACKS;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_CONTROLLER_LISTENER_SESSION_REJECTS;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_GET_CUSTOM_LAYOUT;
@@ -332,7 +333,7 @@ public class MediaSessionProviderService extends Service {
               Bundle connectionHints = new Bundle();
               connectionHints.putBoolean(
                   MediaController.KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG, true);
-              //noinspection unused
+              connectionHints.putString(KEY_CONTROLLER, NOTIFICATION_CONTROLLER_KEY);
               ListenableFuture<MediaController> unusedFuture =
                   new MediaController.Builder(getApplicationContext(), session.getToken())
                       .setListener(
@@ -570,8 +571,8 @@ public class MediaSessionProviderService extends Service {
           () -> {
             MediaSession mediaSession = sessionMap.get(sessionId);
             for (ControllerInfo controllerInfo : mediaSession.getConnectedControllers()) {
-              if (controllerInfo
-                  .getConnectionHints()
+              Bundle connectionHints = controllerInfo.getConnectionHints();
+              if (connectionHints
                   .getString(KEY_CONTROLLER, /* defaultValue= */ "")
                   .equals(controllerKey)) {
                 mediaSession.setSessionExtras(controllerInfo, extras);
@@ -595,14 +596,6 @@ public class MediaSessionProviderService extends Service {
             if (TextUtils.isEmpty(controllerKey)) {
               // Broadcast to all connected Media3 controller.
               mediaSession.sendError(errorCode, errorMessageResId, errorExtras);
-            } else if (controllerKey.equals(
-                MediaController.KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG)) {
-              // Send to media notification controller.
-              mediaSession.sendError(
-                  checkNotNull(mediaSession.getMediaNotificationControllerInfo()),
-                  errorCode,
-                  errorMessageResId,
-                  errorExtras);
             } else {
               // Send to controller with the given controller key in connection hints.
               for (ControllerInfo controllerInfo : mediaSession.getConnectedControllers()) {
