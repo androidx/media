@@ -206,7 +206,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.configuration_activity);
 
-    findViewById(R.id.export_button).setOnClickListener(this::startExport);
+    findViewById(R.id.export_button).setOnClickListener(view -> startExport());
 
     videoLocalFilePickerLauncher =
         registerForActivityResult(
@@ -218,7 +218,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
             this::overlayLocalFilePickerLauncherResult);
 
     selectPresetFileButton = findViewById(R.id.select_preset_file_button);
-    selectPresetFileButton.setOnClickListener(this::selectPresetFile);
+    selectPresetFileButton.setOnClickListener(view -> selectPresetFile());
 
     selectLocalFileButton = findViewById(R.id.select_local_file_button);
     selectLocalFileButton.setOnClickListener(
@@ -286,7 +286,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
     rotateAdapter.addAll(SAME_AS_INPUT_OPTION, "0", "10", "45", "60", "90", "180");
 
     trimCheckBox = findViewById(R.id.trim_checkbox);
-    trimCheckBox.setOnCheckedChangeListener(this::selectTrimBounds);
+    trimCheckBox.setOnCheckedChangeListener((view, isChecked) -> selectTrimBounds(isChecked));
     trimStartMs = C.TIME_UNSET;
     trimEndMs = C.TIME_UNSET;
 
@@ -310,14 +310,12 @@ public final class ConfigurationActivity extends AppCompatActivity {
     String[] audioEffectsNames = getResources().getStringArray(R.array.audio_effects_names);
     audioEffectsSelections = new boolean[audioEffectsNames.length];
     selectAudioEffectsButton = findViewById(R.id.select_audio_effects_button);
-    selectAudioEffectsButton.setOnClickListener(
-        view -> selectAudioEffects(view, audioEffectsNames));
+    selectAudioEffectsButton.setOnClickListener(view -> selectAudioEffects(audioEffectsNames));
 
     String[] videoEffectsNames = getResources().getStringArray(R.array.video_effects_names);
     videoEffectsSelections = new boolean[videoEffectsNames.length];
     selectVideoEffectsButton = findViewById(R.id.select_video_effects_button);
-    selectVideoEffectsButton.setOnClickListener(
-        view -> selectVideoEffects(view, videoEffectsNames));
+    selectVideoEffectsButton.setOnClickListener(view -> selectVideoEffects(videoEffectsNames));
   }
 
   @Override
@@ -353,7 +351,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
     setIntent(intent);
   }
 
-  private void startExport(View view) {
+  private void startExport() {
     Intent transformerIntent = new Intent(/* packageContext= */ this, TransformerActivity.class);
     Bundle bundle = new Bundle();
     bundle.putBoolean(SHOULD_REMOVE_AUDIO, removeAudioCheckbox.isChecked());
@@ -429,7 +427,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
     startActivity(transformerIntent);
   }
 
-  private void selectPresetFile(View view) {
+  private void selectPresetFile() {
     new AlertDialog.Builder(/* context= */ this)
         .setTitle(R.string.select_preset_file_title)
         .setSingleChoiceItems(
@@ -493,7 +491,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
     }
   }
 
-  private void selectAudioEffects(View view, String[] audioEffectsNames) {
+  private void selectAudioEffects(String[] audioEffectsNames) {
     new AlertDialog.Builder(/* context= */ this)
         .setTitle(R.string.select_audio_effects)
         .setMultiChoiceItems(audioEffectsNames, audioEffectsSelections, this::selectAudioEffect)
@@ -502,7 +500,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
         .show();
   }
 
-  private void selectVideoEffects(View view, String[] videoEffectsNames) {
+  private void selectVideoEffects(String[] videoEffectsNames) {
     new AlertDialog.Builder(/* context= */ this)
         .setTitle(R.string.select_video_effects)
         .setMultiChoiceItems(videoEffectsNames, videoEffectsSelections, this::selectVideoEffect)
@@ -511,7 +509,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
         .show();
   }
 
-  private void selectTrimBounds(View view, boolean isChecked) {
+  private void selectTrimBounds(boolean isChecked) {
     if (!isChecked) {
       return;
     }

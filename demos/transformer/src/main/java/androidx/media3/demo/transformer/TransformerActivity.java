@@ -158,12 +158,12 @@ public final class TransformerActivity extends AppCompatActivity {
     progressViewGroup = findViewById(R.id.progress_view_group);
     progressIndicator = findViewById(R.id.progress_indicator);
     cancelButton = findViewById(R.id.cancel_button);
-    cancelButton.setOnClickListener(this::cancelExport);
+    cancelButton.setOnClickListener(view -> cancelExport());
     resumeButton = findViewById(R.id.resume_button);
     resumeButton.setOnClickListener(view -> startExport());
     debugFrame = findViewById(R.id.debug_aspect_ratio_frame_layout);
     displayInputButton = findViewById(R.id.display_input_button);
-    displayInputButton.setOnClickListener(this::toggleInputVideoDisplay);
+    displayInputButton.setOnClickListener(view -> toggleInputVideoDisplay());
 
     exportStopwatch =
         Stopwatch.createUnstarted(
@@ -783,7 +783,7 @@ public final class TransformerActivity extends AppCompatActivity {
     Toast.makeText(getApplicationContext(), getString(messageResource), Toast.LENGTH_LONG).show();
   }
 
-  private void toggleInputVideoDisplay(View view) {
+  private void toggleInputVideoDisplay() {
     if (inputCardView.getVisibility() == View.GONE) {
       inputCardView.setVisibility(View.VISIBLE);
       displayInputButton.setText(getString(R.string.hide_input_video));
@@ -796,7 +796,7 @@ public final class TransformerActivity extends AppCompatActivity {
     }
   }
 
-  private void cancelExport(View view) {
+  private void cancelExport() {
     transformer.cancel();
     transformer = null;
     exportStopwatch.stop();

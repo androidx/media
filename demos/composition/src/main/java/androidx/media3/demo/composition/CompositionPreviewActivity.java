@@ -18,7 +18,6 @@ package androidx.media3.demo.composition;
 import android.app.Activity;
 import android.content.DialogInterface;
 import android.os.Bundle;
-import android.view.View;
 import android.widget.Toast;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
@@ -83,8 +82,8 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
     setContentView(R.layout.composition_preview_activity);
     playerView = findViewById(R.id.composition_player_view);
 
-    findViewById(R.id.preview_button).setOnClickListener(this::previewComposition);
-    findViewById(R.id.edit_sequence_button).setOnClickListener(this::selectPreset);
+    findViewById(R.id.preview_button).setOnClickListener(view -> previewComposition());
+    findViewById(R.id.edit_sequence_button).setOnClickListener(view -> selectPreset());
     RecyclerView presetList = findViewById(R.id.composition_preset_list);
     presetList.addItemDecoration(new DividerItemDecoration(this, DividerItemDecoration.VERTICAL));
     LinearLayoutManager layoutManager =
@@ -93,7 +92,7 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
 
     exportInformationTextView = findViewById(R.id.export_information_text);
     exportButton = findViewById(R.id.composition_export_button);
-    exportButton.setOnClickListener(this::exportComposition);
+    exportButton.setOnClickListener(view -> exportComposition());
 
     presetDescriptions = getResources().getStringArray(R.array.preset_descriptions);
     // Select two media items by default.
@@ -171,7 +170,7 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
         .build();
   }
 
-  private void previewComposition(View view) {
+  private void previewComposition() {
     releasePlayer();
     Composition composition = prepareComposition();
     playerView.setPlayer(null);
@@ -194,7 +193,7 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
     player.play();
   }
 
-  private void selectPreset(View view) {
+  private void selectPreset() {
     new AlertDialog.Builder(/* context= */ this)
         .setTitle(R.string.select_preset_title)
         .setMultiChoiceItems(presetDescriptions, selectedMediaItems, this::selectPresetInDialog)
@@ -217,7 +216,7 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
     }
   }
 
-  private void exportComposition(View view) {
+  private void exportComposition() {
     // Cancel and clean up files from any ongoing export.
     cancelExport();
 
