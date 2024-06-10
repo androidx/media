@@ -248,6 +248,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
               COMMAND_GET_CURRENT_MEDIA_ITEM,
               COMMAND_GET_TIMELINE,
               COMMAND_SET_VIDEO_SURFACE,
+              COMMAND_GET_VOLUME,
+              COMMAND_SET_VOLUME,
               COMMAND_RELEASE)
           .build();
 
@@ -518,6 +520,13 @@ public final class CompositionPlayer extends SimpleBasePlayer
     } else {
       setVideoSurfaceHolderInternal(((SurfaceView) videoOutput).getHolder());
     }
+    return Futures.immediateVoidFuture();
+  }
+
+  @Override
+  protected ListenableFuture<?> handleSetVolume(float volume) {
+    volume = Util.constrainValue(volume, /* min= */ 0, /* max= */ 1);
+    finalAudioSink.setVolume(volume);
     return Futures.immediateVoidFuture();
   }
 

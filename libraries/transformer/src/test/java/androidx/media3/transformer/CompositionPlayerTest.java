@@ -237,6 +237,8 @@ public class CompositionPlayerTest {
             Player.COMMAND_GET_CURRENT_MEDIA_ITEM,
             Player.COMMAND_GET_TIMELINE,
             Player.COMMAND_SET_VIDEO_SURFACE,
+            Player.COMMAND_GET_VOLUME,
+            Player.COMMAND_SET_VOLUME,
             Player.COMMAND_RELEASE);
 
     player.release();
