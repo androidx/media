@@ -112,8 +112,6 @@ import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -121,21 +119,21 @@ import org.json.JSONObject;
 public final class TransformerActivity extends AppCompatActivity {
   private static final String TAG = "TransformerActivity";
 
-  private @MonotonicNonNull Button displayInputButton;
-  private @MonotonicNonNull MaterialCardView inputCardView;
-  private @MonotonicNonNull TextView inputTextView;
-  private @MonotonicNonNull ImageView inputImageView;
-  private @MonotonicNonNull PlayerView inputPlayerView;
-  private @MonotonicNonNull PlayerView outputPlayerView;
-  private @MonotonicNonNull TextView outputVideoTextView;
-  private @MonotonicNonNull TextView debugTextView;
-  private @MonotonicNonNull TextView informationTextView;
-  private @MonotonicNonNull ViewGroup progressViewGroup;
-  private @MonotonicNonNull LinearProgressIndicator progressIndicator;
-  private @MonotonicNonNull Button cancelButton;
-  private @MonotonicNonNull Button resumeButton;
-  private @MonotonicNonNull Stopwatch exportStopwatch;
-  private @MonotonicNonNull AspectRatioFrameLayout debugFrame;
+  private Button displayInputButton;
+  private MaterialCardView inputCardView;
+  private TextView inputTextView;
+  private ImageView inputImageView;
+  private PlayerView inputPlayerView;
+  private PlayerView outputPlayerView;
+  private TextView outputVideoTextView;
+  private TextView debugTextView;
+  private TextView informationTextView;
+  private ViewGroup progressViewGroup;
+  private LinearProgressIndicator progressIndicator;
+  private Button cancelButton;
+  private Button resumeButton;
+  private Stopwatch exportStopwatch;
+  private AspectRatioFrameLayout debugFrame;
 
   @Nullable private DebugTextViewHelper debugTextViewHelper;
   @Nullable private ExoPlayer inputPlayer;
@@ -183,8 +181,8 @@ public final class TransformerActivity extends AppCompatActivity {
 
     startExport();
 
-    checkNotNull(inputPlayerView).onResume();
-    checkNotNull(outputPlayerView).onResume();
+    inputPlayerView.onResume();
+    outputPlayerView.onResume();
   }
 
   @Override
@@ -198,13 +196,13 @@ public final class TransformerActivity extends AppCompatActivity {
 
     // The stop watch is reset after cancelling the export, in case cancelling causes the stop watch
     // to be stopped in a transformer callback.
-    checkNotNull(exportStopwatch).reset();
+    exportStopwatch.reset();
 
-    checkNotNull(inputPlayerView).onPause();
-    checkNotNull(outputPlayerView).onPause();
+    inputPlayerView.onPause();
+    outputPlayerView.onPause();
     releasePlayer();
 
-    checkNotNull(outputFile).delete();
+    outputFile.delete();
     outputFile = null;
     if (oldOutputFile != null) {
       oldOutputFile.delete();
@@ -213,22 +211,6 @@ public final class TransformerActivity extends AppCompatActivity {
   }
 
   private void startExport() {
-    checkNotNull(progressIndicator);
-    checkNotNull(informationTextView);
-    checkNotNull(exportStopwatch);
-    checkNotNull(inputCardView);
-    checkNotNull(inputTextView);
-    checkNotNull(inputImageView);
-    checkNotNull(inputPlayerView);
-    checkNotNull(outputPlayerView);
-    checkNotNull(outputVideoTextView);
-    checkNotNull(debugTextView);
-    checkNotNull(progressViewGroup);
-    checkNotNull(debugFrame);
-    checkNotNull(displayInputButton);
-    checkNotNull(cancelButton);
-    checkNotNull(resumeButton);
-
     requestReadVideoPermission(/* activity= */ this);
 
     Intent intent = getIntent();
@@ -297,20 +279,6 @@ public final class TransformerActivity extends AppCompatActivity {
     return mediaItemBuilder.build();
   }
 
-  @RequiresNonNull({
-    "inputCardView",
-    "inputTextView",
-    "inputImageView",
-    "inputPlayerView",
-    "outputPlayerView",
-    "outputVideoTextView",
-    "displayInputButton",
-    "debugTextView",
-    "informationTextView",
-    "exportStopwatch",
-    "progressViewGroup",
-    "debugFrame",
-  })
   private Transformer createTransformer(@Nullable Bundle bundle, Uri inputUri, String filePath) {
     Transformer.Builder transformerBuilder =
         new Transformer.Builder(/* context= */ this)
@@ -380,12 +348,6 @@ public final class TransformerActivity extends AppCompatActivity {
     return file;
   }
 
-  @RequiresNonNull({
-    "inputCardView",
-    "outputPlayerView",
-    "exportStopwatch",
-    "progressViewGroup",
-  })
   private Composition createComposition(MediaItem mediaItem, @Nullable Bundle bundle) {
     EditedMediaItem.Builder editedMediaItemBuilder = new EditedMediaItem.Builder(mediaItem);
     // For image inputs. Automatically ignored if input is audio/video.
@@ -657,7 +619,7 @@ public final class TransformerActivity extends AppCompatActivity {
       BitmapOverlay bitmapOverlay =
           BitmapOverlay.createStaticBitmapOverlay(
               getApplicationContext(),
-              Uri.parse(checkNotNull(bundle.getString(ConfigurationActivity.BITMAP_OVERLAY_URI))),
+              Uri.parse(bundle.getString(ConfigurationActivity.BITMAP_OVERLAY_URI)),
               overlaySettings);
       overlaysBuilder.add(bitmapOverlay);
     }
@@ -668,8 +630,7 @@ public final class TransformerActivity extends AppCompatActivity {
                   bundle.getFloat(ConfigurationActivity.TEXT_OVERLAY_ALPHA, /* defaultValue= */ 1))
               .build();
       SpannableString overlayText =
-          new SpannableString(
-              checkNotNull(bundle.getString(ConfigurationActivity.TEXT_OVERLAY_TEXT)));
+          new SpannableString(bundle.getString(ConfigurationActivity.TEXT_OVERLAY_TEXT));
       overlayText.setSpan(
           new ForegroundColorSpan(bundle.getInt(ConfigurationActivity.TEXT_OVERLAY_TEXT_COLOR)),
           /* start= */ 0,
@@ -683,12 +644,6 @@ public final class TransformerActivity extends AppCompatActivity {
     return overlays.isEmpty() ? null : new OverlayEffect(overlays);
   }
 
-  @RequiresNonNull({
-    "informationTextView",
-    "progressViewGroup",
-    "debugFrame",
-    "exportStopwatch",
-  })
   private void onError(ExportException exportException) {
     exportStopwatch.stop();
     informationTextView.setText(R.string.export_error);
@@ -699,20 +654,6 @@ public final class TransformerActivity extends AppCompatActivity {
     Log.e(TAG, "Export error", exportException);
   }
 
-  @RequiresNonNull({
-    "inputCardView",
-    "inputTextView",
-    "inputImageView",
-    "inputPlayerView",
-    "outputPlayerView",
-    "outputVideoTextView",
-    "debugTextView",
-    "displayInputButton",
-    "informationTextView",
-    "progressViewGroup",
-    "debugFrame",
-    "exportStopwatch",
-  })
   private void onCompleted(Uri inputUri, String filePath, ExportResult exportResult) {
     exportStopwatch.stop();
     long elapsedTimeMs = exportStopwatch.elapsed(TimeUnit.MILLISECONDS);
@@ -748,14 +689,6 @@ public final class TransformerActivity extends AppCompatActivity {
     }
   }
 
-  @RequiresNonNull({
-    "inputCardView",
-    "inputTextView",
-    "inputImageView",
-    "inputPlayerView",
-    "outputPlayerView",
-    "debugTextView",
-  })
   private void playMediaItems(MediaItem inputMediaItem, MediaItem outputMediaItem) {
     inputPlayerView.setPlayer(null);
     outputPlayerView.setPlayer(null);
@@ -791,8 +724,8 @@ public final class TransformerActivity extends AppCompatActivity {
       ExoPlayer inputPlayer = new ExoPlayer.Builder(/* context= */ this).build();
       inputPlayerView.setPlayer(inputPlayer);
       inputPlayerView.setControllerAutoShow(false);
-      inputPlayerView.setOnClickListener(this::onClickingPlayerView);
-      outputPlayerView.setOnClickListener(this::onClickingPlayerView);
+      inputPlayerView.setOnClickListener(this::handlePlayerViewClick);
+      outputPlayerView.setOnClickListener(this::handlePlayerViewClick);
       inputPlayer.setMediaItem(inputMediaItem);
       inputPlayer.prepare();
       this.inputPlayer = inputPlayer;
@@ -805,21 +738,21 @@ public final class TransformerActivity extends AppCompatActivity {
     debugTextViewHelper.start();
   }
 
-  private void onClickingPlayerView(View view) {
+  private void handlePlayerViewClick(View view) {
     if (view == inputPlayerView) {
-      if (inputPlayer != null && inputTextView != null) {
+      if (inputPlayer != null) {
         inputPlayer.setVolume(1f);
         inputTextView.setText(R.string.input_video_playing_sound);
       }
-      checkNotNull(outputPlayer).setVolume(0f);
-      checkNotNull(outputVideoTextView).setText(R.string.output_video_no_sound);
+      outputPlayer.setVolume(0f);
+      outputVideoTextView.setText(R.string.output_video_no_sound);
     } else {
-      if (inputPlayer != null && inputTextView != null) {
+      if (inputPlayer != null) {
         inputPlayer.setVolume(0f);
         inputTextView.setText(getString(R.string.input_video_no_sound));
       }
-      checkNotNull(outputPlayer).setVolume(1f);
-      checkNotNull(outputVideoTextView).setText(R.string.output_video_playing_sound);
+      outputPlayer.setVolume(1f);
+      outputVideoTextView.setText(R.string.output_video_playing_sound);
     }
   }
 
@@ -850,10 +783,6 @@ public final class TransformerActivity extends AppCompatActivity {
     Toast.makeText(getApplicationContext(), getString(messageResource), Toast.LENGTH_LONG).show();
   }
 
-  @RequiresNonNull({
-    "inputCardView",
-    "displayInputButton",
-  })
   private void toggleInputVideoDisplay(View view) {
     if (inputCardView.getVisibility() == View.GONE) {
       inputCardView.setVisibility(View.VISIBLE);
@@ -867,7 +796,6 @@ public final class TransformerActivity extends AppCompatActivity {
     }
   }
 
-  @RequiresNonNull({"transformer", "exportStopwatch", "cancelButton", "resumeButton"})
   private void cancelExport(View view) {
     transformer.cancel();
     transformer = null;
@@ -882,7 +810,7 @@ public final class TransformerActivity extends AppCompatActivity {
 
   private final class DemoDebugViewProvider implements DebugViewProvider {
 
-    private @MonotonicNonNull SurfaceView surfaceView;
+    @Nullable private SurfaceView surfaceView;
     private int width;
     private int height;
 
@@ -909,7 +837,7 @@ public final class TransformerActivity extends AppCompatActivity {
       runOnUiThread(
           () -> {
             surfaceView = new SurfaceView(/* context= */ TransformerActivity.this);
-            AspectRatioFrameLayout debugFrame = checkNotNull(TransformerActivity.this.debugFrame);
+            AspectRatioFrameLayout debugFrame = TransformerActivity.this.debugFrame;
             debugFrame.addView(surfaceView);
             debugFrame.setAspectRatio((float) width / height);
             surfaceView

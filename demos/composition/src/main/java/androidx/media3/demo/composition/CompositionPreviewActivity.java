@@ -15,10 +15,6 @@
  */
 package androidx.media3.demo.composition;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
-
 import android.app.Activity;
 import android.content.DialogInterface;
 import android.os.Bundle;
@@ -59,7 +55,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -70,18 +65,17 @@ import org.json.JSONObject;
 public final class CompositionPreviewActivity extends AppCompatActivity {
   private static final String TAG = "CompPreviewActivity";
 
-  private final ArrayList<String> sequenceAssetTitles = new ArrayList<>();
-
-  @Nullable private boolean[] selectedMediaItems = null;
-  private String[] presetDescriptions = new String[0];
-  @Nullable private AssetItemAdapter assetItemAdapter;
+  private ArrayList<String> sequenceAssetTitles;
+  private boolean[] selectedMediaItems;
+  private String[] presetDescriptions;
+  private AssetItemAdapter assetItemAdapter;
   @Nullable private CompositionPlayer compositionPlayer;
   @Nullable private Transformer transformer;
   @Nullable private File outputFile;
-  private @MonotonicNonNull PlayerView playerView;
-  private @MonotonicNonNull AppCompatButton exportButton;
-  private @MonotonicNonNull AppCompatTextView exportInformationTextView;
-  private @MonotonicNonNull Stopwatch exportStopwatch;
+  private PlayerView playerView;
+  private AppCompatButton exportButton;
+  private AppCompatTextView exportInformationTextView;
+  private Stopwatch exportStopwatch;
 
   @Override
   protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -106,8 +100,9 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
     selectedMediaItems = new boolean[presetDescriptions.length];
     selectedMediaItems[0] = true;
     selectedMediaItems[2] = true;
-    for (int i = 0; i < checkNotNull(selectedMediaItems).length; i++) {
-      if (checkNotNull(selectedMediaItems)[i]) {
+    sequenceAssetTitles = new ArrayList<>();
+    for (int i = 0; i < selectedMediaItems.length; i++) {
+      if (selectedMediaItems[i]) {
         sequenceAssetTitles.add(presetDescriptions[i]);
       }
     }
@@ -127,38 +122,27 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
   @Override
   protected void onStart() {
     super.onStart();
-    checkStateNotNull(playerView).onResume();
+    playerView.onResume();
   }
 
   @Override
   protected void onStop() {
     super.onStop();
-    checkStateNotNull(playerView).onPause();
+    playerView.onPause();
     releasePlayer();
     cancelExport();
-    checkStateNotNull(exportStopwatch).reset();
+    exportStopwatch.reset();
   }
 
   private Composition prepareComposition() {
-    // Reading from resources here does not create a performance bottleneck, this
-    // method is called as part of more expensive operations.
     String[] presetUris = getResources().getStringArray(/* id= */ R.array.preset_uris);
-    checkState(
-        /* expression= */ checkStateNotNull(presetUris).length == presetDescriptions.length,
-        /* errorMessage= */ "Unexpected array length "
-            + getResources().getResourceName(R.array.preset_uris));
     int[] presetDurationsUs = getResources().getIntArray(/* id= */ R.array.preset_durations);
-    checkState(
-        /* expression= */ checkStateNotNull(presetDurationsUs).length == presetDescriptions.length,
-        /* errorMessage= */ "Unexpected array length "
-            + getResources().getResourceName(R.array.preset_durations));
-
     List<EditedMediaItem> mediaItems = new ArrayList<>();
     ImmutableList<Effect> effects =
         ImmutableList.of(
             MatrixTransformationFactory.createDizzyCropEffect(), RgbFilter.createGrayscaleFilter());
-    for (int i = 0; i < checkNotNull(selectedMediaItems).length; i++) {
-      if (checkNotNull(selectedMediaItems)[i]) {
+    for (int i = 0; i < selectedMediaItems.length; i++) {
+      if (selectedMediaItems[i]) {
         SonicAudioProcessor pitchChanger = new SonicAudioProcessor();
         pitchChanger.setPitch(mediaItems.size() % 2 == 0 ? 2f : 0.2f);
         MediaItem mediaItem =
@@ -190,12 +174,12 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
   private void previewComposition(View view) {
     releasePlayer();
     Composition composition = prepareComposition();
-    checkStateNotNull(playerView).setPlayer(null);
+    playerView.setPlayer(null);
 
     CompositionPlayer player = new CompositionPlayer.Builder(getApplicationContext()).build();
     this.compositionPlayer = player;
-    checkStateNotNull(playerView).setPlayer(compositionPlayer);
-    checkStateNotNull(playerView).setControllerAutoShow(false);
+    playerView.setPlayer(compositionPlayer);
+    playerView.setControllerAutoShow(false);
     player.addListener(
         new Player.Listener() {
           @Override
@@ -213,8 +197,7 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
   private void selectPreset(View view) {
     new AlertDialog.Builder(/* context= */ this)
         .setTitle(R.string.select_preset_title)
-        .setMultiChoiceItems(
-            presetDescriptions, checkNotNull(selectedMediaItems), this::selectPresetInDialog)
+        .setMultiChoiceItems(presetDescriptions, selectedMediaItems, this::selectPresetInDialog)
         .setPositiveButton(android.R.string.ok, /* listener= */ null)
         .setCancelable(false)
         .create()
@@ -222,18 +205,15 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
   }
 
   private void selectPresetInDialog(DialogInterface dialog, int which, boolean isChecked) {
-    if (selectedMediaItems == null) {
-      return;
-    }
     selectedMediaItems[which] = isChecked;
     // The items will be added to a the sequence in the order they were selected.
     if (isChecked) {
       sequenceAssetTitles.add(presetDescriptions[which]);
-      checkNotNull(assetItemAdapter).notifyItemInserted(sequenceAssetTitles.size() - 1);
+      assetItemAdapter.notifyItemInserted(sequenceAssetTitles.size() - 1);
     } else {
       int index = sequenceAssetTitles.indexOf(presetDescriptions[which]);
       sequenceAssetTitles.remove(presetDescriptions[which]);
-      checkNotNull(assetItemAdapter).notifyItemRemoved(index);
+      assetItemAdapter.notifyItemRemoved(index);
     }
   }
 
@@ -253,23 +233,23 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
               "Aborting export! Unable to create output file: " + e,
               Toast.LENGTH_LONG)
           .show();
-      Log.e(TAG, "Aborting export! Unable to create output file: " + e);
+      Log.e(TAG, "Aborting export! Unable to create output file: ", e);
       return;
     }
     String filePath = outputFile.getAbsolutePath();
 
     transformer =
-        new Transformer.Builder(this)
+        new Transformer.Builder(/* context= */ this)
             .addListener(
                 new Transformer.Listener() {
                   @Override
                   public void onCompleted(Composition composition, ExportResult exportResult) {
-                    checkStateNotNull(exportStopwatch).stop();
+                    exportStopwatch.stop();
                     long elapsedTimeMs = exportStopwatch.elapsed(TimeUnit.MILLISECONDS);
                     String details =
                         getString(R.string.export_completed, elapsedTimeMs / 1000.f, filePath);
                     Log.i(TAG, details);
-                    checkStateNotNull(exportInformationTextView).setText(details);
+                    exportInformationTextView.setText(details);
 
                     try {
                       JSONObject resultJson =
@@ -289,22 +269,22 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
                       Composition composition,
                       ExportResult exportResult,
                       ExportException exportException) {
-                    checkStateNotNull(exportStopwatch).stop();
+                    exportStopwatch.stop();
                     Toast.makeText(
                             getApplicationContext(),
                             "Export error: " + exportException,
                             Toast.LENGTH_LONG)
                         .show();
                     Log.e(TAG, "Export error", exportException);
-                    checkStateNotNull(exportInformationTextView).setText(R.string.export_error);
+                    exportInformationTextView.setText(R.string.export_error);
                   }
                 })
             .build();
 
-    checkStateNotNull(exportInformationTextView).setText(R.string.export_started);
-    checkStateNotNull(exportStopwatch).reset();
+    exportInformationTextView.setText(R.string.export_started);
+    exportStopwatch.reset();
     exportStopwatch.start();
-    checkStateNotNull(transformer).start(composition, filePath);
+    transformer.start(composition, filePath);
     Log.i(TAG, "Export started");
   }
 
@@ -325,7 +305,7 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
       outputFile.delete();
       outputFile = null;
     }
-    checkStateNotNull(exportInformationTextView).setText("");
+    exportInformationTextView.setText("");
   }
 
   /**
