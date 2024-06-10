@@ -196,6 +196,81 @@ public final class TransformerHdrSequenceEffectTest {
   }
 
   @Test
+  public void export_withHdr10ThenHdr10_whenHdrEditingSupported_producesExpectedFrame()
+      throws Exception {
+    assumeDeviceSupportsHdrEditing(testId, MP4_ASSET_720P_4_SECOND_HDR10_FORMAT);
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10_FORMAT,
+        /* outputFormat= */ null);
+    Composition composition =
+        createComposition(
+            Presentation.createForHeight(EXPORT_HEIGHT),
+            clippedVideo(
+                MP4_ASSET_720P_4_SECOND_HDR10,
+                ImmutableList.of(
+                    new ScaleAndRotateTransformation.Builder().setRotationDegrees(45).build()),
+                /* endPositionMs= */ SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS),
+            clippedVideo(
+                MP4_ASSET_720P_4_SECOND_HDR10,
+                ImmutableList.of(
+                    new ScaleAndRotateTransformation.Builder().setRotationDegrees(45).build()),
+                /* endPositionMs= */ SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS));
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
+            .build()
+            .run(testId, composition);
+    assertThat(result.filePath).isNotNull();
+    // Expected bitmaps were generated on the Pixel 7 Pro, because emulators don't support decoding
+    // HDR.
+    assertBitmapsMatchExpectedAndSave(
+        extractBitmapsFromVideo(context, checkNotNull(result.filePath)), testId);
+  }
+
+  @Test
+  public void export_withHlg10ThenHdr10_whenHdrEditingSupported_producesExpectedFrame()
+      throws Exception {
+    assumeDeviceSupportsHdrEditing(testId, MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT);
+    assumeDeviceSupportsHdrEditing(testId, MP4_ASSET_720P_4_SECOND_HDR10_FORMAT);
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT,
+        /* outputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT);
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10_FORMAT,
+        /* outputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT);
+    Composition composition =
+        createComposition(
+            Presentation.createForHeight(EXPORT_HEIGHT),
+            clippedVideo(
+                MP4_ASSET_1080P_5_SECOND_HLG10,
+                ImmutableList.of(
+                    new ScaleAndRotateTransformation.Builder().setRotationDegrees(45).build()),
+                /* endPositionMs= */ SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS),
+            clippedVideo(
+                MP4_ASSET_720P_4_SECOND_HDR10,
+                ImmutableList.of(
+                    new ScaleAndRotateTransformation.Builder().setRotationDegrees(45).build()),
+                /* endPositionMs= */ SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS));
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
+            .build()
+            .run(testId, composition);
+
+    assertThat(result.filePath).isNotNull();
+    // Expected bitmaps were generated on the Pixel 7 Pro, because emulators don't support decoding
+    // HDR.
+    assertBitmapsMatchExpectedAndSave(
+        extractBitmapsFromVideo(context, checkNotNull(result.filePath)), testId);
+  }
+
+  @Test
   public void export1920x1080Hlg_withAllAvailableDecoders_doesNotStretchOutputOnAny()
       throws Exception {
     assumeDeviceSupportsHdrEditing(testId, MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT);
