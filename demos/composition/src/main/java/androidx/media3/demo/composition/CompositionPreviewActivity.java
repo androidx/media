@@ -73,7 +73,7 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
   private final ArrayList<String> sequenceAssetTitles = new ArrayList<>();
 
   @Nullable private boolean[] selectedMediaItems = null;
-  private String[] presetFileDescriptions = new String[0];
+  private String[] presetDescriptions = new String[0];
   @Nullable private AssetItemAdapter assetItemAdapter;
   @Nullable private CompositionPlayer compositionPlayer;
   @Nullable private Transformer transformer;
@@ -90,7 +90,7 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
     playerView = findViewById(R.id.composition_player_view);
 
     findViewById(R.id.preview_button).setOnClickListener(this::previewComposition);
-    findViewById(R.id.edit_sequence_button).setOnClickListener(this::selectPresetFile);
+    findViewById(R.id.edit_sequence_button).setOnClickListener(this::selectPreset);
     RecyclerView presetList = findViewById(R.id.composition_preset_list);
     presetList.addItemDecoration(new DividerItemDecoration(this, DividerItemDecoration.VERTICAL));
     LinearLayoutManager layoutManager =
@@ -101,14 +101,14 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
     exportButton = findViewById(R.id.composition_export_button);
     exportButton.setOnClickListener(this::exportComposition);
 
-    presetFileDescriptions = getResources().getStringArray(R.array.preset_descriptions);
+    presetDescriptions = getResources().getStringArray(R.array.preset_descriptions);
     // Select two media items by default.
-    selectedMediaItems = new boolean[presetFileDescriptions.length];
+    selectedMediaItems = new boolean[presetDescriptions.length];
     selectedMediaItems[0] = true;
     selectedMediaItems[2] = true;
     for (int i = 0; i < checkNotNull(selectedMediaItems).length; i++) {
       if (checkNotNull(selectedMediaItems)[i]) {
-        sequenceAssetTitles.add(presetFileDescriptions[i]);
+        sequenceAssetTitles.add(presetDescriptions[i]);
       }
     }
     assetItemAdapter = new AssetItemAdapter(sequenceAssetTitles);
@@ -142,15 +142,14 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
   private Composition prepareComposition() {
     // Reading from resources here does not create a performance bottleneck, this
     // method is called as part of more expensive operations.
-    String[] presetFileUris = getResources().getStringArray(/* id= */ R.array.preset_uris);
+    String[] presetUris = getResources().getStringArray(/* id= */ R.array.preset_uris);
     checkState(
-        /* expression= */ checkStateNotNull(presetFileUris).length == presetFileDescriptions.length,
+        /* expression= */ checkStateNotNull(presetUris).length == presetDescriptions.length,
         /* errorMessage= */ "Unexpected array length "
             + getResources().getResourceName(R.array.preset_uris));
     int[] presetDurationsUs = getResources().getIntArray(/* id= */ R.array.preset_durations);
     checkState(
-        /* expression= */ checkStateNotNull(presetDurationsUs).length
-            == presetFileDescriptions.length,
+        /* expression= */ checkStateNotNull(presetDurationsUs).length == presetDescriptions.length,
         /* errorMessage= */ "Unexpected array length "
             + getResources().getResourceName(R.array.preset_durations));
 
@@ -164,7 +163,7 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
         pitchChanger.setPitch(mediaItems.size() % 2 == 0 ? 2f : 0.2f);
         MediaItem mediaItem =
             new MediaItem.Builder()
-                .setUri(presetFileUris[i])
+                .setUri(presetUris[i])
                 .setImageDurationMs(Util.usToMs(presetDurationsUs[i])) // Ignored for audio/video
                 .build();
         EditedMediaItem.Builder itemBuilder =
@@ -211,31 +210,29 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
     player.play();
   }
 
-  private void selectPresetFile(View view) {
+  private void selectPreset(View view) {
     new AlertDialog.Builder(/* context= */ this)
-        .setTitle(R.string.select_preset_file_title)
+        .setTitle(R.string.select_preset_title)
         .setMultiChoiceItems(
-            presetFileDescriptions,
-            checkNotNull(selectedMediaItems),
-            this::selectPresetFileInDialog)
+            presetDescriptions, checkNotNull(selectedMediaItems), this::selectPresetInDialog)
         .setPositiveButton(android.R.string.ok, /* listener= */ null)
         .setCancelable(false)
         .create()
         .show();
   }
 
-  private void selectPresetFileInDialog(DialogInterface dialog, int which, boolean isChecked) {
+  private void selectPresetInDialog(DialogInterface dialog, int which, boolean isChecked) {
     if (selectedMediaItems == null) {
       return;
     }
     selectedMediaItems[which] = isChecked;
     // The items will be added to a the sequence in the order they were selected.
     if (isChecked) {
-      sequenceAssetTitles.add(presetFileDescriptions[which]);
+      sequenceAssetTitles.add(presetDescriptions[which]);
       checkNotNull(assetItemAdapter).notifyItemInserted(sequenceAssetTitles.size() - 1);
     } else {
-      int index = sequenceAssetTitles.indexOf(presetFileDescriptions[which]);
-      sequenceAssetTitles.remove(presetFileDescriptions[which]);
+      int index = sequenceAssetTitles.indexOf(presetDescriptions[which]);
+      sequenceAssetTitles.remove(presetDescriptions[which]);
       checkNotNull(assetItemAdapter).notifyItemRemoved(index);
     }
   }
