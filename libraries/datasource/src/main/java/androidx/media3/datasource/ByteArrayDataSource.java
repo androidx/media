@@ -31,10 +31,10 @@ import java.io.IOException;
 @UnstableApi
 public final class ByteArrayDataSource extends BaseDataSource {
 
-  /** Functional interface to resolve from {@link Uri} to {@link byte[]}. */
+  /** Functional interface to resolve from {@link Uri} to {@code byte[]}. */
   public interface UriResolver {
     /**
-     * Resolves a {@link Uri} to a {@link byte[]}.
+     * Resolves a {@link Uri} to a {@code byte[]}.
      *
      * <p>Called during {@link DataSource#open(DataSpec)} from a loading thread, so can do blocking
      * work.
@@ -67,7 +67,7 @@ public final class ByteArrayDataSource extends BaseDataSource {
   /**
    * Creates an instance.
    *
-   * @param uriResolver Function to resolve from {@link Uri} to {@link byte[]} during {@link
+   * @param uriResolver Function to resolve from {@link Uri} to {@code byte[]} during {@link
    *     #open(DataSpec)}.
    */
   public ByteArrayDataSource(UriResolver uriResolver) {
