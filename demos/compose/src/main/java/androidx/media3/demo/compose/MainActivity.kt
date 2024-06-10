@@ -22,6 +22,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -41,13 +42,15 @@ class MainActivity : ComponentActivity() {
           verticalArrangement = Arrangement.Center,
           horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-          val exoPlayer =
-            ExoPlayer.Builder(LocalContext.current).build().apply {
+          val context = LocalContext.current
+          val exoPlayer = remember {
+            ExoPlayer.Builder(context).build().apply {
               setMediaItem(MediaItem.fromUri(videos[0]))
               prepare()
               playWhenReady = true
               repeatMode = Player.REPEAT_MODE_ONE
             }
+          }
           PlayerSurface(
             player = exoPlayer,
             surfaceType = SURFACE_TYPE_SURFACE_VIEW,
