@@ -124,9 +124,9 @@ public final class BundleCollectionUtil {
     return sparseArray;
   }
 
-  public static Bundle stringMapToBundle(Map<String, String> bundleableMap) {
+  public static Bundle stringMapToBundle(Map<String, String> map) {
     Bundle bundle = new Bundle();
-    for (Map.Entry<String, String> entry : bundleableMap.entrySet()) {
+    for (Map.Entry<String, String> entry : map.entrySet()) {
       bundle.putString(entry.getKey(), entry.getValue());
     }
     return bundle;
