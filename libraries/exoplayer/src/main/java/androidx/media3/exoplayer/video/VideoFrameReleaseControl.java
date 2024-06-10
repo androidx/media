@@ -399,6 +399,9 @@ public final class VideoFrameReleaseControl {
 
   /** Sets the playback speed. Called when the renderer playback speed changes. */
   public void setPlaybackSpeed(float speed) {
+    if (speed == playbackSpeed) {
+      return;
+    }
     this.playbackSpeed = speed;
     frameReleaseHelper.onPlaybackSpeed(speed);
   }

@@ -674,6 +674,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
           // Pass a direct executor since the callback handling involves posting on the app looper
           // again, so there's no need to do two hops.
           directExecutor());
+      videoSink.setPlaybackSpeed(getPlaybackSpeed());
       videoSink.onRendererEnabled(mayRenderStartOfStream);
     } else {
       videoFrameReleaseControl.onEnabled(mayRenderStartOfStream);
@@ -1004,9 +1005,10 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   public void setPlaybackSpeed(float currentPlaybackSpeed, float targetPlaybackSpeed)
       throws ExoPlaybackException {
     super.setPlaybackSpeed(currentPlaybackSpeed, targetPlaybackSpeed);
-    videoFrameReleaseControl.setPlaybackSpeed(currentPlaybackSpeed);
     if (shouldUseVideoSink) {
       videoSink.setPlaybackSpeed(currentPlaybackSpeed);
+    } else {
+      videoFrameReleaseControl.setPlaybackSpeed(currentPlaybackSpeed);
     }
   }
 
