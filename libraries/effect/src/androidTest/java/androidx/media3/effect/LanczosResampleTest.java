@@ -53,8 +53,11 @@ public class LanczosResampleTest {
   @Rule public final TestName testName = new TestName();
 
   private static final String ORIGINAL_JPG_ASSET_PATH = "media/jpeg/ultraHDR.jpg";
+  private static final String SMALLER_JPG_ASSET_PATH = "media/jpeg/london.jpg";
   private static final String DOWNSCALED_6X_PNG_ASSET_PATH =
       "test-generated-goldens/LanczosResampleTest/ultraHDR_512x680.png";
+  private static final String UPSCALED_3X_PNG_ASSET_PATH =
+      "test-generated-goldens/LanczosResampleTest/london_3060x2304.jpg";
 
   private final Context context = getApplicationContext();
 
@@ -63,20 +66,12 @@ public class LanczosResampleTest {
   private @MonotonicNonNull EGLContext eglContext;
   private @MonotonicNonNull EGLSurface placeholderEglSurface;
   private @MonotonicNonNull GlShaderProgram lanczosShaderProgram;
-  private int inputTexId;
-  private int inputWidth;
-  private int inputHeight;
 
   @Before
   public void createGlObjects() throws Exception {
     eglDisplay = GlUtil.getDefaultEglDisplay();
     eglContext = GlUtil.createEglContext(eglDisplay);
     placeholderEglSurface = GlUtil.createFocusedPlaceholderEglSurface(eglContext, eglDisplay);
-
-    Bitmap inputBitmap = readBitmap(ORIGINAL_JPG_ASSET_PATH);
-    inputWidth = inputBitmap.getWidth();
-    inputHeight = inputBitmap.getHeight();
-    inputTexId = createGlTextureFromBitmap(inputBitmap);
   }
 
   @Before
@@ -94,20 +89,15 @@ public class LanczosResampleTest {
 
   @Test
   public void queueInputFrame_with6xDownscale_matchesGoldenFile() throws Exception {
+    GlTextureInfo inputTextureInfo = setupInputTexture(ORIGINAL_JPG_ASSET_PATH);
     float scale = 1f / 6;
-    Size outputSize = new Size((int) (inputWidth * scale), (int) (inputHeight * scale));
+    Size outputSize =
+        new Size((int) (inputTextureInfo.width * scale), (int) (inputTextureInfo.height * scale));
     lanczosShaderProgram =
         LanczosResample.scaleToFit(outputSize.getWidth(), outputSize.getHeight())
             .toGlShaderProgram(context, /* useHdr= */ false);
     setupOutputTexture(outputSize.getWidth(), outputSize.getHeight());
     Bitmap expectedBitmap = readBitmap(DOWNSCALED_6X_PNG_ASSET_PATH);
-    GlTextureInfo inputTextureInfo =
-        new GlTextureInfo(
-            inputTexId,
-            /* fboId= */ C.INDEX_UNSET,
-            /* rboId= */ C.INDEX_UNSET,
-            inputWidth,
-            inputHeight);
 
     lanczosShaderProgram.queueInputFrame(
         new DefaultGlObjectsProvider(eglContext), inputTextureInfo, /* presentationTimeUs= */ 0);
@@ -116,6 +106,37 @@ public class LanczosResampleTest {
 
     maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
     assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
+  }
+
+  @Test
+  public void queueInputFrame_with3xUpscale_matchesGoldenFile() throws Exception {
+    GlTextureInfo inputTextureInfo = setupInputTexture(SMALLER_JPG_ASSET_PATH);
+    float scale = 3;
+    Size outputSize =
+        new Size((int) (inputTextureInfo.width * scale), (int) (inputTextureInfo.height * scale));
+    lanczosShaderProgram =
+        LanczosResample.scaleToFit(outputSize.getWidth(), outputSize.getHeight())
+            .toGlShaderProgram(context, /* useHdr= */ false);
+    setupOutputTexture(outputSize.getWidth(), outputSize.getHeight());
+    Bitmap expectedBitmap = readBitmap(UPSCALED_3X_PNG_ASSET_PATH);
+
+    lanczosShaderProgram.queueInputFrame(
+        new DefaultGlObjectsProvider(eglContext), inputTextureInfo, /* presentationTimeUs= */ 0);
+    Bitmap actualBitmap =
+        createArgb8888BitmapFromFocusedGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
+
+    maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
+    assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
+  }
+
+  private static GlTextureInfo setupInputTexture(String path) throws Exception {
+    Bitmap inputBitmap = readBitmap(path);
+    return new GlTextureInfo(
+        createGlTextureFromBitmap(inputBitmap),
+        /* fboId= */ C.INDEX_UNSET,
+        /* rboId= */ C.INDEX_UNSET,
+        inputBitmap.getWidth(),
+        inputBitmap.getHeight());
   }
 
   private void setupOutputTexture(int outputWidth, int outputHeight) throws Exception {

@@ -16,6 +16,7 @@
 package androidx.media3.effect;
 
 import static androidx.media3.common.util.Assertions.checkArgument;
+import static java.lang.Math.min;
 import static java.lang.Math.round;
 
 import android.content.Context;
@@ -92,7 +93,10 @@ public final class LanczosResample implements GlEffect {
 
     @Override
     public ConvolutionFunction1D getConvolution(long presentationTimeUs) {
-      return new ScaledLanczosFunction(radius, scale);
+      // When scaling down (scale < 1), scale the kernel function to ensure we sample all input
+      // pixels inside the kernel radius.
+      // When scaling up (scale > 1), leave the kernel function unchanged.
+      return new ScaledLanczosFunction(radius, min(scale, 1f));
     }
 
     @Override
