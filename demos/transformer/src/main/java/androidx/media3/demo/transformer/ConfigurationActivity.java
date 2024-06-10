@@ -154,7 +154,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
   private Runnable onPermissionsGranted;
   private ActivityResultLauncher<Intent> videoLocalFilePickerLauncher;
   private ActivityResultLauncher<Intent> overlayLocalFilePickerLauncher;
-  private Button selectPresetFileButton;
+  private Button selectPresetButton;
   private Button selectLocalFileButton;
   private TextView selectedFileTextView;
   private CheckBox removeAudioCheckbox;
@@ -178,7 +178,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
   private Button selectVideoEffectsButton;
   private boolean[] audioEffectsSelections;
   private boolean[] videoEffectsSelections;
-  private String[] presetFileDescriptions;
+  private String[] presetDescriptions;
   private Uri localFileUri;
   private int inputUriPosition;
   private long trimStartMs;
@@ -217,8 +217,8 @@ public final class ConfigurationActivity extends AppCompatActivity {
             new ActivityResultContracts.StartActivityForResult(),
             this::overlayLocalFilePickerLauncherResult);
 
-    selectPresetFileButton = findViewById(R.id.select_preset_file_button);
-    selectPresetFileButton.setOnClickListener(view -> selectPresetFile());
+    selectPresetButton = findViewById(R.id.select_preset_button);
+    selectPresetButton.setOnClickListener(view -> selectPreset());
 
     selectLocalFileButton = findViewById(R.id.select_local_file_button);
     selectLocalFileButton.setOnClickListener(
@@ -228,8 +228,8 @@ public final class ConfigurationActivity extends AppCompatActivity {
                 /* mimeTypes= */ new String[] {"image/*", "video/*", "audio/*"}));
 
     selectedFileTextView = findViewById(R.id.selected_file_text_view);
-    presetFileDescriptions = getResources().getStringArray(R.array.preset_descriptions);
-    selectedFileTextView.setText(presetFileDescriptions[inputUriPosition]);
+    presetDescriptions = getResources().getStringArray(R.array.preset_descriptions);
+    selectedFileTextView.setText(presetDescriptions[inputUriPosition]);
 
     removeAudioCheckbox = findViewById(R.id.remove_audio_checkbox);
     removeAudioCheckbox.setOnClickListener(this::onRemoveAudio);
@@ -339,7 +339,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
     super.onResume();
     @Nullable Uri intentUri = getIntent().getData();
     if (intentUri != null) {
-      selectPresetFileButton.setEnabled(false);
+      selectPresetButton.setEnabled(false);
       selectLocalFileButton.setEnabled(false);
       selectedFileTextView.setText(intentUri.toString());
     }
@@ -419,28 +419,27 @@ public final class ConfigurationActivity extends AppCompatActivity {
     } else if (localFileUri != null) {
       intentUri = localFileUri;
     } else {
-      String[] presetFileUris = getResources().getStringArray(R.array.preset_uris);
-      intentUri = Uri.parse(presetFileUris[inputUriPosition]);
+      String[] presetUris = getResources().getStringArray(R.array.preset_uris);
+      intentUri = Uri.parse(presetUris[inputUriPosition]);
     }
     transformerIntent.setData(intentUri);
 
     startActivity(transformerIntent);
   }
 
-  private void selectPresetFile() {
+  private void selectPreset() {
     new AlertDialog.Builder(/* context= */ this)
-        .setTitle(R.string.select_preset_file_title)
-        .setSingleChoiceItems(
-            presetFileDescriptions, inputUriPosition, this::selectPresetFileInDialog)
+        .setTitle(R.string.select_preset_title)
+        .setSingleChoiceItems(presetDescriptions, inputUriPosition, this::selectPresetInDialog)
         .setPositiveButton(android.R.string.ok, /* listener= */ null)
         .create()
         .show();
   }
 
-  private void selectPresetFileInDialog(DialogInterface dialog, int which) {
+  private void selectPresetInDialog(DialogInterface dialog, int which) {
     inputUriPosition = which;
     localFileUri = null;
-    selectedFileTextView.setText(presetFileDescriptions[inputUriPosition]);
+    selectedFileTextView.setText(presetDescriptions[inputUriPosition]);
   }
 
   private void selectLocalFile(
