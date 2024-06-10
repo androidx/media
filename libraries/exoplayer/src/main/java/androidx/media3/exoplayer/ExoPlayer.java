@@ -1691,7 +1691,9 @@ public interface ExoPlayer extends Player {
    *   <li>This feature does not work with {@linkplain Effect effects} that update the frame
    *       timestamps.
    *   <li>This feature does not work with DRM-protected content.
-   *   <li>This method should be called before calling {@link #prepare()}.
+   *   <li>This method must be called at least once before calling {@link #prepare()} (in order to
+   *       set up the effects pipeline). The effects can be changed during playback by subsequent
+   *       calls to this method after {@link #prepare()}.
    * </ul>
    *
    * @param videoEffects The {@link List} of {@linkplain Effect video effects} to apply.
