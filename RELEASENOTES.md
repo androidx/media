@@ -7,6 +7,10 @@
     *   Add `ExoPlayer.isReleased()` to check whether `Exoplayer.release()` has
         been called.
 *   Transformer:
+    *   Remove `ExportResult.processedInputs` field. If you use this field for
+        codec details, then use `DefaultDecoderFactory.listener` instead. In
+        case of a codec exception, codec details will be available in the
+        `ExportException.codecInfo`.
 *   Track Selection:
 *   Extractors:
 *   Audio:
