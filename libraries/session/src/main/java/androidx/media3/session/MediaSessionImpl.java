@@ -240,7 +240,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             playIfSuppressed,
             customLayout,
             connectionResult.availableSessionCommands,
-            connectionResult.availablePlayerCommands);
+            connectionResult.availablePlayerCommands,
+            sessionExtras);
     this.playerWrapper = playerWrapper;
     postOrRun(
         applicationHandler,
@@ -265,7 +266,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             playIfSuppressed,
             playerWrapper.getCustomLayout(),
             playerWrapper.getAvailableSessionCommands(),
-            playerWrapper.getAvailablePlayerCommands()));
+            playerWrapper.getAvailablePlayerCommands(),
+            playerWrapper.getLegacyExtras()));
   }
 
   private void setPlayerInternal(

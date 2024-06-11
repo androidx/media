@@ -1113,6 +1113,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     @Override
     public void onSessionExtrasChanged(int seq, Bundle sessionExtras) {
       sessionCompat.setExtras(sessionExtras);
+      sessionImpl.getPlayerWrapper().setLegacyExtras(sessionExtras);
+      sessionCompat.setPlaybackState(sessionImpl.getPlayerWrapper().createPlaybackStateCompat());
     }
 
     @Override

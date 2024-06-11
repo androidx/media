@@ -26,6 +26,9 @@
         and how to resolve the error if possible.
     *   Publish the code for the media3 controller test app that can be used to
         test interactions with apps publishing a media session.
+    *   Propagate extras passed to media3's
+        `MediaSession[Builder].setSessionExtras()` to a media1 controller's
+        `PlaybackStateCompat.getExtras()`.
 *   UI:
     *   Add customisation of various icons in `PlayerControlView` through xml
         attributes to allow different drawables per `PlayerView` instance,

@@ -25,6 +25,7 @@ import static androidx.media3.test.session.common.MediaSessionConstants.TEST_MED
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_SET_SHOW_PLAY_BUTTON_IF_SUPPRESSED_TO_FALSE;
 import static androidx.media3.test.session.common.TestUtils.LONG_TIMEOUT_MS;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
+import static androidx.test.ext.truth.os.BundleSubject.assertThat;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -999,33 +1000,106 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
   }
 
   @Test
-  public void setSessionExtras_cnExtrasChangedCalled() throws Exception {
+  public void setSessionExtras_toAllControllers_extrasAndStateCallbacks() throws Exception {
     Bundle sessionExtras = new Bundle();
     sessionExtras.putString("key-0", "value-0");
-    CountDownLatch latch = new CountDownLatch(1);
-    List<Bundle> receivedSessionExtras = new ArrayList<>();
+    CountDownLatch onExtrasChangedCalled = new CountDownLatch(1);
+    CountDownLatch onPlaybackStateChangedCalled = new CountDownLatch(1);
+    AtomicReference<Bundle> sessionExtrasFromCallback = new AtomicReference<>();
+    AtomicReference<Bundle> sessionExtrasFromController = new AtomicReference<>();
+    AtomicReference<Bundle> playbackStateExtrasFromCallback = new AtomicReference<>();
+    AtomicReference<Bundle> playbackStateExtrasFromController = new AtomicReference<>();
     MediaControllerCompat.Callback callback =
         new MediaControllerCompat.Callback() {
           @Override
           public void onExtrasChanged(Bundle extras) {
-            receivedSessionExtras.add(extras);
-            receivedSessionExtras.add(controllerCompat.getExtras());
-            latch.countDown();
+            sessionExtrasFromCallback.set(extras);
+            sessionExtrasFromController.set(controllerCompat.getExtras());
+            onExtrasChangedCalled.countDown();
+          }
+
+          @Override
+          public void onPlaybackStateChanged(PlaybackStateCompat state) {
+            playbackStateExtrasFromCallback.set(state.getExtras());
+            playbackStateExtrasFromController.set(controllerCompat.getPlaybackState().getExtras());
+            onPlaybackStateChangedCalled.countDown();
           }
         };
     controllerCompat.registerCallback(callback, handler);
 
     session.setSessionExtras(sessionExtras);
 
-    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(TestUtils.equals(receivedSessionExtras.get(0), sessionExtras)).isTrue();
-    assertThat(TestUtils.equals(receivedSessionExtras.get(1), sessionExtras)).isTrue();
+    assertThat(onExtrasChangedCalled.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(onPlaybackStateChangedCalled.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(sessionExtrasFromCallback.get()).hasSize(1);
+    assertThat(sessionExtrasFromCallback.get()).string("key-0").isEqualTo("value-0");
+    assertThat(sessionExtrasFromController.get()).hasSize(1);
+    assertThat(sessionExtrasFromController.get()).string("key-0").isEqualTo("value-0");
+    assertThat(playbackStateExtrasFromCallback.get()).hasSize(2);
+    assertThat(playbackStateExtrasFromCallback.get())
+        .doubleFloat(MediaConstants.EXTRAS_KEY_PLAYBACK_SPEED_COMPAT)
+        .isEqualTo(0.0);
+    assertThat(playbackStateExtrasFromCallback.get()).string("key-0").isEqualTo("value-0");
+    assertThat(playbackStateExtrasFromController.get()).hasSize(2);
+    assertThat(playbackStateExtrasFromController.get())
+        .doubleFloat(MediaConstants.EXTRAS_KEY_PLAYBACK_SPEED_COMPAT)
+        .isEqualTo(0.0);
+    assertThat(playbackStateExtrasFromController.get()).string("key-0").isEqualTo("value-0");
+  }
+
+  @Test
+  public void setSessionExtras_toMediaNotificationControllers_extrasAndStateCallbacks()
+      throws Exception {
+    Bundle sessionExtras = new Bundle();
+    sessionExtras.putString("key-0", "value-0");
+    CountDownLatch onExtrasChangedCalled = new CountDownLatch(1);
+    CountDownLatch onPlaybackStateChangedCalled = new CountDownLatch(1);
+    AtomicReference<Bundle> sessionExtrasFromCallback = new AtomicReference<>();
+    AtomicReference<Bundle> sessionExtrasFromController = new AtomicReference<>();
+    AtomicReference<Bundle> playbackStateExtrasFromCallback = new AtomicReference<>();
+    AtomicReference<Bundle> playbackStateExtrasFromController = new AtomicReference<>();
+    MediaControllerCompat.Callback callback =
+        new MediaControllerCompat.Callback() {
+          @Override
+          public void onExtrasChanged(Bundle extras) {
+            sessionExtrasFromCallback.set(extras);
+            sessionExtrasFromController.set(controllerCompat.getExtras());
+            onExtrasChangedCalled.countDown();
+          }
+
+          @Override
+          public void onPlaybackStateChanged(PlaybackStateCompat state) {
+            playbackStateExtrasFromCallback.set(state.getExtras());
+            playbackStateExtrasFromController.set(controllerCompat.getPlaybackState().getExtras());
+            onPlaybackStateChangedCalled.countDown();
+          }
+        };
+    controllerCompat.registerCallback(callback, handler);
+
+    session.setSessionExtras(/* controllerKey= */ NOTIFICATION_CONTROLLER_KEY, sessionExtras);
+
+    assertThat(onExtrasChangedCalled.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(onPlaybackStateChangedCalled.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(sessionExtrasFromCallback.get()).hasSize(1);
+    assertThat(sessionExtrasFromCallback.get()).string("key-0").isEqualTo("value-0");
+    assertThat(sessionExtrasFromController.get()).hasSize(1);
+    assertThat(sessionExtrasFromController.get()).string("key-0").isEqualTo("value-0");
+    assertThat(playbackStateExtrasFromCallback.get()).hasSize(2);
+    assertThat(playbackStateExtrasFromCallback.get())
+        .doubleFloat(MediaConstants.EXTRAS_KEY_PLAYBACK_SPEED_COMPAT)
+        .isEqualTo(0.0);
+    assertThat(playbackStateExtrasFromCallback.get()).string("key-0").isEqualTo("value-0");
+    assertThat(playbackStateExtrasFromController.get()).hasSize(2);
+    assertThat(playbackStateExtrasFromController.get())
+        .doubleFloat(MediaConstants.EXTRAS_KEY_PLAYBACK_SPEED_COMPAT)
+        .isEqualTo(0.0);
+    assertThat(playbackStateExtrasFromController.get()).string("key-0").isEqualTo("value-0");
   }
 
   @Test
   public void sendError_toAllControllers_onPlaybackStateChangedToErrorStateAndWithCorrectErrorData()
       throws Exception {
-    CountDownLatch latch = new CountDownLatch(2);
+    CountDownLatch latch = new CountDownLatch(3);
     List<PlaybackStateCompat> playbackStates = new ArrayList<>();
     MediaControllerCompat.Callback callback =
         new MediaControllerCompat.Callback() {
@@ -1036,9 +1110,12 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
           }
         };
     controllerCompat.registerCallback(callback, handler);
+    Bundle sessionExtras = new Bundle();
+    sessionExtras.putString("initialKey", "initialValue");
+    session.setSessionExtras(sessionExtras);
     PlaybackStateCompat initialPlaybackStateCompat = controllerCompat.getPlaybackState();
     Bundle errorBundle = new Bundle();
-    errorBundle.putInt("intKey", 99);
+    errorBundle.putInt("errorKey", 99);
 
     session.sendError(
         /* controllerKey= */ null,
@@ -1047,13 +1124,19 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
         errorBundle);
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(playbackStates).hasSize(2);
-    PlaybackStateCompat errorPlaybackStateCompat = playbackStates.get(0);
+    assertThat(playbackStates).hasSize(3);
+
+    // Skip the playback state from the first setSessionExtras() call.
+    PlaybackStateCompat errorPlaybackStateCompat = playbackStates.get(1);
     assertThat(errorPlaybackStateCompat.getState()).isEqualTo(PlaybackStateCompat.STATE_ERROR);
     assertThat(errorPlaybackStateCompat.getErrorCode()).isEqualTo(1);
     assertThat(errorPlaybackStateCompat.getErrorMessage().toString())
         .isEqualTo(context.getString(R.string.authentication_required));
-    PlaybackStateCompat resolvedPlaybackStateCompat = playbackStates.get(1);
+    assertThat(errorPlaybackStateCompat.getExtras()).hasSize(2);
+    assertThat(errorPlaybackStateCompat.getExtras()).integer("errorKey").isEqualTo(99);
+    assertThat(errorPlaybackStateCompat.getExtras()).string("initialKey").isEqualTo("initialValue");
+
+    PlaybackStateCompat resolvedPlaybackStateCompat = playbackStates.get(2);
     assertThat(resolvedPlaybackStateCompat.getState())
         .isEqualTo(initialPlaybackStateCompat.getState());
     assertThat(resolvedPlaybackStateCompat.getErrorCode())
@@ -1061,13 +1144,18 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
     assertThat(resolvedPlaybackStateCompat.getErrorMessage()).isNull();
     assertThat(resolvedPlaybackStateCompat.getActions())
         .isEqualTo(initialPlaybackStateCompat.getActions());
+    assertThat(resolvedPlaybackStateCompat.getExtras())
+        .hasSize(initialPlaybackStateCompat.getExtras().size());
+    assertThat(resolvedPlaybackStateCompat.getExtras())
+        .string("initialKey")
+        .isEqualTo(initialPlaybackStateCompat.getExtras().getString("initialKey"));
   }
 
   @Test
   public void
       sendError_toMediaNotificationControllers_onPlaybackStateChangedToErrorStateAndWithCorrectErrorData()
           throws Exception {
-    CountDownLatch latch = new CountDownLatch(2);
+    CountDownLatch latch = new CountDownLatch(3);
     List<PlaybackStateCompat> playbackStates = new ArrayList<>();
     MediaControllerCompat.Callback callback =
         new MediaControllerCompat.Callback() {
@@ -1078,10 +1166,13 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
           }
         };
     controllerCompat.registerCallback(callback, handler);
+    Bundle sessionExtras = new Bundle();
+    sessionExtras.putString("initialKey", "initialValue");
+    session.setSessionExtras(/* controllerKey= */ NOTIFICATION_CONTROLLER_KEY, sessionExtras);
     PlaybackStateCompat initialPlaybackStateCompat = controllerCompat.getPlaybackState();
-    Bundle errorBundle = new Bundle();
-    errorBundle.putInt("intKey", 99);
 
+    Bundle errorBundle = new Bundle();
+    errorBundle.putInt("errorKey", 99);
     session.sendError(
         /* controllerKey= */ NOTIFICATION_CONTROLLER_KEY,
         /* errorCode= */ 1,
@@ -1089,15 +1180,20 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
         errorBundle);
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(playbackStates).hasSize(2);
-    PlaybackStateCompat errorPlaybackStateCompat = playbackStates.get(0);
+    assertThat(playbackStates).hasSize(3);
+
+    // Skip the playback state from the first setSessionExtras() call.
+    PlaybackStateCompat errorPlaybackStateCompat = playbackStates.get(1);
     assertThat(errorPlaybackStateCompat.getState()).isEqualTo(PlaybackStateCompat.STATE_ERROR);
     assertThat(errorPlaybackStateCompat.getErrorCode()).isEqualTo(1);
     assertThat(errorPlaybackStateCompat.getErrorMessage().toString())
         .isEqualTo(context.getString(R.string.authentication_required));
     assertThat(errorPlaybackStateCompat.getActions()).isEqualTo(0);
-    assertThat(TestUtils.equals(errorPlaybackStateCompat.getExtras(), errorBundle)).isTrue();
-    PlaybackStateCompat resolvedPlaybackStateCompat = playbackStates.get(1);
+    assertThat(errorPlaybackStateCompat.getExtras()).hasSize(2);
+    assertThat(errorPlaybackStateCompat.getExtras()).string("initialKey").isEqualTo("initialValue");
+    assertThat(errorPlaybackStateCompat.getExtras()).integer("errorKey").isEqualTo(99);
+
+    PlaybackStateCompat resolvedPlaybackStateCompat = playbackStates.get(2);
     assertThat(resolvedPlaybackStateCompat.getState())
         .isEqualTo(initialPlaybackStateCompat.getState());
     assertThat(resolvedPlaybackStateCompat.getErrorCode())
@@ -1105,6 +1201,11 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
     assertThat(resolvedPlaybackStateCompat.getErrorMessage()).isNull();
     assertThat(resolvedPlaybackStateCompat.getActions())
         .isEqualTo(initialPlaybackStateCompat.getActions());
+    assertThat(resolvedPlaybackStateCompat.getExtras())
+        .hasSize(initialPlaybackStateCompat.getExtras().size());
+    assertThat(resolvedPlaybackStateCompat.getExtras())
+        .string("initialKey")
+        .isEqualTo(initialPlaybackStateCompat.getExtras().getString("initialKey"));
   }
 
   @Test

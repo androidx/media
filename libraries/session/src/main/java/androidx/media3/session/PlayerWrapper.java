@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.msToUs;
@@ -70,6 +71,7 @@ import java.util.List;
   private int legacyStatusCode;
   @Nullable private String legacyErrorMessage;
   @Nullable private Bundle legacyErrorExtras;
+  @Nullable private Bundle legacyExtras;
   private ImmutableList<CommandButton> customLayout;
   private SessionCommands availableSessionCommands;
   private Commands availablePlayerCommands;
@@ -79,12 +81,14 @@ import java.util.List;
       boolean playIfSuppressed,
       ImmutableList<CommandButton> customLayout,
       SessionCommands availableSessionCommands,
-      Commands availablePlayerCommands) {
+      Commands availablePlayerCommands,
+      @Nullable Bundle legacyExtras) {
     super(player);
     this.playIfSuppressed = playIfSuppressed;
     this.customLayout = customLayout;
     this.availableSessionCommands = availableSessionCommands;
     this.availablePlayerCommands = availablePlayerCommands;
+    this.legacyExtras = legacyExtras;
     legacyStatusCode = STATUS_CODE_SUCCESS_COMPAT;
   }
 
@@ -108,6 +112,19 @@ import java.util.List;
 
   /* package */ ImmutableList<CommandButton> getCustomLayout() {
     return customLayout;
+  }
+
+  public void setLegacyExtras(@Nullable Bundle extras) {
+    if (extras != null) {
+      checkArgument(!extras.containsKey(EXTRAS_KEY_PLAYBACK_SPEED_COMPAT));
+      checkArgument(!extras.containsKey(EXTRAS_KEY_MEDIA_ID_COMPAT));
+    }
+    this.legacyExtras = extras;
+  }
+
+  @Nullable
+  public Bundle getLegacyExtras() {
+    return legacyExtras;
   }
 
   /**
@@ -1000,6 +1017,13 @@ import java.util.List;
 
   public PlaybackStateCompat createPlaybackStateCompat() {
     if (legacyStatusCode != STATUS_CODE_SUCCESS_COMPAT) {
+      Bundle extras;
+      if (legacyExtras != null) {
+        extras = new Bundle(checkNotNull(legacyErrorExtras));
+        extras.putAll(legacyExtras);
+      } else {
+        extras = checkNotNull(legacyErrorExtras);
+      }
       return new PlaybackStateCompat.Builder()
           .setState(
               PlaybackStateCompat.STATE_ERROR,
@@ -1009,7 +1033,7 @@ import java.util.List;
           .setActions(0)
           .setBufferedPosition(0)
           .setErrorMessage(legacyStatusCode, checkNotNull(legacyErrorMessage))
-          .setExtras(checkNotNull(legacyErrorExtras))
+          .setExtras(extras)
           .build();
     }
     @Nullable PlaybackException playerError = getPlayerError();
@@ -1027,7 +1051,7 @@ import java.util.List;
             : MediaSessionCompat.QueueItem.UNKNOWN_ID;
     float playbackSpeed = getPlaybackParameters().speed;
     float sessionPlaybackSpeed = isPlaying() ? playbackSpeed : 0f;
-    Bundle extras = new Bundle();
+    Bundle extras = legacyExtras != null ? new Bundle(legacyExtras) : new Bundle();
     extras.putFloat(EXTRAS_KEY_PLAYBACK_SPEED_COMPAT, playbackSpeed);
     @Nullable MediaItem currentMediaItem = getCurrentMediaItemWithCommandCheck();
     if (currentMediaItem != null && !MediaItem.DEFAULT_MEDIA_ID.equals(currentMediaItem.mediaId)) {
