@@ -815,17 +815,18 @@ public final class AndroidTestUtil {
    *
    * @param context The {@link Context context}.
    * @param testId The test ID.
-   * @param inputFormat The {@link Format format} to decode.
+   * @param inputFormat The {@link Format format} to decode, or the input is not produced by
+   *     MediaCodec, like an image.
    * @param outputFormat The {@link Format format} to encode/mux or {@code null} if the output won't
    *     be encoded or muxed.
    * @throws AssumptionViolatedException If the device does not support the formats. In this case,
    *     the reason for skipping the test is logged.
    */
   public static void assumeFormatsSupported(
-      Context context, String testId, Format inputFormat, @Nullable Format outputFormat)
+      Context context, String testId, @Nullable Format inputFormat, @Nullable Format outputFormat)
       throws IOException, JSONException, MediaCodecUtil.DecoderQueryException {
     // TODO(b/278657595): Make this capability check match the default codec factory selection code.
-    boolean canDecode = canDecode(inputFormat);
+    boolean canDecode = inputFormat == null || canDecode(inputFormat);
 
     boolean canEncode = outputFormat == null || canEncode(outputFormat);
     boolean canMux = outputFormat == null || canMux(outputFormat);

@@ -41,6 +41,8 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -76,6 +78,8 @@ public class TransformerMixedInputEndToEndTest {
   public void setUpTestId() {
     testId = testName.getMethodName();
   }
+
+  // TODO: b/343362776 - Add tests to assert enough silence is generated.
 
   @Test
   public void videoEditing_withImageThenVideoInputs_completesWithCorrectFrameCount()
@@ -130,6 +134,47 @@ public class TransformerMixedInputEndToEndTest {
 
     assertThat(result.exportResult.videoFrameCount)
         .isEqualTo(imageFrameCount + MP4_ASSET_FRAME_COUNT);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+  }
+
+  @Test
+  public void videoEditing_withShortAlternatingImages_completesWithCorrectFrameCount()
+      throws Exception {
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(
+                new DefaultEncoderFactory.Builder(context).setEnableFallback(false).build())
+            .build();
+
+    EditedMediaItem image1 =
+        new EditedMediaItem.Builder(MediaItem.fromUri(PNG_ASSET_URI_STRING))
+            .setDurationUs(100_000)
+            .setFrameRate(30)
+            .build();
+    int image1FrameCount = 3;
+    EditedMediaItem image2 =
+        new EditedMediaItem.Builder(MediaItem.fromUri(JPG_ASSET_URI_STRING))
+            .setDurationUs(200_000)
+            .setFrameRate(30)
+            .build();
+    int image2FrameCount = 6;
+
+    ArrayList<EditedMediaItem> editedMediaItems = new ArrayList<>(100);
+    for (int i = 0; i < 50; i++) {
+      editedMediaItems.add(image1);
+      editedMediaItems.add(image2);
+    }
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, buildComposition(editedMediaItems));
+
+    // TODO: b/346289922 - Check frame count with extractors.
+    assertThat(result.exportResult.videoFrameCount)
+        .isEqualTo(50 * image1FrameCount + 50 * image2FrameCount);
+    // 50 100ms-images and 50 200ms-images
+    assertThat(result.exportResult.durationMs).isEqualTo(14_966);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
@@ -343,9 +388,8 @@ public class TransformerMixedInputEndToEndTest {
         .build();
   }
 
-  private static Composition buildComposition(
-      EditedMediaItem editedMediaItem, EditedMediaItem... editedMediaItems) {
-    return new Composition.Builder(new EditedMediaItemSequence(editedMediaItem, editedMediaItems))
+  private static Composition buildComposition(List<EditedMediaItem> editedMediaItems) {
+    return new Composition.Builder(new EditedMediaItemSequence(editedMediaItems))
         .setEffects(
             new Effects(
                 /* audioProcessors= */ ImmutableList.of(),
@@ -354,5 +398,14 @@ public class TransformerMixedInputEndToEndTest {
                     Presentation.createForWidthAndHeight(
                         /* width= */ 480, /* height= */ 360, Presentation.LAYOUT_SCALE_TO_FIT))))
         .build();
+  }
+
+  private static Composition buildComposition(
+      EditedMediaItem editedMediaItem, EditedMediaItem... editedMediaItems) {
+    return buildComposition(
+        new ImmutableList.Builder<EditedMediaItem>()
+            .add(editedMediaItem)
+            .add(editedMediaItems)
+            .build());
   }
 }
