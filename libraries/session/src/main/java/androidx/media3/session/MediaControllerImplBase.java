@@ -314,7 +314,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   }
 
   private void dispatchRemoteSessionTaskWithPlayerCommandAndWaitForFuture(RemoteSessionTask task) {
-    // Do not send a flush command queue message as we are actively waiting for task.
+    flushCommandQueueHandler.sendFlushCommandQueueMessage();
     ListenableFuture<SessionResult> future =
         dispatchRemoteSessionTask(iSession, task, /* addToPendingMaskingOperations= */ true);
     try {

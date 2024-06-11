@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.common.Player.COMMAND_PLAY_PAUSE;
 import static androidx.media3.session.MediaTestUtils.createMediaItem;
 import static androidx.media3.session.SessionResult.RESULT_ERROR_INVALID_STATE;
 import static androidx.media3.session.SessionResult.RESULT_ERROR_PERMISSION_DENIED;
@@ -38,6 +39,7 @@ import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Player;
 import androidx.media3.common.Rating;
 import androidx.media3.common.StarRating;
+import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.session.MediaSession.ConnectionResult.AcceptedResultBuilder;
 import androidx.media3.session.MediaSession.ControllerInfo;
@@ -1551,6 +1553,119 @@ public class MediaSessionCallbackTest {
             "controller.onEvents",
             "player.onEvents")
         .inOrder();
+  }
+
+  @Test
+  public void onPlayerInteractionFinished_withSingleControllerCall_calledWithMatchingCommand()
+      throws Exception {
+    AtomicReference<Player.Commands> onPlayerInteractionFinishedCommands = new AtomicReference<>();
+    ConditionVariable onPlayerInteractionFinishedCalled = new ConditionVariable();
+    MediaSession.Callback callback =
+        new MediaSession.Callback() {
+          @Override
+          public void onPlayerInteractionFinished(
+              MediaSession session, ControllerInfo controllerInfo, Player.Commands playerCommands) {
+            onPlayerInteractionFinishedCommands.set(playerCommands);
+            onPlayerInteractionFinishedCalled.open();
+          }
+        };
+    MediaSession session =
+        sessionTestRule.ensureReleaseAfterTest(
+            new MediaSession.Builder(context, player).setCallback(callback).build());
+    RemoteMediaController controller =
+        remoteControllerTestRule.createRemoteController(session.getToken());
+
+    controller.setPlayWhenReady(true);
+    assertThat(onPlayerInteractionFinishedCalled.block(TIMEOUT_MS)).isTrue();
+
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_SET_PLAY_WHEN_READY)).isTrue();
+    assertThat(onPlayerInteractionFinishedCommands.get())
+        .isEqualTo(new Player.Commands.Builder().add(Player.COMMAND_PLAY_PAUSE).build());
+  }
+
+  @Test
+  public void onPlayerInteractionFinished_withMultipleControllerCalls_calledWithMatchingCommands()
+      throws Exception {
+    AtomicReference<Player.Commands> onPlayerInteractionFinishedCommands = new AtomicReference<>();
+    ConditionVariable onPlayerInteractionFinishedCalled = new ConditionVariable();
+    MediaSession.Callback callback =
+        new MediaSession.Callback() {
+          @Override
+          public void onPlayerInteractionFinished(
+              MediaSession session, ControllerInfo controllerInfo, Player.Commands playerCommands) {
+            onPlayerInteractionFinishedCommands.set(playerCommands);
+            onPlayerInteractionFinishedCalled.open();
+          }
+        };
+    MediaSession session =
+        sessionTestRule.ensureReleaseAfterTest(
+            new MediaSession.Builder(context, player).setCallback(callback).build());
+    RemoteMediaController controller =
+        remoteControllerTestRule.createRemoteController(session.getToken());
+
+    controller.setMediaItemsPreparePlayAddItemsSeek(
+        ImmutableList.of(MediaItem.fromUri("https://uri1")),
+        ImmutableList.of(MediaItem.fromUri("https://uri2")),
+        /* seekIndex= */ 1);
+    assertThat(onPlayerInteractionFinishedCalled.block(TIMEOUT_MS)).isTrue();
+
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_SET_MEDIA_ITEMS_WITH_RESET_POSITION))
+        .isTrue();
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_PREPARE)).isTrue();
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_PLAY)).isTrue();
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_ADD_MEDIA_ITEMS)).isTrue();
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_SEEK_TO_WITH_MEDIA_ITEM_INDEX))
+        .isTrue();
+    assertThat(onPlayerInteractionFinishedCommands.get())
+        .isEqualTo(
+            new Player.Commands.Builder()
+                .addAll(
+                    Player.COMMAND_CHANGE_MEDIA_ITEMS,
+                    Player.COMMAND_PREPARE,
+                    Player.COMMAND_PLAY_PAUSE,
+                    Player.COMMAND_SEEK_TO_MEDIA_ITEM)
+                .build());
+  }
+
+  @Test
+  public void onPlayerInteractionFinished_withPlaybackResumption_calledWithMatchingCommands()
+      throws Exception {
+    AtomicReference<Player.Commands> onPlayerInteractionFinishedCommands = new AtomicReference<>();
+    ConditionVariable onPlayerInteractionFinishedCalled = new ConditionVariable();
+    MediaSession.Callback callback =
+        new MediaSession.Callback() {
+          @Override
+          public ListenableFuture<MediaSession.MediaItemsWithStartPosition> onPlaybackResumption(
+              MediaSession mediaSession, ControllerInfo controller) {
+            return Futures.immediateFuture(
+                new MediaSession.MediaItemsWithStartPosition(
+                    MediaTestUtils.createMediaItems(2),
+                    /* startIndex= */ 1,
+                    /* startPositionMs= */ 123L));
+          }
+
+          @Override
+          public void onPlayerInteractionFinished(
+              MediaSession session, ControllerInfo controllerInfo, Player.Commands playerCommands) {
+            onPlayerInteractionFinishedCommands.set(playerCommands);
+            onPlayerInteractionFinishedCalled.open();
+          }
+        };
+    MediaSession session =
+        sessionTestRule.ensureReleaseAfterTest(
+            new MediaSession.Builder(context, player).setCallback(callback).build());
+    RemoteMediaController controller =
+        remoteControllerTestRule.createRemoteController(session.getToken());
+
+    controller.play();
+    assertThat(onPlayerInteractionFinishedCalled.block(TIMEOUT_MS)).isTrue();
+
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_SET_MEDIA_ITEMS_WITH_START_INDEX))
+        .isTrue();
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_PREPARE)).isTrue();
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_PLAY)).isTrue();
+    assertThat(onPlayerInteractionFinishedCommands.get())
+        .isEqualTo(new Player.Commands.Builder().add(COMMAND_PLAY_PAUSE).build());
   }
 
   private void postToPlayerAndSync(TestHandler.TestRunnable r) {

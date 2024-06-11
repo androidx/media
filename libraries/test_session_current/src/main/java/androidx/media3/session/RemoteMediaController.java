@@ -371,8 +371,10 @@ public class RemoteMediaController {
       throws RemoteException {
     binder.setMediaItemsPreparePlayAddItemsSeek(
         controllerId,
-        BundleCollectionUtil.toBundleList(initialMediaItems, MediaItem::toBundle),
-        BundleCollectionUtil.toBundleList(addedMediaItems, MediaItem::toBundle),
+        BundleCollectionUtil.toBundleList(
+            initialMediaItems, MediaItem::toBundleIncludeLocalConfiguration),
+        BundleCollectionUtil.toBundleList(
+            addedMediaItems, MediaItem::toBundleIncludeLocalConfiguration),
         seekIndex);
   }
 

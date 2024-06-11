@@ -18,6 +18,7 @@ package androidx.media3.session;
 import static androidx.media.MediaSessionManager.RemoteUserInfo.LEGACY_CONTROLLER;
 import static androidx.media3.common.Player.COMMAND_PLAY_PAUSE;
 import static androidx.media3.common.Player.COMMAND_PREPARE;
+import static androidx.media3.common.Player.COMMAND_SET_MEDIA_ITEM;
 import static androidx.media3.common.Player.STATE_ENDED;
 import static androidx.media3.common.Player.STATE_IDLE;
 import static androidx.media3.common.Player.STATE_READY;
@@ -39,6 +40,7 @@ import android.os.Bundle;
 import android.support.v4.media.MediaDescriptionCompat;
 import android.support.v4.media.RatingCompat;
 import android.support.v4.media.session.MediaControllerCompat;
+import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.MediaSessionCompat.QueueItem;
 import android.support.v4.media.session.PlaybackStateCompat;
 import android.view.KeyEvent;
@@ -51,6 +53,7 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.common.Rating;
 import androidx.media3.common.StarRating;
+import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaSession.ControllerInfo;
@@ -255,7 +258,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
   public void play_whileIdleWithoutPrepareCommandAvailable_callsJustPlay() throws Exception {
     player.playbackState = STATE_IDLE;
     player.commands =
-        new Player.Commands.Builder().addAllCommands().remove(Player.COMMAND_PREPARE).build();
+        new Player.Commands.Builder().addAllCommands().remove(COMMAND_PREPARE).build();
     session =
         new MediaSession.Builder(context, player)
             .setId("play")
@@ -776,7 +779,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
     player.commands =
         new Player.Commands.Builder()
             .addAllCommands()
-            .removeAll(Player.COMMAND_SET_MEDIA_ITEM, Player.COMMAND_CHANGE_MEDIA_ITEMS)
+            .removeAll(COMMAND_SET_MEDIA_ITEM, Player.COMMAND_CHANGE_MEDIA_ITEMS)
             .build();
     session = new MediaSession.Builder(context, player).setId("dispatchMediaButtonEvent").build();
     controller =
@@ -1977,6 +1980,212 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
     controller.getTransportControls().play();
     Thread.sleep(NO_RESPONSE_TIMEOUT_MS);
     assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_PLAY)).isFalse();
+  }
+
+  @Test
+  public void onPlayerInteractionFinished_withSimpleControllerCall_calledWithMatchingCommand()
+      throws Exception {
+    AtomicReference<Player.Commands> onPlayerInteractionFinishedCommands = new AtomicReference<>();
+    ConditionVariable onPlayerInteractionFinishedCalled = new ConditionVariable();
+    MediaSession.Callback callback =
+        new TestSessionCallback() {
+          @Override
+          public void onPlayerInteractionFinished(
+              MediaSession session, ControllerInfo controllerInfo, Player.Commands playerCommands) {
+            onPlayerInteractionFinishedCommands.set(playerCommands);
+            onPlayerInteractionFinishedCalled.open();
+          }
+        };
+    session =
+        new MediaSession.Builder(context, player)
+            .setId("onPlayerInteractionFinished_simpleCall")
+            .setCallback(callback)
+            .build();
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
+
+    controller.getTransportControls().setPlaybackSpeed(2f);
+    assertThat(onPlayerInteractionFinishedCalled.block(TIMEOUT_MS)).isTrue();
+
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_SET_PLAYBACK_SPEED)).isTrue();
+    assertThat(onPlayerInteractionFinishedCommands.get())
+        .isEqualTo(new Player.Commands.Builder().add(Player.COMMAND_SET_SPEED_AND_PITCH).build());
+  }
+
+  @Test
+  public void onPlayerInteractionFinished_withPlaybackResumption_calledWithMatchingCommand()
+      throws Exception {
+    AtomicReference<Player.Commands> onPlayerInteractionFinishedCommands = new AtomicReference<>();
+    ConditionVariable onPlayerInteractionFinishedCalled = new ConditionVariable();
+    MediaSession.Callback callback =
+        new TestSessionCallback() {
+          @Override
+          public ListenableFuture<MediaSession.MediaItemsWithStartPosition> onPlaybackResumption(
+              MediaSession mediaSession, ControllerInfo controller) {
+            return Futures.immediateFuture(
+                new MediaSession.MediaItemsWithStartPosition(
+                    MediaTestUtils.createMediaItems(2),
+                    /* startIndex= */ 1,
+                    /* startPositionMs= */ 123L));
+          }
+
+          @Override
+          public void onPlayerInteractionFinished(
+              MediaSession session, ControllerInfo controllerInfo, Player.Commands playerCommands) {
+            onPlayerInteractionFinishedCommands.set(playerCommands);
+            onPlayerInteractionFinishedCalled.open();
+          }
+        };
+    session =
+        new MediaSession.Builder(context, player)
+            .setId("onPlayerInteractionFinished_playbackResumption")
+            .setCallback(callback)
+            .build();
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
+
+    controller.getTransportControls().play();
+    assertThat(onPlayerInteractionFinishedCalled.block(TIMEOUT_MS)).isTrue();
+
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_SET_MEDIA_ITEMS_WITH_START_INDEX))
+        .isTrue();
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_PREPARE)).isTrue();
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_PLAY)).isTrue();
+    assertThat(onPlayerInteractionFinishedCommands.get())
+        .isEqualTo(new Player.Commands.Builder().add(COMMAND_PLAY_PAUSE).build());
+  }
+
+  @Test
+  public void onPlayerInteractionFinished_withPlayFromUri_calledWithMatchingCommands()
+      throws Exception {
+    AtomicReference<Player.Commands> onPlayerInteractionFinishedCommands = new AtomicReference<>();
+    ConditionVariable onPlayerInteractionFinishedCalled = new ConditionVariable();
+    MediaSession.Callback callback =
+        new TestSessionCallback() {
+          @Override
+          public ListenableFuture<List<MediaItem>> onAddMediaItems(
+              MediaSession mediaSession, ControllerInfo controller, List<MediaItem> mediaItems) {
+            return Futures.immediateFuture(MediaTestUtils.createMediaItems(2));
+          }
+
+          @Override
+          public void onPlayerInteractionFinished(
+              MediaSession session, ControllerInfo controllerInfo, Player.Commands playerCommands) {
+            onPlayerInteractionFinishedCommands.set(playerCommands);
+            onPlayerInteractionFinishedCalled.open();
+          }
+        };
+    session =
+        new MediaSession.Builder(context, player)
+            .setId("onPlayerInteractionFinished_playFromUri")
+            .setCallback(callback)
+            .build();
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
+
+    controller.getTransportControls().playFromUri(Uri.parse("https://uri"), Bundle.EMPTY);
+    assertThat(onPlayerInteractionFinishedCalled.block(TIMEOUT_MS)).isTrue();
+
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_SET_MEDIA_ITEMS_WITH_RESET_POSITION))
+        .isTrue();
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_PREPARE)).isTrue();
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_PLAY)).isTrue();
+    assertThat(onPlayerInteractionFinishedCommands.get())
+        .isEqualTo(
+            new Player.Commands.Builder()
+                .addAll(COMMAND_SET_MEDIA_ITEM, COMMAND_PREPARE, COMMAND_PLAY_PAUSE)
+                .build());
+  }
+
+  @Test
+  public void onPlayerInteractionFinished_withPrepareFromUri_calledWithMatchingCommands()
+      throws Exception {
+    AtomicReference<Player.Commands> onPlayerInteractionFinishedCommands = new AtomicReference<>();
+    ConditionVariable onPlayerInteractionFinishedCalled = new ConditionVariable();
+    MediaSession.Callback callback =
+        new TestSessionCallback() {
+          @Override
+          public ListenableFuture<List<MediaItem>> onAddMediaItems(
+              MediaSession mediaSession, ControllerInfo controller, List<MediaItem> mediaItems) {
+            return Futures.immediateFuture(MediaTestUtils.createMediaItems(2));
+          }
+
+          @Override
+          public void onPlayerInteractionFinished(
+              MediaSession session, ControllerInfo controllerInfo, Player.Commands playerCommands) {
+            onPlayerInteractionFinishedCommands.set(playerCommands);
+            onPlayerInteractionFinishedCalled.open();
+          }
+        };
+    session =
+        new MediaSession.Builder(context, player)
+            .setId("onPlayerInteractionFinished_prepareFromUri")
+            .setCallback(callback)
+            .build();
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
+
+    controller.getTransportControls().prepareFromUri(Uri.parse("https://uri"), Bundle.EMPTY);
+    assertThat(onPlayerInteractionFinishedCalled.block(TIMEOUT_MS)).isTrue();
+
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_SET_MEDIA_ITEMS_WITH_RESET_POSITION))
+        .isTrue();
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_PREPARE)).isTrue();
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_PLAY)).isFalse();
+    assertThat(onPlayerInteractionFinishedCommands.get())
+        .isEqualTo(
+            new Player.Commands.Builder().addAll(COMMAND_SET_MEDIA_ITEM, COMMAND_PREPARE).build());
+  }
+
+  @Test
+  public void onPlayerInteractionFinished_withAddQueueItem_calledWithMatchingCommand()
+      throws Exception {
+    AtomicReference<Player.Commands> onPlayerInteractionFinishedCommands = new AtomicReference<>();
+    ConditionVariable onPlayerInteractionFinishedCalled = new ConditionVariable();
+    MediaSession.Callback callback =
+        new TestSessionCallback() {
+          @Override
+          public ListenableFuture<List<MediaItem>> onAddMediaItems(
+              MediaSession mediaSession, ControllerInfo controller, List<MediaItem> mediaItems) {
+            return Futures.immediateFuture(MediaTestUtils.createMediaItems(2));
+          }
+
+          @Override
+          public void onPlayerInteractionFinished(
+              MediaSession session, ControllerInfo controllerInfo, Player.Commands playerCommands) {
+            onPlayerInteractionFinishedCommands.set(playerCommands);
+            onPlayerInteractionFinishedCalled.open();
+          }
+        };
+    session =
+        new MediaSession.Builder(context, player)
+            .setId("onPlayerInteractionFinished_prepareFromUri")
+            .setCallback(callback)
+            .build();
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
+
+    controller.addQueueItem(new MediaDescriptionCompat.Builder().setMediaId("id").build());
+    assertThat(onPlayerInteractionFinishedCalled.block(TIMEOUT_MS)).isTrue();
+
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_ADD_MEDIA_ITEMS)).isTrue();
+    assertThat(onPlayerInteractionFinishedCommands.get())
+        .isEqualTo(new Player.Commands.Builder().add(Player.COMMAND_CHANGE_MEDIA_ITEMS).build());
   }
 
   private static class TestSessionCallback implements MediaSession.Callback {

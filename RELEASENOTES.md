@@ -18,6 +18,9 @@
 *   Muxers:
 *   IMA extension:
 *   Session:
+    *   Add `MediaSession.Callback.onPlayerInteractionFinished` to inform
+        sessions when a series of player interactions from a specific controller
+        finished.
 *   UI:
     *   Add customisation of various icons in `PlayerControlView` through xml
         attributes to allow different drawables per `PlayerView` instance,

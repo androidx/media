@@ -1300,7 +1300,7 @@ public class MediaSession {
      * callback returns quickly to avoid blocking the main thread for a long period of time.
      *
      * @param session The session for this event.
-     * @param controller The controller information.
+     * @param controller The {@linkplain ControllerInfo controller} information.
      * @return The {@link ConnectionResult}.
      */
     default ConnectionResult onConnect(MediaSession session, ControllerInfo controller) {
@@ -1316,7 +1316,7 @@ public class MediaSession {
      * isn't connected yet in {@link #onConnect}.
      *
      * @param session The session for this event.
-     * @param controller The controller information.
+     * @param controller The {@linkplain ControllerInfo controller} information.
      */
     default void onPostConnect(MediaSession session, ControllerInfo controller) {}
 
@@ -1328,7 +1328,7 @@ public class MediaSession {
      * controller APIs.
      *
      * @param session The session for this event.
-     * @param controller The controller information.
+     * @param controller The {@linkplain ControllerInfo controller} information.
      */
     default void onDisconnected(MediaSession session, ControllerInfo controller) {}
 
@@ -1356,7 +1356,7 @@ public class MediaSession {
      * Futures#immediateFuture(Object)}.
      *
      * @param session The session for this event.
-     * @param controller The controller information.
+     * @param controller The {@linkplain ControllerInfo controller} information.
      * @param mediaId The media id.
      * @param rating The new rating from the controller.
      * @see SessionCommand#COMMAND_CODE_SESSION_SET_RATING
@@ -1379,7 +1379,7 @@ public class MediaSession {
      * Futures#immediateFuture(Object)}.
      *
      * @param session The session for this event.
-     * @param controller The controller information.
+     * @param controller The {@linkplain ControllerInfo controller} information.
      * @param rating The new rating from the controller.
      * @see SessionCommand#COMMAND_CODE_SESSION_SET_RATING
      */
@@ -1407,7 +1407,7 @@ public class MediaSession {
      * Futures#immediateFuture(Object)}.
      *
      * @param session The session for this event.
-     * @param controller The controller information.
+     * @param controller The {@linkplain ControllerInfo controller} information.
      * @param customCommand The custom command.
      * @param args A {@link Bundle} for additional arguments. May be empty.
      * @return The result of handling the custom command.
@@ -1469,7 +1469,7 @@ public class MediaSession {
      * as appropriate once the {@link MediaItem} has been resolved.
      *
      * @param mediaSession The session for this event.
-     * @param controller The controller information.
+     * @param controller The {@linkplain ControllerInfo controller} information.
      * @param mediaItems The list of requested {@link MediaItem media items}.
      * @return A {@link ListenableFuture} for the list of resolved {@link MediaItem media items}
      *     that are playable by the underlying {@link Player}.
@@ -1535,7 +1535,7 @@ public class MediaSession {
      * as appropriate once the {@link MediaItem} has been resolved.
      *
      * @param mediaSession The session for this event.
-     * @param controller The controller information.
+     * @param controller The {@linkplain ControllerInfo controller} information.
      * @param mediaItems The list of requested {@linkplain MediaItem media items}.
      * @param startIndex The start index in the {@link MediaItem} list from which to start playing,
      *     or {@link C#INDEX_UNSET C.INDEX_UNSET} to start playing from the default index in the
@@ -1578,8 +1578,9 @@ public class MediaSession {
      * {@link Player#COMMAND_CHANGE_MEDIA_ITEMS} available.
      *
      * @param mediaSession The media session for which playback resumption is requested.
-     * @param controller The controller that requests the playback resumption. This may be a short
-     *     living controller created only for issuing a play command for resuming playback.
+     * @param controller The {@linkplain ControllerInfo controller} that requests the playback
+     *     resumption. This may be a short living controller created only for issuing a play command
+     *     for resuming playback.
      * @return The {@linkplain MediaItemsWithStartPosition playlist} to resume playback with.
      */
     @UnstableApi
@@ -1604,7 +1605,8 @@ public class MediaSession {
      * to your session.
      *
      * @param session The session that received the media button event.
-     * @param controllerInfo The controller to which the media button event is attributed to.
+     * @param controllerInfo The {@linkplain ControllerInfo controller} to which the media button
+     *     event is attributed to.
      * @param intent The media button intent.
      * @return True if the event was handled, false otherwise.
      */
@@ -1613,6 +1615,27 @@ public class MediaSession {
         MediaSession session, ControllerInfo controllerInfo, Intent intent) {
       return false;
     }
+
+    /**
+     * Called after all concurrent interactions with {@linkplain MediaSession#getPlayer() the
+     * session player} from a controller have finished.
+     *
+     * <p>A controller may call multiple {@link Player} methods within a single {@link Looper}
+     * message. Those {@link Player} method calls are batched together and once finished, this
+     * callback is called to signal that no further {@link Player} interactions coming from this
+     * controller are expected for now.
+     *
+     * <p>Apps can use this callback if they need to trigger different logic depending on whether
+     * certain methods are called together, for example just {@link Player#setMediaItems}, or {@link
+     * Player#setMediaItems} and {@link Player#play} together.
+     *
+     * @param session The {@link MediaSession} that received the {@link Player} calls.
+     * @param controllerInfo The {@linkplain ControllerInfo controller} sending the calls.
+     * @param playerCommands The set of {@link Player.Commands} used to send these calls.
+     */
+    @UnstableApi
+    default void onPlayerInteractionFinished(
+        MediaSession session, ControllerInfo controllerInfo, Player.Commands playerCommands) {}
   }
 
   /** Representation of a list of {@linkplain MediaItem media items} and where to start playing. */

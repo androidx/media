@@ -327,13 +327,18 @@ import java.util.concurrent.ExecutionException;
               return;
             }
             if (command == COMMAND_SET_VIDEO_SURFACE) {
+              // Call surface changes immediately to ensure they are handled within the calling
+              // methods stack. Also add a placeholder task to the regular command queue for proper
+              // task tracking (e.g. to send onPlayerInteractionFinished).
               sessionImpl
                   .callWithControllerForCurrentRequestSet(
                       controller, () -> task.run(sessionImpl, controller, sequenceNumber))
                   .run();
+              connectedControllersManager.addToCommandQueue(
+                  controller, command, Futures::immediateVoidFuture);
             } else {
               connectedControllersManager.addToCommandQueue(
-                  controller, () -> task.run(sessionImpl, controller, sequenceNumber));
+                  controller, command, () -> task.run(sessionImpl, controller, sequenceNumber));
             }
           });
     } finally {
@@ -724,7 +729,8 @@ import java.util.concurrent.ExecutionException;
               if (impl == null || impl.isReleased()) {
                 return;
               }
-              impl.handleMediaControllerPlayRequest(controller);
+              impl.handleMediaControllerPlayRequest(
+                  controller, /* callOnPlayerInteractionFinished= */ false);
             }));
   }
 

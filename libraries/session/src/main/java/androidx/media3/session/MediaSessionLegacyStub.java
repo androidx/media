@@ -341,7 +341,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         controller ->
             Util.handlePlayPauseButtonAction(
                 sessionImpl.getPlayerWrapper(), sessionImpl.shouldPlayIfSuppressed()),
-        remoteUserInfo);
+        remoteUserInfo,
+        /* callOnPlayerInteractionFinished= */ true);
   }
 
   @Override
@@ -349,7 +350,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     dispatchSessionTaskWithPlayerCommand(
         COMMAND_PREPARE,
         controller -> sessionImpl.getPlayerWrapper().prepare(),
-        sessionCompat.getCurrentControllerInfo());
+        sessionCompat.getCurrentControllerInfo(),
+        /* callOnPlayerInteractionFinished= */ true);
   }
 
   @Override
@@ -379,8 +381,11 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   public void onPlay() {
     dispatchSessionTaskWithPlayerCommand(
         COMMAND_PLAY_PAUSE,
-        sessionImpl::handleMediaControllerPlayRequest,
-        sessionCompat.getCurrentControllerInfo());
+        controller ->
+            sessionImpl.handleMediaControllerPlayRequest(
+                controller, /* callOnPlayerInteractionFinished= */ true),
+        sessionCompat.getCurrentControllerInfo(),
+        /* callOnPlayerInteractionFinished= */ false);
   }
 
   @Override
@@ -411,7 +416,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     dispatchSessionTaskWithPlayerCommand(
         COMMAND_PLAY_PAUSE,
         controller -> Util.handlePauseButtonAction(sessionImpl.getPlayerWrapper()),
-        sessionCompat.getCurrentControllerInfo());
+        sessionCompat.getCurrentControllerInfo(),
+        /* callOnPlayerInteractionFinished= */ true);
   }
 
   @Override
@@ -419,7 +425,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     dispatchSessionTaskWithPlayerCommand(
         COMMAND_STOP,
         controller -> sessionImpl.getPlayerWrapper().stop(),
-        sessionCompat.getCurrentControllerInfo());
+        sessionCompat.getCurrentControllerInfo(),
+        /* callOnPlayerInteractionFinished= */ true);
   }
 
   @Override
@@ -427,7 +434,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     dispatchSessionTaskWithPlayerCommand(
         COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM,
         controller -> sessionImpl.getPlayerWrapper().seekTo(pos),
-        sessionCompat.getCurrentControllerInfo());
+        sessionCompat.getCurrentControllerInfo(),
+        /* callOnPlayerInteractionFinished= */ true);
   }
 
   @Override
@@ -436,12 +444,14 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       dispatchSessionTaskWithPlayerCommand(
           COMMAND_SEEK_TO_NEXT,
           controller -> sessionImpl.getPlayerWrapper().seekToNext(),
-          sessionCompat.getCurrentControllerInfo());
+          sessionCompat.getCurrentControllerInfo(),
+          /* callOnPlayerInteractionFinished= */ true);
     } else {
       dispatchSessionTaskWithPlayerCommand(
           COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
           controller -> sessionImpl.getPlayerWrapper().seekToNextMediaItem(),
-          sessionCompat.getCurrentControllerInfo());
+          sessionCompat.getCurrentControllerInfo(),
+          /* callOnPlayerInteractionFinished= */ true);
     }
   }
 
@@ -451,12 +461,14 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       dispatchSessionTaskWithPlayerCommand(
           COMMAND_SEEK_TO_PREVIOUS,
           controller -> sessionImpl.getPlayerWrapper().seekToPrevious(),
-          sessionCompat.getCurrentControllerInfo());
+          sessionCompat.getCurrentControllerInfo(),
+          /* callOnPlayerInteractionFinished= */ true);
     } else {
       dispatchSessionTaskWithPlayerCommand(
           COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
           controller -> sessionImpl.getPlayerWrapper().seekToPreviousMediaItem(),
-          sessionCompat.getCurrentControllerInfo());
+          sessionCompat.getCurrentControllerInfo(),
+          /* callOnPlayerInteractionFinished= */ true);
     }
   }
 
@@ -468,7 +480,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     dispatchSessionTaskWithPlayerCommand(
         COMMAND_SET_SPEED_AND_PITCH,
         controller -> sessionImpl.getPlayerWrapper().setPlaybackSpeed(speed),
-        sessionCompat.getCurrentControllerInfo());
+        sessionCompat.getCurrentControllerInfo(),
+        /* callOnPlayerInteractionFinished= */ true);
   }
 
   @Override
@@ -484,7 +497,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
           // see: {@link MediaUtils#convertToQueueItem}.
           playerWrapper.seekToDefaultPosition((int) queueId);
         },
-        sessionCompat.getCurrentControllerInfo());
+        sessionCompat.getCurrentControllerInfo(),
+        /* callOnPlayerInteractionFinished= */ true);
   }
 
   @Override
@@ -492,7 +506,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     dispatchSessionTaskWithPlayerCommand(
         COMMAND_SEEK_FORWARD,
         controller -> sessionImpl.getPlayerWrapper().seekForward(),
-        sessionCompat.getCurrentControllerInfo());
+        sessionCompat.getCurrentControllerInfo(),
+        /* callOnPlayerInteractionFinished= */ true);
   }
 
   @Override
@@ -500,7 +515,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     dispatchSessionTaskWithPlayerCommand(
         COMMAND_SEEK_BACK,
         controller -> sessionImpl.getPlayerWrapper().seekBack(),
-        sessionCompat.getCurrentControllerInfo());
+        sessionCompat.getCurrentControllerInfo(),
+        /* callOnPlayerInteractionFinished= */ true);
   }
 
   @Override
@@ -543,7 +559,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
                 .getPlayerWrapper()
                 .setRepeatMode(
                     LegacyConversions.convertToRepeatMode(playbackStateCompatRepeatMode)),
-        sessionCompat.getCurrentControllerInfo());
+        sessionCompat.getCurrentControllerInfo(),
+        /* callOnPlayerInteractionFinished= */ true);
   }
 
   @Override
@@ -554,7 +571,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             sessionImpl
                 .getPlayerWrapper()
                 .setShuffleModeEnabled(LegacyConversions.convertToShuffleModeEnabled(shuffleMode)),
-        sessionCompat.getCurrentControllerInfo());
+        sessionCompat.getCurrentControllerInfo(),
+        /* callOnPlayerInteractionFinished= */ true);
   }
 
   @Override
@@ -595,7 +613,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             }
           }
         },
-        sessionCompat.getCurrentControllerInfo());
+        sessionCompat.getCurrentControllerInfo(),
+        /* callOnPlayerInteractionFinished= */ true);
   }
 
   public ControllerCb getControllerLegacyCbForBroadcast() {
@@ -611,7 +630,10 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   }
 
   private void dispatchSessionTaskWithPlayerCommand(
-      @Player.Command int command, SessionTask task, @Nullable RemoteUserInfo remoteUserInfo) {
+      @Player.Command int command,
+      SessionTask task,
+      @Nullable RemoteUserInfo remoteUserInfo,
+      boolean callOnPlayerInteractionFinished) {
     if (sessionImpl.isReleased()) {
       return;
     }
@@ -673,6 +695,10 @@ import org.checkerframework.checker.initialization.qual.Initialized;
                     }
                   })
               .run();
+          if (callOnPlayerInteractionFinished) {
+            sessionImpl.onPlayerInteractionFinishedOnHandler(
+                controller, new Player.Commands.Builder().add(command).build());
+          }
         });
   }
 
@@ -829,6 +855,12 @@ import org.checkerframework.checker.initialization.qual.Initialized;
                             if (play) {
                               player.playIfCommandAvailable();
                             }
+                            sessionImpl.onPlayerInteractionFinishedOnHandler(
+                                controller,
+                                new Player.Commands.Builder()
+                                    .addAll(COMMAND_SET_MEDIA_ITEM, COMMAND_PREPARE)
+                                    .addIf(COMMAND_PLAY_PAUSE, play)
+                                    .build());
                           }));
                 }
 
@@ -839,7 +871,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
               },
               MoreExecutors.directExecutor());
         },
-        sessionCompat.getCurrentControllerInfo());
+        sessionCompat.getCurrentControllerInfo(),
+        /* callOnPlayerInteractionFinished= */ false);
   }
 
   private void handleOnAddQueueItem(@Nullable MediaDescriptionCompat description, int index) {
@@ -872,6 +905,11 @@ import org.checkerframework.checker.initialization.qual.Initialized;
                             } else {
                               sessionImpl.getPlayerWrapper().addMediaItems(index, mediaItems);
                             }
+                            sessionImpl.onPlayerInteractionFinishedOnHandler(
+                                controller,
+                                new Player.Commands.Builder()
+                                    .add(COMMAND_CHANGE_MEDIA_ITEMS)
+                                    .build());
                           }));
                 }
 
@@ -882,7 +920,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
               },
               MoreExecutors.directExecutor());
         },
-        sessionCompat.getCurrentControllerInfo());
+        sessionCompat.getCurrentControllerInfo(),
+        /* callOnPlayerInteractionFinished= */ false);
   }
 
   private static void sendCustomCommandResultWhenReady(

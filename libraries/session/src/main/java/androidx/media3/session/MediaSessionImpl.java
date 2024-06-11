@@ -748,6 +748,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         "Callback.onSetMediaItems must return a non-null future");
   }
 
+  protected void onPlayerInteractionFinishedOnHandler(
+      ControllerInfo controller, Player.Commands playerCommands) {
+    callback.onPlayerInteractionFinished(
+        instance, resolveControllerInfoForCallback(controller), playerCommands);
+  }
+
   public void connectFromService(IMediaController caller, ControllerInfo controllerInfo) {
     sessionStub.connect(caller, controllerInfo);
   }
@@ -888,7 +894,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    *
    * @param controller The controller requesting to play.
    */
-  /* package */ void handleMediaControllerPlayRequest(ControllerInfo controller) {
+  /* package */ void handleMediaControllerPlayRequest(
+      ControllerInfo controller, boolean callOnPlayerInteractionFinished) {
     if (!onPlayRequested()) {
       // Request denied, e.g. due to missing foreground service abilities.
       return;
@@ -899,6 +906,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     boolean canAddMediaItems =
         playerWrapper.isCommandAvailable(COMMAND_SET_MEDIA_ITEM)
             || playerWrapper.isCommandAvailable(COMMAND_CHANGE_MEDIA_ITEMS);
+    ControllerInfo controllerForRequest = resolveControllerInfoForCallback(controller);
+    Player.Commands playCommand =
+        new Player.Commands.Builder().add(Player.COMMAND_PLAY_PAUSE).build();
     if (hasCurrentMediaItem || !canAddMediaItems) {
       // No playback resumption needed or possible.
       if (!hasCurrentMediaItem) {
@@ -908,20 +918,31 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 + " missing available commands");
       }
       Util.handlePlayButtonAction(playerWrapper);
+      if (callOnPlayerInteractionFinished) {
+        onPlayerInteractionFinishedOnHandler(controllerForRequest, playCommand);
+      }
     } else {
       @Nullable
       ListenableFuture<MediaItemsWithStartPosition> future =
           checkNotNull(
-              callback.onPlaybackResumption(instance, resolveControllerInfoForCallback(controller)),
+              callback.onPlaybackResumption(instance, controllerForRequest),
               "Callback.onPlaybackResumption must return a non-null future");
       Futures.addCallback(
           future,
           new FutureCallback<MediaItemsWithStartPosition>() {
             @Override
             public void onSuccess(MediaItemsWithStartPosition mediaItemsWithStartPosition) {
-              MediaUtils.setMediaItemsWithStartIndexAndPosition(
-                  playerWrapper, mediaItemsWithStartPosition);
-              Util.handlePlayButtonAction(playerWrapper);
+              callWithControllerForCurrentRequestSet(
+                      controllerForRequest,
+                      () -> {
+                        MediaUtils.setMediaItemsWithStartIndexAndPosition(
+                            playerWrapper, mediaItemsWithStartPosition);
+                        Util.handlePlayButtonAction(playerWrapper);
+                        if (callOnPlayerInteractionFinished) {
+                          onPlayerInteractionFinishedOnHandler(controllerForRequest, playCommand);
+                        }
+                      })
+                  .run();
             }
 
             @Override
@@ -943,6 +964,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               }
               // Play as requested even if playback resumption fails.
               Util.handlePlayButtonAction(playerWrapper);
+              if (callOnPlayerInteractionFinished) {
+                onPlayerInteractionFinishedOnHandler(controllerForRequest, playCommand);
+              }
             }
           },
           this::postOrRunOnApplicationHandler);
