@@ -254,12 +254,12 @@ public final class DefaultCodec implements Codec {
   @Override
   public void signalEndOfInputStream() throws ExportException {
     if (!videoOutputStarted.get()) {
-      // When encoding a 1-frame video, there is a synchronization problem between feeding the frame
-      // to the encoder input surface and signaling end of stream. On some devices, sometimes,
-      // the frame gets lost and an empty output is produced. Waiting before signaling end of stream
-      // seems to resolve this issue. See b/301603935.
+      // When encoding a video with a small number of frames, there is a synchronization problem
+      // between feeding the frame to the encoder input surface and signaling end of stream. On some
+      // devices, sometimes, the frame gets lost and an empty output is produced. Waiting before
+      // signaling end of stream seems to resolve this issue. See b/301603935.
       try {
-        Thread.sleep(10);
+        Thread.sleep(30);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
       }
