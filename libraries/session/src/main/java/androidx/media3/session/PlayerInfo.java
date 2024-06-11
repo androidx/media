@@ -30,7 +30,6 @@ import androidx.annotation.FloatRange;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
-import androidx.media3.common.Bundleable;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
@@ -56,13 +55,13 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
  * Information about the player that {@link MediaSession} uses to send its state to {@link
  * MediaController}.
  */
-/* package */ class PlayerInfo implements Bundleable {
+/* package */ class PlayerInfo {
 
   /**
    * Holds information about what properties of the {@link PlayerInfo} have been excluded when sent
    * to the controller.
    */
-  public static class BundlingExclusions implements Bundleable {
+  public static class BundlingExclusions {
 
     /** Bundling exclusions with no exclusions. */
     public static final BundlingExclusions NONE =
@@ -81,28 +80,18 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
       this.areCurrentTracksExcluded = areCurrentTracksExcluded;
     }
 
-    // Bundleable implementation.
-
     private static final String FIELD_IS_TIMELINE_EXCLUDED = Util.intToStringMaxRadix(0);
     private static final String FIELD_ARE_CURRENT_TRACKS_EXCLUDED = Util.intToStringMaxRadix(1);
 
     // Next field key = 2
 
     @UnstableApi
-    @Override
     public Bundle toBundle() {
       Bundle bundle = new Bundle();
       bundle.putBoolean(FIELD_IS_TIMELINE_EXCLUDED, isTimelineExcluded);
       bundle.putBoolean(FIELD_ARE_CURRENT_TRACKS_EXCLUDED, areCurrentTracksExcluded);
       return bundle;
     }
-
-    /**
-     * @deprecated Use {@link #fromBundle} instead.
-     */
-    @Deprecated
-    @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-    public static final Creator<BundlingExclusions> CREATOR = BundlingExclusions::fromBundle;
 
     /** Restores a {@code BundlingExclusions} from a {@link Bundle}. */
     public static BundlingExclusions fromBundle(Bundle bundle) {
@@ -802,8 +791,6 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
         && playbackSuppressionReason == PLAYBACK_SUPPRESSION_REASON_NONE;
   }
 
-  // Bundleable implementation.
-
   private static final String FIELD_PLAYBACK_PARAMETERS = Util.intToStringMaxRadix(1);
   private static final String FIELD_REPEAT_MODE = Util.intToStringMaxRadix(2);
   private static final String FIELD_SHUFFLE_MODE_ENABLED = Util.intToStringMaxRadix(3);
@@ -904,7 +891,6 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
     return bundle;
   }
 
-  @Override
   public Bundle toBundle() {
     return toBundleForRemoteProcess(Integer.MAX_VALUE);
   }
@@ -1012,15 +998,6 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
     }
     return bundle;
   }
-
-  /**
-   * Object that can restore {@link PlayerInfo} from a {@link Bundle}.
-   *
-   * @deprecated Use {@link #fromBundle} instead.
-   */
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<PlayerInfo> CREATOR = PlayerInfo::fromBundle;
 
   /** Restores a {@code PlayerInfo} from a {@link Bundle}. */
   public static PlayerInfo fromBundle(Bundle bundle) {

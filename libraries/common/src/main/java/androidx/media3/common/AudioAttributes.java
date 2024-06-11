@@ -34,7 +34,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
  * <p>This class is based on {@link android.media.AudioAttributes}, but can be used on all supported
  * API versions.
  */
-public final class AudioAttributes implements Bundleable {
+public final class AudioAttributes {
 
   /** A direct wrapper around {@link android.media.AudioAttributes}. */
   @RequiresApi(21)
@@ -200,8 +200,6 @@ public final class AudioAttributes implements Bundleable {
     return result;
   }
 
-  // Bundleable implementation.
-
   private static final String FIELD_CONTENT_TYPE = Util.intToStringMaxRadix(0);
   private static final String FIELD_FLAGS = Util.intToStringMaxRadix(1);
   private static final String FIELD_USAGE = Util.intToStringMaxRadix(2);
@@ -209,7 +207,6 @@ public final class AudioAttributes implements Bundleable {
   private static final String FIELD_SPATIALIZATION_BEHAVIOR = Util.intToStringMaxRadix(4);
 
   @UnstableApi
-  @Override
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
     bundle.putInt(FIELD_CONTENT_TYPE, contentType);
@@ -219,16 +216,6 @@ public final class AudioAttributes implements Bundleable {
     bundle.putInt(FIELD_SPATIALIZATION_BEHAVIOR, spatializationBehavior);
     return bundle;
   }
-
-  /**
-   * Object that can restore {@link AudioAttributes} from a {@link Bundle}.
-   *
-   * @deprecated Use {@link #fromBundle} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<AudioAttributes> CREATOR = AudioAttributes::fromBundle;
 
   /** Restores a {@code AudioAttributes} from a {@link Bundle}. */
   @UnstableApi

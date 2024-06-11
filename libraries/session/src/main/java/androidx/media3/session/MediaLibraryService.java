@@ -31,7 +31,6 @@ import android.os.Bundle;
 import android.os.IBinder;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
-import androidx.media3.common.Bundleable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
@@ -729,7 +728,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
    * error even though {@link MediaLibrarySession} doesn't return the parameters since they are
    * optional.
    */
-  public static final class LibraryParams implements Bundleable {
+  public static final class LibraryParams {
 
     /**
      * An extra {@link Bundle} for the private contract between {@link MediaBrowser} and {@link
@@ -829,15 +828,12 @@ public abstract class MediaLibraryService extends MediaSessionService {
       }
     }
 
-    // Bundleable implementation.
-
     private static final String FIELD_EXTRAS = Util.intToStringMaxRadix(0);
     private static final String FIELD_RECENT = Util.intToStringMaxRadix(1);
     private static final String FIELD_OFFLINE = Util.intToStringMaxRadix(2);
     private static final String FIELD_SUGGESTED = Util.intToStringMaxRadix(3);
 
     @UnstableApi
-    @Override
     public Bundle toBundle() {
       Bundle bundle = new Bundle();
       bundle.putBundle(FIELD_EXTRAS, extras);
@@ -846,16 +842,6 @@ public abstract class MediaLibraryService extends MediaSessionService {
       bundle.putBoolean(FIELD_SUGGESTED, isSuggested);
       return bundle;
     }
-
-    /**
-     * Object that can restore {@link LibraryParams} from a {@link Bundle}.
-     *
-     * @deprecated Use {@link #fromBundle} instead.
-     */
-    @UnstableApi
-    @Deprecated
-    @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-    public static final Creator<LibraryParams> CREATOR = LibraryParams::fromBundle;
 
     /** Restores a {@code LibraryParams} from a {@link Bundle}. */
     @UnstableApi

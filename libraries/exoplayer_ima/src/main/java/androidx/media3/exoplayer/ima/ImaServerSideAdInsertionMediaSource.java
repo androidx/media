@@ -51,7 +51,6 @@ import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AdOverlayInfo;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AdViewProvider;
-import androidx.media3.common.Bundleable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Metadata;
@@ -377,7 +376,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
     }
 
     /** The state of the {@link AdsLoader} that can be used when resuming from the background. */
-    public static class State implements Bundleable {
+    public static class State {
 
       private final ImmutableMap<String, AdPlaybackState> adPlaybackStates;
 
@@ -403,11 +402,8 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
         return adPlaybackStates.hashCode();
       }
 
-      // Bundleable implementation.
-
       private static final String FIELD_AD_PLAYBACK_STATES = Util.intToStringMaxRadix(1);
 
-      @Override
       public Bundle toBundle() {
         Bundle bundle = new Bundle();
         Bundle adPlaybackStatesBundle = new Bundle();
@@ -417,16 +413,6 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
         bundle.putBundle(FIELD_AD_PLAYBACK_STATES, adPlaybackStatesBundle);
         return bundle;
       }
-
-      /**
-       * Object that can restore {@link AdsLoader.State} from a {@link Bundle}.
-       *
-       * @deprecated Use {@link #fromBundle} instead.
-       */
-      @UnstableApi
-      @Deprecated
-      @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-      public static final Bundleable.Creator<State> CREATOR = State::fromBundle;
 
       /** Restores a {@code State} from a {@link Bundle}. */
       public static State fromBundle(Bundle bundle) {

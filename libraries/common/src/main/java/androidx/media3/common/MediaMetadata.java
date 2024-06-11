@@ -42,7 +42,7 @@ import java.util.List;
  * Metadata of a {@link MediaItem}, playlist, or a combination of multiple sources of {@link
  * Metadata}.
  */
-public final class MediaMetadata implements Bundleable {
+public final class MediaMetadata {
 
   /** A builder for {@link MediaMetadata} instances. */
   public static final class Builder {
@@ -1270,8 +1270,6 @@ public final class MediaMetadata implements Bundleable {
         extras == null);
   }
 
-  // Bundleable implementation.
-
   private static final String FIELD_TITLE = Util.intToStringMaxRadix(0);
   private static final String FIELD_ARTIST = Util.intToStringMaxRadix(1);
   private static final String FIELD_ALBUM_TITLE = Util.intToStringMaxRadix(2);
@@ -1310,7 +1308,6 @@ public final class MediaMetadata implements Bundleable {
 
   @SuppressWarnings("deprecation") // Bundling deprecated fields.
   @UnstableApi
-  @Override
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
     if (title != null) {
@@ -1417,16 +1414,6 @@ public final class MediaMetadata implements Bundleable {
     }
     return bundle;
   }
-
-  /**
-   * Object that can restore {@link MediaMetadata} from a {@link Bundle}.
-   *
-   * @deprecated Use {@link #fromBundle} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<MediaMetadata> CREATOR = MediaMetadata::fromBundle;
 
   /** Restores a {@code MediaMetadata} from a {@link Bundle}. */
   @UnstableApi

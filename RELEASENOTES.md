@@ -42,6 +42,10 @@
 *   Cast Extension:
 *   Test Utilities:
 *   Remove deprecated symbols:
+    *   Remove `Bundleable` interface. This includes removing all
+        `Bundleable.Creator<Foo> CREATOR` constant fields. Callers should use
+        the `Bundle toBundle()` and `static Foo fromBundle(Bundle)` methods on
+        each type instead.
 
 ## 1.4
 

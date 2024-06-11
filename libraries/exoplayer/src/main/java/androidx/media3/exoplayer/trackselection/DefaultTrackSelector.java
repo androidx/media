@@ -44,7 +44,6 @@ import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
-import androidx.media3.common.Bundleable;
 import androidx.media3.common.C;
 import androidx.media3.common.C.RoleFlags;
 import androidx.media3.common.Format;
@@ -819,7 +818,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
   /**
    * Extends {@link Parameters} by adding fields that are specific to {@link DefaultTrackSelector}.
    */
-  public static final class Parameters extends TrackSelectionParameters implements Bundleable {
+  public static final class Parameters extends TrackSelectionParameters {
 
     /**
      * A builder for {@link Parameters}. See the {@link Parameters} documentation for explanations
@@ -2029,8 +2028,6 @@ public class DefaultTrackSelector extends MappingTrackSelector
       return result;
     }
 
-    // Bundleable implementation.
-
     private static final String FIELD_EXCEED_VIDEO_CONSTRAINTS_IF_NECESSARY =
         Util.intToStringMaxRadix(FIELD_CUSTOM_ID_BASE);
     private static final String FIELD_ALLOW_VIDEO_MIXED_MIME_TYPE_ADAPTIVENESS =
@@ -2118,15 +2115,6 @@ public class DefaultTrackSelector extends MappingTrackSelector
 
       return bundle;
     }
-
-    /**
-     * Object that can restore {@code Parameters} from a {@link Bundle}.
-     *
-     * @deprecated Use {@link #fromBundle} instead.
-     */
-    @Deprecated
-    @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-    public static final Creator<Parameters> CREATOR = Parameters::fromBundle;
 
     /** Restores a {@code Parameters} from a {@link Bundle}. */
     public static Parameters fromBundle(Bundle bundle) {
@@ -2227,7 +2215,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
   }
 
   /** A track selection override. */
-  public static final class SelectionOverride implements Bundleable {
+  public static final class SelectionOverride {
 
     public final int groupIndex;
     public final int[] tracks;
@@ -2290,14 +2278,11 @@ public class DefaultTrackSelector extends MappingTrackSelector
           && type == other.type;
     }
 
-    // Bundleable implementation.
-
     private static final String FIELD_GROUP_INDEX = Util.intToStringMaxRadix(0);
     private static final String FIELD_TRACKS = Util.intToStringMaxRadix(1);
     private static final String FIELD_TRACK_TYPE = Util.intToStringMaxRadix(2);
 
     @UnstableApi
-    @Override
     public Bundle toBundle() {
       Bundle bundle = new Bundle();
       bundle.putInt(FIELD_GROUP_INDEX, groupIndex);
@@ -2305,16 +2290,6 @@ public class DefaultTrackSelector extends MappingTrackSelector
       bundle.putInt(FIELD_TRACK_TYPE, type);
       return bundle;
     }
-
-    /**
-     * Object that can restore {@code SelectionOverride} from a {@link Bundle}.
-     *
-     * @deprecated Use {@link #fromBundle} instead.
-     */
-    @UnstableApi
-    @Deprecated
-    @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-    public static final Creator<SelectionOverride> CREATOR = SelectionOverride::fromBundle;
 
     /** Restores a {@code SelectionOverride} from a {@link Bundle}. */
     @UnstableApi

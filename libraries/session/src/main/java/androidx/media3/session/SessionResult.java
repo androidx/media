@@ -22,7 +22,6 @@ import android.os.Bundle;
 import android.os.SystemClock;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
-import androidx.media3.common.Bundleable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -35,7 +34,7 @@ import java.lang.annotation.Target;
  * A result to be used with {@link ListenableFuture} for asynchronous calls between {@link
  * MediaSession} and {@link MediaController}.
  */
-public final class SessionResult implements Bundleable {
+public final class SessionResult {
 
   /**
    * Result codes.
@@ -235,15 +234,12 @@ public final class SessionResult implements Bundleable {
             : sessionError;
   }
 
-  // Bundleable implementation.
-
   private static final String FIELD_RESULT_CODE = Util.intToStringMaxRadix(0);
   private static final String FIELD_EXTRAS = Util.intToStringMaxRadix(1);
   private static final String FIELD_COMPLETION_TIME_MS = Util.intToStringMaxRadix(2);
   private static final String FIELD_SESSION_ERROR = Util.intToStringMaxRadix(3);
 
   @UnstableApi
-  @Override
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
     bundle.putInt(FIELD_RESULT_CODE, resultCode);
@@ -254,16 +250,6 @@ public final class SessionResult implements Bundleable {
     }
     return bundle;
   }
-
-  /**
-   * Object that can restore a {@link SessionResult} from a {@link Bundle}.
-   *
-   * @deprecated Use {@link #fromBundle} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<SessionResult> CREATOR = SessionResult::fromBundle;
 
   /** Restores a {@code SessionResult} from a {@link Bundle}. */
   @UnstableApi

@@ -31,7 +31,7 @@ import org.checkerframework.dataflow.qual.Pure;
  * #SDR_BT709_LIMITED} instance.
  */
 @UnstableApi
-public final class ColorInfo implements Bundleable {
+public final class ColorInfo {
 
   /**
    * Builds {@link ColorInfo} instances.
@@ -461,8 +461,6 @@ public final class ColorInfo implements Bundleable {
     }
   }
 
-  // Bundleable implementation
-
   private static final String FIELD_COLOR_SPACE = Util.intToStringMaxRadix(0);
   private static final String FIELD_COLOR_RANGE = Util.intToStringMaxRadix(1);
   private static final String FIELD_COLOR_TRANSFER = Util.intToStringMaxRadix(2);
@@ -470,7 +468,6 @@ public final class ColorInfo implements Bundleable {
   private static final String FIELD_LUMA_BITDEPTH = Util.intToStringMaxRadix(4);
   private static final String FIELD_CHROMA_BITDEPTH = Util.intToStringMaxRadix(5);
 
-  @Override
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
     bundle.putInt(FIELD_COLOR_SPACE, colorSpace);
@@ -481,13 +478,6 @@ public final class ColorInfo implements Bundleable {
     bundle.putInt(FIELD_CHROMA_BITDEPTH, chromaBitdepth);
     return bundle;
   }
-
-  /**
-   * @deprecated Use {@link #fromBundle} instead.
-   */
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<ColorInfo> CREATOR = ColorInfo::fromBundle;
 
   /** Restores a {@code ColorInfo} from a {@link Bundle}. */
   public static ColorInfo fromBundle(Bundle bundle) {

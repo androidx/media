@@ -23,7 +23,6 @@ import android.os.Bundle;
 import android.os.IBinder;
 import androidx.annotation.Nullable;
 import androidx.core.app.BundleCompat;
-import androidx.media3.common.Bundleable;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.Util;
@@ -34,7 +33,7 @@ import java.util.List;
  * Created by {@link MediaSession} to send its state to the {@link MediaController} when the
  * connection request is accepted.
  */
-/* package */ class ConnectionState implements Bundleable {
+/* package */ class ConnectionState {
 
   public final int libraryVersion;
 
@@ -83,8 +82,6 @@ import java.util.List;
     this.playerInfo = playerInfo;
   }
 
-  // Bundleable implementation.
-
   private static final String FIELD_LIBRARY_VERSION = Util.intToStringMaxRadix(0);
   private static final String FIELD_SESSION_BINDER = Util.intToStringMaxRadix(1);
   private static final String FIELD_SESSION_ACTIVITY = Util.intToStringMaxRadix(2);
@@ -100,7 +97,6 @@ import java.util.List;
 
   // Next field key = 12
 
-  @Override
   public Bundle toBundle() {
     return toBundleForRemoteProcess(Integer.MAX_VALUE);
   }
@@ -141,13 +137,6 @@ import java.util.List;
     bundle.putBinder(FIELD_IN_PROCESS_BINDER, new InProcessBinder());
     return bundle;
   }
-
-  /**
-   * @deprecated Use {@link #fromBundle} instead.
-   */
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<ConnectionState> CREATOR = ConnectionState::fromBundle;
 
   /** Restores a {@code ConnectionState} from a {@link Bundle}. */
   public static ConnectionState fromBundle(Bundle bundle) {

@@ -26,7 +26,6 @@ import android.text.TextUtils;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
-import androidx.media3.common.Bundleable;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -47,7 +46,7 @@ import java.util.List;
  * @see MediaSession#setCustomLayout(MediaSession.ControllerInfo, List)
  * @see MediaController.Listener#onCustomLayoutChanged(MediaController, List)
  */
-public final class CommandButton implements Bundleable {
+public final class CommandButton {
 
   // TODO: b/328238954 - Stabilize these constants and the corresponding methods, and deprecate the
   //  methods that do not use these constants.
@@ -736,8 +735,6 @@ public final class CommandButton implements Bundleable {
             && playerCommands.contains(button.playerCommand));
   }
 
-  // Bundleable implementation.
-
   private static final String FIELD_SESSION_COMMAND = Util.intToStringMaxRadix(0);
   private static final String FIELD_PLAYER_COMMAND = Util.intToStringMaxRadix(1);
   private static final String FIELD_ICON_RES_ID = Util.intToStringMaxRadix(2);
@@ -748,7 +745,6 @@ public final class CommandButton implements Bundleable {
   private static final String FIELD_ICON = Util.intToStringMaxRadix(7);
 
   @UnstableApi
-  @Override
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
     if (sessionCommand != null) {
@@ -777,16 +773,6 @@ public final class CommandButton implements Bundleable {
     }
     return bundle;
   }
-
-  /**
-   * Object that can restore {@code CommandButton} from a {@link Bundle}.
-   *
-   * @deprecated Use {@link #fromBundle} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<CommandButton> CREATOR = CommandButton::fromBundle;
 
   /**
    * @deprecated Use {@link #fromBundle(Bundle, int)} instead.

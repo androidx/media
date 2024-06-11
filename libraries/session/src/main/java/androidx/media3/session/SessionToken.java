@@ -34,7 +34,6 @@ import android.os.ResultReceiver;
 import android.text.TextUtils;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
-import androidx.media3.common.Bundleable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.util.UnstableApi;
@@ -71,7 +70,7 @@ import java.util.List;
 //     This helps controller apps to keep target of dispatching media key events in uniform way.
 //     For details about the reason, see following. (Android O+)
 //         android.media.session.MediaSessionManager.Callback#onAddressedPlayerChanged
-public final class SessionToken implements Bundleable {
+public final class SessionToken {
 
   static {
     MediaLibraryInfo.registerModule("media3.session");
@@ -452,7 +451,7 @@ public final class SessionToken implements Bundleable {
     }
   }
 
-  /* package */ interface SessionTokenImpl extends Bundleable {
+  /* package */ interface SessionTokenImpl {
 
     boolean isLegacySession();
 
@@ -476,9 +475,9 @@ public final class SessionToken implements Bundleable {
 
     @Nullable
     Object getBinder();
-  }
 
-  // Bundleable implementation.
+    Bundle toBundle();
+  }
 
   private static final String FIELD_IMPL_TYPE = Util.intToStringMaxRadix(0);
   private static final String FIELD_IMPL = Util.intToStringMaxRadix(1);
@@ -494,7 +493,6 @@ public final class SessionToken implements Bundleable {
   private static final int IMPL_TYPE_LEGACY = 1;
 
   @UnstableApi
-  @Override
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
     if (impl instanceof SessionTokenImplBase) {
@@ -505,16 +503,6 @@ public final class SessionToken implements Bundleable {
     bundle.putBundle(FIELD_IMPL, impl.toBundle());
     return bundle;
   }
-
-  /**
-   * Object that can restore {@link SessionToken} from a {@link Bundle}.
-   *
-   * @deprecated Use {@link #fromBundle} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<SessionToken> CREATOR = SessionToken::fromBundle;
 
   /** Restores a {@code SessionToken} from a {@link Bundle}. */
   @UnstableApi

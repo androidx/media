@@ -125,7 +125,7 @@ import java.util.UUID;
  *   <li>{@link #tileCountVertical}
  * </ul>
  */
-public final class Format implements Bundleable {
+public final class Format {
 
   /**
    * Builds {@link Format} instances.
@@ -1363,8 +1363,6 @@ public final class Format implements Bundleable {
     return builder.toString();
   }
 
-  // Bundleable implementation.
-
   private static final String FIELD_ID = Util.intToStringMaxRadix(0);
   private static final String FIELD_LABEL = Util.intToStringMaxRadix(1);
   private static final String FIELD_LANGUAGE = Util.intToStringMaxRadix(2);
@@ -1400,7 +1398,6 @@ public final class Format implements Bundleable {
   private static final String FIELD_LABELS = Util.intToStringMaxRadix(32);
 
   @UnstableApi
-  @Override
   public Bundle toBundle() {
     return toBundle(/* excludeMetadata= */ false);
   }
@@ -1434,7 +1431,7 @@ public final class Format implements Bundleable {
     for (int i = 0; i < initializationData.size(); i++) {
       bundle.putByteArray(keyForInitializationData(i), initializationData.get(i));
     }
-    // DrmInitData doesn't need to be Bundleable as it's only used in the playing process to
+    // DrmInitData doesn't need to be put into Bundle as it's only used in the playing process to
     // initialize the decoder.
     bundle.putParcelable(FIELD_DRM_INIT_DATA, drmInitData);
     bundle.putLong(FIELD_SUBSAMPLE_OFFSET_US, subsampleOffsetUs);
@@ -1464,16 +1461,6 @@ public final class Format implements Bundleable {
     bundle.putInt(FIELD_CRYPTO_TYPE, cryptoType);
     return bundle;
   }
-
-  /**
-   * Object that can restore {@code Format} from a {@link Bundle}.
-   *
-   * @deprecated Use {@link #fromBundle} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<Format> CREATOR = Format::fromBundle;
 
   /** Restores a {@code Format} from a {@link Bundle}. */
   @UnstableApi

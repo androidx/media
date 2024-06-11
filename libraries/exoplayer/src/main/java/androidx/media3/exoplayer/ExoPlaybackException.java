@@ -400,18 +400,6 @@ public final class ExoPlaybackException extends PlaybackException {
     return message;
   }
 
-  // Bundleable implementation.
-
-  /**
-   * Object that can restore {@link ExoPlaybackException} from a {@link Bundle}.
-   *
-   * @deprecated Use {@link #ExoPlaybackException(Bundle)} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<ExoPlaybackException> CREATOR = ExoPlaybackException::new;
-
   /** Restores a {@code ExoPlaybackException} from a {@link Bundle}. */
   @UnstableApi
   public static ExoPlaybackException fromBundle(Bundle bundle) {
@@ -434,7 +422,7 @@ public final class ExoPlaybackException extends PlaybackException {
    * {@inheritDoc}
    *
    * <p>It omits the {@link #mediaPeriodId} field. The {@link #mediaPeriodId} of an instance
-   * restored by {@link #CREATOR} will always be {@code null}.
+   * restored by {@link #fromBundle} will always be {@code null}.
    */
   @UnstableApi
   @Override

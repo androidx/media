@@ -27,7 +27,6 @@ import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.core.app.BundleCompat;
 import androidx.media3.common.BundleListRetriever;
-import androidx.media3.common.Bundleable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.util.BundleCollectionUtil;
@@ -46,7 +45,7 @@ import java.util.List;
  * A result to be used with {@link ListenableFuture} for asynchronous calls between {@link
  * MediaLibraryService.MediaLibrarySession} and {@link MediaBrowser}.
  */
-public final class LibraryResult<V> implements Bundleable {
+public final class LibraryResult<V> {
 
   /** Result codes. */
   @Documented
@@ -326,8 +325,6 @@ public final class LibraryResult<V> implements Bundleable {
     checkArgument(item.mediaMetadata.isPlayable != null, "mediaMetadata must specify isPlayable");
   }
 
-  // Bundleable implementation.
-
   private static final String FIELD_RESULT_CODE = Util.intToStringMaxRadix(0);
   private static final String FIELD_COMPLETION_TIME_MS = Util.intToStringMaxRadix(1);
   private static final String FIELD_PARAMS = Util.intToStringMaxRadix(2);
@@ -338,7 +335,6 @@ public final class LibraryResult<V> implements Bundleable {
   // Casting V to ImmutableList<MediaItem> is safe if valueType == VALUE_TYPE_ITEM_LIST.
   @SuppressWarnings("unchecked")
   @UnstableApi
-  @Override
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
     bundle.putInt(FIELD_RESULT_CODE, resultCode);
@@ -373,49 +369,6 @@ public final class LibraryResult<V> implements Bundleable {
     }
     return bundle;
   }
-
-  /**
-   * Object that can restore a {@code LibraryResult<Void>} from a {@link Bundle}.
-   *
-   * @deprecated Use {@link #fromVoidBundle} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<LibraryResult<Void>> VOID_CREATOR = LibraryResult::fromVoidBundle;
-
-  /**
-   * Object that can restore a {@code LibraryResult<MediaItem>} from a {@link Bundle}.
-   *
-   * @deprecated Use {@link #fromItemBundle} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<LibraryResult<MediaItem>> ITEM_CREATOR =
-      LibraryResult::fromItemBundle;
-
-  /**
-   * Object that can restore a {@code LibraryResult<ImmutableList<MediaItem>} from a {@link Bundle}.
-   *
-   * @deprecated Use {@link #fromItemListBundle} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<LibraryResult<ImmutableList<MediaItem>>> ITEM_LIST_CREATOR =
-      LibraryResult::fromItemListBundle;
-
-  /**
-   * Object that can restore a {@code LibraryResult} with unknown value type from a {@link Bundle}.
-   *
-   * @deprecated Use {@link #fromUnknownBundle} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<LibraryResult<?>> UNKNOWN_TYPE_CREATOR =
-      LibraryResult::fromUnknownBundle;
 
   /** Restores a {@code LibraryResult<Void>} from a {@link Bundle}. */
   // fromBundle will throw if the bundle doesn't have the right value type.

@@ -23,7 +23,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 
 /** Represents the video size. */
-public final class VideoSize implements Bundleable {
+public final class VideoSize {
 
   private static final int DEFAULT_WIDTH = 0;
   private static final int DEFAULT_HEIGHT = 0;
@@ -125,15 +125,12 @@ public final class VideoSize implements Bundleable {
     return result;
   }
 
-  // Bundleable implementation.
-
   private static final String FIELD_WIDTH = Util.intToStringMaxRadix(0);
   private static final String FIELD_HEIGHT = Util.intToStringMaxRadix(1);
   private static final String FIELD_UNAPPLIED_ROTATION_DEGREES = Util.intToStringMaxRadix(2);
   private static final String FIELD_PIXEL_WIDTH_HEIGHT_RATIO = Util.intToStringMaxRadix(3);
 
   @UnstableApi
-  @Override
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
     bundle.putInt(FIELD_WIDTH, width);
@@ -142,14 +139,6 @@ public final class VideoSize implements Bundleable {
     bundle.putFloat(FIELD_PIXEL_WIDTH_HEIGHT_RATIO, pixelWidthHeightRatio);
     return bundle;
   }
-
-  /**
-   * @deprecated Use {@link #fromBundle} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<VideoSize> CREATOR = VideoSize::fromBundle;
 
   /** Restores a {@code VideoSize} from a {@link Bundle}. */
   @UnstableApi

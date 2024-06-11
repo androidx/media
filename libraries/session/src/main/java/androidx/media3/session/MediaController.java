@@ -1095,7 +1095,7 @@ public class MediaController implements Player {
    * Timeline.Period)}, {@link Timeline#getIndexOfPeriod(Object)}, and {@link
    * Timeline#getUidOfPeriod(int)} will throw {@link UnsupportedOperationException} because of the
    * limitation of restoring the instance sent from session as described in {@link
-   * Timeline#CREATOR}.
+   * Timeline#fromBundle}.
    */
   @Override
   public final Timeline getCurrentTimeline() {

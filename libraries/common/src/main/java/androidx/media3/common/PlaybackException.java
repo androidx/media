@@ -38,7 +38,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /** Thrown when a non locally recoverable playback failure occurs. */
-public class PlaybackException extends Exception implements Bundleable {
+public class PlaybackException extends Exception {
 
   /**
    * Codes that identify causes of player errors.
@@ -457,8 +457,6 @@ public class PlaybackException extends Exception implements Bundleable {
         && timestampMs == other.timestampMs;
   }
 
-  // Bundleable implementation.
-
   private static final String FIELD_INT_ERROR_CODE = Util.intToStringMaxRadix(0);
   private static final String FIELD_LONG_TIMESTAMP_MS = Util.intToStringMaxRadix(1);
   private static final String FIELD_STRING_MESSAGE = Util.intToStringMaxRadix(2);
@@ -474,25 +472,15 @@ public class PlaybackException extends Exception implements Bundleable {
    */
   @UnstableApi protected static final int FIELD_CUSTOM_ID_BASE = 1000;
 
-  /**
-   * Object that can create a {@link PlaybackException} from a {@link Bundle}.
-   *
-   * @deprecated Use {@link #fromBundle} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<PlaybackException> CREATOR = PlaybackException::new;
-
   /** Restores a {@code PlaybackException} from a {@link Bundle}. */
   @UnstableApi
   public static PlaybackException fromBundle(Bundle bundle) {
     return new PlaybackException(bundle);
   }
 
+  /** Returns a {@link Bundle} representing the information stored in this exception. */
   @UnstableApi
   @CallSuper
-  @Override
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
     bundle.putInt(FIELD_INT_ERROR_CODE, errorCode);

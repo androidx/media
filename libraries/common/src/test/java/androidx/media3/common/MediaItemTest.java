@@ -525,7 +525,7 @@ public class MediaItemTest {
     clippingConfigurationBundle.remove(FIELD_END_POSITION_US);
 
     MediaItem.ClippingConfiguration clippingConfigurationFromBundle =
-        MediaItem.ClippingConfiguration.CREATOR.fromBundle(clippingConfigurationBundle);
+        MediaItem.ClippingConfiguration.fromBundle(clippingConfigurationBundle);
 
     assertThat(clippingConfigurationFromBundle).isEqualTo(clippingConfiguration);
   }

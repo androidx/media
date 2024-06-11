@@ -20,7 +20,6 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 
 import android.os.Bundle;
 import androidx.annotation.Nullable;
-import androidx.media3.common.Bundleable;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.util.Util;
 
@@ -28,7 +27,7 @@ import androidx.media3.common.util.Util;
  * Created by {@link MediaController} to send its state to the {@link MediaSession} to request to
  * connect.
  */
-/* package */ class ConnectionRequest implements Bundleable {
+/* package */ class ConnectionRequest {
 
   public final int libraryVersion;
 
@@ -62,8 +61,6 @@ import androidx.media3.common.util.Util;
     this.connectionHints = connectionHints;
   }
 
-  // Bundleable implementation.
-
   private static final String FIELD_LIBRARY_VERSION = Util.intToStringMaxRadix(0);
   private static final String FIELD_PACKAGE_NAME = Util.intToStringMaxRadix(1);
   private static final String FIELD_PID = Util.intToStringMaxRadix(2);
@@ -72,7 +69,6 @@ import androidx.media3.common.util.Util;
 
   // Next id: 5
 
-  @Override
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
     bundle.putInt(FIELD_LIBRARY_VERSION, libraryVersion);
@@ -82,15 +78,6 @@ import androidx.media3.common.util.Util;
     bundle.putInt(FIELD_CONTROLLER_INTERFACE_VERSION, controllerInterfaceVersion);
     return bundle;
   }
-
-  /**
-   * Object that can restore {@link ConnectionRequest} from a {@link Bundle}.
-   *
-   * @deprecated Use {@link #fromBundle} instead.
-   */
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<ConnectionRequest> CREATOR = ConnectionRequest::fromBundle;
 
   /** Restores a {@code ConnectionRequest} from a {@link Bundle}. */
   public static ConnectionRequest fromBundle(Bundle bundle) {

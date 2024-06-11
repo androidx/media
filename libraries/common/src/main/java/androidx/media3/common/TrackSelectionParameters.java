@@ -69,7 +69,7 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
  * player.setTrackSelectionParameters(newParameters);
  * }</pre>
  */
-public class TrackSelectionParameters implements Bundleable {
+public class TrackSelectionParameters {
 
   /**
    * A builder for {@link TrackSelectionParameters}. See the {@link TrackSelectionParameters}
@@ -854,7 +854,7 @@ public class TrackSelectionParameters implements Bundleable {
 
   /** Preferences and constraints for enabling audio offload. */
   @UnstableApi
-  public static final class AudioOffloadPreferences implements Bundleable {
+  public static final class AudioOffloadPreferences {
 
     /**
      * The preference level for enabling audio offload on the audio sink. One of {@link
@@ -1014,14 +1014,11 @@ public class TrackSelectionParameters implements Bundleable {
       return result;
     }
 
-    // Bundleable implementation
-
     private static final String FIELD_AUDIO_OFFLOAD_MODE_PREFERENCE = Util.intToStringMaxRadix(1);
     private static final String FIELD_IS_GAPLESS_SUPPORT_REQUIRED = Util.intToStringMaxRadix(2);
     private static final String FIELD_IS_SPEED_CHANGE_SUPPORT_REQUIRED =
         Util.intToStringMaxRadix(3);
 
-    @Override
     public Bundle toBundle() {
       Bundle bundle = new Bundle();
       bundle.putInt(FIELD_AUDIO_OFFLOAD_MODE_PREFERENCE, audioOffloadMode);
@@ -1380,8 +1377,6 @@ public class TrackSelectionParameters implements Bundleable {
     return result;
   }
 
-  // Bundleable implementation
-
   private static final String FIELD_PREFERRED_AUDIO_LANGUAGES = Util.intToStringMaxRadix(1);
   private static final String FIELD_PREFERRED_AUDIO_ROLE_FLAGS = Util.intToStringMaxRadix(2);
   private static final String FIELD_PREFERRED_TEXT_LANGUAGES = Util.intToStringMaxRadix(3);
@@ -1425,7 +1420,6 @@ public class TrackSelectionParameters implements Bundleable {
    */
   @UnstableApi protected static final int FIELD_CUSTOM_ID_BASE = 1000;
 
-  @Override
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
 
@@ -1482,13 +1476,4 @@ public class TrackSelectionParameters implements Bundleable {
   public static TrackSelectionParameters fromBundle(Bundle bundle) {
     return new Builder(bundle).build();
   }
-
-  /**
-   * @deprecated Use {@link #fromBundle(Bundle)} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<TrackSelectionParameters> CREATOR =
-      TrackSelectionParameters::fromBundle;
 }
