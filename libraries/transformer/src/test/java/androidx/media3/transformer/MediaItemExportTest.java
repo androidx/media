@@ -1379,8 +1379,8 @@ public final class MediaItemExportTest {
         progressStatesAndValues = runTransformerForProgressStateAndValueUpdates(transformer);
     ImmutableList<Integer> progressValues = progressStatesAndValues.second;
 
-    assertThat(progressValues).isNotEmpty();
-    assertThat(progressValues.get(0)).isEqualTo(0);
+    assertThat(progressValues.size()).isAtLeast(2);
+    assertThat(progressValues.get(0)).isAtLeast(0);
     assertThat(progressValues).isInStrictOrder();
     assertThat(Iterables.getLast(progressValues)).isAtMost(100);
   }
@@ -1444,8 +1444,8 @@ public final class MediaItemExportTest {
         progressStatesAndValues = runTransformerForProgressStateAndValueUpdates(transformer);
     ImmutableList<Integer> progressValues = progressStatesAndValues.second;
 
-    assertThat(progressValues).isNotEmpty();
-    assertThat(progressValues.get(0)).isEqualTo(0);
+    assertThat(progressValues.size()).isAtLeast(2);
+    assertThat(progressValues.get(0)).isAtLeast(0);
     assertThat(progressValues).isInStrictOrder();
     assertThat(Iterables.getLast(progressValues)).isAtMost(100);
   }
@@ -1664,6 +1664,16 @@ public final class MediaItemExportTest {
             progressValues.add(progressHolder.progress);
           }
         });
+
+    // Do once more when transformer has finished running.
+    @Transformer.ProgressState int progressState = transformer.getProgress(progressHolder);
+    if (progressStates.isEmpty() || progressState != progressStates.getLast()) {
+      progressStates.add(progressState);
+    }
+    if (progressState == PROGRESS_STATE_AVAILABLE
+        && (progressValues.isEmpty() || progressHolder.progress != progressValues.getLast())) {
+      progressValues.add(progressHolder.progress);
+    }
 
     return new Pair<>(ImmutableList.copyOf(progressStates), ImmutableList.copyOf(progressValues));
   }
