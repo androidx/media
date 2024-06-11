@@ -1397,7 +1397,11 @@ public final class Format {
   private static final String FIELD_TILE_COUNT_VERTICAL = Util.intToStringMaxRadix(31);
   private static final String FIELD_LABELS = Util.intToStringMaxRadix(32);
 
+  /**
+   * @deprecated Use {@link #toBundle(boolean)} instead.
+   */
   @UnstableApi
+  @Deprecated
   public Bundle toBundle() {
     return toBundle(/* excludeMetadata= */ false);
   }

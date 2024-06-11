@@ -163,7 +163,7 @@ public class PlayerInfoTest {
             .setVideoSize(new VideoSize(/* width= */ 1024, /* height= */ 768))
             .build();
 
-    PlayerInfo infoAfterBundling = PlayerInfo.fromBundle(playerInfo.toBundle());
+    PlayerInfo infoAfterBundling = PlayerInfo.fromBundle(playerInfo.toBundleInProcess());
 
     assertThat(infoAfterBundling.oldPositionInfo.mediaItemIndex).isEqualTo(5);
     assertThat(infoAfterBundling.oldPositionInfo.periodIndex).isEqualTo(4);
@@ -292,7 +292,7 @@ public class PlayerInfoTest {
                         .build(),
                     /* excludeTimeline= */ false,
                     /* excludeTracks= */ false)
-                .toBundle());
+                .toBundleInProcess());
 
     assertThat(infoAfterBundling.oldPositionInfo.mediaItemIndex).isEqualTo(5);
     assertThat(infoAfterBundling.oldPositionInfo.periodIndex).isEqualTo(4);
@@ -413,7 +413,7 @@ public class PlayerInfoTest {
                         .build(),
                     /* excludeTimeline= */ true,
                     /* excludeTracks= */ false)
-                .toBundle());
+                .toBundleInProcess());
 
     assertThat(infoAfterBundling.oldPositionInfo.mediaItemIndex).isEqualTo(0);
     assertThat(infoAfterBundling.oldPositionInfo.periodIndex).isEqualTo(0);
@@ -482,7 +482,7 @@ public class PlayerInfoTest {
                         .build(),
                     /* excludeTimeline= */ false,
                     /* excludeTracks= */ false)
-                .toBundle());
+                .toBundleInProcess());
 
     assertThat(infoAfterBundling.mediaMetadata).isEqualTo(MediaMetadata.EMPTY);
     assertThat(infoAfterBundling.playlistMetadata).isEqualTo(MediaMetadata.EMPTY);
@@ -502,7 +502,7 @@ public class PlayerInfoTest {
                         .build(),
                     /* excludeTimeline= */ false,
                     /* excludeTracks= */ false)
-                .toBundle());
+                .toBundleInProcess());
 
     assertThat(infoAfterBundling.volume).isEqualTo(1f);
   }
@@ -522,7 +522,7 @@ public class PlayerInfoTest {
                         .build(),
                     /* excludeTimeline= */ false,
                     /* excludeTracks= */ false)
-                .toBundle());
+                .toBundleInProcess());
 
     assertThat(infoAfterBundling.deviceVolume).isEqualTo(0);
     assertThat(infoAfterBundling.deviceMuted).isFalse();
@@ -546,7 +546,7 @@ public class PlayerInfoTest {
                         .build(),
                     /* excludeTimeline= */ false,
                     /* excludeTracks= */ false)
-                .toBundle());
+                .toBundleInProcess());
 
     assertThat(infoAfterBundling.audioAttributes).isEqualTo(AudioAttributes.DEFAULT);
   }
@@ -568,7 +568,7 @@ public class PlayerInfoTest {
                         .build(),
                     /* excludeTimeline= */ false,
                     /* excludeTracks= */ false)
-                .toBundle());
+                .toBundleInProcess());
 
     assertThat(infoAfterBundling.cueGroup).isEqualTo(CueGroup.EMPTY_TIME_ZERO);
   }
@@ -598,14 +598,14 @@ public class PlayerInfoTest {
                         .build(),
                     /* excludeTimeline= */ false,
                     /* excludeTracks= */ true)
-                .toBundle());
+                .toBundleInProcess());
 
     assertThat(infoAfterBundling.currentTracks).isEqualTo(Tracks.EMPTY);
   }
 
   @Test
   public void toBundleFromBundle_withDefaultValues_restoresAllData() {
-    PlayerInfo roundTripValue = PlayerInfo.fromBundle(PlayerInfo.DEFAULT.toBundle());
+    PlayerInfo roundTripValue = PlayerInfo.fromBundle(PlayerInfo.DEFAULT.toBundleInProcess());
 
     assertThat(roundTripValue.oldPositionInfo).isEqualTo(PlayerInfo.DEFAULT.oldPositionInfo);
     assertThat(roundTripValue.newPositionInfo).isEqualTo(PlayerInfo.DEFAULT.newPositionInfo);

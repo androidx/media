@@ -199,10 +199,6 @@ import com.google.common.base.Objects;
         canAccessCurrentMediaItem ? contentBufferedPositionMs : 0);
   }
 
-  public Bundle toBundle() {
-    return toBundle(Integer.MAX_VALUE);
-  }
-
   public Bundle toBundle(int controllerInterfaceVersion) {
     Bundle bundle = new Bundle();
     if (controllerInterfaceVersion < 3 || !DEFAULT_POSITION_INFO.equalsForBundling(positionInfo)) {

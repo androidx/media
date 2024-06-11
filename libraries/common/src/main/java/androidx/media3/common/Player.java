@@ -461,13 +461,10 @@ public interface Player {
     }
 
     /**
-     * Returns a {@link Bundle} representing the information stored in this object.
-     *
-     * <p>It omits the {@link #windowUid} and {@link #periodUid} fields. The {@link #windowUid} and
-     * {@link #periodUid} of an instance restored by {@link #fromBundle} will always be {@code
-     * null}.
+     * @deprecated Use {@link #toBundle(int)} instead.
      */
     @UnstableApi
+    @Deprecated
     public Bundle toBundle() {
       return toBundle(Integer.MAX_VALUE);
     }

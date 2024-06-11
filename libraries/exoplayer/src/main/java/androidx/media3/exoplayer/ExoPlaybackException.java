@@ -432,7 +432,8 @@ public final class ExoPlaybackException extends PlaybackException {
     bundle.putString(FIELD_RENDERER_NAME, rendererName);
     bundle.putInt(FIELD_RENDERER_INDEX, rendererIndex);
     if (rendererFormat != null) {
-      bundle.putBundle(FIELD_RENDERER_FORMAT, rendererFormat.toBundle());
+      bundle.putBundle(
+          FIELD_RENDERER_FORMAT, rendererFormat.toBundle(/* excludeMetadata= */ false));
     }
     bundle.putInt(FIELD_RENDERER_FORMAT_SUPPORT, rendererFormatSupport);
     bundle.putBoolean(FIELD_IS_RECOVERABLE, isRecoverable);

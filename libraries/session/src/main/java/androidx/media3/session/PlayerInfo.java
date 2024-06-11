@@ -891,10 +891,6 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
     return bundle;
   }
 
-  public Bundle toBundle() {
-    return toBundleForRemoteProcess(Integer.MAX_VALUE);
-  }
-
   public Bundle toBundleForRemoteProcess(int controllerInterfaceVersion) {
     Bundle bundle = new Bundle();
     if (playerError != null) {

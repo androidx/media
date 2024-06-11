@@ -97,10 +97,6 @@ import java.util.List;
 
   // Next field key = 12
 
-  public Bundle toBundle() {
-    return toBundleForRemoteProcess(Integer.MAX_VALUE);
-  }
-
   public Bundle toBundleForRemoteProcess(int controllerInterfaceVersion) {
     Bundle bundle = new Bundle();
     bundle.putInt(FIELD_LIBRARY_VERSION, libraryVersion);

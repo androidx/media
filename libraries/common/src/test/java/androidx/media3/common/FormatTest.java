@@ -44,7 +44,8 @@ public final class FormatTest {
   @Test
   public void roundTripViaBundle_ofParameters_yieldsEqualInstance() {
     Format formatToBundle = createTestFormat();
-    Format formatFromBundle = Format.fromBundle(formatToBundle.toBundle());
+    Format formatFromBundle =
+        Format.fromBundle(formatToBundle.toBundle(/* excludeMetadata= */ false));
 
     assertThat(formatFromBundle).isEqualTo(formatToBundle);
   }
