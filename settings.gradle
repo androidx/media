@@ -56,4 +56,8 @@ project(modulePrefix + 'test-session-common').projectDir = new File(rootDir, 'li
 include modulePrefix + 'test-session-current'
 project(modulePrefix + 'test-session-current').projectDir = new File(rootDir, 'libraries/test_session_current')
 
+// MediaController test app.
+include modulePrefix + 'testapp-controller'
+project(modulePrefix + 'testapp-controller').projectDir = new File(rootDir, 'testapps/controller')
+
 apply from: 'core_settings.gradle'

@@ -24,6 +24,8 @@
     *   Add `SessionError` and use it in `SessionResult` and `LibraryResult`
         instead of the error code to provide more information about the error
         and how to resolve the error if possible.
+    *   Publish the code for the media3 controller test app that can be used to
+        test interactions with apps publishing a media session.
 *   UI:
     *   Add customisation of various icons in `PlayerControlView` through xml
         attributes to allow different drawables per `PlayerView` instance,
