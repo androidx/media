@@ -26,6 +26,7 @@ import android.graphics.Point;
 import android.os.Bundle;
 import android.os.Looper;
 import android.view.accessibility.CaptioningManager;
+import androidx.annotation.CallSuper;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.BundleCollectionUtil;
@@ -1420,6 +1421,7 @@ public class TrackSelectionParameters {
    */
   @UnstableApi protected static final int FIELD_CUSTOM_ID_BASE = 1000;
 
+  @CallSuper
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
 

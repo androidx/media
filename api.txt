@@ -1078,7 +1078,7 @@ package androidx.media3.common {
     method public androidx.media3.common.TrackSelectionParameters.Builder buildUpon();
     method public static androidx.media3.common.TrackSelectionParameters fromBundle(android.os.Bundle);
     method public static androidx.media3.common.TrackSelectionParameters getDefaults(android.content.Context);
-    method public android.os.Bundle toBundle();
+    method @CallSuper public android.os.Bundle toBundle();
     field public final com.google.common.collect.ImmutableSet<java.lang.Integer> disabledTrackTypes;
     field public final boolean forceHighestSupportedBitrate;
     field public final boolean forceLowestBitrate;
