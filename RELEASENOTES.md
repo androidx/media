@@ -21,6 +21,9 @@
     *   Add `MediaSession.Callback.onPlayerInteractionFinished` to inform
         sessions when a series of player interactions from a specific controller
         finished.
+    *   Add `SessionError` and use it in `SessionResult` and `LibraryResult`
+        instead of the error code to provide more information about the error
+        and how to resolve the error if possible.
 *   UI:
     *   Add customisation of various icons in `PlayerControlView` through xml
         attributes to allow different drawables per `PlayerView` instance,

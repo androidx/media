@@ -63,7 +63,7 @@ import java.util.List;
  */
 /* package */ final class PlayerWrapper extends ForwardingPlayer {
 
-  private static final int STATUS_CODE_SUCCESS_COMPAT = -1;
+  /* package */ static final int STATUS_CODE_SUCCESS_COMPAT = -1;
 
   private final boolean playIfSuppressed;
 

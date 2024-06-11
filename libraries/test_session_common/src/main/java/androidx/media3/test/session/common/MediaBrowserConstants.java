@@ -38,6 +38,8 @@ public class MediaBrowserConstants {
   public static final String PARENT_ID_NO_CHILDREN = "parent_id_no_children";
   public static final String PARENT_ID_ERROR = "parent_id_error";
   public static final String PARENT_ID_AUTH_EXPIRED_ERROR = "parent_auth_expired_error";
+  public static final String PARENT_ID_AUTH_EXPIRED_ERROR_DEPRECATED =
+      "parent_auth_expired_error_deprecated";
   public static final String PARENT_ID_AUTH_EXPIRED_ERROR_KEY_ERROR_RESOLUTION_ACTION_LABEL =
       "parent_auth_expired_error_label";
 

@@ -31,9 +31,9 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.session.MediaSessionStub.UNKNOWN_SEQUENCE_NUMBER;
-import static androidx.media3.session.SessionResult.RESULT_ERROR_SESSION_DISCONNECTED;
-import static androidx.media3.session.SessionResult.RESULT_ERROR_UNKNOWN;
-import static androidx.media3.session.SessionResult.RESULT_INFO_SKIPPED;
+import static androidx.media3.session.SessionError.ERROR_SESSION_DISCONNECTED;
+import static androidx.media3.session.SessionError.ERROR_UNKNOWN;
+import static androidx.media3.session.SessionError.INFO_SKIPPED;
 
 import android.app.PendingIntent;
 import android.content.ComponentName;
@@ -113,7 +113,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   public static final String TAG = "MediaSessionImpl";
 
-  private static final SessionResult RESULT_WHEN_CLOSED = new SessionResult(RESULT_INFO_SKIPPED);
+  private static final SessionResult RESULT_WHEN_CLOSED = new SessionResult(INFO_SKIPPED);
 
   private final Object lock = new Object();
 
@@ -1090,7 +1090,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         seq = ((SequencedFuture<SessionResult>) future).getSequenceNumber();
       } else {
         if (!isConnected(controller)) {
-          return Futures.immediateFuture(new SessionResult(RESULT_ERROR_SESSION_DISCONNECTED));
+          return Futures.immediateFuture(new SessionResult(ERROR_SESSION_DISCONNECTED));
         }
         // 0 is OK for legacy controllers, because they didn't have sequence numbers.
         seq = 0;
@@ -1104,7 +1104,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return future;
     } catch (DeadObjectException e) {
       onDeadObjectException(controller);
-      return Futures.immediateFuture(new SessionResult(RESULT_ERROR_SESSION_DISCONNECTED));
+      return Futures.immediateFuture(new SessionResult(ERROR_SESSION_DISCONNECTED));
     } catch (RemoteException e) {
       // Currently it's TransactionTooLargeException or DeadSystemException.
       // We'd better to leave log for those cases because
@@ -1113,7 +1113,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       //   - DeadSystemException means that errors around it can be ignored.
       Log.w(TAG, "Exception in " + controller.toString(), e);
     }
-    return Futures.immediateFuture(new SessionResult(RESULT_ERROR_UNKNOWN));
+    return Futures.immediateFuture(new SessionResult(ERROR_UNKNOWN));
   }
 
   /** Removes controller. Call this when DeadObjectException is happened with binder call. */

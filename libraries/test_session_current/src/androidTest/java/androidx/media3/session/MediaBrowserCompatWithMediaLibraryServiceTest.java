@@ -38,6 +38,7 @@ import static androidx.media3.test.session.common.MediaBrowserConstants.MEDIA_ID
 import static androidx.media3.test.session.common.MediaBrowserConstants.MEDIA_ID_GET_PLAYABLE_ITEM;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_AUTH_EXPIRED_ERROR;
+import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_AUTH_EXPIRED_ERROR_DEPRECATED;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_AUTH_EXPIRED_ERROR_KEY_ERROR_RESOLUTION_ACTION_LABEL;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_ERROR;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_LONG_LIST;
@@ -381,8 +382,20 @@ public class MediaBrowserCompatWithMediaLibraryServiceTest
   }
 
   @Test
-  public void getChildren_authErrorResult() throws Exception {
-    String testParentId = PARENT_ID_AUTH_EXPIRED_ERROR;
+  public void getChildren_authErrorResult_correctPlaybackStateCompatUpdates() throws Exception {
+    assertGetChildrenAuthenticationRequired(PARENT_ID_AUTH_EXPIRED_ERROR);
+  }
+
+  @Test
+  public void getChildren_authErrorResultDeprecated_correctPlaybackStateCompatUpdates()
+      throws Exception {
+    // Tests the deprecated approach where apps were expected to pass the error extras back as the
+    // extras of the LibraryParams of the LibraryResult because the SessionError type didn't then
+    // exist as part of the LibraryResult.
+    assertGetChildrenAuthenticationRequired(PARENT_ID_AUTH_EXPIRED_ERROR_DEPRECATED);
+  }
+
+  public void assertGetChildrenAuthenticationRequired(String testParentId) throws Exception {
     connectAndWait(/* rootHints= */ Bundle.EMPTY);
     CountDownLatch errorLatch = new CountDownLatch(1);
     AtomicReference<String> parentIdRefOnError = new AtomicReference<>();
@@ -399,6 +412,7 @@ public class MediaBrowserCompatWithMediaLibraryServiceTest
 
     assertThat(errorLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(parentIdRefOnError.get()).isEqualTo(testParentId);
+    assertThat(firstPlaybackStateCompatReported.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(lastReportedPlaybackStateCompat.getState())
         .isEqualTo(PlaybackStateCompat.STATE_ERROR);
     assertThat(
@@ -456,12 +470,11 @@ public class MediaBrowserCompatWithMediaLibraryServiceTest
   }
 
   @Test
-  public void getChildren_nullResult() throws Exception {
+  public void getChildren_errorLibraryResult() throws Exception {
     String testParentId = PARENT_ID_ERROR;
     connectAndWait(/* rootHints= */ Bundle.EMPTY);
     CountDownLatch latch = new CountDownLatch(1);
     AtomicReference<String> parentIdRef = new AtomicReference<>();
-    AtomicBoolean onChildrenLoadedWithBundleCalled = new AtomicBoolean();
 
     browserCompat.subscribe(
         testParentId,
@@ -471,16 +484,10 @@ public class MediaBrowserCompatWithMediaLibraryServiceTest
             parentIdRef.set(parentId);
             latch.countDown();
           }
-
-          @Override
-          public void onChildrenLoaded(String parentId, List<MediaItem> children, Bundle options) {
-            onChildrenLoadedWithBundleCalled.set(true);
-          }
         });
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(parentIdRef.get()).isEqualTo(testParentId);
-    assertThat(onChildrenLoadedWithBundleCalled.get()).isFalse();
   }
 
   @Test

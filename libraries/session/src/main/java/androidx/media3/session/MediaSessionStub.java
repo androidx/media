@@ -53,6 +53,11 @@ import static androidx.media3.session.SessionCommand.COMMAND_CODE_LIBRARY_SEARCH
 import static androidx.media3.session.SessionCommand.COMMAND_CODE_LIBRARY_SUBSCRIBE;
 import static androidx.media3.session.SessionCommand.COMMAND_CODE_LIBRARY_UNSUBSCRIBE;
 import static androidx.media3.session.SessionCommand.COMMAND_CODE_SESSION_SET_RATING;
+import static androidx.media3.session.SessionError.ERROR_NOT_SUPPORTED;
+import static androidx.media3.session.SessionError.ERROR_PERMISSION_DENIED;
+import static androidx.media3.session.SessionError.ERROR_SESSION_DISCONNECTED;
+import static androidx.media3.session.SessionError.ERROR_UNKNOWN;
+import static androidx.media3.session.SessionError.INFO_SKIPPED;
 
 import android.app.PendingIntent;
 import android.os.Binder;
@@ -192,8 +197,8 @@ import java.util.concurrent.ExecutionException;
                 result =
                     new SessionResult(
                         exception.getCause() instanceof UnsupportedOperationException
-                            ? SessionResult.RESULT_ERROR_NOT_SUPPORTED
-                            : SessionResult.RESULT_ERROR_UNKNOWN);
+                            ? ERROR_NOT_SUPPORTED
+                            : ERROR_UNKNOWN);
               }
               sendSessionResult(controller, sequenceNumber, result);
             });
@@ -205,8 +210,7 @@ import java.util.concurrent.ExecutionException;
           MediaItemPlayerTask mediaItemPlayerTask) {
     return (sessionImpl, controller, sequenceNumber) -> {
       if (sessionImpl.isReleased()) {
-        return Futures.immediateFuture(
-            new SessionResult(SessionResult.RESULT_ERROR_SESSION_DISCONNECTED));
+        return Futures.immediateFuture(new SessionResult(ERROR_SESSION_DISCONNECTED));
       }
       return transformFutureAsync(
           mediaItemsTask.run(sessionImpl, controller, sequenceNumber),
@@ -231,8 +235,7 @@ import java.util.concurrent.ExecutionException;
           MediaItemsWithStartPositionPlayerTask mediaItemPlayerTask) {
     return (sessionImpl, controller, sequenceNumber) -> {
       if (sessionImpl.isReleased()) {
-        return Futures.immediateFuture(
-            new SessionResult(SessionResult.RESULT_ERROR_SESSION_DISCONNECTED));
+        return Futures.immediateFuture(new SessionResult(ERROR_SESSION_DISCONNECTED));
       }
       return transformFutureAsync(
           mediaItemsTask.run(sessionImpl, controller, sequenceNumber),
@@ -275,10 +278,10 @@ import java.util.concurrent.ExecutionException;
                 result = checkNotNull(future.get(), "LibraryResult must not be null");
               } catch (CancellationException e) {
                 Log.w(TAG, "Library operation cancelled", e);
-                result = LibraryResult.ofError(LibraryResult.RESULT_INFO_SKIPPED);
+                result = LibraryResult.ofError(INFO_SKIPPED);
               } catch (ExecutionException | InterruptedException e) {
                 Log.w(TAG, "Library operation failed", e);
-                result = LibraryResult.ofError(LibraryResult.RESULT_ERROR_UNKNOWN);
+                result = LibraryResult.ofError(ERROR_UNKNOWN);
               }
               sendLibraryResult(controller, sequenceNumber, result);
             });
@@ -314,9 +317,7 @@ import java.util.concurrent.ExecutionException;
           () -> {
             if (!connectedControllersManager.isPlayerCommandAvailable(controller, command)) {
               sendSessionResult(
-                  controller,
-                  sequenceNumber,
-                  new SessionResult(SessionResult.RESULT_ERROR_PERMISSION_DENIED));
+                  controller, sequenceNumber, new SessionResult(ERROR_PERMISSION_DENIED));
               return;
             }
             @SessionResult.Code
@@ -393,17 +394,13 @@ import java.util.concurrent.ExecutionException;
               if (!connectedControllersManager.isSessionCommandAvailable(
                   controller, sessionCommand)) {
                 sendSessionResult(
-                    controller,
-                    sequenceNumber,
-                    new SessionResult(SessionResult.RESULT_ERROR_PERMISSION_DENIED));
+                    controller, sequenceNumber, new SessionResult(ERROR_PERMISSION_DENIED));
                 return;
               }
             } else {
               if (!connectedControllersManager.isSessionCommandAvailable(controller, commandCode)) {
                 sendSessionResult(
-                    controller,
-                    sequenceNumber,
-                    new SessionResult(SessionResult.RESULT_ERROR_PERMISSION_DENIED));
+                    controller, sequenceNumber, new SessionResult(ERROR_PERMISSION_DENIED));
                 return;
               }
             }

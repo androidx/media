@@ -27,6 +27,7 @@ import static androidx.media3.test.session.common.MediaBrowserConstants.ROOT_ID;
 import static androidx.media3.test.session.common.MediaBrowserConstants.ROOT_ID_SUPPORTS_BROWSABLE_CHILDREN_ONLY;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_CONNECT_REJECTED;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_CHILDREN;
+import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_CHILDREN_WITH_NULL_LIST;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_LIBRARY_ROOT;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_ON_CHILDREN_CHANGED_SUBSCRIBE_AND_UNSUBSCRIBE;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
@@ -149,6 +150,25 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
     // This shouldn't trigger browser's onChildrenChanged().
     // Wait for some time. Exception will be thrown in the listener if error happens.
     Thread.sleep(TIMEOUT_MS);
+  }
+
+  @Test
+  public void onChildrenChanged_withNullChildrenListInLegacyService_convertedToSessionError()
+      throws Exception {
+    String testParentId = TEST_GET_CHILDREN_WITH_NULL_LIST;
+    remoteService.setProxyForTest(TEST_GET_CHILDREN_WITH_NULL_LIST);
+    MediaBrowser browser = createBrowser(/* listener= */ null);
+
+    LibraryResult<Void> resultForSubscribe =
+        threadTestRule
+            .getHandler()
+            .postAndSync(() -> browser.subscribe(testParentId, null))
+            .get(TIMEOUT_MS, MILLISECONDS);
+
+    assertThat(resultForSubscribe.resultCode).isEqualTo(SessionError.ERROR_UNKNOWN);
+    assertThat(resultForSubscribe.sessionError.code).isEqualTo(SessionError.ERROR_UNKNOWN);
+    assertThat(resultForSubscribe.sessionError.message)
+        .isEqualTo(SessionError.DEFAULT_ERROR_MESSAGE);
   }
 
   @Test

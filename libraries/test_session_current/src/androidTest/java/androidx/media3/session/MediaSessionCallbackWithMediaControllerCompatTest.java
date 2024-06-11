@@ -23,7 +23,7 @@ import static androidx.media3.common.Player.STATE_ENDED;
 import static androidx.media3.common.Player.STATE_IDLE;
 import static androidx.media3.common.Player.STATE_READY;
 import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.session.SessionResult.RESULT_ERROR_INVALID_STATE;
+import static androidx.media3.session.SessionError.ERROR_INVALID_STATE;
 import static androidx.media3.session.SessionResult.RESULT_SUCCESS;
 import static androidx.media3.test.session.common.CommonConstants.SUPPORT_APP_PACKAGE_NAME;
 import static androidx.media3.test.session.common.TestUtils.LONG_TIMEOUT_MS;
@@ -1883,7 +1883,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             commands.add(command);
             if (command == COMMAND_PLAY_PAUSE) {
               latchForPause.countDown();
-              return RESULT_ERROR_INVALID_STATE;
+              return ERROR_INVALID_STATE;
             }
             return RESULT_SUCCESS;
           }

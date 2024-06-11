@@ -37,7 +37,7 @@ import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.session.MediaUtils.TRANSACTION_SIZE_LIMIT_IN_BYTES;
 import static androidx.media3.session.SessionCommand.COMMAND_CODE_CUSTOM;
-import static androidx.media3.session.SessionResult.RESULT_ERROR_UNKNOWN;
+import static androidx.media3.session.SessionError.ERROR_UNKNOWN;
 import static androidx.media3.session.SessionResult.RESULT_INFO_SKIPPED;
 import static androidx.media3.session.SessionResult.RESULT_SUCCESS;
 
@@ -936,7 +936,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             result = new SessionResult(RESULT_INFO_SKIPPED);
           } catch (ExecutionException | InterruptedException e) {
             Log.w(TAG, "Custom command failed", e);
-            result = new SessionResult(RESULT_ERROR_UNKNOWN);
+            result = new SessionResult(ERROR_UNKNOWN);
           }
           receiver.send(result.resultCode, result.extras);
         },

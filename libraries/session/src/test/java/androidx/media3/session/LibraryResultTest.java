@@ -15,7 +15,7 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.session.LibraryResult.RESULT_ERROR_NOT_SUPPORTED;
+import static androidx.media3.session.SessionError.ERROR_NOT_SUPPORTED;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
@@ -99,8 +99,7 @@ public class LibraryResultTest {
 
   @Test
   public void toBundle_errorResultThatWasUnbundledAsAnUnknownType_noException() {
-    LibraryResult<ImmutableList<Error>> libraryResult =
-        LibraryResult.ofError(LibraryResult.RESULT_ERROR_NOT_SUPPORTED);
+    LibraryResult<ImmutableList<Error>> libraryResult = LibraryResult.ofError(ERROR_NOT_SUPPORTED);
     Bundle errorLibraryResultBundle = libraryResult.toBundle();
     LibraryResult<?> libraryResultFromUntyped =
         LibraryResult.fromUnknownBundle(errorLibraryResultBundle);
@@ -109,13 +108,12 @@ public class LibraryResultTest {
 
     assertThat(LibraryResult.fromUnknownBundle(bundleOfUntyped).value).isNull();
     assertThat(LibraryResult.fromUnknownBundle(bundleOfUntyped).resultCode)
-        .isEqualTo(RESULT_ERROR_NOT_SUPPORTED);
+        .isEqualTo(ERROR_NOT_SUPPORTED);
   }
 
   @Test
   public void toBundle_voidResultThatWasUnbundledAsAnUnknownType_noException() {
-    LibraryResult<ImmutableList<Error>> libraryResult =
-        LibraryResult.ofError(LibraryResult.RESULT_ERROR_NOT_SUPPORTED);
+    LibraryResult<ImmutableList<Error>> libraryResult = LibraryResult.ofError(ERROR_NOT_SUPPORTED);
     Bundle errorLibraryResultBundle = libraryResult.toBundle();
     LibraryResult<?> libraryResultFromUntyped =
         LibraryResult.fromUnknownBundle(errorLibraryResultBundle);
@@ -124,6 +122,27 @@ public class LibraryResultTest {
 
     assertThat(LibraryResult.fromUnknownBundle(bundleOfUntyped).value).isNull();
     assertThat(LibraryResult.fromUnknownBundle(bundleOfUntyped).resultCode)
-        .isEqualTo(RESULT_ERROR_NOT_SUPPORTED);
+        .isEqualTo(ERROR_NOT_SUPPORTED);
+  }
+
+  @Test
+  public void toBundle_roundTrip_equalsWithOriginal() {
+    Bundle errorExtras = new Bundle();
+    errorExtras.putString("errorKey", "errorValue");
+    LibraryResult<SessionError> errorLibraryResult =
+        LibraryResult.ofError(new SessionError(ERROR_NOT_SUPPORTED, "error message", errorExtras));
+
+    LibraryResult<?> errorLibraryResultFromBundle =
+        LibraryResult.fromUnknownBundle(errorLibraryResult.toBundle());
+
+    assertThat(errorLibraryResultFromBundle.resultCode).isEqualTo(errorLibraryResult.resultCode);
+    assertThat(errorLibraryResultFromBundle.sessionError)
+        .isEqualTo(errorLibraryResult.sessionError);
+    assertThat(errorLibraryResultFromBundle.sessionError.extras.size()).isEqualTo(1);
+    assertThat(errorLibraryResultFromBundle.sessionError.extras.getString("errorKey"))
+        .isEqualTo("errorValue");
+    assertThat(errorLibraryResultFromBundle.value).isEqualTo(errorLibraryResult.value);
+    assertThat(errorLibraryResultFromBundle.completionTimeMs)
+        .isEqualTo(errorLibraryResult.completionTimeMs);
   }
 }

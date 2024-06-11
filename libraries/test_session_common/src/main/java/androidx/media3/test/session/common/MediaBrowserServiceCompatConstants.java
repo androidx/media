@@ -23,6 +23,8 @@ public class MediaBrowserServiceCompatConstants {
       "testOnChildrenChanged_subscribeAndUnsubscribe";
   public static final String TEST_GET_LIBRARY_ROOT = "getLibraryRoot_correctExtraKeyAndValue";
   public static final String TEST_GET_CHILDREN = "getChildren_correctMetadataExtras";
+  public static final String TEST_GET_CHILDREN_WITH_NULL_LIST =
+      "onChildrenChanged_withNullChildrenListInLegacyService_convertedToSessionError";
 
   private MediaBrowserServiceCompatConstants() {}
 }

@@ -27,6 +27,7 @@ import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSession.MediaItemsWithStartPosition
 import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionError
 import androidx.media3.session.SessionResult
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
@@ -132,7 +133,7 @@ open class DemoMediaLibrarySessionCallback(context: Context) :
     MediaItemTree.getItem(mediaId)?.let {
       return Futures.immediateFuture(LibraryResult.ofItem(it, /* params= */ null))
     }
-    return Futures.immediateFuture(LibraryResult.ofError(LibraryResult.RESULT_ERROR_BAD_VALUE))
+    return Futures.immediateFuture(LibraryResult.ofError(SessionError.ERROR_BAD_VALUE))
   }
 
   override fun onGetChildren(
@@ -147,7 +148,7 @@ open class DemoMediaLibrarySessionCallback(context: Context) :
     if (children.isNotEmpty()) {
       return Futures.immediateFuture(LibraryResult.ofItemList(children, params))
     }
-    return Futures.immediateFuture(LibraryResult.ofError(LibraryResult.RESULT_ERROR_BAD_VALUE))
+    return Futures.immediateFuture(LibraryResult.ofError(SessionError.ERROR_BAD_VALUE))
   }
 
   override fun onAddMediaItems(

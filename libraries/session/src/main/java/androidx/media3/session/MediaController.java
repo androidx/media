@@ -21,6 +21,8 @@ import static androidx.media3.common.util.Assertions.checkNotEmpty;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.postOrRun;
+import static androidx.media3.session.SessionError.ERROR_NOT_SUPPORTED;
+import static androidx.media3.session.SessionError.ERROR_SESSION_DISCONNECTED;
 
 import android.app.PendingIntent;
 import android.content.Context;
@@ -377,7 +379,7 @@ public class MediaController implements Player {
      */
     default ListenableFuture<SessionResult> onSetCustomLayout(
         MediaController controller, List<CommandButton> layout) {
-      return Futures.immediateFuture(new SessionResult(SessionResult.RESULT_ERROR_NOT_SUPPORTED));
+      return Futures.immediateFuture(new SessionResult(ERROR_NOT_SUPPORTED));
     }
 
     /**
@@ -416,7 +418,7 @@ public class MediaController implements Player {
      * Futures#immediateFuture(Object)}.
      *
      * <p>The default implementation returns {@link ListenableFuture} of {@link
-     * SessionResult#RESULT_ERROR_NOT_SUPPORTED}.
+     * SessionError#ERROR_NOT_SUPPORTED}.
      *
      * @param controller The controller.
      * @param command The custom command.
@@ -425,7 +427,7 @@ public class MediaController implements Player {
      */
     default ListenableFuture<SessionResult> onCustomCommand(
         MediaController controller, SessionCommand command, Bundle args) {
-      return Futures.immediateFuture(new SessionResult(SessionResult.RESULT_ERROR_NOT_SUPPORTED));
+      return Futures.immediateFuture(new SessionResult(SessionError.ERROR_NOT_SUPPORTED));
     }
 
     /**
@@ -2029,8 +2031,7 @@ public class MediaController implements Player {
   }
 
   private static ListenableFuture<SessionResult> createDisconnectedFuture() {
-    return Futures.immediateFuture(
-        new SessionResult(SessionResult.RESULT_ERROR_SESSION_DISCONNECTED));
+    return Futures.immediateFuture(new SessionResult(ERROR_SESSION_DISCONNECTED));
   }
 
   /* package */ final void runOnApplicationLooper(Runnable runnable) {

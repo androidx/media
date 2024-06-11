@@ -19,7 +19,7 @@ import static androidx.annotation.VisibleForTesting.PRIVATE;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.session.SessionResult.RESULT_ERROR_NOT_SUPPORTED;
+import static androidx.media3.session.SessionError.ERROR_NOT_SUPPORTED;
 import static androidx.media3.session.SessionResult.RESULT_SUCCESS;
 
 import android.app.PendingIntent;
@@ -1363,7 +1363,7 @@ public class MediaSession {
      */
     default ListenableFuture<SessionResult> onSetRating(
         MediaSession session, ControllerInfo controller, String mediaId, Rating rating) {
-      return Futures.immediateFuture(new SessionResult(RESULT_ERROR_NOT_SUPPORTED));
+      return Futures.immediateFuture(new SessionResult(ERROR_NOT_SUPPORTED));
     }
 
     /**
@@ -1385,7 +1385,7 @@ public class MediaSession {
      */
     default ListenableFuture<SessionResult> onSetRating(
         MediaSession session, ControllerInfo controller, Rating rating) {
-      return Futures.immediateFuture(new SessionResult(RESULT_ERROR_NOT_SUPPORTED));
+      return Futures.immediateFuture(new SessionResult(ERROR_NOT_SUPPORTED));
     }
 
     /**
@@ -1418,7 +1418,7 @@ public class MediaSession {
         ControllerInfo controller,
         SessionCommand customCommand,
         Bundle args) {
-      return Futures.immediateFuture(new SessionResult(RESULT_ERROR_NOT_SUPPORTED));
+      return Futures.immediateFuture(new SessionResult(ERROR_NOT_SUPPORTED));
     }
 
     /**

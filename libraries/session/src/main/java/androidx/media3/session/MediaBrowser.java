@@ -20,7 +20,7 @@ import static androidx.media3.common.util.Assertions.checkNotEmpty;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.postOrRun;
-import static androidx.media3.session.LibraryResult.RESULT_ERROR_SESSION_DISCONNECTED;
+import static androidx.media3.session.SessionError.ERROR_SESSION_DISCONNECTED;
 
 import android.content.Context;
 import android.os.Bundle;
@@ -422,7 +422,7 @@ public final class MediaBrowser extends MediaController {
   }
 
   private static <V> ListenableFuture<LibraryResult<V>> createDisconnectedFuture() {
-    return Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_SESSION_DISCONNECTED));
+    return Futures.immediateFuture(LibraryResult.ofError(ERROR_SESSION_DISCONNECTED));
   }
 
   private void verifyApplicationThread() {

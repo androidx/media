@@ -16,12 +16,13 @@
 package androidx.media3.session;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.session.LibraryResult.RESULT_ERROR_BAD_VALUE;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_COMPLETION_STATUS;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_ERROR_RESOLUTION_ACTION_INTENT_COMPAT;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_ERROR_RESOLUTION_ACTION_LABEL_COMPAT;
 import static androidx.media3.session.MediaConstants.EXTRAS_VALUE_COMPLETION_STATUS_PARTIALLY_PLAYED;
 import static androidx.media3.session.MediaConstants.EXTRA_KEY_ROOT_CHILDREN_BROWSABLE_ONLY;
+import static androidx.media3.session.SessionError.ERROR_BAD_VALUE;
+import static androidx.media3.session.SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED;
 import static androidx.media3.test.session.common.CommonConstants.SUPPORT_APP_PACKAGE_NAME;
 import static androidx.media3.test.session.common.MediaBrowserConstants.CUSTOM_ACTION;
 import static androidx.media3.test.session.common.MediaBrowserConstants.CUSTOM_ACTION_ASSERT_PARAMS;
@@ -37,6 +38,7 @@ import static androidx.media3.test.session.common.MediaBrowserConstants.MEDIA_ID
 import static androidx.media3.test.session.common.MediaBrowserConstants.MEDIA_ID_GET_PLAYABLE_ITEM;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_AUTH_EXPIRED_ERROR;
+import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_AUTH_EXPIRED_ERROR_DEPRECATED;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_AUTH_EXPIRED_ERROR_KEY_ERROR_RESOLUTION_ACTION_LABEL;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_ERROR;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_LONG_LIST;
@@ -319,7 +321,7 @@ public class MockMediaLibraryService extends MediaLibraryService {
               LibraryResult.ofItem(createMediaItemWithMetadata(mediaId), /* params= */ null));
         default: // fall out
       }
-      return Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_BAD_VALUE));
+      return Futures.immediateFuture(LibraryResult.ofError(ERROR_BAD_VALUE));
     }
 
     @Override
@@ -345,8 +347,12 @@ public class MockMediaLibraryService extends MediaLibraryService {
         }
         return Futures.immediateFuture(LibraryResult.ofItemList(list, params));
       } else if (Objects.equals(parentId, PARENT_ID_ERROR)) {
-        return Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_BAD_VALUE));
-      } else if (Objects.equals(parentId, PARENT_ID_AUTH_EXPIRED_ERROR)) {
+        Bundle errorBundle = new Bundle();
+        errorBundle.putString("key", "value");
+        return Futures.immediateFuture(
+            LibraryResult.ofError(new SessionError(ERROR_BAD_VALUE, "error message", errorBundle)));
+      } else if (Objects.equals(parentId, PARENT_ID_AUTH_EXPIRED_ERROR)
+          || Objects.equals(parentId, PARENT_ID_AUTH_EXPIRED_ERROR_DEPRECATED)) {
         Bundle bundle = new Bundle();
         Intent signInIntent = new Intent("action");
         int flags = Util.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0;
@@ -357,12 +363,17 @@ public class MockMediaLibraryService extends MediaLibraryService {
         bundle.putString(
             EXTRAS_KEY_ERROR_RESOLUTION_ACTION_LABEL_COMPAT,
             PARENT_ID_AUTH_EXPIRED_ERROR_KEY_ERROR_RESOLUTION_ACTION_LABEL);
-        return Futures.immediateFuture(
-            LibraryResult.ofError(
-                LibraryResult.RESULT_ERROR_SESSION_AUTHENTICATION_EXPIRED,
-                new LibraryParams.Builder().setExtras(bundle).build()));
+        return Objects.equals(parentId, PARENT_ID_AUTH_EXPIRED_ERROR)
+            ? Futures.immediateFuture(
+                LibraryResult.ofError(
+                    new SessionError(ERROR_SESSION_AUTHENTICATION_EXPIRED, "error message", bundle),
+                    new LibraryParams.Builder().build()))
+            : Futures.immediateFuture(
+                LibraryResult.ofError(
+                    ERROR_SESSION_AUTHENTICATION_EXPIRED,
+                    new LibraryParams.Builder().setExtras(bundle).build()));
       }
-      return Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_BAD_VALUE, params));
+      return Futures.immediateFuture(LibraryResult.ofError(ERROR_BAD_VALUE, params));
     }
 
     @Override
@@ -451,7 +462,7 @@ public class MockMediaLibraryService extends MediaLibraryService {
         return Futures.immediateFuture(LibraryResult.ofItemList(ImmutableList.of(), params));
       } else {
         // SEARCH_QUERY_ERROR will be handled here.
-        return Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_BAD_VALUE));
+        return Futures.immediateFuture(LibraryResult.ofError(ERROR_BAD_VALUE));
       }
     }
 
@@ -474,7 +485,7 @@ public class MockMediaLibraryService extends MediaLibraryService {
           return Futures.immediateFuture(new SessionResult(SessionResult.RESULT_SUCCESS));
         default: // fall out
       }
-      return Futures.immediateFuture(new SessionResult(SessionResult.RESULT_ERROR_BAD_VALUE));
+      return Futures.immediateFuture(new SessionResult(ERROR_BAD_VALUE));
     }
 
     private void assertLibraryParams(@Nullable LibraryParams params) {

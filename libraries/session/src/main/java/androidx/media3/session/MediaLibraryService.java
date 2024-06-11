@@ -18,9 +18,10 @@ package androidx.media3.session;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotEmpty;
 import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.session.LibraryResult.RESULT_ERROR_NOT_SUPPORTED;
 import static androidx.media3.session.LibraryResult.RESULT_SUCCESS;
 import static androidx.media3.session.LibraryResult.ofVoid;
+import static androidx.media3.session.SessionError.ERROR_BAD_VALUE;
+import static androidx.media3.session.SessionError.ERROR_NOT_SUPPORTED;
 
 import android.app.PendingIntent;
 import android.content.Context;
@@ -158,7 +159,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
        */
       default ListenableFuture<LibraryResult<MediaItem>> onGetLibraryRoot(
           MediaLibrarySession session, ControllerInfo browser, @Nullable LibraryParams params) {
-        return Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_NOT_SUPPORTED));
+        return Futures.immediateFuture(LibraryResult.ofError(ERROR_NOT_SUPPORTED));
       }
 
       /**
@@ -181,7 +182,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
        */
       default ListenableFuture<LibraryResult<MediaItem>> onGetItem(
           MediaLibrarySession session, ControllerInfo browser, String mediaId) {
-        return Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_NOT_SUPPORTED));
+        return Futures.immediateFuture(LibraryResult.ofError(ERROR_NOT_SUPPORTED));
       }
 
       /**
@@ -215,7 +216,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
           @IntRange(from = 0) int page,
           @IntRange(from = 1) int pageSize,
           @Nullable LibraryParams params) {
-        return Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_NOT_SUPPORTED));
+        return Futures.immediateFuture(LibraryResult.ofError(ERROR_NOT_SUPPORTED));
       }
 
       /**
@@ -271,9 +272,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
                 // Reject subscription if no browsable item for the parent media ID is returned.
                 return Futures.immediateFuture(
                     LibraryResult.ofError(
-                        result.resultCode != RESULT_SUCCESS
-                            ? result.resultCode
-                            : LibraryResult.RESULT_ERROR_BAD_VALUE));
+                        result.resultCode != RESULT_SUCCESS ? result.resultCode : ERROR_BAD_VALUE));
               }
               if (browser.getControllerVersion() != ControllerInfo.LEGACY_CONTROLLER_VERSION) {
                 // For legacy browsers, android.service.media.MediaBrowserService already calls
@@ -343,7 +342,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
           ControllerInfo browser,
           String query,
           @Nullable LibraryParams params) {
-        return Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_NOT_SUPPORTED));
+        return Futures.immediateFuture(LibraryResult.ofError(ERROR_NOT_SUPPORTED));
       }
 
       /**
@@ -381,7 +380,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
           @IntRange(from = 0) int page,
           @IntRange(from = 1) int pageSize,
           @Nullable LibraryParams params) {
-        return Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_NOT_SUPPORTED));
+        return Futures.immediateFuture(LibraryResult.ofError(ERROR_NOT_SUPPORTED));
       }
     }
 

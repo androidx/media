@@ -58,16 +58,18 @@ public class MediaBrowserCompatWithMediaSessionServiceTest {
 
   Context context;
   TestHandler handler;
-  MediaBrowserCompat browserCompat;
+  @Nullable MediaBrowserCompat browserCompat;
   @Nullable MediaControllerCompat controllerCompat;
   TestConnectionCallback connectionCallback;
   @Nullable PlaybackStateCompat lastReportedPlaybackStateCompat;
+  @Nullable CountDownLatch firstPlaybackStateCompatReported;
 
   @Before
   public void setUp() {
     context = ApplicationProvider.getApplicationContext();
     handler = threadTestRule.getHandler();
     connectionCallback = new TestConnectionCallback();
+    firstPlaybackStateCompatReported = new CountDownLatch(1);
   }
 
   @After
@@ -131,13 +133,13 @@ public class MediaBrowserCompatWithMediaSessionServiceTest {
     @Override
     public void onConnected() {
       super.onConnected();
-      // Make browser's internal handler to be initialized with test thread.
       controllerCompat = new MediaControllerCompat(context, browserCompat.getSessionToken());
       controllerCompatCallback =
           new MediaControllerCompat.Callback() {
             @Override
             public void onPlaybackStateChanged(PlaybackStateCompat state) {
               lastReportedPlaybackStateCompat = state;
+              firstPlaybackStateCompatReported.countDown();
             }
           };
       controllerCompat.registerCallback(controllerCompatCallback);

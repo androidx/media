@@ -17,8 +17,8 @@ package androidx.media3.session;
 
 import static androidx.media3.common.Player.COMMAND_PLAY_PAUSE;
 import static androidx.media3.session.MediaTestUtils.createMediaItem;
-import static androidx.media3.session.SessionResult.RESULT_ERROR_INVALID_STATE;
-import static androidx.media3.session.SessionResult.RESULT_ERROR_PERMISSION_DENIED;
+import static androidx.media3.session.SessionError.ERROR_INVALID_STATE;
+import static androidx.media3.session.SessionError.ERROR_PERMISSION_DENIED;
 import static androidx.media3.session.SessionResult.RESULT_INFO_SKIPPED;
 import static androidx.media3.session.SessionResult.RESULT_SUCCESS;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_MEDIA_URI;
@@ -203,7 +203,7 @@ public class MediaSessionCallbackTest {
 
     assertThat(layout).containsExactly(button1Disabled, button2).inOrder();
     assertThat(remoteController.sendCustomCommand(button1.sessionCommand, Bundle.EMPTY).resultCode)
-        .isEqualTo(RESULT_ERROR_PERMISSION_DENIED);
+        .isEqualTo(ERROR_PERMISSION_DENIED);
     assertThat(remoteController.sendCustomCommand(button2.sessionCommand, Bundle.EMPTY).resultCode)
         .isEqualTo(RESULT_SUCCESS);
   }
@@ -369,7 +369,7 @@ public class MediaSessionCallbackTest {
             assertThat(controllerInfo.isTrusted()).isFalse();
             commands.add(command);
             if (command == Player.COMMAND_PREPARE) {
-              return RESULT_ERROR_INVALID_STATE;
+              return ERROR_INVALID_STATE;
             }
             return RESULT_SUCCESS;
           }

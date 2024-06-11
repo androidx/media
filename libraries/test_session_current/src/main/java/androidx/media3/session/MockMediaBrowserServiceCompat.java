@@ -25,6 +25,7 @@ import static androidx.media3.test.session.common.MediaBrowserConstants.ROOT_ID;
 import static androidx.media3.test.session.common.MediaBrowserConstants.ROOT_ID_SUPPORTS_BROWSABLE_CHILDREN_ONLY;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_CONNECT_REJECTED;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_CHILDREN;
+import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_CHILDREN_WITH_NULL_LIST;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_LIBRARY_ROOT;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_ON_CHILDREN_CHANGED_SUBSCRIBE_AND_UNSUBSCRIBE;
 
@@ -250,6 +251,9 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
         case TEST_GET_CHILDREN:
           setProxyForTestGetChildren_correctMetadataExtras();
           break;
+        case TEST_GET_CHILDREN_WITH_NULL_LIST:
+          setProxyForTestOnChildrenChanged_withNullChildrenListInLegacyService_convertedToSessionError();
+          break;
         default:
           throw new IllegalArgumentException("Unknown testName: " + testName);
       }
@@ -294,6 +298,23 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
             public void onLoadChildren(
                 String parentId, Result<List<MediaItem>> result, Bundle bundle) {
               result.sendResult(MEDIA_ITEMS);
+            }
+          });
+    }
+
+    private void
+        setProxyForTestOnChildrenChanged_withNullChildrenListInLegacyService_convertedToSessionError() {
+      setMediaBrowserServiceProxy(
+          new MockMediaBrowserServiceCompat.Proxy() {
+            @Override
+            public void onLoadChildren(String parentId, Result<List<MediaItem>> result) {
+              onLoadChildren(parentId, result, new Bundle());
+            }
+
+            @Override
+            public void onLoadChildren(
+                String parentId, Result<List<MediaItem>> result, Bundle bundle) {
+              result.sendResult(null);
             }
           });
     }

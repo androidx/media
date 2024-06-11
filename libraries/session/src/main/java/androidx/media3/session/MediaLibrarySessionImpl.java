@@ -17,11 +17,14 @@ package androidx.media3.session;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.session.LibraryResult.RESULT_ERROR_NOT_SUPPORTED;
-import static androidx.media3.session.LibraryResult.RESULT_ERROR_SESSION_AUTHENTICATION_EXPIRED;
 import static androidx.media3.session.LibraryResult.RESULT_SUCCESS;
 import static androidx.media3.session.MediaConstants.ERROR_CODE_AUTHENTICATION_EXPIRED_COMPAT;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_ERROR_RESOLUTION_ACTION_INTENT_COMPAT;
+import static androidx.media3.session.PlayerWrapper.STATUS_CODE_SUCCESS_COMPAT;
+import static androidx.media3.session.SessionError.ERROR_INVALID_STATE;
+import static androidx.media3.session.SessionError.ERROR_NOT_SUPPORTED;
+import static androidx.media3.session.SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED;
+import static androidx.media3.session.SessionError.ERROR_UNKNOWN;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -122,7 +125,7 @@ import java.util.concurrent.Future;
     if (params != null && params.isRecent && isSystemUiController(browser)) {
       // Advertise support for playback resumption, if enabled.
       return !canResumePlaybackOnStart()
-          ? Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_NOT_SUPPORTED))
+          ? Futures.immediateFuture(LibraryResult.ofError(ERROR_NOT_SUPPORTED))
           : Futures.immediateFuture(
               LibraryResult.ofItem(
                   new MediaItem.Builder()
@@ -156,7 +159,7 @@ import java.util.concurrent.Future;
       @Nullable LibraryParams params) {
     if (Objects.equals(parentId, RECENT_LIBRARY_ROOT_MEDIA_ID)) {
       if (!canResumePlaybackOnStart()) {
-        return Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_NOT_SUPPORTED));
+        return Futures.immediateFuture(LibraryResult.ofError(ERROR_NOT_SUPPORTED));
       }
       // Advertise support for playback resumption. If STATE_IDLE, the request arrives at boot time
       // to get the full item data to build a notification. If not STATE_IDLE we don't need to
@@ -369,23 +372,38 @@ import java.util.concurrent.Future;
 
   private void maybeUpdateLegacyErrorState(LibraryResult<?> result) {
     PlayerWrapper playerWrapper = getPlayerWrapper();
-    if (result.resultCode == RESULT_ERROR_SESSION_AUTHENTICATION_EXPIRED
-        && result.params != null
-        && result.params.extras.containsKey(EXTRAS_KEY_ERROR_RESOLUTION_ACTION_INTENT_COMPAT)) {
-      // Mapping this error to the legacy error state provides backwards compatibility for the
-      // Automotive OS sign-in.
-      MediaSessionCompat mediaSessionCompat = getSessionCompat();
-      if (playerWrapper.getLegacyStatusCode() != RESULT_ERROR_SESSION_AUTHENTICATION_EXPIRED) {
-        playerWrapper.setLegacyErrorStatus(
-            ERROR_CODE_AUTHENTICATION_EXPIRED_COMPAT,
-            getContext().getString(R.string.authentication_required),
-            result.params.extras);
-        mediaSessionCompat.setPlaybackState(playerWrapper.createPlaybackStateCompat());
-      }
-    } else if (playerWrapper.getLegacyStatusCode() != RESULT_SUCCESS) {
+    if (setLegacyErrorState(result)) {
+      // Sync playback state if legacy error state changed.
+      getSessionCompat().setPlaybackState(playerWrapper.createPlaybackStateCompat());
+    } else if (playerWrapper.getLegacyStatusCode() != STATUS_CODE_SUCCESS_COMPAT) {
       playerWrapper.clearLegacyErrorStatus();
       getSessionCompat().setPlaybackState(playerWrapper.createPlaybackStateCompat());
     }
+  }
+
+  private boolean setLegacyErrorState(LibraryResult<?> result) {
+    if (result.resultCode == ERROR_SESSION_AUTHENTICATION_EXPIRED
+        && getPlayerWrapper().getLegacyStatusCode() != ERROR_SESSION_AUTHENTICATION_EXPIRED) {
+      // Mapping this error to the legacy error state provides backwards compatibility for the
+      // Automotive OS sign-in.
+      Bundle bundle = Bundle.EMPTY;
+      if (result.params != null
+          && result.params.extras.containsKey(EXTRAS_KEY_ERROR_RESOLUTION_ACTION_INTENT_COMPAT)) {
+        // Backwards compatibility for Callbacks before SessionError was introduced.
+        bundle = result.params.extras;
+      } else if (result.sessionError != null
+          && result.sessionError.extras.containsKey(
+              EXTRAS_KEY_ERROR_RESOLUTION_ACTION_INTENT_COMPAT)) {
+        bundle = result.sessionError.extras;
+      }
+      getPlayerWrapper()
+          .setLegacyErrorStatus(
+              ERROR_CODE_AUTHENTICATION_EXPIRED_COMPAT,
+              getContext().getString(R.string.authentication_required),
+              bundle);
+      return true;
+    }
+    return false;
   }
 
   @Nullable
@@ -436,8 +454,7 @@ import java.util.concurrent.Future;
           @Override
           public void onSuccess(MediaSession.MediaItemsWithStartPosition playlist) {
             if (playlist.mediaItems.isEmpty()) {
-              settableFuture.set(
-                  LibraryResult.ofError(LibraryResult.RESULT_ERROR_INVALID_STATE, params));
+              settableFuture.set(LibraryResult.ofError(ERROR_INVALID_STATE, params));
               return;
             }
             int sanitizedStartIndex =
@@ -449,7 +466,7 @@ import java.util.concurrent.Future;
 
           @Override
           public void onFailure(Throwable t) {
-            settableFuture.set(LibraryResult.ofError(LibraryResult.RESULT_ERROR_UNKNOWN, params));
+            settableFuture.set(LibraryResult.ofError(ERROR_UNKNOWN, params));
             Log.e(TAG, "Failed fetching recent media item at boot time: " + t.getMessage(), t);
           }
         },
