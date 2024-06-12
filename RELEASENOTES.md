@@ -19,6 +19,8 @@
 *   Metadata:
 *   DRM:
 *   Effect:
+    *   Remove unused `OverlaySettings.useHdr` since dynamic range of overlay
+        and frame must match.
 *   Muxers:
 *   IMA extension:
 *   Session:

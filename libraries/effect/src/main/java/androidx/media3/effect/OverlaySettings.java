@@ -28,36 +28,9 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
  */
 @UnstableApi
 public final class OverlaySettings {
-  public final boolean useHdr;
-  public final float alphaScale;
-  public final Pair<Float, Float> backgroundFrameAnchor;
-  public final Pair<Float, Float> overlayFrameAnchor;
-  public final Pair<Float, Float> scale;
-  public final float rotationDegrees;
-
-  private OverlaySettings(
-      boolean useHdr,
-      float alphaScale,
-      Pair<Float, Float> backgroundFrameAnchor,
-      Pair<Float, Float> overlayFrameAnchor,
-      Pair<Float, Float> scale,
-      float rotationDegrees) {
-    this.useHdr = useHdr;
-    this.alphaScale = alphaScale;
-    this.backgroundFrameAnchor = backgroundFrameAnchor;
-    this.overlayFrameAnchor = overlayFrameAnchor;
-    this.scale = scale;
-    this.rotationDegrees = rotationDegrees;
-  }
-
-  /** Returns a new {@link Builder} initialized with the values of this instance. */
-  /* package */ Builder buildUpon() {
-    return new Builder(this);
-  }
 
   /** A builder for {@link OverlaySettings} instances. */
   public static final class Builder {
-    private boolean useHdr;
     private float alphaScale;
     private Pair<Float, Float> backgroundFrameAnchor;
     private Pair<Float, Float> overlayFrameAnchor;
@@ -74,24 +47,11 @@ public final class OverlaySettings {
     }
 
     private Builder(OverlaySettings overlaySettings) {
-      this.useHdr = overlaySettings.useHdr;
       this.alphaScale = overlaySettings.alphaScale;
       this.backgroundFrameAnchor = overlaySettings.backgroundFrameAnchor;
       this.overlayFrameAnchor = overlaySettings.overlayFrameAnchor;
       this.scale = overlaySettings.scale;
       this.rotationDegrees = overlaySettings.rotationDegrees;
-    }
-
-    /**
-     * Sets whether input overlay comes from an HDR source. If {@code true}, colors will be in
-     * linear RGB BT.2020. If {@code false}, colors will be in linear RGB BT.709.
-     *
-     * <p>Set to {@code false} by default.
-     */
-    @CanIgnoreReturnValue
-    public Builder setUsesHdr(boolean useHdr) {
-      this.useHdr = useHdr;
-      return this;
     }
 
     /**
@@ -183,7 +143,40 @@ public final class OverlaySettings {
     /** Creates an instance of {@link OverlaySettings}, using defaults if values are unset. */
     public OverlaySettings build() {
       return new OverlaySettings(
-          useHdr, alphaScale, backgroundFrameAnchor, overlayFrameAnchor, scale, rotationDegrees);
+          alphaScale, backgroundFrameAnchor, overlayFrameAnchor, scale, rotationDegrees);
     }
+  }
+
+  /** The alpha scale value of the overlay, altering its translucency. */
+  public final float alphaScale;
+
+  /** The coordinates for the anchor point of the overlay within the background frame. */
+  public final Pair<Float, Float> backgroundFrameAnchor;
+
+  /** The coordinates for the anchor point of the overlay frame. */
+  public final Pair<Float, Float> overlayFrameAnchor;
+
+  /** The scaling of the overlay. */
+  public final Pair<Float, Float> scale;
+
+  /** The rotation of the overlay, counter-clockwise. */
+  public final float rotationDegrees;
+
+  private OverlaySettings(
+      float alphaScale,
+      Pair<Float, Float> backgroundFrameAnchor,
+      Pair<Float, Float> overlayFrameAnchor,
+      Pair<Float, Float> scale,
+      float rotationDegrees) {
+    this.alphaScale = alphaScale;
+    this.backgroundFrameAnchor = backgroundFrameAnchor;
+    this.overlayFrameAnchor = overlayFrameAnchor;
+    this.scale = scale;
+    this.rotationDegrees = rotationDegrees;
+  }
+
+  /** Returns a new {@link Builder} initialized with the values of this instance. */
+  /* package */ Builder buildUpon() {
+    return new Builder(this);
   }
 }
