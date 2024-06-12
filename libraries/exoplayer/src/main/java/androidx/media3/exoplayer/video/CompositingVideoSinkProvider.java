@@ -590,8 +590,7 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
     public boolean isEnded() {
       return isInitialized()
           && finalBufferPresentationTimeUs != C.TIME_UNSET
-          && CompositingVideoSinkProvider.this.hasReleasedFrame(
-              finalBufferPresentationTimeUs + inputBufferTimestampAdjustmentUs);
+          && CompositingVideoSinkProvider.this.hasReleasedFrame(finalBufferPresentationTimeUs);
     }
 
     @Override
@@ -755,7 +754,9 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
       // the state of the iterator.
       TimestampIterator copyTimestampIterator = timestampIterator.copyOf();
       long bufferPresentationTimeUs = copyTimestampIterator.next();
-      long lastBufferPresentationTimeUs = copyTimestampIterator.getLastTimestampUs();
+      // TimestampIterator generates frame time.
+      long lastBufferPresentationTimeUs =
+          copyTimestampIterator.getLastTimestampUs() - inputBufferTimestampAdjustmentUs;
       checkState(lastBufferPresentationTimeUs != C.TIME_UNSET);
       maybeSetStreamOffsetChange(bufferPresentationTimeUs);
       this.lastBufferPresentationTimeUs = lastBufferPresentationTimeUs;

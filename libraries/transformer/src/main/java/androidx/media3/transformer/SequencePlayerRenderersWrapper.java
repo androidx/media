@@ -352,6 +352,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     @Override
+    public boolean isEnded() {
+      return super.isEnded()
+          && videoSink.isEnded()
+          && (timestampIterator == null || !timestampIterator.hasNext());
+    }
+
+    @Override
     public boolean isReady() {
       // If the renderer was enabled with mayRenderStartOfStream set to false, meaning the image
       // renderer is playing after a video, we don't need to wait until the first frame is rendered.

@@ -26,19 +26,18 @@ import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.effect.GlEffect;
-import androidx.media3.effect.PassthroughShaderProgram;
 import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.CompositionPlayer;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.EditedMediaItemSequence;
 import androidx.media3.transformer.Effects;
+import androidx.media3.transformer.InputTimestampRecordingShaderProgram;
 import androidx.media3.transformer.PlayerTestListener;
 import androidx.media3.transformer.SurfaceTestActivity;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableList;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -88,10 +87,9 @@ public class CompositionPlayerSeekTest {
         });
   }
 
-  // TODO: b/320244483 - Add tests that seek into the middle of the sequence.
   @Test
   public void seekToZero_singleSequenceOfTwoVideos() throws Exception {
-    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS * 1000);
+    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
     InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
         new InputTimestampRecordingShaderProgram();
     EditedMediaItem video =
@@ -180,7 +178,7 @@ public class CompositionPlayerSeekTest {
             1958266L,
             1991633L);
 
-    assertThat(inputTimestampRecordingShaderProgram.timestampsUs)
+    assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
         // Seeked after the first playback ends, so the timestamps are repeated twice.
         .containsExactlyElementsIn(
             new ImmutableList.Builder<Long>()
@@ -192,7 +190,7 @@ public class CompositionPlayerSeekTest {
 
   @Test
   public void seekToZero_after15framesInSingleSequenceOfTwoVideos() throws Exception {
-    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS * 1000);
+    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
     ResettableCountDownLatch framesReceivedLatch = new ResettableCountDownLatch(15);
     AtomicBoolean shaderProgramShouldBlockInput = new AtomicBoolean();
 
@@ -331,7 +329,7 @@ public class CompositionPlayerSeekTest {
             1958266L,
             1991633L);
 
-    assertThat(inputTimestampRecordingShaderProgram.timestampsUs)
+    assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
         .containsExactlyElementsIn(expectedTimestampsUs)
         .inOrder();
   }
@@ -341,17 +339,6 @@ public class CompositionPlayerSeekTest {
         .setDurationUs(1_024_000)
         .setEffects(new Effects(/* audioProcessors= */ ImmutableList.of(), videoEffects))
         .build();
-  }
-
-  private static class InputTimestampRecordingShaderProgram extends PassthroughShaderProgram {
-    public final ArrayList<Long> timestampsUs = new ArrayList<>();
-
-    @Override
-    public void queueInputFrame(
-        GlObjectsProvider glObjectsProvider, GlTextureInfo inputTexture, long presentationTimeUs) {
-      super.queueInputFrame(glObjectsProvider, inputTexture, presentationTimeUs);
-      timestampsUs.add(presentationTimeUs);
-    }
   }
 
   private static final class ResettableCountDownLatch {
