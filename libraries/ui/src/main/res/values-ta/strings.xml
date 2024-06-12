@@ -41,9 +41,7 @@
     <item>1.5x</item>
     <item>2x</item>
   </string-array>
-  <string name="exo_track_selection_title_video">வீடியோ</string>
   <string name="exo_track_selection_title_audio">ஆடியோ</string>
-  <string name="exo_track_selection_title_text">உரை</string>
   <string name="exo_track_selection_none">ஏதுமில்லை</string>
   <string name="exo_track_selection_auto">தானியங்கு</string>
   <string name="exo_track_unknown">தெரியாதவை</string>

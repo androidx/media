@@ -41,9 +41,7 @@
     <item>1.5배속</item>
     <item>2배속</item>
   </string-array>
-  <string name="exo_track_selection_title_video">동영상</string>
   <string name="exo_track_selection_title_audio">오디오</string>
-  <string name="exo_track_selection_title_text">텍스트</string>
   <string name="exo_track_selection_none">없음</string>
   <string name="exo_track_selection_auto">자동</string>
   <string name="exo_track_unknown">알 수 없음</string>

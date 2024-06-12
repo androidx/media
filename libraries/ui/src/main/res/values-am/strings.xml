@@ -41,9 +41,7 @@
     <item>1.5x</item>
     <item>2x</item>
   </string-array>
-  <string name="exo_track_selection_title_video">ቪዲዮ</string>
   <string name="exo_track_selection_title_audio">ኦዲዮ</string>
-  <string name="exo_track_selection_title_text">ጽሁፍ</string>
   <string name="exo_track_selection_none">ምንም</string>
   <string name="exo_track_selection_auto">ራስ-ሰር</string>
   <string name="exo_track_unknown">ያልታወቀ</string>

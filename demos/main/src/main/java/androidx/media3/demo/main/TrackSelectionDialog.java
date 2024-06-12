@@ -67,7 +67,8 @@ public final class TrackSelectionDialog extends DialogFragment {
   }
 
   public static final ImmutableList<Integer> SUPPORTED_TRACK_TYPES =
-      ImmutableList.of(C.TRACK_TYPE_VIDEO, C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_TEXT);
+      ImmutableList.of(
+          C.TRACK_TYPE_VIDEO, C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_TEXT, C.TRACK_TYPE_IMAGE);
 
   private final SparseArray<TrackSelectionViewFragment> tabFragments;
   private final ArrayList<Integer> tabTrackTypes;
@@ -266,11 +267,13 @@ public final class TrackSelectionDialog extends DialogFragment {
   private static String getTrackTypeString(Resources resources, @C.TrackType int trackType) {
     switch (trackType) {
       case C.TRACK_TYPE_VIDEO:
-        return resources.getString(R.string.exo_track_selection_title_video);
+        return resources.getString(R.string.track_selection_title_video);
       case C.TRACK_TYPE_AUDIO:
-        return resources.getString(R.string.exo_track_selection_title_audio);
+        return resources.getString(R.string.track_selection_title_audio);
       case C.TRACK_TYPE_TEXT:
-        return resources.getString(R.string.exo_track_selection_title_text);
+        return resources.getString(R.string.track_selection_title_text);
+      case C.TRACK_TYPE_IMAGE:
+        return resources.getString(R.string.track_selection_title_image);
       default:
         throw new IllegalArgumentException();
     }

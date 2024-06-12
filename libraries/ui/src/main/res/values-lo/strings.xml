@@ -41,9 +41,7 @@
     <item>1.5x</item>
     <item>2x</item>
   </string-array>
-  <string name="exo_track_selection_title_video">ວິດີໂອ</string>
   <string name="exo_track_selection_title_audio">ສຽງ</string>
-  <string name="exo_track_selection_title_text">ຂໍ້ຄວາມ</string>
   <string name="exo_track_selection_none">ບໍ່ມີ</string>
   <string name="exo_track_selection_auto">ອັດຕະໂນມັດ</string>
   <string name="exo_track_unknown">ບໍ່ຮູ້ຈັກ</string>

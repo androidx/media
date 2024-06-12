@@ -41,9 +41,7 @@
     <item>1.5x</item>
     <item>2x</item>
   </string-array>
-  <string name="exo_track_selection_title_video">വീഡിയോ</string>
   <string name="exo_track_selection_title_audio">ഓഡിയോ</string>
-  <string name="exo_track_selection_title_text">ടെക്‌സ്റ്റ്</string>
   <string name="exo_track_selection_none">ഒന്നുമില്ല</string>
   <string name="exo_track_selection_auto">സ്വയമേവ</string>
   <string name="exo_track_unknown">അജ്ഞാതം</string>

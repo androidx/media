@@ -41,9 +41,7 @@
     <item>x 1,5</item>
     <item>x 2</item>
   </string-array>
-  <string name="exo_track_selection_title_video">Vidéo</string>
   <string name="exo_track_selection_title_audio">Audio</string>
-  <string name="exo_track_selection_title_text">Texte</string>
   <string name="exo_track_selection_none">Aucun</string>
   <string name="exo_track_selection_auto">Automatique</string>
   <string name="exo_track_unknown">Inconnu</string>

@@ -41,9 +41,7 @@
     <item>1.5x</item>
     <item>2X</item>
   </string-array>
-  <string name="exo_track_selection_title_video">ویڈیو</string>
   <string name="exo_track_selection_title_audio">آڈیو</string>
-  <string name="exo_track_selection_title_text">متن</string>
   <string name="exo_track_selection_none">کوئی نہیں</string>
   <string name="exo_track_selection_auto">خودکار</string>
   <string name="exo_track_unknown">نامعلوم</string>

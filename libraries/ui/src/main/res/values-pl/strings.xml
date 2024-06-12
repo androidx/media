@@ -45,9 +45,7 @@
     <item>1,5x</item>
     <item>2x</item>
   </string-array>
-  <string name="exo_track_selection_title_video">Film</string>
   <string name="exo_track_selection_title_audio">Dźwięk</string>
-  <string name="exo_track_selection_title_text">Tekst</string>
   <string name="exo_track_selection_none">Brak</string>
   <string name="exo_track_selection_auto">Automatycznie</string>
   <string name="exo_track_unknown">Nieznany</string>

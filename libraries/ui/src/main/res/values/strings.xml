@@ -88,12 +88,8 @@
   <string translatable="false" name="exo_controls_custom_playback_speed"><xliff:g id="playback_speed" example="1.05">%1$.2f</xliff:g>x</string>
   <!-- Placeholder text for displaying time. Used to calculate which size layout to use. -->
   <string translatable="false" name="exo_controls_time_placeholder">00:00:00</string>
-  <!-- The title of a track selection view for video tracks. [CHAR LIMIT=20] -->
-  <string name="exo_track_selection_title_video">Video</string>
   <!-- The title of a track selection view for audio tracks. [CHAR LIMIT=20] -->
   <string name="exo_track_selection_title_audio">Audio</string>
-  <!-- The title of a track selection view for text (i.e. subtitle or caption) tracks. [CHAR LIMIT=20] -->
-  <string name="exo_track_selection_title_text">Text</string>
   <!-- An option in a track selection view (e.g. a view that allows the user to choose between multiple media tracks) to indicate that no track should be selected. Examples: When playing a video, if this option is selected for audio, playback will proceed without sound. If this option is selected for video, playback will proceed without visual output. [CHAR LIMIT=20] -->
   <string name="exo_track_selection_none">None</string>
   <!-- An option in a track selection view (e.g. a view that allows the user to choose between multiple media tracks) to indicate that the automatic or default track should be selected. Examples: If there are multiple audio tracks in different languages, the automatic selection would normally be the track in the user's native language. If there are multiple video tracks at different qualities, the automatic selection would normally be the highest quality track that can be played without buffering over the current network. [CHAR LIMIT=20] -->

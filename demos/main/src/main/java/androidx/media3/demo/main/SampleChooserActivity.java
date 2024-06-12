@@ -54,6 +54,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaItem.ClippingConfiguration;
 import androidx.media3.common.MediaMetadata;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSourceInputStream;
@@ -373,6 +374,7 @@ public class SampleChooserActivity extends AppCompatActivity
       group.playlists.addAll(playlistHolders);
     }
 
+    @OptIn(markerClass = UnstableApi.class) // Setting image duration.
     private PlaylistHolder readEntry(JsonReader reader, boolean insidePlaylist) throws IOException {
       Uri uri = null;
       String extension = null;
@@ -409,6 +411,9 @@ public class SampleChooserActivity extends AppCompatActivity
             break;
           case "clip_end_position_ms":
             clippingConfiguration.setEndPositionMs(reader.nextLong());
+            break;
+          case "image_duration_ms":
+            mediaItem.setImageDurationMs(reader.nextLong());
             break;
           case "ad_tag_uri":
             mediaItem.setAdsConfiguration(

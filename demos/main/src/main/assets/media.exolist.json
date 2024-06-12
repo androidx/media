@@ -593,6 +593,27 @@
             "clip_start_position_ms": 10000
           }
         ]
+      },
+      {
+        "name": "Image -> Video -> Image -> Image",
+        "playlist": [
+          {
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/jpg/tokyo.jpg",
+            "image_duration_ms": 2000
+          },
+          {
+            "uri": "https://html5demos.com/assets/dizzy.mp4",
+            "clip_end_position_ms": 2000
+          },
+          {
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/jpg/london.jpg",
+            "image_duration_ms": 2000
+          },
+          {
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/jpg/tokyo.jpg",
+            "image_duration_ms": 2000
+          }
+        ]
       }
     ]
   },
@@ -684,7 +705,7 @@
     ]
   },
   {
-    "name": "Misc",
+    "name": "Progressive",
     "samples": [
       {
         "name": "Dizzy (MP4)",
@@ -737,6 +758,40 @@
       {
         "name": "One hour frame counter (MP4)",
         "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp4/frame-counter-one-hour.mp4"
+      }
+    ]
+  },
+  {
+    "name": "Images",
+    "samples": [
+      {
+        "name": "JPEG (wide)",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/jpg/london.jpg",
+        "image_duration_ms": 2000
+      },
+      {
+        "name": "JPEG (tall)",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/jpg/tokyo.jpg",
+        "image_duration_ms": 2000
+      },
+      {
+        "name": "PNG",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/png/media3test.png",
+        "image_duration_ms": 2000
+      },
+      {
+        "name": "JPEG motion photo (still)",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/jpg/london_motion_photo.jpg",
+        "image_duration_ms": 2000
+      },
+      {
+        "name": "JPEG motion photo (motion)",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/jpg/london_motion_photo.jpg"
+      },
+      {
+        "name": "JPEG (Ultra HDR)",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/jpg/ultra_hdr.jpg",
+        "image_duration_ms": 2000
       }
     ]
   }
