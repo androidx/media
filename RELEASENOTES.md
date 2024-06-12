@@ -17,6 +17,9 @@
 *   Video:
 *   Text:
 *   Metadata:
+*   Image:
+    *   Allow `null` as parameter for `ExoPlayer.setImageOutput` to clear a
+        previously set `ImageOutput`.
 *   DRM:
 *   Effect:
     *   Remove unused `OverlaySettings.useHdr` since dynamic range of overlay

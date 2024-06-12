@@ -434,7 +434,7 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
   }
 
   @Override
-  public void setImageOutput(ImageOutput imageOutput) {
+  public void setImageOutput(@Nullable ImageOutput imageOutput) {
     throw new UnsupportedOperationException();
   }
 }

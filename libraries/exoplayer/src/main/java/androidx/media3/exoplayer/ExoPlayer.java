@@ -1978,8 +1978,8 @@ public interface ExoPlayer extends Player {
   /**
    * Sets the {@link ImageOutput} where rendered images will be forwarded.
    *
-   * @param imageOutput The {@link ImageOutput}.
+   * @param imageOutput The {@link ImageOutput}. May be null to clear a previously set image output.
    */
   @UnstableApi
-  void setImageOutput(ImageOutput imageOutput);
+  void setImageOutput(@Nullable ImageOutput imageOutput);
 }

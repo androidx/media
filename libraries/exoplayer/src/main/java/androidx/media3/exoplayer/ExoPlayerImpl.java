@@ -1895,7 +1895,7 @@ import java.util.concurrent.TimeoutException;
   }
 
   @Override
-  public void setImageOutput(ImageOutput imageOutput) {
+  public void setImageOutput(@Nullable ImageOutput imageOutput) {
     verifyApplicationThread();
     sendRendererMessage(TRACK_TYPE_IMAGE, MSG_SET_IMAGE_OUTPUT, imageOutput);
   }

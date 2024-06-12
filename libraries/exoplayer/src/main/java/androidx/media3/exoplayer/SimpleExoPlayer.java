@@ -1352,7 +1352,7 @@ public class SimpleExoPlayer extends BasePlayer
   }
 
   @Override
-  public void setImageOutput(ImageOutput imageOutput) {
+  public void setImageOutput(@Nullable ImageOutput imageOutput) {
     blockUntilConstructorFinished();
     player.setImageOutput(imageOutput);
   }
