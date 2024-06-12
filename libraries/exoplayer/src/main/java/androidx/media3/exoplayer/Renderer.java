@@ -255,7 +255,8 @@ public interface Renderer extends PlayerMessage.Target {
 
   /**
    * The type of message that can be passed to an image renderer to set a desired image output. The
-   * message payload should be an {@link ImageOutput}.
+   * message payload should be an {@link ImageOutput}, or null to clear a previously set image
+   * output.
    */
   int MSG_SET_IMAGE_OUTPUT = 15;
 
