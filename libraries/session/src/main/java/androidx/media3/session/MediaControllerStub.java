@@ -38,7 +38,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   private static final String TAG = "MediaControllerStub";
 
   /** The version of the IMediaController interface. */
-  public static final int VERSION_INT = 4;
+  public static final int VERSION_INT = 5;
 
   private final WeakReference<MediaControllerImplBase> controller;
 
@@ -265,10 +265,15 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   }
 
   @Override
-  public void onError(int seq, int errorCode, String errorMessage, Bundle errorExtras)
-      throws RemoteException {
-    dispatchControllerTaskOnHandler(
-        controller -> controller.onError(seq, errorCode, errorMessage, errorExtras));
+  public void onError(int seq, Bundle sessionError) throws RemoteException {
+    SessionError error;
+    try {
+      error = SessionError.fromBundle(sessionError);
+    } catch (RuntimeException e) {
+      Log.w(TAG, "Ignoring malformed Bundle for SessionError", e);
+      return;
+    }
+    dispatchControllerTaskOnHandler(controller -> controller.onError(seq, error));
   }
 
   @Override

@@ -2890,13 +2890,12 @@ import org.checkerframework.checker.nullness.qual.NonNull;
             listener -> listener.onSessionActivityChanged(getInstance(), sessionActivity));
   }
 
-  public void onError(int seq, int errorCode, String errorMessage, Bundle errorExtras) {
+  public void onError(int seq, SessionError sessionError) {
     if (!isConnected()) {
       return;
     }
     getInstance()
-        .notifyControllerListener(
-            listener -> listener.onError(getInstance(), errorCode, errorMessage, errorExtras));
+        .notifyControllerListener(listener -> listener.onError(getInstance(), sessionError));
   }
 
   public void onRenderedFirstFrame() {

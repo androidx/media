@@ -443,6 +443,7 @@ public final class PlaybackStateCompat implements Parcelable {
    */
   public static final int SHUFFLE_MODE_GROUP = 2;
 
+  /** Supported error codes. */
   @IntDef({
     ERROR_CODE_UNKNOWN_ERROR,
     ERROR_CODE_APP_ERROR,
@@ -458,7 +459,7 @@ public final class PlaybackStateCompat implements Parcelable {
     ERROR_CODE_END_OF_QUEUE
   })
   @Retention(RetentionPolicy.SOURCE)
-  private @interface ErrorCode {}
+  public @interface ErrorCode {}
 
   /**
    * This is the default error code and indicates that none of the other error codes applies. The

@@ -259,8 +259,8 @@ public class MediaBrowserListenerTest extends MediaControllerListenerTest {
   }
 
   @Test
-  public void getChildren_errorLibraryResult() throws Exception {
-    String parentId = MediaBrowserConstants.PARENT_ID_ERROR;
+  public void getChildren_authExpiredErrorLibraryResult() throws Exception {
+    String parentId = MediaBrowserConstants.PARENT_ID_AUTH_EXPIRED_ERROR;
     MediaBrowser browser = createBrowser();
 
     LibraryResult<ImmutableList<MediaItem>> result =
@@ -272,7 +272,11 @@ public class MediaBrowserListenerTest extends MediaControllerListenerTest {
     assertThat(result.resultCode).isLessThan(0);
     assertThat(result.sessionError.code).isLessThan(0);
     assertThat(result.sessionError.message).isEqualTo("error message");
-    assertThat(result.sessionError.extras.getString("key")).isEqualTo("value");
+    assertThat(
+            result.sessionError.extras.getString(
+                MediaConstants.EXTRAS_KEY_ERROR_RESOLUTION_ACTION_LABEL_COMPAT))
+        .isEqualTo(
+            MediaBrowserConstants.PARENT_ID_AUTH_EXPIRED_ERROR_KEY_ERROR_RESOLUTION_ACTION_LABEL);
     assertThat(result.value).isNull();
   }
 

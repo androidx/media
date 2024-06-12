@@ -33,7 +33,7 @@ import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.session.MediaSessionStub.UNKNOWN_SEQUENCE_NUMBER;
 import static androidx.media3.session.SessionError.ERROR_SESSION_DISCONNECTED;
 import static androidx.media3.session.SessionError.ERROR_UNKNOWN;
-import static androidx.media3.session.SessionError.INFO_SKIPPED;
+import static androidx.media3.session.SessionError.INFO_CANCELLED;
 
 import android.app.PendingIntent;
 import android.content.ComponentName;
@@ -113,7 +113,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   public static final String TAG = "MediaSessionImpl";
 
-  private static final SessionResult RESULT_WHEN_CLOSED = new SessionResult(INFO_SKIPPED);
+  private static final SessionResult RESULT_WHEN_CLOSED = new SessionResult(INFO_CANCELLED);
 
   private final Object lock = new Object();
 
@@ -625,31 +625,25 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         controller, (cb, seq) -> cb.sendCustomCommand(seq, command, args));
   }
 
-  public void sendError(
-      ControllerInfo controllerInfo,
-      int errorCode,
-      int errorMessageResourceId,
-      Bundle errorExtras) {
+  public void sendError(ControllerInfo controllerInfo, SessionError sessionError) {
     if (controllerInfo.getInterfaceVersion() < 4) {
       // IMediaController.onError introduced with interface version 4.
       return;
     }
-    String errorMessage = context.getString(errorMessageResourceId);
     dispatchRemoteControllerTaskWithoutReturn(
-        controllerInfo,
-        (callback, seq) -> callback.onError(seq, errorCode, errorMessage, errorExtras));
+        controllerInfo, (callback, seq) -> callback.onError(seq, sessionError));
     if (isMediaNotificationController(controllerInfo)) {
       dispatchRemoteControllerTaskToLegacyStub(
-          (callback, seq) -> callback.onError(seq, errorCode, errorMessage, errorExtras));
+          (callback, seq) -> callback.onError(seq, sessionError));
     }
   }
 
-  public void sendError(int errorCode, int errorMessageResourceId, Bundle errorExtras) {
+  public void sendError(SessionError sessionError) {
     // Send error messages only to Media3 controllers.
     ImmutableList<ControllerInfo> connectedControllers =
         sessionStub.getConnectedControllersManager().getConnectedControllers();
     for (int i = 0; i < connectedControllers.size(); i++) {
-      sendError(connectedControllers.get(i), errorCode, errorMessageResourceId, errorExtras);
+      sendError(connectedControllers.get(i), sessionError);
     }
   }
 

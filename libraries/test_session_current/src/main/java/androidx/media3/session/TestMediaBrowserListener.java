@@ -68,9 +68,8 @@ public final class TestMediaBrowserListener implements MediaBrowser.Listener {
   }
 
   @Override
-  public void onError(
-      MediaController controller, int errorCode, String errorMessage, Bundle errorExtras) {
-    delegate.onError(controller, errorCode, errorMessage, errorExtras);
+  public void onError(MediaController controller, SessionError sessionError) {
+    delegate.onError(controller, sessionError);
   }
 
   @Override

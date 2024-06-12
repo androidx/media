@@ -53,7 +53,7 @@ public final class LibraryResult<V> {
   @Target(TYPE_USE)
   @IntDef({
     RESULT_SUCCESS,
-    SessionError.INFO_SKIPPED,
+    SessionError.INFO_CANCELLED,
     SessionError.ERROR_UNKNOWN,
     SessionError.ERROR_INVALID_STATE,
     SessionError.ERROR_BAD_VALUE,
@@ -82,7 +82,7 @@ public final class LibraryResult<V> {
   public static final int RESULT_SUCCESS = 0;
 
   /** Result code representing that the command is skipped. */
-  public static final int RESULT_INFO_SKIPPED = SessionError.INFO_SKIPPED;
+  public static final int RESULT_INFO_SKIPPED = SessionError.INFO_CANCELLED;
 
   /** Result code representing that the command is ended with an unknown error. */
   public static final int RESULT_ERROR_UNKNOWN = SessionError.ERROR_UNKNOWN;

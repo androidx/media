@@ -583,19 +583,15 @@ public class MediaSessionProviderService extends Service {
     }
 
     @Override
-    public void sendError(
-        String sessionId,
-        String controllerKey,
-        int errorCode,
-        int errorMessageResId,
-        Bundle errorExtras)
+    public void sendError(String sessionId, String controllerKey, Bundle sessionError)
         throws RemoteException {
       runOnHandler(
           () -> {
             MediaSession mediaSession = checkNotNull(sessionMap.get(sessionId));
+            SessionError error = SessionError.fromBundle(sessionError);
             if (TextUtils.isEmpty(controllerKey)) {
               // Broadcast to all connected Media3 controller.
-              mediaSession.sendError(errorCode, errorMessageResId, errorExtras);
+              mediaSession.sendError(error);
             } else {
               // Send to controller with the given controller key in connection hints.
               for (ControllerInfo controllerInfo : mediaSession.getConnectedControllers()) {
@@ -603,7 +599,7 @@ public class MediaSessionProviderService extends Service {
                     .getConnectionHints()
                     .getString(KEY_CONTROLLER, /* defaultValue= */ "")
                     .equals(controllerKey)) {
-                  mediaSession.sendError(controllerInfo, errorCode, errorMessageResId, errorExtras);
+                  mediaSession.sendError(controllerInfo, error);
                 }
               }
             }

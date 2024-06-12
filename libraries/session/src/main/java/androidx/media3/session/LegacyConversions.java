@@ -76,7 +76,6 @@ import androidx.media3.common.Timeline.Period;
 import androidx.media3.common.Timeline.Window;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
-import androidx.media3.session.MediaControllerImplLegacy.NonFatalErrorInfo;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
 import androidx.media3.session.legacy.AudioAttributesCompat;
 import androidx.media3.session.legacy.MediaBrowserCompat;
@@ -154,51 +153,120 @@ import java.util.concurrent.TimeoutException;
     }
   }
 
-  private static final ImmutableSet<Integer> FATAL_LEGACY_ERROR_CODES =
-      ImmutableSet.of(
-          PlaybackStateCompat.ERROR_CODE_UNKNOWN_ERROR,
-          PlaybackStateCompat.ERROR_CODE_AUTHENTICATION_EXPIRED,
-          PlaybackStateCompat.ERROR_CODE_PREMIUM_ACCOUNT_REQUIRED,
-          PlaybackStateCompat.ERROR_CODE_CONCURRENT_STREAM_LIMIT,
-          PlaybackStateCompat.ERROR_CODE_PARENTAL_CONTROL_RESTRICTED,
-          PlaybackStateCompat.ERROR_CODE_NOT_AVAILABLE_IN_REGION,
-          PlaybackStateCompat.ERROR_CODE_SKIP_LIMIT_REACHED);
-
   /** Converts {@link PlaybackStateCompat} to {@link PlaybackException}. */
   @Nullable
   public static PlaybackException convertToPlaybackException(
       @Nullable PlaybackStateCompat playbackStateCompat) {
     if (playbackStateCompat == null
-        || playbackStateCompat.getState() != PlaybackStateCompat.STATE_ERROR
-        || !FATAL_LEGACY_ERROR_CODES.contains(playbackStateCompat.getErrorCode())) {
+        || playbackStateCompat.getState() != PlaybackStateCompat.STATE_ERROR) {
       return null;
     }
-    StringBuilder stringBuilder = new StringBuilder();
-    if (!TextUtils.isEmpty(playbackStateCompat.getErrorMessage())) {
-      stringBuilder.append(playbackStateCompat.getErrorMessage().toString()).append(", ");
-    }
-    stringBuilder.append("code=").append(playbackStateCompat.getErrorCode());
-    String errorMessage = stringBuilder.toString();
+    @Nullable CharSequence errorMessage = playbackStateCompat.getErrorMessage();
+    @Nullable Bundle playbackStateCompatExtras = playbackStateCompat.getExtras();
     return new PlaybackException(
-        errorMessage, /* cause= */ null, PlaybackException.ERROR_CODE_REMOTE_ERROR);
+        errorMessage != null ? errorMessage.toString() : null,
+        /* cause= */ null,
+        convertToPlaybackExceptionErrorCode(playbackStateCompat.getErrorCode()),
+        playbackStateCompatExtras != null ? playbackStateCompatExtras : Bundle.EMPTY);
   }
 
-  /** Converts {@link PlaybackStateCompat} to {@link NonFatalErrorInfo}. */
+  /** Converts {@link PlaybackStateCompat} to {@link SessionError}. */
   @Nullable
-  public static NonFatalErrorInfo convertToNonFatalErrorInfo(
-      @Nullable PlaybackStateCompat playbackStateCompat, String errorMessageFallback) {
+  public static SessionError convertToSessionError(
+      @Nullable PlaybackStateCompat playbackStateCompat) {
     if (playbackStateCompat == null
-        || playbackStateCompat.getState() != PlaybackStateCompat.STATE_ERROR
-        || FATAL_LEGACY_ERROR_CODES.contains(playbackStateCompat.getErrorCode())) {
+        || playbackStateCompat.getState() == PlaybackStateCompat.STATE_ERROR
+        || playbackStateCompat.getErrorCode() == PlaybackStateCompat.ERROR_CODE_UNKNOWN_ERROR
+        || playbackStateCompat.getErrorMessage() == null) {
       return null;
     }
     @Nullable Bundle playbackStateCompatExtras = playbackStateCompat.getExtras();
-    return new NonFatalErrorInfo(
-        playbackStateCompat.getErrorCode(),
-        !TextUtils.isEmpty(playbackStateCompat.getErrorMessage())
-            ? playbackStateCompat.getErrorMessage().toString()
-            : errorMessageFallback,
+    return new SessionError(
+        convertToSessionErrorCode(playbackStateCompat.getErrorCode()),
+        checkNotNull(playbackStateCompat.getErrorMessage()).toString(),
         playbackStateCompatExtras != null ? playbackStateCompatExtras : Bundle.EMPTY);
+  }
+
+  private static @SessionError.Code int convertToSessionErrorCode(
+      @PlaybackStateCompat.ErrorCode int errorCode) {
+    switch (errorCode) {
+      case PlaybackStateCompat.ERROR_CODE_ACTION_ABORTED:
+        return SessionError.INFO_CANCELLED;
+      case PlaybackStateCompat.ERROR_CODE_APP_ERROR:
+        return SessionError.ERROR_INVALID_STATE;
+      case PlaybackStateCompat.ERROR_CODE_AUTHENTICATION_EXPIRED:
+        return SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED;
+      case PlaybackStateCompat.ERROR_CODE_CONTENT_ALREADY_PLAYING:
+        return SessionError.ERROR_SESSION_CONTENT_ALREADY_PLAYING;
+      case PlaybackStateCompat.ERROR_CODE_CONCURRENT_STREAM_LIMIT:
+        return SessionError.ERROR_SESSION_CONCURRENT_STREAM_LIMIT;
+      case PlaybackStateCompat.ERROR_CODE_END_OF_QUEUE:
+        return SessionError.ERROR_SESSION_END_OF_PLAYLIST;
+      case PlaybackStateCompat.ERROR_CODE_NOT_AVAILABLE_IN_REGION:
+        return SessionError.ERROR_SESSION_NOT_AVAILABLE_IN_REGION;
+      case PlaybackStateCompat.ERROR_CODE_NOT_SUPPORTED:
+        return SessionError.ERROR_NOT_SUPPORTED;
+      case PlaybackStateCompat.ERROR_CODE_PARENTAL_CONTROL_RESTRICTED:
+        return SessionError.ERROR_SESSION_PARENTAL_CONTROL_RESTRICTED;
+      case PlaybackStateCompat.ERROR_CODE_PREMIUM_ACCOUNT_REQUIRED:
+        return SessionError.ERROR_SESSION_PREMIUM_ACCOUNT_REQUIRED;
+      case PlaybackStateCompat.ERROR_CODE_SKIP_LIMIT_REACHED:
+        return SessionError.ERROR_SESSION_SKIP_LIMIT_REACHED;
+      default:
+        return SessionError.ERROR_UNKNOWN;
+    }
+  }
+
+  private static @PlaybackException.ErrorCode int convertToPlaybackExceptionErrorCode(
+      @PlaybackStateCompat.ErrorCode int errorCode) {
+    @PlaybackException.ErrorCode
+    int playbackExceptionErrorCode = convertToSessionErrorCode(errorCode);
+    switch (playbackExceptionErrorCode) {
+      case SessionError.ERROR_UNKNOWN:
+        return PlaybackException.ERROR_CODE_UNSPECIFIED;
+      case SessionError.ERROR_IO:
+        return PlaybackException.ERROR_CODE_IO_UNSPECIFIED;
+      default:
+        return playbackExceptionErrorCode;
+    }
+  }
+
+  /** Converts {@link SessionError.Code} to {@link PlaybackStateCompat.ErrorCode}. */
+  @PlaybackStateCompat.ErrorCode
+  public static int convertToLegacyErrorCode(@SessionError.Code int errorCode) {
+    switch (errorCode) {
+      case SessionError.INFO_CANCELLED:
+        return PlaybackStateCompat.ERROR_CODE_ACTION_ABORTED;
+      case SessionError.ERROR_INVALID_STATE:
+        return PlaybackStateCompat.ERROR_CODE_APP_ERROR;
+      case SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED:
+        return PlaybackStateCompat.ERROR_CODE_AUTHENTICATION_EXPIRED;
+      case SessionError.ERROR_SESSION_CONTENT_ALREADY_PLAYING:
+        return PlaybackStateCompat.ERROR_CODE_CONTENT_ALREADY_PLAYING;
+      case SessionError.ERROR_SESSION_CONCURRENT_STREAM_LIMIT:
+        return PlaybackStateCompat.ERROR_CODE_CONCURRENT_STREAM_LIMIT;
+      case SessionError.ERROR_SESSION_END_OF_PLAYLIST:
+        return PlaybackStateCompat.ERROR_CODE_END_OF_QUEUE;
+      case SessionError.ERROR_SESSION_NOT_AVAILABLE_IN_REGION:
+        return PlaybackStateCompat.ERROR_CODE_NOT_AVAILABLE_IN_REGION;
+      case SessionError.ERROR_NOT_SUPPORTED:
+        return PlaybackStateCompat.ERROR_CODE_NOT_SUPPORTED;
+      case SessionError.ERROR_SESSION_PARENTAL_CONTROL_RESTRICTED:
+        return PlaybackStateCompat.ERROR_CODE_PARENTAL_CONTROL_RESTRICTED;
+      case SessionError.ERROR_SESSION_PREMIUM_ACCOUNT_REQUIRED:
+        return PlaybackStateCompat.ERROR_CODE_PREMIUM_ACCOUNT_REQUIRED;
+      case SessionError.ERROR_SESSION_SKIP_LIMIT_REACHED:
+        return PlaybackStateCompat.ERROR_CODE_SKIP_LIMIT_REACHED;
+      case SessionError.ERROR_UNKNOWN: // fall through
+      default:
+        return PlaybackStateCompat.ERROR_CODE_UNKNOWN_ERROR;
+    }
+  }
+
+  /** Converts {@link PlaybackException} to {@link PlaybackStateCompat.ErrorCode}. */
+  @PlaybackStateCompat.ErrorCode
+  public static int convertToLegacyErrorCode(PlaybackException playbackException) {
+    return convertToLegacyErrorCode(playbackException.errorCode);
   }
 
   public static MediaBrowserCompat.MediaItem convertToBrowserItem(

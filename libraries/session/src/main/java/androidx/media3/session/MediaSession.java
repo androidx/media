@@ -1138,6 +1138,9 @@ public class MediaSession {
   /**
    * Sends a non-fatal error to the given controller.
    *
+   * <p>This will call {@link MediaController.Listener#onError(MediaController, SessionError)} of
+   * the given connected controller.
+   *
    * <p>Use {@linkplain MediaSession#getMediaNotificationControllerInfo()} to set the error of the
    * {@linkplain android.media.session.PlaybackState playback state} of the legacy platform session.
    *
@@ -1146,33 +1149,28 @@ public class MediaSession {
    * ControllerInfo#LEGACY_CONTROLLER_VERSION}, an {@link IllegalArgumentException} is thrown.
    *
    * @param controllerInfo The controller to send the error to.
-   * @param errorCode The error code.
-   * @param errorMessageResId A {@code R.string} resource ID.
-   * @param errorExtras A error extras bundle to send additional data.
+   * @param sessionError The session error.
    * @exception IllegalArgumentException thrown if an error is attempted to be sent to a legacy
    *     controller.
    */
   @UnstableApi
-  public final void sendError(
-      ControllerInfo controllerInfo, int errorCode, int errorMessageResId, Bundle errorExtras) {
+  public final void sendError(ControllerInfo controllerInfo, SessionError sessionError) {
     checkArgument(
         controllerInfo.getControllerVersion() != ControllerInfo.LEGACY_CONTROLLER_VERSION);
-    impl.sendError(controllerInfo, errorCode, errorMessageResId, errorExtras);
+    impl.sendError(controllerInfo, sessionError);
   }
 
   /**
    * Sends a non-fatal error to all connected Media3 controllers.
    *
-   * <p>See {@link #sendError(ControllerInfo, int, int, Bundle)} for sending an error to a specific
+   * <p>See {@link #sendError(ControllerInfo, SessionError)} for sending an error to a specific
    * controller only.
    *
-   * @param errorCode The error code.
-   * @param errorMessageResourceId A {@code R.string} resource ID of a localized error message.
-   * @param errorExtras An error extras bundle to send additional data.
+   * @param sessionError The session error.
    */
   @UnstableApi
-  public final void sendError(int errorCode, int errorMessageResourceId, Bundle errorExtras) {
-    impl.sendError(errorCode, errorMessageResourceId, errorExtras);
+  public final void sendError(SessionError sessionError) {
+    impl.sendError(sessionError);
   }
 
   /* package */ final MediaSessionCompat getSessionCompat() {
@@ -2004,8 +2002,7 @@ public class MediaSession {
 
     default void onRenderedFirstFrame(int seq) throws RemoteException {}
 
-    default void onError(int seq, int errorCode, String errorMessage, Bundle errorExtras)
-        throws RemoteException {}
+    default void onError(int seq, SessionError sessionError) throws RemoteException {}
   }
 
   /**

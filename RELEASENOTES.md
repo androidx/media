@@ -38,6 +38,13 @@
     *   Propagate extras passed to media3's
         `MediaSession[Builder].setSessionExtras()` to a media1 controller's
         `PlaybackStateCompat.getExtras()`.
+    *   Map fatal and non-fatal errors to and from the platform session. A
+        `PlaybackException` is mapped to a fatal error state of the
+        `PlaybackStateCompat`. A `SessionError` sent to the media notification
+        controller with `MediaSession.sendError(ControllerInfo, SessionError)`
+        is mapped to a non-fatal error in `PlaybackStateCompat` which means that
+        error code and message are set but the state of the plaftorm session
+        remains different to `STATE_ERROR`.
 *   UI:
     *   Add customisation of various icons in `PlayerControlView` through xml
         attributes to allow different drawables per `PlayerView` instance,

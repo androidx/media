@@ -57,7 +57,7 @@ import static androidx.media3.session.SessionError.ERROR_NOT_SUPPORTED;
 import static androidx.media3.session.SessionError.ERROR_PERMISSION_DENIED;
 import static androidx.media3.session.SessionError.ERROR_SESSION_DISCONNECTED;
 import static androidx.media3.session.SessionError.ERROR_UNKNOWN;
-import static androidx.media3.session.SessionError.INFO_SKIPPED;
+import static androidx.media3.session.SessionError.INFO_CANCELLED;
 
 import android.app.PendingIntent;
 import android.os.Binder;
@@ -278,7 +278,7 @@ import java.util.concurrent.ExecutionException;
                 result = checkNotNull(future.get(), "LibraryResult must not be null");
               } catch (CancellationException e) {
                 Log.w(TAG, "Library operation cancelled", e);
-                result = LibraryResult.ofError(INFO_SKIPPED);
+                result = LibraryResult.ofError(INFO_CANCELLED);
               } catch (ExecutionException | InterruptedException e) {
                 Log.w(TAG, "Library operation failed", e);
                 result = LibraryResult.ofError(ERROR_UNKNOWN);
@@ -2141,9 +2141,8 @@ import java.util.concurrent.ExecutionException;
     }
 
     @Override
-    public void onError(int sequenceNumber, int errorCode, String errorMessage, Bundle errorExtras)
-        throws RemoteException {
-      iController.onError(sequenceNumber, errorCode, errorMessage, errorExtras);
+    public void onError(int sequenceNumber, SessionError sessionError) throws RemoteException {
+      iController.onError(sequenceNumber, sessionError.toBundle());
     }
 
     @Override

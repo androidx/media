@@ -42,6 +42,5 @@ interface IRemoteMediaSessionCompat {
   void sendSessionEvent(String sessionTag, String event, in Bundle extras);
   void setCaptioningEnabled(String sessionTag, boolean enabled);
   void setSessionExtras(String sessionTag, in Bundle extras);
-  void sendError(String sessionTag, int errorCode, int errorMessageIntRes, in Bundle errorExtras);
   int getCallbackMethodCount(String sessionTag, String methodName);
 }

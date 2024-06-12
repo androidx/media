@@ -15,20 +15,19 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.test.session.common.CommonConstants.ACTION_MEDIA_SESSION_COMPAT;
 import static androidx.media3.test.session.common.CommonConstants.KEY_METADATA_COMPAT;
 import static androidx.media3.test.session.common.CommonConstants.KEY_PLAYBACK_STATE_COMPAT;
 import static androidx.media3.test.session.common.CommonConstants.KEY_QUEUE;
 import static androidx.media3.test.session.common.CommonConstants.KEY_SESSION_COMPAT_TOKEN;
 
+import android.annotation.SuppressLint;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.RemoteException;
-import android.os.SystemClock;
 import android.support.v4.media.MediaMetadataCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.MediaSessionCompat.QueueItem;
@@ -120,6 +119,7 @@ public class MediaSessionCompatProviderService extends Service {
       session.setPlaybackToLocal(stream);
     }
 
+    @SuppressLint("RestrictedApi")
     @Override
     public void setPlaybackToRemote(
         String sessionTag,
@@ -232,24 +232,6 @@ public class MediaSessionCompatProviderService extends Service {
     public void setSessionExtras(String sessionTag, Bundle extras) {
       MediaSessionCompat session = sessionMap.get(sessionTag);
       session.setExtras(extras);
-    }
-
-    @Override
-    public void sendError(
-        String sessionTag, int errorCode, int errorMessageResId, Bundle errorExtras) {
-      MediaSessionCompat session = sessionMap.get(sessionTag);
-      session.setPlaybackState(
-          new PlaybackStateCompat.Builder()
-              .setState(
-                  PlaybackStateCompat.STATE_ERROR,
-                  /* position= */ PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN,
-                  /* playbackSpeed= */ 0,
-                  /* updateTime= */ SystemClock.elapsedRealtime())
-              .setActions(0)
-              .setBufferedPosition(0)
-              .setErrorMessage(errorCode, checkNotNull(getString(errorMessageResId)))
-              .setExtras(checkNotNull(errorExtras))
-              .build());
     }
 
     @Override

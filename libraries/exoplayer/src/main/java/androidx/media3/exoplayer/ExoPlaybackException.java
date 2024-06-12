@@ -279,7 +279,7 @@ public final class ExoPlaybackException extends PlaybackException {
       @Nullable MediaPeriodId mediaPeriodId,
       long timestampMs,
       boolean isRecoverable) {
-    super(message, cause, errorCode, timestampMs);
+    super(message, cause, errorCode, Bundle.EMPTY, timestampMs);
     Assertions.checkArgument(!isRecoverable || type == TYPE_RENDERER);
     Assertions.checkArgument(cause != null || type == TYPE_REMOTE);
     this.type = type;

@@ -191,6 +191,82 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
   }
 
   @Test
+  public void setPlaybackState_fatalError_callsOnPlayerErrorWithCodeMessageAndExtras()
+      throws Exception {
+    MediaController controller =
+        controllerTestRule.createController(session.getSessionToken(), /* listener= */ null);
+    CountDownLatch fatalErrorLatch = new CountDownLatch(/* count= */ 1);
+    List<PlaybackException> fatalErrorExceptions = new ArrayList<>();
+    Bundle fatalErrorExtras = new Bundle();
+    fatalErrorExtras.putString("key-2", "value-2");
+    controller.addListener(
+        new Player.Listener() {
+          @Override
+          public void onPlayerError(PlaybackException error) {
+            fatalErrorExceptions.add(error);
+            fatalErrorLatch.countDown();
+          }
+        });
+
+    session.setPlaybackState(
+        new PlaybackStateCompat.Builder()
+            .setState(
+                PlaybackStateCompat.STATE_ERROR, /* position= */ 0L, /* playbackSpeed= */ 1.0f)
+            .setErrorMessage(
+                PlaybackStateCompat.ERROR_CODE_AUTHENTICATION_EXPIRED,
+                ApplicationProvider.getApplicationContext()
+                    .getString(R.string.authentication_required))
+            .setExtras(fatalErrorExtras)
+            .build());
+
+    assertThat(fatalErrorLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(fatalErrorExceptions).hasSize(1);
+    assertThat(fatalErrorExceptions.get(0))
+        .hasMessageThat()
+        .isEqualTo(context.getString(R.string.authentication_required));
+    assertThat(fatalErrorExceptions.get(0).errorCode)
+        .isEqualTo(PlaybackException.ERROR_CODE_AUTHENTICATION_EXPIRED);
+    assertThat(TestUtils.equals(fatalErrorExceptions.get(0).extras, fatalErrorExtras)).isTrue();
+  }
+
+  @Test
+  public void setPlaybackState_nonFatalError_callsOnErrorWithCodeMessageAndExtras()
+      throws Exception {
+    CountDownLatch nonFatalErrorLatch = new CountDownLatch(/* count= */ 1);
+    List<SessionError> sessionErrors = new ArrayList<>();
+    Bundle nonFatalErrorExtra = new Bundle();
+    nonFatalErrorExtra.putString("key-1", "value-1");
+    controllerTestRule.createController(
+        session.getSessionToken(),
+        new MediaController.Listener() {
+          @Override
+          public void onError(MediaController controller, SessionError sessionError) {
+            sessionErrors.add(sessionError);
+            nonFatalErrorLatch.countDown();
+          }
+        });
+
+    session.setPlaybackState(
+        new PlaybackStateCompat.Builder()
+            .setState(
+                PlaybackStateCompat.STATE_PLAYING,
+                PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN,
+                /* playbackSpeed= */ .0f)
+            .setErrorMessage(
+                PlaybackStateCompat.ERROR_CODE_APP_ERROR,
+                ApplicationProvider.getApplicationContext()
+                    .getString(R.string.default_notification_channel_name))
+            .setExtras(nonFatalErrorExtra)
+            .build());
+
+    assertThat(nonFatalErrorLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(sessionErrors).hasSize(1);
+    assertThat(sessionErrors.get(0).message)
+        .isEqualTo(context.getString(R.string.default_notification_channel_name));
+    assertThat(TestUtils.equals(sessionErrors.get(0).extras, nonFatalErrorExtra)).isTrue();
+  }
+
+  @Test
   public void setSessionExtras_onExtrasChangedCalled() throws Exception {
     Bundle sessionExtras = new Bundle();
     sessionExtras.putString("key-1", "value-1");
@@ -228,72 +304,6 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
                 threadTestRule.getHandler().postAndSync(controller::getSessionExtras),
                 sessionExtras))
         .isTrue();
-  }
-
-  @Test
-  public void sendError_fatalAndNonFatalErrorCodes_callsCorrectCallbackWithErrorData()
-      throws Exception {
-    CountDownLatch nonFatalErrorLatch = new CountDownLatch(/* count= */ 1);
-    List<Integer> nonFatalErrorCodes = new ArrayList<>();
-    List<String> nonFatalErrorMessages = new ArrayList<>();
-    List<Bundle> nonFatalErrorExtras = new ArrayList<>();
-    Bundle nonFatalErrorExtra = new Bundle();
-    nonFatalErrorExtra.putString("key-1", "value-1");
-    MediaController controller =
-        controllerTestRule.createController(
-            session.getSessionToken(),
-            new MediaController.Listener() {
-              @Override
-              public void onError(
-                  MediaController controller,
-                  int errorCode,
-                  String errorMessage,
-                  Bundle errorExtra) {
-                nonFatalErrorCodes.add(errorCode);
-                nonFatalErrorMessages.add(errorMessage);
-                nonFatalErrorExtras.add(errorExtra);
-                nonFatalErrorLatch.countDown();
-              }
-            });
-    CountDownLatch fatalErrorLatch = new CountDownLatch(/* count= */ 1);
-    List<PlaybackException> fatalErrorExceptions = new ArrayList<>();
-    Bundle fatalErrorExtra = new Bundle();
-    fatalErrorExtra.putString("key-2", "value-2");
-    controller.addListener(
-        new Player.Listener() {
-          @Override
-          public void onPlayerError(PlaybackException error) {
-            fatalErrorExceptions.add(error);
-            fatalErrorLatch.countDown();
-          }
-        });
-
-    // Send fatal errors code.
-    session.sendError(
-        /* errorCode= */ PlaybackStateCompat.ERROR_CODE_AUTHENTICATION_EXPIRED,
-        R.string.authentication_required,
-        fatalErrorExtra);
-    assertThat(fatalErrorLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    // Send non-fatal error code.
-    session.sendError(
-        /* errorCode= */ PlaybackStateCompat.ERROR_CODE_APP_ERROR,
-        R.string.default_notification_channel_name,
-        nonFatalErrorExtra);
-
-    assertThat(nonFatalErrorLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(nonFatalErrorCodes).containsExactly(PlaybackStateCompat.ERROR_CODE_APP_ERROR);
-    assertThat(nonFatalErrorMessages)
-        .containsExactly(context.getString(R.string.default_notification_channel_name));
-    assertThat(TestUtils.equals(nonFatalErrorExtras.get(0), nonFatalErrorExtra)).isTrue();
-    assertThat(fatalErrorExceptions).hasSize(1);
-    assertThat(fatalErrorExceptions.get(0))
-        .hasMessageThat()
-        .isEqualTo(
-            context.getString(R.string.authentication_required)
-                + ", code="
-                + PlaybackStateCompat.ERROR_CODE_AUTHENTICATION_EXPIRED);
-    assertThat(fatalErrorExceptions.get(0).errorCode)
-        .isEqualTo(PlaybackException.ERROR_CODE_REMOTE_ERROR);
   }
 
   @Test

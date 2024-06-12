@@ -20,7 +20,6 @@ import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.session.LibraryResult.RESULT_SUCCESS;
 import static androidx.media3.session.MediaConstants.ERROR_CODE_AUTHENTICATION_EXPIRED_COMPAT;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_ERROR_RESOLUTION_ACTION_INTENT_COMPAT;
-import static androidx.media3.session.PlayerWrapper.STATUS_CODE_SUCCESS_COMPAT;
 import static androidx.media3.session.SessionError.ERROR_INVALID_STATE;
 import static androidx.media3.session.SessionError.ERROR_NOT_SUPPORTED;
 import static androidx.media3.session.SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED;
@@ -372,18 +371,20 @@ import java.util.concurrent.Future;
 
   private void maybeUpdateLegacyErrorState(LibraryResult<?> result) {
     PlayerWrapper playerWrapper = getPlayerWrapper();
-    if (setLegacyErrorState(result)) {
+    if (setLegacyAuthenticationExpiredErrorState(result)) {
       // Sync playback state if legacy error state changed.
       getSessionCompat().setPlaybackState(playerWrapper.createPlaybackStateCompat());
-    } else if (playerWrapper.getLegacyStatusCode() != STATUS_CODE_SUCCESS_COMPAT) {
+    } else if (playerWrapper.getLegacyError() != null && result.resultCode == RESULT_SUCCESS) {
       playerWrapper.clearLegacyErrorStatus();
       getSessionCompat().setPlaybackState(playerWrapper.createPlaybackStateCompat());
     }
   }
 
-  private boolean setLegacyErrorState(LibraryResult<?> result) {
+  private boolean setLegacyAuthenticationExpiredErrorState(LibraryResult<?> result) {
+    PlayerWrapper playerWrapper = getPlayerWrapper();
+    PlayerWrapper.LegacyError legacyError = playerWrapper.getLegacyError();
     if (result.resultCode == ERROR_SESSION_AUTHENTICATION_EXPIRED
-        && getPlayerWrapper().getLegacyStatusCode() != ERROR_SESSION_AUTHENTICATION_EXPIRED) {
+        && (legacyError == null || legacyError.code != ERROR_SESSION_AUTHENTICATION_EXPIRED)) {
       // Mapping this error to the legacy error state provides backwards compatibility for the
       // Automotive OS sign-in.
       Bundle bundle = Bundle.EMPTY;
@@ -396,11 +397,11 @@ import java.util.concurrent.Future;
               EXTRAS_KEY_ERROR_RESOLUTION_ACTION_INTENT_COMPAT)) {
         bundle = result.sessionError.extras;
       }
-      getPlayerWrapper()
-          .setLegacyErrorStatus(
-              ERROR_CODE_AUTHENTICATION_EXPIRED_COMPAT,
-              getContext().getString(R.string.authentication_required),
-              bundle);
+      playerWrapper.setLegacyError(
+          /* isFatal= */ true,
+          ERROR_CODE_AUTHENTICATION_EXPIRED_COMPAT,
+          getContext().getString(R.string.authentication_required),
+          bundle);
       return true;
     }
     return false;

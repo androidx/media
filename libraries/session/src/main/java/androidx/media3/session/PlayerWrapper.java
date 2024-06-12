@@ -50,7 +50,6 @@ import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
-import androidx.media3.common.util.Util;
 import androidx.media3.session.legacy.MediaSessionCompat;
 import androidx.media3.session.legacy.PlaybackStateCompat;
 import androidx.media3.session.legacy.VolumeProviderCompat;
@@ -64,13 +63,28 @@ import java.util.List;
  */
 /* package */ final class PlayerWrapper extends ForwardingPlayer {
 
-  /* package */ static final int STATUS_CODE_SUCCESS_COMPAT = -1;
+  /** Describes a legacy error. */
+  public static final class LegacyError {
+    public final boolean isFatal;
+    @PlaybackStateCompat.ErrorCode public final int code;
+    @Nullable public final String message;
+    public final Bundle extras;
+
+    /** Creates an instance. */
+    private LegacyError(
+        boolean isFatal,
+        @PlaybackStateCompat.ErrorCode int code,
+        @Nullable String message,
+        @Nullable Bundle extras) {
+      this.isFatal = isFatal;
+      this.code = code;
+      this.message = message;
+      this.extras = extras != null ? extras : Bundle.EMPTY;
+    }
+  }
 
   private final boolean playIfSuppressed;
-
-  private int legacyStatusCode;
-  @Nullable private String legacyErrorMessage;
-  @Nullable private Bundle legacyErrorExtras;
+  @Nullable private LegacyError legacyError;
   @Nullable private Bundle legacyExtras;
   private ImmutableList<CommandButton> customLayout;
   private SessionCommands availableSessionCommands;
@@ -89,7 +103,6 @@ import java.util.List;
     this.availableSessionCommands = availableSessionCommands;
     this.availablePlayerCommands = availablePlayerCommands;
     this.legacyExtras = legacyExtras;
-    legacyStatusCode = STATUS_CODE_SUCCESS_COMPAT;
   }
 
   public void setAvailableCommands(
@@ -128,36 +141,37 @@ import java.util.List;
   }
 
   /**
-   * Sets the legacy error code.
+   * Sets the legacy error that will be used when the next {@linkplain #createPlaybackStateCompat()
+   * legacy playback state is created}.
    *
    * <p>This sets the legacy {@link PlaybackStateCompat} to {@link PlaybackStateCompat#STATE_ERROR}
-   * and calls {@link PlaybackStateCompat.Builder#setErrorMessage(int, CharSequence)} and {@link
-   * PlaybackStateCompat.Builder#setExtras(Bundle)} with the given arguments.
+   * if the error is fatal, calls {@link PlaybackStateCompat.Builder#setErrorMessage(int,
+   * CharSequence)} and includes the entries of the extras in the {@link Bundle} set with {@link
+   * PlaybackStateCompat.Builder#setExtras(Bundle)}.
    *
-   * <p>Use {@link #clearLegacyErrorStatus()} to clear the error state and to resume to the actual
-   * playback state reflecting the player.
+   * <p>Use {@link #clearLegacyErrorStatus()} to clear the error.
    *
+   * @param isFatal Whether the legacy error is fatal.
    * @param errorCode The legacy error code.
    * @param errorMessage The legacy error message.
    * @param extras The extras.
    */
-  public void setLegacyErrorStatus(int errorCode, String errorMessage, Bundle extras) {
-    checkState(errorCode != STATUS_CODE_SUCCESS_COMPAT);
-    legacyStatusCode = errorCode;
-    legacyErrorMessage = errorMessage;
-    legacyErrorExtras = extras;
+  public void setLegacyError(boolean isFatal, int errorCode, String errorMessage, Bundle extras) {
+    legacyError = new LegacyError(isFatal, errorCode, errorMessage, extras);
   }
 
-  /** Returns the legacy status code. */
-  public int getLegacyStatusCode() {
-    return legacyStatusCode;
+  /** Returns the legacy error or null if not set. */
+  @Nullable
+  public LegacyError getLegacyError() {
+    return legacyError;
   }
 
-  /** Clears the legacy error status. */
+  /**
+   * Clears the legacy error to resolve the error when {@linkplain #createPlaybackStateCompat()
+   * creating} the next legacy playback state.
+   */
   public void clearLegacyErrorStatus() {
-    legacyStatusCode = STATUS_CODE_SUCCESS_COMPAT;
-    legacyErrorMessage = null;
-    legacyErrorExtras = null;
+    legacyError = null;
   }
 
   @Override
@@ -1016,24 +1030,23 @@ import java.util.List;
   }
 
   public PlaybackStateCompat createPlaybackStateCompat() {
-    if (legacyStatusCode != STATUS_CODE_SUCCESS_COMPAT) {
-      Bundle extras;
+    LegacyError legacyError = this.legacyError;
+    if (legacyError != null && legacyError.isFatal) {
+      Bundle extras = new Bundle(legacyError.extras);
       if (legacyExtras != null) {
-        extras = new Bundle(checkNotNull(legacyErrorExtras));
         extras.putAll(legacyExtras);
-      } else {
-        extras = checkNotNull(legacyErrorExtras);
       }
       return new PlaybackStateCompat.Builder()
           .setState(
               PlaybackStateCompat.STATE_ERROR,
               /* position= */ PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN,
-              /* playbackSpeed= */ 0,
+              /* playbackSpeed= */ .0f,
               /* updateTime= */ SystemClock.elapsedRealtime())
           .setActions(0)
           .setBufferedPosition(0)
-          .setErrorMessage(legacyStatusCode, checkNotNull(legacyErrorMessage))
           .setExtras(extras)
+          .setErrorMessage(legacyError.code, checkNotNull(legacyError.message))
+          .setExtras(legacyError.extras)
           .build();
     }
     @Nullable PlaybackException playerError = getPlayerError();
@@ -1051,7 +1064,10 @@ import java.util.List;
             : MediaSessionCompat.QueueItem.UNKNOWN_ID;
     float playbackSpeed = getPlaybackParameters().speed;
     float sessionPlaybackSpeed = isPlaying() ? playbackSpeed : 0f;
-    Bundle extras = legacyExtras != null ? new Bundle(legacyExtras) : new Bundle();
+    Bundle extras = legacyError != null ? new Bundle(legacyError.extras) : new Bundle();
+    if (legacyExtras != null && !legacyExtras.isEmpty()) {
+      extras.putAll(legacyExtras);
+    }
     extras.putFloat(EXTRAS_KEY_PLAYBACK_SPEED_COMPAT, playbackSpeed);
     @Nullable MediaItem currentMediaItem = getCurrentMediaItemWithCommandCheck();
     if (currentMediaItem != null && !MediaItem.DEFAULT_MEDIA_ID.equals(currentMediaItem.mediaId)) {
@@ -1092,7 +1108,9 @@ import java.util.List;
     }
     if (playerError != null) {
       builder.setErrorMessage(
-          PlaybackStateCompat.ERROR_CODE_UNKNOWN_ERROR, Util.castNonNull(playerError.getMessage()));
+          LegacyConversions.convertToLegacyErrorCode(playerError), playerError.getMessage());
+    } else if (legacyError != null) {
+      builder.setErrorMessage(legacyError.code, legacyError.message);
     }
     return builder.build();
   }

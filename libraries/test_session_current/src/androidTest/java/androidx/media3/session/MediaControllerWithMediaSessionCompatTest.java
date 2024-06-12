@@ -24,7 +24,6 @@ import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_DISPLAY_
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_DURATION;
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_MEDIA_ID;
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_MEDIA_URI;
-import static androidx.media3.common.PlaybackException.ERROR_CODE_REMOTE_ERROR;
 import static androidx.media3.common.Player.MEDIA_ITEM_TRANSITION_REASON_AUTO;
 import static androidx.media3.common.Player.STATE_BUFFERING;
 import static androidx.media3.common.Player.STATE_READY;
@@ -64,7 +63,6 @@ import androidx.media.VolumeProviderCompat;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
-import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
 import androidx.media3.common.Player.DiscontinuityReason;
@@ -1503,39 +1501,6 @@ public class MediaControllerWithMediaSessionCompatTest {
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(playbackParametersFromParamRef.get().speed).isEqualTo(testSpeed);
     assertThat(playbackParametersFromGetterRef.get().speed).isEqualTo(testSpeed);
-  }
-
-  @Test
-  public void setPlaybackState_withError_notifiesOnPlayerErrorChanged() throws Exception {
-    String testErrorMessage = "testErrorMessage";
-    int testErrorCode = PlaybackStateCompat.ERROR_CODE_UNKNOWN_ERROR; // 0
-    String testConvertedErrorMessage = "testErrorMessage, code=0";
-    MediaController controller = controllerTestRule.createController(session.getSessionToken());
-    CountDownLatch latch = new CountDownLatch(1);
-    AtomicReference<PlaybackException> errorFromParamRef = new AtomicReference<>();
-    AtomicReference<PlaybackException> errorFromGetterRef = new AtomicReference<>();
-    Player.Listener listener =
-        new Player.Listener() {
-          @Override
-          public void onPlayerErrorChanged(@Nullable PlaybackException error) {
-            errorFromParamRef.set(error);
-            errorFromGetterRef.set(controller.getPlayerError());
-            latch.countDown();
-          }
-        };
-    controller.addListener(listener);
-
-    session.setPlaybackState(
-        new PlaybackStateCompat.Builder()
-            .setState(PlaybackStateCompat.STATE_ERROR, /* position= */ 0, /* playbackSpeed= */ 1.0f)
-            .setErrorMessage(testErrorCode, testErrorMessage)
-            .build());
-
-    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(errorFromParamRef.get().errorCode).isEqualTo(ERROR_CODE_REMOTE_ERROR);
-    assertThat(errorFromParamRef.get().getMessage()).isEqualTo(testConvertedErrorMessage);
-    assertThat(errorFromGetterRef.get().errorCode).isEqualTo(ERROR_CODE_REMOTE_ERROR);
-    assertThat(errorFromGetterRef.get().getMessage()).isEqualTo(testConvertedErrorMessage);
   }
 
   @Test

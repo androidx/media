@@ -395,13 +395,13 @@ public class MediaBrowserCompatWithMediaLibraryServiceTest
     assertGetChildrenAuthenticationRequired(PARENT_ID_AUTH_EXPIRED_ERROR_DEPRECATED);
   }
 
-  public void assertGetChildrenAuthenticationRequired(String testParentId) throws Exception {
+  public void assertGetChildrenAuthenticationRequired(String authExpiredParentId) throws Exception {
     connectAndWait(/* rootHints= */ Bundle.EMPTY);
     CountDownLatch errorLatch = new CountDownLatch(1);
     AtomicReference<String> parentIdRefOnError = new AtomicReference<>();
 
     browserCompat.subscribe(
-        testParentId,
+        authExpiredParentId,
         new SubscriptionCallback() {
           @Override
           public void onError(String parentId) {
@@ -411,7 +411,7 @@ public class MediaBrowserCompatWithMediaLibraryServiceTest
         });
 
     assertThat(errorLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(parentIdRefOnError.get()).isEqualTo(testParentId);
+    assertThat(parentIdRefOnError.get()).isEqualTo(authExpiredParentId);
     assertThat(firstPlaybackStateCompatReported.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(lastReportedPlaybackStateCompat.getState())
         .isEqualTo(PlaybackStateCompat.STATE_ERROR);

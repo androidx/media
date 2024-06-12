@@ -40,6 +40,7 @@ import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_I
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_AUTH_EXPIRED_ERROR;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_AUTH_EXPIRED_ERROR_DEPRECATED;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_AUTH_EXPIRED_ERROR_KEY_ERROR_RESOLUTION_ACTION_LABEL;
+import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_AUTH_EXPIRED_ERROR_NON_FATAL;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_ERROR;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_LONG_LIST;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_NO_CHILDREN;
@@ -365,13 +366,32 @@ public class MockMediaLibraryService extends MediaLibraryService {
             PARENT_ID_AUTH_EXPIRED_ERROR_KEY_ERROR_RESOLUTION_ACTION_LABEL);
         return Objects.equals(parentId, PARENT_ID_AUTH_EXPIRED_ERROR)
             ? Futures.immediateFuture(
+                // error with SessionError
                 LibraryResult.ofError(
                     new SessionError(ERROR_SESSION_AUTHENTICATION_EXPIRED, "error message", bundle),
                     new LibraryParams.Builder().build()))
             : Futures.immediateFuture(
+                // deprecated error before SessionError was introduced
                 LibraryResult.ofError(
                     ERROR_SESSION_AUTHENTICATION_EXPIRED,
                     new LibraryParams.Builder().setExtras(bundle).build()));
+      } else if (Objects.equals(parentId, PARENT_ID_AUTH_EXPIRED_ERROR_NON_FATAL)) {
+        Bundle bundle = new Bundle();
+        Intent signInIntent = new Intent("action");
+        int flags = Util.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0;
+        bundle.putParcelable(
+            EXTRAS_KEY_ERROR_RESOLUTION_ACTION_INTENT_COMPAT,
+            PendingIntent.getActivity(
+                getApplicationContext(), /* requestCode= */ 0, signInIntent, flags));
+        bundle.putString(
+            EXTRAS_KEY_ERROR_RESOLUTION_ACTION_LABEL_COMPAT,
+            PARENT_ID_AUTH_EXPIRED_ERROR_KEY_ERROR_RESOLUTION_ACTION_LABEL);
+        session.sendError(
+            new SessionError(ERROR_SESSION_AUTHENTICATION_EXPIRED, "error message", bundle));
+        return Futures.immediateFuture(
+            LibraryResult.ofError(
+                new SessionError(ERROR_SESSION_AUTHENTICATION_EXPIRED, "error message"),
+                new LibraryParams.Builder().build()));
       }
       return Futures.immediateFuture(LibraryResult.ofError(ERROR_BAD_VALUE, params));
     }

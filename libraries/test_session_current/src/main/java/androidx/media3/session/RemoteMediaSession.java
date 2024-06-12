@@ -213,11 +213,9 @@ public class RemoteMediaSession {
     binder.setSessionActivity(sessionId, sessionActivity);
   }
 
-  public void sendError(
-      @Nullable String controllerKey, int errorCode, int errorMessageResId, Bundle errorExtras)
+  public void sendError(@Nullable String controllerKey, SessionError sessionError)
       throws RemoteException {
-    binder.sendError(
-        sessionId, nullToEmpty(controllerKey), errorCode, errorMessageResId, errorExtras);
+    binder.sendError(sessionId, nullToEmpty(controllerKey), sessionError.toBundle());
   }
 
   ////////////////////////////////////////////////////////////////////////////////
