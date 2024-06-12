@@ -19,6 +19,7 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.muxer.AnnexBUtils.doesSampleContainAnnexBNalUnits;
+import static androidx.media3.muxer.Boxes.BOX_HEADER_SIZE;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -166,7 +167,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
    * @param newMoovBoxData The new moov box data.
    * @throws IOException If there is any error while writing data to the disk.
    */
-  private void safelyReplaceMoov(long newMoovBoxPosition, ByteBuffer newMoovBoxData)
+  private void safelyReplaceMoovAtEnd(long newMoovBoxPosition, ByteBuffer newMoovBoxData)
       throws IOException {
     checkState(newMoovBoxPosition >= lastMoovWritten.upperEndpoint());
     checkState(newMoovBoxPosition >= mdatEnd);
@@ -181,7 +182,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
     // Increase the length of the mdat box so that it now extends to
     // the previous moov box and the header of the free box.
     mdatEnd = newMoovBoxPosition + 8;
-    updateMdatSize();
+    updateMdatSize(mdatEnd - mdatStart);
 
     lastMoovWritten =
         Range.closed(newMoovBoxPosition, newMoovBoxPosition + newMoovBoxData.remaining());
@@ -210,7 +211,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
     if (mdatEnd - mdatDataEnd < moovAndFreeBytesNeeded) {
       // If the gap is not big enough for the moov box, then extend the mdat box once again. This
       // involves writing moov box farther away one more time.
-      safelyReplaceMoov(lastMoovWritten.upperEndpoint() + moovAndFreeBytesNeeded, currentMoovData);
+      safelyReplaceMoovAtEnd(
+          lastMoovWritten.upperEndpoint() + moovAndFreeBytesNeeded, currentMoovData);
       checkState(mdatEnd - mdatDataEnd >= moovAndFreeBytesNeeded);
     }
 
@@ -240,7 +242,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
     // Now change this to:
     // | ftyp | mdat .. .. .. | new moov | free (00 00 00) (old moov) |
     mdatEnd = newMoovLocation;
-    updateMdatSize();
+    updateMdatSize(mdatEnd - mdatStart);
     lastMoovWritten = Range.closed(newMoovLocation, newMoovLocation + currentMoovData.limit());
 
     // Remove the free box.
@@ -258,7 +260,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
     ByteBuffer currentMoovData = assembleCurrentMoovData();
 
-    safelyReplaceMoov(newMoovStart, currentMoovData);
+    safelyReplaceMoovAtEnd(newMoovStart, currentMoovData);
   }
 
   /** Writes out any pending samples to the file. */
@@ -278,7 +280,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
       bytesNeededInMdat += sample.limit();
     }
 
-    extendMdatIfRequired(bytesNeededInMdat);
+    maybeExtendMdatAndRewriteMoov(bytesNeededInMdat);
 
     track.writtenChunkOffsets.add(mdatDataEnd);
     track.writtenChunkSampleCounts.add(track.pendingSamplesBufferInfo.size());
@@ -300,7 +302,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
       // If the original sample had 3 bytes NAL start code instead of 4 bytes, then after AnnexB to
       // Avcc conversion it will have 1 additional byte.
-      extendMdatIfRequired(currentSampleByteBuffer.remaining());
+      maybeExtendMdatAndRewriteMoov(currentSampleByteBuffer.remaining());
 
       mdatDataEnd += output.write(currentSampleByteBuffer, mdatDataEnd);
       track.writtenSamples.add(currentSampleBufferInfo);
@@ -309,7 +311,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
     checkState(mdatDataEnd <= mdatEnd);
   }
 
-  private void extendMdatIfRequired(long additionalBytesNeeded) throws IOException {
+  private void maybeExtendMdatAndRewriteMoov(long additionalBytesNeeded) throws IOException {
     // If the required number of bytes doesn't fit in the gap between the actual data and the moov
     // box, extend the file and write out the moov box to the end again.
     if (mdatDataEnd + additionalBytesNeeded >= mdatEnd) {
@@ -319,15 +321,17 @@ import java.util.concurrent.atomic.AtomicBoolean;
     }
   }
 
-  private void updateMdatSize() throws IOException {
-    // Assuming that the mdat box has a 64-bit length, skip the box type (4 bytes) and
-    // the 32-bit box length field (4 bytes).
-    output.position(mdatStart + 8);
-
-    ByteBuffer mdatSize = ByteBuffer.allocate(8); // one long
-    mdatSize.putLong(mdatEnd - mdatStart);
-    mdatSize.flip();
-    output.write(mdatSize);
+  private void updateMdatSize(long mdatSize) throws IOException {
+    long currentOutputPosition = output.position();
+    // The mdat box has a 64-bit length, so skip the box type (4 bytes) and the default box length
+    // (4 bytes).
+    output.position(mdatStart + BOX_HEADER_SIZE);
+    ByteBuffer mdatSizeBuffer = ByteBuffer.allocate(8); // One long
+    mdatSizeBuffer.putLong(mdatSize);
+    mdatSizeBuffer.flip();
+    output.write(mdatSizeBuffer);
+    // Restore output position
+    output.position(currentOutputPosition);
   }
 
   private void doInterleave() throws IOException {

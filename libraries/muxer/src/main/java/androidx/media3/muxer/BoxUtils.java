@@ -41,7 +41,7 @@ import java.util.List;
   public static ByteBuffer wrapIntoBox(byte[] boxType, ByteBuffer contents) {
     ByteBuffer box = ByteBuffer.allocate(contents.remaining() + BOX_TYPE_BYTES + BOX_SIZE_BYTES);
     box.putInt(contents.remaining() + BOX_TYPE_BYTES + BOX_SIZE_BYTES);
-    box.put(boxType, 0, BOX_SIZE_BYTES);
+    box.put(boxType, /* offset= */ 0, BOX_TYPE_BYTES);
     box.put(contents);
     box.flip();
     return box;
