@@ -529,8 +529,8 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
     // VideoSink impl
 
     @Override
-    public void onRendererEnabled(boolean releaseFirstFrameBeforeStarted) {
-      videoFrameReleaseControl.onEnabled(releaseFirstFrameBeforeStarted);
+    public void onRendererEnabled(boolean mayRenderStartOfStream) {
+      videoFrameReleaseControl.onEnabled(mayRenderStartOfStream);
     }
 
     @Override
@@ -692,6 +692,11 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
     @Override
     public void clearOutputSurfaceInfo() {
       CompositingVideoSinkProvider.this.clearOutputSurfaceInfo();
+    }
+
+    @Override
+    public void enableMayRenderStartOfStream() {
+      videoFrameReleaseControl.allowReleaseFirstFrameBeforeStarted();
     }
 
     @Override

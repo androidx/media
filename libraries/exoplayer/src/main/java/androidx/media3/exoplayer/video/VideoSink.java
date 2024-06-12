@@ -107,7 +107,7 @@ public interface VideoSink {
   int INPUT_TYPE_BITMAP = 2;
 
   /** Called when the renderer is enabled. */
-  void onRendererEnabled(boolean releaseFirstFrameBeforeStarted);
+  void onRendererEnabled(boolean mayRenderStartOfStream);
 
   /** Called when the renderer is disabled. */
   void onRendererDisabled();
@@ -198,6 +198,15 @@ public interface VideoSink {
 
   /** Clears the set output surface info. */
   void clearOutputSurfaceInfo();
+
+  /**
+   * Enables this video sink to render the start of the stream even if the renderer is not
+   * {@linkplain #onRendererStarted() started} yet.
+   *
+   * <p>This is used to update the value of {@code mayRenderStartOfStream} passed to {@link
+   * #onRendererEnabled(boolean)}.
+   */
+  void enableMayRenderStartOfStream();
 
   /**
    * Informs the video sink that a new input stream will be queued.

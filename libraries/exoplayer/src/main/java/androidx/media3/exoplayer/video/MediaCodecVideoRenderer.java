@@ -704,7 +704,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   @Override
   public void enableMayRenderStartOfStream() {
-    videoFrameReleaseControl.allowReleaseFirstFrameBeforeStarted();
+    if (videoSink != null) {
+      videoSink.enableMayRenderStartOfStream();
+    } else {
+      videoFrameReleaseControl.allowReleaseFirstFrameBeforeStarted();
+    }
   }
 
   @Override
