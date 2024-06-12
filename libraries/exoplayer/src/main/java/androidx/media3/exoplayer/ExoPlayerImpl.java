@@ -1310,6 +1310,7 @@ import java.util.concurrent.TimeoutException;
     return playbackInfo.timeline;
   }
 
+  @SuppressWarnings("ReturnValueIgnored") // Reflection result intentionally ignored.
   @Override
   public void setVideoEffects(List<Effect> videoEffects) {
     verifyApplicationThread();
