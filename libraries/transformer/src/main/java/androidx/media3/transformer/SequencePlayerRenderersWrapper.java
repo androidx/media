@@ -334,7 +334,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       if (!videoSink.isInitialized()) {
         Format format = new Format.Builder().build();
         try {
-          videoSink.initialize(format, getClock());
+          videoSink.initialize(format);
         } catch (VideoSink.VideoSinkException e) {
           throw createRendererException(
               e, format, PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSOR_INIT_FAILED);

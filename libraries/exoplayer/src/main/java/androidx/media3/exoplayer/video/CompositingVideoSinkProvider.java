@@ -121,12 +121,14 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
 
     private VideoFrameProcessor.@MonotonicNonNull Factory videoFrameProcessorFactory;
     private PreviewingVideoGraph.@MonotonicNonNull Factory previewingVideoGraphFactory;
+    private Clock clock;
     private boolean built;
 
     /** Creates a builder. */
     public Builder(Context context, VideoFrameReleaseControl videoFrameReleaseControl) {
       this.context = context.getApplicationContext();
       this.videoFrameReleaseControl = videoFrameReleaseControl;
+      clock = Clock.DEFAULT;
     }
 
     /**
@@ -159,6 +161,20 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
     public Builder setPreviewingVideoGraphFactory(
         PreviewingVideoGraph.Factory previewingVideoGraphFactory) {
       this.previewingVideoGraphFactory = previewingVideoGraphFactory;
+      return this;
+    }
+
+    /**
+     * Sets the {@link Clock} that will be used.
+     *
+     * <p>By default, {@link Clock#DEFAULT} will be used.
+     *
+     * @param clock The {@link Clock}.
+     * @return This builder, for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Builder setClock(Clock clock) {
+      this.clock = clock;
       return this;
     }
 
@@ -202,9 +218,9 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
   private final VideoFrameReleaseControl videoFrameReleaseControl;
   private final VideoFrameRenderControl videoFrameRenderControl;
   private final PreviewingVideoGraph.Factory previewingVideoGraphFactory;
+  private final Clock clock;
   private final CopyOnWriteArraySet<CompositingVideoSinkProvider.Listener> listeners;
 
-  private @MonotonicNonNull Clock clock;
   private @MonotonicNonNull Format outputFormat;
   private @MonotonicNonNull VideoFrameMetadataListener videoFrameMetadataListener;
   private @MonotonicNonNull HandlerWrapper handler;
@@ -223,7 +239,9 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
   private CompositingVideoSinkProvider(Builder builder) {
     context = builder.context;
     videoSinkImpl = new VideoSinkImpl(context);
+    clock = builder.clock;
     videoFrameReleaseControl = builder.videoFrameReleaseControl;
+    videoFrameReleaseControl.setClock(clock);
     videoFrameRenderControl =
         new VideoFrameRenderControl(new FrameRendererImpl(), videoFrameReleaseControl);
     previewingVideoGraphFactory = checkStateNotNull(builder.previewingVideoGraphFactory);
@@ -359,12 +377,8 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
 
   // Internal methods
 
-  private VideoFrameProcessor initialize(Format sourceFormat, Clock clock)
-      throws VideoSink.VideoSinkException {
+  private VideoFrameProcessor initialize(Format sourceFormat) throws VideoSink.VideoSinkException {
     checkState(state == STATE_CREATED);
-
-    this.clock = clock;
-    handler = clock.createHandler(checkStateNotNull(Looper.myLooper()), /* callback= */ null);
 
     ColorInfo inputColorInfo = getAdjustedInputColorInfo(sourceFormat.colorInfo);
     ColorInfo outputColorInfo = inputColorInfo;
@@ -375,6 +389,7 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
       outputColorInfo =
           inputColorInfo.buildUpon().setColorTransfer(C.COLOR_TRANSFER_ST2084).build();
     }
+    handler = clock.createHandler(checkStateNotNull(Looper.myLooper()), /* callback= */ null);
     try {
       videoGraph =
           previewingVideoGraphFactory.create(
@@ -540,9 +555,9 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
     }
 
     @Override
-    public void initialize(Format sourceFormat, Clock clock) throws VideoSinkException {
+    public void initialize(Format sourceFormat) throws VideoSinkException {
       checkState(!isInitialized());
-      videoFrameProcessor = CompositingVideoSinkProvider.this.initialize(sourceFormat, clock);
+      videoFrameProcessor = CompositingVideoSinkProvider.this.initialize(sourceFormat);
     }
 
     @Override
@@ -646,6 +661,9 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
 
     @Override
     public void setVideoEffects(List<Effect> videoEffects) {
+      if (this.videoEffects.equals(videoEffects)) {
+        return;
+      }
       setPendingVideoEffects(videoEffects);
       maybeRegisterInputStream();
     }
@@ -885,7 +903,7 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
         Format format = outputFormat == null ? new Format.Builder().build() : outputFormat;
         videoFrameMetadataListener.onVideoFrameAboutToBeRendered(
             /* presentationTimeUs= */ bufferPresentationTimeUs,
-            checkStateNotNull(clock).nanoTime(),
+            clock.nanoTime(),
             format,
             /* mediaFormat= */ null);
       }

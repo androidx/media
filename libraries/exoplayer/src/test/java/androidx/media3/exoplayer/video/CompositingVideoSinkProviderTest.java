@@ -27,7 +27,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.PreviewingVideoGraph;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoGraph;
-import androidx.media3.common.util.Clock;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.util.List;
@@ -54,11 +53,9 @@ public final class CompositingVideoSinkProviderTest {
   public void initializeSink_calledTwice_throws() throws VideoSink.VideoSinkException {
     CompositingVideoSinkProvider provider = createCompositingVideoSinkProvider();
     VideoSink sink = provider.getSink();
-    sink.initialize(new Format.Builder().build(), Clock.DEFAULT);
+    sink.initialize(new Format.Builder().build());
 
-    assertThrows(
-        IllegalStateException.class,
-        () -> sink.initialize(new Format.Builder().build(), Clock.DEFAULT));
+    assertThrows(IllegalStateException.class, () -> sink.initialize(new Format.Builder().build()));
   }
 
   private static CompositingVideoSinkProvider createCompositingVideoSinkProvider() {

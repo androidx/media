@@ -610,6 +610,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
     CompositingVideoSinkProvider compositingVideoSinkProvider =
         new CompositingVideoSinkProvider.Builder(context, videoFrameReleaseControl)
             .setPreviewingVideoGraphFactory(checkNotNull(previewingVideoGraphFactory))
+            .setClock(clock)
             .build();
     compositingVideoSinkProvider.addListener(this);
     for (int i = 0; i < composition.sequences.size(); i++) {
