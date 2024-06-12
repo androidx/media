@@ -276,11 +276,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         streams[i] = null;
       }
     }
-    // We'll always need to seek if this is a first selection to a non-zero position, or if we're
-    // making a selection having previously disabled all tracks, except for when we have a single
-    // sample.
+    // We'll always need to seek if this is a first selection to a non-zero position (except for
+    // when we have a single sample only), or if we're making a selection having previously
+    // disabled all tracks.
     boolean seekRequired =
-        !isSingleSample && (seenFirstTrackSelection ? oldEnabledTrackCount == 0 : positionUs != 0);
+        seenFirstTrackSelection ? oldEnabledTrackCount == 0 : positionUs != 0 && !isSingleSample;
     // Select new tracks.
     for (int i = 0; i < selections.length; i++) {
       if (streams[i] == null && selections[i] != null) {
@@ -315,6 +315,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         }
         loader.cancelLoading();
       } else {
+        loadingFinished = false;
         for (SampleQueue sampleQueue : sampleQueues) {
           sampleQueue.reset();
         }
@@ -434,8 +435,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return positionUs;
     }
 
-    // If we're not playing a live stream, try and seek within the buffer.
+    // If we're not playing a live stream, and when loading will continue (or has finished), try
+    // and seek within the existing buffer instead of restarting the load.
     if (dataType != C.DATA_TYPE_MEDIA_PROGRESSIVE_LIVE
+        && (loadingFinished || loader.isLoading())
         && seekInsideBufferUs(trackIsAudioVideoFlags, positionUs)) {
       return positionUs;
     }
