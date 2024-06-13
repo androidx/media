@@ -36,7 +36,11 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.graphics.Matrix;
+import android.text.Spannable;
+import android.text.SpannableString;
+import android.text.style.ForegroundColorSpan;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Effect;
@@ -52,6 +56,8 @@ import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.GaussianBlur;
 import androidx.media3.effect.GlTextureProducer;
 import androidx.media3.effect.OverlayEffect;
+import androidx.media3.effect.OverlaySettings;
+import androidx.media3.effect.TextOverlay;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.media3.test.utils.TextureBitmapReader;
 import androidx.media3.test.utils.VideoFrameProcessorTestRunner;
@@ -64,6 +70,7 @@ import org.json.JSONException;
 import org.junit.After;
 import org.junit.AssumptionViolatedException;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
@@ -105,6 +112,11 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
       "test-generated-goldens/hdr-goldens/ultrahdr_overlay_hlg.png";
   private static final String ULTRA_HDR_OVERLAY_PQ_PNG_ASSET_PATH =
       "test-generated-goldens/hdr-goldens/ultrahdr_overlay_pq.png";
+  private static final String ULTRA_HDR_AND_TEXT_OVERLAY_PNG_ASSET_PATH =
+      "test-generated-goldens/hdr-goldens/ultrahdr_and_text_overlay.png";
+
+  private static final String HDR_TEXT_OVERLAY_PNG_ASSET_PATH =
+      "test-generated-goldens/hdr-goldens/text_overlay.png";
 
   /** Input SDR video of which we only use the first frame. */
   private static final String INPUT_SDR_MP4_ASSET_STRING = "media/mp4/sample.mp4";
@@ -114,6 +126,8 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
 
   /** Input HLG video of which we only use the first frame. */
   private static final String INPUT_HLG10_MP4_ASSET_STRING = "media/mp4/hlg-1080p.mp4";
+
+  public static final float HDR_PSNR_THRESHOLD = 43.5f;
 
   @Rule public final TestName testName = new TestName();
 
@@ -252,6 +266,60 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
   }
 
   @Test
+  @Ignore("TODO: b/344529901 - enable this test when fixed.")
+  public void ultraHdrBitmapAndTextOverlay_hlg10Input_matchesGoldenFile() throws Exception {
+    Context context = getApplicationContext();
+    Format format = MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT;
+    assumeDeviceSupportsUltraHdrEditing();
+    assumeDeviceSupportsHdrEditing(testId, format);
+    assumeFormatsSupported(context, testId, /* inputFormat= */ format, /* outputFormat= */ null);
+    ColorInfo colorInfo = checkNotNull(format.colorInfo);
+    Bitmap inputBitmap = readBitmap(ULTRA_HDR_ASSET_PATH);
+    inputBitmap =
+        Bitmap.createScaledBitmap(
+            inputBitmap,
+            inputBitmap.getWidth() / 8,
+            inputBitmap.getHeight() / 8,
+            /* filter= */ true);
+    BitmapOverlay bitmapOverlay = BitmapOverlay.createStaticBitmapOverlay(inputBitmap);
+    SpannableString overlayText = new SpannableString("W R G B");
+    overlayText.setSpan(
+        new ForegroundColorSpan(Color.WHITE),
+        /* start= */ 0,
+        /* end= */ 1,
+        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+    overlayText.setSpan(
+        new ForegroundColorSpan(Color.RED),
+        /* start= */ 2,
+        /* end= */ 3,
+        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+    overlayText.setSpan(
+        new ForegroundColorSpan(Color.GREEN),
+        /* start= */ 4,
+        /* end= */ 5,
+        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+    overlayText.setSpan(
+        new ForegroundColorSpan(Color.BLUE),
+        /* start= */ 6,
+        /* end= */ 7,
+        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+    TextOverlay textOverlay =
+        TextOverlay.createStaticTextOverlay(overlayText, new OverlaySettings.Builder().build());
+    videoFrameProcessorTestRunner =
+        getDefaultFrameProcessorTestRunnerBuilder(testId)
+            .setEffects(new OverlayEffect(ImmutableList.of(bitmapOverlay, textOverlay)))
+            .setOutputColorInfo(colorInfo)
+            .setVideoAssetPath(INPUT_HLG10_MP4_ASSET_STRING)
+            .build();
+    Bitmap expectedBitmap = readBitmap(ULTRA_HDR_AND_TEXT_OVERLAY_PNG_ASSET_PATH);
+
+    videoFrameProcessorTestRunner.processFirstFrameAndEnd();
+    Bitmap actualBitmap = videoFrameProcessorTestRunner.getOutputBitmap();
+
+    assertBitmapsAreSimilar(expectedBitmap, actualBitmap, HDR_PSNR_THRESHOLD);
+  }
+
+  @Test
   public void ultraHdrBitmapOverlay_hlg10Input_matchesGoldenFile() throws Exception {
     Context context = getApplicationContext();
     Format format = MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT;
@@ -331,6 +399,52 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
             expectedBitmap, actualBitmap);
     assertThat(averagePixelAbsoluteDifference)
         .isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_DIFFERENT_DEVICE_FP16);
+  }
+
+  @Test
+  public void textOverlay_hdr10Input_matchesGoldenFile() throws Exception {
+    Context context = getApplicationContext();
+    Format format = MP4_ASSET_720P_4_SECOND_HDR10_FORMAT;
+    assumeDeviceSupportsUltraHdrEditing();
+    assumeDeviceSupportsHdrEditing(testId, format);
+    assumeFormatsSupported(context, testId, /* inputFormat= */ format, /* outputFormat= */ null);
+    ColorInfo colorInfo = checkNotNull(format.colorInfo);
+    SpannableString overlayText = new SpannableString("W R G B");
+    overlayText.setSpan(
+        new ForegroundColorSpan(Color.WHITE),
+        /* start= */ 0,
+        /* end= */ 1,
+        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+    overlayText.setSpan(
+        new ForegroundColorSpan(Color.RED),
+        /* start= */ 2,
+        /* end= */ 3,
+        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+    overlayText.setSpan(
+        new ForegroundColorSpan(Color.GREEN),
+        /* start= */ 4,
+        /* end= */ 5,
+        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+    overlayText.setSpan(
+        new ForegroundColorSpan(Color.BLUE),
+        /* start= */ 6,
+        /* end= */ 7,
+        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+    TextOverlay textOverlay =
+        TextOverlay.createStaticTextOverlay(
+            overlayText, new OverlaySettings.Builder().setHdrLuminanceMultiplier(3f).build());
+    videoFrameProcessorTestRunner =
+        getDefaultFrameProcessorTestRunnerBuilder(testId)
+            .setEffects(new OverlayEffect(ImmutableList.of(textOverlay)))
+            .setOutputColorInfo(colorInfo)
+            .setVideoAssetPath(INPUT_PQ_MP4_ASSET_STRING)
+            .build();
+    Bitmap expectedBitmap = readBitmap(HDR_TEXT_OVERLAY_PNG_ASSET_PATH);
+
+    videoFrameProcessorTestRunner.processFirstFrameAndEnd();
+    Bitmap actualBitmap = videoFrameProcessorTestRunner.getOutputBitmap();
+
+    assertBitmapsAreSimilar(expectedBitmap, actualBitmap, HDR_PSNR_THRESHOLD);
   }
 
   @Test

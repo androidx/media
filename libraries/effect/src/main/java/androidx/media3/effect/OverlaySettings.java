@@ -36,6 +36,7 @@ public final class OverlaySettings {
     private Pair<Float, Float> overlayFrameAnchor;
     private Pair<Float, Float> scale;
     private float rotationDegrees;
+    private float hdrLuminanceMultiplier;
 
     /** Creates a new {@link Builder}. */
     public Builder() {
@@ -44,6 +45,7 @@ public final class OverlaySettings {
       overlayFrameAnchor = Pair.create(0f, 0f);
       scale = Pair.create(1f, 1f);
       rotationDegrees = 0f;
+      hdrLuminanceMultiplier = 1f;
     }
 
     private Builder(OverlaySettings overlaySettings) {
@@ -140,10 +142,31 @@ public final class OverlaySettings {
       return this;
     }
 
+    /**
+     * Set the luminance multiplier of an SDR overlay when overlaid on a HDR frame.
+     *
+     * <p>Scales the luminance of the overlay to adjust the output brightness of the overlay on the
+     * frame. The default value is 1, which scales the overlay colors into the standard HDR
+     * luminance within the processing pipeline. Use 0.5 to scale the luminance of the overlay to
+     * SDR range, so that no extra luminance is added.
+     *
+     * <p>Currently only supported on text overlays
+     */
+    @CanIgnoreReturnValue
+    public Builder setHdrLuminanceMultiplier(float hdrLuminanceMultiplier) {
+      this.hdrLuminanceMultiplier = hdrLuminanceMultiplier;
+      return this;
+    }
+
     /** Creates an instance of {@link OverlaySettings}, using defaults if values are unset. */
     public OverlaySettings build() {
       return new OverlaySettings(
-          alphaScale, backgroundFrameAnchor, overlayFrameAnchor, scale, rotationDegrees);
+          alphaScale,
+          backgroundFrameAnchor,
+          overlayFrameAnchor,
+          scale,
+          rotationDegrees,
+          hdrLuminanceMultiplier);
     }
   }
 
@@ -162,17 +185,22 @@ public final class OverlaySettings {
   /** The rotation of the overlay, counter-clockwise. */
   public final float rotationDegrees;
 
+  /** The luminance multiplier of an SDR overlay when overlaid on a HDR frame. */
+  public final float hdrLuminanceMultiplier;
+
   private OverlaySettings(
       float alphaScale,
       Pair<Float, Float> backgroundFrameAnchor,
       Pair<Float, Float> overlayFrameAnchor,
       Pair<Float, Float> scale,
-      float rotationDegrees) {
+      float rotationDegrees,
+      float hdrLuminanceMultiplier) {
     this.alphaScale = alphaScale;
     this.backgroundFrameAnchor = backgroundFrameAnchor;
     this.overlayFrameAnchor = overlayFrameAnchor;
     this.scale = scale;
     this.rotationDegrees = rotationDegrees;
+    this.hdrLuminanceMultiplier = hdrLuminanceMultiplier;
   }
 
   /** Returns a new {@link Builder} initialized with the values of this instance. */

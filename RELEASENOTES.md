@@ -25,6 +25,8 @@
 *   Effect:
     *   Remove unused `OverlaySettings.useHdr` since dynamic range of overlay
         and frame must match.
+    *   Add HDR support for `TextOverlay`. Luminance of the text overlay can be
+        adjusted with `OverlaySettings.setHdrLuminanceMultiplier`.
 *   Muxers:
 *   IMA extension:
 *   Session:
