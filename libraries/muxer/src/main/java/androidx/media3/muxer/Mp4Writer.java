@@ -322,7 +322,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
   }
 
   private void updateMdatSize(long mdatSize) throws IOException {
-    long currentOutputPosition = output.position();
     // The mdat box has a 64-bit length, so skip the box type (4 bytes) and the default box length
     // (4 bytes).
     output.position(mdatStart + BOX_HEADER_SIZE);
@@ -330,8 +329,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
     mdatSizeBuffer.putLong(mdatSize);
     mdatSizeBuffer.flip();
     output.write(mdatSizeBuffer);
-    // Restore output position
-    output.position(currentOutputPosition);
   }
 
   private void doInterleave() throws IOException {
