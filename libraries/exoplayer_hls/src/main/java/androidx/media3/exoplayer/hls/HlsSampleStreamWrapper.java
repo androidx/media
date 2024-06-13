@@ -565,6 +565,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         sampleQueue.preRelease();
       }
     }
+    chunkSource.reset();
     loader.release(this);
     handler.removeCallbacksAndMessages(null);
     released = true;

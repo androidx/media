@@ -55,6 +55,8 @@
 *   Cronet Extension:
 *   RTMP Extension:
 *   HLS Extension:
+    *   Fix a bug where non-primary playing playlists are not refreshed during
+        live playback ([#1240](https://github.com/androidx/media/issues/1240)).
 *   Smooth Streaming Extension:
 *   RTSP Extension:
 *   Decoder Extensions (FFmpeg, VP9, AV1, etc.):

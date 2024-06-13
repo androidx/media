@@ -50,6 +50,8 @@ public class DefaultHlsPlaylistTrackerTest {
       "media/m3u8/live_low_latency_multivariant";
   private static final String SAMPLE_M3U8_LIVE_MULTIVARIANT_MEDIA_URI_WITH_PARAM =
       "media/m3u8/live_low_latency_multivariant_media_uri_with_param";
+  private static final String SAMPLE_M3U8_LIVE_MULTIVARIANT_WITH_AUDIO_RENDITIONS =
+      "media/m3u8/live_low_latency_multivariant_with_audio_renditions";
   private static final String SAMPLE_M3U8_LIVE_MEDIA_CAN_SKIP_UNTIL =
       "media/m3u8/live_low_latency_media_can_skip_until";
   private static final String SAMPLE_M3U8_LIVE_MEDIA_CAN_SKIP_UNTIL_FULL_RELOAD_AFTER_ERROR =
@@ -76,11 +78,20 @@ public class DefaultHlsPlaylistTrackerTest {
   private static final String SAMPLE_M3U8_LIVE_MEDIA_CAN_BLOCK_RELOAD_LOW_LATENCY_FULL_SEGMENT =
       "media/m3u8/live_low_latency_media_can_block_reload_low_latency_full_segment";
   private static final String
+      SAMPLE_M3U8_LIVE_MEDIA_CAN_BLOCK_RELOAD_LOW_LATENCY_FULL_SEGMENT_AUDIO =
+          "media/m3u8/live_low_latency_media_can_block_reload_low_latency_full_segment_audio";
+  private static final String
       SAMPLE_M3U8_LIVE_MEDIA_CAN_BLOCK_RELOAD_LOW_LATENCY_FULL_SEGMENT_NEXT =
           "media/m3u8/live_low_latency_media_can_block_reload_low_latency_full_segment_next";
   private static final String
       SAMPLE_M3U8_LIVE_MEDIA_CAN_BLOCK_RELOAD_LOW_LATENCY_FULL_SEGMENT_NEXT2 =
           "media/m3u8/live_low_latency_media_can_block_reload_low_latency_full_segment_next2";
+  private static final String
+      SAMPLE_M3U8_LIVE_MEDIA_CAN_BLOCK_RELOAD_LOW_LATENCY_FULL_SEGMENT_AUDIO_NEXT =
+          "media/m3u8/live_low_latency_media_can_block_reload_low_latency_full_segment_audio_next";
+  private static final String
+      SAMPLE_M3U8_LIVE_MEDIA_CAN_BLOCK_RELOAD_LOW_LATENCY_FULL_SEGMENT_AUDIO_NEXT2 =
+          "media/m3u8/live_low_latency_media_can_block_reload_low_latency_full_segment_audio_next2";
   private static final String
       SAMPLE_M3U8_LIVE_MEDIA_CAN_BLOCK_RELOAD_LOW_LATENCY_FULL_SEGMENT_PRELOAD =
           "media/m3u8/live_low_latency_media_can_block_reload_low_latency_full_segment_preload";
@@ -371,7 +382,87 @@ public class DefaultHlsPlaylistTrackerTest {
   }
 
   @Test
-  public void start_lowLatencyNotScheduleReloadForNonPrimaryPlaylist() throws Exception {
+  public void start_lowLatencyScheduleReloadForPlayingButNonPrimaryPlaylist() throws Exception {
+    List<HttpUrl> httpUrls =
+        enqueueWebServerResponses(
+            new String[] {
+              "/multivariant.m3u8",
+              "/media0/playlist.m3u8",
+              "/english/audio-playlist.m3u8",
+              "/english/audio-playlist.m3u8?_HLS_msn=14&_HLS_part=0",
+              "/english/audio-playlist.m3u8?_HLS_msn=14&_HLS_part=1",
+            },
+            getMockResponse(SAMPLE_M3U8_LIVE_MULTIVARIANT_WITH_AUDIO_RENDITIONS),
+            getMockResponse(SAMPLE_M3U8_LIVE_MEDIA_CAN_BLOCK_RELOAD_LOW_LATENCY_FULL_SEGMENT),
+            getMockResponse(SAMPLE_M3U8_LIVE_MEDIA_CAN_BLOCK_RELOAD_LOW_LATENCY_FULL_SEGMENT_AUDIO),
+            getMockResponse(
+                SAMPLE_M3U8_LIVE_MEDIA_CAN_BLOCK_RELOAD_LOW_LATENCY_FULL_SEGMENT_AUDIO_NEXT),
+            getMockResponse(
+                SAMPLE_M3U8_LIVE_MEDIA_CAN_BLOCK_RELOAD_LOW_LATENCY_FULL_SEGMENT_AUDIO_NEXT2));
+
+    DefaultHlsPlaylistTracker defaultHlsPlaylistTracker =
+        new DefaultHlsPlaylistTracker(
+            dataType -> new DefaultHttpDataSource.Factory().createDataSource(),
+            new DefaultLoadErrorHandlingPolicy(),
+            new DefaultHlsPlaylistParserFactory());
+    AtomicInteger playlistChangedCounter = new AtomicInteger();
+    AtomicReference<TimeoutException> audioPlaylistRefreshExceptionRef = new AtomicReference<>();
+    defaultHlsPlaylistTracker.addListener(
+        new HlsPlaylistTracker.PlaylistEventListener() {
+          @Override
+          public void onPlaylistChanged() {
+            playlistChangedCounter.addAndGet(1);
+            // Upon the first call of onPlaylistChanged(), we simulate the situation that the first
+            // audio rendition is chosen for playback.
+            Uri url = defaultHlsPlaylistTracker.getMultivariantPlaylist().audios.get(0).url;
+            if (!defaultHlsPlaylistTracker.isSnapshotValid(url)) {
+              defaultHlsPlaylistTracker.refreshPlaylist(url);
+              try {
+                // Make sure that the audio playlist has been refreshed and we've got a playlist
+                // snapshot of it.
+                RobolectricUtil.runMainLooperUntil(
+                    () -> defaultHlsPlaylistTracker.isSnapshotValid(url));
+              } catch (TimeoutException e) {
+                audioPlaylistRefreshExceptionRef.set(e);
+              }
+              // Simulate the operations in HlsChunkSource where we keep loading and get a playlist
+              // snapshot of the given url when there is a valid snapshot available.
+              defaultHlsPlaylistTracker.getPlaylistSnapshot(url, /* isForPlayback= */ true);
+              // We have to force the expected audio playlists to load in the first call of
+              // onPlaylistChanged(), as once this method returned for "/media0/playlist.m3u8", the
+              // DefaultHlsPlaylistTracker will continue reloading the primary playlist, and it's
+              // hard to make the order of loading primary and audio playlists deterministic. Thus,
+              // we will verify if audio playlists are reloaded as expected first, and ignore the
+              // reloading of primary playlists, whose behaviour was already verified in the other
+              // tests.
+              try {
+                RobolectricUtil.runMainLooperUntil(() -> playlistChangedCounter.get() >= 4);
+              } catch (TimeoutException e) {
+                audioPlaylistRefreshExceptionRef.set(e);
+              }
+            }
+          }
+
+          @Override
+          public boolean onPlaylistError(
+              Uri url, LoadErrorHandlingPolicy.LoadErrorInfo loadErrorInfo, boolean forceRetry) {
+            return false;
+          }
+        });
+
+    defaultHlsPlaylistTracker.start(
+        Uri.parse(mockWebServer.url("/multivariant.m3u8").toString()),
+        new MediaSourceEventListener.EventDispatcher(),
+        mediaPlaylist -> {});
+    RobolectricUtil.runMainLooperUntil(() -> playlistChangedCounter.get() >= 4);
+    defaultHlsPlaylistTracker.stop();
+
+    assertThat(audioPlaylistRefreshExceptionRef.get()).isNull();
+    assertRequestUrlsCalled(httpUrls);
+  }
+
+  @Test
+  public void start_lowLatencyNotScheduleReloadForNonPlayingPlaylist() throws Exception {
     List<HttpUrl> httpUrls =
         enqueueWebServerResponses(
             new String[] {

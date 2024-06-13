@@ -253,6 +253,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param trackSelection The {@link ExoTrackSelection}.
    */
   public void setTrackSelection(ExoTrackSelection trackSelection) {
+    // Deactivate the selected playlist from the old track selection for playback.
+    deactivatePlaylistForSelectedTrack();
     this.trackSelection = trackSelection;
   }
 
@@ -263,6 +265,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   /** Resets the source. */
   public void reset() {
+    deactivatePlaylistForSelectedTrack();
     fatalError = null;
   }
 
@@ -461,6 +464,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               loadPositionUs);
       chunkMediaSequence = nextMediaSequenceAndPartIndexWithoutAdapting.first;
       partIndex = nextMediaSequenceAndPartIndexWithoutAdapting.second;
+    }
+
+    // If the selected track index changes from another one, we should deactivate the old playlist
+    // for playback.
+    if (selectedTrackIndex != oldTrackIndex && oldTrackIndex != C.INDEX_UNSET) {
+      Uri oldPlaylistUrl = playlistUrls[oldTrackIndex];
+      playlistTracker.deactivatePlaylistForPlayback(oldPlaylistUrl);
     }
 
     if (chunkMediaSequence < playlist.mediaSequence) {
@@ -942,6 +952,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return null;
     }
     return UriUtil.resolveToUri(playlist.baseUri, segmentBase.fullSegmentEncryptionKeyUri);
+  }
+
+  private void deactivatePlaylistForSelectedTrack() {
+    int selectedTrackIndex = this.trackSelection.getSelectedIndexInTrackGroup();
+    playlistTracker.deactivatePlaylistForPlayback(playlistUrls[selectedTrackIndex]);
   }
 
   // Package classes.
