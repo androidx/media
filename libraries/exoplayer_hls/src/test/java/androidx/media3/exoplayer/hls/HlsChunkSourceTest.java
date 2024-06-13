@@ -58,6 +58,10 @@ public class HlsChunkSourceTest {
   private static final String PLAYLIST = "media/m3u8/media_playlist";
   private static final String PLAYLIST_INDEPENDENT_SEGMENTS =
       "media/m3u8/media_playlist_independent_segments";
+  private static final String PLAYLIST_LIVE_LOW_LATENCY_SEGEMENTS_ONLY =
+      "media/m3u8/live_low_latency_segments_only";
+  private static final String PLAYLIST_LIVE_LOW_LATENCY_SEGEMENTS_AND_PARTS =
+      "media/m3u8/live_low_latency_segments_and_parts";
   private static final String PLAYLIST_EMPTY = "media/m3u8/media_playlist_empty";
   private static final Uri PLAYLIST_URI = Uri.parse("http://example.com/");
   private static final long PLAYLIST_START_PERIOD_OFFSET_US = 8_000_000L;
@@ -303,6 +307,96 @@ public class HlsChunkSourceTest {
         output);
 
     assertThat(output.chunk.dataSpec.httpRequestHeaders).doesNotContainKey("CMCD-Status");
+  }
+
+  @Test
+  public void getNextChunk_forLivePlaylistWithSegmentsOnly_setsCorrectNextObjectRequest()
+      throws IOException {
+    // The live playlist contains 6 segments, each 4 seconds long. With a playlist start offset of 8
+    // seconds, the total media time is 8 + 6*4 = 32 seconds.
+    InputStream inputStream =
+        TestUtil.getInputStream(
+            ApplicationProvider.getApplicationContext(), PLAYLIST_LIVE_LOW_LATENCY_SEGEMENTS_ONLY);
+    HlsMediaPlaylist playlist =
+        (HlsMediaPlaylist) new HlsPlaylistParser().parse(PLAYLIST_URI, inputStream);
+    when(mockPlaylistTracker.getPlaylistSnapshot(eq(PLAYLIST_URI), anyBoolean()))
+        .thenReturn(playlist);
+    CmcdConfiguration.Factory cmcdConfigurationFactory = CmcdConfiguration.Factory.DEFAULT;
+    MediaItem mediaItem = new MediaItem.Builder().setMediaId("mediaId").build();
+    CmcdConfiguration cmcdConfiguration =
+        cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
+    HlsChunkSource testChunkSource = createHlsChunkSource(cmcdConfiguration);
+    HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
+
+    // A request to fetch the chunk at 27 seconds should retrieve the second-to-last segment.
+    testChunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(27_000_000).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 27_000_000,
+        /* queue= */ ImmutableList.of(),
+        /* allowEndOfStream= */ true,
+        output);
+
+    // The `nor` key should point to the last segment, which is `FileSequence15.ts`.
+    assertThat(output.chunk.dataSpec.httpRequestHeaders)
+        .containsEntry("CMCD-Request", "bl=0,dl=0,nor=\"..%2FfileSequence15.ts\",nrr=\"0-\",su");
+
+    // A request to fetch the chunk at 31 seconds should retrieve the last segment.
+    testChunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(31_000_000).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 31_000_000,
+        /* queue= */ ImmutableList.of(),
+        /* allowEndOfStream= */ true,
+        output);
+
+    // Since there are no next segments left, the `nor` key should be absent.
+    assertThat(output.chunk.dataSpec.httpRequestHeaders)
+        .containsEntry("CMCD-Request", "bl=0,dl=0,su");
+  }
+
+  @Test
+  public void getNextChunk_forLivePlaylistWithSegmentsAndParts_setsCorrectNextObjectRequest()
+      throws IOException {
+    // The live playlist contains 6 segments, each 4 seconds long, and two trailing parts of 1
+    // second each. With a playlist start offset of 8 seconds, the total media time is 8 + 6*4 + 2*1
+    // = 34 seconds.
+    InputStream inputStream =
+        TestUtil.getInputStream(
+            ApplicationProvider.getApplicationContext(),
+            PLAYLIST_LIVE_LOW_LATENCY_SEGEMENTS_AND_PARTS);
+    HlsMediaPlaylist playlist =
+        (HlsMediaPlaylist) new HlsPlaylistParser().parse(PLAYLIST_URI, inputStream);
+    when(mockPlaylistTracker.getPlaylistSnapshot(eq(PLAYLIST_URI), anyBoolean()))
+        .thenReturn(playlist);
+    CmcdConfiguration.Factory cmcdConfigurationFactory = CmcdConfiguration.Factory.DEFAULT;
+    MediaItem mediaItem = new MediaItem.Builder().setMediaId("mediaId").build();
+    CmcdConfiguration cmcdConfiguration =
+        cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
+    HlsChunkSource testChunkSource = createHlsChunkSource(cmcdConfiguration);
+    HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
+
+    // A request to fetch the chunk at 31 seconds should retrieve the last segment.
+    testChunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(31_000_000).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 31_000_000,
+        /* queue= */ ImmutableList.of(),
+        /* allowEndOfStream= */ true,
+        output);
+
+    // The `nor` key should point to the first trailing part, which is `FileSequence16.0.ts`.
+    assertThat(output.chunk.dataSpec.httpRequestHeaders)
+        .containsEntry("CMCD-Request", "bl=0,dl=0,nor=\"..%2FfileSequence16.0.ts\",nrr=\"0-\",su");
+
+    // A request to fetch the chunk at 34 seconds should retrieve the first trailing part.
+    testChunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(34_000_000).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 34_000_000,
+        /* queue= */ ImmutableList.of(),
+        /* allowEndOfStream= */ true,
+        output);
+
+    // The `nor` key should point to the second trailing part, which is `FileSequence16.1.ts`.
+    assertThat(output.chunk.dataSpec.httpRequestHeaders)
+        .containsEntry("CMCD-Request", "bl=0,dl=0,nor=\"..%2FfileSequence16.1.ts\",nrr=\"0-\",su");
   }
 
   @Test

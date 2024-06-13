@@ -521,13 +521,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                       ? CmcdData.Factory.OBJECT_TYPE_MUXED_AUDIO_AND_VIDEO
                       : CmcdData.Factory.getObjectType(trackSelection));
 
-      long nextChunkMediaSequence =
-          partIndex == C.INDEX_UNSET
-              ? (chunkMediaSequence == C.INDEX_UNSET ? C.INDEX_UNSET : chunkMediaSequence + 1)
-              : chunkMediaSequence;
-      int nextPartIndex = partIndex == C.INDEX_UNSET ? C.INDEX_UNSET : partIndex + 1;
+      long nextMediaSequence =
+          segmentBaseHolder.partIndex == C.INDEX_UNSET
+              ? segmentBaseHolder.mediaSequence + 1
+              : segmentBaseHolder.mediaSequence;
+      int nextPartIndex =
+          segmentBaseHolder.partIndex == C.INDEX_UNSET
+              ? C.INDEX_UNSET
+              : segmentBaseHolder.partIndex + 1;
       SegmentBaseHolder nextSegmentBaseHolder =
-          getNextSegmentHolder(playlist, nextChunkMediaSequence, nextPartIndex);
+          getNextSegmentHolder(playlist, nextMediaSequence, nextPartIndex);
       if (nextSegmentBaseHolder != null) {
         Uri uri = UriUtil.resolveToUri(playlist.baseUri, segmentBaseHolder.segmentBase.url);
         Uri nextUri = UriUtil.resolveToUri(playlist.baseUri, nextSegmentBaseHolder.segmentBase.url);

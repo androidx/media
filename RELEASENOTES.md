@@ -133,6 +133,9 @@ This release includes the following changes since the
         schedule its work loop as renderers can make progress.
     *   Use data class for `LoadControl` methods instead of individual
         parameters.
+    *   Fix bug where enabling CMCD for HLS live streams causes
+        `ArrayIndexOutOfBoundsException`
+        ([#1395](https://github.com/androidx/media/issues/1395)).
 *   Transformer:
     *   Work around a decoder bug where the number of audio channels was capped
         at stereo when handling PCM input.
