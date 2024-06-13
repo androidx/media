@@ -924,6 +924,10 @@ public final class AndroidTestUtil {
         return MP4_REMOTE_3840W_2160H_30_SECOND_ROOF_REDMINOTE9_FORMAT;
       case MP4_REMOTE_7680W_4320H_31_SECOND_ROOF_SAMSUNGS20ULTRA5G:
         return MP4_REMOTE_7680W_4320H_31_SECOND_ROOF_SAMSUNGS20ULTRA5G_FORMAT;
+      case BT601_MP4_ASSET_URI_STRING:
+        return BT601_MP4_ASSET_FORMAT;
+      case BT601_MOV_ASSET_URI_STRING:
+        return BT601_MOV_ASSET_FORMAT;
       default:
         throw new IllegalArgumentException("The format for the given uri is not found.");
     }

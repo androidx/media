@@ -100,6 +100,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.io.File;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.Before;
@@ -414,6 +415,61 @@ public class TransformerEndToEndTest {
             .run(testId, editedMediaItem);
 
     assertThat(result.exportResult.videoFrameCount).isEqualTo(expectedFrameCount);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+  }
+
+  // TODO: b/345483531 - Migrate this test to a Parameterized ImageSequence test.
+  @Test
+  public void videoEditing_withShortAlternatingImages_completesWithCorrectFrameCountAndDuration()
+      throws Exception {
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(
+                new DefaultEncoderFactory.Builder(context).setEnableFallback(false).build())
+            .build();
+
+    EditedMediaItem image1 =
+        new EditedMediaItem.Builder(MediaItem.fromUri(PNG_ASSET_URI_STRING))
+            .setDurationUs(100_000)
+            .setFrameRate(30)
+            .build();
+    int image1FrameCount = 3;
+    EditedMediaItem image2 =
+        new EditedMediaItem.Builder(MediaItem.fromUri(JPG_ASSET_URI_STRING))
+            .setDurationUs(200_000)
+            .setFrameRate(30)
+            .build();
+    int image2FrameCount = 6;
+
+    ArrayList<EditedMediaItem> editedMediaItems = new ArrayList<>(100);
+    for (int i = 0; i < 50; i++) {
+      editedMediaItems.add(image1);
+      editedMediaItems.add(image2);
+    }
+
+    Composition composition =
+        new Composition.Builder(new EditedMediaItemSequence(editedMediaItems))
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    ImmutableList.of(
+                        // To ensure that software encoders can encode.
+                        Presentation.createForWidthAndHeight(
+                            /* width= */ 480,
+                            /* height= */ 360,
+                            Presentation.LAYOUT_SCALE_TO_FIT))))
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, composition);
+
+    // TODO: b/346289922 - Check frame count with extractors.
+    assertThat(result.exportResult.videoFrameCount)
+        .isEqualTo(50 * image1FrameCount + 50 * image2FrameCount);
+    // 50 100ms-images and 50 200ms-images
+    assertThat(result.exportResult.durationMs).isEqualTo(14_966);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
