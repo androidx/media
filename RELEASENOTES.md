@@ -13,6 +13,7 @@
         `ExportException.codecInfo`.
 *   Track Selection:
 *   Extractors:
+    *   Fix PCM audio format extraction in AVI containers.
 *   Audio:
 *   Video:
 *   Text:
