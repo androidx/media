@@ -102,6 +102,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private int outputHeight;
   @Nullable private DefaultShaderProgram defaultShaderProgram;
   @Nullable private SurfaceViewWrapper debugSurfaceViewWrapper;
+  // Whether the input stream has ended, but not all input has been released. This is relevant only
+  // when renderFramesAutomatically is false. Ensures all frames are rendered before reporting
+  // onInputStreamProcessed.
+  // TODO: b/320481157 - Apply isInputStreamEnded to texture output as well.
+  private boolean isInputStreamEndedWithPendingAvailableFrames;
   private InputListener inputListener;
   private @MonotonicNonNull Size outputSizeBeforeSurfaceTransformation;
   @Nullable private SurfaceView debugSurfaceView;
@@ -183,7 +188,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public void signalEndOfCurrentInputStream() {
-    checkNotNull(onInputStreamProcessedListener).onInputStreamProcessed();
+    if (availableFrames.isEmpty()) {
+      checkNotNull(onInputStreamProcessedListener).onInputStreamProcessed();
+      isInputStreamEndedWithPendingAvailableFrames = false;
+    } else {
+      checkState(!renderFramesAutomatically);
+      isInputStreamEndedWithPendingAvailableFrames = true;
+    }
   }
 
   // Methods that must be called on the GL thread.
@@ -266,6 +277,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     // Drops all frames that aren't rendered yet.
     availableFrames.clear();
+    isInputStreamEndedWithPendingAvailableFrames = false;
     if (defaultShaderProgram != null) {
       defaultShaderProgram.flush();
     }
@@ -308,6 +320,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         /* inputTexture= */ oldestAvailableFrame.first,
         /* presentationTimeUs= */ oldestAvailableFrame.second,
         renderTimeNs);
+    if (availableFrames.isEmpty() && isInputStreamEndedWithPendingAvailableFrames) {
+      checkNotNull(onInputStreamProcessedListener).onInputStreamProcessed();
+      isInputStreamEndedWithPendingAvailableFrames = false;
+    }
   }
 
   /** See {@link DefaultVideoFrameProcessor#setOutputSurfaceInfo} */

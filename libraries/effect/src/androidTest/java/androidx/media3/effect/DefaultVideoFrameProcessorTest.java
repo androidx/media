@@ -16,17 +16,23 @@
 package androidx.media3.effect;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmapUnpremultipliedAlpha;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import android.graphics.Bitmap;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
 import androidx.media3.common.FrameInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
+import androidx.media3.common.util.ConditionVariable;
+import androidx.media3.common.util.ConstantRateTimestampIterator;
+import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.Util;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -35,8 +41,10 @@ import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -46,12 +54,22 @@ import org.junit.runner.RunWith;
 public class DefaultVideoFrameProcessorTest {
 
   private static final long INPUT_REGISTRATION_TIMEOUT_MS = 1_000L;
+  private static final String ORIGINAL_PNG_ASSET_PATH = "media/png/media3test_srgb.png";
+  private static final long TEST_TIMEOUT_MS = 10_000L;
 
   private DefaultVideoFrameProcessor.@MonotonicNonNull Factory factory;
+  private @MonotonicNonNull DefaultVideoFrameProcessor defaultVideoFrameProcessor;
 
   @Before
   public void setUp() {
     factory = new DefaultVideoFrameProcessor.Factory.Builder().build();
+  }
+
+  @After
+  public void tearDown() {
+    if (defaultVideoFrameProcessor != null) {
+      defaultVideoFrameProcessor.release();
+    }
   }
 
   @Test
@@ -59,7 +77,7 @@ public class DefaultVideoFrameProcessorTest {
       throws Exception {
     AtomicReference<Exception> videoFrameProcessingException = new AtomicReference<>();
     CountDownLatch inputStreamRegisteredCountDownLatch = new CountDownLatch(1);
-    DefaultVideoFrameProcessor defaultVideoFrameProcessor =
+    defaultVideoFrameProcessor =
         createDefaultVideoFrameProcessor(
             new VideoFrameProcessor.Listener() {
               @Override
@@ -119,7 +137,7 @@ public class DefaultVideoFrameProcessorTest {
     AtomicReference<Exception> videoFrameProcessingException = new AtomicReference<>();
     CountDownLatch countDownLatch = new CountDownLatch(3);
     Queue<InputStreamInfo> registeredInputStreamInfoWidths = new ConcurrentLinkedQueue<>();
-    DefaultVideoFrameProcessor defaultVideoFrameProcessor =
+    defaultVideoFrameProcessor =
         createDefaultVideoFrameProcessor(
             new VideoFrameProcessor.Listener() {
               @Override
@@ -175,6 +193,99 @@ public class DefaultVideoFrameProcessorTest {
     assertThat(registeredInputStreamInfoWidths)
         .containsExactly(stream1, stream2, stream3)
         .inOrder();
+  }
+
+  @Test
+  public void
+      registerInputStream_withManualFrameRendering_configuresTheSecondStreamAfterRenderingAllFramesFromTheFirst()
+          throws Exception {
+    AtomicReference<Exception> videoFrameProcessingException = new AtomicReference<>();
+    AtomicLong firstStreamLastFrameAvailableTimeMs = new AtomicLong();
+    AtomicLong secondStreamConfigurationTimeMs = new AtomicLong();
+    ConditionVariable inputStreamRegisteredCondition = new ConditionVariable();
+    CountDownLatch frameProcessorEnded = new CountDownLatch(1);
+    defaultVideoFrameProcessor =
+        factory.create(
+            getApplicationContext(),
+            DebugViewProvider.NONE,
+            /* outputColorInfo= */ ColorInfo.SDR_BT709_LIMITED,
+            /* renderFramesAutomatically= */ false,
+            Util.newSingleThreadExecutor("DVFPTest"),
+            new VideoFrameProcessor.Listener() {
+
+              int outputFrameCount = 0;
+
+              @Override
+              public void onInputStreamRegistered(
+                  @VideoFrameProcessor.InputType int inputType,
+                  List<Effect> effects,
+                  FrameInfo frameInfo) {
+                inputStreamRegisteredCondition.open();
+              }
+
+              @Override
+              public void onOutputSizeChanged(int width, int height) {}
+
+              @Override
+              public void onOutputFrameAvailableForRendering(long presentationTimeUs) {
+                outputFrameCount++;
+                if (outputFrameCount == 30) {
+                  firstStreamLastFrameAvailableTimeMs.set(SystemClock.DEFAULT.elapsedRealtime());
+                }
+                defaultVideoFrameProcessor.renderOutputFrame(
+                    VideoFrameProcessor.RENDER_OUTPUT_FRAME_IMMEDIATELY);
+              }
+
+              @Override
+              public void onError(VideoFrameProcessingException exception) {
+                videoFrameProcessingException.set(exception);
+              }
+
+              @Override
+              public void onEnded() {
+                frameProcessorEnded.countDown();
+              }
+            });
+
+    Bitmap bitmap1 = readBitmapUnpremultipliedAlpha(ORIGINAL_PNG_ASSET_PATH);
+    // Needs a different bitmap as the bitmap is recycled after single use.
+    Bitmap bitmap2 = readBitmapUnpremultipliedAlpha(ORIGINAL_PNG_ASSET_PATH);
+
+    // First image
+    inputStreamRegisteredCondition.close();
+    defaultVideoFrameProcessor.registerInputStream(
+        VideoFrameProcessor.INPUT_TYPE_BITMAP,
+        ImmutableList.of(),
+        new FrameInfo.Builder(ColorInfo.SRGB_BT709_FULL, bitmap1.getWidth(), bitmap1.getHeight())
+            .build());
+    inputStreamRegisteredCondition.block();
+    defaultVideoFrameProcessor.queueInputBitmap(
+        bitmap1, new ConstantRateTimestampIterator(C.MICROS_PER_SECOND, 30.f));
+
+    // Second image
+    inputStreamRegisteredCondition.close();
+    defaultVideoFrameProcessor.registerInputStream(
+        VideoFrameProcessor.INPUT_TYPE_BITMAP,
+        ImmutableList.of(
+            (GlEffect)
+                (context, useHdr) -> {
+                  secondStreamConfigurationTimeMs.set(SystemClock.DEFAULT.elapsedRealtime());
+                  return new PassthroughShaderProgram();
+                }),
+        new FrameInfo.Builder(ColorInfo.SRGB_BT709_FULL, bitmap2.getWidth(), bitmap2.getHeight())
+            .build());
+    inputStreamRegisteredCondition.block();
+    defaultVideoFrameProcessor.queueInputBitmap(
+        bitmap2, new ConstantRateTimestampIterator(C.MICROS_PER_SECOND, 30.f));
+
+    defaultVideoFrameProcessor.signalEndOfInput();
+
+    if (!frameProcessorEnded.await(TEST_TIMEOUT_MS, MILLISECONDS)) {
+      throw new IllegalStateException("Test timeout", videoFrameProcessingException.get());
+    }
+
+    assertThat(secondStreamConfigurationTimeMs.get())
+        .isAtLeast(firstStreamLastFrameAvailableTimeMs.get());
   }
 
   private DefaultVideoFrameProcessor createDefaultVideoFrameProcessor(
