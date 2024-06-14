@@ -30,6 +30,7 @@ import androidx.annotation.FloatRange;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
+import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
@@ -457,9 +458,9 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
           /* isPlaying= */ false,
           /* isLoading= */ false,
           MediaMetadata.EMPTY,
-          /* seekBackIncrementMs= */ 0,
-          /* seekForwardIncrementMs= */ 0,
-          /* maxSeekToPreviousPositionMs= */ 0,
+          /* seekBackIncrementMs= */ C.DEFAULT_SEEK_BACK_INCREMENT_MS,
+          /* seekForwardIncrementMs= */ C.DEFAULT_SEEK_FORWARD_INCREMENT_MS,
+          /* maxSeekToPreviousPositionMs= */ C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS,
           /* currentTracks= */ Tracks.EMPTY,
           TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT);
 
@@ -816,9 +817,16 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
   private static final String FIELD_DISCONTINUITY_REASON = Util.intToStringMaxRadix(23);
   private static final String FIELD_CUE_GROUP = Util.intToStringMaxRadix(24);
   private static final String FIELD_MEDIA_METADATA = Util.intToStringMaxRadix(25);
-  private static final String FIELD_SEEK_BACK_INCREMENT_MS = Util.intToStringMaxRadix(26);
-  private static final String FIELD_SEEK_FORWARD_INCREMENT_MS = Util.intToStringMaxRadix(27);
-  private static final String FIELD_MAX_SEEK_TO_PREVIOUS_POSITION_MS = Util.intToStringMaxRadix(28);
+
+  @VisibleForTesting
+  static final String FIELD_SEEK_BACK_INCREMENT_MS = Util.intToStringMaxRadix(26);
+
+  @VisibleForTesting
+  static final String FIELD_SEEK_FORWARD_INCREMENT_MS = Util.intToStringMaxRadix(27);
+
+  @VisibleForTesting
+  static final String FIELD_MAX_SEEK_TO_PREVIOUS_POSITION_MS = Util.intToStringMaxRadix(28);
+
   private static final String FIELD_TRACK_SELECTION_PARAMETERS = Util.intToStringMaxRadix(29);
   private static final String FIELD_CURRENT_TRACKS = Util.intToStringMaxRadix(30);
   private static final String FIELD_TIMELINE_CHANGE_REASON = Util.intToStringMaxRadix(31);
@@ -977,13 +985,19 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
     if (!mediaMetadata.equals(MediaMetadata.EMPTY)) {
       bundle.putBundle(FIELD_MEDIA_METADATA, mediaMetadata.toBundle());
     }
-    if (seekBackIncrementMs != 0) {
+    long defaultSeekBackIncrementMs =
+        controllerInterfaceVersion < 6 ? 0 : C.DEFAULT_SEEK_BACK_INCREMENT_MS;
+    if (seekBackIncrementMs != defaultSeekBackIncrementMs) {
       bundle.putLong(FIELD_SEEK_BACK_INCREMENT_MS, seekBackIncrementMs);
     }
-    if (seekForwardIncrementMs != 0) {
+    long defaultSeekForwardIncrementMs =
+        controllerInterfaceVersion < 6 ? 0 : C.DEFAULT_SEEK_FORWARD_INCREMENT_MS;
+    if (seekForwardIncrementMs != defaultSeekForwardIncrementMs) {
       bundle.putLong(FIELD_SEEK_FORWARD_INCREMENT_MS, seekForwardIncrementMs);
     }
-    if (maxSeekToPreviousPositionMs != 0) {
+    long defaultMaxSeekToPreviousPositionMs =
+        controllerInterfaceVersion < 6 ? 0 : C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS;
+    if (maxSeekToPreviousPositionMs != defaultMaxSeekToPreviousPositionMs) {
       bundle.putLong(FIELD_MAX_SEEK_TO_PREVIOUS_POSITION_MS, maxSeekToPreviousPositionMs);
     }
     if (!currentTracks.equals(Tracks.EMPTY)) {
@@ -996,7 +1010,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
   }
 
   /** Restores a {@code PlayerInfo} from a {@link Bundle}. */
-  public static PlayerInfo fromBundle(Bundle bundle) {
+  public static PlayerInfo fromBundle(Bundle bundle, int sessionInterfaceVersion) {
     @Nullable IBinder inProcessBinder = bundle.getBinder(FIELD_IN_PROCESS_BINDER);
     if (inProcessBinder instanceof InProcessBinder) {
       return ((InProcessBinder) inProcessBinder).getPlayerInfo();
@@ -1080,11 +1094,22 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
         mediaMetadataBundle == null
             ? MediaMetadata.EMPTY
             : MediaMetadata.fromBundle(mediaMetadataBundle);
-    long seekBackIncrementMs = bundle.getLong(FIELD_SEEK_BACK_INCREMENT_MS, /* defaultValue= */ 0);
+    long seekBackIncrementMs =
+        bundle.getLong(
+            FIELD_SEEK_BACK_INCREMENT_MS,
+            /* defaultValue= */ sessionInterfaceVersion < 4 ? 0 : C.DEFAULT_SEEK_BACK_INCREMENT_MS);
     long seekForwardIncrementMs =
-        bundle.getLong(FIELD_SEEK_FORWARD_INCREMENT_MS, /* defaultValue= */ 0);
+        bundle.getLong(
+            FIELD_SEEK_FORWARD_INCREMENT_MS,
+            /* defaultValue= */ sessionInterfaceVersion < 4
+                ? 0
+                : C.DEFAULT_SEEK_FORWARD_INCREMENT_MS);
     long maxSeekToPreviousPosition =
-        bundle.getLong(FIELD_MAX_SEEK_TO_PREVIOUS_POSITION_MS, /* defaultValue= */ 0);
+        bundle.getLong(
+            FIELD_MAX_SEEK_TO_PREVIOUS_POSITION_MS,
+            /* defaultValue= */ sessionInterfaceVersion < 4
+                ? 0
+                : C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS);
     Bundle currentTracksBundle = bundle.getBundle(FIELD_CURRENT_TRACKS);
     Tracks currentTracks =
         currentTracksBundle == null ? Tracks.EMPTY : Tracks.fromBundle(currentTracksBundle);

@@ -543,6 +543,7 @@ public interface ExoPlayer extends Player {
      *   <li>{@link SeekParameters}: {@link SeekParameters#DEFAULT}
      *   <li>{@code seekBackIncrementMs}: {@link C#DEFAULT_SEEK_BACK_INCREMENT_MS}
      *   <li>{@code seekForwardIncrementMs}: {@link C#DEFAULT_SEEK_FORWARD_INCREMENT_MS}
+     *   <li>{@code maxSeekToPreviousPositionMs}: {@link C#DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS}
      *   <li>{@code releaseTimeoutMs}: {@link #DEFAULT_RELEASE_TIMEOUT_MS}
      *   <li>{@code detachSurfaceTimeoutMs}: {@link #DEFAULT_DETACH_SURFACE_TIMEOUT_MS}
      *   <li>{@code pauseAtEndOfMediaItems}: {@code false}
@@ -1137,7 +1138,8 @@ public interface ExoPlayer extends Player {
      */
     @CanIgnoreReturnValue
     @UnstableApi
-    public Builder setMaxSeekToPreviousPosition(long maxSeekToPreviousPositionMs) {
+    public Builder setMaxSeekToPreviousPositionMs(
+        @IntRange(from = 0) long maxSeekToPreviousPositionMs) {
       checkArgument(maxSeekToPreviousPositionMs >= 0L);
       checkState(!buildCalled);
       this.maxSeekToPreviousPositionMs = maxSeekToPreviousPositionMs;

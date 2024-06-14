@@ -6,6 +6,9 @@
 *   ExoPlayer:
     *   Add `ExoPlayer.isReleased()` to check whether `Exoplayer.release()` has
         been called.
+    *   Add `ExoPlayer.Builder.setMaxSeekToPreviousPositionMs` to configure the
+        maximum position for which `seekToPrevious()` seeks to the previous item
+        ([#1425](https://github.com/androidx/media/issues/1425)).
 *   Transformer:
     *   Remove `ExportResult.processedInputs` field. If you use this field for
         codec details, then use `DefaultDecoderFactory.listener` instead. In

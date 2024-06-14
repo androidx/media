@@ -325,7 +325,7 @@ public class TestExoPlayerBuilder {
    * @return This builder.
    */
   @CanIgnoreReturnValue
-  public TestExoPlayerBuilder setMaxSeekToPreviousPosition(long maxSeekToPreviousPositionMs) {
+  public TestExoPlayerBuilder setMaxSeekToPreviousPositionMs(long maxSeekToPreviousPositionMs) {
     this.maxSeekToPreviousPositionMs = maxSeekToPreviousPositionMs;
     return this;
   }
@@ -398,7 +398,7 @@ public class TestExoPlayerBuilder {
             .setLooper(looper)
             .setSeekBackIncrementMs(seekBackIncrementMs)
             .setSeekForwardIncrementMs(seekForwardIncrementMs)
-            .setMaxSeekToPreviousPosition(maxSeekToPreviousPositionMs)
+            .setMaxSeekToPreviousPositionMs(maxSeekToPreviousPositionMs)
             .setDeviceVolumeControlEnabled(deviceVolumeControlEnabled)
             .setSuppressPlaybackOnUnsuitableOutput(suppressPlaybackWhenUnsuitableOutput)
             .experimentalSetDynamicSchedulingEnabled(dynamicSchedulingEnabled);

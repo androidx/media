@@ -217,7 +217,7 @@ public final class CastPlayer extends BasePlayer {
    * @param seekBackIncrementMs The {@link #seekBack()} increment, in milliseconds.
    * @param seekForwardIncrementMs The {@link #seekForward()} increment, in milliseconds.
    * @param maxSeekToPreviousPositionMs The maximum position for which {@link #seekToPrevious()}
-   *                                    seeks to the previous {@link MediaItem}, in milliseconds.
+   *     seeks to the previous {@link MediaItem}, in milliseconds.
    * @throws IllegalArgumentException If {@code seekBackIncrementMs} or {@code
    *     seekForwardIncrementMs} is non-positive, or if {@code maxSeekToPreviousPositionMs} is
    *     negative.
