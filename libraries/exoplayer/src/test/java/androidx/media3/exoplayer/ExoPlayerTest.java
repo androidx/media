@@ -274,14 +274,16 @@ public class ExoPlayerTest {
   }
 
   private TestExoPlayerBuilder parameterizeTestExoPlayerBuilder(TestExoPlayerBuilder builder) {
-    // TODO: set PreloadConfiguration when enabled again after the release.
-    return builder;
+    return builder.setPreloadConfiguration(createPreloadConfiguration());
   }
 
   private ExoPlayerTestRunner.Builder parameterizeExoPlayerTestRunnerBuilder(
       ExoPlayerTestRunner.Builder builder) {
-    // TODO: set PreloadConfiguration when enabled again after the release.
-    return builder;
+    return builder.setPreloadConfiguration(createPreloadConfiguration());
+  }
+
+  private ExoPlayer.PreloadConfiguration createPreloadConfiguration() {
+    return new ExoPlayer.PreloadConfiguration(getTargetPreloadDurationUs());
   }
 
   /**
@@ -6804,6 +6806,80 @@ public class ExoPlayerTest {
     exoPlayerTestRunner.assertTimelineChangeReasonsEqual(
         Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED /* media item set (masked timeline) */,
         Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE /* source prepared */);
+  }
+
+  @Test
+  public void prepare_preloadingEnabled_nextWindowPeriodCreatedForPreloading() throws Exception {
+    FakeMediaSource mediaSource1 =
+        new FakeMediaSource(
+            new FakeTimeline(
+                new TimelineWindowDefinition(
+                    /* isSeekable= */ true,
+                    /* isDynamic= */ false,
+                    /* durationUs= */ DefaultLoadControl.DEFAULT_MAX_BUFFER_MS * 2)));
+    List<MediaPeriodId> createdMediaPeriodIds = new ArrayList<>();
+    FakeMediaSource mediaSource2 =
+        new FakeMediaSource() {
+          @Override
+          public MediaPeriod createPeriod(
+              MediaPeriodId id, Allocator allocator, long startPositionUs) {
+            createdMediaPeriodIds.add(id);
+            return super.createPeriod(id, allocator, startPositionUs);
+          }
+        };
+    ExoPlayer player =
+        // Intentionally not using `parameterizeTestExoPlayerBuilder()` for preload specific test.
+        new TestExoPlayerBuilder(context)
+            .setPreloadConfiguration(
+                new ExoPlayer.PreloadConfiguration(/* targetPreloadDurationUs= */ 5_000_000L))
+            .build();
+    player.setMediaSources(ImmutableList.of(mediaSource1, mediaSource2));
+
+    player.prepare();
+    run(player).untilPendingCommandsAreFullyHandled();
+
+    assertThat(createdMediaPeriodIds).hasSize(1);
+    play(player).untilState(Player.STATE_ENDED);
+    assertThat(createdMediaPeriodIds).hasSize(1);
+    player.release();
+  }
+
+  @Test
+  public void prepare_preloadingEnabledRepeatModeOne_sameWindowPeriodCreatedForPreloading()
+      throws Exception {
+    FakeTimeline timeline =
+        new FakeTimeline(
+            new TimelineWindowDefinition(
+                /* isSeekable= */ true,
+                /* isDynamic= */ false,
+                /* durationUs= */ DefaultLoadControl.DEFAULT_MAX_BUFFER_MS * 2));
+    List<MediaPeriodId> createdMediaPeriodIds = new ArrayList<>();
+    FakeMediaSource mediaSource =
+        new FakeMediaSource(timeline) {
+          @Override
+          public MediaPeriod createPeriod(
+              MediaPeriodId id, Allocator allocator, long startPositionUs) {
+            createdMediaPeriodIds.add(id);
+            return super.createPeriod(id, allocator, startPositionUs);
+          }
+        };
+    ExoPlayer player =
+        // Intentionally not using `parameterizeTestExoPlayerBuilder()` for preload specific test.
+        new TestExoPlayerBuilder(context)
+            .setPreloadConfiguration(
+                new ExoPlayer.PreloadConfiguration(/* targetPreloadDurationUs= */ 5_000_000L))
+            .build();
+    player.setRepeatMode(Player.REPEAT_MODE_ONE);
+    player.setMediaSource(mediaSource);
+
+    player.prepare();
+    run(player).untilPendingCommandsAreFullyHandled();
+
+    assertThat(createdMediaPeriodIds).hasSize(2);
+    player.setRepeatMode(Player.REPEAT_MODE_OFF);
+    play(player).untilState(Player.STATE_ENDED);
+    assertThat(createdMediaPeriodIds).hasSize(2);
+    player.release();
   }
 
   @Test
@@ -14507,6 +14583,7 @@ public class ExoPlayerTest {
                 new DefaultRenderersFactory(context).setAllowedVideoJoiningTimeMs(0))
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .build();
+    player.setPreloadConfiguration(createPreloadConfiguration());
     player.setPauseAtEndOfMediaItems(true);
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 0));
     player.setVideoSurface(surface);

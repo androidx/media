@@ -57,6 +57,7 @@ import androidx.media3.common.util.TraceUtil;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceException;
 import androidx.media3.exoplayer.DefaultMediaClock.PlaybackParametersListener;
+import androidx.media3.exoplayer.ExoPlayer.PreloadConfiguration;
 import androidx.media3.exoplayer.analytics.AnalyticsCollector;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.drm.DrmSession;
@@ -241,7 +242,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
   @Nullable private ExoPlaybackException pendingRecoverableRendererError;
   private long setForegroundModeTimeoutMs;
   private long playbackMaybeBecameStuckAtMs;
-  private ExoPlayerImpl.PreloadConfiguration preloadConfiguration;
+  private PreloadConfiguration preloadConfiguration;
   private Timeline lastPreloadPoolInvalidationTimeline;
 
   public ExoPlayerImplInternal(
@@ -263,7 +264,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
       PlaybackInfoUpdateListener playbackInfoUpdateListener,
       PlayerId playerId,
       Looper playbackLooper,
-      ExoPlayerImpl.PreloadConfiguration preloadConfiguration) {
+      PreloadConfiguration preloadConfiguration) {
     this.playbackInfoUpdateListener = playbackInfoUpdateListener;
     this.renderers = renderers;
     this.trackSelector = trackSelector;
@@ -372,7 +373,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
     handler.obtainMessage(MSG_SET_SHUFFLE_ENABLED, shuffleModeEnabled ? 1 : 0, 0).sendToTarget();
   }
 
-  public void setPreloadConfiguration(ExoPlayerImpl.PreloadConfiguration preloadConfiguration) {
+  public void setPreloadConfiguration(PreloadConfiguration preloadConfiguration) {
     handler.obtainMessage(MSG_SET_PRELOAD_CONFIGURATION, preloadConfiguration).sendToTarget();
   }
 
@@ -561,7 +562,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
           setShuffleModeEnabledInternal(msg.arg1 != 0);
           break;
         case MSG_SET_PRELOAD_CONFIGURATION:
-          setPreloadConfigurationInternal((ExoPlayerImpl.PreloadConfiguration) msg.obj);
+          setPreloadConfigurationInternal((PreloadConfiguration) msg.obj);
           break;
         case MSG_DO_SOME_WORK:
           doSomeWork();
@@ -950,8 +951,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
     handleLoadingMediaPeriodChanged(/* loadingTrackSelectionChanged= */ false);
   }
 
-  private void setPreloadConfigurationInternal(
-      ExoPlayerImpl.PreloadConfiguration preloadConfiguration) {
+  private void setPreloadConfigurationInternal(PreloadConfiguration preloadConfiguration) {
     this.preloadConfiguration = preloadConfiguration;
     queue.updatePreloadConfiguration(playbackInfo.timeline, preloadConfiguration);
   }

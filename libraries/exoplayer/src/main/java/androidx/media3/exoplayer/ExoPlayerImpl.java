@@ -141,30 +141,6 @@ import java.util.concurrent.TimeoutException;
     MediaLibraryInfo.registerModule("media3.exoplayer");
   }
 
-  /** Configuration options for preloading playlist items. */
-  public static final class PreloadConfiguration {
-
-    /** Default preload configuration that disables playlist preloading. */
-    public static final PreloadConfiguration DEFAULT =
-        new PreloadConfiguration(/* targetPreloadDurationUs= */ C.TIME_UNSET);
-
-    /**
-     * The target duration to buffer when preloading, in microseconds or {@link C#TIME_UNSET} to
-     * disable preloading.
-     */
-    public final long targetPreloadDurationUs;
-
-    /**
-     * Creates an instance.
-     *
-     * @param targetPreloadDurationUs The target duration to preload, in microseconds or {@link
-     *     C#TIME_UNSET} to disable preloading.
-     */
-    public PreloadConfiguration(long targetPreloadDurationUs) {
-      this.targetPreloadDurationUs = targetPreloadDurationUs;
-    }
-  }
-
   private static final String TAG = "ExoPlayerImpl";
 
   /**
@@ -909,6 +885,7 @@ import java.util.concurrent.TimeoutException;
     return shuffleModeEnabled;
   }
 
+  @Override
   public void setPreloadConfiguration(PreloadConfiguration preloadConfiguration) {
     verifyApplicationThread();
     if (this.preloadConfiguration.equals(preloadConfiguration)) {
@@ -918,6 +895,7 @@ import java.util.concurrent.TimeoutException;
     internalPlayer.setPreloadConfiguration(preloadConfiguration);
   }
 
+  @Override
   public PreloadConfiguration getPreloadConfiguration() {
     return preloadConfiguration;
   }
