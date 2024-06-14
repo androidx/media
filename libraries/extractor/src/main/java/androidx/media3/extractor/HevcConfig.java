@@ -69,6 +69,7 @@ public final class HevcConfig {
       @C.ColorRange int colorRange = Format.NO_VALUE;
       @C.ColorTransfer int colorTransfer = Format.NO_VALUE;
       float pixelWidthHeightRatio = 1;
+      int maxNumReorderPics = Format.NO_VALUE;
       @Nullable String codecs = null;
       for (int i = 0; i < numberOfArrays; i++) {
         int nalUnitType =
@@ -97,6 +98,8 @@ public final class HevcConfig {
             colorRange = spsData.colorRange;
             colorTransfer = spsData.colorTransfer;
             pixelWidthHeightRatio = spsData.pixelWidthHeightRatio;
+            maxNumReorderPics = spsData.maxNumReorderPics;
+
             codecs =
                 CodecSpecificDataUtil.buildHevcCodecString(
                     spsData.generalProfileSpace,
@@ -124,6 +127,7 @@ public final class HevcConfig {
           colorRange,
           colorTransfer,
           pixelWidthHeightRatio,
+          maxNumReorderPics,
           codecs);
     } catch (ArrayIndexOutOfBoundsException e) {
       throw ParserException.createForMalformedContainer("Error parsing HEVC config", e);
@@ -174,6 +178,15 @@ public final class HevcConfig {
   public final float pixelWidthHeightRatio;
 
   /**
+   * The {@code sps_max_num_reorder_pics} value.
+   *
+   * <p>If a different value is present for each layer (due to {@code
+   * sps_sub_layer_ordering_info_present_flag}), this value is the max of the values for all the
+   * layers.
+   */
+  public final int maxNumReorderPics;
+
+  /**
    * An RFC 6381 codecs string representing the video format, or {@code null} if not known.
    *
    * <p>See {@link Format#codecs}.
@@ -191,6 +204,7 @@ public final class HevcConfig {
       @C.ColorRange int colorRange,
       @C.ColorTransfer int colorTransfer,
       float pixelWidthHeightRatio,
+      int maxNumReorderPics,
       @Nullable String codecs) {
     this.initializationData = initializationData;
     this.nalUnitLengthFieldLength = nalUnitLengthFieldLength;
@@ -202,6 +216,7 @@ public final class HevcConfig {
     this.colorRange = colorRange;
     this.colorTransfer = colorTransfer;
     this.pixelWidthHeightRatio = pixelWidthHeightRatio;
+    this.maxNumReorderPics = maxNumReorderPics;
     this.codecs = codecs;
   }
 }

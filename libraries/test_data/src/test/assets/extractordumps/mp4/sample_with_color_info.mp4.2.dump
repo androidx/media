@@ -14,6 +14,7 @@ track 0:
     sampleMimeType = video/dolby-vision
     codecs = hev1.08.04
     maxInputSize = 40550
+    maxNumReorderSamples = 2
     width = 1920
     height = 1080
     frameRate = 30.167633

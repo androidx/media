@@ -15,6 +15,7 @@
  */
 package androidx.media3.container;
 
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 import androidx.annotation.Nullable;
@@ -80,6 +81,7 @@ public final class NalUnitUtil {
     public final @C.ColorSpace int colorSpace;
     public final @C.ColorRange int colorRange;
     public final @C.ColorTransfer int colorTransfer;
+    public final int maxNumReorderFrames;
 
     public SpsData(
         int profileIdc,
@@ -100,7 +102,8 @@ public final class NalUnitUtil {
         boolean deltaPicOrderAlwaysZeroFlag,
         @C.ColorSpace int colorSpace,
         @C.ColorRange int colorRange,
-        @C.ColorTransfer int colorTransfer) {
+        @C.ColorTransfer int colorTransfer,
+        int maxNumReorderFrames) {
       this.profileIdc = profileIdc;
       this.constraintsFlagsAndReservedZero2Bits = constraintsFlagsAndReservedZero2Bits;
       this.levelIdc = levelIdc;
@@ -120,6 +123,7 @@ public final class NalUnitUtil {
       this.colorSpace = colorSpace;
       this.colorRange = colorRange;
       this.colorTransfer = colorTransfer;
+      this.maxNumReorderFrames = maxNumReorderFrames;
     }
   }
 
@@ -139,6 +143,7 @@ public final class NalUnitUtil {
     public final int width;
     public final int height;
     public final float pixelWidthHeightRatio;
+    public final int maxNumReorderPics;
     public final @C.ColorSpace int colorSpace;
     public final @C.ColorRange int colorRange;
     public final @C.ColorTransfer int colorTransfer;
@@ -157,6 +162,7 @@ public final class NalUnitUtil {
         int width,
         int height,
         float pixelWidthHeightRatio,
+        int maxNumReorderPics,
         @C.ColorSpace int colorSpace,
         @C.ColorRange int colorRange,
         @C.ColorTransfer int colorTransfer) {
@@ -173,6 +179,7 @@ public final class NalUnitUtil {
       this.width = width;
       this.height = height;
       this.pixelWidthHeightRatio = pixelWidthHeightRatio;
+      this.maxNumReorderPics = maxNumReorderPics;
       this.colorSpace = colorSpace;
       this.colorRange = colorRange;
       this.colorTransfer = colorTransfer;
@@ -477,8 +484,21 @@ public final class NalUnitUtil {
     @C.ColorRange int colorRange = Format.NO_VALUE;
     @C.ColorTransfer int colorTransfer = Format.NO_VALUE;
     float pixelWidthHeightRatio = 1;
-    boolean vuiParametersPresentFlag = data.readBit();
-    if (vuiParametersPresentFlag) {
+    // Initialize to the default value defined in section E.2.1 of the H.264 spec. Precisely
+    // calculating MaxDpbFrames is complicated, so we short-circuit to the max value of 16 here
+    // instead.
+    int maxNumReorderFrames =
+        (profileIdc == 44
+                    || profileIdc == 86
+                    || profileIdc == 100
+                    || profileIdc == 110
+                    || profileIdc == 122
+                    || profileIdc == 244)
+                && ((constraintsFlagsAndReservedZero2Bits & 0x10) != 0)
+            ? 0
+            : 16;
+    if (data.readBit()) { // vui_parameters_present_flag
+      // Section E.1.1: VUI parameters syntax
       boolean aspectRatioInfoPresentFlag = data.readBit();
       if (aspectRatioInfoPresentFlag) {
         int aspectRatioIdc = data.readBits(8);
@@ -511,6 +531,34 @@ public final class NalUnitUtil {
               ColorInfo.isoTransferCharacteristicsToColorTransfer(transferCharacteristics);
         }
       }
+      if (data.readBit()) { // chroma_loc_info_present_flag
+        data.readUnsignedExpGolombCodedInt(); // chroma_sample_loc_type_top_field
+        data.readUnsignedExpGolombCodedInt(); // chroma_sample_loc_type_bottom_field
+      }
+      if (data.readBit()) { // timing_info_present_flag
+        data.skipBits(65); // num_units_in_tick (32), time_scale (32), fixed_frame_rate_flag (1)
+      }
+      boolean nalHrdParametersPresent = data.readBit(); // nal_hrd_parameters_present_flag
+      if (nalHrdParametersPresent) {
+        skipHrdParameters(data);
+      }
+      boolean vclHrdParametersPresent = data.readBit(); // vcl_hrd_parameters_present_flag
+      if (vclHrdParametersPresent) {
+        skipHrdParameters(data);
+      }
+      if (nalHrdParametersPresent || vclHrdParametersPresent) {
+        data.skipBit(); // low_delay_hrd_flag
+      }
+      data.skipBit(); // pic_struct_present_flag
+      if (data.readBit()) { // bitstream_restriction_flag
+        data.skipBit(); // motion_vectors_over_pic_boundaries_flag
+        data.readUnsignedExpGolombCodedInt(); // max_bytes_per_pic_denom
+        data.readUnsignedExpGolombCodedInt(); // max_bits_per_mb_denom
+        data.readUnsignedExpGolombCodedInt(); // log2_max_mv_length_horizontal
+        data.readUnsignedExpGolombCodedInt(); // log2_max_mv_length_vertical
+        maxNumReorderFrames = data.readUnsignedExpGolombCodedInt(); // max_num_reorder_frames
+        data.readUnsignedExpGolombCodedInt(); // max_dec_frame_buffering
+      }
     }
 
     return new SpsData(
@@ -532,7 +580,8 @@ public final class NalUnitUtil {
         deltaPicOrderAlwaysZeroFlag,
         colorSpace,
         colorRange,
-        colorTransfer);
+        colorTransfer,
+        maxNumReorderFrames);
   }
 
   /**
@@ -611,10 +660,12 @@ public final class NalUnitUtil {
     int bitDepthLumaMinus8 = data.readUnsignedExpGolombCodedInt();
     int bitDepthChromaMinus8 = data.readUnsignedExpGolombCodedInt();
     int log2MaxPicOrderCntLsbMinus4 = data.readUnsignedExpGolombCodedInt();
+    int maxNumReorderPics = -1;
     // for (i = sps_sub_layer_ordering_info_present_flag ? 0 : sps_max_sub_layers_minus1; ...)
     for (int i = data.readBit() ? 0 : maxSubLayersMinus1; i <= maxSubLayersMinus1; i++) {
       data.readUnsignedExpGolombCodedInt(); // sps_max_dec_pic_buffering_minus1[i]
-      data.readUnsignedExpGolombCodedInt(); // sps_max_num_reorder_pics[i]
+      // sps_max_num_reorder_pics[i]
+      maxNumReorderPics = max(data.readUnsignedExpGolombCodedInt(), maxNumReorderPics);
       data.readUnsignedExpGolombCodedInt(); // sps_max_latency_increase_plus1[i]
     }
     data.readUnsignedExpGolombCodedInt(); // log2_min_luma_coding_block_size_minus3
@@ -708,6 +759,7 @@ public final class NalUnitUtil {
         frameWidth,
         frameHeight,
         pixelWidthHeightRatio,
+        maxNumReorderPics,
         colorSpace,
         colorRange,
         colorTransfer);
@@ -853,6 +905,22 @@ public final class NalUnitUtil {
       }
       lastScale = (nextScale == 0) ? lastScale : nextScale;
     }
+  }
+
+  /** Skip HRD parameters in {@code data}, as defined in E.1.2 of the H.264 spec. */
+  private static void skipHrdParameters(ParsableNalUnitBitArray data) {
+    int codedPictureBufferCount = data.readUnsignedExpGolombCodedInt() + 1; // cpb_cnt_minus1
+    data.skipBits(8); // bit_rate_scale (4), cpb_size_scale (4)
+    for (int i = 0; i < codedPictureBufferCount; i++) {
+      data.readUnsignedExpGolombCodedInt(); // bit_rate_value_minus1[i]
+      data.readUnsignedExpGolombCodedInt(); // cpb_size_value_minus1[i]
+      data.skipBit(); // cbr_flag[i]
+    }
+    // initial_cpb_removal_delay_length_minus1 (5)
+    // cpb_removal_delay_length_minus1 (5)
+    // dpb_output_delay_length_minus1 (5)
+    // time_offset_length (5)
+    data.skipBits(20);
   }
 
   private static void skipH265ScalingList(ParsableNalUnitBitArray bitArray) {

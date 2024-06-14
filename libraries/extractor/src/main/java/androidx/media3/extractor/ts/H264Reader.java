@@ -228,6 +228,7 @@ public final class H264Reader implements ElementaryStreamReader {
                           .build())
                   .setPixelWidthHeightRatio(spsData.pixelWidthHeightRatio)
                   .setInitializationData(initializationData)
+                  .setMaxNumReorderSamples(spsData.maxNumReorderFrames)
                   .build());
           hasOutputFormat = true;
           sampleReader.putSps(spsData);

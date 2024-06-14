@@ -10,6 +10,7 @@ track 256:
     id = 1/256
     sampleMimeType = video/avc
     codecs = avc1.64101F
+    maxNumReorderSamples = 0
     width = 854
     height = 480
     colorInfo:

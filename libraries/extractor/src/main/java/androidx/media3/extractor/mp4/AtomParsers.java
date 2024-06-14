@@ -1153,6 +1153,7 @@ import java.util.Objects;
     @Nullable byte[] projectionData = null;
     @C.StereoMode int stereoMode = Format.NO_VALUE;
     @Nullable EsdsData esdsData = null;
+    int maxNumReorderSamples = Format.NO_VALUE;
 
     // HDR related metadata.
     @C.ColorSpace int colorSpace = Format.NO_VALUE;
@@ -1182,6 +1183,7 @@ import java.util.Objects;
           pixelWidthHeightRatio = avcConfig.pixelWidthHeightRatio;
         }
         codecs = avcConfig.codecs;
+        maxNumReorderSamples = avcConfig.maxNumReorderFrames;
         colorSpace = avcConfig.colorSpace;
         colorRange = avcConfig.colorRange;
         colorTransfer = avcConfig.colorTransfer;
@@ -1197,6 +1199,7 @@ import java.util.Objects;
         if (!pixelWidthHeightRatioFromPasp) {
           pixelWidthHeightRatio = hevcConfig.pixelWidthHeightRatio;
         }
+        maxNumReorderSamples = hevcConfig.maxNumReorderPics;
         codecs = hevcConfig.codecs;
         colorSpace = hevcConfig.colorSpace;
         colorRange = hevcConfig.colorRange;
@@ -1367,6 +1370,7 @@ import java.util.Objects;
             .setProjectionData(projectionData)
             .setStereoMode(stereoMode)
             .setInitializationData(initializationData)
+            .setMaxNumReorderSamples(maxNumReorderSamples)
             .setDrmInitData(drmInitData)
             // Note that if either mdcv or clli are missing, we leave the corresponding HDR static
             // metadata bytes with value zero. See [Internal ref: b/194535665].

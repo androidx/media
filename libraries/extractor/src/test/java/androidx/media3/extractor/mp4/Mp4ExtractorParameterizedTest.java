@@ -258,6 +258,14 @@ public final class Mp4ExtractorParameterizedTest {
         simulationConfig);
   }
 
+  @Test
+  public void mp4SampleWithNoMaxNumReorderFramesValue() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/mp4/bt601.mov",
+        simulationConfig);
+  }
+
   private static ExtractorAsserts.ExtractorFactory getExtractorFactory(
       boolean subtitlesParsedDuringExtraction) {
     SubtitleParser.Factory subtitleParserFactory;

@@ -52,6 +52,8 @@ public final class DumpableFormat implements Dumper.Dumpable {
         "sampleMimeType", format, DEFAULT_FORMAT, format -> format.sampleMimeType);
     dumper.addIfNonDefault("codecs", format, DEFAULT_FORMAT, format -> format.codecs);
     dumper.addIfNonDefault("maxInputSize", format, DEFAULT_FORMAT, format -> format.maxInputSize);
+    dumper.addIfNonDefault(
+        "maxNumReorderSamples", format, DEFAULT_FORMAT, format -> format.maxNumReorderSamples);
     dumper.addIfNonDefault("width", format, DEFAULT_FORMAT, format -> format.width);
     dumper.addIfNonDefault("height", format, DEFAULT_FORMAT, format -> format.height);
     dumper.addIfNonDefault("frameRate", format, DEFAULT_FORMAT, format -> format.frameRate);

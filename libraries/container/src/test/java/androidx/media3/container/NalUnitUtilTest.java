@@ -34,7 +34,7 @@ public final class NalUnitUtilTest {
   private static final byte[] SPS_TEST_DATA =
       createByteArray(
           0x00, 0x00, 0x01, 0x67, 0x4D, 0x40, 0x16, 0xEC, 0xA0, 0x50, 0x17, 0xFC, 0xB8, 0x0A, 0x90,
-          0x91, 0x00, 0x03, 0x00, 0x80, 0x00, 0x00, 0x0F, 0x47, 0x8B, 0x16, 0xCB);
+          0x91, 0x00, 0x00, 0x7E, 0xA0);
   private static final int SPS_TEST_DATA_OFFSET = 3;
 
   @Test
@@ -140,6 +140,7 @@ public final class NalUnitUtilTest {
     assertThat(data.colorSpace).isEqualTo(6);
     assertThat(data.colorRange).isEqualTo(2);
     assertThat(data.colorTransfer).isEqualTo(6);
+    assertThat(data.maxNumReorderFrames).isEqualTo(1);
   }
 
   @Test
@@ -200,6 +201,7 @@ public final class NalUnitUtilTest {
     assertThat(spsData.colorSpace).isEqualTo(6);
     assertThat(spsData.colorRange).isEqualTo(2);
     assertThat(spsData.colorTransfer).isEqualTo(6);
+    assertThat(spsData.maxNumReorderPics).isEqualTo(2);
   }
 
   /** Regression test for [Internal: b/292170736]. */
@@ -231,6 +233,7 @@ public final class NalUnitUtilTest {
     assertThat(spsData.colorSpace).isEqualTo(6);
     assertThat(spsData.colorRange).isEqualTo(2);
     assertThat(spsData.colorTransfer).isEqualTo(6);
+    assertThat(spsData.maxNumReorderPics).isEqualTo(0);
   }
 
   private static byte[] buildTestData() {

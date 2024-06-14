@@ -14,6 +14,7 @@ track 0:
     sampleMimeType = video/avc
     codecs = avc1.640034
     maxInputSize = 22910
+    maxNumReorderSamples = 0
     width = 1080
     height = 720
     frameRate = 31.004547

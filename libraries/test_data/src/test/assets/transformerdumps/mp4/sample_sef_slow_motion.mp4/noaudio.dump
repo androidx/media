@@ -3,6 +3,7 @@ format video:
   sampleMimeType = video/avc
   codecs = avc1.64000D
   maxInputSize = 5476
+  maxNumReorderSamples = 2
   width = 320
   height = 240
   frameRate = 29.523811

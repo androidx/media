@@ -65,6 +65,8 @@ public final class AvcConfig {
       @C.ColorTransfer int colorTransfer = Format.NO_VALUE;
       float pixelWidthHeightRatio = 1;
       @Nullable String codecs = null;
+      // Max possible value defined in section E.2.1 of the H.264 spec.
+      int maxNumReorderFrames = 16;
       if (numSequenceParameterSets > 0) {
         byte[] sps = initializationData.get(0);
         SpsData spsData =
@@ -77,6 +79,7 @@ public final class AvcConfig {
         colorSpace = spsData.colorSpace;
         colorRange = spsData.colorRange;
         colorTransfer = spsData.colorTransfer;
+        maxNumReorderFrames = spsData.maxNumReorderFrames;
         pixelWidthHeightRatio = spsData.pixelWidthHeightRatio;
         codecs =
             CodecSpecificDataUtil.buildAvcCodecString(
@@ -93,6 +96,7 @@ public final class AvcConfig {
           colorSpace,
           colorRange,
           colorTransfer,
+          maxNumReorderFrames,
           pixelWidthHeightRatio,
           codecs);
     } catch (ArrayIndexOutOfBoundsException e) {
@@ -138,6 +142,12 @@ public final class AvcConfig {
    */
   public final @C.ColorTransfer int colorTransfer;
 
+  /**
+   * The value of {@code max_num_reorder_frames} read from the VUI parameters, or inferred according
+   * to the spec if absent.
+   */
+  public final int maxNumReorderFrames;
+
   /** The pixel width to height ratio. */
   public final float pixelWidthHeightRatio;
 
@@ -158,6 +168,7 @@ public final class AvcConfig {
       @C.ColorSpace int colorSpace,
       @C.ColorRange int colorRange,
       @C.ColorTransfer int colorTransfer,
+      int maxNumReorderFrames,
       float pixelWidthHeightRatio,
       @Nullable String codecs) {
     this.initializationData = initializationData;
@@ -169,6 +180,7 @@ public final class AvcConfig {
     this.colorSpace = colorSpace;
     this.colorRange = colorRange;
     this.colorTransfer = colorTransfer;
+    this.maxNumReorderFrames = maxNumReorderFrames;
     this.pixelWidthHeightRatio = pixelWidthHeightRatio;
     this.codecs = codecs;
   }

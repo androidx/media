@@ -158,6 +158,7 @@ public final class Format {
 
     @Nullable private String sampleMimeType;
     private int maxInputSize;
+    private int maxNumReorderSamples;
     @Nullable private List<byte[]> initializationData;
     @Nullable private DrmInitData drmInitData;
     private long subsampleOffsetUs;
@@ -202,6 +203,7 @@ public final class Format {
       peakBitrate = NO_VALUE;
       // Sample specific.
       maxInputSize = NO_VALUE;
+      maxNumReorderSamples = NO_VALUE;
       subsampleOffsetUs = OFFSET_SAMPLE_RELATIVE;
       // Video specific.
       width = NO_VALUE;
@@ -244,6 +246,7 @@ public final class Format {
       // Sample specific.
       this.sampleMimeType = format.sampleMimeType;
       this.maxInputSize = format.maxInputSize;
+      this.maxNumReorderSamples = format.maxNumReorderSamples;
       this.initializationData = format.initializationData;
       this.drmInitData = format.drmInitData;
       this.subsampleOffsetUs = format.subsampleOffsetUs;
@@ -448,6 +451,18 @@ public final class Format {
     @CanIgnoreReturnValue
     public Builder setMaxInputSize(int maxInputSize) {
       this.maxInputSize = maxInputSize;
+      return this;
+    }
+
+    /**
+     * Sets {@link Format#maxNumReorderSamples}. The default value is {@link #NO_VALUE}.
+     *
+     * @param maxNumReorderSamples {@link Format#maxNumReorderSamples}.
+     * @return The builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setMaxNumReorderSamples(int maxNumReorderSamples) {
+      this.maxNumReorderSamples = maxNumReorderSamples;
       return this;
     }
 
@@ -863,6 +878,12 @@ public final class Format {
   @UnstableApi public final int maxInputSize;
 
   /**
+   * The maximum number of samples that must be stored to correctly re-order samples from decode
+   * order to presentation order.
+   */
+  @UnstableApi public final int maxNumReorderSamples;
+
+  /**
    * Initialization data that must be provided to the decoder. Will not be null, but may be empty if
    * initialization data is not required.
    */
@@ -1005,6 +1026,7 @@ public final class Format {
     // Sample specific.
     sampleMimeType = builder.sampleMimeType;
     maxInputSize = builder.maxInputSize;
+    maxNumReorderSamples = builder.maxNumReorderSamples;
     initializationData =
         builder.initializationData == null ? Collections.emptyList() : builder.initializationData;
     drmInitData = builder.drmInitData;

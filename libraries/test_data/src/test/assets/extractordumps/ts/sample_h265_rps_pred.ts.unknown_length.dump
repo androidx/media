@@ -10,6 +10,7 @@ track 256:
     id = 1/256
     sampleMimeType = video/hevc
     codecs = hvc1.1.6.L63.90
+    maxNumReorderSamples = 4
     width = 914
     height = 686
     pixelWidthHeightRatio = 1.0003651

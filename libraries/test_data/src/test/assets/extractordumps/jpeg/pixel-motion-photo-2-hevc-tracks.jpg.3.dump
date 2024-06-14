@@ -14,6 +14,7 @@ track 0:
     sampleMimeType = video/hevc
     codecs = hvc1.1.6.L153
     maxInputSize = 229249
+    maxNumReorderSamples = 0
     width = 1024
     height = 768
     frameRate = 27.609846
@@ -44,6 +45,7 @@ track 1:
     sampleMimeType = video/hevc
     codecs = hvc1.1.6.L153
     maxInputSize = 151345
+    maxNumReorderSamples = 0
     width = 2048
     height = 1536
     frameRate = 2.142245
