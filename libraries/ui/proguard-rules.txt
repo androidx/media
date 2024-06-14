@@ -1,6 +1,6 @@
 # Proguard rules specific to the UI module.
 
-# Constructor method accessed via reflection in PlayerView
+# Constructor method and classes accessed via reflection in PlayerView
 -dontnote androidx.media3.exoplayer.video.spherical.SphericalGLSurfaceView
 -keepclassmembers class androidx.media3.exoplayer.video.spherical.SphericalGLSurfaceView {
   <init>(android.content.Context);
@@ -8,6 +8,13 @@
 -dontnote androidx.media3.exoplayer.video.VideoDecoderGLSurfaceView
 -keepclassmembers class androidx.media3.exoplayer.video.VideoDecoderGLSurfaceView {
   <init>(android.content.Context);
+}
+-keepnames class androidx.media3.exoplayer.ExoPlayer {}
+-keepclassmembers class androidx.media3.exoplayer.ExoPlayer {
+  void setImageOutput(androidx.media3.exoplayer.image.ImageOutput);
+}
+-keepclasseswithmembers class androidx.media3.exoplayer.image.ImageOutput {
+  void onImageAvailable(long, android.graphics.Bitmap);
 }
 
 # Constructor method accessed via reflection in TrackSelectionDialogBuilder

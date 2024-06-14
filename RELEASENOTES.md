@@ -49,6 +49,8 @@
         error code and message are set but the state of the plaftorm session
         remains different to `STATE_ERROR`.
 *   UI:
+    *   Add image display support to `PlayerView` when connected to an
+        `ExoPlayer` ([#1144](https://github.com/androidx/media/issues/1144)).
     *   Add customisation of various icons in `PlayerControlView` through xml
         attributes to allow different drawables per `PlayerView` instance,
         rather than global overrides
