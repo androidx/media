@@ -28,7 +28,6 @@ import androidx.media3.common.Player.RepeatMode;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.HandlerWrapper;
-import androidx.media3.exoplayer.ExoPlayer.PreloadConfiguration;
 import androidx.media3.exoplayer.analytics.AnalyticsCollector;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
@@ -85,7 +84,7 @@ import java.util.List;
   private int length;
   @Nullable private Object oldFrontPeriodUid;
   private long oldFrontPeriodWindowSequenceNumber;
-  private PreloadConfiguration preloadConfiguration;
+  private ExoPlayerImpl.PreloadConfiguration preloadConfiguration;
   private List<MediaPeriodHolder> preloadPriorityList;
 
   /**
@@ -100,7 +99,7 @@ import java.util.List;
       AnalyticsCollector analyticsCollector,
       HandlerWrapper analyticsCollectorHandler,
       MediaPeriodHolder.Factory mediaPeriodHolderFactory,
-      PreloadConfiguration preloadConfiguration) {
+      ExoPlayerImpl.PreloadConfiguration preloadConfiguration) {
     this.analyticsCollector = analyticsCollector;
     this.analyticsCollectorHandler = analyticsCollectorHandler;
     this.mediaPeriodHolderFactory = mediaPeriodHolderFactory;
@@ -143,7 +142,7 @@ import java.util.List;
    * @param preloadConfiguration The new preload configuration.
    */
   public void updatePreloadConfiguration(
-      Timeline timeline, PreloadConfiguration preloadConfiguration) {
+      Timeline timeline, ExoPlayerImpl.PreloadConfiguration preloadConfiguration) {
     this.preloadConfiguration = preloadConfiguration;
     invalidatePreloadPool(timeline);
   }

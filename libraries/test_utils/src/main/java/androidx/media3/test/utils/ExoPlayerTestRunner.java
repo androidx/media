@@ -285,16 +285,6 @@ public final class ExoPlayerTestRunner implements Player.Listener, ActionSchedul
     }
 
     /**
-     * @see ExoPlayer#setPreloadConfiguration(ExoPlayer.PreloadConfiguration)
-     * @return This builder.
-     */
-    @CanIgnoreReturnValue
-    public Builder setPreloadConfiguration(ExoPlayer.PreloadConfiguration preloadConfiguration) {
-      testPlayerBuilder.setPreloadConfiguration(preloadConfiguration);
-      return this;
-    }
-
-    /**
      * Sets an {@link ActionSchedule} to be run by the test runner. The first action will be
      * executed immediately before {@link ExoPlayer#prepare()}.
      *

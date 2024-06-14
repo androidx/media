@@ -40,7 +40,7 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
-import androidx.media3.exoplayer.ExoPlayer.PreloadConfiguration;
+import androidx.media3.exoplayer.ExoPlayerImpl.PreloadConfiguration;
 import androidx.media3.exoplayer.analytics.AnalyticsCollector;
 import androidx.media3.exoplayer.analytics.DefaultAnalyticsCollector;
 import androidx.media3.exoplayer.analytics.PlayerId;

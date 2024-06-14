@@ -993,18 +993,6 @@ public class SimpleExoPlayer extends BasePlayer
   }
 
   @Override
-  public void setPreloadConfiguration(PreloadConfiguration preloadConfiguration) {
-    blockUntilConstructorFinished();
-    player.setPreloadConfiguration(preloadConfiguration);
-  }
-
-  @Override
-  public PreloadConfiguration getPreloadConfiguration() {
-    blockUntilConstructorFinished();
-    return player.getPreloadConfiguration();
-  }
-
-  @Override
   public void setShuffleModeEnabled(boolean shuffleModeEnabled) {
     blockUntilConstructorFinished();
     player.setShuffleModeEnabled(shuffleModeEnabled);

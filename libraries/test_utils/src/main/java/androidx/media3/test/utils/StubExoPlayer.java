@@ -155,16 +155,6 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
   }
 
   @Override
-  public void setPreloadConfiguration(PreloadConfiguration preloadConfiguration) {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public PreloadConfiguration getPreloadConfiguration() {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
   public void setMediaSource(MediaSource mediaSource) {
     throw new UnsupportedOperationException();
   }
