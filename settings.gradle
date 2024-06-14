@@ -33,6 +33,8 @@ include modulePrefix + 'demo-cast'
 project(modulePrefix + 'demo-cast').projectDir = new File(rootDir, 'demos/cast')
 include modulePrefix + 'demo-compose'
 project(modulePrefix + 'demo-compose').projectDir = new File(rootDir, 'demos/compose')
+include modulePrefix + 'demo-composition'
+project(modulePrefix + 'demo-composition').projectDir = new File(rootDir, 'demos/composition')
 include modulePrefix + 'demo-gl'
 project(modulePrefix + 'demo-gl').projectDir = new File(rootDir, 'demos/gl')
 include modulePrefix + 'demo-session'
