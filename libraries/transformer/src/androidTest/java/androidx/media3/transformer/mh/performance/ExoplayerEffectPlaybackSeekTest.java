@@ -17,6 +17,7 @@
 package androidx.media3.transformer.mh.performance;
 
 import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
 
 import android.app.Instrumentation;
 import android.content.Context;
@@ -52,7 +53,6 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public final class ExoplayerEffectPlaybackSeekTest {
 
-  private static final String MP4_ASSET = "asset:///media/mp4/sample.mp4";
   // This timeout is made longer for emulators - see
   // ExternalTextureManager.SURFACE_TEXTURE_TIMEOUT_MS.
   private static final long TEST_TIMEOUT_MS = 20_000;
@@ -143,7 +143,7 @@ public final class ExoplayerEffectPlaybackSeekTest {
           // Adding an EventLogger to use its log output in case the test fails.
           player.addAnalyticsListener(new EventLogger());
           player.addListener(listener);
-          player.setMediaItem(MediaItem.fromUri(MP4_ASSET));
+          player.setMediaItem(MediaItem.fromUri(MP4_ASSET.uri));
           player.prepare();
         });
 
