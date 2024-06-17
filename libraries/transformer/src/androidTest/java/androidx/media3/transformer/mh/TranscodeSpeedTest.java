@@ -16,8 +16,8 @@
 package androidx.media3.transformer.mh;
 
 import static androidx.media3.common.MimeTypes.VIDEO_H264;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS_URI_STRING;
-import static androidx.media3.transformer.AndroidTestUtil.ULTRA_HDR_URI_STRING;
+import static androidx.media3.transformer.AndroidTestUtil.JPG_ULTRA_HDR_ASSET;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static com.google.common.truth.Truth.assertThat;
 
@@ -63,15 +63,15 @@ public class TranscodeSpeedTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ AndroidTestUtil.MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS_FORMAT,
-        /* outputFormat= */ AndroidTestUtil.MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS_FORMAT);
+        /* inputFormat= */ MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat,
+        /* outputFormat= */ MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat);
     Transformer transformer =
         new Transformer.Builder(context)
             .setVideoMimeType(MimeTypes.VIDEO_H264)
             .setEncoderFactory(new AndroidTestUtil.ForceEncodeEncoderFactory(context))
             .build();
     MediaItem mediaItem =
-        MediaItem.fromUri(Uri.parse(MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS_URI_STRING))
+        MediaItem.fromUri(Uri.parse(MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS.uri))
             .buildUpon()
             .setClippingConfiguration(
                 new MediaItem.ClippingConfiguration.Builder().setEndPositionMs(15_000).build())
@@ -101,7 +101,7 @@ public class TranscodeSpeedTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ AndroidTestUtil.MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS_FORMAT,
+        /* inputFormat= */ MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat,
         outputFormat);
     DefaultVideoFrameProcessor.Factory videoFrameProcessorFactory =
         new DefaultVideoFrameProcessor.Factory.Builder()
@@ -126,7 +126,7 @@ public class TranscodeSpeedTest {
     // This test uses ULTRA_HDR_URI_STRING because it's high resolution.
     // Ultra HDR gainmap is ignored.
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(ULTRA_HDR_URI_STRING))
+        new EditedMediaItem.Builder(MediaItem.fromUri(JPG_ULTRA_HDR_ASSET.uri))
             .setFrameRate(30)
             .setDurationUs(isHighPerformance ? 45_000_000 : 15_000_000)
             .setEffects(

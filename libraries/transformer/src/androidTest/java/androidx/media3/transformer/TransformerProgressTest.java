@@ -17,7 +17,7 @@ package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_URI_STRING;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_AVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_UNAVAILABLE;
@@ -115,7 +115,7 @@ public class TransformerProgressTest {
                 new Composition.Builder(
                         new EditedMediaItemSequence(
                             new EditedMediaItem.Builder(
-                                    MediaItem.fromUri(AndroidTestUtil.MP4_ASSET_URI_STRING))
+                                    MediaItem.fromUri(AndroidTestUtil.MP4_ASSET.uri))
                                 .setEffects(
                                     new Effects(
                                         /* audioProcessors= */ ImmutableList.of(),
@@ -173,7 +173,7 @@ public class TransformerProgressTest {
         new Transformer.Builder(context).experimentalSetTrimOptimizationEnabled(true).build();
     MediaItem mediaItem =
         new MediaItem.Builder()
-            .setUri(MP4_TRIM_OPTIMIZATION_URI_STRING)
+            .setUri(MP4_TRIM_OPTIMIZATION.uri)
             .setClippingConfiguration(
                 new MediaItem.ClippingConfiguration.Builder()
                     .setStartPositionMs(500)
@@ -253,7 +253,7 @@ public class TransformerProgressTest {
         new Transformer.Builder(context).experimentalSetTrimOptimizationEnabled(true).build();
     MediaItem mediaItem =
         new MediaItem.Builder()
-            .setUri(MP4_TRIM_OPTIMIZATION_URI_STRING)
+            .setUri(MP4_TRIM_OPTIMIZATION.uri)
             .setClippingConfiguration(
                 new MediaItem.ClippingConfiguration.Builder()
                     .setStartPositionMs(500)

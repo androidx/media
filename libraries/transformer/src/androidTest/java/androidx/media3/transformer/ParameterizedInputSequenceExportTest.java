@@ -17,13 +17,10 @@
 
 package androidx.media3.transformer;
 
-import static androidx.media3.transformer.AndroidTestUtil.BT601_MP4_ASSET_FRAME_COUNT;
-import static androidx.media3.transformer.AndroidTestUtil.BT601_MP4_ASSET_URI_STRING;
-import static androidx.media3.transformer.AndroidTestUtil.JPG_ASSET_URI_STRING;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_FRAME_COUNT;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_URI_STRING;
-import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET_URI_STRING;
-import static androidx.media3.transformer.AndroidTestUtil.getFormatForTestFile;
+import static androidx.media3.transformer.AndroidTestUtil.BT601_MP4_ASSET;
+import static androidx.media3.transformer.AndroidTestUtil.JPG_ASSET;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
+import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
@@ -36,6 +33,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.Presentation;
+import androidx.media3.transformer.AndroidTestUtil.AssetInfo;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -60,13 +58,11 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class ParameterizedInputSequenceExportTest {
   private static final ImageItemConfig PNG_ITEM =
-      new ImageItemConfig(PNG_ASSET_URI_STRING, /* frameCount= */ 34);
+      new ImageItemConfig(PNG_ASSET.uri, /* frameCount= */ 34);
   private static final ImageItemConfig JPG_ITEM =
-      new ImageItemConfig(JPG_ASSET_URI_STRING, /* frameCount= */ 41);
-  private static final VideoItemConfig BT709_ITEM =
-      new VideoItemConfig(MP4_ASSET_URI_STRING, MP4_ASSET_FRAME_COUNT);
-  private static final VideoItemConfig BT601_ITEM =
-      new VideoItemConfig(BT601_MP4_ASSET_URI_STRING, BT601_MP4_ASSET_FRAME_COUNT);
+      new ImageItemConfig(JPG_ASSET.uri, /* frameCount= */ 41);
+  private static final VideoItemConfig BT709_ITEM = new VideoItemConfig(MP4_ASSET);
+  private static final VideoItemConfig BT601_ITEM = new VideoItemConfig(BT601_MP4_ASSET);
 
   @Parameters(name = "{0}")
   public static ImmutableList<SequenceConfig> params() {
@@ -264,8 +260,8 @@ public class ParameterizedInputSequenceExportTest {
    * <p>Audio is removed and a {@link Presentation} of specified {@code height=360}.
    */
   private static final class VideoItemConfig extends ItemConfig {
-    public VideoItemConfig(String uri, int frameCount) {
-      super(uri, frameCount, getFormatForTestFile(uri), getFormatForTestFile(uri));
+    public VideoItemConfig(AssetInfo asset) {
+      super(asset.uri, asset.videoFrameCount, asset.videoFormat, asset.videoFormat);
     }
 
     @Override

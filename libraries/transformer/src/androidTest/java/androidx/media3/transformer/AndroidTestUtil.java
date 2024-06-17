@@ -51,6 +51,7 @@ import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.media3.test.utils.VideoDecodingWrapper;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -70,600 +71,754 @@ public final class AndroidTestUtil {
           ImmutableList.of(
               new ScaleAndRotateTransformation.Builder().setRotationDegrees(45).build()));
 
-  public static final String PNG_ASSET_URI_STRING = "asset:///media/png/media3test.png";
-  public static final String PNG_ASSET_LINES_1080P_URI_STRING =
-      "asset:///media/png/loremipsum_1920x720.png";
-  public static final String JPG_ASSET_URI_STRING = "asset:///media/jpeg/london.jpg";
-  public static final String JPG_PORTRAIT_ASSET_URI_STRING = "asset:///media/jpeg/tokyo.jpg";
-  public static final String JPG_SINGLE_PIXEL_URI_STRING = "asset:///media/jpeg/white-1x1.jpg";
-  public static final String ULTRA_HDR_URI_STRING = "asset:///media/jpeg/ultraHDR.jpg";
+  /** Information about a test asset. */
+  public static final class AssetInfo {
+    private static final class Builder {
+      private final String uri;
+      @Nullable private Format videoFormat;
+      private int videoFrameCount;
+      private long videoDurationUs;
 
-  public static final String MP4_TRIM_OPTIMIZATION_URI_STRING =
-      "asset:///media/mp4/internal_emulator_transformer_output.mp4";
+      public Builder(String uri) {
+        this.uri = uri;
+        videoFormat = null;
+        videoFrameCount = C.LENGTH_UNSET;
+        videoDurationUs = C.TIME_UNSET;
+      }
 
-  public static final String MP4_TRIM_OPTIMIZATION_270_URI_STRING =
-      "asset:///media/mp4/internal_emulator_transformer_output_270_rotated.mp4";
+      /** See {@link AssetInfo#videoFormat}. */
+      @CanIgnoreReturnValue
+      public Builder setVideoFormat(Format format) {
+        this.videoFormat = format;
+        return this;
+      }
 
-  public static final String MP4_TRIM_OPTIMIZATION_180_URI_STRING =
-      "asset:///media/mp4/internal_emulator_transformer_output_180_rotated.mp4";
+      /** See {@link AssetInfo#videoFrameCount}. */
+      @CanIgnoreReturnValue
+      public Builder setVideoFrameCount(int frameCount) {
+        // Frame count can be found using the following command for a given file:
+        // ffprobe -count_frames -select_streams v:0 -show_entries stream=nb_read_frames <file>
+        this.videoFrameCount = frameCount;
+        return this;
+      }
 
-  public static final String MP4_TRIM_OPTIMIZATION_PIXEL_URI_STRING =
-      "asset:///media/mp4/pixel7_videoOnly_cleaned.mp4";
+      /** See {@link AssetInfo#videoDurationUs}. */
+      @CanIgnoreReturnValue
+      public Builder setVideoDurationUs(long durationUs) {
+        this.videoDurationUs = durationUs;
+        return this;
+      }
 
-  public static final String MP4_ASSET_URI_STRING = "asset:///media/mp4/sample.mp4";
-  public static final Format MP4_ASSET_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(1080)
-          .setHeight(720)
-          .setFrameRate(29.97f)
-          .setCodecs("avc1.64001F")
+      /** Creates an {@link AssetInfo}. */
+      public AssetInfo build() {
+        return new AssetInfo(uri, videoFormat, videoDurationUs, videoFrameCount);
+      }
+    }
+
+    /** Asset uri string. */
+    public final String uri;
+
+    /** Video {@link Format}, or {@code null}. */
+    @Nullable public final Format videoFormat;
+
+    /** Video duration in microseconds, or {@link C#TIME_UNSET}. */
+    public final long videoDurationUs;
+
+    /** Video frame count, or {@link C#LENGTH_UNSET}. */
+    public final int videoFrameCount;
+
+    private AssetInfo(
+        String uri, @Nullable Format videoFormat, long videoDurationUs, int videoFrameCount) {
+      this.uri = uri;
+      this.videoFormat = videoFormat;
+      this.videoDurationUs = videoDurationUs;
+      this.videoFrameCount = videoFrameCount;
+    }
+
+    @Override
+    public String toString() {
+      return "AssetInfo(" + uri + ")";
+    }
+  }
+
+  public static final AssetInfo PNG_ASSET =
+      new AssetInfo.Builder("asset:///media/png/media3test.png").build();
+  public static final AssetInfo PNG_ASSET_LINES_1080P =
+      new AssetInfo.Builder("asset:///media/png/loremipsum_1920x720.png").build();
+  public static final AssetInfo JPG_ASSET =
+      new AssetInfo.Builder("asset:///media/jpeg/london.jpg").build();
+  public static final AssetInfo JPG_PORTRAIT_ASSET =
+      new AssetInfo.Builder("asset:///media/jpeg/tokyo.jpg").build();
+  public static final AssetInfo JPG_SINGLE_PIXEL_ASSET =
+      new AssetInfo.Builder("asset:///media/jpeg/white-1x1.jpg").build();
+  public static final AssetInfo JPG_ULTRA_HDR_ASSET =
+      new AssetInfo.Builder("asset:///media/jpeg/ultraHDR.jpg").build();
+
+  public static final AssetInfo MP4_TRIM_OPTIMIZATION =
+      new AssetInfo.Builder("asset:///media/mp4/internal_emulator_transformer_output.mp4").build();
+  public static final AssetInfo MP4_TRIM_OPTIMIZATION_270 =
+      new AssetInfo.Builder(
+              "asset:///media/mp4/internal_emulator_transformer_output_270_rotated.mp4")
           .build();
-  public static final long MP4_ASSET_DURATION_US = 1_024_000L;
+  public static final AssetInfo MP4_TRIM_OPTIMIZATION_180 =
+      new AssetInfo.Builder(
+              "asset:///media/mp4/internal_emulator_transformer_output_180_rotated.mp4")
+          .build();
+  public static final AssetInfo MP4_TRIM_OPTIMIZATION_PIXEL =
+      new AssetInfo.Builder("asset:///media/mp4/pixel7_videoOnly_cleaned.mp4").build();
 
-  // Result of the following command for MP4_ASSET_URI_STRING
-  // ffprobe -count_frames -select_streams v:0 -show_entries stream=nb_read_frames sample.mp4
-  public static final int MP4_ASSET_FRAME_COUNT = 30;
-
-  public static final String BT601_MOV_ASSET_URI_STRING = "asset:///media/mp4/bt601.mov";
-  public static final Format BT601_MOV_ASSET_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(640)
-          .setHeight(428)
-          .setFrameRate(29.97f)
-          .setColorInfo(
-              new ColorInfo.Builder()
-                  .setColorSpace(C.COLOR_SPACE_BT601)
-                  .setColorRange(C.COLOR_RANGE_LIMITED)
-                  .setColorTransfer(C.COLOR_TRANSFER_SDR)
+  public static final AssetInfo MP4_ASSET =
+      new AssetInfo.Builder("asset:///media/mp4/sample.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(1080)
+                  .setHeight(720)
+                  .setFrameRate(29.97f)
+                  .setCodecs("avc1.64001F")
                   .build())
-          .setCodecs("avc1.4D001E")
+          .setVideoDurationUs(1_024_000L)
+          .setVideoFrameCount(30)
           .build();
 
-  public static final String BT601_MP4_ASSET_URI_STRING = "asset:///media/mp4/bt601.mp4";
-  public static final Format BT601_MP4_ASSET_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(360)
-          .setHeight(240)
-          .setFrameRate(29.97f)
-          .setColorInfo(
-              new ColorInfo.Builder()
-                  .setColorSpace(C.COLOR_SPACE_BT601)
-                  .setColorRange(C.COLOR_RANGE_LIMITED)
-                  .setColorTransfer(C.COLOR_TRANSFER_SDR)
+  public static final AssetInfo BT601_MOV_ASSET =
+      new AssetInfo.Builder("asset:///media/mp4/bt601.mov")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(640)
+                  .setHeight(428)
+                  .setFrameRate(29.97f)
+                  .setColorInfo(
+                      new ColorInfo.Builder()
+                          .setColorSpace(C.COLOR_SPACE_BT601)
+                          .setColorRange(C.COLOR_RANGE_LIMITED)
+                          .setColorTransfer(C.COLOR_TRANSFER_SDR)
+                          .build())
+                  .setCodecs("avc1.4D001E")
                   .build())
-          .setCodecs("avc1.42C00D")
-          .build();
-  // Result of the following command for BT601_MP4_ASSET_URI_STRING
-  // ffprobe -count_frames -select_streams v:0 -show_entries stream=nb_read_frames bt601.mp4
-  public static final int BT601_MP4_ASSET_FRAME_COUNT = 30;
-
-  public static final String MP4_PORTRAIT_ASSET_URI_STRING =
-      "asset:///media/mp4/sample_portrait.mp4";
-  public static final Format MP4_PORTRAIT_ASSET_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(720)
-          .setHeight(1080)
-          .setFrameRate(29.97f)
-          .setCodecs("avc1.64001F")
           .build();
 
-  public static final String MP4_ASSET_AV1_VIDEO_URI_STRING = "asset:///media/mp4/sample_av1.mp4";
-  public static final Format MP4_ASSET_AV1_VIDEO_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_AV1)
-          .setWidth(1080)
-          .setHeight(720)
-          .setFrameRate(30.0f)
+  public static final AssetInfo BT601_MP4_ASSET =
+      new AssetInfo.Builder("asset:///media/mp4/bt601.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(360)
+                  .setHeight(240)
+                  .setFrameRate(29.97f)
+                  .setColorInfo(
+                      new ColorInfo.Builder()
+                          .setColorSpace(C.COLOR_SPACE_BT601)
+                          .setColorRange(C.COLOR_RANGE_LIMITED)
+                          .setColorTransfer(C.COLOR_TRANSFER_SDR)
+                          .build())
+                  .setCodecs("avc1.42C00D")
+                  .build())
+          .setVideoFrameCount(30)
           .build();
 
-  public static final String MP4_ASSET_CHECKERBOARD_VIDEO_URI_STRING =
-      "asset:///media/mp4/checkerboard_854x356_avc_baseline.mp4";
-  public static final Format MP4_ASSET_CHECKERBOARD_VIDEO_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(854)
-          .setHeight(356)
-          .setFrameRate(25.0f)
+  public static final AssetInfo MP4_PORTRAIT_ASSET =
+      new AssetInfo.Builder("asset:///media/mp4/sample_portrait.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(720)
+                  .setHeight(1080)
+                  .setFrameRate(29.97f)
+                  .setCodecs("avc1.64001F")
+                  .build())
           .build();
 
-  public static final String MP4_ASSET_WITH_INCREASING_TIMESTAMPS_URI_STRING =
-      "asset:///media/mp4/sample_with_increasing_timestamps.mp4";
-  public static final Format MP4_ASSET_WITH_INCREASING_TIMESTAMPS_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(1920)
-          .setHeight(1080)
-          .setFrameRate(30.00f)
-          .setCodecs("avc1.42C033")
+  public static final AssetInfo MP4_ASSET_AV1_VIDEO =
+      new AssetInfo.Builder("asset:///media/mp4/sample_av1.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_AV1)
+                  .setWidth(1080)
+                  .setHeight(720)
+                  .setFrameRate(30.0f)
+                  .build())
           .build();
 
-  public static final String MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS_URI_STRING =
-      "asset:///media/mp4/long_1080p_videoonly_lowbitrate.mp4";
-  public static final Format MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(1920)
-          .setHeight(1080)
-          .setFrameRate(30.00f)
-          .setCodecs("avc1.42C028")
+  public static final AssetInfo MP4_ASSET_CHECKERBOARD_VIDEO =
+      new AssetInfo.Builder("asset:///media/mp4/checkerboard_854x356_avc_baseline.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(854)
+                  .setHeight(356)
+                  .setFrameRate(25.0f)
+                  .build())
+          .build();
+
+  public static final AssetInfo MP4_ASSET_WITH_INCREASING_TIMESTAMPS =
+      new AssetInfo.Builder("asset:///media/mp4/sample_with_increasing_timestamps.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(1920)
+                  .setHeight(1080)
+                  .setFrameRate(30.00f)
+                  .setCodecs("avc1.42C033")
+                  .build())
+          .build();
+
+  public static final AssetInfo MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS =
+      new AssetInfo.Builder("asset:///media/mp4/long_1080p_videoonly_lowbitrate.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(1920)
+                  .setHeight(1080)
+                  .setFrameRate(30.00f)
+                  .setCodecs("avc1.42C028")
+                  .build())
           .build();
 
   /** Baseline profile level 3.0 H.264 stream, which should be supported on all devices. */
-  public static final String MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_URI_STRING =
-      "asset:///media/mp4/sample_with_increasing_timestamps_320w_240h.mp4";
-
-  public static final Format MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(320)
-          .setHeight(240)
-          .setFrameRate(30.00f)
-          .setCodecs("avc1.42C015")
-          .build();
-
-  public static final String MP4_ASSET_WITH_SHORTER_AUDIO_URI_STRING =
-      "asset:///media/mp4/sample_shorter_audio.mp4";
-
-  public static final Format MP4_ASSET_WITH_SHORTER_AUDIO_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(320)
-          .setHeight(240)
-          .setFrameRate(30.00f)
-          .setCodecs("avc1.42C015")
-          .build();
-
-  public static final String MP4_ASSET_SEF_URI_STRING =
-      "asset:///media/mp4/sample_sef_slow_motion.mp4";
-  public static final Format MP4_ASSET_SEF_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(320)
-          .setHeight(240)
-          .setFrameRate(30.472f)
-          .setCodecs("avc1.64000D")
-          .build();
-
-  public static final String MP4_ASSET_SEF_H265_URI_STRING =
-      "asset:///media/mp4/sample_sef_slow_motion_hevc.mp4";
-  public static final Format MP4_ASSET_SEF_H265_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H265)
-          .setWidth(1920)
-          .setHeight(1080)
-          .setFrameRate(30.01679f)
-          .setCodecs("hvc1.1.6.L120.B0")
-          .build();
-
-  public static final String MP4_ASSET_BT2020_SDR = "asset:///media/mp4/bt2020-sdr.mp4";
-  public static final Format MP4_ASSET_BT2020_SDR_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(3840)
-          .setHeight(2160)
-          .setFrameRate(29.822f)
-          .setColorInfo(
-              new ColorInfo.Builder()
-                  .setColorSpace(C.COLOR_SPACE_BT2020)
-                  .setColorRange(C.COLOR_RANGE_LIMITED)
-                  .setColorTransfer(C.COLOR_TRANSFER_SDR)
+  public static final AssetInfo MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S =
+      new AssetInfo.Builder("asset:///media/mp4/sample_with_increasing_timestamps_320w_240h.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(320)
+                  .setHeight(240)
+                  .setFrameRate(30.00f)
+                  .setCodecs("avc1.42C015")
                   .build())
-          .setCodecs("avc1.640033")
           .build();
 
-  public static final String MP4_ASSET_1080P_5_SECOND_HLG10 = "asset:///media/mp4/hlg-1080p.mp4";
-  public static final Format MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H265)
-          .setWidth(1920)
-          .setHeight(1080)
-          .setFrameRate(30.000f)
-          .setColorInfo(
-              new ColorInfo.Builder()
-                  .setColorSpace(C.COLOR_SPACE_BT2020)
-                  .setColorRange(C.COLOR_RANGE_LIMITED)
-                  .setColorTransfer(C.COLOR_TRANSFER_HLG)
+  public static final AssetInfo MP4_ASSET_WITH_SHORTER_AUDIO =
+      new AssetInfo.Builder("asset:///media/mp4/sample_shorter_audio.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(320)
+                  .setHeight(240)
+                  .setFrameRate(30.00f)
+                  .setCodecs("avc1.42C015")
                   .build())
-          .setCodecs("hvc1.2.4.L153")
-          .build();
-  public static final String MP4_ASSET_720P_4_SECOND_HDR10 = "asset:///media/mp4/hdr10-720p.mp4";
-  public static final Format MP4_ASSET_720P_4_SECOND_HDR10_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H265)
-          .setWidth(1280)
-          .setHeight(720)
-          .setFrameRate(29.97f)
-          .setColorInfo(
-              new ColorInfo.Builder()
-                  .setColorSpace(C.COLOR_SPACE_BT2020)
-                  .setColorRange(C.COLOR_RANGE_LIMITED)
-                  .setColorTransfer(C.COLOR_TRANSFER_ST2084)
-                  .build())
-          .setCodecs("hvc1.2.4.L153")
           .build();
 
-  public static final String MP4_ASSET_AV1_2_SECOND_HDR10 = "asset:///media/mp4/hdr10-av1.mp4";
-  public static final Format MP4_ASSET_AV1_2_SECOND_HDR10_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_AV1)
-          .setWidth(720)
-          .setHeight(1280)
-          .setFrameRate(59.94f)
-          .setColorInfo(
-              new ColorInfo.Builder()
-                  .setColorSpace(C.COLOR_SPACE_BT2020)
-                  .setColorRange(C.COLOR_RANGE_LIMITED)
-                  .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+  public static final AssetInfo MP4_ASSET_SEF =
+      new AssetInfo.Builder("asset:///media/mp4/sample_sef_slow_motion.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(320)
+                  .setHeight(240)
+                  .setFrameRate(30.472f)
+                  .setCodecs("avc1.64000D")
+                  .build())
+          .build();
+
+  public static final AssetInfo MP4_ASSET_SEF_H265 =
+      new AssetInfo.Builder("asset:///media/mp4/sample_sef_slow_motion_hevc.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H265)
+                  .setWidth(1920)
+                  .setHeight(1080)
+                  .setFrameRate(30.01679f)
+                  .setCodecs("hvc1.1.6.L120.B0")
+                  .build())
+          .build();
+
+  public static final AssetInfo MP4_ASSET_BT2020_SDR =
+      new AssetInfo.Builder("asset:///media/mp4/bt2020-sdr.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(3840)
+                  .setHeight(2160)
+                  .setFrameRate(29.822f)
+                  .setColorInfo(
+                      new ColorInfo.Builder()
+                          .setColorSpace(C.COLOR_SPACE_BT2020)
+                          .setColorRange(C.COLOR_RANGE_LIMITED)
+                          .setColorTransfer(C.COLOR_TRANSFER_SDR)
+                          .build())
+                  .setCodecs("avc1.640033")
+                  .build())
+          .build();
+
+  public static final AssetInfo MP4_ASSET_1080P_5_SECOND_HLG10 =
+      new AssetInfo.Builder("asset:///media/mp4/hlg-1080p.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H265)
+                  .setWidth(1920)
+                  .setHeight(1080)
+                  .setFrameRate(30.000f)
+                  .setColorInfo(
+                      new ColorInfo.Builder()
+                          .setColorSpace(C.COLOR_SPACE_BT2020)
+                          .setColorRange(C.COLOR_RANGE_LIMITED)
+                          .setColorTransfer(C.COLOR_TRANSFER_HLG)
+                          .build())
+                  .setCodecs("hvc1.2.4.L153")
+                  .build())
+          .build();
+
+  public static final AssetInfo MP4_ASSET_720P_4_SECOND_HDR10 =
+      new AssetInfo.Builder("asset:///media/mp4/hdr10-720p.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H265)
+                  .setWidth(1280)
+                  .setHeight(720)
+                  .setFrameRate(29.97f)
+                  .setColorInfo(
+                      new ColorInfo.Builder()
+                          .setColorSpace(C.COLOR_SPACE_BT2020)
+                          .setColorRange(C.COLOR_RANGE_LIMITED)
+                          .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+                          .build())
+                  .setCodecs("hvc1.2.4.L153")
+                  .build())
+          .build();
+
+  public static final AssetInfo MP4_ASSET_AV1_2_SECOND_HDR10 =
+      new AssetInfo.Builder("asset:///media/mp4/hdr10-av1.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_AV1)
+                  .setWidth(720)
+                  .setHeight(1280)
+                  .setFrameRate(59.94f)
+                  .setColorInfo(
+                      new ColorInfo.Builder()
+                          .setColorSpace(C.COLOR_SPACE_BT2020)
+                          .setColorRange(C.COLOR_RANGE_LIMITED)
+                          .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+                          .build())
                   .build())
           .build();
 
   // This file needs alternative MIME type, meaning the decoder needs to be configured with
   // video/hevc instead of video/dolby-vision.
-  public static final String MP4_ASSET_DOLBY_VISION_HDR = "asset:///media/mp4/dolbyVision-hdr.MOV";
-  public static final Format MP4_ASSET_DOLBY_VISION_HDR_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_DOLBY_VISION)
-          .setWidth(1280)
-          .setHeight(720)
-          .setFrameRate(30.00f)
-          .setCodecs("hev1.08.02")
-          .setColorInfo(
-              new ColorInfo.Builder()
-                  .setColorTransfer(C.COLOR_TRANSFER_HLG)
-                  .setColorRange(C.COLOR_RANGE_LIMITED)
-                  .setColorSpace(C.COLOR_SPACE_BT2020)
+  public static final AssetInfo MP4_ASSET_DOLBY_VISION_HDR =
+      new AssetInfo.Builder("asset:///media/mp4/dolbyVision-hdr.MOV")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_DOLBY_VISION)
+                  .setWidth(1280)
+                  .setHeight(720)
+                  .setFrameRate(30.00f)
+                  .setCodecs("hev1.08.02")
+                  .setColorInfo(
+                      new ColorInfo.Builder()
+                          .setColorTransfer(C.COLOR_TRANSFER_HLG)
+                          .setColorRange(C.COLOR_RANGE_LIMITED)
+                          .setColorSpace(C.COLOR_SPACE_BT2020)
+                          .build())
                   .build())
           .build();
 
-  public static final String MP4_ASSET_4K60_PORTRAIT_URI_STRING =
-      "asset:///media/mp4/portrait_4k60.mp4";
-  public static final Format MP4_ASSET_4K60_PORTRAIT_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(3840)
-          .setHeight(2160)
-          .setFrameRate(60.00f)
-          .setCodecs("avc1.640033")
+  public static final AssetInfo MP4_ASSET_4K60_PORTRAIT =
+      new AssetInfo.Builder("asset:///media/mp4/portrait_4k60.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(3840)
+                  .setHeight(2160)
+                  .setFrameRate(60.00f)
+                  .setCodecs("avc1.640033")
+                  .build())
           .build();
 
-  public static final String MP4_REMOTE_10_SECONDS_URI_STRING =
-      "https://storage.googleapis.com/exoplayer-test-media-1/mp4/android-screens-10s.mp4";
-  public static final Format MP4_REMOTE_10_SECONDS_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(1280)
-          .setHeight(720)
-          .setFrameRate(29.97f)
-          .setCodecs("avc1.64001F")
+  public static final AssetInfo MP4_REMOTE_10_SECONDS =
+      new AssetInfo.Builder(
+              "https://storage.googleapis.com/exoplayer-test-media-1/mp4/android-screens-10s.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(1280)
+                  .setHeight(720)
+                  .setFrameRate(29.97f)
+                  .setCodecs("avc1.64001F")
+                  .build())
           .build();
 
-  /** Test clip transcoded from {@link #MP4_REMOTE_10_SECONDS_URI_STRING} with H264 and MP3. */
-  public static final String MP4_REMOTE_H264_MP3_URI_STRING =
-      "https://storage.googleapis.com/exoplayer-test-media-1/mp4/%20android-screens-10s-h264-mp3.mp4";
-
-  public static final Format MP4_REMOTE_H264_MP3_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(1280)
-          .setHeight(720)
-          .setFrameRate(29.97f)
-          .setCodecs("avc1.64001F")
+  /** Test clip transcoded from {@linkplain #MP4_REMOTE_10_SECONDS with H264 and MP3}. */
+  public static final AssetInfo MP4_REMOTE_H264_MP3 =
+      new AssetInfo.Builder(
+              "https://storage.googleapis.com/exoplayer-test-media-1/mp4/%20android-screens-10s-h264-mp3.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(1280)
+                  .setHeight(720)
+                  .setFrameRate(29.97f)
+                  .setCodecs("avc1.64001F")
+                  .build())
           .build();
 
-  public static final String MP4_ASSET_8K24_URI_STRING = "asset:///media/mp4/8k24fps_300ms.mp4";
-  public static final Format MP4_ASSET_8K24_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(MimeTypes.VIDEO_H265)
-          .setWidth(7680)
-          .setHeight(4320)
-          .setFrameRate(24.00f)
-          .setCodecs("hvc1.1.6.L183")
+  public static final AssetInfo MP4_ASSET_8K24 =
+      new AssetInfo.Builder("asset:///media/mp4/8k24fps_300ms.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H265)
+                  .setWidth(7680)
+                  .setHeight(4320)
+                  .setFrameRate(24.00f)
+                  .setCodecs("hvc1.1.6.L183")
+                  .build())
           .build();
 
   // The 7 HIGHMOTION files are H264 and AAC.
-  public static final String MP4_REMOTE_1280W_720H_5_SECOND_HIGHMOTION =
-      "https://storage.googleapis.com/exoplayer-test-media-1/mp4/1280w_720h_highmotion.mp4";
-  public static final Format MP4_REMOTE_1280W_720H_5_SECOND_HIGHMOTION_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(1280)
-          .setHeight(720)
-          .setAverageBitrate(8_939_000)
-          .setFrameRate(30.075f)
-          .setCodecs("avc1.64001F")
-          .build();
 
-  public static final String MP4_REMOTE_1440W_1440H_5_SECOND_HIGHMOTION =
-      "https://storage.googleapis.com/exoplayer-test-media-1/mp4/1440w_1440h_highmotion.mp4";
-  public static final Format MP4_REMOTE_1440W_1440H_5_SECOND_HIGHMOTION_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(1440)
-          .setHeight(1440)
-          .setAverageBitrate(17_000_000)
-          .setFrameRate(29.97f)
-          .setCodecs("avc1.640028")
-          .build();
-
-  public static final String MP4_REMOTE_1920W_1080H_5_SECOND_HIGHMOTION =
-      "https://storage.googleapis.com/exoplayer-test-media-1/mp4/1920w_1080h_highmotion.mp4";
-  public static final Format MP4_REMOTE_1920W_1080H_5_SECOND_HIGHMOTION_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(1920)
-          .setHeight(1080)
-          .setAverageBitrate(17_100_000)
-          .setFrameRate(30.037f)
-          .setCodecs("avc1.640028")
-          .build();
-
-  public static final String MP4_REMOTE_3840W_2160H_5_SECOND_HIGHMOTION =
-      "https://storage.googleapis.com/exoplayer-test-media-1/mp4/3840w_2160h_highmotion.mp4";
-  public static final Format MP4_REMOTE_3840W_2160H_5_SECOND_HIGHMOTION_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(3840)
-          .setHeight(2160)
-          .setAverageBitrate(48_300_000)
-          .setFrameRate(30.090f)
-          .setCodecs("avc1.640033")
-          .build();
-
-  public static final String MP4_REMOTE_1280W_720H_30_SECOND_HIGHMOTION =
-      "https://storage.googleapis.com/exoplayer-test-media-1/mp4/1280w_720h_30s_highmotion.mp4";
-  public static final Format MP4_REMOTE_1280W_720H_30_SECOND_HIGHMOTION_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(1280)
-          .setHeight(720)
-          .setAverageBitrate(9_962_000)
-          .setFrameRate(30.078f)
-          .setCodecs("avc1.64001F")
-          .build();
-
-  public static final String MP4_REMOTE_1920W_1080H_30_SECOND_HIGHMOTION =
-      "https://storage.googleapis.com/exoplayer-test-media-1/mp4/1920w_1080h_30s_highmotion.mp4";
-  public static final Format MP4_REMOTE_1920W_1080H_30_SECOND_HIGHMOTION_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(1920)
-          .setHeight(1080)
-          .setAverageBitrate(15_000_000)
-          .setFrameRate(28.561f)
-          .setCodecs("avc1.640028")
-          .build();
-
-  public static final String MP4_REMOTE_3840W_2160H_32_SECOND_HIGHMOTION =
-      "https://storage.googleapis.com/exoplayer-test-media-1/mp4/3840w_2160h_32s_highmotion.mp4";
-  public static final Format MP4_REMOTE_3840W_2160H_32_SECOND_HIGHMOTION_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(3840)
-          .setHeight(2160)
-          .setAverageBitrate(47_800_000)
-          .setFrameRate(28.414f)
-          .setCodecs("avc1.640033")
-          .build();
-
-  public static final String MP4_REMOTE_256W_144H_30_SECOND_ROOF_ONEPLUSNORD2_DOWNSAMPLED =
-      "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/OnePlusNord2_downsampled_256w_144h_30s_roof.mp4";
-  public static final Format MP4_REMOTE_256W_144H_30_SECOND_ROOF_ONEPLUSNORD2_DOWNSAMPLED_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(256)
-          .setHeight(144)
-          .setFrameRate(30)
-          .setCodecs("avc1.64000C")
-          .build();
-
-  public static final String MP4_REMOTE_426W_240H_30_SECOND_ROOF_ONEPLUSNORD2_DOWNSAMPLED =
-      "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/OnePlusNord2_downsampled_426w_240h_30s_roof.mp4";
-  public static final Format MP4_REMOTE_426W_240H_30_SECOND_ROOF_ONEPLUSNORD2_DOWNSAMPLED_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(426)
-          .setHeight(240)
-          .setFrameRate(30)
-          .setCodecs("avc1.640015")
-          .build();
-
-  public static final String MP4_REMOTE_640W_360H_30_SECOND_ROOF_ONEPLUSNORD2_DOWNSAMPLED =
-      "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/OnePlusNord2_downsampled_640w_360h_30s_roof.mp4";
-  public static final Format MP4_REMOTE_640W_360H_30_SECOND_ROOF_ONEPLUSNORD2_DOWNSAMPLED_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(640)
-          .setHeight(360)
-          .setFrameRate(30)
-          .setCodecs("avc1.64001E")
-          .build();
-
-  public static final String MP4_REMOTE_854W_480H_30_SECOND_ROOF_ONEPLUSNORD2_DOWNSAMPLED =
-      "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/OnePlusNord2_downsampled_854w_480h_30s_roof.mp4";
-  public static final Format MP4_REMOTE_854W_480H_30_SECOND_ROOF_ONEPLUSNORD2_DOWNSAMPLED_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(854)
-          .setHeight(480)
-          .setFrameRate(30)
-          .setCodecs("avc1.64001F")
-          .build();
-
-  public static final String MP4_REMOTE_256W_144H_30_SECOND_ROOF_REDMINOTE9_DOWNSAMPLED =
-      "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/RedmiNote9_downsampled_256w_144h_30s_roof.mp4";
-  public static final Format MP4_REMOTE_256W_144H_30_SECOND_ROOF_REDMINOTE9_DOWNSAMPLED_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(256)
-          .setHeight(144)
-          .setFrameRate(30)
-          .setCodecs("avc1.64000C")
-          .build();
-
-  public static final String MP4_REMOTE_426W_240H_30_SECOND_ROOF_REDMINOTE9_DOWNSAMPLED =
-      "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/RedmiNote9_downsampled_426w_240h_30s_roof.mp4";
-  public static final Format MP4_REMOTE_426W_240H_30_SECOND_ROOF_REDMINOTE9_DOWNSAMPLED_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(426)
-          .setHeight(240)
-          .setFrameRate(30)
-          .setCodecs("avc1.640015")
-          .build();
-
-  public static final String MP4_REMOTE_640W_360H_30_SECOND_ROOF_REDMINOTE9_DOWNSAMPLED =
-      "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/RedmiNote9_downsampled_640w_360h_30s_roof.mp4";
-  public static final Format MP4_REMOTE_640W_360H_30_SECOND_ROOF_REDMINOTE9_DOWNSAMPLED_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(640)
-          .setHeight(360)
-          .setFrameRate(30)
-          .setCodecs("avc1.64001E")
-          .build();
-
-  public static final String MP4_REMOTE_854W_480H_30_SECOND_ROOF_REDMINOTE9_DOWNSAMPLED =
-      "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/RedmiNote9_downsampled_854w_480h_30s_roof.mp4";
-  public static final Format MP4_REMOTE_854W_480H_30_SECOND_ROOF_REDMINOTE9_DOWNSAMPLED_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(854)
-          .setHeight(480)
-          .setFrameRate(30)
-          .setCodecs("avc1.64001F")
-          .build();
-
-  public static final String MP4_REMOTE_640W_480H_31_SECOND_ROOF_SONYXPERIAXZ3 =
-      "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/SonyXperiaXZ3_640w_480h_31s_roof.mp4";
-  public static final Format MP4_REMOTE_640W_480H_31_SECOND_ROOF_SONYXPERIAXZ3_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(640)
-          .setHeight(480)
-          .setAverageBitrate(3_578_000)
-          .setFrameRate(30)
-          .setCodecs("avc1.64001E")
-          .build();
-
-  public static final String MP4_REMOTE_1280W_720H_30_SECOND_ROOF_ONEPLUSNORD2 =
-      "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/OnePlusNord2_1280w_720h_30s_roof.mp4";
-  public static final Format MP4_REMOTE_1280W_720H_30_SECOND_ROOF_ONEPLUSNORD2_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(1280)
-          .setHeight(720)
-          .setAverageBitrate(8_966_000)
-          .setFrameRate(29.763f)
-          .setCodecs("avc1.640028")
-          .build();
-
-  public static final String MP4_REMOTE_1280W_720H_32_SECOND_ROOF_REDMINOTE9 =
-      "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/RedmiNote9_1280w_720h_32s_roof.mp4";
-  public static final Format MP4_REMOTE_1280W_720H_32_SECOND_ROOF_REDMINOTE9_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(1280)
-          .setHeight(720)
-          .setAverageBitrate(14_100_000)
-          .setFrameRate(30)
-          .setCodecs("avc1.64001F")
-          .build();
-
-  public static final String MP4_REMOTE_1440W_1440H_31_SECOND_ROOF_SAMSUNGS20ULTRA5G =
-      "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/SsS20Ultra5G_1440hw_31s_roof.mp4";
-  public static final Format MP4_REMOTE_1440W_1440H_31_SECOND_ROOF_SAMSUNGS20ULTRA5G_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(1440)
-          .setHeight(1440)
-          .setAverageBitrate(16_300_000)
-          .setFrameRate(25.931f)
-          .setCodecs("avc1.640028")
-          .build();
-
-  public static final String MP4_REMOTE_1920W_1080H_60_FPS_30_SECOND_ROOF_ONEPLUSNORD2 =
-      "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/OnePlusNord2_1920w_1080h_60fr_30s_roof.mp4";
-  public static final Format MP4_REMOTE_1920W_1080H_60_FPS_30_SECOND_ROOF_ONEPLUSNORD2_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(1920)
-          .setHeight(1080)
-          .setAverageBitrate(20_000_000)
-          .setFrameRate(59.94f)
-          .setCodecs("avc1.640028")
-          .build();
-
-  public static final String MP4_REMOTE_1920W_1080H_60_FPS_30_SECOND_ROOF_REDMINOTE9 =
-      "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/RedmiNote9_1920w_1080h_60fps_30s_roof.mp4";
-  public static final Format MP4_REMOTE_1920W_1080H_60_FPS_30_SECOND_ROOF_REDMINOTE9_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(1920)
-          .setHeight(1080)
-          .setAverageBitrate(20_100_000)
-          .setFrameRate(61.069f)
-          .setCodecs("avc1.64002A")
-          .build();
-
-  public static final String MP4_REMOTE_2400W_1080H_34_SECOND_ROOF_SAMSUNGS20ULTRA5G =
-      "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/SsS20Ultra5G_2400w_1080h_34s_roof.mp4";
-  public static final Format MP4_REMOTE_2400W_1080H_34_SECOND_ROOF_SAMSUNGS20ULTRA5G_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H265)
-          .setWidth(2400)
-          .setHeight(1080)
-          .setAverageBitrate(29_500_000)
-          .setFrameRate(27.472f)
-          .setCodecs("hvc1.2.4.L153.B0")
-          .build();
-
-  public static final String MP4_REMOTE_3840W_2160H_30_SECOND_ROOF_ONEPLUSNORD2 =
-      "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/OnePlusNord2_3840w_2160h_30s_roof.mp4";
-  public static final Format MP4_REMOTE_3840W_2160H_30_SECOND_ROOF_ONEPLUSNORD2_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(3840)
-          .setHeight(2160)
-          .setAverageBitrate(49_800_000)
-          .setFrameRate(29.802f)
-          .setCodecs("avc1.640028")
-          .build();
-
-  public static final String MP4_REMOTE_3840W_2160H_30_SECOND_ROOF_REDMINOTE9 =
-      "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/RedmiNote9_3840w_2160h_30s_roof.mp4";
-  public static final Format MP4_REMOTE_3840W_2160H_30_SECOND_ROOF_REDMINOTE9_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(3840)
-          .setHeight(2160)
-          .setAverageBitrate(42_100_000)
-          .setFrameRate(30)
-          .setColorInfo(
-              new ColorInfo.Builder()
-                  .setColorSpace(C.COLOR_SPACE_BT2020)
-                  .setColorRange(C.COLOR_RANGE_FULL)
-                  .setColorTransfer(C.COLOR_TRANSFER_SDR)
+  public static final AssetInfo MP4_REMOTE_1280W_720H_5_SECOND_HIGHMOTION =
+      new AssetInfo.Builder(
+              "https://storage.googleapis.com/exoplayer-test-media-1/mp4/1280w_720h_highmotion.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(1280)
+                  .setHeight(720)
+                  .setAverageBitrate(8_939_000)
+                  .setFrameRate(30.075f)
+                  .setCodecs("avc1.64001F")
                   .build())
-          .setCodecs("avc1.640033")
           .build();
 
-  public static final String MP4_REMOTE_7680W_4320H_31_SECOND_ROOF_SAMSUNGS20ULTRA5G =
-      "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/SsS20Ultra5G_7680w_4320h_31s_roof.mp4";
-  public static final Format MP4_REMOTE_7680W_4320H_31_SECOND_ROOF_SAMSUNGS20ULTRA5G_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H265)
-          .setWidth(7680)
-          .setHeight(4320)
-          .setAverageBitrate(79_900_000)
-          .setFrameRate(23.163f)
-          .setCodecs("hvc1.1.6.L183.B0")
+  public static final AssetInfo MP4_REMOTE_1440W_1440H_5_SECOND_HIGHMOTION =
+      new AssetInfo.Builder(
+              "https://storage.googleapis.com/exoplayer-test-media-1/mp4/1440w_1440h_highmotion.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(1440)
+                  .setHeight(1440)
+                  .setAverageBitrate(17_000_000)
+                  .setFrameRate(29.97f)
+                  .setCodecs("avc1.640028")
+                  .build())
           .build();
 
-  public static final String MP3_ASSET_URI_STRING = "asset:///media/mp3/test-cbr-info-header.mp3";
+  public static final AssetInfo MP4_REMOTE_1920W_1080H_5_SECOND_HIGHMOTION =
+      new AssetInfo.Builder(
+              "https://storage.googleapis.com/exoplayer-test-media-1/mp4/1920w_1080h_highmotion.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(1920)
+                  .setHeight(1080)
+                  .setAverageBitrate(17_100_000)
+                  .setFrameRate(30.037f)
+                  .setCodecs("avc1.640028")
+                  .build())
+          .build();
+
+  public static final AssetInfo MP4_REMOTE_3840W_2160H_5_SECOND_HIGHMOTION =
+      new AssetInfo.Builder(
+              "https://storage.googleapis.com/exoplayer-test-media-1/mp4/3840w_2160h_highmotion.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(3840)
+                  .setHeight(2160)
+                  .setAverageBitrate(48_300_000)
+                  .setFrameRate(30.090f)
+                  .setCodecs("avc1.640033")
+                  .build())
+          .build();
+
+  public static final AssetInfo MP4_REMOTE_1280W_720H_30_SECOND_HIGHMOTION =
+      new AssetInfo.Builder(
+              "https://storage.googleapis.com/exoplayer-test-media-1/mp4/1280w_720h_30s_highmotion.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(1280)
+                  .setHeight(720)
+                  .setAverageBitrate(9_962_000)
+                  .setFrameRate(30.078f)
+                  .setCodecs("avc1.64001F")
+                  .build())
+          .build();
+
+  public static final AssetInfo MP4_REMOTE_1920W_1080H_30_SECOND_HIGHMOTION =
+      new AssetInfo.Builder(
+              "https://storage.googleapis.com/exoplayer-test-media-1/mp4/1920w_1080h_30s_highmotion.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(1920)
+                  .setHeight(1080)
+                  .setAverageBitrate(15_000_000)
+                  .setFrameRate(28.561f)
+                  .setCodecs("avc1.640028")
+                  .build())
+          .build();
+
+  public static final AssetInfo MP4_REMOTE_3840W_2160H_32_SECOND_HIGHMOTION =
+      new AssetInfo.Builder(
+              "https://storage.googleapis.com/exoplayer-test-media-1/mp4/3840w_2160h_32s_highmotion.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(3840)
+                  .setHeight(2160)
+                  .setAverageBitrate(47_800_000)
+                  .setFrameRate(28.414f)
+                  .setCodecs("avc1.640033")
+                  .build())
+          .build();
+
+  public static final AssetInfo MP4_REMOTE_256W_144H_30_SECOND_ROOF_ONEPLUSNORD2_DOWNSAMPLED =
+      new AssetInfo.Builder(
+              "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/OnePlusNord2_downsampled_256w_144h_30s_roof.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(256)
+                  .setHeight(144)
+                  .setFrameRate(30)
+                  .setCodecs("avc1.64000C")
+                  .build())
+          .build();
+
+  public static final AssetInfo MP4_REMOTE_426W_240H_30_SECOND_ROOF_ONEPLUSNORD2_DOWNSAMPLED =
+      new AssetInfo.Builder(
+              "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/OnePlusNord2_downsampled_426w_240h_30s_roof.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(426)
+                  .setHeight(240)
+                  .setFrameRate(30)
+                  .setCodecs("avc1.640015")
+                  .build())
+          .build();
+
+  public static final AssetInfo MP4_REMOTE_640W_360H_30_SECOND_ROOF_ONEPLUSNORD2_DOWNSAMPLED =
+      new AssetInfo.Builder(
+              "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/OnePlusNord2_downsampled_640w_360h_30s_roof.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(640)
+                  .setHeight(360)
+                  .setFrameRate(30)
+                  .setCodecs("avc1.64001E")
+                  .build())
+          .build();
+
+  public static final AssetInfo MP4_REMOTE_854W_480H_30_SECOND_ROOF_ONEPLUSNORD2_DOWNSAMPLED =
+      new AssetInfo.Builder(
+              "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/OnePlusNord2_downsampled_854w_480h_30s_roof.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(854)
+                  .setHeight(480)
+                  .setFrameRate(30)
+                  .setCodecs("avc1.64001F")
+                  .build())
+          .build();
+
+  public static final AssetInfo MP4_REMOTE_256W_144H_30_SECOND_ROOF_REDMINOTE9_DOWNSAMPLED =
+      new AssetInfo.Builder(
+              "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/RedmiNote9_downsampled_256w_144h_30s_roof.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(256)
+                  .setHeight(144)
+                  .setFrameRate(30)
+                  .setCodecs("avc1.64000C")
+                  .build())
+          .build();
+
+  public static final AssetInfo MP4_REMOTE_426W_240H_30_SECOND_ROOF_REDMINOTE9_DOWNSAMPLED =
+      new AssetInfo.Builder(
+              "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/RedmiNote9_downsampled_426w_240h_30s_roof.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(426)
+                  .setHeight(240)
+                  .setFrameRate(30)
+                  .setCodecs("avc1.640015")
+                  .build())
+          .build();
+
+  public static final AssetInfo MP4_REMOTE_640W_360H_30_SECOND_ROOF_REDMINOTE9_DOWNSAMPLED =
+      new AssetInfo.Builder(
+              "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/RedmiNote9_downsampled_640w_360h_30s_roof.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(640)
+                  .setHeight(360)
+                  .setFrameRate(30)
+                  .setCodecs("avc1.64001E")
+                  .build())
+          .build();
+
+  public static final AssetInfo MP4_REMOTE_854W_480H_30_SECOND_ROOF_REDMINOTE9_DOWNSAMPLED =
+      new AssetInfo.Builder(
+              "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/RedmiNote9_downsampled_854w_480h_30s_roof.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(854)
+                  .setHeight(480)
+                  .setFrameRate(30)
+                  .setCodecs("avc1.64001F")
+                  .build())
+          .build();
+
+  public static final AssetInfo MP4_REMOTE_640W_480H_31_SECOND_ROOF_SONYXPERIAXZ3 =
+      new AssetInfo.Builder(
+              "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/SonyXperiaXZ3_640w_480h_31s_roof.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(640)
+                  .setHeight(480)
+                  .setAverageBitrate(3_578_000)
+                  .setFrameRate(30)
+                  .setCodecs("avc1.64001E")
+                  .build())
+          .build();
+
+  public static final AssetInfo MP4_REMOTE_1280W_720H_30_SECOND_ROOF_ONEPLUSNORD2 =
+      new AssetInfo.Builder(
+              "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/OnePlusNord2_1280w_720h_30s_roof.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(1280)
+                  .setHeight(720)
+                  .setAverageBitrate(8_966_000)
+                  .setFrameRate(29.763f)
+                  .setCodecs("avc1.640028")
+                  .build())
+          .build();
+
+  public static final AssetInfo MP4_REMOTE_1280W_720H_32_SECOND_ROOF_REDMINOTE9 =
+      new AssetInfo.Builder(
+              "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/RedmiNote9_1280w_720h_32s_roof.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(1280)
+                  .setHeight(720)
+                  .setAverageBitrate(14_100_000)
+                  .setFrameRate(30)
+                  .setCodecs("avc1.64001F")
+                  .build())
+          .build();
+
+  public static final AssetInfo MP4_REMOTE_1440W_1440H_31_SECOND_ROOF_SAMSUNGS20ULTRA5G =
+      new AssetInfo.Builder(
+              "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/SsS20Ultra5G_1440hw_31s_roof.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(1440)
+                  .setHeight(1440)
+                  .setAverageBitrate(16_300_000)
+                  .setFrameRate(25.931f)
+                  .setCodecs("avc1.640028")
+                  .build())
+          .build();
+
+  public static final AssetInfo MP4_REMOTE_1920W_1080H_60_FPS_30_SECOND_ROOF_ONEPLUSNORD2 =
+      new AssetInfo.Builder(
+              "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/OnePlusNord2_1920w_1080h_60fr_30s_roof.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(1920)
+                  .setHeight(1080)
+                  .setAverageBitrate(20_000_000)
+                  .setFrameRate(59.94f)
+                  .setCodecs("avc1.640028")
+                  .build())
+          .build();
+
+  public static final AssetInfo MP4_REMOTE_1920W_1080H_60_FPS_30_SECOND_ROOF_REDMINOTE9 =
+      new AssetInfo.Builder(
+              "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/RedmiNote9_1920w_1080h_60fps_30s_roof.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(1920)
+                  .setHeight(1080)
+                  .setAverageBitrate(20_100_000)
+                  .setFrameRate(61.069f)
+                  .setCodecs("avc1.64002A")
+                  .build())
+          .build();
+
+  public static final AssetInfo MP4_REMOTE_2400W_1080H_34_SECOND_ROOF_SAMSUNGS20ULTRA5G =
+      new AssetInfo.Builder(
+              "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/SsS20Ultra5G_2400w_1080h_34s_roof.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H265)
+                  .setWidth(2400)
+                  .setHeight(1080)
+                  .setAverageBitrate(29_500_000)
+                  .setFrameRate(27.472f)
+                  .setCodecs("hvc1.2.4.L153.B0")
+                  .build())
+          .build();
+
+  public static final AssetInfo MP4_REMOTE_3840W_2160H_30_SECOND_ROOF_ONEPLUSNORD2 =
+      new AssetInfo.Builder(
+              "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/OnePlusNord2_3840w_2160h_30s_roof.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(3840)
+                  .setHeight(2160)
+                  .setAverageBitrate(49_800_000)
+                  .setFrameRate(29.802f)
+                  .setCodecs("avc1.640028")
+                  .build())
+          .build();
+
+  public static final AssetInfo MP4_REMOTE_3840W_2160H_30_SECOND_ROOF_REDMINOTE9 =
+      new AssetInfo.Builder(
+              "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/RedmiNote9_3840w_2160h_30s_roof.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(3840)
+                  .setHeight(2160)
+                  .setAverageBitrate(42_100_000)
+                  .setFrameRate(30)
+                  .setColorInfo(
+                      new ColorInfo.Builder()
+                          .setColorSpace(C.COLOR_SPACE_BT2020)
+                          .setColorRange(C.COLOR_RANGE_FULL)
+                          .setColorTransfer(C.COLOR_TRANSFER_SDR)
+                          .build())
+                  .setCodecs("avc1.640033")
+                  .build())
+          .build();
+
+  public static final AssetInfo MP4_REMOTE_7680W_4320H_31_SECOND_ROOF_SAMSUNGS20ULTRA5G =
+      new AssetInfo.Builder(
+              "https://storage.googleapis.com/exoplayer-test-media-1/mp4/device_videos/SsS20Ultra5G_7680w_4320h_31s_roof.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H265)
+                  .setWidth(7680)
+                  .setHeight(4320)
+                  .setAverageBitrate(79_900_000)
+                  .setFrameRate(23.163f)
+                  .setCodecs("hvc1.1.6.L183.B0")
+                  .build())
+          .build();
+
+  public static final AssetInfo MP3_ASSET =
+      new AssetInfo.Builder("asset:///media/mp3/test-cbr-info-header.mp3").build();
 
   /**
    * Creates the GL objects needed to set up a GL environment including an {@link EGLDisplay} and an
@@ -849,90 +1004,6 @@ public final class AndroidTestUtil {
     String skipReason = skipReasonBuilder.toString();
     recordTestSkipped(context, testId, skipReason);
     throw new AssumptionViolatedException(skipReason);
-  }
-
-  /**
-   * Returns the {@link Format} of the given test asset.
-   *
-   * @param uri The string {@code uri} to the test file. The {@code uri} must be defined in this
-   *     file.
-   * @throws IllegalArgumentException If the given {@code uri} is not defined in this file.
-   */
-  public static Format getFormatForTestFile(String uri) {
-    switch (uri) {
-      case MP4_ASSET_URI_STRING:
-        return MP4_ASSET_FORMAT;
-      case MP4_ASSET_WITH_INCREASING_TIMESTAMPS_URI_STRING:
-        return MP4_ASSET_WITH_INCREASING_TIMESTAMPS_FORMAT;
-      case MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_URI_STRING:
-        return MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT;
-      case MP4_ASSET_SEF_URI_STRING:
-        return MP4_ASSET_SEF_FORMAT;
-      case MP4_ASSET_SEF_H265_URI_STRING:
-        return MP4_ASSET_SEF_H265_FORMAT;
-      case MP4_ASSET_4K60_PORTRAIT_URI_STRING:
-        return MP4_ASSET_4K60_PORTRAIT_FORMAT;
-      case MP4_REMOTE_10_SECONDS_URI_STRING:
-        return MP4_REMOTE_10_SECONDS_FORMAT;
-      case MP4_REMOTE_H264_MP3_URI_STRING:
-        return MP4_REMOTE_H264_MP3_FORMAT;
-      case MP4_REMOTE_256W_144H_30_SECOND_ROOF_ONEPLUSNORD2_DOWNSAMPLED:
-        return MP4_REMOTE_256W_144H_30_SECOND_ROOF_ONEPLUSNORD2_DOWNSAMPLED_FORMAT;
-      case MP4_REMOTE_426W_240H_30_SECOND_ROOF_ONEPLUSNORD2_DOWNSAMPLED:
-        return MP4_REMOTE_426W_240H_30_SECOND_ROOF_ONEPLUSNORD2_DOWNSAMPLED_FORMAT;
-      case MP4_REMOTE_640W_360H_30_SECOND_ROOF_ONEPLUSNORD2_DOWNSAMPLED:
-        return MP4_REMOTE_640W_360H_30_SECOND_ROOF_ONEPLUSNORD2_DOWNSAMPLED_FORMAT;
-      case MP4_REMOTE_854W_480H_30_SECOND_ROOF_ONEPLUSNORD2_DOWNSAMPLED:
-        return MP4_REMOTE_854W_480H_30_SECOND_ROOF_ONEPLUSNORD2_DOWNSAMPLED_FORMAT;
-      case MP4_REMOTE_256W_144H_30_SECOND_ROOF_REDMINOTE9_DOWNSAMPLED:
-        return MP4_REMOTE_256W_144H_30_SECOND_ROOF_REDMINOTE9_DOWNSAMPLED_FORMAT;
-      case MP4_REMOTE_426W_240H_30_SECOND_ROOF_REDMINOTE9_DOWNSAMPLED:
-        return MP4_REMOTE_426W_240H_30_SECOND_ROOF_REDMINOTE9_DOWNSAMPLED_FORMAT;
-      case MP4_REMOTE_640W_360H_30_SECOND_ROOF_REDMINOTE9_DOWNSAMPLED:
-        return MP4_REMOTE_640W_360H_30_SECOND_ROOF_REDMINOTE9_DOWNSAMPLED_FORMAT;
-      case MP4_REMOTE_854W_480H_30_SECOND_ROOF_REDMINOTE9_DOWNSAMPLED:
-        return MP4_REMOTE_854W_480H_30_SECOND_ROOF_REDMINOTE9_DOWNSAMPLED_FORMAT;
-      case MP4_REMOTE_640W_480H_31_SECOND_ROOF_SONYXPERIAXZ3:
-        return MP4_REMOTE_640W_480H_31_SECOND_ROOF_SONYXPERIAXZ3_FORMAT;
-      case MP4_REMOTE_1280W_720H_5_SECOND_HIGHMOTION:
-        return MP4_REMOTE_1280W_720H_5_SECOND_HIGHMOTION_FORMAT;
-      case MP4_REMOTE_1280W_720H_30_SECOND_HIGHMOTION:
-        return MP4_REMOTE_1280W_720H_30_SECOND_HIGHMOTION_FORMAT;
-      case MP4_REMOTE_1280W_720H_30_SECOND_ROOF_ONEPLUSNORD2:
-        return MP4_REMOTE_1280W_720H_30_SECOND_ROOF_ONEPLUSNORD2_FORMAT;
-      case MP4_REMOTE_1280W_720H_32_SECOND_ROOF_REDMINOTE9:
-        return MP4_REMOTE_1280W_720H_32_SECOND_ROOF_REDMINOTE9_FORMAT;
-      case MP4_REMOTE_1440W_1440H_5_SECOND_HIGHMOTION:
-        return MP4_REMOTE_1440W_1440H_5_SECOND_HIGHMOTION_FORMAT;
-      case MP4_REMOTE_1440W_1440H_31_SECOND_ROOF_SAMSUNGS20ULTRA5G:
-        return MP4_REMOTE_1440W_1440H_31_SECOND_ROOF_SAMSUNGS20ULTRA5G_FORMAT;
-      case MP4_REMOTE_1920W_1080H_5_SECOND_HIGHMOTION:
-        return MP4_REMOTE_1920W_1080H_5_SECOND_HIGHMOTION_FORMAT;
-      case MP4_REMOTE_1920W_1080H_30_SECOND_HIGHMOTION:
-        return MP4_REMOTE_1920W_1080H_30_SECOND_HIGHMOTION_FORMAT;
-      case MP4_REMOTE_1920W_1080H_60_FPS_30_SECOND_ROOF_ONEPLUSNORD2:
-        return MP4_REMOTE_1920W_1080H_60_FPS_30_SECOND_ROOF_ONEPLUSNORD2_FORMAT;
-      case MP4_REMOTE_1920W_1080H_60_FPS_30_SECOND_ROOF_REDMINOTE9:
-        return MP4_REMOTE_1920W_1080H_60_FPS_30_SECOND_ROOF_REDMINOTE9_FORMAT;
-      case MP4_REMOTE_2400W_1080H_34_SECOND_ROOF_SAMSUNGS20ULTRA5G:
-        return MP4_REMOTE_2400W_1080H_34_SECOND_ROOF_SAMSUNGS20ULTRA5G_FORMAT;
-      case MP4_REMOTE_3840W_2160H_5_SECOND_HIGHMOTION:
-        return MP4_REMOTE_3840W_2160H_5_SECOND_HIGHMOTION_FORMAT;
-      case MP4_REMOTE_3840W_2160H_32_SECOND_HIGHMOTION:
-        return MP4_REMOTE_3840W_2160H_32_SECOND_HIGHMOTION_FORMAT;
-      case MP4_REMOTE_3840W_2160H_30_SECOND_ROOF_ONEPLUSNORD2:
-        return MP4_REMOTE_3840W_2160H_30_SECOND_ROOF_ONEPLUSNORD2_FORMAT;
-      case MP4_REMOTE_3840W_2160H_30_SECOND_ROOF_REDMINOTE9:
-        return MP4_REMOTE_3840W_2160H_30_SECOND_ROOF_REDMINOTE9_FORMAT;
-      case MP4_REMOTE_7680W_4320H_31_SECOND_ROOF_SAMSUNGS20ULTRA5G:
-        return MP4_REMOTE_7680W_4320H_31_SECOND_ROOF_SAMSUNGS20ULTRA5G_FORMAT;
-      case BT601_MP4_ASSET_URI_STRING:
-        return BT601_MP4_ASSET_FORMAT;
-      case BT601_MOV_ASSET_URI_STRING:
-        return BT601_MOV_ASSET_FORMAT;
-      default:
-        throw new IllegalArgumentException("The format for the given uri is not found.");
-    }
   }
 
   private static boolean canDecode(Format format) {

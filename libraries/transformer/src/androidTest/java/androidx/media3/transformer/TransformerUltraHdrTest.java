@@ -17,8 +17,8 @@
 
 package androidx.media3.transformer;
 
-import static androidx.media3.transformer.AndroidTestUtil.JPG_ASSET_URI_STRING;
-import static androidx.media3.transformer.AndroidTestUtil.ULTRA_HDR_URI_STRING;
+import static androidx.media3.transformer.AndroidTestUtil.JPG_ASSET;
+import static androidx.media3.transformer.AndroidTestUtil.JPG_ULTRA_HDR_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.assertSdrColors;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
@@ -85,7 +85,7 @@ public final class TransformerUltraHdrTest {
         /* outputFormat= */ DOWNSCALED_ULTRA_HDR_FORMAT);
     Composition composition =
         createUltraHdrComposition(
-            /* tonemap= */ false, oneFrameFromImage(ULTRA_HDR_URI_STRING, NO_EFFECT));
+            /* tonemap= */ false, oneFrameFromImage(JPG_ULTRA_HDR_ASSET.uri, NO_EFFECT));
 
     // Downscale source bitmap to avoid "video encoding format not supported" errors on emulators.
     ExportTestResult result =
@@ -105,7 +105,7 @@ public final class TransformerUltraHdrTest {
         /* outputFormat= */ DOWNSCALED_ULTRA_HDR_FORMAT);
     Composition composition =
         createUltraHdrComposition(
-            /* tonemap= */ true, oneFrameFromImage(ULTRA_HDR_URI_STRING, NO_EFFECT));
+            /* tonemap= */ true, oneFrameFromImage(JPG_ULTRA_HDR_ASSET.uri, NO_EFFECT));
 
     // Downscale source bitmap to avoid "video encoding format not supported" errors on emulators.
     ExportTestResult result =
@@ -125,7 +125,7 @@ public final class TransformerUltraHdrTest {
         /* outputFormat= */ DOWNSCALED_ULTRA_HDR_FORMAT);
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence(oneFrameFromImage(ULTRA_HDR_URI_STRING, NO_EFFECT)))
+                new EditedMediaItemSequence(oneFrameFromImage(JPG_ULTRA_HDR_ASSET.uri, NO_EFFECT)))
             .build();
 
     // Downscale source bitmap to avoid "video encoding format not supported" errors on emulators.
@@ -141,7 +141,7 @@ public final class TransformerUltraHdrTest {
   public void exportNonUltraHdrImage_withUltraHdrEnabled_exportsSdr() throws Exception {
     Composition composition =
         createUltraHdrComposition(
-            /* tonemap= */ false, oneFrameFromImage(JPG_ASSET_URI_STRING, NO_EFFECT));
+            /* tonemap= */ false, oneFrameFromImage(JPG_ASSET.uri, NO_EFFECT));
 
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
@@ -156,8 +156,8 @@ public final class TransformerUltraHdrTest {
     Composition composition =
         createUltraHdrComposition(
             /* tonemap= */ false,
-            oneFrameFromImage(JPG_ASSET_URI_STRING, NO_EFFECT),
-            oneFrameFromImage(ULTRA_HDR_URI_STRING, NO_EFFECT));
+            oneFrameFromImage(JPG_ASSET.uri, NO_EFFECT),
+            oneFrameFromImage(JPG_ULTRA_HDR_ASSET.uri, NO_EFFECT));
 
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())

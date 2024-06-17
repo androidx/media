@@ -17,8 +17,7 @@
 package androidx.media3.transformer.mh.performance;
 
 import static androidx.media3.common.util.Util.usToMs;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_DURATION_US;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_URI_STRING;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.truth.Truth.assertThat;
 
@@ -131,7 +130,8 @@ public class CompositionPlayerSeekTest {
             // Plays the second video
             .addAll(
                 Iterables.transform(
-                    MP4_ASSET_TIMESTAMPS_US, timestampUs -> (MP4_ASSET_DURATION_US + timestampUs)))
+                    MP4_ASSET_TIMESTAMPS_US,
+                    timestampUs -> (MP4_ASSET.videoDurationUs + timestampUs)))
             .build();
     // Seeked after the first playback ends, so the timestamps are repeated twice.
     ImmutableList<Long> expectedTimestampsUs =
@@ -160,7 +160,8 @@ public class CompositionPlayerSeekTest {
             // Plays the second video
             .addAll(
                 Iterables.transform(
-                    MP4_ASSET_TIMESTAMPS_US, timestampUs -> (MP4_ASSET_DURATION_US + timestampUs)))
+                    MP4_ASSET_TIMESTAMPS_US,
+                    timestampUs -> (MP4_ASSET.videoDurationUs + timestampUs)))
             .build();
 
     ImmutableList<Long> actualTimestampsUs =
@@ -188,7 +189,7 @@ public class CompositionPlayerSeekTest {
             .addAll(
                 Iterables.transform(
                     Iterables.skip(MP4_ASSET_TIMESTAMPS_US, /* numberToSkip= */ 3),
-                    timestampUs -> (MP4_ASSET_DURATION_US + timestampUs)))
+                    timestampUs -> (MP4_ASSET.videoDurationUs + timestampUs)))
             .build();
 
     ImmutableList<Long> actualTimestampsUs =
@@ -214,13 +215,14 @@ public class CompositionPlayerSeekTest {
             .addAll(
                 Iterables.transform(
                     Iterables.limit(MP4_ASSET_TIMESTAMPS_US, /* limitSize= */ 15),
-                    timestampUs -> (MP4_ASSET_DURATION_US + timestampUs)))
+                    timestampUs -> (MP4_ASSET.videoDurationUs + timestampUs)))
             // Seek to the first, skipping the first three frames.
             .addAll(Iterables.skip(MP4_ASSET_TIMESTAMPS_US, /* numberToSkip= */ 3))
             // Plays the second video
             .addAll(
                 Iterables.transform(
-                    MP4_ASSET_TIMESTAMPS_US, timestampUs -> (MP4_ASSET_DURATION_US + timestampUs)))
+                    MP4_ASSET_TIMESTAMPS_US,
+                    timestampUs -> (MP4_ASSET.videoDurationUs + timestampUs)))
             .build();
 
     ImmutableList<Long> actualTimestampsUs =
@@ -236,7 +238,7 @@ public class CompositionPlayerSeekTest {
     PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
     int numberOfFramesBeforeSeeking = 15;
     // Seek to the duration of the first video.
-    long seekTimeMs = usToMs(MP4_ASSET_DURATION_US);
+    long seekTimeMs = usToMs(MP4_ASSET.videoDurationUs);
 
     ImmutableList<Long> expectedTimestampsUs =
         new ImmutableList.Builder<Long>()
@@ -245,7 +247,8 @@ public class CompositionPlayerSeekTest {
             // Plays the second video
             .addAll(
                 Iterables.transform(
-                    MP4_ASSET_TIMESTAMPS_US, timestampUs -> (MP4_ASSET_DURATION_US + timestampUs)))
+                    MP4_ASSET_TIMESTAMPS_US,
+                    timestampUs -> (MP4_ASSET.videoDurationUs + timestampUs)))
             .build();
 
     ImmutableList<Long> actualTimestampsUs =
@@ -268,7 +271,7 @@ public class CompositionPlayerSeekTest {
             // Play the first 15 frames of the first video
             .addAll(Iterables.limit(MP4_ASSET_TIMESTAMPS_US, /* limitSize= */ 15))
             // Seeking to/beyond the end plays the last frame.
-            .add(MP4_ASSET_DURATION_US + getLast(MP4_ASSET_TIMESTAMPS_US))
+            .add(MP4_ASSET.videoDurationUs + getLast(MP4_ASSET_TIMESTAMPS_US))
             .build();
 
     ImmutableList<Long> actualTimestampsUs =
@@ -279,9 +282,9 @@ public class CompositionPlayerSeekTest {
   }
 
   /**
-   * Plays the {@link AndroidTestUtil#MP4_ASSET_URI_STRING} for {@code videoLoopCount} times, seeks
-   * after {@code numberOfFramesBeforeSeeking} frames to {@code seekTimeMs}, and returns the
-   * timestamps of the processed frames, in microsecond.
+   * Plays the {@link AndroidTestUtil#MP4_ASSET} for {@code videoLoopCount} times, seeks after
+   * {@code numberOfFramesBeforeSeeking} frames to {@code seekTimeMs}, and returns the timestamps of
+   * the processed frames, in microsecond.
    */
   private ImmutableList<Long> playCompositionOfTwoVideosAndGetTimestamps(
       PlayerTestListener listener, int numberOfFramesBeforeSeeking, long seekTimeMs)
@@ -353,8 +356,8 @@ public class CompositionPlayerSeekTest {
   }
 
   private static EditedMediaItem createEditedMediaItem(List<Effect> videoEffects) {
-    return new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET_URI_STRING))
-        .setDurationUs(MP4_ASSET_DURATION_US)
+    return new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+        .setDurationUs(MP4_ASSET.videoDurationUs)
         .setEffects(new Effects(/* audioProcessors= */ ImmutableList.of(), videoEffects))
         .build();
   }

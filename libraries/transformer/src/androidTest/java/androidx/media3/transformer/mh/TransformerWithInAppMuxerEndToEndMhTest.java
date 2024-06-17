@@ -15,8 +15,7 @@
  */
 package androidx.media3.transformer.mh;
 
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_AV1_VIDEO_FORMAT;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_AV1_VIDEO_URI_STRING;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_AV1_VIDEO;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static com.google.common.truth.Truth.assertThat;
 
@@ -57,13 +56,16 @@ public class TransformerWithInAppMuxerEndToEndMhTest {
   public void videoEditing_forAv1Video_completesSuccessfully() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     assumeFormatsSupported(
-        context, testId, /* inputFormat= */ MP4_ASSET_AV1_VIDEO_FORMAT, /* outputFormat= */ null);
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_AV1_VIDEO.videoFormat,
+        /* outputFormat= */ null);
     Transformer transformer =
         new Transformer.Builder(context)
             .setMuxerFactory(new InAppMuxer.Factory.Builder().build())
             .build();
     ImmutableList<Effect> videoEffects = ImmutableList.of(RgbFilter.createGrayscaleFilter());
-    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_AV1_VIDEO_URI_STRING));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_AV1_VIDEO.uri));
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem)
             .setEffects(new Effects(/* audioProcessors= */ ImmutableList.of(), videoEffects))

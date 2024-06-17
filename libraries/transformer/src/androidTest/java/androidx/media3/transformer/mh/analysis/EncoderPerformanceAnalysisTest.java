@@ -27,6 +27,7 @@ import android.net.Uri;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.Util;
 import androidx.media3.transformer.AndroidTestUtil;
+import androidx.media3.transformer.AndroidTestUtil.AssetInfo;
 import androidx.media3.transformer.DefaultEncoderFactory;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.Transformer;
@@ -51,11 +52,11 @@ import org.junit.runners.Parameterized.Parameters;
         + " for this use as they're missing skip checks for unsupported devices.")
 public class EncoderPerformanceAnalysisTest {
 
-  private static final ImmutableList<String> INPUT_FILES =
+  private static final ImmutableList<AssetInfo> INPUT_ASSETS =
       ImmutableList.of(
-          AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_URI_STRING,
-          AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_URI_STRING,
-          AndroidTestUtil.MP4_ASSET_4K60_PORTRAIT_URI_STRING);
+          AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S,
+          AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS,
+          AndroidTestUtil.MP4_ASSET_4K60_PORTRAIT);
 
   private static final ImmutableList<Integer> OPERATING_RATE_SETTINGS =
       ImmutableList.of(VideoEncoderSettings.NO_VALUE, 30, Integer.MAX_VALUE);
@@ -68,7 +69,7 @@ public class EncoderPerformanceAnalysisTest {
           MEDIA_CODEC_PRIORITY_REALTIME);
 
   @Parameter(0)
-  public @MonotonicNonNull String fileUri;
+  public @MonotonicNonNull AssetInfo assetInfo;
 
   @Parameter(1)
   public int operatingRate;
@@ -79,12 +80,12 @@ public class EncoderPerformanceAnalysisTest {
   @Parameters(name = "analyzePerformance_{0}_OpRate={1}_Priority={2}")
   public static ImmutableList<Object[]> parameters() {
     ImmutableList.Builder<Object[]> parametersBuilder = new ImmutableList.Builder<>();
-    for (int i = 0; i < INPUT_FILES.size(); i++) {
+    for (int i = 0; i < INPUT_ASSETS.size(); i++) {
       for (int j = 0; j < OPERATING_RATE_SETTINGS.size(); j++) {
         for (int k = 0; k < PRIORITY_SETTINGS.size(); k++) {
           parametersBuilder.add(
               new Object[] {
-                INPUT_FILES.get(i), OPERATING_RATE_SETTINGS.get(j), PRIORITY_SETTINGS.get(k)
+                INPUT_ASSETS.get(i), OPERATING_RATE_SETTINGS.get(j), PRIORITY_SETTINGS.get(k)
               });
         }
       }
@@ -94,8 +95,8 @@ public class EncoderPerformanceAnalysisTest {
 
   @Test
   public void analyzeEncoderPerformance() throws Exception {
-    checkNotNull(fileUri);
-    String filename = checkNotNull(Uri.parse(fileUri).getLastPathSegment());
+    checkNotNull(assetInfo.uri);
+    String filename = checkNotNull(Uri.parse(assetInfo.uri).getLastPathSegment());
     String testId =
         Util.formatInvariant(
             "analyzePerformance_%s_OpRate_%d_Priority_%d", filename, operatingRate, priority);
@@ -104,8 +105,8 @@ public class EncoderPerformanceAnalysisTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ AndroidTestUtil.getFormatForTestFile(fileUri),
-        /* outputFormat= */ AndroidTestUtil.getFormatForTestFile(fileUri));
+        /* inputFormat= */ assetInfo.videoFormat,
+        /* outputFormat= */ assetInfo.videoFormat);
 
     if (Util.SDK_INT < 23) {
       recordTestSkipped(
@@ -133,7 +134,7 @@ public class EncoderPerformanceAnalysisTest {
                         .build()))
             .build();
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(fileUri)))
+        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(assetInfo.uri)))
             .setRemoveAudio(true)
             .build();
 

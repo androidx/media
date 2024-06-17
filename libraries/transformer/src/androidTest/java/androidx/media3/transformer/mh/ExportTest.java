@@ -17,18 +17,14 @@ package androidx.media3.transformer.mh;
 
 import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.transformer.AndroidTestUtil.FORCE_TRANSCODE_VIDEO_EFFECTS;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_4K60_PORTRAIT_FORMAT;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_4K60_PORTRAIT_URI_STRING;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_8K24_FORMAT;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_8K24_URI_STRING;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_4K60_PORTRAIT;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_8K24;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_BT2020_SDR;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_BT2020_SDR_FORMAT;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_SEF_H265_URI_STRING;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_SEF_URI_STRING;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_URI_STRING;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_FORMAT;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_URI_STRING;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_PIXEL_URI_STRING;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_SEF;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_SEF_H265;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_PIXEL;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
 import static androidx.media3.transformer.ExportResult.CONVERSION_PROCESS_TRANSMUXED_AND_TRANSCODED;
@@ -92,14 +88,13 @@ public class ExportTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_FORMAT,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat,
         /* outputFormat= */ null);
     Transformer transformer =
         new Transformer.Builder(context)
             .setEncoderFactory(new ForceEncodeEncoderFactory(context))
             .build();
-    MediaItem mediaItem =
-        MediaItem.fromUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_URI_STRING));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri));
     boolean skipCalculateSsim =
         (Util.SDK_INT < 33 && (Util.MODEL.equals("SM-F711U1") || Util.MODEL.equals("SM-F926U1")))
             || (Util.SDK_INT == 33 && Util.MODEL.equals("LE2121"));
@@ -117,8 +112,7 @@ public class ExportTest {
   public void exportWithoutDecodeEncode() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     Transformer transformer = new Transformer.Builder(context).build();
-    MediaItem mediaItem =
-        MediaItem.fromUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_URI_STRING));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri));
     // No need to calculate SSIM because no decode/encoding, so input frames match output frames.
 
     ExportTestResult result =
@@ -135,7 +129,7 @@ public class ExportTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_FORMAT,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat,
         /* outputFormat= */ null);
     Transformer transformer =
         new Transformer.Builder(context)
@@ -146,8 +140,7 @@ public class ExportTest {
                             new VideoEncoderSettings.Builder().setBitrate(5_000_000).build())
                         .build()))
             .build();
-    MediaItem mediaItem =
-        MediaItem.fromUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_URI_STRING));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri));
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem).setRemoveAudio(true).build();
     boolean skipCalculateSsim =
@@ -169,7 +162,7 @@ public class ExportTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET_4K60_PORTRAIT_FORMAT,
+        /* inputFormat= */ MP4_ASSET_4K60_PORTRAIT.videoFormat,
         /* outputFormat= */ null);
     // Reference: b/262710361
     assumeFalse(
@@ -179,7 +172,7 @@ public class ExportTest {
         new Transformer.Builder(context)
             .setEncoderFactory(new ForceEncodeEncoderFactory(context))
             .build();
-    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_4K60_PORTRAIT_URI_STRING));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_4K60_PORTRAIT.uri));
     boolean skipCalculateSsim = Util.SDK_INT < 30 && Util.DEVICE.equals("joyeuse");
 
     ExportTestResult result =
@@ -203,12 +196,12 @@ public class ExportTest {
             || Ascii.equalsIgnoreCase(Util.MODEL, "le2121"));
     Context context = ApplicationProvider.getApplicationContext();
     assumeFormatsSupported(
-        context, testId, /* inputFormat= */ MP4_ASSET_8K24_FORMAT, /* outputFormat= */ null);
+        context, testId, /* inputFormat= */ MP4_ASSET_8K24.videoFormat, /* outputFormat= */ null);
     Transformer transformer =
         new Transformer.Builder(context)
             .setEncoderFactory(new ForceEncodeEncoderFactory(context))
             .build();
-    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_8K24_URI_STRING));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_8K24.uri));
     // TODO: b/281824052 - have requestCalculateSsim always be true after linked bug is fixed.
     boolean requestCalculateSsim = !Util.MODEL.equals("SM-G991B");
 
@@ -231,7 +224,7 @@ public class ExportTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET_8K24_FORMAT,
+        /* inputFormat= */ MP4_ASSET_8K24.videoFormat,
         /* outputFormat= */ new Format.Builder()
             .setSampleMimeType(MimeTypes.VIDEO_H264)
             .setWidth(downscaledWidth)
@@ -244,7 +237,7 @@ public class ExportTest {
             .build()
             .run(
                 testId,
-                new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_8K24_URI_STRING)))
+                new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_8K24.uri)))
                     .setEffects(
                         new Effects(
                             /* audioProcessors= */ ImmutableList.of(),
@@ -264,14 +257,13 @@ public class ExportTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_FORMAT,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat,
         /* outputFormat= */ null);
     Transformer transformer =
         new Transformer.Builder(context)
             .setEncoderFactory(new ForceEncodeEncoderFactory(context))
             .build();
-    MediaItem mediaItem =
-        MediaItem.fromUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_URI_STRING));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri));
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem).setRemoveAudio(true).build();
     boolean skipCalculateSsim =
@@ -295,7 +287,7 @@ public class ExportTest {
             .setEncoderFactory(new ForceEncodeEncoderFactory(context))
             .build();
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_URI_STRING)))
+        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET.uri)))
             .setRemoveVideo(true)
             .build();
 
@@ -318,7 +310,7 @@ public class ExportTest {
     }
     Transformer transformer = new Transformer.Builder(context).build();
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_SEF_URI_STRING)))
+        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_SEF.uri)))
             .setFlattenForSlowMotion(true)
             .build();
 
@@ -343,7 +335,7 @@ public class ExportTest {
     }
     Transformer transformer = new Transformer.Builder(context).build();
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_SEF_H265_URI_STRING)))
+        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_SEF_H265.uri)))
             .setFlattenForSlowMotion(true)
             .build();
 
@@ -361,11 +353,10 @@ public class ExportTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_FORMAT,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat,
         /* outputFormat= */ null);
     Transformer transformer = new Transformer.Builder(context).build();
-    MediaItem mediaItem =
-        MediaItem.fromUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_URI_STRING));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri));
     ImmutableList<Effect> videoEffects =
         ImmutableList.of(new ScaleAndRotateTransformation.Builder().setRotationDegrees(45).build());
     Effects effects = new Effects(/* audioProcessors= */ ImmutableList.of(), videoEffects);
@@ -390,9 +381,12 @@ public class ExportTest {
       throw new AssumptionViolatedException(reason);
     }
     assumeFormatsSupported(
-        context, testId, /* inputFormat= */ MP4_ASSET_BT2020_SDR_FORMAT, /* outputFormat= */ null);
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_BT2020_SDR.videoFormat,
+        /* outputFormat= */ null);
     Transformer transformer = new Transformer.Builder(context).build();
-    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_BT2020_SDR));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_BT2020_SDR.uri));
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem).setEffects(FORCE_TRANSCODE_VIDEO_EFFECTS).build();
 
@@ -420,7 +414,7 @@ public class ExportTest {
         new Transformer.Builder(context).experimentalSetTrimOptimizationEnabled(true).build();
     MediaItem mediaItem =
         new MediaItem.Builder()
-            .setUri(MP4_TRIM_OPTIMIZATION_PIXEL_URI_STRING)
+            .setUri(MP4_TRIM_OPTIMIZATION_PIXEL.uri)
             .setClippingConfiguration(
                 new MediaItem.ClippingConfiguration.Builder()
                     .setStartPositionMs(500)

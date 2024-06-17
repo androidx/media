@@ -16,7 +16,7 @@
 package androidx.media3.transformer.mh.performance;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_URI_STRING;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.app.Instrumentation;
@@ -80,7 +80,7 @@ public class VideoEffectsPreviewPerformanceTest {
           player.addAnalyticsListener(listener);
           // Adding an EventLogger to use its log output in case the test fails.
           player.addAnalyticsListener(new EventLogger());
-          MediaItem mediaItem = getClippedMediaItem(MP4_ASSET_URI_STRING);
+          MediaItem mediaItem = getClippedMediaItem(MP4_ASSET.uri);
           // Use the same media item so that format changes do not force exoplayer to re-init codecs
           // between item transitions.
           player.addMediaItems(ImmutableList.of(mediaItem, mediaItem, mediaItem, mediaItem));

@@ -20,8 +20,7 @@ import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIX
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapFromRgba8888Image;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_FORMAT;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_URI_STRING;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
 import static androidx.media3.transformer.mh.performance.PlaybackTestUtil.createTimestampOverlay;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
@@ -91,8 +90,8 @@ public class CompositionPlaybackTest {
     ConditionVariable hasRenderedFirstFrameCondition = new ConditionVariable();
     outputImageReader =
         ImageReader.newInstance(
-            MP4_ASSET_FORMAT.width,
-            MP4_ASSET_FORMAT.height,
+            MP4_ASSET.videoFormat.width,
+            MP4_ASSET.videoFormat.height,
             PixelFormat.RGBA_8888,
             /* maxImages= */ 1);
 
@@ -110,11 +109,11 @@ public class CompositionPlaybackTest {
 
           player.setVideoSurface(
               outputImageReader.getSurface(),
-              new Size(MP4_ASSET_FORMAT.width, MP4_ASSET_FORMAT.height));
+              new Size(MP4_ASSET.videoFormat.width, MP4_ASSET.videoFormat.height));
           player.setComposition(
               new Composition.Builder(
                       new EditedMediaItemSequence(
-                          new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET_URI_STRING))
+                          new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
                               .setEffects(
                                   new Effects(
                                       /* audioProcessors= */ ImmutableList.of(),

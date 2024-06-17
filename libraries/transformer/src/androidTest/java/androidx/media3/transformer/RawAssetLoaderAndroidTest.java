@@ -15,7 +15,7 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET_URI_STRING;
+import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.createOpenGlObjects;
 import static androidx.media3.transformer.AndroidTestUtil.generateTextureFromBitmap;
 import static com.google.common.truth.Truth.assertThat;
@@ -108,8 +108,7 @@ public class RawAssetLoaderAndroidTest {
   @Test
   public void videoTranscoding_withTextureInput_completesWithCorrectFrameCountAndDuration()
       throws Exception {
-    Bitmap bitmap =
-        new DataSourceBitmapLoader(context).loadBitmap(Uri.parse(PNG_ASSET_URI_STRING)).get();
+    Bitmap bitmap = new DataSourceBitmapLoader(context).loadBitmap(Uri.parse(PNG_ASSET.uri)).get();
     DefaultVideoFrameProcessor.Factory videoFrameProcessorFactory =
         new DefaultVideoFrameProcessor.Factory.Builder()
             .setGlObjectsProvider(new DefaultGlObjectsProvider(createOpenGlObjects()))
@@ -152,8 +151,7 @@ public class RawAssetLoaderAndroidTest {
   @Test
   public void videoEditing_withTextureInput_completesWithCorrectFrameCountAndDuration()
       throws Exception {
-    Bitmap bitmap =
-        new DataSourceBitmapLoader(context).loadBitmap(Uri.parse(PNG_ASSET_URI_STRING)).get();
+    Bitmap bitmap = new DataSourceBitmapLoader(context).loadBitmap(Uri.parse(PNG_ASSET.uri)).get();
     EGLContext currentContext = createOpenGlObjects();
     DefaultVideoFrameProcessor.Factory videoFrameProcessorFactory =
         new DefaultVideoFrameProcessor.Factory.Builder()
@@ -199,8 +197,7 @@ public class RawAssetLoaderAndroidTest {
   @Test
   public void audioAndVideoTranscoding_withRawData_completesWithCorrectFrameCountAndDuration()
       throws Exception {
-    Bitmap bitmap =
-        new DataSourceBitmapLoader(context).loadBitmap(Uri.parse(PNG_ASSET_URI_STRING)).get();
+    Bitmap bitmap = new DataSourceBitmapLoader(context).loadBitmap(Uri.parse(PNG_ASSET.uri)).get();
     DefaultVideoFrameProcessor.Factory videoFrameProcessorFactory =
         new DefaultVideoFrameProcessor.Factory.Builder()
             .setGlObjectsProvider(new DefaultGlObjectsProvider(createOpenGlObjects()))

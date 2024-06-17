@@ -15,8 +15,7 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_URI_STRING;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
@@ -80,8 +79,8 @@ public class TransformerPauseResumeTest {
     assumeFormatsSupported(
         getApplicationContext(),
         testId,
-        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT,
-        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT);
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat);
     Composition composition =
         buildSingleSequenceComposition(
             /* clippingStartPositionMs= */ 0,
@@ -132,8 +131,8 @@ public class TransformerPauseResumeTest {
     assumeFormatsSupported(
         getApplicationContext(),
         testId,
-        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT,
-        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT);
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat);
     Composition composition =
         buildSingleSequenceComposition(
             /* clippingStartPositionMs= */ 0,
@@ -167,8 +166,8 @@ public class TransformerPauseResumeTest {
     assumeFormatsSupported(
         getApplicationContext(),
         testId,
-        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT,
-        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT);
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat);
     Composition composition =
         buildSingleSequenceComposition(
             /* clippingStartPositionMs= */ 0,
@@ -222,8 +221,8 @@ public class TransformerPauseResumeTest {
     assumeFormatsSupported(
         getApplicationContext(),
         testId,
-        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT,
-        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT);
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat);
     Composition composition =
         buildSingleSequenceComposition(
             /* clippingStartPositionMs= */ 2_000L,
@@ -274,8 +273,8 @@ public class TransformerPauseResumeTest {
     assumeFormatsSupported(
         getApplicationContext(),
         testId,
-        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT,
-        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT);
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat);
     Composition composition =
         buildSingleSequenceComposition(
             /* clippingStartPositionMs= */ 0,
@@ -329,8 +328,8 @@ public class TransformerPauseResumeTest {
     assumeFormatsSupported(
         getApplicationContext(),
         testId,
-        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT,
-        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT);
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat);
     Composition composition =
         buildSingleSequenceComposition(
             /* clippingStartPositionMs= */ 0,
@@ -385,7 +384,7 @@ public class TransformerPauseResumeTest {
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(
                 new MediaItem.Builder()
-                    .setUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_URI_STRING)
+                    .setUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.uri)
                     .setClippingConfiguration(
                         new MediaItem.ClippingConfiguration.Builder()
                             .setStartPositionMs(clippingStartPositionMs)
