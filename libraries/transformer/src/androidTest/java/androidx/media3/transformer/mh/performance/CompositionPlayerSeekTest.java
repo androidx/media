@@ -17,6 +17,8 @@
 package androidx.media3.transformer.mh.performance;
 
 import static androidx.media3.common.util.Util.usToMs;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_DURATION_US;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_URI_STRING;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.truth.Truth.assertThat;
 
@@ -28,6 +30,7 @@ import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.effect.GlEffect;
+import androidx.media3.transformer.AndroidTestUtil;
 import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.CompositionPlayer;
 import androidx.media3.transformer.EditedMediaItem;
@@ -58,8 +61,6 @@ import org.junit.runner.RunWith;
 public class CompositionPlayerSeekTest {
 
   private static final long TEST_TIMEOUT_MS = 10_000;
-  private static final String MP4_ASSET = "asset:///media/mp4/sample.mp4";
-  private static final long MP4_ASSET_DURATION_US = 1_024_000L;
   private static final ImmutableList<Long> MP4_ASSET_TIMESTAMPS_US =
       ImmutableList.of(
           0L, 33366L, 66733L, 100100L, 133466L, 166833L, 200200L, 233566L, 266933L, 300300L,
@@ -278,9 +279,9 @@ public class CompositionPlayerSeekTest {
   }
 
   /**
-   * Plays the {@link #MP4_ASSET} for {@code videoLoopCount} times, seeks after {@code
-   * numberOfFramesBeforeSeeking} frames to {@code seekTimeMs}, and returns the timestamps of the
-   * processed frames, in microsecond.
+   * Plays the {@link AndroidTestUtil#MP4_ASSET_URI_STRING} for {@code videoLoopCount} times, seeks
+   * after {@code numberOfFramesBeforeSeeking} frames to {@code seekTimeMs}, and returns the
+   * timestamps of the processed frames, in microsecond.
    */
   private ImmutableList<Long> playCompositionOfTwoVideosAndGetTimestamps(
       PlayerTestListener listener, int numberOfFramesBeforeSeeking, long seekTimeMs)
@@ -352,8 +353,8 @@ public class CompositionPlayerSeekTest {
   }
 
   private static EditedMediaItem createEditedMediaItem(List<Effect> videoEffects) {
-    return new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET))
-        .setDurationUs(1_024_000)
+    return new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET_URI_STRING))
+        .setDurationUs(MP4_ASSET_DURATION_US)
         .setEffects(new Effects(/* audioProcessors= */ ImmutableList.of(), videoEffects))
         .build();
   }

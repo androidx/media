@@ -75,6 +75,7 @@ public final class AndroidTestUtil {
       "asset:///media/png/loremipsum_1920x720.png";
   public static final String JPG_ASSET_URI_STRING = "asset:///media/jpeg/london.jpg";
   public static final String JPG_PORTRAIT_ASSET_URI_STRING = "asset:///media/jpeg/tokyo.jpg";
+  public static final String JPG_SINGLE_PIXEL_URI_STRING = "asset:///media/jpeg/white-1x1.jpg";
   public static final String ULTRA_HDR_URI_STRING = "asset:///media/jpeg/ultraHDR.jpg";
 
   public static final String MP4_TRIM_OPTIMIZATION_URI_STRING =
@@ -98,6 +99,7 @@ public final class AndroidTestUtil {
           .setFrameRate(29.97f)
           .setCodecs("avc1.64001F")
           .build();
+  public static final long MP4_ASSET_DURATION_US = 1_024_000L;
 
   // Result of the following command for MP4_ASSET_URI_STRING
   // ffprobe -count_frames -select_streams v:0 -show_entries stream=nb_read_frames sample.mp4

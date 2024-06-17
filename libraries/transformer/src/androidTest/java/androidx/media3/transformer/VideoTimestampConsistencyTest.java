@@ -17,6 +17,9 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Util.usToMs;
+import static androidx.media3.transformer.AndroidTestUtil.JPG_SINGLE_PIXEL_URI_STRING;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_DURATION_US;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_URI_STRING;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.app.Instrumentation;
@@ -46,15 +49,12 @@ import org.junit.runner.RunWith;
 public class VideoTimestampConsistencyTest {
 
   private static final long TEST_TIMEOUT_MS = 10_000;
-  private static final String MP4_ASSET = "asset:///media/mp4/sample.mp4";
-  private static final long MP4_ASSET_DURATION_US = 1_024_000L;
   private static final ImmutableList<Long> MP4_ASSET_FRAME_TIMESTAMPS_US =
       ImmutableList.of(
           0L, 33366L, 66733L, 100100L, 133466L, 166833L, 200200L, 233566L, 266933L, 300300L,
           333666L, 367033L, 400400L, 433766L, 467133L, 500500L, 533866L, 567233L, 600600L, 633966L,
           667333L, 700700L, 734066L, 767433L, 800800L, 834166L, 867533L, 900900L, 934266L, 967633L);
 
-  private static final String IMAGE_ASSET = "asset:///media/jpeg/white-1x1.jpg";
   private static final ImmutableList<Long> IMAGE_TIMESTAMPS_US_500_MS_30_FPS =
       ImmutableList.of(
           0L, 33333L, 66667L, 100000L, 133333L, 166667L, 200000L, 233333L, 266667L, 300000L,
@@ -89,7 +89,7 @@ public class VideoTimestampConsistencyTest {
     EditedMediaItem image =
         new EditedMediaItem.Builder(
                 new MediaItem.Builder()
-                    .setUri(IMAGE_ASSET)
+                    .setUri(JPG_SINGLE_PIXEL_URI_STRING)
                     .setImageDurationMs(usToMs(imageDurationUs))
                     .build())
             .setDurationUs(imageDurationUs)
@@ -102,7 +102,7 @@ public class VideoTimestampConsistencyTest {
   @Test
   public void oneVideoComposition_timestampsAreConsistent() throws Exception {
     EditedMediaItem video =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET))
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET_URI_STRING))
             .setDurationUs(MP4_ASSET_DURATION_US)
             .build();
 
@@ -115,7 +115,7 @@ public class VideoTimestampConsistencyTest {
     long clippedStartUs = 500_000L;
     EditedMediaItem video1 =
         new EditedMediaItem.Builder(
-                MediaItem.fromUri(MP4_ASSET)
+                MediaItem.fromUri(MP4_ASSET_URI_STRING)
                     .buildUpon()
                     .setClippingConfiguration(
                         new MediaItem.ClippingConfiguration.Builder()
@@ -126,7 +126,7 @@ public class VideoTimestampConsistencyTest {
             .build();
 
     EditedMediaItem video2 =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET))
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET_URI_STRING))
             .setDurationUs(MP4_ASSET_DURATION_US)
             .build();
 
@@ -145,12 +145,12 @@ public class VideoTimestampConsistencyTest {
   @Test
   public void twoVideosComposition_timestampsAreConsistent() throws Exception {
     EditedMediaItem video1 =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET))
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET_URI_STRING))
             .setDurationUs(MP4_ASSET_DURATION_US)
             .build();
 
     EditedMediaItem video2 =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET))
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET_URI_STRING))
             .setDurationUs(MP4_ASSET_DURATION_US)
             .build();
 
@@ -173,7 +173,7 @@ public class VideoTimestampConsistencyTest {
     EditedMediaItem image1 =
         new EditedMediaItem.Builder(
                 new MediaItem.Builder()
-                    .setUri(IMAGE_ASSET)
+                    .setUri(JPG_SINGLE_PIXEL_URI_STRING)
                     .setImageDurationMs(usToMs(imageDurationUs))
                     .build())
             .setDurationUs(imageDurationUs)
@@ -182,7 +182,7 @@ public class VideoTimestampConsistencyTest {
     EditedMediaItem image2 =
         new EditedMediaItem.Builder(
                 new MediaItem.Builder()
-                    .setUri(IMAGE_ASSET)
+                    .setUri(JPG_SINGLE_PIXEL_URI_STRING)
                     .setImageDurationMs(usToMs(imageDurationUs))
                     .build())
             .setDurationUs(imageDurationUs)
@@ -209,14 +209,14 @@ public class VideoTimestampConsistencyTest {
     EditedMediaItem image =
         new EditedMediaItem.Builder(
                 new MediaItem.Builder()
-                    .setUri(IMAGE_ASSET)
+                    .setUri(JPG_SINGLE_PIXEL_URI_STRING)
                     .setImageDurationMs(usToMs(imageDurationUs))
                     .build())
             .setDurationUs(imageDurationUs)
             .setFrameRate(30)
             .build();
     EditedMediaItem video =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET))
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET_URI_STRING))
             .setDurationUs(MP4_ASSET_DURATION_US)
             .build();
 
@@ -236,13 +236,13 @@ public class VideoTimestampConsistencyTest {
     long imageDurationUs = 500_000L;
 
     EditedMediaItem video =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET))
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET_URI_STRING))
             .setDurationUs(MP4_ASSET_DURATION_US)
             .build();
     EditedMediaItem image =
         new EditedMediaItem.Builder(
                 new MediaItem.Builder()
-                    .setUri(IMAGE_ASSET)
+                    .setUri(JPG_SINGLE_PIXEL_URI_STRING)
                     .setImageDurationMs(usToMs(imageDurationUs))
                     .build())
             .setDurationUs(imageDurationUs)
@@ -268,7 +268,7 @@ public class VideoTimestampConsistencyTest {
 
     EditedMediaItem video =
         new EditedMediaItem.Builder(
-                MediaItem.fromUri(MP4_ASSET)
+                MediaItem.fromUri(MP4_ASSET_URI_STRING)
                     .buildUpon()
                     .setClippingConfiguration(
                         new MediaItem.ClippingConfiguration.Builder()
@@ -280,7 +280,7 @@ public class VideoTimestampConsistencyTest {
     EditedMediaItem image =
         new EditedMediaItem.Builder(
                 new MediaItem.Builder()
-                    .setUri(IMAGE_ASSET)
+                    .setUri(JPG_SINGLE_PIXEL_URI_STRING)
                     .setImageDurationMs(usToMs(imageDurationUs))
                     .build())
             .setDurationUs(imageDurationUs)

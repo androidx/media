@@ -16,6 +16,8 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.PlaybackException.ERROR_CODE_DECODER_INIT_FAILED;
+import static androidx.media3.transformer.AndroidTestUtil.JPG_SINGLE_PIXEL_URI_STRING;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_URI_STRING;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static org.junit.Assert.assertThrows;
@@ -70,8 +72,6 @@ import org.junit.runner.RunWith;
 public class CompositionPlayerTest {
 
   private static final long TEST_TIMEOUT_MS = 10_000;
-  private static final String MP4_ASSET = "asset:///media/mp4/sample.mp4";
-  private static final String IMAGE_ASSET = "asset:///media/jpeg/white-1x1.jpg";
 
   @Rule
   public ActivityScenarioRule<SurfaceTestActivity> rule =
@@ -122,7 +122,7 @@ public class CompositionPlayerTest {
           compositionPlayer.setComposition(
               new Composition.Builder(
                       new EditedMediaItemSequence(
-                          new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET))
+                          new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET_URI_STRING))
                               .setDurationUs(1_000_000)
                               .build()))
                   .build());
@@ -142,7 +142,7 @@ public class CompositionPlayerTest {
           compositionPlayer.setComposition(
               new Composition.Builder(
                       new EditedMediaItemSequence(
-                          new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET))
+                          new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET_URI_STRING))
                               .setDurationUs(1_000_000)
                               .build()))
                   .build());
@@ -166,7 +166,7 @@ public class CompositionPlayerTest {
           compositionPlayer.setComposition(
               new Composition.Builder(
                       new EditedMediaItemSequence(
-                          new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET))
+                          new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET_URI_STRING))
                               .setDurationUs(1_000_000)
                               .build()))
                   .build());
@@ -188,7 +188,7 @@ public class CompositionPlayerTest {
           compositionPlayer.setComposition(
               new Composition.Builder(
                       new EditedMediaItemSequence(
-                          new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET))
+                          new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET_URI_STRING))
                               .setDurationUs(1_000_000)
                               .build()))
                   .build());
@@ -232,7 +232,7 @@ public class CompositionPlayerTest {
                       new EditedMediaItemSequence(
                           new EditedMediaItem.Builder(
                                   new MediaItem.Builder()
-                                      .setUri(IMAGE_ASSET)
+                                      .setUri(JPG_SINGLE_PIXEL_URI_STRING)
                                       .setImageDurationMs(1_000)
                                       .build())
                               .setDurationUs(1_000_000)
@@ -273,7 +273,7 @@ public class CompositionPlayerTest {
                       new EditedMediaItemSequence(
                           new EditedMediaItem.Builder(
                                   new MediaItem.Builder()
-                                      .setUri(IMAGE_ASSET)
+                                      .setUri(JPG_SINGLE_PIXEL_URI_STRING)
                                       .setMimeType(MimeTypes.APPLICATION_EXTERNALLY_LOADED_IMAGE)
                                       .setImageDurationMs(1_000)
                                       .build())
@@ -291,7 +291,10 @@ public class CompositionPlayerTest {
     PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
     EditedMediaItem image =
         new EditedMediaItem.Builder(
-                new MediaItem.Builder().setUri(IMAGE_ASSET).setImageDurationMs(500).build())
+                new MediaItem.Builder()
+                    .setUri(JPG_SINGLE_PIXEL_URI_STRING)
+                    .setImageDurationMs(500)
+                    .build())
             .setDurationUs(500_000)
             .build();
 
@@ -316,12 +319,17 @@ public class CompositionPlayerTest {
     PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
     EditedMediaItem image =
         new EditedMediaItem.Builder(
-                new MediaItem.Builder().setUri(IMAGE_ASSET).setImageDurationMs(500).build())
+                new MediaItem.Builder()
+                    .setUri(JPG_SINGLE_PIXEL_URI_STRING)
+                    .setImageDurationMs(500)
+                    .build())
             .setDurationUs(500_000)
             .build();
 
     EditedMediaItem video =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET)).setDurationUs(1_000_000).build();
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET_URI_STRING))
+            .setDurationUs(1_000_000)
+            .build();
 
     instrumentation.runOnMainSync(
         () -> {
@@ -343,10 +351,15 @@ public class CompositionPlayerTest {
   public void composition_videoThenImage() throws Exception {
     PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
     EditedMediaItem video =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET)).setDurationUs(1_000_000).build();
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET_URI_STRING))
+            .setDurationUs(1_000_000)
+            .build();
     EditedMediaItem image =
         new EditedMediaItem.Builder(
-                new MediaItem.Builder().setUri(IMAGE_ASSET).setImageDurationMs(500).build())
+                new MediaItem.Builder()
+                    .setUri(JPG_SINGLE_PIXEL_URI_STRING)
+                    .setImageDurationMs(500)
+                    .build())
             .setDurationUs(500_000)
             .build();
 
@@ -370,7 +383,9 @@ public class CompositionPlayerTest {
   public void playback_videoSinkProviderFails_playerRaisesError() {
     PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
     EditedMediaItem video =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET)).setDurationUs(1_000_000).build();
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET_URI_STRING))
+            .setDurationUs(1_000_000)
+            .build();
 
     instrumentation.runOnMainSync(
         () -> {
@@ -405,7 +420,9 @@ public class CompositionPlayerTest {
       throws Exception {
     PlayerTestListener playerTestListener = new PlayerTestListener(TEST_TIMEOUT_MS);
     EditedMediaItem video =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET)).setDurationUs(1_000_000).build();
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET_URI_STRING))
+            .setDurationUs(1_000_000)
+            .build();
     instrumentation.runOnMainSync(
         () -> {
           compositionPlayer =

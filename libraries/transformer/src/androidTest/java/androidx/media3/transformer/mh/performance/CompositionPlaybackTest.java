@@ -16,11 +16,12 @@
 
 package androidx.media3.transformer.mh.performance;
 
-import static androidx.media3.common.MimeTypes.VIDEO_H264;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapFromRgba8888Image;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_FORMAT;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_URI_STRING;
 import static androidx.media3.transformer.mh.performance.PlaybackTestUtil.createTimestampOverlay;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
@@ -30,7 +31,6 @@ import android.graphics.Bitmap;
 import android.graphics.PixelFormat;
 import android.media.Image;
 import android.media.ImageReader;
-import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Size;
@@ -58,17 +58,6 @@ import org.junit.runner.RunWith;
 public class CompositionPlaybackTest {
 
   private static final String TEST_DIRECTORY = "test-generated-goldens/ExoPlayerPlaybackTest";
-  private static final String MP4_ASSET_URI_STRING = "asset:///media/mp4/sample.mp4";
-  private static final Format MP4_ASSET_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(1080)
-          .setHeight(720)
-          .setFrameRate(29.97f)
-          .setCodecs("avc1.64001F")
-          .build();
-  private static final Size MP4_ASSET_VIDEO_SIZE =
-      new Size(MP4_ASSET_FORMAT.width, MP4_ASSET_FORMAT.height);
   private static final long TEST_TIMEOUT_MS = 10_000;
 
   @Rule public final TestName testName = new TestName();
@@ -102,8 +91,8 @@ public class CompositionPlaybackTest {
     ConditionVariable hasRenderedFirstFrameCondition = new ConditionVariable();
     outputImageReader =
         ImageReader.newInstance(
-            MP4_ASSET_VIDEO_SIZE.getWidth(),
-            MP4_ASSET_VIDEO_SIZE.getHeight(),
+            MP4_ASSET_FORMAT.width,
+            MP4_ASSET_FORMAT.height,
             PixelFormat.RGBA_8888,
             /* maxImages= */ 1);
 
@@ -119,7 +108,9 @@ public class CompositionPlaybackTest {
               },
               Util.createHandlerForCurrentOrMainLooper());
 
-          player.setVideoSurface(outputImageReader.getSurface(), MP4_ASSET_VIDEO_SIZE);
+          player.setVideoSurface(
+              outputImageReader.getSurface(),
+              new Size(MP4_ASSET_FORMAT.width, MP4_ASSET_FORMAT.height));
           player.setComposition(
               new Composition.Builder(
                       new EditedMediaItemSequence(
