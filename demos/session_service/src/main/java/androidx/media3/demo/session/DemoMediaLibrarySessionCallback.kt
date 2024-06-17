@@ -114,7 +114,7 @@ open class DemoMediaLibrarySessionCallback(context: Context) :
       )
       return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
     }
-    return Futures.immediateFuture(SessionResult(SessionResult.RESULT_ERROR_NOT_SUPPORTED))
+    return Futures.immediateFuture(SessionResult(SessionError.ERROR_NOT_SUPPORTED))
   }
 
   override fun onGetLibraryRoot(
@@ -125,6 +125,7 @@ open class DemoMediaLibrarySessionCallback(context: Context) :
     return Futures.immediateFuture(LibraryResult.ofItem(MediaItemTree.getRootItem(), params))
   }
 
+  @OptIn(UnstableApi::class) // SessionError.ERROR_BAD_VALUE
   override fun onGetItem(
     session: MediaLibraryService.MediaLibrarySession,
     browser: MediaSession.ControllerInfo,
@@ -136,6 +137,7 @@ open class DemoMediaLibrarySessionCallback(context: Context) :
     return Futures.immediateFuture(LibraryResult.ofError(SessionError.ERROR_BAD_VALUE))
   }
 
+  @OptIn(UnstableApi::class) // SessionError.ERROR_BAD_VALUE
   override fun onGetChildren(
     session: MediaLibraryService.MediaLibrarySession,
     browser: MediaSession.ControllerInfo,
