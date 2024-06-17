@@ -102,6 +102,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.InlineMe;
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.File;
@@ -475,16 +476,15 @@ public final class Util {
   }
 
   /**
-   * Tests two objects for {@link Object#equals(Object)} equality, handling the case where one or
-   * both may be {@code null}.
-   *
-   * @param o1 The first object.
-   * @param o2 The second object.
-   * @return {@code o1 == null ? o2 == null : o1.equals(o2)}.
+   * @deprecated Use {@link Objects#equals(Object, Object)} instead.
    */
   @UnstableApi
+  @Deprecated
+  @InlineMe(
+      replacement = "Objects.equals(o1, o2)",
+      imports = {"java.util.Objects"})
   public static boolean areEqual(@Nullable Object o1, @Nullable Object o2) {
-    return o1 == null ? o2 == null : o1.equals(o2);
+    return Objects.equals(o1, o2);
   }
 
   /**
