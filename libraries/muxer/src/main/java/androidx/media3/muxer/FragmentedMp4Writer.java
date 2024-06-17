@@ -49,12 +49,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 /* package */ final class FragmentedMp4Writer {
   /** Provides a limited set of sample metadata. */
   public static class SampleMetadata {
-    public final long durationVu;
+    public final int durationVu;
     public final int size;
     public final int flags;
     public final int compositionTimeOffsetVu;
 
-    public SampleMetadata(long durationsVu, int size, int flags, int compositionTimeOffsetVu) {
+    public SampleMetadata(int durationsVu, int size, int flags, int compositionTimeOffsetVu) {
       this.durationVu = durationsVu;
       this.size = size;
       this.flags = flags;
@@ -320,7 +320,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     boolean hasBFrame = false;
     ImmutableList<BufferInfo> pendingSamplesBufferInfo = pendingSamplesBufferInfoBuilder.build();
-    List<Long> sampleDurations =
+    List<Integer> sampleDurations =
         Boxes.convertPresentationTimestampsToDurationsVu(
             pendingSamplesBufferInfo,
             /* firstSamplePresentationTimeUs= */ currentFragmentSequenceNumber == 1

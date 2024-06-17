@@ -79,7 +79,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       String languageCode = bcp47LanguageTagToIso3(format.language);
 
       // Generate the sample durations to calculate the total duration for tkhd box.
-      List<Long> sampleDurationsVu =
+      List<Integer> sampleDurationsVu =
           Boxes.convertPresentationTimestampsToDurationsVu(
               track.writtenSamples(),
               minInputPtsUs,

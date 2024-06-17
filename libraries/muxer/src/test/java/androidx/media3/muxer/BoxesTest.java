@@ -403,14 +403,14 @@ public class BoxesTest {
     List<MediaCodec.BufferInfo> sampleBufferInfos =
         createBufferInfoListWithSamplePresentationTimestamps(0L);
 
-    List<Long> durationsVu =
+    List<Integer> durationsVu =
         Boxes.convertPresentationTimestampsToDurationsVu(
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
             LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME);
 
-    assertThat(durationsVu).containsExactly(0L);
+    assertThat(durationsVu).containsExactly(0);
   }
 
   @Test
@@ -419,14 +419,14 @@ public class BoxesTest {
     List<MediaCodec.BufferInfo> sampleBufferInfos =
         createBufferInfoListWithSamplePresentationTimestamps(5_000L);
 
-    List<Long> durationsVu =
+    List<Integer> durationsVu =
         Boxes.convertPresentationTimestampsToDurationsVu(
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
             LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME);
 
-    assertThat(durationsVu).containsExactly(0L);
+    assertThat(durationsVu).containsExactly(0);
   }
 
   @Test
@@ -435,14 +435,14 @@ public class BoxesTest {
     List<MediaCodec.BufferInfo> sampleBufferInfos =
         createBufferInfoListWithSamplePresentationTimestamps(0L, 30_000L, 80_000L);
 
-    List<Long> durationsVu =
+    List<Integer> durationsVu =
         Boxes.convertPresentationTimestampsToDurationsVu(
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
             LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME);
 
-    assertThat(durationsVu).containsExactly(3_000L, 5_000L, 0L);
+    assertThat(durationsVu).containsExactly(3_000, 5_000, 0);
   }
 
   @Test
@@ -451,14 +451,14 @@ public class BoxesTest {
     List<MediaCodec.BufferInfo> sampleBufferInfos =
         createBufferInfoListWithSamplePresentationTimestamps(0L, 30_000L, 80_000L);
 
-    List<Long> durationsVu =
+    List<Integer> durationsVu =
         Boxes.convertPresentationTimestampsToDurationsVu(
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
             LAST_FRAME_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION);
 
-    assertThat(durationsVu).containsExactly(3_000L, 5_000L, 5_000L);
+    assertThat(durationsVu).containsExactly(3_000, 5_000, 5_000);
   }
 
   @Test
@@ -467,19 +467,19 @@ public class BoxesTest {
     List<MediaCodec.BufferInfo> sampleBufferInfos =
         createBufferInfoListWithSamplePresentationTimestamps(0L, 10_000L, 1_000L, 2_000L, 11_000L);
 
-    List<Long> durationsVu =
+    List<Integer> durationsVu =
         Boxes.convertPresentationTimestampsToDurationsVu(
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
             LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME);
 
-    assertThat(durationsVu).containsExactly(100L, 100L, 800L, 100L, 0L);
+    assertThat(durationsVu).containsExactly(100, 100, 800, 100, 0);
   }
 
   @Test
   public void createSttsBox_withSingleSampleDuration_matchesExpected() throws IOException {
-    ImmutableList<Long> sampleDurations = ImmutableList.of(500L);
+    ImmutableList<Integer> sampleDurations = ImmutableList.of(500);
 
     ByteBuffer sttsBox = Boxes.stts(sampleDurations);
 
@@ -492,7 +492,7 @@ public class BoxesTest {
 
   @Test
   public void createSttsBox_withAllDifferentSampleDurations_matchesExpected() throws IOException {
-    ImmutableList<Long> sampleDurations = ImmutableList.of(1_000L, 2_000L, 3_000L, 5_000L);
+    ImmutableList<Integer> sampleDurations = ImmutableList.of(1_000, 2_000, 3_000, 5_000);
 
     ByteBuffer sttsBox = Boxes.stts(sampleDurations);
 
@@ -506,7 +506,7 @@ public class BoxesTest {
   @Test
   public void createSttsBox_withFewConsecutiveSameSampleDurations_matchesExpected()
       throws IOException {
-    ImmutableList<Long> sampleDurations = ImmutableList.of(1_000L, 2_000L, 2_000L, 2_000L);
+    ImmutableList<Integer> sampleDurations = ImmutableList.of(1_000, 2_000, 2_000, 2_000);
 
     ByteBuffer sttsBox = Boxes.stts(sampleDurations);
 
@@ -521,7 +521,7 @@ public class BoxesTest {
   public void createCttsBox_withSingleSampleTimestamp_returnsEmptyBox() {
     List<MediaCodec.BufferInfo> sampleBufferInfos =
         createBufferInfoListWithSamplePresentationTimestamps(400);
-    List<Long> durationsVu =
+    List<Integer> durationsVu =
         Boxes.convertPresentationTimestampsToDurationsVu(
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
@@ -538,7 +538,7 @@ public class BoxesTest {
   public void createCttsBox_withNoBframesSampleTimestamps_returnsEmptyBox() throws IOException {
     List<MediaCodec.BufferInfo> sampleBufferInfos =
         createBufferInfoListWithSamplePresentationTimestamps(0L, 1000L, 2000L);
-    List<Long> durationsVu =
+    List<Integer> durationsVu =
         Boxes.convertPresentationTimestampsToDurationsVu(
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
@@ -557,7 +557,7 @@ public class BoxesTest {
         createBufferInfoListWithSamplePresentationTimestamps(
             0, 400, 200, 100, 300, 800, 600, 500, 700);
 
-    List<Long> durationsVu =
+    List<Integer> durationsVu =
         Boxes.convertPresentationTimestampsToDurationsVu(
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
@@ -577,7 +577,7 @@ public class BoxesTest {
         createBufferInfoListWithSamplePresentationTimestamps(
             23698215060L, 23698248252L, 23698347988L, 23698488968L, 23698547416L);
 
-    List<Long> durationsVu =
+    List<Integer> durationsVu =
         Boxes.convertPresentationTimestampsToDurationsVu(
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 23698215060L,
@@ -679,7 +679,7 @@ public class BoxesTest {
     for (int i = 0; i < sampleCount; i++) {
       samplesMetadata.add(
           new SampleMetadata(
-              /* durationsVu= */ 2_000L,
+              /* durationsVu= */ 2_000,
               /* size= */ 5_000,
               /* flags= */ i == 0 ? MediaCodec.BUFFER_FLAG_KEY_FRAME : 0,
               /* compositionTimeOffsetVu= */ 0));
@@ -700,7 +700,7 @@ public class BoxesTest {
     for (int i = 0; i < sampleCount; i++) {
       samplesMetadata.add(
           new SampleMetadata(
-              /* durationsVu= */ 2_000L,
+              /* durationsVu= */ 2_000,
               /* size= */ 5_000,
               /* flags= */ i == 0 ? MediaCodec.BUFFER_FLAG_KEY_FRAME : 0,
               /* compositionTimeOffsetVu= */ 100));

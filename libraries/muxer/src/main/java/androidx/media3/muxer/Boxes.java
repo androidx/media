@@ -42,7 +42,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * Writes out various types of boxes as per MP4 (ISO/IEC 14496-12) standards.
@@ -636,14 +635,13 @@ import java.util.Locale;
    * @return A list of all the sample durations.
    */
   // TODO: b/280084657 - Add support for setting last sample duration.
-  // TODO: b/317373578 - Consider changing return type to List<Integer>.
-  public static List<Long> convertPresentationTimestampsToDurationsVu(
+  public static List<Integer> convertPresentationTimestampsToDurationsVu(
       List<BufferInfo> samplesInfo,
       long firstSamplePresentationTimeUs,
       int videoUnitTimescale,
       @Mp4Muxer.LastFrameDurationBehavior int lastDurationBehavior) {
     List<Long> presentationTimestampsUs = new ArrayList<>(samplesInfo.size());
-    List<Long> durationsVu = new ArrayList<>(samplesInfo.size());
+    List<Integer> durationsVu = new ArrayList<>(samplesInfo.size());
 
     if (samplesInfo.isEmpty()) {
       return durationsVu;
@@ -672,23 +670,20 @@ import java.util.Locale;
       long currentSampleDurationVu =
           vuFromUs(nextSampleTimeUs, videoUnitTimescale)
               - vuFromUs(currentSampleTimeUs, videoUnitTimescale);
-      if (currentSampleDurationVu > Integer.MAX_VALUE) {
-        throw new IllegalArgumentException(
-            String.format(
-                Locale.US, "Timestamp delta %d doesn't fit into an int", currentSampleDurationVu));
-      }
-      durationsVu.add(currentSampleDurationVu);
+      checkState(
+          currentSampleDurationVu <= Integer.MAX_VALUE, "Only 32-bit sample duration is allowed");
+      durationsVu.add((int) currentSampleDurationVu);
       currentSampleTimeUs = nextSampleTimeUs;
     }
     // Default duration for the last sample.
-    durationsVu.add(0L);
+    durationsVu.add(0);
 
     adjustLastSampleDuration(durationsVu, lastDurationBehavior);
     return durationsVu;
   }
 
   /** Generates the stts (decoding time to sample) box. */
-  public static ByteBuffer stts(List<Long> durationsVu) {
+  public static ByteBuffer stts(List<Integer> durationsVu) {
     ByteBuffer contents = ByteBuffer.allocate(durationsVu.size() * 8 + MAX_FIXED_LEAF_BOX_SIZE);
 
     contents.putInt(0x0); // version and flags.
@@ -705,7 +700,7 @@ import java.util.Locale;
     // Note that the framework MediaMuxer adjust time deltas within plus-minus 100 us, so that
     // samples have repeating duration values. It saves few entries in the table.
     for (int i = 0; i < durationsVu.size(); i++) {
-      long durationVu = durationsVu.get(i);
+      int durationVu = durationsVu.get(i);
       if (lastDurationVu != durationVu) {
         lastDurationVu = durationVu;
         lastSampleCountIndex = contents.position();
@@ -713,7 +708,7 @@ import java.util.Locale;
         // sample_count; this will be updated instead of adding a new entry if the next sample has
         // the same duration.
         contents.putInt(1);
-        contents.putInt((int) durationVu); // sample_delta.
+        contents.putInt(durationVu); // sample_delta
         totalEntryCount++;
       } else {
         contents.putInt(lastSampleCountIndex, contents.getInt(lastSampleCountIndex) + 1);
@@ -728,7 +723,7 @@ import java.util.Locale;
 
   /** Returns the ctts (composition time to sample) box. */
   public static ByteBuffer ctts(
-      List<BufferInfo> samplesInfo, List<Long> durationVu, int videoUnitTimescale) {
+      List<BufferInfo> samplesInfo, List<Integer> durationVu, int videoUnitTimescale) {
     // Generate the sample composition offsets list to create ctts box.
     List<Integer> compositionOffsets =
         Boxes.calculateSampleCompositionTimeOffsets(samplesInfo, durationVu, videoUnitTimescale);
@@ -786,7 +781,7 @@ import java.util.Locale;
    * @return A list of all the sample composition time offsets.
    */
   public static List<Integer> calculateSampleCompositionTimeOffsets(
-      List<BufferInfo> samplesInfo, List<Long> durationVu, int videoUnitTimescale) {
+      List<BufferInfo> samplesInfo, List<Integer> durationVu, int videoUnitTimescale) {
     List<Integer> compositionOffsets = new ArrayList<>(samplesInfo.size());
     if (samplesInfo.isEmpty()) {
       return compositionOffsets;
@@ -802,7 +797,9 @@ import java.util.Locale;
           samplesInfo.get(sampleId).presentationTimeUs - firstSamplePresentationTimeUs;
       long currentCompositionOffsetVu =
           vuFromUs(currentSampleCompositionTimeUs, videoUnitTimescale) - currentSampleDecodeTime;
-      checkState(currentCompositionOffsetVu <= Integer.MAX_VALUE, "Only 32-bit offset is allowed");
+      checkState(
+          currentCompositionOffsetVu <= Integer.MAX_VALUE,
+          "Only 32-bit composition offset is allowed");
       currentSampleDecodeTime += durationVu.get(sampleId); // DT(n+1) = DT(n) + STTS(n)
       compositionOffsets.add((int) currentCompositionOffsetVu);
 
@@ -1022,7 +1019,7 @@ import java.util.Locale;
     contents.putInt(dataOffset); // A signed int(32)
     for (int i = 0; i < samplesMetadata.size(); i++) {
       SampleMetadata currentSampleMetadata = samplesMetadata.get(i);
-      contents.putInt((int) currentSampleMetadata.durationVu); // An unsigned int(32)
+      contents.putInt(currentSampleMetadata.durationVu); // An unsigned int(32)
       contents.putInt(currentSampleMetadata.size); // An unsigned int(32)
       contents.putInt(
           (currentSampleMetadata.flags & MediaCodec.BUFFER_FLAG_KEY_FRAME) != 0
@@ -1064,7 +1061,7 @@ import java.util.Locale;
   // TODO: b/317117431 - Change this method to getLastSampleDuration().
   /** Adjusts the duration of the very last sample if needed. */
   private static void adjustLastSampleDuration(
-      List<Long> durationsToBeAdjustedVu, @Mp4Muxer.LastFrameDurationBehavior int behavior) {
+      List<Integer> durationsToBeAdjustedVu, @Mp4Muxer.LastFrameDurationBehavior int behavior) {
     // Technically, MP4 file stores frame durations, not timestamps. If a frame starts at a
     // given timestamp then the duration of the last frame is not obvious. If samples follow each
     // other in roughly regular intervals (e.g. in a normal, 30 fps video), it can be safely assumed
