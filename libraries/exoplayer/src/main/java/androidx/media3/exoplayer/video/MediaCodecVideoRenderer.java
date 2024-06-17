@@ -714,16 +714,16 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @Override
   protected void onPositionReset(long positionUs, boolean joining) throws ExoPlaybackException {
     if (videoSink != null) {
-      // When this renderer doesn't own the VideoSink, it's possible that the VideoSink is already
-      // initialized by another renderer, before this renderer is enabled.
       // Flush the video sink first to ensure it stops reading textures that will be owned by
       // MediaCodec once the codec is flushed.
-      videoSink.flush();
+      videoSink.flush(/* resetPosition= */ true);
       videoSink.setStreamOffsetAndAdjustmentUs(
           getOutputStreamOffsetUs(), getBufferTimestampAdjustmentUs());
     }
     super.onPositionReset(positionUs, joining);
-    videoFrameReleaseControl.reset();
+    if (videoSink == null) {
+      videoFrameReleaseControl.reset();
+    }
     if (joining) {
       // Don't render next frame immediately to let the codec catch up with the playback position
       // first. This prevents a stuttering effect caused by showing the first frame and then
@@ -1624,7 +1624,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     }
     flushOrReinitializeCodec();
     if (videoSink != null) {
-      videoSink.flush();
+      videoSink.flush(/* resetPosition= */ false);
     }
     return true;
   }

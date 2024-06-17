@@ -375,10 +375,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     @Override
     protected void onPositionReset(long positionUs, boolean joining) throws ExoPlaybackException {
-      videoSink.flush();
+      videoSink.flush(/* resetPosition= */ true);
       super.onPositionReset(positionUs, joining);
       timestampIterator = createTimestampIterator(positionUs);
-      videoFrameReleaseControl.reset();
       if (joining) {
         videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ false);
       }

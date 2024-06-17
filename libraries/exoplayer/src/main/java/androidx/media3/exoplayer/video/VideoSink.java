@@ -141,8 +141,10 @@ public interface VideoSink {
    * Flushes the video sink.
    *
    * <p>After calling this method, any frames stored inside the video sink are discarded.
+   *
+   * @param resetPosition Whether to reset the current position.
    */
-  void flush();
+  void flush(boolean resetPosition);
 
   /**
    * Returns whether the video sink is able to immediately render media from the current position.

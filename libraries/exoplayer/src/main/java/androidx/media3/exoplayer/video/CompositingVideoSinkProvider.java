@@ -567,7 +567,7 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
     }
 
     @Override
-    public void flush() {
+    public void flush(boolean resetPosition) {
       if (isInitialized()) {
         videoFrameProcessor.flush();
       }
@@ -575,6 +575,9 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
       finalBufferPresentationTimeUs = C.TIME_UNSET;
       lastBufferPresentationTimeUs = C.TIME_UNSET;
       CompositingVideoSinkProvider.this.flush();
+      if (resetPosition) {
+        videoFrameReleaseControl.reset();
+      }
       // Don't change input stream offset or reset the pending input stream offset change so that
       // it's announced with the next input frame.
       // Don't reset pendingInputStreamBufferPresentationTimeUs because it's not guaranteed to
