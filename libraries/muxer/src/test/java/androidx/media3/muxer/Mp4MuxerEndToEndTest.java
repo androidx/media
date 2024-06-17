@@ -300,4 +300,64 @@ public class Mp4MuxerEndToEndTest {
     DumpFileAsserts.assertOutput(
         context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("mp4_without_empty_track.mp4"));
   }
+
+  @Test
+  public void writeMp4File_withLargeNumberOfSamples_writesMoovBoxAtTheEndAndFreeBoxAtStart()
+      throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    Mp4Muxer muxer = new Mp4Muxer.Builder(new FileOutputStream(outputFilePath)).build();
+    try {
+      muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 1_000_000L,
+              /* modificationTimestampSeconds= */ 5_000_000L));
+      TrackToken token = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      for (int i = 0; i < 50_000; i++) {
+        Pair<ByteBuffer, BufferInfo> sampleAndSampleInfo =
+            getFakeSampleAndSampleInfo(/* presentationTimeUs= */ i);
+        muxer.writeSampleData(token, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
+      }
+    } finally {
+      muxer.close();
+    }
+
+    DumpableMp4Box dumpableBox =
+        new DumpableMp4Box(ByteBuffer.wrap(TestUtil.getByteArrayFromFilePath(outputFilePath)));
+    DumpFileAsserts.assertOutput(
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedDumpFilePath(
+            "mp4_with_moov_at_the_end_and_free_box_at_start.mp4"));
+  }
+
+  @Test
+  public void writeMp4File_withAttemptStreamableMp4SetToFalse_writesMoovBoxAtTheEndAndNoFreeBox()
+      throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    Mp4Muxer muxer =
+        new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
+            .setAttemptStreamableOutputEnabled(false)
+            .build();
+    try {
+      muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 1_000_000L,
+              /* modificationTimestampSeconds= */ 5_000_000L));
+      TrackToken token = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      for (int i = 0; i < 1_000; i++) {
+        Pair<ByteBuffer, BufferInfo> sampleAndSampleInfo =
+            getFakeSampleAndSampleInfo(/* presentationTimeUs= */ i);
+        muxer.writeSampleData(token, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
+      }
+    } finally {
+      muxer.close();
+    }
+
+    DumpableMp4Box dumpableBox =
+        new DumpableMp4Box(ByteBuffer.wrap(TestUtil.getByteArrayFromFilePath(outputFilePath)));
+    DumpFileAsserts.assertOutput(
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_moov_at_the_end_and_no_free_box.mp4"));
+  }
 }

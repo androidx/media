@@ -95,6 +95,7 @@ public final class Mp4Muxer implements Muxer {
     private @LastFrameDurationBehavior int lastFrameDurationBehavior;
     @Nullable private AnnexBToAvccConverter annexBToAvccConverter;
     private boolean sampleCopyEnabled;
+    private boolean attemptStreamableOutputEnabled;
 
     /**
      * Creates a {@link Builder} instance with default values.
@@ -105,6 +106,7 @@ public final class Mp4Muxer implements Muxer {
       this.fileOutputStream = checkNotNull(fileOutputStream);
       lastFrameDurationBehavior = LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME;
       sampleCopyEnabled = true;
+      attemptStreamableOutputEnabled = true;
     }
 
     /**
@@ -148,6 +150,21 @@ public final class Mp4Muxer implements Muxer {
       return this;
     }
 
+    /**
+     * Sets whether to attempt to write a file where the metadata is stored at the start, which can
+     * make the file more efficient to read sequentially.
+     *
+     * <p>Setting to {@code true} does not guarantee a streamable MP4 output.
+     *
+     * <p>The default value is {@code true}.
+     */
+    @CanIgnoreReturnValue
+    public Mp4Muxer.Builder setAttemptStreamableOutputEnabled(
+        boolean attemptStreamableOutputEnabled) {
+      this.attemptStreamableOutputEnabled = attemptStreamableOutputEnabled;
+      return this;
+    }
+
     /** Builds an {@link Mp4Muxer} instance. */
     public Mp4Muxer build() {
       MetadataCollector metadataCollector = new MetadataCollector();
@@ -158,7 +175,8 @@ public final class Mp4Muxer implements Muxer {
               fileOutputStream,
               moovStructure,
               annexBToAvccConverter == null ? AnnexBToAvccConverter.DEFAULT : annexBToAvccConverter,
-              sampleCopyEnabled);
+              sampleCopyEnabled,
+              attemptStreamableOutputEnabled);
 
       return new Mp4Muxer(mp4Writer, metadataCollector);
     }

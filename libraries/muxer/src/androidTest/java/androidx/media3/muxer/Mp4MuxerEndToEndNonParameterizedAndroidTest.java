@@ -70,7 +70,7 @@ public class Mp4MuxerEndToEndNonParameterizedAndroidTest {
     // Muxer not closed.
 
     // Audio sample written = 192 out of 195.
-    // Video sample written = 94 out of 127.
+    // Video sample written = 125 out of 127.
     // Output is still a valid MP4 file.
     FakeExtractorOutput fakeExtractorOutput =
         TestUtil.extractAllSamplesFromFilePath(new Mp4Extractor(), checkNotNull(outputPath));
