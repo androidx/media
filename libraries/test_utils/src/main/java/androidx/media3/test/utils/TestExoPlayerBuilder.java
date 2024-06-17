@@ -54,6 +54,7 @@ public class TestExoPlayerBuilder {
   private @MonotonicNonNull Looper looper;
   private long seekBackIncrementMs;
   private long seekForwardIncrementMs;
+  private long maxSeekToPreviousPositionMs;
   private boolean deviceVolumeControlEnabled;
   private boolean suppressPlaybackWhenUnsuitableOutput;
   @Nullable private ExoPlayer.PreloadConfiguration preloadConfiguration;
@@ -71,6 +72,7 @@ public class TestExoPlayerBuilder {
     }
     seekBackIncrementMs = C.DEFAULT_SEEK_BACK_INCREMENT_MS;
     seekForwardIncrementMs = C.DEFAULT_SEEK_FORWARD_INCREMENT_MS;
+    maxSeekToPreviousPositionMs = C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS;
     deviceVolumeControlEnabled = false;
   }
 
@@ -317,6 +319,23 @@ public class TestExoPlayerBuilder {
   }
 
   /**
+   * Sets the max seek to previous position, in milliseconds, to be used by the player.
+   *
+   * @param maxSeekToPreviousPositionMs The max seek to previous position to be used by the player.
+   * @return This builder.
+   */
+  @CanIgnoreReturnValue
+  public TestExoPlayerBuilder setMaxSeekToPreviousPositionMs(long maxSeekToPreviousPositionMs) {
+    this.maxSeekToPreviousPositionMs = maxSeekToPreviousPositionMs;
+    return this;
+  }
+
+  /** Returns the max seek to previous position used by the player. */
+  public long getMaxSeekToPreviousPosition() {
+    return maxSeekToPreviousPositionMs;
+  }
+
+  /**
    * See {@link ExoPlayer.Builder#setSuppressPlaybackOnUnsuitableOutput(boolean)} for details.
    *
    * @param suppressPlaybackOnUnsuitableOutput Whether the player should suppress the playback when
@@ -379,6 +398,7 @@ public class TestExoPlayerBuilder {
             .setLooper(looper)
             .setSeekBackIncrementMs(seekBackIncrementMs)
             .setSeekForwardIncrementMs(seekForwardIncrementMs)
+            .setMaxSeekToPreviousPositionMs(maxSeekToPreviousPositionMs)
             .setDeviceVolumeControlEnabled(deviceVolumeControlEnabled)
             .setSuppressPlaybackOnUnsuitableOutput(suppressPlaybackWhenUnsuitableOutput)
             .experimentalSetDynamicSchedulingEnabled(dynamicSchedulingEnabled);

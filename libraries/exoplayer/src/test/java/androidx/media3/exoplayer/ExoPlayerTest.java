@@ -12990,9 +12990,12 @@ public class ExoPlayerTest {
 
   @Test
   public void seekToPrevious_withPreviousWindowAndCloseToStart_seeksToPreviousWindow() {
-    ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
+    ExoPlayer player =
+        parameterizeTestExoPlayerBuilder(
+                new TestExoPlayerBuilder(context).setMaxSeekToPreviousPositionMs(10_000))
+            .build();
     player.addMediaSources(ImmutableList.of(new FakeMediaSource(), new FakeMediaSource()));
-    player.seekTo(/* mediaItemIndex= */ 1, C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS);
+    player.seekTo(/* mediaItemIndex= */ 1, 10_000);
 
     player.seekToPrevious();
 
@@ -13004,9 +13007,12 @@ public class ExoPlayerTest {
 
   @Test
   public void seekToPrevious_notCloseToStart_seeksToZero() {
-    ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
+    ExoPlayer player =
+        parameterizeTestExoPlayerBuilder(
+                new TestExoPlayerBuilder(context).setMaxSeekToPreviousPositionMs(10_000))
+            .build();
     player.addMediaSources(ImmutableList.of(new FakeMediaSource(), new FakeMediaSource()));
-    player.seekTo(/* mediaItemIndex= */ 1, C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS + 1);
+    player.seekTo(/* mediaItemIndex= */ 1, 10_001);
 
     player.seekToPrevious();
 

@@ -938,7 +938,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
   @Override
   public long getMaxSeekToPreviousPosition() {
-    return 0L;
+    return controllerInfo.playerInfo.maxSeekToPreviousPositionMs;
   }
 
   @Override
@@ -2132,6 +2132,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         LegacyConversions.convertToIsDeviceMuted(newLegacyPlayerInfo.playbackInfoCompat);
     long seekBackIncrementMs = oldControllerInfo.playerInfo.seekBackIncrementMs;
     long seekForwardIncrementMs = oldControllerInfo.playerInfo.seekForwardIncrementMs;
+    long maxSeekToPreviousPositionMs = oldControllerInfo.playerInfo.maxSeekToPreviousPositionMs;
 
     return createControllerInfo(
         currentTimeline,
@@ -2161,7 +2162,8 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         deviceVolume,
         deviceMuted,
         seekBackIncrementMs,
-        seekForwardIncrementMs);
+        seekForwardIncrementMs,
+        maxSeekToPreviousPositionMs);
   }
 
   /**
@@ -2330,7 +2332,8 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       int deviceVolume,
       boolean deviceMuted,
       long seekBackIncrementMs,
-      long seekForwardIncrementMs) {
+      long seekForwardIncrementMs,
+      long maxSeekToPreviousPositionMs) {
 
     @Nullable MediaItem currentMediaItem = currentTimeline.getMediaItemAt(currentMediaItemIndex);
     PositionInfo positionInfo =
@@ -2379,7 +2382,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
             /* mediaMetadata= */ mediaMetadata,
             seekBackIncrementMs,
             seekForwardIncrementMs,
-            /* maxSeekToPreviousPositionMs= */ 0L,
+            maxSeekToPreviousPositionMs,
             /* currentTracks= */ Tracks.EMPTY,
             /* parameters= */ TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT);
 
