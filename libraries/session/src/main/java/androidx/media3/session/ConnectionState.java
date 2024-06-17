@@ -173,7 +173,9 @@ import java.util.List;
     @Nullable Bundle sessionExtras = bundle.getBundle(FIELD_SESSION_EXTRAS);
     @Nullable Bundle playerInfoBundle = bundle.getBundle(FIELD_PLAYER_INFO);
     PlayerInfo playerInfo =
-        playerInfoBundle == null ? PlayerInfo.DEFAULT : PlayerInfo.fromBundle(playerInfoBundle);
+        playerInfoBundle == null
+            ? PlayerInfo.DEFAULT
+            : PlayerInfo.fromBundle(playerInfoBundle, sessionInterfaceVersion);
     return new ConnectionState(
         libraryVersion,
         sessionInterfaceVersion,

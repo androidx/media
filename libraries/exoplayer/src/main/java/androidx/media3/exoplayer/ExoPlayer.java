@@ -495,6 +495,7 @@ public interface ExoPlayer extends Player {
     /* package */ SeekParameters seekParameters;
     /* package */ long seekBackIncrementMs;
     /* package */ long seekForwardIncrementMs;
+    /* package */ long maxSeekToPreviousPositionMs;
     /* package */ LivePlaybackSpeedControl livePlaybackSpeedControl;
     /* package */ long releaseTimeoutMs;
     /* package */ long detachSurfaceTimeoutMs;
@@ -542,6 +543,7 @@ public interface ExoPlayer extends Player {
      *   <li>{@link SeekParameters}: {@link SeekParameters#DEFAULT}
      *   <li>{@code seekBackIncrementMs}: {@link C#DEFAULT_SEEK_BACK_INCREMENT_MS}
      *   <li>{@code seekForwardIncrementMs}: {@link C#DEFAULT_SEEK_FORWARD_INCREMENT_MS}
+     *   <li>{@code maxSeekToPreviousPositionMs}: {@link C#DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS}
      *   <li>{@code releaseTimeoutMs}: {@link #DEFAULT_RELEASE_TIMEOUT_MS}
      *   <li>{@code detachSurfaceTimeoutMs}: {@link #DEFAULT_DETACH_SURFACE_TIMEOUT_MS}
      *   <li>{@code pauseAtEndOfMediaItems}: {@code false}
@@ -702,6 +704,7 @@ public interface ExoPlayer extends Player {
       seekParameters = SeekParameters.DEFAULT;
       seekBackIncrementMs = C.DEFAULT_SEEK_BACK_INCREMENT_MS;
       seekForwardIncrementMs = C.DEFAULT_SEEK_FORWARD_INCREMENT_MS;
+      maxSeekToPreviousPositionMs = C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS;
       livePlaybackSpeedControl = new DefaultLivePlaybackSpeedControl.Builder().build();
       clock = Clock.DEFAULT;
       releaseTimeoutMs = DEFAULT_RELEASE_TIMEOUT_MS;
@@ -1121,6 +1124,25 @@ public interface ExoPlayer extends Player {
       checkArgument(seekForwardIncrementMs > 0);
       checkState(!buildCalled);
       this.seekForwardIncrementMs = seekForwardIncrementMs;
+      return this;
+    }
+
+    /**
+     * Sets the maximum position for which {@link #seekToPrevious()} seeks to the previous {@link
+     * MediaItem}.
+     *
+     * @param maxSeekToPreviousPositionMs The maximum position, in milliseconds.
+     * @return This builder.
+     * @throws IllegalArgumentException If {@code maxSeekToPreviousPositionMs} is negative.
+     * @throws IllegalStateException If {@link #build()} has already been called.
+     */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    public Builder setMaxSeekToPreviousPositionMs(
+        @IntRange(from = 0) long maxSeekToPreviousPositionMs) {
+      checkArgument(maxSeekToPreviousPositionMs >= 0L);
+      checkState(!buildCalled);
+      this.maxSeekToPreviousPositionMs = maxSeekToPreviousPositionMs;
       return this;
     }
 
