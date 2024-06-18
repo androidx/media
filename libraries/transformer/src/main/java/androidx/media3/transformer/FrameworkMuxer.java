@@ -34,6 +34,7 @@ import androidx.media3.common.util.Util;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.muxer.Muxer;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
@@ -52,10 +53,26 @@ import java.util.Map;
 
   /** {@link Muxer.Factory} for {@link FrameworkMuxer}. */
   public static final class Factory implements Muxer.Factory {
-    private final long videoDurationMs;
+    private long videoDurationUs;
 
-    public Factory(long videoDurationMs) {
-      this.videoDurationMs = videoDurationMs;
+    public Factory() {
+      this.videoDurationUs = C.TIME_UNSET;
+    }
+
+    /**
+     * Sets the duration of the video track (in microseconds) to enforce in the output.
+     *
+     * <p>The default is {@link C#TIME_UNSET}.
+     *
+     * @param videoDurationUs The duration of the video track (in microseconds) to enforce in the
+     *     output, or {@link C#TIME_UNSET} to not enforce. Only applicable when a video track is
+     *     {@linkplain #addTrack(Format) added}.
+     * @return This factory.
+     */
+    @CanIgnoreReturnValue
+    public Factory setVideoDurationUs(long videoDurationUs) {
+      this.videoDurationUs = videoDurationUs;
+      return this;
     }
 
     @Override
@@ -66,7 +83,7 @@ import java.util.Map;
       } catch (IOException e) {
         throw new MuxerException("Error creating muxer", e);
       }
-      return new FrameworkMuxer(mediaMuxer, videoDurationMs);
+      return new FrameworkMuxer(mediaMuxer, videoDurationUs);
     }
 
     @Override
@@ -90,9 +107,9 @@ import java.util.Map;
   private boolean isStarted;
   private boolean isReleased;
 
-  private FrameworkMuxer(MediaMuxer mediaMuxer, long videoDurationMs) {
+  private FrameworkMuxer(MediaMuxer mediaMuxer, long videoDurationUs) {
     this.mediaMuxer = mediaMuxer;
-    this.videoDurationUs = Util.msToUs(videoDurationMs);
+    this.videoDurationUs = videoDurationUs;
     trackTokenToLastPresentationTimeUs = new HashMap<>();
     trackTokenToPresentationTimeOffsetUs = new HashMap<>();
   }

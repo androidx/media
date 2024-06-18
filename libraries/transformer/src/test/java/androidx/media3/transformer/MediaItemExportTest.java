@@ -1567,9 +1567,7 @@ public final class MediaItemExportTest {
     // Do not use CapturingMuxer.Factory(), as this test checks for a workaround in
     // FrameworkMuxer.
     Transformer transformer =
-        createTransformerBuilder(
-                new FrameworkMuxer.Factory(C.TIME_UNSET), /* enableFallback= */ false)
-            .build();
+        createTransformerBuilder(new FrameworkMuxer.Factory(), /* enableFallback= */ false).build();
     MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_ELST_SKIP_500MS);
 
     transformer.start(mediaItem, outputDir.newFile().getPath());
