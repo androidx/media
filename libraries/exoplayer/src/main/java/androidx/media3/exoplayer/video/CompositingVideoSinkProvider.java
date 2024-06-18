@@ -698,6 +698,12 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
     }
 
     @Override
+    public void setChangeFrameRateStrategy(
+        @C.VideoChangeFrameRateStrategy int changeFrameRateStrategy) {
+      videoFrameReleaseControl.setChangeFrameRateStrategy(changeFrameRateStrategy);
+    }
+
+    @Override
     public void enableMayRenderStartOfStream() {
       videoFrameReleaseControl.allowReleaseFirstFrameBeforeStarted();
     }

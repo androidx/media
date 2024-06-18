@@ -142,8 +142,10 @@ public final class VideoFrameReleaseHelper {
   }
 
   /**
-   * Change the {@link C.VideoChangeFrameRateStrategy} used when calling {@link
+   * Changes the {@link C.VideoChangeFrameRateStrategy} used when calling {@link
    * Surface#setFrameRate}.
+   *
+   * <p>The default value is {@link C#VIDEO_CHANGE_FRAME_RATE_STRATEGY_ONLY_IF_SEAMLESS}.
    */
   public void setChangeFrameRateStrategy(
       @C.VideoChangeFrameRateStrategy int changeFrameRateStrategy) {

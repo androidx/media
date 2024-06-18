@@ -161,6 +161,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private Size outputResolution;
   private boolean haveReportedFirstFrameRenderedForCurrentSurface;
   private @C.VideoScalingMode int scalingMode;
+  private @C.VideoChangeFrameRateStrategy int changeFrameRateStrategy;
   private long droppedFrameAccumulationStartTimeMs;
   private int droppedFrames;
   private int consecutiveDroppedFrameCount;
@@ -408,6 +409,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     deviceNeedsNoPostProcessWorkaround = deviceNeedsNoPostProcessWorkaround();
     outputResolution = Size.UNKNOWN;
     scalingMode = C.VIDEO_SCALING_MODE_DEFAULT;
+    changeFrameRateStrategy = C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_ONLY_IF_SEAMLESS;
     decodedVideoSize = VideoSize.UNKNOWN;
     tunnelingAudioSessionId = C.AUDIO_SESSION_ID_UNSET;
     reportedVideoSize = null;
@@ -691,6 +693,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       if (displaySurface != null && !outputResolution.equals(Size.UNKNOWN)) {
         videoSink.setOutputSurfaceInfo(displaySurface, outputResolution);
       }
+      videoSink.setChangeFrameRateStrategy(changeFrameRateStrategy);
       videoSink.setPlaybackSpeed(getPlaybackSpeed());
       if (videoEffects != null) {
         videoSink.setVideoEffects(videoEffects);
@@ -833,7 +836,12 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         }
         break;
       case MSG_SET_CHANGE_FRAME_RATE_STRATEGY:
-        videoFrameReleaseControl.setChangeFrameRateStrategy((int) checkNotNull(message));
+        changeFrameRateStrategy = (int) checkNotNull(message);
+        if (videoSink != null) {
+          videoSink.setChangeFrameRateStrategy(changeFrameRateStrategy);
+        } else {
+          videoFrameReleaseControl.setChangeFrameRateStrategy(changeFrameRateStrategy);
+        }
         break;
       case MSG_SET_VIDEO_FRAME_METADATA_LISTENER:
         frameMetadataListener = (VideoFrameMetadataListener) checkNotNull(message);

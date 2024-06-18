@@ -202,6 +202,14 @@ public interface VideoSink {
   void clearOutputSurfaceInfo();
 
   /**
+   * Changes the {@link C.VideoChangeFrameRateStrategy} used when calling {@link
+   * Surface#setFrameRate}.
+   *
+   * <p>The default value is {@link C#VIDEO_CHANGE_FRAME_RATE_STRATEGY_ONLY_IF_SEAMLESS}.
+   */
+  void setChangeFrameRateStrategy(@C.VideoChangeFrameRateStrategy int changeFrameRateStrategy);
+
+  /**
    * Enables this video sink to render the start of the stream even if the renderer is not
    * {@linkplain #onRendererStarted() started} yet.
    *
