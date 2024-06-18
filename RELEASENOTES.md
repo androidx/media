@@ -4,6 +4,42 @@
 
 *   Common Library:
 *   ExoPlayer:
+*   Transformer:
+*   Track Selection:
+*   Extractors:
+*   Audio:
+*   Video:
+*   Text:
+*   Metadata:
+*   Image:
+*   DRM:
+*   Effect:
+*   Muxers:
+*   IMA extension:
+*   Session:
+*   UI:
+*   Downloads:
+*   OkHttp Extension:
+*   Cronet Extension:
+*   RTMP Extension:
+*   HLS Extension:
+*   Smooth Streaming Extension:
+*   RTSP Extension:
+*   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
+*   MIDI extension:
+*   Leanback extension:
+*   Cast Extension:
+*   Test Utilities:
+*   Remove deprecated symbols:
+
+## 1.4
+
+### 1.4.0-beta01 (2024-06-21)
+
+This release includes the following changes since the
+[1.4.0-alpha02 release](#140-alpha02-2024-06-06):
+
+*   ExoPlayer:
     *   Add `ExoPlayer.isReleased()` to check whether `Exoplayer.release()` has
         been called.
     *   Add `ExoPlayer.Builder.setMaxSeekToPreviousPositionMs` to configure the
@@ -14,24 +50,16 @@
         codec details, then use `DefaultDecoderFactory.listener` instead. In
         case of a codec exception, codec details will be available in the
         `ExportException.codecInfo`.
-*   Track Selection:
 *   Extractors:
     *   Fix PCM audio format extraction in AVI containers.
-*   Audio:
-*   Video:
-*   Text:
-*   Metadata:
 *   Image:
     *   Allow `null` as parameter for `ExoPlayer.setImageOutput` to clear a
         previously set `ImageOutput`.
-*   DRM:
 *   Effect:
     *   Remove unused `OverlaySettings.useHdr` since dynamic range of overlay
         and frame must match.
     *   Add HDR support for `TextOverlay`. Luminance of the text overlay can be
         adjusted with `OverlaySettings.setHdrLuminanceMultiplier`.
-*   Muxers:
-*   IMA extension:
 *   Session:
     *   Add `MediaSession.Callback.onPlayerInteractionFinished` to inform
         sessions when a series of player interactions from a specific controller
@@ -49,7 +77,7 @@
         `PlaybackStateCompat`. A `SessionError` sent to the media notification
         controller with `MediaSession.sendError(ControllerInfo, SessionError)`
         is mapped to a non-fatal error in `PlaybackStateCompat` which means that
-        error code and message are set but the state of the plaftorm session
+        error code and message are set but the state of the platform session
         remains different to `STATE_ERROR`.
 *   UI:
     *   Add image display support to `PlayerView` when connected to an
@@ -58,27 +86,14 @@
         attributes to allow different drawables per `PlayerView` instance,
         rather than global overrides
         ([#1200](https://github.com/androidx/media/issues/1200)).
-*   Downloads:
-*   OkHttp Extension:
-*   Cronet Extension:
-*   RTMP Extension:
 *   HLS Extension:
     *   Fix a bug where non-primary playing playlists are not refreshed during
         live playback ([#1240](https://github.com/androidx/media/issues/1240)).
-*   Smooth Streaming Extension:
-*   RTSP Extension:
-*   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
-*   MIDI extension:
-*   Leanback extension:
-*   Cast Extension:
-*   Test Utilities:
 *   Remove deprecated symbols:
     *   Remove `Bundleable` interface. This includes removing all
         `Bundleable.Creator<Foo> CREATOR` constant fields. Callers should use
         the `Bundle toBundle()` and `static Foo fromBundle(Bundle)` methods on
         each type instead.
-
-## 1.4
 
 ### 1.4.0-alpha02 (2024-06-06)
 
