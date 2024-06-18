@@ -328,9 +328,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       super.onEnabled(joining, mayRenderStartOfStream);
       this.mayRenderStartOfStream = mayRenderStartOfStream;
       videoSink.onRendererEnabled(mayRenderStartOfStream);
-      if (joining) {
-        videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ false);
-      }
       if (!videoSink.isInitialized()) {
         Format format = new Format.Builder().build();
         try {
@@ -378,9 +375,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       videoSink.flush(/* resetPosition= */ true);
       super.onPositionReset(positionUs, joining);
       timestampIterator = createTimestampIterator(positionUs);
-      if (joining) {
-        videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ false);
-      }
     }
 
     @Override
