@@ -1,37 +1,5 @@
 # Release notes
 
-### Unreleased changes
-
-*   Common Library:
-*   ExoPlayer:
-*   Transformer:
-*   Track Selection:
-*   Extractors:
-*   Audio:
-*   Video:
-*   Text:
-*   Metadata:
-*   Image:
-*   DRM:
-*   Effect:
-*   Muxers:
-*   IMA extension:
-*   Session:
-*   UI:
-*   Downloads:
-*   OkHttp Extension:
-*   Cronet Extension:
-*   RTMP Extension:
-*   HLS Extension:
-*   Smooth Streaming Extension:
-*   RTSP Extension:
-*   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
-*   MIDI extension:
-*   Leanback extension:
-*   Cast Extension:
-*   Test Utilities:
-*   Remove deprecated symbols:
-
 ## 1.4
 
 ### 1.4.0-beta01 (2024-06-21)
@@ -82,7 +50,7 @@ This release includes the following changes since the
 *   UI:
     *   Add image display support to `PlayerView` when connected to an
         `ExoPlayer` ([#1144](https://github.com/androidx/media/issues/1144)).
-    *   Add customisation of various icons in `PlayerControlView` through xml
+    *   Add customization of various icons in `PlayerControlView` through xml
         attributes to allow different drawables per `PlayerView` instance,
         rather than global overrides
         ([#1200](https://github.com/androidx/media/issues/1200)).
