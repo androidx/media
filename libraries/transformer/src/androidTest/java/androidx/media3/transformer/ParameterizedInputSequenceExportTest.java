@@ -58,9 +58,9 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class ParameterizedInputSequenceExportTest {
   private static final ImageItemConfig PNG_ITEM =
-      new ImageItemConfig(PNG_ASSET.uri, /* frameCount= */ 34);
+      new ImageItemConfig(PNG_ASSET, /* frameCount= */ 34);
   private static final ImageItemConfig JPG_ITEM =
-      new ImageItemConfig(JPG_ASSET.uri, /* frameCount= */ 41);
+      new ImageItemConfig(JPG_ASSET, /* frameCount= */ 41);
   private static final VideoItemConfig BT709_ITEM = new VideoItemConfig(MP4_ASSET);
   private static final VideoItemConfig BT601_ITEM = new VideoItemConfig(BT601_MP4_ASSET);
 
@@ -232,17 +232,17 @@ public class ParameterizedInputSequenceExportTest {
     private final long durationUs;
     private final int frameRate;
 
-    public ImageItemConfig(String uri, int frameCount) {
-      this(uri, frameCount, C.MICROS_PER_SECOND);
+    public ImageItemConfig(AssetInfo assetInfo, int frameCount) {
+      this(assetInfo, frameCount, C.MICROS_PER_SECOND);
     }
 
-    public ImageItemConfig(String uri, int frameRate, long durationUs) {
+    public ImageItemConfig(AssetInfo assetInfo, int frameRate, long durationUs) {
       super(
-          uri,
+          assetInfo.uri,
           /* frameCount= */ (int)
               Util.scaleLargeValue(
                   frameRate, durationUs, C.MICROS_PER_SECOND, RoundingMode.CEILING),
-          /* format= */ null,
+          /* format= */ assetInfo.videoFormat,
           OUTPUT_FORMAT);
       this.frameRate = frameRate;
       this.durationUs = durationUs;
