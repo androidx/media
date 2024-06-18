@@ -15,6 +15,8 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.common.MimeTypes.IMAGE_JPEG;
+import static androidx.media3.common.MimeTypes.IMAGE_PNG;
 import static androidx.media3.common.MimeTypes.VIDEO_AV1;
 import static androidx.media3.common.MimeTypes.VIDEO_DOLBY_VISION;
 import static androidx.media3.common.MimeTypes.VIDEO_H264;
@@ -142,30 +144,97 @@ public final class AndroidTestUtil {
   }
 
   public static final AssetInfo PNG_ASSET =
-      new AssetInfo.Builder("asset:///media/png/media3test.png").build();
+      new AssetInfo.Builder("asset:///media/png/media3test.png")
+          .setVideoFormat(
+              new Format.Builder().setSampleMimeType(IMAGE_PNG).setWidth(304).setHeight(84).build())
+          .build();
   public static final AssetInfo PNG_ASSET_LINES_1080P =
-      new AssetInfo.Builder("asset:///media/png/loremipsum_1920x720.png").build();
+      new AssetInfo.Builder("asset:///media/png/loremipsum_1920x720.png")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(IMAGE_PNG)
+                  .setWidth(1920)
+                  .setHeight(720)
+                  .build())
+          .build();
   public static final AssetInfo JPG_ASSET =
-      new AssetInfo.Builder("asset:///media/jpeg/london.jpg").build();
+      new AssetInfo.Builder("asset:///media/jpeg/london.jpg")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(IMAGE_JPEG)
+                  .setWidth(1020)
+                  .setHeight(768)
+                  .build())
+          .build();
   public static final AssetInfo JPG_PORTRAIT_ASSET =
-      new AssetInfo.Builder("asset:///media/jpeg/tokyo.jpg").build();
+      new AssetInfo.Builder("asset:///media/jpeg/tokyo.jpg")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(IMAGE_JPEG)
+                  .setWidth(600)
+                  .setHeight(800)
+                  .build())
+          .build();
   public static final AssetInfo JPG_SINGLE_PIXEL_ASSET =
-      new AssetInfo.Builder("asset:///media/jpeg/white-1x1.jpg").build();
+      new AssetInfo.Builder("asset:///media/jpeg/white-1x1.jpg")
+          .setVideoFormat(
+              new Format.Builder().setSampleMimeType(IMAGE_JPEG).setWidth(1).setHeight(1).build())
+          .build();
   public static final AssetInfo JPG_ULTRA_HDR_ASSET =
-      new AssetInfo.Builder("asset:///media/jpeg/ultraHDR.jpg").build();
+      new AssetInfo.Builder("asset:///media/jpeg/ultraHDR.jpg")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(IMAGE_JPEG)
+                  .setWidth(3072)
+                  .setHeight(4080)
+                  .build())
+          .build();
 
   public static final AssetInfo MP4_TRIM_OPTIMIZATION =
-      new AssetInfo.Builder("asset:///media/mp4/internal_emulator_transformer_output.mp4").build();
+      new AssetInfo.Builder("asset:///media/mp4/internal_emulator_transformer_output.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(1280)
+                  .setHeight(720)
+                  .setFrameRate(29.97f)
+                  .build())
+          .build();
   public static final AssetInfo MP4_TRIM_OPTIMIZATION_270 =
       new AssetInfo.Builder(
               "asset:///media/mp4/internal_emulator_transformer_output_270_rotated.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(1280)
+                  .setHeight(720)
+                  .setFrameRate(29.97f)
+                  .setRotationDegrees(270)
+                  .build())
           .build();
   public static final AssetInfo MP4_TRIM_OPTIMIZATION_180 =
       new AssetInfo.Builder(
               "asset:///media/mp4/internal_emulator_transformer_output_180_rotated.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(1280)
+                  .setHeight(720)
+                  .setFrameRate(29.97f)
+                  .setRotationDegrees(180)
+                  .build())
           .build();
   public static final AssetInfo MP4_TRIM_OPTIMIZATION_PIXEL =
-      new AssetInfo.Builder("asset:///media/mp4/pixel7_videoOnly_cleaned.mp4").build();
+      new AssetInfo.Builder("asset:///media/mp4/pixel7_videoOnly_cleaned.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(1920)
+                  .setHeight(1080)
+                  .setFrameRate(29.871f)
+                  .setRotationDegrees(180)
+                  .build())
+          .build();
 
   public static final AssetInfo MP4_ASSET =
       new AssetInfo.Builder("asset:///media/mp4/sample.mp4")
@@ -1007,6 +1076,10 @@ public final class AndroidTestUtil {
   }
 
   private static boolean canDecode(Format format) {
+    if (MimeTypes.isImage(format.sampleMimeType)) {
+      return Util.isBitmapFactorySupportedMimeType(format.sampleMimeType);
+    }
+
     // Check decoding capability in the same way as the default decoder factory.
     MediaFormat mediaFormat = MediaFormatUtil.createMediaFormatFromFormat(format);
     @Nullable
