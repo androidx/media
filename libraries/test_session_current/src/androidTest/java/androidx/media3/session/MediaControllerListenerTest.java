@@ -2535,11 +2535,67 @@ public class MediaControllerListenerTest {
             remoteSession.getToken(), /* connectionHints= */ null, listener);
     assertThat(controller.getSessionActivity()).isNull();
 
-    remoteSession.setSessionActivity(sessionActivity);
+    remoteSession.setSessionActivity(/* controllerKey= */ null, sessionActivity);
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(controller.getSessionActivity()).isEqualTo(sessionActivity);
     assertThat(receivedSessionActivities).containsExactly(sessionActivity);
+  }
+
+  @Test
+  public void setSessionActivity_forSpecificController_onSessionActivityChangedCalled()
+      throws Exception {
+    Intent intent = new Intent(context, SurfaceActivity.class);
+    PendingIntent sessionActivity =
+        PendingIntent.getActivity(
+            context, 0, intent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+    CountDownLatch latch1 = new CountDownLatch(1);
+    List<PendingIntent> receivedSessionActivities1 = new ArrayList<>();
+    MediaController.Listener listener1 =
+        new MediaController.Listener() {
+          @Override
+          public void onSessionActivityChanged(
+              MediaController controller, PendingIntent sessionActivity) {
+            receivedSessionActivities1.add(sessionActivity);
+            latch1.countDown();
+          }
+        };
+    Bundle connectionHints1 = new Bundle();
+    connectionHints1.putString(KEY_CONTROLLER, "ctrl-1");
+    MediaController controller1 =
+        controllerTestRule.createController(remoteSession.getToken(), connectionHints1, listener1);
+    List<PendingIntent> receivedSessionActivities2 = new ArrayList<>();
+    CountDownLatch latch2 = new CountDownLatch(1);
+    MediaController.Listener listener2 =
+        new MediaController.Listener() {
+          @Override
+          public void onSessionActivityChanged(
+              MediaController controller, PendingIntent sessionActivity) {
+            receivedSessionActivities2.add(sessionActivity);
+            latch2.countDown();
+          }
+        };
+    Bundle connectionHints2 = new Bundle();
+    connectionHints2.putString(KEY_CONTROLLER, "ctrl-2");
+    MediaController controller2 =
+        controllerTestRule.createController(remoteSession.getToken(), connectionHints2, listener2);
+    assertThat(controller1.getSessionActivity()).isNull();
+    assertThat(controller2.getSessionActivity()).isNull();
+
+    remoteSession.setSessionActivity(/* controllerKey= */ "ctrl-1", sessionActivity);
+
+    assertThat(latch1.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(controller1.getSessionActivity()).isEqualTo(sessionActivity);
+    assertThat(controller2.getSessionActivity()).isNull();
+    assertThat(receivedSessionActivities1).containsExactly(sessionActivity);
+    assertThat(receivedSessionActivities2).isEmpty();
+
+    remoteSession.setSessionActivity(/* controllerKey= */ "ctrl-2", sessionActivity);
+
+    assertThat(latch2.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(controller2.getSessionActivity()).isEqualTo(sessionActivity);
+    assertThat(receivedSessionActivities1).containsExactly(sessionActivity);
+    assertThat(receivedSessionActivities2).containsExactly(sessionActivity);
   }
 
   @Test

@@ -783,19 +783,23 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @UnstableApi
   protected void setSessionActivity(PendingIntent sessionActivity) {
-    if (Objects.equals(this.sessionActivity, sessionActivity)) {
-      return;
-    }
     this.sessionActivity = sessionActivity;
-    sessionLegacyStub.getSessionCompat().setSessionActivity(sessionActivity);
     ImmutableList<ControllerInfo> connectedControllers =
         sessionStub.getConnectedControllersManager().getConnectedControllers();
     for (int i = 0; i < connectedControllers.size(); i++) {
-      ControllerInfo controllerInfo = connectedControllers.get(i);
-      if (controllerInfo.getControllerVersion() >= 3) {
-        dispatchRemoteControllerTaskWithoutReturn(
-            controllerInfo,
-            (controller, seq) -> controller.onSessionActivityChanged(seq, sessionActivity));
+      setSessionActivity(connectedControllers.get(i), sessionActivity);
+    }
+  }
+
+  @UnstableApi
+  protected void setSessionActivity(ControllerInfo controller, PendingIntent sessionActivity) {
+    if (controller.getControllerVersion() >= 3
+        && sessionStub.getConnectedControllersManager().isConnected(controller)) {
+      dispatchRemoteControllerTaskWithoutReturn(
+          controller, (callback, seq) -> callback.onSessionActivityChanged(seq, sessionActivity));
+      if (isMediaNotificationController(controller)) {
+        dispatchRemoteControllerTaskToLegacyStub(
+            (callback, seq) -> callback.onSessionActivityChanged(seq, sessionActivity));
       }
     }
   }

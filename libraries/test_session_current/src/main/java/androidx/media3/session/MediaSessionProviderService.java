@@ -111,6 +111,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.Callable;
 
 /**
@@ -607,9 +608,29 @@ public class MediaSessionProviderService extends Service {
     }
 
     @Override
-    public void setSessionActivity(String sessionId, PendingIntent sessionActivity)
+    public void setSessionActivity(
+        String sessionId, @Nullable String controllerKey, PendingIntent sessionActivity)
         throws RemoteException {
-      runOnHandler(() -> sessionMap.get(sessionId).setSessionActivity(sessionActivity));
+      MediaSession mediaSession = sessionMap.get(sessionId);
+      if (mediaSession == null) {
+        return;
+      }
+      if (controllerKey == null) {
+        // Set to all controllers by using the global session method.
+        runOnHandler(() -> mediaSession.setSessionActivity(sessionActivity));
+        return;
+      }
+      List<ControllerInfo> connectedControllers = mediaSession.getConnectedControllers();
+      for (int i = 0; i < connectedControllers.size(); i++) {
+        ControllerInfo controllerInfo = connectedControllers.get(i);
+        @Nullable
+        String connectedControllerKey =
+            controllerInfo.getConnectionHints().getString(KEY_CONTROLLER);
+        if (Objects.equals(controllerKey, connectedControllerKey)) {
+          // Set to controller for that the test case has given the provided controllerKey.
+          runOnHandler(() -> mediaSession.setSessionActivity(controllerInfo, sessionActivity));
+        }
+      }
     }
 
     ////////////////////////////////////////////////////////////////////////////////

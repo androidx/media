@@ -759,6 +759,8 @@ public class MediaSession {
    * Builder#setSessionActivity(PendingIntent) building the session}.
    *
    * @param activityPendingIntent The pending intent to start the session activity.
+   * @throws IllegalArgumentException if the {@link PendingIntent} passed into this method is
+   *     {@linkplain PendingIntent#getActivity(Context, int, Intent, int) not an activity}.
    */
   @UnstableApi
   public final void setSessionActivity(PendingIntent activityPendingIntent) {
@@ -766,6 +768,30 @@ public class MediaSession {
       checkArgument(Api31.isActivity(activityPendingIntent));
     }
     impl.setSessionActivity(activityPendingIntent);
+  }
+
+  /**
+   * Sends the session activity to the connected controller.
+   *
+   * <p>This call immediately returns and doesn't wait for a result from the controller.
+   *
+   * <p>Interoperability: This call has no effect when called for a {@linkplain
+   * ControllerInfo#LEGACY_CONTROLLER_VERSION legacy controller}. To set the session activity of the
+   * platform session use {@linkplain #getMediaNotificationControllerInfo() the media notification
+   * controller} as the target controller.
+   *
+   * @param controller The controller to send the session activity to.
+   * @param activityPendingIntent The pending intent to start the session activity.
+   * @throws IllegalArgumentException if the {@link PendingIntent} passed into this method is
+   *     {@linkplain PendingIntent#getActivity(Context, int, Intent, int) not an activity}.
+   */
+  @UnstableApi
+  public final void setSessionActivity(
+      ControllerInfo controller, PendingIntent activityPendingIntent) {
+    if (Util.SDK_INT >= 31) {
+      checkArgument(Api31.isActivity(activityPendingIntent));
+    }
+    impl.setSessionActivity(controller, activityPendingIntent);
   }
 
   /**
@@ -1025,7 +1051,7 @@ public class MediaSession {
   /**
    * Broadcasts a custom command to all connected controllers.
    *
-   * <p>This is a synchronous call and doesn't wait for results from the controllers.
+   * <p>This call immediately returns and doesn't wait for a result from the controller.
    *
    * <p>A command is not accepted if it is not a custom command.
    *
@@ -1061,7 +1087,7 @@ public class MediaSession {
    * <p>The initial extras can be set {@linkplain Builder#setSessionExtras(Bundle) when building the
    * session}.
    *
-   * <p>This is a synchronous call and doesn't wait for results from the controllers.
+   * <p>This call immediately returns and doesn't wait for a result from the controller.
    *
    * @param sessionExtras The session extras.
    */
@@ -1078,7 +1104,7 @@ public class MediaSession {
    * ConnectionResult.AcceptedResultBuilder#setSessionExtras(Bundle) building the connection
    * result}.
    *
-   * <p>This is a synchronous call and doesn't wait for results from the controller.
+   * <p>This call immediately returns and doesn't wait for a result from the controller.
    *
    * <p>Interoperability: This call has no effect when called for a {@linkplain
    * ControllerInfo#LEGACY_CONTROLLER_VERSION legacy controller}.
@@ -1713,6 +1739,7 @@ public class MediaSession {
       private Player.Commands availablePlayerCommands = DEFAULT_PLAYER_COMMANDS;
       @Nullable private ImmutableList<CommandButton> customLayout;
       @Nullable private Bundle sessionExtras;
+      @Nullable private PendingIntent sessionActivity;
 
       /**
        * Creates an instance.
@@ -1788,6 +1815,18 @@ public class MediaSession {
         return this;
       }
 
+      /**
+       * Sets the session activity, overriding the {@linkplain MediaSession#getSessionActivity()
+       * session activity of the session}.
+       *
+       * <p>The default is null to indicate that the session activity of the session should be used.
+       */
+      @CanIgnoreReturnValue
+      public AcceptedResultBuilder setSessionActivity(@Nullable PendingIntent sessionActivity) {
+        this.sessionActivity = sessionActivity;
+        return this;
+      }
+
       /** Returns a new {@link ConnectionResult} instance for accepting a connection. */
       public ConnectionResult build() {
         return new ConnectionResult(
@@ -1795,7 +1834,8 @@ public class MediaSession {
             availableSessionCommands,
             availablePlayerCommands,
             customLayout,
-            sessionExtras);
+            sessionExtras,
+            sessionActivity);
       }
     }
 
@@ -1826,18 +1866,23 @@ public class MediaSession {
     /** The session extras. */
     @UnstableApi @Nullable public final Bundle sessionExtras;
 
+    /** The session activity. */
+    @UnstableApi @Nullable public final PendingIntent sessionActivity;
+
     /** Creates a new instance with the given available session and player commands. */
     private ConnectionResult(
         boolean accepted,
         SessionCommands availableSessionCommands,
         Player.Commands availablePlayerCommands,
         @Nullable ImmutableList<CommandButton> customLayout,
-        @Nullable Bundle sessionExtras) {
+        @Nullable Bundle sessionExtras,
+        @Nullable PendingIntent sessionActivity) {
       isAccepted = accepted;
       this.availableSessionCommands = availableSessionCommands;
       this.availablePlayerCommands = availablePlayerCommands;
       this.customLayout = customLayout;
       this.sessionExtras = sessionExtras;
+      this.sessionActivity = sessionActivity;
     }
 
     /**
@@ -1857,7 +1902,8 @@ public class MediaSession {
           availableSessionCommands,
           availablePlayerCommands,
           /* customLayout= */ null,
-          /* sessionExtras= */ null);
+          /* sessionExtras= */ null,
+          /* sessionActivity= */ null);
     }
 
     /** Creates a {@link ConnectionResult} to reject a connection. */
@@ -1867,7 +1913,8 @@ public class MediaSession {
           SessionCommands.EMPTY,
           Player.Commands.EMPTY,
           /* customLayout= */ ImmutableList.of(),
-          /* sessionExtras= */ Bundle.EMPTY);
+          /* sessionExtras= */ Bundle.EMPTY,
+          /* sessionActivity= */ null);
     }
   }
 

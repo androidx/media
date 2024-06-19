@@ -22,6 +22,7 @@ import static androidx.media3.test.session.common.TestUtils.SERVICE_CONNECTION_T
 import static com.google.common.truth.Truth.assertWithMessage;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -391,6 +392,10 @@ public class RemoteMediaController {
   public Player.Commands getAvailableCommands() throws RemoteException {
     Bundle commandsBundle = binder.getAvailableCommands(controllerId);
     return Player.Commands.fromBundle(commandsBundle);
+  }
+
+  public PendingIntent getSessionActivity() throws RemoteException {
+    return binder.getSessionActivity(controllerId);
   }
 
   ////////////////////////////////////////////////////////////////////////////////

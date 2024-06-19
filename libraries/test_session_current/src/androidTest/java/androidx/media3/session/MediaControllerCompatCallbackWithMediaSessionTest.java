@@ -1227,7 +1227,8 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
   }
 
   @Test
-  public void setSessionActivity_changedWhenReceivedWithSetter() throws Exception {
+  public void setSessionActivity_forAllControllers_changedWhenReceivedWithSetter()
+      throws Exception {
     Intent intent = new Intent(context, SurfaceActivity.class);
     PendingIntent sessionActivity =
         PendingIntent.getActivity(
@@ -1243,7 +1244,34 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
     controllerCompat.registerCallback(callback, handler);
     assertThat(controllerCompat.getSessionActivity()).isNull();
 
-    session.setSessionActivity(sessionActivity);
+    session.setSessionActivity(/* controllerKey= */ null, sessionActivity);
+    // The legacy API has no change listener for the session activity. Changing the state to
+    // trigger a callback.
+    session.getMockPlayer().notifyPlaybackStateChanged(STATE_READY);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(controllerCompat.getSessionActivity()).isEqualTo(sessionActivity);
+  }
+
+  @Test
+  public void setSessionActivity_setToNotificationController_changedWhenReceivedWithSetter()
+      throws Exception {
+    Intent intent = new Intent(context, SurfaceActivity.class);
+    PendingIntent sessionActivity =
+        PendingIntent.getActivity(
+            context, 0, intent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+    CountDownLatch latch = new CountDownLatch(1);
+    MediaControllerCompat.Callback callback =
+        new MediaControllerCompat.Callback() {
+          @Override
+          public void onPlaybackStateChanged(PlaybackStateCompat state) {
+            latch.countDown();
+          }
+        };
+    controllerCompat.registerCallback(callback, handler);
+    assertThat(controllerCompat.getSessionActivity()).isNull();
+
+    session.setSessionActivity(NOTIFICATION_CONTROLLER_KEY, sessionActivity);
     // The legacy API has no change listener for the session activity. Changing the state to
     // trigger a callback.
     session.getMockPlayer().notifyPlaybackStateChanged(STATE_READY);
