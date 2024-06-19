@@ -302,7 +302,7 @@ public final class VideoFrameReleaseControl {
   /**
    * Joins the release control to a new stream.
    *
-   * <p>The release control will pretend to be {@linkplain #isReady ready} for short time even if
+   * <p>The release control will pretend to be {@linkplain #isReady ready} for a short time even if
    * the first frame hasn't been rendered yet to avoid interrupting an ongoing playback.
    *
    * @param renderNextFrameImmediately Whether the next frame should be released as soon as possible

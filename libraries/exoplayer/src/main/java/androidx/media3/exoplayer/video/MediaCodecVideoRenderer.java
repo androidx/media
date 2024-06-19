@@ -731,7 +731,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       // Don't render next frame immediately to let the codec catch up with the playback position
       // first. This prevents a stuttering effect caused by showing the first frame and then
       // dropping many of the subsequent frames during the catch up phase.
-      videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ false);
+      if (videoSink != null) {
+        videoSink.join(/* renderNextFrameImmediately= */ false);
+      } else {
+        videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ false);
+      }
     }
     maybeSetupTunnelingForFirstFrame();
     consecutiveDroppedFrameCount = 0;
@@ -924,7 +928,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
           // before we rendered the new first frame. Since there is no reason to believe the next
           // frame is delayed and the renderer needs to catch up, we still request to render the
           // next frame as soon as possible.
-          videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ true);
+          if (videoSink != null) {
+            videoSink.join(/* renderNextFrameImmediately= */ true);
+          } else {
+            videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ true);
+          }
         }
       } else {
         // The display surface has been removed.

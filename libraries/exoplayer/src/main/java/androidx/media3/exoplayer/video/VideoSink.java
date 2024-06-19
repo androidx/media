@@ -265,6 +265,17 @@ public interface VideoSink {
    */
   void render(long positionUs, long elapsedRealtimeUs) throws VideoSinkException;
 
+  /**
+   * Joins the video sink to a new stream.
+   *
+   * <p>The sink will pretend to be {@linkplain #isReady ready} for a short time even if the first
+   * frame hasn't been rendered yet to avoid interrupting an ongoing playback.
+   *
+   * @param renderNextFrameImmediately Whether the next frame should be rendered as soon as possible
+   *     or only at its preferred scheduled release time.
+   */
+  void join(boolean renderNextFrameImmediately);
+
   /** Releases the sink. */
   void release();
 }

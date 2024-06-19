@@ -789,6 +789,11 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
     }
 
     @Override
+    public void join(boolean renderNextFrameImmediately) {
+      videoFrameReleaseControl.join(renderNextFrameImmediately);
+    }
+
+    @Override
     public void release() {
       CompositingVideoSinkProvider.this.release();
     }
