@@ -118,6 +118,26 @@ public class ParameterizedInputSequenceExportTest {
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, transformer)
             .build()
+            .run(testId, sequence.buildComposition(Effects.EMPTY));
+
+    assertThat(result.exportResult.videoFrameCount).isEqualTo(sequence.totalExpectedFrameCount);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+  }
+
+  @Test
+  public void export_withCompositionEffect_completesWithCorrectFrameCount() throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    String testId = testName.getMethodName();
+    assumeSequenceFormatsSupported(context, testId, sequence);
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(
+                new DefaultEncoderFactory.Builder(context).setEnableFallback(false).build())
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
             .run(
                 testId,
                 sequence.buildComposition(
