@@ -400,7 +400,7 @@ import java.util.concurrent.Future;
       playerWrapper.setLegacyError(
           /* isFatal= */ true,
           ERROR_CODE_AUTHENTICATION_EXPIRED_COMPAT,
-          getContext().getString(R.string.authentication_required),
+          getContext().getString(R.string.error_message_authentication_expired),
           bundle);
       return true;
     }

@@ -7,6 +7,4 @@
   <string name="media3_controls_seek_to_next_description">Hoppa till nästa objekt</string>
   <string name="media3_controls_seek_back_description">Hoppa bakåt</string>
   <string name="media3_controls_seek_forward_description">Hoppa framåt</string>
-  <string name="authentication_required">Autentisering krävs</string>
-  <string name="legacy_error_message_fallback">Inget felmeddelande tillhandahålls</string>
 </resources>

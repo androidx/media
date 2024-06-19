@@ -57,6 +57,7 @@ import android.os.Bundle;
 import android.os.SystemClock;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -170,21 +171,87 @@ import java.util.concurrent.TimeoutException;
         playbackStateCompatExtras != null ? playbackStateCompatExtras : Bundle.EMPTY);
   }
 
-  /** Converts {@link PlaybackStateCompat} to {@link SessionError}. */
+  /**
+   * Converts {@link PlaybackStateCompat} to {@link SessionError}.
+   *
+   * @param playbackStateCompat The {@link PlaybackStateCompat} to convert.
+   * @param context The context to read string resources to be used as fallback error messages.
+   * @return The {@link SessionError}.
+   */
   @Nullable
   public static SessionError convertToSessionError(
-      @Nullable PlaybackStateCompat playbackStateCompat) {
-    if (playbackStateCompat == null
-        || playbackStateCompat.getState() == PlaybackStateCompat.STATE_ERROR
-        || playbackStateCompat.getErrorCode() == PlaybackStateCompat.ERROR_CODE_UNKNOWN_ERROR
-        || playbackStateCompat.getErrorMessage() == null) {
+      @Nullable PlaybackStateCompat playbackStateCompat, Context context) {
+    if (playbackStateCompat == null) {
       return null;
     }
-    @Nullable Bundle playbackStateCompatExtras = playbackStateCompat.getExtras();
+    return convertToSessionError(
+        playbackStateCompat.getState(),
+        playbackStateCompat.getErrorCode(),
+        playbackStateCompat.getErrorMessage(),
+        playbackStateCompat.getExtras(),
+        context);
+  }
+
+  @VisibleForTesting
+  @Nullable
+  /* package */ static SessionError convertToSessionError(
+      @PlaybackStateCompat.State int state,
+      @PlaybackStateCompat.ErrorCode int errorCode,
+      @Nullable CharSequence errorMessage,
+      @Nullable Bundle extras,
+      Context context) {
+    if (state == PlaybackStateCompat.STATE_ERROR
+        || errorCode == PlaybackStateCompat.ERROR_CODE_UNKNOWN_ERROR) {
+      return null;
+    }
+    int sessionErrorCode = convertToSessionErrorCode(errorCode);
     return new SessionError(
-        convertToSessionErrorCode(playbackStateCompat.getErrorCode()),
-        checkNotNull(playbackStateCompat.getErrorMessage()).toString(),
-        playbackStateCompatExtras != null ? playbackStateCompatExtras : Bundle.EMPTY);
+        sessionErrorCode,
+        errorMessage != null
+            ? errorMessage.toString()
+            : getSessionErrorMessage(sessionErrorCode, context),
+        extras != null ? extras : Bundle.EMPTY);
+  }
+
+  private static String getSessionErrorMessage(
+      @SessionError.Code int sessionErrorCode, Context context) {
+    switch (sessionErrorCode) {
+      case SessionError.INFO_CANCELLED:
+        return context.getString(R.string.error_message_info_cancelled);
+      case SessionError.ERROR_BAD_VALUE:
+        return context.getString(R.string.error_message_bad_value);
+      case SessionError.ERROR_INVALID_STATE:
+        return context.getString(R.string.error_message_invalid_state);
+      case SessionError.ERROR_IO:
+        return context.getString(R.string.error_message_io);
+      case SessionError.ERROR_NOT_SUPPORTED:
+        return context.getString(R.string.error_message_not_supported);
+      case SessionError.ERROR_PERMISSION_DENIED:
+        return context.getString(R.string.error_message_permission_denied);
+      case SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED:
+        return context.getString(R.string.error_message_authentication_expired);
+      case SessionError.ERROR_SESSION_CONTENT_ALREADY_PLAYING:
+        return context.getString(R.string.error_message_content_already_playing);
+      case SessionError.ERROR_SESSION_CONCURRENT_STREAM_LIMIT:
+        return context.getString(R.string.error_message_concurrent_stream_limit);
+      case SessionError.ERROR_SESSION_DISCONNECTED:
+        return context.getString(R.string.error_message_disconnected);
+      case SessionError.ERROR_SESSION_END_OF_PLAYLIST:
+        return context.getString(R.string.error_message_end_of_playlist);
+      case SessionError.ERROR_SESSION_NOT_AVAILABLE_IN_REGION:
+        return context.getString(R.string.error_message_not_available_in_region);
+      case SessionError.ERROR_SESSION_PARENTAL_CONTROL_RESTRICTED:
+        return context.getString(R.string.error_message_parental_control_restricted);
+      case SessionError.ERROR_SESSION_PREMIUM_ACCOUNT_REQUIRED:
+        return context.getString(R.string.error_message_premium_account_required);
+      case SessionError.ERROR_SESSION_SETUP_REQUIRED:
+        return context.getString(R.string.error_message_setup_required);
+      case SessionError.ERROR_SESSION_SKIP_LIMIT_REACHED:
+        return context.getString(R.string.error_message_skip_limit_reached);
+      case SessionError.ERROR_UNKNOWN: // fall through
+      default:
+        return context.getString(R.string.error_message_fallback);
+    }
   }
 
   private static @SessionError.Code int convertToSessionErrorCode(

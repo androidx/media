@@ -7,6 +7,4 @@
   <string name="media3_controls_seek_to_next_description">अर्को वस्तुमा जानुहोस्</string>
   <string name="media3_controls_seek_back_description">पछाडि जानुहोस्</string>
   <string name="media3_controls_seek_forward_description">अगाडि जानुहोस्</string>
-  <string name="authentication_required">पुष्टि गर्नु पर्ने हुन्छ</string>
-  <string name="legacy_error_message_fallback">त्रुटिसम्बन्धी कुनै पनि म्यासेज दिइएको छैन</string>
 </resources>

@@ -7,6 +7,4 @@
   <string name="media3_controls_seek_to_next_description">Pomicanje na sljedeću stavku</string>
   <string name="media3_controls_seek_back_description">Pomicanje nazad</string>
   <string name="media3_controls_seek_forward_description">Pomicanje naprijed</string>
-  <string name="authentication_required">Potrebna je autentifikacija</string>
-  <string name="legacy_error_message_fallback">Nije navedena poruka o grešci</string>
 </resources>

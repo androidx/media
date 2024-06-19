@@ -7,6 +7,4 @@
   <string name="media3_controls_seek_to_next_description">דילוג לפריט הבא</string>
   <string name="media3_controls_seek_back_description">דילוג אחורה</string>
   <string name="media3_controls_seek_forward_description">דילוג קדימה</string>
-  <string name="authentication_required">נדרש אימות</string>
-  <string name="legacy_error_message_fallback">לא התקבלה הודעת שגיאה</string>
 </resources>

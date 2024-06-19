@@ -7,6 +7,4 @@
   <string name="media3_controls_seek_to_next_description">رفتن به مورد بعدی</string>
   <string name="media3_controls_seek_back_description">رفتن به عقب</string>
   <string name="media3_controls_seek_forward_description">رفتن به جلو</string>
-  <string name="authentication_required">اصالت‌سنجی لازم است</string>
-  <string name="legacy_error_message_fallback">پیام خطایی ارائه نشده است</string>
 </resources>
