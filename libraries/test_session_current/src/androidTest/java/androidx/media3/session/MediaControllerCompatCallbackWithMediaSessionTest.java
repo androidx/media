@@ -263,7 +263,7 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
         new SessionError(
             /* code= */ SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED,
             /* message= */ ApplicationProvider.getApplicationContext()
-                .getString(R.string.authentication_required),
+                .getString(R.string.error_message_authentication_expired),
             errorBundle));
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -277,7 +277,7 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
     assertThat(errorPlaybackStateCompat.getErrorCode())
         .isEqualTo(PlaybackStateCompat.ERROR_CODE_AUTHENTICATION_EXPIRED);
     assertThat(errorPlaybackStateCompat.getErrorMessage().toString())
-        .isEqualTo(context.getString(R.string.authentication_required));
+        .isEqualTo(context.getString(R.string.error_message_authentication_expired));
     assertThat(errorPlaybackStateCompat.getExtras()).hasSize(3);
     assertThat(errorPlaybackStateCompat.getExtras()).integer("errorKey").isEqualTo(99);
     assertThat(errorPlaybackStateCompat.getExtras()).string("initialKey").isEqualTo("initialValue");
@@ -324,7 +324,7 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
         new SessionError(
             SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED,
             /* message= */ ApplicationProvider.getApplicationContext()
-                .getString(R.string.authentication_required),
+                .getString(R.string.error_message_authentication_expired),
             errorBundle));
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -338,7 +338,7 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
     assertThat(errorPlaybackStateCompat.getErrorCode())
         .isEqualTo(PlaybackStateCompat.ERROR_CODE_AUTHENTICATION_EXPIRED);
     assertThat(errorPlaybackStateCompat.getErrorMessage().toString())
-        .isEqualTo(context.getString(R.string.authentication_required));
+        .isEqualTo(context.getString(R.string.error_message_authentication_expired));
     assertThat(errorPlaybackStateCompat.getActions())
         .isEqualTo(initialPlaybackStateCompat.getActions());
     assertThat(errorPlaybackStateCompat.getExtras()).hasSize(3);

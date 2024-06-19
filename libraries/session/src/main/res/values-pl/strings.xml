@@ -7,6 +7,4 @@
   <string name="media3_controls_seek_to_next_description">Przewiń do następnego elementu</string>
   <string name="media3_controls_seek_back_description">Przewiń do tyłu</string>
   <string name="media3_controls_seek_forward_description">Przewiń do przodu</string>
-  <string name="authentication_required">Wymagane uwierzytelnienie</string>
-  <string name="legacy_error_message_fallback">Brak komunikatu o błędzie</string>
 </resources>

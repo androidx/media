@@ -404,7 +404,7 @@ public final class LegacyConversionsTest {
     MediaMetadata mediaMetadata =
         LegacyConversions.convertToMediaMetadata(testMediaMetadataCompat, RatingCompat.RATING_NONE);
 
-    assertThat(mediaMetadata.title).isEqualTo("displayTitle");
+    assertThat(mediaMetadata.title.toString()).isEqualTo("displayTitle");
     assertThat(mediaMetadata.displayTitle).isNull();
   }
 
@@ -1314,6 +1314,48 @@ public final class LegacyConversionsTest {
         LegacyConversions.convertToTotalBufferedDurationMs(
             state, /* metadataCompat= */ null, /* timeDiffMs= */ C.INDEX_UNSET);
     assertThat(totalBufferedDurationMs).isEqualTo(testTotalBufferedDurationMs);
+  }
+
+  @Test
+  public void convertToSessionError_unknownError_returnsNull() {
+    SessionError sessionError =
+        LegacyConversions.convertToSessionError(
+            PlaybackStateCompat.STATE_PLAYING,
+            PlaybackStateCompat.ERROR_CODE_UNKNOWN_ERROR,
+            "err message",
+            Bundle.EMPTY,
+            ApplicationProvider.getApplicationContext());
+
+    assertThat(sessionError).isNull();
+  }
+
+  @Test
+  public void convertToSessionError_stateError_returnsNull() {
+    SessionError sessionError =
+        LegacyConversions.convertToSessionError(
+            PlaybackStateCompat.STATE_ERROR,
+            PlaybackStateCompat.ERROR_CODE_AUTHENTICATION_EXPIRED,
+            "err message",
+            Bundle.EMPTY,
+            ApplicationProvider.getApplicationContext());
+
+    assertThat(sessionError).isNull();
+  }
+
+  @Test
+  public void convertToSessionError_errorMessageNull_useLocalizedStringResourceAsFallback() {
+    SessionError sessionError =
+        LegacyConversions.convertToSessionError(
+            PlaybackStateCompat.STATE_PLAYING,
+            PlaybackStateCompat.ERROR_CODE_AUTHENTICATION_EXPIRED,
+            /* errorMessage= */ null,
+            Bundle.EMPTY,
+            ApplicationProvider.getApplicationContext());
+
+    assertThat(sessionError.message)
+        .isEqualTo(
+            ApplicationProvider.getApplicationContext()
+                .getString(R.string.error_message_authentication_expired));
   }
 
   // TODO(b/254265256): Move this method to a central place.

@@ -7,6 +7,4 @@
   <string name="media3_controls_seek_to_next_description">Hľadať v ďalšej položke</string>
   <string name="media3_controls_seek_back_description">Hľadať smerom dozadu</string>
   <string name="media3_controls_seek_forward_description">Hľadať smerom dopredu</string>
-  <string name="authentication_required">Vyžaduje sa overenie</string>
-  <string name="legacy_error_message_fallback">Nebolo poskytnuté žiadne chybové hlásenie</string>
 </resources>

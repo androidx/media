@@ -7,6 +7,4 @@
   <string name="media3_controls_seek_to_next_description">다음 항목 찾기</string>
   <string name="media3_controls_seek_back_description">뒤로 탐색</string>
   <string name="media3_controls_seek_forward_description">앞으로 탐색</string>
-  <string name="authentication_required">인증 필요</string>
-  <string name="legacy_error_message_fallback">제공된 오류 메시지 없음</string>
 </resources>

@@ -7,6 +7,4 @@
   <string name="media3_controls_seek_to_next_description">Vai all\'elemento successivo</string>
   <string name="media3_controls_seek_back_description">Vai indietro</string>
   <string name="media3_controls_seek_forward_description">Vai avanti</string>
-  <string name="authentication_required">Autenticazione richiesta</string>
-  <string name="legacy_error_message_fallback">Nessun messaggio di errore fornito</string>
 </resources>

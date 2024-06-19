@@ -7,6 +7,4 @@
   <string name="media3_controls_seek_to_next_description">ເລື່ອນໄປຫາລາຍການຕໍ່ໄປ</string>
   <string name="media3_controls_seek_back_description">ເລື່ອນກັບຫຼັງ</string>
   <string name="media3_controls_seek_forward_description">ເລື່ອນໄປໜ້າ</string>
-  <string name="authentication_required">ຕ້ອງມີການພິສູດຢືນຢັນ</string>
-  <string name="legacy_error_message_fallback">ບໍ່ໄດ້ລະບຸຂໍ້ຄວາມສະແດງຂໍ້ຜິດພາດ</string>
 </resources>

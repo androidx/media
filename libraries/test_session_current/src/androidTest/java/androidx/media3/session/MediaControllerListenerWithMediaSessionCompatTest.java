@@ -215,7 +215,7 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
             .setErrorMessage(
                 PlaybackStateCompat.ERROR_CODE_AUTHENTICATION_EXPIRED,
                 ApplicationProvider.getApplicationContext()
-                    .getString(R.string.authentication_required))
+                    .getString(R.string.error_message_authentication_expired))
             .setExtras(fatalErrorExtras)
             .build());
 
@@ -223,7 +223,7 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
     assertThat(fatalErrorExceptions).hasSize(1);
     assertThat(fatalErrorExceptions.get(0))
         .hasMessageThat()
-        .isEqualTo(context.getString(R.string.authentication_required));
+        .isEqualTo(context.getString(R.string.error_message_authentication_expired));
     assertThat(fatalErrorExceptions.get(0).errorCode)
         .isEqualTo(PlaybackException.ERROR_CODE_AUTHENTICATION_EXPIRED);
     assertThat(TestUtils.equals(fatalErrorExceptions.get(0).extras, fatalErrorExtras)).isTrue();

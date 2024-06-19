@@ -1555,7 +1555,8 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
             controllerCompat.isSessionReady(),
             controllerCompat.getRatingType(),
             getInstance().getTimeDiffMs(),
-            getRoutingControllerId(controllerCompat));
+            getRoutingControllerId(controllerCompat),
+            context);
     Pair<@NullableType Integer, @NullableType Integer> reasons =
         calculateDiscontinuityAndTransitionReason(
             legacyPlayerInfo,
@@ -1958,7 +1959,8 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       boolean isSessionReady,
       @RatingCompat.Style int ratingType,
       long timeDiffMs,
-      @Nullable String routingControllerId) {
+      @Nullable String routingControllerId,
+      Context context) {
     QueueTimeline currentTimeline;
     MediaMetadata mediaMetadata;
     int currentMediaItemIndex;
@@ -2076,7 +2078,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     PlaybackException playerError =
         LegacyConversions.convertToPlaybackException(newLegacyPlayerInfo.playbackStateCompat);
     SessionError sessionError =
-        LegacyConversions.convertToSessionError(newLegacyPlayerInfo.playbackStateCompat);
+        LegacyConversions.convertToSessionError(newLegacyPlayerInfo.playbackStateCompat, context);
 
     long currentPositionMs =
         LegacyConversions.convertToCurrentPositionMs(

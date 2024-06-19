@@ -2725,7 +2725,8 @@ public class MediaControllerListenerTest {
     SessionError error1 =
         new SessionError(
             /* code= */ SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED,
-            ApplicationProvider.getApplicationContext().getString(R.string.authentication_required),
+            ApplicationProvider.getApplicationContext()
+                .getString(R.string.error_message_authentication_expired),
             errorExtra1);
     Bundle errorExtra2 = new Bundle();
     errorExtra2.putInt("intKey", 2);
