@@ -347,20 +347,20 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     switch (audioAttributes.usage) {
-        // USAGE_VOICE_COMMUNICATION_SIGNALLING is for DTMF that may happen multiple times
-        // during the phone call when AUDIOFOCUS_GAIN_TRANSIENT is requested for that.
-        // Don't request audio focus here.
+      // USAGE_VOICE_COMMUNICATION_SIGNALLING is for DTMF that may happen multiple times
+      // during the phone call when AUDIOFOCUS_GAIN_TRANSIENT is requested for that.
+      // Don't request audio focus here.
       case C.USAGE_VOICE_COMMUNICATION_SIGNALLING:
         return AUDIOFOCUS_NONE;
 
-        // Javadoc says 'AUDIOFOCUS_GAIN: Examples of uses of this focus gain are for music
-        // playback, for a game or a video player'
+      // Javadoc says 'AUDIOFOCUS_GAIN: Examples of uses of this focus gain are for music
+      // playback, for a game or a video player'
       case C.USAGE_GAME:
       case C.USAGE_MEDIA:
         return AUDIOFOCUS_GAIN;
 
-        // Special usages: USAGE_UNKNOWN shouldn't be used. Request audio focus to prevent
-        // multiple media playback happen at the same time.
+      // Special usages: USAGE_UNKNOWN shouldn't be used. Request audio focus to prevent
+      // multiple media playback happen at the same time.
       case C.USAGE_UNKNOWN:
         Log.w(
             TAG,
@@ -368,14 +368,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 + " handling. Using AUDIOFOCUS_GAIN by default.");
         return AUDIOFOCUS_GAIN;
 
-        // Javadoc says 'AUDIOFOCUS_GAIN_TRANSIENT: An example is for playing an alarm, or
-        // during a VoIP call'
+      // Javadoc says 'AUDIOFOCUS_GAIN_TRANSIENT: An example is for playing an alarm, or
+      // during a VoIP call'
       case C.USAGE_ALARM:
       case C.USAGE_VOICE_COMMUNICATION:
         return AUDIOFOCUS_GAIN_TRANSIENT;
 
-        // Javadoc says 'AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK: Examples are when playing
-        // driving directions or notifications'
+      // Javadoc says 'AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK: Examples are when playing
+      // driving directions or notifications'
       case C.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE:
       case C.USAGE_ASSISTANCE_SONIFICATION:
       case C.USAGE_NOTIFICATION:
@@ -386,13 +386,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       case C.USAGE_NOTIFICATION_RINGTONE:
         return AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK;
 
-        // Javadoc says 'AUDIOFOCUS_GAIN_EXCLUSIVE: This is typically used if you are doing
-        // audio recording or speech recognition'.
-        // Assistant is considered as both recording and notifying developer
+      // Javadoc says 'AUDIOFOCUS_GAIN_EXCLUSIVE: This is typically used if you are doing
+      // audio recording or speech recognition'.
+      // Assistant is considered as both recording and notifying developer
       case C.USAGE_ASSISTANT:
         return AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE;
 
-        // Special usages:
+      // Special usages:
       case C.USAGE_ASSISTANCE_ACCESSIBILITY:
         if (audioAttributes.contentType == C.AUDIO_CONTENT_TYPE_SPEECH) {
           // Voice shouldn't be interrupted by other playback.

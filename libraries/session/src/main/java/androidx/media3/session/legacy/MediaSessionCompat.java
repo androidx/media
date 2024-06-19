@@ -3634,13 +3634,13 @@ public class MediaSessionCompat {
         }
         long validActions = mState == null ? 0 : mState.getActions();
         switch (ke.getKeyCode()) {
-            // Note KeyEvent.KEYCODE_MEDIA_PLAY is API 11+
+          // Note KeyEvent.KEYCODE_MEDIA_PLAY is API 11+
           case KEYCODE_MEDIA_PLAY:
             if ((validActions & PlaybackStateCompat.ACTION_PLAY) != 0) {
               cb.onPlay();
             }
             break;
-            // Note KeyEvent.KEYCODE_MEDIA_PAUSE is API 11+
+          // Note KeyEvent.KEYCODE_MEDIA_PAUSE is API 11+
           case KEYCODE_MEDIA_PAUSE:
             if ((validActions & PlaybackStateCompat.ACTION_PAUSE) != 0) {
               cb.onPause();

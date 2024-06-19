@@ -300,7 +300,7 @@ public final class RatingCompat implements Parcelable {
         if (isRated()) {
           return mRatingValue;
         }
-        // fall through
+      // fall through
       default:
         return -1.0f;
     }

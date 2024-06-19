@@ -168,6 +168,10 @@ public class ExportTest {
     assumeFalse(
         "Skip due to over-reported encoder capabilities",
         Util.SDK_INT == 29 && Ascii.equalsIgnoreCase(Util.MODEL, "pixel 3"));
+    // Reference: b/347635026
+    assumeFalse(
+        "Skip due to decoder failing to queue input frames",
+        Util.SDK_INT == 29 && Ascii.equalsIgnoreCase(Util.MODEL, "pixel 3a"));
     Transformer transformer =
         new Transformer.Builder(context)
             .setEncoderFactory(new ForceEncodeEncoderFactory(context))

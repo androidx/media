@@ -1093,7 +1093,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       case MimeTypes.VIDEO_H263:
       case MimeTypes.VIDEO_MP4V:
       case MimeTypes.VIDEO_AV1:
-        // Assume a min compression of 2 similar to the platform's C2SoftAomDec.cpp.
+      // Assume a min compression of 2 similar to the platform's C2SoftAomDec.cpp.
       case MimeTypes.VIDEO_VP8:
         // Assume a min compression of 2 similar to the platform's SoftVPX.cpp.
         return getMaxSampleSize(/* pixelCount= */ width * height, /* minCompressionRatio= */ 2);
@@ -2180,7 +2180,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       return true;
     }
     switch (Util.MODEL) {
-        // Workaround for some Fire OS devices.
+      // Workaround for some Fire OS devices.
       case "AFTA":
       case "AFTN":
       case "AFTR":

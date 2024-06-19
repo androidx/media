@@ -169,7 +169,7 @@ public final class DefaultTsPayloadReaderFactory implements TsPayloadReader.Fact
         if (!isSet(FLAG_ENABLE_HDMV_DTS_AUDIO_STREAMS)) {
           return null;
         }
-        // Fall through.
+      // Fall through.
       case TsExtractor.TS_STREAM_TYPE_DTS:
       case TsExtractor.TS_STREAM_TYPE_DTS_HD:
         return new PesReader(

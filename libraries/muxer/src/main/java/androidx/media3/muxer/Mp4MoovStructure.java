@@ -139,8 +139,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
           stblBox = Boxes.stbl(stsdBox, stts, stsz, stsc, chunkOffsetBox);
           break;
         case C.TRACK_TYPE_METADATA:
-          // TODO: (b/280443593) - Check if we can identify a metadata track type from a custom
-          //  mime type.
+        // TODO: (b/280443593) - Check if we can identify a metadata track type from a custom
+        //  mime type.
         case C.TRACK_TYPE_UNKNOWN:
           handlerType = "meta";
           handlerName = "MetaHandle";

@@ -653,14 +653,14 @@ public final class MimeTypes {
     }
     mimeType = Ascii.toLowerCase(mimeType);
     switch (mimeType) {
-        // Normalize uncommon versions of some audio MIME types to their standard equivalent.
+      // Normalize uncommon versions of some audio MIME types to their standard equivalent.
       case BASE_TYPE_AUDIO + "/x-flac":
         return AUDIO_FLAC;
       case BASE_TYPE_AUDIO + "/mp3":
         return AUDIO_MPEG;
       case BASE_TYPE_AUDIO + "/x-wav":
         return AUDIO_WAV;
-        // Normalize MIME types that are often written with upper-case letters to their common form.
+      // Normalize MIME types that are often written with upper-case letters to their common form.
       case "application/x-mpegurl":
         return APPLICATION_M3U8;
       case "audio/mpeg-l1":

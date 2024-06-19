@@ -458,7 +458,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           break;
 
         case STATE_READING_BODY:
-          // Message body must be handled by addMessageBody().
+        // Message body must be handled by addMessageBody().
 
         default:
           throw new IllegalStateException();

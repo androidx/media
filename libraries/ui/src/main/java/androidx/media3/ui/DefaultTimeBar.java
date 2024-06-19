@@ -647,7 +647,7 @@ public class DefaultTimeBar extends View implements TimeBar {
       switch (keyCode) {
         case KeyEvent.KEYCODE_DPAD_LEFT:
           positionIncrement = -positionIncrement;
-          // Fall through.
+        // Fall through.
         case KeyEvent.KEYCODE_DPAD_RIGHT:
           if (scrubIncrementally(positionIncrement)) {
             removeCallbacks(stopScrubbingRunnable);

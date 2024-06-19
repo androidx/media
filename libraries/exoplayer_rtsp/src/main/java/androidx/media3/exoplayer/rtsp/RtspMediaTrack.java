@@ -295,7 +295,7 @@ import com.google.common.collect.ImmutableMap;
       case MimeTypes.AUDIO_AC3:
       case MimeTypes.AUDIO_ALAW:
       case MimeTypes.AUDIO_MLAW:
-        // Does not require a fmtp attribute. Fall through.
+      // Does not require a fmtp attribute. Fall through.
       default:
         // Do nothing.
     }

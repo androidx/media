@@ -1330,8 +1330,8 @@ import java.util.List;
         return PlaybackStateCompat.ACTION_STOP;
       case Player.COMMAND_ADJUST_DEVICE_VOLUME:
       case Player.COMMAND_CHANGE_MEDIA_ITEMS:
-        // TODO(b/227346735): Handle this through
-        // MediaSessionCompat.setFlags(FLAG_HANDLES_QUEUE_COMMANDS)
+      // TODO(b/227346735): Handle this through
+      // MediaSessionCompat.setFlags(FLAG_HANDLES_QUEUE_COMMANDS)
       case Player.COMMAND_GET_AUDIO_ATTRIBUTES:
       case Player.COMMAND_GET_CURRENT_MEDIA_ITEM:
       case Player.COMMAND_GET_DEVICE_VOLUME:

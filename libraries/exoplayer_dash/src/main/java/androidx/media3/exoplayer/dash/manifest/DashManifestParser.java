@@ -1539,7 +1539,7 @@ public class DashManifestParser extends DefaultHandler
     }
     switch (value) {
       case "forced_subtitle":
-        // Support both hyphen and underscore (https://github.com/google/ExoPlayer/issues/9727).
+      // Support both hyphen and underscore (https://github.com/google/ExoPlayer/issues/9727).
       case "forced-subtitle":
         return C.SELECTION_FLAG_FORCED;
       default:
@@ -1608,7 +1608,7 @@ public class DashManifestParser extends DefaultHandler
       case "caption":
         return C.ROLE_FLAG_CAPTION;
       case "forced_subtitle":
-        // Support both hyphen and underscore (https://github.com/google/ExoPlayer/issues/9727).
+      // Support both hyphen and underscore (https://github.com/google/ExoPlayer/issues/9727).
       case "forced-subtitle":
       case "subtitle":
         return C.ROLE_FLAG_SUBTITLE;
