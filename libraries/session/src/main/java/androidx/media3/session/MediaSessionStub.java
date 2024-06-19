@@ -526,7 +526,9 @@ import java.util.concurrent.ExecutionException;
                     MediaLibraryInfo.VERSION_INT,
                     MediaSessionStub.VERSION_INT,
                     MediaSessionStub.this,
-                    sessionImpl.getSessionActivity(),
+                    connectionResult.sessionActivity != null
+                        ? connectionResult.sessionActivity
+                        : sessionImpl.getSessionActivity(),
                     connectionResult.customLayout != null
                         ? connectionResult.customLayout
                         : sessionImpl.getCustomLayout(),

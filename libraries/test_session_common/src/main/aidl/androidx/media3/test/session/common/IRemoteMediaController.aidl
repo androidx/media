@@ -30,6 +30,9 @@ interface IRemoteMediaController {
   // MediaController Methods
   Bundle getConnectedSessionToken(String controllerId);
   Bundle getSessionExtras(String controllerId);
+  Bundle getCustomLayout(String controllerId);
+  Bundle getAvailableCommands(String controllerId);
+  PendingIntent getSessionActivity(String controllerId);
   void play(String controllerId);
   void pause(String controllerId);
   void setPlayWhenReady(String controllerId, boolean playWhenReady);
@@ -101,8 +104,6 @@ interface IRemoteMediaController {
       int page,
       int pageSize,
       in Bundle libraryParams);
-  Bundle getCustomLayout(String controllerId);
-  Bundle getAvailableCommands(String controllerId);
   Bundle getItem(String controllerId, String mediaId);
   Bundle search(String controllerId, String query, in Bundle libraryParams);
   Bundle getSearchResult(

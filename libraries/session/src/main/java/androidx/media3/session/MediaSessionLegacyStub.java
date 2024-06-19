@@ -1118,6 +1118,11 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     }
 
     @Override
+    public void onSessionActivityChanged(int seq, PendingIntent sessionActivity) {
+      sessionCompat.setSessionActivity(sessionActivity);
+    }
+
+    @Override
     public void onError(int seq, SessionError sessionError) {
       PlayerWrapper playerWrapper = sessionImpl.getPlayerWrapper();
       playerWrapper.setLegacyError(

@@ -29,7 +29,9 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assert.fail;
 
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
@@ -45,6 +47,7 @@ import androidx.media3.session.MediaSession.ConnectionResult.AcceptedResultBuild
 import androidx.media3.session.MediaSession.ControllerInfo;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.media3.test.session.common.MainLooperTestRule;
+import androidx.media3.test.session.common.SurfaceActivity;
 import androidx.media3.test.session.common.TestHandler;
 import androidx.media3.test.session.common.TestUtils;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
@@ -291,6 +294,49 @@ public class MediaSessionCallbackTest {
         remoteControllerTestRule.createRemoteController(session.getToken());
 
     assertThat(remoteController.getSessionExtras().getString("origin")).isEqualTo("controller");
+  }
+
+  @Test
+  public void onConnect_connectionResultSessionActivitySet_usesControllerSpecificSessionActivity()
+      throws Exception {
+    Intent intent = new Intent(context, SurfaceActivity.class);
+    PendingIntent controllerSpecificSessionActivity =
+        PendingIntent.getActivity(
+            context, 0, intent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+    MediaSession.Callback callback =
+        new MediaSession.Callback() {
+          @Override
+          public MediaSession.ConnectionResult onConnect(
+              MediaSession session, ControllerInfo controller) {
+            AcceptedResultBuilder connectionResult =
+                new AcceptedResultBuilder(session)
+                    .setAvailablePlayerCommands(Player.Commands.EMPTY);
+            if (controller.getConnectionHints().getBoolean("want_session_activity", false)) {
+              connectionResult.setSessionActivity(controllerSpecificSessionActivity);
+            }
+            return connectionResult.build();
+          }
+        };
+    MediaSession session =
+        sessionTestRule.ensureReleaseAfterTest(
+            new MediaSession.Builder(context, player)
+                .setCallback(callback)
+                .setId(
+                    "onConnect_connectionResultSessionActivitySet_usesControllerSpecificSessionActivity")
+                .build());
+    Bundle connectionHints = new Bundle();
+    connectionHints.putBoolean("want_session_activity", true);
+
+    RemoteMediaController remoteControllerWithSpecificSessionActivity =
+        remoteControllerTestRule.createRemoteController(
+            session.getToken(), /* waitForConnection= */ true, connectionHints);
+    RemoteMediaController remoteControllerWithoutSpecificSessionActivity =
+        remoteControllerTestRule.createRemoteController(
+            session.getToken(), /* waitForConnection= */ true, /* connectionHints= */ Bundle.EMPTY);
+
+    assertThat(remoteControllerWithSpecificSessionActivity.getSessionActivity())
+        .isEqualTo(controllerSpecificSessionActivity);
+    assertThat(remoteControllerWithoutSpecificSessionActivity.getSessionActivity()).isNull();
   }
 
   @Test

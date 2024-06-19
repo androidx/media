@@ -17,6 +17,12 @@
 *   Muxers:
 *   IMA extension:
 *   Session:
+    *   Allow the session activity to be set per controller to override the
+        global session activity. The session activity can be defined for a
+        controller at connection time by creating a `ConnectionResult` with
+        `AcceptedResultBuilder.setSessionActivivty(PendingIntent)`. Once
+        connected, the session activity can be updated with
+        `MediaSession.setSessionActivity(ControllerInfo, PendingIntent)`.
 *   UI:
 *   Downloads:
 *   OkHttp Extension:
