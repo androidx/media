@@ -42,12 +42,11 @@ import org.junit.runners.Parameterized.Parameters;
 // TODO: b/343362776 - Add tests to assert enough silence is generated.
 // TODO: b/346289922 - Consider checking frame counts with extractors.
 // TODO: b/345483531 - Add support for asserting on duration for image only sequences.
-// TODO: b/345483531 - Split single item export tests into a separate class.
 // TODO: b/345483531 - Generate all permutations of all combinations of input files.
 
-/** Parameterized end to end {@linkplain EditedMediaItemSequence sequence} export tests. */
+/** Parameterized end-to-end test for exporting a {@link EditedMediaItemSequence}. */
 @RunWith(Parameterized.class)
-public class ParameterizedInputSequenceExportTest {
+public final class ParameterizedInputSequenceExportTest {
   private static final SdrImageItemConfig PNG_ITEM =
       new SdrImageItemConfig(PNG_ASSET, /* frameCount= */ 34);
   private static final SdrImageItemConfig JPG_ITEM =
@@ -68,22 +67,18 @@ public class ParameterizedInputSequenceExportTest {
   @Parameters(name = "{0}")
   public static ImmutableList<SequenceConfig> params() {
     return ImmutableList.of(
-        new SequenceConfig(PNG_ITEM),
         new SequenceConfig(PNG_ITEM, PNG_ITEM),
         new SequenceConfig(PNG_ITEM, JPG_ITEM),
         new SequenceConfig(PNG_ITEM, BT601_ITEM),
         new SequenceConfig(PNG_ITEM, BT709_ITEM),
-        new SequenceConfig(JPG_ITEM),
         new SequenceConfig(JPG_ITEM, PNG_ITEM),
         new SequenceConfig(JPG_ITEM, JPG_ITEM),
         new SequenceConfig(JPG_ITEM, BT601_ITEM),
         new SequenceConfig(JPG_ITEM, BT709_ITEM),
-        new SequenceConfig(BT601_ITEM),
         new SequenceConfig(BT601_ITEM, PNG_ITEM),
         new SequenceConfig(BT601_ITEM, JPG_ITEM),
         new SequenceConfig(BT601_ITEM, BT601_ITEM),
         new SequenceConfig(BT601_ITEM, BT709_ITEM),
-        new SequenceConfig(BT709_ITEM),
         new SequenceConfig(BT709_ITEM, PNG_ITEM),
         new SequenceConfig(BT709_ITEM, JPG_ITEM),
         new SequenceConfig(BT709_ITEM, BT601_ITEM),
