@@ -31,6 +31,7 @@ import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.graphics.RectF;
 import android.graphics.drawable.BitmapDrawable;
@@ -39,9 +40,11 @@ import android.opengl.GLSurfaceView;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.AttributeSet;
+import android.view.AttachedSurfaceControl;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
+import android.view.SurfaceControl;
 import android.view.SurfaceView;
 import android.view.TextureView;
 import android.view.View;
@@ -49,6 +52,7 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.window.SurfaceSyncGroup;
 import androidx.annotation.ColorInt;
 import androidx.annotation.DoNotInline;
 import androidx.annotation.IntDef;
@@ -293,6 +297,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   @Nullable private final View shutterView;
   @Nullable private final View surfaceView;
   private final boolean surfaceViewIgnoresVideoAspectRatio;
+  @Nullable private final SurfaceSyncGroupCompatV34 surfaceSyncGroupV34;
   @Nullable private final ImageView imageView;
   @Nullable private final ImageView artworkView;
   @Nullable private final SubtitleView subtitleView;
@@ -353,6 +358,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
       shutterView = null;
       surfaceView = null;
       surfaceViewIgnoresVideoAspectRatio = false;
+      surfaceSyncGroupV34 = null;
       imageView = null;
       artworkView = null;
       subtitleView = null;
@@ -489,6 +495,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
       surfaceView = null;
     }
     this.surfaceViewIgnoresVideoAspectRatio = surfaceViewIgnoresVideoAspectRatio;
+    this.surfaceSyncGroupV34 = Util.SDK_INT == 34 ? new SurfaceSyncGroupCompatV34() : null;
 
     // Ad overlay frame layout.
     adOverlayFrameLayout = findViewById(R.id.exo_ad_overlay);
@@ -1773,6 +1780,14 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
         contentFrame, surfaceViewIgnoresVideoAspectRatio ? 0 : videoAspectRatio);
   }
 
+  @Override
+  protected void dispatchDraw(Canvas canvas) {
+    super.dispatchDraw(canvas);
+    if (Util.SDK_INT == 34) {
+      checkNotNull(surfaceSyncGroupV34).maybeMarkSyncReadyAndClear();
+    }
+  }
+
   @RequiresApi(23)
   private static void configureEditModeLogoV23(
       Context context, Resources resources, ImageView logo) {
@@ -1860,6 +1875,17 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
         return;
       }
       updateAspectRatio();
+    }
+
+    @Override
+    public void onSurfaceSizeChanged(int width, int height) {
+      if (Util.SDK_INT == 34 && surfaceView instanceof SurfaceView) {
+        // Register a SurfaceSyncGroup to work around https://github.com/androidx/media/issues/1237
+        // (only present on API 34, fixed on API 35).
+        checkNotNull(surfaceSyncGroupV34)
+            .postRegister(
+                mainLooperHandler, (SurfaceView) surfaceView, PlayerView.this::invalidate);
+      }
     }
 
     @Override
@@ -1979,6 +2005,38 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
     @DoNotInline
     public static void setSurfaceLifecycleToFollowsAttachment(SurfaceView surfaceView) {
       surfaceView.setSurfaceLifecycle(SurfaceView.SURFACE_LIFECYCLE_FOLLOWS_ATTACHMENT);
+    }
+  }
+
+  @RequiresApi(34)
+  private static final class SurfaceSyncGroupCompatV34 {
+
+    @Nullable SurfaceSyncGroup surfaceSyncGroup;
+
+    @DoNotInline
+    public void postRegister(
+        Handler mainLooperHandler, SurfaceView surfaceView, Runnable invalidate) {
+      mainLooperHandler.post(
+          () -> {
+            @Nullable
+            AttachedSurfaceControl rootSurfaceControl = surfaceView.getRootSurfaceControl();
+            if (rootSurfaceControl == null) {
+              // The SurfaceView isn't attached to a window, so don't apply the workaround.
+              return;
+            }
+            surfaceSyncGroup = new SurfaceSyncGroup("exo-sync-b-334901521");
+            Assertions.checkState(surfaceSyncGroup.add(rootSurfaceControl, () -> {}));
+            invalidate.run();
+            rootSurfaceControl.applyTransactionOnDraw(new SurfaceControl.Transaction());
+          });
+    }
+
+    @DoNotInline
+    public void maybeMarkSyncReadyAndClear() {
+      if (surfaceSyncGroup != null) {
+        surfaceSyncGroup.markSyncReady();
+        surfaceSyncGroup = null;
+      }
     }
   }
 }
