@@ -24,6 +24,9 @@
         connected, the session activity can be updated with
         `MediaSession.setSessionActivity(ControllerInfo, PendingIntent)`.
 *   UI:
+    *   Work around a platform bug causing stretched/cropped video when using
+        `SurfaceView` inside a Compose `AndroidView` on API 34
+        ([#1237](https://github.com/androidx/media/issues/1237)).
 *   Downloads:
 *   OkHttp Extension:
 *   Cronet Extension:
