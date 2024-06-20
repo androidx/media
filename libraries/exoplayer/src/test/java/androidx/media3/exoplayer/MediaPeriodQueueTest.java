@@ -1830,6 +1830,7 @@ public final class MediaPeriodQueueTest {
             /* staticMetadata= */ ImmutableList.of(),
             /* loadingMediaPeriodId= */ null,
             /* playWhenReady= */ false,
+            Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
             Player.PLAYBACK_SUPPRESSION_REASON_NONE,
             /* playbackParameters= */ PlaybackParameters.DEFAULT,
             /* bufferedPositionUs= */ 0,
