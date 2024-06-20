@@ -1454,7 +1454,9 @@ public class MediaControllerListenerTest {
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
 
-    remoteSession.getMockPlayer().notifyPlayWhenReadyChanged(testPlayWhenReady, testReason);
+    remoteSession
+        .getMockPlayer()
+        .notifyPlayWhenReadyChanged(testPlayWhenReady, testReason, testSuppressionReason);
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(playWhenReadyParamRef.get()).isEqualTo(testPlayWhenReady);
@@ -1467,6 +1469,44 @@ public class MediaControllerListenerTest {
     assertThat(getEventsAsList(eventsRef.get()))
         .containsExactly(
             Player.EVENT_PLAY_WHEN_READY_CHANGED, Player.EVENT_PLAYBACK_SUPPRESSION_REASON_CHANGED);
+  }
+
+  @Test
+  public void onPlayWhenReadyReasonChanged_isNotified() throws Exception {
+    remoteSession
+        .getMockPlayer()
+        .setPlayWhenReady(
+            /* playWhenReady= */ false,
+            Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS);
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    CountDownLatch latch = new CountDownLatch(1);
+    AtomicBoolean playWhenReadyParamRef = new AtomicBoolean();
+    AtomicBoolean playWhenReadyGetterRef = new AtomicBoolean();
+    AtomicInteger playWhenReadyReasonParamRef = new AtomicInteger();
+    Player.Listener listener =
+        new Player.Listener() {
+          @Override
+          public void onPlayWhenReadyChanged(boolean playWhenReady, int reason) {
+            playWhenReadyParamRef.set(playWhenReady);
+            playWhenReadyGetterRef.set(controller.getPlayWhenReady());
+            playWhenReadyReasonParamRef.set(reason);
+            latch.countDown();
+          }
+        };
+    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
+
+    remoteSession
+        .getMockPlayer()
+        .notifyPlayWhenReadyChanged(
+            /* playWhenReady= */ false,
+            Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS,
+            Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(playWhenReadyParamRef.get()).isFalse();
+    assertThat(playWhenReadyGetterRef.get()).isFalse();
+    assertThat(playWhenReadyReasonParamRef.get())
+        .isEqualTo(Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS);
   }
 
   @Test
@@ -1550,7 +1590,10 @@ public class MediaControllerListenerTest {
     remoteSession.getMockPlayer().setTotalBufferedDuration(testTotalBufferedDurationMs);
     remoteSession.getMockPlayer().setCurrentLiveOffset(testCurrentLiveOffsetMs);
     remoteSession.getMockPlayer().setContentBufferedPosition(testContentBufferedPositionMs);
-    remoteSession.getMockPlayer().notifyPlayWhenReadyChanged(testPlayWhenReady, testReason);
+    remoteSession
+        .getMockPlayer()
+        .notifyPlayWhenReadyChanged(
+            testPlayWhenReady, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST, testReason);
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(playWhenReadyRef.get()).isEqualTo(testPlayWhenReady);
@@ -1604,7 +1647,10 @@ public class MediaControllerListenerTest {
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
 
-    remoteSession.getMockPlayer().notifyPlayWhenReadyChanged(testPlayWhenReady, testReason);
+    remoteSession
+        .getMockPlayer()
+        .notifyPlayWhenReadyChanged(
+            testPlayWhenReady, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST, testReason);
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(playbackSuppressionReasonParamRef.get()).isEqualTo(testReason);
@@ -1686,7 +1732,10 @@ public class MediaControllerListenerTest {
     remoteSession.getMockPlayer().setTotalBufferedDuration(testTotalBufferedDurationMs);
     remoteSession.getMockPlayer().setCurrentLiveOffset(testCurrentLiveOffsetMs);
     remoteSession.getMockPlayer().setContentBufferedPosition(testContentBufferedPositionMs);
-    remoteSession.getMockPlayer().notifyPlayWhenReadyChanged(testPlayWhenReady, testReason);
+    remoteSession
+        .getMockPlayer()
+        .notifyPlayWhenReadyChanged(
+            testPlayWhenReady, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST, testReason);
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(playbackSuppressionReasonRef.get()).isEqualTo(testReason);

@@ -856,13 +856,17 @@ public class MediaSessionProviderService extends Service {
 
     @Override
     public void notifyPlayWhenReadyChanged(
-        String sessionId, boolean playWhenReady, @Player.PlaybackSuppressionReason int reason)
+        String sessionId,
+        boolean playWhenReady,
+        @Player.PlayWhenReadyChangeReason int playWhenReadyChangeReason,
+        @Player.PlaybackSuppressionReason int suppressionReason)
         throws RemoteException {
       runOnHandler(
           () -> {
             MediaSession session = sessionMap.get(sessionId);
             MockPlayer player = (MockPlayer) session.getPlayer();
-            player.notifyPlayWhenReadyChanged(playWhenReady, reason);
+            player.notifyPlayWhenReadyChanged(
+                playWhenReady, playWhenReadyChangeReason, suppressionReason);
           });
     }
 

@@ -101,7 +101,9 @@ public class MediaSessionKeyEventTest {
       handler.postAndSync(
           () -> {
             player.notifyPlayWhenReadyChanged(
-                /* playWhenReady= */ true, Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+                /* playWhenReady= */ true,
+                Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+                Player.PLAYBACK_SUPPRESSION_REASON_NONE);
             player.notifyPlaybackStateChanged(Player.STATE_READY);
           });
     } else {

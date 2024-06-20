@@ -4392,7 +4392,9 @@ public class ExoPlayerTest {
     assertThat(playWhenReady).isFalse();
     assertThat(suppressionReason).isEqualTo(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
     verify(listener, never()).onPlaybackSuppressionReasonChanged(anyInt());
-    // TODO: Fix behavior and assert that audio focus loss is reported via onPlayWhenReadyChanged.
+    verify(listener)
+        .onPlayWhenReadyChanged(
+            /* playWhenReady= */ false, Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS);
   }
 
   @Test

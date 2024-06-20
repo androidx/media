@@ -922,6 +922,9 @@ public interface Player {
     /**
      * Called when the value returned from {@link #getPlayWhenReady()} changes.
      *
+     * <p>The current {@code playWhenReady} value may be re-reported if the {@code reason} for this
+     * value changes.
+     *
      * <p>{@link #onEvents(Player, Events)} will also be called to report this event along with
      * other events that happen in the same {@link Looper} message queue iteration.
      *
