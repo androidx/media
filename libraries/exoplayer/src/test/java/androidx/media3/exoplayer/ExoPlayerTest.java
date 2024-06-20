@@ -4504,10 +4504,12 @@ public class ExoPlayerTest {
     run(player).untilPendingCommandsAreFullyHandled();
     player.pause();
     boolean playWhenReady = player.getPlayWhenReady();
+    @Player.PlaybackSuppressionReason int suppressionReason = player.getPlaybackSuppressionReason();
     player.release();
 
     assertThat(playWhenReady).isFalse();
-    // TODO: Fix behavior and assert that suppression reason if transient audio focus loss.
+    assertThat(suppressionReason)
+        .isEqualTo(Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS);
     InOrder inOrder = inOrder(listener);
     inOrder
         .verify(listener)
@@ -4607,7 +4609,10 @@ public class ExoPlayerTest {
         .verify(listener)
         .onPlayWhenReadyChanged(
             /* playWhenReady= */ false, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
-    // TODO: Fix behavior and assert that audio focus loss is reported via onPlayWhenReadyChanged.
+    inOrder
+        .verify(listener)
+        .onPlayWhenReadyChanged(
+            /* playWhenReady= */ false, Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS);
   }
 
   @Test
@@ -4629,17 +4634,22 @@ public class ExoPlayerTest {
         .onAudioFocusChange(AudioManager.AUDIOFOCUS_LOSS_TRANSIENT);
     run(player).untilPendingCommandsAreFullyHandled();
     boolean playWhenReady = player.getPlayWhenReady();
+    @Player.PlaybackSuppressionReason int suppressionReason = player.getPlaybackSuppressionReason();
     shadowOf(audioManager)
         .getLastAudioFocusRequest()
         .listener
         .onAudioFocusChange(AudioManager.AUDIOFOCUS_GAIN);
     run(player).untilPendingCommandsAreFullyHandled();
     boolean playWhenReadyAfterGain = player.getPlayWhenReady();
+    @Player.PlaybackSuppressionReason
+    int suppressionReasonAfterGain = player.getPlaybackSuppressionReason();
     player.release();
 
     assertThat(playWhenReady).isFalse();
     assertThat(playWhenReadyAfterGain).isFalse();
-    // TODO: Fix behavior and assert that suppression reason is transient audio focus loss.
+    assertThat(suppressionReason)
+        .isEqualTo(Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS);
+    assertThat(suppressionReasonAfterGain).isEqualTo(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
     InOrder inOrder = inOrder(listener);
     inOrder
         .verify(listener)
@@ -4649,6 +4659,13 @@ public class ExoPlayerTest {
         .verify(listener)
         .onPlayWhenReadyChanged(
             /* playWhenReady= */ false, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
+    inOrder
+        .verify(listener)
+        .onPlaybackSuppressionReasonChanged(
+            Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS);
+    inOrder
+        .verify(listener)
+        .onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
     verify(listener, never())
         .onPlayWhenReadyChanged(
             /* playWhenReady= */ false, Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS);
@@ -4679,7 +4696,6 @@ public class ExoPlayerTest {
 
     assertThat(playWhenReady).isTrue();
     assertThat(suppressionReason).isEqualTo(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
-    // TODO: Fix behavior and assert that suppression reason is transient audio focus loss.
     InOrder inOrder = inOrder(listener);
     inOrder
         .verify(listener)
@@ -4691,8 +4707,15 @@ public class ExoPlayerTest {
             /* playWhenReady= */ false, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
     inOrder
         .verify(listener)
+        .onPlaybackSuppressionReasonChanged(
+            Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS);
+    inOrder
+        .verify(listener)
         .onPlayWhenReadyChanged(
             /* playWhenReady= */ true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
+    inOrder
+        .verify(listener)
+        .onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
     verify(listener, never())
         .onPlayWhenReadyChanged(
             /* playWhenReady= */ false, Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS);
