@@ -92,7 +92,16 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     app:layout_constraintStart_toStartOf="parent"
-    app:layout_constraintBottom_toTopOf="@id/composition_export_button"/>
+    app:layout_constraintBottom_toTopOf="@id/background_audio_checkbox"/>
+
+  <androidx.appcompat.widget.AppCompatCheckBox
+    android:id="@+id/background_audio_checkbox"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:text="@string/add_background_audio"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintEnd_toEndOf="parent"
+    app:layout_constraintBottom_toTopOf="@id/preview_button" />
 
   <androidx.appcompat.widget.AppCompatButton
     android:id="@+id/composition_export_button"
@@ -100,9 +109,9 @@
     android:layout_marginTop="16dp"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintStart_toEndOf="@id/preview_button"
     app:layout_constraintEnd_toEndOf="parent"
-    app:layout_constraintBottom_toTopOf="@id/preview_button"/>
+    app:layout_constraintBottom_toBottomOf="parent"/>
 
   <androidx.appcompat.widget.AppCompatButton
     android:id="@+id/preview_button"
@@ -111,7 +120,7 @@
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     app:layout_constraintStart_toStartOf="parent"
-    app:layout_constraintEnd_toEndOf="parent"
+    app:layout_constraintEnd_toStartOf="@id/composition_export_button"
     app:layout_constraintBottom_toBottomOf="parent"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
