@@ -1783,8 +1783,8 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   @Override
   protected void dispatchDraw(Canvas canvas) {
     super.dispatchDraw(canvas);
-    if (Util.SDK_INT == 34) {
-      checkNotNull(surfaceSyncGroupV34).maybeMarkSyncReadyAndClear();
+    if (Util.SDK_INT == 34 && surfaceSyncGroupV34 != null) {
+      surfaceSyncGroupV34.maybeMarkSyncReadyAndClear();
     }
   }
 
