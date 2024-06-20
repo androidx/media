@@ -550,8 +550,7 @@ import java.util.concurrent.TimeoutException;
     boolean playWhenReady = getPlayWhenReady();
     @AudioFocusManager.PlayerCommand
     int playerCommand = audioFocusManager.updateAudioFocus(playWhenReady, Player.STATE_BUFFERING);
-    updatePlayWhenReady(
-        playWhenReady, playerCommand, getPlayWhenReadyChangeReason(playWhenReady, playerCommand));
+    updatePlayWhenReady(playWhenReady, playerCommand, getPlayWhenReadyChangeReason(playerCommand));
     if (playbackInfo.playbackState != Player.STATE_IDLE) {
       return;
     }
@@ -831,8 +830,7 @@ import java.util.concurrent.TimeoutException;
     verifyApplicationThread();
     @AudioFocusManager.PlayerCommand
     int playerCommand = audioFocusManager.updateAudioFocus(playWhenReady, getPlaybackState());
-    updatePlayWhenReady(
-        playWhenReady, playerCommand, getPlayWhenReadyChangeReason(playWhenReady, playerCommand));
+    updatePlayWhenReady(playWhenReady, playerCommand, getPlayWhenReadyChangeReason(playerCommand));
   }
 
   @Override
@@ -1500,8 +1498,7 @@ import java.util.concurrent.TimeoutException;
     boolean playWhenReady = getPlayWhenReady();
     @AudioFocusManager.PlayerCommand
     int playerCommand = audioFocusManager.updateAudioFocus(playWhenReady, getPlaybackState());
-    updatePlayWhenReady(
-        playWhenReady, playerCommand, getPlayWhenReadyChangeReason(playWhenReady, playerCommand));
+    updatePlayWhenReady(playWhenReady, playerCommand, getPlayWhenReadyChangeReason(playerCommand));
     listeners.flushEvents();
   }
 
@@ -2836,7 +2833,7 @@ import java.util.concurrent.TimeoutException;
   @PlaybackSuppressionReason
   private int computePlaybackSuppressionReason(
       boolean playWhenReady, @AudioFocusManager.PlayerCommand int playerCommand) {
-    if (playWhenReady && playerCommand != AudioFocusManager.PLAYER_COMMAND_PLAY_WHEN_READY) {
+    if (playerCommand == AudioFocusManager.PLAYER_COMMAND_WAIT_FOR_CALLBACK) {
       return Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS;
     }
     if (suppressPlaybackOnUnsuitableOutput) {
@@ -3005,8 +3002,8 @@ import java.util.concurrent.TimeoutException;
         .build();
   }
 
-  private static int getPlayWhenReadyChangeReason(boolean playWhenReady, int playerCommand) {
-    return playWhenReady && playerCommand != AudioFocusManager.PLAYER_COMMAND_PLAY_WHEN_READY
+  private static int getPlayWhenReadyChangeReason(int playerCommand) {
+    return playerCommand == AudioFocusManager.PLAYER_COMMAND_DO_NOT_PLAY
         ? PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS
         : PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST;
   }
@@ -3291,7 +3288,7 @@ import java.util.concurrent.TimeoutException;
     public void executePlayerCommand(@AudioFocusManager.PlayerCommand int playerCommand) {
       boolean playWhenReady = getPlayWhenReady();
       updatePlayWhenReady(
-          playWhenReady, playerCommand, getPlayWhenReadyChangeReason(playWhenReady, playerCommand));
+          playWhenReady, playerCommand, getPlayWhenReadyChangeReason(playerCommand));
     }
 
     // AudioBecomingNoisyManager.EventListener implementation.

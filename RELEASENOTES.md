@@ -4,6 +4,9 @@
 
 *   Common Library:
 *   ExoPlayer:
+    *   Fix some audio focus inconsistencies, e.g. not reporting full or
+        transient focus loss while the player is paused
+        ([#1436](https://github.com/androidx/media/issues/1436)).
 *   Transformer:
 *   Track Selection:
 *   Extractors:
