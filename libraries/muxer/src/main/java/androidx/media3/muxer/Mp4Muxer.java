@@ -167,27 +167,34 @@ public final class Mp4Muxer implements Muxer {
 
     /** Builds an {@link Mp4Muxer} instance. */
     public Mp4Muxer build() {
-      MetadataCollector metadataCollector = new MetadataCollector();
-      Mp4MoovStructure moovStructure =
-          new Mp4MoovStructure(metadataCollector, lastFrameDurationBehavior);
-      Mp4Writer mp4Writer =
-          new Mp4Writer(
-              fileOutputStream,
-              moovStructure,
-              annexBToAvccConverter == null ? AnnexBToAvccConverter.DEFAULT : annexBToAvccConverter,
-              sampleCopyEnabled,
-              attemptStreamableOutputEnabled);
-
-      return new Mp4Muxer(mp4Writer, metadataCollector);
+      return new Mp4Muxer(
+          fileOutputStream,
+          lastFrameDurationBehavior,
+          annexBToAvccConverter == null ? AnnexBToAvccConverter.DEFAULT : annexBToAvccConverter,
+          sampleCopyEnabled,
+          attemptStreamableOutputEnabled);
     }
   }
 
-  private final Mp4Writer mp4Writer;
   private final MetadataCollector metadataCollector;
+  private final Mp4Writer mp4Writer;
 
-  private Mp4Muxer(Mp4Writer mp4Writer, MetadataCollector metadataCollector) {
-    this.mp4Writer = mp4Writer;
-    this.metadataCollector = metadataCollector;
+  private Mp4Muxer(
+      FileOutputStream fileOutputStream,
+      @LastFrameDurationBehavior int lastFrameDurationBehavior,
+      AnnexBToAvccConverter annexBToAvccConverter,
+      boolean sampleCopyEnabled,
+      boolean attemptStreamableOutputEnabled) {
+    metadataCollector = new MetadataCollector();
+    Mp4MoovStructure moovStructure =
+        new Mp4MoovStructure(metadataCollector, lastFrameDurationBehavior);
+    mp4Writer =
+        new Mp4Writer(
+            fileOutputStream,
+            moovStructure,
+            annexBToAvccConverter,
+            sampleCopyEnabled,
+            attemptStreamableOutputEnabled);
   }
 
   /**
