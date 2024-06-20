@@ -45,7 +45,6 @@ import androidx.media3.common.PlaybackException.ErrorCode;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
 import androidx.media3.common.Player.DiscontinuityReason;
-import androidx.media3.common.Player.PlayWhenReadyChangeReason;
 import androidx.media3.common.Player.PlaybackSuppressionReason;
 import androidx.media3.common.Player.RepeatMode;
 import androidx.media3.common.Timeline;
@@ -102,8 +101,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
     public int operationAcks;
     public boolean positionDiscontinuity;
     public @DiscontinuityReason int discontinuityReason;
-    public boolean hasPlayWhenReadyChangeReason;
-    public @PlayWhenReadyChangeReason int playWhenReadyChangeReason;
 
     public PlaybackInfoUpdate(PlaybackInfo playbackInfo) {
       this.playbackInfo = playbackInfo;
@@ -130,13 +127,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
       hasPendingChange = true;
       positionDiscontinuity = true;
       this.discontinuityReason = discontinuityReason;
-    }
-
-    public void setPlayWhenReadyChangeReason(
-        @PlayWhenReadyChangeReason int playWhenReadyChangeReason) {
-      hasPendingChange = true;
-      this.hasPlayWhenReadyChangeReason = true;
-      this.playWhenReadyChangeReason = playWhenReadyChangeReason;
     }
   }
 
@@ -353,9 +343,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
   }
 
   public void setPlayWhenReady(
-      boolean playWhenReady, @PlaybackSuppressionReason int playbackSuppressionReason) {
+      boolean playWhenReady,
+      @Player.PlayWhenReadyChangeReason int playWhenReadyChangeReason,
+      @PlaybackSuppressionReason int playbackSuppressionReason) {
+    int combinedReasons = playbackSuppressionReason << 4 | playWhenReadyChangeReason;
     handler
-        .obtainMessage(MSG_SET_PLAY_WHEN_READY, playWhenReady ? 1 : 0, playbackSuppressionReason)
+        .obtainMessage(MSG_SET_PLAY_WHEN_READY, playWhenReady ? 1 : 0, combinedReasons)
         .sendToTarget();
   }
 
@@ -551,9 +544,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
         case MSG_SET_PLAY_WHEN_READY:
           setPlayWhenReadyInternal(
               /* playWhenReady= */ msg.arg1 != 0,
-              /* playbackSuppressionReason= */ msg.arg2,
+              /* playbackSuppressionReason= */ msg.arg2 >> 4,
               /* operationAck= */ true,
-              Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
+              /* reason= */ msg.arg2 & 0x0F);
           break;
         case MSG_SET_REPEAT_MODE:
           setRepeatModeInternal(msg.arg1);
@@ -892,8 +885,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
       @Player.PlayWhenReadyChangeReason int reason)
       throws ExoPlaybackException {
     playbackInfoUpdate.incrementPendingOperationAcks(operationAck ? 1 : 0);
-    playbackInfoUpdate.setPlayWhenReadyChangeReason(reason);
-    playbackInfo = playbackInfo.copyWithPlayWhenReady(playWhenReady, playbackSuppressionReason);
+    playbackInfo =
+        playbackInfo.copyWithPlayWhenReady(playWhenReady, reason, playbackSuppressionReason);
     updateRebufferingState(/* isRebuffering= */ false, /* resetLastRebufferRealtimeMs= */ false);
     notifyTrackSelectionPlayWhenReadyChanged(playWhenReady);
     if (!shouldPlayWhenReady()) {
@@ -1642,6 +1635,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
             resetTrackInfo ? ImmutableList.of() : playbackInfo.staticMetadata,
             mediaPeriodId,
             playbackInfo.playWhenReady,
+            playbackInfo.playWhenReadyChangeReason,
             playbackInfo.playbackSuppressionReason,
             playbackInfo.playbackParameters,
             /* bufferedPositionUs= */ startPositionUs,
