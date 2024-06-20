@@ -59,7 +59,7 @@ interface IRemoteMediaSession {
   void increaseDeviceVolume(String sessionId, int flags);
   void setDeviceMuted(String sessionId, boolean muted, int flags);
   void notifyPlayerError(String sessionId, in Bundle playerErrorBundle);
-  void notifyPlayWhenReadyChanged(String sessionId, boolean playWhenReady, int reason);
+  void notifyPlayWhenReadyChanged(String sessionId, boolean playWhenReady, int playWhenReadyChangeReason, int suppressionReason);
   void notifyPlaybackStateChanged(String sessionId, int state);
   void notifyIsLoadingChanged(String sessionId, boolean isLoading);
   void notifyPositionDiscontinuity(String sessionId,

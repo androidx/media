@@ -314,9 +314,12 @@ public class RemoteMediaSession {
     }
 
     public void notifyPlayWhenReadyChanged(
-        boolean playWhenReady, @Player.PlaybackSuppressionReason int reason)
+        boolean playWhenReady,
+        @Player.PlayWhenReadyChangeReason int playWhenReadyChangeReason,
+        @Player.PlaybackSuppressionReason int suppressionReason)
         throws RemoteException {
-      binder.notifyPlayWhenReadyChanged(sessionId, playWhenReady, reason);
+      binder.notifyPlayWhenReadyChanged(
+          sessionId, playWhenReady, playWhenReadyChangeReason, suppressionReason);
     }
 
     public void notifyPlaybackStateChanged(@Player.State int state) throws RemoteException {

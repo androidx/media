@@ -789,7 +789,9 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
     session
         .getMockPlayer()
         .notifyPlayWhenReadyChanged(
-            /* playWhenReady= */ false, Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+            /* playWhenReady= */ false,
+            Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+            Player.PLAYBACK_SUPPRESSION_REASON_NONE);
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(playbackStateCompatRef.get().getState()).isEqualTo(PlaybackStateCompat.STATE_PAUSED);
@@ -833,7 +835,9 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
     session
         .getMockPlayer()
         .notifyPlayWhenReadyChanged(
-            /* playWhenReady= */ true, Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+            /* playWhenReady= */ true,
+            Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+            Player.PLAYBACK_SUPPRESSION_REASON_NONE);
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(playbackStateCompatRef.get().getState())
@@ -919,6 +923,7 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
         .getMockPlayer()
         .notifyPlayWhenReadyChanged(
             /* playWhenReady= */ true,
+            Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
             Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS);
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -969,6 +974,7 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
         .getMockPlayer()
         .notifyPlayWhenReadyChanged(
             /* playWhenReady= */ true,
+            Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
             Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS);
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -1015,7 +1021,9 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
     session
         .getMockPlayer()
         .notifyPlayWhenReadyChanged(
-            /* playWhenReady= */ true, Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+            /* playWhenReady= */ true,
+            Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+            Player.PLAYBACK_SUPPRESSION_REASON_NONE);
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(playbackStateCompatRef.get().getState())

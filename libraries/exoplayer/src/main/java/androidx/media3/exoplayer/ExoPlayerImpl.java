@@ -2154,7 +2154,9 @@ import java.util.concurrent.TimeoutException;
           Player.EVENT_PLAYBACK_STATE_CHANGED,
           listener -> listener.onPlaybackStateChanged(newPlaybackInfo.playbackState));
     }
-    if (playWhenReadyChanged) {
+    if (playWhenReadyChanged
+        || previousPlaybackInfo.playWhenReadyChangeReason
+            != newPlaybackInfo.playWhenReadyChangeReason) {
       listeners.queueEvent(
           Player.EVENT_PLAY_WHEN_READY_CHANGED,
           listener ->
@@ -2798,7 +2800,8 @@ import java.util.concurrent.TimeoutException;
     @PlaybackSuppressionReason
     int playbackSuppressionReason = computePlaybackSuppressionReason(playWhenReady, playerCommand);
     if (playbackInfo.playWhenReady == playWhenReady
-        && playbackInfo.playbackSuppressionReason == playbackSuppressionReason) {
+        && playbackInfo.playbackSuppressionReason == playbackSuppressionReason
+        && playbackInfo.playWhenReadyChangeReason == playWhenReadyChangeReason) {
       return;
     }
     updatePlaybackInfoForPlayWhenReadyAndSuppressionReasonStates(

@@ -2746,7 +2746,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     @Nullable
     @Player.PlayWhenReadyChangeReason
     Integer playWhenReadyChangeReason =
-        oldPlayerInfo.playWhenReady != finalPlayerInfo.playWhenReady
+        oldPlayerInfo.playWhenReadyChangeReason != finalPlayerInfo.playWhenReadyChangeReason
+                || oldPlayerInfo.playWhenReady != finalPlayerInfo.playWhenReady
             ? finalPlayerInfo.playWhenReadyChangeReason
             : null;
 
