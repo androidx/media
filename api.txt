@@ -548,6 +548,7 @@ package androidx.media3.common {
     field public static final String APPLICATION_PGS = "application/pgs";
     field @Deprecated public static final String APPLICATION_RAWCC = "application/x-rawcc";
     field public static final String APPLICATION_RTSP = "application/x-rtsp";
+    field public static final String APPLICATION_SDP = "application/sdp";
     field public static final String APPLICATION_SS = "application/vnd.ms-sstr+xml";
     field public static final String APPLICATION_SUBRIP = "application/x-subrip";
     field public static final String APPLICATION_TTML = "application/ttml+xml";
