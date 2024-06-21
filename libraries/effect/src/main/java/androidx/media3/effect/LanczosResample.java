@@ -16,6 +16,7 @@
 package androidx.media3.effect;
 
 import static androidx.media3.common.util.Assertions.checkArgument;
+import static java.lang.Math.abs;
 import static java.lang.Math.min;
 import static java.lang.Math.round;
 
@@ -37,6 +38,9 @@ public final class LanczosResample implements GlEffect {
   // Default value for the radius, or alpha parameter used by Lanczos filter. A value of 3 is
   // used by ffmpeg (https://ffmpeg.org/ffmpeg-scaler.html), libplacebo, or Apple's vImage library.
   private static final float DEFAULT_RADIUS = 3f;
+  // For scaling factors near 1, this algorithm won't bring a big improvement over bilinear or
+  // nearest sampling using the GPU texture units
+  private static final float NO_OP_THRESHOLD = 0.01f;
 
   private final float radius;
   private final int width;
@@ -66,6 +70,37 @@ public final class LanczosResample implements GlEffect {
       throws VideoFrameProcessingException {
     return new SeparableConvolutionShaderProgram(
         context, useHdr, new LanczosResampleScaledFunctionProvider(radius, width, height));
+  }
+
+  /**
+   * {@inheritDoc}
+   *
+   * <p>For scaling factors near 1, this effect applies no change because the Lanczos algorithm
+   * won't bring a big improvement over bilinear or nearest sampling using the GPU texture units.
+   */
+  @Override
+  public boolean isNoOp(int inputWidth, int inputHeight) {
+    return abs(scalingFactorToFit(inputWidth, inputHeight, width, height) - 1f) < NO_OP_THRESHOLD;
+  }
+
+  /**
+   * Returns the scaling factor required to fit an input image into a target rectangle.
+   *
+   * @param inputWidth The width of the input image.
+   * @param inputHeight The height of the input image.
+   * @param targetWidth The width of the target rectangle.
+   * @param targetHeight The height of the target rectangle.
+   */
+  private static float scalingFactorToFit(
+      int inputWidth, int inputHeight, int targetWidth, int targetHeight) {
+    checkArgument(inputWidth > 0);
+    checkArgument(inputHeight > 0);
+    // Scale to fit, preserving aspect ratio.
+    if (inputHeight * targetWidth <= targetHeight * inputWidth) {
+      return (float) targetWidth / inputWidth;
+    } else {
+      return (float) targetHeight / inputHeight;
+    }
   }
 
   private static class LanczosResampleScaledFunctionProvider
@@ -101,16 +136,8 @@ public final class LanczosResample implements GlEffect {
 
     @Override
     public Size configure(Size inputSize) {
-      checkArgument(inputSize.getWidth() > 0);
-      checkArgument(inputSize.getHeight() > 0);
-      // Scale to fit, preserving aspect ratio.
-      if (inputSize.getHeight() * width <= height * inputSize.getWidth()) {
-        scale = (float) width / inputSize.getWidth();
-        return new Size(width, round(inputSize.getHeight() * scale));
-      } else {
-        scale = (float) height / inputSize.getHeight();
-        return new Size(round(inputSize.getWidth() * scale), height);
-      }
+      scale = scalingFactorToFit(inputSize.getWidth(), inputSize.getHeight(), width, height);
+      return new Size(round(inputSize.getWidth() * scale), round(inputSize.getHeight() * scale));
     }
   }
 }
