@@ -382,6 +382,7 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
     // Due to b/267740292 using hardware to software encoder fallback is risky.
     return format.width * format.height >= 1920 * 1080
         && (Ascii.equalsIgnoreCase(Util.MODEL, "vivo 1906")
+            || Ascii.equalsIgnoreCase(Util.MODEL, "redmi 7a")
             || Ascii.equalsIgnoreCase(Util.MODEL, "redmi 8"));
   }
 
