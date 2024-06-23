@@ -31,15 +31,13 @@ import androidx.media3.common.util.Log;
 
   private static final String TAG = "WifiLockManager";
   private static final String WIFI_LOCK_TAG = "ExoPlayer:WifiLockManager";
-
-  @Nullable private final WifiManager wifiManager;
   @Nullable private WifiLock wifiLock;
   private boolean enabled;
   private boolean stayAwake;
+  private Context applicationContext;
 
   public WifiLockManager(Context context) {
-    wifiManager =
-        (WifiManager) context.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+    applicationContext = context.getApplicationContext();
   }
 
   /**
@@ -54,6 +52,9 @@ import androidx.media3.common.util.Log;
    */
   public void setEnabled(boolean enabled) {
     if (enabled && wifiLock == null) {
+      final WifiManager wifiManager =
+          (WifiManager) applicationContext.getApplicationContext()
+              .getSystemService(Context.WIFI_SERVICE);
       if (wifiManager == null) {
         Log.w(TAG, "WifiManager is null, therefore not creating the WifiLock.");
         return;
