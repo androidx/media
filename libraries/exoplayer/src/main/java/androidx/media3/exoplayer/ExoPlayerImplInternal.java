@@ -119,9 +119,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
     public void setPositionDiscontinuity(@DiscontinuityReason int discontinuityReason) {
       if (positionDiscontinuity
           && this.discontinuityReason != Player.DISCONTINUITY_REASON_INTERNAL) {
-        // We always prefer non-internal discontinuity reasons. We also assume that we won't report
-        // more than one non-internal discontinuity per message iteration.
-        Assertions.checkArgument(discontinuityReason == Player.DISCONTINUITY_REASON_INTERNAL);
+        // We always prefer non-internal discontinuity reasons. Multiple non-internal discontinuity
+        // reasons are possible, but rare. Report the first reason seen.
         return;
       }
       hasPendingChange = true;

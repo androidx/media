@@ -162,6 +162,7 @@ import androidx.media3.exoplayer.source.ads.ServerSideAdInsertionMediaSource;
 import androidx.media3.exoplayer.text.TextOutput;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
+import androidx.media3.exoplayer.trackselection.TrackSelectorResult;
 import androidx.media3.exoplayer.upstream.Allocation;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.Loader;
@@ -204,6 +205,7 @@ import com.google.common.collect.Range;
 import com.google.common.util.concurrent.AtomicDouble;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
+import java.time.Period;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -15524,6 +15526,61 @@ public class ExoPlayerTest {
     player.release();
 
     assertThat(mediaItemIndexAfterReprepare).isEqualTo(0);
+  }
+
+  @Test
+  public void rendererError_whileReadingAhead_multipleNonInternalEvents() throws Exception {
+    // Creating a PlaybackInfo instance with dummy/placeholder values
+    Timeline dummyTimeline = Timeline.EMPTY;
+    MediaPeriodId dummyMediaPeriodId = new MediaPeriodId(new Object());
+    long dummyStartPosition = 0L;
+    long dummyContentPosition = 0L;
+    int dummyPlaybackState = 0;
+    ExoPlaybackException dummyExoPlaybackException = null;
+    boolean dummyPlayWhenReady = false;
+    TrackGroupArray dummyTrackGroups = TrackGroupArray.EMPTY;
+    TrackSelectorResult dummyTrackSelectorResult = new TrackSelectorResult(
+        new RendererConfiguration[0],
+        new ExoTrackSelection[0],
+        Tracks.EMPTY,
+        /* info= */ null);
+    List<Metadata> dummyMetadataList = Collections.emptyList();
+    boolean dummyIsLoading = false;
+    PlaybackParameters dummyPlaybackParameters = PlaybackParameters.DEFAULT;
+    long dummyTotalBufferedDuration = 0L;
+    long dummyPositionUs = 0L;
+    long dummyBufferedPositionUs = 0L;
+
+    PlaybackInfo mockPlaybackInfo = new PlaybackInfo(
+        dummyTimeline,
+        dummyMediaPeriodId,
+        dummyContentPosition, // requestedContentPositionUs matches dummyContentPosition
+        dummyStartPosition, // discontinuityStartPositionUs matches dummyStartPosition
+        dummyPlaybackState,
+        dummyExoPlaybackException,
+        dummyIsLoading, // isLoading matches dummyIsLoading
+        dummyTrackGroups,
+        dummyTrackSelectorResult,
+        dummyMetadataList,
+        dummyMediaPeriodId, // loadingMediaPeriodId matches dummyMediaPeriodId
+        dummyPlayWhenReady,
+        Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+        // Assuming a reason for playWhenReady change
+        Player.PLAYBACK_SUPPRESSION_REASON_NONE, // Assuming no playback suppression
+        dummyPlaybackParameters,
+        dummyBufferedPositionUs, // bufferedPositionUs matches dummyBufferedPositionUs
+        dummyTotalBufferedDuration, // totalBufferedDurationUs matches dummyTotalBufferedDuration
+        dummyPositionUs,
+        0L, // Assuming positionUpdateTimeMs is 0 for the sake of this example
+        false // Assuming sleepingForOffload is false
+    );
+    ExoPlayerImplInternal.PlaybackInfoUpdate playbackInfoUpdate = new ExoPlayerImplInternal.PlaybackInfoUpdate(
+        mockPlaybackInfo);
+
+    // make multiple updates to set position discontinuity
+    playbackInfoUpdate.setPositionDiscontinuity(Player.DISCONTINUITY_REASON_SEEK);
+    playbackInfoUpdate.setPositionDiscontinuity(Player.DISCONTINUITY_REASON_INTERNAL);
+    playbackInfoUpdate.setPositionDiscontinuity(Player.DISCONTINUITY_REASON_SEEK);
   }
 
   // Internal methods.
