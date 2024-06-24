@@ -573,6 +573,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
               .setEncoderDelay(format.encoderDelay)
               .setEncoderPadding(format.encoderPadding)
               .setMetadata(format.metadata)
+              .setCustomData(format.customData)
               .setId(format.id)
               .setLabel(format.label)
               .setLabels(format.labels)

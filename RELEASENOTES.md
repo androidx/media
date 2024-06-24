@@ -3,6 +3,8 @@
 ### Unreleased changes
 
 *   Common Library:
+    *   Add `Format.customData` to store app-provided custom information about
+        `Format` instances.
 *   ExoPlayer:
     *   Fix some audio focus inconsistencies, e.g. not reporting full or
         transient focus loss while the player is paused

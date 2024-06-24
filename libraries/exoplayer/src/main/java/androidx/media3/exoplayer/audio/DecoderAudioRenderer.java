@@ -449,6 +449,7 @@ public abstract class DecoderAudioRenderer<
               .setEncoderDelay(encoderDelay)
               .setEncoderPadding(encoderPadding)
               .setMetadata(inputFormat.metadata)
+              .setCustomData(inputFormat.customData)
               .setId(inputFormat.id)
               .setLabel(inputFormat.label)
               .setLabels(inputFormat.labels)
