@@ -221,7 +221,7 @@ public final class ConcatenatingMediaSource2 extends CompositeMediaSource<Intege
     }
   }
 
-  private static final int MSG_UPDATE_TIMELINE = 0;
+  private static final int MSG_UPDATE_TIMELINE = 1;
 
   private final ImmutableList<MediaSourceHolder> mediaSourceHolders;
   private final IdentityHashMap<MediaPeriod, MediaSourceHolder> mediaSourceByMediaPeriod;

@@ -135,7 +135,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
   }
 
   // Internal messages
-  private static final int MSG_PREPARE = 0;
   private static final int MSG_SET_PLAY_WHEN_READY = 1;
   private static final int MSG_DO_SOME_WORK = 2;
   private static final int MSG_SEEK_TO = 3;
@@ -163,6 +162,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
   private static final int MSG_RENDERER_CAPABILITIES_CHANGED = 26;
   private static final int MSG_UPDATE_MEDIA_SOURCES_WITH_MEDIA_ITEMS = 27;
   private static final int MSG_SET_PRELOAD_CONFIGURATION = 28;
+  private static final int MSG_PREPARE = 29;
 
   private static final long BUFFERING_MAXIMUM_INTERVAL_MS =
       Util.usToMs(Renderer.DEFAULT_DURATION_TO_PROGRESS_US);

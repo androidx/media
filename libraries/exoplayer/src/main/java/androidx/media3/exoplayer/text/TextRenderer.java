@@ -95,7 +95,7 @@ public final class TextRenderer extends BaseRenderer implements Callback {
    */
   private static final int REPLACEMENT_STATE_WAIT_END_OF_STREAM = 2;
 
-  private static final int MSG_UPDATE_OUTPUT = 0;
+  private static final int MSG_UPDATE_OUTPUT = 1;
 
   // Fields used when handling CuesWithTiming objects from application/x-media3-cues samples.
   private final CueDecoder cueDecoder;
