@@ -28,7 +28,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.util.Util;
 import androidx.media3.muxer.Muxer.TrackToken;
 import com.google.common.collect.Range;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -43,7 +42,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
   private static final int DEFAULT_MOOV_BOX_SIZE_BYTES = 400_000;
   private static final String FREE_BOX_TYPE = "free";
 
-  private final FileOutputStream outputStream;
   private final FileChannel output;
   private final Mp4MoovStructure moovGenerator;
   private final AnnexBToAvccConverter annexBToAvccConverter;
@@ -66,7 +64,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
   /**
    * Creates an instance.
    *
-   * @param outputStream The {@link FileOutputStream} to write the data to.
+   * @param fileChannel The {@link FileChannel} to write the data to. The {@link FileChannel} can be
+   *     closed after {@link #finishWritingSamples() finishing writing samples}.
    * @param moovGenerator An {@link Mp4MoovStructure} instance to generate the moov box.
    * @param annexBToAvccConverter The {@link AnnexBToAvccConverter} to be used to convert H.264 and
    *     H.265 NAL units from the Annex-B format (using start codes to delineate NAL units) to the
@@ -75,13 +74,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
    * @param attemptStreamableOutputEnabled Whether to attempt to write a streamable output.
    */
   public Mp4Writer(
-      FileOutputStream outputStream,
+      FileChannel fileChannel,
       Mp4MoovStructure moovGenerator,
       AnnexBToAvccConverter annexBToAvccConverter,
       boolean sampleCopyEnabled,
       boolean attemptStreamableOutputEnabled) {
-    this.outputStream = outputStream;
-    this.output = outputStream.getChannel();
+    this.output = fileChannel;
     this.moovGenerator = moovGenerator;
     this.annexBToAvccConverter = annexBToAvccConverter;
     this.sampleCopyEnabled = sampleCopyEnabled;
@@ -105,19 +103,19 @@ import java.util.concurrent.atomic.AtomicBoolean;
     doInterleave();
   }
 
-  public void close() throws IOException {
-    try {
-      for (int i = 0; i < tracks.size(); i++) {
-        flushPending(tracks.get(i));
-      }
+  /**
+   * Writes all the pending samples and the final moov box to the disk.
+   *
+   * <p>The output {@link FileChannel} can be closed after calling this method.
+   */
+  public void finishWritingSamples() throws IOException {
+    for (int i = 0; i < tracks.size(); i++) {
+      flushPending(tracks.get(i));
+    }
 
-      // Leave the file empty if no samples are written.
-      if (hasWrittenSamples.get()) {
-        writeMoovAndTrim();
-      }
-    } finally {
-      output.close();
-      outputStream.close();
+    // Leave the file empty if no samples are written.
+    if (hasWrittenSamples.get()) {
+      writeMoovAndTrim();
     }
   }
 

@@ -24,6 +24,7 @@ import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
@@ -38,6 +39,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 
 /**
  * A muxer for creating an MP4 container file.
@@ -176,6 +178,10 @@ public final class Mp4Muxer implements Muxer {
     }
   }
 
+  private static final String TAG = "Mp4Muxer";
+
+  private final FileOutputStream fileOutputStream;
+  private final FileChannel fileChannel;
   private final MetadataCollector metadataCollector;
   private final Mp4Writer mp4Writer;
 
@@ -185,12 +191,14 @@ public final class Mp4Muxer implements Muxer {
       AnnexBToAvccConverter annexBToAvccConverter,
       boolean sampleCopyEnabled,
       boolean attemptStreamableOutputEnabled) {
+    this.fileOutputStream = fileOutputStream;
+    this.fileChannel = fileOutputStream.getChannel();
     metadataCollector = new MetadataCollector();
     Mp4MoovStructure moovStructure =
         new Mp4MoovStructure(metadataCollector, lastFrameDurationBehavior);
     mp4Writer =
         new Mp4Writer(
-            fileOutputStream,
+            fileChannel,
             moovStructure,
             annexBToAvccConverter,
             sampleCopyEnabled,
@@ -288,10 +296,32 @@ public final class Mp4Muxer implements Muxer {
 
   @Override
   public void close() throws MuxerException {
+    @Nullable MuxerException exception = null;
     try {
-      mp4Writer.close();
+      mp4Writer.finishWritingSamples();
     } catch (IOException e) {
-      throw new MuxerException("Failed to close the muxer", e);
+      exception = new MuxerException("Failed to finish writing samples", e);
+    }
+    try {
+      fileChannel.close();
+    } catch (IOException e) {
+      if (exception == null) {
+        exception = new MuxerException("Failed to close output channel", e);
+      } else {
+        Log.e(TAG, "Failed to close output channel", e);
+      }
+    }
+    try {
+      fileOutputStream.close();
+    } catch (IOException e) {
+      if (exception == null) {
+        exception = new MuxerException("Failed to close output stream", e);
+      } else {
+        Log.e(TAG, "Failed to close output stream", e);
+      }
+    }
+    if (exception != null) {
+      throw exception;
     }
   }
 }
