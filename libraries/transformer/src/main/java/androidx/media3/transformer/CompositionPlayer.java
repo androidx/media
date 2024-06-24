@@ -283,6 +283,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
   private long compositionDurationUs;
   private boolean playWhenReady;
   private @PlayWhenReadyChangeReason int playWhenReadyChangeReason;
+  private float volume;
   private boolean renderedFirstFrame;
   @Nullable private Object videoOutput;
   @Nullable private PlaybackException playbackException;
@@ -303,6 +304,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
     players = new ArrayList<>();
     compositionDurationUs = C.TIME_UNSET;
     playbackState = STATE_IDLE;
+    volume = 1.0f;
   }
 
   /**
@@ -425,6 +427,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
             .setPlaybackState(playbackState)
             .setPlayerError(playbackException)
             .setPlayWhenReady(playWhenReady, playWhenReadyChangeReason)
+            .setVolume(volume)
             .setContentPositionMs(this::getContentPositionMs)
             .setContentBufferedPositionMs(this::getBufferedPositionMs)
             .setTotalBufferedDurationMs(this::getTotalBufferedDurationMs)
@@ -525,8 +528,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
 
   @Override
   protected ListenableFuture<?> handleSetVolume(float volume) {
-    volume = Util.constrainValue(volume, /* min= */ 0, /* max= */ 1);
-    finalAudioSink.setVolume(volume);
+    this.volume = Util.constrainValue(volume, /* min= */ 0.0f, /* max= */ 1.0f);
+    finalAudioSink.setVolume(this.volume);
     return Futures.immediateVoidFuture();
   }
 
