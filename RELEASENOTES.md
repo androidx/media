@@ -42,6 +42,9 @@
 *   Leanback extension:
 *   Cast Extension:
 *   Test Utilities:
+*   Demo app:
+    *   Use `HttpEngineDataSource` as the `HttpDataSource` when supported by the
+        device.
 *   Remove deprecated symbols:
 
 ## 1.4

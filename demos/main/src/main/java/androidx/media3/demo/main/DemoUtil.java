@@ -16,12 +16,15 @@
 package androidx.media3.demo.main;
 
 import android.content.Context;
+import android.net.http.HttpEngine;
+import android.os.Build;
 import androidx.annotation.OptIn;
 import androidx.media3.database.DatabaseProvider;
 import androidx.media3.database.StandaloneDatabaseProvider;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.datasource.DefaultHttpDataSource;
+import androidx.media3.datasource.HttpEngineDataSource;
 import androidx.media3.datasource.cache.Cache;
 import androidx.media3.datasource.cache.CacheDataSource;
 import androidx.media3.datasource.cache.NoOpCacheEvictor;
@@ -47,13 +50,14 @@ public final class DemoUtil {
   public static final String DOWNLOAD_NOTIFICATION_CHANNEL_ID = "download_channel";
 
   /**
-   * Whether the demo application uses Cronet for networking. Note that Cronet does not provide
-   * automatic support for cookies (https://github.com/google/ExoPlayer/issues/5975).
+   * Whether the demo application uses Cronet for networking when {@link HttpEngine} is not
+   * supported. Note that Cronet does not provide automatic support for cookies
+   * (https://github.com/google/ExoPlayer/issues/5975).
    *
-   * <p>If set to false, the platform's default network stack is used with a {@link CookieManager}
-   * configured in {@link #getHttpDataSourceFactory}.
+   * <p>If set to false, the {@link DefaultHttpDataSource} is used with a {@link CookieManager}
+   * configured in {@link #getHttpDataSourceFactory} when {@link HttpEngine} is not supported.
    */
-  private static final boolean USE_CRONET_FOR_NETWORKING = true;
+  private static final boolean ALLOW_CRONET_FOR_NETWORKING = true;
 
   private static final String TAG = "DemoUtil";
   private static final String DOWNLOAD_CONTENT_DIRECTORY = "downloads";
@@ -97,24 +101,36 @@ public final class DemoUtil {
   }
 
   public static synchronized DataSource.Factory getHttpDataSourceFactory(Context context) {
-    if (httpDataSourceFactory == null) {
-      if (USE_CRONET_FOR_NETWORKING) {
-        context = context.getApplicationContext();
-        @Nullable CronetEngine cronetEngine = CronetUtil.buildCronetEngine(context);
-        if (cronetEngine != null) {
-          httpDataSourceFactory =
-              new CronetDataSource.Factory(cronetEngine, Executors.newSingleThreadExecutor());
-        }
-      }
-      if (httpDataSourceFactory == null) {
-        // We don't want to use Cronet, or we failed to instantiate a CronetEngine.
-        CookieManager cookieManager = new CookieManager();
-        cookieManager.setCookiePolicy(CookiePolicy.ACCEPT_ORIGINAL_SERVER);
-        CookieHandler.setDefault(cookieManager);
-        httpDataSourceFactory = new DefaultHttpDataSource.Factory();
+    if (httpDataSourceFactory != null) {
+      return httpDataSourceFactory;
+    }
+    context = context.getApplicationContext();
+    if (Build.VERSION.SDK_INT >= 34) {
+      setCookieHandler();
+      HttpEngine httpEngine = new HttpEngine.Builder(context).build();
+      httpDataSourceFactory =
+          new HttpEngineDataSource.Factory(httpEngine, Executors.newSingleThreadExecutor());
+      return httpDataSourceFactory;
+    }
+    if (ALLOW_CRONET_FOR_NETWORKING) {
+      @Nullable CronetEngine cronetEngine = CronetUtil.buildCronetEngine(context);
+      if (cronetEngine != null) {
+        httpDataSourceFactory =
+            new CronetDataSource.Factory(cronetEngine, Executors.newSingleThreadExecutor());
+        return httpDataSourceFactory;
       }
     }
+    // The device doesn't support HttpEngine or we don't want to allow Cronet, or we failed to
+    // instantiate a CronetEngine.
+    setCookieHandler();
+    httpDataSourceFactory = new DefaultHttpDataSource.Factory();
     return httpDataSourceFactory;
+  }
+
+  private static void setCookieHandler() {
+    CookieManager cookieManager = new CookieManager();
+    cookieManager.setCookiePolicy(CookiePolicy.ACCEPT_ORIGINAL_SERVER);
+    CookieHandler.setDefault(cookieManager);
   }
 
   /** Returns a {@link DataSource.Factory}. */
