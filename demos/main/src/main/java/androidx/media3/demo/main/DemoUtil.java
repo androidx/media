@@ -106,7 +106,6 @@ public final class DemoUtil {
     }
     context = context.getApplicationContext();
     if (Build.VERSION.SDK_INT >= 34) {
-      setCookieHandler();
       HttpEngine httpEngine = new HttpEngine.Builder(context).build();
       httpDataSourceFactory =
           new HttpEngineDataSource.Factory(httpEngine, Executors.newSingleThreadExecutor());
@@ -122,15 +121,11 @@ public final class DemoUtil {
     }
     // The device doesn't support HttpEngine or we don't want to allow Cronet, or we failed to
     // instantiate a CronetEngine.
-    setCookieHandler();
-    httpDataSourceFactory = new DefaultHttpDataSource.Factory();
-    return httpDataSourceFactory;
-  }
-
-  private static void setCookieHandler() {
     CookieManager cookieManager = new CookieManager();
     cookieManager.setCookiePolicy(CookiePolicy.ACCEPT_ORIGINAL_SERVER);
     CookieHandler.setDefault(cookieManager);
+    httpDataSourceFactory = new DefaultHttpDataSource.Factory();
+    return httpDataSourceFactory;
   }
 
   /** Returns a {@link DataSource.Factory}. */
