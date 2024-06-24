@@ -261,6 +261,11 @@ public class MediaCodecVideoRendererTest {
         /* startPositionUs= */ 0,
         /* offsetUs= */ 0,
         /* mediaPeriodId= */ new MediaSource.MediaPeriodId(new Object()));
+    shadowOf(testMainLooper).idle();
+    ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
+        ArgumentCaptor.forClass(DecoderCounters.class);
+    verify(eventListener).onVideoEnabled(argumentDecoderCounters.capture());
+    DecoderCounters decoderCounters = argumentDecoderCounters.getValue();
 
     mediaCodecVideoRenderer.start();
     mediaCodecVideoRenderer.render(0, SystemClock.elapsedRealtime() * 1000);
@@ -276,18 +281,18 @@ public class MediaCodecVideoRendererTest {
             END_OF_STREAM_ITEM));
     fakeSampleStream.writeData(/* startPositionUs= */ 0);
     mediaCodecVideoRenderer.setCurrentStreamFinal();
+    // Render until the new keyframe has been processed and then increase time to reach the end.
+    while (decoderCounters.renderedOutputBufferCount < 2) {
+      mediaCodecVideoRenderer.render(posUs, SystemClock.elapsedRealtime() * 1000);
+    }
     while (!mediaCodecVideoRenderer.isEnded()) {
       mediaCodecVideoRenderer.render(posUs, SystemClock.elapsedRealtime() * 1000);
       posUs += 10_000;
     }
-    shadowOf(testMainLooper).idle();
 
-    ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
-        ArgumentCaptor.forClass(DecoderCounters.class);
-    verify(eventListener).onVideoEnabled(argumentDecoderCounters.capture());
-    assertThat(argumentDecoderCounters.getValue().renderedOutputBufferCount).isEqualTo(3);
-    assertThat(argumentDecoderCounters.getValue().droppedInputBufferCount).isEqualTo(1);
-    assertThat(argumentDecoderCounters.getValue().droppedToKeyframeCount).isEqualTo(1);
+    assertThat(decoderCounters.renderedOutputBufferCount).isEqualTo(3);
+    assertThat(decoderCounters.droppedInputBufferCount).isEqualTo(1);
+    assertThat(decoderCounters.droppedToKeyframeCount).isEqualTo(1);
   }
 
   @Test
