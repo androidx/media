@@ -37,6 +37,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -149,6 +150,7 @@ public final class Format {
     private int peakBitrate;
     @Nullable private String codecs;
     @Nullable private Metadata metadata;
+    @Nullable private Object customData;
 
     // Container specific.
 
@@ -241,6 +243,7 @@ public final class Format {
       this.peakBitrate = format.peakBitrate;
       this.codecs = format.codecs;
       this.metadata = format.metadata;
+      this.customData = format.customData;
       // Container specific.
       this.containerMimeType = format.containerMimeType;
       // Sample specific.
@@ -411,6 +414,22 @@ public final class Format {
     @CanIgnoreReturnValue
     public Builder setMetadata(@Nullable Metadata metadata) {
       this.metadata = metadata;
+      return this;
+    }
+
+    /**
+     * Sets the opaque object {@link Format#customData}. The default value is null.
+     *
+     * <p>This value is not included in serialized {@link Bundle} instances of this class that are
+     * used to transfer data to other processes.
+     *
+     * @param customData The {@link Format#customData}.
+     * @return The builder.
+     */
+    @UnstableApi
+    @CanIgnoreReturnValue
+    public Builder setCustomData(@Nullable Object customData) {
+      this.customData = customData;
       return this;
     }
 
@@ -861,6 +880,15 @@ public final class Format {
   /** Metadata, or null if unknown or not applicable. */
   @UnstableApi @Nullable public final Metadata metadata;
 
+  /**
+   * An extra opaque object that can be added to the {@link Format} to provide additional
+   * information that can be passed through the player.
+   *
+   * <p>This value is not included in serialized {@link Bundle} instances of this class that are
+   * used to transfer data to other processes.
+   */
+  @UnstableApi @Nullable public final Object customData;
+
   // Container specific.
 
   /** The MIME type of the container, or null if unknown or not applicable. */
@@ -1021,6 +1049,7 @@ public final class Format {
     bitrate = peakBitrate != NO_VALUE ? peakBitrate : averageBitrate;
     codecs = builder.codecs;
     metadata = builder.metadata;
+    customData = builder.customData;
     // Container specific.
     containerMimeType = builder.containerMimeType;
     // Sample specific.
@@ -1204,6 +1233,7 @@ public final class Format {
       result = 31 * result + peakBitrate;
       result = 31 * result + (codecs == null ? 0 : codecs.hashCode());
       result = 31 * result + (metadata == null ? 0 : metadata.hashCode());
+      result = 31 * result + (customData == null ? 0 : customData.hashCode());
       // Container specific.
       result = 31 * result + (containerMimeType == null ? 0 : containerMimeType.hashCode());
       // Sample specific.
@@ -1273,18 +1303,19 @@ public final class Format {
         && cryptoType == other.cryptoType
         && Float.compare(frameRate, other.frameRate) == 0
         && Float.compare(pixelWidthHeightRatio, other.pixelWidthHeightRatio) == 0
-        && Util.areEqual(id, other.id)
-        && Util.areEqual(label, other.label)
+        && Objects.equals(id, other.id)
+        && Objects.equals(label, other.label)
         && labels.equals(other.labels)
-        && Util.areEqual(codecs, other.codecs)
-        && Util.areEqual(containerMimeType, other.containerMimeType)
-        && Util.areEqual(sampleMimeType, other.sampleMimeType)
-        && Util.areEqual(language, other.language)
+        && Objects.equals(codecs, other.codecs)
+        && Objects.equals(containerMimeType, other.containerMimeType)
+        && Objects.equals(sampleMimeType, other.sampleMimeType)
+        && Objects.equals(language, other.language)
         && Arrays.equals(projectionData, other.projectionData)
-        && Util.areEqual(metadata, other.metadata)
-        && Util.areEqual(colorInfo, other.colorInfo)
-        && Util.areEqual(drmInitData, other.drmInitData)
-        && initializationDataEquals(other);
+        && Objects.equals(metadata, other.metadata)
+        && Objects.equals(colorInfo, other.colorInfo)
+        && Objects.equals(drmInitData, other.drmInitData)
+        && initializationDataEquals(other)
+        && Objects.equals(customData, other.customData);
   }
 
   /**
@@ -1381,6 +1412,9 @@ public final class Format {
       builder.append(", roleFlags=[");
       Joiner.on(',').appendTo(builder, Util.getRoleFlagStrings(format.roleFlags));
       builder.append("]");
+    }
+    if (format.customData != null) {
+      builder.append(", customData=").append(format.customData);
     }
     return builder.toString();
   }
