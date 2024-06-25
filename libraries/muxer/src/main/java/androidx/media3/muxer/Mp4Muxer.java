@@ -295,7 +295,7 @@ public final class Mp4Muxer implements Muxer {
   public void close() throws MuxerException {
     @Nullable MuxerException exception = null;
     try {
-      mp4Writer.finishWritingSamples();
+      mp4Writer.finishWritingSamplesAndFinalizeMoovBox();
     } catch (IOException e) {
       exception = new MuxerException("Failed to finish writing samples", e);
     }
