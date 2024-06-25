@@ -647,7 +647,9 @@ public final class MediaExtractorCompat {
       MediaFormat mediaFormatResult = MediaFormatUtil.createMediaFormatFromFormat(result);
       scratchFormatHolder.clear();
       if (compatibilityTrackMimeType != null) {
-        mediaFormatResult.setString(MediaFormat.KEY_CODECS_STRING, null);
+        if (Util.SDK_INT >= 29) {
+          mediaFormatResult.removeKey(MediaFormat.KEY_CODECS_STRING);
+        }
         mediaFormatResult.setString(MediaFormat.KEY_MIME, compatibilityTrackMimeType);
       }
       return mediaFormatResult;
