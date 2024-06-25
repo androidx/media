@@ -650,8 +650,8 @@ public class PlayerNotificationManager {
 
   // Internal messages.
 
-  private static final int MSG_START_OR_UPDATE_NOTIFICATION = 0;
-  private static final int MSG_UPDATE_NOTIFICATION_BITMAP = 1;
+  private static final int MSG_START_OR_UPDATE_NOTIFICATION = 1;
+  private static final int MSG_UPDATE_NOTIFICATION_BITMAP = 2;
 
   /**
    * Visibility of notification on the lock screen. One of {@link

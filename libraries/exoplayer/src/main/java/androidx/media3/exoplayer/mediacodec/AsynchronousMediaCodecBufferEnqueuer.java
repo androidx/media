@@ -44,10 +44,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 @RequiresApi(23)
 /* package */ class AsynchronousMediaCodecBufferEnqueuer implements MediaCodecBufferEnqueuer {
 
-  private static final int MSG_QUEUE_INPUT_BUFFER = 0;
-  private static final int MSG_QUEUE_SECURE_INPUT_BUFFER = 1;
-  private static final int MSG_OPEN_CV = 2;
-  private static final int MSG_SET_PARAMETERS = 3;
+  private static final int MSG_QUEUE_INPUT_BUFFER = 1;
+  private static final int MSG_QUEUE_SECURE_INPUT_BUFFER = 2;
+  private static final int MSG_OPEN_CV = 3;
+  private static final int MSG_SET_PARAMETERS = 4;
 
   @GuardedBy("MESSAGE_PARAMS_INSTANCE_POOL")
   private static final ArrayDeque<MessageParams> MESSAGE_PARAMS_INSTANCE_POOL = new ArrayDeque<>();

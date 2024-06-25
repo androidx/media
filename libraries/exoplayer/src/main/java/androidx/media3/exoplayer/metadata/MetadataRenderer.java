@@ -50,7 +50,7 @@ import org.checkerframework.dataflow.qual.SideEffectFree;
 public final class MetadataRenderer extends BaseRenderer implements Callback {
 
   private static final String TAG = "MetadataRenderer";
-  private static final int MSG_INVOKE_RENDERER = 0;
+  private static final int MSG_INVOKE_RENDERER = 1;
 
   private final MetadataDecoderFactory decoderFactory;
   private final MetadataOutput output;
