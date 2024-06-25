@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package androidx.media3.transformer;
+package androidx.media3.transformer.mh;
 
 import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.transformer.AndroidTestUtil.JPG_SINGLE_PIXEL_ASSET;
@@ -27,6 +27,18 @@ import android.view.SurfaceView;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.effect.GlEffect;
+import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.transformer.Composition;
+import androidx.media3.transformer.CompositionPlayer;
+import androidx.media3.transformer.EditedMediaItem;
+import androidx.media3.transformer.EditedMediaItemSequence;
+import androidx.media3.transformer.Effects;
+import androidx.media3.transformer.ExportTestResult;
+import androidx.media3.transformer.InputTimestampRecordingShaderProgram;
+import androidx.media3.transformer.PlayerTestListener;
+import androidx.media3.transformer.SurfaceTestActivity;
+import androidx.media3.transformer.Transformer;
+import androidx.media3.transformer.TransformerAndroidTestRunner;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -68,6 +80,7 @@ public class VideoTimestampConsistencyTest {
   private final Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
   private final Context applicationContext = instrumentation.getContext().getApplicationContext();
 
+  private ExoPlayer exoplayer;
   private CompositionPlayer compositionPlayer;
   private SurfaceView surfaceView;
 
@@ -95,7 +108,8 @@ public class VideoTimestampConsistencyTest {
             .setFrameRate(30)
             .build();
 
-    compareTimestamps(ImmutableList.of(image), IMAGE_TIMESTAMPS_US_500_MS_30_FPS);
+    compareTimestamps(
+        ImmutableList.of(image), IMAGE_TIMESTAMPS_US_500_MS_30_FPS, /* containsImage= */ true);
   }
 
   @Test
@@ -105,7 +119,8 @@ public class VideoTimestampConsistencyTest {
             .setDurationUs(MP4_ASSET.videoDurationUs)
             .build();
 
-    compareTimestamps(ImmutableList.of(video), MP4_ASSET_FRAME_TIMESTAMPS_US);
+    compareTimestamps(
+        ImmutableList.of(video), MP4_ASSET_FRAME_TIMESTAMPS_US, /* containsImage= */ false);
   }
 
   @Test
@@ -138,7 +153,8 @@ public class VideoTimestampConsistencyTest {
                     timestampUs -> ((MP4_ASSET.videoDurationUs - clippedStartUs) + timestampUs)))
             .build();
 
-    compareTimestamps(ImmutableList.of(video1, video2), expectedTimestamps);
+    compareTimestamps(
+        ImmutableList.of(video1, video2), expectedTimestamps, /* containsImage= */ false);
   }
 
   @Test
@@ -162,7 +178,8 @@ public class VideoTimestampConsistencyTest {
                     timestampUs -> (MP4_ASSET.videoDurationUs + timestampUs)))
             .build();
 
-    compareTimestamps(ImmutableList.of(video1, video2), expectedTimestamps);
+    compareTimestamps(
+        ImmutableList.of(video1, video2), expectedTimestamps, /* containsImage= */ false);
   }
 
   @Test
@@ -198,7 +215,8 @@ public class VideoTimestampConsistencyTest {
                     timestampUs -> (timestampUs + imageDurationUs)))
             .build();
 
-    compareTimestamps(ImmutableList.of(image1, image2), expectedTimestamps);
+    compareTimestamps(
+        ImmutableList.of(image1, image2), expectedTimestamps, /* containsImage= */ true);
   }
 
   @Test
@@ -227,7 +245,8 @@ public class VideoTimestampConsistencyTest {
                     MP4_ASSET_FRAME_TIMESTAMPS_US, timestampUs -> (timestampUs + imageDurationUs)))
             .build();
 
-    compareTimestamps(ImmutableList.of(image, video), expectedTimestamps);
+    compareTimestamps(
+        ImmutableList.of(image, video), expectedTimestamps, /* containsImage= */ true);
   }
 
   @Test
@@ -257,7 +276,8 @@ public class VideoTimestampConsistencyTest {
                     timestampUs -> (MP4_ASSET.videoDurationUs + timestampUs)))
             .build();
 
-    compareTimestamps(ImmutableList.of(video, image), expectedTimestamps);
+    compareTimestamps(
+        ImmutableList.of(video, image), expectedTimestamps, /* containsImage= */ true);
   }
 
   @Test
@@ -295,16 +315,26 @@ public class VideoTimestampConsistencyTest {
                     timestampUs -> ((MP4_ASSET.videoDurationUs - clippedStartUs) + timestampUs)))
             .build();
 
-    compareTimestamps(ImmutableList.of(video, image), expectedTimestamps);
+    compareTimestamps(
+        ImmutableList.of(video, image), expectedTimestamps, /* containsImage= */ true);
   }
 
-  private void compareTimestamps(List<EditedMediaItem> mediaItems, List<Long> expectedTimestamps)
+  private void compareTimestamps(
+      List<EditedMediaItem> mediaItems, List<Long> expectedTimestamps, boolean containsImage)
       throws Exception {
     ImmutableList<Long> timestampsFromCompositionPlayer =
         getTimestampsFromCompositionPlayer(mediaItems);
     ImmutableList<Long> timestampsFromTransformer = getTimestampsFromTransformer(mediaItems);
 
     assertThat(timestampsFromCompositionPlayer).isEqualTo(timestampsFromTransformer);
+
+    if (!containsImage) {
+      // ExoPlayer doesn't support image playback with effects.
+      ImmutableList<Long> timestampsFromExoPlayer =
+          getTimestampsFromExoPlayer(
+              Lists.transform(mediaItems, editedMediaItem -> editedMediaItem.mediaItem));
+      assertThat(timestampsFromCompositionPlayer).isEqualTo(timestampsFromExoPlayer);
+    }
     assertThat(timestampsFromTransformer).isEqualTo(expectedTimestamps);
   }
 
@@ -318,6 +348,7 @@ public class VideoTimestampConsistencyTest {
             /* effects= */ ImmutableList.of(
                 (GlEffect) (context, useHdr) -> timestampRecordingShaderProgram));
 
+    @SuppressWarnings("unused")
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(
                 applicationContext, new Transformer.Builder(applicationContext).build())
@@ -361,6 +392,32 @@ public class VideoTimestampConsistencyTest {
 
     compositionPlayerListener.waitUntilPlayerEnded();
     instrumentation.runOnMainSync(() -> compositionPlayer.release());
+
+    return timestampRecordingShaderProgram.getInputTimestampsUs();
+  }
+
+  private ImmutableList<Long> getTimestampsFromExoPlayer(List<MediaItem> mediaItems)
+      throws Exception {
+    PlayerTestListener playerListener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    InputTimestampRecordingShaderProgram timestampRecordingShaderProgram =
+        new InputTimestampRecordingShaderProgram();
+
+    instrumentation.runOnMainSync(
+        () -> {
+          exoplayer = new ExoPlayer.Builder(applicationContext).build();
+          // Set a surface on the player even though there is no UI on this test. We need a surface
+          // otherwise the player will skip/drop video frames.
+          exoplayer.setVideoSurfaceView(surfaceView);
+          exoplayer.addListener(playerListener);
+          exoplayer.setMediaItems(mediaItems);
+          exoplayer.setVideoEffects(
+              ImmutableList.of((GlEffect) (context, useHdr) -> timestampRecordingShaderProgram));
+          exoplayer.prepare();
+          exoplayer.play();
+        });
+
+    playerListener.waitUntilPlayerEnded();
+    instrumentation.runOnMainSync(() -> exoplayer.release());
 
     return timestampRecordingShaderProgram.getInputTimestampsUs();
   }

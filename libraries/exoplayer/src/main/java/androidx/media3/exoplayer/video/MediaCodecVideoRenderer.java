@@ -75,6 +75,7 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecRenderer;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil.DecoderQueryException;
+import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.video.VideoRendererEventListener.EventDispatcher;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
@@ -177,6 +178,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private int tunnelingAudioSessionId;
   /* package */ @Nullable OnFrameRenderedListenerV23 tunnelingOnFrameRenderedListener;
   @Nullable private VideoFrameMetadataListener frameMetadataListener;
+  private long startPositionUs;
 
   /**
    * @param context A context.
@@ -414,6 +416,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     tunnelingAudioSessionId = C.AUDIO_SESSION_ID_UNSET;
     reportedVideoSize = null;
     rendererPriority = C.PRIORITY_PLAYBACK;
+    startPositionUs = C.TIME_UNSET;
   }
 
   // FrameTimingEvaluator methods
@@ -715,6 +718,19 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   }
 
   @Override
+  protected void onStreamChanged(
+      Format[] formats,
+      long startPositionUs,
+      long offsetUs,
+      MediaSource.MediaPeriodId mediaPeriodId)
+      throws ExoPlaybackException {
+    super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
+    if (this.startPositionUs == C.TIME_UNSET) {
+      this.startPositionUs = startPositionUs;
+    }
+  }
+
+  @Override
   protected void onPositionReset(long positionUs, boolean joining) throws ExoPlaybackException {
     if (videoSink != null) {
       // Flush the video sink first to ensure it stops reading textures that will be owned by
@@ -814,6 +830,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       super.onReset();
     } finally {
       hasSetVideoSink = false;
+      startPositionUs = C.TIME_UNSET;
       if (placeholderSurface != null) {
         releasePlaceholderSurface();
       }
@@ -1446,8 +1463,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
    * position) to the frame presentation time, in microseconds.
    */
   protected long getBufferTimestampAdjustmentUs() {
-    // TODO - b/333514379: Make effect-enabled effect timestamp start from zero.
-    return 0;
+    return -startPositionUs;
   }
 
   private boolean maybeReleaseFrame(

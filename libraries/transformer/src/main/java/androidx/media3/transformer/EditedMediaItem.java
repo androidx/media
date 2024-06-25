@@ -293,7 +293,7 @@ public final class EditedMediaItem {
   }
 
   /** Returns a {@link Builder} initialized with the values of this instance. */
-  /* package */ Builder buildUpon() {
+  public Builder buildUpon() {
     return new Builder(this);
   }
 
