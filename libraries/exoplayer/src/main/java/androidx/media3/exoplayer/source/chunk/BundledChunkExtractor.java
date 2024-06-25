@@ -29,7 +29,7 @@ import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.extractor.ChunkIndex;
-import androidx.media3.extractor.DummyTrackOutput;
+import androidx.media3.extractor.DiscardingTrackOutput;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
@@ -282,7 +282,7 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
     private final int id;
     private final int type;
     @Nullable private final Format manifestFormat;
-    private final DummyTrackOutput fakeTrackOutput;
+    private final DiscardingTrackOutput fakeTrackOutput;
 
     public @MonotonicNonNull Format sampleFormat;
     private @MonotonicNonNull TrackOutput trackOutput;
@@ -292,7 +292,7 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
       this.id = id;
       this.type = type;
       this.manifestFormat = manifestFormat;
-      fakeTrackOutput = new DummyTrackOutput();
+      fakeTrackOutput = new DiscardingTrackOutput();
     }
 
     public void bind(@Nullable TrackOutputProvider trackOutputProvider, long endTimeUs) {

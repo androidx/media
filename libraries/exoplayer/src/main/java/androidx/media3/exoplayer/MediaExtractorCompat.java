@@ -51,7 +51,7 @@ import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.extractor.DefaultExtractorInput;
 import androidx.media3.extractor.DefaultExtractorsFactory;
-import androidx.media3.extractor.DummyTrackOutput;
+import androidx.media3.extractor.DiscardingTrackOutput;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.Extractor.ReadResult;
 import androidx.media3.extractor.ExtractorInput;
@@ -601,7 +601,7 @@ public final class MediaExtractorCompat {
       }
       if (tracksEnded) {
         // The id is new and the extractor has ended the tracks. Discard.
-        return new DummyTrackOutput();
+        return new DiscardingTrackOutput();
       }
 
       sampleQueue = new MediaExtractorSampleQueue(allocator, id);

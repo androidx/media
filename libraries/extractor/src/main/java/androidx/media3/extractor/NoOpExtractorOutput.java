@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 The Android Open Source Project
+ * Copyright 2024 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,18 +15,14 @@
  */
 package androidx.media3.extractor;
 
-import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 
-/**
- * @deprecated Use {@link NoOpExtractorOutput} instead.
- */
-@Deprecated
+/** An {@link ExtractorOutput} implementation that does nothing. */
 @UnstableApi
-public final class DummyExtractorOutput implements ExtractorOutput {
+public final class NoOpExtractorOutput implements ExtractorOutput {
 
   @Override
-  public TrackOutput track(int id, @C.TrackType int type) {
+  public TrackOutput track(int id, int type) {
     return new DiscardingTrackOutput();
   }
 
