@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright 2024 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,52 +15,54 @@
  */
 package androidx.media3.extractor;
 
+import static java.lang.Math.min;
+
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
+import java.io.EOFException;
 import java.io.IOException;
 
-/**
- * @deprecated Use {@link DiscardingTrackOutput} instead.
- */
+/** A {@link TrackOutput} that consumes and discards all reported samples. */
 @UnstableApi
-@Deprecated
-public final class DummyTrackOutput implements TrackOutput {
+public final class DiscardingTrackOutput implements TrackOutput {
 
-  private final DiscardingTrackOutput discardingTrackOutput;
+  // Even though read data is discarded, data source implementations could be making use of the
+  // buffer contents. For example, caches. So we cannot use a static field for this which could be
+  // shared between different threads.
+  private final byte[] readBuffer;
 
-  public DummyTrackOutput() {
-    discardingTrackOutput = new DiscardingTrackOutput();
+  /** Creates discarding track output. */
+  public DiscardingTrackOutput() {
+    readBuffer = new byte[4096];
   }
 
   @Override
   public void format(Format format) {
-    discardingTrackOutput.format(format);
-  }
-
-  @Override
-  public int sampleData(DataReader input, int length, boolean allowEndOfInput) throws IOException {
-    return discardingTrackOutput.sampleData(input, length, allowEndOfInput);
-  }
-
-  @Override
-  public void sampleData(ParsableByteArray data, int length) {
-    discardingTrackOutput.sampleData(data, length);
+    // Do nothing.
   }
 
   @Override
   public int sampleData(
       DataReader input, int length, boolean allowEndOfInput, @SampleDataPart int sampleDataPart)
       throws IOException {
-    return discardingTrackOutput.sampleData(input, length, allowEndOfInput, sampleDataPart);
+    int bytesToSkipByReading = min(readBuffer.length, length);
+    int bytesSkipped = input.read(readBuffer, /* offset= */ 0, bytesToSkipByReading);
+    if (bytesSkipped == C.RESULT_END_OF_INPUT) {
+      if (allowEndOfInput) {
+        return C.RESULT_END_OF_INPUT;
+      }
+      throw new EOFException();
+    }
+    return bytesSkipped;
   }
 
   @Override
   public void sampleData(ParsableByteArray data, int length, @SampleDataPart int sampleDataPart) {
-    discardingTrackOutput.sampleData(data, length, sampleDataPart);
+    data.skipBytes(length);
   }
 
   @Override
@@ -70,6 +72,6 @@ public final class DummyTrackOutput implements TrackOutput {
       int size,
       int offset,
       @Nullable CryptoData cryptoData) {
-    discardingTrackOutput.sampleMetadata(timeUs, flags, size, offset, cryptoData);
+    // Do nothing.
   }
 }

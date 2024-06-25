@@ -55,8 +55,8 @@ import androidx.media3.common.util.TimestampAdjuster;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.ChunkIndex;
-import androidx.media3.extractor.DummyExtractorOutput;
 import androidx.media3.extractor.ExtractorOutput;
+import androidx.media3.extractor.NoOpExtractorOutput;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.SeekPoint;
 import androidx.media3.extractor.TrackOutput;
@@ -149,7 +149,7 @@ public final class OutputConsumerAdapterV30 implements MediaParser.OutputConsume
     lastReceivedCryptoInfos = new ArrayList<>();
     lastOutputCryptoDatas = new ArrayList<>();
     scratchDataReaderAdapter = new DataReaderAdapter();
-    extractorOutput = new DummyExtractorOutput();
+    extractorOutput = new NoOpExtractorOutput();
     sampleTimestampUpperLimitFilterUs = C.TIME_UNSET;
     muxedCaptionFormats = ImmutableList.of();
   }

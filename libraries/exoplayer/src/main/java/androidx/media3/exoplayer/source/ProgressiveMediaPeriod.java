@@ -54,7 +54,7 @@ import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.LoadErrorInfo;
 import androidx.media3.exoplayer.upstream.Loader;
 import androidx.media3.exoplayer.upstream.Loader.LoadErrorAction;
 import androidx.media3.exoplayer.upstream.Loader.Loadable;
-import androidx.media3.extractor.DummyTrackOutput;
+import androidx.media3.extractor.DiscardingTrackOutput;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.ForwardingSeekMap;
@@ -739,7 +739,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
     if (sampleQueuesBuilt) {
       Log.w(TAG, "Extractor added new track (id=" + id.id + ") after finishing tracks.");
-      return new DummyTrackOutput();
+      return new DiscardingTrackOutput();
     }
     SampleQueue trackOutput =
         SampleQueue.createWithDrm(allocator, drmSessionManager, drmEventDispatcher);

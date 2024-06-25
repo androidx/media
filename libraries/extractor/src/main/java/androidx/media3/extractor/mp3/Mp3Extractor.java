@@ -31,7 +31,7 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import androidx.media3.extractor.DummyTrackOutput;
+import androidx.media3.extractor.DiscardingTrackOutput;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
@@ -211,7 +211,7 @@ public final class Mp3Extractor implements Extractor {
     gaplessInfoHolder = new GaplessInfoHolder();
     basisTimeUs = C.TIME_UNSET;
     id3Peeker = new Id3Peeker();
-    skippingTrackOutput = new DummyTrackOutput();
+    skippingTrackOutput = new DiscardingTrackOutput();
     currentTrackOutput = skippingTrackOutput;
   }
 

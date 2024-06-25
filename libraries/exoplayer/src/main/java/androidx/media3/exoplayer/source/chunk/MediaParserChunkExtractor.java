@@ -39,7 +39,7 @@ import androidx.media3.exoplayer.source.mediaparser.InputReaderAdapterV30;
 import androidx.media3.exoplayer.source.mediaparser.MediaParserUtil;
 import androidx.media3.exoplayer.source.mediaparser.OutputConsumerAdapterV30;
 import androidx.media3.extractor.ChunkIndex;
-import androidx.media3.extractor.DummyTrackOutput;
+import androidx.media3.extractor.DiscardingTrackOutput;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.SeekMap;
@@ -77,7 +77,7 @@ public final class MediaParserChunkExtractor implements ChunkExtractor {
   private final InputReaderAdapterV30 inputReaderAdapter;
   private final MediaParser mediaParser;
   private final TrackOutputProviderAdapter trackOutputProviderAdapter;
-  private final DummyTrackOutput dummyTrackOutput;
+  private final DiscardingTrackOutput discardingTrackOutput;
   private long pendingSeekUs;
   @Nullable private TrackOutputProvider trackOutputProvider;
   @Nullable private Format[] sampleFormats;
@@ -127,7 +127,7 @@ public final class MediaParserChunkExtractor implements ChunkExtractor {
     }
     outputConsumerAdapter.setMuxedCaptionFormats(closedCaptionFormats);
     trackOutputProviderAdapter = new TrackOutputProviderAdapter();
-    dummyTrackOutput = new DummyTrackOutput();
+    discardingTrackOutput = new DiscardingTrackOutput();
     pendingSeekUs = C.TIME_UNSET;
   }
 
@@ -182,7 +182,9 @@ public final class MediaParserChunkExtractor implements ChunkExtractor {
 
     @Override
     public TrackOutput track(int id, int type) {
-      return trackOutputProvider != null ? trackOutputProvider.track(id, type) : dummyTrackOutput;
+      return trackOutputProvider != null
+          ? trackOutputProvider.track(id, type)
+          : discardingTrackOutput;
     }
 
     @Override
