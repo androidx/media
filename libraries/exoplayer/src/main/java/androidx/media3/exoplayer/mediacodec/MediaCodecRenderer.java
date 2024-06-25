@@ -1128,27 +1128,13 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     }
 
     ArrayDeque<MediaCodecInfo> availableCodecInfos = checkNotNull(this.availableCodecInfos);
-    MediaCodecInfo preferredCodecInfo = availableCodecInfos.peekFirst();
     while (codec == null) {
       MediaCodecInfo codecInfo = checkNotNull(availableCodecInfos.peekFirst());
       if (!shouldInitCodec(codecInfo)) {
         return;
       }
       try {
-        try {
-          initCodec(codecInfo, crypto);
-        } catch (Exception e) {
-          if (codecInfo == preferredCodecInfo) {
-            // If creating the preferred decoder failed then sleep briefly before retrying.
-            // Workaround for [internal b/191966399].
-            // See also https://github.com/google/ExoPlayer/issues/8696.
-            Log.w(TAG, "Preferred decoder instantiation failed. Sleeping for 50ms then retrying.");
-            Thread.sleep(/* millis= */ 50);
-            initCodec(codecInfo, crypto);
-          } else {
-            throw e;
-          }
-        }
+        initCodec(codecInfo, crypto);
       } catch (Exception e) {
         Log.w(TAG, "Failed to initialize decoder: " + codecInfo, e);
         // This codec failed to initialize, so fall back to the next codec in the list (if any). We

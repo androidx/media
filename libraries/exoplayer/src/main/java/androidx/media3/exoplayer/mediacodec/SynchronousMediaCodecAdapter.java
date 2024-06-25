@@ -172,7 +172,17 @@ public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
   public void release() {
     inputByteBuffers = null;
     outputByteBuffers = null;
-    codec.release();
+    try {
+      if (Util.SDK_INT >= 30 && Util.SDK_INT < 33) {
+        // Stopping the codec before releasing it works around a bug on APIs 30, 31 and 32 where
+        // MediaCodec.release() returns too early before fully detaching a Surface, and a
+        // subsequent MediaCodec.configure() call using the same Surface then fails. See
+        // https://github.com/google/ExoPlayer/issues/8696 and b/191966399.
+        codec.stop();
+      }
+    } finally {
+      codec.release();
+    }
   }
 
   @Override
