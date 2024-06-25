@@ -9,6 +9,9 @@
     *   Fix some audio focus inconsistencies, e.g. not reporting full or
         transient focus loss while the player is paused
         ([#1436](https://github.com/androidx/media/issues/1436)).
+    *   Fix potential `IndexOutOfBoundsException` caused by extractors reporting
+        additional tracks after the initial preparation step
+        ([#1476](https://github.com/androidx/media/issues/1476)).
 *   Transformer:
 *   Track Selection:
 *   Extractors:
