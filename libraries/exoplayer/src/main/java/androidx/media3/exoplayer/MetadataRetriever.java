@@ -102,10 +102,10 @@ public final class MetadataRetriever {
 
   private static final class MetadataRetrieverInternal {
 
-    private static final int MESSAGE_PREPARE_SOURCE = 0;
-    private static final int MESSAGE_CHECK_FOR_FAILURE = 1;
-    private static final int MESSAGE_CONTINUE_LOADING = 2;
-    private static final int MESSAGE_RELEASE = 3;
+    private static final int MESSAGE_PREPARE_SOURCE = 1;
+    private static final int MESSAGE_CHECK_FOR_FAILURE = 2;
+    private static final int MESSAGE_CONTINUE_LOADING = 3;
+    private static final int MESSAGE_RELEASE = 4;
 
     private final MediaSource.Factory mediaSourceFactory;
     private final HandlerThread mediaSourceThread;

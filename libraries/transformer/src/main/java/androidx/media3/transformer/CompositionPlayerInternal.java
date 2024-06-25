@@ -47,11 +47,11 @@ import androidx.media3.exoplayer.video.CompositingVideoSinkProvider;
   }
 
   private static final String TAG = "CompPlayerInternal";
-  private static final int MSG_SET_OUTPUT_SURFACE_INFO = 0;
-  private static final int MSG_CLEAR_OUTPUT_SURFACE = 1;
-  private static final int MSG_START_SEEK = 2;
-  private static final int MSG_END_SEEK = 3;
-  private static final int MSG_RELEASE = 4;
+  private static final int MSG_SET_OUTPUT_SURFACE_INFO = 1;
+  private static final int MSG_CLEAR_OUTPUT_SURFACE = 2;
+  private static final int MSG_START_SEEK = 3;
+  private static final int MSG_END_SEEK = 4;
+  private static final int MSG_RELEASE = 5;
 
   private final Clock clock;
   private final HandlerWrapper handler;

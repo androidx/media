@@ -109,10 +109,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private static final int END_REASON_ERROR = 2;
 
   // Internal messages.
-  private static final int MSG_START = 0;
-  private static final int MSG_REGISTER_SAMPLE_EXPORTER = 1;
-  private static final int MSG_DRAIN_EXPORTERS = 2;
-  private static final int MSG_END = 3;
+  private static final int MSG_START = 1;
+  private static final int MSG_REGISTER_SAMPLE_EXPORTER = 2;
+  private static final int MSG_DRAIN_EXPORTERS = 3;
+  private static final int MSG_END = 4;
 
   private static final String TAG = "TransformerInternal";
   private static final int DRAIN_EXPORTERS_DELAY_MS = 10;

@@ -156,24 +156,24 @@ public final class DownloadManager {
   public static final Requirements DEFAULT_REQUIREMENTS = new Requirements(Requirements.NETWORK);
 
   // Messages posted to the main handler.
-  private static final int MSG_INITIALIZED = 0;
-  private static final int MSG_PROCESSED = 1;
-  private static final int MSG_DOWNLOAD_UPDATE = 2;
+  private static final int MSG_INITIALIZED = 1;
+  private static final int MSG_PROCESSED = 2;
+  private static final int MSG_DOWNLOAD_UPDATE = 3;
 
   // Messages posted to the background handler.
-  private static final int MSG_INITIALIZE = 0;
-  private static final int MSG_SET_DOWNLOADS_PAUSED = 1;
-  private static final int MSG_SET_NOT_MET_REQUIREMENTS = 2;
-  private static final int MSG_SET_STOP_REASON = 3;
-  private static final int MSG_SET_MAX_PARALLEL_DOWNLOADS = 4;
-  private static final int MSG_SET_MIN_RETRY_COUNT = 5;
-  private static final int MSG_ADD_DOWNLOAD = 6;
-  private static final int MSG_REMOVE_DOWNLOAD = 7;
-  private static final int MSG_REMOVE_ALL_DOWNLOADS = 8;
-  private static final int MSG_TASK_STOPPED = 9;
-  private static final int MSG_CONTENT_LENGTH_CHANGED = 10;
-  private static final int MSG_UPDATE_PROGRESS = 11;
-  private static final int MSG_RELEASE = 12;
+  private static final int MSG_INITIALIZE = 1;
+  private static final int MSG_SET_DOWNLOADS_PAUSED = 2;
+  private static final int MSG_SET_NOT_MET_REQUIREMENTS = 3;
+  private static final int MSG_SET_STOP_REASON = 4;
+  private static final int MSG_SET_MAX_PARALLEL_DOWNLOADS = 5;
+  private static final int MSG_SET_MIN_RETRY_COUNT = 6;
+  private static final int MSG_ADD_DOWNLOAD = 7;
+  private static final int MSG_REMOVE_DOWNLOAD = 8;
+  private static final int MSG_REMOVE_ALL_DOWNLOADS = 9;
+  private static final int MSG_TASK_STOPPED = 10;
+  private static final int MSG_CONTENT_LENGTH_CHANGED = 11;
+  private static final int MSG_UPDATE_PROGRESS = 12;
+  private static final int MSG_RELEASE = 13;
 
   private static final String TAG = "DownloadManager";
 
