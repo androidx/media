@@ -277,12 +277,14 @@ public final class VideoFrameReleaseControl {
   /**
    * Whether the release control is ready to start playback.
    *
-   * @see Renderer#isReady()
-   * @param rendererReady Whether the renderer is ready.
+   * <p>The renderer should be {@linkplain Renderer#isReady() ready} if and only if the release
+   * control is ready.
+   *
+   * @param rendererOtherwiseReady Whether the renderer is ready except for the release control.
    * @return Whether the release control is ready.
    */
-  public boolean isReady(boolean rendererReady) {
-    if (rendererReady && firstFrameState == C.FIRST_FRAME_RENDERED) {
+  public boolean isReady(boolean rendererOtherwiseReady) {
+    if (rendererOtherwiseReady && firstFrameState == C.FIRST_FRAME_RENDERED) {
       // Ready. If we were joining then we've now joined, so clear the joining deadline.
       joiningDeadlineMs = C.TIME_UNSET;
       return true;

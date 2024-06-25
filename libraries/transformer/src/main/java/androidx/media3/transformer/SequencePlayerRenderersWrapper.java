@@ -48,7 +48,6 @@ import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.text.TextOutput;
 import androidx.media3.exoplayer.video.CompositingVideoSinkProvider;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
-import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.exoplayer.video.VideoSink;
 import com.google.common.collect.ImmutableList;
@@ -296,7 +295,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private final SequencePlayerRenderersWrapper sequencePlayerRenderersWrapper;
     private final CompositingVideoSinkProvider compositingVideoSinkProvider;
     private final VideoSink videoSink;
-    private final VideoFrameReleaseControl videoFrameReleaseControl;
 
     private ImmutableList<Effect> videoEffects;
     private @MonotonicNonNull ConstantRateTimestampIterator timestampIterator;
@@ -314,8 +312,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       compositingVideoSinkProvider =
           checkStateNotNull(sequencePlayerRenderersWrapper.compositingVideoSinkProvider);
       videoSink = compositingVideoSinkProvider.getSink();
-      videoFrameReleaseControl =
-          checkStateNotNull(compositingVideoSinkProvider.getVideoFrameReleaseControl());
       videoEffects = ImmutableList.of();
       streamOffsetUs = C.TIME_UNSET;
     }
@@ -357,11 +353,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     @Override
     public boolean isReady() {
-      // If the renderer was enabled with mayRenderStartOfStream set to false, meaning the image
-      // renderer is playing after a video, we don't need to wait until the first frame is rendered.
-      // If the renderer was enabled with mayRenderStartOfStream, we must wait until the first frame
-      // is rendered, which is checked by VideoSink.isReady().
-      return super.isReady() && (!mayRenderStartOfStream || videoSink.isReady());
+      if (mayRenderStartOfStream) {
+        // The image renderer is not playing after a video. We must wait until the first frame is
+        // rendered.
+        return videoSink.isReady(/* rendererOtherwiseReady= */ super.isReady());
+      } else {
+        // The image renderer is playing after a video. We don't need to wait until the first frame
+        // is rendered.
+        return super.isReady();
+      }
     }
 
     @Override

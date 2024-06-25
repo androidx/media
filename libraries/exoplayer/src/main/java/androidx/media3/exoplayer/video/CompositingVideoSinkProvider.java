@@ -426,8 +426,9 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
     }
   }
 
-  private boolean isReady() {
-    return pendingFlushCount == 0 && videoFrameRenderControl.isReady();
+  private boolean isReady(boolean rendererOtherwiseReady) {
+    return videoFrameRenderControl.isReady(
+        /* rendererOtherwiseReady= */ rendererOtherwiseReady && pendingFlushCount == 0);
   }
 
   private boolean hasReleasedFrame(long presentationTimeUs) {
@@ -585,8 +586,9 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
     }
 
     @Override
-    public boolean isReady() {
-      return isInitialized() && CompositingVideoSinkProvider.this.isReady();
+    public boolean isReady(boolean rendererOtherwiseReady) {
+      return CompositingVideoSinkProvider.this.isReady(
+          /* rendererOtherwiseReady= */ rendererOtherwiseReady && isInitialized());
     }
 
     @Override

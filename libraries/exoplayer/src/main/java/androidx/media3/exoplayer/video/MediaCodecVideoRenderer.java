@@ -748,15 +748,18 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   @Override
   public boolean isReady() {
-    boolean readyToReleaseFrames = super.isReady() && (videoSink == null || videoSink.isReady());
-    if (readyToReleaseFrames
+    boolean rendererOtherwiseReady = super.isReady();
+    if (videoSink != null) {
+      return videoSink.isReady(rendererOtherwiseReady);
+    }
+    if (rendererOtherwiseReady
         && ((placeholderSurface != null && displaySurface == placeholderSurface)
             || getCodec() == null
             || tunneling)) {
       // Not releasing frames.
       return true;
     }
-    return videoFrameReleaseControl.isReady(readyToReleaseFrames);
+    return videoFrameReleaseControl.isReady(rendererOtherwiseReady);
   }
 
   @Override

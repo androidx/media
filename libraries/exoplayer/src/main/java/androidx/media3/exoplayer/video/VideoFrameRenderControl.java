@@ -123,8 +123,8 @@ import androidx.media3.exoplayer.ExoPlaybackException;
   }
 
   /** Returns whether the renderer is ready. */
-  public boolean isReady() {
-    return videoFrameReleaseControl.isReady(/* rendererReady= */ true);
+  public boolean isReady(boolean rendererOtherwiseReady) {
+    return videoFrameReleaseControl.isReady(rendererOtherwiseReady);
   }
 
   /**

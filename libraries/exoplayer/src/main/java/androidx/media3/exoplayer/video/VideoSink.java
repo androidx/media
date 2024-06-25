@@ -28,6 +28,7 @@ import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.exoplayer.Renderer;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -148,8 +149,13 @@ public interface VideoSink {
 
   /**
    * Returns whether the video sink is able to immediately render media from the current position.
+   *
+   * <p>The renderer should be {@linkplain Renderer#isReady() ready} if and only if the video sink
+   * is ready.
+   *
+   * @param rendererOtherwiseReady Whether the renderer is ready except for the video sink.
    */
-  boolean isReady();
+  boolean isReady(boolean rendererOtherwiseReady);
 
   /**
    * Returns whether all queued video frames have been rendered, including the frame marked as last
