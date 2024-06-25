@@ -31,6 +31,7 @@ import androidx.media3.common.ParserException;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ConditionVariable;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
@@ -53,6 +54,7 @@ import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.LoadErrorInfo;
 import androidx.media3.exoplayer.upstream.Loader;
 import androidx.media3.exoplayer.upstream.Loader.LoadErrorAction;
 import androidx.media3.exoplayer.upstream.Loader.Loadable;
+import androidx.media3.extractor.DummyTrackOutput;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.ForwardingSeekMap;
@@ -92,6 +94,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
      */
     void onSourceInfoRefreshed(long durationUs, boolean isSeekable, boolean isLive);
   }
+
+  private static final String TAG = "ProgressiveMediaPeriod";
 
   /**
    * When the source's duration is unknown, it is calculated by adding this value to the largest
@@ -732,6 +736,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       if (id.equals(sampleQueueTrackIds[i])) {
         return sampleQueues[i];
       }
+    }
+    if (sampleQueuesBuilt) {
+      Log.w(TAG, "Extractor added new track (id=" + id.id + ") after finishing tracks.");
+      return new DummyTrackOutput();
     }
     SampleQueue trackOutput =
         SampleQueue.createWithDrm(allocator, drmSessionManager, drmEventDispatcher);
