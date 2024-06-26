@@ -315,13 +315,10 @@ public class EffectPlaybackTest {
                 outputImageReader.getSurface(),
                 new Size(MP4_ASSET.videoFormat.width, MP4_ASSET.videoFormat.height));
             player.setPlayWhenReady(true);
-            long exoPresentationTimeOffsetUs = 1000000000000L;
             player.setVideoEffects(
                 ImmutableList.of(
                     new TimestampWrapper(
-                        new Brightness(0.5f),
-                        /* startTimeUs= */ exoPresentationTimeOffsetUs + 166833,
-                        /* endTimeUs= */ exoPresentationTimeOffsetUs + 510000)));
+                        new Brightness(0.5f), /* startTimeUs= */ 166833, /* endTimeUs= */ 510000)));
 
             // Adding an EventLogger to use its log output in case the test fails.
             player.addAnalyticsListener(new EventLogger());
