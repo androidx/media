@@ -1460,7 +1460,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   /**
    * Returns the timestamp that is added to the buffer presentation time (the player decoding
-   * position) to the frame presentation time, in microseconds.
+   * position) to get the frame presentation time, in microseconds.
    */
   protected long getBufferTimestampAdjustmentUs() {
     return -startPositionUs;
