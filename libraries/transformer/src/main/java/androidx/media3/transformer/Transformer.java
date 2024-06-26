@@ -992,13 +992,14 @@ public final class Transformer {
    * following conditions:
    *
    * <ul>
-   *   <li>A sequence cannot contain both HDR and SDR video input.
    *   <li>If an {@link EditedMediaItem} in a sequence contains data of a given {@linkplain
    *       C.TrackType track}, so must all items in that sequence.
    *       <ul>
    *         <li>For audio, this condition can be removed by setting an experimental {@link
    *             Composition.Builder#experimentalSetForceAudioTrack(boolean) flag}.
    *       </ul>
+   *   <li>If a sequence starts with an HDR {@link EditedMediaItem}, all the following items in the
+   *       sequence must be HDR.
    *   <li>All sequences containing audio data must output audio with the same {@linkplain
    *       AudioFormat properties}. This can be done by adding {@linkplain EditedMediaItem#effects
    *       item specific effects}, such as {@link SonicAudioProcessor} and {@link
