@@ -27,7 +27,7 @@
     <item>H264 video and AAC audio (portrait, H &lt; W, 90°)</item>
     <item>SEF slow motion with 240 fps</item>
     <item>480p DASH (non-square pixels)</item>
-    <item>HDR (HDR10) H265 limited range video (encoding may fail)</item>
+    <item>HDR (HDR10+) H265 limited range video (encoding may fail)</item>
     <item>HDR (HLG) H265 limited range video (encoding may fail)</item>
     <item>720p H264 video with no audio</item>
     <item>London JPG image (plays for 5 secs at 30 fps)</item>
