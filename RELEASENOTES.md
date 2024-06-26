@@ -12,6 +12,12 @@
     *   Fix potential `IndexOutOfBoundsException` caused by extractors reporting
         additional tracks after the initial preparation step
         ([#1476](https://github.com/androidx/media/issues/1476)).
+    *   `Effects` in `ExoPlayer.setVideoEffect()` will receive the timestamps
+        with the renderer offset removed
+        ([#1098](https://github.com/androidx/media/issues/1098)).
+    *   Fix potential `IllegalArgumentException` when handling player error that
+        happened while reading ahead into another playlist item
+        ([#1483](https://github.com/androidx/media/issues/1483)).
 *   Transformer:
 *   Track Selection:
 *   Extractors:

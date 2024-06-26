@@ -672,6 +672,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
             queue.advancePlayingPeriod();
           }
           MediaPeriodHolder newPlayingPeriodHolder = checkNotNull(queue.getPlayingPeriod());
+          // Send already pending updates if needed before making further changes to PlaybackInfo.
+          maybeNotifyPlaybackInfoChanged();
           playbackInfo =
               handlePositionDiscontinuity(
                   newPlayingPeriodHolder.info.id,
