@@ -14053,6 +14053,94 @@ public class ExoPlayerTest {
   }
 
   @Test
+  public void
+      rendererError_whileReadingAheadAndOverlappingWithOtherDiscontinuity_isReportedAfterMediaItemTransition()
+          throws Exception {
+    // Throw an exception as soon as we try to process a buffer for the second item. This happens
+    // while the player is still playing the first item. At the same time, also constantly report
+    // silence skip to force a situation where we have already a pending discontinuity at the point
+    // of handling the error.
+    AtomicInteger silenceSkipCount = new AtomicInteger(0);
+    FakeMediaClockRenderer fakeRenderer =
+        new FakeMediaClockRenderer(C.TRACK_TYPE_AUDIO) {
+          private long positionUs;
+          int streamChangeCount = 0;
+
+          @Override
+          protected void onStreamChanged(
+              Format[] formats, long startPositionUs, long offsetUs, MediaPeriodId mediaPeriodId) {
+            positionUs = startPositionUs;
+            streamChangeCount++;
+          }
+
+          @Override
+          public long getPositionUs() {
+            // Advance position to make playback progress.
+            positionUs += 10_000;
+            return positionUs;
+          }
+
+          @Override
+          public boolean hasSkippedSilenceSinceLastCall() {
+            // Continuously report skipped silences to ensure they will overlap with other
+            // discontinuities like the AUTO_TRANSITION triggered after the error.
+            silenceSkipCount.incrementAndGet();
+            return true;
+          }
+
+          @Override
+          protected boolean shouldProcessBuffer(long bufferTimeUs, long playbackPositionUs) {
+            boolean shouldProcess = super.shouldProcessBuffer(bufferTimeUs, playbackPositionUs);
+            if (streamChangeCount == 2 && shouldProcess) {
+              Util.sneakyThrow(
+                  createRendererException(
+                      new IllegalStateException(),
+                      /* format= */ null,
+                      PlaybackException.ERROR_CODE_DECODING_FAILED));
+            }
+            return shouldProcess;
+          }
+
+          @Override
+          public void setPlaybackParameters(PlaybackParameters playbackParameters) {}
+
+          @Override
+          public PlaybackParameters getPlaybackParameters() {
+            return PlaybackParameters.DEFAULT;
+          }
+        };
+    TestExoPlayerBuilder playerBuilder =
+        new TestExoPlayerBuilder(context).setRenderers(fakeRenderer);
+    ExoPlayer player = parameterizeTestExoPlayerBuilder(playerBuilder).build();
+    Player.Listener mockListener = mock(Player.Listener.class);
+    player.addListener(mockListener);
+
+    player.setMediaSources(
+        ImmutableList.of(
+            new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT),
+            new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT)));
+    player.prepare();
+    player.play();
+    runUntilError(player);
+    int mediaItemIndexAfterError = player.getCurrentMediaItemIndex();
+    player.release();
+
+    assertThat(mediaItemIndexAfterError).isEqualTo(1);
+    InOrder eventsInOrder = inOrder(mockListener);
+    // Verify that all expected discontinuities and the error arrived in order.
+    eventsInOrder
+        .verify(mockListener, times(silenceSkipCount.get()))
+        .onPositionDiscontinuity(any(), any(), eq(Player.DISCONTINUITY_REASON_SILENCE_SKIP));
+    eventsInOrder
+        .verify(mockListener)
+        .onPositionDiscontinuity(any(), any(), eq(Player.DISCONTINUITY_REASON_AUTO_TRANSITION));
+    eventsInOrder
+        .verify(mockListener)
+        .onMediaItemTransition(any(), eq(Player.MEDIA_ITEM_TRANSITION_REASON_AUTO));
+    eventsInOrder.verify(mockListener).onPlayerError(any());
+  }
+
+  @Test
   public void play_withReadingAheadWithNewRenderer_enablesButNotStartsNewRenderer()
       throws Exception {
     ExoPlayer player = new TestExoPlayerBuilder(context).build();
