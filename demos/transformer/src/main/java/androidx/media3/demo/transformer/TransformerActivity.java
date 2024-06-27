@@ -130,7 +130,7 @@ public final class TransformerActivity extends AppCompatActivity {
   private TextView informationTextView;
   private ViewGroup progressViewGroup;
   private LinearProgressIndicator progressIndicator;
-  private Button cancelButton;
+  private Button pauseButton;
   private Button resumeButton;
   private Stopwatch exportStopwatch;
   private AspectRatioFrameLayout debugFrame;
@@ -157,8 +157,8 @@ public final class TransformerActivity extends AppCompatActivity {
     informationTextView = findViewById(R.id.information_text_view);
     progressViewGroup = findViewById(R.id.progress_view_group);
     progressIndicator = findViewById(R.id.progress_indicator);
-    cancelButton = findViewById(R.id.cancel_button);
-    cancelButton.setOnClickListener(view -> cancelExport());
+    pauseButton = findViewById(R.id.pause_button);
+    pauseButton.setOnClickListener(view -> pauseExport());
     resumeButton = findViewById(R.id.resume_button);
     resumeButton.setOnClickListener(view -> startExport());
     debugFrame = findViewById(R.id.debug_aspect_ratio_frame_layout);
@@ -241,7 +241,7 @@ public final class TransformerActivity extends AppCompatActivity {
     debugTextView.setVisibility(View.GONE);
     informationTextView.setText(R.string.export_started);
     progressViewGroup.setVisibility(View.VISIBLE);
-    cancelButton.setVisibility(View.VISIBLE);
+    pauseButton.setVisibility(View.VISIBLE);
     resumeButton.setVisibility(View.GONE);
     progressIndicator.setProgress(0);
     Handler mainHandler = new Handler(getMainLooper());
@@ -799,11 +799,11 @@ public final class TransformerActivity extends AppCompatActivity {
     }
   }
 
-  private void cancelExport() {
+  private void pauseExport() {
     transformer.cancel();
     transformer = null;
     exportStopwatch.stop();
-    cancelButton.setVisibility(View.GONE);
+    pauseButton.setVisibility(View.GONE);
     resumeButton.setVisibility(View.VISIBLE);
     if (oldOutputFile != null) {
       oldOutputFile.delete();
