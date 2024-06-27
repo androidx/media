@@ -89,7 +89,7 @@ public final class HevcConfig {
           if (nalUnitType == SPS_NAL_UNIT_TYPE && j == 0) {
             NalUnitUtil.H265SpsData spsData =
                 NalUnitUtil.parseH265SpsNalUnit(
-                    buffer, bufferPosition, bufferPosition + nalUnitLength);
+                    buffer, bufferPosition, bufferPosition + nalUnitLength, null);
             width = spsData.width;
             height = spsData.height;
             bitdepthLuma = spsData.bitDepthLumaMinus8 + 8;
@@ -100,14 +100,16 @@ public final class HevcConfig {
             pixelWidthHeightRatio = spsData.pixelWidthHeightRatio;
             maxNumReorderPics = spsData.maxNumReorderPics;
 
-            codecs =
-                CodecSpecificDataUtil.buildHevcCodecString(
-                    spsData.generalProfileSpace,
-                    spsData.generalTierFlag,
-                    spsData.generalProfileIdc,
-                    spsData.generalProfileCompatibilityFlags,
-                    spsData.constraintBytes,
-                    spsData.generalLevelIdc);
+            if (spsData.profileTierLevel != null) {
+              codecs =
+                  CodecSpecificDataUtil.buildHevcCodecString(
+                      spsData.profileTierLevel.generalProfileSpace,
+                      spsData.profileTierLevel.generalTierFlag,
+                      spsData.profileTierLevel.generalProfileIdc,
+                      spsData.profileTierLevel.generalProfileCompatibilityFlags,
+                      spsData.profileTierLevel.constraintBytes,
+                      spsData.profileTierLevel.generalLevelIdc);
+            }
           }
           bufferPosition += nalUnitLength;
           data.skipBytes(nalUnitLength);

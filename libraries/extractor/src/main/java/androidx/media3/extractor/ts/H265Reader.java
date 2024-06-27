@@ -246,17 +246,20 @@ public final class H265Reader implements ElementaryStreamReader {
 
     // Skip the 3-byte NAL unit start code synthesised by the NalUnitTargetBuffer constructor.
     NalUnitUtil.H265SpsData spsData =
-        NalUnitUtil.parseH265SpsNalUnit(sps.nalData, /* nalOffset= */ 3, sps.nalLength);
+        NalUnitUtil.parseH265SpsNalUnit(
+            sps.nalData, /* nalOffset= */ 3, sps.nalLength, /* vpsData= */ null);
 
-    String codecs =
-        CodecSpecificDataUtil.buildHevcCodecString(
-            spsData.generalProfileSpace,
-            spsData.generalTierFlag,
-            spsData.generalProfileIdc,
-            spsData.generalProfileCompatibilityFlags,
-            spsData.constraintBytes,
-            spsData.generalLevelIdc);
-
+    @Nullable String codecs = null;
+    if (spsData.profileTierLevel != null) {
+      codecs =
+          CodecSpecificDataUtil.buildHevcCodecString(
+              spsData.profileTierLevel.generalProfileSpace,
+              spsData.profileTierLevel.generalTierFlag,
+              spsData.profileTierLevel.generalProfileIdc,
+              spsData.profileTierLevel.generalProfileCompatibilityFlags,
+              spsData.profileTierLevel.constraintBytes,
+              spsData.profileTierLevel.generalLevelIdc);
+    }
     return new Format.Builder()
         .setId(formatId)
         .setSampleMimeType(MimeTypes.VIDEO_H265)

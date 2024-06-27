@@ -1202,7 +1202,7 @@ import java.util.List;
 
     NalUnitUtil.H265SpsData h265SpsData =
         NalUnitUtil.parseH265SpsNalUnit(
-            spsArray, /* nalOffset= */ 0, /* nalLimit= */ spsArray.length);
+            spsArray, /* nalOffset= */ 0, /* nalLimit= */ spsArray.length, /* vpsData= */ null);
 
     byte chromaFormat = (byte) (0xFC | h265SpsData.chromaFormatIdc); // First 6 bits reserved
     byte bitDepthLumaMinus8 =
