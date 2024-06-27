@@ -2640,13 +2640,6 @@ public interface Player {
    */
   @UnstableApi
   @Deprecated
-  boolean hasPrevious();
-
-  /**
-   * @deprecated Use {@link #hasPreviousMediaItem()} instead.
-   */
-  @UnstableApi
-  @Deprecated
   boolean hasPreviousWindow();
 
   /**

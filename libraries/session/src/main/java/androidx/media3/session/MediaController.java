@@ -1428,16 +1428,6 @@ public class MediaController implements Player {
   }
 
   /**
-   * @deprecated Use {@link #hasPreviousMediaItem()} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @Override
-  public final boolean hasPrevious() {
-    return hasPreviousMediaItem();
-  }
-
-  /**
    * @deprecated Use {@link #hasNextMediaItem()} instead.
    */
   @UnstableApi

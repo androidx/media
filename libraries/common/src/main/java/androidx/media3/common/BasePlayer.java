@@ -152,15 +152,6 @@ public abstract class BasePlayer implements Player {
    */
   @Deprecated
   @Override
-  public final boolean hasPrevious() {
-    return hasPreviousMediaItem();
-  }
-
-  /**
-   * @deprecated Use {@link #hasPreviousMediaItem()} instead.
-   */
-  @Deprecated
-  @Override
   public final boolean hasPreviousWindow() {
     return hasPreviousMediaItem();
   }

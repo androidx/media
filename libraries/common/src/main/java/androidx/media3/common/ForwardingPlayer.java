@@ -328,18 +328,6 @@ public class ForwardingPlayer implements Player {
   }
 
   /**
-   * Calls {@link Player#hasPrevious()} on the delegate and returns the result.
-   *
-   * @deprecated Use {@link #hasPreviousMediaItem()} instead.
-   */
-  @SuppressWarnings("deprecation") // Forwarding to deprecated method
-  @Deprecated
-  @Override
-  public boolean hasPrevious() {
-    return player.hasPrevious();
-  }
-
-  /**
    * Calls {@link Player#hasPreviousWindow()} on the delegate and returns the result.
    *
    * @deprecated Use {@link #hasPreviousMediaItem()} instead.

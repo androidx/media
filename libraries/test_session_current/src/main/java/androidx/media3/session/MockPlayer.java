@@ -1081,15 +1081,6 @@ public class MockPlayer implements Player {
   }
 
   /**
-   * @deprecated Use {@link #hasPreviousMediaItem()} instead.
-   */
-  @Deprecated
-  @Override
-  public boolean hasPrevious() {
-    throw new UnsupportedOperationException();
-  }
-
-  /**
    * @deprecated Use {@link #hasNextMediaItem()} instead.
    */
   @Deprecated

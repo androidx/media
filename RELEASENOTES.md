@@ -57,6 +57,8 @@
     *   Use `HttpEngineDataSource` as the `HttpDataSource` when supported by the
         device.
 *   Remove deprecated symbols:
+    *   Remove deprecated `Player#hasPrevious` method. Use
+        `Player#hasPreviousMediaItem()` instead.
 
 ## 1.4
 

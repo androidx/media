@@ -560,14 +560,6 @@ import java.util.List;
   @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @Override
-  public boolean hasPrevious() {
-    verifyApplicationThread();
-    return super.hasPrevious();
-  }
-
-  @SuppressWarnings("deprecation") // Forwarding deprecated call
-  @Deprecated
-  @Override
   public boolean hasNext() {
     verifyApplicationThread();
     return super.hasNext();
