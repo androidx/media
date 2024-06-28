@@ -197,7 +197,8 @@ public class ExportTest {
         Ascii.equalsIgnoreCase(Util.MODEL, "tb-q706")
             || Ascii.equalsIgnoreCase(Util.MODEL, "sm-f916u1")
             || Ascii.equalsIgnoreCase(Util.MODEL, "sm-g981u1")
-            || Ascii.equalsIgnoreCase(Util.MODEL, "le2121"));
+            || Ascii.equalsIgnoreCase(Util.MODEL, "le2121")
+            || Ascii.equalsIgnoreCase(Util.MODEL, "seahawk"));
     Context context = ApplicationProvider.getApplicationContext();
     assumeFormatsSupported(
         context, testId, /* inputFormat= */ MP4_ASSET_8K24.videoFormat, /* outputFormat= */ null);
