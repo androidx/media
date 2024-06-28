@@ -18,7 +18,6 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_SURFACE_TEXTURE_TRANSFORM_FIX;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
 import static androidx.media3.transformer.AndroidTestUtil.BT601_MOV_ASSET;
@@ -45,7 +44,6 @@ import static androidx.media3.transformer.SequenceEffectTestUtil.decoderProduces
 import static androidx.media3.transformer.SequenceEffectTestUtil.oneFrameFromImage;
 import static androidx.media3.transformer.SequenceEffectTestUtil.tryToExportCompositionWithDecoder;
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assume.assumeFalse;
 
 import android.content.Context;
 import androidx.annotation.Nullable;
@@ -88,6 +86,7 @@ public final class TransformerSequenceEffectTest {
   private static final String OVERLAY_PNG_ASSET_PATH = "media/png/media3test.png";
   private static final int EXPORT_WIDTH = 360;
   private static final int EXPORT_HEIGHT = 240;
+  private static final int SQUARE_SIZE = 240;
 
   private final Context context = ApplicationProvider.getApplicationContext();
   @Rule public final TestName testName = new TestName();
@@ -458,14 +457,6 @@ public final class TransformerSequenceEffectTest {
 
   @Test
   public void export_withCompositionPresentationAndWithPerMediaItemEffects() throws Exception {
-    // Reference: b/296225823#comment5
-    assumeFalse(
-        "Some older MediaTek encoders have a pixel alignment of 16, which results in a 360 pixel"
-            + " width being re-scaled to 368.",
-        SDK_INT == 27
-            && (Ascii.equalsIgnoreCase(Util.MODEL, "redmi 6a")
-                || Ascii.equalsIgnoreCase(Util.MODEL, "vivo 1820")));
-
     assumeFormatsSupported(
         context,
         testId,
@@ -474,7 +465,9 @@ public final class TransformerSequenceEffectTest {
     Composition composition =
         createComposition(
             Presentation.createForWidthAndHeight(
-                EXPORT_WIDTH, /* height= */ EXPORT_WIDTH, Presentation.LAYOUT_SCALE_TO_FIT),
+                /* width= */ SQUARE_SIZE,
+                /* height= */ SQUARE_SIZE,
+                Presentation.LAYOUT_SCALE_TO_FIT),
             oneFrameFromImage(
                 JPG_ASSET.uri,
                 ImmutableList.of(
