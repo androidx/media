@@ -59,6 +59,7 @@
 *   Remove deprecated symbols:
     *   Remove deprecated `Player#hasPrevious` method. Use
         `Player#hasPreviousMediaItem()` instead.
+    *   Remove deprecated `DrmSessionEventListener.onDrmSessionAcquired` method.
 
 ## 1.4
 
