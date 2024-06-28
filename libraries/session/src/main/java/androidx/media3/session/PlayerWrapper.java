@@ -568,14 +568,6 @@ import java.util.List;
   @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @Override
-  public boolean hasPreviousWindow() {
-    verifyApplicationThread();
-    return super.hasPreviousWindow();
-  }
-
-  @SuppressWarnings("deprecation") // Forwarding deprecated call
-  @Deprecated
-  @Override
   public boolean hasNextWindow() {
     verifyApplicationThread();
     return super.hasNextWindow();
@@ -591,14 +583,6 @@ import java.util.List;
   public boolean hasNextMediaItem() {
     verifyApplicationThread();
     return super.hasNextMediaItem();
-  }
-
-  @SuppressWarnings("deprecation") // Forwarding deprecated call
-  @Deprecated
-  @Override
-  public void previous() {
-    verifyApplicationThread();
-    super.previous();
   }
 
   @SuppressWarnings("deprecation") // Forwarding deprecated call

@@ -2636,13 +2636,6 @@ public interface Player {
   void seekForward();
 
   /**
-   * @deprecated Use {@link #hasPreviousMediaItem()} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  boolean hasPreviousWindow();
-
-  /**
    * Returns whether a previous media item exists, which may depend on the current repeat mode and
    * whether shuffle mode is enabled.
    *
@@ -2654,13 +2647,6 @@ public interface Player {
    * #getAvailableCommands() available}.
    */
   boolean hasPreviousMediaItem();
-
-  /**
-   * @deprecated Use {@link #seekToPreviousMediaItem()} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  void previous();
 
   /**
    * @deprecated Use {@link #seekToPreviousMediaItem()} instead.
