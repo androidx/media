@@ -25,6 +25,7 @@ import androidx.media3.common.util.Util;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.WavUtil;
 import java.io.IOException;
+import java.util.UUID;
 
 /** Reads a WAV header from an input stream; supports resuming from input failures. */
 /* package */ final class WavHeaderReader {
@@ -109,9 +110,21 @@ import java.io.IOException;
 
     int bytesLeft = (int) chunkHeader.size - 16;
     byte[] extraData;
+    int validBitsPerSample = 0;
+    int channelMask = 0;
+    UUID uuid = null;
+
     if (bytesLeft > 0) {
       extraData = new byte[bytesLeft];
       input.peekFully(extraData, 0, bytesLeft);
+      if (bytesLeft == 24) {
+        ParsableByteArray extra = new ParsableByteArray(extraData);
+        // ignore useless extra data length ( 0 or 22 )
+        int cbSize = extra.readLittleEndianUnsignedShort();
+        validBitsPerSample = extra.readLittleEndianUnsignedShort();
+        channelMask = extra.readLittleEndianUnsignedIntToInt();
+        uuid = extra.readMSGUID();
+      }
     } else {
       extraData = Util.EMPTY_BYTE_ARRAY;
     }
@@ -124,7 +137,10 @@ import java.io.IOException;
         averageBytesPerSecond,
         blockSize,
         bitsPerSample,
-        extraData);
+        extraData,
+        validBitsPerSample,
+        channelMask,
+        uuid);
   }
 
   /**

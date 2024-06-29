@@ -175,9 +175,19 @@ public final class WavExtractor implements Extractor {
   @RequiresNonNull({"extractorOutput", "trackOutput"})
   private void readFormat(ExtractorInput input) throws IOException {
     WavFormat wavFormat = WavHeaderReader.readFormat(input);
+    // WAVE_FORMAT_EXTENSIBLE Determined by SubFormat
+    // available SubFormats (GUID , Decoder)
+    // ("00000001-0000-0010-8000-00aa00389b71", KSDATAFORMAT_SUBTYPE_PCM)
+    // ("00000003-0000-0010-8000-00aa00389b71", KSDATAFORMAT_SUBTYPE_IEEE_FLOAT)
+    // ("00000006-0000-0010-8000-00aa00389b71", KSDATAFORMAT_SUBTYPE_ALAW)
+    // ("00000007-0000-0010-8000-00aa00389b71", KSDATAFORMAT_SUBTYPE_MULAW)
+    // full subformat GUIDs for compressed audio formats
+    // https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/subformat-guids-for-compressed-audio-formats
     if (wavFormat.formatType == WavUtil.TYPE_IMA_ADPCM) {
       outputWriter = new ImaAdPcmOutputWriter(extractorOutput, trackOutput, wavFormat);
-    } else if (wavFormat.formatType == WavUtil.TYPE_ALAW) {
+    } else if (wavFormat.formatType == WavUtil.TYPE_ALAW ||
+        wavFormat.formatType == WavUtil.TYPE_WAVE_FORMAT_EXTENSIBLE &&
+            WavUtil.KSDATAFORMAT_SUBTYPE_ALAW.equals(wavFormat.uuid)) {
       outputWriter =
           new PassthroughOutputWriter(
               extractorOutput,
@@ -185,7 +195,9 @@ public final class WavExtractor implements Extractor {
               wavFormat,
               MimeTypes.AUDIO_ALAW,
               /* pcmEncoding= */ Format.NO_VALUE);
-    } else if (wavFormat.formatType == WavUtil.TYPE_MLAW) {
+    } else if (wavFormat.formatType == WavUtil.TYPE_MLAW ||
+        wavFormat.formatType == WavUtil.TYPE_WAVE_FORMAT_EXTENSIBLE &&
+            WavUtil.KSDATAFORMAT_SUBTYPE_MULAW.equals(wavFormat.uuid)) {
       outputWriter =
           new PassthroughOutputWriter(
               extractorOutput,
@@ -197,6 +209,10 @@ public final class WavExtractor implements Extractor {
       @C.PcmEncoding
       int pcmEncoding =
           WavUtil.getPcmEncodingForType(wavFormat.formatType, wavFormat.bitsPerSample);
+      if (wavFormat.formatType == WavUtil.TYPE_WAVE_FORMAT_EXTENSIBLE &&
+          WavUtil.KSDATAFORMAT_SUBTYPE_IEEE_FLOAT.equals(wavFormat.uuid)) {
+        pcmEncoding = C.ENCODING_PCM_FLOAT;
+      }
       if (pcmEncoding == C.ENCODING_INVALID) {
         throw ParserException.createForUnsupportedContainerFeature(
             "Unsupported WAV format type: " + wavFormat.formatType);
