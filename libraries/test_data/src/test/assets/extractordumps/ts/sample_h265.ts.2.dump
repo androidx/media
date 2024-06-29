@@ -1,14 +1,14 @@
 seekMap:
   isSeekable = true
-  duration = 900000
+  duration = 1000000
   getPosition(0) = [[timeUs=0, position=0]]
   getPosition(1) = [[timeUs=1, position=0]]
-  getPosition(450000) = [[timeUs=450000, position=11421]]
-  getPosition(900000) = [[timeUs=900000, position=23030]]
+  getPosition(500000) = [[timeUs=500000, position=11421]]
+  getPosition(1000000) = [[timeUs=1000000, position=23030]]
 numberOfTracks = 1
 track 256:
-  total output bytes = 1796
-  sample count = 13
+  total output bytes = 2009
+  sample count = 14
   format 0:
     id = 1/256
     sampleMimeType = video/hevc
@@ -23,54 +23,58 @@ track 256:
     initializationData:
       data = length 83, hash 7F428
   sample 0:
+    time = 666667
+    flags = 0
+    data = length 213, hash 52C7574A
+  sample 1:
     time = 600000
     flags = 0
     data = length 137, hash D4F0BCD7
-  sample 1:
+  sample 2:
     time = 633333
     flags = 0
     data = length 121, hash BE52EEB8
-  sample 2:
+  sample 3:
     time = 700000
     flags = 0
     data = length 102, hash 6AA3C84F
-  sample 3:
+  sample 4:
     time = 900000
     flags = 0
     data = length 240, hash 8E3CA414
-  sample 4:
+  sample 5:
     time = 833333
     flags = 0
     data = length 210, hash 5D050FE8
-  sample 5:
-    time = 766666
+  sample 6:
+    time = 766667
     flags = 0
     data = length 102, hash ED3BD5C9
-  sample 6:
+  sample 7:
     time = 800000
     flags = 0
     data = length 110, hash CF65ED37
-  sample 7:
-    time = 866666
+  sample 8:
+    time = 866667
     flags = 0
     data = length 118, hash BA0156BF
-  sample 8:
+  sample 9:
     time = 1033333
     flags = 0
     data = length 260, hash ED6ABC1D
-  sample 9:
-    time = 966666
+  sample 10:
+    time = 966667
     flags = 0
     data = length 141, hash 9787F33A
-  sample 10:
+  sample 11:
     time = 933333
     flags = 0
     data = length 87, hash EEC4D98C
-  sample 11:
+  sample 12:
     time = 1000000
     flags = 0
     data = length 7, hash 680F23CB
-  sample 12:
+  sample 13:
     time = 1000000
     flags = 0
     data = length 160, hash 11EC03D0

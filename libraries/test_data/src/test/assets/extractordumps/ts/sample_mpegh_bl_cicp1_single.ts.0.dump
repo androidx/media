@@ -1,10 +1,10 @@
 seekMap:
   isSeekable = true
-  duration = 589566
+  duration = 618666
   getPosition(0) = [[timeUs=0, position=0]]
   getPosition(1) = [[timeUs=1, position=0]]
-  getPosition(294783) = [[timeUs=294783, position=35353]]
-  getPosition(589566) = [[timeUs=589566, position=70894]]
+  getPosition(309333) = [[timeUs=309333, position=35353]]
+  getPosition(618666) = [[timeUs=618666, position=70894]]
 numberOfTracks = 1
 track 32:
   total output bytes = 2837
@@ -23,7 +23,7 @@ track 32:
     flags = 0
     data = length 85, hash 8EFCDF36
   sample 2:
-    time = 42666
+    time = 42667
     flags = 0
     data = length 98, hash BC03FE8A
   sample 3:
@@ -35,7 +35,7 @@ track 32:
     flags = 0
     data = length 93, hash BD1CBC0E
   sample 5:
-    time = 106666
+    time = 106667
     flags = 0
     data = length 93, hash C0B46623
   sample 6:
@@ -47,7 +47,7 @@ track 32:
     flags = 0
     data = length 82, hash EB64F3A8
   sample 8:
-    time = 170666
+    time = 170667
     flags = 0
     data = length 83, hash 97803527
   sample 9:
@@ -59,7 +59,7 @@ track 32:
     flags = 0
     data = length 81, hash 3D9C7710
   sample 11:
-    time = 234666
+    time = 234667
     flags = 0
     data = length 77, hash 27B26E3D
   sample 12:
@@ -71,7 +71,7 @@ track 32:
     flags = 0
     data = length 80, hash 284BFE1
   sample 14:
-    time = 298666
+    time = 298667
     flags = 0
     data = length 78, hash 8F24DBB3
   sample 15:
@@ -83,7 +83,7 @@ track 32:
     flags = 0
     data = length 78, hash CB614574
   sample 17:
-    time = 362666
+    time = 362667
     flags = 0
     data = length 76, hash F97A6A30
   sample 18:
@@ -95,7 +95,7 @@ track 32:
     flags = 0
     data = length 81, hash 2B2350C7
   sample 20:
-    time = 426666
+    time = 426667
     flags = 0
     data = length 79, hash DFF1D0CD
   sample 21:
@@ -107,7 +107,7 @@ track 32:
     flags = 0
     data = length 79, hash 4FEDABA0
   sample 23:
-    time = 490666
+    time = 490667
     flags = 0
     data = length 82, hash 7C80BC82
   sample 24:
@@ -119,7 +119,7 @@ track 32:
     flags = 0
     data = length 77, hash 7349D247
   sample 26:
-    time = 554666
+    time = 554667
     flags = 0
     data = length 77, hash 73C5B274
   sample 27:

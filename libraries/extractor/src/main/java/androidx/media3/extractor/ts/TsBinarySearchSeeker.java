@@ -28,10 +28,10 @@ import java.io.IOException;
 /**
  * A seeker that supports seeking within TS stream using binary search.
  *
- * <p>This seeker uses the first and last PCR values within the stream, as well as the stream
- * duration to interpolate the PCR value of the seeking position. Then it performs binary search
- * within the stream to find a packets whose PCR value is within {@link #SEEK_TOLERANCE_US} from the
- * target PCR.
+ * <p>This seeker uses the first and last DTS values within the stream, as well as the stream
+ * duration to interpolate the DTS value of the seeking position. Then it performs binary search
+ * within the stream to find a packets whose DTS value is within {@link #SEEK_TOLERANCE_US} from the
+ * target DTS.
  */
 /* package */ final class TsBinarySearchSeeker extends BinarySearchSeeker {
 
@@ -39,14 +39,14 @@ import java.io.IOException;
   private static final int MINIMUM_SEARCH_RANGE_BYTES = 5 * TsExtractor.TS_PACKET_SIZE;
 
   public TsBinarySearchSeeker(
-      TimestampAdjuster pcrTimestampAdjuster,
+      TimestampAdjuster timestampAdjuster,
       long streamDurationUs,
       long inputLength,
-      int pcrPid,
+      int selectedPid,
       int timestampSearchBytes) {
     super(
         new DefaultSeekTimestampConverter(),
-        new TsPcrSeeker(pcrPid, pcrTimestampAdjuster, timestampSearchBytes),
+        new TsTimestampSeeker(selectedPid, timestampAdjuster, timestampSearchBytes),
         streamDurationUs,
         /* floorTimePosition= */ 0,
         /* ceilingTimePosition= */ streamDurationUs + 1,
@@ -57,25 +57,25 @@ import java.io.IOException;
   }
 
   /**
-   * A {@link TimestampSeeker} implementation that looks for a given PCR timestamp at a given
+   * A {@link TimestampSeeker} implementation that looks for a given DTS timestamp at a given
    * position in a TS stream.
    *
-   * <p>Given a PCR timestamp, and a position within a TS stream, this seeker will peek up to {@link
+   * <p>Given a DTS timestamp, and a position within a TS stream, this seeker will peek up to {@link
    * #timestampSearchBytes} from that stream position, look for all packets with PID equal to
-   * PCR_PID, and then compare the PCR timestamps (if available) of these packets to the target
+   * SELECTED_PID, and then compare the DTS timestamps (if available) of these packets to the target
    * timestamp.
    */
-  private static final class TsPcrSeeker implements TimestampSeeker {
+  private static final class TsTimestampSeeker implements TimestampSeeker {
 
-    private final TimestampAdjuster pcrTimestampAdjuster;
+    private final TimestampAdjuster timestampAdjuster;
     private final ParsableByteArray packetBuffer;
-    private final int pcrPid;
+    private final int selectedPid;
     private final int timestampSearchBytes;
 
-    public TsPcrSeeker(
-        int pcrPid, TimestampAdjuster pcrTimestampAdjuster, int timestampSearchBytes) {
-      this.pcrPid = pcrPid;
-      this.pcrTimestampAdjuster = pcrTimestampAdjuster;
+    public TsTimestampSeeker(
+        int selectedPid, TimestampAdjuster timestampAdjuster, int timestampSearchBytes) {
+      this.selectedPid = selectedPid;
+      this.timestampAdjuster = timestampAdjuster;
       this.timestampSearchBytes = timestampSearchBytes;
       packetBuffer = new ParsableByteArray();
     }
@@ -89,16 +89,16 @@ import java.io.IOException;
       packetBuffer.reset(bytesToSearch);
       input.peekFully(packetBuffer.getData(), /* offset= */ 0, bytesToSearch);
 
-      return searchForPcrValueInBuffer(packetBuffer, targetTimestamp, inputPosition);
+      return searchForDtsValueInBuffer(packetBuffer, targetTimestamp, inputPosition);
     }
 
-    private TimestampSearchResult searchForPcrValueInBuffer(
-        ParsableByteArray packetBuffer, long targetPcrTimeUs, long bufferStartOffset) {
+    private TimestampSearchResult searchForDtsValueInBuffer(
+        ParsableByteArray packetBuffer, long targetDtsTimeUs, long bufferStartOffset) {
       int limit = packetBuffer.limit();
 
       long startOfLastPacketPosition = C.INDEX_UNSET;
       long endOfLastPacketPosition = C.INDEX_UNSET;
-      long lastPcrTimeUsInRange = C.TIME_UNSET;
+      long lastDtsTimeUsInRange = C.TIME_UNSET;
 
       while (packetBuffer.bytesLeft() >= TsExtractor.TS_PACKET_SIZE) {
         int startOfPacket =
@@ -107,34 +107,34 @@ import java.io.IOException;
         if (endOfPacket > limit) {
           break;
         }
-        long pcrValue = TsUtil.readPcrFromPacket(packetBuffer, startOfPacket, pcrPid);
-        if (pcrValue != C.TIME_UNSET) {
-          long pcrTimeUs = pcrTimestampAdjuster.adjustTsTimestamp(pcrValue);
-          if (pcrTimeUs > targetPcrTimeUs) {
-            if (lastPcrTimeUsInRange == C.TIME_UNSET) {
-              // First PCR timestamp is already over target.
-              return TimestampSearchResult.overestimatedResult(pcrTimeUs, bufferStartOffset);
+        long dtsValue = TsUtil.readDtsFromPacket(packetBuffer, startOfPacket, selectedPid);
+        if (dtsValue != C.TIME_UNSET) {
+          long dtsTimeUs = timestampAdjuster.adjustTsTimestamp(dtsValue);
+          if (dtsTimeUs > targetDtsTimeUs) {
+            if (lastDtsTimeUsInRange == C.TIME_UNSET) {
+              // First DTS timestamp is already over target.
+              return TimestampSearchResult.overestimatedResult(dtsTimeUs, bufferStartOffset);
             } else {
-              // Last PCR timestamp < target timestamp < this timestamp.
+              // Last DTS timestamp < target timestamp < this timestamp.
               return TimestampSearchResult.targetFoundResult(
                   bufferStartOffset + startOfLastPacketPosition);
             }
-          } else if (pcrTimeUs + SEEK_TOLERANCE_US > targetPcrTimeUs) {
+          } else if (dtsTimeUs + SEEK_TOLERANCE_US > targetDtsTimeUs) {
             long startOfPacketInStream = bufferStartOffset + startOfPacket;
             return TimestampSearchResult.targetFoundResult(startOfPacketInStream);
           }
 
-          lastPcrTimeUsInRange = pcrTimeUs;
+          lastDtsTimeUsInRange = dtsTimeUs;
           startOfLastPacketPosition = startOfPacket;
         }
         packetBuffer.setPosition(endOfPacket);
         endOfLastPacketPosition = endOfPacket;
       }
 
-      if (lastPcrTimeUsInRange != C.TIME_UNSET) {
+      if (lastDtsTimeUsInRange != C.TIME_UNSET) {
         long endOfLastPacketPositionInStream = bufferStartOffset + endOfLastPacketPosition;
         return TimestampSearchResult.underestimatedResult(
-            lastPcrTimeUsInRange, endOfLastPacketPositionInStream);
+            lastDtsTimeUsInRange, endOfLastPacketPositionInStream);
       } else {
         return TimestampSearchResult.NO_TIMESTAMP_IN_RANGE_RESULT;
       }

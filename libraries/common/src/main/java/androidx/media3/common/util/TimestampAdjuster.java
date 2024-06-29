@@ -271,7 +271,7 @@ public final class TimestampAdjuster {
    * @return The corresponding value in microseconds.
    */
   public static long ptsToUs(long pts) {
-    return (pts * C.MICROS_PER_SECOND) / 90000;
+    return Math.round((double)pts * C.MICROS_PER_SECOND / 90000);
   }
 
   /**

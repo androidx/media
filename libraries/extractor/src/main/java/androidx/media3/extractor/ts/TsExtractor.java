@@ -120,7 +120,7 @@ public final class TsExtractor implements Extractor {
           };
 
   public static final int TS_PACKET_SIZE = 188;
-  public static final int DEFAULT_TIMESTAMP_SEARCH_BYTES = 600 * TS_PACKET_SIZE;
+  public static final int DEFAULT_TIMESTAMP_SEARCH_BYTES = 900 * TS_PACKET_SIZE;
 
   public static final int TS_STREAM_TYPE_MPA = 0x03;
   public static final int TS_STREAM_TYPE_MPA_LSF = 0x04;
@@ -427,9 +427,10 @@ public final class TsExtractor implements Extractor {
     long inputLength = input.getLength();
     boolean isModeHls = mode == MODE_HLS;
     if (tracksEnded) {
-      boolean canReadDuration = inputLength != C.LENGTH_UNSET && !isModeHls;
+      boolean canReadDuration = inputLength != C.LENGTH_UNSET && mode != MODE_HLS;
       if (canReadDuration && !durationReader.isDurationReadFinished()) {
-        return durationReader.readDuration(input, seekPosition, pcrPid);
+        int pesPid = getFirstPesReaderPid();
+        return durationReader.readDuration(input, seekPosition, pesPid, pcrPid);
       }
       maybeOutputSeekMap(inputLength);
 
@@ -542,7 +543,7 @@ public final class TsExtractor implements Extractor {
       if (durationReader.getDurationUs() != C.TIME_UNSET) {
         tsBinarySearchSeeker =
             new TsBinarySearchSeeker(
-                durationReader.getPcrTimestampAdjuster(),
+                durationReader.getTimestampAdjuster(),
                 durationReader.getDurationUs(),
                 inputLength,
                 pcrPid,
@@ -621,6 +622,16 @@ public final class TsExtractor implements Extractor {
     }
     tsPayloadReaders.put(TS_PAT_PID, new SectionReader(new PatReader()));
     id3Reader = null;
+  }
+
+  private int getFirstPesReaderPid() {
+    for (int i = 0; i < tsPayloadReaders.size(); i++) {
+      TsPayloadReader payloadReader = tsPayloadReaders.valueAt(i);
+      if (payloadReader instanceof PesReader) {
+        return tsPayloadReaders.keyAt(i);
+      }
+    }
+    return -1;
   }
 
   /** Parses Program Association Table data. */

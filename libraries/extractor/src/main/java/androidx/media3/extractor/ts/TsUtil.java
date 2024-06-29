@@ -124,6 +124,59 @@ public final class TsUtil {
         | (pcrBytes[4] & 0xFFL) >> 7;
   }
 
+  public static long readDtsFromPacket(ParsableByteArray packetBuffer, int startOfPacket, int selectedPid) {
+    packetBuffer.setPosition(startOfPacket);
+    if (packetBuffer.bytesLeft() < 18) {
+      // TS Header : 4 bytes, PES header (minimum) : 9 bytes, PTS or DTS : 5 bytes
+      return C.TIME_UNSET;
+    }
+    int tsPacketHeader = packetBuffer.readInt();
+    if ((tsPacketHeader & 0x800000) != 0) {
+      // transport_error_indicator != 0 means there are uncorrectable errors in this packet.
+      return C.TIME_UNSET;
+    }
+    int pid = (tsPacketHeader & 0x1FFF00) >> 8;
+    if (pid != selectedPid) {
+      return C.TIME_UNSET;
+    }
+    boolean pusiSet = (tsPacketHeader & 0x400000) != 0;
+    if (!pusiSet) {
+      return C.TIME_UNSET;
+    }
+    boolean adaptationFieldExists = (tsPacketHeader & 0x20) != 0;
+    if (adaptationFieldExists) {
+      int adaptationFieldLength = packetBuffer.readUnsignedByte();
+      packetBuffer.skipBytes(adaptationFieldLength);
+    }
+    // Skip PES packet_start_code_prefix (3 bytes), stream_id (1 byte)
+    // PES_packet_length (2 bytes) and first byte '10' up to original_or_copy (1 byte)
+    packetBuffer.skipBytes(7);
+    int pesFlags = packetBuffer.readUnsignedByte();
+    int ptsDtsFlags = (pesFlags >> 6);
+    if (ptsDtsFlags == 0) {
+      // no DTS
+      return C.TIME_UNSET;
+    }
+    // Skip PES_header_data_length
+    packetBuffer.skipBytes(1);
+    // If PTS only, DTS is equal to PTS as per TREF definition
+    if (ptsDtsFlags == 0b11) {
+      // PTS followed by DTS
+      packetBuffer.skipBytes(5);
+    }
+    byte[] dtsBytes = new byte[5];
+    packetBuffer.readBytes(dtsBytes, 0, dtsBytes.length);
+    return readDtsValueFromDtsBytes(dtsBytes);
+  }
+
+  private static long readDtsValueFromDtsBytes(byte[] dtsBytes) {
+    return (dtsBytes[0] & 0x0EL) << 29
+        | (dtsBytes[1] & 0xFFL) << 22
+        | (dtsBytes[2] & 0xFEL) << 14
+        | (dtsBytes[3] & 0xFFL) << 7
+        | (dtsBytes[4] & 0xFEL) >> 1;
+  }
+
   private TsUtil() {
     // Prevent instantiation.
   }

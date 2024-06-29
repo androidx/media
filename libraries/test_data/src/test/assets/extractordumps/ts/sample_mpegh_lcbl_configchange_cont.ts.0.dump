@@ -1,10 +1,10 @@
 seekMap:
   isSeekable = true
-  duration = 1783744
+  duration = 2026667
   getPosition(0) = [[timeUs=0, position=0]]
   getPosition(1) = [[timeUs=1, position=0]]
-  getPosition(891872) = [[timeUs=891872, position=106614]]
-  getPosition(1783744) = [[timeUs=1783744, position=213417]]
+  getPosition(1013333) = [[timeUs=1013333, position=106614]]
+  getPosition(2026667) = [[timeUs=2026667, position=213417]]
 numberOfTracks = 1
 track 32:
   total output bytes = 38778
@@ -62,55 +62,55 @@ track 32:
     flags = 0
     data = length 158, hash 10AC2CD4
   sample 11:
-    time = 234666
+    time = 234667
     flags = 0
     data = length 158, hash A9289DCC
   sample 12:
-    time = 255999
+    time = 256000
     flags = 0
     data = length 164, hash 7E2368C3
   sample 13:
-    time = 277333
+    time = 277334
     flags = 0
     data = length 158, hash 10AC2CD4
   sample 14:
-    time = 298666
+    time = 298667
     flags = 0
     data = length 158, hash A9289DCD
   sample 15:
-    time = 319999
+    time = 320000
     flags = 0
     data = length 164, hash 7E2368C3
   sample 16:
-    time = 341333
+    time = 341334
     flags = 0
     data = length 158, hash 10AC2CD4
   sample 17:
-    time = 362666
+    time = 362667
     flags = 0
     data = length 158, hash 37B039B1
   sample 18:
-    time = 383999
+    time = 384000
     flags = 0
     data = length 164, hash 7E2368C3
   sample 19:
-    time = 405333
+    time = 405334
     flags = 0
     data = length 158, hash 10AC2CD4
   sample 20:
-    time = 426666
+    time = 426667
     flags = 0
     data = length 126, hash 78789B9C
   sample 21:
-    time = 447999
+    time = 448000
     flags = 0
     data = length 151, hash 2E40B4B2
   sample 22:
-    time = 469333
+    time = 469334
     flags = 0
     data = length 163, hash 4E4CBFDD
   sample 23:
-    time = 490666
+    time = 490667
     flags = 0
     data = length 160, hash 3BCD3677
   sample 24:
@@ -362,19 +362,19 @@ track 32:
     flags = 0
     data = length 512, hash 71422ABD
   sample 82:
-    time = 1706666
+    time = 1706667
     flags = 0
     data = length 512, hash 12E1C069
   sample 83:
-    time = 1727999
+    time = 1728000
     flags = 0
     data = length 512, hash 4C287890
   sample 84:
-    time = 1749333
+    time = 1749334
     flags = 0
     data = length 512, hash 71422AC0
   sample 85:
-    time = 1770666
+    time = 1770667
     flags = 0
     data = length 581, hash 64B79723
   sample 86:

@@ -59,7 +59,7 @@ public final class TsDurationReaderTest {
             .build();
 
     while (!tsDurationReader.isDurationReadFinished()) {
-      int result = tsDurationReader.readDuration(input, seekPositionHolder, /* pcrPid= */ 256);
+      int result = tsDurationReader.readDuration(input, seekPositionHolder, /* pesPid= */ 256, /* pcrPid= */ 256);
       if (result == Extractor.RESULT_END_OF_INPUT) {
         break;
       }
@@ -84,7 +84,7 @@ public final class TsDurationReaderTest {
 
     input.setPosition(1234);
     while (!tsDurationReader.isDurationReadFinished()) {
-      int result = tsDurationReader.readDuration(input, seekPositionHolder, /* pcrPid= */ 256);
+      int result = tsDurationReader.readDuration(input, seekPositionHolder, /* pesPid= */ 256, /* pcrPid= */ 256);
       if (result == Extractor.RESULT_END_OF_INPUT) {
         break;
       }
