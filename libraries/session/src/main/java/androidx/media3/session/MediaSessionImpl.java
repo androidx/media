@@ -626,25 +626,38 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   public void sendError(ControllerInfo controllerInfo, SessionError sessionError) {
-    if (controllerInfo.getInterfaceVersion() < 4) {
+    if (controllerInfo.getControllerVersion() != ControllerInfo.LEGACY_CONTROLLER_VERSION
+        && controllerInfo.getInterfaceVersion() < 4) {
       // IMediaController.onError introduced with interface version 4.
       return;
     }
-    dispatchRemoteControllerTaskWithoutReturn(
-        controllerInfo, (callback, seq) -> callback.onError(seq, sessionError));
-    if (isMediaNotificationController(controllerInfo)) {
+    if (isMediaNotificationController(controllerInfo)
+        || controllerInfo.getControllerVersion() == ControllerInfo.LEGACY_CONTROLLER_VERSION) {
+      // Media notification controller or legacy controllers update the platform session.
       dispatchRemoteControllerTaskToLegacyStub(
           (callback, seq) -> callback.onError(seq, sessionError));
+    } else {
+      // Media3 controller are notified individually.
+      dispatchRemoteControllerTaskWithoutReturn(
+          controllerInfo, (callback, seq) -> callback.onError(seq, sessionError));
     }
   }
 
   public void sendError(SessionError sessionError) {
-    // Send error messages only to Media3 controllers.
+    // Send error messages to Media3 controllers.
     ImmutableList<ControllerInfo> connectedControllers =
         sessionStub.getConnectedControllersManager().getConnectedControllers();
     for (int i = 0; i < connectedControllers.size(); i++) {
-      sendError(connectedControllers.get(i), sessionError);
+      ControllerInfo controllerInfo = connectedControllers.get(i);
+      if (!isMediaNotificationController(controllerInfo)) {
+        // Omit sending to the media notification controller. Instead the error will be dispatched
+        // through the legacy stub below to avoid updating the legacy session multiple times.
+        sendError(controllerInfo, sessionError);
+      }
     }
+    // Send error messages to legacy controllers.
+    dispatchRemoteControllerTaskToLegacyStub(
+        (callback, seq) -> callback.onError(seq, sessionError));
   }
 
   public MediaSession.ConnectionResult onConnectOnHandler(ControllerInfo controller) {

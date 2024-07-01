@@ -450,7 +450,8 @@ public class MediaSession {
           sessionExtras,
           checkNotNull(bitmapLoader),
           playIfSuppressed,
-          isPeriodicPositionUpdateEnabled);
+          isPeriodicPositionUpdateEnabled,
+          MediaLibrarySession.LIBRARY_ERROR_REPLICATION_MODE_NONE);
     }
   }
 
@@ -678,7 +679,8 @@ public class MediaSession {
       Bundle sessionExtras,
       BitmapLoader bitmapLoader,
       boolean playIfSuppressed,
-      boolean isPeriodicPositionUpdateEnabled) {
+      boolean isPeriodicPositionUpdateEnabled,
+      @MediaLibrarySession.LibraryErrorReplicationMode int libraryErrorReplicationMode) {
     synchronized (STATIC_LOCK) {
       if (SESSION_ID_TO_SESSION_MAP.containsKey(id)) {
         throw new IllegalStateException("Session ID must be unique. ID=" + id);
@@ -697,7 +699,8 @@ public class MediaSession {
             sessionExtras,
             bitmapLoader,
             playIfSuppressed,
-            isPeriodicPositionUpdateEnabled);
+            isPeriodicPositionUpdateEnabled,
+            libraryErrorReplicationMode);
   }
 
   /* package */ MediaSessionImpl createImpl(
@@ -711,7 +714,8 @@ public class MediaSession {
       Bundle sessionExtras,
       BitmapLoader bitmapLoader,
       boolean playIfSuppressed,
-      boolean isPeriodicPositionUpdateEnabled) {
+      boolean isPeriodicPositionUpdateEnabled,
+      @MediaLibrarySession.LibraryErrorReplicationMode int libraryErrorReplicationMode) {
     return new MediaSessionImpl(
         this,
         context,
@@ -1167,12 +1171,9 @@ public class MediaSession {
    * <p>This will call {@link MediaController.Listener#onError(MediaController, SessionError)} of
    * the given connected controller.
    *
-   * <p>Use {@linkplain MediaSession#getMediaNotificationControllerInfo()} to set the error of the
-   * {@linkplain android.media.session.PlaybackState playback state} of the legacy platform session.
-   *
-   * <p>Only Media3 controllers are supported. If an error is attempted to be sent to a controller
-   * with {@link ControllerInfo#getControllerVersion() a controller version} of value {@link
-   * ControllerInfo#LEGACY_CONTROLLER_VERSION}, an {@link IllegalArgumentException} is thrown.
+   * <p>When an error is sent to {@linkplain MediaSession#getMediaNotificationControllerInfo()} or a
+   * legacy controller, the error of the {@linkplain android.media.session.PlaybackState playback
+   * state} of the platform session is updated accordingly.
    *
    * @param controllerInfo The controller to send the error to.
    * @param sessionError The session error.
@@ -1181,13 +1182,11 @@ public class MediaSession {
    */
   @UnstableApi
   public final void sendError(ControllerInfo controllerInfo, SessionError sessionError) {
-    checkArgument(
-        controllerInfo.getControllerVersion() != ControllerInfo.LEGACY_CONTROLLER_VERSION);
     impl.sendError(controllerInfo, sessionError);
   }
 
   /**
-   * Sends a non-fatal error to all connected Media3 controllers.
+   * Sends a non-fatal error to all connected controllers.
    *
    * <p>See {@link #sendError(ControllerInfo, SessionError)} for sending an error to a specific
    * controller only.

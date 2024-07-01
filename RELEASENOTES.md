@@ -37,6 +37,11 @@
         `AcceptedResultBuilder.setSessionActivivty(PendingIntent)`. Once
         connected, the session activity can be updated with
         `MediaSession.setSessionActivity(ControllerInfo, PendingIntent)`.
+    *   Improve error replication of calls to `MediaLibrarySession.Callback`.
+        Error replication can now be configured by using
+        `MediaLibrarySession.Builder.setLibraryErrorReplicationMode()` for
+        chosing the error type or opt-ing out of error replication which is on
+        by default.
 *   UI:
     *   Work around a platform bug causing stretched/cropped video when using
         `SurfaceView` inside a Compose `AndroidView` on API 34
