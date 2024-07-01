@@ -39,6 +39,8 @@ public class LegacySubtitleUtilWebvttTest {
   private static final String FIRST_SUBTITLE_STRING = "This is the first subtitle.";
   private static final String SECOND_SUBTITLE_STRING = "This is the second subtitle.";
 
+  private static final WebvttSubtitle EMPTY_SUBTITLE = new WebvttSubtitle(ImmutableList.of());
+
   private static final WebvttSubtitle SIMPLE_SUBTITLE =
       new WebvttSubtitle(
           Arrays.asList(
@@ -133,6 +135,14 @@ public class LegacySubtitleUtilWebvttTest {
     assertThat(cuesWithTimingsList.get(2).endTimeUs).isEqualTo(4_000_000);
     assertThat(cuesWithTimingsList.get(2).cues.stream().map(c -> c.text))
         .containsExactly(SECOND_SUBTITLE_STRING);
+  }
+
+  @Test
+  public void toCuesWithTiming_allCues_emptySubtitle() {
+    ImmutableList<CuesWithTiming> cuesWithTimingsList =
+        toCuesWithTimingList(EMPTY_SUBTITLE, SubtitleParser.OutputOptions.allCues());
+
+    assertThat(cuesWithTimingsList).isEmpty();
   }
 
   @Test
@@ -250,6 +260,14 @@ public class LegacySubtitleUtilWebvttTest {
     assertThat(cuesWithTimingsList.get(1).endTimeUs).isEqualTo(4_000_000);
     assertThat(cuesWithTimingsList.get(1).cues.stream().map(c -> c.text))
         .containsExactly(SECOND_SUBTITLE_STRING);
+  }
+
+  @Test
+  public void toCuesWithTiming_onlyEmitCuesAfterStartTime_emptySubtitle() {
+    ImmutableList<CuesWithTiming> cuesWithTimingsList =
+        toCuesWithTimingList(EMPTY_SUBTITLE, SubtitleParser.OutputOptions.onlyCuesAfter(0));
+
+    assertThat(cuesWithTimingsList).isEmpty();
   }
 
   @Test
@@ -403,6 +421,14 @@ public class LegacySubtitleUtilWebvttTest {
     assertThat(cuesWithTimingsList.get(3).cues.stream().map(c -> c.text))
         .containsExactly(FIRST_SUBTITLE_STRING, SECOND_SUBTITLE_STRING)
         .inOrder();
+  }
+
+  @Test
+  public void toCuesWithTiming_emitCuesAfterStartTimeThenThoseBefore_emptySubtitle() {
+    ImmutableList<CuesWithTiming> cuesWithTimingsList =
+        toCuesWithTimingList(EMPTY_SUBTITLE, SubtitleParser.OutputOptions.onlyCuesAfter(0));
+
+    assertThat(cuesWithTimingsList).isEmpty();
   }
 
   private static ImmutableList<CuesWithTiming> toCuesWithTimingList(

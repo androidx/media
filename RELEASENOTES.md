@@ -24,6 +24,9 @@
 *   Audio:
 *   Video:
 *   Text:
+    *   Fix an `IllegalArgumentException` from `LegacySubtitleUtil` when a
+        WebVTT subtitle sample contains no cues, e.g. as part of a DASH stream
+        ([#1516](https://github.com/androidx/media/issues/1516)).
 *   Metadata:
 *   Image:
 *   DRM:

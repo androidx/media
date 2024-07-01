@@ -32,11 +32,14 @@ public class LegacySubtitleUtil {
    * Converts a {@link Subtitle} to a list of {@link CuesWithTiming} representing it, emitted to
    * {@code output}.
    *
-   * <p>This may only be called with {@link Subtitle} instances where the first event is non-empty
-   * and the last event is an empty cue list.
+   * <p>This may only be called with empty {@link Subtitle} instances, or those where the first
+   * event is non-empty and the last event is an empty cue list.
    */
   public static void toCuesWithTiming(
       Subtitle subtitle, OutputOptions outputOptions, Consumer<CuesWithTiming> output) {
+    if (subtitle.getEventTimeCount() == 0) {
+      return;
+    }
     int startIndex = getStartIndex(subtitle, outputOptions);
     boolean startedInMiddleOfCue = false;
     if (outputOptions.startTimeUs != C.TIME_UNSET) {
