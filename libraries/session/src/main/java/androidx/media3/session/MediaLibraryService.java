@@ -22,6 +22,11 @@ import static androidx.media3.session.LibraryResult.RESULT_SUCCESS;
 import static androidx.media3.session.LibraryResult.ofVoid;
 import static androidx.media3.session.SessionError.ERROR_BAD_VALUE;
 import static androidx.media3.session.SessionError.ERROR_NOT_SUPPORTED;
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.LOCAL_VARIABLE;
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.app.PendingIntent;
 import android.content.Context;
@@ -29,6 +34,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
+import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
@@ -43,6 +49,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.lang.annotation.Documented;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.util.List;
 
 /**
@@ -117,6 +127,37 @@ public abstract class MediaLibraryService extends MediaSessionService {
    * </table>
    */
   public static final class MediaLibrarySession extends MediaSession {
+
+    /**
+     * Library error replication mode. One of {@link #LIBRARY_ERROR_REPLICATION_MODE_NONE}, {@link
+     * #LIBRARY_ERROR_REPLICATION_MODE_FATAL} or {@link #LIBRARY_ERROR_REPLICATION_MODE_NON_FATAL}.
+     */
+    @Documented
+    @Retention(RetentionPolicy.SOURCE)
+    @Target({FIELD, METHOD, PARAMETER, LOCAL_VARIABLE, TYPE_USE})
+    @IntDef({
+      LIBRARY_ERROR_REPLICATION_MODE_NONE,
+      LIBRARY_ERROR_REPLICATION_MODE_FATAL,
+      LIBRARY_ERROR_REPLICATION_MODE_NON_FATAL
+    })
+    @UnstableApi
+    @interface LibraryErrorReplicationMode {}
+
+    /** No library service errors are replicated. */
+    @UnstableApi public static final int LIBRARY_ERROR_REPLICATION_MODE_NONE = 0;
+
+    /**
+     * {@linkplain SessionError Session errors} returned by the {@link MediaLibrarySession.Callback}
+     * as part of a {@link LibraryResult} are replicated to the platform session as a fatal error.
+     */
+    @UnstableApi public static final int LIBRARY_ERROR_REPLICATION_MODE_FATAL = 1;
+
+    /**
+     * {@linkplain SessionError Session errors} returned by the {@link MediaLibrarySession.Callback}
+     * as part of a {@link LibraryResult} are replicated to the platform session as a non-fatal
+     * error.
+     */
+    @UnstableApi public static final int LIBRARY_ERROR_REPLICATION_MODE_NON_FATAL = 2;
 
     /**
      * An extended {@link MediaSession.Callback} for the {@link MediaLibrarySession}.
@@ -393,6 +434,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
     // constructor.
     public static final class Builder extends BuilderBase<MediaLibrarySession, Builder, Callback> {
 
+      private @LibraryErrorReplicationMode int libraryErrorReplicationMode;
+
       /**
        * Creates a builder for {@link MediaLibrarySession}.
        *
@@ -407,7 +450,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
       // Ideally it's better to make it inner class of service to enforce, but it violates API
       // guideline that Builders should be the inner class of the building target.
       public Builder(MediaLibraryService service, Player player, Callback callback) {
-        super(service, player, callback);
+        this((Context) service, player, callback);
       }
 
       /**
@@ -421,6 +464,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
       @UnstableApi
       public Builder(Context context, Player player, Callback callback) {
         super(context, player, callback);
+        libraryErrorReplicationMode = LIBRARY_ERROR_REPLICATION_MODE_FATAL;
       }
 
       /**
@@ -561,6 +605,37 @@ public abstract class MediaLibraryService extends MediaSessionService {
       }
 
       /**
+       * Sets whether library result errors should be replicated to the platform media session's
+       * {@link android.media.session.PlaybackState} as a fatal error, a non-fatal error or not
+       * replicated at all. Replication is only executed for calling legacy browsers ({@link
+       * android.support.v4.media.MediaBrowserCompat} and {@link android.media.browse.MediaBrowser})
+       * to which no error codes can be transmitted as a result of the service call.
+       *
+       * <p>The default is {@link #LIBRARY_ERROR_REPLICATION_MODE_FATAL}.
+       *
+       * <p>{@link MediaLibrarySession.Callback#onGetLibraryRoot} is exempted from replication,
+       * because this method is part of the connection process of a legacy browser.
+       *
+       * <p>The following error codes are replicated:
+       *
+       * <ul>
+       *   <li>{@link SessionError#ERROR_SESSION_AUTHENTICATION_EXPIRED}
+       *   <li>{@link SessionError#ERROR_SESSION_PREMIUM_ACCOUNT_REQUIRED}
+       * </ul>
+       *
+       * <p>See {@link MediaLibrarySession#clearReplicatedLibraryError} also.
+       *
+       * @param libraryErrorReplicationMode The mode to use.
+       */
+      @UnstableApi
+      @CanIgnoreReturnValue
+      public Builder setLibraryErrorReplicationMode(
+          @LibraryErrorReplicationMode int libraryErrorReplicationMode) {
+        this.libraryErrorReplicationMode = libraryErrorReplicationMode;
+        return this;
+      }
+
+      /**
        * Builds a {@link MediaLibrarySession}.
        *
        * @return A new session.
@@ -583,7 +658,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
             sessionExtras,
             checkNotNull(bitmapLoader),
             playIfSuppressed,
-            isPeriodicPositionUpdateEnabled);
+            isPeriodicPositionUpdateEnabled,
+            libraryErrorReplicationMode);
       }
     }
 
@@ -598,7 +674,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
         Bundle sessionExtras,
         BitmapLoader bitmapLoader,
         boolean playIfSuppressed,
-        boolean isPeriodicPositionUpdateEnabled) {
+        boolean isPeriodicPositionUpdateEnabled,
+        @LibraryErrorReplicationMode int libraryErrorReplicationMode) {
       super(
           context,
           id,
@@ -610,7 +687,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
           sessionExtras,
           bitmapLoader,
           playIfSuppressed,
-          isPeriodicPositionUpdateEnabled);
+          isPeriodicPositionUpdateEnabled,
+          libraryErrorReplicationMode);
     }
 
     @Override
@@ -625,7 +703,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
         Bundle sessionExtras,
         BitmapLoader bitmapLoader,
         boolean playIfSuppressed,
-        boolean isPeriodicPositionUpdateEnabled) {
+        boolean isPeriodicPositionUpdateEnabled,
+        @LibraryErrorReplicationMode int libraryErrorReplicationMode) {
       return new MediaLibrarySessionImpl(
           this,
           context,
@@ -638,7 +717,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
           sessionExtras,
           bitmapLoader,
           playIfSuppressed,
-          isPeriodicPositionUpdateEnabled);
+          isPeriodicPositionUpdateEnabled,
+          libraryErrorReplicationMode);
     }
 
     @Override
@@ -717,6 +797,25 @@ public abstract class MediaLibraryService extends MediaSessionService {
       getImpl()
           .notifySearchResultChanged(
               checkNotNull(browser), checkNotEmpty(query), itemCount, params);
+    }
+
+    /**
+     * Clears the replicated library error in the platform session that was set when a {@link
+     * LibraryResult} with an error result code was returned by the {@link
+     * MediaLibrarySession.Callback} that is replicated and if {@linkplain
+     * MediaLibrarySession.Builder#setLibraryErrorReplicationMode(int) legacy session error
+     * replication is not turned off}.
+     *
+     * <p>Note: If a {@link LibraryResult#RESULT_SUCCESS} was returned by a method of {@link
+     * MediaLibrarySession.Callback} that is considered for replication, the error is cleared
+     * automatically by the library.
+     *
+     * <p>Calling this method updates the platform session playback state in case there was a
+     * replicated error set. If no error was set, calling this method is a no-op.
+     */
+    @UnstableApi
+    public void clearReplicatedLibraryError() {
+      getImpl().clearReplicatedLibraryError();
     }
   }
 

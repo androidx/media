@@ -23,6 +23,8 @@ import android.os.Bundle;
 public class CommonConstants {
 
   public static final String SUPPORT_APP_PACKAGE_NAME = "androidx.media3.test.session";
+  public static final String MEDIA_CONTROLLER_PACKAGE_NAME_API_21 =
+      "android.media.session.MediaController";
 
   public static final ComponentName MEDIA3_SESSION_PROVIDER_SERVICE =
       new ComponentName(

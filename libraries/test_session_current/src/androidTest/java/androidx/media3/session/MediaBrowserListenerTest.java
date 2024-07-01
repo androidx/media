@@ -19,7 +19,7 @@ import static androidx.media3.session.LibraryResult.RESULT_SUCCESS;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_COMPLETION_STATUS;
 import static androidx.media3.session.MediaConstants.EXTRAS_VALUE_COMPLETION_STATUS_PARTIALLY_PLAYED;
 import static androidx.media3.session.MockMediaLibraryService.createNotifyChildrenChangedBundle;
-import static androidx.media3.session.SessionError.ERROR_BAD_VALUE;
+import static androidx.media3.session.SessionError.ERROR_SESSION_SKIP_LIMIT_REACHED;
 import static androidx.media3.test.session.common.CommonConstants.MOCK_MEDIA3_LIBRARY_SERVICE;
 import static androidx.media3.test.session.common.MediaBrowserConstants.CUSTOM_ACTION_ASSERT_PARAMS;
 import static androidx.media3.test.session.common.MediaBrowserConstants.LONG_LIST_COUNT;
@@ -180,7 +180,7 @@ public class MediaBrowserListenerTest extends MediaControllerListenerTest {
             .getHandler()
             .postAndSync(() -> browser.getItem(mediaId))
             .get(TIMEOUT_MS, MILLISECONDS);
-    assertThat(result.resultCode).isEqualTo(ERROR_BAD_VALUE);
+    assertThat(result.resultCode).isEqualTo(ERROR_SESSION_SKIP_LIMIT_REACHED);
     assertThat(result.value).isNull();
   }
 

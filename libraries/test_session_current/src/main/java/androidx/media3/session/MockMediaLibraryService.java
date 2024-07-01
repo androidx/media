@@ -21,9 +21,13 @@ import static androidx.media3.session.MediaConstants.EXTRAS_KEY_ERROR_RESOLUTION
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_ERROR_RESOLUTION_ACTION_LABEL_COMPAT;
 import static androidx.media3.session.MediaConstants.EXTRAS_VALUE_COMPLETION_STATUS_PARTIALLY_PLAYED;
 import static androidx.media3.session.MediaConstants.EXTRA_KEY_ROOT_CHILDREN_BROWSABLE_ONLY;
+import static androidx.media3.session.MediaLibraryService.MediaLibrarySession.LIBRARY_ERROR_REPLICATION_MODE_FATAL;
 import static androidx.media3.session.SessionError.ERROR_BAD_VALUE;
 import static androidx.media3.session.SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED;
+import static androidx.media3.session.SessionError.ERROR_SESSION_SKIP_LIMIT_REACHED;
+import static androidx.media3.test.session.common.CommonConstants.MEDIA_CONTROLLER_PACKAGE_NAME_API_21;
 import static androidx.media3.test.session.common.CommonConstants.SUPPORT_APP_PACKAGE_NAME;
+import static androidx.media3.test.session.common.MediaBrowserConstants.CONNECTION_HINTS_KEY_LIBRARY_ERROR_REPLICATION_MODE;
 import static androidx.media3.test.session.common.MediaBrowserConstants.CUSTOM_ACTION;
 import static androidx.media3.test.session.common.MediaBrowserConstants.CUSTOM_ACTION_ASSERT_PARAMS;
 import static androidx.media3.test.session.common.MediaBrowserConstants.CUSTOM_ACTION_EXTRAS;
@@ -44,6 +48,7 @@ import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_I
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_ERROR;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_LONG_LIST;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_NO_CHILDREN;
+import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_SKIP_LIMIT_REACHED_ERROR;
 import static androidx.media3.test.session.common.MediaBrowserConstants.ROOT_EXTRAS;
 import static androidx.media3.test.session.common.MediaBrowserConstants.ROOT_ID;
 import static androidx.media3.test.session.common.MediaBrowserConstants.ROOT_ID_SUPPORTS_BROWSABLE_CHILDREN_ONLY;
@@ -202,15 +207,25 @@ public class MockMediaLibraryService extends MediaLibraryService {
 
     if (session == null) {
       MockPlayer player =
-          new MockPlayer.Builder().setApplicationLooper(handlerThread.getLooper()).build();
+          new MockPlayer.Builder()
+              .setChangePlayerStateWithTransportControl(true)
+              .setApplicationLooper(handlerThread.getLooper())
+              .build();
 
       MediaLibrarySession.Callback callback = registry.getSessionCallback();
+      int libraryErrorReplicationMode =
+          controllerInfo
+              .getConnectionHints()
+              .getInt(
+                  CONNECTION_HINTS_KEY_LIBRARY_ERROR_REPLICATION_MODE,
+                  LIBRARY_ERROR_REPLICATION_MODE_FATAL);
       session =
           new MediaLibrarySession.Builder(
                   MockMediaLibraryService.this,
                   player,
                   callback != null ? callback : new TestLibrarySessionCallback())
               .setId(ID)
+              .setLibraryErrorReplicationMode(libraryErrorReplicationMode)
               .build();
     }
     return session;
@@ -247,7 +262,8 @@ public class MockMediaLibraryService extends MediaLibraryService {
     @Override
     public MediaSession.ConnectionResult onConnect(
         MediaSession session, ControllerInfo controller) {
-      if (!SUPPORT_APP_PACKAGE_NAME.equals(controller.getPackageName())) {
+      if (!SUPPORT_APP_PACKAGE_NAME.equals(controller.getPackageName())
+          && !MEDIA_CONTROLLER_PACKAGE_NAME_API_21.equals(controller.getPackageName())) {
         return MediaSession.ConnectionResult.reject();
       }
       MediaSession.ConnectionResult connectionResult =
@@ -322,7 +338,7 @@ public class MockMediaLibraryService extends MediaLibraryService {
               LibraryResult.ofItem(createMediaItemWithMetadata(mediaId), /* params= */ null));
         default: // fall out
       }
-      return Futures.immediateFuture(LibraryResult.ofError(ERROR_BAD_VALUE));
+      return Futures.immediateFuture(LibraryResult.ofError(ERROR_SESSION_SKIP_LIMIT_REACHED));
     }
 
     @Override
@@ -353,7 +369,8 @@ public class MockMediaLibraryService extends MediaLibraryService {
         return Futures.immediateFuture(
             LibraryResult.ofError(new SessionError(ERROR_BAD_VALUE, "error message", errorBundle)));
       } else if (Objects.equals(parentId, PARENT_ID_AUTH_EXPIRED_ERROR)
-          || Objects.equals(parentId, PARENT_ID_AUTH_EXPIRED_ERROR_DEPRECATED)) {
+          || Objects.equals(parentId, PARENT_ID_AUTH_EXPIRED_ERROR_DEPRECATED)
+          || Objects.equals(parentId, PARENT_ID_SKIP_LIMIT_REACHED_ERROR)) {
         Bundle bundle = new Bundle();
         Intent signInIntent = new Intent("action");
         int flags = Util.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0;
@@ -364,17 +381,21 @@ public class MockMediaLibraryService extends MediaLibraryService {
         bundle.putString(
             EXTRAS_KEY_ERROR_RESOLUTION_ACTION_LABEL_COMPAT,
             PARENT_ID_AUTH_EXPIRED_ERROR_KEY_ERROR_RESOLUTION_ACTION_LABEL);
+        @SessionError.Code
+        int errorCode =
+            Objects.equals(parentId, PARENT_ID_SKIP_LIMIT_REACHED_ERROR)
+                ? ERROR_SESSION_SKIP_LIMIT_REACHED
+                : ERROR_SESSION_AUTHENTICATION_EXPIRED;
         return Objects.equals(parentId, PARENT_ID_AUTH_EXPIRED_ERROR)
             ? Futures.immediateFuture(
                 // error with SessionError
                 LibraryResult.ofError(
-                    new SessionError(ERROR_SESSION_AUTHENTICATION_EXPIRED, "error message", bundle),
+                    new SessionError(errorCode, "error message", bundle),
                     new LibraryParams.Builder().build()))
             : Futures.immediateFuture(
                 // deprecated error before SessionError was introduced
                 LibraryResult.ofError(
-                    ERROR_SESSION_AUTHENTICATION_EXPIRED,
-                    new LibraryParams.Builder().setExtras(bundle).build()));
+                    errorCode, new LibraryParams.Builder().setExtras(bundle).build()));
       } else if (Objects.equals(parentId, PARENT_ID_AUTH_EXPIRED_ERROR_NON_FATAL)) {
         Bundle bundle = new Bundle();
         Intent signInIntent = new Intent("action");
