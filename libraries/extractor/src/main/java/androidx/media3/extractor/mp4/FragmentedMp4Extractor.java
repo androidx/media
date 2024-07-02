@@ -39,6 +39,7 @@ import androidx.media3.common.util.TimestampAdjuster;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.NalUnitUtil;
+import androidx.media3.container.ReorderingSeiMessageQueue;
 import androidx.media3.extractor.Ac4Util;
 import androidx.media3.extractor.CeaUtil;
 import androidx.media3.extractor.ChunkIndex;
@@ -186,6 +187,7 @@ public class FragmentedMp4Extractor implements Extractor {
   private final ParsableByteArray atomHeader;
   private final ArrayDeque<ContainerAtom> containerAtoms;
   private final ArrayDeque<MetadataSampleInfo> pendingMetadataSampleInfos;
+  private final ReorderingSeiMessageQueue reorderingSeiMessageQueue;
   @Nullable private final TrackOutput additionalEmsgTrackOutput;
 
   private ImmutableList<SniffFailure> lastSniffFailures;
@@ -392,6 +394,10 @@ public class FragmentedMp4Extractor implements Extractor {
     extractorOutput = ExtractorOutput.PLACEHOLDER;
     emsgTrackOutputs = new TrackOutput[0];
     ceaTrackOutputs = new TrackOutput[0];
+    reorderingSeiMessageQueue =
+        new ReorderingSeiMessageQueue(
+            (presentationTimeUs, seiBuffer) ->
+                CeaUtil.consume(presentationTimeUs, seiBuffer, ceaTrackOutputs));
   }
 
   @Override
@@ -444,6 +450,7 @@ public class FragmentedMp4Extractor implements Extractor {
     }
     pendingMetadataSampleInfos.clear();
     pendingMetadataSampleBytes = 0;
+    reorderingSeiMessageQueue.flush();
     pendingSeekTimeUs = timeUs;
     containerAtoms.clear();
     enterReadingAtomHeaderState();
@@ -460,6 +467,7 @@ public class FragmentedMp4Extractor implements Extractor {
       switch (parserState) {
         case STATE_READING_ATOM_HEADER:
           if (!readAtomHeader(input)) {
+            reorderingSeiMessageQueue.flush();
             return Extractor.RESULT_END_OF_INPUT;
           }
           break;
@@ -1585,7 +1593,20 @@ public class FragmentedMp4Extractor implements Extractor {
             // If the format is H.265/HEVC the NAL unit header has two bytes so skip one more byte.
             nalBuffer.setPosition(MimeTypes.VIDEO_H265.equals(track.format.sampleMimeType) ? 1 : 0);
             nalBuffer.setLimit(unescapedLength);
-            CeaUtil.consume(sampleTimeUs, nalBuffer, ceaTrackOutputs);
+
+            if (track.format.maxNumReorderSamples != Format.NO_VALUE
+                && track.format.maxNumReorderSamples != reorderingSeiMessageQueue.getMaxSize()) {
+              reorderingSeiMessageQueue.setMaxSize(track.format.maxNumReorderSamples);
+            }
+            reorderingSeiMessageQueue.add(sampleTimeUs, nalBuffer);
+
+            boolean sampleIsKeyFrameOrEndOfStream =
+                (trackBundle.getCurrentSampleFlags()
+                        & (C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_END_OF_STREAM))
+                    != 0;
+            if (sampleIsKeyFrameOrEndOfStream) {
+              reorderingSeiMessageQueue.flush();
+            }
           } else {
             // Write the payload of the NAL unit.
             writtenBytes = output.sampleData(input, sampleCurrentNalBytesRemaining, false);

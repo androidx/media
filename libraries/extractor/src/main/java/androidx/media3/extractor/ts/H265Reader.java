@@ -15,6 +15,8 @@
  */
 package androidx.media3.extractor.ts;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -100,6 +102,7 @@ public final class H265Reader implements ElementaryStreamReader {
     pps.reset();
     prefixSei.reset();
     suffixSei.reset();
+    seiReader.flush();
     if (sampleReader != null) {
       sampleReader.reset();
     }
@@ -175,6 +178,7 @@ public final class H265Reader implements ElementaryStreamReader {
   public void packetFinished(boolean isEndOfInput) {
     assertTracksCreated();
     if (isEndOfInput) {
+      seiReader.flush();
       sampleReader.end(totalBytesWritten);
     }
   }
@@ -211,7 +215,10 @@ public final class H265Reader implements ElementaryStreamReader {
       sps.endNalUnit(discardPadding);
       pps.endNalUnit(discardPadding);
       if (vps.isCompleted() && sps.isCompleted() && pps.isCompleted()) {
-        output.format(parseMediaFormat(formatId, vps, sps, pps));
+        Format format = parseMediaFormat(formatId, vps, sps, pps);
+        output.format(format);
+        checkState(format.maxNumReorderSamples != Format.NO_VALUE);
+        seiReader.setReorderingQueueSize(format.maxNumReorderSamples);
         hasOutputFormat = true;
       }
     }

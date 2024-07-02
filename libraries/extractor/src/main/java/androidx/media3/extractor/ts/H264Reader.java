@@ -98,6 +98,7 @@ public final class H264Reader implements ElementaryStreamReader {
     sps.reset();
     pps.reset();
     sei.reset();
+    seiReader.flush();
     if (sampleReader != null) {
       sampleReader.reset();
     }
@@ -170,6 +171,7 @@ public final class H264Reader implements ElementaryStreamReader {
   public void packetFinished(boolean isEndOfInput) {
     assertTracksCreated();
     if (isEndOfInput) {
+      seiReader.flush();
       sampleReader.end(totalBytesWritten);
     }
   }
@@ -238,6 +240,7 @@ public final class H264Reader implements ElementaryStreamReader {
         }
       } else if (sps.isCompleted()) {
         NalUnitUtil.SpsData spsData = NalUnitUtil.parseSpsNalUnit(sps.nalData, 3, sps.nalLength);
+        seiReader.setReorderingQueueSize(spsData.maxNumReorderFrames);
         sampleReader.putSps(spsData);
         sps.reset();
       } else if (pps.isCompleted()) {
