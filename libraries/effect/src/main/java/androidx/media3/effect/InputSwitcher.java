@@ -19,7 +19,6 @@ package androidx.media3.effect;
 
 import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_BITMAP;
 import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_SURFACE;
-import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION;
 import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_TEXTURE_ID;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
@@ -82,16 +81,15 @@ import org.checkerframework.checker.nullness.qual.Nullable;
     this.experimentalAdjustSurfaceTextureTransformationMatrix =
         experimentalAdjustSurfaceTextureTransformationMatrix;
 
-    // TODO(b/274109008): Investigate lazily instantiating the texture managers.
-    Input surfaceInput =
+    // TODO(b/274109008): Investigate lazy instantiating the texture managers.
+    inputs.put(
+        INPUT_TYPE_SURFACE,
         new Input(
             new ExternalTextureManager(
                 glObjectsProvider,
                 videoFrameProcessingTaskExecutor,
                 repeatLastRegisteredFrame,
-                experimentalAdjustSurfaceTextureTransformationMatrix));
-    inputs.put(INPUT_TYPE_SURFACE, surfaceInput);
-    inputs.put(INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION, surfaceInput);
+                experimentalAdjustSurfaceTextureTransformationMatrix)));
     inputs.put(
         INPUT_TYPE_BITMAP,
         new Input(
@@ -111,7 +109,6 @@ import org.checkerframework.checker.nullness.qual.Nullable;
     DefaultShaderProgram samplingShaderProgram;
     switch (inputType) {
       case INPUT_TYPE_SURFACE:
-      case INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION:
         samplingShaderProgram =
             DefaultShaderProgram.createWithExternalSampler(
                 context,
@@ -155,28 +152,29 @@ import org.checkerframework.checker.nullness.qual.Nullable;
     checkState(contains(inputs, newInputType), "Input type not registered: " + newInputType);
 
     for (int i = 0; i < inputs.size(); i++) {
-      inputs.get(inputs.keyAt(i)).setActive(false);
+      @VideoFrameProcessor.InputType int inputType = inputs.keyAt(i);
+      Input input = inputs.get(inputType);
+      if (inputType == newInputType) {
+        if (input.getInputColorInfo() == null
+            || !newInputFrameInfo.colorInfo.equals(input.getInputColorInfo())) {
+          input.setSamplingGlShaderProgram(
+              createSamplingShaderProgram(newInputFrameInfo.colorInfo, newInputType));
+          input.setInputColorInfo(newInputFrameInfo.colorInfo);
+        }
+        input.setChainingListener(
+            new GatedChainingListenerWrapper(
+                glObjectsProvider,
+                checkNotNull(input.getSamplingGlShaderProgram()),
+                this.downstreamShaderProgram,
+                videoFrameProcessingTaskExecutor));
+        input.setActive(true);
+        downstreamShaderProgram.setInputListener(checkNotNull(input.gatedChainingListenerWrapper));
+        activeTextureManager = input.textureManager;
+      } else {
+        input.setActive(false);
+      }
     }
-
-    // Activate the relevant input for the new input type.
-    Input input = inputs.get(newInputType);
-    if (input.getInputColorInfo() == null
-        || !newInputFrameInfo.colorInfo.equals(input.getInputColorInfo())) {
-      input.setSamplingGlShaderProgram(
-          createSamplingShaderProgram(newInputFrameInfo.colorInfo, newInputType));
-      input.setInputColorInfo(newInputFrameInfo.colorInfo);
-    }
-    input.setChainingListener(
-        new GatedChainingListenerWrapper(
-            glObjectsProvider,
-            checkNotNull(input.getSamplingGlShaderProgram()),
-            this.downstreamShaderProgram,
-            videoFrameProcessingTaskExecutor));
-    input.setActive(true);
-    downstreamShaderProgram.setInputListener(checkNotNull(input.gatedChainingListenerWrapper));
-    activeTextureManager = input.textureManager;
-    boolean automaticRegistration = newInputType == INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION;
-    checkNotNull(activeTextureManager).setInputFrameInfo(newInputFrameInfo, automaticRegistration);
+    checkNotNull(activeTextureManager).setInputFrameInfo(newInputFrameInfo);
   }
 
   /** Returns whether the {@code InputSwitcher} is connected to an active input. */
@@ -205,7 +203,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
   /**
    * Returns the input {@link Surface}.
    *
-   * @return The input {@link Surface}, regardless of whether the current input is {@linkplain
+   * @return The input {@link Surface}, regardless if the current input is {@linkplain
    *     #switchToInput set} to {@link VideoFrameProcessor#INPUT_TYPE_SURFACE}.
    */
   public Surface getInputSurface() {

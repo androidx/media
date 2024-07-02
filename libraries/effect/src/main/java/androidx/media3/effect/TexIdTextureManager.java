@@ -106,7 +106,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void setInputFrameInfo(FrameInfo inputFrameInfo, boolean automaticReregistration) {
+  public void setInputFrameInfo(FrameInfo inputFrameInfo) {
     this.inputFrameInfo = inputFrameInfo;
   }
 

@@ -107,19 +107,12 @@ import androidx.media3.common.util.TimestampIterator;
    * Sets information about the input frames.
    *
    * <p>The new input information is applied from the next frame {@linkplain #registerInputFrame
-   * registered} or {@linkplain #queueInputTexture queued} onwards. If the implementation requires
-   * frames to be registered, it may use the {@link FrameInfo} passed to {@link
-   * #registerInputFrame(FrameInfo)} instead of the one passed here.
+   * registered} or {@linkplain #queueInputTexture queued} onwards.
    *
    * <p>Pixels are expanded using the {@link FrameInfo#pixelWidthHeightRatio} so that the output
    * frames' pixels have a ratio of 1.
-   *
-   * @param inputFrameInfo Information about the next input frame.
-   * @param automaticReregistration Whether the frames should be re-registered automatically, if
-   *     using an input surface. Pass {@code false} if every frame will be registered before it is
-   *     rendered to the surface.
    */
-  public void setInputFrameInfo(FrameInfo inputFrameInfo, boolean automaticReregistration) {
+  public void setInputFrameInfo(FrameInfo inputFrameInfo) {
     // Do nothing.
   }
 

@@ -87,6 +87,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final float[] textureTransformMatrix;
   private final Queue<FrameInfo> pendingFrames;
   private final ScheduledExecutorService scheduledExecutorService;
+  private final boolean repeatLastRegisteredFrame;
   private final boolean experimentalAdjustSurfaceTextureTransformationMatrix;
 
   // Must be accessed on the GL thread.
@@ -97,7 +98,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   // The frame that is sent downstream and is not done processing yet.
   @Nullable private FrameInfo currentFrame;
   @Nullable private FrameInfo lastRegisteredFrame;
-  private boolean repeatLastRegisteredFrame;
 
   @Nullable private Future<?> forceSignalEndOfStreamFuture;
   private boolean shouldRejectIncomingFrames;
@@ -232,17 +232,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             maybeQueueFrameToExternalShaderProgram();
           }
         });
-  }
-
-  @Override
-  public void setInputFrameInfo(FrameInfo inputFrameInfo, boolean automaticReregistration) {
-    // Ignore inputFrameInfo when not automatically re-registering frames because it's also passed
-    // to registerInputFrame.
-    repeatLastRegisteredFrame = automaticReregistration;
-    if (repeatLastRegisteredFrame) {
-      lastRegisteredFrame = inputFrameInfo;
-      surfaceTexture.setDefaultBufferSize(inputFrameInfo.width, inputFrameInfo.height);
-    }
   }
 
   /**

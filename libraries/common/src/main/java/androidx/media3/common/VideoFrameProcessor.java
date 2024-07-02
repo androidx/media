@@ -48,18 +48,12 @@ import java.util.concurrent.Executor;
 public interface VideoFrameProcessor {
   /**
    * Specifies how the input frames are made available to the {@link VideoFrameProcessor}. One of
-   * {@link #INPUT_TYPE_SURFACE}, {@link #INPUT_TYPE_BITMAP}, {@link #INPUT_TYPE_TEXTURE_ID} or
-   * {@link #INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION}.
+   * {@link #INPUT_TYPE_SURFACE}, {@link #INPUT_TYPE_BITMAP} or {@link #INPUT_TYPE_TEXTURE_ID}.
    */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)
-  @IntDef({
-    INPUT_TYPE_SURFACE,
-    INPUT_TYPE_BITMAP,
-    INPUT_TYPE_TEXTURE_ID,
-    INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION,
-  })
+  @IntDef({INPUT_TYPE_SURFACE, INPUT_TYPE_BITMAP, INPUT_TYPE_TEXTURE_ID})
   @interface InputType {}
 
   /**
@@ -78,16 +72,6 @@ public interface VideoFrameProcessor {
    * texture}.
    */
   int INPUT_TYPE_TEXTURE_ID = 3;
-
-  /**
-   * Input frames come from the {@linkplain #getInputSurface input surface} and don't need to be
-   * {@linkplain #registerInputFrame registered} (unlike with {@link #INPUT_TYPE_SURFACE}).
-   *
-   * <p>Every frame must use the {@linkplain #registerInputStream(int, List, FrameInfo) input
-   * stream's registered} frame info. Also sets the surface's {@linkplain
-   * android.graphics.SurfaceTexture#setDefaultBufferSize(int, int) default buffer size}.
-   */
-  int INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION = 4;
 
   /** A factory for {@link VideoFrameProcessor} instances. */
   interface Factory {

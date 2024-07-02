@@ -16,15 +16,12 @@
 package androidx.media3.effect;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmapUnpremultipliedAlpha;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.graphics.Bitmap;
-import android.graphics.Canvas;
-import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -35,10 +32,8 @@ import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.ConstantRateTimestampIterator;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.Util;
-import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -46,7 +41,6 @@ import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -292,74 +286,6 @@ public class DefaultVideoFrameProcessorTest {
 
     assertThat(secondStreamConfigurationTimeMs.get())
         .isAtLeast(firstStreamLastFrameAvailableTimeMs.get());
-  }
-
-  @Test
-  public void registerInputStreamWithAutomaticFrameRegistration_succeeds() throws Exception {
-    CountDownLatch inputStreamRegisteredCountDownLatch = new CountDownLatch(1);
-    AtomicInteger outputFrameCount = new AtomicInteger();
-    AtomicReference<@NullableType Exception> error = new AtomicReference<>();
-    CountDownLatch endedCountDownLatch = new CountDownLatch(1);
-    defaultVideoFrameProcessor =
-        createDefaultVideoFrameProcessor(
-            new VideoFrameProcessor.Listener() {
-              @Override
-              public void onInputStreamRegistered(
-                  @VideoFrameProcessor.InputType int inputType,
-                  List<Effect> effects,
-                  FrameInfo frameInfo) {
-                inputStreamRegisteredCountDownLatch.countDown();
-              }
-
-              @Override
-              public void onOutputSizeChanged(int width, int height) {}
-
-              @Override
-              public void onOutputFrameAvailableForRendering(long presentationTimeUs) {
-                outputFrameCount.incrementAndGet();
-              }
-
-              @Override
-              public void onError(VideoFrameProcessingException exception) {
-                error.set(exception);
-              }
-
-              @Override
-              public void onEnded() {
-                endedCountDownLatch.countDown();
-              }
-            });
-
-    Bitmap bitmap = BitmapPixelTestUtil.readBitmap(ORIGINAL_PNG_ASSET_PATH);
-    defaultVideoFrameProcessor.registerInputStream(
-        VideoFrameProcessor.INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION,
-        /* effects= */ ImmutableList.of(),
-        new FrameInfo.Builder(ColorInfo.SRGB_BT709_FULL, bitmap.getWidth(), bitmap.getHeight())
-            .build());
-    inputStreamRegisteredCountDownLatch.await();
-    checkState(defaultVideoFrameProcessor.registerInputFrame());
-
-    int inputFrameCount = 2;
-    Surface surface = defaultVideoFrameProcessor.getInputSurface();
-    for (int i = 0; i < inputFrameCount; i++) {
-      Canvas canvas = surface.lockCanvas(/* inOutDirty= */ null);
-      // Load the bitmap each time, as it's recycled after each use.
-      canvas.drawBitmap(
-          BitmapPixelTestUtil.readBitmap(ORIGINAL_PNG_ASSET_PATH),
-          /* left= */ 0f,
-          /* top= */ 0f,
-          /* paint= */ null);
-      // This causes a frame to become available on the input surface, which is processed by the
-      // video frame processor.
-      surface.unlockCanvasAndPost(canvas);
-    }
-    defaultVideoFrameProcessor.signalEndOfInput();
-
-    if (!endedCountDownLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)) {
-      throw new IllegalStateException("Test timeout", error.get());
-    }
-    assertThat(error.get()).isNull();
-    assertThat(outputFrameCount.get()).isEqualTo(inputFrameCount);
   }
 
   private DefaultVideoFrameProcessor createDefaultVideoFrameProcessor(
