@@ -95,13 +95,10 @@ public class ExportTest {
             .setEncoderFactory(new ForceEncodeEncoderFactory(context))
             .build();
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri));
-    boolean skipCalculateSsim =
-        (Util.SDK_INT < 33 && (Util.MODEL.equals("SM-F711U1") || Util.MODEL.equals("SM-F926U1")))
-            || (Util.SDK_INT == 33 && Util.MODEL.equals("LE2121"));
 
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, transformer)
-            .setRequestCalculateSsim(!skipCalculateSsim)
+            .setRequestCalculateSsim(true)
             .build()
             .run(testId, mediaItem);
 
@@ -143,13 +140,10 @@ public class ExportTest {
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri));
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem).setRemoveAudio(true).build();
-    boolean skipCalculateSsim =
-        (Util.SDK_INT < 33 && (Util.MODEL.equals("SM-F711U1") || Util.MODEL.equals("SM-F926U1")))
-            || (Util.SDK_INT == 33 && Util.MODEL.equals("LE2121"));
 
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, transformer)
-            .setRequestCalculateSsim(!skipCalculateSsim)
+            .setRequestCalculateSsim(true)
             .build()
             .run(testId, editedMediaItem);
 
@@ -271,13 +265,10 @@ public class ExportTest {
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri));
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem).setRemoveAudio(true).build();
-    boolean skipCalculateSsim =
-        (Util.SDK_INT < 33 && (Util.MODEL.equals("SM-F711U1") || Util.MODEL.equals("SM-F926U1")))
-            || (Util.SDK_INT == 33 && Util.MODEL.equals("LE2121"));
 
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, transformer)
-            .setRequestCalculateSsim(!skipCalculateSsim)
+            .setRequestCalculateSsim(true)
             .build()
             .run(testId, editedMediaItem);
 
