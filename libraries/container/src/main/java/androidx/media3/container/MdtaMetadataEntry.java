@@ -19,6 +19,7 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
+import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.primitives.Ints;
@@ -34,8 +35,20 @@ public final class MdtaMetadataEntry implements Metadata.Entry {
   /** Key for the capture frame rate (in frames per second). */
   public static final String KEY_ANDROID_CAPTURE_FPS = "com.android.capture.fps";
 
+  /** Key for editable tracks box (edvd) offset. */
+  public static final String KEY_EDITABLE_TRACKS_OFFSET = "editable.tracks.offset";
+
+  /** Key for editable tracks box (edvd) length. */
+  public static final String KEY_EDITABLE_TRACKS_LENGTH = "editable.tracks.length";
+
+  /** Key for editable tracks map. */
+  public static final String KEY_EDITABLE_TRACKS_MAP = "editable.tracks.map";
+
   /** The default locale indicator which implies all speakers in all countries. */
   public static final int DEFAULT_LOCALE_INDICATOR = 0;
+
+  /** The type indicator to use when no type needs to be indicated. */
+  public static final int TYPE_INDICATOR_RESERVED = 0;
 
   /** The type indicator for UTF-8 string. */
   public static final int TYPE_INDICATOR_STRING = 1;
@@ -45,6 +58,9 @@ public final class MdtaMetadataEntry implements Metadata.Entry {
 
   /** The type indicator for 32-bit signed integer. */
   public static final int TYPE_INDICATOR_INT32 = 67;
+
+  /** The type indicator for 64-bit unsigned integer. */
+  public static final int TYPE_INDICATOR_UNSIGNED_INT64 = 78;
 
   /** The metadata key name. */
   public final String key;
@@ -119,6 +135,15 @@ public final class MdtaMetadataEntry implements Metadata.Entry {
       case TYPE_INDICATOR_INT32:
         formattedValue = String.valueOf(Ints.fromByteArray(value));
         break;
+      case TYPE_INDICATOR_UNSIGNED_INT64:
+        formattedValue = String.valueOf(new ParsableByteArray(value).readUnsignedLongToLong());
+        break;
+      case TYPE_INDICATOR_RESERVED:
+        if (key.equals(KEY_EDITABLE_TRACKS_MAP)) {
+          formattedValue = getFormattedValueForEditableTracksMap(value);
+          break;
+        }
+      // fall through
       default:
         formattedValue = Util.toHexString(value);
     }
@@ -154,4 +179,18 @@ public final class MdtaMetadataEntry implements Metadata.Entry {
           return new MdtaMetadataEntry[size];
         }
       };
+
+  private static String getFormattedValueForEditableTracksMap(byte[] value) {
+    // Value has 1 byte version, 1 byte track count, n bytes track types.
+    int numberOfTracks = value[1];
+    StringBuilder sb = new StringBuilder();
+    sb.append("track types = ");
+    for (int i = 0; i < numberOfTracks; i++) {
+      sb.append(value[i + 2]);
+      if (i < numberOfTracks - 1) {
+        sb.append(", ");
+      }
+    }
+    return sb.toString();
+  }
 }

@@ -62,4 +62,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       throw new IllegalArgumentException("Unsupported metadata");
     }
   }
+
+  /** Removes a previously added {@link MdtaMetadataEntry}. */
+  public void removeMdtaMetadataEntry(MdtaMetadataEntry mdtaMetadataEntry) {
+    metadataEntries.remove(mdtaMetadataEntry);
+  }
 }

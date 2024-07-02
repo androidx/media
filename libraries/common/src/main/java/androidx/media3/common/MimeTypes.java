@@ -144,6 +144,10 @@ public final class MimeTypes {
   @UnstableApi
   public static final String APPLICATION_CAMERA_MOTION = BASE_TYPE_APPLICATION + "/x-camera-motion";
 
+  @UnstableApi
+  public static final String APPLICATION_DEPTH_METADATA =
+      BASE_TYPE_APPLICATION + "/x-depth-metadata";
+
   @UnstableApi public static final String APPLICATION_EMSG = BASE_TYPE_APPLICATION + "/x-emsg";
   public static final String APPLICATION_DVBSUBS = BASE_TYPE_APPLICATION + "/dvbsubs";
   @UnstableApi public static final String APPLICATION_EXIF = BASE_TYPE_APPLICATION + "/x-exif";

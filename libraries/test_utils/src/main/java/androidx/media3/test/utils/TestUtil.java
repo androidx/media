@@ -475,8 +475,17 @@ public class TestUtil {
     return extractAllSamplesFromByteArray(extractor, data);
   }
 
-  private static FakeExtractorOutput extractAllSamplesFromByteArray(
-      Extractor extractor, byte[] data) throws IOException {
+  /**
+   * Extracts all samples from the given byte array into a {@link FakeTrackOutput}.
+   *
+   * @param extractor The {@link Extractor} to be used.
+   * @param data The byte array data.
+   * @return The {@link FakeTrackOutput} containing the extracted samples.
+   * @throws IOException If an error occurred reading from the input, or if the extractor finishes
+   *     reading from input without extracting any {@link SeekMap}.
+   */
+  public static FakeExtractorOutput extractAllSamplesFromByteArray(Extractor extractor, byte[] data)
+      throws IOException {
     FakeExtractorOutput expectedOutput = new FakeExtractorOutput();
     extractor.init(expectedOutput);
     FakeExtractorInput input = new FakeExtractorInput.Builder().setData(data).build();

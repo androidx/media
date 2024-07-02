@@ -1428,7 +1428,8 @@ public final class C {
         ROLE_FLAG_ENHANCED_DIALOG_INTELLIGIBILITY,
         ROLE_FLAG_TRANSCRIBES_DIALOG,
         ROLE_FLAG_EASY_TO_READ,
-        ROLE_FLAG_TRICK_PLAY
+        ROLE_FLAG_TRICK_PLAY,
+        ROLE_FLAG_AUXILIARY
       })
   public @interface RoleFlags {}
 
@@ -1492,6 +1493,57 @@ public final class C {
 
   /** Indicates the track is intended for trick play. */
   public static final int ROLE_FLAG_TRICK_PLAY = 1 << 14;
+
+  /**
+   * Indicates an auxiliary track. An auxiliary track provides additional information about other
+   * tracks and is generally not meant for stand-alone playback, but rather for further processing
+   * in conjunction with other tracks (for example, a track with depth information).
+   */
+  public static final int ROLE_FLAG_AUXILIARY = 1 << 15;
+
+  /**
+   * {@linkplain #ROLE_FLAG_AUXILIARY Auxiliary track types}. One of {@link
+   * #AUXILIARY_TRACK_TYPE_UNDEFINED}, {@link #AUXILIARY_TRACK_TYPE_ORIGINAL}, {@link
+   * #AUXILIARY_TRACK_TYPE_DEPTH_LINEAR}, {@link #AUXILIARY_TRACK_TYPE_DEPTH_INVERSE}, {@link
+   * #AUXILIARY_TRACK_TYPE_DEPTH_METADATA}.
+   */
+  @UnstableApi
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target({FIELD, METHOD, PARAMETER, LOCAL_VARIABLE, TYPE_USE})
+  @IntDef({
+    AUXILIARY_TRACK_TYPE_UNDEFINED,
+    AUXILIARY_TRACK_TYPE_ORIGINAL,
+    AUXILIARY_TRACK_TYPE_DEPTH_LINEAR,
+    AUXILIARY_TRACK_TYPE_DEPTH_INVERSE,
+    AUXILIARY_TRACK_TYPE_DEPTH_METADATA
+  })
+  public @interface AuxiliaryTrackType {}
+
+  /** Not an auxiliary track or an auxiliary track with an undefined type. */
+  @UnstableApi public static final int AUXILIARY_TRACK_TYPE_UNDEFINED = 0;
+
+  /** The original video track without any depth based effects applied. */
+  @UnstableApi public static final int AUXILIARY_TRACK_TYPE_ORIGINAL = 1;
+
+  /**
+   * A linear encoded depth video track.
+   *
+   * <p>See https://developer.android.com/static/media/camera/camera2/Dynamic-depth-v1.0.pdf for
+   * linear depth encoding.
+   */
+  @UnstableApi public static final int AUXILIARY_TRACK_TYPE_DEPTH_LINEAR = 2;
+
+  /**
+   * An inverse encoded depth video track.
+   *
+   * <p>See https://developer.android.com/static/media/camera/camera2/Dynamic-depth-v1.0.pdf for
+   * inverse depth encoding.
+   */
+  @UnstableApi public static final int AUXILIARY_TRACK_TYPE_DEPTH_INVERSE = 3;
+
+  /** A timed metadata of depth video track. */
+  @UnstableApi public static final int AUXILIARY_TRACK_TYPE_DEPTH_METADATA = 4;
 
   /**
    * Level of support for a format. One of {@link #FORMAT_HANDLED}, {@link

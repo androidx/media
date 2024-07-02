@@ -3294,6 +3294,9 @@ public final class Util {
     if ((roleFlags & C.ROLE_FLAG_TRICK_PLAY) != 0) {
       result.add("trick-play");
     }
+    if ((roleFlags & C.ROLE_FLAG_AUXILIARY) != 0) {
+      result.add("auxiliary");
+    }
     return result;
   }
 

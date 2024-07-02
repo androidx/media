@@ -136,6 +136,69 @@ import java.util.concurrent.atomic.AtomicBoolean;
     }
   }
 
+  /**
+   * Writes the updated moov box to the output {@link FileChannel}.
+   *
+   * <p>It also trims any extra spaces from the file.
+   *
+   * @throws IOException If there is any error while writing data to the output {@link FileChannel}.
+   */
+  public void finalizeMoovBox() throws IOException {
+    if (canWriteMoovAtStart) {
+      maybeWriteMoovAtStart();
+      return;
+    }
+
+    // The current state is:
+    // | ftyp | mdat .. .. .. (00 00 00) | moov |
+
+    // To keep the trimming safe, first write the final moov box into the gap at the end of the mdat
+    // box, and only then trim the extra space.
+    ByteBuffer currentMoovData = assembleCurrentMoovData();
+
+    int moovBytesNeeded = currentMoovData.remaining();
+
+    // Write a temporary free box wrapping the new moov box.
+    int moovAndFreeBytesNeeded = moovBytesNeeded + 8;
+
+    if (mdatEnd - mdatDataEnd < moovAndFreeBytesNeeded) {
+      // If the gap is not big enough for the moov box, then extend the mdat box once again. This
+      // involves writing moov box farther away one more time.
+      safelyReplaceMoovAtEnd(
+          lastMoovWritten.upperEndpoint() + moovAndFreeBytesNeeded, currentMoovData);
+      checkState(mdatEnd - mdatDataEnd >= moovAndFreeBytesNeeded);
+    }
+
+    // Write out the new moov box into the gap.
+    long newMoovLocation = mdatDataEnd;
+    outputFileChannel.position(mdatDataEnd);
+    outputFileChannel.write(currentMoovData);
+
+    // Add a free box to account for the actual remaining length of the file.
+    long remainingLength = lastMoovWritten.upperEndpoint() - (newMoovLocation + moovBytesNeeded);
+
+    // Moov boxes shouldn't be too long; they can fit into a free box with a 32-bit length field.
+    checkState(remainingLength < Integer.MAX_VALUE);
+
+    ByteBuffer freeHeader = ByteBuffer.allocate(4 + 4);
+    freeHeader.putInt((int) remainingLength);
+    freeHeader.put(Util.getUtf8Bytes(FREE_BOX_TYPE));
+    freeHeader.flip();
+    outputFileChannel.write(freeHeader);
+
+    // The moov box is actually written inside mdat box so the current state is:
+    // | ftyp | mdat .. .. .. (new moov) (free header ) (00 00 00) | old moov |
+
+    // Now change this to:
+    // | ftyp | mdat .. .. .. | new moov | free (00 00 00) (old moov) |
+    mdatEnd = newMoovLocation;
+    updateMdatSize(mdatEnd - mdatStart);
+    lastMoovWritten = Range.closed(newMoovLocation, newMoovLocation + currentMoovData.limit());
+
+    // Remove the free box.
+    outputFileChannel.truncate(newMoovLocation + moovBytesNeeded);
+  }
+
   private void writeHeader() throws IOException {
     outputFileChannel.position(0L);
     outputFileChannel.write(Boxes.ftyp());
@@ -247,69 +310,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
       outputFileChannel.write(freeBox, reservedMoovSpaceStart);
     }
     updateMdatSize(mdatDataEnd - mdatStart);
-  }
-
-  /**
-   * Writes the updated moov box to the output {@link FileChannel}.
-   *
-   * <p>It also trims any extra spaces from the file.
-   *
-   * @throws IOException If there is any error while writing data to the output {@link FileChannel}.
-   */
-  private void finalizeMoovBox() throws IOException {
-    if (canWriteMoovAtStart) {
-      maybeWriteMoovAtStart();
-      return;
-    }
-
-    // The current state is:
-    // | ftyp | mdat .. .. .. (00 00 00) | moov |
-
-    // To keep the trimming safe, first write the final moov box into the gap at the end of the mdat
-    // box, and only then trim the extra space.
-    ByteBuffer currentMoovData = assembleCurrentMoovData();
-
-    int moovBytesNeeded = currentMoovData.remaining();
-
-    // Write a temporary free box wrapping the new moov box.
-    int moovAndFreeBytesNeeded = moovBytesNeeded + 8;
-
-    if (mdatEnd - mdatDataEnd < moovAndFreeBytesNeeded) {
-      // If the gap is not big enough for the moov box, then extend the mdat box once again. This
-      // involves writing moov box farther away one more time.
-      safelyReplaceMoovAtEnd(
-          lastMoovWritten.upperEndpoint() + moovAndFreeBytesNeeded, currentMoovData);
-      checkState(mdatEnd - mdatDataEnd >= moovAndFreeBytesNeeded);
-    }
-
-    // Write out the new moov box into the gap.
-    long newMoovLocation = mdatDataEnd;
-    outputFileChannel.position(mdatDataEnd);
-    outputFileChannel.write(currentMoovData);
-
-    // Add a free box to account for the actual remaining length of the file.
-    long remainingLength = lastMoovWritten.upperEndpoint() - (newMoovLocation + moovBytesNeeded);
-
-    // Moov boxes shouldn't be too long; they can fit into a free box with a 32-bit length field.
-    checkState(remainingLength < Integer.MAX_VALUE);
-
-    ByteBuffer freeHeader = ByteBuffer.allocate(4 + 4);
-    freeHeader.putInt((int) remainingLength);
-    freeHeader.put(Util.getUtf8Bytes(FREE_BOX_TYPE));
-    freeHeader.flip();
-    outputFileChannel.write(freeHeader);
-
-    // The moov box is actually written inside mdat box so the current state is:
-    // | ftyp | mdat .. .. .. (new moov) (free header ) (00 00 00) | old moov |
-
-    // Now change this to:
-    // | ftyp | mdat .. .. .. | new moov | free (00 00 00) (old moov) |
-    mdatEnd = newMoovLocation;
-    updateMdatSize(mdatEnd - mdatStart);
-    lastMoovWritten = Range.closed(newMoovLocation, newMoovLocation + currentMoovData.limit());
-
-    // Remove the free box.
-    outputFileChannel.truncate(newMoovLocation + moovBytesNeeded);
   }
 
   /**
