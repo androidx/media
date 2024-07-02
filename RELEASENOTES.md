@@ -31,6 +31,10 @@
 *   Image:
 *   DRM:
 *   Effect:
+    *   Deprecate `DefaultVideoFrameProcessor#setInputDefaultBufferSize` and
+        `DefaultVideoFrameProcessor.Builder#setRequireRegisteringAllInputFrames`.
+        Use the new frame processor input type
+        `INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION` instead.
 *   Muxers:
 *   IMA extension:
 *   Session:
