@@ -240,7 +240,7 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
   @Test
   public void sendError_toAllControllers_onPlaybackStateChangedToErrorStateAndWithCorrectErrorData()
       throws Exception {
-    CountDownLatch latch = new CountDownLatch(2);
+    CountDownLatch latch = new CountDownLatch(3);
     List<PlaybackStateCompat> playbackStates = new ArrayList<>();
     MediaControllerCompat.Callback callback =
         new MediaControllerCompat.Callback() {
@@ -301,7 +301,7 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
   public void
       sendError_toMediaNotificationController_onPlaybackStateChangedToErrorStateAndWithCorrectErrorData()
           throws Exception {
-    CountDownLatch latch = new CountDownLatch(2);
+    CountDownLatch latch = new CountDownLatch(3);
     List<PlaybackStateCompat> playbackStates = new ArrayList<>();
     MediaControllerCompat.Callback callback =
         new MediaControllerCompat.Callback() {
