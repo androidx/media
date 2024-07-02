@@ -533,7 +533,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
   // Handler.Callback implementation.
 
-  @SuppressWarnings("unchecked") // Casting message payload types.
+  @SuppressWarnings({"unchecked", "WrongConstant"}) // Casting message payload types and IntDef.
   @Override
   public boolean handleMessage(Message msg) {
     try {
