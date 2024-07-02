@@ -100,6 +100,7 @@ public final class DemoUtil {
         .setExtensionRendererMode(extensionRendererMode);
   }
 
+  @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
   public static synchronized DataSource.Factory getHttpDataSourceFactory(Context context) {
     if (httpDataSourceFactory != null) {
       return httpDataSourceFactory;
