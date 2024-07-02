@@ -3,6 +3,49 @@
 ### Unreleased changes
 
 *   Common Library:
+*   ExoPlayer:
+*   Transformer:
+*   Track Selection:
+*   Extractors:
+*   Audio:
+*   Video:
+*   Text:
+*   Metadata:
+*   Image:
+*   DRM:
+*   Effect:
+*   Muxers:
+*   IMA extension:
+*   Session:
+*   UI:
+*   Downloads:
+*   OkHttp Extension:
+*   Cronet Extension:
+*   RTMP Extension:
+*   HLS Extension:
+*   Smooth Streaming Extension:
+*   RTSP Extension:
+*   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
+*   MIDI extension:
+*   Leanback extension:
+*   Cast Extension:
+*   Test Utilities:
+*   Demo app:
+*   Remove deprecated symbols:
+    *   Remove deprecated `Player.hasPrevious`, `Player.hasPreviousWindow()`.
+        Use `Player.hasPreviousMediaItem()` instead.
+    *   Remove deprecated `Player.previous()`method. Use
+        `Player.seekToPreviousMediaItem()` instead.
+    *   Remove deprecated `DrmSessionEventListener.onDrmSessionAcquired` method.
+
+## 1.4
+
+### 1.4.0-rc01 (2024-07-11)
+
+This release includes the following changes since the
+[1.4.0-beta01 release](#140-beta01-2024-06-21):
+
+*   Common Library:
     *   Add `Format.customData` to store app-provided custom information about
         `Format` instances.
 *   ExoPlayer:
@@ -18,21 +61,10 @@
     *   Fix potential `IllegalArgumentException` when handling player error that
         happened while reading ahead into another playlist item
         ([#1483](https://github.com/androidx/media/issues/1483)).
-*   Transformer:
-*   Track Selection:
-*   Extractors:
-*   Audio:
-*   Video:
 *   Text:
     *   Fix an `IllegalArgumentException` from `LegacySubtitleUtil` when a
         WebVTT subtitle sample contains no cues, e.g. as part of a DASH stream
         ([#1516](https://github.com/androidx/media/issues/1516)).
-*   Metadata:
-*   Image:
-*   DRM:
-*   Effect:
-*   Muxers:
-*   IMA extension:
 *   Session:
     *   Allow the session activity to be set per controller to override the
         global session activity. The session activity can be defined for a
@@ -43,35 +75,15 @@
     *   Improve error replication of calls to `MediaLibrarySession.Callback`.
         Error replication can now be configured by using
         `MediaLibrarySession.Builder.setLibraryErrorReplicationMode()` for
-        chosing the error type or opt-ing out of error replication which is on
+        choosing the error type or opt-ing out of error replication which is on
         by default.
 *   UI:
     *   Work around a platform bug causing stretched/cropped video when using
         `SurfaceView` inside a Compose `AndroidView` on API 34
         ([#1237](https://github.com/androidx/media/issues/1237)).
-*   Downloads:
-*   OkHttp Extension:
-*   Cronet Extension:
-*   RTMP Extension:
-*   HLS Extension:
-*   Smooth Streaming Extension:
-*   RTSP Extension:
-*   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
-*   MIDI extension:
-*   Leanback extension:
-*   Cast Extension:
-*   Test Utilities:
 *   Demo app:
     *   Use `HttpEngineDataSource` as the `HttpDataSource` when supported by the
         device.
-*   Remove deprecated symbols:
-    *   Remove deprecated `Player.hasPrevious`, `Player.hasPreviousWindow()`.
-        Use `Player.hasPreviousMediaItem()` instead.
-    *   Remove deprecated `Player.previous()`method. Use
-        `Player.seekToPreviousMediaItem()` instead.
-    *   Remove deprecated `DrmSessionEventListener.onDrmSessionAcquired` method.
-
-## 1.4
 
 ### 1.4.0-beta01 (2024-06-21)
 
