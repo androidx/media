@@ -238,7 +238,8 @@ public interface VideoSink {
    * Informs the video sink that a frame will be queued to its {@linkplain #getInputSurface() input
    * surface}.
    *
-   * <p>Must be called after the sink is {@linkplain #initialize(Format) initialized}.
+   * <p>Must be called after the corresponding stream is {@linkplain #registerInputStream(int,
+   * Format) registered}.
    *
    * @param framePresentationTimeUs The frame's presentation time, in microseconds.
    * @param isLastFrame Whether this is the last frame of the video stream.
@@ -251,7 +252,8 @@ public interface VideoSink {
   /**
    * Provides an input {@link Bitmap} to the video sink.
    *
-   * <p>Must be called after the sink is {@linkplain #initialize(Format) initialized}.
+   * <p>Must be called after the corresponding stream is {@linkplain #registerInputStream(int,
+   * Format) registered}.
    *
    * @param inputBitmap The {@link Bitmap} queued to the video sink.
    * @param timestampIterator The times within the current stream that the bitmap should be shown
