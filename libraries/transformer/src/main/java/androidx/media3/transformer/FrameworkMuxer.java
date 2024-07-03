@@ -313,7 +313,7 @@ import java.nio.ByteBuffer;
     if (maxWidthHeight <= 1280) {
       if (pps <= 22118400) {
         level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelHd24;  // Level 01
-      } else if (pps <= 27648000) {
+      } else { // pps <= 27648000
         level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelHd30;  // Level 02
       }
     } else if (maxWidthHeight <= 1920 && pps <= 49766400) {
@@ -331,13 +331,13 @@ import java.nio.ByteBuffer;
         level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd48;  // Level 08
       } else if (pps <= 497664000) {
         level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd60;  // Level 09
-      } else if (pps <= 995328000) {
+      } else { // pps <= 995328000
         level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd120;  // Level 10
       }
     } else if (maxWidthHeight <= 7680) {
       if (pps <= 995328000) {
         level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevel8k30;  // Level 11
-      } else if (pps <= 1990656000) {
+      } else { // pps <= 1990656000
         level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevel8k60;  // Level 12
       }
     }

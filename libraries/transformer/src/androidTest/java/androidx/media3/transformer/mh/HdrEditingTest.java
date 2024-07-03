@@ -140,6 +140,41 @@ public final class HdrEditingTest {
   }
 
   @Test
+  public void export_transmuxDolbyVisionFile() throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+
+    if (Util.SDK_INT < 24) {
+      // TODO: b/285543404 - Remove suppression once we can transmux H.265/HEVC before API 24.
+      recordTestSkipped(context, testId, /* reason= */ "Can't transmux H.265/HEVC before API 24");
+      return;
+    }
+
+    if (AndroidTestUtil.skipAndLogIfFormatsUnsupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_DOLBY_VISION_HDR_FORMAT,
+        /* outputFormat= */ null)) {
+      return;
+    }
+
+    Transformer transformer = new Transformer.Builder(context).build();
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_DOLBY_VISION_HDR));
+
+    ExportTestResult exportTestResult =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, mediaItem);
+    assert exportTestResult.filePath != null;
+    @C.ColorTransfer
+    int actualColorTransfer =
+        Objects.requireNonNull(
+            retrieveTrackFormat(context, exportTestResult.filePath, C.TRACK_TYPE_VIDEO)
+                .colorInfo)
+            .colorTransfer;
+    assertThat(actualColorTransfer).isEqualTo(C.COLOR_TRANSFER_HLG);
+  }
+
+  @Test
   public void exportAndTranscode_hdr10File_whenHdrEditingIsSupported() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     Format format = MP4_ASSET_720P_4_SECOND_HDR10_FORMAT;
@@ -224,10 +259,12 @@ public final class HdrEditingTest {
         new TransformerAndroidTestRunner.Builder(context, transformer)
             .build()
             .run(testId, editedMediaItem);
+    assert exportTestResult.filePath != null;
     @C.ColorTransfer
     int actualColorTransfer =
-        retrieveTrackFormat(context, exportTestResult.filePath, C.TRACK_TYPE_VIDEO)
-            .colorInfo
+        Objects.requireNonNull(
+            retrieveTrackFormat(context, exportTestResult.filePath, C.TRACK_TYPE_VIDEO)
+                .colorInfo)
             .colorTransfer;
     assertThat(actualColorTransfer).isEqualTo(C.COLOR_TRANSFER_HLG);
   }
@@ -353,6 +390,74 @@ public final class HdrEditingTest {
                 || message.contains(
                     "OpenGL ES 3.0 context support is required for HDR input or output.")
                 || Objects.equals(message, "Device lacks YUV extension support."))) {
+          return;
+        }
+      }
+      throw exception;
+    }
+  }
+
+  @Test
+  public void exportAndTranscode_dolbyVisionFile_whenHdrEditingUnsupported_toneMapsOrThrows()
+      throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    Format format = MP4_ASSET_DOLBY_VISION_HDR_FORMAT;
+    assert format.colorInfo != null;
+    if (deviceSupportsHdrEditing(VIDEO_H265, format.colorInfo)) {
+      recordTestSkipped(context, testId, /* reason= */ "Device supports Dolby Vision editing.");
+      return;
+    }
+
+    if (AndroidTestUtil.skipAndLogIfFormatsUnsupported(
+        context, testId, /* inputFormat= */ format, /* outputFormat= */ null)) {
+      return;
+    }
+
+    AtomicBoolean isFallbackListenerInvoked = new AtomicBoolean();
+    AtomicBoolean isToneMappingFallbackApplied = new AtomicBoolean();
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .addListener(
+                new Transformer.Listener() {
+                  @Override
+                  public void onFallbackApplied(
+                      MediaItem inputMediaItem,
+                      TransformationRequest originalTransformationRequest,
+                      TransformationRequest fallbackTransformationRequest) {
+                    isFallbackListenerInvoked.set(true);
+                    assertThat(originalTransformationRequest.hdrMode).isEqualTo(HDR_MODE_KEEP_HDR);
+                    isToneMappingFallbackApplied.set(
+                        fallbackTransformationRequest.hdrMode
+                            == HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL);
+                  }
+                })
+            .build();
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_DOLBY_VISION_HDR));
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(mediaItem).setEffects(FORCE_TRANSCODE_VIDEO_EFFECTS).build();
+
+    try {
+      ExportTestResult exportTestResult =
+          new TransformerAndroidTestRunner.Builder(context, transformer)
+              .build()
+              .run(testId, editedMediaItem);
+      assertThat(isToneMappingFallbackApplied.get()).isTrue();
+      assert exportTestResult.filePath != null;
+      @C.ColorTransfer
+      int actualColorTransfer =
+          Objects.requireNonNull(
+              retrieveTrackFormat(context, exportTestResult.filePath, C.TRACK_TYPE_VIDEO)
+                  .colorInfo)
+              .colorTransfer;
+      assertThat(actualColorTransfer).isEqualTo(C.COLOR_TRANSFER_SDR);
+    } catch (ExportException exception) {
+      if (exception.getCause() != null) {
+        @Nullable String message = exception.getCause().getMessage();
+        if (message != null
+            && (Objects.equals(message, "Decoding HDR is not supported on this device.")
+            || message.contains(
+            "OpenGL ES 3.0 context support is required for HDR input or output.")
+            || Objects.equals(message, "Device lacks YUV extension support."))) {
           return;
         }
       }
