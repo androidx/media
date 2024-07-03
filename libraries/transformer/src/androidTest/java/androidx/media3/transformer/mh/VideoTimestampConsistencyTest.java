@@ -27,6 +27,7 @@ import android.view.SurfaceView;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.effect.GlEffect;
+import androidx.media3.effect.Presentation;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.CompositionPlayer;
@@ -346,7 +347,10 @@ public class VideoTimestampConsistencyTest {
         prependVideoEffects(
             editedMediaItems,
             /* effects= */ ImmutableList.of(
-                (GlEffect) (context, useHdr) -> timestampRecordingShaderProgram));
+                (GlEffect) (context, useHdr) -> timestampRecordingShaderProgram,
+                // Use a resolution that all devices should support.
+                Presentation.createForWidthAndHeight(
+                    /* width= */ 320, /* height= */ 240, Presentation.LAYOUT_SCALE_TO_FIT)));
 
     @SuppressWarnings("unused")
     ExportTestResult result =
