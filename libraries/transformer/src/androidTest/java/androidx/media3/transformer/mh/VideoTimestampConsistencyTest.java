@@ -24,6 +24,7 @@ import static com.google.common.truth.Truth.assertThat;
 import android.app.Instrumentation;
 import android.content.Context;
 import android.view.SurfaceView;
+import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.effect.GlEffect;
@@ -126,7 +127,6 @@ public class VideoTimestampConsistencyTest {
 
   @Test
   public void twoVideosComposition_clippingTheFirst_timestampsAreConsistent() throws Exception {
-    // TODO - b/341279499: Add test that clips the second media.
     long clippedStartUs = 500_000L;
     EditedMediaItem video1 =
         new EditedMediaItem.Builder(
@@ -152,6 +152,50 @@ public class VideoTimestampConsistencyTest {
                 Lists.transform(
                     MP4_ASSET_FRAME_TIMESTAMPS_US,
                     timestampUs -> ((MP4_ASSET.videoDurationUs - clippedStartUs) + timestampUs)))
+            .build();
+
+    compareTimestamps(
+        ImmutableList.of(video1, video2), expectedTimestamps, /* containsImage= */ false);
+  }
+
+  @Test
+  public void twoVideosComposition_clippingBoth_timestampsAreConsistent() throws Exception {
+    long clippedStartUs1 = 500_000L;
+    EditedMediaItem video1 =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(MP4_ASSET.uri)
+                    .buildUpon()
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionMs(usToMs(clippedStartUs1))
+                            .build())
+                    .build())
+            .setDurationUs(MP4_ASSET.videoDurationUs)
+            .build();
+
+    long clippedStartUs2 = 300_000L;
+    long clippedEndUs2 = 600_000L;
+    EditedMediaItem video2 =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(MP4_ASSET.uri)
+                    .buildUpon()
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionMs(usToMs(clippedStartUs2))
+                            .setEndPositionMs(usToMs(clippedEndUs2))
+                            .build())
+                    .build())
+            .setDurationUs(MP4_ASSET.videoDurationUs)
+            .build();
+
+    ImmutableList<Long> expectedTimestamps =
+        new ImmutableList.Builder<Long>()
+            .addAll(getClippedTimestamps(MP4_ASSET_FRAME_TIMESTAMPS_US, clippedStartUs1))
+            .addAll(
+                Lists.transform(
+                    getClippedTimestamps(
+                        MP4_ASSET_FRAME_TIMESTAMPS_US, clippedStartUs2, clippedEndUs2),
+                    timestampUs -> ((MP4_ASSET.videoDurationUs - clippedStartUs1) + timestampUs)))
             .build();
 
     compareTimestamps(
@@ -446,9 +490,14 @@ public class VideoTimestampConsistencyTest {
   }
 
   private static ImmutableList<Long> getClippedTimestamps(List<Long> timestamps, long clipStartUs) {
+    return getClippedTimestamps(timestamps, clipStartUs, /* clipEndUs= */ C.TIME_UNSET);
+  }
+
+  private static ImmutableList<Long> getClippedTimestamps(
+      List<Long> timestamps, long clipStartUs, long clipEndUs) {
     ImmutableList.Builder<Long> clippedTimestamps = new ImmutableList.Builder<>();
     for (Long timestamp : timestamps) {
-      if (timestamp < clipStartUs) {
+      if (timestamp < clipStartUs || (clipEndUs != C.TIME_UNSET && timestamp > clipEndUs)) {
         continue;
       }
       clippedTimestamps.add(timestamp - clipStartUs);
