@@ -20,6 +20,8 @@ import static android.Manifest.permission.READ_MEDIA_VIDEO;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.SDK_INT;
+import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS;
+import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED;
 
 import android.app.Activity;
@@ -78,6 +80,7 @@ import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.effect.SingleColorLut;
 import androidx.media3.effect.TextOverlay;
 import androidx.media3.effect.TextureOverlay;
+import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor;
 import androidx.media3.exoplayer.util.DebugTextViewHelper;
@@ -118,6 +121,8 @@ import org.json.JSONObject;
 /** An {@link Activity} that exports and plays media using {@link Transformer}. */
 public final class TransformerActivity extends AppCompatActivity {
   private static final String TAG = "TransformerActivity";
+  private static int LOAD_CONTROL_MIN_BUFFER_MS = 5_000;
+  private static int LOAD_CONTROL_MAX_BUFFER_MS = 5_000;
 
   private Button displayInputButton;
   private MaterialCardView inputCardView;
@@ -698,7 +703,17 @@ public final class TransformerActivity extends AppCompatActivity {
     releasePlayer();
 
     Uri uri = checkNotNull(inputMediaItem.localConfiguration).uri;
-    ExoPlayer outputPlayer = new ExoPlayer.Builder(/* context= */ this).build();
+    ExoPlayer outputPlayer =
+        new ExoPlayer.Builder(/* context= */ this)
+            .setLoadControl(
+                new DefaultLoadControl.Builder()
+                    .setBufferDurationsMs(
+                        LOAD_CONTROL_MIN_BUFFER_MS,
+                        LOAD_CONTROL_MAX_BUFFER_MS,
+                        DEFAULT_BUFFER_FOR_PLAYBACK_MS,
+                        DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS)
+                    .build())
+            .build();
     outputPlayerView.setPlayer(outputPlayer);
     outputPlayerView.setControllerAutoShow(false);
     outputPlayer.setMediaItem(outputMediaItem);
@@ -724,7 +739,17 @@ public final class TransformerActivity extends AppCompatActivity {
       inputImageView.setVisibility(View.GONE);
       inputTextView.setText(getString(R.string.input_video_no_sound));
 
-      ExoPlayer inputPlayer = new ExoPlayer.Builder(/* context= */ this).build();
+      ExoPlayer inputPlayer =
+          new ExoPlayer.Builder(/* context= */ this)
+              .setLoadControl(
+                  new DefaultLoadControl.Builder()
+                      .setBufferDurationsMs(
+                          LOAD_CONTROL_MIN_BUFFER_MS,
+                          LOAD_CONTROL_MAX_BUFFER_MS,
+                          DEFAULT_BUFFER_FOR_PLAYBACK_MS,
+                          DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS)
+                      .build())
+              .build();
       inputPlayerView.setPlayer(inputPlayer);
       inputPlayerView.setControllerAutoShow(false);
       inputPlayerView.setOnClickListener(this::handlePlayerViewClick);
