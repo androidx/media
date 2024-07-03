@@ -134,7 +134,7 @@ public class VideoTimestampConsistencyTest {
                     .buildUpon()
                     .setClippingConfiguration(
                         new MediaItem.ClippingConfiguration.Builder()
-                            .setStartPositionMs(usToMs(clippedStartUs))
+                            .setStartPositionUs(clippedStartUs)
                             .build())
                     .build())
             .setDurationUs(MP4_ASSET.videoDurationUs)
@@ -167,7 +167,7 @@ public class VideoTimestampConsistencyTest {
                     .buildUpon()
                     .setClippingConfiguration(
                         new MediaItem.ClippingConfiguration.Builder()
-                            .setStartPositionMs(usToMs(clippedStartUs1))
+                            .setStartPositionUs(clippedStartUs1)
                             .build())
                     .build())
             .setDurationUs(MP4_ASSET.videoDurationUs)
@@ -181,8 +181,8 @@ public class VideoTimestampConsistencyTest {
                     .buildUpon()
                     .setClippingConfiguration(
                         new MediaItem.ClippingConfiguration.Builder()
-                            .setStartPositionMs(usToMs(clippedStartUs2))
-                            .setEndPositionMs(usToMs(clippedEndUs2))
+                            .setStartPositionUs(clippedStartUs2)
+                            .setEndPositionUs(clippedEndUs2)
                             .build())
                     .build())
             .setDurationUs(MP4_ASSET.videoDurationUs)
