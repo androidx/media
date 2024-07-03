@@ -739,6 +739,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       videoSink.flush(/* resetPosition= */ true);
       videoSink.setStreamOffsetAndAdjustmentUs(
           getOutputStreamOffsetUs(), getBufferTimestampAdjustmentUs());
+      videoSinkNeedsRegisterInputStream = true;
     }
     super.onPositionReset(positionUs, joining);
     if (videoSink == null) {
