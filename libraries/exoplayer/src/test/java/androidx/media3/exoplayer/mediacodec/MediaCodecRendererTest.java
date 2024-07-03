@@ -103,6 +103,7 @@ public class MediaCodecRendererTest {
 
     InOrder inOrder = inOrder(renderer);
     inOrder.verify(renderer).onOutputStreamOffsetUsChanged(0);
+    inOrder.verify(renderer).onProcessedStreamChange();
     inOrder.verify(renderer).onOutputFormatChanged(eq(format1), any());
     inOrder.verify(renderer).onProcessedOutputBuffer(0);
     inOrder.verify(renderer).onProcessedOutputBuffer(100);
@@ -163,6 +164,7 @@ public class MediaCodecRendererTest {
 
     InOrder inOrder = inOrder(renderer);
     inOrder.verify(renderer).onOutputStreamOffsetUsChanged(0);
+    inOrder.verify(renderer).onProcessedStreamChange();
     inOrder.verify(renderer).onOutputFormatChanged(eq(format1), any());
     inOrder.verify(renderer).onProcessedOutputBuffer(0);
     inOrder.verify(renderer).onProcessedOutputBuffer(100);
@@ -226,6 +228,7 @@ public class MediaCodecRendererTest {
 
     InOrder inOrder = inOrder(renderer);
     inOrder.verify(renderer).onOutputStreamOffsetUsChanged(0);
+    inOrder.verify(renderer).onProcessedStreamChange();
     inOrder.verify(renderer).onOutputFormatChanged(eq(format1), any());
     inOrder.verify(renderer).onProcessedOutputBuffer(0);
     inOrder.verify(renderer).onProcessedOutputBuffer(100);
@@ -287,6 +290,7 @@ public class MediaCodecRendererTest {
 
     InOrder inOrder = inOrder(renderer);
     inOrder.verify(renderer).onOutputStreamOffsetUsChanged(0);
+    inOrder.verify(renderer).onProcessedStreamChange();
     inOrder.verify(renderer).onOutputStreamOffsetUsChanged(0);
     inOrder.verify(renderer).onProcessedStreamChange();
     inOrder.verify(renderer).onOutputFormatChanged(eq(format2), any());
@@ -356,6 +360,7 @@ public class MediaCodecRendererTest {
 
     InOrder inOrder = inOrder(renderer);
     inOrder.verify(renderer).onOutputStreamOffsetUsChanged(0);
+    inOrder.verify(renderer).onProcessedStreamChange();
     inOrder.verify(renderer).onOutputFormatChanged(eq(format1), any());
     inOrder.verify(renderer).onProcessedOutputBuffer(0);
     inOrder.verify(renderer).onProcessedOutputBuffer(100);
@@ -496,6 +501,7 @@ public class MediaCodecRendererTest {
                       /* forceSecure= */ false)),
           /* enableDecoderFallback= */ false,
           /* assumedMinimumCodecOperatingRate= */ 44100);
+      experimentalEnableProcessedStreamChangedAtStart();
     }
 
     @Override

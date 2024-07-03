@@ -4,6 +4,10 @@
 
 *   Common Library:
 *   ExoPlayer:
+    *   `MediaCodecRenderer.onProcessedStreamChange()` can now be called for
+        every media item. Previously it was not called for the first one. Use
+        `MediaCodecRenderer.experimentalEnableProcessedStreamChangedAtStart()`
+        to enable this.
 *   Transformer:
 *   Track Selection:
 *   Extractors:

@@ -411,6 +411,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private OutputStreamInfo outputStreamInfo;
   private long lastProcessedOutputBufferTimeUs;
   private boolean needToNotifyOutputFormatChangeAfterStreamChange;
+  private boolean experimentalEnableProcessedStreamChangedAtStart;
 
   /**
    * @param trackType The {@link C.TrackType track type} that the renderer handles.
@@ -511,6 +512,16 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         /* isOnBufferAvailableListenerRegistered= */ codecRegisteredOnBufferAvailableListener,
         positionUs,
         elapsedRealtimeUs);
+  }
+
+  /**
+   * Enables the renderer to invoke {@link #onProcessedStreamChange()} on the first stream.
+   *
+   * <p>When not enabled, {@link #onProcessedStreamChange()} is invoked from the second stream
+   * onwards.
+   */
+  public void experimentalEnableProcessedStreamChangedAtStart() {
+    this.experimentalEnableProcessedStreamChangedAtStart = true;
   }
 
   /**
@@ -724,6 +735,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       setOutputStreamInfo(
           new OutputStreamInfo(
               /* previousStreamLastBufferTimeUs= */ C.TIME_UNSET, startPositionUs, offsetUs));
+      if (experimentalEnableProcessedStreamChangedAtStart) {
+        onProcessedStreamChange();
+      }
     } else if (pendingOutputStreamChanges.isEmpty()
         && (largestQueuedPresentationTimeUs == C.TIME_UNSET
             || (lastProcessedOutputBufferTimeUs != C.TIME_UNSET
