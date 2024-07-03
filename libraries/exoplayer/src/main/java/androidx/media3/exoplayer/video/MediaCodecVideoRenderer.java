@@ -179,6 +179,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   /* package */ @Nullable OnFrameRenderedListenerV23 tunnelingOnFrameRenderedListener;
   @Nullable private VideoFrameMetadataListener frameMetadataListener;
   private long startPositionUs;
+  private boolean videoSinkNeedsRegisterInputStream;
 
   /**
    * @param context A context.
@@ -1304,7 +1305,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     decodedVideoSize =
         new VideoSize(width, height, unappliedRotationDegrees, pixelWidthHeightRatio);
 
-    if (videoSink != null) {
+    if (videoSink != null && videoSinkNeedsRegisterInputStream) {
       onReadyToRegisterVideoSinkInputStream();
       videoSink.registerInputStream(
           /* inputType= */ VideoSink.INPUT_TYPE_SURFACE,
@@ -1318,6 +1319,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     } else {
       videoFrameReleaseControl.setFrameRate(format.frameRate);
     }
+    videoSinkNeedsRegisterInputStream = false;
   }
 
   /**
@@ -1548,6 +1550,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     } else {
       videoFrameReleaseControl.onProcessedStreamChange();
     }
+    videoSinkNeedsRegisterInputStream = true;
     maybeSetupTunnelingForFirstFrame();
   }
 

@@ -256,6 +256,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       this.sequencePlayerRenderersWrapper = sequencePlayerRenderersWrapper;
       videoSink =
           checkStateNotNull(sequencePlayerRenderersWrapper.compositingVideoSinkProvider).getSink();
+      experimentalEnableProcessedStreamChangedAtStart();
     }
 
     @Override
