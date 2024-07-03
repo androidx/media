@@ -37,8 +37,10 @@ import java.util.List;
 import java.util.concurrent.Executor;
 
 /**
- * A sink that consumes decoded video frames from a video {@link
- * androidx.media3.exoplayer.Renderer}.
+ * A sink that consumes decoded video frames and images from video and image {@linkplain
+ * androidx.media3.exoplayer.Renderer renderers}.
+ *
+ * <p>Multiple renderers can feed the same sink, but not in parallel.
  */
 @UnstableApi
 public interface VideoSink {
@@ -59,15 +61,16 @@ public interface VideoSink {
 
   /** Listener for {@link VideoSink} events. */
   interface Listener {
-    /** Called when the sink renderers the first frame. */
+    /** Called when the sink renders the first frame on the output surface. */
     void onFirstFrameRendered(VideoSink videoSink);
 
     /** Called when the sink dropped a frame. */
     void onFrameDropped(VideoSink videoSink);
 
     /**
-     * Called before a frame is rendered for the first time since setting the surface, and each time
-     * there's a change in the size, rotation or pixel aspect ratio of the video being rendered.
+     * Called before a frame is rendered for the first time after setting the output surface, and
+     * each time there's a change in the size, rotation or pixel aspect ratio of the video being
+     * rendered.
      */
     void onVideoSizeChanged(VideoSink videoSink, VideoSize videoSize);
 
@@ -107,16 +110,16 @@ public interface VideoSink {
   /** Input frames come from a {@link Bitmap}. */
   int INPUT_TYPE_BITMAP = 2;
 
-  /** Called when the renderer is enabled. */
+  /** Called when the {@link Renderer} currently feeding this sink is enabled. */
   void onRendererEnabled(boolean mayRenderStartOfStream);
 
-  /** Called when the renderer is disabled. */
+  /** Called when the {@link Renderer} currently feeding this sink is disabled. */
   void onRendererDisabled();
 
-  /** Called when the renderer is started. */
+  /** Called when the {@link Renderer} currently feeding this sink is started. */
   void onRendererStarted();
 
-  /** Called when the renderer is stopped. */
+  /** Called when the {@link Renderer} currently feeding this sink is stopped. */
   void onRendererStopped();
 
   /**
@@ -130,7 +133,7 @@ public interface VideoSink {
   /**
    * Initializes the video sink.
    *
-   * @param sourceFormat The format of the compressed video.
+   * @param sourceFormat The format of the first input video or image.
    * @throws VideoSink.VideoSinkException If initializing the sink failed.
    */
   void initialize(Format sourceFormat) throws VideoSinkException;
@@ -148,7 +151,8 @@ public interface VideoSink {
   void flush(boolean resetPosition);
 
   /**
-   * Returns whether the video sink is able to immediately render media from the current position.
+   * Returns whether the video sink is able to immediately render media to its output surface from
+   * the current position.
    *
    * <p>The renderer should be {@linkplain Renderer#isReady() ready} if and only if the video sink
    * is ready.
@@ -157,10 +161,7 @@ public interface VideoSink {
    */
   boolean isReady(boolean rendererOtherwiseReady);
 
-  /**
-   * Returns whether all queued video frames have been rendered, including the frame marked as last
-   * buffer.
-   */
+  /** Returns whether all the data has been rendered to the output surface. */
   boolean isEnded();
 
   /**
@@ -216,8 +217,8 @@ public interface VideoSink {
   void setChangeFrameRateStrategy(@C.VideoChangeFrameRateStrategy int changeFrameRateStrategy);
 
   /**
-   * Enables this video sink to render the start of the stream even if the renderer is not
-   * {@linkplain #onRendererStarted() started} yet.
+   * Enables this video sink to render the start of the stream to its output surface even if the
+   * renderer is not {@linkplain #onRendererStarted() started} yet.
    *
    * <p>This is used to update the value of {@code mayRenderStartOfStream} passed to {@link
    * #onRendererEnabled(boolean)}.
@@ -264,7 +265,7 @@ public interface VideoSink {
   boolean queueBitmap(Bitmap inputBitmap, TimestampIterator timestampIterator);
 
   /**
-   * Incrementally renders processed video frames.
+   * Incrementally renders processed video frames to the output surface.
    *
    * @param positionUs The current playback position, in microseconds.
    * @param elapsedRealtimeUs {@link android.os.SystemClock#elapsedRealtime()} in microseconds,
@@ -276,8 +277,8 @@ public interface VideoSink {
   /**
    * Joins the video sink to a new stream.
    *
-   * <p>The sink will pretend to be {@linkplain #isReady ready} for a short time even if the first
-   * frame hasn't been rendered yet to avoid interrupting an ongoing playback.
+   * <p>The sink will mask {@link #isReady} as {@code true} for a short time to avoid interrupting
+   * an ongoing playback, even if the first frame hasn't yet been rendered to the output surface.
    *
    * @param renderNextFrameImmediately Whether the next frame should be rendered as soon as possible
    *     or only at its preferred scheduled release time.
