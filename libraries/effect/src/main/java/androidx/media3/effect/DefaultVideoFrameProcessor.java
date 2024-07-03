@@ -199,7 +199,14 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
        * <p>Regardless of the value set, {@link #registerInputStream(int, List, FrameInfo)} must be
        * called for each input stream to specify the format for upcoming frames before calling
        * {@link #registerInputFrame()}.
+       *
+       * @param requireRegisteringAllInputFrames Whether registering every input frame is required.
+       * @deprecated For automatic frame registration ({@code
+       *     setRequireRegisteringAllInputFrames(false)}), use {@link
+       *     VideoFrameProcessor#INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION} instead. This call
+       *     can be removed otherwise.
        */
+      @Deprecated
       @CanIgnoreReturnValue
       public Builder setRequireRegisteringAllInputFrames(boolean requireRegisteringAllInputFrames) {
         this.requireRegisteringAllInputFrames = requireRegisteringAllInputFrames;
@@ -514,7 +521,11 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
    *
    * @param width The default width for input buffers, in pixels.
    * @param height The default height for input buffers, in pixels.
+   * @deprecated Set the input type to {@link
+   *     VideoFrameProcessor#INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION} instead, which sets
+   *     the default buffer size automatically based on the registered frame info.
    */
+  @Deprecated
   public void setInputDefaultBufferSize(int width, int height) {
     inputSwitcher.setInputDefaultBufferSize(width, height);
   }
@@ -933,6 +944,8 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         return "Bitmap";
       case INPUT_TYPE_TEXTURE_ID:
         return "Texture ID";
+      case INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION:
+        return "Surface with automatic frame registration";
       default:
         throw new IllegalArgumentException(String.valueOf(inputType));
     }
