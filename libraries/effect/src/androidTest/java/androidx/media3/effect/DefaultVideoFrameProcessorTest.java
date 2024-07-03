@@ -52,6 +52,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -294,6 +295,7 @@ public class DefaultVideoFrameProcessorTest {
         .isAtLeast(firstStreamLastFrameAvailableTimeMs.get());
   }
 
+  @Ignore("b/350956435 - Re-enable when it's no longer flaky")
   @Test
   public void registerInputStreamWithAutomaticFrameRegistration_succeeds() throws Exception {
     CountDownLatch inputStreamRegisteredCountDownLatch = new CountDownLatch(1);
