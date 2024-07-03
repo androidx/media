@@ -37,6 +37,7 @@ import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.Mp4TimestampData;
+import androidx.media3.container.NalUnitUtil;
 import androidx.media3.extractor.AacUtil;
 import androidx.media3.extractor.Ac3Util;
 import androidx.media3.extractor.Ac4Util;
@@ -1154,6 +1155,7 @@ import java.util.Objects;
     @C.StereoMode int stereoMode = Format.NO_VALUE;
     @Nullable EsdsData esdsData = null;
     int maxNumReorderSamples = Format.NO_VALUE;
+    @Nullable NalUnitUtil.H265VpsData vpsData = null;
 
     // HDR related metadata.
     @C.ColorSpace int colorSpace = Format.NO_VALUE;
@@ -1206,6 +1208,54 @@ import java.util.Objects;
         colorTransfer = hevcConfig.colorTransfer;
         bitdepthLuma = hevcConfig.bitdepthLuma;
         bitdepthChroma = hevcConfig.bitdepthChroma;
+        vpsData = hevcConfig.vpsData;
+      } else if (childAtomType == Atom.TYPE_lhvC) {
+        // The lhvC atom must follow the hvcC atom; so the media type must be already set.
+        ExtractorUtil.checkContainerInput(
+            MimeTypes.VIDEO_H265.equals(mimeType), "lhvC must follow hvcC atom");
+        ExtractorUtil.checkContainerInput(
+            vpsData != null && vpsData.layerInfos.size() >= 2, "must have at least two layers");
+
+        parent.setPosition(childStartPosition + Atom.HEADER_SIZE);
+        HevcConfig lhevcConfig = HevcConfig.parseLayered(parent, checkNotNull(vpsData));
+        ExtractorUtil.checkContainerInput(
+            out.nalUnitLengthFieldLength == lhevcConfig.nalUnitLengthFieldLength,
+            "nalUnitLengthFieldLength must be same for both hvcC and lhvC atoms");
+
+        // Only stereo MV-HEVC is currently supported, for which both views must have the same below
+        // configuration values.
+        if (lhevcConfig.colorSpace != Format.NO_VALUE) {
+          ExtractorUtil.checkContainerInput(
+              colorSpace == lhevcConfig.colorSpace, "colorSpace must be the same for both views");
+        }
+        if (lhevcConfig.colorRange != Format.NO_VALUE) {
+          ExtractorUtil.checkContainerInput(
+              colorRange == lhevcConfig.colorRange, "colorRange must be the same for both views");
+        }
+        if (lhevcConfig.colorTransfer != Format.NO_VALUE) {
+          ExtractorUtil.checkContainerInput(
+              colorTransfer == lhevcConfig.colorTransfer,
+              "colorTransfer must be the same for both views");
+        }
+        ExtractorUtil.checkContainerInput(
+            bitdepthLuma == lhevcConfig.bitdepthLuma,
+            "bitdepthLuma must be the same for both views");
+        ExtractorUtil.checkContainerInput(
+            bitdepthChroma == lhevcConfig.bitdepthChroma,
+            "bitdepthChroma must be the same for both views");
+
+        mimeType = MimeTypes.VIDEO_MV_HEVC;
+        if (initializationData != null) {
+          initializationData =
+              ImmutableList.<byte[]>builder()
+                  .addAll(initializationData)
+                  .addAll(lhevcConfig.initializationData)
+                  .build();
+        } else {
+          ExtractorUtil.checkContainerInput(
+              false, "initializationData must be already set from hvcC atom");
+        }
+        codecs = lhevcConfig.codecs;
       } else if (childAtomType == Atom.TYPE_dvcC || childAtomType == Atom.TYPE_dvvC) {
         @Nullable DolbyVisionConfig dolbyVisionConfig = DolbyVisionConfig.parse(parent);
         if (dolbyVisionConfig != null) {

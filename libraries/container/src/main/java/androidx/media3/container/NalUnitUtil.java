@@ -25,6 +25,7 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
@@ -1626,6 +1627,76 @@ public final class NalUnitUtil {
     prefixFlags[0] = false;
     prefixFlags[1] = false;
     prefixFlags[2] = false;
+  }
+
+  /**
+   * Returns a new RFC 6381 codecs description string specifically for the single-layer HEVC case.
+   * When falling back to single-layer HEVC from L-HEVC, both profile and level should be adjusted
+   * for the base layer case and the codecs description string should represent that. For the
+   * single-layer HEVC case, the string is derived from the SPS of the base layer.
+   *
+   * @param csdBuffers The CSD buffers that include the SPS of the base layer.
+   * @return A RFC 6381 codecs string derived from the SPS of the base layer if such information is
+   *     available, or null otherwise.
+   */
+  @Nullable
+  public static String getH265BaseLayerCodecsString(List<byte[]> csdBuffers) {
+    for (int i = 0; i < csdBuffers.size(); i++) {
+      byte[] buffer = csdBuffers.get(i);
+      int limit = buffer.length;
+      if (limit > 3) {
+        ImmutableList<Integer> nalUnitPositions = findNalUnitPositions(buffer);
+        for (int j = 0; j < nalUnitPositions.size(); j++) {
+          // Start code prefix of 3 bytes is included in the nalUnitPositions.
+          if (nalUnitPositions.get(j) + 3 < limit) {
+            // Use the base layer (layerId == 0) SPS to derive new codecs string.
+            ParsableNalUnitBitArray data =
+                new ParsableNalUnitBitArray(buffer, nalUnitPositions.get(j) + 3, limit);
+            H265NalHeader nalHeader = parseH265NalHeader(data);
+            if (nalHeader.nalUnitType == H265_NAL_UNIT_TYPE_SPS && nalHeader.layerId == 0) {
+              return createCodecStringFromH265SpsPalyoad(data);
+            }
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  /** Finds all NAL unit positions from a given bitstream buffer. */
+  private static ImmutableList<Integer> findNalUnitPositions(byte[] data) {
+    int offset = 0;
+    boolean[] prefixFlags = new boolean[3];
+    ImmutableList.Builder<Integer> nalUnitPositions = ImmutableList.builder();
+    while (offset < data.length) {
+      int nalUnitOffset = findNalUnit(data, offset, data.length, prefixFlags);
+      if (nalUnitOffset != data.length) {
+        nalUnitPositions.add(nalUnitOffset);
+      }
+      offset = nalUnitOffset + 3;
+    }
+    return nalUnitPositions.build();
+  }
+
+  /** Creates a RFC 6381 HEVC codec string from a given SPS NAL unit payload. */
+  @Nullable
+  private static String createCodecStringFromH265SpsPalyoad(ParsableNalUnitBitArray data) {
+    data.skipBits(4); // sps_video_parameter_set_id
+    int maxSubLayersMinus1 = data.readBits(3);
+    data.skipBit(); // sps_temporal_id_nesting_flag
+    H265ProfileTierLevel profileTierLevel =
+        parseH265ProfileTierLevel(
+            data,
+            /* profilePresentFlag= */ true,
+            maxSubLayersMinus1,
+            /* prevProfileTierLevel= */ null);
+    return CodecSpecificDataUtil.buildHevcCodecString(
+        profileTierLevel.generalProfileSpace,
+        profileTierLevel.generalTierFlag,
+        profileTierLevel.generalProfileIdc,
+        profileTierLevel.generalProfileCompatibilityFlags,
+        profileTierLevel.constraintBytes,
+        profileTierLevel.generalLevelIdc);
   }
 
   private static int findNextUnescapeIndex(byte[] bytes, int offset, int limit) {

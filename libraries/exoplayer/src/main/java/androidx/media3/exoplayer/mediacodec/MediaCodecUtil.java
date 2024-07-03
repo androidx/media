@@ -35,6 +35,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.container.NalUnitUtil;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
@@ -335,6 +336,24 @@ public final class MediaCodecUtil {
   }
 
   /**
+   * Returns profile and level (as defined by {@link CodecProfileLevel}) corresponding to the base
+   * layer (for the case of falling back to single-layer HEVC from L-HEVC).
+   *
+   * @param format Media format with codec specific initialization data.
+   * @return A pair (profile constant, level constant) if the initializationData of the {@code
+   *     format} is well-formed and recognized, or null otherwise.
+   */
+  @Nullable
+  public static Pair<Integer, Integer> getHevcBaseLayerCodecProfileAndLevel(Format format) {
+    String codecs = NalUnitUtil.getH265BaseLayerCodecsString(format.initializationData);
+    if (codecs == null) {
+      return null;
+    }
+    String[] parts = Util.split(codecs.trim(), "\\.");
+    return getHevcProfileAndLevel(codecs, parts, format.colorInfo);
+  }
+
+  /**
    * Returns an alternative codec MIME type (besides the default {@link Format#sampleMimeType}) that
    * can be used to decode samples of the provided {@link Format}.
    *
@@ -366,6 +385,10 @@ public final class MediaCodecUtil {
           return MimeTypes.VIDEO_AV1;
         }
       }
+    }
+    if (MimeTypes.VIDEO_MV_HEVC.equals(format.sampleMimeType)) {
+      // Single-layer HEVC decoders can decode the base layer of MV-HEVC streams.
+      return MimeTypes.VIDEO_H265;
     }
     return null;
   }
@@ -793,6 +816,9 @@ public final class MediaCodecUtil {
         // Android versions, but we still map to Main10 for backwards compatibility.
         profile = CodecProfileLevel.HEVCProfileMain10;
       }
+    } else if ("6".equals(profileString)) {
+      // Framework does not have profileLevel.HEVCProfileMultiviewMain defined.
+      profile = 6;
     } else {
       Log.w(TAG, "Unknown HEVC profile string: " + profileString);
       return null;

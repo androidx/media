@@ -39,8 +39,43 @@ public final class HevcConfig {
    * @throws ParserException If an error occurred parsing the data.
    */
   public static HevcConfig parse(ParsableByteArray data) throws ParserException {
+    return parseImpl(data, /* layered= */ false, /* vpsData= */ null);
+  }
+
+  /**
+   * Parses L-HEVC configuration data.
+   *
+   * @param data A {@link ParsableByteArray}, whose position is set to the start of the L-HEVC
+   *     configuration data to parse.
+   * @param vpsData A parsed representation of VPS data.
+   * @return A parsed representation of the L-HEVC configuration data.
+   * @throws ParserException If an error occurred parsing the data.
+   */
+  public static HevcConfig parseLayered(ParsableByteArray data, NalUnitUtil.H265VpsData vpsData)
+      throws ParserException {
+    return parseImpl(data, /* layered= */ true, vpsData);
+  }
+
+  /**
+   * Parses HEVC or L-HEVC configuration data.
+   *
+   * @param data A {@link ParsableByteArray}, whose position is set to the start of the HEVC/L-HEVC
+   *     configuration data to parse.
+   * @param layered A flag indicating whether layered HEVC (L-HEVC) is being parsed or not.
+   * @param vpsData A parsed representation of VPS data or {@code null} if not available.
+   * @return A parsed representation of the HEVC/L-HEVC configuration data.
+   * @throws ParserException If an error occurred parsing the data.
+   */
+  private static HevcConfig parseImpl(
+      ParsableByteArray data, boolean layered, @Nullable NalUnitUtil.H265VpsData vpsData)
+      throws ParserException {
     try {
-      data.skipBytes(21); // Skip to the NAL unit length size field.
+      // Skip to the NAL unit length size field.
+      if (layered) {
+        data.skipBytes(4);
+      } else {
+        data.skipBytes(21);
+      }
       int lengthSizeMinusOne = data.readUnsignedByte() & 0x03;
 
       // Calculate the combined size of all VPS/SPS/PPS bitstreams.
@@ -71,6 +106,7 @@ public final class HevcConfig {
       float pixelWidthHeightRatio = 1;
       int maxNumReorderPics = Format.NO_VALUE;
       @Nullable String codecs = null;
+      @Nullable NalUnitUtil.H265VpsData currentVpsData = vpsData;
       for (int i = 0; i < numberOfArrays; i++) {
         int nalUnitType =
             data.readUnsignedByte() & 0x3F; // completeness (1), reserved (1), nal_unit_type (6)
@@ -86,10 +122,14 @@ public final class HevcConfig {
           bufferPosition += NalUnitUtil.NAL_START_CODE.length;
           System.arraycopy(
               data.getData(), data.getPosition(), buffer, bufferPosition, nalUnitLength);
-          if (nalUnitType == SPS_NAL_UNIT_TYPE && j == 0) {
+          if (nalUnitType == NalUnitUtil.H265_NAL_UNIT_TYPE_VPS && j == 0) {
+            currentVpsData =
+                NalUnitUtil.parseH265VpsNalUnit(
+                    buffer, bufferPosition, bufferPosition + nalUnitLength);
+          } else if (nalUnitType == NalUnitUtil.H265_NAL_UNIT_TYPE_SPS && j == 0) {
             NalUnitUtil.H265SpsData spsData =
                 NalUnitUtil.parseH265SpsNalUnit(
-                    buffer, bufferPosition, bufferPosition + nalUnitLength, null);
+                    buffer, bufferPosition, bufferPosition + nalUnitLength, currentVpsData);
             width = spsData.width;
             height = spsData.height;
             bitdepthLuma = spsData.bitDepthLumaMinus8 + 8;
@@ -130,13 +170,13 @@ public final class HevcConfig {
           colorTransfer,
           pixelWidthHeightRatio,
           maxNumReorderPics,
-          codecs);
+          codecs,
+          currentVpsData);
     } catch (ArrayIndexOutOfBoundsException e) {
-      throw ParserException.createForMalformedContainer("Error parsing HEVC config", e);
+      throw ParserException.createForMalformedContainer(
+          "Error parsing" + (layered ? "L-HEVC config" : "HEVC config"), e);
     }
   }
-
-  private static final int SPS_NAL_UNIT_TYPE = 33;
 
   /**
    * List of buffers containing the codec-specific data to be provided to the decoder.
@@ -195,6 +235,9 @@ public final class HevcConfig {
    */
   @Nullable public final String codecs;
 
+  /** The parsed representation of VPS data or {@code null} if not available. */
+  @Nullable public final NalUnitUtil.H265VpsData vpsData;
+
   private HevcConfig(
       List<byte[]> initializationData,
       int nalUnitLengthFieldLength,
@@ -207,7 +250,8 @@ public final class HevcConfig {
       @C.ColorTransfer int colorTransfer,
       float pixelWidthHeightRatio,
       int maxNumReorderPics,
-      @Nullable String codecs) {
+      @Nullable String codecs,
+      @Nullable NalUnitUtil.H265VpsData vpsData) {
     this.initializationData = initializationData;
     this.nalUnitLengthFieldLength = nalUnitLengthFieldLength;
     this.width = width;
@@ -220,5 +264,6 @@ public final class HevcConfig {
     this.pixelWidthHeightRatio = pixelWidthHeightRatio;
     this.maxNumReorderPics = maxNumReorderPics;
     this.codecs = codecs;
+    this.vpsData = vpsData;
   }
 }

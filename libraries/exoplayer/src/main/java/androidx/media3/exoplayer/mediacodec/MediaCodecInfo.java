@@ -296,6 +296,12 @@ public final class MediaCodecInfo {
   private boolean isCodecProfileAndLevelSupported(
       Format format, boolean checkPerformanceCapabilities) {
     Pair<Integer, Integer> codecProfileAndLevel = MediaCodecUtil.getCodecProfileAndLevel(format);
+    if (format.sampleMimeType != null
+        && format.sampleMimeType.equals(MimeTypes.VIDEO_MV_HEVC)
+        && codecMimeType.equals(MimeTypes.VIDEO_H265)) {
+      // Falling back to single-layer HEVC from MV-HEVC.  Get base layer profile and level.
+      codecProfileAndLevel = MediaCodecUtil.getHevcBaseLayerCodecProfileAndLevel(format);
+    }
     if (codecProfileAndLevel == null) {
       // If we don't know any better, we assume that the profile and level are supported.
       return true;
