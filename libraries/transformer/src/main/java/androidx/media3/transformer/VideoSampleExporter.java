@@ -60,7 +60,6 @@ import org.checkerframework.dataflow.qual.Pure;
 /** Processes, encodes and muxes raw video frames. */
 /* package */ final class VideoSampleExporter extends SampleExporter {
 
-  private static final String TAG = "VideoSampleExporter";
   private final TransformerVideoGraph videoGraph;
   private final EncoderWrapper encoderWrapper;
   private final DecoderInputBuffer encoderOutputBuffer;
