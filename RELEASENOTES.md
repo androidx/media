@@ -16,6 +16,10 @@
 *   Text:
 *   Metadata:
 *   Image:
+*   DataSource:
+    *   Add `FileDescriptorDataSource`, a new `DataSource` that can be used to
+        read from a `FileDescriptor`
+        ([#3757](https://github.com/google/ExoPlayer/issues/3757)).
 *   DRM:
 *   Effect:
 *   Muxers:
