@@ -620,6 +620,7 @@ public final class C {
    * <ul>
    *   <li>{@link #BUFFER_FLAG_KEY_FRAME}
    *   <li>{@link #BUFFER_FLAG_END_OF_STREAM}
+   *   <li>{@link #BUFFER_FLAG_NO_OTHER_SAMPLE_DEPENDS_ON_THIS}
    *   <li>{@link #BUFFER_FLAG_FIRST_SAMPLE}
    *   <li>{@link #BUFFER_FLAG_LAST_SAMPLE}
    *   <li>{@link #BUFFER_FLAG_ENCRYPTED}
@@ -634,6 +635,7 @@ public final class C {
       value = {
         BUFFER_FLAG_KEY_FRAME,
         BUFFER_FLAG_END_OF_STREAM,
+        BUFFER_FLAG_NO_OTHER_SAMPLE_DEPENDS_ON_THIS,
         BUFFER_FLAG_FIRST_SAMPLE,
         BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA,
         BUFFER_FLAG_LAST_SAMPLE,
@@ -647,6 +649,10 @@ public final class C {
   /** Flag for empty buffers that signal that the end of the stream was reached. */
   @UnstableApi
   public static final int BUFFER_FLAG_END_OF_STREAM = MediaCodec.BUFFER_FLAG_END_OF_STREAM;
+
+  /** Indicates that future buffers do not depend on the data in this buffer. */
+  @UnstableApi
+  public static final int BUFFER_FLAG_NO_OTHER_SAMPLE_DEPENDS_ON_THIS = 1 << 26; // 0x04000000
 
   /** Indicates that a buffer is known to contain the first media sample of the stream. */
   @UnstableApi public static final int BUFFER_FLAG_FIRST_SAMPLE = 1 << 27; // 0x08000000

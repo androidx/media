@@ -62,6 +62,7 @@ import java.lang.annotation.Target;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Extracts data from the MP4 container format. */
@@ -79,7 +80,7 @@ public final class Mp4Extractor implements Extractor, SeekMap {
   /**
    * Flags controlling the behavior of the extractor. Possible flag values are {@link
    * #FLAG_WORKAROUND_IGNORE_EDIT_LISTS}, {@link #FLAG_READ_MOTION_PHOTO_METADATA} and {@link
-   * #FLAG_READ_SEF_DATA}.
+   * #FLAG_READ_SEF_DATA}, {@link #FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES}.
    */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
@@ -91,7 +92,8 @@ public final class Mp4Extractor implements Extractor, SeekMap {
         FLAG_READ_MOTION_PHOTO_METADATA,
         FLAG_READ_SEF_DATA,
         FLAG_MARK_FIRST_VIDEO_TRACK_WITH_MAIN_ROLE,
-        FLAG_EMIT_RAW_SUBTITLE_DATA
+        FLAG_EMIT_RAW_SUBTITLE_DATA,
+        FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES
       })
   public @interface Flags {}
 
@@ -120,6 +122,26 @@ public final class Mp4Extractor implements Extractor, SeekMap {
   public static final int FLAG_MARK_FIRST_VIDEO_TRACK_WITH_MAIN_ROLE = 1 << 3;
 
   public static final int FLAG_EMIT_RAW_SUBTITLE_DATA = 1 << 4;
+
+  /**
+   * Flag to extract additional sample dependency information, and mark output buffers with {@link
+   * C#BUFFER_FLAG_NO_OTHER_SAMPLE_DEPENDS_ON_THIS}.
+   *
+   * <p>This class always marks the samples at the start of each group of picture (GOP) with {@link
+   * C#BUFFER_FLAG_KEY_FRAME}. Usually, key frames can be decoded independently, without depending
+   * on other samples.
+   *
+   * <p>Setting this flag enables elementary stream parsing to identify disposable samples that are
+   * not depended on by other samples. Any disposable sample can be safely omitted, and the rest of
+   * the track will remain valid.
+   *
+   * <p>Supported formats are:
+   *
+   * <ul>
+   *   <li>{@linkplain MimeTypes#VIDEO_H264 H.264}
+   * </ul>
+   */
+  public static final int FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES = 1 << 5;
 
   /**
    * @deprecated Use {@link #newFactory(SubtitleParser.Factory)} instead.
@@ -176,7 +198,7 @@ public final class Mp4Extractor implements Extractor, SeekMap {
 
   // Temporary arrays.
   private final ParsableByteArray nalStartCode;
-  private final ParsableByteArray nalLength;
+  private final ParsableByteArray nalPrefix;
   private final ParsableByteArray scratch;
 
   private final ParsableByteArray atomHeader;
@@ -195,6 +217,7 @@ public final class Mp4Extractor implements Extractor, SeekMap {
   private int sampleBytesRead;
   private int sampleBytesWritten;
   private int sampleCurrentNalBytesRemaining;
+  private boolean isSampleDependedOn;
   private boolean seenFtypAtom;
 
   // Extractor outputs.
@@ -252,11 +275,13 @@ public final class Mp4Extractor implements Extractor, SeekMap {
     atomHeader = new ParsableByteArray(Atom.LONG_HEADER_SIZE);
     containerAtoms = new ArrayDeque<>();
     nalStartCode = new ParsableByteArray(NalUnitUtil.NAL_START_CODE);
-    nalLength = new ParsableByteArray(4);
+    nalPrefix = new ParsableByteArray(5);
     scratch = new ParsableByteArray();
     sampleTrackIndex = C.INDEX_UNSET;
     extractorOutput = ExtractorOutput.PLACEHOLDER;
     tracks = new Mp4Track[0];
+    // Treat all samples as depended on when FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES is unset.
+    isSampleDependedOn = (flags & FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES) == 0;
   }
 
   @Override
@@ -290,6 +315,8 @@ public final class Mp4Extractor implements Extractor, SeekMap {
     sampleBytesRead = 0;
     sampleBytesWritten = 0;
     sampleCurrentNalBytesRemaining = 0;
+    // Treat all samples as depended on when FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES is unset.
+    isSampleDependedOn = (flags & FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES) == 0;
     if (position == 0) {
       // Reading the SEF data occurs before normal MP4 parsing. Therefore we can not transition to
       // reading the atom header until that has completed.
@@ -702,14 +729,18 @@ public final class Mp4Extractor implements Extractor, SeekMap {
       sampleSize -= Atom.HEADER_SIZE;
     }
     input.skipFully((int) skipAmount);
+    // Treat all samples in non-H.264 codecs as depended on.
+    if (!Objects.equals(track.track.format.sampleMimeType, MimeTypes.VIDEO_H264)) {
+      isSampleDependedOn = true;
+    }
     if (track.track.nalUnitLengthFieldLength != 0) {
       // Zero the top three bytes of the array that we'll use to decode nal unit lengths, in case
       // they're only 1 or 2 bytes long.
-      byte[] nalLengthData = nalLength.getData();
-      nalLengthData[0] = 0;
-      nalLengthData[1] = 0;
-      nalLengthData[2] = 0;
-      int nalUnitLengthFieldLength = track.track.nalUnitLengthFieldLength;
+      byte[] nalPrefixData = nalPrefix.getData();
+      nalPrefixData[0] = 0;
+      nalPrefixData[1] = 0;
+      nalPrefixData[2] = 0;
+      int nalUnitPrefixLength = track.track.nalUnitLengthFieldLength + 1;
       int nalUnitLengthFieldLengthDiff = 4 - track.track.nalUnitLengthFieldLength;
       // NAL units are length delimited, but the decoder requires start code delimited units.
       // Loop until we've written the sample to the track output, replacing length delimiters with
@@ -717,20 +748,31 @@ public final class Mp4Extractor implements Extractor, SeekMap {
       while (sampleBytesWritten < sampleSize) {
         if (sampleCurrentNalBytesRemaining == 0) {
           // Read the NAL length so that we know where we find the next one.
-          input.readFully(nalLengthData, nalUnitLengthFieldLengthDiff, nalUnitLengthFieldLength);
-          sampleBytesRead += nalUnitLengthFieldLength;
-          nalLength.setPosition(0);
-          int nalLengthInt = nalLength.readInt();
-          if (nalLengthInt < 0) {
+          // In the same readFully call, read the first payload byte in order to determine
+          // sample dependencies. Do not attempt to peek the first payload byte because that might
+          // fail, and we should keep sampleBytesRead, sampleBytesWritten, isSampleDependedOn in
+          // a consistent state.
+          input.readFully(nalPrefixData, nalUnitLengthFieldLengthDiff, nalUnitPrefixLength);
+          sampleBytesRead += nalUnitPrefixLength;
+          nalPrefix.setPosition(0);
+          int nalLengthInt = nalPrefix.readInt();
+          if (nalLengthInt < 1) {
             throw ParserException.createForMalformedContainer(
                 "Invalid NAL length", /* cause= */ null);
           }
-          sampleCurrentNalBytesRemaining = nalLengthInt;
+          sampleCurrentNalBytesRemaining = nalLengthInt - 1;
           // Write a start code for the current NAL unit.
           nalStartCode.setPosition(0);
           trackOutput.sampleData(nalStartCode, 4);
-          sampleBytesWritten += 4;
+          // Write the NAL unit type byte.
+          trackOutput.sampleData(nalPrefix, 1);
+          sampleBytesWritten += 5;
           sampleSize += nalUnitLengthFieldLengthDiff;
+          // If any NAL unit that's part of this sample can be depended on, treat the entire sample
+          // as depended on.
+          if (!isSampleDependedOn && NalUnitUtil.isH264NalUnitDependedOn(nalPrefixData[4])) {
+            isSampleDependedOn = true;
+          }
         } else {
           // Write the payload of the NAL unit.
           int writtenBytes = trackOutput.sampleData(input, sampleCurrentNalBytesRemaining, false);
@@ -760,16 +802,19 @@ public final class Mp4Extractor implements Extractor, SeekMap {
     }
 
     long timeUs = track.sampleTable.timestampsUs[sampleIndex];
-    @C.BufferFlags int flags = track.sampleTable.flags[sampleIndex];
+    @C.BufferFlags int sampleFlags = track.sampleTable.flags[sampleIndex];
+    if (!isSampleDependedOn) {
+      sampleFlags |= C.BUFFER_FLAG_NO_OTHER_SAMPLE_DEPENDS_ON_THIS;
+    }
     if (trueHdSampleRechunker != null) {
       trueHdSampleRechunker.sampleMetadata(
-          trackOutput, timeUs, flags, sampleSize, /* offset= */ 0, /* cryptoData= */ null);
+          trackOutput, timeUs, sampleFlags, sampleSize, /* offset= */ 0, /* cryptoData= */ null);
       if (sampleIndex + 1 == track.sampleTable.sampleCount) {
         trueHdSampleRechunker.outputPendingSampleMetadata(trackOutput, /* cryptoData= */ null);
       }
     } else {
       trackOutput.sampleMetadata(
-          timeUs, flags, sampleSize, /* offset= */ 0, /* cryptoData= */ null);
+          timeUs, sampleFlags, sampleSize, /* offset= */ 0, /* cryptoData= */ null);
     }
 
     track.sampleIndex++;
@@ -777,6 +822,8 @@ public final class Mp4Extractor implements Extractor, SeekMap {
     sampleBytesRead = 0;
     sampleBytesWritten = 0;
     sampleCurrentNalBytesRemaining = 0;
+    // Treat all samples as depended on when FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES is unset.
+    isSampleDependedOn = (flags & FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES) == 0;
     return RESULT_CONTINUE;
   }
 

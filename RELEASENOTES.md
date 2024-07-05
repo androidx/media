@@ -11,6 +11,8 @@
 *   Transformer:
 *   Track Selection:
 *   Extractors:
+    *   Allow `Mp4Extractor` to identify H264 samples that are not used as
+        reference by subsequent samples.
 *   Audio:
 *   Video:
 *   Text:

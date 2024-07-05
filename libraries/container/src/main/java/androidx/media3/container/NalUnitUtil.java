@@ -535,6 +535,41 @@ public final class NalUnitUtil {
   }
 
   /**
+   * Returns whether the H.264 NAL unit can be depended on by subsequent NAL units in decoding
+   * order.
+   *
+   * @param nalUnitHeaderFirstByte The first byte of nal_unit().
+   */
+  public static boolean isH264NalUnitDependedOn(byte nalUnitHeaderFirstByte) {
+    int nalRefIdc = ((nalUnitHeaderFirstByte & 0x60) >> 5);
+    if (nalRefIdc != 0) {
+      // A picture with nal_ref_idc not equal to 0 is a reference picture, which contains
+      // samples that may be used for inter prediction in the decoding process of subsequent
+      // pictures in decoding order.
+      return true;
+    }
+
+    int nalUnitType = nalUnitHeaderFirstByte & 0x1F;
+    if (nalUnitType == NAL_UNIT_TYPE_NON_IDR) {
+      // For pictures (Video Coding Layer NAL units), we can rely on nal_ref_idc to determine
+      // whether future NAL units depend on it.
+      return false;
+    }
+    if (nalUnitType == NAL_UNIT_TYPE_AUD) {
+      // NAL unit delimiters are not depended on.
+      return false;
+    }
+    if (nalUnitType == NAL_UNIT_TYPE_PREFIX) {
+      // Prefix NAL units are only used by Annex G scalable video coding to mark temporal layers.
+      // Rely on nal_ref_idc to identify sample dependencies.
+      return false;
+    }
+    // Treat any other NAL unit type as depended on. This might be too restrictive, but reduces
+    // risks around closed captions, HDR metadata in SEI messages.
+    return true;
+  }
+
+  /**
    * Returns the type of the H.265 NAL unit in {@code data} that starts at {@code offset}.
    *
    * @param data The data to search.
