@@ -1017,7 +1017,8 @@ import java.util.Objects;
           || childAtomType == Atom.TYPE_alaw
           || childAtomType == Atom.TYPE_ulaw
           || childAtomType == Atom.TYPE_Opus
-          || childAtomType == Atom.TYPE_fLaC) {
+          || childAtomType == Atom.TYPE_fLaC
+          || childAtomType == Atom.TYPE_iamf) {
         parseAudioSampleEntry(
             stsd,
             childAtomType,
@@ -1775,6 +1776,8 @@ import java.util.Objects;
       mimeType = MimeTypes.AUDIO_FLAC;
     } else if (atomType == Atom.TYPE_mlpa) {
       mimeType = MimeTypes.AUDIO_TRUEHD;
+    } else if (atomType == Atom.TYPE_iamf) {
+      mimeType = MimeTypes.AUDIO_IAMF;
     }
 
     @Nullable List<byte[]> initializationData = null;
@@ -1913,6 +1916,23 @@ import java.util.Objects;
             CodecSpecificDataUtil.parseAlacAudioSpecificConfig(initializationDataBytes);
         sampleRate = audioSpecificConfig.first;
         channelCount = audioSpecificConfig.second;
+        initializationData = ImmutableList.of(initializationDataBytes);
+      } else if (childAtomType == Atom.TYPE_iacb) {
+        parent.setPosition(
+            childPosition + Atom.HEADER_SIZE + 1); // header and configuration version
+        int configObusSize = 0;
+        for (int i = 0; i <= 4; i++) {
+          int currentByte = parent.readUnsignedByte();
+          configObusSize |= (currentByte & 0x7F) << (i * 7);
+          if ((currentByte & 0x80) == 0) {
+            break;
+          }
+        }
+        if (configObusSize < 0) {
+          throw ParserException.createForUnsupportedContainerFeature("OBU too large.");
+        }
+        byte[] initializationDataBytes = new byte[configObusSize];
+        parent.readBytes(initializationDataBytes, /* offset= */ 0, configObusSize);
         initializationData = ImmutableList.of(initializationDataBytes);
       }
       childPosition += childAtomSize;

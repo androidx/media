@@ -196,6 +196,15 @@ public final class FragmentedMp4ExtractorParameterizedTest {
         simulationConfig);
   }
 
+  @Test
+  public void sampleWithIamfTrack() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(
+            /* closedCaptionFormats= */ ImmutableList.of(), subtitlesParsedDuringExtraction),
+        "media/mp4/sample_fragmented_iamf.mp4",
+        simulationConfig);
+  }
+
   private static ExtractorFactory getExtractorFactory(
       List<Format> closedCaptionFormats, boolean subtitlesParsedDuringExtraction) {
     SubtitleParser.Factory subtitleParserFactory;

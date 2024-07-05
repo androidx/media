@@ -1,0 +1,110 @@
+seekMap:
+  isSeekable = true
+  duration = 500000
+  getPosition(0) = [[timeUs=0, position=40]]
+  getPosition(1) = [[timeUs=1, position=40]]
+  getPosition(250000) = [[timeUs=250000, position=16005]]
+  getPosition(500000) = [[timeUs=500000, position=31970]]
+numberOfTracks = 1
+track 0:
+  total output bytes = 11074
+  sample count = 22
+  format 0:
+    id = 1
+    sampleMimeType = audio/iamf
+    maxInputSize = 545
+    channelCount = 0
+    sampleRate = 0
+    language = und
+    metadata = entries=[Mp4Timestamp: creation time=3763584000, modification time=3763584000, timescale=16000]
+    initializationData:
+      data = length 120, hash F54A6325
+  sample 0:
+    time = 328000
+    flags = 1
+    data = length 515, hash 1E1CC814
+  sample 1:
+    time = 336000
+    flags = 1
+    data = length 515, hash 6BBE2814
+  sample 2:
+    time = 344000
+    flags = 1
+    data = length 515, hash A2C0F093
+  sample 3:
+    time = 352000
+    flags = 1
+    data = length 515, hash 7A081414
+  sample 4:
+    time = 360000
+    flags = 1
+    data = length 515, hash ECBCAE93
+  sample 5:
+    time = 368000
+    flags = 1
+    data = length 515, hash EEB02E14
+  sample 6:
+    time = 376000
+    flags = 1
+    data = length 515, hash E6536014
+  sample 7:
+    time = 384000
+    flags = 1
+    data = length 515, hash CDEF0A93
+  sample 8:
+    time = 392000
+    flags = 1
+    data = length 515, hash 2EFD614
+  sample 9:
+    time = 400000
+    flags = 1
+    data = length 515, hash 62FEAC14
+  sample 10:
+    time = 408000
+    flags = 1
+    data = length 515, hash 80016693
+  sample 11:
+    time = 416000
+    flags = 1
+    data = length 515, hash 664B2214
+  sample 12:
+    time = 424000
+    flags = 1
+    data = length 515, hash FB2E5414
+  sample 13:
+    time = 432000
+    flags = 1
+    data = length 515, hash 2F3C293
+  sample 14:
+    time = 440000
+    flags = 1
+    data = length 515, hash 5A066E14
+  sample 15:
+    time = 448000
+    flags = 1
+    data = length 515, hash 5A778093
+  sample 16:
+    time = 456000
+    flags = 1
+    data = length 515, hash 39085A14
+  sample 17:
+    time = 464000
+    flags = 1
+    data = length 515, hash DE21BA14
+  sample 18:
+    time = 472000
+    flags = 1
+    data = length 515, hash 7339DC93
+  sample 19:
+    time = 480000
+    flags = 1
+    data = length 515, hash 1CA80214
+  sample 20:
+    time = 488000
+    flags = 1
+    data = length 515, hash F29D0614
+  sample 21:
+    time = 496000
+    flags = 536870913
+    data = length 259, hash D575A0D1
+tracksEnded = true

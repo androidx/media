@@ -431,6 +431,12 @@ import java.util.List;
   @SuppressWarnings("ConstantCaseForConstants")
   public static final int TYPE_mdcv = 0x6d646376;
 
+  @SuppressWarnings("ConstantCaseForConstants")
+  public static final int TYPE_iamf = 0x69616d66;
+
+  @SuppressWarnings("ConstantCaseForConstants")
+  public static final int TYPE_iacb = 0x69616362;
+
   public final int type;
 
   public Atom(int type) {
