@@ -4,6 +4,9 @@
 
 *   Common Library:
     *   Replace `SimpleBasePlayer.State.playlist` by `getPlaylist()` method.
+    *   Add override for `SimpleBasePlayer.State.Builder.setPlaylist()` to
+        directly specify a `Timeline` and current `Tracks` and `Metadata`
+        instead of building a playlist structure.
 *   ExoPlayer:
     *   `MediaCodecRenderer.onProcessedStreamChange()` can now be called for
         every media item. Previously it was not called for the first one. Use
