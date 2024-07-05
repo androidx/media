@@ -312,7 +312,8 @@ public class SimpleBasePlayerTest {
     assertThat(state.surfaceSize).isEqualTo(surfaceSize);
     assertThat(state.newlyRenderedFirstFrame).isTrue();
     assertThat(state.timedMetadata).isEqualTo(timedMetadata);
-    assertThat(state.playlist).isEqualTo(playlist);
+    assertThat(state.getPlaylist()).isEqualTo(playlist);
+    assertThat(state.timeline.getWindowCount()).isEqualTo(2);
     assertThat(state.playlistMetadata).isEqualTo(playlistMetadata);
     assertThat(state.currentMediaItemIndex).isEqualTo(1);
     assertThat(state.currentAdGroupIndex).isEqualTo(1);
