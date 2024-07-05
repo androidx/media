@@ -1,5 +1,42 @@
 # Release notes
 
+### Unreleased changes
+
+*   Common Library:
+*   ExoPlayer:
+*   Transformer:
+*   Track Selection:
+*   Extractors:
+*   Audio:
+*   Video:
+*   Text:
+    *   TTML: Fix handling of percentage `tts:fontSize` values to ensure they
+        are correctly inherited from parent nodes with percentage `tts:fontSize`
+        values.
+*   Metadata:
+*   Image:
+*   DataSource:
+*   DRM:
+*   Effect:
+*   Muxers:
+*   IMA extension:
+*   Session:
+*   UI:
+*   Downloads:
+*   OkHttp Extension:
+*   Cronet Extension:
+*   RTMP Extension:
+*   HLS Extension:
+*   Smooth Streaming Extension:
+*   RTSP Extension:
+*   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
+*   MIDI extension:
+*   Leanback extension:
+*   Cast Extension:
+*   Test Utilities:
+*   Demo app:
+*   Remove deprecated symbols:
+
 ## 1.4
 
 ### 1.4.0 (2024-07-24)

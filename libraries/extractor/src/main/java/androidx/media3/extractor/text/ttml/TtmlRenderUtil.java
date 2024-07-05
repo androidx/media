@@ -239,12 +239,8 @@ import java.util.Map;
             Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         break;
       case TtmlStyle.FONT_SIZE_UNIT_PERCENT:
-        SpanUtil.addOrReplaceSpan(
-            builder,
-            new RelativeSizeSpan(style.getFontSize() / 100),
-            start,
-            end,
-            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        SpanUtil.addInheritedRelativeSizeSpan(
+            builder, style.getFontSize() / 100, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         break;
       case TtmlStyle.UNSPECIFIED:
         // Do nothing.

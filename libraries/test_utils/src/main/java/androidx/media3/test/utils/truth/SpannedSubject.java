@@ -17,6 +17,7 @@
 package androidx.media3.test.utils.truth;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.truth.Correspondence.tolerance;
 import static com.google.common.truth.Fact.fact;
 import static com.google.common.truth.Fact.simpleFact;
 import static com.google.common.truth.Truth.assertAbout;
@@ -1070,7 +1071,10 @@ public final class SpannedSubject extends Subject {
         }
       }
 
-      check("sizeChange").that(spanSizes).containsExactly(size);
+      check("sizeChange")
+          .that(spanSizes)
+          .comparingElementsUsing(tolerance(0.0000001))
+          .containsExactly(size);
       return check("flags").about(spanFlags()).that(matchingSpanFlags);
     }
   }
