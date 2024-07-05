@@ -14,6 +14,9 @@
 *   Audio:
 *   Video:
 *   Text:
+    *   TTML: Fix handling of percentage `tts:fontSize` values to ensure they
+        are correctly inherited from parent nodes with percentage `tts:fontSize`
+        values.
 *   Metadata:
 *   Image:
 *   DataSource:

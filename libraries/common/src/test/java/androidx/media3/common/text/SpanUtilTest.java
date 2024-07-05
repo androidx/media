@@ -15,6 +15,7 @@
  */
 package androidx.media3.common.text;
 
+import static androidx.media3.test.utils.truth.SpannedSubject.assertThat;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.graphics.Color;
@@ -23,6 +24,7 @@ import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.style.BackgroundColorSpan;
 import android.text.style.ForegroundColorSpan;
+import android.text.style.RelativeSizeSpan;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -82,5 +84,77 @@ public class SpanUtilTest {
         .asList()
         .containsExactly(originalSpan, differentStart, differentEnd, differentFlags)
         .inOrder();
+  }
+
+  @Test
+  public void addInheritedRelativeSizeSpan_noExistingSpans() {
+    Spannable spannable = SpannableString.valueOf("test text");
+
+    SpanUtil.addInheritedRelativeSizeSpan(
+        spannable,
+        /* size= */ 0.5f,
+        /* start= */ 2,
+        /* end= */ 5,
+        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+    assertThat(spannable).hasRelativeSizeSpanBetween(2, 5).withSizeChange(0.5f);
+  }
+
+  @Test
+  public void addInheritedRelativeSizeSpan_existingSpanWithSameRange_replaced() {
+    Spannable spannable = SpannableString.valueOf("test text");
+    spannable.setSpan(
+        new RelativeSizeSpan(1.6f), /* start= */ 2, /* end= */ 5, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+    SpanUtil.addInheritedRelativeSizeSpan(
+        spannable,
+        /* size= */ 0.5f,
+        /* start= */ 2,
+        /* end= */ 5,
+        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+    RelativeSizeSpan[] spans = spannable.getSpans(2, 5, RelativeSizeSpan.class);
+    assertThat(spans).hasLength(1);
+    assertThat(spans[0].getSizeChange()).isWithin(0.0000001f).of(0.8f);
+  }
+
+  @Test
+  public void addInheritedRelativeSizeSpan_existingLongerSpan() {
+    Spannable spannable = SpannableString.valueOf("test text");
+    spannable.setSpan(
+        new RelativeSizeSpan(1.6f), /* start= */ 1, /* end= */ 6, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+    SpanUtil.addInheritedRelativeSizeSpan(
+        spannable,
+        /* size= */ 0.5f,
+        /* start= */ 2,
+        /* end= */ 5,
+        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+    RelativeSizeSpan[] spans = spannable.getSpans(2, 5, RelativeSizeSpan.class);
+    assertThat(spans).hasLength(2);
+    assertThat(spannable).hasRelativeSizeSpanBetween(2, 5).withSizeChange(0.8f);
+  }
+
+  @Test
+  public void addInheritedRelativeSizeSpan_existingIncompleteSpans_ignored() {
+    Spannable spannable = SpannableString.valueOf("test text");
+    spannable.setSpan(
+        new RelativeSizeSpan(2.3f), /* start= */ 1, /* end= */ 4, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+    spannable.setSpan(
+        new RelativeSizeSpan(1.6f), /* start= */ 3, /* end= */ 4, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+    spannable.setSpan(
+        new RelativeSizeSpan(2.3f), /* start= */ 3, /* end= */ 6, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+    SpanUtil.addInheritedRelativeSizeSpan(
+        spannable,
+        /* size= */ 0.5f,
+        /* start= */ 2,
+        /* end= */ 5,
+        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+    RelativeSizeSpan[] spans = spannable.getSpans(2, 5, RelativeSizeSpan.class);
+    assertThat(spans).hasLength(4);
+    assertThat(spannable).hasRelativeSizeSpanBetween(2, 5).withSizeChange(0.5f);
   }
 }
