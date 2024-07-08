@@ -18,6 +18,7 @@ package androidx.media3.common.util;
 import static androidx.media3.test.utils.TestUtil.createByteArray;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.Charset.forName;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -916,5 +917,68 @@ public final class ParsableByteArrayTest {
     assertThat(parser.readLine(Charsets.UTF_16LE)).isEqualTo("bar");
     assertThat(parser.getPosition()).isEqualTo(22);
     assertThat(parser.readLine(Charsets.UTF_16LE)).isNull();
+  }
+
+  @Test
+  public void readUnsignedLeb128ToLong() {
+    byte[] bytes = new byte[] {(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0x0F};
+    ParsableByteArray testArray = new ParsableByteArray(bytes);
+
+    long readValue = testArray.readUnsignedLeb128ToLong();
+
+    assertThat(readValue).isEqualTo(0xFFFFFFFFL);
+    assertThat(testArray.getPosition()).isEqualTo(5);
+  }
+
+  @Test
+  public void readMaxUnsignedLeb128ToLong() {
+    byte[] bytes =
+        new byte[] {
+          (byte) 0xFF,
+          (byte) 0xFF,
+          (byte) 0xFF,
+          (byte) 0xFF,
+          (byte) 0xFF,
+          (byte) 0xFF,
+          (byte) 0xFF,
+          (byte) 0xFF,
+          (byte) 0x7F
+        };
+    ParsableByteArray testArray = new ParsableByteArray(bytes);
+
+    long readValue = testArray.readUnsignedLeb128ToLong();
+
+    assertThat(readValue).isEqualTo(Long.MAX_VALUE);
+    assertThat(testArray.getPosition()).isEqualTo(9);
+  }
+
+  @Test
+  public void readUnsignedLeb128ToInt() {
+    byte[] bytes = new byte[] {(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0x0F};
+    ParsableByteArray testArray = new ParsableByteArray(bytes);
+
+    int readValue = testArray.readUnsignedLeb128ToInt();
+
+    assertThat(readValue).isEqualTo(0x1FFFFFF);
+    assertThat(testArray.getPosition()).isEqualTo(4);
+  }
+
+  @Test
+  public void readMaxUnsignedLeb128ToInt() {
+    byte[] bytes = new byte[] {(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0x07};
+    ParsableByteArray testArray = new ParsableByteArray(bytes);
+
+    int readValue = testArray.readUnsignedLeb128ToInt();
+
+    assertThat(readValue).isEqualTo(Integer.MAX_VALUE);
+    assertThat(testArray.getPosition()).isEqualTo(5);
+  }
+
+  @Test
+  public void readTooLongUnsignedLeb128ToInt() {
+    byte[] bytes = new byte[] {(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0x0F};
+    ParsableByteArray testArray = new ParsableByteArray(bytes);
+
+    assertThrows(IllegalArgumentException.class, testArray::readUnsignedLeb128ToInt);
   }
 }

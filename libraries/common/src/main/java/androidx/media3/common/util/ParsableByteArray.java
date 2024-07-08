@@ -19,6 +19,7 @@ import androidx.annotation.Nullable;
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Chars;
+import com.google.common.primitives.Ints;
 import com.google.common.primitives.UnsignedBytes;
 import com.google.errorprone.annotations.CheckReturnValue;
 import java.nio.ByteBuffer;
@@ -595,6 +596,41 @@ public final class ParsableByteArray {
     }
     position += length;
     return value;
+  }
+
+  /**
+   * Reads a little endian long of variable length.
+   *
+   * @throws IllegalStateException if the byte to be read is over the limit of the parsable byte
+   *     array
+   * @return long value
+   */
+  public long readUnsignedLeb128ToLong() {
+    long value = 0;
+    // At most, 63 bits of unsigned data can be stored in a long, which corresponds to 63/7=9 bytes
+    // in LEB128.
+    for (int i = 0; i < 9; i++) {
+      if (this.position == limit) {
+        throw new IllegalStateException("Attempting to read a byte over the limit.");
+      }
+      long currentByte = this.readUnsignedByte();
+      value |= (currentByte & 0x7F) << (i * 7);
+      if ((currentByte & 0x80) == 0) {
+        break;
+      }
+    }
+    return value;
+  }
+
+  /**
+   * Reads a little endian integer of variable length.
+   *
+   * @throws IllegalArgumentException if the read value is greater than {@link Integer#MAX_VALUE} or
+   *     less than {@link Integer#MIN_VALUE}
+   * @return integer value
+   */
+  public int readUnsignedLeb128ToInt() {
+    return Ints.checkedCast(readUnsignedLeb128ToLong());
   }
 
   /**
