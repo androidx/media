@@ -3,6 +3,10 @@
 ### Unreleased changes
 
 *   Common Library:
+    *   Add `ForwardingSimpleBasePlayer` that allows forwarding to another
+        player with small adjustments while ensuring full consistency and
+        listener handling
+        ([#1183](https://github.com/androidx/media/issues/1183)).
     *   Replace `SimpleBasePlayer.State.playlist` by `getPlaylist()` method.
     *   Add override for `SimpleBasePlayer.State.Builder.setPlaylist()` to
         directly specify a `Timeline` and current `Tracks` and `Metadata`
