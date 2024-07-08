@@ -509,17 +509,11 @@ import java.util.Locale;
 
   /** Returns an audio sample entry box based on the MIME type. */
   public static ByteBuffer audioSampleEntry(Format format) {
-    String mimeType = checkNotNull(format.sampleMimeType);
-    checkArgument(mimeType.equals(MimeTypes.AUDIO_AAC), "Unsupported audio format: " + mimeType);
-    String fourcc = "mp4a";
+    String fourcc = codecSpecificFourcc(format);
+    ByteBuffer codecSpecificBox = codecSpecificBox(format);
 
-    checkArgument(!format.initializationData.isEmpty(), "csd-0 not found in the format.");
-
-    byte[] csd0 = format.initializationData.get(0);
-    checkArgument(csd0.length > 0, "csd-0 is empty.");
-
-    ByteBuffer csd0ByteBuffer = ByteBuffer.wrap(csd0);
-    ByteBuffer contents = ByteBuffer.allocate(csd0ByteBuffer.limit() + MAX_FIXED_LEAF_BOX_SIZE);
+    ByteBuffer contents =
+        ByteBuffer.allocate(codecSpecificBox.remaining() + MAX_FIXED_LEAF_BOX_SIZE);
 
     contents.putInt(0x00); // reserved
     contents.putShort((short) 0x0); // reserved
@@ -536,7 +530,7 @@ import java.util.Locale;
     int sampleRate = format.sampleRate;
     contents.putInt(sampleRate << 16);
 
-    contents.put(audioEsdsBox(csd0ByteBuffer, format.peakBitrate, format.averageBitrate));
+    contents.put(codecSpecificBox);
 
     contents.flip();
     return BoxUtils.wrapIntoBox(fourcc, contents);
@@ -546,14 +540,16 @@ import java.util.Locale;
   public static ByteBuffer codecSpecificBox(Format format) {
     String mimeType = checkNotNull(format.sampleMimeType);
     switch (mimeType) {
-      case "video/avc":
+      case MimeTypes.AUDIO_AAC:
+        return esdsBox(format);
+      case MimeTypes.VIDEO_H264:
         return avcCBox(format);
-      case "video/hevc":
+      case MimeTypes.VIDEO_H265:
         return hvcCBox(format);
-      case "video/av01":
+      case MimeTypes.VIDEO_AV1:
         return av1CBox(format);
       default:
-        throw new IllegalArgumentException("Unsupported video format: " + mimeType);
+        throw new IllegalArgumentException("Unsupported format: " + mimeType);
     }
   }
 
@@ -1318,24 +1314,33 @@ import java.util.Locale;
     return BoxUtils.wrapIntoBox("colr", contents);
   }
 
-  /** Returns video codec specific fourcc. */
+  /** Returns codec specific fourcc. */
   private static String codecSpecificFourcc(Format format) {
     String mimeType = checkNotNull(format.sampleMimeType);
     switch (mimeType) {
-      case "video/avc":
+      case MimeTypes.AUDIO_AAC:
+        return "mp4a";
+      case MimeTypes.VIDEO_H264:
         return "avc1";
-      case "video/hevc":
+      case MimeTypes.VIDEO_H265:
         return "hvc1";
-      case "video/av01":
+      case MimeTypes.VIDEO_AV1:
         return "av01";
       default:
-        throw new IllegalArgumentException("Unsupported video format: " + mimeType);
+        throw new IllegalArgumentException("Unsupported format: " + mimeType);
     }
   }
 
   /** Returns the esds box. */
-  private static ByteBuffer audioEsdsBox(
-      ByteBuffer csd0ByteBuffer, int peakBitrate, int averageBitrate) {
+  private static ByteBuffer esdsBox(Format format) {
+    checkArgument(!format.initializationData.isEmpty(), "csd-0 not found in the format.");
+
+    byte[] csd0 = format.initializationData.get(0);
+    checkArgument(csd0.length > 0, "csd-0 is empty.");
+
+    ByteBuffer csd0ByteBuffer = ByteBuffer.wrap(csd0);
+    int peakBitrate = format.peakBitrate;
+    int averageBitrate = format.averageBitrate;
     int csd0Size = csd0ByteBuffer.limit();
 
     ByteBuffer contents = ByteBuffer.allocate(csd0Size + MAX_FIXED_LEAF_BOX_SIZE);
