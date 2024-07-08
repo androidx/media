@@ -16,6 +16,7 @@
 
 package androidx.media3.transformer;
 
+import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.transformer.AndroidTestUtil.FORCE_TRANSCODE_VIDEO_EFFECTS;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
@@ -53,6 +54,8 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class ForceEndOfStreamTest {
 
+  // Referenced from ExternalTextureManager
+  private static final long SURFACE_TEXTURE_TIMEOUT_MS = isRunningOnEmulator() ? 20_000 : 500;
   private final Context context = ApplicationProvider.getApplicationContext();
   @Rule public final TestName testName = new TestName();
 
@@ -125,6 +128,7 @@ public class ForceEndOfStreamTest {
                 context,
                 new FrameDroppingDecoderFactory(context, MP4_ASSET.videoFrameCount, framesToSkip),
                 Clock.DEFAULT))
+        .setMaxDelayBetweenMuxerSamplesMs(SURFACE_TEXTURE_TIMEOUT_MS)
         .build();
   }
 
