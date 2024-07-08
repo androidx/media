@@ -139,9 +139,6 @@ public final class AmrExtractor implements Extractor {
   private static final byte[] amrSignatureNb = Util.getUtf8Bytes("#!AMR\n");
   private static final byte[] amrSignatureWb = Util.getUtf8Bytes("#!AMR-WB\n");
 
-  /** Theoretical maximum frame size for a AMR frame. */
-  private static final int MAX_FRAME_SIZE_BYTES = frameSizeBytesByTypeWb[8];
-
   /**
    * The required number of samples in the stream with same sample size to classify the stream as a
    * constant-bitrate-stream.
@@ -284,10 +281,12 @@ public final class AmrExtractor implements Extractor {
       hasOutputFormat = true;
       String mimeType = isWideBand ? MimeTypes.AUDIO_AMR_WB : MimeTypes.AUDIO_AMR_NB;
       int sampleRate = isWideBand ? SAMPLE_RATE_WB : SAMPLE_RATE_NB;
+      // Theoretical maximum frame size for a AMR frame.
+      int maxInputSize = isWideBand ? frameSizeBytesByTypeWb[8] : frameSizeBytesByTypeNb[7];
       trackOutput.format(
           new Format.Builder()
               .setSampleMimeType(mimeType)
-              .setMaxInputSize(MAX_FRAME_SIZE_BYTES)
+              .setMaxInputSize(maxInputSize)
               .setChannelCount(1)
               .setSampleRate(sampleRate)
               .build());

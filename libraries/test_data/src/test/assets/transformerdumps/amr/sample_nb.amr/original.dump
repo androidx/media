@@ -1,6 +1,6 @@
 format audio:
   sampleMimeType = audio/3gpp
-  maxInputSize = 61
+  maxInputSize = 32
   channelCount = 1
   sampleRate = 8000
 sample:
