@@ -63,28 +63,18 @@ public final class RtpPacket {
   /** Builder class for an {@link RtpPacket} */
   public static final class Builder {
     private boolean padding;
-    private boolean extension;
     private boolean marker;
     private byte payloadType;
     private int sequenceNumber;
     private long timestamp;
     private int ssrc;
     private byte[] csrc = EMPTY;
-    private byte[] headerExtension = EMPTY;
-    private byte[] extensionPayload = EMPTY;
     private byte[] payloadData = EMPTY;
 
     /** Sets the {@link RtpPacket#padding}. The default is false. */
     @CanIgnoreReturnValue
     public Builder setPadding(boolean padding) {
       this.padding = padding;
-      return this;
-    }
-
-    /** Sets the {@link RtpPacket#extension}. The default is false. */
-    @CanIgnoreReturnValue
-    public Builder setExtension(boolean extension) {
-      this.extension = extension;
       return this;
     }
 
@@ -132,26 +122,6 @@ public final class RtpPacket {
       return this;
     }
 
-    /**
-     * Sets {@link RtpPacket#headerExtension}. The default is an empty byte array.
-     */
-    @CanIgnoreReturnValue
-    public Builder setHeaderExtension(byte[] headerExtension) {
-      checkNotNull(headerExtension);
-      this.headerExtension = headerExtension;
-      return this;
-    }
-
-    /**
-     * Sets {@link RtpPacket#extensionPayload}. The default is an empty byte array.
-     */
-    @CanIgnoreReturnValue
-    public Builder setExtensionPayload(byte[] extensionPayload) {
-      checkNotNull(extensionPayload);
-      this.extensionPayload = extensionPayload;
-      return this;
-    }
-
     /** Sets {@link RtpPacket#payloadData}. The default is an empty byte array. */
     @CanIgnoreReturnValue
     public Builder setPayloadData(byte[] payloadData) {
@@ -173,7 +143,6 @@ public final class RtpPacket {
   public static final int MIN_SEQUENCE_NUMBER = 0;
   public static final int MAX_SEQUENCE_NUMBER = 0xFFFF;
   public static final int CSRC_SIZE = 4;
-  public static final int HEADER_EXTENSION_SIZE = 4;
 
   /** Returns the next sequence number of the {@code sequenceNumber}. */
   public static int getNextSequenceNumber(int sequenceNumber) {
@@ -216,12 +185,6 @@ public final class RtpPacket {
 
   /** The RTP CSRC fields (Optional, up to 15 items). */
   public final byte[] csrc;
-
-  /** The RTP header extension fields (Optional, 32 bits). */
-  public final byte[] headerExtension;
-
-  /** The RTP extension payload fields (Optional). */
-  public final byte[] extensionPayload;
 
   public final byte[] payloadData;
 
@@ -272,21 +235,13 @@ public final class RtpPacket {
     }
 
     //Extension.
-    byte[] headerExtension;
-    byte[] extensionPayload;
     if (hasExtension) {
-      headerExtension = new byte[HEADER_EXTENSION_SIZE];
-      packetBuffer.readBytes(headerExtension, 0, HEADER_EXTENSION_SIZE);
-      int extensionPayloadLength = (headerExtension[2] & 0xFF) << 8 | (headerExtension[3] & 0xFF);
-      if (extensionPayloadLength != 0) {
-        extensionPayload = new byte[extensionPayloadLength * 4];
-        packetBuffer.readBytes(extensionPayload, 0, extensionPayloadLength * 4);
-      }else {
-        extensionPayload = EMPTY;
+      int headerExtensionProfileData = packetBuffer.readShort();
+      int headerExtensionPayloadLength = packetBuffer.readShort();
+      if (headerExtensionPayloadLength != 0) {
+        byte[] extensionPayload = new byte[headerExtensionPayloadLength * 4];
+        packetBuffer.readBytes(extensionPayload, 0, headerExtensionPayloadLength * 4);
       }
-    }else {
-      headerExtension = EMPTY;
-      extensionPayload = EMPTY;
     }
 
     // Everything else will be RTP payload.
@@ -302,9 +257,6 @@ public final class RtpPacket {
         .setTimestamp(timestamp)
         .setSsrc(ssrc)
         .setCsrc(csrc)
-        .setExtension(hasExtension)
-        .setHeaderExtension(headerExtension)
-        .setExtensionPayload(extensionPayload)
         .setPayloadData(payloadData)
         .build();
   }
@@ -323,7 +275,7 @@ public final class RtpPacket {
 
   private RtpPacket(Builder builder) {
     this.padding = builder.padding;
-    this.extension = builder.extension;
+    this.extension = false;
     this.marker = builder.marker;
     this.payloadType = builder.payloadType;
     this.sequenceNumber = builder.sequenceNumber;
@@ -331,8 +283,6 @@ public final class RtpPacket {
     this.ssrc = builder.ssrc;
     this.csrc = builder.csrc;
     this.csrcCount = (byte) (this.csrc.length / CSRC_SIZE);
-    this.headerExtension = builder.headerExtension;
-    this.extensionPayload = builder.extensionPayload;
     this.payloadData = builder.payloadData;
   }
 
@@ -371,8 +321,6 @@ public final class RtpPacket {
         .putInt((int) timestamp)
         .putInt(ssrc)
         .put(csrc)
-        .put(headerExtension)
-        .put(extensionPayload)
         .put(payloadData);
     return packetLength;
   }
