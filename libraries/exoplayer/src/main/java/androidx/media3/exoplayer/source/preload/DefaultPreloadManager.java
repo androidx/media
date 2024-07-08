@@ -249,6 +249,11 @@ public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
       onPreloadCompleted(mediaSource);
     }
 
+    @Override
+    public void onPreloadError(PreloadException error, PreloadMediaSource mediaSource) {
+      onPreloadCompleted(mediaSource);
+    }
+
     private boolean continueOrCompletePreloading(
         PreloadMediaSource mediaSource,
         Predicate<Status> continueLoadingPredicate,

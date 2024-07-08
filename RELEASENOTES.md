@@ -16,6 +16,9 @@
         every media item. Previously it was not called for the first one. Use
         `MediaCodecRenderer.experimentalEnableProcessedStreamChangedAtStart()`
         to enable this.
+    *   Add `PreloadMediaSource.PreloadControl.onPreloadError` to allow
+        `PreloadMediaSource.PreloadControl` implementations to take actions when
+        error occurs.
 *   Transformer:
 *   Track Selection:
 *   Extractors:
