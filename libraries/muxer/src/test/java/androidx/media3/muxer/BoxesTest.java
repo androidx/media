@@ -254,6 +254,27 @@ public class BoxesTest {
   }
 
   @Test
+  public void createAudioSampleEntryBox_forSawb_matchesExpected() throws Exception {
+    Format format =
+        new Format.Builder()
+            .setPeakBitrate(128000)
+            .setSampleRate(48000)
+            .setId(3)
+            .setSampleMimeType("audio/amr-wb")
+            .setChannelCount(2)
+            .setAverageBitrate(128000)
+            .setLanguage("```")
+            .setMaxInputSize(502)
+            .build();
+
+    ByteBuffer audioSampleEntryBox = Boxes.audioSampleEntry(format);
+
+    DumpableMp4Box dumpableBox = new DumpableMp4Box(audioSampleEntryBox);
+    DumpFileAsserts.assertOutput(
+        context, dumpableBox, getExpectedDumpFilePath("audio_sample_entry_box_sawb"));
+  }
+
+  @Test
   public void createAudioSampleEntryBox_withUnknownAudioFormat_throws() {
     // The audio format contains an unknown MIME type.
     Format format =

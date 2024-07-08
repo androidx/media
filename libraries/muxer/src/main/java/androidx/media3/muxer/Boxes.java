@@ -21,6 +21,7 @@ import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.muxer.ColorUtils.MEDIAFORMAT_STANDARD_TO_PRIMARIES_AND_MATRIX;
 import static androidx.media3.muxer.ColorUtils.MEDIAFORMAT_TRANSFER_TO_MP4_TRANSFER;
 import static androidx.media3.muxer.Mp4Utils.UNSIGNED_INT_MAX_VALUE;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
@@ -541,6 +542,8 @@ import java.util.List;
     switch (mimeType) {
       case MimeTypes.AUDIO_AAC:
         return esdsBox(format);
+      case MimeTypes.AUDIO_AMR_WB:
+        return damrBox(/* mode= */ (short) 0x83FF); // mode set: all enabled
       case MimeTypes.VIDEO_H264:
         return avcCBox(format);
       case MimeTypes.VIDEO_H265:
@@ -1317,6 +1320,8 @@ import java.util.List;
     switch (mimeType) {
       case MimeTypes.AUDIO_AAC:
         return "mp4a";
+      case MimeTypes.AUDIO_AMR_WB:
+        return "sawb";
       case MimeTypes.VIDEO_H264:
         return "avc1";
       case MimeTypes.VIDEO_H265:
@@ -1378,6 +1383,21 @@ import java.util.List;
 
     contents.flip();
     return BoxUtils.wrapIntoBox("esds", contents);
+  }
+
+  /** Returns the audio damr box. */
+  private static ByteBuffer damrBox(short mode) {
+
+    ByteBuffer contents = ByteBuffer.allocate(MAX_FIXED_LEAF_BOX_SIZE);
+
+    contents.put("    ".getBytes(UTF_8)); // vendor: 4 bytes
+    contents.put((byte) 0); // decoder version
+    contents.putShort(mode);
+    contents.put((byte) 0); // mode change period
+    contents.put((byte) 1); // frames per sample
+
+    contents.flip();
+    return BoxUtils.wrapIntoBox("damr", contents);
   }
 
   /** Packs a three-letter language code into a short, packing 3x5 bits. */
