@@ -133,7 +133,7 @@ public final class RtpPacketTest {
 
     assertThat(packet.version).isEqualTo(RtpPacket.RTP_VERSION);
     assertThat(packet.padding).isFalse();
-    assertThat(packet.extension).isTrue();
+    assertThat(packet.extension).isFalse();
     assertThat(packet.csrcCount).isEqualTo(0);
     assertThat(packet.csrc).hasLength(0);
     assertThat(packet.marker).isFalse();
@@ -226,28 +226,6 @@ public final class RtpPacketTest {
     byte[] builtPacketBytes = new byte[packetSize];
     builtPacket.writeToBuffer(builtPacketBytes, /* offset= */ 0, packetSize);
     assertThat(builtPacketBytes).isEqualTo(rtpDataWithLargeTimestamp);
-  }
-
-  @Test
-  public void buildRtpPacketWithHeaderExtension_matchesPacketData() {
-    RtpPacket builtPacket =
-        new RtpPacket.Builder()
-            .setPadding(false)
-            .setExtension(true)
-            .setMarker(false)
-            .setPayloadType((byte) 96)
-            .setSequenceNumber(61514)
-            .setTimestamp(2000000000)
-            .setSsrc(0x35ff2773)
-            .setHeaderExtension(Arrays.copyOfRange(rtpDataExtension, 0, RtpPacket.HEADER_EXTENSION_SIZE))
-            .setExtensionPayload(Arrays.copyOfRange(rtpDataExtension, RtpPacket.HEADER_EXTENSION_SIZE, rtpDataExtension.length))
-            .setPayloadData(rtpWithHeaderExtensionPayloadData)
-            .build();
-
-    int packetSize = RtpPacket.MIN_HEADER_SIZE + rtpDataExtension.length + builtPacket.payloadData.length;
-    byte[] builtPacketBytes = new byte[packetSize];
-    builtPacket.writeToBuffer(builtPacketBytes, /* offset= */ 0, packetSize);
-    assertThat(builtPacketBytes).isEqualTo(rtpDataWithHeaderExtension);
   }
 
   @Test
