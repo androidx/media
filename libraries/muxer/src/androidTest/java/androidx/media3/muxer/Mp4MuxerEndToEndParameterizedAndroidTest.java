@@ -51,6 +51,7 @@ public class Mp4MuxerEndToEndParameterizedAndroidTest {
   private static final String H265_HDR10_MP4 = "hdr10-720p.mp4";
   private static final String H265_WITH_METADATA_TRACK_MP4 = "h265_with_metadata_track.mp4";
   private static final String AV1_MP4 = "sample_av1.mp4";
+  private static final String AMR_WB = "bbb_mono_16kHz_23.05kbps_amrwb.3gp";
 
   @Parameters(name = "{0}")
   public static ImmutableList<String> mediaSamples() {
@@ -60,7 +61,8 @@ public class Mp4MuxerEndToEndParameterizedAndroidTest {
         H264_WITH_PYRAMID_B_FRAMES_MP4,
         H265_HDR10_MP4,
         H265_WITH_METADATA_TRACK_MP4,
-        AV1_MP4);
+        AV1_MP4,
+        AMR_WB);
   }
 
   @Parameter public @MonotonicNonNull String inputFile;
