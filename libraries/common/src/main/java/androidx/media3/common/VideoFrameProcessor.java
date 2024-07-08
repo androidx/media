@@ -19,6 +19,7 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.SurfaceTexture;
 import android.opengl.EGLExt;
 import android.view.Surface;
 import androidx.annotation.IntDef;
@@ -223,12 +224,30 @@ public interface VideoFrameProcessor {
   void setOnInputFrameProcessedListener(OnInputFrameProcessedListener listener);
 
   /**
+   * Sets a listener that's called when the {@linkplain #getInputSurface() input surface} is ready
+   * to use.
+   */
+  void setOnInputSurfaceReadyListener(Runnable listener);
+
+  // TODO: b/351776002 - Call setDefaultBufferSize on the INPUT_TYPE_SURFACE path too and remove
+  //  mentions of the method (which leak an implementation detail) throughout this file.
+  /**
    * Returns the input {@link Surface}, where {@link VideoFrameProcessor} consumes input frames
    * from.
    *
    * <p>The frames arriving on the {@link Surface} will not be consumed by the {@code
    * VideoFrameProcessor} until {@link #registerInputStream} is called with {@link
    * #INPUT_TYPE_SURFACE}.
+   *
+   * <p>For streams with {@link #INPUT_TYPE_SURFACE}, the returned surface is ready to use
+   * immediately and will not have a {@linkplain SurfaceTexture#setDefaultBufferSize(int, int)
+   * default buffer size} set on it. This is suitable for configuring a {@link
+   * android.media.MediaCodec} decoder.
+   *
+   * <p>For streams with {@link #INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION}, set a listener
+   * for the surface becoming ready via {@link #setOnInputSurfaceReadyListener(Runnable)} and wait
+   * for the event before using the returned surface. This is suitable for use with non-decoder
+   * producers like media projection.
    *
    * @throws UnsupportedOperationException If the {@code VideoFrameProcessor} does not accept
    *     {@linkplain #INPUT_TYPE_SURFACE surface input}.

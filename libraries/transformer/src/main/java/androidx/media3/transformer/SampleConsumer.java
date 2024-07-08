@@ -134,6 +134,18 @@ public interface SampleConsumer {
   }
 
   /**
+   * Sets a listener that's called when the {@linkplain #getInputSurface() input surface} has been
+   * configured with a default input size, if applicable.
+   *
+   * <p>Should only be used for raw video data when input is provided by the app to a surface.
+   *
+   * @param runnable Listener that's called when the input surface is ready.
+   */
+  default void setOnInputSurfaceReadyListener(Runnable runnable) {
+    throw new UnsupportedOperationException();
+  }
+
+  /**
    * Attempts to provide an input texture to the consumer.
    *
    * <p>Should only be used for raw video data.

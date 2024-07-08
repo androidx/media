@@ -205,6 +205,28 @@ public class BitmapPixelTestUtil {
         plane.getPixelStride());
   }
 
+  /**
+   * Copies image data from the specified {@link Bitmap} into the {@link Image}, which must be an
+   * {@linkplain PixelFormat#RGBA_8888} image.
+   */
+  public static void copyRbga8888BitmapToImage(Bitmap bitmap, Image image) {
+    assertThat(image.getPlanes()).hasLength(1);
+    assertThat(image.getFormat()).isEqualTo(PixelFormat.RGBA_8888);
+    Image.Plane imagePlane = image.getPlanes()[0];
+    ByteBuffer imageBuffer = imagePlane.getBuffer();
+    for (int y = 0; y < bitmap.getHeight(); y++) {
+      for (int x = 0; x < bitmap.getWidth(); x++) {
+        int imageBufferOffset = y * imagePlane.getRowStride() + x * imagePlane.getPixelStride();
+        int argbPixel = bitmap.getPixel(x, y);
+        imageBuffer.position(imageBufferOffset);
+        imageBuffer.put((byte) ((argbPixel >> 16) & 0xFF));
+        imageBuffer.put((byte) ((argbPixel >> 8) & 0xFF));
+        imageBuffer.put((byte) (argbPixel & 0xFF));
+        imageBuffer.put((byte) ((argbPixel >> 24) & 0xFF));
+      }
+    }
+  }
+
   public static Bitmap createArgb8888BitmapFromRgba8888ImageBuffer(ImageBuffer imageBuffer) {
     int[] colors = new int[imageBuffer.width * imageBuffer.height];
     for (int y = 0; y < imageBuffer.height; y++) {

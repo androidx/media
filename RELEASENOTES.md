@@ -20,6 +20,8 @@
         `PreloadMediaSource.PreloadControl` implementations to take actions when
         error occurs.
 *   Transformer:
+    *   Add `SurfaceAssetLoader`, which supports queueing video data to
+        Transformer via a `Surface`.
 *   Track Selection:
 *   Extractors:
     *   Allow `Mp4Extractor` to identify H264 samples that are not used as

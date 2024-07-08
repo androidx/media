@@ -76,6 +76,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 /**
  * A {@link VideoFrameProcessor} implementation that applies {@link GlEffect} instances using OpenGL
  * on a background thread.
+ *
+ * <p>When using surface input ({@link #INPUT_TYPE_SURFACE} or {@link
+ * #INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION}) the surface's format must be supported for
+ * sampling as an external texture in OpenGL. When a {@link android.media.MediaCodec} decoder is
+ * writing to the input surface, the default SDR color format is supported. When an {@link
+ * android.media.ImageWriter} is writing to the input surface, {@link
+ * android.graphics.PixelFormat#RGBA_8888} is supported for SDR data. Support for other formats may
+ * be device-dependent.
  */
 @UnstableApi
 public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
@@ -448,6 +456,10 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   @GuardedBy("lock")
   private boolean registeredFirstInputStream;
 
+  @GuardedBy("lock")
+  @Nullable
+  private Runnable onInputSurfaceReadyListener;
+
   private final List<Effect> activeEffects;
   private final Object lock;
   private final ColorInfo outputColorInfo;
@@ -567,6 +579,17 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   @Override
   public void setOnInputFrameProcessedListener(OnInputFrameProcessedListener listener) {
     inputSwitcher.setOnInputFrameProcessedListener(listener);
+  }
+
+  @Override
+  public void setOnInputSurfaceReadyListener(Runnable listener) {
+    synchronized (lock) {
+      if (inputStreamRegisteredCondition.isOpen()) {
+        listener.run();
+      } else {
+        onInputSurfaceReadyListener = listener;
+      }
+    }
   }
 
   @Override
@@ -992,6 +1015,12 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
 
     inputSwitcher.switchToInput(inputStreamInfo.inputType, inputStreamInfo.frameInfo);
     inputStreamRegisteredCondition.open();
+    synchronized (lock) {
+      if (onInputSurfaceReadyListener != null) {
+        onInputSurfaceReadyListener.run();
+        onInputSurfaceReadyListener = null;
+      }
+    }
     listenerExecutor.execute(
         () ->
             listener.onInputStreamRegistered(

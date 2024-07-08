@@ -483,6 +483,11 @@ import java.util.concurrent.atomic.AtomicInteger;
     }
 
     @Override
+    public void setOnInputSurfaceReadyListener(Runnable runnable) {
+      sampleConsumer.setOnInputSurfaceReadyListener(runnable);
+    }
+
+    @Override
     public @InputResult int queueInputTexture(int texId, long presentationTimeUs) {
       long globalTimestampUs = totalDurationUs + presentationTimeUs;
       if (isLooping && globalTimestampUs >= maxSequenceDurationUs) {

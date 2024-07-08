@@ -20,7 +20,7 @@ import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 
-/** Represents a graph for processing decoded video frames. */
+/** Represents a graph for processing raw video frames. */
 @UnstableApi
 public interface VideoGraph {
 
