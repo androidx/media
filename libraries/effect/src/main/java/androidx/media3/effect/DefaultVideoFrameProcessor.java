@@ -532,6 +532,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
 
   @Override
   public boolean queueInputBitmap(Bitmap inputBitmap, TimestampIterator timestampIterator) {
+    checkState(!inputStreamEnded);
     if (!inputStreamRegisteredCondition.isOpen()) {
       return false;
     }
@@ -554,6 +555,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
 
   @Override
   public boolean queueInputTexture(int textureId, long presentationTimeUs) {
+    checkState(!inputStreamEnded);
     if (!inputStreamRegisteredCondition.isOpen()) {
       return false;
     }
