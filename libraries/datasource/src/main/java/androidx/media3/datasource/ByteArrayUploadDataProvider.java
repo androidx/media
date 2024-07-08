@@ -19,13 +19,12 @@ import static java.lang.Math.min;
 
 import android.net.http.UploadDataProvider;
 import android.net.http.UploadDataSink;
-import android.os.Build;
-import androidx.annotation.RequiresExtension;
+import androidx.annotation.RequiresApi;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
 /** A {@link UploadDataProvider} implementation that provides data from a {@code byte[]}. */
-@RequiresExtension(extension = Build.VERSION_CODES.S, version = 7)
+@RequiresApi(34)
 /* package */ final class ByteArrayUploadDataProvider extends UploadDataProvider {
 
   private final byte[] data;

@@ -26,10 +26,9 @@ import android.net.http.NetworkException;
 import android.net.http.UrlRequest;
 import android.net.http.UrlRequest.Status;
 import android.net.http.UrlResponseInfo;
-import android.os.Build;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresExtension;
+import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
@@ -66,7 +65,7 @@ import java.util.concurrent.Executor;
  * priority) the {@code dataSpec}, {@link #setRequestProperty} and the default parameters used to
  * construct the instance.
  */
-@RequiresExtension(extension = Build.VERSION_CODES.S, version = 7)
+@RequiresApi(34)
 @UnstableApi
 public final class HttpEngineDataSource extends BaseDataSource implements HttpDataSource {
 
