@@ -21,6 +21,8 @@ import static androidx.media3.common.C.TRACK_TYPE_VIDEO;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.contains;
+import static androidx.media3.effect.DebugTraceUtil.COMPONENT_TRANSFORMER_INTERNAL;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_START;
 import static androidx.media3.transformer.AssetLoader.SUPPORTED_OUTPUT_TYPE_DECODED;
 import static androidx.media3.transformer.AssetLoader.SUPPORTED_OUTPUT_TYPE_ENCODED;
 import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC;
@@ -62,6 +64,7 @@ import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Util;
+import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.muxer.Muxer.MuxerException;
 import androidx.media3.transformer.AssetLoader.CompositionSettings;
 import com.google.common.collect.ImmutableList;
@@ -272,6 +275,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       progressState = Transformer.PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
       progressValue = 0;
     }
+    DebugTraceUtil.logEvent(
+        COMPONENT_TRANSFORMER_INTERNAL,
+        EVENT_START,
+        /* presentationTimeUs= */ C.TIME_UNSET,
+        /* extraFormat= */ "%s",
+        /* extraArgs...= */ Util.DEVICE_DEBUG_INFO);
   }
 
   public @Transformer.ProgressState int getProgress(ProgressHolder progressHolder) {

@@ -60,6 +60,7 @@ public final class DebugTraceUtil {
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @StringDef({
+    EVENT_START,
     EVENT_INPUT_FORMAT,
     EVENT_OUTPUT_FORMAT,
     EVENT_ACCEPTED_INPUT,
@@ -83,6 +84,7 @@ public final class DebugTraceUtil {
   @Target(TYPE_USE)
   public @interface Event {}
 
+  public static final String EVENT_START = "Start";
   public static final String EVENT_INPUT_FORMAT = "InputFormat";
   public static final String EVENT_OUTPUT_FORMAT = "OutputFormat";
   public static final String EVENT_ACCEPTED_INPUT = "AcceptedInput";
@@ -107,6 +109,7 @@ public final class DebugTraceUtil {
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @StringDef({
+    COMPONENT_TRANSFORMER_INTERNAL,
     COMPONENT_ASSET_LOADER,
     COMPONENT_AUDIO_DECODER,
     COMPONENT_AUDIO_GRAPH,
@@ -124,6 +127,7 @@ public final class DebugTraceUtil {
   @Target(TYPE_USE)
   public @interface Component {}
 
+  public static final String COMPONENT_TRANSFORMER_INTERNAL = "TransformerInternal";
   public static final String COMPONENT_ASSET_LOADER = "AssetLoader";
   public static final String COMPONENT_AUDIO_DECODER = "AudioDecoder";
   public static final String COMPONENT_AUDIO_GRAPH = "AudioGraph";
@@ -141,6 +145,7 @@ public final class DebugTraceUtil {
   // For a given component, events are in the rough expected order that they occur.
   private static final ImmutableMap<@Component String, List<@Event String>> COMPONENTS_TO_EVENTS =
       ImmutableMap.<String, List<String>>builder()
+          .put(COMPONENT_TRANSFORMER_INTERNAL, ImmutableList.of(EVENT_START))
           .put(COMPONENT_ASSET_LOADER, ImmutableList.of(EVENT_INPUT_FORMAT, EVENT_OUTPUT_FORMAT))
           .put(
               COMPONENT_AUDIO_DECODER,
