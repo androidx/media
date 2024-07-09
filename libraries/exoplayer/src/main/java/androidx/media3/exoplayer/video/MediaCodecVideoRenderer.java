@@ -1247,7 +1247,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   @Override
   protected int getCodecBufferFlags(DecoderInputBuffer buffer) {
-    if (Util.SDK_INT >= 34 && tunneling && buffer.timeUs < getLastResetPositionUs()) {
+    if (Util.SDK_INT >= 34 && tunneling && isBufferBeforeStartTime(buffer)) {
       // The buffer likely needs to be dropped because its timestamp is less than the start time.
       // We can't decide to do this after decoding because we won't get the buffer back from the
       // codec in tunneling mode. This may not work perfectly, e.g. when the codec is doing frame
@@ -1255,6 +1255,27 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       return MediaCodec.BUFFER_FLAG_DECODE_ONLY;
     }
     return 0;
+  }
+
+  @Override
+  protected boolean shouldSkipDecoderInputBuffer(DecoderInputBuffer buffer) {
+    // TODO: b/351164714 - Do not apply this optimization for buffers with timestamp near
+    //  the media duration.
+    if (hasReadStreamToEnd() || buffer.isLastSample()) {
+      // Last buffer is always decoded.
+      return false;
+    }
+    if (buffer.isEncrypted()) {
+      // Commonly used decryption algorithms require updating the initialization vector for each
+      // block processed. Skipping input buffers before the decoder is not allowed.
+      return false;
+    }
+    // Skip buffers without sample dependencies that won't be rendered.
+    return isBufferBeforeStartTime(buffer) && buffer.notDependedOn();
+  }
+
+  private boolean isBufferBeforeStartTime(DecoderInputBuffer buffer) {
+    return buffer.timeUs < getLastResetPositionUs();
   }
 
   @Override

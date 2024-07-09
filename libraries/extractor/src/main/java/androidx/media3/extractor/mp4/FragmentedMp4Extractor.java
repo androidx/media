@@ -135,7 +135,7 @@ public class FragmentedMp4Extractor implements Extractor {
 
   /**
    * Flag to extract additional sample dependency information, and mark output buffers with {@link
-   * C#BUFFER_FLAG_NO_OTHER_SAMPLE_DEPENDS_ON_THIS}.
+   * C#BUFFER_FLAG_NOT_DEPENDED_ON}.
    *
    * <p>This class always marks the samples at the start of each group of picture (GOP) with {@link
    * C#BUFFER_FLAG_KEY_FRAME}. Usually, key frames can be decoded independently, without depending
@@ -1661,7 +1661,7 @@ public class FragmentedMp4Extractor implements Extractor {
 
     @C.BufferFlags int sampleFlags = trackBundle.getCurrentSampleFlags();
     if ((flags & FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES) != 0 && !isSampleDependedOn) {
-      sampleFlags |= C.BUFFER_FLAG_NO_OTHER_SAMPLE_DEPENDS_ON_THIS;
+      sampleFlags |= C.BUFFER_FLAG_NOT_DEPENDED_ON;
     }
 
     // Encryption data.

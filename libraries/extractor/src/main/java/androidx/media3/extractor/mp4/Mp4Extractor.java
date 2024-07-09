@@ -125,7 +125,7 @@ public final class Mp4Extractor implements Extractor, SeekMap {
 
   /**
    * Flag to extract additional sample dependency information, and mark output buffers with {@link
-   * C#BUFFER_FLAG_NO_OTHER_SAMPLE_DEPENDS_ON_THIS}.
+   * C#BUFFER_FLAG_NOT_DEPENDED_ON}.
    *
    * <p>This class always marks the samples at the start of each group of picture (GOP) with {@link
    * C#BUFFER_FLAG_KEY_FRAME}. Usually, key frames can be decoded independently, without depending
@@ -804,7 +804,7 @@ public final class Mp4Extractor implements Extractor, SeekMap {
     long timeUs = track.sampleTable.timestampsUs[sampleIndex];
     @C.BufferFlags int sampleFlags = track.sampleTable.flags[sampleIndex];
     if (!isSampleDependedOn) {
-      sampleFlags |= C.BUFFER_FLAG_NO_OTHER_SAMPLE_DEPENDS_ON_THIS;
+      sampleFlags |= C.BUFFER_FLAG_NOT_DEPENDED_ON;
     }
     if (trueHdSampleRechunker != null) {
       trueHdSampleRechunker.sampleMetadata(

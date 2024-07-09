@@ -1452,6 +1452,12 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       return true;
     }
 
+    if (shouldSkipDecoderInputBuffer(buffer)) {
+      buffer.clear();
+      decoderCounters.skippedInputBufferCount += 1;
+      return true;
+    }
+
     boolean bufferEncrypted = buffer.isEncrypted();
     if (bufferEncrypted) {
       buffer.cryptoInfo.increaseClearDataFirstSubSampleBy(adaptiveReconfigurationBytes);
@@ -1752,6 +1758,18 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    */
   protected int getCodecBufferFlags(DecoderInputBuffer buffer) {
     return 0;
+  }
+
+  /**
+   * Returns whether the input buffer should be skipped before the decoder.
+   *
+   * <p>This can be used to skip decoding of buffers that are not depended on during seeking. See
+   * {@link C#BUFFER_FLAG_NOT_DEPENDED_ON}.
+   *
+   * @param buffer The input buffer.
+   */
+  protected boolean shouldSkipDecoderInputBuffer(DecoderInputBuffer buffer) {
+    return false;
   }
 
   /**

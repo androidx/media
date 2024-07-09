@@ -60,6 +60,11 @@ public abstract class Buffer {
     return getFlag(C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA);
   }
 
+  /** Returns whether the {@link C#BUFFER_FLAG_NOT_DEPENDED_ON} flag is set. */
+  public final boolean notDependedOn() {
+    return getFlag(C.BUFFER_FLAG_NOT_DEPENDED_ON);
+  }
+
   /**
    * Replaces this buffer's flags with {@code flags}.
    *

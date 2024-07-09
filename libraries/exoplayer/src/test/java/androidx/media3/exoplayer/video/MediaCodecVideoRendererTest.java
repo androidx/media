@@ -357,6 +357,73 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
+  public void render_withoutSampleDependencies_rendersLastFrameAfterEndOfStream() throws Exception {
+    ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
+        ArgumentCaptor.forClass(DecoderCounters.class);
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ VIDEO_H264,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), // First buffer.
+                // Second buffer will be skipped before decoder during a seek.
+                oneByteSample(/* timeUs= */ 10_000, C.BUFFER_FLAG_NOT_DEPENDED_ON),
+                // Last buffer without sample dependencies will be rendered.
+                oneByteSample(/* timeUs= */ 20_000, C.BUFFER_FLAG_NOT_DEPENDED_ON),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    // Seek to time after samples.
+    fakeSampleStream.seekToUs(30_000, /* allowTimeBeyondBuffer= */ true);
+    mediaCodecVideoRenderer =
+        new MediaCodecVideoRenderer(
+            ApplicationProvider.getApplicationContext(),
+            new ForwardingSynchronousMediaCodecAdapterWithBufferLimit.Factory(/* bufferLimit= */ 3),
+            mediaCodecSelector,
+            /* allowedJoiningTimeMs= */ 0,
+            /* enableDecoderFallback= */ false,
+            /* eventHandler= */ new Handler(testMainLooper),
+            eventListener,
+            /* maxDroppedFramesToNotify= */ 1);
+    mediaCodecVideoRenderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, surface);
+    mediaCodecVideoRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {VIDEO_H264},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 30_000,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+
+    mediaCodecVideoRenderer.start();
+    mediaCodecVideoRenderer.setCurrentStreamFinal();
+    mediaCodecVideoRenderer.render(0, SystemClock.elapsedRealtime() * 1000);
+    // Call to render has reads all samples including the END_OF_STREAM_ITEM because the
+    // previous sample is skipped before decoding.
+    assertThat(mediaCodecVideoRenderer.hasReadStreamToEnd()).isTrue();
+    int posUs = 30_000;
+    while (!mediaCodecVideoRenderer.isEnded()) {
+      mediaCodecVideoRenderer.render(posUs, SystemClock.elapsedRealtime() * 1000);
+      posUs += 40_000;
+    }
+    shadowOf(testMainLooper).idle();
+
+    verify(eventListener).onRenderedFirstFrame(eq(surface), /* renderTimeMs= */ anyLong());
+    verify(eventListener).onVideoEnabled(argumentDecoderCounters.capture());
+    // First key frame is decoded and skipped as an output buffer.
+    assertThat(argumentDecoderCounters.getValue().skippedOutputBufferCount).isEqualTo(1);
+    // Second frame is skipped before the decoder, as an input buffer.
+    assertThat(argumentDecoderCounters.getValue().skippedInputBufferCount).isEqualTo(1);
+    // Last frame is rendered.
+    assertThat(argumentDecoderCounters.getValue().renderedOutputBufferCount).isEqualTo(1);
+  }
+
+  @Test
   public void
       render_withClippingMediaPeriodAndBufferContainingLastAndClippingSamples_rendersLastFrame()
           throws Exception {

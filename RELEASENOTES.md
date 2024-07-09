@@ -19,6 +19,8 @@
     *   Add `PreloadMediaSource.PreloadControl.onPreloadError` to allow
         `PreloadMediaSource.PreloadControl` implementations to take actions when
         error occurs.
+    *   `MediaCodecVideoRenderer` avoids decoding samples that are neither
+        rendered nor used as reference by other samples.
 *   Transformer:
     *   Add `SurfaceAssetLoader`, which supports queueing video data to
         Transformer via a `Surface`.
