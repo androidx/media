@@ -43,7 +43,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
-// TODO(internal b/161127201): discard samples written to the sample queue.
 /** Retrieves the static metadata of {@link MediaItem MediaItems}. */
 @UnstableApi
 public final class MetadataRetriever {
