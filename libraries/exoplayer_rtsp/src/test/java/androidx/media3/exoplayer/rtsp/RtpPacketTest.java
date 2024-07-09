@@ -71,9 +71,9 @@ public final class RtpPacketTest {
   /*
    10.. .... = Version: RFC 1889 Version (2)
    ..0. .... = Padding: False
-   ...0 .... = Extension: True
+   ...1 .... = Extension: True
    .... 0000 = Contributing source identifiers count: 0
-   1... .... = Marker: False
+   0... .... = Marker: False
    Payload type: DynamicRTP-Type-96 (96)
    Sequence number: 61514
    Timestamp: 2000000000
@@ -127,12 +127,13 @@ public final class RtpPacketTest {
   }
 
   @Test
-  public void parseRtpPacketWithHeaderExtension() {
+  public void parseRtpPacketWithHeaderExtension_createsRtpPacketWithoutHeaderExtension() {
     RtpPacket packet =
         checkNotNull(RtpPacket.parse(rtpDataWithHeaderExtension, rtpDataWithHeaderExtension.length));
 
     assertThat(packet.version).isEqualTo(RtpPacket.RTP_VERSION);
     assertThat(packet.padding).isFalse();
+    //created RtpPacket object will parse but not save the extension data
     assertThat(packet.extension).isFalse();
     assertThat(packet.csrcCount).isEqualTo(0);
     assertThat(packet.csrc).hasLength(0);
