@@ -69,6 +69,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 /** Extracts data from the FMP4 container format. */
@@ -87,7 +88,8 @@ public class FragmentedMp4Extractor implements Extractor {
   /**
    * Flags controlling the behavior of the extractor. Possible flag values are {@link
    * #FLAG_WORKAROUND_EVERY_VIDEO_FRAME_IS_SYNC_FRAME}, {@link #FLAG_WORKAROUND_IGNORE_TFDT_BOX},
-   * {@link #FLAG_ENABLE_EMSG_TRACK} and {@link #FLAG_WORKAROUND_IGNORE_EDIT_LISTS}.
+   * {@link #FLAG_ENABLE_EMSG_TRACK}, {@link #FLAG_WORKAROUND_IGNORE_EDIT_LISTS}, {@link
+   * #FLAG_EMIT_RAW_SUBTITLE_DATA} and {@link #FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES}.
    */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
@@ -99,7 +101,8 @@ public class FragmentedMp4Extractor implements Extractor {
         FLAG_WORKAROUND_IGNORE_TFDT_BOX,
         FLAG_ENABLE_EMSG_TRACK,
         FLAG_WORKAROUND_IGNORE_EDIT_LISTS,
-        FLAG_EMIT_RAW_SUBTITLE_DATA
+        FLAG_EMIT_RAW_SUBTITLE_DATA,
+        FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES
       })
   public @interface Flags {}
 
@@ -129,6 +132,26 @@ public class FragmentedMp4Extractor implements Extractor {
    * transcoded to {@link MimeTypes#APPLICATION_MEDIA3_CUES} during extraction.
    */
   public static final int FLAG_EMIT_RAW_SUBTITLE_DATA = 1 << 5; // 32
+
+  /**
+   * Flag to extract additional sample dependency information, and mark output buffers with {@link
+   * C#BUFFER_FLAG_NO_OTHER_SAMPLE_DEPENDS_ON_THIS}.
+   *
+   * <p>This class always marks the samples at the start of each group of picture (GOP) with {@link
+   * C#BUFFER_FLAG_KEY_FRAME}. Usually, key frames can be decoded independently, without depending
+   * on other samples.
+   *
+   * <p>Setting this flag enables elementary stream parsing to identify disposable samples that are
+   * not depended on by other samples. Any disposable sample can be safely omitted, and the rest of
+   * the track will remain valid.
+   *
+   * <p>Supported formats are:
+   *
+   * <ul>
+   *   <li>{@linkplain MimeTypes#VIDEO_H264 H.264}
+   * </ul>
+   */
+  public static final int FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES = 1 << 6; // 64
 
   /**
    * @deprecated Use {@link #newFactory(SubtitleParser.Factory)} instead.
@@ -206,6 +229,7 @@ public class FragmentedMp4Extractor implements Extractor {
   private int sampleSize;
   private int sampleBytesWritten;
   private int sampleCurrentNalBytesRemaining;
+  private boolean isSampleDependedOn;
   private boolean processSeiNalUnitPayload;
 
   // Outputs.
@@ -1507,6 +1531,13 @@ public class FragmentedMp4Extractor implements Extractor {
     }
     if (parserState == STATE_READING_SAMPLE_START) {
       sampleSize = trackBundle.getCurrentSampleSize();
+      // We must check all NAL units in the Fragmented MP4 sample for dependencies.
+      // When FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES is unset, or codec is not supported,
+      // set isSampleDependedOn = true and skip parsing the payload bytes.
+      isSampleDependedOn =
+          (flags & FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES) == 0
+              || !Objects.equals(
+                  trackBundle.moovSampleTable.track.format.sampleMimeType, MimeTypes.VIDEO_H264);
 
       if (trackBundle.currentSampleIndex < trackBundle.firstSampleToOutputIndex) {
         input.skipFully(sampleSize);
@@ -1579,6 +1610,12 @@ public class FragmentedMp4Extractor implements Extractor {
                   && NalUnitUtil.isNalUnitSei(track.format.sampleMimeType, nalPrefixData[4]);
           sampleBytesWritten += 5;
           sampleSize += nalUnitLengthFieldLengthDiff;
+          if (!isSampleDependedOn
+              && Objects.equals(
+                  trackBundle.moovSampleTable.track.format.sampleMimeType, MimeTypes.VIDEO_H264)
+              && NalUnitUtil.isH264NalUnitDependedOn(nalPrefixData[4])) {
+            isSampleDependedOn = true;
+          }
         } else {
           int writtenBytes;
           if (processSeiNalUnitPayload) {
@@ -1623,6 +1660,9 @@ public class FragmentedMp4Extractor implements Extractor {
     }
 
     @C.BufferFlags int sampleFlags = trackBundle.getCurrentSampleFlags();
+    if ((flags & FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES) != 0 && !isSampleDependedOn) {
+      sampleFlags |= C.BUFFER_FLAG_NO_OTHER_SAMPLE_DEPENDS_ON_THIS;
+    }
 
     // Encryption data.
     @Nullable TrackOutput.CryptoData cryptoData = null;

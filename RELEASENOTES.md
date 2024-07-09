@@ -26,6 +26,12 @@
 *   Extractors:
     *   Allow `Mp4Extractor` to identify H264 samples that are not used as
         reference by subsequent samples.
+*   DataSource:
+    *   Update `HttpEngineDataSource` to allow use starting at version S
+        extension 7 instead of API level 34
+        ([#1262](https://github.com/androidx/media/issues/1262)).
+    *   Allow `Mp4Extractor` and `FragmentedMp4Extractor` to identify H264
+        samples that are not used as reference by subsequent samples.
 *   Audio:
 *   Video:
 *   Text:
