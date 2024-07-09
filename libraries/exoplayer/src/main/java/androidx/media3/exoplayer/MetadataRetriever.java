@@ -17,11 +17,14 @@
 package androidx.media3.exoplayer;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Assertions.checkState;
 
 import android.content.Context;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.Looper;
 import android.os.Message;
+import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
@@ -94,8 +97,6 @@ public final class MetadataRetriever {
 
   private static ListenableFuture<TrackGroupArray> retrieveMetadata(
       MediaSource.Factory mediaSourceFactory, MediaItem mediaItem, Clock clock) {
-    // Recreate thread and handler every time this method is called so that it can be used
-    // concurrently.
     return new MetadataRetrieverInternal(mediaSourceFactory, clock).retrieveMetadata(mediaItem);
   }
 
@@ -106,17 +107,17 @@ public final class MetadataRetriever {
     private static final int MESSAGE_CONTINUE_LOADING = 3;
     private static final int MESSAGE_RELEASE = 4;
 
+    private static final SharedWorkerThread SHARED_WORKER_THREAD = new SharedWorkerThread();
+
     private final MediaSource.Factory mediaSourceFactory;
-    private final HandlerThread mediaSourceThread;
     private final HandlerWrapper mediaSourceHandler;
     private final SettableFuture<TrackGroupArray> trackGroupsFuture;
 
     public MetadataRetrieverInternal(MediaSource.Factory mediaSourceFactory, Clock clock) {
       this.mediaSourceFactory = mediaSourceFactory;
-      mediaSourceThread = new HandlerThread("ExoPlayer:MetadataRetriever");
-      mediaSourceThread.start();
+      Looper workerThreadLooper = SHARED_WORKER_THREAD.addWorker();
       mediaSourceHandler =
-          clock.createHandler(mediaSourceThread.getLooper(), new MediaSourceHandlerCallback());
+          clock.createHandler(workerThreadLooper, new MediaSourceHandlerCallback());
       trackGroupsFuture = SettableFuture.create();
     }
 
@@ -172,7 +173,7 @@ public final class MetadataRetriever {
             }
             checkNotNull(mediaSource).releaseSource(mediaSourceCaller);
             mediaSourceHandler.removeCallbacksAndMessages(/* token= */ null);
-            mediaSourceThread.quit();
+            SHARED_WORKER_THREAD.removeWorker();
             return true;
           default:
             return false;
@@ -222,6 +223,29 @@ public final class MetadataRetriever {
             mediaSourceHandler.obtainMessage(MESSAGE_CONTINUE_LOADING).sendToTarget();
           }
         }
+      }
+    }
+  }
+
+  private static final class SharedWorkerThread {
+
+    @Nullable private HandlerThread mediaSourceThread;
+    private int referenceCount;
+
+    public synchronized Looper addWorker() {
+      if (mediaSourceThread == null) {
+        checkState(referenceCount == 0);
+        mediaSourceThread = new HandlerThread("ExoPlayer:MetadataRetriever");
+        mediaSourceThread.start();
+      }
+      referenceCount++;
+      return mediaSourceThread.getLooper();
+    }
+
+    public synchronized void removeWorker() {
+      if (--referenceCount == 0) {
+        checkNotNull(mediaSourceThread).quit();
+        mediaSourceThread = null;
       }
     }
   }
