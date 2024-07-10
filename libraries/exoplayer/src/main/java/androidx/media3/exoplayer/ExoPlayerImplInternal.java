@@ -28,6 +28,7 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 import android.content.Context;
+import android.media.AudioPresentation;
 import android.media.MediaFormat;
 import android.os.Handler;
 import android.os.Looper;
@@ -138,6 +139,10 @@ import java.util.Objects;
     void onPlaybackInfoUpdate(ExoPlayerImplInternal.PlaybackInfoUpdate playbackInfo);
   }
 
+  public interface AudioPresentationsChangeListener {
+    void onAudioPresentationsChanged(List<AudioPresentation> audioPresentations);
+  }
+
   // Internal messages
   private static final int MSG_SET_PLAY_WHEN_READY = 1;
   private static final int MSG_DO_SOME_WORK = 2;
@@ -176,6 +181,7 @@ import java.util.Objects;
   private static final int MSG_SET_SCRUBBING_MODE_ENABLED = 36;
   private static final int MSG_SEEK_COMPLETED_IN_SCRUBBING_MODE = 37;
   private static final int MSG_SET_SCRUBBING_MODE_PARAMETERS = 38;
+  private static final int MSG_AUDIO_PRESENTATIONS_CHANGED = 39;
 
   private static final long BUFFERING_MAXIMUM_INTERVAL_MS =
       Util.usToMs(Renderer.DEFAULT_DURATION_TO_PROGRESS_US);
@@ -256,7 +262,7 @@ import java.util.Objects;
   private long prewarmingMediaPeriodDiscontinuity = C.TIME_UNSET;
   private boolean isPrewarmingDisabledUntilNextTransition;
   private float volume;
-
+  private final AudioPresentationsChangeListener audioPresentationsChangeListener;
   public ExoPlayerImplInternal(
       Context context,
       Renderer[] renderers,
@@ -279,7 +285,8 @@ import java.util.Objects;
       PlayerId playerId,
       @Nullable PlaybackLooperProvider playbackLooperProvider,
       PreloadConfiguration preloadConfiguration,
-      VideoFrameMetadataListener videoFrameMetadataListener) {
+      VideoFrameMetadataListener videoFrameMetadataListener,
+      AudioPresentationsChangeListener audioPresentationsChangeListener) {
     this.playbackInfoUpdateListener = playbackInfoUpdateListener;
     this.trackSelector = trackSelector;
     this.emptyTrackSelectorResult = emptyTrackSelectorResult;
@@ -299,6 +306,7 @@ import java.util.Objects;
     this.analyticsCollector = analyticsCollector;
     this.volume = 1f;
     this.scrubbingModeParameters = ScrubbingModeParameters.DEFAULT;
+    this.audioPresentationsChangeListener = audioPresentationsChangeListener;
 
     playbackMaybeBecameStuckAtMs = C.TIME_UNSET;
     lastRebufferRealtimeMs = C.TIME_UNSET;
@@ -616,6 +624,11 @@ import java.util.Objects;
   }
 
   @Override
+  public void onAudioPresentationsChanged(List<AudioPresentation> audioPresentations) {
+    handler.obtainMessage(MSG_AUDIO_PRESENTATIONS_CHANGED, audioPresentations).sendToTarget();
+  }
+
+  @Override
   public void onContinueLoadingRequested(MediaPeriod source) {
     handler.obtainMessage(MSG_SOURCE_CONTINUE_LOADING_REQUESTED, source).sendToTarget();
   }
@@ -734,6 +747,9 @@ import java.util.Objects;
           break;
         case MSG_PERIOD_PREPARED:
           handlePeriodPrepared((MediaPeriod) msg.obj);
+          break;
+        case MSG_AUDIO_PRESENTATIONS_CHANGED:
+          handleAudioPresentationsChanged((List<AudioPresentation>) msg.obj);
           break;
         case MSG_SOURCE_CONTINUE_LOADING_REQUESTED:
           handleContinueLoadingRequested((MediaPeriod) msg.obj);
@@ -3006,6 +3022,10 @@ import java.util.Objects;
               /* ignored */ Player.DISCONTINUITY_REASON_INTERNAL);
     }
     maybeContinueLoading();
+  }
+
+  private void handleAudioPresentationsChanged(List<AudioPresentation> audioPresentations) {
+    audioPresentationsChangeListener.onAudioPresentationsChanged(audioPresentations);
   }
 
   private void handleContinueLoadingRequested(MediaPeriod mediaPeriod) {

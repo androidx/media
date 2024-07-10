@@ -15,6 +15,8 @@
  */
 package androidx.media3.exoplayer.source;
 
+import android.media.AudioPresentation;
+import androidx.annotation.NonNull;
 import androidx.media3.common.C;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.Timeline;
@@ -55,6 +57,14 @@ public interface MediaPeriod extends SequenceableLoader {
      * @param mediaPeriod The prepared {@link MediaPeriod}.
      */
     void onPrepared(MediaPeriod mediaPeriod);
+
+    /**
+     * Called when the audio presentations, available to the player for the current track, are
+     * changed.
+     *
+     * @param audioPresentations The available audio presentations. Never null, but may be empty.
+     */
+    default void onAudioPresentationsChanged(@NonNull List<AudioPresentation> audioPresentations) {}
   }
 
   /**
