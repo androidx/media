@@ -21,6 +21,7 @@ import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.ElementType.PARAMETER;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import android.media.AudioPresentation;
 import android.os.Bundle;
 import android.os.Looper;
 import android.view.Surface;
@@ -30,6 +31,7 @@ import android.view.TextureView;
 import androidx.annotation.FloatRange;
 import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.text.Cue;
@@ -860,6 +862,14 @@ public interface Player {
     default void onTracksChanged(Tracks tracks) {}
 
     /**
+     * Called when the audio presentations, available to the player for the current track, are
+     * changed.
+     *
+     * @param audioPresentations The available audio presentations. Never null, but may be empty.
+     */
+    default void onAudioPresentationsChanged(@NonNull List<AudioPresentation> audioPresentations) {}
+
+    /**
      * Called when the value of {@link Player#getMediaMetadata()} changes.
      *
      * <p>This method may be called multiple times in quick succession.
@@ -1539,7 +1549,8 @@ public interface Player {
     EVENT_CUES,
     EVENT_METADATA,
     EVENT_DEVICE_INFO_CHANGED,
-    EVENT_DEVICE_VOLUME_CHANGED
+    EVENT_DEVICE_VOLUME_CHANGED,
+    EVENT_AUDIO_PRESENTATIONS_CHANGED
   })
   @interface Event {}
 
@@ -1641,6 +1652,9 @@ public interface Player {
 
   /** {@link #getDeviceVolume()} or {@link #isDeviceMuted()} changed. */
   int EVENT_DEVICE_VOLUME_CHANGED = 30;
+
+  /** Audio presentations associated with the current audio track changed. */
+  int EVENT_AUDIO_PRESENTATIONS_CHANGED = 31;
 
   /**
    * Commands that indicate which method calls are currently permitted on a particular {@code

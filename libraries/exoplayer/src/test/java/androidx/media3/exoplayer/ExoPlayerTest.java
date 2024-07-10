@@ -100,15 +100,19 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.SurfaceTexture;
+import android.icu.util.ULocale;
 import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
+import android.media.AudioPresentation;
 import android.media.AudioTrack;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Pair;
 import android.view.Surface;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -259,6 +263,8 @@ public final class ExoPlayerTest {
   private static final int TIMEOUT_MS = 10_000;
 
   private static final String SAMPLE_URI = "asset://android_asset/media/mp4/sample.mp4";
+  private static final String SAMPLE_AC4_MP4_URI =
+      "asset://android_asset/media/mp4/sample_ac4_multiple_presentations.mp4";
 
   @Parameters(name = "preload={0}")
   public static ImmutableList<Object[]> params() {
@@ -14410,6 +14416,58 @@ public final class ExoPlayerTest {
     shadowOf(Looper.getMainLooper()).idle();
 
     assertThat(player.getMediaMetadata()).isEqualTo(mediaMetadata);
+
+    player.release();
+  }
+
+  @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
+  @RequiresApi(api = Build.VERSION_CODES.P)
+  @Test
+  public void playingAC4_AudioPresentations() throws Exception {
+    ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
+    player.setMediaItem(MediaItem.fromUri(SAMPLE_AC4_MP4_URI));
+    List<AudioPresentation> refPresentations = new ArrayList<>();
+    refPresentations.add(new AudioPresentation.Builder(10)
+                        .setProgramId(300)
+                        .setLocale(ULocale.ENGLISH)
+                        .setMasteringIndication(AudioPresentation.MASTERED_FOR_SURROUND)
+                        .setHasSpokenSubtitles(false)
+                        .setHasDialogueEnhancement(false)
+                        .build());
+    refPresentations.add(new AudioPresentation.Builder(11)
+                        .setProgramId(300)
+                        .setLocale(ULocale.ENGLISH)
+                        .setMasteringIndication(AudioPresentation.MASTERED_FOR_SURROUND)
+                        .setHasSpokenSubtitles(false)
+                        .setHasAudioDescription(false)
+                        .setHasDialogueEnhancement(false)
+                        .build());
+    refPresentations.add(new AudioPresentation.Builder(12)
+                        .setProgramId(300)
+                        .setLocale(ULocale.ENGLISH)
+                        .setMasteringIndication(AudioPresentation.MASTERED_FOR_SURROUND)
+                        .setHasSpokenSubtitles(false)
+                        .setHasDialogueEnhancement(false)
+                        .build());
+
+    player.addListener(
+        new Player.Listener() {
+          @Override
+          public void onAudioPresentationsChanged(List<AudioPresentation> audioPresentations) {
+            assertThat(audioPresentations).isNotNull();
+            assertThat(refPresentations.size()).isEqualTo(audioPresentations.size());
+            for (int i = 0; i < refPresentations.size(); i++) {
+              assertThat(refPresentations.get(i)).isEqualTo((audioPresentations.get(i)));
+            }
+          }
+        });
+
+    player.prepare();
+    player.play();
+    runUntilPlaybackState(player, Player.STATE_ENDED);
+    player.stop();
+
+    shadowOf(Looper.getMainLooper()).idle();
 
     player.release();
   }

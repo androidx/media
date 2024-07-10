@@ -19,6 +19,7 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.castNonNull;
 
+import android.media.AudioPresentation;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.NullableType;
@@ -29,6 +30,7 @@ import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.upstream.Allocator;
 import java.io.IOException;
+import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -247,6 +249,11 @@ public final class MaskingMediaPeriod implements MediaPeriod, MediaPeriod.Callba
     if (listener != null) {
       listener.onPrepareComplete(id);
     }
+  }
+
+  @Override
+  public void onAudioPresentationsChanged(List<AudioPresentation> audioPresentations) {
+    castNonNull(callback).onAudioPresentationsChanged(audioPresentations);
   }
 
   private long getPreparePositionWithOverride(long preparePositionUs) {
