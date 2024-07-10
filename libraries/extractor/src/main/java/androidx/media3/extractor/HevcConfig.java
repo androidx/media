@@ -103,6 +103,7 @@ public final class HevcConfig {
       @C.ColorSpace int colorSpace = Format.NO_VALUE;
       @C.ColorRange int colorRange = Format.NO_VALUE;
       @C.ColorTransfer int colorTransfer = Format.NO_VALUE;
+      @C.StereoMode int stereoMode = Format.NO_VALUE;
       float pixelWidthHeightRatio = 1;
       int maxNumReorderPics = Format.NO_VALUE;
       @Nullable String codecs = null;
@@ -150,6 +151,16 @@ public final class HevcConfig {
                       spsData.profileTierLevel.constraintBytes,
                       spsData.profileTierLevel.generalLevelIdc);
             }
+          } else if (nalUnitType == NalUnitUtil.H265_NAL_UNIT_TYPE_PREFIX_SEI && j == 0) {
+            NalUnitUtil.H265Sei3dRefDisplayInfoData seiData =
+                NalUnitUtil.parseH265Sei3dRefDisplayInfo(
+                    buffer, bufferPosition, bufferPosition + nalUnitLength);
+            if (seiData != null && currentVpsData != null) {
+              stereoMode =
+                  (seiData.leftViewId == currentVpsData.layerInfos.get(0).viewId)
+                      ? C.STEREO_MODE_INTERLEAVED_LEFT_PRIMARY
+                      : C.STEREO_MODE_INTERLEAVED_RIGHT_PRIMARY;
+            }
           }
           bufferPosition += nalUnitLength;
           data.skipBytes(nalUnitLength);
@@ -168,6 +179,7 @@ public final class HevcConfig {
           colorSpace,
           colorRange,
           colorTransfer,
+          stereoMode,
           pixelWidthHeightRatio,
           maxNumReorderPics,
           codecs,
@@ -216,6 +228,11 @@ public final class HevcConfig {
    */
   public final @C.ColorTransfer int colorTransfer;
 
+  /**
+   * The {@link C.StereoMode} of the video or {@link Format#NO_VALUE} if unknown or not applicable.
+   */
+  public final @C.StereoMode int stereoMode;
+
   /** The pixel width to height ratio. */
   public final float pixelWidthHeightRatio;
 
@@ -248,6 +265,7 @@ public final class HevcConfig {
       @C.ColorSpace int colorSpace,
       @C.ColorRange int colorRange,
       @C.ColorTransfer int colorTransfer,
+      @C.StereoMode int stereoMode,
       float pixelWidthHeightRatio,
       int maxNumReorderPics,
       @Nullable String codecs,
@@ -261,6 +279,7 @@ public final class HevcConfig {
     this.colorSpace = colorSpace;
     this.colorRange = colorRange;
     this.colorTransfer = colorTransfer;
+    this.stereoMode = stereoMode;
     this.pixelWidthHeightRatio = pixelWidthHeightRatio;
     this.maxNumReorderPics = maxNumReorderPics;
     this.codecs = codecs;

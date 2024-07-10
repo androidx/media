@@ -384,6 +384,40 @@ public final class NalUnitUtil {
     }
   }
 
+  /** Holds data parsed from a H.265 3D reference displays information SEI message. */
+  public static final class H265Sei3dRefDisplayInfoData {
+    public final int precRefDisplayWidth;
+    public final int precRefViewingDist;
+    public final int numRefDisplays;
+    public final int leftViewId;
+    public final int rightViewId;
+    public final int exponentRefDisplayWidth;
+    public final int mantissaRefDisplayWidth;
+    public final int exponentRefViewingDist;
+    public final int mantissaRefViewingDist;
+
+    public H265Sei3dRefDisplayInfoData(
+        int precRefDisplayWidth,
+        int precRefViewingDist,
+        int numRefDisplays,
+        int leftViewId,
+        int rightViewId,
+        int exponentRefDisplayWidth,
+        int mantissaRefDisplayWidth,
+        int exponentRefViewingDist,
+        int mantissaRefViewingDist) {
+      this.precRefDisplayWidth = precRefDisplayWidth;
+      this.precRefViewingDist = precRefViewingDist;
+      this.numRefDisplays = numRefDisplays;
+      this.leftViewId = leftViewId;
+      this.rightViewId = rightViewId;
+      this.exponentRefDisplayWidth = exponentRefDisplayWidth;
+      this.mantissaRefDisplayWidth = mantissaRefDisplayWidth;
+      this.exponentRefViewingDist = exponentRefViewingDist;
+      this.mantissaRefViewingDist = mantissaRefViewingDist;
+    }
+  }
+
   /** Four initial bytes that must prefix NAL units for decoding. */
   public static final byte[] NAL_START_CODE = new byte[] {0, 0, 0, 1};
 
@@ -1572,6 +1606,112 @@ public final class NalUnitUtil {
     data.skipBit(); // entropy_coding_mode_flag
     boolean bottomFieldPicOrderInFramePresentFlag = data.readBit();
     return new PpsData(picParameterSetId, seqParameterSetId, bottomFieldPicOrderInFramePresentFlag);
+  }
+
+  /**
+   * Parses a H.265 3D reference displays information SEI message syntax defined in ITU-T
+   * Recommendation H.265 (2019) subsection G.14.2.3. Given a generic PREFIX_SEI NAL unit, only 3D
+   * reference displays information SEI is parsed, if exists.
+   *
+   * @param nalData A buffer containing escaped prefix SEI data.
+   * @param nalOffset The offset of the NAL unit header in {@code nalData}.
+   * @param nalLimit The limit of the NAL unit in {@code nalData}.
+   * @return A parsed representation of the PPS data.
+   */
+  @Nullable
+  public static H265Sei3dRefDisplayInfoData parseH265Sei3dRefDisplayInfo(
+      byte[] nalData, int nalOffset, int nalLimit) {
+
+    int seiRbspPos = nalOffset + 2;
+    int last1BitBytePos = nalLimit - 1;
+    while (nalData[last1BitBytePos] == 0 && last1BitBytePos > seiRbspPos) {
+      last1BitBytePos--;
+    }
+    if (nalData[last1BitBytePos] == 0 || last1BitBytePos <= seiRbspPos) {
+      return null;
+    }
+
+    ParsableNalUnitBitArray data =
+        new ParsableNalUnitBitArray(nalData, seiRbspPos, last1BitBytePos + 1);
+    // Every SEI message must have at least 2 bytes for the payload type and size.
+    while (data.canReadBits(16)) {
+      // Parsing sei_message() in subsection 7.3.5.
+      int payloadType = 0;
+      int nextByte = data.readBits(8);
+      while (nextByte == 255) {
+        payloadType += 255;
+        nextByte = data.readBits(8);
+      }
+      payloadType += nextByte;
+
+      int payloadSize = 0;
+      nextByte = data.readBits(8);
+      while (nextByte == 255) {
+        payloadSize += 255;
+        nextByte = data.readBits(8);
+      }
+      payloadSize += nextByte;
+      if (payloadSize == 0 || !data.canReadBits(payloadSize)) {
+        return null;
+      }
+
+      if (payloadType == 176) { // three_dimensional_reference_displays_info()
+        int precRefDisplayWidth = data.readUnsignedExpGolombCodedInt(); // prec_ref_display_width
+        boolean refViewingDistanceFlag = data.readBit(); // ref_viewing_distance_flag
+        int precRefViewingDist = 0;
+        if (refViewingDistanceFlag) {
+          precRefViewingDist = data.readUnsignedExpGolombCodedInt(); // prec_ref_viewing_dist
+        }
+        int numRefDisplaysMinus1 = data.readUnsignedExpGolombCodedInt(); // num_ref_displays_minus1
+        int leftViewId = -1;
+        int rightViewId = -1;
+        int exponentRefDisplayWidth = -1;
+        int mantissaRefDisplayWidth = -1;
+        int exponentRefViewingDist = -1;
+        int mantissaRefViewingDist = -1;
+        for (int i = 0; i <= numRefDisplaysMinus1; i++) {
+          leftViewId = data.readUnsignedExpGolombCodedInt(); // left_view_id[i]
+          rightViewId = data.readUnsignedExpGolombCodedInt(); // right_view_id[i]
+          exponentRefDisplayWidth = data.readBits(6); // exponent_ref_display_width[i]
+          if (exponentRefDisplayWidth == 63) {
+            return null;
+          }
+          int refDispWidthBits =
+              exponentRefDisplayWidth == 0
+                  ? max(0, precRefDisplayWidth - 30)
+                  : max(0, exponentRefDisplayWidth + precRefDisplayWidth - 31);
+          mantissaRefDisplayWidth =
+              data.readBits(refDispWidthBits); // mantissa_ref_display_width[i]
+          if (refViewingDistanceFlag) {
+            exponentRefViewingDist = data.readBits(6); // exponent_ref_viewing_distance[i]
+            if (exponentRefViewingDist == 63) {
+              return null;
+            }
+            int refViewDistBits =
+                exponentRefViewingDist == 0
+                    ? max(0, precRefViewingDist - 30)
+                    : max(0, exponentRefViewingDist + precRefViewingDist - 31);
+            mantissaRefViewingDist =
+                data.readBits(refViewDistBits); // mantissa_ref_viewing_distance[i]
+          }
+          if (data.readBit()) { // additional_shift_present_flag[i]
+            data.skipBits(10); // num_sample_shift_plus512[i]
+          }
+        }
+
+        return new H265Sei3dRefDisplayInfoData(
+            precRefDisplayWidth,
+            precRefViewingDist,
+            numRefDisplaysMinus1 + 1,
+            leftViewId,
+            rightViewId,
+            exponentRefDisplayWidth,
+            mantissaRefDisplayWidth,
+            exponentRefViewingDist,
+            mantissaRefViewingDist);
+      }
+    }
+    return null;
   }
 
   /**

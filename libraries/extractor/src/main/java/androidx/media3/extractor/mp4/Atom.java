@@ -64,6 +64,15 @@ import java.util.List;
   public static final int TYPE_lhvC = 0x6C687643;
 
   @SuppressWarnings("ConstantCaseForConstants")
+  public static final int TYPE_vexu = 0x76657875;
+
+  @SuppressWarnings("ConstantCaseForConstants")
+  public static final int TYPE_eyes = 0x65796573;
+
+  @SuppressWarnings("ConstantCaseForConstants")
+  public static final int TYPE_stri = 0x73747269;
+
+  @SuppressWarnings("ConstantCaseForConstants")
   public static final int TYPE_vp08 = 0x76703038;
 
   @SuppressWarnings("ConstantCaseForConstants")

@@ -66,6 +66,8 @@ public final class NalUnitUtilTest {
           0x4D, 0x40, 0x40, 0x40, 0x40, 0x20);
   private static final byte[] H265_SPS_TEST_DATA_2VIEWS_VIEW_1 =
       createByteArray(0x42, 0x09, 0x0E, 0x82, 0x2E, 0x45, 0x8A, 0xA0, 0x05, 0x01);
+  private static final byte[] H265_SPS_TEST_DATA_2VIEWS_SEI =
+      createByteArray(0x4E, 0x01, 0xB0, 0x04, 0x04, 0x0A, 0x80, 0x20, 0x80);
 
   private static final byte[] H265_VPS_TEST_DATA_2VIEWS_HDR =
       createByteArray(
@@ -89,6 +91,8 @@ public final class NalUnitUtilTest {
           0xFF, 0xFF, 0xFC, 0x8C, 0x41, 0x46, 0x84, 0x3F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
           0xC8, 0xC4, 0x14, 0x68, 0x43, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFC, 0x95, 0xA8,
           0x18);
+  private static final byte[] H265_SPS_TEST_DATA_2VIEWS_HDR_SEI =
+      createByteArray(0x4E, 0x01, 0xB0, 0x04, 0x04, 0x0D, 0x00, 0x20, 0x80);
 
   @Test
   public void findNalUnit() {
@@ -293,6 +297,17 @@ public final class NalUnitUtilTest {
     assertThat(spsDataView1.height).isEqualTo(1080);
     assertThat(spsDataView1.bitDepthLumaMinus8).isEqualTo(0);
     assertThat(spsDataView1.bitDepthChromaMinus8).isEqualTo(0);
+
+    NalUnitUtil.H265Sei3dRefDisplayInfoData seiData =
+        NalUnitUtil.parseH265Sei3dRefDisplayInfo(
+            H265_SPS_TEST_DATA_2VIEWS_SEI, 0, H265_SPS_TEST_DATA_2VIEWS_SEI.length);
+    assertThat(seiData.precRefDisplayWidth).isEqualTo(31);
+    assertThat(seiData.precRefViewingDist).isEqualTo(0);
+    assertThat(seiData.numRefDisplays).isEqualTo(1);
+    assertThat(seiData.leftViewId).isEqualTo(1);
+    assertThat(seiData.rightViewId).isEqualTo(0);
+    assertThat(seiData.exponentRefDisplayWidth).isEqualTo(0);
+    assertThat(seiData.mantissaRefDisplayWidth).isEqualTo(0);
   }
 
   @Test
@@ -360,6 +375,17 @@ public final class NalUnitUtilTest {
     assertThat(spsDataView1.height).isEqualTo(2160);
     assertThat(spsDataView1.bitDepthLumaMinus8).isEqualTo(2);
     assertThat(spsDataView1.bitDepthChromaMinus8).isEqualTo(2);
+
+    NalUnitUtil.H265Sei3dRefDisplayInfoData seiData =
+        NalUnitUtil.parseH265Sei3dRefDisplayInfo(
+            H265_SPS_TEST_DATA_2VIEWS_HDR_SEI, 0, H265_SPS_TEST_DATA_2VIEWS_HDR_SEI.length);
+    assertThat(seiData.precRefDisplayWidth).isEqualTo(31);
+    assertThat(seiData.precRefViewingDist).isEqualTo(0);
+    assertThat(seiData.numRefDisplays).isEqualTo(1);
+    assertThat(seiData.leftViewId).isEqualTo(0);
+    assertThat(seiData.rightViewId).isEqualTo(1);
+    assertThat(seiData.exponentRefDisplayWidth).isEqualTo(0);
+    assertThat(seiData.mantissaRefDisplayWidth).isEqualTo(0);
   }
 
   @Test
