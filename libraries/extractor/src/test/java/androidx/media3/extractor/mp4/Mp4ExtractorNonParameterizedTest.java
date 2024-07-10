@@ -18,6 +18,12 @@ package androidx.media3.extractor.mp4;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
+import android.icu.util.ULocale;
+import android.media.AudioPresentation;
+import android.os.Build;
+import android.os.Bundle;
+import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SniffFailure;
@@ -30,9 +36,12 @@ import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.ext.truth.content.IntentSubject;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -73,6 +82,72 @@ public final class Mp4ExtractorNonParameterizedTest {
     IncorrectFragmentationSniffFailure incorrectFragmentationSniffFailure =
         (IncorrectFragmentationSniffFailure) sniffFailure;
     assertThat(incorrectFragmentationSniffFailure.fileIsFragmented).isTrue();
+  }
+
+  @Test
+  public void verifyAc4MultipleAudioPresentations() throws Exception {
+    Mp4Extractor extractor = new Mp4Extractor(SubtitleParser.Factory.UNSUPPORTED);
+    FakeExtractorInput input = createInputForSample("sample_ac4_multiple_presentations.mp4");
+    List<AudioPresentation> refPresentations = new ArrayList<>();
+    refPresentations.add(new AudioPresentation.Builder(10)
+                        .setProgramId(300)
+                        .setLocale(ULocale.ENGLISH)
+                        .setMasteringIndication(AudioPresentation.MASTERED_FOR_SURROUND)
+                        .setHasSpokenSubtitles(false)
+                        .setHasDialogueEnhancement(false)
+                        .build());
+    refPresentations.add(new AudioPresentation.Builder(11)
+                        .setProgramId(300)
+                        .setLocale(ULocale.ENGLISH)
+                        .setMasteringIndication(AudioPresentation.MASTERED_FOR_SURROUND)
+                        .setHasSpokenSubtitles(false)
+                        .setHasAudioDescription(false)
+                        .setHasDialogueEnhancement(false)
+                        .build());
+    refPresentations.add(new AudioPresentation.Builder(12)
+                        .setProgramId(300)
+                        .setLocale(ULocale.ENGLISH)
+                        .setMasteringIndication(AudioPresentation.MASTERED_FOR_SURROUND)
+                        .setHasSpokenSubtitles(false)
+                        .setHasDialogueEnhancement(false)
+                        .build());
+
+    FakeExtractorOutput output =
+        new FakeExtractorOutput(
+            (id, type) -> new FakeTrackOutput(/* deduplicateConsecutiveFormats= */ true));
+    PositionHolder seekPositionHolder = new PositionHolder();
+    extractor.init(output);
+    int readResult = Extractor.RESULT_CONTINUE;
+    while (readResult != Extractor.RESULT_END_OF_INPUT) {
+      readResult = extractor.read(input, seekPositionHolder);
+      if (readResult == Extractor.RESULT_SEEK) {
+        long seekPosition = seekPositionHolder.position;
+        input.setPosition((int) seekPosition);
+      }
+    }
+    assertThat(output.numberOfTracks).isEqualTo(1);
+    Format formatFromBundle = null;
+    List<AudioPresentation> audioPresentations = null;
+    for (int i = 0; i < output.numberOfTracks; i++) {
+      int trackId = output.trackOutputs.keyAt(i);
+      Format format = output.trackOutputs.get(trackId).lastFormat;
+      if (format != null && format.sampleMimeType.equals(MimeTypes.AUDIO_AC4)) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+          audioPresentations = format.audioPresentations;
+        } else {
+          Bundle formatAsBundle = format.toBundle();
+          assertThat(formatAsBundle).isNotNull();
+          formatFromBundle = Format.fromBundle(format.toBundle());
+          assertThat(formatFromBundle).isNotNull();
+          audioPresentations = formatFromBundle.audioPresentations;
+        }
+      }
+    }
+    assertThat(audioPresentations).isNotNull();
+    assertThat(refPresentations.size()).isEqualTo(audioPresentations.size());
+    for (int i = 0; i < refPresentations.size(); i++) {
+      assertThat(refPresentations.get(i)).isEqualTo((audioPresentations.get(i)));
+    }
   }
 
   @Test
