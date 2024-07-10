@@ -22,13 +22,16 @@ import android.graphics.SurfaceTexture;
 import android.view.Surface;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
+import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RenderersFactory;
 import androidx.media3.exoplayer.dash.DashMediaSource;
+import androidx.media3.exoplayer.dash.DefaultDashChunkSource;
 import androidx.media3.exoplayer.metadata.MetadataDecoderFactory;
 import androidx.media3.exoplayer.metadata.MetadataRenderer;
+import androidx.media3.exoplayer.source.chunk.BundledChunkExtractor;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import androidx.media3.test.utils.CapturingRenderersFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
@@ -364,5 +367,39 @@ public final class DashPlaybackTest {
 
     DumpFileAsserts.assertOutput(
         applicationContext, playbackOutput, "playbackdumps/dash/image_with_seek_after_eos.dump");
+  }
+
+  @Test
+  public void playVideo_usingWithinGopSampleDependencies_withSeek() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    CapturingRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersFactory(applicationContext);
+    BundledChunkExtractor.Factory chunkExtractorFactory =
+        new BundledChunkExtractor.Factory().experimentalParseWithinGopSampleDependencies(true);
+    DataSource.Factory defaultDataSourceFactory = new DefaultDataSource.Factory(applicationContext);
+    DashMediaSource.Factory dashMediaSourceFactory =
+        new DashMediaSource.Factory(
+            /* chunkSourceFactory= */ new DefaultDashChunkSource.Factory(
+                chunkExtractorFactory, defaultDataSourceFactory, /* maxSegmentsPerLoad= */ 1),
+            /* manifestDataSourceFactory= */ defaultDataSourceFactory);
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setMediaSourceFactory(dashMediaSourceFactory)
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+
+    player.setMediaItem(MediaItem.fromUri("asset:///media/dash/standalone-webvtt/sample.mpd"));
+    player.seekTo(500L);
+    player.prepare();
+    player.play();
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    DumpFileAsserts.assertOutput(
+        applicationContext, playbackOutput, "playbackdumps/dash/optimized_seek.dump");
   }
 }

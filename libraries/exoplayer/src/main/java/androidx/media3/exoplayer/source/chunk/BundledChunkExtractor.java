@@ -62,6 +62,7 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
 
     private SubtitleParser.Factory subtitleParserFactory;
     private boolean parseSubtitlesDuringExtraction;
+    private boolean parseWithinGopSampleDependencies;
 
     public Factory() {
       subtitleParserFactory = new DefaultSubtitleParserFactory();
@@ -147,6 +148,9 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
         if (!parseSubtitlesDuringExtraction) {
           flags |= FragmentedMp4Extractor.FLAG_EMIT_RAW_SUBTITLE_DATA;
         }
+        if (parseWithinGopSampleDependencies) {
+          flags |= FragmentedMp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES;
+        }
         extractor =
             new FragmentedMp4Extractor(
                 subtitleParserFactory,
@@ -163,6 +167,26 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
         extractor = new SubtitleTranscodingExtractor(extractor, subtitleParserFactory);
       }
       return new BundledChunkExtractor(extractor, primaryTrackType, representationFormat);
+    }
+
+    /**
+     * Sets whether within GOP sample dependency information should be parsed as part of extraction.
+     * Defaults to {@code false}.
+     *
+     * <p>Having access to additional sample dependency information can speed up seeking. See {@link
+     * FragmentedMp4Extractor#FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES}.
+     *
+     * <p>This method is experimental and will be renamed or removed in a future release.
+     *
+     * @param parseWithinGopSampleDependencies Whether to parse within GOP sample dependencies
+     *     during extraction.
+     * @return This factory, for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Factory experimentalParseWithinGopSampleDependencies(
+        boolean parseWithinGopSampleDependencies) {
+      this.parseWithinGopSampleDependencies = parseWithinGopSampleDependencies;
+      return this;
     }
   }
 
