@@ -737,8 +737,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       // Flush the video sink first to ensure it stops reading textures that will be owned by
       // MediaCodec once the codec is flushed.
       videoSink.flush(/* resetPosition= */ true);
-      videoSink.setStreamOffsetAndAdjustmentUs(
-          getOutputStreamOffsetUs(), getBufferTimestampAdjustmentUs());
+      videoSink.setStreamTimestampInfo(
+          getOutputStreamStartPositionUs(),
+          getOutputStreamOffsetUs(),
+          getBufferTimestampAdjustmentUs(),
+          getLastResetPositionUs());
       videoSinkNeedsRegisterInputStream = true;
     }
     super.onPositionReset(positionUs, joining);
@@ -1404,6 +1407,34 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     long outputStreamOffsetUs = getOutputStreamOffsetUs();
     long presentationTimeUs = bufferPresentationTimeUs - outputStreamOffsetUs;
 
+    if (videoSink != null) {
+      long framePresentationTimeUs = bufferPresentationTimeUs + getBufferTimestampAdjustmentUs();
+      try {
+        return videoSink.handleInputFrame(
+            framePresentationTimeUs,
+            isLastBuffer,
+            positionUs,
+            elapsedRealtimeUs,
+            new VideoSink.VideoFrameHandler() {
+              @Override
+              public void render(long renderTimestampNs) {
+                renderOutputBuffer(codec, bufferIndex, presentationTimeUs, renderTimestampNs);
+              }
+
+              @Override
+              public void skip() {
+                skipOutputBuffer(codec, bufferIndex, presentationTimeUs);
+              }
+            });
+      } catch (VideoSink.VideoSinkException e) {
+        throw createRendererException(
+            e, e.format, PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED);
+      }
+    }
+
+    // The frame release action should be retrieved for all frames (even the ones that will be
+    // skipped), because the release control estimates the content frame rate from frame timestamps
+    // and we want to have this information known as early as possible, especially during seeking.
     @VideoFrameReleaseControl.FrameReleaseAction
     int frameReleaseAction =
         videoFrameReleaseControl.getFrameReleaseAction(
@@ -1419,18 +1450,14 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       return false;
     }
 
-    // Skip decode-only buffers, e.g. after seeking, immediately. This check must be performed after
-    // getting the release action from the video frame release control although not necessary.
-    // That's because the release control estimates the content frame rate from frame timestamps
-    // and we want to have this information known as early as possible, especially during seeking.
+    // Skip decode-only buffers, e.g. after seeking, immediately.
     if (isDecodeOnlyBuffer && !isLastBuffer) {
       skipOutputBuffer(codec, bufferIndex, presentationTimeUs);
       return true;
     }
 
     // We are not rendering on a surface, the renderer will wait until a surface is set.
-    // Opportunistically render to VideoSink if it is enabled.
-    if (displaySurface == placeholderSurface && videoSink == null) {
+    if (displaySurface == placeholderSurface) {
       // Skip frames in sync with playback, so we'll be at the right frame if the mode changes.
       if (videoFrameReleaseInfo.getEarlyUs() < 30_000) {
         skipOutputBuffer(codec, bufferIndex, presentationTimeUs);
@@ -1438,24 +1465,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         return true;
       }
       return false;
-    }
-
-    if (videoSink != null) {
-      try {
-        videoSink.render(positionUs, elapsedRealtimeUs);
-      } catch (VideoSink.VideoSinkException e) {
-        throw createRendererException(
-            e, e.format, PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED);
-      }
-
-      long releaseTimeNs =
-          videoSink.registerInputFrame(
-              bufferPresentationTimeUs + getBufferTimestampAdjustmentUs(), isLastBuffer);
-      if (releaseTimeNs == C.TIME_UNSET) {
-        return false;
-      }
-      renderOutputBuffer(codec, bufferIndex, presentationTimeUs, releaseTimeNs);
-      return true;
     }
 
     switch (frameReleaseAction) {
@@ -1567,8 +1576,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   protected void onProcessedStreamChange() {
     super.onProcessedStreamChange();
     if (videoSink != null) {
-      videoSink.setStreamOffsetAndAdjustmentUs(
-          getOutputStreamOffsetUs(), getBufferTimestampAdjustmentUs());
+      videoSink.setStreamTimestampInfo(
+          getOutputStreamStartPositionUs(),
+          getOutputStreamOffsetUs(),
+          getBufferTimestampAdjustmentUs(),
+          getLastResetPositionUs());
     } else {
       videoFrameReleaseControl.onProcessedStreamChange();
     }

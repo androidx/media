@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.video;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.graphics.Bitmap;
+import android.os.SystemClock;
 import android.view.Surface;
 import androidx.annotation.FloatRange;
 import androidx.annotation.IntDef;
@@ -92,6 +93,21 @@ public interface VideoSink {
           @Override
           public void onError(VideoSink videoSink, VideoSinkException videoSinkException) {}
         };
+  }
+
+  /** Handler for a video frame. */
+  interface VideoFrameHandler {
+
+    /**
+     * Renders the frame on the {@linkplain #getInputSurface() input surface}.
+     *
+     * @param renderTimestampNs The timestamp to associate with this frame when it is sent to the
+     *     surface.
+     */
+    void render(long renderTimestampNs);
+
+    /** Skips the frame. */
+    void skip();
   }
 
   /**
@@ -193,14 +209,21 @@ public interface VideoSink {
   void setPendingVideoEffects(List<Effect> videoEffects);
 
   /**
-   * Sets the stream offset and buffer time adjustment.
+   * Sets information about the timestamps of the current input stream.
    *
+   * @param streamStartPositionUs The start position of the buffer presentation timestamps of the
+   *     current stream, in microseconds.
    * @param streamOffsetUs The offset that is added to the buffer presentation timestamps by the
    *     player, in microseconds.
    * @param bufferTimestampAdjustmentUs The timestamp adjustment to add to the buffer presentation
    *     timestamps to convert them to frame presentation timestamps, in microseconds.
+   * @param lastResetPositionUs The renderer last reset position, in microseconds.
    */
-  void setStreamOffsetAndAdjustmentUs(long streamOffsetUs, long bufferTimestampAdjustmentUs);
+  void setStreamTimestampInfo(
+      long streamStartPositionUs,
+      long streamOffsetUs,
+      long bufferTimestampAdjustmentUs,
+      long lastResetPositionUs);
 
   /** Sets the output surface info. */
   void setOutputSurfaceInfo(Surface outputSurface, Size outputResolution);
@@ -236,19 +259,27 @@ public interface VideoSink {
   void registerInputStream(@InputType int inputType, Format format);
 
   /**
-   * Informs the video sink that a frame will be queued to its {@linkplain #getInputSurface() input
-   * surface}.
+   * Handles a video input frame.
    *
    * <p>Must be called after the corresponding stream is {@linkplain #registerInputStream(int,
    * Format) registered}.
    *
    * @param framePresentationTimeUs The frame's presentation time, in microseconds.
    * @param isLastFrame Whether this is the last frame of the video stream.
-   * @return A release timestamp, in nanoseconds, that should be associated when releasing this
-   *     frame, or {@link C#TIME_UNSET} if the sink was not able to register the frame and the
-   *     caller must try again later.
+   * @param positionUs The current playback position, in microseconds.
+   * @param elapsedRealtimeUs {@link SystemClock#elapsedRealtime()} in microseconds, taken
+   *     approximately at the time the playback position was {@code positionUs}.
+   * @param videoFrameHandler The {@link VideoFrameHandler} used to handle the input frame.
+   * @return Whether the frame was handled successfully. If {@code false}, the caller can try again
+   *     later.
    */
-  long registerInputFrame(long framePresentationTimeUs, boolean isLastFrame);
+  boolean handleInputFrame(
+      long framePresentationTimeUs,
+      boolean isLastFrame,
+      long positionUs,
+      long elapsedRealtimeUs,
+      VideoFrameHandler videoFrameHandler)
+      throws VideoSinkException;
 
   /**
    * Provides an input {@link Bitmap} to the video sink.
@@ -259,8 +290,8 @@ public interface VideoSink {
    * @param inputBitmap The {@link Bitmap} queued to the video sink.
    * @param timestampIterator The times within the current stream that the bitmap should be shown
    *     at. The timestamps should be monotonically increasing.
-   * @return Whether the bitmap was queued successfully. A {@code false} value indicates the caller
-   *     must try again later.
+   * @return Whether the bitmap was queued successfully. If {@code false}, the caller can try again
+   *     later.
    */
   boolean queueBitmap(Bitmap inputBitmap, TimestampIterator timestampIterator);
 

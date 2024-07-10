@@ -302,6 +302,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private @MonotonicNonNull EditedMediaItem editedMediaItem;
     @Nullable private ExoPlaybackException pendingExoPlaybackException;
     private boolean inputStreamPendingRegistration;
+    private long streamStartPositionUs;
     private long streamOffsetUs;
     private boolean mayRenderStartOfStream;
     private long offsetToCompositionTimeUs;
@@ -314,6 +315,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           checkStateNotNull(sequencePlayerRenderersWrapper.compositingVideoSinkProvider);
       videoSink = compositingVideoSinkProvider.getSink();
       videoEffects = ImmutableList.of();
+      streamStartPositionUs = C.TIME_UNSET;
       streamOffsetUs = C.TIME_UNSET;
     }
 
@@ -399,6 +401,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         throws ExoPlaybackException {
       checkState(getTimeline().getWindowCount() == 1);
       super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
+      streamStartPositionUs = startPositionUs;
       streamOffsetUs = offsetUs;
       int mediaItemIndex = getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid);
       editedMediaItem =
@@ -425,10 +428,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     protected boolean processOutputBuffer(
         long positionUs, long elapsedRealtimeUs, Bitmap outputImage, long timeUs) {
       if (inputStreamPendingRegistration) {
+        checkState(streamStartPositionUs != C.TIME_UNSET);
         checkState(streamOffsetUs != C.TIME_UNSET);
         videoSink.setPendingVideoEffects(videoEffects);
-        videoSink.setStreamOffsetAndAdjustmentUs(
-            streamOffsetUs, /* bufferTimestampAdjustmentUs= */ offsetToCompositionTimeUs);
+        videoSink.setStreamTimestampInfo(
+            streamStartPositionUs,
+            streamOffsetUs,
+            /* bufferTimestampAdjustmentUs= */ offsetToCompositionTimeUs,
+            getLastResetPositionUs());
         videoSink.registerInputStream(
             VideoSink.INPUT_TYPE_BITMAP,
             new Format.Builder()

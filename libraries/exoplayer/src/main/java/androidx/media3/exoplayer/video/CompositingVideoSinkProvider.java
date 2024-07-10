@@ -488,13 +488,16 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
     private final Context context;
     private final int videoFrameProcessorMaxPendingFrameCount;
     private final ArrayList<Effect> videoEffects;
-    @Nullable private Effect rotationEffect;
+    private final VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo;
 
     private @MonotonicNonNull VideoFrameProcessor videoFrameProcessor;
+    @Nullable private Effect rotationEffect;
     @Nullable private Format inputFormat;
     private @InputType int inputType;
+    private long inputStreamStartPositionUs;
     private long inputStreamOffsetUs;
     private long inputBufferTimestampAdjustmentUs;
+    private long lastResetPositionUs;
     private boolean pendingInputStreamOffsetChange;
 
     /** The buffer presentation time, in microseconds, of the final frame in the stream. */
@@ -513,14 +516,13 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
     /** Creates a new instance. */
     public VideoSinkImpl(Context context) {
       this.context = context;
-      // TODO b/226330223 - Investigate increasing frame count when frame dropping is
-      //  allowed.
+      // TODO b/226330223 - Investigate increasing frame count when frame dropping is allowed.
       // TODO b/278234847 - Evaluate whether limiting frame count when frame dropping is not allowed
       //  reduces decoder timeouts, and consider restoring.
       videoFrameProcessorMaxPendingFrameCount =
           Util.getMaxPendingFramesCountForMediaCodecDecoders(context);
-
       videoEffects = new ArrayList<>();
+      frameReleaseInfo = new VideoFrameReleaseControl.FrameReleaseInfo();
       finalBufferPresentationTimeUs = C.TIME_UNSET;
       lastBufferPresentationTimeUs = C.TIME_UNSET;
       listener = VideoSink.Listener.NO_OP;
@@ -679,14 +681,19 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
     }
 
     @Override
-    public void setStreamOffsetAndAdjustmentUs(
-        long streamOffsetUs, long bufferTimestampAdjustmentUs) {
+    public void setStreamTimestampInfo(
+        long streamStartPositionUs,
+        long streamOffsetUs,
+        long bufferTimestampAdjustmentUs,
+        long lastResetPositionUs) {
       // Ors because this method could be called multiple times on a stream offset change.
       pendingInputStreamOffsetChange |=
           inputStreamOffsetUs != streamOffsetUs
               || inputBufferTimestampAdjustmentUs != bufferTimestampAdjustmentUs;
+      inputStreamStartPositionUs = streamStartPositionUs;
       inputStreamOffsetUs = streamOffsetUs;
       inputBufferTimestampAdjustmentUs = bufferTimestampAdjustmentUs;
+      this.lastResetPositionUs = lastResetPositionUs;
     }
 
     @Override
@@ -711,9 +718,55 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
     }
 
     @Override
-    public long registerInputFrame(long framePresentationTimeUs, boolean isLastFrame) {
+    public boolean handleInputFrame(
+        long framePresentationTimeUs,
+        boolean isLastFrame,
+        long positionUs,
+        long elapsedRealtimeUs,
+        VideoFrameHandler videoFrameHandler)
+        throws VideoSinkException {
       checkState(isInitialized());
-      checkState(videoFrameProcessorMaxPendingFrameCount != C.LENGTH_UNSET);
+
+      // The sink takes in frames with monotonically increasing, non-offset frame
+      // timestamps. That is, with two ten-second long videos, the first frame of the second video
+      // should bear a timestamp of 10s seen from VideoFrameProcessor; while in ExoPlayer, the
+      // timestamp of the said frame would be 0s, but the streamOffset is incremented by 10s to
+      // include the duration of the first video. Thus this correction is needed to account for the
+      // different handling of presentation timestamps in ExoPlayer and VideoFrameProcessor.
+      //
+      // inputBufferTimestampAdjustmentUs adjusts the frame presentation time (which is relative to
+      // the start of a composition) to the buffer timestamp (that corresponds to the player
+      // position).
+      long bufferPresentationTimeUs = framePresentationTimeUs - inputBufferTimestampAdjustmentUs;
+      // The frame release action should be retrieved for all frames (even the ones that will be
+      // skipped), because the release control estimates the content frame rate from frame
+      // timestamps and we want to have this information known as early as possible, especially
+      // during seeking.
+      @VideoFrameReleaseControl.FrameReleaseAction int frameReleaseAction;
+      try {
+        frameReleaseAction =
+            videoFrameReleaseControl.getFrameReleaseAction(
+                bufferPresentationTimeUs,
+                positionUs,
+                elapsedRealtimeUs,
+                inputStreamStartPositionUs,
+                isLastFrame,
+                frameReleaseInfo);
+      } catch (ExoPlaybackException e) {
+        throw new VideoSinkException(e, checkStateNotNull(inputFormat));
+      }
+      if (frameReleaseAction == VideoFrameReleaseControl.FRAME_RELEASE_IGNORE) {
+        // The buffer is no longer valid and needs to be ignored.
+        return false;
+      }
+
+      if (bufferPresentationTimeUs < lastResetPositionUs && !isLastFrame) {
+        videoFrameHandler.skip();
+        return true;
+      }
+
+      // Drain the sink to make room for a new input frame.
+      render(positionUs, elapsedRealtimeUs);
 
       // An input stream is fully decoded, wait until all of its frames are released before queueing
       // input frame from the next input stream.
@@ -723,34 +776,27 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
           maybeRegisterInputStream();
           pendingInputStreamBufferPresentationTimeUs = C.TIME_UNSET;
         } else {
-          return C.TIME_UNSET;
+          return false;
         }
       }
-
       if (checkStateNotNull(videoFrameProcessor).getPendingInputFrameCount()
           >= videoFrameProcessorMaxPendingFrameCount) {
-        return C.TIME_UNSET;
+        return false;
       }
       if (!checkStateNotNull(videoFrameProcessor).registerInputFrame()) {
-        return C.TIME_UNSET;
+        return false;
       }
-      // The sink takes in frames with monotonically increasing, non-offset frame
-      // timestamps. That is, with two ten-second long videos, the first frame of the second video
-      // should bear a timestamp of 10s seen from VideoFrameProcessor; while in ExoPlayer, the
-      // timestamp of the said frame would be 0s, but the streamOffset is incremented 10s to include
-      // the duration of the first video. Thus this correction is need to correct for the different
-      // handling of presentation timestamps in ExoPlayer and VideoFrameProcessor.
-      //
-      // inputBufferTimestampAdjustmentUs adjusts the frame presentation time (which is relative to
-      // the start of a composition, to the buffer timestamp that is offset, and correspond to the
-      // player position).
-      long bufferPresentationTimeUs = framePresentationTimeUs - inputBufferTimestampAdjustmentUs;
+
       maybeSetStreamOffsetChange(bufferPresentationTimeUs);
       lastBufferPresentationTimeUs = bufferPresentationTimeUs;
       if (isLastFrame) {
         finalBufferPresentationTimeUs = bufferPresentationTimeUs;
       }
-      return framePresentationTimeUs * 1000;
+      // Use the frame presentation time as render time so that the SurfaceTexture is accompanied
+      // by this timestamp. Setting a realtime based release time is only relevant when rendering to
+      // a SurfaceView, but we render to a surface in this case.
+      videoFrameHandler.render(/* renderTimestampNs= */ framePresentationTimeUs * 1000);
+      return true;
     }
 
     @Override
