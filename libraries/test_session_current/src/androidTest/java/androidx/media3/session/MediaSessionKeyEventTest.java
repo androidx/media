@@ -346,6 +346,20 @@ public class MediaSessionKeyEventTest {
     player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO_NEXT, TIMEOUT_MS);
   }
 
+  @Test
+  public void playPauseKeyEvent_doubleTapOnHeadsetHook_seekNext() throws Exception {
+    Assume.assumeTrue(Util.SDK_INT >= 21); // TODO: b/199064299 - Lower minSdk to 19.
+    handler.postAndSync(
+        () -> {
+          player.playWhenReady = true;
+          player.playbackState = Player.STATE_READY;
+        });
+
+    dispatchMediaKeyEvent(KeyEvent.KEYCODE_HEADSETHOOK, /* doubleTap= */ true);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO_NEXT, TIMEOUT_MS);
+  }
+
   private MediaController connectMediaNotificationController() throws Exception {
     return threadTestRule
         .getHandler()
