@@ -50,17 +50,19 @@ public final class ReorderingSeiMessageQueueTest {
     ParsableByteArray scratchData = new ParsableByteArray();
     byte[] data1 = TestUtil.buildTestData(5);
     scratchData.reset(data1);
-    reorderingQueue.add(345, scratchData);
+    reorderingQueue.add(/* presentationTimeUs= */ 345, scratchData);
     byte[] data2 = TestUtil.buildTestData(10);
     scratchData.reset(data2);
-    reorderingQueue.add(123, scratchData);
+    reorderingQueue.add(/* presentationTimeUs= */ 123, scratchData);
 
     assertThat(emittedMessages).isEmpty();
 
     reorderingQueue.flush();
 
     assertThat(emittedMessages)
-        .containsExactly(new SeiMessage(123, data2), new SeiMessage(345, data1))
+        .containsExactly(
+            new SeiMessage(/* presentationTimeUs= */ 123, data2),
+            new SeiMessage(/* presentationTimeUs= */ 345, data1))
         .inOrder();
   }
 
@@ -74,16 +76,17 @@ public final class ReorderingSeiMessageQueueTest {
     ParsableByteArray scratchData = new ParsableByteArray();
     byte[] data1 = TestUtil.buildTestData(5);
     scratchData.reset(data1);
-    reorderingQueue.add(345, scratchData);
+    reorderingQueue.add(/* presentationTimeUs= */ 345, scratchData);
     byte[] data2 = TestUtil.buildTestData(10);
     scratchData.reset(data2);
-    reorderingQueue.add(123, scratchData);
+    reorderingQueue.add(/* presentationTimeUs= */ 123, scratchData);
 
     assertThat(emittedMessages).isEmpty();
 
     reorderingQueue.setMaxSize(1);
 
-    assertThat(emittedMessages).containsExactly(new SeiMessage(123, data2));
+    assertThat(emittedMessages)
+        .containsExactly(new SeiMessage(/* presentationTimeUs= */ 123, data2));
   }
 
   @Test
@@ -100,15 +103,16 @@ public final class ReorderingSeiMessageQueueTest {
     ParsableByteArray scratchData = new ParsableByteArray();
     byte[] data1 = TestUtil.buildTestData(5);
     scratchData.reset(data1);
-    reorderingQueue.add(345, scratchData);
+    reorderingQueue.add(/* presentationTimeUs= */ 345, scratchData);
 
     assertThat(emittedMessages).isEmpty();
 
     byte[] data2 = TestUtil.buildTestData(10);
     scratchData.reset(data2);
-    reorderingQueue.add(123, scratchData);
+    reorderingQueue.add(/* presentationTimeUs= */ 123, scratchData);
 
-    assertThat(emittedMessages).containsExactly(new SeiMessage(123, data2));
+    assertThat(emittedMessages)
+        .containsExactly(new SeiMessage(/* presentationTimeUs= */ 123, data2));
   }
 
   /**
@@ -126,13 +130,13 @@ public final class ReorderingSeiMessageQueueTest {
     ParsableByteArray scratchData = new ParsableByteArray();
     byte[] data1 = TestUtil.buildTestData(5);
     scratchData.reset(data1);
-    reorderingQueue.add(345, scratchData);
+    reorderingQueue.add(/* presentationTimeUs= */ 345, scratchData);
 
     verifyNoInteractions(mockSeiConsumer);
 
     byte[] data2 = TestUtil.buildTestData(10);
     scratchData.reset(data2);
-    reorderingQueue.add(123, scratchData);
+    reorderingQueue.add(/* presentationTimeUs= */ 123, scratchData);
 
     verify(mockSeiConsumer).consume(eq(123L), same(scratchData));
   }
