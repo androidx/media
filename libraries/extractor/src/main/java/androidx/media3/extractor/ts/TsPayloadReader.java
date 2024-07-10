@@ -18,6 +18,7 @@ package androidx.media3.extractor.ts;
 import static java.lang.annotation.ElementType.TYPE_USE;
 import static java.lang.annotation.RetentionPolicy.SOURCE;
 
+import android.media.AudioPresentation;
 import android.util.SparseArray;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
@@ -111,6 +112,7 @@ public interface TsPayloadReader {
     public final @AudioType int audioType;
     public final List<DvbSubtitleInfo> dvbSubtitleInfos;
     public final byte[] descriptorBytes;
+    @Nullable public final List<AudioPresentation> audioPresentations;
 
     /**
      * @param streamType The type of the stream as defined by the {@link TsExtractor}{@code
@@ -119,13 +121,15 @@ public interface TsPayloadReader {
      * @param audioType The audio type of the stream, as defined by ISO/IEC 13818-1, section 2.6.18.
      * @param dvbSubtitleInfos Information about DVB subtitles associated to the stream.
      * @param descriptorBytes The descriptor bytes associated to the stream.
+     * @param audioPresentations The audio presentations associated with the stream.
      */
     public EsInfo(
         int streamType,
         @Nullable String language,
         @AudioType int audioType,
         @Nullable List<DvbSubtitleInfo> dvbSubtitleInfos,
-        byte[] descriptorBytes) {
+        byte[] descriptorBytes,
+        @Nullable List<AudioPresentation> audioPresentations) {
       this.streamType = streamType;
       this.language = language;
       this.audioType = audioType;
@@ -134,6 +138,7 @@ public interface TsPayloadReader {
               ? Collections.emptyList()
               : Collections.unmodifiableList(dvbSubtitleInfos);
       this.descriptorBytes = descriptorBytes;
+      this.audioPresentations = audioPresentations;
     }
   }
 
