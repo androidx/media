@@ -25,6 +25,7 @@ import androidx.media3.test.utils.HttpDataSourceTestEnv;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.chromium.net.CronetEngine;
@@ -45,15 +46,16 @@ public class CronetDataSourceContractTest extends DataSourceContractTest {
   }
 
   @Override
-  protected DataSource createDataSource() {
+  protected List<DataSource> createDataSources() {
     @Nullable
     CronetEngine cronetEngine =
         CronetUtil.buildCronetEngine(
             ApplicationProvider.getApplicationContext(),
             /* userAgent= */ "test-agent",
-            /* preferGMSCoreCronet= */ false);
+            /* preferGooglePlayServices= */ false);
     assertThat(cronetEngine).isNotNull();
-    return new CronetDataSource.Factory(cronetEngine, executorService).createDataSource();
+    return ImmutableList.of(
+        new CronetDataSource.Factory(cronetEngine, executorService).createDataSource());
   }
 
   @Override
