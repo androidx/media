@@ -411,10 +411,8 @@ public final class AviExtractor implements Extractor {
         // We ignore unknown chunk IDs.
         continue;
       }
-      if ((flags & AVIIF_KEYFRAME) == AVIIF_KEYFRAME) {
-        chunkReader.appendKeyFrameToIndex(offset);
-      }
-      chunkReader.incrementIndexChunkCount();
+      chunkReader.appendIndexChunk(
+          offset, /* isKeyFrame= */ (flags & AVIIF_KEYFRAME) == AVIIF_KEYFRAME);
     }
     for (ChunkReader chunkReader : chunkReaders) {
       chunkReader.compactIndex();
