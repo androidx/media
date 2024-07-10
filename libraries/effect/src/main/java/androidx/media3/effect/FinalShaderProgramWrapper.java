@@ -335,9 +335,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return;
     }
 
-    if (outputSurfaceInfo != null
-        && this.outputSurfaceInfo != null
-        && !this.outputSurfaceInfo.surface.equals(outputSurfaceInfo.surface)) {
+    if (this.outputSurfaceInfo != null
+        && (outputSurfaceInfo == null
+            || !this.outputSurfaceInfo.surface.equals(outputSurfaceInfo.surface))) {
+      // Destroy outputEglSurface as soon as we lose reference to the corresponding Surface.
+      // outputEglSurface is a graphics buffer producer for a BufferQueue, and
+      // this.outputSurfaceInfo.surface is the associated consumer. The consumer owns the
+      // BufferQueue https://source.android.com/docs/core/graphics/arch-bq-gralloc#BufferQueue.
+      // If the consumer and the BufferQueue are released while the producer is still alive, EGL
+      // gets stuck trying to dequeue a new buffer from the released BufferQueue. This probably
+      // happens when the previously queued back buffer is ready for display.
       try {
         GlUtil.destroyEglSurface(eglDisplay, outputEglSurface);
       } catch (GlUtil.GlException e) {
@@ -455,11 +462,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
     checkNotNull(outputSizeBeforeSurfaceTransformation);
 
-    if (outputSurfaceInfo == null) {
-      GlUtil.destroyEglSurface(eglDisplay, outputEglSurface);
-      outputEglSurface = null;
-    }
     if (outputSurfaceInfo == null && textureOutputListener == null) {
+      checkState(outputEglSurface == null);
       if (defaultShaderProgram != null) {
         defaultShaderProgram.release();
         defaultShaderProgram = null;
