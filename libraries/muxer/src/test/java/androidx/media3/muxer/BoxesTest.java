@@ -30,6 +30,7 @@ import android.media.MediaCodec;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
@@ -394,6 +395,35 @@ public class BoxesTest {
     DumpableMp4Box dumpableBox = new DumpableMp4Box(videoSampleEntryBox);
     DumpFileAsserts.assertOutput(
         context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("video_sample_entry_box_av1"));
+  }
+
+  @Test
+  public void createVideoSampleEntryBox_forMPEG4_matchesExpected() throws IOException {
+    Format format =
+        new Format.Builder()
+            .setId(1)
+            .setSampleMimeType(MimeTypes.VIDEO_MP4V)
+            .setAverageBitrate(9200)
+            .setPeakBitrate(9200)
+            .setLanguage("und")
+            .setWidth(10)
+            .setMaxInputSize(49)
+            .setFrameRate(25)
+            .setHeight(12)
+            .setInitializationData(
+                ImmutableList.of(
+                    BaseEncoding.base16()
+                        .decode(
+                            "000001B001000001B58913000001000000012000C48D88007D0584121443000001B24C61766335382E35342E313030")))
+            .build();
+
+    ByteBuffer videoSampleEntryBox = Boxes.videoSampleEntry(format);
+
+    DumpableMp4Box dumpableBox = new DumpableMp4Box(videoSampleEntryBox);
+    DumpFileAsserts.assertOutput(
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedDumpFilePath("video_sample_entry_box_mpeg4"));
   }
 
   @Test

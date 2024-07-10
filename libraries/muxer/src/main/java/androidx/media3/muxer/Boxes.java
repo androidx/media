@@ -542,6 +542,7 @@ import java.util.List;
     String mimeType = checkNotNull(format.sampleMimeType);
     switch (mimeType) {
       case MimeTypes.AUDIO_AAC:
+      case MimeTypes.VIDEO_MP4V:
         return esdsBox(format);
       case MimeTypes.AUDIO_AMR_WB:
         return damrBox(/* mode= */ (short) 0x83FF); // mode set: all enabled
@@ -1329,6 +1330,8 @@ import java.util.List;
         return "hvc1";
       case MimeTypes.VIDEO_AV1:
         return "av01";
+      case MimeTypes.VIDEO_MP4V:
+        return "mp4v-es";
       default:
         throw new IllegalArgumentException("Unsupported format: " + mimeType);
     }
@@ -1344,6 +1347,7 @@ import java.util.List;
     ByteBuffer csd0ByteBuffer = ByteBuffer.wrap(csd0);
     int peakBitrate = format.peakBitrate;
     int averageBitrate = format.averageBitrate;
+    boolean isVideo = MimeTypes.isVideo(format.sampleMimeType);
 
     int csd0Size = csd0ByteBuffer.limit();
     ByteBuffer dsiSizeBuffer = getSizeBuffer(csd0Size);
@@ -1358,17 +1362,18 @@ import java.util.List;
     contents.put(esdSizeBuffer);
 
     contents.putShort((short) 0x0000); // First 16 bits of ES_ID.
-    contents.put((byte) 0x00); // Last 8 bits of ES_ID.
+    contents.put(isVideo ? (byte) 0x1f : (byte) 0x00); // Last 8 bits of ES_ID.
 
     contents.put((byte) 0x04); // DecoderConfigDescrTag
     contents.put(dcdSizeBuffer);
 
-    contents.put((byte) 0x40); // objectTypeIndication
+    contents.put(isVideo ? (byte) 0x20 : (byte) 0x40); // objectTypeIndication
     // streamType (6 bits) | upStream (1 bit) | reserved = 1 (1 bit)
-    contents.put((byte) ((0x05 << 2) | 0x01)); // streamType AudioStream
+    contents.put((byte) ((isVideo ? (0x04 << 2) : (0x05 << 2)) | 0x01)); // streamType
 
-    contents.putShort((short) 0x03); // First 16 bits of buffer size (0x300).
-    contents.put((byte) 0x00); // Last 8 bits of buffer size (0x300).
+    int size = isVideo ? 0x017700 : 0x000300;
+    contents.putShort((short) ((size >> 8) & 0xFFFF)); // First 16 bits of buffer size.
+    contents.put((byte) 0x00); // Last 8 bits of buffer size.
 
     contents.putInt(peakBitrate != Format.NO_VALUE ? peakBitrate : 0);
     contents.putInt(averageBitrate != Format.NO_VALUE ? averageBitrate : 0);
