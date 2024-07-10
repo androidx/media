@@ -39,6 +39,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Bytes;
 import java.nio.ByteBuffer;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -1346,37 +1347,37 @@ import java.util.Locale;
     ByteBuffer csd0ByteBuffer = ByteBuffer.wrap(csd0);
     int peakBitrate = format.peakBitrate;
     int averageBitrate = format.averageBitrate;
+
     int csd0Size = csd0ByteBuffer.limit();
+    ByteBuffer dsiSizeBuffer = getSizeBuffer(csd0Size);
+    ByteBuffer dcdSizeBuffer = getSizeBuffer(csd0Size + dsiSizeBuffer.remaining() + 14);
+    ByteBuffer esdSizeBuffer =
+        getSizeBuffer(csd0Size + dsiSizeBuffer.remaining() + dcdSizeBuffer.remaining() + 21);
 
     ByteBuffer contents = ByteBuffer.allocate(csd0Size + MAX_FIXED_LEAF_BOX_SIZE);
-    contents.putInt(0x0); // version and flags.
+    contents.putInt(0x00); // Version and flags.
     contents.put((byte) 0x03); // ES_DescrTag
 
-    // We're normally using a variable-length encoding for the length of various sub-packages (esds
-    // etc.), in a nested way, so outer lengths need to account for variable-length inner lengths
-    // too (to save ~10 bytes per video file). Meanwhile, AAC codec-specific
-    // data is typically just 2 bytes, so every length actually fits into a byte. Here, we're just
-    // skipping the entire complex story by asserting that we won't ever need variable-length sizes.
-    checkArgument(csd0Size + 21 < 127, "CSD too long; we might need variable-length encoding?");
+    contents.put(esdSizeBuffer);
 
-    contents.put((byte) (23 + csd0Size));
-
-    contents.putShort((short) 0x0000); // ES_ID
-    contents.put((byte) 0x00);
+    contents.putShort((short) 0x0000); // First 16 bits of ES_ID.
+    contents.put((byte) 0x00); // Last 8 bits of ES_ID.
 
     contents.put((byte) 0x04); // DecoderConfigDescrTag
-    contents.put((byte) (15 + csd0Size));
-    contents.put((byte) 0x40); // objectTypeIndication
-    contents.put((byte) 0x15); // streamType AudioStream
+    contents.put(dcdSizeBuffer);
 
-    contents.putShort((short) 0x03);
-    contents.put((byte) 0x00); // 24-bit buffer size (0x300)
+    contents.put((byte) 0x40); // objectTypeIndication
+    // streamType (6 bits) | upStream (1 bit) | reserved = 1 (1 bit)
+    contents.put((byte) ((0x05 << 2) | 0x01)); // streamType AudioStream
+
+    contents.putShort((short) 0x03); // First 16 bits of buffer size (0x300).
+    contents.put((byte) 0x00); // Last 8 bits of buffer size (0x300).
 
     contents.putInt(peakBitrate != Format.NO_VALUE ? peakBitrate : 0);
     contents.putInt(averageBitrate != Format.NO_VALUE ? averageBitrate : 0);
 
     contents.put((byte) 0x05); // DecoderSpecificInfoTag
-    contents.put((byte) csd0Size);
+    contents.put(dsiSizeBuffer);
     contents.put(csd0ByteBuffer);
     csd0ByteBuffer.rewind();
 
@@ -1386,6 +1387,23 @@ import java.util.Locale;
 
     contents.flip();
     return BoxUtils.wrapIntoBox("esds", contents);
+  }
+
+  private static ByteBuffer getSizeBuffer(int length) {
+    int prefix = 0;
+    ArrayDeque<Byte> esdsSizeBytes = new ArrayDeque<>();
+    do {
+      esdsSizeBytes.push((byte) (prefix | (length & 0x7F)));
+      length >>= 7;
+      prefix = 0x80;
+    } while (length > 0);
+
+    ByteBuffer sizeBuffer = ByteBuffer.allocate(esdsSizeBytes.size());
+    while (!esdsSizeBytes.isEmpty()) {
+      sizeBuffer.put(esdsSizeBytes.removeFirst());
+    }
+    sizeBuffer.flip();
+    return sizeBuffer;
   }
 
   /** Returns the audio damr box. */
