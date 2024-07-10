@@ -11,15 +11,6 @@
     *   Add override for `SimpleBasePlayer.State.Builder.setPlaylist()` to
         directly specify a `Timeline` and current `Tracks` and `Metadata`
         instead of building a playlist structure.
-    *   Upgrade `androidx.annotation:annotation` dependency to `1.6.0`. This may
-        cause `duplicate class kotlin.internal.jdk7.JDK7PlatformImplementations`
-        and similar errors for non-Kotlin apps that also depend on other libs
-        like `androidx.appcompat:appcompat`. This is due to
-        [incomplete version constraints in the Kotlin standard library](https://youtrack.jetbrains.com/issue/KT-55297).
-        Apps can resolve this by upgrading their
-        [Kotlin Gradle Plugin](https://kotlinlang.org/docs/gradle-configure-project.html#apply-the-plugin)
-        to at least version `1.9.20` or using the workaround described in
-        https://issuetracker.google.com/278545487.
 *   ExoPlayer:
     *   `MediaCodecRenderer.onProcessedStreamChange()` can now be called for
         every media item. Previously it was not called for the first one. Use
