@@ -21,6 +21,10 @@
 *   Muxers:
 *   IMA extension:
 *   Session:
+    *   Transform a double-tap of `KEYCODE_HEADSETHOOK` into a 'seek to next'
+        action, as
+        [documented](https://developer.android.com/reference/androidx/media3/session/MediaSession#media-key-events-mapping)
+        ([#1493](https://github.com/androidx/media/issues/1493)).
 *   UI:
 *   Downloads:
 *   OkHttp Extension:

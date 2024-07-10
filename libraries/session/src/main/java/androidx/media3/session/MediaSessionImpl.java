@@ -1242,7 +1242,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     if (!isMediaNotificationControllerConnected()) {
-      if (keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE && doubleTapCompleted) {
+      if ((keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE || keyCode == KeyEvent.KEYCODE_HEADSETHOOK)
+          && doubleTapCompleted) {
         // Double tap completion for legacy when media notification controller is disabled.
         sessionLegacyStub.onSkipToNext();
         return true;
@@ -1262,7 +1263,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     ControllerInfo controllerInfo = checkNotNull(instance.getMediaNotificationControllerInfo());
     Runnable command;
     int keyCode = keyEvent.getKeyCode();
-    if ((keyCode == KEYCODE_MEDIA_PLAY_PAUSE || keyCode == KEYCODE_MEDIA_PLAY)
+    if ((keyCode == KEYCODE_MEDIA_PLAY_PAUSE || keyCode == KeyEvent.KEYCODE_HEADSETHOOK)
         && doubleTapCompleted) {
       keyCode = KEYCODE_MEDIA_NEXT;
     }
