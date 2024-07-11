@@ -213,6 +213,11 @@ public final class Mp4ExtractorParameterizedTest {
     assertExtractorBehavior("media/mp4/sample_iamf.mp4");
   }
 
+  @Test
+  public void mp4SampleWithMvHevc8bit() throws Exception {
+    assertExtractorBehavior("media/mp4/water_180_mvhevc_5frames.mov");
+  }
+
   private void assertExtractorBehavior(String file) throws IOException {
     ExtractorAsserts.AssertionConfig.Builder assertionConfigBuilder =
         new ExtractorAsserts.AssertionConfig.Builder();
