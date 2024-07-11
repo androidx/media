@@ -53,7 +53,6 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class ForceEndOfStreamTest {
 
-  // Referenced from ExternalTextureManager
   private final Context context = ApplicationProvider.getApplicationContext();
   @Rule public final TestName testName = new TestName();
 
