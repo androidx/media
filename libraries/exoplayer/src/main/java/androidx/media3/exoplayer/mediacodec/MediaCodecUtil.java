@@ -528,6 +528,11 @@ public final class MediaCodecUtil {
           || "OMX.realtek.video.decoder.tunneled".equals(name)) {
         return "video/dv_hevc";
       }
+    } else if (mimeType.equals(MimeTypes.VIDEO_MV_HEVC)) {
+      // Handle decoders that declare support for MV-HEVC via MIME types that aren't video/mv-hevc.
+      if ("c2.qti.mvhevc.decoder".equals(name)) {
+        return "video/x-mvhevc";
+      }
     } else if (mimeType.equals(MimeTypes.AUDIO_ALAC) && "OMX.lge.alac.decoder".equals(name)) {
       return "audio/x-lg-alac";
     } else if (mimeType.equals(MimeTypes.AUDIO_FLAC) && "OMX.lge.flac.decoder".equals(name)) {
