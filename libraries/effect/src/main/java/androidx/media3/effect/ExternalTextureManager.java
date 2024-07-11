@@ -74,6 +74,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * operation takes a long time to finish, the timeout could be a result of slow GL operation back
    * pressured the decoder, and the decoder is not able to decode another frame.
    */
+  // LINT.IfChange(SURFACE_TEXTURE_TIMEOUT_MS)
   private static final long SURFACE_TEXTURE_TIMEOUT_MS = isRunningOnEmulator() ? 20_000 : 500;
 
   // Wait delay between checking whether a registered frame arrives on the SurfaceTexture.

@@ -19,6 +19,7 @@ package androidx.media3.transformer;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.extractor.AacUtil.AAC_LC_AUDIO_SAMPLE_COUNT;
 import static androidx.media3.transformer.ExportException.ERROR_CODE_MUXING_APPEND;
 import static androidx.media3.transformer.ExportResult.OPTIMIZATION_ABANDONED_KEYFRAME_PLACEMENT_OPTIMAL_FOR_TRIM;
@@ -757,7 +758,8 @@ public final class Transformer {
    * The default value for the {@linkplain Builder#setMaxDelayBetweenMuxerSamplesMs maximum delay
    * between output samples}.
    */
-  public static final long DEFAULT_MAX_DELAY_BETWEEN_MUXER_SAMPLES_MS = 10_000;
+  public static final long DEFAULT_MAX_DELAY_BETWEEN_MUXER_SAMPLES_MS =
+      isRunningOnEmulator() ? 21_000 : 10_000;
 
   @Documented
   @Retention(RetentionPolicy.SOURCE)
