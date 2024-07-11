@@ -21,6 +21,7 @@
         error occurs.
     *   `MediaCodecVideoRenderer` avoids decoding samples that are neither
         rendered nor used as reference by other samples.
+    *   Add `BasePreloadManager.Listener` to propagate preload events to apps.
 *   Transformer:
     *   Add `SurfaceAssetLoader`, which supports queueing video data to
         Transformer via a `Surface`.

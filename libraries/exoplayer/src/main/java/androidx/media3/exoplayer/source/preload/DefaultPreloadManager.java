@@ -241,17 +241,17 @@ public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
 
     @Override
     public void onUsedByPlayer(PreloadMediaSource mediaSource) {
-      onPreloadCompleted(mediaSource);
+      DefaultPreloadManager.this.onPreloadSkipped(mediaSource);
     }
 
     @Override
     public void onLoadedToTheEndOfSource(PreloadMediaSource mediaSource) {
-      onPreloadCompleted(mediaSource);
+      DefaultPreloadManager.this.onPreloadCompleted(mediaSource);
     }
 
     @Override
     public void onPreloadError(PreloadException error, PreloadMediaSource mediaSource) {
-      onPreloadCompleted(mediaSource);
+      DefaultPreloadManager.this.onPreloadError(error, mediaSource);
     }
 
     private boolean continueOrCompletePreloading(
@@ -269,8 +269,10 @@ public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
         if (clearExceededDataFromTargetPreloadStatus) {
           clearSourceInternal(mediaSource);
         }
+        DefaultPreloadManager.this.onPreloadCompleted(mediaSource);
+      } else {
+        DefaultPreloadManager.this.onPreloadSkipped(mediaSource);
       }
-      onPreloadCompleted(mediaSource);
       return false;
     }
   }
