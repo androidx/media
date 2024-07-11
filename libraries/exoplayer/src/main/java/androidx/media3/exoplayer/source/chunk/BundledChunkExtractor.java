@@ -43,7 +43,6 @@ import androidx.media3.extractor.png.PngExtractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.extractor.text.SubtitleExtractor;
 import androidx.media3.extractor.text.SubtitleParser;
-import androidx.media3.extractor.text.SubtitleTranscodingExtractor;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.List;
@@ -159,12 +158,6 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
                 /* sideloadedTrack= */ null,
                 closedCaptionFormats,
                 playerEmsgTrackOutput);
-      }
-      if (parseSubtitlesDuringExtraction
-          && !MimeTypes.isText(containerMimeType)
-          && !(extractor.getUnderlyingImplementation() instanceof FragmentedMp4Extractor)
-          && !(extractor.getUnderlyingImplementation() instanceof MatroskaExtractor)) {
-        extractor = new SubtitleTranscodingExtractor(extractor, subtitleParserFactory);
       }
       return new BundledChunkExtractor(extractor, primaryTrackType, representationFormat);
     }

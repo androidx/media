@@ -45,7 +45,6 @@ import androidx.media3.extractor.ogg.OggExtractor;
 import androidx.media3.extractor.png.PngExtractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.extractor.text.SubtitleParser;
-import androidx.media3.extractor.text.SubtitleTranscodingExtractor;
 import androidx.media3.extractor.ts.Ac3Extractor;
 import androidx.media3.extractor.ts.Ac4Extractor;
 import androidx.media3.extractor.ts.AdtsExtractor;
@@ -430,20 +429,7 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
         addExtractorsForFileType(fileType, extractors);
       }
     }
-    Extractor[] result = new Extractor[extractors.size()];
-    for (int i = 0; i < extractors.size(); i++) {
-      Extractor extractor = extractors.get(i);
-      result[i] =
-          textTrackTranscodingEnabled
-                  && !(extractor.getUnderlyingImplementation() instanceof FragmentedMp4Extractor)
-                  && !(extractor.getUnderlyingImplementation() instanceof Mp4Extractor)
-                  && !(extractor.getUnderlyingImplementation() instanceof TsExtractor)
-                  && !(extractor.getUnderlyingImplementation() instanceof AviExtractor)
-                  && !(extractor.getUnderlyingImplementation() instanceof MatroskaExtractor)
-              ? new SubtitleTranscodingExtractor(extractor, subtitleParserFactory)
-              : extractor;
-    }
-    return result;
+    return extractors.toArray(new Extractor[extractors.size()]);
   }
 
   private void addExtractorsForFileType(@FileTypes.Type int fileType, List<Extractor> extractors) {
