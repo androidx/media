@@ -252,7 +252,6 @@ public interface MediaCodecAdapter {
    *
    * @see MediaCodec#releaseOutputBuffer(int, long)
    */
-  @RequiresApi(21)
   void releaseOutputBuffer(int index, long renderTimeStampNs);
 
   /** Flushes the adapter and the underlying {@link MediaCodec}. */
@@ -278,7 +277,6 @@ public interface MediaCodecAdapter {
    * @see MediaCodec.Callback#onOutputBufferAvailable
    * @return Whether listener was successfully registered.
    */
-  @RequiresApi(21)
   default boolean registerOnBufferAvailableListener(
       MediaCodecAdapter.OnBufferAvailableListener listener) {
     return false;

@@ -24,7 +24,6 @@ import android.content.Context;
 import android.media.Image;
 import android.media.MediaCodec;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.UnstableApi;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -43,7 +42,6 @@ import java.nio.ByteBuffer;
  * channel (Y') because the {@linkplain MediaCodec decoder} decodes to luma.
  */
 @UnstableApi
-@RequiresApi(21)
 public final class SsimHelper {
 
   /** The default comparison interval. */

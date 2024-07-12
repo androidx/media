@@ -278,8 +278,6 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     if (!MimeTypes.isAudio(format.sampleMimeType)) {
       return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
     }
-    @TunnelingSupport
-    int tunnelingSupport = Util.SDK_INT >= 21 ? TUNNELING_SUPPORTED : TUNNELING_NOT_SUPPORTED;
     boolean formatHasDrm = format.cryptoType != C.CRYPTO_TYPE_NONE;
     boolean supportsFormatDrm = supportsFormatDrm(format);
 
@@ -291,7 +289,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
       audioOffloadSupport = getAudioOffloadSupport(format);
       if (audioSink.supportsFormat(format)) {
         return RendererCapabilities.create(
-            C.FORMAT_HANDLED, ADAPTIVE_NOT_SEAMLESS, tunnelingSupport, audioOffloadSupport);
+            C.FORMAT_HANDLED, ADAPTIVE_NOT_SEAMLESS, TUNNELING_SUPPORTED, audioOffloadSupport);
       }
     }
     // If the input is PCM then it will be passed directly to the sink. Hence the sink must support
@@ -346,7 +344,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     return RendererCapabilities.create(
         formatSupport,
         adaptiveSupport,
-        tunnelingSupport,
+        TUNNELING_SUPPORTED,
         hardwareAccelerationSupport,
         decoderSupport,
         audioOffloadSupport);

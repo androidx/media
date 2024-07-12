@@ -98,13 +98,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
    *   <th>{@link ControllerInfo#getPackageName()}<br>for legacy browser</th>
    *   <th>{@link ControllerInfo#getUid()}<br>for legacy browser</th></tr>
    * <tr>
-   *   <td>{@code SDK_INT < 21}</td>
-   *   <td>Actual package name via {@link Context#getPackageName()}</td>
-   *   <td>Actual UID</td>
-   * </tr>
-   * <tr>
    *   <td>
-   *     {@code 21 <= SDK_INT < 28}<br>
+   *     {@code SDK_INT < 28}<br>
    *     for {@link Callback#onConnect onConnect}<br>
    *     and {@link Callback#onGetLibraryRoot onGetLibraryRoot}
    *   </td>
@@ -113,7 +108,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
    * </tr>
    * <tr>
    *   <td>
-   *     {@code 21 <= SDK_INT < 28}<br>
+   *     {@code SDK_INT < 28}<br>
    *     for other {@link Callback callbacks}
    *   </td>
    *   <td>{@link ControllerInfo#LEGACY_CONTROLLER_PACKAGE_NAME}</td>

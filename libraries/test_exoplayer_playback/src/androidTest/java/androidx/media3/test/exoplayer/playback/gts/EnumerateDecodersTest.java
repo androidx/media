@@ -115,9 +115,7 @@ public class EnumerateDecodersTest {
     boolean isAudio = MimeTypes.isAudio(requestedMimeType);
     StringBuilder result = new StringBuilder();
     result.append("[requestedMimeType=").append(requestedMimeType);
-    if (Util.SDK_INT >= 21) {
-      result.append(", mimeType=").append(codecCapabilities.getMimeType());
-    }
+    result.append(", mimeType=").append(codecCapabilities.getMimeType());
     result.append(", profileLevels=");
     appendProfileLevels(codecCapabilities.profileLevels, result);
     if (Util.SDK_INT >= 23) {
@@ -125,23 +123,19 @@ public class EnumerateDecodersTest {
           .append(", maxSupportedInstances=")
           .append(codecCapabilities.getMaxSupportedInstances());
     }
-    if (Util.SDK_INT >= 21) {
-      if (isVideo) {
-        result.append(", videoCapabilities=");
-        appendVideoCapabilities(codecCapabilities.getVideoCapabilities(), result);
-        result.append(", colorFormats=").append(Arrays.toString(codecCapabilities.colorFormats));
-      } else if (isAudio) {
-        result.append(", audioCapabilities=");
-        appendAudioCapabilities(codecCapabilities.getAudioCapabilities(), result);
-      }
+    if (isVideo) {
+      result.append(", videoCapabilities=");
+      appendVideoCapabilities(codecCapabilities.getVideoCapabilities(), result);
+      result.append(", colorFormats=").append(Arrays.toString(codecCapabilities.colorFormats));
+    } else if (isAudio) {
+      result.append(", audioCapabilities=");
+      appendAudioCapabilities(codecCapabilities.getAudioCapabilities(), result);
     }
     if (isVideo
         && codecCapabilities.isFeatureSupported(CodecCapabilities.FEATURE_AdaptivePlayback)) {
       result.append(", FEATURE_AdaptivePlayback");
     }
-    if (Util.SDK_INT >= 21
-        && isVideo
-        && codecCapabilities.isFeatureSupported(CodecCapabilities.FEATURE_SecurePlayback)) {
+    if (isVideo && codecCapabilities.isFeatureSupported(CodecCapabilities.FEATURE_SecurePlayback)) {
       result.append(", FEATURE_SecurePlayback");
     }
     if (Util.SDK_INT >= 26
@@ -149,8 +143,7 @@ public class EnumerateDecodersTest {
         && codecCapabilities.isFeatureSupported(CodecCapabilities.FEATURE_PartialFrame)) {
       result.append(", FEATURE_PartialFrame");
     }
-    if (Util.SDK_INT >= 21
-        && (isVideo || isAudio)
+    if ((isVideo || isAudio)
         && codecCapabilities.isFeatureSupported(CodecCapabilities.FEATURE_TunneledPlayback)) {
       result.append(", FEATURE_TunneledPlayback");
     }

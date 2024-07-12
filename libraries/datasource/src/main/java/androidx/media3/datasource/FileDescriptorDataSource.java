@@ -24,7 +24,6 @@ import android.system.ErrnoException;
 import android.system.Os;
 import android.system.OsConstants;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.UnstableApi;
@@ -48,7 +47,6 @@ import java.util.Set;
  * #open(DataSpec)} is not actually used for reading data. Instead, the underlying {@link
  * FileDescriptor} is used for all read operations.
  */
-@RequiresApi(21)
 @UnstableApi
 public class FileDescriptorDataSource extends BaseDataSource {
 

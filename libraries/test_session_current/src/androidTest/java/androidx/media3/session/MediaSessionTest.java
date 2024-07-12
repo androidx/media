@@ -1014,8 +1014,7 @@ public class MediaSessionTest {
    * <p>Calling this method should only be required to test legacy behaviour.
    */
   private static String getControllerCallerPackageName(ControllerInfo controllerInfo) {
-    return (Util.SDK_INT < 21
-            || Util.SDK_INT > 23
+    return (Util.SDK_INT > 23
             || controllerInfo.getControllerVersion() != ControllerInfo.LEGACY_CONTROLLER_VERSION)
         ? ApplicationProvider.getApplicationContext().getPackageName()
         : MediaSessionManager.RemoteUserInfo.LEGACY_CONTROLLER;

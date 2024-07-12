@@ -347,7 +347,7 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
     // We need to trigger MediaControllerCompat.Callback.onAudioInfoChanged in order to raise the
     // onAudioAttributesChanged() callback. In API 21 and 22, onAudioInfoChanged is not called when
     // playback is changed to local.
-    assumeTrue(Util.SDK_INT != 21 && Util.SDK_INT != 22);
+    assumeTrue(Util.SDK_INT > 22);
 
     session.setPlaybackToRemote(
         /* volumeControl= */ VolumeProviderCompat.VOLUME_CONTROL_ABSOLUTE,

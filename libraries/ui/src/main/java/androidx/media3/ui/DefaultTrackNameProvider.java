@@ -115,8 +115,7 @@ public class DefaultTrackNameProvider implements TrackNameProvider {
     if (TextUtils.isEmpty(language) || C.LANGUAGE_UNDETERMINED.equals(language)) {
       return "";
     }
-    Locale languageLocale =
-        Util.SDK_INT >= 21 ? Locale.forLanguageTag(language) : new Locale(language);
+    Locale languageLocale = Locale.forLanguageTag(language);
     Locale displayLocale = Util.getDefaultDisplayLocale();
     String languageName = languageLocale.getDisplayName(displayLocale);
     if (TextUtils.isEmpty(languageName)) {

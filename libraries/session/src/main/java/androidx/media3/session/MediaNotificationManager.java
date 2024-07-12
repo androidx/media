@@ -210,14 +210,11 @@ import java.util.concurrent.TimeoutException;
       MediaSession session,
       MediaNotification mediaNotification,
       boolean startInForegroundRequired) {
-    if (Util.SDK_INT >= 21) {
-      // Call Notification.MediaStyle#setMediaSession() indirectly.
-      android.media.session.MediaSession.Token fwkToken =
-          (android.media.session.MediaSession.Token)
-              session.getSessionCompat().getSessionToken().getToken();
-      mediaNotification.notification.extras.putParcelable(
-          Notification.EXTRA_MEDIA_SESSION, fwkToken);
-    }
+    // Call Notification.MediaStyle#setMediaSession() indirectly.
+    android.media.session.MediaSession.Token fwkToken =
+        (android.media.session.MediaSession.Token)
+            session.getSessionCompat().getSessionToken().getToken();
+    mediaNotification.notification.extras.putParcelable(Notification.EXTRA_MEDIA_SESSION, fwkToken);
     this.mediaNotification = mediaNotification;
     if (startInForegroundRequired) {
       startForeground(mediaNotification);
@@ -379,9 +376,7 @@ import java.util.concurrent.TimeoutException;
     if (Util.SDK_INT >= 24) {
       Api24.stopForeground(mediaSessionService, removeNotifications);
     } else {
-      // For pre-L devices, we must call Service.stopForeground(true) anyway as a workaround
-      // that prevents the media notification from being undismissable.
-      mediaSessionService.stopForeground(removeNotifications || Util.SDK_INT < 21);
+      mediaSessionService.stopForeground(removeNotifications);
     }
     startedInForeground = false;
   }

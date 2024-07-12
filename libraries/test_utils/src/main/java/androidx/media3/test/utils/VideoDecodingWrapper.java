@@ -32,7 +32,6 @@ import android.media.MediaFormat;
 import android.net.Uri;
 import android.os.Handler;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ConditionVariable;
@@ -55,7 +54,6 @@ import java.util.List;
  * ImageReader} for use in CPU test utility functions.
  */
 @UnstableApi
-@RequiresApi(21)
 public final class VideoDecodingWrapper implements AutoCloseable {
 
   private static final String TAG = "VideoDecodingWrapper";

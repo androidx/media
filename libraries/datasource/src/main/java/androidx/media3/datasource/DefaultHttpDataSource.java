@@ -40,7 +40,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
-import java.lang.reflect.Method;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.NoRouteToHostException;
@@ -248,7 +247,6 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
   private static final int MAX_REDIRECTS = 20; // Same limit as okhttp.
   private static final int HTTP_STATUS_TEMPORARY_REDIRECT = 307;
   private static final int HTTP_STATUS_PERMANENT_REDIRECT = 308;
-  private static final long MAX_BYTES_TO_DRAIN = 2048;
 
   private final boolean allowCrossProtocolRedirects;
   private final boolean crossProtocolRedirectsForceOriginal;
@@ -482,9 +480,6 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
     try {
       @Nullable InputStream inputStream = this.inputStream;
       if (inputStream != null) {
-        long bytesRemaining =
-            bytesToRead == C.LENGTH_UNSET ? C.LENGTH_UNSET : bytesToRead - bytesRead;
-        maybeTerminateInputStream(connection, bytesRemaining);
         try {
           inputStream.close();
         } catch (IOException e) {
@@ -782,52 +777,6 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
     bytesRead += read;
     bytesTransferred(read);
     return read;
-  }
-
-  /**
-   * On platform API levels 19 and 20, okhttp's implementation of {@link InputStream#close} can
-   * block for a long time if the stream has a lot of data remaining. Call this method before
-   * closing the input stream to make a best effort to cause the input stream to encounter an
-   * unexpected end of input, working around this issue. On other platform API levels, the method
-   * does nothing.
-   *
-   * @param connection The connection whose {@link InputStream} should be terminated.
-   * @param bytesRemaining The number of bytes remaining to be read from the input stream if its
-   *     length is known. {@link C#LENGTH_UNSET} otherwise.
-   */
-  private static void maybeTerminateInputStream(
-      @Nullable HttpURLConnection connection, long bytesRemaining) {
-    if (connection == null || Util.SDK_INT > 20) {
-      return;
-    }
-
-    try {
-      InputStream inputStream = connection.getInputStream();
-      if (bytesRemaining == C.LENGTH_UNSET) {
-        // If the input stream has already ended, do nothing. The socket may be re-used.
-        if (inputStream.read() == -1) {
-          return;
-        }
-      } else if (bytesRemaining <= MAX_BYTES_TO_DRAIN) {
-        // There isn't much data left. Prefer to allow it to drain, which may allow the socket to be
-        // re-used.
-        return;
-      }
-      String className = inputStream.getClass().getName();
-      if ("com.android.okhttp.internal.http.HttpTransport$ChunkedInputStream".equals(className)
-          || "com.android.okhttp.internal.http.HttpTransport$FixedLengthInputStream"
-              .equals(className)) {
-        Class<?> superclass = inputStream.getClass().getSuperclass();
-        Method unexpectedEndOfInput =
-            checkNotNull(superclass).getDeclaredMethod("unexpectedEndOfInput");
-        unexpectedEndOfInput.setAccessible(true);
-        unexpectedEndOfInput.invoke(inputStream);
-      }
-    } catch (Exception e) {
-      // If an IOException then the connection didn't ever have an input stream, or it was closed
-      // already. If another type of exception then something went wrong, most likely the device
-      // isn't using okhttp.
-    }
   }
 
   /** Closes the current connection quietly, if there is one. */

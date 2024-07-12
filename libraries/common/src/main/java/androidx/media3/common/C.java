@@ -32,7 +32,6 @@ import android.media.MediaFormat;
 import android.net.Uri;
 import android.view.Surface;
 import androidx.annotation.IntDef;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.errorprone.annotations.InlineMe;
@@ -1698,7 +1697,6 @@ public final class C {
       replacement = "Util.generateAudioSessionIdV21(context)",
       imports = {"androidx.media3.common.util.Util"})
   @Deprecated
-  @RequiresApi(21)
   public static int generateAudioSessionIdV21(Context context) {
     return Util.generateAudioSessionIdV21(context);
   }

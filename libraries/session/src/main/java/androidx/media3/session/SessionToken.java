@@ -300,8 +300,7 @@ public final class SessionToken {
 
   private static MediaSessionCompat.Token createCompatToken(
       Parcelable platformOrLegacyCompatToken) {
-    if (Util.SDK_INT >= 21
-        && platformOrLegacyCompatToken instanceof android.media.session.MediaSession.Token) {
+    if (platformOrLegacyCompatToken instanceof android.media.session.MediaSession.Token) {
       return MediaSessionCompat.Token.fromToken(platformOrLegacyCompatToken);
     }
     // Assume this is an android.support.v4.media.session.MediaSessionCompat.Token.

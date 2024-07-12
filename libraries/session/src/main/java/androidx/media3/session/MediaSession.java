@@ -25,7 +25,6 @@ import static androidx.media3.session.SessionResult.RESULT_SUCCESS;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -524,25 +523,7 @@ public class MediaSession {
       return interfaceVersion;
     }
 
-    /**
-     * Returns the package name. Can be {@link #LEGACY_CONTROLLER_PACKAGE_NAME} for
-     * interoperability.
-     *
-     * <p>Interoperability: Package name may not be precisely obtained for legacy controller API on
-     * older device. Here are details.
-     *
-     * <table>
-     * <caption>Summary when package name isn't precise</caption>
-     * <tr><th>SDK version when package name isn't precise</th>
-     *     <th>{@code ControllerInfo#getPackageName()} for legacy controller</th>
-     * <tr><td>{@code SDK_INT < 21}</td>
-     *     <td>Actual package name via {@link PackageManager#getNameForUid} with UID.<br>
-     *         It's sufficient for most cases, but doesn't precisely distinguish caller if it
-     *         uses shared user ID.</td>
-     * <tr><td>{@code 21 <= SDK_INT < 24}</td>
-     *     <td>{@link #LEGACY_CONTROLLER_PACKAGE_NAME}</td>
-     * </table>
-     */
+    /** Returns the package name, or {@link #LEGACY_CONTROLLER_PACKAGE_NAME} on API &le; 24. */
     public String getPackageName() {
       return remoteUserInfo.getPackageName();
     }
@@ -550,8 +531,8 @@ public class MediaSession {
     /**
      * Returns the UID of the controller. Can be a negative value for interoperability.
      *
-     * <p>Interoperability: If {@code 21 <= SDK_INT < 28}, then UID would be a negative value
-     * because it cannot be obtained.
+     * <p>Interoperability: If {@code SDK_INT < 28}, then UID would be a negative value because it
+     * cannot be obtained.
      */
     public int getUid() {
       return remoteUserInfo.getUid();
@@ -1221,7 +1202,6 @@ public class MediaSession {
    * android.media.session.MediaSession} created internally by this session.
    */
   @SuppressWarnings("UnnecessarilyFullyQualified") // Avoiding clash with Media3 token.
-  @RequiresApi(21)
   @UnstableApi
   public final android.media.session.MediaSession.Token getPlatformToken() {
     return (android.media.session.MediaSession.Token)

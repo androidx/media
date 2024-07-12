@@ -49,7 +49,6 @@ import androidx.media3.common.Player.PositionInfo;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.Timeline.Window;
 import androidx.media3.common.util.BitmapLoader;
-import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.test.core.app.ApplicationProvider;
@@ -200,24 +199,6 @@ public class MediaControllerMediaSessionCompatCallbackAggregationTest {
       MediaItem mediaItem = timelineRef.get().getWindow(i, new Window()).mediaItem;
       MediaItem expectedMediaItem =
           (i == testMediaItemIndex) ? testCurrentMediaItem : testMediaItems.get(i);
-      if (Util.SDK_INT < 21) {
-        // Bitmap conversion and back gives not exactly the same byte array below API 21
-        MediaMetadata mediaMetadata =
-            mediaItem
-                .mediaMetadata
-                .buildUpon()
-                .setArtworkData(/* artworkData= */ null, /* artworkDataType= */ null)
-                .build();
-        MediaMetadata expectedMediaMetadata =
-            expectedMediaItem
-                .mediaMetadata
-                .buildUpon()
-                .setArtworkData(/* artworkData= */ null, /* artworkDataType= */ null)
-                .build();
-        mediaItem = mediaItem.buildUpon().setMediaMetadata(mediaMetadata).build();
-        expectedMediaItem =
-            expectedMediaItem.buildUpon().setMediaMetadata(expectedMediaMetadata).build();
-      }
       assertThat(mediaItem).isEqualTo(expectedMediaItem);
     }
     assertThat(timelineChangeReasonRef.get()).isEqualTo(TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
