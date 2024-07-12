@@ -598,7 +598,7 @@ public class MediaSession {
           + remoteUserInfo.getPackageName()
           + ", uid="
           + remoteUserInfo.getUid()
-          + "})";
+          + "}";
     }
 
     @Nullable
