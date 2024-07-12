@@ -47,9 +47,7 @@ import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
 import android.media.AudioDeviceCallback;
 import android.media.AudioDeviceInfo;
-import android.media.AudioFormat;
 import android.media.AudioManager;
-import android.media.AudioTrack;
 import android.media.MediaFormat;
 import android.media.metrics.LogSessionId;
 import android.os.Handler;
@@ -202,7 +200,6 @@ import java.util.concurrent.TimeoutException;
   private MediaMetadata playlistMetadata;
   @Nullable private Format videoFormat;
   @Nullable private Format audioFormat;
-  @Nullable private AudioTrack keepSessionIdAudioTrack;
   @Nullable private Object videoOutput;
   @Nullable private Surface ownedSurface;
   @Nullable private SurfaceHolder surfaceHolder;
@@ -387,11 +384,7 @@ import java.util.concurrent.TimeoutException;
       playlistMetadata = MediaMetadata.EMPTY;
       staticAndDynamicMediaMetadata = MediaMetadata.EMPTY;
       maskingWindowIndex = C.INDEX_UNSET;
-      if (Util.SDK_INT < 21) {
-        audioSessionId = initializeKeepSessionIdAudioTrack(C.AUDIO_SESSION_ID_UNSET);
-      } else {
-        audioSessionId = Util.generateAudioSessionIdV21(applicationContext);
-      }
+      audioSessionId = Util.generateAudioSessionIdV21(applicationContext);
       currentCueGroup = CueGroup.EMPTY_TIME_ZERO;
       throwsWhenUsingWrongThread = true;
 
@@ -1050,10 +1043,6 @@ import java.util.concurrent.TimeoutException;
             + MediaLibraryInfo.registeredModules()
             + "]");
     verifyApplicationThread();
-    if (Util.SDK_INT < 21 && keepSessionIdAudioTrack != null) {
-      keepSessionIdAudioTrack.release();
-      keepSessionIdAudioTrack = null;
-    }
     audioBecomingNoisyManager.setEnabled(false);
     if (streamVolumeManager != null) {
       streamVolumeManager.release();
@@ -1515,15 +1504,7 @@ import java.util.concurrent.TimeoutException;
       return;
     }
     if (audioSessionId == C.AUDIO_SESSION_ID_UNSET) {
-      if (Util.SDK_INT < 21) {
-        audioSessionId = initializeKeepSessionIdAudioTrack(C.AUDIO_SESSION_ID_UNSET);
-      } else {
-        audioSessionId = Util.generateAudioSessionIdV21(applicationContext);
-      }
-    } else if (Util.SDK_INT < 21) {
-      // We need to re-initialize keepSessionIdAudioTrack to make sure the session is kept alive for
-      // as long as the player is using it.
-      initializeKeepSessionIdAudioTrack(audioSessionId);
+      audioSessionId = Util.generateAudioSessionIdV21(applicationContext);
     }
     this.audioSessionId = audioSessionId;
     sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_AUDIO_SESSION_ID, audioSessionId);
@@ -2911,40 +2892,6 @@ import java.util.concurrent.TimeoutException;
         createMessageInternal(renderer).setType(messageType).setPayload(payload).send();
       }
     }
-  }
-
-  /**
-   * Initializes {@link #keepSessionIdAudioTrack} to keep an audio session ID alive. If the audio
-   * session ID is {@link C#AUDIO_SESSION_ID_UNSET} then a new audio session ID is generated.
-   *
-   * <p>Use of this method is only required on API level 21 and earlier.
-   *
-   * @param audioSessionId The audio session ID, or {@link C#AUDIO_SESSION_ID_UNSET} to generate a
-   *     new one.
-   * @return The audio session ID.
-   */
-  private int initializeKeepSessionIdAudioTrack(int audioSessionId) {
-    if (keepSessionIdAudioTrack != null
-        && keepSessionIdAudioTrack.getAudioSessionId() != audioSessionId) {
-      keepSessionIdAudioTrack.release();
-      keepSessionIdAudioTrack = null;
-    }
-    if (keepSessionIdAudioTrack == null) {
-      int sampleRate = 4000; // Minimum sample rate supported by the platform.
-      int channelConfig = AudioFormat.CHANNEL_OUT_MONO;
-      @C.PcmEncoding int encoding = C.ENCODING_PCM_16BIT;
-      int bufferSize = 2; // Use a two byte buffer, as it is not actually used for playback.
-      keepSessionIdAudioTrack =
-          new AudioTrack(
-              C.STREAM_TYPE_DEFAULT,
-              sampleRate,
-              channelConfig,
-              encoding,
-              bufferSize,
-              AudioTrack.MODE_STATIC,
-              audioSessionId);
-    }
-    return keepSessionIdAudioTrack.getAudioSessionId();
   }
 
   private void updatePriorityTaskManagerForIsLoadingChange(boolean isLoading) {
