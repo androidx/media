@@ -221,7 +221,9 @@ public final class VideoFrameProcessorTestRunner {
       return new VideoFrameProcessorTestRunner(
           testId,
           videoFrameProcessorFactory,
-          bitmapReader == null ? new SurfaceBitmapReader() : bitmapReader,
+          bitmapReader == null
+              ? new SurfaceBitmapReader(/* releaseOutputSurface= */ false)
+              : bitmapReader,
           videoAssetPath,
           outputFileLabel == null ? "" : outputFileLabel,
           effects == null ? ImmutableList.of() : effects,
@@ -289,6 +291,11 @@ public final class VideoFrameProcessorTestRunner {
               @Override
               public void onOutputSizeChanged(int width, int height) {
                 boolean useHighPrecisionColorComponents = ColorInfo.isTransferHdr(outputColorInfo);
+                if (bitmapReader instanceof SurfaceBitmapReader) {
+                  if (((SurfaceBitmapReader) bitmapReader).releaseOutputSurface) {
+                    checkNotNull(videoFrameProcessor).setOutputSurfaceInfo(null);
+                  }
+                }
                 @Nullable
                 Surface outputSurface =
                     bitmapReader.getSurface(width, height, useHighPrecisionColorComponents);
@@ -515,6 +522,18 @@ public final class VideoFrameProcessorTestRunner {
   public static final class SurfaceBitmapReader
       implements VideoFrameProcessorTestRunner.BitmapReader {
 
+    public final boolean releaseOutputSurface;
+
+    /**
+     * Creates an instance.
+     *
+     * @param releaseOutputSurface Whether the {@link VideoFrameProcessor} output Surface must be
+     *     released at calls to {@link #getSurface(int, int, boolean)}.
+     */
+    public SurfaceBitmapReader(boolean releaseOutputSurface) {
+      this.releaseOutputSurface = releaseOutputSurface;
+    }
+
     // ImageReader only supports SDR input.
     private @MonotonicNonNull ImageReader imageReader;
 
@@ -522,6 +541,9 @@ public final class VideoFrameProcessorTestRunner {
     @SuppressLint("WrongConstant")
     @Nullable
     public Surface getSurface(int width, int height, boolean useHighPrecisionColorComponents) {
+      if (imageReader != null && releaseOutputSurface) {
+        imageReader.close();
+      }
       imageReader =
           ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, /* maxImages= */ 1);
       return imageReader.getSurface();
