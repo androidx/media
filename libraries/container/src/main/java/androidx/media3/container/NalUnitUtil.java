@@ -40,38 +40,96 @@ public final class NalUnitUtil {
 
   private static final String TAG = "NalUnitUtil";
 
-  /** Coded slice of a non-IDR picture. */
-  public static final int NAL_UNIT_TYPE_NON_IDR = 1;
+  /** H.264 coded slice of a non-IDR picture. */
+  public static final int H264_NAL_UNIT_TYPE_NON_IDR = 1;
 
-  /** Coded slice data partition A. */
-  public static final int NAL_UNIT_TYPE_PARTITION_A = 2;
+  /**
+   * @deprecated Use {@link #H264_NAL_UNIT_TYPE_NON_IDR}
+   */
+  @Deprecated public static final int NAL_UNIT_TYPE_NON_IDR = H264_NAL_UNIT_TYPE_NON_IDR;
 
-  /** Coded slice of an IDR picture. */
-  public static final int NAL_UNIT_TYPE_IDR = 5;
+  /** H.264 coded slice data partition A. */
+  public static final int H264_NAL_UNIT_TYPE_PARTITION_A = 2;
 
-  /** Supplemental enhancement information. */
-  public static final int NAL_UNIT_TYPE_SEI = 6;
+  /**
+   * @deprecated Use {@link #H264_NAL_UNIT_TYPE_PARTITION_A}
+   */
+  @Deprecated public static final int NAL_UNIT_TYPE_PARTITION_A = H264_NAL_UNIT_TYPE_PARTITION_A;
 
-  /** Sequence parameter set. */
-  public static final int NAL_UNIT_TYPE_SPS = 7;
+  /** H.264 coded slice of an IDR picture. */
+  public static final int H264_NAL_UNIT_TYPE_IDR = 5;
 
-  /** Picture parameter set. */
-  public static final int NAL_UNIT_TYPE_PPS = 8;
+  /**
+   * @deprecated Use {@link #H264_NAL_UNIT_TYPE_IDR}
+   */
+  @Deprecated public static final int NAL_UNIT_TYPE_IDR = H264_NAL_UNIT_TYPE_IDR;
 
-  /** Access unit delimiter. */
-  public static final int NAL_UNIT_TYPE_AUD = 9;
+  /** H.264 supplemental enhancement information. */
+  public static final int H264_NAL_UNIT_TYPE_SEI = 6;
 
-  /** Prefix NAL unit. */
-  public static final int NAL_UNIT_TYPE_PREFIX = 14;
+  /**
+   * @deprecated Use {@link #H264_NAL_UNIT_TYPE_SEI}
+   */
+  @Deprecated public static final int NAL_UNIT_TYPE_SEI = H264_NAL_UNIT_TYPE_SEI;
 
-  /** H265 video parameter set. */
+  /** H.264 sequence parameter set. */
+  public static final int H264_NAL_UNIT_TYPE_SPS = 7;
+
+  /**
+   * @deprecated Use {@link #H264_NAL_UNIT_TYPE_SPS}
+   */
+  @Deprecated public static final int NAL_UNIT_TYPE_SPS = H264_NAL_UNIT_TYPE_SPS;
+
+  /** H.264 picture parameter set. */
+  public static final int H264_NAL_UNIT_TYPE_PPS = 8;
+
+  /**
+   * @deprecated Use {@link #H264_NAL_UNIT_TYPE_PPS}
+   */
+  @Deprecated public static final int NAL_UNIT_TYPE_PPS = H264_NAL_UNIT_TYPE_PPS;
+
+  /** H.264 access unit delimiter. */
+  public static final int H264_NAL_UNIT_TYPE_AUD = 9;
+
+  /**
+   * @deprecated Use {@link #H264_NAL_UNIT_TYPE_AUD}
+   */
+  @Deprecated public static final int NAL_UNIT_TYPE_AUD = H264_NAL_UNIT_TYPE_AUD;
+
+  /** H.264 prefix NAL unit. */
+  public static final int H264_NAL_UNIT_TYPE_PREFIX = 14;
+
+  /**
+   * @deprecated Use {@link #H264_NAL_UNIT_TYPE_PREFIX}
+   */
+  @Deprecated public static final int NAL_UNIT_TYPE_PREFIX = H264_NAL_UNIT_TYPE_PREFIX;
+
+  /** H.265 coded slice segment of a random access skipped leading picture (RASL_R). */
+  public static final int H265_NAL_UNIT_TYPE_RASL_R = 9;
+
+  /** H.265 coded slice segment of a broken link access picture (BLA_W_LP). */
+  public static final int H265_NAL_UNIT_TYPE_BLA_W_LP = 16;
+
+  /** H.265 coded slice segment of a clean random access picture (CRA_NUT). */
+  public static final int H265_NAL_UNIT_TYPE_CRA = 21;
+
+  /** H.265 video parameter set (VPS_NUT). */
   public static final int H265_NAL_UNIT_TYPE_VPS = 32;
 
-  /** H265 sequence parameter set. */
+  /** H.265 sequence parameter set (SPS_NUT). */
   public static final int H265_NAL_UNIT_TYPE_SPS = 33;
 
-  /** H265 SEI. */
+  /** H.265 picture parameter set (PPS_NUT). */
+  public static final int H265_NAL_UNIT_TYPE_PPS = 34;
+
+  /** H.265 access unit delimiter (AUD_NUT). */
+  public static final int H265_NAL_UNIT_TYPE_AUD = 35;
+
+  /** H.265 prefixed supplemental enhancement information (PREFIX_SEI_NUT). */
   public static final int H265_NAL_UNIT_TYPE_PREFIX_SEI = 39;
+
+  /** H.265 suffixed supplemental enhancement information (SUFFIX_SEI_NUT). */
+  public static final int H265_NAL_UNIT_TYPE_SUFFIX_SEI = 40;
 
   /** Holds data parsed from a H.264 sequence parameter set NAL unit. */
   public static final class SpsData {
@@ -519,7 +577,7 @@ public final class NalUnitUtil {
     while (offset + 1 < length) {
       int value = data.get(offset) & 0xFF;
       if (consecutiveZeros == 3) {
-        if (value == 1 && (data.get(offset + 1) & 0x1F) == NAL_UNIT_TYPE_SPS) {
+        if (value == 1 && (data.get(offset + 1) & 0x1F) == H264_NAL_UNIT_TYPE_SPS) {
           // Copy from this NAL unit onwards to the start of the buffer.
           ByteBuffer offsetData = data.duplicate();
           offsetData.position(offset - 3);
@@ -551,7 +609,7 @@ public final class NalUnitUtil {
    */
   public static boolean isNalUnitSei(@Nullable String mimeType, byte nalUnitHeaderFirstByte) {
     return (MimeTypes.VIDEO_H264.equals(mimeType)
-            && (nalUnitHeaderFirstByte & 0x1F) == NAL_UNIT_TYPE_SEI)
+            && (nalUnitHeaderFirstByte & 0x1F) == H264_NAL_UNIT_TYPE_SEI)
         || (MimeTypes.VIDEO_H265.equals(mimeType)
             && ((nalUnitHeaderFirstByte & 0x7E) >> 1) == H265_NAL_UNIT_TYPE_PREFIX_SEI);
   }
@@ -584,16 +642,16 @@ public final class NalUnitUtil {
     }
 
     int nalUnitType = nalUnitHeaderFirstByte & 0x1F;
-    if (nalUnitType == NAL_UNIT_TYPE_NON_IDR) {
+    if (nalUnitType == H264_NAL_UNIT_TYPE_NON_IDR) {
       // For pictures (Video Coding Layer NAL units), we can rely on nal_ref_idc to determine
       // whether future NAL units depend on it.
       return false;
     }
-    if (nalUnitType == NAL_UNIT_TYPE_AUD) {
+    if (nalUnitType == H264_NAL_UNIT_TYPE_AUD) {
       // NAL unit delimiters are not depended on.
       return false;
     }
-    if (nalUnitType == NAL_UNIT_TYPE_PREFIX) {
+    if (nalUnitType == H264_NAL_UNIT_TYPE_PREFIX) {
       // Prefix NAL units are only used by Annex G scalable video coding to mark temporal layers.
       // Rely on nal_ref_idc to identify sample dependencies.
       return false;

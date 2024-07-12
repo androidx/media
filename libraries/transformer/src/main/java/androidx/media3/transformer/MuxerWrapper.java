@@ -274,7 +274,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
     int nalUnitTypeMask = 0x1F;
     if ((newSps[NalUnitUtil.NAL_START_CODE.length] & nalUnitTypeMask)
-        != NalUnitUtil.NAL_UNIT_TYPE_SPS) {
+        != NalUnitUtil.H264_NAL_UNIT_TYPE_SPS) {
       return null;
     }
     // Check that H.264 profile is non-zero.
