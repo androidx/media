@@ -884,7 +884,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       }
       decoderCounters.ensureUpdated();
     } catch (IllegalStateException e) {
-      if (e instanceof CodecException) {
+      if (isMediaCodecException(e)) {
         onCodecError(e);
         boolean isRecoverable =
             (e instanceof CodecException) && ((CodecException) e).isRecoverable();
@@ -2514,6 +2514,14 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
             || !Objects.equals(outputFormat.sampleMimeType, MimeTypes.AUDIO_OPUS)
             || !OpusUtil.needToDecodeOpusFrame(
                 /* startTimeUs= */ startTimeUs, /* frameTimeUs= */ frameTimeUs));
+  }
+
+  private static boolean isMediaCodecException(IllegalStateException error) {
+    if (error instanceof MediaCodec.CodecException) {
+      return true;
+    }
+    StackTraceElement[] stackTrace = error.getStackTrace();
+    return stackTrace.length > 0 && stackTrace[0].getClassName().equals("android.media.MediaCodec");
   }
 
   /**
