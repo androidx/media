@@ -56,7 +56,6 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.media.MediaDescription;
 import android.media.browse.MediaBrowser;
 import android.os.BadParcelableException;
 import android.os.Binder;
@@ -73,7 +72,6 @@ import android.os.RemoteException;
 import android.support.v4.os.ResultReceiver;
 import android.text.TextUtils;
 import android.util.Log;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -469,9 +467,9 @@ public final class MediaBrowserCompat {
         return null;
       }
       MediaBrowser.MediaItem itemFwk = (MediaBrowser.MediaItem) itemObj;
-      int flags = Api21Impl.getFlags(itemFwk);
+      int flags = itemFwk.getFlags();
       MediaDescriptionCompat descriptionCompat =
-          MediaDescriptionCompat.fromMediaDescription(Api21Impl.getDescription(itemFwk));
+          MediaDescriptionCompat.fromMediaDescription(itemFwk.getDescription());
       return new MediaItem(descriptionCompat, flags);
     }
 
@@ -647,7 +645,6 @@ public final class MediaBrowserCompat {
       void onConnectionFailed();
     }
 
-    @RequiresApi(21)
     private class ConnectionCallbackApi21 extends MediaBrowser.ConnectionCallback {
       ConnectionCallbackApi21() {}
 
@@ -738,7 +735,6 @@ public final class MediaBrowserCompat {
       mSubscriptionRef = new WeakReference<>(subscription);
     }
 
-    @RequiresApi(21)
     private class SubscriptionCallbackApi21 extends MediaBrowser.SubscriptionCallback {
       SubscriptionCallbackApi21() {}
 
@@ -1643,7 +1639,6 @@ public final class MediaBrowserCompat {
     }
   }
 
-  @RequiresApi(21)
   static class MediaBrowserImplApi21
       implements MediaBrowserImpl,
           MediaBrowserServiceCallbackImpl,
@@ -2464,21 +2459,6 @@ public final class MediaBrowserCompat {
                   + ")");
           break;
       }
-    }
-  }
-
-  @RequiresApi(21)
-  private static class Api21Impl {
-    private Api21Impl() {}
-
-    @DoNotInline
-    static MediaDescription getDescription(MediaBrowser.MediaItem item) {
-      return item.getDescription();
-    }
-
-    @DoNotInline
-    static int getFlags(MediaBrowser.MediaItem item) {
-      return item.getFlags();
     }
   }
 }

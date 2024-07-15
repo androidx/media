@@ -373,7 +373,6 @@ public final class MediaSessionManager {
     }
   }
 
-  @RequiresApi(21)
   private static class MediaSessionManagerImplApi21 extends MediaSessionManagerImplBase {
     MediaSessionManagerImplApi21(Context context) {
       super(context);

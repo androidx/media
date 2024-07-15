@@ -61,7 +61,6 @@ import android.util.Log;
 import android.util.TypedValue;
 import android.view.KeyEvent;
 import android.view.ViewConfiguration;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
@@ -1353,7 +1352,6 @@ public class MediaSessionCompat {
       }
     }
 
-    @RequiresApi(21)
     private class MediaSessionCallbackApi21 extends MediaSession.Callback {
       MediaSessionCallbackApi21() {}
 
@@ -1817,13 +1815,9 @@ public class MediaSessionCompat {
      * Creates a compat Token from a framework {@link android.media.session.MediaSession.Token}
      * object.
      *
-     * <p>This method is only supported on {@link android.os.Build.VERSION_CODES#LOLLIPOP} and
-     * later.
-     *
      * @param token The framework token object.
      * @return A compat Token for use with {@link MediaControllerCompat}.
      */
-    @RequiresApi(21)
     public static Token fromToken(Object token) {
       return fromToken(token, null);
     }
@@ -1832,14 +1826,10 @@ public class MediaSessionCompat {
      * Creates a compat Token from a framework {@link android.media.session.MediaSession.Token}
      * object, and the extra binder.
      *
-     * <p>This method is only supported on {@link android.os.Build.VERSION_CODES#LOLLIPOP} and
-     * later.
-     *
      * @param token The framework token object.
      * @param extraBinder The extra binder.
      * @return A compat Token for use with {@link MediaControllerCompat}.
      */
-    @RequiresApi(21)
     /* package */ static Token fromToken(Object token, @Nullable IMediaSession extraBinder) {
       checkState(token != null);
       if (!(token instanceof MediaSession.Token)) {
@@ -2068,7 +2058,7 @@ public class MediaSessionCompat {
         return mItemFwk;
       }
       mItemFwk =
-          Api21Impl.createQueueItem((MediaDescription) mDescription.getMediaDescription(), mId);
+          new MediaSession.QueueItem((MediaDescription) mDescription.getMediaDescription(), mId);
       return mItemFwk;
     }
 
@@ -2076,18 +2066,15 @@ public class MediaSessionCompat {
      * Creates an instance from a framework {@link android.media.session.MediaSession.QueueItem}
      * object.
      *
-     * <p>This method is only supported on API 21+.
-     *
      * @param queueItem A {@link android.media.session.MediaSession.QueueItem} object.
      * @return An equivalent {@link QueueItem} object.
      */
-    @RequiresApi(21)
     public static QueueItem fromQueueItem(Object queueItem) {
       MediaSession.QueueItem queueItemObj = (MediaSession.QueueItem) queueItem;
-      Object descriptionObj = Api21Impl.getDescription(queueItemObj);
+      Object descriptionObj = queueItemObj.getDescription();
       MediaDescriptionCompat description =
           MediaDescriptionCompat.fromMediaDescription(descriptionObj);
-      long id = Api21Impl.getQueueId(queueItemObj);
+      long id = queueItemObj.getQueueId();
       return new QueueItem(queueItemObj, description, id);
     }
 
@@ -2130,26 +2117,6 @@ public class MediaSessionCompat {
     @Override
     public String toString() {
       return "MediaSession.QueueItem {" + "Description=" + mDescription + ", Id=" + mId + " }";
-    }
-
-    @RequiresApi(21)
-    private static class Api21Impl {
-      private Api21Impl() {}
-
-      @DoNotInline
-      static MediaSession.QueueItem createQueueItem(MediaDescription description, long id) {
-        return new MediaSession.QueueItem(description, id);
-      }
-
-      @DoNotInline
-      static MediaDescription getDescription(MediaSession.QueueItem queueItem) {
-        return queueItem.getDescription();
-      }
-
-      @DoNotInline
-      static long getQueueId(MediaSession.QueueItem queueItem) {
-        return queueItem.getQueueId();
-      }
     }
   }
 
@@ -3851,7 +3818,6 @@ public class MediaSessionCompat {
     }
   }
 
-  @RequiresApi(21)
   static class MediaSessionImplApi21 implements MediaSessionImpl {
     final MediaSession mSessionFwk;
     final ExtraSession mExtraSession;

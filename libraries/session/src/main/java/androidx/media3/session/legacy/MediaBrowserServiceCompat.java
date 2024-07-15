@@ -307,7 +307,6 @@ public abstract class MediaBrowserServiceCompat extends Service {
     }
   }
 
-  @RequiresApi(21)
   class MediaBrowserServiceImplApi21 implements MediaBrowserServiceImpl {
     final List<Bundle> mRootExtrasList = new ArrayList<>();
     @MonotonicNonNull MediaBrowserService mServiceFwk;
@@ -520,7 +519,6 @@ public abstract class MediaBrowserServiceCompat extends Service {
       return mCurConnection.browserInfo;
     }
 
-    @RequiresApi(21)
     class MediaBrowserServiceApi21 extends MediaBrowserService {
       @SuppressWarnings("method.invocation.invalid") // Calling base method from constructor
       MediaBrowserServiceApi21(Context context) {
@@ -1268,7 +1266,6 @@ public abstract class MediaBrowserServiceCompat extends Service {
     }
   }
 
-  @RequiresApi(21)
   @SuppressWarnings({"rawtypes", "unchecked"})
   static class ResultWrapper<T> {
     MediaBrowserService.Result mResultFwk;

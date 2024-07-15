@@ -943,7 +943,6 @@ public class AudioAttributesCompat {
     }
   }
 
-  @RequiresApi(21)
   public static class AudioAttributesImplApi21 implements AudioAttributesImpl {
 
     @Nullable public AudioAttributes mAudioAttributes;
@@ -1020,7 +1019,6 @@ public class AudioAttributesCompat {
       return "AudioAttributesCompat: audioattributes=" + mAudioAttributes;
     }
 
-    @RequiresApi(21)
     static class Builder implements AudioAttributesImpl.Builder {
       final AudioAttributes.Builder mFwkBuilder;
 

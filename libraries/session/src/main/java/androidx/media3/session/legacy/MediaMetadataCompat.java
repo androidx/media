@@ -29,7 +29,6 @@ import android.os.Parcelable;
 import android.text.TextUtils;
 import android.util.Log;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.annotation.StringDef;
 import androidx.collection.ArrayMap;
@@ -580,11 +579,8 @@ public final class MediaMetadataCompat implements Parcelable {
   /**
    * Gets the underlying framework {@link android.media.MediaMetadata} object.
    *
-   * <p>This method is only supported on {@link android.os.Build.VERSION_CODES#LOLLIPOP} and later.
-   *
    * @return An equivalent {@link android.media.MediaMetadata} object, or null if none.
    */
-  @RequiresApi(21)
   public Object getMediaMetadata() {
     if (mMetadataFwk == null) {
       Parcel p = Parcel.obtain();

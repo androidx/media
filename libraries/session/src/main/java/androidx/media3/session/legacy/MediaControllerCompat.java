@@ -789,7 +789,6 @@ public final class MediaControllerCompat {
     }
 
     // Callback methods in this class are run on handler which was given to registerCallback().
-    @RequiresApi(21)
     private static class MediaControllerCallbackApi21 extends MediaController.Callback {
       private final WeakReference<MediaControllerCompat.Callback> mCallback;
 
@@ -1974,7 +1973,6 @@ public final class MediaControllerCompat {
     }
   }
 
-  @RequiresApi(21)
   static class MediaControllerImplApi21 implements MediaControllerImpl {
     protected final MediaController mControllerFwk;
 
@@ -2411,7 +2409,6 @@ public final class MediaControllerCompat {
     }
   }
 
-  @RequiresApi(21)
   static class TransportControlsApi21 extends TransportControls {
     protected final MediaController.TransportControls mControlsFwk;
 

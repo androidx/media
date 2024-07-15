@@ -21,15 +21,12 @@ import android.content.pm.PackageManager
 import android.content.res.Resources
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
-import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.media3.testapp.controller.MediaAppDetails
 
 /**
  * Implementation of [FindMediaApps] that uses [MediaSessionManager] to populate the list of active
  * media session apps.
  */
-@RequiresApi(Build.VERSION_CODES.LOLLIPOP)
 class FindActiveMediaSessionApps
 constructor(
   private val mediaSessionManager: MediaSessionManager,

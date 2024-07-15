@@ -19,10 +19,8 @@ import static androidx.annotation.RestrictTo.Scope.LIBRARY;
 
 import android.media.VolumeProvider;
 import android.os.Build;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.util.UnstableApi;
 import java.lang.annotation.Retention;
@@ -134,7 +132,7 @@ public abstract class VolumeProviderCompat {
     mCurrentVolume = currentVolume;
     if (Build.VERSION.SDK_INT >= 21) {
       VolumeProvider volumeProviderFwk = (VolumeProvider) getVolumeProvider();
-      Api21Impl.setCurrentVolume(volumeProviderFwk, currentVolume);
+      volumeProviderFwk.setCurrentVolume(currentVolume);
     }
     if (mCallback != null) {
       mCallback.onVolumeChanged(this);
@@ -178,11 +176,8 @@ public abstract class VolumeProviderCompat {
   /**
    * Gets the underlying framework {@link android.media.VolumeProvider} object.
    *
-   * <p>This method is only supported on API 21+.
-   *
    * @return An equivalent {@link android.media.VolumeProvider} object, or null if none.
    */
-  @RequiresApi(21)
   public Object getVolumeProvider() {
     if (mVolumeProviderFwk == null) {
       if (Build.VERSION.SDK_INT >= 30) {
@@ -219,15 +214,5 @@ public abstract class VolumeProviderCompat {
   /** Listens for changes to the volume. */
   public abstract static class Callback {
     public abstract void onVolumeChanged(VolumeProviderCompat volumeProvider);
-  }
-
-  @RequiresApi(21)
-  private static class Api21Impl {
-    private Api21Impl() {}
-
-    @DoNotInline
-    static void setCurrentVolume(VolumeProvider volumeProvider, int currentVolume) {
-      volumeProvider.setCurrentVolume(currentVolume);
-    }
   }
 }
