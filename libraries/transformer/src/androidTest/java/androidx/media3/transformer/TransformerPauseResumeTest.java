@@ -411,9 +411,10 @@ public class TransformerPauseResumeTest {
   private static boolean shouldSkipDevice() {
     // v26 emulators are not producing I-frames, due to which resuming export does not work as
     // expected.
-    // On vivo 1820 and vivo 1906, the process crashes unexpectedly.
+    // On vivo 1820 and vivo 1906, the process crashes unexpectedly (see b/310566201).
     return (Util.SDK_INT == 26 && Util.isRunningOnEmulator())
         || (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Util.MODEL, "vivo 1820"))
+        || (Util.SDK_INT == 28 && Ascii.equalsIgnoreCase(Util.MODEL, "vivo 1901"))
         || (Util.SDK_INT == 28 && Ascii.equalsIgnoreCase(Util.MODEL, "vivo 1906"));
   }
 
