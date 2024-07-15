@@ -39,7 +39,7 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
-// TODO: b/343362776 - Add tests to assert enough silence is generated.
+// TODO: b/345483531 - Add tests to assert enough silence is generated.
 // TODO: b/346289922 - Consider checking frame counts with extractors.
 // TODO: b/345483531 - Add support for asserting on duration for image only sequences.
 // TODO: b/345483531 - Generate all permutations of all combinations of input files.
