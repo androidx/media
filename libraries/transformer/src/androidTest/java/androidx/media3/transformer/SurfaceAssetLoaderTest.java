@@ -135,4 +135,77 @@ public class SurfaceAssetLoaderTest {
     assertThat(exportResult.height).isEqualTo(bitmap.getHeight());
     assertThat(exportResult.durationMs).isEqualTo(300);
   }
+
+  @Test
+  public void encodingFromSurface_withLargeTimestamps_succeeds() throws Exception {
+    assumeTrue("ImageWriter with pixel format set requires API 29", Util.SDK_INT >= 29);
+
+    SettableFuture<SurfaceAssetLoader> surfaceAssetLoaderSettableFuture = SettableFuture.create();
+    SettableFuture<Surface> surfaceSettableFuture = SettableFuture.create();
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setAssetLoaderFactory(
+                new SurfaceAssetLoader.Factory(
+                    new SurfaceAssetLoader.Callback() {
+                      @Override
+                      public void onSurfaceAssetLoaderCreated(
+                          SurfaceAssetLoader surfaceAssetLoader) {
+                        surfaceAssetLoaderSettableFuture.set(surfaceAssetLoader);
+                      }
+
+                      @Override
+                      public void onSurfaceReady(Surface surface, EditedMediaItem editedMediaItem) {
+                        surfaceSettableFuture.set(surface);
+                      }
+                    }))
+            .build();
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(SurfaceAssetLoader.MEDIA_ITEM_URI_SCHEME + ":"))
+            .build();
+    ListenableFuture<ExportResult> exportCompletionFuture =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .runAsync(testId, editedMediaItem);
+    SurfaceAssetLoader surfaceAssetLoader =
+        surfaceAssetLoaderSettableFuture.get(TIMEOUT_MS, MILLISECONDS);
+    Bitmap bitmap = BitmapPixelTestUtil.readBitmap(TEST_BITMAP_PATH);
+    surfaceAssetLoader.setContentFormat(
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_RAW)
+            .setWidth(bitmap.getWidth())
+            .setHeight(bitmap.getHeight())
+            .setColorInfo(ColorInfo.SRGB_BT709_FULL)
+            .build());
+    Surface surface = surfaceSettableFuture.get(TIMEOUT_MS, MILLISECONDS);
+
+    int inputFrameCount = 10;
+    try (ImageWriter imageWriter =
+        ImageWriter.newInstance(surface, /* maxImages= */ inputFrameCount, PixelFormat.RGBA_8888)) {
+      ConditionVariable readyForInputCondition = new ConditionVariable();
+      imageWriter.setOnImageReleasedListener(
+          unusedImageWriter -> readyForInputCondition.open(), new Handler(Looper.getMainLooper()));
+      for (int i = 0; i < inputFrameCount; i++) {
+        Image image = imageWriter.dequeueInputImage();
+
+        // Add a large base offset in nanoseconds.
+        image.setTimestamp(3_020_642_044_930_642L + i * C.NANOS_PER_SECOND / 30);
+        BitmapPixelTestUtil.copyRbga8888BitmapToImage(bitmap, image);
+        readyForInputCondition.close();
+        imageWriter.queueInputImage(image);
+        // When frames are queued as fast as possible some can be dropped, so throttle input by
+        // blocking until the previous frame has been released by the downstream pipeline.
+        if (i > 0) {
+          assertThat(readyForInputCondition.block(TIMEOUT_MS)).isTrue();
+        }
+      }
+    }
+    surfaceAssetLoader.signalEndOfInput();
+
+    ExportResult exportResult = exportCompletionFuture.get();
+    assertThat(exportResult.videoFrameCount).isEqualTo(inputFrameCount);
+    assertThat(exportResult.width).isEqualTo(bitmap.getWidth());
+    assertThat(exportResult.height).isEqualTo(bitmap.getHeight());
+    assertThat(exportResult.durationMs).isEqualTo(300);
+  }
 }
