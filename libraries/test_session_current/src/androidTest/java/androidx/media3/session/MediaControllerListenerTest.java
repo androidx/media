@@ -2649,7 +2649,7 @@ public class MediaControllerListenerTest {
 
   @Test
   public void onVideoSizeChanged() throws Exception {
-    VideoSize defaultVideoSize = MediaTestUtils.createDefaultVideoSize();
+    VideoSize defaultVideoSize = MediaTestUtils.getDefaultVideoSize();
     RemoteMediaSession session = createRemoteMediaSession(TEST_ON_VIDEO_SIZE_CHANGED);
     MediaController controller = controllerTestRule.createController(session.getToken());
     List<VideoSize> videoSizeFromGetterList = new ArrayList<>();

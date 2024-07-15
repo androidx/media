@@ -1192,7 +1192,7 @@ package androidx.media3.common {
     field public static final androidx.media3.common.VideoSize UNKNOWN;
     field @IntRange(from=0) public final int height;
     field @FloatRange(from=0, fromInclusive=false) public final float pixelWidthHeightRatio;
-    field @IntRange(from=0, to=359) public final int unappliedRotationDegrees;
+    field @Deprecated @IntRange(from=0, to=359) public final int unappliedRotationDegrees;
     field @IntRange(from=0) public final int width;
   }
 

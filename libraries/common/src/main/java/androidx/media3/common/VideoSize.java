@@ -41,19 +41,10 @@ public final class VideoSize {
   public final int height;
 
   /**
-   * Clockwise rotation in degrees that the application should apply for the video for it to be
-   * rendered in the correct orientation.
-   *
-   * <p>Is 0 if unknown or if no rotation is needed.
-   *
-   * <p>Player should apply video rotation internally, in which case unappliedRotationDegrees is 0.
-   * But when a player can't apply the rotation, for example before API level 21, the unapplied
-   * rotation is reported by this field for application to handle.
-   *
-   * <p>Applications that use {@link android.view.TextureView} can apply the rotation by calling
-   * {@link android.view.TextureView#setTransform}.
+   * @deprecated Rotation is handled internally by the player, so this is always zero.
    */
   @IntRange(from = 0, to = 359)
+  @Deprecated
   public final int unappliedRotationDegrees;
 
   /**
@@ -73,7 +64,7 @@ public final class VideoSize {
    */
   @UnstableApi
   public VideoSize(@IntRange(from = 0) int width, @IntRange(from = 0) int height) {
-    this(width, height, DEFAULT_UNAPPLIED_ROTATION_DEGREES, DEFAULT_PIXEL_WIDTH_HEIGHT_RATIO);
+    this(width, height, DEFAULT_PIXEL_WIDTH_HEIGHT_RATIO);
   }
 
   /**
@@ -81,13 +72,25 @@ public final class VideoSize {
    *
    * @param width The video width in pixels.
    * @param height The video height in pixels.
-   * @param unappliedRotationDegrees Clockwise rotation in degrees that the application should apply
-   *     for the video for it to be rendered in the correct orientation. See {@link
-   *     #unappliedRotationDegrees}.
    * @param pixelWidthHeightRatio The width to height ratio of each pixel. For the normal case of
    *     square pixels this will be equal to 1.0. Different values are indicative of anamorphic
    *     content.
    */
+  @SuppressWarnings("deprecation") // Calling through to deprecated constructor
+  @UnstableApi
+  public VideoSize(
+      @IntRange(from = 0) int width,
+      @IntRange(from = 0) int height,
+      @FloatRange(from = 0, fromInclusive = false) float pixelWidthHeightRatio) {
+    this(width, height, DEFAULT_UNAPPLIED_ROTATION_DEGREES, pixelWidthHeightRatio);
+  }
+
+  /**
+   * @deprecated Use {@link VideoSize#VideoSize(int, int, float)} instead. {@code
+   *     unappliedRotationDegrees} is not needed on API 21+.
+   */
+  @SuppressWarnings("deprecation") // Setting deprecate field
+  @Deprecated
   @UnstableApi
   public VideoSize(
       @IntRange(from = 0) int width,
@@ -100,6 +103,7 @@ public final class VideoSize {
     this.pixelWidthHeightRatio = pixelWidthHeightRatio;
   }
 
+  @SuppressWarnings("deprecation") // Including deprecated field in equality
   @Override
   public boolean equals(@Nullable Object obj) {
     if (this == obj) {
@@ -115,6 +119,7 @@ public final class VideoSize {
     return false;
   }
 
+  @SuppressWarnings("deprecation") // Including deprecated field in hashCode
   @Override
   public int hashCode() {
     int result = 7;
@@ -130,6 +135,7 @@ public final class VideoSize {
   private static final String FIELD_UNAPPLIED_ROTATION_DEGREES = Util.intToStringMaxRadix(2);
   private static final String FIELD_PIXEL_WIDTH_HEIGHT_RATIO = Util.intToStringMaxRadix(3);
 
+  @SuppressWarnings("deprecation") // Including deprecated field in bundle
   @UnstableApi
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
@@ -141,6 +147,7 @@ public final class VideoSize {
   }
 
   /** Restores a {@code VideoSize} from a {@link Bundle}. */
+  @SuppressWarnings("deprecation") // Parsing deprecated field from bundle
   @UnstableApi
   public static VideoSize fromBundle(Bundle bundle) {
     int width = bundle.getInt(FIELD_WIDTH, DEFAULT_WIDTH);

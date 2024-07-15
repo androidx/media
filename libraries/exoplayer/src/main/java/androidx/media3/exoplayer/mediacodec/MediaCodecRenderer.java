@@ -58,7 +58,6 @@ import androidx.media3.common.util.TimedValueQueue;
 import androidx.media3.common.util.TraceUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import androidx.media3.container.NalUnitUtil;
 import androidx.media3.decoder.CryptoConfig;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.decoder.DecoderInputBuffer.InsufficientCapacityException;
@@ -170,7 +169,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
           format.sampleMimeType,
           secureDecoderRequired,
           mediaCodecInfo,
-          Util.SDK_INT >= 21 ? getDiagnosticInfoV21(cause) : null,
+          (cause instanceof CodecException) ? ((CodecException) cause).getDiagnosticInfo() : null,
           /* fallbackDecoderInitializationException= */ null);
     }
 
@@ -201,15 +200,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
           codecInfo,
           diagnosticInfo,
           fallbackException);
-    }
-
-    @RequiresApi(21)
-    @Nullable
-    private static String getDiagnosticInfoV21(@Nullable Throwable cause) {
-      if (cause instanceof CodecException) {
-        return ((CodecException) cause).getDiagnosticInfo();
-      }
-      return null;
     }
 
     private static String buildCustomDiagnosticInfo(int errorCode) {
@@ -373,13 +363,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   @Nullable private DecoderInitializationException preferredDecoderInitializationException;
   @Nullable private MediaCodecInfo codecInfo;
   private @AdaptationWorkaroundMode int codecAdaptationWorkaroundMode;
-  private boolean codecNeedsDiscardToSpsWorkaround;
-  private boolean codecNeedsFlushWorkaround;
   private boolean codecNeedsSosFlushWorkaround;
   private boolean codecNeedsEosFlushWorkaround;
   private boolean codecNeedsEosOutputExceptionWorkaround;
-  private boolean codecNeedsEosBufferTimestampWorkaround;
-  private boolean codecNeedsMonoChannelCountWorkaround;
   private boolean codecNeedsAdaptationWorkaroundBuffer;
   private boolean shouldSkipAdaptationWorkaroundOutputBuffer;
   private boolean codecNeedsEosPropagation;
@@ -898,9 +884,10 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       }
       decoderCounters.ensureUpdated();
     } catch (IllegalStateException e) {
-      if (isMediaCodecException(e)) {
+      if (e instanceof CodecException) {
         onCodecError(e);
-        boolean isRecoverable = Util.SDK_INT >= 21 && isRecoverableMediaCodecExceptionV21(e);
+        boolean isRecoverable =
+            (e instanceof CodecException) && ((CodecException) e).isRecoverable();
         if (isRecoverable) {
           releaseCodec();
         }
@@ -945,7 +932,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       return false;
     }
     if (codecDrainAction == DRAIN_ACTION_REINITIALIZE
-        || codecNeedsFlushWorkaround
         || (codecNeedsSosFlushWorkaround && !codecHasOutputMediaFormat)
         || (codecNeedsEosFlushWorkaround && codecReceivedEos)) {
       releaseCodec();
@@ -1020,13 +1006,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     codecHasOutputMediaFormat = false;
     codecOperatingRate = CODEC_OPERATING_RATE_UNSET;
     codecAdaptationWorkaroundMode = ADAPTATION_WORKAROUND_MODE_NEVER;
-    codecNeedsDiscardToSpsWorkaround = false;
-    codecNeedsFlushWorkaround = false;
     codecNeedsSosFlushWorkaround = false;
     codecNeedsEosFlushWorkaround = false;
     codecNeedsEosOutputExceptionWorkaround = false;
-    codecNeedsEosBufferTimestampWorkaround = false;
-    codecNeedsMonoChannelCountWorkaround = false;
     codecNeedsEosPropagation = false;
     codecRegisteredOnBufferAvailableListener = false;
     codecReconfigured = false;
@@ -1238,9 +1220,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       TraceUtil.beginSection("createCodec:" + codecName);
       codec = codecAdapterFactory.createAdapter(configuration);
       codecRegisteredOnBufferAvailableListener =
-          Util.SDK_INT >= 21
-              && Api21.registerOnBufferAvailableListener(
-                  codec, new MediaCodecRendererCodecAdapterListener());
+          codec.registerOnBufferAvailableListener(new MediaCodecRendererCodecAdapterListener());
     } finally {
       TraceUtil.endSection();
     }
@@ -1258,14 +1238,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     this.codecOperatingRate = codecOperatingRate;
     codecInputFormat = inputFormat;
     codecAdaptationWorkaroundMode = codecAdaptationWorkaroundMode(codecName);
-    codecNeedsDiscardToSpsWorkaround =
-        codecNeedsDiscardToSpsWorkaround(codecName, checkNotNull(codecInputFormat));
-    codecNeedsFlushWorkaround = codecNeedsFlushWorkaround(codecName);
     codecNeedsSosFlushWorkaround = codecNeedsSosFlushWorkaround(codecName);
     codecNeedsEosFlushWorkaround = codecNeedsEosFlushWorkaround(codecName);
     codecNeedsEosOutputExceptionWorkaround = codecNeedsEosOutputExceptionWorkaround(codecName);
-    codecNeedsEosBufferTimestampWorkaround = codecNeedsEosBufferTimestampWorkaround(codecName);
-    codecNeedsMonoChannelCountWorkaround = false;
     codecNeedsEosPropagation =
         codecNeedsEosPropagationWorkaround(codecInfo) || getCodecNeedsEosPropagation();
     if (checkNotNull(codec).needsReconfiguration()) {
@@ -1461,13 +1436,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     boolean bufferEncrypted = buffer.isEncrypted();
     if (bufferEncrypted) {
       buffer.cryptoInfo.increaseClearDataFirstSubSampleBy(adaptiveReconfigurationBytes);
-    }
-    if (codecNeedsDiscardToSpsWorkaround && !bufferEncrypted) {
-      NalUnitUtil.discardToSps(checkNotNull(buffer.data));
-      if (checkNotNull(buffer.data).position() == 0) {
-        return true;
-      }
-      codecNeedsDiscardToSpsWorkaround = false;
     }
 
     long presentationTimeUs = buffer.timeUs;
@@ -1950,7 +1918,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private boolean drainAndFlushCodec() {
     if (codecReceivedBuffers) {
       codecDrainState = DRAIN_STATE_SIGNAL_END_OF_STREAM;
-      if (codecNeedsFlushWorkaround || codecNeedsEosFlushWorkaround) {
+      if (codecNeedsEosFlushWorkaround) {
         codecDrainAction = DRAIN_ACTION_REINITIALIZE;
         return false;
       } else {
@@ -1973,7 +1941,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private boolean drainAndUpdateCodecDrmSessionV23() throws ExoPlaybackException {
     if (codecReceivedBuffers) {
       codecDrainState = DRAIN_STATE_SIGNAL_END_OF_STREAM;
-      if (codecNeedsFlushWorkaround || codecNeedsEosFlushWorkaround) {
+      if (codecNeedsEosFlushWorkaround) {
         codecDrainAction = DRAIN_ACTION_REINITIALIZE;
         return false;
       } else {
@@ -2060,12 +2028,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         outputBuffer.position(outputBufferInfo.offset);
         outputBuffer.limit(outputBufferInfo.offset + outputBufferInfo.size);
       }
-      if (codecNeedsEosBufferTimestampWorkaround
-          && outputBufferInfo.presentationTimeUs == 0
-          && (outputBufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0
-          && largestQueuedPresentationTimeUs != C.TIME_UNSET) {
-        outputBufferInfo.presentationTimeUs = lastBufferInStreamPresentationTimeUs;
-      }
       isDecodeOnlyOutputBuffer = outputBufferInfo.presentationTimeUs < getLastResetPositionUs();
       isLastOutputBuffer =
           lastBufferInStreamPresentationTimeUs != C.TIME_UNSET
@@ -2137,9 +2099,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       // We assume this format changed event was caused by the adaptation workaround.
       shouldSkipAdaptationWorkaroundOutputBuffer = true;
       return;
-    }
-    if (codecNeedsMonoChannelCountWorkaround) {
-      mediaFormat.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 1);
     }
     codecOutputMediaFormat = mediaFormat;
     codecOutputMediaFormatChanged = true;
@@ -2557,44 +2516,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
                 /* startTimeUs= */ startTimeUs, /* frameTimeUs= */ frameTimeUs));
   }
 
-  private static boolean isMediaCodecException(IllegalStateException error) {
-    if (Util.SDK_INT >= 21 && isMediaCodecExceptionV21(error)) {
-      return true;
-    }
-    StackTraceElement[] stackTrace = error.getStackTrace();
-    return stackTrace.length > 0 && stackTrace[0].getClassName().equals("android.media.MediaCodec");
-  }
-
-  @RequiresApi(21)
-  private static boolean isMediaCodecExceptionV21(IllegalStateException error) {
-    return error instanceof MediaCodec.CodecException;
-  }
-
-  @RequiresApi(21)
-  private static boolean isRecoverableMediaCodecExceptionV21(IllegalStateException error) {
-    if (error instanceof MediaCodec.CodecException) {
-      return ((MediaCodec.CodecException) error).isRecoverable();
-    }
-    return false;
-  }
-
-  /**
-   * Returns whether the decoder is known to fail when flushed.
-   *
-   * <p>If true is returned, the renderer will work around the issue by releasing the decoder and
-   * instantiating a new one rather than flushing the current instance.
-   *
-   * <p>See [Internal: b/8347958, b/8543366].
-   *
-   * @param name The name of the decoder.
-   * @return True if the decoder is known to fail when flushed.
-   */
-  private static boolean codecNeedsFlushWorkaround(String name) {
-    return Util.SDK_INT == 19
-        && Util.MODEL.startsWith("SM-G800")
-        && ("OMX.Exynos.avc.dec".equals(name) || "OMX.Exynos.avc.dec.secure".equals(name));
-  }
-
   /**
    * Returns a mode that specifies when the adaptation workaround should be enabled.
    *
@@ -2626,23 +2547,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     } else {
       return ADAPTATION_WORKAROUND_MODE_NEVER;
     }
-  }
-
-  /**
-   * Returns whether the decoder is an H.264/AVC decoder known to fail if NAL units are queued
-   * before the codec specific data.
-   *
-   * <p>If true is returned, the renderer will work around the issue by discarding data up to the
-   * SPS.
-   *
-   * @param name The name of the decoder.
-   * @param format The {@link Format} used to configure the decoder.
-   * @return True if the decoder is known to fail if NAL units are queued before CSD.
-   */
-  private static boolean codecNeedsDiscardToSpsWorkaround(String name, Format format) {
-    return Util.SDK_INT < 21
-        && format.initializationData.isEmpty()
-        && "OMX.MTK.VIDEO.DECODER.AVC".equals(name);
   }
 
   /**
@@ -2709,24 +2613,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   }
 
   /**
-   * Returns whether the decoder may output a non-empty buffer with timestamp 0 as the end of stream
-   * buffer.
-   *
-   * <p>See <a href="https://github.com/google/ExoPlayer/issues/5045">GitHub issue #5045</a>.
-   */
-  private static boolean codecNeedsEosBufferTimestampWorkaround(String codecName) {
-    return Util.SDK_INT < 21
-        && "OMX.SEC.mp3.dec".equals(codecName)
-        && "samsung".equals(Util.MANUFACTURER)
-        && (Util.DEVICE.startsWith("baffin")
-            || Util.DEVICE.startsWith("grand")
-            || Util.DEVICE.startsWith("fortuna")
-            || Util.DEVICE.startsWith("gprimelte")
-            || Util.DEVICE.startsWith("j2y18lte")
-            || Util.DEVICE.startsWith("ms01"));
-  }
-
-  /**
    * Returns whether the decoder may throw an {@link IllegalStateException} from {@link
    * MediaCodec#dequeueOutputBuffer(MediaCodec.BufferInfo, long)} or {@link
    * MediaCodec#releaseOutputBuffer(int, boolean)} after receiving an input buffer with {@link
@@ -2760,15 +2646,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       this.startPositionUs = startPositionUs;
       this.streamOffsetUs = streamOffsetUs;
       this.formatQueue = new TimedValueQueue<>();
-    }
-  }
-
-  @RequiresApi(21)
-  private static final class Api21 {
-    @DoNotInline
-    public static boolean registerOnBufferAvailableListener(
-        MediaCodecAdapter codec, MediaCodecRendererCodecAdapterListener listener) {
-      return codec.registerOnBufferAvailableListener(listener);
     }
   }
 

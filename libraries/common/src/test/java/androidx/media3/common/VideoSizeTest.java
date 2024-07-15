@@ -32,6 +32,7 @@ public final class VideoSizeTest {
   }
 
   @Test
+  @SuppressWarnings("deprecation") // Testing bundling of deprecated field.
   public void roundTripViaBundle_ofArbitraryVideoSize_yieldsEqualInstance() {
     VideoSize videoSize =
         new VideoSize(

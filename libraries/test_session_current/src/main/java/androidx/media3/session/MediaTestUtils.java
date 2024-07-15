@@ -94,13 +94,9 @@ public final class MediaTestUtils {
                 /* trackSelected= */ new boolean[] {true})));
   }
 
-  /** Returns a new {@link VideoSize} instance for testing purpose. */
-  public static VideoSize createDefaultVideoSize() {
-    return new VideoSize(
-        DEFAULT_VIDEO_SIZE.width,
-        DEFAULT_VIDEO_SIZE.height,
-        DEFAULT_VIDEO_SIZE.unappliedRotationDegrees,
-        DEFAULT_VIDEO_SIZE.pixelWidthHeightRatio);
+  /** Returns a {@link VideoSize} instance for testing purpose. */
+  public static VideoSize getDefaultVideoSize() {
+    return DEFAULT_VIDEO_SIZE;
   }
 
   /** Create a media item with the mediaId for testing purpose. */

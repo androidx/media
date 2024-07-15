@@ -874,6 +874,7 @@ public class MediaControllerTest {
   }
 
   @Test
+  @SuppressWarnings("deprecation") // Testing propagation of deprecated unappliedRotationDegrees.
   public void getVideoSize_returnsVideoSizeOfPlayerInSession() throws Exception {
     VideoSize testVideoSize =
         new VideoSize(

@@ -636,6 +636,7 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
+  @SuppressWarnings("deprecation") // Testing propagation of deprecated unappliedRotationDegrees.
   public void render_sendsVideoSizeChangeWithCurrentFormatValues() throws Exception {
     FakeSampleStream fakeSampleStream =
         new FakeSampleStream(

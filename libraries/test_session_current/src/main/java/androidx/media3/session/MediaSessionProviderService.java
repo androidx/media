@@ -289,7 +289,7 @@ public class MediaSessionProviderService extends Service {
         case TEST_ON_TRACKS_CHANGED_VIDEO_TO_AUDIO_TRANSITION:
         case TEST_ON_VIDEO_SIZE_CHANGED:
           {
-            mockPlayer.videoSize = MediaTestUtils.createDefaultVideoSize();
+            mockPlayer.videoSize = MediaTestUtils.getDefaultVideoSize();
             mockPlayer.currentTracks = MediaTestUtils.createDefaultVideoTracks();
             break;
           }
