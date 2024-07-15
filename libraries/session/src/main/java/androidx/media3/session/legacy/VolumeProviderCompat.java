@@ -129,8 +129,7 @@ public abstract class VolumeProviderCompat {
    */
   public final void setCurrentVolume(int currentVolume) {
     mCurrentVolume = currentVolume;
-    VolumeProvider volumeProviderFwk = (VolumeProvider) getVolumeProvider();
-    volumeProviderFwk.setCurrentVolume(currentVolume);
+    getVolumeProvider().setCurrentVolume(currentVolume);
   }
 
   /**
@@ -163,7 +162,7 @@ public abstract class VolumeProviderCompat {
    *
    * @return An equivalent {@link android.media.VolumeProvider} object, or null if none.
    */
-  public Object getVolumeProvider() {
+  public VolumeProvider getVolumeProvider() {
     if (mVolumeProviderFwk == null) {
       if (Build.VERSION.SDK_INT >= 30) {
         mVolumeProviderFwk =

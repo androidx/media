@@ -34,7 +34,6 @@ import android.media.AudioManager;
 import android.media.MediaDescription;
 import android.media.MediaMetadata;
 import android.media.Rating;
-import android.media.VolumeProvider;
 import android.media.session.MediaSession;
 import android.media.session.PlaybackState;
 import android.net.Uri;
@@ -2277,7 +2276,7 @@ public class MediaSessionCompat {
 
     @Override
     public void setPlaybackToRemote(VolumeProviderCompat volumeProvider) {
-      mSessionFwk.setPlaybackToRemote((VolumeProvider) volumeProvider.getVolumeProvider());
+      mSessionFwk.setPlaybackToRemote(volumeProvider.getVolumeProvider());
     }
 
     @Override
