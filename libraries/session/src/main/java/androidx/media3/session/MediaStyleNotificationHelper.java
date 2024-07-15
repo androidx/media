@@ -137,19 +137,22 @@ public class MediaStyleNotificationHelper {
 
     /**
      * @deprecated This method is a no-op and usages can be safely removed. There is no recommended
-     *     alternative (it was previously only operational on API &le; 21).
+     *     alternative (it was previously only operational on API &lt; 21).
      */
     @CanIgnoreReturnValue
     @Deprecated
+    @SuppressWarnings("unused")
     public MediaStyle setShowCancelButton(boolean show) {
       return this;
     }
 
     /**
      * @deprecated This method is a no-op and usages can be safely removed. There is no recommended
-     *     alternative (it was previously only operational on API &le; 21).
+     *     alternative (it was previously only operational on API &lt; 21).
      */
     @CanIgnoreReturnValue
+    @Deprecated
+    @SuppressWarnings("unused")
     public MediaStyle setCancelButtonIntent(PendingIntent pendingIntent) {
       return this;
     }
