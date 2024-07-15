@@ -544,8 +544,10 @@ import java.util.List;
       case MimeTypes.AUDIO_AAC:
       case MimeTypes.VIDEO_MP4V:
         return esdsBox(format);
+      case MimeTypes.AUDIO_AMR_NB:
+        return damrBox(/* mode= */ (short) 0x81FF); // mode set: all enabled for AMR-NB
       case MimeTypes.AUDIO_AMR_WB:
-        return damrBox(/* mode= */ (short) 0x83FF); // mode set: all enabled
+        return damrBox(/* mode= */ (short) 0x83FF); // mode set: all enabled for AMR-WB
       case MimeTypes.VIDEO_H264:
         return avcCBox(format);
       case MimeTypes.VIDEO_H265:
@@ -1322,6 +1324,8 @@ import java.util.List;
     switch (mimeType) {
       case MimeTypes.AUDIO_AAC:
         return "mp4a";
+      case MimeTypes.AUDIO_AMR_NB:
+        return "samr";
       case MimeTypes.AUDIO_AMR_WB:
         return "sawb";
       case MimeTypes.VIDEO_H264:
