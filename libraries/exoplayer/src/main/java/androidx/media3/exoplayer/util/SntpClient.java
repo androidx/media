@@ -43,6 +43,9 @@ public final class SntpClient {
   /** The default NTP host address used to retrieve {@link #getElapsedRealtimeOffsetMs()}. */
   public static final String DEFAULT_NTP_HOST = "time.android.com";
 
+  /** The default maximum time, in milliseconds, to wait for the SNTP request to complete. */
+  public static final int DEFAULT_TIMEOUT_MS = 5_000;
+
   /** Callback for calls to {@link #initialize(Loader, InitializationCallback)}. */
   public interface InitializationCallback {
 
@@ -56,8 +59,6 @@ public final class SntpClient {
      */
     void onInitializationFailed(IOException error);
   }
-
-  private static final int TIMEOUT_MS = 10_000;
 
   private static final int ORIGINATE_TIME_OFFSET = 24;
   private static final int RECEIVE_TIME_OFFSET = 32;
@@ -88,6 +89,9 @@ public final class SntpClient {
   @GuardedBy("valueLock")
   private static String ntpHost = DEFAULT_NTP_HOST;
 
+  @GuardedBy("valueLock")
+  private static int timeoutMs = DEFAULT_TIMEOUT_MS;
+
   private SntpClient() {}
 
   /** Returns the NTP host address used to retrieve {@link #getElapsedRealtimeOffsetMs()}. */
@@ -111,6 +115,30 @@ public final class SntpClient {
     synchronized (valueLock) {
       if (!SntpClient.ntpHost.equals(ntpHost)) {
         SntpClient.ntpHost = ntpHost;
+        isInitialized = false;
+      }
+    }
+  }
+
+  /** Returns the maximum time to wait for the SNTP request to complete, in milliseconds. */
+  public static int getTimeoutMs() {
+    synchronized (valueLock) {
+      return timeoutMs;
+    }
+  }
+
+  /**
+   * Sets the maximum time to wait for the SNTP request to complete, in milliseconds.
+   *
+   * <p>The default is {@link #DEFAULT_TIMEOUT_MS}.
+   *
+   * <p>If the new timeout is different from the previous one, the NTP client will be {@link
+   * #isInitialized()} uninitialized} again.
+   */
+  public static void setTimeoutMs(int timeoutMs) {
+    synchronized (valueLock) {
+      if (SntpClient.timeoutMs != timeoutMs) {
+        SntpClient.timeoutMs = timeoutMs;
         isInitialized = false;
       }
     }
@@ -165,7 +193,7 @@ public final class SntpClient {
   private static long loadNtpTimeOffsetMs() throws IOException {
     InetAddress address = InetAddress.getByName(getNtpHost());
     try (DatagramSocket socket = new DatagramSocket()) {
-      socket.setSoTimeout(TIMEOUT_MS);
+      socket.setSoTimeout(getTimeoutMs());
       byte[] buffer = new byte[NTP_PACKET_SIZE];
       DatagramPacket request = new DatagramPacket(buffer, buffer.length, address, NTP_PORT);
 
