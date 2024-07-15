@@ -12,8 +12,8 @@ Building the demo app with [MediaPipe][] integration enabled requires some extra
 manual steps.
 
 1.  Follow the
-    [instructions](https://google.github.io/mediapipe/getting_started/install.html)
-    to install MediaPipe.
+    [instructions](https://ai.google.dev/edge/mediapipe/solutions/guide#get_started)
+    to get started with MediaPipe.
 1.  Copy the Transformer demo's build configuration and MediaPipe graph text
     protocol buffer under the MediaPipe source tree. This makes it easy to
     [build an AAR][] with bazel by reusing MediaPipe's workspace.
@@ -62,5 +62,5 @@ manual steps.
     app and select a MediaPipe-based effect.
 
 [Transformer]: https://developer.android.com/media/media3/transformer
-[MediaPipe]: https://google.github.io/mediapipe/
-[build an AAR]: https://google.github.io/mediapipe/getting_started/android_archive_library.html
+[MediaPipe]: https://developers.google.com/mediapipe
+[build an AAR]: https://ai.google.dev/edge/mediapipe/framework/getting_started/android_archive_library
