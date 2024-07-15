@@ -173,10 +173,6 @@ public final class VideoFrameReleaseHelper {
    * @param surface The new {@link Surface}, or {@code null} if the renderer does not have one.
    */
   public void onSurfaceChanged(@Nullable Surface surface) {
-    if (surface instanceof PlaceholderSurface) {
-      // We don't care about dummy surfaces for release timing, since they're not visible.
-      surface = null;
-    }
     if (this.surface == surface) {
       return;
     }

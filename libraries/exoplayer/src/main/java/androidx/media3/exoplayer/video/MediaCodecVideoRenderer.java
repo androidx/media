@@ -671,14 +671,17 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
           new VideoSink.Listener() {
             @Override
             public void onFirstFrameRendered(VideoSink videoSink) {
-              checkStateNotNull(displaySurface);
-              notifyRenderedFirstFrame();
+              if (displaySurface != null) {
+                notifyRenderedFirstFrame();
+              }
             }
 
             @Override
             public void onFrameDropped(VideoSink videoSink) {
-              updateDroppedBufferCounters(
-                  /* droppedInputBufferCount= */ 0, /* droppedDecoderBufferCount= */ 1);
+              if (displaySurface != null) {
+                updateDroppedBufferCounters(
+                    /* droppedInputBufferCount= */ 0, /* droppedDecoderBufferCount= */ 1);
+              }
             }
 
             @Override
@@ -797,10 +800,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (videoSink != null) {
       return videoSink.isReady(rendererOtherwiseReady);
     }
-    if (rendererOtherwiseReady
-        && ((placeholderSurface != null && displaySurface == placeholderSurface)
-            || getCodec() == null
-            || tunneling)) {
+    if (rendererOtherwiseReady && (getCodec() == null || displaySurface == null || tunneling)) {
       // Not releasing frames.
       return true;
     }
@@ -862,9 +862,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     } finally {
       hasSetVideoSink = false;
       startPositionUs = C.TIME_UNSET;
-      if (placeholderSurface != null) {
-        releasePlaceholderSurface();
-      }
+      releasePlaceholderSurface();
     }
   }
 
@@ -946,20 +944,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     // Handle unsupported (i.e., non-Surface) outputs by clearing the display surface.
     @Nullable Surface displaySurface = output instanceof Surface ? (Surface) output : null;
 
-    if (displaySurface == null) {
-      // Use a placeholder surface if possible.
-      if (placeholderSurface != null) {
-        displaySurface = placeholderSurface;
-      } else {
-        MediaCodecInfo codecInfo = getCodecInfo();
-        if (codecInfo != null && shouldUsePlaceholderSurface(codecInfo)) {
-          placeholderSurface = PlaceholderSurface.newInstance(context, codecInfo.secure);
-          displaySurface = placeholderSurface;
-        }
-      }
-    }
-
-    // We only need to update the codec if the display surface has changed.
     if (this.displaySurface != displaySurface) {
       this.displaySurface = displaySurface;
       if (videoSink == null) {
@@ -970,14 +954,16 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       @State int state = getState();
       @Nullable MediaCodecAdapter codec = getCodec();
       if (codec != null && videoSink == null) {
-        if (Util.SDK_INT >= 23 && displaySurface != null && !codecNeedsSetOutputSurfaceWorkaround) {
-          setOutputSurfaceV23(codec, displaySurface);
+        MediaCodecInfo codecInfo = checkNotNull(getCodecInfo());
+        boolean canUpdateSurface = hasSurfaceForCodec(codecInfo);
+        if (Util.SDK_INT >= 23 && canUpdateSurface && !codecNeedsSetOutputSurfaceWorkaround) {
+          setOutputSurfaceV23(codec, getSurfaceForCodec(codecInfo));
         } else {
           releaseCodec();
           maybeInitCodecOrBypass();
         }
       }
-      if (displaySurface != null && displaySurface != placeholderSurface) {
+      if (displaySurface != null) {
         // If we know the video size, report it again immediately.
         maybeRenotifyVideoSizeChanged();
         if (state == STATE_STARTED) {
@@ -999,7 +985,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         }
       }
       maybeSetupTunnelingForFirstFrame();
-    } else if (displaySurface != null && displaySurface != placeholderSurface) {
+    } else if (displaySurface != null) {
       // The display surface is set and unchanged. If we know the video size and/or have already
       // rendered to the display surface, report these again immediately.
       maybeRenotifyVideoSizeChanged();
@@ -1009,7 +995,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   @Override
   protected boolean shouldInitCodec(MediaCodecInfo codecInfo) {
-    return displaySurface != null || shouldUsePlaceholderSurface(codecInfo);
+    return hasSurfaceForCodec(codecInfo);
   }
 
   @Override
@@ -1024,10 +1010,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       Format format,
       @Nullable MediaCrypto crypto,
       float codecOperatingRate) {
-    if (placeholderSurface != null && placeholderSurface.secure != codecInfo.secure) {
-      // We can't re-use the current DummySurface instance with the new decoder.
-      releasePlaceholderSurface();
-    }
     String codecMimeType = codecInfo.codecMimeType;
     codecMaxValues = getCodecMaxValues(codecInfo, format, getStreamFormats());
     MediaFormat mediaFormat =
@@ -1038,22 +1020,10 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
             codecOperatingRate,
             deviceNeedsNoPostProcessWorkaround,
             tunneling ? tunnelingAudioSessionId : C.AUDIO_SESSION_ID_UNSET);
-    if (displaySurface == null) {
-      if (!shouldUsePlaceholderSurface(codecInfo)) {
-        throw new IllegalStateException();
-      }
-      if (placeholderSurface == null) {
-        placeholderSurface = PlaceholderSurface.newInstance(context, codecInfo.secure);
-      }
-      displaySurface = placeholderSurface;
-    }
+    Surface codecSurface = getSurfaceForCodec(codecInfo);
     maybeSetKeyAllowFrameDrop(mediaFormat);
     return MediaCodecAdapter.Configuration.createForVideoDecoding(
-        codecInfo,
-        mediaFormat,
-        format,
-        videoSink != null ? videoSink.getInputSurface() : displaySurface,
-        crypto);
+        codecInfo, mediaFormat, format, codecSurface, crypto);
   }
 
   @SuppressWarnings("InlinedApi") // VideoSink will check the API level
@@ -1505,7 +1475,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     }
 
     // We are not rendering on a surface, the renderer will wait until a surface is set.
-    if (displaySurface == placeholderSurface) {
+    if (displaySurface == null) {
       // Skip frames in sync with playback, so we'll be at the right frame if the mode changes.
       if (videoFrameReleaseInfo.getEarlyUs() < 30_000) {
         skipOutputBuffer(codec, bufferIndex, presentationTimeUs);
@@ -1843,6 +1813,32 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     }
   }
 
+  private boolean hasSurfaceForCodec(MediaCodecInfo codecInfo) {
+    return displaySurface != null || shouldUsePlaceholderSurface(codecInfo);
+  }
+
+  /**
+   * Returns surface to be set on the codec. Must only be called if {@link
+   * #hasSurfaceForCodec(MediaCodecInfo)} returns true.
+   */
+  private Surface getSurfaceForCodec(MediaCodecInfo codecInfo) {
+    if (videoSink != null) {
+      return videoSink.getInputSurface();
+    } else if (displaySurface != null) {
+      return displaySurface;
+    } else {
+      checkState(shouldUsePlaceholderSurface(codecInfo));
+      if (placeholderSurface != null && placeholderSurface.secure != codecInfo.secure) {
+        // We can't re-use the current placeholder surface instance with the new decoder.
+        releasePlaceholderSurface();
+      }
+      if (placeholderSurface == null) {
+        placeholderSurface = PlaceholderSurface.newInstance(context, codecInfo.secure);
+      }
+      return placeholderSurface;
+    }
+  }
+
   private boolean shouldUsePlaceholderSurface(MediaCodecInfo codecInfo) {
     return Util.SDK_INT >= 23
         && !tunneling
@@ -1851,9 +1847,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   }
 
   private void releasePlaceholderSurface() {
-    if (displaySurface == placeholderSurface) {
-      displaySurface = null;
-    }
     if (placeholderSurface != null) {
       placeholderSurface.release();
       placeholderSurface = null;
