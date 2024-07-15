@@ -255,6 +255,27 @@ public class BoxesTest {
   }
 
   @Test
+  public void createAudioSampleEntryBox_forSamr_matchesExpected() throws Exception {
+    Format format =
+        new Format.Builder()
+            .setPeakBitrate(128000)
+            .setSampleRate(48000)
+            .setId(3)
+            .setSampleMimeType(MimeTypes.AUDIO_AMR_NB)
+            .setChannelCount(2)
+            .setAverageBitrate(128000)
+            .setLanguage("```")
+            .setMaxInputSize(502)
+            .build();
+
+    ByteBuffer audioSampleEntryBox = Boxes.audioSampleEntry(format);
+
+    DumpableMp4Box dumpableBox = new DumpableMp4Box(audioSampleEntryBox);
+    DumpFileAsserts.assertOutput(
+        context, dumpableBox, getExpectedDumpFilePath("audio_sample_entry_box_samr"));
+  }
+
+  @Test
   public void createAudioSampleEntryBox_forSawb_matchesExpected() throws Exception {
     Format format =
         new Format.Builder()
