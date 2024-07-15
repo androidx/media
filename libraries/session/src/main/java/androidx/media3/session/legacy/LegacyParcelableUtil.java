@@ -88,7 +88,7 @@ public final class LegacyParcelableUtil {
   // TODO: b/335804969 - Remove this workaround once the bug fix is in the androidx.media dependency
   @SuppressWarnings("unchecked")
   private static <T> T maybeApplyMediaDescriptionParcelableBugWorkaround(T value) {
-    if (Util.SDK_INT < 21 || Util.SDK_INT >= 23) {
+    if (Util.SDK_INT >= 23) {
       return value;
     }
     if (value instanceof android.support.v4.media.MediaBrowserCompat.MediaItem) {

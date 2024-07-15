@@ -237,16 +237,10 @@ import java.util.ArrayList;
     }
 
     @Override
-    protected void renderOutputBuffer(MediaCodecAdapter codec, int index, long presentationTimeUs) {
-      skipToPositionBeforeRenderingFirstFrame = false;
-      super.renderOutputBuffer(codec, index, presentationTimeUs);
-    }
-
-    @Override
-    protected void renderOutputBufferV21(
+    protected void renderOutputBuffer(
         MediaCodecAdapter codec, int index, long presentationTimeUs, long releaseTimeNs) {
       skipToPositionBeforeRenderingFirstFrame = false;
-      super.renderOutputBufferV21(codec, index, presentationTimeUs, releaseTimeNs);
+      super.renderOutputBuffer(codec, index, presentationTimeUs, releaseTimeNs);
     }
 
     @Override

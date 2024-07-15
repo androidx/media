@@ -22,7 +22,6 @@ import android.annotation.SuppressLint;
 import android.graphics.Bitmap;
 import android.media.MediaMetadata;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -563,7 +562,7 @@ public final class MediaMetadataCompat implements Parcelable {
    */
   @Nullable
   public static MediaMetadataCompat fromMediaMetadata(@Nullable Object metadataObj) {
-    if (metadataObj != null && Build.VERSION.SDK_INT >= 21) {
+    if (metadataObj != null) {
       Parcel p = Parcel.obtain();
       ((MediaMetadata) metadataObj).writeToParcel(p, 0);
       p.setDataPosition(0);

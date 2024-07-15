@@ -19,7 +19,6 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.media.session.MediaSessionManager as ActiveSessionManager
-import android.os.Build
 import android.os.Build.VERSION_CODES
 import android.os.Bundle
 import android.service.notification.NotificationListenerService
@@ -75,10 +74,7 @@ class LaunchActivity : AppCompatActivity() {
         }
       )
 
-    if (Build.VERSION.SDK_INT >= VERSION_CODES.LOLLIPOP) {
-      activeSessionListener = ActiveSessionListener()
-    }
-
+    activeSessionListener = ActiveSessionListener()
     mediaSessionApps = mediaAppListAdapter.addSection(R.string.media_app_header_media_service)
 
     val mediaAppsList: RecyclerView? = findViewById(R.id.app_list)
@@ -90,9 +86,7 @@ class LaunchActivity : AppCompatActivity() {
   override fun onStart() {
     super.onStart()
 
-    if (Build.VERSION.SDK_INT >= VERSION_CODES.LOLLIPOP) {
-      activeSessionListener!!.onStart()
-    }
+    activeSessionListener!!.onStart()
 
     // Finds apps that implement MediaSessionService, MediaLibraryService, or
     // MediaBrowserServiceCompat.
@@ -102,9 +96,7 @@ class LaunchActivity : AppCompatActivity() {
 
   override fun onStop() {
     super.onStop()
-    if (Build.VERSION.SDK_INT >= VERSION_CODES.LOLLIPOP) {
-      activeSessionListener!!.onStop()
-    }
+    activeSessionListener!!.onStop()
   }
 
   /**

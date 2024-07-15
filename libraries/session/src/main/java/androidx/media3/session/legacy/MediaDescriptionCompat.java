@@ -294,18 +294,7 @@ public final class MediaDescriptionCompat implements Parcelable {
 
   @Override
   public void writeToParcel(Parcel dest, int flags) {
-    if (Build.VERSION.SDK_INT < 21) {
-      dest.writeString(mMediaId);
-      TextUtils.writeToParcel(mTitle, dest, flags);
-      TextUtils.writeToParcel(mSubtitle, dest, flags);
-      TextUtils.writeToParcel(mDescription, dest, flags);
-      dest.writeParcelable(mIcon, flags);
-      dest.writeParcelable(mIconUri, flags);
-      dest.writeBundle(mExtras);
-      dest.writeParcelable(mMediaUri, flags);
-    } else {
-      ((MediaDescription) getMediaDescription()).writeToParcel(dest, flags);
-    }
+    ((MediaDescription) getMediaDescription()).writeToParcel(dest, flags);
   }
 
   @Override
@@ -365,7 +354,7 @@ public final class MediaDescriptionCompat implements Parcelable {
   @Nullable
   @SuppressWarnings("deprecation")
   public static MediaDescriptionCompat fromMediaDescription(Object descriptionObj) {
-    if (descriptionObj != null && Build.VERSION.SDK_INT >= 21) {
+    if (descriptionObj != null) {
       Builder bob = new Builder();
       MediaDescription description = (MediaDescription) descriptionObj;
       bob.setMediaId(description.getMediaId());
@@ -416,12 +405,8 @@ public final class MediaDescriptionCompat implements Parcelable {
       new Parcelable.Creator<MediaDescriptionCompat>() {
         @Override
         public MediaDescriptionCompat createFromParcel(Parcel in) {
-          if (Build.VERSION.SDK_INT < 21) {
-            return new MediaDescriptionCompat(in);
-          } else {
-            return checkNotNull(
-                fromMediaDescription(MediaDescription.CREATOR.createFromParcel(in)));
-          }
+          return checkNotNull(
+              fromMediaDescription(MediaDescription.CREATOR.createFromParcel(in)));
         }
 
         @Override

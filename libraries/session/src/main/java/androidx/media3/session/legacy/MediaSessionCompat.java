@@ -47,7 +47,6 @@ import android.os.Binder;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
 import android.os.Parcel;
@@ -459,26 +458,20 @@ public class MediaSessionCompat {
               Build.VERSION.SDK_INT >= 31 ? PendingIntent.FLAG_MUTABLE : 0);
     }
 
-    if (android.os.Build.VERSION.SDK_INT >= 21) {
-      if (android.os.Build.VERSION.SDK_INT >= 29) {
-        mImpl = new MediaSessionImplApi29(context, tag, session2Token, sessionInfo);
-      } else if (android.os.Build.VERSION.SDK_INT >= 28) {
-        mImpl = new MediaSessionImplApi28(context, tag, session2Token, sessionInfo);
-      } else if (android.os.Build.VERSION.SDK_INT >= 22) {
-        mImpl = new MediaSessionImplApi22(context, tag, session2Token, sessionInfo);
-      } else {
-        mImpl = new MediaSessionImplApi21(context, tag, session2Token, sessionInfo);
-      }
-      // Set default callback to respond to controllers' extra binder requests.
-      Looper myLooper = Looper.myLooper();
-      Handler handler = new Handler(myLooper != null ? myLooper : Looper.getMainLooper());
-      setCallback(new Callback() {}, handler);
-      mImpl.setMediaButtonReceiver(mbrIntent);
+    if (android.os.Build.VERSION.SDK_INT >= 29) {
+      mImpl = new MediaSessionImplApi29(context, tag, session2Token, sessionInfo);
+    } else if (android.os.Build.VERSION.SDK_INT >= 28) {
+      mImpl = new MediaSessionImplApi28(context, tag, session2Token, sessionInfo);
+    } else if (android.os.Build.VERSION.SDK_INT >= 22) {
+      mImpl = new MediaSessionImplApi22(context, tag, session2Token, sessionInfo);
     } else {
-      mImpl =
-          new MediaSessionImplApi19(
-              context, tag, mbrComponent, mbrIntent, session2Token, sessionInfo);
+      mImpl = new MediaSessionImplApi21(context, tag, session2Token, sessionInfo);
     }
+    // Set default callback to respond to controllers' extra binder requests.
+    Looper myLooper = Looper.myLooper();
+    Handler handler = new Handler(myLooper != null ? myLooper : Looper.getMainLooper());
+    setCallback(new Callback() {}, handler);
+    mImpl.setMediaButtonReceiver(mbrIntent);
     mController = new MediaControllerCompat(context, this);
 
     if (sMaxBitmapSize == 0) {
@@ -915,7 +908,7 @@ public class MediaSessionCompat {
   @Nullable
   public static MediaSessionCompat fromMediaSession(
       @Nullable Context context, @Nullable Object mediaSession) {
-    if (Build.VERSION.SDK_INT < 21 || context == null || mediaSession == null) {
+    if (context == null || mediaSession == null) {
       return null;
     }
     MediaSessionImpl impl;
@@ -1001,7 +994,8 @@ public class MediaSessionCompat {
    */
   public abstract static class Callback {
     final Object mLock = new Object();
-    @Nullable final MediaSession.Callback mCallbackFwk;
+    @androidx.annotation.NonNull
+    final MediaSession.Callback mCallbackFwk;
     private boolean mMediaPlayPausePendingOnHandler;
 
     @GuardedBy("mLock")
@@ -1013,11 +1007,7 @@ public class MediaSessionCompat {
     CallbackHandler mCallbackHandler;
 
     public Callback() {
-      if (android.os.Build.VERSION.SDK_INT >= 21) {
-        mCallbackFwk = new MediaSessionCallbackApi21();
-      } else {
-        mCallbackFwk = null;
-      }
+      mCallbackFwk = new MediaSessionCallbackApi21();
       mSessionImpl = new WeakReference<>(null);
     }
 
@@ -1845,11 +1835,7 @@ public class MediaSessionCompat {
 
     @Override
     public void writeToParcel(Parcel dest, int flags) {
-      if (android.os.Build.VERSION.SDK_INT >= 21) {
-        dest.writeParcelable((Parcelable) mInner, flags);
-      } else {
-        dest.writeStrongBinder((IBinder) mInner);
-      }
+      dest.writeParcelable((Parcelable) mInner, flags);
     }
 
     @Override
@@ -1963,12 +1949,7 @@ public class MediaSessionCompat {
           @SuppressWarnings("deprecation")
           @Override
           public Token createFromParcel(Parcel in) {
-            Object inner;
-            if (android.os.Build.VERSION.SDK_INT >= 21) {
-              inner = in.readParcelable(null);
-            } else {
-              inner = in.readStrongBinder();
-            }
+            Object inner = in.readParcelable(null);
             return new Token(checkNotNull(inner));
           }
 
@@ -2048,13 +2029,11 @@ public class MediaSessionCompat {
     /**
      * Gets the underlying {@link android.media.session.MediaSession.QueueItem}.
      *
-     * <p>On builds before {@link android.os.Build.VERSION_CODES#LOLLIPOP} null is returned.
-     *
-     * @return The underlying {@link android.media.session.MediaSession.QueueItem} or null.
+     * @return The underlying {@link android.media.session.MediaSession.QueueItem}.
      */
-    @Nullable
+    @androidx.annotation.NonNull
     public Object getQueueItem() {
-      if (mItemFwk != null || android.os.Build.VERSION.SDK_INT < 21) {
+      if (mItemFwk != null) {
         return mItemFwk;
       }
       mItemFwk =
@@ -2082,15 +2061,13 @@ public class MediaSessionCompat {
      * Creates a list of {@link QueueItem} objects from a framework {@link
      * android.media.session.MediaSession.QueueItem} object list.
      *
-     * <p>This method is only supported on API 21+. On API 20 and below, it returns null.
-     *
      * @param itemList A list of {@link android.media.session.MediaSession.QueueItem} objects.
      * @return An equivalent list of {@link QueueItem} objects, or null if none.
      */
     @Nullable
     public static List<QueueItem> fromQueueItemList(
         @Nullable List<? extends @NonNull Object> itemList) {
-      if (itemList == null || Build.VERSION.SDK_INT < 21) {
+      if (itemList == null) {
         return null;
       }
       List<QueueItem> items = new ArrayList<>(itemList.size());

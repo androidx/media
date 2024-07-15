@@ -130,10 +130,8 @@ public abstract class VolumeProviderCompat {
    */
   public final void setCurrentVolume(int currentVolume) {
     mCurrentVolume = currentVolume;
-    if (Build.VERSION.SDK_INT >= 21) {
-      VolumeProvider volumeProviderFwk = (VolumeProvider) getVolumeProvider();
-      volumeProviderFwk.setCurrentVolume(currentVolume);
-    }
+    VolumeProvider volumeProviderFwk = (VolumeProvider) getVolumeProvider();
+    volumeProviderFwk.setCurrentVolume(currentVolume);
     if (mCallback != null) {
       mCallback.onVolumeChanged(this);
     }

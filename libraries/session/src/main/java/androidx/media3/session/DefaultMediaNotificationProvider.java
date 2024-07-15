@@ -366,12 +366,6 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
       }
     }
 
-    if (player.isCommandAvailable(COMMAND_STOP)) {
-      // We must include a cancel intent for pre-L devices.
-      mediaStyle.setCancelButtonIntent(
-          actionFactory.createMediaActionPendingIntent(mediaSession, COMMAND_STOP));
-    }
-
     long playbackStartTimeMs = getPlaybackStartTimeEpochMs(player);
     boolean displayElapsedTimeWithChronometer = playbackStartTimeMs != C.TIME_UNSET;
     builder

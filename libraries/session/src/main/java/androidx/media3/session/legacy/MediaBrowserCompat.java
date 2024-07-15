@@ -73,6 +73,7 @@ import android.support.v4.os.ResultReceiver;
 import android.text.TextUtils;
 import android.util.Log;
 import androidx.annotation.IntDef;
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
@@ -203,10 +204,8 @@ public final class MediaBrowserCompat {
       mImpl = new MediaBrowserImplApi26(context, serviceComponent, callback, rootHints);
     } else if (Build.VERSION.SDK_INT >= 23) {
       mImpl = new MediaBrowserImplApi23(context, serviceComponent, callback, rootHints);
-    } else if (Build.VERSION.SDK_INT >= 21) {
-      mImpl = new MediaBrowserImplApi21(context, serviceComponent, callback, rootHints);
     } else {
-      mImpl = new MediaBrowserImplBase(context, serviceComponent, callback, rootHints);
+      mImpl = new MediaBrowserImplApi21(context, serviceComponent, callback, rootHints);
     }
   }
 
@@ -463,7 +462,7 @@ public final class MediaBrowserCompat {
      */
     @Nullable
     public static MediaItem fromMediaItem(@Nullable Object itemObj) {
-      if (itemObj == null || Build.VERSION.SDK_INT < 21) {
+      if (itemObj == null) {
         return null;
       }
       MediaBrowser.MediaItem itemFwk = (MediaBrowser.MediaItem) itemObj;
@@ -484,7 +483,7 @@ public final class MediaBrowserCompat {
      */
     @Nullable
     public static List<MediaItem> fromMediaItemList(@Nullable List<?> itemList) {
-      if (itemList == null || Build.VERSION.SDK_INT < 21) {
+      if (itemList == null) {
         return null;
       }
       List<MediaItem> items = new ArrayList<>(itemList.size());
@@ -599,11 +598,7 @@ public final class MediaBrowserCompat {
     @Nullable ConnectionCallbackInternal mConnectionCallbackInternal;
 
     public ConnectionCallback() {
-      if (Build.VERSION.SDK_INT >= 21) {
-        mConnectionCallbackFwk = new ConnectionCallbackApi21();
-      } else {
-        mConnectionCallbackFwk = null;
-      }
+      mConnectionCallbackFwk = new ConnectionCallbackApi21();
     }
 
     /**
@@ -676,7 +671,7 @@ public final class MediaBrowserCompat {
 
   /** Callbacks for subscription related events. */
   public abstract static class SubscriptionCallback {
-    @Nullable final MediaBrowser.SubscriptionCallback mSubscriptionCallbackFwk;
+    @NonNull final MediaBrowser.SubscriptionCallback mSubscriptionCallbackFwk;
     final IBinder mToken;
     @Nullable WeakReference<Subscription> mSubscriptionRef;
 
@@ -684,10 +679,8 @@ public final class MediaBrowserCompat {
       mToken = new Binder();
       if (Build.VERSION.SDK_INT >= 26) {
         mSubscriptionCallbackFwk = new SubscriptionCallbackApi26();
-      } else if (Build.VERSION.SDK_INT >= 21) {
-        mSubscriptionCallbackFwk = new SubscriptionCallbackApi21();
       } else {
-        mSubscriptionCallbackFwk = null;
+        mSubscriptionCallbackFwk = new SubscriptionCallbackApi21();
       }
     }
 
@@ -1739,7 +1732,7 @@ public final class MediaBrowserCompat {
       if (mServiceBinderWrapper == null) {
         // TODO: When MediaBrowser is connected to framework's MediaBrowserService,
         // subscribe with options won't work properly.
-        mBrowserFwk.subscribe(parentId, checkNotNull(callback.mSubscriptionCallbackFwk));
+        mBrowserFwk.subscribe(parentId, callback.mSubscriptionCallbackFwk);
       } else {
         try {
           mServiceBinderWrapper.addSubscription(
@@ -2087,9 +2080,9 @@ public final class MediaBrowserCompat {
       // This is to prevent ClassNotFoundException when options has Parcelable in it.
       if (mServiceBinderWrapper == null || mServiceVersion < SERVICE_VERSION_2) {
         if (options == null) {
-          mBrowserFwk.subscribe(parentId, checkNotNull(callback.mSubscriptionCallbackFwk));
+          mBrowserFwk.subscribe(parentId, callback.mSubscriptionCallbackFwk);
         } else {
-          mBrowserFwk.subscribe(parentId, options, checkNotNull(callback.mSubscriptionCallbackFwk));
+          mBrowserFwk.subscribe(parentId, options, callback.mSubscriptionCallbackFwk);
         }
       } else {
         super.subscribe(parentId, options, callback);
@@ -2104,7 +2097,7 @@ public final class MediaBrowserCompat {
         if (callback == null) {
           mBrowserFwk.unsubscribe(parentId);
         } else {
-          mBrowserFwk.unsubscribe(parentId, checkNotNull(callback.mSubscriptionCallbackFwk));
+          mBrowserFwk.unsubscribe(parentId, callback.mSubscriptionCallbackFwk);
         }
       } else {
         super.unsubscribe(parentId, callback);

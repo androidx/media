@@ -1328,10 +1328,8 @@ public abstract class MediaBrowserServiceCompat extends Service {
       mImpl = new MediaBrowserServiceImplApi26();
     } else if (Build.VERSION.SDK_INT >= 23) {
       mImpl = new MediaBrowserServiceImplApi23();
-    } else if (Build.VERSION.SDK_INT >= 21) {
-      mImpl = new MediaBrowserServiceImplApi21();
     } else {
-      mImpl = new MediaBrowserServiceImplBase();
+      mImpl = new MediaBrowserServiceImplApi21();
     }
     mImpl.onCreate();
   }

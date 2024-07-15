@@ -847,7 +847,7 @@ public final class PlaybackStateCompat implements Parcelable {
    */
   @Nullable
   public static PlaybackStateCompat fromPlaybackState(@Nullable Object stateObj) {
-    if (stateObj != null && Build.VERSION.SDK_INT >= 21) {
+    if (stateObj != null) {
       PlaybackState stateFwk = (PlaybackState) stateObj;
       List<PlaybackState.CustomAction> customActionFwks = stateFwk.getCustomActions();
       List<PlaybackStateCompat.CustomAction> customActions = null;
@@ -896,7 +896,7 @@ public final class PlaybackStateCompat implements Parcelable {
    */
   @Nullable
   public Object getPlaybackState() {
-    if (mStateFwk == null && Build.VERSION.SDK_INT >= 21) {
+    if (mStateFwk == null) {
       PlaybackState.Builder builder = new PlaybackState.Builder()
           .setState(mState, mPosition, mSpeed, mUpdateTime)
           .setBufferedPosition(mBufferedPosition)
@@ -998,14 +998,12 @@ public final class PlaybackStateCompat implements Parcelable {
      * Gets the underlying framework {@link android.media.session.PlaybackState.CustomAction}
      * object.
      *
-     * <p>This method is only supported on API 21+.
-     *
      * @return An equivalent {@link android.media.session.PlaybackState.CustomAction} object, or
      *     null if none.
      */
     @Nullable
     public Object getCustomAction() {
-      if (mCustomActionFwk != null || Build.VERSION.SDK_INT < 21) {
+      if (mCustomActionFwk != null) {
         return mCustomActionFwk;
       }
 

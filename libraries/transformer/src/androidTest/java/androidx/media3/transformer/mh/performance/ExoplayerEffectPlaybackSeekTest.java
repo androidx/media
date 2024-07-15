@@ -102,16 +102,15 @@ public final class ExoplayerEffectPlaybackSeekTest {
         new MediaCodecVideoRenderer(context, MediaCodecSelector.DEFAULT) {
           private int numberOfFramesRendered;
 
-          // Overriding V21 is sufficient as we don't have test running below API26.
           @Override
-          protected void renderOutputBufferV21(
+          protected void renderOutputBuffer(
               MediaCodecAdapter codec, int index, long presentationTimeUs, long releaseTimeNs) {
             numberOfFramesRendered++;
             if (numberOfFramesRendered == frameIndexToSkip) {
               frameSkippedCondition.open();
               return;
             }
-            super.renderOutputBufferV21(codec, index, presentationTimeUs, releaseTimeNs);
+            super.renderOutputBuffer(codec, index, presentationTimeUs, releaseTimeNs);
           }
         };
 

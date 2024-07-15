@@ -21,7 +21,6 @@ import static org.hamcrest.core.IsNot.not;
 
 import android.media.AudioAttributes;
 import android.media.AudioManager;
-import android.os.Build;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
 import org.junit.After;
@@ -54,9 +53,6 @@ public class AudioAttributesCompatTest {
   @Before
   @SdkSuppress(minSdkVersion = 21)
   public void setUpApi21() {
-    if (Build.VERSION.SDK_INT < 21) {
-      return;
-    }
     mMediaAA =
         new AudioAttributes.Builder()
             .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
