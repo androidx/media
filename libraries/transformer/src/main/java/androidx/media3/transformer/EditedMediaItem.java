@@ -314,6 +314,7 @@ public final class EditedMediaItem {
               clippingConfiguration.endPositionUs - clippingConfiguration.startPositionUs;
         }
       }
+      presentationDurationUs = getDurationAfterEffectsApplied(presentationDurationUs);
     }
     return presentationDurationUs;
   }
