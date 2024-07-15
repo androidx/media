@@ -35,6 +35,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
@@ -208,7 +209,7 @@ public final class DecodeOneFrameUtil {
     // Format must not include KEY_FRAME_RATE on API21.
     // https://developer.android.com/reference/android/media/MediaCodecList#findDecoderForFormat(android.media.MediaFormat)
     float frameRate = Format.NO_VALUE;
-    if (format.containsKey(MediaFormat.KEY_FRAME_RATE)) {
+    if (Util.SDK_INT == 21 && format.containsKey(MediaFormat.KEY_FRAME_RATE)) {
       try {
         frameRate = format.getFloat(MediaFormat.KEY_FRAME_RATE);
       } catch (ClassCastException e) {
@@ -220,7 +221,9 @@ public final class DecodeOneFrameUtil {
 
     @Nullable String mediaCodecName = mediaCodecList.findDecoderForFormat(format);
 
-    MediaFormatUtil.maybeSetInteger(format, MediaFormat.KEY_FRAME_RATE, round(frameRate));
+    if (Util.SDK_INT == 21) {
+      MediaFormatUtil.maybeSetInteger(format, MediaFormat.KEY_FRAME_RATE, round(frameRate));
+    }
     return mediaCodecName;
   }
 
