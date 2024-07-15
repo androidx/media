@@ -85,11 +85,6 @@
     >
     <!-- media buttons will be added here -->
   </LinearLayout>
-  <include layout="@layout/notification_media_cancel_action"
-    android:layout_width="48dp"
-    android:layout_height="match_parent"
-    android:layout_marginRight="6dp"
-    android:layout_marginEnd="6dp"/>
   <ImageView android:id="@+id/end_padder"
     android:layout_width="6dp"
     android:layout_height="match_parent"
