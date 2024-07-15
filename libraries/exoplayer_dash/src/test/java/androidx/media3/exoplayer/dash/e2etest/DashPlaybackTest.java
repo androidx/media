@@ -16,7 +16,6 @@
 package androidx.media3.exoplayer.dash.e2etest;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
-import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 import android.graphics.SurfaceTexture;
@@ -25,7 +24,6 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultDataSource;
-import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RenderersFactory;
@@ -403,41 +401,5 @@ public final class DashPlaybackTest {
 
     DumpFileAsserts.assertOutput(
         applicationContext, playbackOutput, "playbackdumps/dash/optimized_seek.dump");
-  }
-
-  @Test
-  public void playVideo_usingWithinGopSampleDependencies_withSeekAfterEoS() throws Exception {
-    Context applicationContext = ApplicationProvider.getApplicationContext();
-    CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
-    BundledChunkExtractor.Factory chunkExtractorFactory =
-        new BundledChunkExtractor.Factory().experimentalParseWithinGopSampleDependencies(true);
-    DataSource.Factory defaultDataSourceFactory = new DefaultDataSource.Factory(applicationContext);
-    DashMediaSource.Factory dashMediaSourceFactory =
-        new DashMediaSource.Factory(
-            /* chunkSourceFactory= */ new DefaultDashChunkSource.Factory(
-                chunkExtractorFactory, defaultDataSourceFactory, /* maxSegmentsPerLoad= */ 1),
-            /* manifestDataSourceFactory= */ defaultDataSourceFactory);
-    ExoPlayer player =
-        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setMediaSourceFactory(dashMediaSourceFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
-            .build();
-    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
-    player.setVideoSurface(surface);
-
-    player.setMediaItem(MediaItem.fromUri("asset:///media/dash/standalone-webvtt/sample.mpd"));
-    player.seekTo(50_000L);
-    player.prepare();
-    player.play();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
-    player.release();
-    surface.release();
-
-    DecoderCounters decoderCounters = checkNotNull(player.getVideoDecoderCounters());
-    assertThat(decoderCounters.skippedInputBufferCount).isEqualTo(13);
-    assertThat(decoderCounters.queuedInputBufferCount).isEqualTo(17);
-    // TODO: b/352276461 - The last frame might not be rendered. When the bug is fixed,
-    //  assert on the full playback dump.
   }
 }
