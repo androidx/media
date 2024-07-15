@@ -969,8 +969,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
       mediaFormat.setInteger(MediaFormat.KEY_MAX_OUTPUT_CHANNEL_COUNT, 99);
     }
     if (Util.SDK_INT >= 35) {
-      // TODO: b/333552477 - Use MediaFormat.KEY_IMPORTANCE once compileSdk >= 35
-      mediaFormat.setInteger("importance", max(0, -rendererPriority));
+      mediaFormat.setInteger(MediaFormat.KEY_IMPORTANCE, max(0, -rendererPriority));
     }
     return mediaFormat;
   }
@@ -983,8 +982,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     }
     if (Util.SDK_INT >= 35) {
       Bundle codecParameters = new Bundle();
-      // TODO: b/333552477 - Use MediaFormat.KEY_IMPORTANCE once compileSdk >= 35
-      codecParameters.putInt("importance", max(0, -rendererPriority));
+      codecParameters.putInt(MediaFormat.KEY_IMPORTANCE, max(0, -rendererPriority));
       codec.setParameters(codecParameters);
     }
   }

@@ -360,9 +360,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     }
 
     if (Util.SDK_INT >= 35) {
-      // TODO: b/333552477 - Redefinition of MediaFormat.KEY_IMPORTANCE, remove after API35 is
-      //  released.
-      mediaFormat.setInteger("importance", max(0, -codecPriority));
+      mediaFormat.setInteger(MediaFormat.KEY_IMPORTANCE, max(0, -codecPriority));
     }
 
     return new DefaultCodec(

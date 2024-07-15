@@ -1883,8 +1883,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     }
     if (Util.SDK_INT >= 35) {
       Bundle codecParameters = new Bundle();
-      // TODO: b/333552477 - Use MediaFormat.KEY_IMPORTANCE once compileSdk >= 35
-      codecParameters.putInt("importance", max(0, -rendererPriority));
+      codecParameters.putInt(MediaFormat.KEY_IMPORTANCE, max(0, -rendererPriority));
       codec.setParameters(codecParameters);
     }
   }
@@ -2020,8 +2019,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       configureTunnelingV21(mediaFormat, tunnelingAudioSessionId);
     }
     if (Util.SDK_INT >= 35) {
-      // TODO: b/333552477 - Use MediaFormat.KEY_IMPORTANCE once compileSdk >= 35
-      mediaFormat.setInteger("importance", max(0, -rendererPriority));
+      mediaFormat.setInteger(MediaFormat.KEY_IMPORTANCE, max(0, -rendererPriority));
     }
     return mediaFormat;
   }
