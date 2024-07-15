@@ -840,8 +840,6 @@ public final class PlaybackStateCompat implements Parcelable {
   /**
    * Creates an instance from a framework {@link android.media.session.PlaybackState} object.
    *
-   * <p>This method is only supported on API 21+.
-   *
    * @param stateObj A {@link android.media.session.PlaybackState} object, or null if none.
    * @return An equivalent {@link PlaybackStateCompat} object, or null if none.
    */
@@ -889,8 +887,6 @@ public final class PlaybackStateCompat implements Parcelable {
 
   /**
    * Gets the underlying framework {@link android.media.session.PlaybackState} object.
-   *
-   * <p>This method is only supported on API 21+.
    *
    * @return An equivalent {@link android.media.session.PlaybackState} object, or null if none.
    */

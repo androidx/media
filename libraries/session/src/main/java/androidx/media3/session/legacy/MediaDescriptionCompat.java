@@ -346,8 +346,6 @@ public final class MediaDescriptionCompat implements Parcelable {
   /**
    * Creates an instance from a framework {@link android.media.MediaDescription} object.
    *
-   * <p>This method is only supported on API 21+.
-   *
    * @param descriptionObj A {@link android.media.MediaDescription} object, or null if none.
    * @return An equivalent {@link MediaMetadataCompat} object, or null if none.
    */

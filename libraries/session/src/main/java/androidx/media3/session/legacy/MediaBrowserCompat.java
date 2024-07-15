@@ -455,8 +455,6 @@ public final class MediaBrowserCompat {
      * Creates an instance from a framework {@link android.media.browse.MediaBrowser.MediaItem}
      * object.
      *
-     * <p>This method is only supported on API 21+. On API 20 and below, it returns null.
-     *
      * @param itemObj A {@link android.media.browse.MediaBrowser.MediaItem} object.
      * @return An equivalent {@link MediaItem} object, or null if none.
      */
@@ -475,8 +473,6 @@ public final class MediaBrowserCompat {
     /**
      * Creates a list of {@link MediaItem} objects from a framework {@link
      * android.media.browse.MediaBrowser.MediaItem} object list.
-     *
-     * <p>This method is only supported on API 21+. On API 20 and below, it returns null.
      *
      * @param itemList A list of {@link android.media.browse.MediaBrowser.MediaItem} objects.
      * @return An equivalent list of {@link MediaItem} objects, or null if none.

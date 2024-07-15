@@ -361,25 +361,19 @@ public class MediaSessionCompat {
    * <p>The session will automatically be registered with the system but will not be published until
    * {@link #setActive(boolean) setActive(true)} is called.
    *
-   * <p>For API 20 or earlier, note that a media button receiver is required for handling {@link
-   * Intent#ACTION_MEDIA_BUTTON}. This constructor will attempt to find an appropriate {@link
-   * BroadcastReceiver} from your manifest if it's not specified. See {@link MediaButtonReceiver}
-   * for more details.
-   *
    * @param context The context to use to create the session.
    * @param tag A short name for debugging purposes.
    * @param mbrComponent The component name for your media button receiver.
    * @param mbrIntent The PendingIntent for your receiver component that handles media button
-   *     events. This is optional and will be used on between {@link
-   *     android.os.Build.VERSION_CODES#JELLY_BEAN_MR2} and {@link
-   *     android.os.Build.VERSION_CODES#KITKAT_WATCH} instead of the component name.
+   *     events. This is no longer used.
    */
+  @SuppressWarnings("unused")
   public MediaSessionCompat(
       Context context,
       String tag,
       @Nullable ComponentName mbrComponent,
       @Nullable PendingIntent mbrIntent) {
-    this(context, tag, mbrComponent, mbrIntent, null);
+    this(context, tag, mbrComponent, null, null);
   }
 
   /**
@@ -389,10 +383,7 @@ public class MediaSessionCompat {
    * <p>The session will automatically be registered with the system but will not be published until
    * {@link #setActive(boolean) setActive(true)} is called.
    *
-   * <p>For API 20 or earlier, note that a media button receiver is required for handling {@link
-   * Intent#ACTION_MEDIA_BUTTON}. This constructor will attempt to find an appropriate {@link
-   * BroadcastReceiver} from your manifest if it's not specified. See {@link MediaButtonReceiver}
-   * for more details. The {@code sessionInfo} can include additional unchanging information about
+   * <p>The {@code sessionInfo} can include additional unchanging information about
    * this session. For example, it can include the version of the application, or other app-specific
    * unchanging information.
    *
@@ -400,21 +391,20 @@ public class MediaSessionCompat {
    * @param tag A short name for debugging purposes.
    * @param mbrComponent The component name for your media button receiver.
    * @param mbrIntent The PendingIntent for your receiver component that handles media button
-   *     events. This is optional and will be used on between {@link
-   *     android.os.Build.VERSION_CODES#JELLY_BEAN_MR2} and {@link
-   *     android.os.Build.VERSION_CODES#KITKAT_WATCH} instead of the component name.
+   *     events. This is no longer used
    * @param sessionInfo A bundle for additional information about this session, or {@link
    *     Bundle#EMPTY} if none. Controllers can get this information by calling {@link
    *     MediaControllerCompat#getSessionInfo()}. An {@link IllegalArgumentException} will be thrown
    *     if this contains any non-framework Parcelable objects.
    */
+  @SuppressWarnings("unused")
   public MediaSessionCompat(
       Context context,
       String tag,
       @Nullable ComponentName mbrComponent,
       @Nullable PendingIntent mbrIntent,
       @Nullable Bundle sessionInfo) {
-    this(context, tag, mbrComponent, mbrIntent, sessionInfo, null /* session2Token */);
+    this(context, tag, mbrComponent, null, sessionInfo, null /* session2Token */);
   }
 
   /** */
@@ -554,9 +544,6 @@ public class MediaSessionCompat {
    * session has been stopped. If your app is started in this way an {@link
    * Intent#ACTION_MEDIA_BUTTON} intent will be sent via the pending intent.
    *
-   * <p>This method will only work on {@link android.os.Build.VERSION_CODES#LOLLIPOP} and later.
-   * Earlier platform versions must include the media button receiver in the constructor.
-   *
    * @param mbr The {@link PendingIntent} to send the media button event to.
    */
   public void setMediaButtonReceiver(PendingIntent mbr) {
@@ -591,10 +578,6 @@ public class MediaSessionCompat {
    * {@link #setPlaybackToLocal} was previously called that stream will stop receiving volume
    * changes for this session.
    *
-   * <p>On platforms earlier than {@link android.os.Build.VERSION_CODES#LOLLIPOP} this will only
-   * allow an app to handle volume commands sent directly to the session by a {@link
-   * MediaControllerCompat}. System routing of volume keys will not use the volume provider.
-   *
    * @param volumeProvider The provider that will handle volume changes. May not be null.
    */
   public void setPlaybackToRemote(VolumeProviderCompat volumeProvider) {
@@ -608,9 +591,6 @@ public class MediaSessionCompat {
    * Sets if this session is currently active and ready to receive commands. If set to false your
    * session's controller may not be discoverable. You must set the session to active before it can
    * start receiving media button events or transport commands.
-   *
-   * <p>On platforms earlier than {@link android.os.Build.VERSION_CODES#LOLLIPOP}, a media button
-   * event receiver should be set via the constructor to receive media button events.
    *
    * @param active Whether this session is active or not.
    */
@@ -657,10 +637,6 @@ public class MediaSessionCompat {
    * Retrieves a token object that can be used by apps to create a {@link MediaControllerCompat} for
    * interacting with this session. The owner of the session is responsible for deciding how to
    * distribute these tokens.
-   *
-   * <p>On platform versions before {@link android.os.Build.VERSION_CODES#LOLLIPOP} this token may
-   * only be used within your app as there is no way to guarantee other apps are using the same
-   * version of the support library.
    *
    * @return A token that can be used to create a media controller for this session.
    */
@@ -807,8 +783,6 @@ public class MediaSessionCompat {
   /**
    * Gets the underlying framework {@link android.media.session.MediaSession} object.
    *
-   * <p>This method is only supported on API 21+.
-   *
    * @return The underlying {@link android.media.session.MediaSession} object, or null if none.
    */
   @Nullable
@@ -819,12 +793,12 @@ public class MediaSessionCompat {
   /**
    * Gets the underlying framework {@link android.media.RemoteControlClient} object.
    *
-   * <p>This method is only supported on APIs 14-20. On API 21+ {@link #getMediaSession()} should be
-   * used instead.
-   *
    * @return The underlying {@link android.media.RemoteControlClient} object, or null if none.
+   *
+   * @deprecated Use {@link #getMediaSession()}
    */
   @Nullable
+  @Deprecated
   public Object getRemoteControlClient() {
     return mImpl.getRemoteControlClient();
   }
@@ -891,8 +865,6 @@ public class MediaSessionCompat {
 
   /**
    * Creates an instance from a framework {@link android.media.session.MediaSession} object.
-   *
-   * <p>This method is only supported on API 21+. On API 20 and below, it returns null.
    *
    * <p>Note: A {@link MediaSessionCompat} object returned from this method may not provide the full
    * functionality of {@link MediaSessionCompat} until setting a new {@link
@@ -1867,8 +1839,6 @@ public class MediaSessionCompat {
 
     /**
      * Gets the underlying framework {@link android.media.session.MediaSession.Token} object.
-     *
-     * <p>This method is only supported on API 21+.
      *
      * @return The underlying {@link android.media.session.MediaSession.Token} object, or null if
      *     none.

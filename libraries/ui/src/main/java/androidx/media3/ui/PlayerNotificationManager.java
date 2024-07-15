@@ -1156,7 +1156,6 @@ public class PlayerNotificationManager {
    *       duration} (like for example a live stream).
    *   <li>The media is not {@link Player#isPlayingAd() interrupted by an ad}.
    *   <li>The media is played at {@link Player#getPlaybackParameters() regular speed}.
-   *   <li>The device is running at least API 21 (Lollipop).
    * </ul>
    *
    * <p>See {@link NotificationCompat.Builder#setUsesChronometer(boolean)}.

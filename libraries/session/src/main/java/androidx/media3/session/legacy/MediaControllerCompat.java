@@ -642,8 +642,6 @@ public final class MediaControllerCompat {
   /**
    * Gets the underlying framework {@link android.media.session.MediaController} object.
    *
-   * <p>This method is only supported on API 21+.
-   *
    * @return The underlying {@link android.media.session.MediaController} object, or null if none.
    */
   @Nullable

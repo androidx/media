@@ -555,8 +555,6 @@ public final class MediaMetadataCompat implements Parcelable {
   /**
    * Creates an instance from a framework {@link android.media.MediaMetadata} object.
    *
-   * <p>This method is only supported on {@link android.os.Build.VERSION_CODES#LOLLIPOP} and later.
-   *
    * @param metadataObj A {@link android.media.MediaMetadata} object, or null if none.
    * @return An equivalent {@link MediaMetadataCompat} object, or null if none.
    */
