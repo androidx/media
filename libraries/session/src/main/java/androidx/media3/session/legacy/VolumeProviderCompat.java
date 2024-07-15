@@ -59,7 +59,6 @@ public abstract class VolumeProviderCompat {
   private final int mMaxVolume;
   @Nullable private final String mControlId;
   private int mCurrentVolume;
-  @Nullable private Callback mCallback;
 
   @Nullable private VolumeProvider mVolumeProviderFwk;
 
@@ -132,9 +131,6 @@ public abstract class VolumeProviderCompat {
     mCurrentVolume = currentVolume;
     VolumeProvider volumeProviderFwk = (VolumeProvider) getVolumeProvider();
     volumeProviderFwk.setCurrentVolume(currentVolume);
-    if (mCallback != null) {
-      mCallback.onVolumeChanged(this);
-    }
   }
 
   /**
@@ -161,15 +157,6 @@ public abstract class VolumeProviderCompat {
    * @param direction The direction to adjust the volume in.
    */
   public void onAdjustVolume(int direction) {}
-
-  /**
-   * Sets a callback to receive volume changes.
-   *
-   * <p>Used internally by the support library.
-   */
-  public void setCallback(@Nullable Callback callback) {
-    mCallback = callback;
-  }
 
   /**
    * Gets the underlying framework {@link android.media.VolumeProvider} object.
@@ -207,10 +194,5 @@ public abstract class VolumeProviderCompat {
       }
     }
     return mVolumeProviderFwk;
-  }
-
-  /** Listens for changes to the volume. */
-  public abstract static class Callback {
-    public abstract void onVolumeChanged(VolumeProviderCompat volumeProvider);
   }
 }
