@@ -41,7 +41,6 @@ def addMissingAarTypeToXml(xml) {
         "androidx.leanback:leanback",
         "androidx.media:media",
         "androidx.media2:media2-session",
-        "androidx.multidex:multidex",
         "androidx.recyclerview:recyclerview",
         "androidx.test:core",
         "androidx.test.ext:junit",

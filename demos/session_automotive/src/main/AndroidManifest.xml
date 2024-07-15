@@ -39,7 +39,6 @@
     android:resource="@xml/automotive_app_desc"/>
 
   <application
-      android:name="androidx.multidex.MultiDexApplication"
       android:allowBackup="false"
       android:taskAffinity=""
       android:appCategory="audio"
