@@ -670,11 +670,7 @@ public class MediaCodecVideoRendererTest {
 
     verify(eventListener)
         .onVideoSizeChanged(
-            new VideoSize(
-                VIDEO_H264.width,
-                VIDEO_H264.height,
-                VIDEO_H264.rotationDegrees,
-                VIDEO_H264.pixelWidthHeightRatio));
+            new VideoSize(VIDEO_H264.width, VIDEO_H264.height, VIDEO_H264.pixelWidthHeightRatio));
   }
 
   @Test

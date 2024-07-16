@@ -762,7 +762,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
               eventTime,
               videoSize.width,
               videoSize.height,
-              videoSize.unappliedRotationDegrees,
+              /* unappliedRotationDegrees= */ 0,
               videoSize.pixelWidthHeightRatio);
         });
   }

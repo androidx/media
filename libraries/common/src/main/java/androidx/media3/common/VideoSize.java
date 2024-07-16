@@ -27,7 +27,6 @@ public final class VideoSize {
 
   private static final int DEFAULT_WIDTH = 0;
   private static final int DEFAULT_HEIGHT = 0;
-  private static final int DEFAULT_UNAPPLIED_ROTATION_DEGREES = 0;
   private static final float DEFAULT_PIXEL_WIDTH_HEIGHT_RATIO = 1F;
 
   public static final VideoSize UNKNOWN = new VideoSize(DEFAULT_WIDTH, DEFAULT_HEIGHT);
@@ -76,20 +75,22 @@ public final class VideoSize {
    *     square pixels this will be equal to 1.0. Different values are indicative of anamorphic
    *     content.
    */
-  @SuppressWarnings("deprecation") // Calling through to deprecated constructor
+  @SuppressWarnings("deprecation") // Setting deprecated field
   @UnstableApi
   public VideoSize(
       @IntRange(from = 0) int width,
       @IntRange(from = 0) int height,
       @FloatRange(from = 0, fromInclusive = false) float pixelWidthHeightRatio) {
-    this(width, height, DEFAULT_UNAPPLIED_ROTATION_DEGREES, pixelWidthHeightRatio);
+    this.width = width;
+    this.height = height;
+    this.unappliedRotationDegrees = 0;
+    this.pixelWidthHeightRatio = pixelWidthHeightRatio;
   }
 
   /**
    * @deprecated Use {@link VideoSize#VideoSize(int, int, float)} instead. {@code
-   *     unappliedRotationDegrees} is not needed on API 21+.
+   *     unappliedRotationDegrees} is not needed on API 21+ and is always zero.
    */
-  @SuppressWarnings("deprecation") // Setting deprecate field
   @Deprecated
   @UnstableApi
   public VideoSize(
@@ -97,13 +98,9 @@ public final class VideoSize {
       @IntRange(from = 0) int height,
       @IntRange(from = 0, to = 359) int unappliedRotationDegrees,
       @FloatRange(from = 0, fromInclusive = false) float pixelWidthHeightRatio) {
-    this.width = width;
-    this.height = height;
-    this.unappliedRotationDegrees = unappliedRotationDegrees;
-    this.pixelWidthHeightRatio = pixelWidthHeightRatio;
+    this(width, height, pixelWidthHeightRatio);
   }
 
-  @SuppressWarnings("deprecation") // Including deprecated field in equality
   @Override
   public boolean equals(@Nullable Object obj) {
     if (this == obj) {
@@ -113,50 +110,47 @@ public final class VideoSize {
       VideoSize other = (VideoSize) obj;
       return width == other.width
           && height == other.height
-          && unappliedRotationDegrees == other.unappliedRotationDegrees
           && pixelWidthHeightRatio == other.pixelWidthHeightRatio;
     }
     return false;
   }
 
-  @SuppressWarnings("deprecation") // Including deprecated field in hashCode
   @Override
   public int hashCode() {
     int result = 7;
     result = 31 * result + width;
     result = 31 * result + height;
-    result = 31 * result + unappliedRotationDegrees;
     result = 31 * result + Float.floatToRawIntBits(pixelWidthHeightRatio);
     return result;
   }
 
   private static final String FIELD_WIDTH = Util.intToStringMaxRadix(0);
   private static final String FIELD_HEIGHT = Util.intToStringMaxRadix(1);
-  private static final String FIELD_UNAPPLIED_ROTATION_DEGREES = Util.intToStringMaxRadix(2);
+  // 2 reserved for deprecated 'unappliedRotationDegrees'.
   private static final String FIELD_PIXEL_WIDTH_HEIGHT_RATIO = Util.intToStringMaxRadix(3);
 
-  @SuppressWarnings("deprecation") // Including deprecated field in bundle
   @UnstableApi
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
-    bundle.putInt(FIELD_WIDTH, width);
-    bundle.putInt(FIELD_HEIGHT, height);
-    bundle.putInt(FIELD_UNAPPLIED_ROTATION_DEGREES, unappliedRotationDegrees);
-    bundle.putFloat(FIELD_PIXEL_WIDTH_HEIGHT_RATIO, pixelWidthHeightRatio);
+    if (width != 0) {
+      bundle.putInt(FIELD_WIDTH, width);
+    }
+    if (height != 0) {
+      bundle.putInt(FIELD_HEIGHT, height);
+    }
+    if (pixelWidthHeightRatio != 1f) {
+      bundle.putFloat(FIELD_PIXEL_WIDTH_HEIGHT_RATIO, pixelWidthHeightRatio);
+    }
     return bundle;
   }
 
   /** Restores a {@code VideoSize} from a {@link Bundle}. */
-  @SuppressWarnings("deprecation") // Parsing deprecated field from bundle
   @UnstableApi
   public static VideoSize fromBundle(Bundle bundle) {
     int width = bundle.getInt(FIELD_WIDTH, DEFAULT_WIDTH);
     int height = bundle.getInt(FIELD_HEIGHT, DEFAULT_HEIGHT);
-    int unappliedRotationDegrees =
-        bundle.getInt(FIELD_UNAPPLIED_ROTATION_DEGREES, DEFAULT_UNAPPLIED_ROTATION_DEGREES);
     float pixelWidthHeightRatio =
         bundle.getFloat(FIELD_PIXEL_WIDTH_HEIGHT_RATIO, DEFAULT_PIXEL_WIDTH_HEIGHT_RATIO);
-    return new VideoSize(width, height, unappliedRotationDegrees, pixelWidthHeightRatio);
+    return new VideoSize(width, height, pixelWidthHeightRatio);
   }
-  ;
 }

@@ -32,8 +32,6 @@ import android.content.res.TypedArray;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
-import android.graphics.Matrix;
-import android.graphics.RectF;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.opengl.GLSurfaceView;
@@ -335,7 +333,6 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   private boolean controllerAutoShow;
   private boolean controllerHideDuringAds;
   private boolean controllerHideOnTouch;
-  private int textureViewRotation;
 
   public PlayerView(Context context) {
     this(context, /* attrs= */ null);
@@ -1752,30 +1749,8 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
     VideoSize videoSize = player != null ? player.getVideoSize() : VideoSize.UNKNOWN;
     int width = videoSize.width;
     int height = videoSize.height;
-    int unappliedRotationDegrees = videoSize.unappliedRotationDegrees;
     float videoAspectRatio =
         (height == 0 || width == 0) ? 0 : (width * videoSize.pixelWidthHeightRatio) / height;
-
-    if (surfaceView instanceof TextureView) {
-      // Try to apply rotation transformation when our surface is a TextureView.
-      if (videoAspectRatio > 0
-          && (unappliedRotationDegrees == 90 || unappliedRotationDegrees == 270)) {
-        // We will apply a rotation 90/270 degree to the output texture of the TextureView.
-        // In this case, the output video's width and height will be swapped.
-        videoAspectRatio = 1 / videoAspectRatio;
-      }
-      if (textureViewRotation != 0) {
-        surfaceView.removeOnLayoutChangeListener(componentListener);
-      }
-      textureViewRotation = unappliedRotationDegrees;
-      if (textureViewRotation != 0) {
-        // The texture view's dimensions might be changed after layout step.
-        // So add an OnLayoutChangeListener to apply rotation after layout step.
-        surfaceView.addOnLayoutChangeListener(componentListener);
-      }
-      applyTextureViewRotation((TextureView) surfaceView, textureViewRotation);
-    }
-
     onContentAspectRatioChanged(
         contentFrame, surfaceViewIgnoresVideoAspectRatio ? 0 : videoAspectRatio);
   }
@@ -1805,29 +1780,6 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
     aspectRatioFrame.setResizeMode(resizeMode);
   }
 
-  /** Applies a texture rotation to a {@link TextureView}. */
-  private static void applyTextureViewRotation(TextureView textureView, int textureViewRotation) {
-    Matrix transformMatrix = new Matrix();
-    float textureViewWidth = textureView.getWidth();
-    float textureViewHeight = textureView.getHeight();
-    if (textureViewWidth != 0 && textureViewHeight != 0 && textureViewRotation != 0) {
-      float pivotX = textureViewWidth / 2;
-      float pivotY = textureViewHeight / 2;
-      transformMatrix.postRotate(textureViewRotation, pivotX, pivotY);
-
-      // After rotation, scale the rotated texture to fit the TextureView size.
-      RectF originalTextureRect = new RectF(0, 0, textureViewWidth, textureViewHeight);
-      RectF rotatedTextureRect = new RectF();
-      transformMatrix.mapRect(rotatedTextureRect, originalTextureRect);
-      transformMatrix.postScale(
-          textureViewWidth / rotatedTextureRect.width(),
-          textureViewHeight / rotatedTextureRect.height(),
-          pivotX,
-          pivotY);
-    }
-    textureView.setTransform(transformMatrix);
-  }
-
   @SuppressLint("InlinedApi")
   private boolean isDpadKey(int keyCode) {
     return keyCode == KeyEvent.KEYCODE_DPAD_UP
@@ -1846,7 +1798,6 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   @SuppressWarnings("deprecation")
   private final class ComponentListener
       implements Player.Listener,
-          OnLayoutChangeListener,
           OnClickListener,
           PlayerControlView.VisibilityListener,
           PlayerControlView.OnFullScreenModeChangedListener {
@@ -1954,22 +1905,6 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
       if (isPlayingAd() && controllerHideDuringAds) {
         hideController();
       }
-    }
-
-    // OnLayoutChangeListener implementation
-
-    @Override
-    public void onLayoutChange(
-        View view,
-        int left,
-        int top,
-        int right,
-        int bottom,
-        int oldLeft,
-        int oldTop,
-        int oldRight,
-        int oldBottom) {
-      applyTextureViewRotation((TextureView) view, textureViewRotation);
     }
 
     // OnClickListener implementation
