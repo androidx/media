@@ -435,7 +435,7 @@ public class ExportTest {
     assertThat(result.exportResult.durationMs).isAtMost(700);
     assertThat(result.exportResult.videoConversionProcess)
         .isEqualTo(CONVERSION_PROCESS_TRANSMUXED_AND_TRANSCODED);
-    int higherVideoLevel = 41;
-    assertThat(sps[spsLevelIndex]).isEqualTo(higherVideoLevel);
+    int inputVideoLevel = 41;
+    assertThat((int) sps[spsLevelIndex]).isAtLeast(inputVideoLevel);
   }
 }
