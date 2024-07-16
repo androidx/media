@@ -315,6 +315,7 @@ import org.checkerframework.dataflow.qual.Pure;
               .setCodecs(inputFormat.codecs)
               .build();
 
+      // TODO - b/324426022: Move logic for supported mime types to DefaultEncoderFactory.
       encoder =
           encoderFactory.createForVideoEncoding(
               requestedEncoderFormat
