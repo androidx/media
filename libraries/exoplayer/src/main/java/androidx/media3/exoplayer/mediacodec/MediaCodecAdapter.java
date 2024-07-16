@@ -57,8 +57,7 @@ public interface MediaCodecAdapter {
         MediaFormat mediaFormat,
         Format format,
         @Nullable MediaCrypto crypto) {
-      return new Configuration(
-          codecInfo, mediaFormat, format, /* surface= */ null, crypto, /* flags= */ 0);
+      return new Configuration(codecInfo, mediaFormat, format, /* surface= */ null, crypto);
     }
 
     /**
@@ -77,7 +76,7 @@ public interface MediaCodecAdapter {
         Format format,
         @Nullable Surface surface,
         @Nullable MediaCrypto crypto) {
-      return new Configuration(codecInfo, mediaFormat, format, surface, crypto, /* flags= */ 0);
+      return new Configuration(codecInfo, mediaFormat, format, surface, crypto);
     }
 
     /** Information about the {@link MediaCodec} being configured. */
@@ -99,22 +98,17 @@ public interface MediaCodecAdapter {
     /** For DRM protected playbacks, a {@link MediaCrypto} to use for decryption. */
     @Nullable public final MediaCrypto crypto;
 
-    /** See {@link MediaCodec#configure}. */
-    public final int flags;
-
     private Configuration(
         MediaCodecInfo codecInfo,
         MediaFormat mediaFormat,
         Format format,
         @Nullable Surface surface,
-        @Nullable MediaCrypto crypto,
-        int flags) {
+        @Nullable MediaCrypto crypto) {
       this.codecInfo = codecInfo;
       this.mediaFormat = mediaFormat;
       this.format = format;
       this.surface = surface;
       this.crypto = crypto;
-      this.flags = flags;
     }
   }
 

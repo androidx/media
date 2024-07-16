@@ -103,7 +103,7 @@ import java.nio.ByteBuffer;
       try {
         TraceUtil.beginSection("createCodec:" + codecName);
         codec = MediaCodec.createByCodecName(codecName);
-        int flags = configuration.flags;
+        int flags = 0;
         MediaCodecBufferEnqueuer bufferEnqueuer;
         if (enableSynchronousBufferQueueingWithAsyncCryptoFlag
             && useSynchronousBufferQueueingWithAsyncCryptoFlag(configuration.format)) {

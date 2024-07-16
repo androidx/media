@@ -50,10 +50,7 @@ public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
         codec = createCodec(configuration);
         TraceUtil.beginSection("configureCodec");
         codec.configure(
-            configuration.mediaFormat,
-            configuration.surface,
-            configuration.crypto,
-            configuration.flags);
+            configuration.mediaFormat, configuration.surface, configuration.crypto, /* flags= */ 0);
         TraceUtil.endSection();
         TraceUtil.beginSection("startCodec");
         codec.start();
