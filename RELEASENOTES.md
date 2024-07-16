@@ -24,8 +24,8 @@
     *   `MediaCodecVideoRenderer` avoids decoding samples that are neither
         rendered nor used as reference by other samples.
     *   Add `BasePreloadManager.Listener` to propagate preload events to apps.
-    *   Allow changing SNTP client timeout
-        ([#1540](https://github.com/androidx/media/issues/1540)).
+    *   Allow changing SNTP client timeout and retry alternative addresses on
+        timeout ([#1540](https://github.com/androidx/media/issues/1540)).
     *   Remove `MediaCodecAdapter.Configuration.flags` as the field was always
         zero.
 *   Transformer:

@@ -15,6 +15,8 @@
  */
 package androidx.media3.exoplayer.util;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
+
 import android.os.SystemClock;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
@@ -27,6 +29,7 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.SocketTimeoutException;
 import java.util.Arrays;
 import java.util.ConcurrentModificationException;
 
@@ -44,7 +47,7 @@ public final class SntpClient {
   public static final String DEFAULT_NTP_HOST = "time.android.com";
 
   /** The default maximum time, in milliseconds, to wait for the SNTP request to complete. */
-  public static final int DEFAULT_TIMEOUT_MS = 5_000;
+  public static final int DEFAULT_TIMEOUT_MS = 1_000;
 
   /** Callback for calls to {@link #initialize(Loader, InitializationCallback)}. */
   public interface InitializationCallback {
@@ -60,6 +63,7 @@ public final class SntpClient {
     void onInitializationFailed(IOException error);
   }
 
+  private static final int MAX_RETRY_COUNT = 10;
   private static final int ORIGINATE_TIME_OFFSET = 24;
   private static final int RECEIVE_TIME_OFFSET = 32;
   private static final int TRANSMIT_TIME_OFFSET = 40;
@@ -191,56 +195,78 @@ public final class SntpClient {
   }
 
   private static long loadNtpTimeOffsetMs() throws IOException {
-    InetAddress address = InetAddress.getByName(getNtpHost());
     try (DatagramSocket socket = new DatagramSocket()) {
       socket.setSoTimeout(getTimeoutMs());
-      byte[] buffer = new byte[NTP_PACKET_SIZE];
-      DatagramPacket request = new DatagramPacket(buffer, buffer.length, address, NTP_PORT);
 
-      // Set mode = 3 (client) and version = 3. Mode is in low 3 bits of the first byte and Version
-      // is in bits 3-5 of the first byte.
-      buffer[0] = NTP_MODE_CLIENT | (NTP_VERSION << 3);
+      int retryCount = 0;
+      SocketTimeoutException timeoutException = null;
+      InetAddress[] addresses = InetAddress.getAllByName(getNtpHost());
+      for (InetAddress address : addresses) {
+        byte[] buffer = new byte[NTP_PACKET_SIZE];
+        DatagramPacket request = new DatagramPacket(buffer, buffer.length, address, NTP_PORT);
 
-      // Get current time and write it to the request packet.
-      long requestTime = System.currentTimeMillis();
-      long requestTicks = SystemClock.elapsedRealtime();
-      writeTimestamp(buffer, TRANSMIT_TIME_OFFSET, requestTime);
+        // Set mode = 3 (client) and version = 3. Mode is in low 3 bits of the first byte and
+        // Version is in bits 3-5 of the first byte.
+        buffer[0] = NTP_MODE_CLIENT | (NTP_VERSION << 3);
 
-      socket.send(request);
+        // Get current time and write it to the request packet.
+        long requestTime = System.currentTimeMillis();
+        long requestTicks = SystemClock.elapsedRealtime();
+        writeTimestamp(buffer, TRANSMIT_TIME_OFFSET, requestTime);
 
-      // Read the response.
-      DatagramPacket response = new DatagramPacket(buffer, buffer.length);
-      socket.receive(response);
-      final long responseTicks = SystemClock.elapsedRealtime();
-      final long responseTime = requestTime + (responseTicks - requestTicks);
+        socket.send(request);
 
-      // Extract the results.
-      final byte leap = (byte) ((buffer[0] >> 6) & 0x3);
-      final byte mode = (byte) (buffer[0] & 0x7);
-      final int stratum = (int) (buffer[1] & 0xff);
-      final long originateTime = readTimestamp(buffer, ORIGINATE_TIME_OFFSET);
-      final long receiveTime = readTimestamp(buffer, RECEIVE_TIME_OFFSET);
-      final long transmitTime = readTimestamp(buffer, TRANSMIT_TIME_OFFSET);
+        // Read the response.
+        DatagramPacket response = new DatagramPacket(buffer, buffer.length);
+        try {
+          socket.receive(response);
+        } catch (SocketTimeoutException e) {
+          // Store the timeout exception and try the next address if we have not reached retry limit
+          if (timeoutException == null) {
+            timeoutException = e;
+          } else {
+            timeoutException.addSuppressed(e);
+          }
+          if (retryCount++ < MAX_RETRY_COUNT) {
+            continue;
+          } else {
+            break;
+          }
+        }
 
-      // Check server reply validity according to RFC.
-      checkValidServerReply(leap, mode, stratum, transmitTime);
+        final long responseTicks = SystemClock.elapsedRealtime();
+        final long responseTime = requestTime + (responseTicks - requestTicks);
 
-      // receiveTime = originateTime + transit + skew
-      // responseTime = transmitTime + transit - skew
-      // clockOffset = ((receiveTime - originateTime) + (transmitTime - responseTime))/2
-      //             = ((originateTime + transit + skew - originateTime) +
-      //                (transmitTime - (transmitTime + transit - skew)))/2
-      //             = ((transit + skew) + (transmitTime - transmitTime - transit + skew))/2
-      //             = (transit + skew - transit + skew)/2
-      //             = (2 * skew)/2 = skew
-      long clockOffset = ((receiveTime - originateTime) + (transmitTime - responseTime)) / 2;
+        // Extract the results.
+        final byte leap = (byte) ((buffer[0] >> 6) & 0x3);
+        final byte mode = (byte) (buffer[0] & 0x7);
+        final int stratum = (int) (buffer[1] & 0xff);
+        final long originateTime = readTimestamp(buffer, ORIGINATE_TIME_OFFSET);
+        final long receiveTime = readTimestamp(buffer, RECEIVE_TIME_OFFSET);
+        final long transmitTime = readTimestamp(buffer, TRANSMIT_TIME_OFFSET);
 
-      // Save our results using the times on this side of the network latency (i.e. response rather
-      // than request time)
-      long ntpTime = responseTime + clockOffset;
-      long ntpTimeReference = responseTicks;
+        // Check server reply validity according to RFC.
+        checkValidServerReply(leap, mode, stratum, transmitTime);
 
-      return ntpTime - ntpTimeReference;
+        // receiveTime = originateTime + transit + skew
+        // responseTime = transmitTime + transit - skew
+        // clockOffset = ((receiveTime - originateTime) + (transmitTime - responseTime))/2
+        //             = ((originateTime + transit + skew - originateTime) +
+        //                (transmitTime - (transmitTime + transit - skew)))/2
+        //             = ((transit + skew) + (transmitTime - transmitTime - transit + skew))/2
+        //             = (transit + skew - transit + skew)/2
+        //             = (2 * skew)/2 = skew
+        long clockOffset = ((receiveTime - originateTime) + (transmitTime - responseTime)) / 2;
+
+        // Save our results using the times on this side of the network latency (i.e. response
+        // rather than request time)
+        long ntpTime = responseTime + clockOffset;
+        long ntpTimeReference = responseTicks;
+
+        return ntpTime - ntpTimeReference;
+      }
+      // If no response is received from any of the addresses, throw an exception.
+      throw checkNotNull(timeoutException);
     }
   }
 
