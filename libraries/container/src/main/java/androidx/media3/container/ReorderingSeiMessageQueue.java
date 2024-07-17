@@ -154,7 +154,7 @@ public final class ReorderingSeiMessageQueue {
     }
 
     public void reset(long presentationTimeUs, long tieBreak, ParsableByteArray nalBuffer) {
-      checkState(presentationTimeUs >= 0);
+      checkState(presentationTimeUs != C.TIME_UNSET);
       this.presentationTimeUs = presentationTimeUs;
       this.tieBreak = tieBreak;
       this.data.reset(nalBuffer.bytesLeft());

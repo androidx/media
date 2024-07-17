@@ -109,10 +109,10 @@ public final class ReorderingSeiMessageQueueTest {
 
     byte[] data2 = TestUtil.buildTestData(10);
     scratchData.reset(data2);
-    reorderingQueue.add(/* presentationTimeUs= */ 123, scratchData);
+    reorderingQueue.add(/* presentationTimeUs= */ -123, scratchData);
 
     assertThat(emittedMessages)
-        .containsExactly(new SeiMessage(/* presentationTimeUs= */ 123, data2));
+        .containsExactly(new SeiMessage(/* presentationTimeUs= */ -123, data2));
   }
 
   /**
