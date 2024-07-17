@@ -43,6 +43,7 @@ import org.junit.runners.Parameterized.Parameters;
 /** End to end parameterized instrumentation tests for {@link Mp4Muxer}. */
 @RunWith(Parameterized.class)
 public class Mp4MuxerEndToEndParameterizedAndroidTest {
+  private static final String H263_GPP = "bbb_176x144_128kbps_15fps_h263.3gp";
   private static final String H264_MP4 = "sample_no_bframes.mp4";
   private static final String H264_WITH_NON_REFERENCE_B_FRAMES_MP4 =
       "bbb_800x640_768kbps_30fps_avc_non_reference_3b.mp4";
@@ -58,6 +59,7 @@ public class Mp4MuxerEndToEndParameterizedAndroidTest {
   @Parameters(name = "{0}")
   public static ImmutableList<String> mediaSamples() {
     return ImmutableList.of(
+        H263_GPP,
         H264_MP4,
         H264_WITH_NON_REFERENCE_B_FRAMES_MP4,
         H264_WITH_PYRAMID_B_FRAMES_MP4,
