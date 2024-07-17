@@ -376,6 +376,26 @@ public class BoxesTest {
   }
 
   @Test
+  public void createVideoSampleEntryBox_forH263_matchesExpected() throws Exception {
+    Format format =
+        new Format.Builder()
+            .setId(1)
+            .setSampleMimeType(MimeTypes.VIDEO_H263)
+            .setLanguage("und")
+            .setWidth(10)
+            .setMaxInputSize(39)
+            .setFrameRate(25)
+            .setHeight(12)
+            .build();
+
+    ByteBuffer videoSampleEntryBox = Boxes.videoSampleEntry(format);
+
+    DumpableMp4Box dumpableBox = new DumpableMp4Box(videoSampleEntryBox);
+    DumpFileAsserts.assertOutput(
+        context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("video_sample_entry_box_h263"));
+  }
+
+  @Test
   public void createVideoSampleEntryBox_forH264_matchesExpected() throws Exception {
     Format format =
         new Format.Builder()

@@ -548,6 +548,8 @@ import java.util.List;
         return damrBox(/* mode= */ (short) 0x81FF); // mode set: all enabled for AMR-NB
       case MimeTypes.AUDIO_AMR_WB:
         return damrBox(/* mode= */ (short) 0x83FF); // mode set: all enabled for AMR-WB
+      case MimeTypes.VIDEO_H263:
+        return d263Box();
       case MimeTypes.VIDEO_H264:
         return avcCBox(format);
       case MimeTypes.VIDEO_H265:
@@ -1095,6 +1097,19 @@ import java.util.List;
     }
   }
 
+  /** Returns the d263Box box as per 3GPP ETSI TS 126 244: 6.8. */
+  private static ByteBuffer d263Box() {
+    ByteBuffer d263Box = ByteBuffer.allocate(7);
+    d263Box.put("    ".getBytes(UTF_8)); // 4 spaces (vendor)
+    d263Box.put((byte) 0x00); // decoder version
+    // TODO: b/352000778 - Get profile and level from format.
+    d263Box.put((byte) 0x10); // level
+    d263Box.put((byte) 0x00); // profile
+
+    d263Box.flip();
+    return BoxUtils.wrapIntoBox("d263", d263Box);
+  }
+
   /** Returns the avcC box as per ISO/IEC 14496-15: 5.3.3.1.2. */
   private static ByteBuffer avcCBox(Format format) {
     checkArgument(
@@ -1328,6 +1343,8 @@ import java.util.List;
         return "samr";
       case MimeTypes.AUDIO_AMR_WB:
         return "sawb";
+      case MimeTypes.VIDEO_H263:
+        return "s263";
       case MimeTypes.VIDEO_H264:
         return "avc1";
       case MimeTypes.VIDEO_H265:

@@ -35,7 +35,7 @@ import java.nio.ByteBuffer;
 /**
  * A muxer for creating a fragmented MP4 file.
  *
- * <p>The muxer supports writing H264, H265 and AV1 video, AAC audio and metadata.
+ * <p>The muxer supports writing H263, H264, H265 and AV1 video, AAC audio and metadata.
  *
  * <p>All the operations are performed on the caller thread.
  *
