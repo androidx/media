@@ -297,6 +297,31 @@ public class BoxesTest {
   }
 
   @Test
+  public void createAudioSampleEntryBox_forOpus_matchesExpected() throws Exception {
+    Format format =
+        new Format.Builder()
+            .setPeakBitrate(128000)
+            .setSampleRate(48000)
+            .setId(3)
+            .setSampleMimeType(MimeTypes.AUDIO_OPUS)
+            .setChannelCount(6)
+            .setAverageBitrate(128000)
+            .setLanguage("```")
+            .setMaxInputSize(502)
+            .setInitializationData(
+                ImmutableList.of(
+                    BaseEncoding.base16()
+                        .decode("4F7075734865616401063801401F00000000010402000401020305")))
+            .build();
+
+    ByteBuffer audioSampleEntryBox = Boxes.audioSampleEntry(format);
+
+    DumpableMp4Box dumpableBox = new DumpableMp4Box(audioSampleEntryBox);
+    DumpFileAsserts.assertOutput(
+        context, dumpableBox, getExpectedDumpFilePath("audio_sample_entry_box_opus"));
+  }
+
+  @Test
   public void createAudioSampleEntryBox_withUnknownAudioFormat_throws() {
     // The audio format contains an unknown MIME type.
     Format format =

@@ -551,6 +551,8 @@ import java.util.Locale;
         return damrBox(/* mode= */ (short) 0x83FF); // mode set: all enabled for AMR-WB
       case MimeTypes.VIDEO_H263:
         return d263Box();
+      case MimeTypes.AUDIO_OPUS:
+        return dOpsBox(format);
       case MimeTypes.VIDEO_H264:
         return avcCBox(format);
       case MimeTypes.VIDEO_H265:
@@ -1348,6 +1350,8 @@ import java.util.Locale;
         return "sawb";
       case MimeTypes.VIDEO_H263:
         return "s263";
+      case MimeTypes.AUDIO_OPUS:
+        return "Opus";
       case MimeTypes.VIDEO_H264:
         return "avc1";
       case MimeTypes.VIDEO_H265:
@@ -1445,6 +1449,24 @@ import java.util.Locale;
 
     contents.flip();
     return BoxUtils.wrapIntoBox("damr", contents);
+  }
+
+  /** Returns the audio dOps box for Opus codec as per RFC-7845: 5.1. */
+  private static ByteBuffer dOpsBox(Format format) {
+    checkArgument(!format.initializationData.isEmpty());
+
+    int opusHeaderLength = 8;
+    byte[] csd0 = format.initializationData.get(0);
+    checkArgument(
+        csd0.length >= opusHeaderLength,
+        "As csd0 contains 'OpusHead' in first 8 bytes, csd0 length should be greater than 8");
+    ByteBuffer contents = ByteBuffer.allocate(csd0.length);
+    // Skip 8 bytes containing "OpusHead".
+    contents.put(
+        /* src */ csd0, /* offset */ opusHeaderLength, /* length */ csd0.length - opusHeaderLength);
+    contents.flip();
+
+    return BoxUtils.wrapIntoBox("dOps", contents);
   }
 
   /** Packs a three-letter language code into a short, packing 3x5 bits. */

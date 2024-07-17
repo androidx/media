@@ -55,6 +55,7 @@ public class Mp4MuxerEndToEndParameterizedAndroidTest {
   private static final String AMR_NB = "bbb_mono_8kHz_12.2kbps_amrnb.3gp";
   private static final String AMR_WB = "bbb_mono_16kHz_23.05kbps_amrwb.3gp";
   private static final String MPEG4_MP4 = "bbb_176x144_192kbps_15fps_mpeg4.mp4";
+  private static final String OPUS_OGG = "bbb_6ch_8kHz_opus.ogg";
 
   @Parameters(name = "{0}")
   public static ImmutableList<String> mediaSamples() {
@@ -68,7 +69,8 @@ public class Mp4MuxerEndToEndParameterizedAndroidTest {
         AV1_MP4,
         AMR_NB,
         AMR_WB,
-        MPEG4_MP4);
+        MPEG4_MP4,
+        OPUS_OGG);
   }
 
   @Parameter public @MonotonicNonNull String inputFile;
