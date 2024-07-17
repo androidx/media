@@ -21,8 +21,6 @@
     *   Add `PreloadMediaSource.PreloadControl.onPreloadError` to allow
         `PreloadMediaSource.PreloadControl` implementations to take actions when
         error occurs.
-    *   `MediaCodecVideoRenderer` avoids decoding samples that are neither
-        rendered nor used as reference by other samples.
     *   Add `BasePreloadManager.Listener` to propagate preload events to apps.
     *   Allow changing SNTP client timeout and retry alternative addresses on
         timeout ([#1540](https://github.com/androidx/media/issues/1540)).
@@ -41,6 +39,8 @@
         ([#1262](https://github.com/androidx/media/issues/1262)).
 *   Audio:
 *   Video:
+    *   `MediaCodecVideoRenderer` avoids decoding samples that are neither
+        rendered nor used as reference by other samples.
 *   Text:
     *   TTML: Fix handling of percentage `tts:fontSize` values to ensure they
         are correctly inherited from parent nodes with percentage `tts:fontSize`
