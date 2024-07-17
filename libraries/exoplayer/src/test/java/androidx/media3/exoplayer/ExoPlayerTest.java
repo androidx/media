@@ -15206,6 +15206,35 @@ public class ExoPlayerTest {
   }
 
   @Test
+  public void changeMediaItemMidPlayback_preparesSuccessfully() throws TimeoutException {
+    MediaItem mediaItem1 = new MediaItem.Builder().setUri(SAMPLE_URI).setMediaId("1").build();
+    MediaItem mediaItem2 = new MediaItem.Builder().setUri(SAMPLE_URI).setMediaId("2").build();
+    ExoPlayer player =
+        parameterizeTestExoPlayerBuilder(
+                new TestExoPlayerBuilder(context)
+                    .setRenderersFactory(new DefaultRenderersFactory(context)))
+            .build();
+    Player.Listener listener = mock(Player.Listener.class);
+    player.addListener(listener);
+    player.addMediaItem(mediaItem1);
+    player.prepare();
+    runUntilPlaybackState(player, Player.STATE_READY);
+    player.setMediaItem(mediaItem2);
+    player.prepare();
+    runUntilPlaybackState(player, Player.STATE_READY);
+    player.release();
+
+    verify(listener)
+        .onMediaItemTransition(
+            eq(mediaItem1), eq(Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED));
+    verify(listener)
+        .onMediaItemTransition(
+            eq(mediaItem2), eq(Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED));
+    verify(listener, times(2)).onPlaybackStateChanged(Player.STATE_BUFFERING);
+    verify(listener, times(2)).onPlaybackStateChanged(Player.STATE_READY);
+  }
+
+  @Test
   public void silenceSkipped_playerEmitOnPositionDiscontinuity() throws Exception {
     Timeline timeline =
         new FakeTimeline(

@@ -52,6 +52,7 @@ import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
+import androidx.media3.common.Timeline;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.MediaFormatUtil;
@@ -134,10 +135,16 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private static final int HEVC_MAX_INPUT_SIZE_THRESHOLD = 2 * 1024 * 1024;
 
   /** The earliest time threshold, in microseconds, after which a frame is considered late. */
-  private static final long MIN_EARLY_US_LATE_THRESHOLD = -30_000;
+  private static final long MIN_EARLY_US_LATE_THRESHOLD = -30_000L;
 
   /** The earliest time threshold, in microseconds, after which a frame is considered very late. */
-  private static final long MIN_EARLY_US_VERY_LATE_THRESHOLD = -500_000;
+  private static final long MIN_EARLY_US_VERY_LATE_THRESHOLD = -500_000L;
+
+  /**
+   * The offset from the {@link Timeline.Period} end duration in microseconds, after which input
+   * buffers will be treated as if they are last.
+   */
+  private static final long OFFSET_FROM_PERIOD_END_TO_TREAT_AS_LAST_US = 100_000L;
 
   private static boolean evaluatedDeviceNeedsSetOutputSurfaceWorkaround;
   private static boolean deviceNeedsSetOutputSurfaceWorkaround;
@@ -179,6 +186,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   /* package */ @Nullable OnFrameRenderedListenerV23 tunnelingOnFrameRenderedListener;
   @Nullable private VideoFrameMetadataListener frameMetadataListener;
   private long startPositionUs;
+  private long periodDurationUs;
   private boolean videoSinkNeedsRegisterInputStream;
 
   /**
@@ -418,6 +426,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     reportedVideoSize = null;
     rendererPriority = C.PRIORITY_PLAYBACK;
     startPositionUs = C.TIME_UNSET;
+    periodDurationUs = C.TIME_UNSET;
   }
 
   // FrameTimingEvaluator methods
@@ -732,6 +741,19 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (this.startPositionUs == C.TIME_UNSET) {
       this.startPositionUs = startPositionUs;
     }
+    updatePeriodDurationUs(mediaPeriodId);
+  }
+
+  private void updatePeriodDurationUs(MediaSource.MediaPeriodId mediaPeriodId) {
+    Timeline timeline = getTimeline();
+    if (timeline.isEmpty()) {
+      periodDurationUs = C.TIME_UNSET;
+      return;
+    }
+    periodDurationUs =
+        timeline
+            .getPeriodByUid(checkNotNull(mediaPeriodId).periodUid, new Timeline.Period())
+            .getDurationUs();
   }
 
   @Override
@@ -813,6 +835,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @Override
   protected void onDisabled() {
     reportedVideoSize = null;
+    periodDurationUs = C.TIME_UNSET;
     if (videoSink != null) {
       videoSink.onRendererDisabled();
     } else {
@@ -1232,10 +1255,12 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   @Override
   protected boolean shouldSkipDecoderInputBuffer(DecoderInputBuffer buffer) {
-    // TODO: b/351164714 - Do not apply this optimization for buffers with timestamp near
-    //  the media duration.
-    if (hasReadStreamToEnd() || buffer.isLastSample()) {
-      // Last buffer is always decoded.
+    if (!buffer.notDependedOn()) {
+      // Buffer is depended on. Do not skip.
+      return false;
+    }
+    if (isBufferProbablyLastSample(buffer)) {
+      // Make sure to decode and render the last frame.
       return false;
     }
     if (buffer.isEncrypted()) {
@@ -1244,7 +1269,21 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       return false;
     }
     // Skip buffers without sample dependencies that won't be rendered.
-    return isBufferBeforeStartTime(buffer) && buffer.notDependedOn();
+    return isBufferBeforeStartTime(buffer);
+  }
+
+  private boolean isBufferProbablyLastSample(DecoderInputBuffer buffer) {
+    if (hasReadStreamToEnd() || buffer.isLastSample()) {
+      return true;
+    }
+    // TODO: b/352276461 - improve buffer.isLastSample() logic.
+    // This is a temporary workaround: do not skip buffers close to the period end.
+    if (periodDurationUs == C.TIME_UNSET) {
+      // Duration unknown: probably last sample.
+      return true;
+    }
+    long presentationTimeUs = buffer.timeUs - getOutputStreamOffsetUs();
+    return periodDurationUs - presentationTimeUs <= OFFSET_FROM_PERIOD_END_TO_TREAT_AS_LAST_US;
   }
 
   private boolean isBufferBeforeStartTime(DecoderInputBuffer buffer) {
