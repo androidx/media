@@ -168,7 +168,7 @@ public final class EditedMediaItemBuilderTest {
   }
 
   @Test
-  public void presentationDurationUs_withdurationAdjustingEffect() {
+  public void presentationDurationUs_withDurationAdjustingEffect() {
     MediaItem mediaItem = new MediaItem.Builder().setUri("Uri").build();
     ImmutableList<AudioProcessor> audioProcessors =
         ImmutableList.of(
