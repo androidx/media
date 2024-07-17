@@ -169,9 +169,12 @@ public final class EditedMediaItem {
     /**
      * Sets the {@link MediaItem} frame rate in the output video, in frames per second.
      *
-     * <p>This should be set for inputs that don't have an intrinsic frame rate (e.g. images, which
-     * are recommended to be set for a frame rate of 30). It will be ignored for inputs that do have
-     * an intrinsic frame rate (e.g. video).
+     * <p>This should be set for inputs that don't have an intrinsic frame rate (e.g., images). It
+     * will be ignored for inputs that do have an intrinsic frame rate (e.g., video).
+     *
+     * <p>For images, the frame rate depends on factors such as desired look, output format
+     * requirement, and whether the content is static or dynamic (e.g., animation). However, 30 fps
+     * is suitable for most use cases.
      *
      * <p>No frame rate is set by default.
      *
