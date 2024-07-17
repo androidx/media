@@ -59,6 +59,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private static final int[] TRANSFORMATION_MATRIX_EXPECTED_ZERO_INDICES = {
     2, 3, 6, 7, 8, 9, 11, 14
   };
+  // Some devices always allocate 1920x1088 buffers, regardless of video resolution.
+  // When working around the implicit SurfaceTexture crop, add 1920 and 1088 to the set of
+  // candidate buffer sizes.
+  private static final int[] ADDITIONAL_CANDIDATE_BUFFER_SIZE_GUESSES = {1920, 1088};
   // In the worst case, we should be able to differentiate between numbers of the form
   // A / B and (A + 1) / (B + 1) where A and B are around video resolution.
   // For 8K, width = 7680.
@@ -552,23 +556,43 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   private static float guessScaleWithoutSurfaceTextureTrim(
       float surfaceTextureScale, int visibleLength) {
-    float bestGuess = 1;
-    float scaleWithoutTrim = 1;
+    int bestCandidateBufferSize = visibleLength;
 
     for (int align = 2; align <= 256; align *= 2) {
       int candidateBufferSize = ((visibleLength + align - 1) / align) * align;
-      for (int trimmedPixels = 0; trimmedPixels <= 2; trimmedPixels++) {
-        float guess = ((float) visibleLength - trimmedPixels) / candidateBufferSize;
-        if (abs(guess - surfaceTextureScale) < abs(bestGuess - surfaceTextureScale)) {
-          bestGuess = guess;
-          scaleWithoutTrim = (float) visibleLength / candidateBufferSize;
-        }
+      if (scoreForCandidateBufferSize(candidateBufferSize, surfaceTextureScale, visibleLength)
+          < scoreForCandidateBufferSize(
+              bestCandidateBufferSize, surfaceTextureScale, visibleLength)) {
+        bestCandidateBufferSize = candidateBufferSize;
       }
     }
-    if (abs(bestGuess - surfaceTextureScale) > EPSILON) {
+    for (int candidateBufferSize : ADDITIONAL_CANDIDATE_BUFFER_SIZE_GUESSES) {
+      if (candidateBufferSize < visibleLength) {
+        continue;
+      }
+      if (scoreForCandidateBufferSize(candidateBufferSize, surfaceTextureScale, visibleLength)
+          < scoreForCandidateBufferSize(
+              bestCandidateBufferSize, surfaceTextureScale, visibleLength)) {
+        bestCandidateBufferSize = candidateBufferSize;
+      }
+    }
+    if (scoreForCandidateBufferSize(bestCandidateBufferSize, surfaceTextureScale, visibleLength)
+        > EPSILON) {
       // Best guess is too far off. Accept that we'll scale.
       return surfaceTextureScale;
     }
-    return scaleWithoutTrim;
+    return (float) visibleLength / bestCandidateBufferSize;
+  }
+
+  private static float scoreForCandidateBufferSize(
+      int candidateBufferSize, float surfaceTextureScale, int visibleLength) {
+    float bestScore = 1;
+    for (int trimmedPixels = 0; trimmedPixels <= 2; trimmedPixels++) {
+      float guess = ((float) visibleLength - trimmedPixels) / candidateBufferSize;
+      if (abs(guess - surfaceTextureScale) < bestScore) {
+        bestScore = abs(guess - surfaceTextureScale);
+      }
+    }
+    return bestScore;
   }
 }
