@@ -44,6 +44,14 @@ public final class TimestampAdjustment implements GlEffect {
      * on any thread.
      */
     void calculateOutputTimeUs(long inputTimeUs, TimestampConsumer outputTimeConsumer);
+
+    /**
+     * Returns the expected duration of the output stream when the map is applied given a input
+     * {@code durationUs}.
+     */
+    default long getDurationUsAfterTimestampsMapped(long durationUs) {
+      return durationUs;
+    }
   }
 
   private final TimestampMap timestampMap;
@@ -56,5 +64,10 @@ public final class TimestampAdjustment implements GlEffect {
   @Override
   public GlShaderProgram toGlShaderProgram(Context context, boolean useHdr) {
     return new TimestampAdjustmentShaderProgram(timestampMap);
+  }
+
+  @Override
+  public long getDurationAfterEffectApplied(long durationUs) {
+    return timestampMap.getDurationUsAfterTimestampsMapped(durationUs);
   }
 }
