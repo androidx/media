@@ -71,8 +71,10 @@ public final class MediaSessionManager {
   private MediaSessionManager(Context context) {
     if (Build.VERSION.SDK_INT >= 28) {
       mImpl = new MediaSessionManagerImplApi28(context);
-    } else {
+    } else if (Build.VERSION.SDK_INT >= 21) {
       mImpl = new MediaSessionManagerImplApi21(context);
+    } else {
+      mImpl = new MediaSessionManagerImplBase(context);
     }
   }
 
@@ -371,6 +373,7 @@ public final class MediaSessionManager {
     }
   }
 
+  @RequiresApi(21)
   private static class MediaSessionManagerImplApi21 extends MediaSessionManagerImplBase {
     MediaSessionManagerImplApi21(Context context) {
       super(context);

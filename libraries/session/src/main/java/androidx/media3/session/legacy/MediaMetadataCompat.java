@@ -22,12 +22,14 @@ import android.annotation.SuppressLint;
 import android.graphics.Bitmap;
 import android.media.MediaMetadata;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.text.TextUtils;
 import android.util.Log;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.annotation.StringDef;
 import androidx.collection.ArrayMap;
@@ -555,12 +557,14 @@ public final class MediaMetadataCompat implements Parcelable {
   /**
    * Creates an instance from a framework {@link android.media.MediaMetadata} object.
    *
+   * <p>This method is only supported on {@link android.os.Build.VERSION_CODES#LOLLIPOP} and later.
+   *
    * @param metadataObj A {@link android.media.MediaMetadata} object, or null if none.
    * @return An equivalent {@link MediaMetadataCompat} object, or null if none.
    */
   @Nullable
   public static MediaMetadataCompat fromMediaMetadata(@Nullable Object metadataObj) {
-    if (metadataObj != null) {
+    if (metadataObj != null && Build.VERSION.SDK_INT >= 21) {
       Parcel p = Parcel.obtain();
       ((MediaMetadata) metadataObj).writeToParcel(p, 0);
       p.setDataPosition(0);
@@ -576,8 +580,11 @@ public final class MediaMetadataCompat implements Parcelable {
   /**
    * Gets the underlying framework {@link android.media.MediaMetadata} object.
    *
+   * <p>This method is only supported on {@link android.os.Build.VERSION_CODES#LOLLIPOP} and later.
+   *
    * @return An equivalent {@link android.media.MediaMetadata} object, or null if none.
    */
+  @RequiresApi(21)
   public Object getMediaMetadata() {
     if (mMetadataFwk == null) {
       Parcel p = Parcel.obtain();

@@ -21,7 +21,9 @@ import static org.hamcrest.core.IsNot.not;
 
 import android.media.AudioAttributes;
 import android.media.AudioManager;
+import android.os.Build;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SdkSuppress;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -50,7 +52,11 @@ public class AudioAttributesCompatTest {
   AudioAttributesCompat mNotificationLegacyAAC;
 
   @Before
+  @SdkSuppress(minSdkVersion = 21)
   public void setUpApi21() {
+    if (Build.VERSION.SDK_INT < 21) {
+      return;
+    }
     mMediaAA =
         new AudioAttributes.Builder()
             .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
@@ -74,6 +80,7 @@ public class AudioAttributesCompatTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 21)
   public void testCreateWithAudioAttributesApi21() {
     assertThat(mMediaAACFromAA, not(equalTo(null)));
     assertThat((AudioAttributes) mMediaAACFromAA.unwrap(), equalTo(mMediaAA));
@@ -83,6 +90,7 @@ public class AudioAttributesCompatTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 21)
   public void testEqualityApi21() {
     assertThat("self equality", mMediaAACFromAA, equalTo(mMediaAACFromAA));
     assertThat("different things", mMediaAACFromAA, not(equalTo(mNotificationAAC)));
@@ -118,6 +126,7 @@ public class AudioAttributesCompatTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 21)
   public void testLegacyStreamTypeInferenceApi21() {
     assertThat(mMediaAACFromAA.getLegacyStreamType(), equalTo(AudioManager.STREAM_MUSIC));
   }

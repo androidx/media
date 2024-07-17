@@ -323,6 +323,8 @@ public final class RatingCompat implements Parcelable {
   /**
    * Creates an instance from a framework {@link android.media.Rating} object.
    *
+   * <p>This method is only supported on API 19+.
+   *
    * @param ratingObj A {@link android.media.Rating} object, or null if none.
    * @return An equivalent {@link RatingCompat} object, or null if none.
    */
@@ -363,6 +365,8 @@ public final class RatingCompat implements Parcelable {
 
   /**
    * Gets the underlying framework {@link android.media.Rating} object.
+   *
+   * <p>This method is only supported on API 19+.
    *
    * @return An equivalent {@link android.media.Rating} object, or null if none.
    */

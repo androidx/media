@@ -840,14 +840,16 @@ public final class PlaybackStateCompat implements Parcelable {
   /**
    * Creates an instance from a framework {@link android.media.session.PlaybackState} object.
    *
+   * <p>This method is only supported on API 21+.
+   *
    * @param stateObj A {@link android.media.session.PlaybackState} object, or null if none.
    * @return An equivalent {@link PlaybackStateCompat} object, or null if none.
    */
   @Nullable
   public static PlaybackStateCompat fromPlaybackState(@Nullable Object stateObj) {
-    if (stateObj != null) {
+    if (stateObj != null && Build.VERSION.SDK_INT >= 21) {
       PlaybackState stateFwk = (PlaybackState) stateObj;
-      List<PlaybackState.CustomAction> customActionFwks = stateFwk.getCustomActions();
+      List<PlaybackState.CustomAction> customActionFwks = Api21Impl.getCustomActions(stateFwk);
       List<PlaybackStateCompat.CustomAction> customActions = null;
       if (customActionFwks != null) {
         customActions = new ArrayList<>(customActionFwks.size());
@@ -867,16 +869,16 @@ public final class PlaybackStateCompat implements Parcelable {
       }
       PlaybackStateCompat stateCompat =
           new PlaybackStateCompat(
-              stateFwk.getState(),
-              stateFwk.getPosition(),
-              stateFwk.getBufferedPosition(),
-              stateFwk.getPlaybackSpeed(),
-              stateFwk.getActions(),
+              Api21Impl.getState(stateFwk),
+              Api21Impl.getPosition(stateFwk),
+              Api21Impl.getBufferedPosition(stateFwk),
+              Api21Impl.getPlaybackSpeed(stateFwk),
+              Api21Impl.getActions(stateFwk),
               ERROR_CODE_UNKNOWN_ERROR,
-              stateFwk.getErrorMessage(),
-              stateFwk.getLastPositionUpdateTime(),
+              Api21Impl.getErrorMessage(stateFwk),
+              Api21Impl.getLastPositionUpdateTime(stateFwk),
               customActions,
-              stateFwk.getActiveQueueItemId(),
+              Api21Impl.getActiveQueueItemId(stateFwk),
               extras);
       stateCompat.mStateFwk = stateFwk;
       return stateCompat;
@@ -888,28 +890,30 @@ public final class PlaybackStateCompat implements Parcelable {
   /**
    * Gets the underlying framework {@link android.media.session.PlaybackState} object.
    *
+   * <p>This method is only supported on API 21+.
+   *
    * @return An equivalent {@link android.media.session.PlaybackState} object, or null if none.
    */
   @Nullable
   public Object getPlaybackState() {
-    if (mStateFwk == null) {
-      PlaybackState.Builder builder = new PlaybackState.Builder()
-          .setState(mState, mPosition, mSpeed, mUpdateTime)
-          .setBufferedPosition(mBufferedPosition)
-          .setActions(mActions)
-          .setErrorMessage(mErrorMessage);
+    if (mStateFwk == null && Build.VERSION.SDK_INT >= 21) {
+      PlaybackState.Builder builder = Api21Impl.createBuilder();
+      Api21Impl.setState(builder, mState, mPosition, mSpeed, mUpdateTime);
+      Api21Impl.setBufferedPosition(builder, mBufferedPosition);
+      Api21Impl.setActions(builder, mActions);
+      Api21Impl.setErrorMessage(builder, mErrorMessage);
       for (PlaybackStateCompat.CustomAction customAction : mCustomActions) {
         PlaybackState.CustomAction action =
             (PlaybackState.CustomAction) customAction.getCustomAction();
         if (action != null) {
-          builder.addCustomAction(action);
+          Api21Impl.addCustomAction(builder, action);
         }
       }
-      builder.setActiveQueueItemId(mActiveItemId);
+      Api21Impl.setActiveQueueItemId(builder, mActiveItemId);
       if (Build.VERSION.SDK_INT >= 22) {
         Api22Impl.setExtras(builder, mExtras);
       }
-      mStateFwk = builder.build();
+      mStateFwk = Api21Impl.build(builder);
     }
     return mStateFwk;
   }
@@ -972,19 +976,22 @@ public final class PlaybackStateCompat implements Parcelable {
      * Creates an instance from a framework {@link android.media.session.PlaybackState.CustomAction}
      * object.
      *
+     * <p>This method is only supported on API 21+.
+     *
      * @param customActionObj A {@link android.media.session.PlaybackState.CustomAction} object, or
      *     null if none.
      * @return An equivalent {@link PlaybackStateCompat.CustomAction} object, or null if none.
      */
+    @RequiresApi(21)
     public static PlaybackStateCompat.CustomAction fromCustomAction(Object customActionObj) {
       PlaybackState.CustomAction customActionFwk = (PlaybackState.CustomAction) customActionObj;
-      Bundle extras = customActionFwk.getExtras();
+      Bundle extras = Api21Impl.getExtras(customActionFwk);
       MediaSessionCompat.ensureClassLoader(extras);
       PlaybackStateCompat.CustomAction customActionCompat =
           new PlaybackStateCompat.CustomAction(
-              customActionFwk.getAction(),
-              customActionFwk.getName(),
-              customActionFwk.getIcon(),
+              Api21Impl.getAction(customActionFwk),
+              Api21Impl.getName(customActionFwk),
+              Api21Impl.getIcon(customActionFwk),
               extras);
       customActionCompat.mCustomActionFwk = customActionFwk;
       return customActionCompat;
@@ -994,18 +1001,21 @@ public final class PlaybackStateCompat implements Parcelable {
      * Gets the underlying framework {@link android.media.session.PlaybackState.CustomAction}
      * object.
      *
+     * <p>This method is only supported on API 21+.
+     *
      * @return An equivalent {@link android.media.session.PlaybackState.CustomAction} object, or
      *     null if none.
      */
     @Nullable
     public Object getCustomAction() {
-      if (mCustomActionFwk != null) {
+      if (mCustomActionFwk != null || Build.VERSION.SDK_INT < 21) {
         return mCustomActionFwk;
       }
 
-      return new PlaybackState.CustomAction.Builder(mAction, mName, mIcon)
-          .setExtras(mExtras)
-          .build();
+      PlaybackState.CustomAction.Builder builder =
+          Api21Impl.createCustomActionBuilder(mAction, mName, mIcon);
+      Api21Impl.setExtras(builder, mExtras);
+      return Api21Impl.build(builder);
     }
 
     public static final Parcelable.Creator<PlaybackStateCompat.CustomAction> CREATOR =
@@ -1388,6 +1398,142 @@ public final class PlaybackStateCompat implements Parcelable {
           mCustomActions,
           mActiveItemId,
           mExtras);
+    }
+  }
+
+  @RequiresApi(21)
+  private static class Api21Impl {
+    private Api21Impl() {}
+
+    @DoNotInline
+    static PlaybackState.Builder createBuilder() {
+      return new PlaybackState.Builder();
+    }
+
+    @DoNotInline
+    static void setState(
+        PlaybackState.Builder builder,
+        int state,
+        long position,
+        float playbackSpeed,
+        long updateTime) {
+      builder.setState(state, position, playbackSpeed, updateTime);
+    }
+
+    @DoNotInline
+    static void setBufferedPosition(PlaybackState.Builder builder, long bufferedPosition) {
+      builder.setBufferedPosition(bufferedPosition);
+    }
+
+    @DoNotInline
+    static void setActions(PlaybackState.Builder builder, long actions) {
+      builder.setActions(actions);
+    }
+
+    @SuppressWarnings("argument.type.incompatible") // Platform class not annotated as nullable
+    @DoNotInline
+    static void setErrorMessage(PlaybackState.Builder builder, @Nullable CharSequence error) {
+      builder.setErrorMessage(error);
+    }
+
+    @DoNotInline
+    static void addCustomAction(
+        PlaybackState.Builder builder, PlaybackState.CustomAction customAction) {
+      builder.addCustomAction(customAction);
+    }
+
+    @DoNotInline
+    static void setActiveQueueItemId(PlaybackState.Builder builder, long id) {
+      builder.setActiveQueueItemId(id);
+    }
+
+    @DoNotInline
+    static List<PlaybackState.CustomAction> getCustomActions(PlaybackState state) {
+      return state.getCustomActions();
+    }
+
+    @DoNotInline
+    static PlaybackState build(PlaybackState.Builder builder) {
+      return builder.build();
+    }
+
+    @DoNotInline
+    static int getState(PlaybackState state) {
+      return state.getState();
+    }
+
+    @DoNotInline
+    static long getPosition(PlaybackState state) {
+      return state.getPosition();
+    }
+
+    @DoNotInline
+    static long getBufferedPosition(PlaybackState state) {
+      return state.getBufferedPosition();
+    }
+
+    @DoNotInline
+    static float getPlaybackSpeed(PlaybackState state) {
+      return state.getPlaybackSpeed();
+    }
+
+    @DoNotInline
+    static long getActions(PlaybackState state) {
+      return state.getActions();
+    }
+
+    @Nullable
+    @DoNotInline
+    static CharSequence getErrorMessage(PlaybackState state) {
+      return state.getErrorMessage();
+    }
+
+    @DoNotInline
+    static long getLastPositionUpdateTime(PlaybackState state) {
+      return state.getLastPositionUpdateTime();
+    }
+
+    @DoNotInline
+    static long getActiveQueueItemId(PlaybackState state) {
+      return state.getActiveQueueItemId();
+    }
+
+    @DoNotInline
+    static PlaybackState.CustomAction.Builder createCustomActionBuilder(
+        String action, CharSequence name, int icon) {
+      return new PlaybackState.CustomAction.Builder(action, name, icon);
+    }
+
+    @SuppressWarnings("argument.type.incompatible") // Platform class not annotated as nullable
+    @DoNotInline
+    static void setExtras(PlaybackState.CustomAction.Builder builder, @Nullable Bundle extras) {
+      builder.setExtras(extras);
+    }
+
+    @DoNotInline
+    static PlaybackState.CustomAction build(PlaybackState.CustomAction.Builder builder) {
+      return builder.build();
+    }
+
+    @Nullable
+    @DoNotInline
+    static Bundle getExtras(PlaybackState.CustomAction customAction) {
+      return customAction.getExtras();
+    }
+
+    @DoNotInline
+    static String getAction(PlaybackState.CustomAction customAction) {
+      return customAction.getAction();
+    }
+
+    @DoNotInline
+    static CharSequence getName(PlaybackState.CustomAction customAction) {
+      return customAction.getName();
+    }
+
+    @DoNotInline
+    static int getIcon(PlaybackState.CustomAction customAction) {
+      return customAction.getIcon();
     }
   }
 

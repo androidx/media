@@ -308,9 +308,10 @@ public class AudioAttributesCompat {
     }
     if (Build.VERSION.SDK_INT >= 26) {
       return new AudioAttributesCompat(new AudioAttributesImplApi26((AudioAttributes) aa));
-    } else {
+    } else if (Build.VERSION.SDK_INT >= 21) {
       return new AudioAttributesCompat(new AudioAttributesImplApi21((AudioAttributes) aa));
     }
+    return null;
   }
 
   // The rest of this file implements an approximation to AudioAttributes using old stream types
@@ -376,8 +377,10 @@ public class AudioAttributesCompat {
         mBuilderImpl = new AudioAttributesImplBase.Builder();
       } else if (Build.VERSION.SDK_INT >= 26) {
         mBuilderImpl = new AudioAttributesImplApi26.Builder();
-      } else {
+      } else if (Build.VERSION.SDK_INT >= 21) {
         mBuilderImpl = new AudioAttributesImplApi21.Builder();
+      } else {
+        mBuilderImpl = new AudioAttributesImplBase.Builder();
       }
     }
 
@@ -391,8 +394,10 @@ public class AudioAttributesCompat {
         mBuilderImpl = new AudioAttributesImplBase.Builder(aa);
       } else if (Build.VERSION.SDK_INT >= 26) {
         mBuilderImpl = new AudioAttributesImplApi26.Builder(checkNotNull(aa.unwrap()));
-      } else {
+      } else if (Build.VERSION.SDK_INT >= 21) {
         mBuilderImpl = new AudioAttributesImplApi21.Builder(checkNotNull(aa.unwrap()));
+      } else {
+        mBuilderImpl = new AudioAttributesImplBase.Builder(aa);
       }
     }
 
@@ -938,6 +943,7 @@ public class AudioAttributesCompat {
     }
   }
 
+  @RequiresApi(21)
   public static class AudioAttributesImplApi21 implements AudioAttributesImpl {
 
     @Nullable public AudioAttributes mAudioAttributes;
@@ -1014,6 +1020,7 @@ public class AudioAttributesCompat {
       return "AudioAttributesCompat: audioattributes=" + mAudioAttributes;
     }
 
+    @RequiresApi(21)
     static class Builder implements AudioAttributesImpl.Builder {
       final AudioAttributes.Builder mFwkBuilder;
 

@@ -40,7 +40,6 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.view.KeyEvent;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
@@ -143,12 +142,9 @@ public final class MediaControllerCompat {
         .getWindow()
         .getDecorView()
         .setTag(R.id.media_controller_compat_view_tag, mediaController);
-    MediaController controllerFwk = null;
-    if (mediaController != null) {
-      Object sessionTokenObj = mediaController.getSessionToken().getToken();
-      controllerFwk = new MediaController(activity, (MediaSession.Token) sessionTokenObj);
+    if (android.os.Build.VERSION.SDK_INT >= 21) {
+      MediaControllerImplApi21.setMediaController(activity, mediaController);
     }
-    activity.setMediaController(controllerFwk);
   }
 
   /**
@@ -166,15 +162,10 @@ public final class MediaControllerCompat {
     Object tag = activity.getWindow().getDecorView().getTag(R.id.media_controller_compat_view_tag);
     if (tag instanceof MediaControllerCompat) {
       return (MediaControllerCompat) tag;
-    } else {
-      MediaController controllerFwk = activity.getMediaController();
-      if (controllerFwk == null) {
-        return null;
-      }
-      MediaSession.Token sessionTokenFwk = controllerFwk.getSessionToken();
-      return new MediaControllerCompat(
-          activity, MediaSessionCompat.Token.fromToken(sessionTokenFwk));
+    } else if (android.os.Build.VERSION.SDK_INT >= 21) {
+      return MediaControllerImplApi21.getMediaController(activity);
     }
+    return null;
   }
 
   @SuppressWarnings("WeakerAccess") /* synthetic access */
@@ -230,8 +221,10 @@ public final class MediaControllerCompat {
 
     if (Build.VERSION.SDK_INT >= 29) {
       mImpl = new MediaControllerImplApi29(context, sessionToken);
-    } else {
+    } else if (Build.VERSION.SDK_INT >= 21) {
       mImpl = new MediaControllerImplApi21(context, sessionToken);
+    } else {
+      mImpl = new MediaControllerImplBase(sessionToken);
     }
   }
 
@@ -642,6 +635,8 @@ public final class MediaControllerCompat {
   /**
    * Gets the underlying framework {@link android.media.session.MediaController} object.
    *
+   * <p>This method is only supported on API 21+.
+   *
    * @return The underlying {@link android.media.session.MediaController} object, or null if none.
    */
   @Nullable
@@ -654,14 +649,19 @@ public final class MediaControllerCompat {
    * #registerCallback}
    */
   public abstract static class Callback implements IBinder.DeathRecipient {
-    @NonNull final MediaController.Callback mCallbackFwk;
+    @Nullable final MediaController.Callback mCallbackFwk;
     @Nullable MessageHandler mHandler;
     @Nullable IMediaControllerCallback mIControllerCallback;
 
     // Sharing this in constructor
     @SuppressWarnings({"assignment.type.incompatible", "argument.type.incompatible"})
     public Callback() {
-      mCallbackFwk = new MediaControllerCallbackApi21(this);
+      if (android.os.Build.VERSION.SDK_INT >= 21) {
+        mCallbackFwk = new MediaControllerCallbackApi21(this);
+      } else {
+        mCallbackFwk = null;
+        mIControllerCallback = new StubCompat(this);
+      }
     }
 
     /**
@@ -789,6 +789,7 @@ public final class MediaControllerCompat {
     }
 
     // Callback methods in this class are run on handler which was given to registerCallback().
+    @RequiresApi(21)
     private static class MediaControllerCallbackApi21 extends MediaController.Callback {
       private final WeakReference<MediaControllerCompat.Callback> mCallback;
 
@@ -1973,6 +1974,7 @@ public final class MediaControllerCompat {
     }
   }
 
+  @RequiresApi(21)
   static class MediaControllerImplApi21 implements MediaControllerImpl {
     protected final MediaController mControllerFwk;
 
@@ -2000,7 +2002,7 @@ public final class MediaControllerCompat {
 
     @Override
     public final void registerCallback(Callback callback, Handler handler) {
-      mControllerFwk.registerCallback(callback.mCallbackFwk, handler);
+      mControllerFwk.registerCallback(checkNotNull(callback.mCallbackFwk), handler);
       synchronized (mLock) {
         IMediaSession extraBinder = mSessionToken.getExtraBinder();
         if (extraBinder != null) {
@@ -2022,7 +2024,7 @@ public final class MediaControllerCompat {
 
     @Override
     public final void unregisterCallback(Callback callback) {
-      mControllerFwk.unregisterCallback(callback.mCallbackFwk);
+      mControllerFwk.unregisterCallback(checkNotNull(callback.mCallbackFwk));
       synchronized (mLock) {
         IMediaSession extraBinder = mSessionToken.getExtraBinder();
         if (extraBinder != null) {
@@ -2149,7 +2151,7 @@ public final class MediaControllerCompat {
 
     @Override
     public int getRatingType() {
-      if (android.os.Build.VERSION.SDK_INT == 21) {
+      if (android.os.Build.VERSION.SDK_INT < 22) {
         try {
           IMediaSession extraBinder = mSessionToken.getExtraBinder();
           if (extraBinder != null) {
@@ -2302,6 +2304,27 @@ public final class MediaControllerCompat {
       mPendingCallbacks.clear();
     }
 
+    @SuppressWarnings("argument.type.incompatible") // Activity.setMediaController is not annotated
+    static void setMediaController(Activity activity, MediaControllerCompat mediaControllerCompat) {
+      MediaController controllerFwk = null;
+      if (mediaControllerCompat != null) {
+        Object sessionTokenObj = mediaControllerCompat.getSessionToken().getToken();
+        controllerFwk = new MediaController(activity, (MediaSession.Token) sessionTokenObj);
+      }
+      activity.setMediaController(controllerFwk);
+    }
+
+    @Nullable
+    static MediaControllerCompat getMediaController(Activity activity) {
+      MediaController controllerFwk = activity.getMediaController();
+      if (controllerFwk == null) {
+        return null;
+      }
+      MediaSession.Token sessionTokenFwk = controllerFwk.getSessionToken();
+      return new MediaControllerCompat(
+          activity, MediaSessionCompat.Token.fromToken(sessionTokenFwk));
+    }
+
     private static class ExtraBinderRequestResultReceiver extends ResultReceiver {
       private WeakReference<MediaControllerImplApi21> mMediaControllerImpl;
 
@@ -2388,6 +2411,7 @@ public final class MediaControllerCompat {
     }
   }
 
+  @RequiresApi(21)
   static class TransportControlsApi21 extends TransportControls {
     protected final MediaController.TransportControls mControlsFwk;
 

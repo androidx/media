@@ -56,6 +56,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.media.MediaDescription;
 import android.media.browse.MediaBrowser;
 import android.os.BadParcelableException;
 import android.os.Binder;
@@ -72,8 +73,8 @@ import android.os.RemoteException;
 import android.support.v4.os.ResultReceiver;
 import android.text.TextUtils;
 import android.util.Log;
+import androidx.annotation.DoNotInline;
 import androidx.annotation.IntDef;
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
@@ -204,8 +205,10 @@ public final class MediaBrowserCompat {
       mImpl = new MediaBrowserImplApi26(context, serviceComponent, callback, rootHints);
     } else if (Build.VERSION.SDK_INT >= 23) {
       mImpl = new MediaBrowserImplApi23(context, serviceComponent, callback, rootHints);
-    } else {
+    } else if (Build.VERSION.SDK_INT >= 21) {
       mImpl = new MediaBrowserImplApi21(context, serviceComponent, callback, rootHints);
+    } else {
+      mImpl = new MediaBrowserImplBase(context, serviceComponent, callback, rootHints);
     }
   }
 
@@ -455,18 +458,20 @@ public final class MediaBrowserCompat {
      * Creates an instance from a framework {@link android.media.browse.MediaBrowser.MediaItem}
      * object.
      *
+     * <p>This method is only supported on API 21+. On API 20 and below, it returns null.
+     *
      * @param itemObj A {@link android.media.browse.MediaBrowser.MediaItem} object.
      * @return An equivalent {@link MediaItem} object, or null if none.
      */
     @Nullable
     public static MediaItem fromMediaItem(@Nullable Object itemObj) {
-      if (itemObj == null) {
+      if (itemObj == null || Build.VERSION.SDK_INT < 21) {
         return null;
       }
       MediaBrowser.MediaItem itemFwk = (MediaBrowser.MediaItem) itemObj;
-      int flags = itemFwk.getFlags();
+      int flags = Api21Impl.getFlags(itemFwk);
       MediaDescriptionCompat descriptionCompat =
-          MediaDescriptionCompat.fromMediaDescription(itemFwk.getDescription());
+          MediaDescriptionCompat.fromMediaDescription(Api21Impl.getDescription(itemFwk));
       return new MediaItem(descriptionCompat, flags);
     }
 
@@ -474,12 +479,14 @@ public final class MediaBrowserCompat {
      * Creates a list of {@link MediaItem} objects from a framework {@link
      * android.media.browse.MediaBrowser.MediaItem} object list.
      *
+     * <p>This method is only supported on API 21+. On API 20 and below, it returns null.
+     *
      * @param itemList A list of {@link android.media.browse.MediaBrowser.MediaItem} objects.
      * @return An equivalent list of {@link MediaItem} objects, or null if none.
      */
     @Nullable
     public static List<MediaItem> fromMediaItemList(@Nullable List<?> itemList) {
-      if (itemList == null) {
+      if (itemList == null || Build.VERSION.SDK_INT < 21) {
         return null;
       }
       List<MediaItem> items = new ArrayList<>(itemList.size());
@@ -594,7 +601,11 @@ public final class MediaBrowserCompat {
     @Nullable ConnectionCallbackInternal mConnectionCallbackInternal;
 
     public ConnectionCallback() {
-      mConnectionCallbackFwk = new ConnectionCallbackApi21();
+      if (Build.VERSION.SDK_INT >= 21) {
+        mConnectionCallbackFwk = new ConnectionCallbackApi21();
+      } else {
+        mConnectionCallbackFwk = null;
+      }
     }
 
     /**
@@ -636,6 +647,7 @@ public final class MediaBrowserCompat {
       void onConnectionFailed();
     }
 
+    @RequiresApi(21)
     private class ConnectionCallbackApi21 extends MediaBrowser.ConnectionCallback {
       ConnectionCallbackApi21() {}
 
@@ -667,7 +679,7 @@ public final class MediaBrowserCompat {
 
   /** Callbacks for subscription related events. */
   public abstract static class SubscriptionCallback {
-    @NonNull final MediaBrowser.SubscriptionCallback mSubscriptionCallbackFwk;
+    @Nullable final MediaBrowser.SubscriptionCallback mSubscriptionCallbackFwk;
     final IBinder mToken;
     @Nullable WeakReference<Subscription> mSubscriptionRef;
 
@@ -675,8 +687,10 @@ public final class MediaBrowserCompat {
       mToken = new Binder();
       if (Build.VERSION.SDK_INT >= 26) {
         mSubscriptionCallbackFwk = new SubscriptionCallbackApi26();
-      } else {
+      } else if (Build.VERSION.SDK_INT >= 21) {
         mSubscriptionCallbackFwk = new SubscriptionCallbackApi21();
+      } else {
+        mSubscriptionCallbackFwk = null;
       }
     }
 
@@ -724,6 +738,7 @@ public final class MediaBrowserCompat {
       mSubscriptionRef = new WeakReference<>(subscription);
     }
 
+    @RequiresApi(21)
     private class SubscriptionCallbackApi21 extends MediaBrowser.SubscriptionCallback {
       SubscriptionCallbackApi21() {}
 
@@ -1628,6 +1643,7 @@ public final class MediaBrowserCompat {
     }
   }
 
+  @RequiresApi(21)
   static class MediaBrowserImplApi21
       implements MediaBrowserImpl,
           MediaBrowserServiceCallbackImpl,
@@ -1728,7 +1744,7 @@ public final class MediaBrowserCompat {
       if (mServiceBinderWrapper == null) {
         // TODO: When MediaBrowser is connected to framework's MediaBrowserService,
         // subscribe with options won't work properly.
-        mBrowserFwk.subscribe(parentId, callback.mSubscriptionCallbackFwk);
+        mBrowserFwk.subscribe(parentId, checkNotNull(callback.mSubscriptionCallbackFwk));
       } else {
         try {
           mServiceBinderWrapper.addSubscription(
@@ -2076,9 +2092,9 @@ public final class MediaBrowserCompat {
       // This is to prevent ClassNotFoundException when options has Parcelable in it.
       if (mServiceBinderWrapper == null || mServiceVersion < SERVICE_VERSION_2) {
         if (options == null) {
-          mBrowserFwk.subscribe(parentId, callback.mSubscriptionCallbackFwk);
+          mBrowserFwk.subscribe(parentId, checkNotNull(callback.mSubscriptionCallbackFwk));
         } else {
-          mBrowserFwk.subscribe(parentId, options, callback.mSubscriptionCallbackFwk);
+          mBrowserFwk.subscribe(parentId, options, checkNotNull(callback.mSubscriptionCallbackFwk));
         }
       } else {
         super.subscribe(parentId, options, callback);
@@ -2093,7 +2109,7 @@ public final class MediaBrowserCompat {
         if (callback == null) {
           mBrowserFwk.unsubscribe(parentId);
         } else {
-          mBrowserFwk.unsubscribe(parentId, callback.mSubscriptionCallbackFwk);
+          mBrowserFwk.unsubscribe(parentId, checkNotNull(callback.mSubscriptionCallbackFwk));
         }
       } else {
         super.unsubscribe(parentId, callback);
@@ -2448,6 +2464,21 @@ public final class MediaBrowserCompat {
                   + ")");
           break;
       }
+    }
+  }
+
+  @RequiresApi(21)
+  private static class Api21Impl {
+    private Api21Impl() {}
+
+    @DoNotInline
+    static MediaDescription getDescription(MediaBrowser.MediaItem item) {
+      return item.getDescription();
+    }
+
+    @DoNotInline
+    static int getFlags(MediaBrowser.MediaItem item) {
+      return item.getFlags();
     }
   }
 }
