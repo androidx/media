@@ -1159,20 +1159,17 @@ public final class LegacyConversionsTest {
             LegacyConversions.convertToAudioAttributes((MediaControllerCompat.PlaybackInfo) null))
         .isSameInstanceAs(AudioAttributes.DEFAULT);
 
-    int contentType = AudioAttributesCompat.CONTENT_TYPE_MUSIC;
-    int flags = AudioAttributesCompat.FLAG_AUDIBILITY_ENFORCED;
-    int usage = AudioAttributesCompat.USAGE_MEDIA;
     AudioAttributesCompat aaCompat =
         new AudioAttributesCompat.Builder()
-            .setContentType(contentType)
-            .setFlags(flags)
-            .setUsage(usage)
+            .setContentType(AudioAttributesCompat.CONTENT_TYPE_MUSIC)
+            .setFlags(AudioAttributesCompat.FLAG_AUDIBILITY_ENFORCED)
+            .setUsage(AudioAttributesCompat.USAGE_MEDIA)
             .build();
     AudioAttributes aa =
         new AudioAttributes.Builder()
-            .setContentType(contentType)
-            .setFlags(flags)
-            .setUsage(usage)
+            .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+            .setFlags(C.FLAG_AUDIBILITY_ENFORCED)
+            .setUsage(C.USAGE_MEDIA)
             .build();
     assertThat(LegacyConversions.convertToAudioAttributes(aaCompat)).isEqualTo(aa);
     assertThat(LegacyConversions.convertToAudioAttributesCompat(aa)).isEqualTo(aaCompat);

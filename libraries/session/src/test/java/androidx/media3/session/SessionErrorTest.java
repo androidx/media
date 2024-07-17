@@ -36,6 +36,7 @@ public class SessionErrorTest {
   }
 
   @Test
+  @SuppressWarnings("WrongConstant") // Deliberately testing an unrecognized error code.
   public void constructor_withNonErrorCode_throwsIllegalArgumentException() {
     assertThrows(
         IllegalArgumentException.class,

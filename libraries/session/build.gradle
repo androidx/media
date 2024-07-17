@@ -33,6 +33,11 @@ android {
     buildFeatures {
         aidl true
     }
+    lintOptions {
+        // TODO: b/353490583 - Move this to common_library_config.gradle once it's enabled for all
+        //  libraries.
+        checkTestSources true
+    }
 }
 dependencies {
     api project(modulePrefix + 'lib-common')
