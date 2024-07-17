@@ -33,6 +33,7 @@ import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -193,6 +194,147 @@ public final class CompositionPlayerAudioPlaybackTest {
         context,
         capturingAudioSink,
         "audiosinkdumps/wav/sample.wav_clipped_then_sample_rf64_clipped.wav.dump");
+  }
+
+  @Test
+  public void multiSequenceCompositionPlayback_outputsCorrectSamples() throws Exception {
+    CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
+    EditedMediaItem editedMediaItem1 =
+        new EditedMediaItem.Builder(
+                new MediaItem.Builder()
+                    .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionMs(0)
+                            .setEndPositionUs(696_000)
+                            .build())
+                    .build())
+            .setDurationUs(1_000_000L)
+            .build();
+    EditedMediaItem editedMediaItem2 =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW_STEREO_48000KHZ))
+            .setDurationUs(348_000L)
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence(editedMediaItem1),
+                new EditedMediaItemSequence(editedMediaItem2, editedMediaItem2))
+            .build();
+    player.setComposition(composition);
+    player.prepare();
+    player.play();
+
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    player.release();
+
+    DumpFileAsserts.assertOutput(
+        context,
+        capturingAudioSink,
+        "audiosinkdumps/wav/compositionOf_sample.wav-clipped__sample_rf64.wav.dump");
+  }
+
+  @Test
+  public void playback_withOneRepeat_outputsCorrectSamples() throws Exception {
+    CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
+    player.setRepeatMode(Player.REPEAT_MODE_ALL);
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
+            .setDurationUs(1_000_000L)
+            .build();
+    EditedMediaItemSequence sequence = new EditedMediaItemSequence(editedMediaItem);
+    Composition composition = new Composition.Builder(sequence).build();
+    player.setComposition(composition);
+    player.prepare();
+    player.play();
+
+    TestPlayerRunHelper.runUntilPositionDiscontinuity(
+        player, Player.DISCONTINUITY_REASON_AUTO_TRANSITION);
+    player.setRepeatMode(Player.REPEAT_MODE_OFF);
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    player.release();
+
+    DumpFileAsserts.assertOutput(
+        context, capturingAudioSink, "audiosinkdumps/wav/sample.wav_repeated.dump");
+  }
+
+  @Test
+  public void sequencePlayback_withOneRepeat_outputsCorrectSamples() throws Exception {
+    CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
+    player.setRepeatMode(Player.REPEAT_MODE_ALL);
+    EditedMediaItem editedMediaItem1 =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
+            .setDurationUs(1_000_000L)
+            .build();
+    EditedMediaItem editedMediaItem2 =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW_STEREO_48000KHZ))
+            .setDurationUs(348_000L)
+            .build();
+    EditedMediaItemSequence sequence =
+        new EditedMediaItemSequence(editedMediaItem1, editedMediaItem2);
+    Composition composition = new Composition.Builder(sequence).build();
+    player.setComposition(composition);
+    player.prepare();
+    player.play();
+
+    TestPlayerRunHelper.runUntilPositionDiscontinuity(
+        player, Player.DISCONTINUITY_REASON_AUTO_TRANSITION);
+
+    player.setRepeatMode(Player.REPEAT_MODE_OFF);
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    player.release();
+
+    DumpFileAsserts.assertOutput(
+        context,
+        capturingAudioSink,
+        "audiosinkdumps/wav/sample.wav_then_sample_rf64.wav_repeated.dump");
+  }
+
+  // TODO - b/320014878: Enable this test.
+  @Ignore("Preview audio is not fed to the sink in deterministic buffers - see b/320014878.")
+  @Test
+  public void multiSequenceCompositionPlayback_withOneRepeat_outputsCorrectSamples()
+      throws Exception {
+    CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
+    player.setRepeatMode(Player.REPEAT_MODE_ALL);
+    EditedMediaItem editedMediaItem1 =
+        new EditedMediaItem.Builder(
+                new MediaItem.Builder()
+                    .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionMs(0)
+                            .setEndPositionUs(696_000)
+                            .build())
+                    .build())
+            .setDurationUs(1_000_000L)
+            .build();
+    EditedMediaItem editedMediaItem2 =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW_STEREO_48000KHZ))
+            .setDurationUs(348_000L)
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence(editedMediaItem1),
+                new EditedMediaItemSequence(editedMediaItem2, editedMediaItem2))
+            .build();
+    player.setComposition(composition);
+    player.prepare();
+    player.play();
+
+    TestPlayerRunHelper.runUntilPositionDiscontinuity(
+        player, Player.DISCONTINUITY_REASON_AUTO_TRANSITION);
+
+    player.setRepeatMode(Player.REPEAT_MODE_OFF);
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    player.release();
+
+    DumpFileAsserts.assertOutput(
+        context,
+        capturingAudioSink,
+        "audiosinkdumps/wav/repeatedCompositionOf_sample.wav-clipped__sample_rf64.wav.dump");
   }
 
   @Test

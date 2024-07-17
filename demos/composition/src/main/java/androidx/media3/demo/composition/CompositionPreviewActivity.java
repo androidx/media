@@ -220,6 +220,7 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
             Log.e(TAG, "Preview error", error);
           }
         });
+    player.setRepeatMode(Player.REPEAT_MODE_ALL);
     player.setComposition(composition);
     player.prepare();
     player.play();

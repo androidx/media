@@ -27,6 +27,7 @@ import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import android.content.Context;
@@ -232,11 +233,13 @@ public class CompositionPlayerTest {
             Player.COMMAND_PREPARE,
             Player.COMMAND_STOP,
             Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM,
+            Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
             Player.COMMAND_SEEK_BACK,
             Player.COMMAND_SEEK_FORWARD,
             Player.COMMAND_GET_CURRENT_MEDIA_ITEM,
             Player.COMMAND_GET_TIMELINE,
             Player.COMMAND_SET_VIDEO_SURFACE,
+            Player.COMMAND_SET_REPEAT_MODE,
             Player.COMMAND_GET_VOLUME,
             Player.COMMAND_SET_VOLUME,
             Player.COMMAND_RELEASE);
@@ -539,6 +542,140 @@ public class CompositionPlayerTest {
         .isEqualTo(1_348_000L);
     assertThat(timelineChangeReasonCaptor.getValue())
         .isEqualTo(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
+  }
+
+  @Test
+  public void playSequence_withRepeatModeOff_doesNotReportRepeatMediaItemTransition()
+      throws Exception {
+    CompositionPlayer player = buildCompositionPlayer();
+    Player.Listener mockListener = mock(Player.Listener.class);
+    player.addListener(mockListener);
+    player.setComposition(buildComposition());
+    player.prepare();
+    player.play();
+
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+
+    verify(mockListener, never())
+        .onMediaItemTransition(any(), eq(Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT));
+    verify(mockListener, never())
+        .onPositionDiscontinuity(any(), any(), eq(Player.DISCONTINUITY_REASON_SEEK));
+  }
+
+  @Test
+  public void playSequence_withRepeatModeAll_reportsRepeatReasonForMediaItemTransition()
+      throws Exception {
+    CompositionPlayer player = buildCompositionPlayer();
+    Player.Listener mockListener = mock(Player.Listener.class);
+    player.addListener(mockListener);
+    player.setRepeatMode(Player.REPEAT_MODE_ALL);
+    player.setComposition(buildComposition());
+    player.prepare();
+    player.play();
+
+    TestPlayerRunHelper.runUntilPositionDiscontinuity(
+        player, Player.DISCONTINUITY_REASON_AUTO_TRANSITION);
+    TestPlayerRunHelper.runUntilPositionDiscontinuity(
+        player, Player.DISCONTINUITY_REASON_AUTO_TRANSITION);
+    TestPlayerRunHelper.runUntilPositionDiscontinuity(
+        player, Player.DISCONTINUITY_REASON_AUTO_TRANSITION);
+    player.setRepeatMode(Player.REPEAT_MODE_OFF);
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+
+    verify(mockListener, times(3))
+        .onMediaItemTransition(any(), eq(Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT));
+    verify(mockListener, never())
+        .onPositionDiscontinuity(any(), any(), eq(Player.DISCONTINUITY_REASON_SEEK));
+  }
+
+  @Test
+  public void playComposition_withRepeatModeOff_doesNotReportRepeatMediaItemTransition()
+      throws Exception {
+    CompositionPlayer player = buildCompositionPlayer();
+    Player.Listener mockListener = mock(Player.Listener.class);
+    player.addListener(mockListener);
+    player.setRepeatMode(Player.REPEAT_MODE_OFF);
+    EditedMediaItem editedMediaItem1 =
+        new EditedMediaItem.Builder(
+                new MediaItem.Builder()
+                    .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionMs(0)
+                            .setEndPositionUs(696_000)
+                            .build())
+                    .build())
+            .setDurationUs(1_000_000L)
+            .build();
+    EditedMediaItem editedMediaItem2 =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW_STEREO_48000KHZ))
+            .setDurationUs(348_000L)
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence(editedMediaItem1),
+                new EditedMediaItemSequence(editedMediaItem2, editedMediaItem2))
+            .build();
+
+    player.setComposition(composition);
+    player.prepare();
+    player.play();
+
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+
+    verify(mockListener, never())
+        .onMediaItemTransition(any(), eq(Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT));
+    verify(mockListener, never())
+        .onPositionDiscontinuity(any(), any(), eq(Player.DISCONTINUITY_REASON_SEEK));
+  }
+
+  @Test
+  public void playComposition_withRepeatModeAll_reportsRepeatReasonForMediaItemTransition()
+      throws Exception {
+    CompositionPlayer player = buildCompositionPlayer();
+    Player.Listener mockListener = mock(Player.Listener.class);
+    player.addListener(mockListener);
+    player.setRepeatMode(Player.REPEAT_MODE_ALL);
+    EditedMediaItem editedMediaItem1 =
+        new EditedMediaItem.Builder(
+                new MediaItem.Builder()
+                    .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionMs(0)
+                            .setEndPositionUs(696_000)
+                            .build())
+                    .build())
+            .setDurationUs(1_000_000L)
+            .build();
+    EditedMediaItem editedMediaItem2 =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW_STEREO_48000KHZ))
+            .setDurationUs(348_000L)
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence(editedMediaItem1),
+                new EditedMediaItemSequence(editedMediaItem2, editedMediaItem2))
+            .build();
+    player.setComposition(composition);
+    player.prepare();
+    player.play();
+
+    TestPlayerRunHelper.runUntilPositionDiscontinuity(
+        player, Player.DISCONTINUITY_REASON_AUTO_TRANSITION);
+    TestPlayerRunHelper.runUntilPositionDiscontinuity(
+        player, Player.DISCONTINUITY_REASON_AUTO_TRANSITION);
+    TestPlayerRunHelper.runUntilPositionDiscontinuity(
+        player, Player.DISCONTINUITY_REASON_AUTO_TRANSITION);
+    player.setRepeatMode(Player.REPEAT_MODE_OFF);
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+
+    verify(mockListener, times(3))
+        .onMediaItemTransition(any(), eq(Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT));
+    verify(mockListener, never())
+        .onPositionDiscontinuity(any(), any(), eq(Player.DISCONTINUITY_REASON_SEEK));
   }
 
   @Test

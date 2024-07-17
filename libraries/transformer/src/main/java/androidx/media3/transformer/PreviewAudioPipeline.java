@@ -18,6 +18,7 @@ package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Util.sampleCountToDurationUs;
 
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.AudioProcessor.AudioFormat;
@@ -138,6 +139,9 @@ import java.util.Objects;
    * @param positionUs The seek position, in microseconds.
    */
   public void startSeek(long positionUs) {
+    if (positionUs == C.TIME_UNSET) {
+      positionUs = 0;
+    }
     finalAudioSink.pause();
     audioGraph.blockInput();
     audioGraph.setPendingStartTimeUs(positionUs);

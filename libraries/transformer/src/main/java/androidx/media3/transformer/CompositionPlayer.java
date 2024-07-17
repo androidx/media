@@ -80,14 +80,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * The {@link Composition} specifies how the assets should be arranged, and the audio and video
  * effects to apply to them.
  *
- * <p>CompositionPlayer instances must be accessed from a single application thread. For the vast
- * majority of cases this should be the application's main thread. The thread on which a
+ * <p>{@code CompositionPlayer} instances must be accessed from a single application thread. For the
+ * vast majority of cases this should be the application's main thread. The thread on which a
  * CompositionPlayer instance must be accessed can be explicitly specified by passing a {@link
  * Looper} when creating the player. If no {@link Looper} is specified, then the {@link Looper} of
  * the thread that the player is created on is used, or if that thread does not have a {@link
  * Looper}, the {@link Looper} of the application's main thread is used. In all cases the {@link
  * Looper} of the thread from which the player must be accessed can be queried using {@link
  * #getApplicationLooper()}.
+ *
+ * <p>This player only supports setting the {@linkplain #setRepeatMode(int) repeat mode} as
+ * {@linkplain Player#REPEAT_MODE_ALL all} of the {@link Composition}, or {@linkplain
+ * Player#REPEAT_MODE_OFF off}.
  */
 @UnstableApi
 @RestrictTo(LIBRARY_GROUP)
@@ -243,10 +247,12 @@ public final class CompositionPlayer extends SimpleBasePlayer
               COMMAND_PREPARE,
               COMMAND_STOP,
               COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM,
+              COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
               COMMAND_SEEK_BACK,
               COMMAND_SEEK_FORWARD,
               COMMAND_GET_CURRENT_MEDIA_ITEM,
               COMMAND_GET_TIMELINE,
+              COMMAND_SET_REPEAT_MODE,
               COMMAND_SET_VIDEO_SURFACE,
               COMMAND_GET_VOLUME,
               COMMAND_SET_VOLUME,
@@ -258,11 +264,11 @@ public final class CompositionPlayer extends SimpleBasePlayer
         EVENT_PLAYBACK_STATE_CHANGED,
         EVENT_PLAY_WHEN_READY_CHANGED,
         EVENT_PLAYER_ERROR,
-        EVENT_POSITION_DISCONTINUITY
+        EVENT_POSITION_DISCONTINUITY,
+        EVENT_MEDIA_ITEM_TRANSITION,
       };
 
   private static final int MAX_SUPPORTED_SEQUENCES = 2;
-
   private static final String TAG = "CompositionPlayer";
 
   private final Context context;
@@ -283,6 +289,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
   private long compositionDurationUs;
   private boolean playWhenReady;
   private @PlayWhenReadyChangeReason int playWhenReadyChangeReason;
+  private @RepeatMode int repeatMode;
   private float volume;
   private boolean renderedFirstFrame;
   @Nullable private Object videoOutput;
@@ -290,6 +297,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
   private @Player.State int playbackState;
   @Nullable private SurfaceHolder surfaceHolder;
   @Nullable private Surface displaySurface;
+  private boolean repeatingCompositionSeekInProgress;
 
   private CompositionPlayer(Builder builder) {
     super(checkNotNull(builder.looper), builder.clock);
@@ -427,15 +435,19 @@ public final class CompositionPlayer extends SimpleBasePlayer
             .setPlaybackState(playbackState)
             .setPlayerError(playbackException)
             .setPlayWhenReady(playWhenReady, playWhenReadyChangeReason)
+            .setRepeatMode(repeatMode)
             .setVolume(volume)
             .setContentPositionMs(this::getContentPositionMs)
             .setContentBufferedPositionMs(this::getBufferedPositionMs)
             .setTotalBufferedDurationMs(this::getTotalBufferedDurationMs)
             .setNewlyRenderedFirstFrame(getRenderedFirstFrameAndReset());
+    if (repeatingCompositionSeekInProgress) {
+      state.setPositionDiscontinuity(DISCONTINUITY_REASON_AUTO_TRANSITION, C.TIME_UNSET);
+      repeatingCompositionSeekInProgress = false;
+    }
     if (playlist != null) {
       // Update the playlist only after it has been set so that SimpleBasePlayer announces a
-      // timeline
-      // change with reason TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED.
+      // timeline change with reason TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED.
       state.setPlaylist(playlist);
     }
     return state.build();
@@ -464,6 +476,14 @@ public final class CompositionPlayer extends SimpleBasePlayer
         players.get(i).setPlayWhenReady(playWhenReady);
       }
     } // else, wait until all players are ready.
+    return Futures.immediateVoidFuture();
+  }
+
+  @Override
+  protected ListenableFuture<?> handleSetRepeatMode(@RepeatMode int repeatMode) {
+    // Composition is treated as a single item, so only supports being repeated as a whole.
+    checkArgument(repeatMode != REPEAT_MODE_ONE);
+    this.repeatMode = repeatMode;
     return Futures.immediateVoidFuture();
   }
 
@@ -534,7 +554,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
   }
 
   @Override
-  protected ListenableFuture<?> handleSeek(int mediaItemIndex, long positionMs, int seekCommand) {
+  protected ListenableFuture<?> handleSeek(
+      int mediaItemIndex, long positionMs, @Player.Command int seekCommand) {
     CompositionPlayerInternal compositionPlayerInternal =
         checkStateNotNull(this.compositionPlayerInternal);
     compositionPlayerInternal.startSeek(positionMs);
@@ -643,6 +664,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
       ExoPlayer player = playerBuilder.build();
       player.addListener(new PlayerListener(i));
       player.addAnalyticsListener(new EventLogger());
+      player.setPauseAtEndOfMediaItems(true);
       setPlayerSequence(player, editedMediaItemSequence, /* shouldGenerateSilence= */ i == 0);
       players.add(player);
       if (i == 0) {
@@ -790,6 +812,15 @@ public final class CompositionPlayer extends SimpleBasePlayer
     }
   }
 
+  private void repeatCompositionPlayback() {
+    repeatingCompositionSeekInProgress = true;
+    seekTo(
+        getCurrentMediaItemIndex(),
+        /* positionMs= */ C.TIME_UNSET,
+        Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
+        /* isRepeatingCurrentItem= */ true);
+  }
+
   private ImmutableList<MediaItemData> createPlaylist() {
     checkNotNull(compositionDurationUs != C.TIME_UNSET);
     return ImmutableList.of(
@@ -895,6 +926,11 @@ public final class CompositionPlayer extends SimpleBasePlayer
     @Override
     public void onPlayWhenReadyChanged(boolean playWhenReady, int reason) {
       playWhenReadyChangeReason = reason;
+      if (reason == PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM
+          && repeatMode != REPEAT_MODE_OFF
+          && playerIndex == 0) {
+        repeatCompositionPlayback();
+      }
     }
 
     @Override
