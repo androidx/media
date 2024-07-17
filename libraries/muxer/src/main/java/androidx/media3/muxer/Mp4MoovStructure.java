@@ -192,14 +192,16 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
                 Boxes.keys(Lists.newArrayList(metadataCollector.metadataEntries)),
                 Boxes.ilst(Lists.newArrayList(metadataCollector.metadataEntries)));
 
-    ByteBuffer moovBox;
-    moovBox =
-        Boxes.moov(
-            mvhdBox,
-            udtaBox,
-            metaBox,
-            trakBoxes,
-            isFragmentedMp4 ? Boxes.mvex(trexBoxes) : ByteBuffer.allocate(0));
+    List<ByteBuffer> subBoxes = new ArrayList<>();
+    subBoxes.add(mvhdBox);
+    subBoxes.add(udtaBox);
+    subBoxes.add(metaBox);
+    subBoxes.addAll(trakBoxes);
+    if (isFragmentedMp4) {
+      subBoxes.add(Boxes.mvex(trexBoxes));
+    }
+
+    ByteBuffer moovBox = BoxUtils.wrapBoxesIntoBox("moov", subBoxes);
 
     // Also add XMP if needed
     if (metadataCollector.xmpData != null) {

@@ -487,27 +487,6 @@ import java.util.List;
         "uuid", ImmutableList.of(ByteBuffer.wrap(Bytes.toArray(uuid)), contents));
   }
 
-  /**
-   * Returns the moov box.
-   *
-   * <p>This box is a top level movie descriptor box (there is a single one of this per Mp4 file).
-   */
-  public static ByteBuffer moov(
-      ByteBuffer mvhdBox,
-      ByteBuffer udtaBox,
-      ByteBuffer metaBox,
-      List<ByteBuffer> trakBoxes,
-      ByteBuffer mvexBox) {
-    List<ByteBuffer> subBoxes = new ArrayList<>();
-    subBoxes.add(mvhdBox);
-    subBoxes.add(udtaBox);
-    subBoxes.add(metaBox);
-    subBoxes.addAll(trakBoxes);
-    subBoxes.add(mvexBox);
-
-    return BoxUtils.wrapBoxesIntoBox("moov", subBoxes);
-  }
-
   /** Returns an audio sample entry box based on the MIME type. */
   public static ByteBuffer audioSampleEntry(Format format) {
     String fourcc = codecSpecificFourcc(format);
