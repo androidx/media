@@ -116,6 +116,11 @@ import java.nio.ByteBuffer;
         codecAdapter =
             new AsynchronousMediaCodecAdapter(codec, callbackThreadSupplier.get(), bufferEnqueuer);
         TraceUtil.endSection();
+        if (configuration.surface == null
+            && configuration.codecInfo.detachedSurfaceSupported
+            && Util.SDK_INT >= 35) {
+          flags |= MediaCodec.CONFIGURE_FLAG_DETACHED_SURFACE;
+        }
         codecAdapter.initialize(
             configuration.mediaFormat, configuration.surface, configuration.crypto, flags);
         return codecAdapter;
@@ -293,6 +298,12 @@ import java.nio.ByteBuffer;
   @Override
   public void setOutputSurface(Surface surface) {
     codec.setOutputSurface(surface);
+  }
+
+  @RequiresApi(35)
+  @Override
+  public void detachOutputSurface() {
+    codec.detachOutputSurface();
   }
 
   @Override

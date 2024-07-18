@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.mediacodec;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
 
+import android.annotation.SuppressLint;
 import android.media.MediaCodec;
 import android.media.MediaFormat;
 import android.os.Bundle;
@@ -43,14 +44,21 @@ public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
   /** A factory for {@link SynchronousMediaCodecAdapter} instances. */
   public static class Factory implements MediaCodecAdapter.Factory {
 
+    @SuppressLint("WrongConstant") // Can't verify codec flag IntDef
     @Override
     public MediaCodecAdapter createAdapter(Configuration configuration) throws IOException {
       @Nullable MediaCodec codec = null;
       try {
         codec = createCodec(configuration);
         TraceUtil.beginSection("configureCodec");
+        int flags = 0;
+        if (configuration.surface == null
+            && configuration.codecInfo.detachedSurfaceSupported
+            && Util.SDK_INT >= 35) {
+          flags |= MediaCodec.CONFIGURE_FLAG_DETACHED_SURFACE;
+        }
         codec.configure(
-            configuration.mediaFormat, configuration.surface, configuration.crypto, /* flags= */ 0);
+            configuration.mediaFormat, configuration.surface, configuration.crypto, flags);
         TraceUtil.endSection();
         TraceUtil.beginSection("startCodec");
         codec.start();
@@ -175,6 +183,12 @@ public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
   @RequiresApi(23)
   public void setOutputSurface(Surface surface) {
     codec.setOutputSurface(surface);
+  }
+
+  @RequiresApi(35)
+  @Override
+  public void detachOutputSurface() {
+    codec.detachOutputSurface();
   }
 
   @Override

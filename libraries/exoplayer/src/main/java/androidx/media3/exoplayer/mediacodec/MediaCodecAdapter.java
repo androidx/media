@@ -285,6 +285,14 @@ public interface MediaCodecAdapter {
   void setOutputSurface(Surface surface);
 
   /**
+   * Detaches the current output surface.
+   *
+   * @see MediaCodec#detachOutputSurface()
+   */
+  @RequiresApi(35)
+  void detachOutputSurface();
+
+  /**
    * Communicate additional parameter changes to the {@link MediaCodec} instance.
    *
    * @see MediaCodec#setParameters(Bundle)

@@ -734,6 +734,11 @@ public class MediaCodecRendererTest {
     }
 
     @Override
+    public void detachOutputSurface() {
+      throw exceptionSupplier.get();
+    }
+
+    @Override
     public void setParameters(Bundle params) {
       throw exceptionSupplier.get();
     }

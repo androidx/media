@@ -948,7 +948,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         MediaCodecInfo codecInfo = checkNotNull(getCodecInfo());
         boolean canUpdateSurface = hasSurfaceForCodec(codecInfo);
         if (Util.SDK_INT >= 23 && canUpdateSurface && !codecNeedsSetOutputSurfaceWorkaround) {
-          setOutputSurfaceV23(codec, getSurfaceForCodec(codecInfo));
+          setOutputSurface(codec, getSurfaceForCodec(codecInfo));
         } else {
           releaseCodec();
           maybeInitCodecOrBypass();
@@ -1766,18 +1766,24 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   }
 
   private boolean hasSurfaceForCodec(MediaCodecInfo codecInfo) {
-    return displaySurface != null || shouldUsePlaceholderSurface(codecInfo);
+    return displaySurface != null
+        || shouldUseDetachedSurface(codecInfo)
+        || shouldUsePlaceholderSurface(codecInfo);
   }
 
   /**
-   * Returns surface to be set on the codec. Must only be called if {@link
-   * #hasSurfaceForCodec(MediaCodecInfo)} returns true.
+   * Returns surface to be set on the codec, or null to use detached surface mode.
+   *
+   * <p>Must only be called if {@link #hasSurfaceForCodec(MediaCodecInfo)} returns true.
    */
+  @Nullable
   private Surface getSurfaceForCodec(MediaCodecInfo codecInfo) {
     if (videoSink != null) {
       return videoSink.getInputSurface();
     } else if (displaySurface != null) {
       return displaySurface;
+    } else if (shouldUseDetachedSurface(codecInfo)) {
+      return null;
     } else {
       checkState(shouldUsePlaceholderSurface(codecInfo));
       if (placeholderSurface != null && placeholderSurface.secure != codecInfo.secure) {
@@ -1789,6 +1795,10 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       }
       return placeholderSurface;
     }
+  }
+
+  protected boolean shouldUseDetachedSurface(MediaCodecInfo codecInfo) {
+    return Util.SDK_INT >= 35 && codecInfo.detachedSurfaceSupported;
   }
 
   private boolean shouldUsePlaceholderSurface(MediaCodecInfo codecInfo) {
@@ -1898,9 +1908,24 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     codec.setParameters(codecParameters);
   }
 
+  private void setOutputSurface(MediaCodecAdapter codec, @Nullable Surface surface) {
+    if (Util.SDK_INT >= 23 && surface != null) {
+      setOutputSurfaceV23(codec, surface);
+    } else if (Util.SDK_INT >= 35) {
+      detachOutputSurfaceV35(codec);
+    } else {
+      throw new IllegalStateException();
+    }
+  }
+
   @RequiresApi(23)
   protected void setOutputSurfaceV23(MediaCodecAdapter codec, Surface surface) {
     codec.setOutputSurface(surface);
+  }
+
+  @RequiresApi(35)
+  protected void detachOutputSurfaceV35(MediaCodecAdapter codec) {
+    codec.detachOutputSurface();
   }
 
   /**

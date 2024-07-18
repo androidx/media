@@ -138,6 +138,14 @@ public final class MediaCodecInfo {
    */
   public final boolean vendor;
 
+  /**
+   * Whether the codec supports "detached" surface mode where it is able to decode without an
+   * attached surface. Only relevant for video codecs.
+   *
+   * @see android.media.MediaCodecInfo.CodecCapabilities#FEATURE_DetachedSurface
+   */
+  public final boolean detachedSurfaceSupported;
+
   private final boolean isVideo;
 
   /**
@@ -179,7 +187,8 @@ public final class MediaCodecInfo {
             && isAdaptive(capabilities)
             && !needsDisableAdaptationWorkaround(name),
         /* tunneling= */ capabilities != null && isTunneling(capabilities),
-        /* secure= */ forceSecure || (capabilities != null && isSecure(capabilities)));
+        /* secure= */ forceSecure || (capabilities != null && isSecure(capabilities)),
+        isDetachedSurfaceSupported(capabilities));
   }
 
   @VisibleForTesting
@@ -193,7 +202,8 @@ public final class MediaCodecInfo {
       boolean vendor,
       boolean adaptive,
       boolean tunneling,
-      boolean secure) {
+      boolean secure,
+      boolean detachedSurfaceSupported) {
     this.name = Assertions.checkNotNull(name);
     this.mimeType = mimeType;
     this.codecMimeType = codecMimeType;
@@ -204,6 +214,7 @@ public final class MediaCodecInfo {
     this.adaptive = adaptive;
     this.tunneling = tunneling;
     this.secure = secure;
+    this.detachedSurfaceSupported = detachedSurfaceSupported;
     isVideo = MimeTypes.isVideo(mimeType);
   }
 
@@ -659,6 +670,12 @@ public final class MediaCodecInfo {
 
   private static boolean isSecure(CodecCapabilities capabilities) {
     return capabilities.isFeatureSupported(CodecCapabilities.FEATURE_SecurePlayback);
+  }
+
+  private static boolean isDetachedSurfaceSupported(@Nullable CodecCapabilities capabilities) {
+    return Util.SDK_INT >= 35
+        && capabilities != null
+        && capabilities.isFeatureSupported(CodecCapabilities.FEATURE_DetachedSurface);
   }
 
   private static boolean areSizeAndRateSupported(

@@ -1979,6 +1979,11 @@ public class MediaCodecVideoRendererTest {
     }
 
     @Override
+    public void detachOutputSurface() {
+      adapter.detachOutputSurface();
+    }
+
+    @Override
     public void setParameters(Bundle params) {
       adapter.setParameters(params);
     }

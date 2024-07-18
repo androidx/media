@@ -41,6 +41,10 @@
 *   Video:
     *   `MediaCodecVideoRenderer` avoids decoding samples that are neither
         rendered nor used as reference by other samples.
+    *   On API 35 and above, `MediaCodecAdapter` may now receive a `null`
+        `Surface` in `configure` and calls to a new method `detachOutputSurface`
+        to remove a previously set `Surface` if the codec supports this
+        (`MediaCodecInfo.detachedSurfaceSupported`).
 *   Text:
     *   TTML: Fix handling of percentage `tts:fontSize` values to ensure they
         are correctly inherited from parent nodes with percentage `tts:fontSize`

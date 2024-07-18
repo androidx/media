@@ -373,6 +373,12 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
       delegate.setOutputSurface(surface);
     }
 
+    @RequiresApi(35)
+    @Override
+    public void detachOutputSurface() {
+      delegate.detachOutputSurface();
+    }
+
     @Override
     public void setParameters(Bundle params) {
       delegate.setParameters(params);
