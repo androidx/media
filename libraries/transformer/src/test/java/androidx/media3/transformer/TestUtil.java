@@ -79,6 +79,12 @@ public final class TestUtil {
         ImmutableList.copyOf(audioProcessors), /* videoEffects= */ ImmutableList.of());
   }
 
+  public static SonicAudioProcessor createSampleRateChangingAudioProcessor(int sampleRate) {
+    SonicAudioProcessor sonicAudioProcessor = new SonicAudioProcessor();
+    sonicAudioProcessor.setOutputSampleRateHz(sampleRate);
+    return sonicAudioProcessor;
+  }
+
   public static SonicAudioProcessor createPitchChangingAudioProcessor(float pitch) {
     SonicAudioProcessor sonicAudioProcessor = new SonicAudioProcessor();
     sonicAudioProcessor.setPitch(pitch);

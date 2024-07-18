@@ -19,6 +19,8 @@ import static androidx.media3.transformer.TestUtil.ASSET_URI_PREFIX;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW_STEREO_48000KHZ;
 import static androidx.media3.transformer.TestUtil.createAudioEffects;
+import static androidx.media3.transformer.TestUtil.createChannelCountChangingAudioProcessor;
+import static androidx.media3.transformer.TestUtil.createSampleRateChangingAudioProcessor;
 import static androidx.media3.transformer.TestUtil.createVolumeScalingAudioProcessor;
 
 import android.content.Context;
@@ -215,6 +217,10 @@ public final class CompositionPlayerAudioPlaybackTest {
         new EditedMediaItem.Builder(
                 MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW_STEREO_48000KHZ))
             .setDurationUs(348_000L)
+            .setEffects(
+                createAudioEffects(
+                    createSampleRateChangingAudioProcessor(44100),
+                    createChannelCountChangingAudioProcessor(1)))
             .build();
     Composition composition =
         new Composition.Builder(
