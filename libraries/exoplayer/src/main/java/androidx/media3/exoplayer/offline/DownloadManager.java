@@ -67,8 +67,8 @@ import java.util.concurrent.Executor;
  * <p>A download manager instance must be accessed only from the thread that created it, unless that
  * thread does not have a {@link Looper}. In that case, it must be accessed only from the
  * application's main thread. Registered listeners will be called on the same thread. In all cases
- * the `Looper` of the thread from which the manager must be accessed can be queried using {@link
- * #getApplicationLooper()}.
+ * the {@code Looper} of the thread from which the manager must be accessed can be queried using
+ * {@link #getApplicationLooper()}.
  */
 @UnstableApi
 public final class DownloadManager {
