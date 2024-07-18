@@ -56,9 +56,11 @@ import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.image.ImageDecoder;
+import androidx.media3.exoplayer.source.ClippingMediaSource;
 import androidx.media3.exoplayer.source.ConcatenatingMediaSource2;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.ExternalLoader;
+import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.MergingMediaSource;
 import androidx.media3.exoplayer.source.SilenceMediaSource;
 import androidx.media3.exoplayer.source.TrackGroupArray;
@@ -705,6 +707,11 @@ public final class CompositionPlayer extends SimpleBasePlayer
         if (externalImageLoader != null) {
           defaultMediaSourceFactory.setExternalImageLoader(externalImageLoader);
         }
+        MediaSource silenceMediaSource =
+            new ClippingMediaSource(
+                new SilenceMediaSource(editedMediaItem.durationUs),
+                editedMediaItem.mediaItem.clippingConfiguration.startPositionUs,
+                editedMediaItem.mediaItem.clippingConfiguration.endPositionUs);
         mediaSourceBuilder.add(
             new MergingMediaSource(
                 defaultMediaSourceFactory.createMediaSource(editedMediaItem.mediaItem),
@@ -712,7 +719,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
                 // media track starts at the clipped position. For example, if a video is 1000ms
                 // long and clipped 900ms from the start, its MediaSource will be enabled at 900ms
                 // during track selection, rather than at 0ms.
-                new SilenceMediaSource(editedMediaItem.durationUs)),
+                silenceMediaSource),
             /* initialPlaceholderDurationMs= */ usToMs(durationUs));
       } else {
         mediaSourceBuilder.add(
