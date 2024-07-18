@@ -50,14 +50,17 @@ public interface MediaCodecAdapter {
      * @param mediaFormat See {@link #mediaFormat}.
      * @param format See {@link #format}.
      * @param crypto See {@link #crypto}.
+     * @param loudnessCodecController See {@link #loudnessCodecController}.
      * @return The created instance.
      */
     public static Configuration createForAudioDecoding(
         MediaCodecInfo codecInfo,
         MediaFormat mediaFormat,
         Format format,
-        @Nullable MediaCrypto crypto) {
-      return new Configuration(codecInfo, mediaFormat, format, /* surface= */ null, crypto);
+        @Nullable MediaCrypto crypto,
+        @Nullable LoudnessCodecController loudnessCodecController) {
+      return new Configuration(
+          codecInfo, mediaFormat, format, /* surface= */ null, crypto, loudnessCodecController);
     }
 
     /**
@@ -76,7 +79,8 @@ public interface MediaCodecAdapter {
         Format format,
         @Nullable Surface surface,
         @Nullable MediaCrypto crypto) {
-      return new Configuration(codecInfo, mediaFormat, format, surface, crypto);
+      return new Configuration(
+          codecInfo, mediaFormat, format, surface, crypto, /* loudnessCodecController= */ null);
     }
 
     /** Information about the {@link MediaCodec} being configured. */
@@ -98,17 +102,22 @@ public interface MediaCodecAdapter {
     /** For DRM protected playbacks, a {@link MediaCrypto} to use for decryption. */
     @Nullable public final MediaCrypto crypto;
 
+    /** The {@link LoudnessCodecController} for audio codecs. */
+    @Nullable public final LoudnessCodecController loudnessCodecController;
+
     private Configuration(
         MediaCodecInfo codecInfo,
         MediaFormat mediaFormat,
         Format format,
         @Nullable Surface surface,
-        @Nullable MediaCrypto crypto) {
+        @Nullable MediaCrypto crypto,
+        @Nullable LoudnessCodecController loudnessCodecController) {
       this.codecInfo = codecInfo;
       this.mediaFormat = mediaFormat;
       this.format = format;
       this.surface = surface;
       this.crypto = crypto;
+      this.loudnessCodecController = loudnessCodecController;
     }
   }
 

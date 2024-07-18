@@ -599,7 +599,7 @@ public class MediaCodecRendererTest {
         @Nullable MediaCrypto crypto,
         float codecOperatingRate) {
       return MediaCodecAdapter.Configuration.createForAudioDecoding(
-          codecInfo, new MediaFormat(), format, crypto);
+          codecInfo, new MediaFormat(), format, crypto, /* loudnessCodecController= */ null);
     }
 
     @Override

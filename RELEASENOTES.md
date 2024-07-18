@@ -38,6 +38,8 @@
         extension 7 instead of API level 34
         ([#1262](https://github.com/androidx/media/issues/1262)).
 *   Audio:
+    *   Automatically configure CTA-2075 loudness metadata on the codec if
+        present in the media.
 *   Video:
     *   `MediaCodecVideoRenderer` avoids decoding samples that are neither
         rendered nor used as reference by other samples.

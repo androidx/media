@@ -63,7 +63,7 @@ public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
         TraceUtil.beginSection("startCodec");
         codec.start();
         TraceUtil.endSection();
-        return new SynchronousMediaCodecAdapter(codec);
+        return new SynchronousMediaCodecAdapter(codec, configuration.loudnessCodecController);
       } catch (IOException | RuntimeException e) {
         if (codec != null) {
           codec.release();
@@ -84,9 +84,15 @@ public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
   }
 
   private final MediaCodec codec;
+  @Nullable private final LoudnessCodecController loudnessCodecController;
 
-  private SynchronousMediaCodecAdapter(MediaCodec mediaCodec) {
+  private SynchronousMediaCodecAdapter(
+      MediaCodec mediaCodec, @Nullable LoudnessCodecController loudnessCodecController) {
     this.codec = mediaCodec;
+    this.loudnessCodecController = loudnessCodecController;
+    if (Util.SDK_INT >= 35 && loudnessCodecController != null) {
+      loudnessCodecController.addMediaCodec(codec);
+    }
   }
 
   @Override
@@ -165,6 +171,9 @@ public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
         codec.stop();
       }
     } finally {
+      if (Util.SDK_INT >= 35 && loudnessCodecController != null) {
+        loudnessCodecController.removeMediaCodec(codec);
+      }
       codec.release();
     }
   }
