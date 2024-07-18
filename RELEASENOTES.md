@@ -85,9 +85,6 @@ This release includes the following changes since the
         schedule its work loop as renderers can make progress.
     *   Use data class for `LoadControl` methods instead of individual
         parameters.
-    *   Fix bug where enabling CMCD for HLS live streams causes
-        `ArrayIndexOutOfBoundsException`
-        ([#1395](https://github.com/androidx/media/issues/1395)).
     *   Add `ExoPlayer.isReleased()` to check whether `Exoplayer.release()` has
         been called.
     *   Add `ExoPlayer.Builder.setMaxSeekToPreviousPositionMs` to configure the
@@ -361,6 +358,9 @@ This release includes the following changes since the
         resulted in `Source Error` and `IllegalArgumentException`.
     *   Fix bug where non-primary playing playlists are not refreshed during
         live playback ([#1240](https://github.com/androidx/media/issues/1240)).
+    *   Fix bug where enabling CMCD for HLS live streams causes
+        `ArrayIndexOutOfBoundsException`
+        ([#1395](https://github.com/androidx/media/issues/1395)).
 *   DASH Extension:
     *   Fix bug where re-preparing a multi-period live stream can throw an
         `IndexOutOfBoundsException`
