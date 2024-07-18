@@ -41,6 +41,8 @@ import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.audio.AudioProcessor;
+import androidx.media3.common.audio.SpeedChangingAudioProcessor;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
@@ -48,6 +50,7 @@ import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.audio.ForwardingAudioSink;
 import androidx.media3.test.utils.FakeClock;
+import androidx.media3.test.utils.TestSpeedProvider;
 import androidx.media3.test.utils.robolectric.RobolectricUtil;
 import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
 import androidx.test.core.app.ApplicationProvider;
@@ -424,6 +427,178 @@ public class CompositionPlayerTest {
 
     // Refer to the durations in buildComposition().
     assertThat(player.getDuration()).isEqualTo(1_348);
+
+    player.release();
+  }
+
+  @Test
+  public void getDuration_withClippedStart_returnsCorrectDuration() throws Exception {
+    CompositionPlayer player = buildCompositionPlayer();
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setStartPositionUs(200_000).build())
+            .build();
+    EditedMediaItem editedMediaItem1 =
+        new EditedMediaItem.Builder(mediaItem).setDurationUs(1_000_000L).build();
+    EditedMediaItemSequence sequence = new EditedMediaItemSequence(editedMediaItem1);
+    Composition composition = new Composition.Builder(sequence).build();
+
+    player.setComposition(composition);
+    player.prepare();
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_READY);
+
+    assertThat(player.getDuration()).isEqualTo(800);
+
+    player.release();
+  }
+
+  @Test
+  public void getDuration_withClippedEnd_returnsCorrectDuration() throws Exception {
+    CompositionPlayer player = buildCompositionPlayer();
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setEndPositionUs(600_000).build())
+            .build();
+    EditedMediaItem editedMediaItem1 =
+        new EditedMediaItem.Builder(mediaItem).setDurationUs(1_000_000L).build();
+    EditedMediaItemSequence sequence = new EditedMediaItemSequence(editedMediaItem1);
+    Composition composition = new Composition.Builder(sequence).build();
+
+    player.setComposition(composition);
+    player.prepare();
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_READY);
+
+    assertThat(player.getDuration()).isEqualTo(600);
+
+    player.release();
+  }
+
+  @Test
+  public void getDuration_withClippedStartEnd_returnsCorrectDuration() throws Exception {
+    CompositionPlayer player = buildCompositionPlayer();
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder()
+                    .setStartPositionUs(100_000)
+                    .setEndPositionUs(550_000)
+                    .build())
+            .build();
+    EditedMediaItem editedMediaItem1 =
+        new EditedMediaItem.Builder(mediaItem).setDurationUs(1_000_000L).build();
+    EditedMediaItemSequence sequence = new EditedMediaItemSequence(editedMediaItem1);
+    Composition composition = new Composition.Builder(sequence).build();
+
+    player.setComposition(composition);
+    player.prepare();
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_READY);
+
+    assertThat(player.getDuration()).isEqualTo(450);
+
+    player.release();
+  }
+
+  @Test
+  public void getDuration_withDurationAdjustingEffectsAndClippedStart_returnsCorrectDuration()
+      throws Exception {
+    CompositionPlayer player = buildCompositionPlayer();
+    ImmutableList<AudioProcessor> audioProcessors =
+        ImmutableList.of(
+            new SpeedChangingAudioProcessor(
+                TestSpeedProvider.createWithStartTimes(new long[] {0L}, new float[] {2f})));
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setStartPositionUs(200_000).build())
+            .build();
+    // Video must be removed because Composition presentation time assumes there is audio and video.
+    EditedMediaItem editedMediaItem1 =
+        new EditedMediaItem.Builder(mediaItem)
+            .setRemoveVideo(true)
+            .setDurationUs(1_000_000L)
+            .setEffects(new Effects(audioProcessors, /* videoEffects= */ ImmutableList.of()))
+            .build();
+    EditedMediaItemSequence sequence = new EditedMediaItemSequence(editedMediaItem1);
+    Composition composition = new Composition.Builder(sequence).build();
+
+    player.setComposition(composition);
+    player.prepare();
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_READY);
+
+    assertThat(player.getDuration()).isEqualTo(400);
+
+    player.release();
+  }
+
+  @Test
+  public void getDuration_withDurationAdjustingEffectsAndClippedEnd_returnsCorrectDuration()
+      throws Exception {
+    CompositionPlayer player = buildCompositionPlayer();
+    ImmutableList<AudioProcessor> audioProcessors =
+        ImmutableList.of(
+            new SpeedChangingAudioProcessor(
+                TestSpeedProvider.createWithStartTimes(new long[] {0L}, new float[] {2f})));
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setEndPositionUs(600_000).build())
+            .build();
+    // Video must be removed because Composition presentation time assumes there is audio and video.
+    EditedMediaItem editedMediaItem1 =
+        new EditedMediaItem.Builder(mediaItem)
+            .setRemoveVideo(true)
+            .setDurationUs(1_000_000L)
+            .setEffects(new Effects(audioProcessors, /* videoEffects= */ ImmutableList.of()))
+            .build();
+    EditedMediaItemSequence sequence = new EditedMediaItemSequence(editedMediaItem1);
+    Composition composition = new Composition.Builder(sequence).build();
+
+    player.setComposition(composition);
+    player.prepare();
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_READY);
+
+    assertThat(player.getDuration()).isEqualTo(300);
+
+    player.release();
+  }
+
+  @Test
+  public void getDuration_withDurationAdjustingEffectsAndClippedStartEnd_returnsCorrectDuration()
+      throws Exception {
+    CompositionPlayer player = buildCompositionPlayer();
+    ImmutableList<AudioProcessor> audioProcessors =
+        ImmutableList.of(
+            new SpeedChangingAudioProcessor(
+                TestSpeedProvider.createWithStartTimes(new long[] {0L}, new float[] {0.5f})));
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder()
+                    .setStartPositionUs(100_000)
+                    .setEndPositionUs(550_000)
+                    .build())
+            .build();
+    EditedMediaItem editedMediaItem1 =
+        new EditedMediaItem.Builder(mediaItem)
+            .setDurationUs(1_000_000L)
+            .setEffects(new Effects(audioProcessors, /* videoEffects= */ ImmutableList.of()))
+            .build();
+    EditedMediaItemSequence sequence = new EditedMediaItemSequence(editedMediaItem1);
+    Composition composition = new Composition.Builder(sequence).build();
+
+    player.setComposition(composition);
+    player.prepare();
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_READY);
+
+    assertThat(player.getDuration()).isEqualTo(900);
 
     player.release();
   }
