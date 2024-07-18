@@ -62,5 +62,5 @@ manual steps.
     app and select a MediaPipe-based effect.
 
 [Transformer]: https://developer.android.com/media/media3/transformer
-[MediaPipe]: https://developers.google.com/mediapipe
+[MediaPipe]: https://ai.google.dev/edge/mediapipe/solutions/guide
 [build an AAR]: https://ai.google.dev/edge/mediapipe/framework/getting_started/android_archive_library
