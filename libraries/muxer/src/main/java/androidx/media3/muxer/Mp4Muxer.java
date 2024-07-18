@@ -296,13 +296,12 @@ public final class Mp4Muxer implements Muxer {
     this.outputFileFormat = outputFileFormat;
     this.cacheFileProvider = cacheFileProvider;
     metadataCollector = new MetadataCollector();
-    Mp4MoovStructure moovStructure =
-        new Mp4MoovStructure(metadataCollector, lastFrameDurationBehavior);
     mp4Writer =
         new Mp4Writer(
             outputChannel,
-            moovStructure,
+            metadataCollector,
             annexBToAvccConverter,
+            lastFrameDurationBehavior,
             sampleCopyEnabled,
             attemptStreamableOutputEnabled);
     editableVideoTracks = new ArrayList<>();
@@ -465,13 +464,12 @@ public final class Mp4Muxer implements Muxer {
       cacheFilePath = checkNotNull(cacheFileProvider).getCacheFilePath();
       cacheFileOutputStream = new FileOutputStream(cacheFilePath);
       editableVideoMetadataCollector = new MetadataCollector();
-      Mp4MoovStructure mp4MoovStructure =
-          new Mp4MoovStructure(editableVideoMetadataCollector, lastFrameDurationBehavior);
       editableVideoMp4Writer =
           new Mp4Writer(
               cacheFileOutputStream.getChannel(),
-              mp4MoovStructure,
+              checkNotNull(editableVideoMetadataCollector),
               annexBToAvccConverter,
+              lastFrameDurationBehavior,
               sampleCopyEnabled,
               attemptStreamableOutputEnabled);
     }

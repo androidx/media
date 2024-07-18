@@ -43,11 +43,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
   private static final String FREE_BOX_TYPE = "free";
 
   private final FileChannel outputFileChannel;
-  private final Mp4MoovStructure moovGenerator;
+  private final MetadataCollector metadataCollector;
   private final AnnexBToAvccConverter annexBToAvccConverter;
+  private final @Mp4Muxer.LastFrameDurationBehavior int lastFrameDurationBehavior;
+  private final boolean sampleCopyEnabled;
   private final List<Track> tracks;
   private final AtomicBoolean hasWrittenSamples;
-  private final boolean sampleCopyEnabled;
 
   // Stores location of the space reserved for the moov box at the beginning of the file (after ftyp
   // box)
@@ -67,26 +68,30 @@ import java.util.concurrent.atomic.AtomicBoolean;
    * @param fileChannel The {@link FileChannel} to write the data to. The {@link FileChannel} can be
    *     closed after {@linkplain #finishWritingSamplesAndFinalizeMoovBox() finishing writing
    *     samples}.
-   * @param moovGenerator An {@link Mp4MoovStructure} instance to generate the moov box.
+   * @param metadataCollector A {@link MetadataCollector}.
    * @param annexBToAvccConverter The {@link AnnexBToAvccConverter} to be used to convert H.264 and
    *     H.265 NAL units from the Annex-B format (using start codes to delineate NAL units) to the
    *     AVCC format (which uses length prefixes).
+   * @param lastFrameDurationBehavior The {@link Mp4Muxer.LastFrameDurationBehavior} for the video
+   *     track.
    * @param sampleCopyEnabled Whether sample copying is enabled.
    * @param attemptStreamableOutputEnabled Whether to attempt to write a streamable output.
    */
   public Mp4Writer(
       FileChannel fileChannel,
-      Mp4MoovStructure moovGenerator,
+      MetadataCollector metadataCollector,
       AnnexBToAvccConverter annexBToAvccConverter,
+      @Mp4Muxer.LastFrameDurationBehavior int lastFrameDurationBehavior,
       boolean sampleCopyEnabled,
       boolean attemptStreamableOutputEnabled) {
     this.outputFileChannel = fileChannel;
-    this.moovGenerator = moovGenerator;
+    this.metadataCollector = metadataCollector;
     this.annexBToAvccConverter = annexBToAvccConverter;
+    this.lastFrameDurationBehavior = lastFrameDurationBehavior;
     this.sampleCopyEnabled = sampleCopyEnabled;
-    canWriteMoovAtStart = attemptStreamableOutputEnabled;
     tracks = new ArrayList<>();
     hasWrittenSamples = new AtomicBoolean(false);
+    canWriteMoovAtStart = attemptStreamableOutputEnabled;
     lastMoovWritten = Range.closed(0L, 0L);
   }
 
@@ -239,7 +244,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
     ByteBuffer moovHeader;
     if (minInputPtsUs != Long.MAX_VALUE) {
       moovHeader =
-          moovGenerator.moovMetadataHeader(tracks, minInputPtsUs, /* isFragmentedMp4= */ false);
+          Mp4MoovStructure.moov(
+              tracks,
+              metadataCollector,
+              minInputPtsUs,
+              /* isFragmentedMp4= */ false,
+              lastFrameDurationBehavior);
     } else {
       // Skip moov box, if there are no samples.
       moovHeader = ByteBuffer.allocate(0);

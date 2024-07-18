@@ -64,11 +64,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private final FileOutputStream outputStream;
   private final FileChannel output;
-  private final Mp4MoovStructure moovGenerator;
+  private final MetadataCollector metadataCollector;
   private final AnnexBToAvccConverter annexBToAvccConverter;
-  private final List<Track> tracks;
   private final long fragmentDurationUs;
   private final boolean sampleCopyEnabled;
+  private final @Mp4Muxer.LastFrameDurationBehavior int lastFrameDurationBehavior;
+  private final List<Track> tracks;
 
   private @MonotonicNonNull Track videoTrack;
   private int currentFragmentSequenceNumber;
@@ -80,7 +81,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * Creates an instance.
    *
    * @param outputStream The {@link FileOutputStream} to write the data to.
-   * @param moovGenerator An {@link Mp4MoovStructure} instance to generate the moov box.
+   * @param metadataCollector A {@link MetadataCollector}.
    * @param annexBToAvccConverter The {@link AnnexBToAvccConverter} to be used to convert H.264 and
    *     H.265 NAL units from the Annex-B format (using start codes to delineate NAL units) to the
    *     AVCC format (which uses length prefixes).
@@ -89,17 +90,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   public FragmentedMp4Writer(
       FileOutputStream outputStream,
-      Mp4MoovStructure moovGenerator,
+      MetadataCollector metadataCollector,
       AnnexBToAvccConverter annexBToAvccConverter,
       long fragmentDurationMs,
       boolean sampleCopyEnabled) {
     this.outputStream = outputStream;
-    this.output = outputStream.getChannel();
-    this.moovGenerator = moovGenerator;
+    output = outputStream.getChannel();
+    this.metadataCollector = metadataCollector;
     this.annexBToAvccConverter = annexBToAvccConverter;
-    this.sampleCopyEnabled = sampleCopyEnabled;
-    tracks = new ArrayList<>();
     this.fragmentDurationUs = fragmentDurationMs * 1_000;
+    this.sampleCopyEnabled = sampleCopyEnabled;
+    lastFrameDurationBehavior = Mp4Muxer.LAST_FRAME_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION;
+    tracks = new ArrayList<>();
     minInputPresentationTimeUs = Long.MAX_VALUE;
     currentFragmentSequenceNumber = 1;
   }
@@ -200,8 +202,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     output.write(Boxes.ftyp());
     // The minInputPtsUs is actually ignored as there are no pending samples to write.
     output.write(
-        moovGenerator.moovMetadataHeader(
-            tracks, /* minInputPtsUs= */ 0L, /* isFragmentedMp4= */ true));
+        Mp4MoovStructure.moov(
+            tracks,
+            metadataCollector,
+            /* minInputPtsUs= */ 0L,
+            /* isFragmentedMp4= */ true,
+            lastFrameDurationBehavior));
   }
 
   private boolean shouldFlushPendingSamples(

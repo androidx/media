@@ -30,7 +30,7 @@ import java.util.Locale;
 import org.checkerframework.checker.nullness.qual.PolyNull;
 
 /** Builds the moov box structure of an MP4 file. */
-/* package */ class Mp4MoovStructure {
+/* package */ final class Mp4MoovStructure {
   /** Provides track's metadata like media format, written samples. */
   public interface TrackMetadataProvider {
     Format format();
@@ -44,20 +44,16 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     ImmutableList<Integer> writtenChunkSampleCounts();
   }
 
-  private final MetadataCollector metadataCollector;
-  private final @Mp4Muxer.LastFrameDurationBehavior int lastFrameDurationBehavior;
+  private Mp4MoovStructure() {}
 
-  public Mp4MoovStructure(
-      MetadataCollector metadataCollector,
-      @Mp4Muxer.LastFrameDurationBehavior int lastFrameDurationBehavior) {
-    this.metadataCollector = metadataCollector;
-    this.lastFrameDurationBehavior = lastFrameDurationBehavior;
-  }
-
-  /** Generates a mdat header. */
+  /** Returns the moov box. */
   @SuppressWarnings("InlinedApi")
-  public ByteBuffer moovMetadataHeader(
-      List<? extends TrackMetadataProvider> tracks, long minInputPtsUs, boolean isFragmentedMp4) {
+  public static ByteBuffer moov(
+      List<? extends TrackMetadataProvider> tracks,
+      MetadataCollector metadataCollector,
+      long minInputPtsUs,
+      boolean isFragmentedMp4,
+      @Mp4Muxer.LastFrameDurationBehavior int lastFrameDurationBehavior) {
     // The timestamp will always fit into a 32-bit integer. This is already validated in the
     // Mp4Muxer.setTimestampData() API. The value after type casting might be negative, but it is
     // still valid because it is meant to be read as an unsigned integer.

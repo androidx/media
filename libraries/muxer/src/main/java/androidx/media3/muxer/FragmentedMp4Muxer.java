@@ -124,13 +124,10 @@ public final class FragmentedMp4Muxer implements Muxer {
       FileOutputStream fileOutputStream, long fragmentDurationMs, boolean sampleCopyEnabled) {
     checkNotNull(fileOutputStream);
     metadataCollector = new MetadataCollector();
-    Mp4MoovStructure moovStructure =
-        new Mp4MoovStructure(
-            metadataCollector, Mp4Muxer.LAST_FRAME_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION);
     fragmentedMp4Writer =
         new FragmentedMp4Writer(
             fileOutputStream,
-            moovStructure,
+            metadataCollector,
             AnnexBToAvccConverter.DEFAULT,
             fragmentDurationMs,
             sampleCopyEnabled);
