@@ -798,7 +798,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
      * there is no track data.
      */
     public int getAverageBitrate() {
-      if (timeUs <= 0 || bytesWritten <= 0) {
+      if (timeUs <= 0 || bytesWritten <= 0 || timeUs == startTimeUs) {
         return C.RATE_UNSET_INT;
       }
 
