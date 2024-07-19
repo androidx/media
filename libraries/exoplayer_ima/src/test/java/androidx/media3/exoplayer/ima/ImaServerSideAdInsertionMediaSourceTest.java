@@ -15,12 +15,21 @@
  */
 package androidx.media3.exoplayer.ima;
 
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.run;
 import static com.google.common.truth.Truth.assertThat;
 
+import android.content.Context;
+import android.widget.LinearLayout;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
+import androidx.media3.common.MediaItem;
+import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.ima.ImaServerSideAdInsertionMediaSource.AdsLoader.State;
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
+import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.ads.ServerSideAdInsertionUtil;
+import androidx.media3.test.utils.TestExoPlayerBuilder;
+import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableMap;
 import org.junit.Test;
@@ -69,5 +78,31 @@ public class ImaServerSideAdInsertionMediaSourceTest {
                 .buildOrThrow());
 
     assertThat(State.fromBundle(state.toBundle())).isEqualTo(state);
+  }
+
+  @Test
+  public void clearPlaylist_withAdsSource_handlesCleanupWithoutThrowing() throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    ImaServerSideAdInsertionMediaSource.AdsLoader adsLoader =
+        new ImaServerSideAdInsertionMediaSource.AdsLoader.Builder(
+                context, /* adViewProvider= */ () -> new LinearLayout(context))
+            .build();
+    adsLoader.setPlayer(player);
+    MediaSource mediaSource =
+        new ImaServerSideAdInsertionMediaSource.Factory(
+                adsLoader, new DefaultMediaSourceFactory(context))
+            .createMediaSource(
+                MediaItem.fromUri("ssai://dai.google.com/?assetKey=ABC&format=0&adsId=2"));
+    player.setMediaSource(mediaSource);
+    player.prepare();
+    run(player).untilPendingCommandsAreFullyHandled();
+
+    // Clearing the playlist will cause internal state of the ads source to be invalid and
+    // potentially accessing empty timelines. See b/354026260. The test simply ensures that clearing
+    // the playlist will not throw any exceptions.
+    player.clearMediaItems();
+    run(player).untilPendingCommandsAreFullyHandled();
+    player.release();
   }
 }

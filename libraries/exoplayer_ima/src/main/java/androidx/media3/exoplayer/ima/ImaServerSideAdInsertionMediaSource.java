@@ -1021,7 +1021,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
 
     @Override
     public void onMetadata(Metadata metadata) {
-      if (!isCurrentAdPlaying(player, getMediaItem(), adsId)) {
+      if (!isCurrentlyPlayingMediaPeriodFromThisSource(player, getMediaItem(), adsId)) {
         return;
       }
       for (int i = 0; i < metadata.length(); i++) {
@@ -1041,14 +1041,15 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
 
     @Override
     public void onPlaybackStateChanged(@Player.State int state) {
-      if (state == Player.STATE_ENDED && isCurrentAdPlaying(player, getMediaItem(), adsId)) {
+      if (state == Player.STATE_ENDED
+          && isCurrentlyPlayingMediaPeriodFromThisSource(player, getMediaItem(), adsId)) {
         streamPlayer.onContentCompleted();
       }
     }
 
     @Override
     public void onVolumeChanged(float volume) {
-      if (!isCurrentAdPlaying(player, getMediaItem(), adsId)) {
+      if (!isCurrentlyPlayingMediaPeriodFromThisSource(player, getMediaItem(), adsId)) {
         return;
       }
       int volumePct = (int) Math.floor(volume * 100);
@@ -1312,7 +1313,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
 
     @Override
     public VideoProgressUpdate getContentProgress() {
-      if (!isCurrentAdPlaying(player, mediaItem, adsId)) {
+      if (!isCurrentlyPlayingMediaPeriodFromThisSource(player, mediaItem, adsId)) {
         return VideoProgressUpdate.VIDEO_TIME_NOT_READY;
       } else if (adPlaybackStates.isEmpty()) {
         return new VideoProgressUpdate(/* currentTimeMs= */ 0, /* durationMs= */ C.TIME_UNSET);
@@ -1428,9 +1429,9 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
     }
   }
 
-  private static boolean isCurrentAdPlaying(
+  private static boolean isCurrentlyPlayingMediaPeriodFromThisSource(
       Player player, MediaItem mediaItem, @Nullable Object adsId) {
-    if (player.getPlaybackState() == Player.STATE_IDLE) {
+    if (player.getPlaybackState() == Player.STATE_IDLE || player.getMediaItemCount() == 0) {
       return false;
     }
     Timeline.Period period = new Timeline.Period();
@@ -1510,7 +1511,8 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
   private class SinglePeriodLiveAdEventListener implements AdEventListener {
     @Override
     public void onAdEvent(AdEvent event) {
-      if (!Objects.equals(event.getType(), LOADED)) {
+      if (!Objects.equals(event.getType(), LOADED)
+          || !isCurrentlyPlayingMediaPeriodFromThisSource(player, getMediaItem(), adsId)) {
         return;
       }
       AdPlaybackState newAdPlaybackState = adPlaybackState;
@@ -1541,7 +1543,8 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
   private class MultiPeriodLiveAdEventListener implements AdEventListener {
     @Override
     public void onAdEvent(AdEvent event) {
-      if (!Objects.equals(event.getType(), LOADED)) {
+      if (!Objects.equals(event.getType(), LOADED)
+          || !isCurrentlyPlayingMediaPeriodFromThisSource(player, getMediaItem(), adsId)) {
         return;
       }
       AdPodInfo adPodInfo = event.getAd().getAdPodInfo();

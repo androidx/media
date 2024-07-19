@@ -61,6 +61,9 @@
 *   Effect:
 *   Muxers:
 *   IMA extension:
+    *   Fix bug where clearing the playlist may cause an
+        `ArrayIndexOutOfBoundsException` in
+        `ImaServerSideAdInsertionMediaSource`.
 *   Session:
     *   Add `MediaButtonReceiver.shouldStartForegroundService(Intent)` to allow
         apps to suppress a play command coming in for playback resumption by
