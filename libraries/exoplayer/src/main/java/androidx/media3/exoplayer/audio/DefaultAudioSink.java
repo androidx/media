@@ -55,7 +55,6 @@ import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.audio.ToInt16PcmAudioProcessor;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Clock;
-import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -463,12 +462,6 @@ public final class DefaultAudioSink implements AudioSink {
    */
   private static final int ERROR_NATIVE_DEAD_OBJECT = -32;
 
-  /**
-   * The duration for which failed attempts to initialize or write to the audio track may be retried
-   * before throwing an exception, in milliseconds.
-   */
-  private static final int AUDIO_TRACK_RETRY_DURATION_MS = 100;
-
   private static final String TAG = "DefaultAudioSink";
 
   /**
@@ -496,7 +489,6 @@ public final class DefaultAudioSink implements AudioSink {
   private final TrimmingAudioProcessor trimmingAudioProcessor;
   private final ImmutableList<AudioProcessor> toIntPcmAvailableAudioProcessors;
   private final ImmutableList<AudioProcessor> toFloatPcmAvailableAudioProcessors;
-  private final ConditionVariable releasingConditionVariable;
   private final AudioTrackPositionTracker audioTrackPositionTracker;
   private final ArrayDeque<MediaPositionParameters> mediaPositionParametersCheckpoints;
   private final boolean preferAudioTrackPlaybackParams;
@@ -574,8 +566,6 @@ public final class DefaultAudioSink implements AudioSink {
     offloadMode = OFFLOAD_MODE_DISABLED;
     audioTrackBufferSizeProvider = builder.audioTrackBufferSizeProvider;
     audioOffloadSupportProvider = checkNotNull(builder.audioOffloadSupportProvider);
-    releasingConditionVariable = new ConditionVariable(Clock.DEFAULT);
-    releasingConditionVariable.open();
     audioTrackPositionTracker = new AudioTrackPositionTracker(new PositionTrackerListener());
     channelMappingAudioProcessor = new ChannelMappingAudioProcessor();
     trimmingAudioProcessor = new TrimmingAudioProcessor();
@@ -592,10 +582,8 @@ public final class DefaultAudioSink implements AudioSink {
     playbackParameters = PlaybackParameters.DEFAULT;
     skipSilenceEnabled = DEFAULT_SKIP_SILENCE;
     mediaPositionParametersCheckpoints = new ArrayDeque<>();
-    initializationExceptionPendingExceptionHolder =
-        new PendingExceptionHolder<>(AUDIO_TRACK_RETRY_DURATION_MS);
-    writeExceptionPendingExceptionHolder =
-        new PendingExceptionHolder<>(AUDIO_TRACK_RETRY_DURATION_MS);
+    initializationExceptionPendingExceptionHolder = new PendingExceptionHolder<>();
+    writeExceptionPendingExceptionHolder = new PendingExceptionHolder<>();
     audioOffloadListener = builder.audioOffloadListener;
   }
 
@@ -806,12 +794,7 @@ public final class DefaultAudioSink implements AudioSink {
   }
 
   private boolean initializeAudioTrack() throws InitializationException {
-    // If we're asynchronously releasing a previous audio track then we wait until it has been
-    // released. This guarantees that we cannot end up in a state where we have multiple audio
-    // track instances. Without this guarantee it would be possible, in extreme cases, to exhaust
-    // the shared memory that's available for audio track buffers. This would in turn cause the
-    // initialization of the audio track to fail.
-    if (!releasingConditionVariable.isOpen()) {
+    if (initializationExceptionPendingExceptionHolder.shouldWaitBeforeRetry()) {
       return false;
     }
 
@@ -1151,6 +1134,9 @@ public final class DefaultAudioSink implements AudioSink {
     } else {
       outputBuffer = buffer;
     }
+    if (writeExceptionPendingExceptionHolder.shouldWaitBeforeRetry()) {
+      return;
+    }
     int bytesRemaining = buffer.remaining();
     int bytesWrittenOrError = 0; // Error if negative
     if (tunneling) {
@@ -1446,7 +1432,7 @@ public final class DefaultAudioSink implements AudioSink {
         onRoutingChangedListener.release();
         onRoutingChangedListener = null;
       }
-      releaseAudioTrackAsync(audioTrack, releasingConditionVariable, listener, oldAudioTrackConfig);
+      releaseAudioTrackAsync(audioTrack, listener, oldAudioTrackConfig);
       audioTrack = null;
     }
     writeExceptionPendingExceptionHolder.clear();
@@ -1834,14 +1820,10 @@ public final class DefaultAudioSink implements AudioSink {
   }
 
   private static void releaseAudioTrackAsync(
-      AudioTrack audioTrack,
-      ConditionVariable releasedConditionVariable,
-      @Nullable Listener listener,
-      AudioTrackConfig audioTrackConfig) {
+      AudioTrack audioTrack, @Nullable Listener listener, AudioTrackConfig audioTrackConfig) {
     // AudioTrack.release can take some time, so we call it on a background thread. The background
     // thread is shared statically to avoid creating many threads when multiple players are released
     // at the same time.
-    releasedConditionVariable.close();
     Handler audioTrackThreadHandler = new Handler(Looper.myLooper());
     synchronized (releaseExecutorLock) {
       if (releaseExecutor == null) {
@@ -1857,7 +1839,6 @@ public final class DefaultAudioSink implements AudioSink {
               if (listener != null && audioTrackThreadHandler.getLooper().getThread().isAlive()) {
                 audioTrackThreadHandler.post(() -> listener.onAudioTrackReleased(audioTrackConfig));
               }
-              releasedConditionVariable.open();
               synchronized (releaseExecutorLock) {
                 pendingReleaseCount--;
                 if (pendingReleaseCount == 0) {
@@ -1867,6 +1848,12 @@ public final class DefaultAudioSink implements AudioSink {
               }
             }
           });
+    }
+  }
+
+  private static boolean hasPendingAudioTrackReleases() {
+    synchronized (releaseExecutorLock) {
+      return pendingReleaseCount > 0;
     }
   }
 
@@ -2246,22 +2233,39 @@ public final class DefaultAudioSink implements AudioSink {
 
   private static final class PendingExceptionHolder<T extends Exception> {
 
-    private final long throwDelayMs;
+    /**
+     * The duration for which failed audio track operations may be retried before throwing an
+     * exception, in milliseconds. This duration is needed because audio tracks may retain some
+     * resources for a short time even after they are released. Waiting a bit longer allows the
+     * AudioFlinger to close all HAL streams that still hold resources. See b/167682058 and
+     * https://github.com/google/ExoPlayer/issues/4448.
+     */
+    private static final int RETRY_DURATION_MS = 200;
+
+    /** Minimum delay between two retries. */
+    private static final int RETRY_DELAY_MS = 50;
 
     @Nullable private T pendingException;
     private long throwDeadlineMs;
+    private long earliestNextRetryTimeMs;
 
-    public PendingExceptionHolder(long throwDelayMs) {
-      this.throwDelayMs = throwDelayMs;
+    public PendingExceptionHolder() {
+      this.throwDeadlineMs = C.TIME_UNSET;
+      this.earliestNextRetryTimeMs = C.TIME_UNSET;
     }
 
     public void throwExceptionIfDeadlineIsReached(T exception) throws T {
       long nowMs = SystemClock.elapsedRealtime();
       if (pendingException == null) {
         pendingException = exception;
-        throwDeadlineMs = nowMs + throwDelayMs;
       }
-      if (nowMs >= throwDeadlineMs) {
+      if (throwDeadlineMs == C.TIME_UNSET && !hasPendingAudioTrackReleases()) {
+        // The audio system has limited shared memory. If there is an ongoing release, the audio
+        // track operation could be failing because this shared memory is exhausted (see
+        // b/12565083). Only start the retry timer once all pending audio track releases are done.
+        throwDeadlineMs = nowMs + RETRY_DURATION_MS;
+      }
+      if (throwDeadlineMs != C.TIME_UNSET && nowMs >= throwDeadlineMs) {
         if (pendingException != exception) {
           // All retry exception are probably the same, thus only save the last one to save memory.
           pendingException.addSuppressed(exception);
@@ -2270,10 +2274,25 @@ public final class DefaultAudioSink implements AudioSink {
         clear();
         throw pendingException;
       }
+      earliestNextRetryTimeMs = nowMs + RETRY_DELAY_MS;
+    }
+
+    public boolean shouldWaitBeforeRetry() {
+      if (pendingException == null) {
+        // No pending exception.
+        return false;
+      }
+      if (hasPendingAudioTrackReleases()) {
+        // Wait until other tracks are released before retrying.
+        return true;
+      }
+      return SystemClock.elapsedRealtime() < earliestNextRetryTimeMs;
     }
 
     public void clear() {
       pendingException = null;
+      throwDeadlineMs = C.TIME_UNSET;
+      earliestNextRetryTimeMs = C.TIME_UNSET;
     }
   }
 
