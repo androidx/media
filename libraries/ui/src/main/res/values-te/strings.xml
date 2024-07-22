@@ -47,6 +47,7 @@
   <string name="exo_track_selection_none">ఏదీ కాదు</string>
   <string name="exo_track_selection_auto">స్వీయ</string>
   <string name="exo_track_unknown">తెలియదు</string>
+  <string name="exo_track_unknown_name">తెలియదు (%1$s)</string>
   <string name="exo_track_resolution">%1$d × %2$d</string>
   <string name="exo_track_mono">మోనో</string>
   <string name="exo_track_stereo">స్టీరియో</string>

@@ -43,12 +43,16 @@ import androidx.media3.common.ForwardingPlayer;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
 import androidx.media3.common.Player.Commands;
+import androidx.media3.common.SimpleBasePlayer;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -69,6 +73,7 @@ public class DefaultMediaNotificationProviderTest {
   private static final String TEST_CHANNEL_ID = "test_channel_id";
   private static final NotificationCompat.Action fakeAction =
       new NotificationCompat.Action(0, null, null);
+
   /**
    * The key string is defined as <a
    * href=https://cs.android.com/androidx/platform/frameworks/support/+/androidx-main:core/core/src/main/java/androidx/core/app/NotificationCompatJellybean.java?q=EXTRA_ALLOW_GENERATED_REPLIES>
@@ -76,6 +81,7 @@ public class DefaultMediaNotificationProviderTest {
    */
   private static final String EXTRA_ALLOW_GENERATED_REPLIES =
       "android.support.allowGeneratedReplies";
+
   /**
    * The key string is defined as <a
    * href=https://cs.android.com/androidx/platform/frameworks/support/+/androidx-main:core/core/src/main/java/androidx/core/app/NotificationCompat.java?q=EXTRA_SHOWS_USER_INTERFACE>
@@ -83,6 +89,7 @@ public class DefaultMediaNotificationProviderTest {
    */
   private static final String EXTRA_SHOWS_USER_INTERFACE =
       "android.support.action.showsUserInterface";
+
   /**
    * The key string is defined as <a
    * href=https://cs.android.com/androidx/platform/frameworks/support/+/androidx-main:core/core/src/main/java/androidx/core/app/NotificationCompat.java?q=EXTRA_SEMANTIC_ACTION>
@@ -604,6 +611,376 @@ public class DefaultMediaNotificationProviderTest {
   }
 
   @Test
+  public void createNotification_invalidButtons_enabledSessionCommandsOnlyForGetMediaButtons() {
+    DefaultActionFactory defaultActionFactory =
+        new DefaultActionFactory(Robolectric.setupService(TestService.class));
+    List<CommandButton> filteredEnabledLayout = new ArrayList<>();
+    DefaultMediaNotificationProvider defaultMediaNotificationProvider =
+        new DefaultMediaNotificationProvider(ApplicationProvider.getApplicationContext()) {
+          @Override
+          protected ImmutableList<CommandButton> getMediaButtons(
+              MediaSession session,
+              Commands playerCommands,
+              ImmutableList<CommandButton> customLayout,
+              boolean showPauseButton) {
+            filteredEnabledLayout.addAll(customLayout);
+            return super.getMediaButtons(session, playerCommands, customLayout, showPauseButton);
+          }
+        };
+    MediaSession mediaSession =
+        new MediaSession.Builder(
+                ApplicationProvider.getApplicationContext(),
+                new TestExoPlayerBuilder(context).build())
+            .build();
+    CommandButton button1 =
+        new CommandButton.Builder()
+            .setDisplayName("button1")
+            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+            .build();
+    CommandButton button2 =
+        new CommandButton.Builder()
+            .setDisplayName("button2")
+            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setSessionCommand(new SessionCommand("command2", Bundle.EMPTY))
+            .build()
+            .copyWithIsEnabled(true);
+    CommandButton button3 =
+        new CommandButton.Builder()
+            .setDisplayName("button3")
+            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setPlayerCommand(Player.COMMAND_PLAY_PAUSE)
+            .build()
+            .copyWithIsEnabled(true);
+
+    defaultMediaNotificationProvider.createNotification(
+        mediaSession,
+        /* customLayout= */ ImmutableList.of(button1, button2, button3),
+        defaultActionFactory,
+        notification -> {
+          /* Do nothing. */
+        });
+
+    assertThat(filteredEnabledLayout).containsExactly(button2);
+    mediaSession.getPlayer().release();
+    mediaSession.release();
+  }
+
+  @Test
+  public void
+      createNotification_withStateReadyAndPlayWhenReadyTrueAndNoSuppression_showsPauseButton() {
+    Player player =
+        createPlayerWithFixedState(
+            Player.STATE_READY, /* playWhenReady= */ true, Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+    DefaultActionFactory defaultActionFactory =
+        new DefaultActionFactory(Robolectric.setupService(TestService.class));
+    MediaSession mediaSession = new MediaSession.Builder(context, player).build();
+    DefaultMediaNotificationProvider defaultMediaNotificationProvider =
+        new DefaultMediaNotificationProvider.Builder(ApplicationProvider.getApplicationContext())
+            .build();
+
+    MediaNotification mediaNotification =
+        defaultMediaNotificationProvider.createNotification(
+            mediaSession,
+            /* customLayout= */ ImmutableList.of(),
+            defaultActionFactory,
+            notification -> {});
+    mediaSession.release();
+
+    assertThat(mediaNotification.notification.actions[0].title.toString())
+        .isEqualTo(context.getString(R.string.media3_controls_pause_description));
+  }
+
+  @Test
+  public void
+      createNotification_withStateReadyAndPlayWhenReadyTrueAndPlaybackSuppression_showsPlayButton() {
+    Player player =
+        createPlayerWithFixedState(
+            Player.STATE_READY,
+            /* playWhenReady= */ true,
+            Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS);
+    DefaultActionFactory defaultActionFactory =
+        new DefaultActionFactory(Robolectric.setupService(TestService.class));
+    MediaSession mediaSession = new MediaSession.Builder(context, player).build();
+    DefaultMediaNotificationProvider defaultMediaNotificationProvider =
+        new DefaultMediaNotificationProvider.Builder(ApplicationProvider.getApplicationContext())
+            .build();
+
+    MediaNotification mediaNotification =
+        defaultMediaNotificationProvider.createNotification(
+            mediaSession,
+            /* customLayout= */ ImmutableList.of(),
+            defaultActionFactory,
+            notification -> {});
+    mediaSession.release();
+
+    assertThat(mediaNotification.notification.actions[0].title.toString())
+        .isEqualTo(context.getString(R.string.media3_controls_play_description));
+  }
+
+  @Test
+  public void
+      createNotification_withStateReadyAndPlayWhenReadyTrueAndPlaybackSuppressionWithoutShowPauseIfSuppressed_showsPauseButton() {
+    Player player =
+        createPlayerWithFixedState(
+            Player.STATE_READY,
+            /* playWhenReady= */ true,
+            Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS);
+    DefaultActionFactory defaultActionFactory =
+        new DefaultActionFactory(Robolectric.setupService(TestService.class));
+    MediaSession mediaSession =
+        new MediaSession.Builder(context, player)
+            .setShowPlayButtonIfPlaybackIsSuppressed(false)
+            .build();
+    DefaultMediaNotificationProvider defaultMediaNotificationProvider =
+        new DefaultMediaNotificationProvider.Builder(ApplicationProvider.getApplicationContext())
+            .build();
+
+    MediaNotification mediaNotification =
+        defaultMediaNotificationProvider.createNotification(
+            mediaSession,
+            /* customLayout= */ ImmutableList.of(),
+            defaultActionFactory,
+            notification -> {});
+    mediaSession.release();
+
+    assertThat(mediaNotification.notification.actions[0].title.toString())
+        .isEqualTo(context.getString(R.string.media3_controls_pause_description));
+  }
+
+  @Test
+  public void
+      createNotification_withStateBufferingAndPlayWhenReadyTrueAndNoSuppression_showsPauseButton() {
+    Player player =
+        createPlayerWithFixedState(
+            Player.STATE_BUFFERING,
+            /* playWhenReady= */ true,
+            Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+    DefaultActionFactory defaultActionFactory =
+        new DefaultActionFactory(Robolectric.setupService(TestService.class));
+    MediaSession mediaSession = new MediaSession.Builder(context, player).build();
+    DefaultMediaNotificationProvider defaultMediaNotificationProvider =
+        new DefaultMediaNotificationProvider.Builder(ApplicationProvider.getApplicationContext())
+            .build();
+
+    MediaNotification mediaNotification =
+        defaultMediaNotificationProvider.createNotification(
+            mediaSession,
+            /* customLayout= */ ImmutableList.of(),
+            defaultActionFactory,
+            notification -> {});
+    mediaSession.release();
+
+    assertThat(mediaNotification.notification.actions[0].title.toString())
+        .isEqualTo(context.getString(R.string.media3_controls_pause_description));
+  }
+
+  @Test
+  public void
+      createNotification_withStateBufferingAndPlayWhenReadyTrueAndPlaybackSuppression_showsPlayButton() {
+    Player player =
+        createPlayerWithFixedState(
+            Player.STATE_BUFFERING,
+            /* playWhenReady= */ true,
+            Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS);
+    DefaultActionFactory defaultActionFactory =
+        new DefaultActionFactory(Robolectric.setupService(TestService.class));
+    MediaSession mediaSession = new MediaSession.Builder(context, player).build();
+    DefaultMediaNotificationProvider defaultMediaNotificationProvider =
+        new DefaultMediaNotificationProvider.Builder(ApplicationProvider.getApplicationContext())
+            .build();
+
+    MediaNotification mediaNotification =
+        defaultMediaNotificationProvider.createNotification(
+            mediaSession,
+            /* customLayout= */ ImmutableList.of(),
+            defaultActionFactory,
+            notification -> {});
+    mediaSession.release();
+
+    assertThat(mediaNotification.notification.actions[0].title.toString())
+        .isEqualTo(context.getString(R.string.media3_controls_play_description));
+  }
+
+  @Test
+  public void
+      createNotification_withStateBufferingAndPlayWhenReadyTrueAndPlaybackSuppressionWithoutShowPauseIfSuppressed_showsPauseButton() {
+    Player player =
+        createPlayerWithFixedState(
+            Player.STATE_BUFFERING,
+            /* playWhenReady= */ true,
+            Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS);
+    DefaultActionFactory defaultActionFactory =
+        new DefaultActionFactory(Robolectric.setupService(TestService.class));
+    MediaSession mediaSession =
+        new MediaSession.Builder(context, player)
+            .setShowPlayButtonIfPlaybackIsSuppressed(false)
+            .build();
+    DefaultMediaNotificationProvider defaultMediaNotificationProvider =
+        new DefaultMediaNotificationProvider.Builder(ApplicationProvider.getApplicationContext())
+            .build();
+
+    MediaNotification mediaNotification =
+        defaultMediaNotificationProvider.createNotification(
+            mediaSession,
+            /* customLayout= */ ImmutableList.of(),
+            defaultActionFactory,
+            notification -> {});
+    mediaSession.release();
+
+    assertThat(mediaNotification.notification.actions[0].title.toString())
+        .isEqualTo(context.getString(R.string.media3_controls_pause_description));
+  }
+
+  @Test
+  public void createNotification_withStateReadyAndPlayWhenReadyFalse_showsPlayButton() {
+    Player player =
+        createPlayerWithFixedState(
+            Player.STATE_READY,
+            /* playWhenReady= */ false,
+            Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+    DefaultActionFactory defaultActionFactory =
+        new DefaultActionFactory(Robolectric.setupService(TestService.class));
+    MediaSession mediaSession = new MediaSession.Builder(context, player).build();
+    DefaultMediaNotificationProvider defaultMediaNotificationProvider =
+        new DefaultMediaNotificationProvider.Builder(ApplicationProvider.getApplicationContext())
+            .build();
+
+    MediaNotification mediaNotification =
+        defaultMediaNotificationProvider.createNotification(
+            mediaSession,
+            /* customLayout= */ ImmutableList.of(),
+            defaultActionFactory,
+            notification -> {});
+    mediaSession.release();
+
+    assertThat(mediaNotification.notification.actions[0].title.toString())
+        .isEqualTo(context.getString(R.string.media3_controls_play_description));
+  }
+
+  @Test
+  public void createNotification_withStateBufferingAndPlayWhenReadyFalse_showsPlayButton() {
+    Player player =
+        createPlayerWithFixedState(
+            Player.STATE_BUFFERING,
+            /* playWhenReady= */ false,
+            Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+    DefaultActionFactory defaultActionFactory =
+        new DefaultActionFactory(Robolectric.setupService(TestService.class));
+    MediaSession mediaSession = new MediaSession.Builder(context, player).build();
+    DefaultMediaNotificationProvider defaultMediaNotificationProvider =
+        new DefaultMediaNotificationProvider.Builder(ApplicationProvider.getApplicationContext())
+            .build();
+
+    MediaNotification mediaNotification =
+        defaultMediaNotificationProvider.createNotification(
+            mediaSession,
+            /* customLayout= */ ImmutableList.of(),
+            defaultActionFactory,
+            notification -> {});
+    mediaSession.release();
+
+    assertThat(mediaNotification.notification.actions[0].title.toString())
+        .isEqualTo(context.getString(R.string.media3_controls_play_description));
+  }
+
+  @Test
+  public void createNotification_withStateEndedAndPlayWhenReadyTrue_showsPlayButton() {
+    Player player =
+        createPlayerWithFixedState(
+            Player.STATE_ENDED, /* playWhenReady= */ true, Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+    DefaultActionFactory defaultActionFactory =
+        new DefaultActionFactory(Robolectric.setupService(TestService.class));
+    MediaSession mediaSession = new MediaSession.Builder(context, player).build();
+    DefaultMediaNotificationProvider defaultMediaNotificationProvider =
+        new DefaultMediaNotificationProvider.Builder(ApplicationProvider.getApplicationContext())
+            .build();
+
+    MediaNotification mediaNotification =
+        defaultMediaNotificationProvider.createNotification(
+            mediaSession,
+            /* customLayout= */ ImmutableList.of(),
+            defaultActionFactory,
+            notification -> {});
+    mediaSession.release();
+
+    assertThat(mediaNotification.notification.actions[0].title.toString())
+        .isEqualTo(context.getString(R.string.media3_controls_play_description));
+  }
+
+  @Test
+  public void createNotification_withStateEndedAndPlayWhenReadyFalse_showsPlayButton() {
+    Player player =
+        createPlayerWithFixedState(
+            Player.STATE_ENDED, /* playWhenReady= */ true, Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+    DefaultActionFactory defaultActionFactory =
+        new DefaultActionFactory(Robolectric.setupService(TestService.class));
+    MediaSession mediaSession = new MediaSession.Builder(context, player).build();
+    DefaultMediaNotificationProvider defaultMediaNotificationProvider =
+        new DefaultMediaNotificationProvider.Builder(ApplicationProvider.getApplicationContext())
+            .build();
+
+    MediaNotification mediaNotification =
+        defaultMediaNotificationProvider.createNotification(
+            mediaSession,
+            /* customLayout= */ ImmutableList.of(),
+            defaultActionFactory,
+            notification -> {});
+    mediaSession.release();
+
+    assertThat(mediaNotification.notification.actions[0].title.toString())
+        .isEqualTo(context.getString(R.string.media3_controls_play_description));
+  }
+
+  @Test
+  public void createNotification_withStateIdleAndPlayWhenReadyTrue_showsPlayButton() {
+    Player player =
+        createPlayerWithFixedState(
+            Player.STATE_IDLE, /* playWhenReady= */ true, Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+    DefaultActionFactory defaultActionFactory =
+        new DefaultActionFactory(Robolectric.setupService(TestService.class));
+    MediaSession mediaSession = new MediaSession.Builder(context, player).build();
+    DefaultMediaNotificationProvider defaultMediaNotificationProvider =
+        new DefaultMediaNotificationProvider.Builder(ApplicationProvider.getApplicationContext())
+            .build();
+
+    MediaNotification mediaNotification =
+        defaultMediaNotificationProvider.createNotification(
+            mediaSession,
+            /* customLayout= */ ImmutableList.of(),
+            defaultActionFactory,
+            notification -> {});
+    mediaSession.release();
+
+    assertThat(mediaNotification.notification.actions[0].title.toString())
+        .isEqualTo(context.getString(R.string.media3_controls_play_description));
+  }
+
+  @Test
+  public void createNotification_withStateIdleAndPlayWhenReadyFalse_showsPlayButton() {
+    Player player =
+        createPlayerWithFixedState(
+            Player.STATE_IDLE, /* playWhenReady= */ true, Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+    DefaultActionFactory defaultActionFactory =
+        new DefaultActionFactory(Robolectric.setupService(TestService.class));
+    MediaSession mediaSession = new MediaSession.Builder(context, player).build();
+    DefaultMediaNotificationProvider defaultMediaNotificationProvider =
+        new DefaultMediaNotificationProvider.Builder(ApplicationProvider.getApplicationContext())
+            .build();
+
+    MediaNotification mediaNotification =
+        defaultMediaNotificationProvider.createNotification(
+            mediaSession,
+            /* customLayout= */ ImmutableList.of(),
+            defaultActionFactory,
+            notification -> {});
+    mediaSession.release();
+
+    assertThat(mediaNotification.notification.actions[0].title.toString())
+        .isEqualTo(context.getString(R.string.media3_controls_play_description));
+  }
+
+  @Test
   public void provider_idsNotSpecified_usesDefaultIds() {
     Context context = ApplicationProvider.getApplicationContext();
     DefaultMediaNotificationProvider defaultMediaNotificationProvider =
@@ -946,6 +1323,31 @@ public class DefaultMediaNotificationProviderTest {
       @Override
       public MediaMetadata getMediaMetadata() {
         return isMetadataCommandAvailable ? mediaMetadata : MediaMetadata.EMPTY;
+      }
+    };
+  }
+
+  private static Player createPlayerWithFixedState(
+      @Player.State int playbackState,
+      boolean playWhenReady,
+      @Player.PlaybackSuppressionReason int suppressionReason) {
+    return new SimpleBasePlayer(Looper.getMainLooper()) {
+      @Override
+      protected State getState() {
+        return new State.Builder()
+            .setAvailableCommands(new Commands.Builder().add(Player.COMMAND_PLAY_PAUSE).build())
+            .setPlaylist(
+                ImmutableList.of(new MediaItemData.Builder(/* uid= */ new Object()).build()))
+            .setPlaybackState(playbackState)
+            .setPlayWhenReady(playWhenReady, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+            .setPlaybackSuppressionReason(suppressionReason)
+            .build();
+      }
+
+      @Override
+      protected ListenableFuture<?> handleSetPlayWhenReady(boolean playWhenReady) {
+        // Do nothing.
+        return Futures.immediateVoidFuture();
       }
     };
   }

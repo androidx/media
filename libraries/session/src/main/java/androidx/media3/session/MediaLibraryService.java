@@ -19,6 +19,8 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotEmpty;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.session.LibraryResult.RESULT_ERROR_NOT_SUPPORTED;
+import static androidx.media3.session.LibraryResult.RESULT_SUCCESS;
+import static androidx.media3.session.LibraryResult.ofVoid;
 
 import android.app.PendingIntent;
 import android.content.Context;
@@ -36,6 +38,7 @@ import androidx.media3.common.Player;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
@@ -220,16 +223,28 @@ public abstract class MediaLibraryService extends MediaSessionService {
        * Called when a {@link MediaBrowser} subscribes to the given parent id by {@link
        * MediaBrowser#subscribe(String, LibraryParams)}.
        *
+       * <p>See {@link #getSubscribedControllers(String)} also.
+       *
+       * <p>By default, the library calls {@link Callback#onGetItem(MediaLibrarySession,
+       * ControllerInfo, String)} for the {@code parentId} that the browser requests to subscribe
+       * to. If onGetItem returns {@link LibraryResult#RESULT_SUCCESS} with a {@linkplain
+       * MediaMetadata#isBrowsable browsable item}, the subscription is accepted and {@link
+       * MediaLibrarySession#notifyChildrenChanged(ControllerInfo, String, int, LibraryParams)} is
+       * immediately called with an itemCount of {@link Integer#MAX_VALUE}. In all other cases, the
+       * subscription is rejected and a result value different to {@link
+       * LibraryResult#RESULT_SUCCESS} is returned from this method.
+       *
+       * <p>To implement a different behavior, an app can safely override this method without
+       * calling super. Return a result code {@link LibraryResult#RESULT_SUCCESS} to accept the
+       * subscription, or return a result different to {@link LibraryResult#RESULT_SUCCESS} to
+       * prevent controllers from subscribing.
+       *
        * <p>Return a {@link ListenableFuture} to send a {@link LibraryResult} back to the browser
        * asynchronously. You can also return a {@link LibraryResult} directly by using Guava's
        * {@link Futures#immediateFuture(Object)}.
        *
-       * <p>The {@link LibraryResult#params} should be the same as the given {@link LibraryParams
-       * params}.
-       *
-       * <p>It's your responsibility to keep subscriptions and call {@link
-       * MediaLibrarySession#notifyChildrenChanged(ControllerInfo, String, int, LibraryParams)} when
-       * the children of the parent are changed until it's {@link #onUnsubscribe unsubscribed}.
+       * <p>The {@link LibraryResult#params} returned to the caller should be the same as the {@link
+       * LibraryParams params} passed into this method.
        *
        * <p>Interoperability: This will be called by {@link
        * android.support.v4.media.MediaBrowserCompat#subscribe}, but won't be called by {@link
@@ -247,16 +262,43 @@ public abstract class MediaLibraryService extends MediaSessionService {
           ControllerInfo browser,
           String parentId,
           @Nullable LibraryParams params) {
-        return Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_NOT_SUPPORTED));
+        return Util.transformFutureAsync(
+            onGetItem(session, browser, parentId),
+            result -> {
+              if (result.resultCode != RESULT_SUCCESS
+                  || result.value == null
+                  || result.value.mediaMetadata.isBrowsable == null
+                  || !result.value.mediaMetadata.isBrowsable) {
+                // Reject subscription if no browsable item for the parent media ID is returned.
+                return Futures.immediateFuture(
+                    LibraryResult.ofError(
+                        result.resultCode != RESULT_SUCCESS
+                            ? result.resultCode
+                            : LibraryResult.RESULT_ERROR_BAD_VALUE));
+              }
+              if (browser.getControllerVersion() != ControllerInfo.LEGACY_CONTROLLER_VERSION) {
+                // For legacy browsers, android.service.media.MediaBrowserService already calls
+                // MediaLibraryServiceLegacyStub.onLoadChildren() to send the current media items
+                // to the browser callback. So we call back Media3 browsers only.
+                session.notifyChildrenChanged(
+                    browser, parentId, /* itemCount= */ Integer.MAX_VALUE, params);
+              }
+              return Futures.immediateFuture(ofVoid());
+            });
       }
 
       /**
-       * Called when a {@link MediaBrowser} unsubscribes from the given parent id by {@link
+       * Called when a {@link MediaBrowser} unsubscribes from the given parent ID by {@link
        * MediaBrowser#unsubscribe(String)}.
        *
        * <p>Return a {@link ListenableFuture} to send a {@link LibraryResult} back to the browser
        * asynchronously. You can also return a {@link LibraryResult} directly by using Guava's
        * {@link Futures#immediateFuture(Object)}.
+       *
+       * <p>Apps normally don't need to implement this method, because the library maintains the
+       * subscribed controllers internally and an app can use {@link
+       * #getSubscribedControllers(String)} to get subscribed controllers for which to call {@link
+       * #notifyChildrenChanged}.
        *
        * <p>Interoperability: This will be called by {@link
        * android.support.v4.media.MediaBrowserCompat#unsubscribe}, but won't be called by {@link
@@ -270,7 +312,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
        */
       default ListenableFuture<LibraryResult<Void>> onUnsubscribe(
           MediaLibrarySession session, ControllerInfo browser, String parentId) {
-        return Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_NOT_SUPPORTED));
+        return Futures.immediateFuture(LibraryResult.ofVoid());
       }
 
       /**
@@ -372,6 +414,19 @@ public abstract class MediaLibraryService extends MediaSessionService {
       }
 
       /**
+       * Creates a builder for {@link MediaLibrarySession}.
+       *
+       * @param context The {@link Context}.
+       * @param player The underlying player to perform playback and handle transport controls.
+       * @param callback The callback to handle requests from {@link MediaBrowser}.
+       * @throws IllegalArgumentException if {@link Player#canAdvertiseSession()} returns false.
+       */
+      @UnstableApi
+      public Builder(Context context, Player player, Callback callback) {
+        super(context, player, callback);
+      }
+
+      /**
        * Sets a {@link PendingIntent} to launch an {@link android.app.Activity} for the {@link
        * MediaLibrarySession}. This can be used as a quick link to an ongoing media screen.
        *
@@ -398,29 +453,46 @@ public abstract class MediaLibraryService extends MediaSessionService {
       }
 
       /**
-       * Sets an extra {@link Bundle} for the {@link MediaLibrarySession}. The {@link
-       * MediaLibrarySession#getToken()} session token} will have the {@link
-       * SessionToken#getExtras() extras}. If not set, an empty {@link Bundle} will be used.
+       * Sets an extras {@link Bundle} for the {@linkplain MediaLibrarySession#getToken() session
+       * token}. If not set, {@link Bundle#EMPTY} is used.
        *
-       * @param extras The extra {@link Bundle}.
+       * <p>A controller has access to these extras through the {@linkplain
+       * MediaController#getConnectedToken() connected token}.
+       *
+       * @param tokenExtras The extras {@link Bundle}.
        * @return The builder to allow chaining.
        */
       @Override
-      public Builder setExtras(Bundle extras) {
-        return super.setExtras(extras);
+      public Builder setExtras(Bundle tokenExtras) {
+        return super.setExtras(tokenExtras);
+      }
+
+      /**
+       * Sets the {@linkplain MediaLibrarySession#getSessionExtras() session extras}. If not set,
+       * {@link Bundle#EMPTY} is used.
+       *
+       * <p>A controller has access to session extras through {@link
+       * MediaController#getSessionExtras()}.
+       *
+       * @param sessionExtras The session extras {@link Bundle}.
+       * @return The builder to allow chaining.
+       */
+      @UnstableApi
+      @Override
+      public Builder setSessionExtras(Bundle sessionExtras) {
+        return super.setSessionExtras(sessionExtras);
       }
 
       /**
        * Sets a {@link BitmapLoader} for the {@link MediaLibrarySession} to decode bitmaps from
-       * compressed binary data or load bitmaps from {@link Uri}. If not set, a {@link
-       * CacheBitmapLoader} with a {@link SimpleBitmapLoader} inside will be used.
+       * compressed binary data or load bitmaps from {@link Uri}.
        *
        * <p>The provided instance will likely be called repeatedly with the same request, so it
        * would be best if any provided instance does some caching. Simple caching can be added to
        * any {@link BitmapLoader} implementation by wrapping it in {@link CacheBitmapLoader} before
        * passing it to this method.
        *
-       * <p>If no instance is set, a {@link CacheBitmapLoader} with a {@link SimpleBitmapLoader}
+       * <p>If no instance is set, a {@link CacheBitmapLoader} with a {@link DataSourceBitmapLoader}
        * inside will be used.
        *
        * @param bitmapLoader The bitmap loader {@link BitmapLoader}.
@@ -462,6 +534,36 @@ public abstract class MediaLibraryService extends MediaSessionService {
       }
 
       /**
+       * Sets whether a play button is shown if playback is {@linkplain
+       * Player#getPlaybackSuppressionReason() suppressed}.
+       *
+       * <p>The default is {@code true}.
+       *
+       * @param showPlayButtonIfPlaybackIsSuppressed Whether to show a play button if playback is
+       *     {@linkplain Player#getPlaybackSuppressionReason() suppressed}.
+       */
+      @UnstableApi
+      @Override
+      public Builder setShowPlayButtonIfPlaybackIsSuppressed(
+          boolean showPlayButtonIfPlaybackIsSuppressed) {
+        return super.setShowPlayButtonIfPlaybackIsSuppressed(showPlayButtonIfPlaybackIsSuppressed);
+      }
+
+      /**
+       * Sets whether periodic position updates should be sent to controllers while playing. If
+       * false, no periodic position updates are sent to controllers.
+       *
+       * <p>The default is {@code true}.
+       *
+       * @param isEnabled Whether periodic position update is enabled.
+       */
+      @UnstableApi
+      @Override
+      public Builder setPeriodicPositionUpdateEnabled(boolean isEnabled) {
+        return super.setPeriodicPositionUpdateEnabled(isEnabled);
+      }
+
+      /**
        * Builds a {@link MediaLibrarySession}.
        *
        * @return A new session.
@@ -471,7 +573,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
       @Override
       public MediaLibrarySession build() {
         if (bitmapLoader == null) {
-          bitmapLoader = new CacheBitmapLoader(new SimpleBitmapLoader());
+          bitmapLoader = new CacheBitmapLoader(new DataSourceBitmapLoader(context));
         }
         return new MediaLibrarySession(
             context,
@@ -480,8 +582,11 @@ public abstract class MediaLibraryService extends MediaSessionService {
             sessionActivity,
             customLayout,
             callback,
-            extras,
-            checkNotNull(bitmapLoader));
+            tokenExtras,
+            sessionExtras,
+            checkNotNull(bitmapLoader),
+            playIfSuppressed,
+            isPeriodicPositionUpdateEnabled);
       }
     }
 
@@ -493,9 +598,22 @@ public abstract class MediaLibraryService extends MediaSessionService {
         ImmutableList<CommandButton> customLayout,
         MediaSession.Callback callback,
         Bundle tokenExtras,
-        BitmapLoader bitmapLoader) {
+        Bundle sessionExtras,
+        BitmapLoader bitmapLoader,
+        boolean playIfSuppressed,
+        boolean isPeriodicPositionUpdateEnabled) {
       super(
-          context, id, player, sessionActivity, customLayout, callback, tokenExtras, bitmapLoader);
+          context,
+          id,
+          player,
+          sessionActivity,
+          customLayout,
+          callback,
+          tokenExtras,
+          sessionExtras,
+          bitmapLoader,
+          playIfSuppressed,
+          isPeriodicPositionUpdateEnabled);
     }
 
     @Override
@@ -507,7 +625,10 @@ public abstract class MediaLibraryService extends MediaSessionService {
         ImmutableList<CommandButton> customLayout,
         MediaSession.Callback callback,
         Bundle tokenExtras,
-        BitmapLoader bitmapLoader) {
+        Bundle sessionExtras,
+        BitmapLoader bitmapLoader,
+        boolean playIfSuppressed,
+        boolean isPeriodicPositionUpdateEnabled) {
       return new MediaLibrarySessionImpl(
           this,
           context,
@@ -517,7 +638,10 @@ public abstract class MediaLibraryService extends MediaSessionService {
           customLayout,
           (Callback) callback,
           tokenExtras,
-          bitmapLoader);
+          sessionExtras,
+          bitmapLoader,
+          playIfSuppressed,
+          isPeriodicPositionUpdateEnabled);
     }
 
     @Override
@@ -526,16 +650,31 @@ public abstract class MediaLibraryService extends MediaSessionService {
     }
 
     /**
-     * Notifies a browser that is {@link Callback#onSubscribe subscribing} to the change to a
-     * parent's children. If the browser isn't subscribing to the parent, nothing will happen.
+     * Returns the controllers that are currently subscribed to the given {@code mediaId}.
      *
-     * <p>This only tells the number of child {@link MediaItem media items}. {@link
-     * Callback#onGetChildren} will be called by the browser afterwards to get the list of {@link
-     * MediaItem media items}.
+     * <p>Use the returned {@linkplain ControllerInfo controller infos} to call {@link
+     * #notifyChildrenChanged} in case the children of the media item with the given media ID have
+     * changed and the connected controller should fetch them again.
+     *
+     * <p>Note that calling {@link #notifyChildrenChanged} for a controller that didn't subscribe to
+     * the media ID results in a no-op.
+     *
+     * @param mediaId The ID of the media item for which to get subscribed controllers.
+     * @return A list with the subscribed controllers, may be empty.
+     */
+    @UnstableApi
+    public ImmutableList<ControllerInfo> getSubscribedControllers(String mediaId) {
+      return getImpl().getSubscribedControllers(mediaId);
+    }
+
+    /**
+     * Notifies a browser that is {@link Callback#onSubscribe subscribed} to a browsable media item
+     * that the children of the item have changed. This method is also called immediately after
+     * subscribing was successful.
      *
      * @param browser The browser to notify.
      * @param parentId The non-empty id of the parent with changes to its children.
-     * @param itemCount The number of children.
+     * @param itemCount The number of children, or {@link Integer#MAX_VALUE} if unknown.
      * @param params The parameters given by {@link Callback#onSubscribe}.
      */
     public void notifyChildrenChanged(
@@ -710,10 +849,19 @@ public abstract class MediaLibraryService extends MediaSessionService {
       return bundle;
     }
 
-    /** Object that can restore {@link LibraryParams} from a {@link Bundle}. */
-    @UnstableApi public static final Creator<LibraryParams> CREATOR = LibraryParams::fromBundle;
+    /**
+     * Object that can restore {@link LibraryParams} from a {@link Bundle}.
+     *
+     * @deprecated Use {@link #fromBundle} instead.
+     */
+    @UnstableApi
+    @Deprecated
+    @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
+    public static final Creator<LibraryParams> CREATOR = LibraryParams::fromBundle;
 
-    private static LibraryParams fromBundle(Bundle bundle) {
+    /** Restores a {@code LibraryParams} from a {@link Bundle}. */
+    @UnstableApi
+    public static LibraryParams fromBundle(Bundle bundle) {
       @Nullable Bundle extras = bundle.getBundle(FIELD_EXTRAS);
       boolean recent = bundle.getBoolean(FIELD_RECENT, /* defaultValue= */ false);
       boolean offline = bundle.getBoolean(FIELD_OFFLINE, /* defaultValue= */ false);

@@ -423,6 +423,49 @@ public class MediaControllerTest {
   }
 
   @Test
+  public void getSessionExtras_includedInConnectionStateWhenConnecting() throws Exception {
+    RemoteMediaSession session =
+        createRemoteMediaSession(TEST_GET_CUSTOM_LAYOUT, /* tokenExtras= */ null);
+    Bundle sessionExtras = new Bundle();
+    sessionExtras.putString("key1", "value1");
+    session.setSessionExtras(sessionExtras);
+
+    MediaController controller = controllerTestRule.createController(session.getToken());
+
+    assertThat(
+            threadTestRule.getHandler().postAndSync(controller::getSessionExtras).getString("key1"))
+        .isEqualTo("value1");
+
+    session.cleanUp();
+  }
+
+  @Test
+  public void getAvailableCommands_emptyPlayerCommands_commandReleaseStillAvailable()
+      throws Exception {
+    CountDownLatch latch = new CountDownLatch(1);
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    List<Player.Commands> capturedCommands = new ArrayList<>();
+    controller.addListener(
+        new Player.Listener() {
+          @Override
+          public void onAvailableCommandsChanged(Player.Commands availableCommands) {
+            capturedCommands.add(availableCommands);
+            capturedCommands.add(controller.getAvailableCommands());
+            latch.countDown();
+          }
+        });
+
+    remoteSession.setAvailableCommands(SessionCommands.EMPTY, Player.Commands.EMPTY);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(capturedCommands).hasSize(2);
+    assertThat(capturedCommands.get(0).size()).isEqualTo(1);
+    assertThat(capturedCommands.get(0).contains(Player.COMMAND_RELEASE)).isTrue();
+    assertThat(capturedCommands.get(1).size()).isEqualTo(1);
+    assertThat(capturedCommands.get(1).contains(Player.COMMAND_RELEASE)).isTrue();
+  }
+
+  @Test
   public void getPackageName() throws Exception {
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
     assertThat(controller.getConnectedToken().getPackageName()).isEqualTo(SUPPORT_APP_PACKAGE_NAME);
@@ -746,7 +789,7 @@ public class MediaControllerTest {
       session.setAvailableCommands(builder.build(), Player.Commands.EMPTY);
 
       String testMediaId = "testMediaId";
-      Rating testRating = new HeartRating(/* hasHeart= */ true);
+      Rating testRating = new HeartRating(/* isHeart= */ true);
       threadTestRule
           .getHandler()
           .postAndSync(

@@ -244,15 +244,20 @@ public class PlayerControlView extends FrameLayout {
 
   /** The default show timeout, in milliseconds. */
   public static final int DEFAULT_SHOW_TIMEOUT_MS = 5_000;
+
   /** The default repeat toggle modes. */
   public static final @RepeatModeUtil.RepeatToggleModes int DEFAULT_REPEAT_TOGGLE_MODES =
       RepeatModeUtil.REPEAT_TOGGLE_MODE_NONE;
+
   /** The default minimum interval between time bar position updates. */
   public static final int DEFAULT_TIME_BAR_MIN_UPDATE_INTERVAL_MS = 200;
+
   /** The maximum number of windows that can be shown in a multi-window time bar. */
   public static final int MAX_WINDOWS_FOR_MULTI_WINDOW_TIME_BAR = 100;
+
   /** The maximum interval between time bar position updates. */
   private static final int MAX_UPDATE_INTERVAL_MS = 1_000;
+
   // LINT.IfChange(playback_speeds)
   private static final float[] PLAYBACK_SPEEDS =
       new float[] {0.25f, 0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f};
@@ -326,10 +331,14 @@ public class PlayerControlView extends FrameLayout {
   @Nullable private Player player;
   @Nullable private ProgressUpdateListener progressUpdateListener;
 
-  @Nullable private OnFullScreenModeChangedListener onFullScreenModeChangedListener;
+  @SuppressWarnings("deprecation") // Supporting deprecated listener
+  @Nullable
+  private OnFullScreenModeChangedListener onFullScreenModeChangedListener;
+
   private boolean isFullScreen;
   private boolean isAttachedToWindow;
   private boolean showMultiWindowTimeBar;
+  private boolean showPlayButtonIfSuppressed;
   private boolean multiWindowTimeBar;
   private boolean scrubbing;
   private int showTimeoutMs;
@@ -355,7 +364,10 @@ public class PlayerControlView extends FrameLayout {
     this(context, attrs, defStyleAttr, attrs);
   }
 
+  // TODO: b/301602565 - See if there's a reasonable non-null root view group we could use below to
+  //  resolve InflateParams lint.
   @SuppressWarnings({
+    "InflateParams",
     "nullness:argument",
     "nullness:assignment",
     "nullness:method.invocation",
@@ -368,6 +380,7 @@ public class PlayerControlView extends FrameLayout {
       @Nullable AttributeSet playbackAttrs) {
     super(context, attrs, defStyleAttr);
     int controllerLayoutId = R.layout.exo_player_control_view;
+    showPlayButtonIfSuppressed = true;
     showTimeoutMs = DEFAULT_SHOW_TIMEOUT_MS;
     repeatToggleModes = DEFAULT_REPEAT_TOGGLE_MODES;
     timeBarMinUpdateIntervalMs = DEFAULT_TIME_BAR_MIN_UPDATE_INTERVAL_MS;
@@ -656,16 +669,27 @@ public class PlayerControlView extends FrameLayout {
   }
 
   /**
-   * Sets whether the time bar should show all windows, as opposed to just the current one. If the
-   * timeline has a period with unknown duration or more than {@link
-   * #MAX_WINDOWS_FOR_MULTI_WINDOW_TIME_BAR} windows the time bar will fall back to showing a single
-   * window.
-   *
-   * @param showMultiWindowTimeBar Whether the time bar should show all windows.
+   * @deprecated Replace multi-window time bar display by merging source windows together instead,
+   *     for example using ExoPlayer's {@code ConcatenatingMediaSource2}.
    */
+  @Deprecated
   public void setShowMultiWindowTimeBar(boolean showMultiWindowTimeBar) {
     this.showMultiWindowTimeBar = showMultiWindowTimeBar;
     updateTimeline();
+  }
+
+  /**
+   * Sets whether a play button is shown if playback is {@linkplain
+   * Player#getPlaybackSuppressionReason() suppressed}.
+   *
+   * <p>The default is {@code true}.
+   *
+   * @param showPlayButtonIfSuppressed Whether to show a play button if playback is {@linkplain
+   *     Player#getPlaybackSuppressionReason() suppressed}.
+   */
+  public void setShowPlayButtonIfPlaybackIsSuppressed(boolean showPlayButtonIfSuppressed) {
+    this.showPlayButtonIfSuppressed = showPlayButtonIfSuppressed;
+    updatePlayPauseButton();
   }
 
   /**
@@ -975,7 +999,7 @@ public class PlayerControlView extends FrameLayout {
       return;
     }
     if (playPauseButton != null) {
-      boolean shouldShowPlayButton = Util.shouldShowPlayButton(player);
+      boolean shouldShowPlayButton = Util.shouldShowPlayButton(player, showPlayButtonIfSuppressed);
       @DrawableRes
       int drawableRes =
           shouldShowPlayButton
@@ -1474,7 +1498,7 @@ public class PlayerControlView extends FrameLayout {
         switch (keyCode) {
           case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
           case KeyEvent.KEYCODE_HEADSETHOOK:
-            Util.handlePlayPauseButtonAction(player);
+            Util.handlePlayPauseButtonAction(player, showPlayButtonIfSuppressed);
             break;
           case KeyEvent.KEYCODE_MEDIA_PLAY:
             Util.handlePlayButtonAction(player);
@@ -1705,7 +1729,7 @@ public class PlayerControlView extends FrameLayout {
           player.seekBack();
         }
       } else if (playPauseButton == view) {
-        Util.handlePlayPauseButtonAction(player);
+        Util.handlePlayPauseButtonAction(player, showPlayButtonIfSuppressed);
       } else if (repeatToggleButton == view) {
         if (player.isCommandAvailable(COMMAND_SET_REPEAT_MODE)) {
           player.setRepeatMode(
@@ -1826,7 +1850,7 @@ public class PlayerControlView extends FrameLayout {
       mainTextView = itemView.findViewById(R.id.exo_main_text);
       subTextView = itemView.findViewById(R.id.exo_sub_text);
       iconView = itemView.findViewById(R.id.exo_icon);
-      itemView.setOnClickListener(v -> onSettingViewClicked(getAdapterPosition()));
+      itemView.setOnClickListener(v -> onSettingViewClicked(getBindingAdapterPosition()));
     }
   }
 

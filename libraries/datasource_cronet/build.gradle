@@ -13,6 +13,16 @@
 // limitations under the License.
 apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 
+android {
+    namespace 'androidx.media3.datasource.cronet'
+
+    publishing {
+        singleVariant('release') {
+            withSourcesJar()
+        }
+    }
+}
+
 dependencies {
     api "com.google.android.gms:play-services-cronet:18.0.1"
     implementation project(modulePrefix + 'lib-common')
@@ -32,11 +42,6 @@ dependencies {
     testImplementation 'com.squareup.okhttp3:mockwebserver:' + okhttpVersion
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
 }
-
-ext {
-    javadocTitle = 'Cronet extension'
-}
-apply from: '../../javadoc_library.gradle'
 
 ext {
     releaseArtifactId = 'media3-datasource-cronet'

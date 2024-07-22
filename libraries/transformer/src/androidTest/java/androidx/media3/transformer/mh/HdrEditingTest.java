@@ -24,6 +24,8 @@ import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_720P_4_SECON
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_DOLBY_VISION_HDR;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_DOLBY_VISION_HDR_FORMAT;
 import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
+import static androidx.media3.transformer.Composition.HDR_MODE_KEEP_HDR;
+import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
 import static androidx.media3.transformer.mh.FileUtil.assertFileHasColorTransfer;
 import static com.google.common.truth.Truth.assertThat;
 
@@ -34,6 +36,7 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.Util;
 import androidx.media3.transformer.AndroidTestUtil;
+import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.EncoderUtil;
 import androidx.media3.transformer.ExportException;
@@ -45,12 +48,13 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /**
  * {@link Transformer} instrumentation test for applying an {@linkplain
- * TransformationRequest#HDR_MODE_KEEP_HDR HDR frame edit}.
+ * Composition#HDR_MODE_KEEP_HDR HDR frame edit}.
  */
 @RunWith(AndroidJUnit4.class)
 public final class HdrEditingTest {
@@ -227,10 +231,7 @@ public final class HdrEditingTest {
         context,
         testId,
         /* inputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10_FORMAT,
-        /* outputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10_FORMAT
-            .buildUpon()
-            .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
-            .build())) {
+        /* outputFormat= */ null)) {
       return;
     }
 
@@ -246,11 +247,10 @@ public final class HdrEditingTest {
                       TransformationRequest originalTransformationRequest,
                       TransformationRequest fallbackTransformationRequest) {
                     isFallbackListenerInvoked.set(true);
-                    assertThat(originalTransformationRequest.hdrMode)
-                        .isEqualTo(TransformationRequest.HDR_MODE_KEEP_HDR);
+                    assertThat(originalTransformationRequest.hdrMode).isEqualTo(HDR_MODE_KEEP_HDR);
                     isToneMappingFallbackApplied.set(
                         fallbackTransformationRequest.hdrMode
-                            == TransformationRequest.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC);
+                            == HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL);
                   }
                 })
             .build();
@@ -266,15 +266,15 @@ public final class HdrEditingTest {
       assertThat(isToneMappingFallbackApplied.get()).isTrue();
       assertFileHasColorTransfer(context, exportTestResult.filePath, C.COLOR_TRANSFER_SDR);
     } catch (ExportException exception) {
-      if (exception.getCause() != null
-          && (Objects.equals(
-                  exception.getCause().getMessage(),
-                  "Tone-mapping HDR is not supported on this device.")
-              || Objects.equals(
-                  exception.getCause().getMessage(),
-                  "Tone-mapping requested but not supported by the decoder."))) {
-        // Expected on devices without a tone-mapping plugin for the this codec.
-        return;
+      if (exception.getCause() != null) {
+        @Nullable String message = exception.getCause().getMessage();
+        if (message != null
+            && (Objects.equals(message, "Decoding HDR is not supported on this device.")
+                || message.contains(
+                    "OpenGL ES 3.0 context support is required for HDR input or output.")
+                || Objects.equals(message, "Device lacks YUV extension support."))) {
+          return;
+        }
       }
       throw exception;
     }
@@ -294,14 +294,10 @@ public final class HdrEditingTest {
         context,
         testId,
         /* inputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT,
-        /* outputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT
-            .buildUpon()
-            .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
-            .build())) {
+        /* outputFormat= */ null)) {
       return;
     }
 
-    AtomicBoolean isFallbackListenerInvoked = new AtomicBoolean();
     AtomicBoolean isToneMappingFallbackApplied = new AtomicBoolean();
     Transformer transformer =
         new Transformer.Builder(context)
@@ -312,12 +308,10 @@ public final class HdrEditingTest {
                       MediaItem inputMediaItem,
                       TransformationRequest originalTransformationRequest,
                       TransformationRequest fallbackTransformationRequest) {
-                    isFallbackListenerInvoked.set(true);
-                    assertThat(originalTransformationRequest.hdrMode)
-                        .isEqualTo(TransformationRequest.HDR_MODE_KEEP_HDR);
+                    assertThat(originalTransformationRequest.hdrMode).isEqualTo(HDR_MODE_KEEP_HDR);
                     isToneMappingFallbackApplied.set(
                         fallbackTransformationRequest.hdrMode
-                            == TransformationRequest.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC);
+                            == HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL);
                   }
                 })
             .build();
@@ -333,15 +327,15 @@ public final class HdrEditingTest {
       assertThat(isToneMappingFallbackApplied.get()).isTrue();
       assertFileHasColorTransfer(context, exportTestResult.filePath, C.COLOR_TRANSFER_SDR);
     } catch (ExportException exception) {
-      if (exception.getCause() != null
-          && (Objects.equals(
-                  exception.getCause().getMessage(),
-                  "Tone-mapping HDR is not supported on this device.")
-              || Objects.equals(
-                  exception.getCause().getMessage(),
-                  "Tone-mapping requested but not supported by the decoder."))) {
-        // Expected on devices without a tone-mapping plugin for this codec.
-        return;
+      if (exception.getCause() != null) {
+        @Nullable String message = exception.getCause().getMessage();
+        if (message != null
+            && (Objects.equals(message, "Decoding HDR is not supported on this device.")
+                || message.contains(
+                    "OpenGL ES 3.0 context support is required for HDR input or output.")
+                || Objects.equals(message, "Device lacks YUV extension support."))) {
+          return;
+        }
       }
       throw exception;
     }

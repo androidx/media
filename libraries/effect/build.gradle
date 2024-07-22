@@ -13,9 +13,9 @@
 // limitations under the License.
 apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 android {
+    namespace 'androidx.media3.effect'
 
     defaultConfig {
-        minSdkVersion 18
         // The following argument makes the Android Test Orchestrator run its
         // "pm clear" command after each test invocation. This command ensures
         // that the app's state is completely cleared between tests.
@@ -32,6 +32,12 @@ android {
         androidTest.assets.srcDir '../test_data/src/test/assets/'
         test.assets.srcDir '../test_data/src/test/assets/'
     }
+
+    publishing {
+        singleVariant('release') {
+            withSourcesJar()
+        }
+    }
 }
 
 dependencies {
@@ -40,24 +46,18 @@ dependencies {
     implementation project(modulePrefix + 'lib-datasource')
     compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
-    compileOnly 'org.checkerframework:checker-compat-qual:' + checkerframeworkCompatVersion
     compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion
     testImplementation project(modulePrefix + 'test-utils-robolectric')
     testImplementation project(modulePrefix + 'test-utils')
     testImplementation project(modulePrefix + 'test-data')
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
     testImplementation 'com.google.truth:truth:' + truthVersion
+    androidTestImplementation project(modulePrefix + 'lib-exoplayer')
     androidTestImplementation 'junit:junit:' + junitVersion
     androidTestImplementation 'androidx.test:runner:' + androidxTestRunnerVersion
     androidTestImplementation 'com.google.truth:truth:' + truthVersion
     androidTestImplementation project(modulePrefix + 'test-utils')
-    androidTestCompileOnly 'org.checkerframework:checker-compat-qual:' + checkerframeworkCompatVersion
 }
-
-ext {
-    javadocTitle = 'Effect module'
-}
-apply from: '../../javadoc_library.gradle'
 
 ext {
     releaseArtifactId = 'media3-effect'

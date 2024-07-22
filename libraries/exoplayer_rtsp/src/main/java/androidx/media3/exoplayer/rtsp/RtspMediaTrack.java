@@ -32,6 +32,7 @@ import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
@@ -50,7 +51,6 @@ import com.google.common.collect.ImmutableMap;
   // Format specific parameter names.
   private static final String PARAMETER_PROFILE_LEVEL_ID = "profile-level-id";
   private static final String PARAMETER_SPROP_PARAMS = "sprop-parameter-sets";
-
   private static final String PARAMETER_AMR_OCTET_ALIGN = "octet-align";
   private static final String PARAMETER_AMR_INTERLEAVING = "interleaving";
   private static final String PARAMETER_H265_SPROP_SPS = "sprop-sps";
@@ -62,12 +62,15 @@ import com.google.common.collect.ImmutableMap;
 
   /** Prefix for the RFC6381 codecs string for AAC formats. */
   private static final String AAC_CODECS_PREFIX = "mp4a.40.";
+
   /** Prefix for the RFC6381 codecs string for AVC formats. */
   private static final String H264_CODECS_PREFIX = "avc1.";
+
   /** Prefix for the RFC6416 codecs string for MPEG4V-ES formats. */
   private static final String MPEG4_CODECS_PREFIX = "mp4v.";
 
   private static final String GENERIC_CONTROL_ATTR = "*";
+
   /**
    * Default height for MP4V.
    *
@@ -97,6 +100,7 @@ import com.google.common.collect.ImmutableMap;
    * software VP8 decoder</a>.
    */
   private static final int DEFAULT_VP8_WIDTH = 320;
+
   /**
    * Default height for VP8.
    *
@@ -120,6 +124,7 @@ import com.google.common.collect.ImmutableMap;
    * software VP9 decoder</a>.
    */
   private static final int DEFAULT_VP9_WIDTH = 320;
+
   /**
    * Default height for VP9.
    *
@@ -140,6 +145,7 @@ import com.google.common.collect.ImmutableMap;
    * >Android's software H263 decoder</a>.
    */
   private static final int DEFAULT_H263_WIDTH = 352;
+
   /**
    * Default height for H263.
    *
@@ -152,6 +158,7 @@ import com.google.common.collect.ImmutableMap;
 
   /** The track's associated {@link RtpPayloadFormat}. */
   public final RtpPayloadFormat payloadFormat;
+
   /** The track's URI. */
   public final Uri uri;
 
@@ -414,6 +421,14 @@ import com.google.common.collect.ImmutableMap;
     formatBuilder.setPixelWidthHeightRatio(spsData.pixelWidthHeightRatio);
     formatBuilder.setHeight(spsData.height);
     formatBuilder.setWidth(spsData.width);
+    formatBuilder.setColorInfo(
+        new ColorInfo.Builder()
+            .setColorSpace(spsData.colorSpace)
+            .setColorRange(spsData.colorRange)
+            .setColorTransfer(spsData.colorTransfer)
+            .setLumaBitdepth(spsData.bitDepthLumaMinus8 + 8)
+            .setChromaBitdepth(spsData.bitDepthChromaMinus8 + 8)
+            .build());
 
     @Nullable String profileLevel = fmtpAttributes.get(PARAMETER_PROFILE_LEVEL_ID);
     if (profileLevel != null) {
@@ -457,6 +472,14 @@ import com.google.common.collect.ImmutableMap;
             spsNalDataWithStartCode, NAL_START_CODE.length, spsNalDataWithStartCode.length);
     formatBuilder.setPixelWidthHeightRatio(spsData.pixelWidthHeightRatio);
     formatBuilder.setHeight(spsData.height).setWidth(spsData.width);
+    formatBuilder.setColorInfo(
+        new ColorInfo.Builder()
+            .setColorSpace(spsData.colorSpace)
+            .setColorRange(spsData.colorRange)
+            .setColorTransfer(spsData.colorTransfer)
+            .setLumaBitdepth(spsData.bitDepthLumaMinus8 + 8)
+            .setChromaBitdepth(spsData.bitDepthChromaMinus8 + 8)
+            .build());
 
     formatBuilder.setCodecs(
         CodecSpecificDataUtil.buildHevcCodecString(

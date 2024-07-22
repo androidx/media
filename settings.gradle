@@ -21,6 +21,8 @@ if (gradle.ext.has('androidxMediaModulePrefix')) {
 rootProject.name = 'androidx.media3'
 gradle.ext.rootProjectIsAndroidXMedia3 = true
 
+gradle.ext.androidxMediaEnableMidiModule = true
+
 include modulePrefix + 'demo'
 project(modulePrefix + 'demo').projectDir = new File(rootDir, 'demos/main')
 include modulePrefix + 'demo-cast'
@@ -29,6 +31,12 @@ include modulePrefix + 'demo-gl'
 project(modulePrefix + 'demo-gl').projectDir = new File(rootDir, 'demos/gl')
 include modulePrefix + 'demo-session'
 project(modulePrefix + 'demo-session').projectDir = new File(rootDir, 'demos/session')
+include modulePrefix + 'demo-session-service'
+project(modulePrefix + 'demo-session-service').projectDir = new File(rootDir, 'demos/session_service')
+include modulePrefix + 'demo-session-automotive'
+project(modulePrefix + 'demo-session-automotive').projectDir = new File(rootDir, 'demos/session_automotive')
+include modulePrefix + 'demo-shortform'
+project(modulePrefix + 'demo-shortform').projectDir = new File(rootDir, 'demos/shortform')
 include modulePrefix + 'demo-surface'
 project(modulePrefix + 'demo-surface').projectDir = new File(rootDir, 'demos/surface')
 include modulePrefix + 'demo-transformer'
@@ -36,5 +44,9 @@ project(modulePrefix + 'demo-transformer').projectDir = new File(rootDir, 'demos
 
 include modulePrefix + 'test-exoplayer-playback'
 project(modulePrefix + 'test-exoplayer-playback').projectDir = new File(rootDir, 'libraries/test_exoplayer_playback')
+include modulePrefix + 'test-session-common'
+project(modulePrefix + 'test-session-common').projectDir = new File(rootDir, 'libraries/test_session_common')
+include modulePrefix + 'test-session-current'
+project(modulePrefix + 'test-session-current').projectDir = new File(rootDir, 'libraries/test_session_current')
 
 apply from: 'core_settings.gradle'

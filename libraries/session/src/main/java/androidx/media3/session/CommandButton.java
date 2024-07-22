@@ -17,7 +17,9 @@ package androidx.media3.session;
 
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Assertions.checkState;
 
+import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
 import androidx.annotation.DrawableRes;
@@ -27,6 +29,7 @@ import androidx.media3.common.Player;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CheckReturnValue;
 import java.util.List;
@@ -46,6 +49,7 @@ public final class CommandButton implements Bundleable {
     @Nullable private SessionCommand sessionCommand;
     private @Player.Command int playerCommand;
     @DrawableRes private int iconResId;
+    @Nullable private Uri iconUri;
     private CharSequence displayName;
     private Bundle extras;
     private boolean enabled;
@@ -110,6 +114,19 @@ public final class CommandButton implements Bundleable {
     }
 
     /**
+     * Sets a {@link Uri} for the icon of this button.
+     *
+     * @param uri The uri to an icon.
+     * @return This builder for chaining.
+     */
+    @UnstableApi
+    @CanIgnoreReturnValue
+    public Builder setIconUri(Uri uri) {
+      this.iconUri = uri;
+      return this;
+    }
+
+    /**
      * Sets a display name of this button.
      *
      * @param displayName The display name.
@@ -147,17 +164,20 @@ public final class CommandButton implements Bundleable {
 
     /** Builds a {@link CommandButton}. */
     public CommandButton build() {
+      checkState(
+          (sessionCommand == null) != (playerCommand == Player.COMMAND_INVALID),
+          "Exactly one of sessionCommand and playerCommand should be set");
       return new CommandButton(
-          sessionCommand, playerCommand, iconResId, displayName, extras, enabled);
+          sessionCommand, playerCommand, iconResId, iconUri, displayName, extras, enabled);
     }
   }
 
-  /** The session command of the button. Can be {@code null} if the button is a placeholder. */
+  /** The session command of the button. Will be {@code null} if {@link #playerCommand} is set. */
   @Nullable public final SessionCommand sessionCommand;
 
   /**
-   * The {@link Player.Command} command of the button. Can be {@link Player#COMMAND_INVALID} if the
-   * button is a placeholder.
+   * The {@link Player.Command} command of the button. Will be {@link Player#COMMAND_INVALID} if
+   * {@link #sessionCommand} is set.
    */
   public final @Player.Command int playerCommand;
 
@@ -166,6 +186,9 @@ public final class CommandButton implements Bundleable {
    * icon isn't needed.
    */
   @DrawableRes public final int iconResId;
+
+  /** The {@link Uri} for the icon of the button. Can be {@code null}. */
+  @UnstableApi @Nullable public final Uri iconUri;
 
   /**
    * The display name of the button. Can be empty if the command is predefined and a custom name
@@ -186,12 +209,14 @@ public final class CommandButton implements Bundleable {
       @Nullable SessionCommand sessionCommand,
       @Player.Command int playerCommand,
       @DrawableRes int iconResId,
+      @Nullable Uri iconUri,
       CharSequence displayName,
       Bundle extras,
       boolean enabled) {
     this.sessionCommand = sessionCommand;
     this.playerCommand = playerCommand;
     this.iconResId = iconResId;
+    this.iconUri = iconUri;
     this.displayName = displayName;
     this.extras = new Bundle(extras);
     this.isEnabled = enabled;
@@ -207,9 +232,16 @@ public final class CommandButton implements Bundleable {
       return this;
     }
     return new CommandButton(
-        sessionCommand, playerCommand, iconResId, displayName, new Bundle(extras), isEnabled);
+        sessionCommand,
+        playerCommand,
+        iconResId,
+        iconUri,
+        displayName,
+        new Bundle(extras),
+        isEnabled);
   }
 
+  /** Checks the given command button for equality while ignoring {@link #extras}. */
   @Override
   public boolean equals(@Nullable Object obj) {
     if (this == obj) {
@@ -222,13 +254,47 @@ public final class CommandButton implements Bundleable {
     return Objects.equal(sessionCommand, button.sessionCommand)
         && playerCommand == button.playerCommand
         && iconResId == button.iconResId
+        && Objects.equal(iconUri, button.iconUri)
         && TextUtils.equals(displayName, button.displayName)
         && isEnabled == button.isEnabled;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(sessionCommand, playerCommand, iconResId, displayName, isEnabled);
+    return Objects.hashCode(
+        sessionCommand, playerCommand, iconResId, displayName, isEnabled, iconUri);
+  }
+
+  /**
+   * Returns a list of command buttons with the {@link CommandButton#isEnabled} flag set according
+   * to the available commands passed in.
+   */
+  /* package */ static ImmutableList<CommandButton> getEnabledCommandButtons(
+      List<CommandButton> commandButtons,
+      SessionCommands sessionCommands,
+      Player.Commands playerCommands) {
+    ImmutableList.Builder<CommandButton> enabledButtons = new ImmutableList.Builder<>();
+    for (int i = 0; i < commandButtons.size(); i++) {
+      CommandButton button = commandButtons.get(i);
+      enabledButtons.add(
+          button.copyWithIsEnabled(isEnabled(button, sessionCommands, playerCommands)));
+    }
+    return enabledButtons.build();
+  }
+
+  /**
+   * Returns whether the {@link CommandButton} is enabled given the available commands passed in.
+   *
+   * @param button The command button.
+   * @param sessionCommands The available session commands.
+   * @param playerCommands The available player commands.
+   * @return Whether the button is enabled given the available commands.
+   */
+  /* package */ static boolean isEnabled(
+      CommandButton button, SessionCommands sessionCommands, Player.Commands playerCommands) {
+    return (button.sessionCommand != null && sessionCommands.contains(button.sessionCommand))
+        || (button.playerCommand != Player.COMMAND_INVALID
+            && playerCommands.contains(button.playerCommand));
   }
 
   // Bundleable implementation.
@@ -239,6 +305,7 @@ public final class CommandButton implements Bundleable {
   private static final String FIELD_DISPLAY_NAME = Util.intToStringMaxRadix(3);
   private static final String FIELD_EXTRAS = Util.intToStringMaxRadix(4);
   private static final String FIELD_ENABLED = Util.intToStringMaxRadix(5);
+  private static final String FIELD_ICON_URI = Util.intToStringMaxRadix(6);
 
   @UnstableApi
   @Override
@@ -251,20 +318,28 @@ public final class CommandButton implements Bundleable {
     bundle.putInt(FIELD_ICON_RES_ID, iconResId);
     bundle.putCharSequence(FIELD_DISPLAY_NAME, displayName);
     bundle.putBundle(FIELD_EXTRAS, extras);
+    bundle.putParcelable(FIELD_ICON_URI, iconUri);
     bundle.putBoolean(FIELD_ENABLED, isEnabled);
     return bundle;
   }
 
-  /** Object that can restore {@link CommandButton} from a {@link Bundle}. */
-  @UnstableApi public static final Creator<CommandButton> CREATOR = CommandButton::fromBundle;
+  /**
+   * Object that can restore {@code CommandButton} from a {@link Bundle}.
+   *
+   * @deprecated Use {@link #fromBundle} instead.
+   */
+  @UnstableApi
+  @Deprecated
+  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
+  public static final Creator<CommandButton> CREATOR = CommandButton::fromBundle;
 
-  private static CommandButton fromBundle(Bundle bundle) {
+  /** Restores a {@code CommandButton} from a {@link Bundle}. */
+  @UnstableApi
+  public static CommandButton fromBundle(Bundle bundle) {
     @Nullable Bundle sessionCommandBundle = bundle.getBundle(FIELD_SESSION_COMMAND);
     @Nullable
     SessionCommand sessionCommand =
-        sessionCommandBundle == null
-            ? null
-            : SessionCommand.CREATOR.fromBundle(sessionCommandBundle);
+        sessionCommandBundle == null ? null : SessionCommand.fromBundle(sessionCommandBundle);
     @Player.Command
     int playerCommand =
         bundle.getInt(FIELD_PLAYER_COMMAND, /* defaultValue= */ Player.COMMAND_INVALID);
@@ -272,12 +347,16 @@ public final class CommandButton implements Bundleable {
     CharSequence displayName = bundle.getCharSequence(FIELD_DISPLAY_NAME, /* defaultValue= */ "");
     @Nullable Bundle extras = bundle.getBundle(FIELD_EXTRAS);
     boolean enabled = bundle.getBoolean(FIELD_ENABLED, /* defaultValue= */ false);
+    @Nullable Uri iconUri = bundle.getParcelable(FIELD_ICON_URI);
     Builder builder = new Builder();
     if (sessionCommand != null) {
       builder.setSessionCommand(sessionCommand);
     }
     if (playerCommand != Player.COMMAND_INVALID) {
       builder.setPlayerCommand(playerCommand);
+    }
+    if (iconUri != null) {
+      builder.setIconUri(iconUri);
     }
     return builder
         .setIconResId(iconResId)

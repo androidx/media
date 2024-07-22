@@ -41,6 +41,7 @@ import androidx.media3.common.text.HorizontalTextInVerticalContextSpan;
 import androidx.media3.common.text.RubySpan;
 import androidx.media3.common.text.TextAnnotation;
 import androidx.media3.common.text.TextEmphasisSpan;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.truth.Fact;
@@ -50,7 +51,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
 /** A Truth {@link Subject} for assertions on {@link Spanned} instances containing text styling. */
@@ -847,7 +847,7 @@ public final class SpannedSubject extends Subject {
 
   private static Factory<ForegroundColorSpansSubject, List<ForegroundColorSpan>>
       foregroundColorSpans(Spanned actualSpanned) {
-    return (FailureMetadata metadata, List<ForegroundColorSpan> spans) ->
+    return (FailureMetadata metadata, @Nullable List<ForegroundColorSpan> spans) ->
         new ForegroundColorSpansSubject(metadata, spans, actualSpanned);
   }
 
@@ -886,7 +886,7 @@ public final class SpannedSubject extends Subject {
 
   private static Factory<BackgroundColorSpansSubject, List<BackgroundColorSpan>>
       backgroundColorSpans(Spanned actualSpanned) {
-    return (FailureMetadata metadata, List<BackgroundColorSpan> spans) ->
+    return (FailureMetadata metadata, @Nullable List<BackgroundColorSpan> spans) ->
         new BackgroundColorSpansSubject(metadata, spans, actualSpanned);
   }
 
@@ -989,7 +989,7 @@ public final class SpannedSubject extends Subject {
 
   private static Factory<AbsoluteSizeSpansSubject, List<AbsoluteSizeSpan>> absoluteSizeSpans(
       Spanned actualSpanned) {
-    return (FailureMetadata metadata, List<AbsoluteSizeSpan> spans) ->
+    return (FailureMetadata metadata, @Nullable List<AbsoluteSizeSpan> spans) ->
         new AbsoluteSizeSpansSubject(metadata, spans, actualSpanned);
   }
 
@@ -1092,7 +1092,7 @@ public final class SpannedSubject extends Subject {
       (text, position) -> ALREADY_FAILED_AND_FLAGS;
 
   private static Factory<RubySpansSubject, List<RubySpan>> rubySpans(Spanned actualSpanned) {
-    return (FailureMetadata metadata, List<RubySpan> spans) ->
+    return (FailureMetadata metadata, @Nullable List<RubySpan> spans) ->
         new RubySpansSubject(metadata, spans, actualSpanned);
   }
 

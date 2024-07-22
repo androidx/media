@@ -12,13 +12,14 @@ track 0:
   format 0:
     id = 1
     sampleMimeType = audio/mha1
+    codecs = mha1.0D
     maxInputSize = 3528
     channelCount = 0
     sampleRate = 48000
     encoderDelay = 3072
     encoderPadding = 255
     language = und
-    metadata = entries=[Creation time: 1619054108000]
+    metadata = entries=[Mp4Timestamp: creation time=3701898908, modification time=3701898908, timescale=48000]
     initializationData:
       data = length 26, hash 4E58F6C7
   sample 0:

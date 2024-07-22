@@ -144,6 +144,12 @@
         "drm_license_uri": "https://proxy.uat.widevine.com/proxy?video_id=GTS_HW_SECURE_ALL&provider=widevine_test"
       },
       {
+        "name": "20s license with renewal",
+        "uri": "https://storage.googleapis.com/wvmedia/cenc/h264/tears/tears.mpd",
+        "drm_scheme": "widevine",
+        "drm_license_uri": "https://proxy.uat.widevine.com/proxy?video_id=GTS_CAN_RENEW&provider=widevine_test"
+      },
+      {
         "name": "30s license (fails at ~30s)",
         "uri": "https://storage.googleapis.com/wvmedia/cenc/h264/tears/tears.mpd",
         "drm_scheme": "widevine",
@@ -474,6 +480,34 @@
             "uri": "https://html5demos.com/assets/dizzy.mp4"
           }
         ]
+      },
+      {
+        "name": "Playlist: No ads - DASH live: Tears of Steel (mid) - No ads",
+        "playlist": [
+          {
+            "uri": "https://html5demos.com/assets/dizzy.mp4"
+          },
+          {
+            "uri": "ssai://dai.google.com/?assetKey=PSzZMzAkSXCmlJOWDmRj8Q&format=0&adsId=1"
+          },
+          {
+            "uri": "https://html5demos.com/assets/dizzy.mp4"
+          }
+        ]
+      },
+      {
+        "name": "Playlist: No ads - HLS live: Big Buck Bunny - No ads",
+        "playlist": [
+          {
+            "uri": "https://html5demos.com/assets/dizzy.mp4"
+          },
+          {
+            "uri": "ssai://dai.google.com/?assetKey=sN_IYUG8STe1ZzhIIE_ksA&format=2&adsId=3"
+          },
+          {
+            "uri": "https://html5demos.com/assets/dizzy.mp4"
+          }
+        ]
       }
     ]
   },
@@ -638,6 +672,14 @@
       {
         "name": "MPEG-4 Timed Text",
         "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp4/dizzy-with-tx3g.mp4"
+      },
+      {
+        "name": "SubRip muxed into MKV",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mkv/android-screens-with-subrip.mkv"
+      },
+      {
+        "name": "Overlapping SSA muxed into MKV",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mkv/android-screens-with-overlapping-ssa.mkv"
       }
     ]
   },

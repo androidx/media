@@ -47,6 +47,7 @@
   <string name="exo_track_selection_none">Ingen</string>
   <string name="exo_track_selection_auto">Automatisk</string>
   <string name="exo_track_unknown">Ukendt</string>
+  <string name="exo_track_unknown_name">Ukendt (%1$s)</string>
   <string name="exo_track_resolution">%1$d × %2$d</string>
   <string name="exo_track_mono">Mono</string>
   <string name="exo_track_stereo">Stereo</string>

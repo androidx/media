@@ -31,6 +31,7 @@ import androidx.media3.common.ParserException;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ConditionVariable;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
@@ -39,6 +40,7 @@ import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.StatsDataSource;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.FormatHolder;
+import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
@@ -53,6 +55,7 @@ import androidx.media3.exoplayer.upstream.Loader.LoadErrorAction;
 import androidx.media3.exoplayer.upstream.Loader.Loadable;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorOutput;
+import androidx.media3.extractor.ForwardingSeekMap;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.SeekMap.SeekPoints;
@@ -65,7 +68,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -118,6 +120,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final Runnable maybeFinishPrepareRunnable;
   private final Runnable onContinueLoadingRequestedRunnable;
   private final Handler handler;
+  private final boolean isSingleSample;
 
   @Nullable private Callback callback;
   @Nullable private IcyHeaders icyHeaders;
@@ -162,6 +165,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    *     indexing. May be null.
    * @param continueLoadingCheckIntervalBytes The number of bytes that should be loaded between each
    *     invocation of {@link Callback#onContinueLoadingRequested(SequenceableLoader)}.
+   * @param singleSampleDurationUs The duration of media with a single sample in microseconds.
    */
   // maybeFinishPrepare is not posted to the handler until initialization completes.
   @SuppressWarnings({"nullness:argument", "nullness:methodref.receiver.bound"})
@@ -176,7 +180,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Listener listener,
       Allocator allocator,
       @Nullable String customCacheKey,
-      int continueLoadingCheckIntervalBytes) {
+      int continueLoadingCheckIntervalBytes,
+      long singleSampleDurationUs) {
     this.uri = uri;
     this.dataSource = dataSource;
     this.drmSessionManager = drmSessionManager;
@@ -189,6 +194,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.continueLoadingCheckIntervalBytes = continueLoadingCheckIntervalBytes;
     loader = new Loader("ProgressiveMediaPeriod");
     this.progressiveMediaExtractor = progressiveMediaExtractor;
+    this.durationUs = singleSampleDurationUs;
+    isSingleSample = singleSampleDurationUs != C.TIME_UNSET;
     loadCondition = new ConditionVariable();
     maybeFinishPrepareRunnable = this::maybeFinishPrepare;
     onContinueLoadingRequestedRunnable =
@@ -201,7 +208,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     sampleQueueTrackIds = new TrackId[0];
     sampleQueues = new SampleQueue[0];
     pendingResetPositionUs = C.TIME_UNSET;
-    durationUs = C.TIME_UNSET;
     dataType = C.DATA_TYPE_MEDIA;
   }
 
@@ -271,8 +277,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
     }
     // We'll always need to seek if this is a first selection to a non-zero position, or if we're
-    // making a selection having previously disabled all tracks.
-    boolean seekRequired = seenFirstTrackSelection ? oldEnabledTrackCount == 0 : positionUs != 0;
+    // making a selection having previously disabled all tracks, except for when we have a single
+    // sample.
+    boolean seekRequired =
+        !isSingleSample && (seenFirstTrackSelection ? oldEnabledTrackCount == 0 : positionUs != 0);
     // Select new tracks.
     for (int i = 0; i < selections.length; i++) {
       if (streams[i] == null && selections[i] != null) {
@@ -288,13 +296,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         // If there's still a chance of avoiding a seek, try and seek within the sample queue.
         if (!seekRequired) {
           SampleQueue sampleQueue = sampleQueues[track];
-          // A seek can be avoided if we're able to seek to the current playback position in the
-          // sample queue, or if we haven't read anything from the queue since the previous seek
-          // (this case is common for sparse tracks such as metadata tracks). In all other cases a
-          // seek is required.
+          // A seek can be avoided if we haven't read any samples yet (e.g. for the first track
+          // selection) or we are able to seek to the current playback position in the sample queue.
+          // In all other cases a seek is required.
           seekRequired =
-              !sampleQueue.seekTo(positionUs, /* allowTimeBeyondBuffer= */ true)
-                  && sampleQueue.getReadIndex() != 0;
+              sampleQueue.getReadIndex() != 0
+                  && !sampleQueue.seekTo(positionUs, /* allowTimeBeyondBuffer= */ true);
         }
       }
     }
@@ -327,6 +334,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public void discardBuffer(long positionUs, boolean toKeyframe) {
+    if (isSingleSample) {
+      // Optimize by not discarding buffers.
+      return;
+    }
     assertPrepared();
     if (isPendingReset()) {
       return;
@@ -344,7 +355,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public boolean continueLoading(long playbackPositionUs) {
+  public boolean continueLoading(LoadingInfo loadingInfo) {
     if (loadingFinished
         || loader.hasFatalError()
         || pendingDeferredRetry
@@ -734,7 +745,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private void setSeekMap(SeekMap seekMap) {
     this.seekMap = icyHeaders == null ? seekMap : new Unseekable(/* durationUs= */ C.TIME_UNSET);
-    durationUs = seekMap.getDurationUs();
+    if (seekMap.getDurationUs() == C.TIME_UNSET && durationUs != C.TIME_UNSET) {
+      this.seekMap =
+          new ForwardingSeekMap(this.seekMap) {
+            @Override
+            public long getDurationUs() {
+              return durationUs;
+            }
+          };
+    }
+    durationUs = this.seekMap.getDurationUs();
     isLive = !isLengthKnown && seekMap.getDurationUs() == C.TIME_UNSET;
     dataType = isLive ? C.DATA_TYPE_MEDIA_PROGRESSIVE_LIVE : C.DATA_TYPE_MEDIA;
     listener.onSourceInfoRefreshed(durationUs, seekMap.isSeekable(), isLive);
@@ -880,7 +900,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     int trackCount = sampleQueues.length;
     for (int i = 0; i < trackCount; i++) {
       SampleQueue sampleQueue = sampleQueues[i];
-      boolean seekInsideQueue = sampleQueue.seekTo(positionUs, /* allowTimeBeyondBuffer= */ false);
+      boolean seekInsideQueue =
+          isSingleSample
+              ? sampleQueue.seekTo(sampleQueue.getFirstIndex())
+              : sampleQueue.seekTo(positionUs, /* allowTimeBeyondBuffer= */ false);
       // If we have AV tracks then an in-buffer seek is successful if the seek into every AV queue
       // is successful. We ignore whether seeks within non-AV queues are successful in this case, as
       // they may be sparse or poorly interleaved. If we only have non-AV tracks then a seek is
@@ -1004,6 +1027,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           long position = positionHolder.position;
           dataSpec = buildDataSpec(position);
           long length = dataSource.open(dataSpec);
+          if (loadCanceled) {
+            break;
+          }
           if (length != C.LENGTH_UNSET) {
             length += position;
             onLengthKnown();

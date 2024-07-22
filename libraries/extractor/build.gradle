@@ -14,13 +14,24 @@
 apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 
 android {
+    namespace 'androidx.media3.extractor'
+
     buildTypes {
         debug {
             testCoverageEnabled = true
         }
     }
 
-    sourceSets.test.assets.srcDir '../test_data/src/test/assets/'
+    sourceSets {
+        androidTest.assets.srcDir '../test_data/src/test/assets'
+        test.assets.srcDir '../test_data/src/test/assets/'
+    }
+
+    publishing {
+        singleVariant('release') {
+            withSourcesJar()
+        }
+    }
 }
 
 dependencies {
@@ -31,18 +42,15 @@ dependencies {
     implementation project(modulePrefix + 'lib-decoder')
     compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
-    compileOnly 'org.checkerframework:checker-compat-qual:' + checkerframeworkCompatVersion
     compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion
     testImplementation project(modulePrefix + 'lib-exoplayer')
     testImplementation project(modulePrefix + 'test-utils')
     testImplementation project(modulePrefix + 'test-data')
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
+    androidTestImplementation 'androidx.test:runner:' + androidxTestRunnerVersion
+    androidTestImplementation project(modulePrefix + 'test-utils')
+    androidTestImplementation 'com.linkedin.dexmaker:dexmaker:' + dexmakerVersion
 }
-
-ext {
-    javadocTitle = 'Extractor module'
-}
-apply from: '../../javadoc_library.gradle'
 
 ext {
     releaseArtifactId = 'media3-extractor'

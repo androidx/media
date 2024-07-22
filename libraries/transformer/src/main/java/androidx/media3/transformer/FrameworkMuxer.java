@@ -44,11 +44,11 @@ import java.nio.ByteBuffer;
   private static final ImmutableList<String> SUPPORTED_VIDEO_SAMPLE_MIME_TYPES =
       Util.SDK_INT >= 24
           ? ImmutableList.of(
-              MimeTypes.VIDEO_H263,
+              MimeTypes.VIDEO_H265,
               MimeTypes.VIDEO_H264,
-              MimeTypes.VIDEO_MP4V,
-              MimeTypes.VIDEO_H265)
-          : ImmutableList.of(MimeTypes.VIDEO_H263, MimeTypes.VIDEO_H264, MimeTypes.VIDEO_MP4V);
+              MimeTypes.VIDEO_H263,
+              MimeTypes.VIDEO_MP4V)
+          : ImmutableList.of(MimeTypes.VIDEO_H264, MimeTypes.VIDEO_H263, MimeTypes.VIDEO_MP4V);
 
   private static final ImmutableList<String> SUPPORTED_AUDIO_SAMPLE_MIME_TYPES =
       ImmutableList.of(MimeTypes.AUDIO_AAC, MimeTypes.AUDIO_AMR_NB, MimeTypes.AUDIO_AMR_WB);
@@ -91,6 +91,7 @@ import java.nio.ByteBuffer;
   private final long videoDurationUs;
   private final MediaCodec.BufferInfo bufferInfo;
   private final SparseLongArray trackIndexToLastPresentationTimeUs;
+  private final SparseLongArray trackIndexToPresentationTimeOffsetUs;
 
   private int videoTrackIndex;
 
@@ -103,6 +104,7 @@ import java.nio.ByteBuffer;
     this.videoDurationUs = Util.msToUs(videoDurationMs);
     bufferInfo = new MediaCodec.BufferInfo();
     trackIndexToLastPresentationTimeUs = new SparseLongArray();
+    trackIndexToPresentationTimeOffsetUs = new SparseLongArray();
     videoTrackIndex = C.INDEX_UNSET;
   }
 
@@ -123,6 +125,7 @@ import java.nio.ByteBuffer;
     } else {
       mediaFormat =
           MediaFormat.createAudioFormat(sampleMimeType, format.sampleRate, format.channelCount);
+      MediaFormatUtil.maybeSetString(mediaFormat, MediaFormat.KEY_LANGUAGE, format.language);
     }
     MediaFormatUtil.setCsdBuffers(mediaFormat, format.initializationData);
     int trackIndex;
@@ -152,6 +155,9 @@ import java.nio.ByteBuffer;
 
     if (!isStarted) {
       isStarted = true;
+      if (Util.SDK_INT < 30 && presentationTimeUs < 0) {
+        trackIndexToPresentationTimeOffsetUs.put(trackIndex, -presentationTimeUs);
+      }
       try {
         mediaMuxer.start();
       } catch (RuntimeException e) {
@@ -161,6 +167,9 @@ import java.nio.ByteBuffer;
 
     int offset = data.position();
     int size = data.limit() - offset;
+
+    long presentationTimeOffsetUs = trackIndexToPresentationTimeOffsetUs.get(trackIndex);
+    presentationTimeUs += presentationTimeOffsetUs;
 
     bufferInfo.set(offset, size, presentationTimeUs, TransformerUtil.getMediaCodecFlags(flags));
     long lastSamplePresentationTimeUs = trackIndexToLastPresentationTimeUs.get(trackIndex);
@@ -173,6 +182,15 @@ import java.nio.ByteBuffer;
             + lastSamplePresentationTimeUs
             + ") unsupported on this API version");
     trackIndexToLastPresentationTimeUs.put(trackIndex, presentationTimeUs);
+
+    checkState(
+        presentationTimeOffsetUs == 0 || presentationTimeUs >= lastSamplePresentationTimeUs,
+        "Samples not in presentation order ("
+            + presentationTimeUs
+            + " < "
+            + lastSamplePresentationTimeUs
+            + ") unsupported when using negative PTS workaround");
+
     try {
       mediaMuxer.writeSampleData(trackIndex, data, bufferInfo);
     } catch (RuntimeException e) {

@@ -80,11 +80,13 @@ public final class VideoFrameReleaseHelper {
 
   /** The period between sampling display VSYNC timestamps, in milliseconds. */
   private static final long VSYNC_SAMPLE_UPDATE_PERIOD_MS = 500;
+
   /**
    * The maximum adjustment that can be made to a frame release timestamp, in nanoseconds, excluding
    * the part of the adjustment that aligns frame release timestamps with the display VSYNC.
    */
   private static final long MAX_ALLOWED_ADJUSTMENT_NS = 20_000_000;
+
   /**
    * If a frame is targeted to a display VSYNC with timestamp {@code vsyncTime}, the adjusted frame
    * release timestamp will be calculated as {@code releaseTime = vsyncTime - ((vsyncDuration *
@@ -101,12 +103,14 @@ public final class VideoFrameReleaseHelper {
 
   /** The media frame rate specified in the {@link Format}. */
   private float formatFrameRate;
+
   /**
    * The media frame rate used to calculate the playback frame rate of the {@link Surface}. This may
    * be different to {@link #formatFrameRate} if {@link #formatFrameRate} is unspecified or
    * inaccurate.
    */
   private float surfaceMediaFrameRate;
+
   /** The playback frame rate set on the {@link Surface}. */
   private float surfacePlaybackFrameRate;
 
@@ -168,7 +172,7 @@ public final class VideoFrameReleaseHelper {
    * @param surface The new {@link Surface}, or {@code null} if the renderer does not have one.
    */
   public void onSurfaceChanged(@Nullable Surface surface) {
-    if (surface instanceof PlaceholderSurface) {
+    if (Util.SDK_INT >= 17 && Api17.isPlaceholderSurface(surface)) {
       // We don't care about dummy surfaces for release timing, since they're not visible.
       surface = null;
     }
@@ -647,6 +651,15 @@ public final class VideoFrameReleaseHelper {
           sampledVsyncTimeNs = C.TIME_UNSET;
         }
       }
+    }
+  }
+
+  @RequiresApi(17)
+  private static final class Api17 {
+
+    @DoNotInline
+    public static boolean isPlaceholderSurface(@Nullable Surface surface) {
+      return surface instanceof PlaceholderSurface;
     }
   }
 }

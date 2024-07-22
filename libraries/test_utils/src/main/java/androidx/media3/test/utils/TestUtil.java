@@ -15,6 +15,7 @@
  */
 package androidx.media3.test.utils;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
@@ -25,8 +26,13 @@ import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.media.MediaCodec;
 import android.net.Uri;
+import android.os.Bundle;
+import android.os.Parcel;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaMetadata;
+import androidx.media3.common.StreamKey;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
@@ -63,6 +69,7 @@ import java.util.List;
 import java.util.Queue;
 import java.util.Random;
 import java.util.Set;
+import java.util.UUID;
 
 /** Utility methods for tests. */
 @UnstableApi
@@ -560,6 +567,53 @@ public class TestUtil {
     }
 
     return list;
+  }
+
+  /** Returns a {@link MediaItem} that has all fields set to non-default values. */
+  public static MediaItem buildFullyCustomizedMediaItem() {
+    return new MediaItem.Builder()
+        .setUri("http://custom.uri.test")
+        .setCustomCacheKey("custom.cache")
+        .setMediaId("custom.id")
+        .setMediaMetadata(new MediaMetadata.Builder().setTitle("custom.title").build())
+        .setClippingConfiguration(
+            new MediaItem.ClippingConfiguration.Builder().setStartPositionMs(123).build())
+        .setAdsConfiguration(
+            new MediaItem.AdsConfiguration.Builder(Uri.parse("http:://custom.ad.test")).build())
+        .setDrmConfiguration(new MediaItem.DrmConfiguration.Builder(UUID.randomUUID()).build())
+        .setLiveConfiguration(
+            new MediaItem.LiveConfiguration.Builder().setTargetOffsetMs(234).build())
+        .setMimeType("mime")
+        .setRequestMetadata(
+            new MediaItem.RequestMetadata.Builder().setSearchQuery("custom.query").build())
+        .setStreamKeys(ImmutableList.of(new StreamKey(/* groupIndex= */ 0, /* streamIndex= */ 0)))
+        .setTag("tag")
+        .setSubtitleConfigurations(
+            ImmutableList.of(
+                new MediaItem.SubtitleConfiguration.Builder(
+                        Uri.parse("http://custom.subtitle.test"))
+                    .build()))
+        .build();
+  }
+
+  /** Returns a {@link Bundle} that will throw an exception at the first attempt to read a value. */
+  public static Bundle getThrowingBundle() {
+    // Create Bundle containing a Parcelable class that will require a ClassLoader.
+    Bundle bundle = new Bundle();
+    bundle.putParcelable("0", new StreamKey(0, 0));
+    // Serialize this Bundle to a Parcel to remove the direct object reference.
+    Parcel parcel = Parcel.obtain();
+    parcel.writeBundle(bundle);
+    // Read the same Bundle from the Parcel again, but with a ClassLoader that can't load the class.
+    parcel.setDataPosition(0);
+    ClassLoader throwingClassLoader =
+        new ClassLoader() {
+          @Override
+          public Class<?> loadClass(String name) throws ClassNotFoundException {
+            throw new ClassNotFoundException();
+          }
+        };
+    return checkNotNull(parcel.readBundle(throwingClassLoader));
   }
 
   private static final class NoUidOrShufflingTimeline extends Timeline {

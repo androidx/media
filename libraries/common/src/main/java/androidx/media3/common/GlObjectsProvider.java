@@ -22,55 +22,13 @@ import android.opengl.EGLDisplay;
 import android.opengl.EGLSurface;
 import androidx.annotation.IntRange;
 import androidx.annotation.RequiresApi;
-import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.UnstableApi;
 
-// TODO(271433904): Expand this class to cover more methods in GlUtil.
+// TODO(b/271433904): Expand this class to cover more methods in GlUtil.
 /** Provider to customize the creation and maintenance of GL objects. */
 @UnstableApi
 public interface GlObjectsProvider {
-  /**
-   * @deprecated Please use {@code DefaultGlObjectsProvider} in {@code androidx.media3.effect}.
-   */
-  @Deprecated
-  GlObjectsProvider DEFAULT =
-      new GlObjectsProvider() {
-        @Override
-        @RequiresApi(17)
-        public EGLContext createEglContext(
-            EGLDisplay eglDisplay, int openGlVersion, int[] configAttributes) throws GlException {
-          return GlUtil.createEglContext(
-              EGL14.EGL_NO_CONTEXT, eglDisplay, openGlVersion, configAttributes);
-        }
-
-        @Override
-        @RequiresApi(17)
-        public EGLSurface createEglSurface(
-            EGLDisplay eglDisplay,
-            Object surface,
-            @C.ColorTransfer int colorTransfer,
-            boolean isEncoderInputSurface)
-            throws GlException {
-          return GlUtil.createEglSurface(eglDisplay, surface, colorTransfer, isEncoderInputSurface);
-        }
-
-        @Override
-        @RequiresApi(17)
-        public EGLSurface createFocusedPlaceholderEglSurface(
-            EGLContext eglContext, EGLDisplay eglDisplay, int[] configAttributes)
-            throws GlException {
-          return GlUtil.createFocusedPlaceholderEglSurface(
-              eglContext, eglDisplay, configAttributes);
-        }
-
-        @Override
-        public GlTextureInfo createBuffersForTexture(int texId, int width, int height)
-            throws GlException {
-          int fboId = GlUtil.createFboForTexture(texId);
-          return new GlTextureInfo(texId, fboId, /* rboId= */ C.INDEX_UNSET, width, height);
-        }
-      };
 
   /**
    * Creates a new {@link EGLContext} for the specified {@link EGLDisplay}.
@@ -109,15 +67,14 @@ public interface GlObjectsProvider {
    *
    * @param eglContext The {@link EGLContext} to make current.
    * @param eglDisplay The {@link EGLDisplay} to attach the surface to.
-   * @param configAttributes The attributes to configure EGL with.
    * @return A placeholder {@link EGLSurface} that has been focused to allow rendering to take
    *     place, or {@link EGL14#EGL_NO_SURFACE} if the current context supports rendering without a
    *     surface.
    * @throws GlException If an error occurs during creation.
    */
   @RequiresApi(17)
-  EGLSurface createFocusedPlaceholderEglSurface(
-      EGLContext eglContext, EGLDisplay eglDisplay, int[] configAttributes) throws GlException;
+  EGLSurface createFocusedPlaceholderEglSurface(EGLContext eglContext, EGLDisplay eglDisplay)
+      throws GlException;
 
   /**
    * Returns a {@link GlTextureInfo} containing the identifiers of the newly created buffers.

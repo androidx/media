@@ -17,7 +17,7 @@ package androidx.media3.effect;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE;
-import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapFromCurrentGlFramebuffer;
+import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapFromFocusedGlFramebuffer;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createGlTextureFromBitmap;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.maybeSaveTestBitmap;
@@ -37,10 +37,14 @@ import androidx.media3.common.util.Size;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.IOException;
+import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 /**
@@ -53,6 +57,8 @@ import org.junit.runner.RunWith;
  */
 @RunWith(AndroidJUnit4.class)
 public final class PresentationPixelTest {
+  @Rule public final TestName testName = new TestName();
+
   private static final String ORIGINAL_PNG_ASSET_PATH =
       "media/bitmap/sample_mp4_first_frame/electrical_colors/original.png";
   private static final String ASPECT_RATIO_SCALE_TO_FIT_NARROW_PNG_ASSET_PATH =
@@ -70,9 +76,10 @@ public final class PresentationPixelTest {
 
   private final Context context = getApplicationContext();
 
+  private @MonotonicNonNull String testId;
   private @MonotonicNonNull EGLDisplay eglDisplay;
   private @MonotonicNonNull EGLContext eglContext;
-  private @MonotonicNonNull SingleFrameGlShaderProgram presentationShaderProgram;
+  private @MonotonicNonNull BaseGlShaderProgram presentationShaderProgram;
   private @MonotonicNonNull EGLSurface placeholderEglSurface;
   private int inputTexId;
   private int inputWidth;
@@ -80,14 +87,20 @@ public final class PresentationPixelTest {
 
   @Before
   public void createGlObjects() throws IOException, GlUtil.GlException {
-    eglDisplay = GlUtil.createEglDisplay();
+    eglDisplay = GlUtil.getDefaultEglDisplay();
     eglContext = GlUtil.createEglContext(eglDisplay);
-    placeholderEglSurface = GlUtil.focusPlaceholderEglSurface(eglContext, eglDisplay);
+    placeholderEglSurface = GlUtil.createFocusedPlaceholderEglSurface(eglContext, eglDisplay);
 
     Bitmap inputBitmap = readBitmap(ORIGINAL_PNG_ASSET_PATH);
     inputWidth = inputBitmap.getWidth();
     inputHeight = inputBitmap.getHeight();
     inputTexId = createGlTextureFromBitmap(inputBitmap);
+  }
+
+  @Before
+  @EnsuresNonNull("testId")
+  public void setUpTestId() {
+    testId = testName.getMethodName();
   }
 
   @After
@@ -101,8 +114,8 @@ public final class PresentationPixelTest {
   }
 
   @Test
+  @RequiresNonNull("testId")
   public void drawFrame_noEdits_matchesGoldenFile() throws Exception {
-    String testId = "drawFrame_noEdits";
     presentationShaderProgram =
         Presentation.createForHeight(C.LENGTH_UNSET)
             .toGlShaderProgram(context, /* useHdr= */ false);
@@ -112,7 +125,7 @@ public final class PresentationPixelTest {
 
     presentationShaderProgram.drawFrame(inputTexId, /* presentationTimeUs= */ 0);
     Bitmap actualBitmap =
-        createArgb8888BitmapFromCurrentGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
+        createArgb8888BitmapFromFocusedGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
 
     maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
     // TODO(b/207848601): Switch to using proper tooling for testing against golden data.
@@ -122,8 +135,8 @@ public final class PresentationPixelTest {
   }
 
   @Test
+  @RequiresNonNull("testId")
   public void drawFrame_changeAspectRatio_scaleToFit_narrow_matchesGoldenFile() throws Exception {
-    String testId = "drawFrame_changeAspectRatio_scaleToFit_narrow";
     presentationShaderProgram =
         Presentation.createForAspectRatio(/* aspectRatio= */ 1f, Presentation.LAYOUT_SCALE_TO_FIT)
             .toGlShaderProgram(context, /* useHdr= */ false);
@@ -133,7 +146,7 @@ public final class PresentationPixelTest {
 
     presentationShaderProgram.drawFrame(inputTexId, /* presentationTimeUs= */ 0);
     Bitmap actualBitmap =
-        createArgb8888BitmapFromCurrentGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
+        createArgb8888BitmapFromFocusedGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
 
     maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
     // TODO(b/207848601): Switch to using proper tooling for testing against golden data.
@@ -143,8 +156,8 @@ public final class PresentationPixelTest {
   }
 
   @Test
+  @RequiresNonNull("testId")
   public void drawFrame_changeAspectRatio_scaleToFit_wide_matchesGoldenFile() throws Exception {
-    String testId = "drawFrame_changeAspectRatio_scaleToFit_wide";
     presentationShaderProgram =
         Presentation.createForAspectRatio(/* aspectRatio= */ 2f, Presentation.LAYOUT_SCALE_TO_FIT)
             .toGlShaderProgram(context, /* useHdr= */ false);
@@ -154,7 +167,7 @@ public final class PresentationPixelTest {
 
     presentationShaderProgram.drawFrame(inputTexId, /* presentationTimeUs= */ 0);
     Bitmap actualBitmap =
-        createArgb8888BitmapFromCurrentGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
+        createArgb8888BitmapFromFocusedGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
 
     maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
     // TODO(b/207848601): Switch to using proper tooling for testing against golden data.
@@ -164,9 +177,9 @@ public final class PresentationPixelTest {
   }
 
   @Test
+  @RequiresNonNull("testId")
   public void drawFrame_changeAspectRatio_scaleToFitWithCrop_narrow_matchesGoldenFile()
       throws Exception {
-    String testId = "drawFrame_changeAspectRatio_scaleToFitWithCrop_narrow";
     presentationShaderProgram =
         Presentation.createForAspectRatio(
                 /* aspectRatio= */ 1f, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP)
@@ -177,7 +190,7 @@ public final class PresentationPixelTest {
 
     presentationShaderProgram.drawFrame(inputTexId, /* presentationTimeUs= */ 0);
     Bitmap actualBitmap =
-        createArgb8888BitmapFromCurrentGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
+        createArgb8888BitmapFromFocusedGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
 
     maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
     // TODO(b/207848601): Switch to using proper tooling for testing against golden data.
@@ -187,9 +200,9 @@ public final class PresentationPixelTest {
   }
 
   @Test
+  @RequiresNonNull("testId")
   public void drawFrame_changeAspectRatio_scaleToFitWithCrop_wide_matchesGoldenFile()
       throws Exception {
-    String testId = "drawFrame_changeAspectRatio_scaleToFitWithCrop_wide";
     presentationShaderProgram =
         Presentation.createForAspectRatio(
                 /* aspectRatio= */ 2f, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP)
@@ -200,7 +213,7 @@ public final class PresentationPixelTest {
 
     presentationShaderProgram.drawFrame(inputTexId, /* presentationTimeUs= */ 0);
     Bitmap actualBitmap =
-        createArgb8888BitmapFromCurrentGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
+        createArgb8888BitmapFromFocusedGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
 
     maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
     // TODO(b/207848601): Switch to using proper tooling for testing against golden data.
@@ -210,8 +223,8 @@ public final class PresentationPixelTest {
   }
 
   @Test
+  @RequiresNonNull("testId")
   public void drawFrame_changeAspectRatio_stretchToFit_narrow_matchesGoldenFile() throws Exception {
-    String testId = "drawFrame_changeAspectRatio_stretchToFit_narrow";
     presentationShaderProgram =
         Presentation.createForAspectRatio(/* aspectRatio= */ 1f, Presentation.LAYOUT_STRETCH_TO_FIT)
             .toGlShaderProgram(context, /* useHdr= */ false);
@@ -221,7 +234,7 @@ public final class PresentationPixelTest {
 
     presentationShaderProgram.drawFrame(inputTexId, /* presentationTimeUs= */ 0);
     Bitmap actualBitmap =
-        createArgb8888BitmapFromCurrentGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
+        createArgb8888BitmapFromFocusedGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
 
     maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
     // TODO(b/207848601): Switch to using proper tooling for testing against golden data.
@@ -231,8 +244,8 @@ public final class PresentationPixelTest {
   }
 
   @Test
+  @RequiresNonNull("testId")
   public void drawFrame_changeAspectRatio_stretchToFit_wide_matchesGoldenFile() throws Exception {
-    String testId = "drawFrame_changeAspectRatio_stretchToFit_wide";
     presentationShaderProgram =
         Presentation.createForAspectRatio(/* aspectRatio= */ 2f, Presentation.LAYOUT_STRETCH_TO_FIT)
             .toGlShaderProgram(context, /* useHdr= */ false);
@@ -242,7 +255,7 @@ public final class PresentationPixelTest {
 
     presentationShaderProgram.drawFrame(inputTexId, /* presentationTimeUs= */ 0);
     Bitmap actualBitmap =
-        createArgb8888BitmapFromCurrentGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
+        createArgb8888BitmapFromFocusedGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
 
     maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
     // TODO(b/207848601): Switch to using proper tooling for testing against golden data.

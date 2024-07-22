@@ -37,6 +37,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.LongArray;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -55,6 +56,8 @@ import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.TrueHdSampleRechunker;
+import androidx.media3.extractor.text.SubtitleParser;
+import androidx.media3.extractor.text.SubtitleTranscodingExtractorOutput;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.lang.annotation.Documented;
@@ -71,7 +74,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
@@ -80,20 +82,26 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 @UnstableApi
 public class MatroskaExtractor implements Extractor {
 
-  /** Factory for {@link MatroskaExtractor} instances. */
-  public static final ExtractorsFactory FACTORY = () -> new Extractor[] {new MatroskaExtractor()};
+  /**
+   * Creates a factory for {@link MatroskaExtractor} instances with the provided {@link
+   * SubtitleParser.Factory}.
+   */
+  public static ExtractorsFactory newFactory(SubtitleParser.Factory subtitleParserFactory) {
+    return () -> new Extractor[] {new MatroskaExtractor(subtitleParserFactory)};
+  }
 
   /**
-   * Flags controlling the behavior of the extractor. Possible flag value is {@link
-   * #FLAG_DISABLE_SEEK_FOR_CUES}.
+   * Flags controlling the behavior of the extractor. Possible flag values are {@link
+   * #FLAG_DISABLE_SEEK_FOR_CUES} and {#FLAG_EMIT_RAW_SUBTITLE_DATA}.
    */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)
   @IntDef(
       flag = true,
-      value = {FLAG_DISABLE_SEEK_FOR_CUES})
+      value = {FLAG_DISABLE_SEEK_FOR_CUES, FLAG_EMIT_RAW_SUBTITLE_DATA})
   public @interface Flags {}
+
   /**
    * Flag to disable seeking for cues.
    *
@@ -103,6 +111,22 @@ public class MatroskaExtractor implements Extractor {
    * media is treated as being unseekable.
    */
   public static final int FLAG_DISABLE_SEEK_FOR_CUES = 1;
+
+  /**
+   * Flag to use the source subtitle formats without modification. If unset, subtitles will be
+   * transcoded to {@link MimeTypes#APPLICATION_MEDIA3_CUES} during extraction.
+   */
+  public static final int FLAG_EMIT_RAW_SUBTITLE_DATA = 1 << 1; // 2
+
+  /**
+   * @deprecated Use {@link #newFactory(SubtitleParser.Factory)} instead.
+   */
+  @Deprecated
+  public static final ExtractorsFactory FACTORY =
+      () ->
+          new Extractor[] {
+            new MatroskaExtractor(SubtitleParser.Factory.UNSUPPORTED, FLAG_EMIT_RAW_SUBTITLE_DATA)
+          };
 
   private static final String TAG = "MatroskaExtractor";
 
@@ -231,6 +255,7 @@ public class MatroskaExtractor implements Extractor {
   private static final int ID_STEREO_MODE = 0x53B8;
   private static final int ID_COLOUR = 0x55B0;
   private static final int ID_COLOUR_RANGE = 0x55B9;
+  private static final int ID_COLOUR_BITS_PER_CHANNEL = 0x55B2;
   private static final int ID_COLOUR_TRANSFER = 0x55BA;
   private static final int ID_COLOUR_PRIMARIES = 0x55BB;
   private static final int ID_MAX_CLL = 0x55BC;
@@ -258,6 +283,7 @@ public class MatroskaExtractor implements Extractor {
    * https://www.matroska.org/technical/codec_specs.html.
    */
   private static final int BLOCK_ADD_ID_TYPE_DVCC = 0x64766343;
+
   /**
    * BlockAddIdType value for Dolby Vision configuration with profile > 7. See also
    * https://www.matroska.org/technical/codec_specs.html.
@@ -289,13 +315,16 @@ public class MatroskaExtractor implements Extractor {
         49, 10, 48, 48, 58, 48, 48, 58, 48, 48, 44, 48, 48, 48, 32, 45, 45, 62, 32, 48, 48, 58, 48,
         48, 58, 48, 48, 44, 48, 48, 48, 10
       };
+
   /** The byte offset of the end timecode in {@link #SUBRIP_PREFIX}. */
   private static final int SUBRIP_PREFIX_END_TIMECODE_OFFSET = 19;
+
   /**
    * The value by which to divide a time in microseconds to convert it to the unit of the last value
    * in a subrip timecode (milliseconds).
    */
   private static final long SUBRIP_TIMECODE_LAST_VALUE_SCALING_FACTOR = 1000;
+
   /** The format of a subrip timecode. */
   private static final String SUBRIP_TIMECODE_FORMAT = "%02d:%02d:%02d,%03d";
 
@@ -304,6 +333,7 @@ public class MatroskaExtractor implements Extractor {
       Util.getUtf8Bytes(
           "Format: Start, End, "
               + "ReadOrder, Layer, Style, Name, MarginL, MarginR, MarginV, Effect, Text");
+
   /**
    * A template for the prefix that must be added to each SSA sample.
    *
@@ -320,13 +350,16 @@ public class MatroskaExtractor implements Extractor {
         68, 105, 97, 108, 111, 103, 117, 101, 58, 32, 48, 58, 48, 48, 58, 48, 48, 58, 48, 48, 44,
         48, 58, 48, 48, 58, 48, 48, 58, 48, 48, 44
       };
+
   /** The byte offset of the end timecode in {@link #SSA_PREFIX}. */
   private static final int SSA_PREFIX_END_TIMECODE_OFFSET = 21;
+
   /**
    * The value by which to divide a time in microseconds to convert it to the unit of the last value
    * in an SSA timecode (1/100ths of a second).
    */
   private static final long SSA_TIMECODE_LAST_VALUE_SCALING_FACTOR = 10_000;
+
   /** The format of an SSA timecode. */
   private static final String SSA_TIMECODE_FORMAT = "%01d:%02d:%02d:%02d";
 
@@ -346,22 +379,28 @@ public class MatroskaExtractor implements Extractor {
         87, 69, 66, 86, 84, 84, 10, 10, 48, 48, 58, 48, 48, 58, 48, 48, 46, 48, 48, 48, 32, 45, 45,
         62, 32, 48, 48, 58, 48, 48, 58, 48, 48, 46, 48, 48, 48, 10
       };
+
   /** The byte offset of the end timecode in {@link #VTT_PREFIX}. */
   private static final int VTT_PREFIX_END_TIMECODE_OFFSET = 25;
+
   /**
    * The value by which to divide a time in microseconds to convert it to the unit of the last value
    * in a VTT timecode (milliseconds).
    */
   private static final long VTT_TIMECODE_LAST_VALUE_SCALING_FACTOR = 1000;
+
   /** The format of a VTT timecode. */
   private static final String VTT_TIMECODE_FORMAT = "%02d:%02d:%02d.%03d";
 
   /** The length in bytes of a WAVEFORMATEX structure. */
   private static final int WAVE_FORMAT_SIZE = 18;
+
   /** Format tag indicating a WAVEFORMATEXTENSIBLE structure. */
   private static final int WAVE_FORMAT_EXTENSIBLE = 0xFFFE;
+
   /** Format tag for PCM. */
   private static final int WAVE_FORMAT_PCM = 1;
+
   /** Sub format for PCM. */
   private static final UUID WAVE_SUBFORMAT_PCM = new UUID(0x0100000000001000L, 0x800000AA00389B71L);
 
@@ -381,6 +420,8 @@ public class MatroskaExtractor implements Extractor {
   private final VarintReader varintReader;
   private final SparseArray<Track> tracks;
   private final boolean seekForCuesEnabled;
+  private final boolean parseSubtitlesDuringExtraction;
+  private final SubtitleParser.Factory subtitleParserFactory;
 
   // Temporary arrays.
   private final ParsableByteArray nalStartCode;
@@ -451,18 +492,53 @@ public class MatroskaExtractor implements Extractor {
   // Extractor outputs.
   private @MonotonicNonNull ExtractorOutput extractorOutput;
 
+  /**
+   * @deprecated Use {@link #MatroskaExtractor(SubtitleParser.Factory)} instead.
+   */
+  @Deprecated
   public MatroskaExtractor() {
-    this(0);
+    this(new DefaultEbmlReader(), FLAG_EMIT_RAW_SUBTITLE_DATA, SubtitleParser.Factory.UNSUPPORTED);
   }
 
+  /**
+   * @deprecated Use {@link #MatroskaExtractor(SubtitleParser.Factory, int)} instead.
+   */
+  @Deprecated
   public MatroskaExtractor(@Flags int flags) {
-    this(new DefaultEbmlReader(), flags);
+    this(
+        new DefaultEbmlReader(),
+        flags | FLAG_EMIT_RAW_SUBTITLE_DATA,
+        SubtitleParser.Factory.UNSUPPORTED);
   }
 
-  /* package */ MatroskaExtractor(EbmlReader reader, @Flags int flags) {
+  /**
+   * Constructs an instance.
+   *
+   * @param subtitleParserFactory The {@link SubtitleParser.Factory} for parsing subtitles during
+   *     extraction.
+   */
+  public MatroskaExtractor(SubtitleParser.Factory subtitleParserFactory) {
+    this(new DefaultEbmlReader(), /* flags= */ 0, subtitleParserFactory);
+  }
+
+  /**
+   * Constructs an instance.
+   *
+   * @param subtitleParserFactory The {@link SubtitleParser.Factory} for parsing subtitles during
+   *     extraction.
+   * @param flags Flags that control the extractor's behavior.
+   */
+  public MatroskaExtractor(SubtitleParser.Factory subtitleParserFactory, @Flags int flags) {
+    this(new DefaultEbmlReader(), flags, subtitleParserFactory);
+  }
+
+  /* package */ MatroskaExtractor(
+      EbmlReader reader, @Flags int flags, SubtitleParser.Factory subtitleParserFactory) {
     this.reader = reader;
     this.reader.init(new InnerEbmlProcessor());
+    this.subtitleParserFactory = subtitleParserFactory;
     seekForCuesEnabled = (flags & FLAG_DISABLE_SEEK_FOR_CUES) == 0;
+    parseSubtitlesDuringExtraction = (flags & FLAG_EMIT_RAW_SUBTITLE_DATA) == 0;
     varintReader = new VarintReader();
     tracks = new SparseArray<>();
     scratch = new ParsableByteArray(4);
@@ -486,6 +562,10 @@ public class MatroskaExtractor implements Extractor {
   @Override
   public final void init(ExtractorOutput output) {
     extractorOutput = output;
+    extractorOutput =
+        parseSubtitlesDuringExtraction
+            ? new SubtitleTranscodingExtractorOutput(output, subtitleParserFactory)
+            : output;
   }
 
   @CallSuper
@@ -593,6 +673,7 @@ public class MatroskaExtractor implements Extractor {
       case ID_CUE_CLUSTER_POSITION:
       case ID_REFERENCE_BLOCK:
       case ID_STEREO_MODE:
+      case ID_COLOUR_BITS_PER_CHANNEL:
       case ID_COLOUR_RANGE:
       case ID_COLOUR_TRANSFER:
       case ID_COLOUR_PRIMARIES:
@@ -1001,6 +1082,11 @@ public class MatroskaExtractor implements Extractor {
         if (colorTransfer != Format.NO_VALUE) {
           currentTrack.colorTransfer = colorTransfer;
         }
+        break;
+      case ID_COLOUR_BITS_PER_CHANNEL:
+        assertInTrackEntry(id);
+        currentTrack.hasColorInfo = true;
+        currentTrack.bitsPerChannel = (int) value;
         break;
       case ID_COLOUR_RANGE:
         assertInTrackEntry(id);
@@ -1974,6 +2060,7 @@ public class MatroskaExtractor implements Extractor {
 
     private static final int DISPLAY_UNIT_PIXELS = 0;
     private static final int MAX_CHROMATICITY = 50_000; // Defined in CTA-861.3.
+
     /** Default max content light level (CLL) that should be encoded into hdrStaticInfo. */
     private static final int DEFAULT_MAX_CLL = 1000; // nits.
 
@@ -1997,6 +2084,7 @@ public class MatroskaExtractor implements Extractor {
     // Video elements.
     public int width = Format.NO_VALUE;
     public int height = Format.NO_VALUE;
+    public int bitsPerChannel = Format.NO_VALUE;
     public int displayWidth = Format.NO_VALUE;
     public int displayHeight = Format.NO_VALUE;
     public int displayUnit = DISPLAY_UNIT_PIXELS;
@@ -2188,6 +2276,10 @@ public class MatroskaExtractor implements Extractor {
             pcmEncoding = C.ENCODING_PCM_8BIT;
           } else if (audioBitDepth == 16) {
             pcmEncoding = C.ENCODING_PCM_16BIT_BIG_ENDIAN;
+          } else if (audioBitDepth == 24) {
+            pcmEncoding = C.ENCODING_PCM_24BIT_BIG_ENDIAN;
+          } else if (audioBitDepth == 32) {
+            pcmEncoding = C.ENCODING_PCM_32BIT_BIG_ENDIAN;
           } else {
             pcmEncoding = Format.NO_VALUE;
             mimeType = MimeTypes.AUDIO_UNKNOWN;
@@ -2280,7 +2372,15 @@ public class MatroskaExtractor implements Extractor {
         @Nullable ColorInfo colorInfo = null;
         if (hasColorInfo) {
           @Nullable byte[] hdrStaticInfo = getHdrStaticInfo();
-          colorInfo = new ColorInfo(colorSpace, colorRange, colorTransfer, hdrStaticInfo);
+          colorInfo =
+              new ColorInfo.Builder()
+                  .setColorSpace(colorSpace)
+                  .setColorRange(colorRange)
+                  .setColorTransfer(colorTransfer)
+                  .setHdrStaticInfo(hdrStaticInfo)
+                  .setLumaBitdepth(bitsPerChannel)
+                  .setChromaBitdepth(bitsPerChannel)
+                  .build();
         }
         int rotationDegrees = Format.NO_VALUE;
 
@@ -2293,12 +2393,12 @@ public class MatroskaExtractor implements Extractor {
           // The range of projectionPoseRoll is [-180, 180].
           if (Float.compare(projectionPoseRoll, 0f) == 0) {
             rotationDegrees = 0;
-          } else if (Float.compare(projectionPosePitch, 90f) == 0) {
+          } else if (Float.compare(projectionPoseRoll, 90f) == 0) {
             rotationDegrees = 90;
-          } else if (Float.compare(projectionPosePitch, -180f) == 0
-              || Float.compare(projectionPosePitch, 180f) == 0) {
+          } else if (Float.compare(projectionPoseRoll, -180f) == 0
+              || Float.compare(projectionPoseRoll, 180f) == 0) {
             rotationDegrees = 180;
-          } else if (Float.compare(projectionPosePitch, -90f) == 0) {
+          } else if (Float.compare(projectionPoseRoll, -90f) == 0) {
             rotationDegrees = 270;
           }
         }

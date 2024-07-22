@@ -15,15 +15,17 @@
  */
 package androidx.media3.effect;
 
-import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_BITMAP;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
+import static androidx.media3.test.utils.VideoFrameProcessorTestRunner.createTimestampIterator;
 import static com.google.common.truth.Truth.assertThat;
 
+import android.graphics.Bitmap;
+import android.util.Pair;
 import androidx.media3.common.C;
-import androidx.media3.common.ColorInfo;
 import androidx.media3.test.utils.VideoFrameProcessorTestRunner;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -32,12 +34,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 /** Tests for frame queuing and output in {@link DefaultVideoFrameProcessor} given image input. */
 @RunWith(AndroidJUnit4.class)
 public class DefaultVideoFrameProcessorImageFrameOutputTest {
+  @Rule public final TestName testName = new TestName();
+
   private static final String ORIGINAL_PNG_ASSET_PATH =
       "media/bitmap/sample_mp4_first_frame/electrical_colors/original.png";
   private static final String SCALE_WIDE_PNG_ASSET_PATH =
@@ -45,13 +51,15 @@ public class DefaultVideoFrameProcessorImageFrameOutputTest {
   private static final String BITMAP_OVERLAY_PNG_ASSET_PATH =
       "media/bitmap/sample_mp4_first_frame/electrical_colors/overlay_bitmap_FrameProcessor.png";
 
+  private @MonotonicNonNull String testId;
   private @MonotonicNonNull VideoFrameProcessorTestRunner videoFrameProcessorTestRunner;
   private @MonotonicNonNull AtomicInteger framesProduced;
 
-  @EnsuresNonNull("framesProduced")
   @Before
+  @EnsuresNonNull({"framesProduced", "testId"})
   public void setUp() {
     framesProduced = new AtomicInteger();
+    testId = testName.getMethodName();
   }
 
   @After
@@ -59,10 +67,9 @@ public class DefaultVideoFrameProcessorImageFrameOutputTest {
     checkNotNull(videoFrameProcessorTestRunner).release();
   }
 
-  @RequiresNonNull("framesProduced")
   @Test
+  @RequiresNonNull({"framesProduced", "testId"})
   public void imageInput_queueThreeBitmaps_outputsCorrectNumberOfFrames() throws Exception {
-    String testId = "imageInput_queueThreeBitmaps_outputsCorrectNumberOfFrames";
     videoFrameProcessorTestRunner = getDefaultFrameProcessorTestRunnerBuilder(testId).build();
 
     videoFrameProcessorTestRunner.queueInputBitmap(
@@ -86,10 +93,9 @@ public class DefaultVideoFrameProcessorImageFrameOutputTest {
     assertThat(actualFrameCount).isEqualTo(/* expected= */ 20);
   }
 
-  @RequiresNonNull("framesProduced")
   @Test
+  @RequiresNonNull({"framesProduced", "testId"})
   public void imageInput_queueTwentyBitmaps_outputsCorrectNumberOfFrames() throws Exception {
-    String testId = "imageInput_queueTwentyBitmaps_outputsCorrectNumberOfFrames";
     videoFrameProcessorTestRunner = getDefaultFrameProcessorTestRunnerBuilder(testId).build();
 
     for (int i = 0; i < 20; i++) {
@@ -105,12 +111,10 @@ public class DefaultVideoFrameProcessorImageFrameOutputTest {
     assertThat(actualFrameCount).isEqualTo(/* expected= */ 20);
   }
 
-  @RequiresNonNull("framesProduced")
   @Test
+  @RequiresNonNull({"framesProduced", "testId"})
   public void imageInput_queueOneWithStartOffset_outputsFramesAtTheCorrectPresentationTimesUs()
       throws Exception {
-    String testId =
-        "imageInput_queueOneWithStartOffset_outputsFramesAtTheCorrectPresentationTimesUs";
     Queue<Long> actualPresentationTimesUs = new ConcurrentLinkedQueue<>();
     videoFrameProcessorTestRunner =
         getDefaultFrameProcessorTestRunnerBuilder(testId)
@@ -129,11 +133,10 @@ public class DefaultVideoFrameProcessorImageFrameOutputTest {
         .inOrder();
   }
 
-  @RequiresNonNull("framesProduced")
   @Test
+  @RequiresNonNull({"framesProduced", "testId"})
   public void imageInput_queueWithStartOffsets_outputsFramesAtTheCorrectPresentationTimesUs()
       throws Exception {
-    String testId = "imageInput_queueWithStartOffsets_outputsFramesAtTheCorrectPresentationTimesUs";
     Queue<Long> actualPresentationTimesUs = new ConcurrentLinkedQueue<>();
     videoFrameProcessorTestRunner =
         getDefaultFrameProcessorTestRunnerBuilder(testId)
@@ -162,32 +165,29 @@ public class DefaultVideoFrameProcessorImageFrameOutputTest {
         .inOrder();
   }
 
-  @RequiresNonNull("framesProduced")
   @Test
-  public void
-      imageInput_queueEndAndQueueAgain_outputsFirstSetOfFramesOnlyAtTheCorrectPresentationTimesUs()
-          throws Exception {
-    String testId =
-        "imageInput_queueEndAndQueueAgain_outputsFirstSetOfFramesOnlyAtTheCorrectPresentationTimesUs";
+  @RequiresNonNull({"framesProduced", "testId"})
+  public void queueBitmapsWithTimestamps_outputsFramesAtTheCorrectPresentationTimesUs()
+      throws Exception {
     Queue<Long> actualPresentationTimesUs = new ConcurrentLinkedQueue<>();
     videoFrameProcessorTestRunner =
         getDefaultFrameProcessorTestRunnerBuilder(testId)
             .setOnOutputFrameAvailableForRenderingListener(actualPresentationTimesUs::add)
             .build();
+    Bitmap bitmap1 = readBitmap(ORIGINAL_PNG_ASSET_PATH);
+    Bitmap bitmap2 = readBitmap(BITMAP_OVERLAY_PNG_ASSET_PATH);
+    Long offset1 = 0L;
+    Long offset2 = C.MICROS_PER_SECOND;
+    Long offset3 = 2 * C.MICROS_PER_SECOND;
 
-    videoFrameProcessorTestRunner.queueInputBitmap(
-        readBitmap(ORIGINAL_PNG_ASSET_PATH),
-        /* durationUs= */ C.MICROS_PER_SECOND,
-        /* offsetToAddUs= */ 0L,
-        /* frameRate= */ 2);
+    videoFrameProcessorTestRunner.queueInputBitmaps(
+        bitmap1.getWidth(),
+        bitmap1.getHeight(),
+        Pair.create(bitmap1, createTimestampIterator(ImmutableList.of(offset1))),
+        Pair.create(bitmap2, createTimestampIterator(ImmutableList.of(offset2, offset3))));
     videoFrameProcessorTestRunner.endFrameProcessing();
-    videoFrameProcessorTestRunner.queueInputBitmap(
-        readBitmap(ORIGINAL_PNG_ASSET_PATH),
-        /* durationUs= */ 2 * C.MICROS_PER_SECOND,
-        /* offsetToAddUs= */ 0L,
-        /* frameRate= */ 3);
 
-    assertThat(actualPresentationTimesUs).containsExactly(0L, C.MICROS_PER_SECOND / 2).inOrder();
+    assertThat(actualPresentationTimesUs).containsExactly(offset1, offset2, offset3).inOrder();
   }
 
   private VideoFrameProcessorTestRunner.Builder getDefaultFrameProcessorTestRunnerBuilder(
@@ -195,8 +195,6 @@ public class DefaultVideoFrameProcessorImageFrameOutputTest {
     return new VideoFrameProcessorTestRunner.Builder()
         .setTestId(testId)
         .setVideoFrameProcessorFactory(new DefaultVideoFrameProcessor.Factory.Builder().build())
-        .setInputType(INPUT_TYPE_BITMAP)
-        .setInputColorInfo(ColorInfo.SRGB_BT709_FULL)
         .setOnOutputFrameAvailableForRenderingListener(
             unused -> checkNotNull(framesProduced).incrementAndGet());
   }

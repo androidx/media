@@ -21,7 +21,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.base.Objects;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
@@ -52,12 +51,23 @@ public interface AudioProcessor {
 
     /** The sample rate in Hertz. */
     public final int sampleRate;
+
     /** The number of interleaved channels. */
     public final int channelCount;
+
     /** The type of linear PCM encoding. */
     public final @C.PcmEncoding int encoding;
+
     /** The number of bytes used to represent one audio frame. */
     public final int bytesPerFrame;
+
+    /**
+     * Creates an instance using the {@link Format#sampleRate}, {@link Format#channelCount} and
+     * {@link Format#pcmEncoding}.
+     */
+    public AudioFormat(Format format) {
+      this(format.sampleRate, format.channelCount, format.pcmEncoding);
+    }
 
     public AudioFormat(int sampleRate, int channelCount, @C.PcmEncoding int encoding) {
       this.sampleRate = sampleRate;
@@ -103,6 +113,7 @@ public interface AudioProcessor {
 
   /** Exception thrown when the given {@link AudioFormat} can not be handled. */
   final class UnhandledAudioFormatException extends Exception {
+    public final AudioFormat inputAudioFormat;
 
     public UnhandledAudioFormatException(AudioFormat inputAudioFormat) {
       this("Unhandled input format:", inputAudioFormat);
@@ -110,6 +121,7 @@ public interface AudioProcessor {
 
     public UnhandledAudioFormatException(String message, AudioFormat audioFormat) {
       super(message + " " + audioFormat);
+      this.inputAudioFormat = audioFormat;
     }
   }
 
@@ -131,7 +143,6 @@ public interface AudioProcessor {
    * @return The configured output audio format if this instance is {@link #isActive() active}.
    * @throws UnhandledAudioFormatException Thrown if the specified format can't be handled as input.
    */
-  @CanIgnoreReturnValue
   AudioFormat configure(AudioFormat inputAudioFormat) throws UnhandledAudioFormatException;
 
   /** Returns whether the processor is configured and will process input buffers. */

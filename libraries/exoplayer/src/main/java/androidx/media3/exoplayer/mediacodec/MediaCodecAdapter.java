@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.mediacodec;
 
+import android.content.Context;
 import android.media.MediaCodec;
 import android.media.MediaCrypto;
 import android.media.MediaFormat;
@@ -81,18 +82,23 @@ public interface MediaCodecAdapter {
 
     /** Information about the {@link MediaCodec} being configured. */
     public final MediaCodecInfo codecInfo;
+
     /** The {@link MediaFormat} for which the codec is being configured. */
     public final MediaFormat mediaFormat;
+
     /** The {@link Format} for which the codec is being configured. */
     public final Format format;
+
     /**
      * For video decoding, the output where the object will render the decoded frames. This must be
      * null if the codec is not a video decoder, or if it is configured for {@link ByteBuffer}
      * output.
      */
     @Nullable public final Surface surface;
+
     /** For DRM protected playbacks, a {@link MediaCrypto} to use for decryption. */
     @Nullable public final MediaCrypto crypto;
+
     /** See {@link MediaCodec#configure}. */
     public final int flags;
 
@@ -115,8 +121,22 @@ public interface MediaCodecAdapter {
   /** A factory for {@link MediaCodecAdapter} instances. */
   interface Factory {
 
-    /** Default factory used in most cases. */
+    /**
+     * @deprecated Use {@link #getDefault} instead.
+     */
+    @Deprecated
+    @SuppressWarnings("deprecation") // Forwarding to deprecated method.
     Factory DEFAULT = new DefaultMediaCodecAdapterFactory();
+
+    /**
+     * Returns the default factory that should be used in most cases.
+     *
+     * @param context A {@link Context}.
+     * @return The default factory.
+     */
+    static Factory getDefault(Context context) {
+      return new DefaultMediaCodecAdapterFactory(context);
+    }
 
     /** Creates a {@link MediaCodecAdapter} instance. */
     MediaCodecAdapter createAdapter(Configuration configuration) throws IOException;

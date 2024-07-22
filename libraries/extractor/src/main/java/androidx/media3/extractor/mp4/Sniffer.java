@@ -28,6 +28,7 @@ import java.io.IOException;
 
   /** Brand stored in the ftyp atom for QuickTime media. */
   public static final int BRAND_QUICKTIME = 0x71742020;
+
   /** Brand stored in the ftyp atom for HEIC media. */
   public static final int BRAND_HEIC = 0x68656963;
 
@@ -167,6 +168,12 @@ import java.io.IOException;
         // The movie is fragmented. Stop searching as we must have read any ftyp atom already.
         isFragmented = true;
         break;
+      }
+
+      if (atomType == Atom.TYPE_mdat) {
+        // The original QuickTime specification did not require files to begin with the ftyp atom.
+        // See https://developer.apple.com/standards/qtff-2001.pdf.
+        foundGoodFileType = true;
       }
 
       if (bytesSearched + atomSize - headerSize >= bytesToSearch) {

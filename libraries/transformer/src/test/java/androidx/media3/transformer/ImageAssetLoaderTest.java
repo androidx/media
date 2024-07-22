@@ -22,6 +22,8 @@ import android.graphics.Bitmap;
 import android.os.Looper;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.util.TimestampIterator;
+import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.time.Duration;
@@ -94,6 +96,7 @@ public class ImageAssetLoaderTest {
             try {
               Thread.sleep(10);
             } catch (InterruptedException e) {
+              Thread.currentThread().interrupt();
               exceptionRef.set(e);
             }
           }
@@ -118,15 +121,17 @@ public class ImageAssetLoaderTest {
             .setDurationUs(1_000_000)
             .setFrameRate(30)
             .build();
-    return new ImageAssetLoader.Factory(ApplicationProvider.getApplicationContext())
+    return new ImageAssetLoader.Factory(
+            new DataSourceBitmapLoader(ApplicationProvider.getApplicationContext()))
         .createAssetLoader(editedMediaItem, Looper.myLooper(), listener);
   }
 
   private static final class FakeSampleConsumer implements SampleConsumer {
 
     @Override
-    public boolean queueInputBitmap(Bitmap inputBitmap, long durationUs, int frameRate) {
-      return true;
+    public @InputResult int queueInputBitmap(
+        Bitmap inputBitmap, TimestampIterator inStreamOffsetsUs) {
+      return INPUT_RESULT_SUCCESS;
     }
 
     @Override

@@ -726,6 +726,7 @@ public final class CastPlayer extends BasePlayer {
   /** This method is not supported and does nothing. */
   @Override
   public void setVideoTextureView(@Nullable TextureView textureView) {}
+
   /** This method is not supported and does nothing. */
   @Override
   public void clearVideoTextureView(@Nullable TextureView textureView) {}
@@ -809,6 +810,10 @@ public final class CastPlayer extends BasePlayer {
   /** This method is not supported and does nothing. */
   @Override
   public void setDeviceMuted(boolean muted, @C.VolumeFlags int flags) {}
+
+  /** This method is not supported and does nothing. */
+  @Override
+  public void setAudioAttributes(AudioAttributes audioAttributes, boolean handleAudioFocus) {}
 
   // Internal methods.
 

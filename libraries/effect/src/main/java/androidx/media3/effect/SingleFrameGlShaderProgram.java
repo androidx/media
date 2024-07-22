@@ -26,8 +26,11 @@ import androidx.media3.common.util.UnstableApi;
  * GlShaderProgram} directly.
  *
  * <p>All methods in this class must be called on the thread that owns the OpenGL context.
+ *
+ * @deprecated Use {@link BaseGlShaderProgram} instead.
  */
 @UnstableApi
+@Deprecated
 public abstract class SingleFrameGlShaderProgram extends BaseGlShaderProgram {
 
   // TODO(b/275384398): Remove this class as it only wraps the BaseGlShaderProgram.
@@ -35,10 +38,10 @@ public abstract class SingleFrameGlShaderProgram extends BaseGlShaderProgram {
   /**
    * Creates a {@code SingleFrameGlShaderProgram} instance.
    *
-   * @param useHdr Whether input textures come from an HDR source. If {@code true}, colors will be
-   *     in linear RGB BT.2020. If {@code false}, colors will be in linear RGB BT.709.
+   * @param useHighPrecisionColorComponents If {@code false}, uses colors with 8-bit unsigned bytes.
+   *     If {@code true}, use 16-bit (half-precision) floating-point.
    */
-  public SingleFrameGlShaderProgram(boolean useHdr) {
-    super(useHdr, /* texturePoolCapacity= */ 1);
+  public SingleFrameGlShaderProgram(boolean useHighPrecisionColorComponents) {
+    super(useHighPrecisionColorComponents, /* texturePoolCapacity= */ 1);
   }
 }

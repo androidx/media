@@ -21,6 +21,7 @@ import static androidx.media3.extractor.metadata.mp4.SlowMotionData.Segment.BY_S
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Metadata;
+import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.metadata.mp4.SlowMotionData;
 import androidx.media3.extractor.metadata.mp4.SlowMotionData.Segment;
@@ -35,10 +36,6 @@ import java.util.TreeMap;
 /** A {@link SpeedProvider} for slow motion segments. */
 /* package */ class SegmentSpeedProvider implements SpeedProvider {
 
-  /**
-   * Input frame rate of Samsung Slow motion videos is always 30. See
-   * go/exoplayer-sef-slomo-video-flattening.
-   */
   private static final int INPUT_FRAME_RATE = 30;
 
   private final ImmutableSortedMap<Long, Float> speedsByStartTimeUs;

@@ -22,11 +22,13 @@ import static androidx.media3.common.Player.PLAY_WHEN_READY_CHANGE_REASON_USER_R
 import static androidx.media3.common.Player.STATE_IDLE;
 import static androidx.media3.common.Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED;
 
+import android.os.Binder;
 import android.os.Bundle;
-import android.os.SystemClock;
+import android.os.IBinder;
 import androidx.annotation.CheckResult;
 import androidx.annotation.FloatRange;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.Bundleable;
 import androidx.media3.common.DeviceInfo;
@@ -45,6 +47,7 @@ import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.BundleUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.base.Objects;
@@ -66,8 +69,10 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
     public static final BundlingExclusions NONE =
         new BundlingExclusions(
             /* isTimelineExcluded= */ false, /* areCurrentTracksExcluded= */ false);
+
     /** Whether the {@linkplain PlayerInfo#timeline timeline} is excluded. */
     public final boolean isTimelineExcluded;
+
     /** Whether the {@linkplain PlayerInfo#currentTracks current tracks} are excluded. */
     public final boolean areCurrentTracksExcluded;
 
@@ -81,6 +86,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
     private static final String FIELD_IS_TIMELINE_EXCLUDED = Util.intToStringMaxRadix(0);
     private static final String FIELD_ARE_CURRENT_TRACKS_EXCLUDED = Util.intToStringMaxRadix(1);
+
     // Next field key = 2
 
     @UnstableApi
@@ -92,11 +98,19 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
       return bundle;
     }
 
-    public static final Creator<BundlingExclusions> CREATOR =
-        bundle ->
-            new BundlingExclusions(
-                bundle.getBoolean(FIELD_IS_TIMELINE_EXCLUDED, /* defaultValue= */ false),
-                bundle.getBoolean(FIELD_ARE_CURRENT_TRACKS_EXCLUDED, /* defaultValue= */ false));
+    /**
+     * @deprecated Use {@link #fromBundle} instead.
+     */
+    @Deprecated
+    @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
+    public static final Creator<BundlingExclusions> CREATOR = BundlingExclusions::fromBundle;
+
+    /** Restores a {@code BundlingExclusions} from a {@link Bundle}. */
+    public static BundlingExclusions fromBundle(Bundle bundle) {
+      return new BundlingExclusions(
+          bundle.getBoolean(FIELD_IS_TIMELINE_EXCLUDED, /* defaultValue= */ false),
+          bundle.getBoolean(FIELD_ARE_CURRENT_TRACKS_EXCLUDED, /* defaultValue= */ false));
+    }
 
     @Override
     public boolean equals(@Nullable Object o) {
@@ -627,7 +641,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
                     sessionPositionInfo.positionInfo.adGroupIndex,
                     sessionPositionInfo.positionInfo.adIndexInAdGroup),
                 sessionPositionInfo.isPlayingAd,
-                /* eventTimeMs= */ SystemClock.elapsedRealtime(),
+                sessionPositionInfo.eventTimeMs,
                 sessionPositionInfo.durationMs,
                 sessionPositionInfo.bufferedPositionMs,
                 sessionPositionInfo.bufferedPercentage,
@@ -809,10 +823,10 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
   private static final String FIELD_IS_PLAYING = Util.intToStringMaxRadix(16);
   private static final String FIELD_IS_LOADING = Util.intToStringMaxRadix(17);
   private static final String FIELD_PLAYBACK_ERROR = Util.intToStringMaxRadix(18);
-  private static final String FIELD_SESSION_POSITION_INFO = Util.intToStringMaxRadix(19);
+  @VisibleForTesting static final String FIELD_SESSION_POSITION_INFO = Util.intToStringMaxRadix(19);
   private static final String FIELD_MEDIA_ITEM_TRANSITION_REASON = Util.intToStringMaxRadix(20);
-  private static final String FIELD_OLD_POSITION_INFO = Util.intToStringMaxRadix(21);
-  private static final String FIELD_NEW_POSITION_INFO = Util.intToStringMaxRadix(22);
+  @VisibleForTesting static final String FIELD_OLD_POSITION_INFO = Util.intToStringMaxRadix(21);
+  @VisibleForTesting static final String FIELD_NEW_POSITION_INFO = Util.intToStringMaxRadix(22);
   private static final String FIELD_DISCONTINUITY_REASON = Util.intToStringMaxRadix(23);
   private static final String FIELD_CUE_GROUP = Util.intToStringMaxRadix(24);
   private static final String FIELD_MEDIA_METADATA = Util.intToStringMaxRadix(25);
@@ -822,156 +836,264 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
   private static final String FIELD_TRACK_SELECTION_PARAMETERS = Util.intToStringMaxRadix(29);
   private static final String FIELD_CURRENT_TRACKS = Util.intToStringMaxRadix(30);
   private static final String FIELD_TIMELINE_CHANGE_REASON = Util.intToStringMaxRadix(31);
-  // Next field key = 32
+  private static final String FIELD_IN_PROCESS_BINDER = Util.intToStringMaxRadix(32);
 
-  public Bundle toBundle(
+  // Next field key = 33
+
+  /**
+   * Returns a copy of this player info, filtered by the specified available commands.
+   *
+   * <p>The filtered fields are reset to their default values.
+   *
+   * @param availableCommands The available {@link Player.Commands} used to filter values.
+   * @param excludeTimeline Whether to filter the {@link #timeline} even if {@link
+   *     Player#COMMAND_GET_TIMELINE} is available.
+   * @param excludeTracks Whether to filter the {@link #currentTracks} even if {@link
+   *     Player#COMMAND_GET_TRACKS} is available.
+   * @return The filtered player info.
+   */
+  public PlayerInfo filterByAvailableCommands(
       Player.Commands availableCommands, boolean excludeTimeline, boolean excludeTracks) {
-    Bundle bundle = new Bundle();
+    PlayerInfo.Builder builder = new Builder(this);
     boolean canAccessCurrentMediaItem =
         availableCommands.contains(Player.COMMAND_GET_CURRENT_MEDIA_ITEM);
     boolean canAccessTimeline = availableCommands.contains(Player.COMMAND_GET_TIMELINE);
-    if (playerError != null) {
-      bundle.putBundle(FIELD_PLAYBACK_ERROR, playerError.toBundle());
+    builder.setSessionPositionInfo(
+        sessionPositionInfo.filterByAvailableCommands(
+            canAccessCurrentMediaItem, canAccessTimeline));
+    builder.setOldPositionInfo(
+        oldPositionInfo.filterByAvailableCommands(canAccessCurrentMediaItem, canAccessTimeline));
+    builder.setNewPositionInfo(
+        newPositionInfo.filterByAvailableCommands(canAccessCurrentMediaItem, canAccessTimeline));
+    if (!canAccessTimeline && canAccessCurrentMediaItem && !timeline.isEmpty()) {
+      builder.setTimeline(
+          timeline.copyWithSingleWindow(sessionPositionInfo.positionInfo.mediaItemIndex));
+    } else if (excludeTimeline || !canAccessTimeline) {
+      builder.setTimeline(Timeline.EMPTY);
     }
-    bundle.putInt(FIELD_MEDIA_ITEM_TRANSITION_REASON, mediaItemTransitionReason);
-    bundle.putBundle(
-        FIELD_SESSION_POSITION_INFO,
-        sessionPositionInfo.toBundle(canAccessCurrentMediaItem, canAccessTimeline));
-    bundle.putBundle(
-        FIELD_OLD_POSITION_INFO,
-        oldPositionInfo.toBundle(canAccessCurrentMediaItem, canAccessTimeline));
-    bundle.putBundle(
-        FIELD_NEW_POSITION_INFO,
-        newPositionInfo.toBundle(canAccessCurrentMediaItem, canAccessTimeline));
-    bundle.putInt(FIELD_DISCONTINUITY_REASON, discontinuityReason);
-    bundle.putBundle(FIELD_PLAYBACK_PARAMETERS, playbackParameters.toBundle());
-    bundle.putInt(FIELD_REPEAT_MODE, repeatMode);
-    bundle.putBoolean(FIELD_SHUFFLE_MODE_ENABLED, shuffleModeEnabled);
-    if (!excludeTimeline && canAccessTimeline) {
-      bundle.putBundle(FIELD_TIMELINE, timeline.toBundle());
-    } else if (!canAccessTimeline && canAccessCurrentMediaItem && !timeline.isEmpty()) {
-      bundle.putBundle(
-          FIELD_TIMELINE,
-          timeline.toBundleWithOneWindowOnly(sessionPositionInfo.positionInfo.mediaItemIndex));
+    if (!availableCommands.contains(Player.COMMAND_GET_METADATA)) {
+      builder.setPlaylistMetadata(MediaMetadata.EMPTY);
     }
-    bundle.putInt(FIELD_TIMELINE_CHANGE_REASON, timelineChangeReason);
-    bundle.putBundle(FIELD_VIDEO_SIZE, videoSize.toBundle());
-    if (availableCommands.contains(Player.COMMAND_GET_METADATA)) {
-      bundle.putBundle(FIELD_PLAYLIST_METADATA, playlistMetadata.toBundle());
+    if (!availableCommands.contains(Player.COMMAND_GET_VOLUME)) {
+      builder.setVolume(1);
     }
-    if (availableCommands.contains(Player.COMMAND_GET_VOLUME)) {
-      bundle.putFloat(FIELD_VOLUME, volume);
+    if (!availableCommands.contains(Player.COMMAND_GET_AUDIO_ATTRIBUTES)) {
+      builder.setAudioAttributes(AudioAttributes.DEFAULT);
     }
-    if (availableCommands.contains(Player.COMMAND_GET_AUDIO_ATTRIBUTES)) {
-      bundle.putBundle(FIELD_AUDIO_ATTRIBUTES, audioAttributes.toBundle());
+    if (!availableCommands.contains(Player.COMMAND_GET_TEXT)) {
+      builder.setCues(CueGroup.EMPTY_TIME_ZERO);
     }
-    if (availableCommands.contains(Player.COMMAND_GET_TEXT)) {
-      bundle.putBundle(FIELD_CUE_GROUP, cueGroup.toBundle());
+    if (!availableCommands.contains(Player.COMMAND_GET_DEVICE_VOLUME)) {
+      builder.setDeviceVolume(0).setDeviceMuted(false);
     }
-    bundle.putBundle(FIELD_DEVICE_INFO, deviceInfo.toBundle());
-    if (availableCommands.contains(Player.COMMAND_GET_DEVICE_VOLUME)) {
-      bundle.putInt(FIELD_DEVICE_VOLUME, deviceVolume);
-      bundle.putBoolean(FIELD_DEVICE_MUTED, deviceMuted);
+    if (!availableCommands.contains(Player.COMMAND_GET_METADATA)) {
+      builder.setMediaMetadata(MediaMetadata.EMPTY);
     }
-    bundle.putBoolean(FIELD_PLAY_WHEN_READY, playWhenReady);
-    bundle.putInt(FIELD_PLAYBACK_SUPPRESSION_REASON, playbackSuppressionReason);
-    bundle.putInt(FIELD_PLAYBACK_STATE, playbackState);
-    bundle.putBoolean(FIELD_IS_PLAYING, isPlaying);
-    bundle.putBoolean(FIELD_IS_LOADING, isLoading);
-    if (availableCommands.contains(Player.COMMAND_GET_METADATA)) {
-      bundle.putBundle(FIELD_MEDIA_METADATA, mediaMetadata.toBundle());
+    if (excludeTracks || !availableCommands.contains(Player.COMMAND_GET_TRACKS)) {
+      builder.setCurrentTracks(Tracks.EMPTY);
     }
-    bundle.putLong(FIELD_SEEK_BACK_INCREMENT_MS, seekBackIncrementMs);
-    bundle.putLong(FIELD_SEEK_FORWARD_INCREMENT_MS, seekForwardIncrementMs);
-    bundle.putLong(FIELD_MAX_SEEK_TO_PREVIOUS_POSITION_MS, maxSeekToPreviousPositionMs);
-    if (!excludeTracks && availableCommands.contains(Player.COMMAND_GET_TRACKS)) {
-      bundle.putBundle(FIELD_CURRENT_TRACKS, currentTracks.toBundle());
-    }
-    bundle.putBundle(FIELD_TRACK_SELECTION_PARAMETERS, trackSelectionParameters.toBundle());
+    return builder.build();
+  }
+
+  /**
+   * Returns a {@link Bundle} that stores a direct object reference to this class for in-process
+   * sharing.
+   */
+  public Bundle toBundleInProcess() {
+    Bundle bundle = new Bundle();
+    BundleUtil.putBinder(bundle, FIELD_IN_PROCESS_BINDER, new InProcessBinder());
     return bundle;
   }
 
   @Override
   public Bundle toBundle() {
-    return toBundle(
-        /* availableCommands= */ new Player.Commands.Builder().addAllCommands().build(),
-        /* excludeTimeline= */ false,
-        /* excludeTracks= */ false);
+    return toBundleForRemoteProcess(Integer.MAX_VALUE);
   }
 
-  /** Object that can restore {@link PlayerInfo} from a {@link Bundle}. */
+  public Bundle toBundleForRemoteProcess(int controllerInterfaceVersion) {
+    Bundle bundle = new Bundle();
+    if (playerError != null) {
+      bundle.putBundle(FIELD_PLAYBACK_ERROR, playerError.toBundle());
+    }
+    if (mediaItemTransitionReason != MEDIA_ITEM_TRANSITION_REASON_DEFAULT) {
+      bundle.putInt(FIELD_MEDIA_ITEM_TRANSITION_REASON, mediaItemTransitionReason);
+    }
+    if (controllerInterfaceVersion < 3
+        || !sessionPositionInfo.equals(SessionPositionInfo.DEFAULT)) {
+      bundle.putBundle(
+          FIELD_SESSION_POSITION_INFO, sessionPositionInfo.toBundle(controllerInterfaceVersion));
+    }
+    if (controllerInterfaceVersion < 3
+        || !SessionPositionInfo.DEFAULT_POSITION_INFO.equalsForBundling(oldPositionInfo)) {
+      bundle.putBundle(
+          FIELD_OLD_POSITION_INFO, oldPositionInfo.toBundle(controllerInterfaceVersion));
+    }
+    if (controllerInterfaceVersion < 3
+        || !SessionPositionInfo.DEFAULT_POSITION_INFO.equalsForBundling(newPositionInfo)) {
+      bundle.putBundle(
+          FIELD_NEW_POSITION_INFO, newPositionInfo.toBundle(controllerInterfaceVersion));
+    }
+    if (discontinuityReason != DISCONTINUITY_REASON_DEFAULT) {
+      bundle.putInt(FIELD_DISCONTINUITY_REASON, discontinuityReason);
+    }
+    if (!playbackParameters.equals(PlaybackParameters.DEFAULT)) {
+      bundle.putBundle(FIELD_PLAYBACK_PARAMETERS, playbackParameters.toBundle());
+    }
+    if (repeatMode != Player.REPEAT_MODE_OFF) {
+      bundle.putInt(FIELD_REPEAT_MODE, repeatMode);
+    }
+    if (shuffleModeEnabled) {
+      bundle.putBoolean(FIELD_SHUFFLE_MODE_ENABLED, shuffleModeEnabled);
+    }
+    if (!timeline.equals(Timeline.EMPTY)) {
+      bundle.putBundle(FIELD_TIMELINE, timeline.toBundle());
+    }
+    if (timelineChangeReason != TIMELINE_CHANGE_REASON_DEFAULT) {
+      bundle.putInt(FIELD_TIMELINE_CHANGE_REASON, timelineChangeReason);
+    }
+    if (!videoSize.equals(VideoSize.UNKNOWN)) {
+      bundle.putBundle(FIELD_VIDEO_SIZE, videoSize.toBundle());
+    }
+    if (!playlistMetadata.equals(MediaMetadata.EMPTY)) {
+      bundle.putBundle(FIELD_PLAYLIST_METADATA, playlistMetadata.toBundle());
+    }
+    if (volume != 1) {
+      bundle.putFloat(FIELD_VOLUME, volume);
+    }
+    if (!audioAttributes.equals(AudioAttributes.DEFAULT)) {
+      bundle.putBundle(FIELD_AUDIO_ATTRIBUTES, audioAttributes.toBundle());
+    }
+    if (!cueGroup.equals(CueGroup.EMPTY_TIME_ZERO)) {
+      bundle.putBundle(FIELD_CUE_GROUP, cueGroup.toBundle());
+    }
+    if (!deviceInfo.equals(DeviceInfo.UNKNOWN)) {
+      bundle.putBundle(FIELD_DEVICE_INFO, deviceInfo.toBundle());
+    }
+    if (deviceVolume != 0) {
+      bundle.putInt(FIELD_DEVICE_VOLUME, deviceVolume);
+    }
+    if (deviceMuted) {
+      bundle.putBoolean(FIELD_DEVICE_MUTED, deviceMuted);
+    }
+    if (playWhenReady) {
+      bundle.putBoolean(FIELD_PLAY_WHEN_READY, playWhenReady);
+    }
+    if (playWhenReadyChangeReason != PLAY_WHEN_READY_CHANGE_REASON_DEFAULT) {
+      bundle.putInt(FIELD_PLAY_WHEN_READY_CHANGE_REASON, playWhenReadyChangeReason);
+    }
+    if (playbackSuppressionReason != PLAYBACK_SUPPRESSION_REASON_NONE) {
+      bundle.putInt(FIELD_PLAYBACK_SUPPRESSION_REASON, playbackSuppressionReason);
+    }
+    if (playbackState != STATE_IDLE) {
+      bundle.putInt(FIELD_PLAYBACK_STATE, playbackState);
+    }
+    if (isPlaying) {
+      bundle.putBoolean(FIELD_IS_PLAYING, isPlaying);
+    }
+    if (isLoading) {
+      bundle.putBoolean(FIELD_IS_LOADING, isLoading);
+    }
+    if (!mediaMetadata.equals(MediaMetadata.EMPTY)) {
+      bundle.putBundle(FIELD_MEDIA_METADATA, mediaMetadata.toBundle());
+    }
+    if (seekBackIncrementMs != 0) {
+      bundle.putLong(FIELD_SEEK_BACK_INCREMENT_MS, seekBackIncrementMs);
+    }
+    if (seekForwardIncrementMs != 0) {
+      bundle.putLong(FIELD_SEEK_FORWARD_INCREMENT_MS, seekForwardIncrementMs);
+    }
+    if (maxSeekToPreviousPositionMs != 0) {
+      bundle.putLong(FIELD_MAX_SEEK_TO_PREVIOUS_POSITION_MS, maxSeekToPreviousPositionMs);
+    }
+    if (!currentTracks.equals(Tracks.EMPTY)) {
+      bundle.putBundle(FIELD_CURRENT_TRACKS, currentTracks.toBundle());
+    }
+    if (!trackSelectionParameters.equals(TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT)) {
+      bundle.putBundle(FIELD_TRACK_SELECTION_PARAMETERS, trackSelectionParameters.toBundle());
+    }
+    return bundle;
+  }
+
+  /**
+   * Object that can restore {@link PlayerInfo} from a {@link Bundle}.
+   *
+   * @deprecated Use {@link #fromBundle} instead.
+   */
+  @Deprecated
+  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
   public static final Creator<PlayerInfo> CREATOR = PlayerInfo::fromBundle;
 
-  private static PlayerInfo fromBundle(Bundle bundle) {
+  /** Restores a {@code PlayerInfo} from a {@link Bundle}. */
+  public static PlayerInfo fromBundle(Bundle bundle) {
+    @Nullable IBinder inProcessBinder = BundleUtil.getBinder(bundle, FIELD_IN_PROCESS_BINDER);
+    if (inProcessBinder instanceof InProcessBinder) {
+      return ((InProcessBinder) inProcessBinder).getPlayerInfo();
+    }
     @Nullable Bundle playerErrorBundle = bundle.getBundle(FIELD_PLAYBACK_ERROR);
     @Nullable
     PlaybackException playerError =
-        playerErrorBundle == null ? null : PlaybackException.CREATOR.fromBundle(playerErrorBundle);
+        playerErrorBundle == null ? null : PlaybackException.fromBundle(playerErrorBundle);
     int mediaItemTransitionReason =
-        bundle.getInt(FIELD_MEDIA_ITEM_TRANSITION_REASON, MEDIA_ITEM_TRANSITION_REASON_REPEAT);
+        bundle.getInt(FIELD_MEDIA_ITEM_TRANSITION_REASON, MEDIA_ITEM_TRANSITION_REASON_DEFAULT);
     @Nullable Bundle sessionPositionInfoBundle = bundle.getBundle(FIELD_SESSION_POSITION_INFO);
     SessionPositionInfo sessionPositionInfo =
         sessionPositionInfoBundle == null
             ? SessionPositionInfo.DEFAULT
-            : SessionPositionInfo.CREATOR.fromBundle(sessionPositionInfoBundle);
+            : SessionPositionInfo.fromBundle(sessionPositionInfoBundle);
     @Nullable Bundle oldPositionInfoBundle = bundle.getBundle(FIELD_OLD_POSITION_INFO);
     PositionInfo oldPositionInfo =
         oldPositionInfoBundle == null
             ? SessionPositionInfo.DEFAULT_POSITION_INFO
-            : PositionInfo.CREATOR.fromBundle(oldPositionInfoBundle);
+            : PositionInfo.fromBundle(oldPositionInfoBundle);
     @Nullable Bundle newPositionInfoBundle = bundle.getBundle(FIELD_NEW_POSITION_INFO);
     PositionInfo newPositionInfo =
         newPositionInfoBundle == null
             ? SessionPositionInfo.DEFAULT_POSITION_INFO
-            : PositionInfo.CREATOR.fromBundle(newPositionInfoBundle);
+            : PositionInfo.fromBundle(newPositionInfoBundle);
     int discontinuityReason =
-        bundle.getInt(FIELD_DISCONTINUITY_REASON, DISCONTINUITY_REASON_AUTO_TRANSITION);
+        bundle.getInt(FIELD_DISCONTINUITY_REASON, DISCONTINUITY_REASON_DEFAULT);
     @Nullable Bundle playbackParametersBundle = bundle.getBundle(FIELD_PLAYBACK_PARAMETERS);
     PlaybackParameters playbackParameters =
         playbackParametersBundle == null
             ? PlaybackParameters.DEFAULT
-            : PlaybackParameters.CREATOR.fromBundle(playbackParametersBundle);
+            : PlaybackParameters.fromBundle(playbackParametersBundle);
     @Player.RepeatMode
     int repeatMode = bundle.getInt(FIELD_REPEAT_MODE, /* defaultValue= */ Player.REPEAT_MODE_OFF);
     boolean shuffleModeEnabled =
         bundle.getBoolean(FIELD_SHUFFLE_MODE_ENABLED, /* defaultValue= */ false);
     @Nullable Bundle timelineBundle = bundle.getBundle(FIELD_TIMELINE);
     Timeline timeline =
-        timelineBundle == null ? Timeline.EMPTY : Timeline.CREATOR.fromBundle(timelineBundle);
+        timelineBundle == null ? Timeline.EMPTY : Timeline.fromBundle(timelineBundle);
     int timelineChangeReason =
         bundle.getInt(
             FIELD_TIMELINE_CHANGE_REASON, /* defaultValue= */ TIMELINE_CHANGE_REASON_DEFAULT);
     @Nullable Bundle videoSizeBundle = bundle.getBundle(FIELD_VIDEO_SIZE);
     VideoSize videoSize =
-        videoSizeBundle == null ? VideoSize.UNKNOWN : VideoSize.CREATOR.fromBundle(videoSizeBundle);
+        videoSizeBundle == null ? VideoSize.UNKNOWN : VideoSize.fromBundle(videoSizeBundle);
     @Nullable Bundle playlistMetadataBundle = bundle.getBundle(FIELD_PLAYLIST_METADATA);
     MediaMetadata playlistMetadata =
         playlistMetadataBundle == null
             ? MediaMetadata.EMPTY
-            : MediaMetadata.CREATOR.fromBundle(playlistMetadataBundle);
+            : MediaMetadata.fromBundle(playlistMetadataBundle);
     float volume = bundle.getFloat(FIELD_VOLUME, /* defaultValue= */ 1);
     @Nullable Bundle audioAttributesBundle = bundle.getBundle(FIELD_AUDIO_ATTRIBUTES);
     AudioAttributes audioAttributes =
         audioAttributesBundle == null
             ? AudioAttributes.DEFAULT
-            : AudioAttributes.CREATOR.fromBundle(audioAttributesBundle);
+            : AudioAttributes.fromBundle(audioAttributesBundle);
     @Nullable Bundle cueGroupBundle = bundle.getBundle(FIELD_CUE_GROUP);
     CueGroup cueGroup =
-        cueGroupBundle == null
-            ? CueGroup.EMPTY_TIME_ZERO
-            : CueGroup.CREATOR.fromBundle(cueGroupBundle);
+        cueGroupBundle == null ? CueGroup.EMPTY_TIME_ZERO : CueGroup.fromBundle(cueGroupBundle);
     @Nullable Bundle deviceInfoBundle = bundle.getBundle(FIELD_DEVICE_INFO);
     DeviceInfo deviceInfo =
-        deviceInfoBundle == null
-            ? DeviceInfo.UNKNOWN
-            : DeviceInfo.CREATOR.fromBundle(deviceInfoBundle);
+        deviceInfoBundle == null ? DeviceInfo.UNKNOWN : DeviceInfo.fromBundle(deviceInfoBundle);
     int deviceVolume = bundle.getInt(FIELD_DEVICE_VOLUME, /* defaultValue= */ 0);
     boolean deviceMuted = bundle.getBoolean(FIELD_DEVICE_MUTED, /* defaultValue= */ false);
     boolean playWhenReady = bundle.getBoolean(FIELD_PLAY_WHEN_READY, /* defaultValue= */ false);
     int playWhenReadyChangeReason =
         bundle.getInt(
             FIELD_PLAY_WHEN_READY_CHANGE_REASON,
-            /* defaultValue= */ PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
+            /* defaultValue= */ PLAY_WHEN_READY_CHANGE_REASON_DEFAULT);
     @Player.PlaybackSuppressionReason
     int playbackSuppressionReason =
         bundle.getInt(
@@ -985,7 +1107,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
     MediaMetadata mediaMetadata =
         mediaMetadataBundle == null
             ? MediaMetadata.EMPTY
-            : MediaMetadata.CREATOR.fromBundle(mediaMetadataBundle);
+            : MediaMetadata.fromBundle(mediaMetadataBundle);
     long seekBackIncrementMs = bundle.getLong(FIELD_SEEK_BACK_INCREMENT_MS, /* defaultValue= */ 0);
     long seekForwardIncrementMs =
         bundle.getLong(FIELD_SEEK_FORWARD_INCREMENT_MS, /* defaultValue= */ 0);
@@ -993,7 +1115,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
         bundle.getLong(FIELD_MAX_SEEK_TO_PREVIOUS_POSITION_MS, /* defaultValue= */ 0);
     Bundle currentTracksBundle = bundle.getBundle(FIELD_CURRENT_TRACKS);
     Tracks currentTracks =
-        currentTracksBundle == null ? Tracks.EMPTY : Tracks.CREATOR.fromBundle(currentTracksBundle);
+        currentTracksBundle == null ? Tracks.EMPTY : Tracks.fromBundle(currentTracksBundle);
     @Nullable
     Bundle trackSelectionParametersBundle = bundle.getBundle(FIELD_TRACK_SELECTION_PARAMETERS);
     TrackSelectionParameters trackSelectionParameters =
@@ -1032,5 +1154,11 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
         maxSeekToPreviousPosition,
         currentTracks,
         trackSelectionParameters);
+  }
+
+  private final class InProcessBinder extends Binder {
+    public PlayerInfo getPlayerInfo() {
+      return PlayerInfo.this;
+    }
   }
 }

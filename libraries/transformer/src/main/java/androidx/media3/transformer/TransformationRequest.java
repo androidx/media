@@ -17,93 +17,17 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Assertions.checkArgument;
-import static java.lang.annotation.ElementType.TYPE_USE;
-import static java.lang.annotation.RetentionPolicy.SOURCE;
 
-import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.lang.annotation.Documented;
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
 
 /** A media transformation request. */
 @UnstableApi
 public final class TransformationRequest {
-
-  /**
-   * The strategy to use to transcode or edit High Dynamic Range (HDR) input video.
-   *
-   * <p>One of {@link #HDR_MODE_KEEP_HDR}, {@link #HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC},
-   * {@link #HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL}, or {@link
-   * #HDR_MODE_EXPERIMENTAL_FORCE_INTERPRET_HDR_AS_SDR}.
-   *
-   * <p>Standard Dynamic Range (SDR) input video is unaffected by these settings.
-   */
-  @Documented
-  @Retention(SOURCE)
-  @Target(TYPE_USE)
-  @IntDef({
-    HDR_MODE_KEEP_HDR,
-    HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC,
-    HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL,
-    HDR_MODE_EXPERIMENTAL_FORCE_INTERPRET_HDR_AS_SDR,
-  })
-  public @interface HdrMode {}
-  /**
-   * Processes HDR input as HDR, to generate HDR output.
-   *
-   * <p>The HDR output format (ex. color transfer) will be the same as the HDR input format.
-   *
-   * <p>Supported on API 31+, by some device and HDR format combinations.
-   *
-   * <p>If not supported, {@link Transformer} will attempt to use {@link
-   * #HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC}.
-   */
-  public static final int HDR_MODE_KEEP_HDR = 0;
-  /**
-   * Tone map HDR input to SDR before processing, to generate SDR output, using the {@link
-   * android.media.MediaCodec} decoder tone-mapper.
-   *
-   * <p>Supported on API 31+, by some device and HDR format combinations. Tone-mapping is only
-   * guaranteed to be supported on API 33+, on devices with HDR capture support.
-   *
-   * <p>If not supported, {@link Transformer} throws an {@link ExportException}.
-   */
-  public static final int HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC = 1;
-  /**
-   * Tone map HDR input to SDR before processing, to generate SDR output, using an OpenGL
-   * tone-mapper.
-   *
-   * <p>Supported on API 29+.
-   *
-   * <p>This may exhibit mild differences from {@link
-   * #HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC}, depending on the device's tone-mapping
-   * implementation, but should have much wider support and have more consistent results across
-   * devices.
-   *
-   * <p>If not supported, {@link Transformer} throws an {@link ExportException}.
-   */
-  public static final int HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL = 2;
-  /**
-   * Interpret HDR input as SDR, likely with a washed out look.
-   *
-   * <p>This is much more widely supported than {@link #HDR_MODE_KEEP_HDR} and {@link
-   * #HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC}. However, as HDR transfer functions and
-   * metadata will be ignored, contents will be displayed incorrectly, likely with a washed out
-   * look.
-   *
-   * <p>Using this API may lead to codec errors before API 29.
-   *
-   * <p>Use of this flag may result in {@code ERROR_CODE_DECODING_FORMAT_UNSUPPORTED}.
-   *
-   * <p>This field is experimental, and will be renamed or removed in a future release.
-   */
-  public static final int HDR_MODE_EXPERIMENTAL_FORCE_INTERPRET_HDR_AS_SDR = 3;
 
   /** A builder for {@link TransformationRequest} instances. */
   public static final class Builder {
@@ -111,7 +35,7 @@ public final class TransformationRequest {
     private int outputHeight;
     @Nullable private String audioMimeType;
     @Nullable private String videoMimeType;
-    private @HdrMode int hdrMode;
+    private @Composition.HdrMode int hdrMode;
 
     /**
      * Creates a new instance with default values.
@@ -150,6 +74,7 @@ public final class TransformationRequest {
      */
     @CanIgnoreReturnValue
     public Builder setVideoMimeType(@Nullable String videoMimeType) {
+      videoMimeType = MimeTypes.normalizeMimeType(videoMimeType);
       checkArgument(
           videoMimeType == null || MimeTypes.isVideo(videoMimeType),
           "Not a video MIME type: " + videoMimeType);
@@ -176,6 +101,7 @@ public final class TransformationRequest {
      */
     @CanIgnoreReturnValue
     public Builder setAudioMimeType(@Nullable String audioMimeType) {
+      audioMimeType = MimeTypes.normalizeMimeType(audioMimeType);
       checkArgument(
           audioMimeType == null || MimeTypes.isAudio(audioMimeType),
           "Not an audio MIME type: " + audioMimeType);
@@ -184,45 +110,16 @@ public final class TransformationRequest {
     }
 
     /**
-     * Sets the {@link HdrMode} for HDR video input.
+     * Sets the {@link Composition.HdrMode} for HDR video input.
      *
-     * <p>The default value is {@link #HDR_MODE_KEEP_HDR}.
+     * <p>The default value is {@link Composition#HDR_MODE_KEEP_HDR}.
      *
-     * @param hdrMode The {@link HdrMode} used.
+     * @param hdrMode The {@link Composition.HdrMode} used.
      * @return This builder.
      */
     @CanIgnoreReturnValue
-    public Builder setHdrMode(@HdrMode int hdrMode) {
+    public Builder setHdrMode(@Composition.HdrMode int hdrMode) {
       this.hdrMode = hdrMode;
-      return this;
-    }
-
-    /**
-     * @deprecated This method is now a no-op if {@code false}, and sets {@code
-     *     setHdrMode(HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC)} if {@code true}. Use {@link
-     *     #setHdrMode} with {@link #HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC} instead.
-     */
-    @Deprecated
-    @CanIgnoreReturnValue
-    public Builder setEnableRequestSdrToneMapping(boolean enableRequestSdrToneMapping) {
-      if (enableRequestSdrToneMapping) {
-        return setHdrMode(HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC);
-      }
-      return this;
-    }
-
-    /**
-     * @deprecated This method is now a no-op if {@code false}, and sets {@code
-     *     setHdrMode(HDR_MODE_KEEP_HDR)} if {@code true}. {@code
-     *     experimental_setEnableHdrEditing(true)} is now the default behavior. Use {@link
-     *     #setHdrMode} with link {@link #HDR_MODE_KEEP_HDR} instead.
-     */
-    @Deprecated
-    @CanIgnoreReturnValue
-    public Builder experimental_setEnableHdrEditing(boolean enableHdrEditing) {
-      if (enableHdrEditing) {
-        return setHdrMode(HDR_MODE_KEEP_HDR);
-      }
       return this;
     }
 
@@ -254,6 +151,7 @@ public final class TransformationRequest {
    * </ul>
    */
   public final int outputHeight;
+
   /**
    * The requested output audio sample {@linkplain MimeTypes MIME type}, or {@code null} if inferred
    * from the input.
@@ -261,6 +159,7 @@ public final class TransformationRequest {
    * @see Builder#setAudioMimeType(String)
    */
   @Nullable public final String audioMimeType;
+
   /**
    * The requested output video sample {@linkplain MimeTypes MIME type}, or {@code null} if inferred
    * from the input.
@@ -268,18 +167,19 @@ public final class TransformationRequest {
    * @see Builder#setVideoMimeType(String)
    */
   @Nullable public final String videoMimeType;
+
   /**
-   * The {@link HdrMode} specifying how to handle HDR input video.
+   * The {@link Composition.HdrMode} specifying how to handle HDR input video.
    *
    * @see Builder#setHdrMode(int)
    */
-  public final @HdrMode int hdrMode;
+  public final @Composition.HdrMode int hdrMode;
 
   private TransformationRequest(
       int outputHeight,
       @Nullable String audioMimeType,
       @Nullable String videoMimeType,
-      @HdrMode int hdrMode) {
+      @Composition.HdrMode int hdrMode) {
     this.outputHeight = outputHeight;
     this.audioMimeType = audioMimeType;
     this.videoMimeType = videoMimeType;

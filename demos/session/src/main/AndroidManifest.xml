@@ -20,6 +20,7 @@
   <uses-sdk/>
   <uses-permission android:name="android.permission.INTERNET" />
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
   <application
       android:name="androidx.multidex.MultiDexApplication"
@@ -28,6 +29,11 @@
       android:label="@string/app_name"
       android:theme="@style/Theme.Media3Demo"
       tools:replace="android:name">
+
+    <!-- Declare that this session demo supports Android Auto. -->
+    <meta-data
+      android:name="com.google.android.gms.car.application"
+      android:resource="@xml/auto_app_desc" />
 
     <activity
         android:name=".MainActivity"
@@ -53,8 +59,9 @@
         android:foregroundServiceType="mediaPlayback"
         android:exported="true">
       <intent-filter>
-        <action android:name="androidx.media3.session.MediaSessionService"/>
+        <action android:name="androidx.media3.session.MediaLibraryService"/>
         <action android:name="android.media.browse.MediaBrowserService"/>
+        <action android:name="android.media.action.MEDIA_PLAY_FROM_SEARCH"/>
       </intent-filter>
     </service>
 

@@ -22,6 +22,7 @@ import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.session.MediaUtils.calculateBufferedPercentage;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.String.format;
 
 import android.app.PendingIntent;
 import android.content.Context;
@@ -70,8 +71,10 @@ import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ListenerSet;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
+import androidx.media3.session.LegacyConversions.ConversionException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -84,7 +87,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 
 /* package */ class MediaControllerImplLegacy implements MediaController.MediaControllerImpl {
 
@@ -107,6 +109,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
   private LegacyPlayerInfo legacyPlayerInfo;
   private LegacyPlayerInfo pendingLegacyPlayerInfo;
   private ControllerInfo controllerInfo;
+  private long currentPositionMs;
+  private long lastSetPlayWhenReadyCalledTimeMs;
 
   public MediaControllerImplLegacy(
       Context context,
@@ -130,6 +134,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     controllerCompatCallback = new ControllerCompatCallback(applicationLooper);
     this.token = token;
     this.bitmapLoader = bitmapLoader;
+    currentPositionMs = C.TIME_UNSET;
+    lastSetPlayWhenReadyCalledTimeMs = C.TIME_UNSET;
   }
 
   /* package */ MediaController getInstance() {
@@ -185,7 +191,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
             maskedPlayerInfo,
             controllerInfo.availableSessionCommands,
             controllerInfo.availablePlayerCommands,
-            controllerInfo.customLayout);
+            controllerInfo.customLayout,
+            controllerInfo.sessionExtras);
     updateStateMaskedControllerInfo(
         maskedControllerInfo,
         /* discontinuityReason= */ null,
@@ -227,50 +234,12 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
 
   @Override
   public void play() {
-    if (controllerInfo.playerInfo.playWhenReady) {
-      return;
-    }
-    ControllerInfo maskedControllerInfo =
-        new ControllerInfo(
-            controllerInfo.playerInfo.copyWithPlayWhenReady(
-                /* playWhenReady= */ true,
-                Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
-                Player.PLAYBACK_SUPPRESSION_REASON_NONE),
-            controllerInfo.availableSessionCommands,
-            controllerInfo.availablePlayerCommands,
-            controllerInfo.customLayout);
-    updateStateMaskedControllerInfo(
-        maskedControllerInfo,
-        /* discontinuityReason= */ null,
-        /* mediaItemTransitionReason= */ null);
-
-    if (isPrepared() && hasMedia()) {
-      controllerCompat.getTransportControls().play();
-    }
+    setPlayWhenReady(true);
   }
 
   @Override
   public void pause() {
-    if (!controllerInfo.playerInfo.playWhenReady) {
-      return;
-    }
-    ControllerInfo maskedControllerInfo =
-        new ControllerInfo(
-            controllerInfo.playerInfo.copyWithPlayWhenReady(
-                /* playWhenReady= */ false,
-                Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
-                Player.PLAYBACK_SUPPRESSION_REASON_NONE),
-            controllerInfo.availableSessionCommands,
-            controllerInfo.availablePlayerCommands,
-            controllerInfo.customLayout);
-    updateStateMaskedControllerInfo(
-        maskedControllerInfo,
-        /* discontinuityReason= */ null,
-        /* mediaItemTransitionReason= */ null);
-
-    if (isPrepared() && hasMedia()) {
-      controllerCompat.getTransportControls().pause();
-    }
+    setPlayWhenReady(false);
   }
 
   @Override
@@ -287,7 +256,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
                 /* playerError= */ null),
             controllerInfo.availableSessionCommands,
             controllerInfo.availablePlayerCommands,
-            controllerInfo.customLayout);
+            controllerInfo.customLayout,
+            controllerInfo.sessionExtras);
     updateStateMaskedControllerInfo(
         maskedControllerInfo,
         /* discontinuityReason= */ null,
@@ -408,7 +378,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
             maskedPlayerInfo,
             controllerInfo.availableSessionCommands,
             controllerInfo.availablePlayerCommands,
-            controllerInfo.customLayout);
+            controllerInfo.customLayout,
+            controllerInfo.sessionExtras);
     updateStateMaskedControllerInfo(
         maskedControllerInfo, discontinuityReason, mediaItemTransitionReason);
   }
@@ -447,6 +418,11 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
   }
 
   @Override
+  public Bundle getSessionExtras() {
+    return controllerInfo.sessionExtras;
+  }
+
+  @Override
   @Nullable
   public PlaybackException getPlayerError() {
     return controllerInfo.playerInfo.playerError;
@@ -459,7 +435,13 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
 
   @Override
   public long getCurrentPosition() {
-    return controllerInfo.playerInfo.sessionPositionInfo.positionInfo.positionMs;
+    currentPositionMs =
+        MediaUtils.getUpdatedCurrentPositionMs(
+            controllerInfo.playerInfo,
+            currentPositionMs,
+            lastSetPlayWhenReadyCalledTimeMs,
+            getInstance().getTimeDiffMs());
+    return currentPositionMs;
   }
 
   @Override
@@ -531,14 +513,18 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     String currentMediaItemMediaId =
         legacyPlayerInfo.mediaMetadataCompat.getString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID);
     if (mediaId.equals(currentMediaItemMediaId)) {
-      controllerCompat.getTransportControls().setRating(MediaUtils.convertToRatingCompat(rating));
+      controllerCompat
+          .getTransportControls()
+          .setRating(LegacyConversions.convertToRatingCompat(rating));
     }
     return Futures.immediateFuture(new SessionResult(SessionResult.RESULT_SUCCESS));
   }
 
   @Override
   public ListenableFuture<SessionResult> setRating(Rating rating) {
-    controllerCompat.getTransportControls().setRating(MediaUtils.convertToRatingCompat(rating));
+    controllerCompat
+        .getTransportControls()
+        .setRating(LegacyConversions.convertToRatingCompat(rating));
     return Futures.immediateFuture(new SessionResult(SessionResult.RESULT_SUCCESS));
   }
 
@@ -551,7 +537,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
               controllerInfo.playerInfo.copyWithPlaybackParameters(playbackParameters),
               controllerInfo.availableSessionCommands,
               controllerInfo.availablePlayerCommands,
-              controllerInfo.customLayout);
+              controllerInfo.customLayout,
+              controllerInfo.sessionExtras);
       updateStateMaskedControllerInfo(
           maskedControllerInfo,
           /* discontinuityReason= */ null,
@@ -570,7 +557,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
               controllerInfo.playerInfo.copyWithPlaybackParameters(new PlaybackParameters(speed)),
               controllerInfo.availableSessionCommands,
               controllerInfo.availablePlayerCommands,
-              controllerInfo.customLayout);
+              controllerInfo.customLayout,
+              controllerInfo.sessionExtras);
       updateStateMaskedControllerInfo(
           maskedControllerInfo,
           /* discontinuityReason= */ null,
@@ -662,7 +650,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
             maskedPlayerInfo,
             controllerInfo.availableSessionCommands,
             controllerInfo.availablePlayerCommands,
-            controllerInfo.customLayout);
+            controllerInfo.customLayout,
+            controllerInfo.sessionExtras);
     updateStateMaskedControllerInfo(
         maskedControllerInfo,
         /* discontinuityReason= */ null,
@@ -725,7 +714,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
             maskedPlayerInfo,
             controllerInfo.availableSessionCommands,
             controllerInfo.availablePlayerCommands,
-            controllerInfo.customLayout);
+            controllerInfo.customLayout,
+            controllerInfo.sessionExtras);
     updateStateMaskedControllerInfo(
         maskedControllerInfo,
         /* discontinuityReason= */ null,
@@ -758,6 +748,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     if (newCurrentMediaItemIndex == C.INDEX_UNSET) {
       newCurrentMediaItemIndex =
           Util.constrainValue(fromIndex, /* min= */ 0, newQueueTimeline.getWindowCount() - 1);
+      // TODO: b/302114474 - This also needs to reset the current position.
       Log.w(
           TAG,
           "Currently playing item is removed. Assumes item at "
@@ -776,7 +767,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
             maskedPlayerInfo,
             controllerInfo.availableSessionCommands,
             controllerInfo.availablePlayerCommands,
-            controllerInfo.customLayout);
+            controllerInfo.customLayout,
+            controllerInfo.sessionExtras);
     updateStateMaskedControllerInfo(
         maskedControllerInfo,
         /* discontinuityReason= */ null,
@@ -842,7 +834,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
             maskedPlayerInfo,
             controllerInfo.availableSessionCommands,
             controllerInfo.availablePlayerCommands,
-            controllerInfo.customLayout);
+            controllerInfo.customLayout,
+            controllerInfo.sessionExtras);
     updateStateMaskedControllerInfo(
         maskedControllerInfo,
         /* discontinuityReason= */ null,
@@ -954,7 +947,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
               controllerInfo.playerInfo.copyWithRepeatMode(repeatMode),
               controllerInfo.availableSessionCommands,
               controllerInfo.availablePlayerCommands,
-              controllerInfo.customLayout);
+              controllerInfo.customLayout,
+              controllerInfo.sessionExtras);
       updateStateMaskedControllerInfo(
           maskedControllerInfo,
           /* discontinuityReason= */ null,
@@ -963,7 +957,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
 
     controllerCompat
         .getTransportControls()
-        .setRepeatMode(MediaUtils.convertToPlaybackStateCompatRepeatMode(repeatMode));
+        .setRepeatMode(LegacyConversions.convertToPlaybackStateCompatRepeatMode(repeatMode));
   }
 
   @Override
@@ -980,7 +974,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
               controllerInfo.playerInfo.copyWithShuffleModeEnabled(shuffleModeEnabled),
               controllerInfo.availableSessionCommands,
               controllerInfo.availablePlayerCommands,
-              controllerInfo.customLayout);
+              controllerInfo.customLayout,
+              controllerInfo.sessionExtras);
       updateStateMaskedControllerInfo(
           maskedControllerInfo,
           /* discontinuityReason= */ null,
@@ -989,7 +984,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
 
     controllerCompat
         .getTransportControls()
-        .setShuffleMode(MediaUtils.convertToPlaybackStateCompatShuffleMode(shuffleModeEnabled));
+        .setShuffleMode(
+            LegacyConversions.convertToPlaybackStateCompatShuffleMode(shuffleModeEnabled));
   }
 
   @Override
@@ -1101,7 +1097,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
               controllerInfo.playerInfo.copyWithDeviceVolume(volume, isDeviceMuted),
               controllerInfo.availableSessionCommands,
               controllerInfo.availablePlayerCommands,
-              controllerInfo.customLayout);
+              controllerInfo.customLayout,
+              controllerInfo.sessionExtras);
       updateStateMaskedControllerInfo(
           maskedControllerInfo,
           /* discontinuityReason= */ null,
@@ -1132,7 +1129,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
               controllerInfo.playerInfo.copyWithDeviceVolume(volume + 1, isDeviceMuted),
               controllerInfo.availableSessionCommands,
               controllerInfo.availablePlayerCommands,
-              controllerInfo.customLayout);
+              controllerInfo.customLayout,
+              controllerInfo.sessionExtras);
       updateStateMaskedControllerInfo(
           maskedControllerInfo,
           /* discontinuityReason= */ null,
@@ -1162,7 +1160,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
               controllerInfo.playerInfo.copyWithDeviceVolume(volume - 1, isDeviceMuted),
               controllerInfo.availableSessionCommands,
               controllerInfo.availablePlayerCommands,
-              controllerInfo.customLayout);
+              controllerInfo.customLayout,
+              controllerInfo.sessionExtras);
       updateStateMaskedControllerInfo(
           maskedControllerInfo,
           /* discontinuityReason= */ null,
@@ -1195,7 +1194,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
               controllerInfo.playerInfo.copyWithDeviceVolume(volume, muted),
               controllerInfo.availableSessionCommands,
               controllerInfo.availablePlayerCommands,
-              controllerInfo.customLayout);
+              controllerInfo.customLayout,
+              controllerInfo.sessionExtras);
       updateStateMaskedControllerInfo(
           maskedControllerInfo,
           /* discontinuityReason= */ null,
@@ -1207,11 +1207,44 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
   }
 
   @Override
+  public void setAudioAttributes(AudioAttributes audioAttributes, boolean handleAudioFocus) {
+    Log.w(TAG, "Legacy session doesn't support setting audio attributes remotely");
+  }
+
+  @Override
   public void setPlayWhenReady(boolean playWhenReady) {
-    if (playWhenReady) {
-      play();
-    } else {
-      pause();
+    if (controllerInfo.playerInfo.playWhenReady == playWhenReady) {
+      return;
+    }
+    // Update position and then stop estimating until a new positionInfo arrives from the session.
+    currentPositionMs =
+        MediaUtils.getUpdatedCurrentPositionMs(
+            controllerInfo.playerInfo,
+            currentPositionMs,
+            lastSetPlayWhenReadyCalledTimeMs,
+            getInstance().getTimeDiffMs());
+    lastSetPlayWhenReadyCalledTimeMs = SystemClock.elapsedRealtime();
+    ControllerInfo maskedControllerInfo =
+        new ControllerInfo(
+            controllerInfo.playerInfo.copyWithPlayWhenReady(
+                playWhenReady,
+                Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+                Player.PLAYBACK_SUPPRESSION_REASON_NONE),
+            controllerInfo.availableSessionCommands,
+            controllerInfo.availablePlayerCommands,
+            controllerInfo.customLayout,
+            controllerInfo.sessionExtras);
+    updateStateMaskedControllerInfo(
+        maskedControllerInfo,
+        /* discontinuityReason= */ null,
+        /* mediaItemTransitionReason= */ null);
+
+    if (isPrepared() && hasMedia()) {
+      if (playWhenReady) {
+        controllerCompat.getTransportControls().play();
+      } else {
+        controllerCompat.getTransportControls().pause();
+      }
     }
   }
 
@@ -1283,6 +1316,12 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     return browserCompat;
   }
 
+  @Nullable
+  @Override
+  public IMediaController getBinder() {
+    return null;
+  }
+
   void onConnected() {
     if (released || connected) {
       return;
@@ -1296,7 +1335,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
             convertToNonNullQueueItemList(controllerCompat.getQueue()),
             controllerCompat.getQueueTitle(),
             controllerCompat.getRepeatMode(),
-            controllerCompat.getShuffleMode());
+            controllerCompat.getShuffleMode(),
+            controllerCompat.getExtras());
     handleNewLegacyParameters(/* notifyConnected= */ true, newLegacyPlayerInfo);
   }
 
@@ -1464,7 +1504,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
         }
       }
       controllerCompat.addQueueItem(
-          MediaUtils.convertToMediaDescriptionCompat(mediaItems.get(i), bitmap),
+          LegacyConversions.convertToMediaDescriptionCompat(mediaItems.get(i), bitmap),
           /* index= */ startIndex + i);
     }
   }
@@ -1481,6 +1521,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
             legacyPlayerInfo,
             controllerInfo,
             newLegacyPlayerInfo,
+            controllerCompat.getPackageName(),
             controllerCompat.getFlags(),
             controllerCompat.isSessionReady(),
             controllerCompat.getRatingType(),
@@ -1579,7 +1620,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     if (!MediaUtils.areEqualError(
         oldLegacyPlayerInfo.playbackStateCompat, newLegacyPlayerInfo.playbackStateCompat)) {
       PlaybackException error =
-          MediaUtils.convertToPlaybackException(newLegacyPlayerInfo.playbackStateCompat);
+          LegacyConversions.convertToPlaybackException(newLegacyPlayerInfo.playbackStateCompat);
       listeners.queueEvent(
           Player.EVENT_PLAYER_ERROR, (listener) -> listener.onPlayerErrorChanged(error));
       if (error != null) {
@@ -1810,6 +1851,13 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
 
     @Override
     public void onExtrasChanged(Bundle extras) {
+      controllerInfo =
+          new ControllerInfo(
+              controllerInfo.playerInfo,
+              controllerInfo.availableSessionCommands,
+              controllerInfo.availablePlayerCommands,
+              controllerInfo.customLayout,
+              extras);
       getInstance()
           .notifyControllerListener(listener -> listener.onExtrasChanged(getInstance(), extras));
     }
@@ -1867,6 +1915,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
       LegacyPlayerInfo oldLegacyPlayerInfo,
       ControllerInfo oldControllerInfo,
       LegacyPlayerInfo newLegacyPlayerInfo,
+      String sessionPackageName,
       long sessionFlags,
       boolean isSessionReady,
       @RatingCompat.Style int ratingType,
@@ -1894,18 +1943,20 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     long oldActiveQueueId = getActiveQueueId(oldLegacyPlayerInfo.playbackStateCompat);
     long newActiveQueueId = getActiveQueueId(newLegacyPlayerInfo.playbackStateCompat);
     boolean isCurrentActiveQueueIdChanged = (oldActiveQueueId != newActiveQueueId) || initialUpdate;
-    long durationMs = MediaUtils.convertToDurationMs(newLegacyPlayerInfo.mediaMetadataCompat);
+    long durationMs =
+        LegacyConversions.convertToDurationMs(newLegacyPlayerInfo.mediaMetadataCompat);
     if (isMetadataCompatChanged || isCurrentActiveQueueIdChanged || isQueueChanged) {
       currentMediaItemIndex = findQueueItemIndex(newLegacyPlayerInfo.queue, newActiveQueueId);
       boolean hasMediaMetadataCompat = newLegacyPlayerInfo.mediaMetadataCompat != null;
       if (hasMediaMetadataCompat && isMetadataCompatChanged) {
         mediaMetadata =
-            MediaUtils.convertToMediaMetadata(newLegacyPlayerInfo.mediaMetadataCompat, ratingType);
+            LegacyConversions.convertToMediaMetadata(
+                newLegacyPlayerInfo.mediaMetadataCompat, ratingType);
       } else if (!hasMediaMetadataCompat && isCurrentActiveQueueIdChanged) {
         mediaMetadata =
             (currentMediaItemIndex == C.INDEX_UNSET)
                 ? MediaMetadata.EMPTY
-                : MediaUtils.convertToMediaMetadata(
+                : LegacyConversions.convertToMediaMetadata(
                     newLegacyPlayerInfo.queue.get(currentMediaItemIndex).getDescription(),
                     ratingType);
       } else {
@@ -1919,7 +1970,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
                   + " the active queue id and current Timeline should have currently playing"
                   + " MediaItem.");
           MediaItem fakeMediaItem =
-              MediaUtils.convertToMediaItem(newLegacyPlayerInfo.mediaMetadataCompat, ratingType);
+              LegacyConversions.convertToMediaItem(
+                  newLegacyPlayerInfo.mediaMetadataCompat, ratingType);
           currentTimeline = currentTimeline.copyWithFakeMediaItem(fakeMediaItem, durationMs);
           currentMediaItemIndex = currentTimeline.getWindowCount() - 1;
         } else {
@@ -1933,7 +1985,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
         currentTimeline = currentTimeline.copyWithClearedFakeMediaItem();
         if (hasMediaMetadataCompat) {
           MediaItem mediaItem =
-              MediaUtils.convertToMediaItem(
+              LegacyConversions.convertToMediaItem(
                   checkNotNull(currentTimeline.getMediaItemAt(currentMediaItemIndex)).mediaId,
                   newLegacyPlayerInfo.mediaMetadataCompat,
                   ratingType);
@@ -1955,14 +2007,16 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     playlistMetadata =
         oldLegacyPlayerInfo.queueTitle == newLegacyPlayerInfo.queueTitle
             ? oldControllerInfo.playerInfo.playlistMetadata
-            : MediaUtils.convertToMediaMetadata(newLegacyPlayerInfo.queueTitle);
-    repeatMode = MediaUtils.convertToRepeatMode(newLegacyPlayerInfo.repeatMode);
-    shuffleModeEnabled = MediaUtils.convertToShuffleModeEnabled(newLegacyPlayerInfo.shuffleMode);
+            : LegacyConversions.convertToMediaMetadata(newLegacyPlayerInfo.queueTitle);
+    repeatMode = LegacyConversions.convertToRepeatMode(newLegacyPlayerInfo.repeatMode);
+    shuffleModeEnabled =
+        LegacyConversions.convertToShuffleModeEnabled(newLegacyPlayerInfo.shuffleMode);
     if (oldLegacyPlayerInfo.playbackStateCompat != newLegacyPlayerInfo.playbackStateCompat) {
       availableSessionCommands =
-          MediaUtils.convertToSessionCommands(
+          LegacyConversions.convertToSessionCommands(
               newLegacyPlayerInfo.playbackStateCompat, isSessionReady);
-      customLayout = MediaUtils.convertToCustomLayout(newLegacyPlayerInfo.playbackStateCompat);
+      customLayout =
+          LegacyConversions.convertToCustomLayout(newLegacyPlayerInfo.playbackStateCompat);
     } else {
       availableSessionCommands = oldControllerInfo.availableSessionCommands;
       customLayout = oldControllerInfo.customLayout;
@@ -1975,53 +2029,67 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
             ? newLegacyPlayerInfo.playbackInfoCompat.getVolumeControl()
             : VolumeProviderCompat.VOLUME_CONTROL_FIXED;
     availablePlayerCommands =
-        MediaUtils.convertToPlayerCommands(
+        LegacyConversions.convertToPlayerCommands(
             newLegacyPlayerInfo.playbackStateCompat,
             volumeControlType,
             sessionFlags,
             isSessionReady);
 
     PlaybackException playerError =
-        MediaUtils.convertToPlaybackException(newLegacyPlayerInfo.playbackStateCompat);
+        LegacyConversions.convertToPlaybackException(newLegacyPlayerInfo.playbackStateCompat);
 
     long currentPositionMs =
-        MediaUtils.convertToCurrentPositionMs(
+        LegacyConversions.convertToCurrentPositionMs(
             newLegacyPlayerInfo.playbackStateCompat,
             newLegacyPlayerInfo.mediaMetadataCompat,
             timeDiffMs);
     long bufferedPositionMs =
-        MediaUtils.convertToBufferedPositionMs(
+        LegacyConversions.convertToBufferedPositionMs(
             newLegacyPlayerInfo.playbackStateCompat,
             newLegacyPlayerInfo.mediaMetadataCompat,
             timeDiffMs);
     int bufferedPercentage =
-        MediaUtils.convertToBufferedPercentage(
+        LegacyConversions.convertToBufferedPercentage(
             newLegacyPlayerInfo.playbackStateCompat,
             newLegacyPlayerInfo.mediaMetadataCompat,
             timeDiffMs);
     long totalBufferedDurationMs =
-        MediaUtils.convertToTotalBufferedDurationMs(
+        LegacyConversions.convertToTotalBufferedDurationMs(
             newLegacyPlayerInfo.playbackStateCompat,
             newLegacyPlayerInfo.mediaMetadataCompat,
             timeDiffMs);
-    boolean isPlayingAd = MediaUtils.convertToIsPlayingAd(newLegacyPlayerInfo.mediaMetadataCompat);
+    boolean isPlayingAd =
+        LegacyConversions.convertToIsPlayingAd(newLegacyPlayerInfo.mediaMetadataCompat);
     PlaybackParameters playbackParameters =
-        MediaUtils.convertToPlaybackParameters(newLegacyPlayerInfo.playbackStateCompat);
+        LegacyConversions.convertToPlaybackParameters(newLegacyPlayerInfo.playbackStateCompat);
     AudioAttributes audioAttributes =
-        MediaUtils.convertToAudioAttributes(newLegacyPlayerInfo.playbackInfoCompat);
+        LegacyConversions.convertToAudioAttributes(newLegacyPlayerInfo.playbackInfoCompat);
     boolean playWhenReady =
-        MediaUtils.convertToPlayWhenReady(newLegacyPlayerInfo.playbackStateCompat);
-    @Player.State
-    int playbackState =
-        MediaUtils.convertToPlaybackState(
-            newLegacyPlayerInfo.playbackStateCompat,
-            newLegacyPlayerInfo.mediaMetadataCompat,
-            timeDiffMs);
-    boolean isPlaying = MediaUtils.convertToIsPlaying(newLegacyPlayerInfo.playbackStateCompat);
+        LegacyConversions.convertToPlayWhenReady(newLegacyPlayerInfo.playbackStateCompat);
+    @Player.State int playbackState;
+    try {
+      playbackState =
+          LegacyConversions.convertToPlaybackState(
+              newLegacyPlayerInfo.playbackStateCompat,
+              newLegacyPlayerInfo.mediaMetadataCompat,
+              timeDiffMs);
+    } catch (ConversionException e) {
+      Log.e(
+          TAG,
+          format(
+              "Received invalid playback state %s from package %s. Keeping the previous state.",
+              newLegacyPlayerInfo.playbackStateCompat.getState(), sessionPackageName));
+      playbackState = oldControllerInfo.playerInfo.playbackState;
+    }
+    boolean isPlaying =
+        LegacyConversions.convertToIsPlaying(newLegacyPlayerInfo.playbackStateCompat);
     DeviceInfo deviceInfo =
-        MediaUtils.convertToDeviceInfo(newLegacyPlayerInfo.playbackInfoCompat, routingControllerId);
-    int deviceVolume = MediaUtils.convertToDeviceVolume(newLegacyPlayerInfo.playbackInfoCompat);
-    boolean deviceMuted = MediaUtils.convertToIsDeviceMuted(newLegacyPlayerInfo.playbackInfoCompat);
+        LegacyConversions.convertToDeviceInfo(
+            newLegacyPlayerInfo.playbackInfoCompat, routingControllerId);
+    int deviceVolume =
+        LegacyConversions.convertToDeviceVolume(newLegacyPlayerInfo.playbackInfoCompat);
+    boolean deviceMuted =
+        LegacyConversions.convertToIsDeviceMuted(newLegacyPlayerInfo.playbackInfoCompat);
     long seekBackIncrementMs = oldControllerInfo.playerInfo.seekBackIncrementMs;
     long seekForwardIncrementMs = oldControllerInfo.playerInfo.seekForwardIncrementMs;
 
@@ -2035,6 +2103,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
         availableSessionCommands,
         availablePlayerCommands,
         customLayout,
+        newLegacyPlayerInfo.sessionExtras,
         playerError,
         durationMs,
         currentPositionMs,
@@ -2095,12 +2164,12 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
       } else if (oldCurrentMediaItem.equals(newControllerInfo.playerInfo.getCurrentMediaItem())) {
         // Current item is the same.
         long oldCurrentPosition =
-            MediaUtils.convertToCurrentPositionMs(
+            LegacyConversions.convertToCurrentPositionMs(
                 oldLegacyPlayerInfo.playbackStateCompat,
                 oldLegacyPlayerInfo.mediaMetadataCompat,
                 timeDiffMs);
         long newCurrentPosition =
-            MediaUtils.convertToCurrentPositionMs(
+            LegacyConversions.convertToCurrentPositionMs(
                 newLegacyPlayerInfo.playbackStateCompat,
                 newLegacyPlayerInfo.mediaMetadataCompat,
                 timeDiffMs);
@@ -2202,6 +2271,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
       SessionCommands availableSessionCommands,
       Commands availablePlayerCommands,
       ImmutableList<CommandButton> customLayout,
+      Bundle sessionExtras,
       @Nullable PlaybackException playerError,
       long durationMs,
       long currentPositionMs,
@@ -2228,7 +2298,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
         new SessionPositionInfo(
             /* positionInfo= */ positionInfo,
             /* isPlayingAd= */ isPlayingAd,
-            /* eventTimeMs= */ C.TIME_UNSET,
+            /* eventTimeMs= */ SystemClock.elapsedRealtime(),
             /* durationMs= */ durationMs,
             /* bufferedPositionMs= */ bufferedPositionMs,
             /* bufferedPercentage= */ bufferedPercentage,
@@ -2272,7 +2342,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
             /* parameters= */ TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT);
 
     return new ControllerInfo(
-        playerInfo, availableSessionCommands, availablePlayerCommands, customLayout);
+        playerInfo, availableSessionCommands, availablePlayerCommands, customLayout, sessionExtras);
   }
 
   private static PositionInfo createPositionInfo(
@@ -2322,6 +2392,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     @Nullable public final CharSequence queueTitle;
     @PlaybackStateCompat.RepeatMode public final int repeatMode;
     @PlaybackStateCompat.ShuffleMode public final int shuffleMode;
+    public final Bundle sessionExtras;
 
     public LegacyPlayerInfo() {
       playbackInfoCompat = null;
@@ -2331,6 +2402,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
       queueTitle = null;
       repeatMode = PlaybackStateCompat.REPEAT_MODE_NONE;
       shuffleMode = PlaybackStateCompat.SHUFFLE_MODE_NONE;
+      sessionExtras = Bundle.EMPTY;
     }
 
     public LegacyPlayerInfo(
@@ -2340,7 +2412,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
         List<QueueItem> queue,
         @Nullable CharSequence queueTitle,
         @PlaybackStateCompat.RepeatMode int repeatMode,
-        @PlaybackStateCompat.ShuffleMode int shuffleMode) {
+        @PlaybackStateCompat.ShuffleMode int shuffleMode,
+        @Nullable Bundle sessionExtras) {
       this.playbackInfoCompat = playbackInfoCompat;
       this.playbackStateCompat = playbackStateCompat;
       this.mediaMetadataCompat = mediaMetadataCompat;
@@ -2348,6 +2421,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
       this.queueTitle = queueTitle;
       this.repeatMode = repeatMode;
       this.shuffleMode = shuffleMode;
+      this.sessionExtras = sessionExtras != null ? sessionExtras : Bundle.EMPTY;
     }
 
     public LegacyPlayerInfo(LegacyPlayerInfo other) {
@@ -2358,6 +2432,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
       queueTitle = other.queueTitle;
       repeatMode = other.repeatMode;
       shuffleMode = other.shuffleMode;
+      sessionExtras = other.sessionExtras;
     }
 
     @CheckResult
@@ -2372,7 +2447,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
           queue,
           queueTitle,
           repeatMode,
-          shuffleMode);
+          shuffleMode,
+          sessionExtras);
     }
 
     @CheckResult
@@ -2385,7 +2461,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
           queue,
           queueTitle,
           repeatMode,
-          shuffleMode);
+          shuffleMode,
+          sessionExtras);
     }
 
     @CheckResult
@@ -2398,7 +2475,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
           queue,
           queueTitle,
           repeatMode,
-          shuffleMode);
+          shuffleMode,
+          sessionExtras);
     }
 
     @CheckResult
@@ -2410,7 +2488,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
           queue,
           queueTitle,
           repeatMode,
-          shuffleMode);
+          shuffleMode,
+          sessionExtras);
     }
 
     @CheckResult
@@ -2422,7 +2501,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
           queue,
           queueTitle,
           repeatMode,
-          shuffleMode);
+          shuffleMode,
+          sessionExtras);
     }
 
     @CheckResult
@@ -2435,7 +2515,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
           queue,
           queueTitle,
           repeatMode,
-          shuffleMode);
+          shuffleMode,
+          sessionExtras);
     }
 
     @CheckResult
@@ -2447,7 +2528,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
           queue,
           queueTitle,
           repeatMode,
-          shuffleMode);
+          shuffleMode,
+          sessionExtras);
     }
 
     @CheckResult
@@ -2459,7 +2541,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
           queue,
           queueTitle,
           repeatMode,
-          shuffleMode);
+          shuffleMode,
+          sessionExtras);
     }
   }
 
@@ -2469,23 +2552,27 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     public final SessionCommands availableSessionCommands;
     public final Commands availablePlayerCommands;
     public final ImmutableList<CommandButton> customLayout;
+    public final Bundle sessionExtras;
 
     public ControllerInfo() {
       playerInfo = PlayerInfo.DEFAULT.copyWithTimeline(QueueTimeline.DEFAULT);
       availableSessionCommands = SessionCommands.EMPTY;
       availablePlayerCommands = Commands.EMPTY;
       customLayout = ImmutableList.of();
+      sessionExtras = Bundle.EMPTY;
     }
 
     public ControllerInfo(
         PlayerInfo playerInfo,
         SessionCommands availableSessionCommands,
         Commands availablePlayerCommands,
-        ImmutableList<CommandButton> customLayout) {
+        ImmutableList<CommandButton> customLayout,
+        Bundle sessionExtras) {
       this.playerInfo = playerInfo;
       this.availableSessionCommands = availableSessionCommands;
       this.availablePlayerCommands = availablePlayerCommands;
       this.customLayout = customLayout;
+      this.sessionExtras = sessionExtras;
     }
   }
 }

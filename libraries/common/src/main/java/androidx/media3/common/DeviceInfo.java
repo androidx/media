@@ -43,8 +43,10 @@ public final class DeviceInfo implements Bundleable {
     PLAYBACK_TYPE_REMOTE,
   })
   public @interface PlaybackType {}
+
   /** Playback happens on the local device (e.g. phone). */
   public static final int PLAYBACK_TYPE_LOCAL = 0;
+
   /** Playback happens outside of the device (e.g. a cast device). */
   public static final int PLAYBACK_TYPE_REMOTE = 1;
 
@@ -126,12 +128,15 @@ public final class DeviceInfo implements Bundleable {
 
   /** The type of playback. */
   public final @PlaybackType int playbackType;
+
   /** The minimum volume that the device supports. */
   @IntRange(from = 0)
   public final int minVolume;
+
   /** The maximum volume that the device supports, or {@code 0} if unspecified. */
   @IntRange(from = 0)
   public final int maxVolume;
+
   /**
    * The {@linkplain MediaRouter2.RoutingController#getId() routing controller id} of the associated
    * {@link MediaRouter2.RoutingController}, or null if unset or {@link #playbackType} is {@link
@@ -212,19 +217,28 @@ public final class DeviceInfo implements Bundleable {
     return bundle;
   }
 
-  /** Object that can restore {@link DeviceInfo} from a {@link Bundle}. */
+  /**
+   * Object that can restore {@link DeviceInfo} from a {@link Bundle}.
+   *
+   * @deprecated Use {@link #fromBundle} instead.
+   */
   @UnstableApi
-  public static final Creator<DeviceInfo> CREATOR =
-      bundle -> {
-        int playbackType =
-            bundle.getInt(FIELD_PLAYBACK_TYPE, /* defaultValue= */ PLAYBACK_TYPE_LOCAL);
-        int minVolume = bundle.getInt(FIELD_MIN_VOLUME, /* defaultValue= */ 0);
-        int maxVolume = bundle.getInt(FIELD_MAX_VOLUME, /* defaultValue= */ 0);
-        @Nullable String routingControllerId = bundle.getString(FIELD_ROUTING_CONTROLLER_ID);
-        return new DeviceInfo.Builder(playbackType)
-            .setMinVolume(minVolume)
-            .setMaxVolume(maxVolume)
-            .setRoutingControllerId(routingControllerId)
-            .build();
-      };
+  @Deprecated
+  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
+  public static final Creator<DeviceInfo> CREATOR = DeviceInfo::fromBundle;
+
+  /** Restores a {@code DeviceInfo} from a {@link Bundle}. */
+  @UnstableApi
+  public static DeviceInfo fromBundle(Bundle bundle) {
+    int playbackType = bundle.getInt(FIELD_PLAYBACK_TYPE, /* defaultValue= */ PLAYBACK_TYPE_LOCAL);
+    int minVolume = bundle.getInt(FIELD_MIN_VOLUME, /* defaultValue= */ 0);
+    int maxVolume = bundle.getInt(FIELD_MAX_VOLUME, /* defaultValue= */ 0);
+    @Nullable String routingControllerId = bundle.getString(FIELD_ROUTING_CONTROLLER_ID);
+    return new DeviceInfo.Builder(playbackType)
+        .setMinVolume(minVolume)
+        .setMaxVolume(maxVolume)
+        .setRoutingControllerId(routingControllerId)
+        .build();
+  }
+  ;
 }

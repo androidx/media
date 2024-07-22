@@ -41,6 +41,7 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
 import androidx.media3.session.MediaSession.ControllerCb;
@@ -58,7 +59,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 
 /**
  * Implementation of {@link MediaBrowserServiceCompat} for interoperability between {@link
@@ -98,7 +98,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     }
     @Nullable
     LibraryParams params =
-        MediaUtils.convertToLibraryParams(librarySessionImpl.getContext(), rootHints);
+        LegacyConversions.convertToLibraryParams(librarySessionImpl.getContext(), rootHints);
     AtomicReference<ListenableFuture<LibraryResult<MediaItem>>> futureReference =
         new AtomicReference<>();
     ConditionVariable haveFuture = new ConditionVariable();
@@ -118,7 +118,9 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     if (result != null && result.resultCode == RESULT_SUCCESS && result.value != null) {
       @Nullable
       Bundle extras =
-          result.params != null ? MediaUtils.convertToRootHints(result.params) : new Bundle();
+          result.params != null
+              ? LegacyConversions.convertToRootHints(result.params)
+              : new Bundle();
       boolean isSearchSessionCommandAvailable =
           getConnectedControllersManager()
               .isSessionCommandAvailable(controller, SessionCommand.COMMAND_CODE_LIBRARY_SEARCH);
@@ -157,7 +159,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
           }
           @Nullable
           LibraryParams params =
-              MediaUtils.convertToLibraryParams(librarySessionImpl.getContext(), option);
+              LegacyConversions.convertToLibraryParams(librarySessionImpl.getContext(), option);
           ignoreFuture(librarySessionImpl.onSubscribeOnHandler(controller, id, params));
         });
   }
@@ -224,7 +226,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
                 // Requesting the list of children through pagination.
                 @Nullable
                 LibraryParams params =
-                    MediaUtils.convertToLibraryParams(librarySessionImpl.getContext(), options);
+                    LegacyConversions.convertToLibraryParams(
+                        librarySessionImpl.getContext(), options);
                 ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> future =
                     librarySessionImpl.onGetChildrenOnHandler(
                         controller, parentId, page, pageSize, params);
@@ -315,7 +318,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
           cb.registerSearchRequest(controller, query, extras, result);
           @Nullable
           LibraryParams params =
-              MediaUtils.convertToLibraryParams(librarySessionImpl.getContext(), extras);
+              LegacyConversions.convertToLibraryParams(librarySessionImpl.getContext(), extras);
           ignoreFuture(librarySessionImpl.onSearchOnHandler(controller, query, params));
           // Actual search result will be sent by notifySearchResultChanged().
         });
@@ -483,7 +486,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
           Log.d(TAG, "Failed to get bitmap", e);
         }
       }
-      outputMediaItems.add(MediaUtils.convertToBrowserItem(mediaItems.get(i), bitmap));
+      outputMediaItems.add(LegacyConversions.convertToBrowserItem(mediaItems.get(i), bitmap));
     }
     outputFuture.set(outputMediaItems);
   }
@@ -510,7 +513,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
       MediaItem mediaItem = result.value;
       MediaMetadata metadata = mediaItem.mediaMetadata;
       if (metadata.artworkData == null) {
-        outputFuture.set(MediaUtils.convertToBrowserItem(mediaItem, /* artworkBitmap= */ null));
+        outputFuture.set(
+            LegacyConversions.convertToBrowserItem(mediaItem, /* artworkBitmap= */ null));
         return outputFuture;
       }
 
@@ -531,7 +535,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
             } catch (CancellationException | ExecutionException e) {
               Log.d(TAG, "failed to get bitmap", e);
             }
-            outputFuture.set(MediaUtils.convertToBrowserItem(mediaItem, bitmap));
+            outputFuture.set(LegacyConversions.convertToBrowserItem(mediaItem, bitmap));
           },
           MoreExecutors.directExecutor());
       return outputFuture;
@@ -634,7 +638,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
               }
               @Nullable
               LibraryParams libraryParams =
-                  MediaUtils.convertToLibraryParams(
+                  LegacyConversions.convertToLibraryParams(
                       librarySessionImpl.getContext(), request.extras);
               ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> future =
                   librarySessionImpl.onGetSearchResultOnHandler(

@@ -25,6 +25,8 @@ import com.google.common.base.Ascii;
 import java.util.ArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.checkerframework.checker.nullness.qual.PolyNull;
+import org.checkerframework.dataflow.qual.Pure;
 
 /** Defines common MIME types and helper methods. */
 public final class MimeTypes {
@@ -107,10 +109,6 @@ public final class MimeTypes {
 
   public static final String TEXT_VTT = BASE_TYPE_TEXT + "/vtt";
   public static final String TEXT_SSA = BASE_TYPE_TEXT + "/x-ssa";
-
-  @UnstableApi
-  public static final String TEXT_EXOPLAYER_CUES = BASE_TYPE_TEXT + "/x-exoplayer-cues";
-
   @UnstableApi public static final String TEXT_UNKNOWN = BASE_TYPE_TEXT + "/x-unknown";
 
   // application/ MIME types
@@ -131,6 +129,7 @@ public final class MimeTypes {
   public static final String APPLICATION_TX3G = BASE_TYPE_APPLICATION + "/x-quicktime-tx3g";
   public static final String APPLICATION_MP4VTT = BASE_TYPE_APPLICATION + "/x-mp4-vtt";
   public static final String APPLICATION_MP4CEA608 = BASE_TYPE_APPLICATION + "/x-mp4-cea-608";
+
   /**
    * @deprecated RawCC is a Google-internal subtitle format that isn't supported by this version of
    *     Media3. There is no replacement for this value.
@@ -151,13 +150,21 @@ public final class MimeTypes {
   public static final String APPLICATION_AIT = BASE_TYPE_APPLICATION + "/vnd.dvb.ait";
   public static final String APPLICATION_RTSP = BASE_TYPE_APPLICATION + "/x-rtsp";
 
+  @UnstableApi
+  public static final String APPLICATION_MEDIA3_CUES = BASE_TYPE_APPLICATION + "/x-media3-cues";
+
+  /** MIME type for an image URI loaded from an external image management framework. */
+  @UnstableApi
+  public static final String APPLICATION_EXTERNALLY_LOADED_IMAGE =
+      BASE_TYPE_APPLICATION + "/x-image-uri";
+
   // image/ MIME types
 
-  public static final String IMAGE_PNG = BASE_TYPE_IMAGE + "/png";
-  public static final String IMAGE_WEBP = BASE_TYPE_IMAGE + "/webp";
   public static final String IMAGE_JPEG = BASE_TYPE_IMAGE + "/jpeg";
-  public static final String IMAGE_HEIC = BASE_TYPE_IMAGE + "/heic";
-  public static final String IMAGE_HEIF = BASE_TYPE_IMAGE + "/heif";
+  @UnstableApi public static final String IMAGE_PNG = BASE_TYPE_IMAGE + "/png";
+  @UnstableApi public static final String IMAGE_HEIF = BASE_TYPE_IMAGE + "/heif";
+  @UnstableApi public static final String IMAGE_BMP = BASE_TYPE_IMAGE + "/bmp";
+  @UnstableApi public static final String IMAGE_WEBP = BASE_TYPE_IMAGE + "/webp";
 
   /**
    * A non-standard codec string for E-AC3-JOC. Use of this constant allows for disambiguation
@@ -212,9 +219,12 @@ public final class MimeTypes {
    * Returns whether the given string is a text MIME type, including known text types that use
    * &quot;application&quot; as their base type.
    */
+  @SuppressWarnings("deprecation") // Supporting deprecated MIME types
   @UnstableApi
+  @Pure
   public static boolean isText(@Nullable String mimeType) {
     return BASE_TYPE_TEXT.equals(getTopLevelType(mimeType))
+        || APPLICATION_MEDIA3_CUES.equals(mimeType)
         || APPLICATION_CEA608.equals(mimeType)
         || APPLICATION_CEA708.equals(mimeType)
         || APPLICATION_MP4CEA608.equals(mimeType)
@@ -231,13 +241,15 @@ public final class MimeTypes {
   /** Returns whether the given string is an image MIME type. */
   @UnstableApi
   public static boolean isImage(@Nullable String mimeType) {
-    return BASE_TYPE_IMAGE.equals(getTopLevelType(mimeType));
+    return BASE_TYPE_IMAGE.equals(getTopLevelType(mimeType))
+        || APPLICATION_EXTERNALLY_LOADED_IMAGE.equals(mimeType);
   }
 
   /**
    * Returns true if it is known that all samples in a stream of the given MIME type and codec are
    * guaranteed to be sync samples (i.e., {@link C#BUFFER_FLAG_KEY_FRAME} is guaranteed to be set on
-   * every sample).
+   * every sample) and the inherent duration of each sample is negligible (i.e., we never expect to
+   * require a sample because playback partially falls into its duration).
    *
    * @param mimeType The MIME type of the stream.
    * @param codec The RFC 6381 codec string of the stream, or {@code null} if unknown.
@@ -524,6 +536,8 @@ public final class MimeTypes {
         return MimeTypes.AUDIO_OPUS;
       case 0xAE:
         return MimeTypes.AUDIO_AC4;
+      case 0xDD:
+        return MimeTypes.AUDIO_VORBIS;
       default:
         return null;
     }
@@ -623,18 +637,30 @@ public final class MimeTypes {
   /**
    * Normalizes the MIME type provided so that equivalent MIME types are uniquely represented.
    *
-   * @param mimeType A MIME type to normalize.
+   * @param mimeType A MIME type to normalize, or null.
    * @return The normalized MIME type, or the argument MIME type if its normalized form is unknown.
    */
   @UnstableApi
-  public static String normalizeMimeType(String mimeType) {
+  public static @PolyNull String normalizeMimeType(@PolyNull String mimeType) {
+    if (mimeType == null) {
+      return null;
+    }
+    mimeType = Ascii.toLowerCase(mimeType);
     switch (mimeType) {
+        // Normalize uncommon versions of some audio MIME types to their standard equivalent.
       case BASE_TYPE_AUDIO + "/x-flac":
         return AUDIO_FLAC;
       case BASE_TYPE_AUDIO + "/mp3":
         return AUDIO_MPEG;
       case BASE_TYPE_AUDIO + "/x-wav":
         return AUDIO_WAV;
+        // Normalize MIME types that are often written with upper-case letters to their common form.
+      case "application/x-mpegurl":
+        return APPLICATION_M3U8;
+      case "audio/mpeg-l1":
+        return AUDIO_MPEG_L1;
+      case "audio/mpeg-l2":
+        return AUDIO_MPEG_L2;
       default:
         return mimeType;
     }
@@ -742,6 +768,7 @@ public final class MimeTypes {
   /* package */ static final class Mp4aObjectType {
     /** The Object Type Indication of the MP4A codec. */
     public final int objectTypeIndication;
+
     /** The Audio Object Type Indication of the MP4A codec, or 0 if it is absent. */
     public final int audioObjectTypeIndication;
 

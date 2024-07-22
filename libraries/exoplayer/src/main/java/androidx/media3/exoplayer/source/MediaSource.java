@@ -30,6 +30,7 @@ import androidx.media3.exoplayer.drm.DrmSessionManagerProvider;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
+import androidx.media3.extractor.text.SubtitleParser;
 import java.io.IOException;
 
 /**
@@ -99,6 +100,37 @@ public interface MediaSource {
     Factory setLoadErrorHandlingPolicy(LoadErrorHandlingPolicy loadErrorHandlingPolicy);
 
     /**
+     * Sets whether subtitles should be parsed as part of extraction (before being added to the
+     * sample queue) or as part of rendering (when being taken from the sample queue). Defaults to
+     * {@code false} (i.e. subtitles will be parsed as part of rendering).
+     *
+     * <p>This method is experimental and will be renamed or removed in a future release.
+     *
+     * @param parseSubtitlesDuringExtraction Whether to parse subtitles during extraction or
+     *     rendering.
+     * @return This factory, for convenience.
+     */
+    // TODO: b/289916598 - Flip the default of this to true.
+    @UnstableApi
+    default Factory experimentalParseSubtitlesDuringExtraction(
+        boolean parseSubtitlesDuringExtraction) {
+      return this;
+    }
+
+    /**
+     * Sets the {@link SubtitleParser.Factory} to be used for parsing subtitles during extraction if
+     * {@link #experimentalParseSubtitlesDuringExtraction} is enabled.
+     *
+     * @param subtitleParserFactory The {@link SubtitleParser.Factory} for parsing subtitles during
+     *     extraction.
+     * @return This factory, for convenience.
+     */
+    @UnstableApi
+    default Factory setSubtitleParserFactory(SubtitleParser.Factory subtitleParserFactory) {
+      return this;
+    }
+
+    /**
      * Returns the {@link C.ContentType content types} supported by media sources created by this
      * factory.
      */
@@ -131,51 +163,162 @@ public interface MediaSource {
     void onSourceInfoRefreshed(MediaSource source, Timeline timeline);
   }
 
-  // TODO(b/172315872) Delete when all clients have been migrated to base class.
-  /**
-   * Identifier for a {@link MediaPeriod}.
-   *
-   * <p>Extends for backward-compatibility {@link androidx.media3.common.MediaPeriodId}.
-   */
+  /** Identifier for a {@link MediaPeriod}. */
   @UnstableApi
-  final class MediaPeriodId extends androidx.media3.common.MediaPeriodId {
+  final class MediaPeriodId {
 
-    /** See {@link androidx.media3.common.MediaPeriodId#MediaPeriodId(Object)}. */
+    /** The unique id of the timeline period. */
+    public final Object periodUid;
+
+    /**
+     * If the media period is in an ad group, the index of the ad group in the period. {@link
+     * C#INDEX_UNSET} otherwise.
+     */
+    public final int adGroupIndex;
+
+    /**
+     * If the media period is in an ad group, the index of the ad in its ad group in the period.
+     * {@link C#INDEX_UNSET} otherwise.
+     */
+    public final int adIndexInAdGroup;
+
+    /**
+     * The sequence number of the window in the buffered sequence of windows this media period is
+     * part of. {@link C#INDEX_UNSET} if the media period id is not part of a buffered sequence of
+     * windows.
+     */
+    public final long windowSequenceNumber;
+
+    /**
+     * The index of the next ad group to which the media period's content is clipped, or {@link
+     * C#INDEX_UNSET} if there is no following ad group or if this media period is an ad.
+     */
+    public final int nextAdGroupIndex;
+
+    /**
+     * Creates a media period identifier for a period which is not part of a buffered sequence of
+     * windows.
+     *
+     * @param periodUid The unique id of the timeline period.
+     */
     public MediaPeriodId(Object periodUid) {
-      super(periodUid);
+      this(periodUid, /* windowSequenceNumber= */ C.INDEX_UNSET);
     }
 
-    /** See {@link androidx.media3.common.MediaPeriodId#MediaPeriodId(Object, long)}. */
+    /**
+     * Creates a media period identifier for the specified period in the timeline.
+     *
+     * @param periodUid The unique id of the timeline period.
+     * @param windowSequenceNumber The sequence number of the window in the buffered sequence of
+     *     windows this media period is part of.
+     */
     public MediaPeriodId(Object periodUid, long windowSequenceNumber) {
-      super(periodUid, windowSequenceNumber);
+      this(
+          periodUid,
+          /* adGroupIndex= */ C.INDEX_UNSET,
+          /* adIndexInAdGroup= */ C.INDEX_UNSET,
+          windowSequenceNumber,
+          /* nextAdGroupIndex= */ C.INDEX_UNSET);
     }
 
-    /** See {@link androidx.media3.common.MediaPeriodId#MediaPeriodId(Object, long, int)}. */
+    /**
+     * Creates a media period identifier for the specified clipped period in the timeline.
+     *
+     * @param periodUid The unique id of the timeline period.
+     * @param windowSequenceNumber The sequence number of the window in the buffered sequence of
+     *     windows this media period is part of.
+     * @param nextAdGroupIndex The index of the next ad group to which the media period's content is
+     *     clipped.
+     */
     public MediaPeriodId(Object periodUid, long windowSequenceNumber, int nextAdGroupIndex) {
-      super(periodUid, windowSequenceNumber, nextAdGroupIndex);
+      this(
+          periodUid,
+          /* adGroupIndex= */ C.INDEX_UNSET,
+          /* adIndexInAdGroup= */ C.INDEX_UNSET,
+          windowSequenceNumber,
+          nextAdGroupIndex);
     }
 
-    /** See {@link androidx.media3.common.MediaPeriodId#MediaPeriodId(Object, int, int, long)}. */
+    /**
+     * Creates a media period identifier that identifies an ad within an ad group at the specified
+     * timeline period.
+     *
+     * @param periodUid The unique id of the timeline period that contains the ad group.
+     * @param adGroupIndex The index of the ad group.
+     * @param adIndexInAdGroup The index of the ad in the ad group.
+     * @param windowSequenceNumber The sequence number of the window in the buffered sequence of
+     *     windows this media period is part of.
+     */
     public MediaPeriodId(
         Object periodUid, int adGroupIndex, int adIndexInAdGroup, long windowSequenceNumber) {
-      super(periodUid, adGroupIndex, adIndexInAdGroup, windowSequenceNumber);
+      this(
+          periodUid,
+          adGroupIndex,
+          adIndexInAdGroup,
+          windowSequenceNumber,
+          /* nextAdGroupIndex= */ C.INDEX_UNSET);
     }
 
-    /** Wraps an {@link androidx.media3.common.MediaPeriodId} into a MediaPeriodId. */
-    public MediaPeriodId(androidx.media3.common.MediaPeriodId mediaPeriodId) {
-      super(mediaPeriodId);
+    private MediaPeriodId(
+        Object periodUid,
+        int adGroupIndex,
+        int adIndexInAdGroup,
+        long windowSequenceNumber,
+        int nextAdGroupIndex) {
+      this.periodUid = periodUid;
+      this.adGroupIndex = adGroupIndex;
+      this.adIndexInAdGroup = adIndexInAdGroup;
+      this.windowSequenceNumber = windowSequenceNumber;
+      this.nextAdGroupIndex = nextAdGroupIndex;
     }
 
-    /** See {@link androidx.media3.common.MediaPeriodId#copyWithPeriodUid(Object)}. */
-    @Override
+    /** Returns a copy of this period identifier but with {@code newPeriodUid} as its period uid. */
     public MediaPeriodId copyWithPeriodUid(Object newPeriodUid) {
-      return new MediaPeriodId(super.copyWithPeriodUid(newPeriodUid));
+      return periodUid.equals(newPeriodUid)
+          ? this
+          : new MediaPeriodId(
+              newPeriodUid, adGroupIndex, adIndexInAdGroup, windowSequenceNumber, nextAdGroupIndex);
     }
 
-    /** See {@link androidx.media3.common.MediaPeriodId#copyWithWindowSequenceNumber(long)}. */
-    @Override
+    /** Returns a copy of this period identifier with a new {@code windowSequenceNumber}. */
     public MediaPeriodId copyWithWindowSequenceNumber(long windowSequenceNumber) {
-      return new MediaPeriodId(super.copyWithWindowSequenceNumber(windowSequenceNumber));
+      return this.windowSequenceNumber == windowSequenceNumber
+          ? this
+          : new MediaPeriodId(
+              periodUid, adGroupIndex, adIndexInAdGroup, windowSequenceNumber, nextAdGroupIndex);
+    }
+
+    /** Returns whether this period identifier identifies an ad in an ad group in a period. */
+    public boolean isAd() {
+      return adGroupIndex != C.INDEX_UNSET;
+    }
+
+    @Override
+    public boolean equals(@Nullable Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (!(obj instanceof MediaPeriodId)) {
+        return false;
+      }
+
+      MediaPeriodId periodId = (MediaPeriodId) obj;
+      return periodUid.equals(periodId.periodUid)
+          && adGroupIndex == periodId.adGroupIndex
+          && adIndexInAdGroup == periodId.adIndexInAdGroup
+          && windowSequenceNumber == periodId.windowSequenceNumber
+          && nextAdGroupIndex == periodId.nextAdGroupIndex;
+    }
+
+    @Override
+    public int hashCode() {
+      int result = 17;
+      result = 31 * result + periodUid.hashCode();
+      result = 31 * result + adGroupIndex;
+      result = 31 * result + adIndexInAdGroup;
+      result = 31 * result + (int) windowSequenceNumber;
+      result = 31 * result + nextAdGroupIndex;
+      return result;
     }
   }
 
@@ -279,6 +422,34 @@ public interface MediaSource {
    */
   @UnstableApi
   MediaItem getMediaItem();
+
+  /**
+   * Returns whether the {@link MediaItem} for this source can be updated with the provided item.
+   *
+   * <p>Should not be called directly from application code.
+   *
+   * <p>This method must be called on the application thread.
+   *
+   * @param mediaItem The new {@link MediaItem}.
+   * @return Whether the source can be updated using this item.
+   */
+  @UnstableApi
+  default boolean canUpdateMediaItem(MediaItem mediaItem) {
+    return false;
+  }
+
+  /**
+   * Updates the {@link MediaItem} for this source.
+   *
+   * <p>Should not be called directly from application code.
+   *
+   * <p>This method must be called on the playback thread and only if {@link #canUpdateMediaItem}
+   * returns {@code true} for the new {@link MediaItem}.
+   *
+   * @param mediaItem The new {@link MediaItem}.
+   */
+  @UnstableApi
+  default void updateMediaItem(MediaItem mediaItem) {}
 
   /**
    * @deprecated Implement {@link #prepareSource(MediaSourceCaller, TransferListener, PlayerId)}

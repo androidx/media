@@ -46,13 +46,14 @@ import java.util.concurrent.ExecutionException;
       trackGroupArray =
           MetadataRetriever.retrieveMetadata(context, MediaItem.fromUri("file://" + filePath))
               .get();
-    } catch (ExecutionException | InterruptedException e) {
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException(e);
+    } catch (ExecutionException e) {
       throw new IllegalStateException(e);
     }
 
-    int trackGroupCount = trackGroupArray.length;
-    assertThat(trackGroupCount).isEqualTo(2);
-    for (int i = 0; i < trackGroupCount; i++) {
+    for (int i = 0; i < trackGroupArray.length; i++) {
       TrackGroup trackGroup = trackGroupArray.get(i);
       if (trackGroup.type == C.TRACK_TYPE_VIDEO) {
         assertThat(trackGroup.length).isEqualTo(1);

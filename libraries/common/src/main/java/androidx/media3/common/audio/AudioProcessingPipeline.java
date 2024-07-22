@@ -71,6 +71,7 @@ public final class AudioProcessingPipeline {
 
   /** The {@link AudioProcessor} instances passed to {@link AudioProcessingPipeline}. */
   private final ImmutableList<AudioProcessor> audioProcessors;
+
   /**
    * The processors that are {@linkplain AudioProcessor#isActive() active} based on the current
    * configuration.
@@ -82,10 +83,13 @@ public final class AudioProcessingPipeline {
    * as {@link #activeAudioProcessors}.
    */
   private ByteBuffer[] outputBuffers;
+
   /** The {@link AudioFormat} currently being output by the pipeline. */
   private AudioFormat outputAudioFormat;
+
   /** The {@link AudioFormat} that will be output following a {@link #flush()}. */
   private AudioFormat pendingOutputAudioFormat;
+
   /** Whether input has ended, either due to configuration change or end of stream. */
   private boolean inputEnded;
 
@@ -166,7 +170,12 @@ public final class AudioProcessingPipeline {
     }
   }
 
-  /** Returns the {@link AudioFormat} currently being output. */
+  /**
+   * Returns the {@link AudioFormat} of data being output through {@link #getOutput()}.
+   *
+   * @return The {@link AudioFormat} currently being output, or {@link AudioFormat#NOT_SET} if no
+   *     {@linkplain #configure(AudioFormat) configuration} has been {@linkplain #flush() applied}.
+   */
   public AudioFormat getOutputAudioFormat() {
     return outputAudioFormat;
   }
@@ -213,10 +222,12 @@ public final class AudioProcessingPipeline {
       return EMPTY_BUFFER;
     }
     ByteBuffer outputBuffer = outputBuffers[getFinalOutputBufferIndex()];
-    if (!outputBuffer.hasRemaining()) {
-      processData(EMPTY_BUFFER);
+    if (outputBuffer.hasRemaining()) {
+      return outputBuffer;
     }
-    return outputBuffer;
+
+    processData(EMPTY_BUFFER);
+    return outputBuffers[getFinalOutputBufferIndex()];
   }
 
   /**

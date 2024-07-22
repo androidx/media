@@ -35,15 +35,19 @@ public abstract class BaseTrackSelection implements ExoTrackSelection {
 
   /** The selected {@link TrackGroup}. */
   protected final TrackGroup group;
+
   /** The number of selected tracks within the {@link TrackGroup}. Always greater than zero. */
   protected final int length;
+
   /** The indices of the selected tracks in {@link #group}, in order of decreasing bandwidth. */
   protected final int[] tracks;
 
   /** The type of the selection. */
   private final @Type int type;
+
   /** The {@link Format}s of the selected tracks, in order of decreasing bandwidth. */
   private final Format[] formats;
+
   /** Selected track exclusion timestamps, in order of decreasing bandwidth. */
   private final long[] excludeUntilTimes;
 
@@ -197,9 +201,7 @@ public abstract class BaseTrackSelection implements ExoTrackSelection {
     return hashCode;
   }
 
-  // Track groups are compared by identity not value, as distinct groups may have the same value.
   @Override
-  @SuppressWarnings({"ReferenceEquality", "EqualsGetClass"})
   public boolean equals(@Nullable Object obj) {
     if (this == obj) {
       return true;
@@ -208,6 +210,6 @@ public abstract class BaseTrackSelection implements ExoTrackSelection {
       return false;
     }
     BaseTrackSelection other = (BaseTrackSelection) obj;
-    return group == other.group && Arrays.equals(tracks, other.tracks);
+    return group.equals(other.group) && Arrays.equals(tracks, other.tracks);
   }
 }

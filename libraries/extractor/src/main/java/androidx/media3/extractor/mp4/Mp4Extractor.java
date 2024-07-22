@@ -50,6 +50,8 @@ import androidx.media3.extractor.TrueHdSampleRechunker;
 import androidx.media3.extractor.metadata.mp4.MotionPhotoMetadata;
 import androidx.media3.extractor.metadata.mp4.SlowMotionData;
 import androidx.media3.extractor.mp4.Atom.ContainerAtom;
+import androidx.media3.extractor.text.SubtitleParser;
+import androidx.media3.extractor.text.SubtitleTranscodingExtractorOutput;
 import java.io.IOException;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -64,8 +66,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 @UnstableApi
 public final class Mp4Extractor implements Extractor, SeekMap {
 
-  /** Factory for {@link Mp4Extractor} instances. */
-  public static final ExtractorsFactory FACTORY = () -> new Extractor[] {new Mp4Extractor()};
+  /**
+   * Creates a factory for {@link Mp4Extractor} instances with the provided {@link
+   * SubtitleParser.Factory}.
+   */
+  public static ExtractorsFactory newFactory(SubtitleParser.Factory subtitleParserFactory) {
+    return () -> new Extractor[] {new Mp4Extractor(subtitleParserFactory)};
+  }
 
   /**
    * Flags controlling the behavior of the extractor. Possible flag values are {@link
@@ -80,11 +87,15 @@ public final class Mp4Extractor implements Extractor, SeekMap {
       value = {
         FLAG_WORKAROUND_IGNORE_EDIT_LISTS,
         FLAG_READ_MOTION_PHOTO_METADATA,
-        FLAG_READ_SEF_DATA
+        FLAG_READ_SEF_DATA,
+        FLAG_MARK_FIRST_VIDEO_TRACK_WITH_MAIN_ROLE,
+        FLAG_EMIT_RAW_SUBTITLE_DATA
       })
   public @interface Flags {}
+
   /** Flag to ignore any edit lists in the stream. */
   public static final int FLAG_WORKAROUND_IGNORE_EDIT_LISTS = 1;
+
   /**
    * Flag to extract {@link MotionPhotoMetadata} from HEIC motion photos following the Google Photos
    * Motion Photo File Format V1.1.
@@ -93,11 +104,30 @@ public final class Mp4Extractor implements Extractor, SeekMap {
    * retrieval use cases.
    */
   public static final int FLAG_READ_MOTION_PHOTO_METADATA = 1 << 1;
+
   /**
    * Flag to extract {@link SlowMotionData} metadata from Samsung Extension Format (SEF) slow motion
    * videos.
    */
   public static final int FLAG_READ_SEF_DATA = 1 << 2;
+
+  /**
+   * Flag to mark the first video track encountered as {@link C#ROLE_FLAG_MAIN} and all subsequent
+   * video tracks as {@link C#ROLE_FLAG_ALTERNATE}.
+   */
+  public static final int FLAG_MARK_FIRST_VIDEO_TRACK_WITH_MAIN_ROLE = 1 << 3;
+
+  public static final int FLAG_EMIT_RAW_SUBTITLE_DATA = 1 << 4;
+
+  /**
+   * @deprecated Use {@link #newFactory(SubtitleParser.Factory)} instead.
+   */
+  @Deprecated
+  public static final ExtractorsFactory FACTORY =
+      () ->
+          new Extractor[] {
+            new Mp4Extractor(SubtitleParser.Factory.UNSUPPORTED, FLAG_EMIT_RAW_SUBTITLE_DATA)
+          };
 
   /** Parser states. */
   @Documented
@@ -139,6 +169,7 @@ public final class Mp4Extractor implements Extractor, SeekMap {
    */
   private static final long MAXIMUM_READ_AHEAD_BYTES_STREAM = 10 * 1024 * 1024;
 
+  private final SubtitleParser.Factory subtitleParserFactory;
   private final @Flags int flags;
 
   // Temporary arrays.
@@ -161,6 +192,7 @@ public final class Mp4Extractor implements Extractor, SeekMap {
   private int sampleBytesRead;
   private int sampleBytesWritten;
   private int sampleCurrentNalBytesRemaining;
+  private boolean seenFtypAtom;
 
   // Extractor outputs.
   private ExtractorOutput extractorOutput;
@@ -172,18 +204,42 @@ public final class Mp4Extractor implements Extractor, SeekMap {
   private @FileType int fileType;
   @Nullable private MotionPhotoMetadata motionPhotoMetadata;
 
-  /** Creates a new extractor for unfragmented MP4 streams. */
+  /**
+   * @deprecated Use {@link #Mp4Extractor(SubtitleParser.Factory)} instead
+   */
+  @Deprecated
   public Mp4Extractor() {
-    this(/* flags= */ 0);
+    this(SubtitleParser.Factory.UNSUPPORTED, /* flags= */ FLAG_EMIT_RAW_SUBTITLE_DATA);
+  }
+
+  /**
+   * Creates a new extractor for unfragmented MP4 streams.
+   *
+   * @param subtitleParserFactory The {@link SubtitleParser.Factory} for parsing subtitles during
+   *     extraction.
+   */
+  public Mp4Extractor(SubtitleParser.Factory subtitleParserFactory) {
+    this(subtitleParserFactory, /* flags= */ 0);
+  }
+
+  /**
+   * @deprecated Use {@link #Mp4Extractor(SubtitleParser.Factory, int)} instead
+   */
+  @Deprecated
+  public Mp4Extractor(@Flags int flags) {
+    this(SubtitleParser.Factory.UNSUPPORTED, flags);
   }
 
   /**
    * Creates a new extractor for unfragmented MP4 streams, using the specified flags to control the
    * extractor's behavior.
    *
+   * @param subtitleParserFactory The {@link SubtitleParser.Factory} for parsing subtitles during
+   *     extraction.
    * @param flags Flags that control the extractor's behavior.
    */
-  public Mp4Extractor(@Flags int flags) {
+  public Mp4Extractor(SubtitleParser.Factory subtitleParserFactory, @Flags int flags) {
+    this.subtitleParserFactory = subtitleParserFactory;
     this.flags = flags;
     parserState =
         ((flags & FLAG_READ_SEF_DATA) != 0) ? STATE_READING_SEF : STATE_READING_ATOM_HEADER;
@@ -207,7 +263,10 @@ public final class Mp4Extractor implements Extractor, SeekMap {
 
   @Override
   public void init(ExtractorOutput output) {
-    extractorOutput = output;
+    extractorOutput =
+        (flags & FLAG_EMIT_RAW_SUBTITLE_DATA) == 0
+            ? new SubtitleTranscodingExtractorOutput(output, subtitleParserFactory)
+            : output;
   }
 
   @Override
@@ -441,11 +500,17 @@ public final class Mp4Extractor implements Extractor, SeekMap {
     if (atomData != null) {
       input.readFully(atomData.getData(), atomHeaderBytesRead, (int) atomPayloadSize);
       if (atomType == Atom.TYPE_ftyp) {
+        seenFtypAtom = true;
         fileType = processFtypAtom(atomData);
       } else if (!containerAtoms.isEmpty()) {
         containerAtoms.peek().add(new Atom.LeafAtom(atomType, atomData));
       }
     } else {
+      if (!seenFtypAtom && atomType == Atom.TYPE_mdat) {
+        // The original QuickTime specification did not require files to begin with the ftyp atom.
+        // See https://developer.apple.com/standards/qtff-2001.pdf.
+        fileType = FILE_TYPE_QUICKTIME;
+      }
       // We don't need the data. Skip or seek, depending on how large the atom is.
       if (atomPayloadSize < RELOAD_MINIMUM_SEEK_DISTANCE) {
         input.skipFully((int) atomPayloadSize);
@@ -491,20 +556,13 @@ public final class Mp4Extractor implements Extractor, SeekMap {
     List<Mp4Track> tracks = new ArrayList<>();
 
     // Process metadata.
-    @Nullable Metadata udtaMetaMetadata = null;
-    @Nullable Metadata smtaMetadata = null;
-    @Nullable Metadata xyzMetadata = null;
     boolean isQuickTime = fileType == FILE_TYPE_QUICKTIME;
     GaplessInfoHolder gaplessInfoHolder = new GaplessInfoHolder();
+    @Nullable Metadata udtaMetadata = null;
     @Nullable Atom.LeafAtom udta = moov.getLeafAtomOfType(Atom.TYPE_udta);
     if (udta != null) {
-      AtomParsers.UdtaInfo udtaInfo = AtomParsers.parseUdta(udta);
-      udtaMetaMetadata = udtaInfo.metaMetadata;
-      smtaMetadata = udtaInfo.smtaMetadata;
-      xyzMetadata = udtaInfo.xyzMetadata;
-      if (udtaMetaMetadata != null) {
-        gaplessInfoHolder.setFromMetadata(udtaMetaMetadata);
-      }
+      udtaMetadata = AtomParsers.parseUdta(udta);
+      gaplessInfoHolder.setFromMetadata(udtaMetadata);
     }
     @Nullable Metadata mdtaMetadata = null;
     @Nullable Atom.ContainerAtom meta = moov.getContainerAtomOfType(Atom.TYPE_meta);
@@ -513,7 +571,8 @@ public final class Mp4Extractor implements Extractor, SeekMap {
     }
 
     Metadata mvhdMetadata =
-        AtomParsers.parseMvhd(checkNotNull(moov.getLeafAtomOfType(Atom.TYPE_mvhd)).data).metadata;
+        new Metadata(
+            AtomParsers.parseMvhd(checkNotNull(moov.getLeafAtomOfType(Atom.TYPE_mvhd)).data));
 
     boolean ignoreEditLists = (flags & FLAG_WORKAROUND_IGNORE_EDIT_LISTS) != 0;
     List<TrackSampleTable> trackSampleTables =
@@ -526,8 +585,8 @@ public final class Mp4Extractor implements Extractor, SeekMap {
             isQuickTime,
             /* modifyTrackFunction= */ track -> track);
 
-    int trackCount = trackSampleTables.size();
-    for (int i = 0; i < trackCount; i++) {
+    int trackIndex = 0;
+    for (int i = 0; i < trackSampleTables.size(); i++) {
       TrackSampleTable trackSampleTable = trackSampleTables.get(i);
       if (trackSampleTable.sampleCount == 0) {
         continue;
@@ -537,7 +596,7 @@ public final class Mp4Extractor implements Extractor, SeekMap {
           track.durationUs != C.TIME_UNSET ? track.durationUs : trackSampleTable.durationUs;
       durationUs = max(durationUs, trackDurationUs);
       Mp4Track mp4Track =
-          new Mp4Track(track, trackSampleTable, extractorOutput.track(i, track.type));
+          new Mp4Track(track, trackSampleTable, extractorOutput.track(trackIndex++, track.type));
 
       int maxInputSize;
       if (MimeTypes.AUDIO_TRUEHD.equals(track.format.sampleMimeType)) {
@@ -551,22 +610,27 @@ public final class Mp4Extractor implements Extractor, SeekMap {
 
       Format.Builder formatBuilder = track.format.buildUpon();
       formatBuilder.setMaxInputSize(maxInputSize);
-      if (track.type == C.TRACK_TYPE_VIDEO
-          && trackDurationUs > 0
-          && trackSampleTable.sampleCount > 1) {
-        float frameRate = trackSampleTable.sampleCount / (trackDurationUs / 1000000f);
-        formatBuilder.setFrameRate(frameRate);
+      if (track.type == C.TRACK_TYPE_VIDEO) {
+        if ((flags & FLAG_MARK_FIRST_VIDEO_TRACK_WITH_MAIN_ROLE) != 0) {
+          formatBuilder.setRoleFlags(
+              track.format.roleFlags
+                  | (firstVideoTrackIndex == C.INDEX_UNSET
+                      ? C.ROLE_FLAG_MAIN
+                      : C.ROLE_FLAG_ALTERNATE));
+        }
+        if (trackDurationUs > 0 && trackSampleTable.sampleCount > 0) {
+          float frameRate = trackSampleTable.sampleCount / (trackDurationUs / 1000000f);
+          formatBuilder.setFrameRate(frameRate);
+        }
       }
 
       MetadataUtil.setFormatGaplessInfo(track.type, gaplessInfoHolder, formatBuilder);
       MetadataUtil.setFormatMetadata(
           track.type,
-          udtaMetaMetadata,
           mdtaMetadata,
           formatBuilder,
-          smtaMetadata,
           slowMotionMetadataEntries.isEmpty() ? null : new Metadata(slowMotionMetadataEntries),
-          xyzMetadata,
+          udtaMetadata,
           mvhdMetadata);
       mp4Track.trackOutput.format(formatBuilder.build());
 

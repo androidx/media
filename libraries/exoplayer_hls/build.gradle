@@ -14,6 +14,8 @@
 apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 
 android {
+    namespace 'androidx.media3.exoplayer.hls'
+
     buildTypes {
         debug {
             testCoverageEnabled = true
@@ -21,13 +23,18 @@ android {
     }
 
     sourceSets.test.assets.srcDir '../test_data/src/test/assets/'
+
+    publishing {
+        singleVariant('release') {
+            withSourcesJar()
+        }
+    }
 }
 
 dependencies {
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
-    compileOnly 'org.checkerframework:checker-compat-qual:' + checkerframeworkCompatVersion
     compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion
     implementation project(modulePrefix + 'lib-exoplayer')
     testImplementation project(modulePrefix + 'test-utils-robolectric')
@@ -36,11 +43,6 @@ dependencies {
     testImplementation 'com.squareup.okhttp3:mockwebserver:' + okhttpVersion
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
 }
-
-ext {
-    javadocTitle = 'HLS module'
-}
-apply from: '../../javadoc_library.gradle'
 
 ext {
     releaseArtifactId = 'media3-exoplayer-hls'

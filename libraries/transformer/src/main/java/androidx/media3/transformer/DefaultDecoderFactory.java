@@ -22,78 +22,88 @@ import static androidx.media3.common.util.Util.SDK_INT;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.media.MediaCodec;
 import android.media.MediaFormat;
 import android.os.Build;
 import android.util.Pair;
 import android.view.Surface;
 import androidx.annotation.Nullable;
-import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.MediaFormatUtil;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
+import com.google.common.collect.ImmutableList;
+import java.util.ArrayList;
 import java.util.List;
-import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
-/** A default implementation of {@link Codec.DecoderFactory}. */
-/* package */ final class DefaultDecoderFactory implements Codec.DecoderFactory {
+/**
+ * Default implementation of {@link Codec.DecoderFactory} that uses {@link MediaCodec} for decoding.
+ */
+@UnstableApi
+public final class DefaultDecoderFactory implements Codec.DecoderFactory {
 
   private static final String TAG = "DefaultDecoderFactory";
 
   private final Context context;
+  private final boolean enableDecoderFallback;
+  private final Listener listener;
 
-  private final boolean decoderSupportsKeyAllowFrameDrop;
+  /** Listener for decoder factory events. */
+  public interface Listener {
+    /**
+     * Reports that a codec was initialized.
+     *
+     * <p>Called on the thread that is using the associated factory.
+     *
+     * @param codecName The {@linkplain MediaCodec#getName() name of the codec} that was
+     *     initialized.
+     * @param codecInitializationExceptions The list of non-fatal errors that occurred before the
+     *     codec was successfully initialized, which is empty if no errors occurred.
+     */
+    void onCodecInitialized(String codecName, List<ExportException> codecInitializationExceptions);
+  }
 
+  /** Creates a new factory that selects the most preferred decoder for the format. */
   public DefaultDecoderFactory(Context context) {
-    this.context = context;
+    this(
+        context,
+        /* enableDecoderFallback= */ false,
+        (codecName, codecInitializationExceptions) -> {});
+  }
 
-    decoderSupportsKeyAllowFrameDrop =
-        SDK_INT >= 29
-            && context.getApplicationContext().getApplicationInfo().targetSdkVersion >= 29;
+  /**
+   * Creates a new factory that selects the most preferred decoder, optionally falling back to less
+   * preferred decoders if initialization fails.
+   *
+   * @param context The context.
+   * @param enableDecoderFallback Whether to enable fallback to lower-priority decoders if decoder
+   *     initialization fails. This may result in using a decoder that is less efficient or slower
+   *     than the primary decoder.
+   * @param listener Listener for codec initialization errors.
+   */
+  public DefaultDecoderFactory(Context context, boolean enableDecoderFallback, Listener listener) {
+    this.context = context.getApplicationContext();
+    this.enableDecoderFallback = enableDecoderFallback;
+    this.listener = listener;
   }
 
   @Override
-  public Codec createForAudioDecoding(Format format) throws ExportException {
-    checkNotNull(format.sampleMimeType);
+  public DefaultCodec createForAudioDecoding(Format format) throws ExportException {
     MediaFormat mediaFormat = createMediaFormatFromFormat(format);
-
-    String mediaCodecName;
-    try {
-      @Nullable MediaCodecInfo decoderInfo = getDecoderInfo(format);
-      if (decoderInfo == null) {
-        throw createExportException(format, /* reason= */ "No decoders for format");
-      }
-      mediaCodecName = decoderInfo.name;
-      String codecMimeType = decoderInfo.codecMimeType;
-      // Does not alter format.sampleMimeType to keep the original MimeType.
-      // The MIME type of the selected decoder may differ from Format.sampleMimeType.
-      mediaFormat.setString(MediaFormat.KEY_MIME, codecMimeType);
-    } catch (MediaCodecUtil.DecoderQueryException e) {
-      Log.e(TAG, "Error querying decoders", e);
-      throw createExportException(format, /* reason= */ "Querying codecs failed.");
-    }
-
-    return new DefaultCodec(
-        context,
-        format,
-        mediaFormat,
-        mediaCodecName,
-        /* isDecoder= */ true,
-        /* outputSurface= */ null);
+    return createCodecForMediaFormat(mediaFormat, format, /* outputSurface= */ null);
   }
 
   @SuppressLint("InlinedApi")
   @Override
-  public Codec createForVideoDecoding(
+  public DefaultCodec createForVideoDecoding(
       Format format, Surface outputSurface, boolean requestSdrToneMapping) throws ExportException {
-    checkNotNull(format.sampleMimeType);
-
     if (ColorInfo.isTransferHdr(format.colorInfo)) {
       if (requestSdrToneMapping
           && (SDK_INT < 31
@@ -108,9 +118,16 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
             format, /* reason= */ "Decoding HDR is not supported on this device.");
       }
     }
+    if (deviceNeedsDisable8kWorkaround(format)) {
+      throw createExportException(
+          format, /* reason= */ "Decoding 8k is not supported on this device.");
+    }
+    if (deviceNeedsNoFrameRateWorkaround()) {
+      format = format.buildUpon().setFrameRate(Format.NO_VALUE).build();
+    }
 
     MediaFormat mediaFormat = createMediaFormatFromFormat(format);
-    if (decoderSupportsKeyAllowFrameDrop) {
+    if (decoderSupportsKeyAllowFrameDrop(context)) {
       // This key ensures no frame dropping when the decoder's output surface is full. This allows
       // transformer to decode as many frames as possible in one render cycle.
       mediaFormat.setInteger(MediaFormat.KEY_ALLOW_FRAME_DROP, 0);
@@ -118,23 +135,6 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     if (SDK_INT >= 31 && requestSdrToneMapping) {
       mediaFormat.setInteger(
           MediaFormat.KEY_COLOR_TRANSFER_REQUEST, MediaFormat.COLOR_TRANSFER_SDR_VIDEO);
-    }
-
-    String mediaCodecName;
-    try {
-      @Nullable MediaCodecInfo decoderInfo = getDecoderInfo(format);
-      if (decoderInfo == null) {
-        throw createExportException(format, /* reason= */ "No decoders for format");
-      }
-      mediaCodecName = decoderInfo.name;
-      String codecMimeType = decoderInfo.codecMimeType;
-      // Does not alter format.sampleMimeType to keep the original MimeType.
-      // The MIME type of the selected decoder may differ from Format.sampleMimeType, for example,
-      // video/hevc is used instead of video/dolby-vision for some specific DolbyVision videos.
-      mediaFormat.setString(MediaFormat.KEY_MIME, codecMimeType);
-    } catch (MediaCodecUtil.DecoderQueryException e) {
-      Log.e(TAG, "Error querying decoders", e);
-      throw createExportException(format, /* reason= */ "Querying codecs failed");
     }
 
     @Nullable
@@ -146,8 +146,79 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
           mediaFormat, MediaFormat.KEY_LEVEL, codecProfileAndLevel.second);
     }
 
-    return new DefaultCodec(
-        context, format, mediaFormat, mediaCodecName, /* isDecoder= */ true, outputSurface);
+    return createCodecForMediaFormat(mediaFormat, format, outputSurface);
+  }
+
+  private DefaultCodec createCodecForMediaFormat(
+      MediaFormat mediaFormat, Format format, @Nullable Surface outputSurface)
+      throws ExportException {
+    List<MediaCodecInfo> decoderInfos = ImmutableList.of();
+    checkNotNull(format.sampleMimeType);
+    try {
+      decoderInfos =
+          MediaCodecUtil.getDecoderInfosSortedByFormatSupport(
+              MediaCodecUtil.getDecoderInfosSoftMatch(
+                  MediaCodecSelector.DEFAULT,
+                  format,
+                  /* requiresSecureDecoder= */ false,
+                  /* requiresTunnelingDecoder= */ false),
+              format);
+    } catch (MediaCodecUtil.DecoderQueryException e) {
+      Log.e(TAG, "Error querying decoders", e);
+      throw createExportException(format, /* reason= */ "Querying codecs failed");
+    }
+
+    if (decoderInfos.isEmpty()) {
+      throw createExportException(format, /* reason= */ "No decoders for format");
+    }
+
+    List<ExportException> codecInitExceptions = new ArrayList<>();
+    DefaultCodec codec =
+        createCodecFromDecoderInfos(
+            context,
+            enableDecoderFallback ? decoderInfos : decoderInfos.subList(0, 1),
+            format,
+            mediaFormat,
+            outputSurface,
+            codecInitExceptions);
+    listener.onCodecInitialized(codec.getName(), codecInitExceptions);
+    return codec;
+  }
+
+  private static DefaultCodec createCodecFromDecoderInfos(
+      Context context,
+      List<MediaCodecInfo> decoderInfos,
+      Format format,
+      MediaFormat mediaFormat,
+      @Nullable Surface outputSurface,
+      List<ExportException> codecInitExceptions)
+      throws ExportException {
+    for (MediaCodecInfo decoderInfo : decoderInfos) {
+      String codecMimeType = decoderInfo.codecMimeType;
+      // Does not alter format.sampleMimeType to keep the original MimeType.
+      // The MIME type of the selected decoder may differ from Format.sampleMimeType, for example,
+      // video/hevc is used instead of video/dolby-vision for some specific DolbyVision videos.
+      mediaFormat.setString(MediaFormat.KEY_MIME, codecMimeType);
+      try {
+        return new DefaultCodec(
+            context, format, mediaFormat, decoderInfo.name, /* isDecoder= */ true, outputSurface);
+      } catch (ExportException e) {
+        codecInitExceptions.add(e);
+      }
+    }
+
+    // All codecs failed to be initialized, throw the first codec init error out.
+    throw codecInitExceptions.get(0);
+  }
+
+  private static boolean deviceNeedsDisable8kWorkaround(Format format) {
+    // Fixed on API 31+. See http://b/278234847#comment40 for more information.
+    return SDK_INT < 31
+        && format.width >= 7680
+        && format.height >= 4320
+        && format.sampleMimeType != null
+        && format.sampleMimeType.equals(MimeTypes.VIDEO_H265)
+        && (Util.MODEL.equals("SM-F711U1") || Util.MODEL.equals("SM-F926U1"));
   }
 
   private static boolean deviceNeedsDisableToneMappingWorkaround(
@@ -158,40 +229,39 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       return true;
     }
     if (colorTransfer == C.COLOR_TRANSFER_HLG
-        && (Util.MODEL.startsWith("SM-F936") || Util.MODEL.startsWith("SM-F916"))) {
+        && (Util.MODEL.startsWith("SM-F936")
+            || Util.MODEL.startsWith("SM-F916")
+            || Util.MODEL.startsWith("SM-F721")
+            || Util.MODEL.equals("SM-X900"))) {
       // Some Samsung Galaxy Z Fold devices report support for HLG tone mapping but the feature only
       // works on PQ (see b/282791751#comment7).
+      return true;
+    }
+    if (SDK_INT < 34
+        && colorTransfer == C.COLOR_TRANSFER_ST2084
+        && Util.MODEL.startsWith("SM-F936")) {
+      // The Samsung Fold 4 HDR10 codec plugin for tonemapping sets incorrect crop values, so block
+      // using it (see b/290725189).
       return true;
     }
     return false;
   }
 
-  @RequiresNonNull("#1.sampleMimeType")
+  private static boolean deviceNeedsNoFrameRateWorkaround() {
+    // Redmi Note 9 Pro fails if KEY_FRAME_RATE is set too high (see b/278076311).
+    return SDK_INT < 30 && Util.DEVICE.equals("joyeuse");
+  }
+
+  private static boolean decoderSupportsKeyAllowFrameDrop(Context context) {
+    return SDK_INT >= 29 && context.getApplicationInfo().targetSdkVersion >= 29;
+  }
+
   private static ExportException createExportException(Format format, String reason) {
     return ExportException.createForCodec(
         new IllegalArgumentException(reason),
         ExportException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
-        MimeTypes.isVideo(format.sampleMimeType),
+        MimeTypes.isVideo(checkNotNull(format.sampleMimeType)),
         /* isDecoder= */ true,
         format);
-  }
-
-  @VisibleForTesting
-  @Nullable
-  /* package */ static MediaCodecInfo getDecoderInfo(Format format)
-      throws MediaCodecUtil.DecoderQueryException {
-    checkNotNull(format.sampleMimeType);
-    List<MediaCodecInfo> decoderInfos =
-        MediaCodecUtil.getDecoderInfosSortedByFormatSupport(
-            MediaCodecUtil.getDecoderInfosSoftMatch(
-                MediaCodecSelector.DEFAULT,
-                format,
-                /* requiresSecureDecoder= */ false,
-                /* requiresTunnelingDecoder= */ false),
-            format);
-    if (decoderInfos.isEmpty()) {
-      return null;
-    }
-    return decoderInfos.get(0);
   }
 }

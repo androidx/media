@@ -69,6 +69,7 @@ import androidx.media3.common.util.Util;
   private static final String FIELD_PID = Util.intToStringMaxRadix(2);
   private static final String FIELD_CONNECTION_HINTS = Util.intToStringMaxRadix(3);
   private static final String FIELD_CONTROLLER_INTERFACE_VERSION = Util.intToStringMaxRadix(4);
+
   // Next id: 5
 
   @Override
@@ -82,21 +83,30 @@ import androidx.media3.common.util.Util;
     return bundle;
   }
 
-  /** Object that can restore {@link ConnectionRequest} from a {@link Bundle}. */
-  public static final Creator<ConnectionRequest> CREATOR =
-      bundle -> {
-        int libraryVersion = bundle.getInt(FIELD_LIBRARY_VERSION, /* defaultValue= */ 0);
-        int controllerInterfaceVersion =
-            bundle.getInt(FIELD_CONTROLLER_INTERFACE_VERSION, /* defaultValue= */ 0);
-        String packageName = checkNotNull(bundle.getString(FIELD_PACKAGE_NAME));
-        checkArgument(bundle.containsKey(FIELD_PID));
-        int pid = bundle.getInt(FIELD_PID);
-        @Nullable Bundle connectionHints = bundle.getBundle(FIELD_CONNECTION_HINTS);
-        return new ConnectionRequest(
-            libraryVersion,
-            controllerInterfaceVersion,
-            packageName,
-            pid,
-            connectionHints == null ? Bundle.EMPTY : connectionHints);
-      };
+  /**
+   * Object that can restore {@link ConnectionRequest} from a {@link Bundle}.
+   *
+   * @deprecated Use {@link #fromBundle} instead.
+   */
+  @Deprecated
+  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
+  public static final Creator<ConnectionRequest> CREATOR = ConnectionRequest::fromBundle;
+
+  /** Restores a {@code ConnectionRequest} from a {@link Bundle}. */
+  public static ConnectionRequest fromBundle(Bundle bundle) {
+    int libraryVersion = bundle.getInt(FIELD_LIBRARY_VERSION, /* defaultValue= */ 0);
+    int controllerInterfaceVersion =
+        bundle.getInt(FIELD_CONTROLLER_INTERFACE_VERSION, /* defaultValue= */ 0);
+    String packageName = checkNotNull(bundle.getString(FIELD_PACKAGE_NAME));
+    checkArgument(bundle.containsKey(FIELD_PID));
+    int pid = bundle.getInt(FIELD_PID);
+    @Nullable Bundle connectionHints = bundle.getBundle(FIELD_CONNECTION_HINTS);
+    return new ConnectionRequest(
+        libraryVersion,
+        controllerInterfaceVersion,
+        packageName,
+        pid,
+        connectionHints == null ? Bundle.EMPTY : connectionHints);
+  }
+  ;
 }

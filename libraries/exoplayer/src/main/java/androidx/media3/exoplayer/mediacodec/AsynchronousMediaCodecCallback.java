@@ -26,6 +26,7 @@ import android.os.HandlerThread;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.collection.CircularIntArray;
 import androidx.media3.common.util.Util;
 import java.util.ArrayDeque;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -39,10 +40,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private @MonotonicNonNull Handler handler;
 
   @GuardedBy("lock")
-  private final IntArrayQueue availableInputBuffers;
+  private final CircularIntArray availableInputBuffers;
 
   @GuardedBy("lock")
-  private final IntArrayQueue availableOutputBuffers;
+  private final CircularIntArray availableOutputBuffers;
 
   @GuardedBy("lock")
   private final ArrayDeque<MediaCodec.BufferInfo> bufferInfos;
@@ -63,6 +64,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private MediaCodec.CodecException mediaCodecException;
 
   @GuardedBy("lock")
+  @Nullable
+  private MediaCodec.CryptoException mediaCodecCryptoException;
+
+  @GuardedBy("lock")
   private long pendingFlushCount;
 
   @GuardedBy("lock")
@@ -81,8 +86,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   /* package */ AsynchronousMediaCodecCallback(HandlerThread callbackThread) {
     this.lock = new Object();
     this.callbackThread = callbackThread;
-    this.availableInputBuffers = new IntArrayQueue();
-    this.availableOutputBuffers = new IntArrayQueue();
+    this.availableInputBuffers = new CircularIntArray();
+    this.availableOutputBuffers = new CircularIntArray();
     this.bufferInfos = new ArrayDeque<>();
     this.formats = new ArrayDeque<>();
   }
@@ -132,7 +137,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       } else {
         return availableInputBuffers.isEmpty()
             ? MediaCodec.INFO_TRY_AGAIN_LATER
-            : availableInputBuffers.remove();
+            : availableInputBuffers.popFirst();
       }
     }
   }
@@ -152,7 +157,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         if (availableOutputBuffers.isEmpty()) {
           return MediaCodec.INFO_TRY_AGAIN_LATER;
         } else {
-          int bufferIndex = availableOutputBuffers.remove();
+          int bufferIndex = availableOutputBuffers.popFirst();
           if (bufferIndex >= 0) {
             checkStateNotNull(currentFormat);
             MediaCodec.BufferInfo nextBufferInfo = bufferInfos.remove();
@@ -204,7 +209,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   public void onInputBufferAvailable(MediaCodec codec, int index) {
     synchronized (lock) {
-      availableInputBuffers.add(index);
+      availableInputBuffers.addLast(index);
     }
   }
 
@@ -215,7 +220,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         addOutputFormat(pendingOutputFormat);
         pendingOutputFormat = null;
       }
-      availableOutputBuffers.add(index);
+      availableOutputBuffers.addLast(index);
       bufferInfos.add(info);
     }
   }
@@ -224,6 +229,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public void onError(MediaCodec codec, MediaCodec.CodecException e) {
     synchronized (lock) {
       mediaCodecException = e;
+    }
+  }
+
+  @Override
+  public void onCryptoError(MediaCodec codec, MediaCodec.CryptoException e) {
+    synchronized (lock) {
+      mediaCodecCryptoException = e;
     }
   }
 
@@ -278,7 +290,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @GuardedBy("lock")
   private void addOutputFormat(MediaFormat mediaFormat) {
-    availableOutputBuffers.add(MediaCodec.INFO_OUTPUT_FORMAT_CHANGED);
+    availableOutputBuffers.addLast(MediaCodec.INFO_OUTPUT_FORMAT_CHANGED);
     formats.add(mediaFormat);
   }
 
@@ -286,6 +298,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private void maybeThrowException() {
     maybeThrowInternalException();
     maybeThrowMediaCodecException();
+    maybeThrowMediaCodecCryptoException();
   }
 
   @GuardedBy("lock")
@@ -303,6 +316,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       MediaCodec.CodecException codecException = mediaCodecException;
       mediaCodecException = null;
       throw codecException;
+    }
+  }
+
+  @GuardedBy("lock")
+  private void maybeThrowMediaCodecCryptoException() {
+    if (mediaCodecCryptoException != null) {
+      MediaCodec.CryptoException cryptoException = mediaCodecCryptoException;
+      mediaCodecCryptoException = null;
+      throw cryptoException;
     }
   }
 

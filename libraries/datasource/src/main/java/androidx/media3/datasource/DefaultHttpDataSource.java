@@ -86,7 +86,7 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
     @CanIgnoreReturnValue
     @UnstableApi
     @Override
-    public final Factory setDefaultRequestProperties(Map<String, String> defaultRequestProperties) {
+    public Factory setDefaultRequestProperties(Map<String, String> defaultRequestProperties) {
       this.defaultRequestProperties.clearAndSet(defaultRequestProperties);
       return this;
     }
@@ -220,6 +220,7 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
 
   /** The default connection timeout, in milliseconds. */
   @UnstableApi public static final int DEFAULT_CONNECT_TIMEOUT_MILLIS = 8 * 1000;
+
   /** The default read timeout, in milliseconds. */
   @UnstableApi public static final int DEFAULT_READ_TIMEOUT_MILLIS = 8 * 1000;
 

@@ -36,6 +36,7 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkState;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.PendingIntent;
@@ -165,12 +166,16 @@ import java.util.Map;
  *   <li><b>{@code exo_notification_stop}</b> - The stop icon.
  * </ul>
  *
- * <p>Alternatively, the action icons can be set programatically by using the {@link Builder}.
+ * <p>Alternatively, the action icons can be set programmatically by using the {@link Builder}.
  *
  * <p>Unlike the drawables above, the large icon (i.e. the icon passed to {@link
  * NotificationCompat.Builder#setLargeIcon(Bitmap)} cannot be overridden in this way. Instead, the
  * large icon is obtained from the {@link MediaDescriptionAdapter} passed to {@link
  * Builder#Builder(Context, int, String, MediaDescriptionAdapter)}.
+ *
+ * <p>Note: This class would require {@link android.Manifest.permission#POST_NOTIFICATIONS}
+ * permission if used without a {@linkplain #setMediaSessionToken(MediaSessionCompat.Token) media
+ * session}.
  */
 @UnstableApi
 public class PlayerNotificationManager {
@@ -613,20 +618,28 @@ public class PlayerNotificationManager {
 
   /** The action which starts playback. */
   public static final String ACTION_PLAY = "androidx.media3.ui.notification.play";
+
   /** The action which pauses playback. */
   public static final String ACTION_PAUSE = "androidx.media3.ui.notification.pause";
+
   /** The action which skips to the previous media item. */
   public static final String ACTION_PREVIOUS = "androidx.media3.ui.notification.prev";
+
   /** The action which skips to the next media item. */
   public static final String ACTION_NEXT = "androidx.media3.ui.notification.next";
+
   /** The action which fast forwards. */
   public static final String ACTION_FAST_FORWARD = "androidx.media3.ui.notification.ffwd";
+
   /** The action which rewinds. */
   public static final String ACTION_REWIND = "androidx.media3.ui.notification.rewind";
+
   /** The action which stops playback. */
   public static final String ACTION_STOP = "androidx.media3.ui.notification.stop";
+
   /** The extra key of the instance id of the player notification manager. */
   public static final String EXTRA_INSTANCE_ID = "INSTANCE_ID";
+
   /**
    * The action which is executed when the notification is dismissed. It cancels the notification
    * and calls {@link NotificationListener#onNotificationCancelled(int, boolean)}.
@@ -704,6 +717,7 @@ public class PlayerNotificationManager {
   private boolean useRewindActionInCompactView;
   private boolean useFastForwardActionInCompactView;
   private boolean usePlayPauseActions;
+  private boolean showPlayButtonIfSuppressed;
   private boolean useStopAction;
   private int badgeIconType;
   private boolean colorized;
@@ -754,6 +768,7 @@ public class PlayerNotificationManager {
     usePreviousAction = true;
     useNextAction = true;
     usePlayPauseActions = true;
+    showPlayButtonIfSuppressed = true;
     useRewindAction = true;
     useFastForwardAction = true;
     colorized = true;
@@ -964,6 +979,22 @@ public class PlayerNotificationManager {
   }
 
   /**
+   * Sets whether a play button is shown if playback is {@linkplain
+   * Player#getPlaybackSuppressionReason() suppressed}.
+   *
+   * <p>The default is {@code true}.
+   *
+   * @param showPlayButtonIfSuppressed Whether to show a play button if playback is {@linkplain
+   *     Player#getPlaybackSuppressionReason() suppressed}.
+   */
+  public void setShowPlayButtonIfPlaybackIsSuppressed(boolean showPlayButtonIfSuppressed) {
+    if (this.showPlayButtonIfSuppressed != showPlayButtonIfSuppressed) {
+      this.showPlayButtonIfSuppressed = showPlayButtonIfSuppressed;
+      invalidate();
+    }
+  }
+
+  /**
    * Sets whether the stop action should be used.
    *
    * @param useStopAction Whether to use the stop action.
@@ -1158,6 +1189,10 @@ public class PlayerNotificationManager {
     }
   }
 
+  // This class is generally used with a media session which does not require notification
+  // permission.
+  // https://developer.android.com/develop/ui/views/notifications/notification-permission#exemptions-media-sessions
+  @SuppressLint("MissingPermission")
   private void startOrUpdateNotification(Player player, @Nullable Bitmap bitmap) {
     boolean ongoing = getOngoing(player);
     builder = createNotification(player, builder, ongoing, bitmap);
@@ -1331,7 +1366,7 @@ public class PlayerNotificationManager {
       stringActions.add(ACTION_REWIND);
     }
     if (usePlayPauseActions) {
-      if (Util.shouldShowPlayButton(player)) {
+      if (Util.shouldShowPlayButton(player, showPlayButtonIfSuppressed)) {
         stringActions.add(ACTION_PLAY);
       } else {
         stringActions.add(ACTION_PAUSE);
@@ -1379,7 +1414,7 @@ public class PlayerNotificationManager {
     if (leftSideActionIndex != -1) {
       actionIndices[actionCounter++] = leftSideActionIndex;
     }
-    boolean shouldShowPlayButton = Util.shouldShowPlayButton(player);
+    boolean shouldShowPlayButton = Util.shouldShowPlayButton(player, showPlayButtonIfSuppressed);
     if (pauseActionIndex != -1 && !shouldShowPlayButton) {
       actionIndices[actionCounter++] = pauseActionIndex;
     } else if (playActionIndex != -1 && shouldShowPlayButton) {

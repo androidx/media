@@ -18,20 +18,18 @@ package androidx.media3.effect;
 
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.common.util.Util.formatInvariant;
 
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.opengl.GLES20;
-import android.opengl.GLUtils;
 import androidx.media3.common.Format;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 
 /** Transforms the colors of a frame by applying the same color lookup table to each frame. */
 @UnstableApi
-public class SingleColorLut implements ColorLut {
+public final class SingleColorLut implements ColorLut {
   private final Bitmap lut;
   private int lutTextureId;
 
@@ -47,7 +45,7 @@ public class SingleColorLut implements ColorLut {
         "LUT must have three dimensions.");
     checkArgument(
         lutCube.length == lutCube[0].length && lutCube.length == lutCube[0][0].length,
-        Util.formatInvariant(
+        formatInvariant(
             "All three dimensions of a LUT must match, received %d x %d x %d.",
             lutCube.length, lutCube[0].length, lutCube[0][0].length));
 
@@ -64,7 +62,7 @@ public class SingleColorLut implements ColorLut {
   public static SingleColorLut createFromBitmap(Bitmap lut) {
     checkArgument(
         lut.getWidth() * lut.getWidth() == lut.getHeight(),
-        Util.formatInvariant(
+        formatInvariant(
             "LUT needs to be in a N x N^2 format, received %d x %d.",
             lut.getWidth(), lut.getHeight()));
     checkArgument(
@@ -149,25 +147,16 @@ public class SingleColorLut implements ColorLut {
   }
 
   @Override
-  public SingleFrameGlShaderProgram toGlShaderProgram(Context context, boolean useHdr)
+  public BaseGlShaderProgram toGlShaderProgram(Context context, boolean useHdr)
       throws VideoFrameProcessingException {
     checkState(!useHdr, "HDR is currently not supported.");
 
     try {
-      lutTextureId = storeLutAsTexture(lut);
+      lutTextureId = GlUtil.createTexture(lut);
     } catch (GlUtil.GlException e) {
       throw new VideoFrameProcessingException("Could not store the LUT as a texture.", e);
     }
 
     return new ColorLutShaderProgram(context, /* colorLut= */ this, useHdr);
-  }
-
-  private static int storeLutAsTexture(Bitmap bitmap) throws GlUtil.GlException {
-    int lutTextureId =
-        GlUtil.createTexture(
-            bitmap.getWidth(), bitmap.getHeight(), /* useHighPrecisionColorComponents= */ false);
-    GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, /* level= */ 0, bitmap, /* border= */ 0);
-    GlUtil.checkGlError();
-    return lutTextureId;
   }
 }

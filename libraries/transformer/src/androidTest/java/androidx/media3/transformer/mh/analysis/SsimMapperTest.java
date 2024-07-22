@@ -56,7 +56,6 @@ import androidx.media3.common.util.Util;
 import androidx.media3.transformer.AndroidTestUtil;
 import androidx.media3.transformer.DefaultEncoderFactory;
 import androidx.media3.transformer.EditedMediaItem;
-import androidx.media3.transformer.TransformationRequest;
 import androidx.media3.transformer.Transformer;
 import androidx.media3.transformer.TransformerAndroidTestRunner;
 import androidx.media3.transformer.VideoEncoderSettings;
@@ -120,7 +119,7 @@ public class SsimMapperTest {
     List<Object[]> parameterList = new ArrayList<>();
     for (String file : INPUT_FILES) {
       parameterList.add(new Object[] {file, MimeTypes.VIDEO_H264});
-      // TODO(210593256): Test pre 24 once in-app muxing implemented.
+      // TODO(b/210593256): Test pre 24 once in-app muxing implemented.
       if (Util.SDK_INT >= 24) {
         parameterList.add(new Object[] {file, MimeTypes.VIDEO_H265});
       }
@@ -183,7 +182,7 @@ public class SsimMapperTest {
      * @param testIdPrefix The test ID prefix.
      * @param videoUri The URI of the video to transform.
      * @param outputMimeType The video sample MIME type to output, see {@link
-     *     TransformationRequest.Builder#setVideoMimeType}.
+     *     Transformer.Builder#setVideoMimeType}.
      */
     public SsimBinarySearcher(
         Context context, String testIdPrefix, String videoUri, String outputMimeType) {
@@ -291,8 +290,7 @@ public class SsimMapperTest {
 
       Transformer transformer =
           new Transformer.Builder(context)
-              .setTransformationRequest(
-                  new TransformationRequest.Builder().setVideoMimeType(outputMimeType).build())
+              .setVideoMimeType(outputMimeType)
               .setEncoderFactory(
                   new DefaultEncoderFactory.Builder(context)
                       .setRequestedVideoEncoderSettings(

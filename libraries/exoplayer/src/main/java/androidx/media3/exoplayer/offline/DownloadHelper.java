@@ -33,11 +33,13 @@ import androidx.media3.common.TrackSelectionOverride;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.ExoPlaybackException;
+import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.RenderersFactory;
@@ -68,7 +70,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
@@ -896,7 +897,7 @@ public final class DownloadHelper {
         case MESSAGE_CONTINUE_LOADING:
           MediaPeriod mediaPeriod = (MediaPeriod) msg.obj;
           if (pendingMediaPeriods.contains(mediaPeriod)) {
-            mediaPeriod.continueLoading(/* positionUs= */ 0);
+            mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
           }
           return true;
         case MESSAGE_RELEASE:

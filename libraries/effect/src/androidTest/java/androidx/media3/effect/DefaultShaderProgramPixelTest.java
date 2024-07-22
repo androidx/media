@@ -16,7 +16,7 @@
 package androidx.media3.effect;
 
 import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE;
-import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapFromCurrentGlFramebuffer;
+import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapFromFocusedGlFramebuffer;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createGlTextureFromBitmap;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.maybeSaveTestBitmap;
@@ -35,10 +35,14 @@ import androidx.media3.common.util.GlUtil;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.IOException;
+import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 /**
@@ -51,6 +55,8 @@ import org.junit.runner.RunWith;
  */
 @RunWith(AndroidJUnit4.class)
 public final class DefaultShaderProgramPixelTest {
+  @Rule public final TestName testName = new TestName();
+
   private static final String ORIGINAL_PNG_ASSET_PATH =
       "media/bitmap/sample_mp4_first_frame/electrical_colors/original.png";
   private static final String TRANSLATE_RIGHT_PNG_ASSET_PATH =
@@ -62,18 +68,20 @@ public final class DefaultShaderProgramPixelTest {
 
   private final Context context = getApplicationContext();
 
+  private @MonotonicNonNull String testId;
   private @MonotonicNonNull EGLDisplay eglDisplay;
   private @MonotonicNonNull EGLContext eglContext;
-  private @MonotonicNonNull SingleFrameGlShaderProgram defaultShaderProgram;
+  private @MonotonicNonNull BaseGlShaderProgram defaultShaderProgram;
   private int inputTexId;
   private int inputWidth;
   private int inputHeight;
 
   @Before
   public void createGlObjects() throws IOException, GlUtil.GlException {
-    eglDisplay = GlUtil.createEglDisplay();
+    eglDisplay = GlUtil.getDefaultEglDisplay();
     eglContext = GlUtil.createEglContext(eglDisplay);
-    EGLSurface placeholderEglSurface = GlUtil.focusPlaceholderEglSurface(eglContext, eglDisplay);
+    EGLSurface placeholderEglSurface =
+        GlUtil.createFocusedPlaceholderEglSurface(eglContext, eglDisplay);
 
     Bitmap inputBitmap = readBitmap(ORIGINAL_PNG_ASSET_PATH);
     inputWidth = inputBitmap.getWidth();
@@ -84,6 +92,12 @@ public final class DefaultShaderProgramPixelTest {
     int frameBuffer = GlUtil.createFboForTexture(outputTexId);
     GlUtil.focusFramebuffer(
         eglDisplay, eglContext, placeholderEglSurface, frameBuffer, inputWidth, inputHeight);
+  }
+
+  @Before
+  @EnsuresNonNull("testId")
+  public void setUpTestId() {
+    testId = testName.getMethodName();
   }
 
   @After
@@ -97,8 +111,8 @@ public final class DefaultShaderProgramPixelTest {
   }
 
   @Test
+  @RequiresNonNull("testId")
   public void drawFrame_noEdits_matchesGoldenFile() throws Exception {
-    String testId = "drawFrame_noEdits";
     Matrix identityMatrix = new Matrix();
     MatrixTransformation noEditsTransformation = (long presentationTimeUs) -> identityMatrix;
     defaultShaderProgram = noEditsTransformation.toGlShaderProgram(context, /* useHdr= */ false);
@@ -106,7 +120,7 @@ public final class DefaultShaderProgramPixelTest {
     Bitmap expectedBitmap = readBitmap(ORIGINAL_PNG_ASSET_PATH);
 
     defaultShaderProgram.drawFrame(inputTexId, /* presentationTimeUs= */ 0);
-    Bitmap actualBitmap = createArgb8888BitmapFromCurrentGlFramebuffer(inputWidth, inputHeight);
+    Bitmap actualBitmap = createArgb8888BitmapFromFocusedGlFramebuffer(inputWidth, inputHeight);
 
     maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
     // TODO(b/207848601): Switch to using proper tooling for testing against golden data.
@@ -116,8 +130,8 @@ public final class DefaultShaderProgramPixelTest {
   }
 
   @Test
+  @RequiresNonNull("testId")
   public void drawFrame_translateRight_matchesGoldenFile() throws Exception {
-    String testId = "drawFrame_translateRight";
     Matrix translateRightMatrix = new Matrix();
     translateRightMatrix.postTranslate(/* dx= */ 1, /* dy= */ 0);
     MatrixTransformation translateRightTransformation =
@@ -128,7 +142,7 @@ public final class DefaultShaderProgramPixelTest {
     Bitmap expectedBitmap = readBitmap(TRANSLATE_RIGHT_PNG_ASSET_PATH);
 
     defaultShaderProgram.drawFrame(inputTexId, /* presentationTimeUs= */ 0);
-    Bitmap actualBitmap = createArgb8888BitmapFromCurrentGlFramebuffer(inputWidth, inputHeight);
+    Bitmap actualBitmap = createArgb8888BitmapFromFocusedGlFramebuffer(inputWidth, inputHeight);
 
     maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
     // TODO(b/207848601): Switch to using proper tooling for testing against golden data.
@@ -138,8 +152,8 @@ public final class DefaultShaderProgramPixelTest {
   }
 
   @Test
+  @RequiresNonNull("testId")
   public void drawFrame_scaleNarrow_matchesGoldenFile() throws Exception {
-    String testId = "drawFrame_scaleNarrow";
     Matrix scaleNarrowMatrix = new Matrix();
     scaleNarrowMatrix.postScale(.5f, 1.2f);
     MatrixTransformation scaleNarrowTransformation = (long presentationTimeUs) -> scaleNarrowMatrix;
@@ -149,7 +163,7 @@ public final class DefaultShaderProgramPixelTest {
     Bitmap expectedBitmap = readBitmap(SCALE_NARROW_PNG_ASSET_PATH);
 
     defaultShaderProgram.drawFrame(inputTexId, /* presentationTimeUs= */ 0);
-    Bitmap actualBitmap = createArgb8888BitmapFromCurrentGlFramebuffer(inputWidth, inputHeight);
+    Bitmap actualBitmap = createArgb8888BitmapFromFocusedGlFramebuffer(inputWidth, inputHeight);
 
     maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
     // TODO(b/207848601): Switch to using proper tooling for testing against golden data.
@@ -159,8 +173,8 @@ public final class DefaultShaderProgramPixelTest {
   }
 
   @Test
+  @RequiresNonNull("testId")
   public void drawFrame_rotate90_matchesGoldenFile() throws Exception {
-    String testId = "drawFrame_rotate90";
     Matrix rotate90Matrix = new Matrix();
     rotate90Matrix.postRotate(/* degrees= */ 90);
     MatrixTransformation rotate90Transformation = (long presentationTimeUs) -> rotate90Matrix;
@@ -169,7 +183,7 @@ public final class DefaultShaderProgramPixelTest {
     Bitmap expectedBitmap = readBitmap(ROTATE_90_PNG_ASSET_PATH);
 
     defaultShaderProgram.drawFrame(inputTexId, /* presentationTimeUs= */ 0);
-    Bitmap actualBitmap = createArgb8888BitmapFromCurrentGlFramebuffer(inputWidth, inputHeight);
+    Bitmap actualBitmap = createArgb8888BitmapFromFocusedGlFramebuffer(inputWidth, inputHeight);
 
     maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
     // TODO(b/207848601): Switch to using proper tooling for testing against golden data.

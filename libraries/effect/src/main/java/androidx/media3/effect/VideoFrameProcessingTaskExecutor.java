@@ -20,58 +20,77 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.media3.common.VideoFrameProcessingException;
-import androidx.media3.common.VideoFrameProcessor;
+import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.UnstableApi;
 import java.util.ArrayDeque;
+import java.util.Queue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 
 /**
- * Wrapper around a single thread {@link ExecutorService} for executing {@link
- * VideoFrameProcessingTask} instances.
+ * Wrapper around a single thread {@link ExecutorService} for executing {@link Task} instances.
  *
  * <p>Public methods can be called from any thread.
  *
- * <p>The wrapper handles calling {@link
- * VideoFrameProcessor.Listener#onError(VideoFrameProcessingException)} for errors that occur during
- * these tasks. The listener is invoked from the {@link ExecutorService}. Errors are assumed to be
- * non-recoverable, so the {@code VideoFrameProcessingTaskExecutor} should be released if an error
- * occurs.
+ * <p>Calls {@link ErrorListener#onError} for errors that occur during these tasks. The listener is
+ * invoked from the {@link ExecutorService}.
  *
- * <p>{@linkplain #submitWithHighPriority(VideoFrameProcessingTask) High priority tasks} are always
- * executed before {@linkplain #submit(VideoFrameProcessingTask) default priority tasks}. Tasks with
- * equal priority are executed in FIFO order.
+ * <p>{@linkplain #submitWithHighPriority(Task) High priority tasks} are always executed before
+ * {@linkplain #submit(Task) default priority tasks}. Tasks with equal priority are executed in FIFO
+ * order.
  */
 @UnstableApi
 /* package */ final class VideoFrameProcessingTaskExecutor {
+  /**
+   * Interface for tasks that may throw a {@link GlUtil.GlException} or {@link
+   * VideoFrameProcessingException}.
+   */
+  interface Task {
+    /** Runs the task. */
+    void run() throws VideoFrameProcessingException, GlUtil.GlException;
+  }
 
+  /** Listener for errors. */
+  interface ErrorListener {
+    /**
+     * Called when an exception occurs while executing submitted tasks.
+     *
+     * <p>If this is called, the calling {@link VideoFrameProcessingTaskExecutor} must immediately
+     * be {@linkplain VideoFrameProcessingTaskExecutor#release} released}.
+     */
+    void onError(VideoFrameProcessingException exception);
+  }
+
+  private static final long RELEASE_WAIT_TIME_MS = 500;
+
+  private final boolean shouldShutdownExecutorService;
   private final ExecutorService singleThreadExecutorService;
-  private final VideoFrameProcessor.Listener listener;
+  private final ErrorListener errorListener;
   private final Object lock;
 
   @GuardedBy("lock")
-  private final ArrayDeque<VideoFrameProcessingTask> highPriorityTasks;
+  private final Queue<Task> highPriorityTasks;
 
   @GuardedBy("lock")
   private boolean shouldCancelTasks;
 
   /** Creates a new instance. */
   public VideoFrameProcessingTaskExecutor(
-      ExecutorService singleThreadExecutorService, VideoFrameProcessor.Listener listener) {
+      ExecutorService singleThreadExecutorService,
+      boolean shouldShutdownExecutorService,
+      ErrorListener errorListener) {
     this.singleThreadExecutorService = singleThreadExecutorService;
-    this.listener = listener;
+    this.shouldShutdownExecutorService = shouldShutdownExecutorService;
+    this.errorListener = errorListener;
     lock = new Object();
     highPriorityTasks = new ArrayDeque<>();
   }
 
-  /**
-   * Submits the given {@link VideoFrameProcessingTask} to be executed after all pending tasks have
-   * completed.
-   */
+  /** Submits the given {@link Task} to be executed after all pending tasks have completed. */
   @SuppressWarnings("FutureReturnValueIgnored")
-  public void submit(VideoFrameProcessingTask task) {
+  public void submit(Task task) {
     @Nullable RejectedExecutionException executionException = null;
     synchronized (lock) {
       if (shouldCancelTasks) {
@@ -90,13 +109,13 @@ import java.util.concurrent.RejectedExecutionException;
   }
 
   /**
-   * Submits the given {@link VideoFrameProcessingTask} to be executed after the currently running
-   * task and all previously submitted high-priority tasks have completed.
+   * Submits the given {@link Task} to be executed after the currently running task and all
+   * previously submitted high-priority tasks have completed.
    *
-   * <p>Tasks that were previously {@linkplain #submit(VideoFrameProcessingTask) submitted} without
-   * high-priority and have not started executing will be executed after this task is complete.
+   * <p>Tasks that were previously {@linkplain #submit(Task) submitted} without high-priority and
+   * have not started executing will be executed after this task is complete.
    */
-  public void submitWithHighPriority(VideoFrameProcessingTask task) {
+  public void submitWithHighPriority(Task task) {
     synchronized (lock) {
       if (shouldCancelTasks) {
         return;
@@ -136,31 +155,36 @@ import java.util.concurrent.RejectedExecutionException;
   }
 
   /**
-   * Cancels remaining tasks, runs the given release task, and shuts down the background thread.
+   * Cancels remaining tasks, runs the given release task
    *
-   * @param releaseTask A {@link VideoFrameProcessingTask} to execute before shutting down the
-   *     background thread.
-   * @param releaseWaitTimeMs How long to wait for the release task to terminate, in milliseconds.
+   * <p>If {@code shouldShutdownExecutorService} is {@code true}, shuts down the {@linkplain
+   * ExecutorService background thread}.
+   *
+   * <p>This {@link VideoFrameProcessingTaskExecutor} instance must not be used after this method is
+   * called.
+   *
+   * @param releaseTask A {@link Task} to execute before shutting down the background thread.
    * @throws InterruptedException If interrupted while releasing resources.
    */
-  public void release(VideoFrameProcessingTask releaseTask, long releaseWaitTimeMs)
-      throws InterruptedException {
+  public void release(Task releaseTask) throws InterruptedException {
     synchronized (lock) {
       shouldCancelTasks = true;
       highPriorityTasks.clear();
     }
     Future<?> unused =
         wrapTaskAndSubmitToExecutorService(releaseTask, /* isFlushOrReleaseTask= */ true);
-    singleThreadExecutorService.shutdown();
-    if (!singleThreadExecutorService.awaitTermination(releaseWaitTimeMs, MILLISECONDS)) {
-      listener.onError(
-          new VideoFrameProcessingException(
-              "Release timed out. OpenGL resources may not be cleaned up properly."));
+    if (shouldShutdownExecutorService) {
+      singleThreadExecutorService.shutdown();
+      if (!singleThreadExecutorService.awaitTermination(RELEASE_WAIT_TIME_MS, MILLISECONDS)) {
+        errorListener.onError(
+            new VideoFrameProcessingException(
+                "Release timed out. OpenGL resources may not be cleaned up properly."));
+      }
     }
   }
 
   private Future<?> wrapTaskAndSubmitToExecutorService(
-      VideoFrameProcessingTask defaultPriorityTask, boolean isFlushOrReleaseTask) {
+      Task defaultPriorityTask, boolean isFlushOrReleaseTask) {
     return singleThreadExecutorService.submit(
         () -> {
           try {
@@ -170,7 +194,7 @@ import java.util.concurrent.RejectedExecutionException;
               }
             }
 
-            @Nullable VideoFrameProcessingTask nextHighPriorityTask;
+            @Nullable Task nextHighPriorityTask;
             while (true) {
               synchronized (lock) {
                 // Lock only polling to prevent blocking the public method calls.
@@ -197,6 +221,6 @@ import java.util.concurrent.RejectedExecutionException;
       }
       shouldCancelTasks = true;
     }
-    listener.onError(VideoFrameProcessingException.from(exception));
+    errorListener.onError(VideoFrameProcessingException.from(exception));
   }
 }

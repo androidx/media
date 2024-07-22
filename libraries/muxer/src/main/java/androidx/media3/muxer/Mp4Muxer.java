@@ -76,8 +76,10 @@ public final class Mp4Muxer {
     LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME
   })
   public @interface LastFrameDurationBehavior {}
+
   /** Insert a zero-length last sample. */
   public static final int LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME = 0;
+
   /**
    * Use the difference between the last timestamp and the one before that as the duration of the
    * last sample.
@@ -87,7 +89,10 @@ public final class Mp4Muxer {
   /** A builder for {@link Mp4Muxer} instances. */
   public static final class Builder {
     private final FileOutputStream fileOutputStream;
+
     private @LastFrameDurationBehavior int lastFrameDurationBehavior;
+    private boolean fragmentedMp4Enabled;
+    private int fragmentDurationUs;
     @Nullable private AnnexBToAvccConverter annexBToAvccConverter;
 
     /**
@@ -98,6 +103,7 @@ public final class Mp4Muxer {
     public Builder(FileOutputStream fileOutputStream) {
       this.fileOutputStream = checkNotNull(fileOutputStream);
       lastFrameDurationBehavior = LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME;
+      fragmentDurationUs = DEFAULT_FRAGMENT_DURATION_US;
     }
 
     /**
@@ -125,18 +131,49 @@ public final class Mp4Muxer {
       return this;
     }
 
+    /**
+     * Sets whether to enable writing a fragmented MP4.
+     *
+     * <p>The default value is {@code false}.
+     */
+    @CanIgnoreReturnValue
+    public Mp4Muxer.Builder setFragmentedMp4Enabled(boolean enabled) {
+      fragmentedMp4Enabled = enabled;
+      return this;
+    }
+
+    /**
+     * Sets fragment duration for the {@linkplain #setFragmentedMp4Enabled(boolean) fragmented MP4}.
+     *
+     * <p>Muxer will attempt to create fragments of the given duration but the actual duration might
+     * be greater depending upon the frequency of sync samples.
+     *
+     * <p>The duration is ignored for {@linkplain #setFragmentedMp4Enabled(boolean) non fragmented
+     * MP4}.
+     *
+     * <p>The default value is {@link #DEFAULT_FRAGMENT_DURATION_US}.
+     *
+     * @param fragmentDurationUs The fragment duration in microseconds.
+     * @return The {@link Mp4Muxer.Builder}.
+     */
+    @CanIgnoreReturnValue
+    public Mp4Muxer.Builder setFragmentDurationUs(int fragmentDurationUs) {
+      this.fragmentDurationUs = fragmentDurationUs;
+      return this;
+    }
+
     /** Builds an {@link Mp4Muxer} instance. */
     public Mp4Muxer build() {
       MetadataCollector metadataCollector = new MetadataCollector();
       Mp4MoovStructure moovStructure =
           new Mp4MoovStructure(metadataCollector, lastFrameDurationBehavior);
+      AnnexBToAvccConverter avccConverter =
+          annexBToAvccConverter == null ? AnnexBToAvccConverter.DEFAULT : annexBToAvccConverter;
       Mp4Writer mp4Writer =
-          new Mp4Writer(
-              fileOutputStream,
-              moovStructure,
-              annexBToAvccConverter == null
-                  ? AnnexBToAvccConverter.DEFAULT
-                  : annexBToAvccConverter);
+          fragmentedMp4Enabled
+              ? new FragmentedMp4Writer(
+                  fileOutputStream, moovStructure, avccConverter, fragmentDurationUs)
+              : new DefaultMp4Writer(fileOutputStream, moovStructure, avccConverter);
 
       return new Mp4Muxer(mp4Writer, metadataCollector);
     }
@@ -149,6 +186,13 @@ public final class Mp4Muxer {
   /** A list of supported audio sample mime types. */
   public static final ImmutableList<String> SUPPORTED_AUDIO_SAMPLE_MIME_TYPES =
       ImmutableList.of(MimeTypes.AUDIO_AAC);
+
+  // TODO: b/262704382 - Optimize the default duration.
+  /**
+   * The default fragment duration for the {@linkplain Builder#setFragmentedMp4Enabled(boolean)
+   * fragmented MP4}.
+   */
+  public static final int DEFAULT_FRAGMENT_DURATION_US = 2_000_000;
 
   private final Mp4Writer mp4Writer;
   private final MetadataCollector metadataCollector;
@@ -236,6 +280,11 @@ public final class Mp4Muxer {
 
   /**
    * Writes encoded sample data.
+   *
+   * <p>The samples are cached and are written in batches so the caller must not change/release the
+   * {@link ByteBuffer} and the {@link BufferInfo} after calling this method.
+   *
+   * <p>Note: Out of order B-frames are currently not supported.
    *
    * @param trackToken The {@link TrackToken} for which this sample is being written.
    * @param byteBuffer The encoded sample.

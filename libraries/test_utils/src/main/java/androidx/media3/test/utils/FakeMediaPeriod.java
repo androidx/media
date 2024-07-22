@@ -28,9 +28,11 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.TrackGroup;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSpec;
+import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
@@ -49,7 +51,6 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 
 /** Fake {@link MediaPeriod} that provides tracks from the given {@link TrackGroupArray}. */
 @UnstableApi
@@ -361,9 +362,9 @@ public class FakeMediaPeriod implements MediaPeriod {
   }
 
   @Override
-  public boolean continueLoading(long positionUs) {
+  public boolean continueLoading(LoadingInfo loadingInfo) {
     for (FakeSampleStream sampleStream : sampleStreams) {
-      sampleStream.writeData(positionUs);
+      sampleStream.writeData(loadingInfo.playbackPositionUs);
     }
     return true;
   }

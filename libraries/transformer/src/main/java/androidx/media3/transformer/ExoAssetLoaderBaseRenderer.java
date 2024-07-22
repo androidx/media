@@ -32,6 +32,7 @@ import androidx.media3.exoplayer.BaseRenderer;
 import androidx.media3.exoplayer.FormatHolder;
 import androidx.media3.exoplayer.MediaClock;
 import androidx.media3.exoplayer.RendererCapabilities;
+import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.SampleStream.ReadDataResult;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
@@ -124,7 +125,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   }
 
   @Override
-  protected void onStreamChanged(Format[] formats, long startPositionUs, long offsetUs) {
+  protected void onStreamChanged(
+      Format[] formats,
+      long startPositionUs,
+      long offsetUs,
+      MediaSource.MediaPeriodId mediaPeriodId) {
     this.streamStartPositionUs = startPositionUs;
     this.streamOffsetUs = offsetUs;
   }
@@ -169,9 +174,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    *
    * <p>The input buffer is cleared if it should be dropped.
    */
-  protected boolean shouldDropInputBuffer(DecoderInputBuffer inputBuffer) {
-    return false;
-  }
+  protected abstract boolean shouldDropInputBuffer(DecoderInputBuffer inputBuffer);
 
   /** Called before a {@link DecoderInputBuffer} is queued to the decoder. */
   protected void onDecoderInputReady(DecoderInputBuffer inputBuffer) {}

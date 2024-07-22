@@ -19,6 +19,7 @@ import static androidx.media3.common.util.Util.castNonNull;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.RunnableFutureTask;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -44,8 +45,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 
+// LINT.IfChange(javadoc)
 /**
  * A downloader for DASH streams.
  *

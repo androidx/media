@@ -14,6 +14,8 @@
 apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 
 android {
+    namespace 'androidx.media3.datasource'
+
     buildTypes {
         debug {
             testCoverageEnabled = true
@@ -24,15 +26,21 @@ android {
         androidTest.assets.srcDir '../test_data/src/test/assets'
         test.assets.srcDir '../test_data/src/test/assets'
     }
+
+    publishing {
+        singleVariant('release') {
+            withSourcesJar()
+        }
+    }
 }
 
 dependencies {
     implementation project(modulePrefix + 'lib-common')
     implementation project(modulePrefix + 'lib-database')
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
+    implementation 'androidx.exifinterface:exifinterface:' + androidxExifInterfaceVersion
     compileOnly 'com.google.code.findbugs:jsr305:' + jsr305Version
     compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion
-    compileOnly 'org.checkerframework:checker-compat-qual:' + checkerframeworkCompatVersion
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
     compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion
     androidTestImplementation 'androidx.test:runner:' + androidxTestRunnerVersion
@@ -50,11 +58,6 @@ dependencies {
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
     testImplementation project(modulePrefix + 'test-utils')
 }
-
-ext {
-    javadocTitle = 'DataSource module'
-}
-apply from: '../../javadoc_library.gradle'
 
 ext {
     releaseArtifactId = 'media3-datasource'

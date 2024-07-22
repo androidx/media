@@ -5,41 +5,29 @@ body:
   - type: markdown
     attributes:
       value: |
-        We can only process bug reports that are actionable. Unclear bug reports or reports with
-        insufficient information may not get attention.
+        We can only process bug reports that are actionable. Unclear bug reports or reports with insufficient information may not get attention.
 
         Before filing a bug:
         -------------------------
 
-        - Search existing issues, including issues that are closed:
-          https://github.com/androidx/media/issues?q=is%3Aissue
-        - For ExoPlayer-related bugs, please also check for existing issues on the ExoPlayer
-          tracker: https://github.com/google/ExoPlayer/issues?q=is%3Aissue
+        - Search existing issues, including issues that are closed: https://github.com/androidx/media/issues?q=is%3Aissue
+        - For ExoPlayer-related bugs, please also check for existing issues on the ExoPlayer tracker: https://github.com/google/ExoPlayer/issues?q=is%3Aissue
   - type: dropdown
     attributes:
       label: Version
       description: What version of Media3 (or ExoPlayer) are you using?
       options:
-        - Media3 1.1.1
-        - Media3 1.1.0
-        - Media3 1.0.2
-        - Media3 1.0.1
-        - Media3 1.0.0
-        - Media3 1.0.0-rc02
-        - Media3 1.0.0-rc01
-        - Media3 1.0.0-beta03
-        - Media3 1.0.0-beta02
-        - Media3 1.0.0-beta01
-        - Media3 1.0.0-alpha03
-        - Media3 1.0.0-alpha02
-        - Media3 1.0.0-alpha01
-        - Media3 `main` branch
+        - Media3 main branch
         - Media3 pre-release (alpha, beta or RC not in this list)
-        - ExoPlayer 2.19.1
-        - ExoPlayer 2.19.0
-        - ExoPlayer 2.18.7
-        - ExoPlayer 2.18.6
-        - ExoPlayer 2.18.5
+        - Media3 1.3.1
+        - Media3 1.3.0
+        - Media3 1.2.1
+        - Media3 1.2.0
+        - Media3 1.1.1 / ExoPlayer 2.19.1
+        - Media3 1.1.0 / ExoPlayer 2.19.0
+        - Media3 1.0.2 / ExoPlayer 2.18.7
+        - Media3 1.0.1 / ExoPlayer 2.18.6
+        - Media3 1.0.0 / ExoPlayer 2.18.5
         - ExoPlayer 2.18.4
         - ExoPlayer 2.18.3
         - ExoPlayer 2.18.2
@@ -54,14 +42,14 @@ body:
         - ExoPlayer 2.14.2
         - ExoPlayer 2.14.1
         - ExoPlayer 2.14.0
-        - ExoPlayer `dev-v2` branch
+        - ExoPlayer dev-v2 branch
         - Older (unsupported)
     validations:
       required: true
   - type: textarea
     attributes:
       label: More version details
-      description: |
+      description: >
         Required if you selected `main` or `dev-v2` (please provide an exact commit SHA),
         or 'pre-release' or 'older' (please provide the version).
   - type: textarea

@@ -147,6 +147,7 @@ public final class Cea708Decoder extends CeaDecoder {
   private final ParsableByteArray ccData;
   private final ParsableBitArray captionChannelPacketData;
   private int previousSequenceNumber;
+
   // TODO: Use isWideAspectRatio in decoding.
   @SuppressWarnings({"unused", "FieldCanBeLocal"})
   private final boolean isWideAspectRatio;
@@ -161,6 +162,14 @@ public final class Cea708Decoder extends CeaDecoder {
   @Nullable private DtvCcPacket currentDtvCcPacket;
   private int currentWindow;
 
+  /**
+   * Constructs an instance.
+   *
+   * @param accessibilityChannel The accessibility channel, or {@link Format#NO_VALUE} if unknown.
+   * @param initializationData Optional initialization data for the decoder. If present, it must
+   *     conform to the structure created by {@link
+   *     CodecSpecificDataUtil#buildCea708InitializationData}.
+   */
   public Cea708Decoder(int accessibilityChannel, @Nullable List<byte[]> initializationData) {
     ccData = new ParsableByteArray();
     captionChannelPacketData = new ParsableBitArray();

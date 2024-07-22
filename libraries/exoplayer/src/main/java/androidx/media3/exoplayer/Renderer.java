@@ -27,10 +27,15 @@ import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.Player;
+import androidx.media3.common.Timeline;
+import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.analytics.PlayerId;
+import androidx.media3.exoplayer.image.ImageOutput;
+import androidx.media3.exoplayer.source.MediaPeriod;
+import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.SampleStream;
 import androidx.media3.exoplayer.video.VideoDecoderOutputBufferRenderer;
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
@@ -90,9 +95,9 @@ public interface Renderer extends PlayerMessage.Target {
    * #MSG_SET_SCALING_MODE}, {@link #MSG_SET_CHANGE_FRAME_RATE_STRATEGY}, {@link
    * #MSG_SET_AUX_EFFECT_INFO}, {@link #MSG_SET_VIDEO_FRAME_METADATA_LISTENER}, {@link
    * #MSG_SET_CAMERA_MOTION_LISTENER}, {@link #MSG_SET_SKIP_SILENCE_ENABLED}, {@link
-   * #MSG_SET_AUDIO_SESSION_ID}, {@link #MSG_SET_WAKEUP_LISTENER}, {@link #MSG_SET_VIDEO_EFFECTS} or
-   * {@link #MSG_SET_VIDEO_OUTPUT_RESOLUTION}. May also be an app-defined value (see {@link
-   * #MSG_CUSTOM_BASE}).
+   * #MSG_SET_AUDIO_SESSION_ID}, {@link #MSG_SET_WAKEUP_LISTENER}, {@link #MSG_SET_VIDEO_EFFECTS},
+   * {@link #MSG_SET_VIDEO_OUTPUT_RESOLUTION} or {@link #MSG_SET_IMAGE_OUTPUT}. May also be an
+   * app-defined value (see {@link #MSG_CUSTOM_BASE}).
    */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
@@ -112,9 +117,11 @@ public interface Renderer extends PlayerMessage.Target {
         MSG_SET_AUDIO_SESSION_ID,
         MSG_SET_WAKEUP_LISTENER,
         MSG_SET_VIDEO_EFFECTS,
-        MSG_SET_VIDEO_OUTPUT_RESOLUTION
+        MSG_SET_VIDEO_OUTPUT_RESOLUTION,
+        MSG_SET_IMAGE_OUTPUT
       })
   public @interface MessageType {}
+
   /**
    * The type of a message that can be passed to a video renderer via {@link
    * ExoPlayer#createMessage(PlayerMessage.Target)}. The message payload is normally a {@link
@@ -125,12 +132,14 @@ public interface Renderer extends PlayerMessage.Target {
    * any existing output that it has.
    */
   int MSG_SET_VIDEO_OUTPUT = 1;
+
   /**
    * A type of a message that can be passed to an audio renderer via {@link
    * ExoPlayer#createMessage(PlayerMessage.Target)}. The message payload should be a {@link Float}
    * with 0 being silence and 1 being unity gain.
    */
   int MSG_SET_VOLUME = 2;
+
   /**
    * A type of a message that can be passed to an audio renderer via {@link
    * ExoPlayer#createMessage(PlayerMessage.Target)}. The message payload should be an {@link
@@ -152,6 +161,7 @@ public interface Renderer extends PlayerMessage.Target {
    * an audio attributes instance.
    */
   int MSG_SET_AUDIO_ATTRIBUTES = 3;
+
   /**
    * The type of a message that can be passed to a {@link MediaCodec}-based video renderer via
    * {@link ExoPlayer#createMessage(PlayerMessage.Target)}. The message payload should be one of the
@@ -161,36 +171,42 @@ public interface Renderer extends PlayerMessage.Target {
    * owned by a {@link android.view.SurfaceView}.
    */
   int MSG_SET_SCALING_MODE = 4;
+
   /**
    * The type of a message that can be passed to a video renderer via {@link
    * ExoPlayer#createMessage(PlayerMessage.Target)}. The message payload should be one of the
    * integer strategy constants in {@link C.VideoChangeFrameRateStrategy}.
    */
   int MSG_SET_CHANGE_FRAME_RATE_STRATEGY = 5;
+
   /**
    * A type of a message that can be passed to an audio renderer via {@link
    * ExoPlayer#createMessage(PlayerMessage.Target)}. The message payload should be an {@link
    * AuxEffectInfo} instance representing an auxiliary audio effect for the underlying audio track.
    */
   int MSG_SET_AUX_EFFECT_INFO = 6;
+
   /**
    * The type of a message that can be passed to a video renderer via {@link
    * ExoPlayer#createMessage(PlayerMessage.Target)}. The message payload should be a {@link
    * VideoFrameMetadataListener} instance, or null.
    */
   int MSG_SET_VIDEO_FRAME_METADATA_LISTENER = 7;
+
   /**
    * The type of a message that can be passed to a camera motion renderer via {@link
    * ExoPlayer#createMessage(PlayerMessage.Target)}. The message payload should be a {@link
    * CameraMotionListener} instance, or null.
    */
   int MSG_SET_CAMERA_MOTION_LISTENER = 8;
+
   /**
    * The type of a message that can be passed to an audio renderer via {@link
    * ExoPlayer#createMessage(PlayerMessage.Target)}. The message payload should be a {@link Boolean}
    * instance telling whether to enable or disable skipping silences in the audio stream.
    */
   int MSG_SET_SKIP_SILENCE_ENABLED = 9;
+
   /**
    * The type of a message that can be passed to audio and video renderers via {@link
    * ExoPlayer#createMessage(PlayerMessage.Target)}. The message payload should be an {@link
@@ -199,6 +215,7 @@ public interface Renderer extends PlayerMessage.Target {
    * tunneling is enabled.
    */
   int MSG_SET_AUDIO_SESSION_ID = 10;
+
   /**
    * The type of a message that can be passed to a {@link Renderer} via {@link
    * ExoPlayer#createMessage(PlayerMessage.Target)}, to inform the renderer that it can schedule
@@ -207,6 +224,7 @@ public interface Renderer extends PlayerMessage.Target {
    * <p>The message payload must be a {@link WakeupListener} instance.
    */
   int MSG_SET_WAKEUP_LISTENER = 11;
+
   /**
    * The type of a message that can be passed to audio renderers via {@link
    * ExoPlayer#createMessage(PlayerMessage.Target)}. The message payload should be an {@link
@@ -214,17 +232,26 @@ public interface Renderer extends PlayerMessage.Target {
    * restore the default.
    */
   int MSG_SET_PREFERRED_AUDIO_DEVICE = 12;
+
   /**
    * The type of a message that can be passed to a video renderer. The message payload should be a
    * {@link List} containing {@linkplain Effect video effects}.
    */
   int MSG_SET_VIDEO_EFFECTS = 13;
+
   /**
    * The type of a message that can be passed to a video renderer to set the desired output
    * resolution. The message payload should be a {@link Size} of the desired output width and
    * height. Use this method only when playing with video {@linkplain Effect effects}.
    */
   int MSG_SET_VIDEO_OUTPUT_RESOLUTION = 14;
+
+  /**
+   * The type of message that can be passed to an image renderer to set a desired image output. The
+   * message payload should be an {@link ImageOutput}.
+   */
+  int MSG_SET_IMAGE_OUTPUT = 15;
+
   /**
    * Applications or extensions may define custom {@code MSG_*} constants that can be passed to
    * renderers. These custom constants must be greater than or equal to this value.
@@ -240,12 +267,14 @@ public interface Renderer extends PlayerMessage.Target {
   @Target(TYPE_USE)
   @IntDef({STATE_DISABLED, STATE_ENABLED, STATE_STARTED})
   @interface State {}
+
   /**
    * The renderer is disabled. A renderer in this state will not proactively acquire resources that
    * it requires for rendering (e.g., media decoders), but may continue to hold any that it already
    * has. {@link #reset()} can be called to force the renderer to release such resources.
    */
   int STATE_DISABLED = 0;
+
   /**
    * The renderer is enabled but not started. A renderer in this state may render media at the
    * current position (e.g. an initial video frame), but the position will not advance. A renderer
@@ -253,6 +282,7 @@ public interface Renderer extends PlayerMessage.Target {
    * decoders).
    */
   int STATE_ENABLED = 1;
+
   /**
    * The renderer is started. Calls to {@link #render(long, long)} will cause media to be rendered.
    */
@@ -287,8 +317,9 @@ public interface Renderer extends PlayerMessage.Target {
    *
    * @param index The renderer index within the player.
    * @param playerId The {@link PlayerId} of the player.
+   * @param clock The {@link Clock}.
    */
-  void init(int index, PlayerId playerId);
+  void init(int index, PlayerId playerId, Clock clock);
 
   /**
    * If the renderer advances its own playback position then this method returns a corresponding
@@ -326,6 +357,8 @@ public interface Renderer extends PlayerMessage.Target {
    * @param startPositionUs The start position of the stream in renderer time (microseconds).
    * @param offsetUs The offset to be added to timestamps of buffers read from {@code stream} before
    *     they are rendered.
+   * @param mediaPeriodId The {@link MediaPeriodId} of the {@link MediaPeriod} producing the {@code
+   *     stream}.
    * @throws ExoPlaybackException If an error occurs.
    */
   void enable(
@@ -336,7 +369,8 @@ public interface Renderer extends PlayerMessage.Target {
       boolean joining,
       boolean mayRenderStartOfStream,
       long startPositionUs,
-      long offsetUs)
+      long offsetUs,
+      MediaPeriodId mediaPeriodId)
       throws ExoPlaybackException;
 
   /**
@@ -361,9 +395,16 @@ public interface Renderer extends PlayerMessage.Target {
    * @param startPositionUs The start position of the new stream in renderer time (microseconds).
    * @param offsetUs The offset to be added to timestamps of buffers read from {@code stream} before
    *     they are rendered.
+   * @param mediaPeriodId The {@link MediaPeriodId} of the {@link MediaPeriod} producing the {@code
+   *     stream}.
    * @throws ExoPlaybackException If an error occurs.
    */
-  void replaceStream(Format[] formats, SampleStream stream, long startPositionUs, long offsetUs)
+  void replaceStream(
+      Format[] formats,
+      SampleStream stream,
+      long startPositionUs,
+      long offsetUs,
+      MediaPeriodId mediaPeriodId)
       throws ExoPlaybackException;
 
   /** Returns the {@link SampleStream} being consumed, or null if the renderer is disabled. */
@@ -443,6 +484,18 @@ public interface Renderer extends PlayerMessage.Target {
       throws ExoPlaybackException {}
 
   /**
+   * Enables this renderer to render the start of the stream even if the state is not {@link
+   * #STATE_STARTED} yet.
+   *
+   * <p>This is used to update the value of {@code mayRenderStartOfStream} passed to {@link
+   * #enable}.
+   */
+  default void enableMayRenderStartOfStream() {}
+
+  /** Sets the timeline that is currently being played. */
+  void setTimeline(Timeline timeline);
+
+  /**
    * Incrementally renders the {@link SampleStream}.
    *
    * <p>If the renderer is in the {@link #STATE_ENABLED} state then each call to this method will do
@@ -453,8 +506,8 @@ public interface Renderer extends PlayerMessage.Target {
    * <p>The renderer may also render the very start of the media at the current position (e.g. the
    * first frame of a video stream) while still in the {@link #STATE_ENABLED} state, unless it's the
    * initial start of the media after calling {@link #enable(RendererConfiguration, Format[],
-   * SampleStream, long, boolean, boolean, long, long)} with {@code mayRenderStartOfStream} set to
-   * {@code false}.
+   * SampleStream, long, boolean, boolean, long, long, MediaPeriodId)} with {@code
+   * mayRenderStartOfStream} set to {@code false}.
    *
    * <p>This method should return quickly, and should not block if the renderer is unable to make
    * useful progress.

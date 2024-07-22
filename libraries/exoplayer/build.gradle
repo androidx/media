@@ -14,6 +14,8 @@
 apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 
 android {
+    namespace 'androidx.media3.exoplayer'
+
     defaultConfig {
         // The following argument makes the Android Test Orchestrator run its
         // "pm clear" command after each test invocation. This command ensures
@@ -31,6 +33,12 @@ android {
         androidTest.assets.srcDir '../test_data/src/test/assets'
         test.assets.srcDir '../test_data/src/test/assets/'
     }
+
+    publishing {
+        singleVariant('release') {
+            withSourcesJar()
+        }
+    }
 }
 
 dependencies {
@@ -42,10 +50,11 @@ dependencies {
     api project(modulePrefix + 'lib-extractor')
     api project(modulePrefix + 'lib-database')
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
+    implementation 'androidx.collection:collection:' + androidxCollectionVersion
     implementation 'androidx.core:core:' + androidxCoreVersion
+    implementation 'androidx.exifinterface:exifinterface:1.3.6'
     compileOnly 'com.google.code.findbugs:jsr305:' + jsr305Version
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
-    compileOnly 'org.checkerframework:checker-compat-qual:' + checkerframeworkCompatVersion
     compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion
     compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion
     androidTestImplementation 'androidx.test:runner:' + androidxTestRunnerVersion
@@ -55,17 +64,11 @@ dependencies {
         exclude module: modulePrefix.substring(1) + 'library-core'
     }
     androidTestImplementation 'com.squareup.okhttp3:mockwebserver:' + okhttpVersion
-    testCompileOnly 'org.checkerframework:checker-compat-qual:' + checkerframeworkCompatVersion
     testImplementation 'com.squareup.okhttp3:mockwebserver:' + okhttpVersion
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
     testImplementation project(modulePrefix + 'test-utils')
     testImplementation project(modulePrefix + 'test-utils-robolectric')
 }
-
-ext {
-    javadocTitle = 'Core module'
-}
-apply from: '../../javadoc_library.gradle'
 
 ext {
     releaseArtifactId = 'media3-exoplayer'

@@ -15,12 +15,16 @@
  */
 package androidx.media3.exoplayer.smoothstreaming;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
+
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.TrackGroup;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.datasource.TransferListener;
+import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
@@ -37,10 +41,11 @@ import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoaderErrorThrower;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 
 /** A SmoothStreaming {@link MediaPeriod}. */
 /* package */ final class SsMediaPeriod
@@ -86,10 +91,9 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     this.mediaSourceEventDispatcher = mediaSourceEventDispatcher;
     this.allocator = allocator;
     this.compositeSequenceableLoaderFactory = compositeSequenceableLoaderFactory;
-    trackGroups = buildTrackGroups(manifest, drmSessionManager);
+    trackGroups = buildTrackGroups(manifest, drmSessionManager, chunkSourceFactory);
     sampleStreams = newSampleStreamArray(0);
-    compositeSequenceableLoader =
-        compositeSequenceableLoaderFactory.createCompositeSequenceableLoader(sampleStreams);
+    compositeSequenceableLoader = compositeSequenceableLoaderFactory.empty();
   }
 
   public void updateManifest(SsManifest manifest) {
@@ -97,7 +101,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     for (ChunkSampleStream<SsChunkSource> sampleStream : sampleStreams) {
       sampleStream.getChunkSource().updateManifest(manifest);
     }
-    callback.onContinueLoadingRequested(this);
+    checkNotNull(callback).onContinueLoadingRequested(this);
   }
 
   public void release() {
@@ -141,7 +145,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
           stream.release();
           streams[i] = null;
         } else {
-          stream.getChunkSource().updateTrackSelection(selections[i]);
+          stream.getChunkSource().updateTrackSelection(checkNotNull(selections[i]));
           sampleStreamsList.add(stream);
         }
       }
@@ -155,7 +159,9 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     sampleStreams = newSampleStreamArray(sampleStreamsList.size());
     sampleStreamsList.toArray(sampleStreams);
     compositeSequenceableLoader =
-        compositeSequenceableLoaderFactory.createCompositeSequenceableLoader(sampleStreams);
+        compositeSequenceableLoaderFactory.create(
+            sampleStreamsList,
+            Lists.transform(sampleStreamsList, s -> ImmutableList.of(s.primaryTrackType)));
     return positionUs;
   }
 
@@ -185,8 +191,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
   }
 
   @Override
-  public boolean continueLoading(long positionUs) {
-    return compositeSequenceableLoader.continueLoading(positionUs);
+  public boolean continueLoading(LoadingInfo loadingInfo) {
+    return compositeSequenceableLoader.continueLoading(loadingInfo);
   }
 
   @Override
@@ -231,7 +237,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
 
   @Override
   public void onContinueLoadingRequested(ChunkSampleStream<SsChunkSource> sampleStream) {
-    callback.onContinueLoadingRequested(this);
+    checkNotNull(callback).onContinueLoadingRequested(this);
   }
 
   // Private methods.
@@ -262,15 +268,21 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
   }
 
   private static TrackGroupArray buildTrackGroups(
-      SsManifest manifest, DrmSessionManager drmSessionManager) {
+      SsManifest manifest,
+      DrmSessionManager drmSessionManager,
+      SsChunkSource.Factory chunkSourceFactory) {
     TrackGroup[] trackGroups = new TrackGroup[manifest.streamElements.length];
     for (int i = 0; i < manifest.streamElements.length; i++) {
       Format[] manifestFormats = manifest.streamElements[i].formats;
       Format[] exposedFormats = new Format[manifestFormats.length];
       for (int j = 0; j < manifestFormats.length; j++) {
         Format manifestFormat = manifestFormats[j];
-        exposedFormats[j] =
-            manifestFormat.copyWithCryptoType(drmSessionManager.getCryptoType(manifestFormat));
+        Format updatedFormatWithDrm =
+            manifestFormat
+                .buildUpon()
+                .setCryptoType(drmSessionManager.getCryptoType(manifestFormat))
+                .build();
+        exposedFormats[j] = chunkSourceFactory.getOutputTextFormat(updatedFormatWithDrm);
       }
       trackGroups[i] = new TrackGroup(/* id= */ Integer.toString(i), exposedFormats);
     }

@@ -18,6 +18,8 @@ package androidx.media3.transformer;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.transformer.ExportException.ERROR_CODE_UNSPECIFIED;
+import static androidx.media3.transformer.SampleConsumer.INPUT_RESULT_END_OF_STREAM;
+import static androidx.media3.transformer.SampleConsumer.INPUT_RESULT_TRY_AGAIN_LATER;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_AVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED;
 import static java.lang.Math.round;
@@ -28,6 +30,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.OnInputFrameProcessedListener;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.transformer.SampleConsumer.InputResult;
 import com.google.common.collect.ImmutableMap;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -36,9 +39,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * android.opengl.GLES10#GL_TEXTURE_2D traditional GLES texture} instances.
  *
  * <p>Typically instantiated in a custom {@link AssetLoader.Factory} saving a reference to the
- * created {@link TextureAssetLoader}. Input is provided calling {@link #queueInputTexture} to
- * provide all the video frames, then {@link #signalEndOfVideoInput() signalling the end of input}
- * when finished.
+ * created {@link TextureAssetLoader}. Provide video frames as input by calling {@link
+ * #queueInputTexture}, then {@link #signalEndOfVideoInput() signal the end of input} when finished.
+ * Those methods must be called from the same thread, which can be any thread.
  */
 @UnstableApi
 public final class TextureAssetLoader implements AssetLoader {
@@ -50,6 +53,7 @@ public final class TextureAssetLoader implements AssetLoader {
   private @MonotonicNonNull SampleConsumer sampleConsumer;
   private @Transformer.ProgressState int progressState;
   private boolean isTrackAdded;
+  private boolean isEndOfStreamSignaled;
 
   private volatile boolean isStarted;
   private volatile long lastQueuedPresentationTimeUs;
@@ -59,6 +63,13 @@ public final class TextureAssetLoader implements AssetLoader {
    *
    * <p>The {@link EditedMediaItem#durationUs}, {@link Format#width} and {@link Format#height} must
    * be set.
+   *
+   * @param editedMediaItem Information about the media item for which frames are provided.
+   * @param assetLoaderListener Listener for asset loading events.
+   * @param format Information about the format of video frames.
+   * @param frameProcessedListener Listener for the event when a frame has been processed. The
+   *     listener receives a GL sync object (if supported) to allow reusing the texture after it's
+   *     no longer in use.
    */
   public TextureAssetLoader(
       EditedMediaItem editedMediaItem,
@@ -129,8 +140,12 @@ public final class TextureAssetLoader implements AssetLoader {
           sampleConsumer.setOnInputFrameProcessedListener(frameProcessedListener);
         }
       }
-      if (!sampleConsumer.queueInputTexture(texId, presentationTimeUs)) {
+      @InputResult int result = sampleConsumer.queueInputTexture(texId, presentationTimeUs);
+      if (result == INPUT_RESULT_TRY_AGAIN_LATER) {
         return false;
+      }
+      if (result == INPUT_RESULT_END_OF_STREAM) {
+        isEndOfStreamSignaled = true;
       }
       lastQueuedPresentationTimeUs = presentationTimeUs;
       return true;
@@ -149,7 +164,10 @@ public final class TextureAssetLoader implements AssetLoader {
    */
   public void signalEndOfVideoInput() {
     try {
-      checkNotNull(sampleConsumer).signalEndOfVideoInput();
+      if (!isEndOfStreamSignaled) {
+        isEndOfStreamSignaled = true;
+        checkNotNull(sampleConsumer).signalEndOfVideoInput();
+      }
     } catch (RuntimeException e) {
       assetLoaderListener.onError(ExportException.createForAssetLoader(e, ERROR_CODE_UNSPECIFIED));
     }

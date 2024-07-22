@@ -14,6 +14,7 @@
 
 apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 android {
+    namespace 'androidx.media3.container'
 
     defaultConfig {
         // The following argument makes the Android Test Orchestrator run its
@@ -32,10 +33,12 @@ android {
         androidTest.assets.srcDir '../test_data/src/test/assets/'
         test.assets.srcDir '../test_data/src/test/assets/'
     }
-}
 
-ext {
-    javadocTitle = 'Container module'
+    publishing {
+        singleVariant('release') {
+            withSourcesJar()
+        }
+    }
 }
 
 dependencies {
@@ -45,8 +48,9 @@ dependencies {
     testImplementation 'com.google.truth:truth:' + truthVersion
     testImplementation 'junit:junit:' + junitVersion
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
+    testImplementation project(modulePrefix + 'test-utils')
+
 }
-apply from: '../../javadoc_library.gradle'
 
 ext {
     releaseArtifactId = 'media3-container'

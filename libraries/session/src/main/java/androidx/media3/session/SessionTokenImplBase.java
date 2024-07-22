@@ -214,6 +214,7 @@ import com.google.common.base.Objects;
   private static final String FIELD_ISESSION = Util.intToStringMaxRadix(6);
   private static final String FIELD_EXTRAS = Util.intToStringMaxRadix(7);
   private static final String FIELD_INTERFACE_VERSION = Util.intToStringMaxRadix(8);
+
   // Next field key = 9
 
   @Override
@@ -231,10 +232,17 @@ import com.google.common.base.Objects;
     return bundle;
   }
 
-  /** Object that can restore {@link SessionTokenImplBase} from a {@link Bundle}. */
+  /**
+   * Object that can restore {@link SessionTokenImplBase} from a {@link Bundle}.
+   *
+   * @deprecated Use {@link #fromBundle} instead.
+   */
+  @Deprecated
+  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
   public static final Creator<SessionTokenImplBase> CREATOR = SessionTokenImplBase::fromBundle;
 
-  private static SessionTokenImplBase fromBundle(Bundle bundle) {
+  /** Restores a {@code SessionTokenImplBase} from a {@link Bundle}. */
+  public static SessionTokenImplBase fromBundle(Bundle bundle) {
     checkArgument(bundle.containsKey(FIELD_UID), "uid should be set.");
     int uid = bundle.getInt(FIELD_UID);
     checkArgument(bundle.containsKey(FIELD_TYPE), "type should be set.");

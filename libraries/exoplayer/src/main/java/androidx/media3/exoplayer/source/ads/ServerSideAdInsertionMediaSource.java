@@ -36,11 +36,13 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.TransferListener;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.FormatHolder;
+import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.drm.DrmSession;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
@@ -66,7 +68,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -217,6 +218,16 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
   @Override
   public MediaItem getMediaItem() {
     return mediaSource.getMediaItem();
+  }
+
+  @Override
+  public boolean canUpdateMediaItem(MediaItem mediaItem) {
+    return mediaSource.canUpdateMediaItem(mediaItem);
+  }
+
+  @Override
+  public void updateMediaItem(MediaItem mediaItem) {
+    mediaSource.updateMediaItem(mediaItem);
   }
 
   @Override
@@ -731,7 +742,7 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
       return actualMediaPeriod.getStreamKeys(trackSelections);
     }
 
-    public boolean continueLoading(MediaPeriodImpl mediaPeriod, long positionUs) {
+    public boolean continueLoading(MediaPeriodImpl mediaPeriod, LoadingInfo loadingInfo) {
       @Nullable MediaPeriodImpl loadingPeriod = this.loadingPeriod;
       if (loadingPeriod != null && !mediaPeriod.equals(loadingPeriod)) {
         for (Pair<LoadEventInfo, MediaLoadData> loadData : activeLoads.values()) {
@@ -744,8 +755,9 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
       }
       this.loadingPeriod = mediaPeriod;
       long actualPlaybackPositionUs =
-          getStreamPositionUsWithNotYetStartedHandling(mediaPeriod, positionUs);
-      return actualMediaPeriod.continueLoading(actualPlaybackPositionUs);
+          getStreamPositionUsWithNotYetStartedHandling(mediaPeriod, loadingInfo.playbackPositionUs);
+      return actualMediaPeriod.continueLoading(
+          loadingInfo.buildUpon().setPlaybackPositionUs(actualPlaybackPositionUs).build());
     }
 
     public boolean isLoading(MediaPeriodImpl mediaPeriod) {
@@ -1199,8 +1211,8 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
     }
 
     @Override
-    public boolean continueLoading(long positionUs) {
-      return sharedPeriod.continueLoading(/* mediaPeriod= */ this, positionUs);
+    public boolean continueLoading(LoadingInfo loadingInfo) {
+      return sharedPeriod.continueLoading(/* mediaPeriod= */ this, loadingInfo);
     }
 
     @Override

@@ -17,6 +17,7 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS;
 import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS;
 import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_MAX_BUFFER_MS;
@@ -75,7 +76,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
      * @param decoderFactory The {@link Codec.DecoderFactory} to use to decode the samples (if
      *     necessary).
      * @param forceInterpretHdrAsSdr Whether to apply {@link
-     *     TransformationRequest#HDR_MODE_EXPERIMENTAL_FORCE_INTERPRET_HDR_AS_SDR}.
+     *     Composition#HDR_MODE_EXPERIMENTAL_FORCE_INTERPRET_HDR_AS_SDR}.
      * @param clock The {@link Clock} to use. It should always be {@link Clock#DEFAULT}, except for
      *     testing.
      */
@@ -98,7 +99,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
      * @param decoderFactory The {@link Codec.DecoderFactory} to use to decode the samples (if
      *     necessary).
      * @param forceInterpretHdrAsSdr Whether to apply {@link
-     *     TransformationRequest#HDR_MODE_EXPERIMENTAL_FORCE_INTERPRET_HDR_AS_SDR}.
+     *     Composition#HDR_MODE_EXPERIMENTAL_FORCE_INTERPRET_HDR_AS_SDR}.
      * @param clock The {@link Clock} to use. It should always be {@link Clock#DEFAULT}, except for
      *     testing.
      * @param mediaSourceFactory The {@link MediaSource.Factory} to use to retrieve the samples to
@@ -140,6 +141,12 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
     }
   }
 
+  /**
+   * The timeout value, in milliseconds, to set on the internal {@link ExoPlayer} instance when
+   * running on an emulator.
+   */
+  private static final long EMULATOR_RELEASE_TIMEOUT_MS = 5_000;
+
   private final EditedMediaItem editedMediaItem;
   private final CapturingDecoderFactory decoderFactory;
   private final ExoPlayer player;
@@ -164,7 +171,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
             .setForceHighestSupportedBitrate(true)
             .build());
     // Arbitrarily decrease buffers for playback so that samples start being sent earlier to the
-    // pipelines (rebuffers are less problematic for the export use case).
+    // exporters (rebuffers are less problematic for the export use case).
     DefaultLoadControl loadControl =
         new DefaultLoadControl.Builder()
             .setBufferDurationsMs(
@@ -187,7 +194,8 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
             .setTrackSelector(trackSelector)
             .setLoadControl(loadControl)
             .setLooper(looper)
-            .setUsePlatformDiagnostics(false);
+            .setUsePlatformDiagnostics(false)
+            .setReleaseTimeoutMs(getReleaseTimeoutMs());
     if (clock != Clock.DEFAULT) {
       // Transformer.Builder#setClock is also @VisibleForTesting, so if we're using a non-default
       // clock we must be in a test context.
@@ -362,5 +370,12 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
                   error.getErrorCodeName(), ERROR_CODE_UNSPECIFIED));
       assetLoaderListener.onError(ExportException.createForAssetLoader(error, errorCode));
     }
+  }
+
+  private static long getReleaseTimeoutMs() {
+    // b/297916906 - Emulators need a larger timeout for releasing.
+    return isRunningOnEmulator()
+        ? EMULATOR_RELEASE_TIMEOUT_MS
+        : ExoPlayer.DEFAULT_RELEASE_TIMEOUT_MS;
   }
 }

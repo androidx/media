@@ -16,11 +16,11 @@
 package androidx.media3.exoplayer;
 
 import androidx.media3.common.C;
-import androidx.media3.common.MediaPeriodId;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.source.MediaPeriod;
+import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.upstream.Allocator;
@@ -66,6 +66,7 @@ public interface LoadControl {
    * @deprecated Implement {@link #onTracksSelected(Timeline, MediaPeriodId, Renderer[],
    *     TrackGroupArray, ExoTrackSelection[])} instead.
    */
+  @SuppressWarnings("deprecation") // Intentionally referencing deprecated constant
   @Deprecated
   default void onTracksSelected(
       Renderer[] renderers, TrackGroupArray trackGroups, ExoTrackSelection[] trackSelections) {
@@ -168,6 +169,7 @@ public interface LoadControl {
    * @deprecated Implement {@link #shouldStartPlayback(Timeline, MediaPeriodId, long, float,
    *     boolean, long)} instead.
    */
+  @SuppressWarnings("deprecation") // Intentionally referencing deprecated constant
   @Deprecated
   default boolean shouldStartPlayback(
       long bufferedDurationUs, float playbackSpeed, boolean rebuffering, long targetLiveOffsetUs) {

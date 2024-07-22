@@ -26,9 +26,11 @@ import androidx.media3.common.util.UnstableApi;
 /**
  * Applies a {@link GlEffect} from {@code startTimeUs} to {@code endTimeUs}, and no change on all
  * other timestamps.
+ *
+ * <p>This currently does not work with {@code ExoPlayer#setVideoEffects}.
  */
 @UnstableApi
-public class TimestampWrapper implements GlEffect {
+public final class TimestampWrapper implements GlEffect {
 
   public final GlEffect glEffect;
   public final long startTimeUs;
@@ -39,8 +41,10 @@ public class TimestampWrapper implements GlEffect {
    *
    * @param glEffect The {@link GlEffect} to apply, from {@code startTimeUs} to {@code endTimeUs}.
    *     This instance must not change the output dimensions.
-   * @param startTimeUs The time to begin applying {@code glEffect} on. Must be non-negative.
-   * @param endTimeUs The time to stop applying {code glEffect} on. Must be non-negative.
+   * @param startTimeUs The time to begin applying {@code glEffect} on, in microseconds. Must be
+   *     non-negative.
+   * @param endTimeUs The time to stop applying {code glEffect} on, in microseconds. Must be
+   *     non-negative.
    */
   public TimestampWrapper(
       GlEffect glEffect, @IntRange(from = 0) long startTimeUs, @IntRange(from = 0) long endTimeUs) {

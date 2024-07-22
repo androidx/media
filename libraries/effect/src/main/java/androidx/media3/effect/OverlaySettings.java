@@ -1,4 +1,5 @@
 package androidx.media3.effect;
+
 /*
  * Copyright 2022 The Android Open Source Project
  *
@@ -18,37 +19,67 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 
 import android.util.Pair;
 import androidx.annotation.FloatRange;
-import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.UnstableApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
-/** Contains information to control how an {@link TextureOverlay} is displayed on the screen. */
+/**
+ * Contains information to control how an input texture (for example, a {@link VideoCompositor} or
+ * {@link TextureOverlay}) is displayed on a background.
+ */
 @UnstableApi
 public final class OverlaySettings {
   public final boolean useHdr;
-  public final float alpha;
-  public final float[] matrix;
-  public final Pair<Float, Float> anchor;
+  public final float alphaScale;
+  public final Pair<Float, Float> backgroundFrameAnchor;
+  public final Pair<Float, Float> overlayFrameAnchor;
+  public final Pair<Float, Float> scale;
+  public final float rotationDegrees;
 
-  private OverlaySettings(boolean useHdr, float alpha, float[] matrix, Pair<Float, Float> anchor) {
+  private OverlaySettings(
+      boolean useHdr,
+      float alphaScale,
+      Pair<Float, Float> backgroundFrameAnchor,
+      Pair<Float, Float> overlayFrameAnchor,
+      Pair<Float, Float> scale,
+      float rotationDegrees) {
     this.useHdr = useHdr;
-    this.alpha = alpha;
-    this.matrix = matrix;
-    this.anchor = anchor;
+    this.alphaScale = alphaScale;
+    this.backgroundFrameAnchor = backgroundFrameAnchor;
+    this.overlayFrameAnchor = overlayFrameAnchor;
+    this.scale = scale;
+    this.rotationDegrees = rotationDegrees;
+  }
+
+  /** Returns a new {@link Builder} initialized with the values of this instance. */
+  /* package */ Builder buildUpon() {
+    return new Builder(this);
   }
 
   /** A builder for {@link OverlaySettings} instances. */
   public static final class Builder {
     private boolean useHdr;
-    private float alpha;
-    private float[] matrix;
-    private Pair<Float, Float> anchor;
+    private float alphaScale;
+    private Pair<Float, Float> backgroundFrameAnchor;
+    private Pair<Float, Float> overlayFrameAnchor;
+    private Pair<Float, Float> scale;
+    private float rotationDegrees;
 
     /** Creates a new {@link Builder}. */
     public Builder() {
-      alpha = 1f;
-      matrix = GlUtil.create4x4IdentityMatrix();
-      anchor = Pair.create(0f, 0f);
+      alphaScale = 1f;
+      backgroundFrameAnchor = Pair.create(0f, 0f);
+      overlayFrameAnchor = Pair.create(0f, 0f);
+      scale = Pair.create(1f, 1f);
+      rotationDegrees = 0f;
+    }
+
+    private Builder(OverlaySettings overlaySettings) {
+      this.useHdr = overlaySettings.useHdr;
+      this.alphaScale = overlaySettings.alphaScale;
+      this.backgroundFrameAnchor = overlaySettings.backgroundFrameAnchor;
+      this.overlayFrameAnchor = overlaySettings.overlayFrameAnchor;
+      this.scale = overlaySettings.scale;
+      this.rotationDegrees = overlaySettings.rotationDegrees;
     }
 
     /**
@@ -64,54 +95,95 @@ public final class OverlaySettings {
     }
 
     /**
-     * Sets the {@link android.opengl.Matrix} used to transform the overlay before applying it to a
-     * frame.
+     * Sets the alpha scale value of the overlay, altering its translucency.
      *
-     * <p>Set to always return the identity matrix by default.
-     */
-    @CanIgnoreReturnValue
-    public Builder setMatrix(float[] matrix) {
-      this.matrix = matrix;
-      return this;
-    }
-
-    /**
-     * Sets the alpha value of the overlay, altering its transparency.
-     *
-     * <p>Alpha values range from 0 (all transparent) to 1 (completely opaque).
+     * <p>An {@code alphaScale} value of {@code 1} means no change is applied. A value below {@code
+     * 1} increases translucency, and a value above {@code 1} reduces translucency.
      *
      * <p>Set to always return {@code 1} by default.
      */
     @CanIgnoreReturnValue
-    public Builder setAlpha(@FloatRange(from = 0, to = 1) float alpha) {
-      checkArgument(0 <= alpha && alpha <= 1, "Alpha needs to be in the interval [0, 1].");
-      this.alpha = alpha;
+    public Builder setAlphaScale(@FloatRange(from = 0) float alphaScale) {
+      checkArgument(0 <= alphaScale, "alphaScale needs to be greater than or equal to zero.");
+      this.alphaScale = alphaScale;
       return this;
     }
 
     /**
-     * Sets the coordinates for the anchor point of the overlay.
+     * Sets the coordinates for the anchor point of the overlay within the background frame.
      *
-     * <p>The anchor point is the point inside the overlay that the overlay is positioned from.
+     * <p>The coordinates are specified in Normalised Device Coordinates (NDCs) relative to the
+     * background frame. Set to always return {@code (0,0)} (the center of the background frame) by
+     * default.
      *
-     * <p>The coordinates are specified in Normalised Device Coordinates (NDCs). Set to always
-     * return {@code (0,0)} (the center) by default.
+     * <p>For example, a value of {@code (+1,+1)} will move the overlay frames's {@linkplain
+     * #setOverlayFrameAnchor anchor point} to the top right corner of the background frame.
      *
      * @param x The NDC x-coordinate in the range [-1, 1].
      * @param y The NDC y-coordinate in the range [-1, 1].
      */
     @CanIgnoreReturnValue
-    public Builder setAnchor(
+    public Builder setBackgroundFrameAnchor(
         @FloatRange(from = -1, to = 1) float x, @FloatRange(from = -1, to = 1) float y) {
       checkArgument(-1 <= x && x <= 1);
       checkArgument(-1 <= y && y <= 1);
-      this.anchor = Pair.create(x, y);
+      this.backgroundFrameAnchor = Pair.create(x, y);
+      return this;
+    }
+
+    /**
+     * Sets the coordinates for the anchor point of the overlay frame.
+     *
+     * <p>The anchor point is the point inside the overlay frame that is placed on the {@linkplain
+     * #setBackgroundFrameAnchor background frame anchor}
+     *
+     * <p>The coordinates are specified in Normalised Device Coordinates (NDCs) relative to the
+     * overlay frame. Set to return {@code (0,0)} (the center of the overlay frame) by default.
+     *
+     * <p>For example, a value of {@code (+1,-1)} will result in the overlay frame being positioned
+     * with its bottom right corner positioned at the background frame anchor.
+     *
+     * @param x The NDC x-coordinate in the range [-1, 1].
+     * @param y The NDC y-coordinate in the range [-1, 1].
+     */
+    @CanIgnoreReturnValue
+    public Builder setOverlayFrameAnchor(
+        @FloatRange(from = -1, to = 1) float x, @FloatRange(from = -1, to = 1) float y) {
+      checkArgument(-1 <= x && x <= 1);
+      checkArgument(-1 <= y && y <= 1);
+      this.overlayFrameAnchor = Pair.create(x, y);
+      return this;
+    }
+
+    /**
+     * Sets the scaling of the overlay.
+     *
+     * @param x The desired scaling in the x axis of the overlay.
+     * @param y The desired scaling in the y axis of the overlay.
+     */
+    @CanIgnoreReturnValue
+    public Builder setScale(float x, float y) {
+      this.scale = Pair.create(x, y);
+      return this;
+    }
+
+    /**
+     * Sets the rotation of the overlay, counter-clockwise.
+     *
+     * <p>The overlay is rotated at the center of its frame.
+     *
+     * @param rotationDegree The desired degrees of rotation, counter-clockwise.
+     */
+    @CanIgnoreReturnValue
+    public Builder setRotationDegrees(float rotationDegree) {
+      this.rotationDegrees = rotationDegree;
       return this;
     }
 
     /** Creates an instance of {@link OverlaySettings}, using defaults if values are unset. */
     public OverlaySettings build() {
-      return new OverlaySettings(useHdr, alpha, matrix, anchor);
+      return new OverlaySettings(
+          useHdr, alphaScale, backgroundFrameAnchor, overlayFrameAnchor, scale, rotationDegrees);
     }
   }
 }

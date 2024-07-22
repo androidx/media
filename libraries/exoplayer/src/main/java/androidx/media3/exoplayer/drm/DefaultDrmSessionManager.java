@@ -98,17 +98,20 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
      *       FrameworkMediaDrm#DEFAULT_PROVIDER}.
      *   <li>{@link #setMultiSession multiSession}: {@code false}.
      *   <li>{@link #setUseDrmSessionsForClearContent useDrmSessionsForClearContent}: No tracks.
-     *   <li>{@link #setPlayClearSamplesWithoutKeys playClearSamplesWithoutKeys}: {@code false}.
+     *   <li>{@link #setPlayClearSamplesWithoutKeys playClearSamplesWithoutKeys}: {@code true}.
      *   <li>{@link #setLoadErrorHandlingPolicy LoadErrorHandlingPolicy}: {@link
      *       DefaultLoadErrorHandlingPolicy}.
+     *   <li>{@link #setSessionKeepaliveMs sessionKeepaliveMs}: {@link
+     *       #DEFAULT_SESSION_KEEPALIVE_MS}.
      * </ul>
      */
     public Builder() {
       keyRequestParameters = new HashMap<>();
       uuid = C.WIDEVINE_UUID;
       exoMediaDrmProvider = FrameworkMediaDrm.DEFAULT_PROVIDER;
-      loadErrorHandlingPolicy = new DefaultLoadErrorHandlingPolicy();
       useDrmSessionsForClearContentTrackTypes = new int[0];
+      playClearSamplesWithoutKeys = true;
+      loadErrorHandlingPolicy = new DefaultLoadErrorHandlingPolicy();
       sessionKeepaliveMs = DEFAULT_SESSION_KEEPALIVE_MS;
     }
 
@@ -276,19 +279,25 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
   @Target(TYPE_USE)
   @IntDef({MODE_PLAYBACK, MODE_QUERY, MODE_DOWNLOAD, MODE_RELEASE})
   public @interface Mode {}
+
   /**
    * Loads and refreshes (if necessary) a license for playback. Supports streaming and offline
    * licenses.
    */
   public static final int MODE_PLAYBACK = 0;
+
   /** Restores an offline license to allow its status to be queried. */
   public static final int MODE_QUERY = 1;
+
   /** Downloads an offline license or renews an existing one. */
   public static final int MODE_DOWNLOAD = 2;
+
   /** Releases an existing offline license. */
   public static final int MODE_RELEASE = 3;
+
   /** Number of times to retry for initial provisioning and key request for reporting error. */
   public static final int INITIAL_DRM_REQUEST_RETRY_COUNT = 3;
+
   /** Default value for {@link Builder#setSessionKeepaliveMs(long)}. */
   public static final long DEFAULT_SESSION_KEEPALIVE_MS = 5 * 60 * C.MILLIS_PER_SECOND;
 
@@ -648,11 +657,15 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
   }
 
   private static boolean acquisitionFailedIndicatingResourceShortage(DrmSession session) {
+    if (session.getState() != DrmSession.STATE_ERROR) {
+      return false;
+    }
+
+    @Nullable Throwable cause = checkNotNull(session.getError()).getCause();
     // ResourceBusyException is only available at API 19, so on earlier versions we
     // assume any error indicates resource shortage (ensuring we retry).
-    return session.getState() == DrmSession.STATE_ERROR
-        && (Util.SDK_INT < 19
-            || checkNotNull(session.getError()).getCause() instanceof ResourceBusyException);
+    return Util.SDK_INT < 19 || cause instanceof ResourceBusyException
+        || DrmUtil.isFailureToConstructResourceBusyException(cause);
   }
 
   /**

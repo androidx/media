@@ -39,7 +39,7 @@
     <item>Normala</item>
     <item>1,25×</item>
     <item>1,5×</item>
-    <item>2x</item>
+    <item>2×</item>
   </string-array>
   <string name="exo_track_selection_title_video">Bideoa</string>
   <string name="exo_track_selection_title_audio">Audioa</string>
@@ -47,6 +47,7 @@
   <string name="exo_track_selection_none">Bat ere ez</string>
   <string name="exo_track_selection_auto">Automatikoa</string>
   <string name="exo_track_unknown">Ezezaguna</string>
+  <string name="exo_track_unknown_name">Ezezaguna (%1$s)</string>
   <string name="exo_track_resolution">%1$d × %2$d</string>
   <string name="exo_track_mono">Monoa</string>
   <string name="exo_track_stereo">Estereoa</string>

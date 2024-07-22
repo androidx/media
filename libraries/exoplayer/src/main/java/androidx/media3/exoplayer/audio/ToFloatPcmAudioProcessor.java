@@ -20,7 +20,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.util.Util;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.ByteBuffer;
 
 /**
@@ -29,7 +28,9 @@ import java.nio.ByteBuffer;
  *
  * <ul>
  *   <li>{@link C#ENCODING_PCM_24BIT}
+ *   <li>{@link C#ENCODING_PCM_24BIT_BIG_ENDIAN}
  *   <li>{@link C#ENCODING_PCM_32BIT}
+ *   <li>{@link C#ENCODING_PCM_32BIT_BIG_ENDIAN}
  *   <li>{@link C#ENCODING_PCM_FLOAT} ({@link #isActive()} will return {@code false})
  * </ul>
  */
@@ -39,7 +40,6 @@ import java.nio.ByteBuffer;
   private static final double PCM_32_BIT_INT_TO_PCM_32_BIT_FLOAT_FACTOR = 1.0 / 0x7FFFFFFF;
 
   @Override
-  @CanIgnoreReturnValue
   public AudioFormat onConfigure(AudioFormat inputAudioFormat)
       throws UnhandledAudioFormatException {
     @C.PcmEncoding int encoding = inputAudioFormat.encoding;
@@ -70,6 +70,16 @@ import java.nio.ByteBuffer;
           writePcm32BitFloat(pcm32BitInteger, buffer);
         }
         break;
+      case C.ENCODING_PCM_24BIT_BIG_ENDIAN:
+        buffer = replaceOutputBuffer((size / 3) * 4);
+        for (int i = position; i < limit; i += 3) {
+          int pcm32BitInteger =
+              ((inputBuffer.get(i + 2) & 0xFF) << 8)
+                  | ((inputBuffer.get(i + 1) & 0xFF) << 16)
+                  | ((inputBuffer.get(i) & 0xFF) << 24);
+          writePcm32BitFloat(pcm32BitInteger, buffer);
+        }
+        break;
       case C.ENCODING_PCM_32BIT:
         buffer = replaceOutputBuffer(size);
         for (int i = position; i < limit; i += 4) {
@@ -78,6 +88,17 @@ import java.nio.ByteBuffer;
                   | ((inputBuffer.get(i + 1) & 0xFF) << 8)
                   | ((inputBuffer.get(i + 2) & 0xFF) << 16)
                   | ((inputBuffer.get(i + 3) & 0xFF) << 24);
+          writePcm32BitFloat(pcm32BitInteger, buffer);
+        }
+        break;
+      case C.ENCODING_PCM_32BIT_BIG_ENDIAN:
+        buffer = replaceOutputBuffer(size);
+        for (int i = position; i < limit; i += 4) {
+          int pcm32BitInteger =
+              (inputBuffer.get(i + 3) & 0xFF)
+                  | ((inputBuffer.get(i + 2) & 0xFF) << 8)
+                  | ((inputBuffer.get(i + 1) & 0xFF) << 16)
+                  | ((inputBuffer.get(i) & 0xFF) << 24);
           writePcm32BitFloat(pcm32BitInteger, buffer);
         }
         break;

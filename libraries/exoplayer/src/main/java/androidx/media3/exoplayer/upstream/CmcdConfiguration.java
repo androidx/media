@@ -19,12 +19,13 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringDef;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.UnstableApi;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableListMultimap;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -67,11 +68,24 @@ public final class CmcdConfiguration {
     KEY_TOP_BITRATE,
     KEY_OBJECT_DURATION,
     KEY_MEASURED_THROUGHPUT,
-    KEY_OBJECT_TYPE
+    KEY_OBJECT_TYPE,
+    KEY_BUFFER_STARVATION,
+    KEY_DEADLINE,
+    KEY_PLAYBACK_RATE,
+    KEY_STARTUP,
+    KEY_NEXT_OBJECT_REQUEST,
+    KEY_NEXT_RANGE_REQUEST
   })
   @Documented
   @Target(TYPE_USE)
   public @interface CmcdKey {}
+
+  /** Indicates the mode used for data transmission. */
+  @Retention(RetentionPolicy.SOURCE)
+  @IntDef({MODE_REQUEST_HEADER, MODE_QUERY_PARAMETER})
+  @Documented
+  @Target(TYPE_USE)
+  public @interface DataTransmissionMode {}
 
   /** Maximum length for ID fields. */
   public static final int MAX_ID_LENGTH = 64;
@@ -80,6 +94,7 @@ public final class CmcdConfiguration {
   public static final String KEY_CMCD_REQUEST = "CMCD-Request";
   public static final String KEY_CMCD_SESSION = "CMCD-Session";
   public static final String KEY_CMCD_STATUS = "CMCD-Status";
+  public static final String CMCD_QUERY_PARAMETER_KEY = "CMCD";
   public static final String KEY_BITRATE = "br";
   public static final String KEY_BUFFER_LENGTH = "bl";
   public static final String KEY_CONTENT_ID = "cid";
@@ -92,6 +107,14 @@ public final class CmcdConfiguration {
   public static final String KEY_OBJECT_DURATION = "d";
   public static final String KEY_MEASURED_THROUGHPUT = "mtp";
   public static final String KEY_OBJECT_TYPE = "ot";
+  public static final String KEY_BUFFER_STARVATION = "bs";
+  public static final String KEY_DEADLINE = "dl";
+  public static final String KEY_PLAYBACK_RATE = "pr";
+  public static final String KEY_STARTUP = "su";
+  public static final String KEY_NEXT_OBJECT_REQUEST = "nor";
+  public static final String KEY_NEXT_RANGE_REQUEST = "nrr";
+  public static final int MODE_REQUEST_HEADER = 0;
+  public static final int MODE_QUERY_PARAMETER = 1;
 
   /**
    * Factory for {@link CmcdConfiguration} instances.
@@ -152,24 +175,39 @@ public final class CmcdConfiguration {
      *
      * <p>By default, no custom data is provided.
      *
-     * <p>The key should belong to the {@link HeaderKey}. The value should consist of key-value
-     * pairs separated by commas. If the value contains one of the keys defined in the {@link
-     * CmcdKey} list, then this key should not be {@linkplain #isKeyAllowed(String) allowed},
-     * otherwise the key could be included twice in the produced log.
+     * <p>The data payload consists of a series of key/value pairs constructed according to the
+     * following rules:
+     *
+     * <ul>
+     *   <li>Custom keys SHOULD be allocated to one of the four defined header names defined in the
+     *       {@link HeaderKey} annotation.
+     *   <li>All information in the payload MUST be represented as key=value pairs.
+     *   <li>The key and value MUST be separated by an equals sign. If the value type is boolean and
+     *       the value is {@code true}, then the equals sign and the value MUST be omitted.
+     *   <li>The key names are case-sensitive and reserved. Custom key names MUST carry a hyphenated
+     *       prefix to ensure no namespace collision with future revisions to Common Media Client
+     *       Data (CMCD) specification. Clients SHOULD use a reverse-DNS syntax when defining their
+     *       own prefix.
+     *   <li>Any value of type String MUST be enclosed by opening and closing double quotes. Double
+     *       quotes and backslashes MUST be escaped using a backslash "\" character. Any value that
+     *       is not of type string does not require quoting.
+     * </ul>
+     *
+     * <p><b>Note:</b> The key words MUST and SHOULD are to be interpreted as described in RFC 2119.
      *
      * <p>Example:
      *
      * <ul>
-     *   <li>CMCD-Request:customField1=25400
-     *   <li>CMCD-Object:customField2=3200,customField3=4004,customField4=v,customField5=6000
-     *   <li>CMCD-Status:customField6,customField7=15000
-     *   <li>CMCD-Session:customField8="6e2fb550-c457-11e9-bb97-0800200c9a66"
+     *   <li>CMCD-Request:custom-field1=25400
+     *   <li>CMCD-Object:custom-field2=3200,custom-field3=4004,custom-field4=v,custom-field5=6000
+     *   <li>CMCD-Status:custom-field6,custom-field7=15000
+     *   <li>CMCD-Session:custom-field8="stringValue"
      * </ul>
      *
-     * @return An {@link ImmutableMap} containing the custom data.
+     * @return An {@link ImmutableListMultimap} containing the custom data.
      */
-    default ImmutableMap<@HeaderKey String, String> getCustomData() {
-      return ImmutableMap.of();
+    default ImmutableListMultimap<@HeaderKey String, String> getCustomData() {
+      return ImmutableListMultimap.of();
     }
 
     /**
@@ -191,6 +229,7 @@ public final class CmcdConfiguration {
    * Maximum length is 64 characters.
    */
   @Nullable public final String sessionId;
+
   /**
    * A GUID identifying the current content, or {@code null} if unset.
    *
@@ -198,18 +237,32 @@ public final class CmcdConfiguration {
    * updated at the discretion of the service provider. Maximum length is 64 characters.
    */
   @Nullable public final String contentId;
+
   /** Dynamic request specific configuration. */
   public final RequestConfig requestConfig;
 
-  /** Creates an instance. */
+  /** Mode used for data transmission. */
+  public final @DataTransmissionMode int dataTransmissionMode;
+
+  /** Creates an instance with {@link #dataTransmissionMode} set to {@link #MODE_REQUEST_HEADER}. */
   public CmcdConfiguration(
       @Nullable String sessionId, @Nullable String contentId, RequestConfig requestConfig) {
+    this(sessionId, contentId, requestConfig, MODE_REQUEST_HEADER);
+  }
+
+  /** Creates an instance. */
+  public CmcdConfiguration(
+      @Nullable String sessionId,
+      @Nullable String contentId,
+      RequestConfig requestConfig,
+      @DataTransmissionMode int dataTransmissionMode) {
     checkArgument(sessionId == null || sessionId.length() <= MAX_ID_LENGTH);
     checkArgument(contentId == null || contentId.length() <= MAX_ID_LENGTH);
     checkNotNull(requestConfig);
     this.sessionId = sessionId;
     this.contentId = contentId;
     this.requestConfig = requestConfig;
+    this.dataTransmissionMode = dataTransmissionMode;
   }
 
   /**
@@ -298,5 +351,53 @@ public final class CmcdConfiguration {
    */
   public boolean isObjectTypeLoggingAllowed() {
     return requestConfig.isKeyAllowed(KEY_OBJECT_TYPE);
+  }
+
+  /**
+   * Returns whether logging buffer starvation is allowed based on the {@linkplain RequestConfig
+   * request configuration}.
+   */
+  public boolean isBufferStarvationLoggingAllowed() {
+    return requestConfig.isKeyAllowed(KEY_BUFFER_STARVATION);
+  }
+
+  /**
+   * Returns whether logging deadline is allowed based on the {@linkplain RequestConfig request
+   * configuration}.
+   */
+  public boolean isDeadlineLoggingAllowed() {
+    return requestConfig.isKeyAllowed(KEY_DEADLINE);
+  }
+
+  /**
+   * Returns whether logging playback rate is allowed based on the {@linkplain RequestConfig request
+   * configuration}.
+   */
+  public boolean isPlaybackRateLoggingAllowed() {
+    return requestConfig.isKeyAllowed(KEY_PLAYBACK_RATE);
+  }
+
+  /**
+   * Returns whether logging startup is allowed based on the {@linkplain RequestConfig request
+   * configuration}.
+   */
+  public boolean isStartupLoggingAllowed() {
+    return requestConfig.isKeyAllowed(KEY_STARTUP);
+  }
+
+  /**
+   * Returns whether logging next object request is allowed based on the {@linkplain RequestConfig
+   * request configuration}.
+   */
+  public boolean isNextObjectRequestLoggingAllowed() {
+    return requestConfig.isKeyAllowed(KEY_NEXT_OBJECT_REQUEST);
+  }
+
+  /**
+   * Returns whether logging next range request is allowed based on the {@linkplain RequestConfig
+   * request configuration}.
+   */
+  public boolean isNextRangeRequestLoggingAllowed() {
+    return requestConfig.isKeyAllowed(KEY_NEXT_RANGE_REQUEST);
   }
 }

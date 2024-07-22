@@ -15,6 +15,7 @@
  */
 package androidx.media3.extractor.ts;
 
+import static androidx.media3.common.util.Assertions.checkState;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -59,6 +60,7 @@ public final class Ac3Reader implements ElementaryStreamReader {
   private final ParsableBitArray headerScratchBits;
   private final ParsableByteArray headerScratchBytes;
   @Nullable private final String language;
+  private final @C.RoleFlags int roleFlags;
 
   private @MonotonicNonNull String formatId;
   private @MonotonicNonNull TrackOutput output;
@@ -79,20 +81,22 @@ public final class Ac3Reader implements ElementaryStreamReader {
 
   /** Constructs a new reader for (E-)AC-3 elementary streams. */
   public Ac3Reader() {
-    this(null);
+    this(null, /* roleFlags= */ 0);
   }
 
   /**
    * Constructs a new reader for (E-)AC-3 elementary streams.
    *
    * @param language Track language.
+   * @param roleFlags Track role flags.
    */
-  public Ac3Reader(@Nullable String language) {
+  public Ac3Reader(@Nullable String language, @C.RoleFlags int roleFlags) {
     headerScratchBits = new ParsableBitArray(new byte[HEADER_SIZE]);
     headerScratchBytes = new ParsableByteArray(headerScratchBits.data);
     state = STATE_FINDING_SYNC;
     timeUs = C.TIME_UNSET;
     this.language = language;
+    this.roleFlags = roleFlags;
   }
 
   @Override
@@ -112,9 +116,7 @@ public final class Ac3Reader implements ElementaryStreamReader {
 
   @Override
   public void packetStarted(long pesTimeUs, @TsPayloadReader.Flags int flags) {
-    if (pesTimeUs != C.TIME_UNSET) {
-      timeUs = pesTimeUs;
-    }
+    timeUs = pesTimeUs;
   }
 
   @Override
@@ -143,10 +145,10 @@ public final class Ac3Reader implements ElementaryStreamReader {
           output.sampleData(data, bytesToRead);
           bytesRead += bytesToRead;
           if (bytesRead == sampleSize) {
-            if (timeUs != C.TIME_UNSET) {
-              output.sampleMetadata(timeUs, C.BUFFER_FLAG_KEY_FRAME, sampleSize, 0, null);
-              timeUs += sampleDurationUs;
-            }
+            // packetStarted method must be called before reading samples.
+            checkState(timeUs != C.TIME_UNSET);
+            output.sampleMetadata(timeUs, C.BUFFER_FLAG_KEY_FRAME, sampleSize, 0, null);
+            timeUs += sampleDurationUs;
             state = STATE_FINDING_SYNC;
           }
           break;
@@ -217,6 +219,7 @@ public final class Ac3Reader implements ElementaryStreamReader {
               .setChannelCount(frameInfo.channelCount)
               .setSampleRate(frameInfo.sampleRate)
               .setLanguage(language)
+              .setRoleFlags(roleFlags)
               .setPeakBitrate(frameInfo.bitrate);
       // AC3 has constant bitrate, so averageBitrate = peakBitrate
       if (MimeTypes.AUDIO_AC3.equals(frameInfo.mimeType)) {

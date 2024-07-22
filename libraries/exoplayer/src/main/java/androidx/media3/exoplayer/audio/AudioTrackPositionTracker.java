@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.audio;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.durationUsToSampleCount;
+import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.common.util.Util.sampleCountToDurationUs;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -25,10 +26,10 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.media.AudioTimestamp;
 import android.media.AudioTrack;
-import android.os.SystemClock;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Util;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -118,14 +119,17 @@ import java.lang.reflect.Method;
   @Target(TYPE_USE)
   @IntDef({PLAYSTATE_STOPPED, PLAYSTATE_PAUSED, PLAYSTATE_PLAYING})
   private @interface PlayState {}
+
   /**
    * @see AudioTrack#PLAYSTATE_STOPPED
    */
   private static final int PLAYSTATE_STOPPED = AudioTrack.PLAYSTATE_STOPPED;
+
   /**
    * @see AudioTrack#PLAYSTATE_PAUSED
    */
   private static final int PLAYSTATE_PAUSED = AudioTrack.PLAYSTATE_PAUSED;
+
   /**
    * @see AudioTrack#PLAYSTATE_PLAYING
    */
@@ -145,6 +149,7 @@ import java.lang.reflect.Method;
    * <p>This is a fail safe that should not be required on correctly functioning devices.
    */
   private static final long MAX_LATENCY_US = 5 * C.MICROS_PER_SECOND;
+
   /** The duration of time used to smooth over an adjustment between position sampling modes. */
   private static final long MODE_SWITCH_SMOOTHING_DURATION_US = C.MICROS_PER_SECOND;
 
@@ -200,6 +205,19 @@ import java.lang.reflect.Method;
   private long previousModeSystemTimeUs;
 
   /**
+   * Whether to expect a raw playback head reset.
+   *
+   * <p>When an {@link AudioTrack} is reused during offloaded playback, rawPlaybackHeadPosition is
+   * reset upon track transition. {@link AudioTrackPositionTracker} must be notified of the
+   * impending reset and keep track of total accumulated rawPlaybackHeadPosition.
+   */
+  private boolean expectRawPlaybackHeadReset;
+
+  private long sumRawPlaybackHeadPosition;
+
+  private Clock clock;
+
+  /**
    * Creates a new audio track position tracker.
    *
    * @param listener A listener for position tracking events.
@@ -214,6 +232,7 @@ import java.lang.reflect.Method;
       }
     }
     playheadOffsets = new long[MAX_PLAYHEAD_OFFSET_COUNT];
+    clock = Clock.DEFAULT;
   }
 
   /**
@@ -246,6 +265,8 @@ import java.lang.reflect.Method;
             : C.TIME_UNSET;
     rawPlaybackHeadPosition = 0;
     rawPlaybackHeadWrapCount = 0;
+    expectRawPlaybackHeadReset = false;
+    sumRawPlaybackHeadPosition = 0;
     passthroughWorkaroundPauseOffset = 0;
     hasData = false;
     stopTimestampUs = C.TIME_UNSET;
@@ -272,7 +293,7 @@ import java.lang.reflect.Method;
 
     // If the device supports it, use the playback timestamp from AudioTrack.getTimestamp.
     // Otherwise, derive a smoothed position by sampling the track's frame position.
-    long systemTimeUs = System.nanoTime() / 1000;
+    long systemTimeUs = clock.nanoTime() / 1000;
     long positionUs;
     AudioTimestampPoller audioTimestampPoller = checkNotNull(this.audioTimestampPoller);
     boolean useGetTimestampMode = audioTimestampPoller.hasAdvancingTimestamp();
@@ -328,7 +349,7 @@ import java.lang.reflect.Method;
           Util.getPlayoutDurationForMediaDuration(
               mediaDurationSinceLastPositionUs, audioTrackPlaybackSpeed);
       long playoutStartSystemTimeMs =
-          System.currentTimeMillis() - Util.usToMs(playoutDurationSinceLastPositionUs);
+          clock.currentTimeMillis() - Util.usToMs(playoutDurationSinceLastPositionUs);
       listener.onPositionAdvancing(playoutStartSystemTimeMs);
     }
 
@@ -341,6 +362,9 @@ import java.lang.reflect.Method;
 
   /** Starts position tracking. Must be called immediately before {@link AudioTrack#play()}. */
   public void start() {
+    if (stopTimestampUs != C.TIME_UNSET) {
+      stopTimestampUs = msToUs(clock.elapsedRealtime());
+    }
     checkNotNull(audioTimestampPoller).reset();
   }
 
@@ -402,7 +426,7 @@ import java.lang.reflect.Method;
   public boolean isStalled(long writtenFrames) {
     return forceResetWorkaroundTimeMs != C.TIME_UNSET
         && writtenFrames > 0
-        && SystemClock.elapsedRealtime() - forceResetWorkaroundTimeMs
+        && clock.elapsedRealtime() - forceResetWorkaroundTimeMs
             >= FORCE_RESET_WORKAROUND_TIMEOUT_MS;
   }
 
@@ -414,7 +438,7 @@ import java.lang.reflect.Method;
    */
   public void handleEndOfStream(long writtenFrames) {
     stopPlaybackHeadPosition = getPlaybackHeadPosition();
-    stopTimestampUs = SystemClock.elapsedRealtime() * 1000;
+    stopTimestampUs = msToUs(clock.elapsedRealtime());
     endPlaybackHeadPosition = writtenFrames;
   }
 
@@ -443,8 +467,17 @@ import java.lang.reflect.Method;
       checkNotNull(audioTimestampPoller).reset();
       return true;
     }
+    stopPlaybackHeadPosition = getPlaybackHeadPosition();
     // We've handled the end of the stream already, so there's no need to pause the track.
     return false;
+  }
+
+  /**
+   * Sets up the position tracker to expect a reset in raw playback head position due to reusing an
+   * {@link AudioTrack} and an impending track transition.
+   */
+  public void expectRawPlaybackHeadReset() {
+    expectRawPlaybackHeadReset = true;
   }
 
   /**
@@ -457,8 +490,17 @@ import java.lang.reflect.Method;
     audioTimestampPoller = null;
   }
 
+  /**
+   * Sets the {@link Clock}.
+   *
+   * @param clock The {@link Clock}.
+   */
+  public void setClock(Clock clock) {
+    this.clock = clock;
+  }
+
   private void maybeSampleSyncParams() {
-    long systemTimeUs = System.nanoTime() / 1000;
+    long systemTimeUs = clock.nanoTime() / 1000;
     if (systemTimeUs - lastPlayheadSampleTimeUs >= MIN_PLAYHEAD_OFFSET_SAMPLE_INTERVAL_US) {
       long playbackPositionUs = getPlaybackHeadPositionUs();
       if (playbackPositionUs == 0) {
@@ -583,10 +625,14 @@ import java.lang.reflect.Method;
    * @return The playback head position, in frames.
    */
   private long getPlaybackHeadPosition() {
-    long currentTimeMs = SystemClock.elapsedRealtime();
+    long currentTimeMs = clock.elapsedRealtime();
     if (stopTimestampUs != C.TIME_UNSET) {
+      if (checkNotNull(this.audioTrack).getPlayState() == AudioTrack.PLAYSTATE_PAUSED) {
+        // If AudioTrack is paused while stopping, then return cached playback head position.
+        return stopPlaybackHeadPosition;
+      }
       // Simulate the playback head position up to the total number of frames submitted.
-      long elapsedTimeSinceStopUs = (currentTimeMs * 1000) - stopTimestampUs;
+      long elapsedTimeSinceStopUs = msToUs(currentTimeMs) - stopTimestampUs;
       long mediaTimeSinceStopUs =
           Util.getMediaDurationForPlayoutDuration(elapsedTimeSinceStopUs, audioTrackPlaybackSpeed);
       long framesSinceStop = durationUsToSampleCount(mediaTimeSinceStopUs, outputSampleRate);
@@ -597,7 +643,7 @@ import java.lang.reflect.Method;
       updateRawPlaybackHeadPosition(currentTimeMs);
       lastRawPlaybackHeadPositionSampleTimeMs = currentTimeMs;
     }
-    return rawPlaybackHeadPosition + (rawPlaybackHeadWrapCount << 32);
+    return rawPlaybackHeadPosition + sumRawPlaybackHeadPosition + (rawPlaybackHeadWrapCount << 32);
   }
 
   private void updateRawPlaybackHeadPosition(long currentTimeMs) {
@@ -637,8 +683,13 @@ import java.lang.reflect.Method;
     }
 
     if (this.rawPlaybackHeadPosition > rawPlaybackHeadPosition) {
-      // The value must have wrapped around.
-      rawPlaybackHeadWrapCount++;
+      if (expectRawPlaybackHeadReset) {
+        sumRawPlaybackHeadPosition += this.rawPlaybackHeadPosition;
+        expectRawPlaybackHeadReset = false;
+      } else {
+        // The value must have wrapped around.
+        rawPlaybackHeadWrapCount++;
+      }
     }
     this.rawPlaybackHeadPosition = rawPlaybackHeadPosition;
   }

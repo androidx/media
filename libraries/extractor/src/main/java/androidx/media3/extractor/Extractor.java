@@ -25,6 +25,7 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.checkerframework.dataflow.qual.SideEffectFree;
 
 /** Extracts media data from a container format. */
 @UnstableApi
@@ -36,12 +37,14 @@ public interface Extractor {
    * continuing from the position in the stream reached by the returning call.
    */
   int RESULT_CONTINUE = 0;
+
   /**
    * Returned by {@link #read(ExtractorInput, PositionHolder)} if the {@link ExtractorInput} passed
    * to the next {@link #read(ExtractorInput, PositionHolder)} is required to provide data starting
    * from a specified position in the stream.
    */
   int RESULT_SEEK = 1;
+
   /**
    * Returned by {@link #read(ExtractorInput, PositionHolder)} if the end of the {@link
    * ExtractorInput} was reached. Equal to {@link C#RESULT_END_OF_INPUT}.
@@ -120,4 +123,16 @@ public interface Extractor {
 
   /** Releases all kept resources. */
   void release();
+
+  /**
+   * Returns the 'real' {@code Extractor} implementation if this is a delegating instance, or {@code
+   * this} if this instance does the extraction directly without delegating (the default behaviour).
+   *
+   * <p>{@code Extractor} implementations that operate by delegating to another {@code Extractor}
+   * should override this method to return that delegate.
+   */
+  @SideEffectFree
+  default Extractor getUnderlyingImplementation() {
+    return this;
+  }
 }

@@ -29,10 +29,12 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.TrackGroup;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.FormatHolder;
+import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.rtsp.RtspClient.PlaybackEventListener;
 import androidx.media3.exoplayer.rtsp.RtspClient.SessionInfoListener;
@@ -58,7 +60,6 @@ import java.net.BindException;
 import java.util.ArrayList;
 import java.util.List;
 import javax.net.SocketFactory;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** A {@link MediaPeriod} that loads an RTSP stream. */
@@ -373,13 +374,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public boolean continueLoading(long positionUs) {
+  public boolean continueLoading(LoadingInfo loadingInfo) {
     return isLoading();
   }
 
   @Override
   public boolean isLoading() {
-    return !loadingFinished;
+    return !loadingFinished
+        && (rtspClient.getState() == RtspClient.RTSP_STATE_PLAYING
+            || rtspClient.getState() == RtspClient.RTSP_STATE_READY);
   }
 
   @Override
@@ -499,18 +502,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     return listBuilder.build();
   }
 
-  private final class InternalListener
-      implements ExtractorOutput,
-          Loader.Callback<RtpDataLoadable>,
-          UpstreamFormatChangedListener,
-          SessionInfoListener,
-          PlaybackEventListener {
+  // All interactions are on the loading thread
+  private final class ExtractorOutputImpl implements ExtractorOutput {
 
-    // ExtractorOutput implementation.
+    private final TrackOutput trackOutput;
+
+    private ExtractorOutputImpl(TrackOutput trackOutput) {
+      this.trackOutput = trackOutput;
+    }
 
     @Override
     public TrackOutput track(int id, int type) {
-      return checkNotNull(rtspLoaderWrappers.get(id)).sampleQueue;
+      return trackOutput;
     }
 
     @Override
@@ -522,6 +525,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     public void seekMap(SeekMap seekMap) {
       // RTSP does not support seek map.
     }
+  }
+
+  private final class InternalListener
+      implements Loader.Callback<RtpDataLoadable>,
+          UpstreamFormatChangedListener,
+          SessionInfoListener,
+          PlaybackEventListener {
 
     // Loadable.Callback implementation.
 
@@ -789,9 +799,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
      */
     public RtspLoaderWrapper(
         RtspMediaTrack mediaTrack, int trackId, RtpDataChannel.Factory rtpDataChannelFactory) {
-      loadInfo = new RtpLoadInfo(mediaTrack, trackId, rtpDataChannelFactory);
       loader = new Loader("ExoPlayer:RtspMediaPeriod:RtspLoaderWrapper " + trackId);
       sampleQueue = SampleQueue.createWithoutDrm(allocator);
+      loadInfo = new RtpLoadInfo(mediaTrack, trackId, sampleQueue, rtpDataChannelFactory);
       sampleQueue.setUpstreamFormatChangeListener(internalListener);
     }
 
@@ -874,7 +884,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     /** Creates a new instance. */
     public RtpLoadInfo(
-        RtspMediaTrack mediaTrack, int trackId, RtpDataChannel.Factory rtpDataChannelFactory) {
+        RtspMediaTrack mediaTrack,
+        int trackId,
+        TrackOutput trackOutput,
+        RtpDataChannel.Factory rtpDataChannelFactory) {
       this.mediaTrack = mediaTrack;
 
       // This listener runs on the playback thread, posted by the Loader thread.
@@ -898,7 +911,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               trackId,
               mediaTrack,
               /* eventListener= */ transportEventListener,
-              /* output= */ internalListener,
+              /* output= */ new ExtractorOutputImpl(trackOutput),
               rtpDataChannelFactory);
     }
 

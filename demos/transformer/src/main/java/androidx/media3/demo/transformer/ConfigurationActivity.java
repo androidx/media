@@ -20,6 +20,10 @@ import static android.Manifest.permission.READ_MEDIA_VIDEO;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.SDK_INT;
+import static androidx.media3.transformer.Composition.HDR_MODE_EXPERIMENTAL_FORCE_INTERPRET_HDR_AS_SDR;
+import static androidx.media3.transformer.Composition.HDR_MODE_KEEP_HDR;
+import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC;
+import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
 
 import android.app.Activity;
 import android.content.DialogInterface;
@@ -45,7 +49,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.transformer.TransformationRequest;
+import androidx.media3.transformer.Composition;
 import com.google.android.material.slider.RangeSlider;
 import com.google.android.material.slider.Slider;
 import com.google.common.collect.ImmutableMap;
@@ -74,6 +78,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
   public static final String ENABLE_FALLBACK = "enable_fallback";
   public static final String ENABLE_DEBUG_PREVIEW = "enable_debug_preview";
   public static final String ABORT_SLOW_EXPORT = "abort_slow_export";
+  public static final String PRODUCE_FRAGMENTED_MP4 = "produce_fragmented_mp4";
   public static final String HDR_MODE = "hdr_mode";
   public static final String AUDIO_EFFECTS_SELECTIONS = "audio_effects_selections";
   public static final String VIDEO_EFFECTS_SELECTIONS = "video_effects_selections";
@@ -114,6 +119,8 @@ public final class ConfigurationActivity extends AppCompatActivity {
   public static final int HIGH_PITCHED_INDEX = 0;
   public static final int SAMPLE_RATE_INDEX = 1;
   public static final int SKIP_SILENCE_INDEX = 2;
+  public static final int CHANNEL_MIXING_INDEX = 3;
+  public static final int VOLUME_SCALING_INDEX = 4;
 
   // Color filter options.
   public static final int COLOR_FILTER_GRAYSCALE = 0;
@@ -141,8 +148,8 @@ public final class ConfigurationActivity extends AppCompatActivity {
     "https://storage.googleapis.com/exoplayer-test-media-1/mp4/sample_video_track_only.mp4",
   };
   private static final String[] PRESET_FILE_URI_DESCRIPTIONS = { // same order as PRESET_FILE_URIS
-    "720p H264 video and AAC audio",
-    "1080p H265 video and AAC audio",
+    "720p H264 video and AAC audio (B-frames)",
+    "1080p H265 video and AAC audio (B-frames)",
     "360p H264 video and AAC audio",
     "360p VP8 video and Vorbis audio",
     "4K H264 video and AAC audio (portrait, no B-frames)",
@@ -157,10 +164,14 @@ public final class ConfigurationActivity extends AppCompatActivity {
     "480p DASH (non-square pixels)",
     "HDR (HDR10) H265 limited range video (encoding may fail)",
     "HDR (HLG) H265 limited range video (encoding may fail)",
-    "720p H264 video with no audio",
+    "720p H264 video with no audio (B-frames)",
   };
   private static final String[] AUDIO_EFFECTS = {
-    "High pitched", "Sample rate of 48000Hz", "Skip silence"
+    "High pitched",
+    "Sample rate of 48000Hz",
+    "Skip silence",
+    "Mix channels into mono",
+    "Scale volume to 50%"
   };
   private static final String[] VIDEO_EFFECTS = {
     "Dizzy crop",
@@ -177,20 +188,13 @@ public final class ConfigurationActivity extends AppCompatActivity {
     "Custom Bitmap Overlay",
     "Custom Text Overlay",
   };
-  private static final ImmutableMap<String, @TransformationRequest.HdrMode Integer>
-      HDR_MODE_DESCRIPTIONS =
-          new ImmutableMap.Builder<String, @TransformationRequest.HdrMode Integer>()
-              .put("Keep HDR", TransformationRequest.HDR_MODE_KEEP_HDR)
-              .put(
-                  "MediaCodec tone-map HDR to SDR",
-                  TransformationRequest.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC)
-              .put(
-                  "OpenGL tone-map HDR to SDR",
-                  TransformationRequest.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL)
-              .put(
-                  "Force Interpret HDR as SDR",
-                  TransformationRequest.HDR_MODE_EXPERIMENTAL_FORCE_INTERPRET_HDR_AS_SDR)
-              .build();
+  private static final ImmutableMap<String, @Composition.HdrMode Integer> HDR_MODE_DESCRIPTIONS =
+      new ImmutableMap.Builder<String, @Composition.HdrMode Integer>()
+          .put("Keep HDR", HDR_MODE_KEEP_HDR)
+          .put("MediaCodec tone-map HDR to SDR", HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC)
+          .put("OpenGL tone-map HDR to SDR", HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL)
+          .put("Force Interpret HDR as SDR", HDR_MODE_EXPERIMENTAL_FORCE_INTERPRET_HDR_AS_SDR)
+          .build();
   private static final ImmutableMap<String, Integer> OVERLAY_COLORS =
       new ImmutableMap.Builder<String, Integer>()
           .put("BLACK", Color.BLACK)
@@ -227,6 +231,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
   private @MonotonicNonNull CheckBox enableFallbackCheckBox;
   private @MonotonicNonNull CheckBox enableDebugPreviewCheckBox;
   private @MonotonicNonNull CheckBox abortSlowExportCheckBox;
+  private @MonotonicNonNull CheckBox produceFragmentedMp4CheckBox;
   private @MonotonicNonNull Spinner hdrModeSpinner;
   private @MonotonicNonNull Button selectAudioEffectsButton;
   private @MonotonicNonNull Button selectVideoEffectsButton;
@@ -277,7 +282,8 @@ public final class ConfigurationActivity extends AppCompatActivity {
     selectLocalFileButton.setOnClickListener(
         view ->
             selectLocalFile(
-                view, checkNotNull(videoLocalFilePickerLauncher), /* mimeType= */ "video/*"));
+                checkNotNull(videoLocalFilePickerLauncher),
+                /* mimeTypes= */ new String[] {"image/*", "video/*", "audio/*"}));
 
     selectedFileTextView = findViewById(R.id.selected_file_text_view);
     selectedFileTextView.setText(PRESET_FILE_URI_DESCRIPTIONS[inputUriPosition]);
@@ -342,6 +348,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
     enableDebugPreviewCheckBox = findViewById(R.id.enable_debug_preview_checkbox);
 
     abortSlowExportCheckBox = findViewById(R.id.abort_slow_export_checkbox);
+    produceFragmentedMp4CheckBox = findViewById(R.id.produce_fragmented_mp4_checkbox);
 
     ArrayAdapter<String> hdrModeAdapter =
         new ArrayAdapter<>(/* context= */ this, R.layout.spinner_item);
@@ -406,6 +413,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
     "enableFallbackCheckBox",
     "enableDebugPreviewCheckBox",
     "abortSlowExportCheckBox",
+    "produceFragmentedMp4CheckBox",
     "hdrModeSpinner",
     "audioEffectsSelections",
     "videoEffectsSelections"
@@ -447,6 +455,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
     bundle.putBoolean(ENABLE_FALLBACK, enableFallbackCheckBox.isChecked());
     bundle.putBoolean(ENABLE_DEBUG_PREVIEW, enableDebugPreviewCheckBox.isChecked());
     bundle.putBoolean(ABORT_SLOW_EXPORT, abortSlowExportCheckBox.isChecked());
+    bundle.putBoolean(PRODUCE_FRAGMENTED_MP4, produceFragmentedMp4CheckBox.isChecked());
     String selectedhdrMode = String.valueOf(hdrModeSpinner.getSelectedItem());
     bundle.putInt(HDR_MODE, checkNotNull(HDR_MODE_DESCRIPTIONS.get(selectedhdrMode)));
     bundle.putBooleanArray(AUDIO_EFFECTS_SELECTIONS, audioEffectsSelections);
@@ -501,22 +510,23 @@ public final class ConfigurationActivity extends AppCompatActivity {
   }
 
   private void selectLocalFile(
-      View view, ActivityResultLauncher<Intent> localFilePickerLauncher, String mimeType) {
+      ActivityResultLauncher<Intent> localFilePickerLauncher, String[] mimeTypes) {
     String permission = SDK_INT >= 33 ? READ_MEDIA_VIDEO : READ_EXTERNAL_STORAGE;
     if (ActivityCompat.checkSelfPermission(/* context= */ this, permission)
         != PackageManager.PERMISSION_GRANTED) {
-      onPermissionsGranted = () -> launchLocalFilePicker(localFilePickerLauncher, mimeType);
+      onPermissionsGranted = () -> launchLocalFilePicker(localFilePickerLauncher, mimeTypes);
       ActivityCompat.requestPermissions(
           /* activity= */ this, new String[] {permission}, FILE_PERMISSION_REQUEST_CODE);
     } else {
-      launchLocalFilePicker(localFilePickerLauncher, mimeType);
+      launchLocalFilePicker(localFilePickerLauncher, mimeTypes);
     }
   }
 
   private void launchLocalFilePicker(
-      ActivityResultLauncher<Intent> localFilePickerLauncher, String mimeType) {
+      ActivityResultLauncher<Intent> localFilePickerLauncher, String[] mimeTypes) {
     Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-    intent.setType(mimeType);
+    intent.setType("*/*");
+    intent.putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes);
     checkNotNull(localFilePickerLauncher).launch(intent);
   }
 
@@ -732,7 +742,8 @@ public final class ConfigurationActivity extends AppCompatActivity {
     uriButton.setOnClickListener(
         (view ->
             selectLocalFile(
-                view, checkNotNull(overlayLocalFilePickerLauncher), /* mimeType= */ "image/*")));
+                checkNotNull(overlayLocalFilePickerLauncher),
+                /* mimeTypes= */ new String[] {"image/*"})));
     Slider alphaSlider = checkNotNull(dialogView.findViewById(R.id.bitmap_overlay_alpha_slider));
     new AlertDialog.Builder(/* context= */ this)
         .setTitle(R.string.bitmap_overlay_settings)

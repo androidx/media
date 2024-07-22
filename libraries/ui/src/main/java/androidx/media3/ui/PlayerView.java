@@ -49,6 +49,7 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.annotation.ColorInt;
+import androidx.annotation.DoNotInline;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -145,8 +146,9 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
  *       values are {@code surface_view}, {@code texture_view}, {@code spherical_gl_surface_view},
  *       {@code video_decoder_gl_surface_view} and {@code none}. Using {@code none} is recommended
  *       for audio only applications, since creating the surface can be expensive. Using {@code
- *       surface_view} is recommended for video applications. Note, TextureView can only be used in
- *       a hardware accelerated window. When rendered in software, TextureView will draw nothing.
+ *       surface_view} is recommended for video applications. See <a
+ *       href="https://developer.android.com/media/media3/ui/playerview#surfacetype">Choosing a
+ *       surface type</a> for more information.
  *       <ul>
  *         <li>Corresponding method: None
  *         <li>Default: {@code surface_view}
@@ -215,8 +217,10 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
 
   /** No artwork is shown. */
   @UnstableApi public static final int ARTWORK_DISPLAY_MODE_OFF = 0;
+
   /** The artwork is fit into the player view and centered creating a letterbox style. */
   @UnstableApi public static final int ARTWORK_DISPLAY_MODE_FIT = 1;
+
   /**
    * The artwork covers the entire space of the player view. If the aspect ratio of the image is
    * different than the player view some areas of the image are cropped.
@@ -233,13 +237,16 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   @Target(TYPE_USE)
   @IntDef({SHOW_BUFFERING_NEVER, SHOW_BUFFERING_WHEN_PLAYING, SHOW_BUFFERING_ALWAYS})
   public @interface ShowBuffering {}
+
   /** The buffering view is never shown. */
   @UnstableApi public static final int SHOW_BUFFERING_NEVER = 0;
+
   /**
    * The buffering view is shown when the player is in the {@link Player#STATE_BUFFERING buffering}
    * state and {@link Player#getPlayWhenReady() playWhenReady} is {@code true}.
    */
   @UnstableApi public static final int SHOW_BUFFERING_WHEN_PLAYING = 1;
+
   /**
    * The buffering view is always shown when the player is in the {@link Player#STATE_BUFFERING
    * buffering} state.
@@ -299,7 +306,8 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
     this(context, attrs, /* defStyleAttr= */ 0);
   }
 
-  @SuppressWarnings({"nullness:argument", "nullness:method.invocation"})
+  // Using deprecated PlayerControlView.VisibilityListener internally
+  @SuppressWarnings({"nullness:argument", "nullness:method.invocation", "deprecation"})
   public PlayerView(Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
     super(context, attrs, defStyleAttr);
 
@@ -422,7 +430,11 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
           }
           break;
         default:
-          surfaceView = new SurfaceView(context);
+          SurfaceView view = new SurfaceView(context);
+          if (Util.SDK_INT >= 34) {
+            Api34.setSurfaceLifecycleToFollowsAttachment(view);
+          }
+          surfaceView = view;
           break;
       }
       surfaceView.setLayoutParams(params);
@@ -939,7 +951,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   }
 
   /**
-   * Sets the {@link PlayerControlView.VisibilityListener}.
+   * Sets the {@link ControllerVisibilityListener}.
    *
    * <p>If {@code listener} is non-null then any listener set by {@link
    * #setControllerVisibilityListener(PlayerControlView.VisibilityListener)} is removed.
@@ -953,6 +965,16 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
     if (listener != null) {
       setControllerVisibilityListener((PlayerControlView.VisibilityListener) null);
     }
+  }
+
+  /**
+   * Sets whether {@linkplain PlayerControlView#isAnimationEnabled() controller animation is
+   * enabled}.
+   */
+  @UnstableApi
+  public void setControllerAnimationEnabled(boolean animationEnabled) {
+    Assertions.checkStateNotNull(controller);
+    controller.setAnimationEnabled(animationEnabled);
   }
 
   /**
@@ -1010,6 +1032,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    * @deprecated Use {@link #setFullscreenButtonClickListener(FullscreenButtonClickListener)}
    *     instead.
    */
+  @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @UnstableApi
   public void setControllerOnFullScreenModeChangedListener(
@@ -1108,14 +1131,30 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   }
 
   /**
-   * Sets whether the time bar should show all windows, as opposed to just the current one.
-   *
-   * @param showMultiWindowTimeBar Whether to show all windows.
+   * @deprecated Replace multi-window time bar display by merging source windows together instead,
+   *     for example using ExoPlayer's {@code ConcatenatingMediaSource2}.
    */
+  @SuppressWarnings("deprecation") // Forwarding to deprecated method.
+  @Deprecated
   @UnstableApi
   public void setShowMultiWindowTimeBar(boolean showMultiWindowTimeBar) {
     Assertions.checkStateNotNull(controller);
     controller.setShowMultiWindowTimeBar(showMultiWindowTimeBar);
+  }
+
+  /**
+   * Sets whether a play button is shown if playback is {@linkplain
+   * Player#getPlaybackSuppressionReason() suppressed}.
+   *
+   * <p>The default is {@code true}.
+   *
+   * @param showPlayButtonIfSuppressed Whether to show a play button if playback is {@linkplain
+   *     Player#getPlaybackSuppressionReason() suppressed}.
+   */
+  @UnstableApi
+  public void setShowPlayButtonIfPlaybackIsSuppressed(boolean showPlayButtonIfSuppressed) {
+    Assertions.checkStateNotNull(controller);
+    controller.setShowPlayButtonIfPlaybackIsSuppressed(showPlayButtonIfSuppressed);
   }
 
   /**
@@ -1265,13 +1304,13 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
     List<AdOverlayInfo> overlayViews = new ArrayList<>();
     if (overlayFrameLayout != null) {
       overlayViews.add(
-          new AdOverlayInfo(
-              overlayFrameLayout,
-              AdOverlayInfo.PURPOSE_NOT_VISIBLE,
-              /* detailedReason= */ "Transparent overlay does not impact viewability"));
+          new AdOverlayInfo.Builder(overlayFrameLayout, AdOverlayInfo.PURPOSE_NOT_VISIBLE)
+              .setDetailedReason("Transparent overlay does not impact viewability")
+              .build());
     }
     if (controller != null) {
-      overlayViews.add(new AdOverlayInfo(controller, AdOverlayInfo.PURPOSE_CONTROLS));
+      overlayViews.add(
+          new AdOverlayInfo.Builder(controller, AdOverlayInfo.PURPOSE_CONTROLS).build());
     }
     return ImmutableList.copyOf(overlayViews);
   }
@@ -1714,6 +1753,15 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
       if (fullscreenButtonClickListener != null) {
         fullscreenButtonClickListener.onFullscreenButtonClick(isFullScreen);
       }
+    }
+  }
+
+  @RequiresApi(34)
+  private static class Api34 {
+
+    @DoNotInline
+    public static void setSurfaceLifecycleToFollowsAttachment(SurfaceView surfaceView) {
+      surfaceView.setSurfaceLifecycle(SurfaceView.SURFACE_LIFECYCLE_FOLLOWS_ATTACHMENT);
     }
   }
 }

@@ -28,7 +28,10 @@ public class MediaSessionConstants {
   public static final String TEST_ON_VIDEO_SIZE_CHANGED = "onVideoSizeChanged";
   public static final String TEST_ON_TRACKS_CHANGED_VIDEO_TO_AUDIO_TRANSITION =
       "onTracksChanged_videoToAudioTransition";
-
+  public static final String TEST_SET_SHOW_PLAY_BUTTON_IF_SUPPRESSED_TO_FALSE =
+      "testSetShowPlayButtonIfSuppressedToFalse";
+  public static final String TEST_MEDIA_CONTROLLER_COMPAT_CALLBACK_WITH_MEDIA_SESSION_TEST =
+      "MediaControllerCompatCallbackWithMediaSessionTest";
   // Bundle keys
   public static final String KEY_AVAILABLE_SESSION_COMMANDS = "availableSessionCommands";
   public static final String KEY_CONTROLLER = "controllerKey";

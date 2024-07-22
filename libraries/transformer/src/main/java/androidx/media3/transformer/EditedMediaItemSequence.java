@@ -35,6 +35,7 @@ public final class EditedMediaItemSequence {
    * <p>This list must not be empty.
    */
   public final ImmutableList<EditedMediaItem> editedMediaItems;
+
   /**
    * Whether this sequence is looping.
    *
@@ -47,11 +48,17 @@ public final class EditedMediaItemSequence {
    */
   public final boolean isLooping;
 
-  /**
-   * Creates an instance.
-   *
-   * @param editedMediaItems The {@link #editedMediaItems}.
-   */
+  /** Creates a {@linkplain #isLooping non-looping} instance. */
+  public EditedMediaItemSequence(
+      EditedMediaItem editedMediaItem, EditedMediaItem... editedMediaItems) {
+    this(
+        new ImmutableList.Builder<EditedMediaItem>()
+            .add(editedMediaItem)
+            .add(editedMediaItems)
+            .build());
+  }
+
+  /** Creates a {@linkplain #isLooping non-looping} instance. */
   public EditedMediaItemSequence(List<EditedMediaItem> editedMediaItems) {
     this(editedMediaItems, /* isLooping= */ false);
   }

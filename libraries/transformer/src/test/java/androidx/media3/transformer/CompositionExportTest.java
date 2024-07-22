@@ -17,23 +17,33 @@ package androidx.media3.transformer;
 
 import static androidx.media3.transformer.TestUtil.ASSET_URI_PREFIX;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_ONLY;
+import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW;
+import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW_STEREO_48000KHZ;
+import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW_VIDEO;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_VIDEO;
+import static androidx.media3.transformer.TestUtil.FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S;
 import static androidx.media3.transformer.TestUtil.FILE_VIDEO_ONLY;
+import static androidx.media3.transformer.TestUtil.addAudioDecoders;
+import static androidx.media3.transformer.TestUtil.addAudioEncoders;
+import static androidx.media3.transformer.TestUtil.createAudioEffects;
 import static androidx.media3.transformer.TestUtil.createTransformerBuilder;
+import static androidx.media3.transformer.TestUtil.createVolumeScalingAudioProcessor;
+import static androidx.media3.transformer.TestUtil.getDumpFileName;
+import static androidx.media3.transformer.TestUtil.removeEncodersAndDecoders;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.util.Util;
-import androidx.media3.transformer.TestUtil.TestMuxerFactory.TestMuxerHolder;
+import androidx.media3.common.MimeTypes;
+import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 
 /**
@@ -42,112 +52,271 @@ import org.junit.runner.RunWith;
  */
 @RunWith(AndroidJUnit4.class)
 public class CompositionExportTest {
+  @Rule public final TemporaryFolder outputDir = new TemporaryFolder();
 
-  private String outputPath;
-  private TestMuxerHolder testMuxerHolder;
+  private final Context context = ApplicationProvider.getApplicationContext();
+  private final CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory();
 
   @Before
-  public void setUp() throws Exception {
-    Context context = ApplicationProvider.getApplicationContext();
-    outputPath = Util.createTempFile(context, "TransformerTest").getPath();
-    testMuxerHolder = new TestUtil.TestMuxerFactory.TestMuxerHolder();
+  public void setUp() {
+    addAudioDecoders(MimeTypes.AUDIO_RAW);
+    addAudioEncoders(MimeTypes.AUDIO_AAC);
   }
 
   @After
-  public void tearDown() throws Exception {
-    Files.delete(Paths.get(outputPath));
+  public void tearDown() {
+    removeEncodersAndDecoders();
   }
 
   @Test
-  public void start_audioVideoTransmuxedFromDifferentSequences_producesExpectedResult()
+  public void start_audioVideoTransmuxedFromDifferentSequences_matchesSingleSequenceResult()
       throws Exception {
     Transformer transformer =
-        createTransformerBuilder(testMuxerHolder, /* enableFallback= */ false).build();
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
     MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO);
-    transformer.start(mediaItem, outputPath);
-    ExportResult expectedExportResult = TransformerTestRunner.runLooper(transformer);
+
     EditedMediaItem audioEditedMediaItem =
         new EditedMediaItem.Builder(mediaItem).setRemoveVideo(true).build();
-    EditedMediaItemSequence audioSequence =
-        new EditedMediaItemSequence(ImmutableList.of(audioEditedMediaItem));
     EditedMediaItem videoEditedMediaItem =
         new EditedMediaItem.Builder(mediaItem).setRemoveAudio(true).build();
-    EditedMediaItemSequence videoSequence =
-        new EditedMediaItemSequence(ImmutableList.of(videoEditedMediaItem));
     Composition composition =
-        new Composition.Builder(ImmutableList.of(audioSequence, videoSequence))
+        new Composition.Builder(
+                new EditedMediaItemSequence(audioEditedMediaItem),
+                new EditedMediaItemSequence(videoEditedMediaItem))
             .setTransmuxAudio(true)
             .setTransmuxVideo(true)
             .build();
+    transformer.start(composition, outputDir.newFile().getPath());
+    TransformerTestRunner.runLooper(transformer);
 
-    transformer.start(composition, outputPath);
-    ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
-
-    // We can't compare the muxer output against a dump file because the asset loaders in each
-    // sequence load samples from their own thread, independently of each other, which makes the
-    // output non-deterministic.
-    assertThat(exportResult.channelCount).isEqualTo(expectedExportResult.channelCount);
-    assertThat(exportResult.videoFrameCount).isEqualTo(expectedExportResult.videoFrameCount);
-    assertThat(exportResult.durationMs).isEqualTo(expectedExportResult.durationMs);
+    DumpFileAsserts.assertOutput(
+        context, muxerFactory.getCreatedMuxer(), getDumpFileName(FILE_AUDIO_VIDEO));
   }
 
   @Test
   public void start_loopingTransmuxedAudio_producesExpectedResult() throws Exception {
     Transformer transformer =
-        createTransformerBuilder(testMuxerHolder, /* enableFallback= */ false).build();
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
     EditedMediaItem audioEditedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_ONLY)).build();
-    EditedMediaItemSequence audioSequence =
-        new EditedMediaItemSequence(
-            ImmutableList.of(audioEditedMediaItem, audioEditedMediaItem), /* isLooping= */ true);
+    EditedMediaItemSequence loopingAudioSequence =
+        new EditedMediaItemSequence(ImmutableList.of(audioEditedMediaItem), /* isLooping= */ true);
     EditedMediaItem videoEditedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_VIDEO_ONLY)).build();
     EditedMediaItemSequence videoSequence =
         new EditedMediaItemSequence(
-            ImmutableList.of(videoEditedMediaItem, videoEditedMediaItem, videoEditedMediaItem));
+            videoEditedMediaItem, videoEditedMediaItem, videoEditedMediaItem);
     Composition composition =
-        new Composition.Builder(ImmutableList.of(audioSequence, videoSequence))
+        new Composition.Builder(loopingAudioSequence, videoSequence)
             .setTransmuxAudio(true)
             .setTransmuxVideo(true)
             .build();
 
-    transformer.start(composition, outputPath);
+    transformer.start(composition, outputDir.newFile().getPath());
     ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
 
     assertThat(exportResult.processedInputs).hasSize(6);
-    assertThat(exportResult.channelCount).isEqualTo(1);
-    assertThat(exportResult.videoFrameCount).isEqualTo(90);
-    assertThat(exportResult.durationMs).isEqualTo(2977);
-    assertThat(exportResult.fileSizeBytes).isEqualTo(293660);
+    DumpFileAsserts.assertOutput(
+        context,
+        muxerFactory.getCreatedMuxer(),
+        getDumpFileName(
+            FILE_AUDIO_ONLY,
+            /* modifications...= */ "looping",
+            "mixedWith",
+            getFileName(FILE_VIDEO_ONLY)));
   }
 
   @Test
   public void start_loopingTransmuxedVideo_producesExpectedResult() throws Exception {
     Transformer transformer =
-        createTransformerBuilder(testMuxerHolder, /* enableFallback= */ false).build();
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
     EditedMediaItem audioEditedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_ONLY)).build();
     EditedMediaItemSequence audioSequence =
         new EditedMediaItemSequence(
-            ImmutableList.of(audioEditedMediaItem, audioEditedMediaItem, audioEditedMediaItem));
+            audioEditedMediaItem, audioEditedMediaItem, audioEditedMediaItem);
     EditedMediaItem videoEditedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_VIDEO_ONLY)).build();
-    EditedMediaItemSequence videoSequence =
-        new EditedMediaItemSequence(
-            ImmutableList.of(videoEditedMediaItem, videoEditedMediaItem), /* isLooping= */ true);
+    EditedMediaItemSequence loopingVideoSequence =
+        new EditedMediaItemSequence(ImmutableList.of(videoEditedMediaItem), /* isLooping= */ true);
     Composition composition =
-        new Composition.Builder(ImmutableList.of(audioSequence, videoSequence))
+        new Composition.Builder(audioSequence, loopingVideoSequence)
             .setTransmuxAudio(true)
             .setTransmuxVideo(true)
             .build();
 
-    transformer.start(composition, outputPath);
+    transformer.start(composition, outputDir.newFile().getPath());
     ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
 
     assertThat(exportResult.processedInputs).hasSize(7);
+    DumpFileAsserts.assertOutput(
+        context,
+        muxerFactory.getCreatedMuxer(),
+        getDumpFileName(
+            FILE_VIDEO_ONLY,
+            /* modifications...= */ "looping",
+            "mixedWith",
+            getFileName(FILE_AUDIO_ONLY)));
+  }
+
+  @Test
+  public void start_longVideoCompositionWithLoopingAudio_producesExpectedResult() throws Exception {
+    Transformer transformer =
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+    EditedMediaItemSequence loopingAudioSequence =
+        new EditedMediaItemSequence(
+            ImmutableList.of(
+                new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
+                    .build()),
+            /* isLooping= */ true);
+    EditedMediaItem videoEditedMediaItem =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S))
+            .setRemoveAudio(true)
+            .build();
+    EditedMediaItemSequence videoSequence =
+        new EditedMediaItemSequence(videoEditedMediaItem, videoEditedMediaItem);
+    Composition composition =
+        new Composition.Builder(loopingAudioSequence, videoSequence).setTransmuxVideo(true).build();
+
+    transformer.start(composition, outputDir.newFile().getPath());
+    ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
+
+    assertThat(exportResult.durationMs).isEqualTo(31_053);
+    // FILE_AUDIO_RAW duration is 1000ms. Input 32 times to cover the 31_053ms duration.
+    assertThat(exportResult.processedInputs).hasSize(34);
     assertThat(exportResult.channelCount).isEqualTo(1);
-    assertThat(exportResult.videoFrameCount).isEqualTo(93);
-    assertThat(exportResult.durationMs).isEqualTo(3108);
-    assertThat(exportResult.fileSizeBytes).isEqualTo(337308);
+    assertThat(exportResult.fileSizeBytes).isEqualTo(5292662);
+  }
+
+  @Test
+  public void start_compositionOfConcurrentAudio_isCorrect() throws Exception {
+    Transformer transformer =
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+    EditedMediaItem rawAudioEditedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)).build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence(rawAudioEditedMediaItem),
+                new EditedMediaItemSequence(rawAudioEditedMediaItem))
+            .build();
+
+    transformer.start(composition, outputDir.newFile().getPath());
+    ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
+
+    assertThat(exportResult.processedInputs).hasSize(2);
+    DumpFileAsserts.assertOutput(
+        context,
+        muxerFactory.getCreatedMuxer(),
+        getDumpFileName(
+            FILE_AUDIO_RAW, /* modifications...= */ "mixed", getFileName(FILE_AUDIO_RAW)));
+  }
+
+  @Test
+  public void start_audioVideoCompositionWithExtraAudio_isCorrect() throws Exception {
+    Transformer transformer =
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+    EditedMediaItem audioVideoEditedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW_VIDEO))
+            .build();
+    EditedMediaItem audioEditedMediaItem =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW_STEREO_48000KHZ))
+            .setRemoveVideo(true)
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence(audioVideoEditedMediaItem),
+                new EditedMediaItemSequence(audioEditedMediaItem))
+            .setTransmuxVideo(true)
+            .build();
+
+    transformer.start(composition, outputDir.newFile().getPath());
+    ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
+
+    assertThat(exportResult.processedInputs).hasSize(2);
+    DumpFileAsserts.assertOutput(
+        context,
+        muxerFactory.getCreatedMuxer(),
+        getDumpFileName(
+            FILE_AUDIO_RAW_VIDEO,
+            /* modifications...= */ "mixed",
+            getFileName(FILE_AUDIO_RAW_STEREO_48000KHZ)));
+  }
+
+  @Test
+  public void start_audioVideoCompositionWithMutedAudio_matchesSingleSequence() throws Exception {
+    Transformer transformer =
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+    EditedMediaItem audioVideoEditedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW_VIDEO))
+            .build();
+    EditedMediaItem mutedAudioEditedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW_VIDEO))
+            .setEffects(createAudioEffects(createVolumeScalingAudioProcessor(0f)))
+            .setRemoveVideo(true)
+            .build();
+    EditedMediaItemSequence loopingMutedAudioSequence =
+        new EditedMediaItemSequence(
+            ImmutableList.of(mutedAudioEditedMediaItem), /* isLooping= */ true);
+
+    transformer.start(
+        new Composition.Builder(
+                new EditedMediaItemSequence(
+                    audioVideoEditedMediaItem,
+                    audioVideoEditedMediaItem,
+                    audioVideoEditedMediaItem),
+                loopingMutedAudioSequence)
+            .setTransmuxVideo(true)
+            .build(),
+        outputDir.newFile().getPath());
+    TransformerTestRunner.runLooper(transformer);
+
+    DumpFileAsserts.assertOutput(
+        context,
+        muxerFactory.getCreatedMuxer(),
+        getDumpFileName(
+            FILE_AUDIO_RAW_VIDEO, /* modifications...= */ "sequence", "repeated3Times"));
+  }
+
+  @Test
+  public void start_audioVideoCompositionWithLoopingAudio_isCorrect() throws Exception {
+    Transformer transformer =
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+    EditedMediaItem audioVideoEditedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW_VIDEO))
+            .build();
+    EditedMediaItemSequence audioVideoSequence =
+        new EditedMediaItemSequence(
+            audioVideoEditedMediaItem, audioVideoEditedMediaItem, audioVideoEditedMediaItem);
+    EditedMediaItem audioEditedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW_VIDEO))
+            .setRemoveVideo(true)
+            .build();
+    EditedMediaItemSequence loopingAudioSequence =
+        new EditedMediaItemSequence(ImmutableList.of(audioEditedMediaItem), /* isLooping= */ true);
+    Composition composition =
+        new Composition.Builder(audioVideoSequence, loopingAudioSequence)
+            .setTransmuxVideo(true)
+            .build();
+
+    transformer.start(composition, outputDir.newFile().getPath());
+    ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
+
+    assertThat(exportResult.processedInputs).hasSize(7);
+    DumpFileAsserts.assertOutput(
+        context,
+        muxerFactory.getCreatedMuxer(),
+        getDumpFileName(
+            /* originalFileName= */ FILE_AUDIO_RAW_VIDEO,
+            /* modifications...= */ "sequence",
+            "repeated3Times",
+            "mixed",
+            "loopingAudio" + getFileName(FILE_AUDIO_RAW_VIDEO)));
+  }
+
+  private static String getFileName(String filePath) {
+    int lastSeparator = filePath.lastIndexOf("/");
+    return filePath.substring(lastSeparator + 1);
   }
 }

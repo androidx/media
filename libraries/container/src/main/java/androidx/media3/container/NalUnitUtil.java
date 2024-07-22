@@ -36,18 +36,27 @@ public final class NalUnitUtil {
 
   /** Coded slice of a non-IDR picture. */
   public static final int NAL_UNIT_TYPE_NON_IDR = 1;
+
   /** Coded slice data partition A. */
   public static final int NAL_UNIT_TYPE_PARTITION_A = 2;
+
   /** Coded slice of an IDR picture. */
   public static final int NAL_UNIT_TYPE_IDR = 5;
+
   /** Supplemental enhancement information. */
   public static final int NAL_UNIT_TYPE_SEI = 6;
+
   /** Sequence parameter set. */
   public static final int NAL_UNIT_TYPE_SPS = 7;
+
   /** Picture parameter set. */
   public static final int NAL_UNIT_TYPE_PPS = 8;
+
   /** Access unit delimiter. */
   public static final int NAL_UNIT_TYPE_AUD = 9;
+
+  /** Prefix NAL unit. */
+  public static final int NAL_UNIT_TYPE_PREFIX = 14;
 
   /** Holds data parsed from a H.264 sequence parameter set NAL unit. */
   public static final class SpsData {
@@ -60,6 +69,8 @@ public final class NalUnitUtil {
     public final int width;
     public final int height;
     public final float pixelWidthHeightRatio;
+    public final int bitDepthLumaMinus8;
+    public final int bitDepthChromaMinus8;
     public final boolean separateColorPlaneFlag;
     public final boolean frameMbsOnlyFlag;
     public final int frameNumLength;
@@ -79,6 +90,8 @@ public final class NalUnitUtil {
         int width,
         int height,
         float pixelWidthHeightRatio,
+        int bitDepthLumaMinus8,
+        int bitDepthChromaMinus8,
         boolean separateColorPlaneFlag,
         boolean frameMbsOnlyFlag,
         int frameNumLength,
@@ -96,6 +109,8 @@ public final class NalUnitUtil {
       this.width = width;
       this.height = height;
       this.pixelWidthHeightRatio = pixelWidthHeightRatio;
+      this.bitDepthLumaMinus8 = bitDepthLumaMinus8;
+      this.bitDepthChromaMinus8 = bitDepthChromaMinus8;
       this.separateColorPlaneFlag = separateColorPlaneFlag;
       this.frameMbsOnlyFlag = frameMbsOnlyFlag;
       this.frameNumLength = frameNumLength;
@@ -186,6 +201,7 @@ public final class NalUnitUtil {
 
   /** Value for aspect_ratio_idc indicating an extended aspect ratio, in H.264 and H.265 SPSs. */
   public static final int EXTENDED_SAR = 0xFF;
+
   /** Aspect ratios indexed by aspect_ratio_idc, in H.264 and H.265 SPSs. */
   public static final float[] ASPECT_RATIO_IDC_VALUES =
       new float[] {
@@ -375,6 +391,8 @@ public final class NalUnitUtil {
 
     int chromaFormatIdc = 1; // Default is 4:2:0
     boolean separateColorPlaneFlag = false;
+    int bitDepthLumaMinus8 = 0;
+    int bitDepthChromaMinus8 = 0;
     if (profileIdc == 100
         || profileIdc == 110
         || profileIdc == 122
@@ -389,8 +407,8 @@ public final class NalUnitUtil {
       if (chromaFormatIdc == 3) {
         separateColorPlaneFlag = data.readBit();
       }
-      data.readUnsignedExpGolombCodedInt(); // bit_depth_luma_minus8
-      data.readUnsignedExpGolombCodedInt(); // bit_depth_chroma_minus8
+      bitDepthLumaMinus8 = data.readUnsignedExpGolombCodedInt();
+      bitDepthChromaMinus8 = data.readUnsignedExpGolombCodedInt();
       data.skipBit(); // qpprime_y_zero_transform_bypass_flag
       boolean seqScalingMatrixPresentFlag = data.readBit();
       if (seqScalingMatrixPresentFlag) {
@@ -504,6 +522,8 @@ public final class NalUnitUtil {
         frameWidth,
         frameHeight,
         pixelWidthHeightRatio,
+        bitDepthLumaMinus8,
+        bitDepthChromaMinus8,
         separateColorPlaneFlag,
         frameMbsOnlyFlag,
         frameNumLength,

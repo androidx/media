@@ -28,6 +28,7 @@ import android.os.Looper;
 import android.os.SystemClock;
 import android.text.TextUtils;
 import android.util.SparseArray;
+import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
@@ -76,6 +77,7 @@ import androidx.media3.exoplayer.upstream.Loader.LoadErrorAction;
 import androidx.media3.exoplayer.upstream.LoaderErrorThrower;
 import androidx.media3.exoplayer.upstream.ParsingLoadable;
 import androidx.media3.exoplayer.util.SntpClient;
+import androidx.media3.extractor.text.SubtitleParser;
 import com.google.common.base.Charsets;
 import com.google.common.math.LongMath;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -192,6 +194,21 @@ public final class DashMediaSource extends BaseMediaSource {
               "MediaSource.Factory#setLoadErrorHandlingPolicy no longer handles null by"
                   + " instantiating a new DefaultLoadErrorHandlingPolicy. Explicitly construct and"
                   + " pass an instance in order to retain the old behavior.");
+      return this;
+    }
+
+    @Override
+    @CanIgnoreReturnValue
+    public Factory setSubtitleParserFactory(SubtitleParser.Factory subtitleParserFactory) {
+      chunkSourceFactory.setSubtitleParserFactory(checkNotNull(subtitleParserFactory));
+      return this;
+    }
+
+    @Override
+    @CanIgnoreReturnValue
+    public Factory experimentalParseSubtitlesDuringExtraction(
+        boolean parseSubtitlesDuringExtraction) {
+      chunkSourceFactory.experimentalParseSubtitlesDuringExtraction(parseSubtitlesDuringExtraction);
       return this;
     }
 
@@ -367,10 +384,12 @@ public final class DashMediaSource extends BaseMediaSource {
    * if no value is defined in the {@link MediaItem} or the manifest.
    */
   public static final long DEFAULT_FALLBACK_TARGET_LIVE_OFFSET_MS = 30_000;
+
   /**
    * @deprecated Use {@link #DEFAULT_FALLBACK_TARGET_LIVE_OFFSET_MS} instead.
    */
   @Deprecated public static final long DEFAULT_LIVE_PRESENTATION_DELAY_MS = 30_000;
+
   /** The media id used by media items of dash media sources without a manifest URI. */
   public static final String DEFAULT_MEDIA_ID = "DashMediaSource";
 
@@ -389,7 +408,6 @@ public final class DashMediaSource extends BaseMediaSource {
 
   private static final String TAG = "DashMediaSource";
 
-  private final MediaItem mediaItem;
   private final boolean sideloadedManifest;
   private final DataSource.Factory manifestDataSourceFactory;
   private final DashChunkSource.Factory chunkSourceFactory;
@@ -430,6 +448,9 @@ public final class DashMediaSource extends BaseMediaSource {
   private long expiredManifestPublishTimeUs;
 
   private int firstPeriodId;
+
+  @GuardedBy("this")
+  private MediaItem mediaItem;
 
   private DashMediaSource(
       MediaItem mediaItem,
@@ -494,8 +515,26 @@ public final class DashMediaSource extends BaseMediaSource {
   // MediaSource implementation.
 
   @Override
-  public MediaItem getMediaItem() {
+  public synchronized MediaItem getMediaItem() {
     return mediaItem;
+  }
+
+  @Override
+  public boolean canUpdateMediaItem(MediaItem mediaItem) {
+    MediaItem existingMediaItem = getMediaItem();
+    MediaItem.LocalConfiguration existingConfiguration =
+        checkNotNull(existingMediaItem.localConfiguration);
+    @Nullable MediaItem.LocalConfiguration newConfiguration = mediaItem.localConfiguration;
+    return newConfiguration != null
+        && newConfiguration.uri.equals(existingConfiguration.uri)
+        && newConfiguration.streamKeys.equals(existingConfiguration.streamKeys)
+        && Util.areEqual(newConfiguration.drmConfiguration, existingConfiguration.drmConfiguration)
+        && existingMediaItem.liveConfiguration.equals(mediaItem.liveConfiguration);
+  }
+
+  @Override
+  public synchronized void updateMediaItem(MediaItem mediaItem) {
+    this.mediaItem = mediaItem;
   }
 
   @Override
@@ -900,7 +939,7 @@ public final class DashMediaSource extends BaseMediaSource {
             windowDurationUs,
             windowDefaultPositionUs,
             manifest,
-            mediaItem,
+            getMediaItem(),
             manifest.dynamic ? liveConfiguration : null);
     refreshSourceInfo(timeline);
 
@@ -936,12 +975,13 @@ public final class DashMediaSource extends BaseMediaSource {
   }
 
   private void updateLiveConfiguration(long nowInWindowUs, long windowDurationUs) {
+    MediaItem.LiveConfiguration mediaItemLiveConfiguration = getMediaItem().liveConfiguration;
     // Default maximum offset: start of window.
     long maxPossibleLiveOffsetMs = usToMs(nowInWindowUs);
     long maxLiveOffsetMs = maxPossibleLiveOffsetMs;
     // Override maximum offset with user or media defined values if they are smaller.
-    if (mediaItem.liveConfiguration.maxOffsetMs != C.TIME_UNSET) {
-      maxLiveOffsetMs = min(maxLiveOffsetMs, mediaItem.liveConfiguration.maxOffsetMs);
+    if (mediaItemLiveConfiguration.maxOffsetMs != C.TIME_UNSET) {
+      maxLiveOffsetMs = min(maxLiveOffsetMs, mediaItemLiveConfiguration.maxOffsetMs);
     } else if (manifest.serviceDescription != null
         && manifest.serviceDescription.maxOffsetMs != C.TIME_UNSET) {
       maxLiveOffsetMs = min(maxLiveOffsetMs, manifest.serviceDescription.maxOffsetMs);
@@ -959,10 +999,10 @@ public final class DashMediaSource extends BaseMediaSource {
     }
     // Override minimum offset with user and media defined values if they are larger, but don't
     // exceed the maximum possible offset.
-    if (mediaItem.liveConfiguration.minOffsetMs != C.TIME_UNSET) {
+    if (mediaItemLiveConfiguration.minOffsetMs != C.TIME_UNSET) {
       minLiveOffsetMs =
           constrainValue(
-              mediaItem.liveConfiguration.minOffsetMs, minLiveOffsetMs, maxPossibleLiveOffsetMs);
+              mediaItemLiveConfiguration.minOffsetMs, minLiveOffsetMs, maxPossibleLiveOffsetMs);
     } else if (manifest.serviceDescription != null
         && manifest.serviceDescription.minOffsetMs != C.TIME_UNSET) {
       minLiveOffsetMs =
@@ -998,14 +1038,14 @@ public final class DashMediaSource extends BaseMediaSource {
               maxTargetOffsetForSafeDistanceToWindowStartMs, minLiveOffsetMs, maxLiveOffsetMs);
     }
     float minPlaybackSpeed = C.RATE_UNSET;
-    if (mediaItem.liveConfiguration.minPlaybackSpeed != C.RATE_UNSET) {
-      minPlaybackSpeed = mediaItem.liveConfiguration.minPlaybackSpeed;
+    if (mediaItemLiveConfiguration.minPlaybackSpeed != C.RATE_UNSET) {
+      minPlaybackSpeed = mediaItemLiveConfiguration.minPlaybackSpeed;
     } else if (manifest.serviceDescription != null) {
       minPlaybackSpeed = manifest.serviceDescription.minPlaybackSpeed;
     }
     float maxPlaybackSpeed = C.RATE_UNSET;
-    if (mediaItem.liveConfiguration.maxPlaybackSpeed != C.RATE_UNSET) {
-      maxPlaybackSpeed = mediaItem.liveConfiguration.maxPlaybackSpeed;
+    if (mediaItemLiveConfiguration.maxPlaybackSpeed != C.RATE_UNSET) {
+      maxPlaybackSpeed = mediaItemLiveConfiguration.maxPlaybackSpeed;
     } else if (manifest.serviceDescription != null) {
       maxPlaybackSpeed = manifest.serviceDescription.maxPlaybackSpeed;
     }

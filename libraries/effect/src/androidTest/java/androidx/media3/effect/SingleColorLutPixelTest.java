@@ -18,7 +18,7 @@ package androidx.media3.effect;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE;
-import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapFromCurrentGlFramebuffer;
+import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapFromFocusedGlFramebuffer;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createGlTextureFromBitmap;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.maybeSaveTestBitmap;
@@ -37,10 +37,14 @@ import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Size;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 /**
@@ -53,6 +57,8 @@ import org.junit.runner.RunWith;
  */
 @RunWith(AndroidJUnit4.class)
 public class SingleColorLutPixelTest {
+  @Rule public final TestName testName = new TestName();
+
   private static final String ORIGINAL_PNG_ASSET_PATH =
       "media/bitmap/sample_mp4_first_frame/linear_colors/original.png";
   private static final String LUT_MAP_WHITE_TO_GREEN_ASSET_PATH =
@@ -67,24 +73,31 @@ public class SingleColorLutPixelTest {
 
   private final Context context = getApplicationContext();
 
+  private @MonotonicNonNull String testId;
   private @MonotonicNonNull EGLDisplay eglDisplay;
   private @MonotonicNonNull EGLContext eglContext;
   private @MonotonicNonNull EGLSurface placeholderEglSurface;
-  private @MonotonicNonNull SingleFrameGlShaderProgram colorLutShaderProgram;
+  private @MonotonicNonNull BaseGlShaderProgram colorLutShaderProgram;
   private int inputTexId;
   private int inputWidth;
   private int inputHeight;
 
   @Before
   public void createGlObjects() throws Exception {
-    eglDisplay = GlUtil.createEglDisplay();
+    eglDisplay = GlUtil.getDefaultEglDisplay();
     eglContext = GlUtil.createEglContext(eglDisplay);
-    placeholderEglSurface = GlUtil.focusPlaceholderEglSurface(eglContext, eglDisplay);
+    placeholderEglSurface = GlUtil.createFocusedPlaceholderEglSurface(eglContext, eglDisplay);
 
     Bitmap inputBitmap = readBitmap(ORIGINAL_PNG_ASSET_PATH);
     inputWidth = inputBitmap.getWidth();
     inputHeight = inputBitmap.getHeight();
     inputTexId = createGlTextureFromBitmap(inputBitmap);
+  }
+
+  @Before
+  @EnsuresNonNull("testId")
+  public void setUpTestId() {
+    testId = testName.getMethodName();
   }
 
   @After
@@ -96,8 +109,8 @@ public class SingleColorLutPixelTest {
   }
 
   @Test
+  @RequiresNonNull("testId")
   public void drawFrame_identityCubeLutSize2_leavesFrameUnchanged() throws Exception {
-    String testId = "drawFrame_identityLutCubeSize2";
     int[][][] cubeIdentityLut = createIdentityLutCube(/* length= */ 2);
     colorLutShaderProgram =
         SingleColorLut.createFromCube(cubeIdentityLut)
@@ -108,7 +121,7 @@ public class SingleColorLutPixelTest {
 
     colorLutShaderProgram.drawFrame(inputTexId, /* presentationTimeUs= */ 0);
     Bitmap actualBitmap =
-        createArgb8888BitmapFromCurrentGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
+        createArgb8888BitmapFromFocusedGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
 
     maybeSaveTestBitmap(testId, "actual", actualBitmap, /* path= */ null);
     float averagePixelAbsoluteDifference =
@@ -117,8 +130,8 @@ public class SingleColorLutPixelTest {
   }
 
   @Test
+  @RequiresNonNull("testId")
   public void drawFrame_identityCubeLutSize64_leavesFrameUnchanged() throws Exception {
-    String testId = "drawFrame_identityLutCubeSize64";
     int[][][] cubeIdentityLut = createIdentityLutCube(/* length= */ 64);
     colorLutShaderProgram =
         SingleColorLut.createFromCube(cubeIdentityLut)
@@ -129,7 +142,7 @@ public class SingleColorLutPixelTest {
 
     colorLutShaderProgram.drawFrame(inputTexId, /* presentationTimeUs= */ 0);
     Bitmap actualBitmap =
-        createArgb8888BitmapFromCurrentGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
+        createArgb8888BitmapFromFocusedGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
 
     maybeSaveTestBitmap(testId, "actual", actualBitmap, /* path= */ null);
     float averagePixelAbsoluteDifference =
@@ -138,8 +151,8 @@ public class SingleColorLutPixelTest {
   }
 
   @Test
+  @RequiresNonNull("testId")
   public void drawFrame_identityBitmapLutSize2_leavesFrameUnchanged() throws Exception {
-    String testId = "drawFrame_identityBitmapLutSize2";
     Bitmap bitmapLut = createIdentityLutBitmap(/* length= */ 2);
     colorLutShaderProgram =
         SingleColorLut.createFromBitmap(bitmapLut).toGlShaderProgram(context, /* useHdr= */ false);
@@ -149,7 +162,7 @@ public class SingleColorLutPixelTest {
 
     colorLutShaderProgram.drawFrame(inputTexId, /* presentationTimeUs= */ 0);
     Bitmap actualBitmap =
-        createArgb8888BitmapFromCurrentGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
+        createArgb8888BitmapFromFocusedGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
 
     maybeSaveTestBitmap(testId, "actual", actualBitmap, /* path= */ null);
     float averagePixelAbsoluteDifference =
@@ -158,8 +171,8 @@ public class SingleColorLutPixelTest {
   }
 
   @Test
+  @RequiresNonNull("testId")
   public void drawFrame_identityBitmapLutSize64_leavesFrameUnchanged() throws Exception {
-    String testId = "drawFrame_identityBitmapLutSize64";
     Bitmap bitmapLut = createIdentityLutBitmap(/* length= */ 64);
     colorLutShaderProgram =
         SingleColorLut.createFromBitmap(bitmapLut).toGlShaderProgram(context, /* useHdr= */ false);
@@ -169,7 +182,7 @@ public class SingleColorLutPixelTest {
 
     colorLutShaderProgram.drawFrame(inputTexId, /* presentationTimeUs= */ 0);
     Bitmap actualBitmap =
-        createArgb8888BitmapFromCurrentGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
+        createArgb8888BitmapFromFocusedGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
 
     maybeSaveTestBitmap(testId, "actual", actualBitmap, /* path= */ null);
     float averagePixelAbsoluteDifference =
@@ -178,8 +191,8 @@ public class SingleColorLutPixelTest {
   }
 
   @Test
+  @RequiresNonNull("testId")
   public void drawFrame_identityLutFromHaldImage_leavesFrameUnchanged() throws Exception {
-    String testId = "drawFrame_identityLutFromHaldImage";
     Bitmap bitmapLut = readBitmap(VERTICAL_HALD_IDENTITY_LUT);
     colorLutShaderProgram =
         SingleColorLut.createFromBitmap(bitmapLut).toGlShaderProgram(context, /* useHdr= */ false);
@@ -189,7 +202,7 @@ public class SingleColorLutPixelTest {
 
     colorLutShaderProgram.drawFrame(inputTexId, /* presentationTimeUs= */ 0);
     Bitmap actualBitmap =
-        createArgb8888BitmapFromCurrentGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
+        createArgb8888BitmapFromFocusedGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
 
     maybeSaveTestBitmap(testId, "actual", actualBitmap, /* path= */ null);
     float averagePixelAbsoluteDifference =
@@ -198,8 +211,8 @@ public class SingleColorLutPixelTest {
   }
 
   @Test
+  @RequiresNonNull("testId")
   public void drawFrame_mapWhiteToGreen_producesGreenHighlights() throws Exception {
-    String testId = "drawFrame_mapWhiteToGreen";
     int length = 3;
     int[][][] mapWhiteToGreen = createIdentityLutCube(length);
     mapWhiteToGreen[length - 1][length - 1][length - 1] = Color.GREEN;
@@ -212,7 +225,7 @@ public class SingleColorLutPixelTest {
 
     colorLutShaderProgram.drawFrame(inputTexId, /* presentationTimeUs= */ 0);
     Bitmap actualBitmap =
-        createArgb8888BitmapFromCurrentGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
+        createArgb8888BitmapFromFocusedGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
 
     maybeSaveTestBitmap(testId, "actual", actualBitmap, /* path= */ null);
     float averagePixelAbsoluteDifference =
@@ -221,8 +234,8 @@ public class SingleColorLutPixelTest {
   }
 
   @Test
+  @RequiresNonNull("testId")
   public void drawFrame_applyInvertedLut_producesInvertedFrame() throws Exception {
-    String testId = "drawFrame_applyInvertedLut";
     Bitmap invertedLutBitmap = readBitmap(VERTICAL_HALD_INVERTED_LUT);
     colorLutShaderProgram =
         SingleColorLut.createFromBitmap(invertedLutBitmap)
@@ -233,7 +246,7 @@ public class SingleColorLutPixelTest {
 
     colorLutShaderProgram.drawFrame(inputTexId, /* presentationTimeUs= */ 0);
     Bitmap actualBitmap =
-        createArgb8888BitmapFromCurrentGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
+        createArgb8888BitmapFromFocusedGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
 
     maybeSaveTestBitmap(testId, "actual", actualBitmap, /* path= */ null);
     float averagePixelAbsoluteDifference =
@@ -242,8 +255,8 @@ public class SingleColorLutPixelTest {
   }
 
   @Test
+  @RequiresNonNull("testId")
   public void drawFrame_applyGrayscaleLut_producesGrayscaleFrame() throws Exception {
-    String testId = "drawFrame_applyGrayscaleLut";
     Bitmap grayscaleLutBitmap = readBitmap(VERTICAL_HALD_GRAYSCALE_LUT);
     colorLutShaderProgram =
         SingleColorLut.createFromBitmap(grayscaleLutBitmap)
@@ -254,7 +267,7 @@ public class SingleColorLutPixelTest {
 
     colorLutShaderProgram.drawFrame(inputTexId, /* presentationTimeUs= */ 0);
     Bitmap actualBitmap =
-        createArgb8888BitmapFromCurrentGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
+        createArgb8888BitmapFromFocusedGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
 
     maybeSaveTestBitmap(testId, "actual", actualBitmap, /* path= */ null);
     float averagePixelAbsoluteDifference =

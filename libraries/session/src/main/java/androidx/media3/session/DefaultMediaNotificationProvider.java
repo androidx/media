@@ -23,7 +23,6 @@ import static androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM;
 import static androidx.media3.common.Player.COMMAND_STOP;
-import static androidx.media3.common.Player.STATE_ENDED;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 
@@ -40,13 +39,13 @@ import androidx.annotation.RequiresApi;
 import androidx.annotation.StringRes;
 import androidx.core.app.NotificationCompat;
 import androidx.core.graphics.drawable.IconCompat;
-import androidx.media.app.NotificationCompat.MediaStyle;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.session.MediaStyleNotificationHelper.MediaStyle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -54,6 +53,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -223,11 +223,13 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
 
   /** The default ID used for the {@link MediaNotification#notificationId}. */
   public static final int DEFAULT_NOTIFICATION_ID = 1001;
+
   /**
    * The default ID used for the {@link NotificationChannel} on which created notifications are
    * posted on.
    */
   public static final String DEFAULT_CHANNEL_ID = "default_channel_id";
+
   /**
    * The default name used for the {@link NotificationChannel} on which created notifications are
    * posted on.
@@ -235,6 +237,13 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
   @StringRes
   public static final int DEFAULT_CHANNEL_NAME_RESOURCE_ID =
       R.string.default_notification_channel_name;
+
+  /**
+   * The group key used for the {@link NotificationCompat.Builder#setGroup(String)} to avoid the
+   * media notification being auto-grouped with the other notifications. The other notifications
+   * sent from the app shouldn't use this group key.
+   */
+  public static final String GROUP_KEY = "media3_group_key";
 
   private static final String TAG = "NotificationProvider";
 
@@ -296,20 +305,30 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
       Callback onNotificationChangedCallback) {
     ensureNotificationChannel();
 
+    ImmutableList.Builder<CommandButton> customLayoutWithEnabledCommandButtonsOnly =
+        new ImmutableList.Builder<>();
+    for (int i = 0; i < customLayout.size(); i++) {
+      CommandButton button = customLayout.get(i);
+      if (button.sessionCommand != null
+          && button.sessionCommand.commandCode == SessionCommand.COMMAND_CODE_CUSTOM
+          && button.isEnabled) {
+        customLayoutWithEnabledCommandButtonsOnly.add(customLayout.get(i));
+      }
+    }
     Player player = mediaSession.getPlayer();
     NotificationCompat.Builder builder = new NotificationCompat.Builder(context, channelId);
     int notificationId = notificationIdProvider.getNotificationId(mediaSession);
 
-    MediaStyle mediaStyle = new MediaStyle();
+    MediaStyle mediaStyle = new MediaStyle(mediaSession);
     int[] compactViewIndices =
         addNotificationActions(
             mediaSession,
             getMediaButtons(
                 mediaSession,
                 player.getAvailableCommands(),
-                customLayout,
-                /* showPauseButton= */ player.getPlayWhenReady()
-                    && player.getPlaybackState() != STATE_ENDED),
+                customLayoutWithEnabledCommandButtonsOnly.build(),
+                !Util.shouldShowPlayButton(
+                    player, mediaSession.getShowPlayButtonIfPlaybackIsSuppressed())),
             builder,
             actionFactory);
     mediaStyle.setShowActionsInCompactView(compactViewIndices);
@@ -330,7 +349,7 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
         if (bitmapFuture.isDone()) {
           try {
             builder.setLargeIcon(Futures.getDone(bitmapFuture));
-          } catch (ExecutionException e) {
+          } catch (CancellationException | ExecutionException e) {
             Log.w(TAG, getBitmapLoadErrorMessage(e));
           }
         } else {
@@ -356,9 +375,13 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
     long playbackStartTimeMs = getPlaybackStartTimeEpochMs(player);
     boolean displayElapsedTimeWithChronometer = playbackStartTimeMs != C.TIME_UNSET;
     builder
-        .setWhen(playbackStartTimeMs)
+        .setWhen(displayElapsedTimeWithChronometer ? playbackStartTimeMs : 0L)
         .setShowWhen(displayElapsedTimeWithChronometer)
         .setUsesChronometer(displayElapsedTimeWithChronometer);
+
+    if (Util.SDK_INT >= 31) {
+      Api31.setForegroundServiceBehavior(builder);
+    }
 
     Notification notification =
         builder
@@ -370,6 +393,7 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
             .setStyle(mediaStyle)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(false)
+            .setGroup(GROUP_KEY)
             .build();
     return new MediaNotification(notificationId, notification);
   }
@@ -678,6 +702,14 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
         channel.setShowBadge(false);
       }
       notificationManager.createNotificationChannel(channel);
+    }
+  }
+
+  @RequiresApi(31)
+  private static class Api31 {
+    @DoNotInline
+    public static void setForegroundServiceBehavior(NotificationCompat.Builder builder) {
+      builder.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE);
     }
   }
 

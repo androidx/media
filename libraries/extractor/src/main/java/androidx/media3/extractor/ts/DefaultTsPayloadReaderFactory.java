@@ -66,29 +66,34 @@ public final class DefaultTsPayloadReaderFactory implements TsPayloadReader.Fact
    * synchronization samples (key-frames).
    */
   public static final int FLAG_ALLOW_NON_IDR_KEYFRAMES = 1;
+
   /**
    * Prevents the creation of {@link AdtsReader} and {@link LatmReader} instances. This flag should
    * be enabled if the transport stream contains no packets for an AAC elementary stream that is
    * declared in the PMT.
    */
   public static final int FLAG_IGNORE_AAC_STREAM = 1 << 1;
+
   /**
    * Prevents the creation of {@link H264Reader} instances. This flag should be enabled if the
    * transport stream contains no packets for an H.264 elementary stream that is declared in the
    * PMT.
    */
   public static final int FLAG_IGNORE_H264_STREAM = 1 << 2;
+
   /**
    * When extracting H.264 samples, whether to split the input stream into access units (samples)
    * based on slice headers. This flag should be disabled if the stream contains access unit
    * delimiters (AUDs).
    */
   public static final int FLAG_DETECT_ACCESS_UNITS = 1 << 3;
+
   /**
    * Prevents the creation of {@link SectionPayloadReader}s for splice information sections
    * (SCTE-35).
    */
   public static final int FLAG_IGNORE_SPLICE_INFO_STREAM = 1 << 4;
+
   /**
    * Whether the list of {@code closedCaptionFormats} passed to {@link
    * DefaultTsPayloadReaderFactory#DefaultTsPayloadReaderFactory(int, List)} should be used in spite
@@ -96,6 +101,7 @@ public final class DefaultTsPayloadReaderFactory implements TsPayloadReader.Fact
    * closedCaptionFormats} will be ignored if the PMT contains closed captions service descriptors.
    */
   public static final int FLAG_OVERRIDE_CAPTION_DESCRIPTORS = 1 << 5;
+
   /**
    * Sets whether HDMV DTS audio streams will be handled. If this flag is set, SCTE subtitles will
    * not be detected, as they share the same elementary stream type as HDMV DTS.
@@ -145,27 +151,32 @@ public final class DefaultTsPayloadReaderFactory implements TsPayloadReader.Fact
     switch (streamType) {
       case TsExtractor.TS_STREAM_TYPE_MPA:
       case TsExtractor.TS_STREAM_TYPE_MPA_LSF:
-        return new PesReader(new MpegAudioReader(esInfo.language));
+        return new PesReader(new MpegAudioReader(esInfo.language, esInfo.getRoleFlags()));
       case TsExtractor.TS_STREAM_TYPE_AAC_ADTS:
         return isSet(FLAG_IGNORE_AAC_STREAM)
             ? null
-            : new PesReader(new AdtsReader(false, esInfo.language));
+            : new PesReader(new AdtsReader(false, esInfo.language, esInfo.getRoleFlags()));
       case TsExtractor.TS_STREAM_TYPE_AAC_LATM:
         return isSet(FLAG_IGNORE_AAC_STREAM)
             ? null
-            : new PesReader(new LatmReader(esInfo.language));
+            : new PesReader(new LatmReader(esInfo.language, esInfo.getRoleFlags()));
       case TsExtractor.TS_STREAM_TYPE_AC3:
       case TsExtractor.TS_STREAM_TYPE_E_AC3:
-        return new PesReader(new Ac3Reader(esInfo.language));
+        return new PesReader(new Ac3Reader(esInfo.language, esInfo.getRoleFlags()));
       case TsExtractor.TS_STREAM_TYPE_AC4:
-        return new PesReader(new Ac4Reader(esInfo.language));
+        return new PesReader(new Ac4Reader(esInfo.language, esInfo.getRoleFlags()));
       case TsExtractor.TS_STREAM_TYPE_HDMV_DTS:
         if (!isSet(FLAG_ENABLE_HDMV_DTS_AUDIO_STREAMS)) {
           return null;
         }
         // Fall through.
       case TsExtractor.TS_STREAM_TYPE_DTS:
-        return new PesReader(new DtsReader(esInfo.language));
+      case TsExtractor.TS_STREAM_TYPE_DTS_HD:
+        return new PesReader(
+            new DtsReader(esInfo.language, esInfo.getRoleFlags(), DtsReader.EXTSS_HEADER_SIZE_MAX));
+      case TsExtractor.TS_STREAM_TYPE_DTS_UHD:
+        return new PesReader(
+            new DtsReader(esInfo.language, esInfo.getRoleFlags(), DtsReader.FTOC_MAX_HEADER_SIZE));
       case TsExtractor.TS_STREAM_TYPE_H262:
       case TsExtractor.TS_STREAM_TYPE_DC2_H262:
         return new PesReader(new H262Reader(buildUserDataReader(esInfo)));

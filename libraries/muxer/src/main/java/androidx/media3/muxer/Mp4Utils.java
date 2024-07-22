@@ -17,6 +17,9 @@ package androidx.media3.muxer;
 
 /** Utilities for MP4 files. */
 /* package */ final class Mp4Utils {
+  /* Total number of bytes in an integer. */
+  public static final int BYTES_PER_INTEGER = 4;
+
   /**
    * The maximum length of boxes which have fixed sizes.
    *
@@ -24,6 +27,9 @@ package androidx.media3.muxer;
    * produce though and we'll throw if we overflow anyway.
    */
   public static final int MAX_FIXED_LEAF_BOX_SIZE = 200;
+
+  /** The maximum value of a 32-bit unsigned int. */
+  public static final long UNSIGNED_INT_MAX_VALUE = 4_294_967_295L;
 
   /**
    * The per-video timebase, used for durations in MVHD and TKHD even if the per-track timebase is

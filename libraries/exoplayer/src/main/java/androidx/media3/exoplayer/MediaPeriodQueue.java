@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static java.lang.Math.max;
 
 import android.os.Handler;
@@ -30,9 +31,6 @@ import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.exoplayer.analytics.AnalyticsCollector;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
-import androidx.media3.exoplayer.trackselection.TrackSelector;
-import androidx.media3.exoplayer.trackselection.TrackSelectorResult;
-import androidx.media3.exoplayer.upstream.Allocator;
 import com.google.common.collect.ImmutableList;
 
 /**
@@ -73,6 +71,7 @@ import com.google.common.collect.ImmutableList;
   private final Timeline.Window window;
   private final AnalyticsCollector analyticsCollector;
   private final HandlerWrapper analyticsCollectorHandler;
+  private final MediaPeriodHolder.Factory mediaPeriodHolderFactory;
 
   private long nextWindowSequenceNumber;
   private @RepeatMode int repeatMode;
@@ -90,11 +89,15 @@ import com.google.common.collect.ImmutableList;
    * @param analyticsCollector An {@link AnalyticsCollector} to be informed of queue changes.
    * @param analyticsCollectorHandler The {@link Handler} to call {@link AnalyticsCollector} methods
    *     on.
+   * @param mediaPeriodHolderFactory A {@link MediaPeriodHolder.Factory} to create holders.
    */
   public MediaPeriodQueue(
-      AnalyticsCollector analyticsCollector, HandlerWrapper analyticsCollectorHandler) {
+      AnalyticsCollector analyticsCollector,
+      HandlerWrapper analyticsCollectorHandler,
+      MediaPeriodHolder.Factory mediaPeriodHolderFactory) {
     this.analyticsCollector = analyticsCollector;
     this.analyticsCollectorHandler = analyticsCollectorHandler;
+    this.mediaPeriodHolderFactory = mediaPeriodHolderFactory;
     period = new Timeline.Period();
     window = new Timeline.Window();
   }
@@ -170,34 +173,15 @@ import com.google.common.collect.ImmutableList;
    * Enqueues a new media period holder based on the specified information as the new loading media
    * period, and returns it.
    *
-   * @param rendererCapabilities The renderer capabilities.
-   * @param trackSelector The track selector.
-   * @param allocator The allocator.
-   * @param mediaSourceList The list of media sources.
    * @param info Information used to identify this media period in its timeline period.
-   * @param emptyTrackSelectorResult A {@link TrackSelectorResult} with empty selections for each
-   *     renderer.
    */
-  public MediaPeriodHolder enqueueNextMediaPeriodHolder(
-      RendererCapabilities[] rendererCapabilities,
-      TrackSelector trackSelector,
-      Allocator allocator,
-      MediaSourceList mediaSourceList,
-      MediaPeriodInfo info,
-      TrackSelectorResult emptyTrackSelectorResult) {
+  public MediaPeriodHolder enqueueNextMediaPeriodHolder(MediaPeriodInfo info) {
     long rendererPositionOffsetUs =
         loading == null
             ? INITIAL_RENDERER_POSITION_OFFSET_US
             : (loading.getRendererOffset() + loading.info.durationUs - info.startPositionUs);
     MediaPeriodHolder newPeriodHolder =
-        new MediaPeriodHolder(
-            rendererCapabilities,
-            rendererPositionOffsetUs,
-            trackSelector,
-            allocator,
-            mediaSourceList,
-            info,
-            emptyTrackSelectorResult);
+        mediaPeriodHolderFactory.create(info, rendererPositionOffsetUs);
     if (loading != null) {
       loading.setNext(newPeriodHolder);
     } else {
@@ -241,10 +225,9 @@ import com.google.common.collect.ImmutableList;
    * @return The updated reading period holder.
    */
   public MediaPeriodHolder advanceReadingPeriod() {
-    Assertions.checkState(reading != null && reading.getNext() != null);
-    reading = reading.getNext();
+    reading = checkStateNotNull(reading).getNext();
     notifyQueueUpdate();
-    return reading;
+    return checkStateNotNull(reading);
   }
 
   /**
@@ -282,14 +265,14 @@ import com.google.common.collect.ImmutableList;
    * @return Whether the reading period has been removed.
    */
   public boolean removeAfter(MediaPeriodHolder mediaPeriodHolder) {
-    Assertions.checkState(mediaPeriodHolder != null);
+    checkStateNotNull(mediaPeriodHolder);
     if (mediaPeriodHolder.equals(loading)) {
       return false;
     }
     boolean removedReading = false;
     loading = mediaPeriodHolder;
     while (mediaPeriodHolder.getNext() != null) {
-      mediaPeriodHolder = mediaPeriodHolder.getNext();
+      mediaPeriodHolder = checkNotNull(mediaPeriodHolder.getNext());
       if (mediaPeriodHolder == reading) {
         reading = playing;
         removedReading = true;
@@ -297,7 +280,7 @@ import com.google.common.collect.ImmutableList;
       mediaPeriodHolder.release();
       length--;
     }
-    loading.setNext(null);
+    checkNotNull(loading).setNext(null);
     notifyQueueUpdate();
     return removedReading;
   }
@@ -644,7 +627,7 @@ import com.google.common.collect.ImmutableList;
       int nextPeriodIndex =
           timeline.getNextPeriodIndex(
               currentPeriodIndex, period, window, repeatMode, shuffleModeEnabled);
-      while (lastValidPeriodHolder.getNext() != null
+      while (checkNotNull(lastValidPeriodHolder).getNext() != null
           && !lastValidPeriodHolder.info.isLastInTimelinePeriod) {
         lastValidPeriodHolder = lastValidPeriodHolder.getNext();
       }

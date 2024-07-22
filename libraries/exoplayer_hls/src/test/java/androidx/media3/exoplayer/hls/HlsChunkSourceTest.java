@@ -21,11 +21,13 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import android.net.Uri;
+import android.os.SystemClock;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist;
@@ -38,14 +40,16 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableListMultimap;
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.Duration;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
+import org.robolectric.shadows.ShadowSystemClock;
 
 /** Unit tests for {@link HlsChunkSource}. */
 @RunWith(AndroidJUnit4.class)
@@ -191,8 +195,7 @@ public class HlsChunkSourceTest {
   }
 
   @Test
-  public void getNextChunk_chunkSourceWithDefaultCmcdConfiguration_setsCmcdLoggingHeaders()
-      throws Exception {
+  public void getNextChunk_chunkSourceWithDefaultCmcdConfiguration_setsCmcdHttpRequestHeaders() {
     CmcdConfiguration.Factory cmcdConfigurationFactory = CmcdConfiguration.Factory.DEFAULT;
     MediaItem mediaItem = new MediaItem.Builder().setMediaId("mediaId").build();
     CmcdConfiguration cmcdConfiguration =
@@ -201,7 +204,7 @@ public class HlsChunkSourceTest {
     HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
 
     testChunkSource.getNextChunk(
-        /* playbackPositionUs= */ 0,
+        new LoadingInfo.Builder().setPlaybackPositionUs(0).setPlaybackSpeed(1.0f).build(),
         /* loadPositionUs= */ 0,
         /* queue= */ ImmutableList.of(),
         /* allowEndOfStream= */ true,
@@ -210,16 +213,100 @@ public class HlsChunkSourceTest {
     assertThat(output.chunk.dataSpec.httpRequestHeaders)
         .containsExactly(
             "CMCD-Object",
-            "br=800,tb=800,d=4000,ot=v",
+            "br=800,d=4000,ot=v,tb=800",
             "CMCD-Request",
-            "bl=0",
+            "bl=0,dl=0,nor=\"..%2F3.mp4\",nrr=\"0-\",su",
             "CMCD-Session",
-            "cid=\"mediaId\",sid=\"" + cmcdConfiguration.sessionId + "\",sf=h,st=v");
+            "cid=\"mediaId\",sf=h,sid=\"" + cmcdConfiguration.sessionId + "\",st=v");
+
+    testChunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(3_000_000).setPlaybackSpeed(1.25f).build(),
+        /* loadPositionUs= */ 4_000_000,
+        /* queue= */ ImmutableList.of((HlsMediaChunk) output.chunk),
+        /* allowEndOfStream= */ true,
+        output);
+
+    assertThat(output.chunk.dataSpec.httpRequestHeaders)
+        .containsExactly(
+            "CMCD-Object",
+            "br=800,d=4000,ot=v,tb=800",
+            "CMCD-Request",
+            "bl=1000,dl=800,nor=\"..%2F3.mp4\",nrr=\"0-\"",
+            "CMCD-Session",
+            "cid=\"mediaId\",pr=1.25,sf=h,sid=\"" + cmcdConfiguration.sessionId + "\",st=v");
+
+    // Playing mid-chunk, where loadPositionUs is less than playbackPositionUs
+    testChunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(5_000_000).setPlaybackSpeed(1.25f).build(),
+        /* loadPositionUs= */ 4_000_000,
+        /* queue= */ ImmutableList.of((HlsMediaChunk) output.chunk),
+        /* allowEndOfStream= */ true,
+        output);
+
+    // buffer length is set to 0 when bufferedDurationUs is negative
+    assertThat(output.chunk.dataSpec.httpRequestHeaders)
+        .containsExactly(
+            "CMCD-Object",
+            "br=800,d=4000,ot=v,tb=800",
+            "CMCD-Request",
+            "bl=0,dl=0,nor=\"..%2F3.mp4\",nrr=\"0-\"",
+            "CMCD-Session",
+            "cid=\"mediaId\",pr=1.25,sf=h,sid=\"" + cmcdConfiguration.sessionId + "\",st=v");
   }
 
   @Test
-  public void getNextChunk_chunkSourceWithCustomCmcdConfiguration_setsCmcdLoggingHeaders()
-      throws Exception {
+  public void
+      getNextChunk_chunkSourceWithDefaultCmcdConfiguration_setsCorrectBufferStarvationKey() {
+    CmcdConfiguration.Factory cmcdConfigurationFactory = CmcdConfiguration.Factory.DEFAULT;
+    MediaItem mediaItem = new MediaItem.Builder().setMediaId("mediaId").build();
+    CmcdConfiguration cmcdConfiguration =
+        cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
+    HlsChunkSource testChunkSource = createHlsChunkSource(cmcdConfiguration);
+    HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
+    LoadingInfo loadingInfo =
+        new LoadingInfo.Builder().setPlaybackPositionUs(0).setPlaybackSpeed(1.0f).build();
+
+    testChunkSource.getNextChunk(
+        loadingInfo,
+        /* loadPositionUs= */ 0,
+        /* queue= */ ImmutableList.of(),
+        /* allowEndOfStream= */ true,
+        output);
+
+    assertThat(output.chunk.dataSpec.httpRequestHeaders).doesNotContainKey("CMCD-Status");
+
+    loadingInfo =
+        loadingInfo
+            .buildUpon()
+            .setPlaybackPositionUs(2_000_000)
+            .setLastRebufferRealtimeMs(SystemClock.elapsedRealtime())
+            .build();
+    ShadowSystemClock.advanceBy(Duration.ofMillis(100));
+
+    testChunkSource.getNextChunk(
+        loadingInfo,
+        /* loadPositionUs= */ 4_000_000,
+        /* queue= */ ImmutableList.of(),
+        /* allowEndOfStream= */ true,
+        output);
+
+    assertThat(output.chunk.dataSpec.httpRequestHeaders).containsEntry("CMCD-Status", "bs");
+
+    loadingInfo = loadingInfo.buildUpon().setPlaybackPositionUs(6_000_000).build();
+    ShadowSystemClock.advanceBy(Duration.ofMillis(100));
+
+    testChunkSource.getNextChunk(
+        loadingInfo,
+        /* loadPositionUs= */ 8_000_000,
+        /* queue= */ ImmutableList.of(),
+        /* allowEndOfStream= */ true,
+        output);
+
+    assertThat(output.chunk.dataSpec.httpRequestHeaders).doesNotContainKey("CMCD-Status");
+  }
+
+  @Test
+  public void getNextChunk_chunkSourceWithCustomCmcdConfiguration_setsCmcdHttpRequestHeaders() {
     CmcdConfiguration.Factory cmcdConfigurationFactory =
         mediaItem -> {
           CmcdConfiguration.RequestConfig cmcdRequestConfig =
@@ -247,7 +334,7 @@ public class HlsChunkSourceTest {
     HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
 
     testChunkSource.getNextChunk(
-        /* playbackPositionUs= */ 0,
+        new LoadingInfo.Builder().setPlaybackPositionUs(0).setPlaybackSpeed(1.0f).build(),
         /* loadPositionUs= */ 0,
         /* queue= */ ImmutableList.of(),
         /* allowEndOfStream= */ true,
@@ -256,9 +343,9 @@ public class HlsChunkSourceTest {
     assertThat(output.chunk.dataSpec.httpRequestHeaders)
         .containsExactly(
             "CMCD-Object",
-            "br=800,tb=800,d=4000,ot=v",
+            "br=800,d=4000,ot=v,tb=800",
             "CMCD-Request",
-            "bl=0",
+            "bl=0,dl=0,nor=\"..%2F3.mp4\",nrr=\"0-\",su",
             "CMCD-Session",
             "cid=\"mediaIdcontentIdSuffix\",sf=h,st=v",
             "CMCD-Status",
@@ -267,20 +354,22 @@ public class HlsChunkSourceTest {
 
   @Test
   public void
-      getNextChunk_chunkSourceWithCustomCmcdConfigurationAndCustomData_setsCmcdLoggingHeaders()
+      getNextChunk_chunkSourceWithCustomCmcdConfigurationAndCustomData_setsCmcdHttpRequestHeaders()
           throws Exception {
     CmcdConfiguration.Factory cmcdConfigurationFactory =
         mediaItem -> {
           CmcdConfiguration.RequestConfig cmcdRequestConfig =
               new CmcdConfiguration.RequestConfig() {
                 @Override
-                public ImmutableMap<@CmcdConfiguration.HeaderKey String, String> getCustomData() {
-                  return new ImmutableMap.Builder<@CmcdConfiguration.HeaderKey String, String>()
-                      .put(CmcdConfiguration.KEY_CMCD_OBJECT, "key1=value1")
-                      .put(CmcdConfiguration.KEY_CMCD_REQUEST, "key2=\"stringValue\"")
-                      .put(CmcdConfiguration.KEY_CMCD_SESSION, "key3=1")
-                      .put(CmcdConfiguration.KEY_CMCD_STATUS, "key4=5.0")
-                      .buildOrThrow();
+                public ImmutableListMultimap<@CmcdConfiguration.HeaderKey String, String>
+                    getCustomData() {
+                  return new ImmutableListMultimap.Builder<
+                          @CmcdConfiguration.HeaderKey String, String>()
+                      .put(CmcdConfiguration.KEY_CMCD_OBJECT, "key-1=1")
+                      .put(CmcdConfiguration.KEY_CMCD_REQUEST, "key-2=\"stringValue\"")
+                      .put(CmcdConfiguration.KEY_CMCD_SESSION, "com.example-key3=3")
+                      .put(CmcdConfiguration.KEY_CMCD_STATUS, "com.example.test-key4=5.0")
+                      .build();
                 }
               };
 
@@ -294,7 +383,7 @@ public class HlsChunkSourceTest {
     HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
 
     testChunkSource.getNextChunk(
-        /* playbackPositionUs= */ 0,
+        new LoadingInfo.Builder().setPlaybackPositionUs(0).setPlaybackSpeed(1.0f).build(),
         /* loadPositionUs= */ 0,
         /* queue= */ ImmutableList.of(),
         /* allowEndOfStream= */ true,
@@ -303,13 +392,61 @@ public class HlsChunkSourceTest {
     assertThat(output.chunk.dataSpec.httpRequestHeaders)
         .containsExactly(
             "CMCD-Object",
-            "br=800,tb=800,d=4000,ot=v,key1=value1",
+            "br=800,d=4000,key-1=1,ot=v,tb=800",
             "CMCD-Request",
-            "bl=0,key2=\"stringValue\"",
+            "bl=0,dl=0,key-2=\"stringValue\",nor=\"..%2F3.mp4\",nrr=\"0-\",su",
             "CMCD-Session",
-            "cid=\"mediaId\",sid=\"" + cmcdConfiguration.sessionId + "\",sf=h,st=v,key3=1",
+            "cid=\"mediaId\",com.example-key3=3,sf=h,sid=\""
+                + cmcdConfiguration.sessionId
+                + "\",st=v",
             "CMCD-Status",
-            "key4=5.0");
+            "com.example.test-key4=5.0");
+  }
+
+  @Test
+  public void
+      getNextChunk_chunkSourceWithCustomCmcdConfigurationAndCustomData_setsCmcdHttpQueryParameters()
+          throws Exception {
+    CmcdConfiguration.Factory cmcdConfigurationFactory =
+        mediaItem -> {
+          CmcdConfiguration.RequestConfig cmcdRequestConfig =
+              new CmcdConfiguration.RequestConfig() {
+                @Override
+                public ImmutableListMultimap<@CmcdConfiguration.HeaderKey String, String>
+                    getCustomData() {
+                  return new ImmutableListMultimap.Builder<
+                          @CmcdConfiguration.HeaderKey String, String>()
+                      .put(CmcdConfiguration.KEY_CMCD_OBJECT, "com.example.test-key-1=1")
+                      .put(CmcdConfiguration.KEY_CMCD_REQUEST, "key-2=\"stringValue\"")
+                      .build();
+                }
+              };
+
+          return new CmcdConfiguration(
+              /* sessionId= */ "sessionId",
+              /* contentId= */ mediaItem.mediaId,
+              cmcdRequestConfig,
+              CmcdConfiguration.MODE_QUERY_PARAMETER);
+        };
+    MediaItem mediaItem = new MediaItem.Builder().setMediaId("mediaId").build();
+    CmcdConfiguration cmcdConfiguration =
+        cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
+    HlsChunkSource testChunkSource = createHlsChunkSource(cmcdConfiguration);
+    HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
+
+    testChunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(0).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 0,
+        /* queue= */ ImmutableList.of(),
+        /* allowEndOfStream= */ true,
+        output);
+
+    assertThat(
+            output.chunk.dataSpec.uri.getQueryParameter(CmcdConfiguration.CMCD_QUERY_PARAMETER_KEY))
+        .isEqualTo(
+            "bl=0,br=800,cid=\"mediaId\",com.example.test-key-1=1,d=4000,dl=0,"
+                + "key-2=\"stringValue\",nor=\"..%2F3.mp4\",nrr=\"0-\",ot=v,sf=h,"
+                + "sid=\"sessionId\",st=v,su,tb=800");
   }
 
   private HlsChunkSource createHlsChunkSource(@Nullable CmcdConfiguration cmcdConfiguration) {

@@ -15,12 +15,14 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.session.CommandButton.CREATOR;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
+import android.net.Uri;
 import android.os.Bundle;
 import androidx.media3.common.Player;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -29,17 +31,142 @@ import org.junit.runner.RunWith;
 public class CommandButtonTest {
 
   @Test
+  public void isEnabled_playerCommandAvailableOrUnavailableInPlayerCommands_isEnabledCorrectly() {
+    CommandButton button =
+        new CommandButton.Builder()
+            .setDisplayName("button")
+            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+            .build();
+    Player.Commands availablePlayerCommands =
+        Player.Commands.EMPTY.buildUpon().add(Player.COMMAND_SEEK_TO_NEXT).build();
+
+    assertThat(CommandButton.isEnabled(button, SessionCommands.EMPTY, Player.Commands.EMPTY))
+        .isFalse();
+    assertThat(CommandButton.isEnabled(button, SessionCommands.EMPTY, availablePlayerCommands))
+        .isTrue();
+  }
+
+  @Test
+  public void isEnabled_sessionCommandAvailableOrUnavailable_isEnabledCorrectly() {
+    SessionCommand command1 = new SessionCommand("command1", Bundle.EMPTY);
+    CommandButton button =
+        new CommandButton.Builder()
+            .setDisplayName("button")
+            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setSessionCommand(command1)
+            .build();
+    SessionCommands availableSessionCommands =
+        SessionCommands.EMPTY.buildUpon().add(command1).build();
+
+    assertThat(CommandButton.isEnabled(button, SessionCommands.EMPTY, Player.Commands.EMPTY))
+        .isFalse();
+    assertThat(CommandButton.isEnabled(button, availableSessionCommands, Player.Commands.EMPTY))
+        .isTrue();
+  }
+
+  @Test
+  public void getEnabledCommandButtons() {
+    CommandButton button1 =
+        new CommandButton.Builder()
+            .setDisplayName("button1")
+            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+            .build();
+    SessionCommand command2 = new SessionCommand("command2", Bundle.EMPTY);
+    CommandButton button2 =
+        new CommandButton.Builder()
+            .setDisplayName("button2")
+            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setSessionCommand(command2)
+            .build();
+    SessionCommands availableSessionCommands =
+        SessionCommands.EMPTY.buildUpon().add(command2).build();
+    Player.Commands availablePlayerCommands =
+        Player.Commands.EMPTY.buildUpon().add(Player.COMMAND_SEEK_TO_PREVIOUS).build();
+
+    assertThat(
+            CommandButton.getEnabledCommandButtons(
+                ImmutableList.of(button1, button2), SessionCommands.EMPTY, Player.Commands.EMPTY))
+        .containsExactly(button1, button2);
+    assertThat(
+            CommandButton.getEnabledCommandButtons(
+                ImmutableList.of(button1, button2),
+                availableSessionCommands,
+                availablePlayerCommands))
+        .containsExactly(button1.copyWithIsEnabled(true), button2.copyWithIsEnabled(true));
+  }
+
+  @Test
+  public void getIconUri_returnsUri() {
+    Uri uri = Uri.parse("content://test");
+    CommandButton button =
+        new CommandButton.Builder()
+            .setDisplayName("button1")
+            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setIconUri(uri)
+            .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+            .build();
+
+    assertThat(button.iconUri).isEqualTo(uri);
+  }
+
+  @Test
+  public void getIconUri_returnsNullIfUnset() {
+    CommandButton button =
+        new CommandButton.Builder()
+            .setDisplayName("button1")
+            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+            .build();
+
+    assertThat(button.iconUri).isNull();
+  }
+
+  @Test
+  public void getIconUri_returnsUriAfterSerialisation() {
+    Uri uri = Uri.parse("content://test");
+    CommandButton button =
+        new CommandButton.Builder()
+            .setDisplayName("button1")
+            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setIconUri(uri)
+            .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+            .build();
+
+    CommandButton serialisedButton = CommandButton.fromBundle(button.toBundle());
+
+    assertThat(serialisedButton.iconUri).isEqualTo(uri);
+  }
+
+  @Test
+  public void getIconUri_returnsNullIfUnsetAfterSerialisation() {
+    CommandButton button =
+        new CommandButton.Builder()
+            .setDisplayName("button1")
+            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+            .build();
+
+    CommandButton serialisedButton = CommandButton.fromBundle(button.toBundle());
+
+    assertThat(serialisedButton.iconUri).isNull();
+  }
+
+  @Test
   public void equals() {
     assertThat(
             new CommandButton.Builder()
                 .setDisplayName("button")
                 .setIconResId(R.drawable.media3_notification_small_icon)
+                .setIconUri(Uri.parse("content://test"))
                 .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
                 .build())
         .isEqualTo(
             new CommandButton.Builder()
                 .setDisplayName("button")
                 .setIconResId(R.drawable.media3_notification_small_icon)
+                .setIconUri(Uri.parse("content://test"))
                 .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
                 .build());
   }
@@ -53,7 +180,7 @@ public class CommandButtonTest {
             .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
             .build();
 
-    assertThat(button).isEqualTo(CREATOR.fromBundle(button.toBundle()));
+    assertThat(button).isEqualTo(CommandButton.fromBundle(button.toBundle()));
     assertThat(button)
         .isNotEqualTo(
             new CommandButton.Builder()
@@ -89,6 +216,14 @@ public class CommandButtonTest {
                 .setSessionCommand(new SessionCommand(Player.COMMAND_PLAY_PAUSE))
                 .setDisplayName("button")
                 .setIconResId(R.drawable.media3_notification_small_icon)
+                .build());
+    assertThat(button)
+        .isNotEqualTo(
+            new CommandButton.Builder()
+                .setDisplayName("button")
+                .setIconResId(R.drawable.media3_notification_small_icon)
+                .setIconUri(Uri.parse("content://test"))
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
                 .build());
   }
 
@@ -198,5 +333,14 @@ public class CommandButtonTest {
                 .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
                 .build()
                 .hashCode());
+  }
+
+  @Test
+  public void build_withoutSessionOrPlayerCommandSet_throwsIllegalStateException() {
+    CommandButton.Builder builder =
+        new CommandButton.Builder()
+            .setDisplayName("button")
+            .setIconResId(R.drawable.media3_notification_small_icon);
+    assertThrows(IllegalStateException.class, builder::build);
   }
 }

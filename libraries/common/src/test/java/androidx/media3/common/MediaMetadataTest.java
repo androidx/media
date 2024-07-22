@@ -89,7 +89,7 @@ public class MediaMetadataTest {
   }
 
   @Test
-  public void builderSetArworkUri_setsArtworkUri() {
+  public void builderSetArtworkUri_setsArtworkUri() {
     Uri uri = Uri.parse("https://www.google.com");
     MediaMetadata mediaMetadata = new MediaMetadata.Builder().setArtworkUri(uri).build();
 
@@ -108,6 +108,35 @@ public class MediaMetadataTest {
   }
 
   @Test
+  public void populate_withArtworkUriOnly_updatesBothArtWorkUriAndArtworkData() {
+    Uri artWorkUri = Uri.parse("https://www.test.com");
+    MediaMetadata mediaMetadata = new MediaMetadata.Builder().setArtworkUri(artWorkUri).build();
+    MediaMetadata originalMediaMetadata = getFullyPopulatedMediaMetadata();
+
+    MediaMetadata populatedMediaMetadata =
+        originalMediaMetadata.buildUpon().populate(mediaMetadata).build();
+
+    assertThat(populatedMediaMetadata.artworkUri).isEqualTo(artWorkUri);
+    assertThat(populatedMediaMetadata.artworkData).isNull();
+  }
+
+  @Test
+  public void populate_withArtworkDataOnly_updatesBothArtWorkUriAndArtworkData() {
+    byte[] artworkData = new byte[] {35, 12, 6, 77};
+    MediaMetadata mediaMetadata =
+        new MediaMetadata.Builder()
+            .setArtworkData(artworkData, MediaMetadata.PICTURE_TYPE_MEDIA)
+            .build();
+    MediaMetadata originalMediaMetadata = getFullyPopulatedMediaMetadata();
+
+    MediaMetadata populatedMediaMetadata =
+        originalMediaMetadata.buildUpon().populate(mediaMetadata).build();
+
+    assertThat(populatedMediaMetadata.artworkData).isEqualTo(artworkData);
+    assertThat(populatedMediaMetadata.artworkUri).isNull();
+  }
+
+  @Test
   public void toBundleSkipsDefaultValues_fromBundleRestoresThem() {
     MediaMetadata mediaMetadata = new MediaMetadata.Builder().build();
 
@@ -116,7 +145,7 @@ public class MediaMetadataTest {
     // Check that default values are skipped when bundling.
     assertThat(mediaMetadataBundle.keySet()).isEmpty();
 
-    MediaMetadata mediaMetadataFromBundle = MediaMetadata.CREATOR.fromBundle(mediaMetadataBundle);
+    MediaMetadata mediaMetadataFromBundle = MediaMetadata.fromBundle(mediaMetadataBundle);
 
     assertThat(mediaMetadataFromBundle).isEqualTo(mediaMetadata);
     // Extras is not implemented in MediaMetadata.equals(Object o).
@@ -127,12 +156,25 @@ public class MediaMetadataTest {
   public void createFullyPopulatedMediaMetadata_roundTripViaBundle_yieldsEqualInstance() {
     MediaMetadata mediaMetadata = getFullyPopulatedMediaMetadata();
 
-    MediaMetadata mediaMetadataFromBundle =
-        MediaMetadata.CREATOR.fromBundle(mediaMetadata.toBundle());
+    MediaMetadata mediaMetadataFromBundle = MediaMetadata.fromBundle(mediaMetadata.toBundle());
 
     assertThat(mediaMetadataFromBundle).isEqualTo(mediaMetadata);
     // Extras is not implemented in MediaMetadata.equals(Object o).
     assertThat(mediaMetadataFromBundle.extras.getString(EXTRAS_KEY)).isEqualTo(EXTRAS_VALUE);
+  }
+
+  /** Regression test for https://github.com/androidx/media/issues/1176. */
+  @Test
+  public void roundTripViaBundle_withJustNonNullExtras_restoresAllData() {
+    Bundle extras = new Bundle();
+    extras.putString("key", "value");
+    MediaMetadata mediaMetadata = new MediaMetadata.Builder().setExtras(extras).build();
+
+    MediaMetadata restoredMetadata = MediaMetadata.fromBundle(mediaMetadata.toBundle());
+
+    assertThat(restoredMetadata).isEqualTo(mediaMetadata);
+    assertThat(restoredMetadata.extras).isNotNull();
+    assertThat(restoredMetadata.extras.get("key")).isEqualTo("value");
   }
 
   @SuppressWarnings("deprecation") // Testing deprecated setter.

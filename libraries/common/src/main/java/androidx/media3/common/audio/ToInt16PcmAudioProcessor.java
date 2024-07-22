@@ -19,7 +19,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.ByteBuffer;
 
 /**
@@ -31,7 +30,9 @@ import java.nio.ByteBuffer;
  *   <li>{@link C#ENCODING_PCM_16BIT} ({@link #isActive()} will return {@code false})
  *   <li>{@link C#ENCODING_PCM_16BIT_BIG_ENDIAN}
  *   <li>{@link C#ENCODING_PCM_24BIT}
+ *   <li>{@link C#ENCODING_PCM_24BIT_BIG_ENDIAN}
  *   <li>{@link C#ENCODING_PCM_32BIT}
+ *   <li>{@link C#ENCODING_PCM_32BIT_BIG_ENDIAN}
  *   <li>{@link C#ENCODING_PCM_FLOAT}
  * </ul>
  */
@@ -39,7 +40,6 @@ import java.nio.ByteBuffer;
 public final class ToInt16PcmAudioProcessor extends BaseAudioProcessor {
 
   @Override
-  @CanIgnoreReturnValue
   public AudioFormat onConfigure(AudioFormat inputAudioFormat)
       throws UnhandledAudioFormatException {
     @C.PcmEncoding int encoding = inputAudioFormat.encoding;
@@ -47,7 +47,9 @@ public final class ToInt16PcmAudioProcessor extends BaseAudioProcessor {
         && encoding != C.ENCODING_PCM_16BIT
         && encoding != C.ENCODING_PCM_16BIT_BIG_ENDIAN
         && encoding != C.ENCODING_PCM_24BIT
+        && encoding != C.ENCODING_PCM_24BIT_BIG_ENDIAN
         && encoding != C.ENCODING_PCM_32BIT
+        && encoding != C.ENCODING_PCM_32BIT_BIG_ENDIAN
         && encoding != C.ENCODING_PCM_FLOAT) {
       throw new UnhandledAudioFormatException(inputAudioFormat);
     }
@@ -72,9 +74,11 @@ public final class ToInt16PcmAudioProcessor extends BaseAudioProcessor {
         resampledSize = size;
         break;
       case C.ENCODING_PCM_24BIT:
+      case C.ENCODING_PCM_24BIT_BIG_ENDIAN:
         resampledSize = (size / 3) * 2;
         break;
       case C.ENCODING_PCM_32BIT:
+      case C.ENCODING_PCM_32BIT_BIG_ENDIAN:
       case C.ENCODING_PCM_FLOAT:
         resampledSize = size / 2;
         break;
@@ -109,11 +113,25 @@ public final class ToInt16PcmAudioProcessor extends BaseAudioProcessor {
           buffer.put(inputBuffer.get(i + 2));
         }
         break;
+      case C.ENCODING_PCM_24BIT_BIG_ENDIAN:
+        // 24 BE -> 16 bit resampling. Drop the least significant byte.
+        for (int i = position; i < limit; i += 3) {
+          buffer.put(inputBuffer.get(i + 1));
+          buffer.put(inputBuffer.get(i));
+        }
+        break;
       case C.ENCODING_PCM_32BIT:
         // 32 -> 16 bit resampling. Drop the two least significant bytes.
         for (int i = position; i < limit; i += 4) {
           buffer.put(inputBuffer.get(i + 2));
           buffer.put(inputBuffer.get(i + 3));
+        }
+        break;
+      case C.ENCODING_PCM_32BIT_BIG_ENDIAN:
+        // 32 BE -> 16 bit resampling. Drop the two least significant bytes.
+        for (int i = position; i < limit; i += 4) {
+          buffer.put(inputBuffer.get(i + 1));
+          buffer.put(inputBuffer.get(i));
         }
         break;
       case C.ENCODING_PCM_FLOAT:

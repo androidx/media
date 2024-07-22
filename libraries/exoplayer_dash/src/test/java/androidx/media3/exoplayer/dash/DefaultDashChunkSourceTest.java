@@ -30,6 +30,7 @@ import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.HttpDataSource;
+import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.dash.manifest.DashManifest;
 import androidx.media3.exoplayer.dash.manifest.DashManifestParser;
@@ -51,6 +52,7 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import java.io.IOException;
@@ -107,7 +109,9 @@ public class DefaultDashChunkSourceTest {
     ChunkHolder output = new ChunkHolder();
 
     chunkSource.getNextChunk(
-        /* playbackPositionUs= */ nowInPeriodUs - 5 * C.MICROS_PER_SECOND,
+        new LoadingInfo.Builder()
+            .setPlaybackPositionUs(nowInPeriodUs - 5 * C.MICROS_PER_SECOND)
+            .build(),
         /* loadPositionUs= */ nowInPeriodUs - 5 * C.MICROS_PER_SECOND,
         /* queue= */ ImmutableList.of(),
         output);
@@ -115,7 +119,7 @@ public class DefaultDashChunkSourceTest {
         .isEqualTo(0);
 
     chunkSource.getNextChunk(
-        /* playbackPositionUs= */ nowInPeriodUs,
+        new LoadingInfo.Builder().setPlaybackPositionUs(nowInPeriodUs).build(),
         /* loadPositionUs= */ nowInPeriodUs,
         /* queue= */ ImmutableList.of(),
         output);
@@ -155,7 +159,7 @@ public class DefaultDashChunkSourceTest {
 
     ChunkHolder output = new ChunkHolder();
     chunkSource.getNextChunk(
-        /* playbackPositionUs= */ 0,
+        new LoadingInfo.Builder().setPlaybackPositionUs(0).build(),
         /* loadPositionUs= */ 0,
         /* queue= */ ImmutableList.of(),
         output);
@@ -183,7 +187,7 @@ public class DefaultDashChunkSourceTest {
     boolean requestReplacementChunk = true;
     while (requestReplacementChunk) {
       chunkSource.getNextChunk(
-          /* playbackPositionUs= */ 0,
+          new LoadingInfo.Builder().setPlaybackPositionUs(0).build(),
           /* loadPositionUs= */ 0,
           /* queue= */ ImmutableList.of(),
           output);
@@ -213,7 +217,7 @@ public class DefaultDashChunkSourceTest {
             output.chunk.dataSpec, /* httpResponseCode= */ 404, /* errorCount= */ 1),
         loadErrorHandlingPolicy);
     chunkSource.getNextChunk(
-        /* playbackPositionUs= */ 0,
+        new LoadingInfo.Builder().setPlaybackPositionUs(0).build(),
         /* loadPositionUs= */ 0,
         /* queue= */ ImmutableList.of(),
         output);
@@ -241,7 +245,7 @@ public class DefaultDashChunkSourceTest {
     boolean requestReplacementChunk = true;
     while (requestReplacementChunk) {
       chunkSource.getNextChunk(
-          /* playbackPositionUs= */ 0,
+          new LoadingInfo.Builder().setPlaybackPositionUs(0).build(),
           /* loadPositionUs= */ 0,
           /* queue= */ ImmutableList.of(),
           output);
@@ -280,7 +284,7 @@ public class DefaultDashChunkSourceTest {
         createDashChunkSource(/* numberOfTracks= */ 2, /* cmcdConfiguration= */ null);
     ChunkHolder output = new ChunkHolder();
     chunkSource.getNextChunk(
-        /* playbackPositionUs= */ 0,
+        new LoadingInfo.Builder().setPlaybackPositionUs(0).build(),
         /* loadPositionUs= */ 0,
         /* queue= */ ImmutableList.of(),
         output);
@@ -297,7 +301,7 @@ public class DefaultDashChunkSourceTest {
   }
 
   @Test
-  public void getNextChunk_chunkSourceWithDefaultCmcdConfiguration_setsCmcdLoggingHeaders()
+  public void getNextChunk_chunkSourceWithDefaultCmcdConfiguration_setsCmcdHttpRequestHeaders()
       throws Exception {
     CmcdConfiguration.Factory cmcdConfigurationFactory = CmcdConfiguration.Factory.DEFAULT;
     MediaItem mediaItem = new MediaItem.Builder().setMediaId("mediaId").build();
@@ -307,7 +311,7 @@ public class DefaultDashChunkSourceTest {
     ChunkHolder output = new ChunkHolder();
 
     chunkSource.getNextChunk(
-        /* playbackPositionUs= */ 0,
+        new LoadingInfo.Builder().setPlaybackPositionUs(0).setPlaybackSpeed(1.0f).build(),
         /* loadPositionUs= */ 0,
         /* queue= */ ImmutableList.of(),
         output);
@@ -315,15 +319,86 @@ public class DefaultDashChunkSourceTest {
     assertThat(output.chunk.dataSpec.httpRequestHeaders)
         .containsExactly(
             "CMCD-Object",
-            "br=700,tb=1300,d=4000,ot=v",
+            "br=700,d=4000,ot=v,tb=1300",
             "CMCD-Request",
-            "bl=0,mtp=1000",
+            "bl=0,dl=0,mtp=1000,nor=\"..%2Fvideo_4000_700000.m4s\",nrr=\"0-\",su",
             "CMCD-Session",
-            "cid=\"mediaId\",sid=\"" + cmcdConfiguration.sessionId + "\",sf=d,st=v");
+            "cid=\"mediaId\",sf=d,sid=\"" + cmcdConfiguration.sessionId + "\",st=v");
+
+    chunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(3_000_000).setPlaybackSpeed(1.25f).build(),
+        /* loadPositionUs= */ 4_000_000,
+        /* queue= */ ImmutableList.of((MediaChunk) output.chunk),
+        output);
+
+    assertThat(output.chunk.dataSpec.httpRequestHeaders)
+        .containsExactly(
+            "CMCD-Object",
+            "br=700,d=4000,ot=v,tb=1300",
+            "CMCD-Request",
+            "bl=1000,dl=800,mtp=1000,nor=\"..%2Fvideo_8000_700000.m4s\",nrr=\"0-\"",
+            "CMCD-Session",
+            "cid=\"mediaId\",pr=1.25,sf=d,sid=\"" + cmcdConfiguration.sessionId + "\",st=v");
+
+    // Playing mid-chunk, where loadPositionUs is less than playbackPositionUs
+    chunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(5_000_000).setPlaybackSpeed(1.25f).build(),
+        /* loadPositionUs= */ 4_000_000,
+        /* queue= */ ImmutableList.of((MediaChunk) output.chunk),
+        output);
+
+    // buffer length is set to 0 when bufferedDurationUs is negative
+    assertThat(output.chunk.dataSpec.httpRequestHeaders)
+        .containsExactly(
+            "CMCD-Object",
+            "br=700,d=4000,ot=v,tb=1300",
+            "CMCD-Request",
+            "bl=0,dl=0,mtp=1000,nor=\"..%2Fvideo_12000_700000.m4s\",nrr=\"0-\"",
+            "CMCD-Session",
+            "cid=\"mediaId\",pr=1.25,sf=d,sid=\"" + cmcdConfiguration.sessionId + "\",st=v");
   }
 
   @Test
-  public void getNextChunk_chunkSourceWithCustomCmcdConfiguration_setsCmcdLoggingHeaders()
+  public void getNextChunk_chunkSourceWithDefaultCmcdConfiguration_setsCorrectBufferStarvationKey()
+      throws Exception {
+    CmcdConfiguration.Factory cmcdConfigurationFactory = CmcdConfiguration.Factory.DEFAULT;
+    MediaItem mediaItem = new MediaItem.Builder().setMediaId("mediaId").build();
+    CmcdConfiguration cmcdConfiguration =
+        cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
+    DashChunkSource chunkSource = createDashChunkSource(/* numberOfTracks= */ 2, cmcdConfiguration);
+    ChunkHolder output = new ChunkHolder();
+    LoadingInfo loadingInfo =
+        new LoadingInfo.Builder().setPlaybackPositionUs(0).setPlaybackSpeed(1.0f).build();
+
+    chunkSource.getNextChunk(
+        loadingInfo, /* loadPositionUs= */ 0, /* queue= */ ImmutableList.of(), output);
+
+    assertThat(output.chunk.dataSpec.httpRequestHeaders).doesNotContainKey("CMCD-Status");
+
+    loadingInfo =
+        loadingInfo
+            .buildUpon()
+            .setPlaybackPositionUs(2_000_000)
+            .setLastRebufferRealtimeMs(SystemClock.elapsedRealtime())
+            .build();
+    ShadowSystemClock.advanceBy(Duration.ofMillis(100));
+
+    chunkSource.getNextChunk(
+        loadingInfo, /* loadPositionUs= */ 4_000_000, /* queue= */ ImmutableList.of(), output);
+
+    assertThat(output.chunk.dataSpec.httpRequestHeaders).containsEntry("CMCD-Status", "bs");
+
+    loadingInfo = loadingInfo.buildUpon().setPlaybackPositionUs(6_000_000).build();
+    ShadowSystemClock.advanceBy(Duration.ofMillis(100));
+
+    chunkSource.getNextChunk(
+        loadingInfo, /* loadPositionUs= */ 8_000_000, /* queue= */ ImmutableList.of(), output);
+
+    assertThat(output.chunk.dataSpec.httpRequestHeaders).doesNotContainKey("CMCD-Status");
+  }
+
+  @Test
+  public void getNextChunk_chunkSourceWithCustomCmcdConfiguration_setsCmcdHttpRequestHeaders()
       throws Exception {
     CmcdConfiguration.Factory cmcdConfigurationFactory =
         mediaItem -> {
@@ -352,7 +427,7 @@ public class DefaultDashChunkSourceTest {
     ChunkHolder output = new ChunkHolder();
 
     chunkSource.getNextChunk(
-        /* playbackPositionUs= */ 0,
+        new LoadingInfo.Builder().setPlaybackPositionUs(0).setPlaybackSpeed(1.0f).build(),
         /* loadPositionUs= */ 0,
         /* queue= */ ImmutableList.of(),
         output);
@@ -360,9 +435,9 @@ public class DefaultDashChunkSourceTest {
     assertThat(output.chunk.dataSpec.httpRequestHeaders)
         .containsExactly(
             "CMCD-Object",
-            "br=700,tb=1300,d=4000,ot=v",
+            "br=700,d=4000,ot=v,tb=1300",
             "CMCD-Request",
-            "bl=0,mtp=1000",
+            "bl=0,dl=0,mtp=1000,nor=\"..%2Fvideo_4000_700000.m4s\",nrr=\"0-\",su",
             "CMCD-Session",
             "cid=\"mediaIdcontentIdSuffix\",sf=d,st=v",
             "CMCD-Status",
@@ -371,20 +446,22 @@ public class DefaultDashChunkSourceTest {
 
   @Test
   public void
-      getNextChunk_chunkSourceWithCustomCmcdConfigurationAndCustomData_setsCmcdLoggingHeaders()
+      getNextChunk_chunkSourceWithCustomCmcdConfigurationAndCustomData_setsCmcdHttpRequestHeaders()
           throws Exception {
     CmcdConfiguration.Factory cmcdConfigurationFactory =
         mediaItem -> {
           CmcdConfiguration.RequestConfig cmcdRequestConfig =
               new CmcdConfiguration.RequestConfig() {
                 @Override
-                public ImmutableMap<@CmcdConfiguration.HeaderKey String, String> getCustomData() {
-                  return new ImmutableMap.Builder<@CmcdConfiguration.HeaderKey String, String>()
-                      .put(CmcdConfiguration.KEY_CMCD_OBJECT, "key1=value1")
-                      .put(CmcdConfiguration.KEY_CMCD_REQUEST, "key2=\"stringValue\"")
-                      .put(CmcdConfiguration.KEY_CMCD_SESSION, "key3=1")
-                      .put(CmcdConfiguration.KEY_CMCD_STATUS, "key4=5.0")
-                      .buildOrThrow();
+                public ImmutableListMultimap<@CmcdConfiguration.HeaderKey String, String>
+                    getCustomData() {
+                  return new ImmutableListMultimap.Builder<
+                          @CmcdConfiguration.HeaderKey String, String>()
+                      .put(CmcdConfiguration.KEY_CMCD_OBJECT, "key-1=1")
+                      .put(CmcdConfiguration.KEY_CMCD_REQUEST, "key-2=\"stringValue\"")
+                      .put(CmcdConfiguration.KEY_CMCD_SESSION, "com.example-key3=3")
+                      .put(CmcdConfiguration.KEY_CMCD_STATUS, "com.example.test-key4=5.0")
+                      .build();
                 }
               };
 
@@ -398,7 +475,7 @@ public class DefaultDashChunkSourceTest {
     ChunkHolder output = new ChunkHolder();
 
     chunkSource.getNextChunk(
-        /* playbackPositionUs= */ 0,
+        new LoadingInfo.Builder().setPlaybackPositionUs(0).setPlaybackSpeed(1.0f).build(),
         /* loadPositionUs= */ 0,
         /* queue= */ ImmutableList.of(),
         output);
@@ -406,13 +483,60 @@ public class DefaultDashChunkSourceTest {
     assertThat(output.chunk.dataSpec.httpRequestHeaders)
         .containsExactly(
             "CMCD-Object",
-            "br=700,tb=1300,d=4000,ot=v,key1=value1",
+            "br=700,d=4000,key-1=1,ot=v,tb=1300",
             "CMCD-Request",
-            "bl=0,mtp=1000,key2=\"stringValue\"",
+            "bl=0,dl=0,key-2=\"stringValue\",mtp=1000,nor=\"..%2Fvideo_4000_700000.m4s\",nrr=\"0-\",su",
             "CMCD-Session",
-            "cid=\"mediaId\",sid=\"" + cmcdConfiguration.sessionId + "\",sf=d,st=v,key3=1",
+            "cid=\"mediaId\",com.example-key3=3,sf=d,sid=\""
+                + cmcdConfiguration.sessionId
+                + "\",st=v",
             "CMCD-Status",
-            "key4=5.0");
+            "com.example.test-key4=5.0");
+  }
+
+  @Test
+  public void
+      getNextChunk_chunkSourceWithCustomCmcdConfigurationAndCustomData_setsCmcdHttpQueryParameters()
+          throws Exception {
+    CmcdConfiguration.Factory cmcdConfigurationFactory =
+        mediaItem -> {
+          CmcdConfiguration.RequestConfig cmcdRequestConfig =
+              new CmcdConfiguration.RequestConfig() {
+                @Override
+                public ImmutableListMultimap<@CmcdConfiguration.HeaderKey String, String>
+                    getCustomData() {
+                  return new ImmutableListMultimap.Builder<
+                          @CmcdConfiguration.HeaderKey String, String>()
+                      .put(CmcdConfiguration.KEY_CMCD_OBJECT, "com.example.test-key-1=1")
+                      .put(CmcdConfiguration.KEY_CMCD_REQUEST, "key-2=\"stringValue\"")
+                      .build();
+                }
+              };
+
+          return new CmcdConfiguration(
+              /* sessionId= */ "sessionId",
+              /* contentId= */ mediaItem.mediaId,
+              cmcdRequestConfig,
+              CmcdConfiguration.MODE_QUERY_PARAMETER);
+        };
+    MediaItem mediaItem = new MediaItem.Builder().setMediaId("mediaId").build();
+    CmcdConfiguration cmcdConfiguration =
+        cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
+    DashChunkSource chunkSource = createDashChunkSource(/* numberOfTracks= */ 2, cmcdConfiguration);
+    ChunkHolder output = new ChunkHolder();
+
+    chunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(0).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 0,
+        /* queue= */ ImmutableList.of(),
+        output);
+
+    assertThat(
+            output.chunk.dataSpec.uri.getQueryParameter(CmcdConfiguration.CMCD_QUERY_PARAMETER_KEY))
+        .isEqualTo(
+            "bl=0,br=700,cid=\"mediaId\",com.example.test-key-1=1,d=4000,dl=0,"
+                + "key-2=\"stringValue\",mtp=1000,nor=\"..%2Fvideo_4000_700000.m4s\",nrr=\"0-\","
+                + "ot=v,sf=d,sid=\"sessionId\",st=v,su,tb=1300");
   }
 
   @Test
@@ -447,7 +571,7 @@ public class DefaultDashChunkSourceTest {
     ChunkHolder output = new ChunkHolder();
     // Populate with last available media chunk
     chunkSource.getNextChunk(
-        /* playbackPositionUs= */ 0,
+        new LoadingInfo.Builder().setPlaybackPositionUs(0).build(),
         /* loadPositionUs= */ 0,
         /* queue= */ ImmutableList.of(),
         output);
@@ -456,7 +580,7 @@ public class DefaultDashChunkSourceTest {
 
     // Request another chunk
     chunkSource.getNextChunk(
-        /* playbackPositionUs= */ 0,
+        new LoadingInfo.Builder().setPlaybackPositionUs(0).build(),
         /* loadPositionUs= */ 4_000_000,
         /* queue= */ ImmutableList.of((MediaChunk) previousChunk),
         output);
@@ -496,7 +620,7 @@ public class DefaultDashChunkSourceTest {
     ChunkHolder output = new ChunkHolder();
     // Populate with last media chunk
     chunkSource.getNextChunk(
-        /* playbackPositionUs= */ 0,
+        new LoadingInfo.Builder().setPlaybackPositionUs(0).build(),
         /* loadPositionUs= */ 4_000_000,
         /* queue= */ ImmutableList.of(),
         output);
@@ -505,7 +629,7 @@ public class DefaultDashChunkSourceTest {
 
     // Request next chunk
     chunkSource.getNextChunk(
-        /* playbackPositionUs= */ 0,
+        new LoadingInfo.Builder().setPlaybackPositionUs(0).build(),
         /* loadPositionUs= */ 8_000_000,
         /* queue= */ ImmutableList.of((MediaChunk) previousChunk),
         output);

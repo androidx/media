@@ -25,6 +25,7 @@ import android.content.Context;
 import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.RemoteException;
+import android.support.v4.media.session.MediaControllerCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
 import androidx.media.VolumeProviderCompat;
@@ -187,12 +188,14 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
     sessionExtras.putString("key-1", "value-1");
     CountDownLatch countDownLatch = new CountDownLatch(1);
     List<Bundle> receivedSessionExtras = new ArrayList<>();
+    List<Bundle> getterSessionExtras = new ArrayList<>();
     controllerTestRule.createController(
         session.getSessionToken(),
         new MediaController.Listener() {
           @Override
           public void onExtrasChanged(MediaController controller, Bundle extras) {
             receivedSessionExtras.add(extras);
+            getterSessionExtras.add(controller.getSessionExtras());
             countDownLatch.countDown();
           }
         });
@@ -201,6 +204,22 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
 
     assertThat(countDownLatch.await(1_000, MILLISECONDS)).isTrue();
     assertThat(TestUtils.equals(receivedSessionExtras.get(0), sessionExtras)).isTrue();
+    assertThat(TestUtils.equals(getterSessionExtras.get(0), sessionExtras)).isTrue();
+  }
+
+  @Test
+  public void setSessionExtras_includedWhenConnecting() throws Exception {
+    Bundle sessionExtras = new Bundle();
+    sessionExtras.putString("key-1", "value-1");
+    session.setExtras(sessionExtras);
+
+    MediaController controller = controllerTestRule.createController(session.getSessionToken());
+
+    assertThat(
+            TestUtils.equals(
+                threadTestRule.getHandler().postAndSync(controller::getSessionExtras),
+                sessionExtras))
+        .isTrue();
   }
 
   @Test
@@ -232,7 +251,7 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
     session.setQueueTitle("queue-title");
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(playlistMetadataParamRef.get().title).isEqualTo("queue-title");
+    assertThat(playlistMetadataParamRef.get().title.toString()).isEqualTo("queue-title");
     assertThat(playlistMetadataGetterRef.get()).isEqualTo(playlistMetadataParamRef.get());
     assertThat(playlistMetadataOnEventsRef.get()).isEqualTo(playlistMetadataParamRef.get());
     assertThat(getEventsAsList(onEvents.get()))
@@ -250,7 +269,7 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
         /* volumeControl= */ VolumeProviderCompat.VOLUME_CONTROL_ABSOLUTE,
         /* maxVolume= */ 100,
         /* currentVolume= */ 50,
-        /* routingSessionId= */ "route");
+        /* routingControllerId= */ "route");
     MediaController controller = controllerTestRule.createController(session.getSessionToken());
     CountDownLatch latch = new CountDownLatch(2);
     AtomicReference<AudioAttributes> audioAttributesParamRef = new AtomicReference<>();
@@ -356,7 +375,7 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
         /* volumeControl= */ VolumeProviderCompat.VOLUME_CONTROL_ABSOLUTE,
         /* maxVolume= */ 100,
         /* currentVolume= */ 50,
-        /* routingSessionId= */ "route");
+        /* routingControllerId= */ "route");
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(deviceVolumeParam.get()).isEqualTo(50);
@@ -446,5 +465,25 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
     assertThat(customLayoutFromGetter)
         .containsExactly(expectedFirstCustomLayout, expectedSecondCustomLayout)
         .inOrder();
+  }
+
+  @Test
+  public void getCurrentPosition_unknownPlaybackPosition_convertedToZero() throws Exception {
+    session.setPlaybackState(
+        new PlaybackStateCompat.Builder()
+            .setState(
+                PlaybackStateCompat.STATE_NONE,
+                PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN,
+                /* playbackSpeed= */ 1.0f)
+            .build());
+    MediaControllerCompat legacyController =
+        new MediaControllerCompat(
+            ApplicationProvider.getApplicationContext(), session.getSessionToken());
+    MediaController controller = controllerTestRule.createController(session.getSessionToken());
+
+    assertThat(legacyController.getPlaybackState().getPosition())
+        .isEqualTo(PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN);
+    assertThat(threadTestRule.getHandler().postAndSync(controller::getCurrentPosition))
+        .isEqualTo(0);
   }
 }

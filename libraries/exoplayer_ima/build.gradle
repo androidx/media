@@ -14,13 +14,21 @@
 apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 
 android {
+    namespace 'androidx.media3.exoplayer.ima'
+
     sourceSets {
         androidTest.assets.srcDir '../test_data/src/test/assets'
+    }
+
+    publishing {
+        singleVariant('release') {
+            withSourcesJar()
+        }
     }
 }
 
 dependencies {
-    api 'com.google.ads.interactivemedia.v3:interactivemedia:3.30.3'
+    api 'com.google.ads.interactivemedia.v3:interactivemedia:3.31.0'
     implementation project(modulePrefix + 'lib-exoplayer')
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion
@@ -33,11 +41,6 @@ dependencies {
     testImplementation project(modulePrefix + 'test-utils')
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
 }
-
-ext {
-    javadocTitle = 'IMA extension'
-}
-apply from: '../../javadoc_library.gradle'
 
 ext {
     releaseArtifactId = 'media3-exoplayer-ima'

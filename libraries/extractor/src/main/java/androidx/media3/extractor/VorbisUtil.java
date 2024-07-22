@@ -27,6 +27,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.metadata.flac.PictureFrame;
 import androidx.media3.extractor.metadata.vorbis.VorbisComment;
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -59,22 +60,31 @@ public final class VorbisUtil {
 
     /** The {@code vorbis_version} field. */
     public final int version;
+
     /** The {@code audio_channels} field. */
     public final int channels;
+
     /** The {@code audio_sample_rate} field. */
     public final int sampleRate;
+
     /** The {@code bitrate_maximum} field, or {@link Format#NO_VALUE} if not greater than zero. */
     public final int bitrateMaximum;
+
     /** The {@code bitrate_nominal} field, or {@link Format#NO_VALUE} if not greater than zero. */
     public final int bitrateNominal;
+
     /** The {@code bitrate_minimum} field, or {@link Format#NO_VALUE} if not greater than zero. */
     public final int bitrateMinimum;
+
     /** The {@code blocksize_0} field. */
     public final int blockSize0;
+
     /** The {@code blocksize_1} field. */
     public final int blockSize1;
+
     /** The {@code framing_flag} field. */
     public final boolean framingFlag;
+
     /** The raw header data. */
     public final byte[] data;
 
@@ -133,6 +143,31 @@ public final class VorbisUtil {
   private static final String TAG = "VorbisUtil";
 
   /**
+   * Returns the mapping from VORBIS channel layout to the channel layout expected by Android, or
+   * null if the mapping is unchanged.
+   *
+   * <p>See https://www.xiph.org/vorbis/doc/Vorbis_I_spec.html#x1-140001.2.3 and
+   * https://developer.android.com/reference/android/media/AudioFormat#channelMask.
+   */
+  @Nullable
+  public static int[] getVorbisToAndroidChannelLayoutMapping(int channelCount) {
+    switch (channelCount) {
+      case 3:
+        return new int[] {0, 2, 1};
+      case 5:
+        return new int[] {0, 2, 1, 3, 4};
+      case 6:
+        return new int[] {0, 2, 1, 5, 3, 4};
+      case 7:
+        return new int[] {0, 2, 1, 6, 5, 3, 4};
+      case 8:
+        return new int[] {0, 2, 1, 7, 5, 6, 3, 4};
+      default:
+        return null;
+    }
+  }
+
+  /**
    * Returns ilog(x), which is the index of the highest set bit in {@code x}.
    *
    * <p>See the <a href="https://www.xiph.org/vorbis/doc/Vorbis_I_spec.html#x1-1190009.2.1">Vorbis
@@ -148,6 +183,56 @@ public final class VorbisUtil {
       x >>>= 1;
     }
     return val;
+  }
+
+  /**
+   * Returns codec-specific data for configuring a media codec for decoding Vorbis.
+   *
+   * @param initializationData The initialization data from the ESDS box.
+   * @return Codec-specific data for configuring a media codec for decoding Vorbis.
+   */
+  public static ImmutableList<byte[]> parseVorbisCsdFromEsdsInitializationData(
+      byte[] initializationData) {
+    ParsableByteArray buffer = new ParsableByteArray(initializationData);
+    buffer.skipBytes(1); // 0x02 for vorbis audio
+
+    int identificationHeaderLength = 0;
+    while (buffer.bytesLeft() > 0 && buffer.peekUnsignedByte() == 0xFF) {
+      identificationHeaderLength += 0xFF;
+      buffer.skipBytes(1);
+    }
+    identificationHeaderLength += buffer.readUnsignedByte();
+
+    int commentHeaderLength = 0;
+    while (buffer.bytesLeft() > 0 && buffer.peekUnsignedByte() == 0xFF) {
+      commentHeaderLength += 0xFF;
+      buffer.skipBytes(1);
+    }
+    commentHeaderLength += buffer.readUnsignedByte();
+
+    // csd-0 is the identification header.
+    byte[] csd0 = new byte[identificationHeaderLength];
+    int identificationHeaderOffset = buffer.getPosition();
+    System.arraycopy(
+        /* src= */ initializationData,
+        /* srcPos= */ identificationHeaderOffset,
+        /* dest= */ csd0,
+        /* destPos= */ 0,
+        /* length= */ identificationHeaderLength);
+
+    // csd-1 is the setup header, which is the remaining data after the identification and comment
+    // headers.
+    int setupHeaderOffset =
+        identificationHeaderOffset + identificationHeaderLength + commentHeaderLength;
+    int setupHeaderLength = initializationData.length - setupHeaderOffset;
+    byte[] csd1 = new byte[setupHeaderLength];
+    System.arraycopy(
+        /* src= */ initializationData,
+        /* srcPos= */ setupHeaderOffset,
+        /* dest= */ csd1,
+        /* destPos= */ 0,
+        /* length= */ setupHeaderLength);
+    return ImmutableList.of(csd0, csd1);
   }
 
   /**
@@ -309,7 +394,7 @@ public final class VorbisUtil {
    * @param headerType the type of the header expected.
    * @param header the alleged header bytes.
    * @param quiet if {@code true} no exceptions are thrown. Instead {@code false} is returned.
-   * @return the number of bytes read.
+   * @return Whether the header is a Vorbis header.
    * @throws ParserException thrown if header type or capture pattern is not as expected.
    */
   public static boolean verifyVorbisHeaderCapturePattern(

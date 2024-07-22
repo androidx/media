@@ -772,105 +772,142 @@ public abstract class SimpleBasePlayer extends BasePlayer {
 
     /** The available {@link Commands}. */
     public final Commands availableCommands;
+
     /** Whether playback should proceed when ready and not suppressed. */
     public final boolean playWhenReady;
+
     /** The last reason for changing {@link #playWhenReady}. */
     public final @PlayWhenReadyChangeReason int playWhenReadyChangeReason;
+
     /** The {@linkplain Player.State state} of the player. */
     public final @Player.State int playbackState;
+
     /** The reason why playback is suppressed even if {@link #getPlayWhenReady()} is true. */
     public final @PlaybackSuppressionReason int playbackSuppressionReason;
+
     /** The last error that caused playback to fail, or null if there was no error. */
     @Nullable public final PlaybackException playerError;
+
     /** The {@link RepeatMode} used for playback. */
     public final @RepeatMode int repeatMode;
+
     /** Whether shuffling of media items is enabled. */
     public final boolean shuffleModeEnabled;
+
     /** Whether the player is currently loading its source. */
     public final boolean isLoading;
+
     /** The {@link Player#seekBack()} increment in milliseconds. */
     public final long seekBackIncrementMs;
+
     /** The {@link Player#seekForward()} increment in milliseconds. */
     public final long seekForwardIncrementMs;
+
     /**
      * The maximum position for which {@link #seekToPrevious()} seeks to the previous item, in
      * milliseconds.
      */
     public final long maxSeekToPreviousPositionMs;
+
     /** The currently active {@link PlaybackParameters}. */
     public final PlaybackParameters playbackParameters;
+
     /** The currently active {@link TrackSelectionParameters}. */
     public final TrackSelectionParameters trackSelectionParameters;
+
     /** The current {@link AudioAttributes}. */
     public final AudioAttributes audioAttributes;
+
     /** The current audio volume, with 0 being silence and 1 being unity gain (signal unchanged). */
     @FloatRange(from = 0, to = 1.0)
     public final float volume;
+
     /** The current video size. */
     public final VideoSize videoSize;
+
     /** The current {@linkplain CueGroup cues}. */
     public final CueGroup currentCues;
+
     /** The {@link DeviceInfo}. */
     public final DeviceInfo deviceInfo;
+
     /** The current device volume. */
     @IntRange(from = 0)
     public final int deviceVolume;
+
     /** Whether the device is muted. */
     public final boolean isDeviceMuted;
+
     /** The size of the surface onto which the video is being rendered. */
     public final Size surfaceSize;
+
     /**
      * Whether a frame has been rendered for the first time since setting the surface, a rendering
      * reset, or since the stream being rendered was changed.
      */
     public final boolean newlyRenderedFirstFrame;
+
     /** The most recent timed metadata. */
     public final Metadata timedMetadata;
+
     /** The media items in the playlist. */
     public final ImmutableList<MediaItemData> playlist;
+
     /** The {@link Timeline} derived from the {@link #playlist}. */
     public final Timeline timeline;
+
     /** The playlist {@link MediaMetadata}. */
     public final MediaMetadata playlistMetadata;
+
     /**
      * The current media item index, or {@link C#INDEX_UNSET} to assume the default first item of
      * the playlist is played.
      */
     public final int currentMediaItemIndex;
+
     /** The current ad group index, or {@link C#INDEX_UNSET} if no ad is playing. */
     public final int currentAdGroupIndex;
+
     /** The current ad index in the ad group, or {@link C#INDEX_UNSET} if no ad is playing. */
     public final int currentAdIndexInAdGroup;
+
     /**
      * The {@link PositionSupplier} for the current content playback position in milliseconds, or
      * {@link C#TIME_UNSET} to indicate the default start position.
      */
     public final PositionSupplier contentPositionMsSupplier;
+
     /**
      * The {@link PositionSupplier} for the current ad playback position in milliseconds. The value
      * is unused if no ad is playing.
      */
     public final PositionSupplier adPositionMsSupplier;
+
     /**
      * The {@link PositionSupplier} for the estimated position up to which the currently playing
      * content is buffered, in milliseconds, or {@link C#TIME_UNSET} to indicate the default start
      * position.
      */
     public final PositionSupplier contentBufferedPositionMsSupplier;
+
     /**
      * The {@link PositionSupplier} for the estimated position up to which the currently playing ad
      * is buffered, in milliseconds. The value is unused if no ad is playing.
      */
     public final PositionSupplier adBufferedPositionMsSupplier;
+
     /** The {@link PositionSupplier} for the estimated total buffered duration in milliseconds. */
     public final PositionSupplier totalBufferedDurationMsSupplier;
+
     /** Signals that a position discontinuity happened since the last update to the player. */
     public final boolean hasPositionDiscontinuity;
+
     /**
      * The {@linkplain Player.DiscontinuityReason reason} for the last position discontinuity. The
      * value is unused if {@link #hasPositionDiscontinuity} is {@code false}.
      */
     public final @Player.DiscontinuityReason int positionDiscontinuityReason;
+
     /**
      * The position, in milliseconds, in the current content or ad from which playback continued
      * after the discontinuity. The value is unused if {@link #hasPositionDiscontinuity} is {@code
@@ -1429,7 +1466,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
        * playback, in microseconds.
        *
        * <p>The default position must be less or equal to the {@linkplain #setDurationUs duration},
-       * is set.
+       * if set.
        *
        * @param defaultPositionUs The default position relative to the start of the media item at
        *     which to begin playback, in microseconds.
@@ -1524,10 +1561,13 @@ public abstract class SimpleBasePlayer extends BasePlayer {
 
     /** The unique identifier of this media item. */
     public final Object uid;
+
     /** The {@link Tracks} of this media item. */
     public final Tracks tracks;
+
     /** The {@link MediaItem}. */
     public final MediaItem mediaItem;
+
     /**
      * The {@link MediaMetadata}, including static data from the {@link MediaItem#mediaMetadata
      * MediaItem} and the media's {@link Format#metadata Format}, as well any dynamic metadata that
@@ -1536,47 +1576,59 @@ public abstract class SimpleBasePlayer extends BasePlayer {
      * {@link Format#metadata Formats}.
      */
     @Nullable public final MediaMetadata mediaMetadata;
+
     /** The manifest of the media item, or null if not applicable. */
     @Nullable public final Object manifest;
+
     /** The active {@link MediaItem.LiveConfiguration}, or null if the media item is not live. */
     @Nullable public final MediaItem.LiveConfiguration liveConfiguration;
+
     /**
      * The start time of the live presentation, in milliseconds since the Unix epoch, or {@link
      * C#TIME_UNSET} if unknown or not applicable.
      */
     public final long presentationStartTimeMs;
+
     /**
      * The start time of the live window, in milliseconds since the Unix epoch, or {@link
      * C#TIME_UNSET} if unknown or not applicable.
      */
     public final long windowStartTimeMs;
+
     /**
      * The offset between {@link SystemClock#elapsedRealtime()} and the time since the Unix epoch
      * according to the clock of the media origin server, or {@link C#TIME_UNSET} if unknown or not
      * applicable.
      */
     public final long elapsedRealtimeEpochOffsetMs;
+
     /** Whether it's possible to seek within this media item. */
     public final boolean isSeekable;
+
     /** Whether this media item may change over time, for example a moving live window. */
     public final boolean isDynamic;
+
     /**
      * The default position relative to the start of the media item at which to begin playback, in
      * microseconds.
      */
     public final long defaultPositionUs;
+
     /** The duration of the media item, in microseconds, or {@link C#TIME_UNSET} if unknown. */
     public final long durationUs;
+
     /**
      * The position of the start of this media item relative to the start of the first period
      * belonging to it, in microseconds.
      */
     public final long positionInFirstPeriodUs;
+
     /**
      * Whether this media item contains placeholder information because the real information has yet
      * to be loaded.
      */
     public final boolean isPlaceholder;
+
     /**
      * The list of {@linkplain PeriodData periods} in this media item, or an empty list to assume a
      * single period without ads and the same duration as the media item.
@@ -1861,16 +1913,19 @@ public abstract class SimpleBasePlayer extends BasePlayer {
 
     /** The unique identifier of the period within its media item. */
     public final Object uid;
+
     /**
      * The total duration of the period, in microseconds, or {@link C#TIME_UNSET} if unknown. Only
      * the last period in a media item can have an unknown duration.
      */
     public final long durationUs;
+
     /**
      * The {@link AdPlaybackState} of the period, or {@link AdPlaybackState#NONE} if there are no
      * ads.
      */
     public final AdPlaybackState adPlaybackState;
+
     /**
      * Whether this period contains placeholder information because the real information has yet to
      * be loaded.
@@ -2712,6 +2767,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   /**
    * @deprecated Use {@link #setDeviceVolume(int, int)} instead.
    */
+  @SuppressWarnings("deprecation") // Using deprecated command code
   @Deprecated
   @Override
   public final void setDeviceVolume(int volume) {
@@ -2742,6 +2798,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   /**
    * @deprecated Use {@link #increaseDeviceVolume(int)} instead.
    */
+  @SuppressWarnings("deprecation") // Using deprecated command code
   @Deprecated
   @Override
   public final void increaseDeviceVolume() {
@@ -2774,6 +2831,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   /**
    * @deprecated Use {@link #decreaseDeviceVolume(int)} instead.
    */
+  @SuppressWarnings("deprecation") // Using deprecated command code
   @Deprecated
   @Override
   public final void decreaseDeviceVolume() {
@@ -2806,6 +2864,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   /**
    * @deprecated Use {@link #setDeviceMuted(boolean, int)} instead.
    */
+  @SuppressWarnings("deprecation") // Using deprecated command code
   @Deprecated
   @Override
   public final void setDeviceMuted(boolean muted) {
@@ -2831,6 +2890,20 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     updateStateForPendingOperation(
         /* pendingOperation= */ handleSetDeviceMuted(muted, flags),
         /* placeholderStateSupplier= */ () -> state.buildUpon().setIsDeviceMuted(muted).build());
+  }
+
+  @Override
+  public final void setAudioAttributes(AudioAttributes audioAttributes, boolean handleAudioFocus) {
+    verifyApplicationThreadAndInitState();
+    // Use a local copy to ensure the lambda below uses the current state value.
+    State state = this.state;
+    if (!shouldHandleCommand(Player.COMMAND_SET_AUDIO_ATTRIBUTES)) {
+      return;
+    }
+    updateStateForPendingOperation(
+        /* pendingOperation= */ handleSetAudioAttributes(audioAttributes, handleAudioFocus),
+        /* placeholderStateSupplier= */ () ->
+            state.buildUpon().setAudioAttributes(audioAttributes).build());
   }
 
   /**
@@ -3121,6 +3194,23 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   }
 
   /**
+   * Handles calls to set the audio attributes.
+   *
+   * <p>Will only be called if {@link Player#COMMAND_SET_AUDIO_ATTRIBUTES} is available.
+   *
+   * @param audioAttributes The attributes to use for audio playback.
+   * @param handleAudioFocus True if the player should handle audio focus, false otherwise.
+   * @return A {@link ListenableFuture} indicating the completion of all immediate {@link State}
+   *     changes caused by this call.
+   */
+  @ForOverride
+  protected ListenableFuture<?> handleSetAudioAttributes(
+      AudioAttributes audioAttributes, boolean handleAudioFocus) {
+    throw new IllegalStateException(
+        "Missing implementation to handle COMMAND_SET_AUDIO_ATTRIBUTES");
+  }
+
+  /**
    * Handles calls to set the video output.
    *
    * <p>Will only be called if {@link Player#COMMAND_SET_VIDEO_SURFACE} is available.
@@ -3266,6 +3356,25 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   protected ListenableFuture<?> handleSeek(
       int mediaItemIndex, long positionMs, @Player.Command int seekCommand) {
     throw new IllegalStateException("Missing implementation to handle one of the COMMAND_SEEK_*");
+  }
+
+  /**
+   * Throws an {@link IllegalStateException} if the the thread calling this method does not match
+   * the {@link Looper} thread that was specified upon construction of this instance.
+   *
+   * <p>Subclasses can use this method to verify that their own defined methods are also accessed by
+   * the correct thread.
+   */
+  protected final void verifyApplicationThread() {
+    if (Thread.currentThread() != applicationLooper.getThread()) {
+      String message =
+          Util.formatInvariant(
+              "Player is accessed on the wrong thread.\n"
+                  + "Current thread: '%s'\n"
+                  + "Expected thread: '%s'\n",
+              Thread.currentThread().getName(), applicationLooper.getThread().getName());
+      throw new IllegalStateException(message);
+    }
   }
 
   @RequiresNonNull("state")
@@ -3496,17 +3605,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
 
   @EnsuresNonNull("state")
   private void verifyApplicationThreadAndInitState() {
-    if (Thread.currentThread() != applicationLooper.getThread()) {
-      String message =
-          Util.formatInvariant(
-              "Player is accessed on the wrong thread.\n"
-                  + "Current thread: '%s'\n"
-                  + "Expected thread: '%s'\n"
-                  + "See https://developer.android.com/guide/topics/media/issues/"
-                  + "player-accessed-on-wrong-thread",
-              Thread.currentThread().getName(), applicationLooper.getThread().getName());
-      throw new IllegalStateException(message);
-    }
+    verifyApplicationThread();
     if (state == null) {
       // First time accessing state.
       state = getState();

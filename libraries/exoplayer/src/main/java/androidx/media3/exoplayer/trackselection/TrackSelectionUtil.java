@@ -20,6 +20,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.Tracks;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.source.TrackGroupArray;
@@ -29,7 +30,6 @@ import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
 import java.util.List;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 
 /** Track selection related utility methods. */
 @UnstableApi
@@ -82,16 +82,10 @@ public final class TrackSelectionUtil {
   }
 
   /**
-   * Updates {@link DefaultTrackSelector.Parameters} with an override.
-   *
-   * @param parameters The current {@link DefaultTrackSelector.Parameters} to build upon.
-   * @param rendererIndex The renderer index to update.
-   * @param trackGroupArray The {@link TrackGroupArray} of the renderer.
-   * @param isDisabled Whether the renderer should be set disabled.
-   * @param override An optional override for the renderer. If null, no override will be set and an
-   *     existing override for this renderer will be cleared.
-   * @return The updated {@link DefaultTrackSelector.Parameters}.
+   * @deprecated Use {@link DefaultTrackSelector.Parameters.Builder#addOverride} instead.
    */
+  @SuppressWarnings("deprecation") // Forwarding to deprecated methods
+  @Deprecated
   public static DefaultTrackSelector.Parameters updateParametersWithOverride(
       DefaultTrackSelector.Parameters parameters,
       int rendererIndex,
