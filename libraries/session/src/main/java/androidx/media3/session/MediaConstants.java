@@ -24,6 +24,7 @@ import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession;
+import androidx.media3.session.legacy.MediaDescriptionCompat;
 import androidx.media3.session.legacy.PlaybackStateCompat;
 
 /** Constants that can be shared between media session and controller. */
@@ -494,6 +495,44 @@ public final class MediaConstants {
 
   /* package */ static final String ARGUMENT_CAPTIONING_ENABLED =
       "androidx.media3.session.ARGUMENT_CAPTIONING_ENABLED";
+
+  /**
+   * {@link Bundle} key used as a long extra field to indicate the download status of the media
+   * item. The value should be one of the following:
+   *
+   * <ul>
+   *   <li>{@link #EXTRAS_VALUE_STATUS_NOT_DOWNLOADED}
+   *   <li>{@link #EXTRAS_VALUE_STATUS_DOWNLOADING}
+   *   <li>{@link #EXTRAS_VALUE_STATUS_DOWNLOADED}
+   * </ul>
+   */
+  @UnstableApi
+  public static final String EXTRAS_KEY_DOWNLOAD_STATUS =
+      MediaDescriptionCompat.EXTRA_DOWNLOAD_STATUS;
+
+  /**
+   * The extras value to indicate that the media item is not downloaded. Used with {@link
+   * #EXTRAS_KEY_DOWNLOAD_STATUS}.
+   */
+  @UnstableApi
+  public static final long EXTRAS_VALUE_STATUS_NOT_DOWNLOADED =
+      MediaDescriptionCompat.STATUS_NOT_DOWNLOADED;
+
+  /**
+   * The extras value to indicate that the media item is being downloaded. Used with {@link
+   * #EXTRAS_KEY_DOWNLOAD_STATUS}.
+   */
+  @UnstableApi
+  public static final long EXTRAS_VALUE_STATUS_DOWNLOADING =
+      MediaDescriptionCompat.STATUS_DOWNLOADING;
+
+  /**
+   * The extras value to indicate that the media item is downloaded for later offline playback. Used
+   * with {@link #EXTRAS_KEY_DOWNLOAD_STATUS}.
+   */
+  @UnstableApi
+  public static final long EXTRAS_VALUE_STATUS_DOWNLOADED =
+      MediaDescriptionCompat.STATUS_DOWNLOADED;
 
   private MediaConstants() {}
 }
