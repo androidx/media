@@ -24,6 +24,7 @@ import static androidx.media3.exoplayer.audio.AudioCapabilities.getCapabilities;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.content.Context;
 import android.media.AudioDeviceInfo;
@@ -75,7 +76,8 @@ import java.lang.annotation.Target;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayDeque;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
@@ -106,6 +108,9 @@ public final class DefaultAudioSink implements AudioSink {
    * skipped silence will be concatenated to the delayed one.
    */
   private static final int REPORT_SKIPPED_SILENCE_DELAY_MS = 100;
+
+  /** The time it takes to ramp AudioTrack's volume up or down when pausing or starting to play. */
+  private static final int AUDIO_TRACK_VOLUME_RAMP_TIME_MS = 20;
 
   /**
    * Thrown when the audio track has provided a spurious timestamp, if {@link
@@ -475,9 +480,10 @@ public final class DefaultAudioSink implements AudioSink {
 
   private static final Object releaseExecutorLock = new Object();
 
+  @SuppressWarnings("NonFinalStaticField") // Intentional statically shared mutable state
   @GuardedBy("releaseExecutorLock")
   @Nullable
-  private static ExecutorService releaseExecutor;
+  private static ScheduledExecutorService releaseExecutor;
 
   @GuardedBy("releaseExecutorLock")
   private static int pendingReleaseCount;
@@ -1432,6 +1438,9 @@ public final class DefaultAudioSink implements AudioSink {
         onRoutingChangedListener.release();
         onRoutingChangedListener = null;
       }
+      // We need to release the audio track on every flush because of known issues on some devices
+      // See b/7941810 or b/19193985.
+      // TODO: b/143500232 - Experiment with not releasing AudioTrack on flush.
       releaseAudioTrackAsync(audioTrack, listener, oldAudioTrackConfig);
       audioTrack = null;
     }
@@ -1827,27 +1836,37 @@ public final class DefaultAudioSink implements AudioSink {
     Handler audioTrackThreadHandler = new Handler(Looper.myLooper());
     synchronized (releaseExecutorLock) {
       if (releaseExecutor == null) {
-        releaseExecutor = Util.newSingleThreadExecutor("ExoPlayer:AudioTrackReleaseThread");
+        releaseExecutor =
+            Util.newSingleThreadScheduledExecutor("ExoPlayer:AudioTrackReleaseThread");
       }
       pendingReleaseCount++;
-      releaseExecutor.execute(
-          () -> {
-            try {
-              audioTrack.flush();
-              audioTrack.release();
-            } finally {
-              if (listener != null && audioTrackThreadHandler.getLooper().getThread().isAlive()) {
-                audioTrackThreadHandler.post(() -> listener.onAudioTrackReleased(audioTrackConfig));
-              }
-              synchronized (releaseExecutorLock) {
-                pendingReleaseCount--;
-                if (pendingReleaseCount == 0) {
-                  releaseExecutor.shutdown();
-                  releaseExecutor = null;
+      Future<?> ignored =
+          releaseExecutor.schedule(
+              () -> {
+                try {
+                  // We need to flush the audio track as some devices are known to keep state from
+                  // previous playbacks if the track is not flushed at all (see b/22967293).
+                  audioTrack.flush();
+                  audioTrack.release();
+                } finally {
+                  if (listener != null
+                      && audioTrackThreadHandler.getLooper().getThread().isAlive()) {
+                    audioTrackThreadHandler.post(
+                        () -> listener.onAudioTrackReleased(audioTrackConfig));
+                  }
+                  synchronized (releaseExecutorLock) {
+                    pendingReleaseCount--;
+                    if (pendingReleaseCount == 0) {
+                      releaseExecutor.shutdown();
+                      releaseExecutor = null;
+                    }
+                  }
                 }
-              }
-            }
-          });
+              },
+              // We need to schedule the flush and release with a delay to ensure the audio system
+              // can completely ramp down the audio output after the preceding pause.
+              AUDIO_TRACK_VOLUME_RAMP_TIME_MS,
+              MILLISECONDS);
     }
   }
 

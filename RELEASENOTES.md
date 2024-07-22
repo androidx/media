@@ -40,6 +40,7 @@
 *   Audio:
     *   Automatically configure CTA-2075 loudness metadata on the codec if
         present in the media.
+    *   Ensure smooth volume ramp down when seeking.
 *   Video:
     *   `MediaCodecVideoRenderer` avoids decoding samples that are neither
         rendered nor used as reference by other samples.
