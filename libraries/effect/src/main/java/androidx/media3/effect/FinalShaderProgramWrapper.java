@@ -83,6 +83,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final List<RgbMatrix> rgbMatrices;
   private final EGLDisplay eglDisplay;
   private final EGLContext eglContext;
+  private final EGLSurface placeholderSurface;
   private final DebugViewProvider debugViewProvider;
   private final ColorInfo outputColorInfo;
   private final VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor;
@@ -129,6 +130,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Context context,
       EGLDisplay eglDisplay,
       EGLContext eglContext,
+      EGLSurface placeholderSurface,
       DebugViewProvider debugViewProvider,
       ColorInfo outputColorInfo,
       VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor,
@@ -143,6 +145,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.rgbMatrices = new ArrayList<>();
     this.eglDisplay = eglDisplay;
     this.eglContext = eglContext;
+    this.placeholderSurface = placeholderSurface;
     this.debugViewProvider = debugViewProvider;
     this.outputColorInfo = outputColorInfo;
     this.videoFrameProcessingTaskExecutor = videoFrameProcessingTaskExecutor;
@@ -354,16 +357,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       // outputEglSurface is a graphics buffer producer for a BufferQueue, and
       // this.outputSurfaceInfo.surface is the associated consumer. The consumer owns the
       // BufferQueue https://source.android.com/docs/core/graphics/arch-bq-gralloc#BufferQueue.
-      // If the consumer and the BufferQueue are released while the producer is still alive, EGL
-      // gets stuck trying to dequeue a new buffer from the released BufferQueue. This probably
+      // If the BufferQueue is released while the producer is still alive, EGL gets stuck trying
+      // to dequeue a new buffer from the released BufferQueue. This probably
       // happens when the previously queued back buffer is ready for display.
-      try {
-        GlUtil.destroyEglSurface(eglDisplay, outputEglSurface);
-      } catch (GlUtil.GlException e) {
-        videoFrameProcessorListenerExecutor.execute(
-            () -> videoFrameProcessorListener.onError(VideoFrameProcessingException.from(e)));
-      }
-      this.outputEglSurface = null;
+      destroyOutputEglSurface();
     }
     outputSurfaceInfoChanged =
         this.outputSurfaceInfo == null
@@ -372,6 +369,24 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             || this.outputSurfaceInfo.height != outputSurfaceInfo.height
             || this.outputSurfaceInfo.orientationDegrees != outputSurfaceInfo.orientationDegrees;
     this.outputSurfaceInfo = outputSurfaceInfo;
+  }
+
+  private synchronized void destroyOutputEglSurface() {
+    if (outputEglSurface == null) {
+      return;
+    }
+    try {
+      // outputEglSurface will be destroyed only if it's not current.
+      // See EGL docs. Make the placeholder surface current before destroying.
+      GlUtil.focusEglSurface(
+          eglDisplay, eglContext, placeholderSurface, /* width= */ 1, /* height= */ 1);
+      GlUtil.destroyEglSurface(eglDisplay, outputEglSurface);
+    } catch (GlUtil.GlException e) {
+      videoFrameProcessorListenerExecutor.execute(
+          () -> videoFrameProcessorListener.onError(VideoFrameProcessingException.from(e)));
+    } finally {
+      this.outputEglSurface = null;
+    }
   }
 
   private synchronized void renderFrame(
