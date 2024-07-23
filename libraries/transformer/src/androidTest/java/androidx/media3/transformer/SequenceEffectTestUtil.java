@@ -31,7 +31,6 @@ import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Util;
-import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.Presentation;
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
 import com.google.common.collect.ImmutableList;
@@ -209,9 +208,8 @@ public final class SequenceEffectTestUtil {
   /**
    * Creates a high quality {@link Transformer} instance.
    *
-   * <p>The {@link Transformer} is configured to select a specific decoder, use experimental
-   * high-quality {@link DefaultVideoFrameProcessor} configuration, and a large value for {@link
-   * VideoEncoderSettings#bitrate}.
+   * <p>The {@link Transformer} is configured to select a specific decoder and a large value for
+   * {@link VideoEncoderSettings#bitrate}.
    */
   public static Transformer createHqTransformer(
       Context context, MediaCodecInfo decoderMediaCodecInfo) {
@@ -223,10 +221,6 @@ public final class SequenceEffectTestUtil {
             .build();
     AssetLoader.Factory assetLoaderFactory =
         new DefaultAssetLoaderFactory(context, decoderFactory, Clock.DEFAULT);
-    DefaultVideoFrameProcessor.Factory videoFrameProcessorFactory =
-        new DefaultVideoFrameProcessor.Factory.Builder()
-            .setExperimentalAdjustSurfaceTextureTransformationMatrix(true)
-            .build();
     Codec.EncoderFactory encoderFactory =
         new DefaultEncoderFactory.Builder(context)
             .setRequestedVideoEncoderSettings(
@@ -234,7 +228,6 @@ public final class SequenceEffectTestUtil {
             .build();
     return new Transformer.Builder(context)
         .setAssetLoaderFactory(assetLoaderFactory)
-        .setVideoFrameProcessorFactory(videoFrameProcessorFactory)
         .setEncoderFactory(new AndroidTestUtil.ForceEncodeEncoderFactory(encoderFactory))
         .build();
   }

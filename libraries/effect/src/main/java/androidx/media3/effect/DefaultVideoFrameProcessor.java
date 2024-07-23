@@ -159,6 +159,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       public Builder() {
         sdrWorkingColorSpace = WORKING_COLOR_SPACE_DEFAULT;
         requireRegisteringAllInputFrames = true;
+        experimentalAdjustSurfaceTextureTransformationMatrix = true;
       }
 
       private Builder(Factory factory) {
@@ -287,8 +288,13 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
        *
        * <p>When set, programs sampling GL_TEXTURE_EXTERNAL_OES from {@link SurfaceTexture} must not
        * attempt to access data in any cropped region, including via GL_LINEAR resampling filter.
+       *
+       * <p>Defaults to {@code true}.
+       *
+       * @deprecated This experimental method will be removed in a future release.
        */
       @CanIgnoreReturnValue
+      @Deprecated
       public Builder setExperimentalAdjustSurfaceTextureTransformationMatrix(
           boolean experimentalAdjustSurfaceTextureTransformationMatrix) {
         this.experimentalAdjustSurfaceTextureTransformationMatrix =

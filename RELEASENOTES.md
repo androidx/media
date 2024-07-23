@@ -60,6 +60,10 @@
         ([#3757](https://github.com/google/ExoPlayer/issues/3757)).
 *   DRM:
 *   Effect:
+    *   Add `DefaultVideoFrameProcessor` workaround for minor `SurfaceTexture`
+        scaling. `SurfaceTexture` may include a small scaling that cuts off a
+        1-texel border around the edge of a cropped buffer. This is now handled
+        such that output is closer to expected.
 *   Muxers:
 *   IMA extension:
     *   Fix bug where clearing the playlist may cause an
