@@ -19,7 +19,6 @@ import static androidx.media3.muxer.Mp4Muxer.LAST_FRAME_DURATION_BEHAVIOR_DUPLIC
 import static androidx.media3.muxer.Mp4Muxer.LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_AUDIO_FORMAT;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_CSD_0;
-import static androidx.media3.muxer.MuxerTestUtil.FAKE_CSD_1;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_VIDEO_FORMAT;
 import static androidx.media3.muxer.MuxerTestUtil.getExpectedDumpFilePath;
 import static com.google.common.truth.Truth.assertThat;
@@ -235,16 +234,10 @@ public class BoxesTest {
   @Test
   public void createAudioSampleEntryBox_forMp4a_matchesExpected() throws Exception {
     Format format =
-        new Format.Builder()
-            .setPeakBitrate(128000)
-            .setSampleRate(48000)
-            .setId(3)
+        FAKE_AUDIO_FORMAT
+            .buildUpon()
             .setSampleMimeType("audio/mp4a-latm")
-            .setChannelCount(2)
-            .setAverageBitrate(128000)
-            .setLanguage("```")
-            .setMaxInputSize(502)
-            .setInitializationData(ImmutableList.of(BaseEncoding.base16().decode("1190")))
+            .setInitializationData(ImmutableList.of(FAKE_CSD_0))
             .build();
 
     ByteBuffer audioSampleEntryBox = Boxes.audioSampleEntry(format);
@@ -256,17 +249,7 @@ public class BoxesTest {
 
   @Test
   public void createAudioSampleEntryBox_forSamr_matchesExpected() throws Exception {
-    Format format =
-        new Format.Builder()
-            .setPeakBitrate(128000)
-            .setSampleRate(48000)
-            .setId(3)
-            .setSampleMimeType(MimeTypes.AUDIO_AMR_NB)
-            .setChannelCount(2)
-            .setAverageBitrate(128000)
-            .setLanguage("```")
-            .setMaxInputSize(502)
-            .build();
+    Format format = FAKE_AUDIO_FORMAT.buildUpon().setSampleMimeType(MimeTypes.AUDIO_AMR_NB).build();
 
     ByteBuffer audioSampleEntryBox = Boxes.audioSampleEntry(format);
 
@@ -277,17 +260,7 @@ public class BoxesTest {
 
   @Test
   public void createAudioSampleEntryBox_forSawb_matchesExpected() throws Exception {
-    Format format =
-        new Format.Builder()
-            .setPeakBitrate(128000)
-            .setSampleRate(48000)
-            .setId(3)
-            .setSampleMimeType("audio/amr-wb")
-            .setChannelCount(2)
-            .setAverageBitrate(128000)
-            .setLanguage("```")
-            .setMaxInputSize(502)
-            .build();
+    Format format = FAKE_AUDIO_FORMAT.buildUpon().setSampleMimeType("audio/amr-wb").build();
 
     ByteBuffer audioSampleEntryBox = Boxes.audioSampleEntry(format);
 
@@ -299,15 +272,9 @@ public class BoxesTest {
   @Test
   public void createAudioSampleEntryBox_forOpus_matchesExpected() throws Exception {
     Format format =
-        new Format.Builder()
-            .setPeakBitrate(128000)
-            .setSampleRate(48000)
-            .setId(3)
+        FAKE_AUDIO_FORMAT
+            .buildUpon()
             .setSampleMimeType(MimeTypes.AUDIO_OPUS)
-            .setChannelCount(6)
-            .setAverageBitrate(128000)
-            .setLanguage("```")
-            .setMaxInputSize(502)
             .setInitializationData(
                 ImmutableList.of(
                     BaseEncoding.base16()
@@ -324,18 +291,7 @@ public class BoxesTest {
   @Test
   public void createAudioSampleEntryBox_withUnknownAudioFormat_throws() {
     // The audio format contains an unknown MIME type.
-    Format format =
-        new Format.Builder()
-            .setPeakBitrate(128000)
-            .setSampleRate(48000)
-            .setId(3)
-            .setSampleMimeType("audio/mp4a-unknown")
-            .setChannelCount(2)
-            .setAverageBitrate(128000)
-            .setLanguage("```")
-            .setMaxInputSize(502)
-            .setInitializationData(ImmutableList.of(BaseEncoding.base16().decode("1190")))
-            .build();
+    Format format = FAKE_AUDIO_FORMAT.buildUpon().setSampleMimeType("audio/mp4a-unknown").build();
 
     assertThrows(IllegalArgumentException.class, () -> Boxes.audioSampleEntry(format));
   }
@@ -343,14 +299,9 @@ public class BoxesTest {
   @Test
   public void createVideoSampleEntryBox_forH265_matchesExpected() throws Exception {
     Format format =
-        new Format.Builder()
-            .setId(1)
+        FAKE_VIDEO_FORMAT
+            .buildUpon()
             .setSampleMimeType("video/hevc")
-            .setWidth(48)
-            .setLanguage("und")
-            .setMaxInputSize(114)
-            .setFrameRate(25)
-            .setHeight(32)
             .setInitializationData(
                 ImmutableList.of(
                     BaseEncoding.base16()
@@ -368,16 +319,9 @@ public class BoxesTest {
   @Test
   public void createVideoSampleEntryBox_forH265_hdr10_matchesExpected() throws Exception {
     Format format =
-        new Format.Builder()
-            .setPeakBitrate(9200)
-            .setId(1)
+        FAKE_VIDEO_FORMAT
+            .buildUpon()
             .setSampleMimeType("video/hevc")
-            .setAverageBitrate(9200)
-            .setLanguage("und")
-            .setWidth(256)
-            .setMaxInputSize(66)
-            .setFrameRate(25)
-            .setHeight(256)
             .setColorInfo(
                 new ColorInfo.Builder()
                     .setColorSpace(C.COLOR_SPACE_BT2020)
@@ -402,16 +346,7 @@ public class BoxesTest {
 
   @Test
   public void createVideoSampleEntryBox_forH263_matchesExpected() throws Exception {
-    Format format =
-        new Format.Builder()
-            .setId(1)
-            .setSampleMimeType(MimeTypes.VIDEO_H263)
-            .setLanguage("und")
-            .setWidth(10)
-            .setMaxInputSize(39)
-            .setFrameRate(25)
-            .setHeight(12)
-            .build();
+    Format format = FAKE_VIDEO_FORMAT.buildUpon().setSampleMimeType(MimeTypes.VIDEO_H263).build();
 
     ByteBuffer videoSampleEntryBox = Boxes.videoSampleEntry(format);
 
@@ -422,17 +357,7 @@ public class BoxesTest {
 
   @Test
   public void createVideoSampleEntryBox_forH264_matchesExpected() throws Exception {
-    Format format =
-        new Format.Builder()
-            .setId(1)
-            .setSampleMimeType("video/avc")
-            .setLanguage("und")
-            .setWidth(10)
-            .setMaxInputSize(39)
-            .setFrameRate(25)
-            .setHeight(12)
-            .setInitializationData(ImmutableList.of(FAKE_CSD_0, FAKE_CSD_1))
-            .build();
+    Format format = FAKE_VIDEO_FORMAT.buildUpon().setSampleMimeType("video/avc").build();
 
     ByteBuffer videoSampleEntryBox = Boxes.videoSampleEntry(format);
 
@@ -443,18 +368,7 @@ public class BoxesTest {
 
   @Test
   public void createVideoSampleEntryBox_forAv1_matchesExpected() throws IOException {
-    Format format =
-        new Format.Builder()
-            .setId(1)
-            .setSampleMimeType("video/av01")
-            .setLanguage("und")
-            .setWidth(10)
-            .setMaxInputSize(49)
-            .setFrameRate(25)
-            .setHeight(12)
-            .setInitializationData(
-                ImmutableList.of(BaseEncoding.base16().decode("812000000A09200000019CDBFFF304")))
-            .build();
+    Format format = FAKE_VIDEO_FORMAT.buildUpon().setSampleMimeType("video/av01").build();
 
     ByteBuffer videoSampleEntryBox = Boxes.videoSampleEntry(format);
 
@@ -465,23 +379,7 @@ public class BoxesTest {
 
   @Test
   public void createVideoSampleEntryBox_forMPEG4_matchesExpected() throws IOException {
-    Format format =
-        new Format.Builder()
-            .setId(1)
-            .setSampleMimeType(MimeTypes.VIDEO_MP4V)
-            .setAverageBitrate(9200)
-            .setPeakBitrate(9200)
-            .setLanguage("und")
-            .setWidth(10)
-            .setMaxInputSize(49)
-            .setFrameRate(25)
-            .setHeight(12)
-            .setInitializationData(
-                ImmutableList.of(
-                    BaseEncoding.base16()
-                        .decode(
-                            "000001B001000001B58913000001000000012000C48D88007D0584121443000001B24C61766335382E35342E313030")))
-            .build();
+    Format format = FAKE_VIDEO_FORMAT.buildUpon().setSampleMimeType(MimeTypes.VIDEO_MP4V).build();
 
     ByteBuffer videoSampleEntryBox = Boxes.videoSampleEntry(format);
 
@@ -496,20 +394,7 @@ public class BoxesTest {
   public void createVideoSampleEntryBox_withUnknownVideoFormat_throws() {
     // The video format contains an unknown MIME type.
     Format format =
-        new Format.Builder()
-            .setId(1)
-            .setSampleMimeType("video/someweirdvideoformat")
-            .setWidth(48)
-            .setLanguage("und")
-            .setMaxInputSize(114)
-            .setFrameRate(25)
-            .setHeight(32)
-            .setInitializationData(
-                ImmutableList.of(
-                    BaseEncoding.base16()
-                        .decode(
-                            "0000000140010C01FFFF0408000003009FC800000300001E959809000000014201010408000003009FC800000300001EC1882165959AE4CAE68080000003008000000C84000000014401C173D089")))
-            .build();
+        FAKE_VIDEO_FORMAT.buildUpon().setSampleMimeType("video/someweirdvideoformat").build();
 
     assertThrows(IllegalArgumentException.class, () -> Boxes.videoSampleEntry(format));
   }
