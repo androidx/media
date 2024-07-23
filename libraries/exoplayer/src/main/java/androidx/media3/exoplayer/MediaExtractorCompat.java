@@ -197,7 +197,11 @@ public final class MediaExtractorCompat {
    * @throws IllegalStateException If this method is called twice on the same instance.
    */
   public void setDataSource(AssetFileDescriptor assetFileDescriptor) throws IOException {
-    if (assetFileDescriptor.getLength() == AssetFileDescriptor.UNKNOWN_LENGTH) {
+    // Using getDeclaredLength() to match platform behavior, even though it may result in reading
+    // across multiple logical files when they share the same physical file.
+    // Reference implementation in platform MediaExtractor:
+    // https://cs.android.com/android/platform/superproject/main/+/main:frameworks/base/media/java/android/media/MediaExtractor.java;l=219-226;drc=3181772b27c6bf3e9625677d1d8afc89d938a60e
+    if (assetFileDescriptor.getDeclaredLength() == AssetFileDescriptor.UNKNOWN_LENGTH) {
       setDataSource(assetFileDescriptor.getFileDescriptor());
     } else {
       setDataSource(
