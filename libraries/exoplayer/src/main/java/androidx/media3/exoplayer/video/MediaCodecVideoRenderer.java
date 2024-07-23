@@ -150,7 +150,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private static boolean deviceNeedsSetOutputSurfaceWorkaround;
 
   private final Context context;
-  @Nullable private final VideoSinkProvider videoSinkProvider;
   private final boolean ownsVideoSink;
   private final EventDispatcher eventDispatcher;
   private final int maxDroppedFramesToNotify;
@@ -356,7 +355,37 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         eventListener,
         maxDroppedFramesToNotify,
         assumedMinimumCodecOperatingRate,
-        /* videoSinkProvider= */ null);
+        /* videoSink= */ (VideoSink) null);
+  }
+
+  /**
+   * @deprecated Use {@link #MediaCodecVideoRenderer(Context, MediaCodecAdapter.Factory,
+   *     MediaCodecSelector, long, boolean, Handler, VideoRendererEventListener, int, float,
+   *     VideoSink)} instead.
+   */
+  @Deprecated
+  public MediaCodecVideoRenderer(
+      Context context,
+      MediaCodecAdapter.Factory codecAdapterFactory,
+      MediaCodecSelector mediaCodecSelector,
+      long allowedJoiningTimeMs,
+      boolean enableDecoderFallback,
+      @Nullable Handler eventHandler,
+      @Nullable VideoRendererEventListener eventListener,
+      int maxDroppedFramesToNotify,
+      float assumedMinimumCodecOperatingRate,
+      @Nullable VideoSinkProvider videoSinkProvider) {
+    this(
+        context,
+        codecAdapterFactory,
+        mediaCodecSelector,
+        allowedJoiningTimeMs,
+        enableDecoderFallback,
+        eventHandler,
+        eventListener,
+        maxDroppedFramesToNotify,
+        assumedMinimumCodecOperatingRate,
+        videoSinkProvider == null ? null : videoSinkProvider.getSink());
   }
 
   /**
@@ -379,11 +408,10 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
    * @param assumedMinimumCodecOperatingRate A codec operating rate that all codecs instantiated by
    *     this renderer are assumed to meet implicitly (i.e. without the operating rate being set
    *     explicitly using {@link MediaFormat#KEY_OPERATING_RATE}).
-   * @param videoSinkProvider The {@link VideoSinkProvider} that will be used for applying video
-   *     effects also providing the {@linkplain VideoSinkProvider#getVideoFrameReleaseControl()
-   *     VideoFrameReleaseControl} for releasing video frames. If {@code null}, the {@link
-   *     CompositingVideoSinkProvider} with its default configuration will be used, and the renderer
-   *     will drive releasing of video frames by itself.
+   * @param videoSink The {@link VideoSink} consuming the frames. If {@code null} and effects are
+   *     {@linkplain #MSG_SET_VIDEO_EFFECTS set}, a {@link VideoSink} produced by a {@link
+   *     CompositingVideoSinkProvider} with its default configuration will be used to apply effects
+   *     and render the frames on the output.
    */
   public MediaCodecVideoRenderer(
       Context context,
@@ -395,7 +423,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       @Nullable VideoRendererEventListener eventListener,
       int maxDroppedFramesToNotify,
       float assumedMinimumCodecOperatingRate,
-      @Nullable VideoSinkProvider videoSinkProvider) {
+      @Nullable VideoSink videoSink) {
     super(
         C.TRACK_TYPE_VIDEO,
         codecAdapterFactory,
@@ -404,18 +432,14 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         assumedMinimumCodecOperatingRate);
     this.context = context.getApplicationContext();
     this.maxDroppedFramesToNotify = maxDroppedFramesToNotify;
-    this.videoSinkProvider = videoSinkProvider;
+    this.videoSink = videoSink;
     eventDispatcher = new EventDispatcher(eventHandler, eventListener);
-    ownsVideoSink = videoSinkProvider == null;
-    if (videoSinkProvider == null) {
-      @SuppressWarnings("nullness:assignment")
-      VideoFrameReleaseControl.@Initialized FrameTimingEvaluator thisRef = this;
-      videoFrameReleaseControl =
-          new VideoFrameReleaseControl(
-              this.context, /* frameTimingEvaluator= */ thisRef, allowedJoiningTimeMs);
-    } else {
-      videoFrameReleaseControl = videoSinkProvider.getVideoFrameReleaseControl();
-    }
+    ownsVideoSink = videoSink == null;
+    @SuppressWarnings("nullness:assignment")
+    VideoFrameReleaseControl.@Initialized FrameTimingEvaluator thisRef = this;
+    videoFrameReleaseControl =
+        new VideoFrameReleaseControl(
+            this.context, /* frameTimingEvaluator= */ thisRef, allowedJoiningTimeMs);
     videoFrameReleaseInfo = new VideoFrameReleaseControl.FrameReleaseInfo();
     deviceNeedsNoPostProcessWorkaround = deviceNeedsNoPostProcessWorkaround();
     outputResolution = Size.UNKNOWN;
@@ -651,14 +675,12 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     // The video sink can only be enabled the first time the renderer is enabled, or after it has
     // been reset.
     if (!hasSetVideoSink) {
-      if ((videoEffects != null || !ownsVideoSink) && videoSink == null) {
-        VideoSinkProvider videoSinkProvider =
-            this.videoSinkProvider != null
-                ? this.videoSinkProvider
-                : new CompositingVideoSinkProvider.Builder(this.context, videoFrameReleaseControl)
-                    .setClock(getClock())
-                    .build();
-        videoSink = videoSinkProvider.getSink();
+      if (videoEffects != null && videoSink == null) {
+        videoSink =
+            new CompositingVideoSinkProvider.Builder(context, videoFrameReleaseControl)
+                .setClock(getClock())
+                .build()
+                .getSink();
       }
       hasSetVideoSink = true;
     }

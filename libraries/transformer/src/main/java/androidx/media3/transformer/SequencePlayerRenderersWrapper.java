@@ -46,7 +46,6 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.metadata.MetadataOutput;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.text.TextOutput;
-import androidx.media3.exoplayer.video.CompositingVideoSinkProvider;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.exoplayer.video.VideoSink;
@@ -64,7 +63,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final Context context;
   private final EditedMediaItemSequence sequence;
   private final PreviewAudioPipeline previewAudioPipeline;
-  @Nullable private final CompositingVideoSinkProvider compositingVideoSinkProvider;
+  @Nullable private final VideoSink videoSink;
   @Nullable private final ImageDecoder.Factory imageDecoderFactory;
 
   /** Creates a renderers wrapper for a player that will play video, image and audio. */
@@ -72,10 +71,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Context context,
       EditedMediaItemSequence sequence,
       PreviewAudioPipeline previewAudioPipeline,
-      CompositingVideoSinkProvider compositingVideoSinkProvider,
+      VideoSink videoSink,
       ImageDecoder.Factory imageDecoderFactory) {
     return new SequencePlayerRenderersWrapper(
-        context, sequence, previewAudioPipeline, compositingVideoSinkProvider, imageDecoderFactory);
+        context, sequence, previewAudioPipeline, videoSink, imageDecoderFactory);
   }
 
   /** Creates a renderers wrapper that for a player that will only play audio. */
@@ -87,7 +86,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         context,
         sequence,
         previewAudioPipeline,
-        /* compositingVideoSinkProvider= */ null,
+        /* videoSink= */ null,
         /* imageDecoderFactory= */ null);
   }
 
@@ -95,12 +94,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Context context,
       EditedMediaItemSequence sequence,
       PreviewAudioPipeline previewAudioPipeline,
-      @Nullable CompositingVideoSinkProvider compositingVideoSinkProvider,
+      @Nullable VideoSink videoSink,
       @Nullable ImageDecoder.Factory imageDecoderFactory) {
     this.context = context;
     this.sequence = sequence;
     this.previewAudioPipeline = previewAudioPipeline;
-    this.compositingVideoSinkProvider = compositingVideoSinkProvider;
+    this.videoSink = videoSink;
     this.imageDecoderFactory = imageDecoderFactory;
   }
 
@@ -120,7 +119,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             audioRendererEventListener,
             previewAudioPipeline.createInput()));
 
-    if (compositingVideoSinkProvider != null) {
+    if (videoSink != null) {
       renderers.add(
           new SequenceVideoRenderer(
               checkStateNotNull(context),
@@ -252,10 +251,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           videoRendererEventListener,
           MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY,
           /* assumedMinimumCodecOperatingRate= */ DEFAULT_FRAME_RATE,
-          checkStateNotNull(sequencePlayerRenderersWrapper.compositingVideoSinkProvider));
+          checkStateNotNull(sequencePlayerRenderersWrapper.videoSink));
       this.sequencePlayerRenderersWrapper = sequencePlayerRenderersWrapper;
-      videoSink =
-          checkStateNotNull(sequencePlayerRenderersWrapper.compositingVideoSinkProvider).getSink();
+      videoSink = checkStateNotNull(sequencePlayerRenderersWrapper.videoSink);
       experimentalEnableProcessedStreamChangedAtStart();
     }
 
@@ -294,7 +292,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private static final class SequenceImageRenderer extends ImageRenderer {
     private final SequencePlayerRenderersWrapper sequencePlayerRenderersWrapper;
-    private final CompositingVideoSinkProvider compositingVideoSinkProvider;
     private final VideoSink videoSink;
 
     private ImmutableList<Effect> videoEffects;
@@ -311,9 +308,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       super(
           checkStateNotNull(sequencePlayerRenderersWrapper.imageDecoderFactory), ImageOutput.NO_OP);
       this.sequencePlayerRenderersWrapper = sequencePlayerRenderersWrapper;
-      compositingVideoSinkProvider =
-          checkStateNotNull(sequencePlayerRenderersWrapper.compositingVideoSinkProvider);
-      videoSink = compositingVideoSinkProvider.getSink();
+      videoSink = checkStateNotNull(sequencePlayerRenderersWrapper.videoSink);
       videoEffects = ImmutableList.of();
       streamStartPositionUs = C.TIME_UNSET;
       streamOffsetUs = C.TIME_UNSET;
@@ -421,7 +416,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         throw exoPlaybackException;
       }
       super.render(positionUs, elapsedRealtimeUs);
-      compositingVideoSinkProvider.render(positionUs, elapsedRealtimeUs);
+      try {
+        videoSink.render(positionUs, elapsedRealtimeUs);
+      } catch (VideoSink.VideoSinkException e) {
+        throw createRendererException(
+            e, e.format, PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED);
+      }
     }
 
     @Override

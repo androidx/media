@@ -268,11 +268,6 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
   // VideoSinkProvider methods
 
   @Override
-  public VideoFrameReleaseControl getVideoFrameReleaseControl() {
-    return videoFrameReleaseControl;
-  }
-
-  @Override
   public VideoSink getSink() {
     return videoSinkImpl;
   }
@@ -347,31 +342,6 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
     }
   }
 
-  // Other public methods
-
-  /**
-   * Incrementally renders available video frames.
-   *
-   * @param positionUs The current playback position, in microseconds.
-   * @param elapsedRealtimeUs {@link android.os.SystemClock#elapsedRealtime()} in microseconds,
-   *     taken approximately at the time the playback position was {@code positionUs}.
-   */
-  public void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
-    if (pendingFlushCount == 0) {
-      videoFrameRenderControl.render(positionUs, elapsedRealtimeUs);
-    }
-  }
-
-  /**
-   * Returns the output surface that was {@linkplain #setOutputSurfaceInfo(Surface, Size) set}, or
-   * {@code null} if no surface is set or the surface is {@linkplain #clearOutputSurfaceInfo()
-   * cleared}.
-   */
-  @Nullable
-  public Surface getOutputSurface() {
-    return currentSurfaceAndSize != null ? currentSurfaceAndSize.first : null;
-  }
-
   // Internal methods
 
   private VideoFrameProcessor initialize(Format sourceFormat) throws VideoSink.VideoSinkException {
@@ -430,6 +400,19 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
 
   private boolean hasReleasedFrame(long presentationTimeUs) {
     return pendingFlushCount == 0 && videoFrameRenderControl.hasReleasedFrame(presentationTimeUs);
+  }
+
+  /**
+   * Incrementally renders available video frames.
+   *
+   * @param positionUs The current playback position, in microseconds.
+   * @param elapsedRealtimeUs {@link android.os.SystemClock#elapsedRealtime()} in microseconds,
+   *     taken approximately at the time the playback position was {@code positionUs}.
+   */
+  private void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
+    if (pendingFlushCount == 0) {
+      videoFrameRenderControl.render(positionUs, elapsedRealtimeUs);
+    }
   }
 
   private void flush() {
@@ -864,8 +847,7 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
         return;
       }
 
-      ArrayList<Effect> effects = new ArrayList<>();
-      effects.addAll(videoEffects);
+      ArrayList<Effect> effects = new ArrayList<>(videoEffects);
       Format inputFormat = checkNotNull(this.inputFormat);
       checkStateNotNull(videoFrameProcessor)
           .registerInputStream(

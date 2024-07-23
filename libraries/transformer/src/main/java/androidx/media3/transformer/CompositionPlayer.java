@@ -647,7 +647,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
                   context,
                   editedMediaItemSequence,
                   previewAudioPipeline,
-                  compositingVideoSinkProvider,
+                  compositingVideoSinkProvider.getSink(),
                   imageDecoderFactory)
               : SequencePlayerRenderersWrapper.createForAudio(
                   context, editedMediaItemSequence, previewAudioPipeline);
