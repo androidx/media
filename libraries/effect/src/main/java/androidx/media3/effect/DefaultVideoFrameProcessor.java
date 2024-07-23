@@ -32,8 +32,10 @@ import android.graphics.Bitmap;
 import android.graphics.SurfaceTexture;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
+import android.opengl.EGLSurface;
 import android.opengl.GLES20;
 import android.opengl.GLES30;
+import android.util.Pair;
 import android.view.Surface;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.IntDef;
@@ -777,7 +779,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         ColorInfo.isTransferHdr(outputColorInfo)
             ? GlUtil.EGL_CONFIG_ATTRIBUTES_RGBA_1010102
             : GlUtil.EGL_CONFIG_ATTRIBUTES_RGBA_8888;
-    EGLContext eglContext =
+    Pair<EGLContext, EGLSurface> eglContextAndPlaceholderSurface =
         createFocusedEglContextWithFallback(glObjectsProvider, eglDisplay, configAttributes);
 
     ColorInfo linearColorInfo =
@@ -809,7 +811,8 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         new FinalShaderProgramWrapper(
             context,
             eglDisplay,
-            eglContext,
+            eglContextAndPlaceholderSurface.first,
+            eglContextAndPlaceholderSurface.second,
             debugViewProvider,
             outputColorInfo,
             videoFrameProcessingTaskExecutor,
@@ -824,7 +827,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         context,
         glObjectsProvider,
         eglDisplay,
-        eglContext,
+        eglContextAndPlaceholderSurface.first,
         inputSwitcher,
         videoFrameProcessingTaskExecutor,
         listener,
@@ -1056,8 +1059,12 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     }
   }
 
-  /** Creates an OpenGL ES 3.0 context if possible, and an OpenGL ES 2.0 context otherwise. */
-  private static EGLContext createFocusedEglContextWithFallback(
+  /**
+   * Creates an OpenGL ES 3.0 context if possible, and an OpenGL ES 2.0 context otherwise.
+   *
+   * <p>See {@link #createFocusedEglContext}.
+   */
+  private static Pair<EGLContext, EGLSurface> createFocusedEglContextWithFallback(
       GlObjectsProvider glObjectsProvider, EGLDisplay eglDisplay, int[] configAttributes)
       throws GlUtil.GlException {
     if (SDK_INT < 29) {
@@ -1077,8 +1084,10 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   /**
    * Creates an {@link EGLContext} and focus it using a {@linkplain
    * GlObjectsProvider#createFocusedPlaceholderEglSurface placeholder EGL Surface}.
+   *
+   * @return The {@link EGLContext} and a placeholder {@link EGLSurface} as a {@link Pair}.
    */
-  private static EGLContext createFocusedEglContext(
+  private static Pair<EGLContext, EGLSurface> createFocusedEglContext(
       GlObjectsProvider glObjectsProvider,
       EGLDisplay eglDisplay,
       int openGlVersion,
@@ -1089,8 +1098,9 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     // Some OpenGL ES 3.0 contexts returned from createEglContext may throw EGL_BAD_MATCH when being
     // used to createFocusedPlaceHolderEglSurface, despite GL documentation suggesting the contexts,
     // if successfully created, are valid. Check early whether the context is really valid.
-    glObjectsProvider.createFocusedPlaceholderEglSurface(eglContext, eglDisplay);
-    return eglContext;
+    EGLSurface eglSurface =
+        glObjectsProvider.createFocusedPlaceholderEglSurface(eglContext, eglDisplay);
+    return Pair.create(eglContext, eglSurface);
   }
 
   private static final class InputStreamInfo {
