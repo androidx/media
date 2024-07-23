@@ -15,25 +15,67 @@
  */
 package androidx.media3.decoder.iamf;
 
+import android.os.Handler;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
+import androidx.media3.common.audio.AudioProcessor;
+import androidx.media3.common.util.TraceUtil;
 import androidx.media3.decoder.CryptoConfig;
 import androidx.media3.decoder.DecoderException;
+import androidx.media3.exoplayer.audio.AudioRendererEventListener;
+import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DecoderAudioRenderer;
 
 /** Decodes and renders audio using the native IAMF decoder. */
 public class LibiamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
-  public LibiamfAudioRenderer() {}
+
+  /**
+   * Creates a new instance.
+   *
+   * @param eventHandler A handler to use when delivering events to {@code eventListener}. May be
+   *     null if delivery of events is not required.
+   * @param eventListener A listener of events. May be null if delivery of events is not required.
+   * @param audioProcessors Optional {@link AudioProcessor}s that will process audio before output.
+   */
+  public LibiamfAudioRenderer(
+      @Nullable Handler eventHandler,
+      @Nullable AudioRendererEventListener eventListener,
+      AudioProcessor... audioProcessors) {
+    super(eventHandler, eventListener, audioProcessors);
+  }
+
+  /**
+   * Creates a new instance.
+   *
+   * @param eventHandler A handler to use when delivering events to {@code eventListener}. May be
+   *     null if delivery of events is not required.
+   * @param eventListener A listener of events. May be null if delivery of events is not required.
+   * @param audioSink The sink to which audio will be output.
+   */
+  public LibiamfAudioRenderer(
+      @Nullable Handler eventHandler,
+      @Nullable AudioRendererEventListener eventListener,
+      AudioSink audioSink) {
+    super(eventHandler, eventListener, audioSink);
+  }
 
   @Override
   protected int supportsFormatInternal(Format format) {
-    throw new UnsupportedOperationException();
+    return !IamfLibrary.isAvailable()
+            || !java.util.Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_IAMF)
+        ? C.FORMAT_UNSUPPORTED_TYPE
+        : C.FORMAT_HANDLED;
   }
 
   @Override
   protected IamfDecoder createDecoder(Format format, @Nullable CryptoConfig cryptoConfig)
       throws DecoderException {
-    throw new UnsupportedOperationException();
+    TraceUtil.beginSection("createIamfDecoder");
+    IamfDecoder decoder = new IamfDecoder(format.initializationData);
+    TraceUtil.endSection();
+    return decoder;
   }
 
   @Override
@@ -43,6 +85,6 @@ public class LibiamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
 
   @Override
   public String getName() {
-    throw new UnsupportedOperationException();
+    return "LibiamfAudioRenderer";
   }
 }

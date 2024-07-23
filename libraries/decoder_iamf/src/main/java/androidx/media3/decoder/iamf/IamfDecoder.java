@@ -21,14 +21,31 @@ import androidx.annotation.VisibleForTesting;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.decoder.SimpleDecoder;
 import androidx.media3.decoder.SimpleDecoderOutputBuffer;
+import java.util.List;
 
 /** IAMF decoder. */
 @VisibleForTesting(otherwise = PACKAGE_PRIVATE)
 public final class IamfDecoder
     extends SimpleDecoder<DecoderInputBuffer, SimpleDecoderOutputBuffer, IamfDecoderException> {
 
-  public IamfDecoder() {
+  /**
+   * Creates an IAMF decoder.
+   *
+   * @param initializationData ConfigOBUs data for the decoder.
+   * @throws IamfDecoderException Thrown if an exception occurs when initializing the decoder.
+   */
+  public IamfDecoder(List<byte[]> initializationData) throws IamfDecoderException {
     super(new DecoderInputBuffer[0], new SimpleDecoderOutputBuffer[0]);
+    int status = iamfConfigDecoder(initializationData.get(0));
+    if (status != 0) {
+      throw new IamfDecoderException("Failed to configure decoder with returned status: " + status);
+    }
+  }
+
+  @Override
+  public void release() {
+    super.release();
+    iamfClose();
   }
 
   public int getBinauralLayoutChannelCount() {
@@ -42,17 +59,17 @@ public final class IamfDecoder
 
   @Override
   protected DecoderInputBuffer createInputBuffer() {
-    throw new UnsupportedOperationException();
+    return new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DIRECT);
   }
 
   @Override
   protected SimpleDecoderOutputBuffer createOutputBuffer() {
-    throw new UnsupportedOperationException();
+    return new SimpleDecoderOutputBuffer(this::releaseOutputBuffer);
   }
 
   @Override
   protected IamfDecoderException createUnexpectedDecodeException(Throwable error) {
-    throw new UnsupportedOperationException();
+    return new IamfDecoderException("Unexpected decode error", error);
   }
 
   @Override
@@ -62,4 +79,8 @@ public final class IamfDecoder
   }
 
   private native int iamfLayoutBinauralChannelsCount();
+
+  private native int iamfConfigDecoder(byte[] initializationData);
+
+  private native void iamfClose();
 }

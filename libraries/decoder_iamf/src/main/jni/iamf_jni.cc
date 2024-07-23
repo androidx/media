@@ -53,3 +53,29 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
 DECODER_FUNC(jint, iamfLayoutBinauralChannelsCount) {
   return IAMF_layout_binaural_channels_count();
 }
+
+IAMF_DecoderHandle handle;
+
+DECODER_FUNC(jint, iamfConfigDecoder, jbyteArray initializationDataArray) {
+  handle = IAMF_decoder_open();
+  IAMF_decoder_peak_limiter_enable(handle, 0);
+  IAMF_decoder_peak_limiter_set_threshold(handle, -1.0f);
+  IAMF_decoder_set_normalization_loudness(handle, 0.0f);
+  IAMF_decoder_set_bit_depth(handle, 16);
+  IAMF_decoder_set_sampling_rate(handle, 48000);
+  IAMF_decoder_output_layout_set_binaural(handle);
+  IAMF_decoder_set_pts(handle, 0, 90000);
+
+  uint32_t* bytes_read = nullptr;
+  jbyte* initializationDataBytes =
+      env->GetByteArrayElements(initializationDataArray, 0);
+
+  int status = IAMF_decoder_configure(
+      handle, reinterpret_cast<uint8_t*>(initializationDataBytes),
+      env->GetArrayLength(initializationDataArray), bytes_read);
+  env->ReleaseByteArrayElements(initializationDataArray,
+                                initializationDataBytes, 0);
+  return status;
+}
+
+DECODER_FUNC(void, iamfClose) { IAMF_decoder_close(handle); }

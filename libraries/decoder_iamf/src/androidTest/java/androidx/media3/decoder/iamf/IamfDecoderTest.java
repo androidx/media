@@ -18,6 +18,7 @@ package androidx.media3.decoder.iamf;
 import static com.google.common.truth.Truth.assertThat;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -25,6 +26,17 @@ import org.junit.runner.RunWith;
 /** Test IAMF native functions. */
 @RunWith(AndroidJUnit4.class)
 public final class IamfDecoderTest {
+  private static final int DEFAULT_BINAURAL_LAYOUT_CHANNEL_COUNT = 2;
+
+  // Sample configOBUs data from sample_iamf.mp4 file.
+  private static final byte[] IACB_OBUS = {
+    -8, 6, 105, 97, 109, 102, 0, 0, 0, 15, -56, 1, 105, 112, 99, 109, 64, 0, 0, 1, 16, 0, 0, 62,
+    -128, 8, 12, -84, 2, 0, -56, 1, 1, 0, 0, 32, 16, 1, 1, 16, 78, 42, 1, 101, 110, 45, 117, 115, 0,
+    116, 101, 115, 116, 95, 109, 105, 120, 95, 112, 114, 101, 115, 0, 1, 1, -84, 2, 116, 101, 115,
+    116, 95, 115, 117, 98, 95, 109, 105, 120, 95, 48, 95, 97, 117, 100, 105, 111, 95, 101, 108, 101,
+    109, 101, 110, 116, 95, 48, 0, 0, 0, 100, -128, 125, -128, 0, 0, 100, -128, 125, -128, 0, 0, 1,
+    -128, 0, -54, 81, -51, -79
+  };
 
   @Before
   public void setUp() {
@@ -32,8 +44,10 @@ public final class IamfDecoderTest {
   }
 
   @Test
-  public void iamfLayoutBinauralChannelsCountTest() {
-    IamfDecoder iamf = new IamfDecoder();
-    assertThat(iamf.getBinauralLayoutChannelCount()).isEqualTo(2);
+  public void iamfBinauralLayoutChannelsCount_equalsTwo() throws Exception {
+    IamfDecoder iamf = new IamfDecoder(ImmutableList.of(IACB_OBUS));
+
+    assertThat(iamf.getBinauralLayoutChannelCount())
+        .isEqualTo(DEFAULT_BINAURAL_LAYOUT_CHANNEL_COUNT);
   }
 }
