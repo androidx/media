@@ -327,7 +327,19 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   /** See {@link DefaultVideoFrameProcessor#setOutputSurfaceInfo} */
-  public synchronized void setOutputSurfaceInfo(@Nullable SurfaceInfo outputSurfaceInfo) {
+  public void setOutputSurfaceInfo(@Nullable SurfaceInfo outputSurfaceInfo) {
+    try {
+      videoFrameProcessingTaskExecutor.invoke(
+          () -> setOutputSurfaceInfoInternal(outputSurfaceInfo));
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      videoFrameProcessorListenerExecutor.execute(
+          () -> videoFrameProcessorListener.onError(VideoFrameProcessingException.from(e)));
+    }
+  }
+
+  /** Must be called on the GL thread. */
+  private synchronized void setOutputSurfaceInfoInternal(@Nullable SurfaceInfo outputSurfaceInfo) {
     if (textureOutputListener != null) {
       return;
     }
