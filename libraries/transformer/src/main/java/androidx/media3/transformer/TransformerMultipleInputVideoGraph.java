@@ -21,6 +21,7 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
 import androidx.media3.common.VideoFrameProcessingException;
+import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.effect.MultipleInputVideoGraph;
 import androidx.media3.effect.VideoCompositorSettings;
@@ -36,6 +37,13 @@ import java.util.concurrent.Executor;
 
   /** A factory for creating {@link TransformerMultipleInputVideoGraph} instances. */
   public static final class Factory implements TransformerVideoGraph.Factory {
+
+    private final VideoFrameProcessor.Factory videoFrameProcessorFactory;
+
+    public Factory(VideoFrameProcessor.Factory videoFrameProcessorFactory) {
+      this.videoFrameProcessorFactory = videoFrameProcessorFactory;
+    }
+
     @Override
     public TransformerMultipleInputVideoGraph create(
         Context context,
@@ -48,6 +56,7 @@ import java.util.concurrent.Executor;
         long initialTimestampOffsetUs) {
       return new TransformerMultipleInputVideoGraph(
           context,
+          videoFrameProcessorFactory,
           outputColorInfo,
           debugViewProvider,
           listener,
@@ -60,6 +69,7 @@ import java.util.concurrent.Executor;
 
   private TransformerMultipleInputVideoGraph(
       Context context,
+      VideoFrameProcessor.Factory videoFrameProcessorFactory,
       ColorInfo outputColorInfo,
       DebugViewProvider debugViewProvider,
       Listener listener,
@@ -69,6 +79,7 @@ import java.util.concurrent.Executor;
       long initialTimestampOffsetUs) {
     super(
         context,
+        videoFrameProcessorFactory,
         outputColorInfo,
         debugViewProvider,
         listener,

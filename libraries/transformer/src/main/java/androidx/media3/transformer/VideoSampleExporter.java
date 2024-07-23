@@ -136,7 +136,7 @@ import org.checkerframework.dataflow.qual.Pure;
           new VideoGraphWrapper(
               context,
               hasMultipleInputs
-                  ? new TransformerMultipleInputVideoGraph.Factory()
+                  ? new TransformerMultipleInputVideoGraph.Factory(videoFrameProcessorFactory)
                   : new TransformerSingleInputVideoGraph.Factory(videoFrameProcessorFactory),
               videoGraphOutputColor,
               errorConsumer,

@@ -17,6 +17,7 @@
 package androidx.media3.effect;
 
 import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_TEXTURE_ID;
+import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
@@ -25,7 +26,6 @@ import static androidx.media3.common.util.Util.newSingleThreadScheduledExecutor;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_COMPOSITOR;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_VFP;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_OUTPUT_TEXTURE_RENDERED;
-import static androidx.media3.effect.DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_LINEAR;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.content.Context;
@@ -99,6 +99,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
 
   protected MultipleInputVideoGraph(
       Context context,
+      VideoFrameProcessor.Factory videoFrameProcessorFactory,
       ColorInfo outputColorInfo,
       DebugViewProvider debugViewProvider,
       Listener listener,
@@ -106,6 +107,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
       VideoCompositorSettings videoCompositorSettings,
       List<Effect> compositionEffects,
       long initialTimestampOffsetUs) {
+    checkArgument(videoFrameProcessorFactory instanceof DefaultVideoFrameProcessor.Factory);
     this.context = context;
     this.outputColorInfo = outputColorInfo;
     this.debugViewProvider = debugViewProvider;
@@ -118,10 +120,10 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
     preProcessors = new SparseArray<>();
     sharedExecutorService = newSingleThreadScheduledExecutor(SHARED_EXECUTOR_NAME);
     glObjectsProvider = new SingleContextGlObjectsProvider();
-    // TODO - b/289986435: Support injecting VideoFrameProcessor.Factory.
-    videoFrameProcessorFactory =
-        new DefaultVideoFrameProcessor.Factory.Builder()
-            .setSdrWorkingColorSpace(WORKING_COLOR_SPACE_LINEAR)
+    // TODO - b/289986435: Support injecting arbitrary VideoFrameProcessor.Factory.
+    this.videoFrameProcessorFactory =
+        ((DefaultVideoFrameProcessor.Factory) videoFrameProcessorFactory)
+            .buildUpon()
             .setGlObjectsProvider(glObjectsProvider)
             .setExecutorService(sharedExecutorService)
             .build();

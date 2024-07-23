@@ -43,7 +43,6 @@ import androidx.media3.effect.Presentation;
 import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.effect.VideoCompositorSettings;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.io.File;
 import java.io.IOException;
@@ -53,9 +52,12 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 /** Tests for using multiple {@link EditedMediaItemSequence} in a composition. */
-@RunWith(AndroidJUnit4.class)
+@RunWith(Parameterized.class)
 public final class TransformerMultiSequenceCompositionTest {
 
   // Bitmaps are generated on a Pixel 6 or 7 Pro instead of an emulator, due to an emulator bug.
@@ -69,10 +71,17 @@ public final class TransformerMultiSequenceCompositionTest {
   private static final int EXPORT_WIDTH = 360;
   private static final int EXPORT_HEIGHT = 240;
 
+  @Parameters(name = "{0}")
+  public static ImmutableList<Boolean> workingColorSpaceLinear() {
+    return ImmutableList.of(false, true);
+  }
+
   private final Context context = ApplicationProvider.getApplicationContext();
   @Rule public final TestName testName = new TestName();
 
   private String testId;
+
+  @Parameter public boolean workingColorSpaceLinear;
 
   @Before
   public void setUpTestId() {
@@ -106,7 +115,7 @@ public final class TransformerMultiSequenceCompositionTest {
             VideoCompositorSettings.DEFAULT);
 
     ExportTestResult result =
-        new TransformerAndroidTestRunner.Builder(context, getLinearColorSpaceTransformer())
+        new TransformerAndroidTestRunner.Builder(context, buildTransformer())
             .build()
             .run(testId, composition);
 
@@ -142,7 +151,7 @@ public final class TransformerMultiSequenceCompositionTest {
             VideoCompositorSettings.DEFAULT);
 
     ExportTestResult result =
-        new TransformerAndroidTestRunner.Builder(context, getLinearColorSpaceTransformer())
+        new TransformerAndroidTestRunner.Builder(context, buildTransformer())
             .build()
             .run(testId, composition);
 
@@ -200,7 +209,7 @@ public final class TransformerMultiSequenceCompositionTest {
             pictureInPictureVideoCompositorSettings);
 
     ExportTestResult result =
-        new TransformerAndroidTestRunner.Builder(context, getLinearColorSpaceTransformer())
+        new TransformerAndroidTestRunner.Builder(context, buildTransformer())
             .build()
             .run(testId, composition);
 
@@ -209,14 +218,16 @@ public final class TransformerMultiSequenceCompositionTest {
         extractBitmapsFromVideo(context, checkNotNull(result.filePath)), testId);
   }
 
-  private Transformer getLinearColorSpaceTransformer() {
+  private Transformer buildTransformer() {
     // Use linear color space for grayscale effects.
-    return new Transformer.Builder(context)
-        .setVideoFrameProcessorFactory(
-            new DefaultVideoFrameProcessor.Factory.Builder()
-                .setSdrWorkingColorSpace(DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_LINEAR)
-                .build())
-        .build();
+    Transformer.Builder builder = new Transformer.Builder(context);
+    if (workingColorSpaceLinear) {
+      builder.setVideoFrameProcessorFactory(
+          new DefaultVideoFrameProcessor.Factory.Builder()
+              .setSdrWorkingColorSpace(DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_LINEAR)
+              .build());
+    }
+    return builder.build();
   }
 
   private static EditedMediaItem editedMediaItemByClippingVideo(String uri, List<Effect> effects) {

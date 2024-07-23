@@ -463,6 +463,10 @@ public final class Transformer {
      * <p>If passing in a {@link DefaultVideoFrameProcessor.Factory}, the caller must not {@link
      * DefaultVideoFrameProcessor.Factory.Builder#setTextureOutput set the texture output}.
      *
+     * <p>If exporting a {@link Composition} with multiple video {@linkplain EditedMediaItemSequence
+     * sequences}, the {@link VideoFrameProcessor.Factory} must be a {@link
+     * DefaultVideoFrameProcessor.Factory}.
+     *
      * @param videoFrameProcessorFactory A {@link VideoFrameProcessor.Factory}.
      * @return This builder.
      */
