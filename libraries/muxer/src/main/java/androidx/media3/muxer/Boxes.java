@@ -521,22 +521,24 @@ import java.util.List;
     String mimeType = checkNotNull(format.sampleMimeType);
     switch (mimeType) {
       case MimeTypes.AUDIO_AAC:
-      case MimeTypes.VIDEO_MP4V:
+      case MimeTypes.AUDIO_VORBIS:
         return esdsBox(format);
       case MimeTypes.AUDIO_AMR_NB:
         return damrBox(/* mode= */ (short) 0x81FF); // mode set: all enabled for AMR-NB
       case MimeTypes.AUDIO_AMR_WB:
         return damrBox(/* mode= */ (short) 0x83FF); // mode set: all enabled for AMR-WB
-      case MimeTypes.VIDEO_H263:
-        return d263Box();
       case MimeTypes.AUDIO_OPUS:
         return dOpsBox(format);
+      case MimeTypes.VIDEO_H263:
+        return d263Box();
       case MimeTypes.VIDEO_H264:
         return avcCBox(format);
       case MimeTypes.VIDEO_H265:
         return hvcCBox(format);
       case MimeTypes.VIDEO_AV1:
         return av1CBox(format);
+      case MimeTypes.VIDEO_MP4V:
+        return esdsBox(format);
       default:
         throw new IllegalArgumentException("Unsupported format: " + mimeType);
     }
@@ -1319,6 +1321,7 @@ import java.util.List;
     String mimeType = checkNotNull(format.sampleMimeType);
     switch (mimeType) {
       case MimeTypes.AUDIO_AAC:
+      case MimeTypes.AUDIO_VORBIS:
         return "mp4a";
       case MimeTypes.AUDIO_AMR_NB:
         return "samr";
@@ -1348,32 +1351,40 @@ import java.util.List;
     byte[] csd0 = format.initializationData.get(0);
     checkArgument(csd0.length > 0, "csd-0 is empty.");
 
-    ByteBuffer csd0ByteBuffer = ByteBuffer.wrap(csd0);
+    String mimeType = checkNotNull(format.sampleMimeType);
+    boolean isVorbis = mimeType.equals(MimeTypes.AUDIO_VORBIS);
+    ByteBuffer csdByteBuffer =
+        isVorbis ? getVorbisInitializationData(format) : ByteBuffer.wrap(csd0);
+
     int peakBitrate = format.peakBitrate;
     int averageBitrate = format.averageBitrate;
-    boolean isVideo = MimeTypes.isVideo(format.sampleMimeType);
+    boolean isVideo = MimeTypes.isVideo(mimeType);
 
-    int csd0Size = csd0ByteBuffer.limit();
-    ByteBuffer dsiSizeBuffer = getSizeBuffer(csd0Size);
-    ByteBuffer dcdSizeBuffer = getSizeBuffer(csd0Size + dsiSizeBuffer.remaining() + 14);
+    int csdSize = csdByteBuffer.remaining();
+    ByteBuffer dsiSizeBuffer = getSizeBuffer(csdSize);
+    ByteBuffer dcdSizeBuffer = getSizeBuffer(csdSize + dsiSizeBuffer.remaining() + 14);
     ByteBuffer esdSizeBuffer =
-        getSizeBuffer(csd0Size + dsiSizeBuffer.remaining() + dcdSizeBuffer.remaining() + 21);
+        getSizeBuffer(csdSize + dsiSizeBuffer.remaining() + dcdSizeBuffer.remaining() + 21);
 
-    ByteBuffer contents = ByteBuffer.allocate(csd0Size + MAX_FIXED_LEAF_BOX_SIZE);
+    ByteBuffer contents = ByteBuffer.allocate(csdSize + MAX_FIXED_LEAF_BOX_SIZE);
     contents.putInt(0x00); // Version and flags.
     contents.put((byte) 0x03); // ES_DescrTag
 
     contents.put(esdSizeBuffer);
 
-    contents.putShort((short) 0x0000); // First 16 bits of ES_ID.
-    contents.put(isVideo ? (byte) 0x1f : (byte) 0x00); // Last 8 bits of ES_ID.
+    contents.putShort((short) 0x0000); // ES_ID
+    // streamDependenceFlag (1 bit) + URL_Flag (1 bit) + OCRstreamFlag (1 bit) + streamPriority (5
+    // bits)
+    contents.put(isVideo ? (byte) 0x1f : (byte) 0x00);
 
     contents.put((byte) 0x04); // DecoderConfigDescrTag
     contents.put(dcdSizeBuffer);
 
-    contents.put(isVideo ? (byte) 0x20 : (byte) 0x40); // objectTypeIndication
-    // streamType (6 bits) | upStream (1 bit) | reserved = 1 (1 bit)
-    contents.put((byte) ((isVideo ? (0x04 << 2) : (0x05 << 2)) | 0x01)); // streamType
+    Byte objectType = checkNotNull(MimeTypes.getMp4ObjectTypeFromMimeType(mimeType));
+    contents.put(objectType); // objectTypeIndication
+
+    // streamType (6 bits) + upStream (1 bit) + reserved = 1 (1 bit)
+    contents.put((byte) ((isVideo ? (0x04 << 2) : (0x05 << 2)) | 0x01));
 
     int size = isVideo ? 0x017700 : 0x000300;
     contents.putShort((short) ((size >> 8) & 0xFFFF)); // First 16 bits of buffer size.
@@ -1384,8 +1395,8 @@ import java.util.List;
 
     contents.put((byte) 0x05); // DecoderSpecificInfoTag
     contents.put(dsiSizeBuffer);
-    contents.put(csd0ByteBuffer);
-    csd0ByteBuffer.rewind();
+    contents.put(csdByteBuffer);
+    csdByteBuffer.rewind();
 
     contents.put((byte) 0x06); // SLConfigDescriptorTag
     contents.put((byte) 0x01);
@@ -1410,6 +1421,35 @@ import java.util.List;
     }
     sizeBuffer.flip();
     return sizeBuffer;
+  }
+
+  /* Returns csd wrapped in ByteBuffer in vorbis codec initialization data format. */
+  private static ByteBuffer getVorbisInitializationData(Format format) {
+    checkArgument(
+        format.initializationData.size() > 1, "csd-1 should contain setup header for Vorbis.");
+    byte[] csd0 = format.initializationData.get(0); // identification Header
+
+    // csd0Size is represented using "Xiph lacing" style.
+    // The lacing size is split into 255 values, stored as unsigned octets – for example, 500 is
+    // coded 255;245 or [0xFF 0xF5]. A frame with a size multiple of 255 is coded with a 0 at the
+    // end of the size – for example, 765 is coded 255;255;255;0 or [0xFF 0xFF 0xFF 0x00].
+    byte[] csd0Size = new byte[csd0.length / 255 + 1];
+    Arrays.fill(csd0Size, (byte) 0xFF);
+    csd0Size[csd0Size.length - 1] = (byte) (csd0.length % 255);
+
+    byte[] csd1 = format.initializationData.get(1); // setUp Header
+    checkArgument(csd1.length > 0, "csd-1 should be present and contain setup header for Vorbis.");
+
+    // Add 2 bytes - 1 for Vorbis audio and 1 for comment header length.
+    ByteBuffer csd = ByteBuffer.allocate(csd0Size.length + csd0.length + csd1.length + 2);
+    csd.put((byte) 0x02); // Vorbis audio
+    csd.put(csd0Size); // Size of identification header
+    csd.put((byte) 0); // Length of comment header
+    csd.put(csd0);
+    csd.put(csd1);
+    csd.flip();
+
+    return csd;
   }
 
   /** Returns the audio damr box. */

@@ -289,6 +289,27 @@ public class BoxesTest {
   }
 
   @Test
+  public void createAudioSampleEntryBox_forVorbis_matchesExpected() throws Exception {
+    Format format =
+        FAKE_AUDIO_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.AUDIO_VORBIS)
+            .setInitializationData(
+                ImmutableList.of(
+                    BaseEncoding.base16()
+                        .decode("01766F726269730000000001803E0000000000009886010000000000A901"),
+                    BaseEncoding.base16()
+                        .decode("05766F726269732442435601004000001842102A05AD638E3A01")))
+            .build();
+
+    ByteBuffer audioSampleEntryBox = Boxes.audioSampleEntry(format);
+
+    DumpableMp4Box dumpableBox = new DumpableMp4Box(audioSampleEntryBox);
+    DumpFileAsserts.assertOutput(
+        context, dumpableBox, getExpectedDumpFilePath("audio_sample_entry_box_vorbis"));
+  }
+
+  @Test
   public void createAudioSampleEntryBox_withUnknownAudioFormat_throws() {
     // The audio format contains an unknown MIME type.
     Format format = FAKE_AUDIO_FORMAT.buildUpon().setSampleMimeType("audio/mp4a-unknown").build();
