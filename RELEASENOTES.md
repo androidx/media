@@ -8,14 +8,14 @@ This release includes the following changes since the
 [1.3.1 release](#131-2024-04-11):
 
 *   Common Library:
-    *   Forward presumed no-op seek calls to the protected `BasePlayer.seekTo`
-        and `SimpleBasePlayer.handleSeek` methods instead of ignoring them. If
+    *   Forward presumed no-op seek calls to the protected `BasePlayer.seekTo()`
+        and `SimpleBasePlayer.handleSeek()` methods instead of ignoring them. If
         you are implementing these methods in a custom player, you may need to
         handle these additional calls with `mediaItemIndex == C.INDEX_UNSET`.
     *   Remove compile dependency on enhanced Java 8 desugaring
         ([#1312](https://github.com/androidx/media/issues/1312)).
-    *   Ensure the duration passed to `MediaItem.Builder.setImageDurationMs` is
-        ignored for a non-image `MediaItem` (as documented).
+    *   Ensure the duration passed to `MediaItem.Builder.setImageDurationMs()`
+        is ignored for a non-image `MediaItem` (as documented).
     *   Add `Format.customData` to store app-provided custom information about
         `Format` instances.
 *   ExoPlayer:
@@ -33,16 +33,16 @@ This release includes the following changes since the
         check if the buffer time is at least
         `BaseRenderer.getLastResetPositionUs()` to decide whether a sample
         should be shown. Custom `SimpleDecoder` implementations can check
-        `isAtLeastOutputStartTimeUs` if needed or mark other buffers with
+        `isAtLeastOutputStartTimeUs()` if needed or mark other buffers with
         `DecoderOutputBuffer.shouldBeSkipped` to skip them.
     *   Allow a null value to be returned by
         `TargetPreloadStatusControl.getTargetPreloadStatus(T)` to indicate not
         to preload a `MediaSource` with the given `rankingData`.
     *   Add `remove(MediaSource)` to `BasePreloadManager`.
-    *   Add `reset` to `BasePreloadManager` to release all the holding sources
+    *   Add `reset()` to `BasePreloadManager` to release all the holding sources
         while keep the preload manager instance.
-    *   Add `ExoPlayer.setPriority` (and `Builder.setPriority`) to define the
-        priority value used in `PriorityTaskManager` and for MediaCodec
+    *   Add `ExoPlayer.setPriority()` (and `Builder.setPriority()`) to define
+        the priority value used in `PriorityTaskManager` and for MediaCodec
         importance from API 35.
     *   Fix issue with updating the last rebuffer time which resulted in
         incorrect `bs` (buffer starvation) key in CMCD
@@ -65,31 +65,32 @@ This release includes the following changes since the
     *   Fix bug where playback moved to `STATE_ENDED` when re-preparing a
         multi-period DASH live stream after the original period was already
         removed from the manifest.
-    *   Rename `onTimelineRefreshed` to `onSourcePrepared` and `onPrepared` to
-        `onTracksSelected` in `PreloadMediaSource.PreloadControl`. Also rename
-        the IntDefs in `DefaultPreloadManager.Stage` accordingly.
+    *   Rename `onTimelineRefreshed()` to `onSourcePrepared()` and
+        `onPrepared()` to `onTracksSelected()` in
+        `PreloadMediaSource.PreloadControl`. Also rename the IntDefs in
+        `DefaultPreloadManager.Stage` accordingly.
     *   Add experimental support for dynamic scheduling to better align work
         with CPU wake-cycles and delay waking up to when renderers can progress.
-        You can enable this using `experimentalSetDynamicSchedulingEnabled` when
-        setting up your ExoPlayer instance.
-    *   Add `Renderer.getDurationToProgressMs`. A `Renderer` can implement this
-        method to return to ExoPlayer the duration that playback must advance
-        for the renderer to progress. If `ExoPlayer` is set with
-        `experimentalSetDynamicSchedulingEnabled` then `ExoPlayer` will call
+        You can enable this using `experimentalSetDynamicSchedulingEnabled()`
+        when setting up your ExoPlayer instance.
+    *   Add `Renderer.getDurationToProgressUs()`. A `Renderer` can implement
+        this method to return to ExoPlayer the duration that playback must
+        advance for the renderer to progress. If `ExoPlayer` is set with
+        `experimentalSetDynamicSchedulingEnabled()` then `ExoPlayer` will call
         this method when calculating the time to schedule its work task.
     *   Add `MediaCodecAdapter#OnBufferAvailableListener` to alert when input
         and output buffers are available for use by `MediaCodecRenderer`.
         `MediaCodecRenderer` will signal `ExoPlayer` when receiving these
         callbacks and if `ExoPlayer` is set with
-        `experimentalSetDynamicSchedulingEnabled`, then `ExoPlayer` will
+        `experimentalSetDynamicSchedulingEnabled()`, then `ExoPlayer` will
         schedule its work loop as renderers can make progress.
     *   Use data class for `LoadControl` methods instead of individual
         parameters.
     *   Add `ExoPlayer.isReleased()` to check whether `Exoplayer.release()` has
         been called.
-    *   Add `ExoPlayer.Builder.setMaxSeekToPreviousPositionMs` to configure the
-        maximum position for which `seekToPrevious()` seeks to the previous item
-        ([#1425](https://github.com/androidx/media/issues/1425)).
+    *   Add `ExoPlayer.Builder.setMaxSeekToPreviousPositionMs()` to configure
+        the maximum position for which `seekToPrevious()` seeks to the previous
+        item ([#1425](https://github.com/androidx/media/issues/1425)).
     *   Fix some audio focus inconsistencies, e.g. not reporting full or
         transient focus loss while the player is paused
         ([#1436](https://github.com/androidx/media/issues/1436)).
@@ -156,7 +157,7 @@ This release includes the following changes since the
         different audio formats (for example stereo to mono) can cause the
         processor to throw an exception
         ([#1352](https://github.com/androidx/media/issues/1352)).
-    *   Implement `MediaCodecAudioRenderer.getDurationToProgressUs` so that
+    *   Implement `MediaCodecAudioRenderer.getDurationToProgressUs()` so that
         ExoPlayer will dynamically schedule its main work loop to when the
         MediaCodecAudioRenderer can make progress.
 *   Video:
@@ -214,7 +215,7 @@ This release includes the following changes since the
     *   Add support for non-square DASH thumbnail grids
         ([#1300](https://github.com/androidx/media/pull/1300)).
     *   Add support for AVIF for API 34+.
-    *   Allow `null` as parameter for `ExoPlayer.setImageOutput` to clear a
+    *   Allow `null` as parameter for `ExoPlayer.setImageOutput()` to clear a
         previously set `ImageOutput`.
 *   DataSource:
     *   Implement support for `android.resource://package/id` raw resource URIs
@@ -257,7 +258,7 @@ This release includes the following changes since the
     *   Remove unused `OverlaySettings.useHdr` since dynamic range of overlay
         and frame must match.
     *   Add HDR support for `TextOverlay`. Luminance of the text overlay can be
-        adjusted with `OverlaySettings.setHdrLuminanceMultiplier`.
+        adjusted with `OverlaySettings.Builder.setHdrLuminanceMultiplier()`.
 *   IMA extension:
     *   Promote API that is required for apps to play
         [DAI ad streams](https://developers.google.com/ad-manager/dynamic-ad-insertion/full-service)
@@ -265,7 +266,7 @@ This release includes the following changes since the
     *   Add `replaceAdTagParameters(Map <String, String>)` to
         `ImaServerSideAdInsertionMediaSource.AdLoader` that allows replacing ad
         tag parameters at runtime.
-    *   Fix bug where `VideoAdPlayer.VideoAdPlayerCallback.onError` was not
+    *   Fix bug where `VideoAdPlayer.VideoAdPlayerCallback.onError()` was not
         called when a player error happened during ad playback
         ([#1334](https://github.com/androidx/media/issues/1334)).
     *   Bump IMA SDK version to 3.33.0 to fix a `NullPointerException` when
@@ -281,7 +282,7 @@ This release includes the following changes since the
         the service needs to be stopped in `onTaskRemoved()`
         ([#1219](https://github.com/androidx/media/issues/1219)).
     *   Add `MediaSessionService.pauseAllPlayersAndStopSelf()` that conveniently
-        allows to pause playback of all sessions and call `stopSelf` to
+        allows to pause playback of all sessions and call `stopSelf()` to
         terminate the lifecycle of the `MediaSessionService`.
     *   Override `MediaSessionService.onTaskRemoved(Intent)` to provide a safe
         default implementation that keeps the service running in the foreground
@@ -298,7 +299,7 @@ This release includes the following changes since the
         is used to update the `PlaybackState` of the platform session to an
         error state with the given error information
         ([#543](https://github.com/androidx/media/issues/543)).
-    *   Add `MediaSession.Callback.onPlayerInteractionFinished` to inform
+    *   Add `MediaSession.Callback.onPlayerInteractionFinished()` to inform
         sessions when a series of player interactions from a specific controller
         finished.
     *   Add `SessionError` and use it in `SessionResult` and `LibraryResult`
@@ -373,9 +374,9 @@ This release includes the following changes since the
         ([#1255](https://github.com/androidx/media/pull/1255)).
 *   Test Utilities:
     *   Implement `onInit()` and `onRelease()` in `FakeRenderer`.
-    *   Change `TestPlayerRunHelper.runUntil/playUntil` methods to fail on
+    *   Change `TestPlayerRunHelper.runUntil()/playUntil()` methods to fail on
         nonfatal errors (e.g. those reported to
-        `AnalyticsListener.onVideoCodecError`). Use the new
+        `AnalyticsListener.onVideoCodecError()`). Use the new
         `TestPlayerRunHelper.run(player).ignoringNonFatalErrors().untilXXX()`
         method chain to disable this behavior.
 *   Demo app:
