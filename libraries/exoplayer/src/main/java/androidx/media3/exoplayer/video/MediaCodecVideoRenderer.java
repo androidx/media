@@ -186,7 +186,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @Nullable private VideoFrameMetadataListener frameMetadataListener;
   private long startPositionUs;
   private long periodDurationUs;
-  private boolean videoSinkNeedsRegisterInputStream;
+  private boolean pendingVideoSinkInputStreamChange;
 
   /**
    * @param context A context.
@@ -789,7 +789,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
           getOutputStreamOffsetUs(),
           getBufferTimestampAdjustmentUs(),
           getLastResetPositionUs());
-      videoSinkNeedsRegisterInputStream = true;
+      pendingVideoSinkInputStreamChange = true;
     }
     super.onPositionReset(positionUs, joining);
     if (videoSink == null) {
@@ -1354,9 +1354,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     }
     decodedVideoSize = new VideoSize(width, height, pixelWidthHeightRatio);
 
-    if (videoSink != null && videoSinkNeedsRegisterInputStream) {
-      onReadyToRegisterVideoSinkInputStream();
-      videoSink.registerInputStream(
+    if (videoSink != null && pendingVideoSinkInputStreamChange) {
+      onReadyToChangeVideoSinkInputStream();
+      videoSink.onInputStreamChanged(
           /* inputType= */ VideoSink.INPUT_TYPE_SURFACE,
           format
               .buildUpon()
@@ -1367,16 +1367,16 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     } else {
       videoFrameReleaseControl.setFrameRate(format.frameRate);
     }
-    videoSinkNeedsRegisterInputStream = false;
+    pendingVideoSinkInputStreamChange = false;
   }
 
   /**
-   * Called when ready to {@linkplain VideoSink#registerInputStream(int, Format) register} an input
+   * Called when ready to {@linkplain VideoSink#onInputStreamChanged(int, Format) change} the input
    * stream when {@linkplain #setVideoEffects video effects} are enabled.
    *
    * <p>The default implementation is a no-op.
    */
-  protected void onReadyToRegisterVideoSinkInputStream() {
+  protected void onReadyToChangeVideoSinkInputStream() {
     // do nothing.
   }
 
@@ -1584,7 +1584,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     } else {
       videoFrameReleaseControl.onProcessedStreamChange();
     }
-    videoSinkNeedsRegisterInputStream = true;
+    pendingVideoSinkInputStreamChange = true;
     maybeSetupTunnelingForFirstFrame();
   }
 

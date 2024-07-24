@@ -203,8 +203,8 @@ public interface VideoSink {
   void setVideoEffects(List<Effect> videoEffects);
 
   /**
-   * Sets {@linkplain Effect video effects} to apply after the next stream is {@linkplain
-   * VideoSink#registerInputStream(int, Format) registered}.
+   * Sets {@linkplain Effect video effects} to apply after the next stream {@linkplain
+   * VideoSink#onInputStreamChanged(int, Format) change}.
    */
   void setPendingVideoEffects(List<Effect> videoEffects);
 
@@ -256,13 +256,13 @@ public interface VideoSink {
    * @param inputType The {@link InputType} of the stream.
    * @param format The {@link Format} of the stream.
    */
-  void registerInputStream(@InputType int inputType, Format format);
+  void onInputStreamChanged(@InputType int inputType, Format format);
 
   /**
    * Handles a video input frame.
    *
-   * <p>Must be called after the corresponding stream is {@linkplain #registerInputStream(int,
-   * Format) registered}.
+   * <p>Must be called after the corresponding stream is {@linkplain #onInputStreamChanged(int,
+   * Format) signalled}.
    *
    * @param framePresentationTimeUs The frame's presentation time, in microseconds.
    * @param isLastFrame Whether this is the last frame of the video stream.
@@ -282,18 +282,18 @@ public interface VideoSink {
       throws VideoSinkException;
 
   /**
-   * Provides an input {@link Bitmap} to the video sink.
+   * Handles an input {@link Bitmap}.
    *
-   * <p>Must be called after the corresponding stream is {@linkplain #registerInputStream(int,
-   * Format) registered}.
+   * <p>Must be called after the corresponding stream is {@linkplain #onInputStreamChanged(int,
+   * Format) signalled}.
    *
-   * @param inputBitmap The {@link Bitmap} queued to the video sink.
+   * @param inputBitmap The {@link Bitmap} to queue to the video sink.
    * @param timestampIterator The times within the current stream that the bitmap should be shown
    *     at. The timestamps should be monotonically increasing.
    * @return Whether the bitmap was queued successfully. If {@code false}, the caller can try again
    *     later.
    */
-  boolean queueBitmap(Bitmap inputBitmap, TimestampIterator timestampIterator);
+  boolean handleInputBitmap(Bitmap inputBitmap, TimestampIterator timestampIterator);
 
   /**
    * Incrementally renders processed video frames to the output surface.

@@ -580,7 +580,7 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
     }
 
     @Override
-    public void registerInputStream(@InputType int inputType, Format format) {
+    public void onInputStreamChanged(@InputType int inputType, Format format) {
       checkState(isInitialized());
       switch (inputType) {
         case INPUT_TYPE_SURFACE:
@@ -764,7 +764,7 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
     }
 
     @Override
-    public boolean queueBitmap(Bitmap inputBitmap, TimestampIterator timestampIterator) {
+    public boolean handleInputBitmap(Bitmap inputBitmap, TimestampIterator timestampIterator) {
       checkState(isInitialized());
 
       if (!maybeRegisterPendingInputStream()) {
