@@ -27,6 +27,7 @@ import androidx.media3.decoder.DecoderException;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DecoderAudioRenderer;
+import java.util.Objects;
 
 /** Decodes and renders audio using the native IAMF decoder. */
 public class LibiamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
@@ -64,7 +65,7 @@ public class LibiamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
   @Override
   protected int supportsFormatInternal(Format format) {
     return !IamfLibrary.isAvailable()
-            || !java.util.Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_IAMF)
+            || !Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_IAMF)
         ? C.FORMAT_UNSUPPORTED_TYPE
         : C.FORMAT_HANDLED;
   }
