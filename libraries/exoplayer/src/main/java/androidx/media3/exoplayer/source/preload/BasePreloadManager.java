@@ -72,13 +72,12 @@ public abstract class BasePreloadManager<T> {
   }
 
   private final Object lock;
-  private final Looper looper;
   protected final Comparator<T> rankingDataComparator;
   private final TargetPreloadStatusControl<T> targetPreloadStatusControl;
   private final MediaSource.Factory mediaSourceFactory;
   private final ListenerSet<Listener> listeners;
   private final Map<MediaItem, MediaSourceHolder> mediaItemMediaSourceHolderMap;
-  private final Handler startPreloadingHandler;
+  private final Handler applicationHandler;
 
   @GuardedBy("lock")
   private final PriorityQueue<MediaSourceHolder> sourceHolderPriorityQueue;
@@ -92,13 +91,13 @@ public abstract class BasePreloadManager<T> {
       TargetPreloadStatusControl<T> targetPreloadStatusControl,
       MediaSource.Factory mediaSourceFactory) {
     lock = new Object();
-    looper = Util.getCurrentOrMainLooper();
+    applicationHandler = Util.createHandlerForCurrentOrMainLooper();
     this.rankingDataComparator = rankingDataComparator;
     this.targetPreloadStatusControl = targetPreloadStatusControl;
     this.mediaSourceFactory = mediaSourceFactory;
-    listeners = new ListenerSet<>(looper, Clock.DEFAULT, (listener, flags) -> {});
+    listeners =
+        new ListenerSet<>(applicationHandler.getLooper(), Clock.DEFAULT, (listener, flags) -> {});
     mediaItemMediaSourceHolderMap = new HashMap<>();
-    startPreloadingHandler = Util.createHandlerForCurrentOrMainLooper();
     sourceHolderPriorityQueue = new PriorityQueue<>();
   }
 
@@ -257,35 +256,39 @@ public abstract class BasePreloadManager<T> {
 
   /** Called when the given {@link MediaSource} completes preloading. */
   protected final void onPreloadCompleted(MediaSource source) {
-    listeners.sendEvent(
-        /* eventFlag= */ C.INDEX_UNSET, listener -> listener.onCompleted(source.getMediaItem()));
-    maybeAdvanceToNextSource(source);
+    applicationHandler.post(
+        () -> {
+          listeners.sendEvent(
+              /* eventFlag= */ C.INDEX_UNSET,
+              listener -> listener.onCompleted(source.getMediaItem()));
+          maybeAdvanceToNextSource(source);
+        });
   }
 
   /** Called when an error occurs. */
   protected final void onPreloadError(PreloadException error, MediaSource source) {
-    listeners.sendEvent(/* eventFlag= */ C.INDEX_UNSET, listener -> listener.onError(error));
-    maybeAdvanceToNextSource(source);
+    applicationHandler.post(
+        () -> {
+          listeners.sendEvent(/* eventFlag= */ C.INDEX_UNSET, listener -> listener.onError(error));
+          maybeAdvanceToNextSource(source);
+        });
   }
 
   /** Called when the given {@link MediaSource} has been skipped before completing preloading. */
   protected final void onPreloadSkipped(MediaSource source) {
-    maybeAdvanceToNextSource(source);
+    applicationHandler.post(() -> maybeAdvanceToNextSource(source));
   }
 
   private void maybeAdvanceToNextSource(MediaSource preloadingSource) {
-    startPreloadingHandler.post(
-        () -> {
-          synchronized (lock) {
-            if (sourceHolderPriorityQueue.isEmpty()
-                || checkNotNull(sourceHolderPriorityQueue.peek()).mediaSource != preloadingSource) {
-              return;
-            }
-            do {
-              sourceHolderPriorityQueue.poll();
-            } while (!sourceHolderPriorityQueue.isEmpty() && !maybeStartPreloadNextSource());
-          }
-        });
+    synchronized (lock) {
+      if (sourceHolderPriorityQueue.isEmpty()
+          || checkNotNull(sourceHolderPriorityQueue.peek()).mediaSource != preloadingSource) {
+        return;
+      }
+      do {
+        sourceHolderPriorityQueue.poll();
+      } while (!sourceHolderPriorityQueue.isEmpty() && !maybeStartPreloadNextSource());
+    }
   }
 
   /**
@@ -372,7 +375,7 @@ public abstract class BasePreloadManager<T> {
   }
 
   private void verifyApplicationThread() {
-    if (Looper.myLooper() != looper) {
+    if (Looper.myLooper() != applicationHandler.getLooper()) {
       throw new IllegalStateException("Preload manager is accessed on the wrong thread.");
     }
   }
