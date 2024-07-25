@@ -35,14 +35,17 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
+import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.PreviewingVideoGraph;
 import androidx.media3.common.SimpleBasePlayer;
+import androidx.media3.common.Timeline;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoSize;
+import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
@@ -50,6 +53,7 @@ import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.PreviewingSingleInputVideoGraph;
+import androidx.media3.effect.TimestampAdjustment;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.RendererCapabilities;
@@ -60,12 +64,16 @@ import androidx.media3.exoplayer.source.ClippingMediaSource;
 import androidx.media3.exoplayer.source.ConcatenatingMediaSource2;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.ExternalLoader;
+import androidx.media3.exoplayer.source.ForwardingTimeline;
+import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.MergingMediaSource;
 import androidx.media3.exoplayer.source.SilenceMediaSource;
 import androidx.media3.exoplayer.source.TrackGroupArray;
+import androidx.media3.exoplayer.source.WrappingMediaSource;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
+import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.util.EventLogger;
 import androidx.media3.exoplayer.video.CompositingVideoSinkProvider;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
@@ -331,6 +339,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
         !composition.sequences.isEmpty()
             && composition.sequences.size() <= MAX_SUPPORTED_SEQUENCES);
     checkState(this.composition == null);
+    composition = deactivateSpeedAdjustingVideoEffects(composition);
 
     setCompositionInternal(composition);
     if (videoOutput != null) {
@@ -577,6 +586,32 @@ public final class CompositionPlayer extends SimpleBasePlayer
 
   // Internal methods
 
+  private static Composition deactivateSpeedAdjustingVideoEffects(Composition composition) {
+    List<EditedMediaItemSequence> newSequences = new ArrayList<>();
+    for (EditedMediaItemSequence sequence : composition.sequences) {
+      List<EditedMediaItem> newEditedMediaItems = new ArrayList<>();
+      for (EditedMediaItem editedMediaItem : sequence.editedMediaItems) {
+        ImmutableList<Effect> videoEffects = editedMediaItem.effects.videoEffects;
+        List<Effect> newVideoEffects = new ArrayList<>();
+        for (Effect videoEffect : videoEffects) {
+          if (videoEffect instanceof TimestampAdjustment) {
+            newVideoEffects.add(
+                new InactiveTimestampAdjustment(((TimestampAdjustment) videoEffect).speedProvider));
+          } else {
+            newVideoEffects.add(videoEffect);
+          }
+        }
+        newEditedMediaItems.add(
+            editedMediaItem
+                .buildUpon()
+                .setEffects(new Effects(editedMediaItem.effects.audioProcessors, newVideoEffects))
+                .build());
+      }
+      newSequences.add(new EditedMediaItemSequence(newEditedMediaItems, sequence.isLooping));
+    }
+    return composition.buildUpon().setSequences(newSequences).build();
+  }
+
   private void updatePlaybackState() {
     if (players.isEmpty() || playbackException != null) {
       playbackState = STATE_IDLE;
@@ -712,21 +747,77 @@ public final class CompositionPlayer extends SimpleBasePlayer
                 new SilenceMediaSource(editedMediaItem.durationUs),
                 editedMediaItem.mediaItem.clippingConfiguration.startPositionUs,
                 editedMediaItem.mediaItem.clippingConfiguration.endPositionUs);
-        mediaSourceBuilder.add(
+        MediaSource mergingMediaSource =
             new MergingMediaSource(
                 defaultMediaSourceFactory.createMediaSource(editedMediaItem.mediaItem),
-                // Generate silence as long as the MediaItem without clipping, because the actual
-                // media track starts at the clipped position. For example, if a video is 1000ms
-                // long and clipped 900ms from the start, its MediaSource will be enabled at 900ms
-                // during track selection, rather than at 0ms.
-                silenceMediaSource),
-            /* initialPlaceholderDurationMs= */ usToMs(durationUs));
+                silenceMediaSource);
+        MediaSource itemMediaSource =
+            wrapWithVideoEffectsBasedMediaSources(
+                mergingMediaSource, editedMediaItem.effects.videoEffects, durationUs);
+        mediaSourceBuilder.add(
+            itemMediaSource, /* initialPlaceholderDurationMs= */ usToMs(durationUs));
       } else {
         mediaSourceBuilder.add(
             editedMediaItem.mediaItem, /* initialPlaceholderDurationMs= */ usToMs(durationUs));
       }
     }
     player.setMediaSource(mediaSourceBuilder.build());
+  }
+
+  private MediaSource wrapWithVideoEffectsBasedMediaSources(
+      MediaSource mediaSource, ImmutableList<Effect> videoEffects, long durationUs) {
+    MediaSource newMediaSource = mediaSource;
+    for (Effect videoEffect : videoEffects) {
+      if (videoEffect instanceof InactiveTimestampAdjustment) {
+        newMediaSource =
+            wrapWithSpeedChangingMediaSource(
+                newMediaSource,
+                ((InactiveTimestampAdjustment) videoEffect).speedProvider,
+                durationUs);
+      }
+    }
+    return newMediaSource;
+  }
+
+  private MediaSource wrapWithSpeedChangingMediaSource(
+      MediaSource mediaSource, SpeedProvider speedProvider, long durationUs) {
+    return new WrappingMediaSource(mediaSource) {
+
+      @Override
+      public MediaPeriod createPeriod(MediaPeriodId id, Allocator allocator, long startPositionUs) {
+        return new SpeedProviderMediaPeriod(
+            super.createPeriod(id, allocator, startPositionUs), speedProvider);
+      }
+
+      @Override
+      public void releasePeriod(MediaPeriod mediaPeriod) {
+        MediaPeriod wrappedPeriod = ((SpeedProviderMediaPeriod) mediaPeriod).mediaPeriod;
+        super.releasePeriod(wrappedPeriod);
+      }
+
+      @Override
+      protected void onChildSourceInfoRefreshed(Timeline newTimeline) {
+        Timeline timeline =
+            new ForwardingTimeline(newTimeline) {
+              @Override
+              public Window getWindow(
+                  int windowIndex, Window window, long defaultPositionProjectionUs) {
+                Window wrappedWindow =
+                    newTimeline.getWindow(windowIndex, window, defaultPositionProjectionUs);
+                wrappedWindow.durationUs = durationUs;
+                return wrappedWindow;
+              }
+
+              @Override
+              public Period getPeriod(int periodIndex, Period period, boolean setIds) {
+                Timeline.Period wrappedPeriod = newTimeline.getPeriod(periodIndex, period, setIds);
+                wrappedPeriod.durationUs = durationUs;
+                return wrappedPeriod;
+              }
+            };
+        super.onChildSourceInfoRefreshed(timeline);
+      }
+    };
   }
 
   private long getContentPositionMs() {

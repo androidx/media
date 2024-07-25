@@ -25,6 +25,7 @@ import static org.junit.Assert.assertThrows;
 import android.app.Instrumentation;
 import android.content.Context;
 import android.graphics.BitmapFactory;
+import android.util.Pair;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.TextureView;
@@ -42,6 +43,7 @@ import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoGraph;
+import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.AssetDataSource;
@@ -53,10 +55,12 @@ import androidx.media3.exoplayer.image.BitmapFactoryImageDecoder;
 import androidx.media3.exoplayer.image.ImageDecoder;
 import androidx.media3.exoplayer.image.ImageDecoderException;
 import androidx.media3.exoplayer.source.ExternalLoader;
+import androidx.media3.test.utils.TestSpeedProvider;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
+import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -372,6 +376,64 @@ public class CompositionPlayerTest {
           compositionPlayer.addListener(listener);
           compositionPlayer.setComposition(
               new Composition.Builder(new EditedMediaItemSequence(video, image)).build());
+          compositionPlayer.prepare();
+          compositionPlayer.play();
+        });
+
+    listener.waitUntilPlayerEnded();
+  }
+
+  @Test
+  public void videoPreview_withSpeedUp_playerEnds() throws Exception {
+    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    Pair<AudioProcessor, Effect> effects =
+        Effects.createExperimentalSpeedChangingEffect(
+            TestSpeedProvider.createWithStartTimes(new long[] {0}, new float[] {2f}));
+    EditedMediaItem video =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+            .setDurationUs(1_000_000)
+            .setEffects(
+                new Effects(ImmutableList.of(effects.first), ImmutableList.of(effects.second)))
+            .build();
+
+    instrumentation.runOnMainSync(
+        () -> {
+          compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
+          // Set a surface on the player even though there is no UI on this test. We need a surface
+          // otherwise the player will skip/drop video frames.
+          compositionPlayer.setVideoSurfaceView(surfaceView);
+          compositionPlayer.addListener(listener);
+          compositionPlayer.setComposition(
+              new Composition.Builder(new EditedMediaItemSequence(video)).build());
+          compositionPlayer.prepare();
+          compositionPlayer.play();
+        });
+
+    listener.waitUntilPlayerEnded();
+  }
+
+  @Test
+  public void videoPreview_withSlowDown_playerEnds() throws Exception {
+    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    Pair<AudioProcessor, Effect> effects =
+        Effects.createExperimentalSpeedChangingEffect(
+            TestSpeedProvider.createWithStartTimes(new long[] {0}, new float[] {0.5f}));
+    EditedMediaItem video =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+            .setDurationUs(1_000_000)
+            .setEffects(
+                new Effects(ImmutableList.of(effects.first), ImmutableList.of(effects.second)))
+            .build();
+
+    instrumentation.runOnMainSync(
+        () -> {
+          compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
+          // Set a surface on the player even though there is no UI on this test. We need a surface
+          // otherwise the player will skip/drop video frames.
+          compositionPlayer.setVideoSurfaceView(surfaceView);
+          compositionPlayer.addListener(listener);
+          compositionPlayer.setComposition(
+              new Composition.Builder(new EditedMediaItemSequence(video)).build());
           compositionPlayer.prepare();
           compositionPlayer.play();
         });
