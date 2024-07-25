@@ -21,7 +21,6 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SpeedChangingAudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
-import androidx.media3.common.util.TimestampConsumer;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.effect.SpeedChangeEffect;
 import androidx.media3.effect.TimestampAdjustment;
@@ -82,19 +81,7 @@ public final class Effects {
         new SpeedChangingAudioProcessor(speedProvider);
     Effect audioDrivenVideoEffect =
         new TimestampAdjustment(
-            new TimestampAdjustment.TimestampMap() {
-              @Override
-              public void calculateOutputTimeUs(
-                  long inputTimeUs, TimestampConsumer outputTimeConsumer) {
-                speedChangingAudioProcessor.getSpeedAdjustedTimeAsync(
-                    inputTimeUs, outputTimeConsumer);
-              }
-
-              @Override
-              public long getDurationUsAfterTimestampsMapped(long durationUs) {
-                return speedChangingAudioProcessor.getDurationAfterProcessorApplied(durationUs);
-              }
-            });
+            speedChangingAudioProcessor::getSpeedAdjustedTimeAsync, speedProvider);
     return Pair.create(speedChangingAudioProcessor, audioDrivenVideoEffect);
   }
 }

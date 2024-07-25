@@ -16,6 +16,8 @@
 package androidx.media3.effect;
 
 import android.content.Context;
+import androidx.media3.common.audio.SpeedProvider;
+import androidx.media3.common.util.SpeedProviderUtil;
 import androidx.media3.common.util.TimestampConsumer;
 import androidx.media3.common.util.UnstableApi;
 
@@ -44,21 +46,22 @@ public final class TimestampAdjustment implements GlEffect {
      * on any thread.
      */
     void calculateOutputTimeUs(long inputTimeUs, TimestampConsumer outputTimeConsumer);
-
-    /**
-     * Returns the expected duration of the output stream when the map is applied given a input
-     * {@code durationUs}.
-     */
-    default long getDurationUsAfterTimestampsMapped(long durationUs) {
-      return durationUs;
-    }
   }
 
-  private final TimestampMap timestampMap;
+  public final TimestampMap timestampMap;
 
-  /** Creates an instance. */
-  public TimestampAdjustment(TimestampMap timestampMap) {
+  public final SpeedProvider speedProvider;
+
+  /**
+   * Creates an instance.
+   *
+   * @param timestampMap The {@link TimestampMap}
+   * @param speedProvider The {@link SpeedProvider} specifying the approximate speed adjustments the
+   *     {@link TimestampMap} should be applying.
+   */
+  public TimestampAdjustment(TimestampMap timestampMap, SpeedProvider speedProvider) {
     this.timestampMap = timestampMap;
+    this.speedProvider = speedProvider;
   }
 
   @Override
@@ -68,6 +71,6 @@ public final class TimestampAdjustment implements GlEffect {
 
   @Override
   public long getDurationAfterEffectApplied(long durationUs) {
-    return timestampMap.getDurationUsAfterTimestampsMapped(durationUs);
+    return SpeedProviderUtil.getDurationAfterSpeedProviderApplied(speedProvider, durationUs);
   }
 }
