@@ -236,7 +236,7 @@ public class BoxesTest {
     Format format =
         FAKE_AUDIO_FORMAT
             .buildUpon()
-            .setSampleMimeType("audio/mp4a-latm")
+            .setSampleMimeType(MimeTypes.AUDIO_AAC)
             .setInitializationData(ImmutableList.of(FAKE_CSD_0))
             .build();
 
@@ -260,7 +260,7 @@ public class BoxesTest {
 
   @Test
   public void createAudioSampleEntryBox_forSawb_matchesExpected() throws Exception {
-    Format format = FAKE_AUDIO_FORMAT.buildUpon().setSampleMimeType("audio/amr-wb").build();
+    Format format = FAKE_AUDIO_FORMAT.buildUpon().setSampleMimeType(MimeTypes.AUDIO_AMR_WB).build();
 
     ByteBuffer audioSampleEntryBox = Boxes.audioSampleEntry(format);
 
@@ -322,7 +322,7 @@ public class BoxesTest {
     Format format =
         FAKE_VIDEO_FORMAT
             .buildUpon()
-            .setSampleMimeType("video/hevc")
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
             .setInitializationData(
                 ImmutableList.of(
                     BaseEncoding.base16()
@@ -342,7 +342,7 @@ public class BoxesTest {
     Format format =
         FAKE_VIDEO_FORMAT
             .buildUpon()
-            .setSampleMimeType("video/hevc")
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
             .setColorInfo(
                 new ColorInfo.Builder()
                     .setColorSpace(C.COLOR_SPACE_BT2020)
@@ -378,7 +378,7 @@ public class BoxesTest {
 
   @Test
   public void createVideoSampleEntryBox_forH264_matchesExpected() throws Exception {
-    Format format = FAKE_VIDEO_FORMAT.buildUpon().setSampleMimeType("video/avc").build();
+    Format format = FAKE_VIDEO_FORMAT.buildUpon().setSampleMimeType(MimeTypes.VIDEO_H264).build();
 
     ByteBuffer videoSampleEntryBox = Boxes.videoSampleEntry(format);
 
@@ -389,7 +389,7 @@ public class BoxesTest {
 
   @Test
   public void createVideoSampleEntryBox_forAv1_matchesExpected() throws IOException {
-    Format format = FAKE_VIDEO_FORMAT.buildUpon().setSampleMimeType("video/av01").build();
+    Format format = FAKE_VIDEO_FORMAT.buildUpon().setSampleMimeType(MimeTypes.VIDEO_AV1).build();
 
     ByteBuffer videoSampleEntryBox = Boxes.videoSampleEntry(format);
 
