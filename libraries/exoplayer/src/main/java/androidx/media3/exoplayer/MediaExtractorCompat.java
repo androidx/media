@@ -207,7 +207,7 @@ public final class MediaExtractorCompat {
       setDataSource(
           assetFileDescriptor.getFileDescriptor(),
           assetFileDescriptor.getStartOffset(),
-          assetFileDescriptor.getLength());
+          assetFileDescriptor.getDeclaredLength());
     }
   }
 
