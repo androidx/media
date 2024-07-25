@@ -184,6 +184,7 @@ import java.util.concurrent.TimeoutException;
   private final long detachSurfaceTimeoutMs;
   @Nullable private AudioManager audioManager;
   private final boolean suppressPlaybackOnUnsuitableOutput;
+  @Nullable private final SuitableOutputChecker suitableOutputChecker;
 
   private @RepeatMode int repeatMode;
   private boolean shuffleModeEnabled;
@@ -400,13 +401,18 @@ import java.util.concurrent.TimeoutException;
       audioBecomingNoisyManager.setEnabled(builder.handleAudioBecomingNoisy);
       audioFocusManager = new AudioFocusManager(builder.context, eventHandler, componentListener);
       audioFocusManager.setAudioAttributes(builder.handleAudioFocus ? audioAttributes : null);
-      if (suppressPlaybackOnUnsuitableOutput && Util.SDK_INT >= 23) {
+
+      suitableOutputChecker = builder.suitableOutputChecker;
+      if (suitableOutputChecker != null && Util.SDK_INT >= 35) {
+        suitableOutputChecker.setEnabled(true);
+      } else if (suppressPlaybackOnUnsuitableOutput && Util.SDK_INT >= 23) {
         audioManager = (AudioManager) applicationContext.getSystemService(Context.AUDIO_SERVICE);
         Api23.registerAudioDeviceCallback(
             audioManager,
             new NoSuitableOutputPlaybackSuppressionAudioDeviceCallback(),
             new Handler(applicationLooper));
       }
+
       if (builder.deviceVolumeControlEnabled) {
         streamVolumeManager =
             new StreamVolumeManager(builder.context, eventHandler, componentListener);
@@ -1065,6 +1071,9 @@ import java.util.concurrent.TimeoutException;
     bandwidthMeter.removeEventListener(analyticsCollector);
     if (playbackInfo.sleepingForOffload) {
       playbackInfo = playbackInfo.copyWithEstimatedPosition();
+    }
+    if (suitableOutputChecker != null && Util.SDK_INT >= 35) {
+      suitableOutputChecker.setEnabled(false);
     }
     playbackInfo = playbackInfo.copyWithPlaybackState(Player.STATE_IDLE);
     playbackInfo = playbackInfo.copyWithLoadingMediaPeriodId(playbackInfo.periodId);
@@ -2831,13 +2840,16 @@ import java.util.concurrent.TimeoutException;
   }
 
   private boolean hasSupportedAudioOutput() {
-    if (audioManager == null || Util.SDK_INT < 23) {
+    if (Util.SDK_INT >= 35 && suitableOutputChecker != null) {
+      return suitableOutputChecker.isSelectedRouteSuitableForPlayback();
+    } else if (Util.SDK_INT >= 23 && audioManager != null) {
+      return Api23.isSuitableExternalAudioOutputPresentInAudioDeviceInfoList(
+          applicationContext, audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS));
+    } else {
       // The Audio Manager API to determine the list of connected audio devices is available only in
       // API >= 23.
       return true;
     }
-    return Api23.isSuitableAudioOutputPresentInAudioDeviceInfoList(
-        applicationContext, audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS));
   }
 
   private void updateWakeAndWifiLock() {
@@ -3390,7 +3402,7 @@ import java.util.concurrent.TimeoutException;
     private Api23() {}
 
     @DoNotInline
-    public static boolean isSuitableAudioOutputPresentInAudioDeviceInfoList(
+    public static boolean isSuitableExternalAudioOutputPresentInAudioDeviceInfoList(
         Context context, AudioDeviceInfo[] audioDeviceInfos) {
       if (!Util.isWear(context)) {
         return true;

@@ -26,6 +26,8 @@
         timeout ([#1540](https://github.com/androidx/media/issues/1540)).
     *   Remove `MediaCodecAdapter.Configuration.flags` as the field was always
         zero.
+    *   Allow the user to select the built-in speaker for playback on Wear OS
+        API 35+ (where the device advertises support for this).
 *   Transformer:
     *   Add `SurfaceAssetLoader`, which supports queueing video data to
         Transformer via a `Surface`.

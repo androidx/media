@@ -18,8 +18,10 @@ package androidx.media3.test.utils;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
+import android.os.Build.VERSION;
 import android.os.Looper;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Clock;
@@ -30,6 +32,7 @@ import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.LoadControl;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RenderersFactory;
+import androidx.media3.exoplayer.SuitableOutputChecker;
 import androidx.media3.exoplayer.analytics.DefaultAnalyticsCollector;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
@@ -52,6 +55,7 @@ public class TestExoPlayerBuilder {
   @Nullable private MediaSource.Factory mediaSourceFactory;
   private boolean useLazyPreparation;
   private @MonotonicNonNull Looper looper;
+  @Nullable private SuitableOutputChecker suitableOutputChecker;
   private long seekBackIncrementMs;
   private long seekForwardIncrementMs;
   private long maxSeekToPreviousPositionMs;
@@ -243,6 +247,23 @@ public class TestExoPlayerBuilder {
   }
 
   /**
+   * Sets the {@link SuitableOutputChecker} to check the suitability of the selected outputs for
+   * playback.
+   *
+   * <p>If this method is not called, the library uses a default implementation based on framework
+   * APIs.
+   *
+   * @return This builder.
+   */
+  @CanIgnoreReturnValue
+  @RequiresApi(35)
+  public TestExoPlayerBuilder setSuitableOutputChecker(
+      SuitableOutputChecker suitableOutputChecker) {
+    this.suitableOutputChecker = suitableOutputChecker;
+    return this;
+  }
+
+  /**
    * Returns the {@link Looper} that will be used by the player, or null if no {@link Looper} has
    * been set yet and no default is available.
    */
@@ -402,6 +423,9 @@ public class TestExoPlayerBuilder {
             .setDeviceVolumeControlEnabled(deviceVolumeControlEnabled)
             .setSuppressPlaybackOnUnsuitableOutput(suppressPlaybackWhenUnsuitableOutput)
             .experimentalSetDynamicSchedulingEnabled(dynamicSchedulingEnabled);
+    if (VERSION.SDK_INT >= 35 && suitableOutputChecker != null) {
+      builder.setSuitableOutputChecker(suitableOutputChecker);
+    }
     if (mediaSourceFactory != null) {
       builder.setMediaSourceFactory(mediaSourceFactory);
     }

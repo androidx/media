@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
@@ -23,6 +24,7 @@ import android.content.Context;
 import android.media.AudioDeviceInfo;
 import android.media.AudioTrack;
 import android.media.MediaCodec;
+import android.os.Handler;
 import android.os.Looper;
 import android.os.Process;
 import android.view.Surface;
@@ -32,6 +34,7 @@ import android.view.TextureView;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.annotation.RestrictTo;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
@@ -506,6 +509,7 @@ public interface ExoPlayer extends Player {
     /* package */ boolean suppressPlaybackOnUnsuitableOutput;
     /* package */ String playerName;
     /* package */ boolean dynamicSchedulingEnabled;
+    @Nullable /* package */ SuitableOutputChecker suitableOutputChecker;
 
     /**
      * Creates a builder.
@@ -1261,6 +1265,27 @@ public interface ExoPlayer extends Player {
     }
 
     /**
+     * Sets the {@link SuitableOutputChecker} to check the suitability of the selected outputs for
+     * playback.
+     *
+     * <p>If this method is not called, the library uses a default implementation based on framework
+     * APIs.
+     *
+     * @return This builder.
+     * @throws IllegalStateException If {@link #build()} has already been called.
+     */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    @RestrictTo(LIBRARY_GROUP)
+    @VisibleForTesting
+    @RequiresApi(35)
+    public Builder setSuitableOutputChecker(SuitableOutputChecker suitableOutputChecker) {
+      checkState(!buildCalled);
+      this.suitableOutputChecker = suitableOutputChecker;
+      return this;
+    }
+
+    /**
      * Sets the {@link Looper} that will be used for playback.
      *
      * <p>The backing thread should run with priority {@link Process#THREAD_PRIORITY_AUDIO} and
@@ -1304,6 +1329,11 @@ public interface ExoPlayer extends Player {
     public ExoPlayer build() {
       checkState(!buildCalled);
       buildCalled = true;
+      if (suitableOutputChecker == null
+          && Util.SDK_INT >= 35
+          && suppressPlaybackOnUnsuitableOutput) {
+        suitableOutputChecker = new DefaultSuitableOutputChecker(context, new Handler(looper));
+      }
       return new ExoPlayerImpl(/* builder= */ this, /* wrappingPlayer= */ null);
     }
 
