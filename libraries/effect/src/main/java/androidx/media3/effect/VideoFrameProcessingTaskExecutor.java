@@ -15,6 +15,7 @@
  */
 package androidx.media3.effect;
 
+import static androidx.media3.common.util.Assertions.checkState;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import androidx.annotation.GuardedBy;
@@ -32,8 +33,6 @@ import java.util.concurrent.TimeoutException;
 
 /**
  * Wrapper around a single thread {@link ExecutorService} for executing {@link Task} instances.
- *
- * <p>Public methods can be called from any thread.
  *
  * <p>Calls {@link ErrorListener#onError} for errors that occur during these tasks. The listener is
  * invoked from the {@link ExecutorService}.
@@ -90,7 +89,11 @@ import java.util.concurrent.TimeoutException;
     highPriorityTasks = new ArrayDeque<>();
   }
 
-  /** Submits the given {@link Task} to be executed after all pending tasks have completed. */
+  /**
+   * Submits the given {@link Task} to be executed after all pending tasks have completed.
+   *
+   * <p>Can be called on any thread.
+   */
   @SuppressWarnings("FutureReturnValueIgnored")
   public void submit(Task task) {
     @Nullable RejectedExecutionException executionException = null;
@@ -110,20 +113,15 @@ import java.util.concurrent.TimeoutException;
     }
   }
 
-  /** Blocks the caller until the given {@link Task} has completed. */
+  /**
+   * Blocks the caller until the given {@link Task} has completed.
+   *
+   * <p>Can be called on any thread.
+   */
   public void invoke(Task task) throws InterruptedException {
     // If running on the executor service thread, run synchronously.
     // Calling future.get() on the single executor thread would deadlock.
-    Thread videoFrameProcessingThread;
-    try {
-      videoFrameProcessingThread = threadFuture.get(EXECUTOR_SERVICE_TIMEOUT_MS, MILLISECONDS);
-    } catch (InterruptedException e) {
-      throw e;
-    } catch (Exception e) {
-      handleException(e);
-      return;
-    }
-    if (Thread.currentThread() == videoFrameProcessingThread) {
+    if (isRunningOnVideoFrameProcessingThread()) {
       try {
         task.run();
       } catch (Exception e) {
@@ -155,6 +153,8 @@ import java.util.concurrent.TimeoutException;
    *
    * <p>Tasks that were previously {@linkplain #submit(Task) submitted} without high-priority and
    * have not started executing will be executed after this task is complete.
+   *
+   * <p>Can be called on any thread.
    */
   public void submitWithHighPriority(Task task) {
     synchronized (lock) {
@@ -175,6 +175,8 @@ import java.util.concurrent.TimeoutException;
    * <p>During flush, the {@code VideoFrameProcessingTaskExecutor} ignores the {@linkplain #submit
    * submission of new tasks}. The tasks that are submitted before flushing are either executed or
    * canceled when this method returns.
+   *
+   * <p>Can be called on any thread.
    */
   @SuppressWarnings("FutureReturnValueIgnored")
   public void flush() throws InterruptedException {
@@ -204,10 +206,13 @@ import java.util.concurrent.TimeoutException;
    * <p>This {@link VideoFrameProcessingTaskExecutor} instance must not be used after this method is
    * called.
    *
+   * <p>Must not be called on the GL thread.
+   *
    * @param releaseTask A {@link Task} to execute before shutting down the background thread.
    * @throws InterruptedException If interrupted while releasing resources.
    */
   public void release(Task releaseTask) throws InterruptedException {
+    checkState(!isRunningOnVideoFrameProcessingThread());
     synchronized (lock) {
       shouldCancelTasks = true;
       highPriorityTasks.clear();
@@ -223,6 +228,28 @@ import java.util.concurrent.TimeoutException;
                 "Release timed out. OpenGL resources may not be cleaned up properly."));
       }
     }
+  }
+
+  public void verifyVideoFrameProcessingThread() {
+    try {
+      checkState(isRunningOnVideoFrameProcessingThread());
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      handleException(e);
+    }
+  }
+
+  private boolean isRunningOnVideoFrameProcessingThread() throws InterruptedException {
+    Thread videoFrameProcessingThread;
+    try {
+      videoFrameProcessingThread = threadFuture.get(EXECUTOR_SERVICE_TIMEOUT_MS, MILLISECONDS);
+    } catch (InterruptedException e) {
+      throw e;
+    } catch (Exception e) {
+      handleException(e);
+      return false;
+    }
+    return Thread.currentThread() == videoFrameProcessingThread;
   }
 
   private Future<?> wrapTaskAndSubmitToExecutorService(
