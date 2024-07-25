@@ -100,9 +100,8 @@ class LaunchActivity : AppCompatActivity() {
   }
 
   /**
-   * Encapsulates the API 21+ functionality of looking for and observing updates to active media
-   * sessions. We only construct an instance of this class if the device is running L or later, to
-   * avoid any ClassNotFoundExceptions due to the use of MediaSession and related classes.
+   * Encapsulates the functionality of looking for and observing updates to active media
+   * sessions.
    */
   private inner class ActiveSessionListener {
     private val activeSessionApps: MediaAppListAdapter.Section =
