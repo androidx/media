@@ -232,7 +232,7 @@ public class BoxesTest {
   }
 
   @Test
-  public void createAudioSampleEntryBox_forMp4a_matchesExpected() throws Exception {
+  public void createAudioSampleEntryBox_forAac_matchesExpected() throws Exception {
     Format format =
         FAKE_AUDIO_FORMAT
             .buildUpon()
@@ -244,29 +244,29 @@ public class BoxesTest {
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(audioSampleEntryBox);
     DumpFileAsserts.assertOutput(
-        context, dumpableBox, getExpectedDumpFilePath("audio_sample_entry_box_mp4a"));
+        context, dumpableBox, getExpectedDumpFilePath("audio_sample_entry_box_aac"));
   }
 
   @Test
-  public void createAudioSampleEntryBox_forSamr_matchesExpected() throws Exception {
+  public void createAudioSampleEntryBox_forAmrNb_matchesExpected() throws Exception {
     Format format = FAKE_AUDIO_FORMAT.buildUpon().setSampleMimeType(MimeTypes.AUDIO_AMR_NB).build();
 
     ByteBuffer audioSampleEntryBox = Boxes.audioSampleEntry(format);
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(audioSampleEntryBox);
     DumpFileAsserts.assertOutput(
-        context, dumpableBox, getExpectedDumpFilePath("audio_sample_entry_box_samr"));
+        context, dumpableBox, getExpectedDumpFilePath("audio_sample_entry_box_amrnb"));
   }
 
   @Test
-  public void createAudioSampleEntryBox_forSawb_matchesExpected() throws Exception {
+  public void createAudioSampleEntryBox_forAmrWb_matchesExpected() throws Exception {
     Format format = FAKE_AUDIO_FORMAT.buildUpon().setSampleMimeType(MimeTypes.AUDIO_AMR_WB).build();
 
     ByteBuffer audioSampleEntryBox = Boxes.audioSampleEntry(format);
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(audioSampleEntryBox);
     DumpFileAsserts.assertOutput(
-        context, dumpableBox, getExpectedDumpFilePath("audio_sample_entry_box_sawb"));
+        context, dumpableBox, getExpectedDumpFilePath("audio_sample_entry_box_amrwb"));
   }
 
   @Test
