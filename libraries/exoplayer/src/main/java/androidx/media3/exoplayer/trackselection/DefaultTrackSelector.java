@@ -3361,7 +3361,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
       // smallest to exceed the maximum size at which it can be displayed within the viewport.
       if (format.width > 0 && format.height > 0) {
         Point maxVideoSizeInViewport =
-            getMaxVideoSizeInViewport(
+            TrackSelectionUtil.getMaxVideoSizeInViewport(
                 orientationMayChange, viewportWidth, viewportHeight, format.width, format.height);
         int videoPixels = format.width * format.height;
         if (format.width >= (int) (maxVideoSizeInViewport.x * FRACTION_TO_CONSIDER_FULLSCREEN)
@@ -3372,32 +3372,6 @@ public class DefaultTrackSelector extends MappingTrackSelector
       }
     }
     return maxVideoPixelsToRetain;
-  }
-
-  /**
-   * Given viewport dimensions and video dimensions, computes the maximum size of the video as it
-   * will be rendered to fit inside of the viewport.
-   */
-  private static Point getMaxVideoSizeInViewport(
-      boolean orientationMayChange,
-      int viewportWidth,
-      int viewportHeight,
-      int videoWidth,
-      int videoHeight) {
-    if (orientationMayChange && (videoWidth > videoHeight) != (viewportWidth > viewportHeight)) {
-      // Rotation is allowed, and the video will be larger in the rotated viewport.
-      int tempViewportWidth = viewportWidth;
-      viewportWidth = viewportHeight;
-      viewportHeight = tempViewportWidth;
-    }
-
-    if (videoWidth * viewportHeight >= videoHeight * viewportWidth) {
-      // Horizontal letter-boxing along top and bottom.
-      return new Point(viewportWidth, Util.ceilDivide(viewportWidth * videoHeight, videoWidth));
-    } else {
-      // Vertical letter-boxing along edges.
-      return new Point(Util.ceilDivide(viewportHeight * videoWidth, videoHeight), viewportHeight);
-    }
   }
 
   private static int getRoleFlagMatchScore(int trackRoleFlags, int preferredRoleFlags) {
