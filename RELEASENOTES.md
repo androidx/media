@@ -95,6 +95,9 @@
 *   Leanback extension:
 *   Cast Extension:
 *   Test Utilities:
+    *   `DataSourceContractTest` now includes tests to verify:
+        *   Input stream `read position` is updated.
+        *   Output buffer `offset` is applied correctly.
 *   Demo app:
 *   Remove deprecated symbols:
     *   Remove deprecated `Player.hasPrevious`, `Player.hasPreviousWindow()`.

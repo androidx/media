@@ -152,6 +152,41 @@ public abstract class DataSourceContractTest {
   }
 
   @Test
+  public void unboundedDataSpec_readExpectedBytesWithOffset() throws Exception {
+    forAllTestResourcesAndDataSources(
+        (resource, dataSource) -> {
+          try {
+            dataSource.open(new DataSpec.Builder().setUri(resource.getUri()).build());
+            int offset = 2;
+            byte[] data = new byte[resource.getExpectedBytes().length + offset];
+            // Initialize the first two bytes with non-zero values.
+            data[0] = (byte) 0xA5;
+            data[1] = (byte) 0x5A;
+
+            while (offset != data.length) {
+              int bytesRead = dataSource.read(data, offset, resource.getExpectedBytes().length);
+
+              if (bytesRead == C.RESULT_END_OF_INPUT) {
+                break;
+              }
+
+              offset += bytesRead;
+            }
+
+            // Assert that the first two bytes have not been modified.
+            assertThat(data[0]).isEqualTo((byte) 0xA5);
+            assertThat(data[1]).isEqualTo((byte) 0x5A);
+
+            assertThat(offset).isEqualTo(data.length);
+            byte[] actualData = Arrays.copyOfRange(data, 2, data.length);
+            assertThat(actualData).isEqualTo(resource.getExpectedBytes());
+          } finally {
+            dataSource.close();
+          }
+        });
+  }
+
+  @Test
   public void dataSpecWithPosition_readUntilEnd() throws Exception {
     forAllTestResourcesAndDataSources(
         (resource, dataSource) -> {
@@ -190,6 +225,29 @@ public abstract class DataSourceContractTest {
             assertThat(length).isEqualTo(4);
             byte[] expectedData = Arrays.copyOf(resource.getExpectedBytes(), 4);
             assertThat(data).isEqualTo(expectedData);
+          } finally {
+            dataSource.close();
+          }
+        });
+  }
+
+  @Test
+  public void dataSpecWithLength_readUntilEndInTwoParts() throws Exception {
+    forAllTestResourcesAndDataSources(
+        (resource, dataSource) -> {
+          try {
+            int length = resource.getExpectedBytes().length;
+            dataSource.open(
+                new DataSpec.Builder().setUri(resource.getUri()).setLength(length).build());
+
+            byte[] firstPartData = DataSourceUtil.readExactly(dataSource, length / 2);
+            byte[] secondPartData = DataSourceUtil.readToEnd(dataSource);
+
+            byte[] expectedFirstPartData = Arrays.copyOf(resource.getExpectedBytes(), length / 2);
+            byte[] expectedSecondPartData =
+                Arrays.copyOfRange(resource.getExpectedBytes(), length / 2, length);
+            assertThat(firstPartData).isEqualTo(expectedFirstPartData);
+            assertThat(secondPartData).isEqualTo(expectedSecondPartData);
           } finally {
             dataSource.close();
           }
