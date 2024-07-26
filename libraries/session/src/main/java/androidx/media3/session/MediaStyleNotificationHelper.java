@@ -111,7 +111,6 @@ public class MediaStyleNotificationHelper {
     /* package */ final MediaSession session;
 
     /* package */ int @NullableType [] actionsToShowInCompact;
-    @Nullable /* package */ PendingIntent cancelButtonIntent;
     /* package */ @MonotonicNonNull CharSequence remoteDeviceName;
     /* package */ int remoteDeviceIconRes;
     @Nullable /* package */ PendingIntent remoteDeviceIntent;
@@ -138,23 +137,23 @@ public class MediaStyleNotificationHelper {
 
     /**
      * @deprecated This method is a no-op and usages can be safely removed. There is no recommended
-     *     alternative (it was previously only operational on API &le; 21).
+     *     alternative (it was previously only operational on API &lt; 21).
      */
     @CanIgnoreReturnValue
     @Deprecated
+    @SuppressWarnings("unused")
     public MediaStyle setShowCancelButton(boolean show) {
       return this;
     }
 
     /**
-     * Sets the pending intent to be sent when the cancel button is pressed. See {@link
-     * #setShowCancelButton}.
-     *
-     * @param pendingIntent the intent to be sent when the cancel button is pressed
+     * @deprecated This method is a no-op and usages can be safely removed. There is no recommended
+     *     alternative (it was previously only operational on API &lt; 21).
      */
     @CanIgnoreReturnValue
+    @Deprecated
+    @SuppressWarnings("unused")
     public MediaStyle setCancelButtonIntent(PendingIntent pendingIntent) {
-      cancelButtonIntent = pendingIntent;
       return this;
     }
 

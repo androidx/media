@@ -29,9 +29,8 @@ android {
     defaultConfig {
         versionName project.ext.releaseVersion
         versionCode project.ext.releaseVersionCode
-        minSdkVersion 21
+        minSdkVersion project.ext.minSdkVersion
         targetSdkVersion project.ext.appTargetSdkVersion
-        multiDexEnabled true
     }
 
     buildTypes {
@@ -77,7 +76,6 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:' + androidxAppCompatVersion
     implementation 'androidx.constraintlayout:constraintlayout:' + androidxConstraintLayoutVersion
     implementation 'androidx.recyclerview:recyclerview:' + androidxRecyclerViewVersion
-    implementation 'androidx.multidex:multidex:' + androidxMultidexVersion
     implementation 'com.google.android.material:material:' + androidxMaterialVersion
     implementation project(modulePrefix + 'lib-effect')
     implementation project(modulePrefix + 'lib-exoplayer')

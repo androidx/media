@@ -16,7 +16,7 @@ android {
     namespace 'androidx.media3.transformer'
 
     defaultConfig {
-        minSdkVersion 21
+        minSdkVersion project.ext.minSdkVersion
         // The following argument makes the Android Test Orchestrator run its
         // "pm clear" command after each test invocation. This command ensures
         // that the app's state is completely cleared between tests.

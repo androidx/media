@@ -19,11 +19,8 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.media.session.MediaSessionManager as ActiveSessionManager
-import android.os.Build
-import android.os.Build.VERSION_CODES
 import android.os.Bundle
 import android.service.notification.NotificationListenerService
-import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.core.app.NotificationManagerCompat
@@ -76,10 +73,7 @@ class LaunchActivity : AppCompatActivity() {
         }
       )
 
-    if (Build.VERSION.SDK_INT >= VERSION_CODES.LOLLIPOP) {
-      activeSessionListener = ActiveSessionListener()
-    }
-
+    activeSessionListener = ActiveSessionListener()
     mediaSessionApps = mediaAppListAdapter.addSection(R.string.media_app_header_media_service)
 
     val mediaAppsList: RecyclerView? = findViewById(R.id.app_list)
@@ -91,9 +85,7 @@ class LaunchActivity : AppCompatActivity() {
   override fun onStart() {
     super.onStart()
 
-    if (Build.VERSION.SDK_INT >= VERSION_CODES.LOLLIPOP) {
-      activeSessionListener!!.onStart()
-    }
+    activeSessionListener!!.onStart()
 
     // Finds apps that implement MediaSessionService, MediaLibraryService, or
     // MediaBrowserServiceCompat.
@@ -103,17 +95,12 @@ class LaunchActivity : AppCompatActivity() {
 
   override fun onStop() {
     super.onStop()
-    if (Build.VERSION.SDK_INT >= VERSION_CODES.LOLLIPOP) {
-      activeSessionListener!!.onStop()
-    }
+    activeSessionListener!!.onStop()
   }
 
   /**
-   * Encapsulates the API 21+ functionality of looking for and observing updates to active media
-   * sessions. We only construct an instance of this class if the device is running L or later, to
-   * avoid any ClassNotFoundExceptions due to the use of MediaSession and related classes.
+   * Encapsulates the functionality of looking for and observing updates to active media sessions.
    */
-  @RequiresApi(VERSION_CODES.LOLLIPOP)
   private inner class ActiveSessionListener {
     private val activeSessionApps: MediaAppListAdapter.Section =
       mediaAppListAdapter.addSection(R.string.media_app_header_active_session)
@@ -170,10 +157,8 @@ class LaunchActivity : AppCompatActivity() {
 
   /**
    * A notification listener service that allows us to grab active media sessions from their
-   * notifications. This class is only used on API 21+ because the Android media framework added
-   * getActiveSessions in API 21.
+   * notifications.
    */
-  @RequiresApi(VERSION_CODES.LOLLIPOP)
   class NotificationListener : NotificationListenerService() {
     companion object {
       // Helper method to check if our notification listener is enabled. In order to get active

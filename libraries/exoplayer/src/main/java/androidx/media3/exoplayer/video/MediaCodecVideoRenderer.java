@@ -1766,8 +1766,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   }
 
   /**
-   * Renders the output buffer with the specified index. This method is only called if the platform
-   * API version of the device is 21 or later.
+   * Renders the output buffer with the specified index.
    *
    * @param codec The codec that owns the output buffer.
    * @param index The index of the output buffer to drop.
