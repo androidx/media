@@ -96,9 +96,19 @@ public final class EncoderUtil {
     ImmutableList.Builder<MediaCodecInfo> resultBuilder = new ImmutableList.Builder<>();
     for (int i = 0; i < encoders.size(); i++) {
       MediaCodecInfo mediaCodecInfo = encoders.get(i);
-      if (mediaCodecInfo.isAlias()
-          || !isFeatureSupported(
-              mediaCodecInfo, mimeType, MediaCodecInfo.CodecCapabilities.FEATURE_HdrEditing)) {
+      if (mediaCodecInfo.isAlias()) {
+        continue;
+      }
+      boolean hasNeededHdrSupport =
+          isFeatureSupported(
+                  mediaCodecInfo, mimeType, MediaCodecInfo.CodecCapabilities.FEATURE_HdrEditing)
+              || (colorInfo.colorTransfer == C.COLOR_TRANSFER_HLG
+                  && Util.SDK_INT >= 35
+                  && isFeatureSupported(
+                      mediaCodecInfo,
+                      mimeType,
+                      MediaCodecInfo.CodecCapabilities.FEATURE_HlgEditing));
+      if (!hasNeededHdrSupport) {
         continue;
       }
       for (MediaCodecInfo.CodecProfileLevel codecProfileLevel :
