@@ -16,8 +16,9 @@
 package androidx.media3.test.utils;
 
 import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
-import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.common.util.Assertions.checkStateNotNull;
 
+import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.util.UnstableApi;
@@ -37,7 +38,7 @@ public final class FakeSuitableOutputChecker implements SuitableOutputChecker {
 
     /**
      * Sets the initial value to be returned from {@link
-     * SuitableOutputChecker#isSelectedRouteSuitableForPlayback()}. The default value is false.
+     * SuitableOutputChecker#isSelectedOutputSuitableForPlayback()}. The default value is false.
      */
     @CanIgnoreReturnValue
     public Builder setIsSuitableExternalOutputAvailable(boolean isSuitableOutputAvailable) {
@@ -55,21 +56,43 @@ public final class FakeSuitableOutputChecker implements SuitableOutputChecker {
     }
   }
 
-  private final boolean isSuitableOutputAvailable;
-  private boolean isEnabled;
+  private boolean isSelectedOutputSuitableForPlayback;
+  private boolean previousSelectedOutputSuitableForPlayback;
+  @Nullable private Callback callback;
 
-  public FakeSuitableOutputChecker(boolean isSuitableOutputAvailable) {
-    this.isSuitableOutputAvailable = isSuitableOutputAvailable;
+  public FakeSuitableOutputChecker(boolean isSelectedOutputSuitableForPlayback) {
+    this.isSelectedOutputSuitableForPlayback = isSelectedOutputSuitableForPlayback;
+    this.previousSelectedOutputSuitableForPlayback = isSelectedOutputSuitableForPlayback;
   }
 
   @Override
-  public void setEnabled(boolean isEnabled) {
-    this.isEnabled = isEnabled;
+  public void enable(Callback callback) {
+    this.callback = callback;
   }
 
   @Override
-  public boolean isSelectedRouteSuitableForPlayback() {
-    checkState(isEnabled, "SuitableOutputChecker is not enabled");
-    return isSuitableOutputAvailable;
+  public void disable() {
+    this.callback = null;
+  }
+
+  @Override
+  public boolean isSelectedOutputSuitableForPlayback() {
+    checkStateNotNull(callback, "SuitableOutputChecker is not enabled");
+    return isSelectedOutputSuitableForPlayback;
+  }
+
+  /**
+   * Updates the value to be returned by {@link
+   * SuitableOutputChecker#isSelectedOutputSuitableForPlayback()} and send callbacks to registered
+   * callers via {@link Callback#onSelectedOutputSuitabilityChanged(boolean)}.
+   */
+  public void updateIsSelectedSuitableOutputAvailableAndNotify(
+      boolean isSelectedOutputSuitableForPlayback) {
+    this.isSelectedOutputSuitableForPlayback = isSelectedOutputSuitableForPlayback;
+    if (callback != null
+        && previousSelectedOutputSuitableForPlayback != isSelectedOutputSuitableForPlayback) {
+      callback.onSelectedOutputSuitabilityChanged(isSelectedOutputSuitableForPlayback);
+      previousSelectedOutputSuitableForPlayback = isSelectedOutputSuitableForPlayback;
+    }
   }
 }

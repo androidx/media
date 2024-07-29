@@ -404,7 +404,7 @@ import java.util.concurrent.TimeoutException;
 
       suitableOutputChecker = builder.suitableOutputChecker;
       if (suitableOutputChecker != null && Util.SDK_INT >= 35) {
-        suitableOutputChecker.setEnabled(true);
+        suitableOutputChecker.enable(this::onSelectedOutputSuitabilityChanged);
       } else if (suppressPlaybackOnUnsuitableOutput && Util.SDK_INT >= 23) {
         audioManager = (AudioManager) applicationContext.getSystemService(Context.AUDIO_SERVICE);
         Api23.registerAudioDeviceCallback(
@@ -1073,7 +1073,7 @@ import java.util.concurrent.TimeoutException;
       playbackInfo = playbackInfo.copyWithEstimatedPosition();
     }
     if (suitableOutputChecker != null && Util.SDK_INT >= 35) {
-      suitableOutputChecker.setEnabled(false);
+      suitableOutputChecker.disable();
     }
     playbackInfo = playbackInfo.copyWithPlaybackState(Player.STATE_IDLE);
     playbackInfo = playbackInfo.copyWithLoadingMediaPeriodId(playbackInfo.periodId);
@@ -2841,7 +2841,7 @@ import java.util.concurrent.TimeoutException;
 
   private boolean hasSupportedAudioOutput() {
     if (Util.SDK_INT >= 35 && suitableOutputChecker != null) {
-      return suitableOutputChecker.isSelectedRouteSuitableForPlayback();
+      return suitableOutputChecker.isSelectedOutputSuitableForPlayback();
     } else if (Util.SDK_INT >= 23 && audioManager != null) {
       return Api23.isSuitableExternalAudioOutputPresentInAudioDeviceInfoList(
           applicationContext, audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS));
@@ -2952,6 +2952,23 @@ import java.util.concurrent.TimeoutException;
         /* ignored */ C.TIME_UNSET,
         /* ignored */ C.INDEX_UNSET,
         /* ignored */ false);
+  }
+
+  private void onSelectedOutputSuitabilityChanged(boolean isSelectedOutputSuitableForPlayback) {
+    if (isSelectedOutputSuitableForPlayback) {
+      if (playbackInfo.playbackSuppressionReason
+          == Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT) {
+        updatePlaybackInfoForPlayWhenReadyAndSuppressionReasonStates(
+            playbackInfo.playWhenReady,
+            PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+            Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+      }
+    } else {
+      updatePlaybackInfoForPlayWhenReadyAndSuppressionReasonStates(
+          playbackInfo.playWhenReady,
+          PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+          Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT);
+    }
   }
 
   private static DeviceInfo createDeviceInfo(@Nullable StreamVolumeManager streamVolumeManager) {

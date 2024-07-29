@@ -15,15 +15,18 @@
  */
 package androidx.media3.exoplayer;
 
-import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.common.util.Assertions.checkStateNotNull;
 
 import android.content.Context;
 import android.media.MediaRoute2Info;
 import android.media.MediaRouter2;
+import android.media.MediaRouter2.ControllerCallback;
 import android.media.MediaRouter2.RouteCallback;
+import android.media.MediaRouter2.RoutingController;
 import android.media.RouteDiscoveryPreference;
 import android.media.RoutingSessionInfo;
 import android.os.Handler;
+import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
@@ -42,12 +45,13 @@ import java.util.concurrent.Executor;
   private final RouteCallback routeCallback;
   private final Executor executor;
 
-  private boolean isEnabled;
+  @Nullable private ControllerCallback controllerCallback;
+  private boolean isPreviousSelectedOutputSuitableForPlayback;
 
   public DefaultSuitableOutputChecker(Context context, Handler eventHandler) {
-    this.router = MediaRouter2.getInstance(context);
-    this.routeCallback = new RouteCallback() {};
-    this.executor =
+    router = MediaRouter2.getInstance(context);
+    routeCallback = new RouteCallback() {};
+    executor =
         new Executor() {
           @Override
           public void execute(Runnable command) {
@@ -57,19 +61,38 @@ import java.util.concurrent.Executor;
   }
 
   @Override
-  public void setEnabled(boolean isEnabled) {
-    if (isEnabled && !this.isEnabled) {
-      router.registerRouteCallback(executor, routeCallback, EMPTY_DISCOVERY_PREFERENCE);
-      this.isEnabled = true;
-    } else if (!isEnabled && this.isEnabled) {
-      router.unregisterRouteCallback(routeCallback);
-      this.isEnabled = false;
-    }
+  public void enable(Callback callback) {
+    router.registerRouteCallback(executor, routeCallback, EMPTY_DISCOVERY_PREFERENCE);
+    controllerCallback =
+        new ControllerCallback() {
+          @Override
+          public void onControllerUpdated(RoutingController controller) {
+            boolean isCurrentSelectedOutputSuitableForPlayback =
+                isSelectedOutputSuitableForPlayback();
+            if (isPreviousSelectedOutputSuitableForPlayback
+                != isCurrentSelectedOutputSuitableForPlayback) {
+              isPreviousSelectedOutputSuitableForPlayback =
+                  isCurrentSelectedOutputSuitableForPlayback;
+              callback.onSelectedOutputSuitabilityChanged(
+                  isCurrentSelectedOutputSuitableForPlayback);
+            }
+          }
+        };
+    router.registerControllerCallback(executor, controllerCallback);
+    isPreviousSelectedOutputSuitableForPlayback = isSelectedOutputSuitableForPlayback();
   }
 
   @Override
-  public boolean isSelectedRouteSuitableForPlayback() {
-    checkState(isEnabled, "SuitableOutputChecker is not enabled");
+  public void disable() {
+    checkStateNotNull(controllerCallback, "SuitableOutputChecker is not enabled");
+    router.unregisterControllerCallback(controllerCallback);
+    controllerCallback = null;
+    router.unregisterRouteCallback(routeCallback);
+  }
+
+  @Override
+  public boolean isSelectedOutputSuitableForPlayback() {
+    checkStateNotNull(controllerCallback, "SuitableOutputChecker is not enabled");
     int transferReason = router.getSystemController().getRoutingSessionInfo().getTransferReason();
     boolean wasTransferInitiatedBySelf = router.getSystemController().wasTransferInitiatedBySelf();
     for (MediaRoute2Info routeInfo : router.getSystemController().getSelectedRoutes()) {

@@ -21,20 +21,43 @@ import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.util.UnstableApi;
 
-/** Provides methods to check the suitability of media outputs. */
+/** Provides methods to check the suitability of selected media outputs. */
 @RequiresApi(35)
 @RestrictTo(LIBRARY_GROUP)
 @UnstableApi
 public interface SuitableOutputChecker {
+
+  /** Callback to notify changes in the suitability of the selected media output. */
+  interface Callback {
+
+    /**
+     * Called when suitability of the selected output has changed.
+     *
+     * @param isSelectedOutputSuitableForPlayback true when selected output is suitable for
+     *     playback.
+     */
+    void onSelectedOutputSuitabilityChanged(boolean isSelectedOutputSuitableForPlayback);
+  }
+
   /**
-   * Enables the current instance to receive updates on the suitable media outputs.
+   * Enables the current instance to receive updates on the selected media outputs and sets the
+   * {@link Callback} to notify the updates on the suitability of the selected output.
    *
-   * <p>When the caller no longer requires updated information, they must call this method with
-   * {@code false}.
+   * <p>When the caller no longer requires updates on suitable outputs, they must call {@link
+   * #disable()}.
    *
-   * @param isEnabled True if this instance should receive the updates.
+   * @param callback To receive notifications of changes in suitable media output changes.
    */
-  void setEnabled(boolean isEnabled);
+  void enable(Callback callback);
+
+  /**
+   * Disables the current instance to receive updates on the selected media outputs and clears the
+   * {@link Callback}.
+   *
+   * @throws IllegalStateException if this instance is not enabled to receive the updates on
+   *     suitable media outputs.
+   */
+  void disable();
 
   /**
    * Returns whether any audio output is suitable for the media playback.
@@ -42,5 +65,5 @@ public interface SuitableOutputChecker {
    * @throws IllegalStateException if this instance is not enabled to receive the updates on
    *     suitable media outputs.
    */
-  boolean isSelectedRouteSuitableForPlayback();
+  boolean isSelectedOutputSuitableForPlayback();
 }
