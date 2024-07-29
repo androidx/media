@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer.mh;
 
+import static androidx.media3.common.MimeTypes.VIDEO_DOLBY_VISION;
 import static androidx.media3.common.MimeTypes.VIDEO_H265;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
@@ -164,14 +165,16 @@ public final class HdrEditingTest {
         new TransformerAndroidTestRunner.Builder(context, transformer)
             .build()
             .run(testId, mediaItem);
-    assert exportTestResult.filePath != null;
     @C.ColorTransfer
     int actualColorTransfer =
-        Objects.requireNonNull(
-            retrieveTrackFormat(context, exportTestResult.filePath, C.TRACK_TYPE_VIDEO)
-                .colorInfo)
+        retrieveTrackFormat(context, exportTestResult.filePath, C.TRACK_TYPE_VIDEO)
+            .colorInfo
             .colorTransfer;
     assertThat(actualColorTransfer).isEqualTo(C.COLOR_TRANSFER_HLG);
+    String actualMimeType =
+        retrieveTrackFormat(context, exportTestResult.filePath, C.TRACK_TYPE_VIDEO)
+            .sampleMimeType;
+    assertThat(actualMimeType).isEqualTo(VIDEO_DOLBY_VISION);
   }
 
   @Test
@@ -259,12 +262,10 @@ public final class HdrEditingTest {
         new TransformerAndroidTestRunner.Builder(context, transformer)
             .build()
             .run(testId, editedMediaItem);
-    assert exportTestResult.filePath != null;
     @C.ColorTransfer
     int actualColorTransfer =
-        Objects.requireNonNull(
-            retrieveTrackFormat(context, exportTestResult.filePath, C.TRACK_TYPE_VIDEO)
-                .colorInfo)
+        retrieveTrackFormat(context, exportTestResult.filePath, C.TRACK_TYPE_VIDEO)
+            .colorInfo
             .colorTransfer;
     assertThat(actualColorTransfer).isEqualTo(C.COLOR_TRANSFER_HLG);
   }
@@ -402,7 +403,6 @@ public final class HdrEditingTest {
       throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     Format format = MP4_ASSET_DOLBY_VISION_HDR_FORMAT;
-    assert format.colorInfo != null;
     if (deviceSupportsHdrEditing(VIDEO_H265, format.colorInfo)) {
       recordTestSkipped(context, testId, /* reason= */ "Device supports Dolby Vision editing.");
       return;
@@ -442,12 +442,10 @@ public final class HdrEditingTest {
               .build()
               .run(testId, editedMediaItem);
       assertThat(isToneMappingFallbackApplied.get()).isTrue();
-      assert exportTestResult.filePath != null;
       @C.ColorTransfer
       int actualColorTransfer =
-          Objects.requireNonNull(
-              retrieveTrackFormat(context, exportTestResult.filePath, C.TRACK_TYPE_VIDEO)
-                  .colorInfo)
+          retrieveTrackFormat(context, exportTestResult.filePath, C.TRACK_TYPE_VIDEO)
+              .colorInfo
               .colorTransfer;
       assertThat(actualColorTransfer).isEqualTo(C.COLOR_TRANSFER_SDR);
     } catch (ExportException exception) {

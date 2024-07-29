@@ -111,8 +111,7 @@ import java.nio.ByteBuffer;
     if (isVideo) {
       mediaFormat = MediaFormat.createVideoFormat(sampleMimeType, format.width, format.height);
       MediaFormatUtil.maybeSetColorInfo(mediaFormat, format.colorInfo);
-      if (sampleMimeType.equals(MimeTypes.VIDEO_DOLBY_VISION) &&
-          android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+      if (sampleMimeType.equals(MimeTypes.VIDEO_DOLBY_VISION) && SDK_INT >= 33) {
         mediaFormat.setInteger(MediaFormat.KEY_PROFILE, getDvProfile(format));
         mediaFormat.setInteger(MediaFormat.KEY_LEVEL, getDvLevel(format));
       }
@@ -295,7 +294,7 @@ import java.nio.ByteBuffer;
 
   // Get Dolby Vision profile
   // Refer to https://professionalsupport.dolby.com/s/article/What-is-Dolby-Vision-Profile
-  @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+  @RequiresApi(33)
   private static int getDvProfile(Format format) {
     // Currently, only profile 8 is supported for encoding
     // TODO: set profile ID based on format.
@@ -304,7 +303,7 @@ import java.nio.ByteBuffer;
 
   // Get Dolby Vision level
   // Refer to https://professionalsupport.dolby.com/s/article/What-is-Dolby-Vision-Profile
-  @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+  @RequiresApi(33)
   private static int getDvLevel(Format format) {
     int level = -1;
     int maxWidthHeight = Math.max(format.width, format.height);
