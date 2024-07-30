@@ -58,6 +58,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.junit.AssumptionViolatedException;
@@ -77,13 +78,13 @@ public final class AndroidTestUtil {
   public static final class AssetInfo {
     private static final class Builder {
       private final String uri;
-      @Nullable private Format videoFormat;
+      private @MonotonicNonNull Format videoFormat;
       private int videoFrameCount;
       private long videoDurationUs;
+      private @MonotonicNonNull ImmutableList<Long> videoTimestampsUs;
 
       public Builder(String uri) {
         this.uri = uri;
-        videoFormat = null;
         videoFrameCount = C.LENGTH_UNSET;
         videoDurationUs = C.TIME_UNSET;
       }
@@ -111,9 +112,21 @@ public final class AndroidTestUtil {
         return this;
       }
 
+      /** See {@link AssetInfo#videoTimestampsUs}. */
+      @CanIgnoreReturnValue
+      public Builder setVideoTimestampsUs(ImmutableList<Long> videoTimestampsUs) {
+        this.videoTimestampsUs = videoTimestampsUs;
+        return this;
+      }
+
       /** Creates an {@link AssetInfo}. */
       public AssetInfo build() {
-        return new AssetInfo(uri, videoFormat, videoDurationUs, videoFrameCount);
+        if (videoTimestampsUs != null) {
+          checkState(
+              videoFrameCount == C.LENGTH_UNSET || videoFrameCount == videoTimestampsUs.size());
+          videoFrameCount = videoTimestampsUs.size();
+        }
+        return new AssetInfo(uri, videoFormat, videoDurationUs, videoFrameCount, videoTimestampsUs);
       }
     }
 
@@ -129,12 +142,20 @@ public final class AndroidTestUtil {
     /** Video frame count, or {@link C#LENGTH_UNSET}. */
     public final int videoFrameCount;
 
+    /** Video frame timestamps in microseconds, or {@code null}. */
+    @Nullable public final ImmutableList<Long> videoTimestampsUs;
+
     private AssetInfo(
-        String uri, @Nullable Format videoFormat, long videoDurationUs, int videoFrameCount) {
+        String uri,
+        @Nullable Format videoFormat,
+        long videoDurationUs,
+        int videoFrameCount,
+        @Nullable ImmutableList<Long> videoTimestampsUs) {
       this.uri = uri;
       this.videoFormat = videoFormat;
       this.videoDurationUs = videoDurationUs;
       this.videoFrameCount = videoFrameCount;
+      this.videoTimestampsUs = videoTimestampsUs;
     }
 
     @Override
@@ -247,7 +268,12 @@ public final class AndroidTestUtil {
                   .setCodecs("avc1.64001F")
                   .build())
           .setVideoDurationUs(1_024_000L)
-          .setVideoFrameCount(30)
+          .setVideoTimestampsUs(
+              ImmutableList.of(
+                  0L, 33_366L, 66_733L, 100_100L, 133_466L, 166_833L, 200_200L, 233_566L, 266_933L,
+                  300_300L, 333_666L, 367_033L, 400_400L, 433_766L, 467_133L, 500_500L, 533_866L,
+                  567_233L, 600_600L, 633_966L, 667_333L, 700_700L, 734_066L, 767_433L, 800_800L,
+                  834_166L, 867_533L, 900_900L, 934_266L, 967_633L))
           .build();
 
   public static final AssetInfo BT601_MOV_ASSET =

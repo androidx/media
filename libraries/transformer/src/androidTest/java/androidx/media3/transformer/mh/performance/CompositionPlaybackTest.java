@@ -21,27 +21,36 @@ import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888Bitma
 import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
+import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET;
 import static androidx.media3.transformer.mh.performance.PlaybackTestUtil.createTimestampOverlay;
+import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
-import android.app.Instrumentation;
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.PixelFormat;
 import android.media.Image;
 import android.media.ImageReader;
+import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
+import androidx.media3.effect.GlEffect;
 import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.CompositionPlayer;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.EditedMediaItemSequence;
 import androidx.media3.transformer.Effects;
+import androidx.media3.transformer.InputTimestampRecordingShaderProgram;
+import androidx.media3.transformer.PlayerTestListener;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -59,9 +68,21 @@ public class CompositionPlaybackTest {
   private static final String TEST_DIRECTORY = "test-generated-goldens/ExoPlayerPlaybackTest";
   private static final long TEST_TIMEOUT_MS = 10_000;
 
+  private static final MediaItem VIDEO_MEDIA_ITEM = MediaItem.fromUri(MP4_ASSET.uri);
+  private static final long VIDEO_DURATION_US = MP4_ASSET.videoDurationUs;
+  private static final ImmutableList<Long> VIDEO_TIMESTAMPS_US = MP4_ASSET.videoTimestampsUs;
+  private static final MediaItem IMAGE_MEDIA_ITEM =
+      new MediaItem.Builder().setUri(PNG_ASSET.uri).setImageDurationMs(200).build();
+  private static final long IMAGE_DURATION_US = 200_000;
+  // 200 ms at 30 fps (default frame rate)
+  private static final ImmutableList<Long> IMAGE_TIMESTAMPS_US =
+      ImmutableList.of(0L, 33_333L, 66_667L, 100_000L, 133_333L, 166_667L);
+
   @Rule public final TestName testName = new TestName();
 
-  private final Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+  private final Context context = getInstrumentation().getContext().getApplicationContext();
+  private final PlayerTestListener playerTestListener = new PlayerTestListener(TEST_TIMEOUT_MS);
+
   private @MonotonicNonNull CompositionPlayer player;
   private @MonotonicNonNull ImageReader outputImageReader;
   private String testId;
@@ -73,15 +94,16 @@ public class CompositionPlaybackTest {
 
   @After
   public void tearDown() {
-    instrumentation.runOnMainSync(
-        () -> {
-          if (player != null) {
-            player.release();
-          }
-          if (outputImageReader != null) {
-            outputImageReader.close();
-          }
-        });
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              if (player != null) {
+                player.release();
+              }
+              if (outputImageReader != null) {
+                outputImageReader.close();
+              }
+            });
   }
 
   @Test
@@ -95,35 +117,36 @@ public class CompositionPlaybackTest {
             PixelFormat.RGBA_8888,
             /* maxImages= */ 1);
 
-    instrumentation.runOnMainSync(
-        () -> {
-          player = new CompositionPlayer.Builder(instrumentation.getContext()).build();
-          outputImageReader.setOnImageAvailableListener(
-              imageReader -> {
-                try (Image image = imageReader.acquireLatestImage()) {
-                  renderedFirstFrameBitmap.set(createArgb8888BitmapFromRgba8888Image(image));
-                }
-                hasRenderedFirstFrameCondition.open();
-              },
-              Util.createHandlerForCurrentOrMainLooper());
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player = new CompositionPlayer.Builder(context).build();
+              outputImageReader.setOnImageAvailableListener(
+                  imageReader -> {
+                    try (Image image = imageReader.acquireLatestImage()) {
+                      renderedFirstFrameBitmap.set(createArgb8888BitmapFromRgba8888Image(image));
+                    }
+                    hasRenderedFirstFrameCondition.open();
+                  },
+                  Util.createHandlerForCurrentOrMainLooper());
 
-          player.setVideoSurface(
-              outputImageReader.getSurface(),
-              new Size(MP4_ASSET.videoFormat.width, MP4_ASSET.videoFormat.height));
-          player.setComposition(
-              new Composition.Builder(
-                      new EditedMediaItemSequence(
-                          new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-                              .setEffects(
-                                  new Effects(
-                                      /* audioProcessors= */ ImmutableList.of(),
-                                      /* videoEffects= */ ImmutableList.of(
-                                          createTimestampOverlay())))
-                              .setDurationUs(1_024_000L)
-                              .build()))
-                  .build());
-          player.prepare();
-        });
+              player.setVideoSurface(
+                  outputImageReader.getSurface(),
+                  new Size(MP4_ASSET.videoFormat.width, MP4_ASSET.videoFormat.height));
+              player.setComposition(
+                  new Composition.Builder(
+                          new EditedMediaItemSequence(
+                              new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+                                  .setEffects(
+                                      new Effects(
+                                          /* audioProcessors= */ ImmutableList.of(),
+                                          /* videoEffects= */ ImmutableList.of(
+                                              createTimestampOverlay())))
+                                  .setDurationUs(1_024_000L)
+                                  .build()))
+                      .build());
+              player.prepare();
+            });
 
     if (!hasRenderedFirstFrameCondition.block(TEST_TIMEOUT_MS)) {
       throw new TimeoutException(
@@ -140,5 +163,179 @@ public class CompositionPlaybackTest {
             testId);
     assertThat(averagePixelAbsoluteDifference).isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
     // TODO: b/315800590 - Verify onFirstFrameRendered is invoked only once.
+  }
+
+  @Test
+  public void playback_sequenceOfVideos_effectsReceiveCorrectTimestamps() throws Exception {
+    InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
+        new InputTimestampRecordingShaderProgram();
+    Effect videoEffect = (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram;
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM)
+            .setDurationUs(VIDEO_DURATION_US)
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    /* videoEffects= */ ImmutableList.of(videoEffect)))
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence(ImmutableList.of(editedMediaItem, editedMediaItem)))
+            .build();
+    List<Long> expectedTimestampsUs = new ArrayList<>();
+    expectedTimestampsUs.addAll(VIDEO_TIMESTAMPS_US);
+    expectedTimestampsUs.addAll(
+        Lists.newArrayList(
+            Iterables.transform(
+                VIDEO_TIMESTAMPS_US, timestampUs -> (VIDEO_DURATION_US + timestampUs))));
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player = new CompositionPlayer.Builder(context).build();
+              player.addListener(playerTestListener);
+              player.setComposition(composition);
+              player.prepare();
+              player.play();
+            });
+    playerTestListener.waitUntilPlayerEnded();
+
+    assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
+        .isEqualTo(expectedTimestampsUs);
+  }
+
+  @Test
+  public void playback_sequenceOfImages_effectsReceiveCorrectTimestamps() throws Exception {
+    InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
+        new InputTimestampRecordingShaderProgram();
+    Effect videoEffect = (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram;
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(IMAGE_MEDIA_ITEM)
+            .setDurationUs(IMAGE_DURATION_US)
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    /* videoEffects= */ ImmutableList.of(videoEffect)))
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence(ImmutableList.of(editedMediaItem, editedMediaItem)))
+            .build();
+    List<Long> expectedTimestampsUs = new ArrayList<>();
+    expectedTimestampsUs.addAll(IMAGE_TIMESTAMPS_US);
+    expectedTimestampsUs.addAll(
+        Lists.newArrayList(
+            Iterables.transform(
+                IMAGE_TIMESTAMPS_US, timestampUs -> (IMAGE_DURATION_US + timestampUs))));
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player = new CompositionPlayer.Builder(context).build();
+              player.addListener(playerTestListener);
+              player.setComposition(composition);
+              player.prepare();
+              player.play();
+            });
+    playerTestListener.waitUntilPlayerEnded();
+
+    assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
+        .isEqualTo(expectedTimestampsUs);
+  }
+
+  @Test
+  public void playback_sequenceOfVideoAndImage_effectsReceiveCorrectTimestamps() throws Exception {
+    InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
+        new InputTimestampRecordingShaderProgram();
+    Effect videoEffect = (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram;
+    EditedMediaItem videoEditedMediaItem =
+        new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM)
+            .setDurationUs(VIDEO_DURATION_US)
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    /* videoEffects= */ ImmutableList.of(videoEffect)))
+            .build();
+    EditedMediaItem imageEditedMediaItem =
+        new EditedMediaItem.Builder(IMAGE_MEDIA_ITEM)
+            .setDurationUs(IMAGE_DURATION_US)
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    /* videoEffects= */ ImmutableList.of(videoEffect)))
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence(
+                    ImmutableList.of(videoEditedMediaItem, imageEditedMediaItem)))
+            .build();
+    List<Long> expectedTimestampsUs = new ArrayList<>();
+    expectedTimestampsUs.addAll(VIDEO_TIMESTAMPS_US);
+    expectedTimestampsUs.addAll(
+        Lists.newArrayList(
+            Iterables.transform(
+                IMAGE_TIMESTAMPS_US, timestampUs -> (VIDEO_DURATION_US + timestampUs))));
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player = new CompositionPlayer.Builder(context).build();
+              player.addListener(playerTestListener);
+              player.setComposition(composition);
+              player.prepare();
+              player.play();
+            });
+    playerTestListener.waitUntilPlayerEnded();
+
+    assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
+        .isEqualTo(expectedTimestampsUs);
+  }
+
+  @Test
+  public void playback_sequenceOfImageAndVideo_effectsReceiveCorrectTimestamps() throws Exception {
+    InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
+        new InputTimestampRecordingShaderProgram();
+    Effect videoEffect = (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram;
+    EditedMediaItem imageEditedMediaItem =
+        new EditedMediaItem.Builder(IMAGE_MEDIA_ITEM)
+            .setDurationUs(IMAGE_DURATION_US)
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    /* videoEffects= */ ImmutableList.of(videoEffect)))
+            .build();
+    EditedMediaItem videoEditedMediaItem =
+        new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM)
+            .setDurationUs(VIDEO_DURATION_US)
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    /* videoEffects= */ ImmutableList.of(videoEffect)))
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence(
+                    ImmutableList.of(imageEditedMediaItem, videoEditedMediaItem)))
+            .build();
+    List<Long> expectedTimestampsUs = new ArrayList<>();
+    expectedTimestampsUs.addAll(IMAGE_TIMESTAMPS_US);
+    expectedTimestampsUs.addAll(
+        Lists.newArrayList(
+            Iterables.transform(
+                VIDEO_TIMESTAMPS_US, timestampUs -> (IMAGE_DURATION_US + timestampUs))));
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player = new CompositionPlayer.Builder(context).build();
+              player.addListener(playerTestListener);
+              player.setComposition(composition);
+              player.prepare();
+              player.play();
+            });
+    playerTestListener.waitUntilPlayerEnded();
+
+    assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
+        .isEqualTo(expectedTimestampsUs);
   }
 }

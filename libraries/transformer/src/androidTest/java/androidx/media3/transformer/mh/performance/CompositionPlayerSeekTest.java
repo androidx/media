@@ -64,15 +64,11 @@ public class CompositionPlayerSeekTest {
 
   private static final MediaItem VIDEO_MEDIA_ITEM = MediaItem.fromUri(MP4_ASSET.uri);
   private static final long VIDEO_DURATION_US = MP4_ASSET.videoDurationUs;
-  private static final ImmutableList<Long> VIDEO_TIMESTAMPS_US =
-      ImmutableList.of(
-          0L, 33_366L, 66_733L, 100_100L, 133_466L, 166_833L, 200_200L, 233_566L, 266_933L,
-          300_300L, 333_666L, 367_033L, 400_400L, 433_766L, 467_133L, 500_500L, 533_866L, 567_233L,
-          600_600L, 633_966L, 667_333L, 700_700L, 734_066L, 767_433L, 800_800L, 834_166L, 867_533L,
-          900_900L, 934_266L, 967_633L);
+  private static final ImmutableList<Long> VIDEO_TIMESTAMPS_US = MP4_ASSET.videoTimestampsUs;
   private static final MediaItem IMAGE_MEDIA_ITEM =
       new MediaItem.Builder().setUri(PNG_ASSET.uri).setImageDurationMs(200).build();
   private static final long IMAGE_DURATION_US = 200_000;
+  // 200 ms at 30 fps (default frame rate)
   private static final ImmutableList<Long> IMAGE_TIMESTAMPS_US =
       ImmutableList.of(0L, 33_333L, 66_667L, 100_000L, 133_333L, 166_667L);
 
@@ -80,16 +76,16 @@ public class CompositionPlayerSeekTest {
   public ActivityScenarioRule<SurfaceTestActivity> rule =
       new ActivityScenarioRule<>(SurfaceTestActivity.class);
 
-  private Context applicationContext;
-  private PlayerTestListener playerTestListener;
+  private final Context applicationContext =
+      getInstrumentation().getContext().getApplicationContext();
+  private final PlayerTestListener playerTestListener = new PlayerTestListener(TEST_TIMEOUT_MS);
+
   private CompositionPlayer compositionPlayer;
   private SurfaceView surfaceView;
 
   @Before
   public void setUp() {
     rule.getScenario().onActivity(activity -> surfaceView = activity.getSurfaceView());
-    applicationContext = getInstrumentation().getContext().getApplicationContext();
-    playerTestListener = new PlayerTestListener(TEST_TIMEOUT_MS);
   }
 
   @After
