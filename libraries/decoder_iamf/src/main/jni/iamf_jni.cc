@@ -58,6 +58,9 @@ IAMF_DecoderHandle handle;
 
 DECODER_FUNC(jint, iamfConfigDecoder, jbyteArray initializationDataArray) {
   handle = IAMF_decoder_open();
+
+  // TODO(ktrajkovski): Values need to be aligned with IamfDecoder and
+  // LibiamfAudioRenderer and/or extracted from ConfigOBUs.
   IAMF_decoder_peak_limiter_enable(handle, 0);
   IAMF_decoder_peak_limiter_set_threshold(handle, -1.0f);
   IAMF_decoder_set_normalization_loudness(handle, 0.0f);
@@ -76,6 +79,17 @@ DECODER_FUNC(jint, iamfConfigDecoder, jbyteArray initializationDataArray) {
   env->ReleaseByteArrayElements(initializationDataArray,
                                 initializationDataBytes, 0);
   return status;
+}
+
+DECODER_FUNC(jint, iamfDecode, jobject inputBuffer, jint inputSize,
+             jobject outputBuffer) {
+  uint32_t* rsize = nullptr;
+  return IAMF_decoder_decode(
+      handle,
+      reinterpret_cast<const uint8_t*>(
+          env->GetDirectBufferAddress(inputBuffer)),
+      inputSize, rsize,
+      reinterpret_cast<void*>(env->GetDirectBufferAddress(outputBuffer)));
 }
 
 DECODER_FUNC(void, iamfClose) { IAMF_decoder_close(handle); }

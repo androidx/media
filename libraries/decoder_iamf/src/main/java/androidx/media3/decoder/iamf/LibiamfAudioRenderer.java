@@ -22,6 +22,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.util.TraceUtil;
+import androidx.media3.common.util.Util;
 import androidx.media3.decoder.CryptoConfig;
 import androidx.media3.decoder.DecoderException;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
@@ -31,6 +32,12 @@ import java.util.Objects;
 
 /** Decodes and renders audio using the native IAMF decoder. */
 public class LibiamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
+
+  // TODO(ktrajkovski): Values need to be configured and must come from the same source of truth as
+  // in {@link IamfDecoder}.
+  private static final int BINAURAL_CHANNEL_COUNT = 2;
+  private static final int DEFAULT_OUTPUT_SAMPLE_RATE = 48000;
+  private static final int DEFAULT_PCM_ENCODING = C.ENCODING_PCM_16BIT;
 
   /**
    * Creates a new instance.
@@ -81,7 +88,8 @@ public class LibiamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
 
   @Override
   protected Format getOutputFormat(IamfDecoder decoder) {
-    throw new UnsupportedOperationException();
+    return Util.getPcmFormat(
+        DEFAULT_PCM_ENCODING, BINAURAL_CHANNEL_COUNT, DEFAULT_OUTPUT_SAMPLE_RATE);
   }
 
   @Override

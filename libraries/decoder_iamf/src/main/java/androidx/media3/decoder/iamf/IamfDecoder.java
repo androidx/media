@@ -18,15 +18,23 @@ package androidx.media3.decoder.iamf;
 import static android.support.annotation.VisibleForTesting.PACKAGE_PRIVATE;
 
 import androidx.annotation.VisibleForTesting;
+import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.decoder.SimpleDecoder;
 import androidx.media3.decoder.SimpleDecoderOutputBuffer;
+import java.nio.ByteBuffer;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /** IAMF decoder. */
 @VisibleForTesting(otherwise = PACKAGE_PRIVATE)
 public final class IamfDecoder
     extends SimpleDecoder<DecoderInputBuffer, SimpleDecoderOutputBuffer, IamfDecoderException> {
+
+  // TODO(ktrajkovski): Find the maximum acceptable output buffer size.
+  private static final int DEFAULT_OUTPUT_BUFFER_SIZE = 4096;
+
+  private final byte[] initializationData;
 
   /**
    * Creates an IAMF decoder.
@@ -35,8 +43,12 @@ public final class IamfDecoder
    * @throws IamfDecoderException Thrown if an exception occurs when initializing the decoder.
    */
   public IamfDecoder(List<byte[]> initializationData) throws IamfDecoderException {
-    super(new DecoderInputBuffer[0], new SimpleDecoderOutputBuffer[0]);
-    int status = iamfConfigDecoder(initializationData.get(0));
+    super(new DecoderInputBuffer[1], new SimpleDecoderOutputBuffer[1]);
+    if (initializationData.size() != 1) {
+      throw new IamfDecoderException("Initialization data must contain a single element.");
+    }
+    this.initializationData = initializationData.get(0);
+    int status = iamfConfigDecoder(this.initializationData);
     if (status != 0) {
       throw new IamfDecoderException("Failed to configure decoder with returned status: " + status);
     }
@@ -73,9 +85,25 @@ public final class IamfDecoder
   }
 
   @Override
+  @Nullable
   protected IamfDecoderException decode(
       DecoderInputBuffer inputBuffer, SimpleDecoderOutputBuffer outputBuffer, boolean reset) {
-    throw new UnsupportedOperationException();
+    if (reset) {
+      iamfClose();
+      iamfConfigDecoder(this.initializationData); // reconfigure
+    }
+    outputBuffer.init(inputBuffer.timeUs, DEFAULT_OUTPUT_BUFFER_SIZE);
+    ByteBuffer outputData = Util.castNonNull(outputBuffer.data);
+    ByteBuffer inputData = Util.castNonNull(inputBuffer.data);
+    int ret = iamfDecode(inputData, inputData.limit(), outputData);
+    if (ret < 0) {
+      return new IamfDecoderException("Failed to decode error= " + ret);
+    }
+    outputData.position(0);
+    // TODO(ktrajkovski): Extract the outputData limit from the iamfDecode return value, given
+    // channel count, and given bit depth.
+    outputData.limit(ret * 4); // x2 for expected bit depth, x2 for channel count
+    return null;
   }
 
   private native int iamfLayoutBinauralChannelsCount();
@@ -83,4 +111,6 @@ public final class IamfDecoder
   private native int iamfConfigDecoder(byte[] initializationData);
 
   private native void iamfClose();
+
+  private native int iamfDecode(ByteBuffer inputBuffer, int inputSize, ByteBuffer outputBuffer);
 }
