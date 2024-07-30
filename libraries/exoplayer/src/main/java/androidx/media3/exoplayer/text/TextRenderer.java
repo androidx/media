@@ -96,6 +96,7 @@ public final class TextRenderer extends BaseRenderer implements Callback {
   private static final int REPLACEMENT_STATE_WAIT_END_OF_STREAM = 2;
 
   private static final int MSG_UPDATE_OUTPUT = 1;
+  private static final int MSG_PROPAGATE_SUBTITLE_DECODER_ERROR = 2;
 
   // Fields used when handling CuesWithTiming objects from application/x-media3-cues samples.
   private final CueDecoder cueDecoder;
@@ -540,6 +541,9 @@ public final class TextRenderer extends BaseRenderer implements Callback {
       case MSG_UPDATE_OUTPUT:
         invokeUpdateOutputInternal((CueGroup) msg.obj);
         return true;
+      case MSG_PROPAGATE_SUBTITLE_DECODER_ERROR:
+        invokePropagateSubtitleDecoderError((TextOutput.SubtitleDecoderErrorInfo) msg.obj);
+        return true;
       default:
         throw new IllegalStateException();
     }
@@ -559,8 +563,23 @@ public final class TextRenderer extends BaseRenderer implements Callback {
    */
   private void handleDecoderError(SubtitleDecoderException e) {
     Log.e(TAG, "Subtitle decoding failed. streamFormat=" + streamFormat, e);
+    propagateError(new TextOutput.SubtitleDecoderErrorInfo(streamFormat, e));
     clearOutput();
     replaceSubtitleDecoder();
+  }
+
+  private void propagateError(final TextOutput.SubtitleDecoderErrorInfo subtitleDecoderErrorInfo) {
+    if (outputHandler != null) {
+      outputHandler.obtainMessage(MSG_PROPAGATE_SUBTITLE_DECODER_ERROR, subtitleDecoderErrorInfo)
+          .sendToTarget();
+    } else {
+      invokePropagateSubtitleDecoderError(subtitleDecoderErrorInfo);
+    }
+  }
+
+  private void invokePropagateSubtitleDecoderError(
+      final TextOutput.SubtitleDecoderErrorInfo subtitleDecoderErrorInfo) {
+    output.onSubtitleDecoderError(subtitleDecoderErrorInfo);
   }
 
   @RequiresNonNull("subtitle")
