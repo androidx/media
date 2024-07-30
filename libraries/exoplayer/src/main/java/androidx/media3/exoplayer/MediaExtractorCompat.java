@@ -24,12 +24,14 @@ import static androidx.media3.exoplayer.source.SampleStream.FLAG_REQUIRE_FORMAT;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
+import android.media.MediaDataSource;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.net.Uri;
 import android.util.SparseArray;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -44,6 +46,7 @@ import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.datasource.FileDescriptorDataSource;
+import androidx.media3.datasource.MediaDataSourceAdapter;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
 import androidx.media3.exoplayer.source.SampleQueue;
@@ -319,6 +322,24 @@ public final class MediaExtractorCompat {
     httpRequestHeaders = headers;
     prepareDataSource(
         dataSourceFactory.createDataSource(), buildDataSpec(Uri.parse(path), /* position= */ 0));
+  }
+
+  /**
+   * Sets the data source using the media stream obtained from the given {@link MediaDataSource}.
+   *
+   * @param mediaDataSource The {@link MediaDataSource} to extract media from.
+   * @throws IOException If an error occurs while extracting the media.
+   * @throws UnrecognizedInputFormatException If none of the available extractors successfully
+   *     sniffs the input.
+   * @throws IllegalStateException If this method is called twice on the same instance.
+   */
+  @RequiresApi(23)
+  public void setDataSource(MediaDataSource mediaDataSource) throws IOException {
+    // MediaDataSourceAdapter is created privately here, so TransferListeners cannot be registered.
+    // Therefore, the isNetwork parameter is hardcoded to false as it has no effect.
+    MediaDataSourceAdapter mediaDataSourceAdapter =
+        new MediaDataSourceAdapter(mediaDataSource, /* isNetwork= */ false);
+    prepareDataSource(mediaDataSourceAdapter, buildDataSpec(Uri.EMPTY, /* position= */ 0));
   }
 
   private void prepareDataSource(DataSource dataSource, DataSpec dataSpec) throws IOException {
