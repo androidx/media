@@ -214,8 +214,14 @@ public final class Loader implements LoaderErrorThrower {
    *     component using the loader.
    */
   public Loader(String threadNameSuffix) {
-    this.downloadExecutorService =
-        Util.newSingleThreadExecutor(THREAD_NAME_PREFIX + threadNameSuffix);
+    this(Util.newSingleThreadExecutor(THREAD_NAME_PREFIX + threadNameSuffix));
+  }
+
+  /**
+   * @param downloadExecutorService An ExecutorService that supplies the loader's thread.
+   */
+  public Loader(ExecutorService downloadExecutorService) {
+    this.downloadExecutorService = downloadExecutorService;
   }
 
   /**
