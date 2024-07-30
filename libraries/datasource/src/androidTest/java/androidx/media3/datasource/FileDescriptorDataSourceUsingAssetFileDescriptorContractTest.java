@@ -41,7 +41,7 @@ public class FileDescriptorDataSourceUsingAssetFileDescriptorContractTest
     AssetFileDescriptor afd =
         ApplicationProvider.getApplicationContext().getAssets().openFd(ASSET_PATH);
     return new FileDescriptorDataSource(
-        afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+        afd.getFileDescriptor(), afd.getStartOffset(), afd.getDeclaredLength());
   }
 
   @Override

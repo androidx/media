@@ -57,6 +57,20 @@ public final class FileDescriptorDataSourceTest {
   }
 
   @Test
+  public void testReadViaFileDescriptorWithUnsetLength() throws Exception {
+    File file = tempFolder.newFile();
+    Files.write(Paths.get(file.getAbsolutePath()), DATA);
+
+    try (FileInputStream inputStream = new FileInputStream(file)) {
+      DataSource dataSource =
+          new FileDescriptorDataSource(inputStream.getFD(), /* offset= */ 0, C.LENGTH_UNSET);
+
+      TestUtil.assertDataSourceContent(
+          dataSource, new DataSpec(Uri.EMPTY), DATA, /* expectKnownLength= */ true);
+    }
+  }
+
+  @Test
   public void testReadViaFileDescriptorWithOffset() throws Exception {
     File file = tempFolder.newFile();
     Files.write(Paths.get(file.getAbsolutePath()), DATA);
@@ -78,7 +92,7 @@ public final class FileDescriptorDataSourceTest {
         ApplicationProvider.getApplicationContext().getAssets().openFd(ASSET_PATH)) {
       DataSource dataSource =
           new FileDescriptorDataSource(
-              afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+              afd.getFileDescriptor(), afd.getStartOffset(), afd.getDeclaredLength());
       byte[] expectedData =
           TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), ASSET_PATH);
 
@@ -93,7 +107,7 @@ public final class FileDescriptorDataSourceTest {
         ApplicationProvider.getApplicationContext().getAssets().openFd(ASSET_PATH)) {
       DataSource dataSource =
           new FileDescriptorDataSource(
-              afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+              afd.getFileDescriptor(), afd.getStartOffset(), afd.getDeclaredLength());
       DataSpec dataSpec = new DataSpec(Uri.EMPTY, /* position= */ 100, C.LENGTH_UNSET);
       byte[] data = TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), ASSET_PATH);
       byte[] expectedData = Arrays.copyOfRange(data, /* position= */ 100, data.length);
@@ -110,11 +124,11 @@ public final class FileDescriptorDataSourceTest {
       DataSpec dataSpec = new DataSpec(Uri.EMPTY, /* position= */ 100, C.LENGTH_UNSET);
       DataSource dataSource1 =
           new FileDescriptorDataSource(
-              afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+              afd.getFileDescriptor(), afd.getStartOffset(), afd.getDeclaredLength());
       dataSource1.open(dataSpec);
       DataSource dataSource2 =
           new FileDescriptorDataSource(
-              afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+              afd.getFileDescriptor(), afd.getStartOffset(), afd.getDeclaredLength());
 
       // Opening a data source with the same file descriptor is expected to fail.
       assertThrows(DataSourceException.class, () -> dataSource2.open(dataSpec));

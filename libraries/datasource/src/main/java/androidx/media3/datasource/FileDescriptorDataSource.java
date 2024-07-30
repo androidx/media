@@ -28,11 +28,11 @@ import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.Sets;
-import java.io.EOFException;
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
+import java.nio.channels.FileChannel;
 import java.util.Set;
 
 /**
@@ -58,7 +58,7 @@ public class FileDescriptorDataSource extends BaseDataSource {
   private final long length;
 
   @Nullable private Uri uri;
-  @Nullable private InputStream inputStream;
+  @Nullable private FileInputStream inputStream;
   private long bytesRemaining;
   private boolean opened;
 
@@ -78,28 +78,57 @@ public class FileDescriptorDataSource extends BaseDataSource {
 
   @Override
   public long open(DataSpec dataSpec) throws DataSourceException {
-    if (!inUseFileDescriptors.add(fileDescriptor)) {
+    try {
+      uri = dataSpec.uri;
+      transferInitializing(dataSpec);
+
+      if (!inUseFileDescriptors.add(fileDescriptor)) {
+        throw new DataSourceException(
+            new IllegalStateException("Attempted to re-use an already in-use file descriptor"),
+            PlaybackException.ERROR_CODE_INVALID_STATE);
+      }
+
+      if (length != C.LENGTH_UNSET && dataSpec.position > length) {
+        throw new DataSourceException(PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE);
+      }
+
+      seekFileDescriptor(fileDescriptor, offset + dataSpec.position);
+      inputStream = new FileInputStream(fileDescriptor);
+
+      if (length == C.LENGTH_UNSET) {
+        // The asset must extend to the end of the file. We can try and resolve the length with
+        // FileInputStream.getChannel().size().
+        FileChannel channel = inputStream.getChannel();
+        long channelSize = channel.size();
+        if (channelSize == 0) {
+          bytesRemaining = C.LENGTH_UNSET;
+        } else {
+          bytesRemaining = channelSize - channel.position();
+          if (bytesRemaining < 0) {
+            // The seek above was successful, but the new position is beyond the end of the file.
+            throw new DataSourceException(
+                PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE);
+          }
+        }
+      } else {
+        bytesRemaining = length - dataSpec.position;
+        if (bytesRemaining < 0) {
+          throw new DataSourceException(PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE);
+        }
+      }
+    } catch (DataSourceException e) {
+      throw e;
+    } catch (IOException e) {
       throw new DataSourceException(
-          new IllegalStateException("Attempted to re-use an already in-use file descriptor"),
-          PlaybackException.ERROR_CODE_INVALID_STATE);
+          e,
+          e instanceof FileNotFoundException
+              ? PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND
+              : PlaybackException.ERROR_CODE_IO_UNSPECIFIED);
     }
-
-    if (dataSpec.position > length) {
-      throw new DataSourceException(PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE);
-    }
-
-    uri = dataSpec.uri;
-    transferInitializing(dataSpec);
-    seekFileDescriptor(fileDescriptor, offset + dataSpec.position);
-    inputStream = new FileInputStream(fileDescriptor);
 
     if (dataSpec.length != C.LENGTH_UNSET) {
       bytesRemaining =
-          length != C.LENGTH_UNSET
-              ? min(dataSpec.length, length - dataSpec.position)
-              : dataSpec.length;
-    } else {
-      bytesRemaining = length != C.LENGTH_UNSET ? length - dataSpec.position : C.LENGTH_UNSET;
+          bytesRemaining == C.LENGTH_UNSET ? dataSpec.length : min(bytesRemaining, dataSpec.length);
     }
 
     opened = true;
@@ -123,15 +152,6 @@ public class FileDescriptorDataSource extends BaseDataSource {
       throw new DataSourceException(e, PlaybackException.ERROR_CODE_IO_UNSPECIFIED);
     }
     if (bytesRead == -1) {
-      if (bytesRemaining != C.LENGTH_UNSET) {
-        throw new DataSourceException(
-            new EOFException(
-                String.format(
-                    "Attempted to read %d bytes starting at position %d, but reached end of the"
-                        + " file before reading sufficient data.",
-                    this.length, this.offset)),
-            PlaybackException.ERROR_CODE_IO_UNSPECIFIED);
-      }
       return C.RESULT_END_OF_INPUT;
     }
     if (bytesRemaining != C.LENGTH_UNSET) {
