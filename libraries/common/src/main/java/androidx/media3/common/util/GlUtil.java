@@ -293,7 +293,7 @@ public final class GlUtil {
             sharedContext,
             contextAttributes,
             /* offset= */ 0);
-    if (eglContext == null) {
+    if (eglContext == null || eglContext.equals(EGL14.EGL_NO_CONTEXT)) {
       EGL14.eglTerminate(eglDisplay);
       throw new GlException(
           "eglCreateContext() failed to create a valid context. The device may not support EGL"
@@ -778,13 +778,13 @@ public final class GlUtil {
    */
   public static void destroyEglContext(
       @Nullable EGLDisplay eglDisplay, @Nullable EGLContext eglContext) throws GlException {
-    if (eglDisplay == null) {
+    if (eglDisplay == null || eglDisplay.equals(EGL14.EGL_NO_DISPLAY)) {
       return;
     }
     EGL14.eglMakeCurrent(
         eglDisplay, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT);
     checkEglException("Error releasing context");
-    if (eglContext != null) {
+    if (eglContext != null && !eglContext.equals(EGL14.EGL_NO_CONTEXT)) {
       EGL14.eglDestroyContext(eglDisplay, eglContext);
       checkEglException("Error destroying context");
     }
@@ -800,7 +800,10 @@ public final class GlUtil {
    */
   public static void destroyEglSurface(
       @Nullable EGLDisplay eglDisplay, @Nullable EGLSurface eglSurface) throws GlException {
-    if (eglDisplay == null || eglSurface == null) {
+    if (eglDisplay == null || eglDisplay.equals(EGL14.EGL_NO_DISPLAY)) {
+      return;
+    }
+    if (eglSurface == null || eglSurface.equals(EGL14.EGL_NO_SURFACE)) {
       return;
     }
 
