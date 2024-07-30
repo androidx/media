@@ -21,6 +21,7 @@ import static androidx.media3.exoplayer.source.SampleStream.FLAG_OMIT_SAMPLE_DAT
 import static androidx.media3.exoplayer.source.SampleStream.FLAG_PEEK;
 import static androidx.media3.exoplayer.source.SampleStream.FLAG_REQUIRE_FORMAT;
 
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.media.MediaExtractor;
@@ -70,6 +71,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import java.io.EOFException;
 import java.io.FileDescriptor;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -77,6 +79,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 
@@ -132,6 +135,7 @@ public final class MediaExtractorCompat {
   @Nullable private SeekMap seekMap;
   private boolean tracksEnded;
   private int upstreamFormatsCount;
+  @Nullable private Map<String, String> httpRequestHeaders;
 
   /** Creates a new instance. */
   public MediaExtractorCompat(Context context) {
@@ -151,6 +155,10 @@ public final class MediaExtractorCompat {
    *   <li>{@link #setDataSource(FileDescriptor)}
    *   <li>{@link #setDataSource(FileDescriptor, long, long)}
    * </ul>
+   *
+   * <p>Note: The {@link DataSource.Factory} provided may not be used to generate {@link DataSource}
+   * when setting data source using method {@link #setDataSource(Context, Uri, Map)} as the behavior
+   * depends on the fallthrough logic related to the scheme of the provided URI.
    */
   public MediaExtractorCompat(
       ExtractorsFactory extractorsFactory, DataSource.Factory dataSourceFactory) {
@@ -241,8 +249,76 @@ public final class MediaExtractorCompat {
       throws IOException {
     FileDescriptorDataSource fileDescriptorDataSource =
         new FileDescriptorDataSource(fileDescriptor, offset, length);
-    DataSpec dataSpec = new DataSpec(Uri.EMPTY);
-    prepareDataSource(fileDescriptorDataSource, dataSpec);
+    prepareDataSource(fileDescriptorDataSource, buildDataSpec(Uri.EMPTY, /* position= */ 0));
+  }
+
+  /**
+   * Sets the data source using the media stream obtained from the given {@linkplain Uri content
+   * URI} and optional HTTP request headers.
+   *
+   * @param context The {@link Context} used to resolve the {@link Uri}.
+   * @param uri The {@linkplain Uri content URI} of the media to extract from.
+   * @param headers An optional {@link Map} of HTTP request headers to include when fetching the
+   *     data, or {@code null} if no headers are to be included.
+   * @throws IOException If an error occurs while extracting the media.
+   * @throws UnrecognizedInputFormatException If none of the available extractors successfully
+   *     sniffs the input.
+   * @throws IllegalStateException If this method is called twice on the same instance.
+   */
+  public void setDataSource(Context context, Uri uri, @Nullable Map<String, String> headers)
+      throws IOException {
+    String scheme = uri.getScheme();
+    String path = uri.getPath();
+    if ((scheme == null || scheme.equals("file")) && path != null) {
+      // If the URI scheme is null or file, treat it as a local file path
+      setDataSource(path);
+      return;
+    }
+
+    ContentResolver resolver = context.getContentResolver();
+    try (AssetFileDescriptor assetFileDescriptor = resolver.openAssetFileDescriptor(uri, "r")) {
+      if (assetFileDescriptor != null) {
+        // If the URI points to a content provider resource, use the AssetFileDescriptor
+        setDataSource(assetFileDescriptor);
+        return;
+      }
+    } catch (SecurityException | FileNotFoundException e) {
+      // Fall back to using the URI as a string if the file is not found or the mode is invalid
+    }
+
+    // Assume the URI is an HTTP URL and use it with optional headers
+    setDataSource(uri.toString(), headers);
+  }
+
+  /**
+   * Sets the data source using the media stream obtained from the given file path or HTTP URL.
+   *
+   * @param path The path of the file, or the HTTP URL, to extract media from.
+   * @throws IOException If an error occurs while extracting the media.
+   * @throws UnrecognizedInputFormatException If none of the available extractors successfully
+   *     sniffs the input.
+   * @throws IllegalStateException If this method is called twice on the same instance.
+   */
+  public void setDataSource(String path) throws IOException {
+    setDataSource(path, /* headers= */ null);
+  }
+
+  /**
+   * Sets the data source using the media stream obtained from the given file path or HTTP URL, with
+   * optional HTTP request headers.
+   *
+   * @param path The path of the file, or the HTTP URL, to extract media from.
+   * @param headers An optional {@link Map} of HTTP request headers to include when fetching the
+   *     data, or {@code null} if no headers are to be included.
+   * @throws IOException If an error occurs while extracting the media.
+   * @throws UnrecognizedInputFormatException If none of the available extractors successfully
+   *     sniffs the input.
+   * @throws IllegalStateException If this method is called twice on the same instance.
+   */
+  public void setDataSource(String path, @Nullable Map<String, String> headers) throws IOException {
+    httpRequestHeaders = headers;
+    prepareDataSource(
+        dataSourceFactory.createDataSource(), buildDataSpec(Uri.parse(path), /* position= */ 0));
   }
 
   private void prepareDataSource(DataSource dataSource, DataSpec dataSpec) throws IOException {
@@ -658,13 +734,18 @@ public final class MediaExtractorCompat {
    * <p>The created {@link DataSpec} disables caching if the content length cannot be resolved,
    * since this is indicative of a progressive live stream.
    */
-  private static DataSpec buildDataSpec(Uri uri, long position) {
-    return new DataSpec.Builder()
-        .setUri(uri)
-        .setPosition(position)
-        .setFlags(
-            DataSpec.FLAG_DONT_CACHE_IF_LENGTH_UNKNOWN | DataSpec.FLAG_ALLOW_CACHE_FRAGMENTATION)
-        .build();
+  private DataSpec buildDataSpec(Uri uri, long position) {
+    DataSpec.Builder dataSpec =
+        new DataSpec.Builder()
+            .setUri(uri)
+            .setPosition(position)
+            .setFlags(
+                DataSpec.FLAG_DONT_CACHE_IF_LENGTH_UNKNOWN
+                    | DataSpec.FLAG_ALLOW_CACHE_FRAGMENTATION);
+    if (httpRequestHeaders != null) {
+      dataSpec.setHttpRequestHeaders(httpRequestHeaders);
+    }
+    return dataSpec.build();
   }
 
   private final class ExtractorOutputImpl implements ExtractorOutput {

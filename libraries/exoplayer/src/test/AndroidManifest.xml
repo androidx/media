@@ -14,6 +14,15 @@
      limitations under the License.
 -->
 
-<manifest package="androidx.media3.exoplayer.test">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools" package="androidx.media3.exoplayer.test">
   <uses-sdk/>
+  <application
+      android:allowBackup="false"
+      android:usesCleartextTraffic="true"
+      tools:ignore="MissingApplicationIcon,HardcodedDebugMode">
+    <provider
+      android:authorities="androidx.media3.test.utils.AssetContentProvider"
+      android:name="androidx.media3.test.utils.AssetContentProvider"/>
+  </application>
 </manifest>

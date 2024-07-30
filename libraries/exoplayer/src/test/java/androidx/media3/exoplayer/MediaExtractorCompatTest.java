@@ -18,6 +18,7 @@ package androidx.media3.exoplayer;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import android.content.Context;
 import android.media.MediaFormat;
 import android.net.Uri;
 import androidx.media3.common.C;
@@ -36,22 +37,36 @@ import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.SeekMap.SeekPoints;
 import androidx.media3.extractor.SeekPoint;
 import androidx.media3.extractor.TrackOutput;
+import androidx.media3.test.utils.AssetContentProvider;
+import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import okhttp3.mockwebserver.MockResponse;
+import okhttp3.mockwebserver.MockWebServer;
+import okio.Buffer;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 
 /** Tests for {@link MediaExtractorCompat}. */
 @RunWith(AndroidJUnit4.class)
 public class MediaExtractorCompatTest {
+
+  @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
 
   /**
    * Placeholder data URI which saves us from mocking the data source which MediaExtractorCompat
@@ -482,6 +497,55 @@ public class MediaExtractorCompatTest {
     // This seek should go to position 0, which should be handled correctly again.
     mediaExtractorCompat.seekTo(/* timeUs= */ 0, MediaExtractorCompat.SEEK_TO_CLOSEST_SYNC);
     assertThat(mediaExtractorCompat.getSampleTime()).isEqualTo(7);
+  }
+
+  @Test
+  public void
+      setDataSourceUsingMethodExpectingContentUri_useAbsoluteFilePathAsUri_setsTrackCountCorrectly()
+          throws IOException {
+    Context context = ApplicationProvider.getApplicationContext();
+    byte[] fileData = TestUtil.getByteArray(context, /* fileName= */ "media/mp4/sample.mp4");
+    File file = tempFolder.newFile();
+    Files.write(Paths.get(file.getAbsolutePath()), fileData);
+    MediaExtractorCompat mediaExtractorCompat = new MediaExtractorCompat(context);
+
+    mediaExtractorCompat.setDataSource(
+        context, Uri.parse(file.getAbsolutePath()), /* headers= */ null);
+
+    assertThat(mediaExtractorCompat.getTrackCount()).isEqualTo(2);
+  }
+
+  @Test
+  public void
+      setDataSourceUsingMethodExpectingContentUri_useHttpUri_setsTrackCountAndHeadersCorrectly()
+          throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    byte[] fileData = TestUtil.getByteArray(context, /* fileName= */ "media/mp4/sample.mp4");
+    try (MockWebServer mockWebServer = new MockWebServer()) {
+      mockWebServer.enqueue(new MockResponse().setBody(new Buffer().write(fileData)));
+      Map<String, String> headers = new HashMap<>();
+      headers.put("k", "v");
+      MediaExtractorCompat mediaExtractorCompat = new MediaExtractorCompat(context);
+
+      mediaExtractorCompat.setDataSource(
+          context, Uri.parse(mockWebServer.url("/test-path").toString()), headers);
+
+      assertThat(mediaExtractorCompat.getTrackCount()).isEqualTo(2);
+      assertThat(mockWebServer.takeRequest().getHeaders().get("k")).isEqualTo("v");
+    }
+  }
+
+  @Test
+  public void setDataSourceUsingMethodExpectingContentUri_useContentUri_setsTrackCountCorrectly()
+      throws IOException {
+    Context context = ApplicationProvider.getApplicationContext();
+    Uri contentUri =
+        AssetContentProvider.buildUri(/* filePath= */ "media/mp4/sample.mp4", /* pipeMode= */ true);
+    MediaExtractorCompat mediaExtractorCompat = new MediaExtractorCompat(context);
+
+    mediaExtractorCompat.setDataSource(context, contentUri, /* headers= */ null);
+
+    assertThat(mediaExtractorCompat.getTrackCount()).isEqualTo(2);
   }
 
   // Internal methods.
