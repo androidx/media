@@ -210,6 +210,8 @@ public final class Loader implements LoaderErrorThrower {
   @Nullable private IOException fatalError;
 
   /**
+   * Constructs an instance.
+   *
    * @param threadNameSuffix A name suffix for the loader's thread. This should be the name of the
    *     component using the loader.
    */
@@ -218,6 +220,8 @@ public final class Loader implements LoaderErrorThrower {
   }
 
   /**
+   * Constructs an instance.
+   *
    * @param downloadExecutorService An {@link ExecutorService} for supplying the loader's thread.
    */
   public Loader(ExecutorService downloadExecutorService) {
