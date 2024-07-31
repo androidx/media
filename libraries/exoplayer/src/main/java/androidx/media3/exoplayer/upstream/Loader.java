@@ -36,6 +36,7 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -204,7 +205,8 @@ public final class Loader implements LoaderErrorThrower {
     }
   }
 
-  private final ExecutorService downloadExecutorService;
+  private final Executor downloadExecutor;
+  private final Runnable downloadExecutorReleaser;
 
   @Nullable private LoadTask<? extends Loadable> currentTask;
   @Nullable private IOException fatalError;
@@ -216,16 +218,20 @@ public final class Loader implements LoaderErrorThrower {
    *     component using the loader.
    */
   public Loader(String threadNameSuffix) {
-    this(Util.newSingleThreadExecutor(THREAD_NAME_PREFIX + threadNameSuffix));
+    ExecutorService executorService =
+        Util.newSingleThreadExecutor(THREAD_NAME_PREFIX + threadNameSuffix);
+    this.downloadExecutor = executorService;
+    this.downloadExecutorReleaser = executorService::shutdown;
   }
 
   /**
    * Constructs an instance.
    *
-   * @param downloadExecutorService An {@link ExecutorService} for supplying the loader's thread.
+   * @param downloadExecutor An {@link Executor} for supplying the loader's thread.
    */
-  public Loader(ExecutorService downloadExecutorService) {
-    this.downloadExecutorService = downloadExecutorService;
+  public Loader(Executor downloadExecutor) {
+    this.downloadExecutor = downloadExecutor;
+    this.downloadExecutorReleaser = () -> {};
   }
 
   /**
@@ -307,9 +313,9 @@ public final class Loader implements LoaderErrorThrower {
       currentTask.cancel(true);
     }
     if (callback != null) {
-      downloadExecutorService.execute(new ReleaseTask(callback));
+      downloadExecutor.execute(new ReleaseTask(callback));
     }
-    downloadExecutorService.shutdown();
+    downloadExecutorReleaser.run();
   }
 
   // LoaderErrorThrower implementation.
@@ -526,7 +532,7 @@ public final class Loader implements LoaderErrorThrower {
 
     private void execute() {
       currentError = null;
-      downloadExecutorService.execute(Assertions.checkNotNull(currentTask));
+      downloadExecutor.execute(Assertions.checkNotNull(currentTask));
     }
 
     private void finish() {
