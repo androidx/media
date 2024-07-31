@@ -3371,13 +3371,14 @@ public final class Util {
     // bounds. From API 29, if the app targets API 29 or later, the {@link
     // MediaFormat#KEY_ALLOW_FRAME_DROP} key prevents frame dropping even when the surface is
     // full.
-    // Some API 30 devices might drop frames despite setting {@link
-    // MediaFormat#KEY_ALLOW_FRAME_DROP} to 0. See b/307518793 and b/289983935.
+    // Some devices might drop frames despite setting {@link
+    // MediaFormat#KEY_ALLOW_FRAME_DROP} to 0. See b/307518793, b/289983935 and b/353487886.
     return SDK_INT < 29
         || context.getApplicationInfo().targetSdkVersion < 29
         || (SDK_INT == 30
-            && (Ascii.equalsIgnoreCase(MODEL, "moto g(20)")
-                || Ascii.equalsIgnoreCase(MODEL, "rmx3231")));
+                && (Ascii.equalsIgnoreCase(MODEL, "moto g(20)")
+                    || Ascii.equalsIgnoreCase(MODEL, "rmx3231"))
+            || (SDK_INT == 34 && Ascii.equalsIgnoreCase(MODEL, "sm-x200")));
   }
 
   /**
