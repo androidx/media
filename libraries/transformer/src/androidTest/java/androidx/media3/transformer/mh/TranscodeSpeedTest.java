@@ -27,7 +27,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
-import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.Presentation;
 import androidx.media3.transformer.AndroidTestUtil;
 import androidx.media3.transformer.EditedMediaItem;
@@ -103,15 +102,8 @@ public class TranscodeSpeedTest {
         testId,
         /* inputFormat= */ MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat,
         outputFormat);
-    DefaultVideoFrameProcessor.Factory videoFrameProcessorFactory =
-        new DefaultVideoFrameProcessor.Factory.Builder()
-            .setExperimentalRepeatInputBitmapWithoutResampling(true)
-            .build();
     Transformer transformer =
-        new Transformer.Builder(context)
-            .setVideoMimeType(MimeTypes.VIDEO_H264)
-            .setVideoFrameProcessorFactory(videoFrameProcessorFactory)
-            .build();
+        new Transformer.Builder(context).setVideoMimeType(MimeTypes.VIDEO_H264).build();
     boolean isHighPerformance =
         Ascii.toLowerCase(Util.MODEL).contains("pixel")
             && (Ascii.toLowerCase(Util.MODEL).contains("6")

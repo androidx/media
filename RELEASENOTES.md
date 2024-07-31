@@ -66,6 +66,8 @@
         scaling. `SurfaceTexture` may include a small scaling that cuts off a
         1-texel border around the edge of a cropped buffer. This is now handled
         such that output is closer to expected.
+    *   Speed up `DefaultVideoFrameProcessor.queueInputBitmap()`. As a result,
+        exporting images to videos with `Transformer` is faster.
 *   Muxers:
 *   IMA extension:
     *   Fix bug where clearing the playlist may cause an
