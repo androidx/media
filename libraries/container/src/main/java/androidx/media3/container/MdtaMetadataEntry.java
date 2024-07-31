@@ -15,6 +15,8 @@
  */
 package androidx.media3.container;
 
+import static androidx.media3.common.util.Assertions.checkArgument;
+
 import android.os.Parcel;
 import android.os.Parcelable;
 import androidx.annotation.Nullable;
@@ -84,6 +86,7 @@ public final class MdtaMetadataEntry implements Metadata.Entry {
 
   /** Creates a new metadata entry for the specified metadata key/value. */
   public MdtaMetadataEntry(String key, byte[] value, int localeIndicator, int typeIndicator) {
+    validateData(key, value, typeIndicator);
     this.key = key;
     this.value = value;
     this.localeIndicator = localeIndicator;
@@ -95,6 +98,24 @@ public final class MdtaMetadataEntry implements Metadata.Entry {
     value = Util.castNonNull(in.createByteArray());
     localeIndicator = in.readInt();
     typeIndicator = in.readInt();
+    validateData(key, value, typeIndicator);
+  }
+
+  private static void validateData(String key, byte[] value, int typeIndicator) {
+    switch (key) {
+      case KEY_ANDROID_CAPTURE_FPS:
+        checkArgument(typeIndicator == TYPE_INDICATOR_FLOAT32 && value.length == 4);
+        break;
+      case KEY_EDITABLE_TRACKS_OFFSET:
+      case KEY_EDITABLE_TRACKS_LENGTH:
+        checkArgument(typeIndicator == TYPE_INDICATOR_UNSIGNED_INT64 && value.length == 8);
+        break;
+      case KEY_EDITABLE_TRACKS_MAP:
+        checkArgument(typeIndicator == TYPE_INDICATOR_RESERVED);
+        break;
+      default:
+        // Ignore custom keys.
+    }
   }
 
   @Override
