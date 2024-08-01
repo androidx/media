@@ -1539,6 +1539,7 @@ public final class C {
   })
   public @interface AuxiliaryTrackType {}
 
+  // LINT.IfChange(auxiliary_track_type)
   /** Not an auxiliary track or an auxiliary track with an undefined type. */
   @UnstableApi public static final int AUXILIARY_TRACK_TYPE_UNDEFINED = 0;
 

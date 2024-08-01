@@ -90,6 +90,11 @@ public final class DumpableFormat implements Dumper.Dumpable {
         format -> Util.getSelectionFlagStrings(format.selectionFlags));
     dumper.addIfNonDefault(
         "roleFlags", format, DEFAULT_FORMAT, format -> Util.getRoleFlagStrings(format.roleFlags));
+    dumper.addIfNonDefault(
+        "auxiliaryTrackType",
+        format,
+        DEFAULT_FORMAT,
+        format -> Util.getAuxiliaryTrackTypeString(format.auxiliaryTrackType));
     dumper.addIfNonDefault("language", format, DEFAULT_FORMAT, format -> format.language);
     dumper.addIfNonDefault("label", format, DEFAULT_FORMAT, format -> format.label);
     if (!format.labels.isEmpty()) {

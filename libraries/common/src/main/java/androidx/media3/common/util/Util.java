@@ -16,6 +16,11 @@
 package androidx.media3.common.util;
 
 import static android.content.Context.UI_MODE_SERVICE;
+import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_DEPTH_INVERSE;
+import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_DEPTH_LINEAR;
+import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_DEPTH_METADATA;
+import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_ORIGINAL;
+import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_UNDEFINED;
 import static androidx.media3.common.Player.COMMAND_PLAY_PAUSE;
 import static androidx.media3.common.Player.COMMAND_PREPARE;
 import static androidx.media3.common.Player.COMMAND_SEEK_BACK;
@@ -3293,6 +3298,26 @@ public final class Util {
       result.add("auxiliary");
     }
     return result;
+  }
+
+  /** Returns a string representation of the {@link C.AuxiliaryTrackType}. */
+  @UnstableApi
+  public static String getAuxiliaryTrackTypeString(@C.AuxiliaryTrackType int auxiliaryTrackType) {
+    // LINT.IfChange(auxiliary_track_type)
+    switch (auxiliaryTrackType) {
+      case AUXILIARY_TRACK_TYPE_UNDEFINED:
+        return "undefined";
+      case AUXILIARY_TRACK_TYPE_ORIGINAL:
+        return "original";
+      case AUXILIARY_TRACK_TYPE_DEPTH_LINEAR:
+        return "depth-linear";
+      case AUXILIARY_TRACK_TYPE_DEPTH_INVERSE:
+        return "depth-inverse";
+      case AUXILIARY_TRACK_TYPE_DEPTH_METADATA:
+        return "depth metadata";
+      default:
+        throw new IllegalStateException("Unsupported auxiliary track type");
+    }
   }
 
   /**
