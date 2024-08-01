@@ -108,11 +108,21 @@ public final class InAppMuxer implements Muxer {
 
     /** A list of supported video sample MIME types. */
     private static final ImmutableList<String> SUPPORTED_VIDEO_SAMPLE_MIME_TYPES =
-        ImmutableList.of(MimeTypes.VIDEO_H264, MimeTypes.VIDEO_H265, MimeTypes.VIDEO_AV1);
+        ImmutableList.of(
+            MimeTypes.VIDEO_AV1,
+            MimeTypes.VIDEO_H263,
+            MimeTypes.VIDEO_H264,
+            MimeTypes.VIDEO_H265,
+            MimeTypes.VIDEO_MP4V);
 
     /** A list of supported audio sample MIME types. */
     private static final ImmutableList<String> SUPPORTED_AUDIO_SAMPLE_MIME_TYPES =
-        ImmutableList.of(MimeTypes.AUDIO_AAC);
+        ImmutableList.of(
+            MimeTypes.AUDIO_AAC,
+            MimeTypes.AUDIO_AMR_NB,
+            MimeTypes.AUDIO_AMR_WB,
+            MimeTypes.AUDIO_OPUS,
+            MimeTypes.AUDIO_VORBIS);
 
     private final @Nullable MetadataProvider metadataProvider;
     private final boolean outputFragmentedMp4;
