@@ -29,6 +29,7 @@ project.ext {
     // Use the same Guava version as the Android repo:
     // https://cs.android.com/android/platform/superproject/main/+/main:external/guava/METADATA
     guavaVersion = '33.0.0-android'
+    glideVersion = '4.14.2'
     kotlinxCoroutinesVersion = '1.8.1'
     leakCanaryVersion = '2.10'
     mockitoVersion = '3.12.4'
