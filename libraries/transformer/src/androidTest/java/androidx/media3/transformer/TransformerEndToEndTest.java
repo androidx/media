@@ -422,6 +422,60 @@ public class TransformerEndToEndTest {
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
+  @Test
+  public void videoEditing_withOneFrameInEncoder_completesWithConsistentFrameCount()
+      throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat);
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(new AndroidTestUtil.ForceEncodeEncoderFactory(context))
+            .experimentalSetMaxFramesInEncoder(1)
+            .build();
+    MediaItem mediaItem =
+        MediaItem.fromUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.uri));
+    EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    assertThat(result.exportResult.videoFrameCount)
+        .isEqualTo(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFrameCount);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+  }
+
+  @Test
+  public void videoEditing_withMaxFramesInEncoder_completesWithConsistentFrameCount()
+      throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat);
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(new AndroidTestUtil.ForceEncodeEncoderFactory(context))
+            .experimentalSetMaxFramesInEncoder(16)
+            .build();
+    MediaItem mediaItem =
+        MediaItem.fromUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.uri));
+    EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    assertThat(result.exportResult.videoFrameCount)
+        .isEqualTo(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFrameCount);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+  }
+
   // TODO: b/345483531 - Migrate this test to a Parameterized ImageSequence test.
   @Test
   public void videoEditing_withShortAlternatingImages_completesWithCorrectFrameCountAndDuration()

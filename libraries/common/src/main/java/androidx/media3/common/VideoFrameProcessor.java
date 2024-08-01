@@ -187,6 +187,13 @@ public interface VideoFrameProcessor {
   long DROP_OUTPUT_FRAME = -2;
 
   /**
+   * Indicates the frame should preserve the input presentation time when {@link
+   * #renderOutputFrame(long)} is invoked.
+   */
+  @SuppressWarnings("GoodTime-ApiWithNumericTimeUnit") // This is a named constant, not a time unit.
+  long RENDER_OUTPUT_FRAME_WITH_PRESENTATION_TIME = -3;
+
+  /**
    * Provides an input {@link Bitmap} to the {@link VideoFrameProcessor}.
    *
    * <p>Can be called many times after {@link #registerInputStream(int, List, FrameInfo) registering
@@ -333,7 +340,10 @@ public interface VideoFrameProcessor {
    *
    * @param renderTimeNs The render time to use for the frame, in nanoseconds. The render time can
    *     be before or after the current system time. Use {@link #DROP_OUTPUT_FRAME} to drop the
-   *     frame, or {@link #RENDER_OUTPUT_FRAME_IMMEDIATELY} to render the frame immediately.
+   *     frame, or {@link #RENDER_OUTPUT_FRAME_IMMEDIATELY} to render the frame immediately, or
+   *     {@link #RENDER_OUTPUT_FRAME_WITH_PRESENTATION_TIME} to render the frame to the {@linkplain
+   *     #setOutputSurfaceInfo output surface} with the presentation timestamp seen in {@link
+   *     Listener#onOutputFrameAvailableForRendering(long)}.
    */
   void renderOutputFrame(long renderTimeNs);
 

@@ -20,6 +20,7 @@ import android.content.Context;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
+import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoGraph;
@@ -44,6 +45,10 @@ import java.util.concurrent.Executor;
      *     composition.
      * @param compositionEffects A list of {@linkplain Effect effects} to apply to the composition.
      * @param initialTimestampOffsetUs The timestamp offset for the first frame, in microseconds.
+     * @param renderFramesAutomatically If {@code true}, the instance will render output frames to
+     *     the {@linkplain #setOutputSurfaceInfo(SurfaceInfo) output surface} automatically as the
+     *     instance is done processing them. If {@code false}, the instance will block until {@link
+     *     #renderOutputFrameWithMediaPresentationTime()} is called, to render the frame.
      * @return A new instance.
      * @throws VideoFrameProcessingException If a problem occurs while creating the {@link
      *     VideoFrameProcessor}.
@@ -56,7 +61,8 @@ import java.util.concurrent.Executor;
         Executor listenerExecutor,
         VideoCompositorSettings videoCompositorSettings,
         List<Effect> compositionEffects,
-        long initialTimestampOffsetUs)
+        long initialTimestampOffsetUs,
+        boolean renderFramesAutomatically)
         throws VideoFrameProcessingException;
   }
 
@@ -73,4 +79,18 @@ import java.util.concurrent.Executor;
    * @param inputIndex The index of the input, which could be used to order the inputs.
    */
   GraphInput createInput(int inputIndex) throws VideoFrameProcessingException;
+
+  /**
+   * Renders the oldest unrendered output frame that has become {@linkplain
+   * Listener#onOutputFrameAvailableForRendering(long) available for rendering} to the output
+   * surface.
+   *
+   * <p>This method must only be called if {@code renderFramesAutomatically} was set to {@code
+   * false} using the {@link Factory} and should be called exactly once for each frame that becomes
+   * {@linkplain Listener#onOutputFrameAvailableForRendering(long) available for rendering}.
+   *
+   * <p>This will render the output frame to the {@linkplain #setOutputSurfaceInfo output surface}
+   * with the presentation seen in {@link Listener#onOutputFrameAvailableForRendering(long)}.
+   */
+  void renderOutputFrameWithMediaPresentationTime();
 }

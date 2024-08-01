@@ -74,6 +74,7 @@ public final class ExperimentalAnalyzerModeFactory {
     return transformer
         .buildUpon()
         .experimentalSetTrimOptimizationEnabled(false)
+        .experimentalSetMaxFramesInEncoder(C.INDEX_UNSET)
         .setEncoderFactory(new DroppingEncoder.Factory(context))
         .setMaxDelayBetweenMuxerSamplesMs(C.TIME_UNSET)
         .setMuxerFactory(

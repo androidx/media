@@ -24,6 +24,7 @@ import static androidx.media3.common.ColorInfo.SRGB_BT709_FULL;
 import static androidx.media3.common.ColorInfo.isTransferHdr;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.transformer.Composition.HDR_MODE_KEEP_HDR;
 import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
 import static androidx.media3.transformer.TransformerUtil.getOutputMimeTypeAndHdrModeAfterFallback;
@@ -54,13 +55,14 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Objects;
 import org.checkerframework.checker.initialization.qual.Initialized;
+import org.checkerframework.checker.lock.qual.GuardedBy;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.dataflow.qual.Pure;
 
 /** Processes, encodes and muxes raw video frames. */
 /* package */ final class VideoSampleExporter extends SampleExporter {
 
-  private final TransformerVideoGraph videoGraph;
+  private final VideoGraphWrapper videoGraph;
   private final EncoderWrapper encoderWrapper;
   private final DecoderInputBuffer encoderOutputBuffer;
   private final long initialTimestampOffsetUs;
@@ -86,7 +88,8 @@ import org.checkerframework.dataflow.qual.Pure;
       FallbackListener fallbackListener,
       DebugViewProvider debugViewProvider,
       long initialTimestampOffsetUs,
-      boolean hasMultipleInputs)
+      boolean hasMultipleInputs,
+      int maxFramesInEncoder)
       throws ExportException {
     // TODO(b/278259383) Consider delaying configuration of VideoSampleExporter to use the decoder
     //  output format instead of the extractor output format, to match AudioSampleExporter behavior.
@@ -142,7 +145,8 @@ import org.checkerframework.dataflow.qual.Pure;
               errorConsumer,
               debugViewProvider,
               videoCompositorSettings,
-              compositionEffects);
+              compositionEffects,
+              maxFramesInEncoder);
       videoGraph.initialize();
     } catch (VideoFrameProcessingException e) {
       throw ExportException.createForVideoFrameProcessingException(e);
@@ -199,6 +203,7 @@ import org.checkerframework.dataflow.qual.Pure;
   @Override
   protected void releaseMuxerInputBuffer() throws ExportException {
     encoderWrapper.releaseOutputBuffer(/* render= */ false);
+    videoGraph.onEncoderBufferReleased();
   }
 
   @Override
@@ -340,7 +345,8 @@ import org.checkerframework.dataflow.qual.Pure;
               encoder.getInputSurface(),
               actualEncoderFormat.width,
               actualEncoderFormat.height,
-              outputRotationDegrees);
+              outputRotationDegrees,
+              /* isEncoderInputSurface= */ true);
 
       if (releaseEncoder) {
         encoder.release();
@@ -454,6 +460,12 @@ import org.checkerframework.dataflow.qual.Pure;
 
     private final TransformerVideoGraph videoGraph;
     private final Consumer<ExportException> errorConsumer;
+    private final int maxFramesInEncoder;
+    private final boolean renderFramesAutomatically;
+    private final Object lock;
+
+    private @GuardedBy("lock") int framesInEncoder;
+    private @GuardedBy("lock") int framesAvailableToRender;
 
     public VideoGraphWrapper(
         Context context,
@@ -462,7 +474,8 @@ import org.checkerframework.dataflow.qual.Pure;
         Consumer<ExportException> errorConsumer,
         DebugViewProvider debugViewProvider,
         VideoCompositorSettings videoCompositorSettings,
-        List<Effect> compositionEffects)
+        List<Effect> compositionEffects,
+        int maxFramesInEncoder)
         throws VideoFrameProcessingException {
       this.errorConsumer = errorConsumer;
       // To satisfy the nullness checker by declaring an initialized this reference used in the
@@ -470,6 +483,11 @@ import org.checkerframework.dataflow.qual.Pure;
       @SuppressWarnings("nullness:assignment")
       @Initialized
       VideoGraphWrapper thisRef = this;
+      this.maxFramesInEncoder = maxFramesInEncoder;
+      // Automatically render frames if the sample exporter does not limit the number of frames in
+      // the encoder.
+      renderFramesAutomatically = maxFramesInEncoder < 1;
+      lock = new Object();
       videoGraph =
           videoGraphFactory.create(
               context,
@@ -479,7 +497,8 @@ import org.checkerframework.dataflow.qual.Pure;
               /* listenerExecutor= */ MoreExecutors.directExecutor(),
               videoCompositorSettings,
               compositionEffects,
-              initialTimestampOffsetUs);
+              initialTimestampOffsetUs,
+              renderFramesAutomatically);
     }
 
     @Override
@@ -495,7 +514,12 @@ import org.checkerframework.dataflow.qual.Pure;
 
     @Override
     public void onOutputFrameAvailableForRendering(long framePresentationTimeUs) {
-      // Do nothing.
+      if (!renderFramesAutomatically) {
+        synchronized (lock) {
+          framesAvailableToRender += 1;
+        }
+        maybeRenderEarliestOutputFrame();
+      }
     }
 
     @Override
@@ -535,6 +559,11 @@ import org.checkerframework.dataflow.qual.Pure;
     }
 
     @Override
+    public void renderOutputFrameWithMediaPresentationTime() {
+      videoGraph.renderOutputFrameWithMediaPresentationTime();
+    }
+
+    @Override
     public void setOutputSurfaceInfo(@Nullable SurfaceInfo outputSurfaceInfo) {
       videoGraph.setOutputSurfaceInfo(outputSurfaceInfo);
     }
@@ -547,6 +576,30 @@ import org.checkerframework.dataflow.qual.Pure;
     @Override
     public void release() {
       videoGraph.release();
+    }
+
+    public void onEncoderBufferReleased() {
+      if (!renderFramesAutomatically) {
+        synchronized (lock) {
+          checkState(framesInEncoder > 0);
+          framesInEncoder -= 1;
+        }
+        maybeRenderEarliestOutputFrame();
+      }
+    }
+
+    private void maybeRenderEarliestOutputFrame() {
+      boolean shouldRender = false;
+      synchronized (lock) {
+        if (framesAvailableToRender > 0 && framesInEncoder < maxFramesInEncoder) {
+          framesInEncoder += 1;
+          framesAvailableToRender -= 1;
+          shouldRender = true;
+        }
+      }
+      if (shouldRender) {
+        renderOutputFrameWithMediaPresentationTime();
+      }
     }
   }
 }

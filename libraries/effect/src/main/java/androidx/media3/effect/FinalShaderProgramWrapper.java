@@ -15,6 +15,8 @@
  */
 package androidx.media3.effect;
 
+import static androidx.media3.common.VideoFrameProcessor.RENDER_OUTPUT_FRAME_IMMEDIATELY;
+import static androidx.media3.common.VideoFrameProcessor.RENDER_OUTPUT_FRAME_WITH_PRESENTATION_TIME;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_VFP;
@@ -443,12 +445,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     GlUtil.clearFocusedBuffers();
     defaultShaderProgram.drawFrame(inputTexture.texId, presentationTimeUs);
 
-    EGLExt.eglPresentationTimeANDROID(
-        eglDisplay,
-        outputEglSurface,
-        renderTimeNs == VideoFrameProcessor.RENDER_OUTPUT_FRAME_IMMEDIATELY
-            ? System.nanoTime()
-            : renderTimeNs);
+    long eglPresentationTimeNs;
+    if (renderTimeNs == RENDER_OUTPUT_FRAME_IMMEDIATELY) {
+      eglPresentationTimeNs = System.nanoTime();
+    } else if (renderTimeNs == RENDER_OUTPUT_FRAME_WITH_PRESENTATION_TIME) {
+      checkState(presentationTimeUs != C.TIME_UNSET);
+      eglPresentationTimeNs = presentationTimeUs * 1000;
+    } else {
+      eglPresentationTimeNs = renderTimeNs;
+    }
+
+    EGLExt.eglPresentationTimeANDROID(eglDisplay, outputEglSurface, eglPresentationTimeNs);
     EGL14.eglSwapBuffers(eglDisplay, outputEglSurface);
     DebugTraceUtil.logEvent(COMPONENT_VFP, EVENT_RENDERED_TO_OUTPUT_SURFACE, presentationTimeUs);
   }
@@ -524,8 +531,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               eglDisplay,
               outputSurfaceInfo.surface,
               outputColorInfo.colorTransfer,
-              // Frames are only rendered automatically when outputting to an encoder.
-              /* isEncoderInputSurface= */ renderFramesAutomatically);
+              outputSurfaceInfo.isEncoderInputSurface);
     }
     if (textureOutputListener != null) {
       outputTexturePool.ensureConfigured(glObjectsProvider, outputWidth, outputHeight);

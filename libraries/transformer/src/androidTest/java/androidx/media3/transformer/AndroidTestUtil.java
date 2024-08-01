@@ -276,6 +276,7 @@ public final class AndroidTestUtil {
                   .setCodecs("avc1.64001F")
                   .build())
           .setVideoDurationUs(1_024_000L)
+          .setVideoFrameCount(30)
           .setVideoTimestampsUs(
               ImmutableList.of(
                   0L, 33_366L, 66_733L, 100_100L, 133_466L, 166_833L, 200_200L, 233_566L, 266_933L,
@@ -390,6 +391,7 @@ public final class AndroidTestUtil {
                   .setFrameRate(30.00f)
                   .setCodecs("avc1.42C015")
                   .build())
+          .setVideoFrameCount(932)
           .build();
 
   public static final AssetInfo MP4_ASSET_WITH_SHORTER_AUDIO =

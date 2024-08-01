@@ -148,6 +148,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final Object setMaxSequenceDurationUsLock;
   private final Object progressLock;
   private final ProgressHolder internalProgressHolder;
+  private final int maxFramesInEncoder;
 
   private boolean isDrainingExporters;
 
@@ -192,6 +193,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       AudioMixer.Factory audioMixerFactory,
       VideoFrameProcessor.Factory videoFrameProcessorFactory,
       Codec.EncoderFactory encoderFactory,
+      int maxFramesInEncoder,
       MuxerWrapper muxerWrapper,
       Listener listener,
       FallbackListener fallbackListener,
@@ -202,6 +204,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.context = context;
     this.composition = composition;
     this.encoderFactory = new CapturingEncoderFactory(encoderFactory);
+    this.maxFramesInEncoder = maxFramesInEncoder;
     this.listener = listener;
     this.applicationHandler = applicationHandler;
     this.clock = clock;
@@ -738,8 +741,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 fallbackListener,
                 debugViewProvider,
                 videoSampleTimestampOffsetUs,
-                /* hasMultipleInputs= */ assetLoaderInputTracker
-                    .hasMultipleConcurrentVideoTracks()));
+                /* hasMultipleInputs= */ assetLoaderInputTracker.hasMultipleConcurrentVideoTracks(),
+                maxFramesInEncoder));
       }
     }
 

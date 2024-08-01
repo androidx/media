@@ -16,6 +16,8 @@
 
 package androidx.media3.transformer;
 
+import static androidx.media3.common.VideoFrameProcessor.RENDER_OUTPUT_FRAME_WITH_PRESENTATION_TIME;
+
 import android.content.Context;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
@@ -53,7 +55,8 @@ import java.util.concurrent.Executor;
         Executor listenerExecutor,
         VideoCompositorSettings videoCompositorSettings,
         List<Effect> compositionEffects,
-        long initialTimestampOffsetUs) {
+        long initialTimestampOffsetUs,
+        boolean renderFramesAutomatically) {
       return new TransformerMultipleInputVideoGraph(
           context,
           videoFrameProcessorFactory,
@@ -63,7 +66,8 @@ import java.util.concurrent.Executor;
           listenerExecutor,
           videoCompositorSettings,
           compositionEffects,
-          initialTimestampOffsetUs);
+          initialTimestampOffsetUs,
+          renderFramesAutomatically);
     }
   }
 
@@ -76,7 +80,8 @@ import java.util.concurrent.Executor;
       Executor listenerExecutor,
       VideoCompositorSettings videoCompositorSettings,
       List<Effect> compositionEffects,
-      long initialTimestampOffsetUs) {
+      long initialTimestampOffsetUs,
+      boolean renderFramesAutomatically) {
     super(
         context,
         videoFrameProcessorFactory,
@@ -86,7 +91,8 @@ import java.util.concurrent.Executor;
         listenerExecutor,
         videoCompositorSettings,
         compositionEffects,
-        initialTimestampOffsetUs);
+        initialTimestampOffsetUs,
+        renderFramesAutomatically);
   }
 
   @Override
@@ -94,5 +100,11 @@ import java.util.concurrent.Executor;
     registerInput(inputIndex);
     return new VideoFrameProcessingWrapper(
         getProcessor(inputIndex), /* presentation= */ null, getInitialTimestampOffsetUs());
+  }
+
+  @Override
+  public void renderOutputFrameWithMediaPresentationTime() {
+    getCompositionVideoFrameProcessor()
+        .renderOutputFrame(RENDER_OUTPUT_FRAME_WITH_PRESENTATION_TIME);
   }
 }

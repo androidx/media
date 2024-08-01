@@ -31,6 +31,8 @@ import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.net.Uri;
+import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.Size;
@@ -71,9 +73,15 @@ public final class TransformerMultiSequenceCompositionTest {
   private static final int EXPORT_WIDTH = 360;
   private static final int EXPORT_HEIGHT = 240;
 
-  @Parameters(name = "{0}")
-  public static ImmutableList<Boolean> workingColorSpaceLinear() {
-    return ImmutableList.of(false, true);
+  @Parameters(name = "{0},maxFramesInEncoder={1}")
+  public static ImmutableList<Object[]> parameters() {
+    ImmutableList.Builder<Object[]> listBuilder = new ImmutableList.Builder<>();
+    for (Boolean workingColorSpaceLinear : new boolean[] {false, true}) {
+      for (Integer maxFramesInEncoder : new int[] {C.INDEX_UNSET, 1, 16}) {
+        listBuilder.add(new Object[] {workingColorSpaceLinear, maxFramesInEncoder});
+      }
+    }
+    return listBuilder.build();
   }
 
   private final Context context = ApplicationProvider.getApplicationContext();
@@ -81,7 +89,11 @@ public final class TransformerMultiSequenceCompositionTest {
 
   private String testId;
 
-  @Parameter public boolean workingColorSpaceLinear;
+  @Parameter(0)
+  public boolean workingColorSpaceLinear;
+
+  @Parameter(1)
+  public int maxFramesInEncoder;
 
   @Before
   public void setUpTestId() {
@@ -218,6 +230,33 @@ public final class TransformerMultiSequenceCompositionTest {
         extractBitmapsFromVideo(context, checkNotNull(result.filePath)), testId);
   }
 
+  @Test
+  public void export_completesWithConsistentFrameCount() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ASSET.videoFormat);
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET.uri));
+    ImmutableList<Effect> videoEffects = ImmutableList.of(Presentation.createForHeight(480));
+    Effects effects = new Effects(/* audioProcessors= */ ImmutableList.of(), videoEffects);
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(mediaItem).setEffects(effects).build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence(editedMediaItem),
+                new EditedMediaItemSequence(editedMediaItem))
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, buildTransformer())
+            .build()
+            .run(testId, composition);
+
+    assertThat(result.exportResult.videoFrameCount).isEqualTo(MP4_ASSET.videoFrameCount);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+  }
+
   private Transformer buildTransformer() {
     // Use linear color space for grayscale effects.
     Transformer.Builder builder = new Transformer.Builder(context);
@@ -227,6 +266,7 @@ public final class TransformerMultiSequenceCompositionTest {
               .setSdrWorkingColorSpace(DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_LINEAR)
               .build());
     }
+    builder.experimentalSetMaxFramesInEncoder(maxFramesInEncoder);
     return builder.build();
   }
 
@@ -278,7 +318,7 @@ public final class TransformerMultiSequenceCompositionTest {
       Bitmap actualBitmap = actualBitmaps.get(i);
       maybeSaveTestBitmap(
           testId, /* bitmapLabel= */ String.valueOf(i), actualBitmap, /* path= */ null);
-      String subTestId = testId + "_" + i;
+      String subTestId = testId.replaceAll(",maxFramesInEncoder=-?\\d+", "") + "_" + i;
       Bitmap expectedBitmap =
           readBitmap(Util.formatInvariant("%s/%s.png", PNG_ASSET_BASE_PATH, subTestId));
       float averagePixelAbsoluteDifference =
