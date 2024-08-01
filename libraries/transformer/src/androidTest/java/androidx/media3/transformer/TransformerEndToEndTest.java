@@ -1568,6 +1568,41 @@ public class TransformerEndToEndTest {
   }
 
   @Test
+  public void extractFrames_completesSuccessfully() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat,
+        /* outputFormat= */ null);
+    AtomicInteger imagesOutput = new AtomicInteger(/* initialValue= */ 0);
+    Transformer transformer =
+        ExperimentalFrameExtractorFactory.buildFrameExtractorTransformer(
+            context, image -> imagesOutput.incrementAndGet());
+    AtomicInteger videoFramesSeen = new AtomicInteger(/* initialValue= */ 0);
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(
+                    Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.uri)))
+            .setRemoveAudio(true)
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    ImmutableList.of(createFrameCountingEffect(videoFramesSeen))))
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    assertThat(videoFramesSeen.get()).isEqualTo(932);
+    assertThat(imagesOutput.get()).isEqualTo(932);
+    assertThat(result.exportResult.videoFrameCount).isEqualTo(932);
+    // Confirm no data was written to file.
+    assertThat(result.exportResult.fileSizeBytes).isEqualTo(C.LENGTH_UNSET);
+  }
+
+  @Test
   public void transcode_withOutputVideoMimeTypeAv1_completesSuccessfully() throws Exception {
     assumeFormatsSupported(
         context,
