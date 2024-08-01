@@ -24,8 +24,11 @@ import androidx.media3.common.Metadata;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import com.google.common.base.Joiner;
 import com.google.common.primitives.Ints;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * Stores extensible metadata with handler type 'mdta'. See also the QuickTime File Format
@@ -202,16 +205,20 @@ public final class MdtaMetadataEntry implements Metadata.Entry {
       };
 
   private static String getFormattedValueForEditableTracksMap(byte[] value) {
-    // Value has 1 byte version, 1 byte track count, n bytes track types.
-    int numberOfTracks = value[1];
     StringBuilder sb = new StringBuilder();
     sb.append("track types = ");
-    for (int i = 0; i < numberOfTracks; i++) {
-      sb.append(value[i + 2]);
-      if (i < numberOfTracks - 1) {
-        sb.append(", ");
-      }
-    }
+    List<Integer> trackTypes = getEditableTrackTypesFromMap(value);
+    Joiner.on(',').appendTo(sb, trackTypes);
     return sb.toString();
+  }
+
+  private static List<Integer> getEditableTrackTypesFromMap(byte[] value) {
+    // Value has 1 byte version, 1 byte track count, n bytes track types.
+    int numberOfTracks = value[1];
+    List<Integer> trackTypes = new ArrayList<>();
+    for (int i = 0; i < numberOfTracks; i++) {
+      trackTypes.add((int) value[i + 2]);
+    }
+    return trackTypes;
   }
 }
