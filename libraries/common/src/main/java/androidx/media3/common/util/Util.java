@@ -96,7 +96,6 @@ import androidx.media3.common.Player;
 import androidx.media3.common.Player.Commands;
 import androidx.media3.common.audio.AudioProcessor;
 import com.google.common.base.Ascii;
-import com.google.common.base.Charsets;
 import com.google.common.io.ByteStreams;
 import com.google.common.math.DoubleMath;
 import com.google.common.math.LongMath;
@@ -118,6 +117,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -1046,7 +1046,7 @@ public final class Util {
    */
   @UnstableApi
   public static String fromUtf8Bytes(byte[] bytes) {
-    return new String(bytes, Charsets.UTF_8);
+    return new String(bytes, StandardCharsets.UTF_8);
   }
 
   /**
@@ -1059,7 +1059,7 @@ public final class Util {
    */
   @UnstableApi
   public static String fromUtf8Bytes(byte[] bytes, int offset, int length) {
-    return new String(bytes, offset, length, Charsets.UTF_8);
+    return new String(bytes, offset, length, StandardCharsets.UTF_8);
   }
 
   /**
@@ -1070,7 +1070,7 @@ public final class Util {
    */
   @UnstableApi
   public static byte[] getUtf8Bytes(String value) {
-    return value.getBytes(Charsets.UTF_8);
+    return value.getBytes(StandardCharsets.UTF_8);
   }
 
   /**

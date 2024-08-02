@@ -24,6 +24,7 @@ import com.google.common.primitives.UnsignedBytes;
 import com.google.errorprone.annotations.CheckReturnValue;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 /**
@@ -38,7 +39,11 @@ public final class ParsableByteArray {
   private static final char[] LF = {'\n'};
   private static final ImmutableSet<Charset> SUPPORTED_CHARSETS_FOR_READLINE =
       ImmutableSet.of(
-          Charsets.US_ASCII, Charsets.UTF_8, Charsets.UTF_16, Charsets.UTF_16BE, Charsets.UTF_16LE);
+          StandardCharsets.US_ASCII,
+          StandardCharsets.UTF_8,
+          StandardCharsets.UTF_16,
+          StandardCharsets.UTF_16BE,
+          StandardCharsets.UTF_16LE);
 
   private byte[] data;
   private int position;
@@ -447,7 +452,7 @@ public final class ParsableByteArray {
    * @return The string encoded by the bytes.
    */
   public String readString(int length) {
-    return readString(length, Charsets.UTF_8);
+    return readString(length, StandardCharsets.UTF_8);
   }
 
   /**
@@ -525,7 +530,7 @@ public final class ParsableByteArray {
    */
   @Nullable
   public String readLine() {
-    return readLine(Charsets.UTF_8);
+    return readLine(StandardCharsets.UTF_8);
   }
 
   /**
@@ -551,7 +556,7 @@ public final class ParsableByteArray {
     if (bytesLeft() == 0) {
       return null;
     }
-    if (!charset.equals(Charsets.US_ASCII)) {
+    if (!charset.equals(StandardCharsets.US_ASCII)) {
       Charset unused = readUtfCharsetFromBom(); // Skip BOM if present
     }
     int lineLimit = findNextLineTerminator(charset);
@@ -644,14 +649,14 @@ public final class ParsableByteArray {
         && data[position + 1] == (byte) 0xBB
         && data[position + 2] == (byte) 0xBF) {
       position += 3;
-      return Charsets.UTF_8;
+      return StandardCharsets.UTF_8;
     } else if (bytesLeft() >= 2) {
       if (data[position] == (byte) 0xFE && data[position + 1] == (byte) 0xFF) {
         position += 2;
-        return Charsets.UTF_16BE;
+        return StandardCharsets.UTF_16BE;
       } else if (data[position] == (byte) 0xFF && data[position + 1] == (byte) 0xFE) {
         position += 2;
-        return Charsets.UTF_16LE;
+        return StandardCharsets.UTF_16LE;
       }
     }
     return null;
@@ -662,24 +667,25 @@ public final class ParsableByteArray {
    */
   private int findNextLineTerminator(Charset charset) {
     int stride;
-    if (charset.equals(Charsets.UTF_8) || charset.equals(Charsets.US_ASCII)) {
+    if (charset.equals(StandardCharsets.UTF_8) || charset.equals(StandardCharsets.US_ASCII)) {
       stride = 1;
-    } else if (charset.equals(Charsets.UTF_16)
-        || charset.equals(Charsets.UTF_16LE)
-        || charset.equals(Charsets.UTF_16BE)) {
+    } else if (charset.equals(StandardCharsets.UTF_16)
+        || charset.equals(StandardCharsets.UTF_16LE)
+        || charset.equals(StandardCharsets.UTF_16BE)) {
       stride = 2;
     } else {
       throw new IllegalArgumentException("Unsupported charset: " + charset);
     }
     for (int i = position; i < limit - (stride - 1); i += stride) {
-      if ((charset.equals(Charsets.UTF_8) || charset.equals(Charsets.US_ASCII))
+      if ((charset.equals(StandardCharsets.UTF_8) || charset.equals(StandardCharsets.US_ASCII))
           && Util.isLinebreak(data[i])) {
         return i;
-      } else if ((charset.equals(Charsets.UTF_16) || charset.equals(Charsets.UTF_16BE))
+      } else if ((charset.equals(StandardCharsets.UTF_16)
+              || charset.equals(StandardCharsets.UTF_16BE))
           && data[i] == 0x00
           && Util.isLinebreak(data[i + 1])) {
         return i;
-      } else if (charset.equals(Charsets.UTF_16LE)
+      } else if (charset.equals(StandardCharsets.UTF_16LE)
           && data[i + 1] == 0x00
           && Util.isLinebreak(data[i])) {
         return i;
@@ -727,14 +733,16 @@ public final class ParsableByteArray {
   private int peekCharacterAndSize(Charset charset) {
     byte character;
     short characterSize;
-    if ((charset.equals(Charsets.UTF_8) || charset.equals(Charsets.US_ASCII)) && bytesLeft() >= 1) {
+    if ((charset.equals(StandardCharsets.UTF_8) || charset.equals(StandardCharsets.US_ASCII))
+        && bytesLeft() >= 1) {
       character = (byte) Chars.checkedCast(UnsignedBytes.toInt(data[position]));
       characterSize = 1;
-    } else if ((charset.equals(Charsets.UTF_16) || charset.equals(Charsets.UTF_16BE))
+    } else if ((charset.equals(StandardCharsets.UTF_16)
+            || charset.equals(StandardCharsets.UTF_16BE))
         && bytesLeft() >= 2) {
       character = (byte) Chars.fromBytes(data[position], data[position + 1]);
       characterSize = 2;
-    } else if (charset.equals(Charsets.UTF_16LE) && bytesLeft() >= 2) {
+    } else if (charset.equals(StandardCharsets.UTF_16LE) && bytesLeft() >= 2) {
       character = (byte) Chars.fromBytes(data[position + 1], data[position]);
       characterSize = 2;
     } else {
