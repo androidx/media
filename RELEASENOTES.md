@@ -7,6 +7,9 @@
 *   Transformer:
 *   Track Selection:
 *   Extractors:
+    *   MP3: Fix `Searched too many bytes` error by correctly ignoring trailing
+        non-MP3 data based on the length field in an `Info` frame
+        ([#1480](https://github.com/androidx/media/issues/1480)).
 *   Audio:
 *   Video:
 *   Text:

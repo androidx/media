@@ -54,6 +54,21 @@ public final class Mp3ExtractorTest {
         Mp3Extractor::new, "media/mp3/test-cbr-info-header-pcut-frame.mp3", simulationConfig);
   }
 
+  // https://github.com/androidx/media/issues/1480
+  @Test
+  public void mp3SampleWithInfoHeaderAndTrailingGarbage() throws Exception {
+    // This test file is test-cbr-info-header.mp3 with 150kB of 0xDEADBEEF garbage appended on the
+    // end. The test asserts that the extracted samples are the same as for
+    // test-cbr-info-header.mp3.
+    ExtractorAsserts.assertBehavior(
+        Mp3Extractor::new,
+        "media/mp3/test-cbr-info-header-trailing-garbage.mp3",
+        new AssertionConfig.Builder()
+            .setDumpFilesPrefix("extractordumps/mp3/test-cbr-info-header.mp3")
+            .build(),
+        simulationConfig);
+  }
+
   @Test
   public void mp3SampleWithCbrSeeker() throws Exception {
     ExtractorAsserts.assertBehavior(
