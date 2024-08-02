@@ -124,7 +124,8 @@ public final class MediaExtractorCompat {
   private final SparseArray<MediaExtractorSampleQueue> sampleQueues;
   private final ArrayDeque<Integer> trackIndicesPerSampleInQueuedOrder;
   private final FormatHolder formatHolder;
-  private final DecoderInputBuffer sampleHolder;
+  private final DecoderInputBuffer sampleHolderWithBufferReplacementDisabled;
+  private final DecoderInputBuffer sampleHolderWithBufferReplacementDirect;
   private final DecoderInputBuffer noDataBuffer;
   private final Set<Integer> selectedTrackIndices;
 
@@ -173,7 +174,10 @@ public final class MediaExtractorCompat {
     sampleQueues = new SparseArray<>();
     trackIndicesPerSampleInQueuedOrder = new ArrayDeque<>();
     formatHolder = new FormatHolder();
-    sampleHolder = new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DISABLED);
+    sampleHolderWithBufferReplacementDisabled =
+        new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DISABLED);
+    sampleHolderWithBufferReplacementDirect =
+        new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DIRECT);
     noDataBuffer = DecoderInputBuffer.newNoDataInstance();
     selectedTrackIndices = new HashSet<>();
   }
@@ -519,11 +523,12 @@ public final class MediaExtractorCompat {
     // The platform media extractor implementation ignores the buffer's input position and limit.
     buffer.position(offset);
     buffer.limit(buffer.capacity());
-    sampleHolder.data = buffer;
-    peekNextSelectedTrackSample(sampleHolder, /* omitSampleData= */ false);
+    sampleHolderWithBufferReplacementDisabled.data = buffer;
+    peekNextSelectedTrackSample(
+        sampleHolderWithBufferReplacementDisabled, /* omitSampleData= */ false);
     buffer.flip();
     buffer.position(offset);
-    sampleHolder.data = null;
+    sampleHolderWithBufferReplacementDisabled.data = null;
     return buffer.remaining();
   }
 
@@ -536,6 +541,19 @@ public final class MediaExtractorCompat {
       return -1;
     }
     return trackIndicesPerSampleInQueuedOrder.peekFirst();
+  }
+
+  /** Returns the current sample's size in bytes, or -1 if no more samples are available. */
+  public long getSampleSize() {
+    if (!advanceToSampleOrEndOfInput()) {
+      return -1;
+    }
+    peekNextSelectedTrackSample(
+        sampleHolderWithBufferReplacementDirect, /* omitSampleData= */ false);
+    ByteBuffer buffer = checkNotNull(sampleHolderWithBufferReplacementDirect.data);
+    int sampleSize = buffer.position();
+    buffer.position(0);
+    return sampleSize;
   }
 
   /**
