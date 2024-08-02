@@ -18,6 +18,7 @@ package androidx.media3.decoder.iamf;
 import static android.support.annotation.VisibleForTesting.PACKAGE_PRIVATE;
 
 import androidx.annotation.VisibleForTesting;
+import androidx.media3.common.C;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.decoder.SimpleDecoder;
@@ -30,9 +31,10 @@ import javax.annotation.Nullable;
 @VisibleForTesting(otherwise = PACKAGE_PRIVATE)
 public final class IamfDecoder
     extends SimpleDecoder<DecoderInputBuffer, SimpleDecoderOutputBuffer, IamfDecoderException> {
-
-  // TODO(ktrajkovski): Find the maximum acceptable output buffer size.
-  private static final int DEFAULT_OUTPUT_BUFFER_SIZE = 4096;
+  // TODO(ktrajkovski): Fetch channel count from the device instead of hardcoding.
+  /* package */ static final int DEFAULT_CHANNEL_COUNT = 2;
+  /* package */ static final int DEFAULT_OUTPUT_SAMPLE_RATE = 48000;
+  /* package */ static final @C.PcmEncoding int DEFAULT_PCM_ENCODING = C.ENCODING_PCM_16BIT;
 
   private final byte[] initializationData;
 
@@ -48,7 +50,12 @@ public final class IamfDecoder
       throw new IamfDecoderException("Initialization data must contain a single element.");
     }
     this.initializationData = initializationData.get(0);
-    int status = iamfConfigDecoder(this.initializationData);
+    int status =
+        iamfConfigDecoder(
+            this.initializationData,
+            Util.getByteDepth(DEFAULT_PCM_ENCODING) * C.BITS_PER_BYTE,
+            DEFAULT_OUTPUT_SAMPLE_RATE,
+            DEFAULT_CHANNEL_COUNT);
     if (status != 0) {
       throw new IamfDecoderException("Failed to configure decoder with returned status: " + status);
     }
@@ -90,9 +97,15 @@ public final class IamfDecoder
       DecoderInputBuffer inputBuffer, SimpleDecoderOutputBuffer outputBuffer, boolean reset) {
     if (reset) {
       iamfClose();
-      iamfConfigDecoder(this.initializationData); // reconfigure
+      iamfConfigDecoder(
+          this.initializationData,
+          Util.getByteDepth(DEFAULT_PCM_ENCODING) * C.BITS_PER_BYTE,
+          DEFAULT_OUTPUT_SAMPLE_RATE,
+          DEFAULT_CHANNEL_COUNT); // reconfigure
     }
-    outputBuffer.init(inputBuffer.timeUs, DEFAULT_OUTPUT_BUFFER_SIZE);
+    int bufferSize =
+        iamfGetMaxFrameSize() * DEFAULT_CHANNEL_COUNT * Util.getByteDepth(DEFAULT_PCM_ENCODING);
+    outputBuffer.init(inputBuffer.timeUs, bufferSize);
     ByteBuffer outputData = Util.castNonNull(outputBuffer.data);
     ByteBuffer inputData = Util.castNonNull(inputBuffer.data);
     int ret = iamfDecode(inputData, inputData.limit(), outputData);
@@ -100,17 +113,22 @@ public final class IamfDecoder
       return new IamfDecoderException("Failed to decode error= " + ret);
     }
     outputData.position(0);
-    // TODO(ktrajkovski): Extract the outputData limit from the iamfDecode return value, given
-    // channel count, and given bit depth.
-    outputData.limit(ret * 4); // x2 for expected bit depth, x2 for channel count
+    outputData.limit(ret * DEFAULT_CHANNEL_COUNT * Util.getByteDepth(DEFAULT_PCM_ENCODING));
     return null;
   }
 
   private native int iamfLayoutBinauralChannelsCount();
 
-  private native int iamfConfigDecoder(byte[] initializationData);
+  private native int iamfConfigDecoder(
+      byte[] initializationData, int bitDepth, int sampleRate, int channelCount);
 
   private native void iamfClose();
 
   private native int iamfDecode(ByteBuffer inputBuffer, int inputSize, ByteBuffer outputBuffer);
+
+  /**
+   * Returns the maximum expected number of PCM samples per channel in a compressed audio frame.
+   * Used to initialize the output buffer.
+   */
+  private native int iamfGetMaxFrameSize();
 }
