@@ -152,6 +152,7 @@ public final class FfmpegLibrary {
       case MimeTypes.VIDEO_H264:
         return "h264";
       case MimeTypes.VIDEO_H265:
+      case MimeTypes.VIDEO_DOLBY_VISION:
         return "hevc";
       default:
         return null;

@@ -37,7 +37,7 @@ COMMON_OPTIONS="
     --disable-everything
     --disable-avdevice
     --disable-avformat
-    --disable-swscale
+    --enable-swscale
     --disable-postproc
     --disable-avfilter
     --disable-symver
