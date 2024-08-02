@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package androidx.media3.demo.compose
+package androidx.media3.common
 
 import android.os.Looper
 import androidx.core.os.HandlerCompat
-import androidx.media3.common.Player
 import androidx.media3.common.Player.Events
+import androidx.media3.common.util.UnstableApi
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CancellableContinuation
@@ -44,6 +44,7 @@ import kotlinx.coroutines.withContext
  * @return Nothing This function never returns normally. It will either continue indefinitely or
  *   terminate due to an exception or cancellation.
  */
+@UnstableApi
 suspend fun Player.listen(onEvents: Player.(Events) -> Unit): Nothing {
   if (Looper.myLooper() == applicationLooper) {
     listenImpl(onEvents)

@@ -13,6 +13,10 @@
         instead of building a playlist structure.
     *   Increase `minSdk` to 21 (Android Lollipop). This is aligned with all
         other AndroidX libraries.
+    *   Add `androidx.media3:media3-common-ktx` artifact which provides
+        Kotlin-specific functionality built on top of the Common library
+    *   Add `Player.listen` suspending extension function to spin a coroutine to
+        listen to `Player.Events` to the `media3-common-ktx` library.
 *   ExoPlayer:
     *   `MediaCodecRenderer.onProcessedStreamChange()` can now be called for
         every media item. Previously it was not called for the first one. Use
