@@ -15,7 +15,12 @@
  */
 package androidx.media3.transformer.mh;
 
+import static android.media.MediaCodecInfo.CodecProfileLevel.AVCLevel41;
+import static android.media.MediaCodecInfo.CodecProfileLevel.AVCProfileHigh;
+import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.common.util.MediaFormatUtil.createFormatFromMediaFormat;
 import static androidx.media3.common.util.Util.SDK_INT;
+import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.getCodecProfileAndLevel;
 import static androidx.media3.transformer.AndroidTestUtil.FORCE_TRANSCODE_VIDEO_EFFECTS;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_4K60_PORTRAIT;
@@ -24,6 +29,7 @@ import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_BT2020_SDR;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_SEF;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_SEF_H265;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_PIXEL;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
@@ -34,7 +40,9 @@ import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
+import android.media.MediaFormat;
 import android.net.Uri;
+import android.util.Pair;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -42,6 +50,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.ScaleAndRotateTransformation;
+import androidx.media3.exoplayer.MediaExtractorCompat;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.test.utils.FakeExtractorOutput;
@@ -437,5 +446,44 @@ public class ExportTest {
         .isEqualTo(CONVERSION_PROCESS_TRANSMUXED_AND_TRANSCODED);
     int inputVideoLevel = 41;
     assertThat((int) sps[spsLevelIndex]).isAtLeast(inputVideoLevel);
+  }
+
+  @Test
+  public void export_setEncodingProfileLevel_changesProfileAndLevel() throws Exception {
+    assumeTrue(
+        "Android encoding guidelines recommend H.264 baseline profile prior to API 25",
+        Util.SDK_INT >= 25);
+    Context context = ApplicationProvider.getApplicationContext();
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(
+                new ForceEncodeEncoderFactory(
+                    new DefaultEncoderFactory.Builder(context)
+                        .setRequestedVideoEncoderSettings(
+                            new VideoEncoderSettings.Builder()
+                                .setEncodingProfileLevel(AVCProfileHigh, AVCLevel41)
+                                .build())
+                        .build()))
+            .build();
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.uri)
+            .build();
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(mediaItem).setRemoveAudio(true).build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    MediaExtractorCompat mediaExtractor = new MediaExtractorCompat(context);
+    mediaExtractor.setDataSource(Uri.parse(result.filePath), 0);
+    checkState(mediaExtractor.getTrackCount() == 1);
+    MediaFormat mediaFormat = mediaExtractor.getTrackFormat(0);
+    Format format = createFormatFromMediaFormat(mediaFormat);
+    Pair<Integer, Integer> profileAndLevel = getCodecProfileAndLevel(format);
+    assertThat(profileAndLevel.first).isAtMost(AVCProfileHigh);
+    assertThat(profileAndLevel.second).isAtMost(AVCLevel41);
   }
 }
