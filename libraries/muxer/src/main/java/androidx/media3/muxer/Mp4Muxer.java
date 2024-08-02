@@ -18,6 +18,8 @@ package androidx.media3.muxer;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.container.MdtaMetadataEntry.EDITABLE_TRACKS_SAMPLES_LOCATION_IN_EDIT_DATA_MP4;
+import static androidx.media3.container.MdtaMetadataEntry.TYPE_INDICATOR_8_BIT_UNSIGNED_INT;
 import static androidx.media3.container.Mp4Util.EDITABLE_TRACK_TYPE_DEPTH_INVERSE;
 import static androidx.media3.container.Mp4Util.EDITABLE_TRACK_TYPE_DEPTH_LINEAR;
 import static androidx.media3.container.Mp4Util.EDITABLE_TRACK_TYPE_DEPTH_METADATA;
@@ -531,6 +533,11 @@ public final class Mp4Muxer implements Muxer {
     }
 
     checkNotNull(editableVideoMetadataCollector);
+    editableVideoMetadataCollector.addMetadata(
+        new MdtaMetadataEntry(
+            MdtaMetadataEntry.KEY_EDITABLE_TRACKS_SAMPLES_LOCATION,
+            new byte[] {EDITABLE_TRACKS_SAMPLES_LOCATION_IN_EDIT_DATA_MP4},
+            TYPE_INDICATOR_8_BIT_UNSIGNED_INT));
     editableVideoMetadataCollector.addMetadata(
         new MdtaMetadataEntry(
             MdtaMetadataEntry.KEY_EDITABLE_TRACKS_MAP,

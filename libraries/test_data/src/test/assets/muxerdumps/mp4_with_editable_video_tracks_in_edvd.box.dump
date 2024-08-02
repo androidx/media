@@ -43,16 +43,16 @@ mdat (296 bytes):
 edvd (400628 bytes):
   ftyp (28 bytes):
     Data = length 20, hash EF896440
-  moov (1384 bytes):
+  moov (1449 bytes):
     mvhd (108 bytes):
       Data = length 100, hash 2613A5D
-    meta (120 bytes):
+    meta (185 bytes):
       hdlr (33 bytes):
         Data = length 25, hash C39D0F5B
-      keys (43 bytes):
-        Data = length 35, hash 1CD3D3F
-      ilst (36 bytes):
-        Data = length 28, hash D9B9DABE
+      keys (83 bytes):
+        Data = length 75, hash 951DA420
+      ilst (61 bytes):
+        Data = length 53, hash 1156FE81
     trak (574 bytes):
       tkhd (92 bytes):
         Data = length 84, hash 3D79758F
@@ -105,7 +105,7 @@ edvd (400628 bytes):
               Data = length 16, hash E4EE6699
             stss (36 bytes):
               Data = length 28, hash 53024615
-  free (398624 bytes):
-    Data = length 398616, hash 25A3AD01
+  free (398559 bytes):
+    Data = length 398551, hash D08A6DF
   mdat (576 bytes):
     Data = length 560, hash 9E0D5FC5
