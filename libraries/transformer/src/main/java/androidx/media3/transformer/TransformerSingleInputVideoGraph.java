@@ -16,6 +16,7 @@
 
 package androidx.media3.transformer;
 
+import static androidx.media3.common.VideoFrameProcessor.RENDER_OUTPUT_FRAME_WITH_PRESENTATION_TIME;
 import static androidx.media3.common.util.Assertions.checkState;
 
 import android.content.Context;
@@ -57,7 +58,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         Executor listenerExecutor,
         VideoCompositorSettings videoCompositorSettings,
         List<Effect> compositionEffects,
-        long initialTimestampOffsetUs) {
+        long initialTimestampOffsetUs,
+        boolean renderFramesAutomatically) {
       @Nullable Presentation presentation = null;
       for (int i = 0; i < compositionEffects.size(); i++) {
         Effect effect = compositionEffects.get(i);
@@ -73,7 +75,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           debugViewProvider,
           listenerExecutor,
           videoCompositorSettings,
-          /* renderFramesAutomatically= */ true,
+          renderFramesAutomatically,
           presentation,
           initialTimestampOffsetUs);
     }
@@ -113,5 +115,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         new VideoFrameProcessingWrapper(
             getProcessor(inputIndex), getPresentation(), getInitialTimestampOffsetUs());
     return videoFrameProcessingWrapper;
+  }
+
+  @Override
+  public void renderOutputFrameWithMediaPresentationTime() {
+    getProcessor(getInputIndex()).renderOutputFrame(RENDER_OUTPUT_FRAME_WITH_PRESENTATION_TIME);
   }
 }

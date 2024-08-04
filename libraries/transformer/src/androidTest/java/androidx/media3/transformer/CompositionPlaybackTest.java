@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package androidx.media3.transformer.mh.performance;
+package androidx.media3.transformer;
 
 import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapFromRgba8888Image;
@@ -22,7 +22,7 @@ import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePix
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET;
-import static androidx.media3.transformer.mh.performance.PlaybackTestUtil.createTimestampOverlay;
+import static androidx.media3.transformer.AndroidTestUtil.createTimestampOverlay;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
@@ -38,13 +38,6 @@ import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.GlEffect;
-import androidx.media3.transformer.Composition;
-import androidx.media3.transformer.CompositionPlayer;
-import androidx.media3.transformer.EditedMediaItem;
-import androidx.media3.transformer.EditedMediaItemSequence;
-import androidx.media3.transformer.Effects;
-import androidx.media3.transformer.InputTimestampRecordingShaderProgram;
-import androidx.media3.transformer.PlayerTestListener;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;

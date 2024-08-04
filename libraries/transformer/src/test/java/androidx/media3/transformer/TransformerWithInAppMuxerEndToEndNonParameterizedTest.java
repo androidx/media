@@ -50,9 +50,8 @@ import org.junit.runner.RunWith;
 
 /** End-to-end test for {@link Transformer} with {@link InAppMuxer}. */
 @RunWith(AndroidJUnit4.class)
-public class TransformerWithInAppMuxerEndToEndTest {
+public class TransformerWithInAppMuxerEndToEndNonParameterizedTest {
   private static final String MP4_FILE_PATH = "asset:///media/mp4/sample_no_bframes.mp4";
-  private static final String MP4_FILE_NAME = "mp4/sample_no_bframes.mp4";
 
   @Rule public final TemporaryFolder outputDir = new TemporaryFolder();
 
@@ -62,40 +61,6 @@ public class TransformerWithInAppMuxerEndToEndTest {
   @Before
   public void setup() throws Exception {
     outputPath = outputDir.newFile().getPath();
-  }
-
-  @Test
-  public void transmux_mp4File_outputMatchesExpected() throws Exception {
-    Muxer.Factory inAppMuxerFactory =
-        new InAppMuxer.Factory.Builder()
-            .setMetadataProvider(
-                metadataEntries ->
-                    // Add timestamp to make output file deterministic.
-                    metadataEntries.add(
-                        new Mp4TimestampData(
-                            /* creationTimestampSeconds= */ 3_000_000_000L,
-                            /* modificationTimestampSeconds= */ 4_000_000_000L)))
-            .build();
-
-    Transformer transformer =
-        new Transformer.Builder(context)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
-            .setMuxerFactory(inAppMuxerFactory)
-            .build();
-    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_FILE_PATH));
-
-    transformer.start(mediaItem, outputPath);
-    TransformerTestRunner.runLooper(transformer);
-
-    FakeExtractorOutput fakeExtractorOutput =
-        extractAllSamplesFromFilePath(
-            new Mp4Extractor(new DefaultSubtitleParserFactory()), outputPath);
-    DumpFileAsserts.assertOutput(
-        context,
-        fakeExtractorOutput,
-        TestUtil.getDumpFileName(
-            /* originalFileName= */ MP4_FILE_NAME,
-            /* modifications...= */ "transmuxed_with_inappmuxer"));
   }
 
   @Test

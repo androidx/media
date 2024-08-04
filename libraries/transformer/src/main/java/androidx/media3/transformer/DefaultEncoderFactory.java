@@ -308,7 +308,9 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
 
     if (supportedVideoEncoderSettings.profile != VideoEncoderSettings.NO_VALUE
         && supportedVideoEncoderSettings.level != VideoEncoderSettings.NO_VALUE
-        && Util.SDK_INT >= 23) {
+        && Util.SDK_INT >= 24) {
+      // For API levels below 24, setting profile and level can lead to failures in MediaCodec
+      // configuration. The encoder selects the profile/level when we don't set them.
       // Set profile and level at the same time to maximize compatibility, or the encoder will pick
       // the values.
       mediaFormat.setInteger(MediaFormat.KEY_PROFILE, supportedVideoEncoderSettings.profile);
@@ -586,8 +588,10 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
   }
 
   /**
-   * Applying suggested profile/level settings from
+   * Applying suggested profile settings from
    * https://developer.android.com/media/optimize/sharing#b-frames_and_encoding_profiles
+   *
+   * <p>Sets H.264 level only if it wasn't set previously.
    *
    * <p>The adjustment is applied in-place to {@code mediaFormat}.
    */
@@ -614,7 +618,9 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
         // Use the highest supported profile. Don't configure B-frames, because it doesn't work on
         // some devices.
         mediaFormat.setInteger(MediaFormat.KEY_PROFILE, expectedEncodingProfile);
-        mediaFormat.setInteger(MediaFormat.KEY_LEVEL, supportedEncodingLevel);
+        if (!mediaFormat.containsKey(MediaFormat.KEY_LEVEL)) {
+          mediaFormat.setInteger(MediaFormat.KEY_LEVEL, supportedEncodingLevel);
+        }
       }
     } else if (Util.SDK_INT >= 26 && !deviceNeedsNoH264HighProfileWorkaround()) {
       int expectedEncodingProfile = MediaCodecInfo.CodecProfileLevel.AVCProfileHigh;
@@ -626,7 +632,9 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
         // MediaFormat.KEY_LATENCY. This accommodates some limitations in the MediaMuxer in these
         // system versions.
         mediaFormat.setInteger(MediaFormat.KEY_PROFILE, expectedEncodingProfile);
-        mediaFormat.setInteger(MediaFormat.KEY_LEVEL, supportedEncodingLevel);
+        if (!mediaFormat.containsKey(MediaFormat.KEY_LEVEL)) {
+          mediaFormat.setInteger(MediaFormat.KEY_LEVEL, supportedEncodingLevel);
+        }
         // TODO(b/210593256): Set KEY_LATENCY to 2 to enable B-frame production after in-app muxing
         // is the default and it supports B-frames.
         mediaFormat.setInteger(MediaFormat.KEY_LATENCY, 1);
@@ -640,7 +648,9 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
       // Use the baseline profile for safest results, as encoding in baseline is required per
       // https://source.android.com/compatibility/5.0/android-5.0-cdd#5_2_video_encoding
       mediaFormat.setInteger(MediaFormat.KEY_PROFILE, expectedEncodingProfile);
-      mediaFormat.setInteger(MediaFormat.KEY_LEVEL, supportedLevel);
+      if (!mediaFormat.containsKey(MediaFormat.KEY_LEVEL)) {
+        mediaFormat.setInteger(MediaFormat.KEY_LEVEL, supportedLevel);
+      }
     }
     // For API levels below 24, setting profile and level can lead to failures in MediaCodec
     // configuration. The encoder selects the profile/level when we don't set them.

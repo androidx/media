@@ -13,6 +13,10 @@
         instead of building a playlist structure.
     *   Increase `minSdk` to 21 (Android Lollipop). This is aligned with all
         other AndroidX libraries.
+    *   Add `androidx.media3:media3-common-ktx` artifact which provides
+        Kotlin-specific functionality built on top of the Common library
+    *   Add `Player.listen` suspending extension function to spin a coroutine to
+        listen to `Player.Events` to the `media3-common-ktx` library.
 *   ExoPlayer:
     *   `MediaCodecRenderer.onProcessedStreamChange()` can now be called for
         every media item. Previously it was not called for the first one. Use
@@ -35,6 +39,9 @@
 *   Extractors:
     *   Allow `Mp4Extractor` and `FragmentedMp4Extractor` to identify H264
         samples that are not used as reference by subsequent samples.
+    *   MP3: Fix `Searched too many bytes` error by correctly ignoring trailing
+        non-MP3 data based on the length field in an `Info` frame
+        ([#1480](https://github.com/androidx/media/issues/1480)).
 *   DataSource:
     *   Update `HttpEngineDataSource` to allow use starting at version S
         extension 7 instead of API level 34
@@ -66,6 +73,8 @@
         scaling. `SurfaceTexture` may include a small scaling that cuts off a
         1-texel border around the edge of a cropped buffer. This is now handled
         such that output is closer to expected.
+    *   Speed up `DefaultVideoFrameProcessor.queueInputBitmap()`. As a result,
+        exporting images to videos with `Transformer` is faster.
 *   Muxers:
 *   IMA extension:
     *   Fix bug where clearing the playlist may cause an

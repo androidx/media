@@ -160,6 +160,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         sdrWorkingColorSpace = WORKING_COLOR_SPACE_DEFAULT;
         requireRegisteringAllInputFrames = true;
         experimentalAdjustSurfaceTextureTransformationMatrix = true;
+        experimentalRepeatInputBitmapWithoutResampling = true;
       }
 
       private Builder(Factory factory) {
@@ -306,10 +307,13 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
        * Sets whether {@link BitmapTextureManager} will sample from the input bitmap only once for a
        * sequence of output frames.
        *
-       * <p>Defaults to {@code false}. That is, each output frame will sample from the full
+       * <p>Defaults to {@code true}. That is, each output frame will sample from the full
        * resolution input bitmap.
+       *
+       * @deprecated This experimental method will be removed in a future release.
        */
       @CanIgnoreReturnValue
+      @Deprecated
       public Builder setExperimentalRepeatInputBitmapWithoutResampling(
           boolean experimentalRepeatInputBitmapWithoutResampling) {
         this.experimentalRepeatInputBitmapWithoutResampling =

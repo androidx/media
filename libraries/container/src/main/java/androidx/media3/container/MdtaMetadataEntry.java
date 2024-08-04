@@ -15,6 +15,8 @@
  */
 package androidx.media3.container;
 
+import static androidx.media3.common.util.Assertions.checkArgument;
+
 import android.os.Parcel;
 import android.os.Parcelable;
 import androidx.annotation.Nullable;
@@ -22,8 +24,11 @@ import androidx.media3.common.Metadata;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import com.google.common.base.Joiner;
 import com.google.common.primitives.Ints;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * Stores extensible metadata with handler type 'mdta'. See also the QuickTime File Format
@@ -35,6 +40,7 @@ public final class MdtaMetadataEntry implements Metadata.Entry {
   /** Key for the capture frame rate (in frames per second). */
   public static final String KEY_ANDROID_CAPTURE_FPS = "com.android.capture.fps";
 
+  // TODO: b/345219017 - Add depth/editing file format spec link after its published.
   /** Key for editable tracks box (edvd) offset. */
   public static final String KEY_EDITABLE_TRACKS_OFFSET = "editable.tracks.offset";
 
@@ -43,6 +49,16 @@ public final class MdtaMetadataEntry implements Metadata.Entry {
 
   /** Key for editable tracks map. */
   public static final String KEY_EDITABLE_TRACKS_MAP = "editable.tracks.map";
+
+  /** Key for editable tracks samples location. */
+  public static final String KEY_EDITABLE_TRACKS_SAMPLES_LOCATION =
+      "editable.tracks.samples.location";
+
+  /** The editable tracks samples are in edit data MP4. */
+  public static final byte EDITABLE_TRACKS_SAMPLES_LOCATION_IN_EDIT_DATA_MP4 = 0;
+
+  /** The editable tracks samples are interleaved with the primary tracks samples. */
+  public static final byte EDITABLE_TRACKS_SAMPLES_LOCATION_INTERLEAVED = 1;
 
   /** The default locale indicator which implies all speakers in all countries. */
   public static final int DEFAULT_LOCALE_INDICATOR = 0;
@@ -58,6 +74,9 @@ public final class MdtaMetadataEntry implements Metadata.Entry {
 
   /** The type indicator for 32-bit signed integer. */
   public static final int TYPE_INDICATOR_INT32 = 67;
+
+  /** The type indicator for an 8-bit unsigned integer. */
+  public static final int TYPE_INDICATOR_8_BIT_UNSIGNED_INT = 75;
 
   /** The type indicator for 64-bit unsigned integer. */
   public static final int TYPE_INDICATOR_UNSIGNED_INT64 = 78;
@@ -84,6 +103,7 @@ public final class MdtaMetadataEntry implements Metadata.Entry {
 
   /** Creates a new metadata entry for the specified metadata key/value. */
   public MdtaMetadataEntry(String key, byte[] value, int localeIndicator, int typeIndicator) {
+    validateData(key, value, typeIndicator);
     this.key = key;
     this.value = value;
     this.localeIndicator = localeIndicator;
@@ -95,6 +115,31 @@ public final class MdtaMetadataEntry implements Metadata.Entry {
     value = Util.castNonNull(in.createByteArray());
     localeIndicator = in.readInt();
     typeIndicator = in.readInt();
+    validateData(key, value, typeIndicator);
+  }
+
+  private static void validateData(String key, byte[] value, int typeIndicator) {
+    switch (key) {
+      case KEY_ANDROID_CAPTURE_FPS:
+        checkArgument(typeIndicator == TYPE_INDICATOR_FLOAT32 && value.length == 4);
+        break;
+      case KEY_EDITABLE_TRACKS_OFFSET:
+      case KEY_EDITABLE_TRACKS_LENGTH:
+        checkArgument(typeIndicator == TYPE_INDICATOR_UNSIGNED_INT64 && value.length == 8);
+        break;
+      case KEY_EDITABLE_TRACKS_MAP:
+        checkArgument(typeIndicator == TYPE_INDICATOR_RESERVED);
+        break;
+      case KEY_EDITABLE_TRACKS_SAMPLES_LOCATION:
+        checkArgument(
+            typeIndicator == TYPE_INDICATOR_8_BIT_UNSIGNED_INT
+                && value.length == 1
+                && (value[0] == EDITABLE_TRACKS_SAMPLES_LOCATION_IN_EDIT_DATA_MP4
+                    || value[0] == EDITABLE_TRACKS_SAMPLES_LOCATION_INTERLEAVED));
+        break;
+      default:
+        // Ignore custom keys.
+    }
   }
 
   @Override
@@ -134,6 +179,9 @@ public final class MdtaMetadataEntry implements Metadata.Entry {
         break;
       case TYPE_INDICATOR_INT32:
         formattedValue = String.valueOf(Ints.fromByteArray(value));
+        break;
+      case TYPE_INDICATOR_8_BIT_UNSIGNED_INT:
+        formattedValue = String.valueOf(Byte.toUnsignedInt(value[0]));
         break;
       case TYPE_INDICATOR_UNSIGNED_INT64:
         formattedValue = String.valueOf(new ParsableByteArray(value).readUnsignedLongToLong());
@@ -181,16 +229,20 @@ public final class MdtaMetadataEntry implements Metadata.Entry {
       };
 
   private static String getFormattedValueForEditableTracksMap(byte[] value) {
-    // Value has 1 byte version, 1 byte track count, n bytes track types.
-    int numberOfTracks = value[1];
     StringBuilder sb = new StringBuilder();
     sb.append("track types = ");
-    for (int i = 0; i < numberOfTracks; i++) {
-      sb.append(value[i + 2]);
-      if (i < numberOfTracks - 1) {
-        sb.append(", ");
-      }
-    }
+    List<Integer> trackTypes = getEditableTrackTypesFromMap(value);
+    Joiner.on(',').appendTo(sb, trackTypes);
     return sb.toString();
+  }
+
+  private static List<Integer> getEditableTrackTypesFromMap(byte[] value) {
+    // Value has 1 byte version, 1 byte track count, n bytes track types.
+    int numberOfTracks = value[1];
+    List<Integer> trackTypes = new ArrayList<>();
+    for (int i = 0; i < numberOfTracks; i++) {
+      trackTypes.add((int) value[i + 2]);
+    }
+    return trackTypes;
   }
 }

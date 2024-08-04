@@ -16,6 +16,11 @@
 package androidx.media3.common.util;
 
 import static android.content.Context.UI_MODE_SERVICE;
+import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_DEPTH_INVERSE;
+import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_DEPTH_LINEAR;
+import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_DEPTH_METADATA;
+import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_ORIGINAL;
+import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_UNDEFINED;
 import static androidx.media3.common.Player.COMMAND_PLAY_PAUSE;
 import static androidx.media3.common.Player.COMMAND_PREPARE;
 import static androidx.media3.common.Player.COMMAND_SEEK_BACK;
@@ -91,7 +96,6 @@ import androidx.media3.common.Player;
 import androidx.media3.common.Player.Commands;
 import androidx.media3.common.audio.AudioProcessor;
 import com.google.common.base.Ascii;
-import com.google.common.base.Charsets;
 import com.google.common.io.ByteStreams;
 import com.google.common.math.DoubleMath;
 import com.google.common.math.LongMath;
@@ -113,6 +117,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -1041,7 +1046,7 @@ public final class Util {
    */
   @UnstableApi
   public static String fromUtf8Bytes(byte[] bytes) {
-    return new String(bytes, Charsets.UTF_8);
+    return new String(bytes, StandardCharsets.UTF_8);
   }
 
   /**
@@ -1054,7 +1059,7 @@ public final class Util {
    */
   @UnstableApi
   public static String fromUtf8Bytes(byte[] bytes, int offset, int length) {
-    return new String(bytes, offset, length, Charsets.UTF_8);
+    return new String(bytes, offset, length, StandardCharsets.UTF_8);
   }
 
   /**
@@ -1065,7 +1070,7 @@ public final class Util {
    */
   @UnstableApi
   public static byte[] getUtf8Bytes(String value) {
-    return value.getBytes(Charsets.UTF_8);
+    return value.getBytes(StandardCharsets.UTF_8);
   }
 
   /**
@@ -2310,19 +2315,30 @@ public final class Util {
    */
   @UnstableApi
   public static int getPcmFrameSize(@C.PcmEncoding int pcmEncoding, int channelCount) {
+    return getByteDepth(pcmEncoding) * channelCount;
+  }
+
+  /**
+   * Returns the byte depth for audio with the specified encoding.
+   *
+   * @param pcmEncoding The encoding of the audio data.
+   * @return The byte depth of the audio.
+   */
+  @UnstableApi
+  public static int getByteDepth(@C.PcmEncoding int pcmEncoding) {
     switch (pcmEncoding) {
       case C.ENCODING_PCM_8BIT:
-        return channelCount;
+        return 1;
       case C.ENCODING_PCM_16BIT:
       case C.ENCODING_PCM_16BIT_BIG_ENDIAN:
-        return channelCount * 2;
+        return 2;
       case C.ENCODING_PCM_24BIT:
       case C.ENCODING_PCM_24BIT_BIG_ENDIAN:
-        return channelCount * 3;
+        return 3;
       case C.ENCODING_PCM_32BIT:
       case C.ENCODING_PCM_32BIT_BIG_ENDIAN:
       case C.ENCODING_PCM_FLOAT:
-        return channelCount * 4;
+        return 4;
       case C.ENCODING_INVALID:
       case Format.NO_VALUE:
       default:
@@ -3295,6 +3311,26 @@ public final class Util {
     return result;
   }
 
+  /** Returns a string representation of the {@link C.AuxiliaryTrackType}. */
+  @UnstableApi
+  public static String getAuxiliaryTrackTypeString(@C.AuxiliaryTrackType int auxiliaryTrackType) {
+    // LINT.IfChange(auxiliary_track_type)
+    switch (auxiliaryTrackType) {
+      case AUXILIARY_TRACK_TYPE_UNDEFINED:
+        return "undefined";
+      case AUXILIARY_TRACK_TYPE_ORIGINAL:
+        return "original";
+      case AUXILIARY_TRACK_TYPE_DEPTH_LINEAR:
+        return "depth-linear";
+      case AUXILIARY_TRACK_TYPE_DEPTH_INVERSE:
+        return "depth-inverse";
+      case AUXILIARY_TRACK_TYPE_DEPTH_METADATA:
+        return "depth metadata";
+      default:
+        throw new IllegalStateException("Unsupported auxiliary track type");
+    }
+  }
+
   /**
    * Returns the current time in milliseconds since the epoch.
    *
@@ -3371,13 +3407,14 @@ public final class Util {
     // bounds. From API 29, if the app targets API 29 or later, the {@link
     // MediaFormat#KEY_ALLOW_FRAME_DROP} key prevents frame dropping even when the surface is
     // full.
-    // Some API 30 devices might drop frames despite setting {@link
-    // MediaFormat#KEY_ALLOW_FRAME_DROP} to 0. See b/307518793 and b/289983935.
+    // Some devices might drop frames despite setting {@link
+    // MediaFormat#KEY_ALLOW_FRAME_DROP} to 0. See b/307518793, b/289983935 and b/353487886.
     return SDK_INT < 29
         || context.getApplicationInfo().targetSdkVersion < 29
         || (SDK_INT == 30
-            && (Ascii.equalsIgnoreCase(MODEL, "moto g(20)")
-                || Ascii.equalsIgnoreCase(MODEL, "rmx3231")));
+                && (Ascii.equalsIgnoreCase(MODEL, "moto g(20)")
+                    || Ascii.equalsIgnoreCase(MODEL, "rmx3231"))
+            || (SDK_INT == 34 && Ascii.equalsIgnoreCase(MODEL, "sm-x200")));
   }
 
   /**

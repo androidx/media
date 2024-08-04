@@ -56,18 +56,17 @@ DECODER_FUNC(jint, iamfLayoutBinauralChannelsCount) {
 
 IAMF_DecoderHandle handle;
 
-DECODER_FUNC(jint, iamfConfigDecoder, jbyteArray initializationDataArray) {
+DECODER_FUNC(jint, iamfConfigDecoder, jbyteArray initializationDataArray,
+             jint bitDepth, jint sampleRate, jint channelCount) {
   handle = IAMF_decoder_open();
-
-  // TODO(ktrajkovski): Values need to be aligned with IamfDecoder and
-  // LibiamfAudioRenderer and/or extracted from ConfigOBUs.
   IAMF_decoder_peak_limiter_enable(handle, 0);
-  IAMF_decoder_peak_limiter_set_threshold(handle, -1.0f);
-  IAMF_decoder_set_normalization_loudness(handle, 0.0f);
-  IAMF_decoder_set_bit_depth(handle, 16);
-  IAMF_decoder_set_sampling_rate(handle, 48000);
-  IAMF_decoder_output_layout_set_binaural(handle);
-  IAMF_decoder_set_pts(handle, 0, 90000);
+  IAMF_decoder_set_bit_depth(handle, bitDepth);
+  IAMF_decoder_set_sampling_rate(handle, sampleRate);
+  if (channelCount == 2) {
+    IAMF_decoder_output_layout_set_binaural(handle);
+  } else {
+    IAMF_decoder_output_layout_set_sound_system(handle, SOUND_SYSTEM_INVALID);
+  }
 
   uint32_t* bytes_read = nullptr;
   jbyte* initializationDataBytes =
@@ -90,6 +89,10 @@ DECODER_FUNC(jint, iamfDecode, jobject inputBuffer, jint inputSize,
           env->GetDirectBufferAddress(inputBuffer)),
       inputSize, rsize,
       reinterpret_cast<void*>(env->GetDirectBufferAddress(outputBuffer)));
+}
+
+DECODER_FUNC(jint, iamfGetMaxFrameSize) {
+  return IAMF_decoder_get_stream_info(handle)->max_frame_size;
 }
 
 DECODER_FUNC(void, iamfClose) { IAMF_decoder_close(handle); }

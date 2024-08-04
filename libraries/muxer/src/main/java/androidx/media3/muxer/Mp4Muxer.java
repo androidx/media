@@ -18,6 +18,12 @@ package androidx.media3.muxer;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.container.MdtaMetadataEntry.EDITABLE_TRACKS_SAMPLES_LOCATION_IN_EDIT_DATA_MP4;
+import static androidx.media3.container.MdtaMetadataEntry.TYPE_INDICATOR_8_BIT_UNSIGNED_INT;
+import static androidx.media3.container.Mp4Util.EDITABLE_TRACK_TYPE_DEPTH_INVERSE;
+import static androidx.media3.container.Mp4Util.EDITABLE_TRACK_TYPE_DEPTH_LINEAR;
+import static androidx.media3.container.Mp4Util.EDITABLE_TRACK_TYPE_DEPTH_METADATA;
+import static androidx.media3.container.Mp4Util.EDITABLE_TRACK_TYPE_SHARP;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.media.MediaCodec.BufferInfo;
@@ -272,12 +278,6 @@ public final class Mp4Muxer implements Muxer {
 
   private static final String TAG = "Mp4Muxer";
 
-  // TODO: b/295339654 - Move these constants to container module to share with the extractor.
-  private static final int EDITABLE_TRACK_TYPE_SHARP = 0;
-  private static final int EDITABLE_TRACK_TYPE_DEPTH_LINEAR = 1;
-  private static final int EDITABLE_TRACK_TYPE_DEPTH_INVERSE = 2;
-  private static final int EDITABLE_TRACK_TYPE_DEPTH_METADATA = 3;
-
   // 4 bytes (indicating a 64-bit length field) + 4 byte (box type) + 8 bytes (actual length)
   private static final int EDVD_BOX_HEADER_SIZE_BYTE = 16;
 
@@ -527,12 +527,17 @@ public final class Mp4Muxer implements Muxer {
           break;
         default:
           throw new IllegalArgumentException(
-              "Unsupported editable track type " + track.format.auxiliaryTrackType);
+              "Unsupported auxiliary track type " + track.format.auxiliaryTrackType);
       }
       data[i + 2] = (byte) trackType;
     }
 
     checkNotNull(editableVideoMetadataCollector);
+    editableVideoMetadataCollector.addMetadata(
+        new MdtaMetadataEntry(
+            MdtaMetadataEntry.KEY_EDITABLE_TRACKS_SAMPLES_LOCATION,
+            new byte[] {EDITABLE_TRACKS_SAMPLES_LOCATION_IN_EDIT_DATA_MP4},
+            TYPE_INDICATOR_8_BIT_UNSIGNED_INT));
     editableVideoMetadataCollector.addMetadata(
         new MdtaMetadataEntry(
             MdtaMetadataEntry.KEY_EDITABLE_TRACKS_MAP,

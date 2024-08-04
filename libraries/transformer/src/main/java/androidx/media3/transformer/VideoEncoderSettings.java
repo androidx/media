@@ -137,8 +137,8 @@ public final class VideoEncoderSettings {
      * <p>The value must be one of the values defined in {@link MediaCodecInfo.CodecProfileLevel},
      * or {@link #NO_VALUE}.
      *
-     * <p>Profile and level settings will be ignored when using {@link DefaultEncoderFactory} and
-     * encoding to H264.
+     * <p>Profile settings will be ignored when using {@link DefaultEncoderFactory} and encoding to
+     * H264.
      *
      * @param encodingProfile The {@link VideoEncoderSettings#profile}.
      * @param encodingLevel The {@link VideoEncoderSettings#level}.

@@ -1450,7 +1450,9 @@ public final class Format {
       builder.append(", customData=").append(format.customData);
     }
     if ((format.roleFlags & C.ROLE_FLAG_AUXILIARY) != 0) {
-      builder.append(", auxiliaryTrackType=").append(format.auxiliaryTrackType);
+      builder
+          .append(", auxiliaryTrackType=")
+          .append(Util.getAuxiliaryTrackTypeString(format.auxiliaryTrackType));
     }
     return builder.toString();
   }

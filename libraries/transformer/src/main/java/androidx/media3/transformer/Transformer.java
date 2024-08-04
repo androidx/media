@@ -115,6 +115,7 @@ public final class Transformer {
     private boolean trimOptimizationEnabled;
     private boolean fileStartsOnVideoFrameEnabled;
     private long maxDelayBetweenMuxerSamplesMs;
+    private int maxFramesInEncoder;
     private ListenerSet<Transformer.Listener> listeners;
     private AssetLoader.@MonotonicNonNull Factory assetLoaderFactory;
     private AudioMixer.Factory audioMixerFactory;
@@ -133,6 +134,7 @@ public final class Transformer {
     public Builder(Context context) {
       this.context = context.getApplicationContext();
       maxDelayBetweenMuxerSamplesMs = DEFAULT_MAX_DELAY_BETWEEN_MUXER_SAMPLES_MS;
+      maxFramesInEncoder = C.INDEX_UNSET;
       audioProcessors = ImmutableList.of();
       videoEffects = ImmutableList.of();
       audioMixerFactory = new DefaultAudioMixer.Factory();
@@ -158,6 +160,7 @@ public final class Transformer {
       this.trimOptimizationEnabled = transformer.trimOptimizationEnabled;
       this.fileStartsOnVideoFrameEnabled = transformer.fileStartsOnVideoFrameEnabled;
       this.maxDelayBetweenMuxerSamplesMs = transformer.maxDelayBetweenMuxerSamplesMs;
+      this.maxFramesInEncoder = transformer.maxFramesInEncoder;
       this.listeners = transformer.listeners;
       this.assetLoaderFactory = transformer.assetLoaderFactory;
       this.audioMixerFactory = transformer.audioMixerFactory;
@@ -330,6 +333,30 @@ public final class Transformer {
     @CanIgnoreReturnValue
     public Builder experimentalSetTrimOptimizationEnabled(boolean enabled) {
       trimOptimizationEnabled = enabled;
+      return this;
+    }
+
+    /**
+     * Limits how many video frames can be processed at any time by the {@linkplain Codec encoder}.
+     *
+     * <p>A video frame starts encoding when it enters the {@linkplain Codec#getInputSurface()
+     * encoder input surface}, and finishes encoding when the corresponding {@linkplain
+     * Codec#releaseOutputBuffer encoder output buffer is released}.
+     *
+     * <p>The default value is {@link C#INDEX_UNSET}, which means no limit is enforced.
+     *
+     * <p>This method is experimental and will be renamed or removed in a future release.
+     *
+     * @param maxFramesInEncoder The maximum number of frames that the video encoder is allowed to
+     *     process at a time, or {@link C#INDEX_UNSET} if no limit is enforced.
+     * @return This builder.
+     * @throws IllegalArgumentException If {@code maxFramesInEncoder} is not equal to {@link
+     *     C#INDEX_UNSET} and is non-positive.
+     */
+    @CanIgnoreReturnValue
+    public Builder experimentalSetMaxFramesInEncoder(int maxFramesInEncoder) {
+      checkArgument(maxFramesInEncoder > 0 || maxFramesInEncoder == C.INDEX_UNSET);
+      this.maxFramesInEncoder = maxFramesInEncoder;
       return this;
     }
 
@@ -592,6 +619,7 @@ public final class Transformer {
           trimOptimizationEnabled,
           fileStartsOnVideoFrameEnabled,
           maxDelayBetweenMuxerSamplesMs,
+          maxFramesInEncoder,
           listeners,
           assetLoaderFactory,
           audioMixerFactory,
@@ -844,6 +872,7 @@ public final class Transformer {
   private final boolean trimOptimizationEnabled;
   private final boolean fileStartsOnVideoFrameEnabled;
   private final long maxDelayBetweenMuxerSamplesMs;
+  private final int maxFramesInEncoder;
 
   private final ListenerSet<Transformer.Listener> listeners;
   @Nullable private final AssetLoader.Factory assetLoaderFactory;
@@ -881,6 +910,7 @@ public final class Transformer {
       boolean trimOptimizationEnabled,
       boolean fileStartsOnVideoFrameEnabled,
       long maxDelayBetweenMuxerSamplesMs,
+      int maxFramesInEncoder,
       ListenerSet<Listener> listeners,
       @Nullable AssetLoader.Factory assetLoaderFactory,
       AudioMixer.Factory audioMixerFactory,
@@ -901,6 +931,7 @@ public final class Transformer {
     this.trimOptimizationEnabled = trimOptimizationEnabled;
     this.fileStartsOnVideoFrameEnabled = fileStartsOnVideoFrameEnabled;
     this.maxDelayBetweenMuxerSamplesMs = maxDelayBetweenMuxerSamplesMs;
+    this.maxFramesInEncoder = maxFramesInEncoder;
     this.listeners = listeners;
     this.assetLoaderFactory = assetLoaderFactory;
     this.audioMixerFactory = audioMixerFactory;
@@ -1611,6 +1642,7 @@ public final class Transformer {
             audioMixerFactory,
             videoFrameProcessorFactory,
             encoderFactory,
+            maxFramesInEncoder,
             muxerWrapper,
             componentListener,
             fallbackListener,

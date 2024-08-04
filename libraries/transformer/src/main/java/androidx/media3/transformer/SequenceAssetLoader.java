@@ -188,7 +188,7 @@ import java.util.concurrent.atomic.AtomicInteger;
     if ((sequenceLoopCount * editedMediaItems.size() + currentMediaItemIndex)
         >= processedInputsSize) {
       MediaItem mediaItem = editedMediaItems.get(currentMediaItemIndex).mediaItem;
-      ImmutableMap<Integer, String> decoders = currentAssetLoader.getDecoderNames();
+      ImmutableMap<Integer, String> decoders = getDecoderNames();
       processedInputsBuilder.add(
           new ExportResult.ProcessedInput(
               mediaItem, decoders.get(C.TRACK_TYPE_AUDIO), decoders.get(C.TRACK_TYPE_VIDEO)));

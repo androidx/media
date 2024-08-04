@@ -85,6 +85,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
   private final SparseArray<CompositorOutputTextureRelease> compositorOutputTextureReleases;
 
   private final long initialTimestampOffsetUs;
+  private final boolean renderFramesAutomatically;
 
   @Nullable private VideoFrameProcessor compositionVideoFrameProcessor;
   @Nullable private VideoCompositor videoCompositor;
@@ -106,7 +107,8 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
       Executor listenerExecutor,
       VideoCompositorSettings videoCompositorSettings,
       List<Effect> compositionEffects,
-      long initialTimestampOffsetUs) {
+      long initialTimestampOffsetUs,
+      boolean renderFramesAutomatically) {
     checkArgument(videoFrameProcessorFactory instanceof DefaultVideoFrameProcessor.Factory);
     this.context = context;
     this.outputColorInfo = outputColorInfo;
@@ -116,6 +118,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
     this.videoCompositorSettings = videoCompositorSettings;
     this.compositionEffects = new ArrayList<>(compositionEffects);
     this.initialTimestampOffsetUs = initialTimestampOffsetUs;
+    this.renderFramesAutomatically = renderFramesAutomatically;
     lastRenderedPresentationTimeUs = C.TIME_UNSET;
     preProcessors = new SparseArray<>();
     sharedExecutorService = newSingleThreadScheduledExecutor(SHARED_EXECUTOR_NAME);
@@ -150,7 +153,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
             context,
             debugViewProvider,
             outputColorInfo,
-            /* renderFramesAutomatically= */ true,
+            renderFramesAutomatically,
             /* listenerExecutor= */ MoreExecutors.directExecutor(),
             new VideoFrameProcessor.Listener() {
               // All of this listener's methods are called on the sharedExecutorService.
@@ -174,6 +177,9 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
                   hasProducedFrameWithTimestampZero = true;
                 }
                 lastRenderedPresentationTimeUs = presentationTimeUs;
+
+                listenerExecutor.execute(
+                    () -> listener.onOutputFrameAvailableForRendering(presentationTimeUs));
               }
 
               @Override
@@ -310,6 +316,10 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
     }
 
     released = true;
+  }
+
+  protected VideoFrameProcessor getCompositionVideoFrameProcessor() {
+    return checkStateNotNull(compositionVideoFrameProcessor);
   }
 
   protected long getInitialTimestampOffsetUs() {
