@@ -39,11 +39,11 @@ import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.video.DecoderVideoRenderer;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 
-// TODO: Merge actual implementation in https://github.com/google/ExoPlayer/pull/7132.
 /**
  * <b>NOTE: This class if under development and is not yet functional.</b>
  *
  * <p>Decodes and renders video using FFmpeg.
+ * <p>Merge actual implementation in https://github.com/google/ExoPlayer/pull/7132.
  */
 @UnstableApi
 public final class ExperimentalFfmpegVideoRenderer extends DecoderVideoRenderer {

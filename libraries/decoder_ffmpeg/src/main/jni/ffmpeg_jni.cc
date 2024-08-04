@@ -501,12 +501,12 @@ struct JniContext {
 
     ANativeWindow *native_window = nullptr;
     jobject surface = nullptr;
-    // 旋转角度
+    // rorate degree from InputFormat
     int rotate_degree = 0;
     int native_window_width = 0;
     int native_window_height = 0;
 
-    // 接收数据的线程
+    // Thread to Convert Frame
     std::thread *poll_image_thread;
     bool released = false;
     BlockingQueue<AVFrame *> *image_output_buffer = nullptr;
