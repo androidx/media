@@ -292,8 +292,13 @@ import java.nio.ByteBuffer;
     return supportedMimeTypes.build();
   }
 
-  // Get Dolby Vision profile
-  // Refer to https://professionalsupport.dolby.com/s/article/What-is-Dolby-Vision-Profile
+  /**
+   * Get Dolby Vision profile
+   *
+   * <p>Refer to <a
+   * href="https://professionalsupport.dolby.com/s/article/What-is-Dolby-Vision-Profile">What
+   * are Dolby Vision profiles and levels</a>.
+   */
   @RequiresApi(33)
   private static int getDvProfile(Format format) {
     // Currently, only profile 8 is supported for encoding
@@ -301,8 +306,13 @@ import java.nio.ByteBuffer;
     return MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvheSt;
   }
 
-  // Get Dolby Vision level
-  // Refer to https://professionalsupport.dolby.com/s/article/What-is-Dolby-Vision-Profile
+  /**
+   * Get Dolby Vision level
+   *
+   * <p>Refer to <a
+   * href="https://professionalsupport.dolby.com/s/article/What-is-Dolby-Vision-Profile">What
+   * are Dolby Vision profiles and levels</a>.
+   */
   @RequiresApi(33)
   private static int getDvLevel(Format format) {
     int level = -1;

@@ -30,6 +30,7 @@ import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
 import static androidx.media3.transformer.Composition.HDR_MODE_KEEP_HDR;
 import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.net.Uri;
@@ -144,11 +145,7 @@ public final class HdrEditingTest {
   public void export_transmuxDolbyVisionFile() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
 
-    if (Util.SDK_INT < 24) {
-      // TODO: b/285543404 - Remove suppression once we can transmux H.265/HEVC before API 24.
-      recordTestSkipped(context, testId, /* reason= */ "Can't transmux H.265/HEVC before API 24");
-      return;
-    }
+    assumeTrue(Util.SDK_INT >= 24);
 
     if (AndroidTestUtil.skipAndLogIfFormatsUnsupported(
         context,
@@ -165,15 +162,12 @@ public final class HdrEditingTest {
         new TransformerAndroidTestRunner.Builder(context, transformer)
             .build()
             .run(testId, mediaItem);
+    Format trackFormat =
+        retrieveTrackFormat(context, exportTestResult.filePath, C.TRACK_TYPE_VIDEO);
     @C.ColorTransfer
-    int actualColorTransfer =
-        retrieveTrackFormat(context, exportTestResult.filePath, C.TRACK_TYPE_VIDEO)
-            .colorInfo
-            .colorTransfer;
+    int actualColorTransfer = trackFormat.colorInfo.colorTransfer;
     assertThat(actualColorTransfer).isEqualTo(C.COLOR_TRANSFER_HLG);
-    String actualMimeType =
-        retrieveTrackFormat(context, exportTestResult.filePath, C.TRACK_TYPE_VIDEO)
-            .sampleMimeType;
+    String actualMimeType = trackFormat.sampleMimeType;
     assertThat(actualMimeType).isEqualTo(VIDEO_DOLBY_VISION);
   }
 
