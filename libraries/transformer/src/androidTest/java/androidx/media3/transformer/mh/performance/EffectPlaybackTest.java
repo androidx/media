@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package androidx.media3.transformer;
+package androidx.media3.transformer.mh.performance;
 
 import static androidx.media3.common.Player.STATE_ENDED;
 import static androidx.media3.common.util.Assertions.checkNotNull;
@@ -25,7 +25,7 @@ import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888Bitma
 import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.createTimestampOverlay;
+import static androidx.media3.transformer.mh.performance.PlaybackTestUtil.createTimestampOverlay;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assume.assumeTrue;

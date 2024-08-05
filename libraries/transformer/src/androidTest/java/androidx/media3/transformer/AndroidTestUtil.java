@@ -31,16 +31,10 @@ import static org.junit.Assume.assumeFalse;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
-import android.graphics.Color;
 import android.media.Image;
 import android.media.MediaFormat;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
-import android.text.Spannable;
-import android.text.SpannableString;
-import android.text.style.AbsoluteSizeSpan;
-import android.text.style.ForegroundColorSpan;
-import android.text.style.TypefaceSpan;
 import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -53,9 +47,7 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.DefaultGlObjectsProvider;
-import androidx.media3.effect.OverlayEffect;
 import androidx.media3.effect.ScaleAndRotateTransformation;
-import androidx.media3.effect.TextOverlay;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.media3.test.utils.VideoDecodingWrapper;
@@ -938,34 +930,6 @@ public final class AndroidTestUtil {
             eglDisplay, /* openGlVersion= */ 2, GlUtil.EGL_CONFIG_ATTRIBUTES_RGBA_8888);
     glObjectsProvider.createFocusedPlaceholderEglSurface(eglContext, eglDisplay);
     return eglContext;
-  }
-
-  /** Creates an {@link OverlayEffect} that draws the timestamp onto frames. */
-  public static OverlayEffect createTimestampOverlay() {
-    return new OverlayEffect(
-        ImmutableList.of(
-            new TextOverlay() {
-              @Override
-              public SpannableString getText(long presentationTimeUs) {
-                SpannableString text = new SpannableString(String.valueOf(presentationTimeUs));
-                text.setSpan(
-                    new ForegroundColorSpan(Color.WHITE),
-                    /* start= */ 0,
-                    text.length(),
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                text.setSpan(
-                    new AbsoluteSizeSpan(/* size= */ 96),
-                    /* start= */ 0,
-                    text.length(),
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                text.setSpan(
-                    new TypefaceSpan(/* family= */ "sans-serif"),
-                    /* start= */ 0,
-                    text.length(),
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                return text;
-              }
-            }));
   }
 
   /**
