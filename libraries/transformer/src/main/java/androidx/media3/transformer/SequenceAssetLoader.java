@@ -229,7 +229,13 @@ import java.util.concurrent.atomic.AtomicInteger;
         inputFormat);
 
     if (!isCurrentAssetFirstAsset) {
-      return isAudio ? decodeAudio : decodeVideo;
+      boolean decode = isAudio ? decodeAudio : decodeVideo;
+      if (decode) {
+        checkArgument((supportedOutputTypes & SUPPORTED_OUTPUT_TYPE_DECODED) != 0);
+      } else {
+        checkArgument((supportedOutputTypes & SUPPORTED_OUTPUT_TYPE_ENCODED) != 0);
+      }
+      return decode;
     }
 
     boolean addForcedAudioTrack = forceAudioTrack && reportedTrackCount.get() == 1 && !isAudio;
