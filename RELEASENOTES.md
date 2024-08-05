@@ -63,6 +63,8 @@
         values.
 *   Metadata:
 *   Image:
+    *   Add `ExternallyLoadedImageDecoder` for simplified integration with
+        external image loading libraries like Glide or Coil.
 *   DataSource:
     *   Add `FileDescriptorDataSource`, a new `DataSource` that can be used to
         read from a `FileDescriptor`

@@ -458,7 +458,7 @@ public class ImageRenderer extends BaseRenderer {
         // Input buffers with no data that are also non-EOS, only carry the timestamp for a grid
         // tile. These buffers are not queued.
         boolean shouldQueueBuffer =
-            checkStateNotNull(inputBuffer.data).remaining() > 0
+            (inputBuffer.data != null && inputBuffer.data.remaining() > 0)
                 || checkStateNotNull(inputBuffer).isEndOfStream();
         if (shouldQueueBuffer) {
           checkStateNotNull(decoder).queueInputBuffer(checkStateNotNull(inputBuffer));

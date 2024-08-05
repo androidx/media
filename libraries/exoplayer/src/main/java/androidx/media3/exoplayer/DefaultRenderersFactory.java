@@ -623,7 +623,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * @param out An array to which the built renderers should be appended.
    */
   protected void buildImageRenderers(ArrayList<Renderer> out) {
-    out.add(new ImageRenderer(ImageDecoder.Factory.DEFAULT, /* imageOutput= */ null));
+    out.add(new ImageRenderer(getImageDecoderFactory(), /* imageOutput= */ null));
   }
 
   /**
@@ -668,5 +668,10 @@ public class DefaultRenderersFactory implements RenderersFactory {
    */
   protected MediaCodecAdapter.Factory getCodecAdapterFactory() {
     return codecAdapterFactory;
+  }
+
+  /** Returns the {@link ImageDecoder.Factory} used to build the image renderer. */
+  protected ImageDecoder.Factory getImageDecoderFactory() {
+    return ImageDecoder.Factory.DEFAULT;
   }
 }
