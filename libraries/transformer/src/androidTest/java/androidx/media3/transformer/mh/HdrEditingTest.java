@@ -50,6 +50,7 @@ import androidx.media3.transformer.Transformer;
 import androidx.media3.transformer.TransformerAndroidTestRunner;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SdkSuppress;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -142,10 +143,9 @@ public final class HdrEditingTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 24)
   public void export_transmuxDolbyVisionFile() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
-
-    assumeTrue(Util.SDK_INT >= 24);
 
     if (AndroidTestUtil.skipAndLogIfFormatsUnsupported(
         context,
