@@ -16,6 +16,7 @@
 package androidx.media3.container;
 
 import static androidx.media3.common.util.Assertions.checkArgument;
+import static androidx.media3.common.util.Assertions.checkState;
 
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -118,30 +119,6 @@ public final class MdtaMetadataEntry implements Metadata.Entry {
     validateData(key, value, typeIndicator);
   }
 
-  private static void validateData(String key, byte[] value, int typeIndicator) {
-    switch (key) {
-      case KEY_ANDROID_CAPTURE_FPS:
-        checkArgument(typeIndicator == TYPE_INDICATOR_FLOAT32 && value.length == 4);
-        break;
-      case KEY_EDITABLE_TRACKS_OFFSET:
-      case KEY_EDITABLE_TRACKS_LENGTH:
-        checkArgument(typeIndicator == TYPE_INDICATOR_UNSIGNED_INT64 && value.length == 8);
-        break;
-      case KEY_EDITABLE_TRACKS_MAP:
-        checkArgument(typeIndicator == TYPE_INDICATOR_RESERVED);
-        break;
-      case KEY_EDITABLE_TRACKS_SAMPLES_LOCATION:
-        checkArgument(
-            typeIndicator == TYPE_INDICATOR_8_BIT_UNSIGNED_INT
-                && value.length == 1
-                && (value[0] == EDITABLE_TRACKS_SAMPLES_LOCATION_IN_EDIT_DATA_MP4
-                    || value[0] == EDITABLE_TRACKS_SAMPLES_LOCATION_INTERLEAVED));
-        break;
-      default:
-        // Ignore custom keys.
-    }
-  }
-
   @Override
   public boolean equals(@Nullable Object obj) {
     if (this == obj) {
@@ -188,7 +165,7 @@ public final class MdtaMetadataEntry implements Metadata.Entry {
         break;
       case TYPE_INDICATOR_RESERVED:
         if (key.equals(KEY_EDITABLE_TRACKS_MAP)) {
-          formattedValue = getFormattedValueForEditableTracksMap(value);
+          formattedValue = getFormattedValueForEditableTracksMap(getEditableTrackTypesFromMap());
           break;
         }
       // fall through
@@ -228,15 +205,43 @@ public final class MdtaMetadataEntry implements Metadata.Entry {
         }
       };
 
-  private static String getFormattedValueForEditableTracksMap(byte[] value) {
+  private static void validateData(String key, byte[] value, int typeIndicator) {
+    switch (key) {
+      case KEY_ANDROID_CAPTURE_FPS:
+        checkArgument(typeIndicator == TYPE_INDICATOR_FLOAT32 && value.length == 4);
+        break;
+      case KEY_EDITABLE_TRACKS_OFFSET:
+      case KEY_EDITABLE_TRACKS_LENGTH:
+        checkArgument(typeIndicator == TYPE_INDICATOR_UNSIGNED_INT64 && value.length == 8);
+        break;
+      case KEY_EDITABLE_TRACKS_MAP:
+        checkArgument(typeIndicator == TYPE_INDICATOR_RESERVED);
+        break;
+      case KEY_EDITABLE_TRACKS_SAMPLES_LOCATION:
+        checkArgument(
+            typeIndicator == TYPE_INDICATOR_8_BIT_UNSIGNED_INT
+                && value.length == 1
+                && (value[0] == EDITABLE_TRACKS_SAMPLES_LOCATION_IN_EDIT_DATA_MP4
+                    || value[0] == EDITABLE_TRACKS_SAMPLES_LOCATION_INTERLEAVED));
+        break;
+      default:
+        // Ignore custom keys.
+    }
+  }
+
+  private static String getFormattedValueForEditableTracksMap(List<Integer> trackTypes) {
     StringBuilder sb = new StringBuilder();
     sb.append("track types = ");
-    List<Integer> trackTypes = getEditableTrackTypesFromMap(value);
     Joiner.on(',').appendTo(sb, trackTypes);
     return sb.toString();
   }
 
-  private static List<Integer> getEditableTrackTypesFromMap(byte[] value) {
+  /**
+   * Returns the editable track types from the {@linkplain #KEY_EDITABLE_TRACKS_MAP editable tracks
+   * map} metadata.
+   */
+  private List<Integer> getEditableTrackTypesFromMap() {
+    checkState(key.equals(KEY_EDITABLE_TRACKS_MAP), "Metadata is not an editable tracks map");
     // Value has 1 byte version, 1 byte track count, n bytes track types.
     int numberOfTracks = value[1];
     List<Integer> trackTypes = new ArrayList<>();
