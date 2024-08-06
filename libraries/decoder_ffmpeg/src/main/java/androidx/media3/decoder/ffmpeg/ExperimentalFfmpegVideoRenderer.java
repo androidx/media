@@ -15,18 +15,15 @@
  */
 package androidx.media3.decoder.ffmpeg;
 
-import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_MIME_TYPE_CHANGED;
-import static androidx.media3.exoplayer.DecoderReuseEvaluation.REUSE_RESULT_NO;
-import static androidx.media3.exoplayer.DecoderReuseEvaluation.REUSE_RESULT_YES_WITHOUT_RECONFIGURATION;
 import static java.lang.Runtime.getRuntime;
 
 import android.os.Handler;
 import android.view.Surface;
+
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.TraceUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -131,10 +128,10 @@ public final class ExperimentalFfmpegVideoRenderer extends DecoderVideoRenderer 
 
   @Override
   public final @RendererCapabilities.Capabilities int supportsFormat(Format format) {
-    String mimeType = Assertions.checkNotNull(format.sampleMimeType);
+    String mimeType = format.sampleMimeType;
     if (!FfmpegLibrary.isAvailable() || !MimeTypes.isVideo(mimeType)) {
       return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
-    } else if (!FfmpegLibrary.supportsFormat(format.sampleMimeType)) {
+    } else if (!FfmpegLibrary.supportsFormat(mimeType)) {
       return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_SUBTYPE);
     } else if (format.cryptoType != C.CRYPTO_TYPE_NONE) {
       return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_DRM);
@@ -184,13 +181,7 @@ public final class ExperimentalFfmpegVideoRenderer extends DecoderVideoRenderer 
   @Override
   protected DecoderReuseEvaluation canReuseDecoder(
       String decoderName, Format oldFormat, Format newFormat) {
-    boolean sameMimeType = Util.areEqual(oldFormat.sampleMimeType, newFormat.sampleMimeType);
     // TODO: Ability to reuse the decoder may be MIME type dependent.
-    return new DecoderReuseEvaluation(
-        decoderName,
-        oldFormat,
-        newFormat,
-        sameMimeType ? REUSE_RESULT_YES_WITHOUT_RECONFIGURATION : REUSE_RESULT_NO,
-        sameMimeType ? 0 : DISCARD_REASON_MIME_TYPE_CHANGED);
+    return super.canReuseDecoder(decoderName, oldFormat, newFormat);
   }
 }

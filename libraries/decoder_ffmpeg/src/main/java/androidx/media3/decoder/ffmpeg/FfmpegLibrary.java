@@ -95,8 +95,11 @@ public final class FfmpegLibrary {
    *
    * @param mimeType The MIME type to check.
    */
-  public static boolean supportsFormat(String mimeType) {
+  public static boolean supportsFormat(@Nullable String mimeType) {
     if (!isAvailable()) {
+      return false;
+    }
+    if (mimeType == null) {
       return false;
     }
     @Nullable String codecName = getCodecName(mimeType);
