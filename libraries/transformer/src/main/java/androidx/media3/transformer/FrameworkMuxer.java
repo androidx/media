@@ -25,7 +25,6 @@ import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
 import android.media.MediaMuxer;
-import android.os.Build;
 import android.util.SparseLongArray;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
