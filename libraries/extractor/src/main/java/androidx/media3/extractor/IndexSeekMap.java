@@ -109,9 +109,8 @@ public final class IndexSeekMap implements SeekMap {
    * Maps a position (byte offset) to a corresponding sample timestamp.
    *
    * @param position A seek position (byte offset) relative to the start of the stream.
-   * @return The corresponding timestamp of the sample at or before the given position, in
-   *     microseconds, or the timestamp of the last available sample in the seek map if the position
-   *     is past the last seek point added, or {@link C#TIME_UNSET} if no seek points exist.
+   * @return The corresponding timestamp of the seek point at or before the given position, in
+   *     microseconds, or {@link C#TIME_UNSET} if no seek points exist.
    */
   public long getTimeUs(long position) {
     if (timesUs.size() == 0) {
