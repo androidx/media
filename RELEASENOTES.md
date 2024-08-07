@@ -77,6 +77,7 @@
         such that output is closer to expected.
     *   Speed up `DefaultVideoFrameProcessor.queueInputBitmap()`. As a result,
         exporting images to videos with `Transformer` is faster.
+    *   Add a `release()` method to `GlObjectsProvider`.
 *   Muxers:
 *   IMA extension:
     *   Fix bug where clearing the playlist may cause an

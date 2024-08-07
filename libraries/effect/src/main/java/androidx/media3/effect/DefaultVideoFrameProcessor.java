@@ -19,6 +19,7 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static androidx.media3.common.util.GlUtil.getDefaultEglDisplay;
 import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_VFP;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_RECEIVE_END_OF_ALL_INPUT;
@@ -445,7 +446,6 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   private final Context context;
   private final GlObjectsProvider glObjectsProvider;
   private final EGLDisplay eglDisplay;
-  private final EGLContext eglContext;
   private final InputSwitcher inputSwitcher;
   private final VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor;
   private final VideoFrameProcessor.Listener listener;
@@ -483,10 +483,9 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       Context context,
       GlObjectsProvider glObjectsProvider,
       EGLDisplay eglDisplay,
-      EGLContext eglContext,
       InputSwitcher inputSwitcher,
       VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor,
-      VideoFrameProcessor.Listener listener,
+      Listener listener,
       Executor listenerExecutor,
       FinalShaderProgramWrapper finalShaderProgramWrapper,
       boolean renderFramesAutomatically,
@@ -494,7 +493,6 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     this.context = context;
     this.glObjectsProvider = glObjectsProvider;
     this.eglDisplay = eglDisplay;
-    this.eglContext = eglContext;
     this.inputSwitcher = inputSwitcher;
     this.videoFrameProcessingTaskExecutor = videoFrameProcessingTaskExecutor;
     this.listener = listener;
@@ -820,7 +818,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       boolean experimentalAdjustSurfaceTextureTransformationMatrix,
       boolean experimentalRepeatInputBitmapWithoutResampling)
       throws GlUtil.GlException, VideoFrameProcessingException {
-    EGLDisplay eglDisplay = GlUtil.getDefaultEglDisplay();
+    EGLDisplay eglDisplay = getDefaultEglDisplay();
     int[] configAttributes =
         ColorInfo.isTransferHdr(outputColorInfo)
             ? GlUtil.EGL_CONFIG_ATTRIBUTES_RGBA_1010102
@@ -873,7 +871,6 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         context,
         glObjectsProvider,
         eglDisplay,
-        eglContextAndPlaceholderSurface.first,
         inputSwitcher,
         videoFrameProcessingTaskExecutor,
         listener,
@@ -1106,9 +1103,9 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       }
     } finally {
       try {
-        GlUtil.destroyEglContext(eglDisplay, eglContext);
+        glObjectsProvider.release(eglDisplay);
       } catch (GlUtil.GlException e) {
-        Log.e(TAG, "Error releasing GL context", e);
+        Log.e(TAG, "Error releasing GL objects", e);
       }
     }
   }
