@@ -23,13 +23,13 @@ import androidx.media3.container.Mp4OrientationData;
 import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.container.XmpData;
 
-/** Utilities for MP4 files. */
+/** Utility methods for muxer. */
 @UnstableApi
-public final class Mp4Utils {
+public final class MuxerUtil {
   /** The maximum value of a 32-bit unsigned int. */
   public static final long UNSIGNED_INT_MAX_VALUE = 4_294_967_295L;
 
-  private Mp4Utils() {}
+  private MuxerUtil() {}
 
   /** Returns whether a given {@link Metadata.Entry metadata} is supported. */
   public static boolean isMetadataSupported(Metadata.Entry metadata) {

@@ -24,9 +24,8 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.container.Mp4OrientationData;
 import androidx.media3.muxer.FragmentedMp4Muxer;
 import androidx.media3.muxer.Mp4Muxer;
-import androidx.media3.muxer.Mp4Utils;
 import androidx.media3.muxer.Muxer;
-import androidx.media3.muxer.Muxer.TrackToken;
+import androidx.media3.muxer.MuxerUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.FileNotFoundException;
@@ -196,7 +195,7 @@ public final class InAppMuxer implements Muxer {
 
   @Override
   public void addMetadataEntry(Metadata.Entry metadataEntry) {
-    if (Mp4Utils.isMetadataSupported(metadataEntry)) {
+    if (MuxerUtil.isMetadataSupported(metadataEntry)) {
       metadataEntries.add(metadataEntry);
     }
   }
