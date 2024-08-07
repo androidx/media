@@ -32,7 +32,8 @@ public final class IndexSeekMap implements SeekMap {
 
   private final LongArray positions;
   private final LongArray timesUs;
-  private final long durationUs;
+
+  private long durationUs;
 
   /**
    * Creates an instance.
@@ -102,5 +103,39 @@ public final class IndexSeekMap implements SeekMap {
     }
     positions.add(position);
     timesUs.add(timeUs);
+  }
+
+  /**
+   * Maps a position (byte offset) to a corresponding sample timestamp.
+   *
+   * @param position A seek position (byte offset) relative to the start of the stream.
+   * @return The corresponding timestamp of the sample at or before the given position, in
+   *     microseconds, or the timestamp of the last available sample in the seek map if the position
+   *     is past the last seek point added, or {@link C#TIME_UNSET} if no seek points exist.
+   */
+  public long getTimeUs(long position) {
+    if (timesUs.size() == 0) {
+      return C.TIME_UNSET;
+    }
+    int targetIndex =
+        Util.binarySearchFloor(
+            positions, position, /* inclusive= */ true, /* stayInBounds= */ true);
+    return timesUs.get(targetIndex);
+  }
+
+  /**
+   * Returns the timestamp of the last seek point added, in microseconds, or {@link C#TIME_UNSET} if
+   * no seek points exist.
+   */
+  public long getLastSeekPointTimeUs() {
+    if (timesUs.size() == 0) {
+      return C.TIME_UNSET;
+    }
+    return timesUs.get(timesUs.size() - 1);
+  }
+
+  /** Sets the duration of the input stream, or {@link C#TIME_UNSET} if it is unknown. */
+  public void setDurationUs(long durationUs) {
+    this.durationUs = durationUs;
   }
 }
