@@ -94,13 +94,11 @@ public final class Loader implements LoaderErrorThrower {
      * Called when a load has started for the first time or through a retry.
      *
      * @param loadable The loadable whose load has completed.
-     * @param elapsedRealtimeMs {@link SystemClock#elapsedRealtime} when the load ended.
+     * @param elapsedRealtimeMs {@link SystemClock#elapsedRealtime} when the load attempts to start.
      * @param loadDurationMs The duration in milliseconds of the load since {@link #startLoading}
      *     was called.
-     * @param error The load error of the previous load attempt if this is a retry, otherwise null
-     * @param errorCount The number of errors this load has encountered thus far.
      */
-    default void onLoadStarted(T loadable, long elapsedRealtimeMs, long loadDurationMs, @Nullable IOException error, int errorCount) {}
+    default void onLoadStarted(T loadable, long elapsedRealtimeMs, long loadDurationMs) {}
 
     /**
      * Called when a load has completed.
@@ -545,7 +543,7 @@ public final class Loader implements LoaderErrorThrower {
     private void execute() {
       long nowMs = SystemClock.elapsedRealtime();
       long durationMs = nowMs - startTimeMs;
-      Assertions.checkNotNull(this.callback).onLoadStarted(loadable, nowMs, durationMs, currentError, errorCount);
+      Assertions.checkNotNull(this.callback).onLoadStarted(loadable, nowMs, durationMs);
       currentError = null;
       downloadExecutor.execute(Assertions.checkNotNull(currentTask));
     }
