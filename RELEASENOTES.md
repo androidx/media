@@ -21,6 +21,7 @@
 *   DataSource:
 *   DRM:
 *   Effect:
+    *   Add a `release()` method to `GlObjectsProvider`.
 *   Muxers:
 *   IMA extension:
 *   Session:
