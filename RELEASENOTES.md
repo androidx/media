@@ -16,6 +16,10 @@
     *   TTML: Fix handling of percentage `tts:fontSize` values to ensure they
         are correctly inherited from parent nodes with percentage `tts:fontSize`
         values.
+    *   Fix `IndexOutOfBoundsException` in `LegacySubtitleUtil` due to
+        incorrectly handling the case of the requested output start time being
+        greater than or equal to the final event time in the `Subtitle`
+        ([#1516](https://github.com/androidx/media/issues/1516)).
 *   Metadata:
 *   Image:
 *   DataSource:

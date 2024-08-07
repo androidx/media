@@ -37,17 +37,12 @@ public class LegacySubtitleUtil {
    */
   public static void toCuesWithTiming(
       Subtitle subtitle, OutputOptions outputOptions, Consumer<CuesWithTiming> output) {
-    if (subtitle.getEventTimeCount() == 0) {
-      return;
-    }
-    int startIndex = getStartIndex(subtitle, outputOptions);
+    int startIndex = getStartIndex(subtitle, outputOptions.startTimeUs);
     boolean startedInMiddleOfCue = false;
-    if (outputOptions.startTimeUs != C.TIME_UNSET) {
+    if (outputOptions.startTimeUs != C.TIME_UNSET && startIndex < subtitle.getEventTimeCount()) {
       List<Cue> cuesAtStartTime = subtitle.getCues(outputOptions.startTimeUs);
       long firstEventTimeUs = subtitle.getEventTime(startIndex);
-      if (!cuesAtStartTime.isEmpty()
-          && startIndex < subtitle.getEventTimeCount()
-          && outputOptions.startTimeUs < firstEventTimeUs) {
+      if (!cuesAtStartTime.isEmpty() && outputOptions.startTimeUs < firstEventTimeUs) {
         output.accept(
             new CuesWithTiming(
                 cuesAtStartTime,
@@ -74,16 +69,20 @@ public class LegacySubtitleUtil {
     }
   }
 
-  private static int getStartIndex(Subtitle subtitle, OutputOptions outputOptions) {
-    if (outputOptions.startTimeUs == C.TIME_UNSET) {
+  /**
+   * Returns the event index from {@code subtitle} that is equal to or after {@code startTimeUs}, or
+   * zero if {@code startTimeUs == C.TIME_UNSET}, or {@code subtitle.getEventTimeCount()} if {@code
+   * startTimeUs} is after all events in {@code subtitle}.
+   */
+  private static int getStartIndex(Subtitle subtitle, long startTimeUs) {
+    if (startTimeUs == C.TIME_UNSET) {
       return 0;
     }
-    int nextEventTimeIndex = subtitle.getNextEventTimeIndex(outputOptions.startTimeUs);
+    int nextEventTimeIndex = subtitle.getNextEventTimeIndex(startTimeUs);
     if (nextEventTimeIndex == C.INDEX_UNSET) {
-      return subtitle.getEventTimeCount();
+      nextEventTimeIndex = subtitle.getEventTimeCount();
     }
-    if (nextEventTimeIndex > 0
-        && subtitle.getEventTime(nextEventTimeIndex - 1) == outputOptions.startTimeUs) {
+    if (nextEventTimeIndex > 0 && subtitle.getEventTime(nextEventTimeIndex - 1) == startTimeUs) {
       nextEventTimeIndex--;
     }
     return nextEventTimeIndex;
