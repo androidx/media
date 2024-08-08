@@ -144,7 +144,7 @@ public final class HdrEditingTest {
     Context context = ApplicationProvider.getApplicationContext();
 
     Transformer transformer = new Transformer.Builder(context).build();
-    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_DOLBY_VISION_HDR));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_DOLBY_VISION_HDR.uri));
 
     ExportTestResult exportTestResult =
         new TransformerAndroidTestRunner.Builder(context, transformer)
@@ -428,16 +428,10 @@ public final class HdrEditingTest {
   public void exportAndTranscode_dolbyVisionFile_whenHdrEditingUnsupported_toneMapsOrThrows()
       throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
-    Format format = MP4_ASSET_DOLBY_VISION_HDR_FORMAT;
-    if (deviceSupportsHdrEditing(VIDEO_H265, format.colorInfo)) {
-      recordTestSkipped(context, testId, /* reason= */ "Device supports Dolby Vision editing.");
-      return;
-    }
+    Format format = MP4_ASSET_DOLBY_VISION_HDR.videoFormat;
+    assumeDeviceDoesNotSupportHdrEditing(testId, format);
 
-    if (AndroidTestUtil.skipAndLogIfFormatsUnsupported(
-        context, testId, /* inputFormat= */ format, /* outputFormat= */ null)) {
-      return;
-    }
+    assumeFormatsSupported(context, testId, /* inputFormat= */ format, /* outputFormat= */ null);
 
     AtomicBoolean isFallbackListenerInvoked = new AtomicBoolean();
     AtomicBoolean isToneMappingFallbackApplied = new AtomicBoolean();
@@ -458,7 +452,7 @@ public final class HdrEditingTest {
                   }
                 })
             .build();
-    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_DOLBY_VISION_HDR));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_DOLBY_VISION_HDR.uri));
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem).setEffects(FORCE_TRANSCODE_VIDEO_EFFECTS).build();
 

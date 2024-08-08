@@ -1635,18 +1635,18 @@ public class TransformerEndToEndTest {
 
   @Test
   public void transcode_withOutputVideoMimeTypeDolbyVision_completesSuccessfully() throws Exception {
-    if (AndroidTestUtil.skipAndLogIfFormatsUnsupported(
+    assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET_FORMAT,
-        /* outputFormat= */ MP4_ASSET_FORMAT
+        /* inputFormat= */ MP4_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ASSET
+            .videoFormat
             .buildUpon()
             .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
             .setCodecs(null)
-            .build())) {
-      return;
-    }
-    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_URI_STRING));
+            .build());
+
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET.uri));
     EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
     Transformer transformer =
         new Transformer.Builder(context).setVideoMimeType(MimeTypes.VIDEO_DOLBY_VISION).build();
