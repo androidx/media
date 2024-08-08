@@ -41,6 +41,8 @@
 *   HLS Extension:
 *   Smooth Streaming Extension:
 *   RTSP Extension:
+    *   Skip invalid Media Descriptions in SDP parsing
+        ([#1087](https://github.com/androidx/media/issues/1472)).
 *   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
 *   MIDI extension:
 *   Leanback extension:
