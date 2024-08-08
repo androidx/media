@@ -77,6 +77,7 @@ public final class ProgressiveDownloader implements Downloader {
     dataSpec =
         new DataSpec.Builder()
             .setUri(mediaItem.localConfiguration.uri)
+            .setHttpRequestHeaders(mediaItem.localConfiguration.headers)
             .setKey(mediaItem.localConfiguration.customCacheKey)
             .setFlags(DataSpec.FLAG_ALLOW_CACHE_FRAGMENTATION)
             .build();

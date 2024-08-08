@@ -665,6 +665,7 @@ public final class DownloadHelper {
   public DownloadRequest getDownloadRequest(String id, @Nullable byte[] data) {
     DownloadRequest.Builder requestBuilder =
         new DownloadRequest.Builder(id, localConfiguration.uri)
+            .setHeaders(localConfiguration.headers)
             .setMimeType(localConfiguration.mimeType)
             .setKeySetId(
                 localConfiguration.drmConfiguration != null

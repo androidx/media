@@ -43,6 +43,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 
@@ -138,7 +139,7 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
       Executor executor,
       long maxMergedSegmentStartTimeDiffMs) {
     checkNotNull(mediaItem.localConfiguration);
-    this.manifestDataSpec = getCompressibleDataSpec(mediaItem.localConfiguration.uri);
+    this.manifestDataSpec = getCompressibleDataSpec(mediaItem.localConfiguration.uri, mediaItem.localConfiguration.headers);
     this.manifestParser = manifestParser;
     this.streamKeys = new ArrayList<>(mediaItem.localConfiguration.streamKeys);
     this.cacheDataSourceFactory = cacheDataSourceFactory;
@@ -416,8 +417,8 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
   protected abstract List<Segment> getSegments(DataSource dataSource, M manifest, boolean removing)
       throws IOException, InterruptedException;
 
-  protected static DataSpec getCompressibleDataSpec(Uri uri) {
-    return new DataSpec.Builder().setUri(uri).setFlags(DataSpec.FLAG_ALLOW_GZIP).build();
+  protected static DataSpec getCompressibleDataSpec(Uri uri, Map<String, String> headers) {
+    return new DataSpec.Builder().setUri(uri).setHttpRequestHeaders(headers).setFlags(DataSpec.FLAG_ALLOW_GZIP).build();
   }
 
   private <T> void addActiveRunnable(RunnableFutureTask<T, ?> runnable)

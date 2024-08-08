@@ -33,6 +33,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executor;
 
 // LINT.IfChange(javadoc)
@@ -67,6 +68,7 @@ import java.util.concurrent.Executor;
 @UnstableApi
 public final class HlsDownloader extends SegmentDownloader<HlsPlaylist> {
 
+  Map<String, String> headers;
   /**
    * Creates a new instance.
    *
@@ -96,6 +98,7 @@ public final class HlsDownloader extends SegmentDownloader<HlsPlaylist> {
         cacheDataSourceFactory,
         executor,
         DEFAULT_MAX_MERGED_SEGMENT_START_TIME_DIFF_MS);
+    this.headers = mediaItem.localConfiguration.headers;
   }
 
   /**
@@ -153,7 +156,7 @@ public final class HlsDownloader extends SegmentDownloader<HlsPlaylist> {
       addMediaPlaylistDataSpecs(multivariantPlaylist.mediaPlaylistUrls, mediaPlaylistDataSpecs);
     } else {
       mediaPlaylistDataSpecs.add(
-          SegmentDownloader.getCompressibleDataSpec(Uri.parse(manifest.baseUri)));
+          SegmentDownloader.getCompressibleDataSpec(Uri.parse(manifest.baseUri), headers));
     }
 
     ArrayList<Segment> segments = new ArrayList<>();
@@ -187,7 +190,7 @@ public final class HlsDownloader extends SegmentDownloader<HlsPlaylist> {
 
   private void addMediaPlaylistDataSpecs(List<Uri> mediaPlaylistUrls, List<DataSpec> out) {
     for (int i = 0; i < mediaPlaylistUrls.size(); i++) {
-      out.add(SegmentDownloader.getCompressibleDataSpec(mediaPlaylistUrls.get(i)));
+      out.add(SegmentDownloader.getCompressibleDataSpec(mediaPlaylistUrls.get(i), headers));
     }
   }
 
@@ -201,7 +204,7 @@ public final class HlsDownloader extends SegmentDownloader<HlsPlaylist> {
     if (segment.fullSegmentEncryptionKeyUri != null) {
       Uri keyUri = UriUtil.resolveToUri(baseUri, segment.fullSegmentEncryptionKeyUri);
       if (seenEncryptionKeyUris.add(keyUri)) {
-        out.add(new Segment(startTimeUs, SegmentDownloader.getCompressibleDataSpec(keyUri)));
+        out.add(new Segment(startTimeUs, SegmentDownloader.getCompressibleDataSpec(keyUri, headers)));
       }
     }
     Uri segmentUri = UriUtil.resolveToUri(baseUri, segment.url);

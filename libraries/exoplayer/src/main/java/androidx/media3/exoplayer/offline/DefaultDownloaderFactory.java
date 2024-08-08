@@ -81,6 +81,7 @@ public class DefaultDownloaderFactory implements DownloaderFactory {
         return new ProgressiveDownloader(
             new MediaItem.Builder()
                 .setUri(request.uri)
+                .setHeaders(request.headers)
                 .setCustomCacheKey(request.customCacheKey)
                 .build(),
             cacheDataSourceFactory,
@@ -98,6 +99,7 @@ public class DefaultDownloaderFactory implements DownloaderFactory {
     MediaItem mediaItem =
         new MediaItem.Builder()
             .setUri(request.uri)
+            .setHeaders(request.headers)
             .setStreamKeys(request.streamKeys)
             .setCustomCacheKey(request.customCacheKey)
             .build();

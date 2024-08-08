@@ -37,6 +37,7 @@ import com.google.errorprone.annotations.InlineMe;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -69,6 +70,7 @@ public final class MediaItem {
 
     @Nullable private String mediaId;
     @Nullable private Uri uri;
+    @Nullable private Map<String, String> headers;
     @Nullable private String mimeType;
     // TODO: Change this to ClippingProperties once all the deprecated individual setters are
     // removed.
@@ -114,6 +116,7 @@ public final class MediaItem {
         customCacheKey = localConfiguration.customCacheKey;
         mimeType = localConfiguration.mimeType;
         uri = localConfiguration.uri;
+        headers = localConfiguration.headers;
         streamKeys = localConfiguration.streamKeys;
         subtitleConfigurations = localConfiguration.subtitleConfigurations;
         tag = localConfiguration.tag;
@@ -159,6 +162,18 @@ public final class MediaItem {
     @CanIgnoreReturnValue
     public Builder setUri(@Nullable Uri uri) {
       this.uri = uri;
+      return this;
+    }
+
+    /**
+     * Sets the optional Header.
+     *
+     * <p>If {@code uri} is null or unset then no {@link LocalConfiguration} object is created
+     * during {@link #build()} and no other {@code Builder} methods that would populate {@link
+     * MediaItem#localConfiguration} should be called.
+     */
+    public Builder setHeaders(@Nullable Map<String, String> headers) {
+      this.headers = headers;
       return this;
     }
 
@@ -614,6 +629,7 @@ public final class MediaItem {
         localConfiguration =
             new LocalConfiguration(
                 uri,
+                headers,
                 mimeType,
                 drmConfiguration.scheme != null ? drmConfiguration.build() : null,
                 adsConfiguration,
@@ -1131,6 +1147,11 @@ public final class MediaItem {
     public final Uri uri;
 
     /**
+     * The {@link Uri}.
+     */
+    @Nullable public final Map<String, String> headers;
+
+    /**
      * The optional MIME type of the item, or {@code null} if unspecified.
      *
      * <p>The MIME type can be used to disambiguate media items that have a URI which does not allow
@@ -1174,6 +1195,7 @@ public final class MediaItem {
     @SuppressWarnings("deprecation") // Setting deprecated subtitles field.
     private LocalConfiguration(
         Uri uri,
+        @Nullable Map<String, String> headers,
         @Nullable String mimeType,
         @Nullable DrmConfiguration drmConfiguration,
         @Nullable AdsConfiguration adsConfiguration,
@@ -1183,6 +1205,7 @@ public final class MediaItem {
         @Nullable Object tag,
         long imageDurationMs) {
       this.uri = uri;
+      this.headers = headers == null ? new HashMap<>() : headers;
       this.mimeType = MimeTypes.normalizeMimeType(mimeType);
       this.drmConfiguration = drmConfiguration;
       this.adsConfiguration = adsConfiguration;
@@ -1209,6 +1232,7 @@ public final class MediaItem {
       LocalConfiguration other = (LocalConfiguration) obj;
 
       return uri.equals(other.uri)
+          && Util.areEqual(headers, other.headers)
           && Util.areEqual(mimeType, other.mimeType)
           && Util.areEqual(drmConfiguration, other.drmConfiguration)
           && Util.areEqual(adsConfiguration, other.adsConfiguration)
@@ -1222,6 +1246,7 @@ public final class MediaItem {
     @Override
     public int hashCode() {
       int result = uri.hashCode();
+      result = 31 * result + (headers == null ? 0 : headers.hashCode());
       result = 31 * result + (mimeType == null ? 0 : mimeType.hashCode());
       result = 31 * result + (drmConfiguration == null ? 0 : drmConfiguration.hashCode());
       result = 31 * result + (adsConfiguration == null ? 0 : adsConfiguration.hashCode());
@@ -1242,6 +1267,8 @@ public final class MediaItem {
     private static final String FIELD_SUBTITLE_CONFIGURATION = Util.intToStringMaxRadix(6);
     private static final String FIELD_IMAGE_DURATION_MS = Util.intToStringMaxRadix(7);
 
+    private static final String FIELD_HEADERS = Util.intToStringMaxRadix(111);
+
     /**
      * Returns a {@link Bundle} representing the information stored in this object.
      *
@@ -1252,6 +1279,9 @@ public final class MediaItem {
     public Bundle toBundle() {
       Bundle bundle = new Bundle();
       bundle.putParcelable(FIELD_URI, uri);
+      if (headers != null) {
+        bundle.putBundle(FIELD_HEADERS, BundleCollectionUtil.stringMapToBundle(headers));
+      }
       if (mimeType != null) {
         bundle.putString(FIELD_MIME_TYPE, mimeType);
       }
@@ -1304,8 +1334,11 @@ public final class MediaItem {
                   SubtitleConfiguration::fromBundle, subtitleBundles);
       long imageDurationMs = bundle.getLong(FIELD_IMAGE_DURATION_MS, C.TIME_UNSET);
 
+      Bundle headerBundle = bundle.getBundle(FIELD_HEADERS);
+      Map<String, String> headers = BundleCollectionUtil.bundleToStringHashMap(headerBundle == null ? Bundle.EMPTY : headerBundle);
       return new LocalConfiguration(
           checkNotNull(bundle.getParcelable(FIELD_URI)),
+          headers,
           bundle.getString(FIELD_MIME_TYPE),
           drmConfiguration,
           adsConfiguration,
@@ -1649,6 +1682,8 @@ public final class MediaItem {
     /** The {@link Uri} to the subtitle file. */
     public final Uri uri;
 
+    @Nullable private Map<String, String> headers;
+
     /** The optional MIME type of the subtitle file, or {@code null} if unspecified. */
     @Nullable public final String mimeType;
 
@@ -1741,6 +1776,7 @@ public final class MediaItem {
     private static final String FIELD_ROLE_FLAGS = Util.intToStringMaxRadix(4);
     private static final String FIELD_LABEL = Util.intToStringMaxRadix(5);
     private static final String FIELD_ID = Util.intToStringMaxRadix(6);
+    private static final String FIELD_HEADERS = Util.intToStringMaxRadix(200);
 
     /** Restores a {@code SubtitleConfiguration} from a {@link Bundle}. */
     @UnstableApi
@@ -1768,6 +1804,9 @@ public final class MediaItem {
     public Bundle toBundle() {
       Bundle bundle = new Bundle();
       bundle.putParcelable(FIELD_URI, uri);
+      if (headers != null) {
+        bundle.putBundle(FIELD_HEADERS, BundleCollectionUtil.stringMapToBundle(headers));
+      }
       if (mimeType != null) {
         bundle.putString(FIELD_MIME_TYPE, mimeType);
       }

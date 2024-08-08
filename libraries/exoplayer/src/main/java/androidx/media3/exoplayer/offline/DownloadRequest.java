@@ -34,7 +34,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /** Defines content to be downloaded. */
 @UnstableApi
@@ -47,6 +49,7 @@ public final class DownloadRequest implements Parcelable {
   public static class Builder {
     private final String id;
     private final Uri uri;
+    @Nullable private Map<String, String> headers;
     @Nullable private String mimeType;
     @Nullable private List<StreamKey> streamKeys;
     @Nullable private byte[] keySetId;
@@ -57,6 +60,12 @@ public final class DownloadRequest implements Parcelable {
     public Builder(String id, Uri uri) {
       this.id = id;
       this.uri = uri;
+    }
+
+    /** Sets the {@link DownloadRequest#headers}. */
+    public Builder setHeaders(Map<String, String> headers) {
+      this.headers = headers;
+      return this;
     }
 
     /** Sets the {@link DownloadRequest#mimeType}. */
@@ -98,6 +107,7 @@ public final class DownloadRequest implements Parcelable {
       return new DownloadRequest(
           id,
           uri,
+          headers,
           mimeType,
           streamKeys != null ? streamKeys : ImmutableList.of(),
           keySetId,
@@ -111,6 +121,8 @@ public final class DownloadRequest implements Parcelable {
 
   /** The uri being downloaded. */
   public final Uri uri;
+
+  @Nullable public final Map<String, String> headers;
 
   /**
    * The MIME type of this content. Used as a hint to infer the content's type (DASH, HLS,
@@ -145,6 +157,7 @@ public final class DownloadRequest implements Parcelable {
   private DownloadRequest(
       String id,
       Uri uri,
+      @Nullable Map<String, String> headers,
       @Nullable String mimeType,
       List<StreamKey> streamKeys,
       @Nullable byte[] keySetId,
@@ -159,6 +172,7 @@ public final class DownloadRequest implements Parcelable {
     }
     this.id = id;
     this.uri = uri;
+    this.headers = headers;
     this.mimeType = mimeType;
     ArrayList<StreamKey> mutableKeys = new ArrayList<>(streamKeys);
     Collections.sort(mutableKeys);
@@ -171,6 +185,7 @@ public final class DownloadRequest implements Parcelable {
   /* package */ DownloadRequest(Parcel in) {
     id = castNonNull(in.readString());
     uri = Uri.parse(castNonNull(in.readString()));
+    headers = in.readHashMap((new HashMap<>()).getClass().getClassLoader());
     mimeType = in.readString();
     int streamKeyCount = in.readInt();
     ArrayList<StreamKey> mutableStreamKeys = new ArrayList<>(streamKeyCount);
@@ -190,7 +205,7 @@ public final class DownloadRequest implements Parcelable {
    * @return The copy with the specified ID.
    */
   public DownloadRequest copyWithId(String id) {
-    return new DownloadRequest(id, uri, mimeType, streamKeys, keySetId, customCacheKey, data);
+    return new DownloadRequest(id, uri, headers, mimeType, streamKeys, keySetId, customCacheKey, data);
   }
 
   /**
@@ -200,7 +215,7 @@ public final class DownloadRequest implements Parcelable {
    * @return The copy with the specified key set ID.
    */
   public DownloadRequest copyWithKeySetId(@Nullable byte[] keySetId) {
-    return new DownloadRequest(id, uri, mimeType, streamKeys, keySetId, customCacheKey, data);
+    return new DownloadRequest(id, uri, headers, mimeType, streamKeys, keySetId, customCacheKey, data);
   }
 
   /**
@@ -232,6 +247,7 @@ public final class DownloadRequest implements Parcelable {
     return new DownloadRequest(
         id,
         newRequest.uri,
+        newRequest.headers,
         newRequest.mimeType,
         mergedKeys,
         newRequest.keySetId,
@@ -245,6 +261,7 @@ public final class DownloadRequest implements Parcelable {
         .setMediaId(id)
         .setUri(uri)
         .setCustomCacheKey(customCacheKey)
+        .setHeaders(headers)
         .setMimeType(mimeType)
         .setStreamKeys(streamKeys)
         .build();
@@ -263,6 +280,7 @@ public final class DownloadRequest implements Parcelable {
     DownloadRequest that = (DownloadRequest) o;
     return id.equals(that.id)
         && uri.equals(that.uri)
+        && Util.areEqual(headers, that.headers)
         && Util.areEqual(mimeType, that.mimeType)
         && streamKeys.equals(that.streamKeys)
         && Arrays.equals(keySetId, that.keySetId)
@@ -279,6 +297,7 @@ public final class DownloadRequest implements Parcelable {
     result = 31 * result + Arrays.hashCode(keySetId);
     result = 31 * result + (customCacheKey != null ? customCacheKey.hashCode() : 0);
     result = 31 * result + Arrays.hashCode(data);
+    result = 31 * result + (headers != null ? headers.hashCode() : 0);
     return result;
   }
 
@@ -293,6 +312,7 @@ public final class DownloadRequest implements Parcelable {
   public void writeToParcel(Parcel dest, int flags) {
     dest.writeString(id);
     dest.writeString(uri.toString());
+    dest.writeMap(headers);
     dest.writeString(mimeType);
     dest.writeInt(streamKeys.size());
     for (int i = 0; i < streamKeys.size(); i++) {
