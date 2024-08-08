@@ -15,7 +15,6 @@
  */
 package androidx.media3.transformer.mh;
 
-import static androidx.media3.common.MimeTypes.VIDEO_DOLBY_VISION;
 import static androidx.media3.common.MimeTypes.VIDEO_H265;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
@@ -37,6 +36,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
 import androidx.media3.transformer.AndroidTestUtil;
 import androidx.media3.transformer.Composition;
@@ -159,7 +159,7 @@ public final class HdrEditingTest {
     int actualColorTransfer = trackFormat.colorInfo.colorTransfer;
     assertThat(actualColorTransfer).isEqualTo(C.COLOR_TRANSFER_HLG);
     String actualMimeType = trackFormat.sampleMimeType;
-    assertThat(actualMimeType).isEqualTo(VIDEO_DOLBY_VISION);
+    assertThat(actualMimeType).isEqualTo(MimeTypes.VIDEO_DOLBY_VISION);
   }
 
   @Test
@@ -342,7 +342,7 @@ public final class HdrEditingTest {
                 new Transformer.Listener() {
                   @Override
                   public void onFallbackApplied(
-                      Composition composition,
+                      MediaItem inputMediaItem,
                       TransformationRequest originalTransformationRequest,
                       TransformationRequest fallbackTransformationRequest) {
                     assertThat(originalTransformationRequest.hdrMode).isEqualTo(HDR_MODE_KEEP_HDR);
@@ -406,7 +406,7 @@ public final class HdrEditingTest {
                 new Transformer.Listener() {
                   @Override
                   public void onFallbackApplied(
-                      MediaItem inputMediaItem,
+                      Composition composition,
                       TransformationRequest originalTransformationRequest,
                       TransformationRequest fallbackTransformationRequest) {
                     isFallbackListenerInvoked.set(true);
