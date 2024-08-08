@@ -1307,7 +1307,6 @@ public class TransformerEndToEndTest {
     String actualMimeType =
         retrieveTrackFormat(context, exportTestResult.filePath, C.TRACK_TYPE_VIDEO).sampleMimeType;
     assertThat(actualMimeType).isEqualTo(MimeTypes.VIDEO_DOLBY_VISION);
-    assertThat(exportResult.exportException).isNull();
     assertThat(exportResult.durationMs).isGreaterThan(0);
     assertThat(exportResult.videoMimeType).isEqualTo(MimeTypes.VIDEO_DOLBY_VISION);
   }

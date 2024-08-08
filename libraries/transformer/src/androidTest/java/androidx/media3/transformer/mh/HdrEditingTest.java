@@ -146,14 +146,6 @@ public final class HdrEditingTest {
   public void export_transmuxDolbyVisionFile() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
 
-    if (AndroidTestUtil.skipAndLogIfFormatsUnsupported(
-        context,
-        testId,
-        /* inputFormat= */ MP4_ASSET_DOLBY_VISION_HDR_FORMAT,
-        /* outputFormat= */ null)) {
-      return;
-    }
-
     Transformer transformer = new Transformer.Builder(context).build();
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_DOLBY_VISION_HDR));
 
@@ -350,7 +342,7 @@ public final class HdrEditingTest {
                 new Transformer.Listener() {
                   @Override
                   public void onFallbackApplied(
-                      MediaItem inputMediaItem,
+                      Composition composition,
                       TransformationRequest originalTransformationRequest,
                       TransformationRequest fallbackTransformationRequest) {
                     assertThat(originalTransformationRequest.hdrMode).isEqualTo(HDR_MODE_KEEP_HDR);
