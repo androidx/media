@@ -24,6 +24,7 @@ import static com.google.common.base.Strings.nullToEmpty;
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.ParserException;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import java.util.Objects;
 import java.util.regex.Matcher;
@@ -31,6 +32,8 @@ import java.util.regex.Pattern;
 
 /** Parses a String based SDP message into {@link SessionDescription}. */
 /* package */ final class SessionDescriptionParser {
+  private static final String TAG = "SDPParser";
+
   // SDP line always starts with an one letter tag, followed by an equal sign. The information
   // under the given tag follows an optional space.
   private static final Pattern SDP_LINE_PATTERN = Pattern.compile("([a-z])=\\s?(.+)");
@@ -74,6 +77,10 @@ import java.util.regex.Pattern;
     SessionDescription.Builder sessionDescriptionBuilder = new SessionDescription.Builder();
     @Nullable MediaDescription.Builder mediaDescriptionBuilder = null;
 
+    // Tracks if currently parsing an invalid media description and should skip any parsed
+    // and related SDP lines until the next valid media description.
+    boolean isSkippingMediaDescription = false;
+
     // Lines are separated by an CRLF.
     for (String line : RtspMessageUtil.splitRtspMessageBody(sdpString)) {
       if ("".equals(line)) {
@@ -111,6 +118,9 @@ import java.util.regex.Pattern;
           break;
 
         case INFORMATION_TYPE:
+          if (isSkippingMediaDescription) {
+            continue;
+          }
           if (mediaDescriptionBuilder == null) {
             sessionDescriptionBuilder.setSessionInfo(sdpValue);
           } else {
@@ -131,6 +141,9 @@ import java.util.regex.Pattern;
           break;
 
         case CONNECTION_TYPE:
+          if (isSkippingMediaDescription) {
+            continue;
+          }
           if (mediaDescriptionBuilder == null) {
             sessionDescriptionBuilder.setConnection(sdpValue);
           } else {
@@ -139,6 +152,9 @@ import java.util.regex.Pattern;
           break;
 
         case BANDWIDTH_TYPE:
+          if (isSkippingMediaDescription) {
+            continue;
+          }
           String[] bandwidthComponents = Util.split(sdpValue, ":\\s?");
           checkArgument(bandwidthComponents.length == 2);
           int bitrateKbps = Integer.parseInt(bandwidthComponents[1]);
@@ -156,6 +172,9 @@ import java.util.regex.Pattern;
           break;
 
         case KEY_TYPE:
+          if (isSkippingMediaDescription) {
+            continue;
+          }
           if (mediaDescriptionBuilder == null) {
             sessionDescriptionBuilder.setKey(sdpValue);
           } else {
@@ -164,6 +183,10 @@ import java.util.regex.Pattern;
           break;
 
         case ATTRIBUTE_TYPE:
+          // Parsing attribute
+          if (isSkippingMediaDescription) {
+            continue;
+          }
           matcher = ATTRIBUTE_PATTERN.matcher(sdpValue);
           if (!matcher.matches()) {
             throw ParserException.createForMalformedManifest(
@@ -186,6 +209,7 @@ import java.util.regex.Pattern;
             addMediaDescriptionToSession(sessionDescriptionBuilder, mediaDescriptionBuilder);
           }
           mediaDescriptionBuilder = parseMediaDescriptionLine(sdpValue);
+          isSkippingMediaDescription = mediaDescriptionBuilder == null;
           break;
         case REPEAT_TYPE:
         case ZONE_TYPE:
@@ -216,6 +240,18 @@ import java.util.regex.Pattern;
     }
   }
 
+  /**
+   * Parses a Media Description SDP line.
+   *
+   * <p>Returns a {@link MediaDescription.Builder} from parsing a valid SDP {@code line} is parsed
+   * or {@code null} if {@code line} contains invalid port or format values.
+   *
+   * @param line representing a Media Description.
+   * @return valid {@link MediaDescription.Builder} or {@code null} if {@code line} contains invalid
+   *     port or format values.
+   * @throws ParserException if malformed SDP media description line.
+   */
+  @Nullable
   private static MediaDescription.Builder parseMediaDescriptionLine(String line)
       throws ParserException {
     Matcher matcher = MEDIA_DESCRIPTION_PATTERN.matcher(line);
@@ -228,16 +264,18 @@ import java.util.regex.Pattern;
     String transportProtocol = checkNotNull(matcher.group(3));
     String payloadTypeString = checkNotNull(matcher.group(4));
 
+    @Nullable MediaDescription.Builder mediaDescriptionBuilder = null;
     try {
-      return new MediaDescription.Builder(
-          mediaType,
-          Integer.parseInt(portString),
-          transportProtocol,
-          Integer.parseInt(payloadTypeString));
+      mediaDescriptionBuilder =
+          new MediaDescription.Builder(
+              mediaType,
+              Integer.parseInt(portString),
+              transportProtocol,
+              Integer.parseInt(payloadTypeString));
     } catch (NumberFormatException e) {
-      throw ParserException.createForMalformedManifest(
-          "Malformed SDP media description line: " + line, e);
+      Log.w(TAG, "Malformed SDP media description line: " + line, e);
     }
+    return mediaDescriptionBuilder;
   }
 
   /** Prevents initialization. */

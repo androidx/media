@@ -193,6 +193,58 @@ public class SessionDescriptionTest {
   }
 
   @Test
+  public void parse_sdpStringWithInvalidMediaDescriptionFormatType_succeeds() throws Exception {
+    // SDP with invalid media description should skip and parse following media descriptions
+    String testMediaSdpInfo =
+        "v=0\r\n"
+            + "o=- 1600785369059721 1 IN IP4 192.168.2.176\r\n"
+            + "s=SDP Seminar\r\n"
+            + "a=control:*\r\n"
+            + "m=video 0 RTP/AVP 96\r\n"
+            + "c=IN IP4 0.0.0.0\r\n"
+            + "b=AS:500\r\n"
+            + "a=rtpmap:96 H264/90000\r\n"
+            + "a=fmtp:96"
+            + " packetization-mode=1;profile-level-id=64001F;sprop-parameter-sets=Z2QAH6zZQPARabIAAAMACAAAAwGcHjBjLA==,aOvjyyLAAA==\r\n"
+            + "a=control:track1\r\n"
+            + "m=application/T-Link 0 RTP/AVP smart/1/90000\r\n"
+            + "i=CustomStream\r\n"
+            + "c=IN IP4 0.0.0.0\r\n"
+            + "b=AS:500\r\n"
+            + "a=rtpmap:95 T-Link/90000 \r\n"
+            + "a=control:track2 \r\n"
+            + "m=audio 3456 RTP/AVP 97\r\n"
+            + "a=rtpmap:97 AC3/44100\r\n"
+            + "a=control:track3\r\n";
+
+    SessionDescription sessionDescription = SessionDescriptionParser.parse(testMediaSdpInfo);
+
+    SessionDescription expectedSession =
+        new SessionDescription.Builder()
+            .setOrigin("- 1600785369059721 1 IN IP4 192.168.2.176")
+            .setSessionName("SDP Seminar")
+            .addAttribute(ATTR_CONTROL, "*")
+            .addMediaDescription(
+                new MediaDescription.Builder(MEDIA_TYPE_VIDEO, 0, RTP_AVP_PROFILE, 96)
+                    .setConnection("IN IP4 0.0.0.0")
+                    .setBitrate(500_000)
+                    .addAttribute(ATTR_RTPMAP, "96 H264/90000")
+                    .addAttribute(
+                        ATTR_FMTP,
+                        "96 packetization-mode=1;profile-level-id=64001F;sprop-parameter-sets=Z2QAH6zZQPARabIAAAMACAAAAwGcHjBjLA==,aOvjyyLAAA==")
+                    .addAttribute(ATTR_CONTROL, "track1")
+                    .build())
+            .addMediaDescription(
+                new MediaDescription.Builder(MEDIA_TYPE_AUDIO, 3456, RTP_AVP_PROFILE, 97)
+                    .addAttribute(ATTR_RTPMAP, "97 AC3/44100")
+                    .addAttribute(ATTR_CONTROL, "track3")
+                    .build())
+            .build();
+
+    assertThat(sessionDescription).isEqualTo(expectedSession);
+  }
+
+  @Test
   public void parse_sdpStringWithDuplicatedMediaAttribute_recordsTheMostRecentValue()
       throws Exception {
     String testMediaSdpInfo =
