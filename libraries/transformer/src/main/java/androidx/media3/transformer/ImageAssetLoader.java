@@ -25,8 +25,11 @@ import static androidx.media3.transformer.SampleConsumer.INPUT_RESULT_SUCCESS;
 import static androidx.media3.transformer.SampleConsumer.INPUT_RESULT_TRY_AGAIN_LATER;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_AVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED;
+import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import android.content.ContentResolver;
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.os.Looper;
 import androidx.annotation.Nullable;
@@ -35,15 +38,18 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.ParserException;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.ConstantRateTimestampIterator;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.transformer.SampleConsumer.InputResult;
+import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -57,19 +63,20 @@ import java.util.concurrent.ScheduledExecutorService;
 @UnstableApi
 public final class ImageAssetLoader implements AssetLoader {
 
-  private final boolean retainHdrFromUltraHdrImage;
-
   /** An {@link AssetLoader.Factory} for {@link ImageAssetLoader} instances. */
   public static final class Factory implements AssetLoader.Factory {
 
+    private final Context context;
     private final BitmapLoader bitmapLoader;
 
     /**
      * Creates an instance.
      *
+     * @param context The {@link Context}.
      * @param bitmapLoader The {@link BitmapLoader} to use to load and decode images.
      */
-    public Factory(BitmapLoader bitmapLoader) {
+    public Factory(Context context, BitmapLoader bitmapLoader) {
+      this.context = context;
       this.bitmapLoader = bitmapLoader;
     }
 
@@ -80,15 +87,21 @@ public final class ImageAssetLoader implements AssetLoader {
         Listener listener,
         CompositionSettings compositionSettings) {
       return new ImageAssetLoader(
-          editedMediaItem, listener, bitmapLoader, compositionSettings.retainHdrFromUltraHdrImage);
+          context,
+          editedMediaItem,
+          listener,
+          bitmapLoader,
+          compositionSettings.retainHdrFromUltraHdrImage);
     }
   }
 
   private static final int QUEUE_BITMAP_INTERVAL_MS = 10;
 
+  private final Context context;
   private final EditedMediaItem editedMediaItem;
   private final BitmapLoader bitmapLoader;
   private final Listener listener;
+  private final boolean retainHdrFromUltraHdrImage;
   private final ScheduledExecutorService scheduledExecutorService;
 
   @Nullable private SampleConsumer sampleConsumer;
@@ -97,18 +110,55 @@ public final class ImageAssetLoader implements AssetLoader {
   private volatile int progress;
 
   private ImageAssetLoader(
+      Context context,
       EditedMediaItem editedMediaItem,
       Listener listener,
       BitmapLoader bitmapLoader,
       boolean retainHdrFromUltraHdrImage) {
-    this.retainHdrFromUltraHdrImage = retainHdrFromUltraHdrImage;
     checkState(editedMediaItem.durationUs != C.TIME_UNSET);
     checkState(editedMediaItem.frameRate != C.RATE_UNSET_INT);
+    this.context = context;
     this.editedMediaItem = editedMediaItem;
     this.listener = listener;
     this.bitmapLoader = bitmapLoader;
+    this.retainHdrFromUltraHdrImage = retainHdrFromUltraHdrImage;
     scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
     progressState = PROGRESS_STATE_NOT_STARTED;
+  }
+
+  /**
+   * Returns the image MIME type corresponding to a {@link MediaItem}.
+   *
+   * <p>This method only supports some common image MIME types.
+   *
+   * @param context The {@link Context}.
+   * @param mediaItem The {@link MediaItem} to inspect.
+   * @return The MIME type.
+   */
+  @Nullable
+  public static String getImageMimeType(Context context, MediaItem mediaItem) {
+    if (mediaItem.localConfiguration == null) {
+      return null;
+    }
+    MediaItem.LocalConfiguration localConfiguration = mediaItem.localConfiguration;
+    @Nullable String mimeType = localConfiguration.mimeType;
+    if (mimeType == null) {
+      if (Objects.equals(localConfiguration.uri.getScheme(), ContentResolver.SCHEME_CONTENT)) {
+        ContentResolver cr = context.getContentResolver();
+        mimeType = cr.getType(localConfiguration.uri);
+      } else {
+        @Nullable String uriPath = localConfiguration.uri.getPath();
+        if (uriPath == null) {
+          return null;
+        }
+        int fileExtensionStart = uriPath.lastIndexOf(".");
+        if (fileExtensionStart >= 0 && fileExtensionStart < uriPath.length() - 1) {
+          String extension = Ascii.toLowerCase(uriPath.substring(fileExtensionStart + 1));
+          mimeType = getCommonImageMimeTypeFromExtension(extension);
+        }
+      }
+    }
+    return mimeType;
   }
 
   @Override
@@ -119,10 +169,19 @@ public final class ImageAssetLoader implements AssetLoader {
     progressState = PROGRESS_STATE_AVAILABLE;
     listener.onDurationUs(editedMediaItem.durationUs);
     listener.onTrackCount(1);
-    MediaItem.LocalConfiguration localConfiguration =
-        checkNotNull(editedMediaItem.mediaItem.localConfiguration);
+    ListenableFuture<Bitmap> future;
 
-    ListenableFuture<Bitmap> future = bitmapLoader.loadBitmap(localConfiguration.uri);
+    @Nullable
+    String mimeType = ImageAssetLoader.getImageMimeType(context, editedMediaItem.mediaItem);
+    if (mimeType == null || !bitmapLoader.supportsMimeType(mimeType)) {
+      future =
+          immediateFailedFuture(
+              ParserException.createForUnsupportedContainerFeature(
+                  "Attempted to load a Bitmap from unsupported MIME type: " + mimeType));
+    } else {
+      future =
+          bitmapLoader.loadBitmap(checkNotNull(editedMediaItem.mediaItem.localConfiguration).uri);
+    }
 
     Futures.addCallback(
         future,
@@ -215,6 +274,49 @@ public final class ImageAssetLoader implements AssetLoader {
       listener.onError(e);
     } catch (RuntimeException e) {
       listener.onError(ExportException.createForAssetLoader(e, ERROR_CODE_UNSPECIFIED));
+    }
+  }
+
+  @Nullable
+  private static String getCommonImageMimeTypeFromExtension(String extension) {
+    switch (extension) {
+      case "bmp":
+      case "dib":
+        return MimeTypes.IMAGE_BMP;
+      case "heif":
+        return MimeTypes.IMAGE_HEIF;
+      case "heic":
+        return MimeTypes.IMAGE_HEIC;
+      case "jpg":
+      case "jpeg":
+      case "jpe":
+      case "jif":
+      case "jfif":
+      case "jfi":
+        return MimeTypes.IMAGE_JPEG;
+      case "png":
+        return MimeTypes.IMAGE_PNG;
+      case "webp":
+        return MimeTypes.IMAGE_WEBP;
+      case "gif":
+        return "image/gif";
+      case "tiff":
+      case "tif":
+        return "image/tiff";
+      case "raw":
+      case "arw":
+      case "cr2":
+      case "k25":
+        return "image/raw";
+      case "svg":
+      case "svgz":
+        return "image/svg+xml";
+      case "ico":
+        return "image/x-icon";
+      case "avif":
+        return MimeTypes.IMAGE_AVIF;
+      default:
+        return null;
     }
   }
 }

@@ -35,6 +35,8 @@
 *   Transformer:
     *   Add `SurfaceAssetLoader`, which supports queueing video data to
         Transformer via a `Surface`.
+    *   `ImageAssetLoader` reports unsupported input via `AssetLoader.onError`
+        instead of throwing an `IllegalStateException`.
 *   Track Selection:
 *   Extractors:
     *   Allow `Mp4Extractor` and `FragmentedMp4Extractor` to identify H264
