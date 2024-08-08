@@ -38,6 +38,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.ConstantRateTimestampIterator;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.media3.transformer.SampleConsumer.InputResult;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.FutureCallback;
@@ -55,6 +56,8 @@ import java.util.concurrent.ScheduledExecutorService;
  */
 @UnstableApi
 public final class ImageAssetLoader implements AssetLoader {
+
+  private final boolean retainHdrFromUltraHdrImage;
 
   /** An {@link AssetLoader.Factory} for {@link ImageAssetLoader} instances. */
   public static final class Factory implements AssetLoader.Factory {
@@ -76,11 +79,10 @@ public final class ImageAssetLoader implements AssetLoader {
         Looper looper,
         Listener listener,
         CompositionSettings compositionSettings) {
-      return new ImageAssetLoader(editedMediaItem, listener, bitmapLoader);
+      return new ImageAssetLoader(
+          editedMediaItem, listener, bitmapLoader, compositionSettings.retainHdrFromUltraHdrImage);
     }
   }
-
-  public static final String MIME_TYPE_IMAGE_ALL = MimeTypes.BASE_TYPE_IMAGE + "/*";
 
   private static final int QUEUE_BITMAP_INTERVAL_MS = 10;
 
@@ -95,7 +97,11 @@ public final class ImageAssetLoader implements AssetLoader {
   private volatile int progress;
 
   private ImageAssetLoader(
-      EditedMediaItem editedMediaItem, Listener listener, BitmapLoader bitmapLoader) {
+      EditedMediaItem editedMediaItem,
+      Listener listener,
+      BitmapLoader bitmapLoader,
+      boolean retainHdrFromUltraHdrImage) {
+    this.retainHdrFromUltraHdrImage = retainHdrFromUltraHdrImage;
     checkState(editedMediaItem.durationUs != C.TIME_UNSET);
     checkState(editedMediaItem.frameRate != C.RATE_UNSET_INT);
     this.editedMediaItem = editedMediaItem;
@@ -124,16 +130,20 @@ public final class ImageAssetLoader implements AssetLoader {
           @Override
           public void onSuccess(Bitmap bitmap) {
             progress = 50;
+            Format inputFormat =
+                new Format.Builder()
+                    .setHeight(bitmap.getHeight())
+                    .setWidth(bitmap.getWidth())
+                    .setSampleMimeType(MimeTypes.IMAGE_RAW)
+                    .setColorInfo(ColorInfo.SRGB_BT709_FULL)
+                    .build();
+            Format outputFormat =
+                retainHdrFromUltraHdrImage && Util.SDK_INT >= 34 && bitmap.hasGainmap()
+                    ? inputFormat.buildUpon().setSampleMimeType(MimeTypes.IMAGE_JPEG_R).build()
+                    : inputFormat;
             try {
-              Format format =
-                  new Format.Builder()
-                      .setHeight(bitmap.getHeight())
-                      .setWidth(bitmap.getWidth())
-                      .setSampleMimeType(MIME_TYPE_IMAGE_ALL)
-                      .setColorInfo(ColorInfo.SRGB_BT709_FULL)
-                      .build();
-              listener.onTrackAdded(format, SUPPORTED_OUTPUT_TYPE_DECODED);
-              scheduledExecutorService.submit(() -> queueBitmapInternal(bitmap, format));
+              listener.onTrackAdded(inputFormat, SUPPORTED_OUTPUT_TYPE_DECODED);
+              scheduledExecutorService.submit(() -> queueBitmapInternal(bitmap, outputFormat));
             } catch (RuntimeException e) {
               listener.onError(ExportException.createForAssetLoader(e, ERROR_CODE_UNSPECIFIED));
             }

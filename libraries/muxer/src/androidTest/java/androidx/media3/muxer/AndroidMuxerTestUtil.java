@@ -15,8 +15,19 @@
  */
 package androidx.media3.muxer;
 
+import android.content.Context;
+import android.media.MediaCodec;
+import android.media.MediaExtractor;
+import androidx.media3.common.util.MediaFormatUtil;
+import androidx.media3.muxer.Muxer.MuxerException;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
+
 /** Utilities for muxer test cases. */
 /* package */ final class AndroidMuxerTestUtil {
+  private static final String MP4_FILE_ASSET_DIRECTORY = "media/mp4/";
   private static final String DUMP_FILE_OUTPUT_DIRECTORY = "muxerdumps";
   private static final String DUMP_FILE_EXTENSION = "dump";
 
@@ -24,5 +35,39 @@ package androidx.media3.muxer;
 
   public static String getExpectedDumpFilePath(String originalFileName) {
     return DUMP_FILE_OUTPUT_DIRECTORY + '/' + originalFileName + '.' + DUMP_FILE_EXTENSION;
+  }
+
+  public static void feedInputDataToMuxer(Context context, Muxer muxer, String inputFileName)
+      throws IOException, MuxerException {
+    MediaExtractor extractor = new MediaExtractor();
+    extractor.setDataSource(
+        context.getResources().getAssets().openFd(MP4_FILE_ASSET_DIRECTORY + inputFileName));
+
+    List<Muxer.TrackToken> addedTracks = new ArrayList<>();
+    for (int i = 0; i < extractor.getTrackCount(); i++) {
+      Muxer.TrackToken trackToken =
+          muxer.addTrack(MediaFormatUtil.createFormatFromMediaFormat(extractor.getTrackFormat(i)));
+      addedTracks.add(trackToken);
+      extractor.selectTrack(i);
+    }
+
+    do {
+      MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
+      bufferInfo.flags = extractor.getSampleFlags();
+      bufferInfo.offset = 0;
+      bufferInfo.presentationTimeUs = extractor.getSampleTime();
+      int sampleSize = (int) extractor.getSampleSize();
+      bufferInfo.size = sampleSize;
+
+      ByteBuffer sampleBuffer = ByteBuffer.allocateDirect(sampleSize);
+      extractor.readSampleData(sampleBuffer, /* offset= */ 0);
+
+      sampleBuffer.rewind();
+
+      muxer.writeSampleData(
+          addedTracks.get(extractor.getSampleTrackIndex()), sampleBuffer, bufferInfo);
+    } while (extractor.advance());
+
+    extractor.release();
   }
 }

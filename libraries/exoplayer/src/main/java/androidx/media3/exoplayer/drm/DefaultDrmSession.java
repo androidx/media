@@ -116,8 +116,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
   private static final String TAG = "DefaultDrmSession";
 
-  private static final int MSG_PROVISION = 0;
-  private static final int MSG_KEYS = 1;
+  private static final int MSG_PROVISION = 1;
+  private static final int MSG_KEYS = 2;
   private static final int MAX_LICENSE_DURATION_TO_RENEW_SECONDS = 60;
 
   /** The DRM scheme datas, or null if this session uses offline keys. */

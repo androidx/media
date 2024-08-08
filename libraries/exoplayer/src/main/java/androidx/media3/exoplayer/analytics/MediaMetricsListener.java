@@ -455,7 +455,8 @@ public final class MediaMetricsListener
       return PlaybackStateEvent.STATE_ENDED;
     } else if (playerPlaybackState == Player.STATE_BUFFERING) {
       if (currentPlaybackState == PlaybackStateEvent.STATE_NOT_STARTED
-          || currentPlaybackState == PlaybackStateEvent.STATE_JOINING_FOREGROUND) {
+          || currentPlaybackState == PlaybackStateEvent.STATE_JOINING_FOREGROUND
+          || currentPlaybackState == PlaybackStateEvent.STATE_STOPPED) {
         return PlaybackStateEvent.STATE_JOINING_FOREGROUND;
       }
       if (!player.getPlayWhenReady()) {
@@ -747,7 +748,7 @@ public final class MediaMetricsListener
       } else if (cause instanceof DrmSession.DrmSessionException) {
         // Unpack DrmSessionException.
         cause = checkNotNull(cause.getCause());
-        if (Util.SDK_INT >= 21 && cause instanceof MediaDrm.MediaDrmStateException) {
+        if (cause instanceof MediaDrm.MediaDrmStateException) {
           String diagnosticsInfo = ((MediaDrm.MediaDrmStateException) cause).getDiagnosticInfo();
           int subErrorCode = Util.getErrorCodeFromPlatformDiagnosticsInfo(diagnosticsInfo);
           int errorCode = getDrmErrorCode(subErrorCode);
@@ -770,8 +771,7 @@ public final class MediaMetricsListener
       } else if (cause instanceof FileDataSource.FileDataSourceException
           && cause.getCause() instanceof FileNotFoundException) {
         @Nullable Throwable notFoundCause = checkNotNull(cause.getCause()).getCause();
-        if (Util.SDK_INT >= 21
-            && notFoundCause instanceof ErrnoException
+        if (notFoundCause instanceof ErrnoException
             && ((ErrnoException) notFoundCause).errno == OsConstants.EACCES) {
           return new ErrorInfo(PlaybackErrorEvent.ERROR_IO_NO_PERMISSION, /* subErrorCode= */ 0);
         } else {
@@ -799,8 +799,7 @@ public final class MediaMetricsListener
       int subErrorCode = Util.getErrorCodeFromPlatformDiagnosticsInfo(diagnosticsInfo);
       return new ErrorInfo(PlaybackErrorEvent.ERROR_DECODER_INIT_FAILED, subErrorCode);
     } else if (cause instanceof MediaCodecDecoderException) {
-      @Nullable String diagnosticsInfo = ((MediaCodecDecoderException) cause).diagnosticInfo;
-      int subErrorCode = Util.getErrorCodeFromPlatformDiagnosticsInfo(diagnosticsInfo);
+      int subErrorCode = ((MediaCodecDecoderException) cause).errorCode;
       return new ErrorInfo(PlaybackErrorEvent.ERROR_DECODING_FAILED, subErrorCode);
     } else if (cause instanceof OutOfMemoryError) {
       return new ErrorInfo(PlaybackErrorEvent.ERROR_DECODING_FAILED, /* subErrorCode= */ 0);

@@ -19,6 +19,9 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static androidx.media3.effect.DebugTraceUtil.COMPONENT_ASSET_LOADER;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_INPUT_FORMAT;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_OUTPUT_FORMAT;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_AVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED;
 import static androidx.media3.transformer.TransformerUtil.getProcessedTrackType;
@@ -35,7 +38,9 @@ import androidx.media3.common.OnInputFrameProcessedListener;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.TimestampIterator;
+import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
+import androidx.media3.effect.DebugTraceUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
@@ -81,12 +86,13 @@ import java.util.concurrent.atomic.AtomicInteger;
   private final Map<Integer, OnMediaItemChangedListener> mediaItemChangedListenersByTrackType;
 
   private final ImmutableList.Builder<ExportResult.ProcessedInput> processedInputsBuilder;
-  private final AtomicInteger nonEndedTracks;
+  private final AtomicInteger reportedTrackCount;
+  private final AtomicInteger nonEndedTrackCount;
 
   private boolean isCurrentAssetFirstAsset;
   private int currentMediaItemIndex;
   private AssetLoader currentAssetLoader;
-  private boolean trackCountReported;
+  private boolean isTrackCountReported;
   private boolean decodeAudio;
   private boolean decodeVideo;
   private int sequenceLoopCount;
@@ -96,6 +102,7 @@ import java.util.concurrent.atomic.AtomicInteger;
   private volatile boolean released;
 
   private volatile long currentAssetDurationUs;
+  private volatile long currentAssetDurationAfterEffectsAppliedUs;
   private volatile long maxSequenceDurationUs;
   private volatile boolean isMaxSequenceDurationUsFinal;
 
@@ -117,7 +124,8 @@ import java.util.concurrent.atomic.AtomicInteger;
     sampleConsumersByTrackType = new HashMap<>();
     mediaItemChangedListenersByTrackType = new HashMap<>();
     processedInputsBuilder = new ImmutableList.Builder<>();
-    nonEndedTracks = new AtomicInteger();
+    reportedTrackCount = new AtomicInteger();
+    nonEndedTrackCount = new AtomicInteger();
     isCurrentAssetFirstAsset = true;
     // It's safe to use "this" because we don't start the AssetLoader before exiting the
     // constructor.
@@ -180,7 +188,7 @@ import java.util.concurrent.atomic.AtomicInteger;
     if ((sequenceLoopCount * editedMediaItems.size() + currentMediaItemIndex)
         >= processedInputsSize) {
       MediaItem mediaItem = editedMediaItems.get(currentMediaItemIndex).mediaItem;
-      ImmutableMap<Integer, String> decoders = currentAssetLoader.getDecoderNames();
+      ImmutableMap<Integer, String> decoders = getDecoderNames();
       processedInputsBuilder.add(
           new ExportResult.ProcessedInput(
               mediaItem, decoders.get(C.TRACK_TYPE_AUDIO), decoders.get(C.TRACK_TYPE_VIDEO)));
@@ -212,16 +220,30 @@ import java.util.concurrent.atomic.AtomicInteger;
   @Override
   public boolean onTrackAdded(Format inputFormat, @SupportedOutputTypes int supportedOutputTypes) {
     boolean isAudio = getProcessedTrackType(inputFormat.sampleMimeType) == C.TRACK_TYPE_AUDIO;
+    DebugTraceUtil.logEvent(
+        COMPONENT_ASSET_LOADER,
+        EVENT_INPUT_FORMAT,
+        C.TIME_UNSET,
+        "%s:%s",
+        isAudio ? "audio" : "video",
+        inputFormat);
+
     if (!isCurrentAssetFirstAsset) {
-      return isAudio ? decodeAudio : decodeVideo;
+      boolean decode = isAudio ? decodeAudio : decodeVideo;
+      if (decode) {
+        checkArgument((supportedOutputTypes & SUPPORTED_OUTPUT_TYPE_DECODED) != 0);
+      } else {
+        checkArgument((supportedOutputTypes & SUPPORTED_OUTPUT_TYPE_ENCODED) != 0);
+      }
+      return decode;
     }
 
-    boolean addForcedAudioTrack = forceAudioTrack && nonEndedTracks.get() == 1 && !isAudio;
+    boolean addForcedAudioTrack = forceAudioTrack && reportedTrackCount.get() == 1 && !isAudio;
 
-    if (!trackCountReported) {
-      int trackCount = nonEndedTracks.get() + (addForcedAudioTrack ? 1 : 0);
+    if (!isTrackCountReported) {
+      int trackCount = reportedTrackCount.get() + (addForcedAudioTrack ? 1 : 0);
       sequenceAssetLoaderListener.onTrackCount(trackCount);
-      trackCountReported = true;
+      isTrackCountReported = true;
     }
 
     boolean decodeOutput =
@@ -246,6 +268,14 @@ import java.util.concurrent.atomic.AtomicInteger;
   @Override
   public SampleConsumerWrapper onOutputFormat(Format format) throws ExportException {
     @C.TrackType int trackType = getProcessedTrackType(format.sampleMimeType);
+    DebugTraceUtil.logEvent(
+        COMPONENT_ASSET_LOADER,
+        EVENT_OUTPUT_FORMAT,
+        C.TIME_UNSET,
+        "%s:%s",
+        Util.getTrackTypeString(trackType),
+        format);
+
     SampleConsumerWrapper sampleConsumer;
     if (isCurrentAssetFirstAsset) {
       @Nullable
@@ -253,10 +283,10 @@ import java.util.concurrent.atomic.AtomicInteger;
       if (wrappedSampleConsumer == null) {
         return null;
       }
-      sampleConsumer = new SampleConsumerWrapper(wrappedSampleConsumer);
+      sampleConsumer = new SampleConsumerWrapper(wrappedSampleConsumer, trackType);
       sampleConsumersByTrackType.put(trackType, sampleConsumer);
 
-      if (forceAudioTrack && nonEndedTracks.get() == 1 && trackType == C.TRACK_TYPE_VIDEO) {
+      if (forceAudioTrack && reportedTrackCount.get() == 1 && trackType == C.TRACK_TYPE_VIDEO) {
         SampleConsumer wrappedAudioSampleConsumer =
             checkStateNotNull(
                 sequenceAssetLoaderListener.onOutputFormat(
@@ -266,12 +296,12 @@ import java.util.concurrent.atomic.AtomicInteger;
                         .setPcmEncoding(C.ENCODING_PCM_16BIT)
                         .build()));
         sampleConsumersByTrackType.put(
-            C.TRACK_TYPE_AUDIO, new SampleConsumerWrapper(wrappedAudioSampleConsumer));
+            C.TRACK_TYPE_AUDIO, new SampleConsumerWrapper(wrappedAudioSampleConsumer, trackType));
       }
     } else {
       // TODO(b/270533049): Remove the check below when implementing blank video frames generation.
       boolean videoTrackDisappeared =
-          nonEndedTracks.get() == 1
+          reportedTrackCount.get() == 1
               && trackType == C.TRACK_TYPE_AUDIO
               && sampleConsumersByTrackType.size() == 2;
       checkState(
@@ -280,10 +310,16 @@ import java.util.concurrent.atomic.AtomicInteger;
       sampleConsumer =
           checkStateNotNull(
               sampleConsumersByTrackType.get(trackType),
-              "The preceding MediaItem does not contain any track of type " + trackType);
+              Util.formatInvariant(
+                  "The preceding MediaItem does not contain any track of type %d. If the"
+                      + " Composition contains a sequence that starts with items without audio"
+                      + " tracks (like images), followed by items with audio tracks,"
+                      + " Composition.Builder.experimentalSetForceAudioTrack() needs to be set to"
+                      + " true.",
+                  trackType));
     }
     onMediaItemChanged(trackType, format);
-    if (nonEndedTracks.get() == 1 && sampleConsumersByTrackType.size() == 2) {
+    if (reportedTrackCount.get() == 1 && sampleConsumersByTrackType.size() == 2) {
       for (Map.Entry<Integer, SampleConsumerWrapper> entry :
           sampleConsumersByTrackType.entrySet()) {
         int outputTrackType = entry.getKey();
@@ -305,7 +341,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 
     onMediaItemChangedListener.onMediaItemChanged(
         editedMediaItems.get(currentMediaItemIndex),
-        currentAssetDurationUs,
+        /* durationUs= */ (trackType == C.TRACK_TYPE_AUDIO && isLooping && decodeAudio)
+            ? C.TIME_UNSET
+            : currentAssetDurationUs,
         /* decodedFormat= */ outputFormat,
         /* isLast= */ currentMediaItemIndex == editedMediaItems.size() - 1);
   }
@@ -335,17 +373,18 @@ import java.util.concurrent.atomic.AtomicInteger;
     checkArgument(
         durationUs != C.TIME_UNSET || currentMediaItemIndex == editedMediaItems.size() - 1,
         "Could not retrieve required duration for EditedMediaItem " + currentMediaItemIndex);
-    durationUs =
+    currentAssetDurationAfterEffectsAppliedUs =
         editedMediaItems.get(currentMediaItemIndex).getDurationAfterEffectsApplied(durationUs);
     currentAssetDurationUs = durationUs;
     if (editedMediaItems.size() == 1 && !isLooping) {
-      sequenceAssetLoaderListener.onDurationUs(durationUs);
+      sequenceAssetLoaderListener.onDurationUs(currentAssetDurationAfterEffectsAppliedUs);
     }
   }
 
   @Override
   public void onTrackCount(int trackCount) {
-    nonEndedTracks.set(trackCount);
+    reportedTrackCount.set(trackCount);
+    nonEndedTrackCount.set(trackCount);
   }
 
   @Override
@@ -358,13 +397,15 @@ import java.util.concurrent.atomic.AtomicInteger;
   private final class SampleConsumerWrapper implements SampleConsumer {
 
     private final SampleConsumer sampleConsumer;
+    private final @C.TrackType int trackType;
 
     private long totalDurationUs;
     private boolean audioLoopingEnded;
     private boolean videoLoopingEnded;
 
-    public SampleConsumerWrapper(SampleConsumer sampleConsumer) {
+    public SampleConsumerWrapper(SampleConsumer sampleConsumer, @C.TrackType int trackType) {
       this.sampleConsumer = sampleConsumer;
+      this.trackType = trackType;
     }
 
     @Nullable
@@ -385,17 +426,24 @@ import java.util.concurrent.atomic.AtomicInteger;
           // SampleConsumer so there is no need to handle the case where the sample wasn't queued.
           checkState(sampleConsumer.queueInputBuffer());
           audioLoopingEnded = true;
-          nonEndedTracks.decrementAndGet();
+          nonEndedTrackCount.decrementAndGet();
         }
         return false;
       }
 
       if (inputBuffer.isEndOfStream()) {
-        nonEndedTracks.decrementAndGet();
+        nonEndedTrackCount.decrementAndGet();
         if (currentMediaItemIndex < editedMediaItems.size() - 1 || isLooping) {
-          inputBuffer.clear();
-          inputBuffer.timeUs = 0;
-          if (nonEndedTracks.get() == 0) {
+          if (trackType == C.TRACK_TYPE_AUDIO && !isLooping && decodeAudio) {
+            // Trigger silence generation (if needed) for a decoded audio track when end of stream
+            // is first encountered. This helps us avoid a muxer deadlock when audio track is
+            // shorter than video track. Not applicable for looping sequences.
+            checkState(sampleConsumer.queueInputBuffer());
+          } else {
+            inputBuffer.clear();
+            inputBuffer.timeUs = 0;
+          }
+          if (nonEndedTrackCount.get() == 0) {
             switchAssetLoader();
           }
           return true;
@@ -441,6 +489,11 @@ import java.util.concurrent.atomic.AtomicInteger;
     }
 
     @Override
+    public void setOnInputSurfaceReadyListener(Runnable runnable) {
+      sampleConsumer.setOnInputSurfaceReadyListener(runnable);
+    }
+
+    @Override
     public @InputResult int queueInputTexture(int texId, long presentationTimeUs) {
       long globalTimestampUs = totalDurationUs + presentationTimeUs;
       if (isLooping && globalTimestampUs >= maxSequenceDurationUs) {
@@ -480,12 +533,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 
     @Override
     public void signalEndOfVideoInput() {
-      nonEndedTracks.decrementAndGet();
+      nonEndedTrackCount.decrementAndGet();
       boolean videoEnded =
           isLooping ? videoLoopingEnded : currentMediaItemIndex == editedMediaItems.size() - 1;
       if (videoEnded) {
         sampleConsumer.signalEndOfVideoInput();
-      } else if (nonEndedTracks.get() == 0) {
+      } else if (nonEndedTrackCount.get() == 0) {
         switchAssetLoader();
       }
     }
@@ -498,7 +551,7 @@ import java.util.concurrent.atomic.AtomicInteger;
                 return;
               }
               addCurrentProcessedInput();
-              totalDurationUs += currentAssetDurationUs;
+              totalDurationUs += currentAssetDurationAfterEffectsAppliedUs;
               currentAssetLoader.release();
               isCurrentAssetFirstAsset = false;
               currentMediaItemIndex++;

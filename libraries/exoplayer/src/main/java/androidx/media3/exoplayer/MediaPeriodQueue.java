@@ -28,10 +28,13 @@ import androidx.media3.common.Player.RepeatMode;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.HandlerWrapper;
+import androidx.media3.exoplayer.ExoPlayer.PreloadConfiguration;
 import androidx.media3.exoplayer.analytics.AnalyticsCollector;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import com.google.common.collect.ImmutableList;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Holds a queue of media periods, from the currently playing media period at the front to the
@@ -82,6 +85,8 @@ import com.google.common.collect.ImmutableList;
   private int length;
   @Nullable private Object oldFrontPeriodUid;
   private long oldFrontPeriodWindowSequenceNumber;
+  private PreloadConfiguration preloadConfiguration;
+  private List<MediaPeriodHolder> preloadPriorityList;
 
   /**
    * Creates a new media period queue.
@@ -94,12 +99,15 @@ import com.google.common.collect.ImmutableList;
   public MediaPeriodQueue(
       AnalyticsCollector analyticsCollector,
       HandlerWrapper analyticsCollectorHandler,
-      MediaPeriodHolder.Factory mediaPeriodHolderFactory) {
+      MediaPeriodHolder.Factory mediaPeriodHolderFactory,
+      PreloadConfiguration preloadConfiguration) {
     this.analyticsCollector = analyticsCollector;
     this.analyticsCollectorHandler = analyticsCollectorHandler;
     this.mediaPeriodHolderFactory = mediaPeriodHolderFactory;
+    this.preloadConfiguration = preloadConfiguration;
     period = new Timeline.Period();
     window = new Timeline.Window();
+    preloadPriorityList = new ArrayList<>();
   }
 
   /**
@@ -126,6 +134,18 @@ import com.google.common.collect.ImmutableList;
   public boolean updateShuffleModeEnabled(Timeline timeline, boolean shuffleModeEnabled) {
     this.shuffleModeEnabled = shuffleModeEnabled;
     return updateForPlaybackModeChange(timeline);
+  }
+
+  /**
+   * Updates the preload configuration.
+   *
+   * @param timeline The current timeline.
+   * @param preloadConfiguration The new preload configuration.
+   */
+  public void updatePreloadConfiguration(
+      Timeline timeline, PreloadConfiguration preloadConfiguration) {
+    this.preloadConfiguration = preloadConfiguration;
+    invalidatePreloadPool(timeline);
   }
 
   /** Returns whether {@code mediaPeriod} is the current loading media period. */
@@ -180,8 +200,13 @@ import com.google.common.collect.ImmutableList;
         loading == null
             ? INITIAL_RENDERER_POSITION_OFFSET_US
             : (loading.getRendererOffset() + loading.info.durationUs - info.startPositionUs);
-    MediaPeriodHolder newPeriodHolder =
-        mediaPeriodHolderFactory.create(info, rendererPositionOffsetUs);
+    @Nullable MediaPeriodHolder newPeriodHolder = removePreloadedMediaPeriodHolder(info);
+    if (newPeriodHolder == null) {
+      newPeriodHolder = mediaPeriodHolderFactory.create(info, rendererPositionOffsetUs);
+    } else {
+      newPeriodHolder.info = info;
+      newPeriodHolder.setRendererOffset(rendererPositionOffsetUs);
+    }
     if (loading != null) {
       loading.setNext(newPeriodHolder);
     } else {
@@ -193,6 +218,110 @@ import com.google.common.collect.ImmutableList;
     length++;
     notifyQueueUpdate();
     return newPeriodHolder;
+  }
+
+  /** Invalidates the preload pool. */
+  public void invalidatePreloadPool(Timeline timeline) {
+    if (preloadConfiguration.targetPreloadDurationUs == C.TIME_UNSET || loading == null) {
+      releasePreloadPool();
+      return;
+    }
+    MediaPeriodHolder loading = this.loading;
+    List<MediaPeriodHolder> newPreloadPriorityList = new ArrayList<>();
+    Pair<Object, Long> defaultPositionOfNextWindow =
+        getDefaultPeriodPositionOfNextWindow(
+            timeline, loading.info.id.periodUid, /* defaultPositionProjectionUs= */ 0L);
+    if (defaultPositionOfNextWindow != null
+        && !timeline
+            .getWindow(
+                timeline.getPeriodByUid(defaultPositionOfNextWindow.first, period).windowIndex,
+                window)
+            .isLive()) {
+      long windowSequenceNumber =
+          resolvePeriodUidToWindowSequenceNumberInPreloadPeriods(defaultPositionOfNextWindow.first);
+      if (windowSequenceNumber == C.INDEX_UNSET) {
+        windowSequenceNumber = nextWindowSequenceNumber++;
+      }
+      @Nullable
+      MediaPeriodInfo nextInfo =
+          getMediaPeriodInfoForPeriodPosition(
+              timeline,
+              defaultPositionOfNextWindow.first,
+              defaultPositionOfNextWindow.second,
+              windowSequenceNumber);
+      @Nullable
+      MediaPeriodHolder nextMediaPeriodHolder = removePreloadedMediaPeriodHolder(nextInfo);
+      if (nextMediaPeriodHolder == null) {
+        // The holder's renderer position offset may be different and is reset when enqueuing.
+        long rendererPositionOffsetUs =
+            loading.getRendererOffset() + loading.info.durationUs - nextInfo.startPositionUs;
+        nextMediaPeriodHolder = mediaPeriodHolderFactory.create(nextInfo, rendererPositionOffsetUs);
+      }
+      newPreloadPriorityList.add(nextMediaPeriodHolder);
+    }
+    releaseAndResetPreloadPriorityList(newPreloadPriorityList);
+  }
+
+  /** Removes all periods from the preload pool and releases them. */
+  public void releasePreloadPool() {
+    if (!preloadPriorityList.isEmpty()) {
+      releaseAndResetPreloadPriorityList(new ArrayList<>());
+    }
+  }
+
+  @Nullable
+  private MediaPeriodHolder removePreloadedMediaPeriodHolder(MediaPeriodInfo info) {
+    for (int i = 0; i < preloadPriorityList.size(); i++) {
+      MediaPeriodHolder mediaPeriodHolder = preloadPriorityList.get(i);
+      if (mediaPeriodHolder.canBeUsedForMediaPeriodInfo(info)) {
+        return preloadPriorityList.remove(i);
+      }
+    }
+    return null;
+  }
+
+  private void releaseAndResetPreloadPriorityList(List<MediaPeriodHolder> newPriorityList) {
+    for (int i = 0; i < preloadPriorityList.size(); i++) {
+      preloadPriorityList.get(i).release();
+    }
+    preloadPriorityList = newPriorityList;
+  }
+
+  private MediaPeriodInfo getMediaPeriodInfoForPeriodPosition(
+      Timeline timeline, Object periodUid, long positionUs, long windowSequenceNumber) {
+    MediaPeriodId mediaPeriodId =
+        resolveMediaPeriodIdForAds(
+            timeline, periodUid, positionUs, windowSequenceNumber, window, period);
+    return mediaPeriodId.isAd()
+        ? getMediaPeriodInfoForAd(
+            timeline,
+            mediaPeriodId.periodUid,
+            mediaPeriodId.adGroupIndex,
+            mediaPeriodId.adIndexInAdGroup,
+            /* contentPositionUs= */ positionUs,
+            mediaPeriodId.windowSequenceNumber)
+        : getMediaPeriodInfoForContent(
+            timeline,
+            mediaPeriodId.periodUid,
+            /* startPositionUs= */ positionUs,
+            /* requestedContentPositionUs= */ C.TIME_UNSET,
+            mediaPeriodId.windowSequenceNumber);
+  }
+
+  @Nullable
+  private Pair<Object, Long> getDefaultPeriodPositionOfNextWindow(
+      Timeline timeline, Object periodUid, long defaultPositionProjectionUs) {
+    int nextWindowIndex =
+        timeline.getNextWindowIndex(
+            timeline.getPeriodByUid(periodUid, period).windowIndex, repeatMode, shuffleModeEnabled);
+    return nextWindowIndex != C.INDEX_UNSET
+        ? timeline.getPeriodPositionUs(
+            window,
+            period,
+            nextWindowIndex,
+            /* windowPositionUs= */ C.TIME_UNSET,
+            defaultPositionProjectionUs)
+        : null;
   }
 
   /**
@@ -430,7 +559,7 @@ import com.google.common.collect.ImmutableList;
    */
   public MediaPeriodId resolveMediaPeriodIdForAds(
       Timeline timeline, Object periodUid, long positionUs) {
-    long windowSequenceNumber = resolvePeriodIndexToWindowSequenceNumber(timeline, periodUid);
+    long windowSequenceNumber = resolvePeriodUidToWindowSequenceNumber(timeline, periodUid);
     return resolveMediaPeriodIdForAds(
         timeline, periodUid, positionUs, windowSequenceNumber, window, period);
   }
@@ -507,7 +636,7 @@ import com.google.common.collect.ImmutableList;
    */
   public MediaPeriodId resolveMediaPeriodIdForAdsAfterPeriodPositionChange(
       Timeline timeline, Object periodUid, long positionUs) {
-    long windowSequenceNumber = resolvePeriodIndexToWindowSequenceNumber(timeline, periodUid);
+    long windowSequenceNumber = resolvePeriodUidToWindowSequenceNumber(timeline, periodUid);
     // Check for preceding ad periods in multi-period window.
     timeline.getPeriodByUid(periodUid, period);
     timeline.getWindow(period.windowIndex, window);
@@ -553,7 +682,7 @@ import com.google.common.collect.ImmutableList;
    * @param periodUid The uid of the timeline period.
    * @return A window sequence number for a media period created for this timeline period.
    */
-  private long resolvePeriodIndexToWindowSequenceNumber(Timeline timeline, Object periodUid) {
+  private long resolvePeriodUidToWindowSequenceNumber(Timeline timeline, Object periodUid) {
     int windowIndex = timeline.getPeriodByUid(periodUid, period).windowIndex;
     if (oldFrontPeriodUid != null) {
       int oldFrontPeriodIndex = timeline.getIndexOfPeriod(oldFrontPeriodUid);
@@ -585,14 +714,30 @@ import com.google.common.collect.ImmutableList;
       }
       mediaPeriodHolder = mediaPeriodHolder.getNext();
     }
+
+    long windowSequenceNumber = resolvePeriodUidToWindowSequenceNumberInPreloadPeriods(periodUid);
+    if (windowSequenceNumber != C.INDEX_UNSET) {
+      return windowSequenceNumber;
+    }
+
     // If no match is found, create new sequence number.
-    long windowSequenceNumber = nextWindowSequenceNumber++;
+    windowSequenceNumber = nextWindowSequenceNumber++;
     if (playing == null) {
       // If the queue is empty, save it as old front uid to allow later reuse.
       oldFrontPeriodUid = periodUid;
       oldFrontPeriodWindowSequenceNumber = windowSequenceNumber;
     }
     return windowSequenceNumber;
+  }
+
+  private long resolvePeriodUidToWindowSequenceNumberInPreloadPeriods(Object periodUid) {
+    for (int i = 0; i < preloadPriorityList.size(); i++) {
+      MediaPeriodHolder preloadHolder = preloadPriorityList.get(i);
+      if (preloadHolder.uid.equals(periodUid)) {
+        return preloadHolder.info.id.windowSequenceNumber;
+      }
+    }
+    return C.INDEX_UNSET;
   }
 
   /**
@@ -606,7 +751,7 @@ import com.google.common.collect.ImmutableList;
   /**
    * Returns whether a duration change of a period is compatible with keeping the following periods.
    */
-  private boolean areDurationsCompatible(long previousDurationUs, long newDurationUs) {
+  /* package */ static boolean areDurationsCompatible(long previousDurationUs, long newDurationUs) {
     return previousDurationUs == C.TIME_UNSET || previousDurationUs == newDurationUs;
   }
 
@@ -649,7 +794,6 @@ import com.google.common.collect.ImmutableList;
 
     // Update the period info for the last holder, as it may now be the last period in the timeline.
     lastValidPeriodHolder.info = getUpdatedMediaPeriodInfo(timeline, lastValidPeriodHolder.info);
-
     // If renderers may have read from a period that's been removed, it is necessary to restart.
     return !readingPeriodRemoved;
   }
@@ -746,7 +890,12 @@ import com.google.common.collect.ImmutableList;
       if (nextMediaPeriodHolder != null && nextMediaPeriodHolder.uid.equals(nextPeriodUid)) {
         windowSequenceNumber = nextMediaPeriodHolder.info.id.windowSequenceNumber;
       } else {
-        windowSequenceNumber = nextWindowSequenceNumber++;
+        long windowSequenceNumberFromPreload =
+            resolvePeriodUidToWindowSequenceNumberInPreloadPeriods(nextPeriodUid);
+        windowSequenceNumber =
+            windowSequenceNumberFromPreload == C.INDEX_UNSET
+                ? nextWindowSequenceNumber++
+                : windowSequenceNumberFromPreload;
       }
     }
 
@@ -874,7 +1023,6 @@ import com.google.common.collect.ImmutableList;
         && (adGroupCount > 1 || period.getAdGroupTimeUs(firstAdGroupIndex) != C.TIME_END_OF_SOURCE);
   }
 
-  @Nullable
   private MediaPeriodInfo getMediaPeriodInfo(
       Timeline timeline, MediaPeriodId id, long requestedContentPositionUs, long startPositionUs) {
     timeline.getPeriodByUid(id.periodUid, period);

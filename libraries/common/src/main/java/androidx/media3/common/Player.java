@@ -242,7 +242,7 @@ public interface Player {
   }
 
   /** Position info describing a playback position involved in a discontinuity. */
-  final class PositionInfo implements Bundleable {
+  final class PositionInfo {
 
     /**
      * The UID of the window, or {@code null} if the timeline is {@link Timeline#isEmpty() empty}.
@@ -385,8 +385,6 @@ public interface Player {
           && Objects.equal(mediaItem, other.mediaItem);
     }
 
-    // Bundleable implementation.
-
     @VisibleForTesting static final String FIELD_MEDIA_ITEM_INDEX = Util.intToStringMaxRadix(0);
     private static final String FIELD_MEDIA_ITEM = Util.intToStringMaxRadix(1);
     @VisibleForTesting static final String FIELD_PERIOD_INDEX = Util.intToStringMaxRadix(2);
@@ -426,10 +424,11 @@ public interface Player {
     }
 
     /**
-     * {@inheritDoc}
+     * Returns a {@link Bundle} representing the information stored in this object.
      *
      * <p>It omits the {@link #windowUid} and {@link #periodUid} fields. The {@link #windowUid} and
-     * {@link #periodUid} of an instance restored by {@link #CREATOR} will always be {@code null}.
+     * {@link #periodUid} of an instance restored by {@link #fromBundle(Bundle)} will always be
+     * {@code null}.
      *
      * @param controllerInterfaceVersion The interface version of the media controller this Bundle
      *     will be sent to.
@@ -462,26 +461,13 @@ public interface Player {
     }
 
     /**
-     * {@inheritDoc}
-     *
-     * <p>It omits the {@link #windowUid} and {@link #periodUid} fields. The {@link #windowUid} and
-     * {@link #periodUid} of an instance restored by {@link #CREATOR} will always be {@code null}.
-     */
-    @UnstableApi
-    @Override
-    public Bundle toBundle() {
-      return toBundle(Integer.MAX_VALUE);
-    }
-
-    /**
-     * Object that can restore {@link PositionInfo} from a {@link Bundle}.
-     *
-     * @deprecated Use {@link #fromBundle} instead.
+     * @deprecated Use {@link #toBundle(int)} instead.
      */
     @UnstableApi
     @Deprecated
-    @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-    public static final Creator<PositionInfo> CREATOR = PositionInfo::fromBundle;
+    public Bundle toBundle() {
+      return toBundle(Integer.MAX_VALUE);
+    }
 
     /** Restores a {@code PositionInfo} from a {@link Bundle}. */
     @UnstableApi
@@ -514,7 +500,7 @@ public interface Player {
    *
    * <p>Instances are immutable.
    */
-  final class Commands implements Bundleable {
+  final class Commands {
 
     /** A builder for {@link Commands} instances. */
     @UnstableApi
@@ -744,12 +730,9 @@ public interface Player {
       return flags.hashCode();
     }
 
-    // Bundleable implementation.
-
     private static final String FIELD_COMMANDS = Util.intToStringMaxRadix(0);
 
     @UnstableApi
-    @Override
     public Bundle toBundle() {
       Bundle bundle = new Bundle();
       ArrayList<Integer> commandsBundle = new ArrayList<>();
@@ -759,16 +742,6 @@ public interface Player {
       bundle.putIntegerArrayList(FIELD_COMMANDS, commandsBundle);
       return bundle;
     }
-
-    /**
-     * Object that can restore {@link Commands} from a {@link Bundle}.
-     *
-     * @deprecated Use {@link #fromBundle} instead.
-     */
-    @UnstableApi
-    @Deprecated
-    @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-    public static final Creator<Commands> CREATOR = Commands::fromBundle;
 
     /** Restores a {@code Commands} from a {@link Bundle}. */
     @UnstableApi
@@ -948,6 +921,9 @@ public interface Player {
 
     /**
      * Called when the value returned from {@link #getPlayWhenReady()} changes.
+     *
+     * <p>The current {@code playWhenReady} value may be re-reported if the {@code reason} for this
+     * value changes.
      *
      * <p>{@link #onEvents(Player, Events)} will also be called to report this event along with
      * other events that happen in the same {@link Looper} message queue iteration.
@@ -2433,7 +2409,7 @@ public interface Player {
    * change.
    *
    * @return The currently available {@link Commands}.
-   * @see Listener#onAvailableCommandsChanged
+   * @see Listener#onAvailableCommandsChanged(Commands)
    */
   Commands getAvailableCommands();
 
@@ -2660,20 +2636,6 @@ public interface Player {
   void seekForward();
 
   /**
-   * @deprecated Use {@link #hasPreviousMediaItem()} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  boolean hasPrevious();
-
-  /**
-   * @deprecated Use {@link #hasPreviousMediaItem()} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  boolean hasPreviousWindow();
-
-  /**
    * Returns whether a previous media item exists, which may depend on the current repeat mode and
    * whether shuffle mode is enabled.
    *
@@ -2685,13 +2647,6 @@ public interface Player {
    * #getAvailableCommands() available}.
    */
   boolean hasPreviousMediaItem();
-
-  /**
-   * @deprecated Use {@link #seekToPreviousMediaItem()} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  void previous();
 
   /**
    * @deprecated Use {@link #seekToPreviousMediaItem()} instead.
@@ -2935,6 +2890,8 @@ public interface Player {
    *
    * <p>This method must only be called if {@link #COMMAND_GET_METADATA} is {@linkplain
    * #getAvailableCommands() available}.
+   *
+   * @see Listener#onMediaMetadataChanged(MediaMetadata)
    */
   MediaMetadata getMediaMetadata();
 
@@ -2944,6 +2901,8 @@ public interface Player {
    *
    * <p>This method must only be called if {@link #COMMAND_GET_METADATA} is {@linkplain
    * #getAvailableCommands() available}.
+   *
+   * @see Listener#onPlaylistMetadataChanged(MediaMetadata)
    */
   MediaMetadata getPlaylistMetadata();
 
@@ -3242,6 +3201,8 @@ public interface Player {
    *
    * <p>This method must only be called if {@link #COMMAND_GET_AUDIO_ATTRIBUTES} is {@linkplain
    * #getAvailableCommands() available}.
+   *
+   * @see Listener#onAudioAttributesChanged(AudioAttributes)
    */
   AudioAttributes getAudioAttributes();
 
@@ -3263,6 +3224,7 @@ public interface Player {
    * #getAvailableCommands() available}.
    *
    * @return The linear gain applied to all audio channels.
+   * @see Listener#onVolumeChanged(float)
    */
   @FloatRange(from = 0, to = 1.0)
   float getVolume();
@@ -3409,6 +3371,8 @@ public interface Player {
    *
    * <p>This method must only be called if {@link #COMMAND_GET_TEXT} is {@linkplain
    * #getAvailableCommands() available}.
+   *
+   * @see Listener#onCues(CueGroup)
    */
   CueGroup getCurrentCues();
 
@@ -3431,6 +3395,8 @@ public interface Player {
    *
    * <p>This method must only be called if {@link #COMMAND_GET_DEVICE_VOLUME} is {@linkplain
    * #getAvailableCommands() available}.
+   *
+   * @see Listener#onDeviceVolumeChanged(int, boolean)
    */
   @IntRange(from = 0)
   int getDeviceVolume();
@@ -3443,6 +3409,8 @@ public interface Player {
    *
    * <p>This method must only be called if {@link #COMMAND_GET_DEVICE_VOLUME} is {@linkplain
    * #getAvailableCommands() available}.
+   *
+   * @see Listener#onDeviceVolumeChanged(int, boolean)
    */
   boolean isDeviceMuted();
 

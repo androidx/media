@@ -233,7 +233,9 @@ public class MediaFormatUtilTest {
   @Test
   public void createMediaFormatFromFormat_withCustomPcmEncoding_setsCustomPcmEncodingEntry() {
     Format format = new Format.Builder().setPcmEncoding(C.ENCODING_PCM_16BIT_BIG_ENDIAN).build();
+
     MediaFormat mediaFormat = MediaFormatUtil.createMediaFormatFromFormat(format);
+
     assertThat(mediaFormat.getInteger(MediaFormatUtil.KEY_PCM_ENCODING_EXTENDED))
         .isEqualTo(C.ENCODING_PCM_16BIT_BIG_ENDIAN);
     assertThat(mediaFormat.containsKey(MediaFormat.KEY_PCM_ENCODING)).isFalse();

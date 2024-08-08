@@ -20,14 +20,12 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.net.Uri;
 import androidx.annotation.IntDef;
-import androidx.media3.common.util.UnstableApi;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /** Represents an RTSP request. */
-@UnstableApi
 /* package */ final class RtspRequest {
   /**
    * RTSP request methods, as defined in RFC2326 Section 10.

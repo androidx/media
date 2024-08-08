@@ -6,26 +6,47 @@ format audio:
   pcmEncoding = 2
 sample:
   trackType = audio
-  dataHashCode = -8136122
-  size = 8820
+  dataHashCode = 769857189
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 0
 sample:
   trackType = audio
-  dataHashCode = 1750866613
-  size = 8820
+  dataHashCode = 1319774907
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 100000
 sample:
   trackType = audio
-  dataHashCode = -1100753636
-  size = 8820
+  dataHashCode = 1874886243
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 200000
 sample:
   trackType = audio
-  dataHashCode = 507833230
-  size = 8820
+  dataHashCode = 280469483
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 300000
+sample:
+  trackType = audio
+  dataHashCode = -1687790211
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = 1859443538
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -541754167
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = 394157818
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -1315880378
+  size = 1584
+  isKeyFrame = true
 released = true

@@ -169,6 +169,7 @@ public final class HlsMediaSource extends BaseMediaSource
       metadataType = METADATA_TYPE_ID3;
       elapsedRealTimeOffsetMs = C.TIME_UNSET;
       allowChunklessPreparation = true;
+      experimentalParseSubtitlesDuringExtraction(true);
     }
 
     /**
@@ -206,6 +207,7 @@ public final class HlsMediaSource extends BaseMediaSource
     }
 
     @Override
+    @Deprecated
     @CanIgnoreReturnValue
     public Factory experimentalParseSubtitlesDuringExtraction(
         boolean parseSubtitlesDuringExtraction) {

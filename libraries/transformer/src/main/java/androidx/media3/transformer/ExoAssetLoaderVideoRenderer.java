@@ -25,7 +25,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.decoder.DecoderInputBuffer;
-import androidx.media3.effect.DebugTraceUtil;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -85,11 +84,6 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
   @Override
   protected void onInputFormatRead(Format inputFormat) {
-    DebugTraceUtil.logEvent(
-        DebugTraceUtil.EVENT_VIDEO_INPUT_FORMAT,
-        C.TIME_UNSET,
-        /* extraFormat= */ "%s",
-        /* extraArgs...= */ inputFormat);
     if (flattenForSlowMotion) {
       sefVideoSlowMotionFlattener = new SefSlowMotionFlattener(inputFormat);
     }
@@ -151,7 +145,6 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   @RequiresNonNull({"sampleConsumer", "decoder"})
   protected boolean feedConsumerFromDecoder() throws ExportException {
     if (decoder.isEnded()) {
-      DebugTraceUtil.logEvent(DebugTraceUtil.EVENT_DECODER_SIGNAL_EOS, C.TIME_END_OF_SOURCE);
       sampleConsumer.signalEndOfVideoInput();
       isEnded = true;
       return false;
@@ -178,7 +171,6 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     }
 
     decoder.releaseOutputBuffer(presentationTimeUs);
-    DebugTraceUtil.logEvent(DebugTraceUtil.EVENT_DECODER_DECODED_FRAME, presentationTimeUs);
     return true;
   }
 

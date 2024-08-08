@@ -27,12 +27,11 @@ import android.text.style.AbsoluteSizeSpan;
 import android.text.style.ForegroundColorSpan;
 import android.text.style.TypefaceSpan;
 import androidx.media3.common.util.Consumer;
+import androidx.media3.test.utils.TestSpeedProvider;
 import androidx.media3.test.utils.TextureBitmapReader;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
-import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -47,9 +46,8 @@ public class TimestampAdjustmentTest {
   private static final String ASSET_PATH = "test-generated-goldens/TimestampAdjustmentTest";
 
   private @MonotonicNonNull TextureBitmapReader textureBitmapReader;
-  private @MonotonicNonNull String testId;
+  private String testId;
 
-  @EnsuresNonNull({"textureBitmapReader", "testId"})
   @Before
   public void setUp() {
     textureBitmapReader = new TextureBitmapReader();
@@ -57,7 +55,6 @@ public class TimestampAdjustmentTest {
   }
 
   @Test
-  @RequiresNonNull({"textureBitmapReader", "testId"})
   public void timestampAdjustmentTest_outputsFramesAtTheCorrectPresentationTimesUs()
       throws Exception {
     ImmutableList<Long> frameTimesUs = ImmutableList.of(0L, 32_000L, 71_000L);
@@ -70,8 +67,9 @@ public class TimestampAdjustmentTest {
                 Thread.currentThread().interrupt();
                 throw new IllegalStateException(e);
               }
-              callback.accept(inputTimeUs / 2);
-            });
+              callback.onTimestamp(inputTimeUs / 2);
+            },
+            TestSpeedProvider.createWithStartTimes(new long[] {0}, new float[] {2f}));
 
     ImmutableList<Long> actualPresentationTimesUs =
         generateAndProcessBlackTimeStampedFrames(frameTimesUs, timestampAdjustment);

@@ -23,7 +23,6 @@ import androidx.media3.extractor.text.Subtitle;
 import androidx.media3.extractor.text.SubtitleParser;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -39,6 +38,8 @@ public class LegacySubtitleUtilWebvttTest {
 
   private static final String FIRST_SUBTITLE_STRING = "This is the first subtitle.";
   private static final String SECOND_SUBTITLE_STRING = "This is the second subtitle.";
+
+  private static final WebvttSubtitle EMPTY_SUBTITLE = new WebvttSubtitle(ImmutableList.of());
 
   private static final WebvttSubtitle SIMPLE_SUBTITLE =
       new WebvttSubtitle(
@@ -85,12 +86,12 @@ public class LegacySubtitleUtilWebvttTest {
     assertThat(cuesWithTimingsList.get(0).startTimeUs).isEqualTo(1_000_000);
     assertThat(cuesWithTimingsList.get(0).durationUs).isEqualTo(1_000_000);
     assertThat(cuesWithTimingsList.get(0).endTimeUs).isEqualTo(2_000_000);
-    assertThat(Lists.transform(cuesWithTimingsList.get(0).cues, c -> c.text))
+    assertThat(cuesWithTimingsList.get(0).cues.stream().map(c -> c.text))
         .containsExactly(FIRST_SUBTITLE_STRING);
     assertThat(cuesWithTimingsList.get(1).startTimeUs).isEqualTo(3_000_000);
     assertThat(cuesWithTimingsList.get(1).durationUs).isEqualTo(1_000_000);
     assertThat(cuesWithTimingsList.get(1).endTimeUs).isEqualTo(4_000_000);
-    assertThat(Lists.transform(cuesWithTimingsList.get(1).cues, c -> c.text))
+    assertThat(cuesWithTimingsList.get(1).cues.stream().map(c -> c.text))
         .containsExactly(SECOND_SUBTITLE_STRING);
   }
 
@@ -103,12 +104,12 @@ public class LegacySubtitleUtilWebvttTest {
     assertThat(cuesWithTimingsList.get(0).startTimeUs).isEqualTo(1_000_000);
     assertThat(cuesWithTimingsList.get(0).durationUs).isEqualTo(1_000_000);
     assertThat(cuesWithTimingsList.get(0).endTimeUs).isEqualTo(2_000_000);
-    assertThat(Lists.transform(cuesWithTimingsList.get(0).cues, c -> c.text))
+    assertThat(cuesWithTimingsList.get(0).cues.stream().map(c -> c.text))
         .containsExactly(FIRST_SUBTITLE_STRING);
     assertThat(cuesWithTimingsList.get(1).startTimeUs).isEqualTo(2_000_000);
     assertThat(cuesWithTimingsList.get(1).durationUs).isEqualTo(2_000_000);
     assertThat(cuesWithTimingsList.get(1).endTimeUs).isEqualTo(4_000_000);
-    assertThat(Lists.transform(cuesWithTimingsList.get(1).cues, c -> c.text))
+    assertThat(cuesWithTimingsList.get(1).cues.stream().map(c -> c.text))
         .containsExactly(SECOND_SUBTITLE_STRING);
   }
 
@@ -121,19 +122,27 @@ public class LegacySubtitleUtilWebvttTest {
     assertThat(cuesWithTimingsList.get(0).startTimeUs).isEqualTo(1_000_000);
     assertThat(cuesWithTimingsList.get(0).durationUs).isEqualTo(1_000_000);
     assertThat(cuesWithTimingsList.get(0).endTimeUs).isEqualTo(2_000_000);
-    assertThat(Lists.transform(cuesWithTimingsList.get(0).cues, c -> c.text))
+    assertThat(cuesWithTimingsList.get(0).cues.stream().map(c -> c.text))
         .containsExactly(FIRST_SUBTITLE_STRING);
     assertThat(cuesWithTimingsList.get(1).startTimeUs).isEqualTo(2_000_000);
     assertThat(cuesWithTimingsList.get(1).durationUs).isEqualTo(1_000_000);
     assertThat(cuesWithTimingsList.get(1).endTimeUs).isEqualTo(3_000_000);
-    assertThat(Lists.transform(cuesWithTimingsList.get(1).cues, c -> c.text))
+    assertThat(cuesWithTimingsList.get(1).cues.stream().map(c -> c.text))
         .containsExactly(FIRST_SUBTITLE_STRING, SECOND_SUBTITLE_STRING)
         .inOrder();
     assertThat(cuesWithTimingsList.get(2).startTimeUs).isEqualTo(3_000_000);
     assertThat(cuesWithTimingsList.get(2).durationUs).isEqualTo(1_000_000);
     assertThat(cuesWithTimingsList.get(2).endTimeUs).isEqualTo(4_000_000);
-    assertThat(Lists.transform(cuesWithTimingsList.get(2).cues, c -> c.text))
+    assertThat(cuesWithTimingsList.get(2).cues.stream().map(c -> c.text))
         .containsExactly(SECOND_SUBTITLE_STRING);
+  }
+
+  @Test
+  public void toCuesWithTiming_allCues_emptySubtitle() {
+    ImmutableList<CuesWithTiming> cuesWithTimingsList =
+        toCuesWithTimingList(EMPTY_SUBTITLE, SubtitleParser.OutputOptions.allCues());
+
+    assertThat(cuesWithTimingsList).isEmpty();
   }
 
   @Test
@@ -146,7 +155,7 @@ public class LegacySubtitleUtilWebvttTest {
     assertThat(cuesWithTimingsList.get(0).startTimeUs).isEqualTo(3_000_000);
     assertThat(cuesWithTimingsList.get(0).durationUs).isEqualTo(1_000_000);
     assertThat(cuesWithTimingsList.get(0).endTimeUs).isEqualTo(4_000_000);
-    assertThat(Lists.transform(cuesWithTimingsList.get(0).cues, c -> c.text))
+    assertThat(cuesWithTimingsList.get(0).cues.stream().map(c -> c.text))
         .containsExactly(SECOND_SUBTITLE_STRING);
   }
 
@@ -160,7 +169,7 @@ public class LegacySubtitleUtilWebvttTest {
     assertThat(cuesWithTimingsList.get(0).startTimeUs).isEqualTo(3_000_000);
     assertThat(cuesWithTimingsList.get(0).durationUs).isEqualTo(1_000_000);
     assertThat(cuesWithTimingsList.get(0).endTimeUs).isEqualTo(4_000_000);
-    assertThat(Lists.transform(cuesWithTimingsList.get(0).cues, c -> c.text))
+    assertThat(cuesWithTimingsList.get(0).cues.stream().map(c -> c.text))
         .containsExactly(SECOND_SUBTITLE_STRING);
   }
 
@@ -174,7 +183,7 @@ public class LegacySubtitleUtilWebvttTest {
     assertThat(cuesWithTimingsList.get(0).startTimeUs).isEqualTo(3_000_000);
     assertThat(cuesWithTimingsList.get(0).durationUs).isEqualTo(1_000_000);
     assertThat(cuesWithTimingsList.get(0).endTimeUs).isEqualTo(4_000_000);
-    assertThat(Lists.transform(cuesWithTimingsList.get(0).cues, c -> c.text))
+    assertThat(cuesWithTimingsList.get(0).cues.stream().map(c -> c.text))
         .containsExactly(SECOND_SUBTITLE_STRING);
   }
 
@@ -189,13 +198,31 @@ public class LegacySubtitleUtilWebvttTest {
     assertThat(cuesWithTimingsList.get(0).startTimeUs).isEqualTo(1_500_000);
     assertThat(cuesWithTimingsList.get(0).durationUs).isEqualTo(500_000);
     assertThat(cuesWithTimingsList.get(0).endTimeUs).isEqualTo(2_000_000);
-    assertThat(Lists.transform(cuesWithTimingsList.get(0).cues, c -> c.text))
+    assertThat(cuesWithTimingsList.get(0).cues.stream().map(c -> c.text))
         .containsExactly(FIRST_SUBTITLE_STRING);
     assertThat(cuesWithTimingsList.get(1).startTimeUs).isEqualTo(3_000_000);
     assertThat(cuesWithTimingsList.get(1).durationUs).isEqualTo(1_000_000);
     assertThat(cuesWithTimingsList.get(1).endTimeUs).isEqualTo(4_000_000);
-    assertThat(Lists.transform(cuesWithTimingsList.get(1).cues, c -> c.text))
+    assertThat(cuesWithTimingsList.get(1).cues.stream().map(c -> c.text))
         .containsExactly(SECOND_SUBTITLE_STRING);
+  }
+
+  @Test
+  public void toCuesWithTiming_onlyEmitCuesAfterStartTime_startAtSubtitleEnd_simpleSubtitle() {
+    ImmutableList<CuesWithTiming> cuesWithTimingsList =
+        toCuesWithTimingList(
+            SIMPLE_SUBTITLE, SubtitleParser.OutputOptions.onlyCuesAfter(4_000_000));
+
+    assertThat(cuesWithTimingsList).isEmpty();
+  }
+
+  @Test
+  public void toCuesWithTiming_onlyEmitCuesAfterStartTime_startAfterSubtitleEnd_simpleSubtitle() {
+    ImmutableList<CuesWithTiming> cuesWithTimingsList =
+        toCuesWithTimingList(
+            SIMPLE_SUBTITLE, SubtitleParser.OutputOptions.onlyCuesAfter(4_500_000));
+
+    assertThat(cuesWithTimingsList).isEmpty();
   }
 
   @Test
@@ -208,7 +235,7 @@ public class LegacySubtitleUtilWebvttTest {
     assertThat(cuesWithTimingsList.get(0).startTimeUs).isEqualTo(2_000_000);
     assertThat(cuesWithTimingsList.get(0).durationUs).isEqualTo(2_000_000);
     assertThat(cuesWithTimingsList.get(0).endTimeUs).isEqualTo(4_000_000);
-    assertThat(Lists.transform(cuesWithTimingsList.get(0).cues, c -> c.text))
+    assertThat(cuesWithTimingsList.get(0).cues.stream().map(c -> c.text))
         .containsExactly(SECOND_SUBTITLE_STRING);
   }
 
@@ -223,12 +250,12 @@ public class LegacySubtitleUtilWebvttTest {
     assertThat(cuesWithTimingsList.get(0).startTimeUs).isEqualTo(1_500_000);
     assertThat(cuesWithTimingsList.get(0).durationUs).isEqualTo(500_000);
     assertThat(cuesWithTimingsList.get(0).endTimeUs).isEqualTo(2_000_000);
-    assertThat(Lists.transform(cuesWithTimingsList.get(0).cues, c -> c.text))
+    assertThat(cuesWithTimingsList.get(0).cues.stream().map(c -> c.text))
         .containsExactly(FIRST_SUBTITLE_STRING);
     assertThat(cuesWithTimingsList.get(1).startTimeUs).isEqualTo(2_000_000);
     assertThat(cuesWithTimingsList.get(1).durationUs).isEqualTo(2_000_000);
     assertThat(cuesWithTimingsList.get(1).endTimeUs).isEqualTo(4_000_000);
-    assertThat(Lists.transform(cuesWithTimingsList.get(1).cues, c -> c.text))
+    assertThat(cuesWithTimingsList.get(1).cues.stream().map(c -> c.text))
         .containsExactly(SECOND_SUBTITLE_STRING);
   }
 
@@ -243,14 +270,22 @@ public class LegacySubtitleUtilWebvttTest {
     assertThat(cuesWithTimingsList.get(0).startTimeUs).isEqualTo(2_500_000);
     assertThat(cuesWithTimingsList.get(0).durationUs).isEqualTo(500_000);
     assertThat(cuesWithTimingsList.get(0).endTimeUs).isEqualTo(3_000_000);
-    assertThat(Lists.transform(cuesWithTimingsList.get(0).cues, c -> c.text))
+    assertThat(cuesWithTimingsList.get(0).cues.stream().map(c -> c.text))
         .containsExactly(FIRST_SUBTITLE_STRING, SECOND_SUBTITLE_STRING)
         .inOrder();
     assertThat(cuesWithTimingsList.get(1).startTimeUs).isEqualTo(3_000_000);
     assertThat(cuesWithTimingsList.get(1).durationUs).isEqualTo(1_000_000);
     assertThat(cuesWithTimingsList.get(1).endTimeUs).isEqualTo(4_000_000);
-    assertThat(Lists.transform(cuesWithTimingsList.get(1).cues, c -> c.text))
+    assertThat(cuesWithTimingsList.get(1).cues.stream().map(c -> c.text))
         .containsExactly(SECOND_SUBTITLE_STRING);
+  }
+
+  @Test
+  public void toCuesWithTiming_onlyEmitCuesAfterStartTime_emptySubtitle() {
+    ImmutableList<CuesWithTiming> cuesWithTimingsList =
+        toCuesWithTimingList(EMPTY_SUBTITLE, SubtitleParser.OutputOptions.onlyCuesAfter(0));
+
+    assertThat(cuesWithTimingsList).isEmpty();
   }
 
   @Test
@@ -265,12 +300,12 @@ public class LegacySubtitleUtilWebvttTest {
     assertThat(cuesWithTimingsList.get(0).startTimeUs).isEqualTo(3_000_000);
     assertThat(cuesWithTimingsList.get(0).durationUs).isEqualTo(1_000_000);
     assertThat(cuesWithTimingsList.get(0).endTimeUs).isEqualTo(4_000_000);
-    assertThat(Lists.transform(cuesWithTimingsList.get(0).cues, c -> c.text))
+    assertThat(cuesWithTimingsList.get(0).cues.stream().map(c -> c.text))
         .containsExactly(SECOND_SUBTITLE_STRING);
     assertThat(cuesWithTimingsList.get(1).startTimeUs).isEqualTo(1_000_000);
     assertThat(cuesWithTimingsList.get(1).durationUs).isEqualTo(1_000_000);
     assertThat(cuesWithTimingsList.get(1).endTimeUs).isEqualTo(2_000_000);
-    assertThat(Lists.transform(cuesWithTimingsList.get(1).cues, c -> c.text))
+    assertThat(cuesWithTimingsList.get(1).cues.stream().map(c -> c.text))
         .containsExactly(FIRST_SUBTITLE_STRING);
   }
 
@@ -287,18 +322,18 @@ public class LegacySubtitleUtilWebvttTest {
     assertThat(cuesWithTimingsList.get(0).startTimeUs).isEqualTo(1_500_000);
     assertThat(cuesWithTimingsList.get(0).durationUs).isEqualTo(500_000);
     assertThat(cuesWithTimingsList.get(0).endTimeUs).isEqualTo(2_000_000);
-    assertThat(Lists.transform(cuesWithTimingsList.get(0).cues, c -> c.text))
+    assertThat(cuesWithTimingsList.get(0).cues.stream().map(c -> c.text))
         .containsExactly(FIRST_SUBTITLE_STRING);
     assertThat(cuesWithTimingsList.get(1).startTimeUs).isEqualTo(3_000_000);
     assertThat(cuesWithTimingsList.get(1).durationUs).isEqualTo(1_000_000);
     assertThat(cuesWithTimingsList.get(1).endTimeUs).isEqualTo(4_000_000);
-    assertThat(Lists.transform(cuesWithTimingsList.get(1).cues, c -> c.text))
+    assertThat(cuesWithTimingsList.get(1).cues.stream().map(c -> c.text))
         .containsExactly(SECOND_SUBTITLE_STRING);
     // Final event is the part of the 'first event' that is before OutputOptions.startTimeUs
     assertThat(cuesWithTimingsList.get(2).startTimeUs).isEqualTo(1_000_000);
     assertThat(cuesWithTimingsList.get(2).durationUs).isEqualTo(500_000);
     assertThat(cuesWithTimingsList.get(2).endTimeUs).isEqualTo(1_500_000);
-    assertThat(Lists.transform(cuesWithTimingsList.get(2).cues, c -> c.text))
+    assertThat(cuesWithTimingsList.get(2).cues.stream().map(c -> c.text))
         .containsExactly(FIRST_SUBTITLE_STRING);
   }
 
@@ -314,13 +349,55 @@ public class LegacySubtitleUtilWebvttTest {
     assertThat(cuesWithTimingsList.get(0).startTimeUs).isEqualTo(3_000_000);
     assertThat(cuesWithTimingsList.get(0).durationUs).isEqualTo(1_000_000);
     assertThat(cuesWithTimingsList.get(0).endTimeUs).isEqualTo(4_000_000);
-    assertThat(Lists.transform(cuesWithTimingsList.get(0).cues, c -> c.text))
+    assertThat(cuesWithTimingsList.get(0).cues.stream().map(c -> c.text))
         .containsExactly(SECOND_SUBTITLE_STRING);
     assertThat(cuesWithTimingsList.get(1).startTimeUs).isEqualTo(1_000_000);
     assertThat(cuesWithTimingsList.get(1).durationUs).isEqualTo(1_000_000);
     assertThat(cuesWithTimingsList.get(1).endTimeUs).isEqualTo(2_000_000);
-    assertThat(Lists.transform(cuesWithTimingsList.get(1).cues, c -> c.text))
+    assertThat(cuesWithTimingsList.get(1).cues.stream().map(c -> c.text))
         .containsExactly(FIRST_SUBTITLE_STRING);
+  }
+
+  @Test
+  public void
+      toCuesWithTiming_emitCuesAfterStartTimeThenThoseBefore_startAtSubtitleEnd_simpleSubtitle() {
+    ImmutableList<CuesWithTiming> cuesWithTimingsList =
+        toCuesWithTimingList(
+            SIMPLE_SUBTITLE,
+            SubtitleParser.OutputOptions.cuesAfterThenRemainingCuesBefore(4_000_000));
+
+    assertThat(cuesWithTimingsList).hasSize(2);
+    assertThat(cuesWithTimingsList.get(0).startTimeUs).isEqualTo(1_000_000);
+    assertThat(cuesWithTimingsList.get(0).durationUs).isEqualTo(1_000_000);
+    assertThat(cuesWithTimingsList.get(0).endTimeUs).isEqualTo(2_000_000);
+    assertThat(cuesWithTimingsList.get(0).cues.stream().map(c -> c.text))
+        .containsExactly(FIRST_SUBTITLE_STRING);
+    assertThat(cuesWithTimingsList.get(1).startTimeUs).isEqualTo(3_000_000);
+    assertThat(cuesWithTimingsList.get(1).durationUs).isEqualTo(1_000_000);
+    assertThat(cuesWithTimingsList.get(1).endTimeUs).isEqualTo(4_000_000);
+    assertThat(cuesWithTimingsList.get(1).cues.stream().map(c -> c.text))
+        .containsExactly(SECOND_SUBTITLE_STRING);
+  }
+
+  @Test
+  public void
+      toCuesWithTiming_emitCuesAfterStartTimeThenThoseBefore_startAfterSubtitleEnd_simpleSubtitle() {
+    ImmutableList<CuesWithTiming> cuesWithTimingsList =
+        toCuesWithTimingList(
+            SIMPLE_SUBTITLE,
+            SubtitleParser.OutputOptions.cuesAfterThenRemainingCuesBefore(4_500_000));
+
+    assertThat(cuesWithTimingsList).hasSize(2);
+    assertThat(cuesWithTimingsList.get(0).startTimeUs).isEqualTo(1_000_000);
+    assertThat(cuesWithTimingsList.get(0).durationUs).isEqualTo(1_000_000);
+    assertThat(cuesWithTimingsList.get(0).endTimeUs).isEqualTo(2_000_000);
+    assertThat(cuesWithTimingsList.get(0).cues.stream().map(c -> c.text))
+        .containsExactly(FIRST_SUBTITLE_STRING);
+    assertThat(cuesWithTimingsList.get(1).startTimeUs).isEqualTo(3_000_000);
+    assertThat(cuesWithTimingsList.get(1).durationUs).isEqualTo(1_000_000);
+    assertThat(cuesWithTimingsList.get(1).endTimeUs).isEqualTo(4_000_000);
+    assertThat(cuesWithTimingsList.get(1).cues.stream().map(c -> c.text))
+        .containsExactly(SECOND_SUBTITLE_STRING);
   }
 
   @Test
@@ -335,12 +412,12 @@ public class LegacySubtitleUtilWebvttTest {
     assertThat(cuesWithTimingsList.get(0).startTimeUs).isEqualTo(2_000_000);
     assertThat(cuesWithTimingsList.get(0).durationUs).isEqualTo(2_000_000);
     assertThat(cuesWithTimingsList.get(0).endTimeUs).isEqualTo(4_000_000);
-    assertThat(Lists.transform(cuesWithTimingsList.get(0).cues, c -> c.text))
+    assertThat(cuesWithTimingsList.get(0).cues.stream().map(c -> c.text))
         .containsExactly(SECOND_SUBTITLE_STRING);
     assertThat(cuesWithTimingsList.get(1).startTimeUs).isEqualTo(1_000_000);
     assertThat(cuesWithTimingsList.get(1).durationUs).isEqualTo(1_000_000);
     assertThat(cuesWithTimingsList.get(1).endTimeUs).isEqualTo(2_000_000);
-    assertThat(Lists.transform(cuesWithTimingsList.get(1).cues, c -> c.text))
+    assertThat(cuesWithTimingsList.get(1).cues.stream().map(c -> c.text))
         .containsExactly(FIRST_SUBTITLE_STRING);
   }
 
@@ -357,18 +434,18 @@ public class LegacySubtitleUtilWebvttTest {
     assertThat(cuesWithTimingsList.get(0).startTimeUs).isEqualTo(1_500_000);
     assertThat(cuesWithTimingsList.get(0).durationUs).isEqualTo(500_000);
     assertThat(cuesWithTimingsList.get(0).endTimeUs).isEqualTo(2_000_000);
-    assertThat(Lists.transform(cuesWithTimingsList.get(0).cues, c -> c.text))
+    assertThat(cuesWithTimingsList.get(0).cues.stream().map(c -> c.text))
         .containsExactly(FIRST_SUBTITLE_STRING);
     assertThat(cuesWithTimingsList.get(1).startTimeUs).isEqualTo(2_000_000);
     assertThat(cuesWithTimingsList.get(1).durationUs).isEqualTo(2_000_000);
     assertThat(cuesWithTimingsList.get(1).endTimeUs).isEqualTo(4_000_000);
-    assertThat(Lists.transform(cuesWithTimingsList.get(1).cues, c -> c.text))
+    assertThat(cuesWithTimingsList.get(1).cues.stream().map(c -> c.text))
         .containsExactly(SECOND_SUBTITLE_STRING);
     // Final event is the part of the 'first event' that is before OutputOptions.startTimeUs
     assertThat(cuesWithTimingsList.get(2).startTimeUs).isEqualTo(1_000_000);
     assertThat(cuesWithTimingsList.get(2).durationUs).isEqualTo(500_000);
     assertThat(cuesWithTimingsList.get(2).endTimeUs).isEqualTo(1_500_000);
-    assertThat(Lists.transform(cuesWithTimingsList.get(2).cues, c -> c.text))
+    assertThat(cuesWithTimingsList.get(2).cues.stream().map(c -> c.text))
         .containsExactly(FIRST_SUBTITLE_STRING);
   }
 
@@ -384,26 +461,34 @@ public class LegacySubtitleUtilWebvttTest {
     assertThat(cuesWithTimingsList.get(0).startTimeUs).isEqualTo(2_500_000);
     assertThat(cuesWithTimingsList.get(0).durationUs).isEqualTo(500_000);
     assertThat(cuesWithTimingsList.get(0).endTimeUs).isEqualTo(3_000_000);
-    assertThat(Lists.transform(cuesWithTimingsList.get(0).cues, c -> c.text))
+    assertThat(cuesWithTimingsList.get(0).cues.stream().map(c -> c.text))
         .containsExactly(FIRST_SUBTITLE_STRING, SECOND_SUBTITLE_STRING)
         .inOrder();
     assertThat(cuesWithTimingsList.get(1).startTimeUs).isEqualTo(3_000_000);
     assertThat(cuesWithTimingsList.get(1).durationUs).isEqualTo(1_000_000);
     assertThat(cuesWithTimingsList.get(1).endTimeUs).isEqualTo(4_000_000);
-    assertThat(Lists.transform(cuesWithTimingsList.get(1).cues, c -> c.text))
+    assertThat(cuesWithTimingsList.get(1).cues.stream().map(c -> c.text))
         .containsExactly(SECOND_SUBTITLE_STRING);
     assertThat(cuesWithTimingsList.get(2).startTimeUs).isEqualTo(1_000_000);
     assertThat(cuesWithTimingsList.get(2).durationUs).isEqualTo(1_000_000);
     assertThat(cuesWithTimingsList.get(2).endTimeUs).isEqualTo(2_000_000);
-    assertThat(Lists.transform(cuesWithTimingsList.get(2).cues, c -> c.text))
+    assertThat(cuesWithTimingsList.get(2).cues.stream().map(c -> c.text))
         .containsExactly(FIRST_SUBTITLE_STRING);
     // Final event is the part of the 'first event' that is before OutputOptions.startTimeUs
     assertThat(cuesWithTimingsList.get(3).startTimeUs).isEqualTo(2_000_000);
     assertThat(cuesWithTimingsList.get(3).durationUs).isEqualTo(500_000);
     assertThat(cuesWithTimingsList.get(3).endTimeUs).isEqualTo(2_500_000);
-    assertThat(Lists.transform(cuesWithTimingsList.get(3).cues, c -> c.text))
+    assertThat(cuesWithTimingsList.get(3).cues.stream().map(c -> c.text))
         .containsExactly(FIRST_SUBTITLE_STRING, SECOND_SUBTITLE_STRING)
         .inOrder();
+  }
+
+  @Test
+  public void toCuesWithTiming_emitCuesAfterStartTimeThenThoseBefore_emptySubtitle() {
+    ImmutableList<CuesWithTiming> cuesWithTimingsList =
+        toCuesWithTimingList(EMPTY_SUBTITLE, SubtitleParser.OutputOptions.onlyCuesAfter(0));
+
+    assertThat(cuesWithTimingsList).isEmpty();
   }
 
   private static ImmutableList<CuesWithTiming> toCuesWithTimingList(

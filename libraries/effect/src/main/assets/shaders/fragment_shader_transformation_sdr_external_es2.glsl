@@ -16,12 +16,11 @@
 // ES 2 fragment shader that:
 // 1. Samples from an external texture with uTexSampler copying from this
 //    texture to the current output.
-// 2. Transforms the electrical colors to optical colors using the SMPTE 170M
-//    EOTF.
+// 2. Transforms the electrical colors to "working" colors which is the input
+//    colorspace with the colors transferred to either linear or SMPTE 170M as
+//    requested by uSdrWorkingColorSpace.
 // 3. Applies a 4x4 RGB color matrix to change the pixel colors.
-// 4. Outputs as requested by uOutputColorTransfer. Use COLOR_TRANSFER_LINEAR
-//    for outputting to intermediate shaders, or COLOR_TRANSFER_SDR_VIDEO to
-//    output electrical colors via an OETF (e.g. to an encoder).
+// 4. Outputs as requested by uOutputColorTransfer.
 
 #extension GL_OES_EGL_image_external : require
 precision mediump float;
@@ -31,12 +30,20 @@ varying vec2 vTexSamplingCoord;
 // C.java#ColorTransfer value.
 // Only COLOR_TRANSFER_LINEAR and COLOR_TRANSFER_SDR_VIDEO are allowed.
 uniform int uOutputColorTransfer;
-uniform int uEnableColorTransfer;
+uniform int uSdrWorkingColorSpace;
 
 const float inverseGamma = 0.4500;
 const float gamma = 1.0 / inverseGamma;
 const int GL_FALSE = 0;
 const int GL_TRUE = 1;
+// LINT.IfChange(working_color_space)
+const int WORKING_COLOR_SPACE_DEFAULT = 0;
+const int WORKING_COLOR_SPACE_ORIGINAL = 1;
+const int WORKING_COLOR_SPACE_LINEAR = 2;
+
+// Output colors for an obviously visible error.
+const vec3 ERROR_COLOR_BLUE = vec3(0.0, 0.0, 1.0);
+const vec3 ERROR_COLOR_RED = vec3(1.0, 0.0, 0.0);
 
 // Transforms a single channel from electrical to optical SDR using the SMPTE
 // 170M OETF.
@@ -71,39 +78,53 @@ vec3 smpte170mOetf(vec3 opticalColor) {
               smpte170mOetfSingleChannel(opticalColor.b));
 }
 
-// Applies the appropriate OETF to convert linear optical signals to nonlinear
-// electrical signals. Input and output are both normalized to [0, 1].
-highp vec3 applyOetf(highp vec3 linearColor) {
-  // LINT.IfChange(color_transfer)
-  const int COLOR_TRANSFER_LINEAR = 1;
-  const int COLOR_TRANSFER_SDR_VIDEO = 3;
-  if (uOutputColorTransfer == COLOR_TRANSFER_LINEAR ||
-      uEnableColorTransfer == GL_FALSE) {
-    return linearColor;
-  } else if (uOutputColorTransfer == COLOR_TRANSFER_SDR_VIDEO) {
-    return smpte170mOetf(linearColor);
+// Optionally applies the appropriate EOTF to convert nonlinear electrical
+// signals to linear optical signals. Input and output are both normalized to
+// [0, 1].
+vec3 convertToWorkingColors(vec3 inputColor) {
+  if (uSdrWorkingColorSpace == WORKING_COLOR_SPACE_DEFAULT ||
+      uSdrWorkingColorSpace == WORKING_COLOR_SPACE_ORIGINAL) {
+    return inputColor;
+  } else if (uSdrWorkingColorSpace == WORKING_COLOR_SPACE_LINEAR) {
+    return smpte170mEotf(inputColor);
   } else {
-    // Output red as an obviously visible error.
-    return vec3(1.0, 0.0, 0.0);
+    return ERROR_COLOR_BLUE;
   }
 }
 
-vec3 applyEotf(vec3 electricalColor) {
-  if (uEnableColorTransfer == GL_TRUE) {
-    return smpte170mEotf(electricalColor);
-  } else if (uEnableColorTransfer == GL_FALSE) {
-    return electricalColor;
+// Optionally applies the appropriate OETF to convert linear optical signals to
+// nonlinear electrical signals. Input and output are both normalized to [0, 1].
+highp vec3 convertToOutputColors(highp vec3 workingColors) {
+  // LINT.IfChange(color_transfer)
+  const int COLOR_TRANSFER_LINEAR = 1;
+  const int COLOR_TRANSFER_SDR_VIDEO = 3;
+  if (uSdrWorkingColorSpace == WORKING_COLOR_SPACE_DEFAULT) {
+    if (uOutputColorTransfer == COLOR_TRANSFER_LINEAR) {
+      return smpte170mEotf(workingColors);
+    } else if (uOutputColorTransfer == COLOR_TRANSFER_SDR_VIDEO) {
+      return workingColors;
+    } else {
+      return ERROR_COLOR_RED;
+    }
+  } else if (uSdrWorkingColorSpace == WORKING_COLOR_SPACE_ORIGINAL) {
+    return workingColors;
+  } else if (uSdrWorkingColorSpace == WORKING_COLOR_SPACE_LINEAR) {
+    if (uOutputColorTransfer == COLOR_TRANSFER_LINEAR) {
+      return workingColors;
+    } else if (uOutputColorTransfer == COLOR_TRANSFER_SDR_VIDEO) {
+      return smpte170mOetf(workingColors);
+    } else {
+      return ERROR_COLOR_RED;
+    }
   } else {
-    // Output blue as an obviously visible error.
-    return vec3(0.0, 0.0, 1.0);
+    return ERROR_COLOR_RED;
   }
 }
 
 void main() {
   vec4 inputColor = texture2D(uTexSampler, vTexSamplingCoord);
-  vec3 linearInputColor = applyEotf(inputColor.rgb);
-
-  vec4 transformedColors = uRgbMatrix * vec4(linearInputColor, 1);
-
-  gl_FragColor = vec4(applyOetf(transformedColors.rgb), inputColor.a);
+  vec3 workingColors = convertToWorkingColors(inputColor.rgb);
+  vec4 transformedColors = uRgbMatrix * vec4(workingColors, 1);
+  gl_FragColor =
+      vec4(convertToOutputColors(transformedColors.rgb), inputColor.a);
 }

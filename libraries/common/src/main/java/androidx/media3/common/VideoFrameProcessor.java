@@ -19,6 +19,7 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.SurfaceTexture;
 import android.opengl.EGLExt;
 import android.view.Surface;
 import androidx.annotation.IntDef;
@@ -48,12 +49,18 @@ import java.util.concurrent.Executor;
 public interface VideoFrameProcessor {
   /**
    * Specifies how the input frames are made available to the {@link VideoFrameProcessor}. One of
-   * {@link #INPUT_TYPE_SURFACE}, {@link #INPUT_TYPE_BITMAP} or {@link #INPUT_TYPE_TEXTURE_ID}.
+   * {@link #INPUT_TYPE_SURFACE}, {@link #INPUT_TYPE_BITMAP}, {@link #INPUT_TYPE_TEXTURE_ID} or
+   * {@link #INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION}.
    */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)
-  @IntDef({INPUT_TYPE_SURFACE, INPUT_TYPE_BITMAP, INPUT_TYPE_TEXTURE_ID})
+  @IntDef({
+    INPUT_TYPE_SURFACE,
+    INPUT_TYPE_BITMAP,
+    INPUT_TYPE_TEXTURE_ID,
+    INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION,
+  })
   @interface InputType {}
 
   /**
@@ -73,6 +80,16 @@ public interface VideoFrameProcessor {
    */
   int INPUT_TYPE_TEXTURE_ID = 3;
 
+  /**
+   * Input frames come from the {@linkplain #getInputSurface input surface} and don't need to be
+   * {@linkplain #registerInputFrame registered} (unlike with {@link #INPUT_TYPE_SURFACE}).
+   *
+   * <p>Every frame must use the {@linkplain #registerInputStream(int, List, FrameInfo) input
+   * stream's registered} frame info. Also sets the surface's {@linkplain
+   * android.graphics.SurfaceTexture#setDefaultBufferSize(int, int) default buffer size}.
+   */
+  int INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION = 4;
+
   /** A factory for {@link VideoFrameProcessor} instances. */
   interface Factory {
 
@@ -81,7 +98,8 @@ public interface VideoFrameProcessor {
      * Creates a new {@link VideoFrameProcessor} instance.
      *
      * @param context A {@link Context}.
-     * @param debugViewProvider A {@link DebugViewProvider}.
+     * @param debugViewProvider A {@link DebugViewProvider}. In production usage, pass {@link
+     *     DebugViewProvider#NONE}.
      * @param outputColorInfo The {@link ColorInfo} for the output frames.
      * @param renderFramesAutomatically If {@code true}, the instance will render output frames to
      *     the {@linkplain #setOutputSurfaceInfo(SurfaceInfo) output surface} automatically as
@@ -169,6 +187,13 @@ public interface VideoFrameProcessor {
   long DROP_OUTPUT_FRAME = -2;
 
   /**
+   * Indicates the frame should preserve the input presentation time when {@link
+   * #renderOutputFrame(long)} is invoked.
+   */
+  @SuppressWarnings("GoodTime-ApiWithNumericTimeUnit") // This is a named constant, not a time unit.
+  long RENDER_OUTPUT_FRAME_WITH_PRESENTATION_TIME = -3;
+
+  /**
    * Provides an input {@link Bitmap} to the {@link VideoFrameProcessor}.
    *
    * <p>Can be called many times after {@link #registerInputStream(int, List, FrameInfo) registering
@@ -206,12 +231,30 @@ public interface VideoFrameProcessor {
   void setOnInputFrameProcessedListener(OnInputFrameProcessedListener listener);
 
   /**
+   * Sets a listener that's called when the {@linkplain #getInputSurface() input surface} is ready
+   * to use.
+   */
+  void setOnInputSurfaceReadyListener(Runnable listener);
+
+  // TODO: b/351776002 - Call setDefaultBufferSize on the INPUT_TYPE_SURFACE path too and remove
+  //  mentions of the method (which leak an implementation detail) throughout this file.
+  /**
    * Returns the input {@link Surface}, where {@link VideoFrameProcessor} consumes input frames
    * from.
    *
    * <p>The frames arriving on the {@link Surface} will not be consumed by the {@code
    * VideoFrameProcessor} until {@link #registerInputStream} is called with {@link
    * #INPUT_TYPE_SURFACE}.
+   *
+   * <p>For streams with {@link #INPUT_TYPE_SURFACE}, the returned surface is ready to use
+   * immediately and will not have a {@linkplain SurfaceTexture#setDefaultBufferSize(int, int)
+   * default buffer size} set on it. This is suitable for configuring a {@link
+   * android.media.MediaCodec} decoder.
+   *
+   * <p>For streams with {@link #INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION}, set a listener
+   * for the surface becoming ready via {@link #setOnInputSurfaceReadyListener(Runnable)} and wait
+   * for the event before using the returned surface. This is suitable for use with non-decoder
+   * producers like media projection.
    *
    * @throws UnsupportedOperationException If the {@code VideoFrameProcessor} does not accept
    *     {@linkplain #INPUT_TYPE_SURFACE surface input}.
@@ -297,7 +340,10 @@ public interface VideoFrameProcessor {
    *
    * @param renderTimeNs The render time to use for the frame, in nanoseconds. The render time can
    *     be before or after the current system time. Use {@link #DROP_OUTPUT_FRAME} to drop the
-   *     frame, or {@link #RENDER_OUTPUT_FRAME_IMMEDIATELY} to render the frame immediately.
+   *     frame, or {@link #RENDER_OUTPUT_FRAME_IMMEDIATELY} to render the frame immediately, or
+   *     {@link #RENDER_OUTPUT_FRAME_WITH_PRESENTATION_TIME} to render the frame to the {@linkplain
+   *     #setOutputSurfaceInfo output surface} with the presentation timestamp seen in {@link
+   *     Listener#onOutputFrameAvailableForRendering(long)}.
    */
   void renderOutputFrame(long renderTimeNs);
 
@@ -318,8 +364,6 @@ public interface VideoFrameProcessor {
    *
    * @throws UnsupportedOperationException If the {@code VideoFrameProcessor} does not accept
    *     {@linkplain #INPUT_TYPE_SURFACE surface input}.
-   * @throws IllegalStateException If {@link #registerInputStream} is not called before calling this
-   *     method.
    */
   void flush();
 

@@ -24,14 +24,12 @@ import static com.google.common.base.Strings.nullToEmpty;
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.ParserException;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** Parses a String based SDP message into {@link SessionDescription}. */
-@UnstableApi
 /* package */ final class SessionDescriptionParser {
   // SDP line always starts with an one letter tag, followed by an equal sign. The information
   // under the given tag follows an optional space.

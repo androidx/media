@@ -20,6 +20,7 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.postOrRun;
 
+import android.app.Activity;
 import android.app.ForegroundServiceStartNotAllowedException;
 import android.app.Service;
 import android.content.ComponentName;
@@ -38,13 +39,13 @@ import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.collection.ArrayMap;
-import androidx.media.MediaBrowserServiceCompat;
-import androidx.media.MediaSessionManager;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaSession.ControllerInfo;
+import androidx.media3.session.legacy.MediaBrowserServiceCompat;
+import androidx.media3.session.legacy.MediaSessionManager;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -76,7 +77,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * }</pre>
  *
  * <p>You may also declare the action {@code android.media.browse.MediaBrowserService} for
- * compatibility with {@link android.support.v4.media.MediaBrowserCompat}. This service can handle
+ * compatibility with {@code android.support.v4.media.MediaBrowserCompat}. This service can handle
  * the case automatically.
  *
  * <p>It's recommended for an app to have a single service declared in the manifest. Otherwise, your
@@ -226,10 +227,10 @@ public abstract class MediaSessionService extends Service {
    *   <li>When the service is started by a media button event, the package name will be {@link
    *       Intent#ACTION_MEDIA_BUTTON}. If you want to allow the service to be started by media
    *       button events, do not return {@code null}.
-   *   <li>When a legacy {@link android.media.browse.MediaBrowser} or a {@link
+   *   <li>When a legacy {@link android.media.browse.MediaBrowser} or a {@code
    *       android.support.v4.media.MediaBrowserCompat} tries to connect, the package name will be
-   *       {@link MediaBrowserServiceCompat#SERVICE_INTERFACE}. If you want to allow the service to
-   *       be bound by the legacy media browsers, do not return {@code null}.
+   *       {@link android.service.media.MediaBrowserService#SERVICE_INTERFACE}. If you want to allow
+   *       the service to be bound by the legacy media browsers, do not return {@code null}.
    * </ul>
    *
    * <p>For those special cases, the values returned by {@link ControllerInfo#getUid()} and {@link
@@ -467,6 +468,62 @@ public abstract class MediaSessionService extends Service {
         /* trusted= */ false,
         /* cb= */ null,
         /* connectionHints= */ Bundle.EMPTY);
+  }
+
+  /**
+   * Returns whether there is a session with ongoing playback that must be paused or stopped before
+   * being able to terminate the service by calling {@link #stopSelf()}.
+   */
+  @UnstableApi
+  public boolean isPlaybackOngoing() {
+    return getMediaNotificationManager().isStartedInForeground();
+  }
+
+  /**
+   * Pauses the player of each session managed by the service and calls {@link #stopSelf()}.
+   *
+   * <p>This terminates the service lifecycle and triggers {@link #onDestroy()} that an app can
+   * override to release the sessions and other resources.
+   */
+  @UnstableApi
+  public void pauseAllPlayersAndStopSelf() {
+    List<MediaSession> sessionList = getSessions();
+    for (int i = 0; i < sessionList.size(); i++) {
+      sessionList.get(i).getPlayer().setPlayWhenReady(false);
+    }
+    stopSelf();
+  }
+
+  /**
+   * {@inheritDoc}
+   *
+   * <p>If {@linkplain #isPlaybackOngoing() playback is ongoing}, the service continues running in
+   * the foreground when the app is dismissed from the recent apps. Otherwise, the service is
+   * stopped by calling {@link #stopSelf()} which terminates the service lifecycle and triggers
+   * {@link #onDestroy()} that an app can override to release the sessions and other resources.
+   *
+   * <p>An app can safely override this method without calling super to implement a different
+   * behaviour, for instance unconditionally calling {@link #pauseAllPlayersAndStopSelf()} to stop
+   * the service even when playing. However, if {@linkplain #isPlaybackOngoing() playback is not
+   * ongoing}, the service must be terminated otherwise the service will be crashed and restarted by
+   * the system.
+   *
+   * <p>Note: The service <a
+   * href="https://developer.android.com/develop/background-work/services/bound-services#Lifecycle">can't
+   * be stopped</a> until all media controllers have been unbound. Hence, an app needs to release
+   * all internal controllers that have connected to the service (for instance from an activity in
+   * {@link Activity#onStop()}). If an app allows external apps to connect a {@link MediaController}
+   * to the service, these controllers also need to be disconnected. In such a scenario of external
+   * bound clients, an app needs to override this method to release the session before calling
+   * {@link #stopSelf()}.
+   */
+  @Override
+  public void onTaskRemoved(@Nullable Intent rootIntent) {
+    if (!isPlaybackOngoing()) {
+      // The service needs to be stopped when playback is not ongoing and the service is not in the
+      // foreground.
+      stopSelf();
+    }
   }
 
   /**

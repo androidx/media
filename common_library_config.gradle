@@ -14,6 +14,8 @@
 apply from: "$gradle.ext.androidxMediaSettingsDir/constants.gradle"
 apply plugin: 'com.android.library'
 
+group = 'androidx.media3'
+
 android {
     compileSdkVersion project.ext.compileSdkVersion
 
@@ -25,11 +27,9 @@ android {
         aarMetadata {
             minCompileSdk = project.ext.compileSdkVersion
         }
-        multiDexEnabled true
     }
 
     compileOptions {
-        coreLibraryDesugaringEnabled true
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
@@ -40,9 +40,4 @@ android {
         }
         unitTests.includeAndroidResources true
     }
-}
-
-dependencies {
-    androidTestImplementation 'androidx.multidex:multidex:' + androidxMultidexVersion
-    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:1.1.5'
 }

@@ -15,30 +15,30 @@
  */
 package androidx.media3.transformer.mh;
 
-import static androidx.media3.common.MimeTypes.VIDEO_H265;
-import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.effect.DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_ORIGINAL;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static androidx.media3.transformer.AndroidTestUtil.FORCE_TRANSCODE_VIDEO_EFFECTS;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_1080P_5_SECOND_HLG10;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_720P_4_SECOND_HDR10;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_720P_4_SECOND_HDR10_FORMAT;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_AV1_2_SECOND_HDR10;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_DOLBY_VISION_HDR;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_DOLBY_VISION_HDR_FORMAT;
+import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
 import static androidx.media3.transformer.Composition.HDR_MODE_KEEP_HDR;
 import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
+import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceDoesNotSupportHdrEditing;
+import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceSupportsHdrEditing;
+import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 import android.net.Uri;
 import androidx.media3.common.C;
-import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
-import androidx.media3.transformer.AndroidTestUtil;
+import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.EncoderUtil;
@@ -53,6 +53,7 @@ import androidx.test.filters.SdkSuppress;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.junit.AssumptionViolatedException;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -85,16 +86,14 @@ public final class HdrEditingTest {
       return;
     }
 
-    if (AndroidTestUtil.skipAndLogIfFormatsUnsupported(
+    assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10_FORMAT,
-        /* outputFormat= */ null)) {
-      return;
-    }
+        /* inputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10.videoFormat,
+        /* outputFormat= */ null);
 
     Transformer transformer = new Transformer.Builder(context).build();
-    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_720P_4_SECOND_HDR10));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_720P_4_SECOND_HDR10.uri));
 
     ExportTestResult exportTestResult =
         new TransformerAndroidTestRunner.Builder(context, transformer)
@@ -118,16 +117,14 @@ public final class HdrEditingTest {
       return;
     }
 
-    if (AndroidTestUtil.skipAndLogIfFormatsUnsupported(
+    assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT,
-        /* outputFormat= */ null)) {
-      return;
-    }
+        /* inputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10.videoFormat,
+        /* outputFormat= */ null);
 
     Transformer transformer = new Transformer.Builder(context).build();
-    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_1080P_5_SECOND_HLG10));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_1080P_5_SECOND_HLG10.uri));
 
     ExportTestResult exportTestResult =
         new TransformerAndroidTestRunner.Builder(context, transformer)
@@ -165,19 +162,13 @@ public final class HdrEditingTest {
   @Test
   public void exportAndTranscode_hdr10File_whenHdrEditingIsSupported() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
-    Format format = MP4_ASSET_720P_4_SECOND_HDR10_FORMAT;
-    if (!deviceSupportsHdrEditing(VIDEO_H265, format.colorInfo)) {
-      recordTestSkipped(context, testId, /* reason= */ "Device lacks HDR10 editing support.");
-      return;
-    }
+    Format format = MP4_ASSET_720P_4_SECOND_HDR10.videoFormat;
+    assumeDeviceSupportsHdrEditing(testId, format);
 
-    if (AndroidTestUtil.skipAndLogIfFormatsUnsupported(
-        context, testId, /* inputFormat= */ format, /* outputFormat= */ format)) {
-      return;
-    }
+    assumeFormatsSupported(context, testId, /* inputFormat= */ format, /* outputFormat= */ format);
 
     Transformer transformer = new Transformer.Builder(context).build();
-    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_720P_4_SECOND_HDR10));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_720P_4_SECOND_HDR10.uri));
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem).setEffects(FORCE_TRANSCODE_VIDEO_EFFECTS).build();
 
@@ -196,19 +187,13 @@ public final class HdrEditingTest {
   @Test
   public void exportAndTranscode_hlg10File_whenHdrEditingIsSupported() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
-    Format format = MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT;
-    if (!deviceSupportsHdrEditing(VIDEO_H265, format.colorInfo)) {
-      recordTestSkipped(context, testId, /* reason= */ "Device lacks HLG10 editing support.");
-      return;
-    }
+    Format format = MP4_ASSET_1080P_5_SECOND_HLG10.videoFormat;
+    assumeDeviceSupportsHdrEditing(testId, format);
 
-    if (AndroidTestUtil.skipAndLogIfFormatsUnsupported(
-        context, testId, /* inputFormat= */ format, /* outputFormat= */ format)) {
-      return;
-    }
+    assumeFormatsSupported(context, testId, /* inputFormat= */ format, /* outputFormat= */ format);
 
     Transformer transformer = new Transformer.Builder(context).build();
-    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_1080P_5_SECOND_HLG10));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_1080P_5_SECOND_HLG10.uri));
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem).setEffects(FORCE_TRANSCODE_VIDEO_EFFECTS).build();
 
@@ -227,21 +212,89 @@ public final class HdrEditingTest {
   @Test
   public void exportAndTranscode_dolbyVisionFile_whenHdrEditingIsSupported() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
-    Format format = MP4_ASSET_DOLBY_VISION_HDR_FORMAT;
-    if (!deviceSupportsHdrEditing(VIDEO_H265, format.colorInfo)) {
-      recordTestSkipped(context, testId, /* reason= */ "Device lacks HLG10 editing support.");
-      return;
-    }
+    Format format = MP4_ASSET_DOLBY_VISION_HDR.videoFormat;
+    assumeDeviceSupportsHdrEditing(testId, format);
 
-    if (AndroidTestUtil.skipAndLogIfFormatsUnsupported(
-        context, testId, /* inputFormat= */ format, /* outputFormat= */ format)) {
-      return;
-    }
+    assumeFormatsSupported(context, testId, /* inputFormat= */ format, /* outputFormat= */ format);
 
     Transformer transformer = new Transformer.Builder(context).build();
-    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_DOLBY_VISION_HDR));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_DOLBY_VISION_HDR.uri));
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem).setEffects(FORCE_TRANSCODE_VIDEO_EFFECTS).build();
+
+    ExportTestResult exportTestResult =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+    @C.ColorTransfer
+    int actualColorTransfer =
+        retrieveTrackFormat(context, exportTestResult.filePath, C.TRACK_TYPE_VIDEO)
+            .colorInfo
+            .colorTransfer;
+    assertThat(actualColorTransfer).isEqualTo(C.COLOR_TRANSFER_HLG);
+  }
+
+  @Test
+  public void
+      exportAndTranscode_av1FileWithAv1HdrEditingUnsupportedAndHevcHdrEditingSupported_fallsBackToH265()
+          throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    Format format = MP4_ASSET_AV1_2_SECOND_HDR10.videoFormat;
+    if (EncoderUtil.getSupportedEncodersForHdrEditing(MimeTypes.VIDEO_H265, format.colorInfo)
+        .isEmpty()) {
+      String skipReason = "No H265 HDR editing support for " + format.colorInfo;
+      recordTestSkipped(getApplicationContext(), testId, skipReason);
+      throw new AssumptionViolatedException(skipReason);
+    }
+    if (!EncoderUtil.getSupportedEncodersForHdrEditing(MimeTypes.VIDEO_AV1, format.colorInfo)
+        .isEmpty()) {
+      String skipReason = "AV1 HDR editing support for " + format.colorInfo;
+      recordTestSkipped(getApplicationContext(), testId, skipReason);
+      throw new AssumptionViolatedException(skipReason);
+    }
+
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ format,
+        /* outputFormat= */ format.buildUpon().setSampleMimeType(MimeTypes.VIDEO_H265).build());
+
+    Transformer transformer = new Transformer.Builder(context).build();
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_AV1_2_SECOND_HDR10.uri));
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(mediaItem).setEffects(FORCE_TRANSCODE_VIDEO_EFFECTS).build();
+
+    ExportTestResult exportTestResult =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+    Format outputFormat =
+        retrieveTrackFormat(context, exportTestResult.filePath, C.TRACK_TYPE_VIDEO);
+    assertThat(outputFormat.colorInfo.colorTransfer).isEqualTo(C.COLOR_TRANSFER_ST2084);
+    assertThat(outputFormat.sampleMimeType).isEqualTo(MimeTypes.VIDEO_H265);
+  }
+
+  @Test
+  public void exportAndTranscodeHdr_ignoringSdrWorkingColorSpace_whenHdrEditingIsSupported()
+      throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    Format format = MP4_ASSET_1080P_5_SECOND_HLG10.videoFormat;
+    assumeDeviceSupportsHdrEditing(testId, format);
+
+    assumeFormatsSupported(context, testId, /* inputFormat= */ format, /* outputFormat= */ format);
+
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setVideoFrameProcessorFactory(
+                new DefaultVideoFrameProcessor.Factory.Builder()
+                    .setSdrWorkingColorSpace(WORKING_COLOR_SPACE_ORIGINAL)
+                    .build())
+            .build();
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(Uri.parse(MP4_ASSET_1080P_5_SECOND_HLG10.uri)))
+            .setEffects(FORCE_TRANSCODE_VIDEO_EFFECTS)
+            .build();
 
     ExportTestResult exportTestResult =
         new TransformerAndroidTestRunner.Builder(context, transformer)
@@ -259,16 +312,10 @@ public final class HdrEditingTest {
   public void exportAndTranscode_hdr10File_whenHdrEditingUnsupported_toneMapsOrThrows()
       throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
-    Format format = MP4_ASSET_720P_4_SECOND_HDR10_FORMAT;
-    if (deviceSupportsHdrEditing(VIDEO_H265, format.colorInfo)) {
-      recordTestSkipped(context, testId, /* reason= */ "Device supports HDR10 editing.");
-      return;
-    }
+    Format format = MP4_ASSET_720P_4_SECOND_HDR10.videoFormat;
+    assumeDeviceDoesNotSupportHdrEditing(testId, format);
 
-    if (AndroidTestUtil.skipAndLogIfFormatsUnsupported(
-        context, testId, /* inputFormat= */ format, /* outputFormat= */ null)) {
-      return;
-    }
+    assumeFormatsSupported(context, testId, /* inputFormat= */ format, /* outputFormat= */ null);
 
     AtomicBoolean isFallbackListenerInvoked = new AtomicBoolean();
     AtomicBoolean isToneMappingFallbackApplied = new AtomicBoolean();
@@ -289,7 +336,7 @@ public final class HdrEditingTest {
                   }
                 })
             .build();
-    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_720P_4_SECOND_HDR10));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_720P_4_SECOND_HDR10.uri));
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem).setEffects(FORCE_TRANSCODE_VIDEO_EFFECTS).build();
 
@@ -324,16 +371,10 @@ public final class HdrEditingTest {
   public void exportAndTranscode_hlg10File_whenHdrEditingUnsupported_toneMapsOrThrows()
       throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
-    Format format = MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT;
-    if (deviceSupportsHdrEditing(VIDEO_H265, format.colorInfo)) {
-      recordTestSkipped(context, testId, /* reason= */ "Device supports HLG10 editing.");
-      return;
-    }
+    Format format = MP4_ASSET_1080P_5_SECOND_HLG10.videoFormat;
+    assumeDeviceDoesNotSupportHdrEditing(testId, format);
 
-    if (AndroidTestUtil.skipAndLogIfFormatsUnsupported(
-        context, testId, /* inputFormat= */ format, /* outputFormat= */ null)) {
-      return;
-    }
+    assumeFormatsSupported(context, testId, /* inputFormat= */ format, /* outputFormat= */ null);
 
     AtomicBoolean isToneMappingFallbackApplied = new AtomicBoolean();
     Transformer transformer =
@@ -352,7 +393,7 @@ public final class HdrEditingTest {
                   }
                 })
             .build();
-    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_1080P_5_SECOND_HLG10));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_1080P_5_SECOND_HLG10.uri));
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem).setEffects(FORCE_TRANSCODE_VIDEO_EFFECTS).build();
 
@@ -446,10 +487,5 @@ public final class HdrEditingTest {
       }
       throw exception;
     }
-  }
-
-  private static boolean deviceSupportsHdrEditing(String mimeType, ColorInfo colorInfo) {
-    checkState(ColorInfo.isTransferHdr(colorInfo));
-    return !EncoderUtil.getSupportedEncodersForHdrEditing(mimeType, colorInfo).isEmpty();
   }
 }

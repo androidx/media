@@ -18,12 +18,11 @@ package androidx.media3.extractor.mp3;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.ParsableByteArray;
+import androidx.media3.common.util.Util;
 import androidx.media3.extractor.MpegAudioUtil;
 
 /** Representation of a LAME Xing or Info frame. */
 /* package */ final class XingFrame {
-
-  private static final String TAG = "XingHeader";
 
   /** The header of the Xing or Info frame. */
   public final MpegAudioUtil.Header header;
@@ -61,7 +60,7 @@ import androidx.media3.extractor.MpegAudioUtil;
       @Nullable long[] tableOfContents,
       int encoderDelay,
       int encoderPadding) {
-    this.header = header;
+    this.header = new MpegAudioUtil.Header(header);
     this.frameCount = frameCount;
     this.dataSize = dataSize;
     this.tableOfContents = tableOfContents;
@@ -81,9 +80,6 @@ import androidx.media3.extractor.MpegAudioUtil;
    *     'Xing' or 'Info' tag.
    */
   public static XingFrame parse(MpegAudioUtil.Header mpegAudioHeader, ParsableByteArray frame) {
-    int samplesPerFrame = mpegAudioHeader.samplesPerFrame;
-    int sampleRate = mpegAudioHeader.sampleRate;
-
     int flags = frame.readInt();
     int frameCount = (flags & 0x01) != 0 ? frame.readUnsignedIntToInt() : C.LENGTH_UNSET;
     long dataSize = (flags & 0x02) != 0 ? frame.readUnsignedInt() : C.LENGTH_UNSET;
@@ -119,5 +115,21 @@ import androidx.media3.extractor.MpegAudioUtil;
 
     return new XingFrame(
         mpegAudioHeader, frameCount, dataSize, tableOfContents, encoderDelay, encoderPadding);
+  }
+
+  /**
+   * Compute the stream duration, in microseconds, represented by this frame. Returns {@link
+   * C#LENGTH_UNSET} if the frame doesn't contain enough information to compute a duration.
+   */
+  // TODO: b/319235116 - Handle encoder delay and padding when calculating duration.
+  public long computeDurationUs() {
+    if (frameCount == C.LENGTH_UNSET || frameCount == 0) {
+      // If the frame count is missing/invalid, the header can't be used to determine the duration.
+      return C.TIME_UNSET;
+    }
+    // Audio requires both a start and end PCM sample, so subtract one from the sample count before
+    // calculating the duration.
+    return Util.sampleCountToDurationUs(
+        (frameCount * header.samplesPerFrame) - 1, header.sampleRate);
   }
 }

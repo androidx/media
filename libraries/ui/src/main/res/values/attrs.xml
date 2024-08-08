@@ -24,7 +24,7 @@
     <enum name="zoom" value="4"/>
   </attr>
 
-  <!-- Must be kept in sync with LegacyPlayerView and PlayerView -->
+  <!-- Must be kept in sync with PlayerView -->
   <attr name="surface_type" format="enum">
     <enum name="none" value="0"/>
     <enum name="surface_view" value="1"/>
@@ -40,12 +40,16 @@
     <flag name="all" value="2"/>
   </attr>
 
-  <!-- LegacyPlayerView and PlayerView attributes -->
+  <!-- PlayerView attributes -->
   <attr name="use_artwork" format="boolean"/>
   <attr name="artwork_display_mode" format="enum">
     <enum name="off" value="0"/>
     <enum name="fit" value="1"/>
     <enum name="fill" value="2"/>
+  </attr>
+  <attr name="image_display_mode" format="enum">
+    <enum name="fit" value="0"/>
+    <enum name="fill" value="1"/>
   </attr>
   <attr name="shutter_background_color" format="color"/>
   <attr name="default_artwork" format="reference"/>
@@ -62,14 +66,30 @@
   <attr name="player_layout_id" format="reference"/>
 
   <!-- LegacyPlayerControlView and PlayerControlView attributes -->
+  <attr name="play_icon" format="reference"/>
+  <attr name="pause_icon" format="reference"/>
+  <attr name="repeat_off_icon" format="reference"/>
+  <attr name="repeat_one_icon" format="reference"/>
+  <attr name="repeat_all_icon" format="reference"/>
+  <attr name="fullscreen_exit_icon" format="reference"/>
+  <attr name="fullscreen_enter_icon" format="reference"/>
   <attr name="show_timeout" format="integer"/>
   <attr name="show_rewind_button" format="boolean"/>
+  <attr name="rewind_icon" format="reference"/>
   <attr name="show_fastforward_button" format="boolean"/>
+  <attr name="fastforward_icon" format="reference"/>
   <attr name="show_previous_button" format="boolean"/>
+  <attr name="previous_icon" format="reference"/>
   <attr name="show_next_button" format="boolean"/>
+  <attr name="next_icon" format="reference"/>
   <attr name="show_shuffle_button" format="boolean"/>
+  <attr name="shuffle_on_icon" format="reference"/>
+  <attr name="shuffle_off_icon" format="reference"/>
   <attr name="show_subtitle_button" format="boolean"/>
+  <attr name="subtitle_on_icon" format="reference"/>
+  <attr name="subtitle_off_icon" format="reference"/>
   <attr name="show_vr_button" format="boolean"/>
+  <attr name="vr_icon" format="reference"/>
   <attr name="time_bar_min_update_interval" format="integer"/>
   <attr name="controller_layout_id" format="reference"/>
   <attr name="animation_enabled" format="boolean"/>
@@ -99,6 +119,7 @@
   <declare-styleable name="PlayerView">
     <attr name="use_artwork"/>
     <attr name="artwork_display_mode"/>
+    <attr name="image_display_mode"/>
     <attr name="shutter_background_color"/>
     <attr name="default_artwork"/>
     <attr name="use_controller"/>
@@ -114,12 +135,28 @@
     <!-- PlayerControlView attributes -->
     <attr name="show_timeout"/>
     <attr name="repeat_toggle_modes"/>
+    <attr name="repeat_off_icon"/>
+    <attr name="repeat_one_icon"/>
+    <attr name="repeat_all_icon"/>
     <attr name="show_shuffle_button"/>
+    <attr name="shuffle_off_icon"/>
+    <attr name="shuffle_on_icon"/>
     <attr name="show_subtitle_button"/>
+    <attr name="subtitle_off_icon"/>
+    <attr name="subtitle_on_icon"/>
     <attr name="show_vr_button"/>
+    <attr name="vr_icon"/>
     <attr name="time_bar_min_update_interval"/>
     <attr name="controller_layout_id"/>
     <attr name="animation_enabled"/>
+    <attr name="play_icon"/>
+    <attr name="pause_icon"/>
+    <attr name="fullscreen_enter_icon"/>
+    <attr name="fullscreen_exit_icon"/>
+    <attr name="next_icon"/>
+    <attr name="previous_icon"/>
+    <attr name="fastforward_icon"/>
+    <attr name="rewind_icon"/>
     <!-- DefaultTimeBar attributes -->
     <attr name="bar_height"/>
     <attr name="bar_gravity"/>
@@ -171,16 +208,32 @@
   <declare-styleable name="PlayerControlView">
     <attr name="show_timeout"/>
     <attr name="repeat_toggle_modes"/>
+    <attr name="repeat_off_icon"/>
+    <attr name="repeat_one_icon"/>
+    <attr name="repeat_all_icon"/>
     <attr name="show_rewind_button"/>
+    <attr name="rewind_icon"/>
     <attr name="show_fastforward_button"/>
+    <attr name="fastforward_icon"/>
     <attr name="show_previous_button"/>
+    <attr name="previous_icon"/>
     <attr name="show_next_button"/>
+    <attr name="next_icon"/>
     <attr name="show_shuffle_button"/>
+    <attr name="shuffle_on_icon"/>
+    <attr name="shuffle_off_icon"/>
     <attr name="show_subtitle_button"/>
+    <attr name="subtitle_on_icon"/>
+    <attr name="subtitle_off_icon"/>
     <attr name="show_vr_button"/>
+    <attr name="vr_icon"/>
     <attr name="time_bar_min_update_interval"/>
     <attr name="controller_layout_id"/>
     <attr name="animation_enabled"/>
+    <attr name="play_icon"/>
+    <attr name="pause_icon"/>
+    <attr name="fullscreen_exit_icon"/>
+    <attr name="fullscreen_enter_icon"/>
     <!-- DefaultTimeBar attributes -->
     <attr name="bar_height"/>
     <attr name="bar_gravity"/>

@@ -21,6 +21,7 @@ import static androidx.media3.test.session.common.CommonConstants.KEY_PLAYBACK_S
 import static androidx.media3.test.session.common.CommonConstants.KEY_QUEUE;
 import static androidx.media3.test.session.common.CommonConstants.KEY_SESSION_COMPAT_TOKEN;
 
+import android.annotation.SuppressLint;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
@@ -118,6 +119,7 @@ public class MediaSessionCompatProviderService extends Service {
       session.setPlaybackToLocal(stream);
     }
 
+    @SuppressLint("RestrictedApi")
     @Override
     public void setPlaybackToRemote(
         String sessionTag,

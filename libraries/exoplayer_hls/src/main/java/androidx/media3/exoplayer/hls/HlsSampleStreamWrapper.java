@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.hls;
 
+import static androidx.media3.exoplayer.hls.HlsChunkSource.CHUNK_PUBLICATION_STATE_PRELOAD;
 import static androidx.media3.exoplayer.hls.HlsChunkSource.CHUNK_PUBLICATION_STATE_PUBLISHED;
 import static androidx.media3.exoplayer.hls.HlsChunkSource.CHUNK_PUBLICATION_STATE_REMOVED;
 import static androidx.media3.exoplayer.trackselection.TrackSelectionUtil.createFallbackOptions;
@@ -63,7 +64,7 @@ import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.LoadErrorInfo;
 import androidx.media3.exoplayer.upstream.Loader;
 import androidx.media3.exoplayer.upstream.Loader.LoadErrorAction;
-import androidx.media3.extractor.DummyTrackOutput;
+import androidx.media3.extractor.DiscardingTrackOutput;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.SeekMap;
@@ -111,7 +112,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
     /**
      * Called to schedule a {@link #continueLoading(LoadingInfo)} call when the playlist referred by
-     * the given url changes.
+     * the given url changes, or it requires a refresh to check whether the hinted resource has been
+     * published or removed.
+     *
+     * <p>Note: This method will be called on a later handler loop than the one on which {@link
+     * #onPlaylistUpdated()} is invoked.
      */
     void onPlaylistRefreshRequired(Uri playlistUrl);
   }
@@ -543,6 +548,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     int chunkState = chunkSource.getChunkPublicationState(lastMediaChunk);
     if (chunkState == CHUNK_PUBLICATION_STATE_PUBLISHED) {
       lastMediaChunk.publish();
+    } else if (chunkState == CHUNK_PUBLICATION_STATE_PRELOAD) {
+      handler.post(() -> callback.onPlaylistRefreshRequired(lastMediaChunk.playlistUrl));
     } else if (chunkState == CHUNK_PUBLICATION_STATE_REMOVED
         && !loadingFinished
         && loader.isLoading()) {
@@ -558,6 +565,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         sampleQueue.preRelease();
       }
     }
+    chunkSource.reset();
     loader.release(this);
     handler.removeCallbacksAndMessages(null);
     released = true;
@@ -1085,7 +1093,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
     if (trackOutput == null) {
       if (tracksEnded) {
-        return createFakeTrackOutput(id, type);
+        return createDiscardingTrackOutput(id, type);
       } else {
         // The relevant SampleQueue hasn't been constructed yet - so construct it.
         trackOutput = createSampleQueue(id, type);
@@ -1106,7 +1114,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    * has been created yet.
    *
    * <p>If a {@link SampleQueue} for {@code type} has been created and is mapped, but it has a
-   * different ID, then return a {@link DummyTrackOutput} that does nothing.
+   * different ID, then return a {@link DiscardingTrackOutput} that does nothing.
    *
    * <p>If a {@link SampleQueue} for {@code type} has been created but is not mapped, then map it to
    * this {@code id} and return it. This situation can happen after a call to {@link
@@ -1129,7 +1137,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     }
     return sampleQueueTrackIds[sampleQueueIndex] == id
         ? sampleQueues[sampleQueueIndex]
-        : createFakeTrackOutput(id, type);
+        : createDiscardingTrackOutput(id, type);
   }
 
   private SampleQueue createSampleQueue(int id, int type) {
@@ -1584,6 +1592,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
             .buildUpon()
             .setId(playlistFormat.id)
             .setLabel(playlistFormat.label)
+            .setLabels(playlistFormat.labels)
             .setLanguage(playlistFormat.language)
             .setSelectionFlags(playlistFormat.selectionFlags)
             .setRoleFlags(playlistFormat.roleFlags)
@@ -1637,9 +1646,9 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     return true;
   }
 
-  private static DummyTrackOutput createFakeTrackOutput(int id, int type) {
+  private static DiscardingTrackOutput createDiscardingTrackOutput(int id, int type) {
     Log.w(TAG, "Unmapped track with id " + id + " of type " + type);
-    return new DummyTrackOutput();
+    return new DiscardingTrackOutput();
   }
 
   /**
@@ -1881,7 +1890,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       int sampleSize = sampleForDelegate.bytesLeft();
 
       delegate.sampleData(sampleForDelegate, sampleSize);
-      delegate.sampleMetadata(timeUs, flags, sampleSize, offset, cryptoData);
+      delegate.sampleMetadata(timeUs, flags, sampleSize, /* offset= */ 0, cryptoData);
     }
 
     private boolean emsgContainsExpectedWrappedFormat(EventMessage emsg) {

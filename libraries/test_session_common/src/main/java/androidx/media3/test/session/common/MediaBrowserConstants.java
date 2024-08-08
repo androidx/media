@@ -38,6 +38,11 @@ public class MediaBrowserConstants {
   public static final String PARENT_ID_NO_CHILDREN = "parent_id_no_children";
   public static final String PARENT_ID_ERROR = "parent_id_error";
   public static final String PARENT_ID_AUTH_EXPIRED_ERROR = "parent_auth_expired_error";
+  public static final String PARENT_ID_SKIP_LIMIT_REACHED_ERROR = "parent_skip_limit_reached_error";
+  public static final String PARENT_ID_AUTH_EXPIRED_ERROR_DEPRECATED =
+      "parent_auth_expired_error_deprecated";
+  public static final String PARENT_ID_AUTH_EXPIRED_ERROR_NON_FATAL =
+      "parent_auth_expired_error_non_fatal";
   public static final String PARENT_ID_AUTH_EXPIRED_ERROR_KEY_ERROR_RESOLUTION_ACTION_LABEL =
       "parent_auth_expired_error_label";
 
@@ -66,6 +71,8 @@ public class MediaBrowserConstants {
       "notify_children_changed_delay";
   public static final String EXTRAS_KEY_NOTIFY_CHILDREN_CHANGED_BROADCAST =
       "notify_children_changed_broadcast";
+  public static final String CONNECTION_HINTS_KEY_LIBRARY_ERROR_REPLICATION_MODE =
+      "error_replication_mode";
 
   public static final String CUSTOM_ACTION = "customAction";
   public static final Bundle CUSTOM_ACTION_EXTRAS = new Bundle();

@@ -18,7 +18,6 @@ package androidx.media3.test.utils;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
@@ -49,7 +48,6 @@ import java.io.OutputStream;
 import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
-import org.junit.AssumptionViolatedException;
 
 /** Utilities for pixel tests. */
 // TODO(b/263395272): After the bug is fixed and dependent tests are moved back to media3.effect,
@@ -207,6 +205,28 @@ public class BitmapPixelTestUtil {
         plane.getPixelStride());
   }
 
+  /**
+   * Copies image data from the specified {@link Bitmap} into the {@link Image}, which must be an
+   * {@linkplain PixelFormat#RGBA_8888} image.
+   */
+  public static void copyRbga8888BitmapToImage(Bitmap bitmap, Image image) {
+    assertThat(image.getPlanes()).hasLength(1);
+    assertThat(image.getFormat()).isEqualTo(PixelFormat.RGBA_8888);
+    Image.Plane imagePlane = image.getPlanes()[0];
+    ByteBuffer imageBuffer = imagePlane.getBuffer();
+    for (int y = 0; y < bitmap.getHeight(); y++) {
+      for (int x = 0; x < bitmap.getWidth(); x++) {
+        int imageBufferOffset = y * imagePlane.getRowStride() + x * imagePlane.getPixelStride();
+        int argbPixel = bitmap.getPixel(x, y);
+        imageBuffer.position(imageBufferOffset);
+        imageBuffer.put((byte) ((argbPixel >> 16) & 0xFF));
+        imageBuffer.put((byte) ((argbPixel >> 8) & 0xFF));
+        imageBuffer.put((byte) (argbPixel & 0xFF));
+        imageBuffer.put((byte) ((argbPixel >> 24) & 0xFF));
+      }
+    }
+  }
+
   public static Bitmap createArgb8888BitmapFromRgba8888ImageBuffer(ImageBuffer imageBuffer) {
     int[] colors = new int[imageBuffer.width * imageBuffer.height];
     for (int y = 0; y < imageBuffer.height; y++) {
@@ -226,7 +246,8 @@ public class BitmapPixelTestUtil {
   /**
    * Returns a grayscale bitmap from the Luma channel in the {@link ImageFormat#YUV_420_888} image.
    */
-  public static Bitmap createGrayscaleArgb8888BitmapFromYuv420888Image(Image image) {
+  public static Bitmap createGrayscaleBitmapFromYuv420888Image(
+      Image image, Bitmap.Config bitmapConfig) {
     int width = image.getWidth();
     int height = image.getHeight();
     assertThat(image.getPlanes()).hasLength(3);
@@ -247,7 +268,7 @@ public class BitmapPixelTestUtil {
                 /* blue= */ lumaValue);
       }
     }
-    return Bitmap.createBitmap(colors, width, height, Bitmap.Config.ARGB_8888);
+    return Bitmap.createBitmap(colors, width, height, bitmapConfig);
   }
 
   /**
@@ -538,14 +559,8 @@ public class BitmapPixelTestUtil {
   public static Bitmap flipBitmapVertically(Bitmap bitmap) {
     boolean wasPremultiplied = bitmap.isPremultiplied();
     if (!wasPremultiplied) {
-      if (SDK_INT >= 19) {
-        // Bitmap.createBitmap must be called on a premultiplied bitmap.
-        bitmap.setPremultiplied(true);
-      } else {
-        throw new AssumptionViolatedException(
-            "bitmap is not premultiplied and Bitmap.setPremultiplied is not supported under API 19."
-                + " unpremultiplied bitmaps cannot be flipped");
-      }
+      // Bitmap.createBitmap must be called on a premultiplied bitmap.
+      bitmap.setPremultiplied(true);
     }
 
     Matrix flip = new Matrix();
@@ -560,9 +575,7 @@ public class BitmapPixelTestUtil {
             bitmap.getHeight(),
             flip,
             /* filter= */ true);
-    if (SDK_INT >= 19) {
-      flippedBitmap.setPremultiplied(wasPremultiplied);
-    }
+    flippedBitmap.setPremultiplied(wasPremultiplied);
     return flippedBitmap;
   }
 

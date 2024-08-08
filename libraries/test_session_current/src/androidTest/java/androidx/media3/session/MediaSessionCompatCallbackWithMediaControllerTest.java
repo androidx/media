@@ -541,7 +541,7 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
   @Test
   public void setDeviceVolume_forLocalPlayback_setsStreamVolume() throws Exception {
-    if (Util.SDK_INT >= 21 && audioManager.isVolumeFixed()) {
+    if (audioManager.isVolumeFixed()) {
       // This test is not eligible for this device.
       return;
     }
@@ -570,7 +570,7 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
   @Test
   public void increaseDeviceVolume_forLocalPlayback_increasesStreamVolume() throws Exception {
-    if (Util.SDK_INT >= 21 && audioManager.isVolumeFixed()) {
+    if (audioManager.isVolumeFixed()) {
       // This test is not eligible for this device.
       return;
     }
@@ -600,7 +600,7 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
   @Test
   public void decreaseDeviceVolume_forLocalPlayback_decreasesStreamVolume() throws Exception {
-    if (Util.SDK_INT >= 21 && audioManager.isVolumeFixed()) {
+    if (audioManager.isVolumeFixed()) {
       // This test is not eligible for this device.
       return;
     }
@@ -717,7 +717,8 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     controller.setRating(mediaId, rating);
     assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
     assertThat(sessionCallback.onSetRatingCalled).isTrue();
-    assertThat(LegacyConversions.convertToRating(sessionCallback.rating)).isEqualTo(rating);
+    assertThat(sessionCallback.rating.getRatingStyle()).isEqualTo(RatingCompat.RATING_5_STARS);
+    assertThat(sessionCallback.rating.getStarRating()).isEqualTo(3.5f);
   }
 
   @Test
@@ -730,7 +731,8 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     controller.setRating(rating);
     assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
     assertThat(sessionCallback.onSetRatingCalled).isTrue();
-    assertThat(LegacyConversions.convertToRating(sessionCallback.rating)).isEqualTo(rating);
+    assertThat(sessionCallback.rating.getRatingStyle()).isEqualTo(RatingCompat.RATING_5_STARS);
+    assertThat(sessionCallback.rating.getStarRating()).isEqualTo(3.5f);
   }
 
   @Test

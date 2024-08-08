@@ -81,14 +81,14 @@ void main() {
     float sample1Weight = texture2D(uFunctionLookupSampler, function1Coord).x;
     float totalSampleWeight = sample0Weight + sample1Weight;
 
-    // Skip samples with very low weight to avoid unnecessary lookups and
-    // avoid dividing by 0.
-    if (abs(totalSampleWeight) > epsilon) {
+    // Collapse adjacent taps and reduce two lookups to one when sample weights
+    // have the same sign. https://vec3.ca/bicubic-filtering-in-fewer-taps/
+    if (sample0Weight * sample1Weight > epsilon &&
+        abs(totalSampleWeight) > epsilon) {
       // Select a coordinate so that a linear sample at that location
       // intrinsically includes the relative sampling weights.
-      float sampleOffsetTexels = (sample0OffsetTexels * sample0Weight +
-                                  sample1OffsetTexels * sample1Weight) /
-                                 totalSampleWeight;
+      float sampleOffsetTexels =
+          sample0OffsetTexels + sample1Weight / totalSampleWeight;
 
       vec2 textureSamplePos =
           vTexSamplingCoord + sampleOffsetTexels * singleTexelStep;
@@ -96,10 +96,20 @@ void main() {
       vec4 textureSampleColor = texture2D(uTexSampler, textureSamplePos);
       accumulatedRgba += textureSampleColor * totalSampleWeight;
       accumulatedWeight += totalSampleWeight;
+    } else {
+      vec2 textureSample0Pos =
+          vTexSamplingCoord + sample0OffsetTexels * singleTexelStep;
+      vec4 textureSample0Color = texture2D(uTexSampler, textureSample0Pos);
+      accumulatedRgba += textureSample0Color * sample0Weight;
+      vec2 textureSample1Pos =
+          vTexSamplingCoord + sample1OffsetTexels * singleTexelStep;
+      vec4 textureSample1Color = texture2D(uTexSampler, textureSample1Pos);
+      accumulatedRgba += textureSample1Color * sample1Weight;
+      accumulatedWeight += totalSampleWeight;
     }
   }
 
-  if (accumulatedWeight > 0.0) {
+  if (abs(accumulatedWeight) > epsilon) {
     gl_FragColor = accumulatedRgba / accumulatedWeight;
   }
 }

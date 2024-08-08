@@ -30,7 +30,7 @@ import java.lang.annotation.Target;
  * A rating for media content. The style of a rating can be one of {@link HeartRating}, {@link
  * PercentageRating}, {@link StarRating}, or {@link ThumbRating}.
  */
-public abstract class Rating implements Bundleable {
+public abstract class Rating {
 
   /** A float value that denotes the rating is unset. */
   /* package */ static final float RATING_UNSET = -1.0f;
@@ -41,7 +41,9 @@ public abstract class Rating implements Bundleable {
   /** Whether the rating exists or not. */
   public abstract boolean isRated();
 
-  // Bundleable implementation.
+  /** Returns a {@link Bundle} representing the information stored in this rating. */
+  @UnstableApi
+  public abstract Bundle toBundle();
 
   @Documented
   @Retention(RetentionPolicy.SOURCE)
@@ -62,16 +64,6 @@ public abstract class Rating implements Bundleable {
   /* package */ static final int RATING_TYPE_THUMB = 3;
 
   /* package */ static final String FIELD_RATING_TYPE = Util.intToStringMaxRadix(0);
-
-  /**
-   * Object that can restore a {@link Rating} from a {@link Bundle}.
-   *
-   * @deprecated Use {@link #fromBundle} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<Rating> CREATOR = Rating::fromBundle;
 
   /** Restores a {@code Rating} from a {@link Bundle}. */
   @UnstableApi

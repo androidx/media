@@ -18,7 +18,6 @@ package androidx.media3.decoder.midi;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableByteArray;
-import androidx.media3.common.util.UnstableApi;
 
 /**
  * Represents a standard MIDI file track event.
@@ -27,7 +26,6 @@ import androidx.media3.common.util.UnstableApi;
  * and Midi, Meta, or SysEx command bytes. A track event is followed by either another track event,
  * or end of chunk marker bytes.
  */
-@UnstableApi
 /* package */ final class TrackEvent {
 
   /** The length of a MIDI event message in bytes. */

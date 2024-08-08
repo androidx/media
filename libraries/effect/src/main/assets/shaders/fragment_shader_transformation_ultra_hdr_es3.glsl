@@ -30,8 +30,8 @@ uniform sampler2D uTexSampler;
 uniform sampler2D uGainmapTexSampler;
 uniform mat4 uRgbMatrix;
 // C.java#ColorTransfer value.
-// Only COLOR_TRANSFER_LINEAR, COLOR_TRANSFER_GAMMA_2_2, COLOR_TRANSFER_ST2084,
-// and COLOR_TRANSFER_HLG are allowed.
+// Only COLOR_TRANSFER_LINEAR, COLOR_TRANSFER_HLG, COLOR_TRANSFER_ST2084,
+// are allowed.
 uniform int uOutputColorTransfer;
 
 // Uniforms for applying gainmap to base.
@@ -49,13 +49,11 @@ uniform float uDisplayRatioSdr;
 in vec2 vTexSamplingCoord;
 out vec4 outColor;
 
-// TODO - b/320237307: Investigate possible HDR/SDR ratios. The value is
-// calculated as targetHdrPeakBrightnessInNits / targetSdrWhitePointInNits. In
-// other effect HDR processing and some parts of the wider android ecosystem the
-// assumption is targetHdrPeakBrightnessInNits=1000 and
-// targetSdrWhitePointInNits=500, but 1 seems to have the best white balance
-// upon visual testing.
-const float HDR_SDR_RATIO = 1.0;
+// The value is calculated as targetHdrPeakBrightnessInNits /
+// targetSdrWhitePointInNits. In other effect HDR processing and some parts of
+// the wider android ecosystem the assumption is
+// targetHdrPeakBrightnessInNits=1000 and targetSdrWhitePointInNits=500
+const float HDR_SDR_RATIO = 2.0;
 
 // LINT.IfChange(color_transfer)
 const int COLOR_TRANSFER_LINEAR = 1;
@@ -63,8 +61,11 @@ const int COLOR_TRANSFER_GAMMA_2_2 = 10;
 const int COLOR_TRANSFER_ST2084 = 6;
 const int COLOR_TRANSFER_HLG = 7;
 
+// Output color for an obviously visible error.
+const vec3 ERROR_COLOR_BLUE = vec3(0.0, 0.0, 1.0);
+
 // Matrix values based on computeXYZMatrix(BT2020Primaries, BT2020WhitePoint)
-// https://cs.android.com/android/platform/superproject/+/master:frameworks/base/libs/hwui/utils/HostColorSpace.cpp;l=200-232;drc=86bd214059cd6150304888a285941bf74af5b687
+// https://cs.android.com/android/platform/superproject/main/+/main:frameworks/native/libs/ui/ColorSpace.cpp;l=199-231;drc=ea6c713503b283eef9e6cd1d6674228f6a81d762
 const mat3 RGB_BT2020_TO_XYZ =
     mat3(0.63695805f, 0.26270021f, 0.00000000f, 0.14461690f, 0.67799807f,
          0.02807269f, 0.16888098f, 0.05930172f, 1.06098506f);
@@ -112,7 +113,7 @@ highp float hlgOetfSingleChannel(highp float linearChannel) {
   // Specification:
   // https://www.khronos.org/registry/DataFormat/specs/1.3/dataformat.1.3.inline.html#TRANSFER_HLG
   // Reference implementation:
-  // https://cs.android.com/android/platform/superproject/+/master:frameworks/native/libs/renderengine/gl/ProgramCache.cpp;l=529-543;drc=de09f10aa504fd8066370591a00c9ff1cafbb7fa
+  // https://cs.android.com/android/platform/superproject/+/main:frameworks/native/libs/renderengine/gl/ProgramCache.cpp;l=529-543;drc=de09f10aa504fd8066370591a00c9ff1cafbb7fa
   const highp float a = 0.17883277;
   const highp float b = 0.28466892;
   const highp float c = 0.55991073;
@@ -133,7 +134,7 @@ highp vec3 pqOetf(highp vec3 linearColor) {
   // Specification:
   // https://registry.khronos.org/DataFormat/specs/1.3/dataformat.1.3.inline.html#TRANSFER_PQ
   // Reference implementation:
-  // https://cs.android.com/android/platform/superproject/+/master:frameworks/native/libs/renderengine/gl/ProgramCache.cpp;l=514-527;drc=de09f10aa504fd8066370591a00c9ff1cafbb7fa
+  // https://cs.android.com/android/platform/superproject/+/main:frameworks/native/libs/renderengine/gl/ProgramCache.cpp;l=514-527;drc=de09f10aa504fd8066370591a00c9ff1cafbb7fa
   const highp float m1 = (2610.0 / 16384.0);
   const highp float m2 = (2523.0 / 4096.0) * 128.0;
   const highp float c1 = (3424.0 / 4096.0);
@@ -171,25 +172,16 @@ highp vec3 applyOetf(highp vec3 linearColor) {
   } else if (uOutputColorTransfer == COLOR_TRANSFER_LINEAR) {
     return linearColor;
   } else {
-    // Output blue as an obviously visible error.
-    return vec3(0.0, 0.0, 1.0);
+    return ERROR_COLOR_BLUE;
   }
-}
-
-vec2 getVTexSamplingCoord() {
-  // Whereas the Android system uses the top-left corner as (0,0) of the
-  // coordinate system, OpenGL uses the bottom-left corner as (0,0), so the
-  // texture gets flipped. We flip the texture vertically to ensure the
-  // orientation of the output is correct.
-  return vec2(vTexSamplingCoord.x, 1.0 - vTexSamplingCoord.y);
 }
 
 // Reference:
 // https://developer.android.com/reference/android/graphics/Gainmap#applying-a-gainmap-manually
 // Reference Implementation:
-// https://source.corp.google.com/h/googleplex-android/platform/superproject/main/+/main:frameworks/base/libs/hwui/effects/GainmapRenderer.cpp;l=97-147;drc=45fd4a5013383f37c8e8a354b1626a8e1aebe29a
+// https://cs.android.com/android/platform/superproject/main/+/main:frameworks/base/libs/hwui/effects/GainmapRenderer.cpp;l=117-146;drc=fadc20184ccb27fe15bb862e6e03fa6d05d41eac
 highp vec3 applyGainmapToBase(vec4 S) {
-  vec4 G = texture(uGainmapTexSampler, getVTexSamplingCoord());
+  vec4 G = texture(uGainmapTexSampler, vTexSamplingCoord);
   float W = clamp((log(HDR_SDR_RATIO) - log(uDisplayRatioSdr)) /
                       (log(uDisplayRatioHdr) - log(uDisplayRatioSdr)),
                   0.0, 1.0);
@@ -222,12 +214,18 @@ highp vec3 bt709ToBt2020(vec3 bt709Color) {
   return XYZ_TO_RGB_BT2020 * RGB_BT709_TO_XYZ * bt709Color;
 }
 
+vec3 scaleHdrLuminance(vec3 linearColor) {
+  const float SDR_MAX_LUMINANCE = 500.0;
+  const float HDR_MAX_LUMINANCE = 1000.0;
+  return linearColor * SDR_MAX_LUMINANCE / HDR_MAX_LUMINANCE;
+}
+
 void main() {
-  vec4 baseElectricalColor = texture(uTexSampler, getVTexSamplingCoord());
+  vec4 baseElectricalColor = texture(uTexSampler, vTexSamplingCoord);
   float alpha = baseElectricalColor.a;
   vec4 baseOpticalColor = vec4(applyEotf(baseElectricalColor.xyz), alpha);
   vec3 opticalBt709Color = applyGainmapToBase(baseOpticalColor);
-  vec3 opticalBt2020Color = bt709ToBt2020(opticalBt709Color);
+  vec3 opticalBt2020Color = scaleHdrLuminance(bt709ToBt2020(opticalBt709Color));
   vec4 transformedColors = uRgbMatrix * vec4(opticalBt2020Color, alpha);
   outColor = vec4(applyOetf(transformedColors.rgb), alpha);
 }

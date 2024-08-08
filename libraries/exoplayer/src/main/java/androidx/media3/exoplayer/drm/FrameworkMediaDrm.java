@@ -42,13 +42,14 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.extractor.mp4.PsshAtomUtil;
-import com.google.common.base.Charsets;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 /** An {@link ExoMediaDrm} implementation that wraps the framework {@link MediaDrm}. */
@@ -242,15 +243,18 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
     return new KeyRequest(requestData, licenseServerUrl, requestType);
   }
 
-  private static String adjustLicenseServerUrl(String licenseServerUrl) {
+  private String adjustLicenseServerUrl(String licenseServerUrl) {
     if (MOCK_LA_URL.equals(licenseServerUrl)) {
       return "";
-    } else if (Util.SDK_INT >= 33 && "https://default.url".equals(licenseServerUrl)) {
-      // Work around b/247808112
-      return "";
-    } else {
-      return licenseServerUrl;
     }
+    if (Util.SDK_INT >= 33 && "https://default.url".equals(licenseServerUrl)) {
+      // Work around b/247808112
+      String pluginVersion = getPropertyString("version");
+      if (Objects.equals(pluginVersion, "1.2") || Objects.equals(pluginVersion, "aidl-1")) {
+        return "";
+      }
+    }
+    return licenseServerUrl;
   }
 
   @UnstableApi
@@ -304,7 +308,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
         }
       }
     }
-    return result && !shouldForceAllowInsecureDecoderComponents();
+    return result;
   }
 
   @UnstableApi
@@ -385,17 +389,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
   @UnstableApi
   @Override
   public FrameworkCryptoConfig createCryptoConfig(byte[] sessionId) throws MediaCryptoException {
-    boolean forceAllowInsecureDecoderComponents = shouldForceAllowInsecureDecoderComponents();
-    return new FrameworkCryptoConfig(
-        adjustUuid(uuid), sessionId, forceAllowInsecureDecoderComponents);
-  }
-
-  // Work around a bug prior to Lollipop where L1 Widevine forced into L3 mode would still
-  // indicate that it required secure video decoders [Internal ref: b/11428937].
-  private boolean shouldForceAllowInsecureDecoderComponents() {
-    return Util.SDK_INT < 21
-        && C.WIDEVINE_UUID.equals(uuid)
-        && "L3".equals(getPropertyString("securityLevel"));
+    return new FrameworkCryptoConfig(adjustUuid(uuid), sessionId);
   }
 
   @UnstableApi
@@ -547,7 +541,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
       return data;
     }
     int recordLength = byteArray.readLittleEndianShort();
-    String xml = byteArray.readString(recordLength, Charsets.UTF_16LE);
+    String xml = byteArray.readString(recordLength, StandardCharsets.UTF_16LE);
     if (xml.contains("<LA_URL>")) {
       // LA_URL already present. Do nothing.
       return data;
@@ -568,7 +562,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
     newData.putShort((short) objectRecordCount);
     newData.putShort((short) recordType);
     newData.putShort((short) (xmlWithMockLaUrl.length() * UTF_16_BYTES_PER_CHARACTER));
-    newData.put(xmlWithMockLaUrl.getBytes(Charsets.UTF_16LE));
+    newData.put(xmlWithMockLaUrl.getBytes(StandardCharsets.UTF_16LE));
     return newData.array();
   }
 

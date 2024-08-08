@@ -997,13 +997,6 @@ public interface AnalyticsListener {
       EventTime eventTime, String decoderName, long initializationDurationMs) {}
 
   /**
-   * @deprecated Use {@link #onAudioInputFormatChanged(EventTime, Format, DecoderReuseEvaluation)}.
-   */
-  @UnstableApi
-  @Deprecated
-  default void onAudioInputFormatChanged(EventTime eventTime, Format format) {}
-
-  /**
    * Called when the format of the media being consumed by an audio renderer changes.
    *
    * @param eventTime The event time.
@@ -1205,13 +1198,6 @@ public interface AnalyticsListener {
   @Deprecated
   default void onVideoDecoderInitialized(
       EventTime eventTime, String decoderName, long initializationDurationMs) {}
-
-  /**
-   * @deprecated Use {@link #onVideoInputFormatChanged(EventTime, Format, DecoderReuseEvaluation)}.
-   */
-  @UnstableApi
-  @Deprecated
-  default void onVideoInputFormatChanged(EventTime eventTime, Format format) {}
 
   /**
    * Called when the format of the media being consumed by a video renderer changes.

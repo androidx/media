@@ -74,7 +74,7 @@ public final class ListenerSet<T extends @NonNull Object> {
     void invoke(T listener, FlagSet eventFlags);
   }
 
-  private static final int MSG_ITERATION_FINISHED = 0;
+  private static final int MSG_ITERATION_FINISHED = 1;
 
   private final Clock clock;
   private final HandlerWrapper handler;
@@ -198,6 +198,9 @@ public final class ListenerSet<T extends @NonNull Object> {
   /** Removes all listeners from the set. */
   public void clear() {
     verifyCurrentThread();
+    for (ListenerHolder<T> listenerHolder : listeners) {
+      listenerHolder.release(iterationFinishedEvent);
+    }
     listeners.clear();
   }
 

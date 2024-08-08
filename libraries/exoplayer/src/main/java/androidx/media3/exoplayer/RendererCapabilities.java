@@ -44,50 +44,8 @@ public interface RendererCapabilities {
     void onRendererCapabilitiesChanged(Renderer renderer);
   }
 
-  /**
-   * @deprecated Use {@link C.FormatSupport} instead.
-   */
-  @SuppressWarnings("deprecation")
-  @Documented
-  @Retention(RetentionPolicy.SOURCE)
-  @Target(TYPE_USE)
-  @IntDef({
-    FORMAT_HANDLED,
-    FORMAT_EXCEEDS_CAPABILITIES,
-    FORMAT_UNSUPPORTED_DRM,
-    FORMAT_UNSUPPORTED_SUBTYPE,
-    FORMAT_UNSUPPORTED_TYPE
-  })
-  @Deprecated
-  @interface FormatSupport {}
-
   /** A mask to apply to {@link Capabilities} to obtain the {@link C.FormatSupport} only. */
   int FORMAT_SUPPORT_MASK = 0b111;
-
-  /**
-   * @deprecated Use {@link C#FORMAT_HANDLED} instead.
-   */
-  @Deprecated int FORMAT_HANDLED = C.FORMAT_HANDLED;
-
-  /**
-   * @deprecated Use {@link C#FORMAT_EXCEEDS_CAPABILITIES} instead.
-   */
-  @Deprecated int FORMAT_EXCEEDS_CAPABILITIES = C.FORMAT_EXCEEDS_CAPABILITIES;
-
-  /**
-   * @deprecated Use {@link C#FORMAT_UNSUPPORTED_DRM} instead.
-   */
-  @Deprecated int FORMAT_UNSUPPORTED_DRM = C.FORMAT_UNSUPPORTED_DRM;
-
-  /**
-   * @deprecated Use {@link C#FORMAT_UNSUPPORTED_SUBTYPE} instead.
-   */
-  @Deprecated int FORMAT_UNSUPPORTED_SUBTYPE = C.FORMAT_UNSUPPORTED_SUBTYPE;
-
-  /**
-   * @deprecated Use {@link C#FORMAT_UNSUPPORTED_TYPE} instead.
-   */
-  @Deprecated int FORMAT_UNSUPPORTED_TYPE = C.FORMAT_UNSUPPORTED_TYPE;
 
   /**
    * Level of renderer support for adaptive format switches. One of {@link #ADAPTIVE_SEAMLESS},
@@ -413,6 +371,26 @@ public interface RendererCapabilities {
   @SuppressLint("WrongConstant")
   static @C.FormatSupport int getFormatSupport(@Capabilities int supportFlags) {
     return supportFlags & FORMAT_SUPPORT_MASK;
+  }
+
+  /**
+   * Returns whether the {@link C.FormatSupport} from the combined {@link Capabilities} indicates
+   * the format is supported.
+   *
+   * <p>A format is considered supported if its {@link C.FormatSupport} value is {@link
+   * C#FORMAT_HANDLED}, or optionally {@link C#FORMAT_EXCEEDS_CAPABILITIES} if enabled by {@code
+   * allowExceedsCapabilities}.
+   *
+   * @param supportFlags The combined {@link Capabilities}.
+   * @param allowExceedsCapabilities Whether {@link C#FORMAT_EXCEEDS_CAPABILITIES} should be
+   *     considered as supported.
+   * @return Whether the {@link Capabilities} indicate a format is supported.
+   */
+  static boolean isFormatSupported(
+      @Capabilities int supportFlags, boolean allowExceedsCapabilities) {
+    @C.FormatSupport int formatSupport = getFormatSupport(supportFlags);
+    return formatSupport == C.FORMAT_HANDLED
+        || (allowExceedsCapabilities && formatSupport == C.FORMAT_EXCEEDS_CAPABILITIES);
   }
 
   /**

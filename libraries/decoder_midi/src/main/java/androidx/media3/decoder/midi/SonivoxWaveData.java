@@ -21,7 +21,6 @@ import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static java.lang.Math.max;
 
 import android.content.Context;
-import androidx.media3.common.util.UnstableApi;
 import com.google.common.io.BaseEncoding;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -29,7 +28,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 
 /** General MIDI Instrument library extracted from Sonivox library in Android file "wt_22khz.c". */
-@UnstableApi
 /* package */ final class SonivoxWaveData {
 
   public static class WavetableRegion {

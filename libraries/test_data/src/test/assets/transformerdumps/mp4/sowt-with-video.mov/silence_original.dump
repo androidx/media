@@ -9,6 +9,7 @@ format video:
   sampleMimeType = video/avc
   codecs = avc1.64002A
   maxInputSize = 41084
+  maxNumReorderSamples = 2
   width = 1920
   height = 1080
   frameRate = 50.0
@@ -21,1087 +22,873 @@ format video:
   initializationData:
     data = length 34, hash 8D738018
     data = length 10, hash 7A0D0F2B
-container metadata = entries=[Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
+container metadata:
+  entry = Mp4Timestamp: creation time=0, modification time=0, timescale=1000
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 0
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 23219
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 46439
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 69659
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 92879
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 116099
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 139319
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 162539
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 185759
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 208979
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 232199
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 255419
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 278639
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 301859
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 325079
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 348299
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 371519
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 394739
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 417959
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 441179
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 464399
 sample:
   trackType = audio
-  dataHashCode = 1728208641
-  size = 2184
-  isKeyFrame = true
-  presentationTimeUs = 487619
-sample:
-  trackType = audio
-  dataHashCode = 620404993
-  size = 6008
-  isKeyFrame = true
-  presentationTimeUs = 500000
-sample:
-  trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 534058
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 557278
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 580498
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 603718
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 626938
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 650158
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 673378
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 696598
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 719818
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 743038
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
-  isKeyFrame = true
-  presentationTimeUs = 766258
-sample:
-  trackType = audio
-  dataHashCode = -809762815
-  size = 8192
   isKeyFrame = true
-  presentationTimeUs = 789478
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 835918
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 859138
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 882358
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 905578
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 928798
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 952018
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
-  isKeyFrame = true
-  presentationTimeUs = 975238
-sample:
-  trackType = audio
-  dataHashCode = 1097317889
-  size = 272
   isKeyFrame = true
-  presentationTimeUs = 998458
 sample:
   trackType = audio
-  dataHashCode = 2136490497
-  size = 7920
-  isKeyFrame = true
-  presentationTimeUs = 1000000
-sample:
-  trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1044897
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1068117
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1091337
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1114557
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1137777
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1160997
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1184217
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1207437
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1230657
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1253877
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
-  isKeyFrame = true
-  presentationTimeUs = 1277097
-sample:
-  trackType = audio
-  dataHashCode = -809762815
-  size = 8192
   isKeyFrame = true
-  presentationTimeUs = 1300317
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1346757
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1369977
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1393197
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1416417
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1439637
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
-  isKeyFrame = true
-  presentationTimeUs = 1462857
-sample:
-  trackType = audio
-  dataHashCode = -1544807167
-  size = 2456
   isKeyFrame = true
-  presentationTimeUs = 1486077
 sample:
   trackType = audio
-  dataHashCode = 370729729
-  size = 5736
+  dataHashCode = 1742602241
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1500000
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1532517
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1555736
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1578956
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1602176
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1625396
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1648616
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1671836
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1695056
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1718276
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1741496
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1764716
 sample:
   trackType = audio
-  dataHashCode = -809762815
-  size = 8192
+  dataHashCode = 1742602241
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1787936
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1834376
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1857596
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1880816
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1904036
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1927256
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1950476
 sample:
   trackType = audio
   dataHashCode = 1742602241
   size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1973696
 sample:
   trackType = audio
-  dataHashCode = -204243967
-  size = 544
+  dataHashCode = 1742602241
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 1996916
 sample:
   trackType = audio
-  dataHashCode = 838148193
-  size = 3760
+  dataHashCode = 1742602241
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2000000
 sample:
   trackType = audio
-  dataHashCode = 867867043
-  size = 3764
+  dataHashCode = 1742602241
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2021315
 sample:
   trackType = audio
-  dataHashCode = -1491441898
-  size = 3764
+  dataHashCode = 1742602241
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2042653
 sample:
   trackType = audio
-  dataHashCode = 834552609
-  size = 3764
+  dataHashCode = 1742602241
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2063990
 sample:
   trackType = audio
-  dataHashCode = 300797245
-  size = 3764
+  dataHashCode = 1742602241
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2085328
 sample:
   trackType = audio
-  dataHashCode = -1462810335
-  size = 3760
+  dataHashCode = 1742602241
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2106666
 sample:
   trackType = audio
-  dataHashCode = 1944686734
-  size = 3764
+  dataHashCode = 1742602241
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2127981
 sample:
   trackType = audio
-  dataHashCode = -1341756866
-  size = 3764
+  dataHashCode = 1742602241
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2149319
 sample:
   trackType = audio
-  dataHashCode = -2028679386
-  size = 3764
+  dataHashCode = 1742602241
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2170657
 sample:
   trackType = audio
-  dataHashCode = -1875874972
-  size = 3764
+  dataHashCode = -1047004323
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2191995
 sample:
   trackType = audio
-  dataHashCode = 502983932
-  size = 3760
+  dataHashCode = 383045525
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2213333
 sample:
   trackType = audio
-  dataHashCode = -152413040
-  size = 3764
+  dataHashCode = 1850111268
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2234648
 sample:
   trackType = audio
-  dataHashCode = 2115857425
-  size = 3764
+  dataHashCode = -247818643
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2255986
 sample:
   trackType = audio
-  dataHashCode = 1565297003
-  size = 3764
+  dataHashCode = 173081991
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2277324
 sample:
   trackType = audio
-  dataHashCode = -1352896324
-  size = 3764
+  dataHashCode = 674355703
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2298662
 sample:
   trackType = audio
-  dataHashCode = -1419566217
-  size = 3760
+  dataHashCode = -2100228940
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2320000
 sample:
   trackType = audio
-  dataHashCode = -140145063
-  size = 3764
+  dataHashCode = 859710
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2341315
 sample:
   trackType = audio
-  dataHashCode = -1064854301
-  size = 3764
+  dataHashCode = 1428699313
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2362653
 sample:
   trackType = audio
-  dataHashCode = 1140211756
-  size = 3764
+  dataHashCode = -399809542
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2383990
 sample:
   trackType = audio
-  dataHashCode = 1410022017
-  size = 3764
+  dataHashCode = -1140725828
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2405328
 sample:
   trackType = audio
-  dataHashCode = 1543094264
-  size = 3760
+  dataHashCode = 1759593533
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2426666
 sample:
   trackType = audio
-  dataHashCode = -194814421
-  size = 3764
+  dataHashCode = 1618921752
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2447981
 sample:
   trackType = audio
-  dataHashCode = -1036665888
-  size = 1884
+  dataHashCode = 976657157
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2469319
 sample:
   trackType = audio
-  dataHashCode = 1775616337
-  size = 3528
+  dataHashCode = 1451122563
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2480000
 sample:
   trackType = audio
-  dataHashCode = 931216668
-  size = 3996
+  dataHashCode = -1226732180
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2500000
 sample:
   trackType = audio
-  dataHashCode = 16108289
-  size = 3764
+  dataHashCode = 1853124505
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2522653
 sample:
   trackType = audio
-  dataHashCode = 1621627919
-  size = 3764
+  dataHashCode = -119708150
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2543990
 sample:
   trackType = audio
-  dataHashCode = 2068064692
-  size = 3764
+  dataHashCode = -753362659
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2565328
 sample:
   trackType = audio
-  dataHashCode = -992940742
-  size = 3760
+  dataHashCode = 1326438210
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2586666
 sample:
   trackType = audio
-  dataHashCode = -1602575392
-  size = 3764
+  dataHashCode = 2038211547
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2607981
 sample:
   trackType = audio
-  dataHashCode = -250495549
-  size = 3764
+  dataHashCode = 724405941
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2629319
 sample:
   trackType = audio
-  dataHashCode = 230148053
-  size = 3764
+  dataHashCode = 1834555639
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2650657
 sample:
   trackType = audio
-  dataHashCode = -1831510348
-  size = 3764
+  dataHashCode = 1645134160
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2671995
 sample:
   trackType = audio
-  dataHashCode = -1720336442
-  size = 3760
+  dataHashCode = 1181147248
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2693333
 sample:
   trackType = audio
-  dataHashCode = 967577141
-  size = 3764
+  dataHashCode = 2134917981
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2714648
 sample:
   trackType = audio
-  dataHashCode = 1942439530
-  size = 3764
+  dataHashCode = -1536420486
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2735986
 sample:
   trackType = audio
-  dataHashCode = -935502622
-  size = 3764
+  dataHashCode = 1908819978
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2757324
 sample:
   trackType = audio
-  dataHashCode = -843755946
-  size = 3764
+  dataHashCode = -1371850678
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2778662
 sample:
   trackType = audio
-  dataHashCode = 1069393122
-  size = 3760
+  dataHashCode = 586809981
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2800000
 sample:
   trackType = audio
-  dataHashCode = 49423702
-  size = 3764
+  dataHashCode = -1992743203
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2821315
 sample:
   trackType = audio
-  dataHashCode = -553195030
-  size = 3764
+  dataHashCode = -1154484471
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2842653
 sample:
   trackType = audio
-  dataHashCode = -1811527473
-  size = 3764
+  dataHashCode = 464244700
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2863990
 sample:
   trackType = audio
-  dataHashCode = -1747277513
-  size = 3764
+  dataHashCode = -337626897
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2885328
 sample:
   trackType = audio
-  dataHashCode = 1624044866
-  size = 3760
+  dataHashCode = 997707977
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2906666
 sample:
   trackType = audio
-  dataHashCode = -647085493
-  size = 3764
+  dataHashCode = 1424378666
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2927981
 sample:
   trackType = audio
-  dataHashCode = 685235410
-  size = 1884
+  dataHashCode = 1870811717
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2949319
 sample:
   trackType = audio
-  dataHashCode = 932376296
-  size = 3760
+  dataHashCode = -291384266
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2960000
 sample:
   trackType = audio
-  dataHashCode = 1297632614
-  size = 3296
+  dataHashCode = -975606708
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 2981315
 sample:
   trackType = audio
-  dataHashCode = -1698066806
-  size = 4232
+  dataHashCode = -2071206087
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3000000
 sample:
   trackType = audio
-  dataHashCode = 1930678601
-  size = 3764
+  dataHashCode = -1725650391
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3023990
 sample:
   trackType = audio
-  dataHashCode = -1846516440
-  size = 3764
+  dataHashCode = 1711176021
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3045328
 sample:
   trackType = audio
-  dataHashCode = -1427786374
-  size = 3760
+  dataHashCode = -1057456597
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3066666
 sample:
   trackType = audio
-  dataHashCode = 318451114
-  size = 3764
+  dataHashCode = -155650558
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3087981
 sample:
   trackType = audio
-  dataHashCode = -715132585
-  size = 3764
+  dataHashCode = -559499612
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3109319
 sample:
   trackType = audio
-  dataHashCode = 264171543
-  size = 3764
+  dataHashCode = 886759539
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3130657
 sample:
   trackType = audio
-  dataHashCode = -1040207413
-  size = 3764
+  dataHashCode = 1911056384
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3151995
 sample:
   trackType = audio
-  dataHashCode = 879854128
-  size = 3760
+  dataHashCode = 1301501327
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3173333
 sample:
   trackType = audio
-  dataHashCode = 876243983
-  size = 3764
+  dataHashCode = -239421595
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3194648
 sample:
   trackType = audio
-  dataHashCode = -363528509
-  size = 3764
+  dataHashCode = -1842988350
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3215986
 sample:
   trackType = audio
-  dataHashCode = -135578478
-  size = 3764
+  dataHashCode = -2037763042
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3237324
 sample:
   trackType = audio
-  dataHashCode = -515064024
-  size = 3764
+  dataHashCode = -700690102
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3258662
 sample:
   trackType = audio
-  dataHashCode = -1108659851
-  size = 3760
+  dataHashCode = 1569348519
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3280000
 sample:
   trackType = audio
-  dataHashCode = -968838622
-  size = 3764
+  dataHashCode = 1320108591
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3301315
 sample:
   trackType = audio
-  dataHashCode = -1420164148
-  size = 3764
+  dataHashCode = -325660535
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3322653
 sample:
   trackType = audio
-  dataHashCode = -1112607201
-  size = 3764
+  dataHashCode = -759097674
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3343990
 sample:
   trackType = audio
-  dataHashCode = 1558783105
-  size = 3764
+  dataHashCode = -341562065
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3365328
 sample:
   trackType = audio
-  dataHashCode = -352924987
-  size = 3760
+  dataHashCode = -221939471
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3386666
 sample:
   trackType = audio
-  dataHashCode = 2106460158
-  size = 3764
+  dataHashCode = 448980054
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3407981
 sample:
   trackType = audio
-  dataHashCode = -41009645
-  size = 1884
+  dataHashCode = -850346064
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3429319
 sample:
   trackType = audio
-  dataHashCode = 1436590081
-  size = 3760
+  dataHashCode = -401973873
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3440000
 sample:
   trackType = audio
-  dataHashCode = 1687127132
-  size = 3764
+  dataHashCode = 916265492
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3461315
 sample:
   trackType = audio
-  dataHashCode = 624992026
-  size = 3060
+  dataHashCode = -1241369190
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3482653
 sample:
   trackType = audio
-  dataHashCode = -1816384888
-  size = 4468
+  dataHashCode = 410459310
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3500000
 sample:
   trackType = audio
-  dataHashCode = 1234475840
-  size = 3764
+  dataHashCode = -733873881
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3525328
 sample:
   trackType = audio
-  dataHashCode = 1059545106
-  size = 3760
+  dataHashCode = -1036706920
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3546666
 sample:
   trackType = audio
-  dataHashCode = -122199485
-  size = 3764
+  dataHashCode = 1428457310
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3567981
 sample:
   trackType = audio
-  dataHashCode = 1959246634
-  size = 3764
+  dataHashCode = -1576857331
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3589319
 sample:
   trackType = audio
-  dataHashCode = 850067509
-  size = 3764
+  dataHashCode = 1299813021
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3610657
 sample:
   trackType = audio
-  dataHashCode = 1980472225
-  size = 3764
+  dataHashCode = 1306143343
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3631995
 sample:
   trackType = audio
-  dataHashCode = -925055805
-  size = 3760
+  dataHashCode = -768825500
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3653333
 sample:
   trackType = audio
-  dataHashCode = -1674063596
-  size = 3764
+  dataHashCode = 1311991745
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3674648
 sample:
   trackType = audio
-  dataHashCode = -207399418
-  size = 3764
+  dataHashCode = 857112629
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3695986
 sample:
   trackType = audio
-  dataHashCode = 1414022975
-  size = 3764
+  dataHashCode = 735460538
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3717324
 sample:
   trackType = audio
-  dataHashCode = -750183218
-  size = 3764
+  dataHashCode = 1690623145
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3738662
 sample:
   trackType = audio
-  dataHashCode = 2010693178
-  size = 3760
+  dataHashCode = -1724951183
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3760000
 sample:
   trackType = audio
-  dataHashCode = -2140767398
-  size = 3764
+  dataHashCode = -1058789995
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3781315
 sample:
   trackType = audio
-  dataHashCode = 797139457
-  size = 3764
+  dataHashCode = 604061803
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3802653
 sample:
   trackType = audio
-  dataHashCode = 1273236854
-  size = 3764
+  dataHashCode = -213027400
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3823990
 sample:
   trackType = audio
-  dataHashCode = -1033659332
-  size = 3764
+  dataHashCode = -1951261842
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3845328
 sample:
   trackType = audio
-  dataHashCode = -476572566
-  size = 3760
+  dataHashCode = 220644421
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3866666
 sample:
   trackType = audio
-  dataHashCode = -1957052196
-  size = 3764
+  dataHashCode = 1602895295
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3887981
 sample:
   trackType = audio
-  dataHashCode = 191919408
-  size = 1884
+  dataHashCode = 1644621621
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3909319
 sample:
   trackType = audio
-  dataHashCode = 10326927
-  size = 3760
+  dataHashCode = -1676706851
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3920000
 sample:
   trackType = audio
-  dataHashCode = -672114487
-  size = 7528
+  dataHashCode = 1866780063
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3941315
 sample:
   trackType = audio
-  dataHashCode = 1403065337
-  size = 2824
+  dataHashCode = -1638441126
+  size = 4096
   isKeyFrame = true
-  presentationTimeUs = 3983990
 sample:
   trackType = audio
-  dataHashCode = 923521
-  size = 4
+  dataHashCode = -775647826
+  size = 3004
   isKeyFrame = true
-  presentationTimeUs = 4000000
 sample:
   trackType = video
   dataHashCode = 33691269

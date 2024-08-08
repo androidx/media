@@ -84,6 +84,9 @@ import java.util.List;
   /** Whether playback should proceed when {@link #playbackState} == {@link Player#STATE_READY}. */
   public final boolean playWhenReady;
 
+  /** The reason for {@link #playWhenReady}. */
+  public final @Player.PlayWhenReadyChangeReason int playWhenReadyChangeReason;
+
   /** Reason why playback is suppressed even though {@link #playWhenReady} is {@code true}. */
   public final @PlaybackSuppressionReason int playbackSuppressionReason;
 
@@ -139,6 +142,7 @@ import java.util.List;
         /* staticMetadata= */ ImmutableList.of(),
         PLACEHOLDER_MEDIA_PERIOD_ID,
         /* playWhenReady= */ false,
+        Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
         Player.PLAYBACK_SUPPRESSION_REASON_NONE,
         PlaybackParameters.DEFAULT,
         /* bufferedPositionUs= */ 0,
@@ -162,6 +166,7 @@ import java.util.List;
    * @param staticMetadata See {@link #staticMetadata}.
    * @param loadingMediaPeriodId See {@link #loadingMediaPeriodId}.
    * @param playWhenReady See {@link #playWhenReady}.
+   * @param playWhenReadyChangeReason See {@link #playWhenReadyChangeReason}.
    * @param playbackSuppressionReason See {@link #playbackSuppressionReason}.
    * @param playbackParameters See {@link #playbackParameters}.
    * @param bufferedPositionUs See {@link #bufferedPositionUs}.
@@ -183,6 +188,7 @@ import java.util.List;
       List<Metadata> staticMetadata,
       MediaPeriodId loadingMediaPeriodId,
       boolean playWhenReady,
+      @Player.PlayWhenReadyChangeReason int playWhenReadyChangeReason,
       @PlaybackSuppressionReason int playbackSuppressionReason,
       PlaybackParameters playbackParameters,
       long bufferedPositionUs,
@@ -202,6 +208,7 @@ import java.util.List;
     this.staticMetadata = staticMetadata;
     this.loadingMediaPeriodId = loadingMediaPeriodId;
     this.playWhenReady = playWhenReady;
+    this.playWhenReadyChangeReason = playWhenReadyChangeReason;
     this.playbackSuppressionReason = playbackSuppressionReason;
     this.playbackParameters = playbackParameters;
     this.bufferedPositionUs = bufferedPositionUs;
@@ -254,6 +261,7 @@ import java.util.List;
         staticMetadata,
         loadingMediaPeriodId,
         playWhenReady,
+        playWhenReadyChangeReason,
         playbackSuppressionReason,
         playbackParameters,
         bufferedPositionUs,
@@ -284,6 +292,7 @@ import java.util.List;
         staticMetadata,
         loadingMediaPeriodId,
         playWhenReady,
+        playWhenReadyChangeReason,
         playbackSuppressionReason,
         playbackParameters,
         bufferedPositionUs,
@@ -314,6 +323,7 @@ import java.util.List;
         staticMetadata,
         loadingMediaPeriodId,
         playWhenReady,
+        playWhenReadyChangeReason,
         playbackSuppressionReason,
         playbackParameters,
         bufferedPositionUs,
@@ -344,6 +354,7 @@ import java.util.List;
         staticMetadata,
         loadingMediaPeriodId,
         playWhenReady,
+        playWhenReadyChangeReason,
         playbackSuppressionReason,
         playbackParameters,
         bufferedPositionUs,
@@ -374,6 +385,7 @@ import java.util.List;
         staticMetadata,
         loadingMediaPeriodId,
         playWhenReady,
+        playWhenReadyChangeReason,
         playbackSuppressionReason,
         playbackParameters,
         bufferedPositionUs,
@@ -404,6 +416,7 @@ import java.util.List;
         staticMetadata,
         loadingMediaPeriodId,
         playWhenReady,
+        playWhenReadyChangeReason,
         playbackSuppressionReason,
         playbackParameters,
         bufferedPositionUs,
@@ -418,13 +431,16 @@ import java.util.List;
    *
    * @param playWhenReady Whether playback should proceed when {@link #playbackState} == {@link
    *     Player#STATE_READY}.
+   * @param playWhenReadyChangeReason Reason for {#code playWhenReady}.
    * @param playbackSuppressionReason Reason why playback is suppressed even though {@link
    *     #playWhenReady} is {@code true}.
    * @return Copied playback info with new information.
    */
   @CheckResult
   public PlaybackInfo copyWithPlayWhenReady(
-      boolean playWhenReady, @PlaybackSuppressionReason int playbackSuppressionReason) {
+      boolean playWhenReady,
+      @Player.PlayWhenReadyChangeReason int playWhenReadyChangeReason,
+      @PlaybackSuppressionReason int playbackSuppressionReason) {
     return new PlaybackInfo(
         timeline,
         periodId,
@@ -438,6 +454,7 @@ import java.util.List;
         staticMetadata,
         loadingMediaPeriodId,
         playWhenReady,
+        playWhenReadyChangeReason,
         playbackSuppressionReason,
         playbackParameters,
         bufferedPositionUs,
@@ -468,6 +485,7 @@ import java.util.List;
         staticMetadata,
         loadingMediaPeriodId,
         playWhenReady,
+        playWhenReadyChangeReason,
         playbackSuppressionReason,
         playbackParameters,
         bufferedPositionUs,
@@ -498,6 +516,7 @@ import java.util.List;
         staticMetadata,
         loadingMediaPeriodId,
         playWhenReady,
+        playWhenReadyChangeReason,
         playbackSuppressionReason,
         playbackParameters,
         bufferedPositionUs,
@@ -530,6 +549,7 @@ import java.util.List;
         staticMetadata,
         loadingMediaPeriodId,
         playWhenReady,
+        playWhenReadyChangeReason,
         playbackSuppressionReason,
         playbackParameters,
         bufferedPositionUs,

@@ -21,6 +21,7 @@ import static androidx.media3.test.session.common.CommonConstants.KEY_COMMAND_BU
 import static androidx.media3.test.session.common.TestUtils.SERVICE_CONNECTION_TIMEOUT_MS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
@@ -852,6 +853,12 @@ public class MediaControllerProviderService extends Service {
     public Bundle getAvailableCommands(String controllerId) throws RemoteException {
       MediaController controller = mediaControllerMap.get(controllerId);
       return runOnHandler(controller::getAvailableCommands).toBundle();
+    }
+
+    @Override
+    public PendingIntent getSessionActivity(String controllerId) throws RemoteException {
+      MediaController controller = mediaControllerMap.get(controllerId);
+      return runOnHandler(controller::getSessionActivity);
     }
 
     @Override

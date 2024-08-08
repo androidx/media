@@ -203,8 +203,6 @@ import com.google.common.base.Objects;
     return iSession;
   }
 
-  // Bundleable implementation.
-
   private static final String FIELD_UID = Util.intToStringMaxRadix(0);
   private static final String FIELD_TYPE = Util.intToStringMaxRadix(1);
   private static final String FIELD_LIBRARY_VERSION = Util.intToStringMaxRadix(2);
@@ -231,15 +229,6 @@ import com.google.common.base.Objects;
     bundle.putInt(FIELD_INTERFACE_VERSION, interfaceVersion);
     return bundle;
   }
-
-  /**
-   * Object that can restore {@link SessionTokenImplBase} from a {@link Bundle}.
-   *
-   * @deprecated Use {@link #fromBundle} instead.
-   */
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<SessionTokenImplBase> CREATOR = SessionTokenImplBase::fromBundle;
 
   /** Restores a {@code SessionTokenImplBase} from a {@link Bundle}. */
   public static SessionTokenImplBase fromBundle(Bundle bundle) {

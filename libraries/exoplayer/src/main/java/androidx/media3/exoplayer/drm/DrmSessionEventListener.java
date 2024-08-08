@@ -31,12 +31,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public interface DrmSessionEventListener {
 
   /**
-   * @deprecated Implement {@link #onDrmSessionAcquired(int, MediaPeriodId, int)} instead.
-   */
-  @Deprecated
-  default void onDrmSessionAcquired(int windowIndex, @Nullable MediaPeriodId mediaPeriodId) {}
-
-  /**
    * Called each time a drm session is acquired.
    *
    * @param windowIndex The window index in the timeline this media period belongs to.
@@ -160,18 +154,13 @@ public interface DrmSessionEventListener {
       }
     }
 
-    /**
-     * Dispatches {@link #onDrmSessionAcquired(int, MediaPeriodId, int)} and {@link
-     * #onDrmSessionAcquired(int, MediaPeriodId)}.
-     */
-    @SuppressWarnings("deprecation") // Calls deprecated listener method.
+    /** Dispatches {@link #onDrmSessionAcquired(int, MediaPeriodId, int)}. */
     public void drmSessionAcquired(@DrmSession.State int state) {
       for (ListenerAndHandler listenerAndHandler : listenerAndHandlers) {
         DrmSessionEventListener listener = listenerAndHandler.listener;
         postOrRun(
             listenerAndHandler.handler,
             () -> {
-              listener.onDrmSessionAcquired(windowIndex, mediaPeriodId);
               listener.onDrmSessionAcquired(windowIndex, mediaPeriodId, state);
             });
       }

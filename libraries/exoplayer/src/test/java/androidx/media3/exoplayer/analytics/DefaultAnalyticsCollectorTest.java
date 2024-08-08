@@ -96,6 +96,7 @@ import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.DecoderCounters;
+import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.Renderer;
@@ -106,7 +107,6 @@ import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.drm.ExoMediaDrm;
 import androidx.media3.exoplayer.drm.MediaDrmCallback;
 import androidx.media3.exoplayer.drm.MediaDrmCallbackException;
-import androidx.media3.exoplayer.source.ConcatenatingMediaSource;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.source.MediaSource;
@@ -285,22 +285,22 @@ public final class DefaultAnalyticsCollectorTest {
 
   @Test
   public void automaticPeriodTransition() throws Exception {
-    MediaSource mediaSource =
-        new ConcatenatingMediaSource(
-            new FakeMediaSource(
-                SINGLE_PERIOD_TIMELINE,
-                ExoPlayerTestRunner.VIDEO_FORMAT,
-                ExoPlayerTestRunner.AUDIO_FORMAT),
-            new FakeMediaSource(
-                SINGLE_PERIOD_TIMELINE,
-                ExoPlayerTestRunner.VIDEO_FORMAT,
-                ExoPlayerTestRunner.AUDIO_FORMAT));
+    MediaSource mediaSource1 =
+        new FakeMediaSource(
+            SINGLE_PERIOD_TIMELINE,
+            ExoPlayerTestRunner.VIDEO_FORMAT,
+            ExoPlayerTestRunner.AUDIO_FORMAT);
+    MediaSource mediaSource2 =
+        new FakeMediaSource(
+            SINGLE_PERIOD_TIMELINE,
+            ExoPlayerTestRunner.VIDEO_FORMAT,
+            ExoPlayerTestRunner.AUDIO_FORMAT);
     ExoPlayer player = setupPlayer();
     TestAnalyticsListener listener = new TestAnalyticsListener();
     player.addAnalyticsListener(listener);
 
     player.play();
-    player.setMediaSource(mediaSource);
+    player.setMediaSources(ImmutableList.of(mediaSource1, mediaSource2));
     player.prepare();
     runUntilPlaybackState(player, Player.STATE_ENDED);
 
@@ -313,7 +313,7 @@ public final class DefaultAnalyticsCollectorTest {
             period1 /* ENDED */)
         .inOrder();
     assertThat(listener.getEvents(EVENT_TIMELINE_CHANGED))
-        .containsExactly(WINDOW_0 /* PLAYLIST_CHANGED */, period0 /* SOURCE_UPDATE */)
+        .containsExactly(WINDOW_0 /* PLAYLIST_CHANGED */, WINDOW_0 /* SOURCE_UPDATE */)
         .inOrder();
     assertThat(listener.getEvents(EVENT_POSITION_DISCONTINUITY)).containsExactly(period1);
     assertThat(listener.getEvents(EVENT_IS_LOADING_CHANGED))
@@ -366,16 +366,16 @@ public final class DefaultAnalyticsCollectorTest {
 
   @Test
   public void periodTransitionWithRendererChange() throws Exception {
-    MediaSource mediaSource =
-        new ConcatenatingMediaSource(
-            new FakeMediaSource(SINGLE_PERIOD_TIMELINE, ExoPlayerTestRunner.VIDEO_FORMAT),
-            new FakeMediaSource(SINGLE_PERIOD_TIMELINE, ExoPlayerTestRunner.AUDIO_FORMAT));
+    MediaSource mediaSource1 =
+        new FakeMediaSource(SINGLE_PERIOD_TIMELINE, ExoPlayerTestRunner.VIDEO_FORMAT);
+    MediaSource mediaSource2 =
+        new FakeMediaSource(SINGLE_PERIOD_TIMELINE, ExoPlayerTestRunner.AUDIO_FORMAT);
     ExoPlayer player = setupPlayer();
     TestAnalyticsListener listener = new TestAnalyticsListener();
     player.addAnalyticsListener(listener);
 
     player.play();
-    player.setMediaSource(mediaSource);
+    player.setMediaSources(ImmutableList.of(mediaSource1, mediaSource2));
     player.prepare();
     runUntilPlaybackState(player, Player.STATE_ENDED);
 
@@ -388,7 +388,7 @@ public final class DefaultAnalyticsCollectorTest {
             period1 /* ENDED */)
         .inOrder();
     assertThat(listener.getEvents(EVENT_TIMELINE_CHANGED))
-        .containsExactly(WINDOW_0 /* PLAYLIST_CHANGED */, period0 /* SOURCE_UPDATE */)
+        .containsExactly(WINDOW_0 /* PLAYLIST_CHANGED */, WINDOW_0 /* SOURCE_UPDATE */)
         .inOrder();
     assertThat(listener.getEvents(EVENT_POSITION_DISCONTINUITY)).containsExactly(period1);
     assertThat(listener.getEvents(EVENT_IS_LOADING_CHANGED))
@@ -435,18 +435,18 @@ public final class DefaultAnalyticsCollectorTest {
 
   @Test
   public void seekToOtherPeriod() throws Exception {
-    MediaSource mediaSource =
-        new ConcatenatingMediaSource(
-            new FakeMediaSource(
-                SINGLE_PERIOD_TIMELINE,
-                ExoPlayerTestRunner.VIDEO_FORMAT,
-                ExoPlayerTestRunner.AUDIO_FORMAT),
-            new FakeMediaSource(SINGLE_PERIOD_TIMELINE, ExoPlayerTestRunner.AUDIO_FORMAT));
+    MediaSource mediaSource1 =
+        new FakeMediaSource(
+            SINGLE_PERIOD_TIMELINE,
+            ExoPlayerTestRunner.VIDEO_FORMAT,
+            ExoPlayerTestRunner.AUDIO_FORMAT);
+    MediaSource mediaSource2 =
+        new FakeMediaSource(SINGLE_PERIOD_TIMELINE, ExoPlayerTestRunner.AUDIO_FORMAT);
     ExoPlayer player = setupPlayer();
     TestAnalyticsListener listener = new TestAnalyticsListener();
     player.addAnalyticsListener(listener);
 
-    player.setMediaSource(mediaSource);
+    player.setMediaSources(ImmutableList.of(mediaSource1, mediaSource2));
     player.prepare();
     // Wait until second period has fully loaded to assert loading events.
     runUntilIsLoading(player, /* expectedIsLoading= */ true);
@@ -466,7 +466,7 @@ public final class DefaultAnalyticsCollectorTest {
             period1 /* ENDED */)
         .inOrder();
     assertThat(listener.getEvents(EVENT_TIMELINE_CHANGED))
-        .containsExactly(WINDOW_0 /* PLAYLIST_CHANGED */, period0 /* SOURCE_UPDATE */)
+        .containsExactly(WINDOW_0 /* PLAYLIST_CHANGED */, WINDOW_0 /* SOURCE_UPDATE */)
         .inOrder();
     assertThat(listener.getEvents(EVENT_POSITION_DISCONTINUITY)).containsExactly(period1);
     assertThat(listener.getEvents(EVENT_SEEK_STARTED)).containsExactly(period0);
@@ -519,20 +519,20 @@ public final class DefaultAnalyticsCollectorTest {
 
   @Test
   public void seekBackAfterReadingAhead() throws Exception {
-    MediaSource mediaSource =
-        new ConcatenatingMediaSource(
-            new FakeMediaSource(SINGLE_PERIOD_TIMELINE, ExoPlayerTestRunner.VIDEO_FORMAT),
-            new FakeMediaSource(
-                SINGLE_PERIOD_TIMELINE,
-                ExoPlayerTestRunner.VIDEO_FORMAT,
-                ExoPlayerTestRunner.AUDIO_FORMAT));
+    MediaSource mediaSource1 =
+        new FakeMediaSource(SINGLE_PERIOD_TIMELINE, ExoPlayerTestRunner.VIDEO_FORMAT);
+    MediaSource mediaSource2 =
+        new FakeMediaSource(
+            SINGLE_PERIOD_TIMELINE,
+            ExoPlayerTestRunner.VIDEO_FORMAT,
+            ExoPlayerTestRunner.AUDIO_FORMAT);
     long windowDurationMs =
         SINGLE_PERIOD_TIMELINE.getWindow(/* windowIndex= */ 0, new Window()).getDurationMs();
     ExoPlayer player = setupPlayer();
     TestAnalyticsListener listener = new TestAnalyticsListener();
     player.addAnalyticsListener(listener);
 
-    player.setMediaSource(mediaSource);
+    player.setMediaSources(ImmutableList.of(mediaSource1, mediaSource2));
     player.prepare();
     runUntilPlaybackState(player, Player.STATE_READY);
     playUntilPosition(player, /* mediaItemIndex= */ 0, windowDurationMs - 100);
@@ -552,7 +552,7 @@ public final class DefaultAnalyticsCollectorTest {
             period1Seq2 /* ENDED */)
         .inOrder();
     assertThat(listener.getEvents(EVENT_TIMELINE_CHANGED))
-        .containsExactly(WINDOW_0 /* PLAYLIST_CHANGED */, period0 /* SOURCE_UPDATE */)
+        .containsExactly(WINDOW_0 /* PLAYLIST_CHANGED */, WINDOW_0 /* SOURCE_UPDATE */)
         .inOrder();
     assertThat(listener.getEvents(EVENT_POSITION_DISCONTINUITY))
         .containsExactly(period0, period1Seq2)
@@ -802,21 +802,18 @@ public final class DefaultAnalyticsCollectorTest {
   public void dynamicTimelineChange() throws Exception {
     MediaSource childMediaSource =
         new FakeMediaSource(SINGLE_PERIOD_TIMELINE, ExoPlayerTestRunner.VIDEO_FORMAT);
-    final ConcatenatingMediaSource concatenatedMediaSource =
-        new ConcatenatingMediaSource(childMediaSource, childMediaSource);
     long windowDurationMs =
         SINGLE_PERIOD_TIMELINE.getWindow(/* windowIndex= */ 0, new Window()).getDurationMs();
     ExoPlayer player = setupPlayer();
     TestAnalyticsListener listener = new TestAnalyticsListener();
     player.addAnalyticsListener(listener);
 
-    player.setMediaSource(concatenatedMediaSource);
+    player.setMediaSources(ImmutableList.of(childMediaSource, childMediaSource));
     player.prepare();
     runUntilPlaybackState(player, Player.STATE_READY);
     // Ensure second period is already being read from.
     playUntilPosition(player, /* mediaItemIndex= */ 0, /* positionMs= */ windowDurationMs - 100);
-    concatenatedMediaSource.moveMediaSource(/* currentIndex= */ 0, /* newIndex= */ 1);
-    runUntilTimelineChanged(player);
+    player.moveMediaItem(/* currentIndex= */ 0, /* newIndex= */ 1);
     runUntilPlaybackState(player, Player.STATE_READY);
     player.play();
     runUntilPlaybackState(player, Player.STATE_ENDED);
@@ -834,8 +831,8 @@ public final class DefaultAnalyticsCollectorTest {
     assertThat(listener.getEvents(EVENT_TIMELINE_CHANGED))
         .containsExactly(
             WINDOW_0 /* PLAYLIST_CHANGED */,
-            window0Period1Seq0 /* SOURCE_UPDATE (concatenated timeline replaces placeholder) */,
-            period1Seq0 /* SOURCE_UPDATE (child sources in concatenating source moved) */)
+            WINDOW_0 /* SOURCE_UPDATE (timeline replaces placeholder) */,
+            period1Seq0 /* PLAYLIST_CHANGED (sources in playlist moved) */)
         .inOrder();
     assertThat(listener.getEvents(EVENT_IS_LOADING_CHANGED))
         .containsExactly(window0Period1Seq0, window0Period1Seq0, period1Seq0, period1Seq0);
@@ -852,7 +849,7 @@ public final class DefaultAnalyticsCollectorTest {
         .containsExactly(window0Period1Seq0, window1Period0Seq1)
         .inOrder();
     assertThat(listener.getEvents(EVENT_VIDEO_ENABLED))
-        .containsExactly(window0Period1Seq0, window0Period1Seq0)
+        .containsExactly(window0Period1Seq0, period1Seq0)
         .inOrder();
     assertThat(listener.getEvents(EVENT_VIDEO_DECODER_INITIALIZED))
         .containsExactly(window0Period1Seq0, window1Period0Seq1)
@@ -860,20 +857,20 @@ public final class DefaultAnalyticsCollectorTest {
     assertThat(listener.getEvents(EVENT_VIDEO_INPUT_FORMAT_CHANGED))
         .containsExactly(window0Period1Seq0, window1Period0Seq1)
         .inOrder();
-    assertThat(listener.getEvents(EVENT_VIDEO_DISABLED)).containsExactly(window0Period1Seq0);
+    assertThat(listener.getEvents(EVENT_VIDEO_DISABLED)).containsExactly(period1Seq0);
     assertThat(listener.getEvents(EVENT_DROPPED_VIDEO_FRAMES))
-        .containsExactly(window0Period1Seq0, period1Seq0)
+        .containsExactly(period1Seq0, period1Seq0)
         .inOrder();
     assertThat(listener.getEvents(EVENT_VIDEO_SIZE_CHANGED))
         .containsExactly(
             window0Period1Seq0, // First frame rendered
-            window0Period1Seq0) // Renderer disabled after timeline update
+            period1Seq0) // Renderer disabled after timeline update
         .inOrder();
     assertThat(listener.getEvents(EVENT_RENDERED_FIRST_FRAME))
         .containsExactly(window0Period1Seq0, window1Period0Seq1)
         .inOrder();
     assertThat(listener.getEvents(EVENT_VIDEO_FRAME_PROCESSING_OFFSET))
-        .containsExactly(window0Period1Seq0, period1Seq0)
+        .containsExactly(period1Seq0, period1Seq0)
         .inOrder();
     listener.assertNoMoreEvents();
   }
@@ -1384,18 +1381,16 @@ public final class DefaultAnalyticsCollectorTest {
                 uuid -> new FakeExoMediaDrm.Builder().setEnforceValidKeyResponses(false).build())
             .setMultiSession(true)
             .build(mediaDrmCallback);
-    MediaSource mediaSource =
-        new ConcatenatingMediaSource(
-            new FakeMediaSource(
-                SINGLE_PERIOD_TIMELINE, blockingDrmSessionManager, VIDEO_FORMAT_DRM_1),
-            new FakeMediaSource(
-                SINGLE_PERIOD_TIMELINE, blockingDrmSessionManager, VIDEO_FORMAT_DRM_1));
+    MediaSource mediaSource1 =
+        new FakeMediaSource(SINGLE_PERIOD_TIMELINE, blockingDrmSessionManager, VIDEO_FORMAT_DRM_1);
+    MediaSource mediaSource2 =
+        new FakeMediaSource(SINGLE_PERIOD_TIMELINE, blockingDrmSessionManager, VIDEO_FORMAT_DRM_1);
     ExoPlayer player = setupPlayer();
     TestAnalyticsListener listener = new TestAnalyticsListener();
     player.addAnalyticsListener(listener);
 
     player.play();
-    player.setMediaSource(mediaSource);
+    player.setMediaSources(ImmutableList.of(mediaSource1, mediaSource2));
     player.prepare();
     // Wait for the media to be fully buffered before unblocking the DRM key request. This
     // ensures both periods report the same load event (because period1's DRM session is
@@ -1423,19 +1418,19 @@ public final class DefaultAnalyticsCollectorTest {
 
   @Test
   public void drmEvents_periodWithDifferentDrmData_keysLoadedAgain() throws Exception {
-    MediaSource mediaSource =
-        new ConcatenatingMediaSource(
-            new FakeMediaSource(SINGLE_PERIOD_TIMELINE, drmSessionManager, VIDEO_FORMAT_DRM_1),
-            new FakeMediaSource(
-                SINGLE_PERIOD_TIMELINE,
-                drmSessionManager,
-                VIDEO_FORMAT_DRM_1.buildUpon().setDrmInitData(DRM_DATA_2).build()));
+    MediaSource mediaSource1 =
+        new FakeMediaSource(SINGLE_PERIOD_TIMELINE, drmSessionManager, VIDEO_FORMAT_DRM_1);
+    MediaSource mediaSource2 =
+        new FakeMediaSource(
+            SINGLE_PERIOD_TIMELINE,
+            drmSessionManager,
+            VIDEO_FORMAT_DRM_1.buildUpon().setDrmInitData(DRM_DATA_2).build());
     ExoPlayer player = setupPlayer();
     TestAnalyticsListener listener = new TestAnalyticsListener();
     player.addAnalyticsListener(listener);
 
     player.play();
-    player.setMediaSource(mediaSource);
+    player.setMediaSources(ImmutableList.of(mediaSource1, mediaSource2));
     player.prepare();
     runUntilPlaybackState(player, Player.STATE_ENDED);
 
@@ -1511,7 +1506,7 @@ public final class DefaultAnalyticsCollectorTest {
     player.addAnalyticsListener(listener);
 
     player.play();
-    player.setMediaSource(new ConcatenatingMediaSource(source0, source1));
+    player.setMediaSources(ImmutableList.of(source0, source1));
     player.prepare();
     runUntilError(player);
 
@@ -1547,7 +1542,7 @@ public final class DefaultAnalyticsCollectorTest {
     player.addAnalyticsListener(listener);
 
     player.play();
-    player.setMediaSource(new ConcatenatingMediaSource(source0, source1));
+    player.setMediaSources(ImmutableList.of(source0, source1));
     player.prepare();
     runUntilError(player);
 
@@ -1590,7 +1585,7 @@ public final class DefaultAnalyticsCollectorTest {
     player.addAnalyticsListener(listener);
 
     player.play();
-    player.setMediaSource(new ConcatenatingMediaSource(source, source));
+    player.setMediaSources(ImmutableList.of(source, source));
     player.prepare();
     runUntilError(player);
 
@@ -2218,7 +2213,10 @@ public final class DefaultAnalyticsCollectorTest {
     }
 
     @Override
-    public void onAudioInputFormatChanged(EventTime eventTime, Format format) {
+    public void onAudioInputFormatChanged(
+        EventTime eventTime,
+        Format format,
+        @Nullable DecoderReuseEvaluation decoderReuseEvaluation) {
       reportedEvents.add(new ReportedEvent(EVENT_AUDIO_INPUT_FORMAT_CHANGED, eventTime));
     }
 
@@ -2258,7 +2256,10 @@ public final class DefaultAnalyticsCollectorTest {
     }
 
     @Override
-    public void onVideoInputFormatChanged(EventTime eventTime, Format format) {
+    public void onVideoInputFormatChanged(
+        EventTime eventTime,
+        Format format,
+        @Nullable DecoderReuseEvaluation decoderReuseEvaluation) {
       reportedEvents.add(new ReportedEvent(EVENT_VIDEO_INPUT_FORMAT_CHANGED, eventTime));
     }
 

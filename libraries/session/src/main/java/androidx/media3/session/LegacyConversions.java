@@ -15,8 +15,6 @@
  */
 package androidx.media3.session;
 
-import static android.support.v4.media.session.MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS;
-import static androidx.media.utils.MediaConstants.BROWSER_ROOT_HINTS_KEY_ROOT_CHILDREN_SUPPORTED_FLAGS;
 import static androidx.media3.common.Player.COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS;
 import static androidx.media3.common.Player.COMMAND_CHANGE_MEDIA_ITEMS;
 import static androidx.media3.common.Player.COMMAND_GET_AUDIO_ATTRIBUTES;
@@ -44,6 +42,9 @@ import static androidx.media3.common.Player.COMMAND_STOP;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.constrainValue;
 import static androidx.media3.session.MediaConstants.EXTRA_KEY_ROOT_CHILDREN_BROWSABLE_ONLY;
+import static androidx.media3.session.legacy.MediaConstants.BROWSER_ROOT_HINTS_KEY_ROOT_CHILDREN_SUPPORTED_FLAGS;
+import static androidx.media3.session.legacy.MediaMetadataCompat.PREFERRED_DESCRIPTION_ORDER;
+import static androidx.media3.session.legacy.MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS;
 import static java.lang.Math.max;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -54,19 +55,9 @@ import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.SystemClock;
-import android.support.v4.media.MediaBrowserCompat;
-import android.support.v4.media.MediaDescriptionCompat;
-import android.support.v4.media.MediaMetadataCompat;
-import android.support.v4.media.RatingCompat;
-import android.support.v4.media.session.MediaControllerCompat;
-import android.support.v4.media.session.MediaSessionCompat.QueueItem;
-import android.support.v4.media.session.PlaybackStateCompat;
-import android.support.v4.media.session.PlaybackStateCompat.CustomAction;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
-import androidx.media.AudioAttributesCompat;
-import androidx.media.MediaBrowserServiceCompat.BrowserRoot;
-import androidx.media.VolumeProviderCompat;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -87,6 +78,17 @@ import androidx.media3.common.Timeline.Window;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
+import androidx.media3.session.legacy.AudioAttributesCompat;
+import androidx.media3.session.legacy.MediaBrowserCompat;
+import androidx.media3.session.legacy.MediaBrowserServiceCompat.BrowserRoot;
+import androidx.media3.session.legacy.MediaControllerCompat;
+import androidx.media3.session.legacy.MediaDescriptionCompat;
+import androidx.media3.session.legacy.MediaMetadataCompat;
+import androidx.media3.session.legacy.MediaSessionCompat.QueueItem;
+import androidx.media3.session.legacy.PlaybackStateCompat;
+import androidx.media3.session.legacy.PlaybackStateCompat.CustomAction;
+import androidx.media3.session.legacy.RatingCompat;
+import androidx.media3.session.legacy.VolumeProviderCompat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.io.ByteArrayOutputStream;
@@ -160,14 +162,178 @@ import java.util.concurrent.TimeoutException;
         || playbackStateCompat.getState() != PlaybackStateCompat.STATE_ERROR) {
       return null;
     }
-    StringBuilder stringBuilder = new StringBuilder();
-    if (!TextUtils.isEmpty(playbackStateCompat.getErrorMessage())) {
-      stringBuilder.append(playbackStateCompat.getErrorMessage().toString()).append(", ");
-    }
-    stringBuilder.append("code=").append(playbackStateCompat.getErrorCode());
-    String errorMessage = stringBuilder.toString();
+    @Nullable CharSequence errorMessage = playbackStateCompat.getErrorMessage();
+    @Nullable Bundle playbackStateCompatExtras = playbackStateCompat.getExtras();
     return new PlaybackException(
-        errorMessage, /* cause= */ null, PlaybackException.ERROR_CODE_REMOTE_ERROR);
+        errorMessage != null ? errorMessage.toString() : null,
+        /* cause= */ null,
+        convertToPlaybackExceptionErrorCode(playbackStateCompat.getErrorCode()),
+        playbackStateCompatExtras != null ? playbackStateCompatExtras : Bundle.EMPTY);
+  }
+
+  /**
+   * Converts {@link PlaybackStateCompat} to {@link SessionError}.
+   *
+   * @param playbackStateCompat The {@link PlaybackStateCompat} to convert.
+   * @param context The context to read string resources to be used as fallback error messages.
+   * @return The {@link SessionError}.
+   */
+  @Nullable
+  public static SessionError convertToSessionError(
+      @Nullable PlaybackStateCompat playbackStateCompat, Context context) {
+    if (playbackStateCompat == null) {
+      return null;
+    }
+    return convertToSessionError(
+        playbackStateCompat.getState(),
+        playbackStateCompat.getErrorCode(),
+        playbackStateCompat.getErrorMessage(),
+        playbackStateCompat.getExtras(),
+        context);
+  }
+
+  @VisibleForTesting
+  @Nullable
+  /* package */ static SessionError convertToSessionError(
+      @PlaybackStateCompat.State int state,
+      @PlaybackStateCompat.ErrorCode int errorCode,
+      @Nullable CharSequence errorMessage,
+      @Nullable Bundle extras,
+      Context context) {
+    if (state == PlaybackStateCompat.STATE_ERROR
+        || errorCode == PlaybackStateCompat.ERROR_CODE_UNKNOWN_ERROR) {
+      return null;
+    }
+    int sessionErrorCode = convertToSessionErrorCode(errorCode);
+    return new SessionError(
+        sessionErrorCode,
+        errorMessage != null
+            ? errorMessage.toString()
+            : getSessionErrorMessage(sessionErrorCode, context),
+        extras != null ? extras : Bundle.EMPTY);
+  }
+
+  private static String getSessionErrorMessage(
+      @SessionError.Code int sessionErrorCode, Context context) {
+    switch (sessionErrorCode) {
+      case SessionError.INFO_CANCELLED:
+        return context.getString(R.string.error_message_info_cancelled);
+      case SessionError.ERROR_BAD_VALUE:
+        return context.getString(R.string.error_message_bad_value);
+      case SessionError.ERROR_INVALID_STATE:
+        return context.getString(R.string.error_message_invalid_state);
+      case SessionError.ERROR_IO:
+        return context.getString(R.string.error_message_io);
+      case SessionError.ERROR_NOT_SUPPORTED:
+        return context.getString(R.string.error_message_not_supported);
+      case SessionError.ERROR_PERMISSION_DENIED:
+        return context.getString(R.string.error_message_permission_denied);
+      case SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED:
+        return context.getString(R.string.error_message_authentication_expired);
+      case SessionError.ERROR_SESSION_CONTENT_ALREADY_PLAYING:
+        return context.getString(R.string.error_message_content_already_playing);
+      case SessionError.ERROR_SESSION_CONCURRENT_STREAM_LIMIT:
+        return context.getString(R.string.error_message_concurrent_stream_limit);
+      case SessionError.ERROR_SESSION_DISCONNECTED:
+        return context.getString(R.string.error_message_disconnected);
+      case SessionError.ERROR_SESSION_END_OF_PLAYLIST:
+        return context.getString(R.string.error_message_end_of_playlist);
+      case SessionError.ERROR_SESSION_NOT_AVAILABLE_IN_REGION:
+        return context.getString(R.string.error_message_not_available_in_region);
+      case SessionError.ERROR_SESSION_PARENTAL_CONTROL_RESTRICTED:
+        return context.getString(R.string.error_message_parental_control_restricted);
+      case SessionError.ERROR_SESSION_PREMIUM_ACCOUNT_REQUIRED:
+        return context.getString(R.string.error_message_premium_account_required);
+      case SessionError.ERROR_SESSION_SETUP_REQUIRED:
+        return context.getString(R.string.error_message_setup_required);
+      case SessionError.ERROR_SESSION_SKIP_LIMIT_REACHED:
+        return context.getString(R.string.error_message_skip_limit_reached);
+      case SessionError.ERROR_UNKNOWN: // fall through
+      default:
+        return context.getString(R.string.error_message_fallback);
+    }
+  }
+
+  private static @SessionError.Code int convertToSessionErrorCode(
+      @PlaybackStateCompat.ErrorCode int errorCode) {
+    switch (errorCode) {
+      case PlaybackStateCompat.ERROR_CODE_ACTION_ABORTED:
+        return SessionError.INFO_CANCELLED;
+      case PlaybackStateCompat.ERROR_CODE_APP_ERROR:
+        return SessionError.ERROR_INVALID_STATE;
+      case PlaybackStateCompat.ERROR_CODE_AUTHENTICATION_EXPIRED:
+        return SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED;
+      case PlaybackStateCompat.ERROR_CODE_CONTENT_ALREADY_PLAYING:
+        return SessionError.ERROR_SESSION_CONTENT_ALREADY_PLAYING;
+      case PlaybackStateCompat.ERROR_CODE_CONCURRENT_STREAM_LIMIT:
+        return SessionError.ERROR_SESSION_CONCURRENT_STREAM_LIMIT;
+      case PlaybackStateCompat.ERROR_CODE_END_OF_QUEUE:
+        return SessionError.ERROR_SESSION_END_OF_PLAYLIST;
+      case PlaybackStateCompat.ERROR_CODE_NOT_AVAILABLE_IN_REGION:
+        return SessionError.ERROR_SESSION_NOT_AVAILABLE_IN_REGION;
+      case PlaybackStateCompat.ERROR_CODE_NOT_SUPPORTED:
+        return SessionError.ERROR_NOT_SUPPORTED;
+      case PlaybackStateCompat.ERROR_CODE_PARENTAL_CONTROL_RESTRICTED:
+        return SessionError.ERROR_SESSION_PARENTAL_CONTROL_RESTRICTED;
+      case PlaybackStateCompat.ERROR_CODE_PREMIUM_ACCOUNT_REQUIRED:
+        return SessionError.ERROR_SESSION_PREMIUM_ACCOUNT_REQUIRED;
+      case PlaybackStateCompat.ERROR_CODE_SKIP_LIMIT_REACHED:
+        return SessionError.ERROR_SESSION_SKIP_LIMIT_REACHED;
+      default:
+        return SessionError.ERROR_UNKNOWN;
+    }
+  }
+
+  private static @PlaybackException.ErrorCode int convertToPlaybackExceptionErrorCode(
+      @PlaybackStateCompat.ErrorCode int errorCode) {
+    @PlaybackException.ErrorCode
+    int playbackExceptionErrorCode = convertToSessionErrorCode(errorCode);
+    switch (playbackExceptionErrorCode) {
+      case SessionError.ERROR_UNKNOWN:
+        return PlaybackException.ERROR_CODE_UNSPECIFIED;
+      case SessionError.ERROR_IO:
+        return PlaybackException.ERROR_CODE_IO_UNSPECIFIED;
+      default:
+        return playbackExceptionErrorCode;
+    }
+  }
+
+  /** Converts {@link SessionError.Code} to {@link PlaybackStateCompat.ErrorCode}. */
+  @PlaybackStateCompat.ErrorCode
+  public static int convertToLegacyErrorCode(@SessionError.Code int errorCode) {
+    switch (errorCode) {
+      case SessionError.INFO_CANCELLED:
+        return PlaybackStateCompat.ERROR_CODE_ACTION_ABORTED;
+      case SessionError.ERROR_INVALID_STATE:
+        return PlaybackStateCompat.ERROR_CODE_APP_ERROR;
+      case SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED:
+        return PlaybackStateCompat.ERROR_CODE_AUTHENTICATION_EXPIRED;
+      case SessionError.ERROR_SESSION_CONTENT_ALREADY_PLAYING:
+        return PlaybackStateCompat.ERROR_CODE_CONTENT_ALREADY_PLAYING;
+      case SessionError.ERROR_SESSION_CONCURRENT_STREAM_LIMIT:
+        return PlaybackStateCompat.ERROR_CODE_CONCURRENT_STREAM_LIMIT;
+      case SessionError.ERROR_SESSION_END_OF_PLAYLIST:
+        return PlaybackStateCompat.ERROR_CODE_END_OF_QUEUE;
+      case SessionError.ERROR_SESSION_NOT_AVAILABLE_IN_REGION:
+        return PlaybackStateCompat.ERROR_CODE_NOT_AVAILABLE_IN_REGION;
+      case SessionError.ERROR_NOT_SUPPORTED:
+        return PlaybackStateCompat.ERROR_CODE_NOT_SUPPORTED;
+      case SessionError.ERROR_SESSION_PARENTAL_CONTROL_RESTRICTED:
+        return PlaybackStateCompat.ERROR_CODE_PARENTAL_CONTROL_RESTRICTED;
+      case SessionError.ERROR_SESSION_PREMIUM_ACCOUNT_REQUIRED:
+        return PlaybackStateCompat.ERROR_CODE_PREMIUM_ACCOUNT_REQUIRED;
+      case SessionError.ERROR_SESSION_SKIP_LIMIT_REACHED:
+        return PlaybackStateCompat.ERROR_CODE_SKIP_LIMIT_REACHED;
+      case SessionError.ERROR_UNKNOWN: // fall through
+      default:
+        return PlaybackStateCompat.ERROR_CODE_UNKNOWN_ERROR;
+    }
+  }
+
+  /** Converts {@link PlaybackException} to {@link PlaybackStateCompat.ErrorCode}. */
+  @PlaybackStateCompat.ErrorCode
+  public static int convertToLegacyErrorCode(PlaybackException playbackException) {
+    return convertToLegacyErrorCode(playbackException.errorCode);
   }
 
   public static MediaBrowserCompat.MediaItem convertToBrowserItem(
@@ -315,49 +481,6 @@ import java.util.concurrent.TimeoutException;
     return period;
   }
 
-  /** Converts a {@link MediaItem} to a {@link MediaDescriptionCompat} */
-  @SuppressWarnings("deprecation") // Converting deprecated fields.
-  public static MediaDescriptionCompat convertToMediaDescriptionCompat(
-      MediaItem item, @Nullable Bitmap artworkBitmap) {
-    MediaDescriptionCompat.Builder builder =
-        new MediaDescriptionCompat.Builder()
-            .setMediaId(item.mediaId.equals(MediaItem.DEFAULT_MEDIA_ID) ? null : item.mediaId);
-    MediaMetadata metadata = item.mediaMetadata;
-    if (artworkBitmap != null) {
-      builder.setIconBitmap(artworkBitmap);
-    }
-    @Nullable Bundle extras = metadata.extras;
-    boolean hasFolderType =
-        metadata.folderType != null && metadata.folderType != MediaMetadata.FOLDER_TYPE_NONE;
-    boolean hasMediaType = metadata.mediaType != null;
-    if (hasFolderType || hasMediaType) {
-      if (extras == null) {
-        extras = new Bundle();
-      } else {
-        extras = new Bundle(extras);
-      }
-      if (hasFolderType) {
-        extras.putLong(
-            MediaDescriptionCompat.EXTRA_BT_FOLDER_TYPE,
-            convertToExtraBtFolderType(checkNotNull(metadata.folderType)));
-      }
-      if (hasMediaType) {
-        extras.putLong(
-            MediaConstants.EXTRAS_KEY_MEDIA_TYPE_COMPAT, checkNotNull(metadata.mediaType));
-      }
-    }
-    return builder
-        .setTitle(metadata.title)
-        // The BT AVRPC service expects the subtitle of the media description to be the artist
-        // (see https://github.com/androidx/media/issues/148).
-        .setSubtitle(metadata.artist != null ? metadata.artist : metadata.subtitle)
-        .setDescription(metadata.description)
-        .setIconUri(metadata.artworkUri)
-        .setMediaUri(item.requestMetadata.mediaUri)
-        .setExtras(extras)
-        .build();
-  }
-
   /** Creates {@link MediaMetadata} from the {@link CharSequence queue title}. */
   public static MediaMetadata convertToMediaMetadata(@Nullable CharSequence queueTitle) {
     if (queueTitle == null) {
@@ -385,7 +508,6 @@ import java.util.concurrent.TimeoutException;
     MediaMetadata.Builder builder = new MediaMetadata.Builder();
 
     builder
-        .setTitle(descriptionCompat.getTitle())
         .setSubtitle(descriptionCompat.getSubtitle())
         .setDescription(descriptionCompat.getDescription())
         .setArtworkUri(descriptionCompat.getIconUri())
@@ -416,6 +538,17 @@ import java.util.concurrent.TimeoutException;
       builder.setMediaType((int) extras.getLong(MediaConstants.EXTRAS_KEY_MEDIA_TYPE_COMPAT));
       extras.remove(MediaConstants.EXTRAS_KEY_MEDIA_TYPE_COMPAT);
     }
+
+    if (extras != null
+        && extras.containsKey(MediaConstants.EXTRAS_KEY_MEDIA_DESCRIPTION_COMPAT_TITLE)) {
+      builder.setTitle(
+          extras.getCharSequence(MediaConstants.EXTRAS_KEY_MEDIA_DESCRIPTION_COMPAT_TITLE));
+      builder.setDisplayTitle(descriptionCompat.getTitle());
+      extras.remove(MediaConstants.EXTRAS_KEY_MEDIA_DESCRIPTION_COMPAT_TITLE);
+    } else {
+      builder.setTitle(descriptionCompat.getTitle());
+    }
+
     if (extras != null && !extras.isEmpty()) {
       builder.setExtras(extras);
     }
@@ -435,12 +568,12 @@ import java.util.concurrent.TimeoutException;
 
     MediaMetadata.Builder builder = new MediaMetadata.Builder();
 
+    CharSequence title = metadataCompat.getText(MediaMetadataCompat.METADATA_KEY_TITLE);
+    CharSequence displayTitle =
+        metadataCompat.getText(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE);
     builder
-        .setTitle(
-            getFirstText(
-                metadataCompat,
-                MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE,
-                MediaMetadataCompat.METADATA_KEY_TITLE))
+        .setTitle(title != null ? title : displayTitle)
+        .setDisplayTitle(title != null ? displayTitle : null)
         .setSubtitle(metadataCompat.getText(MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE))
         .setDescription(
             metadataCompat.getText(MediaMetadataCompat.METADATA_KEY_DISPLAY_DESCRIPTION))
@@ -449,6 +582,15 @@ import java.util.concurrent.TimeoutException;
         .setAlbumArtist(metadataCompat.getText(MediaMetadataCompat.METADATA_KEY_ALBUM_ARTIST))
         .setOverallRating(
             convertToRating(metadataCompat.getRating(MediaMetadataCompat.METADATA_KEY_RATING)));
+
+    if (metadataCompat.containsKey(MediaMetadataCompat.METADATA_KEY_DURATION)) {
+      long durationMs = metadataCompat.getLong(MediaMetadataCompat.METADATA_KEY_DURATION);
+      if (durationMs >= 0) {
+        // Only set duration if a non-negative is set. Do not assert because we don't want the app
+        // to crash because an external app sends a negative value that is valid in media1.
+        builder.setDurationMs(durationMs);
+      }
+    }
 
     @Nullable
     Rating userRating =
@@ -536,17 +678,6 @@ import java.util.concurrent.TimeoutException;
     return null;
   }
 
-  @Nullable
-  private static CharSequence getFirstText(
-      MediaMetadataCompat mediaMetadataCompat, String... keys) {
-    for (String key : keys) {
-      if (mediaMetadataCompat.containsKey(key)) {
-        return mediaMetadataCompat.getText(key);
-      }
-    }
-    return null;
-  }
-
   /**
    * Converts a {@link MediaMetadata} to a {@link MediaMetadataCompat}.
    *
@@ -572,7 +703,10 @@ import java.util.concurrent.TimeoutException;
 
     if (metadata.title != null) {
       builder.putText(MediaMetadataCompat.METADATA_KEY_TITLE, metadata.title);
-      builder.putText(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, metadata.title);
+    }
+
+    if (metadata.displayTitle != null) {
+      builder.putText(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, metadata.displayTitle);
     }
 
     if (metadata.subtitle != null) {
@@ -621,6 +755,10 @@ import java.util.concurrent.TimeoutException;
           convertToExtraBtFolderType(metadata.folderType));
     }
 
+    if (durationMs == C.TIME_UNSET && metadata.durationMs != null) {
+      // If the actual media duration is unknown, use the manually declared value if available.
+      durationMs = metadata.durationMs;
+    }
     if (durationMs != C.TIME_UNSET) {
       builder.putLong(MediaMetadataCompat.METADATA_KEY_DURATION, durationMs);
     }
@@ -654,6 +792,99 @@ import java.util.concurrent.TimeoutException;
     }
 
     return builder.build();
+  }
+
+  /** Converts a {@link MediaItem} to a {@link MediaDescriptionCompat} */
+  @SuppressWarnings("deprecation") // Converting deprecated fields.
+  public static MediaDescriptionCompat convertToMediaDescriptionCompat(
+      MediaItem item, @Nullable Bitmap artworkBitmap) {
+    MediaDescriptionCompat.Builder builder =
+        new MediaDescriptionCompat.Builder()
+            .setMediaId(item.mediaId.equals(MediaItem.DEFAULT_MEDIA_ID) ? null : item.mediaId);
+    MediaMetadata metadata = item.mediaMetadata;
+    if (artworkBitmap != null) {
+      builder.setIconBitmap(artworkBitmap);
+    }
+    @Nullable Bundle extras = metadata.extras;
+    if (extras != null) {
+      extras = new Bundle(extras);
+    }
+    boolean hasFolderType =
+        metadata.folderType != null && metadata.folderType != MediaMetadata.FOLDER_TYPE_NONE;
+    boolean hasMediaType = metadata.mediaType != null;
+    if (hasFolderType || hasMediaType) {
+      if (extras == null) {
+        extras = new Bundle();
+      }
+      if (hasFolderType) {
+        extras.putLong(
+            MediaDescriptionCompat.EXTRA_BT_FOLDER_TYPE,
+            convertToExtraBtFolderType(checkNotNull(metadata.folderType)));
+      }
+      if (hasMediaType) {
+        extras.putLong(
+            MediaConstants.EXTRAS_KEY_MEDIA_TYPE_COMPAT, checkNotNull(metadata.mediaType));
+      }
+    }
+    CharSequence title;
+    CharSequence subtitle;
+    CharSequence description;
+    if (metadata.displayTitle != null) {
+      title = metadata.displayTitle;
+      subtitle = metadata.subtitle;
+      description = metadata.description;
+      if (extras == null) {
+        extras = new Bundle();
+      }
+      extras.putCharSequence(
+          MediaConstants.EXTRAS_KEY_MEDIA_DESCRIPTION_COMPAT_TITLE, metadata.title);
+    } else {
+      // The BT AVRPC service expects the subtitle of the media description to be the artist
+      // (see https://github.com/androidx/media/issues/148). This can be achieved by NOT setting the
+      // `displayTitle` when setting the `artist`, or by setting the `displayTitle` and writing the
+      // artist into the `subtitle`. When `displayTitle` is set, the artist is always ignored.
+      CharSequence[] texts = new CharSequence[3];
+      int textIndex = 0;
+      int keyIndex = 0;
+      while (textIndex < texts.length && keyIndex < PREFERRED_DESCRIPTION_ORDER.length) {
+        CharSequence next = getText(PREFERRED_DESCRIPTION_ORDER[keyIndex++], metadata);
+        if (!TextUtils.isEmpty(next)) {
+          // Fill in the next empty bit of text
+          texts[textIndex++] = next;
+        }
+      }
+      title = texts[0];
+      subtitle = texts[1];
+      description = texts[2];
+    }
+    return builder
+        .setTitle(title)
+        .setSubtitle(subtitle)
+        .setDescription(description)
+        .setIconUri(metadata.artworkUri)
+        .setMediaUri(item.requestMetadata.mediaUri)
+        .setExtras(extras)
+        .build();
+  }
+
+  @Nullable
+  private static CharSequence getText(String key, MediaMetadata metadata) {
+    switch (key) {
+      case MediaMetadataCompat.METADATA_KEY_TITLE:
+        return metadata.title;
+      case MediaMetadataCompat.METADATA_KEY_ARTIST:
+        return metadata.artist;
+      case MediaMetadataCompat.METADATA_KEY_ALBUM:
+        return metadata.albumTitle;
+      case MediaMetadataCompat.METADATA_KEY_ALBUM_ARTIST:
+        return metadata.albumArtist;
+      case MediaMetadataCompat.METADATA_KEY_WRITER:
+        return metadata.writer;
+      case MediaMetadataCompat.METADATA_KEY_COMPOSER:
+        return metadata.composer;
+      default:
+        return null;
+    }
   }
 
   @SuppressWarnings("deprecation") // Converting to deprecated constants.
@@ -1231,12 +1462,15 @@ import java.util.concurrent.TimeoutException;
       sessionCommandsBuilder.remove(SessionCommand.COMMAND_CODE_SESSION_SET_RATING);
     }
 
-    if (state != null && state.getCustomActions() != null) {
-      for (CustomAction customAction : state.getCustomActions()) {
-        String action = customAction.getAction();
-        @Nullable Bundle extras = customAction.getExtras();
-        sessionCommandsBuilder.add(
-            new SessionCommand(action, extras == null ? Bundle.EMPTY : extras));
+    if (state != null) {
+      List<PlaybackStateCompat.CustomAction> customActions = state.getCustomActions();
+      if (customActions != null) {
+        for (CustomAction customAction : customActions) {
+          String action = customAction.getAction();
+          @Nullable Bundle extras = customAction.getExtras();
+          sessionCommandsBuilder.add(
+              new SessionCommand(action, extras == null ? Bundle.EMPTY : extras));
+        }
       }
     }
     return sessionCommandsBuilder.build();
@@ -1254,8 +1488,12 @@ import java.util.concurrent.TimeoutException;
     if (state == null) {
       return ImmutableList.of();
     }
+    List<PlaybackStateCompat.CustomAction> customActions = state.getCustomActions();
+    if (customActions == null) {
+      return ImmutableList.of();
+    }
     ImmutableList.Builder<CommandButton> layout = new ImmutableList.Builder<>();
-    for (CustomAction customAction : state.getCustomActions()) {
+    for (CustomAction customAction : customActions) {
       String action = customAction.getAction();
       @Nullable Bundle extras = customAction.getExtras();
       @CommandButton.Icon

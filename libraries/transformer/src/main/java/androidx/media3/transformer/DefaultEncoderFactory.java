@@ -16,6 +16,7 @@
 
 package androidx.media3.transformer;
 
+import static androidx.media3.common.ColorInfo.isTransferHdr;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
@@ -24,6 +25,7 @@ import static androidx.media3.common.util.MediaFormatUtil.createMediaFormatFromF
 import static androidx.media3.common.util.Util.SDK_INT;
 import static java.lang.Math.abs;
 import static java.lang.Math.floor;
+import static java.lang.Math.max;
 import static java.lang.Math.round;
 
 import android.content.Context;
@@ -32,7 +34,9 @@ import android.media.MediaFormat;
 import android.os.Build;
 import android.util.Pair;
 import android.util.Size;
+import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -58,14 +62,18 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
   public static final class Builder {
     private final Context context;
 
-    @Nullable private EncoderSelector videoEncoderSelector;
-    @Nullable private VideoEncoderSettings requestedVideoEncoderSettings;
+    private EncoderSelector videoEncoderSelector;
+    private VideoEncoderSettings requestedVideoEncoderSettings;
     private boolean enableFallback;
+    private @C.Priority int codecPriority;
 
     /** Creates a new {@link Builder}. */
     public Builder(Context context) {
-      this.context = context;
-      this.enableFallback = true;
+      this.context = context.getApplicationContext();
+      videoEncoderSelector = EncoderSelector.DEFAULT;
+      requestedVideoEncoderSettings = VideoEncoderSettings.DEFAULT;
+      enableFallback = true;
+      codecPriority = C.PRIORITY_PROCESSING_FOREGROUND;
     }
 
     /**
@@ -120,17 +128,32 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
       return this;
     }
 
+    /**
+     * Sets the codec priority.
+     *
+     * <p>Specifying codec priority allows the resource manager in the platform to reclaim less
+     * important codecs before more important codecs.
+     *
+     * <p>It is recommended to use predefined {@linkplain C.Priority priorities} like {@link
+     * C#PRIORITY_PROCESSING_FOREGROUND}, {@link C#PRIORITY_PROCESSING_BACKGROUND} or priority
+     * values defined relative to those defaults.
+     *
+     * <p>This method is a no-op on API versions before 35.
+     *
+     * <p>The default value is {@link C#PRIORITY_PROCESSING_FOREGROUND}.
+     *
+     * @param codecPriority The {@link C.Priority} for the codec. Should be at most {@link
+     *     C#PRIORITY_MAX}.
+     */
+    @CanIgnoreReturnValue
+    public Builder setCodecPriority(@IntRange(to = C.PRIORITY_MAX) @C.Priority int codecPriority) {
+      this.codecPriority = codecPriority;
+      return this;
+    }
+
     /** Creates an instance of {@link DefaultEncoderFactory}, using defaults if values are unset. */
-    @SuppressWarnings("deprecation")
     public DefaultEncoderFactory build() {
-      if (videoEncoderSelector == null) {
-        videoEncoderSelector = EncoderSelector.DEFAULT;
-      }
-      if (requestedVideoEncoderSettings == null) {
-        requestedVideoEncoderSettings = VideoEncoderSettings.DEFAULT;
-      }
-      return new DefaultEncoderFactory(
-          context, videoEncoderSelector, requestedVideoEncoderSettings, enableFallback);
+      return new DefaultEncoderFactory(this);
     }
   }
 
@@ -138,24 +161,26 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
   private final EncoderSelector videoEncoderSelector;
   private final VideoEncoderSettings requestedVideoEncoderSettings;
   private final boolean enableFallback;
+  private final @C.Priority int codecPriority;
 
   /**
    * @deprecated Use {@link Builder} instead.
    */
   @Deprecated
-  @SuppressWarnings("deprecation")
   public DefaultEncoderFactory(Context context) {
-    this(context, EncoderSelector.DEFAULT, /* enableFallback= */ true);
+    this(new Builder(context));
   }
 
   /**
    * @deprecated Use {@link Builder} instead.
    */
   @Deprecated
-  @SuppressWarnings("deprecation")
   public DefaultEncoderFactory(
       Context context, EncoderSelector videoEncoderSelector, boolean enableFallback) {
-    this(context, videoEncoderSelector, VideoEncoderSettings.DEFAULT, enableFallback);
+    this(
+        new Builder(context)
+            .setVideoEncoderSelector(videoEncoderSelector)
+            .setEnableFallback(enableFallback));
   }
 
   /**
@@ -167,10 +192,19 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
       EncoderSelector videoEncoderSelector,
       VideoEncoderSettings requestedVideoEncoderSettings,
       boolean enableFallback) {
-    this.context = context;
-    this.videoEncoderSelector = videoEncoderSelector;
-    this.requestedVideoEncoderSettings = requestedVideoEncoderSettings;
-    this.enableFallback = enableFallback;
+    this(
+        new Builder(context)
+            .setVideoEncoderSelector(videoEncoderSelector)
+            .setEnableFallback(enableFallback)
+            .setRequestedVideoEncoderSettings(requestedVideoEncoderSettings));
+  }
+
+  private DefaultEncoderFactory(Builder builder) {
+    this.context = builder.context;
+    this.videoEncoderSelector = builder.videoEncoderSelector;
+    this.requestedVideoEncoderSettings = builder.requestedVideoEncoderSettings;
+    this.enableFallback = builder.enableFallback;
+    this.codecPriority = builder.codecPriority;
   }
 
   @Override
@@ -178,7 +212,9 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     if (format.bitrate == Format.NO_VALUE) {
       format = format.buildUpon().setAverageBitrate(DEFAULT_AUDIO_BITRATE).build();
     }
-    checkNotNull(format.sampleMimeType);
+    if (format.sampleMimeType == null) {
+      throw createNoSupportedMimeTypeException(format, /* isVideo= */ false);
+    }
     MediaFormat mediaFormat = createMediaFormatFromFormat(format);
     ImmutableList<MediaCodecInfo> mediaCodecInfos =
         EncoderUtil.getSupportedEncoders(format.sampleMimeType);
@@ -207,13 +243,16 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     if (format.frameRate == Format.NO_VALUE || deviceNeedsDefaultFrameRateWorkaround()) {
       format = format.buildUpon().setFrameRate(DEFAULT_FRAME_RATE).build();
     }
+    if (format.sampleMimeType == null) {
+      throw createNoSupportedMimeTypeException(format, /* isVideo= */ true);
+    }
     checkArgument(format.width != Format.NO_VALUE);
     checkArgument(format.height != Format.NO_VALUE);
     // According to interface Javadoc, format.rotationDegrees should be 0. The video should always
     // be encoded in landscape orientation.
     checkArgument(format.height <= format.width);
     checkArgument(format.rotationDegrees == 0);
-    checkNotNull(format.sampleMimeType);
+
     checkStateNotNull(videoEncoderSelector);
 
     @Nullable
@@ -269,7 +308,9 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
 
     if (supportedVideoEncoderSettings.profile != VideoEncoderSettings.NO_VALUE
         && supportedVideoEncoderSettings.level != VideoEncoderSettings.NO_VALUE
-        && Util.SDK_INT >= 23) {
+        && Util.SDK_INT >= 24) {
+      // For API levels below 24, setting profile and level can lead to failures in MediaCodec
+      // configuration. The encoder selects the profile/level when we don't set them.
       // Set profile and level at the same time to maximize compatibility, or the encoder will pick
       // the values.
       mediaFormat.setInteger(MediaFormat.KEY_PROFILE, supportedVideoEncoderSettings.profile);
@@ -324,6 +365,10 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
           mediaFormat.setInteger(MediaFormat.KEY_PRIORITY, supportedVideoEncoderSettings.priority);
         }
       }
+    }
+
+    if (Util.SDK_INT >= 35) {
+      mediaFormat.setInteger(MediaFormat.KEY_IMPORTANCE, max(0, -codecPriority));
     }
 
     return new DefaultCodec(
@@ -543,8 +588,10 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
   }
 
   /**
-   * Applying suggested profile/level settings from
+   * Applying suggested profile settings from
    * https://developer.android.com/media/optimize/sharing#b-frames_and_encoding_profiles
+   *
+   * <p>Sets H.264 level only if it wasn't set previously.
    *
    * <p>The adjustment is applied in-place to {@code mediaFormat}.
    */
@@ -571,7 +618,9 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
         // Use the highest supported profile. Don't configure B-frames, because it doesn't work on
         // some devices.
         mediaFormat.setInteger(MediaFormat.KEY_PROFILE, expectedEncodingProfile);
-        mediaFormat.setInteger(MediaFormat.KEY_LEVEL, supportedEncodingLevel);
+        if (!mediaFormat.containsKey(MediaFormat.KEY_LEVEL)) {
+          mediaFormat.setInteger(MediaFormat.KEY_LEVEL, supportedEncodingLevel);
+        }
       }
     } else if (Util.SDK_INT >= 26 && !deviceNeedsNoH264HighProfileWorkaround()) {
       int expectedEncodingProfile = MediaCodecInfo.CodecProfileLevel.AVCProfileHigh;
@@ -583,7 +632,9 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
         // MediaFormat.KEY_LATENCY. This accommodates some limitations in the MediaMuxer in these
         // system versions.
         mediaFormat.setInteger(MediaFormat.KEY_PROFILE, expectedEncodingProfile);
-        mediaFormat.setInteger(MediaFormat.KEY_LEVEL, supportedEncodingLevel);
+        if (!mediaFormat.containsKey(MediaFormat.KEY_LEVEL)) {
+          mediaFormat.setInteger(MediaFormat.KEY_LEVEL, supportedEncodingLevel);
+        }
         // TODO(b/210593256): Set KEY_LATENCY to 2 to enable B-frame production after in-app muxing
         // is the default and it supports B-frames.
         mediaFormat.setInteger(MediaFormat.KEY_LATENCY, 1);
@@ -597,7 +648,9 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
       // Use the baseline profile for safest results, as encoding in baseline is required per
       // https://source.android.com/compatibility/5.0/android-5.0-cdd#5_2_video_encoding
       mediaFormat.setInteger(MediaFormat.KEY_PROFILE, expectedEncodingProfile);
-      mediaFormat.setInteger(MediaFormat.KEY_LEVEL, supportedLevel);
+      if (!mediaFormat.containsKey(MediaFormat.KEY_LEVEL)) {
+        mediaFormat.setInteger(MediaFormat.KEY_LEVEL, supportedLevel);
+      }
     }
     // For API levels below 24, setting profile and level can lead to failures in MediaCodec
     // configuration. The encoder selects the profile/level when we don't set them.
@@ -667,14 +720,32 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     return (int) (width * height * frameRate * 0.07 * 2);
   }
 
+  private static ExportException createNoSupportedMimeTypeException(
+      Format format, boolean isVideo) {
+    String errorMessage = "No MIME type is supported by both encoder and muxer.";
+    int errorCode = ExportException.ERROR_CODE_ENCODING_FORMAT_UNSUPPORTED;
+
+    if (isVideo && isTransferHdr(format.colorInfo)) {
+      errorMessage += " Requested HDR colorInfo: " + format.colorInfo;
+    }
+
+    return ExportException.createForCodec(
+        new IllegalArgumentException(errorMessage),
+        errorCode,
+        new ExportException.CodecInfo(
+            format.toString(), isVideo, /* isDecoder= */ false, /* name= */ null));
+  }
+
   @RequiresNonNull("#1.sampleMimeType")
   private static ExportException createExportException(Format format, String errorString) {
     return ExportException.createForCodec(
         new IllegalArgumentException(errorString),
         ExportException.ERROR_CODE_ENCODING_FORMAT_UNSUPPORTED,
-        MimeTypes.isVideo(format.sampleMimeType),
-        /* isDecoder= */ false,
-        format);
+        new ExportException.CodecInfo(
+            format.toString(),
+            MimeTypes.isVideo(format.sampleMimeType),
+            /* isDecoder= */ false,
+            /* name= */ null));
   }
 
   private static boolean deviceNeedsDefaultFrameRateWorkaround() {

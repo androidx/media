@@ -1082,7 +1082,8 @@ public class MediaSessionPlayerTest {
     Context context = ApplicationProvider.getApplicationContext();
     MediaSession session = new MediaSession.Builder(context, player).setId("test").build();
     sessionReference.set(session);
-    MediaControllerCompat controller = session.getSessionCompat().getController();
+    MediaControllerCompat controller =
+        new MediaControllerCompat(context, session.getSessionCompatToken());
 
     controller.getTransportControls().play();
     eventHandled.await();
@@ -1136,7 +1137,8 @@ public class MediaSessionPlayerTest {
                 })
             .build();
     sessionReference.set(session);
-    MediaControllerCompat controller = session.getSessionCompat().getController();
+    MediaControllerCompat controller =
+        new MediaControllerCompat(context, session.getSessionCompatToken());
 
     controller.getTransportControls().playFromUri(Uri.parse("test://"), Bundle.EMPTY);
     eventHandled.await();
@@ -1192,7 +1194,8 @@ public class MediaSessionPlayerTest {
 
     MainLooperTestRule.runOnMainSync(
         () -> {
-          MediaControllerCompat controller = session.getSessionCompat().getController();
+          MediaControllerCompat controller =
+              new MediaControllerCompat(context, session.getSessionCompatToken());
           controller.addQueueItem(new MediaDescriptionCompat.Builder().setMediaId("id").build());
         });
     eventHandled.await();

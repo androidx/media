@@ -62,6 +62,8 @@ public class Mp4PlaybackTest {
         "sample_fragmented_sei.mp4",
         "sample_mdat_too_long.mp4",
         "sample.mp4",
+        "sample_with_metadata.mp4",
+        "sample_with_numeric_genre.mp4",
         "sample_opus_fragmented.mp4",
         "sample_opus.mp4",
         "sample_partially_fragmented.mp4",

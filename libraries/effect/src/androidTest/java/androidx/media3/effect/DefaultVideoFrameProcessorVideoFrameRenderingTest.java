@@ -45,7 +45,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Test;
@@ -57,6 +56,7 @@ public final class DefaultVideoFrameProcessorVideoFrameRenderingTest {
 
   private static final int WIDTH = 200;
   private static final int HEIGHT = 100;
+  private static final long TEST_TIMEOUT_MS = 10_000L;
 
   /**
    * Time to wait between rendering frames to avoid frame drops between GL and the {@link
@@ -239,42 +239,10 @@ public final class DefaultVideoFrameProcessorVideoFrameRenderingTest {
     assertThat(actualRenderTimesNs).containsExactlyElementsIn(renderTimesNs).inOrder();
   }
 
-  @Test
-  public void controlledFrameRendering_withThreeFramesAtOnce_usesGivenTimestamps()
-      throws Exception {
-    ImmutableList<Long> originalPresentationTimesUs = ImmutableList.of(1234L, 3456L, 4567L);
-    long offsetNs = System.nanoTime();
-    ImmutableList<Long> renderTimesNs =
-        ImmutableList.of(offsetNs + 123456, offsetNs + 234567, offsetNs + 345678);
-    ArrayList<Long> actualPresentationTimesUs = new ArrayList<>();
-    processFramesToEndOfStream(
-        /* inputPresentationTimesUs= */ originalPresentationTimesUs,
-        /* onFrameAvailableListener= */ actualPresentationTimesUs::add,
-        /* renderFramesAutomatically= */ false);
-
-    // TODO(b/264252759): Investigate output frames being dropped and remove sleep.
-    // Frames can be dropped silently between EGL and the ImageReader. Sleep after each call
-    // to swap buffers, to avoid this behavior.
-    defaultVideoFrameProcessor.renderOutputFrame(renderTimesNs.get(0));
-    Thread.sleep(PER_FRAME_RENDERING_WAIT_TIME_MS);
-    defaultVideoFrameProcessor.renderOutputFrame(renderTimesNs.get(1));
-    Thread.sleep(PER_FRAME_RENDERING_WAIT_TIME_MS);
-    defaultVideoFrameProcessor.renderOutputFrame(renderTimesNs.get(2));
-    Thread.sleep(PER_FRAME_RENDERING_WAIT_TIME_MS);
-
-    assertThat(actualPresentationTimesUs)
-        .containsExactlyElementsIn(originalPresentationTimesUs)
-        .inOrder();
-    ImmutableList<Long> actualRenderTimesNs =
-        waitForFrameRenderingAndGetRenderTimesNs(/* expectedFrameCount= */ 3);
-    assertThat(actualRenderTimesNs).containsExactlyElementsIn(renderTimesNs).inOrder();
-  }
-
   private interface OnOutputFrameAvailableForRenderingListener {
     void onFrameAvailableForRendering(long presentationTimeUs);
   }
 
-  @EnsuresNonNull("defaultVideoFrameProcessor")
   private void processFramesToEndOfStream(
       List<Long> inputPresentationTimesUs,
       OnOutputFrameAvailableForRenderingListener onFrameAvailableListener,
@@ -349,14 +317,19 @@ public final class DefaultVideoFrameProcessorVideoFrameRenderingTest {
             INPUT_TYPE_SURFACE,
             /* effects= */ ImmutableList.of((GlEffect) (context, useHdr) -> blankFrameProducer),
             new FrameInfo.Builder(ColorInfo.SDR_BT709_LIMITED, WIDTH, HEIGHT).build());
-    videoFrameProcessorReadyCountDownLatch.await();
+    boolean testTimedOut = false;
+    if (!videoFrameProcessorReadyCountDownLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)) {
+      testTimedOut = true;
+    }
     blankFrameProducer.produceBlankFrames(inputPresentationTimesUs);
     defaultVideoFrameProcessor.signalEndOfInput();
-    videoFrameProcessingEndedCountDownLatch.await();
+    if (!videoFrameProcessingEndedCountDownLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)) {
+      testTimedOut = true;
+    }
     @Nullable
     Exception videoFrameProcessingException = videoFrameProcessingExceptionReference.get();
-    if (videoFrameProcessingException != null) {
-      throw videoFrameProcessingException;
+    if (videoFrameProcessingException != null || testTimedOut) {
+      throw new IllegalStateException(videoFrameProcessingException);
     }
   }
 

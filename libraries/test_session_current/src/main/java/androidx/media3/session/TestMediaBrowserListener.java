@@ -68,6 +68,11 @@ public final class TestMediaBrowserListener implements MediaBrowser.Listener {
   }
 
   @Override
+  public void onError(MediaController controller, SessionError sessionError) {
+    delegate.onError(controller, sessionError);
+  }
+
+  @Override
   public void onSessionActivityChanged(MediaController controller, PendingIntent sessionActivity) {
     delegate.onSessionActivityChanged(controller, sessionActivity);
   }

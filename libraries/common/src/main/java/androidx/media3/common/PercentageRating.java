@@ -70,8 +70,6 @@ public final class PercentageRating extends Rating {
     return percent == ((PercentageRating) obj).percent;
   }
 
-  // Bundleable implementation.
-
   private static final @RatingType int TYPE = RATING_TYPE_PERCENTAGE;
 
   private static final String FIELD_PERCENT = Util.intToStringMaxRadix(1);
@@ -84,16 +82,6 @@ public final class PercentageRating extends Rating {
     bundle.putFloat(FIELD_PERCENT, percent);
     return bundle;
   }
-
-  /**
-   * Object that can restore a {@link PercentageRating} from a {@link Bundle}.
-   *
-   * @deprecated Use {@link #fromBundle} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<PercentageRating> CREATOR = PercentageRating::fromBundle;
 
   /** Restores a {@code PercentageRating} from a {@link Bundle}. */
   @UnstableApi

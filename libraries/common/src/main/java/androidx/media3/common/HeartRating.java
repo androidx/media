@@ -72,8 +72,6 @@ public final class HeartRating extends Rating {
     return isHeart == other.isHeart && rated == other.rated;
   }
 
-  // Bundleable implementation.
-
   private static final @RatingType int TYPE = RATING_TYPE_HEART;
 
   private static final String FIELD_RATED = Util.intToStringMaxRadix(1);
@@ -88,16 +86,6 @@ public final class HeartRating extends Rating {
     bundle.putBoolean(FIELD_IS_HEART, isHeart);
     return bundle;
   }
-
-  /**
-   * Object that can restore a {@link HeartRating} from a {@link Bundle}.
-   *
-   * @deprecated Use {@link #fromBundle} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<HeartRating> CREATOR = HeartRating::fromBundle;
 
   /** Restores a {@code HeartRating} from a {@link Bundle}. */
   @UnstableApi

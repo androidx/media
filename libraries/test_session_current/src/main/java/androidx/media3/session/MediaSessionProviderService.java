@@ -16,6 +16,7 @@
 package androidx.media3.session;
 
 import static androidx.media3.common.Player.COMMAND_GET_TRACKS;
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.session.MediaSession.ConnectionResult.accept;
 import static androidx.media3.test.session.common.CommonConstants.ACTION_MEDIA3_SESSION;
 import static androidx.media3.test.session.common.CommonConstants.KEY_AUDIO_ATTRIBUTES;
@@ -59,6 +60,7 @@ import static androidx.media3.test.session.common.CommonConstants.KEY_VOLUME;
 import static androidx.media3.test.session.common.MediaSessionConstants.KEY_AVAILABLE_SESSION_COMMANDS;
 import static androidx.media3.test.session.common.MediaSessionConstants.KEY_COMMAND_GET_TASKS_UNAVAILABLE;
 import static androidx.media3.test.session.common.MediaSessionConstants.KEY_CONTROLLER;
+import static androidx.media3.test.session.common.MediaSessionConstants.NOTIFICATION_CONTROLLER_KEY;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_COMMAND_GET_TRACKS;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_CONTROLLER_LISTENER_SESSION_REJECTS;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_GET_CUSTOM_LAYOUT;
@@ -76,6 +78,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.RemoteException;
+import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -108,6 +111,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.Callable;
 
 /**
@@ -285,7 +289,7 @@ public class MediaSessionProviderService extends Service {
         case TEST_ON_TRACKS_CHANGED_VIDEO_TO_AUDIO_TRANSITION:
         case TEST_ON_VIDEO_SIZE_CHANGED:
           {
-            mockPlayer.videoSize = MediaTestUtils.createDefaultVideoSize();
+            mockPlayer.videoSize = MediaTestUtils.getDefaultVideoSize();
             mockPlayer.currentTracks = MediaTestUtils.createDefaultVideoTracks();
             break;
           }
@@ -330,7 +334,7 @@ public class MediaSessionProviderService extends Service {
               Bundle connectionHints = new Bundle();
               connectionHints.putBoolean(
                   MediaController.KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG, true);
-              //noinspection unused
+              connectionHints.putString(KEY_CONTROLLER, NOTIFICATION_CONTROLLER_KEY);
               ListenableFuture<MediaController> unusedFuture =
                   new MediaController.Builder(getApplicationContext(), session.getToken())
                       .setListener(
@@ -568,8 +572,8 @@ public class MediaSessionProviderService extends Service {
           () -> {
             MediaSession mediaSession = sessionMap.get(sessionId);
             for (ControllerInfo controllerInfo : mediaSession.getConnectedControllers()) {
-              if (controllerInfo
-                  .getConnectionHints()
+              Bundle connectionHints = controllerInfo.getConnectionHints();
+              if (connectionHints
                   .getString(KEY_CONTROLLER, /* defaultValue= */ "")
                   .equals(controllerKey)) {
                 mediaSession.setSessionExtras(controllerInfo, extras);
@@ -580,9 +584,53 @@ public class MediaSessionProviderService extends Service {
     }
 
     @Override
-    public void setSessionActivity(String sessionId, PendingIntent sessionActivity)
+    public void sendError(String sessionId, String controllerKey, Bundle sessionError)
         throws RemoteException {
-      runOnHandler(() -> sessionMap.get(sessionId).setSessionActivity(sessionActivity));
+      runOnHandler(
+          () -> {
+            MediaSession mediaSession = checkNotNull(sessionMap.get(sessionId));
+            SessionError error = SessionError.fromBundle(sessionError);
+            if (TextUtils.isEmpty(controllerKey)) {
+              // Broadcast to all connected Media3 controller.
+              mediaSession.sendError(error);
+            } else {
+              // Send to controller with the given controller key in connection hints.
+              for (ControllerInfo controllerInfo : mediaSession.getConnectedControllers()) {
+                if (controllerInfo
+                    .getConnectionHints()
+                    .getString(KEY_CONTROLLER, /* defaultValue= */ "")
+                    .equals(controllerKey)) {
+                  mediaSession.sendError(controllerInfo, error);
+                }
+              }
+            }
+          });
+    }
+
+    @Override
+    public void setSessionActivity(
+        String sessionId, @Nullable String controllerKey, PendingIntent sessionActivity)
+        throws RemoteException {
+      MediaSession mediaSession = sessionMap.get(sessionId);
+      if (mediaSession == null) {
+        return;
+      }
+      if (controllerKey == null) {
+        // Set to all controllers by using the global session method.
+        runOnHandler(() -> mediaSession.setSessionActivity(sessionActivity));
+        return;
+      }
+      List<ControllerInfo> connectedControllers = mediaSession.getConnectedControllers();
+      for (int i = 0; i < connectedControllers.size(); i++) {
+        ControllerInfo controllerInfo = connectedControllers.get(i);
+        @Nullable
+        String connectedControllerKey =
+            controllerInfo.getConnectionHints().getString(KEY_CONTROLLER);
+        if (Objects.equals(controllerKey, connectedControllerKey)) {
+          // Set to controller for that the test case has given the provided controllerKey.
+          runOnHandler(() -> mediaSession.setSessionActivity(controllerInfo, sessionActivity));
+        }
+      }
     }
 
     ////////////////////////////////////////////////////////////////////////////////
@@ -808,13 +856,17 @@ public class MediaSessionProviderService extends Service {
 
     @Override
     public void notifyPlayWhenReadyChanged(
-        String sessionId, boolean playWhenReady, @Player.PlaybackSuppressionReason int reason)
+        String sessionId,
+        boolean playWhenReady,
+        @Player.PlayWhenReadyChangeReason int playWhenReadyChangeReason,
+        @Player.PlaybackSuppressionReason int suppressionReason)
         throws RemoteException {
       runOnHandler(
           () -> {
             MediaSession session = sessionMap.get(sessionId);
             MockPlayer player = (MockPlayer) session.getPlayer();
-            player.notifyPlayWhenReadyChanged(playWhenReady, reason);
+            player.notifyPlayWhenReadyChanged(
+                playWhenReady, playWhenReadyChangeReason, suppressionReason);
           });
     }
 

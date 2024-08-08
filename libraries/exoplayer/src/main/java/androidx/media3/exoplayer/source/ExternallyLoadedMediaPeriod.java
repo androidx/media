@@ -33,6 +33,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -56,7 +57,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     Format format = new Format.Builder().setSampleMimeType(mimeType).build();
     this.externalLoader = externalLoader;
     tracks = new TrackGroupArray(new TrackGroup(format));
-    sampleData = uri.toString().getBytes(Charsets.UTF_8);
+    sampleData = uri.toString().getBytes(StandardCharsets.UTF_8);
     loadingFinished = new AtomicBoolean();
     loadingThrowable = new AtomicReference<>();
   }

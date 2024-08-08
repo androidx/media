@@ -16,7 +16,6 @@
 
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 
 import android.content.ContentResolver;
@@ -48,7 +47,7 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
   private final Context context;
   private final Codec.DecoderFactory decoderFactory;
   private final Clock clock;
-  private final MediaSource.@MonotonicNonNull Factory mediaSourceFactory;
+  @Nullable private final MediaSource.Factory mediaSourceFactory;
   private final BitmapLoader bitmapLoader;
 
   private AssetLoader.@MonotonicNonNull Factory imageAssetLoaderFactory;
@@ -92,13 +91,9 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
    * The frame loaded is determined by the {@link BitmapLoader} implementation.
    *
    * @param context The {@link Context}.
-   * @param hdrMode The {@link Composition.HdrMode} to apply. Only {@link
-   *     Composition#HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC} and {@link
-   *     Composition#HDR_MODE_EXPERIMENTAL_FORCE_INTERPRET_HDR_AS_SDR} are applied.
    * @param bitmapLoader The {@link BitmapLoader} to use to load and decode images.
    */
-  public DefaultAssetLoaderFactory(
-      Context context, @Composition.HdrMode int hdrMode, BitmapLoader bitmapLoader) {
+  public DefaultAssetLoaderFactory(Context context, BitmapLoader bitmapLoader) {
     this.context = context.getApplicationContext();
     this.decoderFactory = new DefaultDecoderFactory(context);
     this.clock = Clock.DEFAULT;
@@ -165,11 +160,14 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
         ContentResolver cr = context.getContentResolver();
         mimeType = cr.getType(localConfiguration.uri);
       } else {
-        String uriPath = checkNotNull(localConfiguration.uri.getPath());
+        @Nullable String uriPath = localConfiguration.uri.getPath();
+        if (uriPath == null) {
+          return false;
+        }
         int fileExtensionStart = uriPath.lastIndexOf(".");
-        if (fileExtensionStart != -1) {
+        if (fileExtensionStart >= 0 && fileExtensionStart < uriPath.length() - 1) {
           String extension = Ascii.toLowerCase(uriPath.substring(fileExtensionStart + 1));
-          mimeType = getCommonImageMimeTypeFromExtension(Ascii.toLowerCase(extension));
+          mimeType = getCommonImageMimeTypeFromExtension(extension);
         }
       }
     }
@@ -192,8 +190,9 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
       case "dib":
         return MimeTypes.IMAGE_BMP;
       case "heif":
-      case "heic":
         return MimeTypes.IMAGE_HEIF;
+      case "heic":
+        return MimeTypes.IMAGE_HEIC;
       case "jpg":
       case "jpeg":
       case "jpe":
@@ -221,7 +220,7 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
       case "ico":
         return "image/x-icon";
       case "avif":
-        return "image/avif";
+        return MimeTypes.IMAGE_AVIF;
       default:
         return null;
     }

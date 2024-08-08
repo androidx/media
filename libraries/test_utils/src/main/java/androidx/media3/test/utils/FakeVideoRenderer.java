@@ -157,11 +157,7 @@ public class FakeVideoRenderer extends FakeRenderer {
       handler.post(
           () -> {
             VideoSize videoSize =
-                new VideoSize(
-                    format.width,
-                    format.height,
-                    format.rotationDegrees,
-                    format.pixelWidthHeightRatio);
+                new VideoSize(format.width, format.height, format.pixelWidthHeightRatio);
             if (!Objects.equals(videoSize, videoSizeRef.get())) {
               eventListener.onVideoSizeChanged(videoSize);
               videoSizeRef.set(videoSize);

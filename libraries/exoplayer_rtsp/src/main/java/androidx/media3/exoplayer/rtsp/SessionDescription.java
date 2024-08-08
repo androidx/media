@@ -21,7 +21,6 @@ import static androidx.media3.common.util.Util.castNonNull;
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -34,7 +33,6 @@ import java.util.HashMap;
  * <p>SDP messages encapsulate information on the media play back session, including session
  * configuration information, formats of each playable track, etc. SDP is defined in RFC4566.
  */
-@UnstableApi
 /* package */ final class SessionDescription {
 
   /** Builder class for {@link SessionDescription}. */

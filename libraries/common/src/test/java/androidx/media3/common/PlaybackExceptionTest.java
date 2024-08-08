@@ -30,13 +30,18 @@ public class PlaybackExceptionTest {
 
   @Test
   public void roundTripViaBundle_yieldsEqualInstance() {
+    Bundle extras = new Bundle();
+    extras.putInt("intKey", 123);
     PlaybackException before =
         new PlaybackException(
             /* message= */ "test",
             /* cause= */ new IOException(/* message= */ "io"),
-            PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND);
+            PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND,
+            extras);
     PlaybackException after = PlaybackException.fromBundle(before.toBundle());
     assertPlaybackExceptionsAreEquivalent(before, after);
+    assertThat(after.extras.size()).isEqualTo(1);
+    assertThat(after.extras.getInt("intKey")).isEqualTo(123);
   }
 
   // Backward compatibility tests.
@@ -51,6 +56,7 @@ public class PlaybackExceptionTest {
             "message",
             expectedCause,
             PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED,
+            Bundle.EMPTY,
             /* timestampMs= */ 1000);
 
     Bundle bundle = new Bundle();
@@ -71,6 +77,7 @@ public class PlaybackExceptionTest {
             "message",
             cause,
             PlaybackException.ERROR_CODE_DECODING_FAILED,
+            Bundle.EMPTY,
             /* timestampMs= */ 2000);
 
     Bundle bundle = exception.toBundle();
@@ -89,6 +96,7 @@ public class PlaybackExceptionTest {
             "message",
             expectedCause,
             PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED,
+            Bundle.EMPTY,
             /* timestampMs= */ 1000);
 
     Bundle bundle = new Bundle();

@@ -37,6 +37,7 @@ import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.Mp4TimestampData;
+import androidx.media3.container.NalUnitUtil;
 import androidx.media3.extractor.AacUtil;
 import androidx.media3.extractor.Ac3Util;
 import androidx.media3.extractor.Ac4Util;
@@ -1016,7 +1017,8 @@ import java.util.Objects;
           || childAtomType == Atom.TYPE_alaw
           || childAtomType == Atom.TYPE_ulaw
           || childAtomType == Atom.TYPE_Opus
-          || childAtomType == Atom.TYPE_fLaC) {
+          || childAtomType == Atom.TYPE_fLaC
+          || childAtomType == Atom.TYPE_iamf) {
         parseAudioSampleEntry(
             stsd,
             childAtomType,
@@ -1153,6 +1155,8 @@ import java.util.Objects;
     @Nullable byte[] projectionData = null;
     @C.StereoMode int stereoMode = Format.NO_VALUE;
     @Nullable EsdsData esdsData = null;
+    int maxNumReorderSamples = Format.NO_VALUE;
+    @Nullable NalUnitUtil.H265VpsData vpsData = null;
 
     // HDR related metadata.
     @C.ColorSpace int colorSpace = Format.NO_VALUE;
@@ -1182,6 +1186,7 @@ import java.util.Objects;
           pixelWidthHeightRatio = avcConfig.pixelWidthHeightRatio;
         }
         codecs = avcConfig.codecs;
+        maxNumReorderSamples = avcConfig.maxNumReorderFrames;
         colorSpace = avcConfig.colorSpace;
         colorRange = avcConfig.colorRange;
         colorTransfer = avcConfig.colorTransfer;
@@ -1197,12 +1202,86 @@ import java.util.Objects;
         if (!pixelWidthHeightRatioFromPasp) {
           pixelWidthHeightRatio = hevcConfig.pixelWidthHeightRatio;
         }
+        maxNumReorderSamples = hevcConfig.maxNumReorderPics;
         codecs = hevcConfig.codecs;
+        if (hevcConfig.stereoMode != Format.NO_VALUE) {
+          // HEVCDecoderConfigurationRecord may include 3D reference displays information SEI.
+          stereoMode = hevcConfig.stereoMode;
+        }
         colorSpace = hevcConfig.colorSpace;
         colorRange = hevcConfig.colorRange;
         colorTransfer = hevcConfig.colorTransfer;
         bitdepthLuma = hevcConfig.bitdepthLuma;
         bitdepthChroma = hevcConfig.bitdepthChroma;
+        vpsData = hevcConfig.vpsData;
+      } else if (childAtomType == Atom.TYPE_lhvC) {
+        // The lhvC atom must follow the hvcC atom; so the media type must be already set.
+        ExtractorUtil.checkContainerInput(
+            MimeTypes.VIDEO_H265.equals(mimeType), "lhvC must follow hvcC atom");
+        ExtractorUtil.checkContainerInput(
+            vpsData != null && vpsData.layerInfos.size() >= 2, "must have at least two layers");
+
+        parent.setPosition(childStartPosition + Atom.HEADER_SIZE);
+        HevcConfig lhevcConfig = HevcConfig.parseLayered(parent, checkNotNull(vpsData));
+        ExtractorUtil.checkContainerInput(
+            out.nalUnitLengthFieldLength == lhevcConfig.nalUnitLengthFieldLength,
+            "nalUnitLengthFieldLength must be same for both hvcC and lhvC atoms");
+
+        // Only stereo MV-HEVC is currently supported, for which both views must have the same below
+        // configuration values.
+        if (lhevcConfig.colorSpace != Format.NO_VALUE) {
+          ExtractorUtil.checkContainerInput(
+              colorSpace == lhevcConfig.colorSpace, "colorSpace must be the same for both views");
+        }
+        if (lhevcConfig.colorRange != Format.NO_VALUE) {
+          ExtractorUtil.checkContainerInput(
+              colorRange == lhevcConfig.colorRange, "colorRange must be the same for both views");
+        }
+        if (lhevcConfig.colorTransfer != Format.NO_VALUE) {
+          ExtractorUtil.checkContainerInput(
+              colorTransfer == lhevcConfig.colorTransfer,
+              "colorTransfer must be the same for both views");
+        }
+        ExtractorUtil.checkContainerInput(
+            bitdepthLuma == lhevcConfig.bitdepthLuma,
+            "bitdepthLuma must be the same for both views");
+        ExtractorUtil.checkContainerInput(
+            bitdepthChroma == lhevcConfig.bitdepthChroma,
+            "bitdepthChroma must be the same for both views");
+
+        mimeType = MimeTypes.VIDEO_MV_HEVC;
+        if (initializationData != null) {
+          initializationData =
+              ImmutableList.<byte[]>builder()
+                  .addAll(initializationData)
+                  .addAll(lhevcConfig.initializationData)
+                  .build();
+        } else {
+          ExtractorUtil.checkContainerInput(
+              false, "initializationData must be already set from hvcC atom");
+        }
+        codecs = lhevcConfig.codecs;
+      } else if (childAtomType == Atom.TYPE_vexu) {
+        VexuData vexuData = parseVideoExtendedUsageBox(parent, childStartPosition, childAtomSize);
+        if (vexuData != null && vexuData.eyesData != null) {
+          if (vpsData != null && vpsData.layerInfos.size() >= 2) {
+            // This is MV-HEVC case, so both eye views should be marked as available.
+            ExtractorUtil.checkContainerInput(
+                vexuData.hasBothEyeViews(), "both eye views must be marked as available");
+            // Based on subsection 1.4.3 of Apple’s proposed ISOBMFF extensions for stereo video
+            // (https://developer.apple.com/av-foundation/Stereo-Video-ISOBMFF-Extensions.pdf):
+            // "For multiview coding, there is no implied ordering and the eye_views_reversed field
+            // should be set to 0".
+            ExtractorUtil.checkContainerInput(
+                !vexuData.eyesData.striData.eyeViewsReversed,
+                "for MV-HEVC, eye_views_reversed must be set to false");
+          } else if (stereoMode == Format.NO_VALUE) {
+            stereoMode =
+                vexuData.eyesData.striData.eyeViewsReversed
+                    ? C.STEREO_MODE_INTERLEAVED_RIGHT_PRIMARY
+                    : C.STEREO_MODE_INTERLEAVED_LEFT_PRIMARY;
+          }
+        }
       } else if (childAtomType == Atom.TYPE_dvcC || childAtomType == Atom.TYPE_dvvC) {
         @Nullable DolbyVisionConfig dolbyVisionConfig = DolbyVisionConfig.parse(parent);
         if (dolbyVisionConfig != null) {
@@ -1227,6 +1306,12 @@ import java.util.Objects;
             ColorInfo.isoTransferCharacteristicsToColorTransfer(transferCharacteristics);
       } else if (childAtomType == Atom.TYPE_av1C) {
         mimeType = MimeTypes.VIDEO_AV1;
+
+        int childAtomBodySize = childAtomSize - Atom.HEADER_SIZE;
+        byte[] initializationDataChunk = new byte[childAtomBodySize];
+        parent.readBytes(initializationDataChunk, /* offset= */ 0, childAtomBodySize);
+        initializationData = ImmutableList.of(initializationDataChunk);
+
         parent.setPosition(childStartPosition + Atom.HEADER_SIZE);
         ColorInfo colorInfo = parseAv1c(parent);
 
@@ -1361,6 +1446,7 @@ import java.util.Objects;
             .setProjectionData(projectionData)
             .setStereoMode(stereoMode)
             .setInitializationData(initializationData)
+            .setMaxNumReorderSamples(maxNumReorderSamples)
             .setDrmInitData(drmInitData)
             // Note that if either mdcv or clli are missing, we leave the corresponding HDR static
             // metadata bytes with value zero. See [Internal ref: b/194535665].
@@ -1715,6 +1801,8 @@ import java.util.Objects;
       mimeType = MimeTypes.AUDIO_FLAC;
     } else if (atomType == Atom.TYPE_mlpa) {
       mimeType = MimeTypes.AUDIO_TRUEHD;
+    } else if (atomType == Atom.TYPE_iamf) {
+      mimeType = MimeTypes.AUDIO_IAMF;
     }
 
     @Nullable List<byte[]> initializationData = null;
@@ -1854,6 +1942,13 @@ import java.util.Objects;
         sampleRate = audioSpecificConfig.first;
         channelCount = audioSpecificConfig.second;
         initializationData = ImmutableList.of(initializationDataBytes);
+      } else if (childAtomType == Atom.TYPE_iacb) {
+        parent.setPosition(
+            childPosition + Atom.HEADER_SIZE + 1); // header and configuration version
+        int configObusSize = parent.readUnsignedLeb128ToInt();
+        byte[] initializationDataBytes = new byte[configObusSize];
+        parent.readBytes(initializationDataBytes, /* offset= */ 0, configObusSize);
+        initializationData = ImmutableList.of(initializationDataBytes);
       }
       childPosition += childAtomSize;
     }
@@ -1963,6 +2058,54 @@ import java.util.Objects;
         /* initializationData= */ initializationData,
         /* bitrate= */ bitrate > 0 ? bitrate : Format.NO_VALUE,
         /* peakBitrate= */ peakBitrate > 0 ? peakBitrate : Format.NO_VALUE);
+  }
+
+  /**
+   * Returns stereo video playback related meta data from the vexu box. See
+   * https://developer.apple.com/av-foundation/Stereo-Video-ISOBMFF-Extensions.pdf for ref.
+   */
+  @Nullable
+  /* package */ static VexuData parseVideoExtendedUsageBox(
+      ParsableByteArray parent, int position, int size) throws ParserException {
+    parent.setPosition(position + Atom.HEADER_SIZE);
+    int childPosition = parent.getPosition();
+    @Nullable EyesData eyesData = null;
+    while (childPosition - position < size) {
+      parent.setPosition(childPosition);
+      int childAtomSize = parent.readInt();
+      ExtractorUtil.checkContainerInput(childAtomSize > 0, "childAtomSize must be positive");
+      int childAtomType = parent.readInt();
+      if (childAtomType == Atom.TYPE_eyes) {
+        eyesData = parseStereoViewBox(parent, childPosition, childAtomSize);
+      }
+      childPosition += childAtomSize;
+    }
+    return eyesData == null ? null : new VexuData(eyesData);
+  }
+
+  @Nullable
+  private static EyesData parseStereoViewBox(ParsableByteArray parent, int position, int size)
+      throws ParserException {
+    parent.setPosition(position + Atom.HEADER_SIZE);
+    int childPosition = parent.getPosition();
+    while (childPosition - position < size) {
+      parent.setPosition(childPosition);
+      int childAtomSize = parent.readInt();
+      ExtractorUtil.checkContainerInput(childAtomSize > 0, "childAtomSize must be positive");
+      if (parent.readInt() == Atom.TYPE_stri) {
+        // The stri box extends FullBox that includes version (8 bits) and flags (24 bits).
+        parent.skipBytes(4);
+        int striInfo = parent.readUnsignedByte() & 0x0F;
+        return new EyesData(
+            new StriData(
+                ((striInfo & 0x01) == 0x01),
+                ((striInfo & 0x02) == 0x02),
+                ((striInfo & 0x08) == 0x08),
+                ((striInfo & 0x04) == 0x04)));
+      }
+      childPosition += childAtomSize;
+    }
+    return null;
   }
 
   /**
@@ -2220,6 +2363,49 @@ import java.util.Objects;
       this.initializationData = initializationData;
       this.bitrate = bitrate;
       this.peakBitrate = peakBitrate;
+    }
+  }
+
+  /** Data parsed from stri box. */
+  private static final class StriData {
+    private final boolean hasLeftEyeView;
+    private final boolean hasRightEyeView;
+    private final boolean eyeViewsReversed;
+    private final boolean hasAdditionalViews;
+
+    public StriData(
+        boolean hasLeftEyeView,
+        boolean hasRightEyeView,
+        boolean eyeViewsReversed,
+        boolean hasAdditionalViews) {
+      this.hasLeftEyeView = hasLeftEyeView;
+      this.hasRightEyeView = hasRightEyeView;
+      this.eyeViewsReversed = eyeViewsReversed;
+      this.hasAdditionalViews = hasAdditionalViews;
+    }
+  }
+
+  /** Data parsed from eyes box. */
+  private static final class EyesData {
+    private final StriData striData;
+
+    public EyesData(StriData striData) {
+      this.striData = striData;
+    }
+  }
+
+  /** Data parsed from vexu box. */
+  /* package */ static final class VexuData {
+    @Nullable private final EyesData eyesData;
+
+    public VexuData(EyesData eyesData) {
+      this.eyesData = eyesData;
+    }
+
+    public boolean hasBothEyeViews() {
+      return eyesData != null
+          && eyesData.striData.hasLeftEyeView
+          && eyesData.striData.hasRightEyeView;
     }
   }
 

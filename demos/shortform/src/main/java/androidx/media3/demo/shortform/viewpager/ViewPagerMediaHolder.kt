@@ -15,30 +15,30 @@
  */
 package androidx.media3.demo.shortform.viewpager
 
-import android.util.Log
 import android.view.View
 import androidx.annotation.OptIn
-import androidx.media3.common.Player
+import androidx.media3.common.util.Log
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.demo.shortform.PlayerPool
 import androidx.media3.demo.shortform.R
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.source.preload.PreloadMediaSource
+import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.ui.PlayerView
 import androidx.recyclerview.widget.RecyclerView
 
-@OptIn(UnstableApi::class) // Using PreloadMediaSource.
-class ViewPagerMediaHolder(
-  itemView: View,
-  private val viewCounter: Int,
-  private val playerPool: PlayerPool
-) : RecyclerView.ViewHolder(itemView), View.OnAttachStateChangeListener {
+@OptIn(UnstableApi::class)
+class ViewPagerMediaHolder(itemView: View, private val playerPool: PlayerPool) :
+  RecyclerView.ViewHolder(itemView), View.OnAttachStateChangeListener {
   private val playerView: PlayerView = itemView.findViewById(R.id.player_view)
   private var exoPlayer: ExoPlayer? = null
   private var isInView: Boolean = false
-  private var token: Int = -1
+  private var pendingPlayRequestUponSetupPlayer: Boolean = false
 
-  private lateinit var mediaSource: PreloadMediaSource
+  private lateinit var mediaSource: MediaSource
+
+  companion object {
+    private const val TAG = "ViewPagerMediaHolder"
+  }
 
   init {
     // Define click listener for the ViewHolder's View
@@ -49,46 +49,44 @@ class ViewPagerMediaHolder(
     }
   }
 
-  val currentToken: Int
-    get() {
-      return token
-    }
-
-  val player: Player?
+  private val player: ExoPlayer?
     get() {
       return exoPlayer
     }
 
   override fun onViewAttachedToWindow(view: View) {
-    Log.d("viewpager", "onViewAttachedToWindow: $viewCounter")
+    Log.d(TAG, "onViewAttachedToWindow: $bindingAdapterPosition")
     isInView = true
     if (player == null) {
-      playerPool.acquirePlayer(token, ::setupPlayer)
+      playerPool.acquirePlayer(bindingAdapterPosition, ::setupPlayer)
     }
   }
 
   override fun onViewDetachedFromWindow(view: View) {
-    Log.d("viewpager", "onViewDetachedFromWindow: $viewCounter")
+    Log.d(TAG, "onViewDetachedFromWindow: $bindingAdapterPosition")
     isInView = false
     releasePlayer(exoPlayer)
-    // This is a hacky way of keep preloading sources that are removed from players. This does only
-    // work because the demo app cycles endlessly through the same 5 URIs. Preloading is still
-    // uncoordinated meaning it just preloading as soon as this method is called.
-    mediaSource.preload(0)
   }
 
-  fun bindData(token: Int, mediaSource: PreloadMediaSource) {
+  fun bindData(mediaSource: MediaSource) {
     this.mediaSource = mediaSource
-    this.token = token
   }
 
-  fun releasePlayer(player: ExoPlayer?) {
-    playerPool.releasePlayer(token, player ?: exoPlayer)
+  fun playIfPossible() {
+    player?.let { playerPool.play(it) }
+    if (player == null) {
+      Log.d(TAG, "playIfPossible: The player hasn't been setup yet")
+      pendingPlayRequestUponSetupPlayer = true
+    }
+  }
+
+  private fun releasePlayer(player: ExoPlayer?) {
+    playerPool.releasePlayer(bindingAdapterPosition, player ?: exoPlayer)
     this.exoPlayer = null
     playerView.player = null
   }
 
-  fun setupPlayer(player: ExoPlayer) {
+  private fun setupPlayer(player: ExoPlayer) {
     if (!isInView) {
       releasePlayer(player)
     } else {
@@ -103,6 +101,10 @@ class ViewPagerMediaHolder(
         this@ViewPagerMediaHolder.exoPlayer = player
         player.prepare()
         playerView.player = player
+        if (pendingPlayRequestUponSetupPlayer) {
+          playerPool.play(player)
+          pendingPlayRequestUponSetupPlayer = false
+        }
       }
     }
   }

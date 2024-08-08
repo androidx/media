@@ -21,7 +21,6 @@ import android.net.Uri;
 import android.util.Base64;
 import androidx.annotation.IntDef;
 import androidx.media3.common.ParserException;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.rtsp.RtspMessageUtil.RtspAuthUserInfo;
 import java.lang.annotation.Documented;
@@ -32,7 +31,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
 /** Wraps RTSP authentication information. */
-@UnstableApi
 /* package */ final class RtspAuthenticationInfo {
 
   /** The supported authentication methods. */

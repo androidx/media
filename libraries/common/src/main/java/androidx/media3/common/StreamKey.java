@@ -37,7 +37,7 @@ import androidx.media3.common.util.Util;
  * particular track selection.
  */
 @UnstableApi
-public final class StreamKey implements Comparable<StreamKey>, Parcelable, Bundleable {
+public final class StreamKey implements Comparable<StreamKey>, Parcelable {
 
   /** The period index. */
   public final int periodIndex;
@@ -147,13 +147,10 @@ public final class StreamKey implements Comparable<StreamKey>, Parcelable, Bundl
         }
       };
 
-  // Bundleable implementation.
-
   private static final String FIELD_PERIOD_INDEX = Util.intToStringMaxRadix(0);
   private static final String FIELD_GROUP_INDEX = Util.intToStringMaxRadix(1);
   private static final String FIELD_STREAM_INDEX = Util.intToStringMaxRadix(2);
 
-  @Override
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
     if (periodIndex != 0) {

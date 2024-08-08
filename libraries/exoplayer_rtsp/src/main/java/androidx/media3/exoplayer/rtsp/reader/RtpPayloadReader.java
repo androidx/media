@@ -25,7 +25,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 
 /** Extracts media samples from the payload of received RTP packets. */
 @UnstableApi
-/* package */ public interface RtpPayloadReader {
+public interface RtpPayloadReader {
 
   /** Factory of {@link RtpPayloadReader} instances. */
   interface Factory {

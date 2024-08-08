@@ -100,12 +100,6 @@ compileOptions {
 }
 ```
 
-#### 3. Enable multidex
-
-If your Gradle `minSdkVersion` is 20 or lower, you should
-[enable multidex](https://developer.android.com/studio/build/multidex) in order
-to prevent build errors.
-
 ### Locally
 
 Cloning the repository and depending on the modules locally is required when
@@ -116,23 +110,20 @@ First, clone the repository into a local directory:
 
 ```sh
 git clone https://github.com/androidx/media.git
-cd media
 ```
 
 Next, add the following to your project's `settings.gradle.kts` file, replacing
 `path/to/media` with the path to your local copy:
 
 ```kotlin
-gradle.extra.apply {
-  set("androidxMediaModulePrefix", "media-")
-}
+(gradle as ExtensionAware).extra["androidxMediaModulePrefix"] = "media3-"
 apply(from = file("path/to/media/core_settings.gradle"))
 ```
 
 Or in Gradle Groovy DSL `settings.gradle`:
 
 ```groovy
-gradle.ext.androidxMediaModulePrefix = 'media-'
+gradle.ext.androidxMediaModulePrefix = 'media3-'
 apply from: file("path/to/media/core_settings.gradle")
 ```
 
@@ -141,17 +132,17 @@ You can depend on them from `build.gradle.kts` as you would on any other local
 module, for example:
 
 ```kotlin
-implementation(project(":media-lib-exoplayer"))
-implementation(project(":media-lib-exoplayer-dash"))
-implementation(project(":media-lib-ui"))
+implementation(project(":media3-lib-exoplayer"))
+implementation(project(":media3-lib-exoplayer-dash"))
+implementation(project(":media3-lib-ui"))
 ```
 
 Or in Gradle Groovy DSL `build.gradle`:
 
 ```groovy
-implementation project(':media-lib-exoplayer')
-implementation project(':media-lib-exoplayer-dash')
-implementation project(':media-lib-ui')
+implementation project(':media3-lib-exoplayer')
+implementation project(':media3-lib-exoplayer-dash')
+implementation project(':media3-lib-ui')
 ```
 
 #### MIDI module

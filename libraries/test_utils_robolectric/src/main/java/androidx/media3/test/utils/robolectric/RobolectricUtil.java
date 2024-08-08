@@ -63,6 +63,12 @@ public final class RobolectricUtil {
    *
    * <p>Must be called on the main test thread.
    *
+   * <p>Note for {@link androidx.media3.test.utils.FakeClock} users: If the condition changes
+   * outside of a main {@link Looper} message, for example because it's checking a volatile variable
+   * or shared synchronized state that is updated on a background thread, or because checking the
+   * condition itself may cause it to become true, then the remainder of the test method may be
+   * executed in parallel with other background thread messages.
+   *
    * @param condition The condition.
    * @throws TimeoutException If the {@link #DEFAULT_TIMEOUT_MS} is exceeded.
    */
@@ -75,6 +81,12 @@ public final class RobolectricUtil {
    * true}.
    *
    * <p>Must be called on the main test thread.
+   *
+   * <p>Note for {@link androidx.media3.test.utils.FakeClock} users: If the condition changes
+   * outside of a main {@link Looper} message, for example because it's checking a volatile variable
+   * or shared synchronized state that is updated on a background thread, or because checking the
+   * condition itself may cause it to become true, then the remainder of the test method may be
+   * executed in parallel with other background thread messages.
    *
    * @param condition The condition.
    * @param timeoutMs The timeout in milliseconds.
@@ -91,6 +103,12 @@ public final class RobolectricUtil {
    *
    * <p>Must be called on the thread corresponding to the {@code looper}.
    *
+   * <p>Note for {@link androidx.media3.test.utils.FakeClock} users: If the condition changes
+   * outside of a message on this {@code Looper}, for example because it's checking a volatile
+   * variable or shared synchronized state that is updated on a background thread, or because
+   * checking the condition itself may cause it to become true, then the remainder of the test
+   * method may be executed in parallel with other background thread messages.
+   *
    * @param looper The {@link Looper}.
    * @param condition The condition.
    * @throws TimeoutException If the {@link #DEFAULT_TIMEOUT_MS} is exceeded.
@@ -104,6 +122,12 @@ public final class RobolectricUtil {
    * Runs tasks of the {@code looper} until the {@code condition} returns {@code true}.
    *
    * <p>Must be called on the thread corresponding to the {@code looper}.
+   *
+   * <p>Note for {@link androidx.media3.test.utils.FakeClock} users: If the condition changes
+   * outside of a message on this {@code Looper}, for example because it's checking a volatile
+   * variable or shared synchronized state that is updated on a background thread, or because
+   * checking the condition itself may cause it to become true, then the remainder of the test
+   * method may be executed in parallel with other background thread messages.
    *
    * @param looper The {@link Looper}.
    * @param condition The condition.

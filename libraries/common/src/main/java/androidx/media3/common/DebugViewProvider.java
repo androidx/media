@@ -19,7 +19,11 @@ import android.view.SurfaceView;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 
-/** Provider for views to show diagnostic information during an export, for debugging. */
+/**
+ * Provider for views to show diagnostic information during an export, for debugging.
+ *
+ * <p>This is not intended for production use-cases.
+ */
 @UnstableApi
 public interface DebugViewProvider {
 

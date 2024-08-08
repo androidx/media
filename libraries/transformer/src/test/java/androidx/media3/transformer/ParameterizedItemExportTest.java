@@ -37,6 +37,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -53,7 +54,7 @@ import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
  *
  * <ul>
  *   <li>Video can not be transcoded, due to OpenGL not being supported with Robolectric.
- *   <li>Non RAW audio can not be trancoded, because AudioGraph requires decoded data but
+ *   <li>Non RAW audio can not be transcoded, because AudioGraph requires decoded data but
  *       Robolectric decoders do not decode.
  *   <li>RAW audio will always be transcoded, because the muxer does not support RAW audio as input.
  * </ul>
@@ -69,9 +70,12 @@ public final class ParameterizedItemExportTest {
           FILE_AUDIO_AMR_NB);
 
   private static final ImmutableList<String> AUDIO_VIDEO_ASSETS =
-      ImmutableList.of(FILE_AUDIO_RAW_VIDEO, "mp4/sample_twos_pcm.mp4", FILE_AUDIO_VIDEO);
+      ImmutableList.of(FILE_AUDIO_RAW_VIDEO, FILE_AUDIO_VIDEO);
 
   private static final ImmutableList<String> VIDEO_ONLY_ASSETS = ImmutableList.of(FILE_VIDEO_ONLY);
+
+  private static final ImmutableSet<String> ENCODED_AUDIO_ASSETS =
+      ImmutableSet.of(FILE_AUDIO_VIDEO, FILE_AUDIO_AMR_NB);
 
   @Parameters(name = "{0}")
   public static ImmutableList<String> params() {
@@ -85,8 +89,6 @@ public final class ParameterizedItemExportTest {
   @Rule public final TemporaryFolder outputDir = new TemporaryFolder();
 
   @Parameter public String assetFile;
-
-  private final CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory();
 
   @Before
   public void setUp() {
@@ -103,6 +105,8 @@ public final class ParameterizedItemExportTest {
 
   @Test
   public void export() throws Exception {
+    boolean handleAudioAsPcm = !ENCODED_AUDIO_ASSETS.contains(assetFile);
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(handleAudioAsPcm);
     Transformer transformer =
         createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
 
@@ -119,6 +123,7 @@ public final class ParameterizedItemExportTest {
   @Test
   public void generateSilence() throws Exception {
     assumeFalse(AUDIO_ONLY_ASSETS.contains(assetFile));
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     Transformer transformer =
         createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
 
@@ -145,7 +150,8 @@ public final class ParameterizedItemExportTest {
     assumeFalse(VIDEO_ONLY_ASSETS.contains(assetFile));
     assumeFalse(
         "Audio effects in Robolectric tests require PCM input",
-        assetFile.equals(FILE_AUDIO_VIDEO) || assetFile.equals(FILE_AUDIO_AMR_NB));
+        ENCODED_AUDIO_ASSETS.contains(assetFile));
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     Transformer transformer =
         createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
 
@@ -169,7 +175,8 @@ public final class ParameterizedItemExportTest {
     assumeFalse(VIDEO_ONLY_ASSETS.contains(assetFile));
     assumeFalse(
         "Audio effects in Robolectric tests require PCM input",
-        assetFile.equals(FILE_AUDIO_VIDEO) || assetFile.equals(FILE_AUDIO_AMR_NB));
+        ENCODED_AUDIO_ASSETS.contains(assetFile));
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     Transformer transformer =
         createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
 

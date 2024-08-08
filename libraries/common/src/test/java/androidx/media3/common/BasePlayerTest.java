@@ -120,6 +120,32 @@ public class BasePlayerTest {
   }
 
   @Test
+  public void seekToNext_withoutNextItem_forwardsCallWithUnsetMediaItemIndex() {
+    BasePlayer player =
+        spy(
+            new TestBasePlayer() {
+              @Override
+              public Timeline getCurrentTimeline() {
+                return new FakeTimeline(/* windowCount= */ 3);
+              }
+
+              @Override
+              public int getCurrentMediaItemIndex() {
+                return 2;
+              }
+            });
+
+    player.seekToNext();
+
+    verify(player)
+        .seekTo(
+            /* mediaItemIndex= */ C.INDEX_UNSET,
+            /* positionMs= */ C.TIME_UNSET,
+            Player.COMMAND_SEEK_TO_NEXT,
+            /* isRepeatingCurrentItem= */ false);
+  }
+
+  @Test
   public void seekToNextMediaItem_usesCommandSeekToNextMediaItem() {
     BasePlayer player =
         spy(
@@ -135,6 +161,32 @@ public class BasePlayerTest {
     verify(player)
         .seekTo(
             /* mediaItemIndex= */ 2,
+            /* positionMs= */ C.TIME_UNSET,
+            Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
+            /* isRepeatingCurrentItem= */ false);
+  }
+
+  @Test
+  public void seekToNextMediaItem_withoutNextItem_forwardsCallWithUnsetMediaItemIndex() {
+    BasePlayer player =
+        spy(
+            new TestBasePlayer() {
+              @Override
+              public Timeline getCurrentTimeline() {
+                return new FakeTimeline(/* windowCount= */ 3);
+              }
+
+              @Override
+              public int getCurrentMediaItemIndex() {
+                return 2;
+              }
+            });
+
+    player.seekToNextMediaItem();
+
+    verify(player)
+        .seekTo(
+            /* mediaItemIndex= */ C.INDEX_UNSET,
             /* positionMs= */ C.TIME_UNSET,
             Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
             /* isRepeatingCurrentItem= */ false);
@@ -218,6 +270,27 @@ public class BasePlayerTest {
     verify(player)
         .seekTo(
             /* mediaItemIndex= */ 0,
+            /* positionMs= */ C.TIME_UNSET,
+            Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
+            /* isRepeatingCurrentItem= */ false);
+  }
+
+  @Test
+  public void seekToPreviousMediaItem_withoutPreviousItem_forwardsCallWithUnsetMediaItemIndex() {
+    BasePlayer player =
+        spy(
+            new TestBasePlayer() {
+              @Override
+              public int getCurrentMediaItemIndex() {
+                return 0;
+              }
+            });
+
+    player.seekToPreviousMediaItem();
+
+    verify(player)
+        .seekTo(
+            /* mediaItemIndex= */ C.INDEX_UNSET,
             /* positionMs= */ C.TIME_UNSET,
             Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
             /* isRepeatingCurrentItem= */ false);

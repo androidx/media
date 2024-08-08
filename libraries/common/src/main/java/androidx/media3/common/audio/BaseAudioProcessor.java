@@ -57,6 +57,7 @@ public abstract class BaseAudioProcessor implements AudioProcessor {
     return isActive() ? pendingOutputAudioFormat : AudioFormat.NOT_SET;
   }
 
+  @CallSuper
   @Override
   public boolean isActive() {
     return pendingOutputAudioFormat != AudioFormat.NOT_SET;

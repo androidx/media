@@ -83,9 +83,9 @@ import com.google.common.collect.ImmutableList;
     int channelCount = body.readLittleEndianUnsignedShort();
     int samplesPerSecond = body.readLittleEndianInt();
     body.skipBytes(6); // averageBytesPerSecond (4 bytes), nBlockAlign (2 bytes).
-    int bitsPerSample = body.readUnsignedShort();
+    int bitsPerSample = body.readLittleEndianUnsignedShort();
     int pcmEncoding = Util.getPcmEncoding(bitsPerSample);
-    int cbSize = body.readLittleEndianUnsignedShort();
+    int cbSize = body.bytesLeft() > 0 ? body.readLittleEndianUnsignedShort() : 0;
     byte[] codecData = new byte[cbSize];
     body.readBytes(codecData, /* offset= */ 0, codecData.length);
 

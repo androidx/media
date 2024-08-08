@@ -22,11 +22,14 @@ import static com.google.common.base.Preconditions.checkState;
 import android.content.Intent;
 import android.net.Uri;
 import androidx.annotation.Nullable;
+import androidx.annotation.OptIn;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaItem.ClippingConfiguration;
 import androidx.media3.common.MediaItem.SubtitleConfiguration;
 import androidx.media3.common.MediaMetadata;
+import androidx.media3.common.Player;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
@@ -53,6 +56,7 @@ public class IntentUtil {
   public static final String MIME_TYPE_EXTRA = "mime_type";
   public static final String CLIP_START_POSITION_MS_EXTRA = "clip_start_position_ms";
   public static final String CLIP_END_POSITION_MS_EXTRA = "clip_end_position_ms";
+  public static final String IMAGE_DURATION_MS = "image_duration_ms";
 
   public static final String AD_TAG_URI_EXTRA = "ad_tag_uri";
 
@@ -66,6 +70,21 @@ public class IntentUtil {
   public static final String SUBTITLE_URI_EXTRA = "subtitle_uri";
   public static final String SUBTITLE_MIME_TYPE_EXTRA = "subtitle_mime_type";
   public static final String SUBTITLE_LANGUAGE_EXTRA = "subtitle_language";
+  public static final String REPEAT_MODE_EXTRA = "repeat_mode";
+
+  public static @Player.RepeatMode int parseRepeatModeExtra(String repeatMode) {
+    switch (repeatMode) {
+      case "OFF":
+        return Player.REPEAT_MODE_OFF;
+      case "ONE":
+        return Player.REPEAT_MODE_ONE;
+      case "ALL":
+        return Player.REPEAT_MODE_ALL;
+      default:
+        throw new IllegalArgumentException(
+            "Argument " + repeatMode + " does not match any of the repeat modes: OFF|ONE|ALL");
+    }
+  }
 
   /** Creates a list of {@link MediaItem media items} from an {@link Intent}. */
   public static List<MediaItem> createMediaItemsFromIntent(Intent intent) {
@@ -114,6 +133,7 @@ public class IntentUtil {
     }
   }
 
+  @OptIn(markerClass = UnstableApi.class) // Setting image duration.
   private static MediaItem createMediaItemFromIntent(
       Uri uri, Intent intent, String extrasKeySuffix) {
     @Nullable String mimeType = intent.getStringExtra(MIME_TYPE_EXTRA + extrasKeySuffix);
@@ -122,6 +142,7 @@ public class IntentUtil {
     @Nullable
     SubtitleConfiguration subtitleConfiguration =
         createSubtitleConfiguration(intent, extrasKeySuffix);
+    long imageDurationMs = intent.getLongExtra(IMAGE_DURATION_MS + extrasKeySuffix, C.TIME_UNSET);
     MediaItem.Builder builder =
         new MediaItem.Builder()
             .setUri(uri)
@@ -134,7 +155,8 @@ public class IntentUtil {
                     .setEndPositionMs(
                         intent.getLongExtra(
                             CLIP_END_POSITION_MS_EXTRA + extrasKeySuffix, C.TIME_END_OF_SOURCE))
-                    .build());
+                    .build())
+            .setImageDurationMs(imageDurationMs);
     if (adTagUri != null) {
       builder.setAdsConfiguration(
           new MediaItem.AdsConfiguration.Builder(Uri.parse(adTagUri)).build());
@@ -195,6 +217,7 @@ public class IntentUtil {
     return builder;
   }
 
+  @OptIn(markerClass = UnstableApi.class) // Accessing image duration.
   private static void addLocalConfigurationToIntent(
       MediaItem.LocalConfiguration localConfiguration, Intent intent, String extrasKeySuffix) {
     intent
@@ -214,6 +237,9 @@ public class IntentUtil {
       intent.putExtra(SUBTITLE_URI_EXTRA + extrasKeySuffix, subtitleConfiguration.uri.toString());
       intent.putExtra(SUBTITLE_MIME_TYPE_EXTRA + extrasKeySuffix, subtitleConfiguration.mimeType);
       intent.putExtra(SUBTITLE_LANGUAGE_EXTRA + extrasKeySuffix, subtitleConfiguration.language);
+    }
+    if (localConfiguration.imageDurationMs != C.TIME_UNSET) {
+      intent.putExtra(IMAGE_DURATION_MS + extrasKeySuffix, localConfiguration.imageDurationMs);
     }
   }
 

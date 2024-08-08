@@ -46,29 +46,34 @@ public interface VideoCompositor extends GlTextureProducer {
   }
 
   /**
-   * Registers a new input source, and returns a unique {@code inputId} corresponding to this
-   * source, to be used in {@link #queueInputTexture}.
+   * Registers a new input source.
+   *
+   * @param inputIndex The index of the input source which could be used to determine the order of
+   *     the input sources. The same index should to be used in {@link #queueInputTexture}. All
+   *     inputs must be registered before {@linkplain #queueInputTexture(int, GlTextureProducer,
+   *     GlTextureInfo, ColorInfo, long) queueing} textures.
    */
-  int registerInputSource();
+  void registerInputSource(int inputIndex);
 
   /**
    * Signals that no more frames will come from the upstream {@link GlTextureProducer.Listener}.
    *
-   * @param inputId The identifier for an input source, returned from {@link #registerInputSource}.
+   * @param inputIndex The index of the input source.
    */
-  void signalEndOfInputSource(int inputId);
+  void signalEndOfInputSource(int inputIndex);
 
   /**
    * Queues an input texture to be composited.
    *
-   * @param inputId The identifier for an input source, returned from {@link #registerInputSource}.
+   * @param inputIndex The index of the input source, the same index used when {@linkplain
+   *     #registerInputSource(int) registering the input source}.
    * @param textureProducer The source from where the {@code inputTexture} is produced.
    * @param inputTexture The {@link GlTextureInfo} to composite.
    * @param colorInfo The {@link ColorInfo} of {@code inputTexture}.
    * @param presentationTimeUs The presentation time of {@code inputTexture}, in microseconds.
    */
   void queueInputTexture(
-      int inputId,
+      int inputIndex,
       GlTextureProducer textureProducer,
       GlTextureInfo inputTexture,
       ColorInfo colorInfo,

@@ -34,6 +34,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.FlagSet;
 import androidx.media3.common.MediaMetadata;
+import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Util;
@@ -190,6 +191,82 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
   }
 
   @Test
+  public void setPlaybackState_fatalError_callsOnPlayerErrorWithCodeMessageAndExtras()
+      throws Exception {
+    MediaController controller =
+        controllerTestRule.createController(session.getSessionToken(), /* listener= */ null);
+    CountDownLatch fatalErrorLatch = new CountDownLatch(/* count= */ 1);
+    List<PlaybackException> fatalErrorExceptions = new ArrayList<>();
+    Bundle fatalErrorExtras = new Bundle();
+    fatalErrorExtras.putString("key-2", "value-2");
+    controller.addListener(
+        new Player.Listener() {
+          @Override
+          public void onPlayerError(PlaybackException error) {
+            fatalErrorExceptions.add(error);
+            fatalErrorLatch.countDown();
+          }
+        });
+
+    session.setPlaybackState(
+        new PlaybackStateCompat.Builder()
+            .setState(
+                PlaybackStateCompat.STATE_ERROR, /* position= */ 0L, /* playbackSpeed= */ 1.0f)
+            .setErrorMessage(
+                PlaybackStateCompat.ERROR_CODE_AUTHENTICATION_EXPIRED,
+                ApplicationProvider.getApplicationContext()
+                    .getString(R.string.error_message_authentication_expired))
+            .setExtras(fatalErrorExtras)
+            .build());
+
+    assertThat(fatalErrorLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(fatalErrorExceptions).hasSize(1);
+    assertThat(fatalErrorExceptions.get(0))
+        .hasMessageThat()
+        .isEqualTo(context.getString(R.string.error_message_authentication_expired));
+    assertThat(fatalErrorExceptions.get(0).errorCode)
+        .isEqualTo(PlaybackException.ERROR_CODE_AUTHENTICATION_EXPIRED);
+    assertThat(TestUtils.equals(fatalErrorExceptions.get(0).extras, fatalErrorExtras)).isTrue();
+  }
+
+  @Test
+  public void setPlaybackState_nonFatalError_callsOnErrorWithCodeMessageAndExtras()
+      throws Exception {
+    CountDownLatch nonFatalErrorLatch = new CountDownLatch(/* count= */ 1);
+    List<SessionError> sessionErrors = new ArrayList<>();
+    Bundle nonFatalErrorExtra = new Bundle();
+    nonFatalErrorExtra.putString("key-1", "value-1");
+    controllerTestRule.createController(
+        session.getSessionToken(),
+        new MediaController.Listener() {
+          @Override
+          public void onError(MediaController controller, SessionError sessionError) {
+            sessionErrors.add(sessionError);
+            nonFatalErrorLatch.countDown();
+          }
+        });
+
+    session.setPlaybackState(
+        new PlaybackStateCompat.Builder()
+            .setState(
+                PlaybackStateCompat.STATE_PLAYING,
+                PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN,
+                /* playbackSpeed= */ .0f)
+            .setErrorMessage(
+                PlaybackStateCompat.ERROR_CODE_APP_ERROR,
+                ApplicationProvider.getApplicationContext()
+                    .getString(R.string.default_notification_channel_name))
+            .setExtras(nonFatalErrorExtra)
+            .build());
+
+    assertThat(nonFatalErrorLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(sessionErrors).hasSize(1);
+    assertThat(sessionErrors.get(0).message)
+        .isEqualTo(context.getString(R.string.default_notification_channel_name));
+    assertThat(TestUtils.equals(sessionErrors.get(0).extras, nonFatalErrorExtra)).isTrue();
+  }
+
+  @Test
   public void setSessionExtras_onExtrasChangedCalled() throws Exception {
     Bundle sessionExtras = new Bundle();
     sessionExtras.putString("key-1", "value-1");
@@ -270,7 +347,7 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
     // We need to trigger MediaControllerCompat.Callback.onAudioInfoChanged in order to raise the
     // onAudioAttributesChanged() callback. In API 21 and 22, onAudioInfoChanged is not called when
     // playback is changed to local.
-    assumeTrue(Util.SDK_INT != 21 && Util.SDK_INT != 22);
+    assumeTrue(Util.SDK_INT > 22);
 
     session.setPlaybackToRemote(
         /* volumeControl= */ VolumeProviderCompat.VOLUME_CONTROL_ABSOLUTE,

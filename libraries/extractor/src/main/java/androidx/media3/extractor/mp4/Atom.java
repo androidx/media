@@ -61,6 +61,18 @@ import java.util.List;
   public static final int TYPE_hvcC = 0x68766343;
 
   @SuppressWarnings("ConstantCaseForConstants")
+  public static final int TYPE_lhvC = 0x6C687643;
+
+  @SuppressWarnings("ConstantCaseForConstants")
+  public static final int TYPE_vexu = 0x76657875;
+
+  @SuppressWarnings("ConstantCaseForConstants")
+  public static final int TYPE_eyes = 0x65796573;
+
+  @SuppressWarnings("ConstantCaseForConstants")
+  public static final int TYPE_stri = 0x73747269;
+
+  @SuppressWarnings("ConstantCaseForConstants")
   public static final int TYPE_vp08 = 0x76703038;
 
   @SuppressWarnings("ConstantCaseForConstants")
@@ -427,6 +439,12 @@ import java.util.List;
 
   @SuppressWarnings("ConstantCaseForConstants")
   public static final int TYPE_mdcv = 0x6d646376;
+
+  @SuppressWarnings("ConstantCaseForConstants")
+  public static final int TYPE_iamf = 0x69616d66;
+
+  @SuppressWarnings("ConstantCaseForConstants")
+  public static final int TYPE_iacb = 0x69616362;
 
   public final int type;
 

@@ -200,7 +200,8 @@ public class ImageRenderer extends BaseRenderer {
   }
 
   @Override
-  protected void onEnabled(boolean joining, boolean mayRenderStartOfStream) {
+  protected void onEnabled(boolean joining, boolean mayRenderStartOfStream)
+      throws ExoPlaybackException {
     firstFrameState =
         mayRenderStartOfStream
             ? C.FIRST_FRAME_NOT_RENDERED
@@ -424,7 +425,6 @@ public class ImageRenderer extends BaseRenderer {
    *     current iteration of the rendering loop.
    * @return Whether we can feed more input data to the decoder.
    */
-  @SuppressWarnings("deprecation") // Clearing C.BUFFER_FLAG_DECODE_ONLY for compatibility
   private boolean feedInputBuffer(long positionUs) throws ImageDecoderException {
     if (readyToOutputTiles && tileInfo != null) {
       return false;
@@ -458,11 +458,9 @@ public class ImageRenderer extends BaseRenderer {
         // Input buffers with no data that are also non-EOS, only carry the timestamp for a grid
         // tile. These buffers are not queued.
         boolean shouldQueueBuffer =
-            checkStateNotNull(inputBuffer.data).remaining() > 0
+            (inputBuffer.data != null && inputBuffer.data.remaining() > 0)
                 || checkStateNotNull(inputBuffer).isEndOfStream();
         if (shouldQueueBuffer) {
-          // TODO: b/318696449 - Don't use the deprecated BUFFER_FLAG_DECODE_ONLY with image chunks.
-          checkStateNotNull(inputBuffer).clearFlag(C.BUFFER_FLAG_DECODE_ONLY);
           checkStateNotNull(decoder).queueInputBuffer(checkStateNotNull(inputBuffer));
           currentTileIndex = 0;
         }
@@ -573,7 +571,7 @@ public class ImageRenderer extends BaseRenderer {
     checkStateNotNull(outputBitmap);
     int tileWidth = outputBitmap.getWidth() / checkStateNotNull(inputFormat).tileCountHorizontal;
     int tileHeight = outputBitmap.getHeight() / checkStateNotNull(inputFormat).tileCountVertical;
-    int tileStartXCoordinate = tileWidth * (tileIndex % inputFormat.tileCountVertical);
+    int tileStartXCoordinate = tileWidth * (tileIndex % inputFormat.tileCountHorizontal);
     int tileStartYCoordinate = tileHeight * (tileIndex / inputFormat.tileCountHorizontal);
     return Bitmap.createBitmap(
         outputBitmap, tileStartXCoordinate, tileStartYCoordinate, tileWidth, tileHeight);

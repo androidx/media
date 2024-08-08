@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.trackselection;
 
+import android.graphics.Point;
 import android.os.SystemClock;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -22,6 +23,7 @@ import androidx.media3.common.TrackGroup;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector.SelectionOverride;
@@ -202,5 +204,31 @@ public final class TrackSelectionUtil {
           new Tracks.Group(trackGroup, /* adaptiveSupported= */ false, trackSupport, selected));
     }
     return new Tracks(trackGroups.build());
+  }
+
+  /**
+   * Given viewport dimensions and video dimensions, computes the maximum size of the video as it
+   * will be rendered to fit inside of the viewport.
+   */
+  public static Point getMaxVideoSizeInViewport(
+      boolean orientationMayChange,
+      int viewportWidth,
+      int viewportHeight,
+      int videoWidth,
+      int videoHeight) {
+    if (orientationMayChange && (videoWidth > videoHeight) != (viewportWidth > viewportHeight)) {
+      // Rotation is allowed, and the video will be larger in the rotated viewport.
+      int tempViewportWidth = viewportWidth;
+      viewportWidth = viewportHeight;
+      viewportHeight = tempViewportWidth;
+    }
+
+    if (videoWidth * viewportHeight >= videoHeight * viewportWidth) {
+      // Horizontal letter-boxing along top and bottom.
+      return new Point(viewportWidth, Util.ceilDivide(viewportWidth * videoHeight, videoWidth));
+    } else {
+      // Vertical letter-boxing along edges.
+      return new Point(Util.ceilDivide(viewportHeight * videoWidth, videoHeight), viewportHeight);
+    }
   }
 }

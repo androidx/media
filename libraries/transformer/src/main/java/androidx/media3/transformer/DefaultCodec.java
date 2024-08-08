@@ -21,6 +21,12 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.SDK_INT;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_ACCEPTED_INPUT;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_INPUT_ENDED;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_INPUT_FORMAT;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_OUTPUT_ENDED;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_OUTPUT_FORMAT;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_PRODUCED_OUTPUT;
 
 import android.content.Context;
 import android.media.MediaCodec;
@@ -46,7 +52,7 @@ import androidx.media3.effect.DebugTraceUtil;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Objects;
-import org.checkerframework.checker.initialization.qual.UnknownInitialization;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -70,6 +76,9 @@ public final class DefaultCodec implements Codec {
   private final int maxPendingFrameCount;
   private final boolean isDecoder;
   private final boolean isVideo;
+  // Accessed concurrently by playback thread when reading output, and video effects thread
+  // when signaling end of stream.
+  private final AtomicBoolean videoOutputStarted;
 
   private @MonotonicNonNull Format outputFormat;
   @Nullable private ByteBuffer outputBuffer;
@@ -106,6 +115,9 @@ public final class DefaultCodec implements Codec {
     outputBufferInfo = new BufferInfo();
     inputBufferIndex = C.INDEX_UNSET;
     outputBufferIndex = C.INDEX_UNSET;
+    videoOutputStarted = new AtomicBoolean();
+    DebugTraceUtil.logCodecEvent(
+        isDecoder, isVideo, EVENT_INPUT_FORMAT, C.TIME_UNSET, "%s", configurationFormat);
 
     @Nullable MediaCodec mediaCodec = null;
     @Nullable Surface inputSurface = null;
@@ -150,7 +162,8 @@ public final class DefaultCodec implements Codec {
       } else {
         errorCode = ExportException.ERROR_CODE_FAILED_RUNTIME_CHECK;
       }
-      throw createExportException(e, errorCode, mediaCodecName);
+      throw createExportException(
+          configurationMediaFormat, isVideo, isDecoder, e, errorCode, mediaCodecName);
     }
     this.mediaCodec = mediaCodec;
     this.inputSurface = inputSurface;
@@ -218,10 +231,8 @@ public final class DefaultCodec implements Codec {
       inputStreamEnded = true;
       flags = MediaCodec.BUFFER_FLAG_END_OF_STREAM;
 
+      debugTraceLogEvent(EVENT_INPUT_ENDED, C.TIME_END_OF_SOURCE);
       if (isDecoder) {
-        if (isVideo) {
-          DebugTraceUtil.logEvent(DebugTraceUtil.EVENT_DECODER_RECEIVE_EOS, C.TIME_END_OF_SOURCE);
-        }
         // EOS buffer on the decoder input should never carry data.
         checkState(inputBuffer.data == null || !inputBuffer.data.hasRemaining());
         offset = 0;
@@ -235,13 +246,25 @@ public final class DefaultCodec implements Codec {
       Log.d(TAG, "MediaCodec error", e);
       throw createExportException(e);
     }
+    debugTraceLogEvent(EVENT_ACCEPTED_INPUT, timestampUs, "bytes=%s", size);
     inputBufferIndex = C.INDEX_UNSET;
     inputBuffer.data = null;
   }
 
   @Override
   public void signalEndOfInputStream() throws ExportException {
-    DebugTraceUtil.logEvent(DebugTraceUtil.EVENT_ENCODER_RECEIVE_EOS, C.TIME_END_OF_SOURCE);
+    if (!videoOutputStarted.get()) {
+      // When encoding a video with a small number of frames, there is a synchronization problem
+      // between feeding the frame to the encoder input surface and signaling end of stream. On some
+      // devices, sometimes, the frame gets lost and an empty output is produced. Waiting before
+      // signaling end of stream seems to resolve this issue. See b/301603935.
+      try {
+        Thread.sleep(30);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
+    }
+    debugTraceLogEvent(EVENT_INPUT_ENDED, C.TIME_END_OF_SOURCE);
     try {
       mediaCodec.signalEndOfInputStream();
     } catch (RuntimeException e) {
@@ -261,7 +284,16 @@ public final class DefaultCodec implements Codec {
   @Override
   @Nullable
   public ByteBuffer getOutputBuffer() throws ExportException {
-    return maybeDequeueOutputBuffer(/* setOutputBuffer= */ true) ? outputBuffer : null;
+    boolean outputAvailable = maybeDequeueOutputBuffer(/* setOutputBuffer= */ true);
+    if (!outputAvailable) {
+      return null;
+    }
+    debugTraceLogEvent(
+        EVENT_PRODUCED_OUTPUT,
+        outputBufferInfo.presentationTimeUs,
+        "bytesOutput=%s",
+        outputBufferInfo.size);
+    return outputBuffer;
   }
 
   @Override
@@ -292,6 +324,7 @@ public final class DefaultCodec implements Codec {
       if (render) {
         mediaCodec.releaseOutputBuffer(
             outputBufferIndex, /* renderTimestampNs= */ renderPresentationTimeUs * 1000);
+        debugTraceLogEvent(EVENT_PRODUCED_OUTPUT, renderPresentationTimeUs);
       } else {
         mediaCodec.releaseOutputBuffer(outputBufferIndex, /* render= */ false);
       }
@@ -361,11 +394,27 @@ public final class DefaultCodec implements Codec {
       if (outputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
         outputFormat =
             convertToFormat(mediaCodec.getOutputFormat(), isDecoder, configurationFormat.metadata);
+        // The raw audio decoder incorrectly sets the channel count for output format to stereo.
+        if (isDecoder && Objects.equals(configurationFormat.sampleMimeType, MimeTypes.AUDIO_RAW)) {
+          outputFormat =
+              outputFormat
+                  .buildUpon()
+                  .setChannelCount(configurationFormat.channelCount)
+                  .setPcmEncoding(configurationFormat.pcmEncoding)
+                  .build();
+        }
+        if (!isDecoder && isVideo) {
+          videoOutputStarted.set(true);
+        }
+        debugTraceLogEvent(
+            EVENT_OUTPUT_FORMAT, outputBufferInfo.presentationTimeUs, "%s", outputFormat);
       }
       return false;
     }
     if ((outputBufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
       outputStreamEnded = true;
+      debugTraceLogEvent(EVENT_OUTPUT_ENDED, C.TIME_END_OF_SOURCE);
+
       if (outputBufferInfo.size == 0) {
         releaseOutputBuffer(/* render= */ false);
         return false;
@@ -393,6 +442,9 @@ public final class DefaultCodec implements Codec {
 
   private ExportException createExportException(Exception cause) {
     return createExportException(
+        configurationMediaFormat,
+        isVideo,
+        isDecoder,
         cause,
         isDecoder
             ? ExportException.ERROR_CODE_DECODING_FAILED
@@ -401,14 +453,17 @@ public final class DefaultCodec implements Codec {
   }
 
   /** Creates an {@link ExportException} with specific {@link MediaCodec} details. */
-  private ExportException createExportException(
-      @UnknownInitialization DefaultCodec this,
+  private static ExportException createExportException(
+      MediaFormat configurationMediaFormat,
+      boolean isVideo,
+      boolean isDecoder,
       Exception cause,
       @ExportException.ErrorCode int errorCode,
       String mediaCodecName) {
-    String codecDetails =
-        "mediaFormat=" + configurationMediaFormat + ", mediaCodecName=" + mediaCodecName;
-    return ExportException.createForCodec(cause, errorCode, isVideo, isDecoder, codecDetails);
+    ExportException.CodecInfo codecInfo =
+        new ExportException.CodecInfo(
+            configurationMediaFormat.toString(), isVideo, isDecoder, mediaCodecName);
+    return ExportException.createForCodec(cause, errorCode, codecInfo);
   }
 
   private static Format convertToFormat(
@@ -452,6 +507,19 @@ public final class DefaultCodec implements Codec {
         && MediaFormatUtil.getInteger(
                 mediaFormat, MediaFormat.KEY_COLOR_TRANSFER_REQUEST, /* defaultValue= */ 0)
             == MediaFormat.COLOR_TRANSFER_SDR_VIDEO;
+  }
+
+  private void debugTraceLogEvent(@DebugTraceUtil.Event String event, long presentationTimeUs) {
+    debugTraceLogEvent(event, presentationTimeUs, /* extraFormat= */ "");
+  }
+
+  private void debugTraceLogEvent(
+      @DebugTraceUtil.Event String event,
+      long presentationTimeUs,
+      String extraFormat,
+      Object... extraArgs) {
+    DebugTraceUtil.logCodecEvent(
+        isDecoder, isVideo, event, presentationTimeUs, extraFormat, extraArgs);
   }
 
   @RequiresApi(29)

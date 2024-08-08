@@ -31,6 +31,7 @@ import androidx.media3.common.ParserException;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ConditionVariable;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
@@ -53,6 +54,7 @@ import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.LoadErrorInfo;
 import androidx.media3.exoplayer.upstream.Loader;
 import androidx.media3.exoplayer.upstream.Loader.LoadErrorAction;
 import androidx.media3.exoplayer.upstream.Loader.Loadable;
+import androidx.media3.extractor.DiscardingTrackOutput;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.ForwardingSeekMap;
@@ -93,6 +95,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     void onSourceInfoRefreshed(long durationUs, boolean isSeekable, boolean isLive);
   }
 
+  private static final String TAG = "ProgressiveMediaPeriod";
+
   /**
    * When the source's duration is unknown, it is calculated by adding this value to the largest
    * sample timestamp seen when buffering completes.
@@ -114,13 +118,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final Allocator allocator;
   @Nullable private final String customCacheKey;
   private final long continueLoadingCheckIntervalBytes;
+  private final long singleSampleDurationUs;
   private final Loader loader;
   private final ProgressiveMediaExtractor progressiveMediaExtractor;
   private final ConditionVariable loadCondition;
   private final Runnable maybeFinishPrepareRunnable;
   private final Runnable onContinueLoadingRequestedRunnable;
   private final Handler handler;
-  private final boolean isSingleSample;
 
   @Nullable private Callback callback;
   @Nullable private IcyHeaders icyHeaders;
@@ -130,6 +134,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private boolean prepared;
   private boolean haveAudioVideoTracks;
+  private boolean isSingleSample;
   private @MonotonicNonNull TrackState trackState;
   private @MonotonicNonNull SeekMap seekMap;
   private long durationUs;
@@ -194,8 +199,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.continueLoadingCheckIntervalBytes = continueLoadingCheckIntervalBytes;
     loader = new Loader("ProgressiveMediaPeriod");
     this.progressiveMediaExtractor = progressiveMediaExtractor;
-    this.durationUs = singleSampleDurationUs;
-    isSingleSample = singleSampleDurationUs != C.TIME_UNSET;
+    this.singleSampleDurationUs = singleSampleDurationUs;
     loadCondition = new ConditionVariable();
     maybeFinishPrepareRunnable = this::maybeFinishPrepare;
     onContinueLoadingRequestedRunnable =
@@ -276,11 +280,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         streams[i] = null;
       }
     }
-    // We'll always need to seek if this is a first selection to a non-zero position, or if we're
-    // making a selection having previously disabled all tracks, except for when we have a single
-    // sample.
+    // We'll always need to seek if this is a first selection to a non-zero position (except for
+    // when we have a single sample only), or if we're making a selection having previously
+    // disabled all tracks.
     boolean seekRequired =
-        !isSingleSample && (seenFirstTrackSelection ? oldEnabledTrackCount == 0 : positionUs != 0);
+        seenFirstTrackSelection ? oldEnabledTrackCount == 0 : positionUs != 0 && !isSingleSample;
     // Select new tracks.
     for (int i = 0; i < selections.length; i++) {
       if (streams[i] == null && selections[i] != null) {
@@ -315,6 +319,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         }
         loader.cancelLoading();
       } else {
+        loadingFinished = false;
         for (SampleQueue sampleQueue : sampleQueues) {
           sampleQueue.reset();
         }
@@ -434,8 +439,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return positionUs;
     }
 
-    // If we're not playing a live stream, try and seek within the buffer.
+    // If we're not playing a live stream, and when loading will continue (or has finished), try
+    // and seek within the existing buffer instead of restarting the load.
     if (dataType != C.DATA_TYPE_MEDIA_PROGRESSIVE_LIVE
+        && (loadingFinished || loader.isLoading())
         && seekInsideBufferUs(trackIsAudioVideoFlags, positionUs)) {
       return positionUs;
     }
@@ -730,6 +737,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         return sampleQueues[i];
       }
     }
+    if (sampleQueuesBuilt) {
+      Log.w(TAG, "Extractor added new track (id=" + id.id + ") after finishing tracks.");
+      return new DiscardingTrackOutput();
+    }
     SampleQueue trackOutput =
         SampleQueue.createWithDrm(allocator, drmSessionManager, drmEventDispatcher);
     trackOutput.setUpstreamFormatChangeListener(this);
@@ -745,20 +756,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private void setSeekMap(SeekMap seekMap) {
     this.seekMap = icyHeaders == null ? seekMap : new Unseekable(/* durationUs= */ C.TIME_UNSET);
-    if (seekMap.getDurationUs() == C.TIME_UNSET && durationUs != C.TIME_UNSET) {
-      this.seekMap =
-          new ForwardingSeekMap(this.seekMap) {
-            @Override
-            public long getDurationUs() {
-              return durationUs;
-            }
-          };
-    }
-    durationUs = this.seekMap.getDurationUs();
+    durationUs = seekMap.getDurationUs();
     isLive = !isLengthKnown && seekMap.getDurationUs() == C.TIME_UNSET;
     dataType = isLive ? C.DATA_TYPE_MEDIA_PROGRESSIVE_LIVE : C.DATA_TYPE_MEDIA;
-    listener.onSourceInfoRefreshed(durationUs, seekMap.isSeekable(), isLive);
-    if (!prepared) {
+    if (prepared) {
+      listener.onSourceInfoRefreshed(durationUs, seekMap.isSeekable(), isLive);
+    } else {
       maybeFinishPrepare();
     }
   }
@@ -783,6 +786,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       boolean isAudioVideo = isAudio || MimeTypes.isVideo(mimeType);
       trackIsAudioVideoFlags[i] = isAudioVideo;
       haveAudioVideoTracks |= isAudioVideo;
+      boolean isImage = MimeTypes.isImage(mimeType);
+      isSingleSample = singleSampleDurationUs != C.TIME_UNSET && trackCount == 1 && isImage;
       @Nullable IcyHeaders icyHeaders = this.icyHeaders;
       if (icyHeaders != null) {
         if (isAudio || sampleQueueTrackIds[i].isIcyTrack) {
@@ -807,6 +812,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       trackArray[i] = new TrackGroup(/* id= */ Integer.toString(i), trackFormat);
     }
     trackState = new TrackState(new TrackGroupArray(trackArray), trackIsAudioVideoFlags);
+    if (isSingleSample && durationUs == C.TIME_UNSET) {
+      durationUs = singleSampleDurationUs;
+      seekMap =
+          new ForwardingSeekMap(seekMap) {
+            @Override
+            public long getDurationUs() {
+              return durationUs;
+            }
+          };
+    }
+    listener.onSourceInfoRefreshed(durationUs, seekMap.isSeekable(), isLive);
     prepared = true;
     checkNotNull(callback).onPrepared(this);
   }

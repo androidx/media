@@ -72,7 +72,7 @@ public final class CacheDataSource implements DataSource {
     private boolean cacheIsReadOnly;
     @Nullable private DataSource.Factory upstreamDataSourceFactory;
     @Nullable private PriorityTaskManager upstreamPriorityTaskManager;
-    private int upstreamPriority;
+    private @C.Priority int upstreamPriority;
     private @CacheDataSource.Flags int flags;
     @Nullable private CacheDataSource.EventListener eventListener;
 
@@ -209,16 +209,17 @@ public final class CacheDataSource implements DataSource {
     }
 
     /**
-     * Sets the priority to use when requesting data from upstream. The priority is only used if a
-     * {@link PriorityTaskManager} is set by calling {@link #setUpstreamPriorityTaskManager}.
+     * Sets the {@link C.Priority} to use when requesting data from upstream. The priority is only
+     * used if a {@link PriorityTaskManager} is set by calling {@link
+     * #setUpstreamPriorityTaskManager}.
      *
      * <p>The default is {@link C#PRIORITY_PLAYBACK}.
      *
-     * @param upstreamPriority The priority to use when requesting data from upstream.
+     * @param upstreamPriority The {@link C.Priority} to use when requesting data from upstream.
      * @return This factory.
      */
     @CanIgnoreReturnValue
-    public Factory setUpstreamPriority(int upstreamPriority) {
+    public Factory setUpstreamPriority(@C.Priority int upstreamPriority) {
       this.upstreamPriority = upstreamPriority;
       return this;
     }
@@ -297,7 +298,9 @@ public final class CacheDataSource implements DataSource {
     }
 
     private CacheDataSource createDataSourceInternal(
-        @Nullable DataSource upstreamDataSource, @Flags int flags, int upstreamPriority) {
+        @Nullable DataSource upstreamDataSource,
+        @Flags int flags,
+        @C.Priority int upstreamPriority) {
       Cache cache = checkNotNull(this.cache);
       @Nullable DataSink cacheWriteDataSink;
       if (cacheIsReadOnly || upstreamDataSource == null) {
@@ -531,7 +534,7 @@ public final class CacheDataSource implements DataSource {
       @Nullable CacheKeyFactory cacheKeyFactory,
       @Flags int flags,
       @Nullable PriorityTaskManager upstreamPriorityTaskManager,
-      int upstreamPriority,
+      @C.Priority int upstreamPriority,
       @Nullable EventListener eventListener) {
     this.cache = cache;
     this.cacheReadDataSource = cacheReadDataSource;

@@ -20,7 +20,6 @@ import static androidx.media3.test.session.common.CommonConstants.MOCK_MEDIA3_SE
 import static androidx.media3.test.session.common.CommonConstants.SUPPORT_APP_PACKAGE_NAME;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assume.assumeTrue;
 
 import android.content.ComponentName;
 import android.content.Context;
@@ -28,7 +27,6 @@ import android.os.Bundle;
 import android.os.Process;
 import android.support.v4.media.session.MediaSessionCompat;
 import androidx.media3.common.MediaLibraryInfo;
-import androidx.media3.common.util.Util;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.media3.test.session.common.MainLooperTestRule;
 import androidx.media3.test.session.common.TestUtils;
@@ -117,8 +115,6 @@ public class SessionTokenTest {
   @Test
   public void createSessionToken_withPlatformTokenFromMedia1Session_returnsTokenForLegacySession()
       throws Exception {
-    assumeTrue(Util.SDK_INT >= 21);
-
     MediaSessionCompat sessionCompat =
         sessionTestRule.ensureReleaseAfterTest(
             new MediaSessionCompat(context, "createSessionToken_withLegacyToken"));

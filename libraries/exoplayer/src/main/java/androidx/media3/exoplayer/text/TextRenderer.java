@@ -63,9 +63,6 @@ import org.checkerframework.dataflow.qual.SideEffectFree;
  * <p>This implementations decodes sample data to {@link Cue} instances. The actual rendering is
  * delegated to a {@link TextOutput}.
  */
-// TODO: b/289916598 - Add an opt-in method for the legacy subtitle decoding flow, and throw an
-//  exception if it's not used and a recognized subtitle MIME type (that isn't
-//  application/x-media3-cues) is passed in.
 @UnstableApi
 public final class TextRenderer extends BaseRenderer implements Callback {
 
@@ -98,7 +95,7 @@ public final class TextRenderer extends BaseRenderer implements Callback {
    */
   private static final int REPLACEMENT_STATE_WAIT_END_OF_STREAM = 2;
 
-  private static final int MSG_UPDATE_OUTPUT = 0;
+  private static final int MSG_UPDATE_OUTPUT = 1;
 
   // Fields used when handling CuesWithTiming objects from application/x-media3-cues samples.
   private final CueDecoder cueDecoder;
@@ -164,7 +161,7 @@ public final class TextRenderer extends BaseRenderer implements Callback {
     finalStreamEndPositionUs = C.TIME_UNSET;
     outputStreamOffsetUs = C.TIME_UNSET;
     lastRendererPositionUs = C.TIME_UNSET;
-    legacyDecodingEnabled = true;
+    legacyDecodingEnabled = false;
   }
 
   @Override
@@ -174,7 +171,7 @@ public final class TextRenderer extends BaseRenderer implements Callback {
 
   @Override
   public @Capabilities int supportsFormat(Format format) {
-    // TODO: b/289983417 - Return UNSUPPORTED for non-media3-queues once we stop supporting them
+    // TODO: b/289983417 - Return UNSUPPORTED for non-media3-cues once we stop supporting them
     //   completely. In the meantime, we return SUPPORTED here and then throw later  if
     //   legacyDecodingEnabled is false (when receiving the first Format or sample). This ensures
     //   apps are aware (via the playback failure) they're using a legacy/deprecated code path.
@@ -241,13 +238,13 @@ public final class TextRenderer extends BaseRenderer implements Callback {
         replaceSubtitleDecoder();
       } else {
         releaseSubtitleBuffers();
-        checkNotNull(subtitleDecoder).flush();
+        SubtitleDecoder subtitleDecoder = checkNotNull(this.subtitleDecoder);
+        subtitleDecoder.flush();
+        subtitleDecoder.setOutputStartTimeUs(getLastResetPositionUs());
       }
     }
   }
 
-  // Setting deprecated decode-only flag for compatibility with decoders that are still using it.
-  @SuppressWarnings("deprecation")
   @Override
   public void render(long positionUs, long elapsedRealtimeUs) {
     if (isCurrentStreamFinal()
@@ -280,11 +277,15 @@ public final class TextRenderer extends BaseRenderer implements Callback {
    * MimeTypes#APPLICATION_MEDIA3_CUES} (which have been parsed from their original format during
    * extraction), and will throw an exception if passed data of a different type.
    *
-   * <p>This is enabled by default.
+   * <p>This is disabled by default.
    *
    * <p>This method is experimental. It may change behavior, be renamed, or removed in a future
    * release.
+   *
+   * @deprecated This method (and all support for 'legacy' subtitle decoding during rendering) will
+   *     be removed in a future release.
    */
+  @Deprecated
   public void experimentalSetLegacyDecodingEnabled(boolean legacyDecodingEnabled) {
     this.legacyDecodingEnabled = legacyDecodingEnabled;
   }
@@ -347,7 +348,6 @@ public final class TextRenderer extends BaseRenderer implements Callback {
     }
   }
 
-  @SuppressWarnings("deprecation") // Using deprecated C.BUFFER_FLAG_DECODE_ONLY for compatibility
   private void renderFromSubtitles(long positionUs) {
     lastRendererPositionUs = positionUs;
     if (nextSubtitle == null) {
@@ -445,9 +445,6 @@ public final class TextRenderer extends BaseRenderer implements Callback {
             waitingForKeyFrame &= !nextInputBuffer.isKeyFrame();
           }
           if (!waitingForKeyFrame) {
-            if (nextInputBuffer.timeUs < getLastResetPositionUs()) {
-              nextInputBuffer.addFlag(C.BUFFER_FLAG_DECODE_ONLY);
-            }
             checkNotNull(subtitleDecoder).queueInputBuffer(nextInputBuffer);
             this.nextSubtitleInputBuffer = null;
           }
@@ -507,6 +504,7 @@ public final class TextRenderer extends BaseRenderer implements Callback {
   private void initSubtitleDecoder() {
     waitingForKeyFrame = true;
     subtitleDecoder = subtitleDecoderFactory.createDecoder(checkNotNull(streamFormat));
+    subtitleDecoder.setOutputStartTimeUs(getLastResetPositionUs());
   }
 
   private void replaceSubtitleDecoder() {

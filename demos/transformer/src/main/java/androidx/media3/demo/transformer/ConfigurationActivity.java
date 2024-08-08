@@ -17,7 +17,6 @@ package androidx.media3.demo.transformer;
 
 import static android.Manifest.permission.READ_EXTERNAL_STORAGE;
 import static android.Manifest.permission.READ_MEDIA_VIDEO;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.transformer.Composition.HDR_MODE_EXPERIMENTAL_FORCE_INTERPRET_HDR_AS_SDR;
@@ -49,14 +48,13 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.transformer.Composition;
 import com.google.android.material.slider.RangeSlider;
 import com.google.android.material.slider.Slider;
 import com.google.common.collect.ImmutableMap;
 import java.util.Arrays;
 import java.util.List;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
 /**
  * An {@link Activity} that sets the configuration to use for exporting and playing media, using
@@ -76,8 +74,10 @@ public final class ConfigurationActivity extends AppCompatActivity {
   public static final String TRIM_START_MS = "trim_start_ms";
   public static final String TRIM_END_MS = "trim_end_ms";
   public static final String ENABLE_FALLBACK = "enable_fallback";
+  public static final String ENABLE_ANALYZER_MODE = "enable_analyzer_mode";
   public static final String ENABLE_DEBUG_PREVIEW = "enable_debug_preview";
   public static final String ABORT_SLOW_EXPORT = "abort_slow_export";
+  public static final String USE_MEDIA3_MUXER = "use_media3_muxer";
   public static final String PRODUCE_FRAGMENTED_MP4 = "produce_fragmented_mp4";
   public static final String HDR_MODE = "hdr_mode";
   public static final String AUDIO_EFFECTS_SELECTIONS = "audio_effects_selections";
@@ -128,66 +128,6 @@ public final class ConfigurationActivity extends AppCompatActivity {
   public static final int COLOR_FILTER_SEPIA = 2;
 
   public static final int FILE_PERMISSION_REQUEST_CODE = 1;
-  private static final String[] PRESET_FILE_URIS = {
-    "https://storage.googleapis.com/exoplayer-test-media-1/mp4/android-screens-10s.mp4",
-    "https://storage.googleapis.com/exoplayer-test-media-0/android-block-1080-hevc.mp4",
-    "https://html5demos.com/assets/dizzy.mp4",
-    "https://html5demos.com/assets/dizzy.webm",
-    "https://storage.googleapis.com/exoplayer-test-media-1/mp4/portrait_4k60.mp4",
-    "https://storage.googleapis.com/exoplayer-test-media-1/mp4/8k24fps_4s.mp4",
-    "https://storage.googleapis.com/exoplayer-test-media-1/mp4/1920w_1080h_4s.mp4",
-    "https://storage.googleapis.com/exoplayer-test-media-0/BigBuckBunny_320x180.mp4",
-    "https://storage.googleapis.com/exoplayer-test-media-1/mp4/portrait_avc_aac.mp4",
-    "https://storage.googleapis.com/exoplayer-test-media-1/mp4/portrait_rotated_avc_aac.mp4",
-    "https://storage.googleapis.com/exoplayer-test-media-1/jpg/london.jpg",
-    "https://storage.googleapis.com/exoplayer-test-media-1/jpg/tokyo.jpg",
-    "https://storage.googleapis.com/exoplayer-test-media-1/mp4/slow-motion/slowMotion_stopwatch_240fps_long.mp4",
-    "https://storage.googleapis.com/exoplayer-test-media-1/gen/screens/dash-vod-single-segment/manifest-baseline.mpd",
-    "https://storage.googleapis.com/exoplayer-test-media-1/mp4/samsung-s21-hdr-hdr10.mp4",
-    "https://storage.googleapis.com/exoplayer-test-media-1/mp4/Pixel7Pro_HLG_1080P.mp4",
-    "https://storage.googleapis.com/exoplayer-test-media-1/mp4/sample_video_track_only.mp4",
-  };
-  private static final String[] PRESET_FILE_URI_DESCRIPTIONS = { // same order as PRESET_FILE_URIS
-    "720p H264 video and AAC audio (B-frames)",
-    "1080p H265 video and AAC audio (B-frames)",
-    "360p H264 video and AAC audio",
-    "360p VP8 video and Vorbis audio",
-    "4K H264 video and AAC audio (portrait, no B-frames)",
-    "8k H265 video and AAC audio",
-    "Short 1080p H265 video and AAC audio",
-    "Long 180p H264 video and AAC audio",
-    "H264 video and AAC audio (portrait, H > W, 0°)",
-    "H264 video and AAC audio (portrait, H < W, 90°)",
-    "London JPG image (Plays for 5secs at 30fps)",
-    "Tokyo JPG image (Portrait, Plays for 5secs at 30fps)",
-    "SEF slow motion with 240 fps",
-    "480p DASH (non-square pixels)",
-    "HDR (HDR10) H265 limited range video (encoding may fail)",
-    "HDR (HLG) H265 limited range video (encoding may fail)",
-    "720p H264 video with no audio (B-frames)",
-  };
-  private static final String[] AUDIO_EFFECTS = {
-    "High pitched",
-    "Sample rate of 48000Hz",
-    "Skip silence",
-    "Mix channels into mono",
-    "Scale volume to 50%"
-  };
-  private static final String[] VIDEO_EFFECTS = {
-    "Dizzy crop",
-    "Edge detector (Media Pipe)",
-    "Color filters",
-    "Map White to Green Color Lookup Table",
-    "RGB Adjustments",
-    "HSL Adjustments",
-    "Contrast",
-    "Periodic vignette",
-    "3D spin",
-    "Zoom in start",
-    "Overlay logo & timer",
-    "Custom Bitmap Overlay",
-    "Custom Text Overlay",
-  };
   private static final ImmutableMap<String, @Composition.HdrMode Integer> HDR_MODE_DESCRIPTIONS =
       new ImmutableMap.Builder<String, @Composition.HdrMode Integer>()
           .put("Keep HDR", HDR_MODE_KEEP_HDR)
@@ -212,32 +152,36 @@ public final class ConfigurationActivity extends AppCompatActivity {
   private static final String SAME_AS_INPUT_OPTION = "same as input";
   private static final float HALF_DIAGONAL = 1f / (float) Math.sqrt(2);
 
-  private @MonotonicNonNull Runnable onPermissionsGranted;
-  private @MonotonicNonNull ActivityResultLauncher<Intent> videoLocalFilePickerLauncher;
-  private @MonotonicNonNull ActivityResultLauncher<Intent> overlayLocalFilePickerLauncher;
-  private @MonotonicNonNull Button selectPresetFileButton;
-  private @MonotonicNonNull Button selectLocalFileButton;
-  private @MonotonicNonNull TextView selectedFileTextView;
-  private @MonotonicNonNull CheckBox removeAudioCheckbox;
-  private @MonotonicNonNull CheckBox removeVideoCheckbox;
-  private @MonotonicNonNull CheckBox flattenForSlowMotionCheckbox;
-  private @MonotonicNonNull CheckBox forceAudioTrackCheckbox;
-  private @MonotonicNonNull Spinner audioMimeSpinner;
-  private @MonotonicNonNull Spinner videoMimeSpinner;
-  private @MonotonicNonNull Spinner resolutionHeightSpinner;
-  private @MonotonicNonNull Spinner scaleSpinner;
-  private @MonotonicNonNull Spinner rotateSpinner;
-  private @MonotonicNonNull CheckBox trimCheckBox;
-  private @MonotonicNonNull CheckBox enableFallbackCheckBox;
-  private @MonotonicNonNull CheckBox enableDebugPreviewCheckBox;
-  private @MonotonicNonNull CheckBox abortSlowExportCheckBox;
-  private @MonotonicNonNull CheckBox produceFragmentedMp4CheckBox;
-  private @MonotonicNonNull Spinner hdrModeSpinner;
-  private @MonotonicNonNull Button selectAudioEffectsButton;
-  private @MonotonicNonNull Button selectVideoEffectsButton;
-  private boolean @MonotonicNonNull [] audioEffectsSelections;
-  private boolean @MonotonicNonNull [] videoEffectsSelections;
-  private @Nullable Uri localFileUri;
+  private Runnable onPermissionsGranted;
+  private ActivityResultLauncher<Intent> videoLocalFilePickerLauncher;
+  private ActivityResultLauncher<Intent> overlayLocalFilePickerLauncher;
+  private Button selectPresetButton;
+  private Button selectLocalFileButton;
+  private TextView selectedFileTextView;
+  private CheckBox removeAudioCheckbox;
+  private CheckBox removeVideoCheckbox;
+  private CheckBox flattenForSlowMotionCheckbox;
+  private CheckBox forceAudioTrackCheckbox;
+  private Spinner audioMimeSpinner;
+  private Spinner videoMimeSpinner;
+  private Spinner resolutionHeightSpinner;
+  private Spinner scaleSpinner;
+  private Spinner rotateSpinner;
+  private CheckBox trimCheckBox;
+  private CheckBox enableFallbackCheckBox;
+  private CheckBox enableAnalyzerModeCheckBox;
+  private CheckBox enableDebugPreviewCheckBox;
+  private CheckBox enableDebugTracingCheckBox;
+  private CheckBox abortSlowExportCheckBox;
+  private CheckBox useMedia3Muxer;
+  private CheckBox produceFragmentedMp4CheckBox;
+  private Spinner hdrModeSpinner;
+  private Button selectAudioEffectsButton;
+  private Button selectVideoEffectsButton;
+  private boolean[] audioEffectsSelections;
+  private boolean[] videoEffectsSelections;
+  private String[] presetDescriptions;
+  private Uri localFileUri;
   private int inputUriPosition;
   private long trimStartMs;
   private long trimEndMs;
@@ -253,9 +197,9 @@ public final class ConfigurationActivity extends AppCompatActivity {
   private float periodicVignetteCenterY;
   private float periodicVignetteInnerRadius;
   private float periodicVignetteOuterRadius;
-  private @MonotonicNonNull String bitmapOverlayUri;
+  private String bitmapOverlayUri;
   private float bitmapOverlayAlpha;
-  private @MonotonicNonNull String textOverlayText;
+  private String textOverlayText;
   private int textOverlayTextColor;
   private float textOverlayAlpha;
 
@@ -264,7 +208,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.configuration_activity);
 
-    findViewById(R.id.export_button).setOnClickListener(this::startExport);
+    findViewById(R.id.export_button).setOnClickListener(view -> startExport());
 
     videoLocalFilePickerLauncher =
         registerForActivityResult(
@@ -275,18 +219,19 @@ public final class ConfigurationActivity extends AppCompatActivity {
             new ActivityResultContracts.StartActivityForResult(),
             this::overlayLocalFilePickerLauncherResult);
 
-    selectPresetFileButton = findViewById(R.id.select_preset_file_button);
-    selectPresetFileButton.setOnClickListener(this::selectPresetFile);
+    selectPresetButton = findViewById(R.id.select_preset_button);
+    selectPresetButton.setOnClickListener(view -> selectPreset());
 
     selectLocalFileButton = findViewById(R.id.select_local_file_button);
     selectLocalFileButton.setOnClickListener(
         view ->
             selectLocalFile(
-                checkNotNull(videoLocalFilePickerLauncher),
+                videoLocalFilePickerLauncher,
                 /* mimeTypes= */ new String[] {"image/*", "video/*", "audio/*"}));
 
     selectedFileTextView = findViewById(R.id.selected_file_text_view);
-    selectedFileTextView.setText(PRESET_FILE_URI_DESCRIPTIONS[inputUriPosition]);
+    presetDescriptions = getResources().getStringArray(R.array.preset_descriptions);
+    selectedFileTextView.setText(presetDescriptions[inputUriPosition]);
 
     removeAudioCheckbox = findViewById(R.id.remove_audio_checkbox);
     removeAudioCheckbox.setOnClickListener(this::onRemoveAudio);
@@ -343,14 +288,19 @@ public final class ConfigurationActivity extends AppCompatActivity {
     rotateAdapter.addAll(SAME_AS_INPUT_OPTION, "0", "10", "45", "60", "90", "180");
 
     trimCheckBox = findViewById(R.id.trim_checkbox);
-    trimCheckBox.setOnCheckedChangeListener(this::selectTrimBounds);
+    trimCheckBox.setOnCheckedChangeListener((view, isChecked) -> selectTrimBounds(isChecked));
     trimStartMs = C.TIME_UNSET;
     trimEndMs = C.TIME_UNSET;
 
     enableFallbackCheckBox = findViewById(R.id.enable_fallback_checkbox);
+    enableAnalyzerModeCheckBox = findViewById(R.id.enable_analyzer_mode_checkbox);
     enableDebugPreviewCheckBox = findViewById(R.id.enable_debug_preview_checkbox);
+    enableDebugTracingCheckBox = findViewById(R.id.enable_debug_tracing_checkbox);
+    enableDebugTracingCheckBox.setOnCheckedChangeListener(
+        (buttonView, isChecked) -> DebugTraceUtil.enableTracing = isChecked);
 
     abortSlowExportCheckBox = findViewById(R.id.abort_slow_export_checkbox);
+    useMedia3Muxer = findViewById(R.id.use_media3_muxer_checkbox);
     produceFragmentedMp4CheckBox = findViewById(R.id.produce_fragmented_mp4_checkbox);
 
     ArrayAdapter<String> hdrModeAdapter =
@@ -360,13 +310,15 @@ public final class ConfigurationActivity extends AppCompatActivity {
     hdrModeSpinner.setAdapter(hdrModeAdapter);
     hdrModeAdapter.addAll(HDR_MODE_DESCRIPTIONS.keySet());
 
-    audioEffectsSelections = new boolean[AUDIO_EFFECTS.length];
+    String[] audioEffectsNames = getResources().getStringArray(R.array.audio_effects_names);
+    audioEffectsSelections = new boolean[audioEffectsNames.length];
     selectAudioEffectsButton = findViewById(R.id.select_audio_effects_button);
-    selectAudioEffectsButton.setOnClickListener(this::selectAudioEffects);
+    selectAudioEffectsButton.setOnClickListener(view -> selectAudioEffects(audioEffectsNames));
 
-    videoEffectsSelections = new boolean[VIDEO_EFFECTS.length];
+    String[] videoEffectsNames = getResources().getStringArray(R.array.video_effects_names);
+    videoEffectsSelections = new boolean[videoEffectsNames.length];
     selectVideoEffectsButton = findViewById(R.id.select_video_effects_button);
-    selectVideoEffectsButton.setOnClickListener(this::selectVideoEffects);
+    selectVideoEffectsButton.setOnClickListener(view -> selectVideoEffects(videoEffectsNames));
   }
 
   @Override
@@ -377,7 +329,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
     if (requestCode == FILE_PERMISSION_REQUEST_CODE
         && grantResults.length == 1
         && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-      checkNotNull(onPermissionsGranted).run();
+      onPermissionsGranted.run();
     } else {
       Toast.makeText(
               getApplicationContext(), getString(R.string.permission_denied), Toast.LENGTH_LONG)
@@ -390,9 +342,9 @@ public final class ConfigurationActivity extends AppCompatActivity {
     super.onResume();
     @Nullable Uri intentUri = getIntent().getData();
     if (intentUri != null) {
-      checkNotNull(selectPresetFileButton).setEnabled(false);
-      checkNotNull(selectLocalFileButton).setEnabled(false);
-      checkNotNull(selectedFileTextView).setText(intentUri.toString());
+      selectPresetButton.setEnabled(false);
+      selectLocalFileButton.setEnabled(false);
+      selectedFileTextView.setText(intentUri.toString());
     }
   }
 
@@ -402,26 +354,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
     setIntent(intent);
   }
 
-  @RequiresNonNull({
-    "removeAudioCheckbox",
-    "removeVideoCheckbox",
-    "flattenForSlowMotionCheckbox",
-    "forceAudioTrackCheckbox",
-    "audioMimeSpinner",
-    "videoMimeSpinner",
-    "resolutionHeightSpinner",
-    "scaleSpinner",
-    "rotateSpinner",
-    "trimCheckBox",
-    "enableFallbackCheckBox",
-    "enableDebugPreviewCheckBox",
-    "abortSlowExportCheckBox",
-    "produceFragmentedMp4CheckBox",
-    "hdrModeSpinner",
-    "audioEffectsSelections",
-    "videoEffectsSelections"
-  })
-  private void startExport(View view) {
+  private void startExport() {
     Intent transformerIntent = new Intent(/* packageContext= */ this, TransformerActivity.class);
     Bundle bundle = new Bundle();
     bundle.putBoolean(SHOULD_REMOVE_AUDIO, removeAudioCheckbox.isChecked());
@@ -456,11 +389,13 @@ public final class ConfigurationActivity extends AppCompatActivity {
       bundle.putLong(TRIM_END_MS, trimEndMs);
     }
     bundle.putBoolean(ENABLE_FALLBACK, enableFallbackCheckBox.isChecked());
+    bundle.putBoolean(ENABLE_ANALYZER_MODE, enableAnalyzerModeCheckBox.isChecked());
     bundle.putBoolean(ENABLE_DEBUG_PREVIEW, enableDebugPreviewCheckBox.isChecked());
     bundle.putBoolean(ABORT_SLOW_EXPORT, abortSlowExportCheckBox.isChecked());
+    bundle.putBoolean(USE_MEDIA3_MUXER, useMedia3Muxer.isChecked());
     bundle.putBoolean(PRODUCE_FRAGMENTED_MP4, produceFragmentedMp4CheckBox.isChecked());
-    String selectedhdrMode = String.valueOf(hdrModeSpinner.getSelectedItem());
-    bundle.putInt(HDR_MODE, checkNotNull(HDR_MODE_DESCRIPTIONS.get(selectedhdrMode)));
+    String selectedHdrMode = String.valueOf(hdrModeSpinner.getSelectedItem());
+    bundle.putInt(HDR_MODE, HDR_MODE_DESCRIPTIONS.get(selectedHdrMode));
     bundle.putBooleanArray(AUDIO_EFFECTS_SELECTIONS, audioEffectsSelections);
     bundle.putBooleanArray(VIDEO_EFFECTS_SELECTIONS, videoEffectsSelections);
     bundle.putInt(COLOR_FILTER_SELECTION, colorFilterSelection);
@@ -488,28 +423,27 @@ public final class ConfigurationActivity extends AppCompatActivity {
     } else if (localFileUri != null) {
       intentUri = localFileUri;
     } else {
-      intentUri = Uri.parse(PRESET_FILE_URIS[inputUriPosition]);
+      String[] presetUris = getResources().getStringArray(R.array.preset_uris);
+      intentUri = Uri.parse(presetUris[inputUriPosition]);
     }
     transformerIntent.setData(intentUri);
 
     startActivity(transformerIntent);
   }
 
-  private void selectPresetFile(View view) {
+  private void selectPreset() {
     new AlertDialog.Builder(/* context= */ this)
-        .setTitle(R.string.select_preset_file_title)
-        .setSingleChoiceItems(
-            PRESET_FILE_URI_DESCRIPTIONS, inputUriPosition, this::selectPresetFileInDialog)
+        .setTitle(R.string.select_preset_title)
+        .setSingleChoiceItems(presetDescriptions, inputUriPosition, this::selectPresetInDialog)
         .setPositiveButton(android.R.string.ok, /* listener= */ null)
         .create()
         .show();
   }
 
-  @RequiresNonNull("selectedFileTextView")
-  private void selectPresetFileInDialog(DialogInterface dialog, int which) {
+  private void selectPresetInDialog(DialogInterface dialog, int which) {
     inputUriPosition = which;
     localFileUri = null;
-    selectedFileTextView.setText(PRESET_FILE_URI_DESCRIPTIONS[inputUriPosition]);
+    selectedFileTextView.setText(presetDescriptions[inputUriPosition]);
   }
 
   private void selectLocalFile(
@@ -530,14 +464,13 @@ public final class ConfigurationActivity extends AppCompatActivity {
     Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
     intent.setType("*/*");
     intent.putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes);
-    checkNotNull(localFilePickerLauncher).launch(intent);
+    localFilePickerLauncher.launch(intent);
   }
 
-  @RequiresNonNull("selectedFileTextView")
   private void videoLocalFilePickerLauncherResult(ActivityResult result) {
     Intent data = result.getData();
     if (data != null) {
-      localFileUri = checkNotNull(data.getData());
+      localFileUri = data.getData();
       selectedFileTextView.setText(localFileUri.toString());
     } else {
       Toast.makeText(
@@ -551,7 +484,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
   private void overlayLocalFilePickerLauncherResult(ActivityResult result) {
     Intent data = result.getData();
     if (data != null) {
-      bitmapOverlayUri = checkNotNull(data.getData()).toString();
+      bitmapOverlayUri = data.getData().toString();
     } else {
       Toast.makeText(
               getApplicationContext(),
@@ -561,33 +494,30 @@ public final class ConfigurationActivity extends AppCompatActivity {
     }
   }
 
-  private void selectAudioEffects(View view) {
+  private void selectAudioEffects(String[] audioEffectsNames) {
     new AlertDialog.Builder(/* context= */ this)
         .setTitle(R.string.select_audio_effects)
-        .setMultiChoiceItems(
-            AUDIO_EFFECTS, checkNotNull(audioEffectsSelections), this::selectAudioEffect)
+        .setMultiChoiceItems(audioEffectsNames, audioEffectsSelections, this::selectAudioEffect)
         .setPositiveButton(android.R.string.ok, /* listener= */ null)
         .create()
         .show();
   }
 
-  private void selectVideoEffects(View view) {
+  private void selectVideoEffects(String[] videoEffectsNames) {
     new AlertDialog.Builder(/* context= */ this)
         .setTitle(R.string.select_video_effects)
-        .setMultiChoiceItems(
-            VIDEO_EFFECTS, checkNotNull(videoEffectsSelections), this::selectVideoEffect)
+        .setMultiChoiceItems(videoEffectsNames, videoEffectsSelections, this::selectVideoEffect)
         .setPositiveButton(android.R.string.ok, /* listener= */ null)
         .create()
         .show();
   }
 
-  private void selectTrimBounds(View view, boolean isChecked) {
+  private void selectTrimBounds(boolean isChecked) {
     if (!isChecked) {
       return;
     }
     View dialogView = getLayoutInflater().inflate(R.layout.trim_options, /* root= */ null);
-    RangeSlider trimRangeSlider =
-        checkNotNull(dialogView.findViewById(R.id.trim_bounds_range_slider));
+    RangeSlider trimRangeSlider = dialogView.findViewById(R.id.trim_bounds_range_slider);
     trimRangeSlider.setValues(0f, 1f); // seconds
     new AlertDialog.Builder(/* context= */ this)
         .setView(dialogView)
@@ -602,12 +532,10 @@ public final class ConfigurationActivity extends AppCompatActivity {
         .show();
   }
 
-  @RequiresNonNull("audioEffectsSelections")
   private void selectAudioEffect(DialogInterface dialog, int which, boolean isChecked) {
     audioEffectsSelections[which] = isChecked;
   }
 
-  @RequiresNonNull("videoEffectsSelections")
   private void selectVideoEffect(DialogInterface dialog, int which, boolean isChecked) {
     videoEffectsSelections[which] = isChecked;
     if (!isChecked) {
@@ -660,10 +588,9 @@ public final class ConfigurationActivity extends AppCompatActivity {
   private void controlRgbAdjustmentsScale() {
     View dialogView =
         getLayoutInflater().inflate(R.layout.rgb_adjustment_options, /* root= */ null);
-    Slider redScaleSlider = checkNotNull(dialogView.findViewById(R.id.rgb_adjustment_red_scale));
-    Slider greenScaleSlider =
-        checkNotNull(dialogView.findViewById(R.id.rgb_adjustment_green_scale));
-    Slider blueScaleSlider = checkNotNull(dialogView.findViewById(R.id.rgb_adjustment_blue_scale));
+    Slider redScaleSlider = dialogView.findViewById(R.id.rgb_adjustment_red_scale);
+    Slider greenScaleSlider = dialogView.findViewById(R.id.rgb_adjustment_green_scale);
+    Slider blueScaleSlider = dialogView.findViewById(R.id.rgb_adjustment_blue_scale);
     new AlertDialog.Builder(/* context= */ this)
         .setTitle(R.string.rgb_adjustment_options)
         .setView(dialogView)
@@ -680,7 +607,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
 
   private void controlContrastSettings() {
     View dialogView = getLayoutInflater().inflate(R.layout.contrast_options, /* root= */ null);
-    Slider contrastSlider = checkNotNull(dialogView.findViewById(R.id.contrast_slider));
+    Slider contrastSlider = dialogView.findViewById(R.id.contrast_slider);
     new AlertDialog.Builder(/* context= */ this)
         .setView(dialogView)
         .setPositiveButton(
@@ -693,11 +620,9 @@ public final class ConfigurationActivity extends AppCompatActivity {
   private void controlHslAdjustmentSettings() {
     View dialogView =
         getLayoutInflater().inflate(R.layout.hsl_adjustment_options, /* root= */ null);
-    Slider hueAdjustmentSlider = checkNotNull(dialogView.findViewById(R.id.hsl_adjustments_hue));
-    Slider saturationAdjustmentSlider =
-        checkNotNull(dialogView.findViewById(R.id.hsl_adjustments_saturation));
-    Slider lightnessAdjustmentSlider =
-        checkNotNull(dialogView.findViewById(R.id.hsl_adjustment_lightness));
+    Slider hueAdjustmentSlider = dialogView.findViewById(R.id.hsl_adjustments_hue);
+    Slider saturationAdjustmentSlider = dialogView.findViewById(R.id.hsl_adjustments_saturation);
+    Slider lightnessAdjustmentSlider = dialogView.findViewById(R.id.hsl_adjustment_lightness);
     new AlertDialog.Builder(/* context= */ this)
         .setTitle(R.string.hsl_adjustment_options)
         .setView(dialogView)
@@ -715,12 +640,10 @@ public final class ConfigurationActivity extends AppCompatActivity {
   private void controlPeriodicVignetteSettings() {
     View dialogView =
         getLayoutInflater().inflate(R.layout.periodic_vignette_options, /* root= */ null);
-    Slider centerXSlider =
-        checkNotNull(dialogView.findViewById(R.id.periodic_vignette_center_x_slider));
-    Slider centerYSlider =
-        checkNotNull(dialogView.findViewById(R.id.periodic_vignette_center_y_slider));
+    Slider centerXSlider = dialogView.findViewById(R.id.periodic_vignette_center_x_slider);
+    Slider centerYSlider = dialogView.findViewById(R.id.periodic_vignette_center_y_slider);
     RangeSlider radiusRangeSlider =
-        checkNotNull(dialogView.findViewById(R.id.periodic_vignette_radius_range_slider));
+        dialogView.findViewById(R.id.periodic_vignette_radius_range_slider);
     radiusRangeSlider.setValues(0f, HALF_DIAGONAL);
     new AlertDialog.Builder(/* context= */ this)
         .setTitle(R.string.periodic_vignette_options)
@@ -741,13 +664,12 @@ public final class ConfigurationActivity extends AppCompatActivity {
   private void controlBitmapOverlaySettings() {
     View dialogView =
         getLayoutInflater().inflate(R.layout.bitmap_overlay_options, /* root= */ null);
-    Button uriButton = checkNotNull(dialogView.findViewById(R.id.bitmap_overlay_uri));
+    Button uriButton = dialogView.findViewById(R.id.bitmap_overlay_uri);
     uriButton.setOnClickListener(
         (view ->
             selectLocalFile(
-                checkNotNull(overlayLocalFilePickerLauncher),
-                /* mimeTypes= */ new String[] {"image/*"})));
-    Slider alphaSlider = checkNotNull(dialogView.findViewById(R.id.bitmap_overlay_alpha_slider));
+                overlayLocalFilePickerLauncher, /* mimeTypes= */ new String[] {"image/*"})));
+    Slider alphaSlider = dialogView.findViewById(R.id.bitmap_overlay_alpha_slider);
     new AlertDialog.Builder(/* context= */ this)
         .setTitle(R.string.bitmap_overlay_settings)
         .setView(dialogView)
@@ -762,16 +684,16 @@ public final class ConfigurationActivity extends AppCompatActivity {
 
   private void controlTextOverlaySettings() {
     View dialogView = getLayoutInflater().inflate(R.layout.text_overlay_options, /* root= */ null);
-    EditText textEditText = checkNotNull(dialogView.findViewById(R.id.text_overlay_text));
+    EditText textEditText = dialogView.findViewById(R.id.text_overlay_text);
 
     ArrayAdapter<String> textColorAdapter =
         new ArrayAdapter<>(/* context= */ this, R.layout.spinner_item);
     textColorAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-    Spinner textColorSpinner = checkNotNull(dialogView.findViewById(R.id.text_overlay_text_color));
+    Spinner textColorSpinner = dialogView.findViewById(R.id.text_overlay_text_color);
     textColorSpinner.setAdapter(textColorAdapter);
     textColorAdapter.addAll(OVERLAY_COLORS.keySet());
 
-    Slider alphaSlider = checkNotNull(dialogView.findViewById(R.id.text_overlay_alpha_slider));
+    Slider alphaSlider = dialogView.findViewById(R.id.text_overlay_alpha_slider);
     new AlertDialog.Builder(/* context= */ this)
         .setTitle(R.string.bitmap_overlay_settings)
         .setView(dialogView)
@@ -780,26 +702,13 @@ public final class ConfigurationActivity extends AppCompatActivity {
             (DialogInterface dialogInterface, int i) -> {
               textOverlayText = textEditText.getText().toString();
               String selectedTextColor = String.valueOf(textColorSpinner.getSelectedItem());
-              textOverlayTextColor = checkNotNull(OVERLAY_COLORS.get(selectedTextColor));
+              textOverlayTextColor = OVERLAY_COLORS.get(selectedTextColor);
               textOverlayAlpha = alphaSlider.getValue();
             })
         .create()
         .show();
   }
 
-  @RequiresNonNull({
-    "removeVideoCheckbox",
-    "forceAudioTrackCheckbox",
-    "audioMimeSpinner",
-    "videoMimeSpinner",
-    "resolutionHeightSpinner",
-    "scaleSpinner",
-    "rotateSpinner",
-    "enableDebugPreviewCheckBox",
-    "hdrModeSpinner",
-    "selectAudioEffectsButton",
-    "selectVideoEffectsButton"
-  })
   private void onRemoveAudio(View view) {
     if (((CheckBox) view).isChecked()) {
       removeVideoCheckbox.setChecked(false);
@@ -809,19 +718,6 @@ public final class ConfigurationActivity extends AppCompatActivity {
     }
   }
 
-  @RequiresNonNull({
-    "removeAudioCheckbox",
-    "forceAudioTrackCheckbox",
-    "audioMimeSpinner",
-    "videoMimeSpinner",
-    "resolutionHeightSpinner",
-    "scaleSpinner",
-    "rotateSpinner",
-    "enableDebugPreviewCheckBox",
-    "hdrModeSpinner",
-    "selectAudioEffectsButton",
-    "selectVideoEffectsButton"
-  })
   private void onRemoveVideo(View view) {
     if (((CheckBox) view).isChecked()) {
       removeAudioCheckbox.setChecked(false);
@@ -831,18 +727,6 @@ public final class ConfigurationActivity extends AppCompatActivity {
     }
   }
 
-  @RequiresNonNull({
-    "forceAudioTrackCheckbox",
-    "audioMimeSpinner",
-    "videoMimeSpinner",
-    "resolutionHeightSpinner",
-    "scaleSpinner",
-    "rotateSpinner",
-    "enableDebugPreviewCheckBox",
-    "hdrModeSpinner",
-    "selectAudioEffectsButton",
-    "selectVideoEffectsButton"
-  })
   private void enableTrackSpecificOptions(boolean isAudioEnabled, boolean isVideoEnabled) {
     forceAudioTrackCheckbox.setEnabled(isVideoEnabled);
     audioMimeSpinner.setEnabled(isAudioEnabled);

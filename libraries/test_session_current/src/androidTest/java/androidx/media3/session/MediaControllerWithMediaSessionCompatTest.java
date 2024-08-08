@@ -16,21 +16,23 @@
 package androidx.media3.session;
 
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_ADVERTISEMENT;
+import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_ALBUM_ART;
+import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_ARTIST;
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_DISPLAY_DESCRIPTION;
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_DISPLAY_ICON_URI;
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE;
-import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE;
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_DURATION;
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_MEDIA_ID;
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_MEDIA_URI;
-import static androidx.media3.common.PlaybackException.ERROR_CODE_REMOTE_ERROR;
 import static androidx.media3.common.Player.MEDIA_ITEM_TRANSITION_REASON_AUTO;
 import static androidx.media3.common.Player.STATE_BUFFERING;
 import static androidx.media3.common.Player.STATE_READY;
 import static androidx.media3.session.MediaConstants.ARGUMENT_CAPTIONING_ENABLED;
 import static androidx.media3.session.MediaConstants.SESSION_COMMAND_ON_CAPTIONING_ENABLED_CHANGED;
 import static androidx.media3.session.SessionResult.RESULT_SUCCESS;
+import static androidx.media3.session.legacy.MediaMetadataCompat.METADATA_KEY_TITLE;
 import static androidx.media3.test.session.common.CommonConstants.DEFAULT_TEST_NAME;
+import static androidx.media3.test.session.common.CommonConstants.KEY_DURATION;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_ALBUM_TITLE;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_ARTIST;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_DESCRIPTION;
@@ -61,7 +63,6 @@ import androidx.media.VolumeProviderCompat;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
-import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
 import androidx.media3.common.Player.DiscontinuityReason;
@@ -570,11 +571,8 @@ public class MediaControllerWithMediaSessionCompatTest {
     assertThat(TextUtils.equals(metadata.subtitle, testSubtitle)).isTrue();
     assertThat(TextUtils.equals(metadata.description, testDescription)).isTrue();
     assertThat(metadata.artworkUri).isEqualTo(testIconUri);
-    if (Util.SDK_INT >= 21) {
-      // Bitmap conversion and back gives not exactly the same byte array below API 21
-      assertThat(metadata.artworkData).isEqualTo(testArtworkData);
-    }
-    if (Util.SDK_INT < 21 || Util.SDK_INT >= 23) {
+    assertThat(metadata.artworkData).isEqualTo(testArtworkData);
+    if (Util.SDK_INT >= 23) {
       // TODO(b/199055952): Test mediaUri for all API levels once the bug is fixed.
       assertThat(mediaItem.requestMetadata.mediaUri).isEqualTo(testMediaUri);
     }
@@ -651,7 +649,7 @@ public class MediaControllerWithMediaSessionCompatTest {
     MediaMetadataCompat metadataCompat =
         new MediaMetadataCompat.Builder()
             .putText(METADATA_KEY_MEDIA_ID, testMediaId)
-            .putText(METADATA_KEY_DISPLAY_TITLE, testTitle)
+            .putText(METADATA_KEY_TITLE, testTitle)
             .putText(METADATA_KEY_DISPLAY_SUBTITLE, testSubtitle)
             .putText(METADATA_KEY_DISPLAY_DESCRIPTION, testDescription)
             .putString(METADATA_KEY_DISPLAY_ICON_URI, testIconUri)
@@ -818,14 +816,8 @@ public class MediaControllerWithMediaSessionCompatTest {
       throws Exception {
     List<MediaItem> testList = MediaTestUtils.createMediaItems(3);
     List<QueueItem> testQueue = MediaTestUtils.convertToQueueItemsWithoutBitmap(testList);
-    MediaItem testRemoveMediaItem = MediaTestUtils.createMediaItem("removed");
     MediaMetadataCompat testMetadataCompat =
-        LegacyConversions.convertToMediaMetadataCompat(
-            testRemoveMediaItem.mediaMetadata,
-            "mediaId",
-            Uri.parse("http://example.com"),
-            /* durationMs= */ 100L,
-            /* artworkBitmap= */ null);
+        new MediaMetadataCompat.Builder().putString(METADATA_KEY_MEDIA_ID, "mediaId").build();
     session.setQueue(testQueue);
     session.setMetadata(testMetadataCompat);
     MediaController controller = controllerTestRule.createController(session.getSessionToken());
@@ -840,14 +832,8 @@ public class MediaControllerWithMediaSessionCompatTest {
       throws Exception {
     List<MediaItem> testList = MediaTestUtils.createMediaItems(3);
     List<QueueItem> testQueue = MediaTestUtils.convertToQueueItemsWithoutBitmap(testList);
-    MediaItem testRemoveMediaItem = MediaTestUtils.createMediaItem("removed");
     MediaMetadataCompat testMetadataCompat =
-        LegacyConversions.convertToMediaMetadataCompat(
-            testRemoveMediaItem.mediaMetadata,
-            "mediaId",
-            Uri.parse("http://example.com"),
-            /* durationMs= */ 100L,
-            /* artworkBitmap= */ null);
+        new MediaMetadataCompat.Builder().putString(METADATA_KEY_MEDIA_ID, "mediaId").build();
     session.setQueue(testQueue);
     session.setMetadata(testMetadataCompat);
     MediaController controller = controllerTestRule.createController(session.getSessionToken());
@@ -879,14 +865,8 @@ public class MediaControllerWithMediaSessionCompatTest {
       throws Exception {
     List<MediaItem> testList = MediaTestUtils.createMediaItems(3);
     List<QueueItem> testQueue = MediaTestUtils.convertToQueueItemsWithoutBitmap(testList);
-    MediaItem testRemoveMediaItem = MediaTestUtils.createMediaItem("removed");
     MediaMetadataCompat testMetadataCompat =
-        LegacyConversions.convertToMediaMetadataCompat(
-            testRemoveMediaItem.mediaMetadata,
-            "mediaId",
-            Uri.parse("http://example.com"),
-            /* durationMs= */ 100L,
-            /* artworkBitmap= */ null);
+        new MediaMetadataCompat.Builder().putString(METADATA_KEY_MEDIA_ID, "mediaId").build();
     session.setQueue(testQueue);
     session.setMetadata(testMetadataCompat);
     MediaController controller = controllerTestRule.createController(session.getSessionToken());
@@ -900,22 +880,15 @@ public class MediaControllerWithMediaSessionCompatTest {
   @Test
   public void getMediaMetadata_withMediaMetadataCompat_returnsConvertedMediaMetadata()
       throws Exception {
-    MediaItem testMediaItem = MediaTestUtils.createMediaItem("test");
-    MediaMetadata testMediaMetadata = testMediaItem.mediaMetadata;
     MediaMetadataCompat testMediaMetadataCompat =
-        LegacyConversions.convertToMediaMetadataCompat(
-            testMediaMetadata,
-            "mediaId",
-            Uri.parse("http://example.com"),
-            /* durationMs= */ 100L,
-            /* artworkBitmap= */ null);
+        new MediaMetadataCompat.Builder().putString(METADATA_KEY_ARTIST, "artist").build();
     session.setMetadata(testMediaMetadataCompat);
     MediaController controller = controllerTestRule.createController(session.getSessionToken());
 
     MediaMetadata mediaMetadata =
         threadTestRule.getHandler().postAndSync(controller::getMediaMetadata);
 
-    assertThat(mediaMetadata).isEqualTo(testMediaMetadata);
+    assertThat(mediaMetadata.artist.toString()).isEqualTo("artist");
   }
 
   @Test
@@ -925,12 +898,7 @@ public class MediaControllerWithMediaSessionCompatTest {
     MediaMetadata testMediaMetadata = testMediaItem.mediaMetadata;
     @Nullable Bitmap artworkBitmap = getBitmapFromMetadata(testMediaMetadata);
     MediaMetadataCompat testMediaMetadataCompat =
-        LegacyConversions.convertToMediaMetadataCompat(
-            testMediaMetadata,
-            "mediaId",
-            Uri.parse("http://example.com"),
-            /* durationMs= */ 100L,
-            artworkBitmap);
+        new MediaMetadataCompat.Builder().putBitmap(METADATA_KEY_ALBUM_ART, artworkBitmap).build();
     session.setMetadata(testMediaMetadataCompat);
     MediaController controller = controllerTestRule.createController(session.getSessionToken());
 
@@ -938,20 +906,7 @@ public class MediaControllerWithMediaSessionCompatTest {
         threadTestRule.getHandler().postAndSync(controller::getMediaMetadata);
 
     assertThat(mediaMetadata.artworkData).isNotNull();
-    if (Util.SDK_INT < 21) {
-      // Bitmap conversion and back gives not exactly the same byte array below API 21
-      mediaMetadata =
-          mediaMetadata
-              .buildUpon()
-              .setArtworkData(/* artworkData= */ null, /* artworkDataType= */ null)
-              .build();
-      testMediaMetadata =
-          testMediaMetadata
-              .buildUpon()
-              .setArtworkData(/* artworkData= */ null, /* artworkDataType= */ null)
-              .build();
-    }
-    assertThat(mediaMetadata).isEqualTo(testMediaMetadata);
+    assertThat(mediaMetadata.artworkData).isEqualTo(testMediaMetadata.artworkData);
   }
 
   @Test
@@ -1004,7 +959,7 @@ public class MediaControllerWithMediaSessionCompatTest {
             .putText(
                 MediaMetadataCompat.METADATA_KEY_DISPLAY_DESCRIPTION,
                 testMediaMetadataCompatDescription)
-            .putText(MediaMetadataCompat.METADATA_KEY_ARTIST, METADATA_ARTIST)
+            .putText(METADATA_KEY_ARTIST, METADATA_ARTIST)
             .putText(MediaMetadataCompat.METADATA_KEY_ALBUM, METADATA_ALBUM_TITLE)
             .build();
     long testActiveQueueId = 0;
@@ -1269,15 +1224,8 @@ public class MediaControllerWithMediaSessionCompatTest {
 
   @Test
   public void setPlaybackState_fromStateBufferingToPlaying_notifiesReadyState() throws Exception {
-    List<MediaItem> testPlaylist = MediaTestUtils.createMediaItems(/* size= */ 1);
-    MediaItem firstMediaItemInPlaylist = testPlaylist.get(0);
     MediaMetadataCompat metadata =
-        LegacyConversions.convertToMediaMetadataCompat(
-            firstMediaItemInPlaylist.mediaMetadata,
-            "mediaId",
-            Uri.parse("http://example.com"),
-            /* durationMs= */ 50_000,
-            /* artworkBitmap= */ null);
+        new MediaMetadataCompat.Builder().putLong(KEY_DURATION, 50_000L).build();
     long testBufferedPosition = 5_000;
     session.setMetadata(metadata);
     session.setPlaybackState(
@@ -1319,15 +1267,12 @@ public class MediaControllerWithMediaSessionCompatTest {
   @Test
   public void setPlaybackState_fromStatePlayingToBuffering_notifiesBufferingState()
       throws Exception {
-    List<MediaItem> testPlaylist = MediaTestUtils.createMediaItems(1);
-    MediaItem firstMediaItemInPlaylist = testPlaylist.get(0);
     MediaMetadataCompat metadata =
-        LegacyConversions.convertToMediaMetadataCompat(
-            firstMediaItemInPlaylist.mediaMetadata,
-            "mediaId",
-            Uri.parse("http://example.com"),
-            /* durationMs= */ 1_000,
-            /* artworkBitmap= */ null);
+        new MediaMetadataCompat.Builder()
+            .putString(METADATA_KEY_MEDIA_ID, "mediaId")
+            .putString(METADATA_KEY_MEDIA_URI, "http://example.com")
+            .putLong(KEY_DURATION, 1000L)
+            .build();
     long testBufferingPosition = 0;
     session.setMetadata(metadata);
     session.setPlaybackState(
@@ -1543,39 +1488,6 @@ public class MediaControllerWithMediaSessionCompatTest {
   }
 
   @Test
-  public void setPlaybackState_withError_notifiesOnPlayerErrorChanged() throws Exception {
-    String testErrorMessage = "testErrorMessage";
-    int testErrorCode = PlaybackStateCompat.ERROR_CODE_UNKNOWN_ERROR; // 0
-    String testConvertedErrorMessage = "testErrorMessage, code=0";
-    MediaController controller = controllerTestRule.createController(session.getSessionToken());
-    CountDownLatch latch = new CountDownLatch(1);
-    AtomicReference<PlaybackException> errorFromParamRef = new AtomicReference<>();
-    AtomicReference<PlaybackException> errorFromGetterRef = new AtomicReference<>();
-    Player.Listener listener =
-        new Player.Listener() {
-          @Override
-          public void onPlayerErrorChanged(@Nullable PlaybackException error) {
-            errorFromParamRef.set(error);
-            errorFromGetterRef.set(controller.getPlayerError());
-            latch.countDown();
-          }
-        };
-    controller.addListener(listener);
-
-    session.setPlaybackState(
-        new PlaybackStateCompat.Builder()
-            .setState(PlaybackStateCompat.STATE_ERROR, /* position= */ 0, /* playbackSpeed= */ 1.0f)
-            .setErrorMessage(testErrorCode, testErrorMessage)
-            .build());
-
-    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(errorFromParamRef.get().errorCode).isEqualTo(ERROR_CODE_REMOTE_ERROR);
-    assertThat(errorFromParamRef.get().getMessage()).isEqualTo(testConvertedErrorMessage);
-    assertThat(errorFromGetterRef.get().errorCode).isEqualTo(ERROR_CODE_REMOTE_ERROR);
-    assertThat(errorFromGetterRef.get().getMessage()).isEqualTo(testConvertedErrorMessage);
-  }
-
-  @Test
   public void setPlaybackState_withActions_updatesAndNotifiesAvailableCommands() throws Exception {
     MediaController controller = controllerTestRule.createController(session.getSessionToken());
     CountDownLatch latch = new CountDownLatch(1);
@@ -1645,7 +1557,7 @@ public class MediaControllerWithMediaSessionCompatTest {
 
   @Test
   public void setPlaybackToLocal_notifiesDeviceInfoAndVolume() throws Exception {
-    if (Util.SDK_INT == 21 || Util.SDK_INT == 22) {
+    if (Util.SDK_INT <= 22) {
       // In API 21 and 22, onAudioInfoChanged is not called.
       return;
     }
@@ -2001,7 +1913,7 @@ public class MediaControllerWithMediaSessionCompatTest {
             .putString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID, "mediaItem_2")
             .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, "Title")
             .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE, "Subtitle")
-            .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, "Artist")
+            .putString(METADATA_KEY_ARTIST, "Artist")
             .build());
     MediaController controller = controllerTestRule.createController(session.getSessionToken());
     CountDownLatch countDownLatch = new CountDownLatch(1);
@@ -2044,7 +1956,7 @@ public class MediaControllerWithMediaSessionCompatTest {
             .putString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID, "mediaItem_2")
             .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, "Title")
             .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE, "Subtitle")
-            .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, "Artist")
+            .putString(METADATA_KEY_ARTIST, "Artist")
             .build());
     MediaController controller = controllerTestRule.createController(session.getSessionToken());
     CountDownLatch countDownLatch = new CountDownLatch(1);
@@ -2163,7 +2075,7 @@ public class MediaControllerWithMediaSessionCompatTest {
             .putString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID, "mediaItem_2")
             .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, "Title")
             .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE, "Subtitle")
-            .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, "Artist")
+            .putString(METADATA_KEY_ARTIST, "Artist")
             .build());
     session.setQueue(testQueue);
     MediaController controller = controllerTestRule.createController(session.getSessionToken());

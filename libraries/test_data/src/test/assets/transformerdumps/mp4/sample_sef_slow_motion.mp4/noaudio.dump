@@ -3,6 +3,7 @@ format video:
   sampleMimeType = video/avc
   codecs = avc1.64000D
   maxInputSize = 5476
+  maxNumReorderSamples = 2
   width = 320
   height = 240
   frameRate = 29.523811
@@ -13,7 +14,13 @@ format video:
   initializationData:
     data = length 33, hash D3FB879D
     data = length 10, hash 7A0D0F2B
-container metadata = entries=[mdta: key=com.android.version, value=10, mdta: key=com.android.video.temporal_layers_count, value=4, mdta: key=com.android.capture.fps, value=240.0, SlowMotion: segments=[Segment: startTimeMs=88, endTimeMs=879, speedDivisor=2, Segment: startTimeMs=1255, endTimeMs=1970, speedDivisor=8], smta: captureFrameRate=240.0, svcTemporalLayerCount=4, Mp4Timestamp: creation time=3686904890, modification time=3686904890, timescale=1000]
+container metadata:
+  entry = Mp4Timestamp: creation time=3686904890, modification time=3686904890, timescale=1000
+  entry = SlowMotion: segments=[Segment: startTimeMs=88, endTimeMs=879, speedDivisor=2, Segment: startTimeMs=1255, endTimeMs=1970, speedDivisor=8]
+  entry = mdta: key=com.android.capture.fps, value=240.0
+  entry = mdta: key=com.android.version, value=10
+  entry = mdta: key=com.android.video.temporal_layers_count, value=4
+  entry = smta: captureFrameRate=240.0, svcTemporalLayerCount=4
 sample:
   trackType = video
   dataHashCode = 1949079733

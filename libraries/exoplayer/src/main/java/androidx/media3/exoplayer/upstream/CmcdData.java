@@ -138,7 +138,7 @@ public final class CmcdData {
         boolean didRebuffer,
         boolean isBufferEmpty) {
       checkArgument(bufferedDurationUs >= 0);
-      checkArgument(playbackRate > 0);
+      checkArgument(playbackRate == C.RATE_UNSET || playbackRate > 0);
       this.cmcdConfiguration = cmcdConfiguration;
       this.trackSelection = trackSelection;
       this.bufferedDurationUs = bufferedDurationUs;

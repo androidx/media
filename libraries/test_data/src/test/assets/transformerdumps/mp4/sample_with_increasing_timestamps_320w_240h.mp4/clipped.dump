@@ -16,6 +16,7 @@ format video:
   sampleMimeType = video/avc
   codecs = avc1.42C015
   maxInputSize = 14839
+  maxNumReorderSamples = 0
   width = 320
   height = 240
   frameRate = 59.997425
@@ -29,8 +30,11 @@ format video:
   initializationData:
     data = length 31, hash 4B108214
     data = length 9, hash FBA158BB
-container metadata = entries=[TSSE: description=null: values=[Lavf58.76.100], Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
-container metadata = entries=[TSSE: description=null: values=[Lavf58.76.100], Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
+container metadata:
+  entry = Mp4Timestamp: creation time=0, modification time=0, timescale=1000
+  entry = Mp4Timestamp: creation time=0, modification time=0, timescale=1000
+  entry = TSSE: description=null: values=[Lavf58.76.100]
+  entry = TSSE: description=null: values=[Lavf58.76.100]
 sample:
   trackType = audio
   dataHashCode = 620415738

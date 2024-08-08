@@ -36,6 +36,7 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -204,18 +205,33 @@ public final class Loader implements LoaderErrorThrower {
     }
   }
 
-  private final ExecutorService downloadExecutorService;
+  private final Executor downloadExecutor;
+  private final Runnable downloadExecutorReleaser;
 
   @Nullable private LoadTask<? extends Loadable> currentTask;
   @Nullable private IOException fatalError;
 
   /**
+   * Constructs an instance.
+   *
    * @param threadNameSuffix A name suffix for the loader's thread. This should be the name of the
    *     component using the loader.
    */
   public Loader(String threadNameSuffix) {
-    this.downloadExecutorService =
+    ExecutorService executorService =
         Util.newSingleThreadExecutor(THREAD_NAME_PREFIX + threadNameSuffix);
+    this.downloadExecutor = executorService;
+    this.downloadExecutorReleaser = executorService::shutdown;
+  }
+
+  /**
+   * Constructs an instance.
+   *
+   * @param downloadExecutor An {@link Executor} for supplying the loader's thread.
+   */
+  public Loader(Executor downloadExecutor) {
+    this.downloadExecutor = downloadExecutor;
+    this.downloadExecutorReleaser = () -> {};
   }
 
   /**
@@ -297,9 +313,9 @@ public final class Loader implements LoaderErrorThrower {
       currentTask.cancel(true);
     }
     if (callback != null) {
-      downloadExecutorService.execute(new ReleaseTask(callback));
+      downloadExecutor.execute(new ReleaseTask(callback));
     }
-    downloadExecutorService.shutdown();
+    downloadExecutorReleaser.run();
   }
 
   // LoaderErrorThrower implementation.
@@ -326,10 +342,10 @@ public final class Loader implements LoaderErrorThrower {
 
     private static final String TAG = "LoadTask";
 
-    private static final int MSG_START = 0;
-    private static final int MSG_FINISH = 1;
-    private static final int MSG_IO_EXCEPTION = 2;
-    private static final int MSG_FATAL_ERROR = 3;
+    private static final int MSG_START = 1;
+    private static final int MSG_FINISH = 2;
+    private static final int MSG_IO_EXCEPTION = 3;
+    private static final int MSG_FATAL_ERROR = 4;
 
     public final int defaultMinRetryCount;
 
@@ -516,7 +532,7 @@ public final class Loader implements LoaderErrorThrower {
 
     private void execute() {
       currentError = null;
-      downloadExecutorService.execute(Assertions.checkNotNull(currentTask));
+      downloadExecutor.execute(Assertions.checkNotNull(currentTask));
     }
 
     private void finish() {

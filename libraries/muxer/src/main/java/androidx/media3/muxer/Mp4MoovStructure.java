@@ -15,14 +15,12 @@
  */
 package androidx.media3.muxer;
 
-import static androidx.media3.muxer.Mp4Utils.MVHD_TIMEBASE;
 import static java.lang.Math.max;
 
 import android.media.MediaCodec.BufferInfo;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import java.nio.ByteBuffer;
@@ -32,7 +30,7 @@ import java.util.Locale;
 import org.checkerframework.checker.nullness.qual.PolyNull;
 
 /** Builds the moov box structure of an MP4 file. */
-/* package */ class Mp4MoovStructure {
+/* package */ final class Mp4MoovStructure {
   /** Provides track's metadata like media format, written samples. */
   public interface TrackMetadataProvider {
     Format format();
@@ -46,20 +44,16 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     ImmutableList<Integer> writtenChunkSampleCounts();
   }
 
-  private final MetadataCollector metadataCollector;
-  private final @Mp4Muxer.LastFrameDurationBehavior int lastFrameDurationBehavior;
+  private Mp4MoovStructure() {}
 
-  public Mp4MoovStructure(
-      MetadataCollector metadataCollector,
-      @Mp4Muxer.LastFrameDurationBehavior int lastFrameDurationBehavior) {
-    this.metadataCollector = metadataCollector;
-    this.lastFrameDurationBehavior = lastFrameDurationBehavior;
-  }
-
-  /** Generates a mdat header. */
+  /** Returns the moov box. */
   @SuppressWarnings("InlinedApi")
-  public ByteBuffer moovMetadataHeader(
-      List<? extends TrackMetadataProvider> tracks, long minInputPtsUs, boolean isFragmentedMp4) {
+  public static ByteBuffer moov(
+      List<? extends TrackMetadataProvider> tracks,
+      MetadataCollector metadataCollector,
+      long minInputPtsUs,
+      boolean isFragmentedMp4,
+      @Mp4Muxer.LastFrameDurationBehavior int lastFrameDurationBehavior) {
     // The timestamp will always fit into a 32-bit integer. This is already validated in the
     // Mp4Muxer.setTimestampData() API. The value after type casting might be negative, but it is
     // still valid because it is meant to be read as an unsigned integer.
@@ -80,7 +74,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       String languageCode = bcp47LanguageTagToIso3(format.language);
 
       // Generate the sample durations to calculate the total duration for tkhd box.
-      List<Long> sampleDurationsVu =
+      List<Integer> sampleDurationsVu =
           Boxes.convertPresentationTimestampsToDurationsVu(
               track.writtenSamples(),
               minInputPtsUs,
@@ -92,11 +86,14 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         trackDurationInTrackUnitsVu += sampleDurationsVu.get(j);
       }
 
-      long trackDurationUs =
-          Mp4Utils.usFromVu(trackDurationInTrackUnitsVu, track.videoUnitTimebase());
+      long trackDurationUs = usFromVu(trackDurationInTrackUnitsVu, track.videoUnitTimebase());
 
       @C.TrackType int trackType = MimeTypes.getTrackType(format.sampleMimeType);
       ByteBuffer stts = Boxes.stts(sampleDurationsVu);
+      ByteBuffer ctts =
+          MimeTypes.isVideo(format.sampleMimeType)
+              ? Boxes.ctts(track.writtenSamples(), sampleDurationsVu, track.videoUnitTimebase())
+              : ByteBuffer.allocate(0);
       ByteBuffer stsz = Boxes.stsz(track.writtenSamples());
       ByteBuffer stsc = Boxes.stsc(track.writtenChunkSampleCounts());
       ByteBuffer chunkOffsetBox =
@@ -120,7 +117,13 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
           stsdBox = Boxes.stsd(sampleEntryBox);
           stblBox =
               Boxes.stbl(
-                  stsdBox, stts, stsz, stsc, chunkOffsetBox, Boxes.stss(track.writtenSamples()));
+                  stsdBox,
+                  stts,
+                  ctts,
+                  stsz,
+                  stsc,
+                  chunkOffsetBox,
+                  Boxes.stss(track.writtenSamples()));
           break;
         case C.TRACK_TYPE_AUDIO:
           handlerType = "soun";
@@ -131,8 +134,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
           stblBox = Boxes.stbl(stsdBox, stts, stsz, stsc, chunkOffsetBox);
           break;
         case C.TRACK_TYPE_METADATA:
-          // TODO: (b/280443593) - Check if we can identify a metadata track type from a custom
-          //  mime type.
+        // TODO: (b/280443593) - Check if we can identify a metadata track type from a custom
+        //  mime type.
         case C.TRACK_TYPE_UNKNOWN:
           handlerType = "meta";
           handlerName = "MetaHandle";
@@ -152,9 +155,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
           Boxes.trak(
               Boxes.tkhd(
                   nextTrackId,
-                  // Using the time base of the entire file, not that of the track; otherwise,
-                  // Quicktime will stretch the audio accordingly, see b/158120042.
-                  (int) Mp4Utils.vuFromUs(trackDurationUs, MVHD_TIMEBASE),
+                  trackDurationUs,
                   creationTimestampSeconds,
                   modificationTimestampSeconds,
                   metadataCollector.orientationData.orientation,
@@ -187,14 +188,16 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
                 Boxes.keys(Lists.newArrayList(metadataCollector.metadataEntries)),
                 Boxes.ilst(Lists.newArrayList(metadataCollector.metadataEntries)));
 
-    ByteBuffer moovBox;
-    moovBox =
-        Boxes.moov(
-            mvhdBox,
-            udtaBox,
-            metaBox,
-            trakBoxes,
-            isFragmentedMp4 ? Boxes.mvex(trexBoxes) : ByteBuffer.allocate(0));
+    List<ByteBuffer> subBoxes = new ArrayList<>();
+    subBoxes.add(mvhdBox);
+    subBoxes.add(udtaBox);
+    subBoxes.add(metaBox);
+    subBoxes.addAll(trakBoxes);
+    if (isFragmentedMp4) {
+      subBoxes.add(Boxes.mvex(trexBoxes));
+    }
+
+    ByteBuffer moovBox = BoxUtils.wrapBoxesIntoBox("moov", subBoxes);
 
     // Also add XMP if needed
     if (metadataCollector.xmpData != null) {
@@ -212,9 +215,13 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       return null;
     }
 
-    Locale locale =
-        Util.SDK_INT >= 21 ? Locale.forLanguageTag(languageTag) : new Locale(languageTag);
+    Locale locale = Locale.forLanguageTag(languageTag);
 
     return locale.getISO3Language().isEmpty() ? languageTag : locale.getISO3Language();
+  }
+
+  /** Converts video units to microseconds, using the provided timebase. */
+  private static long usFromVu(long timestampVu, long videoUnitTimebase) {
+    return timestampVu * 1_000_000L / videoUnitTimebase;
   }
 }

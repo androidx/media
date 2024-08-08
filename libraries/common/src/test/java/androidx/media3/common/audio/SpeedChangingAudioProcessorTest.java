@@ -240,6 +240,25 @@ public class SpeedChangingAudioProcessorTest {
   }
 
   @Test
+  public void queueInput_multipleSpeedsInBufferWithLimitVeryClose_readsDataUntilSpeedLimit()
+      throws Exception {
+    long speedChangeTimeUs = 1; // Change speed very close to current position at 1us.
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithStartTimes(
+            /* startTimesUs= */ new long[] {0L, speedChangeTimeUs},
+            /* speeds= */ new float[] {1, 2});
+    SpeedChangingAudioProcessor speedChangingAudioProcessor =
+        getConfiguredSpeedChangingAudioProcessor(speedProvider);
+    ByteBuffer inputBuffer = getInputBuffer(/* frameCount= */ 5);
+    int inputBufferLimit = inputBuffer.limit();
+
+    speedChangingAudioProcessor.queueInput(inputBuffer);
+
+    assertThat(inputBuffer.position()).isEqualTo(AUDIO_FORMAT.bytesPerFrame);
+    assertThat(inputBuffer.limit()).isEqualTo(inputBufferLimit);
+  }
+
+  @Test
   public void queueEndOfStream_afterNoSpeedChangeAndWithOutputRetrieved_endsProcessor()
       throws Exception {
     SpeedProvider speedProvider =
@@ -380,6 +399,46 @@ public class SpeedChangingAudioProcessorTest {
   }
 
   @Test
+  public void getSpeedAdjustedTimeAsync_afterFlush_callbacksCalledWithCorrectParameters()
+      throws Exception {
+    ArrayList<Long> outputTimesUs = new ArrayList<>();
+    // The speed change is at 113Us (5*MICROS_PER_SECOND/sampleRate). Also add another speed change
+    // to 3x at a later point that should not be used if the flush is handled correctly.
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithFrameCounts(
+            AUDIO_FORMAT,
+            /* frameCounts= */ new int[] {5, 5, 5},
+            /* speeds= */ new float[] {2, 1, 3});
+    SpeedChangingAudioProcessor speedChangingAudioProcessor =
+        getConfiguredSpeedChangingAudioProcessor(speedProvider);
+    ByteBuffer inputBuffer = getInputBuffer(/* frameCount= */ 5);
+    // Use the audio processor before a flush
+    speedChangingAudioProcessor.queueInput(inputBuffer);
+    getAudioProcessorOutput(speedChangingAudioProcessor);
+    inputBuffer.rewind();
+    speedChangingAudioProcessor.queueInput(inputBuffer);
+    getAudioProcessorOutput(speedChangingAudioProcessor);
+    inputBuffer.rewind();
+
+    // Flush and use it again.
+    speedChangingAudioProcessor.flush();
+    speedChangingAudioProcessor.getSpeedAdjustedTimeAsync(
+        /* inputTimeUs= */ 50L, outputTimesUs::add);
+    speedChangingAudioProcessor.queueInput(inputBuffer);
+    getAudioProcessorOutput(speedChangingAudioProcessor);
+    inputBuffer.rewind();
+    speedChangingAudioProcessor.queueInput(inputBuffer);
+    getAudioProcessorOutput(speedChangingAudioProcessor);
+    speedChangingAudioProcessor.getSpeedAdjustedTimeAsync(
+        /* inputTimeUs= */ 100L, outputTimesUs::add);
+    speedChangingAudioProcessor.getSpeedAdjustedTimeAsync(
+        /* inputTimeUs= */ 150L, outputTimesUs::add);
+
+    // 150 is after the speed change so floor(113 / 2 + (150 - 113)*1) -> 93
+    assertThat(outputTimesUs).containsExactly(25L, 50L, 93L);
+  }
+
+  @Test
   public void getSpeedAdjustedTimeAsync_timeAfterEndTime_callbacksCalledWithCorrectParameters()
       throws Exception {
     ArrayList<Long> outputTimesUs = new ArrayList<>();
@@ -432,6 +491,44 @@ public class SpeedChangingAudioProcessorTest {
 
     // 150 is after the speed change so floor(113 / 2 + (300 - 113)*1) -> 243
     assertThat(outputTimesUs).containsExactly(243L);
+  }
+
+  @Test
+  public void getMediaDurationUs_returnsCorrectValues() throws Exception {
+    // The speed changes happen every 10ms (441 samples @ 441.KHz)
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithFrameCounts(
+            AUDIO_FORMAT,
+            /* frameCounts= */ new int[] {441, 441, 441, 441},
+            /* speeds= */ new float[] {2, 1, 5, 2});
+    SpeedChangingAudioProcessor speedChangingAudioProcessor =
+        getConfiguredSpeedChangingAudioProcessor(speedProvider);
+    ByteBuffer inputBuffer = getInputBuffer(/* frameCount= */ 441 * 4);
+    while (inputBuffer.position() < inputBuffer.limit()) {
+      speedChangingAudioProcessor.queueInput(inputBuffer);
+    }
+    getAudioProcessorOutput(speedChangingAudioProcessor);
+
+    // input (in ms) (0, 10, 20, 30, 40) ->
+    // output (in ms) (0, 10/2, 10/2 + 10, 10/2 + 10 + 10/5, 10/2 + 10 + 10/5 + 10/2)
+    assertThat(speedChangingAudioProcessor.getMediaDurationUs(/* playoutDurationUs= */ 0))
+        .isEqualTo(0);
+    assertThat(speedChangingAudioProcessor.getMediaDurationUs(/* playoutDurationUs= */ 3_000))
+        .isEqualTo(6_000);
+    assertThat(speedChangingAudioProcessor.getMediaDurationUs(/* playoutDurationUs= */ 5_000))
+        .isEqualTo(10_000);
+    assertThat(speedChangingAudioProcessor.getMediaDurationUs(/* playoutDurationUs= */ 10_000))
+        .isEqualTo(15_000);
+    assertThat(speedChangingAudioProcessor.getMediaDurationUs(/* playoutDurationUs= */ 15_000))
+        .isEqualTo(20_000);
+    assertThat(speedChangingAudioProcessor.getMediaDurationUs(/* playoutDurationUs= */ 16_000))
+        .isEqualTo(25_000);
+    assertThat(speedChangingAudioProcessor.getMediaDurationUs(/* playoutDurationUs= */ 17_000))
+        .isEqualTo(30_000);
+    assertThat(speedChangingAudioProcessor.getMediaDurationUs(/* playoutDurationUs= */ 18_000))
+        .isEqualTo(32_000);
+    assertThat(speedChangingAudioProcessor.getMediaDurationUs(/* playoutDurationUs= */ 22_000))
+        .isEqualTo(40_000);
   }
 
   private static SpeedChangingAudioProcessor getConfiguredSpeedChangingAudioProcessor(

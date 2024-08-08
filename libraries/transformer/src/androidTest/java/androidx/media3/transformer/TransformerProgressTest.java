@@ -17,7 +17,7 @@ package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_URI_STRING;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_AVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_UNAVAILABLE;
@@ -53,9 +53,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -71,10 +68,9 @@ public class TransformerProgressTest {
 
   private final Context context = ApplicationProvider.getApplicationContext();
 
-  private @MonotonicNonNull String testId;
+  private String testId;
 
   @Before
-  @EnsuresNonNull({"testId"})
   public void setUp() {
     testId = testName.getMethodName();
   }
@@ -86,7 +82,6 @@ public class TransformerProgressTest {
    * long enough for the test thread to collect at least two progress updates.
    */
   @Test
-  @RequiresNonNull("testId")
   @SuppressWarnings("PreferJavaTimeOverload")
   public void getProgress_monotonicallyIncreasingUpdates() throws InterruptedException {
     AtomicBoolean completed = new AtomicBoolean();
@@ -120,7 +115,7 @@ public class TransformerProgressTest {
                 new Composition.Builder(
                         new EditedMediaItemSequence(
                             new EditedMediaItem.Builder(
-                                    MediaItem.fromUri(AndroidTestUtil.MP4_ASSET_URI_STRING))
+                                    MediaItem.fromUri(AndroidTestUtil.MP4_ASSET.uri))
                                 .setEffects(
                                     new Effects(
                                         /* audioProcessors= */ ImmutableList.of(),
@@ -168,7 +163,6 @@ public class TransformerProgressTest {
   }
 
   @Test
-  @RequiresNonNull("testId")
   public void getProgress_trimOptimizationEnabledAndApplied_givesIncreasingPercentages()
       throws Exception {
     // The trim optimization is only guaranteed to work on emulator for this file.
@@ -179,7 +173,7 @@ public class TransformerProgressTest {
         new Transformer.Builder(context).experimentalSetTrimOptimizationEnabled(true).build();
     MediaItem mediaItem =
         new MediaItem.Builder()
-            .setUri(MP4_TRIM_OPTIMIZATION_URI_STRING)
+            .setUri(MP4_TRIM_OPTIMIZATION.uri)
             .setClippingConfiguration(
                 new MediaItem.ClippingConfiguration.Builder()
                     .setStartPositionMs(500)
@@ -249,7 +243,6 @@ public class TransformerProgressTest {
   }
 
   @Test
-  @RequiresNonNull("testId")
   public void getProgress_trimOptimizationEnabledAndActive_returnsConsistentStates()
       throws Exception {
     // The trim optimization is only guaranteed to work on emulator for this file.
@@ -260,7 +253,7 @@ public class TransformerProgressTest {
         new Transformer.Builder(context).experimentalSetTrimOptimizationEnabled(true).build();
     MediaItem mediaItem =
         new MediaItem.Builder()
-            .setUri(MP4_TRIM_OPTIMIZATION_URI_STRING)
+            .setUri(MP4_TRIM_OPTIMIZATION.uri)
             .setClippingConfiguration(
                 new MediaItem.ClippingConfiguration.Builder()
                     .setStartPositionMs(500)

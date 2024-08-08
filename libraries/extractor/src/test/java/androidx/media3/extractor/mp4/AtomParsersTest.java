@@ -38,6 +38,206 @@ public final class AtomParsersTest {
   private static final byte[] SIXTEEN_BIT_STZ2 =
       Util.getBytesFromHexString(ATOM_HEADER + "00000010" + SAMPLE_COUNT + "0001000200030004");
 
+  // Sample 'vexu' with 'eyes' containing 'stri' along with other optional boxes.
+  private static final byte[] VEXU_DATA0 =
+      new byte[] {
+        // size (101), 'vexu'
+        0,
+        0,
+        0,
+        101,
+        118,
+        101,
+        120,
+        117,
+        // size (69), 'eyes'
+        0,
+        0,
+        0,
+        69,
+        101,
+        121,
+        101,
+        115,
+        // size (13), 'stri'
+        0,
+        0,
+        0,
+        13,
+        115,
+        116,
+        114,
+        105,
+        0,
+        0,
+        0,
+        0,
+        3,
+        // size (24), 'cams'
+        0,
+        0,
+        0,
+        24,
+        99,
+        97,
+        109,
+        115,
+        0,
+        0,
+        0,
+        16,
+        98,
+        108,
+        105,
+        110,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        75,
+        40,
+        // size (24), 'cmfy'
+        0,
+        0,
+        0,
+        24,
+        99,
+        109,
+        102,
+        121,
+        0,
+        0,
+        0,
+        16,
+        100,
+        97,
+        100,
+        106,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        -56,
+        // size (24), 'proj'
+        0,
+        0,
+        0,
+        24,
+        112,
+        114,
+        111,
+        106,
+        0,
+        0,
+        0,
+        16,
+        112,
+        114,
+        106,
+        105,
+        0,
+        0,
+        0,
+        0,
+        114,
+        101,
+        99,
+        116,
+      };
+  // Sample 'vexu' with the use of 'must' to list required boxes.
+  private static final byte[] VEXU_DATA1 =
+      new byte[] {
+        // size (78), 'vexu'
+        0,
+        0,
+        0,
+        78,
+        118,
+        101,
+        120,
+        117,
+        // size (16), 'must' --> requires 'eyes'
+        0,
+        0,
+        0,
+        16,
+        109,
+        117,
+        115,
+        116,
+        0,
+        0,
+        0,
+        0,
+        101,
+        121,
+        101,
+        115,
+        // size (54), 'eyes'
+        0,
+        0,
+        0,
+        54,
+        101,
+        121,
+        101,
+        115,
+        // size (20), 'must' --> requires 'stri' and 'hero'
+        0,
+        0,
+        0,
+        20,
+        109,
+        117,
+        115,
+        116,
+        0,
+        0,
+        0,
+        0,
+        115,
+        116,
+        114,
+        105,
+        104,
+        101,
+        114,
+        111,
+        // size (13), 'stri'
+        0,
+        0,
+        0,
+        13,
+        115,
+        116,
+        114,
+        105,
+        0,
+        0,
+        0,
+        0,
+        3,
+        // size (13), 'hero'
+        0,
+        0,
+        0,
+        13,
+        104,
+        101,
+        114,
+        111,
+        0,
+        0,
+        0,
+        0,
+        1,
+      };
+
   @Test
   public void parseCommonEncryptionSinfFromParentIgnoresUnknownSchemeType() throws ParserException {
     byte[] cencSinf =
@@ -65,6 +265,25 @@ public final class AtomParsersTest {
   @Test
   public void stz2Parsing16BitFieldSize() {
     verifyStz2Parsing(new Atom.LeafAtom(Atom.TYPE_stsz, new ParsableByteArray(SIXTEEN_BIT_STZ2)));
+  }
+
+  @Test
+  public void vexuParsings() throws ParserException {
+    AtomParsers.VexuData vexuData = null;
+    assertThat(
+            vexuData =
+                AtomParsers.parseVideoExtendedUsageBox(
+                    new ParsableByteArray(VEXU_DATA0), 0, VEXU_DATA0.length))
+        .isNotNull();
+    assertThat(vexuData).isNotNull();
+    assertThat(vexuData.hasBothEyeViews()).isTrue();
+    assertThat(
+            vexuData =
+                AtomParsers.parseVideoExtendedUsageBox(
+                    new ParsableByteArray(VEXU_DATA1), 0, VEXU_DATA1.length))
+        .isNotNull();
+    assertThat(vexuData).isNotNull();
+    assertThat(vexuData.hasBothEyeViews()).isTrue();
   }
 
   private static void verifyStz2Parsing(Atom.LeafAtom stz2Atom) {

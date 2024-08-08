@@ -33,7 +33,6 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.List;
 import java.util.Objects;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Information about the result of an export. */
 @UnstableApi
@@ -289,13 +288,13 @@ public final class ExportResult {
      * The name of the audio decoder used to process {@code mediaItem}. This field is {@code null}
      * if no audio decoder was used.
      */
-    public final @MonotonicNonNull String audioDecoderName;
+    @Nullable public final String audioDecoderName;
 
     /**
      * The name of the video decoder used to process {@code mediaItem}. This field is {@code null}
      * if no video decoder was used.
      */
-    public final @MonotonicNonNull String videoDecoderName;
+    @Nullable public final String videoDecoderName;
 
     /** Creates an instance. */
     public ProcessedInput(
@@ -411,9 +410,6 @@ public final class ExportResult {
   /** The track was both transcoded and transmuxed. */
   public static final int CONVERSION_PROCESS_TRANSMUXED_AND_TRANSCODED = 3;
 
-  /** The list of {@linkplain ProcessedInput processed inputs}. */
-  public final ImmutableList<ProcessedInput> processedInputs;
-
   /** The duration of the file in milliseconds, or {@link C#TIME_UNSET} if unset or unknown. */
   public final long durationMs;
 
@@ -474,6 +470,13 @@ public final class ExportResult {
 
   /** Returns the {@link ConversionProcess} taken to create the audio track in the output file. */
   public final @ConversionProcess int audioConversionProcess;
+
+  /**
+   * The list of {@linkplain ProcessedInput processed inputs}. The list might have some intermediate
+   * {@linkplain ProcessedInput processed inputs} if the export is {@link Transformer#resume
+   * resumed} or any optimization is applied.
+   */
+  /* package */ final ImmutableList<ProcessedInput> processedInputs;
 
   private ExportResult(
       ImmutableList<ProcessedInput> processedInputs,

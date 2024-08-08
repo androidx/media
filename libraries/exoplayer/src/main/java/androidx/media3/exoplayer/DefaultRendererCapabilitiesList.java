@@ -57,7 +57,7 @@ public final class DefaultRendererCapabilitiesList implements RendererCapabiliti
     public DefaultRendererCapabilitiesList createRendererCapabilitiesList() {
       Renderer[] renderers =
           renderersFactory.createRenderers(
-              Util.createHandlerForCurrentLooper(),
+              Util.createHandlerForCurrentOrMainLooper(),
               new VideoRendererEventListener() {},
               new AudioRendererEventListener() {},
               cueGroup -> {},
@@ -82,6 +82,11 @@ public final class DefaultRendererCapabilitiesList implements RendererCapabiliti
       rendererCapabilities[i] = renderers[i].getCapabilities();
     }
     return rendererCapabilities;
+  }
+
+  @Override
+  public int size() {
+    return renderers.length;
   }
 
   @Override

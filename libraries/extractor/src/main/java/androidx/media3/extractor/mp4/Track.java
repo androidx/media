@@ -140,4 +140,19 @@ public final class Track {
         editListDurations,
         editListMediaTimes);
   }
+
+  public Track copyWithoutEditLists() {
+    return new Track(
+        id,
+        type,
+        timescale,
+        movieTimescale,
+        durationUs,
+        format,
+        sampleTransformation,
+        sampleDescriptionEncryptionBoxes,
+        nalUnitLengthFieldLength,
+        /* editListDurations= */ null,
+        /* editListMediaTimes= */ null);
+  }
 }

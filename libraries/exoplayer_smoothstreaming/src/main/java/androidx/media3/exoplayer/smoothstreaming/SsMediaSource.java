@@ -139,6 +139,7 @@ public final class SsMediaSource extends BaseMediaSource
       loadErrorHandlingPolicy = new DefaultLoadErrorHandlingPolicy();
       livePresentationDelayMs = DEFAULT_LIVE_PRESENTATION_DELAY_MS;
       compositeSequenceableLoaderFactory = new DefaultCompositeSequenceableLoaderFactory();
+      experimentalParseSubtitlesDuringExtraction(true);
     }
 
     @CanIgnoreReturnValue
@@ -161,6 +162,7 @@ public final class SsMediaSource extends BaseMediaSource
     }
 
     @Override
+    @Deprecated
     @CanIgnoreReturnValue
     public Factory experimentalParseSubtitlesDuringExtraction(
         boolean parseSubtitlesDuringExtraction) {

@@ -474,7 +474,6 @@ public class TimelineTest {
     window.windowStartTimeMs = C.TIME_UNSET;
     window.isSeekable = true;
     window.isDynamic = true;
-    window.isLive = true;
     window.defaultPositionUs = C.TIME_UNSET;
     window.durationUs = C.TIME_UNSET;
     window.firstPeriodIndex = 1;

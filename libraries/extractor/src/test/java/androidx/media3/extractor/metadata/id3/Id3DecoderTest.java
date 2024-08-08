@@ -25,7 +25,7 @@ import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.metadata.MetadataInputBuffer;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import com.google.common.base.Charsets;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -513,7 +513,7 @@ public final class Id3DecoderTest {
     for (FrameSpec frame : frames) {
       byte[] frameData = frame.frameData;
       String frameId = frame.frameId;
-      byte[] frameIdBytes = frameId.getBytes(Charsets.UTF_8);
+      byte[] frameIdBytes = frameId.getBytes(StandardCharsets.UTF_8);
       Assertions.checkState(frameIdBytes.length == 4);
 
       // Fill in the frame header.

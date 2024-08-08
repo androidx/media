@@ -34,7 +34,8 @@ interface IRemoteMediaSession {
   void setCustomLayout(String sessionId, in List<Bundle> layout);
   void setSessionExtras(String sessionId, in Bundle extras);
   void setSessionExtrasForController(String sessionId, in String controllerKey, in Bundle extras);
-  void setSessionActivity(String sessionId, in PendingIntent sessionActivity);
+  void sendError(String sessionId, String controllerKey, in Bundle SessionError);
+  void setSessionActivity(String sessionId, String controllerKey, in PendingIntent sessionActivity);
 
   // Player Methods
   void setPlayWhenReady(String sessionId, boolean playWhenReady, int reason);
@@ -58,7 +59,7 @@ interface IRemoteMediaSession {
   void increaseDeviceVolume(String sessionId, int flags);
   void setDeviceMuted(String sessionId, boolean muted, int flags);
   void notifyPlayerError(String sessionId, in Bundle playerErrorBundle);
-  void notifyPlayWhenReadyChanged(String sessionId, boolean playWhenReady, int reason);
+  void notifyPlayWhenReadyChanged(String sessionId, boolean playWhenReady, int playWhenReadyChangeReason, int suppressionReason);
   void notifyPlaybackStateChanged(String sessionId, int state);
   void notifyIsLoadingChanged(String sessionId, boolean isLoading);
   void notifyPositionDiscontinuity(String sessionId,

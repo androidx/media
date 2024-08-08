@@ -19,6 +19,7 @@ package androidx.media3.transformer;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.MediaFormatUtil.createMediaFormatFromFormat;
 import static androidx.media3.common.util.Util.SDK_INT;
+import static java.lang.Math.max;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -27,6 +28,7 @@ import android.media.MediaFormat;
 import android.os.Build;
 import android.util.Pair;
 import android.view.Surface;
+import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -39,7 +41,9 @@ import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
+import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -51,10 +55,6 @@ import java.util.Objects;
 public final class DefaultDecoderFactory implements Codec.DecoderFactory {
 
   private static final String TAG = "DefaultDecoderFactory";
-
-  private final Context context;
-  private final boolean enableDecoderFallback;
-  private final Listener listener;
 
   /** Listener for decoder factory events. */
   public interface Listener {
@@ -71,12 +71,96 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
     void onCodecInitialized(String codecName, List<ExportException> codecInitializationExceptions);
   }
 
-  /** Creates a new factory that selects the most preferred decoder for the format. */
+  /** A builder for {@link DefaultDecoderFactory} instances. */
+  public static final class Builder {
+    private final Context context;
+    private Listener listener;
+    private boolean enableDecoderFallback;
+    private @C.Priority int codecPriority;
+    private MediaCodecSelector mediaCodecSelector;
+
+    /** Creates a new {@link Builder}. */
+    public Builder(Context context) {
+      this.context = context.getApplicationContext();
+      listener = (codecName, codecInitializationExceptions) -> {};
+      codecPriority = C.PRIORITY_PROCESSING_FOREGROUND;
+      mediaCodecSelector = MediaCodecSelector.DEFAULT;
+    }
+
+    /** Sets the {@link Listener}. */
+    @CanIgnoreReturnValue
+    public Builder setListener(Listener listener) {
+      this.listener = listener;
+      return this;
+    }
+
+    /**
+     * Sets whether the decoder can fallback.
+     *
+     * <p>This decides whether to enable fallback to lower-priority decoders if decoder
+     * initialization fails. This may result in using a decoder that is less efficient or slower
+     * than the primary decoder.
+     *
+     * <p>The default value is {@code false}.
+     */
+    @CanIgnoreReturnValue
+    public Builder setEnableDecoderFallback(boolean enableDecoderFallback) {
+      this.enableDecoderFallback = enableDecoderFallback;
+      return this;
+    }
+
+    /**
+     * Sets the codec priority.
+     *
+     * <p>Specifying codec priority allows the resource manager in the platform to reclaim less
+     * important codecs before more important codecs.
+     *
+     * <p>It is recommended to use predefined {@linkplain C.Priority priorities} like {@link
+     * C#PRIORITY_PROCESSING_FOREGROUND}, {@link C#PRIORITY_PROCESSING_BACKGROUND} or priority
+     * values defined relative to those defaults.
+     *
+     * <p>This method is a no-op on API versions before 35.
+     *
+     * <p>The default value is {@link C#PRIORITY_PROCESSING_FOREGROUND}.
+     *
+     * @param codecPriority The {@link C.Priority} for the codec. Should be at most {@link
+     *     C#PRIORITY_MAX}.
+     */
+    @CanIgnoreReturnValue
+    public Builder setCodecPriority(@IntRange(to = C.PRIORITY_MAX) @C.Priority int codecPriority) {
+      this.codecPriority = codecPriority;
+      return this;
+    }
+
+    /**
+     * Sets the {@link MediaCodecSelector} used when selecting a decoder.
+     *
+     * <p>The default value is {@link MediaCodecSelector#DEFAULT}
+     */
+    @CanIgnoreReturnValue
+    public Builder setMediaCodecSelector(MediaCodecSelector mediaCodecSelector) {
+      this.mediaCodecSelector = mediaCodecSelector;
+      return this;
+    }
+
+    /** Creates an instance of {@link DefaultDecoderFactory}, using defaults if values are unset. */
+    public DefaultDecoderFactory build() {
+      return new DefaultDecoderFactory(this);
+    }
+  }
+
+  private final Context context;
+  private final boolean enableDecoderFallback;
+  private final Listener listener;
+  private final @C.Priority int codecPriority;
+  private final MediaCodecSelector mediaCodecSelector;
+
+  /**
+   * @deprecated Use {@link Builder} instead.
+   */
+  @Deprecated
   public DefaultDecoderFactory(Context context) {
-    this(
-        context,
-        /* enableDecoderFallback= */ false,
-        (codecName, codecInitializationExceptions) -> {});
+    this(new Builder(context));
   }
 
   /**
@@ -88,17 +172,27 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
    *     initialization fails. This may result in using a decoder that is less efficient or slower
    *     than the primary decoder.
    * @param listener Listener for codec initialization errors.
+   * @deprecated Use {@link Builder} instead.
    */
+  @Deprecated
   public DefaultDecoderFactory(Context context, boolean enableDecoderFallback, Listener listener) {
-    this.context = context.getApplicationContext();
-    this.enableDecoderFallback = enableDecoderFallback;
-    this.listener = listener;
+    this(
+        new Builder(context).setEnableDecoderFallback(enableDecoderFallback).setListener(listener));
+  }
+
+  private DefaultDecoderFactory(Builder builder) {
+    this.context = builder.context;
+    this.enableDecoderFallback = builder.enableDecoderFallback;
+    this.listener = builder.listener;
+    this.codecPriority = builder.codecPriority;
+    this.mediaCodecSelector = builder.mediaCodecSelector;
   }
 
   @Override
   public DefaultCodec createForAudioDecoding(Format format) throws ExportException {
     MediaFormat mediaFormat = createMediaFormatFromFormat(format);
-    return createCodecForMediaFormat(mediaFormat, format, /* outputSurface= */ null);
+    return createCodecForMediaFormat(
+        mediaFormat, format, /* outputSurface= */ null, /* devicePrefersSoftwareDecoder= */ false);
   }
 
   @SuppressLint("InlinedApi")
@@ -150,11 +244,19 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
           mediaFormat, MediaFormat.KEY_LEVEL, codecProfileAndLevel.second);
     }
 
-    return createCodecForMediaFormat(mediaFormat, format, outputSurface);
+    if (SDK_INT >= 35) {
+      mediaFormat.setInteger(MediaFormat.KEY_IMPORTANCE, max(0, -codecPriority));
+    }
+
+    return createCodecForMediaFormat(
+        mediaFormat, format, outputSurface, devicePrefersSoftwareDecoder(format));
   }
 
   private DefaultCodec createCodecForMediaFormat(
-      MediaFormat mediaFormat, Format format, @Nullable Surface outputSurface)
+      MediaFormat mediaFormat,
+      Format format,
+      @Nullable Surface outputSurface,
+      boolean devicePrefersSoftwareDecoder)
       throws ExportException {
     List<MediaCodecInfo> decoderInfos = ImmutableList.of();
     checkNotNull(format.sampleMimeType);
@@ -162,7 +264,7 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
       decoderInfos =
           MediaCodecUtil.getDecoderInfosSortedByFormatSupport(
               MediaCodecUtil.getDecoderInfosSoftMatch(
-                  MediaCodecSelector.DEFAULT,
+                  mediaCodecSelector,
                   format,
                   /* requiresSecureDecoder= */ false,
                   /* requiresTunnelingDecoder= */ false),
@@ -171,9 +273,20 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
       Log.e(TAG, "Error querying decoders", e);
       throw createExportException(format, /* reason= */ "Querying codecs failed");
     }
-
     if (decoderInfos.isEmpty()) {
       throw createExportException(format, /* reason= */ "No decoders for format");
+    }
+    if (devicePrefersSoftwareDecoder) {
+      List<MediaCodecInfo> softwareDecoderInfos = new ArrayList<>();
+      for (int i = 0; i < decoderInfos.size(); ++i) {
+        MediaCodecInfo mediaCodecInfo = decoderInfos.get(i);
+        if (!mediaCodecInfo.hardwareAccelerated) {
+          softwareDecoderInfos.add(mediaCodecInfo);
+        }
+      }
+      if (!softwareDecoderInfos.isEmpty()) {
+        decoderInfos = softwareDecoderInfos;
+      }
     }
 
     List<ExportException> codecInitExceptions = new ArrayList<>();
@@ -260,12 +373,29 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
     return SDK_INT >= 29 && context.getApplicationInfo().targetSdkVersion >= 29;
   }
 
+  private static boolean devicePrefersSoftwareDecoder(Format format) {
+    // TODO: b/255953153 - Capture this corner case with refactored fallback API.
+    // Some devices fail to configure a 1080p hardware encoder when a 1080p hardware decoder
+    // was created. Fall back to using a software decoder (see b/283768701).
+    // During a 1080p -> 180p export, using the hardware decoder would be faster than software
+    // decoder (68 fps vs 45 fps).
+    // When transcoding 1080p to 1080p, software decoder + hardware encoder (33 fps) outperforms
+    // hardware decoder + software encoder (17 fps).
+    // Due to b/267740292 using hardware to software encoder fallback is risky.
+    return format.width * format.height >= 1920 * 1080
+        && (Ascii.equalsIgnoreCase(Util.MODEL, "vivo 1906")
+            || Ascii.equalsIgnoreCase(Util.MODEL, "redmi 7a")
+            || Ascii.equalsIgnoreCase(Util.MODEL, "redmi 8"));
+  }
+
   private static ExportException createExportException(Format format, String reason) {
     return ExportException.createForCodec(
         new IllegalArgumentException(reason),
         ExportException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
-        MimeTypes.isVideo(checkNotNull(format.sampleMimeType)),
-        /* isDecoder= */ true,
-        format);
+        new ExportException.CodecInfo(
+            format.toString(),
+            MimeTypes.isVideo(checkNotNull(format.sampleMimeType)),
+            /* isDecoder= */ true,
+            /* name= */ null));
   }
 }

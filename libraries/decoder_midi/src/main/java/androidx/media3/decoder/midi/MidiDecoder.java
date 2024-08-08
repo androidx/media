@@ -22,6 +22,7 @@ import android.content.Context;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.decoder.SimpleDecoder;
@@ -38,6 +39,10 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 /** Decodes MIDI commands into PCM. */
 /* package */ final class MidiDecoder
     extends SimpleDecoder<DecoderInputBuffer, SimpleDecoderOutputBuffer, MidiDecoderException> {
+
+  static {
+    MediaLibraryInfo.registerModule("media3.decoder.midi");
+  }
 
   /** The number of channels output by the decoder. */
   public static final int NUM_OUTPUT_CHANNELS = 2;

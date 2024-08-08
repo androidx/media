@@ -96,7 +96,7 @@ public final class DataSourceBitmapLoader implements BitmapLoader {
 
   @Override
   public ListenableFuture<Bitmap> decodeBitmap(byte[] data) {
-    return listeningExecutorService.submit(() -> DataSourceUtil.decode(data, data.length, options));
+    return listeningExecutorService.submit(() -> BitmapUtil.decode(data, data.length, options));
   }
 
   @Override
@@ -111,7 +111,7 @@ public final class DataSourceBitmapLoader implements BitmapLoader {
       DataSpec dataSpec = new DataSpec(uri);
       dataSource.open(dataSpec);
       byte[] readData = DataSourceUtil.readToEnd(dataSource);
-      return DataSourceUtil.decode(readData, readData.length, options);
+      return BitmapUtil.decode(readData, readData.length, options);
     } finally {
       dataSource.close();
     }

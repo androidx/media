@@ -15,23 +15,27 @@
  */
 package androidx.media3.exoplayer;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.HashMap;
 
 /** The default {@link LoadControl} implementation. */
 @UnstableApi
@@ -183,8 +187,10 @@ public class DefaultLoadControl implements LoadControl {
     }
 
     /**
-     * Sets the target buffer size in bytes. If set to {@link C#LENGTH_UNSET}, the target buffer
-     * size will be calculated based on the selected tracks.
+     * Sets the target buffer size in bytes for each player. The actual overall target buffer size
+     * is this value multiplied by the number of players that use the load control simultaneously.
+     * If set to {@link C#LENGTH_UNSET}, the target buffer size of a player will be calculated based
+     * on the selected tracks of the player.
      *
      * @param targetBufferBytes The target buffer size in bytes.
      * @return This builder, for convenience.
@@ -262,9 +268,9 @@ public class DefaultLoadControl implements LoadControl {
   private final boolean prioritizeTimeOverSizeThresholds;
   private final long backBufferDurationUs;
   private final boolean retainBackBufferFromKeyframe;
+  private final HashMap<PlayerId, PlayerLoadingState> loadingStates;
 
-  private int targetBufferBytes;
-  private boolean isLoading;
+  private long threadId;
 
   /** Constructs a new instance, using the {@code DEFAULT_*} constants defined in this class. */
   public DefaultLoadControl() {
@@ -308,42 +314,53 @@ public class DefaultLoadControl implements LoadControl {
     this.bufferForPlaybackUs = Util.msToUs(bufferForPlaybackMs);
     this.bufferForPlaybackAfterRebufferUs = Util.msToUs(bufferForPlaybackAfterRebufferMs);
     this.targetBufferBytesOverwrite = targetBufferBytes;
-    this.targetBufferBytes =
-        targetBufferBytesOverwrite != C.LENGTH_UNSET
-            ? targetBufferBytesOverwrite
-            : DEFAULT_MIN_BUFFER_SIZE;
     this.prioritizeTimeOverSizeThresholds = prioritizeTimeOverSizeThresholds;
     this.backBufferDurationUs = Util.msToUs(backBufferDurationMs);
     this.retainBackBufferFromKeyframe = retainBackBufferFromKeyframe;
+    loadingStates = new HashMap<>();
+    threadId = C.INDEX_UNSET;
   }
 
   @Override
-  public void onPrepared() {
-    reset(false);
+  public void onPrepared(PlayerId playerId) {
+    long currentThreadId = Thread.currentThread().getId();
+    checkState(
+        threadId == C.INDEX_UNSET || threadId == currentThreadId,
+        "Players that share the same LoadControl must share the same playback thread. See"
+            + " ExoPlayer.Builder.setPlaybackLooper(Looper).");
+    threadId = currentThreadId;
+    if (!loadingStates.containsKey(playerId)) {
+      loadingStates.put(playerId, new PlayerLoadingState());
+    }
+    resetPlayerLoadingState(playerId);
   }
 
   @Override
   public void onTracksSelected(
+      PlayerId playerId,
       Timeline timeline,
       MediaPeriodId mediaPeriodId,
       Renderer[] renderers,
       TrackGroupArray trackGroups,
       ExoTrackSelection[] trackSelections) {
-    targetBufferBytes =
+    checkNotNull(loadingStates.get(playerId)).targetBufferBytes =
         targetBufferBytesOverwrite == C.LENGTH_UNSET
             ? calculateTargetBufferBytes(renderers, trackSelections)
             : targetBufferBytesOverwrite;
-    allocator.setTargetBufferSize(targetBufferBytes);
+    updateAllocator();
   }
 
   @Override
-  public void onStopped() {
-    reset(true);
+  public void onStopped(PlayerId playerId) {
+    removePlayer(playerId);
   }
 
   @Override
-  public void onReleased() {
-    reset(true);
+  public void onReleased(PlayerId playerId) {
+    removePlayer(playerId);
+    if (loadingStates.isEmpty()) {
+      threadId = C.INDEX_UNSET;
+    }
   }
 
   @Override
@@ -352,59 +369,57 @@ public class DefaultLoadControl implements LoadControl {
   }
 
   @Override
-  public long getBackBufferDurationUs() {
+  public long getBackBufferDurationUs(PlayerId playerId) {
     return backBufferDurationUs;
   }
 
   @Override
-  public boolean retainBackBufferFromKeyframe() {
+  public boolean retainBackBufferFromKeyframe(PlayerId playerId) {
     return retainBackBufferFromKeyframe;
   }
 
   @Override
-  public boolean shouldContinueLoading(
-      long playbackPositionUs, long bufferedDurationUs, float playbackSpeed) {
-    boolean targetBufferSizeReached = allocator.getTotalBytesAllocated() >= targetBufferBytes;
+  public boolean shouldContinueLoading(Parameters parameters) {
+    PlayerLoadingState playerLoadingState = checkNotNull(loadingStates.get(parameters.playerId));
+    boolean targetBufferSizeReached =
+        allocator.getTotalBytesAllocated() >= calculateTotalTargetBufferBytes();
     long minBufferUs = this.minBufferUs;
-    if (playbackSpeed > 1) {
+    if (parameters.playbackSpeed > 1) {
       // The playback speed is faster than real time, so scale up the minimum required media
       // duration to keep enough media buffered for a playout duration of minBufferUs.
       long mediaDurationMinBufferUs =
-          Util.getMediaDurationForPlayoutDuration(minBufferUs, playbackSpeed);
+          Util.getMediaDurationForPlayoutDuration(minBufferUs, parameters.playbackSpeed);
       minBufferUs = min(mediaDurationMinBufferUs, maxBufferUs);
     }
     // Prevent playback from getting stuck if minBufferUs is too small.
     minBufferUs = max(minBufferUs, 500_000);
-    if (bufferedDurationUs < minBufferUs) {
-      isLoading = prioritizeTimeOverSizeThresholds || !targetBufferSizeReached;
-      if (!isLoading && bufferedDurationUs < 500_000) {
+    if (parameters.bufferedDurationUs < minBufferUs) {
+      playerLoadingState.isLoading = prioritizeTimeOverSizeThresholds || !targetBufferSizeReached;
+      if (!playerLoadingState.isLoading && parameters.bufferedDurationUs < 500_000) {
         Log.w(
             "DefaultLoadControl",
             "Target buffer size reached with less than 500ms of buffered media data.");
       }
-    } else if (bufferedDurationUs >= maxBufferUs || targetBufferSizeReached) {
-      isLoading = false;
+    } else if (parameters.bufferedDurationUs >= maxBufferUs || targetBufferSizeReached) {
+      playerLoadingState.isLoading = false;
     } // Else don't change the loading state.
-    return isLoading;
+    return playerLoadingState.isLoading;
   }
 
   @Override
-  public boolean shouldStartPlayback(
-      Timeline timeline,
-      MediaPeriodId mediaPeriodId,
-      long bufferedDurationUs,
-      float playbackSpeed,
-      boolean rebuffering,
-      long targetLiveOffsetUs) {
-    bufferedDurationUs = Util.getPlayoutDurationForMediaDuration(bufferedDurationUs, playbackSpeed);
-    long minBufferDurationUs = rebuffering ? bufferForPlaybackAfterRebufferUs : bufferForPlaybackUs;
-    if (targetLiveOffsetUs != C.TIME_UNSET) {
-      minBufferDurationUs = min(targetLiveOffsetUs / 2, minBufferDurationUs);
+  public boolean shouldStartPlayback(Parameters parameters) {
+    long bufferedDurationUs =
+        Util.getPlayoutDurationForMediaDuration(
+            parameters.bufferedDurationUs, parameters.playbackSpeed);
+    long minBufferDurationUs =
+        parameters.rebuffering ? bufferForPlaybackAfterRebufferUs : bufferForPlaybackUs;
+    if (parameters.targetLiveOffsetUs != C.TIME_UNSET) {
+      minBufferDurationUs = min(parameters.targetLiveOffsetUs / 2, minBufferDurationUs);
     }
     return minBufferDurationUs <= 0
         || bufferedDurationUs >= minBufferDurationUs
         || (!prioritizeTimeOverSizeThresholds
-            && allocator.getTotalBytesAllocated() >= targetBufferBytes);
+            && allocator.getTotalBytesAllocated() >= calculateTotalTargetBufferBytes());
   }
 
   /**
@@ -426,14 +441,35 @@ public class DefaultLoadControl implements LoadControl {
     return max(DEFAULT_MIN_BUFFER_SIZE, targetBufferSize);
   }
 
-  private void reset(boolean resetAllocator) {
-    targetBufferBytes =
+  @VisibleForTesting
+  /* package */ int calculateTotalTargetBufferBytes() {
+    int totalTargetBufferBytes = 0;
+    for (PlayerLoadingState state : loadingStates.values()) {
+      totalTargetBufferBytes += state.targetBufferBytes;
+    }
+    return totalTargetBufferBytes;
+  }
+
+  private void resetPlayerLoadingState(PlayerId playerId) {
+    PlayerLoadingState playerLoadingState = checkNotNull(loadingStates.get(playerId));
+    playerLoadingState.targetBufferBytes =
         targetBufferBytesOverwrite == C.LENGTH_UNSET
             ? DEFAULT_MIN_BUFFER_SIZE
             : targetBufferBytesOverwrite;
-    isLoading = false;
-    if (resetAllocator) {
+    playerLoadingState.isLoading = false;
+  }
+
+  private void removePlayer(PlayerId playerId) {
+    if (loadingStates.remove(playerId) != null) {
+      updateAllocator();
+    }
+  }
+
+  private void updateAllocator() {
+    if (loadingStates.isEmpty()) {
       allocator.reset();
+    } else {
+      allocator.setTargetBufferSize(calculateTotalTargetBufferBytes());
     }
   }
 
@@ -463,5 +499,10 @@ public class DefaultLoadControl implements LoadControl {
 
   private static void assertGreaterOrEqual(int value1, int value2, String name1, String name2) {
     Assertions.checkArgument(value1 >= value2, name1 + " cannot be less than " + name2);
+  }
+
+  private static class PlayerLoadingState {
+    public boolean isLoading;
+    public int targetBufferBytes;
   }
 }

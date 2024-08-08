@@ -33,13 +33,14 @@ import java.util.Collections
 import java.util.LinkedList
 import java.util.Queue
 
+@OptIn(UnstableApi::class)
 class PlayerPool(
   private val numberOfPlayers: Int,
   context: Context,
   playbackLooper: Looper,
   loadControl: LoadControl,
   renderersFactory: RenderersFactory,
-  bandwidthMeter: BandwidthMeter
+  bandwidthMeter: BandwidthMeter,
 ) {
 
   /** Creates a player instance to be used by the pool. */
@@ -56,12 +57,6 @@ class PlayerPool(
 
   fun acquirePlayer(token: Int, callback: (ExoPlayer) -> Unit) {
     synchronized(playerMap) {
-      if (playerMap.size < numberOfPlayers) {
-        val player = playerFactory.createPlayer()
-        playerMap[playerMap.size] = player
-        callback.invoke(player)
-        return
-      }
       // Add token to set of views requesting players
       playerRequestTokenSet.add(token)
       acquirePlayerInternal(token, callback)
@@ -73,6 +68,12 @@ class PlayerPool(
       if (!availablePlayerQueue.isEmpty()) {
         val playerNumber = availablePlayerQueue.remove()
         playerMap[playerNumber]?.let { callback.invoke(it) }
+        playerRequestTokenSet.remove(token)
+        return
+      } else if (playerMap.size < numberOfPlayers) {
+        val player = playerFactory.createPlayer()
+        playerMap[playerMap.size] = player
+        callback.invoke(player)
         playerRequestTokenSet.remove(token)
         return
       } else if (playerRequestTokenSet.contains(token)) {
@@ -92,10 +93,10 @@ class PlayerPool(
    *
    * @param keepOngoingPlayer The optional player that should keep playing if not paused.
    */
-  fun pauseAllPlayers(keepOngoingPlayer: Player? = null) {
-    playerMap.values.forEach {
-      if (it != keepOngoingPlayer) {
-        it.pause()
+  private fun pauseAllPlayers(keepOngoingPlayer: Player? = null) {
+    for (player in playerMap.values) {
+      if (player != keepOngoingPlayer) {
+        player.pause()
       }
     }
   }
@@ -130,7 +131,7 @@ class PlayerPool(
     private val playbackLooper: Looper,
     private val loadControl: LoadControl,
     private val renderersFactory: RenderersFactory,
-    private val bandwidthMeter: BandwidthMeter
+    private val bandwidthMeter: BandwidthMeter,
   ) : PlayerFactory {
     private var playerCounter = 0
 

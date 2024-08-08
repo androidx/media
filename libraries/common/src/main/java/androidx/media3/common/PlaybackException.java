@@ -38,7 +38,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /** Thrown when a non locally recoverable playback failure occurs. */
-public class PlaybackException extends Exception implements Bundleable {
+public class PlaybackException extends Exception {
 
   /**
    * Codes that identify causes of player errors.
@@ -54,6 +54,20 @@ public class PlaybackException extends Exception implements Bundleable {
   @IntDef(
       open = true,
       value = {
+        ERROR_CODE_INVALID_STATE,
+        ERROR_CODE_BAD_VALUE,
+        ERROR_CODE_PERMISSION_DENIED,
+        ERROR_CODE_NOT_SUPPORTED,
+        ERROR_CODE_DISCONNECTED,
+        ERROR_CODE_AUTHENTICATION_EXPIRED,
+        ERROR_CODE_PREMIUM_ACCOUNT_REQUIRED,
+        ERROR_CODE_CONCURRENT_STREAM_LIMIT,
+        ERROR_CODE_PARENTAL_CONTROL_RESTRICTED,
+        ERROR_CODE_NOT_AVAILABLE_IN_REGION,
+        ERROR_CODE_SKIP_LIMIT_REACHED,
+        ERROR_CODE_SETUP_REQUIRED,
+        ERROR_CODE_END_OF_PLAYLIST,
+        ERROR_CODE_CONTENT_ALREADY_PLAYING,
         ERROR_CODE_UNSPECIFIED,
         ERROR_CODE_REMOTE_ERROR,
         ERROR_CODE_BEHIND_LIVE_WINDOW,
@@ -79,6 +93,8 @@ public class PlaybackException extends Exception implements Bundleable {
         ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
         ERROR_CODE_AUDIO_TRACK_INIT_FAILED,
         ERROR_CODE_AUDIO_TRACK_WRITE_FAILED,
+        ERROR_CODE_AUDIO_TRACK_OFFLOAD_INIT_FAILED,
+        ERROR_CODE_AUDIO_TRACK_OFFLOAD_WRITE_FAILED,
         ERROR_CODE_DRM_UNSPECIFIED,
         ERROR_CODE_DRM_SCHEME_UNSUPPORTED,
         ERROR_CODE_DRM_PROVISIONING_FAILED,
@@ -90,6 +106,50 @@ public class PlaybackException extends Exception implements Bundleable {
         ERROR_CODE_DRM_LICENSE_EXPIRED
       })
   public @interface ErrorCode {}
+
+  // Policy errors (-1 to -999)
+
+  /** Caused by a command that cannot be completed because the current state is not valid. */
+  public static final int ERROR_CODE_INVALID_STATE = -2;
+
+  /** Caused by an argument that is illegal. */
+  public static final int ERROR_CODE_BAD_VALUE = -3;
+
+  /** Caused by a command that is not allowed. */
+  public static final int ERROR_CODE_PERMISSION_DENIED = -4;
+
+  /** Caused by a command that is not supported. */
+  public static final int ERROR_CODE_NOT_SUPPORTED = -6;
+
+  /** Caused by a disconnected component. */
+  public static final int ERROR_CODE_DISCONNECTED = -100;
+
+  /** Caused by expired authentication. */
+  public static final int ERROR_CODE_AUTHENTICATION_EXPIRED = -102;
+
+  /** Caused by a premium account that is required but the user is not subscribed. */
+  public static final int ERROR_CODE_PREMIUM_ACCOUNT_REQUIRED = -103;
+
+  /** Caused by too many concurrent streams. */
+  public static final int ERROR_CODE_CONCURRENT_STREAM_LIMIT = -104;
+
+  /** Caused by the content being blocked due to parental controls. */
+  public static final int ERROR_CODE_PARENTAL_CONTROL_RESTRICTED = -105;
+
+  /** Caused by the content being blocked due to being regionally unavailable. */
+  public static final int ERROR_CODE_NOT_AVAILABLE_IN_REGION = -106;
+
+  /** Caused by the skip limit that is exhausted. */
+  public static final int ERROR_CODE_SKIP_LIMIT_REACHED = -107;
+
+  /** Caused by playback that needs manual user intervention. */
+  public static final int ERROR_CODE_SETUP_REQUIRED = -108;
+
+  /** Caused by navigation that failed because the playlist was exhausted. */
+  public static final int ERROR_CODE_END_OF_PLAYLIST = -109;
+
+  /** Caused by a request for content that was already playing. */
+  public static final int ERROR_CODE_CONTENT_ALREADY_PLAYING = -110;
 
   // Miscellaneous errors (1xxx).
 
@@ -212,6 +272,10 @@ public class PlaybackException extends Exception implements Bundleable {
   /** Caused by trying to decode content whose format is not supported. */
   public static final int ERROR_CODE_DECODING_FORMAT_UNSUPPORTED = 4005;
 
+  // TODO: b/322943860 - Stabilize error code and add to IntDef
+  /** Caused by higher priority task reclaiming resources needed for decoding. */
+  @UnstableApi public static final int ERROR_CODE_DECODING_RESOURCES_RECLAIMED = 4006;
+
   // AudioTrack errors (5xxx).
 
   /** Caused by an AudioTrack initialization failure. */
@@ -220,12 +284,11 @@ public class PlaybackException extends Exception implements Bundleable {
   /** Caused by an AudioTrack write operation failure. */
   public static final int ERROR_CODE_AUDIO_TRACK_WRITE_FAILED = 5002;
 
-  // TODO(b/299907254): Stabilize error code, remove @UnstableApi annotation, and add to IntDef
   /** Caused by an AudioTrack write operation failure in offload mode. */
-  @UnstableApi public static final int ERROR_CODE_AUDIO_TRACK_OFFLOAD_WRITE_FAILED = 5003;
+  public static final int ERROR_CODE_AUDIO_TRACK_OFFLOAD_WRITE_FAILED = 5003;
 
-  /** Caused by an AudioTrack write operation failure in offload mode. */
-  @UnstableApi public static final int ERROR_CODE_AUDIO_TRACK_OFFLOAD_INIT_FAILED = 5004;
+  /** Caused by an AudioTrack init operation failure in offload mode. */
+  public static final int ERROR_CODE_AUDIO_TRACK_OFFLOAD_INIT_FAILED = 5004;
 
   // DRM errors (6xxx).
 
@@ -281,6 +344,34 @@ public class PlaybackException extends Exception implements Bundleable {
   /** Returns the name of a given {@code errorCode}. */
   public static String getErrorCodeName(@ErrorCode int errorCode) {
     switch (errorCode) {
+      case ERROR_CODE_INVALID_STATE:
+        return "ERROR_CODE_INVALID_STATE";
+      case ERROR_CODE_BAD_VALUE:
+        return "ERROR_CODE_BAD_VALUE";
+      case ERROR_CODE_PERMISSION_DENIED:
+        return "ERROR_CODE_PERMISSION_DENIED";
+      case ERROR_CODE_NOT_SUPPORTED:
+        return "ERROR_CODE_NOT_SUPPORTED";
+      case ERROR_CODE_DISCONNECTED:
+        return "ERROR_CODE_DISCONNECTED";
+      case ERROR_CODE_AUTHENTICATION_EXPIRED:
+        return "ERROR_CODE_AUTHENTICATION_EXPIRED";
+      case ERROR_CODE_PREMIUM_ACCOUNT_REQUIRED:
+        return "ERROR_CODE_PREMIUM_ACCOUNT_REQUIRED";
+      case ERROR_CODE_CONCURRENT_STREAM_LIMIT:
+        return "ERROR_CODE_CONCURRENT_STREAM_LIMIT";
+      case ERROR_CODE_PARENTAL_CONTROL_RESTRICTED:
+        return "ERROR_CODE_PARENTAL_CONTROL_RESTRICTED";
+      case ERROR_CODE_NOT_AVAILABLE_IN_REGION:
+        return "ERROR_CODE_NOT_AVAILABLE_IN_REGION";
+      case ERROR_CODE_SKIP_LIMIT_REACHED:
+        return "ERROR_CODE_SKIP_LIMIT_REACHED";
+      case ERROR_CODE_SETUP_REQUIRED:
+        return "ERROR_CODE_SETUP_REQUIRED";
+      case ERROR_CODE_END_OF_PLAYLIST:
+        return "ERROR_CODE_END_OF_PLAYLIST";
+      case ERROR_CODE_CONTENT_ALREADY_PLAYING:
+        return "ERROR_CODE_CONTENT_ALREADY_PLAYING";
       case ERROR_CODE_UNSPECIFIED:
         return "ERROR_CODE_UNSPECIFIED";
       case ERROR_CODE_REMOTE_ERROR:
@@ -327,6 +418,8 @@ public class PlaybackException extends Exception implements Bundleable {
         return "ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES";
       case ERROR_CODE_DECODING_FORMAT_UNSUPPORTED:
         return "ERROR_CODE_DECODING_FORMAT_UNSUPPORTED";
+      case ERROR_CODE_DECODING_RESOURCES_RECLAIMED:
+        return "ERROR_CODE_DECODING_RESOURCES_RECLAIMED";
       case ERROR_CODE_AUDIO_TRACK_INIT_FAILED:
         return "ERROR_CODE_AUDIO_TRACK_INIT_FAILED";
       case ERROR_CODE_AUDIO_TRACK_WRITE_FAILED:
@@ -380,6 +473,9 @@ public class PlaybackException extends Exception implements Bundleable {
   /** The value of {@link SystemClock#elapsedRealtime()} when this exception was created. */
   public final long timestampMs;
 
+  /** An extras {@link Bundle}. */
+  @UnstableApi public final Bundle extras;
+
   /**
    * Creates an instance.
    *
@@ -391,7 +487,25 @@ public class PlaybackException extends Exception implements Bundleable {
   @UnstableApi
   public PlaybackException(
       @Nullable String message, @Nullable Throwable cause, @ErrorCode int errorCode) {
-    this(message, cause, errorCode, Clock.DEFAULT.elapsedRealtime());
+    this(message, cause, errorCode, Bundle.EMPTY, Clock.DEFAULT.elapsedRealtime());
+  }
+
+  /**
+   * Creates an instance.
+   *
+   * @param errorCode A number which identifies the cause of the error. May be one of the {@link
+   *     ErrorCode ErrorCodes}.
+   * @param cause See {@link #getCause()}.
+   * @param message See {@link #getMessage()}.
+   * @param extras An optional {@link Bundle}.
+   */
+  @UnstableApi
+  public PlaybackException(
+      @Nullable String message,
+      @Nullable Throwable cause,
+      @ErrorCode int errorCode,
+      Bundle extras) {
+    this(message, cause, errorCode, extras, Clock.DEFAULT.elapsedRealtime());
   }
 
   /** Creates a new instance using the fields obtained from the given {@link Bundle}. */
@@ -402,6 +516,7 @@ public class PlaybackException extends Exception implements Bundleable {
         /* cause= */ getCauseFromBundle(bundle),
         /* errorCode= */ bundle.getInt(
             FIELD_INT_ERROR_CODE, /* defaultValue= */ ERROR_CODE_UNSPECIFIED),
+        /* extras= */ getExtrasFromBundle(bundle),
         /* timestampMs= */ bundle.getLong(
             FIELD_LONG_TIMESTAMP_MS, /* defaultValue= */ SystemClock.elapsedRealtime()));
   }
@@ -412,9 +527,11 @@ public class PlaybackException extends Exception implements Bundleable {
       @Nullable String message,
       @Nullable Throwable cause,
       @ErrorCode int errorCode,
+      Bundle extras,
       long timestampMs) {
     super(message, cause);
     this.errorCode = errorCode;
+    this.extras = extras;
     this.timestampMs = timestampMs;
   }
 
@@ -450,13 +567,12 @@ public class PlaybackException extends Exception implements Bundleable {
         && timestampMs == other.timestampMs;
   }
 
-  // Bundleable implementation.
-
   private static final String FIELD_INT_ERROR_CODE = Util.intToStringMaxRadix(0);
   private static final String FIELD_LONG_TIMESTAMP_MS = Util.intToStringMaxRadix(1);
   private static final String FIELD_STRING_MESSAGE = Util.intToStringMaxRadix(2);
   private static final String FIELD_STRING_CAUSE_CLASS_NAME = Util.intToStringMaxRadix(3);
   private static final String FIELD_STRING_CAUSE_MESSAGE = Util.intToStringMaxRadix(4);
+  private static final String FIELD_BUNDLE_EXTRAS = Util.intToStringMaxRadix(5);
 
   /**
    * Defines a minimum field ID value for subclasses to use when implementing {@link #toBundle()}
@@ -467,30 +583,21 @@ public class PlaybackException extends Exception implements Bundleable {
    */
   @UnstableApi protected static final int FIELD_CUSTOM_ID_BASE = 1000;
 
-  /**
-   * Object that can create a {@link PlaybackException} from a {@link Bundle}.
-   *
-   * @deprecated Use {@link #fromBundle} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<PlaybackException> CREATOR = PlaybackException::new;
-
   /** Restores a {@code PlaybackException} from a {@link Bundle}. */
   @UnstableApi
   public static PlaybackException fromBundle(Bundle bundle) {
     return new PlaybackException(bundle);
   }
 
+  /** Returns a {@link Bundle} representing the information stored in this exception. */
   @UnstableApi
   @CallSuper
-  @Override
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
     bundle.putInt(FIELD_INT_ERROR_CODE, errorCode);
     bundle.putLong(FIELD_LONG_TIMESTAMP_MS, timestampMs);
     bundle.putString(FIELD_STRING_MESSAGE, getMessage());
+    bundle.putBundle(FIELD_BUNDLE_EXTRAS, extras);
     @Nullable Throwable cause = getCause();
     if (cause != null) {
       bundle.putString(FIELD_STRING_CAUSE_CLASS_NAME, cause.getClass().getName());
@@ -510,6 +617,11 @@ public class PlaybackException extends Exception implements Bundleable {
   @SuppressWarnings("nullness:argument")
   private static RemoteException createRemoteException(@Nullable String message) {
     return new RemoteException(message);
+  }
+
+  private static Bundle getExtrasFromBundle(Bundle bundle) {
+    Bundle extras = bundle.getBundle(FIELD_BUNDLE_EXTRAS);
+    return extras != null ? extras : Bundle.EMPTY;
   }
 
   @Nullable

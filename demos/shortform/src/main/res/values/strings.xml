@@ -18,6 +18,4 @@
   <string name="add_view_pager">Add view pager, please!</string>
   <string name="title_activity_view_pager">ViewPager activity</string>
   <string name="num_of_players">How Many Players?</string>
-  <string name="how_many_previous_videos_cached">How Many Previous Videos Cached</string>
-  <string name="how_many_future_videos_cached">How Many Future Videos Cached</string>
 </resources>

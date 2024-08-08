@@ -34,11 +34,7 @@ public final class VideoSizeTest {
   @Test
   public void roundTripViaBundle_ofArbitraryVideoSize_yieldsEqualInstance() {
     VideoSize videoSize =
-        new VideoSize(
-            /* width= */ 9,
-            /* height= */ 8,
-            /* unappliedRotationDegrees= */ 7,
-            /* pixelWidthHeightRatio= */ 6);
+        new VideoSize(/* width= */ 9, /* height= */ 8, /* pixelWidthHeightRatio= */ 6);
     assertThat(roundTripViaBundle(videoSize)).isEqualTo(videoSize);
   }
 

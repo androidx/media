@@ -53,7 +53,8 @@ public class SessionPositionInfoTest {
             /* currentLiveOffsetMs= */ 20L,
             /* contentDurationMs= */ 400L,
             /* contentBufferedPositionMs= */ 223L);
-    Bundle sessionPositionInfoBundle = testSessionPositionInfo.toBundle();
+    Bundle sessionPositionInfoBundle =
+        testSessionPositionInfo.toBundle(MediaControllerStub.VERSION_INT);
     SessionPositionInfo sessionPositionInfo =
         SessionPositionInfo.fromBundle(sessionPositionInfoBundle);
     assertThat(sessionPositionInfo).isEqualTo(testSessionPositionInfo);
@@ -89,7 +90,8 @@ public class SessionPositionInfoTest {
   @Test
   public void roundTripViaBundle_withDefaultValues_yieldsEqualInstance() {
     SessionPositionInfo roundTripValue =
-        SessionPositionInfo.fromBundle(SessionPositionInfo.DEFAULT.toBundle());
+        SessionPositionInfo.fromBundle(
+            SessionPositionInfo.DEFAULT.toBundle(MediaControllerStub.VERSION_INT));
 
     assertThat(roundTripValue).isEqualTo(SessionPositionInfo.DEFAULT);
   }

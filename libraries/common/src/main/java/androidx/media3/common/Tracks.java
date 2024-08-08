@@ -31,14 +31,14 @@ import java.util.Arrays;
 import java.util.List;
 
 /** Information about groups of tracks. */
-public final class Tracks implements Bundleable {
+public final class Tracks {
 
   /**
    * Information about a single group of tracks, including the underlying {@link TrackGroup}, the
    * level to which each track is supported by the player, and whether any of the tracks are
    * selected.
    */
-  public static final class Group implements Bundleable {
+  public static final class Group {
 
     /** The number of tracks in the group. */
     public final int length;
@@ -227,14 +227,11 @@ public final class Tracks implements Bundleable {
       return result;
     }
 
-    // Bundleable implementation.
-
     private static final String FIELD_TRACK_GROUP = Util.intToStringMaxRadix(0);
     private static final String FIELD_TRACK_SUPPORT = Util.intToStringMaxRadix(1);
     private static final String FIELD_TRACK_SELECTED = Util.intToStringMaxRadix(3);
     private static final String FIELD_ADAPTIVE_SUPPORTED = Util.intToStringMaxRadix(4);
 
-    @Override
     public Bundle toBundle() {
       Bundle bundle = new Bundle();
       bundle.putBundle(FIELD_TRACK_GROUP, mediaTrackGroup.toBundle());
@@ -243,16 +240,6 @@ public final class Tracks implements Bundleable {
       bundle.putBoolean(FIELD_ADAPTIVE_SUPPORTED, adaptiveSupported);
       return bundle;
     }
-
-    /**
-     * Object that can restore a group of tracks from a {@link Bundle}.
-     *
-     * @deprecated Use {@link #fromBundle} instead.
-     */
-    @UnstableApi
-    @Deprecated
-    @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-    public static final Creator<Group> CREATOR = Group::fromBundle;
 
     /** Restores a group of tracks from a {@link Bundle}. */
     @UnstableApi
@@ -384,27 +371,14 @@ public final class Tracks implements Bundleable {
     return groups.hashCode();
   }
 
-  // Bundleable implementation.
-
   private static final String FIELD_TRACK_GROUPS = Util.intToStringMaxRadix(0);
 
   @UnstableApi
-  @Override
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
     bundle.putParcelableArrayList(FIELD_TRACK_GROUPS, toBundleArrayList(groups, Group::toBundle));
     return bundle;
   }
-
-  /**
-   * Object that can restore tracks from a {@link Bundle}.
-   *
-   * @deprecated Use {@link #fromBundle} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<Tracks> CREATOR = Tracks::fromBundle;
 
   /** Restores a {@code Tracks} from a {@link Bundle}. */
   @UnstableApi

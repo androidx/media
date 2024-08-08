@@ -343,3 +343,7 @@ AudioSink:
   buffer #32:
     time = 1000002730666
     data = 1
+Listener.onMediaMetadata:
+  MediaMetadata[0]:
+    artworkData = length 30943, hash CE3D27AF
+    artworkDataType = front cover

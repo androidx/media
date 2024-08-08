@@ -22,13 +22,11 @@ import android.util.Pair;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableByteArray;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.TrackOutput;
 import com.google.common.collect.Iterables;
 import java.util.ArrayList;
 
 /** Parses track chunk bytes from standard MIDI files. */
-@UnstableApi
 /* package */ final class TrackChunk implements Comparable<TrackChunk> {
 
   /** A listener for changes to track tempo. */
