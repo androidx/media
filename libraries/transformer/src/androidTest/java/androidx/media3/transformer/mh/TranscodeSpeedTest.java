@@ -16,21 +16,31 @@
 package androidx.media3.transformer.mh;
 
 import static androidx.media3.common.MimeTypes.VIDEO_H264;
+import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.transformer.AndroidTestUtil.JPG_ULTRA_HDR_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
+import static androidx.media3.transformer.AndroidTestUtil.createFrameCountingEffect;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assume.assumeFalse;
+import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.net.Uri;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.Presentation;
 import androidx.media3.transformer.AndroidTestUtil;
+import androidx.media3.transformer.AssetLoader;
+import androidx.media3.transformer.Codec;
+import androidx.media3.transformer.DefaultAssetLoaderFactory;
+import androidx.media3.transformer.DefaultDecoderFactory;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.Effects;
+import androidx.media3.transformer.ExperimentalAnalyzerModeFactory;
 import androidx.media3.transformer.ExportTestResult;
 import androidx.media3.transformer.Transformer;
 import androidx.media3.transformer.TransformerAndroidTestRunner;
@@ -38,6 +48,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -47,6 +58,7 @@ import org.junit.runner.RunWith;
 /** Checks transcoding speed. */
 @RunWith(AndroidJUnit4.class)
 public class TranscodeSpeedTest {
+  private final Context context = ApplicationProvider.getApplicationContext();
   @Rule public final TestName testName = new TestName();
 
   private String testId;
@@ -58,7 +70,6 @@ public class TranscodeSpeedTest {
 
   @Test
   public void export1920x1080_to1080p_completesWithAtLeast20Fps() throws Exception {
-    Context context = ApplicationProvider.getApplicationContext();
     assumeFormatsSupported(
         context,
         testId,
@@ -73,7 +84,7 @@ public class TranscodeSpeedTest {
         MediaItem.fromUri(Uri.parse(MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS.uri))
             .buildUpon()
             .setClippingConfiguration(
-                new MediaItem.ClippingConfiguration.Builder().setEndPositionMs(15_000).build())
+                new MediaItem.ClippingConfiguration.Builder().setEndPositionMs(45_000).build())
             .build();
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem).setRemoveAudio(true).build();
@@ -88,7 +99,6 @@ public class TranscodeSpeedTest {
 
   @Test
   public void exportImage_to720p_completesWithHighThroughput() throws Exception {
-    Context context = ApplicationProvider.getApplicationContext();
     Format outputFormat =
         new Format.Builder()
             .setSampleMimeType(VIDEO_H264)
@@ -112,7 +122,7 @@ public class TranscodeSpeedTest {
                 || Ascii.toLowerCase(Util.MODEL).contains("fold")
                 || Ascii.toLowerCase(Util.MODEL).contains("tablet"));
     if (Util.SDK_INT == 33 && Ascii.toLowerCase(Util.MODEL).contains("pixel 6")) {
-      // Pixel 6 is usually quick, unless it's on API 33.
+      // Pixel 6 is usually quick, unless it's on API 33. See b/358519058.
       isHighPerformance = false;
     }
     // This test uses ULTRA_HDR_URI_STRING because it's high resolution.
@@ -139,5 +149,88 @@ public class TranscodeSpeedTest {
     // such as moto e5 play will drop to 5 fps.
     // Devices with a fast GPU and encoder will drop under 300 fps.
     assertThat(result.throughputFps).isAtLeast(isHighPerformance ? 400 : 20);
+  }
+
+  @Test
+  public void
+      analyzeVideo_onHighPerformanceDevice_withConfiguredOperatingRate_completesWithHighThroughput()
+          throws Exception {
+    assumeTrue(
+        Ascii.toLowerCase(Util.MODEL).contains("pixel")
+            && (Ascii.toLowerCase(Util.MODEL).contains("6")
+                || Ascii.toLowerCase(Util.MODEL).contains("7")
+                || Ascii.toLowerCase(Util.MODEL).contains("8")
+                || Ascii.toLowerCase(Util.MODEL).contains("fold")
+                || Ascii.toLowerCase(Util.MODEL).contains("tablet")));
+    // Pixel 6 is usually quick, unless it's on API 33. See b/358519058.
+    assumeFalse(Util.SDK_INT == 33 && Ascii.toLowerCase(Util.MODEL).contains("pixel 6"));
+    AtomicInteger videoFramesSeen = new AtomicInteger(/* initialValue= */ 0);
+
+    ExportTestResult result =
+        analyzeVideoWithConfiguredOperatingRate(
+            testId,
+            Uri.parse(MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS.uri),
+            /* durationMs= */ 45_000,
+            videoFramesSeen);
+    int expectedFrameCount = 1350;
+    checkState(videoFramesSeen.get() == expectedFrameCount);
+
+    float throughputFps = 1000f * videoFramesSeen.get() / result.elapsedTimeMs;
+    assertThat(throughputFps).isAtLeast(350);
+  }
+
+  @Test
+  public void analyzeVideo_withConfiguredOperatingRate_completesWithCorrectNumberOfFrames()
+      throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat,
+        /* outputFormat= */ null);
+    AtomicInteger videoFramesSeen = new AtomicInteger(/* initialValue= */ 0);
+
+    analyzeVideoWithConfiguredOperatingRate(
+        testId,
+        Uri.parse(MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS.uri),
+        /* durationMs= */ 15_000,
+        videoFramesSeen);
+    int expectedFrameCount = 450;
+
+    assertThat(videoFramesSeen.get()).isEqualTo(expectedFrameCount);
+  }
+
+  private static ExportTestResult analyzeVideoWithConfiguredOperatingRate(
+      String testId, Uri mediaUri, long durationMs, AtomicInteger videoFramesSeen)
+      throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    videoFramesSeen.set(0);
+    Codec.DecoderFactory decoderFactory =
+        new DefaultDecoderFactory.Builder(context).setShouldConfigureOperatingRate(true).build();
+    AssetLoader.Factory assetLoaderFactory =
+        new DefaultAssetLoaderFactory(context, decoderFactory, Clock.DEFAULT);
+    Transformer transformer =
+        ExperimentalAnalyzerModeFactory.buildAnalyzer(context)
+            .buildUpon()
+            .setAssetLoaderFactory(assetLoaderFactory)
+            .build();
+    MediaItem mediaItem =
+        MediaItem.fromUri(mediaUri)
+            .buildUpon()
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setEndPositionMs(durationMs).build())
+            .build();
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(mediaItem)
+            .setRemoveAudio(true)
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    ImmutableList.of(createFrameCountingEffect(videoFramesSeen))))
+            .build();
+
+    return new TransformerAndroidTestRunner.Builder(context, transformer)
+        .build()
+        .run(testId, editedMediaItem);
   }
 }

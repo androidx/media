@@ -41,12 +41,16 @@ import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
+import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.DefaultGlObjectsProvider;
+import androidx.media3.effect.GlEffect;
+import androidx.media3.effect.GlShaderProgram;
+import androidx.media3.effect.PassthroughShaderProgram;
 import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
@@ -58,6 +62,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -996,6 +1001,27 @@ public final class AndroidTestUtil {
       }
     }
     return bitmaps.build();
+  }
+
+  /**
+   * Creates a {@link GlEffect} that counts the number of frames processed in {@code frameCount}.
+   */
+  public static GlEffect createFrameCountingEffect(AtomicInteger frameCount) {
+    return new GlEffect() {
+      @Override
+      public GlShaderProgram toGlShaderProgram(Context context, boolean useHdr) {
+        return new PassthroughShaderProgram() {
+          @Override
+          public void queueInputFrame(
+              GlObjectsProvider glObjectsProvider,
+              GlTextureInfo inputTexture,
+              long presentationTimeUs) {
+            super.queueInputFrame(glObjectsProvider, inputTexture, presentationTimeUs);
+            frameCount.incrementAndGet();
+          }
+        };
+      }
+    };
   }
 
   /** A customizable forwarding {@link Codec.EncoderFactory} that forces encoding. */

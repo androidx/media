@@ -76,6 +76,7 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
     private Listener listener;
     private boolean enableDecoderFallback;
     private @C.Priority int codecPriority;
+    private boolean shouldConfigureOperatingRate;
     private MediaCodecSelector mediaCodecSelector;
 
     /** Creates a new {@link Builder}. */
@@ -83,6 +84,7 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
       this.context = context.getApplicationContext();
       listener = (codecName, codecInitializationExceptions) -> {};
       codecPriority = C.PRIORITY_PROCESSING_FOREGROUND;
+      shouldConfigureOperatingRate = false;
       mediaCodecSelector = MediaCodecSelector.DEFAULT;
     }
 
@@ -132,6 +134,27 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
     }
 
     /**
+     * Sets whether a device-specific decoder {@linkplain MediaFormat#KEY_OPERATING_RATE operating
+     * rate} should be requested.
+     *
+     * <p>This is a best-effort hint to the codec. Setting this to {@code true} might improve
+     * decoding performance.
+     *
+     * <p>The effect of this field will be most noticeable when no other {@link MediaCodec}
+     * instances are in use.
+     *
+     * <p>Defaults to {@code false}.
+     *
+     * @param shouldConfigureOperatingRate Whether to apply an {@link
+     *     MediaFormat#KEY_OPERATING_RATE} configuration to the decoder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setShouldConfigureOperatingRate(boolean shouldConfigureOperatingRate) {
+      this.shouldConfigureOperatingRate = shouldConfigureOperatingRate;
+      return this;
+    }
+
+    /**
      * Sets the {@link MediaCodecSelector} used when selecting a decoder.
      *
      * <p>The default value is {@link MediaCodecSelector#DEFAULT}
@@ -152,6 +175,7 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
   private final boolean enableDecoderFallback;
   private final Listener listener;
   private final @C.Priority int codecPriority;
+  private final boolean shouldConfigureOperatingRate;
   private final MediaCodecSelector mediaCodecSelector;
 
   /**
@@ -184,6 +208,7 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
     this.enableDecoderFallback = builder.enableDecoderFallback;
     this.listener = builder.listener;
     this.codecPriority = builder.codecPriority;
+    this.shouldConfigureOperatingRate = builder.shouldConfigureOperatingRate;
     this.mediaCodecSelector = builder.mediaCodecSelector;
   }
 
@@ -242,6 +267,10 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
 
     if (SDK_INT >= 35) {
       mediaFormat.setInteger(MediaFormat.KEY_IMPORTANCE, max(0, -codecPriority));
+    }
+
+    if (shouldConfigureOperatingRate) {
+      configureOperatingRate(mediaFormat);
     }
 
     return createCodecForMediaFormat(
@@ -322,6 +351,27 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
 
     // All codecs failed to be initialized, throw the first codec init error out.
     throw codecInitExceptions.get(0);
+  }
+
+  private static void configureOperatingRate(MediaFormat mediaFormat) {
+    if (Util.SDK_INT < 25) {
+      // Not setting priority and operating rate achieves better decoding performance.
+      return;
+    }
+
+    if (deviceNeedsPriorityWorkaround()) {
+      // Setting KEY_PRIORITY to 1 leads to worse performance on many devices.
+      mediaFormat.setInteger(MediaFormat.KEY_PRIORITY, 1);
+    }
+
+    // Setting KEY_OPERATING_RATE to Integer.MAX_VALUE leads to slower operation on some devices.
+    mediaFormat.setInteger(MediaFormat.KEY_OPERATING_RATE, 10000);
+  }
+
+  private static boolean deviceNeedsPriorityWorkaround() {
+    // On these chipsets, decoder configuration fails if KEY_OPERATING_RATE is set but not
+    // KEY_PRIORITY. See b/358519863.
+    return Util.SDK_INT >= 31 && Build.SOC_MODEL.equals("s5e8835");
   }
 
   private static boolean deviceNeedsDisable8kWorkaround(Format format) {

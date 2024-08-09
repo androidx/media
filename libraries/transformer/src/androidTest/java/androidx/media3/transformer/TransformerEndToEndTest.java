@@ -29,6 +29,7 @@ import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_
 import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_270;
 import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
+import static androidx.media3.transformer.AndroidTestUtil.createFrameCountingEffect;
 import static androidx.media3.transformer.AndroidTestUtil.createOpenGlObjects;
 import static androidx.media3.transformer.AndroidTestUtil.generateTextureFromBitmap;
 import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
@@ -56,8 +57,6 @@ import android.util.Pair;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
-import androidx.media3.common.GlObjectsProvider;
-import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.OnInputFrameProcessedListener;
@@ -76,8 +75,6 @@ import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.FrameCache;
 import androidx.media3.effect.GlEffect;
-import androidx.media3.effect.GlShaderProgram;
-import androidx.media3.effect.PassthroughShaderProgram;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.RgbFilter;
 import androidx.media3.effect.ScaleAndRotateTransformation;
@@ -1907,24 +1904,6 @@ public class TransformerEndToEndTest {
             byteCount.addAndGet(buffer.remaining());
           }
         });
-  }
-
-  private static GlEffect createFrameCountingEffect(AtomicInteger frameCount) {
-    return new GlEffect() {
-      @Override
-      public GlShaderProgram toGlShaderProgram(Context context, boolean useHdr) {
-        return new PassthroughShaderProgram() {
-          @Override
-          public void queueInputFrame(
-              GlObjectsProvider glObjectsProvider,
-              GlTextureInfo inputTexture,
-              long presentationTimeUs) {
-            super.queueInputFrame(glObjectsProvider, inputTexture, presentationTimeUs);
-            frameCount.incrementAndGet();
-          }
-        };
-      }
-    };
   }
 
   private final class TestTextureAssetLoaderFactory implements AssetLoader.Factory {
