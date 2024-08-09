@@ -27,7 +27,7 @@ import java.io.IOException;
  * Provides methods that peek data from an {@link ExtractorInput} and return whether the input
  * appears to be in MP4 format.
  */
-/* package */ final class Sniffer {
+public final class Sniffer {
 
   /** Brand stored in the ftyp atom for QuickTime media. */
   public static final int BRAND_QUICKTIME = 0x71742020;

@@ -62,7 +62,7 @@ import java.util.Objects;
 
 /** Utility methods for parsing MP4 format atom payloads according to ISO/IEC 14496-12. */
 @SuppressWarnings("ConstantField")
-/* package */ final class AtomParsers {
+public final class AtomParsers {
 
   private static final String TAG = "AtomParsers";
 
@@ -317,7 +317,7 @@ import java.util.Objects;
    * @throws ParserException Thrown if the trak atom can't be parsed.
    */
   @Nullable
-  private static Track parseTrak(
+  public static Track parseTrak(
       Mp4Box.ContainerBox trak,
       LeafBox mvhd,
       long duration,
@@ -401,7 +401,7 @@ import java.util.Objects;
    * @return Sample table described by the stbl atom.
    * @throws ParserException Thrown if the stbl atom can't be parsed.
    */
-  private static TrackSampleTable parseStbl(
+  public static TrackSampleTable parseStbl(
       Track track, Mp4Box.ContainerBox stblAtom, GaplessInfoHolder gaplessInfoHolder)
       throws ParserException {
     SampleSizeBox sampleSizeBox;

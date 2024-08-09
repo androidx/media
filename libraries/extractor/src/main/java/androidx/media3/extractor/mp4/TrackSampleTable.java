@@ -20,7 +20,7 @@ import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Util;
 
 /** Sample table for a track in an MP4 file. */
-/* package */ final class TrackSampleTable {
+public final class TrackSampleTable {
 
   /** The track corresponding to this sample table. */
   public final Track track;
