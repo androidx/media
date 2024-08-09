@@ -297,7 +297,6 @@ public final class Mp4Muxer implements Muxer {
   @Nullable private FileOutputStream cacheFileOutputStream;
   @Nullable private MetadataCollector editableVideoMetadataCollector;
   @Nullable private Mp4Writer editableVideoMp4Writer;
-  @Nullable private Mp4TimestampData timestampData;
 
   private Mp4Muxer(
       FileOutputStream outputStream,
@@ -429,9 +428,6 @@ public final class Mp4Muxer implements Muxer {
   @Override
   public void addMetadataEntry(Metadata.Entry metadataEntry) {
     checkArgument(MuxerUtil.isMetadataSupported(metadataEntry), "Unsupported metadata");
-    if (metadataEntry instanceof Mp4TimestampData) {
-      timestampData = (Mp4TimestampData) metadataEntry;
-    }
     metadataCollector.addMetadata(metadataEntry);
   }
 
@@ -543,9 +539,7 @@ public final class Mp4Muxer implements Muxer {
             MdtaMetadataEntry.KEY_EDITABLE_TRACKS_MAP,
             data,
             MdtaMetadataEntry.TYPE_INDICATOR_RESERVED));
-    if (timestampData != null) {
-      editableVideoMetadataCollector.addMetadata(timestampData);
-    }
+    editableVideoMetadataCollector.addMetadata(metadataCollector.timestampData);
     checkNotNull(editableVideoMp4Writer).finishWritingSamplesAndFinalizeMoovBox();
   }
 
