@@ -56,7 +56,10 @@ import java.util.List;
   private static final int BYTES_PER_INTEGER = 4;
 
   // Box size (4 bytes) + Box name (4 bytes)
-  public static final int BOX_HEADER_SIZE = 2 * BYTES_PER_INTEGER;
+  public static final int BOX_HEADER_SIZE = 8;
+
+  // Box size = 1 to indicate 64-bit box size (4 bytes) + Box name (4 bytes) + actual size (8 bytes)
+  public static final int LARGE_SIZE_BOX_HEADER_SIZE = 16;
 
   public static final int MFHD_BOX_CONTENT_SIZE = 2 * BYTES_PER_INTEGER;
 

@@ -20,6 +20,7 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.muxer.AnnexBUtils.doesSampleContainAnnexBNalUnits;
 import static androidx.media3.muxer.Boxes.BOX_HEADER_SIZE;
+import static androidx.media3.muxer.Boxes.LARGE_SIZE_BOX_HEADER_SIZE;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -218,7 +219,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
     // Start with an empty mdat box.
     mdatStart = outputFileChannel.position();
-    ByteBuffer header = ByteBuffer.allocate(4 + 4 + 8);
+    ByteBuffer header = ByteBuffer.allocate(LARGE_SIZE_BOX_HEADER_SIZE);
     header.putInt(1); // 4 bytes, indicating a 64-bit length field
     header.put(Util.getUtf8Bytes("mdat")); // 4 bytes
     header.putLong(16); // 8 bytes (the actual length)

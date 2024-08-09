@@ -24,6 +24,7 @@ import static androidx.media3.container.Mp4Util.EDITABLE_TRACK_TYPE_DEPTH_INVERS
 import static androidx.media3.container.Mp4Util.EDITABLE_TRACK_TYPE_DEPTH_LINEAR;
 import static androidx.media3.container.Mp4Util.EDITABLE_TRACK_TYPE_DEPTH_METADATA;
 import static androidx.media3.container.Mp4Util.EDITABLE_TRACK_TYPE_SHARP;
+import static androidx.media3.muxer.Boxes.LARGE_SIZE_BOX_HEADER_SIZE;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.media.MediaCodec.BufferInfo;
@@ -277,9 +278,6 @@ public final class Mp4Muxer implements Muxer {
   }
 
   private static final String TAG = "Mp4Muxer";
-
-  // 4 bytes (indicating a 64-bit length field) + 4 byte (box type) + 8 bytes (actual length)
-  private static final int EDVD_BOX_HEADER_SIZE_BYTE = 16;
 
   private final FileOutputStream outputStream;
   private final FileChannel outputChannel;
@@ -553,7 +551,7 @@ public final class Mp4Muxer implements Muxer {
             MdtaMetadataEntry.TYPE_INDICATOR_UNSIGNED_INT64);
     if (editableVideoMp4Writer != null) {
       long editableVideoDataSize = checkNotNull(cacheFileOutputStream).getChannel().size();
-      long edvdBoxSize = EDVD_BOX_HEADER_SIZE_BYTE + editableVideoDataSize;
+      long edvdBoxSize = LARGE_SIZE_BOX_HEADER_SIZE + editableVideoDataSize;
       metadataCollector.addMetadata(
           new MdtaMetadataEntry(
               MdtaMetadataEntry.KEY_EDITABLE_TRACKS_LENGTH,
@@ -584,11 +582,11 @@ public final class Mp4Muxer implements Muxer {
     }
     outputChannel.position(outputChannel.size());
     FileInputStream inputStream = new FileInputStream(checkNotNull(cacheFilePath));
-    ByteBuffer edvdBoxHeader = ByteBuffer.allocate(EDVD_BOX_HEADER_SIZE_BYTE);
+    ByteBuffer edvdBoxHeader = ByteBuffer.allocate(LARGE_SIZE_BOX_HEADER_SIZE);
     edvdBoxHeader.putInt(1); // indicating a 64-bit length field
     edvdBoxHeader.put(Util.getUtf8Bytes("edvd"));
     edvdBoxHeader.putLong(
-        EDVD_BOX_HEADER_SIZE_BYTE + inputStream.getChannel().size()); // the actual length
+        LARGE_SIZE_BOX_HEADER_SIZE + inputStream.getChannel().size()); // the actual length
     edvdBoxHeader.flip();
     outputChannel.write(edvdBoxHeader);
     ByteStreams.copy(inputStream, outputStream);
