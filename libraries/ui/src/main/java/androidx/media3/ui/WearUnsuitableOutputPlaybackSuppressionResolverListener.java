@@ -25,6 +25,8 @@ import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.os.PowerManager;
+import android.os.PowerManager.WakeLock;
 import android.provider.Settings;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
@@ -53,9 +55,10 @@ import java.util.List;
  * href="https://developer.android.com/media/routing#output-switcher">Media Output Switcher</a> if
  * it is available on the device, or otherwise the Bluetooth settings screen.
  *
- * <p>This implementation also pauses playback when launching the system dialog. The underlying
- * {@link Player} implementation (e.g. ExoPlayer) is expected to resume playback automatically when
- * a suitable audio device is connected by the user.
+ * <p>This implementation also pauses playback before opening the system dialog. If the user
+ * connects a suitable media output within the specified timeout, playback resumes automatically.
+ * During this timeout, a power wakelock of the {@link PowerManager#PARTIAL_WAKE_LOCK} level is
+ * obtained to prevent the system from freezing the app.
  */
 @UnstableApi
 public final class WearUnsuitableOutputPlaybackSuppressionResolverListener
@@ -94,6 +97,9 @@ public final class WearUnsuitableOutputPlaybackSuppressionResolverListener
    */
   private static final int FILTER_TYPE_AUDIO = 1;
 
+  private static final String WAKE_LOCK_TAG =
+      "WearUnsuitableOutputPlaybackSuppressionResolverListener:WakeLock";
+
   /**
    * The default timeout for auto-resume of suppressed playback when the playback suppression reason
    * as {@link Player#PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT} is removed, in
@@ -105,6 +111,8 @@ public final class WearUnsuitableOutputPlaybackSuppressionResolverListener
   private final Context applicationContext;
   private final long autoResumeTimeoutAfterUnsuitableOutputSuppressionMs;
   private final Clock clock;
+
+  @Nullable private final WakeLock wakeLock;
 
   private long unsuitableOutputPlaybackSuppressionStartRealtimeMs;
 
@@ -144,6 +152,14 @@ public final class WearUnsuitableOutputPlaybackSuppressionResolverListener
     autoResumeTimeoutAfterUnsuitableOutputSuppressionMs = autoResumeTimeoutMs;
     this.clock = clock;
     unsuitableOutputPlaybackSuppressionStartRealtimeMs = C.TIME_UNSET;
+    WakeLock wakeLock = null;
+    PowerManager powerManager =
+        (PowerManager) applicationContext.getSystemService(Context.POWER_SERVICE);
+    if (powerManager != null) {
+      wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKE_LOCK_TAG);
+      wakeLock.setReferenceCounted(false);
+    }
+    this.wakeLock = wakeLock;
   }
 
   @Override
@@ -158,6 +174,9 @@ public final class WearUnsuitableOutputPlaybackSuppressionResolverListener
             == Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT) {
       player.pause();
       unsuitableOutputPlaybackSuppressionStartRealtimeMs = clock.elapsedRealtime();
+      if (wakeLock != null && !wakeLock.isHeld()) {
+        wakeLock.acquire(autoResumeTimeoutAfterUnsuitableOutputSuppressionMs);
+      }
       if (events.contains(Player.EVENT_PLAY_WHEN_READY_CHANGED)) {
         launchSystemMediaOutputSwitcherUi(applicationContext);
       }
@@ -168,6 +187,9 @@ public final class WearUnsuitableOutputPlaybackSuppressionResolverListener
             < autoResumeTimeoutAfterUnsuitableOutputSuppressionMs)) {
       unsuitableOutputPlaybackSuppressionStartRealtimeMs = C.TIME_UNSET;
       player.play();
+      if (wakeLock != null) {
+        wakeLock.release();
+      }
     }
   }
 
