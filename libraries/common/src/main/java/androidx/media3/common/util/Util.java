@@ -3411,9 +3411,9 @@ public final class Util {
     // MediaFormat#KEY_ALLOW_FRAME_DROP} to 0. See b/307518793, b/289983935 and b/353487886.
     return SDK_INT < 29
         || context.getApplicationInfo().targetSdkVersion < 29
-        || (SDK_INT == 30
+        || ((SDK_INT == 30
                 && (Ascii.equalsIgnoreCase(MODEL, "moto g(20)")
-                    || Ascii.equalsIgnoreCase(MODEL, "rmx3231"))
+                    || Ascii.equalsIgnoreCase(MODEL, "rmx3231")))
             || (SDK_INT == 34 && Ascii.equalsIgnoreCase(MODEL, "sm-x200")));
   }
 
