@@ -64,6 +64,7 @@ import androidx.media3.exoplayer.source.ClippingMediaSource;
 import androidx.media3.exoplayer.source.ConcatenatingMediaSource2;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.ExternalLoader;
+import androidx.media3.exoplayer.source.FilteringMediaSource;
 import androidx.media3.exoplayer.source.ForwardingTimeline;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource;
@@ -78,6 +79,7 @@ import androidx.media3.exoplayer.util.EventLogger;
 import androidx.media3.exoplayer.video.CompositingVideoSinkProvider;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -747,10 +749,18 @@ public final class CompositionPlayer extends SimpleBasePlayer
                 new SilenceMediaSource(editedMediaItem.durationUs),
                 editedMediaItem.mediaItem.clippingConfiguration.startPositionUs,
                 editedMediaItem.mediaItem.clippingConfiguration.endPositionUs);
+
+        // The MediaSource that loads the MediaItem
+        MediaSource mainMediaSource =
+            defaultMediaSourceFactory.createMediaSource(editedMediaItem.mediaItem);
+        if (editedMediaItem.removeAudio) {
+          mainMediaSource =
+              new FilteringMediaSource(
+                  mainMediaSource, ImmutableSet.of(C.TRACK_TYPE_VIDEO, C.TRACK_TYPE_IMAGE));
+        }
+
         MediaSource mergingMediaSource =
-            new MergingMediaSource(
-                defaultMediaSourceFactory.createMediaSource(editedMediaItem.mediaItem),
-                silenceMediaSource);
+            new MergingMediaSource(mainMediaSource, silenceMediaSource);
         MediaSource itemMediaSource =
             wrapWithVideoEffectsBasedMediaSources(
                 mergingMediaSource, editedMediaItem.effects.videoEffects, durationUs);

@@ -32,12 +32,16 @@ import android.graphics.Bitmap;
 import android.graphics.PixelFormat;
 import android.media.Image;
 import android.media.ImageReader;
+import android.view.SurfaceView;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.GlEffect;
+import androidx.media3.exoplayer.audio.DefaultAudioSink;
+import androidx.media3.test.utils.CapturingAudioSink;
+import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.CompositionPlayer;
 import androidx.media3.transformer.EditedMediaItem;
@@ -45,12 +49,11 @@ import androidx.media3.transformer.EditedMediaItemSequence;
 import androidx.media3.transformer.Effects;
 import androidx.media3.transformer.InputTimestampRecordingShaderProgram;
 import androidx.media3.transformer.PlayerTestListener;
+import androidx.media3.transformer.SurfaceTestActivity;
+import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -80,20 +83,28 @@ public class CompositionPlaybackTest {
 
   @Rule public final TestName testName = new TestName();
 
+  @Rule
+  public ActivityScenarioRule<SurfaceTestActivity> rule =
+      new ActivityScenarioRule<>(SurfaceTestActivity.class);
+
   private final Context context = getInstrumentation().getContext().getApplicationContext();
   private final PlayerTestListener playerTestListener = new PlayerTestListener(TEST_TIMEOUT_MS);
 
   private @MonotonicNonNull CompositionPlayer player;
   private @MonotonicNonNull ImageReader outputImageReader;
+
   private String testId;
+  private SurfaceView surfaceView;
 
   @Before
-  public void setUpTestId() {
+  public void setUp() {
+    rule.getScenario().onActivity(activity -> surfaceView = activity.getSurfaceView());
     testId = testName.getMethodName();
   }
 
   @After
   public void tearDown() {
+    rule.getScenario().close();
     getInstrumentation()
         .runOnMainSync(
             () -> {
@@ -182,12 +193,13 @@ public class CompositionPlaybackTest {
         new Composition.Builder(
                 new EditedMediaItemSequence(ImmutableList.of(editedMediaItem, editedMediaItem)))
             .build();
-    List<Long> expectedTimestampsUs = new ArrayList<>();
-    expectedTimestampsUs.addAll(VIDEO_TIMESTAMPS_US);
-    expectedTimestampsUs.addAll(
-        Lists.newArrayList(
-            Iterables.transform(
-                VIDEO_TIMESTAMPS_US, timestampUs -> (VIDEO_DURATION_US + timestampUs))));
+    ImmutableList<Long> expectedTimestampsUs =
+        new ImmutableList.Builder<Long>()
+            .addAll(VIDEO_TIMESTAMPS_US)
+            .addAll(
+                Iterables.transform(
+                    VIDEO_TIMESTAMPS_US, timestampUs -> (VIDEO_DURATION_US + timestampUs)))
+            .build();
 
     getInstrumentation()
         .runOnMainSync(
@@ -221,12 +233,13 @@ public class CompositionPlaybackTest {
         new Composition.Builder(
                 new EditedMediaItemSequence(ImmutableList.of(editedMediaItem, editedMediaItem)))
             .build();
-    List<Long> expectedTimestampsUs = new ArrayList<>();
-    expectedTimestampsUs.addAll(IMAGE_TIMESTAMPS_US);
-    expectedTimestampsUs.addAll(
-        Lists.newArrayList(
-            Iterables.transform(
-                IMAGE_TIMESTAMPS_US, timestampUs -> (IMAGE_DURATION_US + timestampUs))));
+    ImmutableList<Long> expectedTimestampsUs =
+        new ImmutableList.Builder<Long>()
+            .addAll(IMAGE_TIMESTAMPS_US)
+            .addAll(
+                Iterables.transform(
+                    IMAGE_TIMESTAMPS_US, timestampUs -> (IMAGE_DURATION_US + timestampUs)))
+            .build();
 
     getInstrumentation()
         .runOnMainSync(
@@ -269,12 +282,13 @@ public class CompositionPlaybackTest {
                 new EditedMediaItemSequence(
                     ImmutableList.of(videoEditedMediaItem, imageEditedMediaItem)))
             .build();
-    List<Long> expectedTimestampsUs = new ArrayList<>();
-    expectedTimestampsUs.addAll(VIDEO_TIMESTAMPS_US);
-    expectedTimestampsUs.addAll(
-        Lists.newArrayList(
-            Iterables.transform(
-                IMAGE_TIMESTAMPS_US, timestampUs -> (VIDEO_DURATION_US + timestampUs))));
+    ImmutableList<Long> expectedTimestampsUs =
+        new ImmutableList.Builder<Long>()
+            .addAll(VIDEO_TIMESTAMPS_US)
+            .addAll(
+                Iterables.transform(
+                    IMAGE_TIMESTAMPS_US, timestampUs -> (VIDEO_DURATION_US + timestampUs)))
+            .build();
 
     getInstrumentation()
         .runOnMainSync(
@@ -317,12 +331,13 @@ public class CompositionPlaybackTest {
                 new EditedMediaItemSequence(
                     ImmutableList.of(imageEditedMediaItem, videoEditedMediaItem)))
             .build();
-    List<Long> expectedTimestampsUs = new ArrayList<>();
-    expectedTimestampsUs.addAll(IMAGE_TIMESTAMPS_US);
-    expectedTimestampsUs.addAll(
-        Lists.newArrayList(
-            Iterables.transform(
-                VIDEO_TIMESTAMPS_US, timestampUs -> (IMAGE_DURATION_US + timestampUs))));
+    ImmutableList<Long> expectedTimestampsUs =
+        new ImmutableList.Builder<Long>()
+            .addAll(IMAGE_TIMESTAMPS_US)
+            .addAll(
+                Iterables.transform(
+                    VIDEO_TIMESTAMPS_US, timestampUs -> (IMAGE_DURATION_US + timestampUs)))
+            .build();
 
     getInstrumentation()
         .runOnMainSync(
@@ -337,5 +352,114 @@ public class CompositionPlaybackTest {
 
     assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
         .isEqualTo(expectedTimestampsUs);
+  }
+
+  @Test
+  public void playback_sequenceOfThreeVideosWithRemovingFirstAndLastAudio_succeeds()
+      throws Exception {
+    InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
+        new InputTimestampRecordingShaderProgram();
+    EditedMediaItem videoEditedMediaItem =
+        new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM)
+            .setDurationUs(VIDEO_DURATION_US)
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    /* videoEffects= */ ImmutableList.of(
+                        (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram)))
+            .build();
+    EditedMediaItem videoEditedMediaItemRemoveAudio =
+        videoEditedMediaItem.buildUpon().setRemoveAudio(true).build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence(
+                    videoEditedMediaItemRemoveAudio,
+                    videoEditedMediaItem,
+                    videoEditedMediaItemRemoveAudio))
+            .build();
+    ImmutableList<Long> expectedTimestampsUs =
+        new ImmutableList.Builder<Long>()
+            .addAll(VIDEO_TIMESTAMPS_US)
+            .addAll(
+                Iterables.transform(
+                    VIDEO_TIMESTAMPS_US, timestampUs -> (VIDEO_DURATION_US + timestampUs)))
+            .addAll(
+                Iterables.transform(
+                    VIDEO_TIMESTAMPS_US, timestampUs -> (2 * VIDEO_DURATION_US + timestampUs)))
+            .build();
+    CapturingAudioSink capturingAudioSink =
+        new CapturingAudioSink(new DefaultAudioSink.Builder(context).build());
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player =
+                  new CompositionPlayer.Builder(context).setAudioSink(capturingAudioSink).build();
+              player.addListener(playerTestListener);
+              player.setComposition(composition);
+              player.prepare();
+              player.play();
+            });
+    playerTestListener.waitUntilPlayerEnded();
+
+    assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
+        .isEqualTo(expectedTimestampsUs);
+    DumpFileAsserts.assertOutput(
+        context,
+        capturingAudioSink,
+        "audiosinkdumps/wav/playback_sequenceOfThreeVideosWithRemovingFirstAndLastAudio_succeeds.dump");
+  }
+
+  @Test
+  public void playback_sequenceOfThreeVideosWithRemovingMiddleAudio_succeeds() throws Exception {
+    InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
+        new InputTimestampRecordingShaderProgram();
+    EditedMediaItem videoEditedMediaItem =
+        new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM)
+            .setDurationUs(VIDEO_DURATION_US)
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    /* videoEffects= */ ImmutableList.of(
+                        (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram)))
+            .build();
+    EditedMediaItem videoEditedMediaItemRemoveAudio =
+        videoEditedMediaItem.buildUpon().setRemoveAudio(true).build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence(
+                    videoEditedMediaItem, videoEditedMediaItemRemoveAudio, videoEditedMediaItem))
+            .build();
+    ImmutableList<Long> expectedTimestampsUs =
+        new ImmutableList.Builder<Long>()
+            .addAll(VIDEO_TIMESTAMPS_US)
+            .addAll(
+                Iterables.transform(
+                    VIDEO_TIMESTAMPS_US, timestampUs -> (VIDEO_DURATION_US + timestampUs)))
+            .addAll(
+                Iterables.transform(
+                    VIDEO_TIMESTAMPS_US, timestampUs -> (2 * VIDEO_DURATION_US + timestampUs)))
+            .build();
+    CapturingAudioSink capturingAudioSink =
+        new CapturingAudioSink(new DefaultAudioSink.Builder(context).build());
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player =
+                  new CompositionPlayer.Builder(context).setAudioSink(capturingAudioSink).build();
+              player.addListener(playerTestListener);
+              player.setComposition(composition);
+              player.prepare();
+              player.play();
+            });
+    playerTestListener.waitUntilPlayerEnded();
+
+    assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
+        .isEqualTo(expectedTimestampsUs);
+    DumpFileAsserts.assertOutput(
+        context,
+        capturingAudioSink,
+        "audiosinkdumps/wav/playback_sequenceOfThreeVideosWithRemovingMiddleAudio_succeeds.dump");
   }
 }
