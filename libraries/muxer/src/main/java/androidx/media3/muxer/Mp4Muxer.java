@@ -18,13 +18,13 @@ package androidx.media3.muxer;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.container.MdtaMetadataEntry.EDITABLE_TRACKS_SAMPLES_LOCATION_IN_EDIT_DATA_MP4;
-import static androidx.media3.container.MdtaMetadataEntry.TYPE_INDICATOR_8_BIT_UNSIGNED_INT;
-import static androidx.media3.container.Mp4Util.EDITABLE_TRACK_TYPE_DEPTH_INVERSE;
-import static androidx.media3.container.Mp4Util.EDITABLE_TRACK_TYPE_DEPTH_LINEAR;
-import static androidx.media3.container.Mp4Util.EDITABLE_TRACK_TYPE_DEPTH_METADATA;
-import static androidx.media3.container.Mp4Util.EDITABLE_TRACK_TYPE_SHARP;
 import static androidx.media3.muxer.Boxes.LARGE_SIZE_BOX_HEADER_SIZE;
+import static androidx.media3.muxer.Boxes.getEdvdBoxHeader;
+import static androidx.media3.muxer.MuxerUtil.getEditableTracksLengthMetadata;
+import static androidx.media3.muxer.MuxerUtil.getEditableTracksOffsetMetadata;
+import static androidx.media3.muxer.MuxerUtil.isEditableVideoTrack;
+import static androidx.media3.muxer.MuxerUtil.isMetadataSupported;
+import static androidx.media3.muxer.MuxerUtil.populateEditableVideoTracksMetadata;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.media.MediaCodec.BufferInfo;
@@ -35,14 +35,12 @@ import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.Mp4OrientationData;
 import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.container.XmpData;
 import com.google.common.io.ByteStreams;
-import com.google.common.primitives.Longs;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -425,7 +423,7 @@ public final class Mp4Muxer implements Muxer {
    */
   @Override
   public void addMetadataEntry(Metadata.Entry metadataEntry) {
-    checkArgument(MuxerUtil.isMetadataSupported(metadataEntry), "Unsupported metadata");
+    checkArgument(isMetadataSupported(metadataEntry), "Unsupported metadata");
     metadataCollector.addMetadata(metadataEntry);
   }
 
@@ -464,14 +462,6 @@ public final class Mp4Muxer implements Muxer {
     }
   }
 
-  private static boolean isEditableVideoTrack(Format format) {
-    return (format.roleFlags & C.ROLE_FLAG_AUXILIARY) > 0
-        && (format.auxiliaryTrackType == C.AUXILIARY_TRACK_TYPE_ORIGINAL
-            || format.auxiliaryTrackType == C.AUXILIARY_TRACK_TYPE_DEPTH_LINEAR
-            || format.auxiliaryTrackType == C.AUXILIARY_TRACK_TYPE_DEPTH_INVERSE
-            || format.auxiliaryTrackType == C.AUXILIARY_TRACK_TYPE_DEPTH_METADATA);
-  }
-
   @EnsuresNonNull({"editableVideoMp4Writer"})
   private void ensureSetupForEditableVideoTracks() throws FileNotFoundException {
     if (editableVideoMp4Writer == null) {
@@ -494,80 +484,28 @@ public final class Mp4Muxer implements Muxer {
       // Editable video tracks were not added.
       return;
     }
-
-    // Write editable tracks map.
-    // 1 byte version + 1 byte track count (n) + n bytes track types.
-    int totalTracks = editableVideoTracks.size();
-    int dataSize = 2 + totalTracks;
-    byte[] data = new byte[dataSize];
-    data[0] = 1; // version
-    data[1] = (byte) totalTracks; // track count
-    for (int i = 0; i < totalTracks; i++) {
-      checkState(editableVideoTracks.get(i) instanceof Track);
-      Track track = (Track) editableVideoTracks.get(i);
-      int trackType;
-      switch (track.format.auxiliaryTrackType) {
-        case C.AUXILIARY_TRACK_TYPE_ORIGINAL:
-          trackType = EDITABLE_TRACK_TYPE_SHARP;
-          break;
-        case C.AUXILIARY_TRACK_TYPE_DEPTH_LINEAR:
-          trackType = EDITABLE_TRACK_TYPE_DEPTH_LINEAR;
-          break;
-        case C.AUXILIARY_TRACK_TYPE_DEPTH_INVERSE:
-          trackType = EDITABLE_TRACK_TYPE_DEPTH_INVERSE;
-          break;
-        case C.AUXILIARY_TRACK_TYPE_DEPTH_METADATA:
-          trackType = EDITABLE_TRACK_TYPE_DEPTH_METADATA;
-          break;
-        default:
-          throw new IllegalArgumentException(
-              "Unsupported auxiliary track type " + track.format.auxiliaryTrackType);
-      }
-      data[i + 2] = (byte) trackType;
-    }
-
-    checkNotNull(editableVideoMetadataCollector);
-    editableVideoMetadataCollector.addMetadata(
-        new MdtaMetadataEntry(
-            MdtaMetadataEntry.KEY_EDITABLE_TRACKS_SAMPLES_LOCATION,
-            new byte[] {EDITABLE_TRACKS_SAMPLES_LOCATION_IN_EDIT_DATA_MP4},
-            TYPE_INDICATOR_8_BIT_UNSIGNED_INT));
-    editableVideoMetadataCollector.addMetadata(
-        new MdtaMetadataEntry(
-            MdtaMetadataEntry.KEY_EDITABLE_TRACKS_MAP,
-            data,
-            MdtaMetadataEntry.TYPE_INDICATOR_RESERVED));
-    editableVideoMetadataCollector.addMetadata(metadataCollector.timestampData);
+    populateEditableVideoTracksMetadata(
+        checkNotNull(editableVideoMetadataCollector),
+        metadataCollector.timestampData,
+        /* samplesInterleaved= */ false,
+        editableVideoTracks);
     checkNotNull(editableVideoMp4Writer).finishWritingSamplesAndFinalizeMoovBox();
   }
 
   private void finishWritingPrimaryVideoTracks() throws IOException {
     // The exact offset is known after writing all the data in mp4Writer.
-    @Nullable
-    MdtaMetadataEntry placeholderEditableTrackOffset =
-        new MdtaMetadataEntry(
-            MdtaMetadataEntry.KEY_EDITABLE_TRACKS_OFFSET,
-            new byte[8],
-            MdtaMetadataEntry.TYPE_INDICATOR_UNSIGNED_INT64);
+    MdtaMetadataEntry placeholderEditableTrackOffset = getEditableTracksOffsetMetadata(0L);
     if (editableVideoMp4Writer != null) {
       long editableVideoDataSize = checkNotNull(cacheFileOutputStream).getChannel().size();
       long edvdBoxSize = LARGE_SIZE_BOX_HEADER_SIZE + editableVideoDataSize;
-      metadataCollector.addMetadata(
-          new MdtaMetadataEntry(
-              MdtaMetadataEntry.KEY_EDITABLE_TRACKS_LENGTH,
-              Longs.toByteArray(edvdBoxSize),
-              MdtaMetadataEntry.TYPE_INDICATOR_UNSIGNED_INT64));
+      metadataCollector.addMetadata(getEditableTracksLengthMetadata(edvdBoxSize));
       metadataCollector.addMetadata(placeholderEditableTrackOffset);
     }
     mp4Writer.finishWritingSamplesAndFinalizeMoovBox();
     if (editableVideoMp4Writer != null) {
       long primaryVideoDataSize = outputChannel.size();
       metadataCollector.removeMdtaMetadataEntry(placeholderEditableTrackOffset);
-      metadataCollector.addMetadata(
-          new MdtaMetadataEntry(
-              MdtaMetadataEntry.KEY_EDITABLE_TRACKS_OFFSET,
-              Longs.toByteArray(primaryVideoDataSize),
-              MdtaMetadataEntry.TYPE_INDICATOR_UNSIGNED_INT64));
+      metadataCollector.addMetadata(getEditableTracksOffsetMetadata(primaryVideoDataSize));
       mp4Writer.finalizeMoovBox();
       checkState(
           outputChannel.size() == primaryVideoDataSize,
@@ -582,13 +520,7 @@ public final class Mp4Muxer implements Muxer {
     }
     outputChannel.position(outputChannel.size());
     FileInputStream inputStream = new FileInputStream(checkNotNull(cacheFilePath));
-    ByteBuffer edvdBoxHeader = ByteBuffer.allocate(LARGE_SIZE_BOX_HEADER_SIZE);
-    edvdBoxHeader.putInt(1); // indicating a 64-bit length field
-    edvdBoxHeader.put(Util.getUtf8Bytes("edvd"));
-    edvdBoxHeader.putLong(
-        LARGE_SIZE_BOX_HEADER_SIZE + inputStream.getChannel().size()); // the actual length
-    edvdBoxHeader.flip();
-    outputChannel.write(edvdBoxHeader);
+    outputChannel.write(getEdvdBoxHeader(inputStream.getChannel().size()));
     ByteStreams.copy(inputStream, outputStream);
     inputStream.close();
   }

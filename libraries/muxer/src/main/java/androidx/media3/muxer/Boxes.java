@@ -1049,6 +1049,16 @@ import java.util.List;
     return BoxUtils.wrapIntoBox("trex", contents);
   }
 
+  /** Returns the edvd box header. */
+  public static ByteBuffer getEdvdBoxHeader(long payloadSize) {
+    ByteBuffer edvdBoxHeader = ByteBuffer.allocate(LARGE_SIZE_BOX_HEADER_SIZE);
+    edvdBoxHeader.putInt(1); // indicating a 64-bit length field
+    edvdBoxHeader.put(Util.getUtf8Bytes("edvd"));
+    edvdBoxHeader.putLong(LARGE_SIZE_BOX_HEADER_SIZE + payloadSize); // the actual length
+    edvdBoxHeader.flip();
+    return edvdBoxHeader;
+  }
+
   // TODO: b/317117431 - Change this method to getLastSampleDuration().
   /** Adjusts the duration of the very last sample if needed. */
   private static void adjustLastSampleDuration(
