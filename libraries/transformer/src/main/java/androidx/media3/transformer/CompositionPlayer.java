@@ -676,6 +676,9 @@ public final class CompositionPlayer extends SimpleBasePlayer
             .setClock(clock)
             .build();
     compositingVideoSinkProvider.addListener(this);
+
+    // Video playback is disabled when one EditedMediaItem removes video.
+    boolean disableVideoPlayback = shouldDisableVideoPlayback(composition);
     for (int i = 0; i < composition.sequences.size(); i++) {
       EditedMediaItemSequence editedMediaItemSequence = composition.sequences.get(i);
       SequencePlayerRenderersWrapper playerRenderersWrapper =
@@ -697,7 +700,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
               .setClock(clock);
 
       if (i == 0) {
-        playerBuilder.setTrackSelector(new CompositionTrackSelector(context));
+        playerBuilder.setTrackSelector(new CompositionTrackSelector(context, disableVideoPlayback));
       }
 
       ExoPlayer player = playerBuilder.build();
@@ -964,6 +967,19 @@ public final class CompositionPlayer extends SimpleBasePlayer
     return compositionDurationUs;
   }
 
+  private static boolean shouldDisableVideoPlayback(Composition composition) {
+    for (int i = 0; i < composition.sequences.size(); i++) {
+      EditedMediaItemSequence editedMediaItemSequence = composition.sequences.get(i);
+      for (int j = 0; j < editedMediaItemSequence.editedMediaItems.size(); j++) {
+        EditedMediaItem editedMediaItem = editedMediaItemSequence.editedMediaItems.get(j);
+        if (editedMediaItem.removeVideo) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   /**
    * A {@link VideoFrameReleaseControl.FrameTimingEvaluator} for composition frames.
    *
@@ -1054,9 +1070,11 @@ public final class CompositionPlayer extends SimpleBasePlayer
   private static final class CompositionTrackSelector extends DefaultTrackSelector {
 
     private static final String SILENCE_AUDIO_TRACK_GROUP_ID = "1:";
+    private final boolean disableVideoPlayback;
 
-    public CompositionTrackSelector(Context context) {
+    public CompositionTrackSelector(Context context, boolean disableVideoPlayback) {
       super(context);
+      this.disableVideoPlayback = disableVideoPlayback;
     }
 
     @Nullable
@@ -1107,6 +1125,34 @@ public final class CompositionPlayer extends SimpleBasePlayer
 
       return super.selectAudioTrack(
           mappedTrackInfo, rendererFormatSupports, rendererMixedMimeTypeAdaptationSupports, params);
+    }
+
+    @Nullable
+    @Override
+    protected Pair<ExoTrackSelection.Definition, Integer> selectVideoTrack(
+        MappedTrackInfo mappedTrackInfo,
+        @RendererCapabilities.Capabilities int[][][] rendererFormatSupports,
+        @RendererCapabilities.AdaptiveSupport int[] mixedMimeTypeSupports,
+        Parameters params)
+        throws ExoPlaybackException {
+      if (disableVideoPlayback) {
+        return null;
+      }
+      return super.selectVideoTrack(
+          mappedTrackInfo, rendererFormatSupports, mixedMimeTypeSupports, params);
+    }
+
+    @Nullable
+    @Override
+    protected Pair<ExoTrackSelection.Definition, Integer> selectImageTrack(
+        MappedTrackInfo mappedTrackInfo,
+        @RendererCapabilities.Capabilities int[][][] rendererFormatSupports,
+        Parameters params)
+        throws ExoPlaybackException {
+      if (disableVideoPlayback) {
+        return null;
+      }
+      return super.selectImageTrack(mappedTrackInfo, rendererFormatSupports, params);
     }
   }
 }

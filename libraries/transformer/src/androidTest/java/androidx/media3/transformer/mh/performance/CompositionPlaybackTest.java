@@ -462,4 +462,41 @@ public class CompositionPlaybackTest {
         capturingAudioSink,
         "audiosinkdumps/wav/playback_sequenceOfThreeVideosWithRemovingMiddleAudio_succeeds.dump");
   }
+
+  @Test
+  public void playback_sequenceOfThreeVideosRemovingMiddleVideo_noFrameIsRendered()
+      throws Exception {
+    InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
+        new InputTimestampRecordingShaderProgram();
+
+    EditedMediaItem videoEditedMediaItem =
+        new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM)
+            .setDurationUs(VIDEO_DURATION_US)
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    /* videoEffects= */ ImmutableList.of(
+                        (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram)))
+            .build();
+    EditedMediaItem videoEditedMediaItemRemoveVideo =
+        videoEditedMediaItem.buildUpon().setRemoveVideo(true).build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence(
+                    videoEditedMediaItem, videoEditedMediaItemRemoveVideo, videoEditedMediaItem))
+            .build();
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player = new CompositionPlayer.Builder(context).build();
+              player.addListener(playerTestListener);
+              player.setComposition(composition);
+              player.prepare();
+              player.play();
+            });
+    playerTestListener.waitUntilPlayerEnded();
+
+    assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs()).isEmpty();
+  }
 }
