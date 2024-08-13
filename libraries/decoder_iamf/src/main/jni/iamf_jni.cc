@@ -57,16 +57,13 @@ DECODER_FUNC(jint, iamfLayoutBinauralChannelsCount) {
 IAMF_DecoderHandle handle;
 
 DECODER_FUNC(jint, iamfConfigDecoder, jbyteArray initializationDataArray,
-             jint bitDepth, jint sampleRate, jint channelCount) {
+             jint bitDepth, jint sampleRate, jint layoutType) {
   handle = IAMF_decoder_open();
   IAMF_decoder_peak_limiter_enable(handle, 0);
   IAMF_decoder_set_bit_depth(handle, bitDepth);
   IAMF_decoder_set_sampling_rate(handle, sampleRate);
-  if (channelCount == 2) {
-    IAMF_decoder_output_layout_set_binaural(handle);
-  } else {
-    IAMF_decoder_output_layout_set_sound_system(handle, SOUND_SYSTEM_INVALID);
-  }
+  IAMF_decoder_output_layout_set_sound_system(handle,
+                                              (IAMF_SoundSystem)layoutType);
 
   uint32_t* bytes_read = nullptr;
   jbyte* initializationDataBytes =
@@ -93,6 +90,10 @@ DECODER_FUNC(jint, iamfDecode, jobject inputBuffer, jint inputSize,
 
 DECODER_FUNC(jint, iamfGetMaxFrameSize) {
   return IAMF_decoder_get_stream_info(handle)->max_frame_size;
+}
+
+DECODER_FUNC(jint, iamfGetChannelCount, jint layoutType) {
+  return IAMF_layout_sound_system_channels_count((IAMF_SoundSystem)layoutType);
 }
 
 DECODER_FUNC(void, iamfClose) { IAMF_decoder_close(handle); }

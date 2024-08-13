@@ -17,6 +17,7 @@ package androidx.media3.decoder.iamf;
 
 import static android.support.annotation.VisibleForTesting.PACKAGE_PRIVATE;
 
+import android.media.AudioFormat;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Util;
@@ -31,31 +32,39 @@ import javax.annotation.Nullable;
 @VisibleForTesting(otherwise = PACKAGE_PRIVATE)
 public final class IamfDecoder
     extends SimpleDecoder<DecoderInputBuffer, SimpleDecoderOutputBuffer, IamfDecoderException> {
-  // TODO(ktrajkovski): Fetch channel count from the device instead of hardcoding.
-  /* package */ static final int DEFAULT_CHANNEL_COUNT = 2;
-  /* package */ static final int DEFAULT_OUTPUT_SAMPLE_RATE = 48000;
-  /* package */ static final @C.PcmEncoding int DEFAULT_PCM_ENCODING = C.ENCODING_PCM_16BIT;
+  /* package */ static final int OUTPUT_SAMPLE_RATE = 48000;
+  /* package */ static final int OUTPUT_PCM_ENCODING = AudioFormat.ENCODING_PCM_16BIT;
+  /* package */ static final int SPATIALIZED_OUTPUT_LAYOUT = AudioFormat.CHANNEL_OUT_5POINT1;
+
+  // Matches IAMF_SoundSystem in IAMF_defines.h
+  private static final int SOUND_SYSTEM_STEREO = 0; // SOUND_SYSTEM_A
+  private static final int SOUND_SYSTEM_5POINT1 = 1; // SOUND_SYSTEM_B
 
   private final byte[] initializationData;
+  private final int soundSystem;
 
   /**
    * Creates an IAMF decoder.
    *
    * @param initializationData ConfigOBUs data for the decoder.
+   * @param spatializationSupported Whether spatialization is supported and output should be 6
+   *     channels in 5.1 layout.
    * @throws IamfDecoderException Thrown if an exception occurs when initializing the decoder.
    */
-  public IamfDecoder(List<byte[]> initializationData) throws IamfDecoderException {
+  public IamfDecoder(List<byte[]> initializationData, boolean spatializationSupported)
+      throws IamfDecoderException {
     super(new DecoderInputBuffer[1], new SimpleDecoderOutputBuffer[1]);
     if (initializationData.size() != 1) {
       throw new IamfDecoderException("Initialization data must contain a single element.");
     }
+    soundSystem = spatializationSupported ? SOUND_SYSTEM_5POINT1 : SOUND_SYSTEM_STEREO;
     this.initializationData = initializationData.get(0);
     int status =
         iamfConfigDecoder(
             this.initializationData,
-            Util.getByteDepth(DEFAULT_PCM_ENCODING) * C.BITS_PER_BYTE,
-            DEFAULT_OUTPUT_SAMPLE_RATE,
-            DEFAULT_CHANNEL_COUNT);
+            Util.getByteDepth(OUTPUT_PCM_ENCODING) * C.BITS_PER_BYTE,
+            OUTPUT_SAMPLE_RATE,
+            soundSystem);
     if (status != 0) {
       throw new IamfDecoderException("Failed to configure decoder with returned status: " + status);
     }
@@ -69,6 +78,10 @@ public final class IamfDecoder
 
   public int getBinauralLayoutChannelCount() {
     return iamfLayoutBinauralChannelsCount();
+  }
+
+  public int getChannelCount() {
+    return iamfGetChannelCount(soundSystem);
   }
 
   @Override
@@ -98,13 +111,13 @@ public final class IamfDecoder
     if (reset) {
       iamfClose();
       iamfConfigDecoder(
-          this.initializationData,
-          Util.getByteDepth(DEFAULT_PCM_ENCODING) * C.BITS_PER_BYTE,
-          DEFAULT_OUTPUT_SAMPLE_RATE,
-          DEFAULT_CHANNEL_COUNT); // reconfigure
+          initializationData,
+          Util.getByteDepth(OUTPUT_PCM_ENCODING) * C.BITS_PER_BYTE,
+          OUTPUT_SAMPLE_RATE,
+          soundSystem); // reconfigure
     }
     int bufferSize =
-        iamfGetMaxFrameSize() * DEFAULT_CHANNEL_COUNT * Util.getByteDepth(DEFAULT_PCM_ENCODING);
+        iamfGetMaxFrameSize() * getChannelCount() * Util.getByteDepth(OUTPUT_PCM_ENCODING);
     outputBuffer.init(inputBuffer.timeUs, bufferSize);
     ByteBuffer outputData = Util.castNonNull(outputBuffer.data);
     ByteBuffer inputData = Util.castNonNull(inputBuffer.data);
@@ -113,14 +126,14 @@ public final class IamfDecoder
       return new IamfDecoderException("Failed to decode error= " + ret);
     }
     outputData.position(0);
-    outputData.limit(ret * DEFAULT_CHANNEL_COUNT * Util.getByteDepth(DEFAULT_PCM_ENCODING));
+    outputData.limit(ret * getChannelCount() * Util.getByteDepth(OUTPUT_PCM_ENCODING));
     return null;
   }
 
   private native int iamfLayoutBinauralChannelsCount();
 
   private native int iamfConfigDecoder(
-      byte[] initializationData, int bitDepth, int sampleRate, int channelCount);
+      byte[] initializationData, int bitDepth, int sampleRate, int soundSystem);
 
   private native void iamfClose();
 
@@ -131,4 +144,6 @@ public final class IamfDecoder
    * Used to initialize the output buffer.
    */
   private native int iamfGetMaxFrameSize();
+
+  private native int iamfGetChannelCount(int soundSystem);
 }

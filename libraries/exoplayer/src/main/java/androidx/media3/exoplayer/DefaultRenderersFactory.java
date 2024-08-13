@@ -552,11 +552,12 @@ public class DefaultRenderersFactory implements RenderersFactory {
       Class<?> clazz = Class.forName("androidx.media3.decoder.iamf.LibiamfAudioRenderer");
       Constructor<?> constructor =
           clazz.getConstructor(
+              Context.class,
               android.os.Handler.class,
               androidx.media3.exoplayer.audio.AudioRendererEventListener.class,
               androidx.media3.exoplayer.audio.AudioSink.class);
       Renderer renderer =
-          (Renderer) constructor.newInstance(eventHandler, eventListener, audioSink);
+          (Renderer) constructor.newInstance(context, eventHandler, eventListener, audioSink);
       out.add(extensionRendererIndex++, renderer);
     } catch (ClassNotFoundException e) {
       // Expected if the app was built without the extension.
