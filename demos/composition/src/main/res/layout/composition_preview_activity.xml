@@ -43,7 +43,7 @@
         android:layout_marginBottom="8dp"
         android:padding="8dp"
         android:textAppearance="@style/TextAppearance.AppCompat.Medium"
-        android:text="@string/preview_single_sequence" />
+        android:text="@string/preview_composition" />
 
       <FrameLayout
         android:layout_width="match_parent"
@@ -64,7 +64,7 @@
     android:id="@+id/sequence_header_text"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:text="@string/single_sequence_items"
+    android:text="@string/video_sequence_items"
     app:layout_constraintStart_toStartOf="parent"
     app:layout_constraintTop_toBottomOf="@id/composition_preview_card_view"
     app:layout_constraintBottom_toTopOf="@id/composition_preset_list"/>
@@ -75,8 +75,18 @@
     android:layout_height="wrap_content"
     android:textAppearance="@style/TextAppearance.AppCompat.Small"
     android:text="@string/edit"
-    app:layout_constraintEnd_toEndOf="parent"
-    app:layout_constraintTop_toBottomOf="@id/composition_preview_card_view"/>
+    app:layout_constraintStart_toEndOf="@id/sequence_header_text"
+    app:layout_constraintTop_toTopOf="@id/sequence_header_text"
+    app:layout_constraintBottom_toBottomOf="@id/sequence_header_text"/>
+
+  <androidx.appcompat.widget.AppCompatCheckBox
+    android:id="@+id/apply_video_effects_checkbox"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:text="@string/add_effects"
+    app:layout_constraintStart_toEndOf="@id/edit_sequence_button"
+    app:layout_constraintTop_toTopOf="@id/sequence_header_text"
+    app:layout_constraintBottom_toBottomOf="@id/sequence_header_text" />
 
   <androidx.recyclerview.widget.RecyclerView
     android:id="@+id/composition_preset_list"

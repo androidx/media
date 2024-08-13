@@ -79,6 +79,7 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
   private AppCompatTextView exportInformationTextView;
   private Stopwatch exportStopwatch;
   private boolean includeBackgroundAudioTrack;
+  private boolean appliesVideoEffects;
 
   @Override
   protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -101,6 +102,10 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
     AppCompatCheckBox backgroundAudioCheckBox = findViewById(R.id.background_audio_checkbox);
     backgroundAudioCheckBox.setOnCheckedChangeListener(
         (compoundButton, checked) -> includeBackgroundAudioTrack = checked);
+
+    AppCompatCheckBox applyVideoEffectsCheckBox = findViewById(R.id.apply_video_effects_checkbox);
+    applyVideoEffectsCheckBox.setOnCheckedChangeListener(
+        ((compoundButton, checked) -> appliesVideoEffects = checked));
 
     presetDescriptions = getResources().getStringArray(R.array.preset_descriptions);
     // Select two media items by default.
@@ -145,9 +150,12 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
     String[] presetUris = getResources().getStringArray(/* id= */ R.array.preset_uris);
     int[] presetDurationsUs = getResources().getIntArray(/* id= */ R.array.preset_durations);
     List<EditedMediaItem> mediaItems = new ArrayList<>();
-    ImmutableList<Effect> effects =
-        ImmutableList.of(
-            MatrixTransformationFactory.createDizzyCropEffect(), RgbFilter.createGrayscaleFilter());
+    ImmutableList<Effect> videoEffects =
+        appliesVideoEffects
+            ? ImmutableList.of(
+                MatrixTransformationFactory.createDizzyCropEffect(),
+                RgbFilter.createGrayscaleFilter())
+            : ImmutableList.of();
     // Preview requires all sequences to be the same duration, so calculate main sequence duration
     // and limit background sequence duration to match.
     long videoSequenceDurationUs = 0;
@@ -165,7 +173,7 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
                 .setEffects(
                     new Effects(
                         /* audioProcessors= */ ImmutableList.of(pitchChanger),
-                        /* videoEffects= */ effects))
+                        /* videoEffects= */ videoEffects))
                 .setDurationUs(presetDurationsUs[i]);
         videoSequenceDurationUs += presetDurationsUs[i];
         mediaItems.add(itemBuilder.build());
