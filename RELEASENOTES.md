@@ -32,6 +32,8 @@
         zero.
     *   Allow the user to select the built-in speaker for playback on Wear OS
         API 35+ (where the device advertises support for this).
+    *   Handle preload callbacks asynchronously in `PreloadMediaSource`
+        ([#1568](https://github.com/androidx/media/issues/1568)).
 *   Transformer:
     *   Add `SurfaceAssetLoader`, which supports queueing video data to
         Transformer via a `Surface`.
