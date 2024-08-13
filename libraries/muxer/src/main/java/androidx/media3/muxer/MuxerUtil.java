@@ -15,7 +15,6 @@
  */
 package androidx.media3.muxer;
 
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.container.MdtaMetadataEntry.EDITABLE_TRACKS_SAMPLES_LOCATION_INTERLEAVED;
 import static androidx.media3.container.MdtaMetadataEntry.EDITABLE_TRACKS_SAMPLES_LOCATION_IN_EDIT_DATA_MP4;
 import static androidx.media3.container.MdtaMetadataEntry.TYPE_INDICATOR_8_BIT_UNSIGNED_INT;
@@ -105,7 +104,7 @@ public final class MuxerUtil {
       MetadataCollector metadataCollector,
       Mp4TimestampData timestampData,
       boolean samplesInterleaved,
-      List<Muxer.TrackToken> editableVideoTracks) {
+      List<Track> editableVideoTracks) {
     metadataCollector.addMetadata(timestampData);
     metadataCollector.addMetadata(getEditableTracksSamplesLocationMetadata(samplesInterleaved));
     metadataCollector.addMetadata(getEditableTracksMapMetadata(editableVideoTracks));
@@ -123,8 +122,7 @@ public final class MuxerUtil {
         TYPE_INDICATOR_8_BIT_UNSIGNED_INT);
   }
 
-  private static MdtaMetadataEntry getEditableTracksMapMetadata(
-      List<Muxer.TrackToken> editableVideoTracks) {
+  private static MdtaMetadataEntry getEditableTracksMapMetadata(List<Track> editableVideoTracks) {
     // 1 byte version + 1 byte track count (n) + n bytes track types.
     int totalTracks = editableVideoTracks.size();
     int dataSize = 2 + totalTracks;
@@ -132,8 +130,7 @@ public final class MuxerUtil {
     data[0] = 1; // version
     data[1] = (byte) totalTracks; // track count
     for (int i = 0; i < totalTracks; i++) {
-      checkState(editableVideoTracks.get(i) instanceof Track);
-      Track track = (Track) editableVideoTracks.get(i);
+      Track track = editableVideoTracks.get(i);
       int trackType;
       switch (track.format.auxiliaryTrackType) {
         case C.AUXILIARY_TRACK_TYPE_ORIGINAL:

@@ -287,7 +287,7 @@ public final class Mp4Muxer implements Muxer {
   @Nullable private final CacheFileProvider cacheFileProvider;
   private final MetadataCollector metadataCollector;
   private final Mp4Writer mp4Writer;
-  private final List<TrackToken> editableVideoTracks;
+  private final List<Track> editableVideoTracks;
 
   @Nullable private String cacheFilePath;
   @Nullable private FileOutputStream cacheFileOutputStream;
@@ -361,9 +361,9 @@ public final class Mp4Muxer implements Muxer {
       } catch (FileNotFoundException e) {
         throw new MuxerException("Cache file not found", e);
       }
-      TrackToken trackToken = editableVideoMp4Writer.addTrack(sortKey, format);
-      editableVideoTracks.add(trackToken);
-      return trackToken;
+      Track track = editableVideoMp4Writer.addTrack(sortKey, format);
+      editableVideoTracks.add(track);
+      return track;
     }
     return mp4Writer.addTrack(sortKey, format);
   }
@@ -386,11 +386,13 @@ public final class Mp4Muxer implements Muxer {
   @Override
   public void writeSampleData(TrackToken trackToken, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws MuxerException {
+    checkState(trackToken instanceof Track);
+    Track track = (Track) trackToken;
     try {
       if (editableVideoTracks.contains(trackToken)) {
-        checkNotNull(editableVideoMp4Writer).writeSampleData(trackToken, byteBuffer, bufferInfo);
+        checkNotNull(editableVideoMp4Writer).writeSampleData(track, byteBuffer, bufferInfo);
       } else {
-        mp4Writer.writeSampleData(trackToken, byteBuffer, bufferInfo);
+        mp4Writer.writeSampleData(track, byteBuffer, bufferInfo);
       }
     } catch (IOException e) {
       throw new MuxerException(

@@ -15,7 +15,6 @@
  */
 package androidx.media3.muxer;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.muxer.AnnexBUtils.doesSampleContainAnnexBNalUnits;
@@ -27,7 +26,6 @@ import static java.lang.Math.min;
 import android.media.MediaCodec.BufferInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.Util;
-import androidx.media3.muxer.Muxer.TrackToken;
 import com.google.common.collect.Range;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -101,9 +99,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
    *
    * @param sortKey The key used for sorting the track list.
    * @param format The {@link Format} for the track.
-   * @return A unique {@link TrackToken}. It should be used in {@link #writeSampleData}.
+   * @return A unique {@link Track}. It should be used in {@link #writeSampleData}.
    */
-  public TrackToken addTrack(int sortKey, Format format) {
+  public Track addTrack(int sortKey, Format format) {
     Track track = new Track(format, sortKey, sampleCopyEnabled);
     tracks.add(track);
     Collections.sort(tracks, (a, b) -> Integer.compare(a.sortKey, b.sortKey));
@@ -113,15 +111,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
   /**
    * Writes encoded sample data.
    *
-   * @param token The {@link TrackToken} for which this sample is being written.
+   * @param track The {@link Track} for which this sample is being written.
    * @param byteBuffer The encoded sample.
    * @param bufferInfo The {@link BufferInfo} related to this sample.
    * @throws IOException If there is any error while writing data to the output {@link FileChannel}.
    */
-  public void writeSampleData(TrackToken token, ByteBuffer byteBuffer, BufferInfo bufferInfo)
+  public void writeSampleData(Track track, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws IOException {
-    checkArgument(token instanceof Track);
-    ((Track) token).writeSampleData(byteBuffer, bufferInfo);
+    track.writeSampleData(byteBuffer, bufferInfo);
     doInterleave();
   }
 
