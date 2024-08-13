@@ -33,6 +33,10 @@
         action, as
         [documented](https://developer.android.com/reference/androidx/media3/session/MediaSession#media-key-events-mapping)
         ([#1493](https://github.com/androidx/media/issues/1493)).
+    *   Handle `KEYCODE_HEADSETHOOK` as a 'play' command in
+        `MediaButtonReceiver` when deciding whether to ignore it to avoid a
+        `ForegroundServiceDidNotStartInTimeException`
+        ([#1581](https://github.com/google/ExoPlayer/issues/1581)).
 *   UI:
 *   Downloads:
 *   OkHttp Extension:
