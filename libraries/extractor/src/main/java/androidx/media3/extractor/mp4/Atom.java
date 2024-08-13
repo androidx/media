@@ -586,16 +586,6 @@ import java.util.List;
     }
   }
 
-  /** Parses the version number out of the additional integer component of a full atom. */
-  public static int parseFullAtomVersion(int fullAtomInt) {
-    return 0x000000FF & (fullAtomInt >> 24);
-  }
-
-  /** Parses the atom flags out of the additional integer component of a full atom. */
-  public static int parseFullAtomFlags(int fullAtomInt) {
-    return 0x00FFFFFF & fullAtomInt;
-  }
-
   /**
    * Converts a numeric atom type to the corresponding four character string.
    *

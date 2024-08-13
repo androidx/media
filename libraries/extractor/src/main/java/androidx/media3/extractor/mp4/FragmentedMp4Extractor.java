@@ -777,7 +777,7 @@ public class FragmentedMp4Extractor implements Extractor {
     }
     atom.setPosition(Atom.HEADER_SIZE);
     int fullAtom = atom.readInt();
-    int version = Atom.parseFullAtomVersion(fullAtom);
+    int version = AtomParsers.parseFullAtomVersion(fullAtom);
     String schemeIdUri;
     String value;
     long timescale;
@@ -883,7 +883,7 @@ public class FragmentedMp4Extractor implements Extractor {
   private static long parseMehd(ParsableByteArray mehd) {
     mehd.setPosition(Atom.HEADER_SIZE);
     int fullAtom = mehd.readInt();
-    int version = Atom.parseFullAtomVersion(fullAtom);
+    int version = AtomParsers.parseFullAtomVersion(fullAtom);
     return version == 0 ? mehd.readUnsignedInt() : mehd.readUnsignedLongToLong();
   }
 
@@ -1005,7 +1005,7 @@ public class FragmentedMp4Extractor implements Extractor {
     int vectorSize = encryptionBox.perSampleIvSize;
     saiz.setPosition(Atom.HEADER_SIZE);
     int fullAtom = saiz.readInt();
-    int flags = Atom.parseFullAtomFlags(fullAtom);
+    int flags = AtomParsers.parseFullAtomFlags(fullAtom);
     if ((flags & 0x01) == 1) {
       saiz.skipBytes(8);
     }
@@ -1049,7 +1049,7 @@ public class FragmentedMp4Extractor implements Extractor {
   private static void parseSaio(ParsableByteArray saio, TrackFragment out) throws ParserException {
     saio.setPosition(Atom.HEADER_SIZE);
     int fullAtom = saio.readInt();
-    int flags = Atom.parseFullAtomFlags(fullAtom);
+    int flags = AtomParsers.parseFullAtomFlags(fullAtom);
     if ((flags & 0x01) == 1) {
       saio.skipBytes(8);
     }
@@ -1061,7 +1061,7 @@ public class FragmentedMp4Extractor implements Extractor {
           "Unexpected saio entry count: " + entryCount, /* cause= */ null);
     }
 
-    int version = Atom.parseFullAtomVersion(fullAtom);
+    int version = AtomParsers.parseFullAtomVersion(fullAtom);
     out.auxiliaryDataPosition +=
         version == 0 ? saio.readUnsignedInt() : saio.readUnsignedLongToLong();
   }
@@ -1083,7 +1083,7 @@ public class FragmentedMp4Extractor implements Extractor {
       ParsableByteArray tfhd, SparseArray<TrackBundle> trackBundles, boolean haveSideloadedTrack) {
     tfhd.setPosition(Atom.HEADER_SIZE);
     int fullAtom = tfhd.readInt();
-    int atomFlags = Atom.parseFullAtomFlags(fullAtom);
+    int atomFlags = AtomParsers.parseFullAtomFlags(fullAtom);
     int trackId = tfhd.readInt();
     @Nullable
     TrackBundle trackBundle =
@@ -1132,7 +1132,7 @@ public class FragmentedMp4Extractor implements Extractor {
   private static long parseTfdt(ParsableByteArray tfdt) {
     tfdt.setPosition(Atom.HEADER_SIZE);
     int fullAtom = tfdt.readInt();
-    int version = Atom.parseFullAtomVersion(fullAtom);
+    int version = AtomParsers.parseFullAtomVersion(fullAtom);
     return version == 1 ? tfdt.readUnsignedLongToLong() : tfdt.readUnsignedInt();
   }
 
@@ -1175,7 +1175,7 @@ public class FragmentedMp4Extractor implements Extractor {
       throws ParserException {
     trun.setPosition(Atom.HEADER_SIZE);
     int fullAtom = trun.readInt();
-    int atomFlags = Atom.parseFullAtomFlags(fullAtom);
+    int atomFlags = AtomParsers.parseFullAtomFlags(fullAtom);
 
     Track track = trackBundle.moovSampleTable.track;
     TrackFragment fragment = trackBundle.fragment;
@@ -1286,7 +1286,7 @@ public class FragmentedMp4Extractor implements Extractor {
       throws ParserException {
     senc.setPosition(Atom.HEADER_SIZE + offset);
     int fullAtom = senc.readInt();
-    int flags = Atom.parseFullAtomFlags(fullAtom);
+    int flags = AtomParsers.parseFullAtomFlags(fullAtom);
 
     if ((flags & 0x01 /* override_track_encryption_box_parameters */) != 0) {
       // TODO: Implement this.
@@ -1339,7 +1339,7 @@ public class FragmentedMp4Extractor implements Extractor {
     }
 
     sbgp.setPosition(Atom.HEADER_SIZE);
-    int sbgpVersion = Atom.parseFullAtomVersion(sbgp.readInt());
+    int sbgpVersion = AtomParsers.parseFullAtomVersion(sbgp.readInt());
     sbgp.skipBytes(4); // grouping_type == seig.
     if (sbgpVersion == 1) {
       sbgp.skipBytes(4); // grouping_type_parameter.
@@ -1350,7 +1350,7 @@ public class FragmentedMp4Extractor implements Extractor {
     }
 
     sgpd.setPosition(Atom.HEADER_SIZE);
-    int sgpdVersion = Atom.parseFullAtomVersion(sgpd.readInt());
+    int sgpdVersion = AtomParsers.parseFullAtomVersion(sgpd.readInt());
     sgpd.skipBytes(4); // grouping_type == seig.
     if (sgpdVersion == 1) {
       if (sgpd.readUnsignedInt() == 0) {
@@ -1407,7 +1407,7 @@ public class FragmentedMp4Extractor implements Extractor {
       throws ParserException {
     atom.setPosition(Atom.HEADER_SIZE);
     int fullAtom = atom.readInt();
-    int version = Atom.parseFullAtomVersion(fullAtom);
+    int version = AtomParsers.parseFullAtomVersion(fullAtom);
 
     atom.skipBytes(4);
     long timescale = atom.readUnsignedInt();

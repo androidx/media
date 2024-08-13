@@ -104,6 +104,16 @@ import java.util.Objects;
   /** The magic signature for an Opus Identification header, as defined in RFC-7845. */
   private static final byte[] opusMagic = Util.getUtf8Bytes("OpusHead");
 
+  /** Parses the version number out of the additional integer component of a full atom. */
+  public static int parseFullAtomVersion(int fullAtomInt) {
+    return 0x000000FF & (fullAtomInt >> 24);
+  }
+
+  /** Parses the atom flags out of the additional integer component of a full atom. */
+  public static int parseFullAtomFlags(int fullAtomInt) {
+    return 0x00FFFFFF & fullAtomInt;
+  }
+
   /**
    * Parse the trak atoms in a moov atom (defined in ISO/IEC 14496-12).
    *
@@ -198,7 +208,7 @@ import java.util.Objects;
   public static Mp4TimestampData parseMvhd(ParsableByteArray mvhd) {
     mvhd.setPosition(Atom.HEADER_SIZE);
     int fullAtom = mvhd.readInt();
-    int version = Atom.parseFullAtomVersion(fullAtom);
+    int version = parseFullAtomVersion(fullAtom);
     long creationTimestampSeconds;
     long modificationTimestampSeconds;
     if (version == 0) {
@@ -840,7 +850,7 @@ import java.util.Objects;
   private static TkhdData parseTkhd(ParsableByteArray tkhd) {
     tkhd.setPosition(Atom.HEADER_SIZE);
     int fullAtom = tkhd.readInt();
-    int version = Atom.parseFullAtomVersion(fullAtom);
+    int version = parseFullAtomVersion(fullAtom);
 
     tkhd.skipBytes(version == 0 ? 8 : 16);
     int trackId = tkhd.readInt();
@@ -927,7 +937,7 @@ import java.util.Objects;
   private static Pair<Long, String> parseMdhd(ParsableByteArray mdhd) {
     mdhd.setPosition(Atom.HEADER_SIZE);
     int fullAtom = mdhd.readInt();
-    int version = Atom.parseFullAtomVersion(fullAtom);
+    int version = parseFullAtomVersion(fullAtom);
     mdhd.skipBytes(version == 0 ? 8 : 16);
     long timescale = mdhd.readUnsignedInt();
     mdhd.skipBytes(version == 0 ? 4 : 8);
@@ -1636,7 +1646,7 @@ import java.util.Objects;
     ParsableByteArray elstData = elstAtom.data;
     elstData.setPosition(Atom.HEADER_SIZE);
     int fullAtom = elstData.readInt();
-    int version = Atom.parseFullAtomVersion(fullAtom);
+    int version = parseFullAtomVersion(fullAtom);
     int entryCount = elstData.readUnsignedIntToInt();
     long[] editListDurations = new long[entryCount];
     long[] editListMediaTimes = new long[entryCount];
@@ -2188,7 +2198,7 @@ import java.util.Objects;
       int childAtomType = parent.readInt();
       if (childAtomType == Atom.TYPE_tenc) {
         int fullAtom = parent.readInt();
-        int version = Atom.parseFullAtomVersion(fullAtom);
+        int version = parseFullAtomVersion(fullAtom);
         parent.skipBytes(1); // reserved = 0.
         int defaultCryptByteBlock = 0;
         int defaultSkipByteBlock = 0;

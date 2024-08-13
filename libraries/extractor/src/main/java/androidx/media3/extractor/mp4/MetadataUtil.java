@@ -350,7 +350,7 @@ import com.google.common.collect.ImmutableList;
     int atomType = data.readInt();
     if (atomType == Atom.TYPE_data) {
       int fullVersionInt = data.readInt();
-      int flags = Atom.parseFullAtomFlags(fullVersionInt);
+      int flags = AtomParsers.parseFullAtomFlags(fullVersionInt);
       @Nullable String mimeType = flags == 13 ? "image/jpeg" : flags == 14 ? "image/png" : null;
       if (mimeType == null) {
         Log.w(TAG, "Unrecognized cover art flags: " + flags);
