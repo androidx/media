@@ -293,25 +293,28 @@ public final class PreloadMediaSource extends WrappingMediaSource {
   protected void onChildSourceInfoRefreshed(Timeline newTimeline) {
     this.timeline = newTimeline;
     refreshSourceInfo(newTimeline);
-    if (isUsedByPlayer() || onSourcePreparedNotified) {
-      return;
-    }
-    onSourcePreparedNotified = true;
-    if (!preloadControl.onSourcePrepared(this)) {
-      return;
-    }
-    Pair<Object, Long> periodPosition =
-        newTimeline.getPeriodPositionUs(
-            new Timeline.Window(),
-            new Timeline.Period(),
-            /* windowIndex= */ 0,
-            /* windowPositionUs= */ startPositionUs);
-    MediaPeriodId mediaPeriodId = new MediaPeriodId(periodPosition.first);
-    PreloadMediaPeriod mediaPeriod =
-        PreloadMediaSource.this.createPeriod(mediaPeriodId, allocator, periodPosition.second);
-    mediaPeriod.preload(
-        new PreloadMediaPeriodCallback(periodPosition.second),
-        /* positionUs= */ periodPosition.second);
+    preloadHandler.post(
+        () -> {
+          if (isUsedByPlayer() || onSourcePreparedNotified) {
+            return;
+          }
+          onSourcePreparedNotified = true;
+          if (!preloadControl.onSourcePrepared(this)) {
+            return;
+          }
+          Pair<Object, Long> periodPosition =
+              newTimeline.getPeriodPositionUs(
+                  new Timeline.Window(),
+                  new Timeline.Period(),
+                  /* windowIndex= */ 0,
+                  /* windowPositionUs= */ startPositionUs);
+          MediaPeriodId mediaPeriodId = new MediaPeriodId(periodPosition.first);
+          PreloadMediaPeriod mediaPeriod =
+              PreloadMediaSource.this.createPeriod(mediaPeriodId, allocator, periodPosition.second);
+          mediaPeriod.preload(
+              new PreloadMediaPeriodCallback(periodPosition.second),
+              /* positionUs= */ periodPosition.second);
+        });
   }
 
   @Override
@@ -405,44 +408,50 @@ public final class PreloadMediaSource extends WrappingMediaSource {
     @Override
     public void onPrepared(MediaPeriod mediaPeriod) {
       prepared = true;
-      if (isUsedByPlayer()) {
-        return;
-      }
-      PreloadMediaPeriod preloadMediaPeriod = (PreloadMediaPeriod) mediaPeriod;
-      TrackGroupArray trackGroups = preloadMediaPeriod.getTrackGroups();
-      @Nullable TrackSelectorResult trackSelectorResult = null;
-      MediaPeriodKey key = checkNotNull(preloadingMediaPeriodAndKey).second;
-      try {
-        trackSelectorResult =
-            trackSelector.selectTracks(
-                rendererCapabilities, trackGroups, key.mediaPeriodId, checkNotNull(timeline));
-      } catch (ExoPlaybackException e) {
-        Log.e(TAG, "Failed to select tracks", e);
-      }
-      if (trackSelectorResult != null) {
-        preloadMediaPeriod.selectTracksForPreloading(
-            trackSelectorResult.selections, periodStartPositionUs);
-        if (preloadControl.onTracksSelected(PreloadMediaSource.this)) {
-          preloadMediaPeriod.continueLoading(
-              new LoadingInfo.Builder().setPlaybackPositionUs(periodStartPositionUs).build());
-        }
-      }
+      preloadHandler.post(
+          () -> {
+            if (isUsedByPlayer()) {
+              return;
+            }
+            PreloadMediaPeriod preloadMediaPeriod = (PreloadMediaPeriod) mediaPeriod;
+            TrackGroupArray trackGroups = preloadMediaPeriod.getTrackGroups();
+            @Nullable TrackSelectorResult trackSelectorResult = null;
+            MediaPeriodKey key = checkNotNull(preloadingMediaPeriodAndKey).second;
+            try {
+              trackSelectorResult =
+                  trackSelector.selectTracks(
+                      rendererCapabilities, trackGroups, key.mediaPeriodId, checkNotNull(timeline));
+            } catch (ExoPlaybackException e) {
+              Log.e(TAG, "Failed to select tracks", e);
+            }
+            if (trackSelectorResult != null) {
+              preloadMediaPeriod.selectTracksForPreloading(
+                  trackSelectorResult.selections, periodStartPositionUs);
+              if (preloadControl.onTracksSelected(PreloadMediaSource.this)) {
+                preloadMediaPeriod.continueLoading(
+                    new LoadingInfo.Builder().setPlaybackPositionUs(periodStartPositionUs).build());
+              }
+            }
+          });
     }
 
     @Override
     public void onContinueLoadingRequested(MediaPeriod mediaPeriod) {
-      if (isUsedByPlayer()) {
-        return;
-      }
-      PreloadMediaPeriod preloadMediaPeriod = (PreloadMediaPeriod) mediaPeriod;
-      if (prepared && mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE) {
-        preloadControl.onLoadedToTheEndOfSource(PreloadMediaSource.this);
-      } else if (!prepared
-          || preloadControl.onContinueLoadingRequested(
-              PreloadMediaSource.this, preloadMediaPeriod.getBufferedPositionUs())) {
-        preloadMediaPeriod.continueLoading(
-            new LoadingInfo.Builder().setPlaybackPositionUs(periodStartPositionUs).build());
-      }
+      preloadHandler.post(
+          () -> {
+            if (isUsedByPlayer()) {
+              return;
+            }
+            PreloadMediaPeriod preloadMediaPeriod = (PreloadMediaPeriod) mediaPeriod;
+            if (prepared && mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE) {
+              preloadControl.onLoadedToTheEndOfSource(PreloadMediaSource.this);
+            } else if (!prepared
+                || preloadControl.onContinueLoadingRequested(
+                PreloadMediaSource.this, preloadMediaPeriod.getBufferedPositionUs())) {
+              preloadMediaPeriod.continueLoading(
+                  new LoadingInfo.Builder().setPlaybackPositionUs(periodStartPositionUs).build());
+            }
+          });
     }
   }
 

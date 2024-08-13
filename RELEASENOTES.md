@@ -4,6 +4,8 @@
 
 *   Common Library:
 *   ExoPlayer:
+    *   Handle preload callbacks asynchronously in `PreloadMediaSource`
+        ([#1568](https://github.com/androidx/media/issues/1568)).
 *   Transformer:
 *   Track Selection:
 *   Extractors:
