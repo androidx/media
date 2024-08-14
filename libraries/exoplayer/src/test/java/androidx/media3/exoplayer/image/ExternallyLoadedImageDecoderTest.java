@@ -28,8 +28,8 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import com.google.common.base.Charsets;
 import com.google.common.util.concurrent.SettableFuture;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CancellationException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -85,8 +85,8 @@ public class ExternallyLoadedImageDecoderTest {
   public void decoding_withMultipleBuffersAndEndOfStream_producesExpectedOutput() throws Exception {
     Uri uri1 = Uri.parse("https://image1_longer_name_than_image2.test");
     Uri uri2 = Uri.parse("https://image2.test");
-    byte[] uri1Bytes = uri1.toString().getBytes(Charsets.UTF_8);
-    byte[] uri2Bytes = uri2.toString().getBytes(Charsets.UTF_8);
+    byte[] uri1Bytes = uri1.toString().getBytes(StandardCharsets.UTF_8);
+    byte[] uri2Bytes = uri2.toString().getBytes(StandardCharsets.UTF_8);
     Bitmap bitmap1 = Bitmap.createBitmap(/* width= */ 5, /* height= */ 5, Bitmap.Config.ARGB_8888);
     Bitmap bitmap2 = Bitmap.createBitmap(/* width= */ 7, /* height= */ 7, Bitmap.Config.ARGB_8888);
     ExternallyLoadedImageDecoder decoder =
@@ -131,7 +131,7 @@ public class ExternallyLoadedImageDecoderTest {
   @Test
   public void dequeueOutputBuffer_withDelayedBitmap_onlyReturnsOutputWhenReady() throws Exception {
     Uri uri = Uri.parse("https://image.test");
-    byte[] uriBytes = uri.toString().getBytes(Charsets.UTF_8);
+    byte[] uriBytes = uri.toString().getBytes(StandardCharsets.UTF_8);
     Bitmap bitmap = Bitmap.createBitmap(/* width= */ 5, /* height= */ 5, Bitmap.Config.ARGB_8888);
     SettableFuture<Bitmap> settableFuture = SettableFuture.create();
     ExternallyLoadedImageDecoder decoder =
@@ -152,7 +152,7 @@ public class ExternallyLoadedImageDecoderTest {
   public void dequeueOutputBuffer_withFailedFuture_throwsExceptionWithOriginalCause()
       throws Exception {
     Uri uri = Uri.parse("https://image.test");
-    byte[] uriBytes = uri.toString().getBytes(Charsets.UTF_8);
+    byte[] uriBytes = uri.toString().getBytes(StandardCharsets.UTF_8);
     Throwable testThrowable = new Throwable();
     SettableFuture<Bitmap> settableFuture = SettableFuture.create();
     ExternallyLoadedImageDecoder decoder =
@@ -176,7 +176,7 @@ public class ExternallyLoadedImageDecoderTest {
       dequeueOutputBuffer_withCancelledFuture_throwsExceptionWithCancellationExceptionCause()
           throws Exception {
     Uri uri = Uri.parse("https://image.test");
-    byte[] uriBytes = uri.toString().getBytes(Charsets.UTF_8);
+    byte[] uriBytes = uri.toString().getBytes(StandardCharsets.UTF_8);
     SettableFuture<Bitmap> settableFuture = SettableFuture.create();
     ExternallyLoadedImageDecoder decoder =
         new ExternallyLoadedImageDecoder.Factory(request -> settableFuture).createImageDecoder();
@@ -197,7 +197,7 @@ public class ExternallyLoadedImageDecoderTest {
   @Test
   public void flush_beforeFirstBuffer_allowsToQueueNextBuffer() throws Exception {
     Uri uri = Uri.parse("https://image.test");
-    byte[] uriBytes = uri.toString().getBytes(Charsets.UTF_8);
+    byte[] uriBytes = uri.toString().getBytes(StandardCharsets.UTF_8);
     Bitmap bitmap = Bitmap.createBitmap(/* width= */ 5, /* height= */ 5, Bitmap.Config.ARGB_8888);
     ExternallyLoadedImageDecoder decoder =
         new ExternallyLoadedImageDecoder.Factory(request -> immediateFuture(bitmap))
@@ -222,8 +222,8 @@ public class ExternallyLoadedImageDecoderTest {
       throws Exception {
     Uri uri1 = Uri.parse("https://image1.test");
     Uri uri2 = Uri.parse("https://image2.test");
-    byte[] uri1Bytes = uri1.toString().getBytes(Charsets.UTF_8);
-    byte[] uri2Bytes = uri2.toString().getBytes(Charsets.UTF_8);
+    byte[] uri1Bytes = uri1.toString().getBytes(StandardCharsets.UTF_8);
+    byte[] uri2Bytes = uri2.toString().getBytes(StandardCharsets.UTF_8);
     Bitmap bitmap2 = Bitmap.createBitmap(/* width= */ 7, /* height= */ 7, Bitmap.Config.ARGB_8888);
     SettableFuture<Bitmap> settableFuture = SettableFuture.create();
     ExternallyLoadedImageDecoder decoder =
@@ -256,8 +256,8 @@ public class ExternallyLoadedImageDecoderTest {
   public void flush_afterDecoding_allowsToQueueNextBuffer() throws Exception {
     Uri uri1 = Uri.parse("https://image1.test");
     Uri uri2 = Uri.parse("https://image2.test");
-    byte[] uri1Bytes = uri1.toString().getBytes(Charsets.UTF_8);
-    byte[] uri2Bytes = uri2.toString().getBytes(Charsets.UTF_8);
+    byte[] uri1Bytes = uri1.toString().getBytes(StandardCharsets.UTF_8);
+    byte[] uri2Bytes = uri2.toString().getBytes(StandardCharsets.UTF_8);
     Bitmap bitmap1 = Bitmap.createBitmap(/* width= */ 5, /* height= */ 5, Bitmap.Config.ARGB_8888);
     Bitmap bitmap2 = Bitmap.createBitmap(/* width= */ 7, /* height= */ 7, Bitmap.Config.ARGB_8888);
     ExternallyLoadedImageDecoder decoder =
@@ -290,7 +290,7 @@ public class ExternallyLoadedImageDecoderTest {
   @Test
   public void flush_duringEndOfStreamSample_allowsToQueueNextBuffer() throws Exception {
     Uri uri = Uri.parse("https://image1.test");
-    byte[] uriBytes = uri.toString().getBytes(Charsets.UTF_8);
+    byte[] uriBytes = uri.toString().getBytes(StandardCharsets.UTF_8);
     Bitmap bitmap = Bitmap.createBitmap(/* width= */ 5, /* height= */ 5, Bitmap.Config.ARGB_8888);
     ExternallyLoadedImageDecoder decoder =
         new ExternallyLoadedImageDecoder.Factory(request -> immediateFuture(bitmap))
@@ -316,7 +316,7 @@ public class ExternallyLoadedImageDecoderTest {
   @Test
   public void flush_afterEndOfStreamSample_allowsToQueueNextBuffer() throws Exception {
     Uri uri = Uri.parse("https://image1.test");
-    byte[] uriBytes = uri.toString().getBytes(Charsets.UTF_8);
+    byte[] uriBytes = uri.toString().getBytes(StandardCharsets.UTF_8);
     Bitmap bitmap = Bitmap.createBitmap(/* width= */ 5, /* height= */ 5, Bitmap.Config.ARGB_8888);
     ExternallyLoadedImageDecoder decoder =
         new ExternallyLoadedImageDecoder.Factory(request -> immediateFuture(bitmap))

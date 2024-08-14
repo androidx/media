@@ -27,10 +27,10 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.RendererCapabilities;
-import com.google.common.base.Charsets;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -153,7 +153,10 @@ public final class ExternallyLoadedImageDecoder implements ImageDecoder {
     Uri imageUri =
         Uri.parse(
             new String(
-                inputData.array(), inputData.arrayOffset(), inputData.remaining(), Charsets.UTF_8));
+                inputData.array(),
+                inputData.arrayOffset(),
+                inputData.remaining(),
+                StandardCharsets.UTF_8));
     pendingDecode = bitmapResolver.resolve(new ExternalImageRequest(imageUri));
     pendingDecodeTimeUs = inputBuffer.timeUs;
     inputBuffer.clear();
