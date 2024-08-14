@@ -189,6 +189,10 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
             .setLooper(looper)
             .setUsePlatformDiagnostics(false)
             .setReleaseTimeoutMs(getReleaseTimeoutMs());
+    if (decoderFactory instanceof DefaultDecoderFactory) {
+      playerBuilder.experimentalSetDynamicSchedulingEnabled(
+          ((DefaultDecoderFactory) decoderFactory).isDynamicSchedulingEnabled());
+    }
     if (clock != Clock.DEFAULT) {
       // Transformer.Builder#setClock is also @VisibleForTesting, so if we're using a non-default
       // clock we must be in a test context.

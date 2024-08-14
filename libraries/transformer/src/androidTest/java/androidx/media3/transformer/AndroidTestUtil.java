@@ -377,6 +377,18 @@ public final class AndroidTestUtil {
                   .build())
           .build();
 
+  public static final AssetInfo MP4_LONG_ASSET_WITH_AUDIO_AND_INCREASING_TIMESTAMPS =
+      new AssetInfo.Builder("asset:///media/mp4/long_1080p_lowbitrate.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(1920)
+                  .setHeight(1080)
+                  .setFrameRate(30.00f)
+                  .setCodecs("avc1.42C028")
+                  .build())
+          .build();
+
   /** Baseline profile level 3.0 H.264 stream, which should be supported on all devices. */
   public static final AssetInfo MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S =
       new AssetInfo.Builder("asset:///media/mp4/sample_with_increasing_timestamps_320w_240h.mp4")
