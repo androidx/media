@@ -105,18 +105,32 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
  */
 @UnstableApi
 public final class Mp4Muxer implements Muxer {
-  /** Provides temporary cache files to be used by the muxer. */
-  public interface CacheFileProvider {
+  /** Parameters for {@link #FILE_FORMAT_EDITABLE_VIDEO}. */
+  public static final class EditableVideoParameters {
+    /** Provides temporary cache files to be used by the muxer. */
+    public interface CacheFileProvider {
+
+      /**
+       * Returns a cache file path.
+       *
+       * <p>Every call to this method should return a new cache file.
+       *
+       * <p>The app is responsible for deleting the cache file after {@linkplain Mp4Muxer#close()
+       * closing} the muxer.
+       */
+      String getCacheFilePath();
+    }
+
+    public final CacheFileProvider cacheFileProvider;
 
     /**
-     * Returns a cache file path.
+     * Creates an instance.
      *
-     * <p>Every call to this method should return a new cache file.
-     *
-     * <p>The app is responsible for deleting the cache file after {@linkplain Mp4Muxer#close()
-     * closing} the muxer.
+     * @param cacheFileProvider A {@link CacheFileProvider}.
      */
-    String getCacheFilePath();
+    public EditableVideoParameters(CacheFileProvider cacheFileProvider) {
+      this.cacheFileProvider = cacheFileProvider;
+    }
   }
 
   /** Behavior for the last sample duration. */
@@ -167,7 +181,7 @@ public final class Mp4Muxer implements Muxer {
     private boolean sampleCopyEnabled;
     private boolean attemptStreamableOutputEnabled;
     private @FileFormat int outputFileFormat;
-    @Nullable private CacheFileProvider cacheFileProvider;
+    @Nullable private EditableVideoParameters editableVideoParameters;
 
     /**
      * Creates a {@link Builder} instance with default values.
@@ -243,8 +257,8 @@ public final class Mp4Muxer implements Muxer {
      *
      * <p>The default value is {@link #FILE_FORMAT_DEFAULT}.
      *
-     * <p>For {@link #FILE_FORMAT_EDITABLE_VIDEO}, a {@link CacheFileProvider} must also be
-     * {@linkplain #setCacheFileProvider(CacheFileProvider) set}.
+     * <p>For {@link #FILE_FORMAT_EDITABLE_VIDEO}, {@link EditableVideoParameters} must also be
+     * {@linkplain #setEditableVideoParameters(EditableVideoParameters)} set}.
      */
     @CanIgnoreReturnValue
     public Mp4Muxer.Builder setOutputFileFormat(@FileFormat int fileFormat) {
@@ -252,18 +266,21 @@ public final class Mp4Muxer implements Muxer {
       return this;
     }
 
-    /** Sets the {@link CacheFileProvider}. */
+    /** Sets the {@link EditableVideoParameters}. */
     @CanIgnoreReturnValue
-    public Mp4Muxer.Builder setCacheFileProvider(CacheFileProvider cacheFileProvider) {
-      this.cacheFileProvider = cacheFileProvider;
+    public Mp4Muxer.Builder setEditableVideoParameters(
+        EditableVideoParameters editableVideoParameters) {
+      this.editableVideoParameters = editableVideoParameters;
       return this;
     }
 
     /** Builds an {@link Mp4Muxer} instance. */
     public Mp4Muxer build() {
       checkArgument(
-          outputFileFormat != FILE_FORMAT_EDITABLE_VIDEO || cacheFileProvider != null,
-          "A CacheFileProvider must be set for FILE_FORMAT_EDITABLE_VIDEO");
+          outputFileFormat == FILE_FORMAT_EDITABLE_VIDEO
+              ? editableVideoParameters != null
+              : editableVideoParameters == null,
+          "EditablevideoParameters must be set for FILE_FORMAT_EDITABLE_VIDEO");
       return new Mp4Muxer(
           outputStream,
           lastFrameDurationBehavior,
@@ -271,7 +288,7 @@ public final class Mp4Muxer implements Muxer {
           sampleCopyEnabled,
           attemptStreamableOutputEnabled,
           outputFileFormat,
-          cacheFileProvider);
+          editableVideoParameters);
     }
   }
 
@@ -284,7 +301,7 @@ public final class Mp4Muxer implements Muxer {
   private final boolean sampleCopyEnabled;
   private final boolean attemptStreamableOutputEnabled;
   private final @FileFormat int outputFileFormat;
-  @Nullable private final CacheFileProvider cacheFileProvider;
+  @Nullable private final EditableVideoParameters editableVideoParameters;
   private final MetadataCollector metadataCollector;
   private final Mp4Writer mp4Writer;
   private final List<Track> editableVideoTracks;
@@ -301,7 +318,7 @@ public final class Mp4Muxer implements Muxer {
       boolean sampleCopyEnabled,
       boolean attemptStreamableOutputEnabled,
       @FileFormat int outputFileFormat,
-      @Nullable CacheFileProvider cacheFileProvider) {
+      @Nullable EditableVideoParameters editableVideoParameters) {
     this.outputStream = outputStream;
     outputChannel = outputStream.getChannel();
     this.lastFrameDurationBehavior = lastFrameDurationBehavior;
@@ -309,7 +326,7 @@ public final class Mp4Muxer implements Muxer {
     this.sampleCopyEnabled = sampleCopyEnabled;
     this.attemptStreamableOutputEnabled = attemptStreamableOutputEnabled;
     this.outputFileFormat = outputFileFormat;
-    this.cacheFileProvider = cacheFileProvider;
+    this.editableVideoParameters = editableVideoParameters;
     metadataCollector = new MetadataCollector();
     mp4Writer =
         new Mp4Writer(
@@ -467,7 +484,7 @@ public final class Mp4Muxer implements Muxer {
   @EnsuresNonNull({"editableVideoMp4Writer"})
   private void ensureSetupForEditableVideoTracks() throws FileNotFoundException {
     if (editableVideoMp4Writer == null) {
-      cacheFilePath = checkNotNull(cacheFileProvider).getCacheFilePath();
+      cacheFilePath = checkNotNull(editableVideoParameters).cacheFileProvider.getCacheFilePath();
       cacheFileOutputStream = new FileOutputStream(cacheFilePath);
       editableVideoMetadataCollector = new MetadataCollector();
       editableVideoMp4Writer =

@@ -387,7 +387,7 @@ public class Mp4MuxerEndToEndTest {
     Mp4Muxer muxer =
         new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
             .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_EDITABLE_VIDEO)
-            .setCacheFileProvider(() -> cacheFilePath)
+            .setEditableVideoParameters(new Mp4Muxer.EditableVideoParameters(() -> cacheFilePath))
             .build();
 
     try {
@@ -430,11 +430,7 @@ public class Mp4MuxerEndToEndTest {
   public void writeMp4File_withFileFormatDefaultAndEditableVideoTracks_doesNotWriteEdvdBox()
       throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    String cacheFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer muxer =
-        new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
-            .setCacheFileProvider(() -> cacheFilePath)
-            .build();
+    Mp4Muxer muxer = new Mp4Muxer.Builder(new FileOutputStream(outputFilePath)).build();
 
     try {
       muxer.addMetadataEntry(
@@ -481,7 +477,7 @@ public class Mp4MuxerEndToEndTest {
     Mp4Muxer muxer =
         new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
             .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_EDITABLE_VIDEO)
-            .setCacheFileProvider(() -> cacheFilePath)
+            .setEditableVideoParameters(new Mp4Muxer.EditableVideoParameters(() -> cacheFilePath))
             .build();
 
     try {
@@ -530,7 +526,7 @@ public class Mp4MuxerEndToEndTest {
     Mp4Muxer muxer =
         new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
             .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_EDITABLE_VIDEO)
-            .setCacheFileProvider(() -> cacheFilePath)
+            .setEditableVideoParameters(new Mp4Muxer.EditableVideoParameters(() -> cacheFilePath))
             .build();
 
     try {
