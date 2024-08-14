@@ -381,7 +381,6 @@ public final class AmrExtractor implements Extractor {
     }
 
     if ((flags & FLAG_ENABLE_CONSTANT_BITRATE_SEEKING) == 0
-        || inputLength == C.LENGTH_UNSET
         || (firstSampleSize != C.LENGTH_UNSET && firstSampleSize != currentSampleSize)) {
       seekMap = new SeekMap.Unseekable(C.TIME_UNSET);
       extractorOutput.seekMap(seekMap);
