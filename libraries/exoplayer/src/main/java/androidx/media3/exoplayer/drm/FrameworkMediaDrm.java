@@ -293,7 +293,8 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
   public boolean requiresSecureDecoder(byte[] sessionId, String mimeType) {
     boolean result;
     if (Util.SDK_INT >= 31 && isMediaDrmRequiresSecureDecoderImplemented()) {
-      result = Api31.requiresSecureDecoder(mediaDrm, mimeType);
+      result =
+          Api31.requiresSecureDecoder(mediaDrm, mimeType, mediaDrm.getSecurityLevel(sessionId));
     } else {
       MediaCrypto mediaCrypto = null;
       try {
@@ -591,8 +592,9 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
     private Api31() {}
 
     @DoNotInline
-    public static boolean requiresSecureDecoder(MediaDrm mediaDrm, String mimeType) {
-      return mediaDrm.requiresSecureDecoder(mimeType);
+    public static boolean requiresSecureDecoder(
+        MediaDrm mediaDrm, String mimeType, int securityLevel) {
+      return mediaDrm.requiresSecureDecoder(mimeType, securityLevel);
     }
 
     @DoNotInline
