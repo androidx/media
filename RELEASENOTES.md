@@ -78,6 +78,12 @@
         read from a `FileDescriptor`
         ([#3757](https://github.com/google/ExoPlayer/issues/3757)).
 *   DRM:
+    *   Fix `android.media.MediaCodec$CryptoException: Operation not supported
+        in this configuration: ERROR_DRM_CANNOT_HANDLE` error on API 31+ devices
+        playing L1 Widevine content. This error is caused by an incomplete
+        implementation of the framework
+        [`MediaDrm.requiresSecureDecoder`](https://developer.android.com/reference/android/media/MediaDrm#requiresSecureDecoder\(java.lang.String\))
+        method ([#1603](https://github.com/google/ExoPlayer/issues/1603)).
 *   Effect:
     *   Add `DefaultVideoFrameProcessor` workaround for minor `SurfaceTexture`
         scaling. `SurfaceTexture` may include a small scaling that cuts off a
