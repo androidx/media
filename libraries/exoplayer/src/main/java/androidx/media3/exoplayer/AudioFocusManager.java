@@ -32,6 +32,8 @@ import androidx.media3.common.Player;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -161,14 +163,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private static final float VOLUME_MULTIPLIER_DEFAULT = 1.0f;
 
   private final AudioFocusListener focusListener;
-  private final Context applicationContext;
+  private final Supplier<AudioManager> audioManager;
   @Nullable private PlayerControl playerControl;
   @Nullable private AudioAttributes audioAttributes;
-  @Nullable private AudioManager audioManager;
   private @AudioFocusState int audioFocusState;
   private @AudioFocusGain int focusGainToRequest;
   private float volumeMultiplier = VOLUME_MULTIPLIER_DEFAULT;
-
   private @MonotonicNonNull AudioFocusRequest audioFocusRequest;
   private boolean rebuildAudioFocusRequest;
 
@@ -180,7 +180,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param playerControl A {@link PlayerControl} to handle commands from this instance.
    */
   public AudioFocusManager(Context context, Handler eventHandler, PlayerControl playerControl) {
-    this.applicationContext = context;
+    this.audioManager =
+        Suppliers.memoize(() -> checkNotNull(
+            (AudioManager) context.getApplicationContext().getSystemService(Context.AUDIO_SERVICE)));
     this.playerControl = playerControl;
     this.focusListener = new AudioFocusListener(eventHandler);
     this.audioFocusState = AUDIO_FOCUS_STATE_NOT_REQUESTED;
@@ -285,7 +287,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private int requestAudioFocusDefault() {
-    return getAudioManager().requestAudioFocus(
+    return audioManager.get().requestAudioFocus(
         focusListener,
         Util.getStreamTypeForAudioUsage(checkNotNull(audioAttributes).usage),
         focusGainToRequest);
@@ -310,17 +312,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
       rebuildAudioFocusRequest = false;
     }
-    return getAudioManager().requestAudioFocus(audioFocusRequest);
+    return audioManager.get().requestAudioFocus(audioFocusRequest);
   }
 
   private void abandonAudioFocusDefault() {
-    getAudioManager().abandonAudioFocus(focusListener);
+    audioManager.get().abandonAudioFocus(focusListener);
   }
 
   @RequiresApi(26)
   private void abandonAudioFocusV26() {
     if (audioFocusRequest != null) {
-      getAudioManager().abandonAudioFocusRequest(audioFocusRequest);
+      audioManager.get().abandonAudioFocusRequest(audioFocusRequest);
     }
   }
 
@@ -451,13 +453,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (playerControl != null) {
       playerControl.executePlayerCommand(playerCommand);
     }
-  }
-
-  private AudioManager getAudioManager() {
-    if (audioManager == null) {
-      audioManager = (AudioManager) applicationContext.getSystemService(Context.AUDIO_SERVICE);
-    }
-    return audioManager;
   }
 
   // Internal audio focus listener.
