@@ -39,9 +39,6 @@ import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.GlEffect;
-import androidx.media3.exoplayer.audio.DefaultAudioSink;
-import androidx.media3.test.utils.CapturingAudioSink;
-import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.CompositionPlayer;
 import androidx.media3.transformer.EditedMediaItem;
@@ -387,14 +384,11 @@ public class CompositionPlaybackTest {
                 Iterables.transform(
                     VIDEO_TIMESTAMPS_US, timestampUs -> (2 * VIDEO_DURATION_US + timestampUs)))
             .build();
-    CapturingAudioSink capturingAudioSink =
-        new CapturingAudioSink(new DefaultAudioSink.Builder(context).build());
 
     getInstrumentation()
         .runOnMainSync(
             () -> {
-              player =
-                  new CompositionPlayer.Builder(context).setAudioSink(capturingAudioSink).build();
+              player = new CompositionPlayer.Builder(context).build();
               player.addListener(playerTestListener);
               player.setComposition(composition);
               player.prepare();
@@ -404,10 +398,6 @@ public class CompositionPlaybackTest {
 
     assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
         .isEqualTo(expectedTimestampsUs);
-    DumpFileAsserts.assertOutput(
-        context,
-        capturingAudioSink,
-        "audiosinkdumps/wav/playback_sequenceOfThreeVideosWithRemovingFirstAndLastAudio_succeeds.dump");
   }
 
   @Test
@@ -440,14 +430,11 @@ public class CompositionPlaybackTest {
                 Iterables.transform(
                     VIDEO_TIMESTAMPS_US, timestampUs -> (2 * VIDEO_DURATION_US + timestampUs)))
             .build();
-    CapturingAudioSink capturingAudioSink =
-        new CapturingAudioSink(new DefaultAudioSink.Builder(context).build());
 
     getInstrumentation()
         .runOnMainSync(
             () -> {
-              player =
-                  new CompositionPlayer.Builder(context).setAudioSink(capturingAudioSink).build();
+              player = new CompositionPlayer.Builder(context).build();
               player.addListener(playerTestListener);
               player.setComposition(composition);
               player.prepare();
@@ -457,10 +444,6 @@ public class CompositionPlaybackTest {
 
     assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
         .isEqualTo(expectedTimestampsUs);
-    DumpFileAsserts.assertOutput(
-        context,
-        capturingAudioSink,
-        "audiosinkdumps/wav/playback_sequenceOfThreeVideosWithRemovingMiddleAudio_succeeds.dump");
   }
 
   @Test

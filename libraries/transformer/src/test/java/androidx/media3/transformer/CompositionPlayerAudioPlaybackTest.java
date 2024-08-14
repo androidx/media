@@ -297,6 +297,64 @@ public final class CompositionPlayerAudioPlaybackTest {
         "audiosinkdumps/wav/sample.wav_then_sample_rf64.wav_repeated.dump");
   }
 
+  @Test
+  public void sequencePlayback_withThreeMediaAndRemovingMiddleAudio_outputsCorrectSamples()
+      throws Exception {
+    CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
+            .setDurationUs(1_000_000L)
+            .build();
+    EditedMediaItem audioRemovedMediaItem =
+        editedMediaItem.buildUpon().setRemoveAudio(true).build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence(
+                    editedMediaItem, audioRemovedMediaItem, editedMediaItem))
+            .build();
+    player.setComposition(composition);
+    player.prepare();
+    player.play();
+
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    player.release();
+
+    // The silence should be in between the timestamp between [1, 2] seconds.
+    DumpFileAsserts.assertOutput(
+        context,
+        capturingAudioSink,
+        "audiosinkdumps/wav/sequencePlayback_withThreeMediaAndRemovingMiddleAudio_outputsCorrectSamples.dump");
+  }
+
+  @Test
+  public void sequencePlayback_withThreeMediaAndRemovingFirstAndThirdAudio_outputsCorrectSamples()
+      throws Exception {
+    CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
+            .setDurationUs(1_000_000L)
+            .build();
+    EditedMediaItem audioRemovedMediaItem =
+        editedMediaItem.buildUpon().setRemoveAudio(true).build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence(
+                    audioRemovedMediaItem, editedMediaItem, audioRemovedMediaItem))
+            .build();
+    player.setComposition(composition);
+    player.prepare();
+    player.play();
+
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    player.release();
+
+    // The silence should be in between the timestamp between [0, 1] and [2, 3] seconds.
+    DumpFileAsserts.assertOutput(
+        context,
+        capturingAudioSink,
+        "audiosinkdumps/wav/sequencePlayback_withThreeMediaAndRemovingFirstAndThirdAudio_outputsCorrectSamples.dump");
+  }
+
   // TODO - b/320014878: Enable this test.
   @Ignore("Preview audio is not fed to the sink in deterministic buffers - see b/320014878.")
   @Test
