@@ -292,7 +292,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
   @Override
   public boolean requiresSecureDecoder(byte[] sessionId, String mimeType) {
     boolean result;
-    if (Util.SDK_INT >= 31) {
+    if (Util.SDK_INT >= 31 && isMediaDrmRequiresSecureDecoderImplemented()) {
       result = Api31.requiresSecureDecoder(mediaDrm, mimeType);
     } else {
       MediaCrypto mediaCrypto = null;
@@ -406,6 +406,26 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
   @Override
   public @C.CryptoType int getCryptoType() {
     return C.CRYPTO_TYPE_FRAMEWORK;
+  }
+
+  /**
+   * {@link MediaDrm#requiresSecureDecoder} is nominally available from API 31, but it's only
+   * functional for Widevine if the plugin version is greater than 16.0. See b/352419654#comment63.
+   */
+  @RequiresApi(31)
+  private boolean isMediaDrmRequiresSecureDecoderImplemented() {
+    // TODO: b/359768062 - Add an SDK_INT guard clause once WV 16.0 is not permitted on any device.
+    if (uuid.equals(C.WIDEVINE_UUID)) {
+      String pluginVersion = getPropertyString(MediaDrm.PROPERTY_VERSION);
+      return !pluginVersion.startsWith("v5.")
+          && !pluginVersion.startsWith("14.")
+          && !pluginVersion.startsWith("15.")
+          && !pluginVersion.startsWith("16.0");
+    } else {
+      // Assume that ClearKey plugin always supports this method, and no non-Google plugin does. See
+      // b/352419654#comment71.
+      return uuid.equals(C.CLEARKEY_UUID);
+    }
   }
 
   private static SchemeData getSchemeData(UUID uuid, List<SchemeData> schemeDatas) {
