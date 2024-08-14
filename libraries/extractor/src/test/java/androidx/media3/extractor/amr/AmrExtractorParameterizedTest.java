@@ -59,7 +59,10 @@ public final class AmrExtractorParameterizedTest {
   public void extractingNarrowBandSamples_withSeeking() throws Exception {
     ExtractorAsserts.assertBehavior(
         createAmrExtractorFactory(/* withSeeking= */ true),
-        "media/amr/sample_nb_cbr.amr",
+        "media/amr/sample_nb.amr",
+        new ExtractorAsserts.AssertionConfig.Builder()
+            .setDumpFilesPrefix("extractordumps/amr/sample_nb_cbr_seeking_enabled.amr")
+            .build(),
         simulationConfig);
   }
 
@@ -67,7 +70,10 @@ public final class AmrExtractorParameterizedTest {
   public void extractingWideBandSamples_withSeeking() throws Exception {
     ExtractorAsserts.assertBehavior(
         createAmrExtractorFactory(/* withSeeking= */ true),
-        "media/amr/sample_wb_cbr.amr",
+        "media/amr/sample_wb.amr",
+        new ExtractorAsserts.AssertionConfig.Builder()
+            .setDumpFilesPrefix("extractordumps/amr/sample_wb_cbr_seeking_enabled.amr")
+            .build(),
         simulationConfig);
   }
 
