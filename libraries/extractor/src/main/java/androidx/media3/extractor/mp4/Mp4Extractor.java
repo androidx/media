@@ -15,9 +15,21 @@
  */
 package androidx.media3.extractor.mp4;
 
+import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_DEPTH_INVERSE;
+import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_DEPTH_LINEAR;
+import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_ORIGINAL;
+import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_UNDEFINED;
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
+import static androidx.media3.container.MdtaMetadataEntry.EDITABLE_TRACKS_SAMPLES_LOCATION_IN_EDIT_DATA_MP4;
+import static androidx.media3.container.Mp4Util.EDITABLE_TRACK_TYPE_DEPTH_INVERSE;
+import static androidx.media3.container.Mp4Util.EDITABLE_TRACK_TYPE_DEPTH_LINEAR;
+import static androidx.media3.container.Mp4Util.EDITABLE_TRACK_TYPE_DEPTH_METADATA;
+import static androidx.media3.container.Mp4Util.EDITABLE_TRACK_TYPE_SHARP;
 import static androidx.media3.extractor.mp4.AtomParsers.parseTraks;
+import static androidx.media3.extractor.mp4.MetadataUtil.findMdtaMetadataEntryWithKey;
 import static androidx.media3.extractor.mp4.Sniffer.BRAND_HEIC;
 import static androidx.media3.extractor.mp4.Sniffer.BRAND_QUICKTIME;
 import static java.lang.Math.max;
@@ -34,6 +46,7 @@ import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.NalUnitUtil;
 import androidx.media3.extractor.Ac3Util;
 import androidx.media3.extractor.Ac4Util;
@@ -62,6 +75,7 @@ import java.lang.annotation.Target;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -93,7 +107,8 @@ public final class Mp4Extractor implements Extractor, SeekMap {
         FLAG_READ_SEF_DATA,
         FLAG_MARK_FIRST_VIDEO_TRACK_WITH_MAIN_ROLE,
         FLAG_EMIT_RAW_SUBTITLE_DATA,
-        FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES
+        FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES,
+        FLAG_READ_EDITABLE_VIDEO_TRACKS
       })
   public @interface Flags {}
 
@@ -142,6 +157,18 @@ public final class Mp4Extractor implements Extractor, SeekMap {
    * </ul>
    */
   public static final int FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES = 1 << 5;
+
+  // TODO: b/345219017 - Add depth/editing file format spec link after its published.
+  /**
+   * Flag to extract the editable video tracks.
+   *
+   * <p>Either primary video tracks or editable video tracks (but not both) will be extracted based
+   * on the flag.
+   *
+   * <p>If the flag is set but the editable video tracks are not present, then it fallbacks to
+   * extract primary tracks instead.
+   */
+  public static final int FLAG_READ_EDITABLE_VIDEO_TRACKS = 1 << 6;
 
   /**
    * @deprecated Use {@link #newFactory(SubtitleParser.Factory)} instead.
@@ -219,6 +246,12 @@ public final class Mp4Extractor implements Extractor, SeekMap {
   private int sampleCurrentNalBytesRemaining;
   private boolean isSampleDependedOn;
   private boolean seenFtypAtom;
+  private boolean seekToEdvdAtom;
+  private long edvdAtomOffset;
+  private boolean readingEditableVideoTracks;
+
+  // Used when editable video samples are in the edit data MP4 (inside edvd atom).
+  private long sampleOffsetForEditableVideoTracks;
 
   // Extractor outputs.
   private ExtractorOutput extractorOutput;
@@ -527,9 +560,10 @@ public final class Mp4Extractor implements Extractor, SeekMap {
   }
 
   /**
-   * Processes the atom payload. If {@link #atomData} is null and the size is at or above the
-   * threshold {@link #RELOAD_MINIMUM_SEEK_DISTANCE}, {@code true} is returned and the caller should
-   * restart loading at the position in {@code positionHolder}. Otherwise, the atom is read/skipped.
+   * Processes the atom payload.
+   *
+   * <p>If seek is required, {@code true} is returned and the caller should restart loading at the
+   * position in {@code positionHolder}. Otherwise the atom is read/skipped.
    */
   private boolean readAtomPayload(ExtractorInput input, PositionHolder positionHolder)
       throws IOException {
@@ -560,6 +594,12 @@ public final class Mp4Extractor implements Extractor, SeekMap {
       }
     }
     processAtomEnded(atomEndPosition);
+    if (seekToEdvdAtom) {
+      readingEditableVideoTracks = true;
+      positionHolder.position = edvdAtomOffset;
+      seekRequired = true;
+      seekToEdvdAtom = false;
+    }
     return seekRequired && parserState != STATE_READING_SAMPLE;
   }
 
@@ -579,7 +619,9 @@ public final class Mp4Extractor implements Extractor, SeekMap {
         // We've reached the end of the moov atom. Process it and prepare to read samples.
         processMoovAtom(containerAtom);
         containerAtoms.clear();
-        parserState = STATE_READING_SAMPLE;
+        if (!seekToEdvdAtom) {
+          parserState = STATE_READING_SAMPLE;
+        }
       } else if (!containerAtoms.isEmpty()) {
         containerAtoms.peek().add(containerAtom);
       }
@@ -589,13 +631,35 @@ public final class Mp4Extractor implements Extractor, SeekMap {
     }
   }
 
-  /** Updates the stored track metadata to reflect the contents of the specified moov atom. */
+  /**
+   * Processes moov atom and updates the stored track metadata.
+   *
+   * <p>The processing is aborted if the edvd.moov atom needs to be processed instead.
+   */
   private void processMoovAtom(ContainerAtom moov) throws ParserException {
+    // Process metadata first to determine whether to abort processing and seek to the edvd atom.
+    @Nullable Metadata mdtaMetadata = null;
+    @Nullable Atom.ContainerAtom meta = moov.getContainerAtomOfType(Atom.TYPE_meta);
+    List<@C.AuxiliaryTrackType Integer> auxiliaryTrackTypesForEditableVideoTracks =
+        new ArrayList<>();
+    if (meta != null) {
+      mdtaMetadata = AtomParsers.parseMdtaFromMeta(meta);
+      if (readingEditableVideoTracks) {
+        checkStateNotNull(mdtaMetadata);
+        maybeSetDefaultSampleOffsetForEditableVideoTracks(mdtaMetadata);
+        auxiliaryTrackTypesForEditableVideoTracks =
+            getAuxiliaryTrackTypesForEditableVideoTracks(mdtaMetadata);
+      } else if (shouldSeekToEdvdAtom(mdtaMetadata)) {
+        seekToEdvdAtom = true;
+        return;
+      }
+    }
+
     int firstVideoTrackIndex = C.INDEX_UNSET;
     long durationUs = C.TIME_UNSET;
     List<Mp4Track> tracks = new ArrayList<>();
 
-    // Process metadata.
+    // Process remaining metadata.
     boolean isQuickTime = fileType == FILE_TYPE_QUICKTIME;
     GaplessInfoHolder gaplessInfoHolder = new GaplessInfoHolder();
     @Nullable Metadata udtaMetadata = null;
@@ -603,11 +667,6 @@ public final class Mp4Extractor implements Extractor, SeekMap {
     if (udta != null) {
       udtaMetadata = AtomParsers.parseUdta(udta);
       gaplessInfoHolder.setFromMetadata(udtaMetadata);
-    }
-    @Nullable Metadata mdtaMetadata = null;
-    @Nullable Atom.ContainerAtom meta = moov.getContainerAtomOfType(Atom.TYPE_meta);
-    if (meta != null) {
-      mdtaMetadata = AtomParsers.parseMdtaFromMeta(meta);
     }
 
     Metadata mvhdMetadata =
@@ -625,6 +684,16 @@ public final class Mp4Extractor implements Extractor, SeekMap {
             isQuickTime,
             /* modifyTrackFunction= */ track -> track);
 
+    if (readingEditableVideoTracks) {
+      checkState(
+          auxiliaryTrackTypesForEditableVideoTracks.size() == trackSampleTables.size(),
+          String.format(
+              Locale.US,
+              "The number of auxiliary track types from metadata (%d) is not same as the number of"
+                  + " editable video tracks (%d)",
+              auxiliaryTrackTypesForEditableVideoTracks.size(),
+              trackSampleTables.size()));
+    }
     int trackIndex = 0;
     for (int i = 0; i < trackSampleTables.size(); i++) {
       TrackSampleTable trackSampleTable = trackSampleTables.get(i);
@@ -651,17 +720,20 @@ public final class Mp4Extractor implements Extractor, SeekMap {
       Format.Builder formatBuilder = track.format.buildUpon();
       formatBuilder.setMaxInputSize(maxInputSize);
       if (track.type == C.TRACK_TYPE_VIDEO) {
+        @C.RoleFlags int roleFlags = track.format.roleFlags;
         if ((flags & FLAG_MARK_FIRST_VIDEO_TRACK_WITH_MAIN_ROLE) != 0) {
-          formatBuilder.setRoleFlags(
-              track.format.roleFlags
-                  | (firstVideoTrackIndex == C.INDEX_UNSET
-                      ? C.ROLE_FLAG_MAIN
-                      : C.ROLE_FLAG_ALTERNATE));
+          roleFlags |=
+              firstVideoTrackIndex == C.INDEX_UNSET ? C.ROLE_FLAG_MAIN : C.ROLE_FLAG_ALTERNATE;
         }
         if (trackDurationUs > 0 && trackSampleTable.sampleCount > 0) {
           float frameRate = trackSampleTable.sampleCount / (trackDurationUs / 1000000f);
           formatBuilder.setFrameRate(frameRate);
         }
+        if (readingEditableVideoTracks) {
+          roleFlags |= C.ROLE_FLAG_AUXILIARY;
+          formatBuilder.setAuxiliaryTrackType(auxiliaryTrackTypesForEditableVideoTracks.get(i));
+        }
+        formatBuilder.setRoleFlags(roleFlags);
       }
 
       MetadataUtil.setFormatGaplessInfo(track.type, gaplessInfoHolder, formatBuilder);
@@ -686,6 +758,72 @@ public final class Mp4Extractor implements Extractor, SeekMap {
 
     extractorOutput.endTracks();
     extractorOutput.seekMap(this);
+  }
+
+  private boolean shouldSeekToEdvdAtom(@Nullable Metadata mdtaMetadata) {
+    if (mdtaMetadata == null) {
+      return false;
+    }
+    if ((flags & FLAG_READ_EDITABLE_VIDEO_TRACKS) != 0) {
+      @Nullable
+      MdtaMetadataEntry edvdAtomOffsetMetadata =
+          findMdtaMetadataEntryWithKey(mdtaMetadata, MdtaMetadataEntry.KEY_EDITABLE_TRACKS_OFFSET);
+      if (edvdAtomOffsetMetadata != null) {
+        long offset = new ParsableByteArray(edvdAtomOffsetMetadata.value).readUnsignedLongToLong();
+        if (offset > 0) {
+          edvdAtomOffset = offset;
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Sets the sample offset for the editable video tracks, if the samples are in the edit data MP4
+   * (inside edvd atom).
+   */
+  private void maybeSetDefaultSampleOffsetForEditableVideoTracks(Metadata metadata) {
+    @Nullable
+    MdtaMetadataEntry sampleLocationMetadata =
+        findMdtaMetadataEntryWithKey(
+            metadata, MdtaMetadataEntry.KEY_EDITABLE_TRACKS_SAMPLES_LOCATION);
+    if (sampleLocationMetadata != null) {
+      if (sampleLocationMetadata.value[0] == EDITABLE_TRACKS_SAMPLES_LOCATION_IN_EDIT_DATA_MP4) {
+        sampleOffsetForEditableVideoTracks = edvdAtomOffset + 16; // 16 bits for edvd atom header
+      }
+    }
+  }
+
+  private List<@C.AuxiliaryTrackType Integer> getAuxiliaryTrackTypesForEditableVideoTracks(
+      Metadata metadata) {
+    MdtaMetadataEntry trackTypesMetadata =
+        checkStateNotNull(
+            findMdtaMetadataEntryWithKey(metadata, MdtaMetadataEntry.KEY_EDITABLE_TRACKS_MAP));
+    List<Integer> editableVideoTrackTypes = trackTypesMetadata.getEditableTrackTypesFromMap();
+    List<@C.AuxiliaryTrackType Integer> auxiliaryTrackTypes =
+        new ArrayList<>(editableVideoTrackTypes.size());
+    for (int i = 0; i < editableVideoTrackTypes.size(); i++) {
+      @C.AuxiliaryTrackType int auxiliaryTrackType;
+      switch (editableVideoTrackTypes.get(i)) {
+        case EDITABLE_TRACK_TYPE_SHARP:
+          auxiliaryTrackType = AUXILIARY_TRACK_TYPE_ORIGINAL;
+          break;
+        case EDITABLE_TRACK_TYPE_DEPTH_LINEAR:
+          auxiliaryTrackType = AUXILIARY_TRACK_TYPE_DEPTH_LINEAR;
+          break;
+        case EDITABLE_TRACK_TYPE_DEPTH_INVERSE:
+          auxiliaryTrackType = AUXILIARY_TRACK_TYPE_DEPTH_INVERSE;
+          break;
+        case EDITABLE_TRACK_TYPE_DEPTH_METADATA:
+          auxiliaryTrackType = C.AUXILIARY_TRACK_TYPE_DEPTH_METADATA;
+          break;
+        default:
+          auxiliaryTrackType = AUXILIARY_TRACK_TYPE_UNDEFINED;
+      }
+      auxiliaryTrackTypes.add(auxiliaryTrackType);
+    }
+    return auxiliaryTrackTypes;
   }
 
   /**
@@ -714,7 +852,7 @@ public final class Mp4Extractor implements Extractor, SeekMap {
     Mp4Track track = tracks[sampleTrackIndex];
     TrackOutput trackOutput = track.trackOutput;
     int sampleIndex = track.sampleIndex;
-    long position = track.sampleTable.offsets[sampleIndex];
+    long position = track.sampleTable.offsets[sampleIndex] + sampleOffsetForEditableVideoTracks;
     int sampleSize = track.sampleTable.sizes[sampleIndex];
     @Nullable TrueHdSampleRechunker trueHdSampleRechunker = track.trueHdSampleRechunker;
     long skipAmount = position - inputPosition + sampleBytesRead;
@@ -1067,7 +1205,8 @@ public final class Mp4Extractor implements Extractor, SeekMap {
         || atom == Atom.TYPE_minf
         || atom == Atom.TYPE_stbl
         || atom == Atom.TYPE_edts
-        || atom == Atom.TYPE_meta;
+        || atom == Atom.TYPE_meta
+        || atom == Atom.TYPE_edvd;
   }
 
   private static final class Mp4Track {

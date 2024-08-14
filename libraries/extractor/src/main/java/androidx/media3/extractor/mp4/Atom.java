@@ -446,6 +446,9 @@ import java.util.List;
   @SuppressWarnings("ConstantCaseForConstants")
   public static final int TYPE_iacb = 0x69616362;
 
+  @SuppressWarnings("ConstantCaseForConstants")
+  public static final int TYPE_edvd = 0x65647664;
+
   public final int type;
 
   public Atom(int type) {

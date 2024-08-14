@@ -119,6 +119,21 @@ public final class MdtaMetadataEntry implements Metadata.Entry {
     validateData(key, value, typeIndicator);
   }
 
+  /**
+   * Returns the editable track types from the {@linkplain #KEY_EDITABLE_TRACKS_MAP editable tracks
+   * map} metadata.
+   */
+  public List<Integer> getEditableTrackTypesFromMap() {
+    checkState(key.equals(KEY_EDITABLE_TRACKS_MAP), "Metadata is not an editable tracks map");
+    // Value has 1 byte version, 1 byte track count, n bytes track types.
+    int numberOfTracks = value[1];
+    List<Integer> trackTypes = new ArrayList<>();
+    for (int i = 0; i < numberOfTracks; i++) {
+      trackTypes.add((int) value[i + 2]);
+    }
+    return trackTypes;
+  }
+
   @Override
   public boolean equals(@Nullable Object obj) {
     if (this == obj) {
@@ -234,20 +249,5 @@ public final class MdtaMetadataEntry implements Metadata.Entry {
     sb.append("track types = ");
     Joiner.on(',').appendTo(sb, trackTypes);
     return sb.toString();
-  }
-
-  /**
-   * Returns the editable track types from the {@linkplain #KEY_EDITABLE_TRACKS_MAP editable tracks
-   * map} metadata.
-   */
-  private List<Integer> getEditableTrackTypesFromMap() {
-    checkState(key.equals(KEY_EDITABLE_TRACKS_MAP), "Metadata is not an editable tracks map");
-    // Value has 1 byte version, 1 byte track count, n bytes track types.
-    int numberOfTracks = value[1];
-    List<Integer> trackTypes = new ArrayList<>();
-    for (int i = 0; i < numberOfTracks; i++) {
-      trackTypes.add((int) value[i + 2]);
-    }
-    return trackTypes;
   }
 }

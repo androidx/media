@@ -238,6 +238,27 @@ import com.google.common.collect.ImmutableList;
     return null;
   }
 
+  /**
+   * Returns the {@link MdtaMetadataEntry} for a given key, or {@code null} if the key is not
+   * present.
+   *
+   * @param metadata The {@link Metadata} to retrieve the {@link MdtaMetadataEntry} from.
+   * @param key The metadata key to search.
+   */
+  @Nullable
+  public static MdtaMetadataEntry findMdtaMetadataEntryWithKey(Metadata metadata, String key) {
+    for (int i = 0; i < metadata.length(); i++) {
+      Metadata.Entry entry = metadata.get(i);
+      if (entry instanceof MdtaMetadataEntry) {
+        MdtaMetadataEntry mdtaMetadataEntry = (MdtaMetadataEntry) entry;
+        if (mdtaMetadataEntry.key.equals(key)) {
+          return mdtaMetadataEntry;
+        }
+      }
+    }
+    return null;
+  }
+
   @Nullable
   private static TextInformationFrame parseTextAttribute(
       int type, String id, ParsableByteArray data) {

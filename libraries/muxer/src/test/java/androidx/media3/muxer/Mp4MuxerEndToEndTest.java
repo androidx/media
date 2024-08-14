@@ -25,8 +25,6 @@ import android.content.Context;
 import android.media.MediaCodec.BufferInfo;
 import android.util.Pair;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
-import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
@@ -43,7 +41,6 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import org.junit.Rule;
 import org.junit.Test;
@@ -510,7 +507,7 @@ public class Mp4MuxerEndToEndTest {
     FakeExtractorOutput primaryTracksOutput =
         TestUtil.extractAllSamplesFromFilePath(
             new Mp4Extractor(new DefaultSubtitleParserFactory()), outputFilePath);
-    // The Mp4Extractor can not read edvd box and can only parse primary tracks.
+    // The Mp4Extractor extracts primary tracks by default.
     DumpFileAsserts.assertOutput(
         context,
         primaryTracksOutput,
@@ -556,11 +553,11 @@ public class Mp4MuxerEndToEndTest {
       muxer.close();
     }
 
-    byte[] edvdBoxPayload = getEdvdBoxPayload(outputFilePath);
     FakeExtractorOutput editableTracksOutput =
-        TestUtil.extractAllSamplesFromByteArray(
-            new Mp4Extractor(new DefaultSubtitleParserFactory()), edvdBoxPayload);
-    // The Mp4Extractor can parse the MP4 embedded in the edvd box.
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(
+                new DefaultSubtitleParserFactory(), Mp4Extractor.FLAG_READ_EDITABLE_VIDEO_TRACKS),
+            outputFilePath);
     DumpFileAsserts.assertOutput(
         context,
         editableTracksOutput,
@@ -574,29 +571,5 @@ public class Mp4MuxerEndToEndTest {
           getFakeSampleAndSampleInfo(/* presentationTimeUs= */ i);
       muxer.writeSampleData(trackToken, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
     }
-  }
-
-  private static byte[] getEdvdBoxPayload(String filePath) throws IOException {
-    ParsableByteArray data = new ParsableByteArray(TestUtil.getByteArrayFromFilePath(filePath));
-    while (data.bytesLeft() > 0) {
-      long size = data.readInt();
-      String name = data.readString(/* length= */ 4);
-      long payloadSize = size - 8;
-      if (size == 1) {
-        size = data.readUnsignedLongToLong();
-        // Parsing is not supported for box having size > Integer.MAX_VALUE.
-        Assertions.checkState(size <= Integer.MAX_VALUE);
-        // Subtract 4 bytes (32-bit box size) + 4 bytes (box name) + 8 bytes (64-bit box size).
-        payloadSize = size - 16;
-      }
-      if (name.equals("edvd")) {
-        byte[] payloadData = new byte[(int) payloadSize];
-        data.readBytes(payloadData, /* offset= */ 0, (int) payloadSize);
-        return payloadData;
-      } else {
-        data.skipBytes((int) payloadSize);
-      }
-    }
-    return new byte[0];
   }
 }
