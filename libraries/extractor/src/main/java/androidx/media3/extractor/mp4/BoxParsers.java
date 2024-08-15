@@ -62,7 +62,7 @@ import java.util.Objects;
 
 /** Utility methods for parsing MP4 format atom payloads according to ISO/IEC 14496-12. */
 @SuppressWarnings("ConstantField")
-public final class AtomParsers {
+public final class BoxParsers {
 
   private static final String TAG = "AtomParsers";
 
@@ -2274,7 +2274,7 @@ public final class AtomParsers {
         && editEndTime <= duration;
   }
 
-  private AtomParsers() {
+  private BoxParsers() {
     // Prevent instantiation.
   }
 

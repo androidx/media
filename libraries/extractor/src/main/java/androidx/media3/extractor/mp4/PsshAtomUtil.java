@@ -176,7 +176,7 @@ public final class PsshAtomUtil {
       Log.w(TAG, "Atom type is not pssh: " + atomType);
       return null;
     }
-    int atomVersion = AtomParsers.parseFullAtomVersion(atomData.readInt());
+    int atomVersion = BoxParsers.parseFullAtomVersion(atomData.readInt());
     if (atomVersion > 1) {
       Log.w(TAG, "Unsupported pssh version: " + atomVersion);
       return null;

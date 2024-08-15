@@ -28,7 +28,7 @@ import static androidx.media3.container.Mp4Util.EDITABLE_TRACK_TYPE_DEPTH_INVERS
 import static androidx.media3.container.Mp4Util.EDITABLE_TRACK_TYPE_DEPTH_LINEAR;
 import static androidx.media3.container.Mp4Util.EDITABLE_TRACK_TYPE_DEPTH_METADATA;
 import static androidx.media3.container.Mp4Util.EDITABLE_TRACK_TYPE_SHARP;
-import static androidx.media3.extractor.mp4.AtomParsers.parseTraks;
+import static androidx.media3.extractor.mp4.BoxParsers.parseTraks;
 import static androidx.media3.extractor.mp4.MetadataUtil.findMdtaMetadataEntryWithKey;
 import static androidx.media3.extractor.mp4.Sniffer.BRAND_HEIC;
 import static androidx.media3.extractor.mp4.Sniffer.BRAND_QUICKTIME;
@@ -657,7 +657,7 @@ public final class Mp4Extractor implements Extractor, SeekMap {
     List<@C.AuxiliaryTrackType Integer> auxiliaryTrackTypesForEditableVideoTracks =
         new ArrayList<>();
     if (meta != null) {
-      mdtaMetadata = AtomParsers.parseMdtaFromMeta(meta);
+      mdtaMetadata = BoxParsers.parseMdtaFromMeta(meta);
       if (readingEditableVideoTracks) {
         checkStateNotNull(mdtaMetadata);
         maybeSetDefaultSampleOffsetForEditableVideoTracks(mdtaMetadata);
@@ -678,13 +678,13 @@ public final class Mp4Extractor implements Extractor, SeekMap {
     @Nullable Metadata udtaMetadata = null;
     @Nullable Mp4Box.LeafBox udta = moov.getLeafBoxOfType(Mp4Box.TYPE_udta);
     if (udta != null) {
-      udtaMetadata = AtomParsers.parseUdta(udta);
+      udtaMetadata = BoxParsers.parseUdta(udta);
       gaplessInfoHolder.setFromMetadata(udtaMetadata);
     }
 
     Metadata mvhdMetadata =
         new Metadata(
-            AtomParsers.parseMvhd(checkNotNull(moov.getLeafBoxOfType(Mp4Box.TYPE_mvhd)).data));
+            BoxParsers.parseMvhd(checkNotNull(moov.getLeafBoxOfType(Mp4Box.TYPE_mvhd)).data));
 
     boolean ignoreEditLists = (flags & FLAG_WORKAROUND_IGNORE_EDIT_LISTS) != 0;
     List<TrackSampleTable> trackSampleTables =
@@ -1056,7 +1056,7 @@ public final class Mp4Extractor implements Extractor, SeekMap {
   private void maybeSkipRemainingMetaAtomHeaderBytes(ExtractorInput input) throws IOException {
     scratch.reset(8);
     input.peekFully(scratch.getData(), 0, 8);
-    AtomParsers.maybeSkipRemainingMetaAtomHeaderBytes(scratch);
+    BoxParsers.maybeSkipRemainingMetaAtomHeaderBytes(scratch);
     input.skipFully(scratch.getPosition());
     input.resetPeekPosition();
   }

@@ -17,8 +17,8 @@ package androidx.media3.extractor.mp4;
 
 import static androidx.media3.common.C.WIDEVINE_UUID;
 import static androidx.media3.container.Mp4Box.TYPE_pssh;
-import static androidx.media3.extractor.mp4.AtomParsers.parseFullAtomFlags;
-import static androidx.media3.extractor.mp4.AtomParsers.parseFullAtomVersion;
+import static androidx.media3.extractor.mp4.BoxParsers.parseFullAtomFlags;
+import static androidx.media3.extractor.mp4.BoxParsers.parseFullAtomVersion;
 import static com.google.common.truth.Truth.assertThat;
 
 import androidx.media3.common.C;
