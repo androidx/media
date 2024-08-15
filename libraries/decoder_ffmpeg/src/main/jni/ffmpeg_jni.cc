@@ -674,10 +674,10 @@ JniContext *createVideoContext(JNIEnv *env,
     }
 
     // opt decode speed.
-    codecContext->flags |= AV_CODEC_FLAG_LOW_DELAY;
     codecContext->skip_loop_filter = AVDISCARD_ALL;
     codecContext->skip_frame = AVDISCARD_DEFAULT;
     codecContext->thread_count = threads;
+    codecContext->thread_type = FF_THREAD_FRAME;
     codecContext->err_recognition = AV_EF_IGNORE_ERR;
     int result = avcodec_open2(codecContext, codec, NULL);
     if (result < 0) {
