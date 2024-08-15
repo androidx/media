@@ -181,8 +181,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   public AudioFocusManager(Context context, Handler eventHandler, PlayerControl playerControl) {
     this.audioManager =
-        Suppliers.memoize(() -> checkNotNull(
-            (AudioManager) context.getApplicationContext().getSystemService(Context.AUDIO_SERVICE)));
+        Suppliers.memoize(
+            () ->
+                checkNotNull(
+                    (AudioManager)
+                        context.getApplicationContext().getSystemService(Context.AUDIO_SERVICE)));
     this.playerControl = playerControl;
     this.focusListener = new AudioFocusListener(eventHandler);
     this.audioFocusState = AUDIO_FOCUS_STATE_NOT_REQUESTED;
@@ -287,10 +290,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private int requestAudioFocusDefault() {
-    return audioManager.get().requestAudioFocus(
-        focusListener,
-        Util.getStreamTypeForAudioUsage(checkNotNull(audioAttributes).usage),
-        focusGainToRequest);
+    return audioManager
+        .get()
+        .requestAudioFocus(
+            focusListener,
+            Util.getStreamTypeForAudioUsage(checkNotNull(audioAttributes).usage),
+            focusGainToRequest);
   }
 
   @RequiresApi(26)
