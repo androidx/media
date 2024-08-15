@@ -18,7 +18,6 @@ package androidx.media3.common
 
 import android.os.Looper
 import androidx.core.os.HandlerCompat
-import androidx.media3.common.Player.Events
 import androidx.media3.common.util.UnstableApi
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resumeWithException
@@ -45,7 +44,7 @@ import kotlinx.coroutines.withContext
  *   terminate due to an exception or cancellation.
  */
 @UnstableApi
-suspend fun Player.listen(onEvents: Player.(Events) -> Unit): Nothing {
+suspend fun Player.listen(onEvents: Player.(Player.Events) -> Unit): Nothing {
   if (Looper.myLooper() == applicationLooper) {
     listenImpl(onEvents)
   } else
@@ -79,7 +78,7 @@ suspend fun Player.listen(onEvents: Player.(Events) -> Unit): Nothing {
  * guarantees are critical for responding to events with frame-perfect timing and become more
  * relevant in the context of front-end UI development (e.g. using Compose).
  */
-private suspend fun Player.listenImpl(onEvents: Player.(Events) -> Unit): Nothing {
+private suspend fun Player.listenImpl(onEvents: Player.(Player.Events) -> Unit): Nothing {
   lateinit var listener: PlayerListener
   try {
     suspendCancellableCoroutine<Nothing> { continuation ->
@@ -93,13 +92,13 @@ private suspend fun Player.listenImpl(onEvents: Player.(Events) -> Unit): Nothin
 }
 
 private class PlayerListener(
-  private val onEvents: Player.(Events) -> Unit,
+  private val onEvents: Player.(Player.Events) -> Unit,
   private val continuation: CancellableContinuation<Nothing>,
 ) : Player.Listener {
 
   val isCancelled: AtomicBoolean = AtomicBoolean(false)
 
-  override fun onEvents(player: Player, events: Events) {
+  override fun onEvents(player: Player, events: Player.Events) {
     try {
       if (!isCancelled.get()) {
         player.onEvents(events)
