@@ -22,6 +22,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.LibraryLoader;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
+
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Configures and queries the underlying native library. */
@@ -157,6 +158,12 @@ public final class FfmpegLibrary {
       case MimeTypes.VIDEO_H265:
       case MimeTypes.VIDEO_DOLBY_VISION:
         return "hevc";
+      case MimeTypes.VIDEO_VP8:
+        return "vp8";
+      case MimeTypes.VIDEO_VP9:
+        return "vp9";
+      case MimeTypes.VIDEO_WEBM:
+        return "webm";
       default:
         return null;
     }
