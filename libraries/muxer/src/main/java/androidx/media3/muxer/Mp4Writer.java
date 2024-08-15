@@ -202,6 +202,17 @@ import java.util.concurrent.atomic.AtomicBoolean;
     outputFileChannel.truncate(newMoovLocation + moovBytesNeeded);
   }
 
+  private static long findMinimumPresentationTimestampUsAcrossTracks(List<Track> tracks) {
+    long minInputPtsUs = Long.MAX_VALUE;
+    for (int i = 0; i < tracks.size(); i++) {
+      Track track = tracks.get(i);
+      if (!track.writtenSamples.isEmpty()) {
+        minInputPtsUs = min(track.writtenSamples.get(0).presentationTimeUs, minInputPtsUs);
+      }
+    }
+    return minInputPtsUs;
+  }
+
   private void writeHeader() throws IOException {
     outputFileChannel.position(0L);
     outputFileChannel.write(Boxes.ftyp());
@@ -229,15 +240,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
   }
 
   private ByteBuffer assembleCurrentMoovData() {
-    long minInputPtsUs = Long.MAX_VALUE;
-
     // Recalculate the min timestamp every time, in case some new samples have smaller timestamps.
-    for (int i = 0; i < tracks.size(); i++) {
-      Track track = tracks.get(i);
-      if (!track.writtenSamples.isEmpty()) {
-        minInputPtsUs = Math.min(track.writtenSamples.get(0).presentationTimeUs, minInputPtsUs);
-      }
-    }
+    long minInputPtsUs = findMinimumPresentationTimestampUsAcrossTracks(tracks);
 
     ByteBuffer moovHeader;
     if (minInputPtsUs != Long.MAX_VALUE) {
