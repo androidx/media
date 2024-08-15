@@ -130,7 +130,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
    */
   public void finishWritingSamplesAndFinalizeMoovBox() throws IOException {
     for (int i = 0; i < tracks.size(); i++) {
-      flushPending(tracks.get(i));
+      writePendingTrackSamples(tracks.get(i));
     }
 
     // Leave the file empty if no samples are written.
@@ -334,8 +334,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
     safelyReplaceMoovAtEnd(newMoovStart, currentMoovData);
   }
 
-  /** Writes out any pending samples to the file. */
-  private void flushPending(Track track) throws IOException {
+  /** Writes out any pending samples of the given {@link Track}. */
+  private void writePendingTrackSamples(Track track) throws IOException {
     checkState(track.pendingSamplesByteBuffer.size() == track.pendingSamplesBufferInfo.size());
     if (track.pendingSamplesBufferInfo.isEmpty()) {
       return;
@@ -417,7 +417,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
         if (lastSampleInfo.presentationTimeUs - firstSampleInfo.presentationTimeUs
             > INTERLEAVE_DURATION_US) {
           newSamplesWritten = true;
-          flushPending(track);
+          writePendingTrackSamples(track);
         }
       }
     }
