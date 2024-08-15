@@ -23,6 +23,7 @@ import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.exoplayer.source.chunk.ChunkExtractor.TrackOutputProvider;
+import androidx.media3.extractor.ChunkIndex;
 import androidx.media3.extractor.DefaultExtractorInput;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
@@ -108,5 +109,10 @@ public final class InitializationChunk extends Chunk {
     } finally {
       DataSourceUtil.closeQuietly(dataSource);
     }
+  }
+
+  @Nullable
+  public ChunkIndex getChunkIndex() {
+    return chunkExtractor.getChunkIndex();
   }
 }
