@@ -13,30 +13,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.extractor.mp4;
+package androidx.media3.container;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.ParsableByteArray;
+import androidx.media3.common.util.UnstableApi;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+/** A representation of an MP4 box (aka atom). */
 @SuppressWarnings("ConstantField")
-/* package */ abstract class Atom {
+@UnstableApi
+public abstract class Mp4Box {
 
-  /** Size of an atom header, in bytes. */
+  /** Size of a box header, in bytes. */
   public static final int HEADER_SIZE = 8;
 
-  /** Size of a full atom header, in bytes. */
+  /** Size of a full box header, in bytes. */
   public static final int FULL_HEADER_SIZE = 12;
 
-  /** Size of a long atom header, in bytes. */
+  /** Size of a long box header, in bytes. */
   public static final int LONG_HEADER_SIZE = 16;
 
-  /** Value for the size field in an atom that defines its size in the largesize field. */
+  /** Value for the size field in a box that defines its size in the largesize field. */
   public static final int DEFINES_LARGE_SIZE = 1;
 
-  /** Value for the size field in an atom that extends to the end of the file. */
+  /** Value for the size field in a box that extends to the end of the file. */
   public static final int EXTENDS_TO_END_SIZE = 0;
 
   @SuppressWarnings("ConstantCaseForConstants")
@@ -451,43 +454,44 @@ import java.util.List;
 
   public final int type;
 
-  public Atom(int type) {
+  // private to only allow sub-classing from within this file.
+  private Mp4Box(int type) {
     this.type = type;
   }
 
   @Override
   public String toString() {
-    return getAtomTypeString(type);
+    return getBoxTypeString(type);
   }
 
-  /** An MP4 atom that is a leaf. */
-  /* package */ static final class LeafAtom extends Atom {
+  /** An MP4 box that is a leaf. */
+  public static final class LeafBox extends Mp4Box {
 
-    /** The atom data. */
+    /** The box data. */
     public final ParsableByteArray data;
 
     /**
-     * @param type The type of the atom.
-     * @param data The atom data.
+     * @param type The type of the box.
+     * @param data The box data.
      */
-    public LeafAtom(int type, ParsableByteArray data) {
+    public LeafBox(int type, ParsableByteArray data) {
       super(type);
       this.data = data;
     }
   }
 
-  /** An MP4 atom that has child atoms. */
-  /* package */ static final class ContainerAtom extends Atom {
+  /** An MP4 box that has child boxes. */
+  public static final class ContainerBox extends Mp4Box {
 
     public final long endPosition;
-    public final List<LeafAtom> leafChildren;
-    public final List<ContainerAtom> containerChildren;
+    public final List<LeafBox> leafChildren;
+    public final List<ContainerBox> containerChildren;
 
     /**
-     * @param type The type of the atom.
-     * @param endPosition The position of the first byte after the end of the atom.
+     * @param type The type of the box.
+     * @param endPosition The position of the first byte after the end of the box.
      */
-    public ContainerAtom(int type, long endPosition) {
+    public ContainerBox(int type, long endPosition) {
       super(type);
       this.endPosition = endPosition;
       leafChildren = new ArrayList<>();
@@ -497,19 +501,19 @@ import java.util.List;
     /**
      * Adds a child leaf to this container.
      *
-     * @param atom The child to add.
+     * @param box The child to add.
      */
-    public void add(LeafAtom atom) {
-      leafChildren.add(atom);
+    public void add(LeafBox box) {
+      leafChildren.add(box);
     }
 
     /**
      * Adds a child container to this container.
      *
-     * @param atom The child to add.
+     * @param box The child to add.
      */
-    public void add(ContainerAtom atom) {
-      containerChildren.add(atom);
+    public void add(ContainerBox box) {
+      containerChildren.add(box);
     }
 
     /**
@@ -522,12 +526,12 @@ import java.util.List;
      * @return The child leaf of the given type, or null if no such child exists.
      */
     @Nullable
-    public LeafAtom getLeafAtomOfType(int type) {
+    public LeafBox getLeafBoxOfType(int type) {
       int childrenSize = leafChildren.size();
       for (int i = 0; i < childrenSize; i++) {
-        LeafAtom atom = leafChildren.get(i);
-        if (atom.type == type) {
-          return atom;
+        LeafBox box = leafChildren.get(i);
+        if (box.type == type) {
+          return box;
         }
       }
       return null;
@@ -543,12 +547,12 @@ import java.util.List;
      * @return The child container of the given type, or null if no such child exists.
      */
     @Nullable
-    public ContainerAtom getContainerAtomOfType(int type) {
+    public ContainerBox getContainerBoxOfType(int type) {
       int childrenSize = containerChildren.size();
       for (int i = 0; i < childrenSize; i++) {
-        ContainerAtom atom = containerChildren.get(i);
-        if (atom.type == type) {
-          return atom;
+        ContainerBox box = containerChildren.get(i);
+        if (box.type == type) {
+          return box;
         }
       }
       return null;
@@ -556,7 +560,7 @@ import java.util.List;
 
     @Override
     public String toString() {
-      return getAtomTypeString(type)
+      return getBoxTypeString(type)
           + " leaves: "
           + Arrays.toString(leafChildren.toArray())
           + " containers: "
@@ -565,12 +569,12 @@ import java.util.List;
   }
 
   /**
-   * Converts a numeric atom type to the corresponding four character string.
+   * Converts a numeric box type to the corresponding four character string.
    *
-   * @param type The numeric atom type.
+   * @param type The numeric box type.
    * @return The corresponding four character string.
    */
-  public static String getAtomTypeString(int type) {
+  public static String getBoxTypeString(int type) {
     return ""
         + (char) ((type >> 24) & 0xFF)
         + (char) ((type >> 16) & 0xFF)

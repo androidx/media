@@ -21,6 +21,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
+import androidx.media3.container.Mp4Box;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -254,17 +255,18 @@ public final class AtomParsersTest {
 
   @Test
   public void stz2Parsing4BitFieldSize() {
-    verifyStz2Parsing(new Atom.LeafAtom(Atom.TYPE_stsz, new ParsableByteArray(FOUR_BIT_STZ2)));
+    verifyStz2Parsing(new Mp4Box.LeafBox(Mp4Box.TYPE_stsz, new ParsableByteArray(FOUR_BIT_STZ2)));
   }
 
   @Test
   public void stz2Parsing8BitFieldSize() {
-    verifyStz2Parsing(new Atom.LeafAtom(Atom.TYPE_stsz, new ParsableByteArray(EIGHT_BIT_STZ2)));
+    verifyStz2Parsing(new Mp4Box.LeafBox(Mp4Box.TYPE_stsz, new ParsableByteArray(EIGHT_BIT_STZ2)));
   }
 
   @Test
   public void stz2Parsing16BitFieldSize() {
-    verifyStz2Parsing(new Atom.LeafAtom(Atom.TYPE_stsz, new ParsableByteArray(SIXTEEN_BIT_STZ2)));
+    verifyStz2Parsing(
+        new Mp4Box.LeafBox(Mp4Box.TYPE_stsz, new ParsableByteArray(SIXTEEN_BIT_STZ2)));
   }
 
   @Test
@@ -286,7 +288,7 @@ public final class AtomParsersTest {
     assertThat(vexuData.hasBothEyeViews()).isTrue();
   }
 
-  private static void verifyStz2Parsing(Atom.LeafAtom stz2Atom) {
+  private static void verifyStz2Parsing(Mp4Box.LeafBox stz2Atom) {
     AtomParsers.Stz2SampleSizeBox box = new AtomParsers.Stz2SampleSizeBox(stz2Atom);
     assertThat(box.getSampleCount()).isEqualTo(4);
     assertThat(box.getFixedSampleSize()).isEqualTo(C.LENGTH_UNSET);

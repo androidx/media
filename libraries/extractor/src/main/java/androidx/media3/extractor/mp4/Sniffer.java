@@ -18,6 +18,7 @@ package androidx.media3.extractor.mp4;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.ParsableByteArray;
+import androidx.media3.container.Mp4Box;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.SniffFailure;
 import java.io.IOException;
@@ -118,7 +119,7 @@ import java.io.IOException;
     boolean isFragmented = false;
     while (bytesSearched < bytesToSearch) {
       // Read an atom header.
-      int headerSize = Atom.HEADER_SIZE;
+      int headerSize = Mp4Box.HEADER_SIZE;
       buffer.reset(headerSize);
       boolean success =
           input.peekFully(buffer.getData(), 0, headerSize, /* allowEndOfInput= */ true);
@@ -128,14 +129,14 @@ import java.io.IOException;
       }
       long atomSize = buffer.readUnsignedInt();
       int atomType = buffer.readInt();
-      if (atomSize == Atom.DEFINES_LARGE_SIZE) {
+      if (atomSize == Mp4Box.DEFINES_LARGE_SIZE) {
         // Read the large atom size.
-        headerSize = Atom.LONG_HEADER_SIZE;
+        headerSize = Mp4Box.LONG_HEADER_SIZE;
         input.peekFully(
-            buffer.getData(), Atom.HEADER_SIZE, Atom.LONG_HEADER_SIZE - Atom.HEADER_SIZE);
-        buffer.setLimit(Atom.LONG_HEADER_SIZE);
+            buffer.getData(), Mp4Box.HEADER_SIZE, Mp4Box.LONG_HEADER_SIZE - Mp4Box.HEADER_SIZE);
+        buffer.setLimit(Mp4Box.LONG_HEADER_SIZE);
         atomSize = buffer.readLong();
-      } else if (atomSize == Atom.EXTENDS_TO_END_SIZE) {
+      } else if (atomSize == Mp4Box.EXTENDS_TO_END_SIZE) {
         // The atom extends to the end of the file.
         long fileEndPosition = input.getLength();
         if (fileEndPosition != C.LENGTH_UNSET) {
@@ -149,7 +150,7 @@ import java.io.IOException;
       }
       bytesSearched += headerSize;
 
-      if (atomType == Atom.TYPE_moov) {
+      if (atomType == Mp4Box.TYPE_moov) {
         // We have seen the moov atom. We increase the search size to make sure we don't miss an
         // mvex atom because the moov's size exceeds the search length.
         bytesToSearch += (int) atomSize;
@@ -161,13 +162,13 @@ import java.io.IOException;
         continue;
       }
 
-      if (atomType == Atom.TYPE_moof || atomType == Atom.TYPE_mvex) {
+      if (atomType == Mp4Box.TYPE_moof || atomType == Mp4Box.TYPE_mvex) {
         // The movie is fragmented. Stop searching as we must have read any ftyp atom already.
         isFragmented = true;
         break;
       }
 
-      if (atomType == Atom.TYPE_mdat) {
+      if (atomType == Mp4Box.TYPE_mdat) {
         // The original QuickTime specification did not require files to begin with the ftyp atom.
         // See https://developer.apple.com/standards/qtff-2001.pdf.
         foundGoodFileType = true;
@@ -180,7 +181,7 @@ import java.io.IOException;
 
       int atomDataSize = (int) (atomSize - headerSize);
       bytesSearched += atomDataSize;
-      if (atomType == Atom.TYPE_ftyp) {
+      if (atomType == Mp4Box.TYPE_ftyp) {
         // Parse the atom and check the file type/brand is compatible with the extractors.
         if (atomDataSize < 8) {
           return new AtomSizeTooSmallSniffFailure(atomType, atomDataSize, 8);
