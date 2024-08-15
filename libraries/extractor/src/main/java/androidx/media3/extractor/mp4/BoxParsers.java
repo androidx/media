@@ -64,7 +64,7 @@ import java.util.Objects;
 @SuppressWarnings("ConstantField")
 public final class BoxParsers {
 
-  private static final String TAG = "AtomParsers";
+  private static final String TAG = "BoxParsers";
 
   @SuppressWarnings("ConstantCaseForConstants")
   private static final int TYPE_clcp = 0x636c6370;
