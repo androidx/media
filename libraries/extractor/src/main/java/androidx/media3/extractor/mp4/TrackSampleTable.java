@@ -17,9 +17,11 @@ package androidx.media3.extractor.mp4;
 
 import androidx.media3.common.C;
 import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 
 /** Sample table for a track in an MP4 file. */
+@UnstableApi
 public final class TrackSampleTable {
 
   /** The track corresponding to this sample table. */

@@ -34,6 +34,7 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.ParsableByteArray;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.Mp4Box;
 import androidx.media3.container.Mp4Box.LeafBox;
@@ -62,6 +63,7 @@ import java.util.Objects;
 
 /** Utility methods for parsing MP4 format box payloads according to ISO/IEC 14496-12. */
 @SuppressWarnings("ConstantField")
+@UnstableApi
 public final class BoxParsers {
 
   private static final String TAG = "BoxParsers";
