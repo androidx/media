@@ -60,7 +60,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
-/** Utility methods for parsing MP4 format atom payloads according to ISO/IEC 14496-12. */
+/** Utility methods for parsing MP4 format box payloads according to ISO/IEC 14496-12. */
 @SuppressWarnings("ConstantField")
 public final class BoxParsers {
 
@@ -105,29 +105,29 @@ public final class BoxParsers {
   /** The magic signature for an Opus Identification header, as defined in RFC-7845. */
   private static final byte[] opusMagic = Util.getUtf8Bytes("OpusHead");
 
-  /** Parses the version number out of the additional integer component of a full atom. */
-  public static int parseFullAtomVersion(int fullAtomInt) {
-    return 0x000000FF & (fullAtomInt >> 24);
+  /** Parses the version number out of the additional integer component of a full box. */
+  public static int parseFullBoxVersion(int fullBoxInt) {
+    return 0x000000FF & (fullBoxInt >> 24);
   }
 
-  /** Parses the atom flags out of the additional integer component of a full atom. */
-  public static int parseFullAtomFlags(int fullAtomInt) {
-    return 0x00FFFFFF & fullAtomInt;
+  /** Parses the box flags out of the additional integer component of a full box. */
+  public static int parseFullBoxFlags(int fullBoxInt) {
+    return 0x00FFFFFF & fullBoxInt;
   }
 
   /**
-   * Parse the trak atoms in a moov atom (defined in ISO/IEC 14496-12).
+   * Parse the trak boxes in a moov box (defined in ISO/IEC 14496-12).
    *
-   * @param moov Moov atom to decode.
+   * @param moov Moov box to decode.
    * @param gaplessInfoHolder Holder to populate with gapless playback information.
-   * @param duration The duration in units of the timescale declared in the mvhd atom, or {@link
-   *     C#TIME_UNSET} if the duration should be parsed from the tkhd atom.
+   * @param duration The duration in units of the timescale declared in the mvhd box, or {@link
+   *     C#TIME_UNSET} if the duration should be parsed from the tkhd box.
    * @param drmInitData {@link DrmInitData} to be included in the format, or {@code null}.
    * @param ignoreEditLists Whether to ignore any edit lists in the trak boxes.
    * @param isQuickTime True for QuickTime media. False otherwise.
    * @param modifyTrackFunction A function to apply to the {@link Track Tracks} in the result.
    * @return A list of {@link TrackSampleTable} instances.
-   * @throws ParserException Thrown if the trak atoms can't be parsed.
+   * @throws ParserException Thrown if the trak boxes can't be parsed.
    */
   public static List<TrackSampleTable> parseTraks(
       Mp4Box.ContainerBox moov,
@@ -170,13 +170,13 @@ public final class BoxParsers {
   }
 
   /**
-   * Parses a udta atom.
+   * Parses a udta box.
    *
-   * @param udtaAtom The udta (user data) atom to decode.
+   * @param udtaBox The udta (user data) box to decode.
    * @return Parsed metadata.
    */
-  public static Metadata parseUdta(LeafBox udtaAtom) {
-    ParsableByteArray udtaData = udtaAtom.data;
+  public static Metadata parseUdta(LeafBox udtaBox) {
+    ParsableByteArray udtaData = udtaBox.data;
     udtaData.setPosition(Mp4Box.HEADER_SIZE);
     Metadata metadata = new Metadata();
     while (udtaData.bytesLeft() >= Mp4Box.HEADER_SIZE) {
@@ -201,15 +201,15 @@ public final class BoxParsers {
   }
 
   /**
-   * Parses an mvhd atom (defined in ISO/IEC 14496-12).
+   * Parses an mvhd box (defined in ISO/IEC 14496-12).
    *
-   * @param mvhd Contents of the mvhd atom to be parsed.
+   * @param mvhd Contents of the mvhd box to be parsed.
    * @return An object containing the parsed data.
    */
   public static Mp4TimestampData parseMvhd(ParsableByteArray mvhd) {
     mvhd.setPosition(Mp4Box.HEADER_SIZE);
     int fullAtom = mvhd.readInt();
-    int version = parseFullAtomVersion(fullAtom);
+    int version = parseFullBoxVersion(fullAtom);
     long creationTimestampSeconds;
     long modificationTimestampSeconds;
     if (version == 0) {
@@ -225,9 +225,9 @@ public final class BoxParsers {
   }
 
   /**
-   * Parses a metadata meta atom if it contains metadata with handler 'mdta'.
+   * Parses a metadata meta box if it contains metadata with handler 'mdta'.
    *
-   * @param meta The metadata atom to decode.
+   * @param meta The metadata box to decode.
    * @return Parsed metadata, or null.
    */
   @Nullable
@@ -280,17 +280,17 @@ public final class BoxParsers {
   }
 
   /**
-   * Possibly skips the version and flags fields (1+3 byte) of a full meta atom.
+   * Possibly skips the version and flags fields (1+3 byte) of a full meta box.
    *
-   * <p>Atoms of type {@link Mp4Box#TYPE_meta} are defined to be full atoms which have four
+   * <p>Boxes of type {@link Mp4Box#TYPE_meta} are defined to be full boxes which have four
    * additional bytes for a version and a flags field (see 4.2 'Object Structure' in ISO/IEC
    * 14496-12:2005). QuickTime do not have such a full box structure. Since some of these files are
    * encoded wrongly, we can't rely on the file type though. Instead we must check the 8 bytes after
    * the common header bytes ourselves.
    *
-   * @param meta The 8 or more bytes following the meta atom size and type.
+   * @param meta The 8 or more bytes following the meta box size and type.
    */
-  public static void maybeSkipRemainingMetaAtomHeaderBytes(ParsableByteArray meta) {
+  public static void maybeSkipRemainingMetaBoxHeaderBytes(ParsableByteArray meta) {
     int endPosition = meta.getPosition();
     // The next 8 bytes can be either:
     // (iso) [1 byte version + 3 bytes flags][4 byte size of next atom]
@@ -304,17 +304,17 @@ public final class BoxParsers {
   }
 
   /**
-   * Parses a trak atom (defined in ISO/IEC 14496-12).
+   * Parses a trak box (defined in ISO/IEC 14496-12).
    *
-   * @param trak Atom to decode.
-   * @param mvhd Movie header atom, used to get the timescale.
-   * @param duration The duration in units of the timescale declared in the mvhd atom, or {@link
-   *     C#TIME_UNSET} if the duration should be parsed from the tkhd atom.
+   * @param trak Box to decode.
+   * @param mvhd Movie header box, used to get the timescale.
+   * @param duration The duration in units of the timescale declared in the mvhd box, or {@link
+   *     C#TIME_UNSET} if the duration should be parsed from the tkhd box.
    * @param drmInitData {@link DrmInitData} to be included in the format, or {@code null}.
    * @param ignoreEditLists Whether to ignore any edit lists in the trak box.
    * @param isQuickTime True for QuickTime media. False otherwise.
    * @return A {@link Track} instance, or {@code null} if the track's type isn't supported.
-   * @throws ParserException Thrown if the trak atom can't be parsed.
+   * @throws ParserException Thrown if the trak box can't be parsed.
    */
   @Nullable
   public static Track parseTrak(
@@ -393,23 +393,23 @@ public final class BoxParsers {
   }
 
   /**
-   * Parses an stbl atom (defined in ISO/IEC 14496-12).
+   * Parses an stbl box (defined in ISO/IEC 14496-12).
    *
    * @param track Track to which this sample table corresponds.
-   * @param stblAtom stbl (sample table) atom to decode.
+   * @param stblBox stbl (sample table) box to decode.
    * @param gaplessInfoHolder Holder to populate with gapless playback information.
-   * @return Sample table described by the stbl atom.
-   * @throws ParserException Thrown if the stbl atom can't be parsed.
+   * @return Sample table described by the stbl box.
+   * @throws ParserException Thrown if the stbl box can't be parsed.
    */
   public static TrackSampleTable parseStbl(
-      Track track, Mp4Box.ContainerBox stblAtom, GaplessInfoHolder gaplessInfoHolder)
+      Track track, Mp4Box.ContainerBox stblBox, GaplessInfoHolder gaplessInfoHolder)
       throws ParserException {
     SampleSizeBox sampleSizeBox;
-    @Nullable LeafBox stszAtom = stblAtom.getLeafBoxOfType(Mp4Box.TYPE_stsz);
+    @Nullable LeafBox stszAtom = stblBox.getLeafBoxOfType(Mp4Box.TYPE_stsz);
     if (stszAtom != null) {
       sampleSizeBox = new StszSampleSizeBox(stszAtom, track.format);
     } else {
-      @Nullable LeafBox stz2Atom = stblAtom.getLeafBoxOfType(Mp4Box.TYPE_stz2);
+      @Nullable LeafBox stz2Atom = stblBox.getLeafBoxOfType(Mp4Box.TYPE_stz2);
       if (stz2Atom == null) {
         throw ParserException.createForMalformedContainer(
             "Track has no sample table size information", /* cause= */ null);
@@ -431,21 +431,21 @@ public final class BoxParsers {
 
     // Entries are byte offsets of chunks.
     boolean chunkOffsetsAreLongs = false;
-    @Nullable LeafBox chunkOffsetsAtom = stblAtom.getLeafBoxOfType(Mp4Box.TYPE_stco);
+    @Nullable LeafBox chunkOffsetsAtom = stblBox.getLeafBoxOfType(Mp4Box.TYPE_stco);
     if (chunkOffsetsAtom == null) {
       chunkOffsetsAreLongs = true;
-      chunkOffsetsAtom = checkNotNull(stblAtom.getLeafBoxOfType(Mp4Box.TYPE_co64));
+      chunkOffsetsAtom = checkNotNull(stblBox.getLeafBoxOfType(Mp4Box.TYPE_co64));
     }
     ParsableByteArray chunkOffsets = chunkOffsetsAtom.data;
     // Entries are (chunk number, number of samples per chunk, sample description index).
-    ParsableByteArray stsc = checkNotNull(stblAtom.getLeafBoxOfType(Mp4Box.TYPE_stsc)).data;
+    ParsableByteArray stsc = checkNotNull(stblBox.getLeafBoxOfType(Mp4Box.TYPE_stsc)).data;
     // Entries are (number of samples, timestamp delta between those samples).
-    ParsableByteArray stts = checkNotNull(stblAtom.getLeafBoxOfType(Mp4Box.TYPE_stts)).data;
+    ParsableByteArray stts = checkNotNull(stblBox.getLeafBoxOfType(Mp4Box.TYPE_stts)).data;
     // Entries are the indices of samples that are synchronization samples.
-    @Nullable LeafBox stssAtom = stblAtom.getLeafBoxOfType(Mp4Box.TYPE_stss);
+    @Nullable LeafBox stssAtom = stblBox.getLeafBoxOfType(Mp4Box.TYPE_stss);
     @Nullable ParsableByteArray stss = stssAtom != null ? stssAtom.data : null;
     // Entries are (number of samples, timestamp offset).
-    @Nullable LeafBox cttsAtom = stblAtom.getLeafBoxOfType(Mp4Box.TYPE_ctts);
+    @Nullable LeafBox cttsAtom = stblBox.getLeafBoxOfType(Mp4Box.TYPE_ctts);
     @Nullable ParsableByteArray ctts = cttsAtom != null ? cttsAtom.data : null;
 
     // Prepare to read chunk information.
@@ -794,7 +794,7 @@ public final class BoxParsers {
   @Nullable
   private static Metadata parseUdtaMeta(ParsableByteArray meta, int limit) {
     meta.skipBytes(Mp4Box.HEADER_SIZE);
-    maybeSkipRemainingMetaAtomHeaderBytes(meta);
+    maybeSkipRemainingMetaBoxHeaderBytes(meta);
     while (meta.getPosition() < limit) {
       int atomPosition = meta.getPosition();
       int atomSize = meta.readInt();
@@ -851,7 +851,7 @@ public final class BoxParsers {
   private static TkhdData parseTkhd(ParsableByteArray tkhd) {
     tkhd.setPosition(Mp4Box.HEADER_SIZE);
     int fullAtom = tkhd.readInt();
-    int version = parseFullAtomVersion(fullAtom);
+    int version = parseFullBoxVersion(fullAtom);
 
     tkhd.skipBytes(version == 0 ? 8 : 16);
     int trackId = tkhd.readInt();
@@ -938,7 +938,7 @@ public final class BoxParsers {
   private static Pair<Long, String> parseMdhd(ParsableByteArray mdhd) {
     mdhd.setPosition(Mp4Box.HEADER_SIZE);
     int fullAtom = mdhd.readInt();
-    int version = parseFullAtomVersion(fullAtom);
+    int version = parseFullBoxVersion(fullAtom);
     mdhd.skipBytes(version == 0 ? 8 : 16);
     long timescale = mdhd.readUnsignedInt();
     mdhd.skipBytes(version == 0 ? 4 : 8);
@@ -1647,7 +1647,7 @@ public final class BoxParsers {
     ParsableByteArray elstData = elstAtom.data;
     elstData.setPosition(Mp4Box.HEADER_SIZE);
     int fullAtom = elstData.readInt();
-    int version = parseFullAtomVersion(fullAtom);
+    int version = parseFullBoxVersion(fullAtom);
     int entryCount = elstData.readUnsignedIntToInt();
     long[] editListDurations = new long[entryCount];
     long[] editListMediaTimes = new long[entryCount];
@@ -2199,7 +2199,7 @@ public final class BoxParsers {
       int childAtomType = parent.readInt();
       if (childAtomType == Mp4Box.TYPE_tenc) {
         int fullAtom = parent.readInt();
-        int version = parseFullAtomVersion(fullAtom);
+        int version = parseFullBoxVersion(fullAtom);
         parent.skipBytes(1); // reserved = 0.
         int defaultCryptByteBlock = 0;
         int defaultSkipByteBlock = 0;

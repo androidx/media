@@ -1056,7 +1056,7 @@ public final class Mp4Extractor implements Extractor, SeekMap {
   private void maybeSkipRemainingMetaAtomHeaderBytes(ExtractorInput input) throws IOException {
     scratch.reset(8);
     input.peekFully(scratch.getData(), 0, 8);
-    BoxParsers.maybeSkipRemainingMetaAtomHeaderBytes(scratch);
+    BoxParsers.maybeSkipRemainingMetaBoxHeaderBytes(scratch);
     input.skipFully(scratch.getPosition());
     input.resetPeekPosition();
   }
