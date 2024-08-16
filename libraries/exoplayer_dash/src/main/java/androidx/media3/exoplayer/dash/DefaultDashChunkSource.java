@@ -762,6 +762,9 @@ public class DefaultDashChunkSource implements DashChunkSource {
         representationHolder.chunkExtractor);
   }
 
+  // TODO: b/289983417 - Stop using deprecated SingleSampleMediaChunk when legacy subtitle decoding
+  // is no longer supported.
+  @SuppressWarnings("deprecation")
   protected Chunk newMediaChunk(
       RepresentationHolder representationHolder,
       DataSource dataSource,
