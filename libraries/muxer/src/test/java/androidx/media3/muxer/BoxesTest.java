@@ -412,6 +412,52 @@ public class BoxesTest {
   }
 
   @Test
+  public void createVideoSampleEntryBox_forVp09WithCodecPrivate_matchesExpected()
+      throws IOException {
+    Format format =
+        FAKE_VIDEO_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.VIDEO_VP9)
+            .setColorInfo(
+                new ColorInfo.Builder()
+                    .setColorSpace(C.COLOR_SPACE_BT2020)
+                    .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+                    .setColorRange(C.COLOR_RANGE_FULL)
+                    .build())
+            .setInitializationData(
+                ImmutableList.of(BaseEncoding.base16().decode("01010102010A030108040100")))
+            .build();
+
+    ByteBuffer videoSampleEntryBox = Boxes.videoSampleEntry(format);
+
+    DumpableMp4Box dumpableBox = new DumpableMp4Box(videoSampleEntryBox);
+    DumpFileAsserts.assertOutput(
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedDumpFilePath("video_sample_entry_box_vp09_codec_private_as_csd"));
+  }
+
+  @Test
+  public void createVideoSampleEntryBox_forVp09WithVpcBoxAsCsd_matchesExpected()
+      throws IOException {
+    Format format =
+        FAKE_VIDEO_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.VIDEO_VP9)
+            .setInitializationData(
+                ImmutableList.of(BaseEncoding.base16().decode("01000000010A810510060000")))
+            .build();
+
+    ByteBuffer videoSampleEntryBox = Boxes.videoSampleEntry(format);
+
+    DumpableMp4Box dumpableBox = new DumpableMp4Box(videoSampleEntryBox);
+    DumpFileAsserts.assertOutput(
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedDumpFilePath("video_sample_entry_box_vp09_vpc_as_csd"));
+  }
+
+  @Test
   public void createVideoSampleEntryBox_withUnknownVideoFormat_throws() {
     // The video format contains an unknown MIME type.
     Format format =

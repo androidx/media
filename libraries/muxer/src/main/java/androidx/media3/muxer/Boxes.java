@@ -38,6 +38,7 @@ import androidx.media3.muxer.FragmentedMp4Writer.SampleMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Bytes;
+import com.google.common.primitives.Ints;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -542,6 +543,8 @@ import java.util.List;
         return av1CBox(format);
       case MimeTypes.VIDEO_MP4V:
         return esdsBox(format);
+      case MimeTypes.VIDEO_VP9:
+        return vpcCBox(format);
       default:
         throw new IllegalArgumentException("Unsupported format: " + mimeType);
     }
@@ -592,6 +595,9 @@ import java.util.List;
     contents.putShort((short) -1); // pre_defined
 
     contents.put(codecSpecificBox);
+    if (format.colorInfo != null && fourcc.equals("vp09")) {
+      contents.put(smDmBox(format.colorInfo));
+    }
 
     contents.put(paspBox());
 
@@ -1264,6 +1270,110 @@ import java.util.List;
     return BoxUtils.wrapIntoBox("av1C", ByteBuffer.wrap(csd0));
   }
 
+  /** Returns the vpcC box as per VP Codec ISO Media File Format Binding v1.0. */
+  private static ByteBuffer vpcCBox(Format format) {
+    // For VP9, the CodecPrivate or vpcCBox data is packed into csd-0.
+    checkArgument(!format.initializationData.isEmpty(), "csd-0 is not found in the format");
+    byte[] csd0 = format.initializationData.get(0);
+    checkArgument(csd0.length > 3, "csd-0 for vp9 is invalid.");
+    int versionAndFlags = 1 << 24; // version (value 1, 8 bits) + flag (value 0, 24 bits)
+    if (Ints.fromByteArray(csd0) == versionAndFlags) {
+      // CSD is already in vpcC format.
+      return BoxUtils.wrapIntoBox("vpcC", ByteBuffer.wrap(csd0));
+    }
+
+    ByteBuffer contents = ByteBuffer.allocate(MAX_FIXED_LEAF_BOX_SIZE);
+
+    contents.putInt(versionAndFlags);
+    // Default value of videoRange is 0.
+    int videoRange = format.colorInfo != null ? format.colorInfo.colorRange : 0;
+    ByteBuffer codecPrivateContent = parseVp9CodecPrivateFromCsd(csd0, videoRange);
+    contents.put(codecPrivateContent);
+
+    // The default values for optional fields as per the : <a
+    // href="https://www.webmproject.org/vp9/mp4/#optional-fields">Vp9 webm spec</a>
+    int colourPrimaries = 1;
+    int transferCharacteristics = 1;
+    int matrixCoefficients = 1;
+
+    if (format.colorInfo != null) {
+      colourPrimaries = MEDIAFORMAT_STANDARD_TO_PRIMARIES_AND_MATRIX.get(videoRange).get(0);
+      transferCharacteristics =
+          MEDIAFORMAT_TRANSFER_TO_MP4_TRANSFER.get(format.colorInfo.colorTransfer);
+      matrixCoefficients = MEDIAFORMAT_STANDARD_TO_PRIMARIES_AND_MATRIX.get(videoRange).get(1);
+    }
+
+    contents.put((byte) colourPrimaries);
+    contents.put((byte) transferCharacteristics);
+    contents.put((byte) matrixCoefficients);
+    contents.putShort((short) 0); // codecInitializationDataSize must be 0 for VP9
+    // codecInitializationData is not used for VP9 so skipped writing to contents
+    contents.flip();
+    return BoxUtils.wrapIntoBox("vpcC", contents);
+  }
+
+  /**
+   * Parses a Vp9 CodecPrivate as per <a
+   * href="https://www.webmproject.org/docs/container/#vp9-codec-feature-metadata-codecprivate">Vp9
+   * spec</a>
+   */
+  private static ByteBuffer parseVp9CodecPrivateFromCsd(byte[] csd0, int videoFullRange) {
+    // The default values.
+    byte profile = 0;
+    byte level = 10;
+    byte bitDepth = 8;
+    byte chromaSubsampling = 0;
+    // Each feature is defined by the binary format of ID (1 byte), length (1 byte), and data (1
+    // byte).
+    for (int i = 0; i < csd0.length; i += 3) {
+      int id = csd0[i];
+      int dataIndex = i + 2;
+      switch (id) {
+        case 1:
+          profile = csd0[dataIndex];
+          break;
+        case 2:
+          level = csd0[dataIndex];
+          break;
+        case 3:
+          bitDepth = csd0[dataIndex];
+          break;
+        case 4:
+          chromaSubsampling = csd0[dataIndex];
+          break;
+        default:
+          break;
+      }
+    }
+    ByteBuffer content = ByteBuffer.allocate(3);
+    content.put(profile);
+    content.put(level);
+    // 4 bits of bitDepth + 3 bits of chromaSubsampling + 1 bit of videoRange
+    byte combined = (byte) ((bitDepth << 4) | (chromaSubsampling << 1) | videoFullRange);
+    content.put(combined);
+    content.flip();
+    return content;
+  }
+
+  /**
+   * Returns smDm box as per <a
+   * href="https://www.webmproject.org/vp9/mp4/#smpte-2086-mastering-display-metadata-box ">SmDm box
+   * in Vp9 spec</a>
+   */
+  private static ByteBuffer smDmBox(ColorInfo colorInfo) {
+    byte[] hdrStaticInfo = colorInfo.hdrStaticInfo;
+    if (hdrStaticInfo != null) {
+      ByteBuffer contents = ByteBuffer.allocate(MAX_FIXED_LEAF_BOX_SIZE);
+      contents.putInt(0x00); // version and flag.
+      contents.put(hdrStaticInfo);
+      contents.flip();
+      return BoxUtils.wrapIntoBox("SmDm", contents);
+    } else {
+      // No HDR info
+      return ByteBuffer.allocate(0);
+    }
+  }
+
   /** Returns the pasp box. */
   private static ByteBuffer paspBox() {
     ByteBuffer contents = ByteBuffer.allocate(8);
@@ -1352,6 +1462,8 @@ import java.util.List;
         return "av01";
       case MimeTypes.VIDEO_MP4V:
         return "mp4v-es";
+      case MimeTypes.VIDEO_VP9:
+        return "vp09";
       default:
         throw new IllegalArgumentException("Unsupported format: " + mimeType);
     }
