@@ -284,7 +284,8 @@ public class SubtitleExtractorTest {
   }
 
   private CuesWithTiming decodeSample(FakeTrackOutput trackOutput, int sampleIndex) {
+    byte[] sampleData = trackOutput.getSampleData(sampleIndex);
     return decoder.decode(
-        trackOutput.getSampleTimeUs(sampleIndex), trackOutput.getSampleData(sampleIndex));
+        trackOutput.getSampleTimeUs(sampleIndex), sampleData, /* offset= */ 0, sampleData.length);
   }
 }
