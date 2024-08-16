@@ -338,6 +338,31 @@ import java.util.concurrent.atomic.AtomicBoolean;
     safelyReplaceMoovAtEnd(newMoovStart, currentMoovData);
   }
 
+  /**
+   * Writes pending samples of given {@link Track tracks} if there are enough samples to write.
+   *
+   * @param tracks A list of {@link Track} containing the pending samples to be potentially written.
+   * @return {@code true} if any new sample is written, {@code false} otherwise.
+   */
+  private boolean maybeWritePendingTrackSamples(List<Track> tracks) throws IOException {
+    boolean newSamplesWritten = false;
+    for (int i = 0; i < tracks.size(); i++) {
+      Track track = tracks.get(i);
+      // TODO: b/270583563 - Check if we need to consider the global timestamp instead.
+      if (track.pendingSamplesBufferInfo.size() > 2) {
+        BufferInfo firstSampleInfo = checkNotNull(track.pendingSamplesBufferInfo.peekFirst());
+        BufferInfo lastSampleInfo = checkNotNull(track.pendingSamplesBufferInfo.peekLast());
+
+        if (lastSampleInfo.presentationTimeUs - firstSampleInfo.presentationTimeUs
+            > INTERLEAVE_DURATION_US) {
+          newSamplesWritten = true;
+          writePendingTrackSamples(track);
+        }
+      }
+    }
+    return newSamplesWritten;
+  }
+
   /** Writes out any pending samples of the given {@link Track}. */
   private void writePendingTrackSamples(Track track) throws IOException {
     checkState(track.pendingSamplesByteBuffer.size() == track.pendingSamplesBufferInfo.size());
@@ -410,21 +435,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
   }
 
   private void doInterleave() throws IOException {
-    boolean newSamplesWritten = false;
-    for (int i = 0; i < tracks.size(); i++) {
-      Track track = tracks.get(i);
-      // TODO: b/270583563 - Check if we need to consider the global timestamp instead.
-      if (track.pendingSamplesBufferInfo.size() > 2) {
-        BufferInfo firstSampleInfo = checkNotNull(track.pendingSamplesBufferInfo.peekFirst());
-        BufferInfo lastSampleInfo = checkNotNull(track.pendingSamplesBufferInfo.peekLast());
+    boolean newSamplesWritten = maybeWritePendingTrackSamples(tracks);
 
-        if (lastSampleInfo.presentationTimeUs - firstSampleInfo.presentationTimeUs
-            > INTERLEAVE_DURATION_US) {
-          newSamplesWritten = true;
-          writePendingTrackSamples(track);
-        }
-      }
-    }
     if (newSamplesWritten && canWriteMoovAtStart) {
       maybeWriteMoovAtStart();
     }
