@@ -19,7 +19,6 @@
 #include <thread>
 #include <android/native_window.h>
 #include <android/native_window_jni.h>
-#include "BlockingQueue.h"
 #include <libyuv.h>
 #include <libyuv/scale.h>
 
@@ -505,12 +504,6 @@ struct JniContext {
     int rotate_degree = 0;
     int native_window_width = 0;
     int native_window_height = 0;
-
-    // Thread to Convert Frame
-    std::thread *poll_image_thread;
-    bool released = false;
-    BlockingQueue<AVFrame *> *image_output_buffer = nullptr;
-    BlockingQueue<AVFrame *> *image_input_buffer = nullptr;
 };
 
 constexpr int AlignTo16(int value) { return (value + 15) & (~15); }
@@ -539,7 +532,7 @@ constexpr int cvt_colorspace(AVColorSpace colorSpace) {
  * and scale
  * @return AVFrame
  */
-AVFrame *cvt_frame(JniContext *jniContext,
+AVFrame *cvt_format(JniContext *jniContext,
                    AVFrame *src,
                    AVPixelFormat dst_format,
                    int dst_width,
@@ -594,57 +587,6 @@ libyuv::RotationMode cvt_rotate(int degree) {
     return rotate;
 }
 
-/**
- * Single Thread to Convert Standard YUV420
- */
-void cvt_image_runnable(JniContext *jniContext) {
-    while (!jniContext->released) {
-        auto output_buffer = jniContext->image_output_buffer;
-        auto input_buffer = jniContext->image_input_buffer;
-
-        AVFrame *input = nullptr;
-        auto poll_rst = input_buffer->poll(input, 100L);
-        if (!poll_rst || input == nullptr) {
-            continue;
-        }
-
-        // success
-        // pixformat map to yuv420p
-        auto output = cvt_frame(jniContext, input, AVPixelFormat::AV_PIX_FMT_YUV420P, input->width, input->height);
-        if (!output) {
-            LOGE("Failed to cvt_frame");
-            av_frame_free(&input);
-            jniContext->released = true;
-            return;
-        }
-        av_frame_free(&input);
-
-        {
-            auto offer_rst = output_buffer->offer(output, 100L);
-            if (!offer_rst) {
-                av_frame_free(&output);
-            }
-        }
-    }
-
-    // free
-    while (!jniContext->image_input_buffer->empty()) {
-        auto buffer = jniContext->image_input_buffer->take();
-        av_frame_free(&buffer);
-    }
-    while (!jniContext->image_output_buffer->empty()) {
-        auto buffer = jniContext->image_output_buffer->take();
-        av_frame_free(&buffer);
-    }
-
-    auto swsContext = jniContext->swsContext;
-    if (swsContext) {
-        sws_freeContext(swsContext);
-        jniContext->swsContext = NULL;
-    }
-}
-
-
 JniContext *createVideoContext(JNIEnv *env,
                                const AVCodec *codec,
                                jbyteArray extraData,
@@ -687,11 +629,6 @@ JniContext *createVideoContext(JNIEnv *env,
     }
 
     jniContext->codecContext = codecContext;
-
-    jniContext->image_output_buffer = new BlockingQueue<AVFrame *>(5);
-    jniContext->image_input_buffer = new BlockingQueue<AVFrame *>(5);
-    jniContext->poll_image_thread = new std::thread(cvt_image_runnable, jniContext);
-    pthread_setname_np(jniContext->poll_image_thread->native_handle(), "m3:ffmpeg:cvt");
 
     // Populate JNI References.
     const jclass outputBufferClass = env->FindClass("androidx/media3/decoder/VideoDecoderOutputBuffer");
@@ -741,14 +678,17 @@ VIDEO_DECODER_FUNC(jlong, ffmpegReset, jlong jContext) {
 VIDEO_DECODER_FUNC(void, ffmpegRelease, jlong jContext) {
     JniContext *const jniContext = reinterpret_cast<JniContext *>(jContext);
     AVCodecContext *context = jniContext->codecContext;
+    SwsContext *swsContext = jniContext->swsContext;
 
     if (context) {
         avcodec_free_context(&context);
         jniContext->codecContext = NULL;
     }
 
-    jniContext->released = true;
-    jniContext->poll_image_thread->detach();
+    if (swsContext) {
+        sws_freeContext(swsContext);
+        jniContext->swsContext = NULL;
+    }
 }
 
 
@@ -787,63 +727,41 @@ VIDEO_DECODER_FUNC(jint, ffmpegReceiveFrame, jlong jContext, jint outputMode, jo
     JniContext *const jniContext = reinterpret_cast<JniContext *>(jContext);
     AVCodecContext *avContext = jniContext->codecContext;
     int result = 0;
-    AVFrame *frame = av_frame_alloc();
-    if (!frame) {
+    AVFrame *raw_frame = av_frame_alloc();
+    if (!raw_frame) {
         LOGE("Failed to allocate output frame.");
         return VIDEO_DECODER_ERROR_OTHER;
     }
 
-    result = avcodec_receive_frame(avContext, frame);
+    result = avcodec_receive_frame(avContext, raw_frame);
 
-    if (decodeOnly) {
-        av_frame_free(&frame);
-        return VIDEO_DECODER_ERROR_INVALID_DATA;
-    }
-
-    if (result == AVERROR(EAGAIN)) {
+    if (decodeOnly || result == AVERROR(EAGAIN)) {
         // This is not an error. The input data was decode-only or no displayable
         // frames are available.
-        av_frame_free(&frame);
+        av_frame_free(&raw_frame);
         return VIDEO_DECODER_ERROR_INVALID_DATA;
     }
-    if (result != 0) {
-        av_frame_free(&frame);
-        if (result == AVERROR(EAGAIN)) {
-            // This is not an error. The input data was decode-only or no displayable
-            // frames are available.
-        } else {
-            logError("avcodec_receive_frame", result);
-            return VIDEO_DECODER_ERROR_OTHER;
-        }
-    }
 
-    if (jniContext->released || !jniContext->poll_image_thread->joinable()) {
-        LOGE("Poll image thread already shut down.");
-        av_frame_free(&frame);
+    // Some error!
+    if (result != 0) {
+        av_frame_free(&raw_frame);
+        logError("avcodec_receive_frame", result);
         return VIDEO_DECODER_ERROR_OTHER;
     }
 
-    // frame success! offer to pool
-    if (result == 0) {
-        auto offer_rst = jniContext->image_input_buffer->offer(frame);
-        if (!offer_rst) {
-            av_frame_free(&frame);
-            LOGW("Offer to image_input_buffer failed.");
-        }
+    // Use swscale to cvt format to YUV420P
+    AVFrame *cvt_frame = cvt_format(jniContext, raw_frame, AV_PIX_FMT_YUV420P, raw_frame->width, raw_frame->height);
+    if (cvt_frame == nullptr) {
+        av_frame_free(&raw_frame);
+        LOGW("Convert To YUV420P failed.");
+        return VIDEO_DECODER_ERROR_OTHER;
     }
 
-    // --- take cvt frame & return
+    // Convert Success! free the raw frame!
+    av_frame_free(&raw_frame);
 
-    // success
     int width = env->GetIntField(jOutputBuffer, jniContext->width_field);
     int height = env->GetIntField(jOutputBuffer, jniContext->height_field);
-
-    AVFrame *cvt_frame = nullptr;
-    jniContext->image_output_buffer->poll(cvt_frame);
-    if (cvt_frame == nullptr) {
-        LOGW("Poll from image_output_buffer failed.");
-        return VIDEO_DECODER_ERROR_INVALID_DATA;
-    }
 
     auto dst_width = cvt_frame->width;
     auto dst_height = cvt_frame->height;

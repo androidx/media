@@ -18,6 +18,7 @@ package androidx.media3.decoder.ffmpeg;
 import static androidx.annotation.VisibleForTesting.PACKAGE_PRIVATE;
 
 import android.view.Surface;
+
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
@@ -28,6 +29,7 @@ import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.decoder.SimpleDecoder;
 import androidx.media3.decoder.VideoDecoderOutputBuffer;
+
 import java.nio.ByteBuffer;
 import java.util.List;
 
@@ -210,7 +212,6 @@ import java.util.List;
     }
     int rst = ffmpegRenderFrame(nativeContext, surface, outputBuffer, outputBuffer.width,
         outputBuffer.height);
-//    Log.d(TAG, "renderToSurface: rst = " + rst + ",surface = " + surface + ",buffer = " + outputBuffer.timeUs);
     if (rst == VIDEO_DECODER_ERROR_OTHER) {
       throw new FfmpegDecoderException(
           "Buffer render error: ");
