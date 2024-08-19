@@ -1502,7 +1502,8 @@ public final class Transformer {
                       AAC_LC_AUDIO_SAMPLE_COUNT, mp4Info.audioFormat.sampleRate);
             }
             if (mp4Info.firstSyncSampleTimestampUsAfterTimeUs - trimStartTimeUs
-                <= maxEncodedAudioBufferDurationUs) {
+                    <= maxEncodedAudioBufferDurationUs
+                || mp4Info.isFirstVideoSampleAfterTimeUsSyncSample) {
               Transformer.this.composition =
                   buildUponCompositionForTrimOptimization(
                       composition,

@@ -21,6 +21,7 @@ import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static androidx.media3.transformer.AndroidTestUtil.JPG_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.MP3_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_PHOTOS_TRIM_OPTIMIZATION_VIDEO;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_SHORTER_AUDIO;
@@ -662,6 +663,47 @@ public class TransformerEndToEndTest {
     Format format = retrieveTrackFormat(context, result.filePath, C.TRACK_TYPE_VIDEO);
     // The output video is portrait, but Transformer's default setup encodes videos landscape.
     assertThat(format.rotationDegrees).isEqualTo(90);
+  }
+
+  @Test
+  public void clippedMedia_trimOptimizationEnabledAndTrimFromCloseToKeyFrame_succeeds()
+      throws Exception {
+    // This test covers the case where there's no frame between the trim point and the next sync
+    // sample. The frame has to be further than roughly 25ms apart.
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_PHOTOS_TRIM_OPTIMIZATION_VIDEO.videoFormat,
+        /* outputFormat= */ MP4_ASSET_PHOTOS_TRIM_OPTIMIZATION_VIDEO.videoFormat);
+
+    Transformer transformer =
+        new Transformer.Builder(context).experimentalSetTrimOptimizationEnabled(true).build();
+
+    // The previous sample is at 1137 and the next sample (which is a sync sample) is at 1171.
+    long clippingStartMs = 1138;
+    long clippingEndMs = 5601;
+
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(Uri.parse(MP4_ASSET_PHOTOS_TRIM_OPTIMIZATION_VIDEO.uri))
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder()
+                    .setStartPositionMs(1138)
+                    .setEndPositionMs(5601)
+                    .build())
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, mediaItem);
+
+    assertThat(result.exportResult.optimizationResult)
+        .isEqualTo(OPTIMIZATION_ABANDONED_KEYFRAME_PLACEMENT_OPTIMAL_FOR_TRIM);
+    assertThat(result.exportResult.durationMs).isAtMost(clippingEndMs - clippingStartMs);
+    assertThat(result.exportResult.videoConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
+    assertThat(result.exportResult.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test

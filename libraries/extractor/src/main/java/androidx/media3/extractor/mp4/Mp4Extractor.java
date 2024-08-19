@@ -484,6 +484,19 @@ public final class Mp4Extractor implements Extractor, SeekMap {
     }
   }
 
+  /**
+   * Returns the list of sample timestamps of a {@code trackId}, in microseconds.
+   *
+   * @param trackId The id of the track to get the sample timestamps.
+   * @return The corresponding sample timestmaps of the track.
+   */
+  public long[] getSampleTimestampsUs(int trackId) {
+    if (tracks.length <= trackId) {
+      return new long[0];
+    }
+    return tracks[trackId].sampleTable.timestampsUs;
+  }
+
   // Private methods.
 
   private void enterReadingAtomHeaderState() {

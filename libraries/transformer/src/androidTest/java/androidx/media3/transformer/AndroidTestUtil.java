@@ -581,6 +581,19 @@ public final class AndroidTestUtil {
                   .build())
           .build();
 
+  // From b/357743907.
+  public static final AssetInfo MP4_ASSET_PHOTOS_TRIM_OPTIMIZATION_VIDEO =
+      new AssetInfo.Builder("asset:///media/mp4/trim_optimization_failure.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(518)
+                  .setHeight(488)
+                  .setFrameRate(29.882f)
+                  .setCodecs("avc1.640034")
+                  .build())
+          .build();
+
   // The 7 HIGHMOTION files are H264 and AAC.
 
   public static final AssetInfo MP4_REMOTE_1280W_720H_5_SECOND_HIGHMOTION =
