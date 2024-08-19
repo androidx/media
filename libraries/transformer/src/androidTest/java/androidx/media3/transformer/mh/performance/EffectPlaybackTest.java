@@ -71,6 +71,9 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 /** Test for {@link ExoPlayer#setVideoEffects}. */
+// These tests are in the performance package even though they are not performance tests so that
+// they are not run on all devices. This is because they use ImageReader, which has a tendency to
+// drop frames.
 @RunWith(Enclosed.class)
 public class EffectPlaybackTest {
 

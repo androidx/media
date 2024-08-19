@@ -62,6 +62,9 @@ import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 /** Playback tests for {@link CompositionPlayer} */
+// These tests are in the performance package even though they are not performance tests so that
+// they are not run on all devices. This is because they use ImageReader, which has a tendency to
+// drop frames.
 @RunWith(AndroidJUnit4.class)
 public class CompositionPlaybackTest {
 
