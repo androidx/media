@@ -15,9 +15,10 @@
  */
 package androidx.media3.decoder.iamf;
 
-import static android.support.annotation.VisibleForTesting.PACKAGE_PRIVATE;
+import static androidx.annotation.VisibleForTesting.PACKAGE_PRIVATE;
 
 import android.media.AudioFormat;
+import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Util;
@@ -26,7 +27,6 @@ import androidx.media3.decoder.SimpleDecoder;
 import androidx.media3.decoder.SimpleDecoderOutputBuffer;
 import java.nio.ByteBuffer;
 import java.util.List;
-import javax.annotation.Nullable;
 
 /** IAMF decoder. */
 @VisibleForTesting(otherwise = PACKAGE_PRIVATE)
