@@ -327,15 +327,15 @@ public class BitmapPixelTestUtil {
         }
         int alphaDifference = abs(Color.alpha(actualColor) - Color.alpha(expectedColor));
         int redDifference = abs(Color.red(actualColor) - Color.red(expectedColor));
-        int blueDifference = abs(Color.blue(actualColor) - Color.blue(expectedColor));
         int greenDifference = abs(Color.green(actualColor) - Color.green(expectedColor));
-        differencesBitmap.setPixel(x, y, Color.rgb(redDifference, blueDifference, greenDifference));
+        int blueDifference = abs(Color.blue(actualColor) - Color.blue(expectedColor));
+        differencesBitmap.setPixel(x, y, Color.rgb(redDifference, greenDifference, blueDifference));
 
         int maximumAbsoluteDifference = 0;
         maximumAbsoluteDifference = max(maximumAbsoluteDifference, alphaDifference);
         maximumAbsoluteDifference = max(maximumAbsoluteDifference, redDifference);
-        maximumAbsoluteDifference = max(maximumAbsoluteDifference, blueDifference);
         maximumAbsoluteDifference = max(maximumAbsoluteDifference, greenDifference);
+        maximumAbsoluteDifference = max(maximumAbsoluteDifference, blueDifference);
 
         sumMaximumAbsoluteDifferences += maximumAbsoluteDifference;
       }
