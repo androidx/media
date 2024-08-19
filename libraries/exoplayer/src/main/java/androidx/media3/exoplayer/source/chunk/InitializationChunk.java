@@ -114,8 +114,8 @@ public final class InitializationChunk extends Chunk {
   }
 
   /**
-   * Returns the {@link ChunkIndex} most recently obtained from the latest {@link #load()}, or null
-   * if a {@link ChunkIndex} has not been obtained.
+   * Returns the {@link ChunkIndex} most recently obtained from the initialization chunk in the
+   * most recent {@link #load()}, or null if a {@link ChunkIndex} has not been obtained.
    */
   @Nullable
   public ChunkIndex getChunkIndex() {
