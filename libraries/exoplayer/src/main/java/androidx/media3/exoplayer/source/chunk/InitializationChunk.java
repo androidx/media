@@ -39,6 +39,7 @@ public final class InitializationChunk extends Chunk {
   private final ChunkExtractor chunkExtractor;
 
   private @MonotonicNonNull TrackOutputProvider trackOutputProvider;
+  private @Nullable ChunkIndex chunkIndex;
   private long nextLoadPosition;
   private volatile boolean loadCanceled;
 
@@ -105,14 +106,19 @@ public final class InitializationChunk extends Chunk {
         while (!loadCanceled && chunkExtractor.read(input)) {}
       } finally {
         nextLoadPosition = input.getPosition() - dataSpec.position;
+        chunkIndex = chunkExtractor.getChunkIndex();
       }
     } finally {
       DataSourceUtil.closeQuietly(dataSource);
     }
   }
 
+  /**
+   * Returns the {@link ChunkIndex} most recently obtained from the latest {@link #load()}, or null
+   * if a {@link ChunkIndex} has not been obtained.
+   */
   @Nullable
   public ChunkIndex getChunkIndex() {
-    return chunkExtractor.getChunkIndex();
+    return chunkIndex;
   }
 }
