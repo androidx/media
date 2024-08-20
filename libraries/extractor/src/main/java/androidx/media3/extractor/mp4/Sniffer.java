@@ -18,6 +18,7 @@ package androidx.media3.extractor.mp4;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.ParsableByteArray;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.container.Mp4Box;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.SniffFailure;
@@ -27,7 +28,8 @@ import java.io.IOException;
  * Provides methods that peek data from an {@link ExtractorInput} and return whether the input
  * appears to be in MP4 format.
  */
-/* package */ final class Sniffer {
+@UnstableApi
+public final class Sniffer {
 
   /** Brand stored in the ftyp atom for QuickTime media. */
   public static final int BRAND_QUICKTIME = 0x71742020;
