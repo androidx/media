@@ -162,10 +162,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private static final float VOLUME_MULTIPLIER_DUCK = 0.2f;
   private static final float VOLUME_MULTIPLIER_DEFAULT = 1.0f;
 
-  private final AudioFocusListener focusListener;
   private final Supplier<AudioManager> audioManager;
+  private final AudioFocusListener focusListener;
   @Nullable private PlayerControl playerControl;
   @Nullable private AudioAttributes audioAttributes;
+
   private @AudioFocusState int audioFocusState;
   private @AudioFocusGain int focusGainToRequest;
   private float volumeMultiplier = VOLUME_MULTIPLIER_DEFAULT;
