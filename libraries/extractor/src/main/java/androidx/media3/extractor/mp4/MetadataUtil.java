@@ -372,7 +372,7 @@ import com.google.common.collect.ImmutableList;
     int atomType = data.readInt();
     if (atomType == Mp4Box.TYPE_data) {
       int fullVersionInt = data.readInt();
-      int flags = BoxParsers.parseFullBoxFlags(fullVersionInt);
+      int flags = BoxParser.parseFullBoxFlags(fullVersionInt);
       @Nullable String mimeType = flags == 13 ? "image/jpeg" : flags == 14 ? "image/png" : null;
       if (mimeType == null) {
         Log.w(TAG, "Unrecognized cover art flags: " + flags);

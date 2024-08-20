@@ -26,9 +26,9 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Tests for {@link BoxParsers}. */
+/** Tests for {@link BoxParser}. */
 @RunWith(AndroidJUnit4.class)
-public final class BoxParsersTest {
+public final class BoxParserTest {
 
   private static final String ATOM_HEADER = "000000000000000000000000";
   private static final String SAMPLE_COUNT = "00000004";
@@ -248,7 +248,7 @@ public final class BoxParsersTest {
           0, 0, 0, 0, 88, 88, 88, 88
         }; // version (1), flags (3), 'xxxx' (4)
     assertThat(
-            BoxParsers.parseCommonEncryptionSinfFromParent(
+            BoxParser.parseCommonEncryptionSinfFromParent(
                 new ParsableByteArray(cencSinf), 0, cencSinf.length))
         .isNull();
   }
@@ -271,17 +271,17 @@ public final class BoxParsersTest {
 
   @Test
   public void vexuParsings() throws ParserException {
-    BoxParsers.VexuData vexuData = null;
+    BoxParser.VexuData vexuData = null;
     assertThat(
             vexuData =
-                BoxParsers.parseVideoExtendedUsageBox(
+                BoxParser.parseVideoExtendedUsageBox(
                     new ParsableByteArray(VEXU_DATA0), 0, VEXU_DATA0.length))
         .isNotNull();
     assertThat(vexuData).isNotNull();
     assertThat(vexuData.hasBothEyeViews()).isTrue();
     assertThat(
             vexuData =
-                BoxParsers.parseVideoExtendedUsageBox(
+                BoxParser.parseVideoExtendedUsageBox(
                     new ParsableByteArray(VEXU_DATA1), 0, VEXU_DATA1.length))
         .isNotNull();
     assertThat(vexuData).isNotNull();
@@ -289,7 +289,7 @@ public final class BoxParsersTest {
   }
 
   private static void verifyStz2Parsing(Mp4Box.LeafBox stz2Atom) {
-    BoxParsers.Stz2SampleSizeBox box = new BoxParsers.Stz2SampleSizeBox(stz2Atom);
+    BoxParser.Stz2SampleSizeBox box = new BoxParser.Stz2SampleSizeBox(stz2Atom);
     assertThat(box.getSampleCount()).isEqualTo(4);
     assertThat(box.getFixedSampleSize()).isEqualTo(C.LENGTH_UNSET);
     for (int i = 0; i < box.getSampleCount(); i++) {

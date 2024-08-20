@@ -64,7 +64,7 @@ import java.util.Objects;
 /** Utility methods for parsing MP4 format box payloads according to ISO/IEC 14496-12. */
 @SuppressWarnings("ConstantField")
 @UnstableApi
-public final class BoxParsers {
+public final class BoxParser {
 
   private static final String TAG = "BoxParsers";
 
@@ -2276,7 +2276,7 @@ public final class BoxParsers {
         && editEndTime <= duration;
   }
 
-  private BoxParsers() {
+  private BoxParser() {
     // Prevent instantiation.
   }
 
