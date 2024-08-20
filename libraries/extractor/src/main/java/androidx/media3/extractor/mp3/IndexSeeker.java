@@ -15,8 +15,6 @@
  */
 package androidx.media3.extractor.mp3;
 
-import static androidx.media3.common.util.Assertions.checkState;
-
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Util;
@@ -97,15 +95,16 @@ import java.math.RoundingMode;
   }
 
   /**
-   * Returns whether {@code timeUs} (in microseconds) is included in the index.
+   * Returns whether {@code timeUs} (in microseconds) should be considered as part of the index
+   * based on its proximity to the last recorded seek point in the index.
    *
-   * <p>A point is included in the index if it is equal to another point, between 2 points, or
-   * sufficiently close to the last point.
+   * <p>This method assumes that {@code timeUs} is provided in increasing order, consistent with how
+   * points are added to the index in {@link #maybeAddSeekPoint(long, long)}.
+   *
+   * @param timeUs The time in microseconds to check if it is included in the index.
    */
   public boolean isTimeUsInIndex(long timeUs) {
-    long lastIndexedTimeUs = indexSeekMap.getLastSeekPointTimeUs();
-    checkState(lastIndexedTimeUs != C.TIME_UNSET);
-    return timeUs - lastIndexedTimeUs < MIN_TIME_BETWEEN_POINTS_US;
+    return indexSeekMap.isTimeUsInIndex(timeUs, MIN_TIME_BETWEEN_POINTS_US);
   }
 
   /* package */ void setDurationUs(long durationUs) {

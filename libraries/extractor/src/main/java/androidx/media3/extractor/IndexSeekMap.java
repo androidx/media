@@ -123,14 +123,21 @@ public final class IndexSeekMap implements SeekMap {
   }
 
   /**
-   * Returns the timestamp of the last seek point added, in microseconds, or {@link C#TIME_UNSET} if
-   * no seek points exist.
+   * Returns whether {@code timeUs} (in microseconds) should be considered as part of the index
+   * based on its proximity to the last recorded seek point in the index.
+   *
+   * <p>This method assumes that {@code timeUs} is provided in increasing order, consistent with how
+   * points are added to the index in {@link #addSeekPoint(long, long)}.
+   *
+   * @param timeUs The time in microseconds to check if it is included in the index.
+   * @param minTimeBetweenPointsUs The minimum time in microseconds that should exist between points
+   *     for the current time to be considered as part of the index.
    */
-  public long getLastSeekPointTimeUs() {
+  public boolean isTimeUsInIndex(long timeUs, long minTimeBetweenPointsUs) {
     if (timesUs.size() == 0) {
-      return C.TIME_UNSET;
+      return false;
     }
-    return timesUs.get(timesUs.size() - 1);
+    return timeUs - timesUs.get(timesUs.size() - 1) < minTimeBetweenPointsUs;
   }
 
   /** Sets the duration of the input stream, or {@link C#TIME_UNSET} if it is unknown. */

@@ -92,4 +92,20 @@ public final class AmrExtractorParameterizedTest {
             .build(),
         simulationConfig);
   }
+
+  @Test
+  public void extractingNarrowBandSamples_withIndexSeeking() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        () -> new AmrExtractor(AmrExtractor.FLAG_ENABLE_INDEX_SEEKING),
+        "media/amr/sample_nb_with_silence_frames.amr",
+        simulationConfig);
+  }
+
+  @Test
+  public void extractingWideBandSamples_withIndexSeeking() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        () -> new AmrExtractor(AmrExtractor.FLAG_ENABLE_INDEX_SEEKING),
+        "media/amr/sample_wb_with_silence_frames.amr",
+        simulationConfig);
+  }
 }
