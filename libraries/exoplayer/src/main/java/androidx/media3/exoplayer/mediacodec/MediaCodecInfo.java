@@ -458,6 +458,17 @@ public final class MediaCodecInfo {
         }
       }
 
+      // For eac3 and eac3-joc formats, adaptation is possible without reconfiguration or flushing.
+      if (discardReasons == 0 && (MimeTypes.AUDIO_E_AC3_JOC.equals(mimeType)
+          || MimeTypes.AUDIO_E_AC3.equals(mimeType))) {
+        return new DecoderReuseEvaluation(
+            name,
+            oldFormat,
+            newFormat,
+            REUSE_RESULT_YES_WITHOUT_RECONFIGURATION,
+            /* discardReasons= */ 0);
+      }
+
       if (!oldFormat.initializationDataEquals(newFormat)) {
         discardReasons |= DISCARD_REASON_INITIALIZATION_DATA_CHANGED;
       }
