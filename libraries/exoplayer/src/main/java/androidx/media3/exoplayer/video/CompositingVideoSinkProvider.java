@@ -465,7 +465,7 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
 
   /** Receives input from an ExoPlayer renderer and forwards it to the video graph. */
   private final class VideoSinkImpl implements VideoSink, CompositingVideoSinkProvider.Listener {
-    private final Context context;
+
     private final int videoFrameProcessorMaxPendingFrameCount;
     private final ArrayList<Effect> videoEffects;
     private final VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo;
@@ -494,7 +494,6 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
 
     /** Creates a new instance. */
     public VideoSinkImpl(Context context) {
-      this.context = context;
       // TODO b/226330223 - Investigate increasing frame count when frame dropping is allowed.
       // TODO b/278234847 - Evaluate whether limiting frame count when frame dropping is not allowed
       //  reduces decoder timeouts, and consider restoring.
@@ -605,11 +604,6 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
         checkState(lastBufferPresentationTimeUs != C.TIME_UNSET);
         pendingInputStreamBufferPresentationTimeUs = lastBufferPresentationTimeUs;
       }
-    }
-
-    @Override
-    public boolean isFrameDropAllowedOnInput() {
-      return Util.isFrameDropAllowedOnSurfaceInput(context);
     }
 
     @Override

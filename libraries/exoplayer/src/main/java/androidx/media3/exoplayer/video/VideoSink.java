@@ -181,12 +181,6 @@ public interface VideoSink {
   boolean isEnded();
 
   /**
-   * Returns whether frames could be dropped from the sink's {@linkplain #getInputSurface() input
-   * surface}.
-   */
-  boolean isFrameDropAllowedOnInput();
-
-  /**
    * Returns the input {@link Surface} where the video sink consumes input frames from.
    *
    * <p>Must be called after the sink is {@linkplain #initialize(Format) initialized}.

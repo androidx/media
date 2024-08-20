@@ -1039,9 +1039,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         codecInfo, mediaFormat, format, codecSurface, crypto);
   }
 
-  @SuppressWarnings("InlinedApi") // VideoSink will check the API level
+  @SuppressWarnings("InlinedApi") // The API level is checked in the utility method
   private void maybeSetKeyAllowFrameDrop(MediaFormat mediaFormat) {
-    if (videoSink != null && !videoSink.isFrameDropAllowedOnInput()) {
+    if (videoSink != null && !Util.isFrameDropAllowedOnSurfaceInput(context)) {
       mediaFormat.setInteger(MediaFormat.KEY_ALLOW_FRAME_DROP, 0);
     }
   }
