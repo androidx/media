@@ -202,7 +202,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     output.write(Boxes.ftyp());
     // The minInputPtsUs is actually ignored as there are no pending samples to write.
     output.write(
-        Mp4MoovStructure.moov(
+        Boxes.moov(
             tracks,
             metadataCollector,
             /* minInputPtsUs= */ 0L,

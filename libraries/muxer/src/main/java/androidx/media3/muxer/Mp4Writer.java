@@ -200,7 +200,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
         /* samplesInterleaved= */ true,
         editableVideoTracks);
     ByteBuffer moovBox =
-        Mp4MoovStructure.moov(
+        Boxes.moov(
             editableVideoTracks,
             editableVideoMetadataCollector,
             findMinimumPresentationTimestampUsAcrossTracks(editableVideoTracks),
@@ -318,7 +318,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
     ByteBuffer moovHeader;
     if (minInputPtsUs != Long.MAX_VALUE) {
       moovHeader =
-          Mp4MoovStructure.moov(
+          Boxes.moov(
               tracks,
               metadataCollector,
               minInputPtsUs,

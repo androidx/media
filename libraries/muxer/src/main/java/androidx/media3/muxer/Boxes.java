@@ -21,6 +21,7 @@ import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.muxer.ColorUtils.MEDIAFORMAT_STANDARD_TO_PRIMARIES_AND_MATRIX;
 import static androidx.media3.muxer.ColorUtils.MEDIAFORMAT_TRANSFER_TO_MP4_TRANSFER;
 import static androidx.media3.muxer.MuxerUtil.UNSIGNED_INT_MAX_VALUE;
+import static java.lang.Math.max;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import android.media.MediaCodec;
@@ -37,6 +38,7 @@ import androidx.media3.container.NalUnitUtil;
 import androidx.media3.muxer.FragmentedMp4Writer.SampleMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Ints;
 import java.nio.ByteBuffer;
@@ -45,6 +47,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
+import org.checkerframework.checker.nullness.qual.PolyNull;
 
 /**
  * Writes out various types of boxes as per MP4 (ISO/IEC 14496-12) standards.
@@ -53,6 +57,19 @@ import java.util.List;
  * buffers}.
  */
 /* package */ final class Boxes {
+  /** Provides track's metadata like media format, written samples. */
+  public interface TrackMetadataProvider {
+    Format format();
+
+    int videoUnitTimebase();
+
+    ImmutableList<BufferInfo> writtenSamples();
+
+    ImmutableList<Long> writtenChunkOffsets();
+
+    ImmutableList<Integer> writtenChunkSampleCounts();
+  }
+
   /* Total number of bytes in an integer. */
   private static final int BYTES_PER_INTEGER = 4;
 
@@ -106,6 +123,169 @@ import java.util.List;
           (byte) 0xE3,
           (byte) 0xAF,
           (byte) 0xAC);
+
+  /** Returns the moov box. */
+  @SuppressWarnings("InlinedApi")
+  public static ByteBuffer moov(
+      List<? extends TrackMetadataProvider> tracks,
+      MetadataCollector metadataCollector,
+      long minInputPtsUs,
+      boolean isFragmentedMp4,
+      @Mp4Muxer.LastFrameDurationBehavior int lastFrameDurationBehavior) {
+    // The timestamp will always fit into a 32-bit integer. This is already validated in the
+    // Mp4Muxer.setTimestampData() API. The value after type casting might be negative, but it is
+    // still valid because it is meant to be read as an unsigned integer.
+    int creationTimestampSeconds = (int) metadataCollector.timestampData.creationTimestampSeconds;
+    int modificationTimestampSeconds =
+        (int) metadataCollector.timestampData.modificationTimestampSeconds;
+    List<ByteBuffer> trakBoxes = new ArrayList<>();
+    List<ByteBuffer> trexBoxes = new ArrayList<>();
+
+    int nextTrackId = 1;
+    long videoDurationUs = 0L;
+    for (int i = 0; i < tracks.size(); i++) {
+      TrackMetadataProvider track = tracks.get(i);
+      if (!isFragmentedMp4 && track.writtenSamples().isEmpty()) {
+        continue;
+      }
+      Format format = track.format();
+      String languageCode = bcp47LanguageTagToIso3(format.language);
+
+      // Generate the sample durations to calculate the total duration for tkhd box.
+      List<Integer> sampleDurationsVu =
+          Boxes.convertPresentationTimestampsToDurationsVu(
+              track.writtenSamples(),
+              minInputPtsUs,
+              track.videoUnitTimebase(),
+              lastFrameDurationBehavior);
+
+      long trackDurationInTrackUnitsVu = 0;
+      for (int j = 0; j < sampleDurationsVu.size(); j++) {
+        trackDurationInTrackUnitsVu += sampleDurationsVu.get(j);
+      }
+
+      long trackDurationUs = usFromVu(trackDurationInTrackUnitsVu, track.videoUnitTimebase());
+
+      @C.TrackType int trackType = MimeTypes.getTrackType(format.sampleMimeType);
+      ByteBuffer stts = Boxes.stts(sampleDurationsVu);
+      ByteBuffer ctts =
+          MimeTypes.isVideo(format.sampleMimeType)
+              ? Boxes.ctts(track.writtenSamples(), sampleDurationsVu, track.videoUnitTimebase())
+              : ByteBuffer.allocate(0);
+      ByteBuffer stsz = Boxes.stsz(track.writtenSamples());
+      ByteBuffer stsc = Boxes.stsc(track.writtenChunkSampleCounts());
+      ByteBuffer chunkOffsetBox =
+          isFragmentedMp4
+              ? Boxes.stco(track.writtenChunkOffsets())
+              : Boxes.co64(track.writtenChunkOffsets());
+
+      String handlerType;
+      String handlerName;
+      ByteBuffer mhdBox;
+      ByteBuffer sampleEntryBox;
+      ByteBuffer stsdBox;
+      ByteBuffer stblBox;
+
+      switch (trackType) {
+        case C.TRACK_TYPE_VIDEO:
+          handlerType = "vide";
+          handlerName = "VideoHandle";
+          mhdBox = Boxes.vmhd();
+          sampleEntryBox = Boxes.videoSampleEntry(format);
+          stsdBox = Boxes.stsd(sampleEntryBox);
+          stblBox =
+              Boxes.stbl(
+                  stsdBox,
+                  stts,
+                  ctts,
+                  stsz,
+                  stsc,
+                  chunkOffsetBox,
+                  Boxes.stss(track.writtenSamples()));
+          break;
+        case C.TRACK_TYPE_AUDIO:
+          handlerType = "soun";
+          handlerName = "SoundHandle";
+          mhdBox = Boxes.smhd();
+          sampleEntryBox = Boxes.audioSampleEntry(format);
+          stsdBox = Boxes.stsd(sampleEntryBox);
+          stblBox = Boxes.stbl(stsdBox, stts, stsz, stsc, chunkOffsetBox);
+          break;
+        case C.TRACK_TYPE_METADATA:
+        // TODO: (b/280443593) - Check if we can identify a metadata track type from a custom
+        //  mime type.
+        case C.TRACK_TYPE_UNKNOWN:
+          handlerType = "meta";
+          handlerName = "MetaHandle";
+          mhdBox = Boxes.nmhd();
+          sampleEntryBox = Boxes.textMetaDataSampleEntry(format);
+          stsdBox = Boxes.stsd(sampleEntryBox);
+          stblBox = Boxes.stbl(stsdBox, stts, stsz, stsc, chunkOffsetBox);
+          break;
+        default:
+          throw new IllegalArgumentException("Unsupported track type");
+      }
+
+      // The below statement is also a description of how a mdat box looks like, with all the
+      // inner boxes and what they actually store. Although they're technically instance methods,
+      // everything that is written to a box is visible in the argument list.
+      ByteBuffer trakBox =
+          Boxes.trak(
+              Boxes.tkhd(
+                  nextTrackId,
+                  trackDurationUs,
+                  creationTimestampSeconds,
+                  modificationTimestampSeconds,
+                  metadataCollector.orientationData.orientation,
+                  format),
+              Boxes.mdia(
+                  Boxes.mdhd(
+                      trackDurationInTrackUnitsVu,
+                      track.videoUnitTimebase(),
+                      creationTimestampSeconds,
+                      modificationTimestampSeconds,
+                      languageCode),
+                  Boxes.hdlr(handlerType, handlerName),
+                  Boxes.minf(mhdBox, Boxes.dinf(Boxes.dref(Boxes.localUrl())), stblBox)));
+
+      trakBoxes.add(trakBox);
+      videoDurationUs = max(videoDurationUs, trackDurationUs);
+      trexBoxes.add(Boxes.trex(nextTrackId));
+      nextTrackId++;
+    }
+
+    ByteBuffer mvhdBox =
+        Boxes.mvhd(
+            nextTrackId, creationTimestampSeconds, modificationTimestampSeconds, videoDurationUs);
+    ByteBuffer udtaBox = Boxes.udta(metadataCollector.locationData);
+    ByteBuffer metaBox =
+        metadataCollector.metadataEntries.isEmpty()
+            ? ByteBuffer.allocate(0)
+            : Boxes.meta(
+                Boxes.hdlr(/* handlerType= */ "mdta", /* handlerName= */ ""),
+                Boxes.keys(Lists.newArrayList(metadataCollector.metadataEntries)),
+                Boxes.ilst(Lists.newArrayList(metadataCollector.metadataEntries)));
+
+    List<ByteBuffer> subBoxes = new ArrayList<>();
+    subBoxes.add(mvhdBox);
+    subBoxes.add(udtaBox);
+    subBoxes.add(metaBox);
+    subBoxes.addAll(trakBoxes);
+    if (isFragmentedMp4) {
+      subBoxes.add(Boxes.mvex(trexBoxes));
+    }
+
+    ByteBuffer moovBox = BoxUtils.wrapBoxesIntoBox("moov", subBoxes);
+
+    // Also add XMP if needed
+    if (metadataCollector.xmpData != null) {
+      return BoxUtils.concatenateBuffers(
+          moovBox, Boxes.uuid(Boxes.XMP_UUID, ByteBuffer.wrap(metadataCollector.xmpData.data)));
+    } else {
+      // No need for another copy if there is no XMP to be appended.
+      return moovBox;
+    }
+  }
 
   /**
    * Returns the tkhd box.
@@ -1063,6 +1243,22 @@ import java.util.List;
     edvdBoxHeader.putLong(LARGE_SIZE_BOX_HEADER_SIZE + payloadSize); // the actual length
     edvdBoxHeader.flip();
     return edvdBoxHeader;
+  }
+
+  /** Returns an ISO 639-2/T (ISO3) language code for the IETF BCP 47 language tag. */
+  private static @PolyNull String bcp47LanguageTagToIso3(@PolyNull String languageTag) {
+    if (languageTag == null) {
+      return null;
+    }
+
+    Locale locale = Locale.forLanguageTag(languageTag);
+
+    return locale.getISO3Language().isEmpty() ? languageTag : locale.getISO3Language();
+  }
+
+  /** Converts video units to microseconds, using the provided timebase. */
+  private static long usFromVu(long timestampVu, long videoUnitTimebase) {
+    return timestampVu * 1_000_000L / videoUnitTimebase;
   }
 
   // TODO: b/317117431 - Change this method to getLastSampleDuration().

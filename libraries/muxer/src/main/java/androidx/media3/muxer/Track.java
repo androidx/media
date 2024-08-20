@@ -28,7 +28,7 @@ import java.util.Deque;
 import java.util.List;
 
 /** Represents a single track (audio, video, metadata etc.). */
-/* package */ final class Track implements TrackToken, Mp4MoovStructure.TrackMetadataProvider {
+/* package */ final class Track implements TrackToken, Boxes.TrackMetadataProvider {
   public final Format format;
   public final int sortKey;
   public final List<BufferInfo> writtenSamples;
