@@ -70,12 +70,12 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
-/** Test for {@link ExoPlayer#setVideoEffects}. */
+/** Pixel tests for {@link ExoPlayer#setVideoEffects}. */
 // These tests are in the performance package even though they are not performance tests so that
 // they are not run on all devices. This is because they use ImageReader, which has a tendency to
 // drop frames.
 @RunWith(Enclosed.class)
-public class EffectPlaybackTest {
+public class EffectPlaybackPixelTest {
 
   private static final String TEST_DIRECTORY = "test-generated-goldens/ExoPlayerPlaybackTest";
   private static final long TEST_TIMEOUT_MS = 10_000;

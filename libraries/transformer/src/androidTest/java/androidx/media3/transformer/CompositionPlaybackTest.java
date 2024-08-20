@@ -14,63 +14,30 @@
  * limitations under the License.
  */
 
-package androidx.media3.transformer.mh.performance;
+package androidx.media3.transformer;
 
-import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE;
-import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapFromRgba8888Image;
-import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888;
-import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET;
-import static androidx.media3.transformer.mh.performance.PlaybackTestUtil.createTimestampOverlay;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.content.Context;
-import android.graphics.Bitmap;
-import android.graphics.PixelFormat;
-import android.media.Image;
-import android.media.ImageReader;
-import android.view.SurfaceView;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.util.ConditionVariable;
-import androidx.media3.common.util.Size;
-import androidx.media3.common.util.Util;
 import androidx.media3.effect.GlEffect;
-import androidx.media3.transformer.Composition;
-import androidx.media3.transformer.CompositionPlayer;
-import androidx.media3.transformer.EditedMediaItem;
-import androidx.media3.transformer.EditedMediaItemSequence;
-import androidx.media3.transformer.Effects;
-import androidx.media3.transformer.InputTimestampRecordingShaderProgram;
-import androidx.media3.transformer.PlayerTestListener;
-import androidx.media3.transformer.SurfaceTestActivity;
-import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
-import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 /** Playback tests for {@link CompositionPlayer} */
-// These tests are in the performance package even though they are not performance tests so that
-// they are not run on all devices. This is because they use ImageReader, which has a tendency to
-// drop frames.
 @RunWith(AndroidJUnit4.class)
 public class CompositionPlaybackTest {
 
-  private static final String TEST_DIRECTORY = "test-generated-goldens/ExoPlayerPlaybackTest";
   private static final long TEST_TIMEOUT_MS = 10_000;
-
   private static final MediaItem VIDEO_MEDIA_ITEM = MediaItem.fromUri(MP4_ASSET.uri);
   private static final long VIDEO_DURATION_US = MP4_ASSET.videoDurationUs;
   private static final ImmutableList<Long> VIDEO_TIMESTAMPS_US = MP4_ASSET.videoTimestampsUs;
@@ -81,99 +48,20 @@ public class CompositionPlaybackTest {
   private static final ImmutableList<Long> IMAGE_TIMESTAMPS_US =
       ImmutableList.of(0L, 33_333L, 66_667L, 100_000L, 133_333L, 166_667L);
 
-  @Rule public final TestName testName = new TestName();
-
-  @Rule
-  public ActivityScenarioRule<SurfaceTestActivity> rule =
-      new ActivityScenarioRule<>(SurfaceTestActivity.class);
-
   private final Context context = getInstrumentation().getContext().getApplicationContext();
   private final PlayerTestListener playerTestListener = new PlayerTestListener(TEST_TIMEOUT_MS);
 
   private @MonotonicNonNull CompositionPlayer player;
-  private @MonotonicNonNull ImageReader outputImageReader;
-
-  private String testId;
-  private SurfaceView surfaceView;
-
-  @Before
-  public void setUp() {
-    rule.getScenario().onActivity(activity -> surfaceView = activity.getSurfaceView());
-    testId = testName.getMethodName();
-  }
 
   @After
   public void tearDown() {
-    rule.getScenario().close();
     getInstrumentation()
         .runOnMainSync(
             () -> {
               if (player != null) {
                 player.release();
               }
-              if (outputImageReader != null) {
-                outputImageReader.close();
-              }
             });
-  }
-
-  @Test
-  public void compositionPlayerPreviewTest_ensuresFirstFrameRenderedCorrectly() throws Exception {
-    AtomicReference<Bitmap> renderedFirstFrameBitmap = new AtomicReference<>();
-    ConditionVariable hasRenderedFirstFrameCondition = new ConditionVariable();
-    outputImageReader =
-        ImageReader.newInstance(
-            MP4_ASSET.videoFormat.width,
-            MP4_ASSET.videoFormat.height,
-            PixelFormat.RGBA_8888,
-            /* maxImages= */ 1);
-
-    getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player = new CompositionPlayer.Builder(context).build();
-              outputImageReader.setOnImageAvailableListener(
-                  imageReader -> {
-                    try (Image image = imageReader.acquireLatestImage()) {
-                      renderedFirstFrameBitmap.set(createArgb8888BitmapFromRgba8888Image(image));
-                    }
-                    hasRenderedFirstFrameCondition.open();
-                  },
-                  Util.createHandlerForCurrentOrMainLooper());
-
-              player.setVideoSurface(
-                  outputImageReader.getSurface(),
-                  new Size(MP4_ASSET.videoFormat.width, MP4_ASSET.videoFormat.height));
-              player.setComposition(
-                  new Composition.Builder(
-                          new EditedMediaItemSequence(
-                              new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-                                  .setEffects(
-                                      new Effects(
-                                          /* audioProcessors= */ ImmutableList.of(),
-                                          /* videoEffects= */ ImmutableList.of(
-                                              createTimestampOverlay())))
-                                  .setDurationUs(1_024_000L)
-                                  .build()))
-                      .build());
-              player.prepare();
-            });
-
-    if (!hasRenderedFirstFrameCondition.block(TEST_TIMEOUT_MS)) {
-      throw new TimeoutException(
-          Util.formatInvariant("First frame not rendered in %d ms.", TEST_TIMEOUT_MS));
-    }
-
-    assertWithMessage("First frame is not rendered.")
-        .that(renderedFirstFrameBitmap.get())
-        .isNotNull();
-    float averagePixelAbsoluteDifference =
-        getBitmapAveragePixelAbsoluteDifferenceArgb8888(
-            /* expected= */ readBitmap(TEST_DIRECTORY + "/first_frame.png"),
-            /* actual= */ renderedFirstFrameBitmap.get(),
-            testId);
-    assertThat(averagePixelAbsoluteDifference).isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
-    // TODO: b/315800590 - Verify onFirstFrameRendered is invoked only once.
   }
 
   @Test
