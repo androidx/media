@@ -121,14 +121,21 @@ public final class Mp4Muxer implements Muxer {
       String getCacheFilePath();
     }
 
-    public final CacheFileProvider cacheFileProvider;
+    public final boolean shouldInterleaveSamples;
+    @Nullable public final CacheFileProvider cacheFileProvider;
 
     /**
      * Creates an instance.
      *
-     * @param cacheFileProvider A {@link CacheFileProvider}.
+     * @param shouldInterleaveSamples Whether to interleave editable video track samples with
+     *     primary track samples.
+     * @param cacheFileProvider A {@link CacheFileProvider}. Required only when {@code
+     *     shouldInterleaveSamples} is set to {@code false}, can be {@code null} otherwise.
      */
-    public EditableVideoParameters(CacheFileProvider cacheFileProvider) {
+    public EditableVideoParameters(
+        boolean shouldInterleaveSamples, @Nullable CacheFileProvider cacheFileProvider) {
+      checkArgument(shouldInterleaveSamples || cacheFileProvider != null);
+      this.shouldInterleaveSamples = shouldInterleaveSamples;
       this.cacheFileProvider = cacheFileProvider;
     }
   }
@@ -373,6 +380,10 @@ public final class Mp4Muxer implements Muxer {
    */
   public TrackToken addTrack(int sortKey, Format format) throws MuxerException {
     if (outputFileFormat == FILE_FORMAT_EDITABLE_VIDEO && isEditableVideoTrack(format)) {
+      if (checkNotNull(editableVideoParameters).shouldInterleaveSamples) {
+        // Editable video tracks are handled by the primary Mp4Writer.
+        return mp4Writer.addEditableVideoTrack(sortKey, format);
+      }
       try {
         ensureSetupForEditableVideoTracks();
       } catch (FileNotFoundException e) {
@@ -484,7 +495,8 @@ public final class Mp4Muxer implements Muxer {
   @EnsuresNonNull({"editableVideoMp4Writer"})
   private void ensureSetupForEditableVideoTracks() throws FileNotFoundException {
     if (editableVideoMp4Writer == null) {
-      cacheFilePath = checkNotNull(editableVideoParameters).cacheFileProvider.getCacheFilePath();
+      cacheFilePath =
+          checkNotNull(checkNotNull(editableVideoParameters).cacheFileProvider).getCacheFilePath();
       cacheFileOutputStream = new FileOutputStream(cacheFilePath);
       editableVideoMetadataCollector = new MetadataCollector();
       editableVideoMp4Writer =

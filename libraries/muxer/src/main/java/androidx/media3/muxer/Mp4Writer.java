@@ -20,12 +20,17 @@ import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.muxer.AnnexBUtils.doesSampleContainAnnexBNalUnits;
 import static androidx.media3.muxer.Boxes.BOX_HEADER_SIZE;
 import static androidx.media3.muxer.Boxes.LARGE_SIZE_BOX_HEADER_SIZE;
+import static androidx.media3.muxer.Boxes.getEdvdBoxHeader;
+import static androidx.media3.muxer.MuxerUtil.getEditableTracksLengthMetadata;
+import static androidx.media3.muxer.MuxerUtil.getEditableTracksOffsetMetadata;
+import static androidx.media3.muxer.MuxerUtil.populateEditableVideoTracksMetadata;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 import android.media.MediaCodec.BufferInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.Util;
+import androidx.media3.container.MdtaMetadataEntry;
 import com.google.common.collect.Range;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -47,6 +52,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
   private final @Mp4Muxer.LastFrameDurationBehavior int lastFrameDurationBehavior;
   private final boolean sampleCopyEnabled;
   private final List<Track> tracks;
+  private final List<Track> editableVideoTracks;
   private final AtomicBoolean hasWrittenSamples;
 
   // Stores location of the space reserved for the moov box at the beginning of the file (after ftyp
@@ -89,6 +95,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
     this.lastFrameDurationBehavior = lastFrameDurationBehavior;
     this.sampleCopyEnabled = sampleCopyEnabled;
     tracks = new ArrayList<>();
+    editableVideoTracks = new ArrayList<>();
     hasWrittenSamples = new AtomicBoolean(false);
     canWriteMoovAtStart = attemptStreamableOutputEnabled;
     lastMoovWritten = Range.closed(0L, 0L);
@@ -105,6 +112,22 @@ import java.util.concurrent.atomic.AtomicBoolean;
     Track track = new Track(format, sortKey, sampleCopyEnabled);
     tracks.add(track);
     Collections.sort(tracks, (a, b) -> Integer.compare(a.sortKey, b.sortKey));
+    return track;
+  }
+
+  /**
+   * Adds an editable video track of the given {@link Format}.
+   *
+   * <p>See {@link MuxerUtil#isEditableVideoTrack(Format)} for editable video tracks.
+   *
+   * @param sortKey The key used for sorting the track list.
+   * @param format The {@link Format} for the track.
+   * @return A unique {@link Track}. It should be used in {@link #writeSampleData}.
+   */
+  public Track addEditableVideoTrack(int sortKey, Format format) {
+    Track track = new Track(format, sortKey, sampleCopyEnabled);
+    editableVideoTracks.add(track);
+    Collections.sort(editableVideoTracks, (a, b) -> Integer.compare(a.sortKey, b.sortKey));
     return track;
   }
 
@@ -132,11 +155,60 @@ import java.util.concurrent.atomic.AtomicBoolean;
     for (int i = 0; i < tracks.size(); i++) {
       writePendingTrackSamples(tracks.get(i));
     }
+    for (int i = 0; i < editableVideoTracks.size(); i++) {
+      writePendingTrackSamples(editableVideoTracks.get(i));
+    }
 
     // Leave the file empty if no samples are written.
-    if (hasWrittenSamples.get()) {
-      finalizeMoovBox();
+    if (!hasWrittenSamples.get()) {
+      return;
     }
+
+    finalizeMoovBox();
+
+    if (!editableVideoTracks.isEmpty()) {
+      writeEdvdBox();
+    }
+  }
+
+  private void writeEdvdBox() throws IOException {
+    // The exact offset is known after writing primary track data.
+    MdtaMetadataEntry placeholderEditableTrackOffset =
+        getEditableTracksOffsetMetadata(/* offset= */ 0L);
+    metadataCollector.addMetadata(placeholderEditableTrackOffset);
+    ByteBuffer edvdBox = getEdvdBox();
+    metadataCollector.addMetadata(getEditableTracksLengthMetadata(edvdBox.remaining()));
+    finalizeMoovBox();
+    // Once final moov is written, update the actual offset.
+    metadataCollector.removeMdtaMetadataEntry(placeholderEditableTrackOffset);
+    metadataCollector.addMetadata(getEditableTracksOffsetMetadata(outputFileChannel.size()));
+    long fileSizeBefore = outputFileChannel.size();
+    finalizeMoovBox();
+    checkState(fileSizeBefore == outputFileChannel.size());
+    // After writing primary track data, write the edvd box.
+    outputFileChannel.position(outputFileChannel.size());
+    outputFileChannel.write(edvdBox);
+  }
+
+  private ByteBuffer getEdvdBox() {
+    // The edvd box will have one ftyp and one moov box.
+    ByteBuffer ftypBox = Boxes.ftyp();
+    MetadataCollector editableVideoMetadataCollector = new MetadataCollector();
+    populateEditableVideoTracksMetadata(
+        editableVideoMetadataCollector,
+        metadataCollector.timestampData,
+        /* samplesInterleaved= */ true,
+        editableVideoTracks);
+    ByteBuffer moovBox =
+        Mp4MoovStructure.moov(
+            editableVideoTracks,
+            editableVideoMetadataCollector,
+            findMinimumPresentationTimestampUsAcrossTracks(editableVideoTracks),
+            /* isFragmentedMp4= */ false,
+            lastFrameDurationBehavior);
+    ByteBuffer edvdBoxHeader =
+        getEdvdBoxHeader(/* payloadSize= */ ftypBox.remaining() + moovBox.remaining());
+    return BoxUtils.concatenateBuffers(edvdBoxHeader, ftypBox, moovBox);
   }
 
   /**
@@ -435,9 +507,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
   }
 
   private void doInterleave() throws IOException {
-    boolean newSamplesWritten = maybeWritePendingTrackSamples(tracks);
+    boolean primaryTrackSampleWritten = maybeWritePendingTrackSamples(tracks);
+    maybeWritePendingTrackSamples(editableVideoTracks);
 
-    if (newSamplesWritten && canWriteMoovAtStart) {
+    if (primaryTrackSampleWritten && canWriteMoovAtStart) {
       maybeWriteMoovAtStart();
     }
   }
