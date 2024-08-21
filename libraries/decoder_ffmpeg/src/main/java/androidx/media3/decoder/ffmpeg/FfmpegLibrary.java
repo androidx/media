@@ -164,6 +164,10 @@ public final class FfmpegLibrary {
         return "vp9";
       case MimeTypes.VIDEO_WEBM:
         return "webm";
+      case MimeTypes.VIDEO_MPEG:
+        return "mpegvideo";
+      case MimeTypes.VIDEO_MPEG2:
+        return "mpeg2video";
       default:
         return null;
     }
