@@ -332,6 +332,8 @@ public abstract class MappingTrackSelector extends TrackSelector {
 
   @Nullable private MappedTrackInfo currentMappedTrackInfo;
 
+  private boolean setAudioPresentationSupported;
+
   /**
    * Returns the mapping information for the currently active track selection, or null if no
    * selection is currently active.
@@ -391,6 +393,15 @@ public abstract class MappingTrackSelector extends TrackSelector {
       rendererTrackGroups[rendererIndex][rendererTrackGroupCount] = group;
       rendererFormatSupports[rendererIndex][rendererTrackGroupCount] = rendererFormatSupport;
       rendererTrackGroupCounts[rendererIndex]++;
+      if (group.type == C.TRACK_TYPE_AUDIO) {
+        for (int formatSupport : rendererFormatSupport) {
+          if ((formatSupport &
+              RendererCapabilities.AUDIO_OFFLOAD_SET_PRESENTATION_SUPPORTED) != 0) {
+            setAudioPresentationSupported = true;
+            break;
+          }
+        }
+      }
     }
 
     // Create a track group array for each renderer, and trim each rendererFormatSupports entry.
@@ -436,6 +447,11 @@ public abstract class MappingTrackSelector extends TrackSelector {
     Tracks tracks = TrackSelectionUtil.buildTracks(mappedTrackInfo, result.second);
 
     return new TrackSelectorResult(result.first, result.second, tracks, mappedTrackInfo);
+  }
+
+  @Override
+  public boolean isSetAudioPresentationSupported() {
+    return setAudioPresentationSupported;
   }
 
   /**
