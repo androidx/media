@@ -48,6 +48,7 @@ import static androidx.media3.transformer.Transformer.PROGRESS_STATE_UNAVAILABLE
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -122,6 +123,9 @@ import org.robolectric.shadows.ShadowMediaCodec;
  */
 @RunWith(AndroidJUnit4.class)
 public final class MediaItemExportTest {
+
+  private static final long TEST_TIMEOUT_SECONDS = 10;
+
   @Rule public final TemporaryFolder outputDir = new TemporaryFolder();
 
   private final Context context = ApplicationProvider.getApplicationContext();
@@ -1079,7 +1083,9 @@ public final class MediaItemExportTest {
                 countDownLatch.countDown();
               }
             });
-    countDownLatch.await();
+    if (!countDownLatch.await(TEST_TIMEOUT_SECONDS, SECONDS)) {
+      throw new TimeoutException();
+    }
 
     assertThat(exception.get()).isNull();
     DumpFileAsserts.assertOutput(
@@ -1109,7 +1115,9 @@ public final class MediaItemExportTest {
                 countDownLatch.countDown();
               }
             });
-    countDownLatch.await();
+    if (!countDownLatch.await(TEST_TIMEOUT_SECONDS, SECONDS)) {
+      throw new TimeoutException();
+    }
 
     assertThat(illegalStateException.get()).isNotNull();
   }
@@ -1422,7 +1430,9 @@ public final class MediaItemExportTest {
                 countDownLatch.countDown();
               }
             });
-    countDownLatch.await();
+    if (!countDownLatch.await(TEST_TIMEOUT_SECONDS, SECONDS)) {
+      throw new TimeoutException();
+    }
 
     assertThat(illegalStateException.get()).isNotNull();
   }
@@ -1529,7 +1539,9 @@ public final class MediaItemExportTest {
                 countDownLatch.countDown();
               }
             });
-    countDownLatch.await();
+    if (!countDownLatch.await(TEST_TIMEOUT_SECONDS, SECONDS)) {
+      throw new TimeoutException();
+    }
 
     assertThat(illegalStateException.get()).isNotNull();
   }

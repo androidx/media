@@ -22,6 +22,7 @@ import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.content.Context;
 import android.view.SurfaceView;
@@ -46,6 +47,7 @@ import com.google.common.collect.Iterables;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.After;
 import org.junit.Before;
@@ -480,8 +482,10 @@ public class CompositionPlayerSeekTest {
       latch = new CountDownLatch(count);
     }
 
-    public void await() throws InterruptedException {
-      latch.await();
+    public void await() throws InterruptedException, TimeoutException {
+      if (!latch.await(TEST_TIMEOUT_MS, MILLISECONDS)) {
+        throw new TimeoutException();
+      }
     }
 
     public void countDown() {
