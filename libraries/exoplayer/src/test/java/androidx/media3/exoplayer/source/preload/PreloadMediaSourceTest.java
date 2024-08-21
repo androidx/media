@@ -31,7 +31,9 @@ import android.os.Looper;
 import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.util.SystemClock;
@@ -68,12 +70,15 @@ import androidx.media3.test.utils.FakeAudioRenderer;
 import androidx.media3.test.utils.FakeMediaPeriod;
 import androidx.media3.test.utils.FakeMediaSource;
 import androidx.media3.test.utils.FakeMediaSourceFactory;
+import androidx.media3.test.utils.FakeSampleStream;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.FakeTrackSelector;
 import androidx.media3.test.utils.FakeVideoRenderer;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -334,15 +339,12 @@ public final class PreloadMediaSourceTest {
   @Test
   public void preload_sourceInfoRefreshErrorThrows_onPreloadErrorCalled() throws TimeoutException {
     AtomicReference<PreloadException> preloadExceptionReference = new AtomicReference<>();
-    AtomicReference<PreloadMediaSource> preloadMediaSourceReference = new AtomicReference<>();
     IOException causeException = new IOException("Failed to refresh source info");
     TestPreloadControl preloadControl =
         new TestPreloadControl() {
           @Override
           public void onPreloadError(PreloadException error, PreloadMediaSource mediaSource) {
-            super.onPreloadError(error, mediaSource);
             preloadExceptionReference.set(error);
-            preloadMediaSourceReference.set(mediaSource);
           }
         };
     MediaSource.Factory mediaSourceFactory =
@@ -393,9 +395,8 @@ public final class PreloadMediaSourceTest {
                 .build());
 
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
-    runMainLooperUntil(() -> preloadMediaSourceReference.get() != null);
+    runMainLooperUntil(() -> preloadExceptionReference.get() != null);
 
-    assertThat(preloadControl.onPreloadErrorCalled).isTrue();
     assertThat(preloadExceptionReference.get()).hasCauseThat().isEqualTo(causeException);
     assertThat(preloadControl.onSourcePreparedCalledCount).isEqualTo(0);
     assertThat(preloadControl.onTrackSelectedCalled).isFalse();
@@ -406,15 +407,12 @@ public final class PreloadMediaSourceTest {
   @Test
   public void preload_periodPrepareErrorThrows_onPreloadErrorCalled() throws TimeoutException {
     AtomicReference<PreloadException> preloadExceptionReference = new AtomicReference<>();
-    AtomicReference<PreloadMediaSource> preloadMediaSourceReference = new AtomicReference<>();
     IOException causeException = new IOException("Failed to prepare the period");
     TestPreloadControl preloadControl =
         new TestPreloadControl() {
           @Override
           public void onPreloadError(PreloadException error, PreloadMediaSource mediaSource) {
-            super.onPreloadError(error, mediaSource);
             preloadExceptionReference.set(error);
-            preloadMediaSourceReference.set(mediaSource);
           }
         };
     MediaSource.Factory mediaSourceFactory =
@@ -481,12 +479,122 @@ public final class PreloadMediaSourceTest {
                 .build());
 
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
-    runMainLooperUntil(() -> preloadMediaSourceReference.get() != null);
+    runMainLooperUntil(() -> preloadExceptionReference.get() != null);
 
-    assertThat(preloadControl.onPreloadErrorCalled).isTrue();
     assertThat(preloadExceptionReference.get()).hasCauseThat().isEqualTo(causeException);
     assertThat(preloadControl.onSourcePreparedCalledCount).isGreaterThan(0);
     assertThat(preloadControl.onTrackSelectedCalled).isFalse();
+    assertThat(preloadControl.onContinueLoadingRequestedCalled).isFalse();
+    assertThat(preloadControl.onUsedByPlayerCalled).isFalse();
+  }
+
+  @Test
+  public void preload_sampleStreamErrorThrows_onPreloadErrorCalled() throws TimeoutException {
+    AtomicReference<PreloadException> preloadExceptionReference = new AtomicReference<>();
+    IOException causeException = new IOException("Failed to read the data");
+    TestPreloadControl preloadControl =
+        new TestPreloadControl() {
+          @Override
+          public void onPreloadError(PreloadException error, PreloadMediaSource mediaSource) {
+            preloadExceptionReference.set(error);
+          }
+        };
+    MediaSource.Factory mediaSourceFactory =
+        new MediaSource.Factory() {
+          @Override
+          public MediaSource.Factory setDrmSessionManagerProvider(
+              DrmSessionManagerProvider drmSessionManagerProvider) {
+            return this;
+          }
+
+          @Override
+          public MediaSource.Factory setLoadErrorHandlingPolicy(
+              LoadErrorHandlingPolicy loadErrorHandlingPolicy) {
+            return this;
+          }
+
+          @Override
+          public @C.ContentType int[] getSupportedTypes() {
+            return new int[0];
+          }
+
+          @Override
+          public MediaSource createMediaSource(MediaItem mediaItem) {
+            Format videoFormat =
+                new Format.Builder()
+                    .setSampleMimeType(MimeTypes.VIDEO_H264)
+                    .setAverageBitrate(800_000)
+                    .setWidth(1280)
+                    .setHeight(720)
+                    .build();
+            return new FakeMediaSource(new FakeTimeline(), videoFormat) {
+              @Override
+              public MediaPeriod createMediaPeriod(
+                  MediaPeriodId id,
+                  TrackGroupArray trackGroupArray,
+                  Allocator allocator,
+                  MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+                  DrmSessionManager drmSessionManager,
+                  DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+                  @Nullable TransferListener transferListener) {
+                return new FakeMediaPeriod(
+                    trackGroupArray,
+                    allocator,
+                    /* trackDataFactory= */ (format, mediaPeriodId) -> ImmutableList.of(),
+                    mediaSourceEventDispatcher,
+                    drmSessionManager,
+                    drmEventDispatcher,
+                    /* deferOnPrepared= */ false) {
+                  @Override
+                  protected FakeSampleStream createSampleStream(
+                      Allocator allocator,
+                      @Nullable MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+                      DrmSessionManager drmSessionManager,
+                      DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+                      Format initialFormat,
+                      List<FakeSampleStream.FakeSampleStreamItem> fakeSampleStreamItems) {
+                    return new FakeSampleStream(
+                        allocator,
+                        mediaSourceEventDispatcher,
+                        drmSessionManager,
+                        drmEventDispatcher,
+                        initialFormat,
+                        fakeSampleStreamItems) {
+                      @Override
+                      public void maybeThrowError() throws IOException {
+                        throw causeException;
+                      }
+                    };
+                  }
+                };
+              }
+            };
+          }
+        };
+    TrackSelector trackSelector =
+        new DefaultTrackSelector(ApplicationProvider.getApplicationContext());
+    trackSelector.init(() -> {}, bandwidthMeter);
+    PreloadMediaSource.Factory preloadMediaSourceFactory =
+        new PreloadMediaSource.Factory(
+            mediaSourceFactory,
+            preloadControl,
+            trackSelector,
+            bandwidthMeter,
+            getRendererCapabilities(renderersFactory),
+            allocator,
+            Util.getCurrentOrMainLooper());
+    PreloadMediaSource preloadMediaSource =
+        preloadMediaSourceFactory.createMediaSource(
+            new MediaItem.Builder()
+                .setUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"))
+                .build());
+
+    preloadMediaSource.preload(/* startPositionUs= */ 0L);
+    runMainLooperUntil(() -> preloadExceptionReference.get() != null);
+
+    assertThat(preloadExceptionReference.get()).hasCauseThat().isEqualTo(causeException);
+    assertThat(preloadControl.onSourcePreparedCalledCount).isGreaterThan(0);
+    assertThat(preloadControl.onTrackSelectedCalled).isTrue();
     assertThat(preloadControl.onContinueLoadingRequestedCalled).isFalse();
     assertThat(preloadControl.onUsedByPlayerCalled).isFalse();
   }

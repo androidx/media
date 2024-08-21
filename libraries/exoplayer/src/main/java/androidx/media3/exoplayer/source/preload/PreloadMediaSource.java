@@ -424,7 +424,12 @@ public final class PreloadMediaSource extends WrappingMediaSource {
     try {
       maybeThrowSourceInfoRefreshError();
       if (preloadingMediaPeriodAndKey != null) {
-        preloadingMediaPeriodAndKey.first.maybeThrowPrepareError();
+        PreloadMediaPeriod preloadingMediaPeriod = preloadingMediaPeriodAndKey.first;
+        if (!preloadingMediaPeriod.prepared) {
+          preloadingMediaPeriod.maybeThrowPrepareError();
+        } else {
+          preloadingMediaPeriod.maybeThrowStreamError();
+        }
       }
       preloadHandler.postDelayed(this::checkForPreloadError, CHECK_FOR_PRELOAD_ERROR_INTERVAL_MS);
     } catch (IOException e) {
