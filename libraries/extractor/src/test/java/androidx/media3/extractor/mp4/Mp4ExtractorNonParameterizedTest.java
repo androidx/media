@@ -139,6 +139,24 @@ public final class Mp4ExtractorNonParameterizedTest {
     DumpFileAsserts.assertOutput(context, editableTracksOutput, dumpFilePath);
   }
 
+  @Test
+  public void
+      extract_fileHavingEditableVideoTracksInterleavedWithPrimaryVideoTracksWithReadEditableVideoTracksFlag_extractsEditableVideoTracks()
+          throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    String inputFilePath =
+        "media/mp4/sample_with_fake_editable_video_tracks_interleaved_with_primary_video_tracks.mp4";
+    Mp4Extractor mp4Extractor =
+        new Mp4Extractor(
+            new DefaultSubtitleParserFactory(), Mp4Extractor.FLAG_READ_EDITABLE_VIDEO_TRACKS);
+
+    FakeExtractorOutput editableTracksOutput =
+        TestUtil.extractAllSamplesFromFile(mp4Extractor, context, inputFilePath);
+
+    String dumpFilePath = getDumpFilePath(inputFilePath, "_with_flag_read_Editable_video_tracks");
+    DumpFileAsserts.assertOutput(context, editableTracksOutput, dumpFilePath);
+  }
+
   private static String getDumpFilePath(String inputFilePath, String suffix) {
     return inputFilePath.replaceFirst("media", "extractordumps") + suffix;
   }
