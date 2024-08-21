@@ -2633,6 +2633,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
     if (loadingPeriodHolder == null) {
       return false;
     }
+    if (loadingPeriodHolder.hasLoadingError()) {
+      return false;
+    }
     long nextLoadPositionUs = loadingPeriodHolder.getNextLoadPositionUs();
     if (nextLoadPositionUs == C.TIME_END_OF_SOURCE) {
       return false;
