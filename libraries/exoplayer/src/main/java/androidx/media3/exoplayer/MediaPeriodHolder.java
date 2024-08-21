@@ -35,6 +35,7 @@ import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.trackselection.TrackSelector;
 import androidx.media3.exoplayer.trackselection.TrackSelectorResult;
 import androidx.media3.exoplayer.upstream.Allocator;
+import java.io.IOException;
 
 /** Holds a {@link MediaPeriod} with information required to play it as part of a timeline. */
 /* package */ final class MediaPeriodHolder {
@@ -392,6 +393,27 @@ import androidx.media3.exoplayer.upstream.Allocator;
           info.endPositionUs == C.TIME_UNSET ? C.TIME_END_OF_SOURCE : info.endPositionUs;
       ((ClippingMediaPeriod) mediaPeriod).updateClipping(/* startUs= */ 0, endPositionUs);
     }
+  }
+
+  /**
+   * Returns whether the media period has encountered an error that prevents it from being prepared
+   * or reading data.
+   */
+  public boolean hasLoadingError() {
+    try {
+      if (!prepared) {
+        mediaPeriod.maybeThrowPrepareError();
+      } else {
+        for (SampleStream sampleStream : sampleStreams) {
+          if (sampleStream != null) {
+            sampleStream.maybeThrowError();
+          }
+        }
+      }
+    } catch (IOException e) {
+      return true;
+    }
+    return false;
   }
 
   private void enableTrackSelectionsInResult() {

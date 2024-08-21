@@ -10795,10 +10795,139 @@ public class ExoPlayerTest {
   }
 
   @Test
+  public void
+      mediaPeriodMaybeThrowPrepareError_bufferedDurationUnderMinimumBufferForPlayback_keepPlayingUntilBufferedDataExhausts()
+          throws Exception {
+    ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
+    // Define a timeline that has a short duration of 1 second for the first item, which is smaller
+    // than the default buffer duration for playback in DefaultLoadControl (2.5 seconds).
+    Timeline timeline =
+        new FakeTimeline(
+            new TimelineWindowDefinition(
+                /* isSeekable= */ true,
+                /* isDynamic= */ false,
+                /* durationUs= */ 1 * C.MICROS_PER_SECOND));
+    player.addMediaSource(new FakeMediaSource(timeline, ExoPlayerTestRunner.VIDEO_FORMAT));
+    player.addMediaSource(
+        new FakeMediaSource(timeline, ExoPlayerTestRunner.VIDEO_FORMAT) {
+          @Override
+          protected MediaPeriod createMediaPeriod(
+              MediaPeriodId id,
+              TrackGroupArray trackGroupArray,
+              Allocator allocator,
+              MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+              DrmSessionManager drmSessionManager,
+              DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+              @Nullable TransferListener transferListener) {
+            return new FakeMediaPeriod(
+                trackGroupArray,
+                allocator,
+                /* singleSampleTimeUs= */ 0,
+                mediaSourceEventDispatcher,
+                DrmSessionManager.DRM_UNSUPPORTED,
+                drmEventDispatcher,
+                /* deferOnPrepared= */ true) {
+              @Override
+              public void maybeThrowPrepareError() throws IOException {
+                throw new IOException();
+              }
+            };
+          }
+        });
+
+    player.prepare();
+    player.play();
+    ExoPlaybackException error = TestPlayerRunHelper.runUntilError(player);
+
+    Object period1Uid =
+        player
+            .getCurrentTimeline()
+            .getPeriod(/* periodIndex= */ 1, new Timeline.Period(), /* setIds= */ true)
+            .uid;
+    assertThat(error.mediaPeriodId.periodUid).isEqualTo(period1Uid);
+    assertThat(player.getCurrentMediaItemIndex()).isEqualTo(1);
+
+    player.release();
+  }
+
+  @Test
   public void sampleStreamMaybeThrowError_isNotThrownUntilPlaybackReachedFailingItem()
       throws Exception {
     ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
     Timeline timeline = new FakeTimeline();
+    player.addMediaSource(new FakeMediaSource(timeline, ExoPlayerTestRunner.VIDEO_FORMAT));
+    player.addMediaSource(
+        new FakeMediaSource(timeline, ExoPlayerTestRunner.VIDEO_FORMAT) {
+          @Override
+          protected MediaPeriod createMediaPeriod(
+              MediaPeriodId id,
+              TrackGroupArray trackGroupArray,
+              Allocator allocator,
+              MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+              DrmSessionManager drmSessionManager,
+              DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+              @Nullable TransferListener transferListener) {
+            return new FakeMediaPeriod(
+                trackGroupArray,
+                allocator,
+                /* trackDataFactory= */ (format, mediaPeriodId) -> ImmutableList.of(),
+                mediaSourceEventDispatcher,
+                drmSessionManager,
+                drmEventDispatcher,
+                /* deferOnPrepared= */ false) {
+              @Override
+              protected FakeSampleStream createSampleStream(
+                  Allocator allocator,
+                  @Nullable MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+                  DrmSessionManager drmSessionManager,
+                  DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+                  Format initialFormat,
+                  List<FakeSampleStreamItem> fakeSampleStreamItems) {
+                return new FakeSampleStream(
+                    allocator,
+                    mediaSourceEventDispatcher,
+                    drmSessionManager,
+                    drmEventDispatcher,
+                    initialFormat,
+                    fakeSampleStreamItems) {
+                  @Override
+                  public void maybeThrowError() throws IOException {
+                    throw new IOException();
+                  }
+                };
+              }
+            };
+          }
+        });
+
+    player.prepare();
+    player.play();
+    ExoPlaybackException error = TestPlayerRunHelper.runUntilError(player);
+
+    Object period1Uid =
+        player
+            .getCurrentTimeline()
+            .getPeriod(/* periodIndex= */ 1, new Timeline.Period(), /* setIds= */ true)
+            .uid;
+    assertThat(error.mediaPeriodId.periodUid).isEqualTo(period1Uid);
+    assertThat(player.getCurrentMediaItemIndex()).isEqualTo(1);
+
+    player.release();
+  }
+
+  @Test
+  public void
+      sampleStreamMaybeThrowError_bufferedDurationUnderMinimumBufferForPlayback_keepPlayingUntilBufferedDataExhausts()
+          throws Exception {
+    ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
+    // Define a timeline that has a short duration of 1 second for the first item, which is smaller
+    // than the default buffer duration for playback in DefaultLoadControl (2.5 seconds).
+    Timeline timeline =
+        new FakeTimeline(
+            new TimelineWindowDefinition(
+                /* isSeekable= */ true,
+                /* isDynamic= */ false,
+                /* durationUs= */ 1 * C.MICROS_PER_SECOND));
     player.addMediaSource(new FakeMediaSource(timeline, ExoPlayerTestRunner.VIDEO_FORMAT));
     player.addMediaSource(
         new FakeMediaSource(timeline, ExoPlayerTestRunner.VIDEO_FORMAT) {

@@ -6,6 +6,8 @@
 *   ExoPlayer:
     *   Handle preload callbacks asynchronously in `PreloadMediaSource`
         ([#1568](https://github.com/androidx/media/issues/1568)).
+    *   Allow playback regardless of buffered duration when loading fails
+        ([#1571](https://github.com/androidx/media/issues/1571)).
 *   Transformer:
 *   Track Selection:
 *   Extractors:
