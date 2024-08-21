@@ -27,6 +27,7 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.media.AudioDeviceInfo;
 import android.media.AudioFormat;
+import android.media.AudioPresentation;
 import android.media.MediaCodec;
 import android.media.MediaCrypto;
 import android.media.MediaFormat;
@@ -406,6 +407,9 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     }
     if (audioSinkOffloadSupport.isSpeedChangeSupported) {
       audioOffloadSupport |= AUDIO_OFFLOAD_SPEED_CHANGE_SUPPORTED;
+    }
+    if (audioSinkOffloadSupport.isSetPresentationSupported) {
+      audioOffloadSupport |= AUDIO_OFFLOAD_SET_PRESENTATION_SUPPORTED;
     }
     return audioOffloadSupport;
   }
@@ -908,6 +912,11 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
         break;
       case MSG_SET_SKIP_SILENCE_ENABLED:
         audioSink.setSkipSilenceEnabled((Boolean) checkNotNull(message));
+        break;
+      case MSG_SET_AUDIO_PRESENTATION:
+        if (SDK_INT >= 29) {
+            audioSink.setPresentation((AudioPresentation) checkNotNull(message));
+        }
         break;
       case MSG_SET_AUDIO_SESSION_ID:
         setAudioSessionId((int) checkNotNull(message));
