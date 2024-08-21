@@ -34,6 +34,11 @@
         API 35+ (where the device advertises support for this).
     *   Handle preload callbacks asynchronously in `PreloadMediaSource`
         ([#1568](https://github.com/androidx/media/issues/1568)).
+    *   Defer the blocking call to
+        `Context.getSystemService(Context.AUDIO_SERVICE)` until audio focus
+        handling is enabled. This ensures the blocking call isn't done if audio
+        focus handling is not enabled
+        ([#1616](https://github.com/androidx/media/pull/1616)).
 *   Transformer:
     *   Add `SurfaceAssetLoader`, which supports queueing video data to
         Transformer via a `Surface`.
