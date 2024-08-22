@@ -1306,10 +1306,18 @@ public final class BoxParser {
         mimeType = (atomType == Mp4Box.TYPE_vp08) ? MimeTypes.VIDEO_VP8 : MimeTypes.VIDEO_VP9;
         parent.setPosition(childStartPosition + Mp4Box.FULL_HEADER_SIZE);
         // See vpcC atom syntax: https://www.webmproject.org/vp9/mp4/#syntax_1
-        parent.skipBytes(2); // profile(8), level(8)
+        byte profile = (byte) parent.readUnsignedByte();
+        byte level = (byte) parent.readUnsignedByte();
         int byte3 = parent.readUnsignedByte();
         bitdepthLuma = byte3 >> 4;
         bitdepthChroma = bitdepthLuma;
+        byte chromaSubsampling = (byte) ((byte3 >> 1) & 0b111);
+        if (mimeType.equals(MimeTypes.VIDEO_VP9)) {
+          // CSD should be in CodecPrivate format according to VP9 Codec spec.
+          initializationData =
+              CodecSpecificDataUtil.buildVp9CodecPrivateInitializationData(
+                  profile, level, (byte) bitdepthLuma, chromaSubsampling);
+        }
         boolean fullRangeFlag = (byte3 & 0b1) != 0;
         int colorPrimaries = parent.readUnsignedByte();
         int transferCharacteristics = parent.readUnsignedByte();
