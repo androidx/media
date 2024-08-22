@@ -16,7 +16,6 @@
 package androidx.media3.common.util;
 
 import androidx.annotation.Nullable;
-import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Chars;
 import com.google.common.primitives.Ints;
@@ -244,8 +243,8 @@ public final class ParsableByteArray {
   /**
    * Peeks at the next char.
    *
-   * <p>Equivalent to passing {@link Charsets#UTF_16} or {@link Charsets#UTF_16BE} to {@link
-   * #peekChar(Charset)}.
+   * <p>Equivalent to passing {@link StandardCharsets#UTF_16} or {@link StandardCharsets#UTF_16BE}
+   * to {@link #peekChar(Charset)}.
    */
   public char peekChar() {
     return (char) ((data[position] & 0xFF) << 8 | (data[position + 1] & 0xFF));
@@ -526,7 +525,7 @@ public final class ParsableByteArray {
   /**
    * Reads a line of text in UTF-8.
    *
-   * <p>Equivalent to passing {@link Charsets#UTF_8} to {@link #readLine(Charset)}.
+   * <p>Equivalent to passing {@link StandardCharsets#UTF_8} to {@link #readLine(Charset)}.
    */
   @Nullable
   public String readLine() {
