@@ -23,6 +23,7 @@ import static androidx.media3.common.util.Assertions.checkState;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.graphics.Rect;
 import android.opengl.EGL14;
 import android.opengl.EGLConfig;
 import android.opengl.EGLContext;
@@ -821,6 +822,43 @@ public final class GlUtil {
   public static void deleteRbo(int rboId) throws GlException {
     GLES20.glDeleteRenderbuffers(
         /* n= */ 1, /* renderbuffers= */ new int[] {rboId}, /* offset= */ 0);
+    checkGlError();
+  }
+
+  /**
+   * Copies the pixels from {@code readFboId} into {@code drawFboId}. Requires OpenGL ES 3.0.
+   *
+   * <p>When the input pixel region (given by {@code readRect}) doesn't have the same size as the
+   * output region (given by {@code drawRect}), this method uses {@link GLES20#GL_LINEAR} filtering
+   * to scale the image contents.
+   *
+   * @param readFboId The framebuffer object to read from.
+   * @param readRect The rectangular region of {@code readFboId} to read from.
+   * @param drawFboId The framebuffer object to draw into.
+   * @param drawRect The rectangular region of {@code drawFboId} to draw into.
+   */
+  public static void blitFrameBuffer(int readFboId, Rect readRect, int drawFboId, Rect drawRect)
+      throws GlException {
+    int[] boundFramebuffer = new int[1];
+    GLES20.glGetIntegerv(GLES20.GL_FRAMEBUFFER_BINDING, boundFramebuffer, /* offset= */ 0);
+    checkGlError();
+    GLES30.glBindFramebuffer(GLES30.GL_READ_FRAMEBUFFER, readFboId);
+    checkGlError();
+    GLES30.glBindFramebuffer(GLES30.GL_DRAW_FRAMEBUFFER, drawFboId);
+    checkGlError();
+    GLES30.glBlitFramebuffer(
+        readRect.left,
+        readRect.top,
+        readRect.right,
+        readRect.bottom,
+        drawRect.left,
+        drawRect.top,
+        drawRect.right,
+        drawRect.bottom,
+        GLES30.GL_COLOR_BUFFER_BIT,
+        GLES30.GL_LINEAR);
+    checkGlError();
+    GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, /* framebuffer= */ boundFramebuffer[0]);
     checkGlError();
   }
 
