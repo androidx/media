@@ -133,8 +133,7 @@ public class CompositionPlayerSeekTest {
             () -> {
               compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
               // Set a surface on the player even though there is no UI on this test. We need a
-              // surface
-              // otherwise the player will skip/drop video frames.
+              // surface otherwise the player will skip/drop video frames.
               compositionPlayer.setVideoSurfaceView(surfaceView);
               compositionPlayer.addListener(playerTestListener);
               compositionPlayer.setComposition(
@@ -429,8 +428,13 @@ public class CompositionPlayerSeekTest {
           @Override
           public void flush() {
             super.flush();
-            shaderProgramShouldBlockInput.set(false);
-            framesReceivedLatch.reset(Integer.MAX_VALUE);
+            if (framesReceivedLatch.getCount() == 0) {
+              // The flush is caused by the seek operation. We do this check because the shader
+              // program can be flushed for other reasons, for example at the transition between 2
+              // renderers.
+              shaderProgramShouldBlockInput.set(false);
+              framesReceivedLatch.reset(Integer.MAX_VALUE);
+            }
           }
         };
 
@@ -449,8 +453,7 @@ public class CompositionPlayerSeekTest {
             () -> {
               compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
               // Set a surface on the player even though there is no UI on this test. We need a
-              // surface
-              // otherwise the player will skip/drop video frames.
+              // surface otherwise the player will skip/drop video frames.
               compositionPlayer.setVideoSurfaceView(surfaceView);
               compositionPlayer.addListener(playerTestListener);
               compositionPlayer.setComposition(
