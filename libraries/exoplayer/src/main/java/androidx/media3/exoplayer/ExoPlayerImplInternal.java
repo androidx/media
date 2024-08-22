@@ -2647,10 +2647,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
   private void maybeContinueLoading() {
     shouldContinueLoading = shouldContinueLoading();
     if (shouldContinueLoading) {
+      LoadingInfo loadingInfo = new LoadingInfo.Builder()
+          .setPlaybackPositionUs(queue.getLoadingPeriod().toPeriodTime(rendererPositionUs))
+          .setPlaybackSpeed(mediaClock.getPlaybackParameters().speed)
+          .setLastRebufferRealtimeMs(lastRebufferRealtimeMs)
+          .build();
       queue
           .getLoadingPeriod()
-          .continueLoading(
-              rendererPositionUs, mediaClock.getPlaybackParameters().speed, lastRebufferRealtimeMs);
+          .continueLoading(loadingInfo);
     }
     updateIsLoading();
   }
