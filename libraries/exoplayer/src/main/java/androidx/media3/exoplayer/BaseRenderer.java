@@ -418,6 +418,15 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
     return lastResetPositionUs;
   }
 
+  /**
+   * Returns the offset added to timestamps of buffers read from the {@link SampleStream}.
+   *
+   * <p>Must only be called if the renderer is at least {@link #STATE_ENABLED}.
+   */
+  protected final long getStreamOffsetUs() {
+    return streamOffsetUs;
+  }
+
   /** Returns a clear {@link FormatHolder}. */
   protected final FormatHolder getFormatHolder() {
     formatHolder.clear();

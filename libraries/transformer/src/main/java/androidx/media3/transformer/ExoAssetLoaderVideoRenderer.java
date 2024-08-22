@@ -130,6 +130,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
     ByteBuffer inputBytes = checkNotNull(inputBuffer.data);
     if (sefVideoSlowMotionFlattener != null) {
+      long streamOffsetUs = getStreamOffsetUs();
       long presentationTimeUs = inputBuffer.timeUs - streamOffsetUs;
       boolean shouldDropInputBuffer =
           sefVideoSlowMotionFlattener.dropOrTransformSample(inputBytes, presentationTimeUs);

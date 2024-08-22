@@ -119,7 +119,6 @@ public final class TextRenderer extends BaseRenderer implements Callback {
   private boolean inputStreamEnded;
   private boolean outputStreamEnded;
   @Nullable private Format streamFormat;
-  private long outputStreamOffsetUs;
   private long lastRendererPositionUs;
   private long finalStreamEndPositionUs;
   private boolean legacyDecodingEnabled;
@@ -159,7 +158,6 @@ public final class TextRenderer extends BaseRenderer implements Callback {
         new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
     formatHolder = new FormatHolder();
     finalStreamEndPositionUs = C.TIME_UNSET;
-    outputStreamOffsetUs = C.TIME_UNSET;
     lastRendererPositionUs = C.TIME_UNSET;
     legacyDecodingEnabled = false;
   }
@@ -206,7 +204,6 @@ public final class TextRenderer extends BaseRenderer implements Callback {
       long startPositionUs,
       long offsetUs,
       MediaSource.MediaPeriodId mediaPeriodId) {
-    outputStreamOffsetUs = offsetUs;
     streamFormat = formats[0];
     if (!isCuesWithTiming(streamFormat)) {
       assertLegacyDecodingEnabledIfRequired();
@@ -462,7 +459,6 @@ public final class TextRenderer extends BaseRenderer implements Callback {
     streamFormat = null;
     finalStreamEndPositionUs = C.TIME_UNSET;
     clearOutput();
-    outputStreamOffsetUs = C.TIME_UNSET;
     lastRendererPositionUs = C.TIME_UNSET;
     if (subtitleDecoder != null) {
       releaseSubtitleDecoder();
@@ -579,9 +575,7 @@ public final class TextRenderer extends BaseRenderer implements Callback {
   @SideEffectFree
   private long getPresentationTimeUs(long positionUs) {
     checkState(positionUs != C.TIME_UNSET);
-    checkState(outputStreamOffsetUs != C.TIME_UNSET);
-
-    return positionUs - outputStreamOffsetUs;
+    return positionUs - getStreamOffsetUs();
   }
 
   @RequiresNonNull("streamFormat")

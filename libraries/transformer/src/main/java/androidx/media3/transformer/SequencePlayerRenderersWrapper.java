@@ -300,7 +300,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Nullable private ExoPlaybackException pendingExoPlaybackException;
     private boolean inputStreamPending;
     private long streamStartPositionUs;
-    private long streamOffsetUs;
     private boolean mayRenderStartOfStream;
     private long offsetToCompositionTimeUs;
 
@@ -311,7 +310,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       videoSink = checkStateNotNull(sequencePlayerRenderersWrapper.videoSink);
       videoEffects = ImmutableList.of();
       streamStartPositionUs = C.TIME_UNSET;
-      streamOffsetUs = C.TIME_UNSET;
     }
 
     // ImageRenderer methods
@@ -397,7 +395,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       checkState(getTimeline().getWindowCount() == 1);
       super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
       streamStartPositionUs = startPositionUs;
-      streamOffsetUs = offsetUs;
       int mediaItemIndex = getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid);
       editedMediaItem =
           sequencePlayerRenderersWrapper.sequence.editedMediaItems.get(mediaItemIndex);
@@ -429,11 +426,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         long positionUs, long elapsedRealtimeUs, Bitmap outputImage, long timeUs) {
       if (inputStreamPending) {
         checkState(streamStartPositionUs != C.TIME_UNSET);
-        checkState(streamOffsetUs != C.TIME_UNSET);
         videoSink.setPendingVideoEffects(videoEffects);
         videoSink.setStreamTimestampInfo(
             streamStartPositionUs,
-            streamOffsetUs,
+            getStreamOffsetUs(),
             /* bufferTimestampAdjustmentUs= */ offsetToCompositionTimeUs,
             getLastResetPositionUs());
         videoSink.onInputStreamChanged(
@@ -451,6 +447,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     private ConstantRateTimestampIterator createTimestampIterator(long positionUs) {
+      long streamOffsetUs = getStreamOffsetUs();
       long imageBaseTimestampUs = streamOffsetUs + offsetToCompositionTimeUs;
       long positionWithinImage = positionUs - streamOffsetUs;
       long firstBitmapTimeUs = imageBaseTimestampUs + positionWithinImage;

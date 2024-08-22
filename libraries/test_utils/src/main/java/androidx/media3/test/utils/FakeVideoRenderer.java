@@ -43,7 +43,6 @@ public class FakeVideoRenderer extends FakeRenderer {
   private final AtomicReference<VideoSize> videoSizeRef = new AtomicReference<>();
   private @MonotonicNonNull Format format;
   @Nullable private Object output;
-  private long streamOffsetUs;
   private boolean renderedFirstFrameAfterReset;
   private boolean mayRenderFirstFrameAfterEnableIfNotStarted;
   private boolean renderedFirstFrameAfterEnable;
@@ -73,7 +72,6 @@ public class FakeVideoRenderer extends FakeRenderer {
       MediaSource.MediaPeriodId mediaPeriodId)
       throws ExoPlaybackException {
     super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
-    streamOffsetUs = offsetUs;
     renderedFirstFrameAfterReset = false;
   }
 
@@ -150,7 +148,7 @@ public class FakeVideoRenderer extends FakeRenderer {
                 ? (getState() == Renderer.STATE_STARTED
                     || mayRenderFirstFrameAfterEnableIfNotStarted)
                 : !renderedFirstFrameAfterReset);
-    shouldProcess |= shouldRenderFirstFrame && playbackPositionUs >= streamOffsetUs;
+    shouldProcess |= shouldRenderFirstFrame && playbackPositionUs >= getStreamOffsetUs();
     @Nullable Object output = this.output;
     if (shouldProcess && !renderedFirstFrameAfterReset && output != null) {
       @MonotonicNonNull Format format = Assertions.checkNotNull(this.format);
