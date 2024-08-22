@@ -92,7 +92,8 @@ import java.util.concurrent.TimeUnit;
      * @param presentationTimeUs The presentation timestamp of the input frame, in microseconds.
      * @return A {@link Future} representing pending completion of the task.
      */
-    Future<T> queueInputFrame(GlTextureInfo textureInfo, long presentationTimeUs);
+    Future<T> queueInputFrame(
+        GlObjectsProvider glObjectsProvider, GlTextureInfo textureInfo, long presentationTimeUs);
 
     /**
      * Finishes processing the frame at {@code presentationTimeUs}. This method optionally allows
@@ -172,6 +173,8 @@ import java.util.concurrent.TimeUnit;
       if (inputWidth != inputTexture.width
           || inputHeight != inputTexture.height
           || !outputTexturePool.isConfigured()) {
+        // Output all pending frames before processing a format change.
+        while (outputOneFrame()) {}
         inputWidth = inputTexture.width;
         inputHeight = inputTexture.height;
         outputTexturePool.ensureConfigured(glObjectsProvider, inputWidth, inputHeight);
@@ -189,7 +192,8 @@ import java.util.concurrent.TimeUnit;
           new Rect(
               /* left= */ 0, /* top= */ 0, /* right= */ inputWidth, /* bottom= */ inputHeight));
 
-      Future<T> task = concurrentEffect.queueInputFrame(outputTexture, presentationTimeUs);
+      Future<T> task =
+          concurrentEffect.queueInputFrame(glObjectsProvider, outputTexture, presentationTimeUs);
       frameQueue.add(new TimedTextureInfo<T>(outputTexture, presentationTimeUs, task));
 
       inputListener.onInputFrameProcessed(inputTexture);

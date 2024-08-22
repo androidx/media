@@ -29,6 +29,7 @@ import android.text.style.AbsoluteSizeSpan;
 import android.text.style.ForegroundColorSpan;
 import android.text.style.TypefaceSpan;
 import android.util.Pair;
+import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.test.utils.TextureBitmapReader;
@@ -162,7 +163,8 @@ public class QueuingGlShaderProgramTest {
     }
 
     @Override
-    public Future<Long> queueInputFrame(GlTextureInfo textureInfo, long presentationTimeUs) {
+    public Future<Long> queueInputFrame(
+        GlObjectsProvider glObjectsProvider, GlTextureInfo textureInfo, long presentationTimeUs) {
       checkState(textureInfo.width == BLANK_FRAME_WIDTH);
       checkState(textureInfo.height == BLANK_FRAME_HEIGHT);
       events.add(Pair.create("queueInputFrame", presentationTimeUs));
