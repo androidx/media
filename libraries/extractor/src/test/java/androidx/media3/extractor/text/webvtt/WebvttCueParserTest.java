@@ -22,6 +22,7 @@ import android.graphics.Color;
 import android.text.Spanned;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.util.Collections;
+import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -46,7 +47,7 @@ public final class WebvttCueParserTest {
   public void parseStrictValidUnsupportedTagsStrippedOut() throws Exception {
     Spanned text =
         parseCueText(
-            "<v.first.loud Esme>This <unsupported>is</unsupported> text with "
+            "This <unsupported>is</unsupported> text with "
                 + "<notsupp><invalid>html</invalid></notsupp> tags");
 
     assertThat(text.toString()).isEqualTo("This is text with html tags");
@@ -240,6 +241,59 @@ public final class WebvttCueParserTest {
 
     text = parseCueText("&&&&&&&");
     assertThat(text.toString()).isEqualTo("&&&&&&&");
+  }
+
+  @Test
+  public void parseEmptyVoiceSpan() throws Exception {
+    Spanned text = parseCueText("<v>Text with a single voice span");
+
+    assertThat(text.toString()).isEqualTo("Text with a single voice span");
+    assertThat(text)
+        .hasVoiceSpanBetween(0, "Text with a single voice span".length())
+        .withSpeakerNameAndClasses("", Collections.emptySet());
+  }
+
+  @Test
+  public void parseVoiceSpanWithName() throws Exception {
+    Spanned text = parseCueText("<v Esme>Text with a single voice span");
+
+    assertThat(text.toString()).isEqualTo("Text with a single voice span");
+    assertThat(text)
+        .hasVoiceSpanBetween(0, "Text with a single voice span".length())
+        .withSpeakerNameAndClasses("Esme", Collections.emptySet());
+  }
+
+  @Test
+  public void parseVoiceSpanWithClasses() throws Exception {
+    Spanned text = parseCueText("<v.first.loud>Text with a single voice span");
+
+    assertThat(text.toString()).isEqualTo("Text with a single voice span");
+    assertThat(text)
+        .hasVoiceSpanBetween(0, "Text with a single voice span".length())
+        .withSpeakerNameAndClasses("", Set.of("first", "loud"));
+  }
+
+  @Test
+  public void parseVoiceSpanWithNameAndClasses() throws Exception {
+    Spanned text = parseCueText("<v.first.loud Esme>Text with a single voice span");
+
+    assertThat(text.toString()).isEqualTo("Text with a single voice span");
+    assertThat(text)
+        .hasVoiceSpanBetween(0, "Text with a single voice span".length())
+        .withSpeakerNameAndClasses("Esme", Set.of("first", "loud"));
+  }
+
+  @Test
+  public void parseMultipleVoiceSpans() throws Exception {
+    Spanned text = parseCueText("<v.loud Esme>Text with </v><v.quiet Mary>multiple voice spans");
+
+    assertThat(text.toString()).isEqualTo("Text with multiple voice spans");
+    assertThat(text)
+        .hasVoiceSpanBetween(0, "Text with ".length())
+        .withSpeakerNameAndClasses("Esme", Set.of("loud"));
+    assertThat(text)
+        .hasVoiceSpanBetween("Text with ".length(), "Text with multiple voice spans".length())
+        .withSpeakerNameAndClasses("Mary", Set.of("quiet"));
   }
 
   private static Spanned parseCueText(String string) {

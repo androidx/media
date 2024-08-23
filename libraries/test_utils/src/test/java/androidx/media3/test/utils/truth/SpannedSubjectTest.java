@@ -40,11 +40,13 @@ import androidx.media3.common.text.HorizontalTextInVerticalContextSpan;
 import androidx.media3.common.text.RubySpan;
 import androidx.media3.common.text.TextAnnotation;
 import androidx.media3.common.text.TextEmphasisSpan;
+import androidx.media3.common.text.VoiceSpan;
 import androidx.media3.common.util.Util;
 import androidx.media3.test.utils.truth.SpannedSubject.AndSpanFlags;
 import androidx.media3.test.utils.truth.SpannedSubject.WithSpanFlags;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.truth.ExpectFailure;
+import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -900,6 +902,85 @@ public class SpannedSubjectTest {
     checkHasNoSpanFails(
         new HorizontalTextInVerticalContextSpan(),
         SpannedSubject::hasNoHorizontalTextInVerticalContextSpanBetween);
+  }
+
+  @Test
+  public void voiceSpan_success() {
+    SpannableString spannable =
+        createSpannable(
+            new VoiceSpan("speaker", Set.of("quiet")),
+            Spanned.SPAN_INCLUSIVE_EXCLUSIVE);
+
+    assertThat(spannable)
+        .hasVoiceSpanBetween(SPAN_START, SPAN_END)
+        .withSpeakerNameAndClasses("speaker", Set.of("quiet"))
+        .andFlags(Spanned.SPAN_INCLUSIVE_EXCLUSIVE);
+  }
+
+  @Test
+  public void voiceSpan_wrongEndIndex() {
+    checkHasSpanFailsDueToIndexMismatch(
+        new VoiceSpan("speaker", Set.of("quiet")),
+        SpannedSubject::hasVoiceSpanBetween);
+  }
+
+  @Test
+  public void voiceSpan_wrongSpeakerName() {
+    SpannableString spannable = createSpannable(new VoiceSpan("speaker", Set.of("quiet")));
+
+    AssertionError expected =
+        expectFailure(
+            whenTesting ->
+                whenTesting
+                    .that(spannable)
+                    .hasVoiceSpanBetween(SPAN_START, SPAN_END)
+                    .withSpeakerNameAndClasses("different speaker", Set.of("quiet")));
+
+    assertThat(expected).factValue("value of").contains("voiceSpeakerNameAndClasses");
+    assertThat(expected).factValue("expected").contains("speakerName=different speaker");
+    assertThat(expected).factValue("but was").contains("speakerName=speaker");
+  }
+
+  @Test
+  public void voiceSpan_wrongClasses() {
+    SpannableString spannable = createSpannable(new VoiceSpan("speaker", Set.of("quiet")));
+
+    AssertionError expected =
+        expectFailure(
+            whenTesting ->
+                whenTesting
+                    .that(spannable)
+                    .hasVoiceSpanBetween(SPAN_START, SPAN_END)
+                    .withSpeakerNameAndClasses("speaker", Set.of("loud")));
+
+    assertThat(expected).factValue("value of").contains("voiceSpeakerNameAndClasses");
+    assertThat(expected).factValue("expected").contains("classes=[loud]");
+    assertThat(expected).factValue("but was").contains("classes=[quiet]");
+  }
+
+  @Test
+  public void voiceSpan_wrongFlags() {
+    checkHasSpanFailsDueToFlagMismatch(
+        new VoiceSpan("speaker", Set.of("quiet")),
+        (subject, start, end) ->
+            subject
+                .hasVoiceSpanBetween(start, end)
+                .withSpeakerNameAndClasses("speaker", Set.of("quiet")));
+  }
+
+  @Test
+  public void noVoiceSpan_success() {
+    SpannableString spannable =
+        createSpannableWithUnrelatedSpanAnd(new VoiceSpan("speaker", Set.of("quiet")));
+
+    assertThat(spannable).hasNoVoiceSpanBetween(UNRELATED_SPAN_START, UNRELATED_SPAN_END);
+  }
+
+  @Test
+  public void noVoiceSpan_failure() {
+    checkHasNoSpanFails(
+        new VoiceSpan("speaker", Set.of("quiet")),
+        SpannedSubject::hasNoVoiceSpanBetween);
   }
 
   private interface HasSpanFunction<T> {
