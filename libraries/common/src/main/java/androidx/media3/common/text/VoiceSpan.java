@@ -31,7 +31,7 @@ import java.util.Set;
  *   voice spans</a>.
  */
 @UnstableApi
-public final class VoiceSpan implements LanguageFeatureSpan {
+public final class VoiceSpan {
 
   /** The speaker name. */
   public final String speakerName;
