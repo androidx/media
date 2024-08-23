@@ -342,6 +342,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
             && composition.sequences.size() <= MAX_SUPPORTED_SEQUENCES);
     checkState(this.composition == null);
     composition = deactivateSpeedAdjustingVideoEffects(composition);
+    composition = modifySequencesToSameDuration(composition);
 
     setCompositionInternal(composition);
     if (videoOutput != null) {
@@ -978,6 +979,67 @@ public final class CompositionPlayer extends SimpleBasePlayer
       }
     }
     return false;
+  }
+
+  /**
+   * Repeats or clips the non-zero indexed sequence to match the duration of the zero indexed
+   * sequence (the primary sequence).
+   */
+  private static Composition modifySequencesToSameDuration(Composition composition) {
+    EditedMediaItemSequence primarySequence = composition.sequences.get(0);
+    checkArgument(
+        !primarySequence.isLooping,
+        "CompositionPlayer doesn't support looping the first sequence.");
+    long primarySequenceDurationUs = getSequenceDurationUs(primarySequence);
+    ArrayList<EditedMediaItemSequence> rebuiltSequences =
+        new ArrayList<>(composition.sequences.size());
+    rebuiltSequences.add(primarySequence);
+
+    // TODO: b/331392198 - Repeat only looping sequences, after sequences can be of arbitrary
+    // length.
+    for (int i = 1; i < composition.sequences.size(); i++) {
+      EditedMediaItemSequence sequence = composition.sequences.get(i);
+      long sequenceDurationUs = getSequenceDurationUs(sequence);
+      if (sequenceDurationUs == primarySequenceDurationUs) {
+        rebuiltSequences.add(sequence);
+        continue;
+      }
+
+      ArrayList<EditedMediaItem> repeatedEditedMediaItems = new ArrayList<>();
+      long repeatSequenceTimes = primarySequenceDurationUs / sequenceDurationUs;
+      for (int j = 0; j < repeatSequenceTimes; j++) {
+        repeatedEditedMediaItems.addAll(sequence.editedMediaItems);
+      }
+
+      long remainingDurationUs =
+          primarySequenceDurationUs - repeatSequenceTimes * sequenceDurationUs;
+      for (int j = 0; j < sequence.editedMediaItems.size(); j++) {
+        EditedMediaItem editedMediaItem = sequence.editedMediaItems.get(j);
+        if (editedMediaItem.getPresentationDurationUs() <= remainingDurationUs) {
+          remainingDurationUs -= editedMediaItem.getPresentationDurationUs();
+          repeatedEditedMediaItems.add(editedMediaItem);
+        } else {
+          // TODO: b/289989542 - Handle already clipped, or speed adjusted media.
+          checkState(editedMediaItem.getPresentationDurationUs() == editedMediaItem.durationUs);
+          repeatedEditedMediaItems.add(
+              editedMediaItem
+                  .buildUpon()
+                  .setMediaItem(
+                      editedMediaItem
+                          .mediaItem
+                          .buildUpon()
+                          .setClippingConfiguration(
+                              new MediaItem.ClippingConfiguration.Builder()
+                                  .setEndPositionUs(remainingDurationUs)
+                                  .build())
+                          .build())
+                  .build());
+          break;
+        }
+      }
+      rebuiltSequences.add(new EditedMediaItemSequence(repeatedEditedMediaItems));
+    }
+    return composition.buildUpon().setSequences(rebuiltSequences).build();
   }
 
   /**

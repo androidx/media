@@ -34,6 +34,7 @@ import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -262,6 +263,65 @@ public final class CompositionPlayerAudioPlaybackTest {
 
     DumpFileAsserts.assertOutput(
         context, capturingAudioSink, "audiosinkdumps/wav/sample.wav_repeated.dump");
+  }
+
+  @Test
+  public void compositionPlayback_withShortLoopingSequence_outputsCorrectSamples()
+      throws Exception {
+    CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
+    EditedMediaItemSequence primarySequence =
+        new EditedMediaItemSequence(
+            new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
+                .setDurationUs(1_000_000L)
+                .build());
+    EditedMediaItemSequence loopingSequence =
+        new EditedMediaItemSequence(
+            ImmutableList.of(
+                new EditedMediaItem.Builder(
+                        MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW_STEREO_48000KHZ))
+                    .setDurationUs(348_000L)
+                    .build()),
+            /* isLooping= */ true);
+    Composition composition = new Composition.Builder(primarySequence, loopingSequence).build();
+    player.setComposition(composition);
+    player.prepare();
+    player.play();
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    player.release();
+
+    DumpFileAsserts.assertOutput(
+        context,
+        capturingAudioSink,
+        "audiosinkdumps/wav/compositionPlayback_withShortLoopingSequence_outputsCorrectSamples.dump");
+  }
+
+  @Test
+  public void compositionPlayback_withLongLoopingSequence_outputsCorrectSamples() throws Exception {
+    CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
+    EditedMediaItemSequence primarySequence =
+        new EditedMediaItemSequence(
+            new EditedMediaItem.Builder(
+                    MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW_STEREO_48000KHZ))
+                .setDurationUs(348_000L)
+                .build());
+    EditedMediaItemSequence loopingSequence =
+        new EditedMediaItemSequence(
+            ImmutableList.of(
+                new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
+                    .setDurationUs(1_000_000L)
+                    .build()),
+            /* isLooping= */ true);
+    Composition composition = new Composition.Builder(primarySequence, loopingSequence).build();
+    player.setComposition(composition);
+    player.prepare();
+    player.play();
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    player.release();
+
+    DumpFileAsserts.assertOutput(
+        context,
+        capturingAudioSink,
+        "audiosinkdumps/wav/compositionPlayback_withLongLoopingSequence_outputsCorrectSamples.dump");
   }
 
   @Test

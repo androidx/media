@@ -282,24 +282,6 @@ public class CompositionPlayerTest {
   }
 
   @Test
-  public void setComposition_unmatchingDurations_throws() {
-    CompositionPlayer player = buildCompositionPlayer();
-
-    Composition composition =
-        new Composition.Builder(
-                ImmutableList.of(
-                    new EditedMediaItemSequence(
-                        new EditedMediaItem.Builder(MediaItem.EMPTY).setDurationUs(1).build()),
-                    new EditedMediaItemSequence(
-                        new EditedMediaItem.Builder(MediaItem.EMPTY).setDurationUs(2).build())))
-            .build();
-
-    assertThrows(IllegalArgumentException.class, () -> player.setComposition(composition));
-
-    player.release();
-  }
-
-  @Test
   public void prepare_withoutCompositionSet_throws() {
     CompositionPlayer player = buildCompositionPlayer();
 
