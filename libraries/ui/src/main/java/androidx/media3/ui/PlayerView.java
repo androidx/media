@@ -1140,6 +1140,16 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   }
 
   /**
+   * Sets whether the fullscreen button is fullScreenButton or minimalFullScreenButton.
+   *
+   * @param isFullscreen Whether the player is currently in fullscreen.
+   */
+  public void setFullscreenButtonState(boolean isFullscreen) {
+    Assertions.checkStateNotNull(controller);
+    controller.updateIsFullScreen(isFullscreen);
+  }
+
+  /**
    * Sets the {@link PlayerControlView.OnFullScreenModeChangedListener}.
    *
    * <p>Clears any listener set by {@link
