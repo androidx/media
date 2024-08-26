@@ -64,7 +64,6 @@ import java.util.List;
   }
 
   public void writeSampleData(ByteBuffer byteBuffer, BufferInfo bufferInfo) {
-    // TODO: b/279931840 - Confirm whether muxer should throw when writing empty samples.
     //  Skip empty samples.
     if (bufferInfo.size == 0 || byteBuffer.remaining() == 0) {
       return;
