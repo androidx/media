@@ -20,7 +20,6 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.GlUtil.getDefaultEglDisplay;
-import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_VFP;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_RECEIVE_END_OF_ALL_INPUT;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_REGISTER_NEW_INPUT_STREAM;
@@ -1118,11 +1117,6 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   private static Pair<EGLContext, EGLSurface> createFocusedEglContextWithFallback(
       GlObjectsProvider glObjectsProvider, EGLDisplay eglDisplay, int[] configAttributes)
       throws GlUtil.GlException {
-    if (SDK_INT < 29) {
-      return createFocusedEglContext(
-          glObjectsProvider, eglDisplay, /* openGlVersion= */ 2, configAttributes);
-    }
-
     try {
       return createFocusedEglContext(
           glObjectsProvider, eglDisplay, /* openGlVersion= */ 3, configAttributes);
