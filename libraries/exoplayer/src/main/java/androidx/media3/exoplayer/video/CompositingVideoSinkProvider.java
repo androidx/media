@@ -488,6 +488,7 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
     private long lastBufferPresentationTimeUs;
 
     private boolean hasRegisteredFirstInputStream;
+    private boolean isInputStreamChangePending;
     private long pendingInputStreamBufferPresentationTimeUs;
     private VideoSink.Listener listener;
     private Executor listenerExecutor;
@@ -559,10 +560,11 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
       if (resetPosition) {
         videoFrameReleaseControl.reset();
       }
+      pendingInputStreamBufferPresentationTimeUs = C.TIME_UNSET;
       // Don't change input stream offset or reset the pending input stream offset change so that
       // it's announced with the next input frame.
-      // Don't reset pendingInputStreamBufferPresentationTimeUs because it's not guaranteed to
-      // receive a new input stream after seeking.
+      // Don't reset isInputStreamChangePending because it's not guaranteed to receive a new input
+      // stream after seeking.
     }
 
     @Override
@@ -598,10 +600,12 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
         // If an input stream registration is pending and seek causes a format change, execution
         // reaches here before registerInputFrame(). Reset pendingInputStreamTimestampUs to
         // avoid registering the same input stream again in registerInputFrame().
+        isInputStreamChangePending = false;
         pendingInputStreamBufferPresentationTimeUs = C.TIME_UNSET;
       } else {
         // If we reach this point, we must have registered at least one frame for processing.
         checkState(lastBufferPresentationTimeUs != C.TIME_UNSET);
+        isInputStreamChangePending = true;
         pendingInputStreamBufferPresentationTimeUs = lastBufferPresentationTimeUs;
       }
     }
@@ -728,10 +732,12 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
 
       // An input stream is fully decoded, wait until all of its frames are released before queueing
       // input frame from the next input stream.
-      if (pendingInputStreamBufferPresentationTimeUs != C.TIME_UNSET) {
-        if (CompositingVideoSinkProvider.this.hasReleasedFrame(
-            pendingInputStreamBufferPresentationTimeUs)) {
+      if (isInputStreamChangePending) {
+        if (pendingInputStreamBufferPresentationTimeUs == C.TIME_UNSET
+            || CompositingVideoSinkProvider.this.hasReleasedFrame(
+                pendingInputStreamBufferPresentationTimeUs)) {
           maybeRegisterInputStream();
+          isInputStreamChangePending = false;
           pendingInputStreamBufferPresentationTimeUs = C.TIME_UNSET;
         } else {
           return false;
@@ -822,14 +828,16 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
      * registration, hence it's safe to queue images or frames to the video graph input.
      */
     private boolean maybeRegisterPendingInputStream() {
-      if (pendingInputStreamBufferPresentationTimeUs == C.TIME_UNSET) {
+      if (!isInputStreamChangePending) {
         return true;
       }
       // An input stream is fully decoded, wait until all of its frames are released before queueing
       // input frame from the next input stream.
-      if (CompositingVideoSinkProvider.this.hasReleasedFrame(
-          pendingInputStreamBufferPresentationTimeUs)) {
+      if (pendingInputStreamBufferPresentationTimeUs == C.TIME_UNSET
+          || CompositingVideoSinkProvider.this.hasReleasedFrame(
+              pendingInputStreamBufferPresentationTimeUs)) {
         maybeRegisterInputStream();
+        isInputStreamChangePending = false;
         pendingInputStreamBufferPresentationTimeUs = C.TIME_UNSET;
         return true;
       }
