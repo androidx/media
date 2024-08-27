@@ -1,0 +1,117 @@
+format audio:
+  averageBitrate = 131072
+  sampleMimeType = audio/mp4a-latm
+  channelCount = 1
+  sampleRate = 44100
+  pcmEncoding = 2
+sample:
+  trackType = audio
+  dataHashCode = 2130230346
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -2057343535
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = 210551712
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -1663026631
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = 752570693
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = 1495870552
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -1721430959
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = 1127650475
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = 844939412
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = 1215370645
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -2071007050
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -1564301038
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = 149014897
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = 275830775
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = 73517825
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -1111649366
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -2104186492
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -745911362
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -1855648359
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -1277685819
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -928112759
+  size = 4096
+  isKeyFrame = true
+sample:
+  trackType = audio
+  dataHashCode = -1518061899
+  size = 1904
+  isKeyFrame = true
+released = true
