@@ -21,8 +21,6 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import android.os.Bundle;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import com.google.common.collect.ImmutableSet;
-import java.util.Set;
 
 /**
  * A span representing a speaker.
@@ -33,22 +31,22 @@ import java.util.Set;
 @UnstableApi
 public final class VoiceSpan {
 
-  /** The speaker name. */
-  public final String speakerName;
+  /** The voice name. */
+  public final String name;
 
   private static final String FIELD_NAME = Util.intToStringMaxRadix(0);
 
-  public VoiceSpan(String speakerName) {
-    this.speakerName = speakerName;
+  public VoiceSpan(String name) {
+    this.name = name;
   }
 
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
-    bundle.putString(FIELD_NAME, speakerName);
+    bundle.putString(FIELD_NAME, name);
     return bundle;
   }
 
   public static VoiceSpan fromBundle(Bundle bundle) {
-    return new VoiceSpan(/* speakerName = */ checkNotNull(bundle.getString(FIELD_NAME)));
+    return new VoiceSpan(/* name = */ checkNotNull(bundle.getString(FIELD_NAME)));
   }
 }

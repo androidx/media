@@ -54,7 +54,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
 /** A Truth {@link Subject} for assertions on {@link Spanned} instances containing text styling. */
@@ -661,8 +660,8 @@ public final class SpannedSubject extends Subject {
   }
 
   /**
-   * Checks that the subject has no {@link VoiceSpan}s on any of the text
-   * between {@code start} and {@code end}.
+   * Checks that the subject has no {@link VoiceSpan}s on any of the text between {@code start} and
+   * {@code end}.
    *
    * <p>This fails even if the start and end indexes don't exactly match.
    *
@@ -1320,10 +1319,11 @@ public final class SpannedSubject extends Subject {
      * @param name The expected name of the voice.
      * @return A {@link AndSpanFlags} object for optional additional assertions on the flags.
      */
-    AndSpanFlags withSpeakerName(String name);
+    AndSpanFlags withName(String name);
   }
 
-  private static final VoiceText ALREADY_FAILED_WITH_NAME_AND_CLASSES = (name) -> ALREADY_FAILED_AND_FLAGS;
+  private static final VoiceText ALREADY_FAILED_WITH_NAME_AND_CLASSES =
+      (name) -> ALREADY_FAILED_AND_FLAGS;
 
   private static Factory<VoiceSpanSubject, List<VoiceSpan>> voiceSpanSubjects(
       Spanned actualSpanned) {
@@ -1337,36 +1337,32 @@ public final class SpannedSubject extends Subject {
     private final Spanned actualSpanned;
 
     private VoiceSpanSubject(
-        FailureMetadata metadata,
-        @Nullable List<VoiceSpan> actualSpans,
-        Spanned actualSpanned) {
+        FailureMetadata metadata, @Nullable List<VoiceSpan> actualSpans, Spanned actualSpanned) {
       super(metadata, actualSpans);
       this.actualSpans = actualSpans;
       this.actualSpanned = actualSpanned;
     }
 
     @Override
-    public AndSpanFlags withSpeakerName(String name) {
+    public AndSpanFlags withName(String name) {
       List<Integer> matchingSpanFlags = new ArrayList<>();
-      List<SpeakerName> voiceSpeakerName = new ArrayList<>();
+      List<Name> voiceName = new ArrayList<>();
       for (VoiceSpan span : checkNotNull(actualSpans)) {
-        voiceSpeakerNameAndClasses.add(new SpeakerName(span.speakerName));
-        if (span.speakerName.equals(name)) {
+        voiceName.add(new Name(span.name));
+        if (span.name.equals(name)) {
           matchingSpanFlags.add(actualSpanned.getSpanFlags(span));
         }
       }
-      check("voiceSpeakerName")
-          .that(voiceSpeakerNameAndClasses)
-          .containsExactly(new SpeakerName(name));
+      check("voiceName").that(voiceName).containsExactly(new Name(name));
       return check("flags").about(spanFlags()).that(matchingSpanFlags);
     }
 
-    private static final class SpeakerName {
+    private static final class Name {
 
-      private final String speakerName;
+      private final String name;
 
-      private SpeakerName(String name) {
-        this.speakerName = name;
+      private Name(String name) {
+        this.name = name;
       }
 
       @Override
@@ -1378,18 +1374,18 @@ public final class SpannedSubject extends Subject {
           return false;
         }
 
-        SpeakerName that = (SpeakerName) o;
+        Name that = (Name) o;
         return name.equals(that.name);
       }
 
       @Override
       public int hashCode() {
-        return Objects.hash(speakerName);
+        return Objects.hash(name);
       }
 
       @Override
       public String toString() {
-        return String.format("{speakerName=%s}", speakerName);
+        return String.format("{name=%s}", name);
       }
     }
   }

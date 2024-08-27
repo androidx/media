@@ -46,7 +46,6 @@ import androidx.media3.test.utils.truth.SpannedSubject.AndSpanFlags;
 import androidx.media3.test.utils.truth.SpannedSubject.WithSpanFlags;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.truth.ExpectFailure;
-import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -913,7 +912,7 @@ public class SpannedSubjectTest {
 
     assertThat(spannable)
         .hasVoiceSpanBetween(SPAN_START, SPAN_END)
-        .withSpeakerName("speaker")
+        .withName("speaker")
         .andFlags(Spanned.SPAN_INCLUSIVE_EXCLUSIVE);
   }
 
@@ -925,7 +924,7 @@ public class SpannedSubjectTest {
   }
 
   @Test
-  public void voiceSpan_wrongSpeakerName() {
+  public void voiceSpan_wrongName() {
     SpannableString spannable = createSpannable(new VoiceSpan("speaker"));
 
     AssertionError expected =
@@ -934,11 +933,11 @@ public class SpannedSubjectTest {
                 whenTesting
                     .that(spannable)
                     .hasVoiceSpanBetween(SPAN_START, SPAN_END)
-                    .withSpeakerName("different speaker"));
+                    .withName("different speaker"));
 
-    assertThat(expected).factValue("value of").contains("voiceSpeakerName");
-    assertThat(expected).factValue("expected").contains("speakerName=different speaker");
-    assertThat(expected).factValue("but was").contains("speakerName=speaker");
+    assertThat(expected).factValue("value of").contains("voiceName");
+    assertThat(expected).factValue("expected").contains("name=different speaker");
+    assertThat(expected).factValue("but was").contains("name=speaker");
   }
 
   @Test
@@ -948,7 +947,7 @@ public class SpannedSubjectTest {
         (subject, start, end) ->
             subject
                 .hasVoiceSpanBetween(start, end)
-                .withSpeakerName("speaker"));
+                .withName("speaker"));
   }
 
   @Test

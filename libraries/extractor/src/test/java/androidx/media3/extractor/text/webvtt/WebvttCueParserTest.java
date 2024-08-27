@@ -249,7 +249,7 @@ public final class WebvttCueParserTest {
     assertThat(text.toString()).isEqualTo("Text with a single voice span");
     assertThat(text)
         .hasVoiceSpanBetween(0, "Text with a single voice span".length())
-        .withSpeakerName("");
+        .withName("");
   }
 
   @Test
@@ -259,7 +259,7 @@ public final class WebvttCueParserTest {
     assertThat(text.toString()).isEqualTo("Text with a single voice span");
     assertThat(text)
         .hasVoiceSpanBetween(0, "Text with a single voice span".length())
-        .withSpeakerName("Esme");
+        .withName("Esme");
   }
 
   @Test
@@ -269,7 +269,7 @@ public final class WebvttCueParserTest {
     assertThat(text.toString()).isEqualTo("Text with a single voice span");
     assertThat(text)
         .hasVoiceSpanBetween(0, "Text with a single voice span".length())
-        .withSpeakerName("");
+        .withName("");
   }
 
   @Test
@@ -279,7 +279,7 @@ public final class WebvttCueParserTest {
     assertThat(text.toString()).isEqualTo("Text with a single voice span");
     assertThat(text)
         .hasVoiceSpanBetween(0, "Text with a single voice span".length())
-        .withSpeakerName("Esme");
+        .withName("Esme");
   }
 
   @Test
@@ -287,10 +287,10 @@ public final class WebvttCueParserTest {
     Spanned text = parseCueText("<v.loud Esme>Text with </v><v.quiet Mary>multiple voice spans");
 
     assertThat(text.toString()).isEqualTo("Text with multiple voice spans");
-    assertThat(text).hasVoiceSpanBetween(0, "Text with ".length()).withSpeakerName("Esme");
+    assertThat(text).hasVoiceSpanBetween(0, "Text with ".length()).withName("Esme");
     assertThat(text)
         .hasVoiceSpanBetween("Text with ".length(), "Text with multiple voice spans".length())
-        .withSpeakerName("Mary");
+        .withName("Mary");
   }
 
   private static Spanned parseCueText(String string) {

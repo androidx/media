@@ -98,7 +98,7 @@ public class CustomCueBundlerTest {
         .hasVoiceSpanBetween(
             ALL_SPANS_TO_START_END_INDEX.get(VOICE_SPAN).first,
             ALL_SPANS_TO_START_END_INDEX.get(VOICE_SPAN).second)
-        .withSpeakerName(VOICE_SPAN.speakerName);
+        .withName(VOICE_SPAN.name);
   }
 
   @Test
