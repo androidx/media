@@ -110,6 +110,32 @@ import java.util.concurrent.TimeUnit;
      */
     void finishProcessingAndBlend(GlTextureInfo outputFrame, long presentationTimeUs, T result)
         throws VideoFrameProcessingException;
+
+    /**
+     * Notifies the {@code ConcurrentEffect} that no further input frames belonging to the current
+     * input stream will be queued.
+     *
+     * <p>Can block until the {@code ConcurrentEffect} finishes processing pending frames.
+     *
+     * @throws VideoFrameProcessingException If an error occurs while processing pending frames.
+     */
+    void signalEndOfCurrentInputStream() throws VideoFrameProcessingException;
+
+    /**
+     * Flushes the {@code ConcurrentEffect}.
+     *
+     * <p>The {@code ConcurrentEffect} should reclaim the ownership of any allocated resources.
+     *
+     * @throws VideoFrameProcessingException If an error occurs while reclaiming resources.
+     */
+    void flush() throws VideoFrameProcessingException;
+
+    /**
+     * Releases all resources.
+     *
+     * @throws VideoFrameProcessingException If an error occurs while releasing resources.
+     */
+    void release() throws VideoFrameProcessingException;
   }
 
   private final ConcurrentEffect<T> concurrentEffect;
@@ -222,6 +248,11 @@ import java.util.concurrent.TimeUnit;
 
   @Override
   public void signalEndOfCurrentInputStream() {
+    try {
+      concurrentEffect.signalEndOfCurrentInputStream();
+    } catch (VideoFrameProcessingException e) {
+      onError(e);
+    }
     while (outputOneFrame()) {}
     outputListener.onCurrentOutputStreamEnded();
   }
@@ -229,6 +260,11 @@ import java.util.concurrent.TimeUnit;
   @Override
   @CallSuper
   public void flush() {
+    try {
+      concurrentEffect.flush();
+    } catch (VideoFrameProcessingException e) {
+      onError(e);
+    }
     cancelProcessingOfPendingFrames();
     outputTexturePool.freeAllTextures();
     inputListener.onFlush();
@@ -242,6 +278,7 @@ import java.util.concurrent.TimeUnit;
   public void release() throws VideoFrameProcessingException {
     try {
       cancelProcessingOfPendingFrames();
+      concurrentEffect.release();
       outputTexturePool.deleteAllTextures();
     } catch (GlUtil.GlException e) {
       throw new VideoFrameProcessingException(e);

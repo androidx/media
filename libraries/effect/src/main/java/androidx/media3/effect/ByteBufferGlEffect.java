@@ -39,6 +39,7 @@ import java.util.concurrent.Future;
 /* package */ class ByteBufferGlEffect<T> implements GlEffect {
 
   private static final int DEFAULT_QUEUE_SIZE = 6;
+  private static final int DEFAULT_PENDING_PIXEL_BUFFER_QUEUE_SIZE = 1;
 
   /**
    * A processor that takes in {@link ByteBuffer ByteBuffers} that represent input image data, and
@@ -134,6 +135,7 @@ import java.util.concurrent.Future;
     return new QueuingGlShaderProgram<>(
         /* useHighPrecisionColorComponents= */ useHdr,
         /* queueSize= */ DEFAULT_QUEUE_SIZE,
-        new ByteBufferConcurrentEffect<>(processor));
+        new ByteBufferConcurrentEffect<>(
+            /* pendingPixelBufferQueueSize= */ DEFAULT_PENDING_PIXEL_BUFFER_QUEUE_SIZE, processor));
   }
 }

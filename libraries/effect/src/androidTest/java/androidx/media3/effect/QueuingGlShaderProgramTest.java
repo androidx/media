@@ -177,5 +177,14 @@ public class QueuingGlShaderProgramTest {
       checkState(result == presentationTimeUs);
       events.add(Pair.create("finishProcessingAndBlend", presentationTimeUs));
     }
+
+    @Override
+    public void signalEndOfCurrentInputStream() {}
+
+    @Override
+    public void flush() {}
+
+    @Override
+    public void release() {}
   }
 }
