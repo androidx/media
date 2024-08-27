@@ -42,7 +42,7 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class CustomCueBundlerTest {
 
-  private static final VoiceSpan VOICE_SPAN = new VoiceSpan("name", Set.of("first", "loud"));
+  private static final VoiceSpan VOICE_SPAN = new VoiceSpan("name");
   private static final RubySpan RUBY_SPAN =
       new RubySpan("ruby text", TextAnnotation.POSITION_AFTER);
   private static final TextEmphasisSpan TEXT_EMPHASIS_SPAN =
@@ -98,7 +98,7 @@ public class CustomCueBundlerTest {
         .hasVoiceSpanBetween(
             ALL_SPANS_TO_START_END_INDEX.get(VOICE_SPAN).first,
             ALL_SPANS_TO_START_END_INDEX.get(VOICE_SPAN).second)
-        .withSpeakerNameAndClasses(VOICE_SPAN.speakerName, VOICE_SPAN.classes);
+        .withSpeakerName(VOICE_SPAN.speakerName);
   }
 
   @Test

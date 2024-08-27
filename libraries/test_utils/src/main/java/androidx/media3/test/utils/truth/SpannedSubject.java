@@ -1315,18 +1315,15 @@ public final class SpannedSubject extends Subject {
   /** Allows assertions about a span's voice its position. */
   public interface VoiceText {
     /**
-     * Checks that at least one of the matched spans has the expected {@code name} and {@code
-     * classes}.
+     * Checks that at least one of the matched spans has the expected {@code name}.
      *
      * @param name The expected name of the voice.
-     * @param classes The classes used to style the voice.
      * @return A {@link AndSpanFlags} object for optional additional assertions on the flags.
      */
-    AndSpanFlags withSpeakerNameAndClasses(String name, Set<String> classes);
+    AndSpanFlags withSpeakerName(String name);
   }
 
-  private static final VoiceText ALREADY_FAILED_WITH_NAME_AND_CLASSES =
-      (name, classes) -> ALREADY_FAILED_AND_FLAGS;
+  private static final VoiceText ALREADY_FAILED_WITH_NAME_AND_CLASSES = (name) -> ALREADY_FAILED_AND_FLAGS;
 
   private static Factory<VoiceSpanSubject, List<VoiceSpan>> voiceSpanSubjects(
       Spanned actualSpanned) {
@@ -1349,29 +1346,27 @@ public final class SpannedSubject extends Subject {
     }
 
     @Override
-    public AndSpanFlags withSpeakerNameAndClasses(String name, Set<String> classes) {
+    public AndSpanFlags withSpeakerName(String name) {
       List<Integer> matchingSpanFlags = new ArrayList<>();
-      List<SpeakerNameAndClasses> voiceSpeakerNameAndClasses = new ArrayList<>();
+      List<SpeakerName> voiceSpeakerName = new ArrayList<>();
       for (VoiceSpan span : checkNotNull(actualSpans)) {
-        voiceSpeakerNameAndClasses.add(new SpeakerNameAndClasses(span.speakerName, span.classes));
-        if (span.speakerName.equals(name) && span.classes.equals(classes)) {
+        voiceSpeakerNameAndClasses.add(new SpeakerName(span.speakerName));
+        if (span.speakerName.equals(name)) {
           matchingSpanFlags.add(actualSpanned.getSpanFlags(span));
         }
       }
-      check("voiceSpeakerNameAndClasses")
+      check("voiceSpeakerName")
           .that(voiceSpeakerNameAndClasses)
-          .containsExactly(new SpeakerNameAndClasses(name, classes));
+          .containsExactly(new SpeakerName(name));
       return check("flags").about(spanFlags()).that(matchingSpanFlags);
     }
 
-    private static final class SpeakerNameAndClasses {
+    private static final class SpeakerName {
 
       private final String speakerName;
-      private final Set<String> classes;
 
-      private SpeakerNameAndClasses(String name, Set<String> classes) {
+      private SpeakerName(String name) {
         this.speakerName = name;
-        this.classes = classes;
       }
 
       @Override
@@ -1383,18 +1378,18 @@ public final class SpannedSubject extends Subject {
           return false;
         }
 
-        SpeakerNameAndClasses that = (SpeakerNameAndClasses) o;
-        return (speakerName.equals(that.speakerName)) && classes.equals(that.classes);
+        SpeakerName that = (SpeakerName) o;
+        return name.equals(that.name);
       }
 
       @Override
       public int hashCode() {
-        return Objects.hash(speakerName, classes);
+        return Objects.hash(speakerName);
       }
 
       @Override
       public String toString() {
-        return String.format("{speakerName=%s,classes=%s}", speakerName, classes);
+        return String.format("{speakerName=%s}", speakerName);
       }
     }
   }

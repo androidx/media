@@ -557,7 +557,7 @@ public final class WebvttCueParser {
         applyDefaultColors(text, startTag.classes, start, end);
         break;
       case TAG_VOICE:
-        applyVoiceSpan(text, startTag.voice, startTag.classes, start, end);
+        applyVoiceSpan(text, startTag.voice, start, end);
         break;
       case TAG_LANG:
       case "": // Case of the "whole cue" virtual tag.
@@ -662,8 +662,8 @@ public final class WebvttCueParser {
   }
 
   private static void applyVoiceSpan(
-      SpannableStringBuilder text, String voice, Set<String> classes, int start, int end) {
-    text.setSpan(new VoiceSpan(voice, classes), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+      SpannableStringBuilder text, String voice, int start, int end) {
+    text.setSpan(new VoiceSpan(voice), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
   }
 
   private static void applyStyleToText(

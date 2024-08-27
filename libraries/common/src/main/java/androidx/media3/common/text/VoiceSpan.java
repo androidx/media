@@ -36,27 +36,19 @@ public final class VoiceSpan {
   /** The speaker name. */
   public final String speakerName;
 
-  /** The classes associated with the text. It can specify things like "first", "loud", etc. */
-  public final Set<String> classes;
-
   private static final String FIELD_NAME = Util.intToStringMaxRadix(0);
-  private static final String FIELD_CLASSES = Util.intToStringMaxRadix(1);
 
-  public VoiceSpan(String speakerName, Set<String> classes) {
+  public VoiceSpan(String speakerName) {
     this.speakerName = speakerName;
-    this.classes = classes;
   }
 
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
     bundle.putString(FIELD_NAME, speakerName);
-    bundle.putStringArray(FIELD_CLASSES, classes.toArray(new String[0]));
     return bundle;
   }
 
   public static VoiceSpan fromBundle(Bundle bundle) {
-    return new VoiceSpan(
-        /* speakerName = */ checkNotNull(bundle.getString(FIELD_NAME)),
-        /* classes = */ ImmutableSet.copyOf(checkNotNull(bundle.getStringArray(FIELD_CLASSES))));
+    return new VoiceSpan(/* speakerName = */ checkNotNull(bundle.getString(FIELD_NAME)));
   }
 }

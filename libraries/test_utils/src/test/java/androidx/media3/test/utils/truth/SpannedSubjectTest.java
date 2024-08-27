@@ -908,25 +908,25 @@ public class SpannedSubjectTest {
   public void voiceSpan_success() {
     SpannableString spannable =
         createSpannable(
-            new VoiceSpan("speaker", Set.of("quiet")),
+            new VoiceSpan("speaker"),
             Spanned.SPAN_INCLUSIVE_EXCLUSIVE);
 
     assertThat(spannable)
         .hasVoiceSpanBetween(SPAN_START, SPAN_END)
-        .withSpeakerNameAndClasses("speaker", Set.of("quiet"))
+        .withSpeakerName("speaker")
         .andFlags(Spanned.SPAN_INCLUSIVE_EXCLUSIVE);
   }
 
   @Test
   public void voiceSpan_wrongEndIndex() {
     checkHasSpanFailsDueToIndexMismatch(
-        new VoiceSpan("speaker", Set.of("quiet")),
+        new VoiceSpan("speaker"),
         SpannedSubject::hasVoiceSpanBetween);
   }
 
   @Test
   public void voiceSpan_wrongSpeakerName() {
-    SpannableString spannable = createSpannable(new VoiceSpan("speaker", Set.of("quiet")));
+    SpannableString spannable = createSpannable(new VoiceSpan("speaker"));
 
     AssertionError expected =
         expectFailure(
@@ -934,44 +934,27 @@ public class SpannedSubjectTest {
                 whenTesting
                     .that(spannable)
                     .hasVoiceSpanBetween(SPAN_START, SPAN_END)
-                    .withSpeakerNameAndClasses("different speaker", Set.of("quiet")));
+                    .withSpeakerName("different speaker"));
 
-    assertThat(expected).factValue("value of").contains("voiceSpeakerNameAndClasses");
+    assertThat(expected).factValue("value of").contains("voiceSpeakerName");
     assertThat(expected).factValue("expected").contains("speakerName=different speaker");
     assertThat(expected).factValue("but was").contains("speakerName=speaker");
   }
 
   @Test
-  public void voiceSpan_wrongClasses() {
-    SpannableString spannable = createSpannable(new VoiceSpan("speaker", Set.of("quiet")));
-
-    AssertionError expected =
-        expectFailure(
-            whenTesting ->
-                whenTesting
-                    .that(spannable)
-                    .hasVoiceSpanBetween(SPAN_START, SPAN_END)
-                    .withSpeakerNameAndClasses("speaker", Set.of("loud")));
-
-    assertThat(expected).factValue("value of").contains("voiceSpeakerNameAndClasses");
-    assertThat(expected).factValue("expected").contains("classes=[loud]");
-    assertThat(expected).factValue("but was").contains("classes=[quiet]");
-  }
-
-  @Test
   public void voiceSpan_wrongFlags() {
     checkHasSpanFailsDueToFlagMismatch(
-        new VoiceSpan("speaker", Set.of("quiet")),
+        new VoiceSpan("speaker"),
         (subject, start, end) ->
             subject
                 .hasVoiceSpanBetween(start, end)
-                .withSpeakerNameAndClasses("speaker", Set.of("quiet")));
+                .withSpeakerName("speaker"));
   }
 
   @Test
   public void noVoiceSpan_success() {
     SpannableString spannable =
-        createSpannableWithUnrelatedSpanAnd(new VoiceSpan("speaker", Set.of("quiet")));
+        createSpannableWithUnrelatedSpanAnd(new VoiceSpan("speaker"));
 
     assertThat(spannable).hasNoVoiceSpanBetween(UNRELATED_SPAN_START, UNRELATED_SPAN_END);
   }
@@ -979,7 +962,7 @@ public class SpannedSubjectTest {
   @Test
   public void noVoiceSpan_failure() {
     checkHasNoSpanFails(
-        new VoiceSpan("speaker", Set.of("quiet")),
+        new VoiceSpan("speaker"),
         SpannedSubject::hasNoVoiceSpanBetween);
   }
 
