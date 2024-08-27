@@ -49,7 +49,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
   private final FileChannel outputFileChannel;
   private final MetadataCollector metadataCollector;
   private final AnnexBToAvccConverter annexBToAvccConverter;
-  private final @Mp4Muxer.LastFrameDurationBehavior int lastFrameDurationBehavior;
+  private final @Mp4Muxer.LastSampleDurationBehavior int lastSampleDurationBehavior;
   private final boolean sampleCopyEnabled;
   private final List<Track> tracks;
   private final List<Track> editableVideoTracks;
@@ -77,8 +77,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
    * @param annexBToAvccConverter The {@link AnnexBToAvccConverter} to be used to convert H.264 and
    *     H.265 NAL units from the Annex-B format (using start codes to delineate NAL units) to the
    *     AVCC format (which uses length prefixes).
-   * @param lastFrameDurationBehavior The {@link Mp4Muxer.LastFrameDurationBehavior} for the video
-   *     track.
+   * @param lastSampleDurationBehavior The {@link Mp4Muxer.LastSampleDurationBehavior}.
    * @param sampleCopyEnabled Whether sample copying is enabled.
    * @param attemptStreamableOutputEnabled Whether to attempt to write a streamable output.
    */
@@ -86,13 +85,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
       FileChannel fileChannel,
       MetadataCollector metadataCollector,
       AnnexBToAvccConverter annexBToAvccConverter,
-      @Mp4Muxer.LastFrameDurationBehavior int lastFrameDurationBehavior,
+      @Mp4Muxer.LastSampleDurationBehavior int lastSampleDurationBehavior,
       boolean sampleCopyEnabled,
       boolean attemptStreamableOutputEnabled) {
     this.outputFileChannel = fileChannel;
     this.metadataCollector = metadataCollector;
     this.annexBToAvccConverter = annexBToAvccConverter;
-    this.lastFrameDurationBehavior = lastFrameDurationBehavior;
+    this.lastSampleDurationBehavior = lastSampleDurationBehavior;
     this.sampleCopyEnabled = sampleCopyEnabled;
     tracks = new ArrayList<>();
     editableVideoTracks = new ArrayList<>();
@@ -205,7 +204,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
             editableVideoMetadataCollector,
             findMinimumPresentationTimestampUsAcrossTracks(editableVideoTracks),
             /* isFragmentedMp4= */ false,
-            lastFrameDurationBehavior);
+            lastSampleDurationBehavior);
     ByteBuffer edvdBoxHeader =
         getEdvdBoxHeader(/* payloadSize= */ ftypBox.remaining() + moovBox.remaining());
     return BoxUtils.concatenateBuffers(edvdBoxHeader, ftypBox, moovBox);
@@ -323,7 +322,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
               metadataCollector,
               minInputPtsUs,
               /* isFragmentedMp4= */ false,
-              lastFrameDurationBehavior);
+              lastSampleDurationBehavior);
     } else {
       // Skip moov box, if there are no samples.
       moovHeader = ByteBuffer.allocate(0);

@@ -131,7 +131,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       MetadataCollector metadataCollector,
       long minInputPtsUs,
       boolean isFragmentedMp4,
-      @Mp4Muxer.LastFrameDurationBehavior int lastFrameDurationBehavior) {
+      @Mp4Muxer.LastSampleDurationBehavior int lastSampleDurationBehavior) {
     // The timestamp will always fit into a 32-bit integer. This is already validated in the
     // Mp4Muxer.setTimestampData() API. The value after type casting might be negative, but it is
     // still valid because it is meant to be read as an unsigned integer.
@@ -157,7 +157,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
               track.writtenSamples(),
               minInputPtsUs,
               track.videoUnitTimebase(),
-              lastFrameDurationBehavior);
+              lastSampleDurationBehavior);
 
       long trackDurationInTrackUnitsVu = 0;
       for (int j = 0; j < sampleDurationsVu.size(); j++) {
@@ -808,7 +808,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
    *     Otherwise this should be equal to the presentation timestamp of first sample present in the
    *     {@code samplesInfo} list.
    * @param videoUnitTimescale The timescale of the track.
-   * @param lastDurationBehavior The behaviour for the last sample duration.
+   * @param lastSampleDurationBehavior The behaviour for the last sample duration.
    * @return A list of all the sample durations.
    */
   // TODO: b/280084657 - Add support for setting last sample duration.
@@ -816,7 +816,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       List<BufferInfo> samplesInfo,
       long firstSamplePresentationTimeUs,
       int videoUnitTimescale,
-      @Mp4Muxer.LastFrameDurationBehavior int lastDurationBehavior) {
+      @Mp4Muxer.LastSampleDurationBehavior int lastSampleDurationBehavior) {
     List<Long> presentationTimestampsUs = new ArrayList<>(samplesInfo.size());
     List<Integer> durationsVu = new ArrayList<>(samplesInfo.size());
 
@@ -855,7 +855,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     // Default duration for the last sample.
     durationsVu.add(0);
 
-    adjustLastSampleDuration(durationsVu, lastDurationBehavior);
+    adjustLastSampleDuration(durationsVu, lastSampleDurationBehavior);
     return durationsVu;
   }
 
@@ -1264,7 +1264,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   // TODO: b/317117431 - Change this method to getLastSampleDuration().
   /** Adjusts the duration of the very last sample if needed. */
   private static void adjustLastSampleDuration(
-      List<Integer> durationsToBeAdjustedVu, @Mp4Muxer.LastFrameDurationBehavior int behavior) {
+      List<Integer> durationsToBeAdjustedVu, @Mp4Muxer.LastSampleDurationBehavior int behavior) {
     // Technically, MP4 file stores frame durations, not timestamps. If a frame starts at a
     // given timestamp then the duration of the last frame is not obvious. If samples follow each
     // other in roughly regular intervals (e.g. in a normal, 30 fps video), it can be safely assumed
@@ -1278,14 +1278,14 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     }
 
     switch (behavior) {
-      case Mp4Muxer.LAST_FRAME_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION:
+      case Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION:
         // This is the default MediaMuxer behavior: the last sample duration is a copy of the
         // previous sample duration.
         durationsToBeAdjustedVu.set(
             durationsToBeAdjustedVu.size() - 1,
             durationsToBeAdjustedVu.get(durationsToBeAdjustedVu.size() - 2));
         break;
-      case Mp4Muxer.LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME:
+      case Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE:
         // Keep the last sample duration as short as possible.
         checkState(Iterables.getLast(durationsToBeAdjustedVu) == 0L);
         break;

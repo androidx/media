@@ -145,19 +145,19 @@ public final class Mp4Muxer implements Muxer {
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)
   @IntDef({
-    LAST_FRAME_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION,
-    LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME
+    LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE,
+    LAST_SAMPLE_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION,
   })
-  public @interface LastFrameDurationBehavior {}
+  public @interface LastSampleDurationBehavior {}
 
   /** Insert a zero-length last sample. */
-  public static final int LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME = 0;
+  public static final int LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE = 0;
 
   /**
    * Use the difference between the last timestamp and the one before that as the duration of the
    * last sample.
    */
-  public static final int LAST_FRAME_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION = 1;
+  public static final int LAST_SAMPLE_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION = 1;
 
   /** The specific MP4 file format. */
   @Documented
@@ -183,7 +183,7 @@ public final class Mp4Muxer implements Muxer {
   public static final class Builder {
     private final FileOutputStream outputStream;
 
-    private @LastFrameDurationBehavior int lastFrameDurationBehavior;
+    private @LastSampleDurationBehavior int lastSampleDurationBehavior;
     @Nullable private AnnexBToAvccConverter annexBToAvccConverter;
     private boolean sampleCopyEnabled;
     private boolean attemptStreamableOutputEnabled;
@@ -197,21 +197,21 @@ public final class Mp4Muxer implements Muxer {
      */
     public Builder(FileOutputStream outputStream) {
       this.outputStream = outputStream;
-      lastFrameDurationBehavior = LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME;
+      lastSampleDurationBehavior = LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE;
       sampleCopyEnabled = true;
       attemptStreamableOutputEnabled = true;
       outputFileFormat = FILE_FORMAT_DEFAULT;
     }
 
     /**
-     * Sets the {@link LastFrameDurationBehavior} for the video track.
+     * Sets the {@link LastSampleDurationBehavior}.
      *
-     * <p>The default value is {@link #LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME}.
+     * <p>The default value is {@link #LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE}.
      */
     @CanIgnoreReturnValue
-    public Mp4Muxer.Builder setLastFrameDurationBehavior(
-        @LastFrameDurationBehavior int lastFrameDurationBehavior) {
-      this.lastFrameDurationBehavior = lastFrameDurationBehavior;
+    public Mp4Muxer.Builder setLastSampleDurationBehavior(
+        @LastSampleDurationBehavior int lastSampleDurationBehavior) {
+      this.lastSampleDurationBehavior = lastSampleDurationBehavior;
       return this;
     }
 
@@ -290,7 +290,7 @@ public final class Mp4Muxer implements Muxer {
           "EditablevideoParameters must be set for FILE_FORMAT_EDITABLE_VIDEO");
       return new Mp4Muxer(
           outputStream,
-          lastFrameDurationBehavior,
+          lastSampleDurationBehavior,
           annexBToAvccConverter == null ? AnnexBToAvccConverter.DEFAULT : annexBToAvccConverter,
           sampleCopyEnabled,
           attemptStreamableOutputEnabled,
@@ -303,7 +303,7 @@ public final class Mp4Muxer implements Muxer {
 
   private final FileOutputStream outputStream;
   private final FileChannel outputChannel;
-  private final @LastFrameDurationBehavior int lastFrameDurationBehavior;
+  private final @LastSampleDurationBehavior int lastSampleDurationBehavior;
   private final AnnexBToAvccConverter annexBToAvccConverter;
   private final boolean sampleCopyEnabled;
   private final boolean attemptStreamableOutputEnabled;
@@ -320,7 +320,7 @@ public final class Mp4Muxer implements Muxer {
 
   private Mp4Muxer(
       FileOutputStream outputStream,
-      @LastFrameDurationBehavior int lastFrameDurationBehavior,
+      @LastSampleDurationBehavior int lastFrameDurationBehavior,
       AnnexBToAvccConverter annexBToAvccConverter,
       boolean sampleCopyEnabled,
       boolean attemptStreamableOutputEnabled,
@@ -328,7 +328,7 @@ public final class Mp4Muxer implements Muxer {
       @Nullable EditableVideoParameters editableVideoParameters) {
     this.outputStream = outputStream;
     outputChannel = outputStream.getChannel();
-    this.lastFrameDurationBehavior = lastFrameDurationBehavior;
+    this.lastSampleDurationBehavior = lastFrameDurationBehavior;
     this.annexBToAvccConverter = annexBToAvccConverter;
     this.sampleCopyEnabled = sampleCopyEnabled;
     this.attemptStreamableOutputEnabled = attemptStreamableOutputEnabled;
@@ -504,7 +504,7 @@ public final class Mp4Muxer implements Muxer {
               cacheFileOutputStream.getChannel(),
               checkNotNull(editableVideoMetadataCollector),
               annexBToAvccConverter,
-              lastFrameDurationBehavior,
+              lastSampleDurationBehavior,
               sampleCopyEnabled,
               attemptStreamableOutputEnabled);
     }

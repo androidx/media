@@ -68,7 +68,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final AnnexBToAvccConverter annexBToAvccConverter;
   private final long fragmentDurationUs;
   private final boolean sampleCopyEnabled;
-  private final @Mp4Muxer.LastFrameDurationBehavior int lastFrameDurationBehavior;
+  private final @Mp4Muxer.LastSampleDurationBehavior int lastSampleDurationBehavior;
   private final List<Track> tracks;
 
   private @MonotonicNonNull Track videoTrack;
@@ -100,7 +100,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.annexBToAvccConverter = annexBToAvccConverter;
     this.fragmentDurationUs = fragmentDurationMs * 1_000;
     this.sampleCopyEnabled = sampleCopyEnabled;
-    lastFrameDurationBehavior = Mp4Muxer.LAST_FRAME_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION;
+    lastSampleDurationBehavior = Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION;
     tracks = new ArrayList<>();
     minInputPresentationTimeUs = Long.MAX_VALUE;
     currentFragmentSequenceNumber = 1;
@@ -207,7 +207,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             metadataCollector,
             /* minInputPtsUs= */ 0L,
             /* isFragmentedMp4= */ true,
-            lastFrameDurationBehavior));
+            lastSampleDurationBehavior));
   }
 
   private boolean shouldFlushPendingSamples(
@@ -333,7 +333,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 ? minInputPresentationTimeUs
                 : pendingSamplesBufferInfo.get(0).presentationTimeUs,
             track.videoUnitTimebase(),
-            Mp4Muxer.LAST_FRAME_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION);
+            Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION);
 
     List<Integer> sampleCompositionTimeOffsets =
         Boxes.calculateSampleCompositionTimeOffsets(

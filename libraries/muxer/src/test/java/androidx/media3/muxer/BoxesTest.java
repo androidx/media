@@ -15,8 +15,8 @@
  */
 package androidx.media3.muxer;
 
-import static androidx.media3.muxer.Mp4Muxer.LAST_FRAME_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION;
-import static androidx.media3.muxer.Mp4Muxer.LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME;
+import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION;
+import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_AUDIO_FORMAT;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_CSD_0;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_VIDEO_FORMAT;
@@ -477,7 +477,7 @@ public class BoxesTest {
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
-            LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME);
+            LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE);
 
     assertThat(durationsVu).containsExactly(0);
   }
@@ -493,7 +493,7 @@ public class BoxesTest {
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
-            LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME);
+            LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE);
 
     assertThat(durationsVu).containsExactly(0);
   }
@@ -509,7 +509,7 @@ public class BoxesTest {
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
-            LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME);
+            LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE);
 
     assertThat(durationsVu).containsExactly(3_000, 5_000, 0);
   }
@@ -525,7 +525,7 @@ public class BoxesTest {
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
-            LAST_FRAME_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION);
+            LAST_SAMPLE_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION);
 
     assertThat(durationsVu).containsExactly(3_000, 5_000, 5_000);
   }
@@ -541,7 +541,7 @@ public class BoxesTest {
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
-            LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME);
+            LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE);
 
     assertThat(durationsVu).containsExactly(100, 100, 800, 100, 0);
   }
@@ -595,7 +595,7 @@ public class BoxesTest {
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
-            LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME);
+            LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE);
 
     ByteBuffer cttsBox = Boxes.ctts(sampleBufferInfos, durationsVu, VU_TIMEBASE);
 
@@ -612,7 +612,7 @@ public class BoxesTest {
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
-            LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME);
+            LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE);
 
     ByteBuffer cttsBox = Boxes.ctts(sampleBufferInfos, durationsVu, VU_TIMEBASE);
 
@@ -631,7 +631,7 @@ public class BoxesTest {
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
-            LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME);
+            LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE);
 
     ByteBuffer cttsBox = Boxes.ctts(sampleBufferInfos, durationsVu, VU_TIMEBASE);
 
@@ -651,7 +651,7 @@ public class BoxesTest {
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 23698215060L,
             VU_TIMEBASE,
-            LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME);
+            LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE);
 
     ByteBuffer cttsBox = Boxes.ctts(sampleBufferInfos, durationsVu, VU_TIMEBASE);
 
