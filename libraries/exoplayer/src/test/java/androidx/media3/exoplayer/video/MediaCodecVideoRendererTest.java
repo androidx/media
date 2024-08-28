@@ -116,6 +116,7 @@ public class MediaCodecVideoRendererTest {
           .setSampleMimeType(MimeTypes.VIDEO_H264)
           .setWidth(1920)
           .setHeight(1080)
+          .setPixelWidthHeightRatio(1.0f)
           .build();
 
   private static final TrackGroup TRACK_GROUP_H264 = new TrackGroup(VIDEO_H264);
@@ -762,12 +763,9 @@ public class MediaCodecVideoRendererTest {
               public MediaFormat getOutputFormat() {
                 MediaFormat mediaFormat = adapter.getOutputFormat();
                 if (Util.SDK_INT >= 30) {
-                  int pixelAspectRatioHeight = 1 << 30; // Max integer power of 2.
-                  int pixelAspectRatioWidth = (int) (0.5f * pixelAspectRatioHeight);
-                  mediaFormat.setInteger(
-                      MediaFormat.KEY_PIXEL_ASPECT_RATIO_WIDTH, pixelAspectRatioWidth);
-                  mediaFormat.setInteger(
-                      MediaFormat.KEY_PIXEL_ASPECT_RATIO_HEIGHT, pixelAspectRatioHeight);
+                  // Change to 9:16 Ratio
+                  mediaFormat.setInteger(MediaFormat.KEY_PIXEL_ASPECT_RATIO_WIDTH, 9);
+                  mediaFormat.setInteger(MediaFormat.KEY_PIXEL_ASPECT_RATIO_HEIGHT, 16);
                 }
                 return mediaFormat;
               }
@@ -825,7 +823,9 @@ public class MediaCodecVideoRendererTest {
     verify(eventListener)
         .onVideoSizeChanged(
             new VideoSize(
-                VIDEO_H264.width, VIDEO_H264.height, VIDEO_H264.pixelWidthHeightRatio / 2));
+                VIDEO_H264.width,
+                VIDEO_H264.height,
+                /* pixelWidthHeightRatio= */ VIDEO_H264.pixelWidthHeightRatio * (9.0f / 16.0f)));
   }
 
   @Test
