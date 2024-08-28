@@ -29,6 +29,7 @@ import static androidx.media3.common.util.Util.contains;
 import android.content.Context;
 import android.util.SparseArray;
 import android.view.Surface;
+import androidx.annotation.Nullable;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.FrameInfo;
 import androidx.media3.common.GlObjectsProvider;
@@ -39,7 +40,6 @@ import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.effect.DefaultVideoFrameProcessor.WorkingColorSpace;
 import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * A switcher to switch between {@linkplain TextureManager texture managers} of different
@@ -269,11 +269,13 @@ import org.checkerframework.checker.nullness.qual.Nullable;
       checkNotNull(samplingGlShaderProgram).setOutputListener(gatedChainingListenerWrapper);
     }
 
-    public @Nullable ExternalShaderProgram getSamplingGlShaderProgram() {
+    @Nullable
+    public ExternalShaderProgram getSamplingGlShaderProgram() {
       return samplingGlShaderProgram;
     }
 
-    public @Nullable ColorInfo getInputColorInfo() {
+    @Nullable
+    public ColorInfo getInputColorInfo() {
       return inputColorInfo;
     }
 

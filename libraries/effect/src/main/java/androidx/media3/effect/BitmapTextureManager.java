@@ -24,6 +24,7 @@ import static androidx.media3.effect.DebugTraceUtil.EVENT_QUEUE_BITMAP;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_SIGNAL_EOS;
 
 import android.graphics.Bitmap;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.FrameInfo;
 import androidx.media3.common.GlObjectsProvider;
@@ -35,7 +36,6 @@ import androidx.media3.common.util.Util;
 import java.util.Queue;
 import java.util.concurrent.LinkedBlockingQueue;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Forwards a video frame produced from a {@link Bitmap} to a {@link GlShaderProgram} for

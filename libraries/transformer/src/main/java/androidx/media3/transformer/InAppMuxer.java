@@ -16,6 +16,7 @@
 package androidx.media3.transformer;
 
 import android.media.MediaCodec.BufferInfo;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -33,7 +34,6 @@ import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
 import java.util.LinkedHashSet;
 import java.util.Set;
-import org.checkerframework.checker.nullness.qual.Nullable;
 
 /** {@link Muxer} implementation that uses an {@link Mp4Muxer} or {@link FragmentedMp4Muxer}. */
 @UnstableApi
@@ -59,7 +59,7 @@ public final class InAppMuxer implements Muxer {
 
     /** A builder for {@link Factory} instances. */
     public static final class Builder {
-      private @Nullable MetadataProvider metadataProvider;
+      @Nullable private MetadataProvider metadataProvider;
       private boolean outputFragmentedMp4;
       private long fragmentDurationMs;
 
@@ -123,7 +123,7 @@ public final class InAppMuxer implements Muxer {
             MimeTypes.AUDIO_OPUS,
             MimeTypes.AUDIO_VORBIS);
 
-    private final @Nullable MetadataProvider metadataProvider;
+    @Nullable private final MetadataProvider metadataProvider;
     private final boolean outputFragmentedMp4;
     private final long fragmentDurationMs;
 
@@ -168,7 +168,7 @@ public final class InAppMuxer implements Muxer {
   }
 
   private final androidx.media3.muxer.Muxer muxer;
-  private final @Nullable MetadataProvider metadataProvider;
+  @Nullable private final MetadataProvider metadataProvider;
   private final Set<Metadata.Entry> metadataEntries;
 
   private InAppMuxer(
