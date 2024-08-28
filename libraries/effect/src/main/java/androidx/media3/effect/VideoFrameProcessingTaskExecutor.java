@@ -284,8 +284,8 @@ import java.util.concurrent.TimeoutException;
   private void handleException(Exception exception) {
     synchronized (lock) {
       if (shouldCancelTasks) {
-        // Ignore exception after cancelation as it can be caused by a previously reported exception
-        // that is the reason for the cancelation.
+        // Ignore exception after cancellation as it can be caused by a previously reported
+        // exception that is the reason for the cancellation.
         return;
       }
       shouldCancelTasks = true;

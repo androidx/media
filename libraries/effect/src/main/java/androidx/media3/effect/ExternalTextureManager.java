@@ -110,6 +110,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   // a frame to arrive on the SurfaceTexture.
   private long firstTryToRemoveAllFramesTimeMs;
 
+  @Nullable private volatile RuntimeException releaseAllFramesException;
+
   /**
    * Creates a new instance. The caller's thread must have a current GL context.
    *
@@ -184,6 +186,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       // not all rendered frames arrive.
       Thread.currentThread().interrupt();
       Log.w(TAG, "Interrupted when waiting for MediaCodec frames to arrive.");
+    }
+    if (releaseAllFramesException != null) {
+      throw releaseAllFramesException;
     }
   }
 
@@ -350,7 +355,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private void releaseAllFramesFromMediaCodec(CountDownLatch latch) {
-    removeAllSurfaceTextureFrames();
+    try {
+      removeAllSurfaceTextureFrames();
+    } catch (RuntimeException e) {
+      releaseAllFramesException = e;
+      latch.countDown();
+    }
 
     if (pendingFrames.isEmpty()
         // Assumes a frame that is registered would not take longer than SURFACE_TEXTURE_TIMEOUT_MS
