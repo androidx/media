@@ -26,7 +26,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.graphics.Bitmap;
 import android.graphics.Color;
-import android.graphics.Matrix;
 import android.graphics.Rect;
 import android.text.Spannable;
 import android.text.SpannableString;
@@ -44,7 +43,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -151,28 +149,13 @@ public class ByteBufferGlEffectTest {
     }
 
     @Override
-    public ListenableFuture<Bitmap> processPixelBuffer(
-        ByteBuffer pixelBuffer, long presentationTimeUs) {
-      // TODO: b/361286064 - Add helper functions for easier conversion to Bitmap.
-      // The memory layout of pixels differs between OpenGL and Android Bitmap.
-      // The first pixel in OpenGL is in the lower left corner, and the first
-      // pixel in Android Bitmap is in the top left corner.
-      // Mirror the Bitmap's Y axis.
-      Bitmap bitmapInGlMemoryLayout =
-          Bitmap.createBitmap(
-              EFFECT_INPUT_FRAME_WIDTH, EFFECT_INPUT_FRAME_HEIGHT, Bitmap.Config.ARGB_8888);
-      bitmapInGlMemoryLayout.copyPixelsFromBuffer(pixelBuffer);
-      Matrix glToAndroidTransformation = new Matrix();
-      glToAndroidTransformation.setScale(/* sx= */ 1, /* sy= */ -1);
-      Bitmap inputBitmap =
-          Bitmap.createBitmap(
-              bitmapInGlMemoryLayout,
-              /* x= */ 0,
-              /* y= */ 0,
-              bitmapInGlMemoryLayout.getWidth(),
-              bitmapInGlMemoryLayout.getHeight(),
-              glToAndroidTransformation,
-              /* filter= */ true);
+    public ListenableFuture<Bitmap> processImage(
+        ByteBufferGlEffect.Image image, long presentationTimeUs) {
+      checkState(image.width == EFFECT_INPUT_FRAME_WIDTH);
+      checkState(image.height == EFFECT_INPUT_FRAME_HEIGHT);
+      checkState(
+          image.pixelBuffer.capacity() == EFFECT_INPUT_FRAME_WIDTH * EFFECT_INPUT_FRAME_HEIGHT * 4);
+      Bitmap inputBitmap = image.copyToBitmap();
       inputBitmaps.add(inputBitmap);
       return drawingService.submit(
           () ->

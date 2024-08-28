@@ -113,8 +113,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       TexturePixelBuffer texturePixelBuffer = new TexturePixelBuffer(effectInputTexture);
       unmappedPixelBuffers.add(texturePixelBuffer);
       return Util.transformFutureAsync(
-          texturePixelBuffer.byteBufferSettableFuture,
-          (pixelBuffer) -> processor.processPixelBuffer(pixelBuffer, presentationTimeUs));
+          texturePixelBuffer.imageSettableFuture,
+          (image) -> processor.processImage(image, presentationTimeUs));
     } catch (GlUtil.GlException | VideoFrameProcessingException e) {
       return immediateFailedFuture(e);
     }
@@ -190,23 +190,26 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * GlTextureInfo}.
    */
   private final class TexturePixelBuffer {
+    public final int width;
+    public final int height;
     public final PixelBufferObjectInfo pixelBufferObjectInfo;
-    public final SettableFuture<ByteBuffer> byteBufferSettableFuture;
+    public final SettableFuture<ByteBufferGlEffect.Image> imageSettableFuture;
 
     private boolean mapped;
 
     public TexturePixelBuffer(GlTextureInfo textureInfo) throws GlUtil.GlException {
+      width = textureInfo.width;
+      height = textureInfo.height;
       int pixelBufferSize = texturePixelBufferSize(textureInfo);
       pixelBufferObjectInfo = pixelBufferObjectProvider.getPixelBufferObject(pixelBufferSize);
-      GlUtil.schedulePixelBufferRead(
-          textureInfo.fboId, textureInfo.width, textureInfo.height, pixelBufferObjectInfo.id);
-      byteBufferSettableFuture = SettableFuture.create();
+      GlUtil.schedulePixelBufferRead(textureInfo.fboId, width, height, pixelBufferObjectInfo.id);
+      imageSettableFuture = SettableFuture.create();
     }
 
     public void map() throws GlUtil.GlException {
       ByteBuffer byteBuffer =
           GlUtil.mapPixelBufferObject(pixelBufferObjectInfo.id, pixelBufferObjectInfo.size);
-      byteBufferSettableFuture.set(byteBuffer);
+      imageSettableFuture.set(new ByteBufferGlEffect.Image(width, height, byteBuffer));
       mapped = true;
     }
 
