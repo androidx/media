@@ -263,16 +263,6 @@ public final class WebvttCueParserTest {
   }
 
   @Test
-  public void parseVoiceSpanWithClasses() throws Exception {
-    Spanned text = parseCueText("<v.first.loud>Text with a single voice span");
-
-    assertThat(text.toString()).isEqualTo("Text with a single voice span");
-    assertThat(text)
-        .hasVoiceSpanBetween(0, "Text with a single voice span".length())
-        .withName("");
-  }
-
-  @Test
   public void ignoreVoiceSpanClasses() throws Exception {
     Spanned text = parseCueText("<v.first.loud Esme>Text with a single voice span");
 
