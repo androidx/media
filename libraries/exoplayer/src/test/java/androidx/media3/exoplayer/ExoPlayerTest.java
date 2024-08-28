@@ -9449,8 +9449,8 @@ public class ExoPlayerTest {
 
               @Override
               public boolean continueLoading(LoadingInfo loadingInfo) {
-                super.continueLoading(loadingInfo);
-                if (!loader.isLoading()) {
+                boolean progressMade = super.continueLoading(loadingInfo);
+                if (progressMade && !loader.isLoading()) {
                   loader.startLoading(
                       loadable, new FakeLoaderCallback(), /* defaultMinRetryCount= */ 1);
                 }
