@@ -751,11 +751,27 @@ public class MediaCodecVideoRendererTest {
 
   @Config(minSdk = 30)
   @Test
-  public void render_withMediaCodecAlteringPixelAspectRatioWidthHeight_sendsVideoSizeChangeWithMediaFormatValues() throws Exception {
+  public void
+      render_withMediaCodecModifyingPixelAspectRatioWidthHeight_sendsVideoSizeChangeWithMediaFormatValues()
+          throws Exception {
     MediaCodecAdapter.Factory codecAdapterFactory =
         configuration ->
-            new ForwardingSynchronousMediaCodecAdapterAlteringPixelAspectRatio(
-                new SynchronousMediaCodecAdapter.Factory().createAdapter(configuration));
+            new ForwardingSynchronousMediaCodecAdapter(
+                new SynchronousMediaCodecAdapter.Factory().createAdapter(configuration)) {
+              @Override
+              public MediaFormat getOutputFormat() {
+                MediaFormat mediaFormat = adapter.getOutputFormat();
+                if (Util.SDK_INT >= 30) {
+                  int pixelAspectRatioHeight = 1 << 30; // Max integer power of 2.
+                  int pixelAspectRatioWidth = (int) (0.5f * pixelAspectRatioHeight);
+                  mediaFormat.setInteger(
+                      MediaFormat.KEY_PIXEL_ASPECT_RATIO_WIDTH, pixelAspectRatioWidth);
+                  mediaFormat.setInteger(
+                      MediaFormat.KEY_PIXEL_ASPECT_RATIO_HEIGHT, pixelAspectRatioHeight);
+                }
+                return mediaFormat;
+              }
+            };
     MediaCodecVideoRenderer mediaCodecVideoRendererWithCustomAdapter =
         new MediaCodecVideoRenderer(
             ApplicationProvider.getApplicationContext(),
@@ -773,9 +789,8 @@ public class MediaCodecVideoRendererTest {
           }
         };
     mediaCodecVideoRendererWithCustomAdapter.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
-    surface = new Surface(new SurfaceTexture(/* texName= */ 0));
-    mediaCodecVideoRendererWithCustomAdapter.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, surface);
-
+    mediaCodecVideoRendererWithCustomAdapter.handleMessage(
+        Renderer.MSG_SET_VIDEO_OUTPUT, new Surface(new SurfaceTexture(/* texName= */ 0)));
     FakeSampleStream fakeSampleStream =
         new FakeSampleStream(
             new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
@@ -801,7 +816,8 @@ public class MediaCodecVideoRendererTest {
 
     int positionUs = 0;
     do {
-      mediaCodecVideoRendererWithCustomAdapter.render(positionUs, SystemClock.elapsedRealtime() * 1000);
+      mediaCodecVideoRendererWithCustomAdapter.render(
+          positionUs, SystemClock.elapsedRealtime() * 1000);
       positionUs += 10;
     } while (!mediaCodecVideoRendererWithCustomAdapter.isEnded());
     shadowOf(testMainLooper).idle();
@@ -809,9 +825,7 @@ public class MediaCodecVideoRendererTest {
     verify(eventListener)
         .onVideoSizeChanged(
             new VideoSize(
-                VIDEO_H264.width,
-                VIDEO_H264.height,
-                VIDEO_H264.pixelWidthHeightRatio / 2));
+                VIDEO_H264.width, VIDEO_H264.height, VIDEO_H264.pixelWidthHeightRatio / 2));
   }
 
   @Test
@@ -1965,28 +1979,6 @@ public class MediaCodecVideoRendererTest {
         bufferCounter++;
       }
       return outputIndex;
-    }
-  }
-
-  private static final class ForwardingSynchronousMediaCodecAdapterAlteringPixelAspectRatio
-      extends ForwardingSynchronousMediaCodecAdapter {
-
-    ForwardingSynchronousMediaCodecAdapterAlteringPixelAspectRatio(MediaCodecAdapter adapter) {
-      super(adapter);
-    }
-
-    @Override
-    public MediaFormat getOutputFormat() {
-      MediaFormat mediaFormat = adapter.getOutputFormat();
-      if (Util.SDK_INT >= 30) {
-        int pixelAspectRatioHeight = 1 << 30;
-        int pixelAspectRatioWidth = (int) (0.5f * pixelAspectRatioHeight);
-        mediaFormat.setInteger(MediaFormat.KEY_PIXEL_ASPECT_RATIO_WIDTH,
-            pixelAspectRatioWidth);
-        mediaFormat.setInteger(MediaFormat.KEY_PIXEL_ASPECT_RATIO_HEIGHT,
-            pixelAspectRatioHeight);
-      }
-      return mediaFormat;
     }
   }
 
