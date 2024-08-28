@@ -1342,10 +1342,10 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
               ? mediaFormat.getInteger(KEY_CROP_BOTTOM) - mediaFormat.getInteger(KEY_CROP_TOP) + 1
               : mediaFormat.getInteger(MediaFormat.KEY_HEIGHT);
     }
-    boolean hasPixelAspectRatio = mediaFormat.containsKey(MediaFormat.KEY_PIXEL_ASPECT_RATIO_WIDTH)
+    boolean hasPixelAspectRatio = (Util.SDK_INT >= 30) && mediaFormat != null && mediaFormat.containsKey(MediaFormat.KEY_PIXEL_ASPECT_RATIO_WIDTH)
         && mediaFormat.containsKey(MediaFormat.KEY_PIXEL_ASPECT_RATIO_HEIGHT);
     pixelWidthHeightRatio = hasPixelAspectRatio ?
-        mediaFormat.getInteger(MediaFormat.KEY_PIXEL_ASPECT_RATIO_WIDTH) /
+        (float)mediaFormat.getInteger(MediaFormat.KEY_PIXEL_ASPECT_RATIO_WIDTH) /
             mediaFormat.getInteger(MediaFormat.KEY_PIXEL_ASPECT_RATIO_HEIGHT)
         : format.pixelWidthHeightRatio;
     // The decoder applies the rotation when rendering to the surface. For 90 and 270 degree
