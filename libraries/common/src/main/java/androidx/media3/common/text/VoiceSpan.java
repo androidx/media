@@ -23,10 +23,10 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 
 /**
- * A span representing a speaker.
+ * A span representing the speaker of the spanned text.
  *
- * <p>More information on <a href="https://www.w3.org/TR/webvtt1/#webvtt-cue-voice-span">
- *   voice spans</a>.
+ * <p>For example a <a href="https://www.w3.org/TR/webvtt1/#webvtt-cue-voice-span">WebVTT voice
+ * span</a>.
  */
 @UnstableApi
 public final class VoiceSpan {
@@ -47,6 +47,6 @@ public final class VoiceSpan {
   }
 
   public static VoiceSpan fromBundle(Bundle bundle) {
-    return new VoiceSpan(/* name = */ checkNotNull(bundle.getString(FIELD_NAME)));
+    return new VoiceSpan(checkNotNull(bundle.getString(FIELD_NAME)));
   }
 }

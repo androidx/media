@@ -97,7 +97,8 @@ import java.util.ArrayList;
       bundledCustomSpans.add(bundle);
     }
     for (VoiceSpan span : text.getSpans(0, text.length(), VoiceSpan.class)) {
-      Bundle bundle = spanToBundle(text, span, /* spanType= */ VOICE, /* params= */ span.toBundle());
+      Bundle bundle =
+          spanToBundle(text, span, /* spanType= */ VOICE, /* params= */ span.toBundle());
       bundledCustomSpans.add(bundle);
     }
     return bundledCustomSpans;

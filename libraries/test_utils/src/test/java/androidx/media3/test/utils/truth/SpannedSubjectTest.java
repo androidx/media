@@ -906,9 +906,7 @@ public class SpannedSubjectTest {
   @Test
   public void voiceSpan_success() {
     SpannableString spannable =
-        createSpannable(
-            new VoiceSpan("speaker"),
-            Spanned.SPAN_INCLUSIVE_EXCLUSIVE);
+        createSpannable(new VoiceSpan("speaker"), Spanned.SPAN_INCLUSIVE_EXCLUSIVE);
 
     assertThat(spannable)
         .hasVoiceSpanBetween(SPAN_START, SPAN_END)
@@ -919,8 +917,7 @@ public class SpannedSubjectTest {
   @Test
   public void voiceSpan_wrongEndIndex() {
     checkHasSpanFailsDueToIndexMismatch(
-        new VoiceSpan("speaker"),
-        SpannedSubject::hasVoiceSpanBetween);
+        new VoiceSpan("speaker"), SpannedSubject::hasVoiceSpanBetween);
   }
 
   @Test
@@ -944,25 +941,19 @@ public class SpannedSubjectTest {
   public void voiceSpan_wrongFlags() {
     checkHasSpanFailsDueToFlagMismatch(
         new VoiceSpan("speaker"),
-        (subject, start, end) ->
-            subject
-                .hasVoiceSpanBetween(start, end)
-                .withName("speaker"));
+        (subject, start, end) -> subject.hasVoiceSpanBetween(start, end).withName("speaker"));
   }
 
   @Test
   public void noVoiceSpan_success() {
-    SpannableString spannable =
-        createSpannableWithUnrelatedSpanAnd(new VoiceSpan("speaker"));
+    SpannableString spannable = createSpannableWithUnrelatedSpanAnd(new VoiceSpan("speaker"));
 
     assertThat(spannable).hasNoVoiceSpanBetween(UNRELATED_SPAN_START, UNRELATED_SPAN_END);
   }
 
   @Test
   public void noVoiceSpan_failure() {
-    checkHasNoSpanFails(
-        new VoiceSpan("speaker"),
-        SpannedSubject::hasNoVoiceSpanBetween);
+    checkHasNoSpanFails(new VoiceSpan("speaker"), SpannedSubject::hasNoVoiceSpanBetween);
   }
 
   private interface HasSpanFunction<T> {

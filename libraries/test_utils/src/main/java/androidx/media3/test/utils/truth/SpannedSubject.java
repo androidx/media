@@ -53,7 +53,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
 /** A Truth {@link Subject} for assertions on {@link Spanned} instances containing text styling. */
@@ -1380,7 +1379,7 @@ public final class SpannedSubject extends Subject {
 
       @Override
       public int hashCode() {
-        return Objects.hash(name);
+        return name.hashCode();
       }
 
       @Override

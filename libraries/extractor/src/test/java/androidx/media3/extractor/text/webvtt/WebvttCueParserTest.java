@@ -247,9 +247,7 @@ public final class WebvttCueParserTest {
     Spanned text = parseCueText("<v>Text with a single voice span");
 
     assertThat(text.toString()).isEqualTo("Text with a single voice span");
-    assertThat(text)
-        .hasVoiceSpanBetween(0, "Text with a single voice span".length())
-        .withName("");
+    assertThat(text).hasVoiceSpanBetween(0, "Text with a single voice span".length()).withName("");
   }
 
   @Test
