@@ -20,6 +20,7 @@ import static org.junit.Assert.assertThrows;
 
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.text.webvtt.WebvttParser;
@@ -28,6 +29,7 @@ import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.primitives.Ints;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -186,6 +188,45 @@ public class SubtitleExtractorTest {
     assertThat(cues2.endTimeUs).isEqualTo(4_567_000L);
     assertThat(cues2.cues).hasSize(1);
     assertThat(cues2.cues.get(0).text.toString()).isEqualTo("This is the third subtitle.");
+  }
+
+  @Test
+  public void extractor_unknownLengthInput_passesNumberOfBytesReadToSubtitleParser()
+      throws Exception {
+    FakeExtractorOutput output = new FakeExtractorOutput();
+    byte[] inputData = Util.getUtf8Bytes(TEST_DATA);
+    FakeExtractorInput input =
+        new FakeExtractorInput.Builder()
+            .setData(inputData)
+            .setSimulatePartialReads(true)
+            .setSimulateUnknownLength(true)
+            .build();
+    AtomicInteger lengthFromParse = new AtomicInteger();
+    SubtitleParser fakeSubtitleParser =
+        new SubtitleParser() {
+          @Override
+          public void parse(
+              byte[] data,
+              int offset,
+              int length,
+              OutputOptions outputOptions,
+              Consumer<CuesWithTiming> output) {
+            lengthFromParse.set(length);
+          }
+
+          @Override
+          public @Format.CueReplacementBehavior int getCueReplacementBehavior() {
+            return Format.CUE_REPLACEMENT_BEHAVIOR_MERGE;
+          }
+        };
+    SubtitleExtractor extractor =
+        new SubtitleExtractor(
+            fakeSubtitleParser, new Format.Builder().setSampleMimeType(MimeTypes.TEXT_VTT).build());
+
+    extractor.init(output);
+    while (extractor.read(input, null) != Extractor.RESULT_END_OF_INPUT) {}
+
+    assertThat(lengthFromParse.get()).isEqualTo(inputData.length);
   }
 
   @Test

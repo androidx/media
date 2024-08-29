@@ -16,7 +16,6 @@
 package androidx.media3.common.util;
 
 import static android.opengl.EGL14.EGL_CONTEXT_CLIENT_VERSION;
-import static android.opengl.EGL14.EGL_NO_SURFACE;
 import static android.opengl.GLU.gluErrorString;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkState;
@@ -802,9 +801,6 @@ public final class GlUtil {
   public static void destroyEglSurface(
       @Nullable EGLDisplay eglDisplay, @Nullable EGLSurface eglSurface) throws GlException {
     if (eglDisplay == null || eglSurface == null) {
-      return;
-    }
-    if (EGL14.eglGetCurrentSurface(EGL14.EGL_DRAW) == EGL_NO_SURFACE) {
       return;
     }
 

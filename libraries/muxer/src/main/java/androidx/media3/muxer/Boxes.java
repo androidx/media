@@ -21,6 +21,7 @@ import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.muxer.ColorUtils.MEDIAFORMAT_STANDARD_TO_PRIMARIES_AND_MATRIX;
 import static androidx.media3.muxer.ColorUtils.MEDIAFORMAT_TRANSFER_TO_MP4_TRANSFER;
 import static androidx.media3.muxer.Mp4Utils.UNSIGNED_INT_MAX_VALUE;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
@@ -38,6 +39,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Bytes;
 import java.nio.ByteBuffer;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -509,17 +511,11 @@ import java.util.Locale;
 
   /** Returns an audio sample entry box based on the MIME type. */
   public static ByteBuffer audioSampleEntry(Format format) {
-    String mimeType = checkNotNull(format.sampleMimeType);
-    checkArgument(mimeType.equals(MimeTypes.AUDIO_AAC), "Unsupported audio format: " + mimeType);
-    String fourcc = "mp4a";
+    String fourcc = codecSpecificFourcc(format);
+    ByteBuffer codecSpecificBox = codecSpecificBox(format);
 
-    checkArgument(!format.initializationData.isEmpty(), "csd-0 not found in the format.");
-
-    byte[] csd0 = format.initializationData.get(0);
-    checkArgument(csd0.length > 0, "csd-0 is empty.");
-
-    ByteBuffer csd0ByteBuffer = ByteBuffer.wrap(csd0);
-    ByteBuffer contents = ByteBuffer.allocate(csd0ByteBuffer.limit() + MAX_FIXED_LEAF_BOX_SIZE);
+    ByteBuffer contents =
+        ByteBuffer.allocate(codecSpecificBox.remaining() + MAX_FIXED_LEAF_BOX_SIZE);
 
     contents.putInt(0x00); // reserved
     contents.putShort((short) 0x0); // reserved
@@ -536,7 +532,7 @@ import java.util.Locale;
     int sampleRate = format.sampleRate;
     contents.putInt(sampleRate << 16);
 
-    contents.put(audioEsdsBox(csd0ByteBuffer, format.peakBitrate, format.averageBitrate));
+    contents.put(codecSpecificBox);
 
     contents.flip();
     return BoxUtils.wrapIntoBox(fourcc, contents);
@@ -546,14 +542,27 @@ import java.util.Locale;
   public static ByteBuffer codecSpecificBox(Format format) {
     String mimeType = checkNotNull(format.sampleMimeType);
     switch (mimeType) {
-      case "video/avc":
+      case MimeTypes.AUDIO_AAC:
+      case MimeTypes.AUDIO_VORBIS:
+        return esdsBox(format);
+      case MimeTypes.AUDIO_AMR_NB:
+        return damrBox(/* mode= */ (short) 0x81FF); // mode set: all enabled for AMR-NB
+      case MimeTypes.AUDIO_AMR_WB:
+        return damrBox(/* mode= */ (short) 0x83FF); // mode set: all enabled for AMR-WB
+      case MimeTypes.AUDIO_OPUS:
+        return dOpsBox(format);
+      case MimeTypes.VIDEO_H263:
+        return d263Box();
+      case MimeTypes.VIDEO_H264:
         return avcCBox(format);
-      case "video/hevc":
+      case MimeTypes.VIDEO_H265:
         return hvcCBox(format);
-      case "video/av01":
+      case MimeTypes.VIDEO_AV1:
         return av1CBox(format);
+      case MimeTypes.VIDEO_MP4V:
+        return esdsBox(format);
       default:
-        throw new IllegalArgumentException("Unsupported video format: " + mimeType);
+        throw new IllegalArgumentException("Unsupported format: " + mimeType);
     }
   }
 
@@ -1095,6 +1104,19 @@ import java.util.Locale;
     }
   }
 
+  /** Returns the d263Box box as per 3GPP ETSI TS 126 244: 6.8. */
+  private static ByteBuffer d263Box() {
+    ByteBuffer d263Box = ByteBuffer.allocate(7);
+    d263Box.put("    ".getBytes(UTF_8)); // 4 spaces (vendor)
+    d263Box.put((byte) 0x00); // decoder version
+    // TODO: b/352000778 - Get profile and level from format.
+    d263Box.put((byte) 0x10); // level
+    d263Box.put((byte) 0x00); // profile
+
+    d263Box.flip();
+    return BoxUtils.wrapIntoBox("d263", d263Box);
+  }
+
   /** Returns the avcC box as per ISO/IEC 14496-15: 5.3.3.1.2. */
   private static ByteBuffer avcCBox(Format format) {
     checkArgument(
@@ -1318,57 +1340,87 @@ import java.util.Locale;
     return BoxUtils.wrapIntoBox("colr", contents);
   }
 
-  /** Returns video codec specific fourcc. */
+  /** Returns codec specific fourcc. */
   private static String codecSpecificFourcc(Format format) {
     String mimeType = checkNotNull(format.sampleMimeType);
     switch (mimeType) {
-      case "video/avc":
+      case MimeTypes.AUDIO_AAC:
+      case MimeTypes.AUDIO_VORBIS:
+        return "mp4a";
+      case MimeTypes.AUDIO_AMR_NB:
+        return "samr";
+      case MimeTypes.AUDIO_AMR_WB:
+        return "sawb";
+      case MimeTypes.VIDEO_H263:
+        return "s263";
+      case MimeTypes.AUDIO_OPUS:
+        return "Opus";
+      case MimeTypes.VIDEO_H264:
         return "avc1";
-      case "video/hevc":
+      case MimeTypes.VIDEO_H265:
         return "hvc1";
-      case "video/av01":
+      case MimeTypes.VIDEO_AV1:
         return "av01";
+      case MimeTypes.VIDEO_MP4V:
+        return "mp4v-es";
       default:
-        throw new IllegalArgumentException("Unsupported video format: " + mimeType);
+        throw new IllegalArgumentException("Unsupported format: " + mimeType);
     }
   }
 
   /** Returns the esds box. */
-  private static ByteBuffer audioEsdsBox(
-      ByteBuffer csd0ByteBuffer, int peakBitrate, int averageBitrate) {
-    int csd0Size = csd0ByteBuffer.limit();
+  private static ByteBuffer esdsBox(Format format) {
+    checkArgument(!format.initializationData.isEmpty(), "csd-0 not found in the format.");
 
-    ByteBuffer contents = ByteBuffer.allocate(csd0Size + MAX_FIXED_LEAF_BOX_SIZE);
-    contents.putInt(0x0); // version and flags.
+    byte[] csd0 = format.initializationData.get(0);
+    checkArgument(csd0.length > 0, "csd-0 is empty.");
+
+    String mimeType = checkNotNull(format.sampleMimeType);
+    boolean isVorbis = mimeType.equals(MimeTypes.AUDIO_VORBIS);
+    ByteBuffer csdByteBuffer =
+        isVorbis ? getVorbisInitializationData(format) : ByteBuffer.wrap(csd0);
+
+    int peakBitrate = format.peakBitrate;
+    int averageBitrate = format.averageBitrate;
+    boolean isVideo = MimeTypes.isVideo(mimeType);
+
+    int csdSize = csdByteBuffer.remaining();
+    ByteBuffer dsiSizeBuffer = getSizeBuffer(csdSize);
+    ByteBuffer dcdSizeBuffer = getSizeBuffer(csdSize + dsiSizeBuffer.remaining() + 14);
+    ByteBuffer esdSizeBuffer =
+        getSizeBuffer(csdSize + dsiSizeBuffer.remaining() + dcdSizeBuffer.remaining() + 21);
+
+    ByteBuffer contents = ByteBuffer.allocate(csdSize + MAX_FIXED_LEAF_BOX_SIZE);
+    contents.putInt(0x00); // Version and flags.
     contents.put((byte) 0x03); // ES_DescrTag
 
-    // We're normally using a variable-length encoding for the length of various sub-packages (esds
-    // etc.), in a nested way, so outer lengths need to account for variable-length inner lengths
-    // too (to save ~10 bytes per video file). Meanwhile, AAC codec-specific
-    // data is typically just 2 bytes, so every length actually fits into a byte. Here, we're just
-    // skipping the entire complex story by asserting that we won't ever need variable-length sizes.
-    checkArgument(csd0Size + 21 < 127, "CSD too long; we might need variable-length encoding?");
-
-    contents.put((byte) (23 + csd0Size));
+    contents.put(esdSizeBuffer);
 
     contents.putShort((short) 0x0000); // ES_ID
-    contents.put((byte) 0x00);
+    // streamDependenceFlag (1 bit) + URL_Flag (1 bit) + OCRstreamFlag (1 bit) + streamPriority (5
+    // bits)
+    contents.put(isVideo ? (byte) 0x1f : (byte) 0x00);
 
     contents.put((byte) 0x04); // DecoderConfigDescrTag
-    contents.put((byte) (15 + csd0Size));
-    contents.put((byte) 0x40); // objectTypeIndication
-    contents.put((byte) 0x15); // streamType AudioStream
+    contents.put(dcdSizeBuffer);
 
-    contents.putShort((short) 0x03);
-    contents.put((byte) 0x00); // 24-bit buffer size (0x300)
+    Byte objectType = checkNotNull(MimeTypes.getMp4ObjectTypeFromMimeType(mimeType));
+    contents.put(objectType); // objectTypeIndication
+
+    // streamType (6 bits) + upStream (1 bit) + reserved = 1 (1 bit)
+    contents.put((byte) ((isVideo ? (0x04 << 2) : (0x05 << 2)) | 0x01));
+
+    int size = isVideo ? 0x017700 : 0x000300;
+    contents.putShort((short) ((size >> 8) & 0xFFFF)); // First 16 bits of buffer size.
+    contents.put((byte) 0x00); // Last 8 bits of buffer size.
 
     contents.putInt(peakBitrate != Format.NO_VALUE ? peakBitrate : 0);
     contents.putInt(averageBitrate != Format.NO_VALUE ? averageBitrate : 0);
 
     contents.put((byte) 0x05); // DecoderSpecificInfoTag
-    contents.put((byte) csd0Size);
-    contents.put(csd0ByteBuffer);
-    csd0ByteBuffer.rewind();
+    contents.put(dsiSizeBuffer);
+    contents.put(csdByteBuffer);
+    csdByteBuffer.rewind();
 
     contents.put((byte) 0x06); // SLConfigDescriptorTag
     contents.put((byte) 0x01);
@@ -1376,6 +1428,85 @@ import java.util.Locale;
 
     contents.flip();
     return BoxUtils.wrapIntoBox("esds", contents);
+  }
+
+  private static ByteBuffer getSizeBuffer(int length) {
+    int prefix = 0;
+    ArrayDeque<Byte> esdsSizeBytes = new ArrayDeque<>();
+    do {
+      esdsSizeBytes.push((byte) (prefix | (length & 0x7F)));
+      length >>= 7;
+      prefix = 0x80;
+    } while (length > 0);
+
+    ByteBuffer sizeBuffer = ByteBuffer.allocate(esdsSizeBytes.size());
+    while (!esdsSizeBytes.isEmpty()) {
+      sizeBuffer.put(esdsSizeBytes.removeFirst());
+    }
+    sizeBuffer.flip();
+    return sizeBuffer;
+  }
+
+  /* Returns csd wrapped in ByteBuffer in vorbis codec initialization data format. */
+  private static ByteBuffer getVorbisInitializationData(Format format) {
+    checkArgument(
+        format.initializationData.size() > 1, "csd-1 should contain setup header for Vorbis.");
+    byte[] csd0 = format.initializationData.get(0); // identification Header
+
+    // csd0Size is represented using "Xiph lacing" style.
+    // The lacing size is split into 255 values, stored as unsigned octets – for example, 500 is
+    // coded 255;245 or [0xFF 0xF5]. A frame with a size multiple of 255 is coded with a 0 at the
+    // end of the size – for example, 765 is coded 255;255;255;0 or [0xFF 0xFF 0xFF 0x00].
+    byte[] csd0Size = new byte[csd0.length / 255 + 1];
+    Arrays.fill(csd0Size, (byte) 0xFF);
+    csd0Size[csd0Size.length - 1] = (byte) (csd0.length % 255);
+
+    byte[] csd1 = format.initializationData.get(1); // setUp Header
+    checkArgument(csd1.length > 0, "csd-1 should be present and contain setup header for Vorbis.");
+
+    // Add 2 bytes - 1 for Vorbis audio and 1 for comment header length.
+    ByteBuffer csd = ByteBuffer.allocate(csd0Size.length + csd0.length + csd1.length + 2);
+    csd.put((byte) 0x02); // Vorbis audio
+    csd.put(csd0Size); // Size of identification header
+    csd.put((byte) 0); // Length of comment header
+    csd.put(csd0);
+    csd.put(csd1);
+    csd.flip();
+
+    return csd;
+  }
+
+  /** Returns the audio damr box. */
+  private static ByteBuffer damrBox(short mode) {
+
+    ByteBuffer contents = ByteBuffer.allocate(MAX_FIXED_LEAF_BOX_SIZE);
+
+    contents.put("    ".getBytes(UTF_8)); // vendor: 4 bytes
+    contents.put((byte) 0); // decoder version
+    contents.putShort(mode);
+    contents.put((byte) 0); // mode change period
+    contents.put((byte) 1); // frames per sample
+
+    contents.flip();
+    return BoxUtils.wrapIntoBox("damr", contents);
+  }
+
+  /** Returns the audio dOps box for Opus codec as per RFC-7845: 5.1. */
+  private static ByteBuffer dOpsBox(Format format) {
+    checkArgument(!format.initializationData.isEmpty());
+
+    int opusHeaderLength = 8;
+    byte[] csd0 = format.initializationData.get(0);
+    checkArgument(
+        csd0.length >= opusHeaderLength,
+        "As csd0 contains 'OpusHead' in first 8 bytes, csd0 length should be greater than 8");
+    ByteBuffer contents = ByteBuffer.allocate(csd0.length);
+    // Skip 8 bytes containing "OpusHead".
+    contents.put(
+        /* src */ csd0, /* offset */ opusHeaderLength, /* length */ csd0.length - opusHeaderLength);
+    contents.flip();
+
+    return BoxUtils.wrapIntoBox("dOps", contents);
   }
 
   /** Packs a three-letter language code into a short, packing 3x5 bits. */

@@ -489,6 +489,29 @@ public final class MimeTypes {
   }
 
   /**
+   * Returns the MP4 object type identifier corresponding to a MIME type, as defined in RFC 6381 and
+   * <a href="https://mp4ra.org/registered-types/object-types">MPEG-4 Object Types</a>.
+   *
+   * @param sampleMimeType The MIME type of the track.
+   * @return The corresponding MP4 object type identifier, or {@code null} if it could not be
+   *     determined.
+   */
+  @UnstableApi
+  @Nullable
+  public static Byte getMp4ObjectTypeFromMimeType(String sampleMimeType) {
+    switch (sampleMimeType) {
+      case MimeTypes.AUDIO_AAC:
+        return (byte) 0x40;
+      case MimeTypes.AUDIO_VORBIS:
+        return (byte) 0xDD;
+      case MimeTypes.VIDEO_MP4V:
+        return (byte) 0x20;
+      default:
+        return null;
+    }
+  }
+
+  /**
    * Returns the MIME type corresponding to an MP4 object type identifier, as defined in RFC 6381
    * and https://mp4ra.org/#/object_types.
    *

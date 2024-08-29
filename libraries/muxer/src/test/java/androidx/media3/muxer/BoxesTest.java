@@ -30,6 +30,7 @@ import android.media.MediaCodec;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
@@ -254,6 +255,94 @@ public class BoxesTest {
   }
 
   @Test
+  public void createAudioSampleEntryBox_forSamr_matchesExpected() throws Exception {
+    Format format =
+        new Format.Builder()
+            .setPeakBitrate(128000)
+            .setSampleRate(48000)
+            .setId(3)
+            .setSampleMimeType(MimeTypes.AUDIO_AMR_NB)
+            .setChannelCount(2)
+            .setAverageBitrate(128000)
+            .setLanguage("```")
+            .setMaxInputSize(502)
+            .build();
+
+    ByteBuffer audioSampleEntryBox = Boxes.audioSampleEntry(format);
+
+    DumpableMp4Box dumpableBox = new DumpableMp4Box(audioSampleEntryBox);
+    DumpFileAsserts.assertOutput(
+        context, dumpableBox, getExpectedDumpFilePath("audio_sample_entry_box_samr"));
+  }
+
+  @Test
+  public void createAudioSampleEntryBox_forSawb_matchesExpected() throws Exception {
+    Format format =
+        new Format.Builder()
+            .setPeakBitrate(128000)
+            .setSampleRate(48000)
+            .setId(3)
+            .setSampleMimeType("audio/amr-wb")
+            .setChannelCount(2)
+            .setAverageBitrate(128000)
+            .setLanguage("```")
+            .setMaxInputSize(502)
+            .build();
+
+    ByteBuffer audioSampleEntryBox = Boxes.audioSampleEntry(format);
+
+    DumpableMp4Box dumpableBox = new DumpableMp4Box(audioSampleEntryBox);
+    DumpFileAsserts.assertOutput(
+        context, dumpableBox, getExpectedDumpFilePath("audio_sample_entry_box_sawb"));
+  }
+
+  @Test
+  public void createAudioSampleEntryBox_forOpus_matchesExpected() throws Exception {
+    Format format =
+        new Format.Builder()
+            .setPeakBitrate(128000)
+            .setSampleRate(48000)
+            .setId(3)
+            .setSampleMimeType(MimeTypes.AUDIO_OPUS)
+            .setChannelCount(6)
+            .setAverageBitrate(128000)
+            .setLanguage("```")
+            .setMaxInputSize(502)
+            .setInitializationData(
+                ImmutableList.of(
+                    BaseEncoding.base16()
+                        .decode("4F7075734865616401063801401F00000000010402000401020305")))
+            .build();
+
+    ByteBuffer audioSampleEntryBox = Boxes.audioSampleEntry(format);
+
+    DumpableMp4Box dumpableBox = new DumpableMp4Box(audioSampleEntryBox);
+    DumpFileAsserts.assertOutput(
+        context, dumpableBox, getExpectedDumpFilePath("audio_sample_entry_box_opus"));
+  }
+
+  @Test
+  public void createAudioSampleEntryBox_forVorbis_matchesExpected() throws Exception {
+    Format format =
+        FAKE_AUDIO_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.AUDIO_VORBIS)
+            .setInitializationData(
+                ImmutableList.of(
+                    BaseEncoding.base16()
+                        .decode("01766F726269730000000001803E0000000000009886010000000000A901"),
+                    BaseEncoding.base16()
+                        .decode("05766F726269732442435601004000001842102A05AD638E3A01")))
+            .build();
+
+    ByteBuffer audioSampleEntryBox = Boxes.audioSampleEntry(format);
+
+    DumpableMp4Box dumpableBox = new DumpableMp4Box(audioSampleEntryBox);
+    DumpFileAsserts.assertOutput(
+        context, dumpableBox, getExpectedDumpFilePath("audio_sample_entry_box_vorbis"));
+  }
+
+  @Test
   public void createAudioSampleEntryBox_withUnknownAudioFormat_throws() {
     // The audio format contains an unknown MIME type.
     Format format =
@@ -333,6 +422,26 @@ public class BoxesTest {
   }
 
   @Test
+  public void createVideoSampleEntryBox_forH263_matchesExpected() throws Exception {
+    Format format =
+        new Format.Builder()
+            .setId(1)
+            .setSampleMimeType(MimeTypes.VIDEO_H263)
+            .setLanguage("und")
+            .setWidth(10)
+            .setMaxInputSize(39)
+            .setFrameRate(25)
+            .setHeight(12)
+            .build();
+
+    ByteBuffer videoSampleEntryBox = Boxes.videoSampleEntry(format);
+
+    DumpableMp4Box dumpableBox = new DumpableMp4Box(videoSampleEntryBox);
+    DumpFileAsserts.assertOutput(
+        context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("video_sample_entry_box_h263"));
+  }
+
+  @Test
   public void createVideoSampleEntryBox_forH264_matchesExpected() throws Exception {
     Format format =
         new Format.Builder()
@@ -373,6 +482,35 @@ public class BoxesTest {
     DumpableMp4Box dumpableBox = new DumpableMp4Box(videoSampleEntryBox);
     DumpFileAsserts.assertOutput(
         context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("video_sample_entry_box_av1"));
+  }
+
+  @Test
+  public void createVideoSampleEntryBox_forMPEG4_matchesExpected() throws IOException {
+    Format format =
+        new Format.Builder()
+            .setId(1)
+            .setSampleMimeType(MimeTypes.VIDEO_MP4V)
+            .setAverageBitrate(9200)
+            .setPeakBitrate(9200)
+            .setLanguage("und")
+            .setWidth(10)
+            .setMaxInputSize(49)
+            .setFrameRate(25)
+            .setHeight(12)
+            .setInitializationData(
+                ImmutableList.of(
+                    BaseEncoding.base16()
+                        .decode(
+                            "000001B001000001B58913000001000000012000C48D88007D0584121443000001B24C61766335382E35342E313030")))
+            .build();
+
+    ByteBuffer videoSampleEntryBox = Boxes.videoSampleEntry(format);
+
+    DumpableMp4Box dumpableBox = new DumpableMp4Box(videoSampleEntryBox);
+    DumpFileAsserts.assertOutput(
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedDumpFilePath("video_sample_entry_box_mpeg4"));
   }
 
   @Test

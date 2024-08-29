@@ -20,6 +20,8 @@ import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_TEXTURE_ID;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static androidx.media3.common.util.GlUtil.destroyEglContext;
+import static androidx.media3.common.util.GlUtil.getDefaultEglDisplay;
 import static androidx.media3.common.util.Util.contains;
 import static androidx.media3.common.util.Util.newSingleThreadScheduledExecutor;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_COMPOSITOR;
@@ -47,6 +49,8 @@ import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.util.GlUtil;
+import androidx.media3.common.util.GlUtil.GlException;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.util.ArrayDeque;
@@ -61,6 +65,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 @UnstableApi
 public abstract class MultipleInputVideoGraph implements VideoGraph {
 
+  private static final String TAG = "MultiInputVG";
   private static final String SHARED_EXECUTOR_NAME = "Effect:MultipleInputVideoGraph:Thread";
 
   private static final long RELEASE_WAIT_TIME_MS = 1_000;
@@ -70,7 +75,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
   private final Context context;
 
   private final ColorInfo outputColorInfo;
-  private final GlObjectsProvider glObjectsProvider;
+  private final SingleContextGlObjectsProvider glObjectsProvider;
   private final DebugViewProvider debugViewProvider;
   private final VideoGraph.Listener listener;
   private final Executor listenerExecutor;
@@ -299,6 +304,15 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
       compositionVideoFrameProcessor = null;
     }
 
+    try {
+      // The eglContext is not released by any of the frame processors.
+      if (glObjectsProvider.singleEglContext != null) {
+        destroyEglContext(getDefaultEglDisplay(), glObjectsProvider.singleEglContext);
+      }
+    } catch (GlUtil.GlException e) {
+      Log.e(TAG, "Error releasing GL context", e);
+    }
+
     sharedExecutorService.shutdown();
     try {
       sharedExecutorService.awaitTermination(RELEASE_WAIT_TIME_MS, MILLISECONDS);
@@ -460,8 +474,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
 
     @Override
     public EGLContext createEglContext(
-        EGLDisplay eglDisplay, int openGlVersion, int[] configAttributes)
-        throws GlUtil.GlException {
+        EGLDisplay eglDisplay, int openGlVersion, int[] configAttributes) throws GlException {
       if (singleEglContext == null) {
         singleEglContext =
             glObjectsProvider.createEglContext(eglDisplay, openGlVersion, configAttributes);
@@ -475,21 +488,26 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
         Object surface,
         @C.ColorTransfer int colorTransfer,
         boolean isEncoderInputSurface)
-        throws GlUtil.GlException {
+        throws GlException {
       return glObjectsProvider.createEglSurface(
           eglDisplay, surface, colorTransfer, isEncoderInputSurface);
     }
 
     @Override
     public EGLSurface createFocusedPlaceholderEglSurface(
-        EGLContext eglContext, EGLDisplay eglDisplay) throws GlUtil.GlException {
+        EGLContext eglContext, EGLDisplay eglDisplay) throws GlException {
       return glObjectsProvider.createFocusedPlaceholderEglSurface(eglContext, eglDisplay);
     }
 
     @Override
     public GlTextureInfo createBuffersForTexture(int texId, int width, int height)
-        throws GlUtil.GlException {
+        throws GlException {
       return glObjectsProvider.createBuffersForTexture(texId, width, height);
+    }
+
+    @Override
+    public void release(EGLDisplay eglDisplay) {
+      // The eglContext is released in the VideoGraph after all VideoFrameProcessors are released.
     }
   }
 }

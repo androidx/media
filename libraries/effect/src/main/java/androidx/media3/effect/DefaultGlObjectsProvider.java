@@ -15,6 +15,8 @@
  */
 package androidx.media3.effect;
 
+import static androidx.media3.common.util.GlUtil.destroyEglContext;
+
 import android.opengl.EGL14;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
@@ -25,6 +27,8 @@ import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.UnstableApi;
+import java.util.ArrayList;
+import java.util.List;
 
 // TODO(b/261820382): Add tests for sharing context.
 /**
@@ -38,6 +42,7 @@ import androidx.media3.common.util.UnstableApi;
 public final class DefaultGlObjectsProvider implements GlObjectsProvider {
 
   private final EGLContext sharedEglContext;
+  private final List<EGLContext> createdEglContexts;
 
   /** Creates an instance with no shared EGL context. */
   public DefaultGlObjectsProvider() {
@@ -51,12 +56,16 @@ public final class DefaultGlObjectsProvider implements GlObjectsProvider {
    */
   public DefaultGlObjectsProvider(@Nullable EGLContext sharedEglContext) {
     this.sharedEglContext = sharedEglContext != null ? sharedEglContext : EGL14.EGL_NO_CONTEXT;
+    createdEglContexts = new ArrayList<>();
   }
 
   @Override
   public EGLContext createEglContext(
       EGLDisplay eglDisplay, int openGlVersion, int[] configAttributes) throws GlUtil.GlException {
-    return GlUtil.createEglContext(sharedEglContext, eglDisplay, openGlVersion, configAttributes);
+    EGLContext eglContext =
+        GlUtil.createEglContext(sharedEglContext, eglDisplay, openGlVersion, configAttributes);
+    createdEglContexts.add(eglContext);
+    return eglContext;
   }
 
   @Override
@@ -80,5 +89,12 @@ public final class DefaultGlObjectsProvider implements GlObjectsProvider {
       throws GlUtil.GlException {
     int fboId = GlUtil.createFboForTexture(texId);
     return new GlTextureInfo(texId, fboId, /* rboId= */ C.INDEX_UNSET, width, height);
+  }
+
+  @Override
+  public void release(EGLDisplay eglDisplay) throws GlUtil.GlException {
+    for (int i = 0; i < createdEglContexts.size(); i++) {
+      destroyEglContext(eglDisplay, createdEglContexts.get(i));
+    }
   }
 }

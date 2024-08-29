@@ -123,7 +123,8 @@ public class MediaButtonReceiver extends BroadcastReceiver {
       KeyEvent keyEvent = checkNotNull(intent.getExtras()).getParcelable(Intent.EXTRA_KEY_EVENT);
       if (keyEvent != null
           && keyEvent.getKeyCode() != KeyEvent.KEYCODE_MEDIA_PLAY
-          && keyEvent.getKeyCode() != KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) {
+          && keyEvent.getKeyCode() != KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE
+          && keyEvent.getKeyCode() != KeyEvent.KEYCODE_HEADSETHOOK) {
         // Starting with Android 8 (API 26), the service must be started immediately in the
         // foreground when being started. Also starting with Android 8, the system sends media
         // button intents to this receiver only when the session is released or not active, meaning

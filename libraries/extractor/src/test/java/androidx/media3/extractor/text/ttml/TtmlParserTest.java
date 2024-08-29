@@ -325,10 +325,10 @@ public final class TtmlParserTest {
   public void inheritGlobalStyleOverriddenByInlineAttributes() throws Exception {
     ImmutableList<CuesWithTiming> allCues = getAllCues(INHERIT_STYLE_OVERRIDE_TTML_FILE);
 
-    assertThat(allCues).hasSize(2);
+    assertThat(allCues).hasSize(3);
 
     Spanned firstCueText = getOnlyCueTextAtIndex(allCues, 0);
-    assertThat(firstCueText.toString()).isEqualTo("text 1");
+    assertThat(firstCueText.toString()).isEqualTo("default + s0 styles");
     assertThat(firstCueText).hasTypefaceSpanBetween(0, firstCueText.length()).withFamily("serif");
     assertThat(firstCueText).hasBoldItalicSpanBetween(0, firstCueText.length());
     assertThat(firstCueText).hasUnderlineSpanBetween(0, firstCueText.length());
@@ -338,9 +338,12 @@ public final class TtmlParserTest {
     assertThat(firstCueText)
         .hasForegroundColorSpanBetween(0, firstCueText.length())
         .withColor(0xFFFFFF00);
+    assertThat(firstCueText)
+        .hasRelativeSizeSpanBetween(0, firstCueText.length())
+        .withSizeChange(1.5f);
 
     Spanned secondCueText = getOnlyCueTextAtIndex(allCues, 1);
-    assertThat(secondCueText.toString()).isEqualTo("text 2");
+    assertThat(secondCueText.toString()).isEqualTo("default + s0 + overrides");
     assertThat(secondCueText)
         .hasTypefaceSpanBetween(0, secondCueText.length())
         .withFamily("sansSerif");
@@ -352,6 +355,15 @@ public final class TtmlParserTest {
     assertThat(secondCueText)
         .hasForegroundColorSpanBetween(0, secondCueText.length())
         .withColor(0xFFFFFF00);
+    assertThat(secondCueText)
+        .hasRelativeSizeSpanBetween(0, secondCueText.length())
+        .withSizeChange(0.9f);
+
+    Spanned thirdCueText = getOnlyCueTextAtIndex(allCues, 2);
+    assertThat(thirdCueText.toString()).isEqualTo("default styling only");
+    assertThat(thirdCueText)
+        .hasRelativeSizeSpanBetween(0, thirdCueText.length())
+        .withSizeChange(0.75f);
   }
 
   @Test
