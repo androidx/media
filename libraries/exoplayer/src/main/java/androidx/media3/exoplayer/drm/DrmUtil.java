@@ -142,15 +142,17 @@ public final class DrmUtil {
   }
 
   /**
-   * Executes a Http Post Request to the supplied {@link StatsDataSource} with retry handling and
-   * returns the entire response in a byte buffer.
+   * Executes a HTTP POST request with retry handling and returns the entire response in a byte
+   * buffer.
    *
-   * @param dataSource A {@link DataSource} that is usually HTTP-based
-   * @param url The requesting url
-   * @param httpBody The http request payload
-   * @param requestProperties A keyed map of http header request properties
-   * @return A byte array that holds the response payload
-   * @throws MediaDrmCallbackException if an exception was encountered during the download
+   * <p>Note that this method is executing the request synchronously and blocks until finished.
+   *
+   * @param dataSource A {@link DataSource}.
+   * @param url The requested URL.
+   * @param httpBody The HTTP request payload.
+   * @param requestProperties A keyed map of HTTP header request properties.
+   * @return A byte array that holds the response payload.
+   * @throws MediaDrmCallbackException if an exception was encountered during the download.
    */
   public static byte[] executePost(
       DataSource dataSource,

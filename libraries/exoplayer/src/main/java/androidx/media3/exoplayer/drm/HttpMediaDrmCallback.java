@@ -26,7 +26,6 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSpec;
-import androidx.media3.datasource.StatsDataSource;
 import androidx.media3.exoplayer.drm.ExoMediaDrm.KeyRequest;
 import androidx.media3.exoplayer.drm.ExoMediaDrm.ProvisionRequest;
 import com.google.common.collect.ImmutableMap;
@@ -157,8 +156,7 @@ public final class HttpMediaDrmCallback implements MediaDrmCallback {
     return executePost(
         dataSourceFactory.createDataSource(),
         url,
-        request.getData(),
-        requestProperties
-    );
+        /* httpBody= */ request.getData(),
+        requestProperties);
   }
 }
