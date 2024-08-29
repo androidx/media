@@ -67,6 +67,9 @@
         to remove a previously set `Surface` if the codec supports this
         (`MediaCodecInfo.detachedSurfaceSupported`).
 *   Text:
+    *   Add a custom `VoiceSpan` and populate it for
+        [WebVTT voice spans](https://www.w3.org/TR/webvtt1/#webvtt-cue-voice-span)
+        ([#1632](https://github.com/androidx/media/issues/1632)).
 *   Metadata:
 *   Image:
     *   Add `ExternallyLoadedImageDecoder` for simplified integration with

@@ -45,20 +45,11 @@ import java.util.ArrayList;
  */
 /* package */ final class CustomSpanBundler {
 
-  /**
-   * Media3 custom span implementations. One of the following:
-   *
-   * <ul>
-   *   <li>{@link #UNKNOWN}
-   *   <li>{@link #RUBY}
-   *   <li>{@link #TEXT_EMPHASIS}
-   *   <li>{@link #HORIZONTAL_TEXT_IN_VERTICAL_CONTEXT}
-   * </ul>
-   */
+  /** Media3 custom span implementations. */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target({TYPE_USE})
-  @IntDef({UNKNOWN, RUBY, TEXT_EMPHASIS, HORIZONTAL_TEXT_IN_VERTICAL_CONTEXT})
+  @IntDef({UNKNOWN, RUBY, TEXT_EMPHASIS, HORIZONTAL_TEXT_IN_VERTICAL_CONTEXT, VOICE})
   private @interface CustomSpanType {}
 
   private static final int UNKNOWN = -1;
@@ -68,6 +59,8 @@ import java.util.ArrayList;
   private static final int TEXT_EMPHASIS = 2;
 
   private static final int HORIZONTAL_TEXT_IN_VERTICAL_CONTEXT = 3;
+
+  private static final int VOICE = 4;
 
   private static final String FIELD_START_INDEX = Util.intToStringMaxRadix(0);
   private static final String FIELD_END_INDEX = Util.intToStringMaxRadix(1);
@@ -94,6 +87,11 @@ import java.util.ArrayList;
               text, span, /* spanType= */ HORIZONTAL_TEXT_IN_VERTICAL_CONTEXT, /* params= */ null);
       bundledCustomSpans.add(bundle);
     }
+    for (VoiceSpan span : text.getSpans(0, text.length(), VoiceSpan.class)) {
+      Bundle bundle =
+          spanToBundle(text, span, /* spanType= */ VOICE, /* params= */ span.toBundle());
+      bundledCustomSpans.add(bundle);
+    }
     return bundledCustomSpans;
   }
 
@@ -112,6 +110,9 @@ import java.util.ArrayList;
         break;
       case HORIZONTAL_TEXT_IN_VERTICAL_CONTEXT:
         text.setSpan(new HorizontalTextInVerticalContextSpan(), start, end, flags);
+        break;
+      case VOICE:
+        text.setSpan(VoiceSpan.fromBundle(checkNotNull(span)), start, end, flags);
         break;
       default:
         break;
