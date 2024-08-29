@@ -390,5 +390,4 @@ public final class Tracks {
             : BundleCollectionUtil.fromBundleList(Group::fromBundle, groupBundles);
     return new Tracks(groups);
   }
-  ;
 }
