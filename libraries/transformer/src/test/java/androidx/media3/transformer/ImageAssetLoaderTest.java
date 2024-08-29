@@ -157,13 +157,11 @@ public class ImageAssetLoaderTest {
         });
     ParserException parserException = (ParserException) exceptionRef.get().getCause();
 
-    assertThat(parserException.contentIsMalformed).isFalse();
-    assertThat(parserException.dataType).isEqualTo(C.DATA_TYPE_MEDIA);
     assertThat(parserException)
         .hasMessageThat()
-        .isEqualTo(
-            "Attempted to load a Bitmap from unsupported MIME type:"
-                + " image/gif{contentIsMalformed=false, dataType=1}");
+        .contains("Attempted to load a Bitmap from unsupported MIME type: image/gif");
+    assertThat(parserException.contentIsMalformed).isFalse();
+    assertThat(parserException.dataType).isEqualTo(C.DATA_TYPE_MEDIA);
   }
 
   private static AssetLoader getAssetLoader(AssetLoader.Listener listener, String uri) {
