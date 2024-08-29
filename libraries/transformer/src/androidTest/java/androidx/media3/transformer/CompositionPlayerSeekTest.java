@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package androidx.media3.transformer.mh.performance;
+package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
@@ -32,14 +32,6 @@ import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.GlEffect;
-import androidx.media3.transformer.Composition;
-import androidx.media3.transformer.CompositionPlayer;
-import androidx.media3.transformer.EditedMediaItem;
-import androidx.media3.transformer.EditedMediaItemSequence;
-import androidx.media3.transformer.Effects;
-import androidx.media3.transformer.InputTimestampRecordingShaderProgram;
-import androidx.media3.transformer.PlayerTestListener;
-import androidx.media3.transformer.SurfaceTestActivity;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
