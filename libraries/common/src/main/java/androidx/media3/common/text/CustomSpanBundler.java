@@ -45,16 +45,7 @@ import java.util.ArrayList;
  */
 /* package */ final class CustomSpanBundler {
 
-  /**
-   * Media3 custom span implementations. One of the following:
-   *
-   * <ul>
-   *   <li>{@link #UNKNOWN}
-   *   <li>{@link #RUBY}
-   *   <li>{@link #TEXT_EMPHASIS}
-   *   <li>{@link #HORIZONTAL_TEXT_IN_VERTICAL_CONTEXT}
-   * </ul>
-   */
+  /** Media3 custom span implementations. */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target({TYPE_USE})
