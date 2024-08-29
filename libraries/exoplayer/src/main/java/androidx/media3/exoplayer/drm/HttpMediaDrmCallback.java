@@ -15,6 +15,8 @@
  */
 package androidx.media3.exoplayer.drm;
 
+import static androidx.media3.exoplayer.drm.DrmUtil.executePost;
+
 import android.net.Uri;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
@@ -23,26 +25,18 @@ import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
-import androidx.media3.datasource.DataSourceInputStream;
 import androidx.media3.datasource.DataSpec;
-import androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException;
-import androidx.media3.datasource.StatsDataSource;
 import androidx.media3.exoplayer.drm.ExoMediaDrm.KeyRequest;
 import androidx.media3.exoplayer.drm.ExoMediaDrm.ProvisionRequest;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.ByteStreams;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 /** A {@link MediaDrmCallback} that makes requests using {@link DataSource} instances. */
 @UnstableApi
 public final class HttpMediaDrmCallback implements MediaDrmCallback {
-
-  private static final int MAX_MANUAL_REDIRECTS = 5;
-
   private final DataSource.Factory dataSourceFactory;
   @Nullable private final String defaultLicenseUrl;
   private final boolean forceDefaultLicenseUrl;
@@ -124,7 +118,7 @@ public final class HttpMediaDrmCallback implements MediaDrmCallback {
     String url =
         request.getDefaultUrl() + "&signedRequest=" + Util.fromUtf8Bytes(request.getData());
     return executePost(
-        dataSourceFactory,
+        dataSourceFactory.createDataSource(),
         url,
         /* httpBody= */ null,
         /* requestProperties= */ Collections.emptyMap());
@@ -159,70 +153,10 @@ public final class HttpMediaDrmCallback implements MediaDrmCallback {
     synchronized (keyRequestProperties) {
       requestProperties.putAll(keyRequestProperties);
     }
-    return executePost(dataSourceFactory, url, request.getData(), requestProperties);
-  }
-
-  private static byte[] executePost(
-      DataSource.Factory dataSourceFactory,
-      String url,
-      @Nullable byte[] httpBody,
-      Map<String, String> requestProperties)
-      throws MediaDrmCallbackException {
-    StatsDataSource dataSource = new StatsDataSource(dataSourceFactory.createDataSource());
-    int manualRedirectCount = 0;
-    DataSpec dataSpec =
-        new DataSpec.Builder()
-            .setUri(url)
-            .setHttpRequestHeaders(requestProperties)
-            .setHttpMethod(DataSpec.HTTP_METHOD_POST)
-            .setHttpBody(httpBody)
-            .setFlags(DataSpec.FLAG_ALLOW_GZIP)
-            .build();
-    DataSpec originalDataSpec = dataSpec;
-    try {
-      while (true) {
-        DataSourceInputStream inputStream = new DataSourceInputStream(dataSource, dataSpec);
-        try {
-          return ByteStreams.toByteArray(inputStream);
-        } catch (InvalidResponseCodeException e) {
-          @Nullable String redirectUrl = getRedirectUrl(e, manualRedirectCount);
-          if (redirectUrl == null) {
-            throw e;
-          }
-          manualRedirectCount++;
-          dataSpec = dataSpec.buildUpon().setUri(redirectUrl).build();
-        } finally {
-          Util.closeQuietly(inputStream);
-        }
-      }
-    } catch (Exception e) {
-      throw new MediaDrmCallbackException(
-          originalDataSpec,
-          Assertions.checkNotNull(dataSource.getLastOpenedUri()),
-          dataSource.getResponseHeaders(),
-          dataSource.getBytesRead(),
-          /* cause= */ e);
-    }
-  }
-
-  @Nullable
-  private static String getRedirectUrl(
-      InvalidResponseCodeException exception, int manualRedirectCount) {
-    // For POST requests, the underlying network stack will not normally follow 307 or 308
-    // redirects automatically. Do so manually here.
-    boolean manuallyRedirect =
-        (exception.responseCode == 307 || exception.responseCode == 308)
-            && manualRedirectCount < MAX_MANUAL_REDIRECTS;
-    if (!manuallyRedirect) {
-      return null;
-    }
-    Map<String, List<String>> headerFields = exception.headerFields;
-    if (headerFields != null) {
-      @Nullable List<String> locationHeaders = headerFields.get("Location");
-      if (locationHeaders != null && !locationHeaders.isEmpty()) {
-        return locationHeaders.get(0);
-      }
-    }
-    return null;
+    return executePost(
+        dataSourceFactory.createDataSource(),
+        url,
+        /* httpBody= */ request.getData(),
+        requestProperties);
   }
 }
