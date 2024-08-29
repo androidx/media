@@ -50,12 +50,7 @@ import java.util.List;
 import java.util.Locale;
 import org.checkerframework.checker.nullness.qual.PolyNull;
 
-/**
- * Writes out various types of boxes as per MP4 (ISO/IEC 14496-12) standards.
- *
- * <p>Boxes do not construct their sub-boxes but take them as input {@linkplain ByteBuffer byte
- * buffers}.
- */
+/** Writes out various types of boxes as per MP4 (ISO/IEC 14496-12) standards. */
 /* package */ final class Boxes {
   /** Provides track's metadata like media format, written samples. */
   public interface TrackMetadataProvider {
@@ -70,25 +65,25 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     ImmutableList<Integer> writtenChunkSampleCounts();
   }
 
-  /* Total number of bytes in an integer. */
+  /** Total number of bytes in an integer. */
   private static final int BYTES_PER_INTEGER = 4;
 
-  // Box size (4 bytes) + Box name (4 bytes)
+  /** Box size (4 bytes) + Box name (4 bytes) */
   public static final int BOX_HEADER_SIZE = 8;
 
-  // Box size = 1 to indicate 64-bit box size (4 bytes) + Box name (4 bytes) + actual size (8 bytes)
+  /**
+   * Box size = 1 to indicate 64-bit box size (4 bytes) + Box name (4 bytes) + actual box size (8
+   * bytes)
+   */
   public static final int LARGE_SIZE_BOX_HEADER_SIZE = 16;
 
+  /** The size (in bytes) of the mfhd box content. */
   public static final int MFHD_BOX_CONTENT_SIZE = 2 * BYTES_PER_INTEGER;
 
+  /** The size (in bytes) of the tfhd box content. */
   public static final int TFHD_BOX_CONTENT_SIZE = 4 * BYTES_PER_INTEGER;
 
-  /**
-   * The maximum length of boxes which have fixed sizes.
-   *
-   * <p>Technically, we'd know how long they actually are; this upper bound is much simpler to
-   * produce though and we'll throw if we overflow anyway.
-   */
+  /** The maximum size (in bytes) of boxes that have fixed sizes. */
   private static final int MAX_FIXED_LEAF_BOX_SIZE = 200;
 
   /**
@@ -97,10 +92,13 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
    */
   private static final long MVHD_TIMEBASE = 10_000L;
 
-  // unsigned int(2) sample_depends_on = 2 (bit index 25 and 24)
+  /** unsigned int(2) sample_depends_on = 2 (bit index 25 and 24) */
   private static final int TRUN_BOX_SYNC_SAMPLE_FLAGS = 0b00000010_00000000_00000000_00000000;
-  // unsigned int(2) sample_depends_on = 1 (bit index 25 and 24)
-  // bit(1) sample_is_non_sync_sample = 1 (bit index 16)
+
+  /**
+   * unsigned int(2) sample_depends_on = 1 (bit index 25 and 24), bit(1) sample_is_non_sync_sample =
+   * 1 (bit index 16)
+   */
   private static final int TRUN_BOX_NON_SYNC_SAMPLE_FLAGS = 0b00000001_00000001_00000000_00000000;
 
   private Boxes() {}
@@ -153,7 +151,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
       // Generate the sample durations to calculate the total duration for tkhd box.
       List<Integer> sampleDurationsVu =
-          Boxes.convertPresentationTimestampsToDurationsVu(
+          convertPresentationTimestampsToDurationsVu(
               track.writtenSamples(),
               minInputPtsUs,
               track.videoUnitTimebase(),
@@ -167,17 +165,15 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       long trackDurationUs = usFromVu(trackDurationInTrackUnitsVu, track.videoUnitTimebase());
 
       @C.TrackType int trackType = MimeTypes.getTrackType(format.sampleMimeType);
-      ByteBuffer stts = Boxes.stts(sampleDurationsVu);
+      ByteBuffer stts = stts(sampleDurationsVu);
       ByteBuffer ctts =
           MimeTypes.isVideo(format.sampleMimeType)
-              ? Boxes.ctts(track.writtenSamples(), sampleDurationsVu, track.videoUnitTimebase())
+              ? ctts(track.writtenSamples(), sampleDurationsVu, track.videoUnitTimebase())
               : ByteBuffer.allocate(0);
-      ByteBuffer stsz = Boxes.stsz(track.writtenSamples());
-      ByteBuffer stsc = Boxes.stsc(track.writtenChunkSampleCounts());
+      ByteBuffer stsz = stsz(track.writtenSamples());
+      ByteBuffer stsc = stsc(track.writtenChunkSampleCounts());
       ByteBuffer chunkOffsetBox =
-          isFragmentedMp4
-              ? Boxes.stco(track.writtenChunkOffsets())
-              : Boxes.co64(track.writtenChunkOffsets());
+          isFragmentedMp4 ? stco(track.writtenChunkOffsets()) : co64(track.writtenChunkOffsets());
 
       String handlerType;
       String handlerName;
@@ -190,81 +186,68 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         case C.TRACK_TYPE_VIDEO:
           handlerType = "vide";
           handlerName = "VideoHandle";
-          mhdBox = Boxes.vmhd();
-          sampleEntryBox = Boxes.videoSampleEntry(format);
-          stsdBox = Boxes.stsd(sampleEntryBox);
+          mhdBox = vmhd();
+          sampleEntryBox = videoSampleEntry(format);
+          stsdBox = stsd(sampleEntryBox);
           stblBox =
-              Boxes.stbl(
-                  stsdBox,
-                  stts,
-                  ctts,
-                  stsz,
-                  stsc,
-                  chunkOffsetBox,
-                  Boxes.stss(track.writtenSamples()));
+              stbl(stsdBox, stts, ctts, stsz, stsc, chunkOffsetBox, stss(track.writtenSamples()));
           break;
         case C.TRACK_TYPE_AUDIO:
           handlerType = "soun";
           handlerName = "SoundHandle";
-          mhdBox = Boxes.smhd();
-          sampleEntryBox = Boxes.audioSampleEntry(format);
-          stsdBox = Boxes.stsd(sampleEntryBox);
-          stblBox = Boxes.stbl(stsdBox, stts, stsz, stsc, chunkOffsetBox);
+          mhdBox = smhd();
+          sampleEntryBox = audioSampleEntry(format);
+          stsdBox = stsd(sampleEntryBox);
+          stblBox = stbl(stsdBox, stts, stsz, stsc, chunkOffsetBox);
           break;
         case C.TRACK_TYPE_METADATA:
-        // TODO: (b/280443593) - Check if we can identify a metadata track type from a custom
-        //  mime type.
         case C.TRACK_TYPE_UNKNOWN:
           handlerType = "meta";
           handlerName = "MetaHandle";
-          mhdBox = Boxes.nmhd();
-          sampleEntryBox = Boxes.textMetaDataSampleEntry(format);
-          stsdBox = Boxes.stsd(sampleEntryBox);
-          stblBox = Boxes.stbl(stsdBox, stts, stsz, stsc, chunkOffsetBox);
+          mhdBox = nmhd();
+          sampleEntryBox = textMetaDataSampleEntry(format);
+          stsdBox = stsd(sampleEntryBox);
+          stblBox = stbl(stsdBox, stts, stsz, stsc, chunkOffsetBox);
           break;
         default:
           throw new IllegalArgumentException("Unsupported track type");
       }
 
-      // The below statement is also a description of how a mdat box looks like, with all the
-      // inner boxes and what they actually store. Although they're technically instance methods,
-      // everything that is written to a box is visible in the argument list.
       ByteBuffer trakBox =
-          Boxes.trak(
-              Boxes.tkhd(
+          trak(
+              tkhd(
                   nextTrackId,
                   trackDurationUs,
                   creationTimestampSeconds,
                   modificationTimestampSeconds,
                   metadataCollector.orientationData.orientation,
                   format),
-              Boxes.mdia(
-                  Boxes.mdhd(
+              mdia(
+                  mdhd(
                       trackDurationInTrackUnitsVu,
                       track.videoUnitTimebase(),
                       creationTimestampSeconds,
                       modificationTimestampSeconds,
                       languageCode),
-                  Boxes.hdlr(handlerType, handlerName),
-                  Boxes.minf(mhdBox, Boxes.dinf(Boxes.dref(Boxes.localUrl())), stblBox)));
+                  hdlr(handlerType, handlerName),
+                  minf(mhdBox, dinf(dref(localUrl())), stblBox)));
 
       trakBoxes.add(trakBox);
       videoDurationUs = max(videoDurationUs, trackDurationUs);
-      trexBoxes.add(Boxes.trex(nextTrackId));
+      trexBoxes.add(trex(nextTrackId));
       nextTrackId++;
     }
 
     ByteBuffer mvhdBox =
-        Boxes.mvhd(
-            nextTrackId, creationTimestampSeconds, modificationTimestampSeconds, videoDurationUs);
-    ByteBuffer udtaBox = Boxes.udta(metadataCollector.locationData);
+        mvhd(nextTrackId, creationTimestampSeconds, modificationTimestampSeconds, videoDurationUs);
+    ByteBuffer udtaBox = udta(metadataCollector.locationData);
     ByteBuffer metaBox =
         metadataCollector.metadataEntries.isEmpty()
             ? ByteBuffer.allocate(0)
-            : Boxes.meta(
-                Boxes.hdlr(/* handlerType= */ "mdta", /* handlerName= */ ""),
-                Boxes.keys(Lists.newArrayList(metadataCollector.metadataEntries)),
-                Boxes.ilst(Lists.newArrayList(metadataCollector.metadataEntries)));
+            : meta(
+                hdlr(/* handlerType= */ "mdta", /* handlerName= */ ""),
+                keys(Lists.newArrayList(metadataCollector.metadataEntries)),
+                ilst(Lists.newArrayList(metadataCollector.metadataEntries)));
 
     List<ByteBuffer> subBoxes = new ArrayList<>();
     subBoxes.add(mvhdBox);
@@ -272,15 +255,14 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     subBoxes.add(metaBox);
     subBoxes.addAll(trakBoxes);
     if (isFragmentedMp4) {
-      subBoxes.add(Boxes.mvex(trexBoxes));
+      subBoxes.add(mvex(trexBoxes));
     }
 
     ByteBuffer moovBox = BoxUtils.wrapBoxesIntoBox("moov", subBoxes);
 
-    // Also add XMP if needed
     if (metadataCollector.xmpData != null) {
       return BoxUtils.concatenateBuffers(
-          moovBox, Boxes.uuid(Boxes.XMP_UUID, ByteBuffer.wrap(metadataCollector.xmpData.data)));
+          moovBox, uuid(XMP_UUID, ByteBuffer.wrap(metadataCollector.xmpData.data)));
     } else {
       // No need for another copy if there is no XMP to be appended.
       return moovBox;
@@ -300,10 +282,10 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       int orientation,
       Format format) {
     ByteBuffer contents = ByteBuffer.allocate(MAX_FIXED_LEAF_BOX_SIZE);
-    contents.putInt(0x00000007); // version and flags; allow presentation, etc.
+    contents.putInt(0x00000007); // version and flags: allow presentation, etc.
 
-    contents.putInt(creationTimestampSeconds); // creation_time; unsigned int(32)
-    contents.putInt(modificationTimestampSeconds); // modification_time; unsigned int(32)
+    contents.putInt(creationTimestampSeconds); // creation_time: unsigned int(32)
+    contents.putInt(modificationTimestampSeconds); // modification_time: unsigned int(32)
 
     contents.putInt(trackId);
     contents.putInt(0); // reserved
@@ -345,8 +327,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     ByteBuffer contents = ByteBuffer.allocate(MAX_FIXED_LEAF_BOX_SIZE);
     contents.putInt(0); // version and flags
 
-    contents.putInt(creationTimestampSeconds); // creation_time; unsigned int(32)
-    contents.putInt(modificationTimestampSeconds); // modification_time; unsigned int(32)
+    contents.putInt(creationTimestampSeconds); // creation_time: unsigned int(32)
+    contents.putInt(modificationTimestampSeconds); // modification_time: unsigned int(32)
     contents.putInt((int) MVHD_TIMEBASE); // The per-track timescales might be different.
     contents.putInt(
         (int) vuFromUs(videoDurationUs, MVHD_TIMEBASE)); // Duration of the entire video.
@@ -390,8 +372,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     ByteBuffer contents = ByteBuffer.allocate(MAX_FIXED_LEAF_BOX_SIZE);
     contents.putInt(0x0); // version and flags
 
-    contents.putInt(creationTimestampSeconds); // creation_time; unsigned int(32)
-    contents.putInt(modificationTimestampSeconds); // modification_time; unsigned int(32)
+    contents.putInt(creationTimestampSeconds); // creation_time: unsigned int(32)
+    contents.putInt(modificationTimestampSeconds); // modification_time: unsigned int(32)
 
     contents.putInt(videoUnitTimebase);
 
@@ -463,9 +445,9 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     String mimeType = checkNotNull(format.sampleMimeType);
     byte[] mimeBytes = Util.getUtf8Bytes(mimeType);
     contents.put(mimeBytes); // content_encoding
-    contents.put((byte) 0x00);
+    contents.put((byte) 0x0);
     contents.put(mimeBytes); // mime_format
-    contents.put((byte) 0x00);
+    contents.put((byte) 0x0);
 
     contents.flip();
     return BoxUtils.wrapIntoBox("mett", contents);
@@ -478,8 +460,6 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
   /** Returns the dref (data references) box. */
   public static ByteBuffer dref(ByteBuffer... dataLocationBoxes) {
-    // We have a "number of contained boxes" field; let's pretend this is also a box so that
-    // wrapBoxesIntoBoxes() can concatenate it with the rest.
     ByteBuffer header = ByteBuffer.allocate(8);
     header.putInt(0);
     header.putInt(dataLocationBoxes.length);
@@ -506,11 +486,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   public static ByteBuffer localUrl() {
     ByteBuffer contents = ByteBuffer.allocate(4);
 
-    // Flag indicating that the data is in fact in this very file instead of a remote
-    // URL. Accordingly, no actual URL string is present.
+    // Indicates that the data is in this file instead of in a remote URL. Hence no URL is written.
     contents.putInt(1);
-
-    // Since we set the flag to 1, no actual URL needs to follow.
 
     contents.flip();
     return BoxUtils.wrapIntoBox("url ", contents);
@@ -529,14 +506,14 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
    */
   public static ByteBuffer hdlr(String handlerType, String handlerName) {
     ByteBuffer contents = ByteBuffer.allocate(MAX_FIXED_LEAF_BOX_SIZE);
-    contents.putInt(0x0); // version and flags.
-    contents.putInt(0); // pre_defined.
-    contents.put(Util.getUtf8Bytes(handlerType)); // handler_type.
-    contents.putInt(0); // reserved.
-    contents.putInt(0); // reserved.
-    contents.putInt(0); // reserved.
-    contents.put(Util.getUtf8Bytes(handlerName)); // name.
-    contents.put((byte) 0); // The null terminator for name.
+    contents.putInt(0x0); // version and flags
+    contents.putInt(0); // pre_defined
+    contents.put(Util.getUtf8Bytes(handlerType)); // handler_type
+    contents.putInt(0); // reserved
+    contents.putInt(0); // reserved
+    contents.putInt(0); // reserved
+    contents.put(Util.getUtf8Bytes(handlerName)); // name
+    contents.put((byte) 0); // The null terminator for name
 
     contents.flip();
     return BoxUtils.wrapIntoBox("hdlr", contents);
@@ -566,7 +543,6 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
    * <p>This box contains user data like location info.
    */
   public static ByteBuffer udta(@Nullable Mp4LocationData location) {
-    // We can just omit the entire box if there is no location info available.
     if (location == null) {
       return ByteBuffer.allocate(0);
     }
@@ -576,7 +552,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
     ByteBuffer xyzBoxContents = ByteBuffer.allocate(locationString.length() + 2 + 2);
     xyzBoxContents.putShort((short) (xyzBoxContents.capacity() - 4));
-    xyzBoxContents.putShort((short) 0x15C7); // language code?
+    xyzBoxContents.putShort((short) 0x15C7); // language code
 
     xyzBoxContents.put(Util.getUtf8Bytes(locationString));
     checkState(xyzBoxContents.limit() == xyzBoxContents.capacity());
@@ -679,11 +655,11 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     ByteBuffer contents =
         ByteBuffer.allocate(codecSpecificBox.remaining() + MAX_FIXED_LEAF_BOX_SIZE);
 
-    contents.putInt(0x00); // reserved
+    contents.putInt(0x0); // reserved
     contents.putShort((short) 0x0); // reserved
     contents.putShort((short) 0x1); // data ref index
-    contents.putInt(0x00); // reserved
-    contents.putInt(0x00); // reserved
+    contents.putInt(0x0); // reserved
+    contents.putInt(0x0); // reserved
 
     int channelCount = format.channelCount;
     contents.putShort((short) channelCount);
@@ -863,19 +839,17 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   public static ByteBuffer stts(List<Integer> durationsVu) {
     ByteBuffer contents = ByteBuffer.allocate(durationsVu.size() * 8 + MAX_FIXED_LEAF_BOX_SIZE);
 
-    contents.putInt(0x0); // version and flags.
+    contents.putInt(0x0); // version and flags
 
-    // We will know total entry count only after processing all the sample durations, so put in a
+    // Total entry count is known only after processing all sample durations, so put in a
     // placeholder for total entry count and store its index.
     int totalEntryCountIndex = contents.position();
-    contents.putInt(0x0); // entry_count.
+    contents.putInt(0x0); // entry_count
 
     int totalEntryCount = 0;
     long lastDurationVu = -1L;
     int lastSampleCountIndex = -1;
 
-    // Note that the framework MediaMuxer adjust time deltas within plus-minus 100 us, so that
-    // samples have repeating duration values. It saves few entries in the table.
     for (int i = 0; i < durationsVu.size(); i++) {
       int durationVu = durationsVu.get(i);
       if (lastDurationVu != durationVu) {
@@ -903,7 +877,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       List<BufferInfo> samplesInfo, List<Integer> durationVu, int videoUnitTimescale) {
     // Generate the sample composition offsets list to create ctts box.
     List<Integer> compositionOffsets =
-        Boxes.calculateSampleCompositionTimeOffsets(samplesInfo, durationVu, videoUnitTimescale);
+        calculateSampleCompositionTimeOffsets(samplesInfo, durationVu, videoUnitTimescale);
 
     if (compositionOffsets.isEmpty()) {
       return ByteBuffer.allocate(0);
@@ -915,10 +889,10 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
     contents.putInt(1); // version and flags.
 
-    // We will know total entry count only after processing all the composition offsets, so put in
+    // Total entry count is known only after processing all the composition offsets, so put in
     // a placeholder for total entry count and store its index.
     int totalEntryCountIndex = contents.position();
-    contents.putInt(0x0); // entry_count.
+    contents.putInt(0x0); // entry_count
 
     int totalEntryCount = 0;
     int lastCompositionOffset = -1;
@@ -996,14 +970,14 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   public static ByteBuffer stsz(List<MediaCodec.BufferInfo> writtenSamples) {
     ByteBuffer contents = ByteBuffer.allocate(writtenSamples.size() * 4 + MAX_FIXED_LEAF_BOX_SIZE);
 
-    contents.putInt(0x0); // version and flags.
+    contents.putInt(0x0); // version and flags
 
     // TODO: b/270583563 - Consider optimizing for identically-sized samples.
-    //  sample_size; specifying the default sample size. Set to zero to indicate that the samples
-    //  have different sizes and they are stored in the sample size table.
+    // sample_size: specifying the default sample size. Set to zero to indicate that the samples
+    // have different sizes and they are stored in the sample size table.
     contents.putInt(0);
 
-    contents.putInt(writtenSamples.size()); // sample_count.
+    contents.putInt(writtenSamples.size()); // sample_count
 
     for (int i = 0; i < writtenSamples.size(); i++) {
       contents.putInt(writtenSamples.get(i).size);
@@ -1018,17 +992,17 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     ByteBuffer contents =
         ByteBuffer.allocate(writtenChunkSampleCounts.size() * 12 + MAX_FIXED_LEAF_BOX_SIZE);
 
-    contents.putInt(0x0); // version and flags.
-    contents.putInt(writtenChunkSampleCounts.size()); // entry_count.
+    contents.putInt(0x0); // version and flags
+    contents.putInt(writtenChunkSampleCounts.size()); // entry_count
 
     int currentChunk = 1;
 
     // TODO: b/270583563 - Consider optimizing for consecutive chunks having same number of samples.
     for (int i = 0; i < writtenChunkSampleCounts.size(); i++) {
       int samplesInChunk = writtenChunkSampleCounts.get(i);
-      contents.putInt(currentChunk); // first_chunk.
-      contents.putInt(samplesInChunk); // samples_per_chunk.
-      // sample_description_index; we have only one sample description in each track.
+      contents.putInt(currentChunk); // first_chunk
+      contents.putInt(samplesInChunk); // samples_per_chunk
+      // sample_description_index: there is only one sample description in each track.
       contents.putInt(1);
 
       currentChunk += 1;
@@ -1044,12 +1018,12 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         ByteBuffer.allocate(2 * BYTES_PER_INTEGER + writtenChunkOffsets.size() * BYTES_PER_INTEGER);
 
     contents.putInt(0x0); // version and flags
-    contents.putInt(writtenChunkOffsets.size()); // entry_count; unsigned int(32)
+    contents.putInt(writtenChunkOffsets.size()); // entry_count: unsigned int(32)
 
     for (int i = 0; i < writtenChunkOffsets.size(); i++) {
       long chunkOffset = writtenChunkOffsets.get(i);
       checkState(chunkOffset <= UNSIGNED_INT_MAX_VALUE, "Only 32-bit chunk offset is allowed");
-      contents.putInt((int) chunkOffset); // chunk_offset; unsigned int(32)
+      contents.putInt((int) chunkOffset); // chunk_offset: unsigned int(32)
     }
 
     contents.flip();
@@ -1063,10 +1037,10 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
             2 * BYTES_PER_INTEGER + 2 * writtenChunkOffsets.size() * BYTES_PER_INTEGER);
 
     contents.putInt(0x0); // version and flags
-    contents.putInt(writtenChunkOffsets.size()); // entry_count; unsigned int(32)
+    contents.putInt(writtenChunkOffsets.size()); // entry_count: unsigned int(32)
 
     for (int i = 0; i < writtenChunkOffsets.size(); i++) {
-      contents.putLong(writtenChunkOffsets.get(i)); // chunk_offset; unsigned int(64)
+      contents.putLong(writtenChunkOffsets.get(i)); // chunk_offset: unsigned int(64)
     }
 
     contents.flip();
@@ -1077,19 +1051,19 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   public static ByteBuffer stss(List<MediaCodec.BufferInfo> writtenSamples) {
     ByteBuffer contents = ByteBuffer.allocate(writtenSamples.size() * 4 + MAX_FIXED_LEAF_BOX_SIZE);
 
-    contents.putInt(0x0); // version and flags.
+    contents.putInt(0x0); // version and flags
 
-    // We will know total entry count only after processing all the sample, so put in a placeholder
+    // Total entry count is known only after processing all sample, so put in a placeholder
     // for total entry count and store its index.
     int totalEntryCountIndex = contents.position();
-    contents.putInt(writtenSamples.size()); // entry_count.
+    contents.putInt(writtenSamples.size()); // entry_count
 
     int currentSampleNumber = 1;
     int totalKeyFrames = 0;
     for (int i = 0; i < writtenSamples.size(); i++) {
       MediaCodec.BufferInfo info = writtenSamples.get(i);
       if ((info.flags & MediaCodec.BUFFER_FLAG_KEY_FRAME) > 0) {
-        contents.putInt(currentSampleNumber); // sample_number.
+        contents.putInt(currentSampleNumber);
         totalKeyFrames++;
       }
 
@@ -1106,8 +1080,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   public static ByteBuffer stsd(ByteBuffer sampleEntryBox) {
     ByteBuffer contents = ByteBuffer.allocate(sampleEntryBox.limit() + MAX_FIXED_LEAF_BOX_SIZE);
 
-    contents.putInt(0x0); // version and flags.
-    contents.putInt(1); // entry_count, We have only one sample description in each track.
+    contents.putInt(0x0); // version and flags
+    contents.putInt(1); // entry_count: there is only one sample description in each track.
     contents.put(sampleEntryBox);
 
     contents.flip();
@@ -1265,22 +1239,14 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   /** Adjusts the duration of the very last sample if needed. */
   private static void adjustLastSampleDuration(
       List<Integer> durationsToBeAdjustedVu, @Mp4Muxer.LastSampleDurationBehavior int behavior) {
-    // Technically, MP4 file stores frame durations, not timestamps. If a frame starts at a
-    // given timestamp then the duration of the last frame is not obvious. If samples follow each
-    // other in roughly regular intervals (e.g. in a normal, 30 fps video), it can be safely assumed
-    // that the last sample will have same duration (~33ms) as other samples. On the other hand, if
-    // there are just a few, irregularly spaced frames, with duplication, the entire duration of the
-    // video will increase, creating abnormal gaps.
-
+    // For a track having less than 3 samples, duplicating the last frame duration will
+    // significantly increase the overall track duration, so avoid that.
     if (durationsToBeAdjustedVu.size() <= 2) {
-      // Nothing to duplicate if there are 0 or 1 entries.
       return;
     }
 
     switch (behavior) {
       case Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION:
-        // This is the default MediaMuxer behavior: the last sample duration is a copy of the
-        // previous sample duration.
         durationsToBeAdjustedVu.set(
             durationsToBeAdjustedVu.size() - 1,
             durationsToBeAdjustedVu.get(durationsToBeAdjustedVu.size() - 2));
@@ -1299,10 +1265,10 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   private static ByteBuffer d263Box() {
     ByteBuffer d263Box = ByteBuffer.allocate(7);
     d263Box.put("    ".getBytes(UTF_8)); // 4 spaces (vendor)
-    d263Box.put((byte) 0x00); // decoder version
+    d263Box.put((byte) 0x0); // decoder version
     // TODO: b/352000778 - Get profile and level from format.
     d263Box.put((byte) 0x10); // level
-    d263Box.put((byte) 0x00); // profile
+    d263Box.put((byte) 0x0); // profile
 
     d263Box.flip();
     return BoxUtils.wrapIntoBox("d263", d263Box);
@@ -1429,7 +1395,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     contents.put(bitDepthLumaMinus8);
     contents.put(bitDepthChromaMinus8);
 
-    // avgFrameRate; value 0 indicates an unspecified average frame rate.
+    // avgFrameRate: value 0 indicates an unspecified average frame rate.
     contents.putShort((short) 0);
 
     // constantFrameRate (2 bits) + numTemporalLayers (3 bits) + temporalIdNested (1 bit) +
@@ -1560,7 +1526,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     byte[] hdrStaticInfo = colorInfo.hdrStaticInfo;
     if (hdrStaticInfo != null) {
       ByteBuffer contents = ByteBuffer.allocate(MAX_FIXED_LEAF_BOX_SIZE);
-      contents.putInt(0x00); // version and flag.
+      contents.putInt(0x0); // version and flag
       contents.put(hdrStaticInfo);
       contents.flip();
       return BoxUtils.wrapIntoBox("SmDm", contents);
@@ -1590,7 +1556,6 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     contents.put((byte) 'l');
     contents.put((byte) 'x');
 
-    // Parameters going into the file.
     short primaries = 0;
     short transfer = 0;
     short matrix = 0;
@@ -1688,7 +1653,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         getSizeBuffer(csdSize + dsiSizeBuffer.remaining() + dcdSizeBuffer.remaining() + 21);
 
     ByteBuffer contents = ByteBuffer.allocate(csdSize + MAX_FIXED_LEAF_BOX_SIZE);
-    contents.putInt(0x00); // Version and flags.
+    contents.putInt(0x0); // version and flags
     contents.put((byte) 0x03); // ES_DescrTag
 
     contents.put(esdSizeBuffer);
@@ -1696,7 +1661,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     contents.putShort((short) 0x0000); // ES_ID
     // streamDependenceFlag (1 bit) + URL_Flag (1 bit) + OCRstreamFlag (1 bit) + streamPriority (5
     // bits)
-    contents.put(isVideo ? (byte) 0x1f : (byte) 0x00);
+    contents.put(isVideo ? (byte) 0x1f : (byte) 0x0);
 
     contents.put((byte) 0x04); // DecoderConfigDescrTag
     contents.put(dcdSizeBuffer);
@@ -1709,7 +1674,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
     int size = isVideo ? 0x017700 : 0x000300;
     contents.putShort((short) ((size >> 8) & 0xFFFF)); // First 16 bits of buffer size.
-    contents.put((byte) 0x00); // Last 8 bits of buffer size.
+    contents.put((byte) 0x0); // Last 8 bits of buffer size.
 
     contents.putInt(peakBitrate != Format.NO_VALUE ? peakBitrate : 0);
     contents.putInt(averageBitrate != Format.NO_VALUE ? averageBitrate : 0);
@@ -1818,16 +1783,13 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       throw new IllegalArgumentException("Non-length-3 language code: " + code);
     }
 
-    // Use an int so that we don't bump into the issue of Java not having unsigned types. We take
-    // the last 5 bits of each letter to supply 5 bits each of the eventual code.
-
+    // Take only last 5 bits of each letter.
     int value = (bytes[2] & 0x1F);
     value += (bytes[1] & 0x1F) << 5;
     value += (bytes[0] & 0x1F) << 10;
 
-    // This adds up to 15 bits; the 16th one is really supposed to be 0.
-    checkState((value & 0x8000) == 0);
-    return (short) (value & 0xFFFF);
+    // Total 15 bits for the language code and the 16th bit should be 0.
+    return (short) (value & 0x7FFF);
   }
 
   /**
@@ -1859,6 +1821,6 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
   /** Converts microseconds to video units, using the provided timebase. */
   private static long vuFromUs(long timestampUs, long videoUnitTimebase) {
-    return timestampUs * videoUnitTimebase / 1_000_000L; // (division for us to s conversion)
+    return timestampUs * videoUnitTimebase / 1_000_000L; // Division for microsecond to second.
   }
 }
