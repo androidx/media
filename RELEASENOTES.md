@@ -101,6 +101,9 @@
 *   Cronet Extension:
 *   RTMP Extension:
 *   HLS Extension:
+*   DASH Extension:
+    *   Add support for periods starting in the middle of a segment
+        ([#1440](https://github.com/androidx/media/issues/1440)).
 *   Smooth Streaming Extension:
 *   RTSP Extension:
 *   Decoder Extensions (FFmpeg, VP9, AV1, etc.):

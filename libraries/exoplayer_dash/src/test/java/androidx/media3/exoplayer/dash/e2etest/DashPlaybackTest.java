@@ -440,4 +440,27 @@ public final class DashPlaybackTest {
     // TODO: b/352276461 - The last frame might not be rendered. When the bug is fixed,
     //  assert on the full playback dump.
   }
+
+  @Test
+  public void multiPeriod_withOffsetInSegment() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    CapturingRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersFactory(applicationContext);
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .build();
+    player.setVideoSurface(new Surface(new SurfaceTexture(/* texName= */ 1)));
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+
+    player.setMediaItem(
+        MediaItem.fromUri("asset:///media/dash/multi-period-with-offset/sample.mpd"));
+    player.prepare();
+    player.play();
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    player.release();
+
+    DumpFileAsserts.assertOutput(
+        applicationContext, playbackOutput, "playbackdumps/dash/multi-period-with-offset.dump");
+  }
 }
