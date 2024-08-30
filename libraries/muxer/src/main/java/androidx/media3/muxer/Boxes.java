@@ -828,10 +828,9 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       durationsVu.add((int) currentSampleDurationVu);
       currentSampleTimeUs = nextSampleTimeUs;
     }
-    // Default duration for the last sample.
-    durationsVu.add(0);
 
-    adjustLastSampleDuration(durationsVu, lastSampleDurationBehavior);
+    durationsVu.add(getLastSampleDurationVu(durationsVu, lastSampleDurationBehavior));
+
     return durationsVu;
   }
 
@@ -1235,29 +1234,26 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     return timestampVu * 1_000_000L / videoUnitTimebase;
   }
 
-  // TODO: b/317117431 - Change this method to getLastSampleDuration().
-  /** Adjusts the duration of the very last sample if needed. */
-  private static void adjustLastSampleDuration(
-      List<Integer> durationsToBeAdjustedVu, @Mp4Muxer.LastSampleDurationBehavior int behavior) {
-    // For a track having less than 3 samples, duplicating the last frame duration will
-    // significantly increase the overall track duration, so avoid that.
-    if (durationsToBeAdjustedVu.size() <= 2) {
-      return;
-    }
-
-    switch (behavior) {
+  /**
+   * Returns the duration of the last sample (in video units) based on previous sample durations and
+   * the {@code lastSampleDurationBehavior}.
+   */
+  private static int getLastSampleDurationVu(
+      List<Integer> sampleDurationsExceptLast,
+      @Mp4Muxer.LastSampleDurationBehavior int lastSampleDurationBehavior) {
+    switch (lastSampleDurationBehavior) {
       case Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION:
-        durationsToBeAdjustedVu.set(
-            durationsToBeAdjustedVu.size() - 1,
-            durationsToBeAdjustedVu.get(durationsToBeAdjustedVu.size() - 2));
-        break;
+        // For a track having less than 3 samples, duplicating the last frame duration will
+        // significantly increase the overall track duration, so avoid that.
+        return sampleDurationsExceptLast.size() < 2
+            ? 0
+            : Iterables.getLast(sampleDurationsExceptLast);
       case Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE:
         // Keep the last sample duration as short as possible.
-        checkState(Iterables.getLast(durationsToBeAdjustedVu) == 0L);
-        break;
+        return 0;
       default:
         throw new IllegalArgumentException(
-            "Unexpected value for the last frame duration behavior " + behavior);
+            "Unexpected value for the last frame duration behavior " + lastSampleDurationBehavior);
     }
   }
 
