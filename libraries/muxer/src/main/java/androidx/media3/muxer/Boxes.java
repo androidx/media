@@ -52,19 +52,6 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
 /** Writes out various types of boxes as per MP4 (ISO/IEC 14496-12) standards. */
 /* package */ final class Boxes {
-  /** Provides track's metadata like media format, written samples. */
-  public interface TrackMetadataProvider {
-    Format format();
-
-    int videoUnitTimebase();
-
-    ImmutableList<BufferInfo> writtenSamples();
-
-    ImmutableList<Long> writtenChunkOffsets();
-
-    ImmutableList<Integer> writtenChunkSampleCounts();
-  }
-
   /** Total number of bytes in an integer. */
   private static final int BYTES_PER_INTEGER = 4;
 
@@ -125,7 +112,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   /** Returns the moov box. */
   @SuppressWarnings("InlinedApi")
   public static ByteBuffer moov(
-      List<? extends TrackMetadataProvider> tracks,
+      List<Track> tracks,
       MetadataCollector metadataCollector,
       long minInputPtsUs,
       boolean isFragmentedMp4,
@@ -142,17 +129,17 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     int nextTrackId = 1;
     long videoDurationUs = 0L;
     for (int i = 0; i < tracks.size(); i++) {
-      TrackMetadataProvider track = tracks.get(i);
-      if (!isFragmentedMp4 && track.writtenSamples().isEmpty()) {
+      Track track = tracks.get(i);
+      if (!isFragmentedMp4 && track.writtenSamples.isEmpty()) {
         continue;
       }
-      Format format = track.format();
+      Format format = track.format;
       String languageCode = bcp47LanguageTagToIso3(format.language);
 
       // Generate the sample durations to calculate the total duration for tkhd box.
       List<Integer> sampleDurationsVu =
           convertPresentationTimestampsToDurationsVu(
-              track.writtenSamples(),
+              track.writtenSamples,
               minInputPtsUs,
               track.videoUnitTimebase(),
               lastSampleDurationBehavior);
@@ -168,12 +155,12 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       ByteBuffer stts = stts(sampleDurationsVu);
       ByteBuffer ctts =
           MimeTypes.isVideo(format.sampleMimeType)
-              ? ctts(track.writtenSamples(), sampleDurationsVu, track.videoUnitTimebase())
+              ? ctts(track.writtenSamples, sampleDurationsVu, track.videoUnitTimebase())
               : ByteBuffer.allocate(0);
-      ByteBuffer stsz = stsz(track.writtenSamples());
-      ByteBuffer stsc = stsc(track.writtenChunkSampleCounts());
+      ByteBuffer stsz = stsz(track.writtenSamples);
+      ByteBuffer stsc = stsc(track.writtenChunkSampleCounts);
       ByteBuffer chunkOffsetBox =
-          isFragmentedMp4 ? stco(track.writtenChunkOffsets()) : co64(track.writtenChunkOffsets());
+          isFragmentedMp4 ? stco(track.writtenChunkOffsets) : co64(track.writtenChunkOffsets);
 
       String handlerType;
       String handlerName;
@@ -190,7 +177,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
           sampleEntryBox = videoSampleEntry(format);
           stsdBox = stsd(sampleEntryBox);
           stblBox =
-              stbl(stsdBox, stts, ctts, stsz, stsc, chunkOffsetBox, stss(track.writtenSamples()));
+              stbl(stsdBox, stts, ctts, stsz, stsc, chunkOffsetBox, stss(track.writtenSamples));
           break;
         case C.TRACK_TYPE_AUDIO:
           handlerType = "soun";
