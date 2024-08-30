@@ -20,10 +20,10 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Matrix;
-import android.graphics.Rect;
 import android.opengl.GLES20;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
+import androidx.media3.common.util.GlRect;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -143,9 +143,7 @@ import java.util.concurrent.Future;
      * @return The rectangular region of the input image that will be scaled to fill the effect
      *     input image.
      */
-    // TODO: b/b/361286064 - This method misuses android.graphics.Rect for OpenGL coordinates.
-    //   Implement a custom GlUtils.Rect to correctly label lower left corner as (0, 0).
-    Rect getScaledRegion(long presentationTimeUs);
+    GlRect getScaledRegion(long presentationTimeUs);
 
     /**
      * Processing the image data in the {@code image}.

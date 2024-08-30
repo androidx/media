@@ -18,13 +18,13 @@ package androidx.media3.effect;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkState;
 
-import android.graphics.Rect;
 import androidx.annotation.CallSuper;
 import androidx.annotation.IntRange;
 import androidx.media3.common.C;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
+import androidx.media3.common.util.GlRect;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.util.concurrent.Futures;
@@ -213,10 +213,9 @@ import java.util.concurrent.TimeUnit;
       checkState(inputTexture.fboId != C.INDEX_UNSET);
       GlUtil.blitFrameBuffer(
           inputTexture.fboId,
-          new Rect(/* left= */ 0, /* top= */ 0, /* right= */ inputWidth, /* bottom= */ inputHeight),
+          new GlRect(inputWidth, inputHeight),
           outputTexture.fboId,
-          new Rect(
-              /* left= */ 0, /* top= */ 0, /* right= */ inputWidth, /* bottom= */ inputHeight));
+          new GlRect(inputWidth, inputHeight));
 
       Future<T> task =
           concurrentEffect.queueInputFrame(glObjectsProvider, outputTexture, presentationTimeUs);

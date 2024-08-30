@@ -19,11 +19,11 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 
-import android.graphics.Rect;
 import androidx.media3.common.C;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
+import androidx.media3.common.util.GlRect;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
@@ -107,8 +107,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           textureInfo.fboId,
           processor.getScaledRegion(presentationTimeUs),
           effectInputTexture.fboId,
-          new Rect(
-              /* left= */ 0, /* top= */ 0, effectInputTexture.width, effectInputTexture.height));
+          new GlRect(effectInputTexture.width, effectInputTexture.height));
 
       TexturePixelBuffer texturePixelBuffer = new TexturePixelBuffer(effectInputTexture);
       unmappedPixelBuffers.add(texturePixelBuffer);

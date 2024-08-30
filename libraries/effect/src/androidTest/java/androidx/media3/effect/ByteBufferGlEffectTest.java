@@ -26,7 +26,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.graphics.Bitmap;
 import android.graphics.Color;
-import android.graphics.Rect;
 import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.style.AbsoluteSizeSpan;
@@ -34,6 +33,7 @@ import android.text.style.ForegroundColorSpan;
 import android.text.style.TypefaceSpan;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.util.Consumer;
+import androidx.media3.common.util.GlRect;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
 import androidx.media3.test.utils.TextureBitmapReader;
@@ -140,12 +140,8 @@ public class ByteBufferGlEffectTest {
     }
 
     @Override
-    public Rect getScaledRegion(long presentationTimeUs) {
-      return new Rect(
-          /* left= */ 0,
-          /* top= */ 0,
-          /* right= */ INPUT_FRAME_WIDTH,
-          /* bottom= */ INPUT_FRAME_HEIGHT);
+    public GlRect getScaledRegion(long presentationTimeUs) {
+      return new GlRect(INPUT_FRAME_WIDTH, INPUT_FRAME_HEIGHT);
     }
 
     @Override

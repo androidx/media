@@ -23,7 +23,6 @@ import static androidx.media3.common.util.Assertions.checkState;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
-import android.graphics.Rect;
 import android.opengl.EGL14;
 import android.opengl.EGLConfig;
 import android.opengl.EGLContext;
@@ -837,7 +836,7 @@ public final class GlUtil {
    * @param drawFboId The framebuffer object to draw into.
    * @param drawRect The rectangular region of {@code drawFboId} to draw into.
    */
-  public static void blitFrameBuffer(int readFboId, Rect readRect, int drawFboId, Rect drawRect)
+  public static void blitFrameBuffer(int readFboId, GlRect readRect, int drawFboId, GlRect drawRect)
       throws GlException {
     int[] boundFramebuffer = new int[1];
     GLES20.glGetIntegerv(GLES20.GL_FRAMEBUFFER_BINDING, boundFramebuffer, /* offset= */ 0);
@@ -848,13 +847,13 @@ public final class GlUtil {
     checkGlError();
     GLES30.glBlitFramebuffer(
         readRect.left,
-        readRect.top,
-        readRect.right,
         readRect.bottom,
+        readRect.right,
+        readRect.top,
         drawRect.left,
-        drawRect.top,
-        drawRect.right,
         drawRect.bottom,
+        drawRect.right,
+        drawRect.top,
         GLES30.GL_COLOR_BUFFER_BIT,
         GLES30.GL_LINEAR);
     checkGlError();
