@@ -149,6 +149,15 @@ public final class TestUtil {
     return stringJoiner.toString();
   }
 
+  /** Returns the file path of the composition export dump file, based on the summary provided. */
+  public static String getCompositionDumpFilePath(String compositionSummary) {
+    return DUMP_FILE_OUTPUT_DIRECTORY
+        + "/composition/"
+        + compositionSummary
+        + "."
+        + DUMP_FILE_EXTENSION;
+  }
+
   /**
    * Adds an audio decoder for each {@linkplain MimeTypes mime type}.
    *
