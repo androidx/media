@@ -66,6 +66,9 @@
         `Surface` in `configure` and calls to a new method `detachOutputSurface`
         to remove a previously set `Surface` if the codec supports this
         (`MediaCodecInfo.detachedSurfaceSupported`).
+    *   Use `MediaCodecAdapter` supplied pixel aspect ratio values if provided
+        when processing `onOutputFormatChanged`
+        ([#1371](https://github.com/androidx/media/pull/1371)).
 *   Text:
     *   Add a custom `VoiceSpan` and populate it for
         [WebVTT voice spans](https://www.w3.org/TR/webvtt1/#webvtt-cue-voice-span)
