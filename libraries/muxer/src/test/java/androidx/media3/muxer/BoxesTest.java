@@ -477,7 +477,8 @@ public class BoxesTest {
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
-            LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE);
+            LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE,
+            C.TIME_UNSET);
 
     assertThat(durationsVu).containsExactly(0);
   }
@@ -493,7 +494,8 @@ public class BoxesTest {
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
-            LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE);
+            LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE,
+            C.TIME_UNSET);
 
     assertThat(durationsVu).containsExactly(0);
   }
@@ -509,7 +511,8 @@ public class BoxesTest {
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
-            LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE);
+            LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE,
+            C.TIME_UNSET);
 
     assertThat(durationsVu).containsExactly(3_000, 5_000, 0);
   }
@@ -525,7 +528,8 @@ public class BoxesTest {
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
-            LAST_SAMPLE_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION);
+            LAST_SAMPLE_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION,
+            C.TIME_UNSET);
 
     assertThat(durationsVu).containsExactly(3_000, 5_000, 5_000);
   }
@@ -541,9 +545,27 @@ public class BoxesTest {
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
-            LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE);
+            LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE,
+            C.TIME_UNSET);
 
     assertThat(durationsVu).containsExactly(100, 100, 800, 100, 0);
+  }
+
+  @Test
+  public void
+      convertPresentationTimestampsToDurationsVu_withLastSampleDurationBehaviorUsingEndOfStreamFlag_returnsExpectedDurations() {
+    List<MediaCodec.BufferInfo> sampleBufferInfos =
+        createBufferInfoListWithSamplePresentationTimestamps(0L, 1_000L, 2_000L, 3_000L, 4_000L);
+
+    List<Integer> durationsVu =
+        Boxes.convertPresentationTimestampsToDurationsVu(
+            sampleBufferInfos,
+            /* firstSamplePresentationTimeUs= */ 0L,
+            VU_TIMEBASE,
+            Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_USING_END_OF_STREAM_FLAG,
+            /* endOfStreamTimestampUs= */ 10_000);
+
+    assertThat(durationsVu).containsExactly(100, 100, 100, 100, 600);
   }
 
   @Test
@@ -595,7 +617,8 @@ public class BoxesTest {
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
-            LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE);
+            LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE,
+            C.TIME_UNSET);
 
     ByteBuffer cttsBox = Boxes.ctts(sampleBufferInfos, durationsVu, VU_TIMEBASE);
 
@@ -612,7 +635,8 @@ public class BoxesTest {
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
-            LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE);
+            LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE,
+            C.TIME_UNSET);
 
     ByteBuffer cttsBox = Boxes.ctts(sampleBufferInfos, durationsVu, VU_TIMEBASE);
 
@@ -631,7 +655,8 @@ public class BoxesTest {
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
-            LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE);
+            LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE,
+            C.TIME_UNSET);
 
     ByteBuffer cttsBox = Boxes.ctts(sampleBufferInfos, durationsVu, VU_TIMEBASE);
 
@@ -651,7 +676,8 @@ public class BoxesTest {
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 23698215060L,
             VU_TIMEBASE,
-            LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE);
+            LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE,
+            C.TIME_UNSET);
 
     ByteBuffer cttsBox = Boxes.ctts(sampleBufferInfos, durationsVu, VU_TIMEBASE);
 

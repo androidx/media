@@ -142,7 +142,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
               track.writtenSamples,
               minInputPtsUs,
               track.videoUnitTimebase(),
-              lastSampleDurationBehavior);
+              lastSampleDurationBehavior,
+              track.endOfStreamTimestampUs);
 
       long trackDurationInTrackUnitsVu = 0;
       for (int j = 0; j < sampleDurationsVu.size(); j++) {
@@ -772,14 +773,15 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
    *     {@code samplesInfo} list.
    * @param videoUnitTimescale The timescale of the track.
    * @param lastSampleDurationBehavior The behaviour for the last sample duration.
+   * @param endOfStreamTimestampUs The timestamp (in microseconds) of the end of stream sample.
    * @return A list of all the sample durations.
    */
-  // TODO: b/280084657 - Add support for setting last sample duration.
   public static List<Integer> convertPresentationTimestampsToDurationsVu(
       List<BufferInfo> samplesInfo,
       long firstSamplePresentationTimeUs,
       int videoUnitTimescale,
-      @Mp4Muxer.LastSampleDurationBehavior int lastSampleDurationBehavior) {
+      @Mp4Muxer.LastSampleDurationBehavior int lastSampleDurationBehavior,
+      long endOfStreamTimestampUs) {
     List<Long> presentationTimestampsUs = new ArrayList<>(samplesInfo.size());
     List<Integer> durationsVu = new ArrayList<>(samplesInfo.size());
 
@@ -816,7 +818,19 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       currentSampleTimeUs = nextSampleTimeUs;
     }
 
-    durationsVu.add(getLastSampleDurationVu(durationsVu, lastSampleDurationBehavior));
+    long lastSampleDurationVuFromEndOfStream = 0;
+    if (endOfStreamTimestampUs != C.TIME_UNSET) {
+      lastSampleDurationVuFromEndOfStream =
+          vuFromUs(endOfStreamTimestampUs, videoUnitTimescale)
+              - vuFromUs(currentSampleTimeUs, videoUnitTimescale);
+      checkState(
+          lastSampleDurationVuFromEndOfStream <= Integer.MAX_VALUE,
+          "Only 32-bit sample duration is allowed");
+    }
+
+    durationsVu.add(
+        getLastSampleDurationVu(
+            durationsVu, lastSampleDurationBehavior, (int) lastSampleDurationVuFromEndOfStream));
 
     return durationsVu;
   }
@@ -1221,13 +1235,11 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     return timestampVu * 1_000_000L / videoUnitTimebase;
   }
 
-  /**
-   * Returns the duration of the last sample (in video units) based on previous sample durations and
-   * the {@code lastSampleDurationBehavior}.
-   */
+  /** Returns the duration of the last sample (in video units). */
   private static int getLastSampleDurationVu(
       List<Integer> sampleDurationsExceptLast,
-      @Mp4Muxer.LastSampleDurationBehavior int lastSampleDurationBehavior) {
+      @Mp4Muxer.LastSampleDurationBehavior int lastSampleDurationBehavior,
+      int lastSampleDurationVuFromEndOfStream) {
     switch (lastSampleDurationBehavior) {
       case Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION:
         // For a track having less than 3 samples, duplicating the last frame duration will
@@ -1238,6 +1250,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       case Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE:
         // Keep the last sample duration as short as possible.
         return 0;
+      case Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_USING_END_OF_STREAM_FLAG:
+        return lastSampleDurationVuFromEndOfStream;
       default:
         throw new IllegalArgumentException(
             "Unexpected value for the last frame duration behavior " + lastSampleDurationBehavior);

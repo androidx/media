@@ -15,8 +15,11 @@
  */
 package androidx.media3.muxer;
 
+import static androidx.media3.common.util.Assertions.checkArgument;
+
 import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.muxer.Muxer.TrackToken;
@@ -36,6 +39,7 @@ import java.util.List;
   public final Deque<BufferInfo> pendingSamplesBufferInfo;
   public final Deque<ByteBuffer> pendingSamplesByteBuffer;
   public boolean hadKeyframe;
+  public long endOfStreamTimestampUs;
 
   private final boolean sampleCopyEnabled;
 
@@ -60,11 +64,19 @@ import java.util.List;
     writtenChunkSampleCounts = new ArrayList<>();
     pendingSamplesBufferInfo = new ArrayDeque<>();
     pendingSamplesByteBuffer = new ArrayDeque<>();
+    endOfStreamTimestampUs = C.TIME_UNSET;
   }
 
   public void writeSampleData(ByteBuffer byteBuffer, BufferInfo bufferInfo) {
+    checkArgument(
+        endOfStreamTimestampUs == C.TIME_UNSET,
+        "Samples can not be written after writing a sample with"
+            + " MediaCodec.BUFFER_FLAG_END_OF_STREAM flag");
     //  Skip empty samples.
     if (bufferInfo.size == 0 || byteBuffer.remaining() == 0) {
+      if ((bufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
+        endOfStreamTimestampUs = bufferInfo.presentationTimeUs;
+      }
       return;
     }
 

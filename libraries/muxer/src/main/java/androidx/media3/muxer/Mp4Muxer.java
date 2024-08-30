@@ -27,6 +27,7 @@ import static androidx.media3.muxer.MuxerUtil.isMetadataSupported;
 import static androidx.media3.muxer.MuxerUtil.populateEditableVideoTracksMetadata;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
@@ -140,17 +141,18 @@ public final class Mp4Muxer implements Muxer {
     }
   }
 
-  /** Behavior for the last sample duration. */
+  /** Behavior for the duration of the last sample. */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)
   @IntDef({
     LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE,
     LAST_SAMPLE_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION,
+    LAST_SAMPLE_DURATION_BEHAVIOR_USING_END_OF_STREAM_FLAG
   })
   public @interface LastSampleDurationBehavior {}
 
-  /** Insert a zero-length last sample. */
+  /** The duration of the last sample is set to 0. */
   public static final int LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE = 0;
 
   /**
@@ -158,6 +160,23 @@ public final class Mp4Muxer implements Muxer {
    * last sample.
    */
   public static final int LAST_SAMPLE_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION = 1;
+
+  /**
+   * Use the {@link MediaCodec#BUFFER_FLAG_END_OF_STREAM end of stream sample} to set the duration
+   * of the last sample.
+   *
+   * <p>After {@linkplain #writeSampleData writing} all the samples for a track, the app must
+   * {@linkplain #writeSampleData write} an empty sample with flag {@link
+   * MediaCodec#BUFFER_FLAG_END_OF_STREAM}. The timestamp of this sample should be equal to the
+   * desired track duration.
+   *
+   * <p>Once a sample with flag {@link MediaCodec#BUFFER_FLAG_END_OF_STREAM} is {@linkplain
+   * #writeSampleData written}, no more samples can be written for that track.
+   *
+   * <p>If no explicit {@link MediaCodec#BUFFER_FLAG_END_OF_STREAM} sample is passed, then the
+   * duration of the last sample will be set to 0.
+   */
+  public static final int LAST_SAMPLE_DURATION_BEHAVIOR_USING_END_OF_STREAM_FLAG = 2;
 
   /** The specific MP4 file format. */
   @Documented

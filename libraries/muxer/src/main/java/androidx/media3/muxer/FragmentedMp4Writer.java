@@ -333,7 +333,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 ? minInputPresentationTimeUs
                 : pendingSamplesBufferInfo.get(0).presentationTimeUs,
             track.videoUnitTimebase(),
-            Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION);
+            Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION,
+            track.endOfStreamTimestampUs);
 
     List<Integer> sampleCompositionTimeOffsets =
         Boxes.calculateSampleCompositionTimeOffsets(

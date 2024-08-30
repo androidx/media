@@ -22,6 +22,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
+import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
 import android.util.Pair;
 import androidx.media3.common.C;
@@ -671,6 +672,93 @@ public class Mp4MuxerEndToEndTest {
         editableTracksOutput,
         MuxerTestUtil.getExpectedDumpFilePath(
             "mp4_with_editable_video_tracks_when_editable_track_samples_interleaved.mp4"));
+  }
+
+  @Test
+  public void
+      createMp4File_withLastSampleDurationBehaviorUsingEndOfStreamFlag_writesSamplesWithCorrectDurations()
+          throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    Mp4Muxer mp4Muxer =
+        new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
+            .setLastSampleDurationBehavior(
+                Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_USING_END_OF_STREAM_FLAG)
+            .build();
+    mp4Muxer.addMetadataEntry(
+        new Mp4TimestampData(
+            /* creationTimestampSeconds= */ 100_000_000L,
+            /* modificationTimestampSeconds= */ 500_000_000L));
+    Pair<ByteBuffer, BufferInfo> sample1 = getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 0L);
+    Pair<ByteBuffer, BufferInfo> sample2 =
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 100L);
+    Pair<ByteBuffer, BufferInfo> sample3 =
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 200L);
+    Pair<ByteBuffer, BufferInfo> sample4 =
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 300L);
+
+    long expectedDurationUs = 1_000L;
+    try {
+      TrackToken track = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
+      mp4Muxer.writeSampleData(track, sample1.first, sample1.second);
+      mp4Muxer.writeSampleData(track, sample2.first, sample2.second);
+      mp4Muxer.writeSampleData(track, sample3.first, sample3.second);
+      mp4Muxer.writeSampleData(track, sample4.first, sample4.second);
+      // Write end of stream sample.
+      BufferInfo endOfStreamBufferInfo = new BufferInfo();
+      endOfStreamBufferInfo.set(
+          /* newOffset= */ 0,
+          /* newSize= */ 0,
+          /* newTimeUs= */ expectedDurationUs,
+          /* newFlags= */ MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+      mp4Muxer.writeSampleData(track, ByteBuffer.allocate(0), endOfStreamBufferInfo);
+    } finally {
+      mp4Muxer.close();
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), outputFilePath);
+    fakeExtractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO).assertSampleCount(4);
+    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isEqualTo(expectedDurationUs);
+  }
+
+  @Test
+  public void
+      createMp4File_withLastSampleDurationBehaviorUsingEndOfStreamFlagButNoEndOfStreamSample_outputsDurationEqualsToLastSampleTimestamp()
+          throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    Mp4Muxer mp4Muxer =
+        new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
+            .setLastSampleDurationBehavior(
+                Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_USING_END_OF_STREAM_FLAG)
+            .build();
+    mp4Muxer.addMetadataEntry(
+        new Mp4TimestampData(
+            /* creationTimestampSeconds= */ 100_000_000L,
+            /* modificationTimestampSeconds= */ 500_000_000L));
+    Pair<ByteBuffer, BufferInfo> sample1 = getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 0L);
+    Pair<ByteBuffer, BufferInfo> sample2 =
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 100L);
+    Pair<ByteBuffer, BufferInfo> sample3 =
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 200L);
+    long lastSampleTimestampUs = 300L;
+    Pair<ByteBuffer, BufferInfo> sample4 = getFakeSampleAndSampleInfo(lastSampleTimestampUs);
+
+    try {
+      TrackToken track = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
+      mp4Muxer.writeSampleData(track, sample1.first, sample1.second);
+      mp4Muxer.writeSampleData(track, sample2.first, sample2.second);
+      mp4Muxer.writeSampleData(track, sample3.first, sample3.second);
+      mp4Muxer.writeSampleData(track, sample4.first, sample4.second);
+    } finally {
+      mp4Muxer.close();
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), outputFilePath);
+    fakeExtractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO).assertSampleCount(4);
+    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isEqualTo(lastSampleTimestampUs);
   }
 
   private static void writeFakeSamples(Mp4Muxer muxer, TrackToken trackToken, int sampleCount)
