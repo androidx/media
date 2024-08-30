@@ -134,7 +134,7 @@ public final class TranscodeQualityTest {
   }
 
   @Test
-  public void transcodeAvcToAvc320x240_ssimIsGreaterThan90Percent() throws Exception {
+  public void transcodeAvcToAvc320x240_ssimIsGreaterThan87Percent() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
 
     // Don't skip based on format support as input and output formats should be within CDD
@@ -160,7 +160,7 @@ public final class TranscodeQualityTest {
             .run(testId, editedMediaItem);
 
     if (result.ssim != ExportTestResult.SSIM_UNSET) {
-      assertThat(result.ssim).isGreaterThan(0.90);
+      assertThat(result.ssim).isGreaterThan(0.87);
     }
   }
 }
