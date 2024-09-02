@@ -15,6 +15,7 @@
  */
 package androidx.media3.extractor.mp3;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 import static java.lang.annotation.RetentionPolicy.SOURCE;
 
@@ -23,7 +24,6 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
-import androidx.media3.common.ParserException;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.Assertions;
@@ -177,6 +177,7 @@ public final class Mp3Extractor implements Extractor {
   private long basisTimeUs;
   private long samplesRead;
   private long firstSamplePosition;
+  private long endPositionOfLastSampleRead;
   private int sampleBytesRemaining;
 
   private @MonotonicNonNull Seeker seeker;
@@ -213,6 +214,7 @@ public final class Mp3Extractor implements Extractor {
     id3Peeker = new Id3Peeker();
     skippingTrackOutput = new DiscardingTrackOutput();
     currentTrackOutput = skippingTrackOutput;
+    endPositionOfLastSampleRead = C.INDEX_UNSET;
   }
 
   // Extractor implementation.
@@ -335,13 +337,14 @@ public final class Mp3Extractor implements Extractor {
         }
       }
       sampleBytesRemaining = synchronizedHeader.frameSize;
+      endPositionOfLastSampleRead = extractorInput.getPosition() + synchronizedHeader.frameSize;
       if (seeker instanceof IndexSeeker) {
         IndexSeeker indexSeeker = (IndexSeeker) seeker;
         // Add seek point corresponding to the next frame instead of the current one to be able to
         // start writing to the realTrackOutput on time when a seek is in progress.
         indexSeeker.maybeAddSeekPoint(
             computeTimeUs(samplesRead + synchronizedHeader.samplesPerFrame),
-            extractorInput.getPosition() + synchronizedHeader.frameSize);
+            endPositionOfLastSampleRead);
         if (isSeekInProgress && indexSeeker.isTimeUsInIndex(seekTimeUs)) {
           isSeekInProgress = false;
           currentTrackOutput = realTrackOutput;
@@ -395,6 +398,7 @@ public final class Mp3Extractor implements Extractor {
           // We reached the end of the stream but found at least one valid frame.
           break;
         }
+        maybeUpdateCbrDurationToLastSample();
         throw new EOFException();
       }
       scratch.setPosition(0);
@@ -406,8 +410,8 @@ public final class Mp3Extractor implements Extractor {
         // The header doesn't match the candidate header or is invalid. Try the next byte offset.
         if (searchedBytes++ == searchLimitBytes) {
           if (!sniffing) {
-            throw ParserException.createForMalformedContainer(
-                "Searched too many bytes.", /* cause= */ null);
+            maybeUpdateCbrDurationToLastSample();
+            throw new EOFException();
           }
           return false;
         }
@@ -634,6 +638,22 @@ public final class Mp3Extractor implements Extractor {
         averageBitrate,
         frameSize,
         /* allowSeeksIfLengthUnknown= */ false);
+  }
+
+  /**
+   * If {@link #seeker} is a seekable {@link ConstantBitrateSeeker}, this updates it to end at the
+   * last sample we read (because we've failed to find a subsequent synchronization word so we
+   * assume the MP3 data has ended).
+   */
+  private void maybeUpdateCbrDurationToLastSample() {
+    if (seeker instanceof ConstantBitrateSeeker
+        && seeker.isSeekable()
+        && endPositionOfLastSampleRead != C.INDEX_UNSET
+        && endPositionOfLastSampleRead != seeker.getDataEndPosition()) {
+      seeker =
+          ((ConstantBitrateSeeker) seeker).copyWithNewDataEndPosition(endPositionOfLastSampleRead);
+      checkNotNull(extractorOutput).seekMap(seeker);
+    }
   }
 
   @EnsuresNonNull({"extractorOutput", "realTrackOutput"})

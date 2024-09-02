@@ -51,6 +51,12 @@
     *   Allow `Mp4Extractor` and `FragmentedMp4Extractor` to identify H264
         samples that are not used as reference by subsequent samples.
     *   Add option to enable index-based seeking in `AmrExtractor`.
+    *   Treat MP3 files with more than 128kB between valid frames as truncated
+        (instead of invalid). This means files with non-MP3 data at the end,
+        with no other metadata to indicate the length of the MP3 bytes, now stop
+        playback at the end of the MP3 data instead of failing with
+        `ParserException: Searched too many bytes.{contentIsMalformed=true,
+        dataType=1}` ([#1563](https://github.com/androidx/media/issues/1563)).
 *   DataSource:
     *   Update `HttpEngineDataSource` to allow use starting at version S
         extension 7 instead of API level 34
