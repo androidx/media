@@ -296,7 +296,8 @@ import java.util.concurrent.atomic.AtomicInteger;
                         .setPcmEncoding(C.ENCODING_PCM_16BIT)
                         .build()));
         sampleConsumersByTrackType.put(
-            C.TRACK_TYPE_AUDIO, new SampleConsumerWrapper(wrappedAudioSampleConsumer, trackType));
+            C.TRACK_TYPE_AUDIO,
+            new SampleConsumerWrapper(wrappedAudioSampleConsumer, C.TRACK_TYPE_AUDIO));
       }
     } else {
       // TODO(b/270533049): Remove the check below when implementing blank video frames generation.
