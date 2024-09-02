@@ -119,6 +119,12 @@
 *   Smooth Streaming Extension:
 *   RTSP Extension:
 *   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
+    *   Add the IAMF decoder module, which provides support for playback of MP4
+        files containing IAMF tracks using the libiamf native library to
+        synthesize audio.
+        *   Playback is enabled with a stereo layout as well as 5.1 with
+            spatialization together with optional head tracking enabled, but
+            binaural playback support is currently not available.
 *   MIDI extension:
 *   Leanback extension:
 *   Cast Extension:
