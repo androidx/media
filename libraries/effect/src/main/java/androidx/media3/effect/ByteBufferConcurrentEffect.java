@@ -17,8 +17,10 @@ package androidx.media3.effect;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.common.util.Util.SDK_INT;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 
+import android.opengl.GLES20;
 import androidx.media3.common.C;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
@@ -110,6 +112,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           new GlRect(effectInputTexture.width, effectInputTexture.height));
 
       TexturePixelBuffer texturePixelBuffer = new TexturePixelBuffer(effectInputTexture);
+      texturePixelBuffer.schedulePixelBufferRead(pixelBufferObjectProvider);
       unmappedPixelBuffers.add(texturePixelBuffer);
       return Util.transformFutureAsync(
           texturePixelBuffer.imageSettableFuture,
@@ -124,7 +127,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       throws VideoFrameProcessingException {
     try {
       TexturePixelBuffer oldestRunningFrame = checkNotNull(mappedPixelBuffers.poll());
-      oldestRunningFrame.unmapAndRecycle();
+      oldestRunningFrame.unmapAndRecycle(pixelBufferObjectProvider);
     } catch (GlUtil.GlException e) {
       throw new VideoFrameProcessingException(e);
     }
@@ -167,10 +170,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private void unmapAndRecyclePixelBuffers() throws GlUtil.GlException {
     TexturePixelBuffer texturePixelBuffer;
     while ((texturePixelBuffer = unmappedPixelBuffers.poll()) != null) {
-      texturePixelBuffer.unmapAndRecycle();
+      texturePixelBuffer.unmapAndRecycle(pixelBufferObjectProvider);
     }
     while ((texturePixelBuffer = mappedPixelBuffers.poll()) != null) {
-      texturePixelBuffer.unmapAndRecycle();
+      texturePixelBuffer.unmapAndRecycle(pixelBufferObjectProvider);
     }
   }
 
@@ -188,32 +191,61 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * Manages the lifecycle of a {@link PixelBufferObjectInfo} which is mapped to a {@link
    * GlTextureInfo}.
    */
-  private final class TexturePixelBuffer {
-    public final int width;
-    public final int height;
-    public final PixelBufferObjectInfo pixelBufferObjectInfo;
+  private static final class TexturePixelBuffer {
     public final SettableFuture<ByteBufferGlEffect.Image> imageSettableFuture;
 
+    private final GlTextureInfo textureInfo;
+
+    private @MonotonicNonNull PixelBufferObjectInfo pixelBufferObjectInfo;
     private boolean mapped;
 
-    public TexturePixelBuffer(GlTextureInfo textureInfo) throws GlUtil.GlException {
-      width = textureInfo.width;
-      height = textureInfo.height;
-      int pixelBufferSize = texturePixelBufferSize(textureInfo);
-      pixelBufferObjectInfo = pixelBufferObjectProvider.getPixelBufferObject(pixelBufferSize);
-      GlUtil.schedulePixelBufferRead(textureInfo.fboId, width, height, pixelBufferObjectInfo.id);
+    public TexturePixelBuffer(GlTextureInfo textureInfo) {
+      this.textureInfo = textureInfo;
       imageSettableFuture = SettableFuture.create();
     }
 
+    public void schedulePixelBufferRead(PixelBufferObjectProvider pixelBufferObjectProvider)
+        throws GlUtil.GlException {
+      int pixelBufferSize = texturePixelBufferSize(textureInfo);
+      pixelBufferObjectInfo = pixelBufferObjectProvider.getPixelBufferObject(pixelBufferSize);
+      if (SDK_INT >= 24) {
+        GlUtil.schedulePixelBufferRead(
+            textureInfo.fboId, textureInfo.width, textureInfo.height, pixelBufferObjectInfo.id);
+      }
+    }
+
     public void map() throws GlUtil.GlException {
-      ByteBuffer byteBuffer =
-          GlUtil.mapPixelBufferObject(pixelBufferObjectInfo.id, pixelBufferObjectInfo.size);
-      imageSettableFuture.set(new ByteBufferGlEffect.Image(width, height, byteBuffer));
+      checkNotNull(pixelBufferObjectInfo);
+      ByteBuffer byteBuffer;
+      if (SDK_INT >= 24) {
+        byteBuffer =
+            GlUtil.mapPixelBufferObject(pixelBufferObjectInfo.id, pixelBufferObjectInfo.size);
+      } else {
+        // Asynchronous OpenGL reading isn't supported. Fall back to blocking glReadPixels.
+        int pixelBufferSize = texturePixelBufferSize(textureInfo);
+        byteBuffer = ByteBuffer.allocateDirect(pixelBufferSize);
+        GlUtil.focusFramebufferUsingCurrentContext(
+            textureInfo.fboId, textureInfo.width, textureInfo.height);
+        GlUtil.checkGlError();
+        GLES20.glReadPixels(
+            /* x= */ 0,
+            /* y= */ 0,
+            textureInfo.width,
+            textureInfo.height,
+            GLES20.GL_RGBA,
+            GLES20.GL_UNSIGNED_BYTE,
+            byteBuffer);
+        GlUtil.checkGlError();
+      }
+      imageSettableFuture.set(
+          new ByteBufferGlEffect.Image(textureInfo.width, textureInfo.height, byteBuffer));
       mapped = true;
     }
 
-    public void unmapAndRecycle() throws GlUtil.GlException {
-      if (mapped) {
+    public void unmapAndRecycle(PixelBufferObjectProvider pixelBufferObjectProvider)
+        throws GlUtil.GlException {
+      checkNotNull(pixelBufferObjectInfo);
+      if (mapped && SDK_INT >= 24) {
         GlUtil.unmapPixelBufferObject(pixelBufferObjectInfo.id);
       }
       pixelBufferObjectProvider.recycle(pixelBufferObjectInfo);

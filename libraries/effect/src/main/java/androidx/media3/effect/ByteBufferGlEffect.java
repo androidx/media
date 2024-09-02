@@ -39,7 +39,7 @@ import java.util.concurrent.Future;
  * available such as another GPU context, FPGAs, or NPUs.
  */
 @UnstableApi
-/* package */ class ByteBufferGlEffect<T> implements GlEffect {
+public class ByteBufferGlEffect<T> implements GlEffect {
 
   private static final int DEFAULT_QUEUE_SIZE = 6;
   private static final int DEFAULT_PENDING_PIXEL_BUFFER_QUEUE_SIZE = 1;

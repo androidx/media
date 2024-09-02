@@ -26,6 +26,7 @@ import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static org.junit.Assume.assumeFalse;
 
 import android.content.Context;
@@ -43,10 +44,13 @@ import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.GlRect;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.MediaFormatUtil;
+import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
+import androidx.media3.effect.ByteBufferGlEffect;
 import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
@@ -57,6 +61,7 @@ import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.media3.test.utils.VideoDecodingWrapper;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.File;
 import java.io.FileWriter;
@@ -1086,6 +1091,47 @@ public final class AndroidTestUtil {
     public boolean videoNeedsEncoding() {
       return true;
     }
+  }
+
+  /**
+   * Implementation of {@link ByteBufferGlEffect.Processor} that counts how many frames are copied
+   * to CPU memory.
+   */
+  public static final class FrameCountingByteBufferProcessor
+      implements ByteBufferGlEffect.Processor<Integer> {
+    public final AtomicInteger frameCount;
+
+    private int width;
+    private int height;
+
+    public FrameCountingByteBufferProcessor() {
+      frameCount = new AtomicInteger();
+    }
+
+    @Override
+    public Size configure(int inputWidth, int inputHeight) {
+      width = inputWidth;
+      height = inputHeight;
+      return new Size(width, height);
+    }
+
+    @Override
+    public GlRect getScaledRegion(long presentationTimeUs) {
+      return new GlRect(width, height);
+    }
+
+    @Override
+    public ListenableFuture<Integer> processImage(
+        ByteBufferGlEffect.Image image, long presentationTimeUs) {
+      return immediateFuture(frameCount.incrementAndGet());
+    }
+
+    @Override
+    public void finishProcessingAndBlend(
+        GlTextureInfo outputFrame, long presentationTimeUs, Integer result) {}
+
+    @Override
+    public void release() {}
   }
 
   /**

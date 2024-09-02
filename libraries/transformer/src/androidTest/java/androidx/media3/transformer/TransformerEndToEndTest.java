@@ -71,6 +71,7 @@ import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceBitmapLoader;
+import androidx.media3.effect.ByteBufferGlEffect;
 import androidx.media3.effect.Contrast;
 import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
@@ -88,6 +89,7 @@ import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.TestSpeedProvider;
 import androidx.media3.test.utils.TestUtil;
+import androidx.media3.transformer.AndroidTestUtil.FrameCountingByteBufferProcessor;
 import androidx.media3.transformer.AssetLoader.CompositionSettings;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -1639,6 +1641,35 @@ public class TransformerEndToEndTest {
     assertThat(result.exportResult.videoFrameCount).isEqualTo(932);
     // Confirm no data was written to file.
     assertThat(result.exportResult.fileSizeBytes).isEqualTo(C.LENGTH_UNSET);
+  }
+
+  @Test
+  public void extractFrames_usingAnalyzerMode_completesSuccessfully() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat,
+        /* outputFormat= */ null);
+    Transformer transformer = ExperimentalAnalyzerModeFactory.buildAnalyzer(context);
+    FrameCountingByteBufferProcessor frameCountingProcessor =
+        new FrameCountingByteBufferProcessor();
+    // Analysis must be added to item effects because composition effects are not applied to single
+    // input video.
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(
+                    Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.uri)))
+            .setEffects(
+                new Effects(
+                    ImmutableList.of(),
+                    ImmutableList.of(new ByteBufferGlEffect<>(frameCountingProcessor))))
+            .build();
+
+    new TransformerAndroidTestRunner.Builder(context, transformer)
+        .build()
+        .run(testId, editedMediaItem);
+
+    assertThat(frameCountingProcessor.frameCount.get()).isEqualTo(932);
   }
 
   @Test

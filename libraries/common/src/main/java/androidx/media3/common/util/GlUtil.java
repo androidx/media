@@ -35,6 +35,7 @@ import android.opengl.GLUtils;
 import android.opengl.Matrix;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -897,6 +898,10 @@ public final class GlUtil {
    *
    * <p>This a non-blocking call which reads the data asynchronously.
    *
+   * <p>Requires API 24: This method must call the version of {@link GLES30#glReadPixels(int, int,
+   * int, int, int, int, int)} which accepts an integer offset as the last parameter. This version
+   * of glReadPixels is not available in the Java {@link GLES30} wrapper until API 24.
+   *
    * <p>HDR support is not yet implemented.
    *
    * @param readFboId The framebuffer that holds pixel data.
@@ -904,6 +909,7 @@ public final class GlUtil {
    * @param height The image height.
    * @param bufferId The pixel buffer object to read into.
    */
+  @RequiresApi(24)
   public static void schedulePixelBufferRead(int readFboId, int width, int height, int bufferId)
       throws GlException {
     focusFramebufferUsingCurrentContext(readFboId, width, height);
@@ -940,10 +946,13 @@ public final class GlUtil {
    * <p>This call blocks until the pixel buffer data from the last {@link #schedulePixelBufferRead}
    * call is available.
    *
+   * <p>Requires API 24: see {@link #schedulePixelBufferRead}.
+   *
    * @param bufferId The pixel buffer object.
    * @param size The size of the pixel buffer object's data store to be mapped.
    * @return The {@link ByteBuffer} that holds pixel data.
    */
+  @RequiresApi(24)
   public static ByteBuffer mapPixelBufferObject(int bufferId, int size) throws GlException {
     GLES20.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, bufferId);
     checkGlError();
@@ -971,8 +980,11 @@ public final class GlUtil {
    * <p>When this method returns, the pixel buffer object {@code bufferId} can be reused by {@link
    * #schedulePixelBufferRead}.
    *
+   * <p>Requires API 24: see {@link #schedulePixelBufferRead}.
+   *
    * @param bufferId The pixel buffer object.
    */
+  @RequiresApi(24)
   public static void unmapPixelBufferObject(int bufferId) throws GlException {
     GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, bufferId);
     GlUtil.checkGlError();
