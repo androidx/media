@@ -33,7 +33,7 @@ import java.util.List;
 public final class IamfDecoder
     extends SimpleDecoder<DecoderInputBuffer, SimpleDecoderOutputBuffer, IamfDecoderException> {
   /* package */ static final int OUTPUT_SAMPLE_RATE = 48000;
-  /* package */ static final int OUTPUT_PCM_ENCODING = AudioFormat.ENCODING_PCM_16BIT;
+  /* package */ static final int OUTPUT_PCM_ENCODING = C.ENCODING_PCM_16BIT;
   /* package */ static final int SPATIALIZED_OUTPUT_LAYOUT = AudioFormat.CHANNEL_OUT_5POINT1;
 
   // Matches IAMF_SoundSystem in IAMF_defines.h
