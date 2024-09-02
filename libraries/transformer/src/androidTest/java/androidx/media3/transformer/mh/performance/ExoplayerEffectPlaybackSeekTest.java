@@ -113,6 +113,18 @@ public final class ExoplayerEffectPlaybackSeekTest {
             }
             super.renderOutputBufferV21(codec, index, presentationTimeUs, releaseTimeNs);
           }
+
+          @Override
+          protected boolean shouldDropOutputBuffer(
+              long earlyUs, long elapsedRealtimeUs, boolean isLastBuffer) {
+            return false;
+          }
+
+          @Override
+          protected boolean shouldDropBuffersToKeyframe(
+              long earlyUs, long elapsedRealtimeUs, boolean isLastBuffer) {
+            return false;
+          }
         };
 
     instrumentation.runOnMainSync(
