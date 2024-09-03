@@ -16,6 +16,7 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER;
 
 import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
@@ -185,7 +186,7 @@ public final class InAppMuxer implements Muxer {
         Mp4Muxer.Builder builder = new Mp4Muxer.Builder(outputStream);
         if (videoDurationUs != C.TIME_UNSET) {
           builder.setLastSampleDurationBehavior(
-              Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_USING_END_OF_STREAM_FLAG);
+              LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER);
         }
         muxer = builder.build();
       }

@@ -15,6 +15,7 @@
  */
 package androidx.media3.muxer;
 
+import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_VIDEO_FORMAT;
 import static androidx.media3.muxer.MuxerTestUtil.XMP_SAMPLE_DATA;
 import static androidx.media3.muxer.MuxerTestUtil.getFakeSampleAndSampleInfo;
@@ -682,7 +683,7 @@ public class Mp4MuxerEndToEndTest {
     Mp4Muxer mp4Muxer =
         new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
             .setLastSampleDurationBehavior(
-                Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_USING_END_OF_STREAM_FLAG)
+                LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER)
             .build();
     mp4Muxer.addMetadataEntry(
         new Mp4TimestampData(
@@ -730,7 +731,7 @@ public class Mp4MuxerEndToEndTest {
     Mp4Muxer mp4Muxer =
         new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
             .setLastSampleDurationBehavior(
-                Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_USING_END_OF_STREAM_FLAG)
+                LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER)
             .build();
     mp4Muxer.addMetadataEntry(
         new Mp4TimestampData(

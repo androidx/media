@@ -1241,16 +1241,15 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       @Mp4Muxer.LastSampleDurationBehavior int lastSampleDurationBehavior,
       int lastSampleDurationVuFromEndOfStream) {
     switch (lastSampleDurationBehavior) {
-      case Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION:
+      case Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_DUPLICATE_PREVIOUS:
         // For a track having less than 3 samples, duplicating the last frame duration will
         // significantly increase the overall track duration, so avoid that.
         return sampleDurationsExceptLast.size() < 2
             ? 0
             : Iterables.getLast(sampleDurationsExceptLast);
-      case Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE:
-        // Keep the last sample duration as short as possible.
+      case Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO:
         return 0;
-      case Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_USING_END_OF_STREAM_FLAG:
+      case Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER:
         return lastSampleDurationVuFromEndOfStream;
       default:
         throw new IllegalArgumentException(
