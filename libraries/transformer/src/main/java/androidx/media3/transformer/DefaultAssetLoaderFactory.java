@@ -39,6 +39,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 @UnstableApi
 public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
 
+  // Limit decoded images to 4096x4096 - should be large enough for most image to video
+  // transcode operations, and smaller than GL_MAX_TEXTURE_SIZE for most devices.
+  // TODO: b/356072337 - consider reading this from GL_MAX_TEXTURE_SIZE. This requires an
+  //   active OpenGL context.
+  private static final int MAXIMUM_BITMAP_OUTPUT_DIMENSION = 4096;
+
   private final Context context;
   private final Codec.DecoderFactory decoderFactory;
   private final Clock clock;
@@ -76,7 +82,8 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
         new DataSourceBitmapLoader(
             MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor()),
             new DefaultDataSource.Factory(context),
-            options);
+            options,
+            MAXIMUM_BITMAP_OUTPUT_DIMENSION);
   }
 
   /**

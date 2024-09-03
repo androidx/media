@@ -17,6 +17,7 @@ package androidx.media3.transformer;
 
 import static androidx.media3.common.MimeTypes.IMAGE_JPEG;
 import static androidx.media3.common.MimeTypes.IMAGE_PNG;
+import static androidx.media3.common.MimeTypes.IMAGE_WEBP;
 import static androidx.media3.common.MimeTypes.VIDEO_AV1;
 import static androidx.media3.common.MimeTypes.VIDEO_DOLBY_VISION;
 import static androidx.media3.common.MimeTypes.VIDEO_H264;
@@ -219,6 +220,16 @@ public final class AndroidTestUtil {
                   .setSampleMimeType(IMAGE_JPEG)
                   .setWidth(3072)
                   .setHeight(4080)
+                  .build())
+          .build();
+
+  public static final AssetInfo WEBP_LARGE =
+      new AssetInfo.Builder("asset:///media/webp/black_large.webp")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(IMAGE_WEBP)
+                  .setWidth(16000)
+                  .setHeight(9000)
                   .build())
           .build();
 

@@ -29,6 +29,7 @@ import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_180;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_270;
 import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET;
+import static androidx.media3.transformer.AndroidTestUtil.WEBP_LARGE;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static androidx.media3.transformer.AndroidTestUtil.createFrameCountingEffect;
 import static androidx.media3.transformer.AndroidTestUtil.createOpenGlObjects;
@@ -275,6 +276,31 @@ public class TransformerEndToEndTest {
         new EditedMediaItem.Builder(MediaItem.fromUri(PNG_ASSET.uri))
             .setDurationUs(C.MICROS_PER_SECOND)
             .setFrameRate(expectedFrameCount)
+            .build();
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    assertThat(result.exportResult.videoFrameCount).isEqualTo(expectedFrameCount);
+    // Expected timestamp of the last frame.
+    assertThat(result.exportResult.durationMs)
+        .isEqualTo((C.MILLIS_PER_SECOND / expectedFrameCount) * (expectedFrameCount - 1));
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+  }
+
+  @Test
+  public void videoEditing_withLargeImageInput_completesWithCorrectFrameCountAndDuration()
+      throws Exception {
+    Transformer transformer = new Transformer.Builder(context).build();
+    ImmutableList<Effect> videoEffects = ImmutableList.of(Presentation.createForHeight(480));
+    Effects effects = new Effects(/* audioProcessors= */ ImmutableList.of(), videoEffects);
+    int expectedFrameCount = 40;
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WEBP_LARGE.uri))
+            .setDurationUs(C.MICROS_PER_SECOND)
+            .setFrameRate(expectedFrameCount)
+            .setEffects(effects)
             .build();
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, transformer)
