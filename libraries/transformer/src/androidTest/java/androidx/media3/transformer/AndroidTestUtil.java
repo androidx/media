@@ -57,6 +57,7 @@ import androidx.media3.effect.GlShaderProgram;
 import androidx.media3.effect.PassthroughShaderProgram;
 import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
+import androidx.media3.muxer.Muxer;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.media3.test.utils.VideoDecodingWrapper;
 import com.google.common.base.Ascii;
@@ -1198,6 +1199,12 @@ public final class AndroidTestUtil {
     String skipReason = skipReasonBuilder.toString();
     recordTestSkipped(context, testId, skipReason);
     throw new AssumptionViolatedException(skipReason);
+  }
+
+  /** Returns a {@link Muxer.Factory} depending upon the API level. */
+  public static Muxer.Factory getMuxerFactoryBasedOnApi() {
+    // MediaMuxer supports B-frame from API > 24.
+    return SDK_INT > 24 ? new DefaultMuxer.Factory() : new InAppMuxer.Factory.Builder().build();
   }
 
   private static boolean canDecode(Format format) {

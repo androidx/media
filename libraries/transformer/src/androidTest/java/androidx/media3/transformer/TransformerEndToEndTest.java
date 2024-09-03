@@ -33,6 +33,7 @@ import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported
 import static androidx.media3.transformer.AndroidTestUtil.createFrameCountingEffect;
 import static androidx.media3.transformer.AndroidTestUtil.createOpenGlObjects;
 import static androidx.media3.transformer.AndroidTestUtil.generateTextureFromBitmap;
+import static androidx.media3.transformer.AndroidTestUtil.getMuxerFactoryBasedOnApi;
 import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
 import static androidx.media3.transformer.ExportResult.CONVERSION_PROCESS_NA;
 import static androidx.media3.transformer.ExportResult.CONVERSION_PROCESS_TRANSCODED;
@@ -679,7 +680,10 @@ public class TransformerEndToEndTest {
         /* outputFormat= */ MP4_ASSET_PHOTOS_TRIM_OPTIMIZATION_VIDEO.videoFormat);
 
     Transformer transformer =
-        new Transformer.Builder(context).experimentalSetTrimOptimizationEnabled(true).build();
+        new Transformer.Builder(context)
+            .experimentalSetTrimOptimizationEnabled(true)
+            .setMuxerFactory(getMuxerFactoryBasedOnApi())
+            .build();
 
     // The previous sample is at 1137 and the next sample (which is a sync sample) is at 1171.
     long clippingStartMs = 1138;
