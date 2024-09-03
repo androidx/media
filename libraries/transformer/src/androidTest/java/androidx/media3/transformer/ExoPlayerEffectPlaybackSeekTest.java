@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package androidx.media3.transformer.mh.performance;
+package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
@@ -33,8 +33,6 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.util.EventLogger;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
-import androidx.media3.transformer.PlayerTestListener;
-import androidx.media3.transformer.SurfaceTestActivity;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -51,7 +49,7 @@ import org.junit.runner.RunWith;
 
 /** Test for seeking when using {@link ExoPlayer#setVideoEffects(List)}. */
 @RunWith(AndroidJUnit4.class)
-public final class ExoplayerEffectPlaybackSeekTest {
+public final class ExoPlayerEffectPlaybackSeekTest {
 
   // This timeout is made longer for emulators - see
   // ExternalTextureManager.SURFACE_TEXTURE_TIMEOUT_MS.
