@@ -38,7 +38,6 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.ParsableBitArray;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.NalUnitUtil;
 import androidx.media3.extractor.AacUtil;
@@ -46,7 +45,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 /** Represents a media track in an RTSP playback. */
-@UnstableApi
 /* package */ final class RtspMediaTrack {
   // Format specific parameter names.
   private static final String PARAMETER_PROFILE_LEVEL_ID = "profile-level-id";
@@ -297,7 +295,7 @@ import com.google.common.collect.ImmutableMap;
       case MimeTypes.AUDIO_AC3:
       case MimeTypes.AUDIO_ALAW:
       case MimeTypes.AUDIO_MLAW:
-        // Does not require a fmtp attribute. Fall through.
+      // Does not require a fmtp attribute. Fall through.
       default:
         // Do nothing.
     }
@@ -469,7 +467,10 @@ import com.google.common.collect.ImmutableMap;
     byte[] spsNalDataWithStartCode = initializationData.get(1);
     NalUnitUtil.H265SpsData spsData =
         NalUnitUtil.parseH265SpsNalUnit(
-            spsNalDataWithStartCode, NAL_START_CODE.length, spsNalDataWithStartCode.length);
+            spsNalDataWithStartCode,
+            NAL_START_CODE.length,
+            spsNalDataWithStartCode.length,
+            /* vpsData= */ null);
     formatBuilder.setPixelWidthHeightRatio(spsData.pixelWidthHeightRatio);
     formatBuilder.setHeight(spsData.height).setWidth(spsData.width);
     formatBuilder.setColorInfo(
@@ -481,14 +482,16 @@ import com.google.common.collect.ImmutableMap;
             .setChromaBitdepth(spsData.bitDepthChromaMinus8 + 8)
             .build());
 
-    formatBuilder.setCodecs(
-        CodecSpecificDataUtil.buildHevcCodecString(
-            spsData.generalProfileSpace,
-            spsData.generalTierFlag,
-            spsData.generalProfileIdc,
-            spsData.generalProfileCompatibilityFlags,
-            spsData.constraintBytes,
-            spsData.generalLevelIdc));
+    if (spsData.profileTierLevel != null) {
+      formatBuilder.setCodecs(
+          CodecSpecificDataUtil.buildHevcCodecString(
+              spsData.profileTierLevel.generalProfileSpace,
+              spsData.profileTierLevel.generalTierFlag,
+              spsData.profileTierLevel.generalProfileIdc,
+              spsData.profileTierLevel.generalProfileCompatibilityFlags,
+              spsData.profileTierLevel.constraintBytes,
+              spsData.profileTierLevel.generalLevelIdc));
+    }
   }
 
   /**

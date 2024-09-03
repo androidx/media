@@ -1,10 +1,10 @@
 seekMap:
   isSeekable = true
   duration = 66700
-  getPosition(0) = [[timeUs=0, position=44]]
-  getPosition(1) = [[timeUs=0, position=44]]
-  getPosition(33350) = [[timeUs=0, position=44]]
-  getPosition(66700) = [[timeUs=0, position=44]]
+  getPosition(0) = [[timeUs=0, position=400052]]
+  getPosition(1) = [[timeUs=0, position=400052]]
+  getPosition(33350) = [[timeUs=0, position=400052]]
+  getPosition(66700) = [[timeUs=0, position=400052]]
 numberOfTracks = 3
 track 0:
   total output bytes = 387
@@ -62,6 +62,7 @@ track 2:
     sampleMimeType = video/hevc
     codecs = hvc1.1.6.L153.B0
     maxInputSize = 420494
+    maxNumReorderSamples = 0
     width = 1920
     height = 1080
     frameRate = 44.977512

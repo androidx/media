@@ -124,6 +124,7 @@ public final class CastPlayer extends BasePlayer {
   private final MediaItemConverter mediaItemConverter;
   private final long seekBackIncrementMs;
   private final long seekForwardIncrementMs;
+  private final long maxSeekToPreviousPositionMs;
   // TODO: Allow custom implementations of CastTimelineTracker.
   private final CastTimelineTracker timelineTracker;
   private final Timeline.Period period;
@@ -200,11 +201,40 @@ public final class CastPlayer extends BasePlayer {
       MediaItemConverter mediaItemConverter,
       @IntRange(from = 1) long seekBackIncrementMs,
       @IntRange(from = 1) long seekForwardIncrementMs) {
+    this(
+        castContext,
+        mediaItemConverter,
+        seekBackIncrementMs,
+        seekForwardIncrementMs,
+        C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS);
+  }
+
+  /**
+   * Creates a new cast player.
+   *
+   * @param castContext The context from which the cast session is obtained.
+   * @param mediaItemConverter The {@link MediaItemConverter} to use.
+   * @param seekBackIncrementMs The {@link #seekBack()} increment, in milliseconds.
+   * @param seekForwardIncrementMs The {@link #seekForward()} increment, in milliseconds.
+   * @param maxSeekToPreviousPositionMs The maximum position for which {@link #seekToPrevious()}
+   *     seeks to the previous {@link MediaItem}, in milliseconds.
+   * @throws IllegalArgumentException If {@code seekBackIncrementMs} or {@code
+   *     seekForwardIncrementMs} is non-positive, or if {@code maxSeekToPreviousPositionMs} is
+   *     negative.
+   */
+  public CastPlayer(
+      CastContext castContext,
+      MediaItemConverter mediaItemConverter,
+      @IntRange(from = 1) long seekBackIncrementMs,
+      @IntRange(from = 1) long seekForwardIncrementMs,
+      @IntRange(from = 0) long maxSeekToPreviousPositionMs) {
     checkArgument(seekBackIncrementMs > 0 && seekForwardIncrementMs > 0);
+    checkArgument(maxSeekToPreviousPositionMs >= 0L);
     this.castContext = castContext;
     this.mediaItemConverter = mediaItemConverter;
     this.seekBackIncrementMs = seekBackIncrementMs;
     this.seekForwardIncrementMs = seekForwardIncrementMs;
+    this.maxSeekToPreviousPositionMs = maxSeekToPreviousPositionMs;
     timelineTracker = new CastTimelineTracker(mediaItemConverter);
     period = new Timeline.Period();
     statusListener = new StatusListener();
@@ -417,6 +447,9 @@ public final class CastPlayer extends BasePlayer {
       long positionMs,
       @Player.Command int seekCommand,
       boolean isRepeatingCurrentItem) {
+    if (mediaItemIndex == C.INDEX_UNSET) {
+      return;
+    }
     checkArgument(mediaItemIndex >= 0);
     if (!currentTimeline.isEmpty() && mediaItemIndex >= currentTimeline.getWindowCount()) {
       return;
@@ -478,7 +511,7 @@ public final class CastPlayer extends BasePlayer {
 
   @Override
   public long getMaxSeekToPreviousPosition() {
-    return C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS;
+    return maxSeekToPreviousPositionMs;
   }
 
   @Override

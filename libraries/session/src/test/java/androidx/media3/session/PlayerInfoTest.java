@@ -163,7 +163,8 @@ public class PlayerInfoTest {
             .setVideoSize(new VideoSize(/* width= */ 1024, /* height= */ 768))
             .build();
 
-    PlayerInfo infoAfterBundling = PlayerInfo.fromBundle(playerInfo.toBundle());
+    PlayerInfo infoAfterBundling =
+        PlayerInfo.fromBundle(playerInfo.toBundleInProcess(), MediaSessionStub.VERSION_INT);
 
     assertThat(infoAfterBundling.oldPositionInfo.mediaItemIndex).isEqualTo(5);
     assertThat(infoAfterBundling.oldPositionInfo.periodIndex).isEqualTo(4);
@@ -292,7 +293,8 @@ public class PlayerInfoTest {
                         .build(),
                     /* excludeTimeline= */ false,
                     /* excludeTracks= */ false)
-                .toBundle());
+                .toBundleInProcess(),
+            MediaSessionStub.VERSION_INT);
 
     assertThat(infoAfterBundling.oldPositionInfo.mediaItemIndex).isEqualTo(5);
     assertThat(infoAfterBundling.oldPositionInfo.periodIndex).isEqualTo(4);
@@ -413,7 +415,8 @@ public class PlayerInfoTest {
                         .build(),
                     /* excludeTimeline= */ true,
                     /* excludeTracks= */ false)
-                .toBundle());
+                .toBundleInProcess(),
+            MediaSessionStub.VERSION_INT);
 
     assertThat(infoAfterBundling.oldPositionInfo.mediaItemIndex).isEqualTo(0);
     assertThat(infoAfterBundling.oldPositionInfo.periodIndex).isEqualTo(0);
@@ -482,7 +485,8 @@ public class PlayerInfoTest {
                         .build(),
                     /* excludeTimeline= */ false,
                     /* excludeTracks= */ false)
-                .toBundle());
+                .toBundleInProcess(),
+            MediaSessionStub.VERSION_INT);
 
     assertThat(infoAfterBundling.mediaMetadata).isEqualTo(MediaMetadata.EMPTY);
     assertThat(infoAfterBundling.playlistMetadata).isEqualTo(MediaMetadata.EMPTY);
@@ -502,7 +506,8 @@ public class PlayerInfoTest {
                         .build(),
                     /* excludeTimeline= */ false,
                     /* excludeTracks= */ false)
-                .toBundle());
+                .toBundleInProcess(),
+            MediaSessionStub.VERSION_INT);
 
     assertThat(infoAfterBundling.volume).isEqualTo(1f);
   }
@@ -522,7 +527,8 @@ public class PlayerInfoTest {
                         .build(),
                     /* excludeTimeline= */ false,
                     /* excludeTracks= */ false)
-                .toBundle());
+                .toBundleInProcess(),
+            MediaSessionStub.VERSION_INT);
 
     assertThat(infoAfterBundling.deviceVolume).isEqualTo(0);
     assertThat(infoAfterBundling.deviceMuted).isFalse();
@@ -546,7 +552,8 @@ public class PlayerInfoTest {
                         .build(),
                     /* excludeTimeline= */ false,
                     /* excludeTracks= */ false)
-                .toBundle());
+                .toBundleInProcess(),
+            MediaSessionStub.VERSION_INT);
 
     assertThat(infoAfterBundling.audioAttributes).isEqualTo(AudioAttributes.DEFAULT);
   }
@@ -568,7 +575,8 @@ public class PlayerInfoTest {
                         .build(),
                     /* excludeTimeline= */ false,
                     /* excludeTracks= */ false)
-                .toBundle());
+                .toBundleInProcess(),
+            MediaSessionStub.VERSION_INT);
 
     assertThat(infoAfterBundling.cueGroup).isEqualTo(CueGroup.EMPTY_TIME_ZERO);
   }
@@ -598,14 +606,16 @@ public class PlayerInfoTest {
                         .build(),
                     /* excludeTimeline= */ false,
                     /* excludeTracks= */ true)
-                .toBundle());
+                .toBundleInProcess(),
+            MediaSessionStub.VERSION_INT);
 
     assertThat(infoAfterBundling.currentTracks).isEqualTo(Tracks.EMPTY);
   }
 
   @Test
   public void toBundleFromBundle_withDefaultValues_restoresAllData() {
-    PlayerInfo roundTripValue = PlayerInfo.fromBundle(PlayerInfo.DEFAULT.toBundle());
+    PlayerInfo roundTripValue =
+        PlayerInfo.fromBundle(PlayerInfo.DEFAULT.toBundleInProcess(), MediaSessionStub.VERSION_INT);
 
     assertThat(roundTripValue.oldPositionInfo).isEqualTo(PlayerInfo.DEFAULT.oldPositionInfo);
     assertThat(roundTripValue.newPositionInfo).isEqualTo(PlayerInfo.DEFAULT.newPositionInfo);
@@ -661,6 +671,21 @@ public class PlayerInfoTest {
 
   @Test
   public void
+      toBundleForRemoteProcess_withDefaultValuesForControllerInterfaceBefore6_includesSeekLimits() {
+    // Controller before version 6 uses 0 values for the three seek limit default values. The
+    // Bundle should include these to overwrite the presumed 0 on the controller side.
+    Bundle bundle =
+        PlayerInfo.DEFAULT.toBundleForRemoteProcess(/* controllerInterfaceVersion= */ 5);
+
+    assertThat(bundle.keySet())
+        .containsAtLeast(
+            PlayerInfo.FIELD_SEEK_BACK_INCREMENT_MS,
+            PlayerInfo.FIELD_SEEK_FORWARD_INCREMENT_MS,
+            PlayerInfo.FIELD_MAX_SEEK_TO_PREVIOUS_POSITION_MS);
+  }
+
+  @Test
+  public void
       toBundleForRemoteProcess_withDefaultValuesForControllerInterfaceBefore3_includesPositionInfos() {
     // Controller before version 3 uses invalid default values for indices in (Session)PositionInfo.
     // The Bundle should always include these fields to avoid using the invalid defaults.
@@ -672,5 +697,17 @@ public class PlayerInfoTest {
             PlayerInfo.FIELD_SESSION_POSITION_INFO,
             PlayerInfo.FIELD_NEW_POSITION_INFO,
             PlayerInfo.FIELD_OLD_POSITION_INFO);
+  }
+
+  @Test
+  public void fromBundle_withEmptyBundleForSessionInterfaceBefore4_restoresSeekLimitsAsZero() {
+    // Session before version 4 uses 0 values for the three seek limit default values. We need to
+    // restore those instead of current default.
+
+    PlayerInfo playerInfo = PlayerInfo.fromBundle(Bundle.EMPTY, /* sessionInterfaceVersion= */ 3);
+
+    assertThat(playerInfo.seekBackIncrementMs).isEqualTo(0);
+    assertThat(playerInfo.seekForwardIncrementMs).isEqualTo(0);
+    assertThat(playerInfo.maxSeekToPreviousPositionMs).isEqualTo(0);
   }
 }

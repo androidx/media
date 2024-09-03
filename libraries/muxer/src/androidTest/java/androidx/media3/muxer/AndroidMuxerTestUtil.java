@@ -19,6 +19,7 @@ import android.content.Context;
 import android.media.MediaCodec;
 import android.media.MediaExtractor;
 import androidx.media3.common.util.MediaFormatUtil;
+import androidx.media3.muxer.Muxer.MuxerException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -37,7 +38,7 @@ import java.util.List;
   }
 
   public static void feedInputDataToMuxer(Context context, Muxer muxer, String inputFileName)
-      throws IOException {
+      throws IOException, MuxerException {
     MediaExtractor extractor = new MediaExtractor();
     extractor.setDataSource(
         context.getResources().getAssets().openFd(MP4_FILE_ASSET_DIRECTORY + inputFileName));

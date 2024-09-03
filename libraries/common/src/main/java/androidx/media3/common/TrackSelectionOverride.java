@@ -44,7 +44,7 @@ import java.util.List;
  * to the one in the override. Conversely, disabling a track type will prevent selection of tracks
  * of that type for all media.
  */
-public final class TrackSelectionOverride implements Bundleable {
+public final class TrackSelectionOverride {
 
   /** The media {@link TrackGroup} whose {@link #trackIndices} are forced to be selected. */
   public final TrackGroup mediaTrackGroup;
@@ -103,26 +103,13 @@ public final class TrackSelectionOverride implements Bundleable {
     return mediaTrackGroup.hashCode() + 31 * trackIndices.hashCode();
   }
 
-  // Bundleable implementation
-
   @UnstableApi
-  @Override
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
     bundle.putBundle(FIELD_TRACK_GROUP, mediaTrackGroup.toBundle());
     bundle.putIntArray(FIELD_TRACKS, Ints.toArray(trackIndices));
     return bundle;
   }
-
-  /**
-   * Object that can restore {@code TrackSelectionOverride} from a {@link Bundle}.
-   *
-   * @deprecated Use {@link #fromBundle} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<TrackSelectionOverride> CREATOR = TrackSelectionOverride::fromBundle;
 
   /** Restores a {@code TrackSelectionOverride} from a {@link Bundle}. */
   @UnstableApi

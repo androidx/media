@@ -27,12 +27,10 @@ import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.upstream.Loader;
 import androidx.media3.exoplayer.upstream.Loader.LoadErrorAction;
 import androidx.media3.exoplayer.upstream.Loader.Loadable;
 import com.google.common.base.Ascii;
-import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import java.io.ByteArrayOutputStream;
@@ -47,6 +45,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.net.Socket;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -55,11 +54,10 @@ import java.util.Map;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Sends and receives RTSP messages. */
-@UnstableApi
 /* package */ final class RtspMessageChannel implements Closeable {
 
   /** RTSP uses UTF-8 (RFC2326 Section 1.1). */
-  public static final Charset CHARSET = Charsets.UTF_8;
+  public static final Charset CHARSET = StandardCharsets.UTF_8;
 
   private static final String TAG = "RtspMessageChannel";
 
@@ -460,7 +458,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           break;
 
         case STATE_READING_BODY:
-          // Message body must be handled by addMessageBody().
+        // Message body must be handled by addMessageBody().
 
         default:
           throw new IllegalStateException();

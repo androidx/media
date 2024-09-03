@@ -95,7 +95,7 @@ public final class TextRenderer extends BaseRenderer implements Callback {
    */
   private static final int REPLACEMENT_STATE_WAIT_END_OF_STREAM = 2;
 
-  private static final int MSG_UPDATE_OUTPUT = 0;
+  private static final int MSG_UPDATE_OUTPUT = 1;
 
   // Fields used when handling CuesWithTiming objects from application/x-media3-cues samples.
   private final CueDecoder cueDecoder;
@@ -119,7 +119,6 @@ public final class TextRenderer extends BaseRenderer implements Callback {
   private boolean inputStreamEnded;
   private boolean outputStreamEnded;
   @Nullable private Format streamFormat;
-  private long outputStreamOffsetUs;
   private long lastRendererPositionUs;
   private long finalStreamEndPositionUs;
   private boolean legacyDecodingEnabled;
@@ -159,9 +158,8 @@ public final class TextRenderer extends BaseRenderer implements Callback {
         new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
     formatHolder = new FormatHolder();
     finalStreamEndPositionUs = C.TIME_UNSET;
-    outputStreamOffsetUs = C.TIME_UNSET;
     lastRendererPositionUs = C.TIME_UNSET;
-    legacyDecodingEnabled = true;
+    legacyDecodingEnabled = false;
   }
 
   @Override
@@ -206,7 +204,6 @@ public final class TextRenderer extends BaseRenderer implements Callback {
       long startPositionUs,
       long offsetUs,
       MediaSource.MediaPeriodId mediaPeriodId) {
-    outputStreamOffsetUs = offsetUs;
     streamFormat = formats[0];
     if (!isCuesWithTiming(streamFormat)) {
       assertLegacyDecodingEnabledIfRequired();
@@ -277,11 +274,15 @@ public final class TextRenderer extends BaseRenderer implements Callback {
    * MimeTypes#APPLICATION_MEDIA3_CUES} (which have been parsed from their original format during
    * extraction), and will throw an exception if passed data of a different type.
    *
-   * <p>This is enabled by default.
+   * <p>This is disabled by default.
    *
    * <p>This method is experimental. It may change behavior, be renamed, or removed in a future
    * release.
+   *
+   * @deprecated This method (and all support for 'legacy' subtitle decoding during rendering) will
+   *     be removed in a future release.
    */
+  @Deprecated
   public void experimentalSetLegacyDecodingEnabled(boolean legacyDecodingEnabled) {
     this.legacyDecodingEnabled = legacyDecodingEnabled;
   }
@@ -458,7 +459,6 @@ public final class TextRenderer extends BaseRenderer implements Callback {
     streamFormat = null;
     finalStreamEndPositionUs = C.TIME_UNSET;
     clearOutput();
-    outputStreamOffsetUs = C.TIME_UNSET;
     lastRendererPositionUs = C.TIME_UNSET;
     if (subtitleDecoder != null) {
       releaseSubtitleDecoder();
@@ -575,9 +575,7 @@ public final class TextRenderer extends BaseRenderer implements Callback {
   @SideEffectFree
   private long getPresentationTimeUs(long positionUs) {
     checkState(positionUs != C.TIME_UNSET);
-    checkState(outputStreamOffsetUs != C.TIME_UNSET);
-
-    return positionUs - outputStreamOffsetUs;
+    return positionUs - getStreamOffsetUs();
   }
 
   @RequiresNonNull("streamFormat")

@@ -31,16 +31,18 @@ import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.Matrix;
-import android.graphics.RectF;
+import android.graphics.Canvas;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.opengl.GLSurfaceView;
+import android.os.Handler;
 import android.os.Looper;
 import android.util.AttributeSet;
+import android.view.AttachedSurfaceControl;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
+import android.view.SurfaceControl;
 import android.view.SurfaceView;
 import android.view.TextureView;
 import android.view.View;
@@ -48,6 +50,7 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.window.SurfaceSyncGroup;
 import androidx.annotation.ColorInt;
 import androidx.annotation.DoNotInline;
 import androidx.annotation.IntDef;
@@ -77,10 +80,12 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
-import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
 /**
  * A high level view for {@link Player} media playbacks. It displays video, subtitles and album art
@@ -105,6 +110,12 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
  *       <ul>
  *         <li>Corresponding method: {@link #setDefaultArtwork(Drawable)}
  *         <li>Default: {@code null}
+ *       </ul>
+ *   <li><b>{@code image_display_mode}</b> - The {@link ImageDisplayMode mode} in which images are
+ *       displayed.
+ *       <ul>
+ *         <li>Corresponding method: {@link #setImageDisplayMode(int)}
+ *         <li>Default: {@code #IMAGE_DISPLAY_MODE_FIT}
  *       </ul>
  *   <li><b>{@code use_controller}</b> - Whether the playback controls can be shown.
  *       <ul>
@@ -228,6 +239,26 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   @UnstableApi public static final int ARTWORK_DISPLAY_MODE_FILL = 2;
 
   /**
+   * Determines the image display mode. {@link #IMAGE_DISPLAY_MODE_FIT} or {@link
+   * #IMAGE_DISPLAY_MODE_FILL}.
+   */
+  @UnstableApi
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target(TYPE_USE)
+  @IntDef({IMAGE_DISPLAY_MODE_FIT, IMAGE_DISPLAY_MODE_FILL})
+  public @interface ImageDisplayMode {}
+
+  /** The image is fit into the player view and centered creating a letterbox style. */
+  @UnstableApi public static final int IMAGE_DISPLAY_MODE_FIT = 0;
+
+  /**
+   * The image covers the entire space of the player view. If the aspect ratio of the image is
+   * different than the player view some areas of the image are cropped.
+   */
+  @UnstableApi public static final int IMAGE_DISPLAY_MODE_FILL = 1;
+
+  /**
    * Determines when the buffering view is shown. One of {@link #SHOW_BUFFERING_NEVER}, {@link
    * #SHOW_BUFFERING_WHEN_PLAYING} or {@link #SHOW_BUFFERING_ALWAYS}.
    */
@@ -264,6 +295,8 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   @Nullable private final View shutterView;
   @Nullable private final View surfaceView;
   private final boolean surfaceViewIgnoresVideoAspectRatio;
+  @Nullable private final SurfaceSyncGroupCompatV34 surfaceSyncGroupV34;
+  @Nullable private final ImageView imageView;
   @Nullable private final ImageView artworkView;
   @Nullable private final SubtitleView subtitleView;
   @Nullable private final View bufferingView;
@@ -271,6 +304,10 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   @Nullable private final PlayerControlView controller;
   @Nullable private final FrameLayout adOverlayFrameLayout;
   @Nullable private final FrameLayout overlayFrameLayout;
+  private final Handler mainLooperHandler;
+  @Nullable private final Class<?> exoPlayerClazz;
+  @Nullable private final Method setImageOutputMethod;
+  @Nullable private final Object imageOutput;
 
   @Nullable private Player player;
   private boolean useController;
@@ -285,6 +322,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   @Nullable private FullscreenButtonClickListener fullscreenButtonClickListener;
 
   private @ArtworkDisplayMode int artworkDisplayMode;
+  private @ImageDisplayMode int imageDisplayMode;
 
   @Nullable private Drawable defaultArtwork;
   private @ShowBuffering int showBuffering;
@@ -295,8 +333,6 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   private boolean controllerAutoShow;
   private boolean controllerHideDuringAds;
   private boolean controllerHideOnTouch;
-  private int textureViewRotation;
-  private boolean isTouching;
 
   public PlayerView(Context context) {
     this(context, /* attrs= */ null);
@@ -312,12 +348,15 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
     super(context, attrs, defStyleAttr);
 
     componentListener = new ComponentListener();
+    mainLooperHandler = new Handler(Looper.getMainLooper());
 
     if (isInEditMode()) {
       contentFrame = null;
       shutterView = null;
       surfaceView = null;
       surfaceViewIgnoresVideoAspectRatio = false;
+      surfaceSyncGroupV34 = null;
+      imageView = null;
       artworkView = null;
       subtitleView = null;
       bufferingView = null;
@@ -325,6 +364,9 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
       controller = null;
       adOverlayFrameLayout = null;
       overlayFrameLayout = null;
+      exoPlayerClazz = null;
+      setImageOutputMethod = null;
+      imageOutput = null;
       ImageView logo = new ImageView(context);
       if (Util.SDK_INT >= 23) {
         configureEditModeLogoV23(context, getResources(), logo);
@@ -340,6 +382,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
     int playerLayoutId = R.layout.exo_player_view;
     boolean useArtwork = true;
     int artworkDisplayMode = ARTWORK_DISPLAY_MODE_FIT;
+    int imageDisplayMode = IMAGE_DISPLAY_MODE_FIT;
     int defaultArtworkId = 0;
     boolean useController = true;
     int surfaceType = SURFACE_TYPE_SURFACE_VIEW;
@@ -364,6 +407,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
             a.getInt(R.styleable.PlayerView_artwork_display_mode, artworkDisplayMode);
         defaultArtworkId =
             a.getResourceId(R.styleable.PlayerView_default_artwork, defaultArtworkId);
+        imageDisplayMode = a.getInt(R.styleable.PlayerView_image_display_mode, imageDisplayMode);
         useController = a.getBoolean(R.styleable.PlayerView_use_controller, useController);
         surfaceType = a.getInt(R.styleable.PlayerView_surface_type, surfaceType);
         resizeMode = a.getInt(R.styleable.PlayerView_resize_mode, resizeMode);
@@ -448,12 +492,45 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
       surfaceView = null;
     }
     this.surfaceViewIgnoresVideoAspectRatio = surfaceViewIgnoresVideoAspectRatio;
+    this.surfaceSyncGroupV34 = Util.SDK_INT == 34 ? new SurfaceSyncGroupCompatV34() : null;
 
     // Ad overlay frame layout.
     adOverlayFrameLayout = findViewById(R.id.exo_ad_overlay);
 
     // Overlay frame layout.
     overlayFrameLayout = findViewById(R.id.exo_overlay);
+
+    // Image view.
+    imageView = findViewById(R.id.exo_image);
+    this.imageDisplayMode = imageDisplayMode;
+
+    // ExoPlayer image output classes and methods.
+    Class<?> exoPlayerClazz;
+    Method setImageOutputMethod;
+    Object imageOutput;
+    try {
+      exoPlayerClazz = Class.forName("androidx.media3.exoplayer.ExoPlayer");
+      Class<?> imageOutputClazz = Class.forName("androidx.media3.exoplayer.image.ImageOutput");
+      setImageOutputMethod = exoPlayerClazz.getMethod("setImageOutput", imageOutputClazz);
+      imageOutput =
+          Proxy.newProxyInstance(
+              imageOutputClazz.getClassLoader(),
+              new Class<?>[] {imageOutputClazz},
+              (proxy, method, args) -> {
+                if (method.getName().equals("onImageAvailable")) {
+                  onImageAvailable((Bitmap) args[1]);
+                }
+                return null;
+              });
+    } catch (ClassNotFoundException | NoSuchMethodException e) {
+      // Expected if ExoPlayer module not available.
+      exoPlayerClazz = null;
+      setImageOutputMethod = null;
+      imageOutput = null;
+    }
+    this.exoPlayerClazz = exoPlayerClazz;
+    this.setImageOutputMethod = setImageOutputMethod;
+    this.imageOutput = imageOutput;
 
     // Artwork view.
     artworkView = findViewById(R.id.exo_artwork);
@@ -568,6 +645,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
     if (this.player == player) {
       return;
     }
+
     @Nullable Player oldPlayer = this.player;
     if (oldPlayer != null) {
       oldPlayer.removeListener(componentListener);
@@ -578,6 +656,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
           oldPlayer.clearVideoSurfaceView((SurfaceView) surfaceView);
         }
       }
+      clearImageOutput(oldPlayer);
     }
     if (subtitleView != null) {
       subtitleView.setCues(null);
@@ -606,9 +685,31 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
         subtitleView.setCues(player.getCurrentCues().cues);
       }
       player.addListener(componentListener);
+      setImageOutput(player);
       maybeShowController(false);
     } else {
       hideController();
+    }
+  }
+
+  private void setImageOutput(Player player) {
+    if (exoPlayerClazz != null && exoPlayerClazz.isAssignableFrom(player.getClass())) {
+      try {
+        checkNotNull(setImageOutputMethod).invoke(player, checkNotNull(imageOutput));
+      } catch (IllegalAccessException | InvocationTargetException e) {
+        throw new RuntimeException(e);
+      }
+    }
+  }
+
+  @SuppressWarnings("argument.type.incompatible") // null allowed as method parameter in invoke
+  private void clearImageOutput(Player player) {
+    if (exoPlayerClazz != null && exoPlayerClazz.isAssignableFrom(player.getClass())) {
+      try {
+        checkNotNull(setImageOutputMethod).invoke(player, new Object[] {null});
+      } catch (IllegalAccessException | InvocationTargetException e) {
+        throw new RuntimeException(e);
+      }
     }
   }
 
@@ -692,6 +793,22 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
       this.defaultArtwork = defaultArtwork;
       updateForCurrentTrackSelections(/* isNewPlayer= */ false);
     }
+  }
+
+  /** Sets how images are displayed if present in the media. */
+  @UnstableApi
+  public void setImageDisplayMode(@ImageDisplayMode int imageDisplayMode) {
+    Assertions.checkState(imageView != null);
+    if (this.imageDisplayMode != imageDisplayMode) {
+      this.imageDisplayMode = imageDisplayMode;
+      updateImageViewAspectRatio();
+    }
+  }
+
+  /** Returns the {@link ImageDisplayMode image display mode}. */
+  @UnstableApi
+  public @ImageDisplayMode int getImageDisplayMode() {
+    return imageDisplayMode;
   }
 
   /** Returns whether the playback controls can be shown. */
@@ -1326,7 +1443,6 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
     return false;
   }
 
-  @EnsuresNonNullIf(expression = "artworkView", result = true)
   private boolean useArtwork() {
     if (artworkDisplayMode != ARTWORK_DISPLAY_MODE_OFF) {
       Assertions.checkStateNotNull(artworkView);
@@ -1391,32 +1507,46 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
 
   private void updateForCurrentTrackSelections(boolean isNewPlayer) {
     @Nullable Player player = this.player;
-    if (player == null
-        || !player.isCommandAvailable(COMMAND_GET_TRACKS)
-        || player.getCurrentTracks().isEmpty()) {
-      if (!keepContentOnPlayerReset) {
-        hideArtwork();
-        closeShutter();
-      }
-      return;
-    }
 
-    if (isNewPlayer && !keepContentOnPlayerReset) {
-      // Hide any video from the previous player.
-      closeShutter();
-    }
-
-    if (player.getCurrentTracks().isTypeSelected(C.TRACK_TYPE_VIDEO)) {
-      // Video enabled, so artwork must be hidden. If the shutter is closed, it will be opened
-      // in onRenderedFirstFrame().
+    // Unless configured to keep, clear output completely when tracks are empty or for a new player.
+    boolean hasTracks =
+        player != null
+            && player.isCommandAvailable(COMMAND_GET_TRACKS)
+            && !player.getCurrentTracks().isEmpty();
+    if (!keepContentOnPlayerReset && (!hasTracks || isNewPlayer)) {
       hideArtwork();
+      closeShutter();
+      hideAndClearImage();
+    }
+    if (!hasTracks) {
+      // Nothing else to check.
       return;
     }
 
-    // Video disabled so the shutter must be closed.
-    closeShutter();
+    boolean hasSelectedVideoTrack = hasSelectedVideoTrack();
+    boolean hasSelectedImageTrack = hasSelectedImageTrack();
+
+    // When video and image are disabled, close shutter and clear image. Do nothing if one or both
+    // are enabled to keep the current state (previous frame or video). Once ready, the first frame
+    // or image will update the view.
+    if (!hasSelectedVideoTrack && !hasSelectedImageTrack) {
+      closeShutter();
+      hideAndClearImage();
+    }
+    // Exception: If both were enabled (shutter open and image set) and we switch to one only, we
+    // can hide the other output immediately as no further callbacks will arrive.
+    boolean wasVideoAndImageSet =
+        shutterView != null && shutterView.getVisibility() == INVISIBLE && isImageSet();
+    if (hasSelectedImageTrack && !hasSelectedVideoTrack && wasVideoAndImageSet) {
+      closeShutter();
+      showImage();
+    } else if (hasSelectedVideoTrack && !hasSelectedImageTrack && wasVideoAndImageSet) {
+      hideAndClearImage();
+    }
+
     // Display artwork if enabled and available, else hide it.
-    if (useArtwork()) {
+    boolean shouldShowArtwork = !hasSelectedVideoTrack && !hasSelectedImageTrack && useArtwork();
+    if (shouldShowArtwork) {
       if (setArtworkFromMediaMetadata(player)) {
         return;
       }
@@ -1428,9 +1558,8 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
     hideArtwork();
   }
 
-  @RequiresNonNull("artworkView")
-  private boolean setArtworkFromMediaMetadata(Player player) {
-    if (!player.isCommandAvailable(COMMAND_GET_METADATA)) {
+  private boolean setArtworkFromMediaMetadata(@Nullable Player player) {
+    if (player == null || !player.isCommandAvailable(COMMAND_GET_METADATA)) {
       return false;
     }
     MediaMetadata mediaMetadata = player.getMediaMetadata();
@@ -1443,9 +1572,8 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
     return setDrawableArtwork(new BitmapDrawable(getResources(), bitmap));
   }
 
-  @RequiresNonNull("artworkView")
   private boolean setDrawableArtwork(@Nullable Drawable drawable) {
-    if (drawable != null) {
+    if (artworkView != null && drawable != null) {
       int drawableWidth = drawable.getIntrinsicWidth();
       int drawableHeight = drawable.getIntrinsicHeight();
       if (drawableWidth > 0 && drawableHeight > 0) {
@@ -1470,6 +1598,94 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
       artworkView.setImageResource(android.R.color.transparent); // Clears any bitmap reference.
       artworkView.setVisibility(INVISIBLE);
     }
+  }
+
+  private boolean hasSelectedImageTrack() {
+    @Nullable Player player = this.player;
+    return player != null
+        && imageOutput != null
+        && player.isCommandAvailable(COMMAND_GET_TRACKS)
+        && player.getCurrentTracks().isTypeSelected(C.TRACK_TYPE_IMAGE);
+  }
+
+  private boolean hasSelectedVideoTrack() {
+    @Nullable Player player = this.player;
+    return player != null
+        && player.isCommandAvailable(COMMAND_GET_TRACKS)
+        && player.getCurrentTracks().isTypeSelected(C.TRACK_TYPE_VIDEO);
+  }
+
+  private boolean isImageSet() {
+    if (imageView == null) {
+      return false;
+    }
+    @Nullable Drawable drawable = imageView.getDrawable();
+    // The transparent placeholder has an alpha value of 0, but BitmapDrawables never have alpha 0.
+    return drawable != null && drawable.getAlpha() != 0;
+  }
+
+  private void setImage(Drawable drawable) {
+    if (imageView == null) {
+      return;
+    }
+    imageView.setImageDrawable(drawable);
+    updateImageViewAspectRatio();
+  }
+
+  private void updateImageViewAspectRatio() {
+    if (imageView == null) {
+      return;
+    }
+    @Nullable Drawable drawable = imageView.getDrawable();
+    if (drawable == null) {
+      return;
+    }
+    int drawableWidth = drawable.getIntrinsicWidth();
+    int drawableHeight = drawable.getIntrinsicHeight();
+    if (drawableWidth <= 0 || drawableHeight <= 0) {
+      return;
+    }
+    float drawableLayoutAspectRatio = (float) drawableWidth / drawableHeight;
+    ImageView.ScaleType scaleStyle = ImageView.ScaleType.FIT_XY;
+    if (imageDisplayMode == IMAGE_DISPLAY_MODE_FILL) {
+      drawableLayoutAspectRatio = (float) getWidth() / getHeight();
+      scaleStyle = ImageView.ScaleType.CENTER_CROP;
+    }
+    if (imageView.getVisibility() == VISIBLE) {
+      onContentAspectRatioChanged(contentFrame, drawableLayoutAspectRatio);
+    }
+    imageView.setScaleType(scaleStyle);
+  }
+
+  private void hideAndClearImage() {
+    hideImage();
+    if (imageView != null) {
+      imageView.setImageResource(android.R.color.transparent);
+    }
+  }
+
+  private void showImage() {
+    if (imageView != null) {
+      imageView.setVisibility(VISIBLE);
+      updateImageViewAspectRatio();
+    }
+  }
+
+  private void hideImage() {
+    if (imageView != null) {
+      imageView.setVisibility(INVISIBLE);
+    }
+  }
+
+  private void onImageAvailable(Bitmap bitmap) {
+    mainLooperHandler.post(
+        () -> {
+          setImage(new BitmapDrawable(getResources(), bitmap));
+          if (!hasSelectedVideoTrack()) {
+            showImage();
+            closeShutter();
+          }
+        });
   }
 
   private void closeShutter() {
@@ -1533,32 +1749,18 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
     VideoSize videoSize = player != null ? player.getVideoSize() : VideoSize.UNKNOWN;
     int width = videoSize.width;
     int height = videoSize.height;
-    int unappliedRotationDegrees = videoSize.unappliedRotationDegrees;
     float videoAspectRatio =
         (height == 0 || width == 0) ? 0 : (width * videoSize.pixelWidthHeightRatio) / height;
-
-    if (surfaceView instanceof TextureView) {
-      // Try to apply rotation transformation when our surface is a TextureView.
-      if (videoAspectRatio > 0
-          && (unappliedRotationDegrees == 90 || unappliedRotationDegrees == 270)) {
-        // We will apply a rotation 90/270 degree to the output texture of the TextureView.
-        // In this case, the output video's width and height will be swapped.
-        videoAspectRatio = 1 / videoAspectRatio;
-      }
-      if (textureViewRotation != 0) {
-        surfaceView.removeOnLayoutChangeListener(componentListener);
-      }
-      textureViewRotation = unappliedRotationDegrees;
-      if (textureViewRotation != 0) {
-        // The texture view's dimensions might be changed after layout step.
-        // So add an OnLayoutChangeListener to apply rotation after layout step.
-        surfaceView.addOnLayoutChangeListener(componentListener);
-      }
-      applyTextureViewRotation((TextureView) surfaceView, textureViewRotation);
-    }
-
     onContentAspectRatioChanged(
         contentFrame, surfaceViewIgnoresVideoAspectRatio ? 0 : videoAspectRatio);
+  }
+
+  @Override
+  protected void dispatchDraw(Canvas canvas) {
+    super.dispatchDraw(canvas);
+    if (Util.SDK_INT == 34 && surfaceSyncGroupV34 != null) {
+      surfaceSyncGroupV34.maybeMarkSyncReadyAndClear();
+    }
   }
 
   @RequiresApi(23)
@@ -1576,29 +1778,6 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   @SuppressWarnings("ResourceType")
   private static void setResizeModeRaw(AspectRatioFrameLayout aspectRatioFrame, int resizeMode) {
     aspectRatioFrame.setResizeMode(resizeMode);
-  }
-
-  /** Applies a texture rotation to a {@link TextureView}. */
-  private static void applyTextureViewRotation(TextureView textureView, int textureViewRotation) {
-    Matrix transformMatrix = new Matrix();
-    float textureViewWidth = textureView.getWidth();
-    float textureViewHeight = textureView.getHeight();
-    if (textureViewWidth != 0 && textureViewHeight != 0 && textureViewRotation != 0) {
-      float pivotX = textureViewWidth / 2;
-      float pivotY = textureViewHeight / 2;
-      transformMatrix.postRotate(textureViewRotation, pivotX, pivotY);
-
-      // After rotation, scale the rotated texture to fit the TextureView size.
-      RectF originalTextureRect = new RectF(0, 0, textureViewWidth, textureViewHeight);
-      RectF rotatedTextureRect = new RectF();
-      transformMatrix.mapRect(rotatedTextureRect, originalTextureRect);
-      transformMatrix.postScale(
-          textureViewWidth / rotatedTextureRect.width(),
-          textureViewHeight / rotatedTextureRect.height(),
-          pivotX,
-          pivotY);
-    }
-    textureView.setTransform(transformMatrix);
   }
 
   @SuppressLint("InlinedApi")
@@ -1619,7 +1798,6 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   @SuppressWarnings("deprecation")
   private final class ComponentListener
       implements Player.Listener,
-          OnLayoutChangeListener,
           OnClickListener,
           PlayerControlView.VisibilityListener,
           PlayerControlView.OnFullScreenModeChangedListener {
@@ -1651,9 +1829,25 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
     }
 
     @Override
+    public void onSurfaceSizeChanged(int width, int height) {
+      if (Util.SDK_INT == 34 && surfaceView instanceof SurfaceView) {
+        // Register a SurfaceSyncGroup to work around https://github.com/androidx/media/issues/1237
+        // (only present on API 34, fixed on API 35).
+        checkNotNull(surfaceSyncGroupV34)
+            .postRegister(
+                mainLooperHandler, (SurfaceView) surfaceView, PlayerView.this::invalidate);
+      }
+    }
+
+    @Override
     public void onRenderedFirstFrame() {
       if (shutterView != null) {
         shutterView.setVisibility(INVISIBLE);
+        if (hasSelectedImageTrack()) {
+          hideImage();
+        } else {
+          hideAndClearImage();
+        }
       }
     }
 
@@ -1713,22 +1907,6 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
       }
     }
 
-    // OnLayoutChangeListener implementation
-
-    @Override
-    public void onLayoutChange(
-        View view,
-        int left,
-        int top,
-        int right,
-        int bottom,
-        int oldLeft,
-        int oldTop,
-        int oldRight,
-        int oldBottom) {
-      applyTextureViewRotation((TextureView) view, textureViewRotation);
-    }
-
     // OnClickListener implementation
 
     @Override
@@ -1762,6 +1940,38 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
     @DoNotInline
     public static void setSurfaceLifecycleToFollowsAttachment(SurfaceView surfaceView) {
       surfaceView.setSurfaceLifecycle(SurfaceView.SURFACE_LIFECYCLE_FOLLOWS_ATTACHMENT);
+    }
+  }
+
+  @RequiresApi(34)
+  private static final class SurfaceSyncGroupCompatV34 {
+
+    @Nullable SurfaceSyncGroup surfaceSyncGroup;
+
+    @DoNotInline
+    public void postRegister(
+        Handler mainLooperHandler, SurfaceView surfaceView, Runnable invalidate) {
+      mainLooperHandler.post(
+          () -> {
+            @Nullable
+            AttachedSurfaceControl rootSurfaceControl = surfaceView.getRootSurfaceControl();
+            if (rootSurfaceControl == null) {
+              // The SurfaceView isn't attached to a window, so don't apply the workaround.
+              return;
+            }
+            surfaceSyncGroup = new SurfaceSyncGroup("exo-sync-b-334901521");
+            Assertions.checkState(surfaceSyncGroup.add(rootSurfaceControl, () -> {}));
+            invalidate.run();
+            rootSurfaceControl.applyTransactionOnDraw(new SurfaceControl.Transaction());
+          });
+    }
+
+    @DoNotInline
+    public void maybeMarkSyncReadyAndClear() {
+      if (surfaceSyncGroup != null) {
+        surfaceSyncGroup.markSyncReady();
+        surfaceSyncGroup = null;
+      }
     }
   }
 }

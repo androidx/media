@@ -28,12 +28,18 @@ import android.support.v4.media.MediaBrowserCompat;
 import android.support.v4.media.session.MediaControllerCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
 import androidx.annotation.Nullable;
+import androidx.media3.session.MediaLibraryService.MediaLibrarySession;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.media3.test.session.common.TestHandler;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -58,28 +64,72 @@ public class MediaBrowserCompatWithMediaSessionServiceTest {
 
   Context context;
   TestHandler handler;
-  MediaBrowserCompat browserCompat;
+  @Nullable MediaBrowserCompat browserCompat;
+  @Nullable MediaController serviceStartController;
   @Nullable MediaControllerCompat controllerCompat;
   TestConnectionCallback connectionCallback;
-  @Nullable PlaybackStateCompat lastReportedPlaybackStateCompat;
+  List<PlaybackStateCompat> reportedPlaybackStatesCompat;
+  @Nullable CountDownLatch firstPlaybackStateCompatReported;
 
   @Before
   public void setUp() {
     context = ApplicationProvider.getApplicationContext();
     handler = threadTestRule.getHandler();
     connectionCallback = new TestConnectionCallback();
+    firstPlaybackStateCompatReported = new CountDownLatch(1);
+    reportedPlaybackStatesCompat = new ArrayList<>();
   }
 
   @After
-  public void cleanUp() {
+  public void cleanUp() throws Exception {
     if (browserCompat != null) {
       browserCompat.disconnect();
       browserCompat = null;
+    }
+    if (serviceStartController != null) {
+      handler.postAndSync(() -> serviceStartController.release());
     }
   }
 
   ComponentName getServiceComponent() {
     return MOCK_MEDIA3_SESSION_SERVICE;
+  }
+
+  /**
+   * Starts the service by connecting a Media3 controller and passing connection hints. The service
+   * can then use the connection hints to build the session for instance with specific settings.
+   *
+   * <p>Note that a media1 {@link MediaBrowserCompat} can't send connection hints. The root hints of
+   * the legacy browser end up in the {@link MediaLibraryService.LibraryParams} passed to {@link
+   * MediaLibrarySession.Callback#onGetLibraryRoot(MediaLibraryService.MediaLibrarySession,
+   * MediaSession.ControllerInfo, MediaLibraryService.LibraryParams)} as they aren't available
+   * earlier.
+   */
+  void connectForServiceStartWithConnectionHints(Bundle connectionHints) throws Exception {
+    CountDownLatch latch = new CountDownLatch(/* count= */ 1);
+    handler.postAndSync(
+        () -> {
+          ListenableFuture<MediaController> future =
+              new MediaController.Builder(
+                      ApplicationProvider.getApplicationContext(),
+                      new SessionToken(
+                          ApplicationProvider.getApplicationContext(), getServiceComponent()))
+                  .setConnectionHints(connectionHints)
+                  .buildAsync();
+          future.addListener(
+              () -> {
+                try {
+                  if (future.isDone()) {
+                    latch.countDown();
+                  }
+                  serviceStartController = future.get();
+                } catch (ExecutionException | InterruptedException e) {
+                  throw new RuntimeException(e);
+                }
+              },
+              MoreExecutors.directExecutor());
+        });
+    assertThat(latch.await(SERVICE_CONNECTION_TIMEOUT_MS, MILLISECONDS)).isTrue();
   }
 
   void connectAndWait(Bundle rootHints) throws Exception {
@@ -131,13 +181,13 @@ public class MediaBrowserCompatWithMediaSessionServiceTest {
     @Override
     public void onConnected() {
       super.onConnected();
-      // Make browser's internal handler to be initialized with test thread.
       controllerCompat = new MediaControllerCompat(context, browserCompat.getSessionToken());
       controllerCompatCallback =
           new MediaControllerCompat.Callback() {
             @Override
             public void onPlaybackStateChanged(PlaybackStateCompat state) {
-              lastReportedPlaybackStateCompat = state;
+              reportedPlaybackStatesCompat.add(state);
+              firstPlaybackStateCompatReported.countDown();
             }
           };
       controllerCompat.registerCallback(controllerCompatCallback);

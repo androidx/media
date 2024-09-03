@@ -54,7 +54,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -201,7 +200,7 @@ public class DefaultDashChunkSourceTest {
               loadErrorHandlingPolicy);
     }
 
-    assertThat(Lists.transform(chunks, (chunk) -> chunk.dataSpec.uri.toString()))
+    assertThat(chunks.stream().map(chunk -> chunk.dataSpec.uri.toString()))
         .containsExactly(
             "http://video.com/baseUrl/a/video/video_0_1300000.m4s",
             "http://video.com/baseUrl/b/video/video_0_1300000.m4s",
@@ -258,7 +257,7 @@ public class DefaultDashChunkSourceTest {
                   output.chunk.dataSpec, /* httpResponseCode= */ 404, /* errorCount= */ 1),
               loadErrorHandlingPolicy);
     }
-    assertThat(Lists.transform(chunks, (chunk) -> chunk.dataSpec.uri.toString()))
+    assertThat(chunks.stream().map(chunk -> chunk.dataSpec.uri.toString()))
         .containsExactly(
             "http://video.com/baseUrl/a/video/video_0_700000.m4s",
             "http://video.com/baseUrl/a/video/video_0_452000.m4s",

@@ -22,13 +22,22 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
+import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.text.TextRenderer;
 import androidx.media3.extractor.DefaultExtractorInput;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.TrackOutput;
 import java.io.IOException;
 
-/** A {@link BaseMediaChunk} for chunks consisting of a single raw sample. */
+/**
+ * @deprecated The only use for this class is subtitle playback, but it is only compatible with
+ *     legacy subtitle decoding, which is not supported by default. Users of this class almost
+ *     certainly need to {@linkplain TextRenderer#experimentalSetLegacyDecodingEnabled(boolean)
+ *     enable legacy subtitle decoding} on their {@link ExoPlayer} instance in order to avoid
+ *     playback errors when trying to play subtitles.
+ */
 @UnstableApi
+@Deprecated
 public final class SingleSampleMediaChunk extends BaseMediaChunk {
 
   private final @C.TrackType int trackType;

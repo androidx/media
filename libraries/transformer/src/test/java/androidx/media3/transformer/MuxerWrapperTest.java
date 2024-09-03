@@ -30,6 +30,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
+import androidx.media3.muxer.Muxer.MuxerException;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -74,7 +75,7 @@ public class MuxerWrapperTest {
   @Nullable private MuxerWrapper muxerWrapper;
 
   @After
-  public void tearDown() throws Muxer.MuxerException {
+  public void tearDown() throws MuxerException {
     if (muxerWrapper != null) {
       // Release with reason cancellation so that underlying resources are always released.
       muxerWrapper.finishWritingAndMaybeRelease(MuxerWrapper.MUXER_RELEASE_REASON_CANCELLED);
@@ -448,7 +449,7 @@ public class MuxerWrapperTest {
             .setInitializationData(ImmutableList.of(new byte[] {1, 2, 3, 4}))
             .build();
 
-    assertThat(MuxerWrapper.getMostComatibleInitializationData(existingFormat, otherFormat))
+    assertThat(MuxerWrapper.getMostCompatibleInitializationData(existingFormat, otherFormat))
         .isNull();
   }
 
@@ -466,7 +467,7 @@ public class MuxerWrapperTest {
             .build();
 
     List<byte[]> initializationData =
-        MuxerWrapper.getMostComatibleInitializationData(existingFormat, otherFormat);
+        MuxerWrapper.getMostCompatibleInitializationData(existingFormat, otherFormat);
 
     assertThat(initializationData).hasSize(1);
     Byte[] expectedInitializationData = new Byte[] {1, 2, 3, 4};
@@ -490,7 +491,7 @@ public class MuxerWrapperTest {
             .build();
 
     List<byte[]> initializationData =
-        MuxerWrapper.getMostComatibleInitializationData(existingFormat, otherFormat);
+        MuxerWrapper.getMostCompatibleInitializationData(existingFormat, otherFormat);
 
     assertThat(initializationData).hasSize(1);
     Byte[] expectedInitializationData = new Byte[] {1, 2, 3, 4};
@@ -516,7 +517,7 @@ public class MuxerWrapperTest {
             .build();
 
     List<byte[]> initializationData =
-        MuxerWrapper.getMostComatibleInitializationData(existingFormat, otherFormat);
+        MuxerWrapper.getMostCompatibleInitializationData(existingFormat, otherFormat);
 
     assertThat(initializationData).hasSize(2);
     Byte[] expectedInitializationDataSps = new Byte[] {0, 0, 0, 1, 103, 100, 0, 41};
@@ -546,7 +547,7 @@ public class MuxerWrapperTest {
                 ImmutableList.of(new byte[] {0, 0, 0, 1, 103, 100, 0, 41}, new byte[] {0, 0, 0, 1}))
             .build();
 
-    assertThat(MuxerWrapper.getMostComatibleInitializationData(existingFormat, otherFormat))
+    assertThat(MuxerWrapper.getMostCompatibleInitializationData(existingFormat, otherFormat))
         .isNull();
   }
 
@@ -564,7 +565,7 @@ public class MuxerWrapperTest {
                 ImmutableList.of(new byte[] {0, 0, 0, 1, 103, 100, 0, 41}, new byte[] {0, 0, 0, 1}))
             .build();
 
-    assertThat(MuxerWrapper.getMostComatibleInitializationData(existingFormat, otherFormat))
+    assertThat(MuxerWrapper.getMostCompatibleInitializationData(existingFormat, otherFormat))
         .isNull();
   }
 

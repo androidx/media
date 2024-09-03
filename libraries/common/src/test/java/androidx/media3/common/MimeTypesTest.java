@@ -120,6 +120,8 @@ public final class MimeTypesTest {
     assertThat(MimeTypes.isImage(MimeTypes.IMAGE_JPEG)).isTrue();
     assertThat(MimeTypes.isImage(MimeTypes.IMAGE_PNG)).isTrue();
     assertThat(MimeTypes.isImage(MimeTypes.IMAGE_HEIF)).isTrue();
+    assertThat(MimeTypes.isImage(MimeTypes.IMAGE_HEIC)).isTrue();
+    assertThat(MimeTypes.isImage(MimeTypes.IMAGE_AVIF)).isTrue();
     assertThat(MimeTypes.isImage(MimeTypes.IMAGE_BMP)).isTrue();
     assertThat(MimeTypes.isImage(MimeTypes.IMAGE_WEBP)).isTrue();
     assertThat(MimeTypes.isImage("image/custom")).isTrue();

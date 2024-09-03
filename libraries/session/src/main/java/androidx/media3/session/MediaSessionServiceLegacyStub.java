@@ -18,21 +18,21 @@ package androidx.media3.session;
 import static androidx.media3.common.util.Util.postOrRun;
 
 import android.os.Bundle;
-import android.support.v4.media.MediaBrowserCompat.MediaItem;
-import android.support.v4.media.session.MediaSessionCompat;
 import androidx.annotation.Nullable;
-import androidx.media.MediaBrowserServiceCompat;
-import androidx.media.MediaSessionManager;
-import androidx.media.MediaSessionManager.RemoteUserInfo;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Log;
 import androidx.media3.session.MediaSession.ControllerInfo;
+import androidx.media3.session.legacy.MediaBrowserCompat.MediaItem;
+import androidx.media3.session.legacy.MediaBrowserServiceCompat;
+import androidx.media3.session.legacy.MediaSessionCompat;
+import androidx.media3.session.legacy.MediaSessionManager;
+import androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Implementation of {@link MediaBrowserServiceCompat} for interoperability between {@link
- * MediaLibraryService} and {@link android.support.v4.media.MediaBrowserCompat}.
+ * MediaLibraryService} and {@code android.support.v4.media.MediaBrowserCompat}.
  */
 /* package */ class MediaSessionServiceLegacyStub extends MediaBrowserServiceCompat {
 
@@ -59,7 +59,7 @@ import java.util.concurrent.atomic.AtomicReference;
   @Override
   @Nullable
   public BrowserRoot onGetRoot(
-      String clientPackageName, int clientUid, @Nullable Bundle rootHints) {
+      @Nullable String clientPackageName, int clientUid, @Nullable Bundle rootHints) {
     RemoteUserInfo info = getCurrentBrowserInfo();
     MediaSession.ControllerInfo controller =
         createControllerInfo(info, rootHints != null ? rootHints : Bundle.EMPTY);
@@ -89,7 +89,7 @@ import java.util.concurrent.atomic.AtomicReference;
   }
 
   @Override
-  public void onLoadChildren(String parentId, Result<List<MediaItem>> result) {
+  public void onLoadChildren(@Nullable String parentId, Result<List<MediaItem>> result) {
     result.sendResult(/* result= */ null);
   }
 

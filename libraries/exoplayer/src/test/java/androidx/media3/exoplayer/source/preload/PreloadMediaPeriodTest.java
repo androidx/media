@@ -15,7 +15,9 @@
  */
 package androidx.media3.exoplayer.source.preload;
 
+import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -29,6 +31,7 @@ import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.os.Looper;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -43,11 +46,15 @@ import androidx.media3.exoplayer.source.SampleStream;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.trackselection.FixedTrackSelection;
+import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.test.utils.FakeMediaPeriod;
+import androidx.media3.test.utils.FakeSampleStream;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.FakeTrackSelection;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
@@ -1593,5 +1600,69 @@ public final class PreloadMediaPeriodTest {
     verify(wrappedMediaPeriod, times(2))
         .selectTracks(eq(trackSelections), any(), any(), any(), /* positionUs= */ eq(0L));
     assertThat(trackSelectionStartPositionUs).isEqualTo(0L);
+  }
+
+  @Test
+  public void maybeThrowStreamError_preloadedStreamHasError_errorThrows() throws Exception {
+    Format videoFormat =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H264)
+            .setAverageBitrate(800_000)
+            .setWidth(1280)
+            .setHeight(720)
+            .build();
+    MediaSource.MediaPeriodId mediaPeriodId =
+        new MediaSource.MediaPeriodId(/* periodUid= */ new Object());
+    FakeMediaPeriod wrappedMediaPeriod =
+        new FakeMediaPeriod(
+            new TrackGroupArray(new TrackGroup(videoFormat)),
+            new DefaultAllocator(/* trimOnReset= */ true, C.DEFAULT_BUFFER_SEGMENT_SIZE),
+            FakeTimeline.TimelineWindowDefinition.DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
+            new MediaSourceEventListener.EventDispatcher()
+                .withParameters(/* windowIndex= */ 0, mediaPeriodId)) {
+          @Override
+          protected FakeSampleStream createSampleStream(
+              Allocator allocator,
+              @Nullable MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+              DrmSessionManager drmSessionManager,
+              DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+              Format initialFormat,
+              List<FakeSampleStream.FakeSampleStreamItem> fakeSampleStreamItems) {
+            return new FakeSampleStream(
+                allocator,
+                mediaSourceEventDispatcher,
+                drmSessionManager,
+                drmEventDispatcher,
+                initialFormat,
+                fakeSampleStreamItems) {
+              @Override
+              public void maybeThrowError() throws IOException {
+                throw new IOException();
+              }
+            };
+          }
+        };
+    PreloadMediaPeriod preloadMediaPeriod = new PreloadMediaPeriod(wrappedMediaPeriod);
+    AtomicBoolean onPreparedOfPreloadCallbackCalled = new AtomicBoolean();
+    MediaPeriod.Callback preloadCallback =
+        new MediaPeriod.Callback() {
+          @Override
+          public void onPrepared(MediaPeriod mediaPeriod) {
+            onPreparedOfPreloadCallbackCalled.set(true);
+          }
+
+          @Override
+          public void onContinueLoadingRequested(MediaPeriod source) {}
+        };
+    preloadMediaPeriod.preload(preloadCallback, /* positionUs= */ 0L);
+    runMainLooperUntil(onPreparedOfPreloadCallbackCalled::get);
+    ExoTrackSelection[] preloadTrackSelections =
+        new ExoTrackSelection[] {
+          new FixedTrackSelection(new TrackGroup(videoFormat), /* track= */ 0)
+        };
+    // PreloadMediaPeriod.selectTracksForPreloading keeps the preloaded stream.
+    preloadMediaPeriod.selectTracksForPreloading(preloadTrackSelections, /* positionUs= */ 0L);
+
+    assertThrows(IOException.class, preloadMediaPeriod::maybeThrowStreamError);
   }
 }

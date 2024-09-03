@@ -17,10 +17,8 @@
 package androidx.media3.transformer;
 
 import android.media.MediaCodecInfo;
-import androidx.media3.common.util.UnstableApi;
 
 /** Provides bitrates for encoders to use as a target. */
-@UnstableApi
 /* package */ interface EncoderBitrateProvider {
 
   /**

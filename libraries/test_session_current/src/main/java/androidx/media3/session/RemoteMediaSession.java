@@ -56,6 +56,7 @@ import static androidx.media3.test.session.common.CommonConstants.KEY_VIDEO_SIZE
 import static androidx.media3.test.session.common.CommonConstants.KEY_VOLUME;
 import static androidx.media3.test.session.common.CommonConstants.MEDIA3_SESSION_PROVIDER_SERVICE;
 import static androidx.media3.test.session.common.TestUtils.SERVICE_CONNECTION_TIMEOUT_MS;
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -208,8 +209,14 @@ public class RemoteMediaSession {
     binder.setSessionExtrasForController(sessionId, controllerKey, extras);
   }
 
-  public void setSessionActivity(PendingIntent sessionActivity) throws RemoteException {
-    binder.setSessionActivity(sessionId, sessionActivity);
+  public void setSessionActivity(String controllerKey, PendingIntent sessionActivity)
+      throws RemoteException {
+    binder.setSessionActivity(sessionId, controllerKey, sessionActivity);
+  }
+
+  public void sendError(@Nullable String controllerKey, SessionError sessionError)
+      throws RemoteException {
+    binder.sendError(sessionId, nullToEmpty(controllerKey), sessionError.toBundle());
   }
 
   ////////////////////////////////////////////////////////////////////////////////
@@ -307,9 +314,12 @@ public class RemoteMediaSession {
     }
 
     public void notifyPlayWhenReadyChanged(
-        boolean playWhenReady, @Player.PlaybackSuppressionReason int reason)
+        boolean playWhenReady,
+        @Player.PlayWhenReadyChangeReason int playWhenReadyChangeReason,
+        @Player.PlaybackSuppressionReason int suppressionReason)
         throws RemoteException {
-      binder.notifyPlayWhenReadyChanged(sessionId, playWhenReady, reason);
+      binder.notifyPlayWhenReadyChanged(
+          sessionId, playWhenReady, playWhenReadyChangeReason, suppressionReason);
     }
 
     public void notifyPlaybackStateChanged(@Player.State int state) throws RemoteException {

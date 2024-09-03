@@ -16,16 +16,16 @@
 
 package androidx.media3.exoplayer.rtsp.reader;
 
+import androidx.annotation.Nullable;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.rtsp.RtpPayloadFormat;
 import androidx.media3.extractor.ExtractorOutput;
-import org.checkerframework.checker.nullness.qual.Nullable;
 
 /** Extracts media samples from the payload of received RTP packets. */
 @UnstableApi
-/* package */ public interface RtpPayloadReader {
+public interface RtpPayloadReader {
 
   /** Factory of {@link RtpPayloadReader} instances. */
   interface Factory {
@@ -37,7 +37,8 @@ import org.checkerframework.checker.nullness.qual.Nullable;
      * @return A {@link RtpPayloadReader} for the packet stream, or {@code null} if the stream
      *     format is not supported.
      */
-    @Nullable RtpPayloadReader createPayloadReader(RtpPayloadFormat payloadFormat);
+    @Nullable
+    RtpPayloadReader createPayloadReader(RtpPayloadFormat payloadFormat);
   }
 
   /**

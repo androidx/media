@@ -20,7 +20,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import com.google.common.base.Charsets;
+import java.nio.charset.StandardCharsets;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -280,7 +280,7 @@ public final class ParsableBitArrayTest {
 
   @Test
   public void readBytesAsStringDefaultsToUtf8() {
-    byte[] testData = "a non-åscii strìng".getBytes(Charsets.UTF_8);
+    byte[] testData = "a non-åscii strìng".getBytes(StandardCharsets.UTF_8);
     ParsableBitArray testArray = new ParsableBitArray(testData);
 
     testArray.skipBytes(2);
@@ -289,18 +289,18 @@ public final class ParsableBitArrayTest {
 
   @Test
   public void readBytesAsStringExplicitCharset() {
-    byte[] testData = "a non-åscii strìng".getBytes(Charsets.UTF_16);
+    byte[] testData = "a non-åscii strìng".getBytes(StandardCharsets.UTF_16);
     ParsableBitArray testArray = new ParsableBitArray(testData);
 
     testArray.skipBytes(6);
-    assertThat(testArray.readBytesAsString(testData.length - 6, Charsets.UTF_16))
+    assertThat(testArray.readBytesAsString(testData.length - 6, StandardCharsets.UTF_16))
         .isEqualTo("non-åscii strìng");
   }
 
   @Test
   public void readBytesNotByteAligned() {
     String testString = "test string";
-    byte[] testData = testString.getBytes(Charsets.UTF_8);
+    byte[] testData = testString.getBytes(StandardCharsets.UTF_8);
     ParsableBitArray testArray = new ParsableBitArray(testData);
 
     testArray.skipBit();

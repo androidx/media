@@ -91,6 +91,7 @@ public class PassthroughShaderProgram implements GlShaderProgram {
   public void flush() {
     texIdInUse = C.INDEX_UNSET;
     inputListener.onFlush();
+    inputListener.onReadyToAcceptInputFrame();
   }
 
   @Override

@@ -21,6 +21,7 @@ import android.net.Uri;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.extractor.amr.AmrExtractor;
 import androidx.media3.extractor.avi.AviExtractor;
+import androidx.media3.extractor.avif.AvifExtractor;
 import androidx.media3.extractor.bmp.BmpExtractor;
 import androidx.media3.extractor.flac.FlacExtractor;
 import androidx.media3.extractor.flv.FlvExtractor;
@@ -32,7 +33,6 @@ import androidx.media3.extractor.mp4.FragmentedMp4Extractor;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.ogg.OggExtractor;
 import androidx.media3.extractor.png.PngExtractor;
-import androidx.media3.extractor.text.SubtitleTranscodingExtractor;
 import androidx.media3.extractor.ts.Ac3Extractor;
 import androidx.media3.extractor.ts.Ac4Extractor;
 import androidx.media3.extractor.ts.AdtsExtractor;
@@ -81,7 +81,8 @@ public final class DefaultExtractorsFactoryTest {
             PngExtractor.class,
             WebpExtractor.class,
             BmpExtractor.class,
-            HeifExtractor.class)
+            HeifExtractor.class,
+            AvifExtractor.class)
         .inOrder();
   }
 
@@ -128,19 +129,9 @@ public final class DefaultExtractorsFactoryTest {
             PngExtractor.class,
             WebpExtractor.class,
             BmpExtractor.class,
-            HeifExtractor.class)
+            HeifExtractor.class,
+            AvifExtractor.class)
         .inOrder();
-  }
-
-  @Test
-  public void subtitleTranscoding_notEnabledByDefault() {
-    DefaultExtractorsFactory defaultExtractorsFactory = new DefaultExtractorsFactory();
-
-    Extractor[] extractors = defaultExtractorsFactory.createExtractors();
-
-    for (Extractor extractor : extractors) {
-      assertThat(extractor.getClass()).isNotEqualTo(SubtitleTranscodingExtractor.class);
-    }
   }
 
   private static List<Class<? extends Extractor>> getUnderlyingExtractorClasses(

@@ -16,9 +16,7 @@
 package androidx.media3.demo.shortform
 
 import androidx.media3.common.MediaItem
-import androidx.media3.common.util.UnstableApi
 
-@UnstableApi
 class MediaItemDatabase {
 
   private val mediaUris =
@@ -32,6 +30,6 @@ class MediaItemDatabase {
 
   fun get(index: Int): MediaItem {
     val uri = mediaUris.get(index.mod(mediaUris.size))
-    return return MediaItem.Builder().setUri(uri).setMediaId(index.toString()).build()
+    return MediaItem.Builder().setUri(uri).setMediaId(index.toString()).build()
   }
 }

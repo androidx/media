@@ -43,7 +43,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * created {@link TextureAssetLoader}. Provide video frames as input by calling {@link
  * #queueInputTexture}, then {@link #signalEndOfVideoInput() signal the end of input} when finished.
  * Those methods must be called from the same thread, which can be any thread.
+ *
+ * @deprecated Use {@link RawAssetLoader}.
  */
+@Deprecated
 @UnstableApi
 public final class TextureAssetLoader implements AssetLoader {
   private final EditedMediaItem editedMediaItem;

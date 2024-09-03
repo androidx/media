@@ -22,6 +22,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.container.ReorderingSeiMessageQueue;
 import androidx.media3.extractor.CeaUtil;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.TrackOutput;
@@ -34,6 +35,7 @@ public final class SeiReader {
 
   private final List<Format> closedCaptionFormats;
   private final TrackOutput[] outputs;
+  private final ReorderingSeiMessageQueue reorderingSeiMessageQueue;
 
   /**
    * @param closedCaptionFormats A list of formats for the closed caption channels to expose.
@@ -41,6 +43,10 @@ public final class SeiReader {
   public SeiReader(List<Format> closedCaptionFormats) {
     this.closedCaptionFormats = closedCaptionFormats;
     outputs = new TrackOutput[closedCaptionFormats.size()];
+    reorderingSeiMessageQueue =
+        new ReorderingSeiMessageQueue(
+            ((presentationTimeUs, seiBuffer) ->
+                CeaUtil.consume(presentationTimeUs, seiBuffer, outputs)));
   }
 
   public void createTracks(ExtractorOutput extractorOutput, TrackIdGenerator idGenerator) {
@@ -67,7 +73,24 @@ public final class SeiReader {
     }
   }
 
+  /**
+   * Sets the maximum number of SEI buffers that need to be kept in order to re-order from decode to
+   * presentation order.
+   */
+  public void setReorderingQueueSize(int reorderingQueueSize) {
+    reorderingSeiMessageQueue.setMaxSize(reorderingQueueSize);
+  }
+
   public void consume(long pesTimeUs, ParsableByteArray seiBuffer) {
-    CeaUtil.consume(pesTimeUs, seiBuffer, outputs);
+    reorderingSeiMessageQueue.add(pesTimeUs, seiBuffer);
+  }
+
+  /**
+   * Immediately passes any 'buffered for re-ordering' messages to the {@linkplain TrackOutput
+   * outputs} passed to the constructor, using {@link CeaUtil#consume(long, ParsableByteArray,
+   * TrackOutput[])}.
+   */
+  public void flush() {
+    reorderingSeiMessageQueue.flush();
   }
 }

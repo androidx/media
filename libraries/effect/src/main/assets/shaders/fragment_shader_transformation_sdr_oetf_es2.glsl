@@ -28,6 +28,9 @@ varying vec2 vTexSamplingCoord;
 // Only COLOR_TRANSFER_SDR and COLOR_TRANSFER_GAMMA_2_2 are allowed.
 uniform int uOutputColorTransfer;
 
+// Output color for an obviously visible error.
+const vec3 ERROR_COLOR_RED = vec3(1.0, 0.0, 0.0);
+
 const float inverseGamma = 0.4500;
 
 // Transforms a single channel from optical to electrical SDR using the SMPTE
@@ -72,8 +75,7 @@ highp vec3 applyOetf(highp vec3 linearColor) {
   } else if (uOutputColorTransfer == COLOR_TRANSFER_GAMMA_2_2) {
     return gamma22Oetf(linearColor);
   } else {
-    // Output red as an obviously visible error.
-    return vec3(1.0, 0.0, 0.0);
+    return ERROR_COLOR_RED;
   }
 }
 

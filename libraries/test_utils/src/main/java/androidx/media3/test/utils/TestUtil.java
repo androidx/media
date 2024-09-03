@@ -80,6 +80,12 @@ import java.util.concurrent.ExecutionException;
 /** Utility methods for tests. */
 @UnstableApi
 public class TestUtil {
+  /**
+   * Luma PSNR values between 30 and 50 are considered good for lossy compression (See <a
+   * href="https://en.wikipedia.org/wiki/Peak_signal-to-noise_ratio#Quality_estimation_with_PSNR">Quality
+   * estimation with PSNR</a> ).
+   */
+  public static final float PSNR_THRESHOLD = 35f;
 
   private TestUtil() {}
 
@@ -366,18 +372,18 @@ public class TestUtil {
    * {@link Format} is returned.
    *
    * @param context The {@link Context};
-   * @param filePath The media file path.
+   * @param fileUri The media file uri.
    * @param trackType The {@link C.TrackType}.
    * @return The {@link Format} for the given {@link C.TrackType}.
    * @throws ExecutionException If an error occurred while retrieving file's metadata.
    * @throws InterruptedException If interrupted while retrieving file's metadata.
    */
   public static Format retrieveTrackFormat(
-      Context context, String filePath, @C.TrackType int trackType)
+      Context context, String fileUri, @C.TrackType int trackType)
       throws ExecutionException, InterruptedException {
+    checkState(new File(fileUri).length() > 0);
     TrackGroupArray trackGroupArray;
-    trackGroupArray =
-        MetadataRetriever.retrieveMetadata(context, MediaItem.fromUri("file://" + filePath)).get();
+    trackGroupArray = MetadataRetriever.retrieveMetadata(context, MediaItem.fromUri(fileUri)).get();
     for (int i = 0; i < trackGroupArray.length; i++) {
       TrackGroup trackGroup = trackGroupArray.get(i);
       if (trackGroup.type == trackType) {
@@ -469,8 +475,17 @@ public class TestUtil {
     return extractAllSamplesFromByteArray(extractor, data);
   }
 
-  private static FakeExtractorOutput extractAllSamplesFromByteArray(
-      Extractor extractor, byte[] data) throws IOException {
+  /**
+   * Extracts all samples from the given byte array into a {@link FakeTrackOutput}.
+   *
+   * @param extractor The {@link Extractor} to be used.
+   * @param data The byte array data.
+   * @return The {@link FakeTrackOutput} containing the extracted samples.
+   * @throws IOException If an error occurred reading from the input, or if the extractor finishes
+   *     reading from input without extracting any {@link SeekMap}.
+   */
+  public static FakeExtractorOutput extractAllSamplesFromByteArray(Extractor extractor, byte[] data)
+      throws IOException {
     FakeExtractorOutput expectedOutput = new FakeExtractorOutput();
     extractor.init(expectedOutput);
     FakeExtractorInput input = new FakeExtractorInput.Builder().setData(data).build();

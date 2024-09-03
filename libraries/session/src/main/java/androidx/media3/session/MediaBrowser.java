@@ -20,13 +20,12 @@ import static androidx.media3.common.util.Assertions.checkNotEmpty;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.postOrRun;
-import static androidx.media3.session.LibraryResult.RESULT_ERROR_SESSION_DISCONNECTED;
+import static androidx.media3.session.SessionError.ERROR_SESSION_DISCONNECTED;
 
 import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.support.v4.media.session.MediaSessionCompat;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
@@ -87,7 +86,7 @@ public final class MediaBrowser extends MediaController {
      * of this bundle may affect the connection result.
      *
      * <p>The hints are only used when connecting to the {@link MediaSession}. They will be ignored
-     * when connecting to {@link MediaSessionCompat}.
+     * when connecting to {@code android.support.v4.media.session.MediaSessionCompat}.
      *
      * @param connectionHints A bundle containing the connection hints.
      * @return The builder to allow chaining.
@@ -423,7 +422,7 @@ public final class MediaBrowser extends MediaController {
   }
 
   private static <V> ListenableFuture<LibraryResult<V>> createDisconnectedFuture() {
-    return Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_SESSION_DISCONNECTED));
+    return Futures.immediateFuture(LibraryResult.ofError(ERROR_SESSION_DISCONNECTED));
   }
 
   private void verifyApplicationThread() {

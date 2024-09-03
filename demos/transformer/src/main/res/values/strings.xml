@@ -16,7 +16,7 @@
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
   <string name="app_name" translatable="false">Transformer Demo</string>
   <string name="configuration" translatable="false">Configuration</string>
-  <string name="select_preset_file_title" translatable="false">Choose preset file</string>
+  <string name="select_preset_title" translatable="false">Choose preset input</string>
   <string name="select_local_file_title">Choose local file</string>
   <string name="local_file_picker_failed">File couldn\'t be opened. Please try again.</string>
   <string name="remove_audio" translatable="false">Remove audio</string>
@@ -28,8 +28,11 @@
   <string name="scale" translatable="false">Scale video</string>
   <string name="rotate" translatable="false">Rotate video (degrees)</string>
   <string name="enable_fallback" translatable="false">Enable fallback</string>
+  <string name="enable_analyzer_mode" translatable="false">Enable analyzer mode</string>
   <string name="enable_debug_preview" translatable="false">Enable debug preview</string>
+  <string name="enable_debug_tracing" translatable="false">Enable debug tracing</string>
   <string name="abort_slow_export" translatable="false">Abort slow export</string>
+  <string name="use_media3_muxer" translatable="false">Use Media3 muxer</string>
   <string name="produce_fragmented_mp4" translatable="false">Produce fragmented MP4</string>
   <string name="trim" translatable="false">Trim</string>
   <string name="hdr_mode" translatable="false">HDR mode</string>
@@ -39,7 +42,7 @@
   <string name="no_media_pipe_error" translatable="false">Failed to load MediaPipeShaderProgram. Check the README for instructions.</string>
   <string name="export" translatable="false">Export</string>
   <string name="debug_preview" translatable="false">Debug preview:</string>
-  <string name="cancel" translatable="false">Cancel</string>
+  <string name="pause" translatable="false">Pause</string>
   <string name="resume" translatable="false">Resume</string>
   <string name="debug_preview_not_available" translatable="false">No debug preview available.</string>
   <string name="export_started" translatable="false">Export started</string>

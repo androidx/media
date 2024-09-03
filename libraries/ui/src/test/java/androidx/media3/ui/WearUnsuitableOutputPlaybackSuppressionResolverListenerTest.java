@@ -55,6 +55,7 @@ import org.robolectric.shadows.AudioDeviceInfoBuilder;
 import org.robolectric.shadows.ShadowApplication;
 import org.robolectric.shadows.ShadowAudioManager;
 import org.robolectric.shadows.ShadowPackageManager;
+import org.robolectric.shadows.ShadowPowerManager;
 
 /** Tests for the {@link WearUnsuitableOutputPlaybackSuppressionResolverListener}. */
 @RunWith(AndroidJUnit4.class)
@@ -681,6 +682,82 @@ public class WearUnsuitableOutputPlaybackSuppressionResolverListenerTest {
     runUntilPlayWhenReady(testPlayer, /* expectedPlayWhenReady= */ false);
 
     assertThat(testPlayer.isPlaying()).isFalse();
+  }
+
+  /** Test to ensure wake lock is acquired when playback is suppressed due to unsuitable output. */
+  @Test
+  public void playEventWithSuppressedPlaybackCondition_shouldAcquireWakeLock()
+      throws TimeoutException {
+    shadowPackageManager.setSystemFeature(PackageManager.FEATURE_WATCH, /* supported= */ true);
+    setupConnectedAudioOutput(AudioDeviceInfo.TYPE_BUILTIN_SPEAKER);
+    FakeClock fakeClock = new FakeClock(/* isAutoAdvancing= */ true);
+    testPlayer.addListener(
+        new WearUnsuitableOutputPlaybackSuppressionResolverListener(
+            ApplicationProvider.getApplicationContext(), TEST_TIME_OUT_MS, fakeClock));
+    testPlayer.setMediaItem(
+        MediaItem.fromUri("asset:///media/mp4/sample_with_increasing_timestamps_360p.mp4"));
+    testPlayer.prepare();
+
+    testPlayer.play();
+    runUntilPlaybackState(testPlayer, Player.STATE_READY);
+
+    assertThat(ShadowPowerManager.getLatestWakeLock()).isNotNull();
+    assertThat(ShadowPowerManager.getLatestWakeLock().isHeld()).isTrue();
+  }
+
+  /**
+   * Test to ensure that the wake lock acquired with playback suppression due to unsuitable output
+   * is released after the set timeout.
+   */
+  @Test
+  public void playEventWithSuppressedPlaybackCondition_shouldReleaseAcquiredWakeLockAfterTimeout()
+      throws TimeoutException {
+    shadowPackageManager.setSystemFeature(PackageManager.FEATURE_WATCH, /* supported= */ true);
+    setupConnectedAudioOutput(AudioDeviceInfo.TYPE_BUILTIN_SPEAKER);
+    FakeClock fakeClock = new FakeClock(/* isAutoAdvancing= */ true);
+    testPlayer.addListener(
+        new WearUnsuitableOutputPlaybackSuppressionResolverListener(
+            ApplicationProvider.getApplicationContext(), TEST_TIME_OUT_MS, fakeClock));
+    testPlayer.setMediaItem(
+        MediaItem.fromUri("asset:///media/mp4/sample_with_increasing_timestamps_360p.mp4"));
+    testPlayer.prepare();
+    testPlayer.play();
+    runUntilPlaybackState(testPlayer, Player.STATE_READY);
+
+    fakeClock.advanceTime(TEST_TIME_OUT_MS * 2);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    assertThat(ShadowPowerManager.getLatestWakeLock()).isNotNull();
+    assertThat(ShadowPowerManager.getLatestWakeLock().isHeld()).isFalse();
+  }
+
+  /**
+   * Test to ensure that the wake lock acquired with playback suppression due to unsuitable output
+   * is released after suitable output gets added.
+   */
+  @Test
+  public void playEventWithSuppressedPlaybackConditionRemoved_shouldReleaseAcquiredWakeLock()
+      throws TimeoutException {
+    shadowPackageManager.setSystemFeature(PackageManager.FEATURE_WATCH, /* supported= */ true);
+    setupConnectedAudioOutput(AudioDeviceInfo.TYPE_BUILTIN_SPEAKER);
+    FakeClock fakeClock = new FakeClock(/* isAutoAdvancing= */ true);
+    testPlayer.addListener(
+        new WearUnsuitableOutputPlaybackSuppressionResolverListener(
+            ApplicationProvider.getApplicationContext(), TEST_TIME_OUT_MS, fakeClock));
+    testPlayer.setMediaItem(
+        MediaItem.fromUri("asset:///media/mp4/sample_with_increasing_timestamps_360p.mp4"));
+    testPlayer.prepare();
+
+    testPlayer.play();
+    runUntilPlaybackState(testPlayer, Player.STATE_READY);
+
+    addConnectedAudioOutput(
+        AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, /* notifyAudioDeviceCallbacks= */ true);
+    runUntilPlayWhenReady(testPlayer, /* expectedPlayWhenReady= */ false);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    assertThat(ShadowPowerManager.getLatestWakeLock()).isNotNull();
+    assertThat(ShadowPowerManager.getLatestWakeLock().isHeld()).isFalse();
   }
 
   private void registerFakeActivity(

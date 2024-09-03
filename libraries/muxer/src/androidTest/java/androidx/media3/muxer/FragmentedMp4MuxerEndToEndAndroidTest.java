@@ -27,7 +27,7 @@ import androidx.media3.test.utils.DumpableMp4Box;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -38,13 +38,25 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 /** End to end instrumentation tests for {@link FragmentedMp4Muxer}. */
-@RunWith(AndroidJUnit4.class)
+@RunWith(Parameterized.class)
 public class FragmentedMp4MuxerEndToEndAndroidTest {
+  private static final String H264_WITH_PYRAMID_B_FRAMES_MP4 =
+      "bbb_800x640_768kbps_30fps_avc_pyramid_3b.mp4";
   private static final String H265_HDR10_MP4 = "hdr10-720p.mp4";
 
+  @Parameters(name = "{0}")
+  public static ImmutableList<String> mediaSamples() {
+    return ImmutableList.of(H264_WITH_PYRAMID_B_FRAMES_MP4, H265_HDR10_MP4);
+  }
+
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
+
+  @Parameter public @MonotonicNonNull String inputFile;
 
   private final Context context = ApplicationProvider.getApplicationContext();
   private @MonotonicNonNull String outputPath;
@@ -62,16 +74,16 @@ public class FragmentedMp4MuxerEndToEndAndroidTest {
   }
 
   @Test
-  public void createFragmentedMp4File_fromInputFileSampleData_matchesExpected() throws IOException {
+  public void createFragmentedMp4File_fromInputFileSampleData_matchesExpected() throws Exception {
     @Nullable Muxer fragmentedMp4Muxer = null;
 
     try {
-      fragmentedMp4Muxer = new FragmentedMp4Muxer(checkNotNull(outputStream));
-      fragmentedMp4Muxer.addMetadata(
+      fragmentedMp4Muxer = new FragmentedMp4Muxer.Builder(checkNotNull(outputStream)).build();
+      fragmentedMp4Muxer.addMetadataEntry(
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 100_000_000L,
               /* modificationTimestampSeconds= */ 500_000_000L));
-      feedInputDataToMuxer(context, fragmentedMp4Muxer, H265_HDR10_MP4);
+      feedInputDataToMuxer(context, fragmentedMp4Muxer, checkNotNull(inputFile));
     } finally {
       if (fragmentedMp4Muxer != null) {
         fragmentedMp4Muxer.close();
@@ -84,17 +96,17 @@ public class FragmentedMp4MuxerEndToEndAndroidTest {
     DumpFileAsserts.assertOutput(
         context,
         fakeExtractorOutput,
-        AndroidMuxerTestUtil.getExpectedDumpFilePath(H265_HDR10_MP4 + "_fragmented"));
+        AndroidMuxerTestUtil.getExpectedDumpFilePath(inputFile + "_fragmented"));
   }
 
   @Test
   public void createFragmentedMp4File_fromInputFileSampleData_matchesExpectedBoxStructure()
-      throws IOException {
+      throws Exception {
     @Nullable Muxer fragmentedMp4Muxer = null;
 
     try {
-      fragmentedMp4Muxer = new FragmentedMp4Muxer(checkNotNull(outputStream));
-      fragmentedMp4Muxer.addMetadata(
+      fragmentedMp4Muxer = new FragmentedMp4Muxer.Builder(checkNotNull(outputStream)).build();
+      fragmentedMp4Muxer.addMetadataEntry(
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 100_000_000L,
               /* modificationTimestampSeconds= */ 500_000_000L));

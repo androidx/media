@@ -19,7 +19,6 @@ package androidx.media3.decoder.midi;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 
 import androidx.annotation.Nullable;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.midi.SonivoxWaveData.Envelope;
 import androidx.media3.decoder.midi.SonivoxWaveData.WavetableRegion;
 import com.jsyn.data.ShortSample;
@@ -42,7 +41,6 @@ import com.softsynth.shared.time.TimeStamp;
  * envelopes. This synth uses the {@linkplain SonivoxWaveData Sonivox wave and instrument data} to
  * implement General MIDI.
  */
-@UnstableApi
 /* package */ final class SonivoxSynthVoice extends Circuit implements UnitVoice {
 
   // TODO(b/228838584): Replace with automatic gain control.

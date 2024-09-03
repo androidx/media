@@ -22,12 +22,13 @@ import static androidx.media3.test.utils.TestUtil.buildTestData;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import android.os.Bundle;
+import androidx.annotation.Nullable;
 import androidx.media3.test.utils.FakeMetadataEntry;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -42,21 +43,27 @@ public final class FormatTest {
   }
 
   @Test
-  public void roundTripViaBundle_ofParameters_yieldsEqualInstance() {
+  public void roundTripViaBundle_includeMetadata_includesAllBundledFields() {
     Format formatToBundle = createTestFormat();
-    Format formatFromBundle = Format.fromBundle(formatToBundle.toBundle());
 
-    assertThat(formatFromBundle).isEqualTo(formatToBundle);
+    Format formatFromBundle =
+        Format.fromBundle(formatToBundle.toBundle(/* excludeMetadata= */ false));
+
+    // Expect all data to be bundled except the custom data.
+    Format expectedRoundTripFormat = formatToBundle.buildUpon().setCustomData(null).build();
+    assertThat(formatFromBundle).isEqualTo(expectedRoundTripFormat);
   }
 
   @Test
-  public void roundTripViaBundle_excludeMetadata_hasMetadataExcluded() {
+  public void roundTripViaBundle_excludeMetadata_includesAllBundledFieldsExceptMetadata() {
     Format format = createTestFormat();
 
-    Bundle bundleWithMetadataExcluded = format.toBundle(/* excludeMetadata= */ true);
+    Format formatFromBundle = Format.fromBundle(format.toBundle(/* excludeMetadata= */ true));
 
-    Format formatWithMetadataExcluded = Format.fromBundle(bundleWithMetadataExcluded);
-    assertThat(formatWithMetadataExcluded).isEqualTo(format.buildUpon().setMetadata(null).build());
+    // Expect all data to be bundled except the custom data and metadata.
+    Format expectedRoundTripFormat =
+        format.buildUpon().setCustomData(null).setMetadata(null).build();
+    assertThat(formatFromBundle).isEqualTo(expectedRoundTripFormat);
   }
 
   @Test
@@ -152,6 +159,7 @@ public final class FormatTest {
         .setPeakBitrate(2048)
         .setCodecs("codec")
         .setMetadata(metadata)
+        .setCustomData(new TestCustomData("CustomData", 100))
         .setContainerMimeType(VIDEO_MP4)
         .setSampleMimeType(MimeTypes.VIDEO_H264)
         .setMaxInputSize(5000)
@@ -176,5 +184,35 @@ public final class FormatTest {
         .setTileCountHorizontal(20)
         .setTileCountVertical(40)
         .build();
+  }
+
+  private static final class TestCustomData {
+    public final String extraMetadata;
+    public final int customInt;
+
+    public TestCustomData(String extraMetadata, int customInt) {
+      this.extraMetadata = extraMetadata;
+      this.customInt = customInt;
+    }
+
+    @Override
+    public int hashCode() {
+      int result = 17;
+      result = 31 * result + (extraMetadata == null ? 0 : extraMetadata.hashCode());
+      result = 31 * result + customInt;
+      return result;
+    }
+
+    @Override
+    public boolean equals(@Nullable Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (obj == null || getClass() != obj.getClass()) {
+        return false;
+      }
+      TestCustomData other = (TestCustomData) obj;
+      return Objects.equals(extraMetadata, other.extraMetadata) && customInt == other.customInt;
+    }
   }
 }

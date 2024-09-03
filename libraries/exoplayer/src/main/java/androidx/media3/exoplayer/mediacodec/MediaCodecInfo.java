@@ -50,7 +50,6 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.DecoderReuseEvaluation.DecoderDiscardReasons;
-import androidx.media3.exoplayer.DecoderReuseEvaluation.DecoderReuseResult;
 
 /** Information about a {@link MediaCodec} for a given MIME type. */
 @SuppressWarnings("InlinedApi")
@@ -139,6 +138,14 @@ public final class MediaCodecInfo {
    */
   public final boolean vendor;
 
+  /**
+   * Whether the codec supports "detached" surface mode where it is able to decode without an
+   * attached surface. Only relevant for video codecs.
+   *
+   * @see android.media.MediaCodecInfo.CodecCapabilities#FEATURE_DetachedSurface
+   */
+  public final boolean detachedSurfaceSupported;
+
   private final boolean isVideo;
 
   /**
@@ -180,7 +187,8 @@ public final class MediaCodecInfo {
             && isAdaptive(capabilities)
             && !needsDisableAdaptationWorkaround(name),
         /* tunneling= */ capabilities != null && isTunneling(capabilities),
-        /* secure= */ forceSecure || (capabilities != null && isSecure(capabilities)));
+        /* secure= */ forceSecure || (capabilities != null && isSecure(capabilities)),
+        isDetachedSurfaceSupported(capabilities));
   }
 
   @VisibleForTesting
@@ -194,7 +202,8 @@ public final class MediaCodecInfo {
       boolean vendor,
       boolean adaptive,
       boolean tunneling,
-      boolean secure) {
+      boolean secure,
+      boolean detachedSurfaceSupported) {
     this.name = Assertions.checkNotNull(name);
     this.mimeType = mimeType;
     this.codecMimeType = codecMimeType;
@@ -205,6 +214,7 @@ public final class MediaCodecInfo {
     this.adaptive = adaptive;
     this.tunneling = tunneling;
     this.secure = secure;
+    this.detachedSurfaceSupported = detachedSurfaceSupported;
     isVideo = MimeTypes.isVideo(mimeType);
   }
 
@@ -259,22 +269,12 @@ public final class MediaCodecInfo {
       if (format.width <= 0 || format.height <= 0) {
         return true;
       }
-      if (Util.SDK_INT >= 21) {
-        return isVideoSizeAndRateSupportedV21(format.width, format.height, format.frameRate);
-      } else {
-        boolean isFormatSupported =
-            format.width * format.height <= MediaCodecUtil.maxH264DecodableFrameSize();
-        if (!isFormatSupported) {
-          logNoSupport("legacyFrameSize, " + format.width + "x" + format.height);
-        }
-        return isFormatSupported;
-      }
+      return isVideoSizeAndRateSupportedV21(format.width, format.height, format.frameRate);
     } else { // Audio
-      return Util.SDK_INT < 21
-          || ((format.sampleRate == Format.NO_VALUE
-                  || isAudioSampleRateSupportedV21(format.sampleRate))
-              && (format.channelCount == Format.NO_VALUE
-                  || isAudioChannelCountSupportedV21(format.channelCount)));
+      return (format.sampleRate == Format.NO_VALUE
+              || isAudioSampleRateSupportedV21(format.sampleRate))
+          && (format.channelCount == Format.NO_VALUE
+              || isAudioChannelCountSupportedV21(format.channelCount));
     }
   }
 
@@ -297,6 +297,12 @@ public final class MediaCodecInfo {
   private boolean isCodecProfileAndLevelSupported(
       Format format, boolean checkPerformanceCapabilities) {
     Pair<Integer, Integer> codecProfileAndLevel = MediaCodecUtil.getCodecProfileAndLevel(format);
+    if (format.sampleMimeType != null
+        && format.sampleMimeType.equals(MimeTypes.VIDEO_MV_HEVC)
+        && codecMimeType.equals(MimeTypes.VIDEO_H265)) {
+      // Falling back to single-layer HEVC from MV-HEVC.  Get base layer profile and level.
+      codecProfileAndLevel = MediaCodecUtil.getHevcBaseLayerCodecProfileAndLevel(format);
+    }
     if (codecProfileAndLevel == null) {
       // If we don't know any better, we assume that the profile and level are supported.
       return true;
@@ -357,8 +363,7 @@ public final class MediaCodecInfo {
    * format when the codec is configured to play media in the specified {@code format}.
    *
    * <p>For adaptation to succeed, the codec must also be configured with appropriate maximum values
-   * and {@link #isSeamlessAdaptationSupported(Format, Format, boolean)} must return {@code true}
-   * for the old/new formats.
+   * and {@link #canReuseCodec(Format, Format)} must return {@code true} for the old/new formats.
    *
    * @param format The format of media for which the decoder will be configured.
    * @return Whether adaptation may be possible
@@ -370,32 +375,6 @@ public final class MediaCodecInfo {
       Pair<Integer, Integer> profileLevel = MediaCodecUtil.getCodecProfileAndLevel(format);
       return profileLevel != null && profileLevel.first == CodecProfileLevel.AACObjectXHE;
     }
-  }
-
-  /**
-   * Returns whether it is possible to adapt an instance of this decoder seamlessly from {@code
-   * oldFormat} to {@code newFormat}. If {@code newFormat} may not be completely populated, pass
-   * {@code false} for {@code isNewFormatComplete}.
-   *
-   * <p>For adaptation to succeed, the codec must also be configured with maximum values that are
-   * compatible with the new format.
-   *
-   * @param oldFormat The format being decoded.
-   * @param newFormat The new format.
-   * @param isNewFormatComplete Whether {@code newFormat} is populated with format-specific
-   *     metadata.
-   * @return Whether it is possible to adapt the decoder seamlessly.
-   * @deprecated Use {@link #canReuseCodec}.
-   */
-  @Deprecated
-  public boolean isSeamlessAdaptationSupported(
-      Format oldFormat, Format newFormat, boolean isNewFormatComplete) {
-    if (!isNewFormatComplete && oldFormat.colorInfo != null && newFormat.colorInfo == null) {
-      newFormat = newFormat.buildUpon().setColorInfo(oldFormat.colorInfo).build();
-    }
-    @DecoderReuseResult int reuseResult = canReuseCodec(oldFormat, newFormat).result;
-    return reuseResult == REUSE_RESULT_YES_WITH_RECONFIGURATION
-        || reuseResult == REUSE_RESULT_YES_WITHOUT_RECONFIGURATION;
   }
 
   /**
@@ -504,7 +483,6 @@ public final class MediaCodecInfo {
    *     Format#NO_VALUE} or any value less than or equal to 0.
    * @return Whether the decoder supports video with the given width, height and frame rate.
    */
-  @RequiresApi(21)
   public boolean isVideoSizeAndRateSupportedV21(int width, int height, double frameRate) {
     if (capabilities == null) {
       logNoSupport("sizeAndRate.caps");
@@ -528,13 +506,13 @@ public final class MediaCodecInfo {
         return false;
       }
       // If COVERAGE_RESULT_NO_PERFORMANCE_POINTS_UNSUPPORTED then logic falls through
-      // to API 21+ code below.
+      // to code below.
     }
 
-    if (!areSizeAndRateSupportedV21(videoCapabilities, width, height, frameRate)) {
+    if (!areSizeAndRateSupported(videoCapabilities, width, height, frameRate)) {
       if (width >= height
           || !needsRotatedVerticalResolutionWorkaround(name)
-          || !areSizeAndRateSupportedV21(videoCapabilities, height, width, frameRate)) {
+          || !areSizeAndRateSupported(videoCapabilities, height, width, frameRate)) {
         logNoSupport("sizeAndRate.support, " + width + "x" + height + "@" + frameRate);
         return false;
       }
@@ -547,8 +525,6 @@ public final class MediaCodecInfo {
    * Returns the smallest video size greater than or equal to a specified size that also satisfies
    * the {@link MediaCodec}'s width and height alignment requirements.
    *
-   * <p>Must not be called if the device SDK version is less than 21.
-   *
    * @param width Width in pixels.
    * @param height Height in pixels.
    * @return The smallest video size greater than or equal to the specified size that also satisfies
@@ -556,7 +532,6 @@ public final class MediaCodecInfo {
    *     codec.
    */
   @Nullable
-  @RequiresApi(21)
   public Point alignVideoSizeV21(int width, int height) {
     if (capabilities == null) {
       return null;
@@ -565,18 +540,15 @@ public final class MediaCodecInfo {
     if (videoCapabilities == null) {
       return null;
     }
-    return alignVideoSizeV21(videoCapabilities, width, height);
+    return alignVideoSize(videoCapabilities, width, height);
   }
 
   /**
    * Whether the decoder supports audio with a given sample rate.
    *
-   * <p>Must not be called if the device SDK version is less than 21.
-   *
    * @param sampleRate The sample rate in Hz.
    * @return Whether the decoder supports audio with the given sample rate.
    */
-  @RequiresApi(21)
   public boolean isAudioSampleRateSupportedV21(int sampleRate) {
     if (capabilities == null) {
       logNoSupport("sampleRate.caps");
@@ -597,12 +569,9 @@ public final class MediaCodecInfo {
   /**
    * Whether the decoder supports audio with a given channel count.
    *
-   * <p>Must not be called if the device SDK version is less than 21.
-   *
    * @param channelCount The channel count.
    * @return Whether the decoder supports audio with the given channel count.
    */
-  @RequiresApi(21)
   public boolean isAudioChannelCountSupportedV21(int channelCount) {
     if (capabilities == null) {
       logNoSupport("channelCount.caps");
@@ -696,28 +665,23 @@ public final class MediaCodecInfo {
   }
 
   private static boolean isTunneling(CodecCapabilities capabilities) {
-    return Util.SDK_INT >= 21 && isTunnelingV21(capabilities);
-  }
-
-  @RequiresApi(21)
-  private static boolean isTunnelingV21(CodecCapabilities capabilities) {
     return capabilities.isFeatureSupported(CodecCapabilities.FEATURE_TunneledPlayback);
   }
 
   private static boolean isSecure(CodecCapabilities capabilities) {
-    return Util.SDK_INT >= 21 && isSecureV21(capabilities);
-  }
-
-  @RequiresApi(21)
-  private static boolean isSecureV21(CodecCapabilities capabilities) {
     return capabilities.isFeatureSupported(CodecCapabilities.FEATURE_SecurePlayback);
   }
 
-  @RequiresApi(21)
-  private static boolean areSizeAndRateSupportedV21(
+  private static boolean isDetachedSurfaceSupported(@Nullable CodecCapabilities capabilities) {
+    return Util.SDK_INT >= 35
+        && capabilities != null
+        && capabilities.isFeatureSupported(CodecCapabilities.FEATURE_DetachedSurface);
+  }
+
+  private static boolean areSizeAndRateSupported(
       VideoCapabilities capabilities, int width, int height, double frameRate) {
     // Don't ever fail due to alignment. See: https://github.com/google/ExoPlayer/issues/6551.
-    Point alignedSize = alignVideoSizeV21(capabilities, width, height);
+    Point alignedSize = alignVideoSize(capabilities, width, height);
     width = alignedSize.x;
     height = alignedSize.y;
 
@@ -734,8 +698,7 @@ public final class MediaCodecInfo {
     }
   }
 
-  @RequiresApi(21)
-  private static Point alignVideoSizeV21(VideoCapabilities capabilities, int width, int height) {
+  private static Point alignVideoSize(VideoCapabilities capabilities, int width, int height) {
     int widthAlignment = capabilities.getWidthAlignment();
     int heightAlignment = capabilities.getHeightAlignment();
     return new Point(

@@ -476,6 +476,9 @@ import java.lang.reflect.Method;
    */
   public void expectRawPlaybackHeadReset() {
     expectRawPlaybackHeadReset = true;
+    if (audioTimestampPoller != null) {
+      audioTimestampPoller.expectTimestampFramePositionReset();
+    }
   }
 
   /**

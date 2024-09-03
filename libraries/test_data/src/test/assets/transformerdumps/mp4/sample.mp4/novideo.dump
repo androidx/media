@@ -10,7 +10,10 @@ format audio:
   metadata = entries=[TSSE: description=null: values=[Lavf56.1.0], xyz: latitude=40.68, longitude=-74.5, Mp4Timestamp: creation time=3547558895, modification time=3547558895, timescale=1000]
   initializationData:
     data = length 2, hash 5F7
-container metadata = entries=[TSSE: description=null: values=[Lavf56.1.0], xyz: latitude=40.68, longitude=-74.5, Mp4Timestamp: creation time=3547558895, modification time=3547558895, timescale=1000]
+container metadata:
+  entry = Mp4Timestamp: creation time=3547558895, modification time=3547558895, timescale=1000
+  entry = TSSE: description=null: values=[Lavf56.1.0]
+  entry = xyz: latitude=40.68, longitude=-74.5
 sample:
   trackType = audio
   dataHashCode = 1205768497

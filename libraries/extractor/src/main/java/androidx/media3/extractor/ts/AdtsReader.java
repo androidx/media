@@ -30,7 +30,7 @@ import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.AacUtil;
-import androidx.media3.extractor.DummyTrackOutput;
+import androidx.media3.extractor.DiscardingTrackOutput;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.ts.TsPayloadReader.TrackIdGenerator;
@@ -153,7 +153,7 @@ public final class AdtsReader implements ElementaryStreamReader {
               .setSampleMimeType(MimeTypes.APPLICATION_ID3)
               .build());
     } else {
-      id3Output = new DummyTrackOutput();
+      id3Output = new DiscardingTrackOutput();
     }
   }
 
@@ -194,7 +194,7 @@ public final class AdtsReader implements ElementaryStreamReader {
   }
 
   @Override
-  public void packetFinished() {
+  public void packetFinished(boolean isEndOfInput) {
     // Do nothing.
   }
 

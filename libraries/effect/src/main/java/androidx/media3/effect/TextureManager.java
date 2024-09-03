@@ -107,12 +107,19 @@ import androidx.media3.common.util.TimestampIterator;
    * Sets information about the input frames.
    *
    * <p>The new input information is applied from the next frame {@linkplain #registerInputFrame
-   * registered} or {@linkplain #queueInputTexture queued} onwards.
+   * registered} or {@linkplain #queueInputTexture queued} onwards. If the implementation requires
+   * frames to be registered, it may use the {@link FrameInfo} passed to {@link
+   * #registerInputFrame(FrameInfo)} instead of the one passed here.
    *
    * <p>Pixels are expanded using the {@link FrameInfo#pixelWidthHeightRatio} so that the output
    * frames' pixels have a ratio of 1.
+   *
+   * @param inputFrameInfo Information about the next input frame.
+   * @param automaticReregistration Whether the frames should be re-registered automatically, if
+   *     using an input surface. Pass {@code false} if every frame will be registered before it is
+   *     rendered to the surface.
    */
-  public void setInputFrameInfo(FrameInfo inputFrameInfo) {
+  public void setInputFrameInfo(FrameInfo inputFrameInfo, boolean automaticReregistration) {
     // Do nothing.
   }
 
@@ -157,11 +164,14 @@ import androidx.media3.common.util.TimestampIterator;
   public abstract void release() throws VideoFrameProcessingException;
 
   /** Clears any pending data. Must be called on the GL thread. */
-  protected void flush() {
+  protected void flush() throws VideoFrameProcessingException {
     synchronized (lock) {
       if (onFlushCompleteTask != null) {
         videoFrameProcessingTaskExecutor.submitWithHighPriority(onFlushCompleteTask);
       }
     }
   }
+
+  /** Releases all previously {@linkplain #registerInputFrame(FrameInfo) registered} frames. */
+  public void releaseAllRegisteredFrames() {}
 }

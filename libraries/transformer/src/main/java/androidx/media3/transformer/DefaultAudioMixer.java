@@ -30,6 +30,7 @@ import androidx.media3.common.audio.AudioProcessor.UnhandledAudioFormatException
 import androidx.media3.common.audio.ChannelMixingMatrix;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.effect.DebugTraceUtil;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
@@ -141,6 +142,13 @@ public final class DefaultAudioMixer implements AudioMixer {
     this.outputAudioFormat = outputAudioFormat;
     bufferSizeFrames = bufferSizeMs * outputAudioFormat.sampleRate / 1000;
     mixerStartTimeUs = startTimeUs;
+    DebugTraceUtil.logEvent(
+        DebugTraceUtil.COMPONENT_AUDIO_MIXER,
+        DebugTraceUtil.EVENT_OUTPUT_FORMAT,
+        mixerStartTimeUs,
+        "%s",
+        outputAudioFormat);
+
     mixingBuffers =
         new MixingBuffer[] {allocateMixingBuffer(0), allocateMixingBuffer(bufferSizeFrames)};
     updateInputFrameLimit();
@@ -182,6 +190,14 @@ public final class DefaultAudioMixer implements AudioMixer {
             sourceFormat,
             ChannelMixingMatrix.create(sourceFormat.channelCount, outputAudioFormat.channelCount),
             startFrameOffset));
+
+    DebugTraceUtil.logEvent(
+        DebugTraceUtil.COMPONENT_AUDIO_MIXER,
+        DebugTraceUtil.EVENT_REGISTER_NEW_INPUT_STREAM,
+        startTimeUs,
+        "source(%s):%s",
+        sourceId,
+        sourceFormat);
 
     return sourceId;
   }
@@ -294,6 +310,12 @@ public final class DefaultAudioMixer implements AudioMixer {
     outputPosition = newOutputPosition;
     updateInputFrameLimit();
 
+    DebugTraceUtil.logEvent(
+        DebugTraceUtil.COMPONENT_AUDIO_MIXER,
+        DebugTraceUtil.EVENT_PRODUCED_OUTPUT,
+        C.TIME_UNSET,
+        "bytesOutput=%s",
+        outputBuffer.remaining());
     return outputBuffer;
   }
 

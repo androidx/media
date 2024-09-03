@@ -37,5 +37,11 @@ public class MediaSessionConstants {
   public static final String KEY_CONTROLLER = "controllerKey";
   public static final String KEY_COMMAND_GET_TASKS_UNAVAILABLE = "commandGetTasksUnavailable";
 
+  /**
+   * The key used to identify the notification controller in test-only methods like {@code
+   * RemoteMediaSession#setSessionExtras(String controllerKey, Bundle extras)}.
+   */
+  public static final String NOTIFICATION_CONTROLLER_KEY = "notificationController";
+
   private MediaSessionConstants() {}
 }

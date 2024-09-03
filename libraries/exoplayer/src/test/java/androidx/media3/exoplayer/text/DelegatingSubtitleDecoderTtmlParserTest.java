@@ -28,6 +28,7 @@ import androidx.media3.common.util.ColorParser;
 import androidx.media3.extractor.text.Subtitle;
 import androidx.media3.extractor.text.ttml.TtmlParser;
 import androidx.media3.test.utils.TestUtil;
+import androidx.media3.test.utils.truth.SpannedSubject;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.IOException;
@@ -149,10 +150,10 @@ public final class DelegatingSubtitleDecoderTtmlParserTest {
   public void inheritGlobalStyleOverriddenByInlineAttributes() throws IOException {
     Subtitle subtitle = getSubtitle(INHERIT_STYLE_OVERRIDE_TTML_FILE);
 
-    assertThat(subtitle.getEventTimeCount()).isEqualTo(4);
+    assertThat(subtitle.getEventTimeCount()).isEqualTo(6);
 
     Spanned firstCueText = getOnlyCueTextAtTimeUs(subtitle, 10_000_000);
-    assertThat(firstCueText.toString()).isEqualTo("text 1");
+    assertThat(firstCueText.toString()).isEqualTo("default + s0 styles");
     assertThat(firstCueText).hasTypefaceSpanBetween(0, firstCueText.length()).withFamily("serif");
     assertThat(firstCueText).hasBoldItalicSpanBetween(0, firstCueText.length());
     assertThat(firstCueText).hasUnderlineSpanBetween(0, firstCueText.length());
@@ -162,9 +163,12 @@ public final class DelegatingSubtitleDecoderTtmlParserTest {
     assertThat(firstCueText)
         .hasForegroundColorSpanBetween(0, firstCueText.length())
         .withColor(0xFFFFFF00);
+    SpannedSubject.assertThat(firstCueText)
+        .hasRelativeSizeSpanBetween(0, firstCueText.length())
+        .withSizeChange(1.5f);
 
     Spanned secondCueText = getOnlyCueTextAtTimeUs(subtitle, 20_000_000);
-    assertThat(secondCueText.toString()).isEqualTo("text 2");
+    assertThat(secondCueText.toString()).isEqualTo("default + s0 + overrides");
     assertThat(secondCueText)
         .hasTypefaceSpanBetween(0, secondCueText.length())
         .withFamily("sansSerif");
@@ -176,6 +180,15 @@ public final class DelegatingSubtitleDecoderTtmlParserTest {
     assertThat(secondCueText)
         .hasForegroundColorSpanBetween(0, secondCueText.length())
         .withColor(0xFFFFFF00);
+    SpannedSubject.assertThat(secondCueText)
+        .hasRelativeSizeSpanBetween(0, secondCueText.length())
+        .withSizeChange(0.9f);
+
+    Spanned thirdCueText = getOnlyCueTextAtTimeUs(subtitle, 30_000_000);
+    assertThat(thirdCueText.toString()).isEqualTo("default styling only");
+    assertThat(thirdCueText)
+        .hasRelativeSizeSpanBetween(0, thirdCueText.length())
+        .withSizeChange(0.75f);
   }
 
   @Test

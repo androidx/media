@@ -698,6 +698,12 @@ public class SimpleExoPlayer extends BasePlayer
   }
 
   @Override
+  public void setPriority(@C.Priority int priority) {
+    blockUntilConstructorFinished();
+    player.setPriority(priority);
+  }
+
+  @Override
   public void setPriorityTaskManager(@Nullable PriorityTaskManager priorityTaskManager) {
     blockUntilConstructorFinished();
     player.setPriorityTaskManager(priorityTaskManager);
@@ -984,6 +990,18 @@ public class SimpleExoPlayer extends BasePlayer
   public void setRepeatMode(@RepeatMode int repeatMode) {
     blockUntilConstructorFinished();
     player.setRepeatMode(repeatMode);
+  }
+
+  @Override
+  public void setPreloadConfiguration(PreloadConfiguration preloadConfiguration) {
+    blockUntilConstructorFinished();
+    player.setPreloadConfiguration(preloadConfiguration);
+  }
+
+  @Override
+  public PreloadConfiguration getPreloadConfiguration() {
+    blockUntilConstructorFinished();
+    return player.getPreloadConfiguration();
   }
 
   @Override
@@ -1329,7 +1347,12 @@ public class SimpleExoPlayer extends BasePlayer
   }
 
   @Override
-  public void setImageOutput(ImageOutput imageOutput) {
+  public boolean isReleased() {
+    return player.isReleased();
+  }
+
+  @Override
+  public void setImageOutput(@Nullable ImageOutput imageOutput) {
     blockUntilConstructorFinished();
     player.setImageOutput(imageOutput);
   }

@@ -42,7 +42,6 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 /* package */ abstract class ExoAssetLoaderBaseRenderer extends BaseRenderer {
 
   protected long streamStartPositionUs;
-  protected long streamOffsetUs;
   protected @MonotonicNonNull SampleConsumer sampleConsumer;
   protected @MonotonicNonNull Codec decoder;
   protected boolean isEnded;
@@ -88,7 +87,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
   @Override
   public boolean isReady() {
-    return isSourceReady();
+    return true;
   }
 
   @Override
@@ -131,7 +130,6 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       long offsetUs,
       MediaSource.MediaPeriodId mediaPeriodId) {
     this.streamStartPositionUs = startPositionUs;
-    this.streamOffsetUs = offsetUs;
   }
 
   @Override
@@ -219,6 +217,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       }
       inputFormat = overrideInputFormat(checkNotNull(formatHolder.format));
       onInputFormatRead(inputFormat);
+      // TODO: b/332708880 - Bypass MediaCodec for raw audio input.
       shouldInitDecoder =
           assetLoaderListener.onTrackAdded(
               inputFormat, SUPPORTED_OUTPUT_TYPE_DECODED | SUPPORTED_OUTPUT_TYPE_ENCODED);

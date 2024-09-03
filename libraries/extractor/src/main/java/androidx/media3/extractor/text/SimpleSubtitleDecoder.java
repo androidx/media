@@ -78,6 +78,7 @@ public abstract class SimpleSubtitleDecoder
       ByteBuffer inputData = Assertions.checkNotNull(inputBuffer.data);
       Subtitle subtitle = decode(inputData.array(), inputData.limit(), reset);
       outputBuffer.setContent(inputBuffer.timeUs, subtitle, inputBuffer.subsampleOffsetUs);
+      outputBuffer.shouldBeSkipped = false; // Skipping is handled by TextRenderer
       return null;
     } catch (SubtitleDecoderException e) {
       return e;

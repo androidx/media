@@ -476,7 +476,7 @@ public final class TtmlParser implements SubtitleParser {
         XmlPullParserUtil.getAttributeValue(xmlParser, TtmlNode.ATTR_TTS_WRITING_MODE);
     if (writingDirection != null) {
       switch (Ascii.toLowerCase(writingDirection)) {
-          // TODO: Support horizontal RTL modes.
+        // TODO: Support horizontal RTL modes.
         case TtmlNode.VERTICAL:
         case TtmlNode.VERTICAL_LR:
           verticalType = Cue.VERTICAL_TYPE_LR;

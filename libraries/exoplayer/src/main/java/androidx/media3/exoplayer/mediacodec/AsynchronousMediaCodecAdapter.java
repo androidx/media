@@ -103,7 +103,7 @@ import java.nio.ByteBuffer;
       try {
         TraceUtil.beginSection("createCodec:" + codecName);
         codec = MediaCodec.createByCodecName(codecName);
-        int flags = configuration.flags;
+        int flags = 0;
         MediaCodecBufferEnqueuer bufferEnqueuer;
         if (enableSynchronousBufferQueueingWithAsyncCryptoFlag
             && useSynchronousBufferQueueingWithAsyncCryptoFlag(configuration.format)) {
@@ -114,8 +114,17 @@ import java.nio.ByteBuffer;
               new AsynchronousMediaCodecBufferEnqueuer(codec, queueingThreadSupplier.get());
         }
         codecAdapter =
-            new AsynchronousMediaCodecAdapter(codec, callbackThreadSupplier.get(), bufferEnqueuer);
+            new AsynchronousMediaCodecAdapter(
+                codec,
+                callbackThreadSupplier.get(),
+                bufferEnqueuer,
+                configuration.loudnessCodecController);
         TraceUtil.endSection();
+        if (configuration.surface == null
+            && configuration.codecInfo.detachedSurfaceSupported
+            && Util.SDK_INT >= 35) {
+          flags |= MediaCodec.CONFIGURE_FLAG_DETACHED_SURFACE;
+        }
         codecAdapter.initialize(
             configuration.mediaFormat, configuration.surface, configuration.crypto, flags);
         return codecAdapter;
@@ -134,9 +143,8 @@ import java.nio.ByteBuffer;
       if (Util.SDK_INT < 34) {
         return false;
       }
-      // TODO: b/316565675 - Remove restriction to video once MediaCodec supports
-      //  CONFIGURE_FLAG_USE_CRYPTO_ASYNC for audio too
-      return MimeTypes.isVideo(format.sampleMimeType);
+      // CONFIGURE_FLAG_USE_CRYPTO_ASYNC only works for audio on API 35+ (see b/316565675).
+      return Util.SDK_INT >= 35 || MimeTypes.isVideo(format.sampleMimeType);
     }
   }
 
@@ -153,14 +161,20 @@ import java.nio.ByteBuffer;
   private final MediaCodec codec;
   private final AsynchronousMediaCodecCallback asynchronousMediaCodecCallback;
   private final MediaCodecBufferEnqueuer bufferEnqueuer;
+  @Nullable private final LoudnessCodecController loudnessCodecController;
+
   private boolean codecReleased;
   private @State int state;
 
   private AsynchronousMediaCodecAdapter(
-      MediaCodec codec, HandlerThread callbackThread, MediaCodecBufferEnqueuer bufferEnqueuer) {
+      MediaCodec codec,
+      HandlerThread callbackThread,
+      MediaCodecBufferEnqueuer bufferEnqueuer,
+      @Nullable LoudnessCodecController loudnessCodecController) {
     this.codec = codec;
     this.asynchronousMediaCodecCallback = new AsynchronousMediaCodecCallback(callbackThread);
     this.bufferEnqueuer = bufferEnqueuer;
+    this.loudnessCodecController = loudnessCodecController;
     this.state = STATE_CREATED;
   }
 
@@ -177,6 +191,9 @@ import java.nio.ByteBuffer;
     TraceUtil.beginSection("startCodec");
     codec.start();
     TraceUtil.endSection();
+    if (Util.SDK_INT >= 35 && loudnessCodecController != null) {
+      loudnessCodecController.addMediaCodec(codec);
+    }
     state = STATE_INITIALIZED;
   }
 
@@ -260,8 +277,21 @@ import java.nio.ByteBuffer;
       state = STATE_SHUT_DOWN;
     } finally {
       if (!codecReleased) {
-        codec.release();
-        codecReleased = true;
+        try {
+          // Stopping the codec before releasing it works around a bug on APIs 30, 31 and 32 where
+          // MediaCodec.release() returns too early before fully detaching a Surface, and a
+          // subsequent MediaCodec.configure() call using the same Surface then fails. See
+          // https://github.com/google/ExoPlayer/issues/8696 and b/191966399.
+          if (Util.SDK_INT >= 30 && Util.SDK_INT < 33) {
+            codec.stop();
+          }
+        } finally {
+          if (Util.SDK_INT >= 35 && loudnessCodecController != null) {
+            loudnessCodecController.removeMediaCodec(codec);
+          }
+          codec.release();
+          codecReleased = true;
+        }
       }
     }
   }
@@ -276,8 +306,20 @@ import java.nio.ByteBuffer;
   }
 
   @Override
+  public boolean registerOnBufferAvailableListener(OnBufferAvailableListener listener) {
+    asynchronousMediaCodecCallback.setOnBufferAvailableListener(listener);
+    return true;
+  }
+
+  @Override
   public void setOutputSurface(Surface surface) {
     codec.setOutputSurface(surface);
+  }
+
+  @RequiresApi(35)
+  @Override
+  public void detachOutputSurface() {
+    codec.detachOutputSurface();
   }
 
   @Override

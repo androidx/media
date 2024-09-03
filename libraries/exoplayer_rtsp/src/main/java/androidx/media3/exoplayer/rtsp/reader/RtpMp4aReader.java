@@ -27,7 +27,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.ParsableByteArray;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.rtsp.RtpPacket;
 import androidx.media3.exoplayer.rtsp.RtpPayloadFormat;
@@ -41,7 +40,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  *
  * <p>Refer to RFC3016 for more details. The LATM byte stream format is defined in ISO/IEC14496-3.
  */
-@UnstableApi
 /* package */ final class RtpMp4aReader implements RtpPayloadReader {
   private static final String TAG = "RtpMp4aReader";
 

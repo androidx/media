@@ -18,9 +18,7 @@ package androidx.media3.transformer.mh;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static androidx.media3.transformer.AndroidTestUtil.FORCE_TRANSCODE_VIDEO_EFFECTS;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_1080P_5_SECOND_HLG10;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_720P_4_SECOND_HDR10;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_720P_4_SECOND_HDR10_FORMAT;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static com.google.common.truth.Truth.assertThat;
 
@@ -67,7 +65,7 @@ public class ToneMapHdrToSdrUsingMediaCodecTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10_FORMAT,
+        /* inputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10.videoFormat,
         /* outputFormat= */ null);
 
     Transformer transformer =
@@ -87,7 +85,7 @@ public class ToneMapHdrToSdrUsingMediaCodecTest {
                 })
             .build();
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_720P_4_SECOND_HDR10)))
+        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_720P_4_SECOND_HDR10.uri)))
             .build();
     Composition composition =
         new Composition.Builder(new EditedMediaItemSequence(editedMediaItem))
@@ -127,7 +125,7 @@ public class ToneMapHdrToSdrUsingMediaCodecTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT,
+        /* inputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10.videoFormat,
         /* outputFormat= */ null);
 
     Transformer transformer =
@@ -147,7 +145,8 @@ public class ToneMapHdrToSdrUsingMediaCodecTest {
                 })
             .build();
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_1080P_5_SECOND_HLG10)))
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(Uri.parse(MP4_ASSET_1080P_5_SECOND_HLG10.uri)))
             .build();
     Composition composition =
         new Composition.Builder(new EditedMediaItemSequence(editedMediaItem))
@@ -187,7 +186,7 @@ public class ToneMapHdrToSdrUsingMediaCodecTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10_FORMAT,
+        /* inputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10.videoFormat,
         /* outputFormat= */ null);
 
     Transformer transformer =
@@ -207,7 +206,7 @@ public class ToneMapHdrToSdrUsingMediaCodecTest {
                 })
             .build();
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_720P_4_SECOND_HDR10)))
+        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_720P_4_SECOND_HDR10.uri)))
             .setEffects(FORCE_TRANSCODE_VIDEO_EFFECTS)
             .build();
     Composition composition =
@@ -248,7 +247,7 @@ public class ToneMapHdrToSdrUsingMediaCodecTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT,
+        /* inputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10.videoFormat,
         /* outputFormat= */ null);
 
     Transformer transformer =
@@ -268,7 +267,8 @@ public class ToneMapHdrToSdrUsingMediaCodecTest {
                 })
             .build();
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_1080P_5_SECOND_HLG10)))
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(Uri.parse(MP4_ASSET_1080P_5_SECOND_HLG10.uri)))
             .setEffects(FORCE_TRANSCODE_VIDEO_EFFECTS)
             .build();
     Composition composition =

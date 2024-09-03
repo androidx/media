@@ -43,7 +43,7 @@ public class VideoFrameRenderControlTest {
         new VideoFrameRenderControl(
             mock(VideoFrameRenderControl.FrameRenderer.class), createVideoFrameReleaseControl());
 
-    assertThat(videoFrameRenderControl.isReady()).isFalse();
+    assertThat(videoFrameRenderControl.isReady(/* rendererOtherwiseReady= */ true)).isFalse();
   }
 
   @Test
@@ -60,7 +60,7 @@ public class VideoFrameRenderControlTest {
     videoFrameRenderControl.onOutputFrameAvailableForRendering(/* presentationTimeUs= */ 0);
     videoFrameRenderControl.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
 
-    assertThat(videoFrameRenderControl.isReady()).isTrue();
+    assertThat(videoFrameRenderControl.isReady(/* rendererOtherwiseReady= */ true)).isTrue();
     InOrder inOrder = Mockito.inOrder(frameRenderer);
     inOrder
         .verify(frameRenderer)
@@ -92,7 +92,7 @@ public class VideoFrameRenderControlTest {
     videoFrameRenderControl.onOutputFrameAvailableForRendering(/* presentationTimeUs= */ 10_000);
 
     videoFrameRenderControl.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
-    assertThat(videoFrameRenderControl.isReady()).isTrue();
+    assertThat(videoFrameRenderControl.isReady(/* rendererOtherwiseReady= */ true)).isTrue();
     InOrder inOrder = Mockito.inOrder(frameRenderer);
     inOrder
         .verify(frameRenderer)
@@ -141,7 +141,7 @@ public class VideoFrameRenderControlTest {
     videoFrameRenderControl.onOutputFrameAvailableForRendering(/* presentationTimeUs= */ 0);
     videoFrameRenderControl.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
 
-    assertThat(videoFrameRenderControl.isReady()).isTrue();
+    assertThat(videoFrameRenderControl.isReady(/* rendererOtherwiseReady= */ true)).isTrue();
     InOrder inOrder = Mockito.inOrder(frameRenderer);
     inOrder
         .verify(frameRenderer)

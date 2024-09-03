@@ -20,7 +20,6 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 import android.os.Bundle;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
-import androidx.media3.common.Bundleable;
 import androidx.media3.common.C;
 import androidx.media3.common.Player;
 import androidx.media3.common.Player.PositionInfo;
@@ -33,7 +32,7 @@ import com.google.common.base.Objects;
  * <p>This class wraps {@link PositionInfo} and group relevant information in one place to
  * atomically notify.
  */
-/* package */ final class SessionPositionInfo implements Bundleable {
+/* package */ final class SessionPositionInfo {
 
   public static final PositionInfo DEFAULT_POSITION_INFO =
       new PositionInfo(
@@ -157,8 +156,6 @@ import com.google.common.base.Objects;
         + "}";
   }
 
-  // Bundleable implementation.
-
   @VisibleForTesting static final String FIELD_POSITION_INFO = Util.intToStringMaxRadix(0);
   private static final String FIELD_IS_PLAYING_AD = Util.intToStringMaxRadix(1);
   private static final String FIELD_EVENT_TIME_MS = Util.intToStringMaxRadix(2);
@@ -202,11 +199,6 @@ import com.google.common.base.Objects;
         canAccessCurrentMediaItem ? contentBufferedPositionMs : 0);
   }
 
-  @Override
-  public Bundle toBundle() {
-    return toBundle(Integer.MAX_VALUE);
-  }
-
   public Bundle toBundle(int controllerInterfaceVersion) {
     Bundle bundle = new Bundle();
     if (controllerInterfaceVersion < 3 || !DEFAULT_POSITION_INFO.equalsForBundling(positionInfo)) {
@@ -241,15 +233,6 @@ import com.google.common.base.Objects;
     }
     return bundle;
   }
-
-  /**
-   * Object that can restore {@link SessionPositionInfo} from a {@link Bundle}.
-   *
-   * @deprecated Use {@link #fromBundle} instead.
-   */
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<SessionPositionInfo> CREATOR = SessionPositionInfo::fromBundle;
 
   /** Restores a {@code SessionPositionInfo} from a {@link Bundle}. */
   public static SessionPositionInfo fromBundle(Bundle bundle) {

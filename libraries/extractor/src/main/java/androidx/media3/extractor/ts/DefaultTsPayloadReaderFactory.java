@@ -169,7 +169,7 @@ public final class DefaultTsPayloadReaderFactory implements TsPayloadReader.Fact
         if (!isSet(FLAG_ENABLE_HDMV_DTS_AUDIO_STREAMS)) {
           return null;
         }
-        // Fall through.
+      // Fall through.
       case TsExtractor.TS_STREAM_TYPE_DTS:
       case TsExtractor.TS_STREAM_TYPE_DTS_HD:
         return new PesReader(
@@ -202,6 +202,8 @@ public final class DefaultTsPayloadReaderFactory implements TsPayloadReader.Fact
         return new PesReader(new DvbSubtitleReader(esInfo.dvbSubtitleInfos));
       case TsExtractor.TS_STREAM_TYPE_AIT:
         return new SectionReader(new PassthroughSectionPayloadReader(MimeTypes.APPLICATION_AIT));
+      case TsExtractor.TS_STREAM_TYPE_MHAS:
+        return new PesReader(new MpeghReader());
       default:
         return null;
     }

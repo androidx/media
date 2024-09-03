@@ -57,7 +57,7 @@ public final class AudioCapabilitiesReceiver {
   private final Listener listener;
   private final Handler handler;
   @Nullable private final AudioDeviceCallbackV23 audioDeviceCallback;
-  @Nullable private final BroadcastReceiver hdmiAudioPlugBroadcastReceiver;
+  private final BroadcastReceiver hdmiAudioPlugBroadcastReceiver;
   @Nullable private final ExternalSurroundSoundSettingObserver externalSurroundSoundSettingObserver;
 
   @Nullable private AudioCapabilities audioCapabilities;
@@ -105,8 +105,7 @@ public final class AudioCapabilitiesReceiver {
     this.routedDevice = routedDevice;
     handler = Util.createHandlerForCurrentOrMainLooper();
     audioDeviceCallback = Util.SDK_INT >= 23 ? new AudioDeviceCallbackV23() : null;
-    hdmiAudioPlugBroadcastReceiver =
-        Util.SDK_INT >= 21 ? new HdmiAudioPlugBroadcastReceiver() : null;
+    hdmiAudioPlugBroadcastReceiver = new HdmiAudioPlugBroadcastReceiver();
     Uri externalSurroundSoundUri = AudioCapabilities.getExternalSurroundSoundGlobalSettingUri();
     externalSurroundSoundSettingObserver =
         externalSurroundSoundUri != null
@@ -162,16 +161,12 @@ public final class AudioCapabilitiesReceiver {
     if (Util.SDK_INT >= 23 && audioDeviceCallback != null) {
       Api23.registerAudioDeviceCallback(context, audioDeviceCallback, handler);
     }
-    @Nullable Intent stickyIntent = null;
-    if (hdmiAudioPlugBroadcastReceiver != null) {
-      IntentFilter intentFilter = new IntentFilter(AudioManager.ACTION_HDMI_AUDIO_PLUG);
-      stickyIntent =
-          context.registerReceiver(
-              hdmiAudioPlugBroadcastReceiver,
-              intentFilter,
-              /* broadcastPermission= */ null,
-              handler);
-    }
+    Intent stickyIntent =
+        context.registerReceiver(
+            hdmiAudioPlugBroadcastReceiver,
+            new IntentFilter(AudioManager.ACTION_HDMI_AUDIO_PLUG),
+            /* broadcastPermission= */ null,
+            handler);
     audioCapabilities =
         AudioCapabilities.getCapabilitiesInternal(
             context, stickyIntent, audioAttributes, routedDevice);
@@ -190,9 +185,7 @@ public final class AudioCapabilitiesReceiver {
     if (Util.SDK_INT >= 23 && audioDeviceCallback != null) {
       Api23.unregisterAudioDeviceCallback(context, audioDeviceCallback);
     }
-    if (hdmiAudioPlugBroadcastReceiver != null) {
-      context.unregisterReceiver(hdmiAudioPlugBroadcastReceiver);
-    }
+    context.unregisterReceiver(hdmiAudioPlugBroadcastReceiver);
     if (externalSurroundSoundSettingObserver != null) {
       externalSurroundSoundSettingObserver.unregister();
     }

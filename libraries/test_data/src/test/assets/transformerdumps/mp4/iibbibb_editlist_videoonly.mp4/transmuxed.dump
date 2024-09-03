@@ -3,6 +3,7 @@ format video:
   sampleMimeType = video/avc
   codecs = avc1.F40016
   maxInputSize = 7838
+  maxNumReorderSamples = 2
   width = 704
   height = 576
   frameRate = 1.04
@@ -13,7 +14,9 @@ format video:
   initializationData:
     data = length 30, hash 9DFD8D5
     data = length 9, hash FBADD682
-container metadata = entries=[TSSE: description=null: values=[Lavf60.3.100], Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
+container metadata:
+  entry = Mp4Timestamp: creation time=0, modification time=0, timescale=1000
+  entry = TSSE: description=null: values=[Lavf60.3.100]
 sample:
   trackType = video
   dataHashCode = 1491581480

@@ -23,9 +23,7 @@ import android.view.accessibility.CaptioningManager;
 import android.view.accessibility.CaptioningManager.CaptionStyle;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -116,17 +114,13 @@ public final class CaptionStyleCompat {
    */
   public static CaptionStyleCompat createFromCaptionStyle(
       CaptioningManager.CaptionStyle captionStyle) {
-    if (Util.SDK_INT >= 21) {
-      return createFromCaptionStyleV21(captionStyle);
-    } else {
-      return new CaptionStyleCompat(
-          captionStyle.foregroundColor,
-          captionStyle.backgroundColor,
-          Color.TRANSPARENT,
-          captionStyle.edgeType,
-          captionStyle.edgeColor,
-          captionStyle.getTypeface());
-    }
+    return new CaptionStyleCompat(
+        captionStyle.hasForegroundColor() ? captionStyle.foregroundColor : DEFAULT.foregroundColor,
+        captionStyle.hasBackgroundColor() ? captionStyle.backgroundColor : DEFAULT.backgroundColor,
+        captionStyle.hasWindowColor() ? captionStyle.windowColor : DEFAULT.windowColor,
+        captionStyle.hasEdgeType() ? captionStyle.edgeType : DEFAULT.edgeType,
+        captionStyle.hasEdgeColor() ? captionStyle.edgeColor : DEFAULT.edgeColor,
+        captionStyle.getTypeface());
   }
 
   /**
@@ -150,18 +144,5 @@ public final class CaptionStyleCompat {
     this.edgeType = edgeType;
     this.edgeColor = edgeColor;
     this.typeface = typeface;
-  }
-
-  @RequiresApi(21)
-  @SuppressWarnings("ResourceType")
-  private static CaptionStyleCompat createFromCaptionStyleV21(
-      CaptioningManager.CaptionStyle captionStyle) {
-    return new CaptionStyleCompat(
-        captionStyle.hasForegroundColor() ? captionStyle.foregroundColor : DEFAULT.foregroundColor,
-        captionStyle.hasBackgroundColor() ? captionStyle.backgroundColor : DEFAULT.backgroundColor,
-        captionStyle.hasWindowColor() ? captionStyle.windowColor : DEFAULT.windowColor,
-        captionStyle.hasEdgeType() ? captionStyle.edgeType : DEFAULT.edgeType,
-        captionStyle.hasEdgeColor() ? captionStyle.edgeColor : DEFAULT.edgeColor,
-        captionStyle.getTypeface());
   }
 }

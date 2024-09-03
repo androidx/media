@@ -41,9 +41,7 @@
     <item>१.५x</item>
     <item>२x</item>
   </string-array>
-  <string name="exo_track_selection_title_video">व्हिडिओ</string>
   <string name="exo_track_selection_title_audio">ऑडिओ</string>
-  <string name="exo_track_selection_title_text">मजकूर</string>
   <string name="exo_track_selection_none">काहीही नाही</string>
   <string name="exo_track_selection_auto">आपोआप</string>
   <string name="exo_track_unknown">अज्ञात</string>

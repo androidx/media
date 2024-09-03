@@ -18,7 +18,6 @@ package androidx.media3.effect;
 import android.content.Context;
 import androidx.media3.common.C;
 import androidx.media3.common.VideoFrameProcessingException;
-import androidx.media3.common.util.UnstableApi;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,7 +25,6 @@ import java.util.List;
  * Generate a thumbnail strip (i.e. tile frames horizontally) containing frames at given {@link
  * #setTimestampsMs timestamps}.
  */
-@UnstableApi
 /* package */ final class ThumbnailStripEffect implements GlEffect {
 
   /* package */ final int stripWidth;

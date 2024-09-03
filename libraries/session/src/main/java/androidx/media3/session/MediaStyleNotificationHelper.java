@@ -18,14 +18,11 @@ package androidx.media3.session;
 import static android.Manifest.permission.MEDIA_CONTENT_CONTROL;
 import static androidx.core.app.NotificationCompat.COLOR_DEFAULT;
 import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 
 import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.app.PendingIntent;
-import android.os.Build;
 import android.os.Bundle;
-import android.support.v4.media.session.MediaSessionCompat;
 import android.view.View;
 import android.widget.RemoteViews;
 import androidx.annotation.DoNotInline;
@@ -78,7 +75,7 @@ public class MediaStyleNotificationHelper {
    *
    * <pre class="prettyprint">
    * Notification noti = new NotificationCompat.Builder()
-   *     .setSmallIcon(androidx.media.R.drawable.ic_stat_player)
+   *     .setSmallIcon(androidx.media3.R.drawable.media3_notification_small_icon)
    *     .setContentTitle(&quot;Track title&quot;)
    *     .setContentText(&quot;Artist - Album&quot;)
    *     .setLargeIcon(albumArtBitmap)
@@ -113,9 +110,7 @@ public class MediaStyleNotificationHelper {
 
     /* package */ final MediaSession session;
 
-    private boolean showCancelButton;
     /* package */ int @NullableType [] actionsToShowInCompact;
-    @Nullable /* package */ PendingIntent cancelButtonIntent;
     /* package */ @MonotonicNonNull CharSequence remoteDeviceName;
     /* package */ int remoteDeviceIconRes;
     @Nullable /* package */ PendingIntent remoteDeviceIntent;
@@ -141,46 +136,24 @@ public class MediaStyleNotificationHelper {
     }
 
     /**
-     * Sets whether a cancel button at the top right should be shown in the notification on
-     * platforms before Lollipop.
-     *
-     * <p>Prior to Lollipop, there was a bug in the framework which prevented the developer to make
-     * a notification dismissable again after having used the same notification as the ongoing
-     * notification for a foreground service. When the notification was posted by {@link
-     * android.app.Service#startForeground}, but then the service exited foreground mode via {@link
-     * android.app.Service#stopForeground}, without removing the notification, the notification
-     * stayed ongoing, and thus not dismissable.
-     *
-     * <p>This is a common scenario for media notifications, as this is exactly the service
-     * lifecycle that happens when playing/pausing media. Thus, a workaround is provided by the
-     * support library: Instead of making the notification ongoing depending on the playback state,
-     * the support library provides the ability to add an explicit cancel button to the
-     * notification.
-     *
-     * <p>Note that the notification is enforced to be ongoing if a cancel button is shown to
-     * provide a consistent user experience.
-     *
-     * <p>Also note that this method is a no-op when running on Lollipop and later.
-     *
-     * @param show whether to show a cancel button
+     * @deprecated This method is a no-op and usages can be safely removed. There is no recommended
+     *     alternative (it was previously only operational on API &lt; 21).
      */
     @CanIgnoreReturnValue
+    @Deprecated
+    @SuppressWarnings("unused")
     public MediaStyle setShowCancelButton(boolean show) {
-      if (Build.VERSION.SDK_INT < 21) {
-        showCancelButton = show;
-      }
       return this;
     }
 
     /**
-     * Sets the pending intent to be sent when the cancel button is pressed. See {@link
-     * #setShowCancelButton}.
-     *
-     * @param pendingIntent the intent to be sent when the cancel button is pressed
+     * @deprecated This method is a no-op and usages can be safely removed. There is no recommended
+     *     alternative (it was previously only operational on API &lt; 21).
      */
     @CanIgnoreReturnValue
+    @Deprecated
+    @SuppressWarnings("unused")
     public MediaStyle setCancelButtonIntent(PendingIntent pendingIntent) {
-      cancelButtonIntent = pendingIntent;
       return this;
     }
 
@@ -218,39 +191,26 @@ public class MediaStyleNotificationHelper {
 
     @Override
     public void apply(NotificationBuilderWithBuilderAccessor builder) {
+      // Avoid ambiguity with androidx.media3.session.Session.Token
+      @SuppressWarnings("UnnecessarilyFullyQualified")
+      Notification.MediaStyle style =
+          new Notification.MediaStyle()
+              .setMediaSession(
+                  (android.media.session.MediaSession.Token)
+                      session.getSessionCompat().getSessionToken().getToken());
+      if (actionsToShowInCompact != null) {
+        style.setShowActionsInCompactView(actionsToShowInCompact);
+      }
       if (Util.SDK_INT >= 34 && remoteDeviceName != null) {
-        Api21Impl.setMediaStyle(
-            builder.getBuilder(),
-            Api21Impl.fillInMediaStyle(
-                Api34Impl.setRemotePlaybackInfo(
-                    Api21Impl.createMediaStyle(),
-                    remoteDeviceName,
-                    remoteDeviceIconRes,
-                    remoteDeviceIntent),
-                actionsToShowInCompact,
-                session));
-      } else if (Util.SDK_INT >= 21) {
-        Api21Impl.setMediaStyle(
-            builder.getBuilder(),
-            Api21Impl.fillInMediaStyle(
-                Api21Impl.createMediaStyle(), actionsToShowInCompact, session));
+        Api34Impl.setRemotePlaybackInfo(
+            style, remoteDeviceName, remoteDeviceIconRes, remoteDeviceIntent);
+        builder.getBuilder().setStyle(style);
+      } else {
+        builder.getBuilder().setStyle(style);
         Bundle bundle = new Bundle();
         bundle.putBundle(EXTRA_MEDIA3_SESSION, session.getToken().toBundle());
         builder.getBuilder().addExtras(bundle);
-      } else if (showCancelButton) {
-        builder.getBuilder().setOngoing(true);
       }
-    }
-
-    @Override
-    @Nullable
-    @SuppressWarnings("nullness:override.return") // NotificationCompat doesn't annotate @Nullable
-    public RemoteViews makeContentView(NotificationBuilderWithBuilderAccessor builder) {
-      if (Util.SDK_INT >= 21) {
-        // No custom content view required
-        return null;
-      }
-      return generateContentView();
     }
 
     /* package */ RemoteViews generateContentView() {
@@ -262,7 +222,7 @@ public class MediaStyleNotificationHelper {
       if (actionsToShowInCompact != null) {
         int[] actions = actionsToShowInCompact;
         final int numActionsInCompact = Math.min(actions.length, MAX_MEDIA_BUTTONS_IN_COMPACT);
-        view.removeAllViews(androidx.media.R.id.media_actions);
+        view.removeAllViews(androidx.media3.session.R.id.media_actions);
         if (numActionsInCompact > 0) {
           for (int i = 0; i < numActionsInCompact; i++) {
             if (i >= numActions) {
@@ -275,25 +235,11 @@ public class MediaStyleNotificationHelper {
             final androidx.core.app.NotificationCompat.Action action =
                 mBuilder.mActions.get(actions[i]);
             final RemoteViews button = generateMediaActionButton(action);
-            view.addView(androidx.media.R.id.media_actions, button);
+            view.addView(androidx.media3.session.R.id.media_actions, button);
           }
         }
       }
-      if (showCancelButton) {
-        view.setViewVisibility(androidx.media.R.id.end_padder, View.GONE);
-        view.setViewVisibility(androidx.media.R.id.cancel_action, View.VISIBLE);
-        view.setOnClickPendingIntent(androidx.media.R.id.cancel_action, cancelButtonIntent);
-        view.setInt(
-            androidx.media.R.id.cancel_action,
-            "setAlpha",
-            mBuilder
-                .mContext
-                .getResources()
-                .getInteger(androidx.media.R.integer.cancel_button_image_alpha));
-      } else {
-        view.setViewVisibility(androidx.media.R.id.end_padder, View.VISIBLE);
-        view.setViewVisibility(androidx.media.R.id.cancel_action, View.GONE);
-      }
+      view.setViewVisibility(androidx.media3.session.R.id.end_padder, View.VISIBLE);
       return view;
     }
 
@@ -303,31 +249,21 @@ public class MediaStyleNotificationHelper {
       RemoteViews button =
           new RemoteViews(
               mBuilder.mContext.getPackageName(),
-              androidx.media.R.layout.notification_media_action);
+              androidx.media3.session.R.layout.media3_notification_media_action);
       IconCompat iconCompat = action.getIconCompat();
       if (iconCompat != null) {
-        button.setImageViewResource(androidx.media.R.id.action0, iconCompat.getResId());
+        button.setImageViewResource(androidx.media3.session.R.id.action0, iconCompat.getResId());
       }
       if (!tombstone) {
-        button.setOnClickPendingIntent(androidx.media.R.id.action0, action.getActionIntent());
+        button.setOnClickPendingIntent(
+            androidx.media3.session.R.id.action0, action.getActionIntent());
       }
-      button.setContentDescription(androidx.media.R.id.action0, action.getTitle());
+      button.setContentDescription(androidx.media3.session.R.id.action0, action.getTitle());
       return button;
     }
 
     /* package */ int getContentViewLayoutResource() {
-      return androidx.media.R.layout.notification_template_media;
-    }
-
-    @Override
-    @Nullable
-    @SuppressWarnings("nullness:override.return") // NotificationCompat doesn't annotate @Nullable
-    public RemoteViews makeBigContentView(NotificationBuilderWithBuilderAccessor builder) {
-      if (Util.SDK_INT >= 21) {
-        // No custom content view required
-        return null;
-      }
-      return generateBigContentView();
+      return androidx.media3.session.R.layout.media3_notification_template_media;
     }
 
     /* package */ RemoteViews generateBigContentView() {
@@ -338,33 +274,20 @@ public class MediaStyleNotificationHelper {
               getBigContentViewLayoutResource(actionCount),
               /* fitIn1U= */ false);
 
-      big.removeAllViews(androidx.media.R.id.media_actions);
+      big.removeAllViews(androidx.media3.session.R.id.media_actions);
       if (actionCount > 0) {
         for (int i = 0; i < actionCount; i++) {
           final RemoteViews button = generateMediaActionButton(mBuilder.mActions.get(i));
-          big.addView(androidx.media.R.id.media_actions, button);
+          big.addView(androidx.media3.session.R.id.media_actions, button);
         }
-      }
-      if (showCancelButton) {
-        big.setViewVisibility(androidx.media.R.id.cancel_action, View.VISIBLE);
-        big.setInt(
-            androidx.media.R.id.cancel_action,
-            "setAlpha",
-            mBuilder
-                .mContext
-                .getResources()
-                .getInteger(androidx.media.R.integer.cancel_button_image_alpha));
-        big.setOnClickPendingIntent(androidx.media.R.id.cancel_action, cancelButtonIntent);
-      } else {
-        big.setViewVisibility(androidx.media.R.id.cancel_action, View.GONE);
       }
       return big;
     }
 
     /* package */ int getBigContentViewLayoutResource(int actionCount) {
       return actionCount <= 3
-          ? androidx.media.R.layout.notification_template_big_media_narrow
-          : androidx.media.R.layout.notification_template_big_media;
+          ? androidx.media3.session.R.layout.media3_notification_template_big_media_narrow
+          : androidx.media3.session.R.layout.media3_notification_template_big_media;
     }
   }
 
@@ -386,7 +309,7 @@ public class MediaStyleNotificationHelper {
    *
    * <pre class="prettyprint">
    * Notification noti = new NotificationCompat.Builder()
-   *     .setSmallIcon(androidx.media.R.drawable.ic_stat_player)
+   *     .setSmallIcon(androidx.media3.R.drawable.media3_notification_small_icon)
    *     .setLargeIcon(albumArtBitmap))
    *     .setCustomContentView(contentView)
    *     .setStyle(<b>new NotificationCompat.DecoratedMediaCustomViewStyle()</b>
@@ -395,9 +318,9 @@ public class MediaStyleNotificationHelper {
    * </pre>
    *
    * <p>If you are using this style, consider using the corresponding styles like {@link
-   * androidx.media.R.style#TextAppearance_Compat_Notification_Media} or {@link
-   * androidx.media.R.style#TextAppearance_Compat_Notification_Title_Media} in your custom views in
-   * order to get the correct styling on each platform version.
+   * androidx.media3.session.R.style#TextAppearance_Compat_Notification_Media} or {@link
+   * androidx.media3.session.R.style#TextAppearance_Compat_Notification_Title_Media} in your custom
+   * views in order to get the correct styling on each platform version.
    *
    * @see androidx.core.app.NotificationCompat.DecoratedCustomViewStyle
    * @see MediaStyle
@@ -410,27 +333,24 @@ public class MediaStyleNotificationHelper {
 
     @Override
     public void apply(NotificationBuilderWithBuilderAccessor builder) {
+      if (Util.SDK_INT < 24) {
+        super.apply(builder);
+        return;
+      }
+      Notification.DecoratedMediaCustomViewStyle style =
+          Api24Impl.createDecoratedMediaCustomViewStyle();
+      if (actionsToShowInCompact != null) {
+        style.setShowActionsInCompactView(actionsToShowInCompact);
+      }
       if (Util.SDK_INT >= 34 && remoteDeviceName != null) {
-        Api21Impl.setMediaStyle(
-            builder.getBuilder(),
-            Api21Impl.fillInMediaStyle(
-                Api34Impl.setRemotePlaybackInfo(
-                    Api24Impl.createDecoratedMediaCustomViewStyle(),
-                    remoteDeviceName,
-                    remoteDeviceIconRes,
-                    remoteDeviceIntent),
-                actionsToShowInCompact,
-                session));
-      } else if (Util.SDK_INT >= 24) {
-        Api21Impl.setMediaStyle(
-            builder.getBuilder(),
-            Api21Impl.fillInMediaStyle(
-                Api24Impl.createDecoratedMediaCustomViewStyle(), actionsToShowInCompact, session));
+        Api34Impl.setRemotePlaybackInfo(
+            style, remoteDeviceName, remoteDeviceIconRes, remoteDeviceIntent);
+        builder.getBuilder().setStyle(style);
+      } else {
+        builder.getBuilder().setStyle(style);
         Bundle bundle = new Bundle();
         bundle.putBundle(EXTRA_MEDIA3_SESSION, session.getToken().toBundle());
         builder.getBuilder().addExtras(bundle);
-      } else {
-        super.apply(builder);
       }
     }
 
@@ -443,25 +363,14 @@ public class MediaStyleNotificationHelper {
         return null;
       }
       boolean hasContentView = mBuilder.getContentView() != null;
-      if (Util.SDK_INT >= 21) {
-        // If we are on L/M the media notification will only be colored if the expanded
-        // version is of media style, so we have to create a custom view for the collapsed
-        // version as well in that case.
-        boolean createCustomContent = hasContentView || mBuilder.getBigContentView() != null;
-        if (createCustomContent) {
-          RemoteViews contentView = generateContentView();
-          if (hasContentView) {
-            buildIntoRemoteViews(contentView, mBuilder.getContentView());
-          }
-          setBackgroundColor(contentView);
-          return contentView;
-        }
-      } else {
+      boolean createCustomContent = hasContentView || mBuilder.getBigContentView() != null;
+      if (createCustomContent) {
         RemoteViews contentView = generateContentView();
         if (hasContentView) {
           buildIntoRemoteViews(contentView, mBuilder.getContentView());
-          return contentView;
         }
+        setBackgroundColor(contentView);
+        return contentView;
       }
       return null;
     }
@@ -469,7 +378,7 @@ public class MediaStyleNotificationHelper {
     @Override
     /* package */ int getContentViewLayoutResource() {
       return mBuilder.getContentView() != null
-          ? androidx.media.R.layout.notification_template_media_custom
+          ? androidx.media3.session.R.layout.media3_notification_template_media_custom
           : super.getContentViewLayoutResource();
     }
 
@@ -491,17 +400,15 @@ public class MediaStyleNotificationHelper {
       }
       RemoteViews bigContentView = generateBigContentView();
       buildIntoRemoteViews(bigContentView, innerView);
-      if (Util.SDK_INT >= 21) {
-        setBackgroundColor(bigContentView);
-      }
+      setBackgroundColor(bigContentView);
       return bigContentView;
     }
 
     @Override
     /* package */ int getBigContentViewLayoutResource(int actionCount) {
       return actionCount <= 3
-          ? androidx.media.R.layout.notification_template_big_media_narrow_custom
-          : androidx.media.R.layout.notification_template_big_media_custom;
+          ? androidx.media3.session.R.layout.media3_notification_template_big_media_narrow_custom
+          : androidx.media3.session.R.layout.media3_notification_template_big_media_custom;
     }
 
     @Override
@@ -522,9 +429,7 @@ public class MediaStyleNotificationHelper {
       }
       RemoteViews headsUpContentView = generateBigContentView();
       buildIntoRemoteViews(headsUpContentView, innerView);
-      if (Util.SDK_INT >= 21) {
-        setBackgroundColor(headsUpContentView);
-      }
+      setBackgroundColor(headsUpContentView);
       return headsUpContentView;
     }
 
@@ -536,44 +441,12 @@ public class MediaStyleNotificationHelper {
                   .mContext
                   .getResources()
                   .getColor(
-                      androidx.media.R.color.notification_material_background_media_default_color);
+                      androidx.media3.session.R.color
+                          .notification_material_background_media_default_color);
       views.setInt(
-          androidx.media.R.id.status_bar_latest_event_content, "setBackgroundColor", color);
-    }
-  }
-
-  @RequiresApi(21)
-  private static class Api21Impl {
-    private Api21Impl() {}
-
-    @DoNotInline
-    static void setMediaStyle(Notification.Builder builder, Notification.MediaStyle style) {
-      builder.setStyle(style);
-    }
-
-    @DoNotInline
-    public static Notification.MediaStyle createMediaStyle() {
-      return new Notification.MediaStyle();
-    }
-
-    @DoNotInline
-    public static Notification.MediaStyle fillInMediaStyle(
-        Notification.MediaStyle style,
-        @Nullable int[] actionsToShowInCompact,
-        MediaSession session) {
-      checkNotNull(style);
-      checkNotNull(session);
-      if (actionsToShowInCompact != null) {
-        setShowActionsInCompactView(style, actionsToShowInCompact);
-      }
-      MediaSessionCompat.Token legacyToken = session.getSessionCompatToken();
-      style.setMediaSession((android.media.session.MediaSession.Token) legacyToken.getToken());
-      return style;
-    }
-
-    @DoNotInline
-    public static void setShowActionsInCompactView(Notification.MediaStyle style, int... actions) {
-      style.setShowActionsInCompactView(actions);
+          androidx.media3.session.R.id.status_bar_latest_event_content,
+          "setBackgroundColor",
+          color);
     }
   }
 

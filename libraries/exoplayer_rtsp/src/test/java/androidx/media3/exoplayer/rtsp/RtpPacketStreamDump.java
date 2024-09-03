@@ -16,14 +16,12 @@
 package androidx.media3.exoplayer.rtsp;
 
 import androidx.media3.common.ParserException;
-import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 /** A value wrapper for a dumped RTP packet stream. */
-@UnstableApi
 /* package */ class RtpPacketStreamDump {
   /** The name of the RTP track. */
   public final String trackName;

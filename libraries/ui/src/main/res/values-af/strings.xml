@@ -41,9 +41,7 @@
     <item>1,5x</item>
     <item>2x</item>
   </string-array>
-  <string name="exo_track_selection_title_video">Video</string>
   <string name="exo_track_selection_title_audio">Oudio</string>
-  <string name="exo_track_selection_title_text">Teks</string>
   <string name="exo_track_selection_none">Geen</string>
   <string name="exo_track_selection_auto">Outo</string>
   <string name="exo_track_unknown">Onbekend</string>

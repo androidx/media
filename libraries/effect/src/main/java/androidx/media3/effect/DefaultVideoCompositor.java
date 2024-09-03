@@ -18,6 +18,7 @@ package androidx.media3.effect;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static androidx.media3.common.util.Util.contains;
 import static java.lang.Math.abs;
 import static java.lang.Math.max;
 
@@ -26,6 +27,7 @@ import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
 import android.opengl.EGLSurface;
 import android.opengl.GLES20;
+import android.util.SparseArray;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
@@ -45,7 +47,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.io.IOException;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Queue;
@@ -78,7 +79,6 @@ public final class DefaultVideoCompositor implements VideoCompositor {
 
   private static final String THREAD_NAME = "Effect:DefaultVideoCompositor:GlThread";
   private static final String TAG = "DefaultVideoCompositor";
-  private static final int PRIMARY_INPUT_ID = 0;
 
   private final VideoCompositor.Listener listener;
   private final GlTextureProducer.Listener textureOutputListener;
@@ -88,7 +88,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
   private final VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor;
 
   @GuardedBy("this")
-  private final List<InputSource> inputSources;
+  private final SparseArray<InputSource> inputSources;
 
   @GuardedBy("this")
   private boolean allInputsEnded; // Whether all inputSources have signaled end of input.
@@ -103,6 +103,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
   private @MonotonicNonNull EGLContext eglContext;
   private @MonotonicNonNull EGLDisplay eglDisplay;
   private @MonotonicNonNull EGLSurface placeholderEglSurface;
+  private int primaryInputIndex;
 
   /**
    * Creates an instance.
@@ -123,8 +124,9 @@ public final class DefaultVideoCompositor implements VideoCompositor {
     this.glObjectsProvider = glObjectsProvider;
     this.settings = settings;
     this.compositorGlProgram = new CompositorGlProgram(context);
+    primaryInputIndex = C.INDEX_UNSET;
 
-    inputSources = new ArrayList<>();
+    inputSources = new SparseArray<>();
     outputTexturePool =
         new TexturePool(/* useHighPrecisionColorComponents= */ false, textureOutputCapacity);
     outputTextureTimestamps = new LongArrayQueue(textureOutputCapacity);
@@ -141,26 +143,36 @@ public final class DefaultVideoCompositor implements VideoCompositor {
     videoFrameProcessingTaskExecutor.submit(this::setupGlObjects);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>The first registered input will be designated as the primary input.
+   */
   @Override
-  public synchronized int registerInputSource() {
-    inputSources.add(new InputSource());
-    return inputSources.size() - 1;
+  public synchronized void registerInputSource(int inputIndex) {
+    checkState(!contains(inputSources, inputIndex));
+    inputSources.put(inputIndex, new InputSource());
+    if (primaryInputIndex == C.INDEX_UNSET) {
+      primaryInputIndex = inputIndex;
+    }
   }
 
   @Override
-  public synchronized void signalEndOfInputSource(int inputId) {
-    inputSources.get(inputId).isInputEnded = true;
+  public synchronized void signalEndOfInputSource(int inputIndex) {
+    checkState(contains(inputSources, inputIndex));
+    checkState(primaryInputIndex != C.INDEX_UNSET);
+    inputSources.get(inputIndex).isInputEnded = true;
     boolean allInputsEnded = true;
     for (int i = 0; i < inputSources.size(); i++) {
-      if (!inputSources.get(i).isInputEnded) {
+      if (!inputSources.valueAt(i).isInputEnded) {
         allInputsEnded = false;
         break;
       }
     }
 
     this.allInputsEnded = allInputsEnded;
-    if (inputSources.get(PRIMARY_INPUT_ID).frameInfos.isEmpty()) {
-      if (inputId == PRIMARY_INPUT_ID) {
+    if (inputSources.get(primaryInputIndex).frameInfos.isEmpty()) {
+      if (inputIndex == primaryInputIndex) {
         releaseExcessFramesInAllSecondaryStreams();
       }
       if (allInputsEnded) {
@@ -168,7 +180,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
         return;
       }
     }
-    if (inputId != PRIMARY_INPUT_ID && inputSources.get(inputId).frameInfos.size() == 1) {
+    if (inputIndex != primaryInputIndex && inputSources.get(inputIndex).frameInfos.size() == 1) {
       // When a secondary stream ends input, composite if there was only one pending frame in the
       // stream.
       videoFrameProcessingTaskExecutor.submit(this::maybeComposite);
@@ -177,12 +189,14 @@ public final class DefaultVideoCompositor implements VideoCompositor {
 
   @Override
   public synchronized void queueInputTexture(
-      int inputId,
+      int inputIndex,
       GlTextureProducer textureProducer,
       GlTextureInfo inputTexture,
       ColorInfo colorInfo,
       long presentationTimeUs) {
-    InputSource inputSource = inputSources.get(inputId);
+    checkState(contains(inputSources, inputIndex));
+
+    InputSource inputSource = inputSources.get(inputIndex);
     checkState(!inputSource.isInputEnded);
     checkStateNotNull(!ColorInfo.isTransferHdr(colorInfo), "HDR input is not supported.");
     if (configuredColorInfo == null) {
@@ -196,10 +210,10 @@ public final class DefaultVideoCompositor implements VideoCompositor {
             textureProducer,
             inputTexture,
             presentationTimeUs,
-            settings.getOverlaySettings(inputId, presentationTimeUs));
+            settings.getOverlaySettings(inputIndex, presentationTimeUs));
     inputSource.frameInfos.add(inputFrameInfo);
 
-    if (inputId == PRIMARY_INPUT_ID) {
+    if (inputIndex == primaryInputIndex) {
       releaseExcessFramesInAllSecondaryStreams();
     } else {
       releaseExcessFramesInSecondaryStream(inputSource);
@@ -226,10 +240,10 @@ public final class DefaultVideoCompositor implements VideoCompositor {
 
   private synchronized void releaseExcessFramesInAllSecondaryStreams() {
     for (int i = 0; i < inputSources.size(); i++) {
-      if (i == PRIMARY_INPUT_ID) {
+      if (inputSources.keyAt(i) == primaryInputIndex) {
         continue;
       }
-      releaseExcessFramesInSecondaryStream(inputSources.get(i));
+      releaseExcessFramesInSecondaryStream(inputSources.valueAt(i));
     }
   }
 
@@ -241,7 +255,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
    * began.
    */
   private synchronized void releaseExcessFramesInSecondaryStream(InputSource secondaryInputSource) {
-    InputSource primaryInputSource = inputSources.get(PRIMARY_INPUT_ID);
+    InputSource primaryInputSource = inputSources.get(primaryInputIndex);
     // If the primary stream output is ended, all secondary frames can be released.
     if (primaryInputSource.frameInfos.isEmpty() && primaryInputSource.isInputEnded) {
       releaseFrames(
@@ -292,7 +306,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
       return;
     }
 
-    InputFrameInfo primaryInputFrame = framesToComposite.get(PRIMARY_INPUT_ID);
+    InputFrameInfo primaryInputFrame = framesToComposite.get(primaryInputIndex);
 
     ImmutableList.Builder<Size> inputSizes = new ImmutableList.Builder<>();
     for (int i = 0; i < framesToComposite.size(); i++) {
@@ -313,7 +327,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
     textureOutputListener.onTextureRendered(
         /* textureProducer= */ this, outputTexture, outputPresentationTimestampUs, syncObject);
 
-    InputSource primaryInputSource = inputSources.get(PRIMARY_INPUT_ID);
+    InputSource primaryInputSource = inputSources.get(primaryInputIndex);
     releaseFrames(primaryInputSource, /* numberOfFramesToRelease= */ 1);
     releaseExcessFramesInAllSecondaryStreams();
 
@@ -333,18 +347,18 @@ public final class DefaultVideoCompositor implements VideoCompositor {
     if (outputTexturePool.freeTextureCount() == 0) {
       return ImmutableList.of();
     }
-    for (int inputId = 0; inputId < inputSources.size(); inputId++) {
-      if (inputSources.get(inputId).frameInfos.isEmpty()) {
+    for (int i = 0; i < inputSources.size(); i++) {
+      if (inputSources.valueAt(i).frameInfos.isEmpty()) {
         return ImmutableList.of();
       }
     }
     ImmutableList.Builder<InputFrameInfo> framesToComposite = new ImmutableList.Builder<>();
     InputFrameInfo primaryFrameToComposite =
-        inputSources.get(PRIMARY_INPUT_ID).frameInfos.element();
+        inputSources.get(primaryInputIndex).frameInfos.element();
     framesToComposite.add(primaryFrameToComposite);
 
-    for (int inputId = 0; inputId < inputSources.size(); inputId++) {
-      if (inputId == PRIMARY_INPUT_ID) {
+    for (int i = 0; i < inputSources.size(); i++) {
+      if (inputSources.keyAt(i) == primaryInputIndex) {
         continue;
       }
       // Select the secondary streams' frame that would be composited next. The frame selected is
@@ -353,7 +367,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
       //   2. Two or more frames, and at least one frame has timestamp greater than the target
       //      timestamp.
       // The smaller timestamp is taken if two timestamps have the same distance from the primary.
-      InputSource secondaryInputSource = inputSources.get(inputId);
+      InputSource secondaryInputSource = inputSources.valueAt(i);
       if (secondaryInputSource.frameInfos.size() == 1 && !secondaryInputSource.isInputEnded) {
         return ImmutableList.of();
       }
@@ -406,9 +420,9 @@ public final class DefaultVideoCompositor implements VideoCompositor {
       Log.e(TAG, "Error releasing GL resources", e);
     } finally {
       try {
-        GlUtil.destroyEglContext(eglDisplay, eglContext);
+        glObjectsProvider.release(checkNotNull(eglDisplay));
       } catch (GlUtil.GlException e) {
-        Log.e(TAG, "Error releasing GL context", e);
+        Log.e(TAG, "Error releasing GL objects", e);
       }
     }
   }

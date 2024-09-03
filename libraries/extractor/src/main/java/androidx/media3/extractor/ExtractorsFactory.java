@@ -37,15 +37,17 @@ public interface ExtractorsFactory {
    * Enables transcoding of text track samples to {@link MimeTypes#APPLICATION_MEDIA3_CUES} before
    * the data is emitted to {@link TrackOutput}.
    *
-   * <p>Transcoding is disabled by default.
+   * <p>Transcoding is enabled by default.
    *
    * <p>This method is experimental and will be renamed or removed in a future release.
    *
    * @param textTrackTranscodingEnabled Whether to enable transcoding.
    * @return The factory, for convenience.
+   * @deprecated This method (and all support for 'legacy' subtitle decoding during rendering) will
+   *     be removed in a future release.
    */
-  // TODO: b/289916598 - Flip this to default to enabled and deprecate it.
   @CanIgnoreReturnValue
+  @Deprecated
   default ExtractorsFactory experimentalSetTextTrackTranscodingEnabled(
       boolean textTrackTranscodingEnabled) {
     return this;

@@ -23,6 +23,8 @@ track 0:
       lumaBitdepth = 10
       chromaBitdepth = 10
     metadata = entries=[TSSE: description=null: values=[Lavf60.3.100], Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
+    initializationData:
+      data = length 20, hash 3DFDDB0E
   sample 0:
     time = 0
     flags = 1

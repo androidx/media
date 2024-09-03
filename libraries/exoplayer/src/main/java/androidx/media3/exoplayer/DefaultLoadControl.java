@@ -379,52 +379,42 @@ public class DefaultLoadControl implements LoadControl {
   }
 
   @Override
-  public boolean shouldContinueLoading(
-      PlayerId playerId,
-      Timeline timeline,
-      MediaPeriodId mediaPeriodId,
-      long playbackPositionUs,
-      long bufferedDurationUs,
-      float playbackSpeed) {
-    PlayerLoadingState playerLoadingState = checkNotNull(loadingStates.get(playerId));
+  public boolean shouldContinueLoading(Parameters parameters) {
+    PlayerLoadingState playerLoadingState = checkNotNull(loadingStates.get(parameters.playerId));
     boolean targetBufferSizeReached =
         allocator.getTotalBytesAllocated() >= calculateTotalTargetBufferBytes();
     long minBufferUs = this.minBufferUs;
-    if (playbackSpeed > 1) {
+    if (parameters.playbackSpeed > 1) {
       // The playback speed is faster than real time, so scale up the minimum required media
       // duration to keep enough media buffered for a playout duration of minBufferUs.
       long mediaDurationMinBufferUs =
-          Util.getMediaDurationForPlayoutDuration(minBufferUs, playbackSpeed);
+          Util.getMediaDurationForPlayoutDuration(minBufferUs, parameters.playbackSpeed);
       minBufferUs = min(mediaDurationMinBufferUs, maxBufferUs);
     }
     // Prevent playback from getting stuck if minBufferUs is too small.
     minBufferUs = max(minBufferUs, 500_000);
-    if (bufferedDurationUs < minBufferUs) {
+    if (parameters.bufferedDurationUs < minBufferUs) {
       playerLoadingState.isLoading = prioritizeTimeOverSizeThresholds || !targetBufferSizeReached;
-      if (!playerLoadingState.isLoading && bufferedDurationUs < 500_000) {
+      if (!playerLoadingState.isLoading && parameters.bufferedDurationUs < 500_000) {
         Log.w(
             "DefaultLoadControl",
             "Target buffer size reached with less than 500ms of buffered media data.");
       }
-    } else if (bufferedDurationUs >= maxBufferUs || targetBufferSizeReached) {
+    } else if (parameters.bufferedDurationUs >= maxBufferUs || targetBufferSizeReached) {
       playerLoadingState.isLoading = false;
     } // Else don't change the loading state.
     return playerLoadingState.isLoading;
   }
 
   @Override
-  public boolean shouldStartPlayback(
-      PlayerId playerId,
-      Timeline timeline,
-      MediaPeriodId mediaPeriodId,
-      long bufferedDurationUs,
-      float playbackSpeed,
-      boolean rebuffering,
-      long targetLiveOffsetUs) {
-    bufferedDurationUs = Util.getPlayoutDurationForMediaDuration(bufferedDurationUs, playbackSpeed);
-    long minBufferDurationUs = rebuffering ? bufferForPlaybackAfterRebufferUs : bufferForPlaybackUs;
-    if (targetLiveOffsetUs != C.TIME_UNSET) {
-      minBufferDurationUs = min(targetLiveOffsetUs / 2, minBufferDurationUs);
+  public boolean shouldStartPlayback(Parameters parameters) {
+    long bufferedDurationUs =
+        Util.getPlayoutDurationForMediaDuration(
+            parameters.bufferedDurationUs, parameters.playbackSpeed);
+    long minBufferDurationUs =
+        parameters.rebuffering ? bufferForPlaybackAfterRebufferUs : bufferForPlaybackUs;
+    if (parameters.targetLiveOffsetUs != C.TIME_UNSET) {
+      minBufferDurationUs = min(parameters.targetLiveOffsetUs / 2, minBufferDurationUs);
     }
     return minBufferDurationUs <= 0
         || bufferedDurationUs >= minBufferDurationUs

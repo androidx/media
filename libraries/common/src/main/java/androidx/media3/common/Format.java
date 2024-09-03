@@ -37,6 +37,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -125,7 +126,7 @@ import java.util.UUID;
  *   <li>{@link #tileCountVertical}
  * </ul>
  */
-public final class Format implements Bundleable {
+public final class Format {
 
   /**
    * Builds {@link Format} instances.
@@ -145,10 +146,12 @@ public final class Format implements Bundleable {
     @Nullable private String language;
     private @C.SelectionFlags int selectionFlags;
     private @C.RoleFlags int roleFlags;
+    private @C.AuxiliaryTrackType int auxiliaryTrackType;
     private int averageBitrate;
     private int peakBitrate;
     @Nullable private String codecs;
     @Nullable private Metadata metadata;
+    @Nullable private Object customData;
 
     // Container specific.
 
@@ -158,6 +161,7 @@ public final class Format implements Bundleable {
 
     @Nullable private String sampleMimeType;
     private int maxInputSize;
+    private int maxNumReorderSamples;
     @Nullable private List<byte[]> initializationData;
     @Nullable private DrmInitData drmInitData;
     private long subsampleOffsetUs;
@@ -202,6 +206,7 @@ public final class Format implements Bundleable {
       peakBitrate = NO_VALUE;
       // Sample specific.
       maxInputSize = NO_VALUE;
+      maxNumReorderSamples = NO_VALUE;
       subsampleOffsetUs = OFFSET_SAMPLE_RELATIVE;
       // Video specific.
       width = NO_VALUE;
@@ -221,6 +226,7 @@ public final class Format implements Bundleable {
       tileCountVertical = NO_VALUE;
       // Provided by the source.
       cryptoType = C.CRYPTO_TYPE_NONE;
+      auxiliaryTrackType = C.AUXILIARY_TRACK_TYPE_UNDEFINED;
     }
 
     /**
@@ -239,11 +245,13 @@ public final class Format implements Bundleable {
       this.peakBitrate = format.peakBitrate;
       this.codecs = format.codecs;
       this.metadata = format.metadata;
+      this.customData = format.customData;
       // Container specific.
       this.containerMimeType = format.containerMimeType;
       // Sample specific.
       this.sampleMimeType = format.sampleMimeType;
       this.maxInputSize = format.maxInputSize;
+      this.maxNumReorderSamples = format.maxNumReorderSamples;
       this.initializationData = format.initializationData;
       this.drmInitData = format.drmInitData;
       this.subsampleOffsetUs = format.subsampleOffsetUs;
@@ -354,12 +362,31 @@ public final class Format implements Bundleable {
     /**
      * Sets {@link Format#roleFlags}. The default value is 0.
      *
+     * <p>When {@code roleFlags} includes {@link C#ROLE_FLAG_AUXILIARY}, then the specific {@link
+     * C.AuxiliaryTrackType} can also be {@linkplain #setAuxiliaryTrackType(int) set}.
+     *
      * @param roleFlags The {@link Format#roleFlags}.
      * @return The builder.
      */
     @CanIgnoreReturnValue
     public Builder setRoleFlags(@C.RoleFlags int roleFlags) {
       this.roleFlags = roleFlags;
+      return this;
+    }
+
+    /**
+     * Sets {@link Format#auxiliaryTrackType}. The default value is {@link
+     * C#AUXILIARY_TRACK_TYPE_UNDEFINED}.
+     *
+     * <p>This must be set to a value other than {@link C#AUXILIARY_TRACK_TYPE_UNDEFINED} only when
+     * {@linkplain #setRoleFlags(int) role flags} contains {@link C#ROLE_FLAG_AUXILIARY}.
+     *
+     * @param auxiliaryTrackType The {@link Format#auxiliaryTrackType}.
+     * @return The builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setAuxiliaryTrackType(@C.AuxiliaryTrackType int auxiliaryTrackType) {
+      this.auxiliaryTrackType = auxiliaryTrackType;
       return this;
     }
 
@@ -411,6 +438,22 @@ public final class Format implements Bundleable {
       return this;
     }
 
+    /**
+     * Sets the opaque object {@link Format#customData}. The default value is null.
+     *
+     * <p>This value is not included in serialized {@link Bundle} instances of this class that are
+     * used to transfer data to other processes.
+     *
+     * @param customData The {@link Format#customData}.
+     * @return The builder.
+     */
+    @UnstableApi
+    @CanIgnoreReturnValue
+    public Builder setCustomData(@Nullable Object customData) {
+      this.customData = customData;
+      return this;
+    }
+
     // Container specific.
 
     /**
@@ -448,6 +491,18 @@ public final class Format implements Bundleable {
     @CanIgnoreReturnValue
     public Builder setMaxInputSize(int maxInputSize) {
       this.maxInputSize = maxInputSize;
+      return this;
+    }
+
+    /**
+     * Sets {@link Format#maxNumReorderSamples}. The default value is {@link #NO_VALUE}.
+     *
+     * @param maxNumReorderSamples {@link Format#maxNumReorderSamples}.
+     * @return The builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setMaxNumReorderSamples(int maxNumReorderSamples) {
+      this.maxNumReorderSamples = maxNumReorderSamples;
       return this;
     }
 
@@ -790,6 +845,9 @@ public final class Format implements Bundleable {
   /** Track role flags. */
   public final @C.RoleFlags int roleFlags;
 
+  /** The auxiliary track type. */
+  @UnstableApi public final @C.AuxiliaryTrackType int auxiliaryTrackType;
+
   /**
    * The average bitrate in bits per second, or {@link #NO_VALUE} if unknown or not applicable. The
    * way in which this field is populated depends on the type of media to which the format
@@ -846,6 +904,15 @@ public final class Format implements Bundleable {
   /** Metadata, or null if unknown or not applicable. */
   @UnstableApi @Nullable public final Metadata metadata;
 
+  /**
+   * An extra opaque object that can be added to the {@link Format} to provide additional
+   * information that can be passed through the player.
+   *
+   * <p>This value is not included in serialized {@link Bundle} instances of this class that are
+   * used to transfer data to other processes.
+   */
+  @UnstableApi @Nullable public final Object customData;
+
   // Container specific.
 
   /** The MIME type of the container, or null if unknown or not applicable. */
@@ -861,6 +928,12 @@ public final class Format implements Bundleable {
    * not applicable.
    */
   @UnstableApi public final int maxInputSize;
+
+  /**
+   * The maximum number of samples that must be stored to correctly re-order samples from decode
+   * order to presentation order.
+   */
+  @UnstableApi public final int maxNumReorderSamples;
 
   /**
    * Initialization data that must be provided to the decoder. Will not be null, but may be empty if
@@ -967,6 +1040,18 @@ public final class Format implements Bundleable {
   // Lazily initialized hashcode.
   private int hashCode;
 
+  private static boolean isLabelPartOfLabels(Builder builder) {
+    if (builder.labels.isEmpty() && builder.label == null) {
+      return true;
+    }
+    for (int i = 0; i < builder.labels.size(); i++) {
+      if (builder.labels.get(i).value.equals(builder.label)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private Format(Builder builder) {
     id = builder.id;
     language = Util.normalizeLanguageCode(builder.language);
@@ -977,24 +1062,31 @@ public final class Format implements Bundleable {
       labels = builder.labels;
       label = getDefaultLabel(builder.labels, language);
     } else {
-      checkState(
-          (builder.labels.isEmpty() && builder.label == null)
-              || (builder.labels.stream().anyMatch(l -> l.value.equals(builder.label))));
+      checkState(isLabelPartOfLabels(builder));
       labels = builder.labels;
       label = builder.label;
     }
     selectionFlags = builder.selectionFlags;
+
+    checkState(
+        builder.auxiliaryTrackType == C.AUXILIARY_TRACK_TYPE_UNDEFINED
+            || (builder.roleFlags & C.ROLE_FLAG_AUXILIARY) != 0,
+        "Auxiliary track type must only be set to a value other than AUXILIARY_TRACK_TYPE_UNDEFINED"
+            + " only when ROLE_FLAG_AUXILIARY is set");
     roleFlags = builder.roleFlags;
+    auxiliaryTrackType = builder.auxiliaryTrackType;
     averageBitrate = builder.averageBitrate;
     peakBitrate = builder.peakBitrate;
     bitrate = peakBitrate != NO_VALUE ? peakBitrate : averageBitrate;
     codecs = builder.codecs;
     metadata = builder.metadata;
+    customData = builder.customData;
     // Container specific.
     containerMimeType = builder.containerMimeType;
     // Sample specific.
     sampleMimeType = builder.sampleMimeType;
     maxInputSize = builder.maxInputSize;
+    maxNumReorderSamples = builder.maxNumReorderSamples;
     initializationData =
         builder.initializationData == null ? Collections.emptyList() : builder.initializationData;
     drmInitData = builder.drmInitData;
@@ -1168,10 +1260,12 @@ public final class Format implements Bundleable {
       result = 31 * result + (language == null ? 0 : language.hashCode());
       result = 31 * result + selectionFlags;
       result = 31 * result + roleFlags;
+      result = 31 * result + auxiliaryTrackType;
       result = 31 * result + averageBitrate;
       result = 31 * result + peakBitrate;
       result = 31 * result + (codecs == null ? 0 : codecs.hashCode());
       result = 31 * result + (metadata == null ? 0 : metadata.hashCode());
+      result = 31 * result + (customData == null ? 0 : customData.hashCode());
       // Container specific.
       result = 31 * result + (containerMimeType == null ? 0 : containerMimeType.hashCode());
       // Sample specific.
@@ -1222,6 +1316,7 @@ public final class Format implements Bundleable {
     // Field equality checks ordered by type, with the cheapest checks first.
     return selectionFlags == other.selectionFlags
         && roleFlags == other.roleFlags
+        && auxiliaryTrackType == other.auxiliaryTrackType
         && averageBitrate == other.averageBitrate
         && peakBitrate == other.peakBitrate
         && maxInputSize == other.maxInputSize
@@ -1241,18 +1336,19 @@ public final class Format implements Bundleable {
         && cryptoType == other.cryptoType
         && Float.compare(frameRate, other.frameRate) == 0
         && Float.compare(pixelWidthHeightRatio, other.pixelWidthHeightRatio) == 0
-        && Util.areEqual(id, other.id)
-        && Util.areEqual(label, other.label)
+        && Objects.equals(id, other.id)
+        && Objects.equals(label, other.label)
         && labels.equals(other.labels)
-        && Util.areEqual(codecs, other.codecs)
-        && Util.areEqual(containerMimeType, other.containerMimeType)
-        && Util.areEqual(sampleMimeType, other.sampleMimeType)
-        && Util.areEqual(language, other.language)
+        && Objects.equals(codecs, other.codecs)
+        && Objects.equals(containerMimeType, other.containerMimeType)
+        && Objects.equals(sampleMimeType, other.sampleMimeType)
+        && Objects.equals(language, other.language)
         && Arrays.equals(projectionData, other.projectionData)
-        && Util.areEqual(metadata, other.metadata)
-        && Util.areEqual(colorInfo, other.colorInfo)
-        && Util.areEqual(drmInitData, other.drmInitData)
-        && initializationDataEquals(other);
+        && Objects.equals(metadata, other.metadata)
+        && Objects.equals(colorInfo, other.colorInfo)
+        && Objects.equals(drmInitData, other.drmInitData)
+        && initializationDataEquals(other)
+        && Objects.equals(customData, other.customData);
   }
 
   /**
@@ -1350,10 +1446,16 @@ public final class Format implements Bundleable {
       Joiner.on(',').appendTo(builder, Util.getRoleFlagStrings(format.roleFlags));
       builder.append("]");
     }
+    if (format.customData != null) {
+      builder.append(", customData=").append(format.customData);
+    }
+    if ((format.roleFlags & C.ROLE_FLAG_AUXILIARY) != 0) {
+      builder
+          .append(", auxiliaryTrackType=")
+          .append(Util.getAuxiliaryTrackTypeString(format.auxiliaryTrackType));
+    }
     return builder.toString();
   }
-
-  // Bundleable implementation.
 
   private static final String FIELD_ID = Util.intToStringMaxRadix(0);
   private static final String FIELD_LABEL = Util.intToStringMaxRadix(1);
@@ -1388,9 +1490,13 @@ public final class Format implements Bundleable {
   private static final String FIELD_TILE_COUNT_HORIZONTAL = Util.intToStringMaxRadix(30);
   private static final String FIELD_TILE_COUNT_VERTICAL = Util.intToStringMaxRadix(31);
   private static final String FIELD_LABELS = Util.intToStringMaxRadix(32);
+  private static final String FIELD_AUXILIARY_TRACK_TYPE = Util.intToStringMaxRadix(33);
 
+  /**
+   * @deprecated Use {@link #toBundle(boolean)} instead.
+   */
   @UnstableApi
-  @Override
+  @Deprecated
   public Bundle toBundle() {
     return toBundle(/* excludeMetadata= */ false);
   }
@@ -1409,6 +1515,9 @@ public final class Format implements Bundleable {
     bundle.putString(FIELD_LANGUAGE, language);
     bundle.putInt(FIELD_SELECTION_FLAGS, selectionFlags);
     bundle.putInt(FIELD_ROLE_FLAGS, roleFlags);
+    if (auxiliaryTrackType != DEFAULT.auxiliaryTrackType) {
+      bundle.putInt(FIELD_AUXILIARY_TRACK_TYPE, auxiliaryTrackType);
+    }
     bundle.putInt(FIELD_AVERAGE_BITRATE, averageBitrate);
     bundle.putInt(FIELD_PEAK_BITRATE, peakBitrate);
     bundle.putString(FIELD_CODECS, codecs);
@@ -1424,7 +1533,7 @@ public final class Format implements Bundleable {
     for (int i = 0; i < initializationData.size(); i++) {
       bundle.putByteArray(keyForInitializationData(i), initializationData.get(i));
     }
-    // DrmInitData doesn't need to be Bundleable as it's only used in the playing process to
+    // DrmInitData doesn't need to be put into Bundle as it's only used in the playing process to
     // initialize the decoder.
     bundle.putParcelable(FIELD_DRM_INIT_DATA, drmInitData);
     bundle.putLong(FIELD_SUBSAMPLE_OFFSET_US, subsampleOffsetUs);
@@ -1455,16 +1564,6 @@ public final class Format implements Bundleable {
     return bundle;
   }
 
-  /**
-   * Object that can restore {@code Format} from a {@link Bundle}.
-   *
-   * @deprecated Use {@link #fromBundle} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<Format> CREATOR = Format::fromBundle;
-
   /** Restores a {@code Format} from a {@link Bundle}. */
   @UnstableApi
   public static Format fromBundle(Bundle bundle) {
@@ -1483,6 +1582,8 @@ public final class Format implements Bundleable {
         .setLanguage(defaultIfNull(bundle.getString(FIELD_LANGUAGE), DEFAULT.language))
         .setSelectionFlags(bundle.getInt(FIELD_SELECTION_FLAGS, DEFAULT.selectionFlags))
         .setRoleFlags(bundle.getInt(FIELD_ROLE_FLAGS, DEFAULT.roleFlags))
+        .setAuxiliaryTrackType(
+            bundle.getInt(FIELD_AUXILIARY_TRACK_TYPE, DEFAULT.auxiliaryTrackType))
         .setAverageBitrate(bundle.getInt(FIELD_AVERAGE_BITRATE, DEFAULT.averageBitrate))
         .setPeakBitrate(bundle.getInt(FIELD_PEAK_BITRATE, DEFAULT.peakBitrate))
         .setCodecs(defaultIfNull(bundle.getString(FIELD_CODECS), DEFAULT.codecs))

@@ -55,50 +55,10 @@ import java.lang.annotation.Target;
  * <p>By default usages of APIs annotated with this annotation generate lint errors in Gradle and
  * Android Studio, in order to alert developers to the risk of breaking changes.
  *
- * <p>Individual usage sites or whole packages can be opted-in to suppress the lint error by using
- * the {@link androidx.annotation.OptIn} annotation.
- *
- * <p>In a Java class:
- *
- * <pre>{@code
- * import androidx.annotation.OptIn;
- * import androidx.media3.common.util.UnstableApi;
- * ...
- * @OptIn(markerClass = UnstableApi.class)
- * private void methodUsingUnstableApis() { ... }
- * }</pre>
- *
- * <p>In a {@code package-info.java} file, to opt-in a whole package:
- *
- * <pre>{@code
- * @OptIn(markerClass = UnstableApi.class)
- * package name.of.your.package;
- *
- * import androidx.annotation.OptIn;
- * import androidx.media3.common.util.UnstableApi;
- * }</pre>
- *
- * <p>In Kotlin:
- *
- * <pre>{@code
- * import androidx.annotation.OptIn
- * import androidx.media3.common.util.UnstableApi
- * ...
- * @OptIn(UnstableApi::class)
- * private fun methodUsingUnstableApis() { ... }
- * }</pre>
- *
- * <p>Whole projects can be opted-in by suppressing the specific lint error in their <a
- * href="https://developer.android.com/studio/write/lint#pref">{@code lint.xml} file</a>:
- *
- * <pre>{@code
- * <?xml version="1.0" encoding="utf-8"?>
- * <lint>
- *   <issue id="UnsafeOptInUsageError">
- *     <option name="opt-in" value="androidx.media3.common.util.UnstableApi" />
- *   </issue>
- * </lint>
- * }</pre>
+ * <p>See <a
+ * href="https://developer.android.com/media/media3/exoplayer/troubleshooting#unstable-api-lint-errors">the
+ * troubleshooting section on these lint errors</a> for details on how to annotate Java and Kotlin
+ * usages with {@code @OptIn}.
  */
 @Documented
 @Retention(CLASS)

@@ -20,29 +20,27 @@ import static android.opengl.GLES20.GL_TRUE;
 import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_BITMAP;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.effect.DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_LINEAR;
 
 import android.content.Context;
-import android.graphics.Bitmap;
 import android.graphics.Gainmap;
 import android.opengl.GLES20;
 import android.opengl.Matrix;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
-import androidx.media3.common.Format;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor.InputType;
 import androidx.media3.common.util.GlProgram;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.Size;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.effect.DefaultVideoFrameProcessor.WorkingColorSpace;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -61,10 +59,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  *
  * <p>Can copy frames from an external texture and apply color transformations for HDR if needed.
  */
-@UnstableApi
 @SuppressWarnings("FunctionalInterfaceClash") // b/228192298
 /* package */ final class DefaultShaderProgram extends BaseGlShaderProgram
-    implements ExternalShaderProgram, GainmapShaderProgram {
+    implements ExternalShaderProgram, RepeatingGainmapShaderProgram {
 
   private static final String VERTEX_SHADER_TRANSFORMATION_PATH =
       "shaders/vertex_shader_transformation_es2.glsl";
@@ -72,6 +69,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       "shaders/vertex_shader_transformation_es3.glsl";
   private static final String FRAGMENT_SHADER_TRANSFORMATION_PATH =
       "shaders/fragment_shader_transformation_es2.glsl";
+  private static final String FRAGMENT_SHADER_COPY_PATH = "shaders/fragment_shader_copy_es2.glsl";
   private static final String FRAGMENT_SHADER_OETF_ES3_PATH =
       "shaders/fragment_shader_oetf_es3.glsl";
   private static final String FRAGMENT_SHADER_TRANSFORMATION_SDR_OETF_ES2_PATH =
@@ -153,9 +151,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private ImmutableList<float[]> visiblePolygon;
 
   private @MonotonicNonNull Gainmap lastGainmap;
-  private int lastGainmapGenerationId;
   private int gainmapTexId;
   private @C.ColorTransfer int outputColorTransfer;
+  private boolean shouldRepeatLastFrame;
+  private boolean isRepeatingFrameDrawn;
 
   /**
    * Creates a new instance.
@@ -178,11 +177,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       List<RgbMatrix> rgbMatrices,
       boolean useHdr)
       throws VideoFrameProcessingException {
+    String fragmentShaderFilePath =
+        rgbMatrices.isEmpty()
+            // Ensure colors not multiplied by a uRgbMatrix (even the identity) as it can create
+            // color shifts on electrical pq tonemapped content.
+            ? FRAGMENT_SHADER_COPY_PATH
+            : FRAGMENT_SHADER_TRANSFORMATION_PATH;
     GlProgram glProgram =
-        createGlProgram(
-            context, VERTEX_SHADER_TRANSFORMATION_PATH, FRAGMENT_SHADER_TRANSFORMATION_PATH);
+        createGlProgram(context, VERTEX_SHADER_TRANSFORMATION_PATH, fragmentShaderFilePath);
 
-    // No transfer functions needed, because input and output are both optical colors.
+    // No transfer functions needed/applied, because input and output are in the same color space.
     return new DefaultShaderProgram(
         glProgram,
         ImmutableList.copyOf(matrixTransformations),
@@ -206,8 +210,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param outputColorInfo The output electrical (nonlinear) or optical (linear) {@link ColorInfo}.
    *     If this is an optical color, it must be BT.2020 if {@code inputColorInfo} is {@linkplain
    *     ColorInfo#isTransferHdr(ColorInfo) HDR}, and RGB BT.709 if not.
-   * @param enableColorTransfers Whether to transfer colors to an intermediate color space when
-   *     applying effects. If the input or output is HDR, this must be {@code true}.
+   * @param sdrWorkingColorSpace The {@link WorkingColorSpace} to apply effects in.
    * @throws VideoFrameProcessingException If a problem occurs while reading shader files or an
    *     OpenGL operation fails or is unsupported.
    */
@@ -215,7 +218,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Context context,
       ColorInfo inputColorInfo,
       ColorInfo outputColorInfo,
-      boolean enableColorTransfers,
+      @WorkingColorSpace int sdrWorkingColorSpace,
       @InputType int inputType)
       throws VideoFrameProcessingException {
     checkState(
@@ -235,6 +238,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 : FRAGMENT_SHADER_TRANSFORMATION_SDR_INTERNAL_PATH;
     GlProgram glProgram = createGlProgram(context, vertexShaderFilePath, fragmentShaderFilePath);
     if (!isUsingUltraHdr) {
+      checkArgument(
+          isInputTransferHdr
+              || inputColorInfo.colorTransfer == C.COLOR_TRANSFER_SRGB
+              || inputColorInfo.colorTransfer == C.COLOR_TRANSFER_SDR);
       glProgram.setIntUniform("uInputColorTransfer", inputColorInfo.colorTransfer);
     }
     if (isInputTransferHdr) {
@@ -242,7 +249,19 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           "uApplyHdrToSdrToneMapping",
           outputColorInfo.colorSpace != C.COLOR_SPACE_BT2020 ? GL_TRUE : GL_FALSE);
     }
-    return createWithSampler(glProgram, inputColorInfo, outputColorInfo, enableColorTransfers);
+    ImmutableList<GlMatrixTransformation> matrixTransformations = ImmutableList.of();
+    if (inputType == INPUT_TYPE_BITMAP) {
+      matrixTransformations =
+          ImmutableList.of(
+              (MatrixTransformation)
+                  presentationTimeUs -> {
+                    android.graphics.Matrix mirrorY = new android.graphics.Matrix();
+                    mirrorY.setScale(/* sx= */ 1, /* sy= */ -1);
+                    return mirrorY;
+                  });
+    }
+    return createWithSampler(
+        glProgram, inputColorInfo, outputColorInfo, sdrWorkingColorSpace, matrixTransformations);
   }
 
   /**
@@ -262,8 +281,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param outputColorInfo The output electrical (nonlinear) or optical (linear) {@link ColorInfo}.
    *     If this is an optical color, it must be BT.2020 if {@code inputColorInfo} is {@linkplain
    *     ColorInfo#isTransferHdr(ColorInfo) HDR}, and RGB BT.709 if not.
-   * @param enableColorTransfers Whether to transfer colors to an intermediate color space when
-   *     applying effects. If the input or output is HDR, this must be {@code true}.
+   * @param sdrWorkingColorSpace The {@link WorkingColorSpace} to apply effects in.
+   * @param sampleWithNearest Whether external textures require GL_NEAREST sampling.
    * @throws VideoFrameProcessingException If a problem occurs while reading shader files or an
    *     OpenGL operation fails or is unsupported.
    */
@@ -271,7 +290,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Context context,
       ColorInfo inputColorInfo,
       ColorInfo outputColorInfo,
-      boolean enableColorTransfers)
+      @WorkingColorSpace int sdrWorkingColorSpace,
+      boolean sampleWithNearest)
       throws VideoFrameProcessingException {
     boolean isInputTransferHdr = ColorInfo.isTransferHdr(inputColorInfo);
     String vertexShaderFilePath =
@@ -299,8 +319,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           "uApplyHdrToSdrToneMapping",
           outputColorInfo.colorSpace != C.COLOR_SPACE_BT2020 ? GL_TRUE : GL_FALSE);
     }
+    glProgram.setExternalTexturesRequireNearestSampling(sampleWithNearest);
 
-    return createWithSampler(glProgram, inputColorInfo, outputColorInfo, enableColorTransfers);
+    return createWithSampler(
+        glProgram,
+        inputColorInfo,
+        outputColorInfo,
+        sdrWorkingColorSpace,
+        /* matrixTransformations= */ ImmutableList.of());
   }
 
   /**
@@ -319,6 +345,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param rgbMatrices The {@link RgbMatrix RgbMatrices} to apply to each frame in order. Can be
    *     empty to apply no color transformations.
    * @param outputColorInfo The electrical (non-linear) {@link ColorInfo} describing output colors.
+   * @param sdrWorkingColorSpace The {@link WorkingColorSpace} to apply effects in.
    * @throws VideoFrameProcessingException If a problem occurs while reading shader files or an
    *     OpenGL operation fails or is unsupported.
    */
@@ -327,18 +354,22 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       List<GlMatrixTransformation> matrixTransformations,
       List<RgbMatrix> rgbMatrices,
       ColorInfo outputColorInfo,
-      boolean enableColorTransfers)
+      @WorkingColorSpace int sdrWorkingColorSpace)
       throws VideoFrameProcessingException {
     boolean outputIsHdr = ColorInfo.isTransferHdr(outputColorInfo);
+    boolean shouldApplyOetf = sdrWorkingColorSpace == WORKING_COLOR_SPACE_LINEAR;
     String vertexShaderFilePath =
         outputIsHdr ? VERTEX_SHADER_TRANSFORMATION_ES3_PATH : VERTEX_SHADER_TRANSFORMATION_PATH;
     String fragmentShaderFilePath =
         outputIsHdr
             ? FRAGMENT_SHADER_OETF_ES3_PATH
-            : FRAGMENT_SHADER_TRANSFORMATION_SDR_OETF_ES2_PATH;
-    if (!enableColorTransfers) {
-      fragmentShaderFilePath = FRAGMENT_SHADER_TRANSFORMATION_PATH;
-    }
+            : shouldApplyOetf
+                ? FRAGMENT_SHADER_TRANSFORMATION_SDR_OETF_ES2_PATH
+                : rgbMatrices.isEmpty()
+                    // Ensure colors not multiplied by a uRgbMatrix (even the identity) as it can
+                    // create color shifts on electrical pq tonemapped content.
+                    ? FRAGMENT_SHADER_COPY_PATH
+                    : FRAGMENT_SHADER_TRANSFORMATION_PATH;
     GlProgram glProgram = createGlProgram(context, vertexShaderFilePath, fragmentShaderFilePath);
 
     @C.ColorTransfer int outputColorTransfer = outputColorInfo.colorTransfer;
@@ -346,9 +377,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       checkArgument(
           outputColorTransfer == C.COLOR_TRANSFER_HLG
               || outputColorTransfer == C.COLOR_TRANSFER_ST2084);
-      checkArgument(enableColorTransfers);
       glProgram.setIntUniform("uOutputColorTransfer", outputColorTransfer);
-    } else if (enableColorTransfers) {
+    } else if (shouldApplyOetf) {
       checkArgument(
           outputColorTransfer == C.COLOR_TRANSFER_SDR
               || outputColorTransfer == C.COLOR_TRANSFER_GAMMA_2_2);
@@ -367,7 +397,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       GlProgram glProgram,
       ColorInfo inputColorInfo,
       ColorInfo outputColorInfo,
-      boolean enableColorTransfers) {
+      @WorkingColorSpace int sdrWorkingColorSpace,
+      ImmutableList<GlMatrixTransformation> matrixTransformations) {
     boolean isInputTransferHdr = ColorInfo.isTransferHdr(inputColorInfo);
     boolean isExpandingColorGamut =
         (inputColorInfo.colorSpace == C.COLOR_SPACE_BT709
@@ -375,21 +406,26 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             && outputColorInfo.colorSpace == C.COLOR_SPACE_BT2020;
     @C.ColorTransfer int outputColorTransfer = outputColorInfo.colorTransfer;
     if (isInputTransferHdr) {
-      checkArgument(inputColorInfo.colorSpace == C.COLOR_SPACE_BT2020);
-      checkArgument(enableColorTransfers);
       // TODO(b/239735341): Add a setBooleanUniform method to GlProgram.
-      checkArgument(outputColorTransfer != Format.NO_VALUE);
       if (outputColorTransfer == C.COLOR_TRANSFER_SDR) {
         // When tone-mapping from HDR to SDR, COLOR_TRANSFER_SDR is interpreted as
         // COLOR_TRANSFER_GAMMA_2_2.
         outputColorTransfer = C.COLOR_TRANSFER_GAMMA_2_2;
       }
+      checkArgument(
+          outputColorTransfer == C.COLOR_TRANSFER_LINEAR
+              || outputColorTransfer == C.COLOR_TRANSFER_GAMMA_2_2
+              || outputColorTransfer == C.COLOR_TRANSFER_ST2084
+              || outputColorTransfer == C.COLOR_TRANSFER_HLG);
       glProgram.setIntUniform("uOutputColorTransfer", outputColorTransfer);
     } else if (isExpandingColorGamut) {
-      checkArgument(enableColorTransfers);
+      checkArgument(
+          outputColorTransfer == C.COLOR_TRANSFER_LINEAR
+              || outputColorTransfer == C.COLOR_TRANSFER_ST2084
+              || outputColorTransfer == C.COLOR_TRANSFER_HLG);
       glProgram.setIntUniform("uOutputColorTransfer", outputColorTransfer);
     } else {
-      glProgram.setIntUniform("uEnableColorTransfer", enableColorTransfers ? GL_TRUE : GL_FALSE);
+      glProgram.setIntUniform("uSdrWorkingColorSpace", sdrWorkingColorSpace);
       checkArgument(
           outputColorTransfer == C.COLOR_TRANSFER_SDR
               || outputColorTransfer == C.COLOR_TRANSFER_LINEAR);
@@ -399,7 +435,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     return new DefaultShaderProgram(
         glProgram,
-        /* matrixTransformations= */ ImmutableList.of(),
+        matrixTransformations,
         /* rgbMatrices= */ ImmutableList.of(),
         outputColorInfo.colorTransfer,
         /* useHdr= */ isInputTransferHdr || isExpandingColorGamut);
@@ -437,7 +473,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     tempResultMatrix = new float[16];
     visiblePolygon = NDC_SQUARE;
     gainmapTexId = C.INDEX_UNSET;
-    lastGainmapGenerationId = C.INDEX_UNSET;
   }
 
   private static GlProgram createGlProgram(
@@ -468,18 +503,24 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   public void drawFrame(int inputTexId, long presentationTimeUs)
       throws VideoFrameProcessingException {
-    updateCompositeRgbMatrixArray(presentationTimeUs);
-    updateCompositeTransformationMatrixAndVisiblePolygon(presentationTimeUs);
+    boolean compositeRgbMatrixArrayChanged = updateCompositeRgbMatrixArray(presentationTimeUs);
+    boolean compositeTransformationMatrixAndVisiblePolygonChanged =
+        updateCompositeTransformationMatrixAndVisiblePolygon(presentationTimeUs);
+    boolean uniformsChanged =
+        compositeRgbMatrixArrayChanged || compositeTransformationMatrixAndVisiblePolygonChanged;
     if (visiblePolygon.size() < 3) {
       return; // Need at least three visible vertices for a triangle.
     }
 
+    if (shouldRepeatLastFrame && !uniformsChanged && isRepeatingFrameDrawn) {
+      return;
+    }
     try {
       glProgram.use();
       setGainmapSamplerAndUniforms();
       glProgram.setSamplerTexIdUniform("uTexSampler", inputTexId, /* texUnitIndex= */ 0);
       glProgram.setFloatsUniform("uTransformationMatrix", compositeTransformationMatrixArray);
-      glProgram.setFloatsUniform("uRgbMatrix", compositeRgbMatrixArray);
+      glProgram.setFloatsUniformIfPresent("uRgbMatrix", compositeRgbMatrixArray);
       glProgram.setBufferAttribute(
           "aFramePosition",
           GlUtil.createVertexBuffer(visiblePolygon),
@@ -491,6 +532,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     } catch (GlUtil.GlException e) {
       throw new VideoFrameProcessingException(e, presentationTimeUs);
     }
+    isRepeatingFrameDrawn = true;
   }
 
   @Override
@@ -517,18 +559,29 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (!useHdr) {
       return;
     }
-    int gainmapGenerationId = gainmap.getGainmapContents().getGenerationId();
-    if (Objects.equals(this.lastGainmap, gainmap)
-        && gainmapGenerationId == this.lastGainmapGenerationId) {
+    if (lastGainmap != null && GainmapUtil.equals(this.lastGainmap, gainmap)) {
       return;
     }
+    isRepeatingFrameDrawn = false;
     this.lastGainmap = gainmap;
-    this.lastGainmapGenerationId = gainmapGenerationId;
     if (gainmapTexId == C.INDEX_UNSET) {
       gainmapTexId = GlUtil.createTexture(gainmap.getGainmapContents());
     } else {
       GlUtil.setTexture(gainmapTexId, gainmap.getGainmapContents());
     }
+  }
+
+  @Override
+  public void signalNewRepeatingFrameSequence() {
+    // Skipping drawFrame() is only allowed if there's only one possible output texture.
+    checkState(outputTexturePool.capacity() == 1);
+    shouldRepeatLastFrame = true;
+    isRepeatingFrameDrawn = false;
+  }
+
+  @Override
+  public boolean shouldClearTextureBuffer() {
+    return !(isRepeatingFrameDrawn && shouldRepeatLastFrame);
   }
 
   /**
@@ -551,8 +604,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   /**
    * Updates {@link #compositeTransformationMatrixArray} and {@link #visiblePolygon} based on the
    * given frame timestamp.
+   *
+   * <p>Returns whether the transformation matrix or visible polygon has changed.
    */
-  private void updateCompositeTransformationMatrixAndVisiblePolygon(long presentationTimeUs) {
+  private boolean updateCompositeTransformationMatrixAndVisiblePolygon(long presentationTimeUs) {
     float[][] matricesAtPresentationTime = new float[matrixTransformations.size()][16];
     for (int i = 0; i < matrixTransformations.size(); i++) {
       matricesAtPresentationTime[i] =
@@ -560,7 +615,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     if (!updateMatrixCache(transformationMatrixCache, matricesAtPresentationTime)) {
-      return;
+      return false;
     }
 
     // Compute the compositeTransformationMatrix and transform and clip the visiblePolygon for each
@@ -586,7 +641,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               MatrixUtils.transformPoints(transformationMatrix, visiblePolygon));
       if (visiblePolygon.size() < 3) {
         // Can ignore remaining matrices as there are not enough vertices left to form a polygon.
-        return;
+        return true;
       }
     }
     // Calculate the input frame vertices corresponding to the output frame's visible polygon.
@@ -596,17 +651,22 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         compositeTransformationMatrixArray,
         /* mOffset= */ 0);
     visiblePolygon = MatrixUtils.transformPoints(tempResultMatrix, visiblePolygon);
+    return true;
   }
 
-  /** Updates {@link #compositeRgbMatrixArray} based on the given frame timestamp. */
-  private void updateCompositeRgbMatrixArray(long presentationTimeUs) {
+  /**
+   * Updates {@link #compositeRgbMatrixArray} based on the given frame timestamp.
+   *
+   * <p>Returns whether the {@link #compositeRgbMatrixArray} has changed.
+   */
+  private boolean updateCompositeRgbMatrixArray(long presentationTimeUs) {
     float[][] matricesCurrTimestamp = new float[rgbMatrices.size()][16];
     for (int i = 0; i < rgbMatrices.size(); i++) {
       matricesCurrTimestamp[i] = rgbMatrices.get(i).getMatrix(presentationTimeUs, useHdr);
     }
 
     if (!updateMatrixCache(rgbMatrixCache, matricesCurrTimestamp)) {
-      return;
+      return false;
     }
 
     GlUtil.setToIdentity(compositeRgbMatrixArray);
@@ -626,6 +686,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           /* destPost= */ 0,
           /* length= */ tempResultMatrix.length);
     }
+    return true;
   }
 
   /**
@@ -662,29 +723,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       throw new IllegalStateException("Gainmaps not supported under API 34.");
     }
     glProgram.setSamplerTexIdUniform("uGainmapTexSampler", gainmapTexId, /* texUnitIndex= */ 1);
-
-    boolean gainmapIsAlpha = lastGainmap.getGainmapContents().getConfig() == Bitmap.Config.ALPHA_8;
-    float[] gainmapGamma = lastGainmap.getGamma();
-    boolean noGamma = gainmapGamma[0] == 1f && gainmapGamma[1] == 1f && gainmapGamma[2] == 1f;
-    boolean singleChannel =
-        areAllChannelsEqual(gainmapGamma)
-            && areAllChannelsEqual(lastGainmap.getRatioMax())
-            && areAllChannelsEqual(lastGainmap.getRatioMin());
-
-    glProgram.setIntUniform("uGainmapIsAlpha", gainmapIsAlpha ? GL_TRUE : GL_FALSE);
-    glProgram.setIntUniform("uNoGamma", noGamma ? GL_TRUE : GL_FALSE);
-    glProgram.setIntUniform("uSingleChannel", singleChannel ? GL_TRUE : GL_FALSE);
-    glProgram.setFloatsUniform("uLogRatioMin", lastGainmap.getRatioMin());
-    glProgram.setFloatsUniform("uLogRatioMax", lastGainmap.getRatioMax());
-    glProgram.setFloatsUniform("uEpsilonSdr", lastGainmap.getEpsilonSdr());
-    glProgram.setFloatsUniform("uEpsilonHdr", lastGainmap.getEpsilonHdr());
-    glProgram.setFloatsUniform("uGainmapGamma", gainmapGamma);
-    glProgram.setFloatUniform("uDisplayRatioHdr", lastGainmap.getDisplayRatioForFullHdr());
-    glProgram.setFloatUniform("uDisplayRatioSdr", lastGainmap.getMinDisplayRatioForHdrTransition());
-    GlUtil.checkGlError();
-  }
-
-  private static boolean areAllChannelsEqual(float[] channels) {
-    return channels[0] == channels[1] && channels[1] == channels[2];
+    GainmapUtil.setGainmapUniforms(glProgram, lastGainmap, C.INDEX_UNSET);
   }
 }

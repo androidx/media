@@ -380,7 +380,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
       // Expected if the app was built without the extension.
     } catch (Exception e) {
       // The extension is present, but instantiation failed.
-      throw new RuntimeException("Error instantiating VP9 extension", e);
+      throw new IllegalStateException("Error instantiating VP9 extension", e);
     }
 
     try {
@@ -405,7 +405,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
       // Expected if the app was built without the extension.
     } catch (Exception e) {
       // The extension is present, but instantiation failed.
-      throw new RuntimeException("Error instantiating AV1 extension", e);
+      throw new IllegalStateException("Error instantiating AV1 extension", e);
     }
 
     try {
@@ -431,7 +431,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
       // Expected if the app was built without the extension.
     } catch (Exception e) {
       // The extension is present, but instantiation failed.
-      throw new RuntimeException("Error instantiating FFmpeg extension", e);
+      throw new IllegalStateException("Error instantiating FFmpeg extension", e);
     }
   }
 
@@ -488,7 +488,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
       // Expected if the app was built without the extension.
     } catch (Exception e) {
       // The extension is present, but instantiation failed.
-      throw new RuntimeException("Error instantiating MIDI extension", e);
+      throw new IllegalStateException("Error instantiating MIDI extension", e);
     }
 
     try {
@@ -507,7 +507,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
       // Expected if the app was built without the extension.
     } catch (Exception e) {
       // The extension is present, but instantiation failed.
-      throw new RuntimeException("Error instantiating Opus extension", e);
+      throw new IllegalStateException("Error instantiating Opus extension", e);
     }
 
     try {
@@ -526,7 +526,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
       // Expected if the app was built without the extension.
     } catch (Exception e) {
       // The extension is present, but instantiation failed.
-      throw new RuntimeException("Error instantiating FLAC extension", e);
+      throw new IllegalStateException("Error instantiating FLAC extension", e);
     }
 
     try {
@@ -545,7 +545,25 @@ public class DefaultRenderersFactory implements RenderersFactory {
       // Expected if the app was built without the extension.
     } catch (Exception e) {
       // The extension is present, but instantiation failed.
-      throw new RuntimeException("Error instantiating FFmpeg extension", e);
+      throw new IllegalStateException("Error instantiating FFmpeg extension", e);
+    }
+    try {
+      // Full class names used for constructor args so the LINT rule triggers if any of them move.
+      Class<?> clazz = Class.forName("androidx.media3.decoder.iamf.LibiamfAudioRenderer");
+      Constructor<?> constructor =
+          clazz.getConstructor(
+              Context.class,
+              android.os.Handler.class,
+              androidx.media3.exoplayer.audio.AudioRendererEventListener.class,
+              androidx.media3.exoplayer.audio.AudioSink.class);
+      Renderer renderer =
+          (Renderer) constructor.newInstance(context, eventHandler, eventListener, audioSink);
+      out.add(extensionRendererIndex++, renderer);
+    } catch (ClassNotFoundException e) {
+      // Expected if the app was built without the extension.
+    } catch (Exception e) {
+      // The extension is present, but instantiation failed.
+      throw new IllegalStateException("Error instantiating IAMF extension", e);
     }
   }
 
@@ -606,7 +624,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * @param out An array to which the built renderers should be appended.
    */
   protected void buildImageRenderers(ArrayList<Renderer> out) {
-    out.add(new ImageRenderer(ImageDecoder.Factory.DEFAULT, /* imageOutput= */ null));
+    out.add(new ImageRenderer(getImageDecoderFactory(), /* imageOutput= */ null));
   }
 
   /**
@@ -651,5 +669,10 @@ public class DefaultRenderersFactory implements RenderersFactory {
    */
   protected MediaCodecAdapter.Factory getCodecAdapterFactory() {
     return codecAdapterFactory;
+  }
+
+  /** Returns the {@link ImageDecoder.Factory} used to build the image renderer. */
+  protected ImageDecoder.Factory getImageDecoderFactory() {
+    return ImageDecoder.Factory.DEFAULT;
   }
 }

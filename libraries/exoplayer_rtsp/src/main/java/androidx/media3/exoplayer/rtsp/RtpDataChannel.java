@@ -17,13 +17,11 @@ package androidx.media3.exoplayer.rtsp;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.exoplayer.rtsp.RtspMessageChannel.InterleavedBinaryDataListener;
 import java.io.IOException;
 
 /** An RTP {@link DataSource}. */
-@UnstableApi
 /* package */ interface RtpDataChannel extends DataSource {
 
   /** Creates {@link RtpDataChannel} for RTSP streams. */

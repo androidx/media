@@ -49,7 +49,8 @@ public class PlayerWrapperTest {
             /* playIfSuppressed= */ true,
             ImmutableList.of(),
             SessionCommands.EMPTY,
-            Player.Commands.EMPTY);
+            Player.Commands.EMPTY,
+            /* legacyExtras= */ null);
     when(player.isCommandAvailable(anyInt())).thenReturn(true);
     when(player.getApplicationLooper()).thenReturn(Looper.myLooper());
   }

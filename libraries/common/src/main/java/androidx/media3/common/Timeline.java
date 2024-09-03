@@ -17,7 +17,6 @@ package androidx.media3.common;
 
 import static androidx.media3.common.AdPlaybackState.AD_STATE_UNAVAILABLE;
 import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -140,7 +139,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
  * <p>This case includes mid-roll ad groups, which are defined as part of the timeline's single
  * period. The period can be queried for information about the ad groups and the ads they contain.
  */
-public abstract class Timeline implements Bundleable {
+public abstract class Timeline {
 
   /**
    * Holds information about a window in a {@link Timeline}. A window usually corresponds to one
@@ -153,7 +152,7 @@ public abstract class Timeline implements Bundleable {
    * src="https://developer.android.com/static/images/reference/androidx/media3/common/timeline-window.svg"
    * alt="Information defined by a timeline window">
    */
-  public static final class Window implements Bundleable {
+  public static final class Window {
 
     /**
      * A {@link #uid} for a window that must be used for single-window {@link Timeline Timelines}.
@@ -218,11 +217,6 @@ public abstract class Timeline implements Bundleable {
     // https://github.com/google/ExoPlayer/issues/4780.
     /** Whether this window may change when the timeline is updated. */
     public boolean isDynamic;
-
-    /**
-     * @deprecated Use {@link #isLive()} instead.
-     */
-    @UnstableApi @Deprecated public boolean isLive;
 
     /**
      * The {@link MediaItem.LiveConfiguration} that is used or null if {@link #isLive()} returns
@@ -296,7 +290,6 @@ public abstract class Timeline implements Bundleable {
       this.elapsedRealtimeEpochOffsetMs = elapsedRealtimeEpochOffsetMs;
       this.isSeekable = isSeekable;
       this.isDynamic = isDynamic;
-      this.isLive = liveConfiguration != null;
       this.liveConfiguration = liveConfiguration;
       this.defaultPositionUs = defaultPositionUs;
       this.durationUs = durationUs;
@@ -364,10 +357,7 @@ public abstract class Timeline implements Bundleable {
     }
 
     /** Returns whether this is a live stream. */
-    // Verifies whether the deprecated isLive member field is in a correct state.
-    @SuppressWarnings("deprecation")
     public boolean isLive() {
-      checkState(isLive == (liveConfiguration != null));
       return liveConfiguration != null;
     }
 
@@ -422,8 +412,6 @@ public abstract class Timeline implements Bundleable {
       return result;
     }
 
-    // Bundleable implementation.
-
     private static final String FIELD_MEDIA_ITEM = Util.intToStringMaxRadix(1);
     private static final String FIELD_PRESENTATION_START_TIME_MS = Util.intToStringMaxRadix(2);
     private static final String FIELD_WINDOW_START_TIME_MS = Util.intToStringMaxRadix(3);
@@ -440,14 +428,13 @@ public abstract class Timeline implements Bundleable {
     private static final String FIELD_POSITION_IN_FIRST_PERIOD_US = Util.intToStringMaxRadix(13);
 
     /**
-     * {@inheritDoc}
+     * Returns a {@link Bundle} representing the information stored in this object.
      *
      * <p>It omits the {@link #uid} and {@link #manifest} fields. The {@link #uid} of an instance
-     * restored by {@link #CREATOR} will be a fake {@link Object} and the {@link #manifest} of the
-     * instance will be {@code null}.
+     * restored by {@link #fromBundle} will be a fake {@link Object} and the {@link #manifest} of
+     * the instance will be {@code null}.
      */
     @UnstableApi
-    @Override
     public Bundle toBundle() {
       Bundle bundle = new Bundle();
       if (!MediaItem.EMPTY.equals(mediaItem)) {
@@ -493,19 +480,6 @@ public abstract class Timeline implements Bundleable {
       }
       return bundle;
     }
-
-    /**
-     * Object that can restore {@link Period} from a {@link Bundle}.
-     *
-     * <p>The {@link #uid} of a restored instance will be a fake {@link Object} and the {@link
-     * #manifest} of the instance will be {@code null}.
-     *
-     * @deprecated Use {@link #fromBundle} instead.
-     */
-    @UnstableApi
-    @Deprecated
-    @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-    public static final Creator<Window> CREATOR = Window::fromBundle;
 
     /** Restores a {@code Window} from a {@link Bundle}. */
     @UnstableApi
@@ -569,7 +543,7 @@ public abstract class Timeline implements Bundleable {
    * src="https://developer.android.com/static/images/reference/androidx/media3/common/timeline-period.svg"
    * alt="Information defined by a period">
    */
-  public static final class Period implements Bundleable {
+  public static final class Period {
 
     /**
      * An identifier for the period. Not necessarily unique. May be null if the ids of the period
@@ -601,7 +575,8 @@ public abstract class Timeline implements Bundleable {
      */
     public boolean isPlaceholder;
 
-    private AdPlaybackState adPlaybackState;
+    /** The {@link AdPlaybackState} for all ads in this period. */
+    @UnstableApi public AdPlaybackState adPlaybackState;
 
     /** Creates a new instance with no ad playback state. */
     public Period() {
@@ -918,8 +893,6 @@ public abstract class Timeline implements Bundleable {
       return result;
     }
 
-    // Bundleable implementation.
-
     private static final String FIELD_WINDOW_INDEX = Util.intToStringMaxRadix(0);
     private static final String FIELD_DURATION_US = Util.intToStringMaxRadix(1);
     private static final String FIELD_POSITION_IN_WINDOW_US = Util.intToStringMaxRadix(2);
@@ -927,13 +900,12 @@ public abstract class Timeline implements Bundleable {
     private static final String FIELD_AD_PLAYBACK_STATE = Util.intToStringMaxRadix(4);
 
     /**
-     * {@inheritDoc}
+     * Returns a {@link Bundle} representing the information stored in this object.
      *
      * <p>It omits the {@link #id} and {@link #uid} fields so these fields of an instance restored
-     * by {@link #CREATOR} will always be {@code null}.
+     * by {@link #fromBundle} will always be {@code null}.
      */
     @UnstableApi
-    @Override
     public Bundle toBundle() {
       Bundle bundle = new Bundle();
       if (windowIndex != 0) {
@@ -953,18 +925,6 @@ public abstract class Timeline implements Bundleable {
       }
       return bundle;
     }
-
-    /**
-     * Object that can restore {@link Period} from a {@link Bundle}.
-     *
-     * <p>The {@link #id} and {@link #uid} of restored instances will always be {@code null}.
-     *
-     * @deprecated Use {@link #fromBundle} instead.
-     */
-    @UnstableApi
-    @Deprecated
-    @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-    public static final Creator<Period> CREATOR = Period::fromBundle;
 
     /** Restores a {@code Period} from a {@link Bundle}. */
     @UnstableApi
@@ -1408,21 +1368,18 @@ public abstract class Timeline implements Bundleable {
     return result;
   }
 
-  // Bundleable implementation.
-
   private static final String FIELD_WINDOWS = Util.intToStringMaxRadix(0);
   private static final String FIELD_PERIODS = Util.intToStringMaxRadix(1);
   private static final String FIELD_SHUFFLED_WINDOW_INDICES = Util.intToStringMaxRadix(2);
 
   /**
-   * {@inheritDoc}
+   * Returns a {@link Bundle} representing the information stored in this object.
    *
    * <p>The {@link #getWindow(int, Window)} windows} and {@link #getPeriod(int, Period) periods} of
-   * an instance restored by {@link #CREATOR} may have missing fields as described in {@link
+   * an instance restored by {@link #fromBundle} may have missing fields as described in {@link
    * Window#toBundle()} and {@link Period#toBundle()}.
    */
   @UnstableApi
-  @Override
   public final Bundle toBundle() {
     List<Bundle> windowBundles = new ArrayList<>();
     int windowCount = getWindowCount();
@@ -1480,20 +1437,6 @@ public abstract class Timeline implements Bundleable {
     return new RemotableTimeline(
         ImmutableList.of(window), periods.build(), /* shuffledWindowIndices= */ new int[] {0});
   }
-
-  /**
-   * Object that can restore a {@link Timeline} from a {@link Bundle}.
-   *
-   * <p>The {@link #getWindow(int, Window)} windows} and {@link #getPeriod(int, Period) periods} of
-   * a restored instance may have missing fields as described in {@link Window#CREATOR} and {@link
-   * Period#CREATOR}.
-   *
-   * @deprecated Use {@link #fromBundle} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<Timeline> CREATOR = Timeline::fromBundle;
 
   /** Restores a {@code Timeline} from a {@link Bundle}. */
   @UnstableApi

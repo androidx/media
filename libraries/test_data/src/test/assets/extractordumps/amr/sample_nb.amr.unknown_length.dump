@@ -8,7 +8,7 @@ track 0:
   sample count = 218
   format 0:
     sampleMimeType = audio/3gpp
-    maxInputSize = 61
+    maxInputSize = 32
     channelCount = 1
     sampleRate = 8000
   sample 0:

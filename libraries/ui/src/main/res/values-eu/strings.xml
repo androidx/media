@@ -41,9 +41,7 @@
     <item>1,5×</item>
     <item>2×</item>
   </string-array>
-  <string name="exo_track_selection_title_video">Bideoa</string>
   <string name="exo_track_selection_title_audio">Audioa</string>
-  <string name="exo_track_selection_title_text">Testua</string>
   <string name="exo_track_selection_none">Bat ere ez</string>
   <string name="exo_track_selection_auto">Automatikoa</string>
   <string name="exo_track_unknown">Ezezaguna</string>

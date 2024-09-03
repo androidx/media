@@ -41,9 +41,7 @@
     <item>1,5-kordne</item>
     <item>2-kordne</item>
   </string-array>
-  <string name="exo_track_selection_title_video">Video</string>
   <string name="exo_track_selection_title_audio">Heli</string>
-  <string name="exo_track_selection_title_text">Tekst</string>
   <string name="exo_track_selection_none">Ühtegi</string>
   <string name="exo_track_selection_auto">Automaatne</string>
   <string name="exo_track_unknown">Teadmata</string>

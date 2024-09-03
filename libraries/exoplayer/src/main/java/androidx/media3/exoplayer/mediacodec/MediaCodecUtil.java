@@ -35,6 +35,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.container.NalUnitUtil;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
@@ -165,12 +166,9 @@ public final class MediaCodecUtil {
     if (cachedDecoderInfos != null) {
       return cachedDecoderInfos;
     }
-    MediaCodecListCompat mediaCodecList =
-        Util.SDK_INT >= 21
-            ? new MediaCodecListCompatV21(secure, tunneling)
-            : new MediaCodecListCompatV16();
+    MediaCodecListCompat mediaCodecList = new MediaCodecListCompatV21(secure, tunneling);
     ArrayList<MediaCodecInfo> decoderInfos = getDecoderInfosInternal(key, mediaCodecList);
-    if (secure && decoderInfos.isEmpty() && 21 <= Util.SDK_INT && Util.SDK_INT <= 23) {
+    if (secure && decoderInfos.isEmpty() && Util.SDK_INT <= 23) {
       // Some devices don't list secure decoders on API level 21 [Internal: b/18678462]. Try the
       // legacy path. We also try this path on API levels 22 and 23 as a defensive measure.
       mediaCodecList = new MediaCodecListCompatV16();
@@ -289,9 +287,8 @@ public final class MediaCodecUtil {
         for (CodecProfileLevel profileLevel : decoderInfo.getProfileLevels()) {
           result = max(avcLevelToMaxFrameSize(profileLevel.level), result);
         }
-        // We assume support for at least 480p (SDK_INT >= 21) or 360p (SDK_INT < 21), which are
-        // the levels mandated by the Android CDD.
-        result = max(result, Util.SDK_INT >= 21 ? (720 * 480) : (480 * 360));
+        // We assume support for at least 480p, which is the level mandated by the Android CDD.
+        result = max(result, 720 * 480);
       }
       maxH264DecodableFrameSize = result;
     }
@@ -335,6 +332,24 @@ public final class MediaCodecUtil {
   }
 
   /**
+   * Returns profile and level (as defined by {@link CodecProfileLevel}) corresponding to the base
+   * layer (for the case of falling back to single-layer HEVC from L-HEVC).
+   *
+   * @param format Media format with codec specific initialization data.
+   * @return A pair (profile constant, level constant) if the initializationData of the {@code
+   *     format} is well-formed and recognized, or null otherwise.
+   */
+  @Nullable
+  public static Pair<Integer, Integer> getHevcBaseLayerCodecProfileAndLevel(Format format) {
+    String codecs = NalUnitUtil.getH265BaseLayerCodecsString(format.initializationData);
+    if (codecs == null) {
+      return null;
+    }
+    String[] parts = Util.split(codecs.trim(), "\\.");
+    return getHevcProfileAndLevel(codecs, parts, format.colorInfo);
+  }
+
+  /**
    * Returns an alternative codec MIME type (besides the default {@link Format#sampleMimeType}) that
    * can be used to decode samples of the provided {@link Format}.
    *
@@ -350,8 +365,8 @@ public final class MediaCodecUtil {
       return MimeTypes.AUDIO_E_AC3;
     }
     if (MimeTypes.VIDEO_DOLBY_VISION.equals(format.sampleMimeType)) {
-      // H.264/AVC or H.265/HEVC decoders can decode the base layer of some DV profiles. This can't
-      // be done for profile CodecProfileLevel.DolbyVisionProfileDvheStn and profile
+      // H.264/AVC, H.265/HEVC or AV1 decoders can decode the base layer of some DV profiles.
+      // This can't be done for profile CodecProfileLevel.DolbyVisionProfileDvheStn and profile
       // CodecProfileLevel.DolbyVisionProfileDvheDtb because the first one is not backward
       // compatible and the second one is deprecated and is not always backward compatible.
       @Nullable Pair<Integer, Integer> codecProfileAndLevel = getCodecProfileAndLevel(format);
@@ -362,8 +377,14 @@ public final class MediaCodecUtil {
           return MimeTypes.VIDEO_H265;
         } else if (profile == CodecProfileLevel.DolbyVisionProfileDvavSe) {
           return MimeTypes.VIDEO_H264;
+        } else if (profile == CodecProfileLevel.DolbyVisionProfileDvav110) {
+          return MimeTypes.VIDEO_AV1;
         }
       }
+    }
+    if (MimeTypes.VIDEO_MV_HEVC.equals(format.sampleMimeType)) {
+      // Single-layer HEVC decoders can decode the base layer of MV-HEVC streams.
+      return MimeTypes.VIDEO_H265;
     }
     return null;
   }
@@ -503,6 +524,11 @@ public final class MediaCodecUtil {
           || "OMX.realtek.video.decoder.tunneled".equals(name)) {
         return "video/dv_hevc";
       }
+    } else if (mimeType.equals(MimeTypes.VIDEO_MV_HEVC)) {
+      // Handle decoders that declare support for MV-HEVC via MIME types that aren't video/mv-hevc.
+      if ("c2.qti.mvhevc.decoder".equals(name)) {
+        return "video/x-mvhevc";
+      }
     } else if (mimeType.equals(MimeTypes.AUDIO_ALAC) && "OMX.lge.alac.decoder".equals(name)) {
       return "audio/x-lg-alac";
     } else if (mimeType.equals(MimeTypes.AUDIO_FLAC) && "OMX.lge.flac.decoder".equals(name)) {
@@ -532,17 +558,6 @@ public final class MediaCodecUtil {
       return false;
     }
 
-    // Work around broken audio decoders.
-    if (Util.SDK_INT < 21
-        && ("CIPAACDecoder".equals(name)
-            || "CIPMP3Decoder".equals(name)
-            || "CIPVorbisDecoder".equals(name)
-            || "CIPAMRNBDecoder".equals(name)
-            || "AACDecoder".equals(name)
-            || "MP3Decoder".equals(name))) {
-      return false;
-    }
-
     // Work around https://github.com/google/ExoPlayer/issues/3249.
     if (Util.SDK_INT < 24
         && ("OMX.SEC.aac.dec".equals(name) || "OMX.Exynos.AAC.Decoder".equals(name))
@@ -555,26 +570,6 @@ public final class MediaCodecUtil {
             || "404SC".equals(Util.DEVICE) // Galaxy S6 Edge
             || "SC-04G".equals(Util.DEVICE)
             || "SCV31".equals(Util.DEVICE))) {
-      return false;
-    }
-
-    // Work around https://github.com/google/ExoPlayer/issues/548.
-    // VP8 decoder on Samsung Galaxy S3/S4/S4 Mini/Tab 3/Note 2 does not render video.
-    if (Util.SDK_INT == 19
-        && "OMX.SEC.vp8.dec".equals(name)
-        && "samsung".equals(Util.MANUFACTURER)
-        && (Util.DEVICE.startsWith("d2")
-            || Util.DEVICE.startsWith("serrano")
-            || Util.DEVICE.startsWith("jflte")
-            || Util.DEVICE.startsWith("santos")
-            || Util.DEVICE.startsWith("t0"))) {
-      return false;
-    }
-
-    // VP8 decoder on Samsung Galaxy S4 cannot be queried.
-    if (Util.SDK_INT == 19
-        && Util.DEVICE.startsWith("jflte")
-        && "OMX.qcom.video.decoder.vp8".equals(name)) {
       return false;
     }
 
@@ -631,19 +626,6 @@ public final class MediaCodecUtil {
             }
             return 0;
           });
-    }
-
-    if (Util.SDK_INT < 21 && decoderInfos.size() > 1) {
-      String firstCodecName = decoderInfos.get(0).name;
-      if ("OMX.SEC.mp3.dec".equals(firstCodecName)
-          || "OMX.SEC.MP3.Decoder".equals(firstCodecName)
-          || "OMX.brcm.audio.mp3.decoder".equals(firstCodecName)) {
-        // Prefer OMX.google codecs over OMX.SEC.mp3.dec, OMX.SEC.MP3.Decoder and
-        // OMX.brcm.audio.mp3.decoder on older devices. See:
-        // https://github.com/google/ExoPlayer/issues/398 and
-        // https://github.com/google/ExoPlayer/issues/4519.
-        sortByScore(decoderInfos, decoderInfo -> decoderInfo.name.startsWith("OMX.google") ? 1 : 0);
-      }
     }
 
     if (Util.SDK_INT < 32 && decoderInfos.size() > 1) {
@@ -791,6 +773,9 @@ public final class MediaCodecUtil {
         // Android versions, but we still map to Main10 for backwards compatibility.
         profile = CodecProfileLevel.HEVCProfileMain10;
       }
+    } else if ("6".equals(profileString)) {
+      // Framework does not have profileLevel.HEVCProfileMultiviewMain defined.
+      profile = 6;
     } else {
       Log.w(TAG, "Unknown HEVC profile string: " + profileString);
       return null;
@@ -1023,7 +1008,6 @@ public final class MediaCodecUtil {
     boolean isFeatureRequired(String feature, String mimeType, CodecCapabilities capabilities);
   }
 
-  @RequiresApi(21)
   private static final class MediaCodecListCompatV21 implements MediaCodecListCompat {
 
     private final int codecKind;

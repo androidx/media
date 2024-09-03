@@ -20,6 +20,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
@@ -35,6 +36,7 @@ import androidx.media3.common.Timeline;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
+import androidx.media3.exoplayer.source.MaskingMediaSource;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
@@ -81,7 +83,9 @@ public final class AdsMediaSourceTest {
           /* isDynamic= */ false,
           /* useLiveConfiguration= */ false,
           /* manifest= */ null,
-          MediaItem.fromUri(Uri.parse("https://google.com/empty")));
+          FakeMediaSource.FAKE_MEDIA_ITEM);
+  private static final Timeline PLACEHOLDER_CONTENT_TIMELINE =
+      new MaskingMediaSource.PlaceholderTimeline(FakeMediaSource.FAKE_MEDIA_ITEM);
   private static final Object CONTENT_PERIOD_UID =
       CONTENT_TIMELINE.getUidOfPeriod(/* periodIndex= */ 0);
 
@@ -147,7 +151,8 @@ public final class AdsMediaSourceTest {
   }
 
   @Test
-  public void createPeriod_preparesChildAdMediaSourceAndRefreshesSourceInfo() {
+  public void createPeriod_forPreroll_preparesChildAdMediaSourceAndRefreshesSourceInfo() {
+    // This should be unused if we only create the preroll period.
     contentMediaSource.setNewSourceInfo(CONTENT_TIMELINE);
     adsMediaSource.createPeriod(
         new MediaPeriodId(
@@ -162,11 +167,14 @@ public final class AdsMediaSourceTest {
     assertThat(prerollAdMediaSource.isPrepared()).isTrue();
     verify(mockMediaSourceCaller)
         .onSourceInfoRefreshed(
-            adsMediaSource, new SinglePeriodAdTimeline(CONTENT_TIMELINE, AD_PLAYBACK_STATE));
+            adsMediaSource,
+            new SinglePeriodAdTimeline(PLACEHOLDER_CONTENT_TIMELINE, AD_PLAYBACK_STATE));
   }
 
   @Test
-  public void createPeriod_preparesChildAdMediaSourceAndRefreshesSourceInfoWithAdMediaSourceInfo() {
+  public void
+      createPeriod_forPreroll_preparesChildAdMediaSourceAndRefreshesSourceInfoWithAdMediaSourceInfo() {
+    // This should be unused if we only create the preroll period.
     contentMediaSource.setNewSourceInfo(CONTENT_TIMELINE);
     adsMediaSource.createPeriod(
         new MediaPeriodId(
@@ -183,13 +191,12 @@ public final class AdsMediaSourceTest {
         .onSourceInfoRefreshed(
             adsMediaSource,
             new SinglePeriodAdTimeline(
-                CONTENT_TIMELINE,
+                PLACEHOLDER_CONTENT_TIMELINE,
                 AD_PLAYBACK_STATE.withAdDurationsUs(new long[][] {{PREROLL_AD_DURATION_US}})));
   }
 
   @Test
-  public void createPeriod_createsChildPrerollAdMediaPeriod() {
-    contentMediaSource.setNewSourceInfo(CONTENT_TIMELINE);
+  public void createPeriod_forPreroll_createsChildPrerollAdMediaPeriod() {
     adsMediaSource.createPeriod(
         new MediaPeriodId(
             CONTENT_PERIOD_UID,
@@ -206,7 +213,7 @@ public final class AdsMediaSourceTest {
   }
 
   @Test
-  public void createPeriod_createsChildContentMediaPeriod() {
+  public void createPeriod_forContent_createsChildContentMediaPeriodAndLoadsContentTimeline() {
     contentMediaSource.setNewSourceInfo(CONTENT_TIMELINE);
     shadowOf(Looper.getMainLooper()).idle();
     adsMediaSource.createPeriod(
@@ -216,6 +223,12 @@ public final class AdsMediaSourceTest {
 
     contentMediaSource.assertMediaPeriodCreated(
         new MediaPeriodId(CONTENT_PERIOD_UID, /* windowSequenceNumber= */ 0));
+    ArgumentCaptor<Timeline> adsTimelineCaptor = ArgumentCaptor.forClass(Timeline.class);
+    verify(mockMediaSourceCaller, times(2))
+        .onSourceInfoRefreshed(eq(adsMediaSource), adsTimelineCaptor.capture());
+    TestUtil.timelinesAreSame(
+        adsTimelineCaptor.getValue(),
+        new SinglePeriodAdTimeline(CONTENT_TIMELINE, AD_PLAYBACK_STATE));
   }
 
   @Test

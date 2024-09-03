@@ -29,19 +29,19 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
+import android.os.Parcelable;
 import android.os.ResultReceiver;
-import android.support.v4.media.session.MediaControllerCompat;
-import android.support.v4.media.session.MediaSessionCompat;
 import android.text.TextUtils;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
-import androidx.media.MediaBrowserServiceCompat;
-import androidx.media3.common.Bundleable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.session.legacy.LegacyParcelableUtil;
+import androidx.media3.session.legacy.MediaBrowserServiceCompat;
+import androidx.media3.session.legacy.MediaControllerCompat;
+import androidx.media3.session.legacy.MediaSessionCompat;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -55,8 +55,8 @@ import java.util.List;
 
 /**
  * A token that represents an ongoing {@link MediaSession} or a service ({@link
- * MediaSessionService}, {@link MediaLibraryService}, or {@link MediaBrowserServiceCompat}). If it
- * represents a service, it may not be ongoing.
+ * MediaSessionService}, {@link MediaLibraryService}, or {@code
+ * androix.media.MediaBrowserServiceCompat}). If it represents a service, it may not be ongoing.
  *
  * <p>This may be passed to apps by the session owner to allow them to create a {@link
  * MediaController} or a {@link MediaBrowser} to communicate with the session.
@@ -70,7 +70,11 @@ import java.util.List;
 //     This helps controller apps to keep target of dispatching media key events in uniform way.
 //     For details about the reason, see following. (Android O+)
 //         android.media.session.MediaSessionManager.Callback#onAddressedPlayerChanged
-public final class SessionToken implements Bundleable {
+public final class SessionToken {
+
+  static {
+    MediaLibraryInfo.registerModule("media3.session");
+  }
 
   private static final long WAIT_TIME_MS_FOR_SESSION3_TOKEN = 500;
 
@@ -93,14 +97,15 @@ public final class SessionToken implements Bundleable {
   /** Type for {@link MediaSessionCompat}. */
   /* package */ static final int TYPE_SESSION_LEGACY = 100;
 
-  /** Type for {@link MediaBrowserServiceCompat}. */
+  /** Type for {@code androidx.media.MediaBrowserServiceCompat}. */
   /* package */ static final int TYPE_BROWSER_SERVICE_LEGACY = 101;
 
   private final SessionTokenImpl impl;
 
   /**
    * Creates a token for {@link MediaController} or {@link MediaBrowser} to connect to one of {@link
-   * MediaSessionService}, {@link MediaLibraryService}, or {@link MediaBrowserServiceCompat}.
+   * MediaSessionService}, {@link MediaLibraryService}, or {@code
+   * androidx.media.MediaBrowserServiceCompat}.
    *
    * @param context The context.
    * @param serviceComponent The component name of the service.
@@ -261,47 +266,49 @@ public final class SessionToken implements Bundleable {
   }
 
   /**
-   * Creates a token from a {@link android.media.session.MediaSession.Token}.
+   * Creates a token from a {@link android.media.session.MediaSession.Token} or {@code
+   * android.support.v4.media.session.MediaSessionCompat.Token}.
    *
    * @param context A {@link Context}.
-   * @param token The {@link android.media.session.MediaSession.Token}.
+   * @param token The {@link android.media.session.MediaSession.Token} or {@code
+   *     android.support.v4.media.session.MediaSessionCompat.Token}.
    * @return A {@link ListenableFuture} for the {@link SessionToken}.
    */
-  @SuppressWarnings("UnnecessarilyFullyQualified") // Avoiding clash with Media3 MediaSession.
   @UnstableApi
-  @RequiresApi(21)
   public static ListenableFuture<SessionToken> createSessionToken(
-      Context context, android.media.session.MediaSession.Token token) {
-    return createSessionToken(context, MediaSessionCompat.Token.fromToken(token));
+      Context context, Parcelable token) {
+    return createSessionToken(context, createCompatToken(token));
   }
 
   /**
-   * Creates a token from a {@link android.media.session.MediaSession.Token}.
+   * Creates a token from a {@link android.media.session.MediaSession.Token} or {@code
+   * android.support.v4.media.session.MediaSessionCompat.Token}.
    *
    * @param context A {@link Context}.
-   * @param token The {@link android.media.session.MediaSession.Token}.
+   * @param token The {@link android.media.session.MediaSession.Token} or {@code
+   *     android.support.v4.media.session.MediaSessionCompat.Token}..
    * @param completionLooper The {@link Looper} on which the returned {@link ListenableFuture}
    *     completes. This {@link Looper} can't be used to call {@code future.get()} on the returned
    *     {@link ListenableFuture}.
    * @return A {@link ListenableFuture} for the {@link SessionToken}.
    */
-  @SuppressWarnings("UnnecessarilyFullyQualified") // Avoiding clash with Media3 MediaSession.
   @UnstableApi
-  @RequiresApi(21)
   public static ListenableFuture<SessionToken> createSessionToken(
-      Context context, android.media.session.MediaSession.Token token, Looper completionLooper) {
-    return createSessionToken(context, MediaSessionCompat.Token.fromToken(token), completionLooper);
+      Context context, Parcelable token, Looper completionLooper) {
+    return createSessionToken(context, createCompatToken(token), completionLooper);
   }
 
-  /**
-   * Creates a token from a {@link MediaSessionCompat.Token}.
-   *
-   * @param context A {@link Context}.
-   * @param compatToken The {@link MediaSessionCompat.Token}.
-   * @return A {@link ListenableFuture} for the {@link SessionToken}.
-   */
-  @UnstableApi
-  public static ListenableFuture<SessionToken> createSessionToken(
+  private static MediaSessionCompat.Token createCompatToken(
+      Parcelable platformOrLegacyCompatToken) {
+    if (platformOrLegacyCompatToken instanceof android.media.session.MediaSession.Token) {
+      return MediaSessionCompat.Token.fromToken(platformOrLegacyCompatToken);
+    }
+    // Assume this is an android.support.v4.media.session.MediaSessionCompat.Token.
+    return LegacyParcelableUtil.convert(
+        platformOrLegacyCompatToken, MediaSessionCompat.Token.CREATOR);
+  }
+
+  private static ListenableFuture<SessionToken> createSessionToken(
       Context context, MediaSessionCompat.Token compatToken) {
     HandlerThread thread = new HandlerThread("SessionTokenThread");
     thread.start();
@@ -311,18 +318,7 @@ public final class SessionToken implements Bundleable {
     return tokenFuture;
   }
 
-  /**
-   * Creates a token from a {@link MediaSessionCompat.Token}.
-   *
-   * @param context A {@link Context}.
-   * @param compatToken The {@link MediaSessionCompat.Token}.
-   * @param completionLooper The {@link Looper} on which the returned {@link ListenableFuture}
-   *     completes. This {@link Looper} can't be used to call {@code future.get()} on the returned
-   *     {@link ListenableFuture}.
-   * @return A {@link ListenableFuture} for the {@link SessionToken}.
-   */
-  @UnstableApi
-  public static ListenableFuture<SessionToken> createSessionToken(
+  private static ListenableFuture<SessionToken> createSessionToken(
       Context context, MediaSessionCompat.Token compatToken, Looper completionLooper) {
     checkNotNull(context, "context must not be null");
     checkNotNull(compatToken, "compatToken must not be null");
@@ -330,7 +326,7 @@ public final class SessionToken implements Bundleable {
     SettableFuture<SessionToken> future = SettableFuture.create();
     // Try retrieving media3 token by connecting to the session.
     MediaControllerCompat controller = new MediaControllerCompat(context, compatToken);
-    String packageName = controller.getPackageName();
+    String packageName = checkNotNull(controller.getPackageName());
     Handler handler = new Handler(completionLooper);
     Runnable createFallbackLegacyToken =
         () -> {
@@ -364,7 +360,7 @@ public final class SessionToken implements Bundleable {
   /**
    * Returns an {@link ImmutableSet} of {@linkplain SessionToken session tokens} for media session
    * services; {@link MediaSessionService}, {@link MediaLibraryService}, and {@link
-   * MediaBrowserServiceCompat} regardless of their activeness.
+   * androidx.media.MediaBrowserServiceCompat} regardless of their activeness.
    *
    * <p>The app targeting API level 30 or higher must include a {@code <queries>} element in their
    * manifest to get service tokens of other apps. See the following example and <a
@@ -454,7 +450,7 @@ public final class SessionToken implements Bundleable {
     }
   }
 
-  /* package */ interface SessionTokenImpl extends Bundleable {
+  /* package */ interface SessionTokenImpl {
 
     boolean isLegacySession();
 
@@ -478,9 +474,9 @@ public final class SessionToken implements Bundleable {
 
     @Nullable
     Object getBinder();
-  }
 
-  // Bundleable implementation.
+    Bundle toBundle();
+  }
 
   private static final String FIELD_IMPL_TYPE = Util.intToStringMaxRadix(0);
   private static final String FIELD_IMPL = Util.intToStringMaxRadix(1);
@@ -496,7 +492,6 @@ public final class SessionToken implements Bundleable {
   private static final int IMPL_TYPE_LEGACY = 1;
 
   @UnstableApi
-  @Override
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
     if (impl instanceof SessionTokenImplBase) {
@@ -507,16 +502,6 @@ public final class SessionToken implements Bundleable {
     bundle.putBundle(FIELD_IMPL, impl.toBundle());
     return bundle;
   }
-
-  /**
-   * Object that can restore {@link SessionToken} from a {@link Bundle}.
-   *
-   * @deprecated Use {@link #fromBundle} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<SessionToken> CREATOR = SessionToken::fromBundle;
 
   /** Restores a {@code SessionToken} from a {@link Bundle}. */
   @UnstableApi

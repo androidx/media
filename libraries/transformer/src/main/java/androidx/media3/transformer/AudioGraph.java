@@ -18,7 +18,6 @@ package androidx.media3.transformer;
 
 import static androidx.media3.common.audio.AudioProcessor.EMPTY_BUFFER;
 import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkState;
 
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -26,7 +25,7 @@ import androidx.media3.common.audio.AudioProcessingPipeline;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.AudioProcessor.AudioFormat;
 import androidx.media3.common.audio.AudioProcessor.UnhandledAudioFormatException;
-import androidx.media3.common.util.Log;
+import androidx.media3.effect.DebugTraceUtil;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -40,28 +39,33 @@ import java.util.Objects;
 
   private final List<InputInfo> inputInfos;
   private final AudioMixer mixer;
+  private final AudioProcessingPipeline audioProcessingPipeline;
 
   private AudioFormat mixerAudioFormat;
+  private boolean isMixerConfigured;
+  private boolean isMixerReady;
   private long pendingStartTimeUs;
-  private int mixerSourcesToAdd;
   private ByteBuffer mixerOutput;
-  private AudioProcessingPipeline audioProcessingPipeline;
   private int finishedInputs;
 
-  /** Creates an instance. */
-  public AudioGraph(AudioMixer.Factory mixerFactory) {
+  /**
+   * Creates an instance.
+   *
+   * @param mixerFactory The {@linkplain AudioMixer.Factory factory} used to {@linkplain
+   *     AudioMixer.Factory#create() create} the underlying {@link AudioMixer}.
+   * @param effects The composition-level audio effects that are applied after mixing.
+   */
+  public AudioGraph(AudioMixer.Factory mixerFactory, ImmutableList<AudioProcessor> effects) {
     inputInfos = new ArrayList<>();
     mixer = mixerFactory.create();
     mixerAudioFormat = AudioFormat.NOT_SET;
     mixerOutput = EMPTY_BUFFER;
-    audioProcessingPipeline = new AudioProcessingPipeline(ImmutableList.of());
+    audioProcessingPipeline = new AudioProcessingPipeline(effects);
   }
 
   /** Returns whether an {@link AudioFormat} is valid as an input format. */
   public static boolean isInputAudioFormatValid(AudioFormat format) {
-    // AudioGraphInput assumes PCM_16BIT -- see, for example, the automatic format conversions
-    // in AudioGraphInput.configureProcessing.
-    if (format.encoding != C.ENCODING_PCM_16BIT) {
+    if (format.encoding == Format.NO_VALUE) {
       return false;
     }
     if (format.sampleRate == Format.NO_VALUE) {
@@ -74,23 +78,6 @@ import java.util.Objects;
   }
 
   /**
-   * Configures the composition-level audio effects to be applied after mixing.
-   *
-   * <p>Must be called before {@linkplain #registerInput(EditedMediaItem, Format) registering
-   * inputs}.
-   *
-   * @param effects The composition-level audio effects.
-   * @throws IllegalStateException If {@link #registerInput(EditedMediaItem, Format)} was already
-   *     called.
-   */
-  public void configure(ImmutableList<AudioProcessor> effects) {
-    checkState(
-        mixerAudioFormat.equals(AudioFormat.NOT_SET),
-        "AudioGraph can't configure effects after input registration.");
-    audioProcessingPipeline = new AudioProcessingPipeline(effects);
-  }
-
-  /**
    * Returns a new {@link AudioGraphInput} instance.
    *
    * <p>Must be called before {@linkplain #getOutput() accessing output}.
@@ -99,24 +86,24 @@ import java.util.Objects;
       throws ExportException {
     checkArgument(format.pcmEncoding != Format.NO_VALUE);
     AudioGraphInput audioGraphInput;
-    int sourceId;
     try {
       audioGraphInput = new AudioGraphInput(mixerAudioFormat, editedMediaItem, format);
-
       if (Objects.equals(mixerAudioFormat, AudioFormat.NOT_SET)) {
-        // Mixer not configured, configure before doing anything else.
         this.mixerAudioFormat = audioGraphInput.getOutputAudioFormat();
-        mixer.configure(mixerAudioFormat, /* bufferSizeMs= */ C.LENGTH_UNSET, /* startTimeUs= */ 0);
         audioProcessingPipeline.configure(mixerAudioFormat);
         audioProcessingPipeline.flush();
       }
-
-      sourceId = mixer.addSource(audioGraphInput.getOutputAudioFormat(), /* startTimeUs= */ 0);
     } catch (UnhandledAudioFormatException e) {
       throw ExportException.createForAudioProcessing(
           e, "Error while registering input " + inputInfos.size());
     }
-    inputInfos.add(new InputInfo(audioGraphInput, sourceId));
+    inputInfos.add(new InputInfo(audioGraphInput));
+    DebugTraceUtil.logEvent(
+        DebugTraceUtil.COMPONENT_AUDIO_GRAPH,
+        DebugTraceUtil.EVENT_REGISTER_NEW_INPUT_STREAM,
+        C.TIME_UNSET,
+        "%s",
+        format);
     return audioGraphInput;
   }
 
@@ -136,13 +123,8 @@ import java.util.Objects;
    * unless the graph was {@linkplain #flush() flushed}.
    */
   public ByteBuffer getOutput() throws ExportException {
-    if (mixerSourcesToAdd > 0) {
-      // TODO(b/303029174): Consider adding the mixer sources at the start of playback and after a
-      //    seek at the same place in the code.
-      addMixerSources();
-      if (mixerSourcesToAdd > 0) {
-        return EMPTY_BUFFER;
-      }
+    if (!ensureMixerReady()) {
+      return EMPTY_BUFFER;
     }
     if (!mixer.isEnded()) {
       feedMixer();
@@ -189,13 +171,8 @@ import java.util.Objects;
       inputInfo.audioGraphInput.flush();
     }
     mixer.reset();
-    try {
-      mixer.configure(mixerAudioFormat, /* bufferSizeMs= */ C.LENGTH_UNSET, pendingStartTimeUs);
-    } catch (UnhandledAudioFormatException e) {
-      // Should never happen because mixer has already been configured with the same format.
-      Log.e(TAG, "Unexpected mixer configuration error");
-    }
-    mixerSourcesToAdd = inputInfos.size();
+    isMixerConfigured = false;
+    isMixerReady = false;
     mixerOutput = EMPTY_BUFFER;
     audioProcessingPipeline.flush();
     finishedInputs = 0;
@@ -227,19 +204,19 @@ import java.util.Objects;
     return isMixerEnded();
   }
 
-  private boolean isMixerEnded() {
-    return !mixerOutput.hasRemaining() && finishedInputs >= inputInfos.size() && mixer.isEnded();
-  }
-
-  private void feedProcessingPipelineFromMixer() {
-    if (isMixerEnded()) {
-      audioProcessingPipeline.queueEndOfStream();
-      return;
+  private boolean ensureMixerReady() throws ExportException {
+    if (isMixerReady) {
+      return true;
     }
-    audioProcessingPipeline.queueInput(mixerOutput);
-  }
-
-  private void addMixerSources() throws ExportException {
+    if (!isMixerConfigured) {
+      try {
+        mixer.configure(mixerAudioFormat, /* bufferSizeMs= */ C.LENGTH_UNSET, pendingStartTimeUs);
+      } catch (UnhandledAudioFormatException e) {
+        throw ExportException.createForAudioProcessing(e, "Error while configuring mixer");
+      }
+      isMixerConfigured = true;
+    }
+    isMixerReady = true;
     for (int i = 0; i < inputInfos.size(); i++) {
       InputInfo inputInfo = inputInfos.get(i);
       if (inputInfo.mixerSourceId != C.INDEX_UNSET) {
@@ -251,9 +228,9 @@ import java.util.Objects;
         audioGraphInput.getOutput();
         long sourceStartTimeUs = audioGraphInput.getStartTimeUs();
         if (sourceStartTimeUs == C.TIME_UNSET) {
+          isMixerReady = false;
           continue;
         } else if (sourceStartTimeUs == C.TIME_END_OF_SOURCE) {
-          mixerSourcesToAdd--;
           continue;
         }
         inputInfo.mixerSourceId =
@@ -262,8 +239,8 @@ import java.util.Objects;
         throw ExportException.createForAudioProcessing(
             e, "Unhandled format while adding source " + inputInfo.mixerSourceId);
       }
-      mixerSourcesToAdd--;
     }
+    return isMixerReady;
   }
 
   private void feedMixer() throws ExportException {
@@ -294,13 +271,25 @@ import java.util.Objects;
     }
   }
 
+  private void feedProcessingPipelineFromMixer() {
+    if (isMixerEnded()) {
+      audioProcessingPipeline.queueEndOfStream();
+      return;
+    }
+    audioProcessingPipeline.queueInput(mixerOutput);
+  }
+
+  private boolean isMixerEnded() {
+    return !mixerOutput.hasRemaining() && finishedInputs >= inputInfos.size() && mixer.isEnded();
+  }
+
   private static final class InputInfo {
     public final AudioGraphInput audioGraphInput;
     public int mixerSourceId;
 
-    public InputInfo(AudioGraphInput audioGraphInput, int mixerSourceId) {
+    public InputInfo(AudioGraphInput audioGraphInput) {
       this.audioGraphInput = audioGraphInput;
-      this.mixerSourceId = mixerSourceId;
+      mixerSourceId = C.INDEX_UNSET;
     }
   }
 }

@@ -21,6 +21,7 @@ import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.s
 import static com.google.common.truth.Truth.assertThat;
 
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.util.Pair;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -71,6 +72,12 @@ public class ImageRendererTest {
           .setSampleMimeType(MimeTypes.IMAGE_JPEG)
           .setTileCountVertical(2)
           .setTileCountHorizontal(2)
+          .build();
+  private static final Format JPEG_FORMAT_WITH_SIX_TILES =
+      new Format.Builder()
+          .setSampleMimeType(MimeTypes.IMAGE_JPEG)
+          .setTileCountVertical(2)
+          .setTileCountHorizontal(3)
           .build();
 
   private final List<Pair<Long, Bitmap>> renderedBitmaps = new ArrayList<>();
@@ -709,6 +716,103 @@ public class ImageRendererTest {
 
     assertThat(renderedBitmaps).hasSize(1);
     assertThat(renderedBitmaps.get(0).first).isEqualTo(300_000L);
+  }
+
+  @Test
+  public void render_tiledImageNonSquare_rendersAllImagesToOutput() throws Exception {
+    ImageDecoder.Factory fakeDecoderFactory =
+        new BitmapFactoryImageDecoder.Factory(
+            (data, length) -> {
+              /*
+               * Thumbnail grid image is as depicted below.
+               *    0 1 2 3 4 5 6 7 8
+               *    -----------------
+               * 0 | T0  | T1  | T2  |
+               * 1 |     |     |     |
+               *    -----------------
+               * 2 | T3  | T4  | T5  |
+               * 3 |     |     |     |
+               *    -----------------
+               */
+              Bitmap bm =
+                  Bitmap.createBitmap(/* width= */ 9, /* height= */ 4, Bitmap.Config.ARGB_8888);
+              bm.setPixel(1, 2, Color.rgb(100, 0, 0));
+              bm.setPixel(4, 3, Color.rgb(0, 100, 0));
+              return bm;
+            });
+    ImageOutput queuingImageOutput =
+        new ImageOutput() {
+          @Override
+          public void onImageAvailable(long presentationTimeUs, Bitmap bitmap) {
+            renderedBitmaps.add(Pair.create(presentationTimeUs, bitmap));
+          }
+
+          @Override
+          public void onDisabled() {
+            // Do nothing.
+          }
+        };
+    renderer = new ImageRenderer(fakeDecoderFactory, queuingImageOutput);
+    renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    FakeSampleStream fakeSampleStream =
+        createSampleStream(
+            JPEG_FORMAT_WITH_SIX_TILES,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0L, /* flags= */ C.BUFFER_FLAG_KEY_FRAME),
+                emptySample(/* timeUs= */ 100_000L, /* flags= */ 0),
+                emptySample(/* timeUs= */ 200_000L, /* flags= */ 0),
+                emptySample(/* timeUs= */ 300_000L, /* flags= */ 0),
+                emptySample(/* timeUs= */ 400_000L, /* flags= */ 0),
+                emptySample(/* timeUs= */ 500_000L, /* flags= */ 0),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {JPEG_FORMAT_WITH_SIX_TILES},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.setCurrentStreamFinal();
+
+    StopWatch isReadyStopWatch = new StopWatch(IS_READY_TIMEOUT_MESSAGE);
+    while (!renderer.isReady() && isReadyStopWatch.ensureNotExpired()) {
+      renderer.render(
+          /* positionUs= */ 0,
+          /* elapsedRealtimeUs= */ SystemClock.DEFAULT.elapsedRealtime() * 1000);
+    }
+    StopWatch isEndedStopWatch = new StopWatch(IS_ENDED_TIMEOUT_MESSAGE);
+    long positionUs = 0;
+    while (!renderer.isEnded() && isEndedStopWatch.ensureNotExpired()) {
+      renderer.render(
+          positionUs, /* elapsedRealtimeUs= */ SystemClock.DEFAULT.elapsedRealtime() * 1000);
+      positionUs += 100_000;
+    }
+
+    assertThat(renderedBitmaps).hasSize(6);
+    assertThat(renderedBitmaps.get(0).first).isEqualTo(0L);
+    assertThat(renderedBitmaps.get(0).second.getHeight()).isEqualTo(2);
+    assertThat(renderedBitmaps.get(0).second.getWidth()).isEqualTo(3);
+    assertThat(renderedBitmaps.get(1).first).isEqualTo(100_000L);
+    assertThat(renderedBitmaps.get(1).second.getHeight()).isEqualTo(2);
+    assertThat(renderedBitmaps.get(1).second.getWidth()).isEqualTo(3);
+    assertThat(renderedBitmaps.get(2).first).isEqualTo(200_000L);
+    assertThat(renderedBitmaps.get(2).second.getHeight()).isEqualTo(2);
+    assertThat(renderedBitmaps.get(2).second.getWidth()).isEqualTo(3);
+    assertThat(renderedBitmaps.get(3).first).isEqualTo(300_000L);
+    assertThat(renderedBitmaps.get(3).second.getHeight()).isEqualTo(2);
+    assertThat(renderedBitmaps.get(3).second.getWidth()).isEqualTo(3);
+    assertThat(renderedBitmaps.get(3).second.getPixel(1, 0)).isEqualTo(Color.rgb(100, 0, 0));
+    assertThat(renderedBitmaps.get(4).first).isEqualTo(400_000L);
+    assertThat(renderedBitmaps.get(4).second.getHeight()).isEqualTo(2);
+    assertThat(renderedBitmaps.get(4).second.getWidth()).isEqualTo(3);
+    assertThat(renderedBitmaps.get(4).second.getPixel(1, 1)).isEqualTo(Color.rgb(0, 100, 0));
+    assertThat(renderedBitmaps.get(5).first).isEqualTo(500_000L);
+    assertThat(renderedBitmaps.get(5).second.getHeight()).isEqualTo(2);
+    assertThat(renderedBitmaps.get(5).second.getWidth()).isEqualTo(3);
   }
 
   private static FakeSampleStream.FakeSampleStreamItem emptySample(

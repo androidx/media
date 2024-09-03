@@ -41,9 +41,7 @@
     <item>၁.၅ ဆ</item>
     <item>၂ ဆ</item>
   </string-array>
-  <string name="exo_track_selection_title_video">ဗီဒီယို</string>
   <string name="exo_track_selection_title_audio">အသံ</string>
-  <string name="exo_track_selection_title_text">စာသား</string>
   <string name="exo_track_selection_none">မရှိ</string>
   <string name="exo_track_selection_auto">အလိုအလျောက်</string>
   <string name="exo_track_unknown">အမည်မသိ</string>

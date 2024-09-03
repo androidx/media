@@ -15,8 +15,7 @@
  */
 package androidx.media3.transformer.mh;
 
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_AV1_VIDEO_FORMAT;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_AV1_VIDEO_URI_STRING;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_AV1_VIDEO;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static com.google.common.truth.Truth.assertThat;
 
@@ -34,6 +33,7 @@ import androidx.media3.transformer.TransformerAndroidTestRunner;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import java.io.File;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -56,13 +56,16 @@ public class TransformerWithInAppMuxerEndToEndMhTest {
   public void videoEditing_forAv1Video_completesSuccessfully() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     assumeFormatsSupported(
-        context, testId, /* inputFormat= */ MP4_ASSET_AV1_VIDEO_FORMAT, /* outputFormat= */ null);
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_AV1_VIDEO.videoFormat,
+        /* outputFormat= */ null);
     Transformer transformer =
         new Transformer.Builder(context)
             .setMuxerFactory(new InAppMuxer.Factory.Builder().build())
             .build();
     ImmutableList<Effect> videoEffects = ImmutableList.of(RgbFilter.createGrayscaleFilter());
-    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_AV1_VIDEO_URI_STRING));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_AV1_VIDEO.uri));
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem)
             .setEffects(new Effects(/* audioProcessors= */ ImmutableList.of(), videoEffects))
@@ -74,5 +77,6 @@ public class TransformerWithInAppMuxerEndToEndMhTest {
             .run(testId, editedMediaItem);
 
     assertThat(result.exportResult.exportException).isNull();
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 }

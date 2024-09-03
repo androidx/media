@@ -20,7 +20,9 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.muxer.ColorUtils.MEDIAFORMAT_STANDARD_TO_PRIMARIES_AND_MATRIX;
 import static androidx.media3.muxer.ColorUtils.MEDIAFORMAT_TRANSFER_TO_MP4_TRANSFER;
-import static androidx.media3.muxer.Mp4Utils.UNSIGNED_INT_MAX_VALUE;
+import static androidx.media3.muxer.MuxerUtil.UNSIGNED_INT_MAX_VALUE;
+import static java.lang.Math.max;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
@@ -36,37 +38,39 @@ import androidx.media3.container.NalUnitUtil;
 import androidx.media3.muxer.FragmentedMp4Writer.SampleMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.primitives.Bytes;
+import com.google.common.primitives.Ints;
 import java.nio.ByteBuffer;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import org.checkerframework.checker.nullness.qual.PolyNull;
 
-/**
- * Writes out various types of boxes as per MP4 (ISO/IEC 14496-12) standards.
- *
- * <p>Boxes do not construct their sub-boxes but take them as input {@linkplain ByteBuffer byte
- * buffers}.
- */
+/** Writes out various types of boxes as per MP4 (ISO/IEC 14496-12) standards. */
 /* package */ final class Boxes {
-  /* Total number of bytes in an integer. */
+  /** Total number of bytes in an integer. */
   private static final int BYTES_PER_INTEGER = 4;
 
-  // Box size (4 bytes) + Box name (4 bytes)
-  public static final int BOX_HEADER_SIZE = 2 * BYTES_PER_INTEGER;
-
-  public static final int MFHD_BOX_CONTENT_SIZE = 2 * BYTES_PER_INTEGER;
-
-  public static final int TFHD_BOX_CONTENT_SIZE = 4 * BYTES_PER_INTEGER;
+  /** Box size (4 bytes) + Box name (4 bytes) */
+  public static final int BOX_HEADER_SIZE = 8;
 
   /**
-   * The maximum length of boxes which have fixed sizes.
-   *
-   * <p>Technically, we'd know how long they actually are; this upper bound is much simpler to
-   * produce though and we'll throw if we overflow anyway.
+   * Box size = 1 to indicate 64-bit box size (4 bytes) + Box name (4 bytes) + actual box size (8
+   * bytes)
    */
+  public static final int LARGE_SIZE_BOX_HEADER_SIZE = 16;
+
+  /** The size (in bytes) of the mfhd box content. */
+  public static final int MFHD_BOX_CONTENT_SIZE = 2 * BYTES_PER_INTEGER;
+
+  /** The size (in bytes) of the tfhd box content. */
+  public static final int TFHD_BOX_CONTENT_SIZE = 4 * BYTES_PER_INTEGER;
+
+  /** The maximum size (in bytes) of boxes that have fixed sizes. */
   private static final int MAX_FIXED_LEAF_BOX_SIZE = 200;
 
   /**
@@ -75,10 +79,13 @@ import java.util.Locale;
    */
   private static final long MVHD_TIMEBASE = 10_000L;
 
-  // unsigned int(2) sample_depends_on = 2 (bit index 25 and 24)
+  /** unsigned int(2) sample_depends_on = 2 (bit index 25 and 24) */
   private static final int TRUN_BOX_SYNC_SAMPLE_FLAGS = 0b00000010_00000000_00000000_00000000;
-  // unsigned int(2) sample_depends_on = 1 (bit index 25 and 24)
-  // bit(1) sample_is_non_sync_sample = 1 (bit index 16)
+
+  /**
+   * unsigned int(2) sample_depends_on = 1 (bit index 25 and 24), bit(1) sample_is_non_sync_sample =
+   * 1 (bit index 16)
+   */
   private static final int TRUN_BOX_NON_SYNC_SAMPLE_FLAGS = 0b00000001_00000001_00000000_00000000;
 
   private Boxes() {}
@@ -102,6 +109,154 @@ import java.util.Locale;
           (byte) 0xAF,
           (byte) 0xAC);
 
+  /** Returns the moov box. */
+  @SuppressWarnings("InlinedApi")
+  public static ByteBuffer moov(
+      List<Track> tracks,
+      MetadataCollector metadataCollector,
+      long minInputPtsUs,
+      boolean isFragmentedMp4,
+      @Mp4Muxer.LastSampleDurationBehavior int lastSampleDurationBehavior) {
+    // The timestamp will always fit into a 32-bit integer. This is already validated in the
+    // Mp4Muxer.setTimestampData() API. The value after type casting might be negative, but it is
+    // still valid because it is meant to be read as an unsigned integer.
+    int creationTimestampSeconds = (int) metadataCollector.timestampData.creationTimestampSeconds;
+    int modificationTimestampSeconds =
+        (int) metadataCollector.timestampData.modificationTimestampSeconds;
+    List<ByteBuffer> trakBoxes = new ArrayList<>();
+    List<ByteBuffer> trexBoxes = new ArrayList<>();
+
+    int nextTrackId = 1;
+    long videoDurationUs = 0L;
+    for (int i = 0; i < tracks.size(); i++) {
+      Track track = tracks.get(i);
+      if (!isFragmentedMp4 && track.writtenSamples.isEmpty()) {
+        continue;
+      }
+      Format format = track.format;
+      String languageCode = bcp47LanguageTagToIso3(format.language);
+
+      // Generate the sample durations to calculate the total duration for tkhd box.
+      List<Integer> sampleDurationsVu =
+          convertPresentationTimestampsToDurationsVu(
+              track.writtenSamples,
+              minInputPtsUs,
+              track.videoUnitTimebase(),
+              lastSampleDurationBehavior,
+              track.endOfStreamTimestampUs);
+
+      long trackDurationInTrackUnitsVu = 0;
+      for (int j = 0; j < sampleDurationsVu.size(); j++) {
+        trackDurationInTrackUnitsVu += sampleDurationsVu.get(j);
+      }
+
+      long trackDurationUs = usFromVu(trackDurationInTrackUnitsVu, track.videoUnitTimebase());
+
+      @C.TrackType int trackType = MimeTypes.getTrackType(format.sampleMimeType);
+      ByteBuffer stts = stts(sampleDurationsVu);
+      ByteBuffer ctts =
+          MimeTypes.isVideo(format.sampleMimeType)
+              ? ctts(track.writtenSamples, sampleDurationsVu, track.videoUnitTimebase())
+              : ByteBuffer.allocate(0);
+      ByteBuffer stsz = stsz(track.writtenSamples);
+      ByteBuffer stsc = stsc(track.writtenChunkSampleCounts);
+      ByteBuffer chunkOffsetBox =
+          isFragmentedMp4 ? stco(track.writtenChunkOffsets) : co64(track.writtenChunkOffsets);
+
+      String handlerType;
+      String handlerName;
+      ByteBuffer mhdBox;
+      ByteBuffer sampleEntryBox;
+      ByteBuffer stsdBox;
+      ByteBuffer stblBox;
+
+      switch (trackType) {
+        case C.TRACK_TYPE_VIDEO:
+          handlerType = "vide";
+          handlerName = "VideoHandle";
+          mhdBox = vmhd();
+          sampleEntryBox = videoSampleEntry(format);
+          stsdBox = stsd(sampleEntryBox);
+          stblBox =
+              stbl(stsdBox, stts, ctts, stsz, stsc, chunkOffsetBox, stss(track.writtenSamples));
+          break;
+        case C.TRACK_TYPE_AUDIO:
+          handlerType = "soun";
+          handlerName = "SoundHandle";
+          mhdBox = smhd();
+          sampleEntryBox = audioSampleEntry(format);
+          stsdBox = stsd(sampleEntryBox);
+          stblBox = stbl(stsdBox, stts, stsz, stsc, chunkOffsetBox);
+          break;
+        case C.TRACK_TYPE_METADATA:
+        case C.TRACK_TYPE_UNKNOWN:
+          handlerType = "meta";
+          handlerName = "MetaHandle";
+          mhdBox = nmhd();
+          sampleEntryBox = textMetaDataSampleEntry(format);
+          stsdBox = stsd(sampleEntryBox);
+          stblBox = stbl(stsdBox, stts, stsz, stsc, chunkOffsetBox);
+          break;
+        default:
+          throw new IllegalArgumentException("Unsupported track type");
+      }
+
+      ByteBuffer trakBox =
+          trak(
+              tkhd(
+                  nextTrackId,
+                  trackDurationUs,
+                  creationTimestampSeconds,
+                  modificationTimestampSeconds,
+                  metadataCollector.orientationData.orientation,
+                  format),
+              mdia(
+                  mdhd(
+                      trackDurationInTrackUnitsVu,
+                      track.videoUnitTimebase(),
+                      creationTimestampSeconds,
+                      modificationTimestampSeconds,
+                      languageCode),
+                  hdlr(handlerType, handlerName),
+                  minf(mhdBox, dinf(dref(localUrl())), stblBox)));
+
+      trakBoxes.add(trakBox);
+      videoDurationUs = max(videoDurationUs, trackDurationUs);
+      trexBoxes.add(trex(nextTrackId));
+      nextTrackId++;
+    }
+
+    ByteBuffer mvhdBox =
+        mvhd(nextTrackId, creationTimestampSeconds, modificationTimestampSeconds, videoDurationUs);
+    ByteBuffer udtaBox = udta(metadataCollector.locationData);
+    ByteBuffer metaBox =
+        metadataCollector.metadataEntries.isEmpty()
+            ? ByteBuffer.allocate(0)
+            : meta(
+                hdlr(/* handlerType= */ "mdta", /* handlerName= */ ""),
+                keys(Lists.newArrayList(metadataCollector.metadataEntries)),
+                ilst(Lists.newArrayList(metadataCollector.metadataEntries)));
+
+    List<ByteBuffer> subBoxes = new ArrayList<>();
+    subBoxes.add(mvhdBox);
+    subBoxes.add(udtaBox);
+    subBoxes.add(metaBox);
+    subBoxes.addAll(trakBoxes);
+    if (isFragmentedMp4) {
+      subBoxes.add(mvex(trexBoxes));
+    }
+
+    ByteBuffer moovBox = BoxUtils.wrapBoxesIntoBox("moov", subBoxes);
+
+    if (metadataCollector.xmpData != null) {
+      return BoxUtils.concatenateBuffers(
+          moovBox, uuid(XMP_UUID, ByteBuffer.wrap(metadataCollector.xmpData.data)));
+    } else {
+      // No need for another copy if there is no XMP to be appended.
+      return moovBox;
+    }
+  }
+
   /**
    * Returns the tkhd box.
    *
@@ -115,10 +270,10 @@ import java.util.Locale;
       int orientation,
       Format format) {
     ByteBuffer contents = ByteBuffer.allocate(MAX_FIXED_LEAF_BOX_SIZE);
-    contents.putInt(0x00000007); // version and flags; allow presentation, etc.
+    contents.putInt(0x00000007); // version and flags: allow presentation, etc.
 
-    contents.putInt(creationTimestampSeconds); // creation_time; unsigned int(32)
-    contents.putInt(modificationTimestampSeconds); // modification_time; unsigned int(32)
+    contents.putInt(creationTimestampSeconds); // creation_time: unsigned int(32)
+    contents.putInt(modificationTimestampSeconds); // modification_time: unsigned int(32)
 
     contents.putInt(trackId);
     contents.putInt(0); // reserved
@@ -160,8 +315,8 @@ import java.util.Locale;
     ByteBuffer contents = ByteBuffer.allocate(MAX_FIXED_LEAF_BOX_SIZE);
     contents.putInt(0); // version and flags
 
-    contents.putInt(creationTimestampSeconds); // creation_time; unsigned int(32)
-    contents.putInt(modificationTimestampSeconds); // modification_time; unsigned int(32)
+    contents.putInt(creationTimestampSeconds); // creation_time: unsigned int(32)
+    contents.putInt(modificationTimestampSeconds); // modification_time: unsigned int(32)
     contents.putInt((int) MVHD_TIMEBASE); // The per-track timescales might be different.
     contents.putInt(
         (int) vuFromUs(videoDurationUs, MVHD_TIMEBASE)); // Duration of the entire video.
@@ -205,8 +360,8 @@ import java.util.Locale;
     ByteBuffer contents = ByteBuffer.allocate(MAX_FIXED_LEAF_BOX_SIZE);
     contents.putInt(0x0); // version and flags
 
-    contents.putInt(creationTimestampSeconds); // creation_time; unsigned int(32)
-    contents.putInt(modificationTimestampSeconds); // modification_time; unsigned int(32)
+    contents.putInt(creationTimestampSeconds); // creation_time: unsigned int(32)
+    contents.putInt(modificationTimestampSeconds); // modification_time: unsigned int(32)
 
     contents.putInt(videoUnitTimebase);
 
@@ -278,9 +433,9 @@ import java.util.Locale;
     String mimeType = checkNotNull(format.sampleMimeType);
     byte[] mimeBytes = Util.getUtf8Bytes(mimeType);
     contents.put(mimeBytes); // content_encoding
-    contents.put((byte) 0x00);
+    contents.put((byte) 0x0);
     contents.put(mimeBytes); // mime_format
-    contents.put((byte) 0x00);
+    contents.put((byte) 0x0);
 
     contents.flip();
     return BoxUtils.wrapIntoBox("mett", contents);
@@ -293,8 +448,6 @@ import java.util.Locale;
 
   /** Returns the dref (data references) box. */
   public static ByteBuffer dref(ByteBuffer... dataLocationBoxes) {
-    // We have a "number of contained boxes" field; let's pretend this is also a box so that
-    // wrapBoxesIntoBoxes() can concatenate it with the rest.
     ByteBuffer header = ByteBuffer.allocate(8);
     header.putInt(0);
     header.putInt(dataLocationBoxes.length);
@@ -321,11 +474,8 @@ import java.util.Locale;
   public static ByteBuffer localUrl() {
     ByteBuffer contents = ByteBuffer.allocate(4);
 
-    // Flag indicating that the data is in fact in this very file instead of a remote
-    // URL. Accordingly, no actual URL string is present.
+    // Indicates that the data is in this file instead of in a remote URL. Hence no URL is written.
     contents.putInt(1);
-
-    // Since we set the flag to 1, no actual URL needs to follow.
 
     contents.flip();
     return BoxUtils.wrapIntoBox("url ", contents);
@@ -344,14 +494,14 @@ import java.util.Locale;
    */
   public static ByteBuffer hdlr(String handlerType, String handlerName) {
     ByteBuffer contents = ByteBuffer.allocate(MAX_FIXED_LEAF_BOX_SIZE);
-    contents.putInt(0x0); // version and flags.
-    contents.putInt(0); // pre_defined.
-    contents.put(Util.getUtf8Bytes(handlerType)); // handler_type.
-    contents.putInt(0); // reserved.
-    contents.putInt(0); // reserved.
-    contents.putInt(0); // reserved.
-    contents.put(Util.getUtf8Bytes(handlerName)); // name.
-    contents.put((byte) 0); // The null terminator for name.
+    contents.putInt(0x0); // version and flags
+    contents.putInt(0); // pre_defined
+    contents.put(Util.getUtf8Bytes(handlerType)); // handler_type
+    contents.putInt(0); // reserved
+    contents.putInt(0); // reserved
+    contents.putInt(0); // reserved
+    contents.put(Util.getUtf8Bytes(handlerName)); // name
+    contents.put((byte) 0); // The null terminator for name
 
     contents.flip();
     return BoxUtils.wrapIntoBox("hdlr", contents);
@@ -381,7 +531,6 @@ import java.util.Locale;
    * <p>This box contains user data like location info.
    */
   public static ByteBuffer udta(@Nullable Mp4LocationData location) {
-    // We can just omit the entire box if there is no location info available.
     if (location == null) {
       return ByteBuffer.allocate(0);
     }
@@ -391,7 +540,7 @@ import java.util.Locale;
 
     ByteBuffer xyzBoxContents = ByteBuffer.allocate(locationString.length() + 2 + 2);
     xyzBoxContents.putShort((short) (xyzBoxContents.capacity() - 4));
-    xyzBoxContents.putShort((short) 0x15C7); // language code?
+    xyzBoxContents.putShort((short) 0x15C7); // language code
 
     xyzBoxContents.put(Util.getUtf8Bytes(locationString));
     checkState(xyzBoxContents.limit() == xyzBoxContents.capacity());
@@ -415,7 +564,12 @@ import java.util.Locale;
    * <p>This box contains a list of metadata keys.
    */
   public static ByteBuffer keys(List<MdtaMetadataEntry> mdtaMetadataEntries) {
-    ByteBuffer contents = ByteBuffer.allocate(MAX_FIXED_LEAF_BOX_SIZE);
+    int totalSizeToStoreKeys = 0;
+    for (int i = 0; i < mdtaMetadataEntries.size(); i++) {
+      // Add header size to wrap each key into a "mdta" box.
+      totalSizeToStoreKeys += mdtaMetadataEntries.get(i).key.length() + BOX_HEADER_SIZE;
+    }
+    ByteBuffer contents = ByteBuffer.allocate(2 * BYTES_PER_INTEGER + totalSizeToStoreKeys);
     contents.putInt(0x0); // version and flags
     contents.putInt(mdtaMetadataEntries.size()); // Entry count
 
@@ -434,7 +588,15 @@ import java.util.Locale;
    * <p>This box contains a list of metadata values.
    */
   public static ByteBuffer ilst(List<MdtaMetadataEntry> mdtaMetadataEntries) {
-    ByteBuffer contents = ByteBuffer.allocate(MAX_FIXED_LEAF_BOX_SIZE);
+    int totalSizeToStoreValues = 0;
+    for (int i = 0; i < mdtaMetadataEntries.size(); i++) {
+      // Add additional 16 bytes for writing metadata associated to each value.
+      // Add header size to wrap each value into a "data" box.
+      totalSizeToStoreValues +=
+          mdtaMetadataEntries.get(i).value.length + 4 * BYTES_PER_INTEGER + BOX_HEADER_SIZE;
+    }
+
+    ByteBuffer contents = ByteBuffer.allocate(totalSizeToStoreValues);
 
     for (int i = 0; i < mdtaMetadataEntries.size(); i++) {
       int keyId = i + 1;
@@ -448,7 +610,7 @@ import java.util.Locale;
 
       valueContents.flip();
       ByteBuffer valueBox = BoxUtils.wrapIntoBox("data", valueContents);
-      contents.putInt(valueBox.remaining() + 8);
+      contents.putInt(valueBox.remaining() + BOX_HEADER_SIZE);
       contents.putInt(keyId);
       contents.put(valueBox);
     }
@@ -473,46 +635,19 @@ import java.util.Locale;
         "uuid", ImmutableList.of(ByteBuffer.wrap(Bytes.toArray(uuid)), contents));
   }
 
-  /**
-   * Returns the moov box.
-   *
-   * <p>This box is a top level movie descriptor box (there is a single one of this per Mp4 file).
-   */
-  public static ByteBuffer moov(
-      ByteBuffer mvhdBox,
-      ByteBuffer udtaBox,
-      ByteBuffer metaBox,
-      List<ByteBuffer> trakBoxes,
-      ByteBuffer mvexBox) {
-    List<ByteBuffer> subBoxes = new ArrayList<>();
-    subBoxes.add(mvhdBox);
-    subBoxes.add(udtaBox);
-    subBoxes.add(metaBox);
-    subBoxes.addAll(trakBoxes);
-    subBoxes.add(mvexBox);
-
-    return BoxUtils.wrapBoxesIntoBox("moov", subBoxes);
-  }
-
   /** Returns an audio sample entry box based on the MIME type. */
   public static ByteBuffer audioSampleEntry(Format format) {
-    String mimeType = checkNotNull(format.sampleMimeType);
-    checkArgument(mimeType.equals(MimeTypes.AUDIO_AAC), "Unsupported audio format: " + mimeType);
-    String fourcc = "mp4a";
+    String fourcc = codecSpecificFourcc(format);
+    ByteBuffer codecSpecificBox = codecSpecificBox(format);
 
-    checkArgument(!format.initializationData.isEmpty(), "csd-0 not found in the format.");
+    ByteBuffer contents =
+        ByteBuffer.allocate(codecSpecificBox.remaining() + MAX_FIXED_LEAF_BOX_SIZE);
 
-    byte[] csd0 = format.initializationData.get(0);
-    checkArgument(csd0.length > 0, "csd-0 is empty.");
-
-    ByteBuffer csd0ByteBuffer = ByteBuffer.wrap(csd0);
-    ByteBuffer contents = ByteBuffer.allocate(csd0ByteBuffer.limit() + MAX_FIXED_LEAF_BOX_SIZE);
-
-    contents.putInt(0x00); // reserved
+    contents.putInt(0x0); // reserved
     contents.putShort((short) 0x0); // reserved
     contents.putShort((short) 0x1); // data ref index
-    contents.putInt(0x00); // reserved
-    contents.putInt(0x00); // reserved
+    contents.putInt(0x0); // reserved
+    contents.putInt(0x0); // reserved
 
     int channelCount = format.channelCount;
     contents.putShort((short) channelCount);
@@ -523,7 +658,7 @@ import java.util.Locale;
     int sampleRate = format.sampleRate;
     contents.putInt(sampleRate << 16);
 
-    contents.put(audioEsdsBox(csd0ByteBuffer, format.peakBitrate, format.averageBitrate));
+    contents.put(codecSpecificBox);
 
     contents.flip();
     return BoxUtils.wrapIntoBox(fourcc, contents);
@@ -533,14 +668,29 @@ import java.util.Locale;
   public static ByteBuffer codecSpecificBox(Format format) {
     String mimeType = checkNotNull(format.sampleMimeType);
     switch (mimeType) {
-      case "video/avc":
+      case MimeTypes.AUDIO_AAC:
+      case MimeTypes.AUDIO_VORBIS:
+        return esdsBox(format);
+      case MimeTypes.AUDIO_AMR_NB:
+        return damrBox(/* mode= */ (short) 0x81FF); // mode set: all enabled for AMR-NB
+      case MimeTypes.AUDIO_AMR_WB:
+        return damrBox(/* mode= */ (short) 0x83FF); // mode set: all enabled for AMR-WB
+      case MimeTypes.AUDIO_OPUS:
+        return dOpsBox(format);
+      case MimeTypes.VIDEO_H263:
+        return d263Box();
+      case MimeTypes.VIDEO_H264:
         return avcCBox(format);
-      case "video/hevc":
+      case MimeTypes.VIDEO_H265:
         return hvcCBox(format);
-      case "video/av01":
+      case MimeTypes.VIDEO_AV1:
         return av1CBox(format);
+      case MimeTypes.VIDEO_MP4V:
+        return esdsBox(format);
+      case MimeTypes.VIDEO_VP9:
+        return vpcCBox(format);
       default:
-        throw new IllegalArgumentException("Unsupported video format: " + mimeType);
+        throw new IllegalArgumentException("Unsupported format: " + mimeType);
     }
   }
 
@@ -589,6 +739,9 @@ import java.util.Locale;
     contents.putShort((short) -1); // pre_defined
 
     contents.put(codecSpecificBox);
+    if (format.colorInfo != null && fourcc.equals("vp09")) {
+      contents.put(smDmBox(format.colorInfo));
+    }
 
     contents.put(paspBox());
 
@@ -619,64 +772,86 @@ import java.util.Locale;
    *     Otherwise this should be equal to the presentation timestamp of first sample present in the
    *     {@code samplesInfo} list.
    * @param videoUnitTimescale The timescale of the track.
-   * @param lastDurationBehavior The behaviour for the last sample duration.
+   * @param lastSampleDurationBehavior The behaviour for the last sample duration.
+   * @param endOfStreamTimestampUs The timestamp (in microseconds) of the end of stream sample.
    * @return A list of all the sample durations.
    */
-  // TODO: b/280084657 - Add support for setting last sample duration.
-  // TODO: b/317373578 - Consider changing return type to List<Integer>.
-  public static List<Long> convertPresentationTimestampsToDurationsVu(
+  public static List<Integer> convertPresentationTimestampsToDurationsVu(
       List<BufferInfo> samplesInfo,
       long firstSamplePresentationTimeUs,
       int videoUnitTimescale,
-      @Mp4Muxer.LastFrameDurationBehavior int lastDurationBehavior) {
-    List<Long> durationsVu = new ArrayList<>(samplesInfo.size());
+      @Mp4Muxer.LastSampleDurationBehavior int lastSampleDurationBehavior,
+      long endOfStreamTimestampUs) {
+    List<Long> presentationTimestampsUs = new ArrayList<>(samplesInfo.size());
+    List<Integer> durationsVu = new ArrayList<>(samplesInfo.size());
 
     if (samplesInfo.isEmpty()) {
       return durationsVu;
     }
 
+    boolean hasBframe = false;
+    long lastSampleCompositionTimeUs = 0L;
+    for (int sampleId = 0; sampleId < samplesInfo.size(); sampleId++) {
+      long currentSampleCompositionTimeUs = samplesInfo.get(sampleId).presentationTimeUs;
+      presentationTimestampsUs.add(currentSampleCompositionTimeUs);
+      if (currentSampleCompositionTimeUs < lastSampleCompositionTimeUs) {
+        hasBframe = true;
+      }
+      lastSampleCompositionTimeUs = currentSampleCompositionTimeUs;
+    }
+
+    if (hasBframe) {
+      Collections.sort(presentationTimestampsUs);
+    }
+
     long currentSampleTimeUs = firstSamplePresentationTimeUs;
-    for (int nextSampleId = 1; nextSampleId < samplesInfo.size(); nextSampleId++) {
-      long nextSampleTimeUs = samplesInfo.get(nextSampleId).presentationTimeUs;
+    for (int nextSampleId = 1; nextSampleId < presentationTimestampsUs.size(); nextSampleId++) {
+      long nextSampleTimeUs = presentationTimestampsUs.get(nextSampleId);
       // TODO: b/316158030 - First calculate the duration and then convert us to vu to avoid
       //  rounding error.
       long currentSampleDurationVu =
           vuFromUs(nextSampleTimeUs, videoUnitTimescale)
               - vuFromUs(currentSampleTimeUs, videoUnitTimescale);
-      if (currentSampleDurationVu > Integer.MAX_VALUE) {
-        throw new IllegalArgumentException(
-            String.format(
-                Locale.US, "Timestamp delta %d doesn't fit into an int", currentSampleDurationVu));
-      }
-      durationsVu.add(currentSampleDurationVu);
+      checkState(
+          currentSampleDurationVu <= Integer.MAX_VALUE, "Only 32-bit sample duration is allowed");
+      durationsVu.add((int) currentSampleDurationVu);
       currentSampleTimeUs = nextSampleTimeUs;
     }
-    // Default duration for the last sample.
-    durationsVu.add(0L);
 
-    adjustLastSampleDuration(durationsVu, lastDurationBehavior);
+    long lastSampleDurationVuFromEndOfStream = 0;
+    if (endOfStreamTimestampUs != C.TIME_UNSET) {
+      lastSampleDurationVuFromEndOfStream =
+          vuFromUs(endOfStreamTimestampUs, videoUnitTimescale)
+              - vuFromUs(currentSampleTimeUs, videoUnitTimescale);
+      checkState(
+          lastSampleDurationVuFromEndOfStream <= Integer.MAX_VALUE,
+          "Only 32-bit sample duration is allowed");
+    }
+
+    durationsVu.add(
+        getLastSampleDurationVu(
+            durationsVu, lastSampleDurationBehavior, (int) lastSampleDurationVuFromEndOfStream));
+
     return durationsVu;
   }
 
   /** Generates the stts (decoding time to sample) box. */
-  public static ByteBuffer stts(List<Long> durationsVu) {
+  public static ByteBuffer stts(List<Integer> durationsVu) {
     ByteBuffer contents = ByteBuffer.allocate(durationsVu.size() * 8 + MAX_FIXED_LEAF_BOX_SIZE);
 
-    contents.putInt(0x0); // version and flags.
+    contents.putInt(0x0); // version and flags
 
-    // We will know total entry count only after processing all the sample durations, so put in a
+    // Total entry count is known only after processing all sample durations, so put in a
     // placeholder for total entry count and store its index.
     int totalEntryCountIndex = contents.position();
-    contents.putInt(0x0); // entry_count.
+    contents.putInt(0x0); // entry_count
 
     int totalEntryCount = 0;
     long lastDurationVu = -1L;
     int lastSampleCountIndex = -1;
 
-    // Note that the framework MediaMuxer adjust time deltas within plus-minus 100 us, so that
-    // samples have repeating duration values. It saves few entries in the table.
     for (int i = 0; i < durationsVu.size(); i++) {
-      long durationVu = durationsVu.get(i);
+      int durationVu = durationsVu.get(i);
       if (lastDurationVu != durationVu) {
         lastDurationVu = durationVu;
         lastSampleCountIndex = contents.position();
@@ -684,7 +859,7 @@ import java.util.Locale;
         // sample_count; this will be updated instead of adding a new entry if the next sample has
         // the same duration.
         contents.putInt(1);
-        contents.putInt((int) durationVu); // sample_delta.
+        contents.putInt(durationVu); // sample_delta
         totalEntryCount++;
       } else {
         contents.putInt(lastSampleCountIndex, contents.getInt(lastSampleCountIndex) + 1);
@@ -697,18 +872,112 @@ import java.util.Locale;
     return BoxUtils.wrapIntoBox("stts", contents);
   }
 
+  /** Returns the ctts (composition time to sample) box. */
+  public static ByteBuffer ctts(
+      List<BufferInfo> samplesInfo, List<Integer> durationVu, int videoUnitTimescale) {
+    // Generate the sample composition offsets list to create ctts box.
+    List<Integer> compositionOffsets =
+        calculateSampleCompositionTimeOffsets(samplesInfo, durationVu, videoUnitTimescale);
+
+    if (compositionOffsets.isEmpty()) {
+      return ByteBuffer.allocate(0);
+    }
+
+    ByteBuffer contents =
+        ByteBuffer.allocate(
+            2 * BYTES_PER_INTEGER + 2 * compositionOffsets.size() * BYTES_PER_INTEGER);
+
+    contents.putInt(1); // version and flags.
+
+    // Total entry count is known only after processing all the composition offsets, so put in
+    // a placeholder for total entry count and store its index.
+    int totalEntryCountIndex = contents.position();
+    contents.putInt(0x0); // entry_count
+
+    int totalEntryCount = 0;
+    int lastCompositionOffset = -1;
+    int lastSampleCountIndex = -1;
+
+    for (int i = 0; i < compositionOffsets.size(); i++) {
+      int currentCompositionOffset = compositionOffsets.get(i);
+      if (lastCompositionOffset != currentCompositionOffset) {
+        lastCompositionOffset = currentCompositionOffset;
+        lastSampleCountIndex = contents.position();
+
+        // sample_count; this will be updated instead of adding a new entry if the next sample has
+        // the same composition offset.
+        contents.putInt(1); // sample_count
+        contents.putInt(currentCompositionOffset); // sample_offset
+        totalEntryCount++;
+      } else {
+        contents.putInt(lastSampleCountIndex, contents.getInt(lastSampleCountIndex) + 1);
+      }
+    }
+
+    contents.putInt(totalEntryCountIndex, totalEntryCount);
+
+    contents.flip();
+    return BoxUtils.wrapIntoBox("ctts", contents);
+  }
+
+  /**
+   * Calculates sample composition time offsets (in timebase units).
+   *
+   * <p>The sample composition time offset gives offset between composition time (CT) and decoding
+   * time (DT), such that {@code CT(n) = DT(n) + sample_offset(n)}.
+   *
+   * @param samplesInfo A list of {@linkplain BufferInfo sample info}.
+   * @param durationVu A list of all the sample durations.
+   * @param videoUnitTimescale The timescale of the track.
+   * @return A list of all the sample composition time offsets.
+   */
+  public static List<Integer> calculateSampleCompositionTimeOffsets(
+      List<BufferInfo> samplesInfo, List<Integer> durationVu, int videoUnitTimescale) {
+    List<Integer> compositionOffsets = new ArrayList<>(samplesInfo.size());
+    if (samplesInfo.isEmpty()) {
+      return compositionOffsets;
+    }
+
+    long currentSampleDecodeTime = 0L;
+    long firstSamplePresentationTimeUs = samplesInfo.get(0).presentationTimeUs;
+    boolean hasBFrame = false;
+    long lastSampleCompositionTimeUs = 0L;
+
+    for (int sampleId = 0; sampleId < samplesInfo.size(); sampleId++) {
+      long currentSampleCompositionTimeUs =
+          samplesInfo.get(sampleId).presentationTimeUs - firstSamplePresentationTimeUs;
+      long currentCompositionOffsetVu =
+          vuFromUs(currentSampleCompositionTimeUs, videoUnitTimescale) - currentSampleDecodeTime;
+      checkState(
+          currentCompositionOffsetVu <= Integer.MAX_VALUE,
+          "Only 32-bit composition offset is allowed");
+      currentSampleDecodeTime += durationVu.get(sampleId); // DT(n+1) = DT(n) + STTS(n)
+      compositionOffsets.add((int) currentCompositionOffsetVu);
+
+      if (currentSampleCompositionTimeUs < lastSampleCompositionTimeUs) {
+        hasBFrame = true;
+      }
+      lastSampleCompositionTimeUs = currentSampleCompositionTimeUs;
+    }
+
+    if (!hasBFrame) {
+      compositionOffsets.clear();
+    }
+    return compositionOffsets;
+  }
+
   /** Returns the stsz (sample size) box. */
   public static ByteBuffer stsz(List<MediaCodec.BufferInfo> writtenSamples) {
     ByteBuffer contents = ByteBuffer.allocate(writtenSamples.size() * 4 + MAX_FIXED_LEAF_BOX_SIZE);
 
-    contents.putInt(0x0); // version and flags.
+    contents.putInt(0x0); // version and flags
 
     // TODO: b/270583563 - Consider optimizing for identically-sized samples.
-    //  sample_size; specifying the default sample size. Set to zero to indicate that the samples
-    //  have different sizes and they are stored in the sample size table.
+    // sample_size: specifying the default sample size. Set to zero to indicate that the samples
+    // have different sizes and they are stored in the sample size table.
     contents.putInt(0);
 
-    contents.putInt(writtenSamples.size()); // sample_count.
+    contents.putInt(writtenSamples.size()); // sample_count
 
     for (int i = 0; i < writtenSamples.size(); i++) {
       contents.putInt(writtenSamples.get(i).size);
@@ -723,17 +992,17 @@ import java.util.Locale;
     ByteBuffer contents =
         ByteBuffer.allocate(writtenChunkSampleCounts.size() * 12 + MAX_FIXED_LEAF_BOX_SIZE);
 
-    contents.putInt(0x0); // version and flags.
-    contents.putInt(writtenChunkSampleCounts.size()); // entry_count.
+    contents.putInt(0x0); // version and flags
+    contents.putInt(writtenChunkSampleCounts.size()); // entry_count
 
     int currentChunk = 1;
 
     // TODO: b/270583563 - Consider optimizing for consecutive chunks having same number of samples.
     for (int i = 0; i < writtenChunkSampleCounts.size(); i++) {
       int samplesInChunk = writtenChunkSampleCounts.get(i);
-      contents.putInt(currentChunk); // first_chunk.
-      contents.putInt(samplesInChunk); // samples_per_chunk.
-      // sample_description_index; we have only one sample description in each track.
+      contents.putInt(currentChunk); // first_chunk
+      contents.putInt(samplesInChunk); // samples_per_chunk
+      // sample_description_index: there is only one sample description in each track.
       contents.putInt(1);
 
       currentChunk += 1;
@@ -749,12 +1018,12 @@ import java.util.Locale;
         ByteBuffer.allocate(2 * BYTES_PER_INTEGER + writtenChunkOffsets.size() * BYTES_PER_INTEGER);
 
     contents.putInt(0x0); // version and flags
-    contents.putInt(writtenChunkOffsets.size()); // entry_count; unsigned int(32)
+    contents.putInt(writtenChunkOffsets.size()); // entry_count: unsigned int(32)
 
     for (int i = 0; i < writtenChunkOffsets.size(); i++) {
       long chunkOffset = writtenChunkOffsets.get(i);
-      checkState(chunkOffset <= UNSIGNED_INT_MAX_VALUE, "Only 32-bit offset is allowed");
-      contents.putInt((int) chunkOffset); // chunk_offset; unsigned int(32)
+      checkState(chunkOffset <= UNSIGNED_INT_MAX_VALUE, "Only 32-bit chunk offset is allowed");
+      contents.putInt((int) chunkOffset); // chunk_offset: unsigned int(32)
     }
 
     contents.flip();
@@ -768,10 +1037,10 @@ import java.util.Locale;
             2 * BYTES_PER_INTEGER + 2 * writtenChunkOffsets.size() * BYTES_PER_INTEGER);
 
     contents.putInt(0x0); // version and flags
-    contents.putInt(writtenChunkOffsets.size()); // entry_count; unsigned int(32)
+    contents.putInt(writtenChunkOffsets.size()); // entry_count: unsigned int(32)
 
     for (int i = 0; i < writtenChunkOffsets.size(); i++) {
-      contents.putLong(writtenChunkOffsets.get(i)); // chunk_offset; unsigned int(64)
+      contents.putLong(writtenChunkOffsets.get(i)); // chunk_offset: unsigned int(64)
     }
 
     contents.flip();
@@ -782,19 +1051,19 @@ import java.util.Locale;
   public static ByteBuffer stss(List<MediaCodec.BufferInfo> writtenSamples) {
     ByteBuffer contents = ByteBuffer.allocate(writtenSamples.size() * 4 + MAX_FIXED_LEAF_BOX_SIZE);
 
-    contents.putInt(0x0); // version and flags.
+    contents.putInt(0x0); // version and flags
 
-    // We will know total entry count only after processing all the sample, so put in a placeholder
+    // Total entry count is known only after processing all sample, so put in a placeholder
     // for total entry count and store its index.
     int totalEntryCountIndex = contents.position();
-    contents.putInt(writtenSamples.size()); // entry_count.
+    contents.putInt(writtenSamples.size()); // entry_count
 
     int currentSampleNumber = 1;
     int totalKeyFrames = 0;
     for (int i = 0; i < writtenSamples.size(); i++) {
       MediaCodec.BufferInfo info = writtenSamples.get(i);
       if ((info.flags & MediaCodec.BUFFER_FLAG_KEY_FRAME) > 0) {
-        contents.putInt(currentSampleNumber); // sample_number.
+        contents.putInt(currentSampleNumber);
         totalKeyFrames++;
       }
 
@@ -811,8 +1080,8 @@ import java.util.Locale;
   public static ByteBuffer stsd(ByteBuffer sampleEntryBox) {
     ByteBuffer contents = ByteBuffer.allocate(sampleEntryBox.limit() + MAX_FIXED_LEAF_BOX_SIZE);
 
-    contents.putInt(0x0); // version and flags.
-    contents.putInt(1); // entry_count, We have only one sample description in each track.
+    contents.putInt(0x0); // version and flags
+    contents.putInt(1); // entry_count: there is only one sample description in each track.
     contents.put(sampleEntryBox);
 
     contents.flip();
@@ -877,8 +1146,10 @@ import java.util.Locale;
   }
 
   /** Returns a track fragment run (trun) box. */
-  public static ByteBuffer trun(List<SampleMetadata> samplesMetadata, int dataOffset) {
-    ByteBuffer contents = ByteBuffer.allocate(getTrunBoxContentSize(samplesMetadata.size()));
+  public static ByteBuffer trun(
+      List<SampleMetadata> samplesMetadata, int dataOffset, boolean hasBFrame) {
+    ByteBuffer contents =
+        ByteBuffer.allocate(getTrunBoxContentSize(samplesMetadata.size(), hasBFrame));
 
     // 0x000001 data-offset-present.
     // 0x000100 sample-duration-present: indicates that each sample has its own duration, otherwise
@@ -887,29 +1158,37 @@ import java.util.Locale;
     // default is used.
     // 0x000400 sample-flags-present: indicates that each sample has its own flags, otherwise the
     // default is used.
-    // Version is 0x0.
-    int versionAndFlags = 0x0 | 0x000001 | 0x000100 | 0x000200 | 0x000400;
+    // 0x000800 sample-composition-time-offsets-present: indicates that each sample has its own
+    // composition time offset, otherwise default is used.
+    // Version (the most significant byte of versionAndFlags) is 0x1.
+    int versionAndFlags = 0x1 << 24 | 0x000001 | 0x000100 | 0x000200 | 0x000400;
+    if (hasBFrame) {
+      versionAndFlags |= 0x000800;
+    }
     contents.putInt(versionAndFlags);
     contents.putInt(samplesMetadata.size()); // An unsigned int(32)
     contents.putInt(dataOffset); // A signed int(32)
     for (int i = 0; i < samplesMetadata.size(); i++) {
       SampleMetadata currentSampleMetadata = samplesMetadata.get(i);
-      contents.putInt((int) currentSampleMetadata.durationVu); // An unsigned int(32)
+      contents.putInt(currentSampleMetadata.durationVu); // An unsigned int(32)
       contents.putInt(currentSampleMetadata.size); // An unsigned int(32)
       contents.putInt(
           (currentSampleMetadata.flags & MediaCodec.BUFFER_FLAG_KEY_FRAME) != 0
               ? TRUN_BOX_SYNC_SAMPLE_FLAGS
               : TRUN_BOX_NON_SYNC_SAMPLE_FLAGS);
+      if (hasBFrame) {
+        contents.putInt(currentSampleMetadata.compositionTimeOffsetVu);
+      }
     }
     contents.flip();
     return BoxUtils.wrapIntoBox("trun", contents);
   }
 
-  /** Returns the size required for {@link #trun(List, int)} box content. */
-  public static int getTrunBoxContentSize(int sampleCount) {
+  /** Returns the size required for {@link #trun(List, int, boolean)} box content. */
+  public static int getTrunBoxContentSize(int sampleCount, boolean hasBFrame) {
     int trunBoxFixedSize = 3 * BYTES_PER_INTEGER;
-    // 3 int(32-bit) gets written for each sample.
-    return trunBoxFixedSize + 3 * sampleCount * BYTES_PER_INTEGER;
+    int intWrittenPerSample = hasBFrame ? 4 : 3;
+    return trunBoxFixedSize + intWrittenPerSample * sampleCount * BYTES_PER_INTEGER;
   }
 
   /** Returns a movie extends (mvex) box. */
@@ -930,38 +1209,66 @@ import java.util.Locale;
     return BoxUtils.wrapIntoBox("trex", contents);
   }
 
-  // TODO: b/317117431 - Change this method to getLastSampleDuration().
-  /** Adjusts the duration of the very last sample if needed. */
-  private static void adjustLastSampleDuration(
-      List<Long> durationsToBeAdjustedVu, @Mp4Muxer.LastFrameDurationBehavior int behavior) {
-    // Technically, MP4 file stores frame durations, not timestamps. If a frame starts at a
-    // given timestamp then the duration of the last frame is not obvious. If samples follow each
-    // other in roughly regular intervals (e.g. in a normal, 30 fps video), it can be safely assumed
-    // that the last sample will have same duration (~33ms) as other samples. On the other hand, if
-    // there are just a few, irregularly spaced frames, with duplication, the entire duration of the
-    // video will increase, creating abnormal gaps.
+  /** Returns the edvd box header. */
+  public static ByteBuffer getEdvdBoxHeader(long payloadSize) {
+    ByteBuffer edvdBoxHeader = ByteBuffer.allocate(LARGE_SIZE_BOX_HEADER_SIZE);
+    edvdBoxHeader.putInt(1); // indicating a 64-bit length field
+    edvdBoxHeader.put(Util.getUtf8Bytes("edvd"));
+    edvdBoxHeader.putLong(LARGE_SIZE_BOX_HEADER_SIZE + payloadSize); // the actual length
+    edvdBoxHeader.flip();
+    return edvdBoxHeader;
+  }
 
-    if (durationsToBeAdjustedVu.size() <= 2) {
-      // Nothing to duplicate if there are 0 or 1 entries.
-      return;
+  /** Returns an ISO 639-2/T (ISO3) language code for the IETF BCP 47 language tag. */
+  private static @PolyNull String bcp47LanguageTagToIso3(@PolyNull String languageTag) {
+    if (languageTag == null) {
+      return null;
     }
 
-    switch (behavior) {
-      case Mp4Muxer.LAST_FRAME_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION:
-        // This is the default MediaMuxer behavior: the last sample duration is a copy of the
-        // previous sample duration.
-        durationsToBeAdjustedVu.set(
-            durationsToBeAdjustedVu.size() - 1,
-            durationsToBeAdjustedVu.get(durationsToBeAdjustedVu.size() - 2));
-        break;
-      case Mp4Muxer.LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME:
+    Locale locale = Locale.forLanguageTag(languageTag);
+
+    return locale.getISO3Language().isEmpty() ? languageTag : locale.getISO3Language();
+  }
+
+  /** Converts video units to microseconds, using the provided timebase. */
+  private static long usFromVu(long timestampVu, long videoUnitTimebase) {
+    return timestampVu * 1_000_000L / videoUnitTimebase;
+  }
+
+  /** Returns the duration of the last sample (in video units). */
+  private static int getLastSampleDurationVu(
+      List<Integer> sampleDurationsExceptLast,
+      @Mp4Muxer.LastSampleDurationBehavior int lastSampleDurationBehavior,
+      int lastSampleDurationVuFromEndOfStream) {
+    switch (lastSampleDurationBehavior) {
+      case Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION:
+        // For a track having less than 3 samples, duplicating the last frame duration will
+        // significantly increase the overall track duration, so avoid that.
+        return sampleDurationsExceptLast.size() < 2
+            ? 0
+            : Iterables.getLast(sampleDurationsExceptLast);
+      case Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_INSERT_SHORT_SAMPLE:
         // Keep the last sample duration as short as possible.
-        checkState(Iterables.getLast(durationsToBeAdjustedVu) == 0L);
-        break;
+        return 0;
+      case Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_USING_END_OF_STREAM_FLAG:
+        return lastSampleDurationVuFromEndOfStream;
       default:
         throw new IllegalArgumentException(
-            "Unexpected value for the last frame duration behavior " + behavior);
+            "Unexpected value for the last frame duration behavior " + lastSampleDurationBehavior);
     }
+  }
+
+  /** Returns the d263Box box as per 3GPP ETSI TS 126 244: 6.8. */
+  private static ByteBuffer d263Box() {
+    ByteBuffer d263Box = ByteBuffer.allocate(7);
+    d263Box.put("    ".getBytes(UTF_8)); // 4 spaces (vendor)
+    d263Box.put((byte) 0x0); // decoder version
+    // TODO: b/352000778 - Get profile and level from format.
+    d263Box.put((byte) 0x10); // level
+    d263Box.put((byte) 0x0); // profile
+
+    d263Box.flip();
+    return BoxUtils.wrapIntoBox("d263", d263Box);
   }
 
   /** Returns the avcC box as per ISO/IEC 14496-15: 5.3.3.1.2. */
@@ -1074,7 +1381,7 @@ import java.util.Locale;
 
     NalUnitUtil.H265SpsData h265SpsData =
         NalUnitUtil.parseH265SpsNalUnit(
-            spsArray, /* nalOffset= */ 0, /* nalLimit= */ spsArray.length);
+            spsArray, /* nalOffset= */ 0, /* nalLimit= */ spsArray.length, /* vpsData= */ null);
 
     byte chromaFormat = (byte) (0xFC | h265SpsData.chromaFormatIdc); // First 6 bits reserved
     byte bitDepthLumaMinus8 =
@@ -1085,7 +1392,7 @@ import java.util.Locale;
     contents.put(bitDepthLumaMinus8);
     contents.put(bitDepthChromaMinus8);
 
-    // avgFrameRate; value 0 indicates an unspecified average frame rate.
+    // avgFrameRate: value 0 indicates an unspecified average frame rate.
     contents.putShort((short) 0);
 
     // constantFrameRate (2 bits) + numTemporalLayers (3 bits) + temporalIdNested (1 bit) +
@@ -1122,6 +1429,110 @@ import java.util.Locale;
     return BoxUtils.wrapIntoBox("av1C", ByteBuffer.wrap(csd0));
   }
 
+  /** Returns the vpcC box as per VP Codec ISO Media File Format Binding v1.0. */
+  private static ByteBuffer vpcCBox(Format format) {
+    // For VP9, the CodecPrivate or vpcCBox data is packed into csd-0.
+    checkArgument(!format.initializationData.isEmpty(), "csd-0 is not found in the format");
+    byte[] csd0 = format.initializationData.get(0);
+    checkArgument(csd0.length > 3, "csd-0 for vp9 is invalid.");
+    int versionAndFlags = 1 << 24; // version (value 1, 8 bits) + flag (value 0, 24 bits)
+    if (Ints.fromByteArray(csd0) == versionAndFlags) {
+      // CSD is already in vpcC format.
+      return BoxUtils.wrapIntoBox("vpcC", ByteBuffer.wrap(csd0));
+    }
+
+    ByteBuffer contents = ByteBuffer.allocate(MAX_FIXED_LEAF_BOX_SIZE);
+
+    contents.putInt(versionAndFlags);
+    // Default value of videoRange is 0.
+    int videoRange = format.colorInfo != null ? format.colorInfo.colorRange : 0;
+    ByteBuffer codecPrivateContent = parseVp9CodecPrivateFromCsd(csd0, videoRange);
+    contents.put(codecPrivateContent);
+
+    // The default values for optional fields as per the : <a
+    // href="https://www.webmproject.org/vp9/mp4/#optional-fields">Vp9 webm spec</a>
+    int colourPrimaries = 1;
+    int transferCharacteristics = 1;
+    int matrixCoefficients = 1;
+
+    if (format.colorInfo != null) {
+      colourPrimaries = MEDIAFORMAT_STANDARD_TO_PRIMARIES_AND_MATRIX.get(videoRange).get(0);
+      transferCharacteristics =
+          MEDIAFORMAT_TRANSFER_TO_MP4_TRANSFER.get(format.colorInfo.colorTransfer);
+      matrixCoefficients = MEDIAFORMAT_STANDARD_TO_PRIMARIES_AND_MATRIX.get(videoRange).get(1);
+    }
+
+    contents.put((byte) colourPrimaries);
+    contents.put((byte) transferCharacteristics);
+    contents.put((byte) matrixCoefficients);
+    contents.putShort((short) 0); // codecInitializationDataSize must be 0 for VP9
+    // codecInitializationData is not used for VP9 so skipped writing to contents
+    contents.flip();
+    return BoxUtils.wrapIntoBox("vpcC", contents);
+  }
+
+  /**
+   * Parses a Vp9 CodecPrivate as per <a
+   * href="https://www.webmproject.org/docs/container/#vp9-codec-feature-metadata-codecprivate">Vp9
+   * spec</a>
+   */
+  private static ByteBuffer parseVp9CodecPrivateFromCsd(byte[] csd0, int videoFullRange) {
+    // The default values.
+    byte profile = 0;
+    byte level = 10;
+    byte bitDepth = 8;
+    byte chromaSubsampling = 0;
+    // Each feature is defined by the binary format of ID (1 byte), length (1 byte), and data (1
+    // byte).
+    for (int i = 0; i < csd0.length; i += 3) {
+      int id = csd0[i];
+      int dataIndex = i + 2;
+      switch (id) {
+        case 1:
+          profile = csd0[dataIndex];
+          break;
+        case 2:
+          level = csd0[dataIndex];
+          break;
+        case 3:
+          bitDepth = csd0[dataIndex];
+          break;
+        case 4:
+          chromaSubsampling = csd0[dataIndex];
+          break;
+        default:
+          break;
+      }
+    }
+    ByteBuffer content = ByteBuffer.allocate(3);
+    content.put(profile);
+    content.put(level);
+    // 4 bits of bitDepth + 3 bits of chromaSubsampling + 1 bit of videoRange
+    byte combined = (byte) ((bitDepth << 4) | (chromaSubsampling << 1) | videoFullRange);
+    content.put(combined);
+    content.flip();
+    return content;
+  }
+
+  /**
+   * Returns smDm box as per <a
+   * href="https://www.webmproject.org/vp9/mp4/#smpte-2086-mastering-display-metadata-box ">SmDm box
+   * in Vp9 spec</a>
+   */
+  private static ByteBuffer smDmBox(ColorInfo colorInfo) {
+    byte[] hdrStaticInfo = colorInfo.hdrStaticInfo;
+    if (hdrStaticInfo != null) {
+      ByteBuffer contents = ByteBuffer.allocate(MAX_FIXED_LEAF_BOX_SIZE);
+      contents.putInt(0x0); // version and flag
+      contents.put(hdrStaticInfo);
+      contents.flip();
+      return BoxUtils.wrapIntoBox("SmDm", contents);
+    } else {
+      // No HDR info
+      return ByteBuffer.allocate(0);
+    }
+  }
+
   /** Returns the pasp box. */
   private static ByteBuffer paspBox() {
     ByteBuffer contents = ByteBuffer.allocate(8);
@@ -1142,7 +1553,6 @@ import java.util.Locale;
     contents.put((byte) 'l');
     contents.put((byte) 'x');
 
-    // Parameters going into the file.
     short primaries = 0;
     short transfer = 0;
     short matrix = 0;
@@ -1187,57 +1597,89 @@ import java.util.Locale;
     return BoxUtils.wrapIntoBox("colr", contents);
   }
 
-  /** Returns video codec specific fourcc. */
+  /** Returns codec specific fourcc. */
   private static String codecSpecificFourcc(Format format) {
     String mimeType = checkNotNull(format.sampleMimeType);
     switch (mimeType) {
-      case "video/avc":
+      case MimeTypes.AUDIO_AAC:
+      case MimeTypes.AUDIO_VORBIS:
+        return "mp4a";
+      case MimeTypes.AUDIO_AMR_NB:
+        return "samr";
+      case MimeTypes.AUDIO_AMR_WB:
+        return "sawb";
+      case MimeTypes.VIDEO_H263:
+        return "s263";
+      case MimeTypes.AUDIO_OPUS:
+        return "Opus";
+      case MimeTypes.VIDEO_H264:
         return "avc1";
-      case "video/hevc":
+      case MimeTypes.VIDEO_H265:
         return "hvc1";
-      case "video/av01":
+      case MimeTypes.VIDEO_AV1:
         return "av01";
+      case MimeTypes.VIDEO_MP4V:
+        return "mp4v-es";
+      case MimeTypes.VIDEO_VP9:
+        return "vp09";
       default:
-        throw new IllegalArgumentException("Unsupported video format: " + mimeType);
+        throw new IllegalArgumentException("Unsupported format: " + mimeType);
     }
   }
 
   /** Returns the esds box. */
-  private static ByteBuffer audioEsdsBox(
-      ByteBuffer csd0ByteBuffer, int peakBitrate, int averageBitrate) {
-    int csd0Size = csd0ByteBuffer.limit();
+  private static ByteBuffer esdsBox(Format format) {
+    checkArgument(!format.initializationData.isEmpty(), "csd-0 not found in the format.");
 
-    ByteBuffer contents = ByteBuffer.allocate(csd0Size + MAX_FIXED_LEAF_BOX_SIZE);
-    contents.putInt(0x0); // version and flags.
+    byte[] csd0 = format.initializationData.get(0);
+    checkArgument(csd0.length > 0, "csd-0 is empty.");
+
+    String mimeType = checkNotNull(format.sampleMimeType);
+    boolean isVorbis = mimeType.equals(MimeTypes.AUDIO_VORBIS);
+    ByteBuffer csdByteBuffer =
+        isVorbis ? getVorbisInitializationData(format) : ByteBuffer.wrap(csd0);
+
+    int peakBitrate = format.peakBitrate;
+    int averageBitrate = format.averageBitrate;
+    boolean isVideo = MimeTypes.isVideo(mimeType);
+
+    int csdSize = csdByteBuffer.remaining();
+    ByteBuffer dsiSizeBuffer = getSizeBuffer(csdSize);
+    ByteBuffer dcdSizeBuffer = getSizeBuffer(csdSize + dsiSizeBuffer.remaining() + 14);
+    ByteBuffer esdSizeBuffer =
+        getSizeBuffer(csdSize + dsiSizeBuffer.remaining() + dcdSizeBuffer.remaining() + 21);
+
+    ByteBuffer contents = ByteBuffer.allocate(csdSize + MAX_FIXED_LEAF_BOX_SIZE);
+    contents.putInt(0x0); // version and flags
     contents.put((byte) 0x03); // ES_DescrTag
 
-    // We're normally using a variable-length encoding for the length of various sub-packages (esds
-    // etc.), in a nested way, so outer lengths need to account for variable-length inner lengths
-    // too (to save ~10 bytes per video file). Meanwhile, AAC codec-specific
-    // data is typically just 2 bytes, so every length actually fits into a byte. Here, we're just
-    // skipping the entire complex story by asserting that we won't ever need variable-length sizes.
-    checkArgument(csd0Size + 21 < 127, "CSD too long; we might need variable-length encoding?");
-
-    contents.put((byte) (23 + csd0Size));
+    contents.put(esdSizeBuffer);
 
     contents.putShort((short) 0x0000); // ES_ID
-    contents.put((byte) 0x00);
+    // streamDependenceFlag (1 bit) + URL_Flag (1 bit) + OCRstreamFlag (1 bit) + streamPriority (5
+    // bits)
+    contents.put(isVideo ? (byte) 0x1f : (byte) 0x0);
 
     contents.put((byte) 0x04); // DecoderConfigDescrTag
-    contents.put((byte) (15 + csd0Size));
-    contents.put((byte) 0x40); // objectTypeIndication
-    contents.put((byte) 0x15); // streamType AudioStream
+    contents.put(dcdSizeBuffer);
 
-    contents.putShort((short) 0x03);
-    contents.put((byte) 0x00); // 24-bit buffer size (0x300)
+    Byte objectType = checkNotNull(MimeTypes.getMp4ObjectTypeFromMimeType(mimeType));
+    contents.put(objectType); // objectTypeIndication
+
+    // streamType (6 bits) + upStream (1 bit) + reserved = 1 (1 bit)
+    contents.put((byte) ((isVideo ? (0x04 << 2) : (0x05 << 2)) | 0x01));
+
+    int size = isVideo ? 0x017700 : 0x000300;
+    contents.putShort((short) ((size >> 8) & 0xFFFF)); // First 16 bits of buffer size.
+    contents.put((byte) 0x0); // Last 8 bits of buffer size.
 
     contents.putInt(peakBitrate != Format.NO_VALUE ? peakBitrate : 0);
     contents.putInt(averageBitrate != Format.NO_VALUE ? averageBitrate : 0);
 
     contents.put((byte) 0x05); // DecoderSpecificInfoTag
-    contents.put((byte) csd0Size);
-    contents.put(csd0ByteBuffer);
-    csd0ByteBuffer.rewind();
+    contents.put(dsiSizeBuffer);
+    contents.put(csdByteBuffer);
+    csdByteBuffer.rewind();
 
     contents.put((byte) 0x06); // SLConfigDescriptorTag
     contents.put((byte) 0x01);
@@ -1245,6 +1687,85 @@ import java.util.Locale;
 
     contents.flip();
     return BoxUtils.wrapIntoBox("esds", contents);
+  }
+
+  private static ByteBuffer getSizeBuffer(int length) {
+    int prefix = 0;
+    ArrayDeque<Byte> esdsSizeBytes = new ArrayDeque<>();
+    do {
+      esdsSizeBytes.push((byte) (prefix | (length & 0x7F)));
+      length >>= 7;
+      prefix = 0x80;
+    } while (length > 0);
+
+    ByteBuffer sizeBuffer = ByteBuffer.allocate(esdsSizeBytes.size());
+    while (!esdsSizeBytes.isEmpty()) {
+      sizeBuffer.put(esdsSizeBytes.removeFirst());
+    }
+    sizeBuffer.flip();
+    return sizeBuffer;
+  }
+
+  /* Returns csd wrapped in ByteBuffer in vorbis codec initialization data format. */
+  private static ByteBuffer getVorbisInitializationData(Format format) {
+    checkArgument(
+        format.initializationData.size() > 1, "csd-1 should contain setup header for Vorbis.");
+    byte[] csd0 = format.initializationData.get(0); // identification Header
+
+    // csd0Size is represented using "Xiph lacing" style.
+    // The lacing size is split into 255 values, stored as unsigned octets – for example, 500 is
+    // coded 255;245 or [0xFF 0xF5]. A frame with a size multiple of 255 is coded with a 0 at the
+    // end of the size – for example, 765 is coded 255;255;255;0 or [0xFF 0xFF 0xFF 0x00].
+    byte[] csd0Size = new byte[csd0.length / 255 + 1];
+    Arrays.fill(csd0Size, (byte) 0xFF);
+    csd0Size[csd0Size.length - 1] = (byte) (csd0.length % 255);
+
+    byte[] csd1 = format.initializationData.get(1); // setUp Header
+    checkArgument(csd1.length > 0, "csd-1 should be present and contain setup header for Vorbis.");
+
+    // Add 2 bytes - 1 for Vorbis audio and 1 for comment header length.
+    ByteBuffer csd = ByteBuffer.allocate(csd0Size.length + csd0.length + csd1.length + 2);
+    csd.put((byte) 0x02); // Vorbis audio
+    csd.put(csd0Size); // Size of identification header
+    csd.put((byte) 0); // Length of comment header
+    csd.put(csd0);
+    csd.put(csd1);
+    csd.flip();
+
+    return csd;
+  }
+
+  /** Returns the audio damr box. */
+  private static ByteBuffer damrBox(short mode) {
+
+    ByteBuffer contents = ByteBuffer.allocate(MAX_FIXED_LEAF_BOX_SIZE);
+
+    contents.put("    ".getBytes(UTF_8)); // vendor: 4 bytes
+    contents.put((byte) 0); // decoder version
+    contents.putShort(mode);
+    contents.put((byte) 0); // mode change period
+    contents.put((byte) 1); // frames per sample
+
+    contents.flip();
+    return BoxUtils.wrapIntoBox("damr", contents);
+  }
+
+  /** Returns the audio dOps box for Opus codec as per RFC-7845: 5.1. */
+  private static ByteBuffer dOpsBox(Format format) {
+    checkArgument(!format.initializationData.isEmpty());
+
+    int opusHeaderLength = 8;
+    byte[] csd0 = format.initializationData.get(0);
+    checkArgument(
+        csd0.length >= opusHeaderLength,
+        "As csd0 contains 'OpusHead' in first 8 bytes, csd0 length should be greater than 8");
+    ByteBuffer contents = ByteBuffer.allocate(csd0.length);
+    // Skip 8 bytes containing "OpusHead".
+    contents.put(
+        /* src */ csd0, /* offset */ opusHeaderLength, /* length */ csd0.length - opusHeaderLength);
+    contents.flip();
+
+    return BoxUtils.wrapIntoBox("dOps", contents);
   }
 
   /** Packs a three-letter language code into a short, packing 3x5 bits. */
@@ -1259,16 +1780,13 @@ import java.util.Locale;
       throw new IllegalArgumentException("Non-length-3 language code: " + code);
     }
 
-    // Use an int so that we don't bump into the issue of Java not having unsigned types. We take
-    // the last 5 bits of each letter to supply 5 bits each of the eventual code.
-
+    // Take only last 5 bits of each letter.
     int value = (bytes[2] & 0x1F);
     value += (bytes[1] & 0x1F) << 5;
     value += (bytes[0] & 0x1F) << 10;
 
-    // This adds up to 15 bits; the 16th one is really supposed to be 0.
-    checkState((value & 0x8000) == 0);
-    return (short) (value & 0xFFFF);
+    // Total 15 bits for the language code and the 16th bit should be 0.
+    return (short) (value & 0x7FFF);
   }
 
   /**
@@ -1300,6 +1818,6 @@ import java.util.Locale;
 
   /** Converts microseconds to video units, using the provided timebase. */
   private static long vuFromUs(long timestampUs, long videoUnitTimebase) {
-    return timestampUs * videoUnitTimebase / 1_000_000L; // (division for us to s conversion)
+    return timestampUs * videoUnitTimebase / 1_000_000L; // Division for microsecond to second.
   }
 }

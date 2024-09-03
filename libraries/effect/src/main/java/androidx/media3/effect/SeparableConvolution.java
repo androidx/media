@@ -16,7 +16,6 @@
 package androidx.media3.effect;
 
 import android.content.Context;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.UnstableApi;
 
@@ -27,7 +26,6 @@ import androidx.media3.common.util.UnstableApi;
  * second pass.
  */
 @UnstableApi
-@RequiresApi(26) // See SeparableConvolutionShaderProgram.
 public abstract class SeparableConvolution implements GlEffect {
   private final float scaleWidth;
   private final float scaleHeight;

@@ -32,10 +32,10 @@ import androidx.media3.extractor.metadata.emsg.EventMessage;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 import org.junit.Test;
@@ -83,6 +83,8 @@ public class DashManifestParserTest {
       "media/mpd/sample_mpd_service_description_low_latency_only_target_latency";
   private static final String SAMPLE_MPD_CLEAR_KEY_LICENSE_URL =
       "media/mpd/sample_mpd_clear_key_license_url";
+  private static final String SAMPLE_MPD_DASHIF_LICENSE_URL =
+      "media/mpd/sample_mpd_dashif_license_url";
 
   private static final String NEXT_TAG_NAME = "Next";
   private static final String NEXT_TAG = "<" + NEXT_TAG_NAME + "/>";
@@ -147,7 +149,7 @@ public class DashManifestParserTest {
     assertThat(eventStream1.events.length).isEqualTo(1);
     EventMessage expectedEvent1 =
         new EventMessage(
-            "urn:uuid:XYZY", "call", 10000, 0, "+ 1 800 10101010".getBytes(Charsets.UTF_8));
+            "urn:uuid:XYZY", "call", 10000, 0, "+ 1 800 10101010".getBytes(StandardCharsets.UTF_8));
     assertThat(eventStream1.events[0]).isEqualTo(expectedEvent1);
     assertThat(eventStream1.presentationTimesUs[0]).isEqualTo(0);
 
@@ -155,7 +157,8 @@ public class DashManifestParserTest {
     EventStream eventStream2 = period.eventStreams.get(1);
     assertThat(eventStream2.events.length).isEqualTo(1);
     EventMessage expectedEvent2 =
-        new EventMessage("urn:uuid:with-pto", "pto-4s", 10000, 0, "pt=1s".getBytes(Charsets.UTF_8));
+        new EventMessage(
+            "urn:uuid:with-pto", "pto-4s", 10000, 0, "pt=1s".getBytes(StandardCharsets.UTF_8));
     assertThat(eventStream2.events[0]).isEqualTo(expectedEvent2);
     assertThat(eventStream2.presentationTimesUs[0]).isEqualTo(1000000);
 
@@ -947,6 +950,37 @@ public class DashManifestParserTest {
     DrmInitData.SchemeData schemeData1 = representation1.format.drmInitData.get(0);
     assertThat(schemeData0.uuid).isEqualTo(C.CLEARKEY_UUID);
     assertThat(schemeData1.uuid).isEqualTo(C.CLEARKEY_UUID);
+    assertThat(schemeData0.licenseServerUrl).isEqualTo("https://testserver1.test/AcquireLicense");
+    assertThat(schemeData1.licenseServerUrl).isEqualTo("https://testserver2.test/AcquireLicense");
+  }
+
+  @Test
+  public void contentProtection_withDashIfLicenseUrl() throws IOException {
+    DashManifestParser parser = new DashManifestParser();
+
+    DashManifest manifest =
+        parser.parse(
+            Uri.parse("https://example.com/test.mpd"),
+            TestUtil.getInputStream(
+                ApplicationProvider.getApplicationContext(), SAMPLE_MPD_DASHIF_LICENSE_URL));
+
+    assertThat(manifest.getPeriodCount()).isEqualTo(1);
+    Period period = manifest.getPeriod(0);
+    assertThat(period.adaptationSets).hasSize(2);
+    AdaptationSet adaptationSet0 = period.adaptationSets.get(0);
+    AdaptationSet adaptationSet1 = period.adaptationSets.get(1);
+    assertThat(adaptationSet0.representations).hasSize(1);
+    assertThat(adaptationSet1.representations).hasSize(1);
+    Representation representation0 = adaptationSet0.representations.get(0);
+    Representation representation1 = adaptationSet1.representations.get(0);
+    assertThat(representation0.format.drmInitData.schemeType).isEqualTo("cenc");
+    assertThat(representation1.format.drmInitData.schemeType).isEqualTo("cenc");
+    assertThat(representation0.format.drmInitData.schemeDataCount).isEqualTo(2);
+    assertThat(representation1.format.drmInitData.schemeDataCount).isEqualTo(2);
+    DrmInitData.SchemeData schemeData0 = representation0.format.drmInitData.get(0);
+    DrmInitData.SchemeData schemeData1 = representation1.format.drmInitData.get(0);
+    assertThat(schemeData0.uuid).isEqualTo(C.WIDEVINE_UUID);
+    assertThat(schemeData1.uuid).isEqualTo(C.WIDEVINE_UUID);
     assertThat(schemeData0.licenseServerUrl).isEqualTo("https://testserver1.test/AcquireLicense");
     assertThat(schemeData1.licenseServerUrl).isEqualTo("https://testserver2.test/AcquireLicense");
   }

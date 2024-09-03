@@ -41,9 +41,7 @@
     <item>1,5x</item>
     <item>2x</item>
   </string-array>
-  <string name="exo_track_selection_title_video">Βίντεο</string>
   <string name="exo_track_selection_title_audio">Ήχος</string>
-  <string name="exo_track_selection_title_text">Κείμενο</string>
   <string name="exo_track_selection_none">Κανένα</string>
   <string name="exo_track_selection_auto">Αυτόματο</string>
   <string name="exo_track_unknown">Άγνωστο</string>

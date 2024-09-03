@@ -27,6 +27,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.FrameInfo;
+import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.OnInputFrameProcessedListener;
 import androidx.media3.common.VideoFrameProcessor;
@@ -60,10 +61,14 @@ import java.util.concurrent.atomic.AtomicLong;
       long durationUs,
       @Nullable Format decodedFormat,
       boolean isLast) {
+    boolean isSurfaceAssetLoaderMediaItem = isMediaItemForSurfaceAssetLoader(editedMediaItem);
+    durationUs = editedMediaItem.getDurationAfterEffectsApplied(durationUs);
     if (decodedFormat != null) {
       Size decodedSize = getDecodedSize(decodedFormat);
       videoFrameProcessor.registerInputStream(
-          getInputType(checkNotNull(decodedFormat.sampleMimeType)),
+          isSurfaceAssetLoaderMediaItem
+              ? VideoFrameProcessor.INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION
+              : getInputTypeForMimeType(checkNotNull(decodedFormat.sampleMimeType)),
           createEffectListWithPresentation(editedMediaItem.effects.videoEffects, presentation),
           new FrameInfo.Builder(
                   checkNotNull(decodedFormat.colorInfo),
@@ -87,6 +92,11 @@ import java.util.concurrent.atomic.AtomicLong;
   @Override
   public void setOnInputFrameProcessedListener(OnInputFrameProcessedListener listener) {
     videoFrameProcessor.setOnInputFrameProcessedListener(listener);
+  }
+
+  @Override
+  public void setOnInputSurfaceReadyListener(Runnable runnable) {
+    videoFrameProcessor.setOnInputSurfaceReadyListener(runnable);
   }
 
   @Override
@@ -137,7 +147,7 @@ import java.util.concurrent.atomic.AtomicLong;
     return effectsWithPresentationBuilder.build();
   }
 
-  private static @VideoFrameProcessor.InputType int getInputType(String sampleMimeType) {
+  private static @VideoFrameProcessor.InputType int getInputTypeForMimeType(String sampleMimeType) {
     if (MimeTypes.isImage(sampleMimeType)) {
       return INPUT_TYPE_BITMAP;
     }
@@ -148,5 +158,18 @@ import java.util.concurrent.atomic.AtomicLong;
       return INPUT_TYPE_SURFACE;
     }
     throw new IllegalArgumentException("MIME type not supported " + sampleMimeType);
+  }
+
+  private static boolean isMediaItemForSurfaceAssetLoader(EditedMediaItem editedMediaItem) {
+    @Nullable
+    MediaItem.LocalConfiguration localConfiguration = editedMediaItem.mediaItem.localConfiguration;
+    if (localConfiguration == null) {
+      return false;
+    }
+    @Nullable String scheme = localConfiguration.uri.getScheme();
+    if (scheme == null) {
+      return false;
+    }
+    return scheme.equals(SurfaceAssetLoader.MEDIA_ITEM_URI_SCHEME);
   }
 }

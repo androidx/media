@@ -19,8 +19,8 @@ import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.os.Bundle;
-import androidx.media.MediaSessionManager;
 import androidx.media3.common.MediaLibraryInfo;
+import androidx.media3.session.legacy.MediaSessionManager;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.After;

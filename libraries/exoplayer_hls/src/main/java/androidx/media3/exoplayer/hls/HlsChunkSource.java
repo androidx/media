@@ -253,6 +253,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param trackSelection The {@link ExoTrackSelection}.
    */
   public void setTrackSelection(ExoTrackSelection trackSelection) {
+    // Deactivate the selected playlist from the old track selection for playback.
+    deactivatePlaylistForSelectedTrack();
     this.trackSelection = trackSelection;
   }
 
@@ -263,6 +265,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   /** Resets the source. */
   public void reset() {
+    deactivatePlaylistForSelectedTrack();
     fatalError = null;
   }
 
@@ -463,6 +466,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       partIndex = nextMediaSequenceAndPartIndexWithoutAdapting.second;
     }
 
+    // If the selected track index changes from another one, we should deactivate the old playlist
+    // for playback.
+    if (selectedTrackIndex != oldTrackIndex && oldTrackIndex != C.INDEX_UNSET) {
+      Uri oldPlaylistUrl = playlistUrls[oldTrackIndex];
+      playlistTracker.deactivatePlaylistForPlayback(oldPlaylistUrl);
+    }
+
     if (chunkMediaSequence < playlist.mediaSequence) {
       fatalError = new BehindLiveWindowException();
       return;
@@ -511,13 +521,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                       ? CmcdData.Factory.OBJECT_TYPE_MUXED_AUDIO_AND_VIDEO
                       : CmcdData.Factory.getObjectType(trackSelection));
 
-      long nextChunkMediaSequence =
-          partIndex == C.LENGTH_UNSET
-              ? (chunkMediaSequence == C.LENGTH_UNSET ? C.LENGTH_UNSET : chunkMediaSequence + 1)
-              : chunkMediaSequence;
-      int nextPartIndex = partIndex == C.LENGTH_UNSET ? C.LENGTH_UNSET : partIndex + 1;
+      long nextMediaSequence =
+          segmentBaseHolder.partIndex == C.INDEX_UNSET
+              ? segmentBaseHolder.mediaSequence + 1
+              : segmentBaseHolder.mediaSequence;
+      int nextPartIndex =
+          segmentBaseHolder.partIndex == C.INDEX_UNSET
+              ? C.INDEX_UNSET
+              : segmentBaseHolder.partIndex + 1;
       SegmentBaseHolder nextSegmentBaseHolder =
-          getNextSegmentHolder(playlist, nextChunkMediaSequence, nextPartIndex);
+          getNextSegmentHolder(playlist, nextMediaSequence, nextPartIndex);
       if (nextSegmentBaseHolder != null) {
         Uri uri = UriUtil.resolveToUri(playlist.baseUri, segmentBaseHolder.segmentBase.url);
         Uri nextUri = UriUtil.resolveToUri(playlist.baseUri, nextSegmentBaseHolder.segmentBase.url);
@@ -942,6 +955,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return null;
     }
     return UriUtil.resolveToUri(playlist.baseUri, segmentBase.fullSegmentEncryptionKeyUri);
+  }
+
+  private void deactivatePlaylistForSelectedTrack() {
+    int selectedTrackIndex = this.trackSelection.getSelectedIndexInTrackGroup();
+    playlistTracker.deactivatePlaylistForPlayback(playlistUrls[selectedTrackIndex]);
   }
 
   // Package classes.

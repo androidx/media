@@ -17,10 +17,15 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.ColorInfo.SDR_BT709_LIMITED;
+import static androidx.media3.common.ColorInfo.isTransferHdr;
 import static androidx.media3.transformer.Composition.HDR_MODE_KEEP_HDR;
+import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
+import static androidx.media3.transformer.EncoderUtil.getSupportedEncodersForHdrEditing;
 import static java.lang.Math.round;
 
 import android.media.MediaCodec;
+import android.media.MediaCodecInfo;
+import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -28,13 +33,16 @@ import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.extractor.metadata.mp4.SlowMotionData;
+import androidx.media3.transformer.Composition.HdrMode;
 import com.google.common.collect.ImmutableList;
 
 /** Utility methods for Transformer. */
-/* package */ final class TransformerUtil {
+@UnstableApi
+public final class TransformerUtil {
 
   private TransformerUtil() {}
 
@@ -232,5 +240,34 @@ import com.google.common.collect.ImmutableList;
       return SDR_BT709_LIMITED;
     }
     return decoderInputColor;
+  }
+
+  /**
+   * Calculate what the MIME type and {@link HdrMode} to use, applying fallback measure if
+   * necessary.
+   *
+   * @param hdrMode The {@link HdrMode}.
+   * @param requestedOutputMimeType The desired output MIME type.
+   * @param colorInfo The {@link ColorInfo}.
+   * @return a {@link Pair} of the output MIME type and {@link HdrMode}.
+   */
+  public static Pair<String, Integer> getOutputMimeTypeAndHdrModeAfterFallback(
+      @HdrMode int hdrMode, String requestedOutputMimeType, @Nullable ColorInfo colorInfo) {
+    // HdrMode fallback is only supported from HDR_MODE_KEEP_HDR to
+    // HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL.
+    if (hdrMode == HDR_MODE_KEEP_HDR && isTransferHdr(colorInfo)) {
+      ImmutableList<MediaCodecInfo> hdrEncoders =
+          getSupportedEncodersForHdrEditing(requestedOutputMimeType, colorInfo);
+      if (hdrEncoders.isEmpty()) {
+        // Fallback H.265/HEVC codecs for HDR content to avoid tonemapping.
+        hdrEncoders = getSupportedEncodersForHdrEditing(MimeTypes.VIDEO_H265, colorInfo);
+        if (!hdrEncoders.isEmpty()) {
+          requestedOutputMimeType = MimeTypes.VIDEO_H265;
+        } else {
+          hdrMode = HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
+        }
+      }
+    }
+    return Pair.create(requestedOutputMimeType, hdrMode);
   }
 }

@@ -142,8 +142,10 @@ public final class VideoFrameReleaseHelper {
   }
 
   /**
-   * Change the {@link C.VideoChangeFrameRateStrategy} used when calling {@link
+   * Changes the {@link C.VideoChangeFrameRateStrategy} used when calling {@link
    * Surface#setFrameRate}.
+   *
+   * <p>The default value is {@link C#VIDEO_CHANGE_FRAME_RATE_STRATEGY_ONLY_IF_SEAMLESS}.
    */
   public void setChangeFrameRateStrategy(
       @C.VideoChangeFrameRateStrategy int changeFrameRateStrategy) {
@@ -171,10 +173,6 @@ public final class VideoFrameReleaseHelper {
    * @param surface The new {@link Surface}, or {@code null} if the renderer does not have one.
    */
   public void onSurfaceChanged(@Nullable Surface surface) {
-    if (surface instanceof PlaceholderSurface) {
-      // We don't care about dummy surfaces for release timing, since they're not visible.
-      surface = null;
-    }
     if (this.surface == surface) {
       return;
     }
@@ -492,9 +490,9 @@ public final class VideoFrameReleaseHelper {
 
     public volatile long sampledVsyncTimeNs;
 
-    private static final int CREATE_CHOREOGRAPHER = 0;
-    private static final int MSG_ADD_OBSERVER = 1;
-    private static final int MSG_REMOVE_OBSERVER = 2;
+    private static final int CREATE_CHOREOGRAPHER = 1;
+    private static final int MSG_ADD_OBSERVER = 2;
+    private static final int MSG_REMOVE_OBSERVER = 3;
 
     private static final VSyncSampler INSTANCE = new VSyncSampler();
 

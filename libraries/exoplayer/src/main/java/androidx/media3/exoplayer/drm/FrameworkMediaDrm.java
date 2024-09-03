@@ -42,13 +42,14 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.extractor.mp4.PsshAtomUtil;
-import com.google.common.base.Charsets;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 /** An {@link ExoMediaDrm} implementation that wraps the framework {@link MediaDrm}. */
@@ -242,15 +243,18 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
     return new KeyRequest(requestData, licenseServerUrl, requestType);
   }
 
-  private static String adjustLicenseServerUrl(String licenseServerUrl) {
+  private String adjustLicenseServerUrl(String licenseServerUrl) {
     if (MOCK_LA_URL.equals(licenseServerUrl)) {
       return "";
-    } else if (Util.SDK_INT >= 33 && "https://default.url".equals(licenseServerUrl)) {
-      // Work around b/247808112
-      return "";
-    } else {
-      return licenseServerUrl;
     }
+    if (Util.SDK_INT >= 33 && "https://default.url".equals(licenseServerUrl)) {
+      // Work around b/247808112
+      String pluginVersion = getPropertyString("version");
+      if (Objects.equals(pluginVersion, "1.2") || Objects.equals(pluginVersion, "aidl-1")) {
+        return "";
+      }
+    }
+    return licenseServerUrl;
   }
 
   @UnstableApi
@@ -288,8 +292,9 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
   @Override
   public boolean requiresSecureDecoder(byte[] sessionId, String mimeType) {
     boolean result;
-    if (Util.SDK_INT >= 31) {
-      result = Api31.requiresSecureDecoder(mediaDrm, mimeType);
+    if (Util.SDK_INT >= 31 && isMediaDrmRequiresSecureDecoderImplemented()) {
+      result =
+          Api31.requiresSecureDecoder(mediaDrm, mimeType, mediaDrm.getSecurityLevel(sessionId));
     } else {
       MediaCrypto mediaCrypto = null;
       try {
@@ -304,7 +309,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
         }
       }
     }
-    return result && !shouldForceAllowInsecureDecoderComponents();
+    return result;
   }
 
   @UnstableApi
@@ -385,23 +390,33 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
   @UnstableApi
   @Override
   public FrameworkCryptoConfig createCryptoConfig(byte[] sessionId) throws MediaCryptoException {
-    boolean forceAllowInsecureDecoderComponents = shouldForceAllowInsecureDecoderComponents();
-    return new FrameworkCryptoConfig(
-        adjustUuid(uuid), sessionId, forceAllowInsecureDecoderComponents);
-  }
-
-  // Work around a bug prior to Lollipop where L1 Widevine forced into L3 mode would still
-  // indicate that it required secure video decoders [Internal ref: b/11428937].
-  private boolean shouldForceAllowInsecureDecoderComponents() {
-    return Util.SDK_INT < 21
-        && C.WIDEVINE_UUID.equals(uuid)
-        && "L3".equals(getPropertyString("securityLevel"));
+    return new FrameworkCryptoConfig(adjustUuid(uuid), sessionId);
   }
 
   @UnstableApi
   @Override
   public @C.CryptoType int getCryptoType() {
     return C.CRYPTO_TYPE_FRAMEWORK;
+  }
+
+  /**
+   * {@link MediaDrm#requiresSecureDecoder} is nominally available from API 31, but it's only
+   * functional for Widevine if the plugin version is greater than 16.0. See b/352419654#comment63.
+   */
+  @RequiresApi(31)
+  private boolean isMediaDrmRequiresSecureDecoderImplemented() {
+    // TODO: b/359768062 - Add an SDK_INT guard clause once WV 16.0 is not permitted on any device.
+    if (uuid.equals(C.WIDEVINE_UUID)) {
+      String pluginVersion = getPropertyString(MediaDrm.PROPERTY_VERSION);
+      return !pluginVersion.startsWith("v5.")
+          && !pluginVersion.startsWith("14.")
+          && !pluginVersion.startsWith("15.")
+          && !pluginVersion.startsWith("16.0");
+    } else {
+      // Assume that ClearKey plugin always supports this method, and no non-Google plugin does. See
+      // b/352419654#comment71.
+      return uuid.equals(C.CLEARKEY_UUID);
+    }
   }
 
   private static SchemeData getSchemeData(UUID uuid, List<SchemeData> schemeDatas) {
@@ -547,7 +562,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
       return data;
     }
     int recordLength = byteArray.readLittleEndianShort();
-    String xml = byteArray.readString(recordLength, Charsets.UTF_16LE);
+    String xml = byteArray.readString(recordLength, StandardCharsets.UTF_16LE);
     if (xml.contains("<LA_URL>")) {
       // LA_URL already present. Do nothing.
       return data;
@@ -568,7 +583,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
     newData.putShort((short) objectRecordCount);
     newData.putShort((short) recordType);
     newData.putShort((short) (xmlWithMockLaUrl.length() * UTF_16_BYTES_PER_CHARACTER));
-    newData.put(xmlWithMockLaUrl.getBytes(Charsets.UTF_16LE));
+    newData.put(xmlWithMockLaUrl.getBytes(StandardCharsets.UTF_16LE));
     return newData.array();
   }
 
@@ -577,8 +592,9 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
     private Api31() {}
 
     @DoNotInline
-    public static boolean requiresSecureDecoder(MediaDrm mediaDrm, String mimeType) {
-      return mediaDrm.requiresSecureDecoder(mimeType);
+    public static boolean requiresSecureDecoder(
+        MediaDrm mediaDrm, String mimeType, int securityLevel) {
+      return mediaDrm.requiresSecureDecoder(mimeType, securityLevel);
     }
 
     @DoNotInline

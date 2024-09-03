@@ -17,12 +17,11 @@
 // 1. Samples from an input texture created from an internal texture (e.g. a
 //    texture created from a bitmap), with uTexSampler copying from this texture
 //    to the current output.
-// 2. Transforms the electrical colors to optical colors using the SMPTE 170M
-//    EOTF or the sRGB EOTF, as requested by uInputColorTransfer.
+// 2. Transforms the electrical colors to "working" colors which is the input
+//    colorspace with the colors transferred to either linear or SMPTE 170M as
+//    requested by uSdrWorkingColorSpace.
 // 3. Applies a 4x4 RGB color matrix to change the pixel colors.
-// 4. Outputs as requested by uOutputColorTransfer. Use COLOR_TRANSFER_LINEAR
-//    for outputting to intermediate shaders, or COLOR_TRANSFER_SDR_VIDEO to
-//    output electrical colors via an OETF (e.g. to an encoder).
+// 4. Outputs as requested by uOutputColorTransfer.
 
 precision mediump float;
 uniform sampler2D uTexSampler;
@@ -34,7 +33,7 @@ uniform int uInputColorTransfer;
 // C.java#ColorTransfer value.
 // Only COLOR_TRANSFER_LINEAR and COLOR_TRANSFER_SDR_VIDEO are allowed.
 uniform int uOutputColorTransfer;
-uniform int uEnableColorTransfer;
+uniform int uSdrWorkingColorSpace;
 
 const float inverseGamma = 0.4500;
 const float gamma = 1.0 / inverseGamma;
@@ -44,6 +43,14 @@ const int GL_TRUE = 1;
 const int COLOR_TRANSFER_LINEAR = 1;
 const int COLOR_TRANSFER_SRGB = 2;
 const int COLOR_TRANSFER_SDR_VIDEO = 3;
+// LINT.IfChange(working_color_space)
+const int WORKING_COLOR_SPACE_DEFAULT = 0;
+const int WORKING_COLOR_SPACE_ORIGINAL = 1;
+const int WORKING_COLOR_SPACE_LINEAR = 2;
+
+// Output colors for an obviously visible error.
+const vec3 ERROR_COLOR_RED = vec3(1.0, 0.0, 0.0);
+const vec3 ERROR_COLOR_BLUE = vec3(0.0, 0.0, 1.0);
 
 // Transforms a single channel from electrical to optical SDR using the sRGB
 // EOTF.
@@ -56,7 +63,7 @@ float srgbEotfSingleChannel(float electricalChannel) {
 }
 
 // Transforms electrical to optical SDR using the sRGB EOTF.
-vec3 srgbEotf(const vec3 electricalColor) {
+vec3 srgbEotf(vec3 electricalColor) {
   return vec3(srgbEotfSingleChannel(electricalColor.r),
               srgbEotfSingleChannel(electricalColor.g),
               srgbEotfSingleChannel(electricalColor.b));
@@ -94,57 +101,64 @@ vec3 smpte170mOetf(vec3 opticalColor) {
               smpte170mOetfSingleChannel(opticalColor.g),
               smpte170mOetfSingleChannel(opticalColor.b));
 }
-// Applies the appropriate EOTF to convert nonlinear electrical signals to
-// linear optical signals. Input and output are both normalized to [0, 1].
-vec3 applyEotf(vec3 electricalColor) {
-  if (uEnableColorTransfer == GL_TRUE) {
+
+// Optionally applies the appropriate EOTF to convert nonlinear electrical
+// signals to linear optical signals. Input and output are both normalized to
+// [0, 1].
+vec3 convertToWorkingColors(vec3 inputColor) {
+  if (uSdrWorkingColorSpace == WORKING_COLOR_SPACE_DEFAULT) {
     if (uInputColorTransfer == COLOR_TRANSFER_SRGB) {
-      return srgbEotf(electricalColor);
+      return smpte170mOetf(srgbEotf(inputColor));
     } else if (uInputColorTransfer == COLOR_TRANSFER_SDR_VIDEO) {
-      return smpte170mEotf(electricalColor);
+      return inputColor;
     } else {
-      // Output blue as an obviously visible error.
-      return vec3(0.0, 0.0, 1.0);
+      return ERROR_COLOR_BLUE;
     }
-  } else if (uEnableColorTransfer == GL_FALSE) {
-    return electricalColor;
+  } else if (uSdrWorkingColorSpace == WORKING_COLOR_SPACE_ORIGINAL) {
+    return inputColor;
+  } else if (uSdrWorkingColorSpace == WORKING_COLOR_SPACE_LINEAR) {
+    if (uInputColorTransfer == COLOR_TRANSFER_SRGB) {
+      return srgbEotf(inputColor);
+    } else if (uInputColorTransfer == COLOR_TRANSFER_SDR_VIDEO) {
+      return smpte170mEotf(inputColor);
+    } else {
+      return ERROR_COLOR_BLUE;
+    }
   } else {
-    // Output blue as an obviously visible error.
-    return vec3(0.0, 0.0, 1.0);
+    return ERROR_COLOR_BLUE;
   }
 }
 
-// Applies the appropriate OETF to convert linear optical signals to nonlinear
-// electrical signals. Input and output are both normalized to [0, 1].
-highp vec3 applyOetf(highp vec3 linearColor) {
-  if (uOutputColorTransfer == COLOR_TRANSFER_LINEAR ||
-      uEnableColorTransfer == GL_FALSE) {
-    return linearColor;
-  } else if (uOutputColorTransfer == COLOR_TRANSFER_SDR_VIDEO) {
-    return smpte170mOetf(linearColor);
+// Optionally applies the appropriate OETF to convert linear optical signals to
+// nonlinear electrical signals. Input and output are both normalized to [0, 1].
+highp vec3 convertToOutputColors(highp vec3 workingColors) {
+  if (uSdrWorkingColorSpace == WORKING_COLOR_SPACE_DEFAULT) {
+    if (uOutputColorTransfer == COLOR_TRANSFER_LINEAR) {
+      return smpte170mEotf(workingColors);
+    } else if (uOutputColorTransfer == COLOR_TRANSFER_SDR_VIDEO) {
+      return workingColors;
+    } else {
+      return ERROR_COLOR_RED;
+    }
+  } else if (uSdrWorkingColorSpace == WORKING_COLOR_SPACE_ORIGINAL) {
+    return workingColors;
+  } else if (uSdrWorkingColorSpace == WORKING_COLOR_SPACE_LINEAR) {
+    if (uOutputColorTransfer == COLOR_TRANSFER_LINEAR) {
+      return workingColors;
+    } else if (uOutputColorTransfer == COLOR_TRANSFER_SDR_VIDEO) {
+      return smpte170mOetf(workingColors);
+    } else {
+      return ERROR_COLOR_RED;
+    }
   } else {
-    // Output red as an obviously visible error.
-    return vec3(1.0, 0.0, 0.0);
-  }
-}
-
-vec2 getAdjustedTexSamplingCoord(vec2 originalTexSamplingCoord) {
-  if (uInputColorTransfer == COLOR_TRANSFER_SRGB) {
-    // Whereas the Android system uses the top-left corner as (0,0) of the
-    // coordinate system, OpenGL uses the bottom-left corner as (0,0), so the
-    // texture gets flipped. We flip the texture vertically to ensure the
-    // orientation of the output is correct.
-    return vec2(originalTexSamplingCoord.x, 1.0 - originalTexSamplingCoord.y);
-  } else {
-    return originalTexSamplingCoord;
+    return ERROR_COLOR_RED;
   }
 }
 
 void main() {
-  vec4 inputColor =
-      texture2D(uTexSampler, getAdjustedTexSamplingCoord(vTexSamplingCoord));
-  vec3 linearInputColor = applyEotf(inputColor.rgb);
-  vec4 transformedColors = uRgbMatrix * vec4(linearInputColor, 1);
-
-  gl_FragColor = vec4(applyOetf(transformedColors.rgb), inputColor.a);
+  vec4 inputColor = texture2D(uTexSampler, vTexSamplingCoord);
+  vec3 workingColors = convertToWorkingColors(inputColor.rgb);
+  vec4 transformedColors = uRgbMatrix * vec4(workingColors, 1);
+  gl_FragColor =
+      vec4(convertToOutputColors(transformedColors.rgb), inputColor.a);
 }

@@ -200,9 +200,10 @@ public final class MaskingMediaSource extends WrappingMediaSource {
               : MaskingTimeline.createWithRealTimeline(newTimeline, windowUid, periodUid);
       if (unpreparedMaskingMediaPeriod != null) {
         MaskingMediaPeriod maskingPeriod = unpreparedMaskingMediaPeriod;
-        setPreparePositionOverrideToUnpreparedMaskingPeriod(periodPositionUs);
-        idForMaskingPeriodPreparation =
-            maskingPeriod.id.copyWithPeriodUid(getInternalPeriodUid(maskingPeriod.id.periodUid));
+        if (setPreparePositionOverrideToUnpreparedMaskingPeriod(periodPositionUs)) {
+          idForMaskingPeriodPreparation =
+              maskingPeriod.id.copyWithPeriodUid(getInternalPeriodUid(maskingPeriod.id.periodUid));
+        }
       }
     }
     hasRealTimeline = true;
@@ -235,7 +236,8 @@ public final class MaskingMediaSource extends WrappingMediaSource {
   }
 
   @RequiresNonNull("unpreparedMaskingMediaPeriod")
-  private void setPreparePositionOverrideToUnpreparedMaskingPeriod(long preparePositionOverrideUs) {
+  private boolean setPreparePositionOverrideToUnpreparedMaskingPeriod(
+      long preparePositionOverrideUs) {
     MaskingMediaPeriod maskingPeriod = unpreparedMaskingMediaPeriod;
     int maskingPeriodIndex = timeline.getIndexOfPeriod(maskingPeriod.id.periodUid);
     if (maskingPeriodIndex == C.INDEX_UNSET) {
@@ -243,7 +245,7 @@ public final class MaskingMediaSource extends WrappingMediaSource {
       // has multiple periods and removed the first period with a timeline update. Ignore the
       // update, as the non-existing period will be released anyway as soon as the player receives
       // this new timeline.
-      return;
+      return false;
     }
     long periodDurationUs = timeline.getPeriod(maskingPeriodIndex, period).durationUs;
     if (periodDurationUs != C.TIME_UNSET) {
@@ -253,6 +255,7 @@ public final class MaskingMediaSource extends WrappingMediaSource {
       }
     }
     maskingPeriod.overridePreparePositionUs(preparePositionOverrideUs);
+    return true;
   }
 
   /**

@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 import android.net.Uri;
+import android.os.Looper;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaItem.SubtitleConfiguration;
@@ -31,6 +32,8 @@ import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.exoplayer.source.ClippingMediaSource;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
+import androidx.media3.exoplayer.text.TextOutput;
+import androidx.media3.exoplayer.text.TextRenderer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.util.ArrayList;
@@ -86,14 +89,8 @@ public final class ClippedPlaybackTest {
     getInstrumentation()
         .runOnMainSync(
             () -> {
-              Context context = getInstrumentation().getContext();
               player.set(
-                  new ExoPlayer.Builder(context)
-                      .setMediaSourceFactory(
-                          new DefaultMediaSourceFactory(context)
-                              .experimentalParseSubtitlesDuringExtraction(
-                                  parseSubtitlesDuringExtraction))
-                      .build());
+                  buildPlayer(getInstrumentation().getContext(), parseSubtitlesDuringExtraction));
               player.get().addListener(textCapturer);
               player.get().setMediaItem(mediaItem);
               player.get().prepare();
@@ -138,14 +135,8 @@ public final class ClippedPlaybackTest {
     getInstrumentation()
         .runOnMainSync(
             () -> {
-              Context context = getInstrumentation().getContext();
               player.set(
-                  new ExoPlayer.Builder(context)
-                      .setMediaSourceFactory(
-                          new DefaultMediaSourceFactory(context)
-                              .experimentalParseSubtitlesDuringExtraction(
-                                  parseSubtitlesDuringExtraction))
-                      .build());
+                  buildPlayer(getInstrumentation().getContext(), parseSubtitlesDuringExtraction));
               player.get().addListener(textCapturer);
               player.get().setMediaItems(mediaItems);
               player.get().prepare();
@@ -161,6 +152,33 @@ public final class ClippedPlaybackTest {
     getInstrumentation().waitForIdleSync();
     assertThat(Iterables.getOnlyElement(Iterables.concat(textCapturer.cues)).text.toString())
         .isEqualTo("This is the first subtitle.");
+  }
+
+  // Using deprecated TextRenderer.experimentalSetLegacyDecodingEnabled() and
+  // MediaSource.Factory.experimentalParseSubtitlesDuringExtraction() methods to ensure legacy
+  // subtitle handling keeps working.
+  @SuppressWarnings("deprecation")
+  private static ExoPlayer buildPlayer(Context context, boolean parseSubtitlesDuringExtraction) {
+    return new ExoPlayer.Builder(context)
+        .setRenderersFactory(
+            new DefaultRenderersFactory(context) {
+
+              @Override
+              protected void buildTextRenderers(
+                  Context context,
+                  TextOutput output,
+                  Looper outputLooper,
+                  @ExtensionRendererMode int extensionRendererMode,
+                  ArrayList<Renderer> out) {
+                super.buildTextRenderers(context, output, outputLooper, extensionRendererMode, out);
+                ((TextRenderer) Iterables.getLast(out))
+                    .experimentalSetLegacyDecodingEnabled(!parseSubtitlesDuringExtraction);
+              }
+            })
+        .setMediaSourceFactory(
+            new DefaultMediaSourceFactory(context)
+                .experimentalParseSubtitlesDuringExtraction(parseSubtitlesDuringExtraction))
+        .build();
   }
 
   private static void playWhenLoadingIsDone(Player player) {

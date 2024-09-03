@@ -15,13 +15,14 @@
  */
 package androidx.media3.exoplayer;
 
+import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.exoplayer.MediaPeriodQueue.areDurationsCompatible;
 import static java.lang.Math.max;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.exoplayer.source.ClippingMediaPeriod;
@@ -34,6 +35,7 @@ import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.trackselection.TrackSelector;
 import androidx.media3.exoplayer.trackselection.TrackSelectorResult;
 import androidx.media3.exoplayer.upstream.Allocator;
+import java.io.IOException;
 
 /** Holds a {@link MediaPeriod} with information required to play it as part of a timeline. */
 /* package */ final class MediaPeriodHolder {
@@ -211,7 +213,7 @@ import androidx.media3.exoplayer.upstream.Allocator;
    * @param rendererPositionUs The playing position in renderer time, in microseconds.
    */
   public void reevaluateBuffer(long rendererPositionUs) {
-    Assertions.checkState(isLoadingMediaPeriod());
+    checkState(isLoadingMediaPeriod());
     if (prepared) {
       mediaPeriod.reevaluateBuffer(toPeriodTime(rendererPositionUs));
     }
@@ -229,7 +231,7 @@ import androidx.media3.exoplayer.upstream.Allocator;
    */
   public void continueLoading(
       long rendererPositionUs, float playbackSpeed, long lastRebufferRealtimeMs) {
-    Assertions.checkState(isLoadingMediaPeriod());
+    checkState(isLoadingMediaPeriod());
     long loadingPeriodPositionUs = toPeriodTime(rendererPositionUs);
     mediaPeriod.continueLoading(
         new LoadingInfo.Builder()
@@ -254,6 +256,15 @@ import androidx.media3.exoplayer.upstream.Allocator;
       throws ExoPlaybackException {
     TrackSelectorResult selectorResult =
         trackSelector.selectTracks(rendererCapabilities, getTrackGroups(), info.id, timeline);
+    for (int i = 0; i < selectorResult.length; i++) {
+      if (selectorResult.isRendererEnabled(i)) {
+        checkState(
+            selectorResult.selections[i] != null
+                || rendererCapabilities[i].getTrackType() == C.TRACK_TYPE_NONE);
+      } else {
+        checkState(selectorResult.selections[i] == null);
+      }
+    }
     for (ExoTrackSelection trackSelection : selectorResult.selections) {
       if (trackSelection != null) {
         trackSelection.onPlaybackSpeed(playbackSpeed);
@@ -323,13 +334,13 @@ import androidx.media3.exoplayer.upstream.Allocator;
     hasEnabledTracks = false;
     for (int i = 0; i < sampleStreams.length; i++) {
       if (sampleStreams[i] != null) {
-        Assertions.checkState(newTrackSelectorResult.isRendererEnabled(i));
+        checkState(newTrackSelectorResult.isRendererEnabled(i));
         // hasEnabledTracks should be true only when non-empty streams exists.
         if (rendererCapabilities[i].getTrackType() != C.TRACK_TYPE_NONE) {
           hasEnabledTracks = true;
         }
       } else {
-        Assertions.checkState(newTrackSelectorResult.selections[i] == null);
+        checkState(newTrackSelectorResult.selections[i] == null);
       }
     }
     return positionUs;
@@ -382,6 +393,27 @@ import androidx.media3.exoplayer.upstream.Allocator;
           info.endPositionUs == C.TIME_UNSET ? C.TIME_END_OF_SOURCE : info.endPositionUs;
       ((ClippingMediaPeriod) mediaPeriod).updateClipping(/* startUs= */ 0, endPositionUs);
     }
+  }
+
+  /**
+   * Returns whether the media period has encountered an error that prevents it from being prepared
+   * or reading data.
+   */
+  public boolean hasLoadingError() {
+    try {
+      if (!prepared) {
+        mediaPeriod.maybeThrowPrepareError();
+      } else {
+        for (SampleStream sampleStream : sampleStreams) {
+          if (sampleStream != null) {
+            sampleStream.maybeThrowError();
+          }
+        }
+      }
+    } catch (IOException e) {
+      return true;
+    }
+    return false;
   }
 
   private void enableTrackSelectionsInResult() {
@@ -469,6 +501,12 @@ import androidx.media3.exoplayer.upstream.Allocator;
       // There's nothing we can do.
       Log.e(TAG, "Period release failed.", e);
     }
+  }
+
+  public boolean canBeUsedForMediaPeriodInfo(MediaPeriodInfo info) {
+    return areDurationsCompatible(this.info.durationUs, info.durationUs)
+        && this.info.startPositionUs == info.startPositionUs
+        && this.info.id.equals(info.id);
   }
 
   /* package */ interface Factory {

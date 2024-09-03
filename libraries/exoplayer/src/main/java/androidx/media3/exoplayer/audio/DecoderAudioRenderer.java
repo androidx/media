@@ -244,9 +244,7 @@ public abstract class DecoderAudioRenderer<
     if (formatSupport <= C.FORMAT_UNSUPPORTED_DRM) {
       return RendererCapabilities.create(formatSupport);
     }
-    @TunnelingSupport
-    int tunnelingSupport = Util.SDK_INT >= 21 ? TUNNELING_SUPPORTED : TUNNELING_NOT_SUPPORTED;
-    return RendererCapabilities.create(formatSupport, ADAPTIVE_NOT_SEAMLESS, tunnelingSupport);
+    return RendererCapabilities.create(formatSupport, ADAPTIVE_NOT_SEAMLESS, TUNNELING_SUPPORTED);
   }
 
   /**
@@ -449,6 +447,7 @@ public abstract class DecoderAudioRenderer<
               .setEncoderDelay(encoderDelay)
               .setEncoderPadding(encoderPadding)
               .setMetadata(inputFormat.metadata)
+              .setCustomData(inputFormat.customData)
               .setId(inputFormat.id)
               .setLabel(inputFormat.label)
               .setLabels(inputFormat.labels)

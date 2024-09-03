@@ -96,7 +96,7 @@ public final class DownloadNotificationHelper {
           haveDownloadedBytes |= download.getBytesDownloaded() > 0;
           downloadTaskCount++;
           break;
-          // Terminal states aren't expected, but if we encounter them we do nothing.
+        // Terminal states aren't expected, but if we encounter them we do nothing.
         case Download.STATE_STOPPED:
         case Download.STATE_COMPLETED:
         case Download.STATE_FAILED:

@@ -778,8 +778,9 @@ public final class Cea708Decoder extends CeaDecoder {
     // first byte
     captionChannelPacketData.skipBits(2); // null padding
     boolean visible = captionChannelPacketData.readBit();
-    boolean rowLock = captionChannelPacketData.readBit();
-    boolean columnLock = captionChannelPacketData.readBit();
+    // ANSI/CTA-708-E S-2023 spec (Section 8.4.7) indicates that rowLock and columnLock values in
+    // the media should be ignored and assumed to be true.
+    captionChannelPacketData.skipBits(2);
     int priority = captionChannelPacketData.readBits(3);
     // second byte
     boolean relativePositioning = captionChannelPacketData.readBit();
@@ -791,7 +792,8 @@ public final class Cea708Decoder extends CeaDecoder {
     int rowCount = captionChannelPacketData.readBits(4);
     // fifth byte
     captionChannelPacketData.skipBits(2); // null padding
-    int columnCount = captionChannelPacketData.readBits(6);
+    // TODO: Add support for column count.
+    captionChannelPacketData.skipBits(6); // column count
     // sixth byte
     captionChannelPacketData.skipBits(2); // null padding
     int windowStyle = captionChannelPacketData.readBits(3);
@@ -799,14 +801,11 @@ public final class Cea708Decoder extends CeaDecoder {
 
     cueInfoBuilder.defineWindow(
         visible,
-        rowLock,
-        columnLock,
         priority,
         relativePositioning,
         verticalAnchor,
         horizontalAnchor,
         rowCount,
-        columnCount,
         anchorId,
         windowStyle,
         penStyle);
@@ -967,7 +966,6 @@ public final class Cea708Decoder extends CeaDecoder {
     private int horizontalAnchor;
     private int anchorId;
     private int rowCount;
-    private boolean rowLock;
     private int justification;
     private int windowStyleId;
     private int penStyleId;
@@ -1003,7 +1001,6 @@ public final class Cea708Decoder extends CeaDecoder {
       horizontalAnchor = 0;
       anchorId = 0;
       rowCount = MAXIMUM_ROW_COUNT;
-      rowLock = true;
       justification = JUSTIFICATION_LEFT;
       windowStyleId = 0;
       penStyleId = 0;
@@ -1037,20 +1034,16 @@ public final class Cea708Decoder extends CeaDecoder {
 
     public void defineWindow(
         boolean visible,
-        boolean rowLock,
-        boolean columnLock,
         int priority,
         boolean relativePositioning,
         int verticalAnchor,
         int horizontalAnchor,
         int rowCount,
-        int columnCount,
         int anchorId,
         int windowStyleId,
         int penStyleId) {
       this.defined = true;
       this.visible = visible;
-      this.rowLock = rowLock;
       this.priority = priority;
       this.relativePositioning = relativePositioning;
       this.verticalAnchor = verticalAnchor;
@@ -1062,13 +1055,11 @@ public final class Cea708Decoder extends CeaDecoder {
         this.rowCount = rowCount + 1;
 
         // Trim any rolled up captions that are no longer valid, if applicable.
-        while ((rowLock && (rolledUpCaptions.size() >= this.rowCount))
-            || (rolledUpCaptions.size() >= MAXIMUM_ROW_COUNT)) {
+        while (rolledUpCaptions.size() >= this.rowCount
+            || rolledUpCaptions.size() >= MAXIMUM_ROW_COUNT) {
           rolledUpCaptions.remove(0);
         }
       }
-
-      // TODO: Add support for column lock and count.
 
       if (windowStyleId != 0 && this.windowStyleId != windowStyleId) {
         this.windowStyleId = windowStyleId;
@@ -1231,10 +1222,12 @@ public final class Cea708Decoder extends CeaDecoder {
           backgroundColorStartPosition = 0;
         }
 
-        while ((rowLock && (rolledUpCaptions.size() >= rowCount))
-            || (rolledUpCaptions.size() >= MAXIMUM_ROW_COUNT)) {
+        while (rolledUpCaptions.size() >= rowCount
+            || rolledUpCaptions.size() >= MAXIMUM_ROW_COUNT) {
           rolledUpCaptions.remove(0);
         }
+        // update row value after newline
+        row = rolledUpCaptions.size();
       } else {
         captionStringBuilder.append(text);
       }
@@ -1304,7 +1297,7 @@ public final class Cea708Decoder extends CeaDecoder {
       Alignment alignment;
       switch (justification) {
         case JUSTIFICATION_FULL:
-          // TODO: Add support for full justification.
+        // TODO: Add support for full justification.
         case JUSTIFICATION_LEFT:
           alignment = Alignment.ALIGN_NORMAL;
           break;

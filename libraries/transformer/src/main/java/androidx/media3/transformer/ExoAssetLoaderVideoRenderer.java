@@ -25,7 +25,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.decoder.DecoderInputBuffer;
-import androidx.media3.effect.DebugTraceUtil;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -55,11 +54,28 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     this.decoderFactory = decoderFactory;
     this.hdrMode = hdrMode;
     decodeOnlyPresentationTimestamps = new ArrayList<>();
+    maxDecoderPendingFrameCount = C.INDEX_UNSET;
   }
 
   @Override
   public String getName() {
     return TAG;
+  }
+
+  /**
+   * {@inheritDoc}
+   *
+   * <p>The duration is calculated based on the number of {@linkplain #maxDecoderPendingFrameCount
+   * allowed pending frames}.
+   */
+  @Override
+  public long getDurationToProgressUs(long positionUs, long elapsedRealtimeUs) {
+    if (maxDecoderPendingFrameCount == C.INDEX_UNSET) {
+      return DEFAULT_DURATION_TO_PROGRESS_US;
+    }
+    // TODO: b/258809496 - Consider using async API and dynamic scheduling when decoder input
+    //  slots are available.
+    return maxDecoderPendingFrameCount * 2_000L;
   }
 
   @Override
@@ -85,11 +101,6 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
   @Override
   protected void onInputFormatRead(Format inputFormat) {
-    DebugTraceUtil.logEvent(
-        DebugTraceUtil.EVENT_VIDEO_INPUT_FORMAT,
-        C.TIME_UNSET,
-        /* extraFormat= */ "%s",
-        /* extraArgs...= */ inputFormat);
     if (flattenForSlowMotion) {
       sefVideoSlowMotionFlattener = new SefSlowMotionFlattener(inputFormat);
     }
@@ -119,6 +130,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
     ByteBuffer inputBytes = checkNotNull(inputBuffer.data);
     if (sefVideoSlowMotionFlattener != null) {
+      long streamOffsetUs = getStreamOffsetUs();
       long presentationTimeUs = inputBuffer.timeUs - streamOffsetUs;
       boolean shouldDropInputBuffer =
           sefVideoSlowMotionFlattener.dropOrTransformSample(inputBytes, presentationTimeUs);
@@ -151,7 +163,6 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   @RequiresNonNull({"sampleConsumer", "decoder"})
   protected boolean feedConsumerFromDecoder() throws ExportException {
     if (decoder.isEnded()) {
-      DebugTraceUtil.logEvent(DebugTraceUtil.EVENT_DECODER_SIGNAL_EOS, C.TIME_END_OF_SOURCE);
       sampleConsumer.signalEndOfVideoInput();
       isEnded = true;
       return false;
@@ -178,7 +189,6 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     }
 
     decoder.releaseOutputBuffer(presentationTimeUs);
-    DebugTraceUtil.logEvent(DebugTraceUtil.EVENT_DECODER_DECODED_FRAME, presentationTimeUs);
     return true;
   }
 

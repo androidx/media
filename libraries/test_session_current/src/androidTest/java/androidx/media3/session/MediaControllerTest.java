@@ -874,13 +874,10 @@ public class MediaControllerTest {
   }
 
   @Test
+  @SuppressWarnings("deprecation") // Testing propagation of deprecated unappliedRotationDegrees.
   public void getVideoSize_returnsVideoSizeOfPlayerInSession() throws Exception {
     VideoSize testVideoSize =
-        new VideoSize(
-            /* width= */ 100,
-            /* height= */ 42,
-            /* unappliedRotationDegrees= */ 90,
-            /* pixelWidthHeightRatio= */ 1.2f);
+        new VideoSize(/* width= */ 100, /* height= */ 42, /* pixelWidthHeightRatio= */ 1.2f);
     Bundle playerConfig =
         new RemoteMediaSession.MockPlayerConfigBuilder().setVideoSize(testVideoSize).build();
     remoteSession.setPlayer(playerConfig);

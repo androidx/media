@@ -24,11 +24,13 @@ import android.os.Build
 import androidx.annotation.OptIn
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.os.bundleOf
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.demo.session.service.R
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.util.EventLogger
+import androidx.media3.session.MediaConstants
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSession.ControllerInfo
@@ -111,6 +113,17 @@ open class DemoPlaybackService : MediaLibraryService() {
       MediaLibrarySession.Builder(this, player, createLibrarySessionCallback())
         .also { builder -> getSingleTopActivity()?.let { builder.setSessionActivity(it) } }
         .build()
+        .also { mediaLibrarySession ->
+          // The media session always supports skip, except at the start and end of the playlist.
+          // Reserve the space for the skip action in these cases to avoid custom actions jumping
+          // around when the user skips.
+          mediaLibrarySession.setSessionExtras(
+            bundleOf(
+              MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV to true,
+              MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT to true,
+            )
+          )
+        }
   }
 
   @OptIn(UnstableApi::class) // MediaSessionService.Listener

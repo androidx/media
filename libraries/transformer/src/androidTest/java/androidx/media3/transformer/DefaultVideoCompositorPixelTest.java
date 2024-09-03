@@ -40,6 +40,7 @@ import android.text.style.ForegroundColorSpan;
 import android.text.style.StyleSpan;
 import android.text.style.TypefaceSpan;
 import android.util.Pair;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Effect;
@@ -74,7 +75,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -645,7 +645,7 @@ public final class DefaultVideoCompositorPixelTest {
     private final LinkedHashMap<Long, Bitmap> outputTimestampsToBitmaps;
     private final List<VideoFrameProcessorTestRunner> inputVideoFrameProcessorTestRunners;
     private final VideoCompositor videoCompositor;
-    private final @Nullable ExecutorService sharedExecutorService;
+    @Nullable private final ExecutorService sharedExecutorService;
     private final AtomicReference<VideoFrameProcessingException> compositionException;
     private final CountDownLatch compositorEnded;
     private final String testId;
@@ -744,7 +744,8 @@ public final class DefaultVideoCompositorPixelTest {
                     textureBitmapReader,
                     videoCompositor,
                     sharedExecutorService,
-                    glObjectsProvider)
+                    glObjectsProvider,
+                    /* inputIndex= */ i)
                 .setEffects(effectsToApply.build())
                 .build();
         inputVideoFrameProcessorTestRunners.add(vfpTestRunner);
@@ -855,11 +856,13 @@ public final class DefaultVideoCompositorPixelTest {
         TextureBitmapReader textureBitmapReader,
         VideoCompositor videoCompositor,
         @Nullable ExecutorService executorService,
-        GlObjectsProvider glObjectsProvider) {
-      int inputId = videoCompositor.registerInputSource();
+        GlObjectsProvider glObjectsProvider,
+        int inputIndex) {
+      videoCompositor.registerInputSource(inputIndex);
       DefaultVideoFrameProcessor.Factory.Builder defaultVideoFrameProcessorFactoryBuilder =
           new DefaultVideoFrameProcessor.Factory.Builder()
               .setGlObjectsProvider(glObjectsProvider)
+              .setSdrWorkingColorSpace(DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_LINEAR)
               .setTextureOutput(
                   /* textureOutputListener= */ (outputTextureProducer,
                       outputTexture,
@@ -869,7 +872,7 @@ public final class DefaultVideoCompositorPixelTest {
                     textureBitmapReader.readBitmapUnpremultipliedAlpha(
                         outputTexture, presentationTimeUs);
                     videoCompositor.queueInputTexture(
-                        inputId,
+                        inputIndex,
                         outputTextureProducer,
                         outputTexture,
                         ColorInfo.SRGB_BT709_FULL,
@@ -883,7 +886,7 @@ public final class DefaultVideoCompositorPixelTest {
           .setTestId(testId)
           .setVideoFrameProcessorFactory(defaultVideoFrameProcessorFactoryBuilder.build())
           .setBitmapReader(textureBitmapReader)
-          .setOnEndedListener(() -> videoCompositor.signalEndOfInputSource(inputId));
+          .setOnEndedListener(() -> videoCompositor.signalEndOfInputSource(inputIndex));
     }
   }
 

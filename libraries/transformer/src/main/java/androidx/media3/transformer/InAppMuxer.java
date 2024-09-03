@@ -15,28 +15,30 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
+
+import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.container.Mp4OrientationData;
 import androidx.media3.muxer.FragmentedMp4Muxer;
 import androidx.media3.muxer.Mp4Muxer;
-import androidx.media3.muxer.Mp4Utils;
-import androidx.media3.muxer.Muxer.TrackToken;
+import androidx.media3.muxer.Muxer;
+import androidx.media3.muxer.MuxerUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.LinkedHashSet;
-import java.util.List;
+import java.util.Locale;
 import java.util.Set;
-import org.checkerframework.checker.nullness.qual.Nullable;
 
 /** {@link Muxer} implementation that uses an {@link Mp4Muxer} or {@link FragmentedMp4Muxer}. */
 @UnstableApi
@@ -51,7 +53,8 @@ public final class InAppMuxer implements Muxer {
      * <p>A {@link Metadata.Entry} can be added or removed. To modify an existing {@link
      * Metadata.Entry}, first remove it and then add a new one.
      *
-     * <p>For the list of supported metadata refer to {@link Mp4Muxer#addMetadata(Metadata.Entry)}.
+     * <p>For the list of supported metadata refer to {@link
+     * Mp4Muxer#addMetadataEntry(Metadata.Entry)}.
      */
     void updateMetadataEntries(Set<Metadata.Entry> metadataEntries);
   }
@@ -61,7 +64,7 @@ public final class InAppMuxer implements Muxer {
 
     /** A builder for {@link Factory} instances. */
     public static final class Builder {
-      private @Nullable MetadataProvider metadataProvider;
+      @Nullable private MetadataProvider metadataProvider;
       private boolean outputFragmentedMp4;
       private long fragmentDurationMs;
 
@@ -109,15 +112,27 @@ public final class InAppMuxer implements Muxer {
 
     /** A list of supported video sample MIME types. */
     private static final ImmutableList<String> SUPPORTED_VIDEO_SAMPLE_MIME_TYPES =
-        ImmutableList.of(MimeTypes.VIDEO_H264, MimeTypes.VIDEO_H265, MimeTypes.VIDEO_AV1);
+        ImmutableList.of(
+            MimeTypes.VIDEO_AV1,
+            MimeTypes.VIDEO_H263,
+            MimeTypes.VIDEO_H264,
+            MimeTypes.VIDEO_H265,
+            MimeTypes.VIDEO_MP4V);
 
     /** A list of supported audio sample MIME types. */
     private static final ImmutableList<String> SUPPORTED_AUDIO_SAMPLE_MIME_TYPES =
-        ImmutableList.of(MimeTypes.AUDIO_AAC);
+        ImmutableList.of(
+            MimeTypes.AUDIO_AAC,
+            MimeTypes.AUDIO_AMR_NB,
+            MimeTypes.AUDIO_AMR_WB,
+            MimeTypes.AUDIO_OPUS,
+            MimeTypes.AUDIO_VORBIS);
 
-    private final @Nullable MetadataProvider metadataProvider;
+    @Nullable private final MetadataProvider metadataProvider;
     private final boolean outputFragmentedMp4;
     private final long fragmentDurationMs;
+
+    private long videoDurationUs;
 
     private Factory(
         @Nullable MetadataProvider metadataProvider,
@@ -126,6 +141,28 @@ public final class InAppMuxer implements Muxer {
       this.metadataProvider = metadataProvider;
       this.outputFragmentedMp4 = outputFragmentedMp4;
       this.fragmentDurationMs = fragmentDurationMs;
+      videoDurationUs = C.TIME_UNSET;
+    }
+
+    /**
+     * Sets the duration of the video track (in microseconds) in the output.
+     *
+     * <p>Only the duration of the last sample is adjusted to achieve the given duration. Duration
+     * of the other samples remains unchanged.
+     *
+     * <p>The default is {@link C#TIME_UNSET} to not set any duration in the output. In this case
+     * the video track duration is determined by the samples written to it and the duration of the
+     * last sample is set to 0.
+     *
+     * @param videoDurationUs The duration of the video track (in microseconds) in the output, or
+     *     {@link C#TIME_UNSET} to not set any duration. Only applicable when a video track is
+     *     {@linkplain #addTrack(Format) added}.
+     * @return This factory.
+     */
+    @CanIgnoreReturnValue
+    public Factory setVideoDurationUs(long videoDurationUs) {
+      this.videoDurationUs = videoDurationUs;
+      return this;
     }
 
     @Override
@@ -137,13 +174,23 @@ public final class InAppMuxer implements Muxer {
         throw new MuxerException("Error creating file output stream", e);
       }
 
-      androidx.media3.muxer.Muxer muxer =
-          outputFragmentedMp4
-              ? fragmentDurationMs != C.TIME_UNSET
-                  ? new FragmentedMp4Muxer(outputStream, fragmentDurationMs)
-                  : new FragmentedMp4Muxer(outputStream)
-              : new Mp4Muxer.Builder(outputStream).build();
-      return new InAppMuxer(muxer, metadataProvider);
+      Muxer muxer = null;
+      if (outputFragmentedMp4) {
+        FragmentedMp4Muxer.Builder builder = new FragmentedMp4Muxer.Builder(outputStream);
+        if (fragmentDurationMs != C.TIME_UNSET) {
+          builder.setFragmentDurationMs(fragmentDurationMs);
+        }
+        muxer = builder.build();
+      } else {
+        Mp4Muxer.Builder builder = new Mp4Muxer.Builder(outputStream);
+        if (videoDurationUs != C.TIME_UNSET) {
+          builder.setLastSampleDurationBehavior(
+              Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_USING_END_OF_STREAM_FLAG);
+        }
+        muxer = builder.build();
+      }
+
+      return new InAppMuxer(muxer, metadataProvider, videoDurationUs);
     }
 
     @Override
@@ -157,87 +204,71 @@ public final class InAppMuxer implements Muxer {
     }
   }
 
-  private final androidx.media3.muxer.Muxer muxer;
-  private final @Nullable MetadataProvider metadataProvider;
-  private final List<TrackToken> trackTokenList;
-  private final BufferInfo bufferInfo;
+  private static final String TAG = "InAppMuxer";
+
+  private final Muxer muxer;
+  @Nullable private final MetadataProvider metadataProvider;
+  private final long videoDurationUs;
   private final Set<Metadata.Entry> metadataEntries;
 
+  @Nullable private TrackToken videoTrackToken;
+
   private InAppMuxer(
-      androidx.media3.muxer.Muxer muxer, @Nullable MetadataProvider metadataProvider) {
+      Muxer muxer, @Nullable MetadataProvider metadataProvider, long videoDurationUs) {
     this.muxer = muxer;
     this.metadataProvider = metadataProvider;
-    trackTokenList = new ArrayList<>();
-    bufferInfo = new BufferInfo();
+    this.videoDurationUs = videoDurationUs;
     metadataEntries = new LinkedHashSet<>();
   }
 
   @Override
-  public int addTrack(Format format) {
+  public TrackToken addTrack(Format format) throws MuxerException {
     TrackToken trackToken = muxer.addTrack(format);
-    trackTokenList.add(trackToken);
-
     if (MimeTypes.isVideo(format.sampleMimeType)) {
-      muxer.addMetadata(new Mp4OrientationData(format.rotationDegrees));
+      muxer.addMetadataEntry(new Mp4OrientationData(format.rotationDegrees));
+      videoTrackToken = trackToken;
     }
-
-    return trackTokenList.size() - 1;
+    return trackToken;
   }
 
   @Override
-  public void writeSampleData(
-      int trackIndex, ByteBuffer data, long presentationTimeUs, @C.BufferFlags int flags)
+  public void writeSampleData(TrackToken trackToken, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws MuxerException {
+    if (videoDurationUs != C.TIME_UNSET
+        && trackToken == videoTrackToken
+        && bufferInfo.presentationTimeUs > videoDurationUs) {
+      Log.w(
+          TAG,
+          String.format(
+              Locale.US,
+              "Skipped sample with presentation time (%d) > video duration (%d)",
+              bufferInfo.presentationTimeUs,
+              videoDurationUs));
+      return;
+    }
+    muxer.writeSampleData(trackToken, byteBuffer, bufferInfo);
+  }
 
-    int size = data.remaining();
-    bufferInfo.set(
-        data.position(), size, presentationTimeUs, TransformerUtil.getMediaCodecFlags(flags));
-
-    try {
-      // Copy sample data and release the original buffer.
-      ByteBuffer byteBufferCopy = ByteBuffer.allocateDirect(data.remaining());
-      byteBufferCopy.put(data);
-      byteBufferCopy.rewind();
-
-      BufferInfo bufferInfoCopy = new BufferInfo();
-      bufferInfoCopy.set(
-          /* newOffset= */ byteBufferCopy.position(),
-          /* newSize= */ byteBufferCopy.remaining(),
-          bufferInfo.presentationTimeUs,
-          bufferInfo.flags);
-
-      muxer.writeSampleData(trackTokenList.get(trackIndex), byteBufferCopy, bufferInfoCopy);
-    } catch (IOException e) {
-      throw new MuxerException(
-          "Failed to write sample for trackIndex="
-              + trackIndex
-              + ", presentationTimeUs="
-              + presentationTimeUs
-              + ", size="
-              + size,
-          e);
+  @Override
+  public void addMetadataEntry(Metadata.Entry metadataEntry) {
+    if (MuxerUtil.isMetadataSupported(metadataEntry)) {
+      metadataEntries.add(metadataEntry);
     }
   }
 
   @Override
-  public void addMetadata(Metadata metadata) {
-    for (int i = 0; i < metadata.length(); i++) {
-      Metadata.Entry entry = metadata.get(i);
-      if (Mp4Utils.isMetadataSupported(entry)) {
-        metadataEntries.add(entry);
-      }
+  public void close() throws MuxerException {
+    if (videoDurationUs != C.TIME_UNSET && videoTrackToken != null) {
+      BufferInfo bufferInfo = new BufferInfo();
+      bufferInfo.set(
+          /* newOffset= */ 0,
+          /* newSize= */ 0,
+          videoDurationUs,
+          MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+      writeSampleData(checkNotNull(videoTrackToken), ByteBuffer.allocateDirect(0), bufferInfo);
     }
-  }
-
-  @Override
-  public void release(boolean forCancellation) throws MuxerException {
     writeMetadata();
-
-    try {
-      muxer.close();
-    } catch (IOException e) {
-      throw new MuxerException("Error closing muxer", e);
-    }
+    muxer.close();
   }
 
   private void writeMetadata() {
@@ -249,7 +280,7 @@ public final class InAppMuxer implements Muxer {
     }
 
     for (Metadata.Entry entry : metadataEntries) {
-      muxer.addMetadata(entry);
+      muxer.addMetadataEntry(entry);
     }
   }
 }

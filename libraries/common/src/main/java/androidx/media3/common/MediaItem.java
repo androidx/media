@@ -42,7 +42,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /** Representation of a media item. */
-public final class MediaItem implements Bundleable {
+public final class MediaItem {
 
   /**
    * Creates a {@link MediaItem} for the given URI.
@@ -573,7 +573,10 @@ public final class MediaItem implements Bundleable {
     /**
      * Sets the image duration in video output, in milliseconds.
      *
-     * <p>Must be set if {@linkplain #setUri the uri} is set and resolves to an image. Ignored
+     * <p>Must be set if {@linkplain #setUri the URI} is set and resolves to an image. Ignored
+     * otherwise.
+     *
+     * <p>Motion photos will be rendered as images if this parameter is set, and as videos
      * otherwise.
      *
      * <p>Default value is {@link C#TIME_UNSET}.
@@ -631,7 +634,7 @@ public final class MediaItem implements Bundleable {
   }
 
   /** DRM configuration for a media item. */
-  public static final class DrmConfiguration implements Bundleable {
+  public static final class DrmConfiguration {
     /** Builder for {@link DrmConfiguration}. */
     public static final class Builder {
 
@@ -934,8 +937,6 @@ public final class MediaItem implements Bundleable {
       return result;
     }
 
-    // Bundleable implementation.
-
     private static final String FIELD_SCHEME = Util.intToStringMaxRadix(0);
     private static final String FIELD_LICENSE_URI = Util.intToStringMaxRadix(1);
     private static final String FIELD_LICENSE_REQUEST_HEADERS = Util.intToStringMaxRadix(2);
@@ -947,16 +948,6 @@ public final class MediaItem implements Bundleable {
     private static final String FIELD_FORCE_DEFAULT_LICENSE_URI = Util.intToStringMaxRadix(5);
     private static final String FIELD_FORCED_SESSION_TRACK_TYPES = Util.intToStringMaxRadix(6);
     private static final String FIELD_KEY_SET_ID = Util.intToStringMaxRadix(7);
-
-    /**
-     * An object that can restore {@link DrmConfiguration} from a {@link Bundle}.
-     *
-     * @deprecated Use {@link #fromBundle} instead.
-     */
-    @UnstableApi
-    @Deprecated
-    @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-    public static final Creator<DrmConfiguration> CREATOR = DrmConfiguration::fromBundle;
 
     /** Restores a {@code DrmConfiguration} from a {@link Bundle}. */
     @UnstableApi
@@ -992,7 +983,6 @@ public final class MediaItem implements Bundleable {
     }
 
     @UnstableApi
-    @Override
     public Bundle toBundle() {
       Bundle bundle = new Bundle();
       bundle.putString(FIELD_SCHEME, scheme.toString());
@@ -1025,7 +1015,7 @@ public final class MediaItem implements Bundleable {
   }
 
   /** Configuration for playing back linear ads with a media item. */
-  public static final class AdsConfiguration implements Bundleable {
+  public static final class AdsConfiguration {
 
     /** Builder for {@link AdsConfiguration} instances. */
     public static final class Builder {
@@ -1110,21 +1100,7 @@ public final class MediaItem implements Bundleable {
       return result;
     }
 
-    // Bundleable implementation.
-
     private static final String FIELD_AD_TAG_URI = Util.intToStringMaxRadix(0);
-
-    /**
-     * An object that can restore {@link AdsConfiguration} from a {@link Bundle}.
-     *
-     * <p>The {@link #adsId} of a restored instance will always be {@code null}.
-     *
-     * @deprecated Use {@link #fromBundle} instead.
-     */
-    @UnstableApi
-    @Deprecated
-    @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-    public static final Creator<AdsConfiguration> CREATOR = AdsConfiguration::fromBundle;
 
     /** Restores a {@code AdsConfiguration} from a {@link Bundle}. */
     @UnstableApi
@@ -1135,13 +1111,12 @@ public final class MediaItem implements Bundleable {
     }
 
     /**
-     * {@inheritDoc}
+     * Returns a {@link Bundle} representing the information stored in this object.
      *
      * <p>It omits the {@link #adsId} field. The {@link #adsId} of an instance restored from such a
-     * bundle by {@link #CREATOR} will be {@code null}.
+     * bundle by {@link #fromBundle} will be {@code null}.
      */
     @UnstableApi
-    @Override
     public Bundle toBundle() {
       Bundle bundle = new Bundle();
       bundle.putParcelable(FIELD_AD_TAG_URI, adTagUri);
@@ -1150,7 +1125,7 @@ public final class MediaItem implements Bundleable {
   }
 
   /** Properties for local playback. */
-  public static final class LocalConfiguration implements Bundleable {
+  public static final class LocalConfiguration {
 
     /** The {@link Uri}. */
     public final Uri uri;
@@ -1258,8 +1233,6 @@ public final class MediaItem implements Bundleable {
       return result;
     }
 
-    // Bundleable implementation.
-
     private static final String FIELD_URI = Util.intToStringMaxRadix(0);
     private static final String FIELD_MIME_TYPE = Util.intToStringMaxRadix(1);
     private static final String FIELD_DRM_CONFIGURATION = Util.intToStringMaxRadix(2);
@@ -1270,13 +1243,12 @@ public final class MediaItem implements Bundleable {
     private static final String FIELD_IMAGE_DURATION_MS = Util.intToStringMaxRadix(7);
 
     /**
-     * {@inheritDoc}
+     * Returns a {@link Bundle} representing the information stored in this object.
      *
      * <p>It omits the {@link #tag} field. The {@link #tag} of an instance restored from such a
-     * bundle by {@link #CREATOR} will be {@code null}.
+     * bundle by {@link #fromBundle} will be {@code null}.
      */
     @UnstableApi
-    @Override
     public Bundle toBundle() {
       Bundle bundle = new Bundle();
       bundle.putParcelable(FIELD_URI, uri);
@@ -1308,16 +1280,6 @@ public final class MediaItem implements Bundleable {
       }
       return bundle;
     }
-
-    /**
-     * Object that can restore {@link LocalConfiguration} from a {@link Bundle}.
-     *
-     * @deprecated Use {@link #fromBundle} instead.
-     */
-    @UnstableApi
-    @Deprecated
-    @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-    public static final Creator<LocalConfiguration> CREATOR = LocalConfiguration::fromBundle;
 
     /** Restores a {@code LocalConfiguration} from a {@link Bundle}. */
     @UnstableApi
@@ -1356,7 +1318,7 @@ public final class MediaItem implements Bundleable {
   }
 
   /** Live playback configuration. */
-  public static final class LiveConfiguration implements Bundleable {
+  public static final class LiveConfiguration {
 
     /** Builder for {@link LiveConfiguration} instances. */
     public static final class Builder {
@@ -1546,8 +1508,6 @@ public final class MediaItem implements Bundleable {
       return result;
     }
 
-    // Bundleable implementation.
-
     private static final String FIELD_TARGET_OFFSET_MS = Util.intToStringMaxRadix(0);
     private static final String FIELD_MIN_OFFSET_MS = Util.intToStringMaxRadix(1);
     private static final String FIELD_MAX_OFFSET_MS = Util.intToStringMaxRadix(2);
@@ -1555,7 +1515,6 @@ public final class MediaItem implements Bundleable {
     private static final String FIELD_MAX_PLAYBACK_SPEED = Util.intToStringMaxRadix(4);
 
     @UnstableApi
-    @Override
     public Bundle toBundle() {
       Bundle bundle = new Bundle();
       if (targetOffsetMs != UNSET.targetOffsetMs) {
@@ -1575,16 +1534,6 @@ public final class MediaItem implements Bundleable {
       }
       return bundle;
     }
-
-    /**
-     * An object that can restore {@link LiveConfiguration} from a {@link Bundle}.
-     *
-     * @deprecated Use {@link #fromBundle} instead.
-     */
-    @UnstableApi
-    @Deprecated
-    @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-    public static final Creator<LiveConfiguration> CREATOR = LiveConfiguration::fromBundle;
 
     /** Restores a {@code LiveConfiguration} from a {@link Bundle}. */
     @UnstableApi
@@ -1606,7 +1555,7 @@ public final class MediaItem implements Bundleable {
 
   /** Properties for a text track. */
   // TODO: Mark this final when Subtitle is deleted.
-  public static class SubtitleConfiguration implements Bundleable {
+  public static class SubtitleConfiguration {
 
     /** Builder for {@link SubtitleConfiguration} instances. */
     public static final class Builder {
@@ -1785,8 +1734,6 @@ public final class MediaItem implements Bundleable {
       return result;
     }
 
-    // Bundleable implementation.
-
     private static final String FIELD_URI = Util.intToStringMaxRadix(0);
     private static final String FIELD_MIME_TYPE = Util.intToStringMaxRadix(1);
     private static final String FIELD_LANGUAGE = Util.intToStringMaxRadix(2);
@@ -1794,16 +1741,6 @@ public final class MediaItem implements Bundleable {
     private static final String FIELD_ROLE_FLAGS = Util.intToStringMaxRadix(4);
     private static final String FIELD_LABEL = Util.intToStringMaxRadix(5);
     private static final String FIELD_ID = Util.intToStringMaxRadix(6);
-
-    /**
-     * An object that can restore {@link SubtitleConfiguration} from a {@link Bundle}.
-     *
-     * @deprecated Use {@link #fromBundle} instead.
-     */
-    @UnstableApi
-    @Deprecated
-    @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-    public static final Creator<SubtitleConfiguration> CREATOR = SubtitleConfiguration::fromBundle;
 
     /** Restores a {@code SubtitleConfiguration} from a {@link Bundle}. */
     @UnstableApi
@@ -1828,7 +1765,6 @@ public final class MediaItem implements Bundleable {
     }
 
     @UnstableApi
-    @Override
     public Bundle toBundle() {
       Bundle bundle = new Bundle();
       bundle.putParcelable(FIELD_URI, uri);
@@ -1904,7 +1840,7 @@ public final class MediaItem implements Bundleable {
 
   /** Optionally clips the media item to a custom start and end position. */
   // TODO: Mark this final when ClippingProperties is deleted.
-  public static class ClippingConfiguration implements Bundleable {
+  public static class ClippingConfiguration {
 
     /** A clipping configuration with default values. */
     public static final ClippingConfiguration UNSET = new ClippingConfiguration.Builder().build();
@@ -2103,8 +2039,6 @@ public final class MediaItem implements Bundleable {
       return result;
     }
 
-    // Bundleable implementation.
-
     private static final String FIELD_START_POSITION_MS = Util.intToStringMaxRadix(0);
     private static final String FIELD_END_POSITION_MS = Util.intToStringMaxRadix(1);
     private static final String FIELD_RELATIVE_TO_LIVE_WINDOW = Util.intToStringMaxRadix(2);
@@ -2114,7 +2048,6 @@ public final class MediaItem implements Bundleable {
     static final String FIELD_END_POSITION_US = Util.intToStringMaxRadix(6);
 
     @UnstableApi
-    @Override
     public Bundle toBundle() {
       Bundle bundle = new Bundle();
       if (startPositionMs != UNSET.startPositionMs) {
@@ -2140,16 +2073,6 @@ public final class MediaItem implements Bundleable {
       }
       return bundle;
     }
-
-    /**
-     * An object that can restore {@link ClippingConfiguration} from a {@link Bundle}.
-     *
-     * @deprecated Use {@link #fromBundle} instead.
-     */
-    @UnstableApi
-    @Deprecated
-    @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-    public static final Creator<ClippingProperties> CREATOR = ClippingConfiguration::fromBundle;
 
     /** Restores a {@code ClippingProperties} from a {@link Bundle}. */
     @SuppressWarnings("deprecation") // Building deprecated type for backwards compatibility
@@ -2210,7 +2133,7 @@ public final class MediaItem implements Bundleable {
    * instances (e.g. from a {@code androidx.media3.session.MediaController}) and the player creating
    * the request doesn't know the required {@link LocalConfiguration} for playback.
    */
-  public static final class RequestMetadata implements Bundleable {
+  public static final class RequestMetadata {
 
     /** Empty request metadata. */
     public static final RequestMetadata EMPTY = new Builder().build();
@@ -2306,14 +2229,11 @@ public final class MediaItem implements Bundleable {
       return result;
     }
 
-    // Bundleable implementation.
-
     private static final String FIELD_MEDIA_URI = Util.intToStringMaxRadix(0);
     private static final String FIELD_SEARCH_QUERY = Util.intToStringMaxRadix(1);
     private static final String FIELD_EXTRAS = Util.intToStringMaxRadix(2);
 
     @UnstableApi
-    @Override
     public Bundle toBundle() {
       Bundle bundle = new Bundle();
       if (mediaUri != null) {
@@ -2327,16 +2247,6 @@ public final class MediaItem implements Bundleable {
       }
       return bundle;
     }
-
-    /**
-     * An object that can restore {@link RequestMetadata} from a {@link Bundle}.
-     *
-     * @deprecated Use {@link #fromBundle} instead.
-     */
-    @UnstableApi
-    @Deprecated
-    @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-    public static final Creator<RequestMetadata> CREATOR = RequestMetadata::fromBundle;
 
     /** Restores a {@code RequestMetadata} from a {@link Bundle}. */
     @UnstableApi
@@ -2446,7 +2356,6 @@ public final class MediaItem implements Bundleable {
     return result;
   }
 
-  // Bundleable implementation.
   private static final String FIELD_MEDIA_ID = Util.intToStringMaxRadix(0);
   private static final String FIELD_LIVE_CONFIGURATION = Util.intToStringMaxRadix(1);
   private static final String FIELD_MEDIA_METADATA = Util.intToStringMaxRadix(2);
@@ -2479,13 +2388,12 @@ public final class MediaItem implements Bundleable {
   }
 
   /**
-   * {@inheritDoc}
+   * Returns a {@link Bundle} representing the information stored in this object.
    *
    * <p>It omits the {@link #localConfiguration} field. The {@link #localConfiguration} of an
-   * instance restored from such a bundle by {@link #CREATOR} will be {@code null}.
+   * instance restored from such a bundle by {@link #fromBundle} will be {@code null}.
    */
   @UnstableApi
-  @Override
   public Bundle toBundle() {
     return toBundle(/* includeLocalConfiguration= */ false);
   }
@@ -2498,18 +2406,6 @@ public final class MediaItem implements Bundleable {
   public Bundle toBundleIncludeLocalConfiguration() {
     return toBundle(/* includeLocalConfiguration= */ true);
   }
-
-  /**
-   * An object that can restore {@code MediaItem} from a {@link Bundle}.
-   *
-   * <p>The {@link #localConfiguration} of a restored instance will always be {@code null}.
-   *
-   * @deprecated Use {@link #fromBundle} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<MediaItem> CREATOR = MediaItem::fromBundle;
 
   /**
    * Restores a {@code MediaItem} from a {@link Bundle}.

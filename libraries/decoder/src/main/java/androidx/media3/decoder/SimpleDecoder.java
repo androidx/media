@@ -262,6 +262,9 @@ public abstract class SimpleDecoder<
       if (inputBuffer.isFirstSample()) {
         outputBuffer.addFlag(C.BUFFER_FLAG_FIRST_SAMPLE);
       }
+      if (!isAtLeastOutputStartTimeUs(inputBuffer.timeUs)) {
+        outputBuffer.shouldBeSkipped = true;
+      }
       @Nullable E exception;
       try {
         exception = decode(inputBuffer, outputBuffer, resetDecoder);
@@ -286,8 +289,7 @@ public abstract class SimpleDecoder<
     synchronized (lock) {
       if (flushed) {
         outputBuffer.release();
-      } else if ((!outputBuffer.isEndOfStream() && !isAtLeastOutputStartTimeUs(outputBuffer.timeUs))
-          || outputBuffer.shouldBeSkipped) {
+      } else if (outputBuffer.shouldBeSkipped) {
         skippedOutputBufferCount++;
         outputBuffer.release();
       } else {

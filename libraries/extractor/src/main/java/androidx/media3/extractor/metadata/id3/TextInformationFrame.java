@@ -25,6 +25,7 @@ import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import com.google.errorprone.annotations.InlineMe;
 import java.util.ArrayList;
 import java.util.List;
@@ -132,10 +133,10 @@ public final class TextInformationFrame extends Id3Frame {
         switch (recordingDate.size()) {
           case 3:
             builder.setRecordingDay(recordingDate.get(2));
-            // fall through
+          // fall through
           case 2:
             builder.setRecordingMonth(recordingDate.get(1));
-            // fall through
+          // fall through
           case 1:
             builder.setRecordingYear(recordingDate.get(0));
             // fall through
@@ -150,10 +151,10 @@ public final class TextInformationFrame extends Id3Frame {
         switch (releaseDate.size()) {
           case 3:
             builder.setReleaseDay(releaseDate.get(2));
-            // fall through
+          // fall through
           case 2:
             builder.setReleaseMonth(releaseDate.get(1));
-            // fall through
+          // fall through
           case 1:
             builder.setReleaseYear(releaseDate.get(0));
             // fall through
@@ -174,6 +175,18 @@ public final class TextInformationFrame extends Id3Frame {
       case "TXT":
       case "TEXT":
         builder.setWriter(values.get(0));
+        break;
+      case "TCON":
+        @Nullable Integer genreCode = Ints.tryParse(values.get(0));
+        if (genreCode == null) {
+          builder.setGenre(values.get(0));
+          break;
+        }
+        @Nullable String genre = Id3Util.resolveV1Genre(genreCode);
+        if (genre != null) {
+          builder.setGenre(genre);
+        }
+        // Don't set a numeric genre that we don't recognize.
         break;
       default:
         break;

@@ -184,7 +184,7 @@ public final class VideoFrameReleaseControl {
    *
    * @param applicationContext The application context.
    * @param frameTimingEvaluator The {@link FrameTimingEvaluator} that will assist in {@linkplain
-   *     #getFrameReleaseAction(long, long, long, long, boolean, FrameReleaseInfo)} frame release
+   *     #getFrameReleaseAction(long, long, long, long, boolean, FrameReleaseInfo) frame release
    *     actions}.
    * @param allowedJoiningTimeMs The maximum duration in milliseconds for which the renderer can
    *     attempt to seamlessly join an ongoing playback.
@@ -248,7 +248,7 @@ public final class VideoFrameReleaseControl {
   }
 
   /**
-   * Called when a frame have been released.
+   * Called when a frame has been released.
    *
    * @return Whether this is the first released frame.
    */
@@ -277,12 +277,14 @@ public final class VideoFrameReleaseControl {
   /**
    * Whether the release control is ready to start playback.
    *
-   * @see Renderer#isReady()
-   * @param rendererReady Whether the renderer is ready.
+   * <p>The renderer should be {@linkplain Renderer#isReady() ready} if and only if the release
+   * control is ready.
+   *
+   * @param rendererOtherwiseReady Whether the renderer is ready except for the release control.
    * @return Whether the release control is ready.
    */
-  public boolean isReady(boolean rendererReady) {
-    if (rendererReady && firstFrameState == C.FIRST_FRAME_RENDERED) {
+  public boolean isReady(boolean rendererOtherwiseReady) {
+    if (rendererOtherwiseReady && firstFrameState == C.FIRST_FRAME_RENDERED) {
       // Ready. If we were joining then we've now joined, so clear the joining deadline.
       joiningDeadlineMs = C.TIME_UNSET;
       return true;
@@ -302,7 +304,7 @@ public final class VideoFrameReleaseControl {
   /**
    * Joins the release control to a new stream.
    *
-   * <p>The release control will pretend to be {@linkplain #isReady ready} for short time even if
+   * <p>The release control will pretend to be {@linkplain #isReady ready} for a short time even if
    * the first frame hasn't been rendered yet to avoid interrupting an ongoing playback.
    *
    * @param renderNextFrameImmediately Whether the next frame should be released as soon as possible
@@ -358,7 +360,7 @@ public final class VideoFrameReleaseControl {
       return FRAME_RELEASE_TRY_AGAIN_LATER;
     }
 
-    // Calculate release time and and adjust earlyUs to screen vsync.
+    // Calculate release time and adjust earlyUs to screen vsync.
     long systemTimeNs = clock.nanoTime();
     frameReleaseInfo.releaseTimeNs =
         frameReleaseHelper.adjustReleaseTime(systemTimeNs + (frameReleaseInfo.earlyUs * 1_000));
@@ -389,8 +391,10 @@ public final class VideoFrameReleaseControl {
   }
 
   /**
-   * Change the {@link C.VideoChangeFrameRateStrategy}, used when calling {@link
+   * Changes the {@link C.VideoChangeFrameRateStrategy} used when calling {@link
    * Surface#setFrameRate}.
+   *
+   * <p>The default value is {@link C#VIDEO_CHANGE_FRAME_RATE_STRATEGY_ONLY_IF_SEAMLESS}.
    */
   public void setChangeFrameRateStrategy(
       @C.VideoChangeFrameRateStrategy int changeFrameRateStrategy) {
@@ -399,6 +403,9 @@ public final class VideoFrameReleaseControl {
 
   /** Sets the playback speed. Called when the renderer playback speed changes. */
   public void setPlaybackSpeed(float speed) {
+    if (speed == playbackSpeed) {
+      return;
+    }
     this.playbackSpeed = speed;
     frameReleaseHelper.onPlaybackSpeed(speed);
   }

@@ -19,7 +19,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.audio.SpeedProvider;
-import androidx.media3.common.util.UnstableApi;
 
 /**
  * Applies the speed changes specified in a {@link SpeedProvider} change by updating the frame
@@ -27,7 +26,6 @@ import androidx.media3.common.util.UnstableApi;
  *
  * <p>Does not support seeking in effects previewing.
  */
-@UnstableApi
 /* package */ final class SpeedChangeShaderProgram extends PassthroughShaderProgram {
 
   private final OffsetSpeedProvider speedProvider;

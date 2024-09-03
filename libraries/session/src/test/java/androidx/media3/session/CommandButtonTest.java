@@ -225,7 +225,7 @@ public class CommandButtonTest {
     assertThat(button)
         .isNotEqualTo(
             new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
-                .setSessionCommand(new SessionCommand(Player.COMMAND_PLAY_PAUSE))
+                .setSessionCommand(new SessionCommand(SessionCommand.COMMAND_CODE_LIBRARY_GET_ITEM))
                 .setDisplayName("button")
                 .setIconResId(R.drawable.media3_notification_small_icon)
                 .build());
@@ -268,17 +268,17 @@ public class CommandButtonTest {
   public void equals_differencesInSessionCommand_notEqual() {
     assertThat(
             new CommandButton.Builder(CommandButton.ICON_PLAY)
-                .setSessionCommand(new SessionCommand(Player.COMMAND_PLAY_PAUSE))
+                .setSessionCommand(new SessionCommand(SessionCommand.COMMAND_CODE_LIBRARY_GET_ITEM))
                 .setDisplayName("button")
                 .build())
         .isNotEqualTo(
             new CommandButton.Builder(CommandButton.ICON_PLAY)
-                .setSessionCommand(new SessionCommand(Player.COMMAND_SEEK_BACK))
+                .setSessionCommand(new SessionCommand(SessionCommand.COMMAND_CODE_LIBRARY_SEARCH))
                 .setDisplayName("button")
                 .build());
     assertThat(
             new CommandButton.Builder(CommandButton.ICON_PLAY)
-                .setSessionCommand(new SessionCommand(Player.COMMAND_PLAY_PAUSE))
+                .setSessionCommand(new SessionCommand(SessionCommand.COMMAND_CODE_LIBRARY_GET_ITEM))
                 .setDisplayName("button")
                 .build())
         .isNotEqualTo(

@@ -41,9 +41,7 @@
     <item>۱٫۵ برابر</item>
     <item>۲ برابر</item>
   </string-array>
-  <string name="exo_track_selection_title_video">ویدیو</string>
   <string name="exo_track_selection_title_audio">صوتی</string>
-  <string name="exo_track_selection_title_text">نوشتار</string>
   <string name="exo_track_selection_none">هیچ‌کدام</string>
   <string name="exo_track_selection_auto">خودکار</string>
   <string name="exo_track_unknown">نامشخص</string>

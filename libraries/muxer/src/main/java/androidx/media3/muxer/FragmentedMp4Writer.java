@@ -23,7 +23,7 @@ import static androidx.media3.muxer.Boxes.BOX_HEADER_SIZE;
 import static androidx.media3.muxer.Boxes.MFHD_BOX_CONTENT_SIZE;
 import static androidx.media3.muxer.Boxes.TFHD_BOX_CONTENT_SIZE;
 import static androidx.media3.muxer.Boxes.getTrunBoxContentSize;
-import static androidx.media3.muxer.Mp4Utils.UNSIGNED_INT_MAX_VALUE;
+import static androidx.media3.muxer.MuxerUtil.UNSIGNED_INT_MAX_VALUE;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -49,23 +49,27 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 /* package */ final class FragmentedMp4Writer {
   /** Provides a limited set of sample metadata. */
   public static class SampleMetadata {
-    public final long durationVu;
+    public final int durationVu;
     public final int size;
     public final int flags;
+    public final int compositionTimeOffsetVu;
 
-    public SampleMetadata(long durationsVu, int size, int flags) {
+    public SampleMetadata(int durationsVu, int size, int flags, int compositionTimeOffsetVu) {
       this.durationVu = durationsVu;
       this.size = size;
       this.flags = flags;
+      this.compositionTimeOffsetVu = compositionTimeOffsetVu;
     }
   }
 
   private final FileOutputStream outputStream;
   private final FileChannel output;
-  private final Mp4MoovStructure moovGenerator;
+  private final MetadataCollector metadataCollector;
   private final AnnexBToAvccConverter annexBToAvccConverter;
-  private final List<Track> tracks;
   private final long fragmentDurationUs;
+  private final boolean sampleCopyEnabled;
+  private final @Mp4Muxer.LastSampleDurationBehavior int lastSampleDurationBehavior;
+  private final List<Track> tracks;
 
   private @MonotonicNonNull Track videoTrack;
   private int currentFragmentSequenceNumber;
@@ -73,23 +77,37 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private long minInputPresentationTimeUs;
   private long maxTrackDurationUs;
 
+  /**
+   * Creates an instance.
+   *
+   * @param outputStream The {@link FileOutputStream} to write the data to.
+   * @param metadataCollector A {@link MetadataCollector}.
+   * @param annexBToAvccConverter The {@link AnnexBToAvccConverter} to be used to convert H.264 and
+   *     H.265 NAL units from the Annex-B format (using start codes to delineate NAL units) to the
+   *     AVCC format (which uses length prefixes).
+   * @param fragmentDurationMs The fragment duration (in milliseconds).
+   * @param sampleCopyEnabled Whether sample copying is enabled.
+   */
   public FragmentedMp4Writer(
       FileOutputStream outputStream,
-      Mp4MoovStructure moovGenerator,
+      MetadataCollector metadataCollector,
       AnnexBToAvccConverter annexBToAvccConverter,
-      long fragmentDurationMs) {
+      long fragmentDurationMs,
+      boolean sampleCopyEnabled) {
     this.outputStream = outputStream;
-    this.output = outputStream.getChannel();
-    this.moovGenerator = moovGenerator;
+    output = outputStream.getChannel();
+    this.metadataCollector = metadataCollector;
     this.annexBToAvccConverter = annexBToAvccConverter;
-    tracks = new ArrayList<>();
     this.fragmentDurationUs = fragmentDurationMs * 1_000;
+    this.sampleCopyEnabled = sampleCopyEnabled;
+    lastSampleDurationBehavior = Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION;
+    tracks = new ArrayList<>();
     minInputPresentationTimeUs = Long.MAX_VALUE;
     currentFragmentSequenceNumber = 1;
   }
 
   public TrackToken addTrack(int sortKey, Format format) {
-    Track track = new Track(format);
+    Track track = new Track(format, sampleCopyEnabled);
     tracks.add(track);
     if (MimeTypes.isVideo(format.sampleMimeType)) {
       videoTrack = track;
@@ -142,7 +160,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       trafBoxes.add(
           Boxes.traf(
               Boxes.tfhd(currentTrackInfo.trackId, /* baseDataOffset= */ moofBoxStartPosition),
-              Boxes.trun(currentTrackInfo.pendingSamplesMetadata, dataOffset)));
+              Boxes.trun(
+                  currentTrackInfo.pendingSamplesMetadata,
+                  dataOffset,
+                  currentTrackInfo.hasBFrame)));
       dataOffset += currentTrackInfo.totalSamplesSize;
     }
     return trafBoxes.build();
@@ -168,7 +189,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     for (int i = 0; i < trackInfos.size(); i++) {
       ProcessedTrackInfo trackInfo = trackInfos.get(i);
       int trunBoxSize =
-          trunBoxHeaderFixedSize + getTrunBoxContentSize(trackInfo.pendingSamplesMetadata.size());
+          trunBoxHeaderFixedSize
+              + getTrunBoxContentSize(trackInfo.pendingSamplesMetadata.size(), trackInfo.hasBFrame);
       trafBoxesSize += trafBoxHeaderSize + tfhdBoxSize + trunBoxSize;
     }
 
@@ -180,8 +202,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     output.write(Boxes.ftyp());
     // The minInputPtsUs is actually ignored as there are no pending samples to write.
     output.write(
-        moovGenerator.moovMetadataHeader(
-            tracks, /* minInputPtsUs= */ 0L, /* isFragmentedMp4= */ true));
+        Boxes.moov(
+            tracks,
+            metadataCollector,
+            /* minInputPtsUs= */ 0L,
+            /* isFragmentedMp4= */ true,
+            lastSampleDurationBehavior));
   }
 
   private boolean shouldFlushPendingSamples(
@@ -298,15 +324,24 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       track.pendingSamplesBufferInfo.clear();
     }
 
+    boolean hasBFrame = false;
     ImmutableList<BufferInfo> pendingSamplesBufferInfo = pendingSamplesBufferInfoBuilder.build();
-    List<Long> sampleDurations =
+    List<Integer> sampleDurations =
         Boxes.convertPresentationTimestampsToDurationsVu(
             pendingSamplesBufferInfo,
             /* firstSamplePresentationTimeUs= */ currentFragmentSequenceNumber == 1
                 ? minInputPresentationTimeUs
                 : pendingSamplesBufferInfo.get(0).presentationTimeUs,
             track.videoUnitTimebase(),
-            Mp4Muxer.LAST_FRAME_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION);
+            Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION,
+            track.endOfStreamTimestampUs);
+
+    List<Integer> sampleCompositionTimeOffsets =
+        Boxes.calculateSampleCompositionTimeOffsets(
+            pendingSamplesBufferInfo, sampleDurations, track.videoUnitTimebase());
+    if (!sampleCompositionTimeOffsets.isEmpty()) {
+      hasBFrame = true;
+    }
 
     ImmutableList.Builder<SampleMetadata> pendingSamplesMetadata = new ImmutableList.Builder<>();
     int totalSamplesSize = 0;
@@ -316,12 +351,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           new SampleMetadata(
               sampleDurations.get(i),
               pendingSamplesBufferInfo.get(i).size,
-              pendingSamplesBufferInfo.get(i).flags));
+              pendingSamplesBufferInfo.get(i).flags,
+              hasBFrame ? sampleCompositionTimeOffsets.get(i) : 0));
     }
 
     return new ProcessedTrackInfo(
         trackId,
         totalSamplesSize,
+        hasBFrame,
         pendingSamplesByteBuffer.build(),
         pendingSamplesMetadata.build());
   }
@@ -329,16 +366,19 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private static class ProcessedTrackInfo {
     public final int trackId;
     public final int totalSamplesSize;
+    public final boolean hasBFrame;
     public final ImmutableList<ByteBuffer> pendingSamplesByteBuffer;
     public final ImmutableList<SampleMetadata> pendingSamplesMetadata;
 
     public ProcessedTrackInfo(
         int trackId,
         int totalSamplesSize,
+        boolean hasBFrame,
         ImmutableList<ByteBuffer> pendingSamplesByteBuffer,
         ImmutableList<SampleMetadata> pendingSamplesMetadata) {
       this.trackId = trackId;
       this.totalSamplesSize = totalSamplesSize;
+      this.hasBFrame = hasBFrame;
       this.pendingSamplesByteBuffer = pendingSamplesByteBuffer;
       this.pendingSamplesMetadata = pendingSamplesMetadata;
     }

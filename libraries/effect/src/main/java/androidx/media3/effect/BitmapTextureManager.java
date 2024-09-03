@@ -18,8 +18,13 @@ package androidx.media3.effect;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.effect.DebugTraceUtil.COMPONENT_BITMAP_TEXTURE_MANAGER;
+import static androidx.media3.effect.DebugTraceUtil.COMPONENT_VFP;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_QUEUE_BITMAP;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_SIGNAL_EOS;
 
 import android.graphics.Bitmap;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.FrameInfo;
 import androidx.media3.common.GlObjectsProvider;
@@ -27,7 +32,6 @@ import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.TimestampIterator;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.util.Queue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -37,15 +41,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * Forwards a video frame produced from a {@link Bitmap} to a {@link GlShaderProgram} for
  * consumption.
  */
-@UnstableApi
 /* package */ final class BitmapTextureManager extends TextureManager {
 
   // The queue holds all bitmaps with one or more frames pending to be sent downstream.
   private final Queue<BitmapFrameSequenceInfo> pendingBitmaps;
   private final GlObjectsProvider glObjectsProvider;
+  private final boolean signalRepeatingSequence;
 
-  private @MonotonicNonNull GainmapShaderProgram gainmapShaderProgram;
-  private @MonotonicNonNull GlTextureInfo currentSdrGlTextureInfo;
+  private @MonotonicNonNull RepeatingGainmapShaderProgram repeatingGainmapShaderProgram;
+  @Nullable private GlTextureInfo currentSdrGlTextureInfo;
   private int downstreamShaderProgramCapacity;
   private boolean currentInputStreamEnded;
   private boolean isNextFrameInTexture;
@@ -56,25 +60,30 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param glObjectsProvider The {@link GlObjectsProvider} for using EGL and GLES.
    * @param videoFrameProcessingTaskExecutor The {@link VideoFrameProcessingTaskExecutor} that the
    *     methods of this class run on.
+   * @param signalRepeatingSequence Whether to repeat each input bitmap unchanged as a sequence of
+   *     output frames. Defaults to {@code false}. That is, each output frame is treated as a new
+   *     input bitmap.
    */
   public BitmapTextureManager(
       GlObjectsProvider glObjectsProvider,
-      VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor) {
+      VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor,
+      boolean signalRepeatingSequence) {
     super(videoFrameProcessingTaskExecutor);
     this.glObjectsProvider = glObjectsProvider;
     pendingBitmaps = new LinkedBlockingQueue<>();
+    this.signalRepeatingSequence = signalRepeatingSequence;
   }
 
   /**
    * {@inheritDoc}
    *
-   * <p>{@link GlShaderProgram} must be a {@link GainmapShaderProgram}.
+   * <p>{@link GlShaderProgram} must be a {@link RepeatingGainmapShaderProgram}.
    */
   @Override
   public void setSamplingGlShaderProgram(GlShaderProgram samplingGlShaderProgram) {
-    checkState(samplingGlShaderProgram instanceof GainmapShaderProgram);
+    checkState(samplingGlShaderProgram instanceof RepeatingGainmapShaderProgram);
     downstreamShaderProgramCapacity = 0;
-    this.gainmapShaderProgram = (GainmapShaderProgram) samplingGlShaderProgram;
+    this.repeatingGainmapShaderProgram = (RepeatingGainmapShaderProgram) samplingGlShaderProgram;
   }
 
   @Override
@@ -107,9 +116,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     videoFrameProcessingTaskExecutor.submit(
         () -> {
           if (pendingBitmaps.isEmpty()) {
-            checkNotNull(gainmapShaderProgram).signalEndOfCurrentInputStream();
+            checkNotNull(repeatingGainmapShaderProgram).signalEndOfCurrentInputStream();
             DebugTraceUtil.logEvent(
-                DebugTraceUtil.EVENT_BITMAP_TEXTURE_MANAGER_SIGNAL_EOS, C.TIME_END_OF_SOURCE);
+                COMPONENT_BITMAP_TEXTURE_MANAGER, EVENT_SIGNAL_EOS, C.TIME_END_OF_SOURCE);
           } else {
             currentInputStreamEnded = true;
           }
@@ -152,11 +161,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     downstreamShaderProgramCapacity--;
-    checkNotNull(gainmapShaderProgram)
+    checkNotNull(repeatingGainmapShaderProgram)
         .queueInputFrame(
             glObjectsProvider, checkNotNull(currentSdrGlTextureInfo), currentPresentationTimeUs);
     DebugTraceUtil.logEvent(
-        DebugTraceUtil.EVENT_VFP_QUEUE_BITMAP,
+        COMPONENT_VFP,
+        EVENT_QUEUE_BITMAP,
         currentPresentationTimeUs,
         /* extraFormat= */ "%dx%d",
         /* extraArgs...= */ currentFrameInfo.width,
@@ -168,32 +178,29 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       finishedBitmapInfo.bitmap.recycle();
       if (pendingBitmaps.isEmpty() && currentInputStreamEnded) {
         // Only signal end of stream after all pending bitmaps are processed.
-        checkNotNull(gainmapShaderProgram).signalEndOfCurrentInputStream();
+        checkNotNull(repeatingGainmapShaderProgram).signalEndOfCurrentInputStream();
         DebugTraceUtil.logEvent(
-            DebugTraceUtil.EVENT_BITMAP_TEXTURE_MANAGER_SIGNAL_EOS, C.TIME_END_OF_SOURCE);
+            COMPONENT_BITMAP_TEXTURE_MANAGER, EVENT_SIGNAL_EOS, C.TIME_END_OF_SOURCE);
         currentInputStreamEnded = false;
       }
     }
   }
 
   @Override
-  protected void flush() {
+  protected void flush() throws VideoFrameProcessingException {
     pendingBitmaps.clear();
-    super.flush();
-  }
-
-  /** Information needed to generate all the frames associated with a specific {@link Bitmap}. */
-  private static final class BitmapFrameSequenceInfo {
-    public final Bitmap bitmap;
-    private final FrameInfo frameInfo;
-    private final TimestampIterator inStreamOffsetsUs;
-
-    public BitmapFrameSequenceInfo(
-        Bitmap bitmap, FrameInfo frameInfo, TimestampIterator inStreamOffsetsUs) {
-      this.bitmap = bitmap;
-      this.frameInfo = frameInfo;
-      this.inStreamOffsetsUs = inStreamOffsetsUs;
+    isNextFrameInTexture = false;
+    currentInputStreamEnded = false;
+    downstreamShaderProgramCapacity = 0;
+    if (currentSdrGlTextureInfo != null) {
+      try {
+        currentSdrGlTextureInfo.release();
+      } catch (GlUtil.GlException e) {
+        throw VideoFrameProcessingException.from(e);
+      }
+      currentSdrGlTextureInfo = null;
     }
+    super.flush();
   }
 
   private void updateCurrentGlTextureInfo(FrameInfo frameInfo, Bitmap bitmap)
@@ -212,10 +219,27 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               frameInfo.width,
               frameInfo.height);
       if (Util.SDK_INT >= 34 && bitmap.hasGainmap()) {
-        checkNotNull(gainmapShaderProgram).setGainmap(checkNotNull(bitmap.getGainmap()));
+        checkNotNull(repeatingGainmapShaderProgram).setGainmap(checkNotNull(bitmap.getGainmap()));
+      }
+      if (signalRepeatingSequence) {
+        checkNotNull(repeatingGainmapShaderProgram).signalNewRepeatingFrameSequence();
       }
     } catch (GlUtil.GlException e) {
       throw VideoFrameProcessingException.from(e);
+    }
+  }
+
+  /** Information needed to generate all the frames associated with a specific {@link Bitmap}. */
+  private static final class BitmapFrameSequenceInfo {
+    public final Bitmap bitmap;
+    private final FrameInfo frameInfo;
+    private final TimestampIterator inStreamOffsetsUs;
+
+    public BitmapFrameSequenceInfo(
+        Bitmap bitmap, FrameInfo frameInfo, TimestampIterator inStreamOffsetsUs) {
+      this.bitmap = bitmap;
+      this.frameInfo = frameInfo;
+      this.inStreamOffsetsUs = inStreamOffsetsUs;
     }
   }
 }

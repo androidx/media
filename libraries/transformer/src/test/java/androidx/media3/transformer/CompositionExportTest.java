@@ -28,6 +28,7 @@ import static androidx.media3.transformer.TestUtil.addAudioEncoders;
 import static androidx.media3.transformer.TestUtil.createAudioEffects;
 import static androidx.media3.transformer.TestUtil.createTransformerBuilder;
 import static androidx.media3.transformer.TestUtil.createVolumeScalingAudioProcessor;
+import static androidx.media3.transformer.TestUtil.getCompositionDumpFilePath;
 import static androidx.media3.transformer.TestUtil.getDumpFileName;
 import static androidx.media3.transformer.TestUtil.removeEncodersAndDecoders;
 import static com.google.common.truth.Truth.assertThat;
@@ -376,6 +377,72 @@ public class CompositionExportTest {
             /* modifications...= */ "mixed",
             getFileName(FILE_AUDIO_RAW),
             "48000hz"));
+  }
+
+  @Test
+  public void start_firstSequenceFinishesEarly_works() throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
+    Transformer transformer =
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+    EditedMediaItem audioItem300ms =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+                    .buildUpon()
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionMs(100)
+                            .setEndPositionMs(400)
+                            .build())
+                    .build())
+            .build();
+    EditedMediaItem audioItem1000ms =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)).build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence(audioItem300ms),
+                new EditedMediaItemSequence(audioItem1000ms))
+            .build();
+
+    transformer.start(composition, outputDir.newFile().getPath());
+    TransformerTestRunner.runLooper(transformer);
+
+    DumpFileAsserts.assertOutput(
+        context,
+        muxerFactory.getCreatedMuxer(),
+        getCompositionDumpFilePath("seq-sample.wav+seq-sample.wav_clipped_100ms_to_400ms"));
+  }
+
+  @Test
+  public void start_secondSequenceFinishesEarly_works() throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
+    Transformer transformer =
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+    EditedMediaItem audioItem1000ms =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)).build();
+    EditedMediaItem audioItem300ms =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+                    .buildUpon()
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionMs(100)
+                            .setEndPositionMs(400)
+                            .build())
+                    .build())
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence(audioItem1000ms),
+                new EditedMediaItemSequence(audioItem300ms))
+            .build();
+
+    transformer.start(composition, outputDir.newFile().getPath());
+    TransformerTestRunner.runLooper(transformer);
+
+    DumpFileAsserts.assertOutput(
+        context,
+        muxerFactory.getCreatedMuxer(),
+        getCompositionDumpFilePath("seq-sample.wav+seq-sample.wav_clipped_100ms_to_400ms"));
   }
 
   private static String getFileName(String filePath) {

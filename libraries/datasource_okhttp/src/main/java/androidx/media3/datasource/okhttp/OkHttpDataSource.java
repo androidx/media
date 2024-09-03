@@ -187,52 +187,14 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
   @Nullable private final String userAgent;
   @Nullable private final CacheControl cacheControl;
   @Nullable private final RequestProperties defaultRequestProperties;
+  @Nullable private final Predicate<String> contentTypePredicate;
 
-  @Nullable private Predicate<String> contentTypePredicate;
   @Nullable private DataSpec dataSpec;
   @Nullable private Response response;
   @Nullable private InputStream responseByteStream;
   private boolean opened;
   private long bytesToRead;
   private long bytesRead;
-
-  /**
-   * @deprecated Use {@link OkHttpDataSource.Factory} instead.
-   */
-  @SuppressWarnings("deprecation")
-  @UnstableApi
-  @Deprecated
-  public OkHttpDataSource(Call.Factory callFactory) {
-    this(callFactory, /* userAgent= */ null);
-  }
-
-  /**
-   * @deprecated Use {@link OkHttpDataSource.Factory} instead.
-   */
-  @SuppressWarnings("deprecation")
-  @UnstableApi
-  @Deprecated
-  public OkHttpDataSource(Call.Factory callFactory, @Nullable String userAgent) {
-    this(callFactory, userAgent, /* cacheControl= */ null, /* defaultRequestProperties= */ null);
-  }
-
-  /**
-   * @deprecated Use {@link OkHttpDataSource.Factory} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  public OkHttpDataSource(
-      Call.Factory callFactory,
-      @Nullable String userAgent,
-      @Nullable CacheControl cacheControl,
-      @Nullable RequestProperties defaultRequestProperties) {
-    this(
-        callFactory,
-        userAgent,
-        cacheControl,
-        defaultRequestProperties,
-        /* contentTypePredicate= */ null);
-  }
 
   private OkHttpDataSource(
       Call.Factory callFactory,
@@ -247,15 +209,6 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
     this.defaultRequestProperties = defaultRequestProperties;
     this.contentTypePredicate = contentTypePredicate;
     this.requestProperties = new RequestProperties();
-  }
-
-  /**
-   * @deprecated Use {@link OkHttpDataSource.Factory#setContentTypePredicate(Predicate)} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  public void setContentTypePredicate(@Nullable Predicate<String> contentTypePredicate) {
-    this.contentTypePredicate = contentTypePredicate;
   }
 
   @UnstableApi

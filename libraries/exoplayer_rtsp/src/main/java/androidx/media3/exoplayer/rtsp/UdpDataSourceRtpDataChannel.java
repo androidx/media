@@ -22,7 +22,6 @@ import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.TransferListener;
@@ -31,7 +30,6 @@ import com.google.common.primitives.Ints;
 import java.io.IOException;
 
 /** An {@link RtpDataChannel} for UDP transport. */
-@UnstableApi
 /* package */ final class UdpDataSourceRtpDataChannel implements RtpDataChannel {
 
   private static final String DEFAULT_UDP_TRANSPORT_FORMAT = "RTP/AVP;unicast;client_port=%d-%d";

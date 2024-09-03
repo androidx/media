@@ -15,6 +15,8 @@
  */
 package androidx.media3.extractor.amr;
 
+import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static java.lang.Math.abs;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
@@ -24,14 +26,15 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.ConstantBitrateSeekMap;
+import androidx.media3.extractor.DiscardingTrackOutput;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.ExtractorsFactory;
+import androidx.media3.extractor.IndexSeekMap;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.TrackOutput;
@@ -60,20 +63,26 @@ public final class AmrExtractor implements Extractor {
 
   /**
    * Flags controlling the behavior of the extractor. Possible flag values are {@link
-   * #FLAG_ENABLE_CONSTANT_BITRATE_SEEKING} and {@link
-   * #FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS}.
+   * #FLAG_ENABLE_CONSTANT_BITRATE_SEEKING}, {@link #FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS}
+   * and {@link #FLAG_ENABLE_INDEX_SEEKING}.
    */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)
   @IntDef(
       flag = true,
-      value = {FLAG_ENABLE_CONSTANT_BITRATE_SEEKING, FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS})
+      value = {
+        FLAG_ENABLE_CONSTANT_BITRATE_SEEKING,
+        FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS,
+        FLAG_ENABLE_INDEX_SEEKING,
+      })
   public @interface Flags {}
 
   /**
    * Flag to force enable seeking using a constant bitrate assumption in cases where seeking would
    * otherwise not be possible.
+   *
+   * <p>This flag is ignored if {@link #FLAG_ENABLE_INDEX_SEEKING} is set.
    */
   public static final int FLAG_ENABLE_CONSTANT_BITRATE_SEEKING = 1;
 
@@ -87,8 +96,24 @@ public final class AmrExtractor implements Extractor {
    *
    * <p>If this flag is set, then the behavior enabled by {@link
    * #FLAG_ENABLE_CONSTANT_BITRATE_SEEKING} is implicitly enabled as well.
+   *
+   * <p>This flag is ignored if {@link #FLAG_ENABLE_INDEX_SEEKING} is set.
    */
   public static final int FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS = 1 << 1;
+
+  /**
+   * Flag to force index seeking, in which a time-to-byte mapping is built as the file is read.
+   *
+   * <p>This seeker may require to scan a significant portion of the file to compute a seek point.
+   * Therefore, it should only be used if one of the following is true:
+   *
+   * <ul>
+   *   <li>The file is small.
+   *   <li>The bitrate is variable (or it's unknown whether it's variable).
+   *   <li>The file contains silence frames in a constant bitrate stream.
+   * </ul>
+   */
+  public static final int FLAG_ENABLE_INDEX_SEEKING = 1 << 2;
 
   /**
    * The frame size in bytes, including header (1 byte), for each of the 16 frame types for AMR
@@ -139,9 +164,6 @@ public final class AmrExtractor implements Extractor {
   private static final byte[] amrSignatureNb = Util.getUtf8Bytes("#!AMR\n");
   private static final byte[] amrSignatureWb = Util.getUtf8Bytes("#!AMR-WB\n");
 
-  /** Theoretical maximum frame size for a AMR frame. */
-  private static final int MAX_FRAME_SIZE_BYTES = frameSizeBytesByTypeWb[8];
-
   /**
    * The required number of samples in the stream with same sample size to classify the stream as a
    * constant-bitrate-stream.
@@ -154,20 +176,23 @@ public final class AmrExtractor implements Extractor {
 
   private final byte[] scratch;
   private final @Flags int flags;
+  private final TrackOutput skippingTrackOutput;
 
   private boolean isWideBand;
   private long currentSampleTimeUs;
   private int currentSampleSize;
   private int currentSampleBytesRemaining;
-  private boolean hasOutputSeekMap;
   private long firstSamplePosition;
   private int firstSampleSize;
   private int numSamplesWithSameSize;
   private long timeOffsetUs;
 
   private @MonotonicNonNull ExtractorOutput extractorOutput;
-  private @MonotonicNonNull TrackOutput trackOutput;
+  private @MonotonicNonNull TrackOutput realTrackOutput;
+  private TrackOutput currentTrackOutput; // skippingTrackOutput or realTrackOutput.
   private @MonotonicNonNull SeekMap seekMap;
+  private boolean isSeekInProgress;
+  private long seekTimeUs;
   private boolean hasOutputFormat;
 
   public AmrExtractor() {
@@ -184,6 +209,8 @@ public final class AmrExtractor implements Extractor {
     this.flags = flags;
     scratch = new byte[1];
     firstSampleSize = C.LENGTH_UNSET;
+    skippingTrackOutput = new DiscardingTrackOutput();
+    currentTrackOutput = skippingTrackOutput;
   }
 
   // Extractor implementation.
@@ -195,8 +222,9 @@ public final class AmrExtractor implements Extractor {
 
   @Override
   public void init(ExtractorOutput output) {
-    this.extractorOutput = output;
-    trackOutput = output.track(/* id= */ 0, C.TRACK_TYPE_AUDIO);
+    extractorOutput = output;
+    realTrackOutput = output.track(/* id= */ 0, C.TRACK_TYPE_AUDIO);
+    currentTrackOutput = realTrackOutput;
     output.endTracks();
   }
 
@@ -212,6 +240,12 @@ public final class AmrExtractor implements Extractor {
     maybeOutputFormat();
     int sampleReadResult = readSample(input);
     maybeOutputSeekMap(input.getLength(), sampleReadResult);
+    if (sampleReadResult == RESULT_END_OF_INPUT && seekMap instanceof IndexSeekMap) {
+      // Set exact duration when end of input is reached.
+      long durationUs = timeOffsetUs + currentSampleTimeUs;
+      ((IndexSeekMap) seekMap).setDurationUs(durationUs);
+      extractorOutput.seekMap(seekMap);
+    }
     return sampleReadResult;
   }
 
@@ -220,7 +254,14 @@ public final class AmrExtractor implements Extractor {
     currentSampleTimeUs = 0;
     currentSampleSize = 0;
     currentSampleBytesRemaining = 0;
-    if (position != 0 && seekMap instanceof ConstantBitrateSeekMap) {
+    seekTimeUs = timeUs;
+    if (seekMap instanceof IndexSeekMap) {
+      timeOffsetUs = ((IndexSeekMap) seekMap).getTimeUs(position);
+      if (!isSeekTimeUsWithinRange(timeOffsetUs, seekTimeUs)) {
+        isSeekInProgress = true;
+        currentTrackOutput = skippingTrackOutput;
+      }
+    } else if (position != 0 && seekMap instanceof ConstantBitrateSeekMap) {
       timeOffsetUs = ((ConstantBitrateSeekMap) seekMap).getTimeUsAtPosition(position);
     } else {
       timeOffsetUs = 0;
@@ -278,23 +319,25 @@ public final class AmrExtractor implements Extractor {
     return Arrays.equals(header, amrSignature);
   }
 
-  @RequiresNonNull("trackOutput")
+  @RequiresNonNull("realTrackOutput")
   private void maybeOutputFormat() {
     if (!hasOutputFormat) {
       hasOutputFormat = true;
       String mimeType = isWideBand ? MimeTypes.AUDIO_AMR_WB : MimeTypes.AUDIO_AMR_NB;
       int sampleRate = isWideBand ? SAMPLE_RATE_WB : SAMPLE_RATE_NB;
-      trackOutput.format(
+      // Theoretical maximum frame size for a AMR frame.
+      int maxInputSize = isWideBand ? frameSizeBytesByTypeWb[8] : frameSizeBytesByTypeNb[7];
+      currentTrackOutput.format(
           new Format.Builder()
               .setSampleMimeType(mimeType)
-              .setMaxInputSize(MAX_FRAME_SIZE_BYTES)
+              .setMaxInputSize(maxInputSize)
               .setChannelCount(1)
               .setSampleRate(sampleRate)
               .build());
     }
   }
 
-  @RequiresNonNull("trackOutput")
+  @RequiresNonNull("realTrackOutput")
   private int readSample(ExtractorInput extractorInput) throws IOException {
     if (currentSampleBytesRemaining == 0) {
       try {
@@ -310,10 +353,25 @@ public final class AmrExtractor implements Extractor {
       if (firstSampleSize == currentSampleSize) {
         numSamplesWithSameSize++;
       }
+      if (seekMap instanceof IndexSeekMap) {
+        IndexSeekMap indexSeekMap = (IndexSeekMap) seekMap;
+        // Add seek point corresponding to the next frame instead of the current one to be able to
+        // start writing to the realTrackOutput on time when a seek is in progress.
+        long nextSampleTimeUs = timeOffsetUs + currentSampleTimeUs + SAMPLE_TIME_PER_FRAME_US;
+        long nextSamplePosition = extractorInput.getPosition() + currentSampleSize;
+        if (!indexSeekMap.isTimeUsInIndex(
+            nextSampleTimeUs, /* minTimeBetweenPointsUs= */ C.MICROS_PER_SECOND / 10)) {
+          indexSeekMap.addSeekPoint(nextSampleTimeUs, nextSamplePosition);
+        }
+        if (isSeekInProgress && isSeekTimeUsWithinRange(nextSampleTimeUs, seekTimeUs)) {
+          isSeekInProgress = false;
+          currentTrackOutput = realTrackOutput;
+        }
+      }
     }
 
     int bytesAppended =
-        trackOutput.sampleData(
+        currentTrackOutput.sampleData(
             extractorInput, currentSampleBytesRemaining, /* allowEndOfInput= */ true);
     if (bytesAppended == C.RESULT_END_OF_INPUT) {
       return RESULT_END_OF_INPUT;
@@ -323,7 +381,7 @@ public final class AmrExtractor implements Extractor {
       return RESULT_CONTINUE;
     }
 
-    trackOutput.sampleMetadata(
+    currentTrackOutput.sampleMetadata(
         timeOffsetUs + currentSampleTimeUs,
         C.BUFFER_FLAG_KEY_FRAME,
         currentSampleSize,
@@ -377,23 +435,28 @@ public final class AmrExtractor implements Extractor {
 
   @RequiresNonNull("extractorOutput")
   private void maybeOutputSeekMap(long inputLength, int sampleReadResult) {
-    if (hasOutputSeekMap) {
+    if (seekMap != null) {
       return;
     }
 
-    if ((flags & FLAG_ENABLE_CONSTANT_BITRATE_SEEKING) == 0
-        || inputLength == C.LENGTH_UNSET
+    if ((flags & FLAG_ENABLE_INDEX_SEEKING) != 0) {
+      seekMap =
+          new IndexSeekMap(
+              /* positions= */ new long[] {firstSamplePosition},
+              /* timesUs= */ new long[] {0L},
+              /* durationUs= */ C.TIME_UNSET);
+    } else if ((flags & FLAG_ENABLE_CONSTANT_BITRATE_SEEKING) == 0
         || (firstSampleSize != C.LENGTH_UNSET && firstSampleSize != currentSampleSize)) {
       seekMap = new SeekMap.Unseekable(C.TIME_UNSET);
-      extractorOutput.seekMap(seekMap);
-      hasOutputSeekMap = true;
     } else if (numSamplesWithSameSize >= NUM_SAME_SIZE_CONSTANT_BIT_RATE_THRESHOLD
         || sampleReadResult == RESULT_END_OF_INPUT) {
       seekMap =
           getConstantBitrateSeekMap(
               inputLength, (flags & FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS) != 0);
+    }
+
+    if (seekMap != null) {
       extractorOutput.seekMap(seekMap);
-      hasOutputSeekMap = true;
     }
   }
 
@@ -403,10 +466,21 @@ public final class AmrExtractor implements Extractor {
         inputLength, firstSamplePosition, bitrate, firstSampleSize, allowSeeksIfLengthUnknown);
   }
 
-  @EnsuresNonNull({"extractorOutput", "trackOutput"})
+  @EnsuresNonNull({"extractorOutput", "realTrackOutput"})
   private void assertInitialized() {
-    Assertions.checkStateNotNull(trackOutput);
+    checkStateNotNull(realTrackOutput);
     Util.castNonNull(extractorOutput);
+  }
+
+  /**
+   * Checks if a given {@code timeUs} is within the acceptable range for seeking operations in the
+   * context of index-based seeking.
+   *
+   * @param timeUs The time in microseconds to check.
+   * @param seekTimeUs The target seek time in microseconds.
+   */
+  private boolean isSeekTimeUsWithinRange(long timeUs, long seekTimeUs) {
+    return abs(seekTimeUs - timeUs) < SAMPLE_TIME_PER_FRAME_US;
   }
 
   /**

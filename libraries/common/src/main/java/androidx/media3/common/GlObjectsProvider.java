@@ -81,4 +81,11 @@ public interface GlObjectsProvider {
    * @throws GlException If an error occurs during creation.
    */
   GlTextureInfo createBuffersForTexture(int texId, int width, int height) throws GlException;
+
+  /**
+   * Releases the created objects.
+   *
+   * @param eglDisplay The {@link EGLDisplay} to release the objects for.
+   */
+  void release(EGLDisplay eglDisplay) throws GlException;
 }

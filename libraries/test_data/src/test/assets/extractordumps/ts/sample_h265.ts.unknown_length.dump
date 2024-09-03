@@ -5,11 +5,12 @@ seekMap:
 numberOfTracks = 1
 track 256:
   total output bytes = 19364
-  sample count = 29
+  sample count = 31
   format 0:
     id = 1/256
     sampleMimeType = video/hevc
     codecs = hvc1.1.6.L90.90
+    maxNumReorderSamples = 2
     width = 854
     height = 480
     colorInfo:
@@ -134,4 +135,12 @@ track 256:
     time = 933333
     flags = 0
     data = length 87, hash EEC4D98C
+  sample 29:
+    time = 1000000
+    flags = 0
+    data = length 7, hash 680F23CB
+  sample 30:
+    time = 1000000
+    flags = 0
+    data = length 160, hash 11EC03D0
 tracksEnded = true

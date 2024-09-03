@@ -21,6 +21,7 @@ import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -78,6 +79,35 @@ public final class CodecSpecificDataUtil {
     return initializationData.size() == 1
         && initializationData.get(0).length == 1
         && initializationData.get(0)[0] == 1;
+  }
+
+  /**
+   * Returns initialization data in CodecPrivate format of VP9.
+   *
+   * <p>Each feature of VP9 CodecPrivate is defined by the binary format of ID (1 byte), length (1
+   * byte), and data (1 byte). See <a>
+   * href="https://www.webmproject.org/docs/container/#vp9-codec-feature-metadata-codecprivate">CodecPrivate
+   * format of VP9</a> for more details.
+   *
+   * @param profile The VP9 codec profile.
+   * @param level The VP9 codec level.
+   * @param bitDepth The bit depth of the luma and color components.
+   * @param chromaSubsampling The chroma subsampling.
+   */
+  public static ImmutableList<byte[]> buildVp9CodecPrivateInitializationData(
+      byte profile, byte level, byte bitDepth, byte chromaSubsampling) {
+    byte profileId = 0x01;
+    byte levelId = 0x02;
+    byte bitDepthId = 0x03;
+    byte chromaSubsamplingId = 0x04;
+    byte length = 0x01;
+    return ImmutableList.of(
+        new byte[] {
+          profileId, length, profile,
+          levelId, length, level,
+          bitDepthId, length, bitDepth,
+          chromaSubsamplingId, length, chromaSubsampling
+        });
   }
 
   /**

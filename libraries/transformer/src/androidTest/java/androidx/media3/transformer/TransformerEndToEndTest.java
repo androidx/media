@@ -18,18 +18,19 @@ package androidx.media3.transformer;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
-import static androidx.media3.transformer.AndroidTestUtil.JPG_ASSET_URI_STRING;
-import static androidx.media3.transformer.AndroidTestUtil.MP3_ASSET_URI_STRING;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_FORMAT;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_URI_STRING;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_URI_STRING;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_URI_STRING;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_180_URI_STRING;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_270_URI_STRING;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_URI_STRING;
-import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET_URI_STRING;
+import static androidx.media3.transformer.AndroidTestUtil.JPG_ASSET;
+import static androidx.media3.transformer.AndroidTestUtil.MP3_ASSET;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_PHOTOS_TRIM_OPTIMIZATION_VIDEO;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_SHORTER_AUDIO;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_180;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_270;
+import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
+import static androidx.media3.transformer.AndroidTestUtil.createFrameCountingEffect;
 import static androidx.media3.transformer.AndroidTestUtil.createOpenGlObjects;
 import static androidx.media3.transformer.AndroidTestUtil.generateTextureFromBitmap;
 import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
@@ -70,6 +71,7 @@ import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceBitmapLoader;
+import androidx.media3.effect.ByteBufferGlEffect;
 import androidx.media3.effect.Contrast;
 import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
@@ -87,12 +89,16 @@ import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.TestSpeedProvider;
 import androidx.media3.test.utils.TestUtil;
+import androidx.media3.transformer.AndroidTestUtil.FrameCountingByteBufferProcessor;
 import androidx.media3.transformer.AssetLoader.CompositionSettings;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import java.io.File;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.Before;
 import org.junit.Rule;
@@ -124,16 +130,19 @@ public class TransformerEndToEndTest {
   public void compositionEditing_withThreeSequences_completes() throws Exception {
     Transformer transformer = new Transformer.Builder(context).build();
     assumeFormatsSupported(
-        context, testId, /* inputFormat= */ MP4_ASSET_FORMAT, /* outputFormat= */ MP4_ASSET_FORMAT);
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ASSET.videoFormat);
     EditedMediaItem audioVideoItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET_URI_STRING))
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
             .setEffects(
                 new Effects(
                     ImmutableList.of(createSonic(/* pitch= */ 2f)),
                     ImmutableList.of(RgbFilter.createInvertedFilter())))
             .build();
     EditedMediaItem imageItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(JPG_ASSET_URI_STRING))
+        new EditedMediaItem.Builder(MediaItem.fromUri(JPG_ASSET.uri))
             .setDurationUs(1_500_000)
             .setFrameRate(30)
             .build();
@@ -142,7 +151,7 @@ public class TransformerEndToEndTest {
         new EditedMediaItemSequence(audioVideoItem, imageItem, audioVideoItem);
 
     EditedMediaItem.Builder audioBuilder =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET_URI_STRING)).setRemoveVideo(true);
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri)).setRemoveVideo(true);
 
     EditedMediaItemSequence audioSequence =
         new EditedMediaItemSequence(
@@ -184,6 +193,51 @@ public class TransformerEndToEndTest {
     // audioSequence duration: ~2s (2 inputs).
     // loopingAudioSequence: Matches max other sequence (~3.5s) -> 4 inputs of ~1s audio item.
     assertThat(result.exportResult.processedInputs).hasSize(9);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+  }
+
+  @Test
+  public void compositionEditing_withLongLoopingSequence_completes() throws Exception {
+    Transformer transformer = new Transformer.Builder(context).build();
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ASSET.videoFormat);
+    EditedMediaItem imageItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(JPG_ASSET.uri))
+            .setDurationUs(500_000)
+            .setFrameRate(30)
+            .build();
+
+    EditedMediaItemSequence imageSequence = new EditedMediaItemSequence(imageItem);
+
+    EditedMediaItem.Builder audioBuilder =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri)).setRemoveVideo(true);
+
+    EditedMediaItemSequence loopingAudioSequence =
+        new EditedMediaItemSequence(
+            ImmutableList.of(
+                audioBuilder
+                    .setEffects(
+                        new Effects(
+                            ImmutableList.of(createSonic(/* pitch= */ 0.4f)),
+                            /* videoEffects= */ ImmutableList.of()))
+                    .build()),
+            /* isLooping= */ true);
+
+    Composition composition = new Composition.Builder(imageSequence, loopingAudioSequence).build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, composition);
+
+    // Image asset duration is ~0.5s.
+    // loopingAudioSequence: Matches other sequence (~0.5s) and is cut short.
+    assertThat(result.exportResult.durationMs).isAtLeast(450);
+    assertThat(result.exportResult.durationMs).isAtMost(500);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -194,7 +248,7 @@ public class TransformerEndToEndTest {
     Effects effects = new Effects(/* audioProcessors= */ ImmutableList.of(), videoEffects);
     int expectedFrameCount = 40;
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(PNG_ASSET_URI_STRING))
+        new EditedMediaItem.Builder(MediaItem.fromUri(PNG_ASSET.uri))
             .setDurationUs(C.MICROS_PER_SECOND)
             .setFrameRate(expectedFrameCount)
             .setEffects(effects)
@@ -208,6 +262,7 @@ public class TransformerEndToEndTest {
     // Expected timestamp of the last frame.
     assertThat(result.exportResult.durationMs)
         .isEqualTo((C.MILLIS_PER_SECOND / expectedFrameCount) * (expectedFrameCount - 1));
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -216,7 +271,7 @@ public class TransformerEndToEndTest {
     Transformer transformer = new Transformer.Builder(context).build();
     int expectedFrameCount = 40;
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(PNG_ASSET_URI_STRING))
+        new EditedMediaItem.Builder(MediaItem.fromUri(PNG_ASSET.uri))
             .setDurationUs(C.MICROS_PER_SECOND)
             .setFrameRate(expectedFrameCount)
             .build();
@@ -229,13 +284,13 @@ public class TransformerEndToEndTest {
     // Expected timestamp of the last frame.
     assertThat(result.exportResult.durationMs)
         .isEqualTo((C.MILLIS_PER_SECOND / expectedFrameCount) * (expectedFrameCount - 1));
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
   public void videoEditing_withTextureInput_completesWithCorrectFrameCountAndDuration()
       throws Exception {
-    Bitmap bitmap =
-        new DataSourceBitmapLoader(context).loadBitmap(Uri.parse(PNG_ASSET_URI_STRING)).get();
+    Bitmap bitmap = new DataSourceBitmapLoader(context).loadBitmap(Uri.parse(PNG_ASSET.uri)).get();
     int expectedFrameCount = 2;
     EGLContext currentContext = createOpenGlObjects();
     DefaultVideoFrameProcessor.Factory videoFrameProcessorFactory =
@@ -254,7 +309,8 @@ public class TransformerEndToEndTest {
             .setDurationUs(C.MICROS_PER_SECOND)
             .setEffects(new Effects(/* audioProcessors= */ ImmutableList.of(), videoEffects))
             .build();
-    int texId = generateTextureFromBitmap(bitmap);
+    int texId1 = generateTextureFromBitmap(bitmap);
+    int texId2 = generateTextureFromBitmap(bitmap);
     HandlerThread textureQueuingThread = new HandlerThread("textureQueuingThread");
     textureQueuingThread.start();
     Looper looper = checkNotNull(textureQueuingThread.getLooper());
@@ -263,9 +319,9 @@ public class TransformerEndToEndTest {
           @Override
           public void handleMessage(Message msg) {
             if (textureAssetLoader != null
-                && textureAssetLoader.queueInputTexture(texId, /* presentationTimeUs= */ 0)) {
+                && textureAssetLoader.queueInputTexture(texId1, /* presentationTimeUs= */ 0)) {
               textureAssetLoader.queueInputTexture(
-                  texId, /* presentationTimeUs= */ C.MICROS_PER_SECOND / 2);
+                  texId2, /* presentationTimeUs= */ C.MICROS_PER_SECOND / 2);
               textureAssetLoader.signalEndOfVideoInput();
               return;
             }
@@ -282,13 +338,13 @@ public class TransformerEndToEndTest {
     assertThat(result.exportResult.videoFrameCount).isEqualTo(expectedFrameCount);
     // Expected timestamp of the last frame.
     assertThat(result.exportResult.durationMs).isEqualTo(C.MILLIS_PER_SECOND / 2);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
   public void videoTranscoding_withTextureInput_completesWithCorrectFrameCountAndDuration()
       throws Exception {
-    Bitmap bitmap =
-        new DataSourceBitmapLoader(context).loadBitmap(Uri.parse(PNG_ASSET_URI_STRING)).get();
+    Bitmap bitmap = new DataSourceBitmapLoader(context).loadBitmap(Uri.parse(PNG_ASSET.uri)).get();
     int expectedFrameCount = 2;
     EGLContext currentContext = createOpenGlObjects();
     DefaultVideoFrameProcessor.Factory videoFrameProcessorFactory =
@@ -305,7 +361,8 @@ public class TransformerEndToEndTest {
         new EditedMediaItem.Builder(MediaItem.fromUri(Uri.EMPTY))
             .setDurationUs(C.MICROS_PER_SECOND)
             .build();
-    int texId = generateTextureFromBitmap(bitmap);
+    int texId1 = generateTextureFromBitmap(bitmap);
+    int texId2 = generateTextureFromBitmap(bitmap);
     HandlerThread textureQueuingThread = new HandlerThread("textureQueuingThread");
     textureQueuingThread.start();
     Looper looper = checkNotNull(textureQueuingThread.getLooper());
@@ -314,9 +371,9 @@ public class TransformerEndToEndTest {
           @Override
           public void handleMessage(Message msg) {
             if (textureAssetLoader != null
-                && textureAssetLoader.queueInputTexture(texId, /* presentationTimeUs= */ 0)) {
+                && textureAssetLoader.queueInputTexture(texId1, /* presentationTimeUs= */ 0)) {
               textureAssetLoader.queueInputTexture(
-                  texId, /* presentationTimeUs= */ C.MICROS_PER_SECOND / 2);
+                  texId2, /* presentationTimeUs= */ C.MICROS_PER_SECOND / 2);
               textureAssetLoader.signalEndOfVideoInput();
               return;
             }
@@ -332,18 +389,22 @@ public class TransformerEndToEndTest {
     assertThat(result.exportResult.videoFrameCount).isEqualTo(expectedFrameCount);
     // Expected timestamp of the last frame.
     assertThat(result.exportResult.durationMs).isEqualTo(C.MILLIS_PER_SECOND / 2);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
   public void videoEditing_completesWithConsistentFrameCount() throws Exception {
     assumeFormatsSupported(
-        context, testId, /* inputFormat= */ MP4_ASSET_FORMAT, /* outputFormat= */ MP4_ASSET_FORMAT);
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ASSET.videoFormat);
     Transformer transformer =
         new Transformer.Builder(context)
             .setEncoderFactory(
                 new DefaultEncoderFactory.Builder(context).setEnableFallback(false).build())
             .build();
-    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_URI_STRING));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET.uri));
     ImmutableList<Effect> videoEffects = ImmutableList.of(Presentation.createForHeight(480));
     Effects effects = new Effects(/* audioProcessors= */ ImmutableList.of(), videoEffects);
     EditedMediaItem editedMediaItem =
@@ -358,18 +419,131 @@ public class TransformerEndToEndTest {
             .run(testId, editedMediaItem);
 
     assertThat(result.exportResult.videoFrameCount).isEqualTo(expectedFrameCount);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
-  public void videoEditing_effectsOverTime_completesWithConsistentFrameCount() throws Exception {
+  public void videoEditing_withOneFrameInEncoder_completesWithConsistentFrameCount()
+      throws Exception {
     assumeFormatsSupported(
-        context, testId, /* inputFormat= */ MP4_ASSET_FORMAT, /* outputFormat= */ MP4_ASSET_FORMAT);
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat);
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(new AndroidTestUtil.ForceEncodeEncoderFactory(context))
+            .experimentalSetMaxFramesInEncoder(1)
+            .build();
+    MediaItem mediaItem =
+        MediaItem.fromUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.uri));
+    EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    assertThat(result.exportResult.videoFrameCount)
+        .isEqualTo(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFrameCount);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+  }
+
+  @Test
+  public void videoEditing_withMaxFramesInEncoder_completesWithConsistentFrameCount()
+      throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat);
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(new AndroidTestUtil.ForceEncodeEncoderFactory(context))
+            .experimentalSetMaxFramesInEncoder(16)
+            .build();
+    MediaItem mediaItem =
+        MediaItem.fromUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.uri));
+    EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    assertThat(result.exportResult.videoFrameCount)
+        .isEqualTo(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFrameCount);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+  }
+
+  // TODO: b/345483531 - Migrate this test to a Parameterized ImageSequence test.
+  @Test
+  public void videoEditing_withShortAlternatingImages_completesWithCorrectFrameCountAndDuration()
+      throws Exception {
     Transformer transformer =
         new Transformer.Builder(context)
             .setEncoderFactory(
                 new DefaultEncoderFactory.Builder(context).setEnableFallback(false).build())
             .build();
-    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_URI_STRING));
+
+    EditedMediaItem image1 =
+        new EditedMediaItem.Builder(MediaItem.fromUri(PNG_ASSET.uri))
+            .setDurationUs(100_000)
+            .setFrameRate(30)
+            .build();
+    int image1FrameCount = 3;
+    EditedMediaItem image2 =
+        new EditedMediaItem.Builder(MediaItem.fromUri(JPG_ASSET.uri))
+            .setDurationUs(200_000)
+            .setFrameRate(30)
+            .build();
+    int image2FrameCount = 6;
+
+    ArrayList<EditedMediaItem> editedMediaItems = new ArrayList<>(100);
+    for (int i = 0; i < 50; i++) {
+      editedMediaItems.add(image1);
+      editedMediaItems.add(image2);
+    }
+
+    Composition composition =
+        new Composition.Builder(new EditedMediaItemSequence(editedMediaItems))
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    ImmutableList.of(
+                        // To ensure that software encoders can encode.
+                        Presentation.createForWidthAndHeight(
+                            /* width= */ 480,
+                            /* height= */ 360,
+                            Presentation.LAYOUT_SCALE_TO_FIT))))
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, composition);
+
+    // TODO: b/346289922 - Check frame count with extractors.
+    assertThat(result.exportResult.videoFrameCount)
+        .isEqualTo(50 * image1FrameCount + 50 * image2FrameCount);
+    // 50 100ms-images and 50 200ms-images
+    assertThat(result.exportResult.durationMs).isEqualTo(14_966);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+  }
+
+  @Test
+  public void videoEditing_effectsOverTime_completesWithConsistentFrameCount() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ASSET.videoFormat);
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(
+                new DefaultEncoderFactory.Builder(context).setEnableFallback(false).build())
+            .build();
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET.uri));
     ImmutableList<Effect> videoEffects =
         ImmutableList.of(
             new TimestampWrapper(
@@ -393,18 +567,22 @@ public class TransformerEndToEndTest {
             .run(testId, editedMediaItem);
 
     assertThat(result.exportResult.videoFrameCount).isEqualTo(expectedFrameCount);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
   public void videoOnly_completesWithConsistentDuration() throws Exception {
     assumeFormatsSupported(
-        context, testId, /* inputFormat= */ MP4_ASSET_FORMAT, /* outputFormat= */ MP4_ASSET_FORMAT);
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ASSET.videoFormat);
     Transformer transformer =
         new Transformer.Builder(context)
             .setEncoderFactory(
                 new DefaultEncoderFactory.Builder(context).setEnableFallback(false).build())
             .build();
-    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_URI_STRING));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET.uri));
     ImmutableList<Effect> videoEffects = ImmutableList.of(Presentation.createForHeight(480));
     Effects effects = new Effects(/* audioProcessors= */ ImmutableList.of(), videoEffects);
     EditedMediaItem editedMediaItem =
@@ -417,6 +595,7 @@ public class TransformerEndToEndTest {
             .run(testId, editedMediaItem);
 
     assertThat(result.exportResult.durationMs).isEqualTo(expectedDurationMs);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -424,14 +603,14 @@ public class TransformerEndToEndTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT,
-        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT);
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat);
     Transformer transformer = new Transformer.Builder(context).build();
     long clippingStartMs = 10_000;
     long clippingEndMs = 11_000;
     MediaItem mediaItem =
         new MediaItem.Builder()
-            .setUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_URI_STRING))
+            .setUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.uri))
             .setClippingConfiguration(
                 new MediaItem.ClippingConfiguration.Builder()
                     .setStartPositionMs(clippingStartMs)
@@ -445,6 +624,7 @@ public class TransformerEndToEndTest {
             .run(testId, mediaItem);
 
     assertThat(result.exportResult.durationMs).isAtMost(clippingEndMs - clippingStartMs);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -454,14 +634,14 @@ public class TransformerEndToEndTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT,
-        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT);
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat);
     Transformer transformer = new Transformer.Builder(context).build();
     long clippingStartMs = 10_000;
     long clippingEndMs = 11_000;
     MediaItem mediaItem =
         new MediaItem.Builder()
-            .setUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_URI_STRING))
+            .setUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.uri))
             .setClippingConfiguration(
                 new MediaItem.ClippingConfiguration.Builder()
                     .setStartPositionMs(clippingStartMs)
@@ -488,13 +668,54 @@ public class TransformerEndToEndTest {
   }
 
   @Test
+  public void clippedMedia_trimOptimizationEnabledAndTrimFromCloseToKeyFrame_succeeds()
+      throws Exception {
+    // This test covers the case where there's no frame between the trim point and the next sync
+    // sample. The frame has to be further than roughly 25ms apart.
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_PHOTOS_TRIM_OPTIMIZATION_VIDEO.videoFormat,
+        /* outputFormat= */ MP4_ASSET_PHOTOS_TRIM_OPTIMIZATION_VIDEO.videoFormat);
+
+    Transformer transformer =
+        new Transformer.Builder(context).experimentalSetTrimOptimizationEnabled(true).build();
+
+    // The previous sample is at 1137 and the next sample (which is a sync sample) is at 1171.
+    long clippingStartMs = 1138;
+    long clippingEndMs = 5601;
+
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(Uri.parse(MP4_ASSET_PHOTOS_TRIM_OPTIMIZATION_VIDEO.uri))
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder()
+                    .setStartPositionMs(1138)
+                    .setEndPositionMs(5601)
+                    .build())
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, mediaItem);
+
+    assertThat(result.exportResult.optimizationResult)
+        .isEqualTo(OPTIMIZATION_ABANDONED_KEYFRAME_PLACEMENT_OPTIMAL_FOR_TRIM);
+    assertThat(result.exportResult.durationMs).isAtMost(clippingEndMs - clippingStartMs);
+    assertThat(result.exportResult.videoConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
+    assertThat(result.exportResult.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+  }
+
+  @Test
   public void clippedMedia_trimOptimizationEnabled_fallbackToNormalExportUponFormatMismatch()
       throws Exception {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT,
-        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT);
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat);
     Transformer transformer =
         new Transformer.Builder(context).experimentalSetTrimOptimizationEnabled(true).build();
     long clippingStartMs = 10_000;
@@ -503,7 +724,7 @@ public class TransformerEndToEndTest {
     // available to match the csd.
     MediaItem mediaItem =
         new MediaItem.Builder()
-            .setUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_URI_STRING))
+            .setUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.uri))
             .setClippingConfiguration(
                 new MediaItem.ClippingConfiguration.Builder()
                     .setStartPositionMs(clippingStartMs)
@@ -521,6 +742,7 @@ public class TransformerEndToEndTest {
     assertThat(result.exportResult.durationMs).isAtMost(clippingEndMs - clippingStartMs);
     assertThat(result.exportResult.videoConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSCODED);
     assertThat(result.exportResult.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -530,8 +752,8 @@ public class TransformerEndToEndTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT,
-        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT);
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat);
     Transformer transformer =
         new Transformer.Builder(context).experimentalSetTrimOptimizationEnabled(true).build();
     long clippingStartMs = 10_000;
@@ -540,7 +762,7 @@ public class TransformerEndToEndTest {
     // fallback. This is because its csd doesn't match any known phone decoder.
     MediaItem mediaItem =
         new MediaItem.Builder()
-            .setUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_URI_STRING))
+            .setUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.uri))
             .setClippingConfiguration(
                 new MediaItem.ClippingConfiguration.Builder()
                     .setStartPositionMs(clippingStartMs)
@@ -576,15 +798,15 @@ public class TransformerEndToEndTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT,
-        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT);
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat);
     Transformer transformer =
         new Transformer.Builder(context).experimentalSetTrimOptimizationEnabled(true).build();
     long clippingStartMs = 10_000;
     long clippingEndMs = 11_000;
     MediaItem mediaItem =
         new MediaItem.Builder()
-            .setUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_URI_STRING))
+            .setUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.uri))
             .setClippingConfiguration(
                 new MediaItem.ClippingConfiguration.Builder()
                     .setStartPositionMs(clippingStartMs)
@@ -602,6 +824,7 @@ public class TransformerEndToEndTest {
     assertThat(result.exportResult.durationMs).isAtMost(clippingEndMs - clippingStartMs);
     assertThat(result.exportResult.videoConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSCODED);
     assertThat(result.exportResult.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -611,14 +834,14 @@ public class TransformerEndToEndTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT,
-        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT);
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat);
     Transformer transformer =
         new Transformer.Builder(context).experimentalSetTrimOptimizationEnabled(true).build();
     long clippingStartMs = 14_500;
     MediaItem mediaItem =
         new MediaItem.Builder()
-            .setUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_URI_STRING))
+            .setUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.uri))
             .setClippingConfiguration(
                 new MediaItem.ClippingConfiguration.Builder()
                     .setStartPositionMs(clippingStartMs)
@@ -636,6 +859,7 @@ public class TransformerEndToEndTest {
     assertThat(result.exportResult.durationMs).isAtMost(1_017);
     assertThat(result.exportResult.videoConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSCODED);
     assertThat(result.exportResult.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -651,7 +875,7 @@ public class TransformerEndToEndTest {
         new Transformer.Builder(context).experimentalSetTrimOptimizationEnabled(true).build();
     MediaItem mediaItem =
         new MediaItem.Builder()
-            .setUri(MP4_TRIM_OPTIMIZATION_URI_STRING)
+            .setUri(MP4_TRIM_OPTIMIZATION.uri)
             .setClippingConfiguration(
                 new MediaItem.ClippingConfiguration.Builder()
                     .setStartPositionMs(500)
@@ -670,6 +894,7 @@ public class TransformerEndToEndTest {
     assertThat(result.exportResult.videoConversionProcess)
         .isEqualTo(CONVERSION_PROCESS_TRANSMUXED_AND_TRANSCODED);
     assertThat(result.exportResult.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -686,7 +911,7 @@ public class TransformerEndToEndTest {
         new Transformer.Builder(context).experimentalSetTrimOptimizationEnabled(true).build();
     MediaItem mediaItem =
         new MediaItem.Builder()
-            .setUri(MP4_TRIM_OPTIMIZATION_270_URI_STRING)
+            .setUri(MP4_TRIM_OPTIMIZATION_270.uri)
             .setClippingConfiguration(
                 new MediaItem.ClippingConfiguration.Builder()
                     .setStartPositionMs(500)
@@ -723,7 +948,7 @@ public class TransformerEndToEndTest {
         new Transformer.Builder(context).experimentalSetTrimOptimizationEnabled(true).build();
     MediaItem mediaItem =
         new MediaItem.Builder()
-            .setUri(MP4_TRIM_OPTIMIZATION_180_URI_STRING)
+            .setUri(MP4_TRIM_OPTIMIZATION_180.uri)
             .setClippingConfiguration(
                 new MediaItem.ClippingConfiguration.Builder()
                     .setStartPositionMs(500)
@@ -760,7 +985,7 @@ public class TransformerEndToEndTest {
         new Transformer.Builder(context).experimentalSetTrimOptimizationEnabled(true).build();
     MediaItem mediaItem =
         new MediaItem.Builder()
-            .setUri(MP4_TRIM_OPTIMIZATION_URI_STRING)
+            .setUri(MP4_TRIM_OPTIMIZATION.uri)
             .setClippingConfiguration(
                 new MediaItem.ClippingConfiguration.Builder()
                     .setStartPositionMs(500)
@@ -807,7 +1032,7 @@ public class TransformerEndToEndTest {
     }
     MediaItem mediaItem =
         new MediaItem.Builder()
-            .setUri(MP4_TRIM_OPTIMIZATION_URI_STRING)
+            .setUri(MP4_TRIM_OPTIMIZATION.uri)
             .setClippingConfiguration(
                 new MediaItem.ClippingConfiguration.Builder()
                     .setStartPositionMs(500)
@@ -829,6 +1054,7 @@ public class TransformerEndToEndTest {
         .isEqualTo(OPTIMIZATION_ABANDONED_TRIM_AND_TRANSCODING_TRANSFORMATION_REQUESTED);
     assertThat(result.exportResult.videoConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSCODED);
     assertThat(result.exportResult.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -852,7 +1078,7 @@ public class TransformerEndToEndTest {
             /* videoEffects= */ ImmutableList.of(speedEffect.second));
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(
-                MediaItem.fromUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_URI_STRING))
+                MediaItem.fromUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.uri))
             .setEffects(effects)
             .build();
     ExportTestResult result =
@@ -862,19 +1088,66 @@ public class TransformerEndToEndTest {
 
     // The input video is 15.537 seconds.
     // 3 / 0.5 + 3 / 0.75 + 3 + 3 / 1.5 + 3.537 / 2 rounds up to 16_770
+    assertThat(result.exportResult.durationMs).isAtLeast(16_750);
     assertThat(result.exportResult.durationMs).isAtMost(16_770);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+  }
+
+  @Test
+  public void speedAdjustedMedia_removingAudioAndForcingAudioTrack_completesWithCorrectDuration()
+      throws Exception {
+    Transformer transformer = new Transformer.Builder(context).build();
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithStartTimes(
+            new long[] {
+              0L,
+              3 * C.MICROS_PER_SECOND,
+              6 * C.MICROS_PER_SECOND,
+              9 * C.MICROS_PER_SECOND,
+              12 * C.MICROS_PER_SECOND
+            },
+            new float[] {0.5f, 0.75f, 1f, 1.5f, 2f});
+    Pair<AudioProcessor, Effect> speedEffect =
+        Effects.createExperimentalSpeedChangingEffect(speedProvider);
+    Effects effects =
+        new Effects(
+            /* audioProcessors= */ ImmutableList.of(speedEffect.first),
+            /* videoEffects= */ ImmutableList.of(speedEffect.second));
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.uri))
+            .setEffects(effects)
+            .setRemoveAudio(true)
+            .build();
+    Composition composition =
+        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem))
+            .experimentalSetForceAudioTrack(true)
+            .build();
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, composition);
+
+    // The input video is 15.537 seconds.
+    // 3 / 0.5 + 3 / 0.75 + 3 + 3 / 1.5 + 3.537 / 2 rounds up to 16_770
+    assertThat(result.exportResult.durationMs).isAtLeast(16_720);
+    assertThat(result.exportResult.durationMs).isAtMost(16_770);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
   public void videoEncoderFormatUnsupported_completesWithError() throws Exception {
     assumeFormatsSupported(
-        context, testId, /* inputFormat= */ MP4_ASSET_FORMAT, /* outputFormat= */ MP4_ASSET_FORMAT);
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ASSET.videoFormat);
     Transformer transformer =
         new Transformer.Builder(context)
             .setEncoderFactory(new VideoUnsupportedEncoderFactory(context))
             .build();
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_URI_STRING)))
+        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET.uri)))
             .setRemoveAudio(true)
             .build();
 
@@ -888,7 +1161,7 @@ public class TransformerEndToEndTest {
 
     assertThat(exception).hasCauseThat().isInstanceOf(IllegalArgumentException.class);
     assertThat(exception.errorCode).isEqualTo(ExportException.ERROR_CODE_ENCODER_INIT_FAILED);
-    assertThat(exception).hasMessageThat().contains("video");
+    assertThat(exception.codecInfo.isVideo).isTrue();
   }
 
   @Test
@@ -897,14 +1170,14 @@ public class TransformerEndToEndTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT,
-        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT);
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat);
     ImmutableList<Effect> videoEffects =
         ImmutableList.of(new SpeedChangeEffect(1.5f), new SpeedChangeEffect(2f));
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(
                 MediaItem.fromUri(
-                    Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_URI_STRING)))
+                    Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.uri)))
             .setEffects(new Effects(/* audioProcessors= */ ImmutableList.of(), videoEffects))
             .setRemoveAudio(true)
             .build();
@@ -917,6 +1190,7 @@ public class TransformerEndToEndTest {
             .run(testId, composition);
 
     assertThat(result.exportResult.durationMs).isEqualTo(10_351L);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -926,13 +1200,13 @@ public class TransformerEndToEndTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT,
-        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_FORMAT);
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat);
     ImmutableList<Effect> videoEffects = ImmutableList.of(new SpeedChangeEffect(1.5f));
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(
                 MediaItem.fromUri(
-                    Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_URI_STRING)))
+                    Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.uri)))
             .setEffects(new Effects(/* audioProcessors= */ ImmutableList.of(), videoEffects))
             .setRemoveAudio(true)
             .build();
@@ -946,16 +1220,20 @@ public class TransformerEndToEndTest {
             .run(testId, composition);
 
     assertThat(result.exportResult.durationMs).isAtMost(20_720L);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
   public void audioVideoTranscodedFromDifferentSequences_producesExpectedResult() throws Exception {
     Transformer transformer = new Transformer.Builder(context).build();
     assumeFormatsSupported(
-        context, testId, /* inputFormat= */ MP4_ASSET_FORMAT, /* outputFormat= */ MP4_ASSET_FORMAT);
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ASSET.videoFormat);
     ImmutableList<AudioProcessor> audioProcessors = ImmutableList.of(createSonic(1.2f));
     ImmutableList<Effect> videoEffects = ImmutableList.of(RgbFilter.createGrayscaleFilter());
-    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_URI_STRING));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri));
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem)
             .setEffects(new Effects(audioProcessors, videoEffects))
@@ -991,21 +1269,24 @@ public class TransformerEndToEndTest {
     assertThat(result.exportResult.videoFrameCount)
         .isEqualTo(expectedResult.exportResult.videoFrameCount);
     assertThat(result.exportResult.durationMs).isEqualTo(expectedResult.exportResult.durationMs);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
   public void loopingTranscodedAudio_producesExpectedResult() throws Exception {
     Transformer transformer = new Transformer.Builder(context).build();
     assumeFormatsSupported(
-        context, testId, /* inputFormat= */ MP4_ASSET_FORMAT, /* outputFormat= */ MP4_ASSET_FORMAT);
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ASSET.videoFormat);
     EditedMediaItem audioEditedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP3_ASSET_URI_STRING)).build();
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP3_ASSET.uri)).build();
     EditedMediaItemSequence loopingAudioSequence =
         new EditedMediaItemSequence(
             ImmutableList.of(audioEditedMediaItem, audioEditedMediaItem), /* isLooping= */ true);
     EditedMediaItem videoEditedMediaItem =
-        new EditedMediaItem.Builder(
-                MediaItem.fromUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_URI_STRING))
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri))
             .setRemoveAudio(true)
             .build();
     EditedMediaItemSequence videoSequence =
@@ -1022,23 +1303,32 @@ public class TransformerEndToEndTest {
     assertThat(result.exportResult.processedInputs).hasSize(6);
     assertThat(result.exportResult.channelCount).isEqualTo(1);
     assertThat(result.exportResult.videoFrameCount).isEqualTo(90);
-    assertThat(result.exportResult.durationMs).isEqualTo(2980);
+    // Audio encoders on different API levels output different audio durations for the same input.
+    // On emulator, API 26 always outputs one access unit (23ms) of audio more than API 33.
+    // If the video track is a lot longer than the audio track, then this API difference wouldn't be
+    // seen in this check as the duration is determined by the last video frame.
+    // However, if the audio track is roughly as long as the video track, this API difference
+    // will be seen in result.exportResult.durationMs.
+    assertThat(result.exportResult.durationMs).isAtLeast(2970);
+    assertThat(result.exportResult.durationMs).isAtMost(3020);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
   public void loopingTranscodedVideo_producesExpectedResult() throws Exception {
     Transformer transformer = new Transformer.Builder(context).build();
     assumeFormatsSupported(
-        context, testId, /* inputFormat= */ MP4_ASSET_FORMAT, /* outputFormat= */ MP4_ASSET_FORMAT);
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ASSET.videoFormat);
     EditedMediaItem audioEditedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP3_ASSET_URI_STRING)).build();
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP3_ASSET.uri)).build();
     EditedMediaItemSequence audioSequence =
         new EditedMediaItemSequence(
             audioEditedMediaItem, audioEditedMediaItem, audioEditedMediaItem);
     EditedMediaItem videoEditedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET_URI_STRING))
-            .setRemoveAudio(true)
-            .build();
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri)).setRemoveAudio(true).build();
     EditedMediaItemSequence loopingVideoSequence =
         new EditedMediaItemSequence(
             ImmutableList.of(videoEditedMediaItem, videoEditedMediaItem), /* isLooping= */ true);
@@ -1052,19 +1342,27 @@ public class TransformerEndToEndTest {
     assertThat(result.exportResult.processedInputs).hasSize(7);
     assertThat(result.exportResult.channelCount).isEqualTo(1);
     assertThat(result.exportResult.videoFrameCount).isEqualTo(92);
-    assertThat(result.exportResult.durationMs).isEqualTo(3105);
+    // Audio encoders on different API levels output different audio durations for the same input.
+    // On emulator, API 26 always outputs one access unit (23ms) of audio more than API 33.
+    // If the video track is a lot longer than the audio track, then this API difference wouldn't be
+    // seen in this check as the duration is determined by the last video frame.
+    // However, if the audio track is roughly as long as the video track, this API difference
+    // will be seen in result.exportResult.durationMs.
+    assertThat(result.exportResult.durationMs).isAtLeast(3100);
+    assertThat(result.exportResult.durationMs).isAtMost(3150);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
   public void loopingImage_producesExpectedResult() throws Exception {
     Transformer transformer = new Transformer.Builder(context).build();
     EditedMediaItem audioEditedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP3_ASSET_URI_STRING)).build();
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP3_ASSET.uri)).build();
     EditedMediaItemSequence audioSequence =
         new EditedMediaItemSequence(
             audioEditedMediaItem, audioEditedMediaItem, audioEditedMediaItem);
     EditedMediaItem imageEditedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(PNG_ASSET_URI_STRING))
+        new EditedMediaItem.Builder(MediaItem.fromUri(PNG_ASSET.uri))
             .setDurationUs(1_000_000)
             .setFrameRate(30)
             .build();
@@ -1080,18 +1378,26 @@ public class TransformerEndToEndTest {
 
     assertThat(result.exportResult.processedInputs).hasSize(7);
     assertThat(result.exportResult.channelCount).isEqualTo(1);
-    assertThat(result.exportResult.durationMs).isEqualTo(3133);
+    // Audio encoders on different API levels output different audio durations for the same input.
+    // On emulator, API 26 always outputs one access unit (23ms) of audio more than API 33.
+    // If the video track is a lot longer than the audio track, then this API difference wouldn't be
+    // seen in this check as the duration is determined by the last video frame.
+    // However, if the audio track is roughly as long as the video track, this API difference
+    // will be seen in result.exportResult.durationMs.
+    assertThat(result.exportResult.durationMs).isAtLeast(3120);
+    assertThat(result.exportResult.durationMs).isAtMost(3140);
     assertThat(result.exportResult.videoFrameCount).isEqualTo(95);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
   public void loopingImage_loopingSequenceIsLongest_producesExpectedResult() throws Exception {
     Transformer transformer = new Transformer.Builder(context).build();
     EditedMediaItem audioEditedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP3_ASSET_URI_STRING)).build();
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP3_ASSET.uri)).build();
     EditedMediaItemSequence audioSequence = new EditedMediaItemSequence(audioEditedMediaItem);
     EditedMediaItem imageEditedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(PNG_ASSET_URI_STRING))
+        new EditedMediaItem.Builder(MediaItem.fromUri(PNG_ASSET.uri))
             .setDurationUs(1_050_000)
             .setFrameRate(20)
             .build();
@@ -1107,7 +1413,15 @@ public class TransformerEndToEndTest {
 
     assertThat(result.exportResult.processedInputs).hasSize(3);
     assertThat(result.exportResult.channelCount).isEqualTo(1);
-    assertThat(result.exportResult.durationMs).isEqualTo(1000);
+    // Audio encoders on different API levels output different audio durations for the same input.
+    // On emulator, API 26 always outputs one access unit (23ms) of audio more than API 33.
+    // If the video track is a lot longer than the audio track, then this API difference wouldn't be
+    // seen in this check as the duration is determined by the last video frame.
+    // However, if the audio track is roughly as long as the video track, this API difference
+    // will be seen in result.exportResult.durationMs.
+    assertThat(result.exportResult.durationMs).isAtLeast(1000);
+    assertThat(result.exportResult.durationMs).isAtMost(1050);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
@@ -1116,7 +1430,7 @@ public class TransformerEndToEndTest {
 
     Transformer transformer = new Transformer.Builder(context).build();
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_URI_STRING)))
+        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET.uri)))
             .setEffects(
                 new Effects(
                     ImmutableList.of(audioFormatTracker.createTeeAudioProcessor()),
@@ -1140,7 +1454,7 @@ public class TransformerEndToEndTest {
     channelMixingAudioProcessor.putChannelMixingMatrix(
         ChannelMixingMatrix.create(/* inputChannelCount= */ 1, /* outputChannelCount= */ 2));
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_URI_STRING)))
+        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET.uri)))
             .setRemoveVideo(true)
             .setEffects(
                 new Effects(
@@ -1159,7 +1473,7 @@ public class TransformerEndToEndTest {
   @Test
   public void audioComposition_noEffects_transmuxes() throws Exception {
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_URI_STRING)))
+        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET.uri)))
             .setRemoveVideo(true)
             .build();
     Composition composition =
@@ -1171,12 +1485,13 @@ public class TransformerEndToEndTest {
             .run(testId, composition);
 
     assertThat(result.exportResult.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
   public void audioComposition_compositionEffects_transcodes() throws Exception {
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_URI_STRING)))
+        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET.uri)))
             .setRemoveVideo(true)
             .build();
     Composition composition =
@@ -1191,6 +1506,170 @@ public class TransformerEndToEndTest {
             .run(testId, composition);
 
     assertThat(result.exportResult.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSCODED);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+  }
+
+  @Test
+  public void analyzeAudio_completesSuccessfully() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat,
+        /* outputFormat= */ null);
+    Transformer transformer = ExperimentalAnalyzerModeFactory.buildAnalyzer(context);
+    AtomicInteger audioBytesSeen = new AtomicInteger(/* initialValue= */ 0);
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(
+                    Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.uri)))
+            .setRemoveVideo(true)
+            .setEffects(
+                new Effects(
+                    ImmutableList.of(createByteCountingAudioProcessor(audioBytesSeen)),
+                    /* videoEffects= */ ImmutableList.of()))
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    assertThat(audioBytesSeen.get()).isEqualTo(2_985_984);
+    // Confirm no data was written to file.
+    assertThat(result.exportResult.averageAudioBitrate).isEqualTo(C.RATE_UNSET_INT);
+    assertThat(result.exportResult.fileSizeBytes).isEqualTo(C.LENGTH_UNSET);
+  }
+
+  @Test
+  public void analyzeVideo_completesSuccessfully() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat,
+        /* outputFormat= */ null);
+    Transformer transformer = ExperimentalAnalyzerModeFactory.buildAnalyzer(context);
+    AtomicInteger videoFramesSeen = new AtomicInteger(/* initialValue= */ 0);
+    // Analysis must be added to item effects because composition effects are not applied to single
+    // input video.
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(
+                    Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.uri)))
+            .setRemoveAudio(true)
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    ImmutableList.of(createFrameCountingEffect(videoFramesSeen))))
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    assertThat(videoFramesSeen.get()).isEqualTo(932);
+    // Confirm no data was written to file.
+    assertThat(result.exportResult.videoFrameCount).isEqualTo(0);
+    assertThat(result.exportResult.fileSizeBytes).isEqualTo(C.LENGTH_UNSET);
+  }
+
+  @Test
+  public void analyzeAudioAndVideo_completesSuccessfully() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat,
+        /* outputFormat= */ null);
+    Transformer transformer = ExperimentalAnalyzerModeFactory.buildAnalyzer(context);
+    AtomicInteger audioBytesSeen = new AtomicInteger(/* initialValue= */ 0);
+    AtomicInteger videoFramesSeen = new AtomicInteger(/* initialValue= */ 0);
+    // Analysis must be added to item effects because composition effects are not applied to single
+    // input video.
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(
+                    Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.uri)))
+            .setEffects(
+                new Effects(
+                    ImmutableList.of(createByteCountingAudioProcessor(audioBytesSeen)),
+                    ImmutableList.of(createFrameCountingEffect(videoFramesSeen))))
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    assertThat(audioBytesSeen.get()).isEqualTo(2_985_984);
+    assertThat(videoFramesSeen.get()).isEqualTo(932);
+    // Confirm no data was written to file.
+    assertThat(result.exportResult.averageAudioBitrate).isEqualTo(C.RATE_UNSET_INT);
+    assertThat(result.exportResult.videoFrameCount).isEqualTo(0);
+    assertThat(result.exportResult.fileSizeBytes).isEqualTo(C.LENGTH_UNSET);
+  }
+
+  @Test
+  public void extractFrames_completesSuccessfully() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat,
+        /* outputFormat= */ null);
+    AtomicInteger imagesOutput = new AtomicInteger(/* initialValue= */ 0);
+    Transformer transformer =
+        ExperimentalFrameExtractorFactory.buildFrameExtractorTransformer(
+            context, image -> imagesOutput.incrementAndGet());
+    AtomicInteger videoFramesSeen = new AtomicInteger(/* initialValue= */ 0);
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(
+                    Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.uri)))
+            .setRemoveAudio(true)
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    ImmutableList.of(createFrameCountingEffect(videoFramesSeen))))
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    assertThat(videoFramesSeen.get()).isEqualTo(932);
+    assertThat(imagesOutput.get()).isEqualTo(932);
+    assertThat(result.exportResult.videoFrameCount).isEqualTo(932);
+    // Confirm no data was written to file.
+    assertThat(result.exportResult.fileSizeBytes).isEqualTo(C.LENGTH_UNSET);
+  }
+
+  @Test
+  public void extractFrames_usingAnalyzerMode_completesSuccessfully() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat,
+        /* outputFormat= */ null);
+    Transformer transformer = ExperimentalAnalyzerModeFactory.buildAnalyzer(context);
+    FrameCountingByteBufferProcessor frameCountingProcessor =
+        new FrameCountingByteBufferProcessor();
+    // Analysis must be added to item effects because composition effects are not applied to single
+    // input video.
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(
+                    Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.uri)))
+            .setEffects(
+                new Effects(
+                    ImmutableList.of(),
+                    ImmutableList.of(new ByteBufferGlEffect<>(frameCountingProcessor))))
+            .build();
+
+    new TransformerAndroidTestRunner.Builder(context, transformer)
+        .build()
+        .run(testId, editedMediaItem);
+
+    assertThat(frameCountingProcessor.frameCount.get()).isEqualTo(932);
   }
 
   @Test
@@ -1198,13 +1677,14 @@ public class TransformerEndToEndTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET_FORMAT,
-        /* outputFormat= */ MP4_ASSET_FORMAT
+        /* inputFormat= */ MP4_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ASSET
+            .videoFormat
             .buildUpon()
             .setSampleMimeType(MimeTypes.VIDEO_AV1)
             .setCodecs(null)
             .build());
-    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_URI_STRING));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET.uri));
     EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
     Transformer transformer =
         new Transformer.Builder(context).setVideoMimeType(MimeTypes.VIDEO_AV1).build();
@@ -1225,7 +1705,7 @@ public class TransformerEndToEndTest {
 
   @Test
   public void transcode_withOutputAudioMimeTypeAac_completesSuccessfully() throws Exception {
-    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP3_ASSET_URI_STRING));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP3_ASSET.uri));
     EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
     Transformer transformer =
         new Transformer.Builder(context).setAudioMimeType(MimeTypes.AUDIO_AAC).build();
@@ -1323,7 +1803,7 @@ public class TransformerEndToEndTest {
   }
 
   @Test
-  public void transmux_videoWithEditList_trimsFirstIDRFrameDuration() throws Exception {
+  public void transmux_videoWithEditList_trimsFirstIdrFrameDuration() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     assumeTrue(
         "MediaMuxer doesn't support B frames reliably on older SDK versions", Util.SDK_INT >= 29);
@@ -1353,10 +1833,150 @@ public class TransformerEndToEndTest {
         .isEqualTo(9_500_000);
   }
 
+  @Test
+  public void transcode_shorterAudio_extendsAudioTrack() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_SHORTER_AUDIO.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_SHORTER_AUDIO.videoFormat);
+    Context context = ApplicationProvider.getApplicationContext();
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(new AndroidTestUtil.ForceEncodeEncoderFactory(context))
+            .build();
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_WITH_SHORTER_AUDIO.uri));
+
+    ExportTestResult exportTestResult =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, mediaItem);
+
+    Mp4Extractor mp4Extractor = new Mp4Extractor(new DefaultSubtitleParserFactory());
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(mp4Extractor, exportTestResult.filePath);
+    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isAtLeast(1_150_000);
+    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isAtMost(1_250_000);
+    assertThat(fakeExtractorOutput.numberOfTracks).isEqualTo(2);
+    for (int i = 0; i < fakeExtractorOutput.numberOfTracks; ++i) {
+      FakeTrackOutput trackOutput = fakeExtractorOutput.trackOutputs.get(i);
+      int sampleCount = trackOutput.getSampleCount();
+      assertThat(trackOutput.getSampleTimeUs(/* index= */ 0)).isEqualTo(0);
+      if (MimeTypes.isVideo(trackOutput.lastFormat.sampleMimeType)) {
+        assertThat(trackOutput.getSampleTimeUs(/* index= */ sampleCount - 1)).isEqualTo(1_183_333);
+      } else {
+        // Input has 800ms audio. Output should be closer to 1.2s
+        // Audio encoders on different API levels output different audio durations for the same
+        // input.
+        // E.g. on emulator, API 26 always outputs one access unit (23ms) of audio more than API 33.
+        assertThat(trackOutput.getSampleTimeUs(/* index= */ sampleCount - 1)).isAtLeast(1_150_000);
+        assertThat(trackOutput.getSampleTimeUs(/* index= */ sampleCount - 1)).isAtMost(1_250_000);
+      }
+    }
+  }
+
+  @Test
+  public void transcode_shorterAudioSequence_extendsAudioTrack() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_SHORTER_AUDIO.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_SHORTER_AUDIO.videoFormat);
+    assumeTrue(
+        "Old SDKs have large audio encoder buffer, and hits deadlocks due to b/329087277.",
+        Util.SDK_INT >= 31);
+    Context context = ApplicationProvider.getApplicationContext();
+    Transformer transformer = new Transformer.Builder(context).build();
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_WITH_SHORTER_AUDIO.uri));
+    EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
+
+    Composition composition =
+        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem, editedMediaItem))
+            .build();
+    ExportTestResult exportTestResult =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, composition);
+
+    Mp4Extractor mp4Extractor = new Mp4Extractor(new DefaultSubtitleParserFactory());
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(mp4Extractor, exportTestResult.filePath);
+    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isEqualTo(2_400_000);
+    assertThat(fakeExtractorOutput.numberOfTracks).isEqualTo(2);
+    // Check that both video and audio tracks have duration close to 1 second.
+    for (int i = 0; i < fakeExtractorOutput.numberOfTracks; ++i) {
+      FakeTrackOutput trackOutput = fakeExtractorOutput.trackOutputs.get(i);
+      int sampleCount = trackOutput.getSampleCount();
+      assertThat(trackOutput.getSampleTimeUs(/* index= */ 0)).isEqualTo(0);
+      if (MimeTypes.isVideo(trackOutput.lastFormat.sampleMimeType)) {
+        assertThat(trackOutput.getSampleTimeUs(/* index= */ sampleCount - 1)).isEqualTo(2_383_333);
+      } else {
+        // Input has 800ms audio. Output should be closer to 2.4s.
+        // Audio encoders on different API levels output different audio durations for the same
+        // input.
+        // On emulator, API 26 always outputs one access unit (23ms) of audio more than API 33.
+        assertThat(trackOutput.getSampleTimeUs(/* index= */ sampleCount - 1)).isAtLeast(2_300_000);
+        assertThat(trackOutput.getSampleTimeUs(/* index= */ sampleCount - 1)).isAtMost(2_400_000);
+      }
+    }
+  }
+
+  @Test
+  public void speedAdjustedMedia_shorterAudioTrack_completesWithCorrectDuration() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_SHORTER_AUDIO.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_SHORTER_AUDIO.videoFormat);
+    Transformer transformer = new Transformer.Builder(context).build();
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithStartTimes(
+            new long[] {0L, 1L * C.MICROS_PER_SECOND}, new float[] {1f, 0.5f});
+    Pair<AudioProcessor, Effect> speedEffect =
+        Effects.createExperimentalSpeedChangingEffect(speedProvider);
+    Effects effects =
+        new Effects(
+            /* audioProcessors= */ ImmutableList.of(speedEffect.first),
+            /* videoEffects= */ ImmutableList.of(speedEffect.second));
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET_WITH_SHORTER_AUDIO.uri))
+            .setEffects(effects)
+            .build();
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    // Last video frame PTS is 1.18333
+    // (1.183333 - 1) * 2 + 1 = 1.36667
+    // Audio encoders on different API levels output different audio durations for the same input.
+    // On emulator, API 26 always outputs one access unit (23ms) of audio more than API 33.
+    // If the video track is a lot longer than the audio track, then this API difference wouldn't be
+    // seen in this check as the duration is determined by the last video frame.
+    // However, if the audio track is roughly as long as the video track, this API difference
+    // will be seen in result.exportResult.durationMs.
+    assertThat(result.exportResult.durationMs).isAtLeast(1_360);
+    assertThat(result.exportResult.durationMs).isAtMost(1_400);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+  }
+
   private static AudioProcessor createSonic(float pitch) {
     SonicAudioProcessor sonic = new SonicAudioProcessor();
     sonic.setPitch(pitch);
     return sonic;
+  }
+
+  private static AudioProcessor createByteCountingAudioProcessor(AtomicInteger byteCount) {
+    return new TeeAudioProcessor(
+        new TeeAudioProcessor.AudioBufferSink() {
+          @Override
+          public void flush(int sampleRateHz, int channelCount, @C.PcmEncoding int encoding) {}
+
+          @Override
+          public void handleBuffer(ByteBuffer buffer) {
+            byteCount.addAndGet(buffer.remaining());
+          }
+        });
   }
 
   private final class TestTextureAssetLoaderFactory implements AssetLoader.Factory {
@@ -1409,9 +2029,8 @@ public class TransformerEndToEndTest {
       throw ExportException.createForCodec(
           new IllegalArgumentException(),
           ExportException.ERROR_CODE_ENCODER_INIT_FAILED,
-          /* isVideo= */ true,
-          /* isDecoder= */ false,
-          format);
+          new ExportException.CodecInfo(
+              format.toString(), /* isVideo= */ true, /* isDecoder= */ false, /* name= */ null));
     }
 
     @Override

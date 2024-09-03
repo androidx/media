@@ -17,7 +17,6 @@ package androidx.media3.exoplayer.source;
 
 import android.os.Bundle;
 import androidx.annotation.Nullable;
-import androidx.media3.common.Bundleable;
 import androidx.media3.common.C;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.BundleCollectionUtil;
@@ -39,7 +38,7 @@ import java.util.List;
  * audio track in another language).
  */
 @UnstableApi
-public final class TrackGroupArray implements Bundleable {
+public final class TrackGroupArray {
 
   private static final String TAG = "TrackGroupArray";
 
@@ -116,11 +115,8 @@ public final class TrackGroupArray implements Bundleable {
     return length == other.length && trackGroups.equals(other.trackGroups);
   }
 
-  // Bundleable implementation.
-
   private static final String FIELD_TRACK_GROUPS = Util.intToStringMaxRadix(0);
 
-  @Override
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
     bundle.putParcelableArrayList(
@@ -128,15 +124,6 @@ public final class TrackGroupArray implements Bundleable {
         BundleCollectionUtil.toBundleArrayList(trackGroups, TrackGroup::toBundle));
     return bundle;
   }
-
-  /**
-   * Object that can restores a TrackGroupArray from a {@link Bundle}.
-   *
-   * @deprecated Use {@link #fromBundle} instead.
-   */
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<TrackGroupArray> CREATOR = TrackGroupArray::fromBundle;
 
   /** Restores a {@code TrackGroupArray} from a {@link Bundle}. */
   public static TrackGroupArray fromBundle(Bundle bundle) {

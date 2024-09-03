@@ -41,9 +41,7 @@
     <item>1,5x</item>
     <item>2x</item>
   </string-array>
-  <string name="exo_track_selection_title_video">Video</string>
   <string name="exo_track_selection_title_audio">Audio</string>
-  <string name="exo_track_selection_title_text">Teks</string>
   <string name="exo_track_selection_none">Tidak ada</string>
   <string name="exo_track_selection_auto">Otomatis</string>
   <string name="exo_track_unknown">Tidak diketahui</string>

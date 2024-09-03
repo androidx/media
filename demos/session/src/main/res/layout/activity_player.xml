@@ -22,21 +22,16 @@
   android:background="@color/player_background"
   tools:context=".PlayerActivity">
 
-  <androidx.media3.ui.AspectRatioFrameLayout
-    android:layout_height="300dp"
+  <androidx.media3.ui.PlayerView
+    android:id="@+id/player_view"
+    android:background="@color/player_background"
     android:layout_width="match_parent"
-    >
-    <androidx.media3.ui.PlayerView
-      android:id="@+id/player_view"
-      android:background="@color/player_background"
-      android:layout_width="match_parent"
-      android:layout_height="match_parent"
-      app:artwork_display_mode="fill"
-      app:default_artwork="@drawable/artwork_placeholder"
-      app:repeat_toggle_modes="one|all"
-      app:show_shuffle_button="true"
-      app:shutter_background_color="@color/player_background" />
-  </androidx.media3.ui.AspectRatioFrameLayout>
+    android:layout_height="300dp"
+    app:artwork_display_mode="fill"
+    app:default_artwork="@drawable/artwork_placeholder"
+    app:repeat_toggle_modes="one|all"
+    app:show_shuffle_button="true"
+    app:shutter_background_color="@color/player_background" />
 
   <TextView
     android:id="@+id/media_artist"

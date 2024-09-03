@@ -54,7 +54,7 @@ import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
  *
  * <ul>
  *   <li>Video can not be transcoded, due to OpenGL not being supported with Robolectric.
- *   <li>Non RAW audio can not be trancoded, because AudioGraph requires decoded data but
+ *   <li>Non RAW audio can not be transcoded, because AudioGraph requires decoded data but
  *       Robolectric decoders do not decode.
  *   <li>RAW audio will always be transcoded, because the muxer does not support RAW audio as input.
  * </ul>
@@ -70,7 +70,7 @@ public final class ParameterizedItemExportTest {
           FILE_AUDIO_AMR_NB);
 
   private static final ImmutableList<String> AUDIO_VIDEO_ASSETS =
-      ImmutableList.of(FILE_AUDIO_RAW_VIDEO, "mp4/sample_twos_pcm.mp4", FILE_AUDIO_VIDEO);
+      ImmutableList.of(FILE_AUDIO_RAW_VIDEO, FILE_AUDIO_VIDEO);
 
   private static final ImmutableList<String> VIDEO_ONLY_ASSETS = ImmutableList.of(FILE_VIDEO_ONLY);
 

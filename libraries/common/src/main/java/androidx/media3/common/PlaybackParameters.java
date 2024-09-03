@@ -24,7 +24,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 
 /** Parameters that apply to playback, including speed setting. */
-public final class PlaybackParameters implements Bundleable {
+public final class PlaybackParameters {
 
   /** The default playback parameters: real-time playback with no silence skipping. */
   public static final PlaybackParameters DEFAULT = new PlaybackParameters(/* speed= */ 1f);
@@ -113,29 +113,16 @@ public final class PlaybackParameters implements Bundleable {
     return Util.formatInvariant("PlaybackParameters(speed=%.2f, pitch=%.2f)", speed, pitch);
   }
 
-  // Bundleable implementation.
-
   private static final String FIELD_SPEED = Util.intToStringMaxRadix(0);
   private static final String FIELD_PITCH = Util.intToStringMaxRadix(1);
 
   @UnstableApi
-  @Override
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
     bundle.putFloat(FIELD_SPEED, speed);
     bundle.putFloat(FIELD_PITCH, pitch);
     return bundle;
   }
-
-  /**
-   * Object that can restore {@link PlaybackParameters} from a {@link Bundle}.
-   *
-   * @deprecated Use {@link #fromBundle} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<PlaybackParameters> CREATOR = PlaybackParameters::fromBundle;
 
   /** Restores a {@code PlaybackParameters} from a {@link Bundle}. */
   @UnstableApi

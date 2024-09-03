@@ -41,9 +41,7 @@
     <item>1.5x</item>
     <item>2x</item>
   </string-array>
-  <string name="exo_track_selection_title_video">វីដេអូ</string>
   <string name="exo_track_selection_title_audio">សំឡេង</string>
-  <string name="exo_track_selection_title_text">អក្សរ</string>
   <string name="exo_track_selection_none">គ្មាន</string>
   <string name="exo_track_selection_auto">ស្វ័យប្រវត្តិ</string>
   <string name="exo_track_unknown">មិនស្គាល់</string>

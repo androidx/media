@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.util;
 
 import static androidx.media3.common.util.Util.getFormatSupportString;
+import static androidx.media3.common.util.Util.getTrackTypeString;
 import static java.lang.Math.min;
 
 import android.os.SystemClock;
@@ -89,7 +90,7 @@ public class EventLogger implements AnalyticsListener {
    * Creates an instance.
    *
    * @param trackSelector This parameter is ignored.
-   * @deprecated Use {@link EventLogger()}
+   * @deprecated Use {@link #EventLogger()}
    */
   @UnstableApi
   @Deprecated
@@ -103,7 +104,7 @@ public class EventLogger implements AnalyticsListener {
    *
    * @param trackSelector This parameter is ignored.
    * @param tag The tag used for logging.
-   * @deprecated Use {@link EventLogger(String)}
+   * @deprecated Use {@link #EventLogger(String)}
    */
   @UnstableApi
   @Deprecated
@@ -565,6 +566,24 @@ public class EventLogger implements AnalyticsListener {
   @Override
   public void onDrmSessionReleased(EventTime eventTime) {
     logd(eventTime, "drmSessionReleased");
+  }
+
+  @UnstableApi
+  @Override
+  public void onRendererReadyChanged(
+      EventTime eventTime,
+      int rendererIndex,
+      @C.TrackType int rendererTrackType,
+      boolean isRendererReady) {
+    logd(
+        eventTime,
+        "rendererReady",
+        "rendererIndex="
+            + rendererIndex
+            + ", "
+            + getTrackTypeString(rendererTrackType)
+            + ", "
+            + isRendererReady);
   }
 
   /**

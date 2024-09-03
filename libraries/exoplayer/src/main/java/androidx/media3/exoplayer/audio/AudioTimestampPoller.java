@@ -236,6 +236,16 @@ import java.lang.annotation.Target;
     return audioTimestamp != null ? audioTimestamp.getTimestampPositionFrames() : C.INDEX_UNSET;
   }
 
+  /**
+   * Sets up the poller to expect a reset in audio track frame position due to an impending track
+   * transition and reusing of the {@link AudioTrack}.
+   */
+  public void expectTimestampFramePositionReset() {
+    if (audioTimestamp != null) {
+      audioTimestamp.expectTimestampFramePositionReset();
+    }
+  }
+
   private void updateState(@State int state) {
     this.state = state;
     switch (state) {
@@ -271,6 +281,18 @@ import java.lang.annotation.Target;
     private long lastTimestampPositionFrames;
 
     /**
+     * Whether to expect a raw playback head reset.
+     *
+     * <p>When an {@link AudioTrack} is reused during offloaded playback, the {@link
+     * AudioTimestamp#framePosition} is reset upon track transition. {@link AudioTimestampWrapper}
+     * must be notified of the impending reset and keep track of total accumulated {@code
+     * AudioTimestamp.framePosition}.
+     */
+    private boolean expectTimestampFramePositionReset;
+
+    private long accumulatedRawTimestampFramePosition;
+
+    /**
      * Creates a new {@link AudioTimestamp} wrapper.
      *
      * @param audioTrack The audio track that will provide timestamps.
@@ -291,12 +313,19 @@ import java.lang.annotation.Target;
       if (updated) {
         long rawPositionFrames = audioTimestamp.framePosition;
         if (lastTimestampRawPositionFrames > rawPositionFrames) {
-          // The value must have wrapped around.
-          rawTimestampFramePositionWrapCount++;
+          if (expectTimestampFramePositionReset) {
+            accumulatedRawTimestampFramePosition += lastTimestampRawPositionFrames;
+            expectTimestampFramePositionReset = false;
+          } else {
+            // The value must have wrapped around.
+            rawTimestampFramePositionWrapCount++;
+          }
         }
         lastTimestampRawPositionFrames = rawPositionFrames;
         lastTimestampPositionFrames =
-            rawPositionFrames + (rawTimestampFramePositionWrapCount << 32);
+            rawPositionFrames
+                + accumulatedRawTimestampFramePosition
+                + (rawTimestampFramePositionWrapCount << 32);
       }
       return updated;
     }
@@ -307,6 +336,10 @@ import java.lang.annotation.Target;
 
     public long getTimestampPositionFrames() {
       return lastTimestampPositionFrames;
+    }
+
+    public void expectTimestampFramePositionReset() {
+      expectTimestampFramePositionReset = true;
     }
   }
 }

@@ -49,7 +49,7 @@ import java.util.Arrays;
  * required changes.
  */
 @UnstableApi
-public final class AdPlaybackState implements Bundleable {
+public final class AdPlaybackState {
 
   /**
    * Represents a group of ads, with information about their states.
@@ -57,7 +57,7 @@ public final class AdPlaybackState implements Bundleable {
    * <p>Instances are immutable. Call the {@code with*} methods to get new instances that have the
    * required changes.
    */
-  public static final class AdGroup implements Bundleable {
+  public static final class AdGroup {
 
     /**
      * The time of the ad group in the {@link Timeline.Period}, in microseconds, or {@link
@@ -491,8 +491,6 @@ public final class AdPlaybackState implements Bundleable {
       return durationsUs;
     }
 
-    // Bundleable implementation.
-
     private static final String FIELD_TIME_US = Util.intToStringMaxRadix(0);
     private static final String FIELD_COUNT = Util.intToStringMaxRadix(1);
     private static final String FIELD_URIS = Util.intToStringMaxRadix(2);
@@ -506,7 +504,6 @@ public final class AdPlaybackState implements Bundleable {
     // Intentionally assigning deprecated field.
     // putParcelableArrayList actually supports null elements.
     @SuppressWarnings({"deprecation", "nullness:argument"})
-    @Override
     public Bundle toBundle() {
       Bundle bundle = new Bundle();
       bundle.putLong(FIELD_TIME_US, timeUs);
@@ -521,15 +518,6 @@ public final class AdPlaybackState implements Bundleable {
       bundle.putBoolean(FIELD_IS_SERVER_SIDE_INSERTED, isServerSideInserted);
       return bundle;
     }
-
-    /**
-     * Object that can restore {@link AdGroup} from a {@link Bundle}.
-     *
-     * @deprecated Use {@link #fromBundle} instead.
-     */
-    @Deprecated
-    @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-    public static final Creator<AdGroup> CREATOR = AdGroup::fromBundle;
 
     /** Restores a {@code AdGroup} from a {@link Bundle}. */
     // getParcelableArrayList may have null elements.
@@ -1244,21 +1232,18 @@ public final class AdPlaybackState implements Bundleable {
     return positionUs < adGroupPositionUs;
   }
 
-  // Bundleable implementation.
-
   private static final String FIELD_AD_GROUPS = Util.intToStringMaxRadix(1);
   private static final String FIELD_AD_RESUME_POSITION_US = Util.intToStringMaxRadix(2);
   private static final String FIELD_CONTENT_DURATION_US = Util.intToStringMaxRadix(3);
   private static final String FIELD_REMOVED_AD_GROUP_COUNT = Util.intToStringMaxRadix(4);
 
   /**
-   * {@inheritDoc}
+   * Returns a {@link Bundle} representing the information stored in this object.
    *
    * <p>It omits the {@link #adsId} field so the {@link #adsId} of instances restored by {@link
-   * #CREATOR} will always be {@code null}.
+   * #fromBundle(Bundle)} will always be {@code null}.
    */
   // TODO(b/166765820): See if missing adsId would be okay and add adsId to the Bundle otherwise.
-  @Override
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
     ArrayList<Bundle> adGroupBundleList = new ArrayList<>();
@@ -1279,17 +1264,6 @@ public final class AdPlaybackState implements Bundleable {
     }
     return bundle;
   }
-
-  /**
-   * Object that can restore {@link AdPlaybackState} from a {@link Bundle}.
-   *
-   * <p>The {@link #adsId} of restored instances will always be {@code null}.
-   *
-   * @deprecated Use {@link #fromBundle} instead.
-   */
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Bundleable.Creator<AdPlaybackState> CREATOR = AdPlaybackState::fromBundle;
 
   /** Restores a {@code AdPlaybackState} from a {@link Bundle}. */
   public static AdPlaybackState fromBundle(Bundle bundle) {

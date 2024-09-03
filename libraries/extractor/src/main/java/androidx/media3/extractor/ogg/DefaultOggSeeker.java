@@ -103,7 +103,7 @@ import java.math.BigInteger;
         if (lastPageSearchPosition > positionBeforeSeekToEnd) {
           return lastPageSearchPosition;
         }
-        // Fall through.
+      // Fall through.
       case STATE_READ_LAST_PAGE:
         totalGranules = readGranuleOfLastPage(input);
         state = STATE_IDLE;
@@ -114,7 +114,7 @@ import java.math.BigInteger;
           return position;
         }
         state = STATE_SKIP;
-        // Fall through.
+      // Fall through.
       case STATE_SKIP:
         skipToPageOfTargetGranule(input);
         state = STATE_IDLE;

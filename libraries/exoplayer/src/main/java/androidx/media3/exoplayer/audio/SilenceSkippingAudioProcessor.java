@@ -146,7 +146,6 @@ public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor {
    */
   private final long maxSilenceToKeepDurationUs;
 
-  private AudioFormat inputFormat;
   private int bytesPerFrame;
   private boolean enabled;
   private @State int state;
@@ -236,7 +235,6 @@ public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor {
     this.maxSilenceToKeepDurationUs = maxSilenceToKeepDurationUs;
     this.minVolumeToKeepPercentageWhenMuting = minVolumeToKeepPercentageWhenMuting;
     this.silenceThresholdLevel = silenceThresholdLevel;
-    inputFormat = AudioFormat.NOT_SET;
     maybeSilenceBuffer = Util.EMPTY_BYTE_ARRAY;
     contiguousOutputBuffer = Util.EMPTY_BYTE_ARRAY;
   }
@@ -266,14 +264,15 @@ public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor {
     if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT) {
       throw new UnhandledAudioFormatException(inputAudioFormat);
     }
-    this.inputFormat = inputAudioFormat;
-    bytesPerFrame = inputAudioFormat.channelCount * 2;
+    if (inputAudioFormat.sampleRate == Format.NO_VALUE) {
+      return AudioFormat.NOT_SET;
+    }
     return inputAudioFormat;
   }
 
   @Override
   public boolean isActive() {
-    return inputFormat.sampleRate != Format.NO_VALUE && enabled;
+    return super.isActive() && enabled;
   }
 
   @Override
@@ -307,6 +306,7 @@ public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor {
   @Override
   public void onFlush() {
     if (isActive()) {
+      bytesPerFrame = inputAudioFormat.channelCount * 2;
       // Divide by 2 to allow the buffer to be split into two bytesPerFrame aligned parts.
       int maybeSilenceBufferSize =
           alignToBytePerFrameBoundary(durationUsToFrames(minimumSilenceDurationUs) / 2) * 2;
@@ -325,7 +325,6 @@ public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor {
   @Override
   public void onReset() {
     enabled = false;
-    inputFormat = AudioFormat.NOT_SET;
     maybeSilenceBuffer = Util.EMPTY_BYTE_ARRAY;
     contiguousOutputBuffer = Util.EMPTY_BYTE_ARRAY;
   }
@@ -711,7 +710,7 @@ public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor {
    * Returns the number of input frames corresponding to {@code durationUs} microseconds of audio.
    */
   private int durationUsToFrames(long durationUs) {
-    return (int) ((durationUs * inputFormat.sampleRate) / C.MICROS_PER_SECOND);
+    return (int) ((durationUs * inputAudioFormat.sampleRate) / C.MICROS_PER_SECOND);
   }
 
   /**

@@ -70,17 +70,18 @@ import java.util.Arrays;
 
   private int indexChunkCount;
   private int indexSize;
+  private long firstIndexChunkOffset;
   private long[] keyFrameOffsets;
   private int[] keyFrameIndices;
 
   public ChunkReader(
       int id,
       @C.TrackType int trackType,
-      long durationnUs,
+      long durationUs,
       int streamHeaderChunkCount,
       TrackOutput trackOutput) {
     Assertions.checkArgument(trackType == C.TRACK_TYPE_AUDIO || trackType == C.TRACK_TYPE_VIDEO);
-    this.durationUs = durationnUs;
+    this.durationUs = durationUs;
     this.streamHeaderChunkCount = streamHeaderChunkCount;
     this.trackOutput = trackOutput;
     @ChunkType
@@ -89,18 +90,25 @@ import java.util.Arrays;
     chunkId = getChunkIdFourCc(id, chunkType);
     alternativeChunkId =
         trackType == C.TRACK_TYPE_VIDEO ? getChunkIdFourCc(id, CHUNK_TYPE_VIDEO_UNCOMPRESSED) : -1;
+    firstIndexChunkOffset = C.INDEX_UNSET;
     keyFrameOffsets = new long[INITIAL_INDEX_SIZE];
     keyFrameIndices = new int[INITIAL_INDEX_SIZE];
   }
 
-  public void appendKeyFrameToIndex(long offset) {
-    if (indexSize == keyFrameIndices.length) {
-      keyFrameOffsets = Arrays.copyOf(keyFrameOffsets, keyFrameOffsets.length * 3 / 2);
-      keyFrameIndices = Arrays.copyOf(keyFrameIndices, keyFrameIndices.length * 3 / 2);
+  public void appendIndexChunk(long offset, boolean isKeyFrame) {
+    if (firstIndexChunkOffset == C.INDEX_UNSET) {
+      firstIndexChunkOffset = offset;
     }
-    keyFrameOffsets[indexSize] = offset;
-    keyFrameIndices[indexSize] = indexChunkCount;
-    indexSize++;
+    if (isKeyFrame) {
+      if (indexSize == keyFrameIndices.length) {
+        keyFrameOffsets = Arrays.copyOf(keyFrameOffsets, keyFrameOffsets.length * 3 / 2);
+        keyFrameIndices = Arrays.copyOf(keyFrameIndices, keyFrameIndices.length * 3 / 2);
+      }
+      keyFrameOffsets[indexSize] = offset;
+      keyFrameIndices[indexSize] = indexChunkCount;
+      indexSize++;
+    }
+    indexChunkCount++;
   }
 
   public void advanceCurrentChunk() {
@@ -113,10 +121,6 @@ import java.util.Arrays;
 
   public long getFrameDurationUs() {
     return getChunkTimestampUs(/* chunkIndex= */ 1);
-  }
-
-  public void incrementIndexChunkCount() {
-    indexChunkCount++;
   }
 
   public void compactIndex() {
@@ -180,6 +184,11 @@ import java.util.Arrays;
   }
 
   public SeekMap.SeekPoints getSeekPoints(long timeUs) {
+    if (indexSize == 0) {
+      // Return the offset of the first chunk as there are no keyframes in the index.
+      return new SeekMap.SeekPoints(
+          new SeekPoint(/* timeUs= */ 0, /* position= */ firstIndexChunkOffset));
+    }
     int targetFrameIndex = (int) (timeUs / getFrameDurationUs());
     int keyFrameIndex =
         Util.binarySearchFloor(

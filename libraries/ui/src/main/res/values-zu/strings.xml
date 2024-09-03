@@ -41,9 +41,7 @@
     <item>1.5x</item>
     <item>2x</item>
   </string-array>
-  <string name="exo_track_selection_title_video">Ividiyo</string>
   <string name="exo_track_selection_title_audio">Umsindo</string>
-  <string name="exo_track_selection_title_text">Umbhalo</string>
   <string name="exo_track_selection_none">Lutho</string>
   <string name="exo_track_selection_auto">Okuzenzakalelayo</string>
   <string name="exo_track_unknown">Akwaziwa</string>

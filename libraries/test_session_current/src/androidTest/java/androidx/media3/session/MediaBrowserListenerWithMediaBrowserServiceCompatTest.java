@@ -27,6 +27,9 @@ import static androidx.media3.test.session.common.MediaBrowserConstants.ROOT_ID;
 import static androidx.media3.test.session.common.MediaBrowserConstants.ROOT_ID_SUPPORTS_BROWSABLE_CHILDREN_ONLY;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_CONNECT_REJECTED;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_CHILDREN;
+import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_CHILDREN_FATAL_AUTHENTICATION_ERROR;
+import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_CHILDREN_NON_FATAL_AUTHENTICATION_ERROR;
+import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_CHILDREN_WITH_NULL_LIST;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_LIBRARY_ROOT;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_ON_CHILDREN_CHANGED_SUBSCRIBE_AND_UNSUBSCRIBE;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
@@ -39,12 +42,16 @@ import android.os.Bundle;
 import androidx.annotation.Nullable;
 import androidx.media.MediaBrowserServiceCompat;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.PlaybackException;
+import androidx.media3.common.Player;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
 import com.google.common.collect.ImmutableList;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import org.junit.After;
@@ -152,6 +159,25 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
   }
 
   @Test
+  public void onChildrenChanged_withNullChildrenListInLegacyService_convertedToSessionError()
+      throws Exception {
+    String testParentId = TEST_GET_CHILDREN_WITH_NULL_LIST;
+    remoteService.setProxyForTest(TEST_GET_CHILDREN_WITH_NULL_LIST);
+    MediaBrowser browser = createBrowser(/* listener= */ null);
+
+    LibraryResult<Void> resultForSubscribe =
+        threadTestRule
+            .getHandler()
+            .postAndSync(() -> browser.subscribe(testParentId, null))
+            .get(TIMEOUT_MS, MILLISECONDS);
+
+    assertThat(resultForSubscribe.resultCode).isEqualTo(SessionError.ERROR_UNKNOWN);
+    assertThat(resultForSubscribe.sessionError.code).isEqualTo(SessionError.ERROR_UNKNOWN);
+    assertThat(resultForSubscribe.sessionError.message)
+        .isEqualTo(SessionError.DEFAULT_ERROR_MESSAGE);
+  }
+
+  @Test
   public void getLibraryRoot_correctExtraKeyAndValue() throws Exception {
     remoteService.setProxyForTest(TEST_GET_LIBRARY_ROOT);
     MediaBrowser browser = createBrowser(/* listener= */ null);
@@ -243,5 +269,71 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
                   /* defaultValue= */ EXTRAS_VALUE_COMPLETION_STATUS_PARTIALLY_PLAYED + 1);
       assertThat(status).isEqualTo(expectedStatus);
     }
+  }
+
+  @Test
+  public void getChildren_fatalAuthenticationErrorOfLegacySessionApp_receivesPlaybackException()
+      throws Exception {
+    remoteService.setProxyForTest(TEST_GET_CHILDREN_FATAL_AUTHENTICATION_ERROR);
+    MediaBrowser browser = createBrowser(/* listener= */ null);
+    List<PlaybackException> playbackExceptions = new ArrayList<>();
+    CountDownLatch playbackErrorLatch = new CountDownLatch(1);
+    browser.addListener(
+        new Player.Listener() {
+          @Override
+          public void onPlayerError(PlaybackException error) {
+            playbackExceptions.add(error);
+            playbackErrorLatch.countDown();
+          }
+        });
+
+    LibraryResult<ImmutableList<MediaItem>> libraryResult =
+        threadTestRule
+            .getHandler()
+            .postAndSync(
+                () ->
+                    browser.getChildren(
+                        PARENT_ID, /* page= */ 4, /* pageSize= */ 10, /* params= */ null))
+            .get(TIMEOUT_MS, MILLISECONDS);
+
+    assertThat(playbackErrorLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(libraryResult.sessionError.code).isEqualTo(SessionError.ERROR_UNKNOWN);
+    assertThat(playbackExceptions).hasSize(1);
+    assertThat(playbackExceptions.get(0).errorCode)
+        .isEqualTo(PlaybackException.ERROR_CODE_AUTHENTICATION_EXPIRED);
+  }
+
+  @Test
+  public void getChildren_nonFatalAuthenticationErrorOfLegacySessionApp_receivesSessionError()
+      throws Exception {
+    remoteService.setProxyForTest(TEST_GET_CHILDREN_NON_FATAL_AUTHENTICATION_ERROR);
+    List<SessionError> sessionErrors = new ArrayList<>();
+    CountDownLatch sessionErrorLatch = new CountDownLatch(1);
+    MediaBrowser browser =
+        createBrowser(
+            /* listener= */ new MediaBrowser.Listener() {
+              @Override
+              public void onError(MediaController controller, SessionError sessionError) {
+                sessionErrors.add(sessionError);
+                sessionErrorLatch.countDown();
+              }
+            });
+
+    LibraryResult<ImmutableList<MediaItem>> libraryResult =
+        threadTestRule
+            .getHandler()
+            .postAndSync(
+                () ->
+                    browser.getChildren(
+                        PARENT_ID, /* page= */ 4, /* pageSize= */ 10, /* params= */ null))
+            .get(TIMEOUT_MS, MILLISECONDS);
+
+    assertThat(sessionErrorLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(libraryResult.sessionError).isNull();
+    assertThat(libraryResult.value).hasSize(1);
+    assertThat(libraryResult.value.get(0).mediaId).isEqualTo("mediaId");
+    assertThat(sessionErrors).hasSize(1);
+    assertThat(sessionErrors.get(0).code)
+        .isEqualTo(PlaybackException.ERROR_CODE_AUTHENTICATION_EXPIRED);
   }
 }

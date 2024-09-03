@@ -58,6 +58,7 @@ public final class FileTypes {
    *   <li>{@link #WEBP}
    *   <li>{@link #BMP}
    *   <li>{@link #HEIF}
+   *   <li>{@link #AVIF}
    * </ul>
    */
   @Documented
@@ -65,7 +66,7 @@ public final class FileTypes {
   @Target(TYPE_USE)
   @IntDef({
     UNKNOWN, AC3, AC4, ADTS, AMR, FLAC, FLV, MATROSKA, MP3, MP4, OGG, PS, TS, WAV, WEBVTT, JPEG,
-    MIDI, AVI, PNG, WEBP, BMP, HEIF
+    MIDI, AVI, PNG, WEBP, BMP, HEIF, AVIF
   })
   public @interface Type {}
 
@@ -135,6 +136,9 @@ public final class FileTypes {
   /** File type for the HEIF format. */
   public static final int HEIF = 20;
 
+  /** File type for the AVIF format. */
+  public static final int AVIF = 21;
+
   @VisibleForTesting /* package */ static final String HEADER_CONTENT_TYPE = "Content-Type";
 
   private static final String EXTENSION_AC3 = ".ac3";
@@ -175,6 +179,8 @@ public final class FileTypes {
   private static final String EXTENSION_BMP = ".bmp";
   private static final String EXTENSION_DIB = ".dib";
   private static final String EXTENSION_HEIC = ".heic";
+  private static final String EXTENSION_HEIF = ".heif";
+  private static final String EXTENSION_AVIF = ".avif";
 
   private FileTypes() {}
 
@@ -247,7 +253,10 @@ public final class FileTypes {
       case MimeTypes.IMAGE_BMP:
         return FileTypes.BMP;
       case MimeTypes.IMAGE_HEIF:
+      case MimeTypes.IMAGE_HEIC:
         return FileTypes.HEIF;
+      case MimeTypes.IMAGE_AVIF:
+        return FileTypes.AVIF;
       default:
         return FileTypes.UNKNOWN;
     }
@@ -321,8 +330,10 @@ public final class FileTypes {
       return FileTypes.WEBP;
     } else if (filename.endsWith(EXTENSION_BMP) || filename.endsWith(EXTENSION_DIB)) {
       return FileTypes.BMP;
-    } else if (filename.endsWith(EXTENSION_HEIC)) {
+    } else if (filename.endsWith(EXTENSION_HEIC) || filename.endsWith(EXTENSION_HEIF)) {
       return FileTypes.HEIF;
+    } else if (filename.endsWith(EXTENSION_AVIF)) {
+      return FileTypes.AVIF;
     } else {
       return FileTypes.UNKNOWN;
     }

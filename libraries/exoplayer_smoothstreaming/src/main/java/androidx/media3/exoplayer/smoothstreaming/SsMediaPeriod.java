@@ -264,7 +264,8 @@ import java.util.List;
         drmSessionManager,
         drmEventDispatcher,
         loadErrorHandlingPolicy,
-        mediaSourceEventDispatcher);
+        mediaSourceEventDispatcher,
+        /* canReportInitialDiscontinuity= */ false);
   }
 
   private static TrackGroupArray buildTrackGroups(

@@ -41,9 +41,7 @@
     <item>1.5x</item>
     <item>2x</item>
   </string-array>
-  <string name="exo_track_selection_title_video">વીડિયો</string>
   <string name="exo_track_selection_title_audio">ઑડિયો</string>
-  <string name="exo_track_selection_title_text">ટેક્સ્ટ</string>
   <string name="exo_track_selection_none">એકપણ નહીં</string>
   <string name="exo_track_selection_auto">ઑટોમૅટિક રીતે</string>
   <string name="exo_track_unknown">અજાણ્યો</string>

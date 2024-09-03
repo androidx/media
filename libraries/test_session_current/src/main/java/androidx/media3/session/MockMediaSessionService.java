@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.test.session.common.CommonConstants.MEDIA_CONTROLLER_PACKAGE_NAME_API_21;
 import static androidx.media3.test.session.common.CommonConstants.SUPPORT_APP_PACKAGE_NAME;
 
 import android.content.Intent;
@@ -119,7 +120,8 @@ public class MockMediaSessionService extends MediaSessionService {
     @Override
     public MediaSession.ConnectionResult onConnect(
         MediaSession session, ControllerInfo controller) {
-      if (TextUtils.equals(SUPPORT_APP_PACKAGE_NAME, controller.getPackageName())) {
+      if (TextUtils.equals(SUPPORT_APP_PACKAGE_NAME, controller.getPackageName())
+          || TextUtils.equals(MEDIA_CONTROLLER_PACKAGE_NAME_API_21, controller.getPackageName())) {
         return MediaSession.Callback.super.onConnect(session, controller);
       }
       return MediaSession.ConnectionResult.reject();

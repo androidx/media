@@ -16,13 +16,11 @@
 package androidx.media3.decoder.midi;
 
 import android.content.Context;
-import androidx.media3.common.util.UnstableApi;
 import com.jsyn.unitgen.UnitVoice;
 import com.jsyn.util.VoiceDescription;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Synthesizer voice description, used for obtaining {@link SonivoxSynthVoice} instances. */
-@UnstableApi
 /* package */ final class SonivoxVoiceDescription extends VoiceDescription {
   private static final String VOICE_CLASS_NAME = "SonivoxVoiceDescription";
   private static final String[] tags = {"wavetable", "GM2", "ringtone"};

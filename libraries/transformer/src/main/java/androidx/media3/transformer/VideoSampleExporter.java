@@ -24,15 +24,16 @@ import static androidx.media3.common.ColorInfo.SRGB_BT709_FULL;
 import static androidx.media3.common.ColorInfo.isTransferHdr;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.transformer.Composition.HDR_MODE_KEEP_HDR;
 import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
-import static androidx.media3.transformer.EncoderUtil.getSupportedEncodersForHdrEditing;
+import static androidx.media3.transformer.TransformerUtil.getOutputMimeTypeAndHdrModeAfterFallback;
 
 import android.content.Context;
 import android.media.MediaCodec;
-import android.media.MediaCodecInfo;
 import android.util.Pair;
 import android.view.Surface;
+import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
@@ -48,23 +49,20 @@ import androidx.media3.common.VideoGraph;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
-import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.VideoCompositorSettings;
-import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Objects;
 import org.checkerframework.checker.initialization.qual.Initialized;
+import org.checkerframework.checker.lock.qual.GuardedBy;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.dataflow.qual.Pure;
 
 /** Processes, encodes and muxes raw video frames. */
 /* package */ final class VideoSampleExporter extends SampleExporter {
 
-  private static final String TAG = "VideoSampleExporter";
-  private final TransformerVideoGraph videoGraph;
+  private final VideoGraphWrapper videoGraph;
   private final EncoderWrapper encoderWrapper;
   private final DecoderInputBuffer encoderOutputBuffer;
   private final long initialTimestampOffsetUs;
@@ -90,7 +88,8 @@ import org.checkerframework.dataflow.qual.Pure;
       FallbackListener fallbackListener,
       DebugViewProvider debugViewProvider,
       long initialTimestampOffsetUs,
-      boolean hasMultipleInputs)
+      boolean hasMultipleInputs,
+      int maxFramesInEncoder)
       throws ExportException {
     // TODO(b/278259383) Consider delaying configuration of VideoSampleExporter to use the decoder
     //  output format instead of the extractor output format, to match AudioSampleExporter behavior.
@@ -132,15 +131,7 @@ import org.checkerframework.dataflow.qual.Pure;
         encoderWrapper.getHdrModeAfterFallback() == HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL
             && ColorInfo.isTransferHdr(videoGraphInputColor);
     if (isGlToneMapping) {
-      // For consistency with the Android platform, OpenGL tone mapping outputs colors with
-      // C.COLOR_TRANSFER_GAMMA_2_2 instead of C.COLOR_TRANSFER_SDR, and outputs this as
-      // C.COLOR_TRANSFER_SDR to the encoder.
-      videoGraphOutputColor =
-          new ColorInfo.Builder()
-              .setColorSpace(C.COLOR_SPACE_BT709)
-              .setColorRange(C.COLOR_RANGE_LIMITED)
-              .setColorTransfer(C.COLOR_TRANSFER_GAMMA_2_2)
-              .build();
+      videoGraphOutputColor = SDR_BT709_LIMITED;
     }
 
     try {
@@ -148,13 +139,14 @@ import org.checkerframework.dataflow.qual.Pure;
           new VideoGraphWrapper(
               context,
               hasMultipleInputs
-                  ? new TransformerMultipleInputVideoGraph.Factory()
+                  ? new TransformerMultipleInputVideoGraph.Factory(videoFrameProcessorFactory)
                   : new TransformerSingleInputVideoGraph.Factory(videoFrameProcessorFactory),
               videoGraphOutputColor,
               errorConsumer,
               debugViewProvider,
               videoCompositorSettings,
-              compositionEffects);
+              compositionEffects,
+              maxFramesInEncoder);
       videoGraph.initialize();
     } catch (VideoFrameProcessingException e) {
       throw ExportException.createForVideoFrameProcessingException(e);
@@ -162,10 +154,10 @@ import org.checkerframework.dataflow.qual.Pure;
   }
 
   @Override
-  public GraphInput getInput(EditedMediaItem editedMediaItem, Format format)
+  public GraphInput getInput(EditedMediaItem editedMediaItem, Format format, int inputIndex)
       throws ExportException {
     try {
-      return videoGraph.createInput();
+      return videoGraph.createInput(inputIndex);
     } catch (VideoFrameProcessingException e) {
       throw ExportException.createForVideoFrameProcessingException(e);
     }
@@ -203,8 +195,6 @@ import org.checkerframework.dataflow.qual.Pure;
         hasMuxedTimestampZero = true;
       }
     }
-    DebugTraceUtil.logEvent(
-        DebugTraceUtil.EVENT_ENCODER_ENCODED_FRAME, bufferInfo.presentationTimeUs);
     encoderOutputBuffer.timeUs = bufferInfo.presentationTimeUs;
     encoderOutputBuffer.setFlags(bufferInfo.flags);
     return encoderOutputBuffer;
@@ -213,6 +203,7 @@ import org.checkerframework.dataflow.qual.Pure;
   @Override
   protected void releaseMuxerInputBuffer() throws ExportException {
     encoderWrapper.releaseOutputBuffer(/* render= */ false);
+    videoGraph.onEncoderBufferReleased();
   }
 
   @Override
@@ -276,27 +267,8 @@ import org.checkerframework.dataflow.qual.Pure;
         requestedOutputMimeType = inputSampleMimeType;
       }
 
-      // HdrMode fallback is only supported from HDR_MODE_KEEP_HDR to
-      // HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL.
-      @Composition.HdrMode int hdrMode = transformationRequest.hdrMode;
-      if (hdrMode == HDR_MODE_KEEP_HDR && isTransferHdr(inputFormat.colorInfo)) {
-        ImmutableList<MediaCodecInfo> hdrEncoders =
-            getSupportedEncodersForHdrEditing(requestedOutputMimeType, inputFormat.colorInfo);
-        if (hdrEncoders.isEmpty()) {
-          @Nullable
-          String alternativeMimeType = MediaCodecUtil.getAlternativeCodecMimeType(inputFormat);
-          if (alternativeMimeType != null) {
-            requestedOutputMimeType = alternativeMimeType;
-            hdrEncoders =
-                getSupportedEncodersForHdrEditing(alternativeMimeType, inputFormat.colorInfo);
-          }
-        }
-        if (hdrEncoders.isEmpty()) {
-          hdrMode = HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
-        }
-      }
-
-      return Pair.create(requestedOutputMimeType, hdrMode);
+      return getOutputMimeTypeAndHdrModeAfterFallback(
+          transformationRequest.hdrMode, requestedOutputMimeType, inputFormat.colorInfo);
     }
 
     public @Composition.HdrMode int getHdrModeAfterFallback() {
@@ -348,6 +320,7 @@ import org.checkerframework.dataflow.qual.Pure;
               .setCodecs(inputFormat.codecs)
               .build();
 
+      // TODO - b/324426022: Move logic for supported mime types to DefaultEncoderFactory.
       encoder =
           encoderFactory.createForVideoEncoding(
               requestedEncoderFormat
@@ -372,7 +345,8 @@ import org.checkerframework.dataflow.qual.Pure;
               encoder.getInputSurface(),
               actualEncoderFormat.width,
               actualEncoderFormat.height,
-              outputRotationDegrees);
+              outputRotationDegrees,
+              /* isEncoderInputSurface= */ true);
 
       if (releaseEncoder) {
         encoder.release();
@@ -486,6 +460,12 @@ import org.checkerframework.dataflow.qual.Pure;
 
     private final TransformerVideoGraph videoGraph;
     private final Consumer<ExportException> errorConsumer;
+    private final int maxFramesInEncoder;
+    private final boolean renderFramesAutomatically;
+    private final Object lock;
+
+    private @GuardedBy("lock") int framesInEncoder;
+    private @GuardedBy("lock") int framesAvailableToRender;
 
     public VideoGraphWrapper(
         Context context,
@@ -494,7 +474,8 @@ import org.checkerframework.dataflow.qual.Pure;
         Consumer<ExportException> errorConsumer,
         DebugViewProvider debugViewProvider,
         VideoCompositorSettings videoCompositorSettings,
-        List<Effect> compositionEffects)
+        List<Effect> compositionEffects,
+        int maxFramesInEncoder)
         throws VideoFrameProcessingException {
       this.errorConsumer = errorConsumer;
       // To satisfy the nullness checker by declaring an initialized this reference used in the
@@ -502,6 +483,11 @@ import org.checkerframework.dataflow.qual.Pure;
       @SuppressWarnings("nullness:assignment")
       @Initialized
       VideoGraphWrapper thisRef = this;
+      this.maxFramesInEncoder = maxFramesInEncoder;
+      // Automatically render frames if the sample exporter does not limit the number of frames in
+      // the encoder.
+      renderFramesAutomatically = maxFramesInEncoder < 1;
+      lock = new Object();
       videoGraph =
           videoGraphFactory.create(
               context,
@@ -511,7 +497,8 @@ import org.checkerframework.dataflow.qual.Pure;
               /* listenerExecutor= */ MoreExecutors.directExecutor(),
               videoCompositorSettings,
               compositionEffects,
-              initialTimestampOffsetUs);
+              initialTimestampOffsetUs,
+              renderFramesAutomatically);
     }
 
     @Override
@@ -526,8 +513,13 @@ import org.checkerframework.dataflow.qual.Pure;
     }
 
     @Override
-    public void onOutputFrameAvailableForRendering(long presentationTimeUs) {
-      // Do nothing.
+    public void onOutputFrameAvailableForRendering(long framePresentationTimeUs) {
+      if (!renderFramesAutomatically) {
+        synchronized (lock) {
+          framesAvailableToRender += 1;
+        }
+        maybeRenderEarliestOutputFrame();
+      }
     }
 
     @Override
@@ -551,18 +543,24 @@ import org.checkerframework.dataflow.qual.Pure;
     }
 
     @Override
-    public int registerInput() throws VideoFrameProcessingException {
-      return videoGraph.registerInput();
+    public void registerInput(@IntRange(from = 0) int inputIndex)
+        throws VideoFrameProcessingException {
+      videoGraph.registerInput(inputIndex);
     }
 
     @Override
-    public VideoFrameProcessor getProcessor(int inputId) {
-      return videoGraph.getProcessor(inputId);
+    public VideoFrameProcessor getProcessor(int inputIndex) {
+      return videoGraph.getProcessor(inputIndex);
     }
 
     @Override
-    public GraphInput createInput() throws VideoFrameProcessingException {
-      return videoGraph.createInput();
+    public GraphInput createInput(int inputIndex) throws VideoFrameProcessingException {
+      return videoGraph.createInput(inputIndex);
+    }
+
+    @Override
+    public void renderOutputFrameWithMediaPresentationTime() {
+      videoGraph.renderOutputFrameWithMediaPresentationTime();
     }
 
     @Override
@@ -578,6 +576,30 @@ import org.checkerframework.dataflow.qual.Pure;
     @Override
     public void release() {
       videoGraph.release();
+    }
+
+    public void onEncoderBufferReleased() {
+      if (!renderFramesAutomatically) {
+        synchronized (lock) {
+          checkState(framesInEncoder > 0);
+          framesInEncoder -= 1;
+        }
+        maybeRenderEarliestOutputFrame();
+      }
+    }
+
+    private void maybeRenderEarliestOutputFrame() {
+      boolean shouldRender = false;
+      synchronized (lock) {
+        if (framesAvailableToRender > 0 && framesInEncoder < maxFramesInEncoder) {
+          framesInEncoder += 1;
+          framesAvailableToRender -= 1;
+          shouldRender = true;
+        }
+      }
+      if (shouldRender) {
+        renderOutputFrameWithMediaPresentationTime();
+      }
     }
   }
 }

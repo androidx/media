@@ -495,6 +495,38 @@ public class MediaSessionTest {
     assertThat(player.seekPositionMs).isEqualTo(testSeekPositionMs);
   }
 
+  /** Test {@link MediaSession#getSessionCompatToken()}. */
+  @Test
+  public void getPlatformToken_returnsCompatibleWithPlatformMediaController() throws Exception {
+    MediaSession session =
+        sessionTestRule.ensureReleaseAfterTest(
+            new MediaSession.Builder(context, player)
+                .setId("getPlatformToken_returnsCompatibleWithPlatformMediaController")
+                .setCallback(
+                    new MediaSession.Callback() {
+                      @Override
+                      public MediaSession.ConnectionResult onConnect(
+                          MediaSession session, ControllerInfo controller) {
+                        if (TextUtils.equals(
+                            getControllerCallerPackageName(controller),
+                            controller.getPackageName())) {
+                          return MediaSession.Callback.super.onConnect(session, controller);
+                        }
+                        return MediaSession.ConnectionResult.reject();
+                      }
+                    })
+                .build());
+    android.media.session.MediaSession.Token token = session.getPlatformToken();
+    android.media.session.MediaController platformController =
+        new android.media.session.MediaController(context, token);
+
+    long testSeekPositionMs = 1234;
+    platformController.getTransportControls().seekTo(testSeekPositionMs);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO, TIMEOUT_MS);
+    assertThat(player.seekPositionMs).isEqualTo(testSeekPositionMs);
+  }
+
   @Test
   public void getControllerVersion() throws Exception {
     CountDownLatch connectedLatch = new CountDownLatch(1);
@@ -982,23 +1014,20 @@ public class MediaSessionTest {
    * <p>Calling this method should only be required to test legacy behaviour.
    */
   private static String getControllerCallerPackageName(ControllerInfo controllerInfo) {
-    return (Util.SDK_INT < 21
-            || Util.SDK_INT > 23
+    return (Util.SDK_INT > 23
             || controllerInfo.getControllerVersion() != ControllerInfo.LEGACY_CONTROLLER_VERSION)
         ? ApplicationProvider.getApplicationContext().getPackageName()
         : MediaSessionManager.RemoteUserInfo.LEGACY_CONTROLLER;
   }
 
   private static ControllerInfo createMediaButtonCaller() {
-    return new ControllerInfo(
-        new MediaSessionManager.RemoteUserInfo(
-            "RANDOM_MEDIA_BUTTON_CALLER_PACKAGE",
-            MediaSessionManager.RemoteUserInfo.UNKNOWN_PID,
-            MediaSessionManager.RemoteUserInfo.UNKNOWN_UID),
+    return ControllerInfo.createTestOnlyControllerInfo(
+        "RANDOM_MEDIA_BUTTON_CALLER_PACKAGE",
+        MediaSessionManager.RemoteUserInfo.UNKNOWN_PID,
+        MediaSessionManager.RemoteUserInfo.UNKNOWN_UID,
         MediaLibraryInfo.VERSION_INT,
         MediaControllerStub.VERSION_INT,
         /* trusted= */ false,
-        /* cb= */ null,
         /* connectionHints= */ Bundle.EMPTY);
   }
 

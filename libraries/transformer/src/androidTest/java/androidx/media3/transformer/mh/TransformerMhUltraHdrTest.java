@@ -18,15 +18,16 @@
 package androidx.media3.transformer.mh;
 
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
+import static androidx.media3.transformer.AndroidTestUtil.JPG_ULTRA_HDR_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_1080P_5_SECOND_HLG10;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT;
-import static androidx.media3.transformer.AndroidTestUtil.ULTRA_HDR_URI_STRING;
+import static androidx.media3.transformer.AndroidTestUtil.assertSdrColors;
 import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
 import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
 import static androidx.media3.transformer.SequenceEffectTestUtil.NO_EFFECT;
 import static androidx.media3.transformer.SequenceEffectTestUtil.clippedVideo;
 import static androidx.media3.transformer.SequenceEffectTestUtil.createComposition;
 import static androidx.media3.transformer.SequenceEffectTestUtil.oneFrameFromImage;
+import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceSupportsHdrEditing;
 import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceSupportsOpenGlToneMapping;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
@@ -35,8 +36,6 @@ import android.content.Context;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.util.Util;
-import androidx.media3.exoplayer.mediacodec.MediaCodecUtil.DecoderQueryException;
-import androidx.media3.transformer.AndroidTestUtil;
 import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.EditedMediaItemSequence;
@@ -76,14 +75,13 @@ public final class TransformerMhUltraHdrTest {
     assumeDeviceSupportsUltraHdrEditing();
     Composition composition =
         createUltraHdrComposition(
-            /* tonemap= */ false, oneFrameFromImage(ULTRA_HDR_URI_STRING, NO_EFFECT));
+            /* tonemap= */ false, oneFrameFromImage(JPG_ULTRA_HDR_ASSET.uri, NO_EFFECT));
 
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotNull();
     ColorInfo colorInfo =
         retrieveTrackFormat(context, result.filePath, C.TRACK_TYPE_VIDEO).colorInfo;
     assertThat(colorInfo.colorSpace).isEqualTo(C.COLOR_SPACE_BT2020);
@@ -96,15 +94,14 @@ public final class TransformerMhUltraHdrTest {
     Composition composition =
         createComposition(
             /* presentation= */ null,
-            clippedVideo(MP4_ASSET_1080P_5_SECOND_HLG10, NO_EFFECT, ONE_FRAME_END_POSITION_MS),
-            oneFrameFromImage(ULTRA_HDR_URI_STRING, NO_EFFECT));
+            clippedVideo(MP4_ASSET_1080P_5_SECOND_HLG10.uri, NO_EFFECT, ONE_FRAME_END_POSITION_MS),
+            oneFrameFromImage(JPG_ULTRA_HDR_ASSET.uri, NO_EFFECT));
 
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotNull();
     ColorInfo colorInfo =
         retrieveTrackFormat(context, result.filePath, C.TRACK_TYPE_VIDEO).colorInfo;
     assertThat(colorInfo.colorSpace).isEqualTo(C.COLOR_SPACE_BT2020);
@@ -115,17 +112,16 @@ public final class TransformerMhUltraHdrTest {
   public void exportUltraHdrImageThenHdrVideo_exportsHdr() throws Exception {
     assumeDeviceSupportsUltraHdrEditing();
     Composition composition =
-        createComposition(
-            /* presentation= */ null,
-            oneFrameFromImage(ULTRA_HDR_URI_STRING, NO_EFFECT),
-            clippedVideo(MP4_ASSET_1080P_5_SECOND_HLG10, NO_EFFECT, ONE_FRAME_END_POSITION_MS));
+        createUltraHdrComposition(
+            /* tonemap= */ false,
+            oneFrameFromImage(JPG_ULTRA_HDR_ASSET.uri, NO_EFFECT),
+            clippedVideo(MP4_ASSET_1080P_5_SECOND_HLG10.uri, NO_EFFECT, ONE_FRAME_END_POSITION_MS));
 
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotNull();
     ColorInfo colorInfo =
         retrieveTrackFormat(context, result.filePath, C.TRACK_TYPE_VIDEO).colorInfo;
     assertThat(colorInfo.colorSpace).isEqualTo(C.COLOR_SPACE_BT2020);
@@ -134,23 +130,19 @@ public final class TransformerMhUltraHdrTest {
 
   @Test
   public void exportTonemappedHdrVideoThenUltraHdrImage_exportsSdr() throws Exception {
-    assumeDeviceSupportsOpenGlToneMapping(testId, MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT);
+    assumeDeviceSupportsOpenGlToneMapping(testId, MP4_ASSET_1080P_5_SECOND_HLG10.videoFormat);
     Composition composition =
         createUltraHdrComposition(
             /* tonemap= */ true,
-            clippedVideo(MP4_ASSET_1080P_5_SECOND_HLG10, NO_EFFECT, ONE_FRAME_END_POSITION_MS),
-            oneFrameFromImage(ULTRA_HDR_URI_STRING, NO_EFFECT));
+            clippedVideo(MP4_ASSET_1080P_5_SECOND_HLG10.uri, NO_EFFECT, ONE_FRAME_END_POSITION_MS),
+            oneFrameFromImage(JPG_ULTRA_HDR_ASSET.uri, NO_EFFECT));
 
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
             .build()
             .run(testId, composition);
 
-    assertThat(result.filePath).isNotNull();
-    ColorInfo colorInfo =
-        retrieveTrackFormat(context, result.filePath, C.TRACK_TYPE_VIDEO).colorInfo;
-    assertThat(colorInfo.colorSpace).isEqualTo(C.COLOR_SPACE_BT709);
-    assertThat(colorInfo.colorTransfer).isEqualTo(C.COLOR_TRANSFER_SDR);
+    assertSdrColors(context, result.filePath);
   }
 
   private static Composition createUltraHdrComposition(
@@ -164,17 +156,12 @@ public final class TransformerMhUltraHdrTest {
     return builder.build();
   }
 
-  private void assumeDeviceSupportsUltraHdrEditing()
-      throws JSONException, IOException, DecoderQueryException {
+  private void assumeDeviceSupportsUltraHdrEditing() throws JSONException, IOException {
     if (Util.SDK_INT < 34) {
       recordTestSkipped(
           getApplicationContext(), testId, "Ultra HDR is not supported on this API level.");
       throw new AssumptionViolatedException("Ultra HDR is not supported on this API level.");
     }
-    AndroidTestUtil.assumeFormatsSupported(
-        context,
-        testId,
-        /* inputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT,
-        /* outputFormat= */ null);
+    assumeDeviceSupportsHdrEditing(testId, MP4_ASSET_1080P_5_SECOND_HLG10.videoFormat);
   }
 }

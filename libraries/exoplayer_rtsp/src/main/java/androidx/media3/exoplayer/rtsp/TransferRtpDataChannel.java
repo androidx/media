@@ -22,7 +22,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.BaseDataSource;
 import androidx.media3.datasource.DataSpec;
@@ -31,7 +30,6 @@ import java.util.Arrays;
 import java.util.concurrent.LinkedBlockingQueue;
 
 /** An {@link RtpDataChannel} that transfers received data in-memory. */
-@UnstableApi
 /* package */ final class TransferRtpDataChannel extends BaseDataSource
     implements RtpDataChannel, RtspMessageChannel.InterleavedBinaryDataListener {
 

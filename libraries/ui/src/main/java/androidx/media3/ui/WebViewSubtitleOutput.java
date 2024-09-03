@@ -32,7 +32,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Util;
-import com.google.common.base.Charsets;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -329,7 +329,7 @@ import java.util.Map;
     html.insert(0, htmlHead.toString());
 
     webView.loadData(
-        Base64.encodeToString(html.toString().getBytes(Charsets.UTF_8), Base64.NO_PADDING),
+        Base64.encodeToString(html.toString().getBytes(StandardCharsets.UTF_8), Base64.NO_PADDING),
         "text/html",
         "base64");
   }

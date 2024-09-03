@@ -20,6 +20,7 @@ import android.os.HandlerThread
 import android.os.Process
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.Log
@@ -39,7 +40,7 @@ import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
 import androidx.recyclerview.widget.RecyclerView
 import kotlin.math.abs
 
-@UnstableApi
+@OptIn(UnstableApi::class)
 class ViewPagerMediaAdapter(
   private val mediaItemDatabase: MediaItemDatabase,
   numberOfPlayers: Int,

@@ -18,7 +18,7 @@ apply plugin: 'kotlin-android'
 android {
     namespace 'androidx.media3.demo.session'
 
-    compileSdkVersion project.ext.compileSdkVersion
+    compileSdk project.ext.compileSdkVersion
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
@@ -34,7 +34,6 @@ android {
         versionCode project.ext.releaseVersionCode
         minSdkVersion project.ext.minSdkVersion
         targetSdkVersion project.ext.appTargetSdkVersion
-        multiDexEnabled true
     }
 
     buildTypes {
@@ -60,11 +59,13 @@ android {
 
 dependencies {
     // For detecting and debugging leaks only. LeakCanary is not needed for demo app to work.
-    debugImplementation 'com.squareup.leakcanary:leakcanary-android:2.10'
+    debugImplementation 'com.squareup.leakcanary:leakcanary-android:' + leakCanaryVersion
     implementation 'androidx.core:core-ktx:' + androidxCoreVersion
+    implementation 'androidx.lifecycle:lifecycle-common:' + androidxLifecycleVersion
+    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:' + androidxLifecycleVersion
     implementation 'androidx.appcompat:appcompat:' + androidxAppCompatVersion
-    implementation 'androidx.multidex:multidex:' + androidxMultidexVersion
     implementation 'com.google.android.material:material:' + androidxMaterialVersion
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-guava:' + kotlinxCoroutinesVersion
     implementation project(modulePrefix + 'lib-ui')
     implementation project(modulePrefix + 'lib-session')
     implementation project(modulePrefix + 'demo-session-service')
