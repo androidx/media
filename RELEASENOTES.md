@@ -3,6 +3,47 @@
 ### Unreleased changes
 
 *   Common Library:
+*   ExoPlayer:
+*   Transformer:
+*   Track Selection:
+*   Extractors:
+*   DataSource:
+*   Audio:
+*   Video:
+*   Text:
+*   Metadata:
+*   Image:
+*   DataSource:
+*   DRM:
+*   Effect:
+*   Muxers:
+*   IMA extension:
+*   Session:
+*   UI:
+*   Downloads:
+*   OkHttp Extension:
+*   Cronet Extension:
+*   RTMP Extension:
+*   HLS Extension:
+*   DASH Extension:
+*   Smooth Streaming Extension:
+*   RTSP Extension:
+*   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
+*   MIDI extension:
+*   Leanback extension:
+*   Cast Extension:
+*   Test Utilities:
+*   Demo app:
+*   Remove deprecated symbols:
+
+## 1.5
+
+### 1.5.0-alpha01 (2024-09-06)
+
+This release includes the following changes since the
+[1.4.1 release](#141-2024-08-23):
+
+*   Common Library:
     *   Add `ForwardingSimpleBasePlayer` that allows forwarding to another
         player with small adjustments while ensuring full consistency and
         listener handling
@@ -46,7 +87,6 @@
         Transformer via a `Surface`.
     *   `ImageAssetLoader` reports unsupported input via `AssetLoader.onError`
         instead of throwing an `IllegalStateException`.
-*   Track Selection:
 *   Extractors:
     *   Allow `Mp4Extractor` and `FragmentedMp4Extractor` to identify H264
         samples that are not used as reference by subsequent samples.
@@ -79,7 +119,6 @@
     *   Add a custom `VoiceSpan` and populate it for
         [WebVTT voice spans](https://www.w3.org/TR/webvtt1/#webvtt-cue-voice-span)
         ([#1632](https://github.com/androidx/media/issues/1632)).
-*   Metadata:
 *   Image:
     *   Add `ExternallyLoadedImageDecoder` for simplified integration with
         external image loading libraries like Glide or Coil.
@@ -87,7 +126,6 @@
     *   Add `FileDescriptorDataSource`, a new `DataSource` that can be used to
         read from a `FileDescriptor`
         ([#3757](https://github.com/google/ExoPlayer/issues/3757)).
-*   DRM:
 *   Effect:
     *   Add `DefaultVideoFrameProcessor` workaround for minor `SurfaceTexture`
         scaling. `SurfaceTexture` may include a small scaling that cuts off a
@@ -95,7 +133,6 @@
         such that output is closer to expected.
     *   Speed up `DefaultVideoFrameProcessor.queueInputBitmap()`. As a result,
         exporting images to videos with `Transformer` is faster.
-*   Muxers:
 *   IMA extension:
     *   Fix bug where clearing the playlist may cause an
         `ArrayIndexOutOfBoundsException` in
@@ -107,17 +144,9 @@
         playback can't be suppressed without the system crashing the service
         with a `ForegroundServiceDidNotStartInTimeException`
         ([#1528](https://github.com/google/ExoPlayer/issues/1528)).
-*   UI:
-*   Downloads:
-*   OkHttp Extension:
-*   Cronet Extension:
-*   RTMP Extension:
-*   HLS Extension:
 *   DASH Extension:
     *   Add support for periods starting in the middle of a segment
         ([#1440](https://github.com/androidx/media/issues/1440)).
-*   Smooth Streaming Extension:
-*   RTSP Extension:
 *   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
     *   Add the IAMF decoder module, which provides support for playback of MP4
         files containing IAMF tracks using the libiamf native library to
@@ -125,14 +154,10 @@
         *   Playback is enabled with a stereo layout as well as 5.1 with
             spatialization together with optional head tracking enabled, but
             binaural playback support is currently not available.
-*   MIDI extension:
-*   Leanback extension:
-*   Cast Extension:
 *   Test Utilities:
     *   `DataSourceContractTest` now includes tests to verify:
         *   Input stream `read position` is updated.
         *   Output buffer `offset` is applied correctly.
-*   Demo app:
 *   Remove deprecated symbols:
     *   Remove deprecated `Player.hasPrevious`, `Player.hasPreviousWindow()`.
         Use `Player.hasPreviousMediaItem()` instead.
