@@ -108,6 +108,9 @@
         with a `ForegroundServiceDidNotStartInTimeException`
         ([#1528](https://github.com/google/ExoPlayer/issues/1528)).
 *   UI:
+    *   Add video track selection functionality to settings pop-up menu in
+        `PlayerControlView`
+        ([#972](https://github.com/androidx/media/pull/972)).
 *   Downloads:
 *   OkHttp Extension:
 *   Cronet Extension:
