@@ -55,7 +55,7 @@ public final class ExoplayerEffectPlaybackSeekTest {
 
   // This timeout is made longer for emulators - see
   // ExternalTextureManager.SURFACE_TEXTURE_TIMEOUT_MS.
-  private static final long TEST_TIMEOUT_MS = 20_000;
+  private static final long TEST_TIMEOUT_MS = 60_000;
 
   @Rule
   public ActivityScenarioRule<SurfaceTestActivity> rule =
