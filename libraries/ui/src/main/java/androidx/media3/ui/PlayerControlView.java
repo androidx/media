@@ -97,7 +97,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * A view for controlling {@link Player} instances.
  *
  * <p>A {@code PlayerControlView} can be customized by setting attributes (or calling corresponding
- * methods), or overriding drawables.
+ * methods), or overriding drawables. Note that {@code PlayerControlView} is not intended to be used
+ * a standalone component outside of {@link PlayerView}.
  *
  * <h2>Attributes</h2>
  *
