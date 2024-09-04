@@ -1140,13 +1140,16 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   }
 
   /**
-   * Sets whether the fullscreen button is fullScreenButton or minimalFullScreenButton.
+   * Sets whether the player is currently in fullscreen, this will change the displayed icon.
+   *
+   * <p>If {@code isFullscreen} is {@code true}, {@link R.drawable#exo_styled_controls_fullscreen_exit}
+   * will be displayed or else {@link R.drawable#exo_styled_controls_fullscreen_enter}.
    *
    * @param isFullscreen Whether the player is currently in fullscreen.
    */
   public void setFullscreenButtonState(boolean isFullscreen) {
     Assertions.checkStateNotNull(controller);
-    controller.updateIsFullScreen(isFullscreen);
+    controller.updateIsFullscreen(isFullscreen);
   }
 
   /**
