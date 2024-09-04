@@ -27,6 +27,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -1380,6 +1381,7 @@ public final class Format {
     if (format == null) {
       return "null";
     }
+    Joiner commaJoiner = Joiner.on(',');
     StringBuilder builder = new StringBuilder();
     builder.append("id=").append(format.id).append(", mimeType=").append(format.sampleMimeType);
     if (format.containerMimeType != null) {
@@ -1410,7 +1412,7 @@ public final class Format {
         }
       }
       builder.append(", drm=[");
-      Joiner.on(',').appendTo(builder, schemes);
+      commaJoiner.appendTo(builder, schemes);
       builder.append(']');
     }
     if (format.width != NO_VALUE && format.height != NO_VALUE) {
@@ -1433,17 +1435,18 @@ public final class Format {
     }
     if (!format.labels.isEmpty()) {
       builder.append(", labels=[");
-      Joiner.on(',').appendTo(builder, format.labels);
+      commaJoiner.appendTo(
+          builder, Lists.transform(format.labels, l -> l.language + ": " + l.value));
       builder.append("]");
     }
     if (format.selectionFlags != 0) {
       builder.append(", selectionFlags=[");
-      Joiner.on(',').appendTo(builder, Util.getSelectionFlagStrings(format.selectionFlags));
+      commaJoiner.appendTo(builder, Util.getSelectionFlagStrings(format.selectionFlags));
       builder.append("]");
     }
     if (format.roleFlags != 0) {
       builder.append(", roleFlags=[");
-      Joiner.on(',').appendTo(builder, Util.getRoleFlagStrings(format.roleFlags));
+      commaJoiner.appendTo(builder, Util.getRoleFlagStrings(format.roleFlags));
       builder.append("]");
     }
     if (format.customData != null) {
