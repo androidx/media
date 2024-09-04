@@ -23,6 +23,13 @@
 *   IMA extension:
 *   Session:
 *   UI:
+    *   Make the stretched/cropped video in
+        `PlayerView`-in-Compose-`AndroidView` workaround opt-in, due to issues
+        with XML-based shared transitions. Apps using `PlayerView` inside
+        `AndroidView` need to call
+        `PlayerView.setEnableComposeSurfaceSyncWorkaround` in order to opt-in
+        ([#1237](https://github.com/androidx/media/issues/1237),
+        [#1594](https://github.com/androidx/media/issues/1594)).
 *   Downloads:
 *   OkHttp Extension:
 *   Cronet Extension:
