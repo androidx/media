@@ -213,11 +213,11 @@ public class Mp4MuxerEndToEndTest {
     Pair<ByteBuffer, BufferInfo> track1Sample1 =
         getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 0L);
     Pair<ByteBuffer, BufferInfo> track1Sample2 =
-        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 3000L);
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 3_000L);
     Pair<ByteBuffer, BufferInfo> track1Sample3 =
-        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 1000L);
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 1_000L);
     Pair<ByteBuffer, BufferInfo> track1Sample4 =
-        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 2000L);
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 2_000L);
 
     try {
       TrackToken track1 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
@@ -247,13 +247,13 @@ public class Mp4MuxerEndToEndTest {
             /* creationTimestampSeconds= */ 100_000_000L,
             /* modificationTimestampSeconds= */ 500_000_000L));
     Pair<ByteBuffer, BufferInfo> track1Sample1 =
-        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 23698215060L);
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 23_000_000_000L);
     Pair<ByteBuffer, BufferInfo> track1Sample2 =
-        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 23698488968L);
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 23_000_273_908L);
     Pair<ByteBuffer, BufferInfo> track1Sample3 =
-        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 23698347988L);
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 23_000_132_928L);
     Pair<ByteBuffer, BufferInfo> track1Sample4 =
-        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 23698248252L);
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 23_000_033_192L);
 
     try {
       TrackToken track1 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
