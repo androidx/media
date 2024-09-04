@@ -35,7 +35,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import android.annotation.TargetApi;
 import android.media.MediaCodec;
 import android.media.MediaCodec.CodecException;
-import android.media.MediaCodec.CryptoException;
 import android.media.MediaCrypto;
 import android.media.MediaCryptoException;
 import android.media.MediaFormat;
@@ -883,6 +882,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         readSourceOmittingSampleData(FLAG_PEEK);
       }
       decoderCounters.ensureUpdated();
+    } catch (MediaCodec.CryptoException e) {
+      throw createRendererException(
+          e, inputFormat, Util.getErrorCodeForMediaDrmErrorCode(e.getErrorCode()));
     } catch (IllegalStateException e) {
       if (isMediaCodecException(e)) {
         onCodecError(e);
@@ -1391,22 +1393,17 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         processEndOfStream();
         return false;
       }
-      try {
-        if (codecNeedsEosPropagation) {
-          // Do nothing.
-        } else {
-          codecReceivedEos = true;
-          codec.queueInputBuffer(
-              inputIndex,
-              /* offset= */ 0,
-              /* size= */ 0,
-              /* presentationTimeUs= */ 0,
-              MediaCodec.BUFFER_FLAG_END_OF_STREAM);
-          resetInputBuffer();
-        }
-      } catch (CryptoException e) {
-        throw createRendererException(
-            e, inputFormat, Util.getErrorCodeForMediaDrmErrorCode(e.getErrorCode()));
+      if (codecNeedsEosPropagation) {
+        // Do nothing.
+      } else {
+        codecReceivedEos = true;
+        codec.queueInputBuffer(
+            inputIndex,
+            /* offset= */ 0,
+            /* size= */ 0,
+            /* presentationTimeUs= */ 0,
+            MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+        resetInputBuffer();
       }
       return false;
     }
@@ -1463,23 +1460,18 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
 
     onQueueInputBuffer(buffer);
     int flags = getCodecBufferFlags(buffer);
-    try {
-      if (bufferEncrypted) {
-        checkNotNull(codec)
-            .queueSecureInputBuffer(
-                inputIndex, /* offset= */ 0, buffer.cryptoInfo, presentationTimeUs, flags);
-      } else {
-        checkNotNull(codec)
-            .queueInputBuffer(
-                inputIndex,
-                /* offset= */ 0,
-                checkNotNull(buffer.data).limit(),
-                presentationTimeUs,
-                flags);
-      }
-    } catch (CryptoException e) {
-      throw createRendererException(
-          e, inputFormat, Util.getErrorCodeForMediaDrmErrorCode(e.getErrorCode()));
+    if (bufferEncrypted) {
+      checkNotNull(codec)
+          .queueSecureInputBuffer(
+              inputIndex, /* offset= */ 0, buffer.cryptoInfo, presentationTimeUs, flags);
+    } else {
+      checkNotNull(codec)
+          .queueInputBuffer(
+              inputIndex,
+              /* offset= */ 0,
+              checkNotNull(buffer.data).limit(),
+              presentationTimeUs,
+              flags);
     }
 
     resetInputBuffer();
