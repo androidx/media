@@ -42,6 +42,8 @@
 *   MIDI extension:
 *   Leanback extension:
 *   Cast Extension:
+    *   Stop clearning the timeline after the CastSession disconnects, which
+        enables the sender app to resume playback locally after a disconnection.
 *   Test Utilities:
 *   Demo app:
 *   Remove deprecated symbols:
