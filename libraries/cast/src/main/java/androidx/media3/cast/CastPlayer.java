@@ -1283,11 +1283,8 @@ public final class CastPlayer extends BasePlayer {
       remoteMediaClient.registerCallback(statusListener);
       remoteMediaClient.addProgressListener(statusListener, PROGRESS_REPORT_PERIOD_MS);
       updateInternalStateAndNotifyIfChanged();
-    } else {
-      updateTimelineAndNotifyIfChanged();
-      if (sessionAvailabilityListener != null) {
-        sessionAvailabilityListener.onCastSessionUnavailable();
-      }
+    } else if (sessionAvailabilityListener != null) {
+      sessionAvailabilityListener.onCastSessionUnavailable();
     }
   }
 

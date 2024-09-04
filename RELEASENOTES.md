@@ -118,6 +118,9 @@ This release includes the following changes since the
         *   Playback is enabled with a stereo layout as well as 5.1 with
             spatialization together with optional head tracking enabled, but
             binaural playback support is currently not available.
+*   Cast Extension:
+    *   Stop clearning the timeline after the CastSession disconnects, which
+        enables the sender app to resume playback locally after a disconnection.
 *   Test Utilities:
     *   `DataSourceContractTest` now includes tests to verify:
         *   Input stream `read position` is updated.
