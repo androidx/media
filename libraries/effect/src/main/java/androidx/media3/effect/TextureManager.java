@@ -172,6 +172,12 @@ import androidx.media3.common.util.TimestampIterator;
     }
   }
 
+  /**
+   * Instructs the texture manager to drop any incoming {@linkplain #registerInputFrame(FrameInfo)
+   * registered} frame.
+   */
+  public void dropIncomingRegisteredFrames() {}
+
   /** Releases all previously {@linkplain #registerInputFrame(FrameInfo) registered} frames. */
   public void releaseAllRegisteredFrames() {}
 }

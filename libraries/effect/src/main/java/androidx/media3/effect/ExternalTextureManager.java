@@ -100,9 +100,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private boolean repeatLastRegisteredFrame;
 
   @Nullable private Future<?> forceSignalEndOfStreamFuture;
-  private boolean shouldRejectIncomingFrames;
   @Nullable private CountDownLatch releaseAllFramesLatch;
 
+  private volatile boolean shouldRejectIncomingFrames;
   @Nullable private volatile RuntimeException releaseAllFramesException;
 
   /**
@@ -166,41 +166,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                   }
                   availableFrameCount++;
                   maybeQueueFrameToExternalShaderProgram();
-                }));
+                },
+                // Ensures the available frame is consumed even if the task executor is flushed
+                // before the submitted task is executed.
+                /* isCancellable= */ false));
     surface = new Surface(surfaceTexture);
-  }
-
-  @Override
-  public void releaseAllRegisteredFrames() {
-    // Blocks the calling thread until all the registered frames are received and released.
-    CountDownLatch releaseAllFramesLatch = new CountDownLatch(1);
-    this.releaseAllFramesLatch = releaseAllFramesLatch;
-    videoFrameProcessingTaskExecutor.submit(
-        () -> {
-          try {
-            removeAllSurfaceTextureFrames();
-          } catch (RuntimeException e) {
-            releaseAllFramesException = e;
-            Log.e(TAG, "Failed to remove texture frames", e);
-            if (this.releaseAllFramesLatch != null) {
-              this.releaseAllFramesLatch.countDown();
-            }
-          }
-        });
-    try {
-      if (!releaseAllFramesLatch.await(SURFACE_TEXTURE_TIMEOUT_MS, MILLISECONDS)) {
-        Log.w(TAG, "Timeout reached while waiting for latch to be unblocked.");
-      }
-    } catch (InterruptedException e) {
-      // Not re-thrown to not crash frame processing. Frame process can likely continue even when
-      // not all rendered frames arrive.
-      Thread.currentThread().interrupt();
-      Log.w(TAG, "Interrupted when waiting for MediaCodec frames to arrive.");
-    }
-    this.releaseAllFramesLatch = null;
-    if (releaseAllFramesException != null) {
-      throw releaseAllFramesException;
-    }
   }
 
   /**
@@ -279,7 +249,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (!repeatLastRegisteredFrame) {
       pendingFrames.add(frame);
     }
-    videoFrameProcessingTaskExecutor.submit(() -> shouldRejectIncomingFrames = false);
+    shouldRejectIncomingFrames = false;
   }
 
   /**
@@ -328,6 +298,44 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     super.flush();
   }
 
+  @Override
+  public void dropIncomingRegisteredFrames() {
+    shouldRejectIncomingFrames = true;
+  }
+
+  @Override
+  public void releaseAllRegisteredFrames() {
+    // Blocks the calling thread until all the registered frames are received and released.
+    CountDownLatch releaseAllFramesLatch = new CountDownLatch(1);
+    this.releaseAllFramesLatch = releaseAllFramesLatch;
+    videoFrameProcessingTaskExecutor.submit(
+        () -> {
+          try {
+            removeAllSurfaceTextureFrames();
+          } catch (RuntimeException e) {
+            releaseAllFramesException = e;
+            Log.e(TAG, "Failed to remove texture frames", e);
+            if (this.releaseAllFramesLatch != null) {
+              this.releaseAllFramesLatch.countDown();
+            }
+          }
+        });
+    try {
+      if (!releaseAllFramesLatch.await(SURFACE_TEXTURE_TIMEOUT_MS, MILLISECONDS)) {
+        Log.w(TAG, "Timeout reached while waiting for latch to be unblocked.");
+      }
+    } catch (InterruptedException e) {
+      // Not re-thrown to not crash frame processing. Frame process can likely continue even when
+      // not all rendered frames arrive.
+      Thread.currentThread().interrupt();
+      Log.w(TAG, "Interrupted when waiting for MediaCodec frames to arrive.");
+    }
+    this.releaseAllFramesLatch = null;
+    if (releaseAllFramesException != null) {
+      throw releaseAllFramesException;
+    }
+  }
+
   private void restartForceSignalEndOfStreamTimer() {
     cancelForceSignalEndOfStreamTimer();
     forceSignalEndOfStreamFuture =
@@ -353,6 +361,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     // Reset because there could be further input streams after the current one ends.
     currentInputStreamEnded = false;
     currentFrame = null;
+    shouldRejectIncomingFrames = true;
 
     // Frames could be made available while waiting for OpenGL to finish processing. That is,
     // time out is triggered while waiting for the downstream shader programs to process a frame,
@@ -364,7 +373,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private void removeAllSurfaceTextureFrames() {
-    shouldRejectIncomingFrames = true;
     while (availableFrameCount > 0) {
       availableFrameCount--;
       surfaceTexture.updateTexImage();
