@@ -44,6 +44,10 @@
 *   Cast Extension:
     *   Stop clearning the timeline after the CastSession disconnects, which
         enables the sender app to resume playback locally after a disconnection.
+    *   Populate CastPlayer's `DeviceInfo` when a `Context` is provided. This
+        enables linking the `MediaSession` to a `RoutingSession`, which is
+        necessary for integrating Output Switcher
+        ([#1056](https://github.com/androidx/media/issues/1056)).
 *   Test Utilities:
 *   Demo app:
 *   Remove deprecated symbols:
