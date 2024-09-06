@@ -7,6 +7,9 @@
     *   Fix `MediaCodec.CryptoException` sometimes being reported as an
         "unexpected runtime error" when `MediaCodec` is operated in asynchronous
         mode (default behaviour on API 31+).
+    *   Deprecated `MediaCodecUtil.getCodecProfileAndLevel`. Use
+        `androidx.media3.common.util.CodecSpecificDataUtil.getCodecProfileAndLevel`
+        instead.
 *   Transformer:
 *   Track Selection:
 *   Extractors:
