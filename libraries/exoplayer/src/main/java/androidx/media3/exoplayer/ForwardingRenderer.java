@@ -11,7 +11,10 @@ import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.SampleStream;
 import java.io.IOException;
 
-/** An overridable {@link ForwardingRenderer} implementation forwarding all methods to another renderer. */
+/**
+ * An overridable {@link ForwardingRenderer} implementation forwarding all methods to another
+ * renderer.
+ */
 @UnstableApi
 public class ForwardingRenderer implements Renderer {
 
@@ -69,9 +72,18 @@ public class ForwardingRenderer implements Renderer {
       boolean mayRenderStartOfStream,
       long startPositionUs,
       long offsetUs,
-      MediaSource.MediaPeriodId mediaPeriodId) throws ExoPlaybackException {
-    renderer.enable(configuration, formats, stream, positionUs, joining,
-        mayRenderStartOfStream, startPositionUs, offsetUs, mediaPeriodId);
+      MediaSource.MediaPeriodId mediaPeriodId)
+      throws ExoPlaybackException {
+    renderer.enable(
+        configuration,
+        formats,
+        stream,
+        positionUs,
+        joining,
+        mayRenderStartOfStream,
+        startPositionUs,
+        offsetUs,
+        mediaPeriodId);
   }
 
   @Override
@@ -80,8 +92,13 @@ public class ForwardingRenderer implements Renderer {
   }
 
   @Override
-  public void replaceStream(Format[] formats, SampleStream stream, long startPositionUs,
-      long offsetUs, MediaSource.MediaPeriodId mediaPeriodId) throws ExoPlaybackException {
+  public void replaceStream(
+      Format[] formats,
+      SampleStream stream,
+      long startPositionUs,
+      long offsetUs,
+      MediaSource.MediaPeriodId mediaPeriodId)
+      throws ExoPlaybackException {
     renderer.replaceStream(formats, stream, startPositionUs, offsetUs, mediaPeriodId);
   }
 
@@ -122,9 +139,7 @@ public class ForwardingRenderer implements Renderer {
   }
 
   @Override
-  public void setTimeline(Timeline timeline) {
-
-  }
+  public void setTimeline(Timeline timeline) {}
 
   @Override
   public void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
