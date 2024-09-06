@@ -5,12 +5,14 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.SampleStream;
 import java.io.IOException;
 
 /** An overridable {@link ForwardingRenderer} implementation forwarding all methods to another renderer. */
+@UnstableApi
 public class ForwardingRenderer implements Renderer {
 
   private final Renderer renderer;
