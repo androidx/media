@@ -249,7 +249,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (!repeatLastRegisteredFrame) {
       pendingFrames.add(frame);
     }
-    shouldRejectIncomingFrames = false;
+    videoFrameProcessingTaskExecutor.submit(() -> shouldRejectIncomingFrames = false);
   }
 
   /**
