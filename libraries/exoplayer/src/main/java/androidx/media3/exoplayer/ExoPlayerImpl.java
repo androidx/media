@@ -415,8 +415,11 @@ import java.util.concurrent.TimeoutException;
 
       if (builder.deviceVolumeControlEnabled) {
         streamVolumeManager =
-            new StreamVolumeManager(builder.context, eventHandler, componentListener);
-        streamVolumeManager.setStreamType(Util.getStreamTypeForAudioUsage(audioAttributes.usage));
+            new StreamVolumeManager(
+                builder.context,
+                eventHandler,
+                componentListener,
+                Util.getStreamTypeForAudioUsage(audioAttributes.usage));
       } else {
         streamVolumeManager = null;
       }

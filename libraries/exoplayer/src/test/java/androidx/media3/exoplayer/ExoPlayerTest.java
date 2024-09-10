@@ -15772,6 +15772,40 @@ public class ExoPlayerTest {
     assertThat(mediaItemIndexAfterReprepare).isEqualTo(0);
   }
 
+  // https://github.com/androidx/media/issues/1692
+  @Test
+  public void setAlarmAudioWithDeviceVolumeControl_exoPlayerIsConstructedWithNoDeviceUpdates()
+      throws Exception {
+    AtomicBoolean deviceInfoChanged = new AtomicBoolean();
+    AtomicBoolean deviceVolumeChanged = new AtomicBoolean();
+    Player.Listener listener =
+        new Player.Listener() {
+          @Override
+          public void onDeviceInfoChanged(DeviceInfo deviceInfo) {
+            deviceInfoChanged.set(true);
+          }
+
+          @Override
+          public void onDeviceVolumeChanged(int volume, boolean muted) {
+            deviceVolumeChanged.set(true);
+          }
+        };
+    AudioAttributes nonDefaultAudioAttributes =
+        new AudioAttributes.Builder()
+            .setUsage(C.USAGE_ALARM) // not default (USAGE_MEDIA)
+            .build();
+
+    ExoPlayer player =
+        new ExoPlayer.Builder(ApplicationProvider.getApplicationContext())
+            .setDeviceVolumeControlEnabled(true)
+            .setAudioAttributes(nonDefaultAudioAttributes, /* handleAudioFocus= */ false)
+            .build();
+    player.addListener(listener);
+
+    assertThat(deviceInfoChanged.get()).isFalse();
+    assertThat(deviceVolumeChanged.get()).isFalse();
+  }
+
   // Internal methods.
 
   private void addWatchAsSystemFeature() {
