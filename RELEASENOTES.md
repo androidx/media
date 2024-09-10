@@ -50,10 +50,9 @@
         [#1594](https://github.com/androidx/media/issues/1594)).
     *   Add `setFullscreenButtonState` to `PlayerView` to allow updates of
         fullscreen button's icon on demand, i.e. out-of-band and not reactively
-        to a click interaction.
+        to a click interaction
         ([#1590](https://github.com/androidx/media/issues/1590),
-        [#184](https://github.com/androidx/media/issues/184),
-        [#10391](https://github.com/google/ExoPlayer/issues/10391))
+        [#184](https://github.com/androidx/media/issues/184)).
 *   Downloads:
 *   OkHttp Extension:
 *   Cronet Extension:
