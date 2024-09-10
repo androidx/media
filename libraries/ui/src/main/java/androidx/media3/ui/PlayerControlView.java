@@ -1591,13 +1591,14 @@ public class PlayerControlView extends FrameLayout {
   public void updateIsFullscreen(boolean isFullscreen) {
     boolean fullscreenModeChanged = this.isFullScreen != isFullscreen;
 
-    if (fullscreenModeChanged && onFullScreenModeChangedListener == null) {
+    if (!fullscreenModeChanged) {
       return;
     }
 
     this.isFullScreen = isFullscreen;
     updateFullScreenButtonForState(fullScreenButton, isFullscreen);
     updateFullScreenButtonForState(minimalFullScreenButton, isFullscreen);
+
     if (fullscreenModeChanged && onFullScreenModeChangedListener != null) {
       onFullScreenModeChangedListener.onFullScreenModeChanged(isFullscreen);
     }
