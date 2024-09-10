@@ -1579,12 +1579,12 @@ public class PlayerControlView extends FrameLayout {
   }
 
   /**
-   * Updates whether the controller is in fullscreen, changing its fullscreen icon and reports it
-   * to to the listener.
+   * Updates whether the controller is in fullscreen, changing its fullscreen icon and reports it to
+   * to the listener.
    *
-   * <p>For {@code isFullscreen} equals {@code true} the icon will be set
-   * to {@link R.drawable#exo_styled_controls_fullscreen_exit} or else
-   * {@link R.drawable#exo_styled_controls_fullscreen_enter}.
+   * <p>For {@code isFullscreen} equals {@code true} the icon will be set to {@link
+   * R.drawable#exo_styled_controls_fullscreen_exit} or else {@link
+   * R.drawable#exo_styled_controls_fullscreen_enter}.
    *
    * @param isFullscreen If the view is in full screen.
    */

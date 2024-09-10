@@ -1142,8 +1142,9 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   /**
    * Sets whether the player is currently in fullscreen, this will change the displayed icon.
    *
-   * <p>If {@code isFullscreen} is {@code true}, {@link R.drawable#exo_styled_controls_fullscreen_exit}
-   * will be displayed or else {@link R.drawable#exo_styled_controls_fullscreen_enter}.
+   * <p>If {@code isFullscreen} is {@code true}, {@link
+   * R.drawable#exo_styled_controls_fullscreen_exit} will be displayed or else {@link
+   * R.drawable#exo_styled_controls_fullscreen_enter}.
    *
    * @param isFullscreen Whether the player is currently in fullscreen.
    */
