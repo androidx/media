@@ -138,14 +138,14 @@ import java.nio.ByteBuffer;
   }
 
   private static boolean isThreeByteNalStartCode(ByteBuffer input, int currentIndex) {
-    return (currentIndex < input.limit() - THREE_BYTE_NAL_START_CODE_SIZE
+    return (currentIndex <= input.limit() - THREE_BYTE_NAL_START_CODE_SIZE
         && input.get(currentIndex) == 0x00
         && input.get(currentIndex + 1) == 0x00
         && input.get(currentIndex + 2) == 0x01);
   }
 
   private static boolean isThreeBytesZeroSequence(ByteBuffer input, int currentIndex) {
-    return (currentIndex < input.limit() - THREE_BYTE_NAL_START_CODE_SIZE
+    return (currentIndex <= input.limit() - THREE_BYTE_NAL_START_CODE_SIZE
         && input.get(currentIndex) == 0x00
         && input.get(currentIndex + 1) == 0x00
         && input.get(currentIndex + 2) == 0x00);
