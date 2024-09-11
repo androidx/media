@@ -201,12 +201,13 @@ import java.util.Map;
     trackTokenToLastPresentationTimeUs.put(trackToken, presentationTimeUs);
 
     checkState(
-        presentationTimeOffsetUs == 0 || presentationTimeUs >= lastSamplePresentationTimeUs,
-        "Samples not in presentation order ("
-            + presentationTimeUs
-            + " < "
-            + lastSamplePresentationTimeUs
-            + ") unsupported when using negative PTS workaround");
+        presentationTimeOffsetUs == 0 || presentationTimeUs >= 0,
+        String.format(
+            Locale.US,
+            "Sample presentation time (%d) < first sample presentation time (%d). Ensure the first"
+                + " sample has the smallest timestamp when using the negative PTS workaround.",
+            presentationTimeUs - presentationTimeOffsetUs,
+            -presentationTimeOffsetUs));
     bufferInfo.set(bufferInfo.offset, bufferInfo.size, presentationTimeUs, bufferInfo.flags);
 
     try {
