@@ -13,6 +13,9 @@
 *   Transformer:
 *   Track Selection:
 *   Extractors:
+    *   Fix preroll sample handling for non-keyframe media start positions when
+        processing edit lists in MP4 files
+        ([#1659](https://github.com/google/ExoPlayer/issues/1659)).
 *   DataSource:
 *   Audio:
 *   Video:

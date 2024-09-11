@@ -22,7 +22,7 @@ sample:
   dataHashCode = 1491581480
   size = 7804
   isKeyFrame = true
-  presentationTimeUs = 0
+  presentationTimeUs = -500000
 sample:
   trackType = video
   dataHashCode = -1689048121

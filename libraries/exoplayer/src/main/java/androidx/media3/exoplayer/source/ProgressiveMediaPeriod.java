@@ -143,6 +143,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private boolean seenFirstTrackSelection;
   private boolean notifyDiscontinuity;
+  private boolean pendingInitialDiscontinuity;
   private int enabledTrackCount;
   private boolean isLengthKnown;
 
@@ -295,6 +296,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         Assertions.checkState(!trackEnabledStates[track]);
         enabledTrackCount++;
         trackEnabledStates[track] = true;
+        pendingInitialDiscontinuity |= selection.getSelectedFormat().hasPrerollSamples;
         streams[i] = new SampleStreamImpl(track);
         streamResetFlags[i] = true;
         // If there's still a chance of avoiding a seek, try and seek within the sample queue.
@@ -312,6 +314,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (enabledTrackCount == 0) {
       pendingDeferredRetry = false;
       notifyDiscontinuity = false;
+      pendingInitialDiscontinuity = false;
       if (loader.isLoading()) {
         // Discard as much as we can synchronously.
         for (SampleQueue sampleQueue : sampleQueues) {
@@ -387,6 +390,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public long readDiscontinuity() {
+    if (pendingInitialDiscontinuity) {
+      pendingInitialDiscontinuity = false;
+      return lastSeekPositionUs;
+    }
+
     if (notifyDiscontinuity
         && (loadingFinished || getExtractedSamplesCount() > extractedSamplesCountAtStartOfLoad)) {
       notifyDiscontinuity = false;
@@ -451,6 +459,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     pendingDeferredRetry = false;
     pendingResetPositionUs = positionUs;
     loadingFinished = false;
+    pendingInitialDiscontinuity = false;
     if (loader.isLoading()) {
       // Discard as much as we can synchronously.
       for (SampleQueue sampleQueue : sampleQueues) {
@@ -810,6 +819,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
       trackFormat = trackFormat.copyWithCryptoType(drmSessionManager.getCryptoType(trackFormat));
       trackArray[i] = new TrackGroup(/* id= */ Integer.toString(i), trackFormat);
+      pendingInitialDiscontinuity |= trackFormat.hasPrerollSamples;
     }
     trackState = new TrackState(new TrackGroupArray(trackArray), trackIsAudioVideoFlags);
     if (isSingleSample && durationUs == C.TIME_UNSET) {

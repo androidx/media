@@ -793,430 +793,591 @@ MediaCodecAdapter (exotest.audio.aac):
       rendered = false
 MediaCodecAdapter (exotest.video.hevc):
   inputBuffers:
-    count = 61
+    count = 84
     input buffer #0:
+      timeUs = 999999545000
+      contents = length 78829, hash 9265686F
+    input buffer #1:
+      timeUs = 999999678333
+      contents = length 32262, hash 1AD10F61
+    input buffer #2:
+      timeUs = 999999611666
+      contents = length 18055, hash C6BED1E3
+    input buffer #3:
+      timeUs = 999999811666
+      contents = length 65604, hash AA006B06
+    input buffer #4:
+      timeUs = 999999745000
+      contents = length 25841, hash 5643AEFF
+    input buffer #5:
+      timeUs = 999999945000
+      contents = length 72552, hash 9535951C
+    input buffer #6:
+      timeUs = 999999878333
+      contents = length 23756, hash 4074D5AE
+    input buffer #7:
+      timeUs = 1000000078333
+      contents = length 98274, hash 7BE5F53A
+    input buffer #8:
+      timeUs = 1000000011666
+      contents = length 55804, hash D559D074
+    input buffer #9:
+      timeUs = 999999978333
+      contents = length 12955, hash 35EE397F
+    input buffer #10:
+      timeUs = 1000000045000
+      contents = length 12066, hash 31FB52BD
+    input buffer #11:
+      timeUs = 1000000211666
+      contents = length 86506, hash 2FA2334C
+    input buffer #12:
+      timeUs = 1000000145000
+      contents = length 35691, hash 37C2A1B3
+    input buffer #13:
+      timeUs = 1000000111666
+      contents = length 9029, hash D49A1FBC
+    input buffer #14:
+      timeUs = 1000000178333
+      contents = length 12198, hash BA7F090B
+    input buffer #15:
+      timeUs = 1000000345000
+      contents = length 99669, hash 69FD95FB
+    input buffer #16:
+      timeUs = 1000000278333
+      contents = length 35931, hash 7F52D49D
+    input buffer #17:
+      timeUs = 1000000245000
+      contents = length 13955, hash 520B5A6A
+    input buffer #18:
+      timeUs = 1000000311666
+      contents = length 12407, hash 5326719B
+    input buffer #19:
+      timeUs = 1000000478333
+      contents = length 89991, hash A4198F94
+    input buffer #20:
+      timeUs = 1000000411666
+      contents = length 25706, hash F2A4B2A4
+    input buffer #21:
+      timeUs = 1000000378333
+      contents = length 11924, hash 508042C8
+    input buffer #22:
+      timeUs = 1000000445000
+      contents = length 14949, hash 212C7161
+    input buffer #23:
       timeUs = 1000000611666
       contents = length 196349, hash 484B3706
-    input buffer #1:
+    input buffer #24:
       timeUs = 1000000545000
       contents = length 36093, hash 9964470A
-    input buffer #2:
+    input buffer #25:
       timeUs = 1000000511666
       contents = length 9196, hash 124A821F
-    input buffer #3:
+    input buffer #26:
       timeUs = 1000000578333
       contents = length 11337, hash 2A61C44F
-    input buffer #4:
+    input buffer #27:
       timeUs = 1000000745000
       contents = length 89197, hash E331760E
-    input buffer #5:
+    input buffer #28:
       timeUs = 1000000678333
       contents = length 27802, hash 280175A2
-    input buffer #6:
+    input buffer #29:
       timeUs = 1000000645000
       contents = length 9295, hash 1CC71F4D
-    input buffer #7:
+    input buffer #30:
       timeUs = 1000000711666
       contents = length 11844, hash 595DBFFA
-    input buffer #8:
+    input buffer #31:
       timeUs = 1000000878333
       contents = length 78369, hash 958807CA
-    input buffer #9:
+    input buffer #32:
       timeUs = 1000000811666
       contents = length 28320, hash 8B5DAC6A
-    input buffer #10:
+    input buffer #33:
       timeUs = 1000000778333
       contents = length 13845, hash 868C5F96
-    input buffer #11:
+    input buffer #34:
       timeUs = 1000000845000
       contents = length 13734, hash 2BF28058
-    input buffer #12:
+    input buffer #35:
       timeUs = 1000001011666
       contents = length 60140, hash 4DCE6D29
-    input buffer #13:
+    input buffer #36:
       timeUs = 1000000945000
       contents = length 28024, hash 2808AC27
-    input buffer #14:
+    input buffer #37:
       timeUs = 1000000911666
       contents = length 14865, hash DA936298
-    input buffer #15:
+    input buffer #38:
       timeUs = 1000000978333
       contents = length 15631, hash F11D2528
-    input buffer #16:
+    input buffer #39:
       timeUs = 1000001145000
       contents = length 59293, hash 1C3296CD
-    input buffer #17:
+    input buffer #40:
       timeUs = 1000001078333
       contents = length 27545, hash 189E13B8
-    input buffer #18:
+    input buffer #41:
       timeUs = 1000001045000
       contents = length 14959, hash A47356EF
-    input buffer #19:
+    input buffer #42:
       timeUs = 1000001111666
       contents = length 15621, hash C391E893
-    input buffer #20:
+    input buffer #43:
       timeUs = 1000001278333
       contents = length 66112, hash 54A454C4
-    input buffer #21:
+    input buffer #44:
       timeUs = 1000001211666
       contents = length 33610, hash 4C3F57F2
-    input buffer #22:
+    input buffer #45:
       timeUs = 1000001178333
       contents = length 13205, hash EC181CA7
-    input buffer #23:
+    input buffer #46:
       timeUs = 1000001245000
       contents = length 18525, hash 20D8FE9D
-    input buffer #24:
+    input buffer #47:
       timeUs = 1000001411666
       contents = length 63613, hash B807DB7E
-    input buffer #25:
+    input buffer #48:
       timeUs = 1000001345000
       contents = length 40816, hash 2D023C8F
-    input buffer #26:
+    input buffer #49:
       timeUs = 1000001311666
       contents = length 17728, hash B07033B9
-    input buffer #27:
+    input buffer #50:
       timeUs = 1000001378333
       contents = length 13105, hash 4E3B7245
-    input buffer #28:
+    input buffer #51:
       timeUs = 1000001546666
       contents = length 54500, hash 88F3013F
-    input buffer #29:
+    input buffer #52:
       timeUs = 1000001478333
       contents = length 34711, hash 9918D286
-    input buffer #30:
+    input buffer #53:
       timeUs = 1000001445000
       contents = length 14764, hash CF9044AB
-    input buffer #31:
+    input buffer #54:
       timeUs = 1000001513333
       contents = length 16517, hash BA27C997
-    input buffer #32:
+    input buffer #55:
       timeUs = 1000001680000
       contents = length 143217, hash A7D06C3F
-    input buffer #33:
+    input buffer #56:
       timeUs = 1000001613333
       contents = length 32967, hash E490EDD3
-    input buffer #34:
+    input buffer #57:
       timeUs = 1000001580000
       contents = length 17445, hash 5F91C2B8
-    input buffer #35:
+    input buffer #58:
       timeUs = 1000001646666
       contents = length 14638, hash 775110FE
-    input buffer #36:
+    input buffer #59:
       timeUs = 1000001813333
       contents = length 67665, hash A9A21D87
-    input buffer #37:
+    input buffer #60:
       timeUs = 1000001746666
       contents = length 32392, hash 7E790D61
-    input buffer #38:
+    input buffer #61:
       timeUs = 1000001713333
       contents = length 10589, hash 6EB324E3
-    input buffer #39:
+    input buffer #62:
       timeUs = 1000001780000
       contents = length 18023, hash 29D03684
-    input buffer #40:
+    input buffer #63:
       timeUs = 1000001946666
       contents = length 67946, hash 8135C195
-    input buffer #41:
+    input buffer #64:
       timeUs = 1000001880000
       contents = length 41030, hash B6A9208
-    input buffer #42:
+    input buffer #65:
       timeUs = 1000001846666
       contents = length 15110, hash BF682221
-    input buffer #43:
+    input buffer #66:
       timeUs = 1000001913333
       contents = length 17245, hash 2BAFA805
-    input buffer #44:
+    input buffer #67:
       timeUs = 1000002080000
       contents = length 57455, hash 2754BFA0
-    input buffer #45:
+    input buffer #68:
       timeUs = 1000002013333
       contents = length 37067, hash CCE6C30F
-    input buffer #46:
+    input buffer #69:
       timeUs = 1000001980000
       contents = length 14098, hash 60A5760F
-    input buffer #47:
+    input buffer #70:
       timeUs = 1000002046666
       contents = length 20864, hash 94450211
-    input buffer #48:
+    input buffer #71:
       timeUs = 1000002213333
       contents = length 62871, hash BA53494F
-    input buffer #49:
+    input buffer #72:
       timeUs = 1000002146666
       contents = length 38596, hash 420335AC
-    input buffer #50:
+    input buffer #73:
       timeUs = 1000002113333
       contents = length 17584, hash 2E024B02
-    input buffer #51:
+    input buffer #74:
       timeUs = 1000002180000
       contents = length 18521, hash 7381819A
-    input buffer #52:
+    input buffer #75:
       timeUs = 1000002346666
       contents = length 54835, hash F45163BF
-    input buffer #53:
+    input buffer #76:
       timeUs = 1000002280000
       contents = length 29346, hash A57C757F
-    input buffer #54:
+    input buffer #77:
       timeUs = 1000002246666
       contents = length 15815, hash 1B194C31
-    input buffer #55:
+    input buffer #78:
       timeUs = 1000002313333
       contents = length 20390, hash A162AAD0
-    input buffer #56:
+    input buffer #79:
       timeUs = 1000002480000
       contents = length 64262, hash 875514C7
-    input buffer #57:
+    input buffer #80:
       timeUs = 1000002413333
       contents = length 39953, hash 3884739A
-    input buffer #58:
+    input buffer #81:
       timeUs = 1000002380000
       contents = length 23136, hash 8AF1C1AD
-    input buffer #59:
+    input buffer #82:
       timeUs = 1000002446666
       contents = length 26792, hash 3157758F
-    input buffer #60:
+    input buffer #83:
       timeUs = 0
       flags = 4
       contents = length 0, hash 1
   outputBuffers:
-    count = 60
+    count = 83
     output buffer #0:
+      timeUs = 999999545000
+      size = 78829
+      rendered = false
+    output buffer #1:
+      timeUs = 999999678333
+      size = 32262
+      rendered = false
+    output buffer #2:
+      timeUs = 999999611666
+      size = 18055
+      rendered = false
+    output buffer #3:
+      timeUs = 999999811666
+      size = 65604
+      rendered = false
+    output buffer #4:
+      timeUs = 999999745000
+      size = 25841
+      rendered = false
+    output buffer #5:
+      timeUs = 999999945000
+      size = 72552
+      rendered = false
+    output buffer #6:
+      timeUs = 999999878333
+      size = 23756
+      rendered = false
+    output buffer #7:
+      timeUs = 1000000078333
+      size = 98274
+      rendered = true
+    output buffer #8:
+      timeUs = 1000000011666
+      size = 55804
+      rendered = true
+    output buffer #9:
+      timeUs = 999999978333
+      size = 12955
+      rendered = false
+    output buffer #10:
+      timeUs = 1000000045000
+      size = 12066
+      rendered = true
+    output buffer #11:
+      timeUs = 1000000211666
+      size = 86506
+      rendered = true
+    output buffer #12:
+      timeUs = 1000000145000
+      size = 35691
+      rendered = true
+    output buffer #13:
+      timeUs = 1000000111666
+      size = 9029
+      rendered = true
+    output buffer #14:
+      timeUs = 1000000178333
+      size = 12198
+      rendered = true
+    output buffer #15:
+      timeUs = 1000000345000
+      size = 99669
+      rendered = true
+    output buffer #16:
+      timeUs = 1000000278333
+      size = 35931
+      rendered = true
+    output buffer #17:
+      timeUs = 1000000245000
+      size = 13955
+      rendered = true
+    output buffer #18:
+      timeUs = 1000000311666
+      size = 12407
+      rendered = true
+    output buffer #19:
+      timeUs = 1000000478333
+      size = 89991
+      rendered = true
+    output buffer #20:
+      timeUs = 1000000411666
+      size = 25706
+      rendered = true
+    output buffer #21:
+      timeUs = 1000000378333
+      size = 11924
+      rendered = true
+    output buffer #22:
+      timeUs = 1000000445000
+      size = 14949
+      rendered = true
+    output buffer #23:
       timeUs = 1000000611666
       size = 196349
       rendered = true
-    output buffer #1:
+    output buffer #24:
       timeUs = 1000000545000
       size = 36093
       rendered = true
-    output buffer #2:
+    output buffer #25:
       timeUs = 1000000511666
       size = 9196
       rendered = true
-    output buffer #3:
+    output buffer #26:
       timeUs = 1000000578333
       size = 11337
       rendered = true
-    output buffer #4:
+    output buffer #27:
       timeUs = 1000000745000
       size = 89197
       rendered = true
-    output buffer #5:
+    output buffer #28:
       timeUs = 1000000678333
       size = 27802
       rendered = true
-    output buffer #6:
+    output buffer #29:
       timeUs = 1000000645000
       size = 9295
       rendered = true
-    output buffer #7:
+    output buffer #30:
       timeUs = 1000000711666
       size = 11844
       rendered = true
-    output buffer #8:
+    output buffer #31:
       timeUs = 1000000878333
       size = 78369
       rendered = true
-    output buffer #9:
+    output buffer #32:
       timeUs = 1000000811666
       size = 28320
       rendered = true
-    output buffer #10:
+    output buffer #33:
       timeUs = 1000000778333
       size = 13845
       rendered = true
-    output buffer #11:
+    output buffer #34:
       timeUs = 1000000845000
       size = 13734
       rendered = true
-    output buffer #12:
+    output buffer #35:
       timeUs = 1000001011666
       size = 60140
       rendered = true
-    output buffer #13:
+    output buffer #36:
       timeUs = 1000000945000
       size = 28024
       rendered = true
-    output buffer #14:
+    output buffer #37:
       timeUs = 1000000911666
       size = 14865
       rendered = true
-    output buffer #15:
+    output buffer #38:
       timeUs = 1000000978333
       size = 15631
       rendered = true
-    output buffer #16:
+    output buffer #39:
       timeUs = 1000001145000
       size = 59293
       rendered = true
-    output buffer #17:
+    output buffer #40:
       timeUs = 1000001078333
       size = 27545
       rendered = true
-    output buffer #18:
+    output buffer #41:
       timeUs = 1000001045000
       size = 14959
       rendered = true
-    output buffer #19:
+    output buffer #42:
       timeUs = 1000001111666
       size = 15621
       rendered = true
-    output buffer #20:
+    output buffer #43:
       timeUs = 1000001278333
       size = 66112
       rendered = true
-    output buffer #21:
+    output buffer #44:
       timeUs = 1000001211666
       size = 33610
       rendered = true
-    output buffer #22:
+    output buffer #45:
       timeUs = 1000001178333
       size = 13205
       rendered = true
-    output buffer #23:
+    output buffer #46:
       timeUs = 1000001245000
       size = 18525
       rendered = true
-    output buffer #24:
+    output buffer #47:
       timeUs = 1000001411666
       size = 63613
       rendered = true
-    output buffer #25:
+    output buffer #48:
       timeUs = 1000001345000
       size = 40816
       rendered = true
-    output buffer #26:
+    output buffer #49:
       timeUs = 1000001311666
       size = 17728
       rendered = true
-    output buffer #27:
+    output buffer #50:
       timeUs = 1000001378333
       size = 13105
       rendered = true
-    output buffer #28:
+    output buffer #51:
       timeUs = 1000001546666
       size = 54500
       rendered = true
-    output buffer #29:
+    output buffer #52:
       timeUs = 1000001478333
       size = 34711
       rendered = true
-    output buffer #30:
+    output buffer #53:
       timeUs = 1000001445000
       size = 14764
       rendered = true
-    output buffer #31:
+    output buffer #54:
       timeUs = 1000001513333
       size = 16517
       rendered = true
-    output buffer #32:
+    output buffer #55:
       timeUs = 1000001680000
       size = 143217
       rendered = true
-    output buffer #33:
+    output buffer #56:
       timeUs = 1000001613333
       size = 32967
       rendered = true
-    output buffer #34:
+    output buffer #57:
       timeUs = 1000001580000
       size = 17445
       rendered = true
-    output buffer #35:
+    output buffer #58:
       timeUs = 1000001646666
       size = 14638
       rendered = true
-    output buffer #36:
+    output buffer #59:
       timeUs = 1000001813333
       size = 67665
       rendered = true
-    output buffer #37:
+    output buffer #60:
       timeUs = 1000001746666
       size = 32392
       rendered = true
-    output buffer #38:
+    output buffer #61:
       timeUs = 1000001713333
       size = 10589
       rendered = true
-    output buffer #39:
+    output buffer #62:
       timeUs = 1000001780000
       size = 18023
       rendered = true
-    output buffer #40:
+    output buffer #63:
       timeUs = 1000001946666
       size = 67946
       rendered = true
-    output buffer #41:
+    output buffer #64:
       timeUs = 1000001880000
       size = 41030
       rendered = true
-    output buffer #42:
+    output buffer #65:
       timeUs = 1000001846666
       size = 15110
       rendered = true
-    output buffer #43:
+    output buffer #66:
       timeUs = 1000001913333
       size = 17245
       rendered = true
-    output buffer #44:
+    output buffer #67:
       timeUs = 1000002080000
       size = 57455
       rendered = true
-    output buffer #45:
+    output buffer #68:
       timeUs = 1000002013333
       size = 37067
       rendered = true
-    output buffer #46:
+    output buffer #69:
       timeUs = 1000001980000
       size = 14098
       rendered = true
-    output buffer #47:
+    output buffer #70:
       timeUs = 1000002046666
       size = 20864
       rendered = true
-    output buffer #48:
+    output buffer #71:
       timeUs = 1000002213333
       size = 62871
       rendered = true
-    output buffer #49:
+    output buffer #72:
       timeUs = 1000002146666
       size = 38596
       rendered = true
-    output buffer #50:
+    output buffer #73:
       timeUs = 1000002113333
       size = 17584
       rendered = true
-    output buffer #51:
+    output buffer #74:
       timeUs = 1000002180000
       size = 18521
       rendered = true
-    output buffer #52:
+    output buffer #75:
       timeUs = 1000002346666
       size = 54835
       rendered = true
-    output buffer #53:
+    output buffer #76:
       timeUs = 1000002280000
       size = 29346
       rendered = true
-    output buffer #54:
+    output buffer #77:
       timeUs = 1000002246666
       size = 15815
       rendered = true
-    output buffer #55:
+    output buffer #78:
       timeUs = 1000002313333
       size = 20390
       rendered = true
-    output buffer #56:
+    output buffer #79:
       timeUs = 1000002480000
       size = 64262
       rendered = true
-    output buffer #57:
+    output buffer #80:
       timeUs = 1000002413333
       size = 39953
       rendered = true
-    output buffer #58:
+    output buffer #81:
       timeUs = 1000002380000
       size = 23136
       rendered = true
-    output buffer #59:
+    output buffer #82:
       timeUs = 1000002446666
       size = 26792
       rendered = true

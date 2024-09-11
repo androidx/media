@@ -714,9 +714,8 @@ public final class BoxParser {
         // sorted, but will ensure that a) all sync frames are in-order and b) any out-of-order
         // frames are after their respective sync frames. This means that although the result of
         // this binary search might be slightly incorrect (due to out-of-order timestamps), the loop
-        // below that walks forward to find the next sync frame will result in a correct start
-        // index. The start index would also be correct if we walk backwards to the previous sync
-        // frame (https://github.com/google/ExoPlayer/issues/1659).
+        // below that walks backward to find the previous sync frame will result in a correct start
+        // index.
         startIndices[i] =
             Util.binarySearchFloor(
                 timestamps, editMediaTime, /* inclusive= */ true, /* stayInBounds= */ true);
@@ -726,13 +725,8 @@ public final class BoxParser {
                 editMediaTime + editDuration,
                 /* inclusive= */ omitZeroDurationClippedSample,
                 /* stayInBounds= */ false);
-        while (startIndices[i] < endIndices[i]
-            && (flags[startIndices[i]] & C.BUFFER_FLAG_KEY_FRAME) == 0) {
-          // Applying the edit correctly would require prerolling from the previous sync sample. In
-          // the current implementation we advance to the next sync sample instead. Only other
-          // tracks (i.e. audio) will be rendered until the time of the first sync sample.
-          // See https://github.com/google/ExoPlayer/issues/1659.
-          startIndices[i]++;
+        while (startIndices[i] >= 0 && (flags[startIndices[i]] & C.BUFFER_FLAG_KEY_FRAME) == 0) {
+          startIndices[i]--;
         }
         editedSampleCount += endIndices[i] - startIndices[i];
         copyMetadata |= nextSampleIndex != startIndices[i];
@@ -749,6 +743,7 @@ public final class BoxParser {
     long[] editedTimestamps = new long[editedSampleCount];
     long pts = 0;
     int sampleIndex = 0;
+    boolean hasPrerollSamples = false;
     for (int i = 0; i < track.editListDurations.length; i++) {
       long editMediaTime = track.editListMediaTimes[i];
       int startIndex = startIndices[i];
@@ -764,8 +759,8 @@ public final class BoxParser {
         long timeInSegmentUs =
             Util.scaleLargeTimestamp(
                 timestamps[j] - editMediaTime, C.MICROS_PER_SECOND, track.timescale);
-        if (canTrimSamplesWithTimestampChange(track.type)) {
-          timeInSegmentUs = max(0, timeInSegmentUs);
+        if (timeInSegmentUs < 0) {
+          hasPrerollSamples = true;
         }
         editedTimestamps[sampleIndex] = ptsUs + timeInSegmentUs;
         if (copyMetadata && editedSizes[sampleIndex] > editedMaximumSize) {
@@ -777,6 +772,10 @@ public final class BoxParser {
     }
     long editedDurationUs =
         Util.scaleLargeTimestamp(pts, C.MICROS_PER_SECOND, track.movieTimescale);
+    if (hasPrerollSamples) {
+      Format format = track.format.buildUpon().setHasPrerollSamples(true).build();
+      track = track.copyWithFormat(format);
+    }
     return new TrackSampleTable(
         track,
         editedOffsets,
@@ -785,12 +784,6 @@ public final class BoxParser {
         editedTimestamps,
         editedFlags,
         editedDurationUs);
-  }
-
-  private static boolean canTrimSamplesWithTimestampChange(@C.TrackType int trackType) {
-    // Audio samples have an inherent duration and we can't trim data by changing the sample
-    // timestamp alone.
-    return trackType != C.TRACK_TYPE_AUDIO;
   }
 
   @Nullable
