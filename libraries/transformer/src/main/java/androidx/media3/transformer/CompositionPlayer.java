@@ -76,7 +76,7 @@ import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.util.EventLogger;
-import androidx.media3.exoplayer.video.CompositingVideoSinkProvider;
+import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -109,7 +109,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 @RestrictTo(LIBRARY_GROUP)
 public final class CompositionPlayer extends SimpleBasePlayer
     implements CompositionPlayerInternal.Listener,
-        CompositingVideoSinkProvider.Listener,
+        PlaybackVideoGraphWrapper.Listener,
         SurfaceHolder.Callback {
 
   /** A builder for {@link CompositionPlayer} instances. */
@@ -369,10 +369,10 @@ public final class CompositionPlayer extends SimpleBasePlayer
     setVideoSurfaceInternal(surface, videoOutputSize);
   }
 
-  // CompositingVideoSinkProvider.Listener methods. Called on playback thread.
+  // PlaybackVideoGraphWrapper.Listener methods. Called on playback thread.
 
   @Override
-  public void onFirstFrameRendered(CompositingVideoSinkProvider compositingVideoSinkProvider) {
+  public void onFirstFrameRendered(PlaybackVideoGraphWrapper playbackVideoGraphWrapper) {
     applicationHandler.post(
         () -> {
           CompositionPlayer.this.renderedFirstFrame = true;
@@ -381,27 +381,27 @@ public final class CompositionPlayer extends SimpleBasePlayer
   }
 
   @Override
-  public void onFrameDropped(CompositingVideoSinkProvider compositingVideoSinkProvider) {
+  public void onFrameDropped(PlaybackVideoGraphWrapper playbackVideoGraphWrapper) {
     // Do not post to application thread on each dropped frame, because onFrameDropped
     // may be called frequently when resources are already scarce.
   }
 
   @Override
   public void onVideoSizeChanged(
-      CompositingVideoSinkProvider compositingVideoSinkProvider, VideoSize videoSize) {
+      PlaybackVideoGraphWrapper playbackVideoGraphWrapper, VideoSize videoSize) {
     // TODO: b/328219481 - Report video size change to app.
   }
 
   @Override
   public void onError(
-      CompositingVideoSinkProvider compositingVideoSinkProvider,
+      PlaybackVideoGraphWrapper playbackVideoGraphWrapper,
       VideoFrameProcessingException videoFrameProcessingException) {
     // The error will also be surfaced from the underlying ExoPlayer instance via
     // PlayerListener.onPlayerError, and it will arrive to the composition player twice.
     applicationHandler.post(
         () ->
             maybeUpdatePlaybackError(
-                "error from video sink provider",
+                "Error processing video frames",
                 videoFrameProcessingException,
                 PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED));
   }
@@ -660,23 +660,23 @@ public final class CompositionPlayer extends SimpleBasePlayer
     playbackThread = new HandlerThread("CompositionPlaybackThread", Process.THREAD_PRIORITY_AUDIO);
     playbackThread.start();
     // Create the audio and video composition components now in order to setup the audio and video
-    // pipelines. Once this method returns, further access to the audio and video pipelines must
-    // done on the playback thread only, to ensure related components are accessed from one thread
-    // only.
-    PreviewAudioPipeline previewAudioPipeline =
-        new PreviewAudioPipeline(
+    // pipelines. Once this method returns, further access to the audio and video graph wrappers
+    // must done on the playback thread only, to ensure related components are accessed from one
+    // thread only.
+    PlaybackAudioGraphWrapper playbackAudioGraphWrapper =
+        new PlaybackAudioGraphWrapper(
             new DefaultAudioMixer.Factory(),
             composition.effects.audioProcessors,
             checkNotNull(finalAudioSink));
     VideoFrameReleaseControl videoFrameReleaseControl =
         new VideoFrameReleaseControl(
             context, new CompositionFrameTimingEvaluator(), /* allowedJoiningTimeMs= */ 0);
-    CompositingVideoSinkProvider compositingVideoSinkProvider =
-        new CompositingVideoSinkProvider.Builder(context, videoFrameReleaseControl)
+    PlaybackVideoGraphWrapper playbackVideoGraphWrapper =
+        new PlaybackVideoGraphWrapper.Builder(context, videoFrameReleaseControl)
             .setPreviewingVideoGraphFactory(checkNotNull(previewingVideoGraphFactory))
             .setClock(clock)
             .build();
-    compositingVideoSinkProvider.addListener(this);
+    playbackVideoGraphWrapper.addListener(this);
 
     // Video playback is disabled when one EditedMediaItem removes video.
     boolean disableVideoPlayback = shouldDisableVideoPlayback(composition);
@@ -687,11 +687,11 @@ public final class CompositionPlayer extends SimpleBasePlayer
               ? SequencePlayerRenderersWrapper.create(
                   context,
                   editedMediaItemSequence,
-                  previewAudioPipeline,
-                  compositingVideoSinkProvider.getSink(),
+                  playbackAudioGraphWrapper,
+                  playbackVideoGraphWrapper.getSink(),
                   imageDecoderFactory)
               : SequencePlayerRenderersWrapper.createForAudio(
-                  context, editedMediaItemSequence, previewAudioPipeline);
+                  context, editedMediaItemSequence, playbackAudioGraphWrapper);
       ExoPlayer.Builder playerBuilder =
           new ExoPlayer.Builder(context)
               .setLooper(getApplicationLooper())
@@ -725,8 +725,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
         new CompositionPlayerInternal(
             playbackThread.getLooper(),
             clock,
-            previewAudioPipeline,
-            compositingVideoSinkProvider,
+            playbackAudioGraphWrapper,
+            playbackVideoGraphWrapper,
             /* listener= */ this,
             compositionInternalListenerHandler);
   }

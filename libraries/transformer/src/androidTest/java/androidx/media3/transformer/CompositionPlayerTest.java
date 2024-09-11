@@ -442,7 +442,7 @@ public class CompositionPlayerTest {
   }
 
   @Test
-  public void playback_videoSinkProviderFails_playerRaisesError() {
+  public void playback_videoGraphWrapperFails_playerRaisesError() {
     PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
     EditedMediaItem video =
         new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
@@ -478,7 +478,7 @@ public class CompositionPlayerTest {
   }
 
   @Test
-  public void release_videoSinkProviderFailsDuringRelease_playerDoesNotRaiseError()
+  public void release_videoGraphWrapperFailsDuringRelease_playerDoesNotRaiseError()
       throws Exception {
     PlayerTestListener playerTestListener = new PlayerTestListener(TEST_TIMEOUT_MS);
     EditedMediaItem video =

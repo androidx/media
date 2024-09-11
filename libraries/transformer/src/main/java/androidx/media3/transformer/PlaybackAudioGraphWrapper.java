@@ -34,7 +34,7 @@ import java.util.Objects;
  *
  * <p>Multiple streams of {@linkplain #createInput() input} are not currently supported.
  */
-/* package */ final class PreviewAudioPipeline {
+/* package */ final class PlaybackAudioGraphWrapper {
   private final AudioSink finalAudioSink;
   private final AudioGraph audioGraph;
 
@@ -53,7 +53,7 @@ import java.util.Objects;
    * @param effects The composition-level audio effects that are applied after mixing.
    * @param finalAudioSink The {@linkplain AudioSink sink} for processed output audio.
    */
-  public PreviewAudioPipeline(
+  public PlaybackAudioGraphWrapper(
       AudioMixer.Factory mixerFactory,
       ImmutableList<AudioProcessor> effects,
       AudioSink finalAudioSink) {

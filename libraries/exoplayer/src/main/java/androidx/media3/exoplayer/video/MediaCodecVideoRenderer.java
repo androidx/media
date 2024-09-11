@@ -410,8 +410,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
    *     explicitly using {@link MediaFormat#KEY_OPERATING_RATE}).
    * @param videoSink The {@link VideoSink} consuming the frames. If {@code null} and effects are
    *     {@linkplain #MSG_SET_VIDEO_EFFECTS set}, a {@link VideoSink} produced by a {@link
-   *     CompositingVideoSinkProvider} with its default configuration will be used to apply effects
-   *     and render the frames on the output.
+   *     PlaybackVideoGraphWrapper} with its default configuration will be used to apply effects and
+   *     render the frames on the output.
    */
   public MediaCodecVideoRenderer(
       Context context,
@@ -677,7 +677,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (!hasSetVideoSink) {
       if (videoEffects != null && videoSink == null) {
         videoSink =
-            new CompositingVideoSinkProvider.Builder(context, videoFrameReleaseControl)
+            new PlaybackVideoGraphWrapper.Builder(context, videoFrameReleaseControl)
                 .setClock(getClock())
                 .build()
                 .getSink();

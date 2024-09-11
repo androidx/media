@@ -36,41 +36,41 @@ import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
-/** Unit tests for {@link PreviewAudioPipeline}. */
+/** Unit tests for {@link PlaybackAudioGraphWrapper}. */
 @RunWith(AndroidJUnit4.class)
-public class PreviewAudioPipelineTest {
+public class PlaybackAudioGraphWrapperTest {
   @Rule public final MockitoRule mockito = MockitoJUnit.rule();
 
-  private PreviewAudioPipeline previewAudioPipeline;
+  private PlaybackAudioGraphWrapper playbackAudioGraphWrapper;
   @Mock AudioSink outputAudioSink;
 
   @Before
   public void setUp() {
-    previewAudioPipeline =
-        new PreviewAudioPipeline(
+    playbackAudioGraphWrapper =
+        new PlaybackAudioGraphWrapper(
             new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of(), outputAudioSink);
   }
 
   @After
   public void tearDown() {
-    previewAudioPipeline.release();
+    playbackAudioGraphWrapper.release();
   }
 
   @Test
   public void processData_noAudioSinksCreated_returnsFalse() throws Exception {
-    assertThat(previewAudioPipeline.processData()).isFalse();
+    assertThat(playbackAudioGraphWrapper.processData()).isFalse();
   }
 
   @Test
   public void processData_audioSinkHasNotConfiguredYet_returnsFalse() throws Exception {
-    AudioGraphInputAudioSink unused = previewAudioPipeline.createInput();
+    AudioGraphInputAudioSink unused = playbackAudioGraphWrapper.createInput();
 
-    assertThat(previewAudioPipeline.processData()).isFalse();
+    assertThat(playbackAudioGraphWrapper.processData()).isFalse();
   }
 
   @Test
   public void inputPlay_withOneInput_playsOutputSink() throws Exception {
-    AudioGraphInputAudioSink inputAudioSink = previewAudioPipeline.createInput();
+    AudioGraphInputAudioSink inputAudioSink = playbackAudioGraphWrapper.createInput();
 
     inputAudioSink.play();
 
@@ -79,7 +79,7 @@ public class PreviewAudioPipelineTest {
 
   @Test
   public void inputPause_withOneInput_pausesOutputSink() throws Exception {
-    AudioGraphInputAudioSink inputAudioSink = previewAudioPipeline.createInput();
+    AudioGraphInputAudioSink inputAudioSink = playbackAudioGraphWrapper.createInput();
 
     inputAudioSink.play();
     inputAudioSink.pause();
@@ -89,7 +89,7 @@ public class PreviewAudioPipelineTest {
 
   @Test
   public void inputReset_withOneInput_pausesOutputSink() {
-    AudioGraphInputAudioSink inputAudioSink = previewAudioPipeline.createInput();
+    AudioGraphInputAudioSink inputAudioSink = playbackAudioGraphWrapper.createInput();
 
     inputAudioSink.play();
     inputAudioSink.reset();
@@ -99,7 +99,7 @@ public class PreviewAudioPipelineTest {
 
   @Test
   public void inputPlay_whenPlaying_doesNotPlayOutputSink() throws Exception {
-    AudioGraphInputAudioSink inputAudioSink = previewAudioPipeline.createInput();
+    AudioGraphInputAudioSink inputAudioSink = playbackAudioGraphWrapper.createInput();
     inputAudioSink.play();
     inputAudioSink.play();
 
@@ -108,7 +108,7 @@ public class PreviewAudioPipelineTest {
 
   @Test
   public void inputPause_whenNotPlaying_doesNotPauseOutputSink() throws Exception {
-    AudioGraphInputAudioSink inputAudioSink = previewAudioPipeline.createInput();
+    AudioGraphInputAudioSink inputAudioSink = playbackAudioGraphWrapper.createInput();
 
     inputAudioSink.pause();
 
@@ -117,9 +117,9 @@ public class PreviewAudioPipelineTest {
 
   @Test
   public void someInputPlay_withMultipleInputs_doesNotPlayOutputSink() throws Exception {
-    AudioGraphInputAudioSink inputAudioSink1 = previewAudioPipeline.createInput();
-    AudioGraphInputAudioSink inputAudioSink2 = previewAudioPipeline.createInput();
-    AudioGraphInputAudioSink unused = previewAudioPipeline.createInput();
+    AudioGraphInputAudioSink inputAudioSink1 = playbackAudioGraphWrapper.createInput();
+    AudioGraphInputAudioSink inputAudioSink2 = playbackAudioGraphWrapper.createInput();
+    AudioGraphInputAudioSink unused = playbackAudioGraphWrapper.createInput();
 
     inputAudioSink1.play();
     inputAudioSink2.play();
@@ -128,9 +128,9 @@ public class PreviewAudioPipelineTest {
 
   @Test
   public void allInputPlay_withMultipleInputs_playsOutputSinkOnce() throws Exception {
-    AudioGraphInputAudioSink inputAudioSink1 = previewAudioPipeline.createInput();
-    AudioGraphInputAudioSink inputAudioSink2 = previewAudioPipeline.createInput();
-    AudioGraphInputAudioSink inputAudioSink3 = previewAudioPipeline.createInput();
+    AudioGraphInputAudioSink inputAudioSink1 = playbackAudioGraphWrapper.createInput();
+    AudioGraphInputAudioSink inputAudioSink2 = playbackAudioGraphWrapper.createInput();
+    AudioGraphInputAudioSink inputAudioSink3 = playbackAudioGraphWrapper.createInput();
 
     inputAudioSink1.play();
     inputAudioSink2.play();
@@ -142,9 +142,9 @@ public class PreviewAudioPipelineTest {
   @Test
   public void firstInputPause_withMultipleInputs_pausesOutputSink() throws Exception {
     InOrder inOrder = inOrder(outputAudioSink);
-    AudioGraphInputAudioSink inputAudioSink1 = previewAudioPipeline.createInput();
-    AudioGraphInputAudioSink inputAudioSink2 = previewAudioPipeline.createInput();
-    AudioGraphInputAudioSink inputAudioSink3 = previewAudioPipeline.createInput();
+    AudioGraphInputAudioSink inputAudioSink1 = playbackAudioGraphWrapper.createInput();
+    AudioGraphInputAudioSink inputAudioSink2 = playbackAudioGraphWrapper.createInput();
+    AudioGraphInputAudioSink inputAudioSink3 = playbackAudioGraphWrapper.createInput();
 
     inputAudioSink1.play();
     inputAudioSink2.play();
@@ -157,9 +157,9 @@ public class PreviewAudioPipelineTest {
 
   @Test
   public void allInputPause_withMultipleInputs_pausesOutputSinkOnce() throws Exception {
-    AudioGraphInputAudioSink inputAudioSink1 = previewAudioPipeline.createInput();
-    AudioGraphInputAudioSink inputAudioSink2 = previewAudioPipeline.createInput();
-    AudioGraphInputAudioSink inputAudioSink3 = previewAudioPipeline.createInput();
+    AudioGraphInputAudioSink inputAudioSink1 = playbackAudioGraphWrapper.createInput();
+    AudioGraphInputAudioSink inputAudioSink2 = playbackAudioGraphWrapper.createInput();
+    AudioGraphInputAudioSink inputAudioSink3 = playbackAudioGraphWrapper.createInput();
 
     inputAudioSink1.play();
     inputAudioSink2.play();
@@ -174,9 +174,9 @@ public class PreviewAudioPipelineTest {
   @Test
   public void inputPlayAfterPause_withMultipleInputs_playsOutputSink() throws Exception {
     InOrder inOrder = inOrder(outputAudioSink);
-    AudioGraphInputAudioSink inputAudioSink1 = previewAudioPipeline.createInput();
-    AudioGraphInputAudioSink inputAudioSink2 = previewAudioPipeline.createInput();
-    AudioGraphInputAudioSink inputAudioSink3 = previewAudioPipeline.createInput();
+    AudioGraphInputAudioSink inputAudioSink1 = playbackAudioGraphWrapper.createInput();
+    AudioGraphInputAudioSink inputAudioSink2 = playbackAudioGraphWrapper.createInput();
+    AudioGraphInputAudioSink inputAudioSink3 = playbackAudioGraphWrapper.createInput();
 
     inputAudioSink1.play();
     inputAudioSink2.play();

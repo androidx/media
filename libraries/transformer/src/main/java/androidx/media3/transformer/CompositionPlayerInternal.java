@@ -28,7 +28,7 @@ import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
-import androidx.media3.exoplayer.video.CompositingVideoSinkProvider;
+import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 
 /** Provides access to the composition preview audio and video components on the playback thread. */
 /* package */ final class CompositionPlayerInternal implements Handler.Callback {
@@ -57,10 +57,10 @@ import androidx.media3.exoplayer.video.CompositingVideoSinkProvider;
   private final HandlerWrapper handler;
 
   /** Must be accessed on the playback thread only. */
-  private final PreviewAudioPipeline previewAudioPipeline;
+  private final PlaybackAudioGraphWrapper playbackAudioGraphWrapper;
 
   /** Must be accessed on the playback thread only. */
-  private final CompositingVideoSinkProvider compositingVideoSinkProvider;
+  private final PlaybackVideoGraphWrapper playbackVideoGraphWrapper;
 
   private final Listener listener;
   private final HandlerWrapper listenerHandler;
@@ -72,22 +72,22 @@ import androidx.media3.exoplayer.video.CompositingVideoSinkProvider;
    *
    * @param playbackLooper The playback thread {@link Looper}.
    * @param clock The {@link Clock} used.
-   * @param previewAudioPipeline The {@link PreviewAudioPipeline}.
-   * @param compositingVideoSinkProvider The {@link CompositingVideoSinkProvider}.
+   * @param playbackAudioGraphWrapper The {@link PlaybackAudioGraphWrapper}.
+   * @param playbackVideoGraphWrapper The {@link PlaybackVideoGraphWrapper}.
    * @param listener A {@link Listener} to send callbacks back to the player.
    * @param listenerHandler A {@link HandlerWrapper} to dispatch {@link Listener} callbacks.
    */
   public CompositionPlayerInternal(
       Looper playbackLooper,
       Clock clock,
-      PreviewAudioPipeline previewAudioPipeline,
-      CompositingVideoSinkProvider compositingVideoSinkProvider,
+      PlaybackAudioGraphWrapper playbackAudioGraphWrapper,
+      PlaybackVideoGraphWrapper playbackVideoGraphWrapper,
       Listener listener,
       HandlerWrapper listenerHandler) {
     this.clock = clock;
     this.handler = clock.createHandler(playbackLooper, /* callback= */ this);
-    this.previewAudioPipeline = previewAudioPipeline;
-    this.compositingVideoSinkProvider = compositingVideoSinkProvider;
+    this.playbackAudioGraphWrapper = playbackAudioGraphWrapper;
+    this.playbackVideoGraphWrapper = playbackVideoGraphWrapper;
     this.listener = listener;
     this.listenerHandler = listenerHandler;
   }
@@ -149,10 +149,10 @@ import androidx.media3.exoplayer.video.CompositingVideoSinkProvider;
         case MSG_START_SEEK:
           // Video seeking is currently handled by the video renderers, specifically in
           // onPositionReset.
-          previewAudioPipeline.startSeek(/* positionUs= */ Util.msToUs((long) message.obj));
+          playbackAudioGraphWrapper.startSeek(/* positionUs= */ Util.msToUs((long) message.obj));
           break;
         case MSG_END_SEEK:
-          previewAudioPipeline.endSeek();
+          playbackAudioGraphWrapper.endSeek();
           break;
         case MSG_RELEASE:
           releaseInternal(/* conditionVariable= */ (ConditionVariable) message.obj);
@@ -176,9 +176,9 @@ import androidx.media3.exoplayer.video.CompositingVideoSinkProvider;
 
   private void releaseInternal(ConditionVariable conditionVariable) {
     try {
-      previewAudioPipeline.release();
-      compositingVideoSinkProvider.clearOutputSurfaceInfo();
-      compositingVideoSinkProvider.release();
+      playbackAudioGraphWrapper.release();
+      playbackVideoGraphWrapper.clearOutputSurfaceInfo();
+      playbackVideoGraphWrapper.release();
     } catch (RuntimeException e) {
       Log.e(TAG, "error while releasing the player", e);
     } finally {
@@ -188,7 +188,7 @@ import androidx.media3.exoplayer.video.CompositingVideoSinkProvider;
 
   private void clearOutputSurfaceInternal() {
     try {
-      compositingVideoSinkProvider.clearOutputSurfaceInfo();
+      playbackVideoGraphWrapper.clearOutputSurfaceInfo();
     } catch (RuntimeException e) {
       maybeRaiseError(
           /* message= */ "error clearing video output",
@@ -199,7 +199,7 @@ import androidx.media3.exoplayer.video.CompositingVideoSinkProvider;
 
   private void setOutputSurfaceInfoOnInternalThread(OutputSurfaceInfo outputSurfaceInfo) {
     try {
-      compositingVideoSinkProvider.setOutputSurfaceInfo(
+      playbackVideoGraphWrapper.setOutputSurfaceInfo(
           outputSurfaceInfo.surface, outputSurfaceInfo.size);
     } catch (RuntimeException e) {
       maybeRaiseError(

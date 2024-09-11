@@ -62,7 +62,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private final Context context;
   private final EditedMediaItemSequence sequence;
-  private final PreviewAudioPipeline previewAudioPipeline;
+  private final PlaybackAudioGraphWrapper playbackAudioGraphWrapper;
   @Nullable private final VideoSink videoSink;
   @Nullable private final ImageDecoder.Factory imageDecoderFactory;
 
@@ -70,22 +70,22 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public static SequencePlayerRenderersWrapper create(
       Context context,
       EditedMediaItemSequence sequence,
-      PreviewAudioPipeline previewAudioPipeline,
+      PlaybackAudioGraphWrapper playbackAudioGraphWrapper,
       VideoSink videoSink,
       ImageDecoder.Factory imageDecoderFactory) {
     return new SequencePlayerRenderersWrapper(
-        context, sequence, previewAudioPipeline, videoSink, imageDecoderFactory);
+        context, sequence, playbackAudioGraphWrapper, videoSink, imageDecoderFactory);
   }
 
   /** Creates a renderers wrapper that for a player that will only play audio. */
   public static SequencePlayerRenderersWrapper createForAudio(
       Context context,
       EditedMediaItemSequence sequence,
-      PreviewAudioPipeline previewAudioPipeline) {
+      PlaybackAudioGraphWrapper playbackAudioGraphWrapper) {
     return new SequencePlayerRenderersWrapper(
         context,
         sequence,
-        previewAudioPipeline,
+        playbackAudioGraphWrapper,
         /* videoSink= */ null,
         /* imageDecoderFactory= */ null);
   }
@@ -93,12 +93,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private SequencePlayerRenderersWrapper(
       Context context,
       EditedMediaItemSequence sequence,
-      PreviewAudioPipeline previewAudioPipeline,
+      PlaybackAudioGraphWrapper playbackAudioGraphWrapper,
       @Nullable VideoSink videoSink,
       @Nullable ImageDecoder.Factory imageDecoderFactory) {
     this.context = context;
     this.sequence = sequence;
-    this.previewAudioPipeline = previewAudioPipeline;
+    this.playbackAudioGraphWrapper = playbackAudioGraphWrapper;
     this.videoSink = videoSink;
     this.imageDecoderFactory = imageDecoderFactory;
   }
@@ -117,7 +117,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             /* sequencePlayerRenderersWrapper= */ this,
             eventHandler,
             audioRendererEventListener,
-            previewAudioPipeline.createInput()));
+            playbackAudioGraphWrapper.createInput()));
 
     if (videoSink != null) {
       renderers.add(
@@ -177,7 +177,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     public void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
       super.render(positionUs, elapsedRealtimeUs);
       try {
-        while (sequencePlayerRenderersWrapper.previewAudioPipeline.processData()) {}
+        while (sequencePlayerRenderersWrapper.playbackAudioGraphWrapper.processData()) {}
       } catch (ExportException
           | AudioSink.WriteException
           | AudioSink.InitializationException

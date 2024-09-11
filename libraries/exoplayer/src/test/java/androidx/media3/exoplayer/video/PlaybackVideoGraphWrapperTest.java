@@ -35,14 +35,14 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mockito;
 
-/** Unit test for {@link CompositingVideoSinkProvider}. */
+/** Unit test for {@link PlaybackVideoGraphWrapper}. */
 @RunWith(AndroidJUnit4.class)
-public final class CompositingVideoSinkProviderTest {
+public final class PlaybackVideoGraphWrapperTest {
   @Test
   public void builder_calledMultipleTimes_throws() {
     Context context = ApplicationProvider.getApplicationContext();
-    CompositingVideoSinkProvider.Builder builder =
-        new CompositingVideoSinkProvider.Builder(context, createVideoFrameReleaseControl());
+    PlaybackVideoGraphWrapper.Builder builder =
+        new PlaybackVideoGraphWrapper.Builder(context, createVideoFrameReleaseControl());
 
     builder.build();
 
@@ -51,16 +51,16 @@ public final class CompositingVideoSinkProviderTest {
 
   @Test
   public void initializeSink_calledTwice_throws() throws VideoSink.VideoSinkException {
-    CompositingVideoSinkProvider provider = createCompositingVideoSinkProvider();
+    PlaybackVideoGraphWrapper provider = createPlaybackVideoGraphWrapper();
     VideoSink sink = provider.getSink();
     sink.initialize(new Format.Builder().build());
 
     assertThrows(IllegalStateException.class, () -> sink.initialize(new Format.Builder().build()));
   }
 
-  private static CompositingVideoSinkProvider createCompositingVideoSinkProvider() {
+  private static PlaybackVideoGraphWrapper createPlaybackVideoGraphWrapper() {
     Context context = ApplicationProvider.getApplicationContext();
-    return new CompositingVideoSinkProvider.Builder(context, createVideoFrameReleaseControl())
+    return new PlaybackVideoGraphWrapper.Builder(context, createVideoFrameReleaseControl())
         .setPreviewingVideoGraphFactory(new TestPreviewingVideoGraphFactory())
         .build();
   }

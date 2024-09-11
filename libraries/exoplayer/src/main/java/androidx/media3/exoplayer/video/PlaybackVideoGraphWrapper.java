@@ -65,53 +65,56 @@ import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
-/** Handles composition of video sinks. */
+/**
+ * Processes input from {@link VideoSink} instances, plumbing the data through a {@link VideoGraph}
+ * and rendering the output.
+ */
 @UnstableApi
 @RestrictTo({Scope.LIBRARY_GROUP})
-public final class CompositingVideoSinkProvider implements VideoSinkProvider, VideoGraph.Listener {
+public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, VideoGraph.Listener {
 
-  /** Listener for {@link CompositingVideoSinkProvider} events. */
+  /** Listener for {@link PlaybackVideoGraphWrapper} events. */
   public interface Listener {
     /**
      * Called when the video frame processor renders the first frame.
      *
-     * @param compositingVideoSinkProvider The compositing video sink provider which triggered this
+     * @param playbackVideoGraphWrapper The {@link PlaybackVideoGraphWrapper} which triggered this
      *     event.
      */
-    void onFirstFrameRendered(CompositingVideoSinkProvider compositingVideoSinkProvider);
+    void onFirstFrameRendered(PlaybackVideoGraphWrapper playbackVideoGraphWrapper);
 
     /**
      * Called when the video frame processor dropped a frame.
      *
-     * @param compositingVideoSinkProvider The compositing video sink provider which triggered this
+     * @param playbackVideoGraphWrapper The {@link PlaybackVideoGraphWrapper} which triggered this
      *     event.
      */
-    void onFrameDropped(CompositingVideoSinkProvider compositingVideoSinkProvider);
+    void onFrameDropped(PlaybackVideoGraphWrapper playbackVideoGraphWrapper);
 
     /**
      * Called before a frame is rendered for the first time since setting the surface, and each time
      * there's a change in the size, rotation or pixel aspect ratio of the video being rendered.
      *
-     * @param compositingVideoSinkProvider The compositing video sink provider which triggered this
+     * @param playbackVideoGraphWrapper The {@link PlaybackVideoGraphWrapper} which triggered this
      *     event.
      * @param videoSize The video size.
      */
     void onVideoSizeChanged(
-        CompositingVideoSinkProvider compositingVideoSinkProvider, VideoSize videoSize);
+        PlaybackVideoGraphWrapper playbackVideoGraphWrapper, VideoSize videoSize);
 
     /**
      * Called when the video frame processor encountered an error.
      *
-     * @param compositingVideoSinkProvider The compositing video sink provider which triggered this
+     * @param playbackVideoGraphWrapper The {@link PlaybackVideoGraphWrapper} which triggered this
      *     event.
      * @param videoFrameProcessingException The error.
      */
     void onError(
-        CompositingVideoSinkProvider compositingVideoSinkProvider,
+        PlaybackVideoGraphWrapper playbackVideoGraphWrapper,
         VideoFrameProcessingException videoFrameProcessingException);
   }
 
-  /** A builder for {@link CompositingVideoSinkProvider} instances. */
+  /** A builder for {@link PlaybackVideoGraphWrapper} instances. */
   public static final class Builder {
     private final Context context;
     private final VideoFrameReleaseControl videoFrameReleaseControl;
@@ -176,12 +179,12 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
     }
 
     /**
-     * Builds the {@link CompositingVideoSinkProvider}.
+     * Builds the {@link PlaybackVideoGraphWrapper}.
      *
      * <p>This method must be called at most once and will throw an {@link IllegalStateException} if
      * it has already been called.
      */
-    public CompositingVideoSinkProvider build() {
+    public PlaybackVideoGraphWrapper build() {
       checkState(!built);
 
       if (previewingVideoGraphFactory == null) {
@@ -191,10 +194,9 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
         previewingVideoGraphFactory =
             new ReflectivePreviewingSingleInputVideoGraphFactory(videoFrameProcessorFactory);
       }
-      CompositingVideoSinkProvider compositingVideoSinkProvider =
-          new CompositingVideoSinkProvider(this);
+      PlaybackVideoGraphWrapper playbackVideoGraphWrapper = new PlaybackVideoGraphWrapper(this);
       built = true;
-      return compositingVideoSinkProvider;
+      return playbackVideoGraphWrapper;
     }
   }
 
@@ -216,7 +218,7 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
   private final VideoFrameRenderControl videoFrameRenderControl;
   private final PreviewingVideoGraph.Factory previewingVideoGraphFactory;
   private final Clock clock;
-  private final CopyOnWriteArraySet<CompositingVideoSinkProvider.Listener> listeners;
+  private final CopyOnWriteArraySet<PlaybackVideoGraphWrapper.Listener> listeners;
 
   private @MonotonicNonNull Format outputFormat;
   private @MonotonicNonNull VideoFrameMetadataListener videoFrameMetadataListener;
@@ -233,7 +235,7 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
    */
   private long bufferTimestampAdjustmentUs;
 
-  private CompositingVideoSinkProvider(Builder builder) {
+  private PlaybackVideoGraphWrapper(Builder builder) {
     context = builder.context;
     videoSinkImpl = new VideoSinkImpl(context);
     clock = builder.clock;
@@ -248,20 +250,20 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
   }
 
   /**
-   * Adds a {@link CompositingVideoSinkProvider.Listener}.
+   * Adds a {@link PlaybackVideoGraphWrapper.Listener}.
    *
    * @param listener The listener to be added.
    */
-  public void addListener(CompositingVideoSinkProvider.Listener listener) {
+  public void addListener(PlaybackVideoGraphWrapper.Listener listener) {
     listeners.add(listener);
   }
 
   /**
-   * Removes a {@link CompositingVideoSinkProvider.Listener}.
+   * Removes a {@link PlaybackVideoGraphWrapper.Listener}.
    *
    * @param listener The listener to be removed.
    */
-  public void removeListener(CompositingVideoSinkProvider.Listener listener) {
+  public void removeListener(PlaybackVideoGraphWrapper.Listener listener) {
     listeners.remove(listener);
   }
 
@@ -321,7 +323,7 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
   @Override
   public void onOutputFrameAvailableForRendering(long framePresentationTimeUs) {
     if (pendingFlushCount > 0) {
-      // Ignore available frames while the sink provider is flushing
+      // Ignore available frames while flushing
       return;
     }
     // The frame presentation time is relative to the start of the Composition and without the
@@ -337,8 +339,8 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
 
   @Override
   public void onError(VideoFrameProcessingException exception) {
-    for (CompositingVideoSinkProvider.Listener listener : listeners) {
-      listener.onError(/* compositingVideoSinkProvider= */ this, exception);
+    for (PlaybackVideoGraphWrapper.Listener listener : listeners) {
+      listener.onError(/* playbackVideoGraphWrapper= */ this, exception);
     }
   }
 
@@ -464,7 +466,7 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
   }
 
   /** Receives input from an ExoPlayer renderer and forwards it to the video graph. */
-  private final class VideoSinkImpl implements VideoSink, CompositingVideoSinkProvider.Listener {
+  private final class VideoSinkImpl implements VideoSink, PlaybackVideoGraphWrapper.Listener {
 
     private final int videoFrameProcessorMaxPendingFrameCount;
     private final ArrayList<Effect> videoEffects;
@@ -539,7 +541,7 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
     @Override
     public void initialize(Format sourceFormat) throws VideoSinkException {
       checkState(!isInitialized());
-      videoFrameProcessor = CompositingVideoSinkProvider.this.initialize(sourceFormat);
+      videoFrameProcessor = PlaybackVideoGraphWrapper.this.initialize(sourceFormat);
     }
 
     @Override
@@ -556,7 +558,7 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
       hasRegisteredFirstInputStream = false;
       finalBufferPresentationTimeUs = C.TIME_UNSET;
       lastBufferPresentationTimeUs = C.TIME_UNSET;
-      CompositingVideoSinkProvider.this.flush();
+      PlaybackVideoGraphWrapper.this.flush();
       if (resetPosition) {
         videoFrameReleaseControl.reset();
       }
@@ -569,7 +571,7 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
 
     @Override
     public boolean isReady(boolean rendererOtherwiseReady) {
-      return CompositingVideoSinkProvider.this.isReady(
+      return PlaybackVideoGraphWrapper.this.isReady(
           /* rendererOtherwiseReady= */ rendererOtherwiseReady && isInitialized());
     }
 
@@ -577,7 +579,7 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
     public boolean isEnded() {
       return isInitialized()
           && finalBufferPresentationTimeUs != C.TIME_UNSET
-          && CompositingVideoSinkProvider.this.hasReleasedFrame(finalBufferPresentationTimeUs);
+          && PlaybackVideoGraphWrapper.this.hasReleasedFrame(finalBufferPresentationTimeUs);
     }
 
     @Override
@@ -619,12 +621,12 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
     @Override
     public void setVideoFrameMetadataListener(
         VideoFrameMetadataListener videoFrameMetadataListener) {
-      CompositingVideoSinkProvider.this.setVideoFrameMetadataListener(videoFrameMetadataListener);
+      PlaybackVideoGraphWrapper.this.setVideoFrameMetadataListener(videoFrameMetadataListener);
     }
 
     @Override
     public void setPlaybackSpeed(@FloatRange(from = 0, fromInclusive = false) float speed) {
-      CompositingVideoSinkProvider.this.setPlaybackSpeed(speed);
+      PlaybackVideoGraphWrapper.this.setPlaybackSpeed(speed);
     }
 
     @Override
@@ -660,12 +662,12 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
 
     @Override
     public void setOutputSurfaceInfo(Surface outputSurface, Size outputResolution) {
-      CompositingVideoSinkProvider.this.setOutputSurfaceInfo(outputSurface, outputResolution);
+      PlaybackVideoGraphWrapper.this.setOutputSurfaceInfo(outputSurface, outputResolution);
     }
 
     @Override
     public void clearOutputSurfaceInfo() {
-      CompositingVideoSinkProvider.this.clearOutputSurfaceInfo();
+      PlaybackVideoGraphWrapper.this.clearOutputSurfaceInfo();
     }
 
     @Override
@@ -734,7 +736,7 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
       // input frame from the next input stream.
       if (isInputStreamChangePending) {
         if (pendingInputStreamBufferPresentationTimeUs == C.TIME_UNSET
-            || CompositingVideoSinkProvider.this.hasReleasedFrame(
+            || PlaybackVideoGraphWrapper.this.hasReleasedFrame(
                 pendingInputStreamBufferPresentationTimeUs)) {
           maybeRegisterInputStream();
           isInputStreamChangePending = false;
@@ -793,7 +795,7 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
     @Override
     public void render(long positionUs, long elapsedRealtimeUs) throws VideoSinkException {
       try {
-        CompositingVideoSinkProvider.this.render(positionUs, elapsedRealtimeUs);
+        PlaybackVideoGraphWrapper.this.render(positionUs, elapsedRealtimeUs);
       } catch (ExoPlaybackException e) {
         throw new VideoSinkException(
             e, inputFormat != null ? inputFormat : new Format.Builder().build());
@@ -807,14 +809,14 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
 
     @Override
     public void release() {
-      CompositingVideoSinkProvider.this.release();
+      PlaybackVideoGraphWrapper.this.release();
     }
 
     // Other methods
 
     private void maybeSetStreamOffsetChange(long bufferPresentationTimeUs) {
       if (pendingInputStreamOffsetChange) {
-        CompositingVideoSinkProvider.this.onStreamOffsetChange(
+        PlaybackVideoGraphWrapper.this.onStreamOffsetChange(
             inputBufferTimestampAdjustmentUs,
             bufferPresentationTimeUs,
             /* streamOffsetUs= */ inputStreamOffsetUs);
@@ -834,7 +836,7 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
       // An input stream is fully decoded, wait until all of its frames are released before queueing
       // input frame from the next input stream.
       if (pendingInputStreamBufferPresentationTimeUs == C.TIME_UNSET
-          || CompositingVideoSinkProvider.this.hasReleasedFrame(
+          || PlaybackVideoGraphWrapper.this.hasReleasedFrame(
               pendingInputStreamBufferPresentationTimeUs)) {
         maybeRegisterInputStream();
         isInputStreamChangePending = false;
@@ -864,16 +866,16 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
       finalBufferPresentationTimeUs = C.TIME_UNSET;
     }
 
-    // CompositingVideoSinkProvider.Listener implementation
+    // PlaybackVideoGraphWrapper.Listener implementation
 
     @Override
-    public void onFirstFrameRendered(CompositingVideoSinkProvider compositingVideoSinkProvider) {
+    public void onFirstFrameRendered(PlaybackVideoGraphWrapper playbackVideoGraphWrapper) {
       VideoSink.Listener currentListener = listener;
       listenerExecutor.execute(() -> currentListener.onFirstFrameRendered(/* videoSink= */ this));
     }
 
     @Override
-    public void onFrameDropped(CompositingVideoSinkProvider compositingVideoSinkProvider) {
+    public void onFrameDropped(PlaybackVideoGraphWrapper playbackVideoGraphWrapper) {
       VideoSink.Listener currentListener = listener;
       listenerExecutor.execute(
           () -> currentListener.onFrameDropped(checkStateNotNull(/* reference= */ this)));
@@ -881,7 +883,7 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
 
     @Override
     public void onVideoSizeChanged(
-        CompositingVideoSinkProvider compositingVideoSinkProvider, VideoSize videoSize) {
+        PlaybackVideoGraphWrapper playbackVideoGraphWrapper, VideoSize videoSize) {
       VideoSink.Listener currentListener = listener;
       listenerExecutor.execute(
           () -> currentListener.onVideoSizeChanged(/* videoSink= */ this, videoSize));
@@ -889,7 +891,7 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
 
     @Override
     public void onError(
-        CompositingVideoSinkProvider compositingVideoSinkProvider,
+        PlaybackVideoGraphWrapper playbackVideoGraphWrapper,
         VideoFrameProcessingException videoFrameProcessingException) {
       VideoSink.Listener currentListener = listener;
       listenerExecutor.execute(
@@ -911,8 +913,8 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
               .setHeight(videoSize.height)
               .setSampleMimeType(MimeTypes.VIDEO_RAW)
               .build();
-      for (CompositingVideoSinkProvider.Listener listener : listeners) {
-        listener.onVideoSizeChanged(CompositingVideoSinkProvider.this, videoSize);
+      for (PlaybackVideoGraphWrapper.Listener listener : listeners) {
+        listener.onVideoSizeChanged(PlaybackVideoGraphWrapper.this, videoSize);
       }
     }
 
@@ -923,8 +925,8 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
         long streamOffsetUs,
         boolean isFirstFrame) {
       if (isFirstFrame && currentSurfaceAndSize != null) {
-        for (CompositingVideoSinkProvider.Listener listener : listeners) {
-          listener.onFirstFrameRendered(CompositingVideoSinkProvider.this);
+        for (PlaybackVideoGraphWrapper.Listener listener : listeners) {
+          listener.onFirstFrameRendered(PlaybackVideoGraphWrapper.this);
         }
       }
       if (videoFrameMetadataListener != null) {
@@ -942,8 +944,8 @@ public final class CompositingVideoSinkProvider implements VideoSinkProvider, Vi
 
     @Override
     public void dropFrame() {
-      for (CompositingVideoSinkProvider.Listener listener : listeners) {
-        listener.onFrameDropped(CompositingVideoSinkProvider.this);
+      for (PlaybackVideoGraphWrapper.Listener listener : listeners) {
+        listener.onFrameDropped(PlaybackVideoGraphWrapper.this);
       }
       checkStateNotNull(videoGraph).renderOutputFrame(VideoFrameProcessor.DROP_OUTPUT_FRAME);
     }

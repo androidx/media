@@ -36,7 +36,7 @@ import java.util.Objects;
 /**
  * An {@link AudioSink} implementation that feeds an {@link AudioGraphInput}.
  *
- * <p>Should be used by {@link PreviewAudioPipeline}.
+ * <p>Should be used by {@link PlaybackAudioGraphWrapper}.
  */
 /* package */ final class AudioGraphInputAudioSink implements AudioSink {
 
