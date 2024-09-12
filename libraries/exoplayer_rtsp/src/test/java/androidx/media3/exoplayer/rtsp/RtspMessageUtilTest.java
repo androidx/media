@@ -452,8 +452,7 @@ public final class RtspMessageUtilTest {
   @Test
   public void removeUserInfo_withEncodedAtInUserInfo() {
     Uri uri = Uri.parse("rtsp://user%40name:pass@foo.bar/foo.mkv");
-    assertThat(RtspMessageUtil.removeUserInfo(uri))
-        .isEqualTo(Uri.parse("rtsp://foo.bar/foo.mkv"));
+    assertThat(RtspMessageUtil.removeUserInfo(uri)).isEqualTo(Uri.parse("rtsp://foo.bar/foo.mkv"));
   }
 
   @Test
