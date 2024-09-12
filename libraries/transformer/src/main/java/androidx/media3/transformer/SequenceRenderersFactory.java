@@ -65,6 +65,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final PlaybackAudioGraphWrapper playbackAudioGraphWrapper;
   @Nullable private final VideoSink videoSink;
   @Nullable private final ImageDecoder.Factory imageDecoderFactory;
+  private final int inputIndex;
 
   /** Creates a renderers factory for a player that will play video, image and audio. */
   public static SequenceRenderersFactory create(
@@ -72,22 +73,25 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       EditedMediaItemSequence sequence,
       PlaybackAudioGraphWrapper playbackAudioGraphWrapper,
       VideoSink videoSink,
-      ImageDecoder.Factory imageDecoderFactory) {
+      ImageDecoder.Factory imageDecoderFactory,
+      int inputIndex) {
     return new SequenceRenderersFactory(
-        context, sequence, playbackAudioGraphWrapper, videoSink, imageDecoderFactory);
+        context, sequence, playbackAudioGraphWrapper, videoSink, imageDecoderFactory, inputIndex);
   }
 
   /** Creates a renderers factory that for a player that will only play audio. */
   public static SequenceRenderersFactory createForAudio(
       Context context,
       EditedMediaItemSequence sequence,
-      PlaybackAudioGraphWrapper playbackAudioGraphWrapper) {
+      PlaybackAudioGraphWrapper playbackAudioGraphWrapper,
+      int inputIndex) {
     return new SequenceRenderersFactory(
         context,
         sequence,
         playbackAudioGraphWrapper,
         /* videoSink= */ null,
-        /* imageDecoderFactory= */ null);
+        /* imageDecoderFactory= */ null,
+        inputIndex);
   }
 
   private SequenceRenderersFactory(
@@ -95,12 +99,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       EditedMediaItemSequence sequence,
       PlaybackAudioGraphWrapper playbackAudioGraphWrapper,
       @Nullable VideoSink videoSink,
-      @Nullable ImageDecoder.Factory imageDecoderFactory) {
+      @Nullable ImageDecoder.Factory imageDecoderFactory,
+      int inputIndex) {
     this.context = context;
     this.sequence = sequence;
     this.playbackAudioGraphWrapper = playbackAudioGraphWrapper;
     this.videoSink = videoSink;
     this.imageDecoderFactory = imageDecoderFactory;
+    this.inputIndex = inputIndex;
   }
 
   @Override
@@ -117,7 +123,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             eventHandler,
             audioRendererEventListener,
             sequence,
-            /* audioSink= */ playbackAudioGraphWrapper.createInput(),
+            /* audioSink= */ playbackAudioGraphWrapper.createInput(inputIndex),
             playbackAudioGraphWrapper));
 
     if (videoSink != null) {

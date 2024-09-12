@@ -689,9 +689,10 @@ public final class CompositionPlayer extends SimpleBasePlayer
                   editedMediaItemSequence,
                   playbackAudioGraphWrapper,
                   playbackVideoGraphWrapper.getSink(),
-                  imageDecoderFactory)
+                  imageDecoderFactory,
+                  /* inputIndex= */ i)
               : SequenceRenderersFactory.createForAudio(
-                  context, editedMediaItemSequence, playbackAudioGraphWrapper);
+                  context, editedMediaItemSequence, playbackAudioGraphWrapper, /* inputIndex= */ i);
       ExoPlayer.Builder playerBuilder =
           new ExoPlayer.Builder(context)
               .setLooper(getApplicationLooper())

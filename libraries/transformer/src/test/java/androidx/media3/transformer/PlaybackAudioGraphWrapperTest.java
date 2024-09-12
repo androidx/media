@@ -63,14 +63,15 @@ public class PlaybackAudioGraphWrapperTest {
 
   @Test
   public void processData_audioSinkHasNotConfiguredYet_returnsFalse() throws Exception {
-    AudioGraphInputAudioSink unused = playbackAudioGraphWrapper.createInput();
+    AudioGraphInputAudioSink unused = playbackAudioGraphWrapper.createInput(/* inputIndex= */ 0);
 
     assertThat(playbackAudioGraphWrapper.processData()).isFalse();
   }
 
   @Test
   public void inputPlay_withOneInput_playsOutputSink() throws Exception {
-    AudioGraphInputAudioSink inputAudioSink = playbackAudioGraphWrapper.createInput();
+    AudioGraphInputAudioSink inputAudioSink =
+        playbackAudioGraphWrapper.createInput(/* inputIndex= */ 0);
 
     inputAudioSink.play();
 
@@ -79,7 +80,8 @@ public class PlaybackAudioGraphWrapperTest {
 
   @Test
   public void inputPause_withOneInput_pausesOutputSink() throws Exception {
-    AudioGraphInputAudioSink inputAudioSink = playbackAudioGraphWrapper.createInput();
+    AudioGraphInputAudioSink inputAudioSink =
+        playbackAudioGraphWrapper.createInput(/* inputIndex= */ 0);
 
     inputAudioSink.play();
     inputAudioSink.pause();
@@ -89,7 +91,8 @@ public class PlaybackAudioGraphWrapperTest {
 
   @Test
   public void inputReset_withOneInput_pausesOutputSink() {
-    AudioGraphInputAudioSink inputAudioSink = playbackAudioGraphWrapper.createInput();
+    AudioGraphInputAudioSink inputAudioSink =
+        playbackAudioGraphWrapper.createInput(/* inputIndex= */ 0);
 
     inputAudioSink.play();
     inputAudioSink.reset();
@@ -99,7 +102,8 @@ public class PlaybackAudioGraphWrapperTest {
 
   @Test
   public void inputPlay_whenPlaying_doesNotPlayOutputSink() throws Exception {
-    AudioGraphInputAudioSink inputAudioSink = playbackAudioGraphWrapper.createInput();
+    AudioGraphInputAudioSink inputAudioSink =
+        playbackAudioGraphWrapper.createInput(/* inputIndex= */ 0);
     inputAudioSink.play();
     inputAudioSink.play();
 
@@ -108,7 +112,8 @@ public class PlaybackAudioGraphWrapperTest {
 
   @Test
   public void inputPause_whenNotPlaying_doesNotPauseOutputSink() throws Exception {
-    AudioGraphInputAudioSink inputAudioSink = playbackAudioGraphWrapper.createInput();
+    AudioGraphInputAudioSink inputAudioSink =
+        playbackAudioGraphWrapper.createInput(/* inputIndex= */ 0);
 
     inputAudioSink.pause();
 
@@ -117,9 +122,11 @@ public class PlaybackAudioGraphWrapperTest {
 
   @Test
   public void someInputPlay_withMultipleInputs_doesNotPlayOutputSink() throws Exception {
-    AudioGraphInputAudioSink inputAudioSink1 = playbackAudioGraphWrapper.createInput();
-    AudioGraphInputAudioSink inputAudioSink2 = playbackAudioGraphWrapper.createInput();
-    AudioGraphInputAudioSink unused = playbackAudioGraphWrapper.createInput();
+    AudioGraphInputAudioSink inputAudioSink1 =
+        playbackAudioGraphWrapper.createInput(/* inputIndex= */ 0);
+    AudioGraphInputAudioSink inputAudioSink2 =
+        playbackAudioGraphWrapper.createInput(/* inputIndex= */ 1);
+    AudioGraphInputAudioSink unused = playbackAudioGraphWrapper.createInput(/* inputIndex= */ 2);
 
     inputAudioSink1.play();
     inputAudioSink2.play();
@@ -128,9 +135,12 @@ public class PlaybackAudioGraphWrapperTest {
 
   @Test
   public void allInputPlay_withMultipleInputs_playsOutputSinkOnce() throws Exception {
-    AudioGraphInputAudioSink inputAudioSink1 = playbackAudioGraphWrapper.createInput();
-    AudioGraphInputAudioSink inputAudioSink2 = playbackAudioGraphWrapper.createInput();
-    AudioGraphInputAudioSink inputAudioSink3 = playbackAudioGraphWrapper.createInput();
+    AudioGraphInputAudioSink inputAudioSink1 =
+        playbackAudioGraphWrapper.createInput(/* inputIndex= */ 0);
+    AudioGraphInputAudioSink inputAudioSink2 =
+        playbackAudioGraphWrapper.createInput(/* inputIndex= */ 1);
+    AudioGraphInputAudioSink inputAudioSink3 =
+        playbackAudioGraphWrapper.createInput(/* inputIndex= */ 2);
 
     inputAudioSink1.play();
     inputAudioSink2.play();
@@ -142,9 +152,12 @@ public class PlaybackAudioGraphWrapperTest {
   @Test
   public void firstInputPause_withMultipleInputs_pausesOutputSink() throws Exception {
     InOrder inOrder = inOrder(outputAudioSink);
-    AudioGraphInputAudioSink inputAudioSink1 = playbackAudioGraphWrapper.createInput();
-    AudioGraphInputAudioSink inputAudioSink2 = playbackAudioGraphWrapper.createInput();
-    AudioGraphInputAudioSink inputAudioSink3 = playbackAudioGraphWrapper.createInput();
+    AudioGraphInputAudioSink inputAudioSink1 =
+        playbackAudioGraphWrapper.createInput(/* inputIndex= */ 0);
+    AudioGraphInputAudioSink inputAudioSink2 =
+        playbackAudioGraphWrapper.createInput(/* inputIndex= */ 1);
+    AudioGraphInputAudioSink inputAudioSink3 =
+        playbackAudioGraphWrapper.createInput(/* inputIndex= */ 2);
 
     inputAudioSink1.play();
     inputAudioSink2.play();
@@ -157,9 +170,12 @@ public class PlaybackAudioGraphWrapperTest {
 
   @Test
   public void allInputPause_withMultipleInputs_pausesOutputSinkOnce() throws Exception {
-    AudioGraphInputAudioSink inputAudioSink1 = playbackAudioGraphWrapper.createInput();
-    AudioGraphInputAudioSink inputAudioSink2 = playbackAudioGraphWrapper.createInput();
-    AudioGraphInputAudioSink inputAudioSink3 = playbackAudioGraphWrapper.createInput();
+    AudioGraphInputAudioSink inputAudioSink1 =
+        playbackAudioGraphWrapper.createInput(/* inputIndex= */ 0);
+    AudioGraphInputAudioSink inputAudioSink2 =
+        playbackAudioGraphWrapper.createInput(/* inputIndex= */ 1);
+    AudioGraphInputAudioSink inputAudioSink3 =
+        playbackAudioGraphWrapper.createInput(/* inputIndex= */ 2);
 
     inputAudioSink1.play();
     inputAudioSink2.play();
@@ -174,9 +190,12 @@ public class PlaybackAudioGraphWrapperTest {
   @Test
   public void inputPlayAfterPause_withMultipleInputs_playsOutputSink() throws Exception {
     InOrder inOrder = inOrder(outputAudioSink);
-    AudioGraphInputAudioSink inputAudioSink1 = playbackAudioGraphWrapper.createInput();
-    AudioGraphInputAudioSink inputAudioSink2 = playbackAudioGraphWrapper.createInput();
-    AudioGraphInputAudioSink inputAudioSink3 = playbackAudioGraphWrapper.createInput();
+    AudioGraphInputAudioSink inputAudioSink1 =
+        playbackAudioGraphWrapper.createInput(/* inputIndex= */ 0);
+    AudioGraphInputAudioSink inputAudioSink2 =
+        playbackAudioGraphWrapper.createInput(/* inputIndex= */ 1);
+    AudioGraphInputAudioSink inputAudioSink3 =
+        playbackAudioGraphWrapper.createInput(/* inputIndex= */ 2);
 
     inputAudioSink1.play();
     inputAudioSink2.play();

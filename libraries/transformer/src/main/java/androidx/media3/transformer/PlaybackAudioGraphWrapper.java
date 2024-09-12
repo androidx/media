@@ -18,6 +18,7 @@ package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Util.sampleCountToDurationUs;
 
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.audio.AudioProcessor;
@@ -31,16 +32,19 @@ import java.util.Objects;
 /**
  * Processes input from {@link AudioGraphInputAudioSink} instances, plumbing the data through an
  * {@link AudioGraph} and writing the output to the provided {@link AudioSink}.
- *
- * <p>Multiple streams of {@linkplain #createInput() input} are not currently supported.
  */
 /* package */ final class PlaybackAudioGraphWrapper {
+
+  // The index number for the primary sequence.
+  private static final int PRIMARY_SEQUENCE_INDEX = 0;
+
   private final AudioSink finalAudioSink;
   private final AudioGraph audioGraph;
 
   private int audioGraphInputsCreated;
   private int inputAudioSinksCreated;
   private int inputAudioSinksPlaying;
+  private boolean hasRegisteredPrimaryFormat;
   private AudioFormat outputAudioFormat;
   private long outputFramesWritten;
   private long seekPositionUs;
@@ -74,8 +78,8 @@ import java.util.Objects;
   }
 
   /** Returns an {@link AudioSink} for a single sequence of non-overlapping raw PCM audio. */
-  public AudioGraphInputAudioSink createInput() {
-    return new AudioGraphInputAudioSink(new SinkController());
+  public AudioGraphInputAudioSink createInput(int inputIndex) {
+    return new AudioGraphInputAudioSink(new SinkController(inputIndex));
   }
 
   /**
@@ -157,17 +161,29 @@ import java.util.Objects;
   }
 
   private final class SinkController implements AudioGraphInputAudioSink.Controller {
+    private final boolean isSequencePrimary;
     private boolean playing;
 
-    public SinkController() {
+    public SinkController(int inputIndex) {
+      this.isSequencePrimary = inputIndex == PRIMARY_SEQUENCE_INDEX;
       inputAudioSinksCreated++;
     }
 
+    @Nullable
     @Override
     public AudioGraphInput getAudioGraphInput(EditedMediaItem editedMediaItem, Format format)
         throws ExportException {
+      if (!isSequencePrimary && !hasRegisteredPrimaryFormat) {
+        // Make sure the format corresponding to the primary sequence is registered first to the
+        // AudioGraph.
+        return null;
+      }
+
       AudioGraphInput audioGraphInput = audioGraph.registerInput(editedMediaItem, format);
       audioGraphInputsCreated++;
+      if (isSequencePrimary) {
+        hasRegisteredPrimaryFormat = true;
+      }
       return audioGraphInput;
     }
 
