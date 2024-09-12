@@ -682,21 +682,21 @@ public final class CompositionPlayer extends SimpleBasePlayer
     boolean disableVideoPlayback = shouldDisableVideoPlayback(composition);
     for (int i = 0; i < composition.sequences.size(); i++) {
       EditedMediaItemSequence editedMediaItemSequence = composition.sequences.get(i);
-      SequencePlayerRenderersWrapper playerRenderersWrapper =
+      SequenceRenderersFactory sequenceRenderersFactory =
           i == 0
-              ? SequencePlayerRenderersWrapper.create(
+              ? SequenceRenderersFactory.create(
                   context,
                   editedMediaItemSequence,
                   playbackAudioGraphWrapper,
                   playbackVideoGraphWrapper.getSink(),
                   imageDecoderFactory)
-              : SequencePlayerRenderersWrapper.createForAudio(
+              : SequenceRenderersFactory.createForAudio(
                   context, editedMediaItemSequence, playbackAudioGraphWrapper);
       ExoPlayer.Builder playerBuilder =
           new ExoPlayer.Builder(context)
               .setLooper(getApplicationLooper())
               .setPlaybackLooper(playbackThread.getLooper())
-              .setRenderersFactory(playerRenderersWrapper)
+              .setRenderersFactory(sequenceRenderersFactory)
               .setHandleAudioBecomingNoisy(true)
               .setClock(clock);
 

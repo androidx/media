@@ -55,8 +55,8 @@ import java.util.ArrayList;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
-/** Wraps {@link EditedMediaItemSequence} specific rendering logic and state. */
-/* package */ final class SequencePlayerRenderersWrapper implements RenderersFactory {
+/** A {@link RenderersFactory} for an {@link EditedMediaItemSequence}. */
+/* package */ final class SequenceRenderersFactory implements RenderersFactory {
 
   private static final int DEFAULT_FRAME_RATE = 30;
 
@@ -66,23 +66,23 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Nullable private final VideoSink videoSink;
   @Nullable private final ImageDecoder.Factory imageDecoderFactory;
 
-  /** Creates a renderers wrapper for a player that will play video, image and audio. */
-  public static SequencePlayerRenderersWrapper create(
+  /** Creates a renderers factory for a player that will play video, image and audio. */
+  public static SequenceRenderersFactory create(
       Context context,
       EditedMediaItemSequence sequence,
       PlaybackAudioGraphWrapper playbackAudioGraphWrapper,
       VideoSink videoSink,
       ImageDecoder.Factory imageDecoderFactory) {
-    return new SequencePlayerRenderersWrapper(
+    return new SequenceRenderersFactory(
         context, sequence, playbackAudioGraphWrapper, videoSink, imageDecoderFactory);
   }
 
-  /** Creates a renderers wrapper that for a player that will only play audio. */
-  public static SequencePlayerRenderersWrapper createForAudio(
+  /** Creates a renderers factory that for a player that will only play audio. */
+  public static SequenceRenderersFactory createForAudio(
       Context context,
       EditedMediaItemSequence sequence,
       PlaybackAudioGraphWrapper playbackAudioGraphWrapper) {
-    return new SequencePlayerRenderersWrapper(
+    return new SequenceRenderersFactory(
         context,
         sequence,
         playbackAudioGraphWrapper,
@@ -90,7 +90,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         /* imageDecoderFactory= */ null);
   }
 
-  private SequencePlayerRenderersWrapper(
+  private SequenceRenderersFactory(
       Context context,
       EditedMediaItemSequence sequence,
       PlaybackAudioGraphWrapper playbackAudioGraphWrapper,
@@ -114,10 +114,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     renderers.add(
         new SequenceAudioRenderer(
             context,
-            /* sequencePlayerRenderersWrapper= */ this,
             eventHandler,
             audioRendererEventListener,
-            playbackAudioGraphWrapper.createInput()));
+            sequence,
+            /* audioSink= */ playbackAudioGraphWrapper.createInput(),
+            playbackAudioGraphWrapper));
 
     if (videoSink != null) {
       renderers.add(
@@ -125,14 +126,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               checkStateNotNull(context),
               eventHandler,
               videoRendererEventListener,
-              /* sequencePlayerRenderersWrapper= */ this));
-      renderers.add(new SequenceImageRenderer(/* sequencePlayerRenderersWrapper= */ this));
+              sequence,
+              videoSink));
+      renderers.add(
+          new SequenceImageRenderer(sequence, checkStateNotNull(imageDecoderFactory), videoSink));
     }
 
     return renderers.toArray(new Renderer[0]);
   }
 
-  private long getOffsetToCompositionTimeUs(int mediaItemIndex, long offsetUs) {
+  private static long getOffsetToCompositionTimeUs(
+      EditedMediaItemSequence sequence, int mediaItemIndex, long offsetUs) {
     // Reverse engineer how timestamps and offsets are computed with a ConcatenatingMediaSource2
     // to compute an offset converting buffer timestamps to composition timestamps.
     // startPositionUs is not used because it is equal to offsetUs + clipping start time + seek
@@ -152,8 +156,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private static final class SequenceAudioRenderer extends MediaCodecAudioRenderer {
-    private final SequencePlayerRenderersWrapper sequencePlayerRenderersWrapper;
+    private final EditedMediaItemSequence sequence;
     private final AudioGraphInputAudioSink audioSink;
+    private final PlaybackAudioGraphWrapper playbackAudioGraphWrapper;
 
     @Nullable private EditedMediaItem pendingEditedMediaItem;
     private long pendingOffsetToCompositionTimeUs;
@@ -162,13 +167,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     //  Supplier<EditedMediaItem>) once we finish all the wiring to support multiple sequences.
     public SequenceAudioRenderer(
         Context context,
-        SequencePlayerRenderersWrapper sequencePlayerRenderersWrapper,
         @Nullable Handler eventHandler,
         @Nullable AudioRendererEventListener eventListener,
-        AudioGraphInputAudioSink audioSink) {
+        EditedMediaItemSequence sequence,
+        AudioGraphInputAudioSink audioSink,
+        PlaybackAudioGraphWrapper playbackAudioGraphWrapper) {
       super(context, MediaCodecSelector.DEFAULT, eventHandler, eventListener, audioSink);
-      this.sequencePlayerRenderersWrapper = sequencePlayerRenderersWrapper;
+      this.sequence = sequence;
       this.audioSink = audioSink;
+      this.playbackAudioGraphWrapper = playbackAudioGraphWrapper;
     }
 
     // MediaCodecAudioRenderer methods
@@ -177,7 +184,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     public void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
       super.render(positionUs, elapsedRealtimeUs);
       try {
-        while (sequencePlayerRenderersWrapper.playbackAudioGraphWrapper.processData()) {}
+        while (playbackAudioGraphWrapper.processData()) {}
       } catch (ExportException
           | AudioSink.WriteException
           | AudioSink.InitializationException
@@ -198,10 +205,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       int mediaItemIndex = getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid);
       // We must first update the pending media item state before calling super.onStreamChanged()
       // because the super method will call onProcessedStreamChange()
-      pendingEditedMediaItem =
-          sequencePlayerRenderersWrapper.sequence.editedMediaItems.get(mediaItemIndex);
+      pendingEditedMediaItem = sequence.editedMediaItems.get(mediaItemIndex);
       pendingOffsetToCompositionTimeUs =
-          sequencePlayerRenderersWrapper.getOffsetToCompositionTimeUs(mediaItemIndex, offsetUs);
+          getOffsetToCompositionTimeUs(sequence, mediaItemIndex, offsetUs);
       super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
     }
 
@@ -223,16 +229,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       EditedMediaItem currentEditedMediaItem = checkStateNotNull(pendingEditedMediaItem);
       // Use reference equality intentionally.
       boolean isLastInSequence =
-          currentEditedMediaItem
-              == Iterables.getLast(sequencePlayerRenderersWrapper.sequence.editedMediaItems);
+          currentEditedMediaItem == Iterables.getLast(sequence.editedMediaItems);
       audioSink.onMediaItemChanged(
           currentEditedMediaItem, pendingOffsetToCompositionTimeUs, isLastInSequence);
     }
   }
 
   private static final class SequenceVideoRenderer extends MediaCodecVideoRenderer {
-    private final SequencePlayerRenderersWrapper sequencePlayerRenderersWrapper;
+    private final EditedMediaItemSequence sequence;
     private final VideoSink videoSink;
+
     @Nullable private ImmutableList<Effect> pendingEffect;
     private long offsetToCompositionTimeUs;
 
@@ -240,7 +246,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         Context context,
         Handler eventHandler,
         VideoRendererEventListener videoRendererEventListener,
-        SequencePlayerRenderersWrapper sequencePlayerRenderersWrapper) {
+        EditedMediaItemSequence sequence,
+        VideoSink videoSink) {
       super(
           context,
           MediaCodecAdapter.Factory.getDefault(context),
@@ -251,9 +258,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           videoRendererEventListener,
           MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY,
           /* assumedMinimumCodecOperatingRate= */ DEFAULT_FRAME_RATE,
-          checkStateNotNull(sequencePlayerRenderersWrapper.videoSink));
-      this.sequencePlayerRenderersWrapper = sequencePlayerRenderersWrapper;
-      videoSink = checkStateNotNull(sequencePlayerRenderersWrapper.videoSink);
+          videoSink);
+      this.sequence = sequence;
+      this.videoSink = videoSink;
       experimentalEnableProcessedStreamChangedAtStart();
     }
 
@@ -267,12 +274,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       checkState(getTimeline().getWindowCount() == 1);
       super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
       int mediaItemIndex = getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid);
-      offsetToCompositionTimeUs =
-          sequencePlayerRenderersWrapper.getOffsetToCompositionTimeUs(mediaItemIndex, offsetUs);
-      pendingEffect =
-          sequencePlayerRenderersWrapper.sequence.editedMediaItems.get(mediaItemIndex)
-              .effects
-              .videoEffects;
+      offsetToCompositionTimeUs = getOffsetToCompositionTimeUs(sequence, mediaItemIndex, offsetUs);
+      pendingEffect = sequence.editedMediaItems.get(mediaItemIndex).effects.videoEffects;
     }
 
     @Override
@@ -291,7 +294,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private static final class SequenceImageRenderer extends ImageRenderer {
-    private final SequencePlayerRenderersWrapper sequencePlayerRenderersWrapper;
+
+    private final EditedMediaItemSequence sequence;
     private final VideoSink videoSink;
 
     private ImmutableList<Effect> videoEffects;
@@ -303,11 +307,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private boolean mayRenderStartOfStream;
     private long offsetToCompositionTimeUs;
 
-    public SequenceImageRenderer(SequencePlayerRenderersWrapper sequencePlayerRenderersWrapper) {
-      super(
-          checkStateNotNull(sequencePlayerRenderersWrapper.imageDecoderFactory), ImageOutput.NO_OP);
-      this.sequencePlayerRenderersWrapper = sequencePlayerRenderersWrapper;
-      videoSink = checkStateNotNull(sequencePlayerRenderersWrapper.videoSink);
+    public SequenceImageRenderer(
+        EditedMediaItemSequence sequence,
+        ImageDecoder.Factory imageDecoderFactory,
+        VideoSink videoSink) {
+      super(imageDecoderFactory, ImageOutput.NO_OP);
+      this.sequence = sequence;
+      this.videoSink = videoSink;
       videoEffects = ImmutableList.of();
       streamStartPositionUs = C.TIME_UNSET;
     }
@@ -396,10 +402,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
       streamStartPositionUs = startPositionUs;
       int mediaItemIndex = getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid);
-      editedMediaItem =
-          sequencePlayerRenderersWrapper.sequence.editedMediaItems.get(mediaItemIndex);
-      offsetToCompositionTimeUs =
-          sequencePlayerRenderersWrapper.getOffsetToCompositionTimeUs(mediaItemIndex, offsetUs);
+      editedMediaItem = sequence.editedMediaItems.get(mediaItemIndex);
+      offsetToCompositionTimeUs = getOffsetToCompositionTimeUs(sequence, mediaItemIndex, offsetUs);
       timestampIterator = createTimestampIterator(/* positionUs= */ startPositionUs);
       videoEffects = editedMediaItem.effects.videoEffects;
       inputStreamPending = true;
