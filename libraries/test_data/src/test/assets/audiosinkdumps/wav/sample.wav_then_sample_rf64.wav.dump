@@ -36,16 +36,16 @@ AudioSink:
     data = 1472467506
   buffer #10:
     time = 1000000
-    data = 1785344804
+    data = -1801955054
   buffer #11:
-    time = 1100000
-    data = 458152960
+    time = 1099977
+    data = -873871341
   buffer #12:
-    time = 1200000
-    data = -2129352270
+    time = 1199977
+    data = -606926258
   buffer #13:
-    time = 1300000
-    data = 1572219123
+    time = 1299977
+    data = -856735260
   buffer #14:
-    time = 1348616
-    data = -2263
+    time = 1348594
+    data = -2944

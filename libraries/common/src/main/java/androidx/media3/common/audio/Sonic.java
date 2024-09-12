@@ -38,7 +38,7 @@ import java.util.Arrays;
   private final int channelCount;
   private final float speed;
   private final float pitch;
-  private final float rate;
+  private final double rate;
   private final int minPeriod;
   private final int maxPeriod;
   private final int maxRequiredFrameCount;
@@ -57,6 +57,7 @@ import java.util.Arrays;
   private int prevMinDiff;
   private int minDiff;
   private int maxDiff;
+  private double accumulatedInterpolationError;
 
   /**
    * Creates a new Sonic audio stream processor.
@@ -73,7 +74,7 @@ import java.util.Arrays;
     this.channelCount = channelCount;
     this.speed = speed;
     this.pitch = pitch;
-    rate = (float) inputSampleRateHz / outputSampleRateHz;
+    rate = (double) inputSampleRateHz / outputSampleRateHz;
     minPeriod = inputSampleRateHz / MAXIMUM_PITCH;
     maxPeriod = inputSampleRateHz / MINIMUM_PITCH;
     maxRequiredFrameCount = 2 * maxPeriod;
@@ -130,10 +131,20 @@ import java.util.Arrays;
    */
   public void queueEndOfStream() {
     int remainingFrameCount = inputFrameCount;
+
     float s = speed / pitch;
-    float r = rate * pitch;
+    double r = rate * pitch;
+
+    // Math.round(double) returns a long, but we can safely cast from long to int because the only
+    // double (accumulatedInterpolationError) always has a value between (-0.5 ; 0.5).
     int expectedOutputFrames =
-        outputFrameCount + (int) ((remainingFrameCount / s + pitchFrameCount) / r + 0.5f);
+        outputFrameCount
+            + (int)
+                Math.round(
+                    ((remainingFrameCount / s + pitchFrameCount) / r
+                        + accumulatedInterpolationError));
+
+    accumulatedInterpolationError = 0;
 
     // Add enough silence to flush both input and pitch buffers.
     inputBuffer =
@@ -144,10 +155,12 @@ import java.util.Arrays;
     }
     inputFrameCount += 2 * maxRequiredFrameCount;
     processStreamInput();
+
     // Throw away any extra frames we generated due to the silence we added.
     if (outputFrameCount > expectedOutputFrames) {
       outputFrameCount = expectedOutputFrames;
     }
+
     // Empty input and pitch buffers.
     inputFrameCount = 0;
     remainingInputToCopyFrameCount = 0;
@@ -166,6 +179,7 @@ import java.util.Arrays;
     prevMinDiff = 0;
     minDiff = 0;
     maxDiff = 0;
+    accumulatedInterpolationError = 0;
   }
 
   /** Returns the size of output that can be read with {@link #getOutput(ShortBuffer)}, in bytes. */
@@ -366,20 +380,35 @@ import java.util.Arrays;
     return (short) ((ratio * left + (width - ratio) * right) / width);
   }
 
-  private void adjustRate(float rate, int originalOutputFrameCount) {
+  private void adjustRate(double rate, int originalOutputFrameCount) {
+    // If no new samples added to output buffer, then return.
     if (outputFrameCount == originalOutputFrameCount) {
       return;
     }
-    int newSampleRate = (int) (inputSampleRateHz / rate);
-    int oldSampleRate = inputSampleRateHz;
-    // Set these values to help with the integer math.
-    while (newSampleRate > (1 << 14) || oldSampleRate > (1 << 14)) {
+
+    // Move samples to pitch buffer first to calculate the block size.
+    moveNewSamplesToPitchBuffer(originalOutputFrameCount);
+    // Leave at least one pitch sample in the buffer.
+    int blockSize = pitchFrameCount - 1;
+    double expectedFrameCount = blockSize / rate + accumulatedInterpolationError;
+    // We can safely cast from long to int because accumulatedInterpolationError is always between
+    // (-0.5 ; 0.5), blockSize should always receive a reasonable buffer size (e.g. 1024 frames),
+    // and we can assume that rate will not involve infinitesimally small values under normal
+    // operation.
+    int newSampleRate = (int) Math.round(expectedFrameCount);
+    accumulatedInterpolationError = expectedFrameCount - newSampleRate;
+    int oldSampleRate = blockSize;
+
+    // Simplify ratio for interpolation.
+    while (newSampleRate != 0
+        && oldSampleRate != 0
+        && newSampleRate % 2 == 0
+        && oldSampleRate % 2 == 0) {
       newSampleRate /= 2;
       oldSampleRate /= 2;
     }
-    moveNewSamplesToPitchBuffer(originalOutputFrameCount);
-    // Leave at least one pitch sample in the buffer.
-    for (int position = 0; position < pitchFrameCount - 1; position++) {
+
+    for (int position = 0; position < blockSize; position++) {
       while ((oldRatePosition + 1) * newSampleRate > newRatePosition * oldSampleRate) {
         outputBuffer =
             ensureSpaceForAdditionalFrames(
@@ -398,7 +427,7 @@ import java.util.Arrays;
         newRatePosition = 0;
       }
     }
-    removePitchFrames(pitchFrameCount - 1);
+    removePitchFrames(blockSize);
   }
 
   private int skipPitchPeriod(short[] samples, int position, float speed, int period) {
@@ -479,14 +508,14 @@ import java.util.Arrays;
     // Resample as many pitch periods as we have buffered on the input.
     int originalOutputFrameCount = outputFrameCount;
     float s = speed / pitch;
-    float r = rate * pitch;
+    double r = rate * pitch;
     if (s > 1.00001 || s < 0.99999) {
       changeSpeed(s);
     } else {
       copyToOutput(inputBuffer, 0, inputFrameCount);
       inputFrameCount = 0;
     }
-    if (r != 1.0f) {
+    if (r != 1.0) {
       adjustRate(r, originalOutputFrameCount);
     }
   }

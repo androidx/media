@@ -29,6 +29,7 @@ import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_180;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_270;
 import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET;
+import static androidx.media3.transformer.AndroidTestUtil.WAV_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.WEBP_LARGE;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static androidx.media3.transformer.AndroidTestUtil.createFrameCountingEffect;
@@ -1951,6 +1952,29 @@ public class TransformerEndToEndTest {
         assertThat(trackOutput.getSampleTimeUs(/* index= */ sampleCount - 1)).isAtMost(2_400_000);
       }
     }
+  }
+
+  @Test
+  public void resampledAudio_hasExpectedOutputSampleCount() throws Exception {
+    float resamplingRate = 1.5f;
+    AtomicInteger readBytes = new AtomicInteger();
+    Transformer transformer = new Transformer.Builder(context).build();
+    SonicAudioProcessor sonic = new SonicAudioProcessor();
+    sonic.setSpeed(resamplingRate);
+    sonic.setPitch(resamplingRate);
+    Effects effects =
+        new Effects(
+            ImmutableList.of(sonic, createByteCountingAudioProcessor(readBytes)),
+            ImmutableList.of());
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri)).setEffects(effects).build();
+
+    new TransformerAndroidTestRunner.Builder(context, transformer)
+        .build()
+        .run(testId, editedMediaItem);
+    // The test file contains 44100 samples (1 sec @44.1KHz, mono). We expect to receive 44100 / 1.5
+    // samples.
+    assertThat(readBytes.get() / 2).isEqualTo(29400);
   }
 
   @Test

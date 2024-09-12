@@ -18,6 +18,8 @@
         ([#1659](https://github.com/google/ExoPlayer/issues/1659)).
 *   DataSource:
 *   Audio:
+    *   Fix truncation error acumulation for `Sonic`'s resampling algorithm to
+        prevent drift on number of output samples.
 *   Video:
 *   Text:
 *   Metadata:
