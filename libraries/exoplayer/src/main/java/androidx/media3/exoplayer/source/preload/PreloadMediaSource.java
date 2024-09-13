@@ -87,10 +87,10 @@ public final class PreloadMediaSource extends WrappingMediaSource {
      * instead.
      *
      * @param mediaSource The {@link PreloadMediaSource} that requests to continue loading.
-     * @param bufferedPositionUs An estimate of the absolute position in microseconds up to which
-     *     data is buffered.
+     * @param bufferedDurationUs An estimate of the duration from the start position for which data
+     *     is buffered, in microseconds.
      */
-    boolean onContinueLoadingRequested(PreloadMediaSource mediaSource, long bufferedPositionUs);
+    boolean onContinueLoadingRequested(PreloadMediaSource mediaSource, long bufferedDurationUs);
 
     /**
      * Called from {@link PreloadMediaSource} when the player starts using this source.
@@ -502,14 +502,15 @@ public final class PreloadMediaSource extends WrappingMediaSource {
               return;
             }
             PreloadMediaPeriod preloadMediaPeriod = (PreloadMediaPeriod) mediaPeriod;
-            if (prepared && mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE) {
+            long bufferedPositionUs = mediaPeriod.getBufferedPositionUs();
+            if (prepared && bufferedPositionUs == C.TIME_END_OF_SOURCE) {
               preloadControl.onLoadedToTheEndOfSource(PreloadMediaSource.this);
               stopPreloading();
               return;
             }
             if (prepared
                 && !preloadControl.onContinueLoadingRequested(
-                    PreloadMediaSource.this, preloadMediaPeriod.getBufferedPositionUs())) {
+                    PreloadMediaSource.this, bufferedPositionUs - periodStartPositionUs)) {
               stopPreloading();
               return;
             }

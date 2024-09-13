@@ -57,7 +57,7 @@ public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
 
     /**
      * Stages for the preload status. One of {@link #STAGE_SOURCE_PREPARED}, {@link
-     * #STAGE_TRACKS_SELECTED} or {@link #STAGE_LOADED_TO_POSITION_MS}.
+     * #STAGE_TRACKS_SELECTED} or {@link #STAGE_LOADED_FOR_DURATION_MS}.
      */
     @Documented
     @Retention(RetentionPolicy.SOURCE)
@@ -66,7 +66,7 @@ public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
         value = {
           STAGE_SOURCE_PREPARED,
           STAGE_TRACKS_SELECTED,
-          STAGE_LOADED_TO_POSITION_MS,
+          STAGE_LOADED_FOR_DURATION_MS,
         })
     public @interface Stage {}
 
@@ -76,8 +76,11 @@ public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
     /** The {@link PreloadMediaSource} has tracks selected. */
     public static final int STAGE_TRACKS_SELECTED = 1;
 
-    /** The {@link PreloadMediaSource} is loaded to a specific position in microseconds. */
-    public static final int STAGE_LOADED_TO_POSITION_MS = 2;
+    /**
+     * The {@link PreloadMediaSource} is loaded for a specific duration from the default start
+     * position, in milliseconds.
+     */
+    public static final int STAGE_LOADED_FOR_DURATION_MS = 2;
 
     private final @Stage int stage;
     private final long value;
@@ -124,7 +127,7 @@ public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
    * @param allocator The {@link Allocator}. It should be the same allocator of the {@link
    *     ExoPlayer} that will play the managed {@link PreloadMediaSource}.
    * @param preloadLooper The {@link Looper} that will be used for preloading. It should be the same
-   *     playback looper of the {@link ExoPlayer} that will play the manager {@link
+   *     playback looper of the {@link ExoPlayer} that will play the managed {@link
    *     PreloadMediaSource}.
    */
   public DefaultPreloadManager(
@@ -228,14 +231,14 @@ public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
 
     @Override
     public boolean onContinueLoadingRequested(
-        PreloadMediaSource mediaSource, long bufferedPositionUs) {
+        PreloadMediaSource mediaSource, long bufferedDurationUs) {
       // Set `clearExceededDataFromTargetPreloadStatus` to `false` as clearing the exceeded data
-      // from the status STAGE_LOADED_TO_POSITION_MS is not supported.
+      // from the status STAGE_LOADED_FOR_DURATION_MS is not supported.
       return continueOrCompletePreloading(
           mediaSource,
           /* continueLoadingPredicate= */ status ->
-              status.getStage() == Status.STAGE_LOADED_TO_POSITION_MS
-                  && status.getValue() > Util.usToMs(bufferedPositionUs),
+              status.getStage() == Status.STAGE_LOADED_FOR_DURATION_MS
+                  && status.getValue() > Util.usToMs(bufferedDurationUs),
           /* clearExceededDataFromTargetPreloadStatus= */ false);
     }
 

@@ -91,7 +91,7 @@ import org.junit.runner.RunWith;
 public final class PreloadMediaSourceTest {
 
   private static final int LOADING_CHECK_INTERVAL_BYTES = 10 * 1024;
-  private static final int TARGET_PRELOAD_POSITION_US = 10000;
+  private static final int TARGET_PRELOAD_DURATION_US = 10000;
 
   private Allocator allocator;
   private BandwidthMeter bandwidthMeter;
@@ -121,9 +121,9 @@ public final class PreloadMediaSourceTest {
         new TestPreloadControl() {
           @Override
           public boolean onContinueLoadingRequested(
-              PreloadMediaSource mediaSource, long bufferedPositionUs) {
+              PreloadMediaSource mediaSource, long bufferedDurationUs) {
             onContinueLoadingRequestedCalled = true;
-            if (bufferedPositionUs >= TARGET_PRELOAD_POSITION_US) {
+            if (bufferedDurationUs >= TARGET_PRELOAD_DURATION_US) {
               preloadMediaSourceReference.set(mediaSource);
               return false;
             }
@@ -1186,7 +1186,7 @@ public final class PreloadMediaSourceTest {
 
     @Override
     public boolean onContinueLoadingRequested(
-        PreloadMediaSource mediaSource, long bufferedPositionUs) {
+        PreloadMediaSource mediaSource, long bufferedDurationUs) {
       onContinueLoadingRequestedCalled = true;
       return true;
     }

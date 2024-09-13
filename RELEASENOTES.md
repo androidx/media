@@ -10,6 +10,13 @@
     *   Deprecated `MediaCodecUtil.getCodecProfileAndLevel`. Use
         `androidx.media3.common.util.CodecSpecificDataUtil.getCodecProfileAndLevel`
         instead.
+    *   Pass `bufferedDurationUs` instead of `bufferedPositionUs` with
+        `PreloadMediaSource.PreloadControl.onContinueLoadingRequested()`. Also
+        changes `DefaultPreloadManager.Status.STAGE_LOADED_TO_POSITION_MS` to
+        `DefaultPreloadManager.Status.STAGE_LOADED_FOR_DURATION_MS`, apps then
+        need to pass a value representing a specific duration from the default
+        start position for which the corresponding media source has to be
+        preloaded with this IntDef, instead of a position.
 *   Transformer:
 *   Track Selection:
 *   Extractors:

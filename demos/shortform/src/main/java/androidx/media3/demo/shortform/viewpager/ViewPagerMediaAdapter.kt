@@ -33,7 +33,7 @@ import androidx.media3.exoplayer.DefaultRendererCapabilitiesList
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.preload.DefaultPreloadManager
-import androidx.media3.exoplayer.source.preload.DefaultPreloadManager.Status.STAGE_LOADED_TO_POSITION_MS
+import androidx.media3.exoplayer.source.preload.DefaultPreloadManager.Status.STAGE_LOADED_FOR_DURATION_MS
 import androidx.media3.exoplayer.source.preload.TargetPreloadStatusControl
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
@@ -200,9 +200,9 @@ class ViewPagerMediaAdapter(
   inner class DefaultPreloadControl : TargetPreloadStatusControl<Int> {
     override fun getTargetPreloadStatus(rankingData: Int): DefaultPreloadManager.Status? {
       if (abs(rankingData - currentPlayingIndex) == 2) {
-        return DefaultPreloadManager.Status(STAGE_LOADED_TO_POSITION_MS, 500L)
+        return DefaultPreloadManager.Status(STAGE_LOADED_FOR_DURATION_MS, 500L)
       } else if (abs(rankingData - currentPlayingIndex) == 1) {
-        return DefaultPreloadManager.Status(STAGE_LOADED_TO_POSITION_MS, 1000L)
+        return DefaultPreloadManager.Status(STAGE_LOADED_FOR_DURATION_MS, 1000L)
       }
       return null
     }

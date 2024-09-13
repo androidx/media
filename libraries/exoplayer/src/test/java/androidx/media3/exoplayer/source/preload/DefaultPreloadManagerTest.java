@@ -15,7 +15,7 @@
  */
 package androidx.media3.exoplayer.source.preload;
 
-import static androidx.media3.exoplayer.source.preload.DefaultPreloadManager.Status.STAGE_LOADED_TO_POSITION_MS;
+import static androidx.media3.exoplayer.source.preload.DefaultPreloadManager.Status.STAGE_LOADED_FOR_DURATION_MS;
 import static androidx.media3.exoplayer.source.preload.DefaultPreloadManager.Status.STAGE_SOURCE_PREPARED;
 import static androidx.media3.exoplayer.source.preload.DefaultPreloadManager.Status.STAGE_TRACKS_SELECTED;
 import static androidx.media3.test.utils.FakeMediaSourceFactory.DEFAULT_WINDOW_UID;
@@ -195,7 +195,7 @@ public class DefaultPreloadManagerTest {
         rankingData -> {
           targetPreloadStatusControlCallStates.add(rankingData);
           if (abs(rankingData - currentPlayingItemIndex.get()) == 1) {
-            return new DefaultPreloadManager.Status(STAGE_LOADED_TO_POSITION_MS, 100L);
+            return new DefaultPreloadManager.Status(STAGE_LOADED_FOR_DURATION_MS, 100L);
           } else {
             return new DefaultPreloadManager.Status(STAGE_SOURCE_PREPARED);
           }
@@ -256,7 +256,7 @@ public class DefaultPreloadManagerTest {
         rankingData -> {
           targetPreloadStatusControlCallStates.add(rankingData);
           if (abs(rankingData - currentPlayingItemIndex.get()) == 1) {
-            return new DefaultPreloadManager.Status(STAGE_LOADED_TO_POSITION_MS, 100L);
+            return new DefaultPreloadManager.Status(STAGE_LOADED_FOR_DURATION_MS, 100L);
           } else {
             return new DefaultPreloadManager.Status(STAGE_SOURCE_PREPARED);
           }
