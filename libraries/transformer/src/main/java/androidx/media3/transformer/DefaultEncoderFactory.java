@@ -582,9 +582,12 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     return Util.SDK_INT >= 31
         && Util.SDK_INT <= 34
         && (Build.SOC_MODEL.equals("SM8550")
-            || Build.SOC_MODEL.equals("T612")
             || Build.SOC_MODEL.equals("SM7450")
-            || Build.SOC_MODEL.equals("SM6450"));
+            || Build.SOC_MODEL.equals("SM6450")
+            || Build.SOC_MODEL.equals("SC9863A")
+            || Build.SOC_MODEL.equals("T612")
+            || Build.SOC_MODEL.equals("T606")
+            || Build.SOC_MODEL.equals("T603"));
   }
 
   /**
