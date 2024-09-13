@@ -289,7 +289,10 @@ public final class CompositionPlayerAudioPlaybackTest {
     TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
     player.release();
 
-    // TODO: b/363229593 - Change dump file after format handling is fixed.
+    DumpFileAsserts.assertOutput(
+        context,
+        capturingAudioSink,
+        "audiosinkdumps/wav/compositionPlayback_withShortLoopingSequence_outputsCorrectSamples.dump");
   }
 
   @Test
@@ -315,7 +318,10 @@ public final class CompositionPlayerAudioPlaybackTest {
     TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
     player.release();
 
-    // TODO: b/363229593 - Change dump file after format handling is fixed.
+    DumpFileAsserts.assertOutput(
+        context,
+        capturingAudioSink,
+        "audiosinkdumps/wav/compositionPlayback_withLongLoopingSequence_outputsCorrectSamples.dump");
   }
 
   @Test
