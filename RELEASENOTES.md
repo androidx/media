@@ -46,6 +46,8 @@
 *   DASH Extension:
 *   Smooth Streaming Extension:
 *   RTSP Extension:
+    *   Fix user info removal for URLs that contain encoded @ characters
+        ([#1138](https://github.com/androidx/media/pull/1138)).
 *   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
 *   MIDI extension:
 *   Leanback extension:
