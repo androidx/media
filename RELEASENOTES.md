@@ -59,7 +59,7 @@
 *   MIDI extension:
 *   Leanback extension:
 *   Cast Extension:
-    *   Stop clearning the timeline after the CastSession disconnects, which
+    *   Stop cleaning the timeline after the CastSession disconnects, which
         enables the sender app to resume playback locally after a disconnection.
     *   Populate CastPlayer's `DeviceInfo` when a `Context` is provided. This
         enables linking the `MediaSession` to a `RoutingSession`, which is
