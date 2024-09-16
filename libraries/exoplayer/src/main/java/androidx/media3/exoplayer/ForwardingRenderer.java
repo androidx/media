@@ -26,10 +26,7 @@ import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.SampleStream;
 import java.io.IOException;
 
-/**
- * An overridable {@link ForwardingRenderer} implementation forwarding all methods to another
- * renderer.
- */
+/** An overridable {@link Renderer} implementation forwarding all methods to another renderer. */
 @UnstableApi
 public class ForwardingRenderer implements Renderer {
 
@@ -52,8 +49,7 @@ public class ForwardingRenderer implements Renderer {
   }
 
   @Override
-  @C.TrackType
-  public int getTrackType() {
+  public @C.TrackType int getTrackType() {
     return renderer.getTrackType();
   }
 
@@ -171,7 +167,9 @@ public class ForwardingRenderer implements Renderer {
   }
 
   @Override
-  public void setTimeline(Timeline timeline) {}
+  public void setTimeline(Timeline timeline) {
+    renderer.setTimeline(timeline);
+  }
 
   @Override
   public void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
