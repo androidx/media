@@ -156,9 +156,24 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           sequence.editedMediaItems.get(0).mediaItem.clippingConfiguration.startPositionUs;
     }
     for (int i = 0; i < mediaItemIndex; i++) {
-      offsetToCompositionTimeUs += sequence.editedMediaItems.get(i).getPresentationDurationUs();
+      offsetToCompositionTimeUs +=
+          getRepeatedEditedMediaItem(sequence, i).getPresentationDurationUs();
     }
     return offsetToCompositionTimeUs;
+  }
+
+  /**
+   * Gets the {@link EditedMediaItem} of a given {@code index}.
+   *
+   * <p>The index could be greater than {@link EditedMediaItemSequence#editedMediaItems} because the
+   * sequence might be {@linkplain EditedMediaItemSequence#isLooping looping}.
+   */
+  private static EditedMediaItem getRepeatedEditedMediaItem(
+      EditedMediaItemSequence sequence, int index) {
+    if (sequence.isLooping) {
+      index %= sequence.editedMediaItems.size();
+    }
+    return sequence.editedMediaItems.get(index);
   }
 
   private static final class SequenceAudioRenderer extends MediaCodecAudioRenderer {
@@ -208,10 +223,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         MediaSource.MediaPeriodId mediaPeriodId)
         throws ExoPlaybackException {
       checkState(getTimeline().getWindowCount() == 1);
+
+      // TODO: b/331392198 - Repeat only looping sequences, after sequences can be of arbitrary
+      //  length.
+      // The media item might have been repeated in the sequence.
       int mediaItemIndex = getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid);
       // We must first update the pending media item state before calling super.onStreamChanged()
       // because the super method will call onProcessedStreamChange()
-      pendingEditedMediaItem = sequence.editedMediaItems.get(mediaItemIndex);
+      pendingEditedMediaItem = getRepeatedEditedMediaItem(sequence, mediaItemIndex);
       pendingOffsetToCompositionTimeUs =
           getOffsetToCompositionTimeUs(sequence, mediaItemIndex, offsetUs);
       super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
@@ -279,6 +298,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         throws ExoPlaybackException {
       checkState(getTimeline().getWindowCount() == 1);
       super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
+      // The media item might have been repeated in the sequence.
       int mediaItemIndex = getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid);
       offsetToCompositionTimeUs = getOffsetToCompositionTimeUs(sequence, mediaItemIndex, offsetUs);
       pendingEffect = sequence.editedMediaItems.get(mediaItemIndex).effects.videoEffects;
@@ -407,6 +427,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       checkState(getTimeline().getWindowCount() == 1);
       super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
       streamStartPositionUs = startPositionUs;
+      // The media item might have been repeated in the sequence.
       int mediaItemIndex = getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid);
       editedMediaItem = sequence.editedMediaItems.get(mediaItemIndex);
       offsetToCompositionTimeUs = getOffsetToCompositionTimeUs(sequence, mediaItemIndex, offsetUs);
