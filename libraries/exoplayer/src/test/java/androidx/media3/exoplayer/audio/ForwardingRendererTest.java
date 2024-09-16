@@ -17,9 +17,9 @@ public class ForwardingRendererTest {
     for (Method method : methods) {
       if (!method.isDefault()) {
         assertThat(
-            ForwardingRenderer.class
-                .getDeclaredMethod(method.getName(), method.getParameterTypes())
-                .getDeclaringClass())
+                ForwardingRenderer.class
+                    .getDeclaredMethod(method.getName(), method.getParameterTypes())
+                    .getDeclaringClass())
             .isEqualTo(ForwardingRenderer.class);
       }
     }
