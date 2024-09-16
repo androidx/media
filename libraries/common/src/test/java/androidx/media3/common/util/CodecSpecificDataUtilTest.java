@@ -54,6 +54,15 @@ public class CodecSpecificDataUtilTest {
   }
 
   @Test
+  public void getCodecProfileAndLevel_handlesH263CodecString() {
+    assertCodecProfileAndLevelForCodecsString(
+        MimeTypes.VIDEO_H263,
+        "s263.1.1",
+        MediaCodecInfo.CodecProfileLevel.H263ProfileBaseline,
+        MediaCodecInfo.CodecProfileLevel.H263Level10);
+  }
+
+  @Test
   public void getCodecProfileAndLevel_handlesVp9Profile1CodecString() {
     assertCodecProfileAndLevelForCodecsString(
         MimeTypes.VIDEO_VP9,

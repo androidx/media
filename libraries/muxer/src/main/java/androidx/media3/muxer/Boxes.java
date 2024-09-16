@@ -26,11 +26,14 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
+import android.media.MediaCodecInfo;
+import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
@@ -678,7 +681,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       case MimeTypes.AUDIO_OPUS:
         return dOpsBox(format);
       case MimeTypes.VIDEO_H263:
-        return d263Box();
+        return d263Box(format);
       case MimeTypes.VIDEO_H264:
         return avcCBox(format);
       case MimeTypes.VIDEO_H265:
@@ -1258,13 +1261,19 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   }
 
   /** Returns the d263Box box as per 3GPP ETSI TS 126 244: 6.8. */
-  private static ByteBuffer d263Box() {
+  private static ByteBuffer d263Box(Format format) {
     ByteBuffer d263Box = ByteBuffer.allocate(7);
     d263Box.put("    ".getBytes(UTF_8)); // 4 spaces (vendor)
-    d263Box.put((byte) 0x0); // decoder version
-    // TODO: b/352000778 - Get profile and level from format.
-    d263Box.put((byte) 0x10); // level
-    d263Box.put((byte) 0x0); // profile
+    d263Box.put((byte) 0x00); // decoder version
+    Pair<Integer, Integer> profileAndLevel = CodecSpecificDataUtil.getCodecProfileAndLevel(format);
+    if (profileAndLevel == null) {
+      profileAndLevel =
+          new Pair<>(
+              MediaCodecInfo.CodecProfileLevel.H263ProfileBaseline,
+              MediaCodecInfo.CodecProfileLevel.H263Level10);
+    }
+    d263Box.put(profileAndLevel.second.byteValue()); // level
+    d263Box.put(profileAndLevel.first.byteValue()); // profile
 
     d263Box.flip();
     return BoxUtils.wrapIntoBox("d263", d263Box);

@@ -368,7 +368,12 @@ public class BoxesTest {
 
   @Test
   public void createVideoSampleEntryBox_forH263_matchesExpected() throws Exception {
-    Format format = FAKE_VIDEO_FORMAT.buildUpon().setSampleMimeType(MimeTypes.VIDEO_H263).build();
+    Format format =
+        FAKE_VIDEO_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.VIDEO_H263)
+            .setCodecs("s263.1.10")
+            .build();
 
     ByteBuffer videoSampleEntryBox = Boxes.videoSampleEntry(format);
 

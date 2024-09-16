@@ -48,6 +48,8 @@ public final class CodecSpecificDataUtil {
   private static final int RECTANGULAR = 0x00;
 
   // Codecs to constant mappings.
+  // H263
+  private static final String CODEC_ID_H263 = "s263";
   // AVC.
   private static final String CODEC_ID_AVC1 = "avc1";
   private static final String CODEC_ID_AVC2 = "avc2";
@@ -259,6 +261,11 @@ public final class CodecSpecificDataUtil {
     return builder.toString();
   }
 
+  /** Builds an RFC 6381 H263 codec string using profile and level. */
+  public static String buildH263CodecString(int profile, int level) {
+    return Util.formatInvariant("s263.%d.%d", profile, level);
+  }
+
   /**
    * Returns profile and level (as defined by {@link MediaCodecInfo.CodecProfileLevel})
    * corresponding to the codec description string (as defined by RFC 6381) of the given format.
@@ -278,6 +285,8 @@ public final class CodecSpecificDataUtil {
       return getDolbyVisionProfileAndLevel(format.codecs, parts);
     }
     switch (parts[0]) {
+      case CODEC_ID_H263:
+        return getH263ProfileAndLevel(format.codecs, parts);
       case CODEC_ID_AVC1:
       case CODEC_ID_AVC2:
         return getAvcProfileAndLevel(format.codecs, parts);
@@ -461,6 +470,27 @@ public final class CodecSpecificDataUtil {
       return null;
     }
     return new Pair<>(profile, level);
+  }
+
+  /** Returns H263 profile and level from codec string. */
+  private static Pair<Integer, Integer> getH263ProfileAndLevel(String codec, String[] parts) {
+    Pair<Integer, Integer> defaultProfileAndLevel =
+        new Pair<>(
+            MediaCodecInfo.CodecProfileLevel.H263ProfileBaseline,
+            MediaCodecInfo.CodecProfileLevel.H263Level10);
+    if (parts.length < 3) {
+      Log.w(TAG, "Ignoring malformed H263 codec string: " + codec);
+      return defaultProfileAndLevel;
+    }
+
+    try {
+      int profile = Integer.parseInt(parts[1]);
+      int level = Integer.parseInt(parts[2]);
+      return new Pair<>(profile, level);
+    } catch (NumberFormatException e) {
+      Log.w(TAG, "Ignoring malformed H263 codec string: " + codec);
+      return defaultProfileAndLevel;
+    }
   }
 
   @Nullable
