@@ -17,6 +17,9 @@
         need to pass a value representing a specific duration from the default
         start position for which the corresponding media source has to be
         preloaded with this IntDef, instead of a position.
+    *   Add `ForwardingRenderer` implementation that forwards all method calls
+        to another renderer
+        ([1703](https://github.com/androidx/media/pull/1703)).
 *   Transformer:
 *   Track Selection:
 *   Extractors:
