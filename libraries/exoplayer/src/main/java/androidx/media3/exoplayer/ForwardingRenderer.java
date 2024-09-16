@@ -35,6 +35,7 @@ public class ForwardingRenderer implements Renderer {
 
   private final Renderer renderer;
 
+  /** Creates a new instance that forwards all operations to {@code renderer}. */
   public ForwardingRenderer(Renderer renderer) {
     this.renderer = renderer;
   }
@@ -134,6 +135,11 @@ public class ForwardingRenderer implements Renderer {
   }
 
   @Override
+  public long getDurationToProgressUs(long positionUs, long elapsedRealtimeUs) {
+    return renderer.getDurationToProgressUs(positionUs, elapsedRealtimeUs);
+  }
+
+  @Override
   public void setCurrentStreamFinal() {
     renderer.setCurrentStreamFinal();
   }
@@ -151,6 +157,17 @@ public class ForwardingRenderer implements Renderer {
   @Override
   public void resetPosition(long positionUs) throws ExoPlaybackException {
     renderer.resetPosition(positionUs);
+  }
+
+  @Override
+  public void setPlaybackSpeed(float currentPlaybackSpeed, float targetPlaybackSpeed)
+      throws ExoPlaybackException {
+    renderer.setPlaybackSpeed(currentPlaybackSpeed, targetPlaybackSpeed);
+  }
+
+  @Override
+  public void enableMayRenderStartOfStream() {
+    renderer.enableMayRenderStartOfStream();
   }
 
   @Override
@@ -184,5 +201,10 @@ public class ForwardingRenderer implements Renderer {
   @Override
   public void reset() {
     renderer.reset();
+  }
+
+  @Override
+  public void release() {
+    renderer.release();
   }
 }
