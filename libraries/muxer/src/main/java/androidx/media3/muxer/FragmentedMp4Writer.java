@@ -23,7 +23,7 @@ import static androidx.media3.muxer.Boxes.BOX_HEADER_SIZE;
 import static androidx.media3.muxer.Boxes.MFHD_BOX_CONTENT_SIZE;
 import static androidx.media3.muxer.Boxes.TFHD_BOX_CONTENT_SIZE;
 import static androidx.media3.muxer.Boxes.getTrunBoxContentSize;
-import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_DUPLICATE_PREVIOUS;
+import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS;
 import static androidx.media3.muxer.MuxerUtil.UNSIGNED_INT_MAX_VALUE;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -101,7 +101,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.annexBToAvccConverter = annexBToAvccConverter;
     this.fragmentDurationUs = fragmentDurationMs * 1_000;
     this.sampleCopyEnabled = sampleCopyEnabled;
-    lastSampleDurationBehavior = LAST_SAMPLE_DURATION_BEHAVIOR_DUPLICATE_PREVIOUS;
+    lastSampleDurationBehavior =
+        LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS;
     tracks = new ArrayList<>();
     minInputPresentationTimeUs = Long.MAX_VALUE;
     currentFragmentSequenceNumber = 1;
@@ -334,7 +335,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 ? minInputPresentationTimeUs
                 : pendingSamplesBufferInfo.get(0).presentationTimeUs,
             track.videoUnitTimebase(),
-            LAST_SAMPLE_DURATION_BEHAVIOR_DUPLICATE_PREVIOUS,
+            LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS,
             track.endOfStreamTimestampUs);
 
     List<Integer> sampleCompositionTimeOffsets =

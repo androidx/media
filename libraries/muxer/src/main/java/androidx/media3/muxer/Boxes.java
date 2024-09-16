@@ -821,7 +821,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       currentSampleTimeUs = nextSampleTimeUs;
     }
 
-    long lastSampleDurationVuFromEndOfStream = 0;
+    long lastSampleDurationVuFromEndOfStream = C.LENGTH_UNSET;
     if (endOfStreamTimestampUs != C.TIME_UNSET) {
       lastSampleDurationVuFromEndOfStream =
           vuFromUs(endOfStreamTimestampUs, videoUnitTimescale)
@@ -1244,16 +1244,18 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       @Mp4Muxer.LastSampleDurationBehavior int lastSampleDurationBehavior,
       int lastSampleDurationVuFromEndOfStream) {
     switch (lastSampleDurationBehavior) {
-      case Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_DUPLICATE_PREVIOUS:
+      case Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO:
+        return 0;
+      case Mp4Muxer
+          .LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS:
+        if (lastSampleDurationVuFromEndOfStream != C.LENGTH_UNSET) {
+          return lastSampleDurationVuFromEndOfStream;
+        }
         // For a track having less than 3 samples, duplicating the last frame duration will
         // significantly increase the overall track duration, so avoid that.
         return sampleDurationsExceptLast.size() < 2
             ? 0
             : Iterables.getLast(sampleDurationsExceptLast);
-      case Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO:
-        return 0;
-      case Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER:
-        return lastSampleDurationVuFromEndOfStream;
       default:
         throw new IllegalArgumentException(
             "Unexpected value for the last frame duration behavior " + lastSampleDurationBehavior);

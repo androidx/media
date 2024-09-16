@@ -15,8 +15,7 @@
  */
 package androidx.media3.muxer;
 
-import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_DUPLICATE_PREVIOUS;
-import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER;
+import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS;
 import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_AUDIO_FORMAT;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_CSD_0;
@@ -534,7 +533,7 @@ public class BoxesTest {
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
-            LAST_SAMPLE_DURATION_BEHAVIOR_DUPLICATE_PREVIOUS,
+            LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS,
             C.TIME_UNSET);
 
     assertThat(durationsVu).containsExactly(3_000, 5_000, 5_000);
@@ -568,7 +567,7 @@ public class BoxesTest {
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
-            LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER,
+            LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS,
             /* endOfStreamTimestampUs= */ 10_000);
 
     assertThat(durationsVu).containsExactly(100, 100, 100, 100, 600);

@@ -147,19 +147,12 @@ public final class Mp4Muxer implements Muxer {
   @Target(TYPE_USE)
   @IntDef({
     LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO,
-    LAST_SAMPLE_DURATION_BEHAVIOR_DUPLICATE_PREVIOUS,
-    LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER
+    LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS
   })
   public @interface LastSampleDurationBehavior {}
 
   /** The duration of the last sample is set to 0. */
   public static final int LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO = 0;
-
-  /**
-   * Use the difference between the last timestamp and the one before that as the duration of the
-   * last sample.
-   */
-  public static final int LAST_SAMPLE_DURATION_BEHAVIOR_DUPLICATE_PREVIOUS = 1;
 
   /**
    * Use the {@link MediaCodec#BUFFER_FLAG_END_OF_STREAM end of stream sample} to set the duration
@@ -174,9 +167,10 @@ public final class Mp4Muxer implements Muxer {
    * #writeSampleData written}, no more samples can be written for that track.
    *
    * <p>If no explicit {@link MediaCodec#BUFFER_FLAG_END_OF_STREAM} sample is passed, then the
-   * duration of the last sample will be set to 0.
+   * duration of the last sample will be same as that of the sample before that.
    */
-  public static final int LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER = 2;
+  public static final int
+      LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS = 1;
 
   /** The specific MP4 file format. */
   @Documented
@@ -216,7 +210,8 @@ public final class Mp4Muxer implements Muxer {
      */
     public Builder(FileOutputStream outputStream) {
       this.outputStream = outputStream;
-      lastSampleDurationBehavior = LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO;
+      lastSampleDurationBehavior =
+          LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS;
       sampleCopyEnabled = true;
       attemptStreamableOutputEnabled = true;
       outputFileFormat = FILE_FORMAT_DEFAULT;
@@ -225,7 +220,8 @@ public final class Mp4Muxer implements Muxer {
     /**
      * Sets the {@link LastSampleDurationBehavior}.
      *
-     * <p>The default value is {@link #LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO}.
+     * <p>The default value is {@link
+     * #LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS}.
      */
     @CanIgnoreReturnValue
     public Mp4Muxer.Builder setLastSampleDurationBehavior(

@@ -16,7 +16,7 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER;
+import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS;
 
 import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
@@ -153,7 +153,7 @@ public final class InAppMuxer implements Muxer {
      *
      * <p>The default is {@link C#TIME_UNSET} to not set any duration in the output. In this case
      * the video track duration is determined by the samples written to it and the duration of the
-     * last sample is set to 0.
+     * last sample will be same as that of the sample before that.
      *
      * @param videoDurationUs The duration of the video track (in microseconds) in the output, or
      *     {@link C#TIME_UNSET} to not set any duration. Only applicable when a video track is
@@ -186,7 +186,7 @@ public final class InAppMuxer implements Muxer {
         Mp4Muxer.Builder builder = new Mp4Muxer.Builder(outputStream);
         if (videoDurationUs != C.TIME_UNSET) {
           builder.setLastSampleDurationBehavior(
-              LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER);
+              LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS);
         }
         muxer = builder.build();
       }
