@@ -280,7 +280,6 @@ public final class CompositionPlayer extends SimpleBasePlayer
         EVENT_MEDIA_ITEM_TRANSITION,
       };
 
-  private static final int MAX_SUPPORTED_SEQUENCES = 2;
   private static final String TAG = "CompositionPlayer";
 
   private final Context context;
@@ -337,9 +336,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
    */
   public void setComposition(Composition composition) {
     verifyApplicationThread();
-    checkArgument(
-        !composition.sequences.isEmpty()
-            && composition.sequences.size() <= MAX_SUPPORTED_SEQUENCES);
+    checkArgument(!composition.sequences.isEmpty());
     checkState(this.composition == null);
     composition = deactivateSpeedAdjustingVideoEffects(composition);
 

@@ -263,25 +263,6 @@ public class CompositionPlayerTest {
   }
 
   @Test
-  public void setComposition_threeSequences_throws() {
-    CompositionPlayer player = buildCompositionPlayer();
-
-    EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.EMPTY).setDurationUs(1_000).build();
-    Composition composition =
-        new Composition.Builder(
-                ImmutableList.of(
-                    new EditedMediaItemSequence(editedMediaItem),
-                    new EditedMediaItemSequence(editedMediaItem),
-                    new EditedMediaItemSequence(editedMediaItem)))
-            .build();
-
-    assertThrows(IllegalArgumentException.class, () -> player.setComposition(composition));
-
-    player.release();
-  }
-
-  @Test
   public void prepare_withoutCompositionSet_throws() {
     CompositionPlayer player = buildCompositionPlayer();
 
