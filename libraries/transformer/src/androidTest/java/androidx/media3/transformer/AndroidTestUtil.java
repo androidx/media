@@ -964,9 +964,6 @@ public final class AndroidTestUtil {
   public static final AssetInfo MP3_ASSET =
       new AssetInfo.Builder("asset:///media/mp3/test-cbr-info-header.mp3").build();
 
-  public static final AssetInfo WAV_ASSET =
-      new AssetInfo.Builder("asset:///media/wav/sample.wav").build();
-
   /**
    * Creates the GL objects needed to set up a GL environment including an {@link EGLDisplay} and an
    * {@link EGLContext}.

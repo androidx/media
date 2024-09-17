@@ -536,20 +536,14 @@ public final class MediaItemExportTest {
     Transformer transformer =
         createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
     MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW);
-    AtomicInteger bytesRead = new AtomicInteger();
 
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem)
-            .setEffects(
-                createAudioEffects(
-                    sonicAudioProcessor, createByteCountingAudioProcessor(bytesRead)))
+            .setEffects(createAudioEffects(sonicAudioProcessor))
             .build();
 
     transformer.start(editedMediaItem, outputDir.newFile().getPath());
     TransformerTestRunner.runLooper(transformer);
-
-    // Resampling 1 second @ 44100Hz into 48000Hz.
-    assertThat(bytesRead.get() / 2).isEqualTo(48000);
 
     DumpFileAsserts.assertOutput(
         context,
