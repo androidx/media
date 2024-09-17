@@ -17,6 +17,7 @@ package androidx.media3.exoplayer;
 
 import static androidx.annotation.VisibleForTesting.NONE;
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.exoplayer.source.SampleStream.FLAG_OMIT_SAMPLE_DATA;
 import static androidx.media3.exoplayer.source.SampleStream.FLAG_PEEK;
 import static androidx.media3.exoplayer.source.SampleStream.FLAG_REQUIRE_FORMAT;
@@ -609,17 +610,8 @@ public final class MediaExtractorCompat {
               formatHolder, decoderInputBuffer, readFlags, /* loadingFinished= */ false);
     }
     formatHolder.clear();
-    // Additional logging is added to debug b/241321832.
-    if (result != C.RESULT_BUFFER_READ) {
-      // This method should only be called when there is a sample available for reading.
-      throw new IllegalStateException(
-          Util.formatInvariant(
-              "Sample read result: %s\n"
-                  + "Track sample: %s\n"
-                  + "TrackIndicesPerSampleInQueuedOrder: %s\n"
-                  + "Tracks added: %s\n",
-              result, trackOfSample, trackIndicesPerSampleInQueuedOrder, tracks));
-    }
+    // This method must only be called when there is a sample available for reading.
+    checkState(result == C.RESULT_BUFFER_READ);
   }
 
   /**
@@ -909,12 +901,16 @@ public final class MediaExtractorCompat {
       // Disable BUFFER_FLAG_LAST_SAMPLE to prevent the sample queue from ignoring
       // FLAG_REQUIRE_FORMAT. See b/191518632.
       flags &= ~C.BUFFER_FLAG_LAST_SAMPLE;
-      if (compatibilityTrackIndex != C.INDEX_UNSET) {
-        trackIndicesPerSampleInQueuedOrder.addLast(compatibilityTrackIndex);
-      }
       Assertions.checkState(mainTrackIndex != C.INDEX_UNSET);
-      trackIndicesPerSampleInQueuedOrder.addLast(mainTrackIndex);
+      int writeIndexBeforeCommitting = this.getWriteIndex();
       super.sampleMetadata(timeUs, flags, size, offset, cryptoData);
+      // Add the track index if the sample was committed
+      if (this.getWriteIndex() == writeIndexBeforeCommitting + 1) {
+        if (compatibilityTrackIndex != C.INDEX_UNSET) {
+          trackIndicesPerSampleInQueuedOrder.addLast(compatibilityTrackIndex);
+        }
+        trackIndicesPerSampleInQueuedOrder.addLast(mainTrackIndex);
+      }
     }
 
     @Override
