@@ -578,6 +578,8 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       try {
         boolean mediaCryptoRequiresSecureDecoder =
             codecDrmSession != null
+                && (codecDrmSession.getState() == DrmSession.STATE_OPENED
+                    || codecDrmSession.getState() == DrmSession.STATE_OPENED_WITH_KEYS)
                 && codecDrmSession.requiresSecureDecoder(
                     checkStateNotNull(inputFormat.sampleMimeType));
         maybeInitCodecWithFallback(mediaCrypto, mediaCryptoRequiresSecureDecoder);
@@ -2292,9 +2294,12 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     }
 
     // Re-initialization is required if newSession might require switching to the secure output
-    // path.
+    // path. We assume newSession might require a secure decoder if it's not fully open yet.
     return !codecInfo.secure
-        && newSession.requiresSecureDecoder(checkNotNull(newFormat.sampleMimeType));
+        && (newSession.getState() == DrmSession.STATE_OPENING
+            || ((newSession.getState() == DrmSession.STATE_OPENED
+                    || newSession.getState() == DrmSession.STATE_OPENED_WITH_KEYS)
+                && newSession.requiresSecureDecoder(checkNotNull(newFormat.sampleMimeType))));
   }
 
   private void reinitializeCodec() throws ExoPlaybackException {

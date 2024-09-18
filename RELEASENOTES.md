@@ -51,6 +51,9 @@
 *   Image:
 *   DataSource:
 *   DRM:
+    *   Fix `IllegalStateException` from
+        `DefaultDrmSession.requiresSecureDecoder` after opening a DRM session
+        failed. This issue was introduced in `1.5.0-alpha01`.
 *   Effect:
 *   Muxers:
 *   IMA extension:
