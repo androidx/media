@@ -17,7 +17,7 @@ track 0:
     maxInputSize = 9256
     width = 176
     height = 144
-    frameRate = 15.0015
+    frameRate = 15.00
     colorInfo:
       colorRange = 2
       lumaBitdepth = 8

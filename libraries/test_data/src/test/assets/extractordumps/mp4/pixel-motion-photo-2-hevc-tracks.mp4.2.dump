@@ -17,7 +17,7 @@ track 0:
     maxNumReorderSamples = 0
     width = 1024
     height = 768
-    frameRate = 27.609846
+    frameRate = 27.61
     rotationDegrees = 90
     colorInfo:
       colorSpace = 1
@@ -131,7 +131,7 @@ track 1:
     maxNumReorderSamples = 0
     width = 2048
     height = 1536
-    frameRate = 2.142245
+    frameRate = 2.14
     rotationDegrees = 90
     colorInfo:
       colorSpace = 1

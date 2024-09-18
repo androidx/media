@@ -56,7 +56,11 @@ public final class DumpableFormat implements Dumper.Dumpable {
         "maxNumReorderSamples", format, DEFAULT_FORMAT, format -> format.maxNumReorderSamples);
     dumper.addIfNonDefault("width", format, DEFAULT_FORMAT, format -> format.width);
     dumper.addIfNonDefault("height", format, DEFAULT_FORMAT, format -> format.height);
-    dumper.addIfNonDefault("frameRate", format, DEFAULT_FORMAT, format -> format.frameRate);
+    dumper.addIfNonDefault(
+        "frameRate",
+        format,
+        DEFAULT_FORMAT,
+        format -> Util.formatInvariant("%.2f", format.frameRate));
     dumper.addIfNonDefault(
         "rotationDegrees", format, DEFAULT_FORMAT, format -> format.rotationDegrees);
     dumper.addIfNonDefault(

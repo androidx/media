@@ -17,7 +17,7 @@ track 0:
     maxNumReorderSamples = 2
     width = 12
     height = 10
-    frameRate = 999.99994
+    frameRate = 1000.00
     colorInfo:
       colorRange = 1
       lumaBitdepth = 8
