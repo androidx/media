@@ -351,18 +351,21 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
               : (int) floor(iFrameIntervalSeconds));
     }
 
-    if (Util.SDK_INT >= 23) {
+    int operatingRate = supportedVideoEncoderSettings.operatingRate;
+    int priority = supportedVideoEncoderSettings.priority;
+    if (Util.SDK_INT >= 23
+        && operatingRate != VideoEncoderSettings.RATE_UNSET
+        && priority != VideoEncoderSettings.RATE_UNSET) {
       // Setting operating rate and priority is supported from API 23.
-      if (supportedVideoEncoderSettings.operatingRate == VideoEncoderSettings.NO_VALUE
-          && supportedVideoEncoderSettings.priority == VideoEncoderSettings.NO_VALUE) {
+      if (operatingRate == VideoEncoderSettings.NO_VALUE
+          && priority == VideoEncoderSettings.NO_VALUE) {
         adjustMediaFormatForEncoderPerformanceSettings(mediaFormat);
       } else {
-        if (supportedVideoEncoderSettings.operatingRate != VideoEncoderSettings.NO_VALUE) {
-          mediaFormat.setInteger(
-              MediaFormat.KEY_OPERATING_RATE, supportedVideoEncoderSettings.operatingRate);
+        if (operatingRate != VideoEncoderSettings.NO_VALUE) {
+          mediaFormat.setInteger(MediaFormat.KEY_OPERATING_RATE, operatingRate);
         }
-        if (supportedVideoEncoderSettings.priority != VideoEncoderSettings.NO_VALUE) {
-          mediaFormat.setInteger(MediaFormat.KEY_PRIORITY, supportedVideoEncoderSettings.priority);
+        if (priority != VideoEncoderSettings.NO_VALUE) {
+          mediaFormat.setInteger(MediaFormat.KEY_PRIORITY, priority);
         }
       }
     }
