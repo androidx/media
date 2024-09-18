@@ -48,9 +48,8 @@ import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.audio.AudioProcessor;
-import androidx.media3.common.audio.AudioProcessor.AudioFormat;
 import androidx.media3.common.audio.ChannelMixingAudioProcessor;
-import androidx.media3.common.audio.SonicAudioProcessor;
+import androidx.media3.common.audio.ToInt16PcmAudioProcessor;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.ListenerSet;
@@ -1030,10 +1029,10 @@ public final class Transformer {
    *       </ul>
    *   <li>If a sequence starts with an HDR {@link EditedMediaItem}, all the following items in the
    *       sequence must be HDR.
-   *   <li>All sequences containing audio data must output audio with the same {@linkplain
-   *       AudioFormat properties}. This can be done by adding {@linkplain EditedMediaItem#effects
-   *       item specific effects}, such as {@link SonicAudioProcessor} and {@link
-   *       ChannelMixingAudioProcessor}.
+   *   <li>All {@linkplain EditedMediaItem items} containing audio data must output 16 bit PCM audio
+   *       with the same number of channels. This can be done by adding a {@link
+   *       ToInt16PcmAudioProcessor} and/or a {@link ChannelMixingAudioProcessor} to the {@linkplain
+   *       EditedMediaItem#effects item specific effects}.
    * </ul>
    *
    * <p>The export state is notified through the {@linkplain Builder#addListener(Listener)
