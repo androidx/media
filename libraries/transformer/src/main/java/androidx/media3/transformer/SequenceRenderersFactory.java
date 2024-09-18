@@ -50,7 +50,6 @@ import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.exoplayer.video.VideoSink;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import java.util.ArrayList;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -253,8 +252,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private void onMediaItemChanged() {
       EditedMediaItem currentEditedMediaItem = checkStateNotNull(pendingEditedMediaItem);
       // Use reference equality intentionally.
+      int lastEditedMediaItemIndex = getTimeline().getPeriodCount() - 1;
       boolean isLastInSequence =
-          currentEditedMediaItem == Iterables.getLast(sequence.editedMediaItems);
+          currentEditedMediaItem == getRepeatedEditedMediaItem(sequence, lastEditedMediaItemIndex);
       audioSink.onMediaItemChanged(
           currentEditedMediaItem, pendingOffsetToCompositionTimeUs, isLastInSequence);
     }
