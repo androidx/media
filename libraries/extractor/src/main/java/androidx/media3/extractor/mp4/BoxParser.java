@@ -351,8 +351,7 @@ public final class BoxParser {
             checkNotNull(mdia.getContainerBoxOfType(Mp4Box.TYPE_minf))
                 .getContainerBoxOfType(Mp4Box.TYPE_stbl));
 
-    Pair<Long, String> mdhdData =
-        parseMdhd(checkNotNull(mdia.getLeafBoxOfType(Mp4Box.TYPE_mdhd)).data);
+    MdhdData mdhdData = parseMdhd(checkNotNull(mdia.getLeafBoxOfType(Mp4Box.TYPE_mdhd)).data);
     LeafBox stsd = stbl.getLeafBoxOfType(Mp4Box.TYPE_stsd);
     if (stsd == null) {
       throw ParserException.createForMalformedContainer(
@@ -363,7 +362,7 @@ public final class BoxParser {
             stsd.data,
             tkhdData.id,
             tkhdData.rotationDegrees,
-            mdhdData.second,
+            mdhdData.language,
             drmInitData,
             isQuickTime);
     @Nullable long[] editListDurations = null;
@@ -383,9 +382,10 @@ public final class BoxParser {
         : new Track(
             tkhdData.id,
             trackType,
-            mdhdData.first,
+            mdhdData.timescale,
             movieTimescale,
             durationUs,
+            mdhdData.mediaDurationUs,
             stsdData.format,
             stsdData.requiredSampleTransformation,
             stsdData.trackEncryptionBoxes,
@@ -429,6 +429,12 @@ public final class BoxParser {
           /* timestampsUs= */ new long[0],
           /* flags= */ new int[0],
           /* durationUs= */ 0);
+    }
+
+    if (track.type == C.TRACK_TYPE_VIDEO && track.mediaDurationUs > 0) {
+      float frameRate = sampleCount / (track.mediaDurationUs / 1000000f);
+      Format format = track.format.buildUpon().setFrameRate(frameRate).build();
+      track = track.copyWithFormat(format);
     }
 
     // Entries are byte offsets of chunks.
@@ -927,23 +933,30 @@ public final class BoxParser {
    * Parses an mdhd atom (defined in ISO/IEC 14496-12).
    *
    * @param mdhd The mdhd atom to decode.
-   * @return A pair consisting of the media timescale defined as the number of time units that pass
-   *     in one second, and the language code.
+   * @return An {@link MdhdData} object containing the parsed data.
    */
-  private static Pair<Long, String> parseMdhd(ParsableByteArray mdhd) {
+  private static MdhdData parseMdhd(ParsableByteArray mdhd) {
     mdhd.setPosition(Mp4Box.HEADER_SIZE);
     int fullAtom = mdhd.readInt();
     int version = parseFullBoxVersion(fullAtom);
     mdhd.skipBytes(version == 0 ? 8 : 16);
     long timescale = mdhd.readUnsignedInt();
-    mdhd.skipBytes(version == 0 ? 4 : 8);
+    long mediaDuration = version == 0 ? mdhd.readUnsignedInt() : mdhd.readUnsignedLongToLong();
+    long mediaDurationUs;
+    if (mediaDuration == 0) {
+      // 0 duration normally indicates that the file is fully fragmented (i.e. all of the media
+      // samples are in fragments). Treat as unknown.
+      mediaDurationUs = C.TIME_UNSET;
+    } else {
+      mediaDurationUs = Util.scaleLargeTimestamp(mediaDuration, C.MICROS_PER_SECOND, timescale);
+    }
     int languageCode = mdhd.readUnsignedShort();
     String language =
         ""
             + (char) (((languageCode >> 10) & 0x1F) + 0x60)
             + (char) (((languageCode >> 5) & 0x1F) + 0x60)
             + (char) ((languageCode & 0x1F) + 0x60);
-    return Pair.create(timescale, language);
+    return new MdhdData(timescale, mediaDurationUs, language);
   }
 
   /**
@@ -2405,6 +2418,19 @@ public final class BoxParser {
 
     public EyesData(StriData striData) {
       this.striData = striData;
+    }
+  }
+
+  /** Data parsed from mdhd box. */
+  private static final class MdhdData {
+    private final long timescale;
+    private final long mediaDurationUs;
+    private final String language;
+
+    public MdhdData(long timescale, long mediaDurationUs, String language) {
+      this.timescale = timescale;
+      this.mediaDurationUs = mediaDurationUs;
+      this.language = language;
     }
   }
 

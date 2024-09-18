@@ -40,6 +40,9 @@
     *   Fix preroll sample handling for non-keyframe media start positions when
         processing edit lists in MP4 files
         ([#1659](https://github.com/google/ExoPlayer/issues/1659)).
+    *   Improved frame rate calculation by using media duration from the `mdhd`
+        box in `Mp4Extractor` and `FragmentedMp4Extractor`
+        ([#1531](https://github.com/androidx/media/issues/1531)).
 *   DataSource:
 *   Audio:
 *   Video:
