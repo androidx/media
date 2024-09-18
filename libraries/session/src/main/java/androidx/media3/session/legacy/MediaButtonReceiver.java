@@ -30,7 +30,6 @@ import android.content.pm.ResolveInfo;
 import android.os.Build;
 import android.util.Log;
 import android.view.KeyEvent;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
@@ -378,7 +377,6 @@ public class MediaButtonReceiver extends BroadcastReceiver {
     /**
      * Returns true if the passed exception is a {@link ForegroundServiceStartNotAllowedException}.
      */
-    @DoNotInline
     public static boolean instanceOfForegroundServiceStartNotAllowedException(
         IllegalStateException e) {
       return e instanceof ForegroundServiceStartNotAllowedException;
@@ -388,7 +386,6 @@ public class MediaButtonReceiver extends BroadcastReceiver {
      * Casts the {@link IllegalStateException} to a {@link
      * ForegroundServiceStartNotAllowedException} and throws an exception if the cast fails.
      */
-    @DoNotInline
     public static ForegroundServiceStartNotAllowedException
         castToForegroundServiceStartNotAllowedException(IllegalStateException e) {
       return (ForegroundServiceStartNotAllowedException) e;

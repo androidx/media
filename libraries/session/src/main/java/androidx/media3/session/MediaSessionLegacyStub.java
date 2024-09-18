@@ -58,7 +58,6 @@ import android.os.RemoteException;
 import android.os.ResultReceiver;
 import android.text.TextUtils;
 import android.view.KeyEvent;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.core.util.ObjectsCompat;
@@ -1482,7 +1481,6 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
   @RequiresApi(31)
   private static final class Api31 {
-    @DoNotInline
     public static void setMediaButtonBroadcastReceiver(
         MediaSessionCompat mediaSessionCompat, ComponentName broadcastReceiver) {
       ((android.media.session.MediaSession) checkNotNull(mediaSessionCompat.getMediaSession()))

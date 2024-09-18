@@ -19,7 +19,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.media.MediaCodecInfo.VideoCapabilities;
 import android.media.MediaCodecInfo.VideoCapabilities.PerformancePoint;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.IntDef;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.Format;
@@ -96,7 +95,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @RequiresApi(29)
   private static final class Api29 {
-    @DoNotInline
     public static @PerformancePointCoverageResult int areResolutionAndFrameRateCovered(
         VideoCapabilities videoCapabilities, int width, int height, double frameRate) {
       List<PerformancePoint> performancePointList =

@@ -34,7 +34,6 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.RemoteException;
 import androidx.annotation.CallSuper;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -811,7 +810,6 @@ public abstract class MediaSessionService extends Service {
 
   @RequiresApi(31)
   private static final class Api31 {
-    @DoNotInline
     public static boolean instanceOfForegroundServiceStartNotAllowedException(
         IllegalStateException e) {
       return e instanceof ForegroundServiceStartNotAllowedException;

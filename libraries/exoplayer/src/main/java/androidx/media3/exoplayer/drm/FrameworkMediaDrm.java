@@ -28,7 +28,6 @@ import android.media.UnsupportedSchemeException;
 import android.media.metrics.LogSessionId;
 import android.os.PersistableBundle;
 import android.text.TextUtils;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
@@ -591,13 +590,11 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
   private static class Api31 {
     private Api31() {}
 
-    @DoNotInline
     public static boolean requiresSecureDecoder(
         MediaDrm mediaDrm, String mimeType, int securityLevel) {
       return mediaDrm.requiresSecureDecoder(mimeType, securityLevel);
     }
 
-    @DoNotInline
     public static void setLogSessionIdOnMediaDrmSession(
         MediaDrm mediaDrm, byte[] drmSessionId, PlayerId playerId) {
       LogSessionId logSessionId = playerId.getLogSessionId();

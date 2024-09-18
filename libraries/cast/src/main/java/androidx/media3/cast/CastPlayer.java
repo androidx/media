@@ -33,7 +33,6 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.TextureView;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -1586,7 +1585,6 @@ public final class CastPlayer extends BasePlayer {
     }
 
     /** Acquires necessary resources and registers callbacks. */
-    @DoNotInline
     public void initialize() {
       mediaRouter2.registerTransferCallback(handler::post, transferCallback);
       // We need at least one route callback registered in order to get transfer callback updates.
@@ -1601,7 +1599,6 @@ public final class CastPlayer extends BasePlayer {
      * Releases any resources acquired in {@link #initialize()} and unregisters any registered
      * callbacks.
      */
-    @DoNotInline
     public void release() {
       mediaRouter2.unregisterTransferCallback(transferCallback);
       mediaRouter2.unregisterRouteCallback(emptyRouteCallback);
@@ -1609,7 +1606,6 @@ public final class CastPlayer extends BasePlayer {
     }
 
     /** Updates the device info with an up-to-date value and notifies the listeners. */
-    @DoNotInline
     private void updateDeviceInfo() {
       DeviceInfo oldDeviceInfo = deviceInfo;
       DeviceInfo newDeviceInfo = fetchDeviceInfo();
@@ -1624,7 +1620,6 @@ public final class CastPlayer extends BasePlayer {
      * Returns a {@link DeviceInfo} with the {@link RoutingController#getId() id} that corresponds
      * to the Cast session, or {@link #DEVICE_INFO_REMOTE_EMPTY} if not available.
      */
-    @DoNotInline
     public DeviceInfo fetchDeviceInfo() {
       // TODO: b/364833997 - Fetch this information from the AndroidX MediaRouter selected route
       // once the selected route id matches the controller id.

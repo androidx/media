@@ -57,7 +57,6 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.TextureView;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
@@ -3402,7 +3401,6 @@ import java.util.concurrent.TimeoutException;
   private static final class Api31 {
     private Api31() {}
 
-    @DoNotInline
     public static PlayerId registerMediaMetricsListener(
         Context context, ExoPlayerImpl player, boolean usePlatformDiagnostics, String playerName) {
       @Nullable MediaMetricsListener listener = MediaMetricsListener.create(context);
@@ -3421,7 +3419,6 @@ import java.util.concurrent.TimeoutException;
   private static final class Api23 {
     private Api23() {}
 
-    @DoNotInline
     public static boolean isSuitableExternalAudioOutputPresentInAudioDeviceInfoList(
         Context context, AudioDeviceInfo[] audioDeviceInfos) {
       if (!Util.isWear(context)) {
@@ -3454,7 +3451,6 @@ import java.util.concurrent.TimeoutException;
       return false;
     }
 
-    @DoNotInline
     public static void registerAudioDeviceCallback(
         AudioManager audioManager, AudioDeviceCallback audioDeviceCallback, Handler handler) {
       audioManager.registerAudioDeviceCallback(audioDeviceCallback, handler);

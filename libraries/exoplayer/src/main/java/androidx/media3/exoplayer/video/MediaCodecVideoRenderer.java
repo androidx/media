@@ -43,7 +43,6 @@ import android.util.Pair;
 import android.view.Display;
 import android.view.Surface;
 import androidx.annotation.CallSuper;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
@@ -636,7 +635,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   @RequiresApi(26)
   private static final class Api26 {
-    @DoNotInline
     public static boolean doesDisplaySupportDolbyVision(Context context) {
       boolean supportsDolbyVision = false;
       DisplayManager displayManager =

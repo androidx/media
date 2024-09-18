@@ -52,7 +52,6 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.window.SurfaceSyncGroup;
 import androidx.annotation.ColorInt;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -1968,7 +1967,6 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   @RequiresApi(34)
   private static class Api34 {
 
-    @DoNotInline
     public static void setSurfaceLifecycleToFollowsAttachment(SurfaceView surfaceView) {
       surfaceView.setSurfaceLifecycle(SurfaceView.SURFACE_LIFECYCLE_FOLLOWS_ATTACHMENT);
     }
@@ -1979,7 +1977,6 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
 
     @Nullable SurfaceSyncGroup surfaceSyncGroup;
 
-    @DoNotInline
     public void postRegister(
         Handler mainLooperHandler, SurfaceView surfaceView, Runnable invalidate) {
       mainLooperHandler.post(
@@ -1997,7 +1994,6 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
           });
     }
 
-    @DoNotInline
     public void maybeMarkSyncReadyAndClear() {
       if (surfaceSyncGroup != null) {
         surfaceSyncGroup.markSyncReady();

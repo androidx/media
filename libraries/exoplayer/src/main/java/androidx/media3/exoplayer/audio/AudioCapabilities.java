@@ -32,7 +32,6 @@ import android.net.Uri;
 import android.provider.Settings.Global;
 import android.util.Pair;
 import android.util.SparseArray;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
@@ -544,7 +543,6 @@ public final class AudioCapabilities {
   private static final class Api23 {
     private Api23() {}
 
-    @DoNotInline
     public static boolean isBluetoothConnected(
         AudioManager audioManager, @Nullable AudioDeviceInfoApi23 currentDevice) {
       // Check the current device if known or all devices otherwise.
@@ -570,7 +568,6 @@ public final class AudioCapabilities {
      * AudioDeviceInfo#TYPE_BLE_HEADSET} and {@link AudioDeviceInfo#TYPE_BLE_SPEAKER} are added from
      * API 31. And the type {@link AudioDeviceInfo#TYPE_BLE_BROADCAST} is added from API 33.
      */
-    @DoNotInline
     private static ImmutableSet<Integer> getAllBluetoothDeviceTypes() {
       ImmutableSet.Builder<Integer> allBluetoothDeviceTypes =
           new ImmutableSet.Builder<Integer>()
@@ -591,7 +588,6 @@ public final class AudioCapabilities {
 
     private Api29() {}
 
-    @DoNotInline
     public static ImmutableList<Integer> getDirectPlaybackSupportedEncodings(
         AudioAttributes audioAttributes) {
       ImmutableList.Builder<Integer> supportedEncodingsListBuilder = ImmutableList.builder();
@@ -618,7 +614,6 @@ public final class AudioCapabilities {
      * Returns the maximum number of channels supported for passthrough playback of audio in the
      * given format, or {@code 0} if the format is unsupported.
      */
-    @DoNotInline
     public static int getMaxSupportedChannelCountForPassthrough(
         @C.Encoding int encoding, int sampleRate, AudioAttributes audioAttributes) {
       // TODO(internal b/234351617): Query supported channel masks directly once it's supported,
@@ -648,7 +643,6 @@ public final class AudioCapabilities {
 
     private Api33() {}
 
-    @DoNotInline
     public static AudioCapabilities getCapabilitiesInternalForDirectPlayback(
         AudioManager audioManager, AudioAttributes audioAttributes) {
       List<android.media.AudioProfile> directAudioProfiles =
@@ -658,7 +652,6 @@ public final class AudioCapabilities {
     }
 
     @Nullable
-    @DoNotInline
     public static AudioDeviceInfoApi23 getDefaultRoutedDeviceForAttributes(
         AudioManager audioManager, AudioAttributes audioAttributes) {
       List<AudioDeviceInfo> audioDevices;

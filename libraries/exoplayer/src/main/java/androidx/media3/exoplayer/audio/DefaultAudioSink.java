@@ -37,7 +37,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.util.Pair;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
@@ -1914,13 +1913,11 @@ public final class DefaultAudioSink implements AudioSink {
       audioTrack.addOnRoutingChangedListener(listener, handler);
     }
 
-    @DoNotInline
     public void release() {
       audioTrack.removeOnRoutingChangedListener(checkNotNull(listener));
       listener = null;
     }
 
-    @DoNotInline
     private void onRoutingChanged(AudioRouting router) {
       if (listener == null) {
         // Stale event.
@@ -1984,12 +1981,10 @@ public final class DefaultAudioSink implements AudioSink {
           };
     }
 
-    @DoNotInline
     public void register(AudioTrack audioTrack) {
       audioTrack.registerStreamEventCallback(handler::post, callback);
     }
 
-    @DoNotInline
     public void unregister(AudioTrack audioTrack) {
       audioTrack.unregisterStreamEventCallback(callback);
       handler.removeCallbacksAndMessages(/* token= */ null);
@@ -2348,7 +2343,6 @@ public final class DefaultAudioSink implements AudioSink {
   private static final class Api23 {
     private Api23() {}
 
-    @DoNotInline
     public static void setPreferredDeviceOnAudioTrack(
         AudioTrack audioTrack, @Nullable AudioDeviceInfoApi23 audioDeviceInfo) {
       audioTrack.setPreferredDevice(
@@ -2360,7 +2354,6 @@ public final class DefaultAudioSink implements AudioSink {
   private static final class Api31 {
     private Api31() {}
 
-    @DoNotInline
     public static void setLogSessionIdOnAudioTrack(AudioTrack audioTrack, PlayerId playerId) {
       LogSessionId logSessionId = playerId.getLogSessionId();
       if (!logSessionId.equals(LogSessionId.LOG_SESSION_ID_NONE)) {
