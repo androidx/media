@@ -31,7 +31,6 @@ import android.graphics.Bitmap;
 import android.graphics.PixelFormat;
 import android.media.Image;
 import android.media.ImageReader;
-import android.view.SurfaceView;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Size;
@@ -41,8 +40,6 @@ import androidx.media3.transformer.CompositionPlayer;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.EditedMediaItemSequence;
 import androidx.media3.transformer.Effects;
-import androidx.media3.transformer.SurfaceTestActivity;
-import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.util.concurrent.TimeoutException;
@@ -67,27 +64,20 @@ public class CompositionPlayerPixelTest {
 
   @Rule public final TestName testName = new TestName();
 
-  @Rule
-  public ActivityScenarioRule<SurfaceTestActivity> rule =
-      new ActivityScenarioRule<>(SurfaceTestActivity.class);
-
   private final Context context = getInstrumentation().getContext().getApplicationContext();
 
   private @MonotonicNonNull CompositionPlayer player;
   private @MonotonicNonNull ImageReader outputImageReader;
 
   private String testId;
-  private SurfaceView surfaceView;
 
   @Before
   public void setUp() {
-    rule.getScenario().onActivity(activity -> surfaceView = activity.getSurfaceView());
     testId = testName.getMethodName();
   }
 
   @After
   public void tearDown() {
-    rule.getScenario().close();
     getInstrumentation()
         .runOnMainSync(
             () -> {

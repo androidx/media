@@ -48,7 +48,6 @@ public abstract class SingleInputVideoGraph implements VideoGraph {
   private final Executor listenerExecutor;
   private final boolean renderFramesAutomatically;
   private final long initialTimestampOffsetUs;
-  @Nullable private final Presentation presentation;
 
   @Nullable private VideoFrameProcessor videoFrameProcessor;
   @Nullable private SurfaceInfo outputSurfaceInfo;
@@ -71,7 +70,6 @@ public abstract class SingleInputVideoGraph implements VideoGraph {
       Executor listenerExecutor,
       VideoCompositorSettings videoCompositorSettings,
       boolean renderFramesAutomatically,
-      @Nullable Presentation presentation,
       long initialTimestampOffsetUs) {
     checkState(
         VideoCompositorSettings.DEFAULT.equals(videoCompositorSettings),
@@ -84,7 +82,6 @@ public abstract class SingleInputVideoGraph implements VideoGraph {
     this.debugViewProvider = debugViewProvider;
     this.listenerExecutor = listenerExecutor;
     this.renderFramesAutomatically = renderFramesAutomatically;
-    this.presentation = presentation;
     this.initialTimestampOffsetUs = initialTimestampOffsetUs;
     this.inputIndex = C.INDEX_UNSET;
   }
@@ -202,10 +199,5 @@ public abstract class SingleInputVideoGraph implements VideoGraph {
 
   protected long getInitialTimestampOffsetUs() {
     return initialTimestampOffsetUs;
-  }
-
-  @Nullable
-  protected Presentation getPresentation() {
-    return presentation;
   }
 }

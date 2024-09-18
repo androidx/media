@@ -132,13 +132,10 @@ public final class TransformerUtil {
       TransformationRequest transformationRequest,
       Codec.EncoderFactory encoderFactory,
       MuxerWrapper muxerWrapper) {
-
     if (composition.sequences.size() > 1
         || composition.sequences.get(sequenceIndex).editedMediaItems.size() > 1) {
       return !composition.transmuxVideo;
     }
-    EditedMediaItem firstEditedMediaItem =
-        composition.sequences.get(sequenceIndex).editedMediaItems.get(0);
     if (encoderFactory.videoNeedsEncoding()) {
       return true;
     }
@@ -156,9 +153,15 @@ public final class TransformerUtil {
     if (inputFormat.pixelWidthHeightRatio != 1f) {
       return true;
     }
-    ImmutableList<Effect> videoEffects = firstEditedMediaItem.effects.videoEffects;
-    return !videoEffects.isEmpty()
-        && maybeCalculateTotalRotationDegreesAppliedInEffects(videoEffects, inputFormat) == -1;
+    EditedMediaItem firstEditedMediaItem =
+        composition.sequences.get(sequenceIndex).editedMediaItems.get(0);
+    ImmutableList<Effect> combinedEffects =
+        new ImmutableList.Builder<Effect>()
+            .addAll(firstEditedMediaItem.effects.videoEffects)
+            .addAll(composition.effects.videoEffects)
+            .build();
+    return !combinedEffects.isEmpty()
+        && maybeCalculateTotalRotationDegreesAppliedInEffects(combinedEffects, inputFormat) == -1;
   }
 
   /**

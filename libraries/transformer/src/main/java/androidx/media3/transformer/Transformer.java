@@ -58,7 +58,6 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
-import androidx.media3.effect.Presentation;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.muxer.Muxer;
 import com.google.common.collect.ImmutableList;
@@ -1018,14 +1017,8 @@ public final class Transformer {
    * EditedMediaItemSequence}, while the audio format will be determined by the {@code
    * AudioMediaItem} in the second {@code EditedMediaItemSequence}.
    *
-   * <p>This method is under development. A {@link Composition} must meet the following conditions:
-   *
-   * <ul>
-   *   <li>The video composition {@link Presentation} effect is applied after input streams are
-   *       composited. Other composition effects are ignored.
-   * </ul>
-   *
-   * <p>{@linkplain EditedMediaItemSequence Sequences} within the {@link Composition} must meet the
+   * <p>Some {@linkplain Composition compositions} are not supported yet. More specifically,
+   * {@linkplain EditedMediaItemSequence Sequences} within the {@link Composition} must meet the
    * following conditions:
    *
    * <ul>

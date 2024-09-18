@@ -598,6 +598,64 @@ public class TransformerEndToEndTest {
   }
 
   @Test
+  public void videoEditing_withSingleSequenceAndCompositionEffect_appliesEffect() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ASSET.videoFormat);
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(
+                new DefaultEncoderFactory.Builder(context).setEnableFallback(false).build())
+            .build();
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET.uri));
+    EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
+    InputTimestampRecordingShaderProgram timestampRecordingShaderProgram =
+        new InputTimestampRecordingShaderProgram();
+    ImmutableList<Effect> videoEffects =
+        ImmutableList.of((GlEffect) (context, useHdr) -> timestampRecordingShaderProgram);
+    Composition composition =
+        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem))
+            .setEffects(new Effects(/* audioProcessors= */ ImmutableList.of(), videoEffects))
+            .build();
+
+    new TransformerAndroidTestRunner.Builder(context, transformer).build().run(testId, composition);
+
+    assertThat(timestampRecordingShaderProgram.getInputTimestampsUs()).isNotEmpty();
+  }
+
+  @Test
+  public void videoEditing_withMultiSequenceAndCompositionEffect_appliesEffect() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ASSET.videoFormat);
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(
+                new DefaultEncoderFactory.Builder(context).setEnableFallback(false).build())
+            .build();
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET.uri));
+    EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
+    InputTimestampRecordingShaderProgram timestampRecordingShaderProgram =
+        new InputTimestampRecordingShaderProgram();
+    ImmutableList<Effect> videoEffects =
+        ImmutableList.of((GlEffect) (context, useHdr) -> timestampRecordingShaderProgram);
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence(editedMediaItem),
+                new EditedMediaItemSequence(editedMediaItem))
+            .setEffects(new Effects(/* audioProcessors= */ ImmutableList.of(), videoEffects))
+            .build();
+
+    new TransformerAndroidTestRunner.Builder(context, transformer).build().run(testId, composition);
+
+    assertThat(timestampRecordingShaderProgram.getInputTimestampsUs()).isNotEmpty();
+  }
+
+  @Test
   public void videoOnly_completesWithConsistentDuration() throws Exception {
     assumeFormatsSupported(
         context,
