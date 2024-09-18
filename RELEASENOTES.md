@@ -29,6 +29,9 @@
 *   DataSource:
 *   Audio:
 *   Video:
+    *   Add workaround for a device issue on Galaxy Tab S7 FE that causes 60fps
+        secure H264 streams to be marked as unsupported
+        ([#1619](https://github.com/androidx/media/issues/1619)).
 *   Text:
 *   Metadata:
 *   Image:

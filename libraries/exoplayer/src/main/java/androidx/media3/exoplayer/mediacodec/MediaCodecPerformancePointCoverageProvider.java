@@ -137,6 +137,25 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         // The same check as below is tested in CTS and we should get reliable results from API 35.
         return false;
       }
+      @PerformancePointCoverageResult
+      int h264RequiredSupportResult =
+          evaluateH264RequiredSupport(/* requiresSecureDecoder= */ false);
+      @PerformancePointCoverageResult
+      int h264SecureRequiredSupportResult =
+          evaluateH264RequiredSupport(/* requiresSecureDecoder= */ true);
+
+      if (h264RequiredSupportResult == COVERAGE_RESULT_NO_PERFORMANCE_POINTS_UNSUPPORTED) {
+        return true;
+      }
+      if (h264SecureRequiredSupportResult == COVERAGE_RESULT_NO_PERFORMANCE_POINTS_UNSUPPORTED) {
+        return h264RequiredSupportResult != COVERAGE_RESULT_YES;
+      }
+      return h264RequiredSupportResult != COVERAGE_RESULT_YES
+          || h264SecureRequiredSupportResult != COVERAGE_RESULT_YES;
+    }
+
+    private static @PerformancePointCoverageResult int evaluateH264RequiredSupport(
+        boolean requiresSecureDecoder) {
       try {
         Format formatH264 = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build();
         // Null check required to pass RequiresNonNull annotation on getDecoderInfosSoftMatch.
@@ -145,7 +164,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               MediaCodecUtil.getDecoderInfosSoftMatch(
                   MediaCodecSelector.DEFAULT,
                   formatH264,
-                  /* requiresSecureDecoder= */ false,
+                  /* requiresSecureDecoder= */ requiresSecureDecoder,
                   /* requiresTunnelingDecoder= */ false);
           for (int i = 0; i < decoderInfos.size(); i++) {
             if (decoderInfos.get(i).capabilities != null
@@ -160,15 +179,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 PerformancePoint targetPerformancePointH264 =
                     new PerformancePoint(/* width= */ 1280, /* height= */ 720, /* frameRate= */ 60);
                 return evaluatePerformancePointCoverage(
-                        performancePointListH264, targetPerformancePointH264)
-                    == COVERAGE_RESULT_NO;
+                    performancePointListH264, targetPerformancePointH264);
               }
             }
           }
         }
-        return true;
+        return COVERAGE_RESULT_NO_PERFORMANCE_POINTS_UNSUPPORTED;
       } catch (MediaCodecUtil.DecoderQueryException ignored) {
-        return true;
+        return COVERAGE_RESULT_NO_PERFORMANCE_POINTS_UNSUPPORTED;
       }
     }
 
