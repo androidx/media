@@ -206,6 +206,18 @@ This release includes the following changes since the
         playback can't be suppressed without the system crashing the service
         with a `ForegroundServiceDidNotStartInTimeException`
         ([#1528](https://github.com/google/ExoPlayer/issues/1528)).
+    *   Fix bug that caused custom commands sent from a `MediaBrowser` being
+        dispatched to the `MediaSessionCompat.Callback` instead of the
+        `MediaBrowserServiceCompat` variant of the method when connected to a
+        legacy service. This prevented the `MediaBrowser` to receive the actual
+        return value sent back by the legacy service
+        ([#1474](https://github.com/androidx/media/issues/1474)).
+*   UI:
+*   Downloads:
+*   OkHttp Extension:
+*   Cronet Extension:
+*   RTMP Extension:
+*   HLS Extension:
 *   DASH Extension:
     *   Add support for periods starting in the middle of a segment
         ([#1440](https://github.com/androidx/media/issues/1440)).

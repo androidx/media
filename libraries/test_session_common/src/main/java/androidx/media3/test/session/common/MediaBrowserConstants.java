@@ -29,6 +29,8 @@ public class MediaBrowserConstants {
   public static final String ROOT_EXTRAS_KEY = "root_extras_key";
   public static final int ROOT_EXTRAS_VALUE = 4321;
 
+  public static final String COMMAND_ACTION_PLAYLIST_ADD = "androidx.media3.actions.playlist_add";
+
   public static final String MEDIA_ID_GET_BROWSABLE_ITEM = "media_id_get_browsable_item";
   public static final String MEDIA_ID_GET_PLAYABLE_ITEM = "media_id_get_playable_item";
   public static final String MEDIA_ID_GET_ITEM_WITH_METADATA = "media_id_get_item_with_metadata";

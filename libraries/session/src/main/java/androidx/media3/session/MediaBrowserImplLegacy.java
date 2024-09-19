@@ -291,6 +291,35 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     return future;
   }
 
+  @Override
+  public ListenableFuture<SessionResult> sendCustomCommand(SessionCommand command, Bundle args) {
+    MediaBrowserCompat browserCompat = getBrowserCompat();
+    if (browserCompat != null && instance.isSessionCommandAvailable(command)) {
+      SettableFuture<SessionResult> settable = SettableFuture.create();
+      browserCompat.sendCustomAction(
+          command.customAction,
+          args,
+          new MediaBrowserCompat.CustomActionCallback() {
+            @Override
+            public void onResult(
+                String action, @Nullable Bundle extras, @Nullable Bundle resultData) {
+              Bundle mergedBundles = new Bundle(extras);
+              mergedBundles.putAll(resultData);
+              settable.set(new SessionResult(SessionResult.RESULT_SUCCESS, mergedBundles));
+            }
+
+            @Override
+            public void onError(String action, @Nullable Bundle extras, @Nullable Bundle data) {
+              Bundle mergedBundles = new Bundle(extras);
+              mergedBundles.putAll(data);
+              settable.set(new SessionResult(SessionResult.RESULT_ERROR_UNKNOWN, mergedBundles));
+            }
+          });
+      return settable;
+    }
+    return super.sendCustomCommand(command, args);
+  }
+
   private MediaBrowserCompat getBrowserCompat(LibraryParams extras) {
     return browserCompats.get(extras);
   }
