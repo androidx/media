@@ -54,8 +54,7 @@ public abstract class BaseTrackSelection implements ExoTrackSelection {
   // Lazily initialized hashcode.
   private int hashCode;
 
-  /**
-   * The last playWhenReady value when {@link #onPlayWhenReadyChanged(boolean)} was triggered */
+  /** The last playWhenReady value when {@link #onPlayWhenReadyChanged(boolean)} was triggered */
   private boolean lastPlayWhenReady;
 
   /**
