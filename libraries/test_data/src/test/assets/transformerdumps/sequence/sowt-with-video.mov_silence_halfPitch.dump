@@ -456,8 +456,8 @@ sample:
   isKeyFrame = true
 sample:
   trackType = audio
-  dataHashCode = -815609855
-  size = 3520
+  dataHashCode = -457492479
+  size = 576
   isKeyFrame = true
 sample:
   trackType = video

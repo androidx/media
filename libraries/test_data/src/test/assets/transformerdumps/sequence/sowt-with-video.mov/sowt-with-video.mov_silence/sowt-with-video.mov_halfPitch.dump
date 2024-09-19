@@ -1433,8 +1433,8 @@ sample:
   isKeyFrame = true
 sample:
   trackType = audio
-  dataHashCode = 647349460
-  size = 3072
+  dataHashCode = 870009213
+  size = 1024
   isKeyFrame = true
 sample:
   trackType = video

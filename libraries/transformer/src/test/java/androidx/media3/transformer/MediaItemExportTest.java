@@ -529,6 +529,25 @@ public final class MediaItemExportTest {
   }
 
   @Test
+  public void exportAudio_muxerReceivesExpectedNumberOfBytes() throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
+    AtomicInteger bytesSeenByEffect = new AtomicInteger();
+    Transformer transformer =
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+    MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW);
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(mediaItem)
+            .setEffects(createAudioEffects(createByteCountingAudioProcessor(bytesSeenByEffect)))
+            .build();
+
+    transformer.start(editedMediaItem, outputDir.newFile().getPath());
+    TransformerTestRunner.runLooper(transformer);
+
+    assertThat(muxerFactory.getCreatedMuxer().getTotalBytesForTrack(C.TRACK_TYPE_AUDIO))
+        .isEqualTo(bytesSeenByEffect.get());
+  }
+
+  @Test
   public void start_adjustSampleRate_completesSuccessfully() throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     SonicAudioProcessor sonicAudioProcessor = new SonicAudioProcessor();
