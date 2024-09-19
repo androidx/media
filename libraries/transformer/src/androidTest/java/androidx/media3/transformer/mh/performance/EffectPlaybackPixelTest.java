@@ -51,7 +51,9 @@ import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.util.EventLogger;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
+import androidx.media3.transformer.SurfaceTestActivity;
 import androidx.test.core.app.ApplicationProvider;
+import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
@@ -165,6 +167,12 @@ public class EffectPlaybackPixelTest {
   /** Playback test for {@link Effect}-enabled playback. */
   public static class PlaybackTest {
     @Rule public final TestName testName = new TestName();
+
+    // Force the test to run in foreground to make it faster and avoid ImageReader frame drops.
+    @Rule
+    public ActivityScenarioRule<SurfaceTestActivity> rule =
+        new ActivityScenarioRule<>(SurfaceTestActivity.class);
+
     private final Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
     private @MonotonicNonNull ExoPlayer player;
     private @MonotonicNonNull ImageReader outputImageReader;
@@ -192,14 +200,14 @@ public class EffectPlaybackPixelTest {
       AtomicInteger renderedFramesCount = new AtomicInteger();
       ConditionVariable playerEnded = new ConditionVariable();
       ConditionVariable readAllOutputFrames = new ConditionVariable();
-      // Setting maxImages=5 ensures image reader gets all rendered frames from VideoFrameProcessor.
-      // Using maxImages=5 runs successfully on a Pixel3.
+      // Setting maxImages=10 ensures image reader gets all rendered frames from
+      // VideoFrameProcessor. Using maxImages=10 runs successfully on a Pixel3.
       outputImageReader =
           ImageReader.newInstance(
               MP4_ASSET.videoFormat.width,
               MP4_ASSET.videoFormat.height,
               PixelFormat.RGBA_8888,
-              /* maxImages= */ 5);
+              /* maxImages= */ 10);
 
       instrumentation.runOnMainSync(
           () -> {
@@ -287,14 +295,14 @@ public class EffectPlaybackPixelTest {
       AtomicInteger renderedFramesCount = new AtomicInteger();
       ConditionVariable playerEnded = new ConditionVariable();
       ConditionVariable readAllOutputFrames = new ConditionVariable();
-      // Setting maxImages=5 ensures image reader gets all rendered frames from VideoFrameProcessor.
-      // Using maxImages=5 runs successfully on a Pixel3.
+      // Setting maxImages=10 ensures image reader gets all rendered frames from
+      // VideoFrameProcessor. Using maxImages=10 runs successfully on a Pixel3.
       outputImageReader =
           ImageReader.newInstance(
               MP4_ASSET.videoFormat.width,
               MP4_ASSET.videoFormat.height,
               PixelFormat.RGBA_8888,
-              /* maxImages= */ 5);
+              /* maxImages= */ 10);
 
       instrumentation.runOnMainSync(
           () -> {
