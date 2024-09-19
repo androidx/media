@@ -460,7 +460,7 @@ public interface MediaSourceEventListener {
               listener.onDownstreamFormatChanged(windowIndex, mediaPeriodId, mediaLoadData));
     }
 
-    /** Dispatches to a function that supplies a (@link MediaSourceEventListener} */
+    /** Dispatches to a function that supplies a {@link MediaSourceEventListener}. */
     public void dispatchEvent(Consumer<MediaSourceEventListener> event) {
       for (ListenerAndHandler listenerAndHandler : listenerAndHandlers) {
         MediaSourceEventListener listener = listenerAndHandler.listener;
