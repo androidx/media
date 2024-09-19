@@ -55,6 +55,10 @@ public abstract class BaseTrackSelection implements ExoTrackSelection {
   private int hashCode;
 
   /**
+   * The last playWhenReady value when {@link #onPlayWhenReadyChanged(boolean)} was triggered */
+  private boolean lastPlayWhenReady;
+
+  /**
    * @param group The {@link TrackGroup}. Must not be null.
    * @param tracks The indices of the selected tracks within the {@link TrackGroup}. Must not be
    *     null or empty. May be in any order.
@@ -87,6 +91,7 @@ public abstract class BaseTrackSelection implements ExoTrackSelection {
       this.tracks[i] = group.indexOf(formats[i]);
     }
     excludeUntilTimes = new long[length];
+    lastPlayWhenReady = false;
   }
 
   // TrackSelection implementation.
@@ -189,6 +194,15 @@ public abstract class BaseTrackSelection implements ExoTrackSelection {
   @Override
   public boolean isTrackExcluded(int index, long nowMs) {
     return excludeUntilTimes[index] > nowMs;
+  }
+
+  @Override
+  public void onPlayWhenReadyChanged(boolean playWhenReady) {
+    lastPlayWhenReady = playWhenReady;
+  }
+
+  protected final boolean getPlayWhenReady() {
+    return lastPlayWhenReady;
   }
 
   // Object overrides.
