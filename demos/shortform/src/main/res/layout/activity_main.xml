@@ -42,7 +42,7 @@
     android:background="@color/purple_700"
     android:gravity="center"
     android:hint="@string/num_of_players"
-    android:inputType="numberDecimal"
+    android:inputType="number"
     android:textColorHint="@color/grey" />
 
 </LinearLayout>
