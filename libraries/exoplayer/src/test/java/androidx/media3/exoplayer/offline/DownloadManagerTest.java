@@ -43,7 +43,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.shadows.ShadowLog;
 
 /** Tests {@link DownloadManager}. */
 @RunWith(AndroidJUnit4.class)
@@ -51,10 +50,13 @@ public class DownloadManagerTest {
 
   /** Timeout to use when blocking on conditions that we expect to become unblocked. */
   private static final int TIMEOUT_MS = 10_000;
+
   /** An application provided stop reason. */
   private static final int APP_STOP_REASON = 1;
+
   /** The minimum number of times a download must be retried before failing. */
   private static final int MIN_RETRY_COUNT = 3;
+
   /** Test value for the current time. */
   private static final long NOW_MS = 1234;
 
@@ -71,7 +73,6 @@ public class DownloadManagerTest {
 
   @Before
   public void setUp() throws Exception {
-    ShadowLog.stream = System.out;
     testThread = new DummyMainThread();
     setupDownloadManager(/* maxParallelDownloads= */ 100);
   }
@@ -302,13 +303,13 @@ public class DownloadManagerTest {
 
   @Test
   public void downloads_withSameIdsAndDifferentStreamKeys_areMerged() throws Throwable {
-    StreamKey streamKey1 = new StreamKey(/* groupIndex= */ 0, /* trackIndex= */ 0);
+    StreamKey streamKey1 = new StreamKey(/* groupIndex= */ 0, /* streamIndex= */ 0);
     postDownloadRequest(ID1, streamKey1);
     FakeDownloader downloader0 = getDownloaderAt(0);
     downloader0.assertId(ID1);
     downloader0.assertDownloadStarted();
 
-    StreamKey streamKey2 = new StreamKey(/* groupIndex= */ 1, /* trackIndex= */ 1);
+    StreamKey streamKey2 = new StreamKey(/* groupIndex= */ 1, /* streamIndex= */ 1);
     postDownloadRequest(ID1, streamKey2);
     // The request for streamKey2 will cause the downloader for streamKey1 to be canceled and
     // replaced with a new downloader for both keys.

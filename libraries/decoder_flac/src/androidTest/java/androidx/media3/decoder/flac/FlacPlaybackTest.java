@@ -33,6 +33,7 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.ProgressiveMediaSource;
 import androidx.media3.extractor.mkv.MatroskaExtractor;
+import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.test.utils.CapturingAudioSink;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.test.core.app.ApplicationProvider;
@@ -66,7 +67,9 @@ public class FlacPlaybackTest {
   }
 
   private static void playAndAssertAudioSinkInput(String fileName) throws Exception {
-    CapturingAudioSink audioSink = new CapturingAudioSink(new DefaultAudioSink.Builder().build());
+    CapturingAudioSink audioSink =
+        new CapturingAudioSink(
+            new DefaultAudioSink.Builder(ApplicationProvider.getApplicationContext()).build());
 
     TestPlaybackRunnable testPlaybackRunnable =
         new TestPlaybackRunnable(
@@ -117,7 +120,8 @@ public class FlacPlaybackTest {
       player.addListener(this);
       MediaSource mediaSource =
           new ProgressiveMediaSource.Factory(
-                  new DefaultDataSource.Factory(context), MatroskaExtractor.FACTORY)
+                  new DefaultDataSource.Factory(context),
+                  MatroskaExtractor.newFactory(new DefaultSubtitleParserFactory()))
               .createMediaSource(MediaItem.fromUri(uri));
       player.setMediaSource(mediaSource);
       player.prepare();

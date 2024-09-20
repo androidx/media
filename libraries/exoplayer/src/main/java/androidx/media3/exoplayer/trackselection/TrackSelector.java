@@ -102,6 +102,15 @@ public abstract class TrackSelector {
      * longer valid. May be called from any thread.
      */
     void onTrackSelectionsInvalidated();
+
+    /**
+     * Called by a {@link TrackSelector} to indicate that selections it has previously made may no
+     * longer be valid due to the renderer capabilities change. This method is called from playback
+     * thread.
+     *
+     * @param renderer The renderer whose capabilities changed.
+     */
+    default void onRendererCapabilitiesChanged(Renderer renderer) {}
   }
 
   @Nullable private InvalidationListener listener;
@@ -188,12 +197,34 @@ public abstract class TrackSelector {
   }
 
   /**
+   * Returns the {@link RendererCapabilities.Listener} that the concrete instance uses to listen to
+   * the renderer capabilities changes. May be {@code null} if the implementation does not listen to
+   * the renderer capabilities changes.
+   */
+  @Nullable
+  public RendererCapabilities.Listener getRendererCapabilitiesListener() {
+    return null;
+  }
+
+  /**
    * Calls {@link InvalidationListener#onTrackSelectionsInvalidated()} to invalidate all previously
    * generated track selections.
    */
   protected final void invalidate() {
     if (listener != null) {
       listener.onTrackSelectionsInvalidated();
+    }
+  }
+
+  /**
+   * Calls {@link InvalidationListener#onRendererCapabilitiesChanged(Renderer)} to invalidate all
+   * previously generated track selections because a renderer's capabilities have changed.
+   *
+   * @param renderer The renderer whose capabilities changed.
+   */
+  protected final void invalidateForRendererCapabilitiesChange(Renderer renderer) {
+    if (listener != null) {
+      listener.onRendererCapabilitiesChanged(renderer);
     }
   }
 

@@ -72,7 +72,7 @@ public final class CommentFrame extends Id3Frame {
 
   @Override
   public String toString() {
-    return id + ": language=" + language + ", description=" + description;
+    return id + ": language=" + language + ", description=" + description + ", text=" + text;
   }
 
   // Parcelable implementation.

@@ -22,6 +22,7 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
@@ -53,10 +54,13 @@ public final class ClippingMediaSource extends WrappingMediaSource {
     @Target(TYPE_USE)
     @IntDef({REASON_INVALID_PERIOD_COUNT, REASON_NOT_SEEKABLE_TO_START, REASON_START_EXCEEDS_END})
     public @interface Reason {}
+
     /** The wrapped source doesn't consist of a single period. */
     public static final int REASON_INVALID_PERIOD_COUNT = 0;
+
     /** The wrapped source is not seekable and a non-zero clipping start position was specified. */
     public static final int REASON_NOT_SEEKABLE_TO_START = 1;
+
     /** The wrapped source ends before the specified clipping start position. */
     public static final int REASON_START_EXCEEDS_END = 2;
 
@@ -189,6 +193,12 @@ public final class ClippingMediaSource extends WrappingMediaSource {
     this.relativeToDefaultPosition = relativeToDefaultPosition;
     mediaPeriods = new ArrayList<>();
     window = new Timeline.Window();
+  }
+
+  @Override
+  public boolean canUpdateMediaItem(MediaItem mediaItem) {
+    return getMediaItem().clippingConfiguration.equals(mediaItem.clippingConfiguration)
+        && mediaSource.canUpdateMediaItem(mediaItem);
   }
 
   @Override

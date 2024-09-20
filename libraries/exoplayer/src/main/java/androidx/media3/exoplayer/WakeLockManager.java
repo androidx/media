@@ -33,14 +33,13 @@ import androidx.media3.common.util.Log;
   private static final String TAG = "WakeLockManager";
   private static final String WAKE_LOCK_TAG = "ExoPlayer:WakeLockManager";
 
-  @Nullable private final PowerManager powerManager;
+  private final Context applicationContext;
   @Nullable private WakeLock wakeLock;
   private boolean enabled;
   private boolean stayAwake;
 
   public WakeLockManager(Context context) {
-    powerManager =
-        (PowerManager) context.getApplicationContext().getSystemService(Context.POWER_SERVICE);
+    applicationContext = context.getApplicationContext();
   }
 
   /**
@@ -56,6 +55,8 @@ import androidx.media3.common.util.Log;
   public void setEnabled(boolean enabled) {
     if (enabled) {
       if (wakeLock == null) {
+        PowerManager powerManager =
+            (PowerManager) applicationContext.getSystemService(Context.POWER_SERVICE);
         if (powerManager == null) {
           Log.w(TAG, "PowerManager is null, therefore not creating the WakeLock.");
           return;

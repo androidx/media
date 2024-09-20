@@ -18,36 +18,37 @@ package androidx.media3.exoplayer.rtsp;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
+import static androidx.media3.container.NalUnitUtil.NAL_START_CODE;
 import static androidx.media3.exoplayer.rtsp.MediaDescription.MEDIA_TYPE_AUDIO;
 import static androidx.media3.exoplayer.rtsp.RtpPayloadFormat.getMimeTypeFromRtpMediaType;
+import static androidx.media3.exoplayer.rtsp.RtspHeaders.CONTENT_BASE;
+import static androidx.media3.exoplayer.rtsp.RtspHeaders.CONTENT_LOCATION;
 import static androidx.media3.exoplayer.rtsp.SessionDescription.ATTR_CONTROL;
-import static androidx.media3.extractor.NalUnitUtil.NAL_START_CODE;
 
 import android.net.Uri;
+import android.text.TextUtils;
 import android.util.Base64;
 import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.ParsableBitArray;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.container.NalUnitUtil;
 import androidx.media3.extractor.AacUtil;
-import androidx.media3.extractor.NalUnitUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 /** Represents a media track in an RTSP playback. */
-@UnstableApi
 /* package */ final class RtspMediaTrack {
   // Format specific parameter names.
   private static final String PARAMETER_PROFILE_LEVEL_ID = "profile-level-id";
   private static final String PARAMETER_SPROP_PARAMS = "sprop-parameter-sets";
-
   private static final String PARAMETER_AMR_OCTET_ALIGN = "octet-align";
   private static final String PARAMETER_AMR_INTERLEAVING = "interleaving";
   private static final String PARAMETER_H265_SPROP_SPS = "sprop-sps";
@@ -59,12 +60,15 @@ import com.google.common.collect.ImmutableMap;
 
   /** Prefix for the RFC6381 codecs string for AAC formats. */
   private static final String AAC_CODECS_PREFIX = "mp4a.40.";
+
   /** Prefix for the RFC6381 codecs string for AVC formats. */
   private static final String H264_CODECS_PREFIX = "avc1.";
+
   /** Prefix for the RFC6416 codecs string for MPEG4V-ES formats. */
   private static final String MPEG4_CODECS_PREFIX = "mp4v.";
 
   private static final String GENERIC_CONTROL_ATTR = "*";
+
   /**
    * Default height for MP4V.
    *
@@ -94,6 +98,7 @@ import com.google.common.collect.ImmutableMap;
    * software VP8 decoder</a>.
    */
   private static final int DEFAULT_VP8_WIDTH = 320;
+
   /**
    * Default height for VP8.
    *
@@ -117,6 +122,7 @@ import com.google.common.collect.ImmutableMap;
    * software VP9 decoder</a>.
    */
   private static final int DEFAULT_VP9_WIDTH = 320;
+
   /**
    * Default height for VP9.
    *
@@ -137,6 +143,7 @@ import com.google.common.collect.ImmutableMap;
    * >Android's software H263 decoder</a>.
    */
   private static final int DEFAULT_H263_WIDTH = 352;
+
   /**
    * Default height for H263.
    *
@@ -149,20 +156,25 @@ import com.google.common.collect.ImmutableMap;
 
   /** The track's associated {@link RtpPayloadFormat}. */
   public final RtpPayloadFormat payloadFormat;
+
   /** The track's URI. */
   public final Uri uri;
 
   /**
    * Creates a new instance from a {@link MediaDescription}.
    *
+   * @param rtspHeaders The {@link RtspHeaders} from the session's DESCRIBE response.
    * @param mediaDescription The {@link MediaDescription} of this track.
    * @param sessionUri The {@link Uri} of the RTSP playback session.
    */
-  public RtspMediaTrack(MediaDescription mediaDescription, Uri sessionUri) {
+  public RtspMediaTrack(
+      RtspHeaders rtspHeaders, MediaDescription mediaDescription, Uri sessionUri) {
     checkArgument(
         mediaDescription.attributes.containsKey(ATTR_CONTROL), "missing attribute control");
     payloadFormat = generatePayloadFormat(mediaDescription);
-    uri = extractTrackUri(sessionUri, castNonNull(mediaDescription.attributes.get(ATTR_CONTROL)));
+    uri =
+        extractTrackUri(
+            rtspHeaders, sessionUri, castNonNull(mediaDescription.attributes.get(ATTR_CONTROL)));
   }
 
   @Override
@@ -229,7 +241,8 @@ import com.google.common.collect.ImmutableMap;
               .setChannelCount(aacConfig.channelCount)
               .setCodecs(aacConfig.codecs);
         }
-        processAacFmtpAttribute(formatBuilder, fmtpParameters, channelCount, clockRate);
+        processAacFmtpAttribute(
+            formatBuilder, fmtpParameters, mediaEncoding, channelCount, clockRate);
         break;
       case MimeTypes.AUDIO_AMR_NB:
       case MimeTypes.AUDIO_AMR_WB:
@@ -282,7 +295,7 @@ import com.google.common.collect.ImmutableMap;
       case MimeTypes.AUDIO_AC3:
       case MimeTypes.AUDIO_ALAW:
       case MimeTypes.AUDIO_MLAW:
-        // Does not require a fmtp attribute. Fall through.
+      // Does not require a fmtp attribute. Fall through.
       default:
         // Do nothing.
     }
@@ -311,11 +324,17 @@ import com.google.common.collect.ImmutableMap;
   private static void processAacFmtpAttribute(
       Format.Builder formatBuilder,
       ImmutableMap<String, String> fmtpAttributes,
+      String mediaEncoding,
       int channelCount,
       int sampleRate) {
+    @Nullable String profileLevel = fmtpAttributes.get(PARAMETER_PROFILE_LEVEL_ID);
+    if (profileLevel == null && mediaEncoding.equals(RtpPayloadFormat.RTP_MEDIA_MPEG4_LATM_AUDIO)) {
+      // As defined in RFC3016 Section 5.3 for MPEG4-LATM, if profile-level-id is not specified,
+      // then a default value of 30 should be used.
+      profileLevel = "30";
+    }
     checkArgument(
-        fmtpAttributes.containsKey(PARAMETER_PROFILE_LEVEL_ID), "missing profile-level-id param");
-    String profileLevel = checkNotNull(fmtpAttributes.get(PARAMETER_PROFILE_LEVEL_ID));
+        profileLevel != null && !profileLevel.isEmpty(), "missing profile-level-id param");
     formatBuilder.setCodecs(AAC_CODECS_PREFIX + profileLevel);
     formatBuilder.setInitializationData(
         ImmutableList.of(
@@ -400,6 +419,14 @@ import com.google.common.collect.ImmutableMap;
     formatBuilder.setPixelWidthHeightRatio(spsData.pixelWidthHeightRatio);
     formatBuilder.setHeight(spsData.height);
     formatBuilder.setWidth(spsData.width);
+    formatBuilder.setColorInfo(
+        new ColorInfo.Builder()
+            .setColorSpace(spsData.colorSpace)
+            .setColorRange(spsData.colorRange)
+            .setColorTransfer(spsData.colorTransfer)
+            .setLumaBitdepth(spsData.bitDepthLumaMinus8 + 8)
+            .setChromaBitdepth(spsData.bitDepthChromaMinus8 + 8)
+            .build());
 
     @Nullable String profileLevel = fmtpAttributes.get(PARAMETER_PROFILE_LEVEL_ID);
     if (profileLevel != null) {
@@ -440,18 +467,31 @@ import com.google.common.collect.ImmutableMap;
     byte[] spsNalDataWithStartCode = initializationData.get(1);
     NalUnitUtil.H265SpsData spsData =
         NalUnitUtil.parseH265SpsNalUnit(
-            spsNalDataWithStartCode, NAL_START_CODE.length, spsNalDataWithStartCode.length);
+            spsNalDataWithStartCode,
+            NAL_START_CODE.length,
+            spsNalDataWithStartCode.length,
+            /* vpsData= */ null);
     formatBuilder.setPixelWidthHeightRatio(spsData.pixelWidthHeightRatio);
     formatBuilder.setHeight(spsData.height).setWidth(spsData.width);
+    formatBuilder.setColorInfo(
+        new ColorInfo.Builder()
+            .setColorSpace(spsData.colorSpace)
+            .setColorRange(spsData.colorRange)
+            .setColorTransfer(spsData.colorTransfer)
+            .setLumaBitdepth(spsData.bitDepthLumaMinus8 + 8)
+            .setChromaBitdepth(spsData.bitDepthChromaMinus8 + 8)
+            .build());
 
-    formatBuilder.setCodecs(
-        CodecSpecificDataUtil.buildHevcCodecString(
-            spsData.generalProfileSpace,
-            spsData.generalTierFlag,
-            spsData.generalProfileIdc,
-            spsData.generalProfileCompatibilityFlags,
-            spsData.constraintBytes,
-            spsData.generalLevelIdc));
+    if (spsData.profileTierLevel != null) {
+      formatBuilder.setCodecs(
+          CodecSpecificDataUtil.buildHevcCodecString(
+              spsData.profileTierLevel.generalProfileSpace,
+              spsData.profileTierLevel.generalTierFlag,
+              spsData.profileTierLevel.generalProfileIdc,
+              spsData.profileTierLevel.generalProfileCompatibilityFlags,
+              spsData.profileTierLevel.constraintBytes,
+              spsData.profileTierLevel.generalLevelIdc));
+    }
   }
 
   /**
@@ -459,15 +499,25 @@ import com.google.common.collect.ImmutableMap;
    *
    * <p>The processing logic is specified in RFC2326 Section C.1.1.
    *
+   * @param rtspHeaders The {@link RtspHeaders} from the session's DESCRIBE response.
    * @param sessionUri The session URI.
    * @param controlAttributeString The control attribute from the track's {@link MediaDescription}.
    * @return The extracted track URI.
    */
-  private static Uri extractTrackUri(Uri sessionUri, String controlAttributeString) {
+  private static Uri extractTrackUri(
+      RtspHeaders rtspHeaders, Uri sessionUri, String controlAttributeString) {
     Uri controlAttributeUri = Uri.parse(controlAttributeString);
     if (controlAttributeUri.isAbsolute()) {
       return controlAttributeUri;
-    } else if (controlAttributeString.equals(GENERIC_CONTROL_ATTR)) {
+    }
+
+    if (!TextUtils.isEmpty(rtspHeaders.get(CONTENT_BASE))) {
+      sessionUri = Uri.parse(rtspHeaders.get(CONTENT_BASE));
+    } else if (!TextUtils.isEmpty(rtspHeaders.get(CONTENT_LOCATION))) {
+      sessionUri = Uri.parse(rtspHeaders.get(CONTENT_LOCATION));
+    }
+
+    if (controlAttributeString.equals(GENERIC_CONTROL_ATTR)) {
       return sessionUri;
     } else {
       return sessionUri.buildUpon().appendEncodedPath(controlAttributeString).build();

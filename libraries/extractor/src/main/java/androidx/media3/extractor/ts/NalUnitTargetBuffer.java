@@ -16,13 +16,15 @@
 package androidx.media3.extractor.ts;
 
 import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.UnstableApi;
 import java.util.Arrays;
 
 /**
  * A buffer that fills itself with data corresponding to a specific NAL unit, as it is encountered
  * in the stream.
  */
-/* package */ final class NalUnitTargetBuffer {
+@UnstableApi
+public final class NalUnitTargetBuffer {
 
   private final int targetType;
 
@@ -32,6 +34,12 @@ import java.util.Arrays;
   public byte[] nalData;
   public int nalLength;
 
+  /**
+   * Creates the buffer.
+   *
+   * @param targetType The type of the NAL unit.
+   * @param initialCapacity The initial capacity of the buffer in bytes.
+   */
   public NalUnitTargetBuffer(int targetType, int initialCapacity) {
     this.targetType = targetType;
 

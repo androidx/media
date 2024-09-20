@@ -41,12 +41,11 @@
     <item>1.5 倍</item>
     <item>2 倍</item>
   </string-array>
-  <string name="exo_track_selection_title_video">影片</string>
   <string name="exo_track_selection_title_audio">音訊</string>
-  <string name="exo_track_selection_title_text">文字</string>
   <string name="exo_track_selection_none">無</string>
   <string name="exo_track_selection_auto">自動</string>
   <string name="exo_track_unknown">不明</string>
+  <string name="exo_track_unknown_name">不明 (%1$s)</string>
   <string name="exo_track_resolution">%1$d × %2$d</string>
   <string name="exo_track_mono">單聲道</string>
   <string name="exo_track_stereo">立體聲</string>

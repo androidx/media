@@ -20,8 +20,8 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableByteArray;
+import androidx.media3.container.NalUnitUtil;
 import androidx.media3.extractor.AvcConfig;
-import androidx.media3.extractor.NalUnitUtil;
 import androidx.media3.extractor.TrackOutput;
 
 /** Parses video tags from an FLV stream and extracts H.264 nal units. */

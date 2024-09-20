@@ -334,6 +334,55 @@ public class ListenerSetTest {
   }
 
   @Test
+  public void clear_withRecursion_stopsReceivingEventsImmediately() {
+    ListenerSet<TestListener> listenerSet =
+        new ListenerSet<>(Looper.myLooper(), Clock.DEFAULT, TestListener::iterationFinished);
+    TestListener listener2 = mock(TestListener.class);
+    // Listener1 clears the set from within the callback.
+    TestListener listener1 =
+        spy(
+            new TestListener() {
+              @Override
+              public void callback1() {
+                listenerSet.clear();
+              }
+            });
+    listenerSet.add(listener1);
+    listenerSet.add(listener2);
+
+    // Listener2 shouldn't even get this event as the set was cleared before the event can be
+    // invoked.
+    listenerSet.sendEvent(EVENT_ID_1, TestListener::callback1);
+    listenerSet.sendEvent(EVENT_ID_2, TestListener::callback2);
+    ShadowLooper.idleMainLooper();
+
+    verify(listener1).callback1();
+    // Listener1 should receive IterationFinishedEvent as the first event was invoked before the
+    // set was cleared.
+    verify(listener1).iterationFinished(createFlagSet(EVENT_ID_1));
+    verifyNoMoreInteractions(listener1, listener2);
+  }
+
+  @Test
+  public void clear_withQueueing_stopsReceivingEventsImmediately() {
+    ListenerSet<TestListener> listenerSet =
+        new ListenerSet<>(Looper.myLooper(), Clock.DEFAULT, TestListener::iterationFinished);
+    TestListener listener1 = mock(TestListener.class);
+    TestListener listener2 = mock(TestListener.class);
+    listenerSet.add(listener1);
+    listenerSet.add(listener2);
+
+    // Both Listener1 and Listener2 shouldn't even get this event as they are cleared before the
+    // event can be invoked.
+    listenerSet.queueEvent(EVENT_ID_1, TestListener::callback1);
+    listenerSet.clear();
+    listenerSet.flushEvents();
+    ShadowLooper.idleMainLooper();
+
+    verifyNoMoreInteractions(listener1, listener2);
+  }
+
+  @Test
   public void release_stopsForwardingEventsImmediately() {
     ListenerSet<TestListener> listenerSet =
         new ListenerSet<>(Looper.myLooper(), Clock.DEFAULT, TestListener::iterationFinished);

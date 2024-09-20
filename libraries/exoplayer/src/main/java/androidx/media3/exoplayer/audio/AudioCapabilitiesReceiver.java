@@ -15,17 +15,22 @@
  */
 package androidx.media3.exoplayer.audio;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
+
 import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.database.ContentObserver;
+import android.media.AudioDeviceCallback;
+import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Handler;
 import androidx.annotation.Nullable;
-import androidx.media3.common.util.Assertions;
+import androidx.annotation.RequiresApi;
+import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 
@@ -50,28 +55,90 @@ public final class AudioCapabilitiesReceiver {
   private final Context context;
   private final Listener listener;
   private final Handler handler;
-  @Nullable private final BroadcastReceiver receiver;
+  @Nullable private final AudioDeviceCallbackV23 audioDeviceCallback;
+  private final BroadcastReceiver hdmiAudioPlugBroadcastReceiver;
   @Nullable private final ExternalSurroundSoundSettingObserver externalSurroundSoundSettingObserver;
 
-  @Nullable /* package */ AudioCapabilities audioCapabilities;
+  @Nullable private AudioCapabilities audioCapabilities;
+  @Nullable private AudioDeviceInfoApi23 routedDevice;
+  private AudioAttributes audioAttributes;
   private boolean registered;
+
+  /**
+   * @deprecated Use {@link #AudioCapabilitiesReceiver(Context, Listener, AudioAttributes,
+   *     AudioDeviceInfo)} instead.
+   */
+  @Deprecated
+  public AudioCapabilitiesReceiver(Context context, Listener listener) {
+    this(context, listener, AudioAttributes.DEFAULT, /* routedDevice= */ (AudioDeviceInfo) null);
+  }
 
   /**
    * @param context A context for registering the receiver.
    * @param listener The listener to notify when audio capabilities change.
+   * @param audioAttributes The {@link AudioAttributes}.
+   * @param routedDevice The {@link AudioDeviceInfo} audio will be routed to if known, or null to
+   *     assume the default route.
    */
-  public AudioCapabilitiesReceiver(Context context, Listener listener) {
+  public AudioCapabilitiesReceiver(
+      Context context,
+      Listener listener,
+      AudioAttributes audioAttributes,
+      @Nullable AudioDeviceInfo routedDevice) {
+    this(
+        context,
+        listener,
+        audioAttributes,
+        Util.SDK_INT >= 23 && routedDevice != null ? new AudioDeviceInfoApi23(routedDevice) : null);
+  }
+
+  /* package */ AudioCapabilitiesReceiver(
+      Context context,
+      Listener listener,
+      AudioAttributes audioAttributes,
+      @Nullable AudioDeviceInfoApi23 routedDevice) {
     context = context.getApplicationContext();
     this.context = context;
-    this.listener = Assertions.checkNotNull(listener);
+    this.listener = checkNotNull(listener);
+    this.audioAttributes = audioAttributes;
+    this.routedDevice = routedDevice;
     handler = Util.createHandlerForCurrentOrMainLooper();
-    receiver = Util.SDK_INT >= 21 ? new HdmiAudioPlugBroadcastReceiver() : null;
+    audioDeviceCallback = Util.SDK_INT >= 23 ? new AudioDeviceCallbackV23() : null;
+    hdmiAudioPlugBroadcastReceiver = new HdmiAudioPlugBroadcastReceiver();
     Uri externalSurroundSoundUri = AudioCapabilities.getExternalSurroundSoundGlobalSettingUri();
     externalSurroundSoundSettingObserver =
         externalSurroundSoundUri != null
             ? new ExternalSurroundSoundSettingObserver(
                 handler, context.getContentResolver(), externalSurroundSoundUri)
             : null;
+  }
+
+  /**
+   * Updates the {@link AudioAttributes} used by this instance.
+   *
+   * @param audioAttributes The {@link AudioAttributes}.
+   */
+  public void setAudioAttributes(AudioAttributes audioAttributes) {
+    this.audioAttributes = audioAttributes;
+    onNewAudioCapabilities(
+        AudioCapabilities.getCapabilitiesInternal(context, audioAttributes, routedDevice));
+  }
+
+  /**
+   * Updates the {@link AudioDeviceInfo} audio will be routed to.
+   *
+   * @param routedDevice The {@link AudioDeviceInfo} audio will be routed to if known, or null to
+   *     assume the default route.
+   */
+  @RequiresApi(23)
+  public void setRoutedDevice(@Nullable AudioDeviceInfo routedDevice) {
+    if (Util.areEqual(
+        routedDevice, this.routedDevice == null ? null : this.routedDevice.audioDeviceInfo)) {
+      return;
+    }
+    this.routedDevice = routedDevice != null ? new AudioDeviceInfoApi23(routedDevice) : null;
+    onNewAudioCapabilities(
+        AudioCapabilities.getCapabilitiesInternal(context, audioAttributes, this.routedDevice));
   }
 
   /**
@@ -84,20 +151,24 @@ public final class AudioCapabilitiesReceiver {
   @SuppressWarnings("InlinedApi")
   public AudioCapabilities register() {
     if (registered) {
-      return Assertions.checkNotNull(audioCapabilities);
+      return checkNotNull(audioCapabilities);
     }
     registered = true;
     if (externalSurroundSoundSettingObserver != null) {
       externalSurroundSoundSettingObserver.register();
     }
-    @Nullable Intent stickyIntent = null;
-    if (receiver != null) {
-      IntentFilter intentFilter = new IntentFilter(AudioManager.ACTION_HDMI_AUDIO_PLUG);
-      stickyIntent =
-          context.registerReceiver(
-              receiver, intentFilter, /* broadcastPermission= */ null, handler);
+    if (Util.SDK_INT >= 23 && audioDeviceCallback != null) {
+      Api23.registerAudioDeviceCallback(context, audioDeviceCallback, handler);
     }
-    audioCapabilities = AudioCapabilities.getCapabilities(context, stickyIntent);
+    Intent stickyIntent =
+        context.registerReceiver(
+            hdmiAudioPlugBroadcastReceiver,
+            new IntentFilter(AudioManager.ACTION_HDMI_AUDIO_PLUG),
+            /* broadcastPermission= */ null,
+            handler);
+    audioCapabilities =
+        AudioCapabilities.getCapabilitiesInternal(
+            context, stickyIntent, audioAttributes, routedDevice);
     return audioCapabilities;
   }
 
@@ -110,9 +181,10 @@ public final class AudioCapabilitiesReceiver {
       return;
     }
     audioCapabilities = null;
-    if (receiver != null) {
-      context.unregisterReceiver(receiver);
+    if (Util.SDK_INT >= 23 && audioDeviceCallback != null) {
+      Api23.unregisterAudioDeviceCallback(context, audioDeviceCallback);
     }
+    context.unregisterReceiver(hdmiAudioPlugBroadcastReceiver);
     if (externalSurroundSoundSettingObserver != null) {
       externalSurroundSoundSettingObserver.unregister();
     }
@@ -131,7 +203,9 @@ public final class AudioCapabilitiesReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
       if (!isInitialStickyBroadcast()) {
-        onNewAudioCapabilities(AudioCapabilities.getCapabilities(context, intent));
+        onNewAudioCapabilities(
+            AudioCapabilities.getCapabilitiesInternal(
+                context, intent, audioAttributes, routedDevice));
       }
     }
   }
@@ -158,7 +232,44 @@ public final class AudioCapabilitiesReceiver {
 
     @Override
     public void onChange(boolean selfChange) {
-      onNewAudioCapabilities(AudioCapabilities.getCapabilities(context));
+      onNewAudioCapabilities(
+          AudioCapabilities.getCapabilitiesInternal(context, audioAttributes, routedDevice));
     }
+  }
+
+  @RequiresApi(23)
+  private final class AudioDeviceCallbackV23 extends AudioDeviceCallback {
+    @Override
+    public void onAudioDevicesAdded(AudioDeviceInfo[] addedDevices) {
+      onNewAudioCapabilities(
+          AudioCapabilities.getCapabilitiesInternal(context, audioAttributes, routedDevice));
+    }
+
+    @Override
+    public void onAudioDevicesRemoved(AudioDeviceInfo[] removedDevices) {
+      if (Util.contains(removedDevices, routedDevice)) {
+        routedDevice = null;
+      }
+      onNewAudioCapabilities(
+          AudioCapabilities.getCapabilitiesInternal(context, audioAttributes, routedDevice));
+    }
+  }
+
+  @RequiresApi(23)
+  private static final class Api23 {
+
+    public static void registerAudioDeviceCallback(
+        Context context, AudioDeviceCallback callback, Handler handler) {
+      AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+      checkNotNull(audioManager).registerAudioDeviceCallback(callback, handler);
+    }
+
+    public static void unregisterAudioDeviceCallback(
+        Context context, AudioDeviceCallback callback) {
+      AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+      checkNotNull(audioManager).unregisterAudioDeviceCallback(callback);
+    }
+
+    private Api23() {}
   }
 }

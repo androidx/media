@@ -17,10 +17,11 @@ apply from: '../../constants.gradle'
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion project.ext.compileSdkVersion
+    namespace 'androidx.media3.demo.transformer'
+
+    compileSdk project.ext.compileSdkVersion
 
     compileOptions {
-        coreLibraryDesugaringEnabled true
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
@@ -28,9 +29,8 @@ android {
     defaultConfig {
         versionName project.ext.releaseVersion
         versionCode project.ext.releaseVersionCode
-        minSdkVersion 21
+        minSdkVersion project.ext.minSdkVersion
         targetSdkVersion project.ext.appTargetSdkVersion
-        multiDexEnabled true
     }
 
     buildTypes {
@@ -47,7 +47,7 @@ android {
         disable 'GoogleAppIndexingWarning','MissingTranslation'
     }
 
-    flavorDimensions "mediaPipe"
+    flavorDimensions = ["mediaPipe"]
 
     productFlavors {
         noMediaPipe {
@@ -75,15 +75,14 @@ dependencies {
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     implementation 'androidx.appcompat:appcompat:' + androidxAppCompatVersion
     implementation 'androidx.constraintlayout:constraintlayout:' + androidxConstraintLayoutVersion
-    implementation 'androidx.multidex:multidex:' + androidxMultidexVersion
+    implementation 'androidx.recyclerview:recyclerview:' + androidxRecyclerViewVersion
     implementation 'com.google.android.material:material:' + androidxMaterialVersion
     implementation project(modulePrefix + 'lib-effect')
     implementation project(modulePrefix + 'lib-exoplayer')
     implementation project(modulePrefix + 'lib-exoplayer-dash')
     implementation project(modulePrefix + 'lib-transformer')
+    implementation project(modulePrefix + 'lib-muxer')
     implementation project(modulePrefix + 'lib-ui')
-
-    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:1.1.5'
 
     // For MediaPipe and its dependencies:
     withMediaPipeImplementation fileTree(dir: 'libs', include: ['*.aar'])

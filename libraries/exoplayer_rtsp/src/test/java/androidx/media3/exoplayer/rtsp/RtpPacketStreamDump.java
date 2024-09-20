@@ -16,25 +16,28 @@
 package androidx.media3.exoplayer.rtsp;
 
 import androidx.media3.common.ParserException;
-import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 /** A value wrapper for a dumped RTP packet stream. */
-@UnstableApi
 /* package */ class RtpPacketStreamDump {
   /** The name of the RTP track. */
   public final String trackName;
+
   /** The sequence number of the first RTP packet in the dump file. */
   public final int firstSequenceNumber;
+
   /** The timestamp of the first RTP packet in the dump file. */
   public final long firstTimestamp;
+
   /** The interval between transmitting two consecutive RTP packets, in milliseconds. */
   public final long transmissionIntervalMs;
+
   /** The description of the dumped media in SDP(RFC2327) format. */
   public final String mediaDescription;
+
   /** A list of hex strings. Each hex string represents a binary RTP packet. */
   public final ImmutableList<String> packets;
 

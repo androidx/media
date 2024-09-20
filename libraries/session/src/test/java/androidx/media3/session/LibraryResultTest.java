@@ -15,8 +15,7 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.session.LibraryResult.RESULT_ERROR_NOT_SUPPORTED;
-import static androidx.media3.session.LibraryResult.UNKNOWN_TYPE_CREATOR;
+import static androidx.media3.session.SessionError.ERROR_NOT_SUPPORTED;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
@@ -70,11 +69,11 @@ public class LibraryResultTest {
     LibraryResult<MediaItem> libraryResult = LibraryResult.ofItem(mediaItem, params);
     Bundle libraryResultBundle = libraryResult.toBundle();
     LibraryResult<?> libraryResultFromUntyped =
-        UNKNOWN_TYPE_CREATOR.fromBundle(libraryResultBundle);
+        LibraryResult.fromUnknownBundle(libraryResultBundle);
 
     Bundle bundleOfUntyped = libraryResultFromUntyped.toBundle();
 
-    assertThat(UNKNOWN_TYPE_CREATOR.fromBundle(bundleOfUntyped).value).isEqualTo(mediaItem);
+    assertThat(LibraryResult.fromUnknownBundle(bundleOfUntyped).value).isEqualTo(mediaItem);
   }
 
   @Test
@@ -90,41 +89,60 @@ public class LibraryResultTest {
         LibraryResult.ofItemList(ImmutableList.of(mediaItem), params);
     Bundle libraryResultBundle = libraryResult.toBundle();
     LibraryResult<?> mediaItemLibraryResultFromUntyped =
-        UNKNOWN_TYPE_CREATOR.fromBundle(libraryResultBundle);
+        LibraryResult.fromUnknownBundle(libraryResultBundle);
 
     Bundle bundleOfUntyped = mediaItemLibraryResultFromUntyped.toBundle();
 
-    assertThat(UNKNOWN_TYPE_CREATOR.fromBundle(bundleOfUntyped).value)
+    assertThat(LibraryResult.fromUnknownBundle(bundleOfUntyped).value)
         .isEqualTo(ImmutableList.of(mediaItem));
   }
 
   @Test
   public void toBundle_errorResultThatWasUnbundledAsAnUnknownType_noException() {
-    LibraryResult<ImmutableList<Error>> libraryResult =
-        LibraryResult.ofError(LibraryResult.RESULT_ERROR_NOT_SUPPORTED);
+    LibraryResult<ImmutableList<Error>> libraryResult = LibraryResult.ofError(ERROR_NOT_SUPPORTED);
     Bundle errorLibraryResultBundle = libraryResult.toBundle();
     LibraryResult<?> libraryResultFromUntyped =
-        UNKNOWN_TYPE_CREATOR.fromBundle(errorLibraryResultBundle);
+        LibraryResult.fromUnknownBundle(errorLibraryResultBundle);
 
     Bundle bundleOfUntyped = libraryResultFromUntyped.toBundle();
 
-    assertThat(UNKNOWN_TYPE_CREATOR.fromBundle(bundleOfUntyped).value).isNull();
-    assertThat(UNKNOWN_TYPE_CREATOR.fromBundle(bundleOfUntyped).resultCode)
-        .isEqualTo(RESULT_ERROR_NOT_SUPPORTED);
+    assertThat(LibraryResult.fromUnknownBundle(bundleOfUntyped).value).isNull();
+    assertThat(LibraryResult.fromUnknownBundle(bundleOfUntyped).resultCode)
+        .isEqualTo(ERROR_NOT_SUPPORTED);
   }
 
   @Test
   public void toBundle_voidResultThatWasUnbundledAsAnUnknownType_noException() {
-    LibraryResult<ImmutableList<Error>> libraryResult =
-        LibraryResult.ofError(LibraryResult.RESULT_ERROR_NOT_SUPPORTED);
+    LibraryResult<ImmutableList<Error>> libraryResult = LibraryResult.ofError(ERROR_NOT_SUPPORTED);
     Bundle errorLibraryResultBundle = libraryResult.toBundle();
     LibraryResult<?> libraryResultFromUntyped =
-        UNKNOWN_TYPE_CREATOR.fromBundle(errorLibraryResultBundle);
+        LibraryResult.fromUnknownBundle(errorLibraryResultBundle);
 
     Bundle bundleOfUntyped = libraryResultFromUntyped.toBundle();
 
-    assertThat(UNKNOWN_TYPE_CREATOR.fromBundle(bundleOfUntyped).value).isNull();
-    assertThat(UNKNOWN_TYPE_CREATOR.fromBundle(bundleOfUntyped).resultCode)
-        .isEqualTo(RESULT_ERROR_NOT_SUPPORTED);
+    assertThat(LibraryResult.fromUnknownBundle(bundleOfUntyped).value).isNull();
+    assertThat(LibraryResult.fromUnknownBundle(bundleOfUntyped).resultCode)
+        .isEqualTo(ERROR_NOT_SUPPORTED);
+  }
+
+  @Test
+  public void toBundle_roundTrip_equalsWithOriginal() {
+    Bundle errorExtras = new Bundle();
+    errorExtras.putString("errorKey", "errorValue");
+    LibraryResult<SessionError> errorLibraryResult =
+        LibraryResult.ofError(new SessionError(ERROR_NOT_SUPPORTED, "error message", errorExtras));
+
+    LibraryResult<?> errorLibraryResultFromBundle =
+        LibraryResult.fromUnknownBundle(errorLibraryResult.toBundle());
+
+    assertThat(errorLibraryResultFromBundle.resultCode).isEqualTo(errorLibraryResult.resultCode);
+    assertThat(errorLibraryResultFromBundle.sessionError)
+        .isEqualTo(errorLibraryResult.sessionError);
+    assertThat(errorLibraryResultFromBundle.sessionError.extras.size()).isEqualTo(1);
+    assertThat(errorLibraryResultFromBundle.sessionError.extras.getString("errorKey"))
+        .isEqualTo("errorValue");
+    assertThat(errorLibraryResultFromBundle.value).isEqualTo(errorLibraryResult.value);
+    assertThat(errorLibraryResultFromBundle.completionTimeMs)
+        .isEqualTo(errorLibraryResult.completionTimeMs);
   }
 }

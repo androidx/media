@@ -20,14 +20,17 @@ import static androidx.media3.common.Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT;
 import static androidx.media3.common.Player.PLAYBACK_SUPPRESSION_REASON_NONE;
 import static androidx.media3.common.Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST;
 import static androidx.media3.common.Player.STATE_IDLE;
+import static androidx.media3.common.Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED;
 
+import android.os.Binder;
 import android.os.Bundle;
-import android.os.SystemClock;
+import android.os.IBinder;
 import androidx.annotation.CheckResult;
 import androidx.annotation.FloatRange;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
-import androidx.media3.common.Bundleable;
+import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
@@ -53,20 +56,22 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
  * Information about the player that {@link MediaSession} uses to send its state to {@link
  * MediaController}.
  */
-/* package */ class PlayerInfo implements Bundleable {
+/* package */ class PlayerInfo {
 
   /**
    * Holds information about what properties of the {@link PlayerInfo} have been excluded when sent
    * to the controller.
    */
-  public static class BundlingExclusions implements Bundleable {
+  public static class BundlingExclusions {
 
     /** Bundling exclusions with no exclusions. */
     public static final BundlingExclusions NONE =
         new BundlingExclusions(
             /* isTimelineExcluded= */ false, /* areCurrentTracksExcluded= */ false);
+
     /** Whether the {@linkplain PlayerInfo#timeline timeline} is excluded. */
     public final boolean isTimelineExcluded;
+
     /** Whether the {@linkplain PlayerInfo#currentTracks current tracks} are excluded. */
     public final boolean areCurrentTracksExcluded;
 
@@ -76,14 +81,12 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
       this.areCurrentTracksExcluded = areCurrentTracksExcluded;
     }
 
-    // Bundleable implementation.
-
     private static final String FIELD_IS_TIMELINE_EXCLUDED = Util.intToStringMaxRadix(0);
     private static final String FIELD_ARE_CURRENT_TRACKS_EXCLUDED = Util.intToStringMaxRadix(1);
+
     // Next field key = 2
 
     @UnstableApi
-    @Override
     public Bundle toBundle() {
       Bundle bundle = new Bundle();
       bundle.putBoolean(FIELD_IS_TIMELINE_EXCLUDED, isTimelineExcluded);
@@ -91,11 +94,12 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
       return bundle;
     }
 
-    public static final Creator<BundlingExclusions> CREATOR =
-        bundle ->
-            new BundlingExclusions(
-                bundle.getBoolean(FIELD_IS_TIMELINE_EXCLUDED, /* defaultValue= */ false),
-                bundle.getBoolean(FIELD_ARE_CURRENT_TRACKS_EXCLUDED, /* defaultValue= */ false));
+    /** Restores a {@code BundlingExclusions} from a {@link Bundle}. */
+    public static BundlingExclusions fromBundle(Bundle bundle) {
+      return new BundlingExclusions(
+          bundle.getBoolean(FIELD_IS_TIMELINE_EXCLUDED, /* defaultValue= */ false),
+          bundle.getBoolean(FIELD_ARE_CURRENT_TRACKS_EXCLUDED, /* defaultValue= */ false));
+    }
 
     @Override
     public boolean equals(@Nullable Object o) {
@@ -119,15 +123,16 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
   public static class Builder {
 
     @Nullable private PlaybackException playerError;
-    @Player.MediaItemTransitionReason private int mediaItemTransitionReason;
+    private @Player.MediaItemTransitionReason int mediaItemTransitionReason;
     private SessionPositionInfo sessionPositionInfo;
     private PositionInfo oldPositionInfo;
     private PositionInfo newPositionInfo;
-    @Player.DiscontinuityReason private int discontinuityReason;
+    private @Player.DiscontinuityReason int discontinuityReason;
     private PlaybackParameters playbackParameters;
-    @Player.RepeatMode private int repeatMode;
+    private @Player.RepeatMode int repeatMode;
     private boolean shuffleModeEnabled;
     private Timeline timeline;
+    private @Player.TimelineChangeReason int timelineChangeReason;
     private VideoSize videoSize;
     private MediaMetadata playlistMetadata;
     private float volume;
@@ -137,11 +142,11 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
     private int deviceVolume;
     private boolean deviceMuted;
     private boolean playWhenReady;
-    @Player.PlayWhenReadyChangeReason private int playWhenReadyChangedReason;
+    private @Player.PlayWhenReadyChangeReason int playWhenReadyChangeReason;
     private boolean isPlaying;
     private boolean isLoading;
-    @PlaybackSuppressionReason private int playbackSuppressionReason;
-    @State private int playbackState;
+    private @PlaybackSuppressionReason int playbackSuppressionReason;
+    private @State int playbackState;
     private MediaMetadata mediaMetadata;
     private long seekBackIncrementMs;
     private long seekForwardIncrementMs;
@@ -160,6 +165,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
       repeatMode = playerInfo.repeatMode;
       shuffleModeEnabled = playerInfo.shuffleModeEnabled;
       timeline = playerInfo.timeline;
+      timelineChangeReason = playerInfo.timelineChangeReason;
       videoSize = playerInfo.videoSize;
       playlistMetadata = playerInfo.playlistMetadata;
       volume = playerInfo.volume;
@@ -169,7 +175,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
       deviceVolume = playerInfo.deviceVolume;
       deviceMuted = playerInfo.deviceMuted;
       playWhenReady = playerInfo.playWhenReady;
-      playWhenReadyChangedReason = playerInfo.playWhenReadyChangedReason;
+      playWhenReadyChangeReason = playerInfo.playWhenReadyChangeReason;
       isPlaying = playerInfo.isPlaying;
       isLoading = playerInfo.isLoading;
       playbackSuppressionReason = playerInfo.playbackSuppressionReason;
@@ -244,6 +250,12 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
     }
 
     @CanIgnoreReturnValue
+    public Builder setTimelineChangeReason(@Player.TimelineChangeReason int timelineChangeReason) {
+      this.timelineChangeReason = timelineChangeReason;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
     public Builder setVideoSize(VideoSize videoSize) {
       this.videoSize = videoSize;
       return this;
@@ -298,9 +310,9 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
     }
 
     @CanIgnoreReturnValue
-    public Builder setPlayWhenReadyChangedReason(
-        @Player.PlayWhenReadyChangeReason int playWhenReadyChangedReason) {
-      this.playWhenReadyChangedReason = playWhenReadyChangedReason;
+    public Builder setPlayWhenReadyChangeReason(
+        @Player.PlayWhenReadyChangeReason int playWhenReadyChangeReason) {
+      this.playWhenReadyChangeReason = playWhenReadyChangeReason;
       return this;
     }
 
@@ -381,6 +393,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
           shuffleModeEnabled,
           videoSize,
           timeline,
+          timelineChangeReason,
           playlistMetadata,
           volume,
           audioAttributes,
@@ -389,7 +402,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
           deviceVolume,
           deviceMuted,
           playWhenReady,
-          playWhenReadyChangedReason,
+          playWhenReadyChangeReason,
           playbackSuppressionReason,
           playbackState,
           isPlaying,
@@ -414,6 +427,9 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
   public static final int PLAY_WHEN_READY_CHANGE_REASON_DEFAULT =
       PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST;
 
+  /** Default timeline change reason. */
+  public static final int TIMELINE_CHANGE_REASON_DEFAULT = TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED;
+
   public static final PlayerInfo DEFAULT =
       new PlayerInfo(
           /* playerError= */ null,
@@ -427,6 +443,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
           /* shuffleModeEnabled= */ false,
           VideoSize.UNKNOWN,
           Timeline.EMPTY,
+          TIMELINE_CHANGE_REASON_DEFAULT,
           MediaMetadata.EMPTY,
           /* volume= */ 1f,
           AudioAttributes.DEFAULT,
@@ -434,22 +451,22 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
           DeviceInfo.UNKNOWN,
           /* deviceVolume= */ 0,
           /* deviceMuted= */ false,
-          /* playWhenReady = */ false,
+          /* playWhenReady= */ false,
           PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
           PLAYBACK_SUPPRESSION_REASON_NONE,
           STATE_IDLE,
           /* isPlaying= */ false,
           /* isLoading= */ false,
           MediaMetadata.EMPTY,
-          /* seekBackIncrementMs= */ 0,
-          /* seekForwardIncrementMs= */ 0,
-          /* maxSeekToPreviousPositionMs= */ 0,
+          /* seekBackIncrementMs= */ C.DEFAULT_SEEK_BACK_INCREMENT_MS,
+          /* seekForwardIncrementMs= */ C.DEFAULT_SEEK_FORWARD_INCREMENT_MS,
+          /* maxSeekToPreviousPositionMs= */ C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS,
           /* currentTracks= */ Tracks.EMPTY,
           TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT);
 
   @Nullable public final PlaybackException playerError;
 
-  @Player.MediaItemTransitionReason public final int mediaItemTransitionReason;
+  public final @Player.MediaItemTransitionReason int mediaItemTransitionReason;
 
   public final SessionPositionInfo sessionPositionInfo;
 
@@ -457,15 +474,17 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
   public final PositionInfo newPositionInfo;
 
-  @Player.DiscontinuityReason public final int discontinuityReason;
+  public final @Player.DiscontinuityReason int discontinuityReason;
 
   public final PlaybackParameters playbackParameters;
 
-  @Player.RepeatMode public final int repeatMode;
+  public final @Player.RepeatMode int repeatMode;
 
   public final boolean shuffleModeEnabled;
 
   public final Timeline timeline;
+
+  public final @Player.TimelineChangeReason int timelineChangeReason;
 
   public final VideoSize videoSize;
 
@@ -485,15 +504,15 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
   public final boolean playWhenReady;
 
-  public final int playWhenReadyChangedReason;
+  public final int playWhenReadyChangeReason;
 
   public final boolean isPlaying;
 
   public final boolean isLoading;
 
-  @Player.PlaybackSuppressionReason public final int playbackSuppressionReason;
+  public final @Player.PlaybackSuppressionReason int playbackSuppressionReason;
 
-  @Player.State public final int playbackState;
+  public final @Player.State int playbackState;
 
   public final MediaMetadata mediaMetadata;
 
@@ -510,11 +529,11 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
   @CheckResult
   public PlayerInfo copyWithPlayWhenReady(
       boolean playWhenReady,
-      @Player.PlayWhenReadyChangeReason int playWhenReadyChangedReason,
+      @Player.PlayWhenReadyChangeReason int playWhenReadyChangeReason,
       @Player.PlaybackSuppressionReason int playbackSuppressionReason) {
     return new Builder(this)
         .setPlayWhenReady(playWhenReady)
-        .setPlayWhenReadyChangedReason(playWhenReadyChangedReason)
+        .setPlayWhenReadyChangeReason(playWhenReadyChangeReason)
         .setPlaybackSuppressionReason(playbackSuppressionReason)
         .setIsPlaying(isPlaying(playbackState, playWhenReady, playbackSuppressionReason))
         .build();
@@ -580,17 +599,24 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
   @CheckResult
   public PlayerInfo copyWithTimelineAndSessionPositionInfo(
-      Timeline timeline, SessionPositionInfo sessionPositionInfo) {
+      Timeline timeline,
+      SessionPositionInfo sessionPositionInfo,
+      @Player.TimelineChangeReason int timelineChangeReason) {
     return new Builder(this)
         .setTimeline(timeline)
         .setSessionPositionInfo(sessionPositionInfo)
+        .setTimelineChangeReason(timelineChangeReason)
         .build();
   }
 
   @CheckResult
-  public PlayerInfo copyWithTimelineAndMediaItemIndex(Timeline timeline, int mediaItemIndex) {
+  public PlayerInfo copyWithTimelineAndMediaItemIndex(
+      Timeline timeline,
+      int mediaItemIndex,
+      @Player.TimelineChangeReason int timelineChangeReason) {
     return new Builder(this)
         .setTimeline(timeline)
+        .setTimelineChangeReason(timelineChangeReason)
         .setSessionPositionInfo(
             new SessionPositionInfo(
                 new PositionInfo(
@@ -604,7 +630,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
                     sessionPositionInfo.positionInfo.adGroupIndex,
                     sessionPositionInfo.positionInfo.adIndexInAdGroup),
                 sessionPositionInfo.isPlayingAd,
-                /* eventTimeMs= */ SystemClock.elapsedRealtime(),
+                sessionPositionInfo.eventTimeMs,
                 sessionPositionInfo.durationMs,
                 sessionPositionInfo.bufferedPositionMs,
                 sessionPositionInfo.bufferedPercentage,
@@ -696,6 +722,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
       boolean shuffleModeEnabled,
       VideoSize videoSize,
       Timeline timeline,
+      @Player.TimelineChangeReason int timelineChangeReason,
       MediaMetadata playlistMetadata,
       float volume,
       AudioAttributes audioAttributes,
@@ -704,7 +731,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
       int deviceVolume,
       boolean deviceMuted,
       boolean playWhenReady,
-      @Player.PlayWhenReadyChangeReason int playWhenReadyChangedReason,
+      @Player.PlayWhenReadyChangeReason int playWhenReadyChangeReason,
       @Player.PlaybackSuppressionReason int playbackSuppressionReason,
       @Player.State int playbackState,
       boolean isPlaying,
@@ -726,6 +753,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
     this.shuffleModeEnabled = shuffleModeEnabled;
     this.videoSize = videoSize;
     this.timeline = timeline;
+    this.timelineChangeReason = timelineChangeReason;
     this.playlistMetadata = playlistMetadata;
     this.volume = volume;
     this.audioAttributes = audioAttributes;
@@ -734,7 +762,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
     this.deviceVolume = deviceVolume;
     this.deviceMuted = deviceMuted;
     this.playWhenReady = playWhenReady;
-    this.playWhenReadyChangedReason = playWhenReadyChangedReason;
+    this.playWhenReadyChangeReason = playWhenReadyChangeReason;
     this.playbackSuppressionReason = playbackSuppressionReason;
     this.playbackState = playbackState;
     this.isPlaying = isPlaying;
@@ -764,8 +792,6 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
         && playbackSuppressionReason == PLAYBACK_SUPPRESSION_REASON_NONE;
   }
 
-  // Bundleable implementation.
-
   private static final String FIELD_PLAYBACK_PARAMETERS = Util.intToStringMaxRadix(1);
   private static final String FIELD_REPEAT_MODE = Util.intToStringMaxRadix(2);
   private static final String FIELD_SHUFFLE_MODE_ENABLED = Util.intToStringMaxRadix(3);
@@ -778,170 +804,282 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
   private static final String FIELD_DEVICE_VOLUME = Util.intToStringMaxRadix(10);
   private static final String FIELD_DEVICE_MUTED = Util.intToStringMaxRadix(11);
   private static final String FIELD_PLAY_WHEN_READY = Util.intToStringMaxRadix(12);
-  private static final String FIELD_PLAY_WHEN_READY_CHANGED_REASON = Util.intToStringMaxRadix(13);
+  private static final String FIELD_PLAY_WHEN_READY_CHANGE_REASON = Util.intToStringMaxRadix(13);
   private static final String FIELD_PLAYBACK_SUPPRESSION_REASON = Util.intToStringMaxRadix(14);
   private static final String FIELD_PLAYBACK_STATE = Util.intToStringMaxRadix(15);
   private static final String FIELD_IS_PLAYING = Util.intToStringMaxRadix(16);
   private static final String FIELD_IS_LOADING = Util.intToStringMaxRadix(17);
   private static final String FIELD_PLAYBACK_ERROR = Util.intToStringMaxRadix(18);
-  private static final String FIELD_SESSION_POSITION_INFO = Util.intToStringMaxRadix(19);
+  @VisibleForTesting static final String FIELD_SESSION_POSITION_INFO = Util.intToStringMaxRadix(19);
   private static final String FIELD_MEDIA_ITEM_TRANSITION_REASON = Util.intToStringMaxRadix(20);
-  private static final String FIELD_OLD_POSITION_INFO = Util.intToStringMaxRadix(21);
-  private static final String FIELD_NEW_POSITION_INFO = Util.intToStringMaxRadix(22);
+  @VisibleForTesting static final String FIELD_OLD_POSITION_INFO = Util.intToStringMaxRadix(21);
+  @VisibleForTesting static final String FIELD_NEW_POSITION_INFO = Util.intToStringMaxRadix(22);
   private static final String FIELD_DISCONTINUITY_REASON = Util.intToStringMaxRadix(23);
   private static final String FIELD_CUE_GROUP = Util.intToStringMaxRadix(24);
   private static final String FIELD_MEDIA_METADATA = Util.intToStringMaxRadix(25);
-  private static final String FIELD_SEEK_BACK_INCREMENT_MS = Util.intToStringMaxRadix(26);
-  private static final String FIELD_SEEK_FORWARD_INCREMENT_MS = Util.intToStringMaxRadix(27);
-  private static final String FIELD_MAX_SEEK_TO_PREVIOUS_POSITION_MS = Util.intToStringMaxRadix(28);
+
+  @VisibleForTesting
+  static final String FIELD_SEEK_BACK_INCREMENT_MS = Util.intToStringMaxRadix(26);
+
+  @VisibleForTesting
+  static final String FIELD_SEEK_FORWARD_INCREMENT_MS = Util.intToStringMaxRadix(27);
+
+  @VisibleForTesting
+  static final String FIELD_MAX_SEEK_TO_PREVIOUS_POSITION_MS = Util.intToStringMaxRadix(28);
+
   private static final String FIELD_TRACK_SELECTION_PARAMETERS = Util.intToStringMaxRadix(29);
   private static final String FIELD_CURRENT_TRACKS = Util.intToStringMaxRadix(30);
-  // Next field key = 31
+  private static final String FIELD_TIMELINE_CHANGE_REASON = Util.intToStringMaxRadix(31);
+  private static final String FIELD_IN_PROCESS_BINDER = Util.intToStringMaxRadix(32);
 
-  public Bundle toBundle(
+  // Next field key = 33
+
+  /**
+   * Returns a copy of this player info, filtered by the specified available commands.
+   *
+   * <p>The filtered fields are reset to their default values.
+   *
+   * @param availableCommands The available {@link Player.Commands} used to filter values.
+   * @param excludeTimeline Whether to filter the {@link #timeline} even if {@link
+   *     Player#COMMAND_GET_TIMELINE} is available.
+   * @param excludeTracks Whether to filter the {@link #currentTracks} even if {@link
+   *     Player#COMMAND_GET_TRACKS} is available.
+   * @return The filtered player info.
+   */
+  public PlayerInfo filterByAvailableCommands(
       Player.Commands availableCommands, boolean excludeTimeline, boolean excludeTracks) {
-    Bundle bundle = new Bundle();
+    PlayerInfo.Builder builder = new Builder(this);
     boolean canAccessCurrentMediaItem =
         availableCommands.contains(Player.COMMAND_GET_CURRENT_MEDIA_ITEM);
     boolean canAccessTimeline = availableCommands.contains(Player.COMMAND_GET_TIMELINE);
-    if (playerError != null) {
-      bundle.putBundle(FIELD_PLAYBACK_ERROR, playerError.toBundle());
+    builder.setSessionPositionInfo(
+        sessionPositionInfo.filterByAvailableCommands(
+            canAccessCurrentMediaItem, canAccessTimeline));
+    builder.setOldPositionInfo(
+        oldPositionInfo.filterByAvailableCommands(canAccessCurrentMediaItem, canAccessTimeline));
+    builder.setNewPositionInfo(
+        newPositionInfo.filterByAvailableCommands(canAccessCurrentMediaItem, canAccessTimeline));
+    if (!canAccessTimeline && canAccessCurrentMediaItem && !timeline.isEmpty()) {
+      builder.setTimeline(
+          timeline.copyWithSingleWindow(sessionPositionInfo.positionInfo.mediaItemIndex));
+    } else if (excludeTimeline || !canAccessTimeline) {
+      builder.setTimeline(Timeline.EMPTY);
     }
-    bundle.putInt(FIELD_MEDIA_ITEM_TRANSITION_REASON, mediaItemTransitionReason);
-    bundle.putBundle(
-        FIELD_SESSION_POSITION_INFO,
-        sessionPositionInfo.toBundle(canAccessCurrentMediaItem, canAccessTimeline));
-    bundle.putBundle(
-        FIELD_OLD_POSITION_INFO,
-        oldPositionInfo.toBundle(canAccessCurrentMediaItem, canAccessTimeline));
-    bundle.putBundle(
-        FIELD_NEW_POSITION_INFO,
-        newPositionInfo.toBundle(canAccessCurrentMediaItem, canAccessTimeline));
-    bundle.putInt(FIELD_DISCONTINUITY_REASON, discontinuityReason);
-    bundle.putBundle(FIELD_PLAYBACK_PARAMETERS, playbackParameters.toBundle());
-    bundle.putInt(FIELD_REPEAT_MODE, repeatMode);
-    bundle.putBoolean(FIELD_SHUFFLE_MODE_ENABLED, shuffleModeEnabled);
-    if (!excludeTimeline && canAccessTimeline) {
-      bundle.putBundle(FIELD_TIMELINE, timeline.toBundle());
-    } else if (!canAccessTimeline && canAccessCurrentMediaItem && !timeline.isEmpty()) {
-      bundle.putBundle(
-          FIELD_TIMELINE,
-          timeline.toBundleWithOneWindowOnly(sessionPositionInfo.positionInfo.mediaItemIndex));
+    if (!availableCommands.contains(Player.COMMAND_GET_METADATA)) {
+      builder.setPlaylistMetadata(MediaMetadata.EMPTY);
     }
-    bundle.putBundle(FIELD_VIDEO_SIZE, videoSize.toBundle());
-    if (availableCommands.contains(Player.COMMAND_GET_MEDIA_ITEMS_METADATA)) {
-      bundle.putBundle(FIELD_PLAYLIST_METADATA, playlistMetadata.toBundle());
+    if (!availableCommands.contains(Player.COMMAND_GET_VOLUME)) {
+      builder.setVolume(1);
     }
-    if (availableCommands.contains(Player.COMMAND_GET_VOLUME)) {
-      bundle.putFloat(FIELD_VOLUME, volume);
+    if (!availableCommands.contains(Player.COMMAND_GET_AUDIO_ATTRIBUTES)) {
+      builder.setAudioAttributes(AudioAttributes.DEFAULT);
     }
-    if (availableCommands.contains(Player.COMMAND_GET_AUDIO_ATTRIBUTES)) {
-      bundle.putBundle(FIELD_AUDIO_ATTRIBUTES, audioAttributes.toBundle());
+    if (!availableCommands.contains(Player.COMMAND_GET_TEXT)) {
+      builder.setCues(CueGroup.EMPTY_TIME_ZERO);
     }
-    if (availableCommands.contains(Player.COMMAND_GET_TEXT)) {
-      bundle.putBundle(FIELD_CUE_GROUP, cueGroup.toBundle());
+    if (!availableCommands.contains(Player.COMMAND_GET_DEVICE_VOLUME)) {
+      builder.setDeviceVolume(0).setDeviceMuted(false);
     }
-    bundle.putBundle(FIELD_DEVICE_INFO, deviceInfo.toBundle());
-    if (availableCommands.contains(Player.COMMAND_GET_DEVICE_VOLUME)) {
-      bundle.putInt(FIELD_DEVICE_VOLUME, deviceVolume);
-      bundle.putBoolean(FIELD_DEVICE_MUTED, deviceMuted);
+    if (!availableCommands.contains(Player.COMMAND_GET_METADATA)) {
+      builder.setMediaMetadata(MediaMetadata.EMPTY);
     }
-    bundle.putBoolean(FIELD_PLAY_WHEN_READY, playWhenReady);
-    bundle.putInt(FIELD_PLAYBACK_SUPPRESSION_REASON, playbackSuppressionReason);
-    bundle.putInt(FIELD_PLAYBACK_STATE, playbackState);
-    bundle.putBoolean(FIELD_IS_PLAYING, isPlaying);
-    bundle.putBoolean(FIELD_IS_LOADING, isLoading);
-    if (availableCommands.contains(Player.COMMAND_GET_MEDIA_ITEMS_METADATA)) {
-      bundle.putBundle(FIELD_MEDIA_METADATA, mediaMetadata.toBundle());
+    if (excludeTracks || !availableCommands.contains(Player.COMMAND_GET_TRACKS)) {
+      builder.setCurrentTracks(Tracks.EMPTY);
     }
-    bundle.putLong(FIELD_SEEK_BACK_INCREMENT_MS, seekBackIncrementMs);
-    bundle.putLong(FIELD_SEEK_FORWARD_INCREMENT_MS, seekForwardIncrementMs);
-    bundle.putLong(FIELD_MAX_SEEK_TO_PREVIOUS_POSITION_MS, maxSeekToPreviousPositionMs);
-    if (!excludeTracks && availableCommands.contains(Player.COMMAND_GET_TRACKS)) {
-      bundle.putBundle(FIELD_CURRENT_TRACKS, currentTracks.toBundle());
-    }
-    bundle.putBundle(FIELD_TRACK_SELECTION_PARAMETERS, trackSelectionParameters.toBundle());
+    return builder.build();
+  }
+
+  /**
+   * Returns a {@link Bundle} that stores a direct object reference to this class for in-process
+   * sharing.
+   */
+  public Bundle toBundleInProcess() {
+    Bundle bundle = new Bundle();
+    bundle.putBinder(FIELD_IN_PROCESS_BINDER, new InProcessBinder());
     return bundle;
   }
 
-  @Override
-  public Bundle toBundle() {
-    return toBundle(
-        /* availableCommands= */ new Player.Commands.Builder().addAllCommands().build(),
-        /* excludeTimeline= */ false,
-        /* excludeTracks= */ false);
+  public Bundle toBundleForRemoteProcess(int controllerInterfaceVersion) {
+    Bundle bundle = new Bundle();
+    if (playerError != null) {
+      bundle.putBundle(FIELD_PLAYBACK_ERROR, playerError.toBundle());
+    }
+    if (mediaItemTransitionReason != MEDIA_ITEM_TRANSITION_REASON_DEFAULT) {
+      bundle.putInt(FIELD_MEDIA_ITEM_TRANSITION_REASON, mediaItemTransitionReason);
+    }
+    if (controllerInterfaceVersion < 3
+        || !sessionPositionInfo.equals(SessionPositionInfo.DEFAULT)) {
+      bundle.putBundle(
+          FIELD_SESSION_POSITION_INFO, sessionPositionInfo.toBundle(controllerInterfaceVersion));
+    }
+    if (controllerInterfaceVersion < 3
+        || !SessionPositionInfo.DEFAULT_POSITION_INFO.equalsForBundling(oldPositionInfo)) {
+      bundle.putBundle(
+          FIELD_OLD_POSITION_INFO, oldPositionInfo.toBundle(controllerInterfaceVersion));
+    }
+    if (controllerInterfaceVersion < 3
+        || !SessionPositionInfo.DEFAULT_POSITION_INFO.equalsForBundling(newPositionInfo)) {
+      bundle.putBundle(
+          FIELD_NEW_POSITION_INFO, newPositionInfo.toBundle(controllerInterfaceVersion));
+    }
+    if (discontinuityReason != DISCONTINUITY_REASON_DEFAULT) {
+      bundle.putInt(FIELD_DISCONTINUITY_REASON, discontinuityReason);
+    }
+    if (!playbackParameters.equals(PlaybackParameters.DEFAULT)) {
+      bundle.putBundle(FIELD_PLAYBACK_PARAMETERS, playbackParameters.toBundle());
+    }
+    if (repeatMode != Player.REPEAT_MODE_OFF) {
+      bundle.putInt(FIELD_REPEAT_MODE, repeatMode);
+    }
+    if (shuffleModeEnabled) {
+      bundle.putBoolean(FIELD_SHUFFLE_MODE_ENABLED, shuffleModeEnabled);
+    }
+    if (!timeline.equals(Timeline.EMPTY)) {
+      bundle.putBundle(FIELD_TIMELINE, timeline.toBundle());
+    }
+    if (timelineChangeReason != TIMELINE_CHANGE_REASON_DEFAULT) {
+      bundle.putInt(FIELD_TIMELINE_CHANGE_REASON, timelineChangeReason);
+    }
+    if (!videoSize.equals(VideoSize.UNKNOWN)) {
+      bundle.putBundle(FIELD_VIDEO_SIZE, videoSize.toBundle());
+    }
+    if (!playlistMetadata.equals(MediaMetadata.EMPTY)) {
+      bundle.putBundle(FIELD_PLAYLIST_METADATA, playlistMetadata.toBundle());
+    }
+    if (volume != 1) {
+      bundle.putFloat(FIELD_VOLUME, volume);
+    }
+    if (!audioAttributes.equals(AudioAttributes.DEFAULT)) {
+      bundle.putBundle(FIELD_AUDIO_ATTRIBUTES, audioAttributes.toBundle());
+    }
+    if (!cueGroup.equals(CueGroup.EMPTY_TIME_ZERO)) {
+      bundle.putBundle(FIELD_CUE_GROUP, cueGroup.toBundle());
+    }
+    if (!deviceInfo.equals(DeviceInfo.UNKNOWN)) {
+      bundle.putBundle(FIELD_DEVICE_INFO, deviceInfo.toBundle());
+    }
+    if (deviceVolume != 0) {
+      bundle.putInt(FIELD_DEVICE_VOLUME, deviceVolume);
+    }
+    if (deviceMuted) {
+      bundle.putBoolean(FIELD_DEVICE_MUTED, deviceMuted);
+    }
+    if (playWhenReady) {
+      bundle.putBoolean(FIELD_PLAY_WHEN_READY, playWhenReady);
+    }
+    if (playWhenReadyChangeReason != PLAY_WHEN_READY_CHANGE_REASON_DEFAULT) {
+      bundle.putInt(FIELD_PLAY_WHEN_READY_CHANGE_REASON, playWhenReadyChangeReason);
+    }
+    if (playbackSuppressionReason != PLAYBACK_SUPPRESSION_REASON_NONE) {
+      bundle.putInt(FIELD_PLAYBACK_SUPPRESSION_REASON, playbackSuppressionReason);
+    }
+    if (playbackState != STATE_IDLE) {
+      bundle.putInt(FIELD_PLAYBACK_STATE, playbackState);
+    }
+    if (isPlaying) {
+      bundle.putBoolean(FIELD_IS_PLAYING, isPlaying);
+    }
+    if (isLoading) {
+      bundle.putBoolean(FIELD_IS_LOADING, isLoading);
+    }
+    if (!mediaMetadata.equals(MediaMetadata.EMPTY)) {
+      bundle.putBundle(FIELD_MEDIA_METADATA, mediaMetadata.toBundle());
+    }
+    long defaultSeekBackIncrementMs =
+        controllerInterfaceVersion < 6 ? 0 : C.DEFAULT_SEEK_BACK_INCREMENT_MS;
+    if (seekBackIncrementMs != defaultSeekBackIncrementMs) {
+      bundle.putLong(FIELD_SEEK_BACK_INCREMENT_MS, seekBackIncrementMs);
+    }
+    long defaultSeekForwardIncrementMs =
+        controllerInterfaceVersion < 6 ? 0 : C.DEFAULT_SEEK_FORWARD_INCREMENT_MS;
+    if (seekForwardIncrementMs != defaultSeekForwardIncrementMs) {
+      bundle.putLong(FIELD_SEEK_FORWARD_INCREMENT_MS, seekForwardIncrementMs);
+    }
+    long defaultMaxSeekToPreviousPositionMs =
+        controllerInterfaceVersion < 6 ? 0 : C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS;
+    if (maxSeekToPreviousPositionMs != defaultMaxSeekToPreviousPositionMs) {
+      bundle.putLong(FIELD_MAX_SEEK_TO_PREVIOUS_POSITION_MS, maxSeekToPreviousPositionMs);
+    }
+    if (!currentTracks.equals(Tracks.EMPTY)) {
+      bundle.putBundle(FIELD_CURRENT_TRACKS, currentTracks.toBundle());
+    }
+    if (!trackSelectionParameters.equals(TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT)) {
+      bundle.putBundle(FIELD_TRACK_SELECTION_PARAMETERS, trackSelectionParameters.toBundle());
+    }
+    return bundle;
   }
 
-  /** Object that can restore {@link PlayerInfo} from a {@link Bundle}. */
-  public static final Creator<PlayerInfo> CREATOR = PlayerInfo::fromBundle;
-
-  private static PlayerInfo fromBundle(Bundle bundle) {
+  /** Restores a {@code PlayerInfo} from a {@link Bundle}. */
+  public static PlayerInfo fromBundle(Bundle bundle, int sessionInterfaceVersion) {
+    @Nullable IBinder inProcessBinder = bundle.getBinder(FIELD_IN_PROCESS_BINDER);
+    if (inProcessBinder instanceof InProcessBinder) {
+      return ((InProcessBinder) inProcessBinder).getPlayerInfo();
+    }
     @Nullable Bundle playerErrorBundle = bundle.getBundle(FIELD_PLAYBACK_ERROR);
     @Nullable
     PlaybackException playerError =
-        playerErrorBundle == null ? null : PlaybackException.CREATOR.fromBundle(playerErrorBundle);
+        playerErrorBundle == null ? null : PlaybackException.fromBundle(playerErrorBundle);
     int mediaItemTransitionReason =
-        bundle.getInt(FIELD_MEDIA_ITEM_TRANSITION_REASON, MEDIA_ITEM_TRANSITION_REASON_REPEAT);
+        bundle.getInt(FIELD_MEDIA_ITEM_TRANSITION_REASON, MEDIA_ITEM_TRANSITION_REASON_DEFAULT);
     @Nullable Bundle sessionPositionInfoBundle = bundle.getBundle(FIELD_SESSION_POSITION_INFO);
     SessionPositionInfo sessionPositionInfo =
         sessionPositionInfoBundle == null
             ? SessionPositionInfo.DEFAULT
-            : SessionPositionInfo.CREATOR.fromBundle(sessionPositionInfoBundle);
+            : SessionPositionInfo.fromBundle(sessionPositionInfoBundle);
     @Nullable Bundle oldPositionInfoBundle = bundle.getBundle(FIELD_OLD_POSITION_INFO);
     PositionInfo oldPositionInfo =
         oldPositionInfoBundle == null
             ? SessionPositionInfo.DEFAULT_POSITION_INFO
-            : PositionInfo.CREATOR.fromBundle(oldPositionInfoBundle);
+            : PositionInfo.fromBundle(oldPositionInfoBundle);
     @Nullable Bundle newPositionInfoBundle = bundle.getBundle(FIELD_NEW_POSITION_INFO);
     PositionInfo newPositionInfo =
         newPositionInfoBundle == null
             ? SessionPositionInfo.DEFAULT_POSITION_INFO
-            : PositionInfo.CREATOR.fromBundle(newPositionInfoBundle);
+            : PositionInfo.fromBundle(newPositionInfoBundle);
     int discontinuityReason =
-        bundle.getInt(FIELD_DISCONTINUITY_REASON, DISCONTINUITY_REASON_AUTO_TRANSITION);
+        bundle.getInt(FIELD_DISCONTINUITY_REASON, DISCONTINUITY_REASON_DEFAULT);
     @Nullable Bundle playbackParametersBundle = bundle.getBundle(FIELD_PLAYBACK_PARAMETERS);
     PlaybackParameters playbackParameters =
         playbackParametersBundle == null
             ? PlaybackParameters.DEFAULT
-            : PlaybackParameters.CREATOR.fromBundle(playbackParametersBundle);
+            : PlaybackParameters.fromBundle(playbackParametersBundle);
     @Player.RepeatMode
     int repeatMode = bundle.getInt(FIELD_REPEAT_MODE, /* defaultValue= */ Player.REPEAT_MODE_OFF);
     boolean shuffleModeEnabled =
         bundle.getBoolean(FIELD_SHUFFLE_MODE_ENABLED, /* defaultValue= */ false);
     @Nullable Bundle timelineBundle = bundle.getBundle(FIELD_TIMELINE);
     Timeline timeline =
-        timelineBundle == null ? Timeline.EMPTY : Timeline.CREATOR.fromBundle(timelineBundle);
+        timelineBundle == null ? Timeline.EMPTY : Timeline.fromBundle(timelineBundle);
+    int timelineChangeReason =
+        bundle.getInt(
+            FIELD_TIMELINE_CHANGE_REASON, /* defaultValue= */ TIMELINE_CHANGE_REASON_DEFAULT);
     @Nullable Bundle videoSizeBundle = bundle.getBundle(FIELD_VIDEO_SIZE);
     VideoSize videoSize =
-        videoSizeBundle == null ? VideoSize.UNKNOWN : VideoSize.CREATOR.fromBundle(videoSizeBundle);
+        videoSizeBundle == null ? VideoSize.UNKNOWN : VideoSize.fromBundle(videoSizeBundle);
     @Nullable Bundle playlistMetadataBundle = bundle.getBundle(FIELD_PLAYLIST_METADATA);
     MediaMetadata playlistMetadata =
         playlistMetadataBundle == null
             ? MediaMetadata.EMPTY
-            : MediaMetadata.CREATOR.fromBundle(playlistMetadataBundle);
+            : MediaMetadata.fromBundle(playlistMetadataBundle);
     float volume = bundle.getFloat(FIELD_VOLUME, /* defaultValue= */ 1);
     @Nullable Bundle audioAttributesBundle = bundle.getBundle(FIELD_AUDIO_ATTRIBUTES);
     AudioAttributes audioAttributes =
         audioAttributesBundle == null
             ? AudioAttributes.DEFAULT
-            : AudioAttributes.CREATOR.fromBundle(audioAttributesBundle);
+            : AudioAttributes.fromBundle(audioAttributesBundle);
     @Nullable Bundle cueGroupBundle = bundle.getBundle(FIELD_CUE_GROUP);
     CueGroup cueGroup =
-        cueGroupBundle == null
-            ? CueGroup.EMPTY_TIME_ZERO
-            : CueGroup.CREATOR.fromBundle(cueGroupBundle);
+        cueGroupBundle == null ? CueGroup.EMPTY_TIME_ZERO : CueGroup.fromBundle(cueGroupBundle);
     @Nullable Bundle deviceInfoBundle = bundle.getBundle(FIELD_DEVICE_INFO);
     DeviceInfo deviceInfo =
-        deviceInfoBundle == null
-            ? DeviceInfo.UNKNOWN
-            : DeviceInfo.CREATOR.fromBundle(deviceInfoBundle);
+        deviceInfoBundle == null ? DeviceInfo.UNKNOWN : DeviceInfo.fromBundle(deviceInfoBundle);
     int deviceVolume = bundle.getInt(FIELD_DEVICE_VOLUME, /* defaultValue= */ 0);
     boolean deviceMuted = bundle.getBoolean(FIELD_DEVICE_MUTED, /* defaultValue= */ false);
     boolean playWhenReady = bundle.getBoolean(FIELD_PLAY_WHEN_READY, /* defaultValue= */ false);
-    int playWhenReadyChangedReason =
+    int playWhenReadyChangeReason =
         bundle.getInt(
-            FIELD_PLAY_WHEN_READY_CHANGED_REASON,
-            /* defaultValue= */ PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
+            FIELD_PLAY_WHEN_READY_CHANGE_REASON,
+            /* defaultValue= */ PLAY_WHEN_READY_CHANGE_REASON_DEFAULT);
     @Player.PlaybackSuppressionReason
     int playbackSuppressionReason =
         bundle.getInt(
@@ -955,15 +1093,26 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
     MediaMetadata mediaMetadata =
         mediaMetadataBundle == null
             ? MediaMetadata.EMPTY
-            : MediaMetadata.CREATOR.fromBundle(mediaMetadataBundle);
-    long seekBackIncrementMs = bundle.getLong(FIELD_SEEK_BACK_INCREMENT_MS, /* defaultValue= */ 0);
+            : MediaMetadata.fromBundle(mediaMetadataBundle);
+    long seekBackIncrementMs =
+        bundle.getLong(
+            FIELD_SEEK_BACK_INCREMENT_MS,
+            /* defaultValue= */ sessionInterfaceVersion < 4 ? 0 : C.DEFAULT_SEEK_BACK_INCREMENT_MS);
     long seekForwardIncrementMs =
-        bundle.getLong(FIELD_SEEK_FORWARD_INCREMENT_MS, /* defaultValue= */ 0);
+        bundle.getLong(
+            FIELD_SEEK_FORWARD_INCREMENT_MS,
+            /* defaultValue= */ sessionInterfaceVersion < 4
+                ? 0
+                : C.DEFAULT_SEEK_FORWARD_INCREMENT_MS);
     long maxSeekToPreviousPosition =
-        bundle.getLong(FIELD_MAX_SEEK_TO_PREVIOUS_POSITION_MS, /* defaultValue= */ 0);
+        bundle.getLong(
+            FIELD_MAX_SEEK_TO_PREVIOUS_POSITION_MS,
+            /* defaultValue= */ sessionInterfaceVersion < 4
+                ? 0
+                : C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS);
     Bundle currentTracksBundle = bundle.getBundle(FIELD_CURRENT_TRACKS);
     Tracks currentTracks =
-        currentTracksBundle == null ? Tracks.EMPTY : Tracks.CREATOR.fromBundle(currentTracksBundle);
+        currentTracksBundle == null ? Tracks.EMPTY : Tracks.fromBundle(currentTracksBundle);
     @Nullable
     Bundle trackSelectionParametersBundle = bundle.getBundle(FIELD_TRACK_SELECTION_PARAMETERS);
     TrackSelectionParameters trackSelectionParameters =
@@ -982,6 +1131,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
         shuffleModeEnabled,
         videoSize,
         timeline,
+        timelineChangeReason,
         playlistMetadata,
         volume,
         audioAttributes,
@@ -990,7 +1140,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
         deviceVolume,
         deviceMuted,
         playWhenReady,
-        playWhenReadyChangedReason,
+        playWhenReadyChangeReason,
         playbackSuppressionReason,
         playbackState,
         isPlaying,
@@ -1001,5 +1151,11 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
         maxSeekToPreviousPosition,
         currentTracks,
         trackSelectionParameters);
+  }
+
+  private final class InProcessBinder extends Binder {
+    public PlayerInfo getPlayerInfo() {
+      return PlayerInfo.this;
+    }
   }
 }

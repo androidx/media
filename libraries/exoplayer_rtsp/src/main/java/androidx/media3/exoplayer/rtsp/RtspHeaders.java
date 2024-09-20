@@ -17,7 +17,6 @@
 package androidx.media3.exoplayer.rtsp;
 
 import androidx.annotation.Nullable;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
@@ -34,7 +33,6 @@ import java.util.Map;
  * with case-insensitive header names. The extra spaces around header names and values are trimmed.
  * Contrary to HTTP, RTSP does not allow ambiguous/arbitrary header names (RFC 2326 Section 12).
  */
-@UnstableApi
 /* package */ final class RtspHeaders {
 
   public static final String ACCEPT = "Accept";

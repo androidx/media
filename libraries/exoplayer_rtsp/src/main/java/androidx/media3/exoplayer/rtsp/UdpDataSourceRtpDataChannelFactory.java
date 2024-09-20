@@ -15,12 +15,10 @@
  */
 package androidx.media3.exoplayer.rtsp;
 
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSourceUtil;
 import java.io.IOException;
 
 /** Factory for {@link UdpDataSourceRtpDataChannel}. */
-@UnstableApi
 /* package */ final class UdpDataSourceRtpDataChannelFactory implements RtpDataChannel.Factory {
 
   private final long socketTimeoutMs;

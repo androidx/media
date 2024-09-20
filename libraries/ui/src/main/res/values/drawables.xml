@@ -43,7 +43,9 @@
   <drawable name="exo_styled_controls_next">@drawable/exo_ic_skip_next</drawable>
   <drawable name="exo_styled_controls_previous">@drawable/exo_ic_skip_previous</drawable>
   <drawable name="exo_styled_controls_fastforward">@drawable/exo_ic_forward</drawable>
+  <drawable name="exo_styled_controls_simple_fastforward">@drawable/exo_icon_fastforward</drawable>
   <drawable name="exo_styled_controls_rewind">@drawable/exo_ic_rewind</drawable>
+  <drawable name="exo_styled_controls_simple_rewind">@drawable/exo_icon_rewind</drawable>
   <drawable name="exo_styled_controls_repeat_all">@drawable/exo_icon_repeat_all</drawable>
   <drawable name="exo_styled_controls_repeat_off">@drawable/exo_icon_repeat_off</drawable>
   <drawable name="exo_styled_controls_repeat_one">@drawable/exo_icon_repeat_one</drawable>

@@ -44,19 +44,29 @@ public class DefaultAudioTrackBufferSizeProvider
 
   /** Default minimum length for the {@link AudioTrack} buffer, in microseconds. */
   private static final int MIN_PCM_BUFFER_DURATION_US = 250_000;
+
   /** Default maximum length for the {@link AudioTrack} buffer, in microseconds. */
   private static final int MAX_PCM_BUFFER_DURATION_US = 750_000;
+
   /** Default multiplication factor to apply to the minimum buffer size requested. */
   private static final int PCM_BUFFER_MULTIPLICATION_FACTOR = 4;
+
   /** Default length for passthrough {@link AudioTrack} buffers, in microseconds. */
   private static final int PASSTHROUGH_BUFFER_DURATION_US = 250_000;
+
   /** Default length for offload {@link AudioTrack} buffers, in microseconds. */
   private static final int OFFLOAD_BUFFER_DURATION_US = 50_000_000;
+
   /**
    * Default multiplication factor to apply to AC3 passthrough buffer to avoid underruns on some
    * devices (e.g., Broadcom 7271).
    */
   private static final int AC3_BUFFER_MULTIPLICATION_FACTOR = 2;
+
+  /**
+   * Default multiplication factor to apply to DTS Express passthrough buffer to avoid underruns.
+   */
+  private static final int DTSHD_BUFFER_MULTIPLICATION_FACTOR = 4;
 
   /** A builder to create {@link DefaultAudioTrackBufferSizeProvider} instances. */
   public static class Builder {
@@ -67,6 +77,7 @@ public class DefaultAudioTrackBufferSizeProvider
     private int passthroughBufferDurationUs;
     private int offloadBufferDurationUs;
     private int ac3BufferMultiplicationFactor;
+    private int dtshdBufferMultiplicationFactor;
 
     /** Creates a new builder. */
     public Builder() {
@@ -76,6 +87,7 @@ public class DefaultAudioTrackBufferSizeProvider
       passthroughBufferDurationUs = PASSTHROUGH_BUFFER_DURATION_US;
       offloadBufferDurationUs = OFFLOAD_BUFFER_DURATION_US;
       ac3BufferMultiplicationFactor = AC3_BUFFER_MULTIPLICATION_FACTOR;
+      dtshdBufferMultiplicationFactor = DTSHD_BUFFER_MULTIPLICATION_FACTOR;
     }
 
     /**
@@ -138,6 +150,16 @@ public class DefaultAudioTrackBufferSizeProvider
       return this;
     }
 
+    /**
+     * Sets the multiplication factor to apply to the passthrough buffer for DTS-HD (DTS Express) to
+     * avoid underruns. Default is {@link #DTSHD_BUFFER_MULTIPLICATION_FACTOR}.
+     */
+    @CanIgnoreReturnValue
+    public Builder setDtshdBufferMultiplicationFactor(int dtshdBufferMultiplicationFactor) {
+      this.dtshdBufferMultiplicationFactor = dtshdBufferMultiplicationFactor;
+      return this;
+    }
+
     /** Build the {@link DefaultAudioTrackBufferSizeProvider}. */
     public DefaultAudioTrackBufferSizeProvider build() {
       return new DefaultAudioTrackBufferSizeProvider(this);
@@ -146,19 +168,30 @@ public class DefaultAudioTrackBufferSizeProvider
 
   /** The minimum length for PCM {@link AudioTrack} buffers, in microseconds. */
   protected final int minPcmBufferDurationUs;
+
   /** The maximum length for PCM {@link AudioTrack} buffers, in microseconds. */
   protected final int maxPcmBufferDurationUs;
+
   /** The multiplication factor to apply to the minimum buffer size requested. */
   protected final int pcmBufferMultiplicationFactor;
+
   /** The length for passthrough {@link AudioTrack} buffers, in microseconds. */
   protected final int passthroughBufferDurationUs;
+
   /** The length for offload {@link AudioTrack} buffers, in microseconds. */
   protected final int offloadBufferDurationUs;
+
   /**
    * The multiplication factor to apply to AC3 passthrough buffer to avoid underruns on some devices
    * (e.g., Broadcom 7271).
    */
   public final int ac3BufferMultiplicationFactor;
+
+  /**
+   * The multiplication factor to apply to DTS-HD (DTS Express) passthrough buffer to avoid
+   * underruns.
+   */
+  public final int dtshdBufferMultiplicationFactor;
 
   protected DefaultAudioTrackBufferSizeProvider(Builder builder) {
     minPcmBufferDurationUs = builder.minPcmBufferDurationUs;
@@ -167,6 +200,7 @@ public class DefaultAudioTrackBufferSizeProvider
     passthroughBufferDurationUs = builder.passthroughBufferDurationUs;
     offloadBufferDurationUs = builder.offloadBufferDurationUs;
     ac3BufferMultiplicationFactor = builder.ac3BufferMultiplicationFactor;
+    dtshdBufferMultiplicationFactor = builder.dtshdBufferMultiplicationFactor;
   }
 
   @Override
@@ -222,7 +256,13 @@ public class DefaultAudioTrackBufferSizeProvider
     int bufferSizeUs = passthroughBufferDurationUs;
     if (encoding == C.ENCODING_AC3) {
       bufferSizeUs *= ac3BufferMultiplicationFactor;
+    } else if (encoding == C.ENCODING_DTS_HD) {
+      // DTS-HD (DTS Express) for streaming uses a frame size (number of audio samples per channel
+      // per frame) of 4096. This requires a higher multiple for the buffersize computation.
+      // Otherwise, there will be buffer underflow during DASH playback.
+      bufferSizeUs *= dtshdBufferMultiplicationFactor;
     }
+
     int byteRate =
         bitrate != Format.NO_VALUE
             ? divide(bitrate, 8, RoundingMode.CEILING)
@@ -264,6 +304,7 @@ public class DefaultAudioTrackBufferSizeProvider
       case C.ENCODING_DTS:
         return DtsUtil.DTS_MAX_RATE_BYTES_PER_SECOND;
       case C.ENCODING_DTS_HD:
+      case C.ENCODING_DTS_UHD_P2:
         return DtsUtil.DTS_HD_MAX_RATE_BYTES_PER_SECOND;
       case C.ENCODING_DOLBY_TRUEHD:
         return Ac3Util.TRUEHD_MAX_RATE_BYTES_PER_SECOND;
@@ -272,7 +313,9 @@ public class DefaultAudioTrackBufferSizeProvider
       case C.ENCODING_PCM_16BIT:
       case C.ENCODING_PCM_16BIT_BIG_ENDIAN:
       case C.ENCODING_PCM_24BIT:
+      case C.ENCODING_PCM_24BIT_BIG_ENDIAN:
       case C.ENCODING_PCM_32BIT:
+      case C.ENCODING_PCM_32BIT_BIG_ENDIAN:
       case C.ENCODING_PCM_8BIT:
       case C.ENCODING_PCM_FLOAT:
       case C.ENCODING_AAC_ER_BSAC:

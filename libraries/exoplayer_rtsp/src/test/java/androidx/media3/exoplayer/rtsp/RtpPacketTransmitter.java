@@ -17,13 +17,11 @@ package androidx.media3.exoplayer.rtsp;
 
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.rtsp.RtspMessageChannel.InterleavedBinaryDataListener;
 import com.google.common.collect.ImmutableList;
 
 /** Transmits media RTP packets periodically. */
-@UnstableApi
 /* package */ final class RtpPacketTransmitter {
 
   private static final byte[] END_OF_STREAM = new byte[0];

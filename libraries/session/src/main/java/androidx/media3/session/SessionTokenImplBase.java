@@ -32,7 +32,7 @@ import com.google.common.base.Objects;
 
   private final int uid;
 
-  @SessionToken.TokenType private final int type;
+  private final @SessionToken.TokenType int type;
 
   private final int libraryVersion;
 
@@ -203,8 +203,6 @@ import com.google.common.base.Objects;
     return iSession;
   }
 
-  // Bundleable implementation.
-
   private static final String FIELD_UID = Util.intToStringMaxRadix(0);
   private static final String FIELD_TYPE = Util.intToStringMaxRadix(1);
   private static final String FIELD_LIBRARY_VERSION = Util.intToStringMaxRadix(2);
@@ -214,6 +212,7 @@ import com.google.common.base.Objects;
   private static final String FIELD_ISESSION = Util.intToStringMaxRadix(6);
   private static final String FIELD_EXTRAS = Util.intToStringMaxRadix(7);
   private static final String FIELD_INTERFACE_VERSION = Util.intToStringMaxRadix(8);
+
   // Next field key = 9
 
   @Override
@@ -231,10 +230,8 @@ import com.google.common.base.Objects;
     return bundle;
   }
 
-  /** Object that can restore {@link SessionTokenImplBase} from a {@link Bundle}. */
-  public static final Creator<SessionTokenImplBase> CREATOR = SessionTokenImplBase::fromBundle;
-
-  private static SessionTokenImplBase fromBundle(Bundle bundle) {
+  /** Restores a {@code SessionTokenImplBase} from a {@link Bundle}. */
+  public static SessionTokenImplBase fromBundle(Bundle bundle) {
     checkArgument(bundle.containsKey(FIELD_UID), "uid should be set.");
     int uid = bundle.getInt(FIELD_UID);
     checkArgument(bundle.containsKey(FIELD_TYPE), "type should be set.");

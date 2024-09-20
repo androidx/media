@@ -73,9 +73,6 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
   // The maximum time to wait for an operation.
   private static final long TIMEOUT_MS = 3000L;
 
-  // Timeout used where the test expects no operation.
-  private static final long NOOP_TIMEOUT_MS = 500L;
-
   @ClassRule public static MainLooperTestRule mainLooperTestRule = new MainLooperTestRule();
 
   @Rule public final HandlerThreadTestRule threadTestRule = new HandlerThreadTestRule(TAG);
@@ -171,13 +168,14 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     session.setQueue(testQueue);
     session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
     RemoteMediaController controller = createControllerAndWaitConnection();
-    controller.prepare();
-    sessionCallback.reset(1);
+    sessionCallback.reset(/* count= */ 2);
 
+    controller.prepare();
     controller.stop();
 
     assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
-    assertThat(sessionCallback.onStopCalled).isEqualTo(true);
+    assertThat(sessionCallback.onPrepareCalled).isTrue();
+    assertThat(sessionCallback.onStopCalled).isTrue();
   }
 
   @Test
@@ -188,7 +186,7 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     controller.seekToDefaultPosition();
     assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
     assertThat(sessionCallback.onSeekToCalled).isTrue();
-    assertThat(sessionCallback.seekPosition).isEqualTo(/* pos= */ 0);
+    assertThat(sessionCallback.seekPosition).isEqualTo(0);
   }
 
   @Test
@@ -208,7 +206,7 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     assertThat(sessionCallback.queueItemId)
         .isEqualTo(testQueue.get(testMediaItemIndex).getQueueId());
     assertThat(sessionCallback.onSeekToCalled).isTrue();
-    assertThat(sessionCallback.seekPosition).isEqualTo(/* pos= */ 0);
+    assertThat(sessionCallback.seekPosition).isEqualTo(0);
   }
 
   @Test
@@ -529,12 +527,13 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     int maxVolume = 100;
     int currentVolume = 23;
     int volumeControlType = VolumeProviderCompat.VOLUME_CONTROL_ABSOLUTE;
+    int volumeFlags = C.VOLUME_FLAG_SHOW_UI;
     TestVolumeProvider volumeProvider =
         new TestVolumeProvider(volumeControlType, maxVolume, currentVolume);
     session.setPlaybackToRemote(volumeProvider);
     RemoteMediaController controller = createControllerAndWaitConnection();
 
-    controller.decreaseDeviceVolume();
+    controller.decreaseDeviceVolume(volumeFlags);
     assertThat(volumeProvider.latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(volumeProvider.adjustVolumeCalled).isTrue();
     assertThat(volumeProvider.direction).isEqualTo(AudioManager.ADJUST_LOWER);
@@ -542,7 +541,7 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
   @Test
   public void setDeviceVolume_forLocalPlayback_setsStreamVolume() throws Exception {
-    if (Util.SDK_INT >= 21 && audioManager.isVolumeFixed()) {
+    if (audioManager.isVolumeFixed()) {
       // This test is not eligible for this device.
       return;
     }
@@ -554,12 +553,14 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     if (maxVolume <= minVolume) {
       return;
     }
+    int volumeFlags = C.VOLUME_FLAG_SHOW_UI | C.VOLUME_FLAG_VIBRATE;
+
     session.setPlaybackToLocal(stream);
     RemoteMediaController controller = createControllerAndWaitConnection();
     int originalVolume = audioManager.getStreamVolume(stream);
     int targetVolume = originalVolume == minVolume ? originalVolume + 1 : originalVolume - 1;
 
-    controller.setDeviceVolume(targetVolume);
+    controller.setDeviceVolume(targetVolume, volumeFlags);
     PollingCheck.waitFor(
         VOLUME_CHANGE_TIMEOUT_MS, () -> targetVolume == audioManager.getStreamVolume(stream));
 
@@ -569,7 +570,7 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
   @Test
   public void increaseDeviceVolume_forLocalPlayback_increasesStreamVolume() throws Exception {
-    if (Util.SDK_INT >= 21 && audioManager.isVolumeFixed()) {
+    if (audioManager.isVolumeFixed()) {
       // This test is not eligible for this device.
       return;
     }
@@ -581,13 +582,15 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     if (maxVolume <= minVolume) {
       return;
     }
+    int volumeFlags = C.VOLUME_FLAG_SHOW_UI | C.VOLUME_FLAG_VIBRATE;
+
     session.setPlaybackToLocal(stream);
     RemoteMediaController controller = createControllerAndWaitConnection();
     int originalVolume = audioManager.getStreamVolume(stream);
     audioManager.setStreamVolume(stream, minVolume, /* flags= */ 0);
     int targetVolume = minVolume + 1;
 
-    controller.increaseDeviceVolume();
+    controller.increaseDeviceVolume(volumeFlags);
     PollingCheck.waitFor(
         VOLUME_CHANGE_TIMEOUT_MS, () -> targetVolume == audioManager.getStreamVolume(stream));
 
@@ -597,7 +600,7 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
   @Test
   public void decreaseDeviceVolume_forLocalPlayback_decreasesStreamVolume() throws Exception {
-    if (Util.SDK_INT >= 21 && audioManager.isVolumeFixed()) {
+    if (audioManager.isVolumeFixed()) {
       // This test is not eligible for this device.
       return;
     }
@@ -609,13 +612,15 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     if (maxVolume <= minVolume) {
       return;
     }
+    int volumeFlags = C.VOLUME_FLAG_SHOW_UI | C.VOLUME_FLAG_VIBRATE;
+
     session.setPlaybackToLocal(stream);
     RemoteMediaController controller = createControllerAndWaitConnection();
     int originalVolume = audioManager.getStreamVolume(stream);
     audioManager.setStreamVolume(stream, maxVolume, /* flags= */ 0);
     int targetVolume = maxVolume - 1;
 
-    controller.decreaseDeviceVolume();
+    controller.decreaseDeviceVolume(volumeFlags);
     PollingCheck.waitFor(
         VOLUME_CHANGE_TIMEOUT_MS, () -> targetVolume == audioManager.getStreamVolume(stream));
 
@@ -637,12 +642,14 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     if (maxVolume <= minVolume) {
       return;
     }
+    int volumeFlags = C.VOLUME_FLAG_VIBRATE;
+
     session.setPlaybackToLocal(stream);
     RemoteMediaController controller = createControllerAndWaitConnection();
     boolean wasMuted = audioManager.isStreamMute(stream);
     audioManager.adjustStreamVolume(stream, AudioManager.ADJUST_UNMUTE, /* flags= */ 0);
 
-    controller.setDeviceMuted(true);
+    controller.setDeviceMuted(true, volumeFlags);
     PollingCheck.waitFor(VOLUME_CHANGE_TIMEOUT_MS, () -> audioManager.isStreamMute(stream));
 
     // Set back to original mute state.
@@ -710,7 +717,8 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     controller.setRating(mediaId, rating);
     assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
     assertThat(sessionCallback.onSetRatingCalled).isTrue();
-    assertThat(MediaUtils.convertToRating(sessionCallback.rating)).isEqualTo(rating);
+    assertThat(sessionCallback.rating.getRatingStyle()).isEqualTo(RatingCompat.RATING_5_STARS);
+    assertThat(sessionCallback.rating.getStarRating()).isEqualTo(3.5f);
   }
 
   @Test
@@ -723,7 +731,8 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     controller.setRating(rating);
     assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
     assertThat(sessionCallback.onSetRatingCalled).isTrue();
-    assertThat(MediaUtils.convertToRating(sessionCallback.rating)).isEqualTo(rating);
+    assertThat(sessionCallback.rating.getRatingStyle()).isEqualTo(RatingCompat.RATING_5_STARS);
+    assertThat(sessionCallback.rating.getStarRating()).isEqualTo(3.5f);
   }
 
   @Test

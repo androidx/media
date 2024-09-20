@@ -23,7 +23,6 @@ import android.os.Bundle;
 import android.text.TextUtils;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
-import androidx.media3.common.Bundleable;
 import androidx.media3.common.Rating;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -38,11 +37,11 @@ import java.lang.annotation.Target;
 /**
  * A command that a {@link MediaController} can send to a {@link MediaSession}.
  *
- * <p>If {@link #commandCode} isn't {@link #COMMAND_CODE_CUSTOM}), it's a predefined command. If
- * {@link #commandCode} is {@link #COMMAND_CODE_CUSTOM}), it's a custom command and {@link
+ * <p>If {@link #commandCode} isn't {@link #COMMAND_CODE_CUSTOM}, it's a predefined command. If
+ * {@link #commandCode} is {@link #COMMAND_CODE_CUSTOM}, it's a custom command and {@link
  * #customAction} must not be {@code null}.
  */
-public final class SessionCommand implements Bundleable {
+public final class SessionCommand {
 
   /** Command codes of session commands. */
   @Documented
@@ -68,7 +67,7 @@ public final class SessionCommand implements Bundleable {
   public static final int COMMAND_CODE_CUSTOM = 0;
 
   //////////////////////////////////////////////////////////////////////////////////////////////////
-  // Session commands (i.e. commands to {@link MediaSession#SessionCallback})
+  // Session commands (i.e. commands to MediaSession.Callback)
   //////////////////////////////////////////////////////////////////////////////////////////////////
 
   /** Command code for {@link MediaController#setRating(String, Rating)}. */
@@ -78,7 +77,7 @@ public final class SessionCommand implements Bundleable {
       ImmutableList.of(COMMAND_CODE_SESSION_SET_RATING);
 
   //////////////////////////////////////////////////////////////////////////////////////////////////
-  // Library commands (i.e. commands to {@link MediaLibrarySession#MediaLibrarySessionCallback})
+  // Library commands (i.e. commands to MediaLibraryService.MediaLibrarySession.Callback)
   //////////////////////////////////////////////////////////////////////////////////////////////////
 
   /** Command code for {@link MediaBrowser#getLibraryRoot(LibraryParams)}. */
@@ -124,8 +123,8 @@ public final class SessionCommand implements Bundleable {
   /**
    * The extra bundle of a custom command. It will be {@link Bundle#EMPTY} for a predefined command.
    *
-   * <p>Interoperability: This value is not used when the command is sent to a legacy {@link
-   * android.support.v4.media.session.MediaSessionCompat} or {@link
+   * <p>Interoperability: This value is not used when the command is sent to a legacy {@code
+   * android.support.v4.media.session.MediaSessionCompat} or {@code
    * android.support.v4.media.session.MediaControllerCompat}.
    */
   public final Bundle customExtras;
@@ -148,7 +147,7 @@ public final class SessionCommand implements Bundleable {
    *
    * @param action The action of this custom command.
    * @param extras An extra bundle for this custom command. This value is not used when the command
-   *     is sent to a legacy {@link android.support.v4.media.session.MediaSessionCompat} or {@link
+   *     is sent to a legacy {@code android.support.v4.media.session.MediaSessionCompat} or {@code
    *     android.support.v4.media.session.MediaControllerCompat}.
    */
   public SessionCommand(String action, Bundle extras) {
@@ -157,6 +156,7 @@ public final class SessionCommand implements Bundleable {
     customExtras = new Bundle(checkNotNull(extras));
   }
 
+  /** Checks the given session command for equality while ignoring extras. */
   @Override
   public boolean equals(@Nullable Object obj) {
     if (!(obj instanceof SessionCommand)) {
@@ -171,13 +171,11 @@ public final class SessionCommand implements Bundleable {
     return Objects.hashCode(customAction, commandCode);
   }
 
-  // Bundleable implementation.
   private static final String FIELD_COMMAND_CODE = Util.intToStringMaxRadix(0);
   private static final String FIELD_CUSTOM_ACTION = Util.intToStringMaxRadix(1);
   private static final String FIELD_CUSTOM_EXTRAS = Util.intToStringMaxRadix(2);
 
   @UnstableApi
-  @Override
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
     bundle.putInt(FIELD_COMMAND_CODE, commandCode);
@@ -186,19 +184,17 @@ public final class SessionCommand implements Bundleable {
     return bundle;
   }
 
-  /** Object that can restore a {@link SessionCommand} from a {@link Bundle}. */
+  /** Restores a {@code SessionCommand} from a {@link Bundle}. */
   @UnstableApi
-  public static final Creator<SessionCommand> CREATOR =
-      bundle -> {
-        int commandCode =
-            bundle.getInt(FIELD_COMMAND_CODE, /* defaultValue= */ COMMAND_CODE_CUSTOM);
-        if (commandCode != COMMAND_CODE_CUSTOM) {
-          return new SessionCommand(commandCode);
-        } else {
-          String customAction = checkNotNull(bundle.getString(FIELD_CUSTOM_ACTION));
-          @Nullable Bundle customExtras = bundle.getBundle(FIELD_CUSTOM_EXTRAS);
-          return new SessionCommand(
-              customAction, customExtras == null ? Bundle.EMPTY : customExtras);
-        }
-      };
+  public static SessionCommand fromBundle(Bundle bundle) {
+    int commandCode = bundle.getInt(FIELD_COMMAND_CODE, /* defaultValue= */ COMMAND_CODE_CUSTOM);
+    if (commandCode != COMMAND_CODE_CUSTOM) {
+      return new SessionCommand(commandCode);
+    } else {
+      String customAction = checkNotNull(bundle.getString(FIELD_CUSTOM_ACTION));
+      @Nullable Bundle customExtras = bundle.getBundle(FIELD_CUSTOM_EXTRAS);
+      return new SessionCommand(customAction, customExtras == null ? Bundle.EMPTY : customExtras);
+    }
+  }
+  ;
 }

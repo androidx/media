@@ -18,11 +18,8 @@ package androidx.media3.ui;
 import static androidx.media3.common.Player.COMMAND_CHANGE_MEDIA_ITEMS;
 import static androidx.media3.common.Player.COMMAND_GET_CURRENT_MEDIA_ITEM;
 import static androidx.media3.common.Player.COMMAND_GET_TIMELINE;
-import static androidx.media3.common.Player.COMMAND_PLAY_PAUSE;
-import static androidx.media3.common.Player.COMMAND_PREPARE;
 import static androidx.media3.common.Player.COMMAND_SEEK_BACK;
 import static androidx.media3.common.Player.COMMAND_SEEK_FORWARD;
-import static androidx.media3.common.Player.COMMAND_SEEK_TO_DEFAULT_POSITION;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS;
 import static androidx.media3.common.Player.COMMAND_STOP;
@@ -39,6 +36,7 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkState;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.PendingIntent;
@@ -48,6 +46,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.media.session.MediaSession;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
@@ -56,9 +55,9 @@ import androidx.annotation.DrawableRes;
 import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
+import androidx.core.app.NotificationBuilderWithBuilderAccessor;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
-import androidx.media.app.NotificationCompat.MediaStyle;
 import androidx.media3.common.C;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.NotificationUtil;
@@ -168,12 +167,16 @@ import java.util.Map;
  *   <li><b>{@code exo_notification_stop}</b> - The stop icon.
  * </ul>
  *
- * <p>Alternatively, the action icons can be set programatically by using the {@link Builder}.
+ * <p>Alternatively, the action icons can be set programmatically by using the {@link Builder}.
  *
  * <p>Unlike the drawables above, the large icon (i.e. the icon passed to {@link
  * NotificationCompat.Builder#setLargeIcon(Bitmap)} cannot be overridden in this way. Instead, the
  * large icon is obtained from the {@link MediaDescriptionAdapter} passed to {@link
  * Builder#Builder(Context, int, String, MediaDescriptionAdapter)}.
+ *
+ * <p>Note: This class would require {@link android.Manifest.permission#POST_NOTIFICATIONS}
+ * permission if used without a {@linkplain #setMediaSessionToken(MediaSession.Token) media
+ * session}.
  */
 @UnstableApi
 public class PlayerNotificationManager {
@@ -616,20 +619,28 @@ public class PlayerNotificationManager {
 
   /** The action which starts playback. */
   public static final String ACTION_PLAY = "androidx.media3.ui.notification.play";
+
   /** The action which pauses playback. */
   public static final String ACTION_PAUSE = "androidx.media3.ui.notification.pause";
+
   /** The action which skips to the previous media item. */
   public static final String ACTION_PREVIOUS = "androidx.media3.ui.notification.prev";
+
   /** The action which skips to the next media item. */
   public static final String ACTION_NEXT = "androidx.media3.ui.notification.next";
+
   /** The action which fast forwards. */
   public static final String ACTION_FAST_FORWARD = "androidx.media3.ui.notification.ffwd";
+
   /** The action which rewinds. */
   public static final String ACTION_REWIND = "androidx.media3.ui.notification.rewind";
+
   /** The action which stops playback. */
   public static final String ACTION_STOP = "androidx.media3.ui.notification.stop";
+
   /** The extra key of the instance id of the player notification manager. */
   public static final String EXTRA_INSTANCE_ID = "INSTANCE_ID";
+
   /**
    * The action which is executed when the notification is dismissed. It cancels the notification
    * and calls {@link NotificationListener#onNotificationCancelled(int, boolean)}.
@@ -638,8 +649,8 @@ public class PlayerNotificationManager {
 
   // Internal messages.
 
-  private static final int MSG_START_OR_UPDATE_NOTIFICATION = 0;
-  private static final int MSG_UPDATE_NOTIFICATION_BITMAP = 1;
+  private static final int MSG_START_OR_UPDATE_NOTIFICATION = 1;
+  private static final int MSG_UPDATE_NOTIFICATION_BITMAP = 2;
 
   /**
    * Visibility of notification on the lock screen. One of {@link
@@ -697,7 +708,7 @@ public class PlayerNotificationManager {
   @Nullable private Player player;
   private boolean isNotificationStarted;
   private int currentNotificationTag;
-  @Nullable private MediaSessionCompat.Token mediaSessionToken;
+  @Nullable private MediaSession.Token mediaSessionToken;
   private boolean usePreviousAction;
   private boolean useNextAction;
   private boolean usePreviousActionInCompactView;
@@ -707,6 +718,7 @@ public class PlayerNotificationManager {
   private boolean useRewindActionInCompactView;
   private boolean useFastForwardActionInCompactView;
   private boolean usePlayPauseActions;
+  private boolean showPlayButtonIfSuppressed;
   private boolean useStopAction;
   private int badgeIconType;
   private boolean colorized;
@@ -757,6 +769,7 @@ public class PlayerNotificationManager {
     usePreviousAction = true;
     useNextAction = true;
     usePlayPauseActions = true;
+    showPlayButtonIfSuppressed = true;
     useRewindAction = true;
     useFastForwardAction = true;
     colorized = true;
@@ -967,6 +980,22 @@ public class PlayerNotificationManager {
   }
 
   /**
+   * Sets whether a play button is shown if playback is {@linkplain
+   * Player#getPlaybackSuppressionReason() suppressed}.
+   *
+   * <p>The default is {@code true}.
+   *
+   * @param showPlayButtonIfSuppressed Whether to show a play button if playback is {@linkplain
+   *     Player#getPlaybackSuppressionReason() suppressed}.
+   */
+  public void setShowPlayButtonIfPlaybackIsSuppressed(boolean showPlayButtonIfSuppressed) {
+    if (this.showPlayButtonIfSuppressed != showPlayButtonIfSuppressed) {
+      this.showPlayButtonIfSuppressed = showPlayButtonIfSuppressed;
+      invalidate();
+    }
+  }
+
+  /**
    * Sets whether the stop action should be used.
    *
    * @param useStopAction Whether to use the stop action.
@@ -980,11 +1009,24 @@ public class PlayerNotificationManager {
   }
 
   /**
-   * Sets the {@link MediaSessionCompat.Token}.
-   *
-   * @param token The {@link MediaSessionCompat.Token}.
+   * @deprecated Use {@link #setMediaSessionToken(MediaSession.Token)} and pass in {@code
+   *     (MediaSession.Token) compatToken.getToken()}.
    */
-  public final void setMediaSessionToken(MediaSessionCompat.Token token) {
+  // TODO: b/333355694 - Remove the dependency on androidx.media when this method is removed.
+  @Deprecated
+  public final void setMediaSessionToken(MediaSessionCompat.Token compatToken) {
+    setMediaSessionToken((MediaSession.Token) compatToken.getToken());
+  }
+
+  /**
+   * Sets the {@link MediaSession.Token}.
+   *
+   * <p>When using {@code MediaSessionCompat}, this token can be obtained with {@code
+   * (MediaSession.Token) compatToken.getToken()}.
+   *
+   * @param token The {@link MediaSession.Token}.
+   */
+  public final void setMediaSessionToken(MediaSession.Token token) {
     if (!Util.areEqual(this.mediaSessionToken, token)) {
       mediaSessionToken = token;
       invalidate();
@@ -1114,7 +1156,6 @@ public class PlayerNotificationManager {
    *       duration} (like for example a live stream).
    *   <li>The media is not {@link Player#isPlayingAd() interrupted by an ad}.
    *   <li>The media is played at {@link Player#getPlaybackParameters() regular speed}.
-   *   <li>The device is running at least API 21 (Lollipop).
    * </ul>
    *
    * <p>See {@link NotificationCompat.Builder#setUsesChronometer(boolean)}.
@@ -1161,6 +1202,10 @@ public class PlayerNotificationManager {
     }
   }
 
+  // This class is generally used with a media session which does not require notification
+  // permission.
+  // https://developer.android.com/develop/ui/views/notifications/notification-permission#exemptions-media-sessions
+  @SuppressLint("MissingPermission")
   private void startOrUpdateNotification(Player player, @Nullable Bitmap bitmap) {
     boolean ongoing = getOngoing(player);
     builder = createNotification(player, builder, ongoing, bitmap);
@@ -1198,8 +1243,7 @@ public class PlayerNotificationManager {
    * Creates the notification given the current player state.
    *
    * @param player The player for which state to build a notification.
-   * @param builder The builder used to build the last notification, or {@code null}. Re-using the
-   *     builder when possible can prevent notification flicker when {@code Util#SDK_INT} &lt; 21.
+   * @param builder The builder used to build the last notification, or {@code null}.
    * @param ongoing Whether the notification should be ongoing.
    * @param largeIcon The large icon to be used.
    * @return The {@link NotificationCompat.Builder} on which to call {@link
@@ -1241,15 +1285,8 @@ public class PlayerNotificationManager {
       }
     }
 
-    MediaStyle mediaStyle = new MediaStyle();
-    if (mediaSessionToken != null) {
-      mediaStyle.setMediaSession(mediaSessionToken);
-    }
-    mediaStyle.setShowActionsInCompactView(getActionIndicesForCompactView(actionNames, player));
-    // Configure dismiss action prior to API 21 ('x' button).
-    mediaStyle.setShowCancelButton(!ongoing);
-    mediaStyle.setCancelButtonIntent(dismissPendingIntent);
-    builder.setStyle(mediaStyle);
+    int[] actionIndicesForCompactView = getActionIndicesForCompactView(actionNames, player);
+    builder.setStyle(new MediaStyle(mediaSessionToken, actionIndicesForCompactView));
 
     // Set intent which is sent if the user selects 'clear all'
     builder.setDeleteIntent(dismissPendingIntent);
@@ -1265,9 +1302,7 @@ public class PlayerNotificationManager {
         .setPriority(priority)
         .setDefaults(defaults);
 
-    // Changing "showWhen" causes notification flicker if SDK_INT < 21.
-    if (Util.SDK_INT >= 21
-        && useChronometer
+    if (useChronometer
         && player.isCommandAvailable(COMMAND_GET_CURRENT_MEDIA_ITEM)
         && player.isPlaying()
         && !player.isPlayingAd()
@@ -1334,10 +1369,10 @@ public class PlayerNotificationManager {
       stringActions.add(ACTION_REWIND);
     }
     if (usePlayPauseActions) {
-      if (shouldShowPauseButton(player)) {
-        stringActions.add(ACTION_PAUSE);
-      } else {
+      if (Util.shouldShowPlayButton(player, showPlayButtonIfSuppressed)) {
         stringActions.add(ACTION_PLAY);
+      } else {
+        stringActions.add(ACTION_PAUSE);
       }
     }
     if (useFastForwardAction && enableFastForward) {
@@ -1382,10 +1417,10 @@ public class PlayerNotificationManager {
     if (leftSideActionIndex != -1) {
       actionIndices[actionCounter++] = leftSideActionIndex;
     }
-    boolean shouldShowPauseButton = shouldShowPauseButton(player);
-    if (pauseActionIndex != -1 && shouldShowPauseButton) {
+    boolean shouldShowPlayButton = Util.shouldShowPlayButton(player, showPlayButtonIfSuppressed);
+    if (pauseActionIndex != -1 && !shouldShowPlayButton) {
       actionIndices[actionCounter++] = pauseActionIndex;
-    } else if (playActionIndex != -1 && !shouldShowPauseButton) {
+    } else if (playActionIndex != -1 && shouldShowPlayButton) {
       actionIndices[actionCounter++] = playActionIndex;
     }
     if (rightSideActionIndex != -1) {
@@ -1398,12 +1433,6 @@ public class PlayerNotificationManager {
   protected boolean getOngoing(Player player) {
     int playbackState = player.getPlaybackState();
     return (playbackState == Player.STATE_BUFFERING || playbackState == Player.STATE_READY)
-        && player.getPlayWhenReady();
-  }
-
-  private boolean shouldShowPauseButton(Player player) {
-    return player.getPlaybackState() != Player.STATE_ENDED
-        && player.getPlaybackState() != Player.STATE_IDLE
         && player.getPlayWhenReady();
   }
 
@@ -1536,7 +1565,6 @@ public class PlayerNotificationManager {
 
   private class NotificationBroadcastReceiver extends BroadcastReceiver {
 
-    @SuppressWarnings("deprecation")
     @Override
     public void onReceive(Context context, Intent intent) {
       Player player = PlayerNotificationManager.this.player;
@@ -1547,20 +1575,9 @@ public class PlayerNotificationManager {
       }
       String action = intent.getAction();
       if (ACTION_PLAY.equals(action)) {
-        if (player.getPlaybackState() == Player.STATE_IDLE
-            && player.isCommandAvailable(COMMAND_PREPARE)) {
-          player.prepare();
-        } else if (player.getPlaybackState() == Player.STATE_ENDED
-            && player.isCommandAvailable(COMMAND_SEEK_TO_DEFAULT_POSITION)) {
-          player.seekToDefaultPosition();
-        }
-        if (player.isCommandAvailable(COMMAND_PLAY_PAUSE)) {
-          player.play();
-        }
+        Util.handlePlayButtonAction(player);
       } else if (ACTION_PAUSE.equals(action)) {
-        if (player.isCommandAvailable(COMMAND_PLAY_PAUSE)) {
-          player.pause();
-        }
+        Util.handlePauseButtonAction(player);
       } else if (ACTION_PREVIOUS.equals(action)) {
         if (player.isCommandAvailable(COMMAND_SEEK_TO_PREVIOUS)) {
           player.seekToPrevious();
@@ -1591,6 +1608,27 @@ public class PlayerNotificationManager {
           && customActions.containsKey(action)) {
         customActionReceiver.onCustomAction(player, action, intent);
       }
+    }
+  }
+
+  private static final class MediaStyle extends androidx.core.app.NotificationCompat.Style {
+
+    private final int[] actionsToShowInCompact;
+    @Nullable private final MediaSession.Token token;
+
+    public MediaStyle(@Nullable MediaSession.Token token, int[] actionsToShowInCompact) {
+      this.token = token;
+      this.actionsToShowInCompact = actionsToShowInCompact;
+    }
+
+    @Override
+    public void apply(NotificationBuilderWithBuilderAccessor builder) {
+      Notification.MediaStyle style = new Notification.MediaStyle();
+      style.setShowActionsInCompactView(actionsToShowInCompact);
+      if (token != null) {
+        style.setMediaSession(token);
+      }
+      builder.getBuilder().setStyle(style);
     }
   }
 }

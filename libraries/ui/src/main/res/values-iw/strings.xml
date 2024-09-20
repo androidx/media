@@ -43,12 +43,11 @@
     <item>1.5x</item>
     <item>2x</item>
   </string-array>
-  <string name="exo_track_selection_title_video">סרטון</string>
   <string name="exo_track_selection_title_audio">אודיו</string>
-  <string name="exo_track_selection_title_text">טקסט</string>
   <string name="exo_track_selection_none">ללא</string>
   <string name="exo_track_selection_auto">אוטומטי</string>
   <string name="exo_track_unknown">לא ידוע</string>
+  <string name="exo_track_unknown_name">לא ידוע (%1$s)</string>
   <string name="exo_track_resolution">%1$d × %2$d</string>
   <string name="exo_track_mono">מונו</string>
   <string name="exo_track_stereo">סטריאו</string>

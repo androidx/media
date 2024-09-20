@@ -25,10 +25,10 @@ import static androidx.media3.session.SessionToken.TYPE_SESSION_LEGACY;
 
 import android.content.ComponentName;
 import android.os.Bundle;
-import android.support.v4.media.session.MediaSessionCompat;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.SessionToken.SessionTokenImpl;
+import androidx.media3.session.legacy.MediaSessionCompat;
 import com.google.common.base.Objects;
 
 /* package */ final class SessionTokenImplLegacy implements SessionTokenImpl {
@@ -168,8 +168,6 @@ import com.google.common.base.Objects;
     return legacyToken;
   }
 
-  // Bundleable implementation.
-
   private static final String FIELD_LEGACY_TOKEN = Util.intToStringMaxRadix(0);
   private static final String FIELD_UID = Util.intToStringMaxRadix(1);
   private static final String FIELD_TYPE = Util.intToStringMaxRadix(2);
@@ -189,10 +187,8 @@ import com.google.common.base.Objects;
     return bundle;
   }
 
-  /** Object that can restore {@link SessionTokenImplLegacy} from a {@link Bundle}. */
-  public static final Creator<SessionTokenImplLegacy> CREATOR = SessionTokenImplLegacy::fromBundle;
-
-  private static SessionTokenImplLegacy fromBundle(Bundle bundle) {
+  /** Restores a {@code SessionTokenImplLegacy} from a {@link Bundle}. */
+  public static SessionTokenImplLegacy fromBundle(Bundle bundle) {
     @Nullable Bundle legacyTokenBundle = bundle.getBundle(FIELD_LEGACY_TOKEN);
     @Nullable
     MediaSessionCompat.Token legacyToken =

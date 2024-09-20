@@ -26,8 +26,8 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.container.NalUnitUtil;
 import androidx.media3.extractor.ExtractorOutput;
-import androidx.media3.extractor.NalUnitUtil;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.ts.TsPayloadReader.TrackIdGenerator;
 import java.util.Arrays;
@@ -217,8 +217,13 @@ public final class H262Reader implements ElementaryStreamReader {
   }
 
   @Override
-  public void packetFinished() {
-    // Do nothing.
+  public void packetFinished(boolean isEndOfInput) {
+    checkStateNotNull(output); // Asserts that createTracks has been called.
+    if (isEndOfInput) {
+      @C.BufferFlags int flags = sampleIsKeyframe ? C.BUFFER_FLAG_KEY_FRAME : 0;
+      int size = (int) (totalBytesWritten - samplePosition);
+      output.sampleMetadata(sampleTimeUs, flags, size, /* offset= */ 0, /* cryptoData= */ null);
+    }
   }
 
   /**

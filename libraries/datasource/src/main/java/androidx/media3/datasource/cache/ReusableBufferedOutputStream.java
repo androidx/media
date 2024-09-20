@@ -16,7 +16,6 @@
 package androidx.media3.datasource.cache;
 
 import androidx.media3.common.util.Assertions;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -26,7 +25,6 @@ import java.io.OutputStream;
  * This is a subclass of {@link BufferedOutputStream} with a {@link #reset(OutputStream)} method
  * that allows an instance to be re-used with another underlying output stream.
  */
-@UnstableApi
 /* package */ final class ReusableBufferedOutputStream extends BufferedOutputStream {
 
   private boolean closed;

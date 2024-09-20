@@ -15,6 +15,7 @@
  */
 package androidx.media3.extractor.text.webvtt;
 
+import static androidx.annotation.VisibleForTesting.PACKAGE_PRIVATE;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
 import static java.lang.annotation.RetentionPolicy.SOURCE;
@@ -36,11 +37,13 @@ import android.text.style.TypefaceSpan;
 import android.text.style.UnderlineSpan;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.HorizontalTextInVerticalContextSpan;
 import androidx.media3.common.text.RubySpan;
 import androidx.media3.common.text.SpanUtil;
 import androidx.media3.common.text.TextAnnotation;
+import androidx.media3.common.text.VoiceSpan;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
@@ -230,7 +233,8 @@ public final class WebvttCueParser {
   }
 
   /** Create a new {@link Cue} containing {@code text} and with WebVTT default values. */
-  /* package */ static Cue newCueForText(CharSequence text) {
+  @VisibleForTesting(otherwise = PACKAGE_PRIVATE)
+  public static Cue newCueForText(CharSequence text) {
     WebvttCueInfoBuilder infoBuilder = new WebvttCueInfoBuilder();
     infoBuilder.text = text;
     return infoBuilder.toCueBuilder().build();
@@ -552,8 +556,10 @@ public final class WebvttCueParser {
       case TAG_CLASS:
         applyDefaultColors(text, startTag.classes, start, end);
         break;
-      case TAG_LANG:
       case TAG_VOICE:
+        applyVoiceSpan(text, startTag.voice, start, end);
+        break;
+      case TAG_LANG:
       case "": // Case of the "whole cue" virtual tag.
         break;
       default:
@@ -653,6 +659,11 @@ public final class WebvttCueParser {
         text.setSpan(new BackgroundColorSpan(color), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
       }
     }
+  }
+
+  private static void applyVoiceSpan(
+      SpannableStringBuilder text, String voice, int start, int end) {
+    text.setSpan(new VoiceSpan(voice), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
   }
 
   private static void applyStyleToText(
@@ -971,6 +982,7 @@ public final class WebvttCueParser {
         (e1, e2) -> Integer.compare(e1.startTag.position, e2.startTag.position);
 
     private final StartTag startTag;
+
     /**
      * The position of the end of this element's text in the un-marked-up cue text (i.e. the
      * corollary to {@link StartTag#position}).

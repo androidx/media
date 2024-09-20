@@ -46,7 +46,9 @@ import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.net.SocketFactory;
 import org.junit.After;
@@ -103,7 +105,9 @@ public final class RtspPlaybackTest {
         new ResponseProvider(
             clock,
             ImmutableList.of(aacRtpPacketStreamDump, mpeg2tsRtpPacketStreamDump),
-            fakeRtpDataChannel);
+            fakeRtpDataChannel,
+            RtspMessageUtil.DEFAULT_RTSP_TIMEOUT_MS,
+            /* optionsRequestCounter= */ Optional.empty());
     rtspServer = new RtspServer(responseProvider);
     ExoPlayer player = createExoPlayer(rtspServer.startAndGetPortNumber(), rtpDataChannelFactory);
 
@@ -125,7 +129,11 @@ public final class RtspPlaybackTest {
     rtspServer =
         new RtspServer(
             new ResponseProvider(
-                clock, ImmutableList.of(mpeg2tsRtpPacketStreamDump), fakeRtpDataChannel));
+                clock,
+                ImmutableList.of(mpeg2tsRtpPacketStreamDump),
+                fakeRtpDataChannel,
+                RtspMessageUtil.DEFAULT_RTSP_TIMEOUT_MS,
+                /* optionsRequestCounter= */ Optional.empty()));
     ExoPlayer player = createExoPlayer(rtspServer.startAndGetPortNumber(), rtpDataChannelFactory);
 
     AtomicReference<Throwable> playbackError = new AtomicReference<>();
@@ -240,6 +248,32 @@ public final class RtspPlaybackTest {
     assertThat(playbackError.get()).hasCauseThat().hasMessageThat().isEqualTo("SETUP 461");
   }
 
+  @Test
+  public void play_withCustomSessionTimeoutDuration_sendsKeepAliveOptionsRequest()
+      throws Exception {
+    FakeUdpDataSourceRtpDataChannel fakeRtpDataChannel = new FakeUdpDataSourceRtpDataChannel();
+    RtpDataChannel.Factory rtpDataChannelFactory = (trackId) -> fakeRtpDataChannel;
+    Optional<AtomicInteger> optionsRequestCounter = Optional.of(new AtomicInteger());
+    ResponseProvider responseProvider =
+        new ResponseProvider(
+            clock,
+            ImmutableList.of(aacRtpPacketStreamDump),
+            fakeRtpDataChannel,
+            /* sessionTimeoutMs= */ 300L,
+            optionsRequestCounter);
+    rtspServer = new RtspServer(responseProvider);
+    ExoPlayer player = createExoPlayer(rtspServer.startAndGetPortNumber(), rtpDataChannelFactory);
+    player.prepare();
+    player.play();
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_READY);
+    // Reset optionsRequestCounter to count requests made by the keep-alive monitor
+    optionsRequestCounter.get().getAndSet(0);
+
+    RobolectricUtil.runMainLooperUntil(() -> optionsRequestCounter.get().get() != 0);
+
+    player.release();
+  }
+
   private ExoPlayer createExoPlayer(
       int serverRtspPortNumber, RtpDataChannel.Factory rtpDataChannelFactory) {
     ExoPlayer player =
@@ -260,11 +294,14 @@ public final class RtspPlaybackTest {
   private static class ResponseProvider implements RtspServer.ResponseProvider {
 
     protected static final String SESSION_ID = "00000000";
+    private static final String SESSION_TIMEOUT_HEADER_TAG = ";timeout=";
 
     protected final Clock clock;
-    protected final ArrayList<RtpPacketStreamDump> dumpsForSetUpTracks;
+    protected final List<RtpPacketStreamDump> dumpsForSetUpTracks = new ArrayList<>();
     protected final ImmutableList<RtpPacketStreamDump> rtpPacketStreamDumps;
     private final RtspMessageChannel.InterleavedBinaryDataListener binaryDataListener;
+    private final long sessionTimeoutMs;
+    private final Optional<AtomicInteger> optionsRequestCounter;
 
     protected RtpPacketTransmitter packetTransmitter;
 
@@ -275,15 +312,21 @@ public final class RtspPlaybackTest {
      * @param rtpPacketStreamDumps A list of {@link RtpPacketStreamDump}.
      * @param binaryDataListener A {@link RtspMessageChannel.InterleavedBinaryDataListener} to send
      *     RTP data.
+     * @param sessionTimeoutMs Duration RTSP server will keep the session active without receiving
+     *     any requests.
+     * @param optionsRequestCounter for how many RTSP Options requests were sent.
      */
-    public ResponseProvider(
+    ResponseProvider(
         Clock clock,
         List<RtpPacketStreamDump> rtpPacketStreamDumps,
-        RtspMessageChannel.InterleavedBinaryDataListener binaryDataListener) {
+        RtspMessageChannel.InterleavedBinaryDataListener binaryDataListener,
+        long sessionTimeoutMs,
+        Optional<AtomicInteger> optionsRequestCounter) {
       this.clock = clock;
       this.rtpPacketStreamDumps = ImmutableList.copyOf(rtpPacketStreamDumps);
       this.binaryDataListener = binaryDataListener;
-      dumpsForSetUpTracks = new ArrayList<>();
+      this.sessionTimeoutMs = sessionTimeoutMs;
+      this.optionsRequestCounter = optionsRequestCounter;
     }
 
     /** Returns a list of the received SETUP requests' corresponding {@link RtpPacketStreamDump}. */
@@ -295,6 +338,7 @@ public final class RtspPlaybackTest {
 
     @Override
     public RtspResponse getOptionsResponse() {
+      optionsRequestCounter.ifPresent(AtomicInteger::getAndIncrement);
       return new RtspResponse(
           /* status= */ 200,
           new RtspHeaders.Builder()
@@ -316,9 +360,15 @@ public final class RtspPlaybackTest {
           packetTransmitter = new RtpPacketTransmitter(rtpPacketStreamDump, clock);
         }
       }
-
       return new RtspResponse(
-          /* status= */ 200, headers.buildUpon().add(RtspHeaders.SESSION, SESSION_ID).build());
+          /* status= */ 200,
+          headers
+              .buildUpon()
+              .add(
+                  RtspHeaders.SESSION,
+                  // Convert sessionTimeoutMs to seconds
+                  SESSION_ID + SESSION_TIMEOUT_HEADER_TAG + (sessionTimeoutMs / 1000))
+              .build());
     }
 
     @Override
@@ -348,7 +398,12 @@ public final class RtspPlaybackTest {
         Clock clock,
         List<RtpPacketStreamDump> rtpPacketStreamDumps,
         RtspMessageChannel.InterleavedBinaryDataListener binaryDataListener) {
-      super(clock, rtpPacketStreamDumps, binaryDataListener);
+      super(
+          clock,
+          rtpPacketStreamDumps,
+          binaryDataListener,
+          RtspMessageUtil.DEFAULT_RTSP_TIMEOUT_MS,
+          /* optionsRequestCounter= */ Optional.empty());
     }
 
     @Override
@@ -442,6 +497,11 @@ public final class RtspPlaybackTest {
     }
 
     @Override
+    public boolean needsClosingOnLoadCompletion() {
+      return false;
+    }
+
+    @Override
     public RtspMessageChannel.InterleavedBinaryDataListener getInterleavedBinaryDataListener() {
       return null;
     }
@@ -453,6 +513,11 @@ public final class RtspPlaybackTest {
     public String getTransport() {
       return Util.formatInvariant(
           "RTP/AVP/TCP;unicast;interleaved=%d-%d", LOCAL_PORT + 2, LOCAL_PORT + 3);
+    }
+
+    @Override
+    public boolean needsClosingOnLoadCompletion() {
+      return false;
     }
   }
 

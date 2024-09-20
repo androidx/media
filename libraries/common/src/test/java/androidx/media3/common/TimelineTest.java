@@ -15,12 +15,15 @@
  */
 package androidx.media3.common;
 
+import static androidx.media3.test.utils.FakeMultiPeriodLiveTimeline.AD_PERIOD_DURATION_MS;
+import static androidx.media3.test.utils.FakeMultiPeriodLiveTimeline.PERIOD_DURATION_MS;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.os.Bundle;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem.LiveConfiguration;
 import androidx.media3.exoplayer.source.ShuffleOrder.DefaultShuffleOrder;
+import androidx.media3.test.utils.FakeMultiPeriodLiveTimeline;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition;
 import androidx.media3.test.utils.TimelineAsserts;
@@ -285,7 +288,7 @@ public class TimelineTest {
                 ImmutableList.of(AdPlaybackState.NONE),
                 new MediaItem.Builder().setMediaId("mediaId3").build()));
 
-    Timeline restoredTimeline = Timeline.CREATOR.fromBundle(timeline.toBundle());
+    Timeline restoredTimeline = Timeline.fromBundle(timeline.toBundle());
 
     TimelineAsserts.assertEqualsExceptIdsAndManifest(
         /* expectedTimeline= */ timeline, /* actualTimeline= */ restoredTimeline);
@@ -296,7 +299,7 @@ public class TimelineTest {
     int windowCount = 10;
     FakeTimeline timeline = new FakeTimeline(windowCount);
 
-    Timeline restoredTimeline = Timeline.CREATOR.fromBundle(timeline.toBundle());
+    Timeline restoredTimeline = Timeline.fromBundle(timeline.toBundle());
 
     assertThat(restoredTimeline.getLastWindowIndex(/* shuffleModeEnabled= */ false))
         .isEqualTo(timeline.getLastWindowIndex(/* shuffleModeEnabled= */ false));
@@ -334,7 +337,7 @@ public class TimelineTest {
 
   @Test
   public void roundTripViaBundle_ofEmptyTimeline_returnsEmptyTimeline() {
-    TimelineAsserts.assertEmpty(Timeline.CREATOR.fromBundle(Timeline.EMPTY.toBundle()));
+    TimelineAsserts.assertEmpty(Timeline.fromBundle(Timeline.EMPTY.toBundle()));
   }
 
   @Test
@@ -353,7 +356,7 @@ public class TimelineTest {
     // Check that default values are skipped when bundling.
     assertThat(windowBundle.keySet()).isEmpty();
 
-    Timeline.Window restoredWindow = Timeline.Window.CREATOR.fromBundle(windowBundle);
+    Timeline.Window restoredWindow = Timeline.Window.fromBundle(windowBundle);
 
     assertThat(restoredWindow.manifest).isNull();
     TimelineAsserts.assertWindowEqualsExceptUidAndManifest(
@@ -386,7 +389,7 @@ public class TimelineTest {
     window.lastPeriodIndex = 7;
     window.positionInFirstPeriodUs = 888;
 
-    Timeline.Window restoredWindow = Timeline.Window.CREATOR.fromBundle(window.toBundle());
+    Timeline.Window restoredWindow = Timeline.Window.fromBundle(window.toBundle());
 
     assertThat(restoredWindow.manifest).isNull();
     TimelineAsserts.assertWindowEqualsExceptUidAndManifest(
@@ -405,7 +408,7 @@ public class TimelineTest {
     // Check that default values are skipped when bundling.
     assertThat(periodBundle.keySet()).isEmpty();
 
-    Timeline.Period restoredPeriod = Timeline.Period.CREATOR.fromBundle(periodBundle);
+    Timeline.Period restoredPeriod = Timeline.Period.fromBundle(periodBundle);
 
     assertThat(restoredPeriod.id).isNull();
     assertThat(restoredPeriod.uid).isNull();
@@ -423,12 +426,40 @@ public class TimelineTest {
     period.positionInWindowUs = 4_000;
     period.isPlaceholder = true;
 
-    Timeline.Period restoredPeriod = Timeline.Period.CREATOR.fromBundle(period.toBundle());
+    Timeline.Period restoredPeriod = Timeline.Period.fromBundle(period.toBundle());
 
     assertThat(restoredPeriod.id).isNull();
     assertThat(restoredPeriod.uid).isNull();
     TimelineAsserts.assertPeriodEqualsExceptIds(
         /* expectedPeriod= */ period, /* actualPeriod= */ restoredPeriod);
+  }
+
+  @Test
+  public void periodIsLivePostrollPlaceholder_recognizesLivePostrollPlaceholder() {
+    FakeMultiPeriodLiveTimeline timeline =
+        new FakeMultiPeriodLiveTimeline(
+            /* availabilityStartTimeMs= */ 0,
+            /* liveWindowDurationUs= */ 60_000_000,
+            /* nowUs= */ 60_000_000,
+            /* adSequencePattern= */ new boolean[] {false, true, true},
+            /* periodDurationMsPattern= */ new long[] {
+              PERIOD_DURATION_MS, AD_PERIOD_DURATION_MS, AD_PERIOD_DURATION_MS
+            },
+            /* isContentTimeline= */ false,
+            /* populateAds= */ true,
+            /* playedAds= */ false);
+
+    assertThat(timeline.getPeriodCount()).isEqualTo(4);
+    assertThat(
+            timeline
+                .getPeriod(/* periodIndex= */ 1, new Timeline.Period())
+                .isLivePostrollPlaceholder(/* adGroupIndex= */ 0))
+        .isFalse();
+    assertThat(
+            timeline
+                .getPeriod(/* periodIndex= */ 1, new Timeline.Period())
+                .isLivePostrollPlaceholder(/* adGroupIndex= */ 1))
+        .isTrue();
   }
 
   @SuppressWarnings("deprecation") // Populates the deprecated window.tag property.
@@ -443,7 +474,6 @@ public class TimelineTest {
     window.windowStartTimeMs = C.TIME_UNSET;
     window.isSeekable = true;
     window.isDynamic = true;
-    window.isLive = true;
     window.defaultPositionUs = C.TIME_UNSET;
     window.durationUs = C.TIME_UNSET;
     window.firstPeriodIndex = 1;

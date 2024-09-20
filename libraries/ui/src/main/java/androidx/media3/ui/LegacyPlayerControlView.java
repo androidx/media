@@ -47,14 +47,11 @@ import android.view.accessibility.AccessibilityEvent;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Player;
 import androidx.media3.common.Player.Events;
-import androidx.media3.common.Player.State;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.RepeatModeUtil;
@@ -278,11 +275,14 @@ public class LegacyPlayerControlView extends FrameLayout {
 
   /** The default show timeout, in milliseconds. */
   public static final int DEFAULT_SHOW_TIMEOUT_MS = 5000;
+
   /** The default repeat toggle modes. */
   public static final @RepeatModeUtil.RepeatToggleModes int DEFAULT_REPEAT_TOGGLE_MODES =
       RepeatModeUtil.REPEAT_TOGGLE_MODE_NONE;
+
   /** The default minimum interval between time bar position updates. */
   public static final int DEFAULT_TIME_BAR_MIN_UPDATE_INTERVAL_MS = 200;
+
   /** The maximum number of windows that can be shown in a multi-window time bar. */
   public static final int MAX_WINDOWS_FOR_MULTI_WINDOW_TIME_BAR = 100;
 
@@ -328,6 +328,7 @@ public class LegacyPlayerControlView extends FrameLayout {
 
   private boolean isAttachedToWindow;
   private boolean showMultiWindowTimeBar;
+  private boolean showPlayButtonIfSuppressed;
   private boolean multiWindowTimeBar;
   private boolean scrubbing;
   private int showTimeoutMs;
@@ -371,6 +372,7 @@ public class LegacyPlayerControlView extends FrameLayout {
       @Nullable AttributeSet playbackAttrs) {
     super(context, attrs, defStyleAttr);
     int controllerLayoutId = R.layout.exo_legacy_player_control_view;
+    showPlayButtonIfSuppressed = true;
     showTimeoutMs = DEFAULT_SHOW_TIMEOUT_MS;
     repeatToggleModes = DEFAULT_REPEAT_TOGGLE_MODES;
     timeBarMinUpdateIntervalMs = DEFAULT_TIME_BAR_MIN_UPDATE_INTERVAL_MS;
@@ -557,16 +559,27 @@ public class LegacyPlayerControlView extends FrameLayout {
   }
 
   /**
-   * Sets whether the time bar should show all windows, as opposed to just the current one. If the
-   * timeline has a period with unknown duration or more than {@link
-   * #MAX_WINDOWS_FOR_MULTI_WINDOW_TIME_BAR} windows the time bar will fall back to showing a single
-   * window.
-   *
-   * @param showMultiWindowTimeBar Whether the time bar should show all windows.
+   * @deprecated Replace multi-window time bar display by merging source windows together instead,
+   *     for example using ExoPlayer's {@code ConcatenatingMediaSource2}.
    */
+  @Deprecated
   public void setShowMultiWindowTimeBar(boolean showMultiWindowTimeBar) {
     this.showMultiWindowTimeBar = showMultiWindowTimeBar;
     updateTimeline();
+  }
+
+  /**
+   * Sets whether a play button is shown if playback is {@linkplain
+   * Player#getPlaybackSuppressionReason() suppressed}.
+   *
+   * <p>The default is {@code true}.
+   *
+   * @param showPlayButtonIfSuppressed Whether to show a play button if playback is {@linkplain
+   *     Player#getPlaybackSuppressionReason() suppressed}.
+   */
+  public void setShowPlayButtonIfPlaybackIsSuppressed(boolean showPlayButtonIfSuppressed) {
+    this.showPlayButtonIfSuppressed = showPlayButtonIfSuppressed;
+    updatePlayPauseButton();
   }
 
   /**
@@ -840,22 +853,18 @@ public class LegacyPlayerControlView extends FrameLayout {
     }
     boolean requestPlayPauseFocus = false;
     boolean requestPlayPauseAccessibilityFocus = false;
-    boolean shouldShowPauseButton = shouldShowPauseButton();
+    boolean shouldShowPlayButton = Util.shouldShowPlayButton(player, showPlayButtonIfSuppressed);
     if (playButton != null) {
-      requestPlayPauseFocus |= shouldShowPauseButton && playButton.isFocused();
-      requestPlayPauseAccessibilityFocus |=
-          Util.SDK_INT < 21
-              ? requestPlayPauseFocus
-              : (shouldShowPauseButton && Api21.isAccessibilityFocused(playButton));
-      playButton.setVisibility(shouldShowPauseButton ? GONE : VISIBLE);
+      requestPlayPauseFocus = !shouldShowPlayButton && playButton.isFocused();
+      requestPlayPauseAccessibilityFocus =
+          (!shouldShowPlayButton && playButton.isAccessibilityFocused());
+      playButton.setVisibility(shouldShowPlayButton ? VISIBLE : GONE);
     }
     if (pauseButton != null) {
-      requestPlayPauseFocus |= !shouldShowPauseButton && pauseButton.isFocused();
+      requestPlayPauseFocus |= shouldShowPlayButton && pauseButton.isFocused();
       requestPlayPauseAccessibilityFocus |=
-          Util.SDK_INT < 21
-              ? requestPlayPauseFocus
-              : (!shouldShowPauseButton && Api21.isAccessibilityFocused(pauseButton));
-      pauseButton.setVisibility(shouldShowPauseButton ? VISIBLE : GONE);
+          shouldShowPlayButton && pauseButton.isAccessibilityFocused();
+      pauseButton.setVisibility(shouldShowPlayButton ? GONE : VISIBLE);
     }
     if (requestPlayPauseFocus) {
       requestPlayPauseFocus();
@@ -1081,19 +1090,19 @@ public class LegacyPlayerControlView extends FrameLayout {
   }
 
   private void requestPlayPauseFocus() {
-    boolean shouldShowPauseButton = shouldShowPauseButton();
-    if (!shouldShowPauseButton && playButton != null) {
+    boolean shouldShowPlayButton = Util.shouldShowPlayButton(player, showPlayButtonIfSuppressed);
+    if (shouldShowPlayButton && playButton != null) {
       playButton.requestFocus();
-    } else if (shouldShowPauseButton && pauseButton != null) {
+    } else if (!shouldShowPlayButton && pauseButton != null) {
       pauseButton.requestFocus();
     }
   }
 
   private void requestPlayPauseAccessibilityFocus() {
-    boolean shouldShowPauseButton = shouldShowPauseButton();
-    if (!shouldShowPauseButton && playButton != null) {
+    boolean shouldShowPlayButton = Util.shouldShowPlayButton(player, showPlayButtonIfSuppressed);
+    if (shouldShowPlayButton && playButton != null) {
       playButton.sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_FOCUSED);
-    } else if (shouldShowPauseButton && pauseButton != null) {
+    } else if (!shouldShowPlayButton && pauseButton != null) {
       pauseButton.sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_FOCUSED);
     }
   }
@@ -1200,13 +1209,13 @@ public class LegacyPlayerControlView extends FrameLayout {
         switch (keyCode) {
           case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
           case KeyEvent.KEYCODE_HEADSETHOOK:
-            dispatchPlayPause(player);
+            Util.handlePlayPauseButtonAction(player, showPlayButtonIfSuppressed);
             break;
           case KeyEvent.KEYCODE_MEDIA_PLAY:
-            dispatchPlay(player);
+            Util.handlePlayButtonAction(player);
             break;
           case KeyEvent.KEYCODE_MEDIA_PAUSE:
-            dispatchPause(player);
+            Util.handlePauseButtonAction(player);
             break;
           case KeyEvent.KEYCODE_MEDIA_NEXT:
             player.seekToNext();
@@ -1220,36 +1229,6 @@ public class LegacyPlayerControlView extends FrameLayout {
       }
     }
     return true;
-  }
-
-  private boolean shouldShowPauseButton() {
-    return player != null
-        && player.getPlaybackState() != Player.STATE_ENDED
-        && player.getPlaybackState() != Player.STATE_IDLE
-        && player.getPlayWhenReady();
-  }
-
-  private void dispatchPlayPause(Player player) {
-    @State int state = player.getPlaybackState();
-    if (state == Player.STATE_IDLE || state == Player.STATE_ENDED || !player.getPlayWhenReady()) {
-      dispatchPlay(player);
-    } else {
-      dispatchPause(player);
-    }
-  }
-
-  private void dispatchPlay(Player player) {
-    @State int state = player.getPlaybackState();
-    if (state == Player.STATE_IDLE) {
-      player.prepare();
-    } else if (state == Player.STATE_ENDED) {
-      seekTo(player, player.getCurrentMediaItemIndex(), C.TIME_UNSET);
-    }
-    player.play();
-  }
-
-  private void dispatchPause(Player player) {
-    player.pause();
   }
 
   @SuppressLint("InlinedApi")
@@ -1361,23 +1340,15 @@ public class LegacyPlayerControlView extends FrameLayout {
       } else if (rewindButton == view) {
         player.seekBack();
       } else if (playButton == view) {
-        dispatchPlay(player);
+        Util.handlePlayButtonAction(player);
       } else if (pauseButton == view) {
-        dispatchPause(player);
+        Util.handlePauseButtonAction(player);
       } else if (repeatToggleButton == view) {
         player.setRepeatMode(
             RepeatModeUtil.getNextRepeatMode(player.getRepeatMode(), repeatToggleModes));
       } else if (shuffleButton == view) {
         player.setShuffleModeEnabled(!player.getShuffleModeEnabled());
       }
-    }
-  }
-
-  @RequiresApi(21)
-  private static final class Api21 {
-    @DoNotInline
-    public static boolean isAccessibilityFocused(View view) {
-      return view.isAccessibilityFocused();
     }
   }
 }

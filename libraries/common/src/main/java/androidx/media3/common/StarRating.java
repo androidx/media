@@ -96,8 +96,6 @@ public final class StarRating extends Rating {
     return maxStars == other.maxStars && starRating == other.starRating;
   }
 
-  // Bundleable implementation.
-
   private static final @RatingType int TYPE = RATING_TYPE_STAR;
   private static final int MAX_STARS_DEFAULT = 5;
 
@@ -114,10 +112,9 @@ public final class StarRating extends Rating {
     return bundle;
   }
 
-  /** Object that can restore a {@link StarRating} from a {@link Bundle}. */
-  @UnstableApi public static final Creator<StarRating> CREATOR = StarRating::fromBundle;
-
-  private static StarRating fromBundle(Bundle bundle) {
+  /** Restores a {@code StarRating} from a {@link Bundle}. */
+  @UnstableApi
+  public static StarRating fromBundle(Bundle bundle) {
     checkArgument(bundle.getInt(FIELD_RATING_TYPE, /* defaultValue= */ RATING_TYPE_UNSET) == TYPE);
     int maxStars = bundle.getInt(FIELD_MAX_STARS, /* defaultValue= */ MAX_STARS_DEFAULT);
     float starRating = bundle.getFloat(FIELD_STAR_RATING, /* defaultValue= */ RATING_UNSET);

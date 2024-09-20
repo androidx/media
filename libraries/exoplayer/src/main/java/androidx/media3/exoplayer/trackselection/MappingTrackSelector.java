@@ -32,6 +32,7 @@ import androidx.media3.common.C.FormatSupport;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.Tracks;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.ExoPlaybackException;
@@ -47,7 +48,6 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.Arrays;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 
 /**
  * Base class for {@link TrackSelector}s that first establish a mapping between {@link TrackGroup}s
@@ -77,8 +77,10 @@ public abstract class MappingTrackSelector extends TrackSelector {
       RENDERER_SUPPORT_PLAYABLE_TRACKS
     })
     public @interface RendererSupport {}
+
     /** The renderer does not have any associated tracks. */
     public static final int RENDERER_SUPPORT_NO_TRACKS = 0;
+
     /**
      * The renderer has tracks mapped to it, but all are unsupported. In other words, {@link
      * #getTrackSupport(int, int, int)} returns {@link C#FORMAT_UNSUPPORTED_DRM}, {@link
@@ -86,6 +88,7 @@ public abstract class MappingTrackSelector extends TrackSelector {
      * the renderer.
      */
     public static final int RENDERER_SUPPORT_UNSUPPORTED_TRACKS = 1;
+
     /**
      * The renderer has tracks mapped to it and at least one is of a supported type, but all such
      * tracks exceed the renderer's capabilities. In other words, {@link #getTrackSupport(int, int,
@@ -93,6 +96,7 @@ public abstract class MappingTrackSelector extends TrackSelector {
      * renderer, but does not return {@link C#FORMAT_HANDLED} for any tracks mapped to the renderer.
      */
     public static final int RENDERER_SUPPORT_EXCEEDS_CAPABILITIES_TRACKS = 2;
+
     /**
      * The renderer has tracks mapped to it, and at least one such track is playable. In other
      * words, {@link #getTrackSupport(int, int, int)} returns {@link C#FORMAT_HANDLED} for at least
@@ -446,7 +450,7 @@ public abstract class MappingTrackSelector extends TrackSelector {
    * @param timeline The {@link Timeline} holding the period for which tracks are to be selected.
    * @return A pair consisting of the track selections and configurations for each renderer. A null
    *     configuration indicates the renderer should be disabled, in which case the track selection
-   *     will also be null. A track selection may also be null for a non-disabled renderer if {@link
+   *     must also be null. A track selection may also be null for a non-disabled renderer if {@link
    *     RendererCapabilities#getTrackType()} is {@link C#TRACK_TYPE_NONE}.
    * @throws ExoPlaybackException If an error occurs while selecting the tracks.
    */
