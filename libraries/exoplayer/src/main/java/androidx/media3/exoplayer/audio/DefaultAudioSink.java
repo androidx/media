@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.audio;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.constrainValue;
+import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.exoplayer.audio.AudioCapabilities.DEFAULT_AUDIO_CAPABILITIES;
 import static androidx.media3.exoplayer.audio.AudioCapabilities.getCapabilities;
 import static java.lang.Math.max;
@@ -1143,7 +1144,7 @@ public final class DefaultAudioSink implements AudioSink {
     if (!buffer.hasRemaining()) {
       return;
     }
-    outputBuffer = buffer;
+    outputBuffer = maybeRampUpVolume(buffer);
   }
 
   /**
@@ -1846,6 +1847,25 @@ public final class DefaultAudioSink implements AudioSink {
       audioTrack.stop();
       bytesUntilNextAvSync = 0;
     }
+  }
+
+  private ByteBuffer maybeRampUpVolume(ByteBuffer buffer) {
+    if (configuration.outputMode != OUTPUT_MODE_PCM) {
+      return buffer;
+    }
+    long rampDurationUs = msToUs(AUDIO_TRACK_VOLUME_RAMP_TIME_MS);
+    int rampFrameCount =
+        (int) Util.durationUsToSampleCount(rampDurationUs, configuration.outputSampleRate);
+    long writtenFrames = getWrittenFrames();
+    if (writtenFrames >= rampFrameCount) {
+      return buffer;
+    }
+    return PcmAudioUtil.rampUpVolume(
+        buffer,
+        configuration.outputEncoding,
+        configuration.outputPcmFrameSize,
+        (int) writtenFrames,
+        rampFrameCount);
   }
 
   private static void releaseAudioTrackAsync(

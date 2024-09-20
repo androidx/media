@@ -45,6 +45,7 @@
         ([#1531](https://github.com/androidx/media/issues/1531)).
 *   DataSource:
 *   Audio:
+    *   Fix pop sounds that may occur during seeks.
 *   Video:
     *   Add workaround for a device issue on Galaxy Tab S7 FE that causes 60fps
         secure H264 streams to be marked as unsupported
