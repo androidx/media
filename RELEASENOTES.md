@@ -34,6 +34,17 @@
     *   Add `ForwardingRenderer` implementation that forwards all method calls
         to another renderer
         ([1703](https://github.com/androidx/media/pull/1703)).
+    *   Add playlist preloading for the next item in the playlist. Apps can
+        enable preloading by calling
+        `ExoPlayer.setPreloadConfiguration(PreloadConfiguration)` accordingly.
+        By default preloading is disabled. When opted-in and to not interfer
+        with playback, `DefaultLoadControl` restricts preloading to start and
+        continue only when the player is not loading for playback. Apps can
+        change this behaviour by implementing
+        `LoadControl.shouldContinuePreloading()` accordingly (like when
+        overriding this method in `DefaultLoadControl`). The default
+        implementation of `LoadControl` disables preloading in case an app is
+        using a custom implementation of `LoadControl`.
 *   Transformer:
 *   Track Selection:
 *   Extractors:

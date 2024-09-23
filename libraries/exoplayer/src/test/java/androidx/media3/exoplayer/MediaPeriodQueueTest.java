@@ -132,7 +132,8 @@ public final class MediaPeriodQueueTest {
                       new RendererConfiguration[0],
                       new ExoTrackSelection[0],
                       Tracks.EMPTY,
-                      /* info= */ null));
+                      /* info= */ null),
+                  /* targetPreloadBufferDurationUs= */ 5_000_000L);
             },
             PreloadConfiguration.DEFAULT);
     mediaSourceList =

@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.exoplayer.Renderer.STATE_DISABLED;
@@ -340,7 +341,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
         loadControl.getAllocator(),
         mediaSourceList,
         mediaPeriodInfo,
-        emptyTrackSelectorResult);
+        emptyTrackSelectorResult,
+        preloadConfiguration.targetPreloadDurationUs);
   }
 
   public void experimentalSetForegroundModeTimeoutMs(long setForegroundModeTimeoutMs) {
@@ -1213,7 +1215,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
       }
       if (!playbackInfo.isLoading
           && playbackInfo.totalBufferedDurationUs < PLAYBACK_BUFFER_EMPTY_THRESHOLD_US
-          && isLoadingPossible()) {
+          && isLoadingPossible(queue.getLoadingPeriod())) {
         // The renderers are not ready, there is more media available to load, and the LoadControl
         // is refusing to load it (indicated by !playbackInfo.isLoading). This could be because the
         // renderers are still transitioning to their ready states, but it could also indicate a
@@ -2220,7 +2222,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
       MediaPeriodInfo info = queue.getNextMediaPeriodInfo(rendererPositionUs, playbackInfo);
       if (info != null) {
         MediaPeriodHolder mediaPeriodHolder = queue.enqueueNextMediaPeriodHolder(info);
-        mediaPeriodHolder.mediaPeriod.prepare(this, info.startPositionUs);
+        if (!mediaPeriodHolder.prepareCalled) {
+          mediaPeriodHolder.prepare(this, info.startPositionUs);
+        } else if (mediaPeriodHolder.prepared) {
+          handler.obtainMessage(MSG_PERIOD_PREPARED, mediaPeriodHolder.mediaPeriod).sendToTarget();
+        }
         if (queue.getPlayingPeriod() == mediaPeriodHolder) {
           resetRendererPosition(info.startPositionUs);
         }
@@ -2231,7 +2237,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
     if (shouldContinueLoading) {
       // We should still be loading, except when there is nothing to load or we have fully loaded
       // the current period.
-      shouldContinueLoading = isLoadingPossible();
+      shouldContinueLoading = isLoadingPossible(queue.getLoadingPeriod());
       updateIsLoading();
     } else {
       maybeContinueLoading();
@@ -2342,14 +2348,37 @@ import java.util.concurrent.atomic.AtomicBoolean;
   }
 
   private void maybeUpdatePreloadPeriods(boolean loadingPeriodChanged) {
-    if (preloadConfiguration.targetPreloadDurationUs == C.TIME_UNSET
-        || (!loadingPeriodChanged
-            && playbackInfo.timeline.equals(lastPreloadPoolInvalidationTimeline))) {
-      // Do nothing if preloading disabled or no change in loading period or timeline has occurred.
+    if (preloadConfiguration.targetPreloadDurationUs == C.TIME_UNSET) {
+      // Do nothing if preloading disabled.
       return;
     }
-    lastPreloadPoolInvalidationTimeline = playbackInfo.timeline;
-    queue.invalidatePreloadPool(playbackInfo.timeline);
+    if (loadingPeriodChanged
+        || !playbackInfo.timeline.equals(lastPreloadPoolInvalidationTimeline)) {
+      // invalidate the pool when the loading period or the timeline changed.
+      lastPreloadPoolInvalidationTimeline = playbackInfo.timeline;
+      queue.invalidatePreloadPool(playbackInfo.timeline);
+    }
+    maybeContinuePreloading();
+  }
+
+  private void maybeContinuePreloading() {
+    queue.maybeUpdatePreloadMediaPeriodHolder();
+    MediaPeriodHolder preloading = queue.getPreloadingPeriod();
+    if (preloading == null
+        || (preloading.prepareCalled && !preloading.prepared)
+        || preloading.mediaPeriod.isLoading()
+        || !loadControl.shouldContinuePreloading(
+            playbackInfo.timeline,
+            preloading.info.id,
+            preloading.prepared ? preloading.mediaPeriod.getBufferedPositionUs() : 0L)) {
+      return;
+    }
+    if (!preloading.prepareCalled) {
+      preloading.prepare(/* callback= */ this, preloading.info.startPositionUs);
+    } else {
+      preloading.continueLoading(
+          rendererPositionUs, playbackInfo.playbackParameters.speed, lastRebufferRealtimeMs);
+    }
   }
 
   private boolean replaceStreamsOrDisableRendererForTransition() throws ExoPlaybackException {
@@ -2531,13 +2560,27 @@ import java.util.concurrent.atomic.AtomicBoolean;
   }
 
   private void handlePeriodPrepared(MediaPeriod mediaPeriod) throws ExoPlaybackException {
-    if (!queue.isLoading(mediaPeriod)) {
-      // Stale event.
-      return;
+    if (queue.isLoading(mediaPeriod)) {
+      handleLoadingPeriodPrepared(checkNotNull(queue.getLoadingPeriod()));
+    } else {
+      @Nullable MediaPeriodHolder preloadHolder = queue.getPreloadHolderByMediaPeriod(mediaPeriod);
+      if (preloadHolder != null) {
+        checkState(!preloadHolder.prepared);
+        preloadHolder.handlePrepared(
+            mediaClock.getPlaybackParameters().speed, playbackInfo.timeline);
+        if (queue.isPreloading(mediaPeriod)) {
+          maybeContinuePreloading();
+        }
+      }
     }
-    MediaPeriodHolder loadingPeriodHolder = queue.getLoadingPeriod();
-    loadingPeriodHolder.handlePrepared(
-        mediaClock.getPlaybackParameters().speed, playbackInfo.timeline);
+  }
+
+  private void handleLoadingPeriodPrepared(MediaPeriodHolder loadingPeriodHolder)
+      throws ExoPlaybackException {
+    if (!loadingPeriodHolder.prepared) {
+      loadingPeriodHolder.handlePrepared(
+          mediaClock.getPlaybackParameters().speed, playbackInfo.timeline);
+    }
     updateLoadControlTrackSelection(
         loadingPeriodHolder.info.id,
         loadingPeriodHolder.getTrackGroups(),
@@ -2559,12 +2602,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
   }
 
   private void handleContinueLoadingRequested(MediaPeriod mediaPeriod) {
-    if (!queue.isLoading(mediaPeriod)) {
-      // Stale event.
-      return;
+    if (queue.isLoading(mediaPeriod)) {
+      queue.reevaluateBuffer(rendererPositionUs);
+      maybeContinueLoading();
+    } else if (queue.isPreloading(mediaPeriod)) {
+      maybeContinuePreloading();
     }
-    queue.reevaluateBuffer(rendererPositionUs);
-    maybeContinueLoading();
   }
 
   private void handlePlaybackParameters(
@@ -2610,7 +2653,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
   }
 
   private boolean shouldContinueLoading() {
-    if (!isLoadingPossible()) {
+    if (!isLoadingPossible(queue.getLoadingPeriod())) {
       return false;
     }
     MediaPeriodHolder loadingPeriodHolder = queue.getLoadingPeriod();
@@ -2651,19 +2694,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
     return shouldContinueLoading;
   }
 
-  private boolean isLoadingPossible() {
-    MediaPeriodHolder loadingPeriodHolder = queue.getLoadingPeriod();
-    if (loadingPeriodHolder == null) {
-      return false;
-    }
-    if (loadingPeriodHolder.hasLoadingError()) {
-      return false;
-    }
-    long nextLoadPositionUs = loadingPeriodHolder.getNextLoadPositionUs();
-    if (nextLoadPositionUs == C.TIME_END_OF_SOURCE) {
-      return false;
-    }
-    return true;
+  private boolean isLoadingPossible(@Nullable MediaPeriodHolder mediaPeriodHolder) {
+    return mediaPeriodHolder != null
+        && !mediaPeriodHolder.hasLoadingError()
+        && mediaPeriodHolder.getNextLoadPositionUs() != C.TIME_END_OF_SOURCE;
   }
 
   private void updateIsLoading() {

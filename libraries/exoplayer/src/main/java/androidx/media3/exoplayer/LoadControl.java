@@ -19,6 +19,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.source.MediaPeriod;
@@ -322,6 +323,24 @@ public interface LoadControl {
     // Media3 ExoPlayer will never call this method. This default implementation provides an
     // implementation to please the compiler only.
     throw new IllegalStateException("shouldContinueLoading not implemented");
+  }
+
+  /**
+   * Called to determine whether preloading should be continued. If this method returns true, the
+   * presented period will continue to load media.
+   *
+   * @param timeline The Timeline containing the preload period that can be looked up with
+   *     MediaPeriodId.periodUid.
+   * @param mediaPeriodId The MediaPeriodId of the preloading period.
+   * @param bufferedDurationUs The duration of media currently buffered by the preload period.
+   * @return Whether the preloading should continue for the given period.
+   */
+  default boolean shouldContinuePreloading(
+      Timeline timeline, MediaPeriodId mediaPeriodId, long bufferedDurationUs) {
+    Log.w(
+        "LoadControl",
+        "shouldContinuePreloading needs to be implemented when playlist preloading is enabled");
+    return false;
   }
 
   /**

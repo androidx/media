@@ -53,6 +53,12 @@ import java.io.IOException;
    */
   public final @NullableType SampleStream[] sampleStreams;
 
+  /** The target buffer duration to preload. */
+  public final long targetPreloadBufferDurationUs;
+
+  /** Whether {@link #prepare(MediaPeriod.Callback, long)} has been called. */
+  public boolean prepareCalled;
+
   /** Whether the media period has finished preparing. */
   public boolean prepared;
 
@@ -103,13 +109,15 @@ import java.io.IOException;
       Allocator allocator,
       MediaSourceList mediaSourceList,
       MediaPeriodInfo info,
-      TrackSelectorResult emptyTrackSelectorResult) {
+      TrackSelectorResult emptyTrackSelectorResult,
+      long targetPreloadBufferDurationUs) {
     this.rendererCapabilities = rendererCapabilities;
     this.rendererPositionOffsetUs = rendererPositionOffsetUs;
     this.trackSelector = trackSelector;
     this.mediaSourceList = mediaSourceList;
     this.uid = info.id.periodUid;
     this.info = info;
+    this.targetPreloadBufferDurationUs = targetPreloadBufferDurationUs;
     this.trackGroups = TrackGroupArray.EMPTY;
     this.trackSelectorResult = emptyTrackSelectorResult;
     sampleStreams = new SampleStream[rendererCapabilities.length];
@@ -158,6 +166,13 @@ import java.io.IOException;
   public boolean isFullyBuffered() {
     return prepared
         && (!hasEnabledTracks || mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE);
+  }
+
+  /** Returns whether the period is fully preloaded. */
+  public boolean isFullyPreloaded() {
+    return prepared
+        && (isFullyBuffered()
+            || getBufferedPositionUs() - info.startPositionUs >= targetPreloadBufferDurationUs);
   }
 
   /**
@@ -507,6 +522,11 @@ import java.io.IOException;
     return areDurationsCompatible(this.info.durationUs, info.durationUs)
         && this.info.startPositionUs == info.startPositionUs
         && this.info.id.equals(info.id);
+  }
+
+  public void prepare(MediaPeriod.Callback callback, long startPositionUs) {
+    prepareCalled = true;
+    mediaPeriod.prepare(callback, startPositionUs);
   }
 
   /* package */ interface Factory {
