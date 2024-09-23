@@ -16,9 +16,9 @@
  */
 package androidx.media3.common.audio;
 
+import static androidx.media3.common.util.Assertions.checkState;
 import static java.lang.Math.min;
 
-import androidx.media3.common.util.Assertions;
 import java.nio.ShortBuffer;
 import java.util.Arrays;
 
@@ -355,14 +355,14 @@ import java.util.Arrays;
     pitchFrameCount -= frameCount;
   }
 
-  private short interpolate(short[] in, int inPos, int oldSampleRate, int newSampleRate) {
+  private short interpolate(short[] in, int inPos, long oldSampleRate, long newSampleRate) {
     short left = in[inPos];
     short right = in[inPos + channelCount];
-    int position = newRatePosition * oldSampleRate;
-    int leftPosition = oldRatePosition * newSampleRate;
-    int rightPosition = (oldRatePosition + 1) * newSampleRate;
-    int ratio = rightPosition - position;
-    int width = rightPosition - leftPosition;
+    long position = newRatePosition * oldSampleRate;
+    long leftPosition = oldRatePosition * newSampleRate;
+    long rightPosition = (oldRatePosition + 1) * newSampleRate;
+    long ratio = rightPosition - position;
+    long width = rightPosition - leftPosition;
     return (short) ((ratio * left + (width - ratio) * right) / width);
   }
 
@@ -370,16 +370,23 @@ import java.util.Arrays;
     if (outputFrameCount == originalOutputFrameCount) {
       return;
     }
-    int newSampleRate = (int) (inputSampleRateHz / rate);
-    int oldSampleRate = inputSampleRateHz;
+
+    // Use long to avoid overflows int-int multiplications. The actual value of newSampleRate and
+    // oldSampleRate should always be comfortably within the int range.
+    long newSampleRate = (long) (inputSampleRateHz / rate);
+    long oldSampleRate = inputSampleRateHz;
     // Set these values to help with the integer math.
-    while (newSampleRate > (1 << 14) || oldSampleRate > (1 << 14)) {
+    while (newSampleRate != 0
+        && oldSampleRate != 0
+        && newSampleRate % 2 == 0
+        && oldSampleRate % 2 == 0) {
       newSampleRate /= 2;
       oldSampleRate /= 2;
     }
     moveNewSamplesToPitchBuffer(originalOutputFrameCount);
     // Leave at least one pitch sample in the buffer.
     for (int position = 0; position < pitchFrameCount - 1; position++) {
+      // Cast to long to avoid overflow.
       while ((oldRatePosition + 1) * newSampleRate > newRatePosition * oldSampleRate) {
         outputBuffer =
             ensureSpaceForAdditionalFrames(
@@ -394,7 +401,7 @@ import java.util.Arrays;
       oldRatePosition++;
       if (oldRatePosition == oldSampleRate) {
         oldRatePosition = 0;
-        Assertions.checkState(newRatePosition == newSampleRate);
+        checkState(newRatePosition == newSampleRate);
         newRatePosition = 0;
       }
     }
