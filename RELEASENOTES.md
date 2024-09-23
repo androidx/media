@@ -79,6 +79,9 @@
         legacy service. This prevented the `MediaBrowser` to receive the actual
         return value sent back by the legacy service
         ([#1474](https://github.com/androidx/media/issues/1474)).
+    *   Handle `IllegalArgumentException` thrown by devices of certain
+        manufacturers when setting the broadcast receiver for media button
+        intents ([#1730](https://github.com/androidx/media/issues/1730)).
 *   UI:
     *   Make the stretched/cropped video in
         `PlayerView`-in-Compose-`AndroidView` workaround opt-in, due to issues

@@ -50,6 +50,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.Bitmap;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -1483,8 +1484,22 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   private static final class Api31 {
     public static void setMediaButtonBroadcastReceiver(
         MediaSessionCompat mediaSessionCompat, ComponentName broadcastReceiver) {
-      ((android.media.session.MediaSession) checkNotNull(mediaSessionCompat.getMediaSession()))
-          .setMediaButtonBroadcastReceiver(broadcastReceiver);
+      try {
+        ((android.media.session.MediaSession) checkNotNull(mediaSessionCompat.getMediaSession()))
+            .setMediaButtonBroadcastReceiver(broadcastReceiver);
+      } catch (IllegalArgumentException e) {
+        if (Build.MANUFACTURER.equals("motorola")) {
+          // Internal bug ref: b/367415658
+          Log.e(
+              TAG,
+              "caught IllegalArgumentException on a motorola device when attempting to set the"
+                  + " media button broadcast receiver. See"
+                  + " https://github.com/androidx/media/issues/1730 for details.",
+              e);
+        } else {
+          throw e;
+        }
+      }
     }
   }
 }
