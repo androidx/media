@@ -45,6 +45,9 @@
         overriding this method in `DefaultLoadControl`). The default
         implementation of `LoadControl` disables preloading in case an app is
         using a custom implementation of `LoadControl`.
+    *   Add method `MediaSourceEventListener.EventDispatcher.dispatchEvent()` to
+        allow invoking events of subclass listeners
+        ([1736](https://github.com/androidx/media/pull/1736)).
 *   Transformer:
 *   Track Selection:
 *   Extractors:
