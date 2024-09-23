@@ -17,7 +17,6 @@
 package androidx.media3.transformer.mh.performance;
 
 import static androidx.media3.common.Player.STATE_ENDED;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapFromRgba8888Image;
@@ -31,10 +30,12 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assume.assumeTrue;
 
 import android.app.Instrumentation;
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.PixelFormat;
 import android.media.Image;
 import android.media.ImageReader;
+import android.os.Handler;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -46,10 +47,13 @@ import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.Brightness;
 import androidx.media3.effect.TimestampWrapper;
+import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.Renderer;
+import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.util.EventLogger;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
+import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.media3.transformer.SurfaceTestActivity;
 import androidx.test.core.app.ApplicationProvider;
@@ -135,6 +139,7 @@ public class EffectPlaybackPixelTest {
 
             setOutputSurfaceAndSizeOnPlayer(
                 player,
+                findVideoRenderer(player),
                 outputImageReader.getSurface(),
                 new Size(MP4_ASSET.videoFormat.width, MP4_ASSET.videoFormat.height));
 
@@ -192,8 +197,8 @@ public class EffectPlaybackPixelTest {
     public void exoplayerEffectsPreviewTest_ensuresAllFramesRendered() throws Exception {
       // Internal reference: b/264252759.
       assumeTrue(
-          "This test should run on real devices because OpenGL to ImageReader rendering is not"
-              + " always reliable on emulators.",
+          "This test should run on real devices because OpenGL to ImageReader rendering is"
+              + "not always reliable on emulators.",
           !Util.isRunningOnEmulator());
 
       ArrayList<BitmapPixelTestUtil.ImageBuffer> readImageBuffers = new ArrayList<>();
@@ -211,7 +216,27 @@ public class EffectPlaybackPixelTest {
 
       instrumentation.runOnMainSync(
           () -> {
-            player = new ExoPlayer.Builder(ApplicationProvider.getApplicationContext()).build();
+            Context context = ApplicationProvider.getApplicationContext();
+            Renderer videoRenderer =
+                new NoFrameDroppedVideoRenderer(context, MediaCodecSelector.DEFAULT);
+            player =
+                new ExoPlayer.Builder(context)
+                    .setRenderersFactory(
+                        new DefaultRenderersFactory(context) {
+                          @Override
+                          protected void buildVideoRenderers(
+                              Context context,
+                              @ExtensionRendererMode int extensionRendererMode,
+                              MediaCodecSelector mediaCodecSelector,
+                              boolean enableDecoderFallback,
+                              Handler eventHandler,
+                              VideoRendererEventListener eventListener,
+                              long allowedVideoJoiningTimeMs,
+                              ArrayList<Renderer> out) {
+                            out.add(videoRenderer);
+                          }
+                        })
+                    .build();
 
             checkStateNotNull(outputImageReader);
             outputImageReader.setOnImageAvailableListener(
@@ -228,6 +253,7 @@ public class EffectPlaybackPixelTest {
 
             setOutputSurfaceAndSizeOnPlayer(
                 player,
+                videoRenderer,
                 outputImageReader.getSurface(),
                 new Size(MP4_ASSET.videoFormat.width, MP4_ASSET.videoFormat.height));
             player.setPlayWhenReady(true);
@@ -287,8 +313,8 @@ public class EffectPlaybackPixelTest {
         throws Exception {
       // Internal reference: b/264252759.
       assumeTrue(
-          "This test should run on real devices because OpenGL to ImageReader rendering is not"
-              + " always reliable on emulators.",
+          "This test should run on real devices because OpenGL to ImageReader rendering is"
+              + "not always reliable on emulators.",
           !Util.isRunningOnEmulator());
 
       ArrayList<BitmapPixelTestUtil.ImageBuffer> readImageBuffers = new ArrayList<>();
@@ -306,7 +332,27 @@ public class EffectPlaybackPixelTest {
 
       instrumentation.runOnMainSync(
           () -> {
-            player = new ExoPlayer.Builder(ApplicationProvider.getApplicationContext()).build();
+            Context context = ApplicationProvider.getApplicationContext();
+            Renderer videoRenderer =
+                new NoFrameDroppedVideoRenderer(context, MediaCodecSelector.DEFAULT);
+            player =
+                new ExoPlayer.Builder(context)
+                    .setRenderersFactory(
+                        new DefaultRenderersFactory(context) {
+                          @Override
+                          protected void buildVideoRenderers(
+                              Context context,
+                              @ExtensionRendererMode int extensionRendererMode,
+                              MediaCodecSelector mediaCodecSelector,
+                              boolean enableDecoderFallback,
+                              Handler eventHandler,
+                              VideoRendererEventListener eventListener,
+                              long allowedVideoJoiningTimeMs,
+                              ArrayList<Renderer> out) {
+                            out.add(videoRenderer);
+                          }
+                        })
+                    .build();
 
             checkStateNotNull(outputImageReader);
             outputImageReader.setOnImageAvailableListener(
@@ -323,6 +369,7 @@ public class EffectPlaybackPixelTest {
 
             setOutputSurfaceAndSizeOnPlayer(
                 player,
+                videoRenderer,
                 outputImageReader.getSurface(),
                 new Size(MP4_ASSET.videoFormat.width, MP4_ASSET.videoFormat.height));
             player.setPlayWhenReady(true);
@@ -395,11 +442,10 @@ public class EffectPlaybackPixelTest {
   }
 
   private static void setOutputSurfaceAndSizeOnPlayer(
-      ExoPlayer player, Surface outputSurface, Size outputSize) {
+      ExoPlayer player, Renderer videoRenderer, Surface outputSurface, Size outputSize) {
     // We need to access renderer directly because ExoPlayer.setVideoEffects() doesn't support
     // output to a Surface. When using ImageReader, we need to manually set output resolution on
     // the renderer directly.
-    MediaCodecVideoRenderer videoRenderer = checkNotNull(findVideoRenderer(player));
     player
         .createMessage(videoRenderer)
         .setType(Renderer.MSG_SET_VIDEO_OUTPUT)
@@ -418,6 +464,25 @@ public class EffectPlaybackPixelTest {
     }
     if (imageReader != null) {
       imageReader.close();
+    }
+  }
+
+  private static class NoFrameDroppedVideoRenderer extends MediaCodecVideoRenderer {
+
+    public NoFrameDroppedVideoRenderer(Context context, MediaCodecSelector mediaCodecSelector) {
+      super(context, mediaCodecSelector);
+    }
+
+    @Override
+    protected boolean shouldDropOutputBuffer(
+        long earlyUs, long elapsedRealtimeUs, boolean isLastBuffer) {
+      return false;
+    }
+
+    @Override
+    protected boolean shouldDropBuffersToKeyframe(
+        long earlyUs, long elapsedRealtimeUs, boolean isLastBuffer) {
+      return false;
     }
   }
 }
