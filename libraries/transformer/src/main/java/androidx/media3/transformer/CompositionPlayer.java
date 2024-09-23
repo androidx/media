@@ -606,7 +606,10 @@ public final class CompositionPlayer extends SimpleBasePlayer
                 .setEffects(new Effects(editedMediaItem.effects.audioProcessors, newVideoEffects))
                 .build());
       }
-      newSequences.add(new EditedMediaItemSequence(newEditedMediaItems, sequence.isLooping));
+      newSequences.add(
+          new EditedMediaItemSequence.Builder(newEditedMediaItems)
+              .setIsLooping(sequence.isLooping)
+              .build());
     }
     return composition.buildUpon().setSequences(newSequences).build();
   }

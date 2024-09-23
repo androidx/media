@@ -113,15 +113,16 @@ public class TransformerProgressTest {
             // sleep on every received frame.
             Composition composition =
                 new Composition.Builder(
-                        new EditedMediaItemSequence(
-                            new EditedMediaItem.Builder(
-                                    MediaItem.fromUri(AndroidTestUtil.MP4_ASSET.uri))
-                                .setEffects(
-                                    new Effects(
-                                        /* audioProcessors= */ ImmutableList.of(),
-                                        /* videoEffects= */ ImmutableList.of(
-                                            new DelayEffect(/* delayMs= */ DELAY_MS))))
-                                .build()))
+                        new EditedMediaItemSequence.Builder(
+                                new EditedMediaItem.Builder(
+                                        MediaItem.fromUri(AndroidTestUtil.MP4_ASSET.uri))
+                                    .setEffects(
+                                        new Effects(
+                                            /* audioProcessors= */ ImmutableList.of(),
+                                            /* videoEffects= */ ImmutableList.of(
+                                                new DelayEffect(/* delayMs= */ DELAY_MS))))
+                                    .build())
+                            .build())
                     .build();
             File outputVideoFile =
                 AndroidTestUtil.createExternalCacheFile(

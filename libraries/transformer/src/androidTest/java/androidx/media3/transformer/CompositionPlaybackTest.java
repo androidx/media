@@ -79,7 +79,7 @@ public class CompositionPlaybackTest {
             .build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence(ImmutableList.of(editedMediaItem, editedMediaItem)))
+                new EditedMediaItemSequence.Builder(editedMediaItem, editedMediaItem).build())
             .build();
     ImmutableList<Long> expectedTimestampsUs =
         new ImmutableList.Builder<Long>()
@@ -119,7 +119,7 @@ public class CompositionPlaybackTest {
             .build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence(ImmutableList.of(editedMediaItem, editedMediaItem)))
+                new EditedMediaItemSequence.Builder(editedMediaItem, editedMediaItem).build())
             .build();
     ImmutableList<Long> expectedTimestampsUs =
         new ImmutableList.Builder<Long>()
@@ -167,8 +167,8 @@ public class CompositionPlaybackTest {
             .build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence(
-                    ImmutableList.of(videoEditedMediaItem, imageEditedMediaItem)))
+                new EditedMediaItemSequence.Builder(videoEditedMediaItem, imageEditedMediaItem)
+                    .build())
             .build();
     ImmutableList<Long> expectedTimestampsUs =
         new ImmutableList.Builder<Long>()
@@ -216,8 +216,8 @@ public class CompositionPlaybackTest {
             .build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence(
-                    ImmutableList.of(imageEditedMediaItem, videoEditedMediaItem)))
+                new EditedMediaItemSequence.Builder(imageEditedMediaItem, videoEditedMediaItem)
+                    .build())
             .build();
     ImmutableList<Long> expectedTimestampsUs =
         new ImmutableList.Builder<Long>()
@@ -260,10 +260,11 @@ public class CompositionPlaybackTest {
         videoEditedMediaItem.buildUpon().setRemoveAudio(true).build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence(
-                    videoEditedMediaItemRemoveAudio,
-                    videoEditedMediaItem,
-                    videoEditedMediaItemRemoveAudio))
+                new EditedMediaItemSequence.Builder(
+                        videoEditedMediaItemRemoveAudio,
+                        videoEditedMediaItem,
+                        videoEditedMediaItemRemoveAudio)
+                    .build())
             .build();
     ImmutableList<Long> expectedTimestampsUs =
         new ImmutableList.Builder<Long>()
@@ -308,8 +309,9 @@ public class CompositionPlaybackTest {
         videoEditedMediaItem.buildUpon().setRemoveAudio(true).build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence(
-                    videoEditedMediaItem, videoEditedMediaItemRemoveAudio, videoEditedMediaItem))
+                new EditedMediaItemSequence.Builder(
+                        videoEditedMediaItem, videoEditedMediaItemRemoveAudio, videoEditedMediaItem)
+                    .build())
             .build();
     ImmutableList<Long> expectedTimestampsUs =
         new ImmutableList.Builder<Long>()
@@ -356,8 +358,9 @@ public class CompositionPlaybackTest {
         videoEditedMediaItem.buildUpon().setRemoveVideo(true).build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence(
-                    videoEditedMediaItem, videoEditedMediaItemRemoveVideo, videoEditedMediaItem))
+                new EditedMediaItemSequence.Builder(
+                        videoEditedMediaItem, videoEditedMediaItemRemoveVideo, videoEditedMediaItem)
+                    .build())
             .build();
 
     getInstrumentation()

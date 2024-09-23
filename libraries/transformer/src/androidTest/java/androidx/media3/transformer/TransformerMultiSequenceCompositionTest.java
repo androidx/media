@@ -244,8 +244,8 @@ public final class TransformerMultiSequenceCompositionTest {
         new EditedMediaItem.Builder(mediaItem).setEffects(effects).build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence(editedMediaItem),
-                new EditedMediaItemSequence(editedMediaItem))
+                new EditedMediaItemSequence.Builder(editedMediaItem).build(),
+                new EditedMediaItemSequence.Builder(editedMediaItem).build())
             .build();
 
     ExportTestResult result =
@@ -303,8 +303,8 @@ public final class TransformerMultiSequenceCompositionTest {
 
     return new Composition.Builder(
             ImmutableList.of(
-                new EditedMediaItemSequence(firstSequenceMediaItems),
-                new EditedMediaItemSequence(secondSequenceMediaItems)))
+                new EditedMediaItemSequence.Builder(firstSequenceMediaItems).build(),
+                new EditedMediaItemSequence.Builder(secondSequenceMediaItems).build()))
         .setEffects(
             new Effects(
                 /* audioProcessors= */ ImmutableList.of(), /* videoEffects= */ compositionEffects))

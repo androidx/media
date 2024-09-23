@@ -1105,7 +1105,10 @@ public final class Transformer {
    * @throws IllegalStateException If an export is already in progress.
    */
   public void start(EditedMediaItem editedMediaItem, String path) {
-    start(new Composition.Builder(new EditedMediaItemSequence(editedMediaItem)).build(), path);
+    start(
+        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
+            .build(),
+        path);
   }
 
   /**

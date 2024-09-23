@@ -423,7 +423,7 @@ public final class MediaItemExportTest {
     MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_AMR_NB);
     EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem))
+        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
             .experimentalSetForceAudioTrack(true)
             .build();
 
@@ -442,7 +442,7 @@ public final class MediaItemExportTest {
     MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO);
     EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem))
+        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
             .experimentalSetForceAudioTrack(true)
             .build();
 
@@ -467,7 +467,7 @@ public final class MediaItemExportTest {
             .setEffects(createAudioEffects(sonicAudioProcessor))
             .build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem))
+        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
             .experimentalSetForceAudioTrack(true)
             .build();
 
@@ -493,7 +493,7 @@ public final class MediaItemExportTest {
             .setRemoveVideo(true)
             .build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem))
+        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
             .experimentalSetForceAudioTrack(true)
             .build();
 
@@ -514,7 +514,7 @@ public final class MediaItemExportTest {
     MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_VIDEO_ONLY);
     EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem))
+        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
             .experimentalSetForceAudioTrack(true)
             .build();
 
@@ -612,7 +612,7 @@ public final class MediaItemExportTest {
             .setEffects(createAudioEffects(sonicAudioProcessor))
             .build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem))
+        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
             .setTransmuxAudio(true)
             .build();
 
@@ -1307,10 +1307,11 @@ public final class MediaItemExportTest {
     AtomicInteger bytesSeen = new AtomicInteger(0);
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence(
-                    new EditedMediaItem.Builder(
-                            MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
-                        .build()))
+                new EditedMediaItemSequence.Builder(
+                        new EditedMediaItem.Builder(
+                                MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
+                            .build())
+                    .build())
             .setEffects(createAudioEffects(createByteCountingAudioProcessor(bytesSeen)))
             .build();
 
@@ -1337,13 +1338,14 @@ public final class MediaItemExportTest {
     AtomicInteger compositionEffectBytesSeen = new AtomicInteger(0);
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence(
-                    new EditedMediaItem.Builder(
-                            MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
-                        .setEffects(
-                            createAudioEffects(
-                                createByteCountingAudioProcessor(itemEffectBytesSeen)))
-                        .build()))
+                new EditedMediaItemSequence.Builder(
+                        new EditedMediaItem.Builder(
+                                MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
+                            .setEffects(
+                                createAudioEffects(
+                                    createByteCountingAudioProcessor(itemEffectBytesSeen)))
+                            .build())
+                    .build())
             .setEffects(
                 createAudioEffects(createByteCountingAudioProcessor(compositionEffectBytesSeen)))
             .build();

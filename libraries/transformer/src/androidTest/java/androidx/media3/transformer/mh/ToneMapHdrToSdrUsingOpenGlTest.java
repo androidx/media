@@ -83,8 +83,9 @@ public class ToneMapHdrToSdrUsingOpenGlTest {
     Transformer transformer = new Transformer.Builder(context).build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence(
-                    new EditedMediaItem.Builder(MediaItem.fromUri(fileUri)).build()))
+                new EditedMediaItemSequence.Builder(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(fileUri)).build())
+                    .build())
             .setHdrMode(Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL)
             .build();
     ExportTestResult exportTestResult =

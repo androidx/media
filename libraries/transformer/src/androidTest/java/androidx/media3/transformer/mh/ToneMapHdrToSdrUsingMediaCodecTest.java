@@ -88,7 +88,7 @@ public class ToneMapHdrToSdrUsingMediaCodecTest {
         new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_720P_4_SECOND_HDR10.uri)))
             .build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem))
+        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
             .setHdrMode(Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC)
             .build();
 
@@ -149,7 +149,7 @@ public class ToneMapHdrToSdrUsingMediaCodecTest {
                 MediaItem.fromUri(Uri.parse(MP4_ASSET_1080P_5_SECOND_HLG10.uri)))
             .build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem))
+        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
             .setHdrMode(Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC)
             .build();
 
@@ -210,7 +210,7 @@ public class ToneMapHdrToSdrUsingMediaCodecTest {
             .setEffects(FORCE_TRANSCODE_VIDEO_EFFECTS)
             .build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem))
+        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
             .setHdrMode(Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC)
             .build();
 
@@ -272,7 +272,7 @@ public class ToneMapHdrToSdrUsingMediaCodecTest {
             .setEffects(FORCE_TRANSCODE_VIDEO_EFFECTS)
             .build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem))
+        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
             .setHdrMode(Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC)
             .build();
 

@@ -78,7 +78,8 @@ import java.util.Objects;
         editedMediaItems.add(itemConfig.build());
       }
 
-      return new Composition.Builder(new EditedMediaItemSequence(editedMediaItems.build()))
+      return new Composition.Builder(
+              new EditedMediaItemSequence.Builder(editedMediaItems.build()).build())
           .setEffects(compositionEffects)
           .build();
     }

@@ -119,15 +119,16 @@ public class CompositionPlayerPixelTest {
                   new Size(MP4_ASSET.videoFormat.width, MP4_ASSET.videoFormat.height));
               player.setComposition(
                   new Composition.Builder(
-                          new EditedMediaItemSequence(
-                              new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-                                  .setEffects(
-                                      new Effects(
-                                          /* audioProcessors= */ ImmutableList.of(),
-                                          /* videoEffects= */ ImmutableList.of(
-                                              createTimestampOverlay())))
-                                  .setDurationUs(1_024_000L)
-                                  .build()))
+                          new EditedMediaItemSequence.Builder(
+                                  new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+                                      .setEffects(
+                                          new Effects(
+                                              /* audioProcessors= */ ImmutableList.of(),
+                                              /* videoEffects= */ ImmutableList.of(
+                                                  createTimestampOverlay())))
+                                      .setDurationUs(1_024_000L)
+                                      .build())
+                              .build())
                       .build());
               player.prepare();
             });

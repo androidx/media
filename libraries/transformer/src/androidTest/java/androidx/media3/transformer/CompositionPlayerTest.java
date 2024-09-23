@@ -125,10 +125,11 @@ public class CompositionPlayerTest {
           compositionPlayer.addListener(listener);
           compositionPlayer.setComposition(
               new Composition.Builder(
-                      new EditedMediaItemSequence(
-                          new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-                              .setDurationUs(1_000_000)
-                              .build()))
+                      new EditedMediaItemSequence.Builder(
+                              new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+                                  .setDurationUs(1_000_000)
+                                  .build())
+                          .build())
                   .build());
           compositionPlayer.prepare();
         });
@@ -145,10 +146,11 @@ public class CompositionPlayerTest {
           compositionPlayer.addListener(listener);
           compositionPlayer.setComposition(
               new Composition.Builder(
-                      new EditedMediaItemSequence(
-                          new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-                              .setDurationUs(1_000_000)
-                              .build()))
+                      new EditedMediaItemSequence.Builder(
+                              new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+                                  .setDurationUs(1_000_000)
+                                  .build())
+                          .build())
                   .build());
           compositionPlayer.setVideoSurfaceView(surfaceView);
           compositionPlayer.prepare();
@@ -169,10 +171,11 @@ public class CompositionPlayerTest {
           compositionPlayer.addListener(listener);
           compositionPlayer.setComposition(
               new Composition.Builder(
-                      new EditedMediaItemSequence(
-                          new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-                              .setDurationUs(1_000_000)
-                              .build()))
+                      new EditedMediaItemSequence.Builder(
+                              new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+                                  .setDurationUs(1_000_000)
+                                  .build())
+                          .build())
                   .build());
           compositionPlayer.prepare();
         });
@@ -191,10 +194,11 @@ public class CompositionPlayerTest {
           compositionPlayer.addListener(listener);
           compositionPlayer.setComposition(
               new Composition.Builder(
-                      new EditedMediaItemSequence(
-                          new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-                              .setDurationUs(1_000_000)
-                              .build()))
+                      new EditedMediaItemSequence.Builder(
+                              new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+                                  .setDurationUs(1_000_000)
+                                  .build())
+                          .build())
                   .build());
           compositionPlayer.setVideoSurfaceHolder(surfaceHolder);
           compositionPlayer.prepare();
@@ -233,14 +237,15 @@ public class CompositionPlayerTest {
           compositionPlayer.addListener(listener);
           compositionPlayer.setComposition(
               new Composition.Builder(
-                      new EditedMediaItemSequence(
-                          new EditedMediaItem.Builder(
-                                  new MediaItem.Builder()
-                                      .setUri(JPG_SINGLE_PIXEL_ASSET.uri)
-                                      .setImageDurationMs(1_000)
-                                      .build())
-                              .setDurationUs(1_000_000)
-                              .build()))
+                      new EditedMediaItemSequence.Builder(
+                              new EditedMediaItem.Builder(
+                                      new MediaItem.Builder()
+                                          .setUri(JPG_SINGLE_PIXEL_ASSET.uri)
+                                          .setImageDurationMs(1_000)
+                                          .build())
+                                  .setDurationUs(1_000_000)
+                                  .build())
+                          .build())
                   .build());
           compositionPlayer.prepare();
         });
@@ -274,15 +279,17 @@ public class CompositionPlayerTest {
           compositionPlayer.addListener(listener);
           compositionPlayer.setComposition(
               new Composition.Builder(
-                      new EditedMediaItemSequence(
-                          new EditedMediaItem.Builder(
-                                  new MediaItem.Builder()
-                                      .setUri(JPG_SINGLE_PIXEL_ASSET.uri)
-                                      .setMimeType(MimeTypes.APPLICATION_EXTERNALLY_LOADED_IMAGE)
-                                      .setImageDurationMs(1_000)
-                                      .build())
-                              .setDurationUs(1_000_000)
-                              .build()))
+                      new EditedMediaItemSequence.Builder(
+                              new EditedMediaItem.Builder(
+                                      new MediaItem.Builder()
+                                          .setUri(JPG_SINGLE_PIXEL_ASSET.uri)
+                                          .setMimeType(
+                                              MimeTypes.APPLICATION_EXTERNALLY_LOADED_IMAGE)
+                                          .setImageDurationMs(1_000)
+                                          .build())
+                                  .setDurationUs(1_000_000)
+                                  .build())
+                          .build())
                   .build());
           compositionPlayer.prepare();
         });
@@ -310,7 +317,8 @@ public class CompositionPlayerTest {
           compositionPlayer.setVideoSurfaceView(surfaceView);
           compositionPlayer.addListener(listener);
           compositionPlayer.setComposition(
-              new Composition.Builder(new EditedMediaItemSequence(image, image)).build());
+              new Composition.Builder(new EditedMediaItemSequence.Builder(image, image).build())
+                  .build());
           compositionPlayer.prepare();
           compositionPlayer.play();
         });
@@ -343,7 +351,8 @@ public class CompositionPlayerTest {
           compositionPlayer.setVideoSurfaceView(surfaceView);
           compositionPlayer.addListener(listener);
           compositionPlayer.setComposition(
-              new Composition.Builder(new EditedMediaItemSequence(image, video)).build());
+              new Composition.Builder(new EditedMediaItemSequence.Builder(image, video).build())
+                  .build());
           compositionPlayer.prepare();
           compositionPlayer.play();
         });
@@ -375,7 +384,8 @@ public class CompositionPlayerTest {
           compositionPlayer.setVideoSurfaceView(surfaceView);
           compositionPlayer.addListener(listener);
           compositionPlayer.setComposition(
-              new Composition.Builder(new EditedMediaItemSequence(video, image)).build());
+              new Composition.Builder(new EditedMediaItemSequence.Builder(video, image).build())
+                  .build());
           compositionPlayer.prepare();
           compositionPlayer.play();
         });
@@ -404,7 +414,7 @@ public class CompositionPlayerTest {
           compositionPlayer.setVideoSurfaceView(surfaceView);
           compositionPlayer.addListener(listener);
           compositionPlayer.setComposition(
-              new Composition.Builder(new EditedMediaItemSequence(video)).build());
+              new Composition.Builder(new EditedMediaItemSequence.Builder(video).build()).build());
           compositionPlayer.prepare();
           compositionPlayer.play();
         });
@@ -433,7 +443,7 @@ public class CompositionPlayerTest {
           compositionPlayer.setVideoSurfaceView(surfaceView);
           compositionPlayer.addListener(listener);
           compositionPlayer.setComposition(
-              new Composition.Builder(new EditedMediaItemSequence(video)).build());
+              new Composition.Builder(new EditedMediaItemSequence.Builder(video).build()).build());
           compositionPlayer.prepare();
           compositionPlayer.play();
         });
@@ -467,7 +477,7 @@ public class CompositionPlayerTest {
                   .build();
           compositionPlayer.addListener(listener);
           compositionPlayer.setComposition(
-              new Composition.Builder(new EditedMediaItemSequence(video)).build());
+              new Composition.Builder(new EditedMediaItemSequence.Builder(video).build()).build());
           compositionPlayer.prepare();
           compositionPlayer.play();
         });
@@ -493,7 +503,7 @@ public class CompositionPlayerTest {
                   .build();
           compositionPlayer.addListener(playerTestListener);
           compositionPlayer.setComposition(
-              new Composition.Builder(new EditedMediaItemSequence(video)).build());
+              new Composition.Builder(new EditedMediaItemSequence.Builder(video).build()).build());
           compositionPlayer.prepare();
           compositionPlayer.play();
         });

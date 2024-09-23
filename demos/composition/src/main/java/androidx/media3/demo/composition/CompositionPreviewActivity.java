@@ -179,7 +179,7 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
         mediaItems.add(itemBuilder.build());
       }
     }
-    EditedMediaItemSequence videoSequence = new EditedMediaItemSequence(mediaItems);
+    EditedMediaItemSequence videoSequence = new EditedMediaItemSequence.Builder(mediaItems).build();
     List<EditedMediaItemSequence> compositionSequences = new ArrayList<>();
     compositionSequences.add(videoSequence);
     if (includeBackgroundAudioTrack) {
@@ -207,7 +207,7 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
             .build();
     EditedMediaItem audioItem =
         new EditedMediaItem.Builder(audioMediaItem).setDurationUs(59_000_000).build();
-    return new EditedMediaItemSequence(audioItem);
+    return new EditedMediaItemSequence.Builder(audioItem).build();
   }
 
   private void previewComposition() {

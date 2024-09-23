@@ -151,36 +151,37 @@ public class TransformerEndToEndTest {
             .build();
 
     EditedMediaItemSequence audioVideoSequence =
-        new EditedMediaItemSequence(audioVideoItem, imageItem, audioVideoItem);
+        new EditedMediaItemSequence.Builder(audioVideoItem, imageItem, audioVideoItem).build();
 
     EditedMediaItem.Builder audioBuilder =
         new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri)).setRemoveVideo(true);
 
     EditedMediaItemSequence audioSequence =
-        new EditedMediaItemSequence(
-            audioBuilder
-                .setEffects(
-                    new Effects(
-                        ImmutableList.of(createSonic(/* pitch= */ 1.3f)),
-                        /* videoEffects= */ ImmutableList.of()))
-                .build(),
-            audioBuilder
-                .setEffects(
-                    new Effects(
-                        ImmutableList.of(createSonic(/* pitch= */ 0.85f)),
-                        /* videoEffects= */ ImmutableList.of()))
-                .build());
+        new EditedMediaItemSequence.Builder(
+                audioBuilder
+                    .setEffects(
+                        new Effects(
+                            ImmutableList.of(createSonic(/* pitch= */ 1.3f)),
+                            /* videoEffects= */ ImmutableList.of()))
+                    .build(),
+                audioBuilder
+                    .setEffects(
+                        new Effects(
+                            ImmutableList.of(createSonic(/* pitch= */ 0.85f)),
+                            /* videoEffects= */ ImmutableList.of()))
+                    .build())
+            .build();
 
     EditedMediaItemSequence loopingAudioSequence =
-        new EditedMediaItemSequence(
-            ImmutableList.of(
+        new EditedMediaItemSequence.Builder(
                 audioBuilder
                     .setEffects(
                         new Effects(
                             ImmutableList.of(createSonic(/* pitch= */ 0.4f)),
                             /* videoEffects= */ ImmutableList.of()))
-                    .build()),
-            /* isLooping= */ true);
+                    .build())
+            .setIsLooping(true)
+            .build();
 
     Composition composition =
         new Composition.Builder(audioVideoSequence, audioSequence, loopingAudioSequence).build();
@@ -213,21 +214,21 @@ public class TransformerEndToEndTest {
             .setFrameRate(30)
             .build();
 
-    EditedMediaItemSequence imageSequence = new EditedMediaItemSequence(imageItem);
+    EditedMediaItemSequence imageSequence = new EditedMediaItemSequence.Builder(imageItem).build();
 
     EditedMediaItem.Builder audioBuilder =
         new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri)).setRemoveVideo(true);
 
     EditedMediaItemSequence loopingAudioSequence =
-        new EditedMediaItemSequence(
-            ImmutableList.of(
+        new EditedMediaItemSequence.Builder(
                 audioBuilder
                     .setEffects(
                         new Effects(
                             ImmutableList.of(createSonic(/* pitch= */ 0.4f)),
                             /* videoEffects= */ ImmutableList.of()))
-                    .build()),
-            /* isLooping= */ true);
+                    .build())
+            .setIsLooping(true)
+            .build();
 
     Composition composition = new Composition.Builder(imageSequence, loopingAudioSequence).build();
 
@@ -534,7 +535,7 @@ public class TransformerEndToEndTest {
     }
 
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItems))
+        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItems).build())
             .setEffects(
                 new Effects(
                     /* audioProcessors= */ ImmutableList.of(),
@@ -617,7 +618,7 @@ public class TransformerEndToEndTest {
     ImmutableList<Effect> videoEffects =
         ImmutableList.of((GlEffect) (context, useHdr) -> timestampRecordingShaderProgram);
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem))
+        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
             .setEffects(new Effects(/* audioProcessors= */ ImmutableList.of(), videoEffects))
             .build();
 
@@ -646,8 +647,8 @@ public class TransformerEndToEndTest {
         ImmutableList.of((GlEffect) (context, useHdr) -> timestampRecordingShaderProgram);
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence(editedMediaItem),
-                new EditedMediaItemSequence(editedMediaItem))
+                new EditedMediaItemSequence.Builder(editedMediaItem).build(),
+                new EditedMediaItemSequence.Builder(editedMediaItem).build())
             .setEffects(new Effects(/* audioProcessors= */ ImmutableList.of(), videoEffects))
             .build();
 
@@ -1209,7 +1210,7 @@ public class TransformerEndToEndTest {
             .setRemoveAudio(true)
             .build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem))
+        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
             .experimentalSetForceAudioTrack(true)
             .build();
     ExportTestResult result =
@@ -1271,7 +1272,8 @@ public class TransformerEndToEndTest {
             .setRemoveAudio(true)
             .build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem, editedMediaItem))
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(editedMediaItem, editedMediaItem).build())
             .build();
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, transformer)
@@ -1300,7 +1302,8 @@ public class TransformerEndToEndTest {
             .setRemoveAudio(true)
             .build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem, editedMediaItem))
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(editedMediaItem, editedMediaItem).build())
             .experimentalSetForceAudioTrack(true)
             .build();
     ExportTestResult result =
@@ -1344,8 +1347,8 @@ public class TransformerEndToEndTest {
             .build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence(audioEditedMediaItem),
-                new EditedMediaItemSequence(videoEditedMediaItem))
+                new EditedMediaItemSequence.Builder(audioEditedMediaItem).build(),
+                new EditedMediaItemSequence.Builder(videoEditedMediaItem).build())
             .build();
 
     ExportTestResult result =
@@ -1372,15 +1375,17 @@ public class TransformerEndToEndTest {
     EditedMediaItem audioEditedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(MP3_ASSET.uri)).build();
     EditedMediaItemSequence loopingAudioSequence =
-        new EditedMediaItemSequence(
-            ImmutableList.of(audioEditedMediaItem, audioEditedMediaItem), /* isLooping= */ true);
+        new EditedMediaItemSequence.Builder(audioEditedMediaItem, audioEditedMediaItem)
+            .setIsLooping(true)
+            .build();
     EditedMediaItem videoEditedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri))
             .setRemoveAudio(true)
             .build();
     EditedMediaItemSequence videoSequence =
-        new EditedMediaItemSequence(
-            videoEditedMediaItem, videoEditedMediaItem, videoEditedMediaItem);
+        new EditedMediaItemSequence.Builder(
+                videoEditedMediaItem, videoEditedMediaItem, videoEditedMediaItem)
+            .build();
     Composition composition =
         new Composition.Builder(loopingAudioSequence, videoSequence).setTransmuxVideo(true).build();
 
@@ -1414,13 +1419,15 @@ public class TransformerEndToEndTest {
     EditedMediaItem audioEditedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(MP3_ASSET.uri)).build();
     EditedMediaItemSequence audioSequence =
-        new EditedMediaItemSequence(
-            audioEditedMediaItem, audioEditedMediaItem, audioEditedMediaItem);
+        new EditedMediaItemSequence.Builder(
+                audioEditedMediaItem, audioEditedMediaItem, audioEditedMediaItem)
+            .build();
     EditedMediaItem videoEditedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri)).setRemoveAudio(true).build();
     EditedMediaItemSequence loopingVideoSequence =
-        new EditedMediaItemSequence(
-            ImmutableList.of(videoEditedMediaItem, videoEditedMediaItem), /* isLooping= */ true);
+        new EditedMediaItemSequence.Builder(videoEditedMediaItem, videoEditedMediaItem)
+            .setIsLooping(true)
+            .build();
     Composition composition = new Composition.Builder(audioSequence, loopingVideoSequence).build();
 
     ExportTestResult result =
@@ -1448,16 +1455,18 @@ public class TransformerEndToEndTest {
     EditedMediaItem audioEditedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(MP3_ASSET.uri)).build();
     EditedMediaItemSequence audioSequence =
-        new EditedMediaItemSequence(
-            audioEditedMediaItem, audioEditedMediaItem, audioEditedMediaItem);
+        new EditedMediaItemSequence.Builder(
+                audioEditedMediaItem, audioEditedMediaItem, audioEditedMediaItem)
+            .build();
     EditedMediaItem imageEditedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(PNG_ASSET.uri))
             .setDurationUs(1_000_000)
             .setFrameRate(30)
             .build();
     EditedMediaItemSequence loopingImageSequence =
-        new EditedMediaItemSequence(
-            ImmutableList.of(imageEditedMediaItem, imageEditedMediaItem), /* isLooping= */ true);
+        new EditedMediaItemSequence.Builder(imageEditedMediaItem, imageEditedMediaItem)
+            .setIsLooping(true)
+            .build();
     Composition composition = new Composition.Builder(audioSequence, loopingImageSequence).build();
 
     ExportTestResult result =
@@ -1484,15 +1493,17 @@ public class TransformerEndToEndTest {
     Transformer transformer = new Transformer.Builder(context).build();
     EditedMediaItem audioEditedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(MP3_ASSET.uri)).build();
-    EditedMediaItemSequence audioSequence = new EditedMediaItemSequence(audioEditedMediaItem);
+    EditedMediaItemSequence audioSequence =
+        new EditedMediaItemSequence.Builder(audioEditedMediaItem).build();
     EditedMediaItem imageEditedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(PNG_ASSET.uri))
             .setDurationUs(1_050_000)
             .setFrameRate(20)
             .build();
     EditedMediaItemSequence loopingImageSequence =
-        new EditedMediaItemSequence(
-            ImmutableList.of(imageEditedMediaItem, imageEditedMediaItem), /* isLooping= */ true);
+        new EditedMediaItemSequence.Builder(imageEditedMediaItem, imageEditedMediaItem)
+            .setIsLooping(true)
+            .build();
     Composition composition = new Composition.Builder(audioSequence, loopingImageSequence).build();
 
     ExportTestResult result =
@@ -1566,7 +1577,8 @@ public class TransformerEndToEndTest {
             .setRemoveVideo(true)
             .build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem)).build();
+        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
+            .build();
 
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
@@ -1584,7 +1596,7 @@ public class TransformerEndToEndTest {
             .setRemoveVideo(true)
             .build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem))
+        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
             .setEffects(
                 new Effects(ImmutableList.of(createSonic(/* pitch= */ 2f)), ImmutableList.of()))
             .build();
@@ -1982,7 +1994,8 @@ public class TransformerEndToEndTest {
     EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
 
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem, editedMediaItem))
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(editedMediaItem, editedMediaItem).build())
             .build();
     ExportTestResult exportTestResult =
         new TransformerAndroidTestRunner.Builder(context, transformer)

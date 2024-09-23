@@ -399,7 +399,8 @@ public class TransformerPauseResumeTest {
       editedMediaItemList.add(editedMediaItem);
     }
 
-    return new Composition.Builder(new EditedMediaItemSequence(editedMediaItemList)).build();
+    return new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItemList).build())
+        .build();
   }
 
   private static Transformer buildBlockingTransformer(FrameBlockingMuxer.Listener listener) {

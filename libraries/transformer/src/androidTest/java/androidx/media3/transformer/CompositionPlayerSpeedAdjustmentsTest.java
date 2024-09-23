@@ -107,7 +107,8 @@ public class CompositionPlayerSpeedAdjustmentsTest {
           compositionPlayer.addListener(compositionPlayerListener);
           compositionPlayer.setComposition(
               new Composition.Builder(
-                      new EditedMediaItemSequence(timestampRecordingEditedMediaItems))
+                      new EditedMediaItemSequence.Builder(timestampRecordingEditedMediaItems)
+                          .build())
                   .experimentalSetForceAudioTrack(true)
                   .build());
           compositionPlayer.prepare();

@@ -273,7 +273,8 @@ public class TransformerAndroidTestRunner {
    */
   public ExportTestResult run(String testId, EditedMediaItem editedMediaItem) throws Exception {
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem)).build();
+        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
+            .build();
     return run(testId, composition);
   }
 

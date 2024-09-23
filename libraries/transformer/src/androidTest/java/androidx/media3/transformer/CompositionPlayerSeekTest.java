@@ -129,7 +129,8 @@ public class CompositionPlayerSeekTest {
               compositionPlayer.setVideoSurfaceView(surfaceView);
               compositionPlayer.addListener(playerTestListener);
               compositionPlayer.setComposition(
-                  new Composition.Builder(new EditedMediaItemSequence(video, video)).build());
+                  new Composition.Builder(new EditedMediaItemSequence.Builder(video, video).build())
+                      .build());
               compositionPlayer.prepare();
               compositionPlayer.play();
             });
@@ -449,7 +450,9 @@ public class CompositionPlayerSeekTest {
               compositionPlayer.setVideoSurfaceView(surfaceView);
               compositionPlayer.addListener(playerTestListener);
               compositionPlayer.setComposition(
-                  new Composition.Builder(new EditedMediaItemSequence(editedMediaItems)).build());
+                  new Composition.Builder(
+                          new EditedMediaItemSequence.Builder(editedMediaItems).build())
+                      .build());
               compositionPlayer.prepare();
               compositionPlayer.play();
             });
