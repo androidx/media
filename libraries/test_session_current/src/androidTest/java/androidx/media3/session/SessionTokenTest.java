@@ -23,6 +23,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.content.ComponentName;
 import android.content.Context;
+import android.media.session.MediaSession.Token;
 import android.os.Bundle;
 import android.os.Process;
 import android.support.v4.media.session.MediaSessionCompat;
@@ -121,10 +122,7 @@ public class SessionTokenTest {
             new MediaSessionCompat(context, "createSessionToken_withLegacyToken"));
 
     SessionToken token =
-        SessionToken.createSessionToken(
-                context,
-                (android.media.session.MediaSession.Token)
-                    sessionCompat.getSessionToken().getToken())
+        SessionToken.createSessionToken(context, (Token) sessionCompat.getSessionToken().getToken())
             .get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
 
     assertThat(token.isLegacySession()).isTrue();
@@ -149,8 +147,7 @@ public class SessionTokenTest {
       throws Exception {
     // TODO(b/194458970): Make the callback of session and controller on the same thread work and
     //  remove the threadTestRule
-    AtomicReference<android.media.session.MediaSession.Token> platformToken =
-        new AtomicReference<>();
+    AtomicReference<Token> platformToken = new AtomicReference<>();
     MediaSession session =
         threadTestRule
             .getHandler()

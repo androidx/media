@@ -112,7 +112,7 @@ import com.google.common.base.Objects;
 
   @Override
   public String toString() {
-    return "SessionToken {legacyToken=" + legacyToken + "}";
+    return "SessionToken {legacy, uid=" + uid + "}";
   }
 
   @Override
