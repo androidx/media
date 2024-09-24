@@ -49,6 +49,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -119,6 +121,7 @@ public class ChunkSampleStream<T extends ChunkSource>
    *     events.
    * @param canReportInitialDiscontinuity Whether the stream can report an initial discontinuity if
    *     the first chunk can't start at the beginning and needs to preroll data.
+
    */
   public ChunkSampleStream(
       @C.TrackType int primaryTrackType,
@@ -133,6 +136,46 @@ public class ChunkSampleStream<T extends ChunkSource>
       LoadErrorHandlingPolicy loadErrorHandlingPolicy,
       MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
       boolean canReportInitialDiscontinuity) {
+    this(primaryTrackType, embeddedTrackTypes, embeddedTrackFormats, chunkSource, callback,
+        allocator, positionUs, drmSessionManager, drmEventDispatcher, loadErrorHandlingPolicy,
+        mediaSourceEventDispatcher, canReportInitialDiscontinuity, null);
+  }
+
+  /**
+   * Constructs an instance.
+   *
+   * @param primaryTrackType The {@link C.TrackType type} of the primary track.
+   * @param embeddedTrackTypes The types of any embedded tracks, or null.
+   * @param embeddedTrackFormats The formats of the embedded tracks, or null.
+   * @param chunkSource A {@link ChunkSource} from which chunks to load are obtained.
+   * @param callback An {@link Callback} for the stream.
+   * @param allocator An {@link Allocator} from which allocations can be obtained.
+   * @param positionUs The position from which to start loading media.
+   * @param drmSessionManager The {@link DrmSessionManager} to obtain {@link DrmSession DrmSessions}
+   *     from.
+   * @param drmEventDispatcher A dispatcher to notify of {@link DrmSessionEventListener} events.
+   * @param loadErrorHandlingPolicy The {@link LoadErrorHandlingPolicy}.
+   * @param mediaSourceEventDispatcher A dispatcher to notify of {@link MediaSourceEventListener}
+   *     events.
+   * @param canReportInitialDiscontinuity Whether the stream can report an initial discontinuity if
+   *     the first chunk can't start at the beginning and needs to preroll data.
+   * @param downloadExecutor An {@link Executor} for supplying the loader's thread. If null,
+   *                         a default single thread executor is used.
+   */
+  public ChunkSampleStream(
+      @C.TrackType int primaryTrackType,
+      @Nullable int[] embeddedTrackTypes,
+      @Nullable Format[] embeddedTrackFormats,
+      T chunkSource,
+      Callback<ChunkSampleStream<T>> callback,
+      Allocator allocator,
+      long positionUs,
+      DrmSessionManager drmSessionManager,
+      DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+      LoadErrorHandlingPolicy loadErrorHandlingPolicy,
+      MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+      boolean canReportInitialDiscontinuity,
+      @Nullable Executor downloadExecutor) {
     this.primaryTrackType = primaryTrackType;
     this.embeddedTrackTypes = embeddedTrackTypes == null ? new int[0] : embeddedTrackTypes;
     this.embeddedTrackFormats = embeddedTrackFormats == null ? new Format[0] : embeddedTrackFormats;
@@ -141,7 +184,8 @@ public class ChunkSampleStream<T extends ChunkSource>
     this.mediaSourceEventDispatcher = mediaSourceEventDispatcher;
     this.loadErrorHandlingPolicy = loadErrorHandlingPolicy;
     this.canReportInitialDiscontinuity = canReportInitialDiscontinuity;
-    loader = new Loader("ChunkSampleStream");
+    loader = downloadExecutor != null ?
+        new Loader(downloadExecutor) : new Loader("ChunkSampleStream");
     nextChunkHolder = new ChunkHolder();
     mediaChunks = new ArrayList<>();
     readOnlyMediaChunks = Collections.unmodifiableList(mediaChunks);
