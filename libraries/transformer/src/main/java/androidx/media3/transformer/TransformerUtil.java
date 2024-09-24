@@ -83,6 +83,9 @@ public final class TransformerUtil {
         || composition.sequences.get(sequenceIndex).editedMediaItems.size() > 1) {
       return !composition.transmuxAudio;
     }
+    if (composition.hasGaps()) {
+      return true;
+    }
     if (encoderFactory.audioNeedsEncoding()) {
       return true;
     }

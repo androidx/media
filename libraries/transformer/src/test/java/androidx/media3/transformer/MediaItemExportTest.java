@@ -142,6 +142,26 @@ public final class MediaItemExportTest {
   }
 
   @Test
+  public void start_gapOnlyExport_outputsSilence() throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
+    Transformer transformer =
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+
+    EditedMediaItemSequence gapSequence =
+        new EditedMediaItemSequence.Builder().addGap(500_000).build();
+
+    transformer.start(new Composition.Builder(gapSequence).build(), outputDir.newFile().getPath());
+    ExportResult result = TransformerTestRunner.runLooper(transformer);
+
+    // TODO(b/355201372) - Assert 500ms duration.
+    assertThat(result.durationMs).isAtLeast(487);
+    assertThat(result.durationMs).isAtMost(500);
+
+    DumpFileAsserts.assertOutput(
+        context, muxerFactory.getCreatedMuxer(), getDumpFileName("gap", "500ms"));
+  }
+
+  @Test
   public void start_audioAndVideoPassthrough_withClippingStartAtKeyFrame_completesSuccessfully()
       throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);

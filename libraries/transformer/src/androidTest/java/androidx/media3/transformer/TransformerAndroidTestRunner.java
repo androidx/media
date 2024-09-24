@@ -327,6 +327,9 @@ public class TransformerAndroidTestRunner {
     }
     for (EditedMediaItemSequence sequence : composition.sequences) {
       for (EditedMediaItem editedMediaItem : sequence.editedMediaItems) {
+        if (editedMediaItem.isGap()) {
+          continue;
+        }
         Uri mediaItemUri = checkNotNull(editedMediaItem.mediaItem.localConfiguration).uri;
         String scheme = mediaItemUri.getScheme();
         if (scheme != null && (scheme.equals("http") || scheme.equals("https"))) {

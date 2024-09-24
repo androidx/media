@@ -49,6 +49,7 @@
         allow invoking events of subclass listeners
         ([1736](https://github.com/androidx/media/pull/1736)).
 *   Transformer:
+    *   Add export support for gaps in sequences of audio EditedMediaItems.
 *   Track Selection:
 *   Extractors:
     *   Fix preroll sample handling for non-keyframe media start positions when

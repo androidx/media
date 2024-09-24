@@ -29,10 +29,12 @@ import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.Objects;
 
 /** A {@link MediaItem} with the transformations to apply to it. */
 @UnstableApi
 public final class EditedMediaItem {
+  /* package */ static final String GAP_MEDIA_ID = "androidx-media3-GapMediaItem";
 
   /** A builder for {@link EditedMediaItem} instances. */
   public static final class Builder {
@@ -340,5 +342,13 @@ public final class EditedMediaItem {
       }
     }
     return max(audioDurationUs, videoDurationUs);
+  }
+
+  /**
+   * Returns whether this {@code EditedMediaItem} is a {@linkplain
+   * EditedMediaItemSequence.Builder#addGap(long) gap}.
+   */
+  /* package */ boolean isGap() {
+    return Objects.equals(mediaItem.mediaId, GAP_MEDIA_ID);
   }
 }

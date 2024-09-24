@@ -447,6 +447,278 @@ public class CompositionExportTest {
         getCompositionDumpFilePath("seq-sample.wav+seq-sample.wav_clipped_100ms_to_400ms"));
   }
 
+  @Test
+  public void start_audioCompositionWithFirstSequenceAsGap_isCorrect() throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
+    Transformer transformer =
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+    EditedMediaItem audioItem1000ms =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)).build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder().addGap(1_000_000).build(),
+                new EditedMediaItemSequence.Builder(audioItem1000ms).build())
+            .build();
+
+    transformer.start(composition, outputDir.newFile().getPath());
+    TransformerTestRunner.runLooper(transformer);
+
+    // Gaps are 44.1kHz, stereo by default. Sample.wav is 44.1kHz mono, so this test needs its own
+    // dump file.
+    DumpFileAsserts.assertOutput(
+        context,
+        muxerFactory.getCreatedMuxer(),
+        getCompositionDumpFilePath("seq-" + "gap_1000ms" + "+seq-" + getFileName(FILE_AUDIO_RAW)));
+  }
+
+  @Test
+  public void start_audioCompositionWithFirstSequenceOffsetGap_isCorrect() throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
+    Transformer transformer =
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+    EditedMediaItem audioEditedMediaItem =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW_STEREO_48000KHZ))
+            .build();
+    EditedMediaItem otherAudioEditedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)).build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder()
+                    .addGap(100_000)
+                    .addItem(audioEditedMediaItem)
+                    .build(),
+                new EditedMediaItemSequence.Builder(otherAudioEditedMediaItem).build())
+            .build();
+
+    transformer.start(composition, outputDir.newFile().getPath());
+    ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
+
+    assertThat(exportResult.processedInputs).hasSize(3);
+    DumpFileAsserts.assertOutput(
+        context,
+        muxerFactory.getCreatedMuxer(),
+        getCompositionDumpFilePath(
+            "seq-"
+                + "gap_100ms-"
+                + getFileName(FILE_AUDIO_RAW_STEREO_48000KHZ)
+                + "+seq-"
+                + getFileName(FILE_AUDIO_RAW)));
+  }
+
+  @Test
+  public void start_audioCompositionWithFirstSequencePaddingGap_isCorrect() throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
+    Transformer transformer =
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+    EditedMediaItem audioItem300ms =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+                    .buildUpon()
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionMs(100)
+                            .setEndPositionMs(400)
+                            .build())
+                    .build())
+            .build();
+    EditedMediaItem audioItem1000ms =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)).build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder()
+                    .addItem(audioItem300ms)
+                    .addGap(700_000)
+                    .build(),
+                new EditedMediaItemSequence.Builder(audioItem1000ms).build())
+            .build();
+
+    transformer.start(composition, outputDir.newFile().getPath());
+    TransformerTestRunner.runLooper(transformer);
+
+    DumpFileAsserts.assertOutput(
+        context,
+        muxerFactory.getCreatedMuxer(),
+        getCompositionDumpFilePath(
+            "seq-"
+                + getFileName(FILE_AUDIO_RAW)
+                + "+seq-"
+                + getFileName(FILE_AUDIO_RAW)
+                + "_clipped100msTo400ms-gap_700ms"));
+  }
+
+  @Test
+  public void start_audioVideoCompositionWithSecondSequenceOffsetGap_isCorrect() throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
+    Transformer transformer =
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+    EditedMediaItem audioVideoEditedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW_VIDEO))
+            .build();
+    EditedMediaItem audioEditedMediaItem =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW_STEREO_48000KHZ))
+            .setRemoveVideo(true)
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(audioVideoEditedMediaItem).build(),
+                new EditedMediaItemSequence.Builder()
+                    .addGap(200_000)
+                    .addItem(audioEditedMediaItem)
+                    .build())
+            .setTransmuxVideo(true)
+            .build();
+
+    transformer.start(composition, outputDir.newFile().getPath());
+    ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
+
+    assertThat(exportResult.processedInputs).hasSize(3);
+    DumpFileAsserts.assertOutput(
+        context,
+        muxerFactory.getCreatedMuxer(),
+        getCompositionDumpFilePath(
+            "seq-"
+                + getFileName(FILE_AUDIO_RAW_VIDEO)
+                + "+seq-gap_200ms-"
+                + getFileName(FILE_AUDIO_RAW_STEREO_48000KHZ)));
+  }
+
+  @Test
+  public void start_audioVideoCompositionWithSecondSequenceIntervalGap_isCorrect()
+      throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
+    Transformer transformer =
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+    EditedMediaItem audioVideoEditedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW_VIDEO))
+            .build();
+    EditedMediaItem audio300msEditedMediaItem =
+        new EditedMediaItem.Builder(
+                new MediaItem.Builder()
+                    .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW_STEREO_48000KHZ)
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder().setEndPositionMs(300).build())
+                    .build())
+            .setRemoveVideo(true)
+            .build();
+    EditedMediaItem audio500msEditedMediaItem =
+        new EditedMediaItem.Builder(
+                new MediaItem.Builder()
+                    .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW_STEREO_48000KHZ)
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionMs(300)
+                            .setEndPositionMs(800)
+                            .build())
+                    .build())
+            .setRemoveVideo(true)
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(audioVideoEditedMediaItem).build(),
+                new EditedMediaItemSequence.Builder()
+                    .addItem(audio300msEditedMediaItem)
+                    .addGap(200_000)
+                    .addItem(audio500msEditedMediaItem)
+                    .build())
+            .setTransmuxVideo(true)
+            .build();
+
+    transformer.start(composition, outputDir.newFile().getPath());
+    ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
+
+    assertThat(exportResult.processedInputs).hasSize(4);
+    DumpFileAsserts.assertOutput(
+        context,
+        muxerFactory.getCreatedMuxer(),
+        getCompositionDumpFilePath(
+            "seq-"
+                + getFileName(FILE_AUDIO_RAW_VIDEO)
+                + "+seq-"
+                + getFileName(FILE_AUDIO_RAW_STEREO_48000KHZ)
+                + "_clipped0msTo300ms-"
+                + "gap_200ms-"
+                + getFileName(FILE_AUDIO_RAW_STEREO_48000KHZ)
+                + "_clipped300msTo800ms"));
+  }
+
+  @Test
+  public void start_audioVideoCompositionWithSecondSequencePaddingGap_isCorrect() throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
+    Transformer transformer =
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+    EditedMediaItem audioVideoEditedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW_VIDEO))
+            .build();
+    EditedMediaItem audioEditedMediaItem =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW_STEREO_48000KHZ))
+            .setRemoveVideo(true)
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(audioVideoEditedMediaItem).build(),
+                new EditedMediaItemSequence.Builder()
+                    .addItem(audioEditedMediaItem)
+                    .addGap(100_000)
+                    .build())
+            .setTransmuxVideo(true)
+            .build();
+
+    transformer.start(composition, outputDir.newFile().getPath());
+    ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
+
+    assertThat(exportResult.processedInputs).hasSize(3);
+    DumpFileAsserts.assertOutput(
+        context,
+        muxerFactory.getCreatedMuxer(),
+        getCompositionDumpFilePath(
+            "seq-"
+                + getFileName(FILE_AUDIO_RAW_VIDEO)
+                + "+seq-"
+                + getFileName(FILE_AUDIO_RAW_STEREO_48000KHZ)
+                + "-gap_100ms"));
+  }
+
+  @Test
+  public void start_audioCompositionWithSecondSequenceAsGap_isCorrect() throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
+    Transformer transformer =
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+    EditedMediaItem audioItem1000ms =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)).build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(audioItem1000ms).build(),
+                new EditedMediaItemSequence.Builder().addGap(1_000_000).build())
+            .build();
+
+    transformer.start(composition, outputDir.newFile().getPath());
+    TransformerTestRunner.runLooper(transformer);
+
+    DumpFileAsserts.assertOutput(
+        context, muxerFactory.getCreatedMuxer(), getDumpFileName(FILE_AUDIO_RAW));
+  }
+
+  @Test
+  public void start_audioCompositionWithBothSequencesAsGaps_isCorrect() throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
+    Transformer transformer =
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder().addGap(500_000).build(),
+                new EditedMediaItemSequence.Builder().addGap(500_000).build())
+            .build();
+
+    transformer.start(composition, outputDir.newFile().getPath());
+    TransformerTestRunner.runLooper(transformer);
+
+    DumpFileAsserts.assertOutput(
+        context, muxerFactory.getCreatedMuxer(), getDumpFileName("gap", "500ms"));
+  }
+
   private static String getFileName(String filePath) {
     int lastSeparator = filePath.lastIndexOf("/");
     return filePath.substring(lastSeparator + 1);

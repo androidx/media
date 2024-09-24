@@ -1611,6 +1611,74 @@ public class TransformerEndToEndTest {
   }
 
   @Test
+  public void start_audioCompositionWithFirstSequenceOffsetGap_isCorrect() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ASSET.videoFormat);
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET.uri)))
+            .setRemoveVideo(true)
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder()
+                    .addGap(100_000)
+                    .addItem(editedMediaItem)
+                    .build(),
+                new EditedMediaItemSequence.Builder(editedMediaItem).build())
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
+            .build()
+            .run(testId, composition);
+
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+    assertThat(result.exportResult.processedInputs).hasSize(3);
+  }
+
+  @Test
+  public void start_audioVideoCompositionWithSecondSequenceIntervalGap_isCorrect()
+      throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ASSET.videoFormat);
+
+    EditedMediaItem videoItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET.uri))).build();
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(
+                new MediaItem.Builder()
+                    .setUri(MP4_ASSET.uri)
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder().setEndPositionMs(300).build())
+                    .build())
+            .setRemoveVideo(true)
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(videoItem).build(),
+                new EditedMediaItemSequence.Builder()
+                    .addItem(editedMediaItem)
+                    .addGap(200_000)
+                    .addItem(editedMediaItem)
+                    .build())
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
+            .build()
+            .run(testId, composition);
+
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+    assertThat(result.exportResult.processedInputs).hasSize(4);
+  }
+
+  @Test
   public void analyzeAudio_completesSuccessfully() throws Exception {
     assumeFormatsSupported(
         context,

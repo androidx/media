@@ -17,6 +17,7 @@ package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Assertions.checkArgument;
 
+import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -78,6 +79,26 @@ public final class EditedMediaItemSequence {
     @CanIgnoreReturnValue
     public Builder addItems(List<EditedMediaItem> items) {
       this.items.addAll(items);
+      return this;
+    }
+
+    /**
+     * Adds a gap to the sequence.
+     *
+     * <p>A gap is a period of time with no media.
+     *
+     * <p>Gaps are only supported in sequences of audio.
+     *
+     * @param durationUs The duration of the gap, in milliseconds.
+     * @return This builder, for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Builder addGap(long durationUs) {
+      items.add(
+          new EditedMediaItem.Builder(
+                  new MediaItem.Builder().setMediaId(EditedMediaItem.GAP_MEDIA_ID).build())
+              .setDurationUs(durationUs)
+              .build());
       return this;
     }
 
@@ -156,5 +177,15 @@ public final class EditedMediaItemSequence {
     checkArgument(
         !editedMediaItems.isEmpty(), "The sequence must contain at least one EditedMediaItem.");
     this.isLooping = builder.isLooping;
+  }
+
+  /** Return whether any items are a {@linkplain Builder#addGap(long) gap}. */
+  /* package */ boolean hasGaps() {
+    for (int i = 0; i < editedMediaItems.size(); i++) {
+      if (editedMediaItems.get(i).isGap()) {
+        return true;
+      }
+    }
+    return false;
   }
 }
