@@ -287,6 +287,10 @@ public final class EditedMediaItem {
       int frameRate,
       Effects effects) {
     checkState(!removeAudio || !removeVideo, "Audio and video cannot both be removed");
+    if (isGap(mediaItem)) {
+      checkArgument(durationUs != C.TIME_UNSET);
+      checkArgument(!removeAudio && !flattenForSlowMotion && effects.audioProcessors.isEmpty());
+    }
     this.mediaItem = mediaItem;
     this.removeAudio = removeAudio;
     this.removeVideo = removeVideo;
@@ -349,6 +353,10 @@ public final class EditedMediaItem {
    * EditedMediaItemSequence.Builder#addGap(long) gap}.
    */
   /* package */ boolean isGap() {
+    return isGap(mediaItem);
+  }
+
+  private static boolean isGap(MediaItem mediaItem) {
     return Objects.equals(mediaItem.mediaId, GAP_MEDIA_ID);
   }
 }

@@ -337,6 +337,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
   public void setComposition(Composition composition) {
     verifyApplicationThread();
     checkArgument(!composition.sequences.isEmpty());
+    checkArgument(!composition.hasGaps());
     checkState(this.composition == null);
     composition = deactivateSpeedAdjustingVideoEffects(composition);
 

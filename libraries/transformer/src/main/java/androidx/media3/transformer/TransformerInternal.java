@@ -605,6 +605,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         @AssetLoader.SupportedOutputTypes int supportedOutputTypes) {
       @C.TrackType
       int trackType = getProcessedTrackType(firstAssetLoaderInputFormat.sampleMimeType);
+
+      checkArgument(
+          trackType != TRACK_TYPE_VIDEO || !composition.sequences.get(sequenceIndex).hasGaps(),
+          "Gaps in video sequences are not supported.");
+
       synchronized (assetLoaderLock) {
         assetLoaderInputTracker.registerTrack(sequenceIndex, firstAssetLoaderInputFormat);
         if (assetLoaderInputTracker.hasRegisteredAllTracks()) {
@@ -749,6 +754,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @GuardedBy("assetLoaderLock")
     private void createEncodedSampleExporter(@C.TrackType int trackType) {
       checkState(assetLoaderInputTracker.getSampleExporter(trackType) == null);
+      checkArgument(
+          trackType != TRACK_TYPE_AUDIO || !composition.sequences.get(sequenceIndex).hasGaps(),
+          "Gaps can not be transmuxed.");
       assetLoaderInputTracker.registerSampleExporter(
           trackType,
           new EncodedSampleExporter(
