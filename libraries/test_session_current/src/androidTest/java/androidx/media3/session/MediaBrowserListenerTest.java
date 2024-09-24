@@ -80,6 +80,15 @@ public class MediaBrowserListenerTest extends MediaControllerListenerTest {
   }
 
   @Test
+  public void getConnectedToken_returnSessionToken() throws Exception {
+    MediaBrowser browser = createBrowser();
+
+    assertThat(browser.getConnectedToken().isLegacySession()).isFalse();
+    assertThat(browser.getConnectedToken().getType()).isEqualTo(SessionToken.TYPE_SESSION);
+    assertThat(browser.getConnectedToken().getPlatformToken()).isNotNull();
+  }
+
+  @Test
   public void getLibraryRoot() throws Exception {
     LibraryParams params =
         new LibraryParams.Builder()

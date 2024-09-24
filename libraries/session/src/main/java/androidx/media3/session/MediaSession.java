@@ -830,7 +830,7 @@ public class MediaSession {
     return impl.getId();
   }
 
-  /** Returns the {@link SessionToken} for creating {@link MediaController}. */
+  /** Returns the {@link SessionToken} for creating {@link MediaController} instances. */
   public final SessionToken getToken() {
     return impl.getToken();
   }

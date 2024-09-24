@@ -35,6 +35,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Rule;
@@ -148,19 +149,27 @@ public class SessionTokenTest {
       throws Exception {
     // TODO(b/194458970): Make the callback of session and controller on the same thread work and
     //  remove the threadTestRule
+    AtomicReference<android.media.session.MediaSession.Token> platformToken =
+        new AtomicReference<>();
     MediaSession session =
         threadTestRule
             .getHandler()
             .postAndSync(
-                () ->
-                    sessionTestRule.ensureReleaseAfterTest(
-                        new MediaSession.Builder(context, new MockPlayer.Builder().build())
-                            .setId(TAG)
-                            .build()));
+                () -> {
+                  MediaSession mediaSession =
+                      new MediaSession.Builder(context, new MockPlayer.Builder().build())
+                          .setId(TAG)
+                          .build();
+                  platformToken.set(mediaSession.getPlatformToken());
+                  return sessionTestRule.ensureReleaseAfterTest(mediaSession);
+                });
+
     SessionToken token =
         SessionToken.createSessionToken(context, session.getSessionCompatToken())
             .get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+
     assertThat(token.isLegacySession()).isFalse();
+    assertThat(token.getPlatformToken()).isEqualTo(platformToken.get());
   }
 
   @Test

@@ -40,6 +40,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.media.session.MediaSession.Token;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.DeadObjectException;
@@ -215,6 +216,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             .appendPath(id)
             .appendPath(String.valueOf(SystemClock.elapsedRealtime()))
             .build();
+
+    sessionLegacyStub =
+        new MediaSessionLegacyStub(
+            /* session= */ thisRef, sessionUri, applicationHandler, tokenExtras);
+
+    Token platformToken = (Token) sessionLegacyStub.getSessionCompat().getSessionToken().getToken();
     sessionToken =
         new SessionToken(
             Process.myUid(),
@@ -223,10 +230,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             MediaSessionStub.VERSION_INT,
             context.getPackageName(),
             sessionStub,
-            tokenExtras);
+            tokenExtras,
+            platformToken);
 
-    sessionLegacyStub =
-        new MediaSessionLegacyStub(/* session= */ thisRef, sessionUri, applicationHandler);
     // For PlayerWrapper, use the same default commands as the proxy controller gets when the app
     // doesn't overrides the default commands in `onConnect`. When the default is overridden by the
     // app in `onConnect`, the default set here will be overridden with these values.

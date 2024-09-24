@@ -18,6 +18,7 @@ package androidx.media3.session;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 
 import android.app.PendingIntent;
+import android.media.session.MediaSession.Token;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -57,6 +58,8 @@ import java.util.List;
 
   public final ImmutableList<CommandButton> customLayout;
 
+  @Nullable public final Token platformToken;
+
   public ConnectionState(
       int libraryVersion,
       int sessionInterfaceVersion,
@@ -68,7 +71,8 @@ import java.util.List;
       Player.Commands playerCommandsFromPlayer,
       Bundle tokenExtras,
       Bundle sessionExtras,
-      PlayerInfo playerInfo) {
+      PlayerInfo playerInfo,
+      @Nullable Token platformToken) {
     this.libraryVersion = libraryVersion;
     this.sessionInterfaceVersion = sessionInterfaceVersion;
     this.sessionBinder = sessionBinder;
@@ -80,6 +84,7 @@ import java.util.List;
     this.tokenExtras = tokenExtras;
     this.sessionExtras = sessionExtras;
     this.playerInfo = playerInfo;
+    this.platformToken = platformToken;
   }
 
   private static final String FIELD_LIBRARY_VERSION = Util.intToStringMaxRadix(0);
@@ -94,8 +99,9 @@ import java.util.List;
   private static final String FIELD_PLAYER_INFO = Util.intToStringMaxRadix(7);
   private static final String FIELD_SESSION_INTERFACE_VERSION = Util.intToStringMaxRadix(8);
   private static final String FIELD_IN_PROCESS_BINDER = Util.intToStringMaxRadix(10);
+  private static final String FIELD_PLATFORM_TOKEN = Util.intToStringMaxRadix(12);
 
-  // Next field key = 12
+  // Next field key = 13
 
   public Bundle toBundleForRemoteProcess(int controllerInterfaceVersion) {
     Bundle bundle = new Bundle();
@@ -121,6 +127,9 @@ import java.util.List;
                 intersectedCommands, /* excludeTimeline= */ false, /* excludeTracks= */ false)
             .toBundleForRemoteProcess(controllerInterfaceVersion));
     bundle.putInt(FIELD_SESSION_INTERFACE_VERSION, sessionInterfaceVersion);
+    if (platformToken != null) {
+      bundle.putParcelable(FIELD_PLATFORM_TOKEN, platformToken);
+    }
     return bundle;
   }
 
@@ -176,6 +185,7 @@ import java.util.List;
         playerInfoBundle == null
             ? PlayerInfo.DEFAULT
             : PlayerInfo.fromBundle(playerInfoBundle, sessionInterfaceVersion);
+    @Nullable Token platformToken = bundle.getParcelable(FIELD_PLATFORM_TOKEN);
     return new ConnectionState(
         libraryVersion,
         sessionInterfaceVersion,
@@ -187,7 +197,8 @@ import java.util.List;
         playerCommandsFromPlayer,
         tokenExtras == null ? Bundle.EMPTY : tokenExtras,
         sessionExtras == null ? Bundle.EMPTY : sessionExtras,
-        playerInfo);
+        playerInfo,
+        platformToken);
   }
 
   private final class InProcessBinder extends Binder {

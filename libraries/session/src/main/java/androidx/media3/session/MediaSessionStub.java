@@ -60,6 +60,7 @@ import static androidx.media3.session.SessionError.ERROR_UNKNOWN;
 import static androidx.media3.session.SessionError.INFO_CANCELLED;
 
 import android.app.PendingIntent;
+import android.media.session.MediaSession.Token;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -521,6 +522,8 @@ import java.util.concurrent.ExecutionException;
             PlayerWrapper playerWrapper = sessionImpl.getPlayerWrapper();
             PlayerInfo playerInfo = playerWrapper.createPlayerInfoForBundling();
             playerInfo = generateAndCacheUniqueTrackGroupIds(playerInfo);
+            Token platformToken =
+                (Token) sessionImpl.getSessionCompat().getSessionToken().getToken();
             ConnectionState state =
                 new ConnectionState(
                     MediaLibraryInfo.VERSION_INT,
@@ -539,7 +542,8 @@ import java.util.concurrent.ExecutionException;
                     connectionResult.sessionExtras != null
                         ? connectionResult.sessionExtras
                         : sessionImpl.getSessionExtras(),
-                    playerInfo);
+                    playerInfo,
+                    platformToken);
 
             // Double check if session is still there, because release() can be called in
             // another thread.

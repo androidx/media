@@ -134,7 +134,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   private int sessionFlags;
 
   @SuppressWarnings("PendingIntentMutability") // We can't use SaferPendingIntent
-  public MediaSessionLegacyStub(MediaSessionImpl session, Uri sessionUri, Handler handler) {
+  public MediaSessionLegacyStub(
+      MediaSessionImpl session, Uri sessionUri, Handler handler, Bundle tokenExtras) {
     sessionImpl = session;
     Context context = sessionImpl.getContext();
     sessionManager = MediaSessionManager.getSessionManager(context);
@@ -204,7 +205,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             sessionCompatId,
             Util.SDK_INT < 31 ? receiverComponentName : null,
             Util.SDK_INT < 31 ? mediaButtonIntent : null,
-            session.getToken().getExtras());
+            /* sessionInfo= */ tokenExtras);
     if (Util.SDK_INT >= 31 && broadcastReceiverComponentName != null) {
       Api31.setMediaButtonBroadcastReceiver(sessionCompat, broadcastReceiverComponentName);
     }

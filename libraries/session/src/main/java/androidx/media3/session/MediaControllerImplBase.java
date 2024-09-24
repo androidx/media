@@ -36,6 +36,7 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
+import android.media.session.MediaSession;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -2619,6 +2620,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
         CommandButton.copyWithUnavailableButtonsDisabled(
             result.customLayout, sessionCommands, intersectedPlayerCommands);
     playerInfo = result.playerInfo;
+    MediaSession.Token platformToken =
+        result.platformToken == null ? token.getPlatformToken() : result.platformToken;
     try {
       // Implementation for the local binder is no-op,
       // so can be used without worrying about deadlock.
@@ -2635,7 +2638,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
             result.sessionInterfaceVersion,
             token.getPackageName(),
             result.sessionBinder,
-            result.tokenExtras);
+            result.tokenExtras,
+            platformToken);
     sessionExtras = result.sessionExtras;
     getInstance().notifyAccepted();
   }

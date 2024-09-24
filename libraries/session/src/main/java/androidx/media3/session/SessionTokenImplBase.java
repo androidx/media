@@ -20,6 +20,7 @@ import static androidx.media3.common.util.Assertions.checkNotEmpty;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 
 import android.content.ComponentName;
+import android.media.session.MediaSession;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.text.TextUtils;
@@ -48,6 +49,8 @@ import com.google.common.base.Objects;
 
   private final Bundle extras;
 
+  @Nullable private final MediaSession.Token platformToken;
+
   public SessionTokenImplBase(ComponentName serviceComponent, int uid, int type) {
     this(
         uid,
@@ -58,7 +61,8 @@ import com.google.common.base.Objects;
         /* serviceName= */ serviceComponent.getClassName(),
         /* componentName= */ serviceComponent,
         /* iSession= */ null,
-        /* extras= */ Bundle.EMPTY);
+        /* extras= */ Bundle.EMPTY,
+        /* platformToken= */ null);
   }
 
   public SessionTokenImplBase(
@@ -68,7 +72,8 @@ import com.google.common.base.Objects;
       int interfaceVersion,
       String packageName,
       IMediaSession iSession,
-      Bundle tokenExtras) {
+      Bundle tokenExtras,
+      @Nullable MediaSession.Token platformToken) {
     this(
         uid,
         type,
@@ -78,7 +83,8 @@ import com.google.common.base.Objects;
         /* serviceName= */ "",
         /* componentName= */ null,
         iSession.asBinder(),
-        checkNotNull(tokenExtras));
+        checkNotNull(tokenExtras),
+        platformToken);
   }
 
   private SessionTokenImplBase(
@@ -90,7 +96,8 @@ import com.google.common.base.Objects;
       String serviceName,
       @Nullable ComponentName componentName,
       @Nullable IBinder iSession,
-      Bundle extras) {
+      Bundle extras,
+      @Nullable MediaSession.Token platformToken) {
     this.uid = uid;
     this.type = type;
     this.libraryVersion = libraryVersion;
@@ -100,6 +107,7 @@ import com.google.common.base.Objects;
     this.componentName = componentName;
     this.iSession = iSession;
     this.extras = extras;
+    this.platformToken = platformToken;
   }
 
   @Override
@@ -112,7 +120,8 @@ import com.google.common.base.Objects;
         packageName,
         serviceName,
         componentName,
-        iSession);
+        iSession,
+        platformToken);
   }
 
   @Override
@@ -127,8 +136,9 @@ import com.google.common.base.Objects;
         && interfaceVersion == other.interfaceVersion
         && TextUtils.equals(packageName, other.packageName)
         && TextUtils.equals(serviceName, other.serviceName)
-        && Util.areEqual(componentName, other.componentName)
-        && Util.areEqual(iSession, other.iSession);
+        && Objects.equal(componentName, other.componentName)
+        && Objects.equal(iSession, other.iSession)
+        && Objects.equal(platformToken, other.platformToken);
   }
 
   @Override
@@ -203,6 +213,12 @@ import com.google.common.base.Objects;
     return iSession;
   }
 
+  @Nullable
+  @Override
+  public MediaSession.Token getPlatformToken() {
+    return platformToken;
+  }
+
   private static final String FIELD_UID = Util.intToStringMaxRadix(0);
   private static final String FIELD_TYPE = Util.intToStringMaxRadix(1);
   private static final String FIELD_LIBRARY_VERSION = Util.intToStringMaxRadix(2);
@@ -212,8 +228,9 @@ import com.google.common.base.Objects;
   private static final String FIELD_ISESSION = Util.intToStringMaxRadix(6);
   private static final String FIELD_EXTRAS = Util.intToStringMaxRadix(7);
   private static final String FIELD_INTERFACE_VERSION = Util.intToStringMaxRadix(8);
+  private static final String FIELD_PLATFORM_TOKEN = Util.intToStringMaxRadix(9);
 
-  // Next field key = 9
+  // Next field key = 10
 
   @Override
   public Bundle toBundle() {
@@ -227,11 +244,15 @@ import com.google.common.base.Objects;
     bundle.putParcelable(FIELD_COMPONENT_NAME, componentName);
     bundle.putBundle(FIELD_EXTRAS, extras);
     bundle.putInt(FIELD_INTERFACE_VERSION, interfaceVersion);
+    if (platformToken != null) {
+      bundle.putParcelable(FIELD_PLATFORM_TOKEN, platformToken);
+    }
     return bundle;
   }
 
   /** Restores a {@code SessionTokenImplBase} from a {@link Bundle}. */
-  public static SessionTokenImplBase fromBundle(Bundle bundle) {
+  public static SessionTokenImplBase fromBundle(
+      Bundle bundle, @Nullable MediaSession.Token platformToken) {
     checkArgument(bundle.containsKey(FIELD_UID), "uid should be set.");
     int uid = bundle.getInt(FIELD_UID);
     checkArgument(bundle.containsKey(FIELD_TYPE), "type should be set.");
@@ -244,6 +265,11 @@ import com.google.common.base.Objects;
     @Nullable IBinder iSession = BundleCompat.getBinder(bundle, FIELD_ISESSION);
     @Nullable ComponentName componentName = bundle.getParcelable(FIELD_COMPONENT_NAME);
     @Nullable Bundle extras = bundle.getBundle(FIELD_EXTRAS);
+    @Nullable
+    MediaSession.Token platformTokenFromBundle = bundle.getParcelable(FIELD_PLATFORM_TOKEN);
+    if (platformTokenFromBundle != null) {
+      platformToken = platformTokenFromBundle;
+    }
     return new SessionTokenImplBase(
         uid,
         type,
@@ -253,6 +279,7 @@ import com.google.common.base.Objects;
         serviceName,
         componentName,
         iSession,
-        extras == null ? Bundle.EMPTY : extras);
+        extras == null ? Bundle.EMPTY : extras,
+        platformToken);
   }
 }
