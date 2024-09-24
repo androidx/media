@@ -70,6 +70,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -172,6 +173,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param continueLoadingCheckIntervalBytes The number of bytes that should be loaded between each
    *     invocation of {@link Callback#onContinueLoadingRequested(SequenceableLoader)}.
    * @param singleSampleDurationUs The duration of media with a single sample in microseconds.
+   * @param downloadExecutor An {@link Executor} for supplying the loader's thread.
    */
   // maybeFinishPrepare is not posted to the handler until initialization completes.
   @SuppressWarnings({"nullness:argument", "nullness:methodref.receiver.bound"})
@@ -187,7 +189,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Allocator allocator,
       @Nullable String customCacheKey,
       int continueLoadingCheckIntervalBytes,
-      long singleSampleDurationUs) {
+      long singleSampleDurationUs,
+      @Nullable Executor downloadExecutor) {
     this.uri = uri;
     this.dataSource = dataSource;
     this.drmSessionManager = drmSessionManager;
@@ -198,7 +201,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.allocator = allocator;
     this.customCacheKey = customCacheKey;
     this.continueLoadingCheckIntervalBytes = continueLoadingCheckIntervalBytes;
-    loader = new Loader("ProgressiveMediaPeriod");
+    loader = downloadExecutor != null ?
+        new Loader(downloadExecutor) : new Loader("ProgressiveMediaPeriod");
     this.progressiveMediaExtractor = progressiveMediaExtractor;
     this.singleSampleDurationUs = singleSampleDurationUs;
     loadCondition = new ConditionVariable();

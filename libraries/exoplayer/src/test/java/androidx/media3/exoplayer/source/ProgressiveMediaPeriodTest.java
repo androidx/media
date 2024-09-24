@@ -19,6 +19,7 @@ import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLoop
 import static com.google.common.truth.Truth.assertThat;
 
 import android.net.Uri;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.datasource.AssetDataSource;
 import androidx.media3.exoplayer.LoadingInfo;
@@ -34,6 +35,8 @@ import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.png.PngExtractor;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.Test;
@@ -67,8 +70,29 @@ public final class ProgressiveMediaPeriodTest {
     testExtractorsUpdatesSourceInfoBeforeOnPreparedCallback(extractor, C.TIME_UNSET);
   }
 
+  @Test
+  public void supplyingCustomDownloadExecutor_downloadsOnCustomThread() throws TimeoutException {
+    AtomicBoolean hasThreadRunBefore = new AtomicBoolean(false);
+    Executor executor =
+        Executors.newSingleThreadExecutor(
+            (r) -> new ExecutionTrackingThread(r, hasThreadRunBefore));
+
+    testExtractorsUpdatesSourceInfoBeforeOnPreparedCallback(
+        new BundledExtractorsAdapter(Mp4Extractor.FACTORY), C.TIME_UNSET, executor);
+
+    assertThat(hasThreadRunBefore.get()).isTrue();
+  }
+
   private static void testExtractorsUpdatesSourceInfoBeforeOnPreparedCallback(
       ProgressiveMediaExtractor extractor, long imageDurationUs) throws TimeoutException {
+    testExtractorsUpdatesSourceInfoBeforeOnPreparedCallback(
+        extractor, imageDurationUs, null);
+  }
+
+  private static void testExtractorsUpdatesSourceInfoBeforeOnPreparedCallback(
+      ProgressiveMediaExtractor extractor,
+      long imageDurationUs,
+      @Nullable Executor executor) throws TimeoutException {
     AtomicBoolean sourceInfoRefreshCalled = new AtomicBoolean(false);
     ProgressiveMediaPeriod.Listener sourceInfoRefreshListener =
         (durationUs, isSeekable, isLive) -> sourceInfoRefreshCalled.set(true);
@@ -88,7 +112,8 @@ public final class ProgressiveMediaPeriodTest {
             new DefaultAllocator(/* trimOnReset= */ true, C.DEFAULT_BUFFER_SEGMENT_SIZE),
             /* customCacheKey= */ null,
             ProgressiveMediaSource.DEFAULT_LOADING_CHECK_INTERVAL_BYTES,
-            imageDurationUs);
+            imageDurationUs,
+            executor);
 
     AtomicBoolean prepareCallbackCalled = new AtomicBoolean(false);
     AtomicBoolean sourceInfoRefreshCalledBeforeOnPrepared = new AtomicBoolean(false);
@@ -110,5 +135,20 @@ public final class ProgressiveMediaPeriodTest {
     mediaPeriod.release();
 
     assertThat(sourceInfoRefreshCalledBeforeOnPrepared.get()).isTrue();
+  }
+
+  private class ExecutionTrackingThread extends Thread {
+    private final AtomicBoolean hasRun;
+
+    public ExecutionTrackingThread(Runnable runnable, AtomicBoolean hasRun) {
+      super(runnable, "TestExecutionTrackingThread");
+      this.hasRun = hasRun;
+    }
+
+    @Override
+    public void run() {
+      hasRun.set(true);
+      super.run();
+    }
   }
 }
