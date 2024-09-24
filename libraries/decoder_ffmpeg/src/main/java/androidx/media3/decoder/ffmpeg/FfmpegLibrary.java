@@ -168,6 +168,8 @@ public final class FfmpegLibrary {
         return "mpegvideo";
       case MimeTypes.VIDEO_MPEG2:
         return "mpeg2video";
+      case MimeTypes.VIDEO_ProRes:
+        return "prores";
       default:
         return null;
     }
