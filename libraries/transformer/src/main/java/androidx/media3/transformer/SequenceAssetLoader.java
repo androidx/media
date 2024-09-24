@@ -229,7 +229,13 @@ import java.util.concurrent.atomic.AtomicInteger;
         inputFormat);
 
     if (!isCurrentAssetFirstAsset) {
-      return isAudio ? decodeAudio : decodeVideo;
+      boolean decode = isAudio ? decodeAudio : decodeVideo;
+      if (decode) {
+        checkArgument((supportedOutputTypes & SUPPORTED_OUTPUT_TYPE_DECODED) != 0);
+      } else {
+        checkArgument((supportedOutputTypes & SUPPORTED_OUTPUT_TYPE_ENCODED) != 0);
+      }
+      return decode;
     }
 
     boolean addForcedAudioTrack = forceAudioTrack && reportedTrackCount.get() == 1 && !isAudio;
@@ -290,7 +296,8 @@ import java.util.concurrent.atomic.AtomicInteger;
                         .setPcmEncoding(C.ENCODING_PCM_16BIT)
                         .build()));
         sampleConsumersByTrackType.put(
-            C.TRACK_TYPE_AUDIO, new SampleConsumerWrapper(wrappedAudioSampleConsumer, trackType));
+            C.TRACK_TYPE_AUDIO,
+            new SampleConsumerWrapper(wrappedAudioSampleConsumer, C.TRACK_TYPE_AUDIO));
       }
     } else {
       // TODO(b/270533049): Remove the check below when implementing blank video frames generation.

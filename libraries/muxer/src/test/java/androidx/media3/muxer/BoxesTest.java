@@ -15,8 +15,8 @@
  */
 package androidx.media3.muxer;
 
-import static androidx.media3.muxer.Mp4Muxer.LAST_FRAME_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION;
-import static androidx.media3.muxer.Mp4Muxer.LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME;
+import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS;
+import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_AUDIO_FORMAT;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_CSD_0;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_VIDEO_FORMAT;
@@ -367,7 +367,12 @@ public class BoxesTest {
 
   @Test
   public void createVideoSampleEntryBox_forH263_matchesExpected() throws Exception {
-    Format format = FAKE_VIDEO_FORMAT.buildUpon().setSampleMimeType(MimeTypes.VIDEO_H263).build();
+    Format format =
+        FAKE_VIDEO_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.VIDEO_H263)
+            .setCodecs("s263.1.10")
+            .build();
 
     ByteBuffer videoSampleEntryBox = Boxes.videoSampleEntry(format);
 
@@ -412,6 +417,52 @@ public class BoxesTest {
   }
 
   @Test
+  public void createVideoSampleEntryBox_forVp09WithCodecPrivate_matchesExpected()
+      throws IOException {
+    Format format =
+        FAKE_VIDEO_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.VIDEO_VP9)
+            .setColorInfo(
+                new ColorInfo.Builder()
+                    .setColorSpace(C.COLOR_SPACE_BT2020)
+                    .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+                    .setColorRange(C.COLOR_RANGE_FULL)
+                    .build())
+            .setInitializationData(
+                ImmutableList.of(BaseEncoding.base16().decode("01010102010A030108040100")))
+            .build();
+
+    ByteBuffer videoSampleEntryBox = Boxes.videoSampleEntry(format);
+
+    DumpableMp4Box dumpableBox = new DumpableMp4Box(videoSampleEntryBox);
+    DumpFileAsserts.assertOutput(
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedDumpFilePath("video_sample_entry_box_vp09_codec_private_as_csd"));
+  }
+
+  @Test
+  public void createVideoSampleEntryBox_forVp09WithVpcBoxAsCsd_matchesExpected()
+      throws IOException {
+    Format format =
+        FAKE_VIDEO_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.VIDEO_VP9)
+            .setInitializationData(
+                ImmutableList.of(BaseEncoding.base16().decode("01000000010A810510060000")))
+            .build();
+
+    ByteBuffer videoSampleEntryBox = Boxes.videoSampleEntry(format);
+
+    DumpableMp4Box dumpableBox = new DumpableMp4Box(videoSampleEntryBox);
+    DumpFileAsserts.assertOutput(
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedDumpFilePath("video_sample_entry_box_vp09_vpc_as_csd"));
+  }
+
+  @Test
   public void createVideoSampleEntryBox_withUnknownVideoFormat_throws() {
     // The video format contains an unknown MIME type.
     Format format =
@@ -431,7 +482,8 @@ public class BoxesTest {
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
-            LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME);
+            LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO,
+            C.TIME_UNSET);
 
     assertThat(durationsVu).containsExactly(0);
   }
@@ -447,7 +499,8 @@ public class BoxesTest {
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
-            LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME);
+            LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO,
+            C.TIME_UNSET);
 
     assertThat(durationsVu).containsExactly(0);
   }
@@ -463,7 +516,8 @@ public class BoxesTest {
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
-            LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME);
+            LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO,
+            C.TIME_UNSET);
 
     assertThat(durationsVu).containsExactly(3_000, 5_000, 0);
   }
@@ -479,7 +533,8 @@ public class BoxesTest {
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
-            LAST_FRAME_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION);
+            LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS,
+            C.TIME_UNSET);
 
     assertThat(durationsVu).containsExactly(3_000, 5_000, 5_000);
   }
@@ -495,9 +550,27 @@ public class BoxesTest {
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
-            LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME);
+            LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO,
+            C.TIME_UNSET);
 
     assertThat(durationsVu).containsExactly(100, 100, 800, 100, 0);
+  }
+
+  @Test
+  public void
+      convertPresentationTimestampsToDurationsVu_withLastSampleDurationBehaviorUsingEndOfStreamFlag_returnsExpectedDurations() {
+    List<MediaCodec.BufferInfo> sampleBufferInfos =
+        createBufferInfoListWithSamplePresentationTimestamps(0L, 1_000L, 2_000L, 3_000L, 4_000L);
+
+    List<Integer> durationsVu =
+        Boxes.convertPresentationTimestampsToDurationsVu(
+            sampleBufferInfos,
+            /* firstSamplePresentationTimeUs= */ 0L,
+            VU_TIMEBASE,
+            LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS,
+            /* endOfStreamTimestampUs= */ 10_000);
+
+    assertThat(durationsVu).containsExactly(100, 100, 100, 100, 600);
   }
 
   @Test
@@ -549,7 +622,8 @@ public class BoxesTest {
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
-            LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME);
+            LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO,
+            C.TIME_UNSET);
 
     ByteBuffer cttsBox = Boxes.ctts(sampleBufferInfos, durationsVu, VU_TIMEBASE);
 
@@ -566,7 +640,8 @@ public class BoxesTest {
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
-            LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME);
+            LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO,
+            C.TIME_UNSET);
 
     ByteBuffer cttsBox = Boxes.ctts(sampleBufferInfos, durationsVu, VU_TIMEBASE);
 
@@ -585,7 +660,8 @@ public class BoxesTest {
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
-            LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME);
+            LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO,
+            C.TIME_UNSET);
 
     ByteBuffer cttsBox = Boxes.ctts(sampleBufferInfos, durationsVu, VU_TIMEBASE);
 
@@ -605,7 +681,8 @@ public class BoxesTest {
             sampleBufferInfos,
             /* firstSamplePresentationTimeUs= */ 23698215060L,
             VU_TIMEBASE,
-            LAST_FRAME_DURATION_BEHAVIOR_INSERT_SHORT_FRAME);
+            LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO,
+            C.TIME_UNSET);
 
     ByteBuffer cttsBox = Boxes.ctts(sampleBufferInfos, durationsVu, VU_TIMEBASE);
 

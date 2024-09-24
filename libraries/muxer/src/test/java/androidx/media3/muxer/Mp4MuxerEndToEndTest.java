@@ -15,6 +15,7 @@
  */
 package androidx.media3.muxer;
 
+import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_VIDEO_FORMAT;
 import static androidx.media3.muxer.MuxerTestUtil.XMP_SAMPLE_DATA;
 import static androidx.media3.muxer.MuxerTestUtil.getFakeSampleAndSampleInfo;
@@ -22,11 +23,10 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
+import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
 import android.util.Pair;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
-import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
@@ -43,7 +43,6 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import org.junit.Rule;
 import org.junit.Test;
@@ -214,11 +213,11 @@ public class Mp4MuxerEndToEndTest {
     Pair<ByteBuffer, BufferInfo> track1Sample1 =
         getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 0L);
     Pair<ByteBuffer, BufferInfo> track1Sample2 =
-        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 3000L);
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 3_000L);
     Pair<ByteBuffer, BufferInfo> track1Sample3 =
-        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 1000L);
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 1_000L);
     Pair<ByteBuffer, BufferInfo> track1Sample4 =
-        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 2000L);
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 2_000L);
 
     try {
       TrackToken track1 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
@@ -248,13 +247,13 @@ public class Mp4MuxerEndToEndTest {
             /* creationTimestampSeconds= */ 100_000_000L,
             /* modificationTimestampSeconds= */ 500_000_000L));
     Pair<ByteBuffer, BufferInfo> track1Sample1 =
-        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 23698215060L);
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 23_000_000_000L);
     Pair<ByteBuffer, BufferInfo> track1Sample2 =
-        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 23698488968L);
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 23_000_273_908L);
     Pair<ByteBuffer, BufferInfo> track1Sample3 =
-        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 23698347988L);
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 23_000_132_928L);
     Pair<ByteBuffer, BufferInfo> track1Sample4 =
-        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 23698248252L);
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 23_000_033_192L);
 
     try {
       TrackToken track1 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
@@ -387,7 +386,9 @@ public class Mp4MuxerEndToEndTest {
     Mp4Muxer muxer =
         new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
             .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_EDITABLE_VIDEO)
-            .setCacheFileProvider(() -> cacheFilePath)
+            .setEditableVideoParameters(
+                new Mp4Muxer.EditableVideoParameters(
+                    /* shouldInterleaveSamples= */ false, () -> cacheFilePath))
             .build();
 
     try {
@@ -419,7 +420,7 @@ public class Mp4MuxerEndToEndTest {
 
     DumpableMp4Box outputFileDumpableBox =
         new DumpableMp4Box(ByteBuffer.wrap(TestUtil.getByteArrayFromFilePath(outputFilePath)));
-    // 1 track is written in the outer moov box and 2 tracks are writtin in the edvd.moov box.
+    // 1 track is written in the outer moov box and 2 tracks are written in the edvd.moov box.
     DumpFileAsserts.assertOutput(
         context,
         outputFileDumpableBox,
@@ -430,11 +431,7 @@ public class Mp4MuxerEndToEndTest {
   public void writeMp4File_withFileFormatDefaultAndEditableVideoTracks_doesNotWriteEdvdBox()
       throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    String cacheFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer muxer =
-        new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
-            .setCacheFileProvider(() -> cacheFilePath)
-            .build();
+    Mp4Muxer muxer = new Mp4Muxer.Builder(new FileOutputStream(outputFilePath)).build();
 
     try {
       muxer.addMetadataEntry(
@@ -481,7 +478,9 @@ public class Mp4MuxerEndToEndTest {
     Mp4Muxer muxer =
         new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
             .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_EDITABLE_VIDEO)
-            .setCacheFileProvider(() -> cacheFilePath)
+            .setEditableVideoParameters(
+                new Mp4Muxer.EditableVideoParameters(
+                    /* shouldInterleaveSamples= */ false, () -> cacheFilePath))
             .build();
 
     try {
@@ -514,7 +513,7 @@ public class Mp4MuxerEndToEndTest {
     FakeExtractorOutput primaryTracksOutput =
         TestUtil.extractAllSamplesFromFilePath(
             new Mp4Extractor(new DefaultSubtitleParserFactory()), outputFilePath);
-    // The Mp4Extractor can not read edvd box and can only parse primary tracks.
+    // The Mp4Extractor extracts primary tracks by default.
     DumpFileAsserts.assertOutput(
         context,
         primaryTracksOutput,
@@ -530,7 +529,9 @@ public class Mp4MuxerEndToEndTest {
     Mp4Muxer muxer =
         new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
             .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_EDITABLE_VIDEO)
-            .setCacheFileProvider(() -> cacheFilePath)
+            .setEditableVideoParameters(
+                new Mp4Muxer.EditableVideoParameters(
+                    /* shouldInterleaveSamples= */ false, () -> cacheFilePath))
             .build();
 
     try {
@@ -560,15 +561,205 @@ public class Mp4MuxerEndToEndTest {
       muxer.close();
     }
 
-    byte[] edvdBoxPayload = getEdvdBoxPayload(outputFilePath);
     FakeExtractorOutput editableTracksOutput =
-        TestUtil.extractAllSamplesFromByteArray(
-            new Mp4Extractor(new DefaultSubtitleParserFactory()), edvdBoxPayload);
-    // The Mp4Extractor can parse the MP4 embedded in the edvd box.
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(
+                new DefaultSubtitleParserFactory(), Mp4Extractor.FLAG_READ_EDITABLE_VIDEO_TRACKS),
+            outputFilePath);
     DumpFileAsserts.assertOutput(
         context,
         editableTracksOutput,
         MuxerTestUtil.getExpectedDumpFilePath("mp4_with_editable_video_tracks.mp4"));
+  }
+
+  @Test
+  public void
+      writeMp4File_withFileFormatEditableVideoAndEditableVideoTracksAndShouldInterleaveSamples_primaryVideoTracksMatchesExpected()
+          throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    Mp4Muxer muxer =
+        new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
+            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_EDITABLE_VIDEO)
+            .setEditableVideoParameters(
+                new Mp4Muxer.EditableVideoParameters(
+                    /* shouldInterleaveSamples= */ true, /* cacheFileProvider= */ null))
+            .build();
+
+    try {
+      muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 1_000_000L,
+              /* modificationTimestampSeconds= */ 5_000_000L));
+      TrackToken primaryVideoTrackToken = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      TrackToken sharpVideoTrackToken =
+          muxer.addTrack(
+              FAKE_VIDEO_FORMAT
+                  .buildUpon()
+                  .setRoleFlags(C.ROLE_FLAG_AUXILIARY)
+                  .setAuxiliaryTrackType(C.AUXILIARY_TRACK_TYPE_ORIGINAL)
+                  .build());
+      TrackToken depthLinearVideoTrackToken =
+          muxer.addTrack(
+              FAKE_VIDEO_FORMAT
+                  .buildUpon()
+                  .setRoleFlags(C.ROLE_FLAG_AUXILIARY)
+                  .setAuxiliaryTrackType(C.AUXILIARY_TRACK_TYPE_DEPTH_LINEAR)
+                  .build());
+      writeFakeSamples(muxer, primaryVideoTrackToken, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, sharpVideoTrackToken, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, depthLinearVideoTrackToken, /* sampleCount= */ 5);
+    } finally {
+      muxer.close();
+    }
+
+    FakeExtractorOutput primaryTracksOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), outputFilePath);
+    // The Mp4Extractor extracts primary tracks by default.
+    DumpFileAsserts.assertOutput(
+        context,
+        primaryTracksOutput,
+        MuxerTestUtil.getExpectedDumpFilePath(
+            "mp4_with_primary_tracks_when_editable_track_samples_interleaved.mp4"));
+  }
+
+  @Test
+  public void
+      writeMp4File_withFileFormatEditableVideoAndEditableVideoTracksAndShouldInterleaveSamples_editableVideoTracksMatchesExpected()
+          throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    Mp4Muxer muxer =
+        new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
+            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_EDITABLE_VIDEO)
+            .setEditableVideoParameters(
+                new Mp4Muxer.EditableVideoParameters(
+                    /* shouldInterleaveSamples= */ true, /* cacheFileProvider= */ null))
+            .build();
+
+    try {
+      muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 1_000_000L,
+              /* modificationTimestampSeconds= */ 5_000_000L));
+      TrackToken primaryVideoTrackToken = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      TrackToken sharpVideoTrackToken =
+          muxer.addTrack(
+              FAKE_VIDEO_FORMAT
+                  .buildUpon()
+                  .setRoleFlags(C.ROLE_FLAG_AUXILIARY)
+                  .setAuxiliaryTrackType(C.AUXILIARY_TRACK_TYPE_ORIGINAL)
+                  .build());
+      TrackToken depthLinearVideoTrackToken =
+          muxer.addTrack(
+              FAKE_VIDEO_FORMAT
+                  .buildUpon()
+                  .setRoleFlags(C.ROLE_FLAG_AUXILIARY)
+                  .setAuxiliaryTrackType(C.AUXILIARY_TRACK_TYPE_DEPTH_LINEAR)
+                  .build());
+      writeFakeSamples(muxer, primaryVideoTrackToken, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, sharpVideoTrackToken, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, depthLinearVideoTrackToken, /* sampleCount= */ 5);
+    } finally {
+      muxer.close();
+    }
+
+    FakeExtractorOutput editableTracksOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(
+                new DefaultSubtitleParserFactory(), Mp4Extractor.FLAG_READ_EDITABLE_VIDEO_TRACKS),
+            outputFilePath);
+    DumpFileAsserts.assertOutput(
+        context,
+        editableTracksOutput,
+        MuxerTestUtil.getExpectedDumpFilePath(
+            "mp4_with_editable_video_tracks_when_editable_track_samples_interleaved.mp4"));
+  }
+
+  @Test
+  public void
+      createMp4File_withLastSampleDurationBehaviorUsingEndOfStreamFlag_writesSamplesWithCorrectDurations()
+          throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    Mp4Muxer mp4Muxer =
+        new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
+            .setLastSampleDurationBehavior(
+                LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS)
+            .build();
+    mp4Muxer.addMetadataEntry(
+        new Mp4TimestampData(
+            /* creationTimestampSeconds= */ 100_000_000L,
+            /* modificationTimestampSeconds= */ 500_000_000L));
+    Pair<ByteBuffer, BufferInfo> sample1 = getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 0L);
+    Pair<ByteBuffer, BufferInfo> sample2 =
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 100L);
+    Pair<ByteBuffer, BufferInfo> sample3 =
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 200L);
+    Pair<ByteBuffer, BufferInfo> sample4 =
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 300L);
+
+    long expectedDurationUs = 1_000L;
+    try {
+      TrackToken track = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
+      mp4Muxer.writeSampleData(track, sample1.first, sample1.second);
+      mp4Muxer.writeSampleData(track, sample2.first, sample2.second);
+      mp4Muxer.writeSampleData(track, sample3.first, sample3.second);
+      mp4Muxer.writeSampleData(track, sample4.first, sample4.second);
+      // Write end of stream sample.
+      BufferInfo endOfStreamBufferInfo = new BufferInfo();
+      endOfStreamBufferInfo.set(
+          /* newOffset= */ 0,
+          /* newSize= */ 0,
+          /* newTimeUs= */ expectedDurationUs,
+          /* newFlags= */ MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+      mp4Muxer.writeSampleData(track, ByteBuffer.allocate(0), endOfStreamBufferInfo);
+    } finally {
+      mp4Muxer.close();
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), outputFilePath);
+    fakeExtractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO).assertSampleCount(4);
+    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isEqualTo(expectedDurationUs);
+  }
+
+  @Test
+  public void
+      createMp4File_withLastSampleDurationBehaviorUsingEndOfStreamFlagButNoEndOfStreamSample_writesExpectedDurationForTheLastSample()
+          throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    Mp4Muxer mp4Muxer =
+        new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
+            .setLastSampleDurationBehavior(
+                LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS)
+            .build();
+    mp4Muxer.addMetadataEntry(
+        new Mp4TimestampData(
+            /* creationTimestampSeconds= */ 100_000_000L,
+            /* modificationTimestampSeconds= */ 500_000_000L));
+    Pair<ByteBuffer, BufferInfo> sample1 = getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 0L);
+    Pair<ByteBuffer, BufferInfo> sample2 =
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 100L);
+    Pair<ByteBuffer, BufferInfo> sample3 =
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 200L);
+    Pair<ByteBuffer, BufferInfo> sample4 =
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 300L);
+
+    try {
+      TrackToken track = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
+      mp4Muxer.writeSampleData(track, sample1.first, sample1.second);
+      mp4Muxer.writeSampleData(track, sample2.first, sample2.second);
+      mp4Muxer.writeSampleData(track, sample3.first, sample3.second);
+      mp4Muxer.writeSampleData(track, sample4.first, sample4.second);
+    } finally {
+      mp4Muxer.close();
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), outputFilePath);
+    fakeExtractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO).assertSampleCount(4);
+    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isEqualTo(400L);
   }
 
   private static void writeFakeSamples(Mp4Muxer muxer, TrackToken trackToken, int sampleCount)
@@ -578,29 +769,5 @@ public class Mp4MuxerEndToEndTest {
           getFakeSampleAndSampleInfo(/* presentationTimeUs= */ i);
       muxer.writeSampleData(trackToken, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
     }
-  }
-
-  private static byte[] getEdvdBoxPayload(String filePath) throws IOException {
-    ParsableByteArray data = new ParsableByteArray(TestUtil.getByteArrayFromFilePath(filePath));
-    while (data.bytesLeft() > 0) {
-      long size = data.readInt();
-      String name = data.readString(/* length= */ 4);
-      long payloadSize = size - 8;
-      if (size == 1) {
-        size = data.readUnsignedLongToLong();
-        // Parsing is not supported for box having size > Integer.MAX_VALUE.
-        Assertions.checkState(size <= Integer.MAX_VALUE);
-        // Subtract 4 bytes (32-bit box size) + 4 bytes (box name) + 8 bytes (64-bit box size).
-        payloadSize = size - 16;
-      }
-      if (name.equals("edvd")) {
-        byte[] payloadData = new byte[(int) payloadSize];
-        data.readBytes(payloadData, /* offset= */ 0, (int) payloadSize);
-        return payloadData;
-      } else {
-        data.skipBytes((int) payloadSize);
-      }
-    }
-    return new byte[0];
   }
 }

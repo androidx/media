@@ -93,16 +93,20 @@ import java.util.concurrent.TimeoutException;
    * Submits the given {@link Task} to be executed after all pending tasks have completed.
    *
    * <p>Can be called on any thread.
+   *
+   * @param task The task to submit.
+   * @param isCancellable Whether the task can be cancelled, for example if an error occurred in a
+   *     previous task or if the executor is flushed.
    */
   @SuppressWarnings("FutureReturnValueIgnored")
-  public void submit(Task task) {
+  public void submit(Task task, boolean isCancellable) {
     @Nullable RejectedExecutionException executionException = null;
     synchronized (lock) {
-      if (shouldCancelTasks) {
+      if (shouldCancelTasks && isCancellable) {
         return;
       }
       try {
-        wrapTaskAndSubmitToExecutorService(task, /* isFlushOrReleaseTask= */ false);
+        wrapTaskAndSubmitToExecutorService(task, isCancellable);
       } catch (RejectedExecutionException e) {
         executionException = e;
       }
@@ -111,6 +115,16 @@ import java.util.concurrent.TimeoutException;
     if (executionException != null) {
       handleException(executionException);
     }
+  }
+
+  /**
+   * Submits the given {@link Task} to be executed after all pending tasks have completed.
+   *
+   * <p>Can be called on any thread.
+   */
+  @SuppressWarnings("FutureReturnValueIgnored")
+  public void submit(Task task) {
+    submit(task, /* isCancellable= */ true);
   }
 
   /**
@@ -193,7 +207,7 @@ import java.util.concurrent.TimeoutException;
           }
           latch.countDown();
         },
-        /* isFlushOrReleaseTask= */ true);
+        /* isCancellable= */ false);
     latch.await();
   }
 
@@ -217,8 +231,7 @@ import java.util.concurrent.TimeoutException;
       shouldCancelTasks = true;
       highPriorityTasks.clear();
     }
-    Future<?> unused =
-        wrapTaskAndSubmitToExecutorService(releaseTask, /* isFlushOrReleaseTask= */ true);
+    Future<?> unused = wrapTaskAndSubmitToExecutorService(releaseTask, /* isCancellable= */ false);
     if (shouldShutdownExecutorService) {
       singleThreadExecutorService.shutdown();
       if (!singleThreadExecutorService.awaitTermination(
@@ -253,12 +266,12 @@ import java.util.concurrent.TimeoutException;
   }
 
   private Future<?> wrapTaskAndSubmitToExecutorService(
-      Task defaultPriorityTask, boolean isFlushOrReleaseTask) {
+      Task defaultPriorityTask, boolean isCancellable) {
     return singleThreadExecutorService.submit(
         () -> {
           try {
             synchronized (lock) {
-              if (shouldCancelTasks && !isFlushOrReleaseTask) {
+              if (shouldCancelTasks && isCancellable) {
                 return;
               }
             }
@@ -284,8 +297,8 @@ import java.util.concurrent.TimeoutException;
   private void handleException(Exception exception) {
     synchronized (lock) {
       if (shouldCancelTasks) {
-        // Ignore exception after cancelation as it can be caused by a previously reported exception
-        // that is the reason for the cancelation.
+        // Ignore exception after cancellation as it can be caused by a previously reported
+        // exception that is the reason for the cancellation.
         return;
       }
       shouldCancelTasks = true;

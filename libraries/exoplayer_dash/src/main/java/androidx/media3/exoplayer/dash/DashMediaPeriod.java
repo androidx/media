@@ -114,6 +114,8 @@ import java.util.regex.Pattern;
   private DashManifest manifest;
   private int periodIndex;
   private List<EventStream> eventStreams;
+  private boolean canReportInitialDiscontinuity;
+  private long initialStartTimeUs;
 
   public DashMediaPeriod(
       int id,
@@ -149,6 +151,7 @@ import java.util.regex.Pattern;
     this.allocator = allocator;
     this.compositeSequenceableLoaderFactory = compositeSequenceableLoaderFactory;
     this.playerId = playerId;
+    this.canReportInitialDiscontinuity = true;
     playerEmsgHandler = new PlayerEmsgHandler(manifest, playerEmsgCallback, allocator);
     sampleStreams = newSampleStreamArray(0);
     eventSampleStreams = new EventSampleStream[0];
@@ -305,6 +308,10 @@ import java.util.regex.Pattern;
         compositeSequenceableLoaderFactory.create(
             sampleStreamList,
             Lists.transform(sampleStreamList, s -> ImmutableList.of(s.primaryTrackType)));
+    if (canReportInitialDiscontinuity) {
+      canReportInitialDiscontinuity = false;
+      initialStartTimeUs = positionUs;
+    }
     return positionUs;
   }
 
@@ -337,6 +344,11 @@ import java.util.regex.Pattern;
 
   @Override
   public long readDiscontinuity() {
+    for (ChunkSampleStream<DashChunkSource> sampleStream : sampleStreams) {
+      if (sampleStream.consumeInitialDiscontinuity()) {
+        return initialStartTimeUs;
+      }
+    }
     return C.TIME_UNSET;
   }
 
@@ -824,7 +836,8 @@ import java.util.regex.Pattern;
             drmSessionManager,
             drmEventDispatcher,
             loadErrorHandlingPolicy,
-            mediaSourceEventDispatcher);
+            mediaSourceEventDispatcher,
+            canReportInitialDiscontinuity);
     synchronized (this) {
       // The map is also accessed on the loading thread so synchronize access.
       trackEmsgHandlerBySampleStream.put(stream, trackPlayerEmsgHandler);

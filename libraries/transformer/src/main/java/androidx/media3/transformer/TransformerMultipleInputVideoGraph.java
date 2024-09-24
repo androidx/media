@@ -27,6 +27,7 @@ import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.effect.MultipleInputVideoGraph;
 import androidx.media3.effect.VideoCompositorSettings;
+import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.concurrent.Executor;
 
@@ -99,7 +100,9 @@ import java.util.concurrent.Executor;
   public GraphInput createInput(int inputIndex) throws VideoFrameProcessingException {
     registerInput(inputIndex);
     return new VideoFrameProcessingWrapper(
-        getProcessor(inputIndex), /* presentation= */ null, getInitialTimestampOffsetUs());
+        getProcessor(inputIndex),
+        /* postProcessingEffects= */ ImmutableList.of(),
+        getInitialTimestampOffsetUs());
   }
 
   @Override

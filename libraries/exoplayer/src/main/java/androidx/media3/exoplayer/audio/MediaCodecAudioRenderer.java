@@ -31,7 +31,6 @@ import android.media.MediaFormat;
 import android.os.Bundle;
 import android.os.Handler;
 import androidx.annotation.CallSuper;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
@@ -1157,7 +1156,6 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   private static final class Api23 {
     private Api23() {}
 
-    @DoNotInline
     public static void setAudioSinkPreferredDevice(
         AudioSink audioSink, @Nullable Object messagePayload) {
       @Nullable AudioDeviceInfo audioDeviceInfo = (AudioDeviceInfo) messagePayload;

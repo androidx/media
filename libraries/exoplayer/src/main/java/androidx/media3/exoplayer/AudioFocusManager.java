@@ -32,6 +32,8 @@ import androidx.media3.common.Player;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -160,7 +162,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private static final float VOLUME_MULTIPLIER_DUCK = 0.2f;
   private static final float VOLUME_MULTIPLIER_DEFAULT = 1.0f;
 
-  private final AudioManager audioManager;
+  private final Supplier<AudioManager> audioManager;
   private final AudioFocusListener focusListener;
   @Nullable private PlayerControl playerControl;
   @Nullable private AudioAttributes audioAttributes;
@@ -168,7 +170,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private @AudioFocusState int audioFocusState;
   private @AudioFocusGain int focusGainToRequest;
   private float volumeMultiplier = VOLUME_MULTIPLIER_DEFAULT;
-
   private @MonotonicNonNull AudioFocusRequest audioFocusRequest;
   private boolean rebuildAudioFocusRequest;
 
@@ -181,8 +182,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   public AudioFocusManager(Context context, Handler eventHandler, PlayerControl playerControl) {
     this.audioManager =
-        checkNotNull(
-            (AudioManager) context.getApplicationContext().getSystemService(Context.AUDIO_SERVICE));
+        Suppliers.memoize(
+            () ->
+                checkNotNull(
+                    (AudioManager)
+                        context.getApplicationContext().getSystemService(Context.AUDIO_SERVICE)));
     this.playerControl = playerControl;
     this.focusListener = new AudioFocusListener(eventHandler);
     this.audioFocusState = AUDIO_FOCUS_STATE_NOT_REQUESTED;
@@ -287,10 +291,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private int requestAudioFocusDefault() {
-    return audioManager.requestAudioFocus(
-        focusListener,
-        Util.getStreamTypeForAudioUsage(checkNotNull(audioAttributes).usage),
-        focusGainToRequest);
+    return audioManager
+        .get()
+        .requestAudioFocus(
+            focusListener,
+            Util.getStreamTypeForAudioUsage(checkNotNull(audioAttributes).usage),
+            focusGainToRequest);
   }
 
   @RequiresApi(26)
@@ -312,17 +318,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
       rebuildAudioFocusRequest = false;
     }
-    return audioManager.requestAudioFocus(audioFocusRequest);
+    return audioManager.get().requestAudioFocus(audioFocusRequest);
   }
 
   private void abandonAudioFocusDefault() {
-    audioManager.abandonAudioFocus(focusListener);
+    audioManager.get().abandonAudioFocus(focusListener);
   }
 
   @RequiresApi(26)
   private void abandonAudioFocusV26() {
     if (audioFocusRequest != null) {
-      audioManager.abandonAudioFocusRequest(audioFocusRequest);
+      audioManager.get().abandonAudioFocusRequest(audioFocusRequest);
     }
   }
 

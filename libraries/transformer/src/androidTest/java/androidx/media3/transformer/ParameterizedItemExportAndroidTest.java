@@ -21,6 +21,7 @@ import static androidx.media3.transformer.AndroidTestUtil.JPG_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
+import static androidx.media3.transformer.AndroidTestUtil.getMuxerFactoryBasedOnApi;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
@@ -120,6 +121,7 @@ public final class ParameterizedItemExportAndroidTest {
     assumeFormatsSupported(context, testId, itemConfig.format, itemConfig.outputFormat);
     Transformer transformer =
         new Transformer.Builder(context)
+            .setMuxerFactory(getMuxerFactoryBasedOnApi())
             .setEncoderFactory(
                 new DefaultEncoderFactory.Builder(context).setEnableFallback(false).build())
             .build();

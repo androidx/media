@@ -35,7 +35,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import android.annotation.TargetApi;
 import android.media.MediaCodec;
 import android.media.MediaCodec.CodecException;
-import android.media.MediaCodec.CryptoException;
 import android.media.MediaCrypto;
 import android.media.MediaCryptoException;
 import android.media.MediaFormat;
@@ -44,7 +43,6 @@ import android.os.Bundle;
 import android.os.SystemClock;
 import androidx.annotation.CallSuper;
 import androidx.annotation.CheckResult;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -580,6 +578,8 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       try {
         boolean mediaCryptoRequiresSecureDecoder =
             codecDrmSession != null
+                && (codecDrmSession.getState() == DrmSession.STATE_OPENED
+                    || codecDrmSession.getState() == DrmSession.STATE_OPENED_WITH_KEYS)
                 && codecDrmSession.requiresSecureDecoder(
                     checkStateNotNull(inputFormat.sampleMimeType));
         maybeInitCodecWithFallback(mediaCrypto, mediaCryptoRequiresSecureDecoder);
@@ -883,6 +883,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         readSourceOmittingSampleData(FLAG_PEEK);
       }
       decoderCounters.ensureUpdated();
+    } catch (MediaCodec.CryptoException e) {
+      throw createRendererException(
+          e, inputFormat, Util.getErrorCodeForMediaDrmErrorCode(e.getErrorCode()));
     } catch (IllegalStateException e) {
       if (isMediaCodecException(e)) {
         onCodecError(e);
@@ -1391,22 +1394,17 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         processEndOfStream();
         return false;
       }
-      try {
-        if (codecNeedsEosPropagation) {
-          // Do nothing.
-        } else {
-          codecReceivedEos = true;
-          codec.queueInputBuffer(
-              inputIndex,
-              /* offset= */ 0,
-              /* size= */ 0,
-              /* presentationTimeUs= */ 0,
-              MediaCodec.BUFFER_FLAG_END_OF_STREAM);
-          resetInputBuffer();
-        }
-      } catch (CryptoException e) {
-        throw createRendererException(
-            e, inputFormat, Util.getErrorCodeForMediaDrmErrorCode(e.getErrorCode()));
+      if (codecNeedsEosPropagation) {
+        // Do nothing.
+      } else {
+        codecReceivedEos = true;
+        codec.queueInputBuffer(
+            inputIndex,
+            /* offset= */ 0,
+            /* size= */ 0,
+            /* presentationTimeUs= */ 0,
+            MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+        resetInputBuffer();
       }
       return false;
     }
@@ -1463,23 +1461,18 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
 
     onQueueInputBuffer(buffer);
     int flags = getCodecBufferFlags(buffer);
-    try {
-      if (bufferEncrypted) {
-        checkNotNull(codec)
-            .queueSecureInputBuffer(
-                inputIndex, /* offset= */ 0, buffer.cryptoInfo, presentationTimeUs, flags);
-      } else {
-        checkNotNull(codec)
-            .queueInputBuffer(
-                inputIndex,
-                /* offset= */ 0,
-                checkNotNull(buffer.data).limit(),
-                presentationTimeUs,
-                flags);
-      }
-    } catch (CryptoException e) {
-      throw createRendererException(
-          e, inputFormat, Util.getErrorCodeForMediaDrmErrorCode(e.getErrorCode()));
+    if (bufferEncrypted) {
+      checkNotNull(codec)
+          .queueSecureInputBuffer(
+              inputIndex, /* offset= */ 0, buffer.cryptoInfo, presentationTimeUs, flags);
+    } else {
+      checkNotNull(codec)
+          .queueInputBuffer(
+              inputIndex,
+              /* offset= */ 0,
+              checkNotNull(buffer.data).limit(),
+              presentationTimeUs,
+              flags);
     }
 
     resetInputBuffer();
@@ -2301,9 +2294,12 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     }
 
     // Re-initialization is required if newSession might require switching to the secure output
-    // path.
+    // path. We assume newSession might require a secure decoder if it's not fully open yet.
     return !codecInfo.secure
-        && newSession.requiresSecureDecoder(checkNotNull(newFormat.sampleMimeType));
+        && (newSession.getState() == DrmSession.STATE_OPENING
+            || ((newSession.getState() == DrmSession.STATE_OPENED
+                    || newSession.getState() == DrmSession.STATE_OPENED_WITH_KEYS)
+                && newSession.requiresSecureDecoder(checkNotNull(newFormat.sampleMimeType))));
   }
 
   private void reinitializeCodec() throws ExoPlaybackException {
@@ -2657,7 +2653,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private static final class Api31 {
     private Api31() {}
 
-    @DoNotInline
     public static void setLogSessionIdToMediaCodecFormat(
         MediaCodecAdapter.Configuration codecConfiguration, PlayerId playerId) {
       LogSessionId logSessionId = playerId.getLogSessionId();

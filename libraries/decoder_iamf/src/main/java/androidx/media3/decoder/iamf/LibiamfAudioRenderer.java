@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,12 +15,17 @@
  */
 package androidx.media3.decoder.iamf;
 
+import android.annotation.SuppressLint;
+import android.content.Context;
+import android.media.AudioFormat;
+import android.media.AudioManager;
+import android.media.Spatializer;
 import android.os.Handler;
 import androidx.annotation.Nullable;
+import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.util.TraceUtil;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.CryptoConfig;
@@ -32,35 +37,24 @@ import java.util.Objects;
 
 /** Decodes and renders audio using the native IAMF decoder. */
 public class LibiamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
+  private final Context context;
 
   /**
    * Creates a new instance.
    *
-   * @param eventHandler A handler to use when delivering events to {@code eventListener}. May be
-   *     null if delivery of events is not required.
-   * @param eventListener A listener of events. May be null if delivery of events is not required.
-   * @param audioProcessors Optional {@link AudioProcessor}s that will process audio before output.
-   */
-  public LibiamfAudioRenderer(
-      @Nullable Handler eventHandler,
-      @Nullable AudioRendererEventListener eventListener,
-      AudioProcessor... audioProcessors) {
-    super(eventHandler, eventListener, audioProcessors);
-  }
-
-  /**
-   * Creates a new instance.
-   *
+   * @param context The context to use for spatialization capability checks.
    * @param eventHandler A handler to use when delivering events to {@code eventListener}. May be
    *     null if delivery of events is not required.
    * @param eventListener A listener of events. May be null if delivery of events is not required.
    * @param audioSink The sink to which audio will be output.
    */
   public LibiamfAudioRenderer(
+      Context context,
       @Nullable Handler eventHandler,
       @Nullable AudioRendererEventListener eventListener,
       AudioSink audioSink) {
     super(eventHandler, eventListener, audioSink);
+    this.context = context;
   }
 
   @Override
@@ -75,7 +69,7 @@ public class LibiamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
   protected IamfDecoder createDecoder(Format format, @Nullable CryptoConfig cryptoConfig)
       throws DecoderException {
     TraceUtil.beginSection("createIamfDecoder");
-    IamfDecoder decoder = new IamfDecoder(format.initializationData);
+    IamfDecoder decoder = new IamfDecoder(format.initializationData, isSpatializationSupported());
     TraceUtil.endSection();
     return decoder;
   }
@@ -83,13 +77,35 @@ public class LibiamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
   @Override
   protected Format getOutputFormat(IamfDecoder decoder) {
     return Util.getPcmFormat(
-        IamfDecoder.DEFAULT_PCM_ENCODING,
-        IamfDecoder.DEFAULT_CHANNEL_COUNT,
-        IamfDecoder.DEFAULT_OUTPUT_SAMPLE_RATE);
+        IamfDecoder.OUTPUT_PCM_ENCODING, decoder.getChannelCount(), IamfDecoder.OUTPUT_SAMPLE_RATE);
   }
 
   @Override
   public String getName() {
     return "LibiamfAudioRenderer";
+  }
+
+  // IamfDecoder#OUTPUT_PCM_ENCODING indirectly points to AudioFormat#ENCODING_PCM_16BIT.
+  @SuppressLint("WrongConstant")
+  private boolean isSpatializationSupported() {
+    // Spatializer is only available on API 32 and above.
+    if (Util.SDK_INT < 32) {
+      return false;
+    }
+
+    AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+    AudioFormat.Builder audioFormat =
+        new AudioFormat.Builder()
+            .setEncoding(IamfDecoder.OUTPUT_PCM_ENCODING)
+            .setChannelMask(IamfDecoder.SPATIALIZED_OUTPUT_LAYOUT);
+    if (audioManager == null) {
+      return false;
+    }
+    Spatializer spatializer = audioManager.getSpatializer();
+    return spatializer.getImmersiveAudioLevel() != Spatializer.SPATIALIZER_IMMERSIVE_LEVEL_NONE
+        && spatializer.isAvailable()
+        && spatializer.isEnabled()
+        && spatializer.canBeSpatialized(
+            AudioAttributes.DEFAULT.getAudioAttributesV21().audioAttributes, audioFormat.build());
   }
 }

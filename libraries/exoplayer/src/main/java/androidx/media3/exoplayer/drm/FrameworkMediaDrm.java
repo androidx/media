@@ -28,7 +28,6 @@ import android.media.UnsupportedSchemeException;
 import android.media.metrics.LogSessionId;
 import android.os.PersistableBundle;
 import android.text.TextUtils;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
@@ -42,9 +41,9 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.extractor.mp4.PsshAtomUtil;
-import com.google.common.base.Charsets;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -292,8 +291,9 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
   @Override
   public boolean requiresSecureDecoder(byte[] sessionId, String mimeType) {
     boolean result;
-    if (Util.SDK_INT >= 31) {
-      result = Api31.requiresSecureDecoder(mediaDrm, mimeType);
+    if (Util.SDK_INT >= 31 && isMediaDrmRequiresSecureDecoderImplemented()) {
+      result =
+          Api31.requiresSecureDecoder(mediaDrm, mimeType, mediaDrm.getSecurityLevel(sessionId));
     } else {
       MediaCrypto mediaCrypto = null;
       try {
@@ -396,6 +396,26 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
   @Override
   public @C.CryptoType int getCryptoType() {
     return C.CRYPTO_TYPE_FRAMEWORK;
+  }
+
+  /**
+   * {@link MediaDrm#requiresSecureDecoder} is nominally available from API 31, but it's only
+   * functional for Widevine if the plugin version is greater than 16.0. See b/352419654#comment63.
+   */
+  @RequiresApi(31)
+  private boolean isMediaDrmRequiresSecureDecoderImplemented() {
+    // TODO: b/359768062 - Add an SDK_INT guard clause once WV 16.0 is not permitted on any device.
+    if (uuid.equals(C.WIDEVINE_UUID)) {
+      String pluginVersion = getPropertyString(MediaDrm.PROPERTY_VERSION);
+      return !pluginVersion.startsWith("v5.")
+          && !pluginVersion.startsWith("14.")
+          && !pluginVersion.startsWith("15.")
+          && !pluginVersion.startsWith("16.0");
+    } else {
+      // Assume that ClearKey plugin always supports this method, and no non-Google plugin does. See
+      // b/352419654#comment71.
+      return uuid.equals(C.CLEARKEY_UUID);
+    }
   }
 
   private static SchemeData getSchemeData(UUID uuid, List<SchemeData> schemeDatas) {
@@ -541,7 +561,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
       return data;
     }
     int recordLength = byteArray.readLittleEndianShort();
-    String xml = byteArray.readString(recordLength, Charsets.UTF_16LE);
+    String xml = byteArray.readString(recordLength, StandardCharsets.UTF_16LE);
     if (xml.contains("<LA_URL>")) {
       // LA_URL already present. Do nothing.
       return data;
@@ -562,7 +582,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
     newData.putShort((short) objectRecordCount);
     newData.putShort((short) recordType);
     newData.putShort((short) (xmlWithMockLaUrl.length() * UTF_16_BYTES_PER_CHARACTER));
-    newData.put(xmlWithMockLaUrl.getBytes(Charsets.UTF_16LE));
+    newData.put(xmlWithMockLaUrl.getBytes(StandardCharsets.UTF_16LE));
     return newData.array();
   }
 
@@ -570,12 +590,11 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
   private static class Api31 {
     private Api31() {}
 
-    @DoNotInline
-    public static boolean requiresSecureDecoder(MediaDrm mediaDrm, String mimeType) {
-      return mediaDrm.requiresSecureDecoder(mimeType);
+    public static boolean requiresSecureDecoder(
+        MediaDrm mediaDrm, String mimeType, int securityLevel) {
+      return mediaDrm.requiresSecureDecoder(mimeType, securityLevel);
     }
 
-    @DoNotInline
     public static void setLogSessionIdOnMediaDrmSession(
         MediaDrm mediaDrm, byte[] drmSessionId, PlayerId playerId) {
       LogSessionId logSessionId = playerId.getLogSessionId();

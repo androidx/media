@@ -17,7 +17,7 @@ track 0:
     maxNumReorderSamples = 2
     width = 1080
     height = 720
-    frameRate = 29.970028
+    frameRate = 29.97
     colorInfo:
       colorSpace = 1
       colorRange = 2

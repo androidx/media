@@ -28,7 +28,6 @@ import android.media.MediaFormat;
 import android.util.Pair;
 import android.util.Range;
 import android.util.Size;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -457,12 +456,10 @@ public final class EncoderUtil {
 
   @RequiresApi(29)
   private static final class Api29 {
-    @DoNotInline
     public static boolean isHardwareAccelerated(MediaCodecInfo encoderInfo) {
       return encoderInfo.isHardwareAccelerated();
     }
 
-    @DoNotInline
     public static boolean isSoftwareOnly(MediaCodecInfo encoderInfo) {
       return encoderInfo.isSoftwareOnly();
     }

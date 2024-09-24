@@ -1,10 +1,10 @@
 seekMap:
   isSeekable = true
-  duration = 1065600
+  duration = 1088800
   getPosition(0) = [[timeUs=0, position=400052]]
   getPosition(1) = [[timeUs=0, position=400052]]
-  getPosition(532800) = [[timeUs=0, position=400052]]
-  getPosition(1065600) = [[timeUs=0, position=400052]]
+  getPosition(544400) = [[timeUs=0, position=400052]]
+  getPosition(1088800) = [[timeUs=0, position=400052]]
 numberOfTracks = 2
 track 0:
   total output bytes = 9529
@@ -201,7 +201,7 @@ track 0:
     flags = 536870913
     data = length 6, hash 31B22286
 track 1:
-  total output bytes = 301222
+  total output bytes = 301213
   sample count = 30
   format 0:
     id = 2
@@ -211,7 +211,7 @@ track 1:
     maxNumReorderSamples = 0
     width = 1080
     height = 720
-    frameRate = 31.004547
+    frameRate = 29.97
     colorInfo:
       colorSpace = 1
       colorRange = 2
@@ -237,7 +237,7 @@ track 1:
   sample 3:
     time = 100100
     flags = 0
-    data = length 976, hash CD49C23C
+    data = length 973, hash 916BC744
   sample 4:
     time = 133455
     flags = 0
@@ -265,7 +265,7 @@ track 1:
   sample 10:
     time = 333655
     flags = 0
-    data = length 9792, hash B2B9AB4B
+    data = length 9789, hash A2D01095
   sample 11:
     time = 367022
     flags = 0
@@ -309,7 +309,7 @@ track 1:
   sample 21:
     time = 700700
     flags = 0
-    data = length 12192, hash E0F8A71A
+    data = length 12189, hash 423C3F26
   sample 22:
     time = 734055
     flags = 0

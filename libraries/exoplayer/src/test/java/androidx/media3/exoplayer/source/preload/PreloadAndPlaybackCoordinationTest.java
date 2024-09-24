@@ -116,7 +116,7 @@ public class PreloadAndPlaybackCoordinationTest {
 
           @Override
           public boolean onContinueLoadingRequested(
-              PreloadMediaSource mediaSource, long bufferedPositionUs) {
+              PreloadMediaSource mediaSource, long bufferedDurationUs) {
             return true;
           }
 

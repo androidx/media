@@ -367,20 +367,20 @@ public class VideoTimestampConsistencyTest {
   private void compareTimestamps(
       List<EditedMediaItem> mediaItems, List<Long> expectedTimestamps, boolean containsImage)
       throws Exception {
+    ImmutableList<Long> timestampsFromTransformer = getTimestampsFromTransformer(mediaItems);
+    assertThat(timestampsFromTransformer).isEqualTo(expectedTimestamps);
+
     ImmutableList<Long> timestampsFromCompositionPlayer =
         getTimestampsFromCompositionPlayer(mediaItems);
-    ImmutableList<Long> timestampsFromTransformer = getTimestampsFromTransformer(mediaItems);
-
-    assertThat(timestampsFromCompositionPlayer).isEqualTo(timestampsFromTransformer);
+    assertThat(timestampsFromCompositionPlayer).isEqualTo(expectedTimestamps);
 
     if (!containsImage) {
       // ExoPlayer doesn't support image playback with effects.
       ImmutableList<Long> timestampsFromExoPlayer =
           getTimestampsFromExoPlayer(
               Lists.transform(mediaItems, editedMediaItem -> editedMediaItem.mediaItem));
-      assertThat(timestampsFromCompositionPlayer).isEqualTo(timestampsFromExoPlayer);
+      assertThat(timestampsFromExoPlayer).isEqualTo(expectedTimestamps);
     }
-    assertThat(timestampsFromTransformer).isEqualTo(expectedTimestamps);
   }
 
   private ImmutableList<Long> getTimestampsFromTransformer(List<EditedMediaItem> editedMediaItems)
@@ -404,7 +404,8 @@ public class VideoTimestampConsistencyTest {
             .run(
                 /* testId= */ testName.getMethodName(),
                 new Composition.Builder(
-                        new EditedMediaItemSequence(timestampRecordingEditedMediaItems))
+                        new EditedMediaItemSequence.Builder(timestampRecordingEditedMediaItems)
+                            .build())
                     .experimentalSetForceAudioTrack(true)
                     .build());
 
@@ -431,7 +432,8 @@ public class VideoTimestampConsistencyTest {
           compositionPlayer.addListener(compositionPlayerListener);
           compositionPlayer.setComposition(
               new Composition.Builder(
-                      new EditedMediaItemSequence(timestampRecordingEditedMediaItems))
+                      new EditedMediaItemSequence.Builder(timestampRecordingEditedMediaItems)
+                          .build())
                   .experimentalSetForceAudioTrack(true)
                   .build());
           compositionPlayer.prepare();

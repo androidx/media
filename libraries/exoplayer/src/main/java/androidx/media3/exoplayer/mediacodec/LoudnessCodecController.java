@@ -21,7 +21,6 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import android.media.LoudnessCodecController.OnLoudnessCodecUpdateListener;
 import android.media.MediaCodec;
 import android.os.Bundle;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.UnstableApi;
@@ -74,7 +73,6 @@ public final class LoudnessCodecController {
    *
    * @param audioSessionId The audio session ID.
    */
-  @DoNotInline
   public void setAudioSessionId(int audioSessionId) {
     if (loudnessCodecController != null) {
       loudnessCodecController.close();
@@ -104,7 +102,6 @@ public final class LoudnessCodecController {
    *
    * @param mediaCodec A {@link MediaCodec}.
    */
-  @DoNotInline
   public void addMediaCodec(MediaCodec mediaCodec) {
     if (loudnessCodecController != null && !loudnessCodecController.addMediaCodec(mediaCodec)) {
       // Don't add codec if the existing loudness controller can't handle it.
@@ -118,7 +115,6 @@ public final class LoudnessCodecController {
    *
    * @param mediaCodec A {@link MediaCodec}.
    */
-  @DoNotInline
   public void removeMediaCodec(MediaCodec mediaCodec) {
     boolean removedCodec = mediaCodecs.remove(mediaCodec);
     if (removedCodec && loudnessCodecController != null) {
@@ -127,7 +123,6 @@ public final class LoudnessCodecController {
   }
 
   /** Releases the loudness controller. */
-  @DoNotInline
   public void release() {
     mediaCodecs.clear();
     if (loudnessCodecController != null) {

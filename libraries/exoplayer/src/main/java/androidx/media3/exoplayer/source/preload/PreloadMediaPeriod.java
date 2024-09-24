@@ -35,8 +35,8 @@ import java.util.Objects;
 
   public final MediaPeriod mediaPeriod;
 
+  public boolean prepared;
   private boolean prepareInternalCalled;
-  private boolean prepared;
   @Nullable private Callback callback;
   @Nullable private PreloadTrackSelectionHolder preloadTrackSelectionHolder;
 
@@ -49,7 +49,7 @@ import java.util.Objects;
     this.mediaPeriod = mediaPeriod;
   }
 
-  /* package */ void preload(Callback callback, long positionUs) {
+  public void preload(Callback callback, long positionUs) {
     this.callback = callback;
     if (prepared) {
       callback.onPrepared(PreloadMediaPeriod.this);
@@ -217,7 +217,7 @@ import java.util.Objects;
     return true;
   }
 
-  /* package */ long selectTracksForPreloading(
+  public long selectTracksForPreloading(
       @NullableType ExoTrackSelection[] selections, long positionUs) {
     @NullableType SampleStream[] preloadedSampleStreams = new SampleStream[selections.length];
     boolean[] preloadedStreamResetFlags = new boolean[selections.length];
@@ -282,6 +282,17 @@ import java.util.Objects;
   @Override
   public void reevaluateBuffer(long positionUs) {
     mediaPeriod.reevaluateBuffer(positionUs);
+  }
+
+  public void maybeThrowStreamError() throws IOException {
+    checkState(prepared);
+    if (preloadTrackSelectionHolder != null) {
+      for (SampleStream stream : preloadTrackSelectionHolder.streams) {
+        if (stream != null) {
+          stream.maybeThrowError();
+        }
+      }
+    }
   }
 
   private static class PreloadTrackSelectionHolder {

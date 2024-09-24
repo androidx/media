@@ -106,16 +106,16 @@ public final class ExperimentalAnalyzerModeFactory {
     private static final String TAG = "DroppingEncoder";
     private static final int INTERNAL_BUFFER_SIZE = 8196;
 
-    private final Context context;
     private final Format configurationFormat;
     private final ByteBuffer buffer;
+    private final Surface placeholderSurface;
 
     private boolean inputStreamEnded;
 
     public DroppingEncoder(Context context, Format format) {
-      this.context = context;
       this.configurationFormat = format;
       buffer = ByteBuffer.allocateDirect(INTERNAL_BUFFER_SIZE).order(ByteOrder.nativeOrder());
+      placeholderSurface = PlaceholderSurface.newInstance(context, /* secure= */ false);
     }
 
     @Override
@@ -130,7 +130,7 @@ public final class ExperimentalAnalyzerModeFactory {
 
     @Override
     public Surface getInputSurface() {
-      return PlaceholderSurface.newInstance(context, /* secure= */ false);
+      return placeholderSurface;
     }
 
     @Override
@@ -189,6 +189,8 @@ public final class ExperimentalAnalyzerModeFactory {
     public void releaseOutputBuffer(long renderPresentationTimeUs) {}
 
     @Override
-    public void release() {}
+    public void release() {
+      placeholderSurface.release();
+    }
   }
 }

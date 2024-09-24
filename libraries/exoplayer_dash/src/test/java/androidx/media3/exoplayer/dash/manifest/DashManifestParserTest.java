@@ -32,10 +32,10 @@ import androidx.media3.extractor.metadata.emsg.EventMessage;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 import org.junit.Test;
@@ -149,7 +149,7 @@ public class DashManifestParserTest {
     assertThat(eventStream1.events.length).isEqualTo(1);
     EventMessage expectedEvent1 =
         new EventMessage(
-            "urn:uuid:XYZY", "call", 10000, 0, "+ 1 800 10101010".getBytes(Charsets.UTF_8));
+            "urn:uuid:XYZY", "call", 10000, 0, "+ 1 800 10101010".getBytes(StandardCharsets.UTF_8));
     assertThat(eventStream1.events[0]).isEqualTo(expectedEvent1);
     assertThat(eventStream1.presentationTimesUs[0]).isEqualTo(0);
 
@@ -157,7 +157,8 @@ public class DashManifestParserTest {
     EventStream eventStream2 = period.eventStreams.get(1);
     assertThat(eventStream2.events.length).isEqualTo(1);
     EventMessage expectedEvent2 =
-        new EventMessage("urn:uuid:with-pto", "pto-4s", 10000, 0, "pt=1s".getBytes(Charsets.UTF_8));
+        new EventMessage(
+            "urn:uuid:with-pto", "pto-4s", 10000, 0, "pt=1s".getBytes(StandardCharsets.UTF_8));
     assertThat(eventStream2.events[0]).isEqualTo(expectedEvent2);
     assertThat(eventStream2.presentationTimesUs[0]).isEqualTo(1000000);
 

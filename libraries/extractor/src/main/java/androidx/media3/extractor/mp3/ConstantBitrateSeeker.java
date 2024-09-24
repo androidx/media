@@ -24,7 +24,10 @@ import androidx.media3.extractor.MpegAudioUtil;
  */
 /* package */ final class ConstantBitrateSeeker extends ConstantBitrateSeekMap implements Seeker {
 
+  private final long firstFramePosition;
   private final int bitrate;
+  private final int frameSize;
+  private final boolean allowSeeksIfLengthUnknown;
   private final long dataEndPosition;
 
   /**
@@ -60,7 +63,10 @@ import androidx.media3.extractor.MpegAudioUtil;
       int frameSize,
       boolean allowSeeksIfLengthUnknown) {
     super(inputLength, firstFramePosition, bitrate, frameSize, allowSeeksIfLengthUnknown);
+    this.firstFramePosition = firstFramePosition;
     this.bitrate = bitrate;
+    this.frameSize = frameSize;
+    this.allowSeeksIfLengthUnknown = allowSeeksIfLengthUnknown;
     dataEndPosition = inputLength != C.LENGTH_UNSET ? inputLength : C.INDEX_UNSET;
   }
 
@@ -77,5 +83,14 @@ import androidx.media3.extractor.MpegAudioUtil;
   @Override
   public int getAverageBitrate() {
     return bitrate;
+  }
+
+  public ConstantBitrateSeeker copyWithNewDataEndPosition(long dataEndPosition) {
+    return new ConstantBitrateSeeker(
+        /* inputLength= */ dataEndPosition,
+        firstFramePosition,
+        bitrate,
+        frameSize,
+        allowSeeksIfLengthUnknown);
   }
 }

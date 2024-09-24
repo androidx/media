@@ -211,7 +211,7 @@ public final class FragmentedMp4Muxer implements Muxer {
    */
   @Override
   public void addMetadataEntry(Metadata.Entry metadataEntry) {
-    checkArgument(Mp4Utils.isMetadataSupported(metadataEntry), "Unsupported metadata");
+    checkArgument(MuxerUtil.isMetadataSupported(metadataEntry), "Unsupported metadata");
     metadataCollector.addMetadata(metadataEntry);
   }
 

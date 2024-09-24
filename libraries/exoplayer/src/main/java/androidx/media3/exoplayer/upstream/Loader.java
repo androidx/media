@@ -91,6 +91,19 @@ public final class Loader implements LoaderErrorThrower {
   public interface Callback<T extends Loadable> {
 
     /**
+     * Called when a load has started for the first time or through a retry.
+     *
+     * @param loadable The loadable whose load has completed.
+     * @param elapsedRealtimeMs {@link SystemClock#elapsedRealtime} when the load attempts to start.
+     * @param loadDurationMs The duration in milliseconds of the load since {@link #startLoading}
+     *     was called.
+     * @param retryCount The number of failed attempts since {@link #startLoading} was called (this
+     *     is zero for the first load attempt).
+     */
+    default void onLoadStarted(
+        T loadable, long elapsedRealtimeMs, long loadDurationMs, int retryCount) {}
+
+    /**
      * Called when a load has completed.
      *
      * <p>Note: There is guaranteed to be a memory barrier between {@link Loadable#load()} exiting
@@ -531,6 +544,9 @@ public final class Loader implements LoaderErrorThrower {
     }
 
     private void execute() {
+      long nowMs = SystemClock.elapsedRealtime();
+      long durationMs = nowMs - startTimeMs;
+      Assertions.checkNotNull(this.callback).onLoadStarted(loadable, nowMs, durationMs, errorCount);
       currentError = null;
       downloadExecutor.execute(Assertions.checkNotNull(currentTask));
     }

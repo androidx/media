@@ -187,7 +187,8 @@ public class FakeAdaptiveMediaPeriod
                 DrmSessionManager.DRM_UNSUPPORTED,
                 new DrmSessionEventListener.EventDispatcher(),
                 new DefaultLoadErrorHandlingPolicy(/* minimumLoadableRetryCount= */ 3),
-                mediaSourceEventDispatcher);
+                mediaSourceEventDispatcher,
+                /* canReportInitialDiscontinuity= */ false);
         streams[i] = sampleStream;
         sampleStreams.add(sampleStream);
         streamResetFlags[i] = true;

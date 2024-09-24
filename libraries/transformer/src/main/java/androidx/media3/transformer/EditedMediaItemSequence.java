@@ -19,6 +19,7 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 
 /**
@@ -28,6 +29,83 @@ import java.util.List;
  */
 @UnstableApi
 public final class EditedMediaItemSequence {
+
+  /** A builder for instances of {@link EditedMediaItemSequence}. */
+  public static final class Builder {
+    private final ImmutableList.Builder<EditedMediaItem> items;
+    private boolean isLooping;
+
+    /** Creates an instance. */
+    public Builder(EditedMediaItem... editedMediaItems) {
+      items = new ImmutableList.Builder<EditedMediaItem>().add(editedMediaItems);
+    }
+
+    /* Creates an instance. */
+    public Builder(List<EditedMediaItem> editedMediaItems) {
+      items = new ImmutableList.Builder<EditedMediaItem>().addAll(editedMediaItems);
+    }
+
+    /**
+     * Adds the {@linkplain EditedMediaItem item} to the sequence.
+     *
+     * @param item The {@link EditedMediaItem} to add.
+     * @return This builder, for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Builder addItem(EditedMediaItem item) {
+      items.add(item);
+      return this;
+    }
+
+    /**
+     * Adds the {@linkplain EditedMediaItem items} to the sequence.
+     *
+     * @param items The {@link EditedMediaItem} instances to add.
+     * @return This builder, for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Builder addItems(EditedMediaItem... items) {
+      this.items.add(items);
+      return this;
+    }
+
+    /**
+     * Adds all the {@linkplain EditedMediaItem items} in the list to the sequence.
+     *
+     * @param items The list of {@link EditedMediaItem} instances to add.
+     * @return This builder, for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Builder addItems(List<EditedMediaItem> items) {
+      this.items.addAll(items);
+      return this;
+    }
+
+    /**
+     * See {@link EditedMediaItemSequence#isLooping}.
+     *
+     * <p>Looping is {@code false} by default.
+     *
+     * @param isLooping Whether this sequence should loop.
+     * @return This builder, for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Builder setIsLooping(boolean isLooping) {
+      this.isLooping = isLooping;
+      return this;
+    }
+
+    /**
+     * Builds the {@link EditedMediaItemSequence}.
+     *
+     * <p>There must be at least one item in the sequence.
+     *
+     * @return The built {@link EditedMediaItemSequence}.
+     */
+    public EditedMediaItemSequence build() {
+      return new EditedMediaItemSequence(this);
+    }
+  }
 
   /**
    * The {@link EditedMediaItem} instances in the sequence.
@@ -48,30 +126,35 @@ public final class EditedMediaItemSequence {
    */
   public final boolean isLooping;
 
-  /** Creates a {@linkplain #isLooping non-looping} instance. */
+  /**
+   * @deprecated Use {@link Builder}.
+   */
+  @Deprecated
   public EditedMediaItemSequence(
       EditedMediaItem editedMediaItem, EditedMediaItem... editedMediaItems) {
-    this(
-        new ImmutableList.Builder<EditedMediaItem>()
-            .add(editedMediaItem)
-            .add(editedMediaItems)
-            .build());
-  }
-
-  /** Creates a {@linkplain #isLooping non-looping} instance. */
-  public EditedMediaItemSequence(List<EditedMediaItem> editedMediaItems) {
-    this(editedMediaItems, /* isLooping= */ false);
+    this(new Builder().addItem(editedMediaItem).addItems(editedMediaItems));
   }
 
   /**
-   * Creates an instance.
-   *
-   * @param editedMediaItems The {@link #editedMediaItems}.
-   * @param isLooping Whether the sequence {@linkplain #isLooping is looping}.
+   * @deprecated Use {@link Builder}.
    */
+  @Deprecated
+  public EditedMediaItemSequence(List<EditedMediaItem> editedMediaItems) {
+    this(new Builder().addItems(editedMediaItems));
+  }
+
+  /**
+   * @deprecated Use {@link Builder}.
+   */
+  @Deprecated
   public EditedMediaItemSequence(List<EditedMediaItem> editedMediaItems, boolean isLooping) {
-    checkArgument(!editedMediaItems.isEmpty());
-    this.editedMediaItems = ImmutableList.copyOf(editedMediaItems);
-    this.isLooping = isLooping;
+    this(new Builder().addItems(editedMediaItems).setIsLooping(isLooping));
+  }
+
+  private EditedMediaItemSequence(EditedMediaItemSequence.Builder builder) {
+    this.editedMediaItems = builder.items.build();
+    checkArgument(
+        !editedMediaItems.isEmpty(), "The sequence must contain at least one EditedMediaItem.");
+    this.isLooping = builder.isLooping;
   }
 }

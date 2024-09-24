@@ -130,10 +130,11 @@ public class ForceEndOfStreamTest {
 
   private static Composition createComposition(MediaItem mediaItem) {
     return new Composition.Builder(
-            new EditedMediaItemSequence(
-                new EditedMediaItem.Builder(mediaItem)
-                    .setEffects(FORCE_TRANSCODE_VIDEO_EFFECTS)
-                    .build()))
+            new EditedMediaItemSequence.Builder(
+                    new EditedMediaItem.Builder(mediaItem)
+                        .setEffects(FORCE_TRANSCODE_VIDEO_EFFECTS)
+                        .build())
+                .build())
         .build();
   }
 

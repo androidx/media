@@ -12,7 +12,7 @@ format video:
   maxNumReorderSamples = 2
   width = 1080
   height = 720
-  frameRate = 29.970028
+  frameRate = 29.97
   colorInfo:
     colorSpace = 1
     colorRange = 2
@@ -242,8 +242,8 @@ sample:
   isKeyFrame = true
 sample:
   trackType = audio
-  dataHashCode = 1987567745
-  size = 3644
+  dataHashCode = -433692799
+  size = 452
   isKeyFrame = true
 sample:
   trackType = video

@@ -48,9 +48,8 @@ import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.audio.AudioProcessor;
-import androidx.media3.common.audio.AudioProcessor.AudioFormat;
 import androidx.media3.common.audio.ChannelMixingAudioProcessor;
-import androidx.media3.common.audio.SonicAudioProcessor;
+import androidx.media3.common.audio.ToInt16PcmAudioProcessor;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.ListenerSet;
@@ -58,7 +57,6 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
-import androidx.media3.effect.Presentation;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.muxer.Muxer;
 import com.google.common.collect.ImmutableList;
@@ -1018,14 +1016,8 @@ public final class Transformer {
    * EditedMediaItemSequence}, while the audio format will be determined by the {@code
    * AudioMediaItem} in the second {@code EditedMediaItemSequence}.
    *
-   * <p>This method is under development. A {@link Composition} must meet the following conditions:
-   *
-   * <ul>
-   *   <li>The video composition {@link Presentation} effect is applied after input streams are
-   *       composited. Other composition effects are ignored.
-   * </ul>
-   *
-   * <p>{@linkplain EditedMediaItemSequence Sequences} within the {@link Composition} must meet the
+   * <p>Some {@linkplain Composition compositions} are not supported yet. More specifically,
+   * {@linkplain EditedMediaItemSequence Sequences} within the {@link Composition} must meet the
    * following conditions:
    *
    * <ul>
@@ -1037,10 +1029,10 @@ public final class Transformer {
    *       </ul>
    *   <li>If a sequence starts with an HDR {@link EditedMediaItem}, all the following items in the
    *       sequence must be HDR.
-   *   <li>All sequences containing audio data must output audio with the same {@linkplain
-   *       AudioFormat properties}. This can be done by adding {@linkplain EditedMediaItem#effects
-   *       item specific effects}, such as {@link SonicAudioProcessor} and {@link
-   *       ChannelMixingAudioProcessor}.
+   *   <li>All {@linkplain EditedMediaItem items} containing audio data must output 16 bit PCM audio
+   *       with the same number of channels. This can be done by adding a {@link
+   *       ToInt16PcmAudioProcessor} and/or a {@link ChannelMixingAudioProcessor} to the {@linkplain
+   *       EditedMediaItem#effects item specific effects}.
    * </ul>
    *
    * <p>The export state is notified through the {@linkplain Builder#addListener(Listener)
@@ -1113,7 +1105,10 @@ public final class Transformer {
    * @throws IllegalStateException If an export is already in progress.
    */
   public void start(EditedMediaItem editedMediaItem, String path) {
-    start(new Composition.Builder(new EditedMediaItemSequence(editedMediaItem)).build(), path);
+    start(
+        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
+            .build(),
+        path);
   }
 
   /**
@@ -1502,7 +1497,8 @@ public final class Transformer {
                       AAC_LC_AUDIO_SAMPLE_COUNT, mp4Info.audioFormat.sampleRate);
             }
             if (mp4Info.firstSyncSampleTimestampUsAfterTimeUs - trimStartTimeUs
-                <= maxEncodedAudioBufferDurationUs) {
+                    <= maxEncodedAudioBufferDurationUs
+                || mp4Info.isFirstVideoSampleAfterTimeUsSyncSample) {
               Transformer.this.composition =
                   buildUponCompositionForTrimOptimization(
                       composition,

@@ -113,7 +113,7 @@ public class ParserException extends IOException {
   @Override
   public String getMessage() {
     return super.getMessage()
-        + "{contentIsMalformed="
+        + " {contentIsMalformed="
         + contentIsMalformed
         + ", dataType="
         + dataType

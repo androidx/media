@@ -48,6 +48,7 @@ import static androidx.media3.transformer.Transformer.PROGRESS_STATE_UNAVAILABLE
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -122,6 +123,9 @@ import org.robolectric.shadows.ShadowMediaCodec;
  */
 @RunWith(AndroidJUnit4.class)
 public final class MediaItemExportTest {
+
+  private static final long TEST_TIMEOUT_SECONDS = 10;
+
   @Rule public final TemporaryFolder outputDir = new TemporaryFolder();
 
   private final Context context = ApplicationProvider.getApplicationContext();
@@ -419,7 +423,7 @@ public final class MediaItemExportTest {
     MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_AMR_NB);
     EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem))
+        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
             .experimentalSetForceAudioTrack(true)
             .build();
 
@@ -438,7 +442,7 @@ public final class MediaItemExportTest {
     MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO);
     EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem))
+        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
             .experimentalSetForceAudioTrack(true)
             .build();
 
@@ -463,7 +467,7 @@ public final class MediaItemExportTest {
             .setEffects(createAudioEffects(sonicAudioProcessor))
             .build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem))
+        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
             .experimentalSetForceAudioTrack(true)
             .build();
 
@@ -489,7 +493,7 @@ public final class MediaItemExportTest {
             .setRemoveVideo(true)
             .build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem))
+        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
             .experimentalSetForceAudioTrack(true)
             .build();
 
@@ -510,7 +514,7 @@ public final class MediaItemExportTest {
     MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_VIDEO_ONLY);
     EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem))
+        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
             .experimentalSetForceAudioTrack(true)
             .build();
 
@@ -525,6 +529,25 @@ public final class MediaItemExportTest {
   }
 
   @Test
+  public void exportAudio_muxerReceivesExpectedNumberOfBytes() throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
+    AtomicInteger bytesSeenByEffect = new AtomicInteger();
+    Transformer transformer =
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+    MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW);
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(mediaItem)
+            .setEffects(createAudioEffects(createByteCountingAudioProcessor(bytesSeenByEffect)))
+            .build();
+
+    transformer.start(editedMediaItem, outputDir.newFile().getPath());
+    TransformerTestRunner.runLooper(transformer);
+
+    assertThat(muxerFactory.getCreatedMuxer().getTotalBytesForTrack(C.TRACK_TYPE_AUDIO))
+        .isEqualTo(bytesSeenByEffect.get());
+  }
+
+  @Test
   public void start_adjustSampleRate_completesSuccessfully() throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     SonicAudioProcessor sonicAudioProcessor = new SonicAudioProcessor();
@@ -532,14 +555,20 @@ public final class MediaItemExportTest {
     Transformer transformer =
         createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
     MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW);
+    AtomicInteger bytesRead = new AtomicInteger();
 
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem)
-            .setEffects(createAudioEffects(sonicAudioProcessor))
+            .setEffects(
+                createAudioEffects(
+                    sonicAudioProcessor, createByteCountingAudioProcessor(bytesRead)))
             .build();
 
     transformer.start(editedMediaItem, outputDir.newFile().getPath());
     TransformerTestRunner.runLooper(transformer);
+
+    // Resampling 1 second @ 44100Hz into 48000Hz.
+    assertThat(bytesRead.get() / 2).isEqualTo(48000);
 
     DumpFileAsserts.assertOutput(
         context,
@@ -583,7 +612,7 @@ public final class MediaItemExportTest {
             .setEffects(createAudioEffects(sonicAudioProcessor))
             .build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem))
+        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
             .setTransmuxAudio(true)
             .build();
 
@@ -1079,7 +1108,9 @@ public final class MediaItemExportTest {
                 countDownLatch.countDown();
               }
             });
-    countDownLatch.await();
+    if (!countDownLatch.await(TEST_TIMEOUT_SECONDS, SECONDS)) {
+      throw new TimeoutException();
+    }
 
     assertThat(exception.get()).isNull();
     DumpFileAsserts.assertOutput(
@@ -1109,7 +1140,9 @@ public final class MediaItemExportTest {
                 countDownLatch.countDown();
               }
             });
-    countDownLatch.await();
+    if (!countDownLatch.await(TEST_TIMEOUT_SECONDS, SECONDS)) {
+      throw new TimeoutException();
+    }
 
     assertThat(illegalStateException.get()).isNotNull();
   }
@@ -1274,10 +1307,11 @@ public final class MediaItemExportTest {
     AtomicInteger bytesSeen = new AtomicInteger(0);
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence(
-                    new EditedMediaItem.Builder(
-                            MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
-                        .build()))
+                new EditedMediaItemSequence.Builder(
+                        new EditedMediaItem.Builder(
+                                MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
+                            .build())
+                    .build())
             .setEffects(createAudioEffects(createByteCountingAudioProcessor(bytesSeen)))
             .build();
 
@@ -1304,13 +1338,14 @@ public final class MediaItemExportTest {
     AtomicInteger compositionEffectBytesSeen = new AtomicInteger(0);
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence(
-                    new EditedMediaItem.Builder(
-                            MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
-                        .setEffects(
-                            createAudioEffects(
-                                createByteCountingAudioProcessor(itemEffectBytesSeen)))
-                        .build()))
+                new EditedMediaItemSequence.Builder(
+                        new EditedMediaItem.Builder(
+                                MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
+                            .setEffects(
+                                createAudioEffects(
+                                    createByteCountingAudioProcessor(itemEffectBytesSeen)))
+                            .build())
+                    .build())
             .setEffects(
                 createAudioEffects(createByteCountingAudioProcessor(compositionEffectBytesSeen)))
             .build();
@@ -1422,7 +1457,9 @@ public final class MediaItemExportTest {
                 countDownLatch.countDown();
               }
             });
-    countDownLatch.await();
+    if (!countDownLatch.await(TEST_TIMEOUT_SECONDS, SECONDS)) {
+      throw new TimeoutException();
+    }
 
     assertThat(illegalStateException.get()).isNotNull();
   }
@@ -1529,7 +1566,9 @@ public final class MediaItemExportTest {
                 countDownLatch.countDown();
               }
             });
-    countDownLatch.await();
+    if (!countDownLatch.await(TEST_TIMEOUT_SECONDS, SECONDS)) {
+      throw new TimeoutException();
+    }
 
     assertThat(illegalStateException.get()).isNotNull();
   }

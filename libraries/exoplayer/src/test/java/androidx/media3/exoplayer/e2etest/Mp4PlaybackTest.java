@@ -67,7 +67,8 @@ public class Mp4PlaybackTest {
         "sample_opus_fragmented.mp4",
         "sample_opus.mp4",
         "sample_partially_fragmented.mp4",
-        "testvid_1022ms.mp4");
+        "testvid_1022ms.mp4",
+        "sample_edit_list.mp4");
   }
 
   @Parameter public String inputFile;

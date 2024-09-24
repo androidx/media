@@ -16,7 +16,6 @@
 package androidx.media3.common;
 
 import android.os.Bundle;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.UnstableApi;
@@ -240,7 +239,6 @@ public final class AudioAttributes {
 
   @RequiresApi(29)
   private static final class Api29 {
-    @DoNotInline
     public static void setAllowedCapturePolicy(
         android.media.AudioAttributes.Builder builder,
         @C.AudioAllowedCapturePolicy int allowedCapturePolicy) {
@@ -250,7 +248,6 @@ public final class AudioAttributes {
 
   @RequiresApi(32)
   private static final class Api32 {
-    @DoNotInline
     public static void setSpatializationBehavior(
         android.media.AudioAttributes.Builder builder,
         @C.SpatializationBehavior int spatializationBehavior) {

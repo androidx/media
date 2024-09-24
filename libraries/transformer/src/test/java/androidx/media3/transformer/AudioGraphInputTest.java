@@ -410,8 +410,7 @@ public class AudioGraphInputTest {
     List<Byte> outputBytes = drainAudioGraphInputUntilEnded(audioGraphInput);
     long expectedSampleCount = Util.durationUsToSampleCount(1_000_000, STEREO_44100.sampleRate);
     // Silent audio generator rounds up duration.
-    assertThat(outputBytes.size())
-        .isEqualTo((expectedSampleCount + 1) * STEREO_44100.bytesPerFrame);
+    assertThat(outputBytes).hasSize((int) ((expectedSampleCount + 1) * STEREO_44100.bytesPerFrame));
     assertThat(outputBytes.subList(0, inputData.length))
         .containsExactlyElementsIn(Bytes.asList(inputData))
         .inOrder();
@@ -452,8 +451,7 @@ public class AudioGraphInputTest {
     List<Byte> outputBytes = drainAudioGraphInputUntilEnded(audioGraphInput);
     long expectedSampleCount = Util.durationUsToSampleCount(500_000, STEREO_44100.sampleRate);
     // Silent audio generator rounds up duration.
-    assertThat(outputBytes.size())
-        .isEqualTo((expectedSampleCount + 1) * STEREO_44100.bytesPerFrame);
+    assertThat(outputBytes).hasSize((int) ((expectedSampleCount + 1) * STEREO_44100.bytesPerFrame));
     // Sonic takes a while to zero-out the input.
     assertThat(min(outputBytes.subList(inputData.length * 6 / 10, outputBytes.size())))
         .isEqualTo(0);
@@ -462,8 +460,7 @@ public class AudioGraphInputTest {
   }
 
   @Test
-  public void getOutput_withSilentMediaItemChange_outputsCorrectAmountOfSilentBytes()
-      throws Exception {
+  public void getOutput_withSilentMediaItemChange_outputsCorrectSilentBytes() throws Exception {
     AudioGraphInput audioGraphInput =
         new AudioGraphInput(
             /* requestedOutputAudioFormat= */ AudioFormat.NOT_SET,
@@ -476,13 +473,15 @@ public class AudioGraphInputTest {
         /* decodedFormat= */ null,
         /* isLast= */ true);
 
-    int bytesOutput = drainAudioGraphInputUntilEnded(audioGraphInput).size();
+    List<Byte> bytesOutput = drainAudioGraphInputUntilEnded(audioGraphInput);
     long expectedSampleCount = Util.durationUsToSampleCount(1_000_000, STEREO_44100.sampleRate);
-    assertThat(bytesOutput).isEqualTo(expectedSampleCount * STEREO_44100.bytesPerFrame);
+    assertThat(bytesOutput).hasSize((int) (expectedSampleCount * STEREO_44100.bytesPerFrame));
+    assertThat(min(bytesOutput)).isEqualTo(0);
+    assertThat(max(bytesOutput)).isEqualTo(0);
   }
 
   @Test
-  public void getOutput_withThreeSilentMediaItemChanges_outputsCorrectAmountOfSilentBytes()
+  public void getOutput_withThreeSilentMediaItemChanges_outputsCorrectSilentBytes()
       throws Exception {
     AudioGraphInput audioGraphInput =
         new AudioGraphInput(
@@ -506,13 +505,15 @@ public class AudioGraphInputTest {
         /* decodedFormat= */ null,
         /* isLast= */ true);
 
-    int bytesOutput = drainAudioGraphInputUntilEnded(audioGraphInput).size();
+    List<Byte> bytesOutput = drainAudioGraphInputUntilEnded(audioGraphInput);
     long expectedSampleCount = Util.durationUsToSampleCount(1_000_000, STEREO_44100.sampleRate);
-    assertThat(bytesOutput).isEqualTo(expectedSampleCount * STEREO_44100.bytesPerFrame);
+    assertThat(bytesOutput).hasSize((int) (expectedSampleCount * STEREO_44100.bytesPerFrame));
+    assertThat(min(bytesOutput)).isEqualTo(0);
+    assertThat(max(bytesOutput)).isEqualTo(0);
   }
 
   @Test
-  public void getOutput_withSilentMediaItemAndEffectsChange_outputsCorrectAmountOfSilentBytes()
+  public void getOutput_withSilentMediaItemAndEffectsChange_outputsCorrectSilentBytes()
       throws Exception {
     AudioGraphInput audioGraphInput =
         new AudioGraphInput(
@@ -526,9 +527,11 @@ public class AudioGraphInputTest {
         /* decodedFormat= */ null,
         /* isLast= */ true);
 
-    int bytesOutput = drainAudioGraphInputUntilEnded(audioGraphInput).size();
+    List<Byte> bytesOutput = drainAudioGraphInputUntilEnded(audioGraphInput);
     long expectedSampleCount = Util.durationUsToSampleCount(500_000, STEREO_44100.sampleRate);
-    assertThat(bytesOutput).isEqualTo(expectedSampleCount * STEREO_44100.bytesPerFrame);
+    assertThat(bytesOutput).hasSize((int) (expectedSampleCount * STEREO_44100.bytesPerFrame));
+    assertThat(min(bytesOutput)).isEqualTo(0);
+    assertThat(max(bytesOutput)).isEqualTo(0);
   }
 
   @Test

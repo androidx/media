@@ -35,6 +35,7 @@ import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.trackselection.TrackSelector;
 import androidx.media3.exoplayer.trackselection.TrackSelectorResult;
 import androidx.media3.exoplayer.upstream.Allocator;
+import java.io.IOException;
 
 /** Holds a {@link MediaPeriod} with information required to play it as part of a timeline. */
 /* package */ final class MediaPeriodHolder {
@@ -51,6 +52,12 @@ import androidx.media3.exoplayer.upstream.Allocator;
    * The sample streams for each renderer associated with this period. May contain null elements.
    */
   public final @NullableType SampleStream[] sampleStreams;
+
+  /** The target buffer duration to preload. */
+  public final long targetPreloadBufferDurationUs;
+
+  /** Whether {@link #prepare(MediaPeriod.Callback, long)} has been called. */
+  public boolean prepareCalled;
 
   /** Whether the media period has finished preparing. */
   public boolean prepared;
@@ -102,13 +109,15 @@ import androidx.media3.exoplayer.upstream.Allocator;
       Allocator allocator,
       MediaSourceList mediaSourceList,
       MediaPeriodInfo info,
-      TrackSelectorResult emptyTrackSelectorResult) {
+      TrackSelectorResult emptyTrackSelectorResult,
+      long targetPreloadBufferDurationUs) {
     this.rendererCapabilities = rendererCapabilities;
     this.rendererPositionOffsetUs = rendererPositionOffsetUs;
     this.trackSelector = trackSelector;
     this.mediaSourceList = mediaSourceList;
     this.uid = info.id.periodUid;
     this.info = info;
+    this.targetPreloadBufferDurationUs = targetPreloadBufferDurationUs;
     this.trackGroups = TrackGroupArray.EMPTY;
     this.trackSelectorResult = emptyTrackSelectorResult;
     sampleStreams = new SampleStream[rendererCapabilities.length];
@@ -157,6 +166,13 @@ import androidx.media3.exoplayer.upstream.Allocator;
   public boolean isFullyBuffered() {
     return prepared
         && (!hasEnabledTracks || mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE);
+  }
+
+  /** Returns whether the period is fully preloaded. */
+  public boolean isFullyPreloaded() {
+    return prepared
+        && (isFullyBuffered()
+            || getBufferedPositionUs() - info.startPositionUs >= targetPreloadBufferDurationUs);
   }
 
   /**
@@ -394,6 +410,27 @@ import androidx.media3.exoplayer.upstream.Allocator;
     }
   }
 
+  /**
+   * Returns whether the media period has encountered an error that prevents it from being prepared
+   * or reading data.
+   */
+  public boolean hasLoadingError() {
+    try {
+      if (!prepared) {
+        mediaPeriod.maybeThrowPrepareError();
+      } else {
+        for (SampleStream sampleStream : sampleStreams) {
+          if (sampleStream != null) {
+            sampleStream.maybeThrowError();
+          }
+        }
+      }
+    } catch (IOException e) {
+      return true;
+    }
+    return false;
+  }
+
   private void enableTrackSelectionsInResult() {
     if (!isLoadingMediaPeriod()) {
       return;
@@ -485,6 +522,11 @@ import androidx.media3.exoplayer.upstream.Allocator;
     return areDurationsCompatible(this.info.durationUs, info.durationUs)
         && this.info.startPositionUs == info.startPositionUs
         && this.info.id.equals(info.id);
+  }
+
+  public void prepare(MediaPeriod.Callback callback, long startPositionUs) {
+    prepareCalled = true;
+    mediaPeriod.prepare(callback, startPositionUs);
   }
 
   /* package */ interface Factory {

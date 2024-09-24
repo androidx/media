@@ -17,6 +17,7 @@ package androidx.media3.transformer;
 
 import static androidx.media3.common.MimeTypes.IMAGE_JPEG;
 import static androidx.media3.common.MimeTypes.IMAGE_PNG;
+import static androidx.media3.common.MimeTypes.IMAGE_WEBP;
 import static androidx.media3.common.MimeTypes.VIDEO_AV1;
 import static androidx.media3.common.MimeTypes.VIDEO_DOLBY_VISION;
 import static androidx.media3.common.MimeTypes.VIDEO_H264;
@@ -26,46 +27,49 @@ import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static org.junit.Assume.assumeFalse;
 
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
-import android.graphics.Color;
 import android.media.Image;
 import android.media.MediaFormat;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
-import android.text.Spannable;
-import android.text.SpannableString;
-import android.text.style.AbsoluteSizeSpan;
-import android.text.style.ForegroundColorSpan;
-import android.text.style.TypefaceSpan;
 import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
+import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.GlRect;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.MediaFormatUtil;
+import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
+import androidx.media3.effect.ByteBufferGlEffect;
 import androidx.media3.effect.DefaultGlObjectsProvider;
-import androidx.media3.effect.OverlayEffect;
+import androidx.media3.effect.GlEffect;
+import androidx.media3.effect.GlShaderProgram;
+import androidx.media3.effect.PassthroughShaderProgram;
 import androidx.media3.effect.ScaleAndRotateTransformation;
-import androidx.media3.effect.TextOverlay;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
+import androidx.media3.muxer.Muxer;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.media3.test.utils.VideoDecodingWrapper;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -216,6 +220,16 @@ public final class AndroidTestUtil {
                   .setSampleMimeType(IMAGE_JPEG)
                   .setWidth(3072)
                   .setHeight(4080)
+                  .build())
+          .build();
+
+  public static final AssetInfo WEBP_LARGE =
+      new AssetInfo.Builder("asset:///media/webp/black_large.webp")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(IMAGE_WEBP)
+                  .setWidth(16000)
+                  .setHeight(9000)
                   .build())
           .build();
 
@@ -370,6 +384,18 @@ public final class AndroidTestUtil {
 
   public static final AssetInfo MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS =
       new AssetInfo.Builder("asset:///media/mp4/long_1080p_videoonly_lowbitrate.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(1920)
+                  .setHeight(1080)
+                  .setFrameRate(30.00f)
+                  .setCodecs("avc1.42C028")
+                  .build())
+          .build();
+
+  public static final AssetInfo MP4_LONG_ASSET_WITH_AUDIO_AND_INCREASING_TIMESTAMPS =
+      new AssetInfo.Builder("asset:///media/mp4/long_1080p_lowbitrate.mp4")
           .setVideoFormat(
               new Format.Builder()
                   .setSampleMimeType(VIDEO_H264)
@@ -569,6 +595,19 @@ public final class AndroidTestUtil {
                   .setHeight(4320)
                   .setFrameRate(24.00f)
                   .setCodecs("hvc1.1.6.L183")
+                  .build())
+          .build();
+
+  // From b/357743907.
+  public static final AssetInfo MP4_ASSET_PHOTOS_TRIM_OPTIMIZATION_VIDEO =
+      new AssetInfo.Builder("asset:///media/mp4/trim_optimization_failure.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(518)
+                  .setHeight(488)
+                  .setFrameRate(29.882f)
+                  .setCodecs("avc1.640034")
                   .build())
           .build();
 
@@ -925,6 +964,9 @@ public final class AndroidTestUtil {
   public static final AssetInfo MP3_ASSET =
       new AssetInfo.Builder("asset:///media/mp3/test-cbr-info-header.mp3").build();
 
+  public static final AssetInfo WAV_ASSET =
+      new AssetInfo.Builder("asset:///media/wav/sample.wav").build();
+
   /**
    * Creates the GL objects needed to set up a GL environment including an {@link EGLDisplay} and an
    * {@link EGLContext}.
@@ -938,34 +980,6 @@ public final class AndroidTestUtil {
             eglDisplay, /* openGlVersion= */ 2, GlUtil.EGL_CONFIG_ATTRIBUTES_RGBA_8888);
     glObjectsProvider.createFocusedPlaceholderEglSurface(eglContext, eglDisplay);
     return eglContext;
-  }
-
-  /** Creates an {@link OverlayEffect} that draws the timestamp onto frames. */
-  public static OverlayEffect createTimestampOverlay() {
-    return new OverlayEffect(
-        ImmutableList.of(
-            new TextOverlay() {
-              @Override
-              public SpannableString getText(long presentationTimeUs) {
-                SpannableString text = new SpannableString(String.valueOf(presentationTimeUs));
-                text.setSpan(
-                    new ForegroundColorSpan(Color.WHITE),
-                    /* start= */ 0,
-                    text.length(),
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                text.setSpan(
-                    new AbsoluteSizeSpan(/* size= */ 96),
-                    /* start= */ 0,
-                    text.length(),
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                text.setSpan(
-                    new TypefaceSpan(/* family= */ "sans-serif"),
-                    /* start= */ 0,
-                    text.length(),
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                return text;
-              }
-            }));
   }
 
   /**
@@ -1034,6 +1048,27 @@ public final class AndroidTestUtil {
     return bitmaps.build();
   }
 
+  /**
+   * Creates a {@link GlEffect} that counts the number of frames processed in {@code frameCount}.
+   */
+  public static GlEffect createFrameCountingEffect(AtomicInteger frameCount) {
+    return new GlEffect() {
+      @Override
+      public GlShaderProgram toGlShaderProgram(Context context, boolean useHdr) {
+        return new PassthroughShaderProgram() {
+          @Override
+          public void queueInputFrame(
+              GlObjectsProvider glObjectsProvider,
+              GlTextureInfo inputTexture,
+              long presentationTimeUs) {
+            super.queueInputFrame(glObjectsProvider, inputTexture, presentationTimeUs);
+            frameCount.incrementAndGet();
+          }
+        };
+      }
+    };
+  }
+
   /** A customizable forwarding {@link Codec.EncoderFactory} that forces encoding. */
   public static final class ForceEncodeEncoderFactory implements Codec.EncoderFactory {
 
@@ -1071,6 +1106,47 @@ public final class AndroidTestUtil {
     public boolean videoNeedsEncoding() {
       return true;
     }
+  }
+
+  /**
+   * Implementation of {@link ByteBufferGlEffect.Processor} that counts how many frames are copied
+   * to CPU memory.
+   */
+  public static final class FrameCountingByteBufferProcessor
+      implements ByteBufferGlEffect.Processor<Integer> {
+    public final AtomicInteger frameCount;
+
+    private int width;
+    private int height;
+
+    public FrameCountingByteBufferProcessor() {
+      frameCount = new AtomicInteger();
+    }
+
+    @Override
+    public Size configure(int inputWidth, int inputHeight) {
+      width = inputWidth;
+      height = inputHeight;
+      return new Size(width, height);
+    }
+
+    @Override
+    public GlRect getScaledRegion(long presentationTimeUs) {
+      return new GlRect(width, height);
+    }
+
+    @Override
+    public ListenableFuture<Integer> processImage(
+        ByteBufferGlEffect.Image image, long presentationTimeUs) {
+      return immediateFuture(frameCount.incrementAndGet());
+    }
+
+    @Override
+    public void finishProcessingAndBlend(
+        GlTextureInfo outputFrame, long presentationTimeUs, Integer result) {}
+
+    @Override
+    public void release() {}
   }
 
   /**
@@ -1137,6 +1213,12 @@ public final class AndroidTestUtil {
     String skipReason = skipReasonBuilder.toString();
     recordTestSkipped(context, testId, skipReason);
     throw new AssumptionViolatedException(skipReason);
+  }
+
+  /** Returns a {@link Muxer.Factory} depending upon the API level. */
+  public static Muxer.Factory getMuxerFactoryBasedOnApi() {
+    // MediaMuxer supports B-frame from API > 24.
+    return SDK_INT > 24 ? new DefaultMuxer.Factory() : new InAppMuxer.Factory.Builder().build();
   }
 
   private static boolean canDecode(Format format) {

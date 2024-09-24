@@ -15,7 +15,7 @@ track 0:
     maxInputSize = 144656
     width = 1920
     height = 1080
-    frameRate = 59.940056
+    frameRate = 59.94
     colorInfo:
       colorSpace = 6
       colorRange = 2

@@ -64,6 +64,9 @@ public final class Track {
   /** The duration of the track in microseconds, or {@link C#TIME_UNSET} if unknown. */
   public final long durationUs;
 
+  /** The duration of the media in microseconds, or {@link C#TIME_UNSET} if unknown. */
+  public final long mediaDurationUs;
+
   /** The format. */
   public final Format format;
 
@@ -93,6 +96,7 @@ public final class Track {
       long timescale,
       long movieTimescale,
       long durationUs,
+      long mediaDurationUs,
       Format format,
       @Transformation int sampleTransformation,
       @Nullable TrackEncryptionBox[] sampleDescriptionEncryptionBoxes,
@@ -104,6 +108,7 @@ public final class Track {
     this.timescale = timescale;
     this.movieTimescale = movieTimescale;
     this.durationUs = durationUs;
+    this.mediaDurationUs = mediaDurationUs;
     this.format = format;
     this.sampleTransformation = sampleTransformation;
     this.sampleDescriptionEncryptionBoxes = sampleDescriptionEncryptionBoxes;
@@ -133,6 +138,7 @@ public final class Track {
         timescale,
         movieTimescale,
         durationUs,
+        mediaDurationUs,
         format,
         sampleTransformation,
         sampleDescriptionEncryptionBoxes,
@@ -148,6 +154,7 @@ public final class Track {
         timescale,
         movieTimescale,
         durationUs,
+        mediaDurationUs,
         format,
         sampleTransformation,
         sampleDescriptionEncryptionBoxes,

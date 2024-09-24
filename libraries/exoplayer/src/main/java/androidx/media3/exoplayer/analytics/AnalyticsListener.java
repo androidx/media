@@ -234,7 +234,8 @@ public interface AnalyticsListener {
     EVENT_AUDIO_CODEC_ERROR,
     EVENT_VIDEO_CODEC_ERROR,
     EVENT_AUDIO_TRACK_INITIALIZED,
-    EVENT_AUDIO_TRACK_RELEASED
+    EVENT_AUDIO_TRACK_RELEASED,
+    EVENT_RENDERER_READY_CHANGED
   })
   @interface EventFlags {}
 
@@ -443,6 +444,9 @@ public interface AnalyticsListener {
 
   /** An audio track has been released. */
   @UnstableApi int EVENT_AUDIO_TRACK_RELEASED = 1032;
+
+  /** A renderer changed its readiness for playback. */
+  @UnstableApi int EVENT_RENDERER_READY_CHANGED = 1033;
 
   /** Time information of an event. */
   @UnstableApi
@@ -1389,6 +1393,22 @@ public interface AnalyticsListener {
    */
   @UnstableApi
   default void onDrmSessionReleased(EventTime eventTime) {}
+
+  /**
+   * Called each time a renderer starts or stops allowing playback to be ready.
+   *
+   * @param eventTime The event time.
+   * @param rendererIndex The index of the renderer in the {@link
+   *     androidx.media3.exoplayer.ExoPlayer} instance.
+   * @param rendererTrackType The {@link C.TrackType} of the renderer.
+   * @param isRendererReady Whether the renderer allows playback to be ready.
+   */
+  @UnstableApi
+  default void onRendererReadyChanged(
+      EventTime eventTime,
+      int rendererIndex,
+      @C.TrackType int rendererTrackType,
+      boolean isRendererReady) {}
 
   /**
    * Called when the {@link Player} is released.

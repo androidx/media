@@ -45,7 +45,8 @@ public final class IamfDecoderTest {
 
   @Test
   public void iamfBinauralLayoutChannelsCount_equalsTwo() throws Exception {
-    IamfDecoder iamf = new IamfDecoder(ImmutableList.of(IACB_OBUS));
+    IamfDecoder iamf =
+        new IamfDecoder(ImmutableList.of(IACB_OBUS), /* spatializationSupported= */ false);
 
     assertThat(iamf.getBinauralLayoutChannelCount())
         .isEqualTo(DEFAULT_BINAURAL_LAYOUT_CHANNEL_COUNT);

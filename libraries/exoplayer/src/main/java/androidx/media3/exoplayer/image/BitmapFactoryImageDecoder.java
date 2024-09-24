@@ -159,7 +159,8 @@ public final class BitmapFactoryImageDecoder
    */
   private static Bitmap decode(byte[] data, int length) throws ImageDecoderException {
     try {
-      return BitmapUtil.decode(data, length, /* options= */ null);
+      return BitmapUtil.decode(
+          data, length, /* options= */ null, /* maximumOutputDimension= */ C.LENGTH_UNSET);
     } catch (ParserException e) {
       throw new ImageDecoderException(
           "Could not decode image data with BitmapFactory. (data.length = "

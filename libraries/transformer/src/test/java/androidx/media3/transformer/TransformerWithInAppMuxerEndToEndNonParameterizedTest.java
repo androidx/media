@@ -265,6 +265,27 @@ public class TransformerWithInAppMuxerEndToEndNonParameterizedTest {
     assertThat(actualFloatMetadata).isEqualTo(expectedFloatMetadata);
   }
 
+  @Test
+  public void transmux_withSettingVideoDuration_writesCorrectVideoDuration() throws Exception {
+    InAppMuxer.Factory inAppMuxerFactory = new InAppMuxer.Factory.Builder().build();
+    long expectedDurationUs = 2_000_000L;
+    inAppMuxerFactory.setVideoDurationUs(expectedDurationUs);
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setMuxerFactory(inAppMuxerFactory)
+            .build();
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_FILE_PATH));
+
+    transformer.start(mediaItem, outputPath);
+    TransformerTestRunner.runLooper(transformer);
+
+    FakeExtractorOutput fakeExtractorOutput =
+        androidx.media3.test.utils.TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), outputPath);
+    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isEqualTo(expectedDurationUs);
+  }
+
   /**
    * Returns specific {@linkplain Metadata.Entry metadata} from the media file.
    *

@@ -1,10 +1,10 @@
 seekMap:
   isSeekable = true
-  duration = 66700
+  duration = 100000
   getPosition(0) = [[timeUs=0, position=400052]]
   getPosition(1) = [[timeUs=0, position=400052]]
-  getPosition(33350) = [[timeUs=0, position=400052]]
-  getPosition(66700) = [[timeUs=0, position=400052]]
+  getPosition(50000) = [[timeUs=0, position=400052]]
+  getPosition(100000) = [[timeUs=0, position=400052]]
 numberOfTracks = 3
 track 0:
   total output bytes = 387
@@ -65,7 +65,7 @@ track 2:
     maxNumReorderSamples = 0
     width = 1920
     height = 1080
-    frameRate = 44.977512
+    frameRate = 29.98
     colorInfo:
       colorSpace = 2
       colorRange = 1

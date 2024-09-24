@@ -576,6 +576,46 @@ public class MediaExtractorCompatTest {
     assertThat(mediaExtractorCompat.getTrackCount()).isEqualTo(2);
   }
 
+  @Test
+  public void readNonSyncSample_whenSyncSampleIsExpected_noSampleIsQueued() throws IOException {
+    TrackOutput[] outputs = new TrackOutput[1];
+    byte[] sampleData = new byte[] {(byte) 1, (byte) 2, (byte) 3};
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputs[0] = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+          extractorOutput.endTracks();
+          outputs[0].format(
+              new Format.Builder()
+                  .setSampleMimeType(MimeTypes.VIDEO_H264)
+                  .setCodecs("avc.123")
+                  .build());
+          return Extractor.RESULT_CONTINUE;
+        });
+    // Add a non-sync sample. This sample should be ignored as a sync sample is expected
+    // at the start of the video.
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputSampleData(outputs[0], sampleData);
+          outputs[0].sampleMetadata(
+              /* timeUs= */ 7,
+              /* flags= */ 0,
+              /* size= */ 3,
+              /* offset= */ 0,
+              /* cryptoData= */ null);
+          return Extractor.RESULT_CONTINUE;
+        });
+    mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
+    mediaExtractorCompat.selectTrack(0);
+
+    // Assert that when a keyframe is expected, no sample is queued if a non-keyframe sample is
+    // read.
+    assertThat(mediaExtractorCompat.getSampleTrackIndex()).isEqualTo(-1);
+    assertThat(mediaExtractorCompat.getSampleTime()).isEqualTo(-1);
+    assertThat(mediaExtractorCompat.getSampleSize()).isEqualTo(-1);
+    assertThat(mediaExtractorCompat.readSampleData(ByteBuffer.allocate(0), /* offset= */ 0))
+        .isEqualTo(-1);
+  }
+
   // Internal methods.
 
   private void assertReadSample(int trackIndex, long timeUs, int size, byte... sampleData) {

@@ -43,7 +43,6 @@ import android.util.Pair;
 import android.view.Display;
 import android.view.Surface;
 import androidx.annotation.CallSuper;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
@@ -410,8 +409,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
    *     explicitly using {@link MediaFormat#KEY_OPERATING_RATE}).
    * @param videoSink The {@link VideoSink} consuming the frames. If {@code null} and effects are
    *     {@linkplain #MSG_SET_VIDEO_EFFECTS set}, a {@link VideoSink} produced by a {@link
-   *     CompositingVideoSinkProvider} with its default configuration will be used to apply effects
-   *     and render the frames on the output.
+   *     PlaybackVideoGraphWrapper} with its default configuration will be used to apply effects and
+   *     render the frames on the output.
    */
   public MediaCodecVideoRenderer(
       Context context,
@@ -636,7 +635,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   @RequiresApi(26)
   private static final class Api26 {
-    @DoNotInline
     public static boolean doesDisplaySupportDolbyVision(Context context) {
       boolean supportsDolbyVision = false;
       DisplayManager displayManager =
@@ -677,7 +675,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (!hasSetVideoSink) {
       if (videoEffects != null && videoSink == null) {
         videoSink =
-            new CompositingVideoSinkProvider.Builder(context, videoFrameReleaseControl)
+            new PlaybackVideoGraphWrapper.Builder(context, videoFrameReleaseControl)
                 .setClock(getClock())
                 .build()
                 .getSink();
@@ -1039,9 +1037,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         codecInfo, mediaFormat, format, codecSurface, crypto);
   }
 
-  @SuppressWarnings("InlinedApi") // VideoSink will check the API level
+  @SuppressWarnings("InlinedApi") // The API level is checked in the utility method
   private void maybeSetKeyAllowFrameDrop(MediaFormat mediaFormat) {
-    if (videoSink != null && !videoSink.isFrameDropAllowedOnInput()) {
+    if (videoSink != null && !Util.isFrameDropAllowedOnSurfaceInput(context)) {
       mediaFormat.setInteger(MediaFormat.KEY_ALLOW_FRAME_DROP, 0);
     }
   }
@@ -1342,7 +1340,17 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
               ? mediaFormat.getInteger(KEY_CROP_BOTTOM) - mediaFormat.getInteger(KEY_CROP_TOP) + 1
               : mediaFormat.getInteger(MediaFormat.KEY_HEIGHT);
     }
+
     pixelWidthHeightRatio = format.pixelWidthHeightRatio;
+    if (Util.SDK_INT >= 30
+        && mediaFormat != null
+        && mediaFormat.containsKey(MediaFormat.KEY_PIXEL_ASPECT_RATIO_WIDTH)
+        && mediaFormat.containsKey(MediaFormat.KEY_PIXEL_ASPECT_RATIO_HEIGHT)) {
+      pixelWidthHeightRatio =
+          (float) mediaFormat.getInteger(MediaFormat.KEY_PIXEL_ASPECT_RATIO_WIDTH)
+              / mediaFormat.getInteger(MediaFormat.KEY_PIXEL_ASPECT_RATIO_HEIGHT);
+    }
+
     // The decoder applies the rotation when rendering to the surface. For 90 and 270 degree
     // rotations, we need to flip the width, height and pixel aspect ratio to reflect the rotation
     // that was applied.

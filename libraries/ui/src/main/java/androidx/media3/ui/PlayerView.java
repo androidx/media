@@ -52,7 +52,6 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.window.SurfaceSyncGroup;
 import androidx.annotation.ColorInt;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -333,6 +332,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   private boolean controllerAutoShow;
   private boolean controllerHideDuringAds;
   private boolean controllerHideOnTouch;
+  private boolean enableComposeSurfaceSyncWorkaround;
 
   public PlayerView(Context context) {
     this(context, /* attrs= */ null);
@@ -1139,6 +1139,21 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   }
 
   /**
+   * Sets whether the player is currently in fullscreen, this will change the displayed icon.
+   *
+   * <p>If {@code isFullscreen} is {@code true},
+   * {@code @drawable/exo_styled_controls_fullscreen_exit} will be displayed or else
+   * {@code @drawable/exo_styled_controls_fullscreen_enter}.
+   *
+   * @param isFullscreen Whether the player is currently in fullscreen.
+   */
+  @UnstableApi
+  public void setFullscreenButtonState(boolean isFullscreen) {
+    Assertions.checkStateNotNull(controller);
+    controller.updateIsFullscreen(isFullscreen);
+  }
+
+  /**
    * Sets the {@link PlayerControlView.OnFullScreenModeChangedListener}.
    *
    * <p>Clears any listener set by {@link
@@ -1302,6 +1317,19 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
       @Nullable AspectRatioFrameLayout.AspectRatioListener listener) {
     Assertions.checkStateNotNull(contentFrame);
     contentFrame.setAspectRatioListener(listener);
+  }
+
+  /**
+   * Whether to enable a workaround for the Compose {@code AndroidView} and {@link SurfaceView}
+   * compatibility issue described in <a
+   * href="https://github.com/androidx/media/issues/1237">androidx/media#1237</a>.
+   *
+   * <p>This workaround causes issues with shared element transitions in XML views, so is disabled
+   * by default (<a href="https://github.com/androidx/media/issues/1594">androidx/media#1594</a>).
+   */
+  @UnstableApi
+  public void setEnableComposeSurfaceSyncWorkaround(boolean enableComposeSurfaceSyncWorkaround) {
+    this.enableComposeSurfaceSyncWorkaround = enableComposeSurfaceSyncWorkaround;
   }
 
   /**
@@ -1758,7 +1786,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   @Override
   protected void dispatchDraw(Canvas canvas) {
     super.dispatchDraw(canvas);
-    if (Util.SDK_INT == 34 && surfaceSyncGroupV34 != null) {
+    if (Util.SDK_INT == 34 && surfaceSyncGroupV34 != null && enableComposeSurfaceSyncWorkaround) {
       surfaceSyncGroupV34.maybeMarkSyncReadyAndClear();
     }
   }
@@ -1830,7 +1858,9 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
 
     @Override
     public void onSurfaceSizeChanged(int width, int height) {
-      if (Util.SDK_INT == 34 && surfaceView instanceof SurfaceView) {
+      if (Util.SDK_INT == 34
+          && surfaceView instanceof SurfaceView
+          && enableComposeSurfaceSyncWorkaround) {
         // Register a SurfaceSyncGroup to work around https://github.com/androidx/media/issues/1237
         // (only present on API 34, fixed on API 35).
         checkNotNull(surfaceSyncGroupV34)
@@ -1937,7 +1967,6 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   @RequiresApi(34)
   private static class Api34 {
 
-    @DoNotInline
     public static void setSurfaceLifecycleToFollowsAttachment(SurfaceView surfaceView) {
       surfaceView.setSurfaceLifecycle(SurfaceView.SURFACE_LIFECYCLE_FOLLOWS_ATTACHMENT);
     }
@@ -1948,7 +1977,6 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
 
     @Nullable SurfaceSyncGroup surfaceSyncGroup;
 
-    @DoNotInline
     public void postRegister(
         Handler mainLooperHandler, SurfaceView surfaceView, Runnable invalidate) {
       mainLooperHandler.post(
@@ -1966,7 +1994,6 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
           });
     }
 
-    @DoNotInline
     public void maybeMarkSyncReadyAndClear() {
       if (surfaceSyncGroup != null) {
         surfaceSyncGroup.markSyncReady();

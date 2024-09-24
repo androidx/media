@@ -65,7 +65,10 @@ public final class SequenceEffectTestUtil {
       EditedMediaItem editedMediaItem,
       EditedMediaItem... editedMediaItems) {
     Composition.Builder builder =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem, editedMediaItems));
+        new Composition.Builder(
+            new EditedMediaItemSequence.Builder(editedMediaItem)
+                .addItems(editedMediaItems)
+                .build());
     if (presentation != null) {
       builder.setEffects(
           new Effects(/* audioProcessors= */ ImmutableList.of(), ImmutableList.of(presentation)));

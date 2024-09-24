@@ -25,7 +25,6 @@ import android.app.PendingIntent;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.RemoteViews;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -454,7 +453,6 @@ public class MediaStyleNotificationHelper {
   private static class Api24Impl {
     private Api24Impl() {}
 
-    @DoNotInline
     public static Notification.DecoratedMediaCustomViewStyle createDecoratedMediaCustomViewStyle() {
       return new Notification.DecoratedMediaCustomViewStyle();
     }
@@ -468,7 +466,6 @@ public class MediaStyleNotificationHelper {
     // MEDIA_CONTENT_CONTROL permission is required by setRemotePlaybackInfo
     @CanIgnoreReturnValue
     @SuppressLint({"MissingPermission"})
-    @DoNotInline
     public static Notification.MediaStyle setRemotePlaybackInfo(
         Notification.MediaStyle style,
         CharSequence remoteDeviceName,

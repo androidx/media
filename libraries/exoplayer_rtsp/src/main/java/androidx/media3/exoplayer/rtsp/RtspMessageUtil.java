@@ -192,7 +192,7 @@ import java.util.regex.Pattern;
     }
 
     // The Uri must include a "@" if the user info is non-null.
-    String authorityWithUserInfo = checkNotNull(uri.getAuthority());
+    String authorityWithUserInfo = checkNotNull(uri.getEncodedAuthority());
     checkArgument(authorityWithUserInfo.contains("@"));
     String authority = Util.split(authorityWithUserInfo, "@")[1];
     return uri.buildUpon().encodedAuthority(authority).build();

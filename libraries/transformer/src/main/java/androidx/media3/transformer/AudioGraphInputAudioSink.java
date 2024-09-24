@@ -21,6 +21,7 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 
+import android.media.AudioTrack;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
@@ -36,7 +37,7 @@ import java.util.Objects;
 /**
  * An {@link AudioSink} implementation that feeds an {@link AudioGraphInput}.
  *
- * <p>Should be used by {@link PreviewAudioPipeline}.
+ * <p>Should be used by {@link PlaybackAudioGraphWrapper}.
  */
 /* package */ final class AudioGraphInputAudioSink implements AudioSink {
 
@@ -52,6 +53,8 @@ import java.util.Objects;
      * Returns the {@link AudioGraphInput} instance associated with this {@linkplain
      * AudioGraphInputAudioSink sink}.
      *
+     * <p>If AudioGraphInput is not available, callers should re-try again later.
+     *
      * <p>Data {@linkplain #handleBuffer written} to the sink will be {@linkplain
      * AudioGraphInput#queueInputBuffer() queued} to the {@link AudioGraphInput}.
      *
@@ -59,10 +62,11 @@ import java.util.Objects;
      *     AudioGraphInput}.
      * @param format The {@link Format} used to {@linkplain AudioGraphInputAudioSink#configure
      *     configure} the {@linkplain AudioGraphInputAudioSink sink}.
-     * @return The {@link AudioGraphInput}.
+     * @return The {@link AudioGraphInput}, or {@code null} if the input is not available yet.
      * @throws ExportException If there is a problem initializing the {@linkplain AudioGraphInput
      *     input}.
      */
+    @Nullable
     AudioGraphInput getAudioGraphInput(EditedMediaItem editedMediaItem, Format format)
         throws ExportException;
 
@@ -123,18 +127,13 @@ import java.util.Objects;
     // TODO(b/303029969): Evaluate throwing vs ignoring for null outputChannels.
     checkArgument(outputChannels == null);
     currentInputFormat = inputFormat;
-    if (outputGraphInput == null) {
-      try {
-        outputGraphInput = controller.getAudioGraphInput(editedMediaItem, currentInputFormat);
-      } catch (ExportException e) {
-        throw new ConfigurationException(e, currentInputFormat);
-      }
-    }
 
     // During playback, AudioGraphInput doesn't know the full media duration upfront due to seeking.
     // Pass in C.TIME_UNSET to AudioGraphInput.onMediaItemChanged.
-    outputGraphInput.onMediaItemChanged(
-        editedMediaItem, C.TIME_UNSET, currentInputFormat, /* isLast= */ false);
+    if (outputGraphInput != null) {
+      outputGraphInput.onMediaItemChanged(
+          editedMediaItem, /* durationUs= */ C.TIME_UNSET, currentInputFormat, /* isLast= */ false);
+    }
   }
 
   @Override
@@ -151,8 +150,33 @@ import java.util.Objects;
 
   @Override
   public boolean handleBuffer(
-      ByteBuffer buffer, long presentationTimeUs, int encodedAccessUnitCount) {
+      ByteBuffer buffer, long presentationTimeUs, int encodedAccessUnitCount)
+      throws InitializationException {
     checkState(!inputStreamEnded);
+    EditedMediaItem editedMediaItem = checkStateNotNull(currentEditedMediaItemInfo).editedMediaItem;
+    if (outputGraphInput == null) {
+
+      AudioGraphInput outputGraphInput;
+      try {
+        outputGraphInput =
+            controller.getAudioGraphInput(editedMediaItem, checkStateNotNull(currentInputFormat));
+      } catch (ExportException e) {
+        throw new InitializationException(
+            "Error creating AudioGraphInput",
+            AudioTrack.STATE_UNINITIALIZED,
+            currentInputFormat,
+            /* isRecoverable= */ false,
+            e);
+      }
+      if (outputGraphInput == null) {
+        return false;
+      }
+
+      this.outputGraphInput = outputGraphInput;
+      this.outputGraphInput.onMediaItemChanged(
+          editedMediaItem, /* durationUs= */ C.TIME_UNSET, currentInputFormat, /* isLast= */ false);
+    }
+
     return handleBufferInternal(buffer, presentationTimeUs, /* flags= */ 0);
   }
 

@@ -18,12 +18,17 @@ package androidx.media3.decoder.iamf;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.content.Context;
+import android.media.AudioFormat;
+import android.media.AudioManager;
+import android.media.Spatializer;
 import android.net.Uri;
 import android.os.Looper;
 import androidx.annotation.Nullable;
+import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
+import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.Renderer;
@@ -97,6 +102,26 @@ public class IamfPlaybackTest {
     @Override
     public void run() {
       Looper.prepare();
+      if (Util.SDK_INT >= 32) { // Spatializer is only available on API 32 and above.
+        AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+        AudioFormat.Builder audioFormat =
+            new AudioFormat.Builder()
+                .setEncoding(IamfDecoder.OUTPUT_PCM_ENCODING)
+                .setChannelMask(IamfDecoder.SPATIALIZED_OUTPUT_LAYOUT);
+        if (audioManager != null) {
+          Spatializer spatializer = audioManager.getSpatializer();
+          assertWithMessage("Spatializer must be disabled to run this test.")
+              .that(
+                  spatializer.getImmersiveAudioLevel()
+                          != Spatializer.SPATIALIZER_IMMERSIVE_LEVEL_NONE
+                      && spatializer.isAvailable()
+                      && spatializer.isEnabled()
+                      && spatializer.canBeSpatialized(
+                          AudioAttributes.DEFAULT.getAudioAttributesV21().audioAttributes,
+                          audioFormat.build()))
+              .isFalse();
+        }
+      }
       RenderersFactory renderersFactory =
           (eventHandler,
               videoRendererEventListener,
@@ -104,7 +129,8 @@ public class IamfPlaybackTest {
               textRendererOutput,
               metadataRendererOutput) ->
               new Renderer[] {
-                new LibiamfAudioRenderer(eventHandler, audioRendererEventListener, audioSink)
+                new LibiamfAudioRenderer(
+                    context, eventHandler, audioRendererEventListener, audioSink)
               };
       player = new ExoPlayer.Builder(context, renderersFactory).build();
       player.addListener(this);

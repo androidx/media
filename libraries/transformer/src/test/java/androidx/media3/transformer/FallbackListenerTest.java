@@ -39,8 +39,9 @@ public class FallbackListenerTest {
 
   private static final Composition PLACEHOLDER_COMPOSITION =
       new Composition.Builder(
-              new EditedMediaItemSequence(
-                  new EditedMediaItem.Builder(MediaItem.fromUri(Uri.EMPTY)).build()))
+              new EditedMediaItemSequence.Builder(
+                      new EditedMediaItem.Builder(MediaItem.fromUri(Uri.EMPTY)).build())
+                  .build())
           .build();
 
   @Test

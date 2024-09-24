@@ -32,12 +32,12 @@ import androidx.media3.extractor.text.SubtitleInputBuffer;
 import androidx.media3.extractor.text.SubtitleOutputBuffer;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.UnsignedBytes;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -72,7 +72,7 @@ public class Cea708DecoderTest {
                     Bytes.concat(
                         windowDefinition,
                         setCurrentWindow,
-                        "test subtitle".getBytes(Charsets.UTF_8)))));
+                        "test subtitle".getBytes(StandardCharsets.UTF_8)))));
 
     Subtitle firstSubtitle = decodeSampleAndCopyResult(cea708Decoder, subtitleData);
 
@@ -102,7 +102,7 @@ public class Cea708DecoderTest {
                     Bytes.concat(
                         windowDefinition,
                         setCurrentWindow,
-                        "row1\r\nrow2\r\nrow3\r\nrow4".getBytes(Charsets.UTF_8)))));
+                        "row1\r\nrow2\r\nrow3\r\nrow4".getBytes(StandardCharsets.UTF_8)))));
 
     Subtitle result = decodeSampleAndCopyResult(cea708Decoder, subtitleData);
 
@@ -143,9 +143,9 @@ public class Cea708DecoderTest {
                     Bytes.concat(
                         windowDefinition,
                         setCurrentWindow,
-                        "line1".getBytes(Charsets.UTF_8),
+                        "line1".getBytes(StandardCharsets.UTF_8),
                         setPenLocation,
-                        "line2".getBytes(Charsets.UTF_8)))));
+                        "line2".getBytes(StandardCharsets.UTF_8)))));
 
     Subtitle firstSubtitle = decodeSampleAndCopyResult(cea708Decoder, subtitleData);
 
@@ -186,10 +186,10 @@ public class Cea708DecoderTest {
                     Bytes.concat(
                         windowDefinition,
                         setCurrentWindow,
-                        "line1".getBytes(Charsets.UTF_8),
+                        "line1".getBytes(StandardCharsets.UTF_8),
                         newLine,
                         setPenLocation,
-                        "line2".getBytes(Charsets.UTF_8)))));
+                        "line2".getBytes(StandardCharsets.UTF_8)))));
 
     Subtitle firstSubtitle = decodeSampleAndCopyResult(cea708Decoder, subtitleData);
 

@@ -422,6 +422,17 @@ public class DefaultLoadControl implements LoadControl {
             && allocator.getTotalBytesAllocated() >= calculateTotalTargetBufferBytes());
   }
 
+  @Override
+  public boolean shouldContinuePreloading(
+      Timeline timeline, MediaPeriodId mediaPeriodId, long bufferedDurationUs) {
+    for (PlayerLoadingState playerLoadingState : loadingStates.values()) {
+      if (playerLoadingState.isLoading) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   /**
    * Calculate target buffer size in bytes based on the selected tracks. The player will try not to
    * exceed this target buffer. Only used when {@code targetBufferBytes} is {@link C#LENGTH_UNSET}.

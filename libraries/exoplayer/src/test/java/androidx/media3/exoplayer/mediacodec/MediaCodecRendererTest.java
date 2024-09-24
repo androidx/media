@@ -30,6 +30,7 @@ import static org.mockito.Mockito.spy;
 
 import android.media.MediaCodec;
 import android.media.MediaCrypto;
+import android.media.MediaDrm;
 import android.media.MediaFormat;
 import android.os.Bundle;
 import android.os.Handler;
@@ -523,6 +524,43 @@ public class MediaCodecRendererTest {
         .hasCauseThat()
         .hasMessageThat()
         .contains("ISE from inside MediaCodec");
+  }
+
+  // b/347367307#comment6
+  @Test
+  public void render_wrapsCryptoExceptionFromAnyMediaCodecMethod() throws Exception {
+    MediaCodecAdapter.Factory throwingMediaCodecAdapterFactory =
+        new ThrowingMediaCodecAdapter.Factory(
+            () ->
+                new MediaCodec.CryptoException(
+                    MediaDrm.ErrorCodes.ERROR_INSUFFICIENT_OUTPUT_PROTECTION, "Test exception"));
+    TestRenderer renderer = new TestRenderer(throwingMediaCodecAdapterFactory);
+    renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    Format format =
+        new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).setAverageBitrate(1000).build();
+    FakeSampleStream fakeSampleStream =
+        createFakeSampleStream(format, /* sampleTimesUs...= */ 0, 100, 200, 300, 400, 500);
+    MediaSource.MediaPeriodId mediaPeriodId = new MediaSource.MediaPeriodId(new Object());
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {format},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 400,
+        /* offsetUs= */ 0,
+        mediaPeriodId);
+    renderer.start();
+
+    ExoPlaybackException playbackException =
+        assertThrows(
+            ExoPlaybackException.class,
+            () -> renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime()));
+
+    assertThat(playbackException.type).isEqualTo(ExoPlaybackException.TYPE_RENDERER);
+    assertThat(playbackException).hasCauseThat().isInstanceOf(MediaCodec.CryptoException.class);
+    assertThat(playbackException).hasCauseThat().hasMessageThat().contains("Test exception");
   }
 
   private FakeSampleStream createFakeSampleStream(Format format, long... sampleTimesUs) {

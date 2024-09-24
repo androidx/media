@@ -87,7 +87,7 @@ public final class DefaultDataSource implements DataSource {
      */
     public Factory(Context context, DataSource.Factory baseDataSourceFactory) {
       this.context = context.getApplicationContext();
-      this.baseDataSourceFactory = baseDataSourceFactory;
+      this.baseDataSourceFactory = Assertions.checkNotNull(baseDataSourceFactory);
     }
 
     /**

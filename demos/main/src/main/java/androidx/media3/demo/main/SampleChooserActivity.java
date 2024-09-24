@@ -45,7 +45,6 @@ import android.widget.ExpandableListView.OnChildClickListener;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.Nullable;
 import androidx.annotation.OptIn;
 import androidx.annotation.RequiresApi;
@@ -667,7 +666,6 @@ public class SampleChooserActivity extends AppCompatActivity
   @RequiresApi(33)
   private static class Api33 {
 
-    @DoNotInline
     public static String getPostNotificationPermissionString() {
       return Manifest.permission.POST_NOTIFICATIONS;
     }

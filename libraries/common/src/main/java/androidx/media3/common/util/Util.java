@@ -80,7 +80,6 @@ import android.view.Display;
 import android.view.SurfaceView;
 import android.view.WindowManager;
 import androidx.annotation.ChecksSdkIntAtLeast;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -3411,9 +3410,9 @@ public final class Util {
     // MediaFormat#KEY_ALLOW_FRAME_DROP} to 0. See b/307518793, b/289983935 and b/353487886.
     return SDK_INT < 29
         || context.getApplicationInfo().targetSdkVersion < 29
-        || (SDK_INT == 30
+        || ((SDK_INT == 30
                 && (Ascii.equalsIgnoreCase(MODEL, "moto g(20)")
-                    || Ascii.equalsIgnoreCase(MODEL, "rmx3231"))
+                    || Ascii.equalsIgnoreCase(MODEL, "rmx3231")))
             || (SDK_INT == 34 && Ascii.equalsIgnoreCase(MODEL, "sm-x200")));
   }
 
@@ -3918,7 +3917,6 @@ public final class Util {
   @RequiresApi(29)
   private static class Api29 {
 
-    @DoNotInline
     public static void startForeground(
         Service mediaSessionService,
         int notificationId,

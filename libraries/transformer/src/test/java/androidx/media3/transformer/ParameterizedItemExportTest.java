@@ -132,7 +132,7 @@ public final class ParameterizedItemExportTest {
             .setRemoveAudio(true)
             .build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(item))
+        new Composition.Builder(new EditedMediaItemSequence.Builder(item).build())
             .experimentalSetForceAudioTrack(true)
             .build();
 
@@ -159,7 +159,8 @@ public final class ParameterizedItemExportTest {
         new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + assetFile))
             .setEffects(createAudioEffects(createVolumeScalingAudioProcessor(0f)))
             .build();
-    Composition composition = new Composition.Builder(new EditedMediaItemSequence(item)).build();
+    Composition composition =
+        new Composition.Builder(new EditedMediaItemSequence.Builder(item).build()).build();
 
     transformer.start(composition, outputDir.newFile().getPath());
     TransformerTestRunner.runLooper(transformer);
@@ -183,7 +184,7 @@ public final class ParameterizedItemExportTest {
     EditedMediaItem item =
         new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + assetFile)).build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(item))
+        new Composition.Builder(new EditedMediaItemSequence.Builder(item).build())
             .setEffects(createAudioEffects(createVolumeScalingAudioProcessor(0f)))
             .build();
 

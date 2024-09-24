@@ -26,7 +26,6 @@ import android.view.Choreographer;
 import android.view.Choreographer.FrameCallback;
 import android.view.Display;
 import android.view.Surface;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
@@ -428,7 +427,6 @@ public final class VideoFrameReleaseHelper {
 
   @RequiresApi(30)
   private static final class Api30 {
-    @DoNotInline
     public static void setSurfaceFrameRate(Surface surface, float frameRate) {
       int compatibility =
           frameRate == 0

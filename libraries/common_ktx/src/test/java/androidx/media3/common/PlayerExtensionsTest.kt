@@ -113,15 +113,14 @@ class PlayerExtensionsTest {
   fun playerListen_onEventsThrowsException_bubblesOutAndUnregistersListener() = runTest {
     val player = PlayerWithListeners(TestExoPlayerBuilder(context).build())
     val exceptionFromListen = async {
-      try {
-        player.listen { events ->
-          if (Player.EVENT_VOLUME_CHANGED in events) {
-            throw IllegalStateException("Volume event!")
+      runCatching {
+          player.listen { events ->
+            if (Player.EVENT_VOLUME_CHANGED in events) {
+              throw IllegalStateException("Volume event!")
+            }
           }
         }
-      } catch (expected: IllegalStateException) {
-        expected
-      }
+        .exceptionOrNull()
     }
     // Wait for the Player.Listener to be registered inside player.listen
     testScheduler.runCurrent()

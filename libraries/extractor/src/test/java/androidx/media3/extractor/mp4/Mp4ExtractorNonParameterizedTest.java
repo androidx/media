@@ -17,10 +17,13 @@ package androidx.media3.extractor.mp4;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import android.content.Context;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SniffFailure;
+import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.extractor.text.SubtitleParser;
+import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeExtractorInput;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
@@ -100,6 +103,62 @@ public final class Mp4ExtractorNonParameterizedTest {
 
     assertThat(output.numberOfTracks).isEqualTo(2);
     assertThat(extractorSeekTimeUs).isIn(trackSeekTimesUs.build());
+  }
+
+  @Test
+  public void
+      extract_fileHavingNoEditableVideoTracksWithReadEditableVideoTracksFlag_extractsPrimaryVideoTracks()
+          throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    String inputFilePath = "media/mp4/sample.mp4";
+    Mp4Extractor mp4Extractor =
+        new Mp4Extractor(
+            new DefaultSubtitleParserFactory(), Mp4Extractor.FLAG_READ_EDITABLE_VIDEO_TRACKS);
+
+    FakeExtractorOutput primaryTracksOutput =
+        TestUtil.extractAllSamplesFromFile(mp4Extractor, context, inputFilePath);
+
+    String dumpFilePath = getDumpFilePath(inputFilePath, "_with_flag_read_Editable_video_tracks");
+    DumpFileAsserts.assertOutput(context, primaryTracksOutput, dumpFilePath);
+  }
+
+  @Test
+  public void
+      extract_fileHavingEditableVideoTracksWithReadEditableVideoTracksFlag_extractsEditableVideoTracks()
+          throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    String inputFilePath = "media/mp4/sample_with_fake_editable_video_tracks.mp4";
+    Mp4Extractor mp4Extractor =
+        new Mp4Extractor(
+            new DefaultSubtitleParserFactory(), Mp4Extractor.FLAG_READ_EDITABLE_VIDEO_TRACKS);
+
+    FakeExtractorOutput editableTracksOutput =
+        TestUtil.extractAllSamplesFromFile(mp4Extractor, context, inputFilePath);
+
+    String dumpFilePath = getDumpFilePath(inputFilePath, "_with_flag_read_Editable_video_tracks");
+    DumpFileAsserts.assertOutput(context, editableTracksOutput, dumpFilePath);
+  }
+
+  @Test
+  public void
+      extract_fileHavingEditableVideoTracksInterleavedWithPrimaryVideoTracksWithReadEditableVideoTracksFlag_extractsEditableVideoTracks()
+          throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    String inputFilePath =
+        "media/mp4/sample_with_fake_editable_video_tracks_interleaved_with_primary_video_tracks.mp4";
+    Mp4Extractor mp4Extractor =
+        new Mp4Extractor(
+            new DefaultSubtitleParserFactory(), Mp4Extractor.FLAG_READ_EDITABLE_VIDEO_TRACKS);
+
+    FakeExtractorOutput editableTracksOutput =
+        TestUtil.extractAllSamplesFromFile(mp4Extractor, context, inputFilePath);
+
+    String dumpFilePath = getDumpFilePath(inputFilePath, "_with_flag_read_Editable_video_tracks");
+    DumpFileAsserts.assertOutput(context, editableTracksOutput, dumpFilePath);
+  }
+
+  private static String getDumpFilePath(String inputFilePath, String suffix) {
+    return inputFilePath.replaceFirst("media", "extractordumps") + suffix;
   }
 
   private static FakeExtractorInput createInputForSample(String sample) throws IOException {

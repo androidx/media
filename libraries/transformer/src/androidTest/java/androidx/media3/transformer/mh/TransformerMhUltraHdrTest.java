@@ -148,7 +148,10 @@ public final class TransformerMhUltraHdrTest {
   private static Composition createUltraHdrComposition(
       boolean tonemap, EditedMediaItem editedMediaItem, EditedMediaItem... editedMediaItems) {
     Composition.Builder builder =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem, editedMediaItems))
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(editedMediaItem)
+                    .addItems(editedMediaItems)
+                    .build())
             .experimentalSetRetainHdrFromUltraHdrImage(true);
     if (tonemap) {
       builder.setHdrMode(HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL);

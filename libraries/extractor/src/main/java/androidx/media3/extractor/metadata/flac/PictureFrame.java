@@ -25,7 +25,7 @@ import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
-import com.google.common.base.Charsets;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 /** A picture parsed from a Vorbis Comment or a FLAC picture block. */
@@ -161,7 +161,8 @@ public final class PictureFrame implements Metadata.Entry {
     int pictureType = pictureBlock.readInt();
     int mimeTypeLength = pictureBlock.readInt();
     String mimeType =
-        MimeTypes.normalizeMimeType(pictureBlock.readString(mimeTypeLength, Charsets.US_ASCII));
+        MimeTypes.normalizeMimeType(
+            pictureBlock.readString(mimeTypeLength, StandardCharsets.US_ASCII));
     int descriptionLength = pictureBlock.readInt();
     String description = pictureBlock.readString(descriptionLength);
     int width = pictureBlock.readInt();

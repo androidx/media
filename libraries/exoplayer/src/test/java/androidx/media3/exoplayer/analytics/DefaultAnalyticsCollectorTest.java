@@ -39,6 +39,7 @@ import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_PLAYER
 import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_PLAY_WHEN_READY_CHANGED;
 import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_POSITION_DISCONTINUITY;
 import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_RENDERED_FIRST_FRAME;
+import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_RENDERER_READY_CHANGED;
 import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_TIMELINE_CHANGED;
 import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_TRACKS_CHANGED;
 import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_VIDEO_DECODER_INITIALIZED;
@@ -280,6 +281,9 @@ public final class DefaultAnalyticsCollectorTest {
     assertThat(listener.getEvents(EVENT_VIDEO_SIZE_CHANGED)).containsExactly(period0);
     assertThat(listener.getEvents(EVENT_RENDERED_FIRST_FRAME)).containsExactly(period0);
     assertThat(listener.getEvents(EVENT_VIDEO_FRAME_PROCESSING_OFFSET)).containsExactly(period0);
+    assertThat(listener.getEvents(EVENT_RENDERER_READY_CHANGED))
+        .containsExactly(period0 /* audioTrue */, period0 /* videoTrue */)
+        .inOrder();
     listener.assertNoMoreEvents();
   }
 
@@ -361,6 +365,9 @@ public final class DefaultAnalyticsCollectorTest {
         .containsExactly(period0, period1)
         .inOrder();
     assertThat(listener.getEvents(EVENT_VIDEO_FRAME_PROCESSING_OFFSET)).containsExactly(period1);
+    assertThat(listener.getEvents(EVENT_RENDERER_READY_CHANGED))
+        .containsExactly(period0 /* audioTrue */, period0 /* videoTrue */)
+        .inOrder();
     listener.assertNoMoreEvents();
   }
 
@@ -430,6 +437,9 @@ public final class DefaultAnalyticsCollectorTest {
         .inOrder();
     assertThat(listener.getEvents(EVENT_RENDERED_FIRST_FRAME)).containsExactly(period0);
     assertThat(listener.getEvents(EVENT_VIDEO_FRAME_PROCESSING_OFFSET)).containsExactly(period0);
+    assertThat(listener.getEvents(EVENT_RENDERER_READY_CHANGED))
+        .containsExactly(period0 /* videoTrue */, period1 /* videoFalse */, period1 /* audioTrue */)
+        .inOrder();
     listener.assertNoMoreEvents();
   }
 
@@ -514,6 +524,14 @@ public final class DefaultAnalyticsCollectorTest {
             period1) // width=0, height=0 for audio only media source
         .inOrder();
     assertThat(listener.getEvents(EVENT_RENDERED_FIRST_FRAME)).containsExactly(period0);
+    assertThat(listener.getEvents(EVENT_RENDERER_READY_CHANGED))
+        .containsExactly(
+            period0 /* videoTrue */,
+            period0 /* audioTrue */,
+            period1 /* videoFalse */,
+            period1 /* audioFalse */,
+            period1 /* audioTrue */)
+        .inOrder();
     listener.assertNoMoreEvents();
   }
 
@@ -619,6 +637,15 @@ public final class DefaultAnalyticsCollectorTest {
     assertThat(listener.getEvents(EVENT_VIDEO_FRAME_PROCESSING_OFFSET))
         .containsExactly(period0, period1Seq2)
         .inOrder();
+    assertThat(listener.getEvents(EVENT_RENDERER_READY_CHANGED))
+        .containsExactly(
+            period0 /* videoTrue */,
+            period1Seq1 /* audioTrue */,
+            period1Seq1 /* audioFalse */,
+            period1Seq1 /* videoFalse */,
+            period0 /* videoTrue */,
+            period1Seq2 /* audioTrue */)
+        .inOrder();
     listener.assertNoMoreEvents();
   }
 
@@ -714,6 +741,9 @@ public final class DefaultAnalyticsCollectorTest {
         .inOrder();
     assertThat(listener.getEvents(EVENT_VIDEO_FRAME_PROCESSING_OFFSET))
         .containsExactly(period0Seq1);
+    assertThat(listener.getEvents(EVENT_RENDERER_READY_CHANGED))
+        .containsExactly(
+            period0Seq0 /* videoTrue */, period0Seq0 /* videoFalse */, period0Seq1 /* videoTrue */);
     listener.assertNoMoreEvents();
   }
 
@@ -795,6 +825,10 @@ public final class DefaultAnalyticsCollectorTest {
         .containsExactly(period0Seq0, period0Seq0);
     assertThat(listener.getEvents(EVENT_VIDEO_FRAME_PROCESSING_OFFSET))
         .containsExactly(period0Seq0);
+    assertThat(listener.getEvents(EVENT_RENDERER_READY_CHANGED))
+        .containsExactly(
+            period0Seq0 /* videoTrue */, period0Seq0 /* videoFalse */, period0Seq0 /* videoTrue */)
+        .inOrder();
     listener.assertNoMoreEvents();
   }
 
@@ -872,6 +906,11 @@ public final class DefaultAnalyticsCollectorTest {
     assertThat(listener.getEvents(EVENT_VIDEO_FRAME_PROCESSING_OFFSET))
         .containsExactly(period1Seq0, period1Seq0)
         .inOrder();
+    assertThat(listener.getEvents(EVENT_RENDERER_READY_CHANGED))
+        .containsExactly(
+            window0Period1Seq0 /* videoTrue */,
+            period1Seq0 /* videoFalse */,
+            period1Seq0 /* videoTrue */);
     listener.assertNoMoreEvents();
   }
 
@@ -961,6 +1000,9 @@ public final class DefaultAnalyticsCollectorTest {
         .containsExactly(period0Seq0, period1Seq1, period0Seq1);
     assertThat(listener.getEvents(EVENT_VIDEO_FRAME_PROCESSING_OFFSET))
         .containsExactly(period0Seq1);
+    assertThat(listener.getEvents(EVENT_RENDERER_READY_CHANGED))
+        .containsExactly(
+            period0Seq0 /* videoTrue */, period0Seq1 /* videoFalse */, period0Seq1 /* videoTrue */);
     listener.assertNoMoreEvents();
   }
 
@@ -1190,6 +1232,8 @@ public final class DefaultAnalyticsCollectorTest {
         .inOrder();
     assertThat(listener.getEvents(EVENT_VIDEO_FRAME_PROCESSING_OFFSET))
         .containsExactly(contentAfterPostroll);
+    assertThat(listener.getEvents(EVENT_RENDERER_READY_CHANGED))
+        .containsExactly(prerollAd /* videoTrue */);
     listener.assertNoMoreEvents();
   }
 
@@ -1326,6 +1370,11 @@ public final class DefaultAnalyticsCollectorTest {
         .inOrder();
     assertThat(listener.getEvents(EVENT_VIDEO_FRAME_PROCESSING_OFFSET))
         .containsExactly(contentAfterMidroll);
+    assertThat(listener.getEvents(EVENT_RENDERER_READY_CHANGED))
+        .containsExactly(
+            contentBeforeMidroll /* videoTrue */,
+            midrollAd /* videoFalse */,
+            midrollAd /* videoTrue */);
     listener.assertNoMoreEvents();
   }
 
@@ -2317,6 +2366,15 @@ public final class DefaultAnalyticsCollectorTest {
     @Override
     public void onDrmSessionReleased(EventTime eventTime) {
       reportedEvents.add(new ReportedEvent(EVENT_DRM_SESSION_RELEASED, eventTime));
+    }
+
+    @Override
+    public void onRendererReadyChanged(
+        EventTime eventTime,
+        int rendererIndex,
+        @C.TrackType int rendererTrackType,
+        boolean isRendererReady) {
+      reportedEvents.add(new ReportedEvent(EVENT_RENDERER_READY_CHANGED, eventTime));
     }
 
     private static final class ReportedEvent {

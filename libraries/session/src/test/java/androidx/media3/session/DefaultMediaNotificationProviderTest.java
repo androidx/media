@@ -1280,10 +1280,9 @@ public class DefaultMediaNotificationProviderTest {
   }
 
   private static void assertHasNotificationChannel(
-      List<Object> notificationChannels, String channelId, String channelName) {
+      List<NotificationChannel> notificationChannels, String channelId, String channelName) {
     boolean found = false;
-    for (int i = 0; i < notificationChannels.size(); i++) {
-      NotificationChannel notificationChannel = (NotificationChannel) notificationChannels.get(i);
+    for (NotificationChannel notificationChannel : notificationChannels) {
       found =
           notificationChannel.getId().equals(channelId)
               // NotificationChannel.getName() is CharSequence. Use String#contentEquals instead

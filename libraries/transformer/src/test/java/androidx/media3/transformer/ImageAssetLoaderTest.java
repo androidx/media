@@ -18,10 +18,13 @@ package androidx.media3.transformer;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runLooperUntil;
 import static com.google.common.truth.Truth.assertThat;
 
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.os.Looper;
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.ParserException;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.transformer.AssetLoader.CompositionSettings;
@@ -102,7 +105,7 @@ public class ImageAssetLoaderTest {
             }
           }
         };
-    AssetLoader assetLoader = getAssetLoader(listener);
+    AssetLoader assetLoader = getAssetLoader(listener, "asset:///media/png/media3test.png");
 
     assetLoader.start();
     runLooperUntil(
@@ -115,14 +118,61 @@ public class ImageAssetLoaderTest {
     assertThat(exceptionRef.get()).isNull();
   }
 
-  private static AssetLoader getAssetLoader(AssetLoader.Listener listener) {
+  @Test
+  public void imageAssetLoader_onUnsupportedMimeType_callsListener() throws Exception {
+    AtomicReference<Exception> exceptionRef = new AtomicReference<>();
+    AssetLoader.Listener listener =
+        new AssetLoader.Listener() {
+
+          @Override
+          public void onDurationUs(long durationUs) {}
+
+          @Override
+          public void onTrackCount(int trackCount) {}
+
+          @Override
+          public boolean onTrackAdded(
+              Format inputFormat, @AssetLoader.SupportedOutputTypes int supportedOutputTypes) {
+            return false;
+          }
+
+          @Override
+          public SampleConsumer onOutputFormat(Format format) {
+            return new FakeSampleConsumer();
+          }
+
+          @Override
+          public void onError(ExportException e) {
+            exceptionRef.set(e);
+          }
+        };
+    AssetLoader assetLoader = getAssetLoader(listener, "asset:///media3test.gif");
+
+    assetLoader.start();
+    runLooperUntil(
+        Looper.myLooper(),
+        () -> {
+          ShadowSystemClock.advanceBy(Duration.ofMillis(10));
+          return exceptionRef.get() != null;
+        });
+    ParserException parserException = (ParserException) exceptionRef.get().getCause();
+
+    assertThat(parserException)
+        .hasMessageThat()
+        .contains("Attempted to load a Bitmap from unsupported MIME type: image/gif");
+    assertThat(parserException.contentIsMalformed).isFalse();
+    assertThat(parserException.dataType).isEqualTo(C.DATA_TYPE_MEDIA);
+  }
+
+  private static AssetLoader getAssetLoader(AssetLoader.Listener listener, String uri) {
+    Context context = ApplicationProvider.getApplicationContext();
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri("asset:///media/png/media3test.png"))
+        new EditedMediaItem.Builder(MediaItem.fromUri(uri))
             .setDurationUs(1_000_000)
             .setFrameRate(30)
             .build();
     return new ImageAssetLoader.Factory(
-            new DataSourceBitmapLoader(ApplicationProvider.getApplicationContext()))
+            context, new DataSourceBitmapLoader(ApplicationProvider.getApplicationContext()))
         .createAssetLoader(
             editedMediaItem,
             Looper.myLooper(),

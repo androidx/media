@@ -32,7 +32,6 @@ import android.app.NotificationManager;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.os.Bundle;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -682,7 +681,6 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
 
   @RequiresApi(26)
   private static class Api26 {
-    @DoNotInline
     public static void createNotificationChannel(
         NotificationManager notificationManager, String channelId, String channelName) {
       NotificationChannel channel =
@@ -699,7 +697,6 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
 
   @RequiresApi(31)
   private static class Api31 {
-    @DoNotInline
     public static void setForegroundServiceBehavior(NotificationCompat.Builder builder) {
       builder.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE);
     }

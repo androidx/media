@@ -371,7 +371,8 @@ public final class TransformerActivity extends AppCompatActivity {
           .setEffects(new Effects(audioProcessors, videoEffects));
     }
     Composition.Builder compositionBuilder =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItemBuilder.build()));
+        new Composition.Builder(
+            new EditedMediaItemSequence.Builder(editedMediaItemBuilder.build()).build());
     if (bundle != null) {
       compositionBuilder
           .setHdrMode(bundle.getInt(ConfigurationActivity.HDR_MODE))

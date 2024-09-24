@@ -21,7 +21,6 @@ import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.app.PendingIntent;
 import android.content.Context;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -237,7 +236,6 @@ public final class DownloadNotificationHelper {
   @RequiresApi(31)
   private static final class Api31 {
     @SuppressLint("WrongConstant") // TODO(b/254277605): remove lint suppression
-    @DoNotInline
     public static void setForegroundServiceBehavior(
         NotificationCompat.Builder notificationBuilder) {
       notificationBuilder.setForegroundServiceBehavior(FOREGROUND_SERVICE_IMMEDIATE);

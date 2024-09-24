@@ -218,6 +218,17 @@ public final class Mp4ExtractorParameterizedTest {
     assertExtractorBehavior("media/mp4/water_180_mvhevc_5frames.mov");
   }
 
+  @Test
+  public void mp4WithEditableVideoTracks() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_with_fake_editable_video_tracks.mp4");
+  }
+
+  @Test
+  public void mp4WithEditableVideoTracksInterleavedWithPrimaryVideoTracks() throws Exception {
+    assertExtractorBehavior(
+        "media/mp4/sample_with_fake_editable_video_tracks_interleaved_with_primary_video_tracks.mp4");
+  }
+
   private void assertExtractorBehavior(String file) throws IOException {
     ExtractorAsserts.AssertionConfig.Builder assertionConfigBuilder =
         new ExtractorAsserts.AssertionConfig.Builder();

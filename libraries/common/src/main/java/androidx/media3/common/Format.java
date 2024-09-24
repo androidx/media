@@ -27,6 +27,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -165,6 +166,7 @@ public final class Format {
     @Nullable private List<byte[]> initializationData;
     @Nullable private DrmInitData drmInitData;
     private long subsampleOffsetUs;
+    private boolean hasPrerollSamples;
 
     // Video specific.
 
@@ -255,6 +257,7 @@ public final class Format {
       this.initializationData = format.initializationData;
       this.drmInitData = format.drmInitData;
       this.subsampleOffsetUs = format.subsampleOffsetUs;
+      this.hasPrerollSamples = format.hasPrerollSamples;
       // Video specific.
       this.width = format.width;
       this.height = format.height;
@@ -539,6 +542,18 @@ public final class Format {
     @CanIgnoreReturnValue
     public Builder setSubsampleOffsetUs(long subsampleOffsetUs) {
       this.subsampleOffsetUs = subsampleOffsetUs;
+      return this;
+    }
+
+    /**
+     * Sets {@link Format#hasPrerollSamples}. The default value is {@code false}.
+     *
+     * @param hasPrerollSamples The {@link Format#hasPrerollSamples}.
+     * @return The builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setHasPrerollSamples(boolean hasPrerollSamples) {
+      this.hasPrerollSamples = hasPrerollSamples;
       return this;
     }
 
@@ -951,6 +966,15 @@ public final class Format {
    */
   @UnstableApi public final long subsampleOffsetUs;
 
+  /**
+   * Indicates whether the stream contains preroll samples.
+   *
+   * <p>When this field is set to {@code true}, it means that the stream includes decode-only
+   * samples that occur before the intended playback start position. These samples are necessary for
+   * decoding but are not meant to be rendered and should be skipped after decoding.
+   */
+  @UnstableApi public final boolean hasPrerollSamples;
+
   // Video specific.
 
   /** The width of the video in pixels, or {@link #NO_VALUE} if unknown or not applicable. */
@@ -1091,6 +1115,7 @@ public final class Format {
         builder.initializationData == null ? Collections.emptyList() : builder.initializationData;
     drmInitData = builder.drmInitData;
     subsampleOffsetUs = builder.subsampleOffsetUs;
+    hasPrerollSamples = builder.hasPrerollSamples;
     // Video specific.
     width = builder.width;
     height = builder.height;
@@ -1380,6 +1405,7 @@ public final class Format {
     if (format == null) {
       return "null";
     }
+    Joiner commaJoiner = Joiner.on(',');
     StringBuilder builder = new StringBuilder();
     builder.append("id=").append(format.id).append(", mimeType=").append(format.sampleMimeType);
     if (format.containerMimeType != null) {
@@ -1410,7 +1436,7 @@ public final class Format {
         }
       }
       builder.append(", drm=[");
-      Joiner.on(',').appendTo(builder, schemes);
+      commaJoiner.appendTo(builder, schemes);
       builder.append(']');
     }
     if (format.width != NO_VALUE && format.height != NO_VALUE) {
@@ -1433,17 +1459,18 @@ public final class Format {
     }
     if (!format.labels.isEmpty()) {
       builder.append(", labels=[");
-      Joiner.on(',').appendTo(builder, format.labels);
+      commaJoiner.appendTo(
+          builder, Lists.transform(format.labels, l -> l.language + ": " + l.value));
       builder.append("]");
     }
     if (format.selectionFlags != 0) {
       builder.append(", selectionFlags=[");
-      Joiner.on(',').appendTo(builder, Util.getSelectionFlagStrings(format.selectionFlags));
+      commaJoiner.appendTo(builder, Util.getSelectionFlagStrings(format.selectionFlags));
       builder.append("]");
     }
     if (format.roleFlags != 0) {
       builder.append(", roleFlags=[");
-      Joiner.on(',').appendTo(builder, Util.getRoleFlagStrings(format.roleFlags));
+      commaJoiner.appendTo(builder, Util.getRoleFlagStrings(format.roleFlags));
       builder.append("]");
     }
     if (format.customData != null) {

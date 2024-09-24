@@ -25,6 +25,7 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.container.MdtaMetadataEntry;
+import androidx.media3.container.Mp4Box;
 import androidx.media3.extractor.GaplessInfoHolder;
 import androidx.media3.extractor.metadata.id3.ApicFrame;
 import androidx.media3.extractor.metadata.id3.CommentFrame;
@@ -203,7 +204,7 @@ import com.google.common.collect.ImmutableList;
       } else if (type == TYPE_INTERNAL) {
         return parseInternalAttribute(ilst, endPosition);
       }
-      Log.d(TAG, "Skipped unknown metadata entry: " + Atom.getAtomTypeString(type));
+      Log.d(TAG, "Skipped unknown metadata entry: " + Mp4Box.getBoxTypeString(type));
       return null;
     } finally {
       ilst.setPosition(endPosition);
@@ -225,7 +226,7 @@ import com.google.common.collect.ImmutableList;
     while ((atomPosition = ilst.getPosition()) < endPosition) {
       int atomSize = ilst.readInt();
       int atomType = ilst.readInt();
-      if (atomType == Atom.TYPE_data) {
+      if (atomType == Mp4Box.TYPE_data) {
         int typeIndicator = ilst.readInt();
         int localeIndicator = ilst.readInt();
         int dataSize = atomSize - 16;
@@ -238,17 +239,38 @@ import com.google.common.collect.ImmutableList;
     return null;
   }
 
+  /**
+   * Returns the {@link MdtaMetadataEntry} for a given key, or {@code null} if the key is not
+   * present.
+   *
+   * @param metadata The {@link Metadata} to retrieve the {@link MdtaMetadataEntry} from.
+   * @param key The metadata key to search.
+   */
+  @Nullable
+  public static MdtaMetadataEntry findMdtaMetadataEntryWithKey(Metadata metadata, String key) {
+    for (int i = 0; i < metadata.length(); i++) {
+      Metadata.Entry entry = metadata.get(i);
+      if (entry instanceof MdtaMetadataEntry) {
+        MdtaMetadataEntry mdtaMetadataEntry = (MdtaMetadataEntry) entry;
+        if (mdtaMetadataEntry.key.equals(key)) {
+          return mdtaMetadataEntry;
+        }
+      }
+    }
+    return null;
+  }
+
   @Nullable
   private static TextInformationFrame parseTextAttribute(
       int type, String id, ParsableByteArray data) {
     int atomSize = data.readInt();
     int atomType = data.readInt();
-    if (atomType == Atom.TYPE_data) {
+    if (atomType == Mp4Box.TYPE_data) {
       data.skipBytes(8); // version (1), flags (3), empty (4)
       String value = data.readNullTerminatedString(atomSize - 16);
       return new TextInformationFrame(id, /* description= */ null, ImmutableList.of(value));
     }
-    Log.w(TAG, "Failed to parse text attribute: " + Atom.getAtomTypeString(type));
+    Log.w(TAG, "Failed to parse text attribute: " + Mp4Box.getBoxTypeString(type));
     return null;
   }
 
@@ -256,12 +278,12 @@ import com.google.common.collect.ImmutableList;
   private static CommentFrame parseCommentAttribute(int type, ParsableByteArray data) {
     int atomSize = data.readInt();
     int atomType = data.readInt();
-    if (atomType == Atom.TYPE_data) {
+    if (atomType == Mp4Box.TYPE_data) {
       data.skipBytes(8); // version (1), flags (3), empty (4)
       String value = data.readNullTerminatedString(atomSize - 16);
       return new CommentFrame(C.LANGUAGE_UNDETERMINED, value, value);
     }
-    Log.w(TAG, "Failed to parse comment attribute: " + Atom.getAtomTypeString(type));
+    Log.w(TAG, "Failed to parse comment attribute: " + Mp4Box.getBoxTypeString(type));
     return null;
   }
 
@@ -282,14 +304,14 @@ import com.google.common.collect.ImmutableList;
               id, /* description= */ null, ImmutableList.of(Integer.toString(value)))
           : new CommentFrame(C.LANGUAGE_UNDETERMINED, id, Integer.toString(value));
     }
-    Log.w(TAG, "Failed to parse uint8 attribute: " + Atom.getAtomTypeString(type));
+    Log.w(TAG, "Failed to parse uint8 attribute: " + Mp4Box.getBoxTypeString(type));
     return null;
   }
 
   private static int parseIntegerAttribute(ParsableByteArray data) {
     int atomSize = data.readInt();
     int atomType = data.readInt();
-    if (atomType == Atom.TYPE_data) {
+    if (atomType == Mp4Box.TYPE_data) {
       data.skipBytes(8); // version (1), flags (3), empty (4)
       switch (atomSize - 16) {
         case 1:
@@ -313,7 +335,7 @@ import com.google.common.collect.ImmutableList;
       int type, String attributeName, ParsableByteArray data) {
     int atomSize = data.readInt();
     int atomType = data.readInt();
-    if (atomType == Atom.TYPE_data && atomSize >= 22) {
+    if (atomType == Mp4Box.TYPE_data && atomSize >= 22) {
       data.skipBytes(10); // version (1), flags (3), empty (4), empty (2)
       int index = data.readUnsignedShort();
       if (index > 0) {
@@ -326,7 +348,7 @@ import com.google.common.collect.ImmutableList;
             attributeName, /* description= */ null, ImmutableList.of(value));
       }
     }
-    Log.w(TAG, "Failed to parse index/count attribute: " + Atom.getAtomTypeString(type));
+    Log.w(TAG, "Failed to parse index/count attribute: " + Mp4Box.getBoxTypeString(type));
     return null;
   }
 
@@ -348,9 +370,9 @@ import com.google.common.collect.ImmutableList;
   private static ApicFrame parseCoverArt(ParsableByteArray data) {
     int atomSize = data.readInt();
     int atomType = data.readInt();
-    if (atomType == Atom.TYPE_data) {
+    if (atomType == Mp4Box.TYPE_data) {
       int fullVersionInt = data.readInt();
-      int flags = Atom.parseFullAtomFlags(fullVersionInt);
+      int flags = BoxParser.parseFullBoxFlags(fullVersionInt);
       @Nullable String mimeType = flags == 13 ? "image/jpeg" : flags == 14 ? "image/png" : null;
       if (mimeType == null) {
         Log.w(TAG, "Unrecognized cover art flags: " + flags);
@@ -380,12 +402,12 @@ import com.google.common.collect.ImmutableList;
       int atomSize = data.readInt();
       int atomType = data.readInt();
       data.skipBytes(4); // version (1), flags (3)
-      if (atomType == Atom.TYPE_mean) {
+      if (atomType == Mp4Box.TYPE_mean) {
         domain = data.readNullTerminatedString(atomSize - 12);
-      } else if (atomType == Atom.TYPE_name) {
+      } else if (atomType == Mp4Box.TYPE_name) {
         name = data.readNullTerminatedString(atomSize - 12);
       } else {
-        if (atomType == Atom.TYPE_data) {
+        if (atomType == Mp4Box.TYPE_data) {
           dataAtomPosition = atomPosition;
           dataAtomSize = atomSize;
         }

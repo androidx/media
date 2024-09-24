@@ -28,7 +28,6 @@ import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Handler;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
@@ -259,14 +258,12 @@ public final class AudioCapabilitiesReceiver {
   @RequiresApi(23)
   private static final class Api23 {
 
-    @DoNotInline
     public static void registerAudioDeviceCallback(
         Context context, AudioDeviceCallback callback, Handler handler) {
       AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
       checkNotNull(audioManager).registerAudioDeviceCallback(callback, handler);
     }
 
-    @DoNotInline
     public static void unregisterAudioDeviceCallback(
         Context context, AudioDeviceCallback callback) {
       AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);

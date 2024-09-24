@@ -15,18 +15,22 @@
  */
 package androidx.media3.muxer;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.muxer.AnnexBUtils.doesSampleContainAnnexBNalUnits;
 import static androidx.media3.muxer.Boxes.BOX_HEADER_SIZE;
+import static androidx.media3.muxer.Boxes.LARGE_SIZE_BOX_HEADER_SIZE;
+import static androidx.media3.muxer.Boxes.getEdvdBoxHeader;
+import static androidx.media3.muxer.MuxerUtil.getEditableTracksLengthMetadata;
+import static androidx.media3.muxer.MuxerUtil.getEditableTracksOffsetMetadata;
+import static androidx.media3.muxer.MuxerUtil.populateEditableVideoTracksMetadata;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 import android.media.MediaCodec.BufferInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.Util;
-import androidx.media3.muxer.Muxer.TrackToken;
+import androidx.media3.container.MdtaMetadataEntry;
 import com.google.common.collect.Range;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -45,9 +49,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
   private final FileChannel outputFileChannel;
   private final MetadataCollector metadataCollector;
   private final AnnexBToAvccConverter annexBToAvccConverter;
-  private final @Mp4Muxer.LastFrameDurationBehavior int lastFrameDurationBehavior;
+  private final @Mp4Muxer.LastSampleDurationBehavior int lastSampleDurationBehavior;
   private final boolean sampleCopyEnabled;
   private final List<Track> tracks;
+  private final List<Track> editableVideoTracks;
   private final AtomicBoolean hasWrittenSamples;
 
   // Stores location of the space reserved for the moov box at the beginning of the file (after ftyp
@@ -72,8 +77,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
    * @param annexBToAvccConverter The {@link AnnexBToAvccConverter} to be used to convert H.264 and
    *     H.265 NAL units from the Annex-B format (using start codes to delineate NAL units) to the
    *     AVCC format (which uses length prefixes).
-   * @param lastFrameDurationBehavior The {@link Mp4Muxer.LastFrameDurationBehavior} for the video
-   *     track.
+   * @param lastSampleDurationBehavior The {@link Mp4Muxer.LastSampleDurationBehavior}.
    * @param sampleCopyEnabled Whether sample copying is enabled.
    * @param attemptStreamableOutputEnabled Whether to attempt to write a streamable output.
    */
@@ -81,15 +85,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
       FileChannel fileChannel,
       MetadataCollector metadataCollector,
       AnnexBToAvccConverter annexBToAvccConverter,
-      @Mp4Muxer.LastFrameDurationBehavior int lastFrameDurationBehavior,
+      @Mp4Muxer.LastSampleDurationBehavior int lastSampleDurationBehavior,
       boolean sampleCopyEnabled,
       boolean attemptStreamableOutputEnabled) {
     this.outputFileChannel = fileChannel;
     this.metadataCollector = metadataCollector;
     this.annexBToAvccConverter = annexBToAvccConverter;
-    this.lastFrameDurationBehavior = lastFrameDurationBehavior;
+    this.lastSampleDurationBehavior = lastSampleDurationBehavior;
     this.sampleCopyEnabled = sampleCopyEnabled;
     tracks = new ArrayList<>();
+    editableVideoTracks = new ArrayList<>();
     hasWrittenSamples = new AtomicBoolean(false);
     canWriteMoovAtStart = attemptStreamableOutputEnabled;
     lastMoovWritten = Range.closed(0L, 0L);
@@ -100,9 +105,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
    *
    * @param sortKey The key used for sorting the track list.
    * @param format The {@link Format} for the track.
-   * @return A unique {@link TrackToken}. It should be used in {@link #writeSampleData}.
+   * @return A unique {@link Track}. It should be used in {@link #writeSampleData}.
    */
-  public TrackToken addTrack(int sortKey, Format format) {
+  public Track addTrack(int sortKey, Format format) {
     Track track = new Track(format, sortKey, sampleCopyEnabled);
     tracks.add(track);
     Collections.sort(tracks, (a, b) -> Integer.compare(a.sortKey, b.sortKey));
@@ -110,17 +115,32 @@ import java.util.concurrent.atomic.AtomicBoolean;
   }
 
   /**
+   * Adds an editable video track of the given {@link Format}.
+   *
+   * <p>See {@link MuxerUtil#isEditableVideoTrack(Format)} for editable video tracks.
+   *
+   * @param sortKey The key used for sorting the track list.
+   * @param format The {@link Format} for the track.
+   * @return A unique {@link Track}. It should be used in {@link #writeSampleData}.
+   */
+  public Track addEditableVideoTrack(int sortKey, Format format) {
+    Track track = new Track(format, sortKey, sampleCopyEnabled);
+    editableVideoTracks.add(track);
+    Collections.sort(editableVideoTracks, (a, b) -> Integer.compare(a.sortKey, b.sortKey));
+    return track;
+  }
+
+  /**
    * Writes encoded sample data.
    *
-   * @param token The {@link TrackToken} for which this sample is being written.
+   * @param track The {@link Track} for which this sample is being written.
    * @param byteBuffer The encoded sample.
    * @param bufferInfo The {@link BufferInfo} related to this sample.
    * @throws IOException If there is any error while writing data to the output {@link FileChannel}.
    */
-  public void writeSampleData(TrackToken token, ByteBuffer byteBuffer, BufferInfo bufferInfo)
+  public void writeSampleData(Track track, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws IOException {
-    checkArgument(token instanceof Track);
-    ((Track) token).writeSampleData(byteBuffer, bufferInfo);
+    track.writeSampleData(byteBuffer, bufferInfo);
     doInterleave();
   }
 
@@ -132,13 +152,62 @@ import java.util.concurrent.atomic.AtomicBoolean;
    */
   public void finishWritingSamplesAndFinalizeMoovBox() throws IOException {
     for (int i = 0; i < tracks.size(); i++) {
-      flushPending(tracks.get(i));
+      writePendingTrackSamples(tracks.get(i));
+    }
+    for (int i = 0; i < editableVideoTracks.size(); i++) {
+      writePendingTrackSamples(editableVideoTracks.get(i));
     }
 
     // Leave the file empty if no samples are written.
-    if (hasWrittenSamples.get()) {
-      finalizeMoovBox();
+    if (!hasWrittenSamples.get()) {
+      return;
     }
+
+    finalizeMoovBox();
+
+    if (!editableVideoTracks.isEmpty()) {
+      writeEdvdBox();
+    }
+  }
+
+  private void writeEdvdBox() throws IOException {
+    // The exact offset is known after writing primary track data.
+    MdtaMetadataEntry placeholderEditableTrackOffset =
+        getEditableTracksOffsetMetadata(/* offset= */ 0L);
+    metadataCollector.addMetadata(placeholderEditableTrackOffset);
+    ByteBuffer edvdBox = getEdvdBox();
+    metadataCollector.addMetadata(getEditableTracksLengthMetadata(edvdBox.remaining()));
+    finalizeMoovBox();
+    // Once final moov is written, update the actual offset.
+    metadataCollector.removeMdtaMetadataEntry(placeholderEditableTrackOffset);
+    metadataCollector.addMetadata(getEditableTracksOffsetMetadata(outputFileChannel.size()));
+    long fileSizeBefore = outputFileChannel.size();
+    finalizeMoovBox();
+    checkState(fileSizeBefore == outputFileChannel.size());
+    // After writing primary track data, write the edvd box.
+    outputFileChannel.position(outputFileChannel.size());
+    outputFileChannel.write(edvdBox);
+  }
+
+  private ByteBuffer getEdvdBox() {
+    // The edvd box will have one ftyp and one moov box.
+    ByteBuffer ftypBox = Boxes.ftyp();
+    MetadataCollector editableVideoMetadataCollector = new MetadataCollector();
+    populateEditableVideoTracksMetadata(
+        editableVideoMetadataCollector,
+        metadataCollector.timestampData,
+        /* samplesInterleaved= */ true,
+        editableVideoTracks);
+    ByteBuffer moovBox =
+        Boxes.moov(
+            editableVideoTracks,
+            editableVideoMetadataCollector,
+            findMinimumPresentationTimestampUsAcrossTracks(editableVideoTracks),
+            /* isFragmentedMp4= */ false,
+            lastSampleDurationBehavior);
+    ByteBuffer edvdBoxHeader =
+        getEdvdBoxHeader(/* payloadSize= */ ftypBox.remaining() + moovBox.remaining());
+    return BoxUtils.concatenateBuffers(edvdBoxHeader, ftypBox, moovBox);
   }
 
   /**
@@ -204,6 +273,17 @@ import java.util.concurrent.atomic.AtomicBoolean;
     outputFileChannel.truncate(newMoovLocation + moovBytesNeeded);
   }
 
+  private static long findMinimumPresentationTimestampUsAcrossTracks(List<Track> tracks) {
+    long minInputPtsUs = Long.MAX_VALUE;
+    for (int i = 0; i < tracks.size(); i++) {
+      Track track = tracks.get(i);
+      if (!track.writtenSamples.isEmpty()) {
+        minInputPtsUs = min(track.writtenSamples.get(0).presentationTimeUs, minInputPtsUs);
+      }
+    }
+    return minInputPtsUs;
+  }
+
   private void writeHeader() throws IOException {
     outputFileChannel.position(0L);
     outputFileChannel.write(Boxes.ftyp());
@@ -218,7 +298,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
     // Start with an empty mdat box.
     mdatStart = outputFileChannel.position();
-    ByteBuffer header = ByteBuffer.allocate(4 + 4 + 8);
+    ByteBuffer header = ByteBuffer.allocate(LARGE_SIZE_BOX_HEADER_SIZE);
     header.putInt(1); // 4 bytes, indicating a 64-bit length field
     header.put(Util.getUtf8Bytes("mdat")); // 4 bytes
     header.putLong(16); // 8 bytes (the actual length)
@@ -231,25 +311,18 @@ import java.util.concurrent.atomic.AtomicBoolean;
   }
 
   private ByteBuffer assembleCurrentMoovData() {
-    long minInputPtsUs = Long.MAX_VALUE;
-
     // Recalculate the min timestamp every time, in case some new samples have smaller timestamps.
-    for (int i = 0; i < tracks.size(); i++) {
-      Track track = tracks.get(i);
-      if (!track.writtenSamples.isEmpty()) {
-        minInputPtsUs = Math.min(track.writtenSamples.get(0).presentationTimeUs, minInputPtsUs);
-      }
-    }
+    long minInputPtsUs = findMinimumPresentationTimestampUsAcrossTracks(tracks);
 
     ByteBuffer moovHeader;
     if (minInputPtsUs != Long.MAX_VALUE) {
       moovHeader =
-          Mp4MoovStructure.moov(
+          Boxes.moov(
               tracks,
               metadataCollector,
               minInputPtsUs,
               /* isFragmentedMp4= */ false,
-              lastFrameDurationBehavior);
+              lastSampleDurationBehavior);
     } else {
       // Skip moov box, if there are no samples.
       moovHeader = ByteBuffer.allocate(0);
@@ -336,8 +409,33 @@ import java.util.concurrent.atomic.AtomicBoolean;
     safelyReplaceMoovAtEnd(newMoovStart, currentMoovData);
   }
 
-  /** Writes out any pending samples to the file. */
-  private void flushPending(Track track) throws IOException {
+  /**
+   * Writes pending samples of given {@link Track tracks} if there are enough samples to write.
+   *
+   * @param tracks A list of {@link Track} containing the pending samples to be potentially written.
+   * @return {@code true} if any new sample is written, {@code false} otherwise.
+   */
+  private boolean maybeWritePendingTrackSamples(List<Track> tracks) throws IOException {
+    boolean newSamplesWritten = false;
+    for (int i = 0; i < tracks.size(); i++) {
+      Track track = tracks.get(i);
+      // TODO: b/270583563 - Check if we need to consider the global timestamp instead.
+      if (track.pendingSamplesBufferInfo.size() > 2) {
+        BufferInfo firstSampleInfo = checkNotNull(track.pendingSamplesBufferInfo.peekFirst());
+        BufferInfo lastSampleInfo = checkNotNull(track.pendingSamplesBufferInfo.peekLast());
+
+        if (lastSampleInfo.presentationTimeUs - firstSampleInfo.presentationTimeUs
+            > INTERLEAVE_DURATION_US) {
+          newSamplesWritten = true;
+          writePendingTrackSamples(track);
+        }
+      }
+    }
+    return newSamplesWritten;
+  }
+
+  /** Writes out any pending samples of the given {@link Track}. */
+  private void writePendingTrackSamples(Track track) throws IOException {
     checkState(track.pendingSamplesByteBuffer.size() == track.pendingSamplesBufferInfo.size());
     if (track.pendingSamplesBufferInfo.isEmpty()) {
       return;
@@ -408,22 +506,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
   }
 
   private void doInterleave() throws IOException {
-    boolean newSamplesWritten = false;
-    for (int i = 0; i < tracks.size(); i++) {
-      Track track = tracks.get(i);
-      // TODO: b/270583563 - Check if we need to consider the global timestamp instead.
-      if (track.pendingSamplesBufferInfo.size() > 2) {
-        BufferInfo firstSampleInfo = checkNotNull(track.pendingSamplesBufferInfo.peekFirst());
-        BufferInfo lastSampleInfo = checkNotNull(track.pendingSamplesBufferInfo.peekLast());
+    boolean primaryTrackSampleWritten = maybeWritePendingTrackSamples(tracks);
+    maybeWritePendingTrackSamples(editableVideoTracks);
 
-        if (lastSampleInfo.presentationTimeUs - firstSampleInfo.presentationTimeUs
-            > INTERLEAVE_DURATION_US) {
-          newSamplesWritten = true;
-          flushPending(track);
-        }
-      }
-    }
-    if (newSamplesWritten && canWriteMoovAtStart) {
+    if (primaryTrackSampleWritten && canWriteMoovAtStart) {
       maybeWriteMoovAtStart();
     }
   }

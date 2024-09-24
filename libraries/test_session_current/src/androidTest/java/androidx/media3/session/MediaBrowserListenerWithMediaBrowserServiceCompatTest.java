@@ -32,8 +32,10 @@ import static androidx.media3.test.session.common.MediaBrowserServiceCompatConst
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_CHILDREN_WITH_NULL_LIST;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_LIBRARY_ROOT;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_ON_CHILDREN_CHANGED_SUBSCRIBE_AND_UNSUBSCRIBE;
+import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_SEND_CUSTOM_COMMAND;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assert.assertThrows;
 
@@ -46,14 +48,19 @@ import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
+import androidx.media3.test.session.common.MediaBrowserConstants;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -335,5 +342,81 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
     assertThat(sessionErrors).hasSize(1);
     assertThat(sessionErrors.get(0).code)
         .isEqualTo(PlaybackException.ERROR_CODE_AUTHENTICATION_EXPIRED);
+  }
+
+  @Test
+  public void sendCustomCommand_success_correctAsyncResult() throws Exception {
+    remoteService.setProxyForTest(TEST_SEND_CUSTOM_COMMAND);
+    MediaBrowser browser = createBrowser(/* listener= */ null);
+    CountDownLatch latch = new CountDownLatch(/* count= */ 1);
+    AtomicReference<SessionResult> sessionResultRef = new AtomicReference<>();
+
+    ListenableFuture<SessionResult> resultFuture =
+        threadTestRule
+            .getHandler()
+            .postAndSync(
+                () ->
+                    browser.sendCustomCommand(
+                        new SessionCommand(
+                            MediaBrowserConstants.COMMAND_ACTION_PLAYLIST_ADD,
+                            /* extras= */ Bundle.EMPTY),
+                        /* args= */ Bundle.EMPTY));
+    Futures.addCallback(
+        resultFuture,
+        new FutureCallback<SessionResult>() {
+          @Override
+          public void onSuccess(SessionResult result) {
+            sessionResultRef.set(result);
+            latch.countDown();
+          }
+
+          @Override
+          public void onFailure(Throwable t) {}
+        },
+        directExecutor());
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(sessionResultRef.get()).isNotNull();
+    assertThat(sessionResultRef.get().resultCode).isEqualTo(SessionResult.RESULT_SUCCESS);
+    assertThat(sessionResultRef.get().extras.getString("key-1")).isEqualTo("success-from-service");
+  }
+
+  @Test
+  public void sendCustomCommand_failure_correctAsyncResult() throws Exception {
+    remoteService.setProxyForTest(TEST_SEND_CUSTOM_COMMAND);
+    MediaBrowser browser = createBrowser(/* listener= */ null);
+    CountDownLatch latch = new CountDownLatch(/* count= */ 1);
+    AtomicReference<SessionResult> sessionResultRef = new AtomicReference<>();
+    Bundle args = new Bundle();
+    args.putBoolean("request_error", true);
+
+    ListenableFuture<SessionResult> resultFuture =
+        threadTestRule
+            .getHandler()
+            .postAndSync(
+                () ->
+                    browser.sendCustomCommand(
+                        new SessionCommand(
+                            MediaBrowserConstants.COMMAND_ACTION_PLAYLIST_ADD,
+                            /* extras= */ Bundle.EMPTY),
+                        args));
+    Futures.addCallback(
+        resultFuture,
+        new FutureCallback<SessionResult>() {
+          @Override
+          public void onSuccess(SessionResult result) {
+            sessionResultRef.set(result);
+            latch.countDown();
+          }
+
+          @Override
+          public void onFailure(Throwable t) {}
+        },
+        directExecutor());
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(sessionResultRef.get()).isNotNull();
+    assertThat(sessionResultRef.get().resultCode).isEqualTo(SessionResult.RESULT_ERROR_UNKNOWN);
+    assertThat(sessionResultRef.get().extras.getString("key-1")).isEqualTo("error-from-service");
   }
 }

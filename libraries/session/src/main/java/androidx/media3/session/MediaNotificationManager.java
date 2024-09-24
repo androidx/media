@@ -26,7 +26,6 @@ import android.content.pm.ServiceInfo;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationManagerCompat;
@@ -384,7 +383,6 @@ import java.util.concurrent.TimeoutException;
   @RequiresApi(24)
   private static class Api24 {
 
-    @DoNotInline
     public static void stopForeground(MediaSessionService service, boolean removeNotification) {
       service.stopForeground(removeNotification ? STOP_FOREGROUND_REMOVE : STOP_FOREGROUND_DETACH);
     }

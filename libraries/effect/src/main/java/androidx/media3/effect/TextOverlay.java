@@ -28,7 +28,6 @@ import android.text.Layout;
 import android.text.SpannableString;
 import android.text.StaticLayout;
 import android.text.TextPaint;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.UnstableApi;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -142,7 +141,6 @@ public abstract class TextOverlay extends BitmapOverlay {
 
   @RequiresApi(23)
   private static final class Api23 {
-    @DoNotInline
     public static StaticLayout getStaticLayout(
         SpannableString text, TextPaint textPaint, int width) {
       return StaticLayout.Builder.obtain(

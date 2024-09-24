@@ -6,7 +6,7 @@ format video:
   maxNumReorderSamples = 2
   width = 320
   height = 240
-  frameRate = 29.523811
+  frameRate = 30.47
   colorInfo:
     lumaBitdepth = 8
     chromaBitdepth = 8

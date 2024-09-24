@@ -40,8 +40,8 @@ import androidx.media3.common.util.Util;
 import androidx.media3.extractor.text.CuesWithTiming;
 import androidx.media3.extractor.text.SubtitleParser;
 import com.google.common.base.Ascii;
-import com.google.common.base.Charsets;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -119,7 +119,7 @@ public final class SsaParser implements SubtitleParser {
       Assertions.checkArgument(formatLine.startsWith(FORMAT_LINE_PREFIX));
       dialogueFormatFromInitializationData =
           Assertions.checkNotNull(SsaDialogueFormat.fromFormatLine(formatLine));
-      parseHeader(new ParsableByteArray(initializationData.get(1)), Charsets.UTF_8);
+      parseHeader(new ParsableByteArray(initializationData.get(1)), StandardCharsets.UTF_8);
     } else {
       haveInitializationData = false;
       dialogueFormatFromInitializationData = null;
@@ -189,7 +189,7 @@ public final class SsaParser implements SubtitleParser {
    */
   private Charset detectUtfCharset(ParsableByteArray data) {
     @Nullable Charset charset = data.readUtfCharsetFromBom();
-    return charset != null ? charset : Charsets.UTF_8;
+    return charset != null ? charset : StandardCharsets.UTF_8;
   }
 
   /**

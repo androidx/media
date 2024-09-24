@@ -420,9 +420,9 @@ public final class DefaultVideoCompositor implements VideoCompositor {
       Log.e(TAG, "Error releasing GL resources", e);
     } finally {
       try {
-        GlUtil.destroyEglContext(eglDisplay, eglContext);
+        glObjectsProvider.release(checkNotNull(eglDisplay));
       } catch (GlUtil.GlException e) {
-        Log.e(TAG, "Error releasing GL context", e);
+        Log.e(TAG, "Error releasing GL objects", e);
       }
     }
   }

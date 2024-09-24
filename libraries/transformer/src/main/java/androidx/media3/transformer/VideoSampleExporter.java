@@ -73,6 +73,7 @@ import org.checkerframework.dataflow.qual.Pure;
    */
   private volatile long finalFramePresentationTimeUs;
 
+  private long lastMuxerInputBufferTimestampUs;
   private boolean hasMuxedTimestampZero;
 
   public VideoSampleExporter(
@@ -96,6 +97,7 @@ import org.checkerframework.dataflow.qual.Pure;
     super(firstInputFormat, muxerWrapper);
     this.initialTimestampOffsetUs = initialTimestampOffsetUs;
     finalFramePresentationTimeUs = C.TIME_UNSET;
+    lastMuxerInputBufferTimestampUs = C.TIME_UNSET;
 
     ColorInfo videoGraphInputColor = checkNotNull(firstInputFormat.colorInfo);
     ColorInfo videoGraphOutputColor;
@@ -191,17 +193,19 @@ import org.checkerframework.dataflow.qual.Pure;
           && finalFramePresentationTimeUs != C.TIME_UNSET
           && bufferInfo.size > 0) {
         bufferInfo.presentationTimeUs = finalFramePresentationTimeUs;
-      } else {
-        hasMuxedTimestampZero = true;
       }
     }
     encoderOutputBuffer.timeUs = bufferInfo.presentationTimeUs;
     encoderOutputBuffer.setFlags(bufferInfo.flags);
+    lastMuxerInputBufferTimestampUs = bufferInfo.presentationTimeUs;
     return encoderOutputBuffer;
   }
 
   @Override
   protected void releaseMuxerInputBuffer() throws ExportException {
+    if (lastMuxerInputBufferTimestampUs == 0) {
+      hasMuxedTimestampZero = true;
+    }
     encoderWrapper.releaseOutputBuffer(/* render= */ false);
     videoGraph.onEncoderBufferReleased();
   }

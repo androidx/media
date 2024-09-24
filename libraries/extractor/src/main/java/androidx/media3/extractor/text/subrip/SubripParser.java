@@ -33,9 +33,9 @@ import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.text.CuesWithTiming;
 import androidx.media3.extractor.text.SubtitleParser;
-import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -193,7 +193,7 @@ public final class SubripParser implements SubtitleParser {
    */
   private Charset detectUtfCharset(ParsableByteArray data) {
     @Nullable Charset charset = data.readUtfCharsetFromBom();
-    return charset != null ? charset : Charsets.UTF_8;
+    return charset != null ? charset : StandardCharsets.UTF_8;
   }
 
   /**

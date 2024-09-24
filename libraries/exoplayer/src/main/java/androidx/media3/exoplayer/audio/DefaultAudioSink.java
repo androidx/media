@@ -15,10 +15,10 @@
  */
 package androidx.media3.exoplayer.audio;
 
-import static androidx.media3.common.audio.AudioProcessor.EMPTY_BUFFER;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.constrainValue;
+import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.exoplayer.audio.AudioCapabilities.DEFAULT_AUDIO_CAPABILITIES;
 import static androidx.media3.exoplayer.audio.AudioCapabilities.getCapabilities;
 import static java.lang.Math.max;
@@ -38,7 +38,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.util.Pair;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
@@ -1071,28 +1070,40 @@ public final class DefaultAudioSink implements AudioSink {
 
   /**
    * Repeatedly drains and feeds the {@link AudioProcessingPipeline} until {@link
-   * #writeBuffer(ByteBuffer, long)} is not accepting any more input or there is no more input to
+   * #drainOutputBuffer(long)} is not able to fully drain the output or there is no more input to
    * feed into the pipeline.
    *
    * <p>If the {@link AudioProcessingPipeline} is not {@linkplain
    * AudioProcessingPipeline#isOperational() operational}, input buffers are passed straight to
-   * {@link #writeBuffer(ByteBuffer, long)}.
+   * {@link #setOutputBuffer(ByteBuffer)}.
    *
    * @param avSyncPresentationTimeUs The tunneling AV sync presentation time for the current buffer,
    *     or {@link C#TIME_END_OF_SOURCE} when draining remaining buffers at the end of the stream.
    */
   private void processBuffers(long avSyncPresentationTimeUs) throws WriteException {
+    // Drain existing buffer first.
+    drainOutputBuffer(avSyncPresentationTimeUs);
+    if (outputBuffer != null) {
+      // The existing output buffer is not fully processed.
+      return;
+    }
+
+    // Obtain new output buffer and start draining.
     if (!audioProcessingPipeline.isOperational()) {
-      writeBuffer(inputBuffer != null ? inputBuffer : EMPTY_BUFFER, avSyncPresentationTimeUs);
+      if (inputBuffer != null) {
+        setOutputBuffer(inputBuffer);
+        drainOutputBuffer(avSyncPresentationTimeUs);
+      }
       return;
     }
 
     while (!audioProcessingPipeline.isEnded()) {
       ByteBuffer bufferToWrite;
       while ((bufferToWrite = audioProcessingPipeline.getOutput()).hasRemaining()) {
-        writeBuffer(bufferToWrite, avSyncPresentationTimeUs);
-        if (bufferToWrite.hasRemaining()) {
-          // writeBuffer method is providing back pressure.
+        setOutputBuffer(bufferToWrite);
+        drainOutputBuffer(avSyncPresentationTimeUs);
+        if (outputBuffer != null) {
+          // drainOutputBuffer method is providing back pressure.
           return;
         }
       }
@@ -1110,10 +1121,7 @@ public final class DefaultAudioSink implements AudioSink {
    */
   private boolean drainToEndOfStream() throws WriteException {
     if (!audioProcessingPipeline.isOperational()) {
-      if (outputBuffer == null) {
-        return true;
-      }
-      writeBuffer(outputBuffer, C.TIME_END_OF_SOURCE);
+      drainOutputBuffer(C.TIME_END_OF_SOURCE);
       return outputBuffer == null;
     }
 
@@ -1124,26 +1132,38 @@ public final class DefaultAudioSink implements AudioSink {
   }
 
   /**
-   * Writes the provided buffer to the audio track.
+   * Sets a new output buffer.
    *
-   * @param buffer The buffer to write.
+   * <p>Must only be called if the existing {@link #outputBuffer} is null (i.e. has been fully
+   * drained with {@link #drainOutputBuffer}.
+   *
+   * @param buffer The buffer to set.
+   */
+  private void setOutputBuffer(ByteBuffer buffer) {
+    checkState(outputBuffer == null);
+    if (!buffer.hasRemaining()) {
+      return;
+    }
+    outputBuffer = maybeRampUpVolume(buffer);
+  }
+
+  /**
+   * Drains the {@link #outputBuffer} by writing it to the audio track.
+   *
+   * <p>{@link #outputBuffer} will be set to null if it has been fully drained.
+   *
    * @param avSyncPresentationTimeUs The tunneling AV sync presentation time for the buffer, or
    *     {@link C#TIME_END_OF_SOURCE} when draining remaining buffers at the end of the stream.
    */
   @SuppressWarnings("ReferenceEquality")
-  private void writeBuffer(ByteBuffer buffer, long avSyncPresentationTimeUs) throws WriteException {
-    if (!buffer.hasRemaining()) {
+  private void drainOutputBuffer(long avSyncPresentationTimeUs) throws WriteException {
+    if (outputBuffer == null) {
       return;
-    }
-    if (outputBuffer != null) {
-      Assertions.checkArgument(outputBuffer == buffer);
-    } else {
-      outputBuffer = buffer;
     }
     if (writeExceptionPendingExceptionHolder.shouldWaitBeforeRetry()) {
       return;
     }
-    int bytesRemaining = buffer.remaining();
+    int bytesRemaining = outputBuffer.remaining();
     int bytesWrittenOrError = 0; // Error if negative
     if (tunneling) {
       Assertions.checkState(avSyncPresentationTimeUs != C.TIME_UNSET);
@@ -1156,9 +1176,10 @@ public final class DefaultAudioSink implements AudioSink {
         lastTunnelingAvSyncPresentationTimeUs = avSyncPresentationTimeUs;
       }
       bytesWrittenOrError =
-          writeNonBlockingWithAvSync(audioTrack, buffer, bytesRemaining, avSyncPresentationTimeUs);
+          writeNonBlockingWithAvSync(
+              audioTrack, outputBuffer, bytesRemaining, avSyncPresentationTimeUs);
     } else {
-      bytesWrittenOrError = writeNonBlocking(audioTrack, buffer, bytesRemaining);
+      bytesWrittenOrError = writeNonBlocking(audioTrack, outputBuffer, bytesRemaining);
     }
 
     lastFeedElapsedRealtimeMs = SystemClock.elapsedRealtime();
@@ -1222,7 +1243,7 @@ public final class DefaultAudioSink implements AudioSink {
       if (configuration.outputMode != OUTPUT_MODE_PCM) {
         // When playing non-PCM, the inputBuffer is never processed, thus the last inputBuffer
         // must be the current input buffer.
-        Assertions.checkState(buffer == inputBuffer);
+        Assertions.checkState(outputBuffer == inputBuffer);
         writtenEncodedFrames += (long) framesPerEncodedSample * inputBufferAccessUnitCount;
       }
       outputBuffer = null;
@@ -1828,6 +1849,25 @@ public final class DefaultAudioSink implements AudioSink {
     }
   }
 
+  private ByteBuffer maybeRampUpVolume(ByteBuffer buffer) {
+    if (configuration.outputMode != OUTPUT_MODE_PCM) {
+      return buffer;
+    }
+    long rampDurationUs = msToUs(AUDIO_TRACK_VOLUME_RAMP_TIME_MS);
+    int rampFrameCount =
+        (int) Util.durationUsToSampleCount(rampDurationUs, configuration.outputSampleRate);
+    long writtenFrames = getWrittenFrames();
+    if (writtenFrames >= rampFrameCount) {
+      return buffer;
+    }
+    return PcmAudioUtil.rampUpVolume(
+        buffer,
+        configuration.outputEncoding,
+        configuration.outputPcmFrameSize,
+        (int) writtenFrames,
+        rampFrameCount);
+  }
+
   private static void releaseAudioTrackAsync(
       AudioTrack audioTrack, @Nullable Listener listener, AudioTrackConfig audioTrackConfig) {
     // AudioTrack.release can take some time, so we call it on a background thread. The background
@@ -1893,13 +1933,11 @@ public final class DefaultAudioSink implements AudioSink {
       audioTrack.addOnRoutingChangedListener(listener, handler);
     }
 
-    @DoNotInline
     public void release() {
       audioTrack.removeOnRoutingChangedListener(checkNotNull(listener));
       listener = null;
     }
 
-    @DoNotInline
     private void onRoutingChanged(AudioRouting router) {
       if (listener == null) {
         // Stale event.
@@ -1963,12 +2001,10 @@ public final class DefaultAudioSink implements AudioSink {
           };
     }
 
-    @DoNotInline
     public void register(AudioTrack audioTrack) {
       audioTrack.registerStreamEventCallback(handler::post, callback);
     }
 
-    @DoNotInline
     public void unregister(AudioTrack audioTrack) {
       audioTrack.unregisterStreamEventCallback(callback);
       handler.removeCallbacksAndMessages(/* token= */ null);
@@ -2327,7 +2363,6 @@ public final class DefaultAudioSink implements AudioSink {
   private static final class Api23 {
     private Api23() {}
 
-    @DoNotInline
     public static void setPreferredDeviceOnAudioTrack(
         AudioTrack audioTrack, @Nullable AudioDeviceInfoApi23 audioDeviceInfo) {
       audioTrack.setPreferredDevice(
@@ -2339,7 +2374,6 @@ public final class DefaultAudioSink implements AudioSink {
   private static final class Api31 {
     private Api31() {}
 
-    @DoNotInline
     public static void setLogSessionIdOnAudioTrack(AudioTrack audioTrack, PlayerId playerId) {
       LogSessionId logSessionId = playerId.getLogSessionId();
       if (!logSessionId.equals(LogSessionId.LOG_SESSION_ID_NONE)) {

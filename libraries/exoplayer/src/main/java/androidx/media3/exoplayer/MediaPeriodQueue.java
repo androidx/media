@@ -79,13 +79,14 @@ import java.util.List;
   private long nextWindowSequenceNumber;
   private @RepeatMode int repeatMode;
   private boolean shuffleModeEnabled;
+  private PreloadConfiguration preloadConfiguration;
   @Nullable private MediaPeriodHolder playing;
   @Nullable private MediaPeriodHolder reading;
   @Nullable private MediaPeriodHolder loading;
+  @Nullable private MediaPeriodHolder preloading;
   private int length;
   @Nullable private Object oldFrontPeriodUid;
   private long oldFrontPeriodWindowSequenceNumber;
-  private PreloadConfiguration preloadConfiguration;
   private List<MediaPeriodHolder> preloadPriorityList;
 
   /**
@@ -151,6 +152,11 @@ import java.util.List;
   /** Returns whether {@code mediaPeriod} is the current loading media period. */
   public boolean isLoading(MediaPeriod mediaPeriod) {
     return loading != null && loading.mediaPeriod == mediaPeriod;
+  }
+
+  /** Returns whether {@code mediaPeriod} is the current preloading media period. */
+  public boolean isPreloading(MediaPeriod mediaPeriod) {
+    return preloading != null && preloading.mediaPeriod == mediaPeriod;
   }
 
   /**
@@ -285,6 +291,8 @@ import java.util.List;
       preloadPriorityList.get(i).release();
     }
     preloadPriorityList = newPriorityList;
+    preloading = null;
+    maybeUpdatePreloadMediaPeriodHolder();
   }
 
   private MediaPeriodInfo getMediaPeriodInfoForPeriodPosition(
@@ -331,6 +339,12 @@ import java.util.List;
   @Nullable
   public MediaPeriodHolder getLoadingPeriod() {
     return loading;
+  }
+
+  /** Returns the preloading period holder, or null if there is no preloading period. */
+  @Nullable
+  public MediaPeriodHolder getPreloadingPeriod() {
+    return preloading;
   }
 
   /**
@@ -412,6 +426,35 @@ import java.util.List;
     checkNotNull(loading).setNext(null);
     notifyQueueUpdate();
     return removedReading;
+  }
+
+  /**
+   * Sets the preloading period to the next period in the queue to preload or to null, if all
+   * periods in the preload pool are fully loaded.
+   */
+  public void maybeUpdatePreloadMediaPeriodHolder() {
+    if (preloading != null && !preloading.isFullyPreloaded()) {
+      return;
+    }
+    preloading = null;
+    for (int i = 0; i < preloadPriorityList.size(); i++) {
+      MediaPeriodHolder mediaPeriodHolder = preloadPriorityList.get(i);
+      if (!mediaPeriodHolder.isFullyPreloaded()) {
+        preloading = mediaPeriodHolder;
+        break;
+      }
+    }
+  }
+
+  @Nullable
+  public MediaPeriodHolder getPreloadHolderByMediaPeriod(MediaPeriod mediaPeriod) {
+    for (int i = 0; i < preloadPriorityList.size(); i++) {
+      MediaPeriodHolder mediaPeriodHolder = preloadPriorityList.get(i);
+      if (mediaPeriodHolder.mediaPeriod == mediaPeriod) {
+        return mediaPeriodHolder;
+      }
+    }
+    return null;
   }
 
   /** Clears the queue. */
@@ -734,6 +777,7 @@ import java.util.List;
     for (int i = 0; i < preloadPriorityList.size(); i++) {
       MediaPeriodHolder preloadHolder = preloadPriorityList.get(i);
       if (preloadHolder.uid.equals(periodUid)) {
+        // Found a match in the preload periods.
         return preloadHolder.info.id.windowSequenceNumber;
       }
     }

@@ -27,7 +27,6 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.Build;
 import android.view.KeyEvent;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.core.content.ContextCompat;
@@ -128,7 +127,8 @@ public class MediaButtonReceiver extends BroadcastReceiver {
     }
     if (Util.SDK_INT >= 26) {
       if (keyEvent.getKeyCode() != KeyEvent.KEYCODE_MEDIA_PLAY
-          && keyEvent.getKeyCode() != KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) {
+          && keyEvent.getKeyCode() != KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE
+          && keyEvent.getKeyCode() != KeyEvent.KEYCODE_HEADSETHOOK) {
         // Starting with Android 8 (API 26), the service must be started immediately in the
         // foreground when being started. Also starting with Android 8, the system sends media
         // button intents to this receiver only when the session is released or not active, meaning
@@ -256,7 +256,6 @@ public class MediaButtonReceiver extends BroadcastReceiver {
     /**
      * Returns true if the passed exception is a {@link ForegroundServiceStartNotAllowedException}.
      */
-    @DoNotInline
     public static boolean instanceOfForegroundServiceStartNotAllowedException(
         IllegalStateException e) {
       return e instanceof ForegroundServiceStartNotAllowedException;
@@ -266,7 +265,6 @@ public class MediaButtonReceiver extends BroadcastReceiver {
      * Casts the {@link IllegalStateException} to a {@link
      * ForegroundServiceStartNotAllowedException} and throws an exception if the cast fails.
      */
-    @DoNotInline
     public static ForegroundServiceStartNotAllowedException
         castToForegroundServiceStartNotAllowedException(IllegalStateException e) {
       return (ForegroundServiceStartNotAllowedException) e;
