@@ -39,7 +39,6 @@ import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorsFactory;
 import com.google.common.base.Supplier;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.Optional;
 import java.util.concurrent.Executor;
 
 /**
