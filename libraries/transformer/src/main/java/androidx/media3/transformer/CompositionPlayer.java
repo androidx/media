@@ -673,6 +673,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
     PlaybackVideoGraphWrapper playbackVideoGraphWrapper =
         new PlaybackVideoGraphWrapper.Builder(context, videoFrameReleaseControl)
             .setPreviewingVideoGraphFactory(checkNotNull(previewingVideoGraphFactory))
+            .setCompositionEffects(composition.effects.videoEffects)
             .setClock(clock)
             .build();
     playbackVideoGraphWrapper.addListener(this);

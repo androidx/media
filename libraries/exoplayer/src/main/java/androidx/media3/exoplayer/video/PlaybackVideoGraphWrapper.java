@@ -121,6 +121,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
     private VideoFrameProcessor.@MonotonicNonNull Factory videoFrameProcessorFactory;
     private PreviewingVideoGraph.@MonotonicNonNull Factory previewingVideoGraphFactory;
+    private List<Effect> compositionEffects;
     private Clock clock;
     private boolean built;
 
@@ -128,6 +129,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     public Builder(Context context, VideoFrameReleaseControl videoFrameReleaseControl) {
       this.context = context.getApplicationContext();
       this.videoFrameReleaseControl = videoFrameReleaseControl;
+      compositionEffects = ImmutableList.of();
       clock = Clock.DEFAULT;
     }
 
@@ -161,6 +163,18 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     public Builder setPreviewingVideoGraphFactory(
         PreviewingVideoGraph.Factory previewingVideoGraphFactory) {
       this.previewingVideoGraphFactory = previewingVideoGraphFactory;
+      return this;
+    }
+
+    /**
+     * Sets the {@linkplain Effect effects} to apply after compositing the sinks' data.
+     *
+     * @param compositionEffects The composition {@linkplain Effect effects}.
+     * @return This builder, for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Builder setCompositionEffects(List<Effect> compositionEffects) {
+      this.compositionEffects = compositionEffects;
       return this;
     }
 
@@ -217,6 +231,8 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
   private final VideoFrameReleaseControl videoFrameReleaseControl;
   private final VideoFrameRenderControl videoFrameRenderControl;
   private final PreviewingVideoGraph.Factory previewingVideoGraphFactory;
+
+  private final List<Effect> compositionEffects;
   private final Clock clock;
   private final CopyOnWriteArraySet<PlaybackVideoGraphWrapper.Listener> listeners;
 
@@ -244,6 +260,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     videoFrameRenderControl =
         new VideoFrameRenderControl(new FrameRendererImpl(), videoFrameReleaseControl);
     previewingVideoGraphFactory = checkStateNotNull(builder.previewingVideoGraphFactory);
+    compositionEffects = builder.compositionEffects;
     listeners = new CopyOnWriteArraySet<>();
     state = STATE_CREATED;
     addListener(videoSinkImpl);
@@ -642,6 +659,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     public void setPendingVideoEffects(List<Effect> videoEffects) {
       this.videoEffects.clear();
       this.videoEffects.addAll(videoEffects);
+      this.videoEffects.addAll(compositionEffects);
     }
 
     @Override

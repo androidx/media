@@ -376,4 +376,42 @@ public class CompositionPlaybackTest {
 
     assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs()).isEmpty();
   }
+
+  @Test
+  public void playback_withCompositionEffect_effectIsApplied() throws Exception {
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM).setDurationUs(VIDEO_DURATION_US).build();
+    InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
+        new InputTimestampRecordingShaderProgram();
+    Effect videoEffect = (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram;
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(editedMediaItem, editedMediaItem).build())
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    /* videoEffects= */ ImmutableList.of(videoEffect)))
+            .build();
+    ImmutableList<Long> expectedTimestampsUs =
+        new ImmutableList.Builder<Long>()
+            .addAll(VIDEO_TIMESTAMPS_US)
+            .addAll(
+                Iterables.transform(
+                    VIDEO_TIMESTAMPS_US, timestampUs -> (VIDEO_DURATION_US + timestampUs)))
+            .build();
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player = new CompositionPlayer.Builder(context).build();
+              player.addListener(playerTestListener);
+              player.setComposition(composition);
+              player.prepare();
+              player.play();
+            });
+    playerTestListener.waitUntilPlayerEnded();
+
+    assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
+        .isEqualTo(expectedTimestampsUs);
+  }
 }
