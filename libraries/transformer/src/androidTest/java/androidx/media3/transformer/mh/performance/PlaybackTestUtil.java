@@ -23,6 +23,7 @@ import android.text.style.AbsoluteSizeSpan;
 import android.text.style.ForegroundColorSpan;
 import android.text.style.TypefaceSpan;
 import androidx.media3.effect.OverlayEffect;
+import androidx.media3.effect.OverlaySettings;
 import androidx.media3.effect.TextOverlay;
 import com.google.common.collect.ImmutableList;
 
@@ -35,27 +36,45 @@ import com.google.common.collect.ImmutableList;
   public static OverlayEffect createTimestampOverlay() {
     return new OverlayEffect(
         ImmutableList.of(
-            new TextOverlay() {
-              @Override
-              public SpannableString getText(long presentationTimeUs) {
-                SpannableString text = new SpannableString(String.valueOf(presentationTimeUs));
-                text.setSpan(
-                    new ForegroundColorSpan(Color.WHITE),
-                    /* start= */ 0,
-                    text.length(),
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                text.setSpan(
-                    new AbsoluteSizeSpan(/* size= */ 96),
-                    /* start= */ 0,
-                    text.length(),
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                text.setSpan(
-                    new TypefaceSpan(/* family= */ "sans-serif"),
-                    /* start= */ 0,
-                    text.length(),
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                return text;
-              }
-            }));
+            new TimestampTextOverlay(0, -0.7f),
+            new TimestampTextOverlay(0, 0),
+            new TimestampTextOverlay(0, 0.7f)));
+  }
+
+  private static class TimestampTextOverlay extends TextOverlay {
+
+    private final float x;
+    private final float y;
+
+    public TimestampTextOverlay(float x, float y) {
+      this.x = x;
+      this.y = y;
+    }
+
+    @Override
+    public SpannableString getText(long presentationTimeUs) {
+      SpannableString text = new SpannableString(String.valueOf(presentationTimeUs));
+      text.setSpan(
+          new ForegroundColorSpan(Color.WHITE),
+          /* start= */ 0,
+          text.length(),
+          Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+      text.setSpan(
+          new AbsoluteSizeSpan(/* size= */ 300),
+          /* start= */ 0,
+          text.length(),
+          Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+      text.setSpan(
+          new TypefaceSpan(/* family= */ "sans-serif"),
+          /* start= */ 0,
+          text.length(),
+          Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+      return text;
+    }
+
+    @Override
+    public OverlaySettings getOverlaySettings(long presentationTimeUs) {
+      return new OverlaySettings.Builder().setBackgroundFrameAnchor(x, y).build();
+    }
   }
 }
