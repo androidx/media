@@ -708,7 +708,7 @@ public class ChunkSampleStream<T extends ChunkSource>
     int newQueueSize = C.LENGTH_UNSET;
     for (int i = preferredQueueSize; i < currentQueueSize; i++) {
       if (!haveReadFromMediaChunk(i)) {
-        // TODO: Sparse tracks (e.g. ESMG) may prevent discarding in almost all cases because it
+        // TODO: Sparse tracks (e.g. EMSG) may prevent discarding in almost all cases because it
         // means that most chunks have been read from already. See [internal b/161126666].
         newQueueSize = i;
         break;
