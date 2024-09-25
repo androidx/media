@@ -47,6 +47,8 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public final class CompositionPlayerAudioPlaybackTest {
 
+  private static final String PREVIEW_DUMP_FILE_EXTENSION = "audiosinkdumps/";
+
   private final Context context = ApplicationProvider.getApplicationContext();
   private CapturingAudioSink capturingAudioSink;
 
@@ -78,7 +80,9 @@ public final class CompositionPlayerAudioPlaybackTest {
     player.release();
 
     DumpFileAsserts.assertOutput(
-        context, capturingAudioSink, "audiosinkdumps/wav/sample.wav_then_sample_rf64.wav.dump");
+        context,
+        capturingAudioSink,
+        PREVIEW_DUMP_FILE_EXTENSION + FILE_AUDIO_RAW + "_then_sample_rf64.wav.dump");
   }
 
   @Test
@@ -108,7 +112,9 @@ public final class CompositionPlayerAudioPlaybackTest {
     DumpFileAsserts.assertOutput(
         context,
         capturingAudioSink,
-        "audiosinkdumps/wav/sample.wav-lowVolume_then_sample_rf64.wav-highVolume.dump");
+        PREVIEW_DUMP_FILE_EXTENSION
+            + FILE_AUDIO_RAW
+            + "-lowVolume_then_sample_rf64.wav-highVolume.dump");
   }
 
   @Test
@@ -131,7 +137,9 @@ public final class CompositionPlayerAudioPlaybackTest {
     player.release();
 
     DumpFileAsserts.assertOutput(
-        context, capturingAudioSink, "audiosinkdumps/" + FILE_AUDIO_RAW + "/highVolume.dump");
+        context,
+        capturingAudioSink,
+        PREVIEW_DUMP_FILE_EXTENSION + FILE_AUDIO_RAW + "/highVolume.dump");
   }
 
   @Test
@@ -155,7 +163,9 @@ public final class CompositionPlayerAudioPlaybackTest {
     player.release();
 
     DumpFileAsserts.assertOutput(
-        context, capturingAudioSink, "audiosinkdumps/" + FILE_AUDIO_RAW + "/highVolume.dump");
+        context,
+        capturingAudioSink,
+        PREVIEW_DUMP_FILE_EXTENSION + FILE_AUDIO_RAW + "/highVolume.dump");
   }
 
   @Test
@@ -197,7 +207,9 @@ public final class CompositionPlayerAudioPlaybackTest {
     DumpFileAsserts.assertOutput(
         context,
         capturingAudioSink,
-        "audiosinkdumps/wav/sample.wav_clipped_then_sample_rf64_clipped.wav.dump");
+        PREVIEW_DUMP_FILE_EXTENSION
+            + FILE_AUDIO_RAW
+            + "_clipped_then_sample_rf64_clipped.wav.dump");
   }
 
   @Test
@@ -239,7 +251,7 @@ public final class CompositionPlayerAudioPlaybackTest {
     DumpFileAsserts.assertOutput(
         context,
         capturingAudioSink,
-        "audiosinkdumps/wav/compositionOf_sample.wav-clipped__sample_rf64.wav.dump");
+        PREVIEW_DUMP_FILE_EXTENSION + "wav/compositionOf_sample.wav-clipped__sample_rf64.wav.dump");
   }
 
   @Test
@@ -263,7 +275,9 @@ public final class CompositionPlayerAudioPlaybackTest {
     player.release();
 
     DumpFileAsserts.assertOutput(
-        context, capturingAudioSink, "audiosinkdumps/wav/sample.wav_repeated.dump");
+        context,
+        capturingAudioSink,
+        PREVIEW_DUMP_FILE_EXTENSION + FILE_AUDIO_RAW + "_repeated.dump");
   }
 
   @Test
@@ -294,7 +308,8 @@ public final class CompositionPlayerAudioPlaybackTest {
     DumpFileAsserts.assertOutput(
         context,
         capturingAudioSink,
-        "audiosinkdumps/wav/compositionPlayback_withShortLoopingSequence_outputsCorrectSamples.dump");
+        PREVIEW_DUMP_FILE_EXTENSION
+            + "wav/compositionPlayback_withShortLoopingSequence_outputsCorrectSamples.dump");
   }
 
   @Test
@@ -324,7 +339,8 @@ public final class CompositionPlayerAudioPlaybackTest {
     DumpFileAsserts.assertOutput(
         context,
         capturingAudioSink,
-        "audiosinkdumps/wav/compositionPlayback_withLongLoopingSequence_outputsCorrectSamples.dump");
+        PREVIEW_DUMP_FILE_EXTENSION
+            + "wav/compositionPlayback_withLongLoopingSequence_outputsCorrectSamples.dump");
   }
 
   @Test
@@ -357,7 +373,7 @@ public final class CompositionPlayerAudioPlaybackTest {
     DumpFileAsserts.assertOutput(
         context,
         capturingAudioSink,
-        "audiosinkdumps/wav/sample.wav_then_sample_rf64.wav_repeated.dump");
+        PREVIEW_DUMP_FILE_EXTENSION + FILE_AUDIO_RAW + "_then_sample_rf64.wav_repeated.dump");
   }
 
   @Test
@@ -387,7 +403,8 @@ public final class CompositionPlayerAudioPlaybackTest {
     DumpFileAsserts.assertOutput(
         context,
         capturingAudioSink,
-        "audiosinkdumps/wav/sequencePlayback_withThreeMediaAndRemovingMiddleAudio_outputsCorrectSamples.dump");
+        PREVIEW_DUMP_FILE_EXTENSION
+            + "wav/sequencePlayback_withThreeMediaAndRemovingMiddleAudio_outputsCorrectSamples.dump");
   }
 
   @Test
@@ -417,7 +434,8 @@ public final class CompositionPlayerAudioPlaybackTest {
     DumpFileAsserts.assertOutput(
         context,
         capturingAudioSink,
-        "audiosinkdumps/wav/sequencePlayback_withThreeMediaAndRemovingFirstAndThirdAudio_outputsCorrectSamples.dump");
+        PREVIEW_DUMP_FILE_EXTENSION
+            + "wav/sequencePlayback_withThreeMediaAndRemovingFirstAndThirdAudio_outputsCorrectSamples.dump");
   }
 
   // TODO - b/320014878: Enable this test.
@@ -463,7 +481,8 @@ public final class CompositionPlayerAudioPlaybackTest {
     DumpFileAsserts.assertOutput(
         context,
         capturingAudioSink,
-        "audiosinkdumps/wav/repeatedCompositionOf_sample.wav-clipped__sample_rf64.wav.dump");
+        PREVIEW_DUMP_FILE_EXTENSION
+            + "wav/repeatedCompositionOf_sample.wav-clipped__sample_rf64.wav.dump");
   }
 
   @Test
@@ -484,7 +503,9 @@ public final class CompositionPlayerAudioPlaybackTest {
     player.release();
 
     DumpFileAsserts.assertOutput(
-        context, capturingAudioSink, "audiosinkdumps/" + FILE_AUDIO_RAW + "/seek_to_500_ms.dump");
+        context,
+        capturingAudioSink,
+        PREVIEW_DUMP_FILE_EXTENSION + FILE_AUDIO_RAW + "/seek_to_500_ms.dump");
   }
 
   @Test
@@ -513,7 +534,9 @@ public final class CompositionPlayerAudioPlaybackTest {
     DumpFileAsserts.assertOutput(
         context,
         capturingAudioSink,
-        "audiosinkdumps/wav/sample.wav_then_sample_rf64.wav_seek_to_1200_ms.dump");
+        PREVIEW_DUMP_FILE_EXTENSION
+            + FILE_AUDIO_RAW
+            + "_then_sample_rf64.wav_seek_to_1200_ms.dump");
   }
 
   @Test
@@ -543,7 +566,7 @@ public final class CompositionPlayerAudioPlaybackTest {
     DumpFileAsserts.assertOutput(
         context,
         capturingAudioSink,
-        "audiosinkdumps/wav/sample.wav_then_sample_rf64.wav_seek_to_500_ms.dump");
+        PREVIEW_DUMP_FILE_EXTENSION + FILE_AUDIO_RAW + "_then_sample_rf64.wav_seek_to_500_ms.dump");
   }
 
   @Test
@@ -585,7 +608,9 @@ public final class CompositionPlayerAudioPlaybackTest {
     DumpFileAsserts.assertOutput(
         context,
         capturingAudioSink,
-        "audiosinkdumps/wav/sample.wav_then_sample_rf64.wav_clipped_seek_to_800_ms.dump");
+        PREVIEW_DUMP_FILE_EXTENSION
+            + FILE_AUDIO_RAW
+            + "_then_sample_rf64.wav_clipped_seek_to_800_ms.dump");
   }
 
   private static CompositionPlayer createCompositionPlayer(Context context, AudioSink audioSink) {
