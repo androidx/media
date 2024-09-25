@@ -1795,7 +1795,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   }
 
   private boolean hasSurfaceForCodec(MediaCodecInfo codecInfo) {
-    return displaySurface != null
+    return (displaySurface != null && displaySurface.isValid())
         || shouldUseDetachedSurface(codecInfo)
         || shouldUsePlaceholderSurface(codecInfo);
   }
