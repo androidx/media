@@ -1047,7 +1047,7 @@ public final class MediaItemExportTest {
     MediaSource.Factory mediaSourceFactory =
         new DefaultMediaSourceFactory(
             context, new SlowExtractorsFactory(/* delayBetweenReadsMs= */ 10));
-    Codec.DecoderFactory decoderFactory = new DefaultDecoderFactory(context);
+    Codec.DecoderFactory decoderFactory = new DefaultDecoderFactory.Builder(context).build();
     AssetLoader.Factory assetLoaderFactory =
         new ExoPlayerAssetLoader.Factory(
             context,

@@ -97,10 +97,10 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
    */
   public DefaultAssetLoaderFactory(Context context, BitmapLoader bitmapLoader) {
     this.context = context.getApplicationContext();
-    this.decoderFactory = new DefaultDecoderFactory(context);
-    this.clock = Clock.DEFAULT;
-    this.mediaSourceFactory = null;
     this.bitmapLoader = bitmapLoader;
+    decoderFactory = new DefaultDecoderFactory.Builder(context).build();
+    clock = Clock.DEFAULT;
+    mediaSourceFactory = null;
   }
 
   /**

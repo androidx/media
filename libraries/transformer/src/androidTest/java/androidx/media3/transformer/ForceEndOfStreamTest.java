@@ -144,7 +144,7 @@ public class ForceEndOfStreamTest {
     private final int framesToDrop;
 
     private FrameDroppingDecoderFactory(Context context, int sourceFrameCount, int framesToDrop) {
-      this.defaultDecoderFactory = new DefaultDecoderFactory(context);
+      defaultDecoderFactory = new DefaultDecoderFactory.Builder(context).build();
       this.sourceFrameCount = sourceFrameCount;
       this.framesToDrop = framesToDrop;
     }
