@@ -61,6 +61,7 @@ import androidx.media3.common.VideoSize;
 import androidx.media3.test.session.R;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.media3.test.session.common.MainLooperTestRule;
+import androidx.media3.test.session.common.MediaBrowserConstants;
 import androidx.media3.test.session.common.PollingCheck;
 import androidx.media3.test.session.common.TestUtils;
 import androidx.test.core.app.ApplicationProvider;
@@ -557,11 +558,12 @@ public class MediaControllerTest {
     CommandButton playlistAddButton =
         new CommandButton.Builder(CommandButton.ICON_PLAYLIST_ADD)
             .setSessionCommand(
-                new SessionCommand("androidx.media3.actions.playlist_add", Bundle.EMPTY))
+                new SessionCommand(MediaBrowserConstants.COMMAND_PLAYLIST_ADD, Bundle.EMPTY))
             .build();
     CommandButton radioButton =
         new CommandButton.Builder(CommandButton.ICON_RADIO)
-            .setSessionCommand(new SessionCommand("androidx.media3.actions.radio", Bundle.EMPTY))
+            .setSessionCommand(
+                new SessionCommand(MediaBrowserConstants.COMMAND_RADIO, Bundle.EMPTY))
             .build();
     MediaItem mediaItem =
         new MediaItem.Builder()
@@ -570,8 +572,8 @@ public class MediaControllerTest {
                 new MediaMetadata.Builder()
                     .setSupportedCommands(
                         ImmutableList.of(
-                            "androidx.media3.actions.playlist_add",
-                            "androidx.media3.actions.radio",
+                            MediaBrowserConstants.COMMAND_PLAYLIST_ADD,
+                            MediaBrowserConstants.COMMAND_RADIO,
                             "invalid"))
                     .build())
             .build();
@@ -595,7 +597,8 @@ public class MediaControllerTest {
             .setMediaId("mediaId-1")
             .setMediaMetadata(
                 new MediaMetadata.Builder()
-                    .setSupportedCommands(ImmutableList.of("androidx.media3.actions.playlist_add"))
+                    .setSupportedCommands(
+                        ImmutableList.of(MediaBrowserConstants.COMMAND_PLAYLIST_ADD))
                     .build())
             .build();
     CountDownLatch latch = new CountDownLatch(/* count= */ 1);

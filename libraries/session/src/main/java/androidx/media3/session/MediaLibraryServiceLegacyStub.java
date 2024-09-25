@@ -23,6 +23,7 @@ import static androidx.media3.session.LibraryResult.RESULT_SUCCESS;
 import static androidx.media3.session.MediaUtils.TRANSACTION_SIZE_LIMIT_IN_BYTES;
 import static androidx.media3.session.legacy.MediaBrowserCompat.EXTRA_PAGE;
 import static androidx.media3.session.legacy.MediaBrowserCompat.EXTRA_PAGE_SIZE;
+import static androidx.media3.session.legacy.MediaConstants.BROWSER_SERVICE_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ROOT_LIST;
 import static androidx.media3.session.legacy.MediaConstants.BROWSER_SERVICE_EXTRAS_KEY_SEARCH_SUPPORTED;
 
 import android.annotation.SuppressLint;
@@ -126,6 +127,22 @@ import java.util.concurrent.atomic.AtomicReference;
               .isSessionCommandAvailable(controller, SessionCommand.COMMAND_CODE_LIBRARY_SEARCH);
       checkNotNull(extras)
           .putBoolean(BROWSER_SERVICE_EXTRAS_KEY_SEARCH_SUPPORTED, isSearchSessionCommandAvailable);
+      ImmutableList<CommandButton> commandButtonsForMediaItems =
+          librarySessionImpl.getCommandButtonsForMediaItems();
+      if (!commandButtonsForMediaItems.isEmpty()) {
+        ArrayList<Bundle> browserActionBundles = new ArrayList<>();
+        for (int i = 0; i < commandButtonsForMediaItems.size(); i++) {
+          CommandButton commandButton = commandButtonsForMediaItems.get(i);
+          if (commandButton.sessionCommand != null
+              && commandButton.sessionCommand.commandCode == SessionCommand.COMMAND_CODE_CUSTOM) {
+            browserActionBundles.add(LegacyConversions.convertToBundle(commandButton));
+          }
+        }
+        if (!browserActionBundles.isEmpty()) {
+          extras.putParcelableArrayList(
+              BROWSER_SERVICE_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ROOT_LIST, browserActionBundles);
+        }
+      }
       return new BrowserRoot(result.value.mediaId, extras);
     }
     // No library root, but keep browser compat connected to allow getting session unless the

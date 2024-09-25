@@ -22,6 +22,7 @@ import static androidx.media3.session.MediaLibraryService.MediaLibrarySession.LI
 import static androidx.media3.session.MediaLibraryService.MediaLibrarySession.LIBRARY_ERROR_REPLICATION_MODE_NON_FATAL;
 import static androidx.media3.session.MockMediaLibraryService.CONNECTION_HINTS_CUSTOM_LIBRARY_ROOT;
 import static androidx.media3.session.MockMediaLibraryService.createNotifyChildrenChangedBundle;
+import static androidx.media3.session.legacy.MediaConstants.DESCRIPTION_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ID_LIST;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_ALBUM_TITLE;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_ARTIST;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_ARTWORK_URI;
@@ -37,6 +38,7 @@ import static androidx.media3.test.session.common.MediaBrowserConstants.CUSTOM_A
 import static androidx.media3.test.session.common.MediaBrowserConstants.GET_CHILDREN_RESULT;
 import static androidx.media3.test.session.common.MediaBrowserConstants.LONG_LIST_COUNT;
 import static androidx.media3.test.session.common.MediaBrowserConstants.MEDIA_ID_GET_BROWSABLE_ITEM;
+import static androidx.media3.test.session.common.MediaBrowserConstants.MEDIA_ID_GET_ITEM_WITH_BROWSE_ACTIONS;
 import static androidx.media3.test.session.common.MediaBrowserConstants.MEDIA_ID_GET_ITEM_WITH_METADATA;
 import static androidx.media3.test.session.common.MediaBrowserConstants.MEDIA_ID_GET_PLAYABLE_ITEM;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID;
@@ -78,6 +80,7 @@ import android.support.v4.media.MediaBrowserCompat.SubscriptionCallback;
 import android.support.v4.media.MediaDescriptionCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
 import android.text.TextUtils;
+import androidx.media3.test.session.common.MediaBrowserConstants;
 import androidx.media3.test.session.common.TestUtils;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.ext.truth.os.BundleSubject;
@@ -114,6 +117,71 @@ public class MediaBrowserCompatWithMediaLibraryServiceTest
                 .getExtras()
                 .getInt(ROOT_EXTRAS_KEY, /* defaultValue= */ ROOT_EXTRAS_VALUE + 1))
         .isEqualTo(ROOT_EXTRAS_VALUE);
+    ArrayList<Bundle> mediaItemCommandButtons =
+        browserCompat
+            .getExtras()
+            .getParcelableArrayList(
+                androidx.media3.session.legacy.MediaConstants
+                    .BROWSER_SERVICE_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ROOT_LIST);
+    assertThat(mediaItemCommandButtons).hasSize(2);
+    assertThat(
+            mediaItemCommandButtons
+                .get(0)
+                .getString(
+                    androidx.media3.session.legacy.MediaConstants
+                        .EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ID))
+        .isEqualTo(MediaBrowserConstants.COMMAND_PLAYLIST_ADD);
+    assertThat(
+            mediaItemCommandButtons
+                .get(0)
+                .getString(
+                    androidx.media3.session.legacy.MediaConstants
+                        .EXTRAS_KEY_CUSTOM_BROWSER_ACTION_LABEL))
+        .isEqualTo("Add to playlist");
+    assertThat(
+            mediaItemCommandButtons
+                .get(0)
+                .getString(
+                    androidx.media3.session.legacy.MediaConstants
+                        .EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ICON_URI))
+        .isEqualTo("http://www.example.com/icon/playlist_add");
+    assertThat(
+            mediaItemCommandButtons
+                .get(0)
+                .getBundle(
+                    androidx.media3.session.legacy.MediaConstants
+                        .EXTRAS_KEY_CUSTOM_BROWSER_ACTION_EXTRAS)
+                .getString("key-1"))
+        .isEqualTo("playlist_add");
+    assertThat(
+            mediaItemCommandButtons
+                .get(1)
+                .getString(
+                    androidx.media3.session.legacy.MediaConstants
+                        .EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ID))
+        .isEqualTo(MediaBrowserConstants.COMMAND_RADIO);
+    assertThat(
+            mediaItemCommandButtons
+                .get(1)
+                .getString(
+                    androidx.media3.session.legacy.MediaConstants
+                        .EXTRAS_KEY_CUSTOM_BROWSER_ACTION_LABEL))
+        .isEqualTo("Radio station");
+    assertThat(
+            mediaItemCommandButtons
+                .get(1)
+                .getString(
+                    androidx.media3.session.legacy.MediaConstants
+                        .EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ICON_URI))
+        .isEqualTo("http://www.example.com/icon/radio");
+    assertThat(
+            mediaItemCommandButtons
+                .get(1)
+                .getBundle(
+                    androidx.media3.session.legacy.MediaConstants
+                        .EXTRAS_KEY_CUSTOM_BROWSER_ACTION_EXTRAS)
+                .getString("key-1"))
+        .isEqualTo("radio");
 
     // Note: Cannot use equals() here because browser compat's extra contains server version,
     // extra binder, and extra messenger.
@@ -164,6 +232,35 @@ public class MediaBrowserCompatWithMediaLibraryServiceTest
     assertThat(itemRef.get().getMediaId()).isEqualTo(mediaId);
     assertThat(itemRef.get().isPlayable()).isTrue();
     assertThat(itemRef.get().getDescription().getIconBitmap()).isNotNull();
+  }
+
+  @Test
+  public void getItem_playableWithBrowseActions_browseActionCorrectlyConverted() throws Exception {
+    String mediaId = MEDIA_ID_GET_ITEM_WITH_BROWSE_ACTIONS;
+    connectAndWait(/* rootHints= */ Bundle.EMPTY);
+    CountDownLatch latch = new CountDownLatch(1);
+    AtomicReference<MediaItem> itemRef = new AtomicReference<>();
+
+    browserCompat.getItem(
+        mediaId,
+        new ItemCallback() {
+          @Override
+          public void onItemLoaded(MediaItem item) {
+            itemRef.set(item);
+            latch.countDown();
+          }
+        });
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(
+            itemRef
+                .get()
+                .getDescription()
+                .getExtras()
+                .getStringArrayList(DESCRIPTION_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ID_LIST))
+        .containsExactly(
+            MediaBrowserConstants.COMMAND_PLAYLIST_ADD, MediaBrowserConstants.COMMAND_RADIO)
+        .inOrder();
   }
 
   @Test
@@ -295,6 +392,14 @@ public class MediaBrowserCompatWithMediaLibraryServiceTest
           .isEqualTo(EXTRAS_VALUE_COMPLETION_STATUS_PARTIALLY_PLAYED);
       assertThat(mediaItem.getDescription().getIconBitmap()).isNotNull();
       assertThat(onChildrenLoadedWithBundleCalled.get()).isFalse();
+      assertThat(
+              mediaItem
+                  .getDescription()
+                  .getExtras()
+                  .getStringArrayList(DESCRIPTION_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ID_LIST))
+          .containsExactly(
+              MediaBrowserConstants.COMMAND_PLAYLIST_ADD, MediaBrowserConstants.COMMAND_RADIO)
+          .inOrder();
     }
   }
 

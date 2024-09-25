@@ -43,6 +43,7 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.constrainValue;
 import static androidx.media3.session.MediaConstants.EXTRA_KEY_ROOT_CHILDREN_BROWSABLE_ONLY;
 import static androidx.media3.session.legacy.MediaConstants.BROWSER_ROOT_HINTS_KEY_ROOT_CHILDREN_SUPPORTED_FLAGS;
+import static androidx.media3.session.legacy.MediaConstants.DESCRIPTION_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ID_LIST;
 import static androidx.media3.session.legacy.MediaMetadataCompat.PREFERRED_DESCRIPTION_ORDER;
 import static androidx.media3.session.legacy.MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS;
 import static java.lang.Math.max;
@@ -540,6 +541,15 @@ import java.util.concurrent.TimeoutException;
     }
 
     if (extras != null
+        && extras.containsKey(DESCRIPTION_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ID_LIST)) {
+      builder.setSupportedCommands(
+          ImmutableList.copyOf(
+              checkNotNull(
+                  extras.getStringArrayList(
+                      DESCRIPTION_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ID_LIST))));
+    }
+
+    if (extras != null
         && extras.containsKey(MediaConstants.EXTRAS_KEY_MEDIA_DESCRIPTION_COMPAT_TITLE)) {
       builder.setTitle(
           extras.getCharSequence(MediaConstants.EXTRAS_KEY_MEDIA_DESCRIPTION_COMPAT_TITLE));
@@ -825,6 +835,14 @@ import java.util.concurrent.TimeoutException;
         extras.putLong(
             MediaConstants.EXTRAS_KEY_MEDIA_TYPE_COMPAT, checkNotNull(metadata.mediaType));
       }
+    }
+    if (!metadata.supportedCommands.isEmpty()) {
+      if (extras == null) {
+        extras = new Bundle();
+      }
+      extras.putStringArrayList(
+          DESCRIPTION_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ID_LIST,
+          new ArrayList<>(metadata.supportedCommands));
     }
     CharSequence title;
     CharSequence subtitle;
@@ -1627,6 +1645,87 @@ import java.util.concurrent.TimeoutException;
       return false;
     }
     return playbackInfoCompat.getCurrentVolume() == 0;
+  }
+
+  /**
+   * Converts a {@linkplain Bundle custom browse action} to a {@link CommandButton}. Returns null if
+   * the bundle doesn't contain sufficient information to build a command button.
+   *
+   * <p>See <a href="https://developer.android.com/training/cars/media#custom_browse_actions">Custom
+   * Browse Actions for Automotive OS</a>.
+   *
+   * @param browseActionBundle The bundle containing the information of a browse action.
+   * @return The resulting {@link CommandButton} or null.
+   */
+  @Nullable
+  public static CommandButton convertCustomBrowseActionToCommandButton(Bundle browseActionBundle) {
+    String commandAction =
+        browseActionBundle.getString(
+            androidx.media3.session.legacy.MediaConstants.EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ID);
+    if (commandAction == null) {
+      return null;
+    }
+    @Nullable
+    CommandButton.Builder commandButton =
+        new CommandButton.Builder()
+            .setSessionCommand(new SessionCommand(commandAction, Bundle.EMPTY));
+    String label =
+        browseActionBundle.getString(
+            androidx.media3.session.legacy.MediaConstants.EXTRAS_KEY_CUSTOM_BROWSER_ACTION_LABEL);
+    if (label != null) {
+      commandButton.setDisplayName(label);
+    }
+    String iconUri =
+        browseActionBundle.getString(
+            androidx.media3.session.legacy.MediaConstants
+                .EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ICON_URI);
+    if (iconUri != null) {
+      try {
+        commandButton.setIconUri(Uri.parse(iconUri));
+      } catch (Throwable t) {
+        Log.e(TAG, "error parsing icon URI of legacy browser action " + commandAction, t);
+      }
+    }
+    Bundle actionExtras =
+        browseActionBundle.getBundle(
+            androidx.media3.session.legacy.MediaConstants.EXTRAS_KEY_CUSTOM_BROWSER_ACTION_EXTRAS);
+    if (actionExtras != null) {
+      commandButton.setExtras(actionExtras);
+    }
+    return commandButton.build();
+  }
+
+  /**
+   * Converts a {@link CommandButton} to a {@link Bundle} according to the browse action
+   * specification of Automotive OS.
+   *
+   * <p>See <a href="https://developer.android.com/training/cars/media#custom_browse_actions">Custom
+   * Browse Actions for Automotive OS</a>.
+   *
+   * @param commandButton The {@link CommandButton} to convert.
+   * @return The resulting {@link Bundle}.
+   */
+  public static Bundle convertToBundle(CommandButton commandButton) {
+    Bundle buttonBundle = new Bundle();
+    if (commandButton.sessionCommand != null) {
+      buttonBundle.putString(
+          androidx.media3.session.legacy.MediaConstants.EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ID,
+          commandButton.sessionCommand.customAction);
+    }
+    buttonBundle.putString(
+        androidx.media3.session.legacy.MediaConstants.EXTRAS_KEY_CUSTOM_BROWSER_ACTION_LABEL,
+        commandButton.displayName.toString());
+    if (commandButton.iconUri != null) {
+      buttonBundle.putString(
+          androidx.media3.session.legacy.MediaConstants.EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ICON_URI,
+          commandButton.iconUri.toString());
+    }
+    if (!commandButton.extras.isEmpty()) {
+      buttonBundle.putBundle(
+          androidx.media3.session.legacy.MediaConstants.EXTRAS_KEY_CUSTOM_BROWSER_ACTION_EXTRAS,
+          commandButton.extras);
+    }
+    return buttonBundle;
   }
 
   private static byte[] convertToByteArray(Bitmap bitmap) throws IOException {

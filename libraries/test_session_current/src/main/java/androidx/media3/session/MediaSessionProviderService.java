@@ -103,6 +103,7 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import androidx.media3.test.session.common.IRemoteMediaSession;
+import androidx.media3.test.session.common.MediaBrowserConstants;
 import androidx.media3.test.session.common.MockActivity;
 import androidx.media3.test.session.common.TestHandler;
 import androidx.media3.test.session.common.TestHandler.TestRunnable;
@@ -240,12 +241,13 @@ public class MediaSessionProviderService extends Service {
             CommandButton playlistAddButton =
                 new CommandButton.Builder(CommandButton.ICON_PLAYLIST_ADD)
                     .setSessionCommand(
-                        new SessionCommand("androidx.media3.actions.playlist_add", Bundle.EMPTY))
+                        new SessionCommand(
+                            MediaBrowserConstants.COMMAND_PLAYLIST_ADD, Bundle.EMPTY))
                     .build();
             CommandButton radioButton =
                 new CommandButton.Builder(CommandButton.ICON_RADIO)
                     .setSessionCommand(
-                        new SessionCommand("androidx.media3.actions.radio", Bundle.EMPTY))
+                        new SessionCommand(MediaBrowserConstants.COMMAND_RADIO, Bundle.EMPTY))
                     .build();
             builder.setCommandButtonsForMediaItems(
                 ImmutableList.of(playlistAddButton, radioButton));

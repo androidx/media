@@ -31,19 +31,23 @@ import static androidx.media3.test.session.common.MediaBrowserServiceCompatConst
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_CHILDREN_NON_FATAL_AUTHENTICATION_ERROR;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_CHILDREN_WITH_NULL_LIST;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_LIBRARY_ROOT;
+import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_MEDIA_ITEMS_WITH_BROWSE_ACTIONS;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_ON_CHILDREN_CHANGED_SUBSCRIBE_AND_UNSUBSCRIBE;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_SEND_CUSTOM_COMMAND;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
+import android.net.Uri;
 import android.os.Bundle;
 import androidx.annotation.Nullable;
 import androidx.media.MediaBrowserServiceCompat;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
@@ -116,6 +120,114 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
     ExecutionException thrown =
         assertThrows(ExecutionException.class, () -> createBrowser(/* listener= */ null));
     assertThat(thrown).hasCauseThat().isInstanceOf(SecurityException.class);
+  }
+
+  @Test
+  public void getLibraryRoot_browseActionsAvailable() throws Exception {
+    remoteService.setProxyForTest(TEST_MEDIA_ITEMS_WITH_BROWSE_ACTIONS);
+    CommandButton playlistAddButton =
+        new CommandButton.Builder()
+            .setDisplayName("Add to playlist")
+            .setIconUri(Uri.parse("https://www.example.com/icon/playlist_add"))
+            .setSessionCommand(
+                new SessionCommand(MediaBrowserConstants.COMMAND_PLAYLIST_ADD, Bundle.EMPTY))
+            .build();
+    CommandButton radioButton =
+        new CommandButton.Builder()
+            .setDisplayName("Radio station")
+            .setIconUri(Uri.parse("https://www.example.com/icon/radio"))
+            .setSessionCommand(
+                new SessionCommand(MediaBrowserConstants.COMMAND_RADIO, Bundle.EMPTY))
+            .build();
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setMediaId("mediaId")
+            .setMediaMetadata(
+                new MediaMetadata.Builder()
+                    .setSupportedCommands(
+                        ImmutableList.of(
+                            MediaBrowserConstants.COMMAND_PLAYLIST_ADD,
+                            MediaBrowserConstants.COMMAND_RADIO,
+                            "invalid"))
+                    .build())
+            .build();
+    MediaBrowser mediaBrowser = createBrowser(/* listener= */ null);
+    // When connected to a legacy browser service, the library root needs to be requested
+    // before media item commands are available.
+    LibraryResult<MediaItem> libraryResult =
+        threadTestRule
+            .getHandler()
+            .postAndSync(() -> mediaBrowser.getLibraryRoot(new LibraryParams.Builder().build()))
+            .get();
+    assertThat(libraryResult.resultCode).isEqualTo(RESULT_SUCCESS);
+
+    ImmutableList<CommandButton> commandButtons =
+        mediaBrowser.getCommandButtonsForMediaItem(mediaItem);
+
+    assertThat(commandButtons).containsExactly(playlistAddButton, radioButton).inOrder();
+    assertThat(commandButtons.get(0).extras.getString("key-1")).isEqualTo("playlist_add");
+    assertThat(commandButtons.get(1).extras.getString("key-1")).isEqualTo("radio");
+  }
+
+  @Test
+  public void getItem_supportedCommandActions_convertedCorrectly() throws Exception {
+    remoteService.setProxyForTest(TEST_MEDIA_ITEMS_WITH_BROWSE_ACTIONS);
+    MediaBrowser mediaBrowser = createBrowser(/* listener= */ null);
+    CommandButton playlistAddButton =
+        new CommandButton.Builder()
+            .setDisplayName("Add to playlist")
+            .setIconUri(Uri.parse("https://www.example.com/icon/playlist_add"))
+            .setSessionCommand(
+                new SessionCommand(MediaBrowserConstants.COMMAND_PLAYLIST_ADD, Bundle.EMPTY))
+            .build();
+    CommandButton radioButton =
+        new CommandButton.Builder()
+            .setDisplayName("Radio station")
+            .setIconUri(Uri.parse("https://www.example.com/icon/radio"))
+            .setSessionCommand(
+                new SessionCommand(MediaBrowserConstants.COMMAND_RADIO, Bundle.EMPTY))
+            .build();
+    // When connected to a legacy browser service, the library root needs to be requested
+    // before media item commands are available.
+    LibraryResult<MediaItem> libraryResult =
+        threadTestRule
+            .getHandler()
+            .postAndSync(() -> mediaBrowser.getLibraryRoot(new LibraryParams.Builder().build()))
+            .get();
+    assertThat(libraryResult.resultCode).isEqualTo(RESULT_SUCCESS);
+    MediaItem mediaItem =
+        threadTestRule.getHandler().postAndSync(() -> mediaBrowser.getItem("mediaId")).get().value;
+
+    ImmutableList<CommandButton> commandButtons =
+        threadTestRule
+            .getHandler()
+            .postAndSync(
+                () -> mediaBrowser.getCommandButtonsForMediaItem(requireNonNull(mediaItem)));
+
+    assertThat(commandButtons).containsExactly(playlistAddButton, radioButton).inOrder();
+    assertThat(commandButtons.get(0).extras.getString("key-1")).isEqualTo("playlist_add");
+    assertThat(commandButtons.get(1).extras.getString("key-1")).isEqualTo("radio");
+  }
+
+  @Test
+  public void sendCustomCommandWithMediaItem_mediaItemIdConvertedCorrectly() throws Exception {
+    remoteService.setProxyForTest(TEST_MEDIA_ITEMS_WITH_BROWSE_ACTIONS);
+    MediaBrowser mediaBrowser = createBrowser(/* listener= */ null);
+    MediaItem mediaItem = new MediaItem.Builder().setMediaId("mediaIdFromCommand").build();
+
+    SessionResult sessionResult =
+        threadTestRule
+            .getHandler()
+            .postAndSync(
+                () ->
+                    mediaBrowser.sendCustomCommand(
+                        new SessionCommand(MediaBrowserConstants.COMMAND_RADIO, Bundle.EMPTY),
+                        mediaItem,
+                        /* args= */ Bundle.EMPTY))
+            .get();
+
+    assertThat(sessionResult.extras.getString(MediaConstants.EXTRA_KEY_MEDIA_ID))
+        .isEqualTo("mediaIdFromCommand");
   }
 
   @Test
@@ -358,8 +470,7 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
                 () ->
                     browser.sendCustomCommand(
                         new SessionCommand(
-                            MediaBrowserConstants.COMMAND_ACTION_PLAYLIST_ADD,
-                            /* extras= */ Bundle.EMPTY),
+                            MediaBrowserConstants.COMMAND_PLAYLIST_ADD, /* extras= */ Bundle.EMPTY),
                         /* args= */ Bundle.EMPTY));
     Futures.addCallback(
         resultFuture,
@@ -397,8 +508,7 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
                 () ->
                     browser.sendCustomCommand(
                         new SessionCommand(
-                            MediaBrowserConstants.COMMAND_ACTION_PLAYLIST_ADD,
-                            /* extras= */ Bundle.EMPTY),
+                            MediaBrowserConstants.COMMAND_PLAYLIST_ADD, /* extras= */ Bundle.EMPTY),
                         args));
     Futures.addCallback(
         resultFuture,

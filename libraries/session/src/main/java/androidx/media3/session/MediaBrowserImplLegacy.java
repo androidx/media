@@ -15,10 +15,12 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.session.SessionError.ERROR_BAD_VALUE;
 import static androidx.media3.session.SessionError.ERROR_PERMISSION_DENIED;
 import static androidx.media3.session.SessionError.ERROR_SESSION_DISCONNECTED;
 import static androidx.media3.session.SessionError.ERROR_UNKNOWN;
+import static androidx.media3.session.legacy.MediaConstants.BROWSER_SERVICE_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ROOT_LIST;
 
 import android.content.Context;
 import android.os.Bundle;
@@ -50,10 +52,10 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   private static final String TAG = "MB2ImplLegacy";
 
   private final HashMap<LibraryParams, MediaBrowserCompat> browserCompats = new HashMap<>();
-
   private final HashMap<String, List<SubscribeCallback>> subscribeCallbacks = new HashMap<>();
-
   private final MediaBrowser instance;
+
+  private ImmutableMap<String, CommandButton> commandButtonsForMediaItems;
 
   MediaBrowserImplLegacy(
       Context context,
@@ -63,6 +65,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       BitmapLoader bitmapLoader) {
     super(context, instance, token, applicationLooper, bitmapLoader);
     this.instance = instance;
+    commandButtonsForMediaItems = ImmutableMap.of();
   }
 
   @Override
@@ -91,7 +94,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
   @Override
   public ImmutableMap<String, CommandButton> getCommandButtonsForMediaItemsMap() {
-    return ImmutableMap.of();
+    return commandButtonsForMediaItems;
   }
 
   @Override
@@ -376,10 +379,40 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         // Shouldn't be happen. Internal error?
         result.set(LibraryResult.ofError(ERROR_UNKNOWN));
       } else {
+        Bundle extras = browserCompat.getExtras();
+        if (extras != null) {
+          ArrayList<Bundle> parcelableArrayList =
+              extras.getParcelableArrayList(
+                  BROWSER_SERVICE_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ROOT_LIST);
+          if (parcelableArrayList != null) {
+            @Nullable
+            ImmutableMap.Builder<String, CommandButton> commandButtonsForMediaItemsBuilder = null;
+            // Converting custom browser action bundles to media item command buttons.
+            for (int i = 0; i < parcelableArrayList.size(); i++) {
+              CommandButton commandButton =
+                  LegacyConversions.convertCustomBrowseActionToCommandButton(
+                      parcelableArrayList.get(i));
+              if (commandButton != null) {
+                if (commandButtonsForMediaItemsBuilder == null) {
+                  // Merge all media item command button of different legacy roots into a single
+                  // map. Last wins in case of duplicate action names.
+                  commandButtonsForMediaItemsBuilder =
+                      new ImmutableMap.Builder<String, CommandButton>()
+                          .putAll(commandButtonsForMediaItems);
+                }
+                String customAction = checkNotNull(commandButton.sessionCommand).customAction;
+                commandButtonsForMediaItemsBuilder.put(customAction, commandButton);
+              }
+            }
+            if (commandButtonsForMediaItemsBuilder != null) {
+              commandButtonsForMediaItems = commandButtonsForMediaItemsBuilder.buildKeepingLast();
+            }
+          }
+        }
         result.set(
             LibraryResult.ofItem(
                 createRootMediaItem(browserCompat),
-                LegacyConversions.convertToLibraryParams(context, browserCompat.getExtras())));
+                LegacyConversions.convertToLibraryParams(context, extras)));
       }
     }
 
