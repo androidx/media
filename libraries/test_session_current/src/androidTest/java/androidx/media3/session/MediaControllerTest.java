@@ -21,6 +21,7 @@ import static androidx.media3.session.MediaUtils.createPlayerCommandsWithout;
 import static androidx.media3.test.session.common.CommonConstants.DEFAULT_TEST_NAME;
 import static androidx.media3.test.session.common.CommonConstants.SUPPORT_APP_PACKAGE_NAME;
 import static androidx.media3.test.session.common.MediaSessionConstants.KEY_AVAILABLE_SESSION_COMMANDS;
+import static androidx.media3.test.session.common.MediaSessionConstants.TEST_GET_COMMAND_BUTTONS_FOR_MEDIA_ITEMS;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_GET_CUSTOM_LAYOUT;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_GET_SESSION_ACTIVITY;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_IS_SESSION_COMMAND_AVAILABLE;
@@ -66,8 +67,10 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -544,6 +547,90 @@ public class MediaControllerTest {
             ImmutableList.of(button3Disabled, button4Disabled),
             ImmutableList.of(button1Enabled, button2Disabled))
         .inOrder();
+    session.cleanUp();
+  }
+
+  @Test
+  public void getCommandButtonsForMediaItem() throws Exception {
+    RemoteMediaSession session =
+        createRemoteMediaSession(TEST_GET_COMMAND_BUTTONS_FOR_MEDIA_ITEMS, /* tokenExtras= */ null);
+    CommandButton playlistAddButton =
+        new CommandButton.Builder(CommandButton.ICON_PLAYLIST_ADD)
+            .setSessionCommand(
+                new SessionCommand("androidx.media3.actions.playlist_add", Bundle.EMPTY))
+            .build();
+    CommandButton radioButton =
+        new CommandButton.Builder(CommandButton.ICON_RADIO)
+            .setSessionCommand(new SessionCommand("androidx.media3.actions.radio", Bundle.EMPTY))
+            .build();
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setMediaId("mediaId")
+            .setMediaMetadata(
+                new MediaMetadata.Builder()
+                    .setSupportedCommands(
+                        ImmutableList.of(
+                            "androidx.media3.actions.playlist_add",
+                            "androidx.media3.actions.radio",
+                            "invalid"))
+                    .build())
+            .build();
+    MediaController controller = controllerTestRule.createController(session.getToken());
+
+    ImmutableList<CommandButton> commandButtons =
+        threadTestRule
+            .getHandler()
+            .postAndSync(() -> controller.getCommandButtonsForMediaItem(mediaItem));
+
+    assertThat(commandButtons).containsExactly(playlistAddButton, radioButton).inOrder();
+    session.cleanUp();
+  }
+
+  @Test
+  public void sendCustomCommandForMediaItem() throws Exception {
+    RemoteMediaSession session =
+        createRemoteMediaSession(TEST_GET_COMMAND_BUTTONS_FOR_MEDIA_ITEMS, /* tokenExtras= */ null);
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setMediaId("mediaId-1")
+            .setMediaMetadata(
+                new MediaMetadata.Builder()
+                    .setSupportedCommands(ImmutableList.of("androidx.media3.actions.playlist_add"))
+                    .build())
+            .build();
+    CountDownLatch latch = new CountDownLatch(/* count= */ 1);
+    AtomicReference<SessionResult> sessionResultRef = new AtomicReference<>();
+    MediaController controller = controllerTestRule.createController(session.getToken());
+
+    Futures.addCallback(
+        threadTestRule
+            .getHandler()
+            .postAndSync(
+                () -> {
+                  CommandButton commandButton =
+                      controller.getCommandButtonsForMediaItem(mediaItem).get(0);
+                  return controller.sendCustomCommand(
+                      commandButton.sessionCommand, mediaItem, Bundle.EMPTY);
+                }),
+        new FutureCallback<SessionResult>() {
+          @Override
+          public void onSuccess(SessionResult result) {
+            sessionResultRef.set(result);
+            latch.countDown();
+          }
+
+          @Override
+          public void onFailure(Throwable t) {
+            latch.countDown();
+          }
+        },
+        MoreExecutors.directExecutor());
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(sessionResultRef.get()).isNotNull();
+    assertThat(sessionResultRef.get().resultCode).isEqualTo(SessionResult.RESULT_SUCCESS);
+    assertThat(sessionResultRef.get().extras.getString(MediaConstants.EXTRA_KEY_MEDIA_ID))
+        .isEqualTo("mediaId-1");
     session.cleanUp();
   }
 

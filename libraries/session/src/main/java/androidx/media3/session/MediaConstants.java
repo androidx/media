@@ -99,6 +99,11 @@ public final class MediaConstants {
       androidx.media3.session.legacy.MediaConstants
           .PLAYBACK_STATE_EXTRAS_KEY_ERROR_RESOLUTION_USING_CAR_APP_LIBRARY_INTENT;
 
+  /** {@link Bundle} key used for a media item ID. */
+  @UnstableApi
+  public static final String EXTRA_KEY_MEDIA_ID =
+      androidx.media3.session.legacy.MediaConstants.EXTRAS_KEY_CUSTOM_BROWSER_ACTION_MEDIA_ITEM_ID;
+
   /**
    * {@link Bundle} key to indicate a preference that a region of space for the skip to next control
    * should always be blocked out in the UI, even when the seek to next standard action is not

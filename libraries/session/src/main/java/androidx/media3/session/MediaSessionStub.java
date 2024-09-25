@@ -535,6 +535,7 @@ import java.util.concurrent.ExecutionException;
                     connectionResult.customLayout != null
                         ? connectionResult.customLayout
                         : sessionImpl.getCustomLayout(),
+                    sessionImpl.getCommandButtonsForMediaItems(),
                     connectionResult.availableSessionCommands,
                     connectionResult.availablePlayerCommands,
                     playerWrapper.getAvailableCommands(),

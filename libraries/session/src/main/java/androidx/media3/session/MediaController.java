@@ -62,6 +62,7 @@ import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.session.legacy.MediaBrowserCompat;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -636,6 +637,27 @@ public class MediaController implements Player {
     return impl.isConnected();
   }
 
+  /**
+   * Returns the command buttons that are supported for the given {@link MediaItem}.
+   *
+   * @param mediaItem The media item for which to get command buttons.
+   * @return The {@linkplain CommandButton command buttons} that are supported for the given media
+   *     item.
+   */
+  @UnstableApi
+  public final ImmutableList<CommandButton> getCommandButtonsForMediaItem(MediaItem mediaItem) {
+    ImmutableMap<String, CommandButton> buttonMap = impl.getCommandButtonsForMediaItemsMap();
+    ImmutableList<String> supportedActions = mediaItem.mediaMetadata.supportedCommands;
+    ImmutableList.Builder<CommandButton> commandButtonsForMediaItem = new ImmutableList.Builder<>();
+    for (int i = 0; i < supportedActions.size(); i++) {
+      CommandButton commandButton = buttonMap.get(supportedActions.get(i));
+      if (commandButton != null) {
+        commandButtonsForMediaItem.add(commandButton);
+      }
+    }
+    return commandButtonsForMediaItem.build();
+  }
+
   @Override
   public final void play() {
     verifyApplicationThread();
@@ -1020,6 +1042,35 @@ public class MediaController implements Player {
       return impl.sendCustomCommand(command, args);
     }
     return createDisconnectedFuture();
+  }
+
+  /**
+   * Sends a custom command to the session for the given {@linkplain MediaItem media item}.
+   *
+   * <p>Calling this method is equivalent to calling {@link #sendCustomCommand(SessionCommand,
+   * Bundle)} and including the {@linkplain MediaItem#mediaId media ID} in the argument bundle with
+   * key {@link MediaConstants#EXTRA_KEY_MEDIA_ID}.
+   *
+   * <p>A command is not accepted if it is not a custom command or the command is not in the list of
+   * {@linkplain #getAvailableSessionCommands() available session commands}.
+   *
+   * <p>Interoperability: When connected to {@code
+   * android.support.v4.media.session.MediaSessionCompat}, {@link SessionResult#resultCode} will
+   * return the custom result code from the {@code android.os.ResultReceiver#onReceiveResult(int,
+   * Bundle)} instead of the standard result codes defined in the {@link SessionResult}.
+   *
+   * @param command The custom command.
+   * @param mediaItem The media item for which the command is sent.
+   * @param args The additional arguments. May be empty.
+   * @return A {@link ListenableFuture} of {@link SessionResult} representing the pending
+   *     completion.
+   */
+  @UnstableApi
+  public final ListenableFuture<SessionResult> sendCustomCommand(
+      SessionCommand command, MediaItem mediaItem, Bundle args) {
+    Bundle augnentedBundle = new Bundle(args);
+    augnentedBundle.putString(MediaConstants.EXTRA_KEY_MEDIA_ID, mediaItem.mediaId);
+    return sendCustomCommand(command, augnentedBundle);
   }
 
   /**
@@ -2090,6 +2141,8 @@ public class MediaController implements Player {
     ListenableFuture<SessionResult> sendCustomCommand(SessionCommand command, Bundle args);
 
     ImmutableList<CommandButton> getCustomLayout();
+
+    ImmutableMap<String, CommandButton> getCommandButtonsForMediaItemsMap();
 
     Bundle getSessionExtras();
 

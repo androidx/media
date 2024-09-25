@@ -30,6 +30,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -85,8 +86,11 @@ public final class MediaMetadata {
     @Nullable private CharSequence station;
     @Nullable private @MediaType Integer mediaType;
     @Nullable private Bundle extras;
+    private ImmutableList<String> supportedCommands;
 
-    public Builder() {}
+    public Builder() {
+      supportedCommands = ImmutableList.of();
+    }
 
     @SuppressWarnings("deprecation") // Assigning from deprecated fields.
     private Builder(MediaMetadata mediaMetadata) {
@@ -123,6 +127,7 @@ public final class MediaMetadata {
       this.compilation = mediaMetadata.compilation;
       this.station = mediaMetadata.station;
       this.mediaType = mediaMetadata.mediaType;
+      this.supportedCommands = mediaMetadata.supportedCommands;
       this.extras = mediaMetadata.extras;
     }
 
@@ -437,6 +442,17 @@ public final class MediaMetadata {
     @CanIgnoreReturnValue
     public Builder setExtras(@Nullable Bundle extras) {
       this.extras = extras;
+      return this;
+    }
+
+    /**
+     * Sets the IDs of the supported commands (see for instance {@code
+     * CommandButton.sessionCommand.customAction} of the Media3 session module).
+     */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    public Builder setSupportedCommands(List<String> supportedCommands) {
+      this.supportedCommands = ImmutableList.copyOf(supportedCommands);
       return this;
     }
 
@@ -1123,6 +1139,12 @@ public final class MediaMetadata {
    */
   @Nullable public final Bundle extras;
 
+  /**
+   * The IDs of the supported commands of this media item (see for instance {@code
+   * CommandButton.sessionCommand.customAction} of the Media3 session module).
+   */
+  @UnstableApi public final ImmutableList<String> supportedCommands;
+
   @SuppressWarnings("deprecation") // Assigning deprecated fields.
   private MediaMetadata(Builder builder) {
     // Handle compatibility for deprecated fields.
@@ -1175,6 +1197,7 @@ public final class MediaMetadata {
     this.compilation = builder.compilation;
     this.station = builder.station;
     this.mediaType = mediaType;
+    this.supportedCommands = builder.supportedCommands;
     this.extras = builder.extras;
   }
 

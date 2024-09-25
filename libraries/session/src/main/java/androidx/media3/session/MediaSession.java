@@ -426,6 +426,18 @@ public class MediaSession {
     }
 
     /**
+     * Sets {@link CommandButton command buttons} that can be added as {@linkplain
+     * MediaMetadata.Builder#setSupportedCommands(List) supported media item commands}.
+     *
+     * @param commandButtons The command buttons.
+     */
+    @UnstableApi
+    @Override
+    public Builder setCommandButtonsForMediaItems(List<CommandButton> commandButtons) {
+      return super.setCommandButtonsForMediaItems(commandButtons);
+    }
+
+    /**
      * Builds a {@link MediaSession}.
      *
      * @return A new session.
@@ -443,6 +455,7 @@ public class MediaSession {
           player,
           sessionActivity,
           customLayout,
+          commandButtonsForMediaItems,
           callback,
           tokenExtras,
           sessionExtras,
@@ -654,6 +667,7 @@ public class MediaSession {
       Player player,
       @Nullable PendingIntent sessionActivity,
       ImmutableList<CommandButton> customLayout,
+      ImmutableList<CommandButton> commandButtonsForMediaItems,
       Callback callback,
       Bundle tokenExtras,
       Bundle sessionExtras,
@@ -674,6 +688,7 @@ public class MediaSession {
             player,
             sessionActivity,
             customLayout,
+            commandButtonsForMediaItems,
             callback,
             tokenExtras,
             sessionExtras,
@@ -689,6 +704,7 @@ public class MediaSession {
       Player player,
       @Nullable PendingIntent sessionActivity,
       ImmutableList<CommandButton> customLayout,
+      ImmutableList<CommandButton> commandButtonsForMediaItems,
       Callback callback,
       Bundle tokenExtras,
       Bundle sessionExtras,
@@ -703,6 +719,7 @@ public class MediaSession {
         player,
         sessionActivity,
         customLayout,
+        commandButtonsForMediaItems,
         callback,
         tokenExtras,
         sessionExtras,
@@ -2073,6 +2090,7 @@ public class MediaSession {
     /* package */ @MonotonicNonNull BitmapLoader bitmapLoader;
     /* package */ boolean playIfSuppressed;
     /* package */ ImmutableList<CommandButton> customLayout;
+    /* package */ ImmutableList<CommandButton> commandButtonsForMediaItems;
     /* package */ boolean isPeriodicPositionUpdateEnabled;
 
     public BuilderBase(Context context, Player player, CallbackT callback) {
@@ -2086,6 +2104,7 @@ public class MediaSession {
       customLayout = ImmutableList.of();
       playIfSuppressed = true;
       isPeriodicPositionUpdateEnabled = true;
+      commandButtonsForMediaItems = ImmutableList.of();
     }
 
     @SuppressWarnings("unchecked")
@@ -2137,6 +2156,12 @@ public class MediaSession {
     public BuilderT setShowPlayButtonIfPlaybackIsSuppressed(
         boolean showPlayButtonIfPlaybackIsSuppressed) {
       this.playIfSuppressed = showPlayButtonIfPlaybackIsSuppressed;
+      return (BuilderT) this;
+    }
+
+    @SuppressWarnings("unchecked")
+    public BuilderT setCommandButtonsForMediaItems(List<CommandButton> commandButtons) {
+      this.commandButtonsForMediaItems = ImmutableList.copyOf(commandButtons);
       return (BuilderT) this;
     }
 

@@ -86,6 +86,7 @@ import androidx.media3.session.MediaController.MediaControllerImpl;
 import androidx.media3.session.PlayerInfo.BundlingExclusions;
 import androidx.media3.session.legacy.MediaBrowserCompat;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -126,6 +127,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   @Nullable private PendingIntent sessionActivity;
   private ImmutableList<CommandButton> customLayoutOriginal;
   private ImmutableList<CommandButton> customLayoutWithUnavailableButtonsDisabled;
+  private ImmutableMap<String, CommandButton> commandButtonsForMediaItemsMap;
   private SessionCommands sessionCommands;
   private Commands playerCommandsFromSession;
   private Commands playerCommandsFromPlayer;
@@ -153,6 +155,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     sessionCommands = SessionCommands.EMPTY;
     customLayoutOriginal = ImmutableList.of();
     customLayoutWithUnavailableButtonsDisabled = ImmutableList.of();
+    commandButtonsForMediaItemsMap = ImmutableMap.of();
     playerCommandsFromSession = Commands.EMPTY;
     playerCommandsFromPlayer = Commands.EMPTY;
     intersectedPlayerCommands =
@@ -731,6 +734,11 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   @Override
   public ImmutableList<CommandButton> getCustomLayout() {
     return customLayoutWithUnavailableButtonsDisabled;
+  }
+
+  @Override
+  public ImmutableMap<String, CommandButton> getCommandButtonsForMediaItemsMap() {
+    return commandButtonsForMediaItemsMap;
   }
 
   @Override
@@ -2619,6 +2627,16 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     customLayoutWithUnavailableButtonsDisabled =
         CommandButton.copyWithUnavailableButtonsDisabled(
             result.customLayout, sessionCommands, intersectedPlayerCommands);
+    ImmutableMap.Builder<String, CommandButton> commandButtonsForMediaItems =
+        new ImmutableMap.Builder<>();
+    for (int i = 0; i < result.commandButtonsForMediaItems.size(); i++) {
+      CommandButton commandButton = result.commandButtonsForMediaItems.get(i);
+      if (commandButton.sessionCommand != null
+          && commandButton.sessionCommand.commandCode == SessionCommand.COMMAND_CODE_CUSTOM) {
+        commandButtonsForMediaItems.put(commandButton.sessionCommand.customAction, commandButton);
+      }
+    }
+    commandButtonsForMediaItemsMap = commandButtonsForMediaItems.buildOrThrow();
     playerInfo = result.playerInfo;
     MediaSession.Token platformToken =
         result.platformToken == null ? token.getPlatformToken() : result.platformToken;

@@ -76,6 +76,7 @@ import androidx.media3.session.legacy.PlaybackStateCompat;
 import androidx.media3.session.legacy.RatingCompat;
 import androidx.media3.session.legacy.VolumeProviderCompat;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -418,6 +419,11 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   @Override
   public ImmutableList<CommandButton> getCustomLayout() {
     return controllerInfo.customLayout;
+  }
+
+  @Override
+  public ImmutableMap<String, CommandButton> getCommandButtonsForMediaItemsMap() {
+    return ImmutableMap.of();
   }
 
   @Override

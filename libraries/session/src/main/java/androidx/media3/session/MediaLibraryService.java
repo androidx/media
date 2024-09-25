@@ -631,6 +631,18 @@ public abstract class MediaLibraryService extends MediaSessionService {
       }
 
       /**
+       * Sets {@link CommandButton command buttons} that can be added as {@link
+       * MediaMetadata.Builder#setSupportedCommands(List) supported media item commands}.
+       *
+       * @param commandButtons The command buttons.
+       */
+      @UnstableApi
+      @Override
+      public Builder setCommandButtonsForMediaItems(List<CommandButton> commandButtons) {
+        return super.setCommandButtonsForMediaItems(commandButtons);
+      }
+
+      /**
        * Builds a {@link MediaLibrarySession}.
        *
        * @return A new session.
@@ -648,6 +660,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
             player,
             sessionActivity,
             customLayout,
+            commandButtonsForMediaItems,
             callback,
             tokenExtras,
             sessionExtras,
@@ -664,6 +677,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
         Player player,
         @Nullable PendingIntent sessionActivity,
         ImmutableList<CommandButton> customLayout,
+        ImmutableList<CommandButton> commandButtonsForMediaItems,
         MediaSession.Callback callback,
         Bundle tokenExtras,
         Bundle sessionExtras,
@@ -677,6 +691,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
           player,
           sessionActivity,
           customLayout,
+          commandButtonsForMediaItems,
           callback,
           tokenExtras,
           sessionExtras,
@@ -693,6 +708,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
         Player player,
         @Nullable PendingIntent sessionActivity,
         ImmutableList<CommandButton> customLayout,
+        ImmutableList<CommandButton> commandButtonsForMediaItems,
         MediaSession.Callback callback,
         Bundle tokenExtras,
         Bundle sessionExtras,
@@ -707,6 +723,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
           player,
           sessionActivity,
           customLayout,
+          commandButtonsForMediaItems,
           (Callback) callback,
           tokenExtras,
           sessionExtras,

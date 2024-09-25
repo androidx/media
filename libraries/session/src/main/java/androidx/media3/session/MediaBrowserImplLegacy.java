@@ -34,6 +34,7 @@ import androidx.media3.session.legacy.MediaBrowserCompat;
 import androidx.media3.session.legacy.MediaBrowserCompat.ItemCallback;
 import androidx.media3.session.legacy.MediaBrowserCompat.SubscriptionCallback;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -86,6 +87,11 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       return super.getAvailableSessionCommands().buildUpon().addAllLibraryCommands().build();
     }
     return super.getAvailableSessionCommands();
+  }
+
+  @Override
+  public ImmutableMap<String, CommandButton> getCommandButtonsForMediaItemsMap() {
+    return ImmutableMap.of();
   }
 
   @Override

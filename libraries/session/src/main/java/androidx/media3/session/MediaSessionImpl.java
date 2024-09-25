@@ -132,6 +132,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final Handler mainHandler;
   private final boolean playIfSuppressed;
   private final boolean isPeriodicPositionUpdateEnabled;
+  private final ImmutableList<CommandButton> commandButtonsForMediaItems;
 
   private PlayerInfo playerInfo;
   private PlayerWrapper playerWrapper;
@@ -161,6 +162,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Player player,
       @Nullable PendingIntent sessionActivity,
       ImmutableList<CommandButton> customLayout,
+      ImmutableList<CommandButton> commandButtonsForMediaItems,
       MediaSession.Callback callback,
       Bundle tokenExtras,
       Bundle sessionExtras,
@@ -181,6 +183,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     sessionId = id;
     this.sessionActivity = sessionActivity;
     this.customLayout = customLayout;
+    this.commandButtonsForMediaItems = commandButtonsForMediaItems;
     this.callback = callback;
     this.sessionExtras = sessionExtras;
     this.bitmapLoader = bitmapLoader;
@@ -511,6 +514,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   /** Returns the custom layout. */
   public ImmutableList<CommandButton> getCustomLayout() {
     return customLayout;
+  }
+
+  /** Returns the command buttons for media items. */
+  public ImmutableList<CommandButton> getCommandButtonsForMediaItems() {
+    return commandButtonsForMediaItems;
   }
 
   public void setSessionExtras(Bundle sessionExtras) {

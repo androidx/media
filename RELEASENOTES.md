@@ -88,6 +88,11 @@
     *   Handle `IllegalArgumentException` thrown by devices of certain
         manufacturers when setting the broadcast receiver for media button
         intents ([#1730](https://github.com/androidx/media/issues/1730)).
+    *   Add command buttons for media items. This adds the Media3 API for what
+        was known as `Custom browse actions` in the legacy world. No
+        interoperability with the legacy API is provided with this change. See
+        <a href="https://developer.android.com/training/cars/media#custom_browse_actions">Custom
+        Browse actions of AAOS</a>.
 *   UI:
     *   Make the stretched/cropped video in
         `PlayerView`-in-Compose-`AndroidView` workaround opt-in, due to issues

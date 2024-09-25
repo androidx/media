@@ -63,6 +63,7 @@ import static androidx.media3.test.session.common.MediaSessionConstants.KEY_CONT
 import static androidx.media3.test.session.common.MediaSessionConstants.NOTIFICATION_CONTROLLER_KEY;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_COMMAND_GET_TRACKS;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_CONTROLLER_LISTENER_SESSION_REJECTS;
+import static androidx.media3.test.session.common.MediaSessionConstants.TEST_GET_COMMAND_BUTTONS_FOR_MEDIA_ITEMS;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_GET_CUSTOM_LAYOUT;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_GET_SESSION_ACTIVITY;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_IS_SESSION_COMMAND_AVAILABLE;
@@ -71,6 +72,7 @@ import static androidx.media3.test.session.common.MediaSessionConstants.TEST_ON_
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_ON_VIDEO_SIZE_CHANGED;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_SET_SHOW_PLAY_BUTTON_IF_SUPPRESSED_TO_FALSE;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_WITH_CUSTOM_COMMANDS;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 import android.app.PendingIntent;
 import android.app.Service;
@@ -229,6 +231,58 @@ public class MediaSessionProviderService extends Service {
                   public MediaSession.ConnectionResult onConnect(
                       MediaSession session, ControllerInfo controller) {
                     return accept(availableSessionCommands, Player.Commands.EMPTY);
+                  }
+                });
+            break;
+          }
+        case TEST_GET_COMMAND_BUTTONS_FOR_MEDIA_ITEMS:
+          {
+            CommandButton playlistAddButton =
+                new CommandButton.Builder(CommandButton.ICON_PLAYLIST_ADD)
+                    .setSessionCommand(
+                        new SessionCommand("androidx.media3.actions.playlist_add", Bundle.EMPTY))
+                    .build();
+            CommandButton radioButton =
+                new CommandButton.Builder(CommandButton.ICON_RADIO)
+                    .setSessionCommand(
+                        new SessionCommand("androidx.media3.actions.radio", Bundle.EMPTY))
+                    .build();
+            builder.setCommandButtonsForMediaItems(
+                ImmutableList.of(playlistAddButton, radioButton));
+            builder.setCallback(
+                new MediaSession.Callback() {
+                  @Override
+                  public MediaSession.ConnectionResult onConnect(
+                      MediaSession session, ControllerInfo controller) {
+                    return new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                        .setAvailableSessionCommands(
+                            new SessionCommands.Builder()
+                                .add(checkNotNull(playlistAddButton.sessionCommand))
+                                .add(checkNotNull(radioButton.sessionCommand))
+                                .build())
+                        .build();
+                  }
+
+                  @Override
+                  public ListenableFuture<SessionResult> onCustomCommand(
+                      MediaSession session,
+                      ControllerInfo controller,
+                      SessionCommand customCommand,
+                      Bundle args) {
+                    SessionResult sessionResult =
+                        new SessionResult(SessionResult.RESULT_ERROR_NOT_SUPPORTED);
+                    if (customCommand.equals(playlistAddButton.sessionCommand)
+                        || customCommand.equals(radioButton.sessionCommand)) {
+                      Bundle extras = new Bundle();
+                      String receivedMediaId = args.getString(MediaConstants.EXTRA_KEY_MEDIA_ID);
+                      @SessionResult.Code int resultCode = SessionResult.RESULT_ERROR_BAD_VALUE;
+                      if (receivedMediaId != null) {
+                        extras.putString(MediaConstants.EXTRA_KEY_MEDIA_ID, receivedMediaId);
+                        resultCode = SessionResult.RESULT_SUCCESS;
+                      }
+                      sessionResult = new SessionResult(resultCode, extras);
+                    }
+                    return immediateFuture(sessionResult);
                   }
                 });
             break;
