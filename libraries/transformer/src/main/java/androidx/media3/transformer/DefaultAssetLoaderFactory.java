@@ -16,15 +16,19 @@
 
 package androidx.media3.transformer;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
+
 import android.content.Context;
 import android.graphics.BitmapFactory;
 import android.graphics.ColorSpace;
 import android.os.Looper;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceBitmapLoader;
@@ -38,6 +42,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 /** The default {@link AssetLoader.Factory} implementation. */
 @UnstableApi
 public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
+
+  private static final String TAG = "DefaultAssetLoaderFact";
 
   // Limit decoded images to 4096x4096 - should be large enough for most image to video
   // transcode operations, and smaller than GL_MAX_TEXTURE_SIZE for most devices.
@@ -136,6 +142,9 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
       CompositionSettings compositionSettings) {
     MediaItem mediaItem = editedMediaItem.mediaItem;
     if (isImage(mediaItem)) {
+      if (checkNotNull(mediaItem.localConfiguration).imageDurationMs == C.TIME_UNSET) {
+        Log.w(TAG, "The imageDurationMs field must be set on image MediaItems.");
+      }
       if (imageAssetLoaderFactory == null) {
         imageAssetLoaderFactory = new ImageAssetLoader.Factory(context, bitmapLoader);
       }

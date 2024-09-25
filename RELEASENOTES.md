@@ -49,6 +49,8 @@
         allow invoking events of subclass listeners
         ([1736](https://github.com/androidx/media/pull/1736)).
 *   Transformer:
+    *   Make setting the image duration using
+        `MediaItem.Builder.setImageDurationMs` mandatory for image export.
     *   Add export support for gaps in sequences of audio EditedMediaItems.
 *   Track Selection:
 *   Extractors:

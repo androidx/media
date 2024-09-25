@@ -50,10 +50,16 @@ public final class EditedMediaItem {
     /**
      * Creates an instance.
      *
-     * <p>For image inputs, the values passed into {@link #setRemoveAudio}, {@link #setRemoveVideo}
-     * and {@link #setFlattenForSlowMotion} will be ignored. For multi-picture formats (e.g. gifs),
-     * a single image frame from the container is displayed if the {@link DefaultAssetLoaderFactory}
-     * is used.
+     * <p>For image inputs:
+     *
+     * <ul>
+     *   <li>The {@linkplain MediaItem.Builder#setImageDurationMs(long) image duration} should
+     *       always be set.
+     *   <li>The values passed into {@link #setRemoveAudio}, {@link #setRemoveVideo} and {@link
+     *       #setFlattenForSlowMotion} will be ignored.
+     *   <li>For multi-picture formats (e.g. gifs), a single image frame from the container is
+     *       displayed if the {@link DefaultAssetLoaderFactory} is used.
+     * </ul>
      *
      * @param mediaItem The {@link MediaItem} on which transformations are applied.
      */
