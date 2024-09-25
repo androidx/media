@@ -111,7 +111,6 @@ public class CompositionPlaybackTest {
     Effect videoEffect = (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram;
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(IMAGE_MEDIA_ITEM)
-            .setDurationUs(IMAGE_DURATION_US)
             .setEffects(
                 new Effects(
                     /* audioProcessors= */ ImmutableList.of(),
@@ -159,7 +158,6 @@ public class CompositionPlaybackTest {
             .build();
     EditedMediaItem imageEditedMediaItem =
         new EditedMediaItem.Builder(IMAGE_MEDIA_ITEM)
-            .setDurationUs(IMAGE_DURATION_US)
             .setEffects(
                 new Effects(
                     /* audioProcessors= */ ImmutableList.of(),
@@ -200,7 +198,6 @@ public class CompositionPlaybackTest {
     Effect videoEffect = (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram;
     EditedMediaItem imageEditedMediaItem =
         new EditedMediaItem.Builder(IMAGE_MEDIA_ITEM)
-            .setDurationUs(IMAGE_DURATION_US)
             .setEffects(
                 new Effects(
                     /* audioProcessors= */ ImmutableList.of(),
