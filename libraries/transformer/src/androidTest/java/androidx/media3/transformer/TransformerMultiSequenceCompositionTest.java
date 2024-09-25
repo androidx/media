@@ -17,7 +17,6 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_LUMA;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.maybeSaveTestBitmap;
@@ -286,9 +285,9 @@ public final class TransformerMultiSequenceCompositionTest {
   }
 
   private static EditedMediaItem editedMediaItemOfOneFrameImage(String uri, List<Effect> effects) {
-    return new EditedMediaItem.Builder(MediaItem.fromUri(uri))
+    return new EditedMediaItem.Builder(
+            new MediaItem.Builder().setUri(uri).setImageDurationMs(ONE_FRAME_DURATION_MS).build())
         .setRemoveAudio(true)
-        .setDurationUs(msToUs(ONE_FRAME_DURATION_MS))
         .setFrameRate((int) (1000 / ONE_FRAME_DURATION_MS))
         .setEffects(
             new Effects(/* audioProcessors= */ ImmutableList.of(), ImmutableList.copyOf(effects)))

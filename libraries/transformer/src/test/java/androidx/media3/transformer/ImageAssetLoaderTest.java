@@ -167,8 +167,8 @@ public class ImageAssetLoaderTest {
   private static AssetLoader getAssetLoader(AssetLoader.Listener listener, String uri) {
     Context context = ApplicationProvider.getApplicationContext();
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(uri))
-            .setDurationUs(1_000_000)
+        new EditedMediaItem.Builder(
+                new MediaItem.Builder().setUri(uri).setImageDurationMs(1000).build())
             .setFrameRate(30)
             .build();
     return new ImageAssetLoader.Factory(

@@ -145,8 +145,8 @@ public class TransformerEndToEndTest {
                     ImmutableList.of(RgbFilter.createInvertedFilter())))
             .build();
     EditedMediaItem imageItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(JPG_ASSET.uri))
-            .setDurationUs(1_500_000)
+        new EditedMediaItem.Builder(
+                new MediaItem.Builder().setUri(JPG_ASSET.uri).setImageDurationMs(1500).build())
             .setFrameRate(30)
             .build();
 
@@ -209,8 +209,8 @@ public class TransformerEndToEndTest {
         /* inputFormat= */ MP4_ASSET.videoFormat,
         /* outputFormat= */ MP4_ASSET.videoFormat);
     EditedMediaItem imageItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(JPG_ASSET.uri))
-            .setDurationUs(500_000)
+        new EditedMediaItem.Builder(
+                new MediaItem.Builder().setUri(JPG_ASSET.uri).setImageDurationMs(500).build())
             .setFrameRate(30)
             .build();
 
@@ -251,9 +251,13 @@ public class TransformerEndToEndTest {
     ImmutableList<Effect> videoEffects = ImmutableList.of(Presentation.createForHeight(480));
     Effects effects = new Effects(/* audioProcessors= */ ImmutableList.of(), videoEffects);
     int expectedFrameCount = 40;
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(PNG_ASSET.uri)
+            .setImageDurationMs(C.MILLIS_PER_SECOND)
+            .build();
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(PNG_ASSET.uri))
-            .setDurationUs(C.MICROS_PER_SECOND)
+        new EditedMediaItem.Builder(mediaItem)
             .setFrameRate(expectedFrameCount)
             .setEffects(effects)
             .build();
@@ -275,8 +279,11 @@ public class TransformerEndToEndTest {
     Transformer transformer = new Transformer.Builder(context).build();
     int expectedFrameCount = 40;
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(PNG_ASSET.uri))
-            .setDurationUs(C.MICROS_PER_SECOND)
+        new EditedMediaItem.Builder(
+                new MediaItem.Builder()
+                    .setUri(PNG_ASSET.uri)
+                    .setImageDurationMs(C.MILLIS_PER_SECOND)
+                    .build())
             .setFrameRate(expectedFrameCount)
             .build();
     ExportTestResult result =
@@ -299,8 +306,11 @@ public class TransformerEndToEndTest {
     Effects effects = new Effects(/* audioProcessors= */ ImmutableList.of(), videoEffects);
     int expectedFrameCount = 40;
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(WEBP_LARGE.uri))
-            .setDurationUs(C.MICROS_PER_SECOND)
+        new EditedMediaItem.Builder(
+                new MediaItem.Builder()
+                    .setUri(WEBP_LARGE.uri)
+                    .setImageDurationMs(C.MILLIS_PER_SECOND)
+                    .build())
             .setFrameRate(expectedFrameCount)
             .setEffects(effects)
             .build();
@@ -516,14 +526,14 @@ public class TransformerEndToEndTest {
             .build();
 
     EditedMediaItem image1 =
-        new EditedMediaItem.Builder(MediaItem.fromUri(PNG_ASSET.uri))
-            .setDurationUs(100_000)
+        new EditedMediaItem.Builder(
+                new MediaItem.Builder().setUri(PNG_ASSET.uri).setImageDurationMs(100).build())
             .setFrameRate(30)
             .build();
     int image1FrameCount = 3;
     EditedMediaItem image2 =
-        new EditedMediaItem.Builder(MediaItem.fromUri(JPG_ASSET.uri))
-            .setDurationUs(200_000)
+        new EditedMediaItem.Builder(
+                new MediaItem.Builder().setUri(JPG_ASSET.uri).setImageDurationMs(200).build())
             .setFrameRate(30)
             .build();
     int image2FrameCount = 6;
@@ -1459,8 +1469,8 @@ public class TransformerEndToEndTest {
                 audioEditedMediaItem, audioEditedMediaItem, audioEditedMediaItem)
             .build();
     EditedMediaItem imageEditedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(PNG_ASSET.uri))
-            .setDurationUs(1_000_000)
+        new EditedMediaItem.Builder(
+                new MediaItem.Builder().setUri(PNG_ASSET.uri).setImageDurationMs(1000).build())
             .setFrameRate(30)
             .build();
     EditedMediaItemSequence loopingImageSequence =
@@ -1496,8 +1506,8 @@ public class TransformerEndToEndTest {
     EditedMediaItemSequence audioSequence =
         new EditedMediaItemSequence.Builder(audioEditedMediaItem).build();
     EditedMediaItem imageEditedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(PNG_ASSET.uri))
-            .setDurationUs(1_050_000)
+        new EditedMediaItem.Builder(
+                new MediaItem.Builder().setUri(PNG_ASSET.uri).setImageDurationMs(1050).build())
             .setFrameRate(20)
             .build();
     EditedMediaItemSequence loopingImageSequence =
