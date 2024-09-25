@@ -375,6 +375,44 @@ public class CompositionPlaybackTest {
   }
 
   @Test
+  public void playback_compositionWithSecondSequenceRemoveVideo_rendersVideoFromFirstSequence()
+      throws Exception {
+    InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
+        new InputTimestampRecordingShaderProgram();
+
+    EditedMediaItem videoEditedMediaItem =
+        new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM)
+            .setDurationUs(VIDEO_DURATION_US)
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    /* videoEffects= */ ImmutableList.of(
+                        (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram)))
+            .build();
+    EditedMediaItem videoEditedMediaItemRemoveVideo =
+        videoEditedMediaItem.buildUpon().setRemoveVideo(true).build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(videoEditedMediaItem).build(),
+                new EditedMediaItemSequence.Builder(videoEditedMediaItemRemoveVideo).build())
+            .build();
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player = new CompositionPlayer.Builder(context).build();
+              player.addListener(playerTestListener);
+              player.setComposition(composition);
+              player.prepare();
+              player.play();
+            });
+    playerTestListener.waitUntilPlayerEnded();
+
+    assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
+        .isEqualTo(VIDEO_TIMESTAMPS_US);
+  }
+
+  @Test
   public void playback_withCompositionEffect_effectIsApplied() throws Exception {
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM).setDurationUs(VIDEO_DURATION_US).build();
