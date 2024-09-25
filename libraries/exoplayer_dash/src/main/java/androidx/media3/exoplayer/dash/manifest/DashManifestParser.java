@@ -79,6 +79,17 @@ public class DashManifestParser extends DefaultHandler
 
   /**
    * Maps the value attribute of an AudioChannelConfiguration with schemeIdUri
+   * "tag:dolby.com,2015:dash:audio_channel_configuration:2015", as defined by ETSI TS 103 190-2
+   * v1.2.1 clause G.3. Table A.27 in ETSI TS 103 190-2 v1.2.1 defines the speaker counts of each
+   * speaker group index, numbers will be counted only when respective indexes present.
+   */
+  private static final int[] DOLBY_AC4_CHANNEL_CONFIGURATION_MAPPING =
+      new int[] {
+          2, 1, 2, 2, 2, 2, 1, 2, 2, 1, 1, 1, 1, 2, 1, 1, 2, 2, 2
+      };
+
+  /**
+   * Maps the value attribute of an AudioChannelConfiguration with schemeIdUri
    * "urn:mpeg:mpegB:cicp:ChannelConfiguration", as defined by ISO 23001-8 clause 8.1, to a channel
    * count.
    */
@@ -441,7 +452,7 @@ public class DashManifestParser extends DefaultHandler
       } else if (XmlPullParserUtil.isStartTag(xpp, "Role")) {
         roleDescriptors.add(parseDescriptor(xpp, "Role"));
       } else if (XmlPullParserUtil.isStartTag(xpp, "AudioChannelConfiguration")) {
-        audioChannels = parseAudioChannelConfiguration(xpp);
+        audioChannels = parseAudioChannelConfiguration(xpp, codecs);
       } else if (XmlPullParserUtil.isStartTag(xpp, "Accessibility")) {
         accessibilityDescriptors.add(parseDescriptor(xpp, "Accessibility"));
       } else if (XmlPullParserUtil.isStartTag(xpp, "EssentialProperty")) {
@@ -720,7 +731,7 @@ public class DashManifestParser extends DefaultHandler
         }
         baseUrls.addAll(parseBaseUrl(xpp, parentBaseUrls, dvbProfileDeclared));
       } else if (XmlPullParserUtil.isStartTag(xpp, "AudioChannelConfiguration")) {
-        audioChannels = parseAudioChannelConfiguration(xpp);
+        audioChannels = parseAudioChannelConfiguration(xpp, codecs);
       } else if (XmlPullParserUtil.isStartTag(xpp, "SegmentBase")) {
         segmentBase = parseSegmentBase(xpp, (SingleSegmentBase) segmentBase);
       } else if (XmlPullParserUtil.isStartTag(xpp, "SegmentList")) {
@@ -1487,7 +1498,7 @@ public class DashManifestParser extends DefaultHandler
 
   // AudioChannelConfiguration parsing.
 
-  protected int parseAudioChannelConfiguration(XmlPullParser xpp)
+  protected int parseAudioChannelConfiguration(XmlPullParser xpp, String codecs)
       throws XmlPullParserException, IOException {
     String schemeIdUri = parseString(xpp, "schemeIdUri", null);
     int audioChannels;
@@ -1508,6 +1519,9 @@ public class DashManifestParser extends DefaultHandler
       case "tag:dolby.com,2014:dash:audio_channel_configuration:2011":
       case "urn:dolby:dash:audio_channel_configuration:2011":
         audioChannels = parseDolbyChannelConfiguration(xpp);
+        break;
+      case "tag:dolby.com,2015:dash:audio_channel_configuration:2015":
+        audioChannels = parseDolbyAC4ChannelConfiguration(xpp, codecs);
         break;
       default:
         audioChannels = Format.NO_VALUE;
@@ -2041,6 +2055,49 @@ public class DashManifestParser extends DefaultHandler
       default:
         return Format.NO_VALUE;
     }
+  }
+
+  /**
+   * Parses the number of channels from the value attribute of an AudioChannelConfiguration with
+   * schemeIdUri "tag:dolby.com,2015:dash:audio_channel_configuration:2015" as defined by table A.27
+   * in ETSI TS 103 190-2 v1.2.1.
+   *
+   * @param xpp The parser from which to read.
+   * @return The parsed number of channels, or {@link Format#NO_VALUE} if the channel count could
+   *     not be parsed.
+   */
+  protected static int parseDolbyAC4ChannelConfiguration(XmlPullParser xpp, String codecs) {
+    @Nullable String value = xpp.getAttributeValue(null, "value");
+    // The value attribute must be set to a six-digit uppercase hexadecimal
+    if (value == null || value.length() != 6) {
+      return Format.NO_VALUE;
+    }
+    final int DOLBY_AC4_OBJECT_BASED_AUDIO_STREAM = 0x800000;
+    final int ac4ChannelMask = Integer.parseInt(value, /* radix= */ 16);
+    if ((ac4ChannelMask & DOLBY_AC4_OBJECT_BASED_AUDIO_STREAM) ==
+        DOLBY_AC4_OBJECT_BASED_AUDIO_STREAM) {
+      // object-based audio content
+      String[] codecList = Util.splitCodecs(codecs);
+      // The AC-4 codec string format is "ac-4.xx.yy.zz", where zz is presentation level
+      final String AC4_PRESENTATION_LEVEL3 = "03";
+      final String AC4_PRESENTATION_LEVEL4 = "04";
+      String[] parts = Ascii.toLowerCase(codecList[0].trim()).split("\\.");
+      if (parts.length == 4 && parts[0].equals("ac-4")) {
+        if (parts[3].equals(AC4_PRESENTATION_LEVEL3)) {
+          return 18;  // AC-4 Level 3 object-based content is mapped to 17.1 channels
+        } else if (parts[3].equals(AC4_PRESENTATION_LEVEL4)) {
+          return 21;  // AC-4 Level 4 object-based content is mapped to 20.1 channels
+        }
+      }
+      return Format.NO_VALUE;
+    }
+    // channel-based audio content
+    // bits 0...18 indicate the presence of individual channel groups
+    int channelCount = 0;
+    for (int i = 0; i < DOLBY_AC4_CHANNEL_CONFIGURATION_MAPPING.length; i++) {
+      channelCount += ((ac4ChannelMask >> i) & 0x1) * DOLBY_AC4_CHANNEL_CONFIGURATION_MAPPING[i];
+    }
+    return channelCount == 0 ? Format.NO_VALUE : channelCount;
   }
 
   protected static long parseLastSegmentNumberSupplementalProperty(
