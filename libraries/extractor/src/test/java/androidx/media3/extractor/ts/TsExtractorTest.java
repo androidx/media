@@ -15,7 +15,12 @@
  */
 package androidx.media3.extractor.ts;
 
+import static androidx.media3.extractor.mp4.FragmentedMp4Extractor.FLAG_EMIT_RAW_SUBTITLE_DATA;
 import static androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS;
+import static androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory.FLAG_ENABLE_HDMV_DTS_AUDIO_STREAMS;
+import static androidx.media3.extractor.ts.TsExtractor.DEFAULT_TIMESTAMP_SEARCH_BYTES;
+import static androidx.media3.extractor.ts.TsExtractor.MODE_MULTI_PMT;
+import static androidx.media3.extractor.ts.TsExtractor.MODE_SINGLE_PMT;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.util.SparseArray;
@@ -28,6 +33,8 @@ import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.TrackOutput;
+import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
+import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.extractor.ts.TsPayloadReader.EsInfo;
 import androidx.media3.extractor.ts.TsPayloadReader.TrackIdGenerator;
 import androidx.media3.test.utils.ExtractorAsserts;
@@ -36,7 +43,8 @@ import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
-import com.google.common.collect.ImmutableList;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.ParameterizedRobolectricTestRunner;
@@ -47,34 +55,70 @@ import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
 @RunWith(ParameterizedRobolectricTestRunner.class)
 public final class TsExtractorTest {
 
-  @Parameters(name = "{0}")
-  public static ImmutableList<ExtractorAsserts.SimulationConfig> params() {
-    return ExtractorAsserts.configs();
+  @Parameters(name = "{0},subtitlesParsedDuringExtraction={1}")
+  public static List<Object[]> params() {
+    List<Object[]> parameterList = new ArrayList<>();
+    for (ExtractorAsserts.SimulationConfig config : ExtractorAsserts.configs()) {
+      parameterList.add(new Object[] {config, /* subtitlesParsedDuringExtraction */ true});
+      parameterList.add(new Object[] {config, /* subtitlesParsedDuringExtraction */ false});
+    }
+    return parameterList;
   }
 
-  @Parameter public ExtractorAsserts.SimulationConfig simulationConfig;
+  @Parameter(0)
+  public ExtractorAsserts.SimulationConfig simulationConfig;
+
+  @Parameter(1)
+  public boolean subtitlesParsedDuringExtraction;
 
   @Test
   public void sampleWithH262AndMpegAudio() throws Exception {
     ExtractorAsserts.assertBehavior(
-        TsExtractor::new, "media/ts/sample_h262_mpeg_audio.ts", simulationConfig);
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_h262_mpeg_audio.ts",
+        simulationConfig);
   }
 
   @Test
   public void sampleWithH263() throws Exception {
-    ExtractorAsserts.assertBehavior(TsExtractor::new, "media/ts/sample_h263.ts", simulationConfig);
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_h263.ts",
+        simulationConfig);
+  }
+
+  @Test
+  public void sampleWithH264() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_h264.ts",
+        simulationConfig);
+  }
+
+  @Test
+  public void sampleWithH264AndIFramesOnly() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_h264_iframes_only.ts",
+        simulationConfig);
   }
 
   @Test
   public void sampleWithH264AndMpegAudio() throws Exception {
     ExtractorAsserts.assertBehavior(
-        TsExtractor::new, "media/ts/sample_h264_mpeg_audio.ts", simulationConfig);
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_h264_mpeg_audio.ts",
+        simulationConfig);
   }
 
   @Test
   public void sampleWithH264NoAccessUnitDelimiters() throws Exception {
     ExtractorAsserts.assertBehavior(
-        () -> new TsExtractor(FLAG_DETECT_ACCESS_UNITS),
+        getExtractorFactory(
+            subtitlesParsedDuringExtraction,
+            MODE_SINGLE_PMT,
+            new TimestampAdjuster(0),
+            new DefaultTsPayloadReaderFactory(FLAG_DETECT_ACCESS_UNITS)),
         "media/ts/sample_h264_no_access_unit_delimiters.ts",
         simulationConfig);
   }
@@ -82,26 +126,35 @@ public final class TsExtractorTest {
   @Test
   public void sampleWithH264AndDtsAudio() throws Exception {
     ExtractorAsserts.assertBehavior(
-        () -> new TsExtractor(DefaultTsPayloadReaderFactory.FLAG_ENABLE_HDMV_DTS_AUDIO_STREAMS),
+        getExtractorFactory(
+            subtitlesParsedDuringExtraction,
+            MODE_SINGLE_PMT,
+            new TimestampAdjuster(0),
+            new DefaultTsPayloadReaderFactory(FLAG_ENABLE_HDMV_DTS_AUDIO_STREAMS)),
         "media/ts/sample_h264_dts_audio.ts",
         simulationConfig);
   }
 
   @Test
   public void sampleWithH265() throws Exception {
-    ExtractorAsserts.assertBehavior(TsExtractor::new, "media/ts/sample_h265.ts", simulationConfig);
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_h265.ts",
+        simulationConfig);
   }
 
   @Test
   public void sampleWithH265RpsPred() throws Exception {
     ExtractorAsserts.assertBehavior(
-        TsExtractor::new, "media/ts/sample_h265_rps_pred.ts", simulationConfig);
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_h265_rps_pred.ts",
+        simulationConfig);
   }
 
   @Test
   public void sampleWithScte35() throws Exception {
     ExtractorAsserts.assertBehavior(
-        TsExtractor::new,
+        getExtractorFactory(subtitlesParsedDuringExtraction),
         "media/ts/sample_scte35.ts",
         new ExtractorAsserts.AssertionConfig.Builder()
             .setDeduplicateConsecutiveFormats(true)
@@ -112,7 +165,7 @@ public final class TsExtractorTest {
   @Test
   public void sampleWithAit() throws Exception {
     ExtractorAsserts.assertBehavior(
-        TsExtractor::new,
+        getExtractorFactory(subtitlesParsedDuringExtraction),
         "media/ts/sample_ait.ts",
         new ExtractorAsserts.AssertionConfig.Builder()
             .setDeduplicateConsecutiveFormats(true)
@@ -121,42 +174,208 @@ public final class TsExtractorTest {
   }
 
   @Test
+  public void sampleWithDts() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_dts.ts",
+        simulationConfig);
+  }
+
+  @Test
+  public void sampleWithDtsHd() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_dts_hd.ts",
+        simulationConfig);
+  }
+
+  @Test
+  public void sampleWithDtsUhd() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_dts_uhd.ts",
+        simulationConfig);
+  }
+
+  @Test
   public void sampleWithAc3() throws Exception {
-    ExtractorAsserts.assertBehavior(TsExtractor::new, "media/ts/sample_ac3.ts", simulationConfig);
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_ac3.ts",
+        simulationConfig);
   }
 
   @Test
   public void sampleWithAc4() throws Exception {
-    ExtractorAsserts.assertBehavior(TsExtractor::new, "media/ts/sample_ac4.ts", simulationConfig);
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_ac4.ts",
+        simulationConfig);
   }
 
   @Test
   public void sampleWithEac3() throws Exception {
-    ExtractorAsserts.assertBehavior(TsExtractor::new, "media/ts/sample_eac3.ts", simulationConfig);
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_eac3.ts",
+        simulationConfig);
   }
 
   @Test
   public void sampleWithEac3joc() throws Exception {
     ExtractorAsserts.assertBehavior(
-        TsExtractor::new, "media/ts/sample_eac3joc.ts", simulationConfig);
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_eac3joc.ts",
+        simulationConfig);
   }
 
   @Test
   public void sampleWithLatm() throws Exception {
-    ExtractorAsserts.assertBehavior(TsExtractor::new, "media/ts/sample_latm.ts", simulationConfig);
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_latm.ts",
+        simulationConfig);
   }
 
   @Test
   public void streamWithJunkData() throws Exception {
     ExtractorAsserts.assertBehavior(
-        TsExtractor::new, "media/ts/sample_with_junk", simulationConfig);
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_with_junk",
+        simulationConfig);
+  }
+
+  @Test
+  public void streamWithAudioTypeOfMpegAudio() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_mpeg_audio_with_audio_type.ts",
+        simulationConfig);
+  }
+
+  @Test
+  public void sampleWithMpeghBlCicp1Single() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_mpegh_bl_cicp1_single.ts",
+        simulationConfig);
+  }
+
+  @Test
+  public void sampleWithMpeghLcBlCicp1Single() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_mpegh_lcbl_cicp1_single.ts",
+        simulationConfig);
+  }
+
+  @Test
+  public void sampleWithMpeghBlConfigChangeSingle() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_mpegh_bl_configchange_single.ts",
+        simulationConfig);
+  }
+
+  @Test
+  public void sampleWithMpeghLcBlConfigChangeSingle() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_mpegh_lcbl_configchange_single.ts",
+        simulationConfig);
+  }
+
+  @Test
+  public void sampleWithMpeghBlCicp1Multi() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_mpegh_bl_cicp1_multi.ts",
+        simulationConfig);
+  }
+
+  @Test
+  public void sampleWithMpeghLcBlCicp1Multi() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_mpegh_lcbl_cicp1_multi.ts",
+        simulationConfig);
+  }
+
+  @Test
+  public void sampleWithMpeghBlConfigChangeMulti() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_mpegh_bl_configchange_multi.ts",
+        simulationConfig);
+  }
+
+  @Test
+  public void sampleWithMpeghLcBlConfigChangeMulti() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_mpegh_lcbl_configchange_multi.ts",
+        simulationConfig);
+  }
+
+  @Test
+  public void sampleWithMpeghBlCicp1Cont() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_mpegh_bl_cicp1_cont.ts",
+        simulationConfig);
+  }
+
+  @Test
+  public void sampleWithMpeghLcBlCicp1Cont() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_mpegh_lcbl_cicp1_cont.ts",
+        simulationConfig);
+  }
+
+  @Test
+  public void sampleWithMpeghBlConfigChangeCont() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_mpegh_bl_configchange_cont.ts",
+        simulationConfig);
+  }
+
+  @Test
+  public void sampleWithMpeghLcBlConfigChangeCont() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_mpegh_lcbl_configchange_cont.ts",
+        simulationConfig);
+  }
+
+  @Test
+  public void sampleWithMpeghBlContSetRaiUnsetDai() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_mpegh_bl_cicp1_cont_setrai_unsetdai.ts",
+        simulationConfig);
+  }
+
+  @Test
+  public void sampleWithMpeghBlContSplitHeader() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_mpegh_bl_cicp1_cont_splitheader.ts",
+        simulationConfig);
   }
 
   @Test
   public void customPesReader() throws Exception {
     CustomTsPayloadReaderFactory factory = new CustomTsPayloadReaderFactory(true, false);
     TsExtractor tsExtractor =
-        new TsExtractor(TsExtractor.MODE_MULTI_PMT, new TimestampAdjuster(0), factory);
+        (TsExtractor)
+            getExtractorFactory(
+                    subtitlesParsedDuringExtraction,
+                    MODE_MULTI_PMT,
+                    new TimestampAdjuster(0),
+                    factory)
+                .create();
     FakeExtractorInput input =
         new FakeExtractorInput.Builder()
             .setData(
@@ -194,7 +413,13 @@ public final class TsExtractorTest {
   public void customInitialSectionReader() throws Exception {
     CustomTsPayloadReaderFactory factory = new CustomTsPayloadReaderFactory(false, true);
     TsExtractor tsExtractor =
-        new TsExtractor(TsExtractor.MODE_MULTI_PMT, new TimestampAdjuster(0), factory);
+        (TsExtractor)
+            getExtractorFactory(
+                    subtitlesParsedDuringExtraction,
+                    MODE_MULTI_PMT,
+                    new TimestampAdjuster(0),
+                    factory)
+                .create();
     FakeExtractorInput input =
         new FakeExtractorInput.Builder()
             .setData(
@@ -214,6 +439,39 @@ public final class TsExtractorTest {
       }
     }
     assertThat(factory.sdtReader.consumedSdts).isEqualTo(2);
+  }
+
+  private static ExtractorAsserts.ExtractorFactory getExtractorFactory(
+      boolean subtitlesParsedDuringExtraction) {
+    return getExtractorFactory(
+        subtitlesParsedDuringExtraction,
+        MODE_SINGLE_PMT,
+        new TimestampAdjuster(0),
+        new DefaultTsPayloadReaderFactory(0));
+  }
+
+  private static ExtractorAsserts.ExtractorFactory getExtractorFactory(
+      boolean subtitlesParsedDuringExtraction,
+      @TsExtractor.Mode int mode,
+      TimestampAdjuster timestampAdjuster,
+      TsPayloadReader.Factory payloadReaderFactory) {
+    SubtitleParser.Factory subtitleParserFactory;
+    @TsExtractor.Flags int flags;
+    if (subtitlesParsedDuringExtraction) {
+      subtitleParserFactory = new DefaultSubtitleParserFactory();
+      flags = 0;
+    } else {
+      subtitleParserFactory = SubtitleParser.Factory.UNSUPPORTED;
+      flags = FLAG_EMIT_RAW_SUBTITLE_DATA;
+    }
+    return () ->
+        new TsExtractor(
+            mode,
+            flags,
+            subtitleParserFactory,
+            timestampAdjuster,
+            payloadReaderFactory,
+            DEFAULT_TIMESTAMP_SEARCH_BYTES);
   }
 
   private static final class CustomTsPayloadReaderFactory implements TsPayloadReader.Factory {
@@ -287,7 +545,7 @@ public final class TsExtractorTest {
     public void consume(ParsableByteArray data) {}
 
     @Override
-    public void packetFinished() {
+    public void packetFinished(boolean isEndOfInput) {
       packetsRead++;
     }
 

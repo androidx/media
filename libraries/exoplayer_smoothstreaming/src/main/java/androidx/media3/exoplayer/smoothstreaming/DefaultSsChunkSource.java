@@ -16,16 +16,21 @@
 package androidx.media3.exoplayer.smoothstreaming;
 
 import static androidx.media3.exoplayer.trackselection.TrackSelectionUtil.createFallbackOptions;
+import static java.lang.Math.max;
 
 import android.net.Uri;
+import android.os.SystemClock;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.UriUtil;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.TransferListener;
+import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.smoothstreaming.manifest.SsManifest;
 import androidx.media3.exoplayer.smoothstreaming.manifest.SsManifest.StreamElement;
@@ -39,12 +44,19 @@ import androidx.media3.exoplayer.source.chunk.ContainerMediaChunk;
 import androidx.media3.exoplayer.source.chunk.MediaChunk;
 import androidx.media3.exoplayer.source.chunk.MediaChunkIterator;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
+import androidx.media3.exoplayer.upstream.CmcdConfiguration;
+import androidx.media3.exoplayer.upstream.CmcdData;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.FallbackSelection;
 import androidx.media3.exoplayer.upstream.LoaderErrorThrower;
+import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.mp4.FragmentedMp4Extractor;
 import androidx.media3.extractor.mp4.Track;
 import androidx.media3.extractor.mp4.TrackEncryptionBox;
+import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
+import androidx.media3.extractor.text.SubtitleParser;
+import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.List;
 
@@ -55,9 +67,51 @@ public class DefaultSsChunkSource implements SsChunkSource {
   public static final class Factory implements SsChunkSource.Factory {
 
     private final DataSource.Factory dataSourceFactory;
+    private SubtitleParser.Factory subtitleParserFactory;
+    private boolean parseSubtitlesDuringExtraction;
 
     public Factory(DataSource.Factory dataSourceFactory) {
       this.dataSourceFactory = dataSourceFactory;
+      subtitleParserFactory = new DefaultSubtitleParserFactory();
+    }
+
+    @CanIgnoreReturnValue
+    @Override
+    public Factory setSubtitleParserFactory(SubtitleParser.Factory subtitleParserFactory) {
+      this.subtitleParserFactory = subtitleParserFactory;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    @Override
+    public Factory experimentalParseSubtitlesDuringExtraction(
+        boolean parseSubtitlesDuringExtraction) {
+      this.parseSubtitlesDuringExtraction = parseSubtitlesDuringExtraction;
+      return this;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>This implementation performs transcoding of the original format to {@link
+     * MimeTypes#APPLICATION_MEDIA3_CUES} if it is supported by {@link SubtitleParser.Factory}.
+     */
+    @Override
+    public Format getOutputTextFormat(Format sourceFormat) {
+      if (parseSubtitlesDuringExtraction && subtitleParserFactory.supportsFormat(sourceFormat)) {
+        return sourceFormat
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.APPLICATION_MEDIA3_CUES)
+            .setCueReplacementBehavior(
+                subtitleParserFactory.getCueReplacementBehavior(sourceFormat))
+            .setCodecs(
+                sourceFormat.sampleMimeType
+                    + (sourceFormat.codecs != null ? " " + sourceFormat.codecs : ""))
+            .setSubsampleOffsetUs(Format.OFFSET_SAMPLE_RELATIVE)
+            .build();
+      } else {
+        return sourceFormat;
+      }
     }
 
     @Override
@@ -66,13 +120,21 @@ public class DefaultSsChunkSource implements SsChunkSource {
         SsManifest manifest,
         int streamElementIndex,
         ExoTrackSelection trackSelection,
-        @Nullable TransferListener transferListener) {
+        @Nullable TransferListener transferListener,
+        @Nullable CmcdConfiguration cmcdConfiguration) {
       DataSource dataSource = dataSourceFactory.createDataSource();
       if (transferListener != null) {
         dataSource.addTransferListener(transferListener);
       }
       return new DefaultSsChunkSource(
-          manifestLoaderErrorThrower, manifest, streamElementIndex, trackSelection, dataSource);
+          manifestLoaderErrorThrower,
+          manifest,
+          streamElementIndex,
+          trackSelection,
+          dataSource,
+          cmcdConfiguration,
+          subtitleParserFactory,
+          parseSubtitlesDuringExtraction);
     }
   }
 
@@ -80,6 +142,7 @@ public class DefaultSsChunkSource implements SsChunkSource {
   private final int streamElementIndex;
   private final ChunkExtractor[] chunkExtractors;
   private final DataSource dataSource;
+  @Nullable private final CmcdConfiguration cmcdConfiguration;
 
   private ExoTrackSelection trackSelection;
   private SsManifest manifest;
@@ -88,23 +151,39 @@ public class DefaultSsChunkSource implements SsChunkSource {
   @Nullable private IOException fatalError;
 
   /**
+   * The time at which the last {@link #getNextChunk(LoadingInfo, long, List, ChunkHolder)} method
+   * was called, as measured by {@link SystemClock#elapsedRealtime}.
+   */
+  private long lastChunkRequestRealtimeMs;
+
+  /**
    * @param manifestLoaderErrorThrower Throws errors affecting loading of manifests.
    * @param manifest The initial manifest.
    * @param streamElementIndex The index of the stream element in the manifest.
    * @param trackSelection The track selection.
    * @param dataSource A {@link DataSource} suitable for loading the media data.
+   * @param cmcdConfiguration The {@link CmcdConfiguration} for this chunk source.
+   * @param subtitleParserFactory The {@link SubtitleParser.Factory} for parsing subtitles during
+   *     extraction.
+   * @param parseSubtitlesDuringExtraction Whether to parse subtitles during extraction or
+   *     rendering.
    */
   public DefaultSsChunkSource(
       LoaderErrorThrower manifestLoaderErrorThrower,
       SsManifest manifest,
       int streamElementIndex,
       ExoTrackSelection trackSelection,
-      DataSource dataSource) {
+      DataSource dataSource,
+      @Nullable CmcdConfiguration cmcdConfiguration,
+      SubtitleParser.Factory subtitleParserFactory,
+      boolean parseSubtitlesDuringExtraction) {
     this.manifestLoaderErrorThrower = manifestLoaderErrorThrower;
     this.manifest = manifest;
     this.streamElementIndex = streamElementIndex;
     this.trackSelection = trackSelection;
     this.dataSource = dataSource;
+    this.cmcdConfiguration = cmcdConfiguration;
+    this.lastChunkRequestRealtimeMs = C.TIME_UNSET;
 
     StreamElement streamElement = manifest.streamElements[streamElementIndex];
     chunkExtractors = new ChunkExtractor[trackSelection.length()];
@@ -124,18 +203,28 @@ public class DefaultSsChunkSource implements SsChunkSource {
               streamElement.timescale,
               C.TIME_UNSET,
               manifest.durationUs,
+              /* mediaDurationUs= */ manifest.durationUs,
               format,
               Track.TRANSFORMATION_NONE,
               trackEncryptionBoxes,
               nalUnitLengthFieldLength,
               null,
               null);
-      FragmentedMp4Extractor extractor =
+      @FragmentedMp4Extractor.Flags
+      int flags =
+          FragmentedMp4Extractor.FLAG_WORKAROUND_EVERY_VIDEO_FRAME_IS_SYNC_FRAME
+              | FragmentedMp4Extractor.FLAG_WORKAROUND_IGNORE_TFDT_BOX;
+      if (!parseSubtitlesDuringExtraction) {
+        flags |= FragmentedMp4Extractor.FLAG_EMIT_RAW_SUBTITLE_DATA;
+      }
+      Extractor extractor =
           new FragmentedMp4Extractor(
-              FragmentedMp4Extractor.FLAG_WORKAROUND_EVERY_VIDEO_FRAME_IS_SYNC_FRAME
-                  | FragmentedMp4Extractor.FLAG_WORKAROUND_IGNORE_TFDT_BOX,
+              subtitleParserFactory,
+              flags,
               /* timestampAdjuster= */ null,
-              track);
+              track,
+              /* closedCaptionFormats= */ ImmutableList.of(),
+              /* additionalEmsgTrackOutput= */ null);
       chunkExtractors[i] = new BundledChunkExtractor(extractor, streamElement.type, format);
     }
   }
@@ -211,7 +300,7 @@ public class DefaultSsChunkSource implements SsChunkSource {
 
   @Override
   public final void getNextChunk(
-      long playbackPositionUs,
+      LoadingInfo loadingInfo,
       long loadPositionUs,
       List<? extends MediaChunk> queue,
       ChunkHolder out) {
@@ -245,6 +334,7 @@ public class DefaultSsChunkSource implements SsChunkSource {
       return;
     }
 
+    long playbackPositionUs = loadingInfo.playbackPositionUs;
     long bufferedDurationUs = loadPositionUs - playbackPositionUs;
     long timeToLiveEdgeUs = resolveTimeToLiveEdgeUs(playbackPositionUs);
 
@@ -267,6 +357,28 @@ public class DefaultSsChunkSource implements SsChunkSource {
     int manifestTrackIndex = trackSelection.getIndexInTrackGroup(trackSelectionIndex);
     Uri uri = streamElement.buildRequestUri(manifestTrackIndex, chunkIndex);
 
+    @Nullable CmcdData.Factory cmcdDataFactory = null;
+    if (cmcdConfiguration != null) {
+      cmcdDataFactory =
+          new CmcdData.Factory(
+                  cmcdConfiguration,
+                  trackSelection,
+                  max(0, bufferedDurationUs),
+                  /* playbackRate= */ loadingInfo.playbackSpeed,
+                  /* streamingFormat= */ CmcdData.Factory.STREAMING_FORMAT_SS,
+                  /* isLive= */ manifest.isLive,
+                  /* didRebuffer= */ loadingInfo.rebufferedSince(lastChunkRequestRealtimeMs),
+                  /* isBufferEmpty= */ queue.isEmpty())
+              .setChunkDurationUs(chunkEndTimeUs - chunkStartTimeUs)
+              .setObjectType(CmcdData.Factory.getObjectType(trackSelection));
+
+      if (chunkIndex + 1 < streamElement.chunkCount) {
+        Uri nextUri = streamElement.buildRequestUri(manifestTrackIndex, chunkIndex + 1);
+        cmcdDataFactory.setNextObjectRequest(UriUtil.getRelativePath(uri, nextUri));
+      }
+    }
+    lastChunkRequestRealtimeMs = SystemClock.elapsedRealtime();
+
     out.chunk =
         newMediaChunk(
             trackSelection.getSelectedFormat(),
@@ -278,7 +390,8 @@ public class DefaultSsChunkSource implements SsChunkSource {
             chunkSeekTimeUs,
             trackSelection.getSelectionReason(),
             trackSelection.getSelectionData(),
-            chunkExtractor);
+            chunkExtractor,
+            cmcdDataFactory);
   }
 
   @Override
@@ -299,7 +412,7 @@ public class DefaultSsChunkSource implements SsChunkSource {
     return cancelable
         && fallbackSelection != null
         && fallbackSelection.type == LoadErrorHandlingPolicy.FALLBACK_TYPE_TRACK
-        && trackSelection.blacklist(
+        && trackSelection.excludeTrack(
             trackSelection.indexOf(chunk.trackFormat), fallbackSelection.exclusionDurationMs);
   }
 
@@ -322,8 +435,14 @@ public class DefaultSsChunkSource implements SsChunkSource {
       long chunkSeekTimeUs,
       @C.SelectionReason int trackSelectionReason,
       @Nullable Object trackSelectionData,
-      ChunkExtractor chunkExtractor) {
-    DataSpec dataSpec = new DataSpec(uri);
+      ChunkExtractor chunkExtractor,
+      @Nullable CmcdData.Factory cmcdDataFactory) {
+    DataSpec dataSpec = new DataSpec.Builder().setUri(uri).build();
+    if (cmcdDataFactory != null) {
+      CmcdData cmcdData = cmcdDataFactory.createCmcdData();
+      dataSpec = cmcdData.addToDataSpec(dataSpec);
+    }
+
     // In SmoothStreaming each chunk contains sample timestamps relative to the start of the chunk.
     // To convert them the absolute timestamps, we need to set sampleOffsetUs to chunkStartTimeUs.
     long sampleOffsetUs = chunkStartTimeUs;

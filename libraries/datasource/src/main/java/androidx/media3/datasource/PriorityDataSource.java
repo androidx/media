@@ -17,6 +17,7 @@ package androidx.media3.datasource;
 
 import android.net.Uri;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.PriorityTaskManager;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
@@ -45,7 +46,7 @@ public final class PriorityDataSource implements DataSource {
 
     private final DataSource.Factory upstreamFactory;
     private final PriorityTaskManager priorityTaskManager;
-    private final int priority;
+    private final @C.Priority int priority;
 
     /**
      * Creates an instance.
@@ -54,11 +55,13 @@ public final class PriorityDataSource implements DataSource {
      *     DataSources} for {@link PriorityDataSource} instances created by the factory.
      * @param priorityTaskManager The {@link PriorityTaskManager} to which tasks using {@link
      *     PriorityDataSource} instances created by this factory will be registered.
-     * @param priority The priority of the tasks using {@link PriorityDataSource} instances created
-     *     by this factory.
+     * @param priority The {@link C.Priority} of the tasks using {@link PriorityDataSource}
+     *     instances created by this factory.
      */
     public Factory(
-        DataSource.Factory upstreamFactory, PriorityTaskManager priorityTaskManager, int priority) {
+        DataSource.Factory upstreamFactory,
+        PriorityTaskManager priorityTaskManager,
+        @C.Priority int priority) {
       this.upstreamFactory = upstreamFactory;
       this.priorityTaskManager = priorityTaskManager;
       this.priority = priority;
@@ -73,15 +76,15 @@ public final class PriorityDataSource implements DataSource {
 
   private final DataSource upstream;
   private final PriorityTaskManager priorityTaskManager;
-  private final int priority;
+  private final @C.Priority int priority;
 
   /**
    * @param upstream The upstream {@link DataSource}.
    * @param priorityTaskManager The priority manager to which the task is registered.
-   * @param priority The priority of the task.
+   * @param priority The {@link C.Priority} of the task.
    */
   public PriorityDataSource(
-      DataSource upstream, PriorityTaskManager priorityTaskManager, int priority) {
+      DataSource upstream, PriorityTaskManager priorityTaskManager, @C.Priority int priority) {
     this.upstream = Assertions.checkNotNull(upstream);
     this.priorityTaskManager = Assertions.checkNotNull(priorityTaskManager);
     this.priority = priority;

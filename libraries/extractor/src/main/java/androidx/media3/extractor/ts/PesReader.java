@@ -78,7 +78,7 @@ public final class PesReader implements TsPayloadReader {
   // TsPayloadReader implementation.
 
   @Override
-  public final void seek() {
+  public void seek() {
     state = STATE_FINDING_HEADER;
     bytesRead = 0;
     seenFirstDts = false;
@@ -86,7 +86,7 @@ public final class PesReader implements TsPayloadReader {
   }
 
   @Override
-  public final void consume(ParsableByteArray data, @Flags int flags) throws ParserException {
+  public void consume(ParsableByteArray data, @Flags int flags) throws ParserException {
     Assertions.checkStateNotNull(timestampAdjuster); // Asserts init has been called.
 
     if ((flags & FLAG_PAYLOAD_UNIT_START_INDICATOR) != 0) {
@@ -107,7 +107,8 @@ public final class PesReader implements TsPayloadReader {
             Log.w(TAG, "Unexpected start indicator: expected " + payloadSize + " more bytes");
           }
           // Either way, notify the reader that it has now finished.
-          reader.packetFinished();
+          boolean isEndOfInput = (data.limit() == 0);
+          reader.packetFinished(isEndOfInput);
           break;
         default:
           throw new IllegalStateException();
@@ -147,7 +148,8 @@ public final class PesReader implements TsPayloadReader {
           if (payloadSize != C.LENGTH_UNSET) {
             payloadSize -= readLength;
             if (payloadSize == 0) {
-              reader.packetFinished();
+              // There are bytes left in data, see above, so this is not the end of input
+              reader.packetFinished(/* isEndOfInput= */ false);
               setState(STATE_READING_HEADER);
             }
           }
@@ -156,6 +158,22 @@ public final class PesReader implements TsPayloadReader {
           throw new IllegalStateException();
       }
     }
+  }
+
+  /**
+   * Determines if the parser can consume a synthesized empty pusi.
+   *
+   * @param isModeHls {@code True} if operating in HLS (HTTP Live Streaming) mode, {@code false}
+   *     otherwise.
+   */
+  public boolean canConsumeSynthesizedEmptyPusi(boolean isModeHls) {
+    // Pusi only payload to trigger end of sample data is only applicable if
+    // pes does not have a length field and body is being read, another exclusion
+    // is due to H262 streams possibly having, in HLS mode, a pes across more than one segment
+    // which would trigger committing an unfinished sample in the middle of the access unit
+    return state == STATE_READING_BODY
+        && payloadSize == C.LENGTH_UNSET
+        && !(isModeHls && reader instanceof H262Reader);
   }
 
   private void setState(int state) {

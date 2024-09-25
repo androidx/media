@@ -21,7 +21,6 @@ import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.app.PendingIntent;
 import android.content.Context;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -49,21 +48,6 @@ public final class DownloadNotificationHelper {
   public DownloadNotificationHelper(Context context, String channelId) {
     this.notificationBuilder =
         new NotificationCompat.Builder(context.getApplicationContext(), channelId);
-  }
-
-  /**
-   * @deprecated Use {@link #buildProgressNotification(Context, int, PendingIntent, String, List,
-   *     int)}.
-   */
-  @Deprecated
-  public Notification buildProgressNotification(
-      Context context,
-      @DrawableRes int smallIcon,
-      @Nullable PendingIntent contentIntent,
-      @Nullable String message,
-      List<Download> downloads) {
-    return buildProgressNotification(
-        context, smallIcon, contentIntent, message, downloads, /* notMetRequirements= */ 0);
   }
 
   /**
@@ -111,7 +95,7 @@ public final class DownloadNotificationHelper {
           haveDownloadedBytes |= download.getBytesDownloaded() > 0;
           downloadTaskCount++;
           break;
-          // Terminal states aren't expected, but if we encounter them we do nothing.
+        // Terminal states aren't expected, but if we encounter them we do nothing.
         case Download.STATE_STOPPED:
         case Download.STATE_COMPLETED:
         case Download.STATE_FAILED:
@@ -252,7 +236,6 @@ public final class DownloadNotificationHelper {
   @RequiresApi(31)
   private static final class Api31 {
     @SuppressLint("WrongConstant") // TODO(b/254277605): remove lint suppression
-    @DoNotInline
     public static void setForegroundServiceBehavior(
         NotificationCompat.Builder notificationBuilder) {
       notificationBuilder.setForegroundServiceBehavior(FOREGROUND_SERVICE_IMMEDIATE);

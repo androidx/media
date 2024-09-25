@@ -24,12 +24,16 @@ import java.util.Collections;
 import java.util.PriorityQueue;
 
 /**
- * Allows tasks with associated priorities to control how they proceed relative to one another.
+ * Allows tasks with associated {@linkplain C.Priority priorities} to control how they proceed
+ * relative to one another.
  *
  * <p>A task should call {@link #add(int)} to register with the manager and {@link #remove(int)} to
  * unregister. A registered task will prevent tasks of lower priority from proceeding, and should
  * call {@link #proceed(int)}, {@link #proceedNonBlocking(int)} or {@link #proceedOrThrow(int)} each
  * time it wishes to check whether it is itself allowed to proceed.
+ *
+ * <p>It is recommended to use predefined {@linkplain C.Priority priorities} or priority values
+ * defined relative to those defaults.
  */
 @UnstableApi
 public final class PriorityTaskManager {
@@ -37,7 +41,7 @@ public final class PriorityTaskManager {
   /** Thrown when task attempts to proceed when another registered task has a higher priority. */
   public static class PriorityTooLowException extends IOException {
 
-    public PriorityTooLowException(int priority, int highestPriority) {
+    public PriorityTooLowException(@C.Priority int priority, @C.Priority int highestPriority) {
       super("Priority too low [priority=" + priority + ", highest=" + highestPriority + "]");
     }
   }
@@ -45,8 +49,8 @@ public final class PriorityTaskManager {
   private final Object lock = new Object();
 
   // Guarded by lock.
-  private final PriorityQueue<Integer> queue;
-  private int highestPriority;
+  private final PriorityQueue<@C.Priority Integer> queue;
+  private @C.Priority int highestPriority;
 
   public PriorityTaskManager() {
     queue = new PriorityQueue<>(10, Collections.reverseOrder());
@@ -56,9 +60,12 @@ public final class PriorityTaskManager {
   /**
    * Register a new task. The task must call {@link #remove(int)} when done.
    *
-   * @param priority The priority of the task. Larger values indicate higher priorities.
+   * <p>It is recommended to use predefined {@linkplain C.Priority priorities} or priority values
+   * defined relative to those defaults.
+   *
+   * @param priority The {@link C.Priority} of the task. Larger values indicate higher priorities.
    */
-  public void add(int priority) {
+  public void add(@C.Priority int priority) {
     synchronized (lock) {
       queue.add(priority);
       highestPriority = max(highestPriority, priority);
@@ -68,10 +75,10 @@ public final class PriorityTaskManager {
   /**
    * Blocks until the task is allowed to proceed.
    *
-   * @param priority The priority of the task.
+   * @param priority The {@link C.Priority} of the task.
    * @throws InterruptedException If the thread is interrupted.
    */
-  public void proceed(int priority) throws InterruptedException {
+  public void proceed(@C.Priority int priority) throws InterruptedException {
     synchronized (lock) {
       while (highestPriority != priority) {
         lock.wait();
@@ -82,10 +89,10 @@ public final class PriorityTaskManager {
   /**
    * A non-blocking variant of {@link #proceed(int)}.
    *
-   * @param priority The priority of the task.
+   * @param priority The {@link C.Priority} of the task.
    * @return Whether the task is allowed to proceed.
    */
-  public boolean proceedNonBlocking(int priority) {
+  public boolean proceedNonBlocking(@C.Priority int priority) {
     synchronized (lock) {
       return highestPriority == priority;
     }
@@ -94,10 +101,10 @@ public final class PriorityTaskManager {
   /**
    * A throwing variant of {@link #proceed(int)}.
    *
-   * @param priority The priority of the task.
+   * @param priority The {@link C.Priority} of the task.
    * @throws PriorityTooLowException If the task is not allowed to proceed.
    */
-  public void proceedOrThrow(int priority) throws PriorityTooLowException {
+  public void proceedOrThrow(@C.Priority int priority) throws PriorityTooLowException {
     synchronized (lock) {
       if (highestPriority != priority) {
         throw new PriorityTooLowException(priority, highestPriority);
@@ -108,9 +115,9 @@ public final class PriorityTaskManager {
   /**
    * Unregister a task.
    *
-   * @param priority The priority of the task.
+   * @param priority The {@link C.Priority} of the task.
    */
-  public void remove(int priority) {
+  public void remove(@C.Priority int priority) {
     synchronized (lock) {
       queue.remove(priority);
       highestPriority = queue.isEmpty() ? Integer.MIN_VALUE : Util.castNonNull(queue.peek());

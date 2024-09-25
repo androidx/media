@@ -15,10 +15,7 @@
  */
 package androidx.media3.exoplayer.rtsp;
 
-import androidx.media3.common.util.UnstableApi;
-
 /** Factory for {@link TransferRtpDataChannel}. */
-@UnstableApi
 /* package */ final class TransferRtpDataChannelFactory implements RtpDataChannel.Factory {
 
   private static final int INTERLEAVED_CHANNELS_PER_TRACK = 2;

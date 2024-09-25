@@ -22,9 +22,10 @@ import android.os.Parcelable;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Metadata;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
-import com.google.common.base.Charsets;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 /** A picture parsed from a Vorbis Comment or a FLAC picture block. */
@@ -33,18 +34,25 @@ public final class PictureFrame implements Metadata.Entry {
 
   /** The type of the picture. */
   public final int pictureType;
-  /** The mime type of the picture. */
+
+  /** The MIME type of the picture. */
   public final String mimeType;
+
   /** A description of the picture. */
   public final String description;
+
   /** The width of the picture in pixels. */
   public final int width;
+
   /** The height of the picture in pixels. */
   public final int height;
+
   /** The color depth of the picture in bits-per-pixel. */
   public final int depth;
+
   /** For indexed-color pictures (e.g. GIF), the number of colors used. 0 otherwise. */
   public final int colors;
+
   /** The encoded picture data. */
   public final byte[] pictureData;
 
@@ -152,7 +160,9 @@ public final class PictureFrame implements Metadata.Entry {
   public static PictureFrame fromPictureBlock(ParsableByteArray pictureBlock) {
     int pictureType = pictureBlock.readInt();
     int mimeTypeLength = pictureBlock.readInt();
-    String mimeType = pictureBlock.readString(mimeTypeLength, Charsets.US_ASCII);
+    String mimeType =
+        MimeTypes.normalizeMimeType(
+            pictureBlock.readString(mimeTypeLength, StandardCharsets.US_ASCII));
     int descriptionLength = pictureBlock.readInt();
     String description = pictureBlock.readString(descriptionLength);
     int width = pictureBlock.readInt();

@@ -15,6 +15,7 @@
  */
 package androidx.media3.decoder;
 
+import androidx.annotation.CallSuper;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 
@@ -25,13 +26,9 @@ public abstract class Buffer {
   private @C.BufferFlags int flags;
 
   /** Clears the buffer. */
+  @CallSuper
   public void clear() {
     flags = 0;
-  }
-
-  /** Returns whether the {@link C#BUFFER_FLAG_DECODE_ONLY} flag is set. */
-  public final boolean isDecodeOnly() {
-    return getFlag(C.BUFFER_FLAG_DECODE_ONLY);
   }
 
   /** Returns whether the {@link C#BUFFER_FLAG_FIRST_SAMPLE} flag is set. */
@@ -39,7 +36,11 @@ public abstract class Buffer {
     return getFlag(C.BUFFER_FLAG_FIRST_SAMPLE);
   }
 
-  /** Returns whether the {@link C#BUFFER_FLAG_END_OF_STREAM} flag is set. */
+  /**
+   * Returns whether the {@link C#BUFFER_FLAG_END_OF_STREAM} flag is set.
+   *
+   * <p>If this is set, all other attributes of the buffer should be ignored.
+   */
   public final boolean isEndOfStream() {
     return getFlag(C.BUFFER_FLAG_END_OF_STREAM);
   }
@@ -57,6 +58,11 @@ public abstract class Buffer {
   /** Returns whether the {@link C#BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA} flag is set. */
   public final boolean hasSupplementalData() {
     return getFlag(C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA);
+  }
+
+  /** Returns whether the {@link C#BUFFER_FLAG_NOT_DEPENDED_ON} flag is set. */
+  public final boolean notDependedOn() {
+    return getFlag(C.BUFFER_FLAG_NOT_DEPENDED_ON);
   }
 
   /**

@@ -37,7 +37,6 @@ import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.base.Ascii;
 import com.google.common.base.Joiner;
@@ -48,12 +47,12 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** Utility methods for RTSP messages. */
-@UnstableApi
 /* package */ final class RtspMessageUtil {
   /** Represents a RTSP Session header (RFC2326 Section 12.37). */
   public static final class RtspSessionHeader {
     /** The session ID. */
     public final String sessionId;
+
     /**
      * The session timeout, measured in milliseconds, {@link #DEFAULT_RTSP_TIMEOUT_MS} if not
      * specified in the Session header.
@@ -71,6 +70,7 @@ import java.util.regex.Pattern;
   public static final class RtspAuthUserInfo {
     /** The username. */
     public final String username;
+
     /** The password. */
     public final String password;
 
@@ -192,7 +192,7 @@ import java.util.regex.Pattern;
     }
 
     // The Uri must include a "@" if the user info is non-null.
-    String authorityWithUserInfo = checkNotNull(uri.getAuthority());
+    String authorityWithUserInfo = checkNotNull(uri.getEncodedAuthority());
     checkArgument(authorityWithUserInfo.contains("@"));
     String authority = Util.split(authorityWithUserInfo, "@")[1];
     return uri.buildUpon().encodedAuthority(authority).build();
@@ -283,7 +283,8 @@ import java.util.regex.Pattern;
       case "TEARDOWN":
         return METHOD_TEARDOWN;
       default:
-        throw new IllegalArgumentException();
+        // Return METHOD_UNSET for unknown Rtsp Request method.
+        return METHOD_UNSET;
     }
   }
 
@@ -386,7 +387,10 @@ import java.util.regex.Pattern;
 
     ImmutableList.Builder<Integer> methodListBuilder = new ImmutableList.Builder<>();
     for (String method : Util.split(publicHeader, ",\\s?")) {
-      methodListBuilder.add(parseMethodString(method));
+      @RtspRequest.Method int rtspRequestMethod = parseMethodString(method);
+      if (rtspRequestMethod != METHOD_UNSET) {
+        methodListBuilder.add(rtspRequestMethod);
+      }
     }
     return methodListBuilder.build();
   }

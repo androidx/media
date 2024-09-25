@@ -27,9 +27,9 @@ import androidx.media3.common.ParserException;
 import androidx.media3.exoplayer.hls.HlsTrackMetadataEntry;
 import androidx.media3.exoplayer.hls.playlist.HlsMultivariantPlaylist.Variant;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import com.google.common.base.Charsets;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -482,7 +482,7 @@ public class HlsMultivariantPlaylistParserTest {
       String uri, String playlistString) throws IOException {
     Uri playlistUri = Uri.parse(uri);
     ByteArrayInputStream inputStream =
-        new ByteArrayInputStream(playlistString.getBytes(Charsets.UTF_8));
+        new ByteArrayInputStream(playlistString.getBytes(StandardCharsets.UTF_8));
     return (HlsMultivariantPlaylist) new HlsPlaylistParser().parse(playlistUri, inputStream);
   }
 }

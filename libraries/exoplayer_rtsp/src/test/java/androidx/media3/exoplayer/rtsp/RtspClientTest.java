@@ -15,10 +15,12 @@
  */
 package androidx.media3.exoplayer.rtsp;
 
+import static androidx.media3.common.util.Assertions.checkArgument;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.net.Uri;
 import androidx.annotation.Nullable;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.rtsp.RtspClient.PlaybackEventListener;
 import androidx.media3.exoplayer.rtsp.RtspClient.SessionInfoListener;
@@ -167,6 +169,8 @@ public final class RtspClientTest {
 
       @Override
       public RtspResponse getDescribeResponse(Uri requestedUri, RtspHeaders headers) {
+        checkArgument(
+            headers.asMultiMap().containsEntry(RtspHeaders.ACCEPT, MimeTypes.APPLICATION_SDP));
         return RtspTestUtils.newDescribeResponseWithSdpMessage(
             SESSION_DESCRIPTION, rtpPacketStreamDumps, requestedUri);
       }

@@ -17,6 +17,8 @@ package androidx.media3.extractor;
 
 import static androidx.media3.common.FileTypes.inferFileTypeFromResponseHeaders;
 import static androidx.media3.common.FileTypes.inferFileTypeFromUri;
+import static androidx.media3.extractor.mp4.Mp4Extractor.FLAG_READ_MOTION_PHOTO_METADATA;
+import static androidx.media3.extractor.mp4.Mp4Extractor.FLAG_READ_SEF_DATA;
 
 import android.net.Uri;
 import androidx.annotation.GuardedBy;
@@ -29,14 +31,20 @@ import androidx.media3.common.util.TimestampAdjuster;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.amr.AmrExtractor;
 import androidx.media3.extractor.avi.AviExtractor;
+import androidx.media3.extractor.avif.AvifExtractor;
+import androidx.media3.extractor.bmp.BmpExtractor;
 import androidx.media3.extractor.flac.FlacExtractor;
 import androidx.media3.extractor.flv.FlvExtractor;
+import androidx.media3.extractor.heif.HeifExtractor;
 import androidx.media3.extractor.jpeg.JpegExtractor;
 import androidx.media3.extractor.mkv.MatroskaExtractor;
 import androidx.media3.extractor.mp3.Mp3Extractor;
 import androidx.media3.extractor.mp4.FragmentedMp4Extractor;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.ogg.OggExtractor;
+import androidx.media3.extractor.png.PngExtractor;
+import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
+import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.extractor.ts.Ac3Extractor;
 import androidx.media3.extractor.ts.Ac4Extractor;
 import androidx.media3.extractor.ts.AdtsExtractor;
@@ -45,6 +53,7 @@ import androidx.media3.extractor.ts.PsExtractor;
 import androidx.media3.extractor.ts.TsExtractor;
 import androidx.media3.extractor.ts.TsPayloadReader;
 import androidx.media3.extractor.wav.WavExtractor;
+import androidx.media3.extractor.webp.WebpExtractor;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.reflect.Constructor;
@@ -81,6 +90,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *             the FLAC extension or the FFmpeg extension.
  *       </ul>
  *   <li>JPEG ({@link JpegExtractor})
+ *   <li>PNG ({@link PngExtractor})
+ *   <li>WEBP ({@link WebpExtractor})
+ *   <li>BMP ({@link BmpExtractor})
+ *   <li>HEIF ({@link HeifExtractor})
+ *   <li>AVIF ({@link AvifExtractor})
  *   <li>MIDI, if available, the MIDI extension's {@code androidx.media3.decoder.midi.MidiExtractor}
  *       is used.
  * </ul>
@@ -112,6 +126,11 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
         FileTypes.AVI,
         FileTypes.MIDI,
         FileTypes.JPEG,
+        FileTypes.PNG,
+        FileTypes.WEBP,
+        FileTypes.BMP,
+        FileTypes.HEIF,
+        FileTypes.AVIF
       };
 
   private static final ExtensionLoader FLAC_EXTENSION_LOADER =
@@ -130,13 +149,18 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
   private @Mp3Extractor.Flags int mp3Flags;
   private @TsExtractor.Mode int tsMode;
   private @DefaultTsPayloadReaderFactory.Flags int tsFlags;
-  private ImmutableList<Format> tsSubtitleFormats;
+  // TODO (b/261183220): Initialize tsSubtitleFormats in constructor once shrinking bug is fixed.
+  @Nullable private ImmutableList<Format> tsSubtitleFormats;
   private int tsTimestampSearchBytes;
+  private boolean textTrackTranscodingEnabled;
+  private SubtitleParser.Factory subtitleParserFactory;
+  private @JpegExtractor.Flags int jpegFlags;
 
   public DefaultExtractorsFactory() {
     tsMode = TsExtractor.MODE_SINGLE_PMT;
     tsTimestampSearchBytes = TsExtractor.DEFAULT_TIMESTAMP_SEARCH_BYTES;
-    tsSubtitleFormats = ImmutableList.of();
+    subtitleParserFactory = new DefaultSubtitleParserFactory();
+    textTrackTranscodingEnabled = true;
   }
 
   /**
@@ -228,7 +252,7 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
   /**
    * Sets flags for {@link MatroskaExtractor} instances created by the factory.
    *
-   * @see MatroskaExtractor#MatroskaExtractor(int)
+   * @see MatroskaExtractor#MatroskaExtractor(SubtitleParser.Factory, int)
    * @param flags The flags to use.
    * @return The factory, for convenience.
    */
@@ -242,7 +266,7 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
   /**
    * Sets flags for {@link Mp4Extractor} instances created by the factory.
    *
-   * @see Mp4Extractor#Mp4Extractor(int)
+   * @see Mp4Extractor#Mp4Extractor(SubtitleParser.Factory, int)
    * @param flags The flags to use.
    * @return The factory, for convenience.
    */
@@ -255,7 +279,7 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
   /**
    * Sets flags for {@link FragmentedMp4Extractor} instances created by the factory.
    *
-   * @see FragmentedMp4Extractor#FragmentedMp4Extractor(int)
+   * @see FragmentedMp4Extractor#FragmentedMp4Extractor(SubtitleParser.Factory, int)
    * @param flags The flags to use.
    * @return The factory, for convenience.
    */
@@ -336,6 +360,47 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
     return this;
   }
 
+  /**
+   * @deprecated This method (and all support for 'legacy' subtitle decoding during rendering) will
+   *     be removed in a future release.
+   */
+  @Deprecated
+  @CanIgnoreReturnValue
+  public synchronized DefaultExtractorsFactory setTextTrackTranscodingEnabled(
+      boolean textTrackTranscodingEnabled) {
+    return experimentalSetTextTrackTranscodingEnabled(textTrackTranscodingEnabled);
+  }
+
+  @Deprecated
+  @Override
+  public synchronized DefaultExtractorsFactory experimentalSetTextTrackTranscodingEnabled(
+      boolean textTrackTranscodingEnabled) {
+    this.textTrackTranscodingEnabled = textTrackTranscodingEnabled;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  @Override
+  public synchronized DefaultExtractorsFactory setSubtitleParserFactory(
+      SubtitleParser.Factory subtitleParserFactory) {
+    this.subtitleParserFactory = subtitleParserFactory;
+    return this;
+  }
+
+  /**
+   * Sets flags for {@link JpegExtractor} instances created by the factory.
+   *
+   * @see JpegExtractor#JpegExtractor(int)
+   * @param flags The flags to use.
+   * @return The factory, for convenience.
+   */
+  @CanIgnoreReturnValue
+  public synchronized DefaultExtractorsFactory setJpegExtractorFlags(
+      @JpegExtractor.Flags int flags) {
+    this.jpegFlags = flags;
+    return this;
+  }
+
   @Override
   public synchronized Extractor[] createExtractors() {
     return createExtractors(Uri.EMPTY, new HashMap<>());
@@ -364,7 +429,6 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
         addExtractorsForFileType(fileType, extractors);
       }
     }
-
     return extractors.toArray(new Extractor[extractors.size()]);
   }
 
@@ -410,7 +474,13 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
         extractors.add(new FlvExtractor());
         break;
       case FileTypes.MATROSKA:
-        extractors.add(new MatroskaExtractor(matroskaFlags));
+        extractors.add(
+            new MatroskaExtractor(
+                subtitleParserFactory,
+                matroskaFlags
+                    | (textTrackTranscodingEnabled
+                        ? 0
+                        : MatroskaExtractor.FLAG_EMIT_RAW_SUBTITLE_DATA)));
         break;
       case FileTypes.MP3:
         extractors.add(
@@ -424,8 +494,20 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
                         : 0)));
         break;
       case FileTypes.MP4:
-        extractors.add(new FragmentedMp4Extractor(fragmentedMp4Flags));
-        extractors.add(new Mp4Extractor(mp4Flags));
+        extractors.add(
+            new FragmentedMp4Extractor(
+                subtitleParserFactory,
+                fragmentedMp4Flags
+                    | (textTrackTranscodingEnabled
+                        ? 0
+                        : FragmentedMp4Extractor.FLAG_EMIT_RAW_SUBTITLE_DATA)));
+        extractors.add(
+            new Mp4Extractor(
+                subtitleParserFactory,
+                mp4Flags
+                    | (textTrackTranscodingEnabled
+                        ? 0
+                        : Mp4Extractor.FLAG_EMIT_RAW_SUBTITLE_DATA)));
         break;
       case FileTypes.OGG:
         extractors.add(new OggExtractor());
@@ -434,9 +516,14 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
         extractors.add(new PsExtractor());
         break;
       case FileTypes.TS:
+        if (tsSubtitleFormats == null) {
+          tsSubtitleFormats = ImmutableList.of();
+        }
         extractors.add(
             new TsExtractor(
                 tsMode,
+                (textTrackTranscodingEnabled ? 0 : TsExtractor.FLAG_EMIT_RAW_SUBTITLE_DATA),
+                subtitleParserFactory,
                 new TimestampAdjuster(0),
                 new DefaultTsPayloadReaderFactory(tsFlags, tsSubtitleFormats),
                 tsTimestampSearchBytes));
@@ -445,7 +532,7 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
         extractors.add(new WavExtractor());
         break;
       case FileTypes.JPEG:
-        extractors.add(new JpegExtractor());
+        extractors.add(new JpegExtractor(jpegFlags));
         break;
       case FileTypes.MIDI:
         @Nullable Extractor midiExtractor = MIDI_EXTENSION_LOADER.getExtractor();
@@ -454,7 +541,28 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
         }
         break;
       case FileTypes.AVI:
-        extractors.add(new AviExtractor());
+        extractors.add(
+            new AviExtractor(
+                (textTrackTranscodingEnabled ? 0 : AviExtractor.FLAG_EMIT_RAW_SUBTITLE_DATA),
+                subtitleParserFactory));
+        break;
+      case FileTypes.PNG:
+        extractors.add(new PngExtractor());
+        break;
+      case FileTypes.WEBP:
+        extractors.add(new WebpExtractor());
+        break;
+      case FileTypes.BMP:
+        extractors.add(new BmpExtractor());
+        break;
+      case FileTypes.HEIF:
+        if ((mp4Flags & FLAG_READ_MOTION_PHOTO_METADATA) == 0
+            && (mp4Flags & FLAG_READ_SEF_DATA) == 0) {
+          extractors.add(new HeifExtractor());
+        }
+        break;
+      case FileTypes.AVIF:
+        extractors.add(new AvifExtractor());
         break;
       case FileTypes.WEBVTT:
       case FileTypes.UNKNOWN:
@@ -472,7 +580,9 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
 
   @Nullable
   private static Constructor<? extends Extractor> getFlacExtractorConstructor()
-      throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException,
+      throws ClassNotFoundException,
+          NoSuchMethodException,
+          InvocationTargetException,
           IllegalAccessException {
     @SuppressWarnings("nullness:argument")
     boolean isFlacNativeLibraryAvailable =
@@ -493,7 +603,9 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
     public interface ConstructorSupplier {
       @Nullable
       Constructor<? extends Extractor> getConstructor()
-          throws InvocationTargetException, IllegalAccessException, NoSuchMethodException,
+          throws InvocationTargetException,
+              IllegalAccessException,
+              NoSuchMethodException,
               ClassNotFoundException;
     }
 

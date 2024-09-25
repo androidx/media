@@ -15,19 +15,18 @@
  */
 package androidx.media3.datasource.cronet;
 
-import static com.google.common.truth.Truth.assertThat;
-
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.test.utils.DataSourceContractTest;
 import androidx.media3.test.utils.HttpDataSourceTestEnv;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.chromium.net.CronetEngine;
+import org.chromium.net.CronetProvider;
 import org.junit.After;
 import org.junit.Rule;
 import org.junit.runner.RunWith;
@@ -45,15 +44,20 @@ public class CronetDataSourceContractTest extends DataSourceContractTest {
   }
 
   @Override
-  protected DataSource createDataSource() {
-    @Nullable
-    CronetEngine cronetEngine =
-        CronetUtil.buildCronetEngine(
-            ApplicationProvider.getApplicationContext(),
-            /* userAgent= */ "test-agent",
-            /* preferGMSCoreCronet= */ false);
-    assertThat(cronetEngine).isNotNull();
-    return new CronetDataSource.Factory(cronetEngine, executorService).createDataSource();
+  protected List<DataSource> createDataSources() {
+    List<CronetProvider> cronetProviders =
+        CronetProvider.getAllProviders(ApplicationProvider.getApplicationContext());
+    ImmutableList.Builder<DataSource> dataSources = ImmutableList.builder();
+    for (int i = 0; i < cronetProviders.size(); i++) {
+      CronetProvider provider = cronetProviders.get(i);
+      if (!provider.isEnabled()) {
+        continue;
+      }
+      CronetEngine cronetEngine = provider.createBuilder().setUserAgent("test-agent").build();
+      dataSources.add(
+          new CronetDataSource.Factory(cronetEngine, executorService).createDataSource());
+    }
+    return dataSources.build();
   }
 
   @Override

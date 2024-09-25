@@ -25,10 +25,15 @@ import static androidx.media3.test.session.common.MediaBrowserConstants.ROOT_ID;
 import static androidx.media3.test.session.common.MediaBrowserConstants.ROOT_ID_SUPPORTS_BROWSABLE_CHILDREN_ONLY;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_CONNECT_REJECTED;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_CHILDREN;
+import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_CHILDREN_FATAL_AUTHENTICATION_ERROR;
+import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_CHILDREN_NON_FATAL_AUTHENTICATION_ERROR;
+import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_CHILDREN_WITH_NULL_LIST;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_LIBRARY_ROOT;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_ON_CHILDREN_CHANGED_SUBSCRIBE_AND_UNSUBSCRIBE;
+import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_SEND_CUSTOM_COMMAND;
 
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.RemoteException;
@@ -37,11 +42,12 @@ import android.support.v4.media.MediaBrowserCompat.MediaItem;
 import android.support.v4.media.MediaDescriptionCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.MediaSessionCompat.Callback;
+import android.support.v4.media.session.PlaybackStateCompat;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.media.MediaBrowserServiceCompat;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.test.session.common.IRemoteMediaBrowserServiceCompat;
+import androidx.media3.test.session.common.MediaBrowserConstants;
 import androidx.media3.test.session.common.MediaBrowserServiceCompatConstants;
 import com.google.common.collect.ImmutableList;
 import java.lang.reflect.Method;
@@ -49,7 +55,6 @@ import java.util.Collections;
 import java.util.List;
 
 /** Mock implementation of the media browser service. */
-@UnstableApi
 public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
 
   /**
@@ -82,7 +87,7 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
     sessionCompat.setActive(true);
     setSessionToken(sessionCompat.getSessionToken());
 
-    testBinder = new RemoteMediaBrowserServiceCompatStub();
+    testBinder = new RemoteMediaBrowserServiceCompatStub(sessionCompat);
   }
 
   @Override
@@ -237,6 +242,13 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
 
   private static class RemoteMediaBrowserServiceCompatStub
       extends IRemoteMediaBrowserServiceCompat.Stub {
+
+    private final MediaSessionCompat session;
+
+    public RemoteMediaBrowserServiceCompatStub(MediaSessionCompat sessionCompat) {
+      session = sessionCompat;
+    }
+
     @Override
     public void setProxyForTest(String testName) throws RemoteException {
       switch (testName) {
@@ -251,6 +263,18 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
           break;
         case TEST_GET_CHILDREN:
           setProxyForTestGetChildren_correctMetadataExtras();
+          break;
+        case TEST_GET_CHILDREN_WITH_NULL_LIST:
+          setProxyForTestOnChildrenChanged_withNullChildrenListInLegacyService_convertedToSessionError();
+          break;
+        case TEST_GET_CHILDREN_FATAL_AUTHENTICATION_ERROR:
+          getChildren_authenticationError_receivesPlaybackException(session, /* isFatal= */ true);
+          break;
+        case TEST_GET_CHILDREN_NON_FATAL_AUTHENTICATION_ERROR:
+          getChildren_authenticationError_receivesPlaybackException(session, /* isFatal= */ false);
+          break;
+        case TEST_SEND_CUSTOM_COMMAND:
+          setProxyForTestSendCustomCommand();
           break;
         default:
           throw new IllegalArgumentException("Unknown testName: " + testName);
@@ -296,6 +320,102 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
             public void onLoadChildren(
                 String parentId, Result<List<MediaItem>> result, Bundle bundle) {
               result.sendResult(MEDIA_ITEMS);
+            }
+          });
+    }
+
+    private void
+        setProxyForTestOnChildrenChanged_withNullChildrenListInLegacyService_convertedToSessionError() {
+      setMediaBrowserServiceProxy(
+          new MockMediaBrowserServiceCompat.Proxy() {
+            @Override
+            public void onLoadChildren(String parentId, Result<List<MediaItem>> result) {
+              onLoadChildren(parentId, result, new Bundle());
+            }
+
+            @Override
+            public void onLoadChildren(
+                String parentId, Result<List<MediaItem>> result, Bundle bundle) {
+              result.sendResult(null);
+            }
+          });
+    }
+
+    private void getChildren_authenticationError_receivesPlaybackException(
+        MediaSessionCompat session, boolean isFatal) {
+      setMediaBrowserServiceProxy(
+          new MockMediaBrowserServiceCompat.Proxy() {
+            @Override
+            public void onLoadChildren(String parentId, Result<List<MediaItem>> result) {
+              onLoadChildren(parentId, result, new Bundle());
+            }
+
+            @Override
+            public void onLoadChildren(
+                String parentId, Result<List<MediaItem>> result, Bundle bundle) {
+              result.sendResult(
+                  isFatal
+                      ? null
+                      : ImmutableList.of(
+                          new MediaItem(
+                              new MediaDescriptionCompat.Builder()
+                                  .setMediaUri(Uri.parse("http://www.example.com"))
+                                  .setMediaId("mediaId")
+                                  .build(),
+                              MediaItem.FLAG_PLAYABLE)));
+              session.setPlaybackState(
+                  new PlaybackStateCompat.Builder()
+                      .setState(
+                          isFatal
+                              ? PlaybackStateCompat.STATE_ERROR
+                              : PlaybackStateCompat.STATE_PLAYING,
+                          isFatal ? PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN : 123L,
+                          /* playbackSpeed= */ isFatal ? 0f : 1.0f)
+                      .setErrorMessage(
+                          PlaybackStateCompat.ERROR_CODE_AUTHENTICATION_EXPIRED,
+                          "authentication expired")
+                      .build());
+            }
+          });
+    }
+
+    private void setProxyForTestSendCustomCommand() {
+      setMediaBrowserServiceProxy(
+          new MockMediaBrowserServiceCompat.Proxy() {
+            @Override
+            public BrowserRoot onGetRoot(
+                String clientPackageName, int clientUid, Bundle rootHints) {
+              session.setPlaybackState(
+                  new PlaybackStateCompat.Builder()
+                      .setState(
+                          PlaybackStateCompat.STATE_PLAYING,
+                          /* position= */ 123L,
+                          /* playbackSpeed= */ 1.0f)
+                      .addCustomAction(
+                          new PlaybackStateCompat.CustomAction.Builder(
+                                  MediaBrowserConstants.COMMAND_ACTION_PLAYLIST_ADD,
+                                  "Add to playlist",
+                                  CommandButton.ICON_PLAYLIST_ADD)
+                              .build())
+                      .build());
+
+              return new BrowserRoot(ROOT_ID, Bundle.EMPTY);
+            }
+
+            @Override
+            public void onCustomAction(String action, Bundle extras, Result<Bundle> result) {
+              Bundle resultBundle = new Bundle();
+              if (action.equals(MediaBrowserConstants.COMMAND_ACTION_PLAYLIST_ADD)) {
+                if (extras.getBoolean("request_error", /* defaultValue= */ false)) {
+                  resultBundle.putString("key-1", "error-from-service");
+                  result.sendError(resultBundle);
+                } else {
+                  resultBundle.putString("key-1", "success-from-service");
+                  result.sendResult(resultBundle);
+                }
+              } else {
+                result.sendError(resultBundle);
+              }
             }
           });
     }

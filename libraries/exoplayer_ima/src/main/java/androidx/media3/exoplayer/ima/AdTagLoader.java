@@ -27,7 +27,6 @@ import static java.lang.Math.max;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
-import android.net.Uri;
 import android.os.Handler;
 import android.os.SystemClock;
 import android.view.ViewGroup;
@@ -37,6 +36,7 @@ import androidx.media3.common.AdOverlayInfo;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AdViewProvider;
 import androidx.media3.common.C;
+import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
@@ -103,11 +103,13 @@ import java.util.Map;
    * player buffers, in milliseconds.
    */
   private static final long THRESHOLD_END_OF_CONTENT_MS = 5000;
+
   /**
    * Threshold before the start of an ad at which IMA is expected to be able to preload the ad, in
    * milliseconds.
    */
   private static final long THRESHOLD_AD_PRELOAD_MS = 4000;
+
   /** The threshold below which ad cue points are treated as matching, in microseconds. */
   private static final long THRESHOLD_AD_MATCH_US = 1000;
 
@@ -120,11 +122,13 @@ import java.util.Map;
 
   /** The ad playback state when IMA is not playing an ad. */
   private static final int IMA_AD_STATE_NONE = 0;
+
   /**
    * The ad playback state when IMA has called {@link ComponentListener#playAd(AdMediaInfo)} and not
    * {@link ComponentListener##pauseAd(AdMediaInfo)}.
    */
   private static final int IMA_AD_STATE_PLAYING = 1;
+
   /**
    * The ad playback state when IMA has called {@link ComponentListener#pauseAd(AdMediaInfo)} while
    * playing an ad.
@@ -166,31 +170,42 @@ import java.util.Map;
 
   /** Whether IMA has sent an ad event to pause content since the last resume content event. */
   private boolean imaPausedContent;
+
   /** The current ad playback state. */
   private @ImaAdState int imaAdState;
+
   /** The current ad media info, or {@code null} if in state {@link #IMA_AD_STATE_NONE}. */
   @Nullable private AdMediaInfo imaAdMediaInfo;
+
   /** The current ad info, or {@code null} if in state {@link #IMA_AD_STATE_NONE}. */
   @Nullable private AdInfo imaAdInfo;
+
   /** Whether IMA has been notified that playback of content has finished. */
   private boolean sentContentComplete;
+
+  /** The MIME type of the ad pod that is next requested via an {@link AdEventType#LOADED} event. */
+  @Nullable private String pendingAdMimeType;
 
   // Fields tracking the player/loader state.
 
   /** Whether the player is playing an ad. */
   private boolean playingAd;
+
   /** Whether the player is buffering an ad. */
   private boolean bufferingAd;
+
   /**
    * If the player is playing an ad, stores the ad index in its ad group. {@link C#INDEX_UNSET}
    * otherwise.
    */
   private int playingAdIndexInAdGroup;
+
   /**
    * The ad info for a pending ad for which the media failed preparation, or {@code null} if no
    * pending ads have failed to prepare.
    */
   @Nullable private AdInfo pendingAdPrepareErrorAdInfo;
+
   /**
    * If a content period has finished but IMA has not yet called {@link
    * ComponentListener#playAd(AdMediaInfo)}, stores the value of {@link
@@ -198,18 +213,22 @@ import java.util.Map;
    * a fake, increasing content position. {@link C#TIME_UNSET} otherwise.
    */
   private long fakeContentProgressElapsedRealtimeMs;
+
   /**
    * If {@link #fakeContentProgressElapsedRealtimeMs} is set, stores the offset from which the
    * content progress should increase. {@link C#TIME_UNSET} otherwise.
    */
   private long fakeContentProgressOffsetMs;
+
   /** Stores the pending content position when a seek operation was intercepted to play an ad. */
   private long pendingContentPositionMs;
+
   /**
    * Whether {@link ComponentListener#getContentProgress()} has sent {@link
    * #pendingContentPositionMs} to IMA.
    */
   private boolean sentPendingContentPositionMs;
+
   /**
    * Stores the real time in milliseconds at which the player started buffering, possibly due to not
    * having preloaded an ad, or {@link C#TIME_UNSET} if not applicable.
@@ -387,7 +406,8 @@ import java.util.Map;
     lastAdProgress = getAdVideoProgressUpdate();
     lastContentProgress = getContentVideoProgressUpdate();
 
-    player.removeListener(this);
+    // Post release of listener so that we can report any already pending errors via onPlayerError.
+    handler.post(() -> player.removeListener(this));
     this.player = null;
   }
 
@@ -458,12 +478,12 @@ import java.util.Map;
 
   @Override
   public void onTimelineChanged(Timeline timeline, @Player.TimelineChangeReason int reason) {
-    if (timeline.isEmpty()) {
+    if (timeline.isEmpty() || player == null) {
       // The player is being reset or contains no media.
       return;
     }
+    Player player = this.player;
     this.timeline = timeline;
-    Player player = checkNotNull(this.player);
     long contentDurationUs = timeline.getPeriod(player.getCurrentPeriodIndex(), period).durationUs;
     contentDurationMs = Util.usToMs(contentDurationUs);
     if (contentDurationUs != adPlaybackState.contentDurationUs) {
@@ -759,6 +779,9 @@ import java.util.Map;
         String message = "AdEvent: " + adData;
         Log.i(TAG, message);
         break;
+      case LOADED:
+        pendingAdMimeType = adEvent.getAd().getContentType();
+        break;
       default:
         break;
     }
@@ -964,9 +987,14 @@ import java.util.Map;
       }
     }
 
-    Uri adUri = Uri.parse(adMediaInfo.getUrl());
+    MediaItem.Builder adMediaItem = new MediaItem.Builder().setUri(adMediaInfo.getUrl());
+    if (pendingAdMimeType != null) {
+      adMediaItem.setMimeType(pendingAdMimeType);
+      pendingAdMimeType = null;
+    }
     adPlaybackState =
-        adPlaybackState.withAvailableAdUri(adInfo.adGroupIndex, adInfo.adIndexInAdGroup, adUri);
+        adPlaybackState.withAvailableAdMediaItem(
+            adInfo.adGroupIndex, adInfo.adIndexInAdGroup, adMediaItem.build());
     updateAdPlaybackState();
   }
 

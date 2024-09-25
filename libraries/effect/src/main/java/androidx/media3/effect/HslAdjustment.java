@@ -19,13 +19,14 @@ package androidx.media3.effect;
 import static androidx.media3.common.util.Assertions.checkArgument;
 
 import android.content.Context;
-import androidx.media3.common.FrameProcessingException;
+import androidx.annotation.FloatRange;
+import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.UnstableApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 /** Adjusts the HSL (Hue, Saturation, and Lightness) of a frame. */
 @UnstableApi
-public class HslAdjustment implements GlEffect {
+public final class HslAdjustment implements GlEffect {
 
   /** A builder for {@code HslAdjustment} instances. */
   public static final class Builder {
@@ -63,7 +64,7 @@ public class HslAdjustment implements GlEffect {
      *     {@code 0}, which means no change is applied.
      */
     @CanIgnoreReturnValue
-    public Builder adjustSaturation(float saturationAdjustment) {
+    public Builder adjustSaturation(@FloatRange(from = -100, to = 100) float saturationAdjustment) {
       checkArgument(
           -100 <= saturationAdjustment && saturationAdjustment <= 100,
           "Can adjust the saturation by only 100 in either direction, but provided "
@@ -83,7 +84,7 @@ public class HslAdjustment implements GlEffect {
      *     {@code 0}, which means no change is applied.
      */
     @CanIgnoreReturnValue
-    public Builder adjustLightness(float lightnessAdjustment) {
+    public Builder adjustLightness(@FloatRange(from = -100, to = 100) float lightnessAdjustment) {
       checkArgument(
           -100 <= lightnessAdjustment && lightnessAdjustment <= 100,
           "Can adjust the lightness by only 100 in either direction, but provided "
@@ -100,8 +101,10 @@ public class HslAdjustment implements GlEffect {
 
   /** Indicates the hue adjustment in degrees. */
   public final float hueAdjustmentDegrees;
+
   /** Indicates the saturation adjustment. */
   public final float saturationAdjustment;
+
   /** Indicates the lightness adjustment. */
   public final float lightnessAdjustment;
 
@@ -113,8 +116,13 @@ public class HslAdjustment implements GlEffect {
   }
 
   @Override
-  public SingleFrameGlTextureProcessor toGlTextureProcessor(Context context, boolean useHdr)
-      throws FrameProcessingException {
-    return new HslProcessor(context, /* hslAdjustment= */ this, useHdr);
+  public BaseGlShaderProgram toGlShaderProgram(Context context, boolean useHdr)
+      throws VideoFrameProcessingException {
+    return new HslShaderProgram(context, /* hslAdjustment= */ this, useHdr);
+  }
+
+  @Override
+  public boolean isNoOp(int inputWidth, int inputHeight) {
+    return hueAdjustmentDegrees == 0f && saturationAdjustment == 0f && lightnessAdjustment == 0f;
   }
 }

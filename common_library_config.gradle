@@ -14,6 +14,8 @@
 apply from: "$gradle.ext.androidxMediaSettingsDir/constants.gradle"
 apply plugin: 'com.android.library'
 
+group = 'androidx.media3'
+
 android {
     compileSdkVersion project.ext.compileSdkVersion
 

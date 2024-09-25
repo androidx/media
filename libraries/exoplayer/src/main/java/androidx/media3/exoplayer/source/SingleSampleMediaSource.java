@@ -28,6 +28,8 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.TransferListener;
+import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.text.TextRenderer;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
@@ -35,9 +37,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 /**
- * Loads data at a given {@link Uri} as a single sample belonging to a single {@link MediaPeriod}.
+ * @deprecated The only use for this class is subtitle playback, but it is only compatible with
+ *     legacy subtitle decoding, which is not supported by default. Users of this class almost
+ *     certainly need to {@linkplain TextRenderer#experimentalSetLegacyDecodingEnabled(boolean)
+ *     enable legacy subtitle decoding} on their {@link ExoPlayer} instance in order to avoid
+ *     playback errors when trying to play subtitles.
  */
 @UnstableApi
+@Deprecated
 public final class SingleSampleMediaSource extends BaseMediaSource {
 
   /** Factory for {@link SingleSampleMediaSource}. */

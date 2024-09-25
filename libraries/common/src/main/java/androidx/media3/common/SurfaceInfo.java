@@ -27,16 +27,22 @@ public final class SurfaceInfo {
 
   /** The {@link Surface}. */
   public final Surface surface;
+
   /** The width of frames rendered to the {@link #surface}, in pixels. */
   public final int width;
+
   /** The height of frames rendered to the {@link #surface}, in pixels. */
   public final int height;
+
   /**
    * A counter-clockwise rotation to apply to frames before rendering them to the {@link #surface}.
    *
    * <p>Must be 0, 90, 180, or 270 degrees. Default is 0.
    */
   public final int orientationDegrees;
+
+  /** Whether the {@link #surface} is an encoder input surface. */
+  public final boolean isEncoderInputSurface;
 
   /** Creates a new instance. */
   public SurfaceInfo(Surface surface, int width, int height) {
@@ -45,6 +51,16 @@ public final class SurfaceInfo {
 
   /** Creates a new instance. */
   public SurfaceInfo(Surface surface, int width, int height, int orientationDegrees) {
+    this(surface, width, height, orientationDegrees, /* isEncoderInputSurface= */ false);
+  }
+
+  /** Creates a new instance. */
+  public SurfaceInfo(
+      Surface surface,
+      int width,
+      int height,
+      int orientationDegrees,
+      boolean isEncoderInputSurface) {
     checkArgument(
         orientationDegrees == 0
             || orientationDegrees == 90
@@ -55,6 +71,7 @@ public final class SurfaceInfo {
     this.width = width;
     this.height = height;
     this.orientationDegrees = orientationDegrees;
+    this.isEncoderInputSurface = isEncoderInputSurface;
   }
 
   @Override
@@ -69,6 +86,7 @@ public final class SurfaceInfo {
     return width == that.width
         && height == that.height
         && orientationDegrees == that.orientationDegrees
+        && isEncoderInputSurface == that.isEncoderInputSurface
         && surface.equals(that.surface);
   }
 
@@ -78,6 +96,7 @@ public final class SurfaceInfo {
     result = 31 * result + width;
     result = 31 * result + height;
     result = 31 * result + orientationDegrees;
+    result = 31 * result + (isEncoderInputSurface ? 1 : 0);
     return result;
   }
 }

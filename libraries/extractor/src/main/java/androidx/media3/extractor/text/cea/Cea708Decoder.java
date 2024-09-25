@@ -147,6 +147,7 @@ public final class Cea708Decoder extends CeaDecoder {
   private final ParsableByteArray ccData;
   private final ParsableBitArray captionChannelPacketData;
   private int previousSequenceNumber;
+
   // TODO: Use isWideAspectRatio in decoding.
   @SuppressWarnings({"unused", "FieldCanBeLocal"})
   private final boolean isWideAspectRatio;
@@ -161,6 +162,14 @@ public final class Cea708Decoder extends CeaDecoder {
   @Nullable private DtvCcPacket currentDtvCcPacket;
   private int currentWindow;
 
+  /**
+   * Constructs an instance.
+   *
+   * @param accessibilityChannel The accessibility channel, or {@link Format#NO_VALUE} if unknown.
+   * @param initializationData Optional initialization data for the decoder. If present, it must
+   *     conform to the structure created by {@link
+   *     CodecSpecificDataUtil#buildCea708InitializationData}.
+   */
   public Cea708Decoder(int accessibilityChannel, @Nullable List<byte[]> initializationData) {
     ccData = new ParsableByteArray();
     captionChannelPacketData = new ParsableBitArray();
@@ -769,8 +778,9 @@ public final class Cea708Decoder extends CeaDecoder {
     // first byte
     captionChannelPacketData.skipBits(2); // null padding
     boolean visible = captionChannelPacketData.readBit();
-    boolean rowLock = captionChannelPacketData.readBit();
-    boolean columnLock = captionChannelPacketData.readBit();
+    // ANSI/CTA-708-E S-2023 spec (Section 8.4.7) indicates that rowLock and columnLock values in
+    // the media should be ignored and assumed to be true.
+    captionChannelPacketData.skipBits(2);
     int priority = captionChannelPacketData.readBits(3);
     // second byte
     boolean relativePositioning = captionChannelPacketData.readBit();
@@ -782,7 +792,8 @@ public final class Cea708Decoder extends CeaDecoder {
     int rowCount = captionChannelPacketData.readBits(4);
     // fifth byte
     captionChannelPacketData.skipBits(2); // null padding
-    int columnCount = captionChannelPacketData.readBits(6);
+    // TODO: Add support for column count.
+    captionChannelPacketData.skipBits(6); // column count
     // sixth byte
     captionChannelPacketData.skipBits(2); // null padding
     int windowStyle = captionChannelPacketData.readBits(3);
@@ -790,14 +801,11 @@ public final class Cea708Decoder extends CeaDecoder {
 
     cueInfoBuilder.defineWindow(
         visible,
-        rowLock,
-        columnLock,
         priority,
         relativePositioning,
         verticalAnchor,
         horizontalAnchor,
         rowCount,
-        columnCount,
         anchorId,
         windowStyle,
         penStyle);
@@ -958,7 +966,6 @@ public final class Cea708Decoder extends CeaDecoder {
     private int horizontalAnchor;
     private int anchorId;
     private int rowCount;
-    private boolean rowLock;
     private int justification;
     private int windowStyleId;
     private int penStyleId;
@@ -994,7 +1001,6 @@ public final class Cea708Decoder extends CeaDecoder {
       horizontalAnchor = 0;
       anchorId = 0;
       rowCount = MAXIMUM_ROW_COUNT;
-      rowLock = true;
       justification = JUSTIFICATION_LEFT;
       windowStyleId = 0;
       penStyleId = 0;
@@ -1007,10 +1013,10 @@ public final class Cea708Decoder extends CeaDecoder {
     public void clear() {
       rolledUpCaptions.clear();
       captionStringBuilder.clear();
-      italicsStartPosition = C.POSITION_UNSET;
-      underlineStartPosition = C.POSITION_UNSET;
-      foregroundColorStartPosition = C.POSITION_UNSET;
-      backgroundColorStartPosition = C.POSITION_UNSET;
+      italicsStartPosition = C.INDEX_UNSET;
+      underlineStartPosition = C.INDEX_UNSET;
+      foregroundColorStartPosition = C.INDEX_UNSET;
+      backgroundColorStartPosition = C.INDEX_UNSET;
       row = 0;
     }
 
@@ -1028,20 +1034,16 @@ public final class Cea708Decoder extends CeaDecoder {
 
     public void defineWindow(
         boolean visible,
-        boolean rowLock,
-        boolean columnLock,
         int priority,
         boolean relativePositioning,
         int verticalAnchor,
         int horizontalAnchor,
         int rowCount,
-        int columnCount,
         int anchorId,
         int windowStyleId,
         int penStyleId) {
       this.defined = true;
       this.visible = visible;
-      this.rowLock = rowLock;
       this.priority = priority;
       this.relativePositioning = relativePositioning;
       this.verticalAnchor = verticalAnchor;
@@ -1053,13 +1055,11 @@ public final class Cea708Decoder extends CeaDecoder {
         this.rowCount = rowCount + 1;
 
         // Trim any rolled up captions that are no longer valid, if applicable.
-        while ((rowLock && (rolledUpCaptions.size() >= this.rowCount))
-            || (rolledUpCaptions.size() >= MAXIMUM_ROW_COUNT)) {
+        while (rolledUpCaptions.size() >= this.rowCount
+            || rolledUpCaptions.size() >= MAXIMUM_ROW_COUNT) {
           rolledUpCaptions.remove(0);
         }
       }
-
-      // TODO: Add support for column lock and count.
 
       if (windowStyleId != 0 && this.windowStyleId != windowStyleId) {
         this.windowStyleId = windowStyleId;
@@ -1122,27 +1122,27 @@ public final class Cea708Decoder extends CeaDecoder {
       // TODO: Add support for other offsets.
       // TODO: Add support for other pen sizes.
 
-      if (italicsStartPosition != C.POSITION_UNSET) {
+      if (italicsStartPosition != C.INDEX_UNSET) {
         if (!italicsToggle) {
           captionStringBuilder.setSpan(
               new StyleSpan(Typeface.ITALIC),
               italicsStartPosition,
               captionStringBuilder.length(),
               Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-          italicsStartPosition = C.POSITION_UNSET;
+          italicsStartPosition = C.INDEX_UNSET;
         }
       } else if (italicsToggle) {
         italicsStartPosition = captionStringBuilder.length();
       }
 
-      if (underlineStartPosition != C.POSITION_UNSET) {
+      if (underlineStartPosition != C.INDEX_UNSET) {
         if (!underlineToggle) {
           captionStringBuilder.setSpan(
               new UnderlineSpan(),
               underlineStartPosition,
               captionStringBuilder.length(),
               Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-          underlineStartPosition = C.POSITION_UNSET;
+          underlineStartPosition = C.INDEX_UNSET;
         }
       } else if (underlineToggle) {
         underlineStartPosition = captionStringBuilder.length();
@@ -1153,7 +1153,7 @@ public final class Cea708Decoder extends CeaDecoder {
     }
 
     public void setPenColor(int foregroundColor, int backgroundColor, int edgeColor) {
-      if (foregroundColorStartPosition != C.POSITION_UNSET) {
+      if (foregroundColorStartPosition != C.INDEX_UNSET) {
         if (this.foregroundColor != foregroundColor) {
           captionStringBuilder.setSpan(
               new ForegroundColorSpan(this.foregroundColor),
@@ -1167,7 +1167,7 @@ public final class Cea708Decoder extends CeaDecoder {
         this.foregroundColor = foregroundColor;
       }
 
-      if (backgroundColorStartPosition != C.POSITION_UNSET) {
+      if (backgroundColorStartPosition != C.INDEX_UNSET) {
         if (this.backgroundColor != backgroundColor) {
           captionStringBuilder.setSpan(
               new BackgroundColorSpan(this.backgroundColor),
@@ -1209,23 +1209,25 @@ public final class Cea708Decoder extends CeaDecoder {
         rolledUpCaptions.add(buildSpannableString());
         captionStringBuilder.clear();
 
-        if (italicsStartPosition != C.POSITION_UNSET) {
+        if (italicsStartPosition != C.INDEX_UNSET) {
           italicsStartPosition = 0;
         }
-        if (underlineStartPosition != C.POSITION_UNSET) {
+        if (underlineStartPosition != C.INDEX_UNSET) {
           underlineStartPosition = 0;
         }
-        if (foregroundColorStartPosition != C.POSITION_UNSET) {
+        if (foregroundColorStartPosition != C.INDEX_UNSET) {
           foregroundColorStartPosition = 0;
         }
-        if (backgroundColorStartPosition != C.POSITION_UNSET) {
+        if (backgroundColorStartPosition != C.INDEX_UNSET) {
           backgroundColorStartPosition = 0;
         }
 
-        while ((rowLock && (rolledUpCaptions.size() >= rowCount))
-            || (rolledUpCaptions.size() >= MAXIMUM_ROW_COUNT)) {
+        while (rolledUpCaptions.size() >= rowCount
+            || rolledUpCaptions.size() >= MAXIMUM_ROW_COUNT) {
           rolledUpCaptions.remove(0);
         }
+        // update row value after newline
+        row = rolledUpCaptions.size();
       } else {
         captionStringBuilder.append(text);
       }
@@ -1237,7 +1239,7 @@ public final class Cea708Decoder extends CeaDecoder {
       int length = spannableStringBuilder.length();
 
       if (length > 0) {
-        if (italicsStartPosition != C.POSITION_UNSET) {
+        if (italicsStartPosition != C.INDEX_UNSET) {
           spannableStringBuilder.setSpan(
               new StyleSpan(Typeface.ITALIC),
               italicsStartPosition,
@@ -1245,7 +1247,7 @@ public final class Cea708Decoder extends CeaDecoder {
               Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         }
 
-        if (underlineStartPosition != C.POSITION_UNSET) {
+        if (underlineStartPosition != C.INDEX_UNSET) {
           spannableStringBuilder.setSpan(
               new UnderlineSpan(),
               underlineStartPosition,
@@ -1253,7 +1255,7 @@ public final class Cea708Decoder extends CeaDecoder {
               Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         }
 
-        if (foregroundColorStartPosition != C.POSITION_UNSET) {
+        if (foregroundColorStartPosition != C.INDEX_UNSET) {
           spannableStringBuilder.setSpan(
               new ForegroundColorSpan(foregroundColor),
               foregroundColorStartPosition,
@@ -1261,7 +1263,7 @@ public final class Cea708Decoder extends CeaDecoder {
               Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         }
 
-        if (backgroundColorStartPosition != C.POSITION_UNSET) {
+        if (backgroundColorStartPosition != C.INDEX_UNSET) {
           spannableStringBuilder.setSpan(
               new BackgroundColorSpan(backgroundColor),
               backgroundColorStartPosition,
@@ -1295,7 +1297,7 @@ public final class Cea708Decoder extends CeaDecoder {
       Alignment alignment;
       switch (justification) {
         case JUSTIFICATION_FULL:
-          // TODO: Add support for full justification.
+        // TODO: Add support for full justification.
         case JUSTIFICATION_LEFT:
           alignment = Alignment.ALIGN_NORMAL;
           break;

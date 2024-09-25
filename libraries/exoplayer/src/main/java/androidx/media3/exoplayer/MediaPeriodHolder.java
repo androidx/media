@@ -15,14 +15,16 @@
  */
 package androidx.media3.exoplayer;
 
+import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.exoplayer.MediaPeriodQueue.areDurationsCompatible;
 import static java.lang.Math.max;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.exoplayer.source.ClippingMediaPeriod;
 import androidx.media3.exoplayer.source.EmptySampleStream;
 import androidx.media3.exoplayer.source.MediaPeriod;
@@ -33,7 +35,7 @@ import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.trackselection.TrackSelector;
 import androidx.media3.exoplayer.trackselection.TrackSelectorResult;
 import androidx.media3.exoplayer.upstream.Allocator;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
+import java.io.IOException;
 
 /** Holds a {@link MediaPeriod} with information required to play it as part of a timeline. */
 /* package */ final class MediaPeriodHolder {
@@ -42,26 +44,37 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
 
   /** The {@link MediaPeriod} wrapped by this class. */
   public final MediaPeriod mediaPeriod;
+
   /** The unique timeline period identifier the media period belongs to. */
   public final Object uid;
+
   /**
    * The sample streams for each renderer associated with this period. May contain null elements.
    */
   public final @NullableType SampleStream[] sampleStreams;
 
+  /** The target buffer duration to preload. */
+  public final long targetPreloadBufferDurationUs;
+
+  /** Whether {@link #prepare(MediaPeriod.Callback, long)} has been called. */
+  public boolean prepareCalled;
+
   /** Whether the media period has finished preparing. */
   public boolean prepared;
+
   /** Whether any of the tracks of this media period are enabled. */
   public boolean hasEnabledTracks;
+
   /** {@link MediaPeriodInfo} about this media period. */
   public MediaPeriodInfo info;
+
   /**
    * Whether all renderers are in the correct state for this {@link #mediaPeriod}.
    *
    * <p>Renderers that are needed must have been enabled with the {@link #sampleStreams} for this
    * {@link #mediaPeriod}. This means either {@link Renderer#enable(RendererConfiguration, Format[],
-   * SampleStream, long, boolean, boolean, long, long)} or {@link Renderer#replaceStream(Format[],
-   * SampleStream, long, long)} has been called.
+   * SampleStream, long, boolean, boolean, long, long, MediaPeriodId)} or {@link
+   * Renderer#replaceStream(Format[], SampleStream, long, long, MediaPeriodId)} has been called.
    *
    * <p>Renderers that are not needed must have been {@link Renderer#disable() disabled}.
    */
@@ -96,13 +109,15 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
       Allocator allocator,
       MediaSourceList mediaSourceList,
       MediaPeriodInfo info,
-      TrackSelectorResult emptyTrackSelectorResult) {
+      TrackSelectorResult emptyTrackSelectorResult,
+      long targetPreloadBufferDurationUs) {
     this.rendererCapabilities = rendererCapabilities;
     this.rendererPositionOffsetUs = rendererPositionOffsetUs;
     this.trackSelector = trackSelector;
     this.mediaSourceList = mediaSourceList;
     this.uid = info.id.periodUid;
     this.info = info;
+    this.targetPreloadBufferDurationUs = targetPreloadBufferDurationUs;
     this.trackGroups = TrackGroupArray.EMPTY;
     this.trackSelectorResult = emptyTrackSelectorResult;
     sampleStreams = new SampleStream[rendererCapabilities.length];
@@ -151,6 +166,13 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
   public boolean isFullyBuffered() {
     return prepared
         && (!hasEnabledTracks || mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE);
+  }
+
+  /** Returns whether the period is fully preloaded. */
+  public boolean isFullyPreloaded() {
+    return prepared
+        && (isFullyBuffered()
+            || getBufferedPositionUs() - info.startPositionUs >= targetPreloadBufferDurationUs);
   }
 
   /**
@@ -206,7 +228,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
    * @param rendererPositionUs The playing position in renderer time, in microseconds.
    */
   public void reevaluateBuffer(long rendererPositionUs) {
-    Assertions.checkState(isLoadingMediaPeriod());
+    checkState(isLoadingMediaPeriod());
     if (prepared) {
       mediaPeriod.reevaluateBuffer(toPeriodTime(rendererPositionUs));
     }
@@ -217,11 +239,21 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
    * this is the loading media period.
    *
    * @param rendererPositionUs The load position in renderer time, in microseconds.
+   * @param playbackSpeed The playback speed indicating the current rate of playback.
+   * @param lastRebufferRealtimeMs The time at which the last rebuffering occurred, in milliseconds
+   *     since boot including time spent in sleep. The time base used is the same as that measured
+   *     by {@link android.os.SystemClock#elapsedRealtime}.
    */
-  public void continueLoading(long rendererPositionUs) {
-    Assertions.checkState(isLoadingMediaPeriod());
+  public void continueLoading(
+      long rendererPositionUs, float playbackSpeed, long lastRebufferRealtimeMs) {
+    checkState(isLoadingMediaPeriod());
     long loadingPeriodPositionUs = toPeriodTime(rendererPositionUs);
-    mediaPeriod.continueLoading(loadingPeriodPositionUs);
+    mediaPeriod.continueLoading(
+        new LoadingInfo.Builder()
+            .setPlaybackPositionUs(loadingPeriodPositionUs)
+            .setPlaybackSpeed(playbackSpeed)
+            .setLastRebufferRealtimeMs(lastRebufferRealtimeMs)
+            .build());
   }
 
   /**
@@ -239,6 +271,15 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
       throws ExoPlaybackException {
     TrackSelectorResult selectorResult =
         trackSelector.selectTracks(rendererCapabilities, getTrackGroups(), info.id, timeline);
+    for (int i = 0; i < selectorResult.length; i++) {
+      if (selectorResult.isRendererEnabled(i)) {
+        checkState(
+            selectorResult.selections[i] != null
+                || rendererCapabilities[i].getTrackType() == C.TRACK_TYPE_NONE);
+      } else {
+        checkState(selectorResult.selections[i] == null);
+      }
+    }
     for (ExoTrackSelection trackSelection : selectorResult.selections) {
       if (trackSelection != null) {
         trackSelection.onPlaybackSpeed(playbackSpeed);
@@ -308,13 +349,13 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     hasEnabledTracks = false;
     for (int i = 0; i < sampleStreams.length; i++) {
       if (sampleStreams[i] != null) {
-        Assertions.checkState(newTrackSelectorResult.isRendererEnabled(i));
+        checkState(newTrackSelectorResult.isRendererEnabled(i));
         // hasEnabledTracks should be true only when non-empty streams exists.
         if (rendererCapabilities[i].getTrackType() != C.TRACK_TYPE_NONE) {
           hasEnabledTracks = true;
         }
       } else {
-        Assertions.checkState(newTrackSelectorResult.selections[i] == null);
+        checkState(newTrackSelectorResult.selections[i] == null);
       }
     }
     return positionUs;
@@ -367,6 +408,27 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
           info.endPositionUs == C.TIME_UNSET ? C.TIME_END_OF_SOURCE : info.endPositionUs;
       ((ClippingMediaPeriod) mediaPeriod).updateClipping(/* startUs= */ 0, endPositionUs);
     }
+  }
+
+  /**
+   * Returns whether the media period has encountered an error that prevents it from being prepared
+   * or reading data.
+   */
+  public boolean hasLoadingError() {
+    try {
+      if (!prepared) {
+        mediaPeriod.maybeThrowPrepareError();
+      } else {
+        for (SampleStream sampleStream : sampleStreams) {
+          if (sampleStream != null) {
+            sampleStream.maybeThrowError();
+          }
+        }
+      }
+    } catch (IOException e) {
+      return true;
+    }
+    return false;
   }
 
   private void enableTrackSelectionsInResult() {
@@ -454,5 +516,20 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
       // There's nothing we can do.
       Log.e(TAG, "Period release failed.", e);
     }
+  }
+
+  public boolean canBeUsedForMediaPeriodInfo(MediaPeriodInfo info) {
+    return areDurationsCompatible(this.info.durationUs, info.durationUs)
+        && this.info.startPositionUs == info.startPositionUs
+        && this.info.id.equals(info.id);
+  }
+
+  public void prepare(MediaPeriod.Callback callback, long startPositionUs) {
+    prepareCalled = true;
+    mediaPeriod.prepare(callback, startPositionUs);
+  }
+
+  /* package */ interface Factory {
+    MediaPeriodHolder create(MediaPeriodInfo info, long rendererPositionOffsetUs);
   }
 }

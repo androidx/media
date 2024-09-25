@@ -18,12 +18,13 @@ package androidx.media3.common.util;
 import static androidx.media3.test.utils.TestUtil.createByteArray;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.Charset.forName;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import com.google.common.base.Charsets;
 import com.google.common.primitives.Bytes;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -598,69 +599,69 @@ public final class ParsableByteArrayTest {
 
   @Test
   public void readSingleLineWithoutEndingTrail_ascii() {
-    byte[] bytes = "foo".getBytes(Charsets.US_ASCII);
+    byte[] bytes = "foo".getBytes(StandardCharsets.US_ASCII);
     ParsableByteArray parser = new ParsableByteArray(bytes);
 
-    assertThat(parser.readLine(Charsets.US_ASCII)).isEqualTo("foo");
+    assertThat(parser.readLine(StandardCharsets.US_ASCII)).isEqualTo("foo");
     assertThat(parser.getPosition()).isEqualTo(3);
-    assertThat(parser.readLine(Charsets.US_ASCII)).isNull();
+    assertThat(parser.readLine(StandardCharsets.US_ASCII)).isNull();
   }
 
   @Test
   public void readSingleLineWithEndingLf_ascii() {
-    byte[] bytes = "foo\n".getBytes(Charsets.US_ASCII);
+    byte[] bytes = "foo\n".getBytes(StandardCharsets.US_ASCII);
     ParsableByteArray parser = new ParsableByteArray(bytes);
 
-    assertThat(parser.readLine(Charsets.US_ASCII)).isEqualTo("foo");
+    assertThat(parser.readLine(StandardCharsets.US_ASCII)).isEqualTo("foo");
     assertThat(parser.getPosition()).isEqualTo(4);
-    assertThat(parser.readLine(Charsets.US_ASCII)).isNull();
+    assertThat(parser.readLine(StandardCharsets.US_ASCII)).isNull();
   }
 
   @Test
   public void readTwoLinesWithCrFollowedByLf_ascii() {
-    byte[] bytes = "foo\r\nbar".getBytes(Charsets.US_ASCII);
+    byte[] bytes = "foo\r\nbar".getBytes(StandardCharsets.US_ASCII);
     ParsableByteArray parser = new ParsableByteArray(bytes);
 
-    assertThat(parser.readLine(Charsets.US_ASCII)).isEqualTo("foo");
+    assertThat(parser.readLine(StandardCharsets.US_ASCII)).isEqualTo("foo");
     assertThat(parser.getPosition()).isEqualTo(5);
-    assertThat(parser.readLine(Charsets.US_ASCII)).isEqualTo("bar");
+    assertThat(parser.readLine(StandardCharsets.US_ASCII)).isEqualTo("bar");
     assertThat(parser.getPosition()).isEqualTo(8);
-    assertThat(parser.readLine(Charsets.US_ASCII)).isNull();
+    assertThat(parser.readLine(StandardCharsets.US_ASCII)).isNull();
   }
 
   @Test
   public void readThreeLinesWithEmptyLine_ascii() {
-    byte[] bytes = "foo\r\n\rbar".getBytes(Charsets.US_ASCII);
+    byte[] bytes = "foo\r\n\rbar".getBytes(StandardCharsets.US_ASCII);
     ParsableByteArray parser = new ParsableByteArray(bytes);
 
-    assertThat(parser.readLine(Charsets.US_ASCII)).isEqualTo("foo");
+    assertThat(parser.readLine(StandardCharsets.US_ASCII)).isEqualTo("foo");
     assertThat(parser.getPosition()).isEqualTo(5);
-    assertThat(parser.readLine(Charsets.US_ASCII)).isEqualTo("");
+    assertThat(parser.readLine(StandardCharsets.US_ASCII)).isEqualTo("");
     assertThat(parser.getPosition()).isEqualTo(6);
-    assertThat(parser.readLine(Charsets.US_ASCII)).isEqualTo("bar");
+    assertThat(parser.readLine(StandardCharsets.US_ASCII)).isEqualTo("bar");
     assertThat(parser.getPosition()).isEqualTo(9);
-    assertThat(parser.readLine(Charsets.US_ASCII)).isNull();
+    assertThat(parser.readLine(StandardCharsets.US_ASCII)).isNull();
   }
 
   @Test
   public void readFourLinesWithLfFollowedByCr_ascii() {
-    byte[] bytes = "foo\n\r\rbar\r\n".getBytes(Charsets.US_ASCII);
+    byte[] bytes = "foo\n\r\rbar\r\n".getBytes(StandardCharsets.US_ASCII);
     ParsableByteArray parser = new ParsableByteArray(bytes);
 
-    assertThat(parser.readLine(Charsets.US_ASCII)).isEqualTo("foo");
+    assertThat(parser.readLine(StandardCharsets.US_ASCII)).isEqualTo("foo");
     assertThat(parser.getPosition()).isEqualTo(4);
-    assertThat(parser.readLine(Charsets.US_ASCII)).isEqualTo("");
+    assertThat(parser.readLine(StandardCharsets.US_ASCII)).isEqualTo("");
     assertThat(parser.getPosition()).isEqualTo(5);
-    assertThat(parser.readLine(Charsets.US_ASCII)).isEqualTo("");
+    assertThat(parser.readLine(StandardCharsets.US_ASCII)).isEqualTo("");
     assertThat(parser.getPosition()).isEqualTo(6);
-    assertThat(parser.readLine(Charsets.US_ASCII)).isEqualTo("bar");
+    assertThat(parser.readLine(StandardCharsets.US_ASCII)).isEqualTo("bar");
     assertThat(parser.getPosition()).isEqualTo(11);
-    assertThat(parser.readLine(Charsets.US_ASCII)).isNull();
+    assertThat(parser.readLine(StandardCharsets.US_ASCII)).isNull();
   }
 
   @Test
   public void readSingleLineWithoutEndingTrail_utf8() {
-    byte[] bytes = "foo".getBytes(Charsets.UTF_8);
+    byte[] bytes = "foo".getBytes(StandardCharsets.UTF_8);
     ParsableByteArray parser = new ParsableByteArray(bytes);
 
     assertThat(parser.readLine()).isEqualTo("foo");
@@ -670,7 +671,7 @@ public final class ParsableByteArrayTest {
 
   @Test
   public void readSingleLineWithEndingLf_utf8() {
-    byte[] bytes = "foo\n".getBytes(Charsets.UTF_8);
+    byte[] bytes = "foo\n".getBytes(StandardCharsets.UTF_8);
     ParsableByteArray parser = new ParsableByteArray(bytes);
 
     assertThat(parser.readLine()).isEqualTo("foo");
@@ -680,7 +681,7 @@ public final class ParsableByteArrayTest {
 
   @Test
   public void readTwoLinesWithCrFollowedByLf_utf8() {
-    byte[] bytes = "foo\r\nbar".getBytes(Charsets.UTF_8);
+    byte[] bytes = "foo\r\nbar".getBytes(StandardCharsets.UTF_8);
     ParsableByteArray parser = new ParsableByteArray(bytes);
 
     assertThat(parser.readLine()).isEqualTo("foo");
@@ -693,7 +694,8 @@ public final class ParsableByteArrayTest {
   @Test
   public void readThreeLinesWithEmptyLineAndLeadingBom_utf8() {
     byte[] bytes =
-        Bytes.concat(createByteArray(0xEF, 0xBB, 0xBF), "foo\r\n\rbar".getBytes(Charsets.UTF_8));
+        Bytes.concat(
+            createByteArray(0xEF, 0xBB, 0xBF), "foo\r\n\rbar".getBytes(StandardCharsets.UTF_8));
     ParsableByteArray parser = new ParsableByteArray(bytes);
 
     assertThat(parser.readLine()).isEqualTo("foo");
@@ -707,7 +709,7 @@ public final class ParsableByteArrayTest {
 
   @Test
   public void readFourLinesWithLfFollowedByCr_utf8() {
-    byte[] bytes = "foo\n\r\rbar\r\n".getBytes(Charsets.UTF_8);
+    byte[] bytes = "foo\n\r\rbar\r\n".getBytes(StandardCharsets.UTF_8);
     ParsableByteArray parser = new ParsableByteArray(bytes);
 
     assertThat(parser.readLine()).isEqualTo("foo");
@@ -725,196 +727,261 @@ public final class ParsableByteArrayTest {
   public void readSingleLineWithoutEndingTrail_utf16() {
     // Use UTF_16BE because we don't want the leading BOM that's added by getBytes(UTF_16). We
     // explicitly test with a BOM elsewhere.
-    byte[] bytes = "foo".getBytes(Charsets.UTF_16BE);
+    byte[] bytes = "foo".getBytes(StandardCharsets.UTF_16BE);
     ParsableByteArray parser = new ParsableByteArray(bytes);
 
-    assertThat(parser.readLine(Charsets.UTF_16)).isEqualTo("foo");
+    assertThat(parser.readLine(StandardCharsets.UTF_16)).isEqualTo("foo");
     assertThat(parser.getPosition()).isEqualTo(6);
-    assertThat(parser.readLine(Charsets.UTF_16)).isNull();
+    assertThat(parser.readLine(StandardCharsets.UTF_16)).isNull();
   }
 
   @Test
   public void readSingleLineWithEndingLf_utf16() {
     // Use UTF_16BE because we don't want the leading BOM that's added by getBytes(UTF_16). We
     // explicitly test with a BOM elsewhere.
-    byte[] bytes = "foo\n".getBytes(Charsets.UTF_16BE);
+    byte[] bytes = "foo\n".getBytes(StandardCharsets.UTF_16BE);
     ParsableByteArray parser = new ParsableByteArray(bytes);
 
-    assertThat(parser.readLine(Charsets.UTF_16)).isEqualTo("foo");
+    assertThat(parser.readLine(StandardCharsets.UTF_16)).isEqualTo("foo");
     assertThat(parser.getPosition()).isEqualTo(8);
-    assertThat(parser.readLine(Charsets.UTF_16)).isNull();
+    assertThat(parser.readLine(StandardCharsets.UTF_16)).isNull();
   }
 
   @Test
   public void readTwoLinesWithCrFollowedByLf_utf16() {
     // Use UTF_16BE because we don't want the leading BOM that's added by getBytes(UTF_16). We
     // explicitly test with a BOM elsewhere.
-    byte[] bytes = "foo\r\nbar".getBytes(Charsets.UTF_16BE);
+    byte[] bytes = "foo\r\nbar".getBytes(StandardCharsets.UTF_16BE);
     ParsableByteArray parser = new ParsableByteArray(bytes);
 
-    assertThat(parser.readLine(Charsets.UTF_16)).isEqualTo("foo");
+    assertThat(parser.readLine(StandardCharsets.UTF_16)).isEqualTo("foo");
     assertThat(parser.getPosition()).isEqualTo(10);
-    assertThat(parser.readLine(Charsets.UTF_16)).isEqualTo("bar");
+    assertThat(parser.readLine(StandardCharsets.UTF_16)).isEqualTo("bar");
     assertThat(parser.getPosition()).isEqualTo(16);
-    assertThat(parser.readLine(Charsets.UTF_16)).isNull();
+    assertThat(parser.readLine(StandardCharsets.UTF_16)).isNull();
   }
 
   @Test
   public void readThreeLinesWithEmptyLineAndLeadingBom_utf16() {
     // getBytes(UTF_16) always adds the leading BOM.
-    byte[] bytes = "foo\r\n\rbar".getBytes(Charsets.UTF_16);
+    byte[] bytes = "foo\r\n\rbar".getBytes(StandardCharsets.UTF_16);
     ParsableByteArray parser = new ParsableByteArray(bytes);
 
-    assertThat(parser.readLine(Charsets.UTF_16)).isEqualTo("foo");
+    assertThat(parser.readLine(StandardCharsets.UTF_16)).isEqualTo("foo");
     assertThat(parser.getPosition()).isEqualTo(12);
-    assertThat(parser.readLine(Charsets.UTF_16)).isEqualTo("");
+    assertThat(parser.readLine(StandardCharsets.UTF_16)).isEqualTo("");
     assertThat(parser.getPosition()).isEqualTo(14);
-    assertThat(parser.readLine(Charsets.UTF_16)).isEqualTo("bar");
+    assertThat(parser.readLine(StandardCharsets.UTF_16)).isEqualTo("bar");
     assertThat(parser.getPosition()).isEqualTo(20);
-    assertThat(parser.readLine(Charsets.UTF_16)).isNull();
+    assertThat(parser.readLine(StandardCharsets.UTF_16)).isNull();
   }
 
   @Test
   public void readFourLinesWithLfFollowedByCr_utf16() {
     // Use UTF_16BE because we don't want the leading BOM that's added by getBytes(UTF_16). We
     // explicitly test with a BOM elsewhere.
-    byte[] bytes = "foo\n\r\rbar\r\n".getBytes(Charsets.UTF_16BE);
+    byte[] bytes = "foo\n\r\rbar\r\n".getBytes(StandardCharsets.UTF_16BE);
     ParsableByteArray parser = new ParsableByteArray(bytes);
 
-    assertThat(parser.readLine(Charsets.UTF_16)).isEqualTo("foo");
+    assertThat(parser.readLine(StandardCharsets.UTF_16)).isEqualTo("foo");
     assertThat(parser.getPosition()).isEqualTo(8);
-    assertThat(parser.readLine(Charsets.UTF_16)).isEqualTo("");
+    assertThat(parser.readLine(StandardCharsets.UTF_16)).isEqualTo("");
     assertThat(parser.getPosition()).isEqualTo(10);
-    assertThat(parser.readLine(Charsets.UTF_16)).isEqualTo("");
+    assertThat(parser.readLine(StandardCharsets.UTF_16)).isEqualTo("");
     assertThat(parser.getPosition()).isEqualTo(12);
-    assertThat(parser.readLine(Charsets.UTF_16)).isEqualTo("bar");
+    assertThat(parser.readLine(StandardCharsets.UTF_16)).isEqualTo("bar");
     assertThat(parser.getPosition()).isEqualTo(22);
-    assertThat(parser.readLine(Charsets.UTF_16)).isNull();
+    assertThat(parser.readLine(StandardCharsets.UTF_16)).isNull();
   }
 
   @Test
   public void readSingleLineWithoutEndingTrail_utf16be() {
-    byte[] bytes = "foo".getBytes(Charsets.UTF_16BE);
+    byte[] bytes = "foo".getBytes(StandardCharsets.UTF_16BE);
     ParsableByteArray parser = new ParsableByteArray(bytes);
 
-    assertThat(parser.readLine(Charsets.UTF_16BE)).isEqualTo("foo");
+    assertThat(parser.readLine(StandardCharsets.UTF_16BE)).isEqualTo("foo");
     assertThat(parser.getPosition()).isEqualTo(6);
-    assertThat(parser.readLine(Charsets.UTF_16BE)).isNull();
+    assertThat(parser.readLine(StandardCharsets.UTF_16BE)).isNull();
   }
 
   @Test
   public void readSingleLineWithEndingLf_utf16be() {
-    byte[] bytes = "foo\n".getBytes(Charsets.UTF_16BE);
+    byte[] bytes = "foo\n".getBytes(StandardCharsets.UTF_16BE);
     ParsableByteArray parser = new ParsableByteArray(bytes);
 
-    assertThat(parser.readLine(Charsets.UTF_16BE)).isEqualTo("foo");
+    assertThat(parser.readLine(StandardCharsets.UTF_16BE)).isEqualTo("foo");
     assertThat(parser.getPosition()).isEqualTo(8);
-    assertThat(parser.readLine(Charsets.UTF_16BE)).isNull();
+    assertThat(parser.readLine(StandardCharsets.UTF_16BE)).isNull();
   }
 
   @Test
   public void readTwoLinesWithCrFollowedByLf_utf16be() {
-    byte[] bytes = "foo\r\nbar".getBytes(Charsets.UTF_16BE);
+    byte[] bytes = "foo\r\nbar".getBytes(StandardCharsets.UTF_16BE);
     ParsableByteArray parser = new ParsableByteArray(bytes);
 
-    assertThat(parser.readLine(Charsets.UTF_16BE)).isEqualTo("foo");
+    assertThat(parser.readLine(StandardCharsets.UTF_16BE)).isEqualTo("foo");
     assertThat(parser.getPosition()).isEqualTo(10);
-    assertThat(parser.readLine(Charsets.UTF_16BE)).isEqualTo("bar");
+    assertThat(parser.readLine(StandardCharsets.UTF_16BE)).isEqualTo("bar");
     assertThat(parser.getPosition()).isEqualTo(16);
-    assertThat(parser.readLine(Charsets.UTF_16BE)).isNull();
+    assertThat(parser.readLine(StandardCharsets.UTF_16BE)).isNull();
   }
 
   @Test
   public void readThreeLinesWithEmptyLineAndLeadingBom_utf16be() {
     byte[] bytes =
-        Bytes.concat(createByteArray(0xFE, 0xFF), "foo\r\n\rbar".getBytes(Charsets.UTF_16BE));
+        Bytes.concat(
+            createByteArray(0xFE, 0xFF), "foo\r\n\rbar".getBytes(StandardCharsets.UTF_16BE));
     ParsableByteArray parser = new ParsableByteArray(bytes);
 
-    assertThat(parser.readLine(Charsets.UTF_16BE)).isEqualTo("foo");
+    assertThat(parser.readLine(StandardCharsets.UTF_16BE)).isEqualTo("foo");
     assertThat(parser.getPosition()).isEqualTo(12);
-    assertThat(parser.readLine(Charsets.UTF_16BE)).isEqualTo("");
+    assertThat(parser.readLine(StandardCharsets.UTF_16BE)).isEqualTo("");
     assertThat(parser.getPosition()).isEqualTo(14);
-    assertThat(parser.readLine(Charsets.UTF_16BE)).isEqualTo("bar");
+    assertThat(parser.readLine(StandardCharsets.UTF_16BE)).isEqualTo("bar");
     assertThat(parser.getPosition()).isEqualTo(20);
-    assertThat(parser.readLine(Charsets.UTF_16BE)).isNull();
+    assertThat(parser.readLine(StandardCharsets.UTF_16BE)).isNull();
   }
 
   @Test
   public void readFourLinesWithLfFollowedByCr_utf16be() {
-    byte[] bytes = "foo\n\r\rbar\r\n".getBytes(Charsets.UTF_16BE);
+    byte[] bytes = "foo\n\r\rbar\r\n".getBytes(StandardCharsets.UTF_16BE);
     ParsableByteArray parser = new ParsableByteArray(bytes);
 
-    assertThat(parser.readLine(Charsets.UTF_16BE)).isEqualTo("foo");
+    assertThat(parser.readLine(StandardCharsets.UTF_16BE)).isEqualTo("foo");
     assertThat(parser.getPosition()).isEqualTo(8);
-    assertThat(parser.readLine(Charsets.UTF_16BE)).isEqualTo("");
+    assertThat(parser.readLine(StandardCharsets.UTF_16BE)).isEqualTo("");
     assertThat(parser.getPosition()).isEqualTo(10);
-    assertThat(parser.readLine(Charsets.UTF_16BE)).isEqualTo("");
+    assertThat(parser.readLine(StandardCharsets.UTF_16BE)).isEqualTo("");
     assertThat(parser.getPosition()).isEqualTo(12);
-    assertThat(parser.readLine(Charsets.UTF_16BE)).isEqualTo("bar");
+    assertThat(parser.readLine(StandardCharsets.UTF_16BE)).isEqualTo("bar");
     assertThat(parser.getPosition()).isEqualTo(22);
-    assertThat(parser.readLine(Charsets.UTF_16BE)).isNull();
+    assertThat(parser.readLine(StandardCharsets.UTF_16BE)).isNull();
   }
 
   @Test
   public void readSingleLineWithoutEndingTrail_utf16le() {
-    byte[] bytes = "foo".getBytes(Charsets.UTF_16LE);
+    byte[] bytes = "foo".getBytes(StandardCharsets.UTF_16LE);
     ParsableByteArray parser = new ParsableByteArray(bytes);
 
-    assertThat(parser.readLine(Charsets.UTF_16LE)).isEqualTo("foo");
+    assertThat(parser.readLine(StandardCharsets.UTF_16LE)).isEqualTo("foo");
     assertThat(parser.getPosition()).isEqualTo(6);
-    assertThat(parser.readLine(Charsets.UTF_16LE)).isNull();
+    assertThat(parser.readLine(StandardCharsets.UTF_16LE)).isNull();
   }
 
   @Test
   public void readSingleLineWithEndingLf_utf16le() {
-    byte[] bytes = "foo\n".getBytes(Charsets.UTF_16LE);
+    byte[] bytes = "foo\n".getBytes(StandardCharsets.UTF_16LE);
     ParsableByteArray parser = new ParsableByteArray(bytes);
 
-    assertThat(parser.readLine(Charsets.UTF_16LE)).isEqualTo("foo");
+    assertThat(parser.readLine(StandardCharsets.UTF_16LE)).isEqualTo("foo");
     assertThat(parser.getPosition()).isEqualTo(8);
-    assertThat(parser.readLine(Charsets.UTF_16LE)).isNull();
+    assertThat(parser.readLine(StandardCharsets.UTF_16LE)).isNull();
   }
 
   @Test
   public void readTwoLinesWithCrFollowedByLf_utf16le() {
-    byte[] bytes = "foo\r\nbar".getBytes(Charsets.UTF_16LE);
+    byte[] bytes = "foo\r\nbar".getBytes(StandardCharsets.UTF_16LE);
     ParsableByteArray parser = new ParsableByteArray(bytes);
 
-    assertThat(parser.readLine(Charsets.UTF_16LE)).isEqualTo("foo");
+    assertThat(parser.readLine(StandardCharsets.UTF_16LE)).isEqualTo("foo");
     assertThat(parser.getPosition()).isEqualTo(10);
-    assertThat(parser.readLine(Charsets.UTF_16LE)).isEqualTo("bar");
+    assertThat(parser.readLine(StandardCharsets.UTF_16LE)).isEqualTo("bar");
     assertThat(parser.getPosition()).isEqualTo(16);
-    assertThat(parser.readLine(Charsets.UTF_16LE)).isNull();
+    assertThat(parser.readLine(StandardCharsets.UTF_16LE)).isNull();
   }
 
   @Test
   public void readThreeLinesWithEmptyLineAndLeadingBom_utf16le() {
     byte[] bytes =
-        Bytes.concat(createByteArray(0xFF, 0xFE), "foo\r\n\rbar".getBytes(Charsets.UTF_16LE));
+        Bytes.concat(
+            createByteArray(0xFF, 0xFE), "foo\r\n\rbar".getBytes(StandardCharsets.UTF_16LE));
     ParsableByteArray parser = new ParsableByteArray(bytes);
 
-    assertThat(parser.readLine(Charsets.UTF_16LE)).isEqualTo("foo");
+    assertThat(parser.readLine(StandardCharsets.UTF_16LE)).isEqualTo("foo");
     assertThat(parser.getPosition()).isEqualTo(12);
-    assertThat(parser.readLine(Charsets.UTF_16LE)).isEqualTo("");
+    assertThat(parser.readLine(StandardCharsets.UTF_16LE)).isEqualTo("");
     assertThat(parser.getPosition()).isEqualTo(14);
-    assertThat(parser.readLine(Charsets.UTF_16LE)).isEqualTo("bar");
+    assertThat(parser.readLine(StandardCharsets.UTF_16LE)).isEqualTo("bar");
     assertThat(parser.getPosition()).isEqualTo(20);
-    assertThat(parser.readLine(Charsets.UTF_16LE)).isNull();
+    assertThat(parser.readLine(StandardCharsets.UTF_16LE)).isNull();
   }
 
   @Test
   public void readFourLinesWithLfFollowedByCr_utf16le() {
-    byte[] bytes = "foo\n\r\rbar\r\n".getBytes(Charsets.UTF_16LE);
+    byte[] bytes = "foo\n\r\rbar\r\n".getBytes(StandardCharsets.UTF_16LE);
     ParsableByteArray parser = new ParsableByteArray(bytes);
 
-    assertThat(parser.readLine(Charsets.UTF_16LE)).isEqualTo("foo");
+    assertThat(parser.readLine(StandardCharsets.UTF_16LE)).isEqualTo("foo");
     assertThat(parser.getPosition()).isEqualTo(8);
-    assertThat(parser.readLine(Charsets.UTF_16LE)).isEqualTo("");
+    assertThat(parser.readLine(StandardCharsets.UTF_16LE)).isEqualTo("");
     assertThat(parser.getPosition()).isEqualTo(10);
-    assertThat(parser.readLine(Charsets.UTF_16LE)).isEqualTo("");
+    assertThat(parser.readLine(StandardCharsets.UTF_16LE)).isEqualTo("");
     assertThat(parser.getPosition()).isEqualTo(12);
-    assertThat(parser.readLine(Charsets.UTF_16LE)).isEqualTo("bar");
+    assertThat(parser.readLine(StandardCharsets.UTF_16LE)).isEqualTo("bar");
     assertThat(parser.getPosition()).isEqualTo(22);
-    assertThat(parser.readLine(Charsets.UTF_16LE)).isNull();
+    assertThat(parser.readLine(StandardCharsets.UTF_16LE)).isNull();
+  }
+
+  @Test
+  public void readUnsignedLeb128ToLong() {
+    byte[] bytes = new byte[] {(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0x0F};
+    ParsableByteArray testArray = new ParsableByteArray(bytes);
+
+    long readValue = testArray.readUnsignedLeb128ToLong();
+
+    assertThat(readValue).isEqualTo(0xFFFFFFFFL);
+    assertThat(testArray.getPosition()).isEqualTo(5);
+  }
+
+  @Test
+  public void readMaxUnsignedLeb128ToLong() {
+    byte[] bytes =
+        new byte[] {
+          (byte) 0xFF,
+          (byte) 0xFF,
+          (byte) 0xFF,
+          (byte) 0xFF,
+          (byte) 0xFF,
+          (byte) 0xFF,
+          (byte) 0xFF,
+          (byte) 0xFF,
+          (byte) 0x7F
+        };
+    ParsableByteArray testArray = new ParsableByteArray(bytes);
+
+    long readValue = testArray.readUnsignedLeb128ToLong();
+
+    assertThat(readValue).isEqualTo(Long.MAX_VALUE);
+    assertThat(testArray.getPosition()).isEqualTo(9);
+  }
+
+  @Test
+  public void readUnsignedLeb128ToInt() {
+    byte[] bytes = new byte[] {(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0x0F};
+    ParsableByteArray testArray = new ParsableByteArray(bytes);
+
+    int readValue = testArray.readUnsignedLeb128ToInt();
+
+    assertThat(readValue).isEqualTo(0x1FFFFFF);
+    assertThat(testArray.getPosition()).isEqualTo(4);
+  }
+
+  @Test
+  public void readMaxUnsignedLeb128ToInt() {
+    byte[] bytes = new byte[] {(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0x07};
+    ParsableByteArray testArray = new ParsableByteArray(bytes);
+
+    int readValue = testArray.readUnsignedLeb128ToInt();
+
+    assertThat(readValue).isEqualTo(Integer.MAX_VALUE);
+    assertThat(testArray.getPosition()).isEqualTo(5);
+  }
+
+  @Test
+  public void readTooLongUnsignedLeb128ToInt() {
+    byte[] bytes = new byte[] {(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0x0F};
+    ParsableByteArray testArray = new ParsableByteArray(bytes);
+
+    assertThrows(IllegalArgumentException.class, testArray::readUnsignedLeb128ToInt);
   }
 }

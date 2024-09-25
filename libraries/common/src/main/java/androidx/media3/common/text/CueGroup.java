@@ -18,9 +18,8 @@ package androidx.media3.common.text;
 import android.graphics.Bitmap;
 import android.os.Bundle;
 import androidx.annotation.Nullable;
-import androidx.media3.common.Bundleable;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.BundleableUtil;
+import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
@@ -28,7 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /** Class to represent the state of active {@link Cue Cues} at a particular time. */
-public final class CueGroup implements Bundleable {
+public final class CueGroup {
 
   /** An empty group with no {@link Cue Cues} and presentation time of zero. */
   @UnstableApi
@@ -44,6 +43,7 @@ public final class CueGroup implements Bundleable {
    * <p>This list may be empty if the group represents a state with no cues.
    */
   public final ImmutableList<Cue> cues;
+
   /**
    * The presentation time of the {@link #cues}, in microseconds.
    *
@@ -58,29 +58,28 @@ public final class CueGroup implements Bundleable {
     this.presentationTimeUs = presentationTimeUs;
   }
 
-  // Bundleable implementation.
-
   private static final String FIELD_CUES = Util.intToStringMaxRadix(0);
   private static final String FIELD_PRESENTATION_TIME_US = Util.intToStringMaxRadix(1);
 
   @UnstableApi
-  @Override
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
     bundle.putParcelableArrayList(
-        FIELD_CUES, BundleableUtil.toBundleArrayList(filterOutBitmapCues(cues)));
+        FIELD_CUES,
+        BundleCollectionUtil.toBundleArrayList(
+            filterOutBitmapCues(cues), Cue::toBinderBasedBundle));
     bundle.putLong(FIELD_PRESENTATION_TIME_US, presentationTimeUs);
     return bundle;
   }
 
-  @UnstableApi public static final Creator<CueGroup> CREATOR = CueGroup::fromBundle;
-
-  private static final CueGroup fromBundle(Bundle bundle) {
+  /** Restores a {@code final CueGroup} from a {@link Bundle}. */
+  @UnstableApi
+  public static CueGroup fromBundle(Bundle bundle) {
     @Nullable ArrayList<Bundle> cueBundles = bundle.getParcelableArrayList(FIELD_CUES);
     List<Cue> cues =
         cueBundles == null
             ? ImmutableList.of()
-            : BundleableUtil.fromBundleList(Cue.CREATOR, cueBundles);
+            : BundleCollectionUtil.fromBundleList(Cue::fromBundle, cueBundles);
     long presentationTimeUs = bundle.getLong(FIELD_PRESENTATION_TIME_US);
     return new CueGroup(cues, presentationTimeUs);
   }

@@ -16,6 +16,8 @@
  */
 package androidx.media3.test.utils.truth;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.truth.Correspondence.tolerance;
 import static com.google.common.truth.Fact.fact;
 import static com.google.common.truth.Fact.simpleFact;
 import static com.google.common.truth.Truth.assertAbout;
@@ -40,6 +42,8 @@ import androidx.media3.common.text.HorizontalTextInVerticalContextSpan;
 import androidx.media3.common.text.RubySpan;
 import androidx.media3.common.text.TextAnnotation;
 import androidx.media3.common.text.TextEmphasisSpan;
+import androidx.media3.common.text.VoiceSpan;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.truth.Fact;
@@ -49,7 +53,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
 /** A Truth {@link Subject} for assertions on {@link Spanned} instances containing text styling. */
@@ -633,6 +636,42 @@ public final class SpannedSubject extends Subject {
   }
 
   /**
+   * Checks that the subject has an {@link VoiceSpan} from {@code start} to {@code end}.
+   *
+   * @param start The start of the expected span.
+   * @param end The end of the expected span.
+   * @return A {@link VoiceSpan} object for optional additional assertions on the flags.
+   */
+  public VoiceText hasVoiceSpanBetween(int start, int end) {
+    if (actual == null) {
+      failWithoutActual(simpleFact("Spanned must not be null"));
+      return ALREADY_FAILED_WITH_NAME_AND_CLASSES;
+    }
+
+    List<VoiceSpan> voiceSpans = findMatchingSpans(start, end, VoiceSpan.class);
+    if (voiceSpans.size() == 1) {
+      return check("VoiceSpan (start=%s,end=%s)", start, end)
+          .about(voiceSpanSubjects(actual))
+          .that(voiceSpans);
+    }
+    failWithExpectedSpan(start, end, VoiceSpan.class, actual.toString().substring(start, end));
+    return ALREADY_FAILED_WITH_NAME_AND_CLASSES;
+  }
+
+  /**
+   * Checks that the subject has no {@link VoiceSpan}s on any of the text between {@code start} and
+   * {@code end}.
+   *
+   * <p>This fails even if the start and end indexes don't exactly match.
+   *
+   * @param start The start index to start searching for spans.
+   * @param end The end index to stop searching for spans.
+   */
+  public void hasNoVoiceSpanBetween(int start, int end) {
+    hasNoSpansOfTypeBetween(VoiceSpan.class, start, end);
+  }
+
+  /**
    * Checks that the subject has no spans of type {@code spanClazz} on any of the text between
    * {@code start} and {@code end}.
    *
@@ -761,9 +800,9 @@ public final class SpannedSubject extends Subject {
   private static final class SpanFlagsSubject extends Subject
       implements AndSpanFlags, WithSpanFlags {
 
-    private final List<Integer> flags;
+    @Nullable private final List<Integer> flags;
 
-    private SpanFlagsSubject(FailureMetadata metadata, List<Integer> flags) {
+    private SpanFlagsSubject(FailureMetadata metadata, @Nullable List<Integer> flags) {
       super(metadata, flags);
       this.flags = flags;
     }
@@ -795,17 +834,19 @@ public final class SpannedSubject extends Subject {
 
   private static Factory<AlignmentSpansSubject, List<AlignmentSpan>> alignmentSpans(
       Spanned actualSpanned) {
-    return (FailureMetadata metadata, List<AlignmentSpan> spans) ->
+    return (FailureMetadata metadata, @Nullable List<AlignmentSpan> spans) ->
         new AlignmentSpansSubject(metadata, spans, actualSpanned);
   }
 
   private static final class AlignmentSpansSubject extends Subject implements Aligned {
 
-    private final List<AlignmentSpan> actualSpans;
+    @Nullable private final List<AlignmentSpan> actualSpans;
     private final Spanned actualSpanned;
 
     private AlignmentSpansSubject(
-        FailureMetadata metadata, List<AlignmentSpan> actualSpans, Spanned actualSpanned) {
+        FailureMetadata metadata,
+        @Nullable List<AlignmentSpan> actualSpans,
+        Spanned actualSpanned) {
       super(metadata, actualSpans);
       this.actualSpans = actualSpans;
       this.actualSpanned = actualSpanned;
@@ -816,7 +857,7 @@ public final class SpannedSubject extends Subject {
       List<Integer> matchingSpanFlags = new ArrayList<>();
       List<Alignment> spanAlignments = new ArrayList<>();
 
-      for (AlignmentSpan span : actualSpans) {
+      for (AlignmentSpan span : checkNotNull(actualSpans)) {
         spanAlignments.add(span.getAlignment());
         if (span.getAlignment().equals(alignment)) {
           matchingSpanFlags.add(actualSpanned.getSpanFlags(span));
@@ -844,17 +885,19 @@ public final class SpannedSubject extends Subject {
 
   private static Factory<ForegroundColorSpansSubject, List<ForegroundColorSpan>>
       foregroundColorSpans(Spanned actualSpanned) {
-    return (FailureMetadata metadata, List<ForegroundColorSpan> spans) ->
+    return (FailureMetadata metadata, @Nullable List<ForegroundColorSpan> spans) ->
         new ForegroundColorSpansSubject(metadata, spans, actualSpanned);
   }
 
   private static final class ForegroundColorSpansSubject extends Subject implements Colored {
 
-    private final List<ForegroundColorSpan> actualSpans;
+    @Nullable private final List<ForegroundColorSpan> actualSpans;
     private final Spanned actualSpanned;
 
     private ForegroundColorSpansSubject(
-        FailureMetadata metadata, List<ForegroundColorSpan> actualSpans, Spanned actualSpanned) {
+        FailureMetadata metadata,
+        @Nullable List<ForegroundColorSpan> actualSpans,
+        Spanned actualSpanned) {
       super(metadata, actualSpans);
       this.actualSpans = actualSpans;
       this.actualSpanned = actualSpanned;
@@ -866,7 +909,7 @@ public final class SpannedSubject extends Subject {
       // Use hex strings for comparison so the values in error messages are more human readable.
       List<String> spanColors = new ArrayList<>();
 
-      for (ForegroundColorSpan span : actualSpans) {
+      for (ForegroundColorSpan span : checkNotNull(actualSpans)) {
         spanColors.add(String.format("0x%08X", span.getForegroundColor()));
         if (span.getForegroundColor() == color) {
           matchingSpanFlags.add(actualSpanned.getSpanFlags(span));
@@ -881,17 +924,19 @@ public final class SpannedSubject extends Subject {
 
   private static Factory<BackgroundColorSpansSubject, List<BackgroundColorSpan>>
       backgroundColorSpans(Spanned actualSpanned) {
-    return (FailureMetadata metadata, List<BackgroundColorSpan> spans) ->
+    return (FailureMetadata metadata, @Nullable List<BackgroundColorSpan> spans) ->
         new BackgroundColorSpansSubject(metadata, spans, actualSpanned);
   }
 
   private static final class BackgroundColorSpansSubject extends Subject implements Colored {
 
-    private final List<BackgroundColorSpan> actualSpans;
+    @Nullable private final List<BackgroundColorSpan> actualSpans;
     private final Spanned actualSpanned;
 
     private BackgroundColorSpansSubject(
-        FailureMetadata metadata, List<BackgroundColorSpan> actualSpans, Spanned actualSpanned) {
+        FailureMetadata metadata,
+        @Nullable List<BackgroundColorSpan> actualSpans,
+        Spanned actualSpanned) {
       super(metadata, actualSpans);
       this.actualSpans = actualSpans;
       this.actualSpanned = actualSpanned;
@@ -903,7 +948,7 @@ public final class SpannedSubject extends Subject {
       // Use hex strings for comparison so the values in error messages are more human readable.
       List<String> spanColors = new ArrayList<>();
 
-      for (BackgroundColorSpan span : actualSpans) {
+      for (BackgroundColorSpan span : checkNotNull(actualSpans)) {
         spanColors.add(String.format("0x%08X", span.getBackgroundColor()));
         if (span.getBackgroundColor() == color) {
           matchingSpanFlags.add(actualSpanned.getSpanFlags(span));
@@ -932,17 +977,17 @@ public final class SpannedSubject extends Subject {
 
   private static Factory<TypefaceSpansSubject, List<TypefaceSpan>> typefaceSpans(
       Spanned actualSpanned) {
-    return (FailureMetadata metadata, List<TypefaceSpan> spans) ->
+    return (FailureMetadata metadata, @Nullable List<TypefaceSpan> spans) ->
         new TypefaceSpansSubject(metadata, spans, actualSpanned);
   }
 
   private static final class TypefaceSpansSubject extends Subject implements Typefaced {
 
-    private final List<TypefaceSpan> actualSpans;
+    @Nullable private final List<TypefaceSpan> actualSpans;
     private final Spanned actualSpanned;
 
     private TypefaceSpansSubject(
-        FailureMetadata metadata, List<TypefaceSpan> actualSpans, Spanned actualSpanned) {
+        FailureMetadata metadata, @Nullable List<TypefaceSpan> actualSpans, Spanned actualSpanned) {
       super(metadata, actualSpans);
       this.actualSpans = actualSpans;
       this.actualSpanned = actualSpanned;
@@ -953,7 +998,7 @@ public final class SpannedSubject extends Subject {
       List<Integer> matchingSpanFlags = new ArrayList<>();
       List<@NullableType String> spanFontFamilies = new ArrayList<>();
 
-      for (TypefaceSpan span : actualSpans) {
+      for (TypefaceSpan span : checkNotNull(actualSpans)) {
         spanFontFamilies.add(span.getFamily());
         if (Util.areEqual(span.getFamily(), fontFamily)) {
           matchingSpanFlags.add(actualSpanned.getSpanFlags(span));
@@ -982,17 +1027,19 @@ public final class SpannedSubject extends Subject {
 
   private static Factory<AbsoluteSizeSpansSubject, List<AbsoluteSizeSpan>> absoluteSizeSpans(
       Spanned actualSpanned) {
-    return (FailureMetadata metadata, List<AbsoluteSizeSpan> spans) ->
+    return (FailureMetadata metadata, @Nullable List<AbsoluteSizeSpan> spans) ->
         new AbsoluteSizeSpansSubject(metadata, spans, actualSpanned);
   }
 
   private static final class AbsoluteSizeSpansSubject extends Subject implements AbsoluteSized {
 
-    private final List<AbsoluteSizeSpan> actualSpans;
+    @Nullable private final List<AbsoluteSizeSpan> actualSpans;
     private final Spanned actualSpanned;
 
     private AbsoluteSizeSpansSubject(
-        FailureMetadata metadata, List<AbsoluteSizeSpan> actualSpans, Spanned actualSpanned) {
+        FailureMetadata metadata,
+        @Nullable List<AbsoluteSizeSpan> actualSpans,
+        Spanned actualSpanned) {
       super(metadata, actualSpans);
       this.actualSpans = actualSpans;
       this.actualSpanned = actualSpanned;
@@ -1003,7 +1050,7 @@ public final class SpannedSubject extends Subject {
       List<Integer> matchingSpanFlags = new ArrayList<>();
       List<Integer> spanSizes = new ArrayList<>();
 
-      for (AbsoluteSizeSpan span : actualSpans) {
+      for (AbsoluteSizeSpan span : checkNotNull(actualSpans)) {
         spanSizes.add(span.getSize());
         if (span.getSize() == size) {
           matchingSpanFlags.add(actualSpanned.getSpanFlags(span));
@@ -1031,17 +1078,19 @@ public final class SpannedSubject extends Subject {
 
   private static Factory<RelativeSizeSpansSubject, List<RelativeSizeSpan>> relativeSizeSpans(
       Spanned actualSpanned) {
-    return (FailureMetadata metadata, List<RelativeSizeSpan> spans) ->
+    return (FailureMetadata metadata, @Nullable List<RelativeSizeSpan> spans) ->
         new RelativeSizeSpansSubject(metadata, spans, actualSpanned);
   }
 
   private static final class RelativeSizeSpansSubject extends Subject implements RelativeSized {
 
-    private final List<RelativeSizeSpan> actualSpans;
+    @Nullable private final List<RelativeSizeSpan> actualSpans;
     private final Spanned actualSpanned;
 
     private RelativeSizeSpansSubject(
-        FailureMetadata metadata, List<RelativeSizeSpan> actualSpans, Spanned actualSpanned) {
+        FailureMetadata metadata,
+        @Nullable List<RelativeSizeSpan> actualSpans,
+        Spanned actualSpanned) {
       super(metadata, actualSpans);
       this.actualSpans = actualSpans;
       this.actualSpanned = actualSpanned;
@@ -1052,14 +1101,17 @@ public final class SpannedSubject extends Subject {
       List<Integer> matchingSpanFlags = new ArrayList<>();
       List<Float> spanSizes = new ArrayList<>();
 
-      for (RelativeSizeSpan span : actualSpans) {
+      for (RelativeSizeSpan span : checkNotNull(actualSpans)) {
         spanSizes.add(span.getSizeChange());
         if (span.getSizeChange() == size) {
           matchingSpanFlags.add(actualSpanned.getSpanFlags(span));
         }
       }
 
-      check("sizeChange").that(spanSizes).containsExactly(size);
+      check("sizeChange")
+          .that(spanSizes)
+          .comparingElementsUsing(tolerance(0.0000001))
+          .containsExactly(size);
       return check("flags").about(spanFlags()).that(matchingSpanFlags);
     }
   }
@@ -1081,17 +1133,17 @@ public final class SpannedSubject extends Subject {
       (text, position) -> ALREADY_FAILED_AND_FLAGS;
 
   private static Factory<RubySpansSubject, List<RubySpan>> rubySpans(Spanned actualSpanned) {
-    return (FailureMetadata metadata, List<RubySpan> spans) ->
+    return (FailureMetadata metadata, @Nullable List<RubySpan> spans) ->
         new RubySpansSubject(metadata, spans, actualSpanned);
   }
 
   private static final class RubySpansSubject extends Subject implements RubyText {
 
-    private final List<RubySpan> actualSpans;
+    @Nullable private final List<RubySpan> actualSpans;
     private final Spanned actualSpanned;
 
     private RubySpansSubject(
-        FailureMetadata metadata, List<RubySpan> actualSpans, Spanned actualSpanned) {
+        FailureMetadata metadata, @Nullable List<RubySpan> actualSpans, Spanned actualSpanned) {
       super(metadata, actualSpans);
       this.actualSpans = actualSpans;
       this.actualSpanned = actualSpanned;
@@ -1101,7 +1153,7 @@ public final class SpannedSubject extends Subject {
     public AndSpanFlags withTextAndPosition(String text, @TextAnnotation.Position int position) {
       List<Integer> matchingSpanFlags = new ArrayList<>();
       List<TextAndPosition> spanTextsAndPositions = new ArrayList<>();
-      for (RubySpan span : actualSpans) {
+      for (RubySpan span : checkNotNull(actualSpans)) {
         spanTextsAndPositions.add(new TextAndPosition(span.rubyText, span.position));
         if (span.rubyText.equals(text)) {
           matchingSpanFlags.add(actualSpanned.getSpanFlags(span));
@@ -1174,17 +1226,19 @@ public final class SpannedSubject extends Subject {
 
   private static Factory<TextEmphasisSubject, List<TextEmphasisSpan>> textEmphasisSubjects(
       Spanned actualSpanned) {
-    return (FailureMetadata metadata, List<TextEmphasisSpan> spans) ->
+    return (FailureMetadata metadata, @Nullable List<TextEmphasisSpan> spans) ->
         new TextEmphasisSubject(metadata, spans, actualSpanned);
   }
 
   private static final class TextEmphasisSubject extends Subject implements EmphasizedText {
 
-    private final List<TextEmphasisSpan> actualSpans;
+    @Nullable private final List<TextEmphasisSpan> actualSpans;
     private final Spanned actualSpanned;
 
     private TextEmphasisSubject(
-        FailureMetadata metadata, List<TextEmphasisSpan> actualSpans, Spanned actualSpanned) {
+        FailureMetadata metadata,
+        @Nullable List<TextEmphasisSpan> actualSpans,
+        Spanned actualSpanned) {
       super(metadata, actualSpans);
       this.actualSpans = actualSpans;
       this.actualSpanned = actualSpanned;
@@ -1197,7 +1251,7 @@ public final class SpannedSubject extends Subject {
         @TextAnnotation.Position int position) {
       List<Integer> matchingSpanFlags = new ArrayList<>();
       List<MarkAndPosition> textEmphasisMarksAndPositions = new ArrayList<>();
-      for (TextEmphasisSpan span : actualSpans) {
+      for (TextEmphasisSpan span : checkNotNull(actualSpans)) {
         textEmphasisMarksAndPositions.add(
             new MarkAndPosition(span.markShape, span.markFill, span.position));
         if (span.markFill == markFill && span.markShape == markShape && span.position == position) {
@@ -1252,6 +1306,85 @@ public final class SpannedSubject extends Subject {
       public String toString() {
         return String.format(
             "{markShape=%s,markFill=%s,position=%s}", markShape, markFill, position);
+      }
+    }
+  }
+
+  /** Allows assertions about a span's voice its position. */
+  public interface VoiceText {
+    /**
+     * Checks that at least one of the matched spans has the expected {@code name}.
+     *
+     * @param name The expected name of the voice.
+     * @return A {@link AndSpanFlags} object for optional additional assertions on the flags.
+     */
+    AndSpanFlags withName(String name);
+  }
+
+  private static final VoiceText ALREADY_FAILED_WITH_NAME_AND_CLASSES =
+      (name) -> ALREADY_FAILED_AND_FLAGS;
+
+  private static Factory<VoiceSpanSubject, List<VoiceSpan>> voiceSpanSubjects(
+      Spanned actualSpanned) {
+    return (FailureMetadata metadata, @Nullable List<VoiceSpan> spans) ->
+        new VoiceSpanSubject(metadata, spans, actualSpanned);
+  }
+
+  private static final class VoiceSpanSubject extends Subject implements VoiceText {
+
+    @Nullable private final List<VoiceSpan> actualSpans;
+    private final Spanned actualSpanned;
+
+    private VoiceSpanSubject(
+        FailureMetadata metadata, @Nullable List<VoiceSpan> actualSpans, Spanned actualSpanned) {
+      super(metadata, actualSpans);
+      this.actualSpans = actualSpans;
+      this.actualSpanned = actualSpanned;
+    }
+
+    @Override
+    public AndSpanFlags withName(String name) {
+      List<Integer> matchingSpanFlags = new ArrayList<>();
+      List<Name> voiceName = new ArrayList<>();
+      for (VoiceSpan span : checkNotNull(actualSpans)) {
+        voiceName.add(new Name(span.name));
+        if (span.name.equals(name)) {
+          matchingSpanFlags.add(actualSpanned.getSpanFlags(span));
+        }
+      }
+      check("voiceName").that(voiceName).containsExactly(new Name(name));
+      return check("flags").about(spanFlags()).that(matchingSpanFlags);
+    }
+
+    private static final class Name {
+
+      private final String name;
+
+      private Name(String name) {
+        this.name = name;
+      }
+
+      @Override
+      public boolean equals(@Nullable Object o) {
+        if (this == o) {
+          return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+          return false;
+        }
+
+        Name that = (Name) o;
+        return name.equals(that.name);
+      }
+
+      @Override
+      public int hashCode() {
+        return name.hashCode();
+      }
+
+      @Override
+      public String toString() {
+        return String.format("{name=%s}", name);
       }
     }
   }

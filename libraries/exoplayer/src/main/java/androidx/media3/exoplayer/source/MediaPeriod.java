@@ -19,15 +19,16 @@ import androidx.media3.common.C;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.source.MediaSource.MediaSourceCaller;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 
 /**
  * Loads media corresponding to a {@link Timeline.Period}, and allows that media to be read. All
@@ -158,14 +159,18 @@ public interface MediaPeriod extends SequenceableLoader {
   /**
    * Attempts to read a discontinuity.
    *
+   * <p>A discontinuity implies that the provided {@link SampleStream SampleStreams} will start from
+   * a new playback position and any output pipelines need to be reset. This happens for example if
+   * the streams provide decode-only samples before the intended playback start position that need
+   * to be dropped.
+   *
    * <p>After this method has returned a value other than {@link C#TIME_UNSET}, all {@link
-   * SampleStream}s provided by the period are guaranteed to start from a key frame.
+   * SampleStream SampleStreams} provided by the period are guaranteed to start from a key frame.
    *
-   * <p>This method is only called after the period has been prepared and before reading from any
-   * {@link SampleStream}s provided by the period.
+   * <p>This method is only called after the period has been prepared.
    *
-   * @return If a discontinuity was read then the playback position in microseconds after the
-   *     discontinuity. Else {@link C#TIME_UNSET}.
+   * @return The playback position after the discontinuity, in microseconds, or {@link C#TIME_UNSET}
+   *     if there is no discontinuity.
    */
   long readDiscontinuity();
 
@@ -227,16 +232,15 @@ public interface MediaPeriod extends SequenceableLoader {
    * called when the period is permitted to continue loading data. A period may do this both during
    * and after preparation.
    *
-   * @param positionUs The current playback position in microseconds. If playback of this period has
-   *     not yet started, the value will be the starting position in this period minus the duration
-   *     of any media in previous periods still to be played.
+   * @param loadingInfo The {@link LoadingInfo} when attempting to continue loading.
    * @return True if progress was made, meaning that {@link #getNextLoadPositionUs()} will return a
    *     different value than prior to the call. False otherwise.
    */
   @Override
-  boolean continueLoading(long positionUs);
+  boolean continueLoading(LoadingInfo loadingInfo);
 
   /** Returns whether the media period is currently loading. */
+  @Override
   boolean isLoading();
 
   /**

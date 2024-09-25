@@ -41,12 +41,11 @@
     <item>1,5x</item>
     <item>2x</item>
   </string-array>
-  <string name="exo_track_selection_title_video">Видеозапис</string>
   <string name="exo_track_selection_title_audio">Аудиозапис</string>
-  <string name="exo_track_selection_title_text">Текст</string>
   <string name="exo_track_selection_none">Нищо</string>
   <string name="exo_track_selection_auto">Автоматично</string>
   <string name="exo_track_unknown">Неизвестно</string>
+  <string name="exo_track_unknown_name">Няма данни (%1$s)</string>
   <string name="exo_track_resolution">%1$d × %2$d</string>
   <string name="exo_track_mono">Моно</string>
   <string name="exo_track_stereo">Стерео</string>

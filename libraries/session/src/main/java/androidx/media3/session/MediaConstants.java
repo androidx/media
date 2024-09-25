@@ -19,15 +19,13 @@ import android.app.PendingIntent;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Parcelable;
-import android.support.v4.media.MediaDescriptionCompat;
-import android.support.v4.media.session.MediaControllerCompat;
-import android.support.v4.media.session.MediaSessionCompat;
-import android.support.v4.media.session.PlaybackStateCompat;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession;
+import androidx.media3.session.legacy.MediaDescriptionCompat;
+import androidx.media3.session.legacy.PlaybackStateCompat;
 
 /** Constants that can be shared between media session and controller. */
 public final class MediaConstants {
@@ -57,7 +55,7 @@ public final class MediaConstants {
    */
   @UnstableApi
   public static final String EXTRAS_KEY_MEDIA_ID_COMPAT =
-      androidx.media.utils.MediaConstants.PLAYBACK_STATE_EXTRAS_KEY_MEDIA_ID;
+      androidx.media3.session.legacy.MediaConstants.PLAYBACK_STATE_EXTRAS_KEY_MEDIA_ID;
 
   /**
    * {@link Bundle} key used for a localized error resolution string.
@@ -67,7 +65,8 @@ public final class MediaConstants {
    * service call.
    */
   public static final String EXTRAS_KEY_ERROR_RESOLUTION_ACTION_LABEL_COMPAT =
-      androidx.media.utils.MediaConstants.PLAYBACK_STATE_EXTRAS_KEY_ERROR_RESOLUTION_ACTION_LABEL;
+      androidx.media3.session.legacy.MediaConstants
+          .PLAYBACK_STATE_EXTRAS_KEY_ERROR_RESOLUTION_ACTION_LABEL;
 
   /**
    * {@link Bundle} key used for an error resolution intent.
@@ -77,7 +76,8 @@ public final class MediaConstants {
    * service call.
    */
   public static final String EXTRAS_KEY_ERROR_RESOLUTION_ACTION_INTENT_COMPAT =
-      androidx.media.utils.MediaConstants.PLAYBACK_STATE_EXTRAS_KEY_ERROR_RESOLUTION_ACTION_INTENT;
+      androidx.media3.session.legacy.MediaConstants
+          .PLAYBACK_STATE_EXTRAS_KEY_ERROR_RESOLUTION_ACTION_INTENT;
 
   /**
    * {@link Bundle} key used to store a {@link PendingIntent}. When launched, the {@link
@@ -96,7 +96,7 @@ public final class MediaConstants {
    */
   @UnstableApi
   public static final String EXTRAS_KEY_ERROR_RESOLUTION_USING_CAR_APP_LIBRARY_INTENT_COMPAT =
-      androidx.media.utils.MediaConstants
+      androidx.media3.session.legacy.MediaConstants
           .PLAYBACK_STATE_EXTRAS_KEY_ERROR_RESOLUTION_USING_CAR_APP_LIBRARY_INTENT;
 
   /**
@@ -108,14 +108,13 @@ public final class MediaConstants {
    * androidx.media3.common.Player#COMMAND_SEEK_TO_NEXT} by design.
    *
    * @see MediaSession#setSessionExtras(Bundle)
-   * @see MediaSessionCompat#setExtras(Bundle)
    * @see MediaController.Listener#onExtrasChanged(MediaController, Bundle)
-   * @see MediaControllerCompat.Callback#onExtrasChanged(Bundle)
    * @see androidx.media3.common.Player#COMMAND_SEEK_TO_NEXT
    * @see androidx.media3.common.Player#COMMAND_SEEK_TO_NEXT_MEDIA_ITEM
    */
   public static final String EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT =
-      androidx.media.utils.MediaConstants.SESSION_EXTRAS_KEY_SLOT_RESERVATION_SKIP_TO_NEXT;
+      androidx.media3.session.legacy.MediaConstants
+          .SESSION_EXTRAS_KEY_SLOT_RESERVATION_SKIP_TO_NEXT;
 
   /**
    * {@link Bundle} key to indicate a preference that a region of space for the skip to previous
@@ -126,14 +125,13 @@ public final class MediaConstants {
    * androidx.media3.common.Player#COMMAND_SEEK_TO_PREVIOUS} by design.
    *
    * @see MediaSession#setSessionExtras(Bundle)
-   * @see MediaSessionCompat#setExtras(Bundle)
    * @see MediaController.Listener#onExtrasChanged(MediaController, Bundle)
-   * @see MediaControllerCompat.Callback#onExtrasChanged(Bundle)
    * @see androidx.media3.common.Player#COMMAND_SEEK_TO_PREVIOUS
    * @see androidx.media3.common.Player#COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM
    */
   public static final String EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV =
-      androidx.media.utils.MediaConstants.SESSION_EXTRAS_KEY_SLOT_RESERVATION_SKIP_TO_PREV;
+      androidx.media3.session.legacy.MediaConstants
+          .SESSION_EXTRAS_KEY_SLOT_RESERVATION_SKIP_TO_PREV;
 
   /**
    * {@link Bundle} key used in {@link MediaMetadata#extras} to indicate the playback completion
@@ -149,7 +147,7 @@ public final class MediaConstants {
    */
   @UnstableApi
   public static final String EXTRAS_KEY_COMPLETION_STATUS =
-      androidx.media.utils.MediaConstants.DESCRIPTION_EXTRAS_KEY_COMPLETION_STATUS;
+      androidx.media3.session.legacy.MediaConstants.DESCRIPTION_EXTRAS_KEY_COMPLETION_STATUS;
 
   /**
    * {@link Bundle} value used in {@link MediaMetadata#extras} to indicate that the corresponding
@@ -161,7 +159,8 @@ public final class MediaConstants {
    */
   @UnstableApi
   public static final int EXTRAS_VALUE_COMPLETION_STATUS_NOT_PLAYED =
-      androidx.media.utils.MediaConstants.DESCRIPTION_EXTRAS_VALUE_COMPLETION_STATUS_NOT_PLAYED;
+      androidx.media3.session.legacy.MediaConstants
+          .DESCRIPTION_EXTRAS_VALUE_COMPLETION_STATUS_NOT_PLAYED;
 
   /**
    * {@link Bundle} value used in {@link MediaMetadata#extras} to indicate that the corresponding
@@ -173,7 +172,7 @@ public final class MediaConstants {
    */
   @UnstableApi
   public static final int EXTRAS_VALUE_COMPLETION_STATUS_PARTIALLY_PLAYED =
-      androidx.media.utils.MediaConstants
+      androidx.media3.session.legacy.MediaConstants
           .DESCRIPTION_EXTRAS_VALUE_COMPLETION_STATUS_PARTIALLY_PLAYED;
 
   /**
@@ -186,7 +185,8 @@ public final class MediaConstants {
    */
   @UnstableApi
   public static final int EXTRAS_VALUE_COMPLETION_STATUS_FULLY_PLAYED =
-      androidx.media.utils.MediaConstants.DESCRIPTION_EXTRAS_VALUE_COMPLETION_STATUS_FULLY_PLAYED;
+      androidx.media3.session.legacy.MediaConstants
+          .DESCRIPTION_EXTRAS_VALUE_COMPLETION_STATUS_FULLY_PLAYED;
 
   /**
    * {@link Bundle} key used in {@link MediaMetadata#extras} to indicate an amount of completion
@@ -203,7 +203,7 @@ public final class MediaConstants {
    */
   @UnstableApi
   public static final String EXTRAS_KEY_COMPLETION_PERCENTAGE =
-      androidx.media.utils.MediaConstants.DESCRIPTION_EXTRAS_KEY_COMPLETION_PERCENTAGE;
+      androidx.media3.session.legacy.MediaConstants.DESCRIPTION_EXTRAS_KEY_COMPLETION_PERCENTAGE;
 
   /**
    * {@link Bundle} key used to indicate a preference about how playable instances of {@link
@@ -228,7 +228,7 @@ public final class MediaConstants {
    */
   @UnstableApi
   public static final String EXTRAS_KEY_CONTENT_STYLE_PLAYABLE =
-      androidx.media.utils.MediaConstants.DESCRIPTION_EXTRAS_KEY_CONTENT_STYLE_PLAYABLE;
+      androidx.media3.session.legacy.MediaConstants.DESCRIPTION_EXTRAS_KEY_CONTENT_STYLE_PLAYABLE;
 
   /**
    * {@link Bundle} key used to indicate a preference about how browsable instances of {@link
@@ -256,7 +256,7 @@ public final class MediaConstants {
    */
   @UnstableApi
   public static final String EXTRAS_KEY_CONTENT_STYLE_BROWSABLE =
-      androidx.media.utils.MediaConstants.DESCRIPTION_EXTRAS_KEY_CONTENT_STYLE_BROWSABLE;
+      androidx.media3.session.legacy.MediaConstants.DESCRIPTION_EXTRAS_KEY_CONTENT_STYLE_BROWSABLE;
 
   /**
    * {@link Bundle} key used in {@link MediaMetadata#extras} to indicate a preference about how the
@@ -276,7 +276,8 @@ public final class MediaConstants {
    */
   @UnstableApi
   public static final String EXTRAS_KEY_CONTENT_STYLE_SINGLE_ITEM =
-      androidx.media.utils.MediaConstants.DESCRIPTION_EXTRAS_KEY_CONTENT_STYLE_SINGLE_ITEM;
+      androidx.media3.session.legacy.MediaConstants
+          .DESCRIPTION_EXTRAS_KEY_CONTENT_STYLE_SINGLE_ITEM;
 
   /**
    * {@link Bundle} value used in {@link MediaMetadata#extras} to indicate a preference that certain
@@ -289,7 +290,8 @@ public final class MediaConstants {
    */
   @UnstableApi
   public static final int EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM =
-      androidx.media.utils.MediaConstants.DESCRIPTION_EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM;
+      androidx.media3.session.legacy.MediaConstants
+          .DESCRIPTION_EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM;
 
   /**
    * {@link Bundle} value used in {@link MediaMetadata#extras} to indicate a preference that certain
@@ -302,7 +304,8 @@ public final class MediaConstants {
    */
   @UnstableApi
   public static final int EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM =
-      androidx.media.utils.MediaConstants.DESCRIPTION_EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM;
+      androidx.media3.session.legacy.MediaConstants
+          .DESCRIPTION_EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM;
 
   /**
    * {@link Bundle} value used in {@link MediaMetadata#extras} to indicate a preference that
@@ -316,7 +319,8 @@ public final class MediaConstants {
    */
   @UnstableApi
   public static final int EXTRAS_VALUE_CONTENT_STYLE_CATEGORY_LIST_ITEM =
-      androidx.media.utils.MediaConstants.DESCRIPTION_EXTRAS_VALUE_CONTENT_STYLE_CATEGORY_LIST_ITEM;
+      androidx.media3.session.legacy.MediaConstants
+          .DESCRIPTION_EXTRAS_VALUE_CONTENT_STYLE_CATEGORY_LIST_ITEM;
 
   /**
    * {@link Bundle} value used in {@link MediaMetadata#extras} to indicate a preference that
@@ -330,7 +334,8 @@ public final class MediaConstants {
    */
   @UnstableApi
   public static final int EXTRAS_VALUE_CONTENT_STYLE_CATEGORY_GRID_ITEM =
-      androidx.media.utils.MediaConstants.DESCRIPTION_EXTRAS_VALUE_CONTENT_STYLE_CATEGORY_GRID_ITEM;
+      androidx.media3.session.legacy.MediaConstants
+          .DESCRIPTION_EXTRAS_VALUE_CONTENT_STYLE_CATEGORY_GRID_ITEM;
 
   /**
    * {@link Bundle} key used in {@link MediaMetadata#extras} to indicate that certain instances of
@@ -346,7 +351,8 @@ public final class MediaConstants {
    */
   @UnstableApi
   public static final String EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE =
-      androidx.media.utils.MediaConstants.DESCRIPTION_EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE;
+      androidx.media3.session.legacy.MediaConstants
+          .DESCRIPTION_EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE;
 
   /**
    * {@link Bundle} key used in {@link MediaMetadata#extras} to indicate that the corresponding
@@ -371,7 +377,7 @@ public final class MediaConstants {
    */
   @UnstableApi
   public static final String EXTRAS_KEY_IS_ADVERTISEMENT =
-      androidx.media.utils.MediaConstants.METADATA_KEY_IS_ADVERTISEMENT;
+      androidx.media3.session.legacy.MediaConstants.METADATA_KEY_IS_ADVERTISEMENT;
 
   /**
    * {@link Bundle} value used to indicate the presence of an attribute described by its
@@ -395,7 +401,7 @@ public final class MediaConstants {
    */
   @UnstableApi
   public static final String EXTRAS_KEY_ROOT_CHILDREN_LIMIT =
-      androidx.media.utils.MediaConstants.BROWSER_ROOT_HINTS_KEY_ROOT_CHILDREN_LIMIT;
+      androidx.media3.session.legacy.MediaConstants.BROWSER_ROOT_HINTS_KEY_ROOT_CHILDREN_LIMIT;
 
   /**
    * {@link Bundle} key used in {@link LibraryParams#extras} passed to {@link
@@ -429,7 +435,7 @@ public final class MediaConstants {
    */
   @UnstableApi
   public static final String EXTRAS_KEY_MEDIA_ART_SIZE_PIXELS =
-      androidx.media.utils.MediaConstants.BROWSER_ROOT_HINTS_KEY_MEDIA_ART_SIZE_PIXELS;
+      androidx.media3.session.legacy.MediaConstants.BROWSER_ROOT_HINTS_KEY_MEDIA_ART_SIZE_PIXELS;
 
   /**
    * {@link Bundle} key used to indicate that the media app that provides the service supports
@@ -453,17 +459,34 @@ public final class MediaConstants {
    */
   @UnstableApi
   public static final String EXTRAS_KEY_APPLICATION_PREFERENCES_USING_CAR_APP_LIBRARY_INTENT =
-      androidx.media.utils.MediaConstants
+      androidx.media3.session.legacy.MediaConstants
           .BROWSER_SERVICE_EXTRAS_KEY_APPLICATION_PREFERENCES_USING_CAR_APP_LIBRARY_INTENT;
 
   /**
-   * {@link Bundle} key used to indicate the {@link MediaMetadata.MediaType} in the legacy {@link
-   * MediaDescriptionCompat} as a long {@link MediaDescriptionCompat#getExtras() extra} and as a
-   * long value in {@link android.support.v4.media.MediaMetadataCompat}.
+   * {@link Bundle} key used to indicate the {@link MediaMetadata.MediaType} in the legacy {@code
+   * android.support.v4.media.MediaDescriptionCompat} as a long extra and as a long value in {@code
+   * android.support.v4.media.MediaMetadataCompat}.
    */
   @UnstableApi
   public static final String EXTRAS_KEY_MEDIA_TYPE_COMPAT =
       "androidx.media3.session.EXTRAS_KEY_MEDIA_TYPE_COMPAT";
+
+  /**
+   * {@link Bundle} key used to indicate the {@link CommandButton.Icon} in the extras of the legacy
+   * {@link PlaybackStateCompat.CustomAction}. The corresponding value should be one of the {@code
+   * CommandButton.ICON_} integer constants.
+   */
+  @UnstableApi
+  public static final String EXTRAS_KEY_COMMAND_BUTTON_ICON_COMPAT =
+      "androidx.media3.session.EXTRAS_KEY_COMMAND_BUTTON_ICON_COMPAT";
+
+  /**
+   * {@link Bundle} key used to store the title in case there was a display title that was given
+   * precedence when converting to a {@code MediaDescriptionCompat}. This key is only used to be
+   * able to convert back to the Media3 {@link MediaMetadata}.
+   */
+  /* package */ static final String EXTRAS_KEY_MEDIA_DESCRIPTION_COMPAT_TITLE =
+      "androidx.media3.mediadescriptioncompat.title";
 
   /* package */ static final String SESSION_COMMAND_ON_CAPTIONING_ENABLED_CHANGED =
       "androidx.media3.session.SESSION_COMMAND_ON_CAPTIONING_ENABLED_CHANGED";
@@ -472,6 +495,44 @@ public final class MediaConstants {
 
   /* package */ static final String ARGUMENT_CAPTIONING_ENABLED =
       "androidx.media3.session.ARGUMENT_CAPTIONING_ENABLED";
+
+  /**
+   * {@link Bundle} key used as a long extra field to indicate the download status of the media
+   * item. The value should be one of the following:
+   *
+   * <ul>
+   *   <li>{@link #EXTRAS_VALUE_STATUS_NOT_DOWNLOADED}
+   *   <li>{@link #EXTRAS_VALUE_STATUS_DOWNLOADING}
+   *   <li>{@link #EXTRAS_VALUE_STATUS_DOWNLOADED}
+   * </ul>
+   */
+  @UnstableApi
+  public static final String EXTRAS_KEY_DOWNLOAD_STATUS =
+      MediaDescriptionCompat.EXTRA_DOWNLOAD_STATUS;
+
+  /**
+   * The extras value to indicate that the media item is not downloaded. Used with {@link
+   * #EXTRAS_KEY_DOWNLOAD_STATUS}.
+   */
+  @UnstableApi
+  public static final long EXTRAS_VALUE_STATUS_NOT_DOWNLOADED =
+      MediaDescriptionCompat.STATUS_NOT_DOWNLOADED;
+
+  /**
+   * The extras value to indicate that the media item is being downloaded. Used with {@link
+   * #EXTRAS_KEY_DOWNLOAD_STATUS}.
+   */
+  @UnstableApi
+  public static final long EXTRAS_VALUE_STATUS_DOWNLOADING =
+      MediaDescriptionCompat.STATUS_DOWNLOADING;
+
+  /**
+   * The extras value to indicate that the media item is downloaded for later offline playback. Used
+   * with {@link #EXTRAS_KEY_DOWNLOAD_STATUS}.
+   */
+  @UnstableApi
+  public static final long EXTRAS_VALUE_STATUS_DOWNLOADED =
+      MediaDescriptionCompat.STATUS_DOWNLOADED;
 
   private MediaConstants() {}
 }

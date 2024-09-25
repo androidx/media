@@ -1,10 +1,10 @@
 seekMap:
   isSeekable = true
   duration = 2808000
-  getPosition(0) = [[timeUs=0, position=39740]]
-  getPosition(1) = [[timeUs=0, position=39740]]
-  getPosition(1404000) = [[timeUs=1404000, position=58820]]
-  getPosition(2808000) = [[timeUs=2808000, position=77900]]
+  getPosition(0) = [[timeUs=0, position=39743]]
+  getPosition(1) = [[timeUs=0, position=39743]]
+  getPosition(1404000) = [[timeUs=1404000, position=58823]]
+  getPosition(2808000) = [[timeUs=2808000, position=77903]]
 numberOfTracks = 1
 track 0:
   total output bytes = 25344
@@ -16,7 +16,7 @@ track 0:
     sampleRate = 48000
     encoderDelay = 576
     encoderPadding = 576
-    metadata = entries=[TIT2: description=null: values=[Test title], TPE1: description=null: values=[Test Artist], TALB: description=null: values=[Test Album], TXXX: description=Test description: values=[Test user info], COMM: language=eng, description=Test description, WXXX: url=Test URL, TSSE: description=null: values=[Lavf58.29.100], MLLT, PRIV: owner=test@gmail.com, UNKN, GEOB: mimeType=test/mime, filename=Testfilename.txt, description=Test description, CHAP, CHAP, CTOC, APIC: mimeType=image/jpeg, description=Test description]
+    metadata = entries=[TIT2: description=null: values=[Test title], TPE1: description=null: values=[Test Artist], TALB: description=null: values=[Test Album], TXXX: description=Test description: values=[Test user info], COMM: language=eng, description=Test description, text=Test comment, WXXX: url=Test URL, TSSE: description=null: values=[Lavf58.29.100], MLLT, PRIV: owner=test@gmail.com, UNKN, GEOB: mimeType=test/mime, filename=Testfilename.txt, description=Test description, CHAP, CHAP, CTOC, APIC: mimeType=image/jpeg, description=Test description, TCON: description=null: values=[Gorpcore]]
   sample 0:
     time = 943000
     flags = 1

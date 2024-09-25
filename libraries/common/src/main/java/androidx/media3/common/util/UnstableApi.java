@@ -41,46 +41,24 @@ import java.lang.annotation.Target;
  * work during upgrades. However it is generally inadvisable for libraries (which get included on
  * users' CLASSPATHs, outside the library developers' control) to do so.
  *
+ * <h2>Requesting additions to the stable API</h2>
+ *
+ * The Media3 stable API (i.e. those public API symbols that are not annotated with this annotation)
+ * is designed to allow developers to achieve common media-related tasks. If you have a use-case
+ * that you are unable to achieve using the stable API, and think you should be able to, please file
+ * an issue on our <a href="https://github.com/androidx/media/issues">GitHub issue tracker</a> with
+ * the full context of what you're doing, and what symbols you would need to be part of the stable
+ * API. We will consider each request on a case-by-case basis.
+ *
  * <h2>Opting in to use unstable APIs</h2>
  *
  * <p>By default usages of APIs annotated with this annotation generate lint errors in Gradle and
  * Android Studio, in order to alert developers to the risk of breaking changes.
  *
- * <p>Individual usage sites can be opted-in to suppress the lint error by using the {@link
- * androidx.annotation.OptIn} annotation.
- *
- * <p>In Java:
- *
- * <pre>{@code
- * import androidx.annotation.OptIn;
- * import androidx.media3.common.util.UnstableApi;
- * ...
- * @OptIn(markerClass = UnstableApi.class)
- * private void methodUsingUnstableApis() { ... }
- * }</pre>
- *
- * <p>In Kotlin:
- *
- * <pre>{@code
- * import androidx.annotation.OptIn
- * import androidx.media3.common.util.UnstableApi
- * ...
- * @OptIn(UnstableApi::class)
- * private fun methodUsingUnstableApis() { ... }
- * }</pre>
- *
- * <p>Whole projects can be opted-in by suppressing the specific lint error in their <a
- * href="https://developer.android.com/studio/write/lint#pref">{@code lint.xml} file</a>:
- *
- * <pre>{@code
- * <?xml version="1.0" encoding="utf-8"?>
- * <lint>
- *   <issue id="UnsafeOptInUsageError">
- *     <ignore
- *         regexp='\(markerClass = androidx\.media3\.common\.util\.UnstableApi\.class\)' />
- *   </issue>
- * </lint>
- * }</pre>
+ * <p>See <a
+ * href="https://developer.android.com/media/media3/exoplayer/troubleshooting#unstable-api-lint-errors">the
+ * troubleshooting section on these lint errors</a> for details on how to annotate Java and Kotlin
+ * usages with {@code @OptIn}.
  */
 @Documented
 @Retention(CLASS)

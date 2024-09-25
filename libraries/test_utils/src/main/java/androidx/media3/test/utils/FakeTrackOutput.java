@@ -245,7 +245,7 @@ public final class FakeTrackOutput implements TrackOutput, Dumper.Dumpable {
     public void dump(Dumper dumper) {
       dumper
           .startBlock("sample " + index)
-          .add("time", timeUs)
+          .addTime("time", timeUs)
           .add("flags", flags)
           .add("data", getSampleData(startOffset, endOffset));
       if (cryptoData != null) {

@@ -15,6 +15,7 @@
  */
 package androidx.media3.extractor.ts;
 
+import static androidx.media3.extractor.ts.TsPayloadReader.EsInfo.AUDIO_TYPE_UNDEFINED;
 import static androidx.media3.extractor.ts.TsPayloadReader.FLAG_PAYLOAD_UNIT_START_INDICATOR;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -24,8 +25,10 @@ import android.util.SparseIntArray;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.TimestampAdjuster;
@@ -38,7 +41,8 @@ import androidx.media3.extractor.ExtractorsFactory;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.TrackOutput;
-import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory.Flags;
+import androidx.media3.extractor.text.SubtitleParser;
+import androidx.media3.extractor.text.SubtitleTranscodingExtractorOutput;
 import androidx.media3.extractor.ts.TsPayloadReader.DvbSubtitleInfo;
 import androidx.media3.extractor.ts.TsPayloadReader.EsInfo;
 import androidx.media3.extractor.ts.TsPayloadReader.TrackIdGenerator;
@@ -51,15 +55,19 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Extracts data from the MPEG-2 TS container format. */
 @UnstableApi
 public final class TsExtractor implements Extractor {
 
-  /** Factory for {@link TsExtractor} instances. */
-  public static final ExtractorsFactory FACTORY = () -> new Extractor[] {new TsExtractor()};
+  /**
+   * Creates a factory for {@link TsExtractor} instances with the provided {@link
+   * SubtitleParser.Factory}.
+   */
+  public static ExtractorsFactory newFactory(SubtitleParser.Factory subtitleParserFactory) {
+    return () -> new Extractor[] {new TsExtractor(subtitleParserFactory)};
+  }
 
   /**
    * Modes for the extractor. One of {@link #MODE_MULTI_PMT}, {@link #MODE_SINGLE_PMT} or {@link
@@ -73,13 +81,43 @@ public final class TsExtractor implements Extractor {
 
   /** Behave as defined in ISO/IEC 13818-1. */
   public static final int MODE_MULTI_PMT = 0;
+
   /** Assume only one PMT will be contained in the stream, even if more are declared by the PAT. */
   public static final int MODE_SINGLE_PMT = 1;
+
   /**
    * Enable single PMT mode, map {@link TrackOutput}s by their type (instead of PID) and ignore
    * continuity counters.
    */
   public static final int MODE_HLS = 2;
+
+  /**
+   * Flags controlling the behavior of the extractor. Possible flag value is {@link
+   * #FLAG_EMIT_RAW_SUBTITLE_DATA}.
+   */
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target(TYPE_USE)
+  @IntDef(
+      flag = true,
+      value = {FLAG_EMIT_RAW_SUBTITLE_DATA})
+  public @interface Flags {}
+
+  /**
+   * Flag to use the source subtitle formats without modification. If unset, subtitles will be
+   * transcoded to {@link MimeTypes#APPLICATION_MEDIA3_CUES} during extraction.
+   */
+  public static final int FLAG_EMIT_RAW_SUBTITLE_DATA = 1;
+
+  /**
+   * @deprecated Use {@link #newFactory(SubtitleParser.Factory)} instead.
+   */
+  @Deprecated
+  public static final ExtractorsFactory FACTORY =
+      () ->
+          new Extractor[] {
+            new TsExtractor(FLAG_EMIT_RAW_SUBTITLE_DATA, SubtitleParser.Factory.UNSUPPORTED)
+          };
 
   public static final int TS_PACKET_SIZE = 188;
   public static final int DEFAULT_TIMESTAMP_SEARCH_BYTES = 600 * TS_PACKET_SIZE;
@@ -97,9 +135,12 @@ public final class TsExtractor implements Extractor {
   public static final int TS_STREAM_TYPE_H263 = 0x10; // MPEG-4 Part 2 and H.263
   public static final int TS_STREAM_TYPE_H264 = 0x1B;
   public static final int TS_STREAM_TYPE_H265 = 0x24;
+  public static final int TS_STREAM_TYPE_MHAS = 0x2D;
   public static final int TS_STREAM_TYPE_ID3 = 0x15;
   public static final int TS_STREAM_TYPE_SPLICE_INFO = 0x86;
   public static final int TS_STREAM_TYPE_DVBSUBS = 0x59;
+  public static final int TS_STREAM_TYPE_DTS_HD = 0x88; // As per ATSC Code Point Registry
+  public static final int TS_STREAM_TYPE_DTS_UHD = 0x8B;
 
   // Stream types that aren't defined by the MPEG-2 TS specification.
   public static final int TS_STREAM_TYPE_DC2_H262 = 0x80;
@@ -119,11 +160,13 @@ public final class TsExtractor implements Extractor {
   private static final int SNIFF_TS_PACKET_COUNT = 5;
 
   private final @Mode int mode;
+  private final @Flags int extractorFlags;
   private final int timestampSearchBytes;
   private final List<TimestampAdjuster> timestampAdjusters;
   private final ParsableByteArray tsPacketBuffer;
   private final SparseIntArray continuityCounters;
   private final TsPayloadReader.Factory payloadReaderFactory;
+  private final SubtitleParser.Factory subtitleParserFactory;
   private final SparseArray<TsPayloadReader> tsPayloadReaders; // Indexed by pid
   private final SparseBooleanArray trackIds;
   private final SparseBooleanArray trackPids;
@@ -140,57 +183,131 @@ public final class TsExtractor implements Extractor {
   private int bytesSinceLastSync;
   private int pcrPid;
 
+  /**
+   * @deprecated Use {@link #TsExtractor(SubtitleParser.Factory)} instead.
+   */
+  @Deprecated
   public TsExtractor() {
-    this(/* defaultTsPayloadReaderFlags= */ 0);
+    this(
+        MODE_SINGLE_PMT,
+        /* extractorFlags= */ FLAG_EMIT_RAW_SUBTITLE_DATA,
+        SubtitleParser.Factory.UNSUPPORTED,
+        new TimestampAdjuster(0),
+        new DefaultTsPayloadReaderFactory(/* defaultTsPayloadReaderFlags= */ 0),
+        DEFAULT_TIMESTAMP_SEARCH_BYTES);
   }
 
   /**
-   * @param defaultTsPayloadReaderFlags A combination of {@link DefaultTsPayloadReaderFactory}
-   *     {@code FLAG_*} values that control the behavior of the payload readers.
+   * Constructs an instance.
+   *
+   * @param subtitleParserFactory The {@link SubtitleParser.Factory} for parsing subtitles during
+   *     extraction.
    */
-  public TsExtractor(@Flags int defaultTsPayloadReaderFlags) {
-    this(MODE_SINGLE_PMT, defaultTsPayloadReaderFlags, DEFAULT_TIMESTAMP_SEARCH_BYTES);
+  public TsExtractor(SubtitleParser.Factory subtitleParserFactory) {
+    this(
+        MODE_SINGLE_PMT,
+        /* extractorFlags= */ 0,
+        subtitleParserFactory,
+        new TimestampAdjuster(0),
+        new DefaultTsPayloadReaderFactory(/* defaultTsPayloadReaderFlags= */ 0),
+        DEFAULT_TIMESTAMP_SEARCH_BYTES);
   }
 
   /**
-   * @param mode Mode for the extractor. One of {@link #MODE_MULTI_PMT}, {@link #MODE_SINGLE_PMT}
-   *     and {@link #MODE_HLS}.
-   * @param defaultTsPayloadReaderFlags A combination of {@link DefaultTsPayloadReaderFactory}
-   *     {@code FLAG_*} values that control the behavior of the payload readers.
-   * @param timestampSearchBytes The number of bytes searched from a given position in the stream to
-   *     find a PCR timestamp. If this value is too small, the duration might be unknown and seeking
-   *     might not be supported for high bitrate progressive streams. Setting a large value for this
-   *     field might be inefficient though because the extractor stores a buffer of {@code
-   *     timestampSearchBytes} bytes when determining the duration or when performing a seek
-   *     operation. The default value is {@link #DEFAULT_TIMESTAMP_SEARCH_BYTES}. If the number of
-   *     bytes left in the stream from the current position is less than {@code
-   *     timestampSearchBytes}, the search is performed on the bytes left.
+   * Constructs an instance.
+   *
+   * @param extractorFlags Flags that control the extractor's behavior.
+   * @param subtitleParserFactory The {@link SubtitleParser.Factory} for parsing subtitles during
+   *     extraction.
    */
+  public TsExtractor(@Flags int extractorFlags, SubtitleParser.Factory subtitleParserFactory) {
+    this(
+        MODE_SINGLE_PMT,
+        extractorFlags,
+        subtitleParserFactory,
+        new TimestampAdjuster(0),
+        new DefaultTsPayloadReaderFactory(/* defaultTsPayloadReaderFlags= */ 0),
+        DEFAULT_TIMESTAMP_SEARCH_BYTES);
+  }
+
+  /**
+   * @deprecated Use {@link #TsExtractor(int, int, SubtitleParser.Factory, TimestampAdjuster,
+   *     TsPayloadReader.Factory, int)} instead.
+   */
+  @Deprecated
+  public TsExtractor(@DefaultTsPayloadReaderFactory.Flags int defaultTsPayloadReaderFlags) {
+    this(
+        MODE_SINGLE_PMT,
+        FLAG_EMIT_RAW_SUBTITLE_DATA,
+        SubtitleParser.Factory.UNSUPPORTED,
+        new TimestampAdjuster(0),
+        new DefaultTsPayloadReaderFactory(defaultTsPayloadReaderFlags),
+        DEFAULT_TIMESTAMP_SEARCH_BYTES);
+  }
+
+  /**
+   * @deprecated Use {@link #TsExtractor(int, int, SubtitleParser.Factory, TimestampAdjuster,
+   *     TsPayloadReader.Factory, int)} instead.
+   */
+  @Deprecated
   public TsExtractor(
-      @Mode int mode, @Flags int defaultTsPayloadReaderFlags, int timestampSearchBytes) {
+      @Mode int mode,
+      @DefaultTsPayloadReaderFactory.Flags int defaultTsPayloadReaderFlags,
+      int timestampSearchBytes) {
     this(
         mode,
+        FLAG_EMIT_RAW_SUBTITLE_DATA,
+        SubtitleParser.Factory.UNSUPPORTED,
         new TimestampAdjuster(0),
         new DefaultTsPayloadReaderFactory(defaultTsPayloadReaderFlags),
         timestampSearchBytes);
   }
 
   /**
-   * @param mode Mode for the extractor. One of {@link #MODE_MULTI_PMT}, {@link #MODE_SINGLE_PMT}
-   *     and {@link #MODE_HLS}.
-   * @param timestampAdjuster A timestamp adjuster for offsetting and scaling sample timestamps.
-   * @param payloadReaderFactory Factory for injecting a custom set of payload readers.
+   * @deprecated Use {@link #TsExtractor(int, int, SubtitleParser.Factory, TimestampAdjuster,
+   *     TsPayloadReader.Factory, int)} instead.
    */
+  @Deprecated
   public TsExtractor(
       @Mode int mode,
       TimestampAdjuster timestampAdjuster,
       TsPayloadReader.Factory payloadReaderFactory) {
-    this(mode, timestampAdjuster, payloadReaderFactory, DEFAULT_TIMESTAMP_SEARCH_BYTES);
+    this(
+        mode,
+        FLAG_EMIT_RAW_SUBTITLE_DATA,
+        SubtitleParser.Factory.UNSUPPORTED,
+        timestampAdjuster,
+        payloadReaderFactory,
+        DEFAULT_TIMESTAMP_SEARCH_BYTES);
   }
 
   /**
+   * @deprecated Use {@link #TsExtractor(int, int, SubtitleParser.Factory, TimestampAdjuster,
+   *     TsPayloadReader.Factory, int)} instead.
+   */
+  @Deprecated
+  public TsExtractor(
+      @Mode int mode,
+      TimestampAdjuster timestampAdjuster,
+      TsPayloadReader.Factory payloadReaderFactory,
+      int timestampSearchBytes) {
+    this(
+        mode,
+        FLAG_EMIT_RAW_SUBTITLE_DATA,
+        SubtitleParser.Factory.UNSUPPORTED,
+        timestampAdjuster,
+        payloadReaderFactory,
+        timestampSearchBytes);
+  }
+
+  /**
+   * Constructs an instance.
+   *
    * @param mode Mode for the extractor. One of {@link #MODE_MULTI_PMT}, {@link #MODE_SINGLE_PMT}
    *     and {@link #MODE_HLS}.
+   * @param extractorFlags Flags that control the extractor's behavior.
+   * @param subtitleParserFactory The {@link SubtitleParser.Factory} for parsing subtitles during
+   *     extraction.
    * @param timestampAdjuster A timestamp adjuster for offsetting and scaling sample timestamps.
    * @param payloadReaderFactory Factory for injecting a custom set of payload readers.
    * @param timestampSearchBytes The number of bytes searched from a given position in the stream to
@@ -204,12 +321,16 @@ public final class TsExtractor implements Extractor {
    */
   public TsExtractor(
       @Mode int mode,
+      @Flags int extractorFlags,
+      SubtitleParser.Factory subtitleParserFactory,
       TimestampAdjuster timestampAdjuster,
       TsPayloadReader.Factory payloadReaderFactory,
       int timestampSearchBytes) {
     this.payloadReaderFactory = Assertions.checkNotNull(payloadReaderFactory);
     this.timestampSearchBytes = timestampSearchBytes;
     this.mode = mode;
+    this.extractorFlags = extractorFlags;
+    this.subtitleParserFactory = subtitleParserFactory;
     if (mode == MODE_SINGLE_PMT || mode == MODE_HLS) {
       timestampAdjusters = Collections.singletonList(timestampAdjuster);
     } else {
@@ -252,7 +373,10 @@ public final class TsExtractor implements Extractor {
 
   @Override
   public void init(ExtractorOutput output) {
-    this.output = output;
+    this.output =
+        (extractorFlags & FLAG_EMIT_RAW_SUBTITLE_DATA) == 0
+            ? new SubtitleTranscodingExtractorOutput(output, subtitleParserFactory)
+            : output;
   }
 
   @Override
@@ -301,8 +425,9 @@ public final class TsExtractor implements Extractor {
   public @ReadResult int read(ExtractorInput input, PositionHolder seekPosition)
       throws IOException {
     long inputLength = input.getLength();
+    boolean isModeHls = mode == MODE_HLS;
     if (tracksEnded) {
-      boolean canReadDuration = inputLength != C.LENGTH_UNSET && mode != MODE_HLS;
+      boolean canReadDuration = inputLength != C.LENGTH_UNSET && !isModeHls;
       if (canReadDuration && !durationReader.isDurationReadFinished()) {
         return durationReader.readDuration(input, seekPosition, pcrPid);
       }
@@ -323,6 +448,16 @@ public final class TsExtractor implements Extractor {
     }
 
     if (!fillBufferWithAtLeastOnePacket(input)) {
+      // Send a synthesized empty pusi to allow for packetFinished to be triggered on the last unit.
+      for (int i = 0; i < tsPayloadReaders.size(); i++) {
+        TsPayloadReader payloadReader = tsPayloadReaders.valueAt(i);
+        if (payloadReader instanceof PesReader) {
+          PesReader pesReader = (PesReader) payloadReader;
+          if (pesReader.canConsumeSynthesizedEmptyPusi(isModeHls)) {
+            pesReader.consume(new ParsableByteArray(), FLAG_PAYLOAD_UNIT_START_INDICATOR);
+          }
+        }
+      }
       return RESULT_END_OF_INPUT;
     }
 
@@ -556,6 +691,8 @@ public final class TsExtractor implements Extractor {
     private static final int TS_PMT_DESC_DVBSUBS = 0x59;
 
     private static final int TS_PMT_DESC_DVB_EXT_AC4 = 0x15;
+    private static final int TS_PMT_DESC_DVB_EXT_DTS_HD = 0x0E;
+    private static final int TS_PMT_DESC_DVB_EXT_DTS_UHD = 0x21;
 
     private final ParsableBitArray pmtScratch;
     private final SparseArray<@NullableType TsPayloadReader> trackIdToReaderScratch;
@@ -625,7 +762,8 @@ public final class TsExtractor implements Extractor {
       if (mode == MODE_HLS && id3Reader == null) {
         // Setup an ID3 track regardless of whether there's a corresponding entry, in case one
         // appears intermittently during playback. See [Internal: b/20261500].
-        EsInfo id3EsInfo = new EsInfo(TS_STREAM_TYPE_ID3, null, null, Util.EMPTY_BYTE_ARRAY);
+        EsInfo id3EsInfo =
+            new EsInfo(TS_STREAM_TYPE_ID3, null, AUDIO_TYPE_UNDEFINED, null, Util.EMPTY_BYTE_ARRAY);
         id3Reader = payloadReaderFactory.createPayloadReader(TS_STREAM_TYPE_ID3, id3EsInfo);
         if (id3Reader != null) {
           id3Reader.init(
@@ -715,6 +853,7 @@ public final class TsExtractor implements Extractor {
       int descriptorsEndPosition = descriptorsStartPosition + length;
       int streamType = -1;
       String language = null;
+      @EsInfo.AudioType int audioType = AUDIO_TYPE_UNDEFINED;
       List<DvbSubtitleInfo> dvbSubtitleInfos = null;
       while (data.getPosition() < descriptorsEndPosition) {
         int descriptorTag = data.readUnsignedByte();
@@ -745,12 +884,18 @@ public final class TsExtractor implements Extractor {
           if (descriptorTagExt == TS_PMT_DESC_DVB_EXT_AC4) {
             // AC-4_descriptor in DVB (ETSI EN 300 468).
             streamType = TS_STREAM_TYPE_AC4;
+          } else if (descriptorTagExt == TS_PMT_DESC_DVB_EXT_DTS_HD) {
+            // DTS-HD descriptor in DVB (ETSI EN 300 468).
+            streamType = TS_STREAM_TYPE_DTS_HD;
+          } else if (descriptorTagExt == TS_PMT_DESC_DVB_EXT_DTS_UHD) {
+            // DTS-UHD descriptor in DVB (ETSI EN 300 468).
+            streamType = TS_STREAM_TYPE_DTS_UHD;
           }
         } else if (descriptorTag == TS_PMT_DESC_DTS) { // DTS_descriptor
           streamType = TS_STREAM_TYPE_DTS;
         } else if (descriptorTag == TS_PMT_DESC_ISO639_LANG) {
           language = data.readString(3).trim();
-          // Audio type is ignored.
+          audioType = data.readUnsignedByte();
         } else if (descriptorTag == TS_PMT_DESC_DVBSUBS) {
           streamType = TS_STREAM_TYPE_DVBSUBS;
           dvbSubtitleInfos = new ArrayList<>();
@@ -772,6 +917,7 @@ public final class TsExtractor implements Extractor {
       return new EsInfo(
           streamType,
           language,
+          audioType,
           dvbSubtitleInfos,
           Arrays.copyOfRange(data.getData(), descriptorsStartPosition, descriptorsEndPosition));
     }

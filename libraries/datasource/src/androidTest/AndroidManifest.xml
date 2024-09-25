@@ -19,10 +19,10 @@
     package="androidx.media3.datasource.test">
 
   <uses-permission android:name="android.permission.INTERNET"/>
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
   <uses-sdk/>
 
   <application
-      android:name="androidx.multidex.MultiDexApplication"
       android:allowBackup="false"
       android:usesCleartextTraffic="true"
       tools:ignore="MissingApplicationIcon,HardcodedDebugMode">

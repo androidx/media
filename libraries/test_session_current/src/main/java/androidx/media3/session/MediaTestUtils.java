@@ -15,6 +15,8 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.test.session.common.CommonConstants.METADATA_ALBUM_TITLE;
+import static androidx.media3.test.session.common.CommonConstants.METADATA_ARTIST;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_ARTWORK_URI;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_DESCRIPTION;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_EXTRAS;
@@ -31,26 +33,71 @@ import android.support.v4.media.MediaDescriptionCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 import androidx.annotation.Nullable;
 import androidx.media.MediaBrowserServiceCompat.BrowserRoot;
+import androidx.media3.common.C;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.TrackGroup;
+import androidx.media3.common.Tracks;
+import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import androidx.media3.test.session.common.TestUtils;
 import androidx.test.core.app.ApplicationProvider;
+import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 /** Utilities for tests. */
-@UnstableApi
 public final class MediaTestUtils {
 
   private static final String TAG = "MediaTestUtils";
 
   private static final String TEST_IMAGE_PATH = "media/png/non-motion-photo-shortened.png";
+
+  private static final VideoSize DEFAULT_VIDEO_SIZE = new VideoSize(640, 480);
+  private static final Format VIDEO_FORMAT =
+      new Format.Builder()
+          .setSampleMimeType(MimeTypes.VIDEO_H264)
+          .setAverageBitrate(2_400_000)
+          .setWidth(DEFAULT_VIDEO_SIZE.width)
+          .setHeight(DEFAULT_VIDEO_SIZE.height)
+          .build();
+  private static final Format AUDIO_FORMAT =
+      new Format.Builder()
+          .setSampleMimeType(MimeTypes.AUDIO_AAC)
+          .setAverageBitrate(320_000)
+          .setChannelCount(2)
+          .setSampleRate(44100)
+          .build();
+
+  /**
+   * Tracks with {@linkplain C#TRACK_TYPE_VIDEO a single video} track and {@linkplain
+   * C#TRACK_TYPE_AUDIO a single audio} track for testing purpose.
+   */
+  public static Tracks createDefaultVideoTracks() {
+    return new Tracks(
+        ImmutableList.of(
+            new Tracks.Group(
+                new TrackGroup(VIDEO_FORMAT),
+                /* adaptiveSupported= */ false,
+                new int[] {C.FORMAT_HANDLED},
+                /* trackSelected= */ new boolean[] {true}),
+            new Tracks.Group(
+                new TrackGroup(AUDIO_FORMAT),
+                /* adaptiveSupported= */ false,
+                new int[] {C.FORMAT_HANDLED},
+                /* trackSelected= */ new boolean[] {true})));
+  }
+
+  /** Returns a {@link VideoSize} instance for testing purpose. */
+  public static VideoSize getDefaultVideoSize() {
+    return DEFAULT_VIDEO_SIZE;
+  }
 
   /** Create a media item with the mediaId for testing purpose. */
   public static MediaItem createMediaItem(String mediaId) {
@@ -112,6 +159,8 @@ public final class MediaTestUtils {
         .setTitle(METADATA_TITLE)
         .setSubtitle(METADATA_SUBTITLE)
         .setDescription(METADATA_DESCRIPTION)
+        .setArtist(METADATA_ARTIST)
+        .setAlbumTitle(METADATA_ALBUM_TITLE)
         .setArtworkUri(METADATA_ARTWORK_URI)
         .setExtras(METADATA_EXTRAS)
         .build();
@@ -124,6 +173,8 @@ public final class MediaTestUtils {
             .setIsPlayable(true)
             .setTitle(METADATA_TITLE)
             .setSubtitle(METADATA_SUBTITLE)
+            .setArtist(METADATA_ARTIST)
+            .setAlbumTitle(METADATA_ALBUM_TITLE)
             .setDescription(METADATA_DESCRIPTION)
             .setArtworkUri(METADATA_ARTWORK_URI)
             .setExtras(METADATA_EXTRAS);
@@ -192,8 +243,20 @@ public final class MediaTestUtils {
     List<MediaSessionCompat.QueueItem> list = new ArrayList<>();
     for (int i = 0; i < mediaItems.size(); i++) {
       MediaItem item = mediaItems.get(i);
-      MediaDescriptionCompat description = MediaUtils.convertToMediaDescriptionCompat(item, null);
-      long id = MediaUtils.convertToQueueItemId(i);
+      androidx.media3.session.legacy.MediaDescriptionCompat media3Description =
+          LegacyConversions.convertToMediaDescriptionCompat(item, null);
+      MediaDescriptionCompat description =
+          new MediaDescriptionCompat.Builder()
+              .setTitle(media3Description.getTitle())
+              .setSubtitle(media3Description.getSubtitle())
+              .setDescription(media3Description.getDescription())
+              .setIconUri(media3Description.getIconUri())
+              .setIconBitmap(media3Description.getIconBitmap())
+              .setMediaId(media3Description.getMediaId())
+              .setMediaUri(media3Description.getMediaUri())
+              .setExtras(media3Description.getExtras())
+              .build();
+      long id = LegacyConversions.convertToQueueItemId(i);
       list.add(new MediaSessionCompat.QueueItem(description, id));
     }
     return list;

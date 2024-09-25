@@ -24,7 +24,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 
 /** Parameters that apply to playback, including speed setting. */
-public final class PlaybackParameters implements Bundleable {
+public final class PlaybackParameters {
 
   /** The default playback parameters: real-time playback with no silence skipping. */
   public static final PlaybackParameters DEFAULT = new PlaybackParameters(/* speed= */ 1f);
@@ -43,7 +43,7 @@ public final class PlaybackParameters implements Bundleable {
    *
    * @param speed The factor by which playback will be sped up. Must be greater than zero.
    */
-  public PlaybackParameters(float speed) {
+  public PlaybackParameters(@FloatRange(from = 0, fromInclusive = false) float speed) {
     this(speed, /* pitch= */ 1f);
   }
 
@@ -113,13 +113,10 @@ public final class PlaybackParameters implements Bundleable {
     return Util.formatInvariant("PlaybackParameters(speed=%.2f, pitch=%.2f)", speed, pitch);
   }
 
-  // Bundleable implementation.
-
   private static final String FIELD_SPEED = Util.intToStringMaxRadix(0);
   private static final String FIELD_PITCH = Util.intToStringMaxRadix(1);
 
   @UnstableApi
-  @Override
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
     bundle.putFloat(FIELD_SPEED, speed);
@@ -127,12 +124,12 @@ public final class PlaybackParameters implements Bundleable {
     return bundle;
   }
 
-  /** Object that can restore {@link PlaybackParameters} from a {@link Bundle}. */
+  /** Restores a {@code PlaybackParameters} from a {@link Bundle}. */
   @UnstableApi
-  public static final Creator<PlaybackParameters> CREATOR =
-      bundle -> {
-        float speed = bundle.getFloat(FIELD_SPEED, /* defaultValue= */ 1f);
-        float pitch = bundle.getFloat(FIELD_PITCH, /* defaultValue= */ 1f);
-        return new PlaybackParameters(speed, pitch);
-      };
+  public static PlaybackParameters fromBundle(Bundle bundle) {
+    float speed = bundle.getFloat(FIELD_SPEED, /* defaultValue= */ 1f);
+    float pitch = bundle.getFloat(FIELD_PITCH, /* defaultValue= */ 1f);
+    return new PlaybackParameters(speed, pitch);
+  }
+  ;
 }
