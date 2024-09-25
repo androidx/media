@@ -35,7 +35,6 @@ import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -438,8 +437,6 @@ public final class CompositionPlayerAudioPlaybackTest {
             + "wav/sequencePlayback_withThreeMediaAndRemovingFirstAndThirdAudio_outputsCorrectSamples.dump");
   }
 
-  // TODO - b/320014878: Enable this test.
-  @Ignore("Preview audio is not fed to the sink in deterministic buffers - see b/320014878.")
   @Test
   public void multiSequenceCompositionPlayback_withOneRepeat_outputsCorrectSamples()
       throws Exception {
