@@ -145,7 +145,7 @@ public class MediaSessionServiceTest {
     // Create the remote controller to start the service.
     RemoteMediaController controller =
         controllerTestRule.createRemoteController(
-            token, /* waitForConnection= */ true, /* connectionHints= */ null);
+            token, /* waitForConnection= */ true, /* connectionHints= */ Bundle.EMPTY);
     // Get the started service instance after creation.
     MockMediaSessionService service =
         (MockMediaSessionService) testServiceRegistry.getServiceInstance();
@@ -221,7 +221,7 @@ public class MediaSessionServiceTest {
         });
     RemoteMediaController controller =
         controllerTestRule.createRemoteController(
-            token, /* waitForConnection= */ true, /* connectionHints= */ null);
+            token, /* waitForConnection= */ true, /* connectionHints= */ Bundle.EMPTY);
     MockMediaSessionService service =
         (MockMediaSessionService) testServiceRegistry.getServiceInstance();
 
@@ -459,9 +459,9 @@ public class MediaSessionServiceTest {
             });
 
     RemoteMediaController controller1 =
-        controllerTestRule.createRemoteController(token, true, null);
+        controllerTestRule.createRemoteController(token, true, /* connectionHints= */ Bundle.EMPTY);
     RemoteMediaController controller2 =
-        controllerTestRule.createRemoteController(token, true, null);
+        controllerTestRule.createRemoteController(token, true, /* connectionHints= */ Bundle.EMPTY);
 
     assertThat(controller2.getConnectedSessionToken())
         .isNotEqualTo(controller1.getConnectedSessionToken());
@@ -504,9 +504,9 @@ public class MediaSessionServiceTest {
             });
 
     RemoteMediaController controller1 =
-        controllerTestRule.createRemoteController(token, true, null);
+        controllerTestRule.createRemoteController(token, true, /* connectionHints= */ Bundle.EMPTY);
     RemoteMediaController controller2 =
-        controllerTestRule.createRemoteController(token, true, null);
+        controllerTestRule.createRemoteController(token, true, /* connectionHints= */ Bundle.EMPTY);
     controller1.release();
     controller2.release();
 
@@ -540,9 +540,9 @@ public class MediaSessionServiceTest {
             });
 
     RemoteMediaController controller1 =
-        controllerTestRule.createRemoteController(token, true, null);
+        controllerTestRule.createRemoteController(token, true, /* connectionHints= */ Bundle.EMPTY);
     RemoteMediaController controller2 =
-        controllerTestRule.createRemoteController(token, true, null);
+        controllerTestRule.createRemoteController(token, true, /* connectionHints= */ Bundle.EMPTY);
 
     controller1.release();
     assertThat(latch.await(NO_RESPONSE_TIMEOUT_MS, MILLISECONDS)).isFalse();
@@ -555,7 +555,7 @@ public class MediaSessionServiceTest {
   @Test
   public void getSessions() throws Exception {
     controllerTestRule.createRemoteController(
-        token, /* waitForConnection= */ true, /* connectionHints= */ null);
+        token, /* waitForConnection= */ true, /* connectionHints= */ Bundle.EMPTY);
     MediaSessionService service = TestServiceRegistry.getInstance().getServiceInstance();
     MediaSession session = createMediaSession("testGetSessions");
     service.addSession(session);
@@ -572,7 +572,7 @@ public class MediaSessionServiceTest {
   @Test
   public void addSessions_removedWhenReleased() throws Exception {
     controllerTestRule.createRemoteController(
-        token, /* waitForConnection= */ true, /* connectionHints= */ null);
+        token, /* waitForConnection= */ true, /* connectionHints= */ Bundle.EMPTY);
     MediaSessionService service = TestServiceRegistry.getInstance().getServiceInstance();
     MediaSession session = createMediaSession("testAddSessions_removedWhenReleased");
     service.addSession(session);

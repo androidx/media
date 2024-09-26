@@ -62,6 +62,7 @@ import static androidx.media3.test.session.common.MediaBrowserConstants.SEARCH_R
 import static androidx.media3.test.session.common.MediaBrowserConstants.SEARCH_TIME_IN_MS;
 import static androidx.media3.test.session.common.MediaBrowserConstants.SUBSCRIBE_PARENT_ID_1;
 import static androidx.media3.test.session.common.MediaBrowserConstants.SUBSCRIBE_PARENT_ID_2;
+import static java.lang.Math.min;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.app.PendingIntent;
@@ -360,7 +361,9 @@ public class MockMediaLibraryService extends MediaLibraryService {
         case MEDIA_ID_GET_ITEM_WITH_BROWSE_ACTIONS:
           return Futures.immediateFuture(
               LibraryResult.ofItem(
-                  createPlayableMediaItemWithBrowseActions(mediaId), /* params= */ null));
+                  createPlayableMediaItemWithCommands(
+                      mediaId, browser.getMaxCommandsForMediaItems()),
+                  /* params= */ null));
         case MEDIA_ID_GET_ITEM_WITH_METADATA:
           return Futures.immediateFuture(
               LibraryResult.ofItem(createMediaItemWithMetadata(mediaId), /* params= */ null));
@@ -575,7 +578,7 @@ public class MockMediaLibraryService extends MediaLibraryService {
 
     int totalItemCount = items.size();
     int fromIndex = page * pageSize;
-    int toIndex = Math.min((page + 1) * pageSize, totalItemCount);
+    int toIndex = min((page + 1) * pageSize, totalItemCount);
 
     List<String> paginatedMediaIdList = new ArrayList<>();
     try {
@@ -626,17 +629,18 @@ public class MockMediaLibraryService extends MediaLibraryService {
     return mediaItem.buildUpon().setMediaMetadata(mediaMetadataWithArtwork).build();
   }
 
-  private MediaItem createPlayableMediaItemWithBrowseActions(String mediaId) {
+  private MediaItem createPlayableMediaItemWithCommands(
+      String mediaId, int maxCommandsForMediaItems) {
     MediaItem mediaItem = createPlayableMediaItem(mediaId);
+    ImmutableList<String> allCommands =
+        ImmutableList.of(
+            MediaBrowserConstants.COMMAND_PLAYLIST_ADD, MediaBrowserConstants.COMMAND_RADIO);
+    ImmutableList.Builder<String> supportedCommands = new ImmutableList.Builder<>();
+    for (int i = 0; i < min(maxCommandsForMediaItems, allCommands.size()); i++) {
+      supportedCommands.add(allCommands.get(i));
+    }
     MediaMetadata mediaMetadataWithBrowseActions =
-        mediaItem
-            .mediaMetadata
-            .buildUpon()
-            .setSupportedCommands(
-                ImmutableList.of(
-                    MediaBrowserConstants.COMMAND_PLAYLIST_ADD,
-                    MediaBrowserConstants.COMMAND_RADIO))
-            .build();
+        mediaItem.mediaMetadata.buildUpon().setSupportedCommands(supportedCommands.build()).build();
     return mediaItem.buildUpon().setMediaMetadata(mediaMetadataWithBrowseActions).build();
   }
 

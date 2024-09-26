@@ -354,6 +354,37 @@ public class MediaSessionCallbackTest {
   }
 
   @Test
+  public void onConnect_withMaxCommandsForMediaItems_correctMaxLimitInControllerInfo()
+      throws Exception {
+    CountDownLatch latch = new CountDownLatch(/* count= */ 1);
+    AtomicInteger maxCommandsForMediaItems = new AtomicInteger();
+    MediaSession session =
+        sessionTestRule.ensureReleaseAfterTest(
+            new MediaSession.Builder(context, player)
+                .setCallback(
+                    new MediaSession.Callback() {
+                      @Override
+                      public MediaSession.ConnectionResult onConnect(
+                          MediaSession session, ControllerInfo controller) {
+                        maxCommandsForMediaItems.set(controller.getMaxCommandsForMediaItems());
+                        latch.countDown();
+                        return MediaSession.Callback.super.onConnect(session, controller);
+                      }
+                    })
+                .setId("onConnect_withMaxCommandForMediaItems_correctMaxLimitInControllerInfo")
+                .build());
+    Bundle connectionHints = new Bundle();
+    connectionHints.putInt(
+        MediaControllerProviderService.CONNECTION_HINT_KEY_MAX_COMMANDS_FOR_MEDIA_ITEMS, 2);
+
+    remoteControllerTestRule.createRemoteController(
+        session.getToken(), /* waitForConnection= */ true, connectionHints);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(maxCommandsForMediaItems.get()).isEqualTo(2);
+  }
+
+  @Test
   public void onPostConnect_afterConnected() throws Exception {
     CountDownLatch latch = new CountDownLatch(1);
     MediaSession.Callback callback =

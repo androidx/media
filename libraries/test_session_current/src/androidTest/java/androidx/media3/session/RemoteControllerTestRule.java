@@ -76,7 +76,7 @@ public final class RemoteControllerTestRule extends ExternalResource {
    */
   public RemoteMediaController createRemoteController(SessionToken token) throws RemoteException {
     return createRemoteController(
-        token, /* waitForConnection= */ true, /* connectionHints= */ null);
+        token, /* waitForConnection= */ true, /* connectionHints= */ Bundle.EMPTY);
   }
 
   /** Creates {@link RemoteMediaController} from {@link SessionToken}. */

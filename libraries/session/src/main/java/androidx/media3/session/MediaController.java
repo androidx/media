@@ -211,6 +211,7 @@ public class MediaController implements Player {
     private Listener listener;
     private Looper applicationLooper;
     private @MonotonicNonNull BitmapLoader bitmapLoader;
+    private int maxCommandsForMediaItems;
 
     /**
      * Creates a builder for {@link MediaController}.
@@ -305,6 +306,22 @@ public class MediaController implements Player {
     }
 
     /**
+     * Sets the max number of commands the controller supports per media item.
+     *
+     * <p>Must be greater or equal to 0. The default is 0.
+     *
+     * @param maxCommandsForMediaItems The max number of commands per media item.
+     * @return The builder to allow chaining.
+     */
+    @UnstableApi
+    @CanIgnoreReturnValue
+    public Builder setMaxCommandsForMediaItems(int maxCommandsForMediaItems) {
+      checkArgument(maxCommandsForMediaItems >= 0);
+      this.maxCommandsForMediaItems = maxCommandsForMediaItems;
+      return this;
+    }
+
+    /**
      * Builds a {@link MediaController} asynchronously.
      *
      * <p>The controller instance can be obtained like the following example:
@@ -338,7 +355,14 @@ public class MediaController implements Player {
       }
       MediaController controller =
           new MediaController(
-              context, token, connectionHints, listener, applicationLooper, holder, bitmapLoader);
+              context,
+              token,
+              connectionHints,
+              listener,
+              applicationLooper,
+              holder,
+              bitmapLoader,
+              maxCommandsForMediaItems);
       postOrRun(new Handler(applicationLooper), () -> holder.setController(controller));
       return holder;
     }
@@ -493,6 +517,8 @@ public class MediaController implements Player {
 
   private boolean connectionNotified;
 
+  private final int maxCommandsForMediaItems;
+
   /* package */ final ConnectionCallback connectionCallback;
 
   /** Creates a {@link MediaController} from the {@link SessionToken}. */
@@ -505,7 +531,8 @@ public class MediaController implements Player {
       Listener listener,
       Looper applicationLooper,
       ConnectionCallback connectionCallback,
-      @Nullable BitmapLoader bitmapLoader) {
+      @Nullable BitmapLoader bitmapLoader,
+      int maxCommandsForMediaItems) {
     checkNotNull(context, "context must not be null");
     checkNotNull(token, "token must not be null");
     Log.i(
@@ -526,6 +553,7 @@ public class MediaController implements Player {
     this.listener = listener;
     applicationHandler = new Handler(applicationLooper);
     this.connectionCallback = connectionCallback;
+    this.maxCommandsForMediaItems = maxCommandsForMediaItems;
 
     impl = createImpl(context, token, connectionHints, applicationLooper, bitmapLoader);
     impl.connect();
@@ -1945,6 +1973,10 @@ public class MediaController implements Player {
   public final Looper getApplicationLooper() {
     // Don't verify application thread. We allow calls to this method from any thread.
     return applicationHandler.getLooper();
+  }
+
+  /* package */ int getMaxCommandsForMediaItems() {
+    return maxCommandsForMediaItems;
   }
 
   /**

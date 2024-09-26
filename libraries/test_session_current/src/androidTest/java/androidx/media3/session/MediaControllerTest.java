@@ -763,7 +763,8 @@ public class MediaControllerTest {
                 latch.countDown();
               }
             },
-            /* controllerCreationListener= */ MediaController::release);
+            /* controllerCreationListener= */ MediaController::release,
+            /* maxCommandsForMediaItems= */ 0);
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(controller.isConnected()).isFalse();
   }

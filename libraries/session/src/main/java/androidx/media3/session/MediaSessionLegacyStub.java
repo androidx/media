@@ -320,7 +320,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             ControllerInfo.LEGACY_CONTROLLER_INTERFACE_VERSION,
             /* trusted= */ false,
             /* cb= */ null,
-            /* connectionHints= */ Bundle.EMPTY),
+            /* connectionHints= */ Bundle.EMPTY,
+            /* maxCommandsForMediaItems= */ 0),
         intent);
   }
 
@@ -782,7 +783,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
               ControllerInfo.LEGACY_CONTROLLER_INTERFACE_VERSION,
               sessionManager.isTrustedForMediaControl(remoteUserInfo),
               controllerCb,
-              /* connectionHints= */ Bundle.EMPTY);
+              /* connectionHints= */ Bundle.EMPTY,
+              /* maxCommandsForMediaItems= */ 0);
       MediaSession.ConnectionResult connectionResult = sessionImpl.onConnectOnHandler(controller);
       if (!connectionResult.isAccepted) {
         try {

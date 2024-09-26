@@ -85,7 +85,8 @@ public class MediaSessionUnitTest { // Avoid naming collision with session_curre
             MediaControllerStub.VERSION_INT,
             /* trusted= */ false,
             /* cb= */ null,
-            /* connectionHints= */ Bundle.EMPTY);
+            /* connectionHints= */ Bundle.EMPTY,
+            /* maxCommandsForMediaItems= */ 0);
 
     assertThat(session.isAutomotiveController(controllerInfo)).isFalse();
   }
@@ -140,7 +141,8 @@ public class MediaSessionUnitTest { // Avoid naming collision with session_curre
             MediaControllerStub.VERSION_INT,
             /* trusted= */ false,
             /* cb= */ null,
-            /* connectionHints= */ Bundle.EMPTY);
+            /* connectionHints= */ Bundle.EMPTY,
+            /* maxCommandsForMediaItems= */ 0);
 
     assertThat(session.isAutoCompanionController(controllerInfo)).isFalse();
   }
@@ -161,7 +163,8 @@ public class MediaSessionUnitTest { // Avoid naming collision with session_curre
             MediaControllerStub.VERSION_INT,
             /* trusted= */ false,
             /* cb= */ null,
-            connectionHints);
+            connectionHints,
+            /* maxCommandsForMediaItems= */ 0);
 
     assertThat(session.isMediaNotificationController(controllerInfo)).isTrue();
   }
@@ -182,7 +185,8 @@ public class MediaSessionUnitTest { // Avoid naming collision with session_curre
             MediaControllerStub.VERSION_INT,
             /* trusted= */ false,
             /* cb= */ null,
-            connectionHints);
+            connectionHints,
+            /* maxCommandsForMediaItems= */ 0);
 
     assertThat(session.isMediaNotificationController(controllerInfo)).isFalse();
   }
@@ -201,7 +205,8 @@ public class MediaSessionUnitTest { // Avoid naming collision with session_curre
             MediaControllerStub.VERSION_INT,
             /* trusted= */ false,
             /* cb= */ null,
-            /* connectionHints= */ Bundle.EMPTY);
+            /* connectionHints= */ Bundle.EMPTY,
+            /* maxCommandsForMediaItems= */ 0);
 
     assertThat(session.isMediaNotificationController(controllerInfo)).isFalse();
   }
@@ -222,7 +227,8 @@ public class MediaSessionUnitTest { // Avoid naming collision with session_curre
             MediaSession.ControllerInfo.LEGACY_CONTROLLER_INTERFACE_VERSION,
             /* trusted= */ false,
             /* cb= */ null,
-            connectionHints);
+            connectionHints,
+            /* maxCommandsForMediaItems= */ 0);
 
     assertThat(session.isMediaNotificationController(controllerInfo)).isFalse();
   }
@@ -235,6 +241,7 @@ public class MediaSessionUnitTest { // Avoid naming collision with session_curre
         MediaSession.ControllerInfo.LEGACY_CONTROLLER_INTERFACE_VERSION,
         /* trusted= */ false,
         /* cb= */ null,
-        /* connectionHints= */ Bundle.EMPTY);
+        /* connectionHints= */ Bundle.EMPTY,
+        /* maxCommandsForMediaItems= */ 0);
   }
 }

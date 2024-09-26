@@ -2534,7 +2534,11 @@ import org.checkerframework.checker.nullness.qual.NonNull;
         IMediaSession.Stub.asInterface((IBinder) checkStateNotNull(token.getBinder()));
     int seq = sequencedFutureManager.obtainNextSequenceNumber();
     ConnectionRequest request =
-        new ConnectionRequest(context.getPackageName(), Process.myPid(), connectionHints);
+        new ConnectionRequest(
+            context.getPackageName(),
+            Process.myPid(),
+            connectionHints,
+            instance.getMaxCommandsForMediaItems());
     try {
       iSession.connect(controllerStub, seq, request.toBundle());
     } catch (RemoteException e) {
@@ -3285,7 +3289,11 @@ import org.checkerframework.checker.nullness.qual.NonNull;
           return;
         }
         ConnectionRequest request =
-            new ConnectionRequest(getContext().getPackageName(), Process.myPid(), connectionHints);
+            new ConnectionRequest(
+                getContext().getPackageName(),
+                Process.myPid(),
+                connectionHints,
+                instance.getMaxCommandsForMediaItems());
         iService.connect(controllerStub, request.toBundle());
         connectionRequested = true;
       } catch (RemoteException e) {

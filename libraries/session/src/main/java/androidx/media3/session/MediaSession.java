@@ -487,6 +487,7 @@ public class MediaSession {
     private final boolean isTrusted;
     @Nullable private final ControllerCb controllerCb;
     private final Bundle connectionHints;
+    private final int maxCommandsForMediaItems;
 
     /**
      * Creates an instance.
@@ -499,6 +500,7 @@ public class MediaSession {
      *     ControllerInfo)}.
      * @param connectionHints A session-specific argument sent from the controller for the
      *     connection. The contents of this bundle may affect the connection result.
+     * @param maxCommandsForMediaItems The max commands the controller supports for media items.
      */
     /* package */ ControllerInfo(
         RemoteUserInfo remoteUserInfo,
@@ -506,13 +508,15 @@ public class MediaSession {
         int interfaceVersion,
         boolean trusted,
         @Nullable ControllerCb cb,
-        Bundle connectionHints) {
+        Bundle connectionHints,
+        int maxCommandsForMediaItems) {
       this.remoteUserInfo = remoteUserInfo;
       this.libraryVersion = libraryVersion;
       this.interfaceVersion = interfaceVersion;
       isTrusted = trusted;
       controllerCb = cb;
       this.connectionHints = connectionHints;
+      this.maxCommandsForMediaItems = maxCommandsForMediaItems;
     }
 
     /* package */ RemoteUserInfo getRemoteUserInfo() {
@@ -553,6 +557,15 @@ public class MediaSession {
     /** Returns the connection hints sent from controller. */
     public Bundle getConnectionHints() {
       return new Bundle(connectionHints);
+    }
+
+    /**
+     * Returns the max number of commands for a media item. A positive number or 0 (zero) to
+     * indicate that the feature is not supported by the controller.
+     */
+    @UnstableApi
+    public int getMaxCommandsForMediaItems() {
+      return maxCommandsForMediaItems;
     }
 
     /**
@@ -611,7 +624,8 @@ public class MediaSession {
           ControllerInfo.LEGACY_CONTROLLER_INTERFACE_VERSION,
           /* trusted= */ false,
           /* cb= */ null,
-          /* connectionHints= */ Bundle.EMPTY);
+          /* connectionHints= */ Bundle.EMPTY,
+          /* maxCommandsForMediaItems= */ 0);
     }
 
     /**
@@ -653,7 +667,8 @@ public class MediaSession {
           interfaceVersion,
           trusted,
           /* cb= */ null,
-          connectionHints);
+          connectionHints,
+          /* maxCommandsForMediaItems= */ 0);
     }
   }
 

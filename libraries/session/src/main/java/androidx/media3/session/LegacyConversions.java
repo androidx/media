@@ -1728,6 +1728,23 @@ import java.util.concurrent.TimeoutException;
     return buttonBundle;
   }
 
+  /**
+   * Gets the max number of commands for media items from the {@linkplain
+   * androidx.media3.session.legacy.MediaBrowserServiceCompat#onGetRoot(String, int, Bundle) root
+   * hints} of a legacy {@link MediaBrowserCompat} that connects.
+   *
+   * @param rootHints The root hints passed by the legacy browser when connecting.
+   * @return The specified max number of commands per media items, or 0 if not specified.
+   */
+  public static int extractMaxCommandsForMediaItemFromRootHints(Bundle rootHints) {
+    return max(
+        0,
+        rootHints.getInt(
+            androidx.media3.session.legacy.MediaConstants
+                .BROWSER_ROOT_HINTS_KEY_CUSTOM_BROWSER_ACTION_LIMIT,
+            /* defaultValue= */ 0));
+  }
+
   private static byte[] convertToByteArray(Bitmap bitmap) throws IOException {
     try (ByteArrayOutputStream stream = new ByteArrayOutputStream()) {
       bitmap.compress(Bitmap.CompressFormat.PNG, /* ignored */ 0, stream);

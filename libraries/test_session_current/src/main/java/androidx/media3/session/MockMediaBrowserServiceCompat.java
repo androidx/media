@@ -393,8 +393,7 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
                 String clientPackageName, int clientUid, Bundle rootHints) {
               int actionLimit =
                   rootHints.getInt(
-                      BROWSER_ROOT_HINTS_KEY_CUSTOM_BROWSER_ACTION_LIMIT,
-                      /* defaultValue= */ browseActions.size());
+                      BROWSER_ROOT_HINTS_KEY_CUSTOM_BROWSER_ACTION_LIMIT, /* defaultValue= */ 0);
               Bundle extras = new Bundle(rootHints);
               ArrayList<Bundle> browseActionList = new ArrayList<>();
               for (int i = 0; i < min(actionLimit, browseActions.size()); i++) {

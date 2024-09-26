@@ -90,9 +90,23 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
   private RemoteMediaBrowserServiceCompat remoteService;
 
   private MediaBrowser createBrowser(@Nullable MediaBrowser.Listener listener) throws Exception {
+    return createBrowser(
+        /* connectionHints= */ Bundle.EMPTY, /* maxCommandsForMediaItems= */ 0, listener);
+  }
+
+  private MediaBrowser createBrowser(
+      Bundle connectionHints,
+      int maxCommandsForMediaItems,
+      @Nullable MediaBrowser.Listener listener)
+      throws Exception {
     SessionToken token = new SessionToken(context, MOCK_MEDIA_BROWSER_SERVICE_COMPAT);
     return (MediaBrowser)
-        controllerTestRule.createController(token, /* connectionHints= */ null, listener);
+        controllerTestRule.createController(
+            token,
+            connectionHints,
+            listener,
+            /* controllerCreationListener= */ null,
+            maxCommandsForMediaItems);
   }
 
   @Before
@@ -151,7 +165,8 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
                             "invalid"))
                     .build())
             .build();
-    MediaBrowser mediaBrowser = createBrowser(/* listener= */ null);
+    MediaBrowser mediaBrowser =
+        createBrowser(Bundle.EMPTY, /* maxCommandsForMediaItems= */ 2, /* listener= */ null);
     // When connected to a legacy browser service, the library root needs to be requested
     // before media item commands are available.
     LibraryResult<MediaItem> libraryResult =
@@ -172,20 +187,14 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
   @Test
   public void getItem_supportedCommandActions_convertedCorrectly() throws Exception {
     remoteService.setProxyForTest(TEST_MEDIA_ITEMS_WITH_BROWSE_ACTIONS);
-    MediaBrowser mediaBrowser = createBrowser(/* listener= */ null);
+    MediaBrowser mediaBrowser =
+        createBrowser(Bundle.EMPTY, /* maxCommandsForMediaItems= */ 1, /* listener= */ null);
     CommandButton playlistAddButton =
         new CommandButton.Builder()
             .setDisplayName("Add to playlist")
             .setIconUri(Uri.parse("https://www.example.com/icon/playlist_add"))
             .setSessionCommand(
                 new SessionCommand(MediaBrowserConstants.COMMAND_PLAYLIST_ADD, Bundle.EMPTY))
-            .build();
-    CommandButton radioButton =
-        new CommandButton.Builder()
-            .setDisplayName("Radio station")
-            .setIconUri(Uri.parse("https://www.example.com/icon/radio"))
-            .setSessionCommand(
-                new SessionCommand(MediaBrowserConstants.COMMAND_RADIO, Bundle.EMPTY))
             .build();
     // When connected to a legacy browser service, the library root needs to be requested
     // before media item commands are available.
@@ -204,9 +213,8 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
             .postAndSync(
                 () -> mediaBrowser.getCommandButtonsForMediaItem(requireNonNull(mediaItem)));
 
-    assertThat(commandButtons).containsExactly(playlistAddButton, radioButton).inOrder();
+    assertThat(commandButtons).containsExactly(playlistAddButton);
     assertThat(commandButtons.get(0).extras.getString("key-1")).isEqualTo("playlist_add");
-    assertThat(commandButtons.get(1).extras.getString("key-1")).isEqualTo("radio");
   }
 
   @Test

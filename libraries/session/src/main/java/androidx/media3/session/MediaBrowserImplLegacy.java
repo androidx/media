@@ -110,6 +110,10 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       result.set(LibraryResult.ofItem(createRootMediaItem(browserCompat), null));
     } else {
       Bundle rootHints = LegacyConversions.convertToRootHints(params);
+      rootHints.putInt(
+          androidx.media3.session.legacy.MediaConstants
+              .BROWSER_ROOT_HINTS_KEY_CUSTOM_BROWSER_ACTION_LIMIT,
+          getInstance().getMaxCommandsForMediaItems());
       MediaBrowserCompat newBrowser =
           new MediaBrowserCompat(
               getContext(),

@@ -19,6 +19,7 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.postOrRun;
+import static androidx.media3.session.LegacyConversions.extractMaxCommandsForMediaItemFromRootHints;
 import static androidx.media3.session.LibraryResult.RESULT_SUCCESS;
 import static androidx.media3.session.MediaUtils.TRANSACTION_SIZE_LIMIT_IN_BYTES;
 import static androidx.media3.session.legacy.MediaBrowserCompat.EXTRA_PAGE;
@@ -372,7 +373,8 @@ import java.util.concurrent.atomic.AtomicReference;
         ControllerInfo.LEGACY_CONTROLLER_INTERFACE_VERSION,
         getMediaSessionManager().isTrustedForMediaControl(remoteUserInfo),
         new BrowserLegacyCb(remoteUserInfo),
-        /* connectionHints= */ rootHints);
+        /* connectionHints= */ rootHints,
+        extractMaxCommandsForMediaItemFromRootHints(rootHints));
   }
 
   public ControllerCb getBrowserLegacyCbForBroadcast() {

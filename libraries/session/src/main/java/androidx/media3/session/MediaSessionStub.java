@@ -637,7 +637,8 @@ import java.util.concurrent.ExecutionException;
               request.controllerInterfaceVersion,
               sessionManager.isTrustedForMediaControl(remoteUserInfo),
               new MediaSessionStub.Controller2Cb(caller),
-              request.connectionHints);
+              request.connectionHints,
+              request.maxCommandsForMediaItems);
       connect(caller, controllerInfo);
     } finally {
       Binder.restoreCallingIdentity(token);

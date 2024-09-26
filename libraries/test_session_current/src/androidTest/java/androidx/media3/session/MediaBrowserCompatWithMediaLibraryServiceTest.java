@@ -22,6 +22,7 @@ import static androidx.media3.session.MediaLibraryService.MediaLibrarySession.LI
 import static androidx.media3.session.MediaLibraryService.MediaLibrarySession.LIBRARY_ERROR_REPLICATION_MODE_NON_FATAL;
 import static androidx.media3.session.MockMediaLibraryService.CONNECTION_HINTS_CUSTOM_LIBRARY_ROOT;
 import static androidx.media3.session.MockMediaLibraryService.createNotifyChildrenChangedBundle;
+import static androidx.media3.session.legacy.MediaConstants.BROWSER_ROOT_HINTS_KEY_CUSTOM_BROWSER_ACTION_LIMIT;
 import static androidx.media3.session.legacy.MediaConstants.DESCRIPTION_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ID_LIST;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_ALBUM_TITLE;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_ARTIST;
@@ -237,7 +238,9 @@ public class MediaBrowserCompatWithMediaLibraryServiceTest
   @Test
   public void getItem_playableWithBrowseActions_browseActionCorrectlyConverted() throws Exception {
     String mediaId = MEDIA_ID_GET_ITEM_WITH_BROWSE_ACTIONS;
-    connectAndWait(/* rootHints= */ Bundle.EMPTY);
+    Bundle rootHints = new Bundle();
+    rootHints.putInt(BROWSER_ROOT_HINTS_KEY_CUSTOM_BROWSER_ACTION_LIMIT, 10);
+    connectAndWait(rootHints);
     CountDownLatch latch = new CountDownLatch(1);
     AtomicReference<MediaItem> itemRef = new AtomicReference<>();
 
@@ -261,6 +264,36 @@ public class MediaBrowserCompatWithMediaLibraryServiceTest
         .containsExactly(
             MediaBrowserConstants.COMMAND_PLAYLIST_ADD, MediaBrowserConstants.COMMAND_RADIO)
         .inOrder();
+  }
+
+  @Test
+  public void getItem_maxCommandsForMediaItemSetToBelowMaxAvailableCommands_maxCommandsHonoured()
+      throws Exception {
+    String mediaId = MEDIA_ID_GET_ITEM_WITH_BROWSE_ACTIONS;
+    Bundle rootHints = new Bundle();
+    rootHints.putInt(BROWSER_ROOT_HINTS_KEY_CUSTOM_BROWSER_ACTION_LIMIT, 1);
+    connectAndWait(rootHints);
+    CountDownLatch latch = new CountDownLatch(1);
+    AtomicReference<MediaItem> itemRef = new AtomicReference<>();
+
+    browserCompat.getItem(
+        mediaId,
+        new ItemCallback() {
+          @Override
+          public void onItemLoaded(MediaItem item) {
+            itemRef.set(item);
+            latch.countDown();
+          }
+        });
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(
+            itemRef
+                .get()
+                .getDescription()
+                .getExtras()
+                .getStringArrayList(DESCRIPTION_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ID_LIST))
+        .containsExactly(MediaBrowserConstants.COMMAND_PLAYLIST_ADD);
   }
 
   @Test
