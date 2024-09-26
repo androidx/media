@@ -69,6 +69,8 @@
         ([#1619](https://github.com/androidx/media/issues/1619)).
 *   Text:
 *   Metadata:
+    *   Assign the `C.TRACK_TYPE_METADATA` type to tracks containing icy or
+        vnd.dvb.ait content.
 *   Image:
 *   DataSource:
 *   DRM:

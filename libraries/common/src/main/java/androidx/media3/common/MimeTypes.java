@@ -601,7 +601,9 @@ public final class MimeTypes {
       return C.TRACK_TYPE_IMAGE;
     } else if (APPLICATION_ID3.equals(mimeType)
         || APPLICATION_EMSG.equals(mimeType)
-        || APPLICATION_SCTE35.equals(mimeType)) {
+        || APPLICATION_SCTE35.equals(mimeType)
+        || APPLICATION_ICY.equals(mimeType)
+        || APPLICATION_AIT.equals(mimeType)) {
       return C.TRACK_TYPE_METADATA;
     } else if (APPLICATION_CAMERA_MOTION.equals(mimeType)) {
       return C.TRACK_TYPE_CAMERA_MOTION;
