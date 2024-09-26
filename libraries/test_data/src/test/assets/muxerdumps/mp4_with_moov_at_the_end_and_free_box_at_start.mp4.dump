@@ -4,27 +4,27 @@ free (400008 bytes):
   Data = length 400000, hash BBC7B001
 mdat (2800016 bytes):
   Data = length 2800000, hash 7A1CC21
-moov (472634 bytes):
+moov (400650 bytes):
   mvhd (108 bytes):
-    Data = length 100, hash CAE9466E
-  trak (472518 bytes):
+    Data = length 100, hash 2613A5C
+  trak (400534 bytes):
     tkhd (92 bytes):
-      Data = length 84, hash 59BEBEA1
-    mdia (472418 bytes):
+      Data = length 84, hash 3D79758F
+    mdia (400434 bytes):
       mdhd (32 bytes):
-        Data = length 24, hash 58568E23
+        Data = length 24, hash 41542D81
       hdlr (44 bytes):
         Data = length 36, hash A0852FF2
-      minf (472334 bytes):
+      minf (400350 bytes):
         vmhd (20 bytes):
           Data = length 12, hash EE830681
         dinf (36 bytes):
           Data = length 28, hash D535436B
-        stbl (472270 bytes):
+        stbl (400286 bytes):
           stsd (166 bytes):
             Data = length 158, hash 11532063
-          stts (72008 bytes):
-            Data = length 72000, hash FA47C748
+          stts (24 bytes):
+            Data = length 16, hash 813E076F
           stsz (200020 bytes):
             Data = length 200012, hash 719AE8EE
           stsc (28 bytes):

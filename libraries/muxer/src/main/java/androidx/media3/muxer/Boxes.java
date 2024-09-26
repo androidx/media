@@ -44,6 +44,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Ints;
+import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -810,11 +811,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     long currentSampleTimeUs = firstSamplePresentationTimeUs;
     for (int nextSampleId = 1; nextSampleId < presentationTimestampsUs.size(); nextSampleId++) {
       long nextSampleTimeUs = presentationTimestampsUs.get(nextSampleId);
-      // TODO: b/316158030 - First calculate the duration and then convert us to vu to avoid
-      //  rounding error.
       long currentSampleDurationVu =
-          vuFromUs(nextSampleTimeUs, videoUnitTimescale)
-              - vuFromUs(currentSampleTimeUs, videoUnitTimescale);
+          vuFromUs(nextSampleTimeUs - currentSampleTimeUs, videoUnitTimescale);
       checkState(
           currentSampleDurationVu <= Integer.MAX_VALUE, "Only 32-bit sample duration is allowed");
       durationsVu.add((int) currentSampleDurationVu);
@@ -1235,7 +1233,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
   /** Converts video units to microseconds, using the provided timebase. */
   private static long usFromVu(long timestampVu, long videoUnitTimebase) {
-    return timestampVu * 1_000_000L / videoUnitTimebase;
+    return Util.scaleLargeValue(
+        timestampVu, C.MICROS_PER_SECOND, videoUnitTimebase, RoundingMode.HALF_UP);
   }
 
   /** Returns the duration of the last sample (in video units). */
@@ -1828,6 +1827,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
   /** Converts microseconds to video units, using the provided timebase. */
   private static long vuFromUs(long timestampUs, long videoUnitTimebase) {
-    return timestampUs * videoUnitTimebase / 1_000_000L; // Division for microsecond to second.
+    return Util.scaleLargeValue(
+        timestampUs, videoUnitTimebase, C.MICROS_PER_SECOND, RoundingMode.HALF_UP);
   }
 }
