@@ -280,8 +280,11 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   @Override
   public void onCommand(String commandName, @Nullable Bundle args, @Nullable ResultReceiver cb) {
     checkStateNotNull(commandName);
-    if (TextUtils.equals(MediaConstants.SESSION_COMMAND_REQUEST_SESSION3_TOKEN, commandName)
-        && cb != null) {
+    if (commandName.equals(MediaConstants.SESSION_COMMAND_MEDIA3_PLAY_REQUEST)) {
+      // Ignore, no need to handle this command here.
+      return;
+    }
+    if (commandName.equals(MediaConstants.SESSION_COMMAND_REQUEST_SESSION3_TOKEN) && cb != null) {
       cb.send(RESULT_SUCCESS, sessionImpl.getToken().toBundle());
       return;
     }

@@ -137,6 +137,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   @Nullable private TextureView videoTextureView;
   private Size surfaceSize;
   @Nullable private IMediaSession iSession;
+  @Nullable private android.media.session.MediaController platformController;
   private long currentPositionMs;
   private long lastSetPlayWhenReadyCalledTimeMs;
   @Nullable private PlayerInfo pendingPlayerInfo;
@@ -403,6 +404,13 @@ import org.checkerframework.checker.nullness.qual.NonNull;
               + " command has started the service for instance for playback resumption, this may"
               + " prevent the service from being started into the foreground.");
       return;
+    }
+
+    if (Util.SDK_INT >= 31 && platformController != null) {
+      // Ensure the platform session gets allow-listed to start a foreground service after receiving
+      // the play command.
+      platformController.sendCommand(
+          MediaConstants.SESSION_COMMAND_MEDIA3_PLAY_REQUEST, /* args= */ null, /* cb= */ null);
     }
 
     dispatchRemoteSessionTaskWithPlayerCommand(
@@ -2644,6 +2652,9 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     playerInfo = result.playerInfo;
     MediaSession.Token platformToken =
         result.platformToken == null ? token.getPlatformToken() : result.platformToken;
+    if (platformToken != null) {
+      platformController = new android.media.session.MediaController(context, platformToken);
+    }
     try {
       // Implementation for the local binder is no-op,
       // so can be used without worrying about deadlock.

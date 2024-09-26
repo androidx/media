@@ -94,6 +94,8 @@
         items are available for both, `MediaBrowser` and `MediaController`. See
         <a href="https://developer.android.com/training/cars/media#custom_browse_actions">Custom
         Browse actions of AAOS</a>.
+    *   Fix bug where a Media3 controller was sometimes unable to let a session
+        app start a foreground service after requesting `play()`.
 *   UI:
     *   Make the stretched/cropped video in
         `PlayerView`-in-Compose-`AndroidView` workaround opt-in, due to issues
