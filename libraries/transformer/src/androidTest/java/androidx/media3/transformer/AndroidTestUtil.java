@@ -34,6 +34,7 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.media.Image;
+import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
@@ -1213,6 +1214,28 @@ public final class AndroidTestUtil {
     String skipReason = skipReasonBuilder.toString();
     recordTestSkipped(context, testId, skipReason);
     throw new AssumptionViolatedException(skipReason);
+  }
+
+  /**
+   * Assumes that the device supports encoding with the given MIME type and profile.
+   *
+   * @param mimeType The {@linkplain MimeTypes MIME type}.
+   * @param profile The {@linkplain MediaCodecInfo.CodecProfileLevel codec profile}.
+   * @throws AssumptionViolatedException If the device does have required encoder or profile.
+   */
+  public static void assumeCanEncodeWithProfile(String mimeType, int profile) {
+    ImmutableList<MediaCodecInfo> supportedEncoders = EncoderUtil.getSupportedEncoders(mimeType);
+    if (supportedEncoders.isEmpty()) {
+      throw new AssumptionViolatedException("No supported encoders");
+    }
+
+    for (int i = 0; i < supportedEncoders.size(); i++) {
+      if (EncoderUtil.findSupportedEncodingProfiles(supportedEncoders.get(i), mimeType)
+          .contains(profile)) {
+        return;
+      }
+    }
+    throw new AssumptionViolatedException("Profile not supported");
   }
 
   /** Returns a {@link Muxer.Factory} depending upon the API level. */

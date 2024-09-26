@@ -15,7 +15,10 @@
  */
 package androidx.media3.transformer;
 
+import static android.media.MediaCodecInfo.CodecProfileLevel.AACObjectHE;
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.common.util.MediaFormatUtil.createFormatFromMediaFormat;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static androidx.media3.transformer.AndroidTestUtil.JPG_ASSET;
@@ -31,6 +34,7 @@ import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_
 import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.WAV_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.WEBP_LARGE;
+import static androidx.media3.transformer.AndroidTestUtil.assumeCanEncodeWithProfile;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static androidx.media3.transformer.AndroidTestUtil.createFrameCountingEffect;
 import static androidx.media3.transformer.AndroidTestUtil.createOpenGlObjects;
@@ -47,10 +51,12 @@ import static androidx.media3.transformer.ExportResult.OPTIMIZATION_FAILED_FORMA
 import static androidx.media3.transformer.ExportResult.OPTIMIZATION_SUCCEEDED;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.media.MediaFormat;
 import android.net.Uri;
 import android.opengl.EGLContext;
 import android.os.Handler;
@@ -71,6 +77,7 @@ import androidx.media3.common.audio.ChannelMixingAudioProcessor;
 import androidx.media3.common.audio.ChannelMixingMatrix;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
+import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceBitmapLoader;
@@ -85,6 +92,7 @@ import androidx.media3.effect.RgbFilter;
 import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.effect.SpeedChangeEffect;
 import androidx.media3.effect.TimestampWrapper;
+import androidx.media3.exoplayer.MediaExtractorCompat;
 import androidx.media3.exoplayer.audio.TeeAudioProcessor;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
@@ -96,6 +104,7 @@ import androidx.media3.transformer.AndroidTestUtil.FrameCountingByteBufferProces
 import androidx.media3.transformer.AssetLoader.CompositionSettings;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.io.File;
@@ -2165,6 +2174,80 @@ public class TransformerEndToEndTest {
     assertThat(result.exportResult.durationMs).isAtLeast(1_360);
     assertThat(result.exportResult.durationMs).isAtMost(1_400);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
+  }
+
+  @Test
+  public void export_setAudioEncodingProfile_changesProfile() throws Exception {
+    assumeFalse(shouldSkipDeviceForAacObjectHeProfileEncoding());
+    assumeCanEncodeWithProfile(MimeTypes.AUDIO_AAC, AACObjectHE);
+    Context context = ApplicationProvider.getApplicationContext();
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(
+                new AndroidTestUtil.ForceEncodeEncoderFactory(
+                    new DefaultEncoderFactory.Builder(context)
+                        .setRequestedAudioEncoderSettings(
+                            new AudioEncoderSettings.Builder().setProfile(AACObjectHE).build())
+                        .build()))
+            .build();
+    MediaItem mediaItem = new MediaItem.Builder().setUri(MP4_ASSET.uri).build();
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(mediaItem).setRemoveVideo(true).build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    MediaExtractorCompat mediaExtractor = new MediaExtractorCompat(context);
+    mediaExtractor.setDataSource(Uri.parse(result.filePath), /* offset= */ 0);
+    checkState(mediaExtractor.getTrackCount() == 1);
+    MediaFormat mediaFormat = mediaExtractor.getTrackFormat(/* trackIndex= */ 0);
+    Format format = createFormatFromMediaFormat(mediaFormat);
+    Pair<Integer, Integer> profileAndLevel = CodecSpecificDataUtil.getCodecProfileAndLevel(format);
+    assertThat(profileAndLevel.first).isEqualTo(AACObjectHE);
+  }
+
+  @Test
+  public void export_setAudioEncodingBitrate_configuresEncoderWithRequestedBitrate()
+      throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    int requestedBitrate = 60_000;
+    // The MediaMuxer is not writing the bitrate hence use the InAppMuxer.
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setMuxerFactory(new InAppMuxer.Factory.Builder().build())
+            .setEncoderFactory(
+                new AndroidTestUtil.ForceEncodeEncoderFactory(
+                    new DefaultEncoderFactory.Builder(context)
+                        .setRequestedAudioEncoderSettings(
+                            new AudioEncoderSettings.Builder().setBitrate(requestedBitrate).build())
+                        .build()))
+            .build();
+    MediaItem mediaItem = new MediaItem.Builder().setUri(MP4_ASSET.uri).build();
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(mediaItem).setRemoveVideo(true).build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    MediaExtractorCompat mediaExtractor = new MediaExtractorCompat(context);
+    mediaExtractor.setDataSource(Uri.parse(result.filePath), /* offset= */ 0);
+    checkState(mediaExtractor.getTrackCount() == 1);
+    MediaFormat mediaFormat = mediaExtractor.getTrackFormat(/* trackIndex= */ 0);
+    Format format = createFormatFromMediaFormat(mediaFormat);
+    // The format contains the requested bitrate but the actual bitrate is generally different.
+    assertThat(format.bitrate).isEqualTo(requestedBitrate);
+  }
+
+  private static boolean shouldSkipDeviceForAacObjectHeProfileEncoding() {
+    // These devices claims to have the AACObjectHE profile but the profile never gets applied.
+    return (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Util.MODEL, "cph1803"))
+        || (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Util.MODEL, "cph1909"))
+        || (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Util.MODEL, "redmi note 5"))
+        || (Util.SDK_INT == 26 && isRunningOnEmulator());
   }
 
   private static AudioProcessor createSonic(float pitch) {
