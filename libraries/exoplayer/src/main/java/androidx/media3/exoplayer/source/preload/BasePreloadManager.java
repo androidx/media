@@ -256,6 +256,11 @@ public abstract class BasePreloadManager<T> {
 
   /** Called when the given {@link MediaSource} completes preloading. */
   protected final void onPreloadCompleted(MediaSource source) {
+    synchronized (lock) {
+      if (!isPreloading(source)) {
+        return;
+      }
+    }
     applicationHandler.post(
         () -> {
           listeners.sendEvent(
@@ -267,6 +272,11 @@ public abstract class BasePreloadManager<T> {
 
   /** Called when an error occurs. */
   protected final void onPreloadError(PreloadException error, MediaSource source) {
+    synchronized (lock) {
+      if (!isPreloading(source)) {
+        return;
+      }
+    }
     applicationHandler.post(
         () -> {
           listeners.sendEvent(/* eventFlag= */ C.INDEX_UNSET, listener -> listener.onError(error));
@@ -276,19 +286,30 @@ public abstract class BasePreloadManager<T> {
 
   /** Called when the given {@link MediaSource} has been skipped before completing preloading. */
   protected final void onPreloadSkipped(MediaSource source) {
+    synchronized (lock) {
+      if (!isPreloading(source)) {
+        return;
+      }
+    }
     applicationHandler.post(() -> maybeAdvanceToNextSource(source));
   }
 
-  private void maybeAdvanceToNextSource(MediaSource preloadingSource) {
+  private void maybeAdvanceToNextSource(MediaSource currentSource) {
     synchronized (lock) {
-      if (sourceHolderPriorityQueue.isEmpty()
-          || checkNotNull(sourceHolderPriorityQueue.peek()).mediaSource != preloadingSource) {
+      if (!isPreloading(currentSource)) {
         return;
       }
       do {
         sourceHolderPriorityQueue.poll();
       } while (!sourceHolderPriorityQueue.isEmpty() && !maybeStartPreloadNextSource());
     }
+  }
+
+  /** Returns whether the {@link MediaSource} is currently preloading. */
+  @GuardedBy("lock")
+  private boolean isPreloading(MediaSource mediaSource) {
+    return !sourceHolderPriorityQueue.isEmpty()
+        && checkNotNull(sourceHolderPriorityQueue.peek()).mediaSource == mediaSource;
   }
 
   /**
@@ -299,8 +320,7 @@ public abstract class BasePreloadManager<T> {
   protected final TargetPreloadStatusControl.PreloadStatus getTargetPreloadStatus(
       MediaSource source) {
     synchronized (lock) {
-      if (sourceHolderPriorityQueue.isEmpty()
-          || checkNotNull(sourceHolderPriorityQueue.peek()).mediaSource != source) {
+      if (!isPreloading(source)) {
         return null;
       }
       return targetPreloadStatusOfCurrentPreloadingSource;

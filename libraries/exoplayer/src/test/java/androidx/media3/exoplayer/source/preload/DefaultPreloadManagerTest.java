@@ -237,6 +237,7 @@ public class DefaultPreloadManagerTest {
     preloadManager.add(mediaItem2, /* rankingData= */ 2);
 
     preloadManager.invalidate();
+    shadowOf(preloadThread.getLooper()).idle();
     runMainLooperUntil(() -> preloadManagerListener.onCompletedMediaItemRecords.size() == 3);
 
     assertThat(targetPreloadStatusControlCallStates).containsExactly(0, 1, 2).inOrder();
@@ -300,6 +301,7 @@ public class DefaultPreloadManagerTest {
     currentPlayingItemIndex.set(2);
 
     preloadManager.invalidate();
+    shadowOf(preloadThread.getLooper()).idle();
     runMainLooperUntil(() -> preloadManagerListener.onCompletedMediaItemRecords.size() == 3);
 
     assertThat(targetPreloadStatusControlCallStates).containsExactly(2, 1, 0).inOrder();
@@ -353,6 +355,7 @@ public class DefaultPreloadManagerTest {
         (source, timeline) -> {}, bandwidthMeter.getTransferListener(), PlayerId.UNSET);
     wrappedMediaSource0.setAllowPreparation(true);
     wrappedMediaSource1.setAllowPreparation(true);
+    shadowOf(preloadThread.getLooper()).idle();
     runMainLooperUntil(() -> preloadManagerListener.onCompletedMediaItemRecords.size() == 1);
 
     assertThat(targetPreloadStatusControlCallStates).containsExactly(0, 1).inOrder();
@@ -404,6 +407,7 @@ public class DefaultPreloadManagerTest {
 
     preloadManager.invalidate();
     wrappedMediaSource0.setAllowPreparation(true);
+    shadowOf(preloadThread.getLooper()).idle();
     runMainLooperUntil(() -> preloadManagerListener.onCompletedMediaItemRecords.size() == 1);
     assertThat(targetPreloadStatusControlCallStates).containsExactly(0, 1).inOrder();
     assertThat(preloadManagerListener.onCompletedMediaItemRecords).containsExactly(mediaItem0);
@@ -420,6 +424,7 @@ public class DefaultPreloadManagerTest {
     // preloadManagerListener.onCompletedMediaItemRecords.
     wrappedMediaSource1.setAllowPreparation(true);
     wrappedMediaSource2.setAllowPreparation(true);
+    shadowOf(preloadThread.getLooper()).idle();
     runMainLooperUntil(() -> preloadManagerListener.onCompletedMediaItemRecords.size() == 3);
     assertThat(targetPreloadStatusControlCallStates).containsExactly(2, 1, 0).inOrder();
     assertThat(preloadManagerListener.onCompletedMediaItemRecords)
@@ -471,6 +476,7 @@ public class DefaultPreloadManagerTest {
     preloadManager.add(mediaItem1, /* rankingData= */ 1);
 
     preloadManager.invalidate();
+    shadowOf(preloadThread.getLooper()).idle();
     runMainLooperUntil(() -> preloadManagerListener.onCompletedMediaItemRecords.size() == 1);
 
     assertThat(targetPreloadStatusControlCallStates).containsExactly(0, 1);
@@ -557,6 +563,7 @@ public class DefaultPreloadManagerTest {
     preloadManager.add(mediaItem1, /* rankingData= */ 1);
 
     preloadManager.invalidate();
+    shadowOf(preloadThread.getLooper()).idle();
     runMainLooperUntil(() -> preloadManagerListener.onCompletedMediaItemRecords.size() == 1);
 
     assertThat(targetPreloadStatusControlCallStates).containsExactly(0, 1).inOrder();
