@@ -57,7 +57,7 @@ public final class CompositionPlayerAudioPlaybackTest {
   }
 
   @Test
-  public void playback_outputsCorrectSamples() throws Exception {
+  public void playSingleSequence_outputsCorrectSamples() throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     EditedMediaItem editedMediaItem1 =
         new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
@@ -85,7 +85,7 @@ public final class CompositionPlayerAudioPlaybackTest {
   }
 
   @Test
-  public void playback_compositionWithEffects_outputsCorrectSamples() throws Exception {
+  public void playSingleSequence_withItemEffects_outputsCorrectSamples() throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     EditedMediaItem editedMediaItem1 =
         new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
@@ -117,7 +117,7 @@ public final class CompositionPlayerAudioPlaybackTest {
   }
 
   @Test
-  public void playback_singleAudioItemWithEffects_outputsCorrectSamples() throws Exception {
+  public void playSingleItem_withItemEffects_outputsCorrectSamples() throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     EditedMediaItem audioEditedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
@@ -142,8 +142,7 @@ public final class CompositionPlayerAudioPlaybackTest {
   }
 
   @Test
-  public void playback_singleAudioItemWithCompositionLevelEffects_outputsCorrectSamples()
-      throws Exception {
+  public void playSingleItem_withCompositionEffects_outputsCorrectSamples() throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     EditedMediaItem audioEditedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
@@ -168,7 +167,7 @@ public final class CompositionPlayerAudioPlaybackTest {
   }
 
   @Test
-  public void playback_compositionWithClipping_outputsCorrectSamples() throws Exception {
+  public void playSingleSequence_withClipping_outputsCorrectSamples() throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     MediaItem mediaItem1 =
         new MediaItem.Builder()
@@ -212,7 +211,8 @@ public final class CompositionPlayerAudioPlaybackTest {
   }
 
   @Test
-  public void multiSequenceCompositionPlayback_outputsCorrectSamples() throws Exception {
+  public void playMultipleSequences_withClippingAndEffects_outputsCorrectSamples()
+      throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     EditedMediaItem editedMediaItem1 =
         new EditedMediaItem.Builder(
@@ -254,7 +254,7 @@ public final class CompositionPlayerAudioPlaybackTest {
   }
 
   @Test
-  public void playback_withOneRepeat_outputsCorrectSamples() throws Exception {
+  public void playSingleItem_withRepeatModeEnabled_outputsCorrectSamples() throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     player.setRepeatMode(Player.REPEAT_MODE_ALL);
     EditedMediaItem editedMediaItem =
@@ -280,7 +280,7 @@ public final class CompositionPlayerAudioPlaybackTest {
   }
 
   @Test
-  public void compositionPlayback_withShortLoopingSequence_outputsCorrectSamples()
+  public void playMultipleSequences_withShortLoopingSequence_outputsCorrectSamples()
       throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     EditedMediaItemSequence primarySequence =
@@ -312,7 +312,8 @@ public final class CompositionPlayerAudioPlaybackTest {
   }
 
   @Test
-  public void compositionPlayback_withLongLoopingSequence_outputsCorrectSamples() throws Exception {
+  public void playMultipleSequences_withLongLoopingSequence_outputsCorrectSamples()
+      throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     EditedMediaItemSequence primarySequence =
         new EditedMediaItemSequence.Builder(
@@ -343,7 +344,7 @@ public final class CompositionPlayerAudioPlaybackTest {
   }
 
   @Test
-  public void sequencePlayback_withOneRepeat_outputsCorrectSamples() throws Exception {
+  public void playSingleSequence_withRepeatModeEnabled_outputsCorrectSamples() throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     player.setRepeatMode(Player.REPEAT_MODE_ALL);
     EditedMediaItem editedMediaItem1 =
@@ -376,7 +377,7 @@ public final class CompositionPlayerAudioPlaybackTest {
   }
 
   @Test
-  public void sequencePlayback_withThreeMediaAndRemovingMiddleAudio_outputsCorrectSamples()
+  public void playSingleSequence_withMiddleItemAudioRemoved_outputsCorrectSamples()
       throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     EditedMediaItem editedMediaItem =
@@ -407,7 +408,7 @@ public final class CompositionPlayerAudioPlaybackTest {
   }
 
   @Test
-  public void sequencePlayback_withThreeMediaAndRemovingFirstAndThirdAudio_outputsCorrectSamples()
+  public void playSingleSequence_withFirstAndLastItemAudioRemoved_outputsCorrectSamples()
       throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     EditedMediaItem editedMediaItem =
@@ -438,8 +439,7 @@ public final class CompositionPlayerAudioPlaybackTest {
   }
 
   @Test
-  public void multiSequenceCompositionPlayback_withOneRepeat_outputsCorrectSamples()
-      throws Exception {
+  public void playMultipleSequences_withRepeatModeEnabled_outputsCorrectSamples() throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     player.setRepeatMode(Player.REPEAT_MODE_ALL);
     EditedMediaItem editedMediaItem1 =
@@ -483,7 +483,7 @@ public final class CompositionPlayerAudioPlaybackTest {
   }
 
   @Test
-  public void seekTo_outputsCorrectSamples() throws Exception {
+  public void seekTo_singleSequence_outputsCorrectSamples() throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
@@ -506,7 +506,7 @@ public final class CompositionPlayerAudioPlaybackTest {
   }
 
   @Test
-  public void seekToNextMediaItem_outputsCorrectSamples() throws Exception {
+  public void seekToNextMediaItem_singleSequence_outputsCorrectSamples() throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     EditedMediaItem editedMediaItem1 =
         new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
@@ -537,7 +537,7 @@ public final class CompositionPlayerAudioPlaybackTest {
   }
 
   @Test
-  public void seekToPreviousMediaItem_outputsCorrectSamples() throws Exception {
+  public void seekToPreviousMediaItem_singleSequence_outputsCorrectSamples() throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     EditedMediaItem editedMediaItem1 =
         new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
@@ -567,7 +567,7 @@ public final class CompositionPlayerAudioPlaybackTest {
   }
 
   @Test
-  public void seekTo_withClipping_outputsCorrectSamples() throws Exception {
+  public void seekTo_singleSequenceWithClipping_outputsCorrectSamples() throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     MediaItem mediaItem1 =
         new MediaItem.Builder()
