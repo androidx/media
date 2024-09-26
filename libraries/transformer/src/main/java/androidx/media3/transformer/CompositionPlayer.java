@@ -681,7 +681,6 @@ public final class CompositionPlayer extends SimpleBasePlayer
 
     long primarySequenceDurationUs =
         getSequenceDurationUs(checkNotNull(composition.sequences.get(0)));
-    // Video playback is disabled when one EditedMediaItem removes video.
     for (int i = 0; i < composition.sequences.size(); i++) {
       EditedMediaItemSequence editedMediaItemSequence = composition.sequences.get(i);
       SequenceRenderersFactory sequenceRenderersFactory =
