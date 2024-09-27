@@ -819,7 +819,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         loadable.trackSelectionReason,
         loadable.trackSelectionData,
         loadable.startTimeUs,
-        loadable.endTimeUs);
+        loadable.endTimeUs,
+        0);
     return true;
   }
 

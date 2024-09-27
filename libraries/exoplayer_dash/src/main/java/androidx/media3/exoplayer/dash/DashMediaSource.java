@@ -1097,7 +1097,8 @@ public final class DashMediaSource extends BaseMediaSource {
     long elapsedRealtimeMs = loader.startLoading(loadable, callback, minRetryCount);
     manifestEventDispatcher.loadStarted(
         new LoadEventInfo(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs),
-        loadable.type);
+        loadable.type,
+        0);
   }
 
   private static long getIntervalUntilNextManifestRefreshMs(
