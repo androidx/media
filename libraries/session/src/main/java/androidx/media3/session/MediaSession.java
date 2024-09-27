@@ -2122,6 +2122,7 @@ public class MediaSession {
       commandButtonsForMediaItems = ImmutableList.of();
     }
 
+    @CanIgnoreReturnValue
     @SuppressWarnings("unchecked")
     public BuilderT setSessionActivity(PendingIntent pendingIntent) {
       if (Util.SDK_INT >= 31) {
@@ -2131,42 +2132,49 @@ public class MediaSession {
       return (BuilderT) this;
     }
 
+    @CanIgnoreReturnValue
     @SuppressWarnings("unchecked")
     public BuilderT setId(String id) {
       this.id = checkNotNull(id);
       return (BuilderT) this;
     }
 
+    @CanIgnoreReturnValue
     @SuppressWarnings("unchecked")
     /* package */ BuilderT setCallback(CallbackT callback) {
       this.callback = checkNotNull(callback);
       return (BuilderT) this;
     }
 
+    @CanIgnoreReturnValue
     @SuppressWarnings("unchecked")
     public BuilderT setExtras(Bundle tokenExtras) {
       this.tokenExtras = new Bundle(checkNotNull(tokenExtras));
       return (BuilderT) this;
     }
 
+    @CanIgnoreReturnValue
     @SuppressWarnings("unchecked")
     public BuilderT setSessionExtras(Bundle sessionExtras) {
       this.sessionExtras = new Bundle(checkNotNull(sessionExtras));
       return (BuilderT) this;
     }
 
+    @CanIgnoreReturnValue
     @SuppressWarnings("unchecked")
     public BuilderT setBitmapLoader(BitmapLoader bitmapLoader) {
       this.bitmapLoader = checkNotNull(bitmapLoader);
       return (BuilderT) this;
     }
 
+    @CanIgnoreReturnValue
     @SuppressWarnings("unchecked")
     public BuilderT setCustomLayout(List<CommandButton> customLayout) {
       this.customLayout = ImmutableList.copyOf(customLayout);
       return (BuilderT) this;
     }
 
+    @CanIgnoreReturnValue
     @SuppressWarnings("unchecked")
     public BuilderT setShowPlayButtonIfPlaybackIsSuppressed(
         boolean showPlayButtonIfPlaybackIsSuppressed) {
@@ -2174,12 +2182,14 @@ public class MediaSession {
       return (BuilderT) this;
     }
 
+    @CanIgnoreReturnValue
     @SuppressWarnings("unchecked")
     public BuilderT setCommandButtonsForMediaItems(List<CommandButton> commandButtons) {
       this.commandButtonsForMediaItems = ImmutableList.copyOf(commandButtons);
       return (BuilderT) this;
     }
 
+    @CanIgnoreReturnValue
     @SuppressWarnings("unchecked")
     public BuilderT setPeriodicPositionUpdateEnabled(boolean isPeriodicPositionUpdateEnabled) {
       this.isPeriodicPositionUpdateEnabled = isPeriodicPositionUpdateEnabled;
