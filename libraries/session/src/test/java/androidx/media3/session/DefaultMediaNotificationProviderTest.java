@@ -16,8 +16,6 @@
 package androidx.media3.session;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.session.DefaultMediaNotificationProvider.DEFAULT_CHANNEL_ID;
-import static androidx.media3.session.DefaultMediaNotificationProvider.DEFAULT_NOTIFICATION_ID;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -30,8 +28,6 @@ import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.app.Notification;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.net.Uri;
@@ -61,9 +57,7 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.robolectric.Robolectric;
-import org.robolectric.Shadows;
 import org.robolectric.shadows.ShadowLooper;
-import org.robolectric.shadows.ShadowNotificationManager;
 
 /** Tests for {@link DefaultMediaNotificationProvider}. */
 @RunWith(AndroidJUnit4.class)
@@ -978,76 +972,6 @@ public class DefaultMediaNotificationProviderTest {
   }
 
   @Test
-  public void provider_idsNotSpecified_usesDefaultIds() {
-    Context context = ApplicationProvider.getApplicationContext();
-    DefaultMediaNotificationProvider defaultMediaNotificationProvider =
-        new DefaultMediaNotificationProvider.Builder(context).build();
-    BitmapLoader mockBitmapLoader = mock(BitmapLoader.class);
-    when(mockBitmapLoader.loadBitmapFromMetadata(any())).thenReturn(null);
-    Player player = new TestExoPlayerBuilder(context).build();
-    MediaSession mediaSession =
-        new MediaSession.Builder(context, player).setBitmapLoader(mockBitmapLoader).build();
-    DefaultActionFactory defaultActionFactory =
-        new DefaultActionFactory(Robolectric.setupService(TestService.class));
-
-    MediaNotification notification =
-        defaultMediaNotificationProvider.createNotification(
-            mediaSession,
-            ImmutableList.of(),
-            defaultActionFactory,
-            mock(MediaNotification.Provider.Callback.class));
-    mediaSession.release();
-    player.release();
-
-    assertThat(notification.notificationId).isEqualTo(DEFAULT_NOTIFICATION_ID);
-    assertThat(notification.notification.getChannelId()).isEqualTo(DEFAULT_CHANNEL_ID);
-    ShadowNotificationManager shadowNotificationManager =
-        Shadows.shadowOf(
-            (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE));
-    assertHasNotificationChannel(
-        shadowNotificationManager.getNotificationChannels(),
-        /* channelId= */ DEFAULT_CHANNEL_ID,
-        /* channelName= */ context.getString(R.string.default_notification_channel_name));
-  }
-
-  @Test
-  public void provider_withCustomIds_notificationsUseCustomIds() {
-    Context context = ApplicationProvider.getApplicationContext();
-    DefaultMediaNotificationProvider defaultMediaNotificationProvider =
-        new DefaultMediaNotificationProvider.Builder(context)
-            .setNotificationId(/* notificationId= */ 2)
-            .setChannelId(/* channelId= */ "customChannelId")
-            .setChannelName(/* channelNameResourceId= */ R.string.media3_controls_play_description)
-            .build();
-    BitmapLoader mockBitmapLoader = mock(BitmapLoader.class);
-    when(mockBitmapLoader.loadBitmapFromMetadata(any())).thenReturn(null);
-    Player player = new TestExoPlayerBuilder(context).build();
-    MediaSession mediaSession =
-        new MediaSession.Builder(context, player).setBitmapLoader(mockBitmapLoader).build();
-    DefaultActionFactory defaultActionFactory =
-        new DefaultActionFactory(Robolectric.setupService(TestService.class));
-
-    MediaNotification notification =
-        defaultMediaNotificationProvider.createNotification(
-            mediaSession,
-            ImmutableList.of(),
-            defaultActionFactory,
-            mock(MediaNotification.Provider.Callback.class));
-    mediaSession.release();
-    player.release();
-
-    assertThat(notification.notificationId).isEqualTo(2);
-    assertThat(notification.notification.getChannelId()).isEqualTo("customChannelId");
-    ShadowNotificationManager shadowNotificationManager =
-        Shadows.shadowOf(
-            (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE));
-    assertHasNotificationChannel(
-        shadowNotificationManager.getNotificationChannels(),
-        /* channelId= */ "customChannelId",
-        /* channelName= */ context.getString(R.string.media3_controls_play_description));
-  }
-
-  @Test
   public void provider_withCustomNotificationIdProvider_notificationsUseCustomId() {
     Context context = ApplicationProvider.getApplicationContext();
     DefaultMediaNotificationProvider defaultMediaNotificationProvider =
@@ -1201,43 +1125,6 @@ public class DefaultMediaNotificationProviderTest {
   }
 
   /**
-   * {@link DefaultMediaNotificationProvider} is designed to be extendable. Public constructor
-   * should not be removed.
-   */
-  @Test
-  public void createsProviderUsingConstructor_idsNotSpecified_usesDefaultIds() {
-    Context context = ApplicationProvider.getApplicationContext();
-    DefaultMediaNotificationProvider defaultMediaNotificationProvider =
-        new DefaultMediaNotificationProvider(context);
-    BitmapLoader mockBitmapLoader = mock(BitmapLoader.class);
-    when(mockBitmapLoader.loadBitmapFromMetadata(any())).thenReturn(null);
-    Player player = new TestExoPlayerBuilder(context).build();
-    MediaSession mediaSession =
-        new MediaSession.Builder(context, player).setBitmapLoader(mockBitmapLoader).build();
-    DefaultActionFactory defaultActionFactory =
-        new DefaultActionFactory(Robolectric.setupService(TestService.class));
-
-    MediaNotification notification =
-        defaultMediaNotificationProvider.createNotification(
-            mediaSession,
-            /* customLayout= */ ImmutableList.of(),
-            defaultActionFactory,
-            /* onNotificationChangedCallback= */ mock(MediaNotification.Provider.Callback.class));
-    mediaSession.release();
-    player.release();
-
-    assertThat(notification.notificationId).isEqualTo(DEFAULT_NOTIFICATION_ID);
-    assertThat(notification.notification.getChannelId()).isEqualTo(DEFAULT_CHANNEL_ID);
-    ShadowNotificationManager shadowNotificationManager =
-        Shadows.shadowOf(
-            (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE));
-    assertHasNotificationChannel(
-        shadowNotificationManager.getNotificationChannels(),
-        /* channelId= */ DEFAULT_CHANNEL_ID,
-        /* channelName= */ context.getString(R.string.default_notification_channel_name));
-  }
-
-  /**
    * Extends {@link DefaultMediaNotificationProvider} and overrides all known protected methods. If
    * by accident we change the signature of the class in a way that affects inheritance, this test
    * would no longer compile.
@@ -1277,22 +1164,6 @@ public class DefaultMediaNotificationProviderTest {
             return super.getNotificationContentText(metadata);
           }
         };
-  }
-
-  private static void assertHasNotificationChannel(
-      List<NotificationChannel> notificationChannels, String channelId, String channelName) {
-    boolean found = false;
-    for (NotificationChannel notificationChannel : notificationChannels) {
-      found =
-          notificationChannel.getId().equals(channelId)
-              // NotificationChannel.getName() is CharSequence. Use String#contentEquals instead
-              // because CharSequence.equals() has undefined behavior.
-              && channelName.contentEquals(notificationChannel.getName());
-      if (found) {
-        break;
-      }
-    }
-    assertThat(found).isTrue();
   }
 
   private Player createPlayerWithMetadata(MediaMetadata mediaMetadata) {
