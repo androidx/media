@@ -1282,8 +1282,15 @@ public final class AndroidTestUtil {
     }
 
     android.media.MediaCodecInfo encoder = supportedEncoders.get(0);
-    boolean sizeSupported =
-        EncoderUtil.isSizeSupported(encoder, mimeType, format.width, format.height);
+    // VideoSampleExporter rotates videos into landscape before encoding.
+    // Check if the encoder supports the video dimensions after rotating to landscape.
+    int width = format.width;
+    int height = format.height;
+    if (width < height) {
+      width = format.height;
+      height = format.width;
+    }
+    boolean sizeSupported = EncoderUtil.isSizeSupported(encoder, mimeType, width, height);
     boolean bitrateSupported =
         format.averageBitrate == Format.NO_VALUE
             || EncoderUtil.getSupportedBitrateRange(encoder, mimeType)
