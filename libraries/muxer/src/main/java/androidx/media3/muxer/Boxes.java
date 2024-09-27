@@ -22,6 +22,7 @@ import static androidx.media3.muxer.ColorUtils.MEDIAFORMAT_STANDARD_TO_PRIMARIES
 import static androidx.media3.muxer.ColorUtils.MEDIAFORMAT_TRANSFER_TO_MP4_TRANSFER;
 import static androidx.media3.muxer.MuxerUtil.UNSIGNED_INT_MAX_VALUE;
 import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import android.media.MediaCodec;
@@ -118,7 +119,6 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   public static ByteBuffer moov(
       List<Track> tracks,
       MetadataCollector metadataCollector,
-      long minInputPtsUs,
       boolean isFragmentedMp4,
       @Mp4Muxer.LastSampleDurationBehavior int lastSampleDurationBehavior) {
     // The timestamp will always fit into a 32-bit integer. This is already validated in the
@@ -127,6 +127,15 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     int creationTimestampSeconds = (int) metadataCollector.timestampData.creationTimestampSeconds;
     int modificationTimestampSeconds =
         (int) metadataCollector.timestampData.modificationTimestampSeconds;
+    long minInputPtsUs = findMinimumPresentationTimestampUsAcrossTracks(tracks);
+
+    // For a non fragmented MP4 file, avoid writing an empty moov box.
+    // For a fragmented MP4 file, the minInputPtsUs gets ignored as the moov box is written without
+    // any sample info.
+    if (!isFragmentedMp4 && minInputPtsUs == C.TIME_UNSET) {
+      return ByteBuffer.allocate(0);
+    }
+
     List<ByteBuffer> trakBoxes = new ArrayList<>();
     List<ByteBuffer> trexBoxes = new ArrayList<>();
 
@@ -134,6 +143,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     long videoDurationUs = 0L;
     for (int i = 0; i < tracks.size(); i++) {
       Track track = tracks.get(i);
+      // For a non fragmented MP4 file, avoid writing an empty track.
       if (!isFragmentedMp4 && track.writtenSamples.isEmpty()) {
         continue;
       }
@@ -1829,5 +1839,16 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   private static long vuFromUs(long timestampUs, long videoUnitTimebase) {
     return Util.scaleLargeValue(
         timestampUs, videoUnitTimebase, C.MICROS_PER_SECOND, RoundingMode.HALF_UP);
+  }
+
+  private static long findMinimumPresentationTimestampUsAcrossTracks(List<Track> tracks) {
+    long minInputPtsUs = Long.MAX_VALUE;
+    for (int i = 0; i < tracks.size(); i++) {
+      Track track = tracks.get(i);
+      if (!track.writtenSamples.isEmpty()) {
+        minInputPtsUs = min(track.writtenSamples.get(0).presentationTimeUs, minInputPtsUs);
+      }
+    }
+    return minInputPtsUs != Long.MAX_VALUE ? minInputPtsUs : C.TIME_UNSET;
   }
 }

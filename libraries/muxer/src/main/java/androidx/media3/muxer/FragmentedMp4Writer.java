@@ -202,14 +202,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private void createHeader() throws IOException {
     output.position(0L);
     output.write(Boxes.ftyp());
-    // The minInputPtsUs is actually ignored as there are no pending samples to write.
     output.write(
         Boxes.moov(
-            tracks,
-            metadataCollector,
-            /* minInputPtsUs= */ 0L,
-            /* isFragmentedMp4= */ true,
-            lastSampleDurationBehavior));
+            tracks, metadataCollector, /* isFragmentedMp4= */ true, lastSampleDurationBehavior));
   }
 
   private boolean shouldFlushPendingSamples(

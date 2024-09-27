@@ -202,7 +202,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
         Boxes.moov(
             editableVideoTracks,
             editableVideoMetadataCollector,
-            findMinimumPresentationTimestampUsAcrossTracks(editableVideoTracks),
             /* isFragmentedMp4= */ false,
             lastSampleDurationBehavior);
     ByteBuffer edvdBoxHeader =
@@ -273,17 +272,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
     outputFileChannel.truncate(newMoovLocation + moovBytesNeeded);
   }
 
-  private static long findMinimumPresentationTimestampUsAcrossTracks(List<Track> tracks) {
-    long minInputPtsUs = Long.MAX_VALUE;
-    for (int i = 0; i < tracks.size(); i++) {
-      Track track = tracks.get(i);
-      if (!track.writtenSamples.isEmpty()) {
-        minInputPtsUs = min(track.writtenSamples.get(0).presentationTimeUs, minInputPtsUs);
-      }
-    }
-    return minInputPtsUs;
-  }
-
   private void writeHeader() throws IOException {
     outputFileChannel.position(0L);
     outputFileChannel.write(Boxes.ftyp());
@@ -311,24 +299,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
   }
 
   private ByteBuffer assembleCurrentMoovData() {
-    // Recalculate the min timestamp every time, in case some new samples have smaller timestamps.
-    long minInputPtsUs = findMinimumPresentationTimestampUsAcrossTracks(tracks);
 
-    ByteBuffer moovHeader;
-    if (minInputPtsUs != Long.MAX_VALUE) {
-      moovHeader =
-          Boxes.moov(
-              tracks,
-              metadataCollector,
-              minInputPtsUs,
-              /* isFragmentedMp4= */ false,
-              lastSampleDurationBehavior);
-    } else {
-      // Skip moov box, if there are no samples.
-      moovHeader = ByteBuffer.allocate(0);
-    }
-
-    return moovHeader;
+    return Boxes.moov(
+        tracks, metadataCollector, /* isFragmentedMp4= */ false, lastSampleDurationBehavior);
   }
 
   /**
