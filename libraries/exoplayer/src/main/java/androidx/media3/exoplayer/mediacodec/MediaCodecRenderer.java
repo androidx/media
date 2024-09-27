@@ -367,6 +367,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private boolean codecNeedsAdaptationWorkaroundBuffer;
   private boolean shouldSkipAdaptationWorkaroundOutputBuffer;
   private boolean codecNeedsEosPropagation;
+  private long lastOutputBufferProcessedRealtimeMs;
   private boolean codecRegisteredOnBufferAvailableListener;
   private long codecHotswapDeadlineMs;
   private int inputIndex;
@@ -447,6 +448,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     largestQueuedPresentationTimeUs = C.TIME_UNSET;
     lastBufferInStreamPresentationTimeUs = C.TIME_UNSET;
     lastProcessedOutputBufferTimeUs = C.TIME_UNSET;
+    lastOutputBufferProcessedRealtimeMs = C.TIME_UNSET;
     codecDrainState = DRAIN_STATE_NONE;
     codecDrainAction = DRAIN_ACTION_NONE;
     decoderCounters = new DecoderCounters();
@@ -973,6 +975,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     resetOutputBuffer();
     codecHotswapDeadlineMs = C.TIME_UNSET;
     codecReceivedEos = false;
+    lastOutputBufferProcessedRealtimeMs = C.TIME_UNSET;
     codecReceivedBuffers = false;
     codecNeedsAdaptationWorkaroundBuffer = false;
     shouldSkipAdaptationWorkaroundOutputBuffer = false;
@@ -1997,6 +2000,13 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
             && (inputStreamEnded || codecDrainState == DRAIN_STATE_WAIT_END_OF_STREAM)) {
           processEndOfStream();
         }
+        if (lastOutputBufferProcessedRealtimeMs != C.TIME_UNSET
+            && lastOutputBufferProcessedRealtimeMs + 100 < getClock().currentTimeMillis()) {
+          // We processed the last output buffer more than 100ms ago without
+          // receiving an EOS buffer. This is likely a misbehaving codec, so
+          // process the end of stream manually. See b/359634542.
+          processEndOfStream();
+        }
         return false;
       }
 
@@ -2071,6 +2081,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     if (processedOutputBuffer) {
       onProcessedOutputBuffer(outputBufferInfo.presentationTimeUs);
       boolean isEndOfStream = (outputBufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0;
+      if (!isEndOfStream && codecReceivedEos && isLastOutputBuffer) {
+        lastOutputBufferProcessedRealtimeMs = getClock().currentTimeMillis();
+      }
       resetOutputBuffer();
       if (!isEndOfStream) {
         return true;

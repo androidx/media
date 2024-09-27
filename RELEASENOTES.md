@@ -67,6 +67,8 @@
     *   Add workaround for a device issue on Galaxy Tab S7 FE that causes 60fps
         secure H264 streams to be marked as unsupported
         ([#1619](https://github.com/androidx/media/issues/1619)).
+    *   Add workaround for codecs that get stuck after the last sample without
+        returning an end-of-stream signal.
 *   Text:
 *   Metadata:
     *   Assign the `C.TRACK_TYPE_METADATA` type to tracks containing icy or
