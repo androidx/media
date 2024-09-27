@@ -427,12 +427,13 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
       int windowIndex,
       @Nullable MediaPeriodId mediaPeriodId,
       LoadEventInfo loadEventInfo,
-      MediaLoadData mediaLoadData) {
+      MediaLoadData mediaLoadData,
+      int retryCount) {
     @Nullable
     MediaPeriodImpl mediaPeriod =
         getMediaPeriodForEvent(mediaPeriodId, mediaLoadData, /* useLoadingPeriod= */ true);
     if (mediaPeriod == null) {
-      mediaSourceEventDispatcherWithoutId.loadStarted(loadEventInfo, mediaLoadData);
+      mediaSourceEventDispatcherWithoutId.loadStarted(loadEventInfo, mediaLoadData, retryCount);
     } else {
       mediaPeriod.sharedPeriod.onLoadStarted(loadEventInfo, mediaLoadData);
       mediaPeriod.mediaSourceEventDispatcher.loadStarted(
@@ -440,7 +441,8 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
           correctMediaLoadData(
               mediaPeriod,
               mediaLoadData,
-              checkNotNull(adPlaybackStates.get(mediaPeriod.mediaPeriodId.periodUid))));
+              checkNotNull(adPlaybackStates.get(mediaPeriod.mediaPeriodId.periodUid))),
+          retryCount);
     }
   }
 
@@ -750,7 +752,9 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
               loadData.first,
               correctMediaLoadData(loadingPeriod, loadData.second, adPlaybackState));
           mediaPeriod.mediaSourceEventDispatcher.loadStarted(
-              loadData.first, correctMediaLoadData(mediaPeriod, loadData.second, adPlaybackState));
+              loadData.first,
+              correctMediaLoadData(mediaPeriod, loadData.second, adPlaybackState),
+              0);
         }
       }
       this.loadingPeriod = mediaPeriod;

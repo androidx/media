@@ -132,6 +132,7 @@ import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -1715,7 +1716,7 @@ public final class DefaultAnalyticsCollectorTest {
     ArgumentCaptor<AnalyticsListener.EventTime> individualLoadStartedEventTimes =
         ArgumentCaptor.forClass(AnalyticsListener.EventTime.class);
     verify(listener, atLeastOnce())
-        .onLoadStarted(individualLoadStartedEventTimes.capture(), any(), any());
+        .onLoadStarted(individualLoadStartedEventTimes.capture(), any(), any(), anyInt());
     ArgumentCaptor<AnalyticsListener.EventTime> individualLoadCompletedEventTimes =
         ArgumentCaptor.forClass(AnalyticsListener.EventTime.class);
     verify(listener, atLeastOnce())
@@ -2196,6 +2197,15 @@ public final class DefaultAnalyticsCollectorTest {
     @Override
     public void onLoadStarted(
         EventTime eventTime, LoadEventInfo loadEventInfo, MediaLoadData mediaLoadData) {
+      reportedEvents.add(new ReportedEvent(EVENT_LOAD_STARTED, eventTime));
+    }
+
+    @Override
+    public void onLoadStarted(
+        EventTime eventTime,
+        LoadEventInfo loadEventInfo,
+        MediaLoadData mediaLoadData,
+        int retryCount) {
       reportedEvents.add(new ReportedEvent(EVENT_LOAD_STARTED, eventTime));
     }
 

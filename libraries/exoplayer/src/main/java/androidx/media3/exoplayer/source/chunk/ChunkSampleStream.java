@@ -647,7 +647,8 @@ public class ChunkSampleStream<T extends ChunkSource>
         loadable.trackSelectionReason,
         loadable.trackSelectionData,
         loadable.startTimeUs,
-        loadable.endTimeUs);
+        loadable.endTimeUs,
+        0);
     return true;
   }
 

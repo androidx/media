@@ -598,6 +598,33 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   // Loader.Callback implementation.
 
   @Override
+  public void onLoadStarted(
+      ExtractingLoadable loadable, long elapsedRealtimeMs, long loadDurationMs, int retryCount) {
+    if (retryCount > 0) {
+      StatsDataSource dataSource = loadable.dataSource;
+      LoadEventInfo loadEventInfo =
+          new LoadEventInfo(
+              loadable.loadTaskId,
+              loadable.dataSpec,
+              dataSource.getLastOpenedUri(),
+              dataSource.getLastResponseHeaders(),
+              elapsedRealtimeMs,
+              loadDurationMs,
+              dataSource.getBytesRead());
+      mediaSourceEventDispatcher.loadStarted(
+          loadEventInfo,
+          C.DATA_TYPE_MEDIA,
+          C.TRACK_TYPE_UNKNOWN,
+          /* trackFormat= */ null,
+          C.SELECTION_REASON_UNKNOWN,
+          /* trackSelectionData= */ null,
+          /* mediaStartTimeUs= */ loadable.seekTimeUs,
+          durationUs,
+          retryCount);
+    }
+  }
+
+  @Override
   public void onLoadCompleted(
       ExtractingLoadable loadable, long elapsedRealtimeMs, long loadDurationMs) {
     if (durationUs == C.TIME_UNSET && seekMap != null) {
@@ -893,7 +920,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         C.SELECTION_REASON_UNKNOWN,
         /* trackSelectionData= */ null,
         /* mediaStartTimeUs= */ loadable.seekTimeUs,
-        durationUs);
+        durationUs,
+        0);
   }
 
   /**

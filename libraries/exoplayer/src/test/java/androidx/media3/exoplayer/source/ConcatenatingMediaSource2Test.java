@@ -20,6 +20,7 @@ import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUnti
 import static com.google.common.truth.Truth.assertThat;
 import static java.lang.Math.max;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.mock;
@@ -625,7 +626,8 @@ public final class ConcatenatingMediaSource2Test {
               /* windowIndex= */ eq(0),
               /* mediaPeriodId= */ eq(mediaPeriodId),
               /* loadEventInfo= */ any(),
-              /* mediaLoadData= */ any());
+              /* mediaLoadData= */ any(),
+              /* retryCount */ anyInt());
       verify(eventListener)
           .onLoadCompleted(
               /* windowIndex= */ eq(0),

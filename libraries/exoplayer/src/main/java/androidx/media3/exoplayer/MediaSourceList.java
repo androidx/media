@@ -577,6 +577,25 @@ import java.util.Set;
     }
 
     @Override
+    public void onLoadStarted(
+        int windowIndex,
+        @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+        LoadEventInfo loadEventData,
+        MediaLoadData mediaLoadData,
+        int retryCount) {
+      @Nullable
+      Pair<Integer, MediaSource.@NullableType MediaPeriodId> eventParameters =
+          getEventParameters(windowIndex, mediaPeriodId);
+      if (eventParameters != null) {
+        eventHandler.post(
+            () ->
+                eventListener.onLoadStarted(
+                    eventParameters.first, eventParameters.second,
+                    loadEventData, mediaLoadData, retryCount));
+      }
+    }
+
+    @Override
     public void onLoadCompleted(
         int windowIndex,
         @Nullable MediaSource.MediaPeriodId mediaPeriodId,
