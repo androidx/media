@@ -2380,7 +2380,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
       preloading.prepare(/* callback= */ this, preloading.info.startPositionUs);
     } else {
       preloading.continueLoading(
-          rendererPositionUs, playbackInfo.playbackParameters.speed, lastRebufferRealtimeMs);
+          new LoadingInfo.Builder()
+              .setPlaybackPositionUs(preloading.toPeriodTime(rendererPositionUs))
+              .setPlaybackSpeed(mediaClock.getPlaybackParameters().speed)
+              .setLastRebufferRealtimeMs(lastRebufferRealtimeMs)
+              .build());
     }
   }
 
@@ -2647,14 +2651,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
   private void maybeContinueLoading() {
     shouldContinueLoading = shouldContinueLoading();
     if (shouldContinueLoading) {
-      LoadingInfo loadingInfo = new LoadingInfo.Builder()
-          .setPlaybackPositionUs(queue.getLoadingPeriod().toPeriodTime(rendererPositionUs))
-          .setPlaybackSpeed(mediaClock.getPlaybackParameters().speed)
-          .setLastRebufferRealtimeMs(lastRebufferRealtimeMs)
-          .build();
-      queue
-          .getLoadingPeriod()
-          .continueLoading(loadingInfo);
+      MediaPeriodHolder loadingPeriod = checkNotNull(queue.getLoadingPeriod());
+      loadingPeriod.continueLoading(
+          new LoadingInfo.Builder()
+              .setPlaybackPositionUs(loadingPeriod.toPeriodTime(rendererPositionUs))
+              .setPlaybackSpeed(mediaClock.getPlaybackParameters().speed)
+              .setLastRebufferRealtimeMs(lastRebufferRealtimeMs)
+              .build());
     }
     updateIsLoading();
   }

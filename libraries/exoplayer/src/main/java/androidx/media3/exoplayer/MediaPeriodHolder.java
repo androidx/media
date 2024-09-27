@@ -235,10 +235,11 @@ import java.io.IOException;
   }
 
   /**
-   * Continues loading the media period at the given renderer position. Should only be called if
+   * Continues loading the media period with the given {@link LoadingInfo}. Should only be called if
    * this is the loading media period.
    *
-   * @param loadingInfo The {@link LoadingInfo} when attempting to continue loading.
+   * @param loadingInfo The {@link LoadingInfo} about the current player state relevant to this load
+   *     request.
    */
   public void continueLoading(LoadingInfo loadingInfo) {
     checkState(isLoadingMediaPeriod());
