@@ -968,6 +968,35 @@ public final class AndroidTestUtil {
   public static final AssetInfo WAV_ASSET =
       new AssetInfo.Builder("asset:///media/wav/sample.wav").build();
 
+  /** A {@link GlEffect} that adds delay in the video pipeline by putting the thread to sleep. */
+  public static final class DelayEffect implements GlEffect {
+    private final long delayMs;
+
+    public DelayEffect(long delayMs) {
+      this.delayMs = delayMs;
+    }
+
+    @Override
+    public GlShaderProgram toGlShaderProgram(Context context, boolean useHdr) {
+      return new PassthroughShaderProgram() {
+        @Override
+        public void queueInputFrame(
+            GlObjectsProvider glObjectsProvider,
+            GlTextureInfo inputTexture,
+            long presentationTimeUs) {
+          try {
+            Thread.sleep(delayMs);
+          } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            onError(e);
+            return;
+          }
+          super.queueInputFrame(glObjectsProvider, inputTexture, presentationTimeUs);
+        }
+      };
+    }
+  }
+
   /**
    * Creates the GL objects needed to set up a GL environment including an {@link EGLDisplay} and an
    * {@link EGLContext}.
