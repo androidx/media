@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.drm;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.drm.ExoMediaDrm.KeyRequest;
 import androidx.media3.exoplayer.drm.ExoMediaDrm.ProvisionRequest;
@@ -26,15 +25,23 @@ import java.util.UUID;
 @UnstableApi
 public interface MediaDrmCallback {
 
-  /** Response data from the {@link MediaDrmCallback} requests. */
+  /**
+   * Response data from the {@link MediaDrmCallback} requests.
+   *
+   * <p>Encapsulates the license server response data {@link #responseData} along with information
+   * ({@link #loadEventInfo} about the network transfer (if any) that was issued to gather the
+   * response.
+   */
   final class Response {
 
     /** The response from the license or provisioning server. */
     public final byte[] data;
+    public final LoadEventInfo loadEventInfo;
 
     /** Constructs an instance. */
-    public Response(byte[] data) {
+    public Response(byte[] data, LoadEventInfo loadEventInfo) {
       this.data = data;
+      this.loadEventInfo = loadEventInfo;
     }
   }
 
@@ -43,7 +50,7 @@ public interface MediaDrmCallback {
    *
    * @param uuid The UUID of the content protection scheme.
    * @param request The request.
-   * @return The response data.
+   * @return A {@link Response} that holds the response payload, and LoadEventInfo
    * @throws MediaDrmCallbackException If an error occurred executing the request.
    */
   Response executeProvisionRequest(UUID uuid, ProvisionRequest request)
@@ -54,23 +61,8 @@ public interface MediaDrmCallback {
    *
    * @param uuid The UUID of the content protection scheme.
    * @param request The request.
-   * @return The response data.
+   * @return A {@link Response} that holds the response payload, and LoadEventInfo
    * @throws MediaDrmCallbackException If an error occurred executing the request.
    */
   Response executeKeyRequest(UUID uuid, KeyRequest request) throws MediaDrmCallbackException;
-
-  /**
-   * Get the {@link LoadEventInfo} for the last executed request.
-   *
-   * <p>Valid after a call to {@link #executeKeyRequest(UUID, KeyRequest)} or {@link
-   * #executeProvisionRequest(UUID, ProvisionRequest)}, either contains the load event info for that
-   * request or null if no load was performed or this implementation does not support reporting load
-   * info
-   *
-   * @return the {@link LoadEventInfo} or null if no load was performed
-   */
-  @Nullable
-  default LoadEventInfo getLastLoadEventInfo() {
-    return null;
-  }
 }

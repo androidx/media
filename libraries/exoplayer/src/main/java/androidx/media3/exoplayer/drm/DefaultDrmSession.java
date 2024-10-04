@@ -665,11 +665,12 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
                 callback.executeProvisionRequest(uuid, (ProvisionRequest) requestTask.request);
             break;
           case MSG_KEYS:
-            response = callback.executeKeyRequest(uuid, (KeyRequest) requestTask.request);
+            MediaDrmCallback.Response keyResponse =
+                callback.executeKeyRequest(uuid, (KeyRequest) requestTask.request);
+            response = keyResponse;
             if (currentKeyRequestInfo != null) {
-              LoadEventInfo loadEventInfo = callback.getLastLoadEventInfo();
-              loadEventInfo =
-                  loadEventInfo != null ? loadEventInfo.copyWithTaskId(requestTask.taskId) : null;
+              LoadEventInfo loadEventInfo =
+                  keyResponse.loadEventInfo.copyWithTaskId(requestTask.taskId);
               currentKeyRequestInfo.setMainLoadRequest(loadEventInfo);
             }
             break;
@@ -727,7 +728,9 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         // The error is fatal.
         return false;
       }
-      currentKeyRequestInfo.addRetryLoadRequest(loadEventInfo);
+      if (currentKeyRequestInfo != null) {
+        currentKeyRequestInfo.addRetryLoadRequest(loadEventInfo);
+      }
       synchronized (this) {
         if (!isReleased) {
           sendMessageDelayed(Message.obtain(originalMsg), retryDelayMs);

@@ -75,6 +75,7 @@ import static org.robolectric.shadows.ShadowLooper.idleMainLooper;
 import static org.robolectric.shadows.ShadowLooper.runMainLooperToNextTask;
 
 import android.graphics.SurfaceTexture;
+import android.net.Uri;
 import android.os.Looper;
 import android.util.SparseArray;
 import android.view.Surface;
@@ -96,6 +97,8 @@ import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
+import androidx.media3.common.util.Util;
+import androidx.media3.datasource.DataSpec;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.ExoPlaybackException;
@@ -106,6 +109,8 @@ import androidx.media3.exoplayer.drm.DefaultDrmSessionManager;
 import androidx.media3.exoplayer.drm.DrmSession;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.drm.ExoMediaDrm;
+import androidx.media3.exoplayer.drm.ExoMediaDrm.KeyRequest;
+import androidx.media3.exoplayer.drm.ExoMediaDrm.ProvisionRequest;
 import androidx.media3.exoplayer.drm.MediaDrmCallback;
 import androidx.media3.exoplayer.drm.MediaDrmCallbackException;
 import androidx.media3.exoplayer.source.LoadEventInfo;
@@ -130,6 +135,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
@@ -192,6 +198,15 @@ public final class DefaultAnalyticsCollectorTest {
   private EventWindowAndPeriodId period1Seq2;
   private EventWindowAndPeriodId window0Period1Seq0;
   private EventWindowAndPeriodId window1Period0Seq1;
+  private static final LoadEventInfo FAKE_LOAD_EVENT_INFO =
+      new LoadEventInfo(
+          1,
+          new DataSpec.Builder().setUri(Uri.EMPTY).build(),
+          Uri.EMPTY,
+          Collections.emptyMap(),
+          1000,
+          2000,
+          8192);
 
   /**
    * Verify that {@link DefaultAnalyticsCollector} explicitly overrides all {@link Player.Listener}
@@ -2507,12 +2522,12 @@ public final class DefaultAnalyticsCollectorTest {
   private static final class EmptyDrmCallback implements MediaDrmCallback {
     @Override
     public Response executeProvisionRequest(UUID uuid, ExoMediaDrm.ProvisionRequest request) {
-      return new Response(new byte[0]);
+      return new Response(new byte[0], FAKE_LOAD_EVENT_INFO);
     }
 
     @Override
     public Response executeKeyRequest(UUID uuid, ExoMediaDrm.KeyRequest request) {
-      return new Response(new byte[0]);
+      return new Response(new byte[0], FAKE_LOAD_EVENT_INFO);
     }
   }
 
@@ -2553,7 +2568,7 @@ public final class DefaultAnalyticsCollectorTest {
       if (alwaysFail) {
         throw new RuntimeException("executeProvisionRequest failed");
       } else {
-        return new Response(new byte[0]);
+        return new Response(new byte[0], FAKE_LOAD_EVENT_INFO);
       }
     }
 
@@ -2565,7 +2580,7 @@ public final class DefaultAnalyticsCollectorTest {
       if (alwaysFail) {
         throw new RuntimeException("executeKeyRequest failed");
       } else {
-        return new Response(new byte[0]);
+        return new Response(new byte[0], FAKE_LOAD_EVENT_INFO);
       }
     }
   }

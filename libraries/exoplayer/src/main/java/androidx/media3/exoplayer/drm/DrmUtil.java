@@ -27,6 +27,7 @@ import android.media.MediaDrm;
 import android.media.MediaDrmResetException;
 import android.media.NotProvisionedException;
 import android.media.ResourceBusyException;
+import android.os.SystemClock;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.PlaybackException;
@@ -37,6 +38,7 @@ import androidx.media3.datasource.DataSourceInputStream;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.HttpDataSource;
 import androidx.media3.datasource.StatsDataSource;
+import androidx.media3.exoplayer.source.LoadEventInfo;
 import com.google.common.io.ByteStreams;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -149,7 +151,7 @@ public final class DrmUtil {
    * @param url The requested URL.
    * @param httpBody The HTTP request payload.
    * @param requestProperties A keyed map of HTTP header request properties.
-   * @return A byte array that holds the response payload.
+   * @return A {@link MediaDrmCallback.Response} that holds the response payload, and LoadEventInfo
    * @throws MediaDrmCallbackException if an exception was encountered during the download.
    */
   public static MediaDrmCallback.Response executePost(
@@ -169,11 +171,22 @@ public final class DrmUtil {
             .setFlags(DataSpec.FLAG_ALLOW_GZIP)
             .build();
     DataSpec originalDataSpec = dataSpec;
+    long startTimeMs = SystemClock.elapsedRealtime();
     try {
       while (true) {
         DataSourceInputStream inputStream = new DataSourceInputStream(statsDataSource, dataSpec);
         try {
-          return new MediaDrmCallback.Response(ByteStreams.toByteArray(inputStream));
+          byte[] response = ByteStreams.toByteArray(inputStream);
+          LoadEventInfo loadEventInfo =
+              new LoadEventInfo(
+                  -1, // note this is replaced with the actual taskId from the request
+                  originalDataSpec,
+                  statsDataSource.getLastOpenedUri(),
+                  statsDataSource.getLastResponseHeaders(),
+                  SystemClock.elapsedRealtime(),
+                  /* loadDurationMs= */ SystemClock.elapsedRealtime() - startTimeMs,
+                  ((byte[]) response).length);
+          return new MediaDrmCallback.Response(response, loadEventInfo);
         } catch (HttpDataSource.InvalidResponseCodeException e) {
           @Nullable String redirectUrl = getRedirectUrl(e, manualRedirectCount);
           if (redirectUrl == null) {

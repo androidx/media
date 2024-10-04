@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.drm;
 
+import static androidx.media3.test.utils.FakeExoMediaDrm.FAKE_LOAD_EVENT_INFO;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
@@ -56,7 +57,7 @@ public class OfflineLicenseHelperTest {
                 /* licenseServerUrl= */ "",
                 KeyRequest.REQUEST_TYPE_INITIAL));
     when(mediaDrmCallback.executeKeyRequest(any(), any()))
-        .thenReturn(new MediaDrmCallback.Response(Util.EMPTY_BYTE_ARRAY));
+        .thenReturn(new MediaDrmCallback.Response(Util.EMPTY_BYTE_ARRAY, FAKE_LOAD_EVENT_INFO));
     offlineLicenseHelper =
         new OfflineLicenseHelper(
             new DefaultDrmSessionManager.Builder()
