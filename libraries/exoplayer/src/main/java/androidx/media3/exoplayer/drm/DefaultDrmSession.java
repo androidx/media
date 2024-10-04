@@ -40,6 +40,7 @@ import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.drm.ExoMediaDrm.KeyRequest;
 import androidx.media3.exoplayer.drm.ExoMediaDrm.ProvisionRequest;
 import androidx.media3.exoplayer.drm.KeyRequestInfo.Builder;
+import androidx.media3.exoplayer.drm.MediaDrmCallback.KeyResponse;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
@@ -662,14 +663,16 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         switch (msg.what) {
           case MSG_PROVISION:
             response =
-                callback.executeProvisionRequest(uuid, (ProvisionRequest) requestTask.request);
+                callback.executeProvisionRequest(uuid, (ProvisionRequest) requestTask.request)
+                    .responseData;
             break;
           case MSG_KEYS:
-            response = callback.executeKeyRequest(uuid, (KeyRequest) requestTask.request);
+            KeyResponse keyResponse =
+                callback.executeKeyRequest(uuid, (KeyRequest) requestTask.request);
+            response = keyResponse.responseData;
             if (currentKeyRequestInfo != null) {
-              LoadEventInfo loadEventInfo = callback.getLastLoadEventInfo();
-              loadEventInfo =
-                  loadEventInfo != null ? loadEventInfo.copyWithTaskId(requestTask.taskId) : null;
+              LoadEventInfo loadEventInfo =
+                  keyResponse.loadEventInfo.copyWithTaskId(requestTask.taskId);
               currentKeyRequestInfo.setMainLoadRequest(loadEventInfo);
             }
             break;
@@ -727,7 +730,9 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         // The error is fatal.
         return false;
       }
-      currentKeyRequestInfo.addRetryLoadRequest(loadEventInfo);
+      if (currentKeyRequestInfo != null) {
+        currentKeyRequestInfo.addRetryLoadRequest(loadEventInfo);
+      }
       synchronized (this) {
         if (!isReleased) {
           sendMessageDelayed(Message.obtain(originalMsg), retryDelayMs);
