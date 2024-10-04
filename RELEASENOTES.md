@@ -116,6 +116,8 @@
         to a click interaction
         ([#1590](https://github.com/androidx/media/issues/1590),
         [#184](https://github.com/androidx/media/issues/184)).
+    *   Fix bug where the "None" choice in the text selection is not working if
+        there are app-defined text track selection preferences.
 *   Downloads:
 *   OkHttp Extension:
 *   Cronet Extension:

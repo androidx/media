@@ -2136,7 +2136,8 @@ public class PlayerControlView extends FrameLayout {
 
     @Override
     public void onBindViewHolderAtZeroPosition(SubSettingViewHolder holder) {
-      // CC options include "Off" at the first position, which disables text rendering.
+      // CC options include "None" at the zero position, which disables text rendering except for
+      // forced text tracks that can't be disabled (and are also not shown in the selection list).
       holder.textView.setText(R.string.exo_track_selection_none);
       boolean isTrackSelectionOff = true;
       for (int i = 0; i < tracks.size(); i++) {
@@ -2157,6 +2158,8 @@ public class PlayerControlView extends FrameLayout {
                       .buildUpon()
                       .clearOverridesOfType(C.TRACK_TYPE_TEXT)
                       .setIgnoredTextSelectionFlags(~C.SELECTION_FLAG_FORCED)
+                      .setPreferredTextLanguage(null)
+                      .setPreferredTextRoleFlags(0)
                       .build());
               settingsWindow.dismiss();
             }
