@@ -693,8 +693,8 @@ public final class TtmlParserTest {
     Cue cue = Iterables.getOnlyElement(allCues.get(0).cues);
     assertThat(cue.text).isNull();
     assertThat(cue.bitmap).isNotNull();
-    assertThat(cue.position).isEqualTo(24f / 100f);
-    assertThat(cue.line).isEqualTo(28f / 100f);
+    assertThat(cue.position).isEqualTo(-24.2f / 100f);
+    assertThat(cue.line).isEqualTo(28.5f / 100f);
     assertThat(cue.size).isEqualTo(51f / 100f);
     assertThat(cue.bitmapHeight).isEqualTo(12f / 100f);
 
@@ -713,8 +713,8 @@ public final class TtmlParserTest {
     cue = Iterables.getOnlyElement(allCues.get(2).cues);
     assertThat(cue.text).isNull();
     assertThat(cue.bitmap).isNotNull();
-    assertThat(cue.position).isEqualTo(24f / 100f);
-    assertThat(cue.line).isEqualTo(28f / 100f);
+    assertThat(cue.position).isEqualTo(-24.2f / 100f);
+    assertThat(cue.line).isEqualTo(28.5f / 100f);
     assertThat(cue.size).isEqualTo(51f / 100f);
     assertThat(cue.bitmapHeight).isEqualTo(12f / 100f);
   }
@@ -730,7 +730,7 @@ public final class TtmlParserTest {
     Cue cue = Iterables.getOnlyElement(allCues.get(0).cues);
     assertThat(cue.text).isNull();
     assertThat(cue.bitmap).isNotNull();
-    assertThat(cue.position).isEqualTo(307f / 1280f);
+    assertThat(cue.position).isEqualTo(-307f / 1280f);
     assertThat(cue.line).isEqualTo(562f / 720f);
     assertThat(cue.size).isEqualTo(653f / 1280f);
     assertThat(cue.bitmapHeight).isEqualTo(86f / 720f);
