@@ -82,6 +82,9 @@
 *   Effect:
 *   Muxers:
 *   IMA extension:
+    *   Fix bug where server-side inserted DAI streams without a preroll can
+        result in an `ArrayIndexOutOfBoundsException` when playing past the last
+        midroll ([#1741](https://github.com/androidx/media/issues/1741)).
 *   Session:
     *   Fix bug that caused custom commands sent from a `MediaBrowser` being
         dispatched to the `MediaSessionCompat.Callback` instead of the
