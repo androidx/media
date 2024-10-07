@@ -2122,8 +2122,9 @@ public class TransformerEndToEndTest {
     sonic.setPitch(resamplingRate);
     Effects effects =
         new Effects(
-            ImmutableList.of(sonic, createByteCountingAudioProcessor(readBytes)),
-            ImmutableList.of());
+            /* audioProcessors= */ ImmutableList.of(
+                sonic, createByteCountingAudioProcessor(readBytes)),
+            /* videoEffects= */ ImmutableList.of());
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri)).setEffects(effects).build();
 
@@ -2135,6 +2136,28 @@ public class TransformerEndToEndTest {
     // TODO (b/361768785): Remove unexpected last sample when Sonic's resampler returns the right
     //  number of samples.
     assertThat(readBytes.get() / 2).isWithin(1).of(29400);
+  }
+
+  @Test
+  public void adjustAudioSpeed_to2pt5Speed_hasExpectedOutputSampleCount() throws Exception {
+    AtomicInteger readBytes = new AtomicInteger();
+    Transformer transformer = new Transformer.Builder(context).build();
+    SonicAudioProcessor sonic = new SonicAudioProcessor();
+    sonic.setSpeed(2.5f);
+    Effects effects =
+        new Effects(
+            /* audioProcessors= */ ImmutableList.of(
+                sonic, createByteCountingAudioProcessor(readBytes)),
+            /* videoEffects= */ ImmutableList.of());
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri)).setEffects(effects).build();
+
+    new TransformerAndroidTestRunner.Builder(context, transformer)
+        .build()
+        .run(testId, editedMediaItem);
+    // The test file contains 44100 samples (1 sec @44.1KHz, mono). We expect to receive 44100 / 2.5
+    // samples.
+    assertThat(readBytes.get() / 2).isEqualTo(17640);
   }
 
   @Test
