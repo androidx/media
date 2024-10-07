@@ -227,7 +227,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
   private static final Executor NO_OP_EXECUTOR = runnable -> {};
 
   private final Context context;
-  private final VideoSinkImpl videoSinkImpl;
+  private final InputVideoSink inputVideoSink;
   private final VideoFrameReleaseControl videoFrameReleaseControl;
   private final VideoFrameRenderControl videoFrameRenderControl;
   private final PreviewingVideoGraph.Factory previewingVideoGraphFactory;
@@ -253,7 +253,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
   private PlaybackVideoGraphWrapper(Builder builder) {
     context = builder.context;
-    videoSinkImpl = new VideoSinkImpl(context);
+    inputVideoSink = new InputVideoSink(context);
     clock = builder.clock;
     videoFrameReleaseControl = builder.videoFrameReleaseControl;
     videoFrameReleaseControl.setClock(clock);
@@ -263,7 +263,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     compositionEffects = builder.compositionEffects;
     listeners = new CopyOnWriteArraySet<>();
     state = STATE_CREATED;
-    addListener(videoSinkImpl);
+    addListener(inputVideoSink);
   }
 
   /**
@@ -288,7 +288,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
   @Override
   public VideoSink getSink() {
-    return videoSinkImpl;
+    return inputVideoSink;
   }
 
   @Override
@@ -483,7 +483,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
   }
 
   /** Receives input from an ExoPlayer renderer and forwards it to the video graph. */
-  private final class VideoSinkImpl implements VideoSink, PlaybackVideoGraphWrapper.Listener {
+  private final class InputVideoSink implements VideoSink, PlaybackVideoGraphWrapper.Listener {
 
     private final int videoFrameProcessorMaxPendingFrameCount;
     private final ArrayList<Effect> videoEffects;
@@ -513,7 +513,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     private Executor listenerExecutor;
 
     /** Creates a new instance. */
-    public VideoSinkImpl(Context context) {
+    public InputVideoSink(Context context) {
       // TODO b/226330223 - Investigate increasing frame count when frame dropping is allowed.
       // TODO b/278234847 - Evaluate whether limiting frame count when frame dropping is not allowed
       //  reduces decoder timeouts, and consider restoring.
@@ -526,8 +526,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       listener = VideoSink.Listener.NO_OP;
       listenerExecutor = NO_OP_EXECUTOR;
     }
-
-    // VideoSink impl
 
     @Override
     public void onRendererEnabled(boolean mayRenderStartOfStream) {
