@@ -448,7 +448,7 @@ public class FragmentedMp4Extractor implements Extractor {
     if (sideloadedTrack != null) {
       TrackBundle bundle =
           new TrackBundle(
-              output.track(0, sideloadedTrack.type),
+              extractorOutput.track(0, sideloadedTrack.type),
               new TrackSampleTable(
                   sideloadedTrack,
                   /* offsets= */ new long[0],

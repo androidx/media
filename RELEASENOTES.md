@@ -128,6 +128,9 @@
 *   HLS Extension:
 *   DASH Extension:
 *   Smooth Streaming Extension:
+    *   Fix a `Bad magic number for Bundle` error when playing SmoothStreaming
+        streams with text tracks
+        ([#1779](https://github.com/androidx/media/issues/1779)).
 *   RTSP Extension:
     *   Fix user info removal for URLs that contain encoded @ characters
         ([#1138](https://github.com/androidx/media/pull/1138)).
