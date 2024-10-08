@@ -157,7 +157,6 @@ public final class ProgressiveMediaSource extends BaseMediaSource
       this.drmSessionManagerProvider = drmSessionManagerProvider;
       this.loadErrorHandlingPolicy = loadErrorHandlingPolicy;
       this.continueLoadingCheckIntervalBytes = continueLoadingCheckIntervalBytes;
-      this.downloadExecutor = () -> null;
     }
 
     @CanIgnoreReturnValue
@@ -202,11 +201,10 @@ public final class ProgressiveMediaSource extends BaseMediaSource
     }
 
     /**
-     * Sets a supplier that can return an {@link Executor} that is used for loading the media. This
-     * is useful if the loading thread needs to be externally managed.
+     * Sets a supplier for an {@link Executor} that is used for loading the media.
      *
-     * @param downloadExecutor a {@link Supplier<Executor>} that provides an externally managed
-     *                         {@link Executor} for downloading and extraction.
+     * @param downloadExecutor A {@link Supplier<Executor>} that provides an externally managed
+     *     {@link Executor} for downloading and extraction.
      * @return This factory, for convenience.
      */
     @CanIgnoreReturnValue

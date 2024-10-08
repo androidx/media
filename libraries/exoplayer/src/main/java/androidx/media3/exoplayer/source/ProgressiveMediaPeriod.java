@@ -173,7 +173,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param continueLoadingCheckIntervalBytes The number of bytes that should be loaded between each
    *     invocation of {@link Callback#onContinueLoadingRequested(SequenceableLoader)}.
    * @param singleSampleDurationUs The duration of media with a single sample in microseconds.
-   * @param downloadExecutor An {@link Executor} for supplying the loader's thread.
+   * @param downloadExecutor An optional externally provided {@link Executor} for loading and
+   *     extracting media.
    */
   // maybeFinishPrepare is not posted to the handler until initialization completes.
   @SuppressWarnings({"nullness:argument", "nullness:methodref.receiver.bound"})
@@ -201,8 +202,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.allocator = allocator;
     this.customCacheKey = customCacheKey;
     this.continueLoadingCheckIntervalBytes = continueLoadingCheckIntervalBytes;
-    loader = downloadExecutor != null ?
-        new Loader(downloadExecutor) : new Loader("ProgressiveMediaPeriod");
+    loader =
+        downloadExecutor != null
+            ? new Loader(downloadExecutor)
+            : new Loader("ProgressiveMediaPeriod");
     this.progressiveMediaExtractor = progressiveMediaExtractor;
     this.singleSampleDurationUs = singleSampleDurationUs;
     loadCondition = new ConditionVariable();

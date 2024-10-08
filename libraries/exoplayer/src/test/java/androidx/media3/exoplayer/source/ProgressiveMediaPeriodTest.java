@@ -86,13 +86,12 @@ public final class ProgressiveMediaPeriodTest {
   private static void testExtractorsUpdatesSourceInfoBeforeOnPreparedCallback(
       ProgressiveMediaExtractor extractor, long imageDurationUs) throws TimeoutException {
     testExtractorsUpdatesSourceInfoBeforeOnPreparedCallback(
-        extractor, imageDurationUs, null);
+        extractor, imageDurationUs, /* executor= */ null);
   }
 
   private static void testExtractorsUpdatesSourceInfoBeforeOnPreparedCallback(
-      ProgressiveMediaExtractor extractor,
-      long imageDurationUs,
-      @Nullable Executor executor) throws TimeoutException {
+      ProgressiveMediaExtractor extractor, long imageDurationUs, @Nullable Executor executor)
+      throws TimeoutException {
     AtomicBoolean sourceInfoRefreshCalled = new AtomicBoolean(false);
     ProgressiveMediaPeriod.Listener sourceInfoRefreshListener =
         (durationUs, isSeekable, isLive) -> sourceInfoRefreshCalled.set(true);
@@ -137,7 +136,7 @@ public final class ProgressiveMediaPeriodTest {
     assertThat(sourceInfoRefreshCalledBeforeOnPrepared.get()).isTrue();
   }
 
-  private class ExecutionTrackingThread extends Thread {
+  private static final class ExecutionTrackingThread extends Thread {
     private final AtomicBoolean hasRun;
 
     public ExecutionTrackingThread(Runnable runnable, AtomicBoolean hasRun) {
