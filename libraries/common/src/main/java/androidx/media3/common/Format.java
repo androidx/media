@@ -62,6 +62,8 @@ import java.util.UUID;
  *   <li>{@link #averageBitrate}
  *   <li>{@link #peakBitrate}
  *   <li>{@link #codecs}
+ *   <li>{@link #supplementalCodecs}
+ *   <li>{@link #supplementalProfiles}
  *   <li>{@link #metadata}
  * </ul>
  *
@@ -102,6 +104,7 @@ import java.util.UUID;
  *   <li>{@link #projectionData}
  *   <li>{@link #stereoMode}
  *   <li>{@link #colorInfo}
+ *   <li>{@link #videoRange}
  * </ul>
  *
  * <h2 id="audio-formats">Fields relevant to audio formats</h2>
@@ -151,6 +154,8 @@ public final class Format {
     private int averageBitrate;
     private int peakBitrate;
     @Nullable private String codecs;
+    @Nullable private String supplementalCodecs;
+    @Nullable private String supplementalProfiles;
     @Nullable private Metadata metadata;
     @Nullable private Object customData;
 
@@ -178,6 +183,7 @@ public final class Format {
     @Nullable private byte[] projectionData;
     private @C.StereoMode int stereoMode;
     @Nullable private ColorInfo colorInfo;
+    @Nullable private String videoRange;
 
     // Audio specific.
 
@@ -246,6 +252,8 @@ public final class Format {
       this.averageBitrate = format.averageBitrate;
       this.peakBitrate = format.peakBitrate;
       this.codecs = format.codecs;
+      this.supplementalCodecs = format.supplementalCodecs;
+      this.supplementalProfiles = format.supplementalProfiles;
       this.metadata = format.metadata;
       this.customData = format.customData;
       // Container specific.
@@ -267,6 +275,7 @@ public final class Format {
       this.projectionData = format.projectionData;
       this.stereoMode = format.stereoMode;
       this.colorInfo = format.colorInfo;
+      this.videoRange = format.videoRange;
       // Audio specific.
       this.channelCount = format.channelCount;
       this.sampleRate = format.sampleRate;
@@ -426,6 +435,28 @@ public final class Format {
     @CanIgnoreReturnValue
     public Builder setCodecs(@Nullable String codecs) {
       this.codecs = codecs;
+      return this;
+    }
+
+    /**
+     * Sets {@link Format#supplementalCodecs}. The default value is {@code null}.
+     *
+     * @param supplementalCodecs The {@link Format#supplementalCodecs}.
+     * @return The builder.
+     */
+    public Builder setSupplementalCodecs(@Nullable String supplementalCodecs) {
+      this.supplementalCodecs = supplementalCodecs;
+      return this;
+    }
+
+    /**
+     * Sets {@link Format#supplementalProfiles}. The default value is {@code null}.
+     *
+     * @param supplementalProfiles The {@link Format#supplementalProfiles}.
+     * @return The builder.
+     */
+    public Builder setSupplementalProfiles(@Nullable String supplementalProfiles) {
+      this.supplementalProfiles = supplementalProfiles;
       return this;
     }
 
@@ -652,6 +683,17 @@ public final class Format {
     @CanIgnoreReturnValue
     public Builder setColorInfo(@Nullable ColorInfo colorInfo) {
       this.colorInfo = colorInfo;
+      return this;
+    }
+
+    /**
+     * Sets {@link Format#videoRange}. The default value is {@code null}.
+     *
+     * @param videoRange The {@link Format#videoRange}.
+     * @return The builder.
+     */
+    public Builder setVideoRange(@Nullable String videoRange) {
+      this.videoRange = videoRange;
       return this;
     }
 
@@ -916,6 +958,12 @@ public final class Format {
   /** Codecs of the format as described in RFC 6381, or null if unknown or not applicable. */
   @Nullable public final String codecs;
 
+  /** The supplemental codecs for compatibility playback, or null if not applicable. */
+  @Nullable public final String supplementalCodecs;
+
+  /** The supplemental profiles for compatibility playback, or null if not applicable. */
+  @Nullable public final String supplementalProfiles;
+
   /** Metadata, or null if unknown or not applicable. */
   @UnstableApi @Nullable public final Metadata metadata;
 
@@ -1007,6 +1055,9 @@ public final class Format {
 
   /** The color metadata associated with the video, or null if not applicable. */
   @UnstableApi @Nullable public final ColorInfo colorInfo;
+
+  /** The reference opto-electronic transfer characteristic functions, or null if not applicable. */
+  @Nullable public final String videoRange;
 
   // Audio specific.
 
@@ -1103,6 +1154,8 @@ public final class Format {
     peakBitrate = builder.peakBitrate;
     bitrate = peakBitrate != NO_VALUE ? peakBitrate : averageBitrate;
     codecs = builder.codecs;
+    supplementalCodecs = builder.supplementalCodecs;
+    supplementalProfiles = builder.supplementalProfiles;
     metadata = builder.metadata;
     customData = builder.customData;
     // Container specific.
@@ -1126,6 +1179,7 @@ public final class Format {
     projectionData = builder.projectionData;
     stereoMode = builder.stereoMode;
     colorInfo = builder.colorInfo;
+    videoRange = builder.videoRange;
     // Audio specific.
     channelCount = builder.channelCount;
     sampleRate = builder.sampleRate;
@@ -1189,6 +1243,10 @@ public final class Format {
       if (Util.splitCodecs(codecsOfType).length == 1) {
         codecs = codecsOfType;
       }
+    }
+    if (MimeTypes.VIDEO_DOLBY_VISION.equals(sampleMimeType) &&
+        manifestFormat.supplementalCodecs != null) {
+      codecs = manifestFormat.supplementalCodecs;
     }
 
     @Nullable

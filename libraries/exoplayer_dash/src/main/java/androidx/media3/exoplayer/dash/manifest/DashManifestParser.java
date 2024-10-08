@@ -399,6 +399,8 @@ public class DashManifestParser extends DefaultHandler
 
     String mimeType = xpp.getAttributeValue(null, "mimeType");
     String codecs = xpp.getAttributeValue(null, "codecs");
+    String supplementalCodecs = xpp.getAttributeValue(null, "scte214:supplementalCodecs");
+    String supplementalProfiles = xpp.getAttributeValue(null, "scte214:supplementalProfiles");
     int width = parseInt(xpp, "width", Format.NO_VALUE);
     int height = parseInt(xpp, "height", Format.NO_VALUE);
     float frameRate = parseFrameRate(xpp, Format.NO_VALUE);
@@ -455,6 +457,8 @@ public class DashManifestParser extends DefaultHandler
                 !baseUrls.isEmpty() ? baseUrls : parentBaseUrls,
                 mimeType,
                 codecs,
+                supplementalCodecs,
+                supplementalProfiles,
                 width,
                 height,
                 frameRate,
@@ -673,6 +677,8 @@ public class DashManifestParser extends DefaultHandler
       List<BaseUrl> parentBaseUrls,
       @Nullable String adaptationSetMimeType,
       @Nullable String adaptationSetCodecs,
+      @Nullable String adaptationSetSupplementalCodecs,
+      @Nullable String adaptationSetSupplementalProfiles,
       int adaptationSetWidth,
       int adaptationSetHeight,
       float adaptationSetFrameRate,
@@ -696,6 +702,10 @@ public class DashManifestParser extends DefaultHandler
 
     String mimeType = parseString(xpp, "mimeType", adaptationSetMimeType);
     String codecs = parseString(xpp, "codecs", adaptationSetCodecs);
+    String supplementalCodecs =
+        parseString(xpp, "scte214:supplementalCodecs", adaptationSetSupplementalCodecs);
+    String supplementalProfiles =
+        parseString(xpp, "scte214:supplementalProfiles", adaptationSetSupplementalProfiles);
     int width = parseInt(xpp, "width", adaptationSetWidth);
     int height = parseInt(xpp, "height", adaptationSetHeight);
     float frameRate = parseFrameRate(xpp, adaptationSetFrameRate);
@@ -781,6 +791,8 @@ public class DashManifestParser extends DefaultHandler
             adaptationSetRoleDescriptors,
             adaptationSetAccessibilityDescriptors,
             codecs,
+            supplementalCodecs,
+            supplementalProfiles,
             essentialProperties,
             supplementalProperties);
     segmentBase = segmentBase != null ? segmentBase : new SingleSegmentBase();
@@ -797,6 +809,27 @@ public class DashManifestParser extends DefaultHandler
         Representation.REVISION_ID_DEFAULT);
   }
 
+  protected boolean isDolbyVisionFormat(
+      @Nullable String codecs, @Nullable String supplementalCodecs) {
+    if (codecs == null) {
+      return false;
+    }
+    if (codecs.startsWith("dvhe") || codecs.startsWith("dvh1")) {
+      // profile 5
+      return true;
+    }
+
+    if (supplementalCodecs == null) {
+      return false;
+    }
+
+    return (supplementalCodecs.startsWith("dvhe") && codecs.startsWith("hev1")) || // profile 8
+        (supplementalCodecs.startsWith("dvh1") && codecs.startsWith("hvc1")) ||    // profile 8
+        (supplementalCodecs.startsWith("dvav") && codecs.startsWith("avc3")) ||    // profile 9
+        (supplementalCodecs.startsWith("dva1") && codecs.startsWith("avc1")) ||    // profile 9
+        (supplementalCodecs.startsWith("dav1") && codecs.startsWith("av01"));      // profile 10
+  }
+
   protected Format buildFormat(
       @Nullable String id,
       @Nullable String containerMimeType,
@@ -810,6 +843,8 @@ public class DashManifestParser extends DefaultHandler
       List<Descriptor> roleDescriptors,
       List<Descriptor> accessibilityDescriptors,
       @Nullable String codecs,
+      @Nullable String supplementalCodecs,
+      @Nullable String supplementalProfiles,
       List<Descriptor> essentialProperties,
       List<Descriptor> supplementalProperties) {
     @Nullable String sampleMimeType = getSampleMimeType(containerMimeType, codecs);
@@ -818,6 +853,10 @@ public class DashManifestParser extends DefaultHandler
       if (MimeTypes.AUDIO_E_AC3_JOC.equals(sampleMimeType)) {
         codecs = MimeTypes.CODEC_E_AC3_JOC;
       }
+    }
+    if (isDolbyVisionFormat(codecs, supplementalCodecs)) {
+      sampleMimeType = MimeTypes.VIDEO_DOLBY_VISION;
+      codecs = supplementalCodecs != null ? supplementalCodecs : codecs;
     }
     @C.SelectionFlags int selectionFlags = parseSelectionFlagsFromRoleDescriptors(roleDescriptors);
     @C.RoleFlags int roleFlags = parseRoleFlagsFromRoleDescriptors(roleDescriptors);
