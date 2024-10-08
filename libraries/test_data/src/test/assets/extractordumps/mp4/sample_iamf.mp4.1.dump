@@ -13,8 +13,6 @@ track 0:
     id = 1
     sampleMimeType = audio/iamf
     maxInputSize = 299
-    channelCount = 0
-    sampleRate = 0
     language = und
     metadata = entries=[Mp4Timestamp: creation time=3764707200, modification time=3764707200, timescale=16000]
     initializationData:

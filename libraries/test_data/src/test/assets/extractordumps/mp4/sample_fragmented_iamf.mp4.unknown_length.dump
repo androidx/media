@@ -12,8 +12,6 @@ track 0:
   format 0:
     id = 1
     sampleMimeType = audio/iamf
-    channelCount = 0
-    sampleRate = 0
     language = und
     initializationData:
       data = length 119, hash 99A80807

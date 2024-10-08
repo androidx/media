@@ -1759,6 +1759,14 @@ public final class BoxParser {
       return;
     }
 
+    // As per the IAMF spec (https://aomediacodec.github.io/iamf/#iasampleentry-section),
+    // channelCount and sampleRate SHALL be set to 0 and ignored. We ignore it by using
+    // Format.NO_VALUE instead of 0.
+    if (atomType == Mp4Box.TYPE_iamf) {
+      channelCount = Format.NO_VALUE;
+      sampleRate = Format.NO_VALUE;
+    }
+
     int childPosition = parent.getPosition();
     if (atomType == Mp4Box.TYPE_enca) {
       @Nullable
