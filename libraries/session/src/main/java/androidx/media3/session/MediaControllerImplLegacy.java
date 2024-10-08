@@ -76,7 +76,6 @@ import androidx.media3.session.legacy.PlaybackStateCompat;
 import androidx.media3.session.legacy.RatingCompat;
 import androidx.media3.session.legacy.VolumeProviderCompat;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -102,6 +101,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   private final ListenerSet<Listener> listeners;
   private final ControllerCompatCallback controllerCompatCallback;
   private final BitmapLoader bitmapLoader;
+  private final ImmutableList<CommandButton> commandButtonsForMediaItems;
 
   @Nullable private MediaControllerCompat controllerCompat;
   @Nullable private MediaBrowserCompat browserCompat;
@@ -137,6 +137,8 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     this.bitmapLoader = bitmapLoader;
     currentPositionMs = C.TIME_UNSET;
     lastSetPlayWhenReadyCalledTimeMs = C.TIME_UNSET;
+    // Always empty. Only supported for a MediaBrowser connected to a MediaBrowserServiceCompat.
+    commandButtonsForMediaItems = ImmutableList.of();
   }
 
   /* package */ MediaController getInstance() {
@@ -411,6 +413,11 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   }
 
   @Override
+  public ImmutableList<CommandButton> getCommandButtonsForMediaItem(MediaItem mediaItem) {
+    return commandButtonsForMediaItems;
+  }
+
+  @Override
   @Nullable
   public PendingIntent getSessionActivity() {
     return controllerCompat.getSessionActivity();
@@ -419,11 +426,6 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   @Override
   public ImmutableList<CommandButton> getCustomLayout() {
     return controllerInfo.customLayout;
-  }
-
-  @Override
-  public ImmutableMap<String, CommandButton> getCommandButtonsForMediaItemsMap() {
-    return ImmutableMap.of();
   }
 
   @Override

@@ -22,6 +22,7 @@ import static androidx.media3.test.session.common.CommonConstants.DEFAULT_TEST_N
 import static androidx.media3.test.session.common.CommonConstants.SUPPORT_APP_PACKAGE_NAME;
 import static androidx.media3.test.session.common.MediaSessionConstants.KEY_AVAILABLE_SESSION_COMMANDS;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_GET_COMMAND_BUTTONS_FOR_MEDIA_ITEMS;
+import static androidx.media3.test.session.common.MediaSessionConstants.TEST_GET_COMMAND_BUTTONS_FOR_MEDIA_ITEMS_COMMANDS_NOT_AVAILABLE;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_GET_CUSTOM_LAYOUT;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_GET_SESSION_ACTIVITY;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_IS_SESSION_COMMAND_AVAILABLE;
@@ -68,10 +69,8 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -554,7 +553,8 @@ public class MediaControllerTest {
   @Test
   public void getCommandButtonsForMediaItem() throws Exception {
     RemoteMediaSession session =
-        createRemoteMediaSession(TEST_GET_COMMAND_BUTTONS_FOR_MEDIA_ITEMS, /* tokenExtras= */ null);
+        createRemoteMediaSession(
+            TEST_GET_COMMAND_BUTTONS_FOR_MEDIA_ITEMS, /* tokenExtras= */ Bundle.EMPTY);
     CommandButton playlistAddButton =
         new CommandButton.Builder(CommandButton.ICON_PLAYLIST_ADD)
             .setSessionCommand(
@@ -589,9 +589,40 @@ public class MediaControllerTest {
   }
 
   @Test
+  public void getCommandButtonsForMediaItem_availableCommandsNotGranted_commandButtonsEmpty()
+      throws Exception {
+    RemoteMediaSession session =
+        createRemoteMediaSession(
+            TEST_GET_COMMAND_BUTTONS_FOR_MEDIA_ITEMS_COMMANDS_NOT_AVAILABLE,
+            /* tokenExtras= */ Bundle.EMPTY);
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setMediaId("mediaId")
+            .setMediaMetadata(
+                new MediaMetadata.Builder()
+                    .setSupportedCommands(
+                        ImmutableList.of(
+                            MediaBrowserConstants.COMMAND_PLAYLIST_ADD,
+                            MediaBrowserConstants.COMMAND_RADIO,
+                            "invalid"))
+                    .build())
+            .build();
+    MediaController controller = controllerTestRule.createController(session.getToken());
+
+    ImmutableList<CommandButton> commandButtons =
+        threadTestRule
+            .getHandler()
+            .postAndSync(() -> controller.getCommandButtonsForMediaItem(mediaItem));
+
+    assertThat(commandButtons).isEmpty();
+    session.cleanUp();
+  }
+
+  @Test
   public void sendCustomCommandForMediaItem() throws Exception {
     RemoteMediaSession session =
-        createRemoteMediaSession(TEST_GET_COMMAND_BUTTONS_FOR_MEDIA_ITEMS, /* tokenExtras= */ null);
+        createRemoteMediaSession(
+            TEST_GET_COMMAND_BUTTONS_FOR_MEDIA_ITEMS, /* tokenExtras= */ Bundle.EMPTY);
     MediaItem mediaItem =
         new MediaItem.Builder()
             .setMediaId("mediaId-1")
@@ -601,11 +632,9 @@ public class MediaControllerTest {
                         ImmutableList.of(MediaBrowserConstants.COMMAND_PLAYLIST_ADD))
                     .build())
             .build();
-    CountDownLatch latch = new CountDownLatch(/* count= */ 1);
-    AtomicReference<SessionResult> sessionResultRef = new AtomicReference<>();
     MediaController controller = controllerTestRule.createController(session.getToken());
 
-    Futures.addCallback(
+    SessionResult sessionResult =
         threadTestRule
             .getHandler()
             .postAndSync(
@@ -614,26 +643,45 @@ public class MediaControllerTest {
                       controller.getCommandButtonsForMediaItem(mediaItem).get(0);
                   return controller.sendCustomCommand(
                       commandButton.sessionCommand, mediaItem, Bundle.EMPTY);
-                }),
-        new FutureCallback<SessionResult>() {
-          @Override
-          public void onSuccess(SessionResult result) {
-            sessionResultRef.set(result);
-            latch.countDown();
-          }
+                })
+            .get(TIMEOUT_MS, MILLISECONDS);
 
-          @Override
-          public void onFailure(Throwable t) {
-            latch.countDown();
-          }
-        },
-        MoreExecutors.directExecutor());
-
-    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(sessionResultRef.get()).isNotNull();
-    assertThat(sessionResultRef.get().resultCode).isEqualTo(SessionResult.RESULT_SUCCESS);
-    assertThat(sessionResultRef.get().extras.getString(MediaConstants.EXTRA_KEY_MEDIA_ID))
+    assertThat(sessionResult.resultCode).isEqualTo(SessionResult.RESULT_SUCCESS);
+    assertThat(sessionResult.extras.getString(MediaConstants.EXTRA_KEY_MEDIA_ID))
         .isEqualTo("mediaId-1");
+    session.cleanUp();
+  }
+
+  @Test
+  public void sendCustomCommandForMediaItem_availableCommandsNotGranted_permissionDenied()
+      throws Exception {
+    RemoteMediaSession session =
+        createRemoteMediaSession(
+            TEST_GET_COMMAND_BUTTONS_FOR_MEDIA_ITEMS_COMMANDS_NOT_AVAILABLE,
+            /* tokenExtras= */ Bundle.EMPTY);
+    SessionCommand playlistAddSessionCommand =
+        new SessionCommand(MediaBrowserConstants.COMMAND_PLAYLIST_ADD, /* extras= */ Bundle.EMPTY);
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setMediaId("mediaId-1")
+            .setMediaMetadata(
+                new MediaMetadata.Builder()
+                    .setSupportedCommands(
+                        ImmutableList.of(MediaBrowserConstants.COMMAND_PLAYLIST_ADD))
+                    .build())
+            .build();
+    MediaController controller = controllerTestRule.createController(session.getToken());
+
+    SessionResult sessionResult =
+        threadTestRule
+            .getHandler()
+            .postAndSync(
+                () ->
+                    controller.sendCustomCommand(
+                        playlistAddSessionCommand, mediaItem, Bundle.EMPTY))
+            .get(TIMEOUT_MS, MILLISECONDS);
+
+    assertThat(sessionResult.resultCode).isEqualTo(SessionResult.RESULT_ERROR_PERMISSION_DENIED);
     session.cleanUp();
   }
 

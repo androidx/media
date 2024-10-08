@@ -64,6 +64,7 @@ import static androidx.media3.test.session.common.MediaSessionConstants.NOTIFICA
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_COMMAND_GET_TRACKS;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_CONTROLLER_LISTENER_SESSION_REJECTS;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_GET_COMMAND_BUTTONS_FOR_MEDIA_ITEMS;
+import static androidx.media3.test.session.common.MediaSessionConstants.TEST_GET_COMMAND_BUTTONS_FOR_MEDIA_ITEMS_COMMANDS_NOT_AVAILABLE;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_GET_CUSTOM_LAYOUT;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_GET_SESSION_ACTIVITY;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_IS_SESSION_COMMAND_AVAILABLE;
@@ -237,6 +238,7 @@ public class MediaSessionProviderService extends Service {
             break;
           }
         case TEST_GET_COMMAND_BUTTONS_FOR_MEDIA_ITEMS:
+        case TEST_GET_COMMAND_BUTTONS_FOR_MEDIA_ITEMS_COMMANDS_NOT_AVAILABLE:
           {
             CommandButton playlistAddButton =
                 new CommandButton.Builder(CommandButton.ICON_PLAYLIST_ADD)
@@ -256,6 +258,10 @@ public class MediaSessionProviderService extends Service {
                   @Override
                   public MediaSession.ConnectionResult onConnect(
                       MediaSession session, ControllerInfo controller) {
+                    if (sessionId.equals(
+                        TEST_GET_COMMAND_BUTTONS_FOR_MEDIA_ITEMS_COMMANDS_NOT_AVAILABLE)) {
+                      return MediaSession.Callback.super.onConnect(session, controller);
+                    }
                     return new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                         .setAvailableSessionCommands(
                             new SessionCommands.Builder()

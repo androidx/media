@@ -745,8 +745,19 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   }
 
   @Override
-  public ImmutableMap<String, CommandButton> getCommandButtonsForMediaItemsMap() {
-    return commandButtonsForMediaItemsMap;
+  public ImmutableList<CommandButton> getCommandButtonsForMediaItem(MediaItem mediaItem) {
+    ImmutableList<String> supportedActions = mediaItem.mediaMetadata.supportedCommands;
+    SessionCommands availableSessionCommands = getAvailableSessionCommands();
+    ImmutableList.Builder<CommandButton> commandButtonsForMediaItem = new ImmutableList.Builder<>();
+    for (int i = 0; i < supportedActions.size(); i++) {
+      CommandButton commandButton = commandButtonsForMediaItemsMap.get(supportedActions.get(i));
+      if (commandButton != null
+          && commandButton.sessionCommand != null
+          && availableSessionCommands.contains(commandButton.sessionCommand)) {
+        commandButtonsForMediaItem.add(commandButton);
+      }
+    }
+    return commandButtonsForMediaItem.build();
   }
 
   @Override

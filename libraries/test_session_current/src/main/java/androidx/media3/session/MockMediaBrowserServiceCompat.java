@@ -46,7 +46,6 @@ import android.support.v4.media.MediaBrowserCompat;
 import android.support.v4.media.MediaBrowserCompat.MediaItem;
 import android.support.v4.media.MediaDescriptionCompat;
 import android.support.v4.media.session.MediaSessionCompat;
-import android.support.v4.media.session.MediaSessionCompat.Callback;
 import android.support.v4.media.session.PlaybackStateCompat;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
@@ -89,7 +88,7 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
       instance = this;
     }
     sessionCompat = new MediaSessionCompat(this, TAG);
-    sessionCompat.setCallback(new Callback() {});
+    sessionCompat.setCallback(new MediaSessionCompat.Callback() {});
     sessionCompat.setActive(true);
     setSessionToken(sessionCompat.getSessionToken());
 
@@ -401,27 +400,6 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
               }
               extras.putParcelableArrayList(
                   BROWSER_SERVICE_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ROOT_LIST, browseActionList);
-
-              session.setPlaybackState(
-                  new PlaybackStateCompat.Builder()
-                      .setState(
-                          PlaybackStateCompat.STATE_PLAYING,
-                          /* position= */ 123L,
-                          /* playbackSpeed= */ 1.0f)
-                      .addCustomAction(
-                          new PlaybackStateCompat.CustomAction.Builder(
-                                  MediaBrowserConstants.COMMAND_PLAYLIST_ADD,
-                                  "Add to playlist",
-                                  CommandButton.ICON_PLAYLIST_ADD)
-                              .build())
-                      .addCustomAction(
-                          new PlaybackStateCompat.CustomAction.Builder(
-                                  MediaBrowserConstants.COMMAND_RADIO,
-                                  "Radio station",
-                                  CommandButton.ICON_RADIO)
-                              .build())
-                      .build());
-
               return new BrowserRoot(ROOT_ID, extras);
             }
 

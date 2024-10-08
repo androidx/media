@@ -220,8 +220,20 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
   @Test
   public void sendCustomCommandWithMediaItem_mediaItemIdConvertedCorrectly() throws Exception {
     remoteService.setProxyForTest(TEST_MEDIA_ITEMS_WITH_BROWSE_ACTIONS);
-    MediaBrowser mediaBrowser = createBrowser(/* listener= */ null);
+    MediaBrowser mediaBrowser =
+        createBrowser(
+            /* connectionHints= */ Bundle.EMPTY,
+            /* maxCommandsForMediaItems= */ 2,
+            /* listener= */ null);
     MediaItem mediaItem = new MediaItem.Builder().setMediaId("mediaIdFromCommand").build();
+    // When connected to a legacy browser service, the library root needs to be requested
+    // before media item commands are available.
+    LibraryResult<MediaItem> libraryRootResult =
+        threadTestRule
+            .getHandler()
+            .postAndSync(() -> mediaBrowser.getLibraryRoot(new LibraryParams.Builder().build()))
+            .get(TIMEOUT_MS, MILLISECONDS);
+    assertThat(libraryRootResult.resultCode).isEqualTo(RESULT_SUCCESS);
 
     SessionResult sessionResult =
         threadTestRule
@@ -232,10 +244,43 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
                         new SessionCommand(MediaBrowserConstants.COMMAND_RADIO, Bundle.EMPTY),
                         mediaItem,
                         /* args= */ Bundle.EMPTY))
-            .get();
+            .get(TIMEOUT_MS, MILLISECONDS);
 
     assertThat(sessionResult.extras.getString(MediaConstants.EXTRA_KEY_MEDIA_ID))
         .isEqualTo("mediaIdFromCommand");
+  }
+
+  @Test
+  public void sendCustomCommandWithMediaItem_commandButtonNotAvailable_permissionDenied()
+      throws Exception {
+    remoteService.setProxyForTest(TEST_MEDIA_ITEMS_WITH_BROWSE_ACTIONS);
+    MediaBrowser mediaBrowser =
+        createBrowser(
+            /* connectionHints= */ Bundle.EMPTY,
+            /* maxCommandsForMediaItems= */ 0,
+            /* listener= */ null);
+    MediaItem mediaItem = new MediaItem.Builder().setMediaId("mediaIdFromCommand").build();
+    // When connected to a legacy browser service, the library root needs to be requested
+    // before media item commands are available.
+    LibraryResult<MediaItem> libraryRootResult =
+        threadTestRule
+            .getHandler()
+            .postAndSync(() -> mediaBrowser.getLibraryRoot(new LibraryParams.Builder().build()))
+            .get(TIMEOUT_MS, MILLISECONDS);
+    assertThat(libraryRootResult.resultCode).isEqualTo(RESULT_SUCCESS);
+
+    SessionResult sessionResult =
+        threadTestRule
+            .getHandler()
+            .postAndSync(
+                () ->
+                    mediaBrowser.sendCustomCommand(
+                        new SessionCommand(MediaBrowserConstants.COMMAND_RADIO, Bundle.EMPTY),
+                        mediaItem,
+                        /* args= */ Bundle.EMPTY))
+            .get(TIMEOUT_MS, MILLISECONDS);
+
+    assertThat(sessionResult.resultCode).isEqualTo(SessionResult.RESULT_ERROR_PERMISSION_DENIED);
   }
 
   @Test

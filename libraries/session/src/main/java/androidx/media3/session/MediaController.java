@@ -62,7 +62,6 @@ import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.session.legacy.MediaBrowserCompat;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -674,16 +673,7 @@ public class MediaController implements Player {
    */
   @UnstableApi
   public final ImmutableList<CommandButton> getCommandButtonsForMediaItem(MediaItem mediaItem) {
-    ImmutableMap<String, CommandButton> buttonMap = impl.getCommandButtonsForMediaItemsMap();
-    ImmutableList<String> supportedActions = mediaItem.mediaMetadata.supportedCommands;
-    ImmutableList.Builder<CommandButton> commandButtonsForMediaItem = new ImmutableList.Builder<>();
-    for (int i = 0; i < supportedActions.size(); i++) {
-      CommandButton commandButton = buttonMap.get(supportedActions.get(i));
-      if (commandButton != null) {
-        commandButtonsForMediaItem.add(commandButton);
-      }
-    }
-    return commandButtonsForMediaItem.build();
+    return impl.getCommandButtonsForMediaItem(mediaItem);
   }
 
   @Override
@@ -2174,7 +2164,7 @@ public class MediaController implements Player {
 
     ImmutableList<CommandButton> getCustomLayout();
 
-    ImmutableMap<String, CommandButton> getCommandButtonsForMediaItemsMap();
+    ImmutableList<CommandButton> getCommandButtonsForMediaItem(MediaItem mediaItem);
 
     Bundle getSessionExtras();
 
