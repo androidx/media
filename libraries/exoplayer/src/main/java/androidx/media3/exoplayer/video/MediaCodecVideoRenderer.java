@@ -67,7 +67,6 @@ import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.FormatHolder;
 import androidx.media3.exoplayer.PlayerMessage.Target;
-import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecDecoderException;
@@ -485,12 +484,12 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   }
 
   /**
-   * Returns the extent to which a {@link MediaCodecVideoRenderer} instance would support a given
-   * format.
+   * Returns the {@link Capabilities} of MediaCodecVideoRenderer for a given {@link Format}.
    *
    * @param context A context.
    * @param mediaCodecSelector The decoder selector.
-   * @param format for which to retrieve the {@code MediaCodecVideoRenderer} support.
+   * @param format The {@link Format} for which to check the {@code MediaCodecVideoRenderer}'s
+   *     support.
    * @return The {@link Capabilities} for this format.
    * @throws DecoderQueryException Thrown if there was an error querying decoders.
    */
