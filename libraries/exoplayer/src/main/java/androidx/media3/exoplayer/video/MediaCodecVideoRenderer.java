@@ -67,6 +67,7 @@ import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.FormatHolder;
 import androidx.media3.exoplayer.PlayerMessage.Target;
+import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecDecoderException;
@@ -483,13 +484,29 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     return TAG;
   }
 
+  /**
+   * Returns the extent to which a {@link MediaCodecVideoRenderer} instance would support a given
+   * format.
+   *
+   * @param context A context.
+   * @param mediaCodecSelector The decoder selector.
+   * @param format for which to retrieve the {@code MediaCodecVideoRenderer} support.
+   * @return The {@link Capabilities} for this format.
+   * @throws DecoderQueryException Thrown if there was an error querying decoders.
+   */
+  public static @Capabilities int supportsFormat(
+      Context context, MediaCodecSelector mediaCodecSelector, Format format)
+      throws DecoderQueryException {
+    return supportsFormatInternal(context, mediaCodecSelector, format);
+  }
+
   @Override
   protected @Capabilities int supportsFormat(MediaCodecSelector mediaCodecSelector, Format format)
       throws DecoderQueryException {
-    return rendererSupportsFormat(context, mediaCodecSelector, format);
+    return supportsFormatInternal(context, mediaCodecSelector, format);
   }
 
-  public static @Capabilities int rendererSupportsFormat(
+  private static @Capabilities int supportsFormatInternal(
       Context context, MediaCodecSelector mediaCodecSelector, Format format)
       throws DecoderQueryException {
     String mimeType = format.sampleMimeType;
