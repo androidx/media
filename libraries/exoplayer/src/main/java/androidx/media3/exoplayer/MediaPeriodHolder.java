@@ -235,25 +235,15 @@ import java.io.IOException;
   }
 
   /**
-   * Continues loading the media period at the given renderer position. Should only be called if
+   * Continues loading the media period with the given {@link LoadingInfo}. Should only be called if
    * this is the loading media period.
    *
-   * @param rendererPositionUs The load position in renderer time, in microseconds.
-   * @param playbackSpeed The playback speed indicating the current rate of playback.
-   * @param lastRebufferRealtimeMs The time at which the last rebuffering occurred, in milliseconds
-   *     since boot including time spent in sleep. The time base used is the same as that measured
-   *     by {@link android.os.SystemClock#elapsedRealtime}.
+   * @param loadingInfo The {@link LoadingInfo} about the current player state relevant to this load
+   *     request.
    */
-  public void continueLoading(
-      long rendererPositionUs, float playbackSpeed, long lastRebufferRealtimeMs) {
+  public void continueLoading(LoadingInfo loadingInfo) {
     checkState(isLoadingMediaPeriod());
-    long loadingPeriodPositionUs = toPeriodTime(rendererPositionUs);
-    mediaPeriod.continueLoading(
-        new LoadingInfo.Builder()
-            .setPlaybackPositionUs(loadingPeriodPositionUs)
-            .setPlaybackSpeed(playbackSpeed)
-            .setLastRebufferRealtimeMs(lastRebufferRealtimeMs)
-            .build());
+    mediaPeriod.continueLoading(loadingInfo);
   }
 
   /**
