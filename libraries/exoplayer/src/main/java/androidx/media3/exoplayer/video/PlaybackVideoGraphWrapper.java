@@ -231,8 +231,8 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
   private final VideoFrameReleaseControl videoFrameReleaseControl;
   private final VideoFrameRenderControl videoFrameRenderControl;
   private final PreviewingVideoGraph.Factory previewingVideoGraphFactory;
-
   private final List<Effect> compositionEffects;
+  private final VideoSink defaultVideoSink;
   private final Clock clock;
   private final CopyOnWriteArraySet<PlaybackVideoGraphWrapper.Listener> listeners;
 
@@ -261,6 +261,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
         new VideoFrameRenderControl(new FrameRendererImpl(), videoFrameReleaseControl);
     previewingVideoGraphFactory = checkStateNotNull(builder.previewingVideoGraphFactory);
     compositionEffects = builder.compositionEffects;
+    defaultVideoSink = new DefaultVideoSink(videoFrameReleaseControl, videoFrameRenderControl);
     listeners = new CopyOnWriteArraySet<>();
     state = STATE_CREATED;
     addListener(inputVideoSink);
@@ -465,7 +466,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
   }
 
   private void setPlaybackSpeed(float speed) {
-    videoFrameRenderControl.setPlaybackSpeed(speed);
+    defaultVideoSink.setPlaybackSpeed(speed);
   }
 
   private void onStreamOffsetChange(
@@ -529,22 +530,22 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
     @Override
     public void onRendererEnabled(boolean mayRenderStartOfStream) {
-      videoFrameReleaseControl.onEnabled(mayRenderStartOfStream);
+      defaultVideoSink.onRendererEnabled(mayRenderStartOfStream);
     }
 
     @Override
     public void onRendererDisabled() {
-      videoFrameReleaseControl.onDisabled();
+      defaultVideoSink.onRendererDisabled();
     }
 
     @Override
     public void onRendererStarted() {
-      videoFrameReleaseControl.onStarted();
+      defaultVideoSink.onRendererStarted();
     }
 
     @Override
     public void onRendererStopped() {
-      videoFrameReleaseControl.onStopped();
+      defaultVideoSink.onRendererStopped();
     }
 
     @Override
@@ -574,9 +575,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       finalBufferPresentationTimeUs = C.TIME_UNSET;
       lastBufferPresentationTimeUs = C.TIME_UNSET;
       PlaybackVideoGraphWrapper.this.flush();
-      if (resetPosition) {
-        videoFrameReleaseControl.reset();
-      }
+      defaultVideoSink.flush(resetPosition);
       pendingInputStreamBufferPresentationTimeUs = C.TIME_UNSET;
       // Don't change input stream offset or reset the pending input stream offset change so that
       // it's announced with the next input frame.
@@ -689,12 +688,12 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     @Override
     public void setChangeFrameRateStrategy(
         @C.VideoChangeFrameRateStrategy int changeFrameRateStrategy) {
-      videoFrameReleaseControl.setChangeFrameRateStrategy(changeFrameRateStrategy);
+      defaultVideoSink.setChangeFrameRateStrategy(changeFrameRateStrategy);
     }
 
     @Override
     public void enableMayRenderStartOfStream() {
-      videoFrameReleaseControl.allowReleaseFirstFrameBeforeStarted();
+      defaultVideoSink.enableMayRenderStartOfStream();
     }
 
     @Override
@@ -820,7 +819,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
     @Override
     public void join(boolean renderNextFrameImmediately) {
-      videoFrameReleaseControl.join(renderNextFrameImmediately);
+      defaultVideoSink.join(renderNextFrameImmediately);
     }
 
     @Override
