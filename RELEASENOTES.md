@@ -105,6 +105,7 @@
         Browse actions of AAOS</a>.
     *   Fix bug where a Media3 controller was sometimes unable to let a session
         app start a foreground service after requesting `play()`.
+    *   Restrict `CommandButton.Builder.setIconUri` to only accept content Uris.
 *   UI:
     *   Make the stretched/cropped video in
         `PlayerView`-in-Compose-`AndroidView` workaround opt-in, due to issues

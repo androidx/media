@@ -20,6 +20,7 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import android.content.ContentResolver;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -424,8 +425,8 @@ public final class CommandButton {
 
     /**
      * [will be deprecated] Use {@link #Builder(int)} instead to define the {@link Icon} for this
-     * button. A separate resource id via {@link #setIconResId(int)} or {@link #setIconUri} is no
-     * longer required unless for {@link #ICON_UNDEFINED}.
+     * button. A separate resource id via {@link #setIconResId(int)} is no longer required unless
+     * for {@link #ICON_UNDEFINED}.
      */
     public Builder() {
       this(ICON_UNDEFINED);
@@ -519,11 +520,11 @@ public final class CommandButton {
     }
 
     /**
-     * Sets a {@link Uri} for the icon of this button.
+     * Sets a content {@link Uri} for the icon of this button.
      *
      * <p>Note that this {@link Uri} may be used when the predefined {@link Icon} is not available
-     * or set to {@link #ICON_UNDEFINED}. It can be used in addition or instead of {@link
-     * #setCustomIconResId} for consumers that are capable of loading the {@link Uri}.
+     * or set to {@link #ICON_UNDEFINED}. It can be used in addition to {@link #setCustomIconResId}
+     * for consumers that are capable of loading the content {@link Uri}.
      *
      * @param uri The uri to an icon.
      * @return This builder for chaining.
@@ -531,6 +532,9 @@ public final class CommandButton {
     @UnstableApi
     @CanIgnoreReturnValue
     public Builder setIconUri(Uri uri) {
+      checkArgument(
+          Objects.equal(uri.getScheme(), ContentResolver.SCHEME_CONTENT),
+          "Only content Uris are supported for CommandButton");
       this.iconUri = uri;
       return this;
     }
@@ -606,11 +610,11 @@ public final class CommandButton {
   @DrawableRes public final int iconResId;
 
   /**
-   * The {@link Uri} for the icon of the button that is used when the predefined {@link #icon} is
-   * not available or set to {@link #ICON_UNDEFINED}. Can be {@code null}.
+   * The content {@link Uri} for the icon of the button that is used when the predefined {@link
+   * #icon} is not available or set to {@link #ICON_UNDEFINED}. Can be {@code null}.
    *
-   * <p>Note that this value can be used in addition or instead of {@link #iconResId} for consumers
-   * that are capable of loading the {@link Uri}.
+   * <p>Note that this value can be used in addition to {@link #iconResId} for consumers that are
+   * capable of loading the content {@link Uri}.
    */
   @UnstableApi @Nullable public final Uri iconUri;
 
@@ -809,7 +813,7 @@ public final class CommandButton {
     if (playerCommand != Player.COMMAND_INVALID) {
       builder.setPlayerCommand(playerCommand);
     }
-    if (iconUri != null) {
+    if (iconUri != null && Objects.equal(iconUri.getScheme(), ContentResolver.SCHEME_CONTENT)) {
       builder.setIconUri(iconUri);
     }
     return builder

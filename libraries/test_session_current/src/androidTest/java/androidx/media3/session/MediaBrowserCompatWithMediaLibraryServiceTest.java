@@ -145,7 +145,7 @@ public class MediaBrowserCompatWithMediaLibraryServiceTest
                 .getString(
                     androidx.media3.session.legacy.MediaConstants
                         .EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ICON_URI))
-        .isEqualTo("http://www.example.com/icon/playlist_add");
+        .isEqualTo("content://playlist_add");
     assertThat(
             mediaItemCommandButtons
                 .get(0)
@@ -174,7 +174,7 @@ public class MediaBrowserCompatWithMediaLibraryServiceTest
                 .getString(
                     androidx.media3.session.legacy.MediaConstants
                         .EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ICON_URI))
-        .isEqualTo("http://www.example.com/icon/radio");
+        .isEqualTo("content://radio");
     assertThat(
             mediaItemCommandButtons
                 .get(1)

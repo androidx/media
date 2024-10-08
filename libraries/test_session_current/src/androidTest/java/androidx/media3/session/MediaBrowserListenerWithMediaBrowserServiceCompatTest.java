@@ -142,14 +142,14 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
     CommandButton playlistAddButton =
         new CommandButton.Builder()
             .setDisplayName("Add to playlist")
-            .setIconUri(Uri.parse("https://www.example.com/icon/playlist_add"))
+            .setIconUri(Uri.parse("content://playlist_add"))
             .setSessionCommand(
                 new SessionCommand(MediaBrowserConstants.COMMAND_PLAYLIST_ADD, Bundle.EMPTY))
             .build();
     CommandButton radioButton =
         new CommandButton.Builder()
             .setDisplayName("Radio station")
-            .setIconUri(Uri.parse("https://www.example.com/icon/radio"))
+            .setIconUri(Uri.parse("content://radio"))
             .setSessionCommand(
                 new SessionCommand(MediaBrowserConstants.COMMAND_RADIO, Bundle.EMPTY))
             .build();
@@ -192,7 +192,7 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
     CommandButton playlistAddButton =
         new CommandButton.Builder()
             .setDisplayName("Add to playlist")
-            .setIconUri(Uri.parse("https://www.example.com/icon/playlist_add"))
+            .setIconUri(Uri.parse("content://playlist_add"))
             .setSessionCommand(
                 new SessionCommand(MediaBrowserConstants.COMMAND_PLAYLIST_ADD, Bundle.EMPTY))
             .build();

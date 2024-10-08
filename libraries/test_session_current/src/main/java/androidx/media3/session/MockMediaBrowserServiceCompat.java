@@ -364,7 +364,7 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
           "Add to playlist");
       playlistAddBrowseAction.putString(
           androidx.media3.session.legacy.MediaConstants.EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ICON_URI,
-          "https://www.example.com/icon/playlist_add");
+          "content://playlist_add");
       playlistAddBrowseAction.putBundle(
           androidx.media3.session.legacy.MediaConstants.EXTRAS_KEY_CUSTOM_BROWSER_ACTION_EXTRAS,
           playlistAddExtras);
@@ -379,7 +379,7 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
           "Radio station");
       radioBrowseAction.putString(
           androidx.media3.session.legacy.MediaConstants.EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ICON_URI,
-          "https://www.example.com/icon/radio");
+          "content://radio");
       radioBrowseAction.putBundle(
           androidx.media3.session.legacy.MediaConstants.EXTRAS_KEY_CUSTOM_BROWSER_ACTION_EXTRAS,
           radioExtras);

@@ -238,7 +238,7 @@ public class MockMediaLibraryService extends MediaLibraryService {
                   ImmutableList.of(
                       new CommandButton.Builder(CommandButton.ICON_PLAYLIST_ADD)
                           .setDisplayName("Add to playlist")
-                          .setIconUri(Uri.parse("http://www.example.com/icon/playlist_add"))
+                          .setIconUri(Uri.parse("content://playlist_add"))
                           .setSessionCommand(
                               new SessionCommand(
                                   MediaBrowserConstants.COMMAND_PLAYLIST_ADD, Bundle.EMPTY))
@@ -246,7 +246,7 @@ public class MockMediaLibraryService extends MediaLibraryService {
                           .build(),
                       new CommandButton.Builder(CommandButton.ICON_RADIO)
                           .setDisplayName("Radio station")
-                          .setIconUri(Uri.parse("http://www.example.com/icon/radio"))
+                          .setIconUri(Uri.parse("content://radio"))
                           .setSessionCommand(
                               new SessionCommand(MediaBrowserConstants.COMMAND_RADIO, Bundle.EMPTY))
                           .setExtras(radioExtras)

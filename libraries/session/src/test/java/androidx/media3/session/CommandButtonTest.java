@@ -364,7 +364,7 @@ public class CommandButtonTest {
             .setDisplayName("name")
             .setEnabled(true)
             .setIconResId(R.drawable.media3_notification_small_icon)
-            .setIconUri(Uri.parse("http://test.test"))
+            .setIconUri(Uri.parse("content://test"))
             .setExtras(extras)
             .setSessionCommand(new SessionCommand(SessionCommand.COMMAND_CODE_SESSION_SET_RATING))
             .build();
@@ -373,7 +373,7 @@ public class CommandButtonTest {
             .setDisplayName("name")
             .setEnabled(true)
             .setIconResId(R.drawable.media3_notification_small_icon)
-            .setIconUri(Uri.parse("http://test.test"))
+            .setIconUri(Uri.parse("content://test"))
             .setExtras(extras)
             .setPlayerCommand(Player.COMMAND_GET_METADATA)
             .build();
