@@ -27,10 +27,8 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 import android.os.Handler;
-import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
-import android.os.Process;
 import android.util.Pair;
 import androidx.annotation.CheckResult;
 import androidx.annotation.Nullable;
@@ -192,7 +190,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
   private final LoadControl loadControl;
   private final BandwidthMeter bandwidthMeter;
   private final HandlerWrapper handler;
-  @Nullable private final HandlerThread internalPlaybackThread;
+  private final PlaybackLooperProvider playbackLooperProvider;
   private final Looper playbackLooper;
   private final Timeline.Window window;
   private final Timeline.Period period;
@@ -257,7 +255,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
       Clock clock,
       PlaybackInfoUpdateListener playbackInfoUpdateListener,
       PlayerId playerId,
-      @Nullable Looper playbackLooper,
+      @Nullable PlaybackLooperProvider playbackLooperProvider,
       PreloadConfiguration preloadConfiguration) {
     this.playbackInfoUpdateListener = playbackInfoUpdateListener;
     this.renderers = renderers;
@@ -318,17 +316,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
         new MediaSourceList(
             /* listener= */ this, analyticsCollector, applicationLooperHandler, playerId);
 
-    if (playbackLooper != null) {
-      internalPlaybackThread = null;
-      this.playbackLooper = playbackLooper;
-    } else {
-      // Note: The documentation for Process.THREAD_PRIORITY_AUDIO that states "Applications can
-      // not normally change to this priority" is incorrect.
-      internalPlaybackThread =
-          new HandlerThread("ExoPlayer:Playback", Process.THREAD_PRIORITY_AUDIO);
-      internalPlaybackThread.start();
-      this.playbackLooper = internalPlaybackThread.getLooper();
-    }
+    this.playbackLooperProvider =
+        (playbackLooperProvider == null) ? new PlaybackLooperProvider() : playbackLooperProvider;
+    this.playbackLooper = this.playbackLooperProvider.obtainLooper();
     handler = clock.createHandler(this.playbackLooper, this);
   }
 
@@ -1564,9 +1554,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
       loadControl.onReleased(playerId);
       setState(Player.STATE_IDLE);
     } finally {
-      if (internalPlaybackThread != null) {
-        internalPlaybackThread.quit();
-      }
+      playbackLooperProvider.releaseLooper();
       synchronized (this) {
         released = true;
         notifyAll();

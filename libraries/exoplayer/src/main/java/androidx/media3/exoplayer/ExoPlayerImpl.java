@@ -375,7 +375,7 @@ import java.util.concurrent.TimeoutException;
               clock,
               playbackInfoUpdateListener,
               playerId,
-              builder.playbackLooper,
+              builder.playbackLooperProvider,
               preloadConfiguration);
 
       volume = 1;
