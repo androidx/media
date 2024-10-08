@@ -67,12 +67,12 @@ import java.util.concurrent.Executor;
 
   @Override
   public void initialize(Format sourceFormat) {
-    throw new UnsupportedOperationException();
+    // Do nothing as there is no initialization needed.
   }
 
   @Override
   public boolean isInitialized() {
-    throw new UnsupportedOperationException();
+    return true;
   }
 
   @Override

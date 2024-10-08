@@ -396,6 +396,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     } catch (VideoFrameProcessingException e) {
       throw new VideoSink.VideoSinkException(e, sourceFormat);
     }
+    defaultVideoSink.initialize(sourceFormat);
     state = STATE_INITIALIZED;
     return videoGraph.getProcessor(/* inputIndex= */ 0);
   }
