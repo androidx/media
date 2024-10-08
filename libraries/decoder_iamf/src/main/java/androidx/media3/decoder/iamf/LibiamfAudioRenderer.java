@@ -94,18 +94,19 @@ public class LibiamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
     }
 
     AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
-    AudioFormat.Builder audioFormat =
-        new AudioFormat.Builder()
-            .setEncoding(IamfDecoder.OUTPUT_PCM_ENCODING)
-            .setChannelMask(IamfDecoder.SPATIALIZED_OUTPUT_LAYOUT);
     if (audioManager == null) {
       return false;
     }
+    AudioFormat audioFormat =
+        new AudioFormat.Builder()
+            .setEncoding(IamfDecoder.OUTPUT_PCM_ENCODING)
+            .setChannelMask(IamfDecoder.SPATIALIZED_OUTPUT_LAYOUT)
+            .build();
     Spatializer spatializer = audioManager.getSpatializer();
     return spatializer.getImmersiveAudioLevel() != Spatializer.SPATIALIZER_IMMERSIVE_LEVEL_NONE
         && spatializer.isAvailable()
         && spatializer.isEnabled()
         && spatializer.canBeSpatialized(
-            AudioAttributes.DEFAULT.getAudioAttributesV21().audioAttributes, audioFormat.build());
+            AudioAttributes.DEFAULT.getAudioAttributesV21().audioAttributes, audioFormat);
   }
 }
