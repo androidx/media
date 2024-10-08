@@ -223,6 +223,18 @@ public final class AndroidTestUtil {
                   .setHeight(4080)
                   .build())
           .build();
+  public static final AssetInfo JPG_PIXEL_MOTION_PHOTO_ASSET =
+      new AssetInfo.Builder("asset:///media/jpeg/pixel-motion-photo-2-hevc-tracks.jpg")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H265)
+                  .setWidth(1024)
+                  .setHeight(768)
+                  .setFrameRate(27.61f)
+                  .setCodecs("hvc1.1.6.L153")
+                  .build())
+          .setVideoFrameCount(58)
+          .build();
 
   public static final AssetInfo WEBP_LARGE =
       new AssetInfo.Builder("asset:///media/webp/black_large.webp")

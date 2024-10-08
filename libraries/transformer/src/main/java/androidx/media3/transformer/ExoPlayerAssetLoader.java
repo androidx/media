@@ -28,6 +28,7 @@ import static androidx.media3.transformer.Transformer.PROGRESS_STATE_AVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_UNAVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
+import static androidx.media3.transformer.TransformerUtil.isImage;
 import static java.lang.Math.min;
 
 import android.content.Context;
@@ -139,6 +140,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
    */
   private static final long EMULATOR_RELEASE_TIMEOUT_MS = 5_000;
 
+  private final Context context;
   private final EditedMediaItem editedMediaItem;
   private final CapturingDecoderFactory decoderFactory;
   private final ExoPlayer player;
@@ -154,6 +156,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
       Looper looper,
       Listener listener,
       Clock clock) {
+    this.context = context;
     this.editedMediaItem = editedMediaItem;
     this.decoderFactory = new CapturingDecoderFactory(decoderFactory);
 
@@ -339,10 +342,13 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
           // listener callbacks are called in the right order.
           player.play();
         } else {
+          String errorMessage = "The asset loader has no audio or video track to output.";
+          if (isImage(context, editedMediaItem.mediaItem)) {
+            errorMessage += " Try setting an image duration on input image MediaItems.";
+          }
           assetLoaderListener.onError(
               ExportException.createForAssetLoader(
-                  new IllegalStateException("The asset loader has no track to output."),
-                  ERROR_CODE_FAILED_RUNTIME_CHECK));
+                  new IllegalStateException(errorMessage), ERROR_CODE_FAILED_RUNTIME_CHECK));
         }
       } catch (RuntimeException e) {
         assetLoaderListener.onError(

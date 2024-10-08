@@ -17,6 +17,7 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.transformer.TransformerUtil.isImage;
 
 import android.content.Context;
 import android.graphics.BitmapFactory;
@@ -25,7 +26,6 @@ import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Log;
@@ -141,7 +141,11 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
       AssetLoader.Listener listener,
       CompositionSettings compositionSettings) {
     MediaItem mediaItem = editedMediaItem.mediaItem;
-    if (isImage(mediaItem)) {
+    boolean isImage = isImage(context, mediaItem);
+    // TODO: b/350499931 - use the MediaItem's imageDurationMs instead of the EditedMediaItem's
+    //  durationUs to export motion photos as video
+    boolean exportVideoFromMotionPhoto = isImage && editedMediaItem.durationUs == C.TIME_UNSET;
+    if (isImage && !exportVideoFromMotionPhoto) {
       if (checkNotNull(mediaItem.localConfiguration).imageDurationMs == C.TIME_UNSET) {
         Log.w(TAG, "The imageDurationMs field must be set on image MediaItems.");
       }
@@ -159,10 +163,5 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
     }
     return exoPlayerAssetLoaderFactory.createAssetLoader(
         editedMediaItem, looper, listener, compositionSettings);
-  }
-
-  private boolean isImage(MediaItem mediaItem) {
-    @Nullable String mimeType = ImageAssetLoader.getImageMimeType(context, mediaItem);
-    return mimeType != null && MimeTypes.isImage(mimeType);
   }
 }

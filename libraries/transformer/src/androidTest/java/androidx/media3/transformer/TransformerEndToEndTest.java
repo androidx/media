@@ -22,6 +22,7 @@ import static androidx.media3.common.util.MediaFormatUtil.createFormatFromMediaF
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static androidx.media3.transformer.AndroidTestUtil.JPG_ASSET;
+import static androidx.media3.transformer.AndroidTestUtil.JPG_PIXEL_MOTION_PHOTO_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.MP3_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_PHOTOS_TRIM_OPTIMIZATION_VIDEO;
@@ -1541,6 +1542,55 @@ public class TransformerEndToEndTest {
     assertThat(result.exportResult.durationMs).isAtLeast(1000);
     assertThat(result.exportResult.durationMs).isAtMost(1050);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
+  }
+
+  @Test
+  public void motionPhoto_withNoDurationSet_exportsVideo() throws Exception {
+    Transformer transformer = new Transformer.Builder(context).build();
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ null,
+        /* outputFormat= */ JPG_PIXEL_MOTION_PHOTO_ASSET.videoFormat);
+    EditedMediaItem motionPhotoItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(JPG_PIXEL_MOTION_PHOTO_ASSET.uri)).build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, motionPhotoItem);
+
+    assertThat(result.exportResult.videoFrameCount)
+        .isEqualTo(JPG_PIXEL_MOTION_PHOTO_ASSET.videoFrameCount);
+  }
+
+  @Test
+  public void motionPhoto_withDurationSet_exportsImage() throws Exception {
+    Transformer transformer = new Transformer.Builder(context).build();
+    MediaItem motionPhotoItem =
+        new MediaItem.Builder()
+            .setUri(JPG_PIXEL_MOTION_PHOTO_ASSET.uri)
+            .setImageDurationMs(500)
+            .build();
+    // Downscale to make sure the resolution is supported by the encoder.
+    Effect downscalingEffect =
+        Presentation.createForWidthAndHeight(
+            /* width= */ 480, /* height= */ 360, Presentation.LAYOUT_SCALE_TO_FIT);
+    EditedMediaItem motionPhotoEditedItem =
+        new EditedMediaItem.Builder(motionPhotoItem)
+            .setFrameRate(30)
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    /* videoEffects= */ ImmutableList.of(downscalingEffect)))
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, motionPhotoEditedItem);
+
+    assertThat(result.exportResult.videoFrameCount).isEqualTo(15); // 0.5 sec at 30 fps
   }
 
   @Test
