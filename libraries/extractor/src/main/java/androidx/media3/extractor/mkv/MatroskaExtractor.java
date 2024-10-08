@@ -561,7 +561,6 @@ public class MatroskaExtractor implements Extractor {
 
   @Override
   public final void init(ExtractorOutput output) {
-    extractorOutput = output;
     extractorOutput =
         parseSubtitlesDuringExtraction
             ? new SubtitleTranscodingExtractorOutput(output, subtitleParserFactory)
