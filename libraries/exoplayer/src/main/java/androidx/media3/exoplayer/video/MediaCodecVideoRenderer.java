@@ -486,14 +486,12 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @Override
   protected @Capabilities int supportsFormat(MediaCodecSelector mediaCodecSelector, Format format)
       throws DecoderQueryException {
-        return rendererSupportsFormat(context, mediaCodecSelector, format);
-      }
+    return rendererSupportsFormat(context, mediaCodecSelector, format);
+  }
 
   public static @Capabilities int rendererSupportsFormat(
-      Context context,
-      MediaCodecSelector mediaCodecSelector,
-      Format format)
-      throws DecoderQueryException {  
+      Context context, MediaCodecSelector mediaCodecSelector, Format format)
+      throws DecoderQueryException {
     String mimeType = format.sampleMimeType;
     if (!MimeTypes.isVideo(mimeType)) {
       return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
