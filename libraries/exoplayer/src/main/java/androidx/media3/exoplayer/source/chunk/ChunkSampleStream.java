@@ -429,6 +429,22 @@ public class ChunkSampleStream<T extends ChunkSource>
 
   // Loader.Callback implementation.
 
+
+  @Override
+  public void onLoadStarted(Chunk loadable, long elapsedRealtimeMs, long loadDurationMs,
+      int retryCount) {
+    mediaSourceEventDispatcher.loadStarted(
+        new LoadEventInfo(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs),
+        loadable.type,
+        primaryTrackType,
+        loadable.trackFormat,
+        loadable.trackSelectionReason,
+        loadable.trackSelectionData,
+        loadable.startTimeUs,
+        loadable.endTimeUs,
+        retryCount);
+  }
+
   @Override
   public void onLoadCompleted(Chunk loadable, long elapsedRealtimeMs, long loadDurationMs) {
     loadingChunk = null;
@@ -647,8 +663,7 @@ public class ChunkSampleStream<T extends ChunkSource>
         loadable.trackSelectionReason,
         loadable.trackSelectionData,
         loadable.startTimeUs,
-        loadable.endTimeUs,
-        0);
+        loadable.endTimeUs);
     return true;
   }
 
