@@ -819,8 +819,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         loadable.trackSelectionReason,
         loadable.trackSelectionData,
         loadable.startTimeUs,
-        loadable.endTimeUs,
-        0);
+        loadable.endTimeUs);
     return true;
   }
 
@@ -860,6 +859,21 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   }
 
   // Loader.Callback implementation.
+
+
+  @Override
+  public void onLoadStarted(Chunk loadable, long elapsedRealtimeMs, long loadDurationMs,
+      int retryCount) {
+    mediaSourceEventDispatcher.loadStarted(
+        new LoadEventInfo(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs),
+        loadable.type,
+        trackType,
+        loadable.trackFormat,
+        loadable.trackSelectionReason,
+        loadable.trackSelectionData,
+        loadable.startTimeUs,
+        loadable.endTimeUs);
+  }
 
   @Override
   public void onLoadCompleted(Chunk loadable, long elapsedRealtimeMs, long loadDurationMs) {
