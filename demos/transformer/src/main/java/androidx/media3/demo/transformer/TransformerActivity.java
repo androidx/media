@@ -84,10 +84,8 @@ import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor;
 import androidx.media3.exoplayer.util.DebugTextViewHelper;
-import androidx.media3.muxer.Muxer;
 import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.DefaultEncoderFactory;
-import androidx.media3.transformer.DefaultMuxer;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.EditedMediaItemSequence;
 import androidx.media3.transformer.Effects;
@@ -325,14 +323,13 @@ public final class TransformerActivity extends AppCompatActivity {
         transformerBuilder.setMaxDelayBetweenMuxerSamplesMs(C.TIME_UNSET);
       }
 
-      Muxer.Factory muxerFactory = new DefaultMuxer.Factory();
       if (bundle.getBoolean(ConfigurationActivity.USE_MEDIA3_MUXER)) {
-        muxerFactory = new InAppMuxer.Factory.Builder().build();
+        transformerBuilder.setMuxerFactory(
+            new InAppMuxer.Factory.Builder()
+                .setOutputFragmentedMp4(
+                    bundle.getBoolean(ConfigurationActivity.PRODUCE_FRAGMENTED_MP4))
+                .build());
       }
-      if (bundle.getBoolean(ConfigurationActivity.PRODUCE_FRAGMENTED_MP4)) {
-        muxerFactory = new InAppMuxer.Factory.Builder().setOutputFragmentedMp4(true).build();
-      }
-      transformerBuilder.setMuxerFactory(muxerFactory);
 
       if (bundle.getBoolean(ConfigurationActivity.ENABLE_DEBUG_PREVIEW)) {
         transformerBuilder.setDebugViewProvider(new DemoDebugViewProvider());

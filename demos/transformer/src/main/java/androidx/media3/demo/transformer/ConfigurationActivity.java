@@ -302,6 +302,18 @@ public final class ConfigurationActivity extends AppCompatActivity {
     abortSlowExportCheckBox = findViewById(R.id.abort_slow_export_checkbox);
     useMedia3Muxer = findViewById(R.id.use_media3_muxer_checkbox);
     produceFragmentedMp4CheckBox = findViewById(R.id.produce_fragmented_mp4_checkbox);
+    useMedia3Muxer.setOnCheckedChangeListener(
+        (buttonView, isChecked) -> {
+          if (!isChecked) {
+            produceFragmentedMp4CheckBox.setChecked(false);
+          }
+        });
+    produceFragmentedMp4CheckBox.setOnCheckedChangeListener(
+        (buttonView, isChecked) -> {
+          if (isChecked) {
+            useMedia3Muxer.setChecked(true);
+          }
+        });
 
     ArrayAdapter<String> hdrModeAdapter =
         new ArrayAdapter<>(/* context= */ this, R.layout.spinner_item);
