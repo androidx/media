@@ -28,7 +28,7 @@ track 256:
     flags = 0
     data = length 813, hash 99F7B4FA
   sample 2:
-    time = 133466
+    time = 133467
     flags = 0
     data = length 442, hash A7367ECF
 track 257:
@@ -50,11 +50,11 @@ track 257:
     flags = 1
     data = length 1254, hash 73FB07B8
   sample 2:
-    time = 118977
+    time = 118978
     flags = 1
     data = length 1254, hash 73FB07B8
   sample 3:
-    time = 145099
+    time = 145100
     flags = 1
     data = length 1254, hash 73FB07B8
 tracksEnded = true

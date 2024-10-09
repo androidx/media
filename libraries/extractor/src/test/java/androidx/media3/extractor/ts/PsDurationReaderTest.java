@@ -64,7 +64,7 @@ public final class PsDurationReaderTest {
       }
     }
     assertThat(result).isNotEqualTo(Extractor.RESULT_END_OF_INPUT);
-    assertThat(tsDurationReader.getDurationUs()).isEqualTo(766);
+    assertThat(tsDurationReader.getDurationUs()).isEqualTo(767);
   }
 
   @Test
@@ -86,6 +86,6 @@ public final class PsDurationReaderTest {
       }
     }
     assertThat(result).isNotEqualTo(Extractor.RESULT_END_OF_INPUT);
-    assertThat(tsDurationReader.getDurationUs()).isEqualTo(766);
+    assertThat(tsDurationReader.getDurationUs()).isEqualTo(767);
   }
 }
