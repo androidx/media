@@ -24,6 +24,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
@@ -34,6 +35,7 @@ import androidx.media3.exoplayer.drm.DrmSessionManagerProvider;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
+import androidx.media3.exoplayer.util.ReleasableExecutor;
 import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorsFactory;
@@ -66,7 +68,7 @@ public final class ProgressiveMediaSource extends BaseMediaSource
     private DrmSessionManagerProvider drmSessionManagerProvider;
     private LoadErrorHandlingPolicy loadErrorHandlingPolicy;
     private int continueLoadingCheckIntervalBytes;
-    @Nullable private Supplier<Executor> downloadExecutor;
+    @Nullable private Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
     /**
      * Creates a new factory for {@link ProgressiveMediaSource}s.
@@ -203,13 +205,17 @@ public final class ProgressiveMediaSource extends BaseMediaSource
     /**
      * Sets a supplier for an {@link Executor} that is used for loading the media.
      *
-     * @param downloadExecutor A {@link Supplier<Executor>} that provides an externally managed
-     *     {@link Executor} for downloading and extraction.
+     * @param downloadExecutor A {@link Supplier} that provides an externally managed {@link
+     *     Executor} for downloading and extraction.
+     * @param downloadExecutorReleaser A callback triggered once a load task is finished and a
+     *     supplied executor is no longer required.
      * @return This factory, for convenience.
      */
     @CanIgnoreReturnValue
-    public Factory setDownloadExecutor(Supplier<Executor> downloadExecutor) {
-      this.downloadExecutor = downloadExecutor;
+    public <T extends Executor> Factory setDownloadExecutor(
+        Supplier<T> downloadExecutor, Consumer<T> downloadExecutorReleaser) {
+      this.downloadExecutorSupplier =
+          () -> ReleasableExecutor.from(downloadExecutor.get(), downloadExecutorReleaser);
       return this;
     }
 
@@ -230,7 +236,7 @@ public final class ProgressiveMediaSource extends BaseMediaSource
           drmSessionManagerProvider.get(mediaItem),
           loadErrorHandlingPolicy,
           continueLoadingCheckIntervalBytes,
-          downloadExecutor);
+          downloadExecutorSupplier);
     }
 
     @Override
@@ -250,7 +256,9 @@ public final class ProgressiveMediaSource extends BaseMediaSource
   private final DrmSessionManager drmSessionManager;
   private final LoadErrorHandlingPolicy loadableLoadErrorHandlingPolicy;
   private final int continueLoadingCheckIntervalBytes;
-  @Nullable private final Supplier<Executor> downloadExecutor;
+
+  @Nullable private final Supplier<ReleasableExecutor> downloadExecutorSupplier;
+
   private boolean timelineIsPlaceholder;
   private long timelineDurationUs;
   private boolean timelineIsSeekable;
@@ -266,7 +274,7 @@ public final class ProgressiveMediaSource extends BaseMediaSource
       DrmSessionManager drmSessionManager,
       LoadErrorHandlingPolicy loadableLoadErrorHandlingPolicy,
       int continueLoadingCheckIntervalBytes,
-      @Nullable Supplier<Executor> downloadExecutor) {
+      @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier) {
     this.mediaItem = mediaItem;
     this.dataSourceFactory = dataSourceFactory;
     this.progressiveMediaExtractorFactory = progressiveMediaExtractorFactory;
@@ -275,7 +283,7 @@ public final class ProgressiveMediaSource extends BaseMediaSource
     this.continueLoadingCheckIntervalBytes = continueLoadingCheckIntervalBytes;
     this.timelineIsPlaceholder = true;
     this.timelineDurationUs = C.TIME_UNSET;
-    this.downloadExecutor = downloadExecutor;
+    this.downloadExecutorSupplier = downloadExecutorSupplier;
   }
 
   @Override
@@ -332,7 +340,7 @@ public final class ProgressiveMediaSource extends BaseMediaSource
         localConfiguration.customCacheKey,
         continueLoadingCheckIntervalBytes,
         Util.msToUs(localConfiguration.imageDurationMs),
-        downloadExecutor != null ? downloadExecutor.get() : null);
+        downloadExecutorSupplier != null ? downloadExecutorSupplier.get() : null);
   }
 
   @Override

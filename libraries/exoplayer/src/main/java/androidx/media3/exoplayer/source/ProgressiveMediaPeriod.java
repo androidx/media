@@ -54,6 +54,7 @@ import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.LoadErrorInfo;
 import androidx.media3.exoplayer.upstream.Loader;
 import androidx.media3.exoplayer.upstream.Loader.LoadErrorAction;
 import androidx.media3.exoplayer.upstream.Loader.Loadable;
+import androidx.media3.exoplayer.util.ReleasableExecutor;
 import androidx.media3.extractor.DiscardingTrackOutput;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorOutput;
@@ -70,7 +71,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -173,8 +173,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param continueLoadingCheckIntervalBytes The number of bytes that should be loaded between each
    *     invocation of {@link Callback#onContinueLoadingRequested(SequenceableLoader)}.
    * @param singleSampleDurationUs The duration of media with a single sample in microseconds.
-   * @param downloadExecutor An optional externally provided {@link Executor} for loading and
-   *     extracting media.
+   * @param downloadExecutor An optional externally provided {@link ReleasableExecutor} for loading
+   *     and extracting media.
    */
   // maybeFinishPrepare is not posted to the handler until initialization completes.
   @SuppressWarnings({"nullness:argument", "nullness:methodref.receiver.bound"})
@@ -191,7 +191,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       @Nullable String customCacheKey,
       int continueLoadingCheckIntervalBytes,
       long singleSampleDurationUs,
-      @Nullable Executor downloadExecutor) {
+      @Nullable ReleasableExecutor downloadExecutor) {
     this.uri = uri;
     this.dataSource = dataSource;
     this.drmSessionManager = drmSessionManager;

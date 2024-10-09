@@ -45,11 +45,11 @@ import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.LoadErrorInfo;
 import androidx.media3.exoplayer.upstream.Loader;
 import androidx.media3.exoplayer.upstream.Loader.LoadErrorAction;
+import androidx.media3.exoplayer.util.ReleasableExecutor;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -120,8 +120,8 @@ public class ChunkSampleStream<T extends ChunkSource>
    *     events.
    * @param canReportInitialDiscontinuity Whether the stream can report an initial discontinuity if
    *     the first chunk can't start at the beginning and needs to preroll data.
-   * @param downloadExecutor An optional externally provided {@link Executor} for loading and
-   *     extracting media.
+   * @param downloadExecutor An optional externally provided {@link ReleasableExecutor} for loading
+   *     and extracting media.
    */
   public ChunkSampleStream(
       @C.TrackType int primaryTrackType,
@@ -136,7 +136,7 @@ public class ChunkSampleStream<T extends ChunkSource>
       LoadErrorHandlingPolicy loadErrorHandlingPolicy,
       MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
       boolean canReportInitialDiscontinuity,
-      @Nullable Executor downloadExecutor) {
+      @Nullable ReleasableExecutor downloadExecutor) {
     this.primaryTrackType = primaryTrackType;
     this.embeddedTrackTypes = embeddedTrackTypes == null ? new int[0] : embeddedTrackTypes;
     this.embeddedTrackFormats = embeddedTrackFormats == null ? new Format[0] : embeddedTrackFormats;
