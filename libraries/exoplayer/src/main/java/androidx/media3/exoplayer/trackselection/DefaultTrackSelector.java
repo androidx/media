@@ -3406,6 +3406,20 @@ public class DefaultTrackSelector extends MappingTrackSelector
     }
   }
 
+  private static boolean isObjectBasedAudio(Format format) {
+    if (format.sampleMimeType == null) {
+      return false;
+    }
+    switch (format.sampleMimeType) {
+      case MimeTypes.AUDIO_E_AC3_JOC:
+      case MimeTypes.AUDIO_AC4:
+      case MimeTypes.AUDIO_IAMF:
+        return true;
+      default:
+        return false;
+    }
+  }
+
   private static boolean isDolbyAudio(Format format) {
     if (format.sampleMimeType == null) {
       return false;
@@ -3726,6 +3740,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
     private final int preferredMimeTypeMatchIndex;
     private final boolean usesPrimaryDecoder;
     private final boolean usesHardwareAcceleration;
+    private final boolean isObjectBasedAudio;
 
     public AudioTrackInfo(
         int rendererIndex,
@@ -3770,6 +3785,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
           getRoleFlagMatchScore(format.roleFlags, parameters.preferredAudioRoleFlags);
       hasMainOrNoRoleFlag = format.roleFlags == 0 || (format.roleFlags & C.ROLE_FLAG_MAIN) != 0;
       isDefaultSelectionFlag = (format.selectionFlags & C.SELECTION_FLAG_DEFAULT) != 0;
+      isObjectBasedAudio = isObjectBasedAudio(format);
       channelCount = format.channelCount;
       sampleRate = format.sampleRate;
       bitrate = format.bitrate;
@@ -3877,6 +3893,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
               .compareFalseFirst(this.usesPrimaryDecoder, other.usesPrimaryDecoder)
               .compareFalseFirst(this.usesHardwareAcceleration, other.usesHardwareAcceleration)
               // 5. Compare technical quality.
+              .compareFalseFirst(this.isObjectBasedAudio, other.isObjectBasedAudio)
               .compare(this.channelCount, other.channelCount, qualityOrdering)
               .compare(this.sampleRate, other.sampleRate, qualityOrdering);
       if (Util.areEqual(this.language, other.language)) {

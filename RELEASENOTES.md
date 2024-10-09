@@ -53,6 +53,8 @@
         `MediaItem.Builder.setImageDurationMs` mandatory for image export.
     *   Add export support for gaps in sequences of audio EditedMediaItems.
 *   Track Selection:
+    *   `DefaultTrackSelector`: Prefer object-based audio over channel-based
+        audio when other factors are equal.
 *   Extractors:
     *   Fix preroll sample handling for non-keyframe media start positions when
         processing edit lists in MP4 files
