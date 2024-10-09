@@ -95,6 +95,7 @@ public class ParserException extends IOException {
    * false when a parser encounters a legal condition which it does not support.
    */
   public final boolean contentIsMalformed;
+
   /** The {@link DataType data type} of the parsed bitstream. */
   public final int dataType;
 
@@ -106,5 +107,16 @@ public class ParserException extends IOException {
     super(message, cause);
     this.contentIsMalformed = contentIsMalformed;
     this.dataType = dataType;
+  }
+
+  @Nullable
+  @Override
+  public String getMessage() {
+    return super.getMessage()
+        + " {contentIsMalformed="
+        + contentIsMalformed
+        + ", dataType="
+        + dataType
+        + "}";
   }
 }

@@ -15,6 +15,7 @@
  */
 package androidx.media3.common.util;
 
+import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 
 import android.os.Handler;
@@ -46,6 +47,8 @@ import java.util.List;
 
   @Override
   public boolean hasMessages(int what) {
+    // Using what == 0 when using hasMessages is dangerous as it also checks for pending Runnables.
+    checkArgument(what != 0);
     return handler.hasMessages(what);
   }
 
@@ -93,6 +96,8 @@ import java.util.List;
 
   @Override
   public void removeMessages(int what) {
+    // Using what == 0 when removing messages is dangerous as it also removes all pending Runnables.
+    checkArgument(what != 0);
     handler.removeMessages(what);
   }
 

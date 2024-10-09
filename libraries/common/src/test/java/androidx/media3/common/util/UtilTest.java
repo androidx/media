@@ -17,6 +17,8 @@ package androidx.media3.common.util;
 
 import static androidx.media3.common.util.Util.binarySearchCeil;
 import static androidx.media3.common.util.Util.binarySearchFloor;
+import static androidx.media3.common.util.Util.contentEquals;
+import static androidx.media3.common.util.Util.contentHashCode;
 import static androidx.media3.common.util.Util.escapeFileName;
 import static androidx.media3.common.util.Util.getCodecsOfType;
 import static androidx.media3.common.util.Util.getStringForTime;
@@ -26,7 +28,11 @@ import static androidx.media3.common.util.Util.minValue;
 import static androidx.media3.common.util.Util.parseXsDateTime;
 import static androidx.media3.common.util.Util.parseXsDuration;
 import static androidx.media3.common.util.Util.unescapeFileName;
+import static androidx.media3.test.utils.TestUtil.buildTestData;
+import static androidx.media3.test.utils.TestUtil.buildTestString;
+import static androidx.media3.test.utils.TestUtil.createByteArray;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -38,15 +44,13 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
-import android.text.SpannableString;
-import android.text.Spanned;
-import android.text.style.StrikethroughSpan;
-import android.text.style.UnderlineSpan;
+import android.util.SparseArray;
 import android.util.SparseLongArray;
 import androidx.media3.common.C;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.io.ByteStreams;
+import com.google.common.primitives.Bytes;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -56,6 +60,7 @@ import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Formatter;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
@@ -72,6 +77,33 @@ import org.robolectric.shadows.ShadowLooper;
 public class UtilTest {
 
   private static final int TIMEOUT_MS = 10000;
+
+  @Test
+  public void toByteArray_fromIntArray() {
+    assertThat(Util.toByteArray(Integer.MIN_VALUE, -1, 0, 1, Integer.MAX_VALUE))
+        .isEqualTo(
+            Bytes.concat(
+                TestUtil.createByteArray(0x80, 0, 0, 0),
+                TestUtil.createByteArray(0xFF, 0xFF, 0xFF, 0xFF),
+                TestUtil.createByteArray(0, 0, 0, 0),
+                TestUtil.createByteArray(0, 0, 0, 1),
+                TestUtil.createByteArray(0x7F, 0xFF, 0xFF, 0xFF)));
+  }
+
+  @Test
+  public void toByteArray_fromFloat() {
+    assertThat(Util.toByteArray(Float.MAX_VALUE))
+        .isEqualTo(TestUtil.createByteArray(0x7F, 0x7F, 0xFF, 0xFF));
+
+    assertThat(Util.toByteArray(Float.MIN_VALUE))
+        .isEqualTo(TestUtil.createByteArray(0x00, 0x00, 0x00, 0x01));
+
+    assertThat(Util.toByteArray(0)).isEqualTo(TestUtil.createByteArray(0x00, 0x00, 0x00, 0x00));
+
+    assertThat(Util.toByteArray(1.0f)).isEqualTo(TestUtil.createByteArray(0x3F, 0x80, 0x00, 0x00));
+
+    assertThat(Util.toByteArray(-1.0f)).isEqualTo(TestUtil.createByteArray(0xBF, 0x80, 0x00, 0x00));
+  }
 
   @Test
   public void addWithOverflowDefault_withoutOverFlow_returnsSum() {
@@ -837,6 +869,41 @@ public class UtilTest {
   }
 
   @Test
+  public void sampleCountToDuration_thenDurationToSampleCount_returnsOriginalValue() {
+    // Use co-prime increments, to maximise 'discord' between sampleCount and sampleRate.
+    for (long originalSampleCount = 0; originalSampleCount < 100_000; originalSampleCount += 97) {
+      for (int sampleRate = 89; sampleRate < 1_000_000; sampleRate += 89) {
+        long calculatedSampleCount =
+            Util.durationUsToSampleCount(
+                Util.sampleCountToDurationUs(originalSampleCount, sampleRate), sampleRate);
+        assertWithMessage("sampleCount=%s, sampleRate=%s", originalSampleCount, sampleRate)
+            .that(calculatedSampleCount)
+            .isEqualTo(originalSampleCount);
+      }
+    }
+  }
+
+  @Test
+  public void durationToSampleCount_doesntOverflowWithLargeDuration() {
+    // Choose a durationUs & sampleRate that will overflow a signed 64-bit integer if they are
+    // multiplied together, but not if the durationUs is converted to seconds first.
+    long sampleCount =
+        Util.durationUsToSampleCount(
+            /* durationUs= */ Long.MAX_VALUE / 100_000, /* sampleRate= */ 192_000);
+    assertThat(sampleCount).isEqualTo(17708874310762L);
+  }
+
+  @Test
+  public void sampleCountToDuration_doesntOverflowWithLargeDuration() {
+    // Choose a sampleCount that will overflow a signed 64-bit integer if it is multiplied directly
+    // by C.MICROS_PER_SECOND, but not if it is divided by sampleRate first.
+    long durationUs =
+        Util.sampleCountToDurationUs(
+            /* sampleCount= */ Long.MAX_VALUE / 100_000, /* sampleRate= */ 192_000);
+    assertThat(durationUs).isEqualTo(480383960252848L);
+  }
+
+  @Test
   public void parseXsDuration_returnsParsedDurationInMillis() {
     assertThat(parseXsDuration("PT150.279S")).isEqualTo(150279L);
     assertThat(parseXsDuration("PT1.500S")).isEqualTo(1500L);
@@ -894,45 +961,6 @@ public class UtilTest {
   @Test
   public void toLong_withBigNegativeValue_returnsValue() {
     assertThat(Util.toLong(0xFEDCBA, 0x87654321)).isEqualTo(0xFEDCBA_87654321L);
-  }
-
-  @Test
-  public void truncateAscii_shortInput_returnsInput() {
-    String input = "a short string";
-
-    assertThat(Util.truncateAscii(input, 100)).isSameInstanceAs(input);
-  }
-
-  @Test
-  public void truncateAscii_longInput_truncated() {
-    String input = "a much longer string";
-
-    assertThat(Util.truncateAscii(input, 5).toString()).isEqualTo("a muc");
-  }
-
-  @Test
-  public void truncateAscii_preservesStylingSpans() {
-    SpannableString input = new SpannableString("a short string");
-    input.setSpan(new UnderlineSpan(), 0, 10, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-    input.setSpan(new StrikethroughSpan(), 4, 10, Spanned.SPAN_INCLUSIVE_EXCLUSIVE);
-
-    CharSequence result = Util.truncateAscii(input, 7);
-
-    assertThat(result).isInstanceOf(SpannableString.class);
-    assertThat(result.toString()).isEqualTo("a short");
-    // TODO(internal b/161804035): Use SpannedSubject when it's available in a dependency we can use
-    // from here.
-    Spanned spannedResult = (Spanned) result;
-    Object[] spans = spannedResult.getSpans(0, result.length(), Object.class);
-    assertThat(spans).hasLength(2);
-    assertThat(spans[0]).isInstanceOf(UnderlineSpan.class);
-    assertThat(spannedResult.getSpanStart(spans[0])).isEqualTo(0);
-    assertThat(spannedResult.getSpanEnd(spans[0])).isEqualTo(7);
-    assertThat(spannedResult.getSpanFlags(spans[0])).isEqualTo(Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-    assertThat(spans[1]).isInstanceOf(StrikethroughSpan.class);
-    assertThat(spannedResult.getSpanStart(spans[1])).isEqualTo(4);
-    assertThat(spannedResult.getSpanEnd(spans[1])).isEqualTo(7);
-    assertThat(spannedResult.getSpanFlags(spans[1])).isEqualTo(Spanned.SPAN_INCLUSIVE_EXCLUSIVE);
   }
 
   @Test
@@ -1023,7 +1051,7 @@ public class UtilTest {
 
   @Test
   public void gzip_resultInflatesBackToOriginalValue() throws Exception {
-    byte[] input = TestUtil.buildTestData(20);
+    byte[] input = buildTestData(20);
 
     byte[] deflated = gzip(input);
 
@@ -1054,6 +1082,26 @@ public class UtilTest {
     ByteBuffer byteBuffer = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
 
     assertThat(Util.getBigEndianInt(byteBuffer, 1)).isEqualTo(0x08070605);
+  }
+
+  @Test
+  public void createReadOnlyByteBuffer_fromLittleEndian_preservesByteOrder() {
+    byte[] bytes = {1, 2, 3, 4};
+    ByteBuffer byteBuffer = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
+    ByteBuffer readOnlyByteBuffer = Util.createReadOnlyByteBuffer(byteBuffer);
+
+    assertThat(readOnlyByteBuffer.order()).isEqualTo(ByteOrder.LITTLE_ENDIAN);
+    assertThat(byteBuffer.getInt()).isEqualTo(readOnlyByteBuffer.getInt());
+  }
+
+  @Test
+  public void createReadOnlyByteBuffer_fromBigEndian_preservesByteOrder() {
+    byte[] bytes = {1, 2, 3, 4};
+    ByteBuffer byteBuffer = ByteBuffer.wrap(bytes).order(ByteOrder.BIG_ENDIAN);
+    ByteBuffer readOnlyByteBuffer = Util.createReadOnlyByteBuffer(byteBuffer);
+
+    assertThat(readOnlyByteBuffer.order()).isEqualTo(ByteOrder.BIG_ENDIAN);
+    assertThat(byteBuffer.getInt()).isEqualTo(readOnlyByteBuffer.getInt());
   }
 
   @Test
@@ -1242,7 +1290,6 @@ public class UtilTest {
 
   @Test
   public void getErrorCodeFromPlatformDiagnosticsInfo_withInvalidInput_returnsZero() {
-    // TODO (internal b/192337376): Change 0 for ERROR_UNKNOWN once available.
     assertThat(Util.getErrorCodeFromPlatformDiagnosticsInfo("")).isEqualTo(0);
     assertThat(Util.getErrorCodeFromPlatformDiagnosticsInfo("android.media.MediaDrm.empty"))
         .isEqualTo(0);
@@ -1492,6 +1539,93 @@ public class UtilTest {
     assertThat(outputFuture.get()).isEqualTo(expectedOutput);
   }
 
+  @Test
+  public void getSelectionFlagStrings() {
+    List<String> selectionFlags =
+        Util.getSelectionFlagStrings(C.SELECTION_FLAG_AUTOSELECT | C.SELECTION_FLAG_FORCED);
+
+    assertThat(selectionFlags).containsExactly("auto", "forced");
+  }
+
+  @Test
+  public void getRoleFlagStrings() {
+    List<String> roleFlags =
+        Util.getRoleFlagStrings(C.ROLE_FLAG_DESCRIBES_MUSIC_AND_SOUND | C.ROLE_FLAG_EASY_TO_READ);
+
+    assertThat(roleFlags).containsExactly("describes-music", "easy-read");
+  }
+
+  @Test
+  public void contentEquals_twoNullSparseArrays_returnsTrue() {
+    assertThat(contentEquals(null, null)).isTrue();
+  }
+
+  @Test
+  public void contentEquals_oneNullSparseArrayAndOneNonNullSparseArray_returnsFalse() {
+    SparseArray<Integer> sparseArray = new SparseArray<>();
+    sparseArray.put(1, 2);
+
+    assertThat(contentEquals(sparseArray, null)).isFalse();
+    assertThat(contentEquals(null, sparseArray)).isFalse();
+  }
+
+  @Test
+  @Config(minSdk = 21) // Specifies the minimum SDK to enforce the test to run with all API levels.
+  public void contentEquals_sparseArraysWithEqualContent_returnsTrue() {
+    SparseArray<Integer> sparseArray1 = new SparseArray<>();
+    sparseArray1.put(1, 2);
+    sparseArray1.put(3, 4);
+    SparseArray<Integer> sparseArray2 = new SparseArray<>();
+    sparseArray2.put(3, 4);
+    sparseArray2.put(1, 2);
+
+    assertThat(contentEquals(sparseArray1, sparseArray2)).isTrue();
+  }
+
+  @Test
+  @Config(minSdk = 21) // Specifies the minimum SDK to enforce the test to run with all API levels.
+  public void contentEquals_sparseArraysWithDifferentContents_returnsFalse() {
+    SparseArray<Integer> sparseArray1 = new SparseArray<>();
+    sparseArray1.put(1, 2);
+    sparseArray1.put(3, 4);
+    SparseArray<Integer> sparseArray2 = new SparseArray<>();
+    sparseArray2.put(3, 4);
+    SparseArray<Integer> sparseArray3 = new SparseArray<>();
+    sparseArray3.put(1, 3);
+    sparseArray3.put(3, 4);
+
+    assertThat(contentEquals(sparseArray1, sparseArray2)).isFalse();
+    assertThat(contentEquals(sparseArray1, sparseArray3)).isFalse();
+  }
+
+  @Test
+  @Config(minSdk = 21) // Specifies the minimum SDK to enforce the test to run with all API levels.
+  public void contentHashCode_sparseArraysWithEqualContent_returnsEqualContentHashCode() {
+    SparseArray<Integer> sparseArray1 = new SparseArray<>();
+    sparseArray1.put(1, 2);
+    sparseArray1.put(3, 4);
+    SparseArray<Integer> sparseArray2 = new SparseArray<>();
+    sparseArray2.put(3, 4);
+    sparseArray2.put(1, 2);
+
+    assertThat(contentHashCode(sparseArray1)).isEqualTo(contentHashCode(sparseArray2));
+  }
+
+  @Test
+  @Config(minSdk = 21) // Specifies the minimum SDK to enforce the test to run with all API levels.
+  public void contentHashCode_sparseArraysWithDifferentContent_returnsDifferentContentHashCode() {
+    // In theory this is not guaranteed though, adding this test to ensure a sensible
+    // contentHashCode implementation.
+    SparseArray<Integer> sparseArray1 = new SparseArray<>();
+    sparseArray1.put(1, 2);
+    sparseArray1.put(3, 4);
+    SparseArray<Integer> sparseArray2 = new SparseArray<>();
+    sparseArray2.put(3, 2);
+    sparseArray2.put(1, 4);
+
+    assertThat(contentHashCode(sparseArray1)).isNotEqualTo(contentHashCode(sparseArray2));
+  }
+
   private static void assertEscapeUnescapeFileName(String fileName, String escapedFileName) {
     assertThat(escapeFileName(fileName)).isEqualTo(escapedFileName);
     assertThat(unescapeFileName(escapedFileName)).isEqualTo(fileName);
@@ -1520,40 +1654,5 @@ public class UtilTest {
       @Override
       public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {}
     };
-  }
-
-  /** Generates an array of random bytes with the specified length. */
-  private static byte[] buildTestData(int length, int seed) {
-    byte[] source = new byte[length];
-    new Random(seed).nextBytes(source);
-    return source;
-  }
-
-  /** Equivalent to {@code buildTestData(length, length)}. */
-  // TODO(internal b/161804035): Use TestUtils when it's available in a dependency we can use here.
-  private static byte[] buildTestData(int length) {
-    return buildTestData(length, length);
-  }
-
-  /** Generates a random string with the specified maximum length. */
-  // TODO(internal b/161804035): Use TestUtils when it's available in a dependency we can use here.
-  private static String buildTestString(int maximumLength, Random random) {
-    int length = random.nextInt(maximumLength);
-    StringBuilder builder = new StringBuilder(length);
-    for (int i = 0; i < length; i++) {
-      builder.append((char) random.nextInt());
-    }
-    return builder.toString();
-  }
-
-  /** Converts an array of integers in the range [0, 255] into an equivalent byte array. */
-  // TODO(internal b/161804035): Use TestUtils when it's available in a dependency we can use here.
-  private static byte[] createByteArray(int... bytes) {
-    byte[] byteArray = new byte[bytes.length];
-    for (int i = 0; i < byteArray.length; i++) {
-      Assertions.checkState(0x00 <= bytes[i] && bytes[i] <= 0xFF);
-      byteArray[i] = (byte) bytes[i];
-    }
-    return byteArray;
   }
 }

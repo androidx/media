@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.source.chunk;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.exoplayer.source.mediaparser.MediaParserUtil.PARAMETER_EAGERLY_EXPOSE_TRACK_TYPE;
 import static androidx.media3.exoplayer.source.mediaparser.MediaParserUtil.PARAMETER_EXPOSE_CAPTION_FORMATS;
 import static androidx.media3.exoplayer.source.mediaparser.MediaParserUtil.PARAMETER_EXPOSE_CHUNK_INDEX_AS_MEDIA_FORMAT;
@@ -32,7 +33,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Assertions;
-import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.analytics.PlayerId;
@@ -40,11 +40,15 @@ import androidx.media3.exoplayer.source.mediaparser.InputReaderAdapterV30;
 import androidx.media3.exoplayer.source.mediaparser.MediaParserUtil;
 import androidx.media3.exoplayer.source.mediaparser.OutputConsumerAdapterV30;
 import androidx.media3.extractor.ChunkIndex;
-import androidx.media3.extractor.DummyTrackOutput;
+import androidx.media3.extractor.DiscardingTrackOutput;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.TrackOutput;
+import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
+import androidx.media3.extractor.text.SubtitleExtractor;
+import androidx.media3.extractor.text.SubtitleParser;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -57,29 +61,93 @@ public final class MediaParserChunkExtractor implements ChunkExtractor {
   // Maximum TAG length is 23 characters.
   private static final String TAG = "MediaPrsrChunkExtractor";
 
-  public static final ChunkExtractor.Factory FACTORY =
-      (primaryTrackType,
-          format,
-          enableEventMessageTrack,
-          closedCaptionFormats,
-          playerEmsgTrackOutput,
-          playerId) -> {
-        if (!MimeTypes.isText(format.containerMimeType)) {
-          // Container is either Matroska or Fragmented MP4.
-          return new MediaParserChunkExtractor(
-              primaryTrackType, format, closedCaptionFormats, playerId);
-        } else {
-          // This is either RAWCC (unsupported) or a text track that does not require an extractor.
-          Log.w(TAG, "Ignoring an unsupported text track.");
+  /** A {@link ChunkExtractor.Factory} for {@link MediaParserChunkExtractor} instances. */
+  public static class Factory implements ChunkExtractor.Factory {
+
+    private SubtitleParser.Factory subtitleParserFactory;
+    private boolean parseSubtitlesDuringExtraction;
+
+    public Factory() {
+      subtitleParserFactory = new DefaultSubtitleParserFactory();
+    }
+
+    @CanIgnoreReturnValue
+    @Override
+    public Factory setSubtitleParserFactory(SubtitleParser.Factory subtitleParserFactory) {
+      this.subtitleParserFactory = checkNotNull(subtitleParserFactory);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    @Override
+    public Factory experimentalParseSubtitlesDuringExtraction(
+        boolean parseSubtitlesDuringExtraction) {
+      this.parseSubtitlesDuringExtraction = parseSubtitlesDuringExtraction;
+      return this;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>This implementation performs transcoding of the original format to {@link
+     * MimeTypes#APPLICATION_MEDIA3_CUES} if it is supported by {@link SubtitleParser.Factory}.
+     *
+     * <p>To modify the support behavior, you can {@linkplain
+     * #setSubtitleParserFactory(SubtitleParser.Factory) set your own subtitle parser factory}.
+     */
+    @Override
+    public Format getOutputTextFormat(Format sourceFormat) {
+      if (parseSubtitlesDuringExtraction && subtitleParserFactory.supportsFormat(sourceFormat)) {
+        return sourceFormat
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.APPLICATION_MEDIA3_CUES)
+            .setCueReplacementBehavior(
+                subtitleParserFactory.getCueReplacementBehavior(sourceFormat))
+            .setCodecs(
+                sourceFormat.sampleMimeType
+                    + (sourceFormat.codecs != null ? " " + sourceFormat.codecs : ""))
+            .setSubsampleOffsetUs(Format.OFFSET_SAMPLE_RELATIVE)
+            .build();
+      } else {
+        return sourceFormat;
+      }
+    }
+
+    @Nullable
+    @Override
+    public ChunkExtractor createProgressiveMediaExtractor(
+        @C.TrackType int primaryTrackType,
+        Format representationFormat,
+        boolean enableEventMessageTrack,
+        List<Format> closedCaptionFormats,
+        @Nullable TrackOutput playerEmsgTrackOutput,
+        PlayerId playerId) {
+      if (!MimeTypes.isText(representationFormat.containerMimeType)) {
+        // Container is either Matroska or Fragmented MP4.
+        return new MediaParserChunkExtractor(
+            primaryTrackType, representationFormat, closedCaptionFormats, playerId);
+      } else {
+        if (!parseSubtitlesDuringExtraction) {
+          // Subtitles will be parsed after decoding
           return null;
+        } else {
+          return new BundledChunkExtractor(
+              new SubtitleExtractor(
+                  subtitleParserFactory.create(representationFormat), representationFormat),
+              primaryTrackType,
+              representationFormat);
         }
-      };
+      }
+    }
+  }
+
+  public static final ChunkExtractor.Factory FACTORY = new Factory();
 
   private final OutputConsumerAdapterV30 outputConsumerAdapter;
   private final InputReaderAdapterV30 inputReaderAdapter;
   private final MediaParser mediaParser;
   private final TrackOutputProviderAdapter trackOutputProviderAdapter;
-  private final DummyTrackOutput dummyTrackOutput;
+  private final DiscardingTrackOutput discardingTrackOutput;
   private long pendingSeekUs;
   @Nullable private TrackOutputProvider trackOutputProvider;
   @Nullable private Format[] sampleFormats;
@@ -129,7 +197,7 @@ public final class MediaParserChunkExtractor implements ChunkExtractor {
     }
     outputConsumerAdapter.setMuxedCaptionFormats(closedCaptionFormats);
     trackOutputProviderAdapter = new TrackOutputProviderAdapter();
-    dummyTrackOutput = new DummyTrackOutput();
+    discardingTrackOutput = new DiscardingTrackOutput();
     pendingSeekUs = C.TIME_UNSET;
   }
 
@@ -184,7 +252,9 @@ public final class MediaParserChunkExtractor implements ChunkExtractor {
 
     @Override
     public TrackOutput track(int id, int type) {
-      return trackOutputProvider != null ? trackOutputProvider.track(id, type) : dummyTrackOutput;
+      return trackOutputProvider != null
+          ? trackOutputProvider.track(id, type)
+          : discardingTrackOutput;
     }
 
     @Override

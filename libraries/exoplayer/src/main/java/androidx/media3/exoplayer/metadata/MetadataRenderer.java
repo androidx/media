@@ -32,6 +32,7 @@ import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.BaseRenderer;
 import androidx.media3.exoplayer.FormatHolder;
 import androidx.media3.exoplayer.RendererCapabilities;
+import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.SampleStream.ReadDataResult;
 import androidx.media3.extractor.metadata.MetadataDecoder;
 import androidx.media3.extractor.metadata.MetadataInputBuffer;
@@ -49,7 +50,7 @@ import org.checkerframework.dataflow.qual.SideEffectFree;
 public final class MetadataRenderer extends BaseRenderer implements Callback {
 
   private static final String TAG = "MetadataRenderer";
-  private static final int MSG_INVOKE_RENDERER = 0;
+  private static final int MSG_INVOKE_RENDERER = 1;
 
   private final MetadataDecoderFactory decoderFactory;
   private final MetadataOutput output;
@@ -140,7 +141,11 @@ public final class MetadataRenderer extends BaseRenderer implements Callback {
   }
 
   @Override
-  protected void onStreamChanged(Format[] formats, long startPositionUs, long offsetUs) {
+  protected void onStreamChanged(
+      Format[] formats,
+      long startPositionUs,
+      long offsetUs,
+      MediaSource.MediaPeriodId mediaPeriodId) {
     decoder = decoderFactory.createDecoder(formats[0]);
     if (pendingMetadata != null) {
       pendingMetadata =
@@ -233,7 +238,8 @@ public final class MetadataRenderer extends BaseRenderer implements Callback {
       if (result == C.RESULT_BUFFER_READ) {
         if (buffer.isEndOfStream()) {
           inputStreamEnded = true;
-        } else {
+        } else if (buffer.timeUs >= getLastResetPositionUs()) {
+          // Ignore metadata before start position.
           buffer.subsampleOffsetUs = subsampleOffsetUs;
           buffer.flip();
           @Nullable Metadata metadata = castNonNull(decoder).decode(buffer);

@@ -41,12 +41,11 @@
     <item>۱٫۵ برابر</item>
     <item>۲ برابر</item>
   </string-array>
-  <string name="exo_track_selection_title_video">ویدیو</string>
   <string name="exo_track_selection_title_audio">صوتی</string>
-  <string name="exo_track_selection_title_text">نوشتار</string>
   <string name="exo_track_selection_none">هیچ‌کدام</string>
   <string name="exo_track_selection_auto">خودکار</string>
   <string name="exo_track_unknown">نامشخص</string>
+  <string name="exo_track_unknown_name">ناشناس (%1$s)</string>
   <string name="exo_track_resolution">%1$d × %2$d</string>
   <string name="exo_track_mono">مونو</string>
   <string name="exo_track_stereo">استریو</string>

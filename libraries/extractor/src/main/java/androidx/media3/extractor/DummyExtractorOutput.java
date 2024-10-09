@@ -15,15 +15,19 @@
  */
 package androidx.media3.extractor;
 
+import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 
-/** A fake {@link ExtractorOutput} implementation. */
+/**
+ * @deprecated Use {@link NoOpExtractorOutput} instead.
+ */
+@Deprecated
 @UnstableApi
 public final class DummyExtractorOutput implements ExtractorOutput {
 
   @Override
-  public TrackOutput track(int id, int type) {
-    return new DummyTrackOutput();
+  public TrackOutput track(int id, @C.TrackType int type) {
+    return new DiscardingTrackOutput();
   }
 
   @Override

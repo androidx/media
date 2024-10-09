@@ -15,9 +15,6 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.session.LibraryResult.RESULT_ERROR_PERMISSION_DENIED;
-import static androidx.media3.session.LibraryResult.RESULT_ERROR_SESSION_DISCONNECTED;
-import static androidx.media3.session.LibraryResult.RESULT_INFO_SKIPPED;
 import static androidx.media3.session.SessionCommand.COMMAND_CODE_LIBRARY_GET_CHILDREN;
 import static androidx.media3.session.SessionCommand.COMMAND_CODE_LIBRARY_GET_ITEM;
 import static androidx.media3.session.SessionCommand.COMMAND_CODE_LIBRARY_GET_LIBRARY_ROOT;
@@ -25,6 +22,9 @@ import static androidx.media3.session.SessionCommand.COMMAND_CODE_LIBRARY_GET_SE
 import static androidx.media3.session.SessionCommand.COMMAND_CODE_LIBRARY_SEARCH;
 import static androidx.media3.session.SessionCommand.COMMAND_CODE_LIBRARY_SUBSCRIBE;
 import static androidx.media3.session.SessionCommand.COMMAND_CODE_LIBRARY_UNSUBSCRIBE;
+import static androidx.media3.session.SessionError.ERROR_PERMISSION_DENIED;
+import static androidx.media3.session.SessionError.ERROR_SESSION_DISCONNECTED;
+import static androidx.media3.session.SessionError.INFO_CANCELLED;
 
 import android.content.Context;
 import android.os.Bundle;
@@ -189,20 +189,20 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     IMediaSession iSession = getSessionInterfaceWithSessionCommandIfAble(commandCode);
     if (iSession != null) {
       SequencedFuture<LibraryResult<V>> result =
-          sequencedFutureManager.createSequencedFuture(LibraryResult.ofError(RESULT_INFO_SKIPPED));
+          sequencedFutureManager.createSequencedFuture(LibraryResult.ofError(INFO_CANCELLED));
       try {
         task.run(iSession, result.getSequenceNumber());
       } catch (RemoteException e) {
         Log.w(TAG, "Cannot connect to the service or the session is gone", e);
         sequencedFutureManager.setFutureResult(
-            result.getSequenceNumber(), LibraryResult.ofError(RESULT_ERROR_SESSION_DISCONNECTED));
+            result.getSequenceNumber(), LibraryResult.ofError(ERROR_SESSION_DISCONNECTED));
       }
       return result;
     } else {
       // Don't create Future with SequencedFutureManager.
       // Otherwise session would receive discontinued sequence number, and it would make
       // future work item 'keeping call sequence when session execute commands' impossible.
-      return Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_PERMISSION_DENIED));
+      return Futures.immediateFuture(LibraryResult.ofError(ERROR_PERMISSION_DENIED));
     }
   }
 

@@ -32,12 +32,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Parses an AC3 byte stream carried on RTP packets, and extracts AC3 frames. */
 @UnstableApi
-/* package */ public final class RtpAc3Reader implements RtpPayloadReader {
+public final class RtpAc3Reader implements RtpPayloadReader {
 
   /** AC3 frame types defined in RFC4184 Section 4.1.1. */
   private static final int AC3_FRAME_TYPE_COMPLETE_FRAME = 0;
+
   /** Initial fragment of frame which includes the first 5/8ths of the frame. */
   private static final int AC3_FRAME_TYPE_INITIAL_FRAGMENT_A = 1;
+
   /** Initial fragment of frame which does not include the first 5/8ths of the frame. */
   private static final int AC3_FRAME_TYPE_INITIAL_FRAGMENT_B = 2;
 
@@ -114,7 +116,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       case AC3_FRAME_TYPE_INITIAL_FRAGMENT_A:
       case AC3_FRAME_TYPE_INITIAL_FRAGMENT_B:
         maybeOutputSampleMetadata();
-        // Falls through.
+      // Falls through.
       case AC3_FRAME_TYPE_NON_INITIAL_FRAGMENT:
         // The content of an AC3 frame is split into multiple RTP packets.
         processFragmentedPacket(data, rtpMarker, frameType, sampleTimeUs);

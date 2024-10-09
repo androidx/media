@@ -27,7 +27,6 @@ import androidx.annotation.StringDef;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.ParserException;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -37,7 +36,6 @@ import java.lang.annotation.RetentionPolicy;
 import java.util.HashMap;
 
 /** Represents one media description section in a SDP message. */
-@UnstableApi
 /* package */ final class MediaDescription {
 
   /** Represents the mandatory RTPMAP attribute in MediaDescription. Reference RFC 2327 Page 22. */
@@ -62,10 +60,13 @@ import java.util.HashMap;
 
     /** The assigned RTP payload type. */
     public final int payloadType;
+
     /** The encoding method used in the RTP stream. */
     public final String mediaEncoding;
+
     /** The clock rate used in the RTP stream. */
     public final int clockRate;
+
     /** The optional encoding parameter. */
     public final int encodingParameters;
 
@@ -229,7 +230,7 @@ import java.util.HashMap;
       checkArgument(rtpPayloadType < 96);
 
       switch (rtpPayloadType) {
-          // See RFC3551 Section 6.
+        // See RFC3551 Section 6.
         case RTP_STATIC_PAYLOAD_TYPE_PCMU:
           return constructAudioRtpMap(
               RTP_STATIC_PAYLOAD_TYPE_PCMU,
@@ -271,31 +272,43 @@ import java.util.HashMap;
   @StringDef({MEDIA_TYPE_VIDEO, MEDIA_TYPE_AUDIO})
   @Documented
   public @interface MediaType {}
+
   /** Audio media type. */
   public static final String MEDIA_TYPE_AUDIO = "audio";
+
   /** Video media type. */
   public static final String MEDIA_TYPE_VIDEO = "video";
+
   /** Default RTP/AVP profile. */
   public static final String RTP_AVP_PROFILE = "RTP/AVP";
 
   /** The {@link MediaType}. */
   @MediaType public final String mediaType;
+
   /** The associated port number. */
   public final int port;
+
   /** The protocol used for data transport. */
   public final String transportProtocol;
+
   /** The assigned RTP payload type. */
   public final int payloadType;
+
   /** The estimated connection bitrate in bits per second. */
   public final int bitrate;
+
   /** The assigned media title. */
   @Nullable public final String mediaTitle;
+
   /** The connection parameters. */
   @Nullable public final String connection;
+
   /** The encryption parameter. */
   @Nullable public final String key;
+
   /** The media-specific attributes. */
   public final ImmutableMap<String, String> attributes;
+
   /** The mandatory rtpmap attribute in the media description (RFC2327 Page 22). */
   public final RtpMapAttribute rtpMapAttribute;
 

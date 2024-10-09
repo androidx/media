@@ -41,12 +41,11 @@
     <item>১.৫x</item>
     <item>২x</item>
   </string-array>
-  <string name="exo_track_selection_title_video">ভিডিও</string>
   <string name="exo_track_selection_title_audio">অডিও</string>
-  <string name="exo_track_selection_title_text">টেক্সট</string>
   <string name="exo_track_selection_none">কোনওটিই নয়</string>
   <string name="exo_track_selection_auto">অটো</string>
   <string name="exo_track_unknown">অজানা</string>
+  <string name="exo_track_unknown_name">অজানা (%1$s)</string>
   <string name="exo_track_resolution">%1$d × %2$d</string>
   <string name="exo_track_mono">মোনো</string>
   <string name="exo_track_stereo">স্টিরিও</string>

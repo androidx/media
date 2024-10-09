@@ -22,7 +22,6 @@ import android.media.MediaCrypto;
 import android.media.MediaFormat;
 import android.os.Handler;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.decoder.DecoderInputBuffer;
@@ -243,7 +242,6 @@ import java.util.ArrayList;
       super.renderOutputBuffer(codec, index, presentationTimeUs);
     }
 
-    @RequiresApi(21)
     @Override
     protected void renderOutputBufferV21(
         MediaCodecAdapter codec, int index, long presentationTimeUs, long releaseTimeNs) {
@@ -288,6 +286,13 @@ import java.util.ArrayList;
     @Override
     protected boolean codecNeedsSetOutputSurfaceWorkaround(String name) {
       // Disable all workarounds for testing - devices that require the workaround should fail GTS.
+      return false;
+    }
+
+    // TODO: b/321230611 - Remove this override when 'late' buffers that result in identical release
+    //  timestamps are reported as 'dropped' instead of 'skipped'.
+    @Override
+    protected boolean shouldSkipBuffersWithIdenticalReleaseTime() {
       return false;
     }
 

@@ -18,7 +18,7 @@ package androidx.media3.extractor.flv;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.ParsableByteArray;
-import androidx.media3.extractor.DummyTrackOutput;
+import androidx.media3.extractor.DiscardingTrackOutput;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -49,7 +49,7 @@ import java.util.Map;
   private long[] keyFrameTagPositions;
 
   public ScriptTagPayloadReader() {
-    super(new DummyTrackOutput());
+    super(new DiscardingTrackOutput());
     durationUs = C.TIME_UNSET;
     keyFrameTimesUs = new long[0];
     keyFrameTagPositions = new long[0];

@@ -36,6 +36,7 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -47,7 +48,11 @@ public final class Loader implements LoaderErrorThrower {
   public static final class UnexpectedLoaderException extends IOException {
 
     public UnexpectedLoaderException(Throwable cause) {
-      super("Unexpected " + cause.getClass().getSimpleName() + ": " + cause.getMessage(), cause);
+      super(
+          "Unexpected "
+              + cause.getClass().getSimpleName()
+              + (cause.getMessage() != null ? ": " + cause.getMessage() : ""),
+          cause);
     }
   }
 
@@ -84,6 +89,19 @@ public final class Loader implements LoaderErrorThrower {
 
   /** A callback to be notified of {@link Loader} events. */
   public interface Callback<T extends Loadable> {
+
+    /**
+     * Called when a load has started for the first time or through a retry.
+     *
+     * @param loadable The loadable whose load has completed.
+     * @param elapsedRealtimeMs {@link SystemClock#elapsedRealtime} when the load attempts to start.
+     * @param loadDurationMs The duration in milliseconds of the load since {@link #startLoading}
+     *     was called.
+     * @param retryCount The number of failed attempts since {@link #startLoading} was called (this
+     *     is zero for the first load attempt).
+     */
+    default void onLoadStarted(
+        T loadable, long elapsedRealtimeMs, long loadDurationMs, int retryCount) {}
 
     /**
      * Called when a load has completed.
@@ -164,12 +182,15 @@ public final class Loader implements LoaderErrorThrower {
   /** Retries the load using the default delay. */
   public static final LoadErrorAction RETRY =
       createRetryAction(/* resetErrorCount= */ false, C.TIME_UNSET);
+
   /** Retries the load using the default delay and resets the error count. */
   public static final LoadErrorAction RETRY_RESET_ERROR_COUNT =
       createRetryAction(/* resetErrorCount= */ true, C.TIME_UNSET);
+
   /** Discards the failed {@link Loadable} and ignores any errors that have occurred. */
   public static final LoadErrorAction DONT_RETRY =
       new LoadErrorAction(ACTION_TYPE_DONT_RETRY, C.TIME_UNSET);
+
   /**
    * Discards the failed {@link Loadable}. The next call to {@link #maybeThrowError()} will throw
    * the last load error.
@@ -197,18 +218,33 @@ public final class Loader implements LoaderErrorThrower {
     }
   }
 
-  private final ExecutorService downloadExecutorService;
+  private final Executor downloadExecutor;
+  private final Runnable downloadExecutorReleaser;
 
   @Nullable private LoadTask<? extends Loadable> currentTask;
   @Nullable private IOException fatalError;
 
   /**
+   * Constructs an instance.
+   *
    * @param threadNameSuffix A name suffix for the loader's thread. This should be the name of the
    *     component using the loader.
    */
   public Loader(String threadNameSuffix) {
-    this.downloadExecutorService =
+    ExecutorService executorService =
         Util.newSingleThreadExecutor(THREAD_NAME_PREFIX + threadNameSuffix);
+    this.downloadExecutor = executorService;
+    this.downloadExecutorReleaser = executorService::shutdown;
+  }
+
+  /**
+   * Constructs an instance.
+   *
+   * @param downloadExecutor An {@link Executor} for supplying the loader's thread.
+   */
+  public Loader(Executor downloadExecutor) {
+    this.downloadExecutor = downloadExecutor;
+    this.downloadExecutorReleaser = () -> {};
   }
 
   /**
@@ -290,9 +326,9 @@ public final class Loader implements LoaderErrorThrower {
       currentTask.cancel(true);
     }
     if (callback != null) {
-      downloadExecutorService.execute(new ReleaseTask(callback));
+      downloadExecutor.execute(new ReleaseTask(callback));
     }
-    downloadExecutorService.shutdown();
+    downloadExecutorReleaser.run();
   }
 
   // LoaderErrorThrower implementation.
@@ -319,10 +355,10 @@ public final class Loader implements LoaderErrorThrower {
 
     private static final String TAG = "LoadTask";
 
-    private static final int MSG_START = 0;
-    private static final int MSG_FINISH = 1;
-    private static final int MSG_IO_EXCEPTION = 2;
-    private static final int MSG_FATAL_ERROR = 3;
+    private static final int MSG_START = 1;
+    private static final int MSG_FINISH = 2;
+    private static final int MSG_IO_EXCEPTION = 3;
+    private static final int MSG_FATAL_ERROR = 4;
 
     public final int defaultMinRetryCount;
 
@@ -508,8 +544,11 @@ public final class Loader implements LoaderErrorThrower {
     }
 
     private void execute() {
+      long nowMs = SystemClock.elapsedRealtime();
+      long durationMs = nowMs - startTimeMs;
+      Assertions.checkNotNull(this.callback).onLoadStarted(loadable, nowMs, durationMs, errorCount);
       currentError = null;
-      downloadExecutorService.execute(Assertions.checkNotNull(currentTask));
+      downloadExecutor.execute(Assertions.checkNotNull(currentTask));
     }
 
     private void finish() {

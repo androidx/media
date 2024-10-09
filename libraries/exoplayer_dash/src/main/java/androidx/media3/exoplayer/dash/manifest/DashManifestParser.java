@@ -29,10 +29,12 @@ import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.DrmInitData.SchemeData;
 import androidx.media3.common.Format;
+import androidx.media3.common.Label;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.UriUtil;
 import androidx.media3.common.util.Util;
@@ -45,18 +47,17 @@ import androidx.media3.exoplayer.upstream.ParsingLoadable;
 import androidx.media3.extractor.metadata.emsg.EventMessage;
 import androidx.media3.extractor.mp4.PsshAtomUtil;
 import com.google.common.base.Ascii;
-import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 import org.xml.sax.helpers.DefaultHandler;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -393,7 +394,7 @@ public class DashManifestParser extends DefaultHandler
       long timeShiftBufferDepthMs,
       boolean dvbProfileDeclared)
       throws XmlPullParserException, IOException {
-    int id = parseInt(xpp, "id", AdaptationSet.ID_UNSET);
+    long id = parseLong(xpp, "id", AdaptationSet.ID_UNSET);
     @C.TrackType int contentType = parseContentType(xpp);
 
     String mimeType = xpp.getAttributeValue(null, "mimeType");
@@ -405,6 +406,7 @@ public class DashManifestParser extends DefaultHandler
     int audioSamplingRate = parseInt(xpp, "audioSamplingRate", Format.NO_VALUE);
     String language = xpp.getAttributeValue(null, "lang");
     String label = xpp.getAttributeValue(null, "label");
+    List<Label> labels = new ArrayList<>();
     String drmSchemeType = null;
     ArrayList<SchemeData> drmSchemeDatas = new ArrayList<>();
     ArrayList<Descriptor> inbandEventStreams = new ArrayList<>();
@@ -504,7 +506,7 @@ public class DashManifestParser extends DefaultHandler
       } else if (XmlPullParserUtil.isStartTag(xpp, "InbandEventStream")) {
         inbandEventStreams.add(parseDescriptor(xpp, "InbandEventStream"));
       } else if (XmlPullParserUtil.isStartTag(xpp, "Label")) {
-        label = parseLabel(xpp);
+        labels.add(parseLabel(xpp));
       } else if (XmlPullParserUtil.isStartTag(xpp)) {
         parseAdaptationSetChild(xpp);
       }
@@ -517,6 +519,7 @@ public class DashManifestParser extends DefaultHandler
           buildRepresentation(
               representationInfos.get(i),
               label,
+              labels,
               drmSchemeType,
               drmSchemeDatas,
               inbandEventStreams));
@@ -532,7 +535,7 @@ public class DashManifestParser extends DefaultHandler
   }
 
   protected AdaptationSet buildAdaptationSet(
-      int id,
+      long id,
       @C.TrackType int contentType,
       List<Representation> representations,
       List<Descriptor> accessibilityDescriptors,
@@ -593,6 +596,11 @@ public class DashManifestParser extends DefaultHandler
             }
             data = PsshAtomUtil.buildPsshAtom(C.COMMON_PSSH_UUID, defaultKids, null);
             uuid = C.COMMON_PSSH_UUID;
+          } else {
+            Log.w(
+                TAG,
+                "Ignoring <ContentProtection> with schemeIdUri=\"urn:mpeg:dash:mp4protection:2011\""
+                    + " (ClearKey) due to missing required default_KID attribute.");
           }
           break;
         case "urn:uuid:9a04f079-9840-4286-ab92-e65be0885f95":
@@ -611,7 +619,9 @@ public class DashManifestParser extends DefaultHandler
 
     do {
       xpp.next();
-      if (XmlPullParserUtil.isStartTag(xpp, "clearkey:Laurl") && xpp.next() == XmlPullParser.TEXT) {
+      if ((XmlPullParserUtil.isStartTag(xpp, "clearkey:Laurl")
+              || XmlPullParserUtil.isStartTag(xpp, "dashif:Laurl"))
+          && xpp.next() == XmlPullParser.TEXT) {
         licenseServerUrl = xpp.getText();
       } else if (XmlPullParserUtil.isStartTag(xpp, "ms:laurl")) {
         licenseServerUrl = xpp.getAttributeValue(null, "licenseUrl");
@@ -643,9 +653,11 @@ public class DashManifestParser extends DefaultHandler
   }
 
   /**
-   * Parses children of AdaptationSet elements not specifically parsed elsewhere.
+   * Parses a child of an {@link AdaptationSet} element.
    *
-   * @param xpp The XmpPullParser from which the AdaptationSet child should be parsed.
+   * <p>Called for child elements that are not specifically parsed elsewhere.
+   *
+   * @param xpp The {@link XmlPullParser} from which the child should be parsed.
    * @throws XmlPullParserException If an error occurs parsing the element.
    * @throws IOException If an error occurs reading the element.
    */
@@ -849,12 +861,15 @@ public class DashManifestParser extends DefaultHandler
   protected Representation buildRepresentation(
       RepresentationInfo representationInfo,
       @Nullable String label,
+      List<Label> labels,
       @Nullable String extraDrmSchemeType,
       ArrayList<SchemeData> extraDrmSchemeDatas,
       ArrayList<Descriptor> extraInbandEventStreams) {
     Format.Builder formatBuilder = representationInfo.format.buildUpon();
-    if (label != null) {
+    if (label != null && labels.isEmpty()) {
       formatBuilder.setLabel(label);
+    } else {
+      formatBuilder.setLabels(labels);
     }
     @Nullable String drmSchemeType = representationInfo.drmSchemeType;
     if (drmSchemeType == null) {
@@ -1199,7 +1214,7 @@ public class DashManifestParser extends DefaultHandler
       throws XmlPullParserException, IOException {
     scratchOutputStream.reset();
     XmlSerializer xmlSerializer = Xml.newSerializer();
-    xmlSerializer.setOutput(scratchOutputStream, Charsets.UTF_8.name());
+    xmlSerializer.setOutput(scratchOutputStream, StandardCharsets.UTF_8.name());
     // Start reading everything between <Event> and </Event>, and serialize them into an Xml
     // byte array.
     xpp.nextToken();
@@ -1398,8 +1413,10 @@ public class DashManifestParser extends DefaultHandler
    * @throws IOException If an error occurs reading the element.
    * @return The parsed label.
    */
-  protected String parseLabel(XmlPullParser xpp) throws XmlPullParserException, IOException {
-    return parseText(xpp, "Label");
+  protected Label parseLabel(XmlPullParser xpp) throws XmlPullParserException, IOException {
+    String lang = xpp.getAttributeValue(null, "lang");
+    String value = parseText(xpp, "Label");
+    return new Label(lang, value);
   }
 
   /**
@@ -1522,7 +1539,7 @@ public class DashManifestParser extends DefaultHandler
     }
     switch (value) {
       case "forced_subtitle":
-        // Support both hyphen and underscore (https://github.com/google/ExoPlayer/issues/9727).
+      // Support both hyphen and underscore (https://github.com/google/ExoPlayer/issues/9727).
       case "forced-subtitle":
         return C.SELECTION_FLAG_FORCED;
       default:
@@ -1591,7 +1608,7 @@ public class DashManifestParser extends DefaultHandler
       case "caption":
         return C.ROLE_FLAG_CAPTION;
       case "forced_subtitle":
-        // Support both hyphen and underscore (https://github.com/google/ExoPlayer/issues/9727).
+      // Support both hyphen and underscore (https://github.com/google/ExoPlayer/issues/9727).
       case "forced-subtitle":
       case "subtitle":
         return C.ROLE_FLAG_SUBTITLE;
@@ -2015,6 +2032,8 @@ public class DashManifestParser extends DefaultHandler
         return 1;
       case "a000":
         return 2;
+      case "f800":
+        return 5;
       case "f801":
         return 6;
       case "fa01":

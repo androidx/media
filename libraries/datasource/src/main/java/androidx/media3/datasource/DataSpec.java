@@ -15,6 +15,7 @@
  */
 package androidx.media3.datasource;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.net.Uri;
@@ -259,6 +260,7 @@ public final class DataSpec {
         FLAG_MIGHT_NOT_USE_FULL_NETWORK_SPEED
       })
   public @interface Flags {}
+
   /**
    * Allows an underlying network stack to request that the server use gzip compression.
    *
@@ -271,8 +273,10 @@ public final class DataSpec {
    * DataSource#read(byte[], int, int)} will be the decompressed data.
    */
   public static final int FLAG_ALLOW_GZIP = 1;
+
   /** Prevents caching if the length cannot be resolved when the {@link DataSource} is opened. */
   public static final int FLAG_DONT_CACHE_IF_LENGTH_UNKNOWN = 1 << 1;
+
   /**
    * Allows fragmentation of this request into multiple cache files, meaning a cache eviction policy
    * will be able to evict individual fragments of the data. Depending on the cache implementation,
@@ -280,6 +284,7 @@ public final class DataSpec {
    * whilst writing another).
    */
   public static final int FLAG_ALLOW_CACHE_FRAGMENTATION = 1 << 2;
+
   /**
    * Indicates there are known external factors that might prevent the data from being loaded at
    * full network speed (e.g. server throttling or unfinished live media chunks).
@@ -295,10 +300,13 @@ public final class DataSpec {
   @Target(TYPE_USE)
   @IntDef({HTTP_METHOD_GET, HTTP_METHOD_POST, HTTP_METHOD_HEAD})
   public @interface HttpMethod {}
+
   /** HTTP GET method. */
   public static final int HTTP_METHOD_GET = 1;
+
   /** HTTP POST method. */
   public static final int HTTP_METHOD_POST = 2;
+
   /** HTTP HEAD method. */
   public static final int HTTP_METHOD_HEAD = 3;
 
@@ -420,232 +428,36 @@ public final class DataSpec {
    * @param position {@link #position}.
    * @param length {@link #length}.
    */
+  @SuppressWarnings("deprecation")
   public DataSpec(Uri uri, long position, long length) {
+    this(uri, position, length, /* key= */ null);
+  }
+
+  /**
+   * Constructs an instance.
+   *
+   * @deprecated Use {@link Builder}.
+   * @param uri {@link #uri}.
+   * @param position {@link #position}.
+   * @param length {@link #length}.
+   * @param key {@link #key}.
+   */
+  @Deprecated
+  public DataSpec(Uri uri, long position, long length, @Nullable String key) {
     this(
         uri,
         /* uriPositionOffset= */ 0,
         HTTP_METHOD_GET,
-        /* httpBody= */ null,
-        /* httpRequestHeaders= */ Collections.emptyMap(),
+        null,
+        Collections.emptyMap(),
         position,
         length,
-        /* key= */ null,
-        /* flags= */ 0,
+        key,
+        0,
         /* customData= */ null);
   }
 
-  /**
-   * Constructs an instance.
-   *
-   * @deprecated Use {@link Builder}.
-   * @param uri {@link #uri}.
-   * @param flags {@link #flags}.
-   */
-  @SuppressWarnings("deprecation")
-  @Deprecated
-  public DataSpec(Uri uri, @Flags int flags) {
-    this(uri, /* position= */ 0, C.LENGTH_UNSET, /* key= */ null, flags);
-  }
-
-  /**
-   * Constructs an instance.
-   *
-   * @deprecated Use {@link Builder}.
-   * @param uri {@link #uri}.
-   * @param position {@link #position}.
-   * @param length {@link #length}.
-   * @param key {@link #key}.
-   */
-  @SuppressWarnings("deprecation")
-  @Deprecated
-  public DataSpec(Uri uri, long position, long length, @Nullable String key) {
-    this(uri, position, position, length, key, /* flags= */ 0);
-  }
-
-  /**
-   * Constructs an instance.
-   *
-   * @deprecated Use {@link Builder}.
-   * @param uri {@link #uri}.
-   * @param position {@link #position}.
-   * @param length {@link #length}.
-   * @param key {@link #key}.
-   * @param flags {@link #flags}.
-   */
-  @SuppressWarnings("deprecation")
-  @Deprecated
-  public DataSpec(Uri uri, long position, long length, @Nullable String key, @Flags int flags) {
-    this(uri, position, position, length, key, flags);
-  }
-
-  /**
-   * Constructs an instance.
-   *
-   * @deprecated Use {@link Builder}.
-   * @param uri {@link #uri}.
-   * @param position {@link #position}, equal to {@link #position}.
-   * @param length {@link #length}.
-   * @param key {@link #key}.
-   * @param flags {@link #flags}.
-   * @param httpRequestHeaders {@link #httpRequestHeaders}
-   */
-  @SuppressWarnings("deprecation")
-  @Deprecated
-  public DataSpec(
-      Uri uri,
-      long position,
-      long length,
-      @Nullable String key,
-      @Flags int flags,
-      Map<String, String> httpRequestHeaders) {
-    this(
-        uri,
-        HTTP_METHOD_GET,
-        /* httpBody= */ null,
-        position,
-        position,
-        length,
-        key,
-        flags,
-        httpRequestHeaders);
-  }
-
-  /**
-   * Constructs an instance where {@link #uriPositionOffset} may be non-zero.
-   *
-   * @deprecated Use {@link Builder}.
-   * @param uri {@link #uri}.
-   * @param absoluteStreamPosition The sum of {@link #uriPositionOffset} and {@link #position}.
-   * @param position {@link #position}.
-   * @param length {@link #length}.
-   * @param key {@link #key}.
-   * @param flags {@link #flags}.
-   */
-  @SuppressWarnings("deprecation")
-  @Deprecated
-  public DataSpec(
-      Uri uri,
-      long absoluteStreamPosition,
-      long position,
-      long length,
-      @Nullable String key,
-      @Flags int flags) {
-    this(uri, /* postBody= */ null, absoluteStreamPosition, position, length, key, flags);
-  }
-
-  /**
-   * Construct a instance where {@link #uriPositionOffset} may be non-zero. The {@link #httpMethod}
-   * is inferred from {@code postBody}. If {@code postBody} is non-null then {@link #httpMethod} is
-   * set to {@link #HTTP_METHOD_POST}. If {@code postBody} is null then {@link #httpMethod} is set
-   * to {@link #HTTP_METHOD_GET}.
-   *
-   * @deprecated Use {@link Builder}. Note that the httpMethod must be set explicitly for the
-   *     Builder.
-   * @param uri {@link #uri}.
-   * @param postBody {@link #httpBody} The body of the HTTP request, which is also used to infer the
-   *     {@link #httpMethod}.
-   * @param absoluteStreamPosition The sum of {@link #uriPositionOffset} and {@link #position}.
-   * @param position {@link #position}.
-   * @param length {@link #length}.
-   * @param key {@link #key}.
-   * @param flags {@link #flags}.
-   */
-  @SuppressWarnings("deprecation")
-  @Deprecated
-  public DataSpec(
-      Uri uri,
-      @Nullable byte[] postBody,
-      long absoluteStreamPosition,
-      long position,
-      long length,
-      @Nullable String key,
-      @Flags int flags) {
-    this(
-        uri,
-        /* httpMethod= */ postBody != null ? HTTP_METHOD_POST : HTTP_METHOD_GET,
-        /* httpBody= */ postBody,
-        absoluteStreamPosition,
-        position,
-        length,
-        key,
-        flags);
-  }
-
-  /**
-   * Construct a instance where {@link #uriPositionOffset} may be non-zero.
-   *
-   * @deprecated Use {@link Builder}.
-   * @param uri {@link #uri}.
-   * @param httpMethod {@link #httpMethod}.
-   * @param httpBody {@link #httpBody}.
-   * @param absoluteStreamPosition The sum of {@link #uriPositionOffset} and {@link #position}.
-   * @param position {@link #position}.
-   * @param length {@link #length}.
-   * @param key {@link #key}.
-   * @param flags {@link #flags}.
-   */
-  @SuppressWarnings("deprecation")
-  @Deprecated
-  public DataSpec(
-      Uri uri,
-      @HttpMethod int httpMethod,
-      @Nullable byte[] httpBody,
-      long absoluteStreamPosition,
-      long position,
-      long length,
-      @Nullable String key,
-      @Flags int flags) {
-    this(
-        uri,
-        httpMethod,
-        httpBody,
-        absoluteStreamPosition,
-        position,
-        length,
-        key,
-        flags,
-        /* httpRequestHeaders= */ Collections.emptyMap());
-  }
-
-  /**
-   * Construct a instance where {@link #uriPositionOffset} may be non-zero.
-   *
-   * @deprecated Use {@link Builder}.
-   * @param uri {@link #uri}.
-   * @param httpMethod {@link #httpMethod}.
-   * @param httpBody {@link #httpBody}.
-   * @param absoluteStreamPosition The sum of {@link #uriPositionOffset} and {@link #position}.
-   * @param position {@link #position}.
-   * @param length {@link #length}.
-   * @param key {@link #key}.
-   * @param flags {@link #flags}.
-   * @param httpRequestHeaders {@link #httpRequestHeaders}.
-   */
-  @Deprecated
-  public DataSpec(
-      Uri uri,
-      @HttpMethod int httpMethod,
-      @Nullable byte[] httpBody,
-      long absoluteStreamPosition,
-      long position,
-      long length,
-      @Nullable String key,
-      @Flags int flags,
-      Map<String, String> httpRequestHeaders) {
-    this(
-        uri,
-        /* uriPositionOffset= */ absoluteStreamPosition - position,
-        httpMethod,
-        httpBody,
-        httpRequestHeaders,
-        position,
-        length,
-        key,
-        flags,
-        /* customData= */ null);
-  }
-
-  @SuppressWarnings("deprecation")
+  @SuppressWarnings("deprecation") // Setting deprecated absoluteStreamPosition field.
   private DataSpec(
       Uri uri,
       long uriPositionOffset,
@@ -662,7 +474,7 @@ public final class DataSpec {
     Assertions.checkArgument(uriPositionOffset + position >= 0);
     Assertions.checkArgument(position >= 0);
     Assertions.checkArgument(length > 0 || length == C.LENGTH_UNSET);
-    this.uri = uri;
+    this.uri = checkNotNull(uri);
     this.uriPositionOffset = uriPositionOffset;
     this.httpMethod = httpMethod;
     this.httpBody = httpBody != null && httpBody.length != 0 ? httpBody : null;

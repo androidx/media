@@ -19,13 +19,18 @@ package androidx.media3.effect;
 import static androidx.media3.common.util.Assertions.checkState;
 
 import android.content.Context;
-import androidx.media3.common.FrameProcessingException;
+import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.UnstableApi;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
-/** Provides common color filters. */
+/**
+ * Provides common color filters.
+ *
+ * <p>This effect assumes a {@linkplain DefaultVideoFrameProcessor#WORKING_COLOR_SPACE_LINEAR
+ * linear} working color space.
+ */
 @UnstableApi
-public class RgbFilter implements RgbMatrix {
+public final class RgbFilter implements RgbMatrix {
   private static final int COLOR_FILTER_GRAYSCALE_INDEX = 1;
   private static final int COLOR_FILTER_INVERTED_INDEX = 2;
 
@@ -48,6 +53,7 @@ public class RgbFilter implements RgbMatrix {
   };
 
   private final int colorFilter;
+
   /**
    * Ensures that the usage of HDR is consistent. {@code null} indicates that HDR has not yet been
    * set.
@@ -91,9 +97,9 @@ public class RgbFilter implements RgbMatrix {
   }
 
   @Override
-  public SingleFrameGlTextureProcessor toGlTextureProcessor(Context context, boolean useHdr)
-      throws FrameProcessingException {
+  public BaseGlShaderProgram toGlShaderProgram(Context context, boolean useHdr)
+      throws VideoFrameProcessingException {
     checkForConsistentHdrSetting(useHdr);
-    return RgbMatrix.super.toGlTextureProcessor(context, useHdr);
+    return RgbMatrix.super.toGlShaderProgram(context, useHdr);
   }
 }

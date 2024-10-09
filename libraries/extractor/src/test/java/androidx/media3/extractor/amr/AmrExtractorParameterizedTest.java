@@ -41,43 +41,71 @@ public final class AmrExtractorParameterizedTest {
 
   @Test
   public void extractingNarrowBandSamples() throws Exception {
-    ExtractorAsserts.assertBehavior(
-        createAmrExtractorFactory(/* withSeeking= */ false),
-        "media/amr/sample_nb.amr",
-        simulationConfig);
+    ExtractorAsserts.assertBehavior(AmrExtractor::new, "media/amr/sample_nb.amr", simulationConfig);
   }
 
   @Test
   public void extractingWideBandSamples() throws Exception {
-    ExtractorAsserts.assertBehavior(
-        createAmrExtractorFactory(/* withSeeking= */ false),
-        "media/amr/sample_wb.amr",
-        simulationConfig);
+    ExtractorAsserts.assertBehavior(AmrExtractor::new, "media/amr/sample_wb.amr", simulationConfig);
   }
 
   @Test
   public void extractingNarrowBandSamples_withSeeking() throws Exception {
     ExtractorAsserts.assertBehavior(
-        createAmrExtractorFactory(/* withSeeking= */ true),
-        "media/amr/sample_nb_cbr.amr",
+        () -> new AmrExtractor(AmrExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING),
+        "media/amr/sample_nb.amr",
+        new ExtractorAsserts.AssertionConfig.Builder()
+            .setDumpFilesPrefix("extractordumps/amr/sample_nb_cbr_seeking_enabled.amr")
+            .build(),
         simulationConfig);
   }
 
   @Test
   public void extractingWideBandSamples_withSeeking() throws Exception {
     ExtractorAsserts.assertBehavior(
-        createAmrExtractorFactory(/* withSeeking= */ true),
-        "media/amr/sample_wb_cbr.amr",
+        () -> new AmrExtractor(AmrExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING),
+        "media/amr/sample_wb.amr",
+        new ExtractorAsserts.AssertionConfig.Builder()
+            .setDumpFilesPrefix("extractordumps/amr/sample_wb_cbr_seeking_enabled.amr")
+            .build(),
         simulationConfig);
   }
 
-  private static ExtractorAsserts.ExtractorFactory createAmrExtractorFactory(boolean withSeeking) {
-    return () -> {
-      if (!withSeeking) {
-        return new AmrExtractor();
-      } else {
-        return new AmrExtractor(AmrExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING);
-      }
-    };
+  @Test
+  public void extractingNarrowBandSamples_withSeekingAlways() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        () -> new AmrExtractor(AmrExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS),
+        "media/amr/sample_nb.amr",
+        new ExtractorAsserts.AssertionConfig.Builder()
+            .setDumpFilesPrefix("extractordumps/amr/sample_nb_cbr_seeking_always_enabled.amr")
+            .build(),
+        simulationConfig);
+  }
+
+  @Test
+  public void extractingWideBandSamples_withSeekingAlways() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        () -> new AmrExtractor(AmrExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS),
+        "media/amr/sample_wb.amr",
+        new ExtractorAsserts.AssertionConfig.Builder()
+            .setDumpFilesPrefix("extractordumps/amr/sample_wb_cbr_seeking_always_enabled.amr")
+            .build(),
+        simulationConfig);
+  }
+
+  @Test
+  public void extractingNarrowBandSamples_withIndexSeeking() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        () -> new AmrExtractor(AmrExtractor.FLAG_ENABLE_INDEX_SEEKING),
+        "media/amr/sample_nb_with_silence_frames.amr",
+        simulationConfig);
+  }
+
+  @Test
+  public void extractingWideBandSamples_withIndexSeeking() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        () -> new AmrExtractor(AmrExtractor.FLAG_ENABLE_INDEX_SEEKING),
+        "media/amr/sample_wb_with_silence_frames.amr",
+        simulationConfig);
   }
 }

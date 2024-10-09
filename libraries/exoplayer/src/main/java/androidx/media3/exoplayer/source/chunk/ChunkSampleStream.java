@@ -22,12 +22,14 @@ import static java.lang.Math.min;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.FormatHolder;
+import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.drm.DrmSession;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
@@ -94,6 +96,8 @@ public class ChunkSampleStream<T extends ChunkSource>
   private long lastSeekPositionUs;
   private int nextNotifyPrimaryFormatMediaChunkIndex;
   @Nullable private BaseMediaChunk canceledMediaChunk;
+  private boolean canReportInitialDiscontinuity;
+  private boolean hasInitialDiscontinuity;
 
   /* package */ boolean loadingFinished;
 
@@ -113,6 +117,8 @@ public class ChunkSampleStream<T extends ChunkSource>
    * @param loadErrorHandlingPolicy The {@link LoadErrorHandlingPolicy}.
    * @param mediaSourceEventDispatcher A dispatcher to notify of {@link MediaSourceEventListener}
    *     events.
+   * @param canReportInitialDiscontinuity Whether the stream can report an initial discontinuity if
+   *     the first chunk can't start at the beginning and needs to preroll data.
    */
   public ChunkSampleStream(
       @C.TrackType int primaryTrackType,
@@ -125,7 +131,8 @@ public class ChunkSampleStream<T extends ChunkSource>
       DrmSessionManager drmSessionManager,
       DrmSessionEventListener.EventDispatcher drmEventDispatcher,
       LoadErrorHandlingPolicy loadErrorHandlingPolicy,
-      MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher) {
+      MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+      boolean canReportInitialDiscontinuity) {
     this.primaryTrackType = primaryTrackType;
     this.embeddedTrackTypes = embeddedTrackTypes == null ? new int[0] : embeddedTrackTypes;
     this.embeddedTrackFormats = embeddedTrackFormats == null ? new Format[0] : embeddedTrackFormats;
@@ -133,6 +140,7 @@ public class ChunkSampleStream<T extends ChunkSource>
     this.callback = callback;
     this.mediaSourceEventDispatcher = mediaSourceEventDispatcher;
     this.loadErrorHandlingPolicy = loadErrorHandlingPolicy;
+    this.canReportInitialDiscontinuity = canReportInitialDiscontinuity;
     loader = new Loader("ChunkSampleStream");
     nextChunkHolder = new ChunkHolder();
     mediaChunks = new ArrayList<>();
@@ -257,6 +265,7 @@ public class ChunkSampleStream<T extends ChunkSource>
    */
   public void seekToUs(long positionUs) {
     lastSeekPositionUs = positionUs;
+    canReportInitialDiscontinuity = false;
     if (isPendingReset()) {
       // A reset is already pending. We only need to update its position.
       pendingResetPositionUs = positionUs;
@@ -561,7 +570,7 @@ public class ChunkSampleStream<T extends ChunkSource>
   // SequenceableLoader implementation
 
   @Override
-  public boolean continueLoading(long positionUs) {
+  public boolean continueLoading(LoadingInfo loadingInfo) {
     if (loadingFinished || loader.isLoading() || loader.hasFatalError()) {
       return false;
     }
@@ -576,7 +585,7 @@ public class ChunkSampleStream<T extends ChunkSource>
       chunkQueue = readOnlyMediaChunks;
       loadPositionUs = getLastMediaChunk().endTimeUs;
     }
-    chunkSource.getNextChunk(positionUs, loadPositionUs, chunkQueue, nextChunkHolder);
+    chunkSource.getNextChunk(loadingInfo, loadPositionUs, chunkQueue, nextChunkHolder);
     boolean endOfStream = nextChunkHolder.endOfStream;
     @Nullable Chunk loadable = nextChunkHolder.chunk;
     nextChunkHolder.clear();
@@ -599,12 +608,22 @@ public class ChunkSampleStream<T extends ChunkSource>
         // seeking to a chunk boundary then we want the queue to pass through all of the samples in
         // the chunk. Doing this ensures we'll always output the keyframe at the start of the chunk,
         // even if its timestamp is slightly earlier than the advertised chunk start time.
-        if (mediaChunk.startTimeUs != pendingResetPositionUs) {
+        if (mediaChunk.startTimeUs < pendingResetPositionUs) {
           primarySampleQueue.setStartTimeUs(pendingResetPositionUs);
           for (SampleQueue embeddedSampleQueue : embeddedSampleQueues) {
             embeddedSampleQueue.setStartTimeUs(pendingResetPositionUs);
           }
+          if (canReportInitialDiscontinuity) {
+            // Only report it as discontinuity if the SampleQueue can't skip the samples directly.
+            boolean sampleQueueCanSkipSamples =
+                MimeTypes.allSamplesAreSyncSamples(
+                    mediaChunk.trackFormat.sampleMimeType, mediaChunk.trackFormat.codecs);
+            hasInitialDiscontinuity = !sampleQueueCanSkipSamples;
+          }
         }
+        // Once we started loading the first media chunk, no more initial discontinuities can be
+        // reported.
+        canReportInitialDiscontinuity = false;
         pendingResetPositionUs = C.TIME_UNSET;
       }
       mediaChunk.init(chunkOutput);
@@ -669,6 +688,19 @@ public class ChunkSampleStream<T extends ChunkSource>
     }
   }
 
+  /**
+   * Consumes a pending initial discontinuity.
+   *
+   * @return Whether the stream had an initial discontinuity.
+   */
+  public boolean consumeInitialDiscontinuity() {
+    try {
+      return hasInitialDiscontinuity;
+    } finally {
+      hasInitialDiscontinuity = false;
+    }
+  }
+
   private void discardUpstream(int preferredQueueSize) {
     Assertions.checkState(!loader.isLoading());
 
@@ -676,7 +708,7 @@ public class ChunkSampleStream<T extends ChunkSource>
     int newQueueSize = C.LENGTH_UNSET;
     for (int i = preferredQueueSize; i < currentQueueSize; i++) {
       if (!haveReadFromMediaChunk(i)) {
-        // TODO: Sparse tracks (e.g. ESMG) may prevent discarding in almost all cases because it
+        // TODO: Sparse tracks (e.g. EMSG) may prevent discarding in almost all cases because it
         // means that most chunks have been read from already. See [internal b/161126666].
         newQueueSize = i;
         break;

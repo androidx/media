@@ -21,10 +21,10 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.metadata.MetadataInputBuffer;
 import androidx.media3.extractor.metadata.SimpleMetadataDecoder;
 import com.google.common.base.Ascii;
-import com.google.common.base.Charsets;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CharsetDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -40,8 +40,8 @@ public final class IcyDecoder extends SimpleMetadataDecoder {
   private final CharsetDecoder iso88591Decoder;
 
   public IcyDecoder() {
-    utf8Decoder = Charsets.UTF_8.newDecoder();
-    iso88591Decoder = Charsets.ISO_8859_1.newDecoder();
+    utf8Decoder = StandardCharsets.UTF_8.newDecoder();
+    iso88591Decoder = StandardCharsets.ISO_8859_1.newDecoder();
   }
 
   @Override

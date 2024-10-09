@@ -32,12 +32,10 @@ import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSourceException;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.HttpDataSource;
-import androidx.media3.datasource.HttpDataSource.HttpDataSourceException;
-import androidx.media3.datasource.HttpDataSource.InvalidContentTypeException;
-import androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException;
 import androidx.media3.datasource.HttpUtil;
 import androidx.media3.datasource.TransferListener;
 import com.google.common.base.Predicate;
+import com.google.common.io.ByteStreams;
 import com.google.common.net.HttpHeaders;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -189,52 +187,14 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
   @Nullable private final String userAgent;
   @Nullable private final CacheControl cacheControl;
   @Nullable private final RequestProperties defaultRequestProperties;
+  @Nullable private final Predicate<String> contentTypePredicate;
 
-  @Nullable private Predicate<String> contentTypePredicate;
   @Nullable private DataSpec dataSpec;
   @Nullable private Response response;
   @Nullable private InputStream responseByteStream;
   private boolean opened;
   private long bytesToRead;
   private long bytesRead;
-
-  /**
-   * @deprecated Use {@link OkHttpDataSource.Factory} instead.
-   */
-  @SuppressWarnings("deprecation")
-  @UnstableApi
-  @Deprecated
-  public OkHttpDataSource(Call.Factory callFactory) {
-    this(callFactory, /* userAgent= */ null);
-  }
-
-  /**
-   * @deprecated Use {@link OkHttpDataSource.Factory} instead.
-   */
-  @SuppressWarnings("deprecation")
-  @UnstableApi
-  @Deprecated
-  public OkHttpDataSource(Call.Factory callFactory, @Nullable String userAgent) {
-    this(callFactory, userAgent, /* cacheControl= */ null, /* defaultRequestProperties= */ null);
-  }
-
-  /**
-   * @deprecated Use {@link OkHttpDataSource.Factory} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  public OkHttpDataSource(
-      Call.Factory callFactory,
-      @Nullable String userAgent,
-      @Nullable CacheControl cacheControl,
-      @Nullable RequestProperties defaultRequestProperties) {
-    this(
-        callFactory,
-        userAgent,
-        cacheControl,
-        defaultRequestProperties,
-        /* contentTypePredicate= */ null);
-  }
 
   private OkHttpDataSource(
       Call.Factory callFactory,
@@ -249,15 +209,6 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
     this.defaultRequestProperties = defaultRequestProperties;
     this.contentTypePredicate = contentTypePredicate;
     this.requestProperties = new RequestProperties();
-  }
-
-  /**
-   * @deprecated Use {@link OkHttpDataSource.Factory#setContentTypePredicate(Predicate)} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  public void setContentTypePredicate(@Nullable Predicate<String> contentTypePredicate) {
-    this.contentTypePredicate = contentTypePredicate;
   }
 
   @UnstableApi
@@ -338,7 +289,7 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
 
       byte[] errorResponseBody;
       try {
-        errorResponseBody = Util.toByteArray(Assertions.checkNotNull(responseByteStream));
+        errorResponseBody = ByteStreams.toByteArray(Assertions.checkNotNull(responseByteStream));
       } catch (IOException e) {
         errorResponseBody = Util.EMPTY_BYTE_ARRAY;
       }
@@ -452,10 +403,10 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
 
     @Nullable RequestBody requestBody = null;
     if (dataSpec.httpBody != null) {
-      requestBody = RequestBody.create(null, dataSpec.httpBody);
+      requestBody = RequestBody.create(dataSpec.httpBody);
     } else if (dataSpec.httpMethod == DataSpec.HTTP_METHOD_POST) {
       // OkHttp requires a non-null body for POST requests.
-      requestBody = RequestBody.create(null, Util.EMPTY_BYTE_ARRAY);
+      requestBody = RequestBody.create(Util.EMPTY_BYTE_ARRAY);
     }
     builder.method(dataSpec.getHttpMethodString(), requestBody);
     return builder.build();

@@ -72,23 +72,6 @@ public interface DrmSessionManager {
       };
 
   /**
-   * An instance that supports no DRM schemes.
-   *
-   * @deprecated Use {@link #DRM_UNSUPPORTED}.
-   */
-  @Deprecated DrmSessionManager DUMMY = DRM_UNSUPPORTED;
-
-  /**
-   * Returns {@link #DRM_UNSUPPORTED}.
-   *
-   * @deprecated Use {@link #DRM_UNSUPPORTED}.
-   */
-  @Deprecated
-  static DrmSessionManager getDummyDrmSessionManager() {
-    return DRM_UNSUPPORTED;
-  }
-
-  /**
    * Acquires any required resources.
    *
    * <p>{@link #release()} must be called to ensure the acquired resources are released. After

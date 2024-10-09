@@ -67,8 +67,8 @@ import java.util.concurrent.Executor;
  * <p>A download manager instance must be accessed only from the thread that created it, unless that
  * thread does not have a {@link Looper}. In that case, it must be accessed only from the
  * application's main thread. Registered listeners will be called on the same thread. In all cases
- * the `Looper` of the thread from which the manager must be accessed can be queried using {@link
- * #getApplicationLooper()}.
+ * the {@code Looper} of the thread from which the manager must be accessed can be queried using
+ * {@link #getApplicationLooper()}.
  */
 @UnstableApi
 public final class DownloadManager {
@@ -148,30 +148,32 @@ public final class DownloadManager {
 
   /** The default maximum number of parallel downloads. */
   public static final int DEFAULT_MAX_PARALLEL_DOWNLOADS = 3;
+
   /** The default minimum number of times a download must be retried before failing. */
   public static final int DEFAULT_MIN_RETRY_COUNT = 5;
+
   /** The default requirement is that the device has network connectivity. */
   public static final Requirements DEFAULT_REQUIREMENTS = new Requirements(Requirements.NETWORK);
 
   // Messages posted to the main handler.
-  private static final int MSG_INITIALIZED = 0;
-  private static final int MSG_PROCESSED = 1;
-  private static final int MSG_DOWNLOAD_UPDATE = 2;
+  private static final int MSG_INITIALIZED = 1;
+  private static final int MSG_PROCESSED = 2;
+  private static final int MSG_DOWNLOAD_UPDATE = 3;
 
   // Messages posted to the background handler.
-  private static final int MSG_INITIALIZE = 0;
-  private static final int MSG_SET_DOWNLOADS_PAUSED = 1;
-  private static final int MSG_SET_NOT_MET_REQUIREMENTS = 2;
-  private static final int MSG_SET_STOP_REASON = 3;
-  private static final int MSG_SET_MAX_PARALLEL_DOWNLOADS = 4;
-  private static final int MSG_SET_MIN_RETRY_COUNT = 5;
-  private static final int MSG_ADD_DOWNLOAD = 6;
-  private static final int MSG_REMOVE_DOWNLOAD = 7;
-  private static final int MSG_REMOVE_ALL_DOWNLOADS = 8;
-  private static final int MSG_TASK_STOPPED = 9;
-  private static final int MSG_CONTENT_LENGTH_CHANGED = 10;
-  private static final int MSG_UPDATE_PROGRESS = 11;
-  private static final int MSG_RELEASE = 12;
+  private static final int MSG_INITIALIZE = 1;
+  private static final int MSG_SET_DOWNLOADS_PAUSED = 2;
+  private static final int MSG_SET_NOT_MET_REQUIREMENTS = 3;
+  private static final int MSG_SET_STOP_REASON = 4;
+  private static final int MSG_SET_MAX_PARALLEL_DOWNLOADS = 5;
+  private static final int MSG_SET_MIN_RETRY_COUNT = 6;
+  private static final int MSG_ADD_DOWNLOAD = 7;
+  private static final int MSG_REMOVE_DOWNLOAD = 8;
+  private static final int MSG_REMOVE_ALL_DOWNLOADS = 9;
+  private static final int MSG_TASK_STOPPED = 10;
+  private static final int MSG_CONTENT_LENGTH_CHANGED = 11;
+  private static final int MSG_UPDATE_PROGRESS = 12;
+  private static final int MSG_RELEASE = 13;
 
   private static final String TAG = "DownloadManager";
 
@@ -192,23 +194,6 @@ public final class DownloadManager {
   private boolean waitingForRequirements;
   private List<Download> downloads;
   private RequirementsWatcher requirementsWatcher;
-
-  /**
-   * Constructs a {@link DownloadManager}.
-   *
-   * @param context Any context.
-   * @param databaseProvider Provides the SQLite database in which downloads are persisted.
-   * @param cache A cache to be used to store downloaded data. The cache should be configured with
-   *     an {@link CacheEvictor} that will not evict downloaded content, for example {@link
-   *     NoOpCacheEvictor}.
-   * @param upstreamFactory A {@link Factory} for creating {@link DataSource}s for downloading data.
-   * @deprecated Use {@link #DownloadManager(Context, DatabaseProvider, Cache, Factory, Executor)}.
-   */
-  @Deprecated
-  public DownloadManager(
-      Context context, DatabaseProvider databaseProvider, Cache cache, Factory upstreamFactory) {
-    this(context, databaseProvider, cache, upstreamFactory, Runnable::run);
-  }
 
   /**
    * Constructs a {@link DownloadManager}.

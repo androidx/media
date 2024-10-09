@@ -15,9 +15,12 @@
  */
 package androidx.media3.exoplayer;
 
+import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
+import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Util;
+import androidx.media3.exoplayer.source.ForwardingTimeline;
 import androidx.media3.exoplayer.source.ShuffleOrder;
 import java.util.Arrays;
 import java.util.Collection;
@@ -39,23 +42,26 @@ import java.util.List;
   public PlaylistTimeline(
       Collection<? extends MediaSourceInfoHolder> mediaSourceInfoHolders,
       ShuffleOrder shuffleOrder) {
+    this(getTimelines(mediaSourceInfoHolders), getUids(mediaSourceInfoHolders), shuffleOrder);
+  }
+
+  private PlaylistTimeline(Timeline[] timelines, Object[] uids, ShuffleOrder shuffleOrder) {
     super(/* isAtomic= */ false, shuffleOrder);
-    int childCount = mediaSourceInfoHolders.size();
+    int childCount = timelines.length;
+    this.timelines = timelines;
     firstPeriodInChildIndices = new int[childCount];
     firstWindowInChildIndices = new int[childCount];
-    timelines = new Timeline[childCount];
-    uids = new Object[childCount];
+    this.uids = uids;
     childIndexByUid = new HashMap<>();
     int index = 0;
     int windowCount = 0;
     int periodCount = 0;
-    for (MediaSourceInfoHolder mediaSourceInfoHolder : mediaSourceInfoHolders) {
-      timelines[index] = mediaSourceInfoHolder.getTimeline();
+    for (Timeline timeline : timelines) {
+      this.timelines[index] = timeline;
       firstWindowInChildIndices[index] = windowCount;
       firstPeriodInChildIndices[index] = periodCount;
-      windowCount += timelines[index].getWindowCount();
-      periodCount += timelines[index].getPeriodCount();
-      uids[index] = mediaSourceInfoHolder.getUid();
+      windowCount += this.timelines[index].getWindowCount();
+      periodCount += this.timelines[index].getPeriodCount();
       childIndexByUid.put(uids[index], index++);
     }
     this.windowCount = windowCount;
@@ -111,5 +117,69 @@ import java.util.List;
   @Override
   public int getPeriodCount() {
     return periodCount;
+  }
+
+  /**
+   * Creates a copy of the timeline and wraps each child timeline with a {@link ForwardingTimeline}
+   * that overrides {@link Timeline#getPeriod(int, Period, boolean)} to set the {@link
+   * Period#isPlaceholder} flag.
+   *
+   * <p>For periods of a live window, the {@link AdPlaybackState} is set to {@link
+   * AdPlaybackState#NONE} to allow a live source with ad support to drop the ad playback state.
+   *
+   * <p>This method should be used when the player is reset (for instance when a playback error
+   * occurs or {@link Player#stop()} is called) to make the player resolve the start position like
+   * when prepared initially. In this state, each source needs to be prepared again at which point
+   * the first timeline delivered by the source will replace the wrapped source to continue
+   * playback.
+   */
+  public PlaylistTimeline copyWithPlaceholderTimeline(ShuffleOrder shuffleOrder) {
+    Timeline[] newTimelines = new Timeline[timelines.length];
+    for (int i = 0; i < timelines.length; i++) {
+      newTimelines[i] =
+          new ForwardingTimeline(timelines[i]) {
+            private final Window window = new Window();
+
+            @Override
+            public Period getPeriod(int periodIndex, Period period, boolean setIds) {
+              Period superPeriod = super.getPeriod(periodIndex, period, setIds);
+              if (super.getWindow(superPeriod.windowIndex, window).isLive()) {
+                // Reset the ad playback state for placeholder period of a live streams.
+                superPeriod.set(
+                    period.id,
+                    period.uid,
+                    period.windowIndex,
+                    period.durationUs,
+                    period.positionInWindowUs,
+                    AdPlaybackState.NONE,
+                    /* isPlaceholder= */ true);
+              } else {
+                superPeriod.isPlaceholder = true;
+              }
+              return superPeriod;
+            }
+          };
+    }
+    return new PlaylistTimeline(newTimelines, uids, shuffleOrder);
+  }
+
+  private static Object[] getUids(
+      Collection<? extends MediaSourceInfoHolder> mediaSourceInfoHolders) {
+    Object[] uids = new Object[mediaSourceInfoHolders.size()];
+    int i = 0;
+    for (MediaSourceInfoHolder holder : mediaSourceInfoHolders) {
+      uids[i++] = holder.getUid();
+    }
+    return uids;
+  }
+
+  private static Timeline[] getTimelines(
+      Collection<? extends MediaSourceInfoHolder> mediaSourceInfoHolders) {
+    Timeline[] timelines = new Timeline[mediaSourceInfoHolders.size()];
+    int i = 0;
+    for (MediaSourceInfoHolder holder : mediaSourceInfoHolders) {
+      timelines[i++] = holder.getTimeline();
+    }
+    return timelines;
   }
 }

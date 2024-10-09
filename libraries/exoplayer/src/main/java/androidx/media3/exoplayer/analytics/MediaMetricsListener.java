@@ -52,6 +52,7 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.NetworkTypeObserver;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.FileDataSource;
@@ -75,7 +76,6 @@ import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.UUID;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
@@ -455,7 +455,8 @@ public final class MediaMetricsListener
       return PlaybackStateEvent.STATE_ENDED;
     } else if (playerPlaybackState == Player.STATE_BUFFERING) {
       if (currentPlaybackState == PlaybackStateEvent.STATE_NOT_STARTED
-          || currentPlaybackState == PlaybackStateEvent.STATE_JOINING_FOREGROUND) {
+          || currentPlaybackState == PlaybackStateEvent.STATE_JOINING_FOREGROUND
+          || currentPlaybackState == PlaybackStateEvent.STATE_STOPPED) {
         return PlaybackStateEvent.STATE_JOINING_FOREGROUND;
       }
       if (!player.getPlayWhenReady()) {
@@ -530,7 +531,7 @@ public final class MediaMetricsListener
       builder.setTrackState(TrackChangeEvent.TRACK_STATE_ON);
       builder.setTrackChangeReason(getTrackChangeReason(trackSelectionReason));
       if (format.containerMimeType != null) {
-        // TODO(b/181121074): Progressive container mime type is not filled in by MediaSource.
+        // TODO(b/181121074): Progressive container MIME type is not filled in by MediaSource.
         builder.setContainerMimeType(format.containerMimeType);
       }
       if (format.sampleMimeType != null) {
@@ -747,17 +748,17 @@ public final class MediaMetricsListener
       } else if (cause instanceof DrmSession.DrmSessionException) {
         // Unpack DrmSessionException.
         cause = checkNotNull(cause.getCause());
-        if (Util.SDK_INT >= 21 && cause instanceof MediaDrm.MediaDrmStateException) {
+        if (cause instanceof MediaDrm.MediaDrmStateException) {
           String diagnosticsInfo = ((MediaDrm.MediaDrmStateException) cause).getDiagnosticInfo();
           int subErrorCode = Util.getErrorCodeFromPlatformDiagnosticsInfo(diagnosticsInfo);
           int errorCode = getDrmErrorCode(subErrorCode);
           return new ErrorInfo(errorCode, subErrorCode);
         } else if (Util.SDK_INT >= 23 && cause instanceof MediaDrmResetException) {
           return new ErrorInfo(PlaybackErrorEvent.ERROR_DRM_SYSTEM_ERROR, /* subErrorCode= */ 0);
-        } else if (Util.SDK_INT >= 18 && cause instanceof NotProvisionedException) {
+        } else if (cause instanceof NotProvisionedException) {
           return new ErrorInfo(
               PlaybackErrorEvent.ERROR_DRM_PROVISIONING_FAILED, /* subErrorCode= */ 0);
-        } else if (Util.SDK_INT >= 18 && cause instanceof DeniedByServerException) {
+        } else if (cause instanceof DeniedByServerException) {
           return new ErrorInfo(PlaybackErrorEvent.ERROR_DRM_DEVICE_REVOKED, /* subErrorCode= */ 0);
         } else if (cause instanceof UnsupportedDrmException) {
           return new ErrorInfo(
@@ -770,8 +771,7 @@ public final class MediaMetricsListener
       } else if (cause instanceof FileDataSource.FileDataSourceException
           && cause.getCause() instanceof FileNotFoundException) {
         @Nullable Throwable notFoundCause = checkNotNull(cause.getCause()).getCause();
-        if (Util.SDK_INT >= 21
-            && notFoundCause instanceof ErrnoException
+        if (notFoundCause instanceof ErrnoException
             && ((ErrnoException) notFoundCause).errno == OsConstants.EACCES) {
           return new ErrorInfo(PlaybackErrorEvent.ERROR_IO_NO_PERMISSION, /* subErrorCode= */ 0);
         } else {
@@ -799,8 +799,7 @@ public final class MediaMetricsListener
       int subErrorCode = Util.getErrorCodeFromPlatformDiagnosticsInfo(diagnosticsInfo);
       return new ErrorInfo(PlaybackErrorEvent.ERROR_DECODER_INIT_FAILED, subErrorCode);
     } else if (cause instanceof MediaCodecDecoderException) {
-      @Nullable String diagnosticsInfo = ((MediaCodecDecoderException) cause).diagnosticInfo;
-      int subErrorCode = Util.getErrorCodeFromPlatformDiagnosticsInfo(diagnosticsInfo);
+      int subErrorCode = ((MediaCodecDecoderException) cause).errorCode;
       return new ErrorInfo(PlaybackErrorEvent.ERROR_DECODING_FAILED, subErrorCode);
     } else if (cause instanceof OutOfMemoryError) {
       return new ErrorInfo(PlaybackErrorEvent.ERROR_DECODING_FAILED, /* subErrorCode= */ 0);
@@ -810,7 +809,7 @@ public final class MediaMetricsListener
     } else if (cause instanceof AudioSink.WriteException) {
       int subErrorCode = ((AudioSink.WriteException) cause).errorCode;
       return new ErrorInfo(PlaybackErrorEvent.ERROR_AUDIO_TRACK_WRITE_FAILED, subErrorCode);
-    } else if (Util.SDK_INT >= 16 && cause instanceof MediaCodec.CryptoException) {
+    } else if (cause instanceof MediaCodec.CryptoException) {
       int subErrorCode = ((MediaCodec.CryptoException) cause).getErrorCode();
       int errorCode = getDrmErrorCode(subErrorCode);
       return new ErrorInfo(errorCode, subErrorCode);

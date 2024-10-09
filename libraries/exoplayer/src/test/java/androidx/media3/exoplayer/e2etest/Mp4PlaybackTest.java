@@ -46,6 +46,7 @@ public class Mp4PlaybackTest {
         "midroll-5s.mp4",
         "postroll-5s.mp4",
         "preroll-5s.mp4",
+        "pixel-motion-photo-2-hevc-tracks.mp4",
         "sample_ac3_fragmented.mp4",
         "sample_ac3.mp4",
         "sample_ac4_fragmented.mp4",
@@ -61,10 +62,13 @@ public class Mp4PlaybackTest {
         "sample_fragmented_sei.mp4",
         "sample_mdat_too_long.mp4",
         "sample.mp4",
+        "sample_with_metadata.mp4",
+        "sample_with_numeric_genre.mp4",
         "sample_opus_fragmented.mp4",
         "sample_opus.mp4",
         "sample_partially_fragmented.mp4",
-        "testvid_1022ms.mp4");
+        "testvid_1022ms.mp4",
+        "sample_edit_list.mp4");
   }
 
   @Parameter public String inputFile;
@@ -81,7 +85,8 @@ public class Mp4PlaybackTest {
         new ExoPlayer.Builder(applicationContext, renderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .build();
-    player.setVideoSurface(new Surface(new SurfaceTexture(/* texName= */ 1)));
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
 
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, renderersFactory);
 
@@ -90,6 +95,7 @@ public class Mp4PlaybackTest {
     player.play();
     TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
     player.release();
+    surface.release();
 
     DumpFileAsserts.assertOutput(
         applicationContext, playbackOutput, "playbackdumps/mp4/" + inputFile + ".dump");

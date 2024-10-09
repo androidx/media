@@ -15,13 +15,15 @@
  */
 package androidx.media3.datasource;
 
+import static androidx.media3.common.util.Assertions.checkArgument;
+import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static java.lang.Math.min;
 
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import java.io.IOException;
 
@@ -29,27 +31,55 @@ import java.io.IOException;
 @UnstableApi
 public final class ByteArrayDataSource extends BaseDataSource {
 
-  private final byte[] data;
+  /** Functional interface to resolve from {@link Uri} to {@code byte[]}. */
+  public interface UriResolver {
+    /**
+     * Resolves a {@link Uri} to a {@code byte[]}.
+     *
+     * <p>Called during {@link DataSource#open(DataSpec)} from a loading thread, so can do blocking
+     * work.
+     *
+     * @return The resolved byte array.
+     * @throws IOException if the provided URI is not recognized, or an error occurs during
+     *     resolution.
+     */
+    byte[] resolve(Uri uri) throws IOException;
+  }
+
+  private final UriResolver uriResolver;
 
   @Nullable private Uri uri;
+  @Nullable private byte[] data;
   private int readPosition;
   private int bytesRemaining;
   private boolean opened;
 
   /**
+   * Creates an instance.
+   *
    * @param data The data to be read.
    */
   public ByteArrayDataSource(byte[] data) {
+    this(/* uriResolver= */ unusedUri -> data);
+    checkArgument(data.length > 0);
+  }
+
+  /**
+   * Creates an instance.
+   *
+   * @param uriResolver Function to resolve from {@link Uri} to {@code byte[]} during {@link
+   *     #open(DataSpec)}.
+   */
+  public ByteArrayDataSource(UriResolver uriResolver) {
     super(/* isNetwork= */ false);
-    Assertions.checkNotNull(data);
-    Assertions.checkArgument(data.length > 0);
-    this.data = data;
+    this.uriResolver = checkNotNull(uriResolver);
   }
 
   @Override
   public long open(DataSpec dataSpec) throws IOException {
-    uri = dataSpec.uri;
     transferInitializing(dataSpec);
+    uri = dataSpec.uri;
+    data = uriResolver.resolve(uri);
     if (dataSpec.position > data.length) {
       throw new DataSourceException(PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE);
     }
@@ -72,7 +102,7 @@ public final class ByteArrayDataSource extends BaseDataSource {
     }
 
     length = min(length, bytesRemaining);
-    System.arraycopy(data, readPosition, buffer, offset, length);
+    System.arraycopy(checkStateNotNull(data), readPosition, buffer, offset, length);
     readPosition += length;
     bytesRemaining -= length;
     bytesTransferred(length);
@@ -92,5 +122,6 @@ public final class ByteArrayDataSource extends BaseDataSource {
       transferEnded();
     }
     uri = null;
+    data = null;
   }
 }

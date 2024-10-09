@@ -41,9 +41,8 @@ import static androidx.media3.transformer.AndroidTestUtil.MP4_REMOTE_640W_480H_3
 import static androidx.media3.transformer.AndroidTestUtil.MP4_REMOTE_7680W_4320H_31_SECOND_ROOF_SAMSUNGS20ULTRA5G;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_REMOTE_854W_480H_30_SECOND_ROOF_ONEPLUSNORD2_DOWNSAMPLED;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_REMOTE_854W_480H_30_SECOND_ROOF_REDMINOTE9_DOWNSAMPLED;
-import static androidx.media3.transformer.AndroidTestUtil.getFormatForTestFile;
-import static androidx.media3.transformer.AndroidTestUtil.skipAndLogIfInsufficientCodecSupport;
-import static androidx.media3.transformer.TransformationTestResult.SSIM_UNSET;
+import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
+import static androidx.media3.transformer.ExportTestResult.SSIM_UNSET;
 import static com.google.common.collect.Iterables.getLast;
 
 import android.content.Context;
@@ -53,9 +52,9 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
-import androidx.media3.transformer.AndroidTestUtil;
+import androidx.media3.transformer.AndroidTestUtil.AssetInfo;
 import androidx.media3.transformer.DefaultEncoderFactory;
-import androidx.media3.transformer.TransformationRequest;
+import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.Transformer;
 import androidx.media3.transformer.TransformerAndroidTestRunner;
 import androidx.media3.transformer.VideoEncoderSettings;
@@ -66,6 +65,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -78,13 +78,16 @@ import org.junit.runners.Parameterized.Parameters;
  * <p>SSIM increases monotonically with bitrate.
  */
 @RunWith(Parameterized.class)
+@Ignore(
+    "Analysis tests are not used for confirming Transformer is running properly, and not configured"
+        + " for this use as they're missing skip checks for unsupported devices.")
 public class SsimMapperTest {
 
   private static final Splitter FORWARD_SLASH_SPLITTER = Splitter.on('/');
 
   // When running this test, input file list should be restricted more than this. Binary search can
   // take up to 40 minutes to complete for a single clip on lower end devices.
-  private static final ImmutableList<String> INPUT_FILES =
+  private static final ImmutableList<AssetInfo> INPUT_ASSETS =
       ImmutableList.of(
           MP4_REMOTE_256W_144H_30_SECOND_ROOF_ONEPLUSNORD2_DOWNSAMPLED,
           MP4_REMOTE_256W_144H_30_SECOND_ROOF_REDMINOTE9_DOWNSAMPLED,
@@ -113,11 +116,11 @@ public class SsimMapperTest {
   @Parameters
   public static List<Object[]> parameters() {
     List<Object[]> parameterList = new ArrayList<>();
-    for (String file : INPUT_FILES) {
-      parameterList.add(new Object[] {file, MimeTypes.VIDEO_H264});
-      // TODO(210593256): Test pre 24 once in-app muxing implemented.
+    for (AssetInfo assetInfo : INPUT_ASSETS) {
+      parameterList.add(new Object[] {assetInfo, MimeTypes.VIDEO_H264});
+      // TODO(b/210593256): Test pre 24 once in-app muxing implemented.
       if (Util.SDK_INT >= 24) {
-        parameterList.add(new Object[] {file, MimeTypes.VIDEO_H265});
+        parameterList.add(new Object[] {assetInfo, MimeTypes.VIDEO_H265});
       }
     }
     return parameterList;
@@ -125,7 +128,7 @@ public class SsimMapperTest {
 
   @Parameter(0)
   @Nullable
-  public String fileUri;
+  public AssetInfo assetInfo;
 
   @Parameter(1)
   @Nullable
@@ -133,23 +136,20 @@ public class SsimMapperTest {
 
   @Test
   public void findSsimMapping() throws Exception {
-    String fileUri = checkNotNull(this.fileUri);
     String mimeType = checkNotNull(this.mimeType);
 
     String testIdPrefix =
         String.format(
             "ssim_search_VBR_%s", checkNotNull(getLast(FORWARD_SLASH_SPLITTER.split(mimeType))));
 
-    if (skipAndLogIfInsufficientCodecSupport(
+    assumeFormatsSupported(
         ApplicationProvider.getApplicationContext(),
         testIdPrefix + "_codecSupport",
-        /* decodingFormat= */ getFormatForTestFile(fileUri),
-        /* encodingFormat= */ null)) {
-      return;
-    }
+        /* inputFormat= */ assetInfo.videoFormat,
+        /* outputFormat= */ null);
 
     new SsimBinarySearcher(
-            ApplicationProvider.getApplicationContext(), testIdPrefix, fileUri, mimeType)
+            ApplicationProvider.getApplicationContext(), testIdPrefix, assetInfo, mimeType)
         .search();
   }
 
@@ -157,7 +157,7 @@ public class SsimMapperTest {
     private static final String TAG = "SsimBinarySearcher";
     private static final double SSIM_ACCEPTABLE_TOLERANCE = 0.005;
     private static final double SSIM_TARGET = 0.95;
-    private static final int MAX_TRANSFORMATIONS = 12;
+    private static final int MAX_EXPORTS = 12;
 
     private final Context context;
     private final String testIdPrefix;
@@ -165,7 +165,7 @@ public class SsimMapperTest {
     private final Format format;
     private final String outputMimeType;
 
-    private int transformationsLeft;
+    private int exportsLeft;
     private double ssimLowerBound;
     private double ssimUpperBound;
     private int bitrateLowerBound;
@@ -176,18 +176,18 @@ public class SsimMapperTest {
      *
      * @param context The {@link Context}.
      * @param testIdPrefix The test ID prefix.
-     * @param videoUri The URI of the video to transform.
+     * @param assetInfo The video {@link AssetInfo} to transform.
      * @param outputMimeType The video sample MIME type to output, see {@link
-     *     TransformationRequest.Builder#setVideoMimeType}.
+     *     Transformer.Builder#setVideoMimeType}.
      */
     public SsimBinarySearcher(
-        Context context, String testIdPrefix, String videoUri, String outputMimeType) {
+        Context context, String testIdPrefix, AssetInfo assetInfo, String outputMimeType) {
       this.context = context;
       this.testIdPrefix = testIdPrefix;
-      this.videoUri = videoUri;
+      this.videoUri = assetInfo.uri;
       this.outputMimeType = outputMimeType;
-      transformationsLeft = MAX_TRANSFORMATIONS;
-      format = AndroidTestUtil.getFormatForTestFile(videoUri);
+      exportsLeft = MAX_EXPORTS;
+      format = assetInfo.videoFormat;
     }
 
     /**
@@ -207,7 +207,7 @@ public class SsimMapperTest {
       int maxBitrateToCheck = currentBitrate * 32;
 
       do {
-        double currentSsim = transformAndGetSsim(currentBitrate);
+        double currentSsim = exportAndGetSsim(currentBitrate);
         if (isSsimAcceptable(currentSsim)) {
           return false;
         }
@@ -227,10 +227,9 @@ public class SsimMapperTest {
             return false;
           }
         }
-      } while ((ssimLowerBound == SSIM_UNSET || ssimUpperBound == SSIM_UNSET)
-          && transformationsLeft > 0);
+      } while ((ssimLowerBound == SSIM_UNSET || ssimUpperBound == SSIM_UNSET) && exportsLeft > 0);
 
-      return transformationsLeft > 0;
+      return exportsLeft > 0;
     }
 
     /**
@@ -239,19 +238,19 @@ public class SsimMapperTest {
      * <p>Performs a binary search of the bitrate between the {@link #bitrateLowerBound} and {@link
      * #bitrateUpperBound}.
      *
-     * <p>Runs until the target SSIM is found or the maximum number of transformations is reached.
+     * <p>Runs until the target SSIM is found or the maximum number of exports is reached.
      */
     public void search() throws Exception {
       if (!setupBinarySearchBounds()) {
         return;
       }
 
-      while (transformationsLeft > 0) {
+      while (exportsLeft > 0) {
         // At this point, we have under and over bitrate bounds, with associated SSIMs.
         // Go between the two, and replace either the under or the over.
 
         int currentBitrate = (bitrateUpperBound + bitrateLowerBound) / 2;
-        double currentSsim = transformAndGetSsim(currentBitrate);
+        double currentSsim = exportAndGetSsim(currentBitrate);
         if (isSsimAcceptable(currentSsim)) {
           return;
         }
@@ -271,7 +270,7 @@ public class SsimMapperTest {
       }
     }
 
-    private double transformAndGetSsim(int bitrate) throws Exception {
+    private double exportAndGetSsim(int bitrate) throws Exception {
       // TODO(b/238094555): Force specific encoders to be used.
 
       String fileName = checkNotNull(getLast(FORWARD_SLASH_SPLITTER.split(videoUri)));
@@ -287,9 +286,7 @@ public class SsimMapperTest {
 
       Transformer transformer =
           new Transformer.Builder(context)
-              .setRemoveAudio(true)
-              .setTransformationRequest(
-                  new TransformationRequest.Builder().setVideoMimeType(outputMimeType).build())
+              .setVideoMimeType(outputMimeType)
               .setEncoderFactory(
                   new DefaultEncoderFactory.Builder(context)
                       .setRequestedVideoEncoderSettings(
@@ -300,15 +297,19 @@ public class SsimMapperTest {
                       .setEnableFallback(false)
                       .build())
               .build();
+      EditedMediaItem editedMediaItem =
+          new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(videoUri)))
+              .setRemoveAudio(true)
+              .build();
 
-      transformationsLeft--;
+      exportsLeft--;
 
       double ssim =
           new TransformerAndroidTestRunner.Builder(context, transformer)
               .setInputValues(inputValues)
               .setRequestCalculateSsim(true)
               .build()
-              .run(testId, MediaItem.fromUri(Uri.parse(videoUri)))
+              .run(testId, editedMediaItem)
               .ssim;
 
       checkState(ssim != SSIM_UNSET, "SSIM has not been calculated.");

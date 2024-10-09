@@ -20,12 +20,10 @@ import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
-import androidx.media3.common.text.Cue;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -37,12 +35,13 @@ import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.TrackOutput;
 import com.google.common.primitives.Ints;
 import java.io.IOException;
-import java.io.InterruptedIOException;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -64,50 +63,59 @@ public class SubtitleExtractor implements Extractor {
 
   /** The extractor has been created. */
   private static final int STATE_CREATED = 0;
+
   /** The extractor has been initialized. */
   private static final int STATE_INITIALIZED = 1;
+
   /** The extractor is reading from the input and writing to the output. */
   private static final int STATE_EXTRACTING = 2;
+
   /** The extractor has received a seek() operation after it has already finished extracting. */
   private static final int STATE_SEEKING = 3;
+
   /** The extractor has finished extracting the input. */
   private static final int STATE_FINISHED = 4;
+
   /** The extractor has been released. */
   private static final int STATE_RELEASED = 5;
 
   private static final int DEFAULT_BUFFER_SIZE = 1024;
 
-  private final SubtitleDecoder subtitleDecoder;
+  private final SubtitleParser subtitleParser;
   private final CueEncoder cueEncoder;
-  private final ParsableByteArray subtitleData;
   private final Format format;
-  private final List<Long> timestamps;
-  private final List<ParsableByteArray> samples;
+  private final List<Sample> samples;
+  private final ParsableByteArray scratchSampleArray;
 
-  private @MonotonicNonNull ExtractorOutput extractorOutput;
+  private byte[] subtitleData;
   private @MonotonicNonNull TrackOutput trackOutput;
   private int bytesRead;
   private @State int state;
+  private long[] timestamps;
   private long seekTimeUs;
 
   /**
-   * @param subtitleDecoder The decoder used for decoding the subtitle data. The extractor will
-   *     release the decoder in {@link SubtitleExtractor#release()}.
-   * @param format Format that describes subtitle data.
+   * Creates an instance.
+   *
+   * @param subtitleParser The parser used for parsing the subtitle data. The extractor will reset
+   *     the parser in {@link SubtitleExtractor#release()}.
+   * @param format {@link Format} that describes subtitle data.
    */
-  public SubtitleExtractor(SubtitleDecoder subtitleDecoder, Format format) {
-    this.subtitleDecoder = subtitleDecoder;
+  public SubtitleExtractor(SubtitleParser subtitleParser, Format format) {
+    this.subtitleParser = subtitleParser;
     cueEncoder = new CueEncoder();
-    subtitleData = new ParsableByteArray();
+    subtitleData = Util.EMPTY_BYTE_ARRAY;
+    scratchSampleArray = new ParsableByteArray();
     this.format =
         format
             .buildUpon()
-            .setSampleMimeType(MimeTypes.TEXT_EXOPLAYER_CUES)
+            .setSampleMimeType(MimeTypes.APPLICATION_MEDIA3_CUES)
             .setCodecs(format.sampleMimeType)
+            .setCueReplacementBehavior(subtitleParser.getCueReplacementBehavior())
             .build();
-    timestamps = new ArrayList<>();
     samples = new ArrayList<>();
     state = STATE_CREATED;
+    timestamps = Util.EMPTY_LONG_ARRAY;
     seekTimeUs = C.TIME_UNSET;
   }
 
@@ -122,15 +130,14 @@ public class SubtitleExtractor implements Extractor {
   @Override
   public void init(ExtractorOutput output) {
     checkState(state == STATE_CREATED);
-    extractorOutput = output;
-    trackOutput = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_TEXT);
-    extractorOutput.endTracks();
-    extractorOutput.seekMap(
+    trackOutput = output.track(/* id= */ 0, C.TRACK_TYPE_TEXT);
+    trackOutput.format(format);
+    output.endTracks();
+    output.seekMap(
         new IndexSeekMap(
             /* positions= */ new long[] {0},
             /* timesUs= */ new long[] {0},
             /* durationUs= */ C.TIME_UNSET));
-    trackOutput.format(format);
     state = STATE_INITIALIZED;
   }
 
@@ -138,18 +145,20 @@ public class SubtitleExtractor implements Extractor {
   public int read(ExtractorInput input, PositionHolder seekPosition) throws IOException {
     checkState(state != STATE_CREATED && state != STATE_RELEASED);
     if (state == STATE_INITIALIZED) {
-      subtitleData.reset(
+      int length =
           input.getLength() != C.LENGTH_UNSET
               ? Ints.checkedCast(input.getLength())
-              : DEFAULT_BUFFER_SIZE);
+              : DEFAULT_BUFFER_SIZE;
+      if (length > subtitleData.length) {
+        subtitleData = new byte[length];
+      }
       bytesRead = 0;
       state = STATE_EXTRACTING;
     }
     if (state == STATE_EXTRACTING) {
       boolean inputFinished = readFromInput(input);
       if (inputFinished) {
-        decode();
-        writeToOutput();
+        parseAndWriteToOutput();
         state = STATE_FINISHED;
       }
     }
@@ -178,13 +187,13 @@ public class SubtitleExtractor implements Extractor {
     }
   }
 
-  /** Releases the extractor's resources, including the {@link SubtitleDecoder}. */
+  /** Releases the extractor's resources, including resetting the {@link SubtitleParser}. */
   @Override
   public void release() {
     if (state == STATE_RELEASED) {
       return;
     }
-    subtitleDecoder.release();
+    subtitleParser.reset();
     state = STATE_RELEASED;
   }
 
@@ -199,11 +208,13 @@ public class SubtitleExtractor implements Extractor {
 
   /** Returns whether reading has been finished. */
   private boolean readFromInput(ExtractorInput input) throws IOException {
-    if (subtitleData.capacity() == bytesRead) {
-      subtitleData.ensureCapacity(bytesRead + DEFAULT_BUFFER_SIZE);
+    if (subtitleData.length == bytesRead) {
+      subtitleData =
+          Arrays.copyOf(subtitleData, /* newLength= */ subtitleData.length + DEFAULT_BUFFER_SIZE);
     }
     int readResult =
-        input.read(subtitleData.getData(), bytesRead, subtitleData.capacity() - bytesRead);
+        input.read(
+            subtitleData, /* offset= */ bytesRead, /* length= */ subtitleData.length - bytesRead);
     if (readResult != C.RESULT_END_OF_INPUT) {
       bytesRead += readResult;
     }
@@ -212,57 +223,80 @@ public class SubtitleExtractor implements Extractor {
         || readResult == C.RESULT_END_OF_INPUT;
   }
 
-  /** Decodes the subtitle data and stores the samples in the memory of the extractor. */
-  private void decode() throws IOException {
+  /**
+   * Parses the subtitle data and writes the samples to the output, and stores them in {@link
+   * #timestamps} and {@link #samples} to speed up any subsequent seeks.
+   *
+   * <p>Also reassigns {@link #subtitleData} to an empty array once parsing is complete.
+   */
+  private void parseAndWriteToOutput() throws IOException {
     try {
-      @Nullable SubtitleInputBuffer inputBuffer = subtitleDecoder.dequeueInputBuffer();
-      while (inputBuffer == null) {
-        Thread.sleep(5);
-        inputBuffer = subtitleDecoder.dequeueInputBuffer();
+      SubtitleParser.OutputOptions outputOptions =
+          seekTimeUs != C.TIME_UNSET
+              ? SubtitleParser.OutputOptions.cuesAfterThenRemainingCuesBefore(seekTimeUs)
+              : SubtitleParser.OutputOptions.allCues();
+      subtitleParser.parse(
+          subtitleData,
+          /* offset= */ 0,
+          /* length= */ bytesRead,
+          outputOptions,
+          cuesWithTiming -> {
+            Sample sample =
+                new Sample(
+                    cuesWithTiming.startTimeUs,
+                    cueEncoder.encode(cuesWithTiming.cues, cuesWithTiming.durationUs));
+            samples.add(sample);
+            if (seekTimeUs == C.TIME_UNSET || cuesWithTiming.startTimeUs >= seekTimeUs) {
+              writeToOutput(sample);
+            }
+          });
+      Collections.sort(samples);
+      timestamps = new long[samples.size()];
+      for (int i = 0; i < samples.size(); i++) {
+        timestamps[i] = samples.get(i).timeUs;
       }
-      inputBuffer.ensureSpaceForWrite(bytesRead);
-      inputBuffer.data.put(subtitleData.getData(), /* offset= */ 0, bytesRead);
-      inputBuffer.data.limit(bytesRead);
-      subtitleDecoder.queueInputBuffer(inputBuffer);
-      @Nullable SubtitleOutputBuffer outputBuffer = subtitleDecoder.dequeueOutputBuffer();
-      while (outputBuffer == null) {
-        Thread.sleep(5);
-        outputBuffer = subtitleDecoder.dequeueOutputBuffer();
-      }
-      for (int i = 0; i < outputBuffer.getEventTimeCount(); i++) {
-        List<Cue> cues = outputBuffer.getCues(outputBuffer.getEventTime(i));
-        byte[] cuesSample = cueEncoder.encode(cues);
-        timestamps.add(outputBuffer.getEventTime(i));
-        samples.add(new ParsableByteArray(cuesSample));
-      }
-      outputBuffer.release();
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      throw new InterruptedIOException();
-    } catch (SubtitleDecoderException e) {
-      throw ParserException.createForMalformedContainer("SubtitleDecoder failed.", e);
+      subtitleData = Util.EMPTY_BYTE_ARRAY;
+    } catch (RuntimeException e) {
+      throw ParserException.createForMalformedContainer("SubtitleParser failed.", e);
     }
   }
 
   private void writeToOutput() {
-    checkStateNotNull(this.trackOutput);
-    checkState(timestamps.size() == samples.size());
     int index =
         seekTimeUs == C.TIME_UNSET
             ? 0
             : Util.binarySearchFloor(
                 timestamps, seekTimeUs, /* inclusive= */ true, /* stayInBounds= */ true);
     for (int i = index; i < samples.size(); i++) {
-      ParsableByteArray sample = samples.get(i);
-      sample.setPosition(0);
-      int size = sample.getData().length;
-      trackOutput.sampleData(sample, size);
-      trackOutput.sampleMetadata(
-          /* timeUs= */ timestamps.get(i),
-          /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
-          /* size= */ size,
-          /* offset= */ 0,
-          /* cryptoData= */ null);
+      writeToOutput(samples.get(i));
+    }
+  }
+
+  private void writeToOutput(Sample sample) {
+    checkStateNotNull(this.trackOutput);
+    int size = sample.data.length;
+    scratchSampleArray.reset(sample.data);
+    trackOutput.sampleData(scratchSampleArray, size);
+    trackOutput.sampleMetadata(
+        sample.timeUs,
+        /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ size,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+  }
+
+  private static class Sample implements Comparable<Sample> {
+    private final long timeUs;
+    private final byte[] data;
+
+    private Sample(long timeUs, byte[] data) {
+      this.timeUs = timeUs;
+      this.data = data;
+    }
+
+    @Override
+    public int compareTo(Sample sample) {
+      return Long.compare(timeUs, sample.timeUs);
     }
   }
 }
