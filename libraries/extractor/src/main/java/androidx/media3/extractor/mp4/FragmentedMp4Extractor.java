@@ -1151,9 +1151,9 @@ public class FragmentedMp4Extractor implements Extractor {
     }
     long editListEndMediaTimeUs =
         Util.scaleLargeTimestamp(
-            track.editListDurations[0] + track.editListMediaTimes[0],
-            C.MICROS_PER_SECOND,
-            track.movieTimescale);
+            track.editListDurations[0], C.MICROS_PER_SECOND, track.movieTimescale) +
+        Util.scaleLargeTimestamp(
+            track.editListMediaTimes[0], C.MICROS_PER_SECOND, track.timescale);
     return editListEndMediaTimeUs >= track.durationUs;
   }
 
