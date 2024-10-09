@@ -74,6 +74,10 @@
     *   Add workaround for codecs that get stuck after the last sample without
         returning an end-of-stream signal.
 *   Text:
+    *   Ensure WebVTT in HLS with very large subtitle timestamps (which overflow
+        a 64-bit `long` when represented as microseconds and multiplied by the
+        `90,000` MPEG timebase) are displayed
+        ([#1763](https://github.com/androidx/media/issues/1763)).
 *   Metadata:
     *   Assign the `C.TRACK_TYPE_METADATA` type to tracks containing icy or
         vnd.dvb.ait content.
