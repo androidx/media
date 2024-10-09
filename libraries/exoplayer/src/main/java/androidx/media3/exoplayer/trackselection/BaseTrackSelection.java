@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.trackselection;
 import static java.lang.Math.max;
 
 import android.os.SystemClock;
+import androidx.annotation.CallSuper;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -54,8 +55,8 @@ public abstract class BaseTrackSelection implements ExoTrackSelection {
   // Lazily initialized hashcode.
   private int hashCode;
 
-  /** The last playWhenReady value when {@link #onPlayWhenReadyChanged(boolean)} was triggered */
-  private boolean lastPlayWhenReady;
+  /** The current value of whether playback will proceed when ready. */
+  private boolean playWhenReady;
 
   /**
    * @param group The {@link TrackGroup}. Must not be null.
@@ -90,7 +91,7 @@ public abstract class BaseTrackSelection implements ExoTrackSelection {
       this.tracks[i] = group.indexOf(formats[i]);
     }
     excludeUntilTimes = new long[length];
-    lastPlayWhenReady = false;
+    playWhenReady = false;
   }
 
   // TrackSelection implementation.
@@ -195,13 +196,15 @@ public abstract class BaseTrackSelection implements ExoTrackSelection {
     return excludeUntilTimes[index] > nowMs;
   }
 
+  @CallSuper
   @Override
   public void onPlayWhenReadyChanged(boolean playWhenReady) {
-    lastPlayWhenReady = playWhenReady;
+    this.playWhenReady = playWhenReady;
   }
 
+  /** Returns whether the playback using this track selection will proceed when ready. */
   protected final boolean getPlayWhenReady() {
-    return lastPlayWhenReady;
+    return playWhenReady;
   }
 
   // Object overrides.
