@@ -1988,7 +1988,7 @@ public class TransformerEndToEndTest {
       //  "gapless" audio. The generated file should have encoderDelay = 742 and first
       //  sample PTS of 0.
       assertThat(audioTrack.lastFormat.encoderDelay).isEqualTo(0);
-      assertThat(audioTrack.getSampleTimeUs(/* index= */ 0)).isEqualTo(-16_826);
+      assertThat(audioTrack.getSampleTimeUs(/* index= */ 0)).isEqualTo(-16_825);
       assertThat(audioTrack.getSampleTimeUs(/* index= */ expectedSampleCount - 1))
           .isEqualTo(1_538_911);
     } else {

@@ -1600,7 +1600,7 @@ public final class Util {
    */
   @UnstableApi
   public static long sampleCountToDurationUs(long sampleCount, int sampleRate) {
-    return scaleLargeValue(sampleCount, C.MICROS_PER_SECOND, sampleRate, RoundingMode.FLOOR);
+    return scaleLargeValue(sampleCount, C.MICROS_PER_SECOND, sampleRate, RoundingMode.DOWN);
   }
 
   /**
@@ -1617,7 +1617,7 @@ public final class Util {
    */
   @UnstableApi
   public static long durationUsToSampleCount(long durationUs, int sampleRate) {
-    return scaleLargeValue(durationUs, sampleRate, C.MICROS_PER_SECOND, RoundingMode.CEILING);
+    return scaleLargeValue(durationUs, sampleRate, C.MICROS_PER_SECOND, RoundingMode.UP);
   }
 
   /**
@@ -1902,7 +1902,7 @@ public final class Util {
    * Scales a large timestamp.
    *
    * <p>Equivalent to {@link #scaleLargeValue(long, long, long, RoundingMode)} with {@link
-   * RoundingMode#FLOOR}.
+   * RoundingMode#DOWN}.
    *
    * @param timestamp The timestamp to scale.
    * @param multiplier The multiplier.
@@ -1911,7 +1911,7 @@ public final class Util {
    */
   @UnstableApi
   public static long scaleLargeTimestamp(long timestamp, long multiplier, long divisor) {
-    return scaleLargeValue(timestamp, multiplier, divisor, RoundingMode.FLOOR);
+    return scaleLargeValue(timestamp, multiplier, divisor, RoundingMode.DOWN);
   }
 
   /**
@@ -1924,7 +1924,7 @@ public final class Util {
    */
   @UnstableApi
   public static long[] scaleLargeTimestamps(List<Long> timestamps, long multiplier, long divisor) {
-    return scaleLargeValues(timestamps, multiplier, divisor, RoundingMode.FLOOR);
+    return scaleLargeValues(timestamps, multiplier, divisor, RoundingMode.DOWN);
   }
 
   /**
@@ -1936,7 +1936,7 @@ public final class Util {
    */
   @UnstableApi
   public static void scaleLargeTimestampsInPlace(long[] timestamps, long multiplier, long divisor) {
-    scaleLargeValuesInPlace(timestamps, multiplier, divisor, RoundingMode.FLOOR);
+    scaleLargeValuesInPlace(timestamps, multiplier, divisor, RoundingMode.DOWN);
   }
 
   /**

@@ -798,13 +798,13 @@ MediaCodecAdapter (exotest.video.hevc):
       timeUs = 999999545000
       contents = length 78829, hash 9265686F
     input buffer #1:
-      timeUs = 999999678333
+      timeUs = 999999678334
       contents = length 32262, hash 1AD10F61
     input buffer #2:
-      timeUs = 999999611666
+      timeUs = 999999611667
       contents = length 18055, hash C6BED1E3
     input buffer #3:
-      timeUs = 999999811666
+      timeUs = 999999811667
       contents = length 65604, hash AA006B06
     input buffer #4:
       timeUs = 999999745000
@@ -813,7 +813,7 @@ MediaCodecAdapter (exotest.video.hevc):
       timeUs = 999999945000
       contents = length 72552, hash 9535951C
     input buffer #6:
-      timeUs = 999999878333
+      timeUs = 999999878334
       contents = length 23756, hash 4074D5AE
     input buffer #7:
       timeUs = 1000000078333
@@ -822,7 +822,7 @@ MediaCodecAdapter (exotest.video.hevc):
       timeUs = 1000000011666
       contents = length 55804, hash D559D074
     input buffer #9:
-      timeUs = 999999978333
+      timeUs = 999999978334
       contents = length 12955, hash 35EE397F
     input buffer #10:
       timeUs = 1000000045000
@@ -1054,15 +1054,15 @@ MediaCodecAdapter (exotest.video.hevc):
       size = 78829
       rendered = false
     output buffer #1:
-      timeUs = 999999678333
+      timeUs = 999999678334
       size = 32262
       rendered = false
     output buffer #2:
-      timeUs = 999999611666
+      timeUs = 999999611667
       size = 18055
       rendered = false
     output buffer #3:
-      timeUs = 999999811666
+      timeUs = 999999811667
       size = 65604
       rendered = false
     output buffer #4:
@@ -1074,7 +1074,7 @@ MediaCodecAdapter (exotest.video.hevc):
       size = 72552
       rendered = false
     output buffer #6:
-      timeUs = 999999878333
+      timeUs = 999999878334
       size = 23756
       rendered = false
     output buffer #7:
@@ -1086,7 +1086,7 @@ MediaCodecAdapter (exotest.video.hevc):
       size = 55804
       rendered = true
     output buffer #9:
-      timeUs = 999999978333
+      timeUs = 999999978334
       size = 12955
       rendered = false
     output buffer #10:
