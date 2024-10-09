@@ -72,11 +72,7 @@ public interface MediaSourceEventListener {
       @Nullable MediaPeriodId mediaPeriodId,
       LoadEventInfo loadEventInfo,
       MediaLoadData mediaLoadData,
-      int retryCount) {
-    if (retryCount == 0) {
-      onLoadStarted(windowIndex, mediaPeriodId, loadEventInfo, mediaLoadData);
-    }
-  }
+      int retryCount) {}
 
   /**
    * Called when a load ends.

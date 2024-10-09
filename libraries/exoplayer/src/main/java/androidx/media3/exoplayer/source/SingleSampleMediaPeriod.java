@@ -168,8 +168,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         C.SELECTION_REASON_UNKNOWN,
         /* trackSelectionData= */ null,
         /* mediaStartTimeUs= */ 0,
-        durationUs,
-        /* retryCount= */ 0);
+        durationUs);
     return true;
   }
 
@@ -207,6 +206,31 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   // Loader.Callback implementation.
+
+  @Override
+  public void onLoadStarted(SourceLoadable loadable, long elapsedRealtimeMs, long loadDurationMs,
+      int retryCount) {
+    StatsDataSource dataSource = loadable.dataSource;
+    LoadEventInfo loadEventInfo =
+        new LoadEventInfo(
+            loadable.loadTaskId,
+            loadable.dataSpec,
+            dataSource.getLastOpenedUri(),
+            dataSource.getLastResponseHeaders(),
+            elapsedRealtimeMs,
+            loadDurationMs,
+            sampleSize);
+    eventDispatcher.loadStarted(
+        loadEventInfo,
+        C.DATA_TYPE_MEDIA,
+        C.TRACK_TYPE_UNKNOWN,
+        format,
+        C.SELECTION_REASON_UNKNOWN,
+        /* trackSelectionData= */ null,
+        /* mediaStartTimeUs= */ 0,
+        durationUs,
+        retryCount);
+  }
 
   @Override
   public void onLoadCompleted(
