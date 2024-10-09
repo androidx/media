@@ -128,12 +128,12 @@ import java.util.concurrent.Executor;
 
   @Override
   public void setOutputSurfaceInfo(Surface outputSurface, Size outputResolution) {
-    throw new UnsupportedOperationException();
+    videoFrameReleaseControl.setOutputSurface(outputSurface);
   }
 
   @Override
   public void clearOutputSurfaceInfo() {
-    throw new UnsupportedOperationException();
+    videoFrameReleaseControl.setOutputSurface(/* outputSurface= */ null);
   }
 
   @Override

@@ -406,11 +406,16 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
   }
 
   private void maybeSetOutputSurfaceInfo(@Nullable Surface surface, int width, int height) {
-    if (videoGraph != null) {
-      // Update the surface on the video graph and the video frame release control together.
-      SurfaceInfo surfaceInfo = surface != null ? new SurfaceInfo(surface, width, height) : null;
-      videoGraph.setOutputSurfaceInfo(surfaceInfo);
-      videoFrameReleaseControl.setOutputSurface(surface);
+    if (videoGraph == null) {
+      return;
+    }
+    // Update the surface on the video graph and the default video sink together.
+    if (surface != null) {
+      videoGraph.setOutputSurfaceInfo(new SurfaceInfo(surface, width, height));
+      defaultVideoSink.setOutputSurfaceInfo(surface, new Size(width, height));
+    } else {
+      videoGraph.setOutputSurfaceInfo(/* outputSurfaceInfo= */ null);
+      defaultVideoSink.clearOutputSurfaceInfo();
     }
   }
 
