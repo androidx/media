@@ -84,6 +84,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 // LINT.IfChange(javadoc)
@@ -2816,7 +2817,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
     synchronized (lock) {
       return !parameters.constrainAudioChannelCountToDeviceCapabilities
           || deviceIsTV
-          || format.channelCount <= 2
+          || (format.channelCount == Format.NO_VALUE || format.channelCount <= 2)
           || (isDolbyAudio(format)
               && (Util.SDK_INT < 32
                   || spatializer == null
@@ -4198,13 +4199,23 @@ public class DefaultTrackSelector extends MappingTrackSelector
     }
 
     public boolean canBeSpatialized(AudioAttributes audioAttributes, Format format) {
-      // For E-AC3 JOC, the format is object based. When the channel count is 16, this maps to 12
-      // linear channels and the rest are used for objects. See
-      // https://github.com/google/ExoPlayer/pull/10322#discussion_r895265881
-      int linearChannelCount =
-          MimeTypes.AUDIO_E_AC3_JOC.equals(format.sampleMimeType) && format.channelCount == 16
-              ? 12
-              : format.channelCount;
+      int linearChannelCount;
+      if (Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_E_AC3_JOC)
+          && format.channelCount == 16) {
+        // For E-AC3 JOC, the format is object based. When the channel count is 16, this maps to 12
+        // linear channels and the rest are used for objects. See
+        // https://github.com/google/ExoPlayer/pull/10322#discussion_r895265881
+        linearChannelCount = 12;
+      } else if (Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_IAMF)
+          && format.channelCount == Format.NO_VALUE) {
+        // IAMF with no channel count specified, assume 5.1 channels. This depends on
+        // IamfDecoder.SPATIALIZED_OUTPUT_LAYOUT being set to AudioFormat.CHANNEL_OUT_5POINT1. Any
+        // changes to that constant will require updates to this logic.
+        linearChannelCount = 6;
+      } else {
+        linearChannelCount = format.channelCount;
+      }
+
       int channelConfig = Util.getAudioTrackChannelConfig(linearChannelCount);
       if (channelConfig == AudioFormat.CHANNEL_INVALID) {
         return false;
