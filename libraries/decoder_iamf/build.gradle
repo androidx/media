@@ -1,4 +1,4 @@
-// Copyright (C) 2024 The Android Open Source Project
+// Copyright 2024 The Android Open Source Project
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,11 +17,31 @@ android {
     namespace 'androidx.media3.decoder.iamf'
 
     sourceSets {
-        main {
-            jniLibs.srcDir 'src/main/libs'
-            jni.srcDirs = [] // Disable the automatic ndk-build call by Android Studio.
-        }
         androidTest.assets.srcDir '../test_data/src/test/assets'
+    }
+
+    defaultConfig {
+        externalNativeBuild {
+            cmake {
+                targets "iamfJNI"
+            }
+        }
+    }
+}
+
+// Configure the native build only if libiamf is present to avoid gradle sync
+// failures if libiamf hasn't been built according to the README instructions.
+if (project.file('src/main/jni/libiamf').exists()) {
+    android.externalNativeBuild.cmake {
+        path = 'src/main/jni/CMakeLists.txt'
+        version = '3.21.0+'
+        if (project.hasProperty('externalNativeBuildDir')) {
+            if (!new File(externalNativeBuildDir).isAbsolute()) {
+                ext.externalNativeBuildDir =
+                        new File(rootDir, it.externalNativeBuildDir)
+            }
+            buildStagingDirectory = "${externalNativeBuildDir}/${project.name}"
+        }
     }
 }
 

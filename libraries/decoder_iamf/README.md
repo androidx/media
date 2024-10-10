@@ -1,7 +1,7 @@
 # IAMF decoder module
 
-The IAMF module provides `LibiamfAudioRenderer`, which uses libiamf (the IAMF
-decoding library) to decode IAMF audio.
+The IAMF module provides `LibiamfAudioRenderer`, which uses the libiamf native
+library to decode IAMF audio.
 
 ## License note
 
@@ -17,58 +17,33 @@ To use the module you need to clone this GitHub project and depend on its
 modules locally. Instructions for doing this can be found in the
 [top level README][].
 
-In addition, it's necessary to build the module's native components as follows:
+In addition, it's necessary to fetch libiamf as follows:
 
 * Set the following environment variables:
 
 ```
 cd "<path to project checkout>"
-
 IAMF_MODULE_PATH="$(pwd)/libraries/decoder_iamf/src/main"
 ```
 
-*   Download the [Android NDK][] and set its location in an environment
-    variable. This build configuration has been tested on NDK r27.
+* Fetch libiamf:
 
 ```
-NDK_PATH="<path to Android NDK>"
+cd "${IAMF_MODULE_PATH}/jni" && \
+git clone https://github.com/AOMediaCodec/libiamf.git
 ```
 
-*   Fetch libiamf:
+* [Install CMake][]
 
-Clone the repository containing libiamf to a local folder of choice - preferably
-outside of the project checkout. Link it to the project's jni folder through
-symlink.
-
-```
-cd <preferred location for libiamf>
-
-
-git clone https://github.com/AOMediaCodec/libiamf.git libiamf && \
-cd libiamf && \
-LIBIAMF_PATH=$(pwd)
-```
-
-*   Symlink the folder containing libiamf to the project's JNI folder and run
-    the script to convert libiamf code to NDK compatible format:
-
-```
-cd "${IAMF_MODULE_PATH}"/jni && \
-ln -s $LIBIAMF_PATH libiamf && \
-cd libiamf/code &&\
-cmake . && \
-make
-```
-
-* Build the JNI native libraries from the command line:
-
-```
-cd "${IAMF_MODULE_PATH}"/jni && \
-${NDK_PATH}/ndk-build APP_ABI=all -j4
-```
+Having followed these steps, gradle will build the module automatically when run
+on the command line or via Android Studio, using [CMake][] and [Ninja][] to
+configure and build libiamf and the module's [JNI wrapper library][].
 
 [top level README]: ../../README.md
-[Android NDK]: https://developer.android.com/tools/sdk/ndk/index.html
+[Install CMake]: https://developer.android.com/studio/projects/install-ndk
+[CMake]: https://cmake.org/
+[Ninja]: https://ninja-build.org
+[JNI wrapper library]: src/main/jni/iamf_jni.cc
 
 ## Build instructions (Windows)
 
@@ -76,13 +51,6 @@ We do not provide support for building this module on Windows, however it should
 be possible to follow the Linux instructions in [Windows PowerShell][].
 
 [Windows PowerShell]: https://docs.microsoft.com/en-us/powershell/scripting/getting-started/getting-started-with-windows-powershell
-
-## Notes
-
-*   Every time there is a change to the libiamf checkout clean and re-build the
-    project.
-*   If you want to use your own version of libiamf, place it in
-    `${IAMF_MODULE_PATH}/jni/libiamf`.
 
 ## Using the module with ExoPlayer
 
