@@ -1,7 +1,7 @@
 # Opus decoder module
 
-The Opus module provides `LibopusAudioRenderer`, which uses libopus (the Opus
-decoding library) to decode Opus audio.
+The Opus module provides `LibopusAudioRenderer`, which uses the libopus native
+library to decode Opus audio.
 
 ## License note
 
@@ -17,20 +17,13 @@ To use the module you need to clone this GitHub project and depend on its
 modules locally. Instructions for doing this can be found in the
 [top level README][].
 
-In addition, it's necessary to build the module's native components as follows:
+In addition, it's necessary to fetch libopus as follows:
 
 * Set the following environment variables:
 
 ```
 cd "<path to project checkout>"
 OPUS_MODULE_PATH="$(pwd)/libraries/decoder_opus/src/main"
-```
-
-* Download the [Android NDK][] and set its location in an environment variable.
-  This build configuration has been tested on NDK r21.
-
-```
-NDK_PATH="<path to Android NDK>"
 ```
 
 * Fetch libopus:
@@ -40,21 +33,17 @@ cd "${OPUS_MODULE_PATH}/jni" && \
 git clone https://gitlab.xiph.org/xiph/opus.git libopus
 ```
 
-* Run the script to convert arm assembly to NDK compatible format:
+* [Install CMake][]
 
-```
-cd ${OPUS_MODULE_PATH}/jni && ./convert_android_asm.sh
-```
-
-* Build the JNI native libraries from the command line:
-
-```
-cd "${OPUS_MODULE_PATH}"/jni && \
-${NDK_PATH}/ndk-build APP_ABI=all -j4
-```
+Having followed these steps, gradle will build the module automatically when run
+on the command line or via Android Studio, using [CMake][] and [Ninja][] to
+configure and build libopus and the module's [JNI wrapper library][].
 
 [top level README]: ../../README.md
-[Android NDK]: https://developer.android.com/tools/sdk/ndk/index.html
+[Install CMake]: https://developer.android.com/studio/projects/install-ndk
+[CMake]: https://cmake.org/
+[Ninja]: https://ninja-build.org
+[JNI wrapper library]: src/main/jni/opus_jni.cc
 
 ## Build instructions (Windows)
 
@@ -62,14 +51,6 @@ We do not provide support for building this module on Windows, however it should
 be possible to follow the Linux instructions in [Windows PowerShell][].
 
 [Windows PowerShell]: https://docs.microsoft.com/en-us/powershell/scripting/getting-started/getting-started-with-windows-powershell
-
-## Notes
-
-* Every time there is a change to the libopus checkout:
-  * Arm assembly should be converted by running `convert_android_asm.sh`
-  * Clean and re-build the project.
-* If you want to use your own version of libopus, place it in
-  `${OPUS_MODULE_PATH}/jni/libopus`.
 
 ## Using the module with ExoPlayer
 
