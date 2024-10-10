@@ -898,7 +898,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         ByteBuffer.allocate(
             2 * BYTES_PER_INTEGER + 2 * compositionOffsets.size() * BYTES_PER_INTEGER);
 
-    contents.putInt(1); // version and flags.
+    int versionAndFlags = 1 << 24; // version (value 1, 8 bits) + flag (value 0, 24 bits)
+    contents.putInt(versionAndFlags);
 
     // Total entry count is known only after processing all the composition offsets, so put in
     // a placeholder for total entry count and store its index.
