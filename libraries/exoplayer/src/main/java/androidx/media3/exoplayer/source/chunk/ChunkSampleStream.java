@@ -45,6 +45,7 @@ import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.LoadErrorInfo;
 import androidx.media3.exoplayer.upstream.Loader;
 import androidx.media3.exoplayer.upstream.Loader.LoadErrorAction;
+import androidx.media3.exoplayer.util.ReleasableExecutor;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -119,6 +120,8 @@ public class ChunkSampleStream<T extends ChunkSource>
    *     events.
    * @param canReportInitialDiscontinuity Whether the stream can report an initial discontinuity if
    *     the first chunk can't start at the beginning and needs to preroll data.
+   * @param downloadExecutor An optional externally provided {@link ReleasableExecutor} for loading
+   *     and extracting media.
    */
   public ChunkSampleStream(
       @C.TrackType int primaryTrackType,
@@ -132,7 +135,8 @@ public class ChunkSampleStream<T extends ChunkSource>
       DrmSessionEventListener.EventDispatcher drmEventDispatcher,
       LoadErrorHandlingPolicy loadErrorHandlingPolicy,
       MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
-      boolean canReportInitialDiscontinuity) {
+      boolean canReportInitialDiscontinuity,
+      @Nullable ReleasableExecutor downloadExecutor) {
     this.primaryTrackType = primaryTrackType;
     this.embeddedTrackTypes = embeddedTrackTypes == null ? new int[0] : embeddedTrackTypes;
     this.embeddedTrackFormats = embeddedTrackFormats == null ? new Format[0] : embeddedTrackFormats;
@@ -141,7 +145,8 @@ public class ChunkSampleStream<T extends ChunkSource>
     this.mediaSourceEventDispatcher = mediaSourceEventDispatcher;
     this.loadErrorHandlingPolicy = loadErrorHandlingPolicy;
     this.canReportInitialDiscontinuity = canReportInitialDiscontinuity;
-    loader = new Loader("ChunkSampleStream");
+    loader =
+        downloadExecutor != null ? new Loader(downloadExecutor) : new Loader("ChunkSampleStream");
     nextChunkHolder = new ChunkHolder();
     mediaChunks = new ArrayList<>();
     readOnlyMediaChunks = Collections.unmodifiableList(mediaChunks);

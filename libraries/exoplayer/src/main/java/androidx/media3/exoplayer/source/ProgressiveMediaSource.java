@@ -24,6 +24,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
@@ -34,10 +35,13 @@ import androidx.media3.exoplayer.drm.DrmSessionManagerProvider;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
+import androidx.media3.exoplayer.util.ReleasableExecutor;
 import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorsFactory;
+import com.google.common.base.Supplier;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.concurrent.Executor;
 
 /**
  * Provides one period that loads data from a {@link Uri} and extracted using an {@link Extractor}.
@@ -64,6 +68,7 @@ public final class ProgressiveMediaSource extends BaseMediaSource
     private DrmSessionManagerProvider drmSessionManagerProvider;
     private LoadErrorHandlingPolicy loadErrorHandlingPolicy;
     private int continueLoadingCheckIntervalBytes;
+    @Nullable private Supplier<ReleasableExecutor> downloadExecutor;
 
     /**
      * Creates a new factory for {@link ProgressiveMediaSource}s.
@@ -198,6 +203,23 @@ public final class ProgressiveMediaSource extends BaseMediaSource
     }
 
     /**
+     * Sets a supplier for an {@link Executor} that is used for loading the media.
+     *
+     * @param downloadExecutor A {@link Supplier} that provides an externally managed {@link
+     *     Executor} for downloading and extraction.
+     * @param downloadExecutorReleaser A callback triggered once a load task is finished and a
+     *     supplied executor is no longer required.
+     * @return This factory, for convenience.
+     */
+    @CanIgnoreReturnValue
+    public <T extends Executor> Factory setDownloadExecutor(
+        Supplier<T> downloadExecutor, Consumer<T> downloadExecutorReleaser) {
+      this.downloadExecutor =
+          () -> ReleasableExecutor.from(downloadExecutor.get(), downloadExecutorReleaser);
+      return this;
+    }
+
+    /**
      * Returns a new {@link ProgressiveMediaSource} using the current parameters.
      *
      * @param mediaItem The {@link MediaItem}.
@@ -213,7 +235,8 @@ public final class ProgressiveMediaSource extends BaseMediaSource
           progressiveMediaExtractorFactory,
           drmSessionManagerProvider.get(mediaItem),
           loadErrorHandlingPolicy,
-          continueLoadingCheckIntervalBytes);
+          continueLoadingCheckIntervalBytes,
+          downloadExecutor);
     }
 
     @Override
@@ -233,12 +256,14 @@ public final class ProgressiveMediaSource extends BaseMediaSource
   private final DrmSessionManager drmSessionManager;
   private final LoadErrorHandlingPolicy loadableLoadErrorHandlingPolicy;
   private final int continueLoadingCheckIntervalBytes;
+
+  @Nullable private final Supplier<ReleasableExecutor> downloadExecutor;
+
   private boolean timelineIsPlaceholder;
   private long timelineDurationUs;
   private boolean timelineIsSeekable;
   private boolean timelineIsLive;
   @Nullable private TransferListener transferListener;
-
   @GuardedBy("this")
   private MediaItem mediaItem;
 
@@ -248,7 +273,8 @@ public final class ProgressiveMediaSource extends BaseMediaSource
       ProgressiveMediaExtractor.Factory progressiveMediaExtractorFactory,
       DrmSessionManager drmSessionManager,
       LoadErrorHandlingPolicy loadableLoadErrorHandlingPolicy,
-      int continueLoadingCheckIntervalBytes) {
+      int continueLoadingCheckIntervalBytes,
+      @Nullable Supplier<ReleasableExecutor> downloadExecutor) {
     this.mediaItem = mediaItem;
     this.dataSourceFactory = dataSourceFactory;
     this.progressiveMediaExtractorFactory = progressiveMediaExtractorFactory;
@@ -257,6 +283,7 @@ public final class ProgressiveMediaSource extends BaseMediaSource
     this.continueLoadingCheckIntervalBytes = continueLoadingCheckIntervalBytes;
     this.timelineIsPlaceholder = true;
     this.timelineDurationUs = C.TIME_UNSET;
+    this.downloadExecutor = downloadExecutor;
   }
 
   @Override
@@ -312,7 +339,8 @@ public final class ProgressiveMediaSource extends BaseMediaSource
         allocator,
         localConfiguration.customCacheKey,
         continueLoadingCheckIntervalBytes,
-        Util.msToUs(localConfiguration.imageDurationMs));
+        Util.msToUs(localConfiguration.imageDurationMs),
+        downloadExecutor != null ? downloadExecutor.get() : null);
   }
 
   @Override
