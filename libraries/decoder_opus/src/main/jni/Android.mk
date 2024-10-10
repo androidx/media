@@ -30,4 +30,6 @@ LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := opus_jni.cc
 LOCAL_LDLIBS := -llog -lz -lm
 LOCAL_STATIC_LIBRARIES := libopus
+# Enable 16 KB ELF alignment.
+LOCAL_LDFLAGS += "-Wl,-z,max-page-size=16384"
 include $(BUILD_SHARED_LIBRARY)

@@ -145,6 +145,8 @@
     *   Fix user info removal for URLs that contain encoded @ characters
         ([#1138](https://github.com/androidx/media/pull/1138)).
 *   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
+    *   Add 16 KB page support for decoder extensions on Android 15
+        ([#1685](https://github.com/androidx/media/issues/1685)).
 *   MIDI extension:
 *   Leanback extension:
 *   Cast Extension:

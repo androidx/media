@@ -23,6 +23,14 @@ android {
         }
         androidTest.assets.srcDir '../test_data/src/test/assets'
     }
+
+    // TODO(Internal: b/372449691): Remove packagingOptions once AGP is updated
+    // to version 8.5.1 or higher.
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging true
+        }
+    }
 }
 
 dependencies {

@@ -35,4 +35,6 @@ LOCAL_CFLAGS += -D_REENTRANT -DPIC -DU_COMMON_IMPLEMENTATION -fPIC -DHAVE_SYS_PA
 LOCAL_CFLAGS += -O3 -funroll-loops -finline-functions -DFLAC__NO_ASM '-DFLAC__HAS_OGG=0'
 
 LOCAL_LDLIBS := -llog -lz -lm
+# Enable 16 KB ELF alignment.
+LOCAL_LDFLAGS += "-Wl,-z,max-page-size=16384"
 include $(BUILD_SHARED_LIBRARY)
