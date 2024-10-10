@@ -1001,7 +1001,13 @@ public final class BoxParser {
           || childAtomType == Mp4Box.TYPE_dvav
           || childAtomType == Mp4Box.TYPE_dva1
           || childAtomType == Mp4Box.TYPE_dvhe
-          || childAtomType == Mp4Box.TYPE_dvh1) {
+          || childAtomType == Mp4Box.TYPE_dvh1
+          || childAtomType == Mp4Box.TYPE_ap4x
+          || childAtomType == Mp4Box.TYPE_ap4h
+          || childAtomType == Mp4Box.TYPE_apch
+          || childAtomType == Mp4Box.TYPE_apcn
+          || childAtomType == Mp4Box.TYPE_apcs
+          || childAtomType == Mp4Box.TYPE_apco) {
         parseVideoSampleEntry(
             stsd,
             childAtomType,
@@ -1167,6 +1173,10 @@ public final class BoxParser {
       mimeType = MimeTypes.VIDEO_MPEG;
     } else if (atomType == Mp4Box.TYPE_H263) {
       mimeType = MimeTypes.VIDEO_H263;
+    } else if (atomType == Mp4Box.TYPE_ap4x || atomType == Mp4Box.TYPE_ap4h
+            || atomType == Mp4Box.TYPE_apch || atomType == Mp4Box.TYPE_apcn
+            || atomType == Mp4Box.TYPE_apcs || atomType == Mp4Box.TYPE_apco) {
+      mimeType = MimeTypes.VIDEO_ProRes;
     }
 
     @Nullable List<byte[]> initializationData = null;
