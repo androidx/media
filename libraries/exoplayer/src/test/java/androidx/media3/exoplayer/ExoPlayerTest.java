@@ -161,10 +161,13 @@ import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.source.WrappingMediaSource;
 import androidx.media3.exoplayer.source.ads.ServerSideAdInsertionMediaSource;
 import androidx.media3.exoplayer.text.TextOutput;
+import androidx.media3.exoplayer.trackselection.AdaptiveTrackSelection;
+import androidx.media3.exoplayer.trackselection.AdaptiveTrackSelection.AdaptationCheckpoint;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.upstream.Allocation;
 import androidx.media3.exoplayer.upstream.Allocator;
+import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.upstream.Loader;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.extractor.metadata.id3.BinaryFrame;
@@ -16170,6 +16173,112 @@ public class ExoPlayerTest {
 
     assertThat(deviceInfoChanged.get()).isFalse();
     assertThat(deviceVolumeChanged.get()).isFalse();
+  }
+
+  @Test
+  public void playWhenReadyChanges_areForwardedToTrackSelection() throws Exception {
+    // Create player with adaptive track selection override to see reported playWhenReady changes.
+    ArrayList<Boolean> reportedPlayWhenReadyChanges = new ArrayList<>();
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setTrackSelector(
+                new DefaultTrackSelector(
+                    context,
+                    new AdaptiveTrackSelection.Factory() {
+                      @Override
+                      protected AdaptiveTrackSelection createAdaptiveTrackSelection(
+                          TrackGroup group,
+                          int[] tracks,
+                          int type,
+                          BandwidthMeter bandwidthMeter,
+                          ImmutableList<AdaptationCheckpoint> adaptationCheckpoints) {
+                        return new AdaptiveTrackSelection(group, tracks, bandwidthMeter) {
+                          @Override
+                          public void onPlayWhenReadyChanged(boolean playWhenReady) {
+                            super.onPlayWhenReadyChanged(playWhenReady);
+                            reportedPlayWhenReadyChanges.add(playWhenReady);
+                          }
+                        };
+                      }
+                    }))
+            .build();
+    // Play an adaptive stream to ensure we use the adaptive track selection above.
+    player.setMediaSource(
+        new FakeAdaptiveMediaSource(
+            new FakeTimeline(),
+            new TrackGroupArray(
+                new TrackGroup(
+                    ExoPlayerTestRunner.VIDEO_FORMAT.buildUpon().setAverageBitrate(400).build(),
+                    ExoPlayerTestRunner.VIDEO_FORMAT.buildUpon().setAverageBitrate(200).build())),
+            new FakeChunkSource.Factory(
+                new FakeAdaptiveDataSet.Factory(
+                    /* chunkDurationUs= */ 500_000,
+                    /* bitratePercentStdDev= */ 10.0,
+                    new Random(0)),
+                new FakeDataSource.Factory())));
+
+    player.setPlayWhenReady(true);
+    player.prepare();
+    run(player).untilState(Player.STATE_READY);
+    player.setPlayWhenReady(false);
+    player.setPlayWhenReady(true);
+    run(player).untilPendingCommandsAreFullyHandled();
+    player.release();
+
+    assertThat(reportedPlayWhenReadyChanges).containsExactly(true, false, true).inOrder();
+  }
+
+  @Test
+  public void playbackSpeedChanges_areForwardedToTrackSelection() throws Exception {
+    // Create player with adaptive track selection override to see reported speed changes.
+    ArrayList<Float> reportedSpeedChanges = new ArrayList<>();
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setTrackSelector(
+                new DefaultTrackSelector(
+                    context,
+                    new AdaptiveTrackSelection.Factory() {
+                      @Override
+                      protected AdaptiveTrackSelection createAdaptiveTrackSelection(
+                          TrackGroup group,
+                          int[] tracks,
+                          int type,
+                          BandwidthMeter bandwidthMeter,
+                          ImmutableList<AdaptationCheckpoint> adaptationCheckpoints) {
+                        return new AdaptiveTrackSelection(group, tracks, bandwidthMeter) {
+                          @Override
+                          public void onPlaybackSpeed(float playbackSpeed) {
+                            super.onPlaybackSpeed(playbackSpeed);
+                            reportedSpeedChanges.add(playbackSpeed);
+                          }
+                        };
+                      }
+                    }))
+            .build();
+    // Play an adaptive stream to ensure we use the adaptive track selection above.
+    player.setMediaSource(
+        new FakeAdaptiveMediaSource(
+            new FakeTimeline(),
+            new TrackGroupArray(
+                new TrackGroup(
+                    ExoPlayerTestRunner.VIDEO_FORMAT.buildUpon().setAverageBitrate(400).build(),
+                    ExoPlayerTestRunner.VIDEO_FORMAT.buildUpon().setAverageBitrate(200).build())),
+            new FakeChunkSource.Factory(
+                new FakeAdaptiveDataSet.Factory(
+                    /* chunkDurationUs= */ 500_000,
+                    /* bitratePercentStdDev= */ 10.0,
+                    new Random(0)),
+                new FakeDataSource.Factory())));
+
+    player.setPlaybackSpeed(2f);
+    player.prepare();
+    run(player).untilState(Player.STATE_READY);
+    player.setPlaybackSpeed(1.5f);
+    player.setPlaybackSpeed(1f);
+    run(player).untilPendingCommandsAreFullyHandled();
+    player.release();
+
+    assertThat(reportedSpeedChanges).containsExactly(2f, 1.5f, 1f).inOrder();
   }
 
   // Internal methods.
