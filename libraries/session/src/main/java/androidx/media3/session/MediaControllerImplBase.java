@@ -216,6 +216,11 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   }
 
   @Override
+  public Bundle getConnectionHints() {
+    return connectionHints;
+  }
+
+  @Override
   public void addListener(Listener listener) {
     listeners.add(listener);
   }

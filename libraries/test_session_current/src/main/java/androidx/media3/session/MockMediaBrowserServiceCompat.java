@@ -40,7 +40,9 @@ import static java.lang.Math.min;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.os.RemoteException;
 import android.support.v4.media.MediaBrowserCompat;
 import android.support.v4.media.MediaBrowserCompat.MediaItem;
@@ -67,6 +69,13 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
    * MediaBrowserServiceCompatConstants#TEST_GET_CHILDREN}.
    */
   public static final ImmutableList<MediaItem> MEDIA_ITEMS = createMediaItems();
+
+  /**
+   * Key in the browser root hints to request a confirmation of the call to {@link
+   * #onGetRoot(String, int, Bundle)}.
+   */
+  public static final String EXTRAS_KEY_SEND_ROOT_HINTS_AS_SESSION_EXTRAS =
+      "confirm_on_get_root_with_custom_action";
 
   private static final String TAG = "MockMBSCompat";
   private static final Object lock = new Object();
@@ -166,12 +175,18 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
       // Test only -- reject any other request.
       return null;
     }
+    if (rootHints.getBoolean(EXTRAS_KEY_SEND_ROOT_HINTS_AS_SESSION_EXTRAS, false)) {
+      // Send delayed because the Media3 browser is in the process of connecting at this point and
+      // won't receive listener callbacks before being connected.
+      new Handler(Looper.myLooper())
+          .postDelayed(() -> sessionCompat.setExtras(rootHints), /* delayMillis= */ 100L);
+    }
     synchronized (lock) {
       if (isProxyOverridesMethod("onGetRoot")) {
         return serviceProxy.onGetRoot(clientPackageName, clientUid, rootHints);
       }
     }
-    return new BrowserRoot("stub", null);
+    return new BrowserRoot("stub", /* extras= */ rootHints);
   }
 
   @Override

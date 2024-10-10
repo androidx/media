@@ -112,6 +112,10 @@
     *   Fix bug where a Media3 controller was sometimes unable to let a session
         app start a foreground service after requesting `play()`.
     *   Restrict `CommandButton.Builder.setIconUri` to only accept content Uris.
+    *   Pass connection hints of a Media3 browser to the initial
+        `MediaBrowserCompat` when connecting to a legacy `MediaBrowserCompat`.
+        The service can receive the connection hints passed in as root hints
+        with the first call to `onGetRoot()`.
 *   UI:
     *   Make the stretched/cropped video in
         `PlayerView`-in-Compose-`AndroidView` workaround opt-in, due to issues

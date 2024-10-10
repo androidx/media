@@ -568,7 +568,7 @@ public class MediaController implements Player {
       @Nullable BitmapLoader bitmapLoader) {
     if (token.isLegacySession()) {
       return new MediaControllerImplLegacy(
-          context, this, token, applicationLooper, checkNotNull(bitmapLoader));
+          context, this, token, connectionHints, applicationLooper, checkNotNull(bitmapLoader));
     } else {
       return new MediaControllerImplBase(context, this, token, connectionHints, applicationLooper);
     }
@@ -2073,6 +2073,10 @@ public class MediaController implements Player {
     return impl.getBinder();
   }
 
+  /* package */ Bundle getConnectionHints() {
+    return impl.getConnectionHints();
+  }
+
   private void verifyApplicationThread() {
     checkState(Looper.myLooper() == getApplicationLooper(), WRONG_THREAD_ERROR_MESSAGE);
   }
@@ -2080,6 +2084,8 @@ public class MediaController implements Player {
   /* package */ interface MediaControllerImpl {
 
     void connect(@UnderInitialization MediaControllerImpl this);
+
+    Bundle getConnectionHints();
 
     void addListener(Player.Listener listener);
 

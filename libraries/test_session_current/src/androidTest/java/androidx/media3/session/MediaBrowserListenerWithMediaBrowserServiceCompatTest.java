@@ -19,6 +19,7 @@ import static androidx.media3.session.LibraryResult.RESULT_SUCCESS;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_COMPLETION_STATUS;
 import static androidx.media3.session.MediaConstants.EXTRAS_VALUE_COMPLETION_STATUS_PARTIALLY_PLAYED;
 import static androidx.media3.session.MediaConstants.EXTRA_KEY_ROOT_CHILDREN_BROWSABLE_ONLY;
+import static androidx.media3.session.MockMediaBrowserServiceCompat.EXTRAS_KEY_SEND_ROOT_HINTS_AS_SESSION_EXTRAS;
 import static androidx.media3.test.session.common.CommonConstants.MOCK_MEDIA_BROWSER_SERVICE_COMPAT;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID;
 import static androidx.media3.test.session.common.MediaBrowserConstants.ROOT_EXTRAS_KEY;
@@ -134,6 +135,33 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
     ExecutionException thrown =
         assertThrows(ExecutionException.class, () -> createBrowser(/* listener= */ null));
     assertThat(thrown).hasCauseThat().isInstanceOf(SecurityException.class);
+  }
+
+  @Test
+  public void connect_useConnectionHints_connectionHintsPassedToLegacyServerOnGetRootAsRootHints()
+      throws Exception {
+    Bundle connectionHints = new Bundle();
+    connectionHints.putBoolean(EXTRAS_KEY_SEND_ROOT_HINTS_AS_SESSION_EXTRAS, true);
+    CountDownLatch latch = new CountDownLatch(/* count= */ 1);
+    AtomicReference<Bundle> extrasRef = new AtomicReference<>();
+    createBrowser(
+        connectionHints,
+        /* maxCommandsForMediaItems= */ 0,
+        /* listener= */ new MediaBrowser.Listener() {
+          @Override
+          public void onExtrasChanged(MediaController controller, Bundle extras) {
+            extrasRef.set(extras);
+            latch.countDown();
+          }
+        });
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(
+            extrasRef
+                .get()
+                .getBoolean(
+                    EXTRAS_KEY_SEND_ROOT_HINTS_AS_SESSION_EXTRAS, /* defaultValue= */ false))
+        .isTrue();
   }
 
   @Test

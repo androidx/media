@@ -62,9 +62,10 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       Context context,
       @UnderInitialization MediaBrowser instance,
       SessionToken token,
+      Bundle connectionHints,
       Looper applicationLooper,
       BitmapLoader bitmapLoader) {
-    super(context, instance, token, applicationLooper, bitmapLoader);
+    super(context, instance, token, connectionHints, applicationLooper, bitmapLoader);
     this.instance = instance;
     commandButtonsForMediaItems = ImmutableMap.of();
   }

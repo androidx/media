@@ -102,6 +102,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   private final ControllerCompatCallback controllerCompatCallback;
   private final BitmapLoader bitmapLoader;
   private final ImmutableList<CommandButton> commandButtonsForMediaItems;
+  private final Bundle connectionHints;
 
   @Nullable private MediaControllerCompat controllerCompat;
   @Nullable private MediaBrowserCompat browserCompat;
@@ -117,6 +118,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       Context context,
       @UnderInitialization MediaController instance,
       SessionToken token,
+      Bundle connectionHints,
       Looper applicationLooper,
       BitmapLoader bitmapLoader) {
     // Initialize default values.
@@ -134,6 +136,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     this.instance = instance;
     controllerCompatCallback = new ControllerCompatCallback(applicationLooper);
     this.token = token;
+    this.connectionHints = connectionHints;
     this.bitmapLoader = bitmapLoader;
     currentPositionMs = C.TIME_UNSET;
     lastSetPlayWhenReadyCalledTimeMs = C.TIME_UNSET;
@@ -152,6 +155,11 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     } else {
       connectToService();
     }
+  }
+
+  @Override
+  public Bundle getConnectionHints() {
+    return connectionHints;
   }
 
   @Override
@@ -1410,7 +1418,10 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
               // Create it on the application looper to respect that.
               browserCompat =
                   new MediaBrowserCompat(
-                      context, token.getComponentName(), new ConnectionCallback(), null);
+                      context,
+                      token.getComponentName(),
+                      new ConnectionCallback(),
+                      instance.getConnectionHints());
               browserCompat.connect();
             });
   }

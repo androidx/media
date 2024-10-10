@@ -292,7 +292,7 @@ public final class MediaBrowser extends MediaController {
     if (token.isLegacySession()) {
       impl =
           new MediaBrowserImplLegacy(
-              context, this, token, applicationLooper, checkNotNull(bitmapLoader));
+              context, this, token, connectionHints, applicationLooper, checkNotNull(bitmapLoader));
     } else {
       impl = new MediaBrowserImplBase(context, this, token, connectionHints, applicationLooper);
     }
