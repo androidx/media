@@ -115,23 +115,23 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
 
   @Override
   public void queueInput(ByteBuffer inputBuffer) {
-    long timeUs =
+    long currentTimeUs =
         Util.scaleLargeTimestamp(
             /* timestamp= */ bytesRead,
             /* multiplier= */ C.MICROS_PER_SECOND,
             /* divisor= */ (long) inputAudioFormat.sampleRate * inputAudioFormat.bytesPerFrame);
-    float newSpeed = speedProvider.getSpeed(timeUs);
+    float newSpeed = speedProvider.getSpeed(currentTimeUs);
 
-    updateSpeed(newSpeed, timeUs);
+    updateSpeed(newSpeed, currentTimeUs);
 
     int inputBufferLimit = inputBuffer.limit();
-    long nextSpeedChangeTimeUs = speedProvider.getNextSpeedChangeTimeUs(timeUs);
+    long nextSpeedChangeTimeUs = speedProvider.getNextSpeedChangeTimeUs(currentTimeUs);
     int bytesToNextSpeedChange;
     if (nextSpeedChangeTimeUs != C.TIME_UNSET) {
       bytesToNextSpeedChange =
           (int)
               Util.scaleLargeValue(
-                  /* timestamp= */ nextSpeedChangeTimeUs - timeUs,
+                  /* timestamp */ nextSpeedChangeTimeUs - currentTimeUs,
                   /* multiplier= */ (long) inputAudioFormat.sampleRate
                       * inputAudioFormat.bytesPerFrame,
                   /* divisor= */ C.MICROS_PER_SECOND,
