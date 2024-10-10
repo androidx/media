@@ -255,6 +255,21 @@ public final class DefaultHlsPlaylistTracker
   // Loader.Callback implementation.
 
   @Override
+  public void onLoadStarted(
+      ParsingLoadable<HlsPlaylist> loadable,
+      long elapsedRealtimeMs,
+      long loadDurationMs,
+      int retryCount) {
+    eventDispatcher.loadStarted(
+        new LoadEventInfo(
+            loadable.loadTaskId,
+            loadable.dataSpec,
+            elapsedRealtimeMs),
+        loadable.type,
+        retryCount);
+  }
+
+  @Override
   public void onLoadCompleted(
       ParsingLoadable<HlsPlaylist> loadable, long elapsedRealtimeMs, long loadDurationMs) {
     HlsPlaylist result = loadable.getResult();

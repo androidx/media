@@ -32,6 +32,7 @@ import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_LOAD_C
 import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_LOAD_ERROR;
 import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_LOAD_STARTED;
 import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_MEDIA_ITEM_TRANSITION;
+import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_ON_LOAD_STARTED;
 import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_PLAYBACK_PARAMETERS_CHANGED;
 import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_PLAYBACK_STATE_CHANGED;
 import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_PLAYER_ERROR;
@@ -132,6 +133,7 @@ import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -264,6 +266,9 @@ public final class DefaultAnalyticsCollectorTest {
     assertThat(listener.getEvents(EVENT_LOAD_STARTED))
         .containsExactly(WINDOW_0 /* manifest */, period0 /* media */)
         .inOrder();
+    assertThat(listener.getEvents(EVENT_ON_LOAD_STARTED))
+        .containsExactly(WINDOW_0 /* manifest */, period0 /* media */)
+        .inOrder();
     assertThat(listener.getEvents(EVENT_LOAD_COMPLETED))
         .containsExactly(WINDOW_0 /* manifest */, period0 /* media */)
         .inOrder();
@@ -327,6 +332,13 @@ public final class DefaultAnalyticsCollectorTest {
         .containsExactly(period0, period1)
         .inOrder();
     assertThat(listener.getEvents(EVENT_LOAD_STARTED))
+        .containsExactly(
+            WINDOW_0 /* manifest */,
+            WINDOW_1 /* manifest */,
+            period0 /* media */,
+            period1 /* media */)
+        .inOrder();
+    assertThat(listener.getEvents(EVENT_ON_LOAD_STARTED))
         .containsExactly(
             WINDOW_0 /* manifest */,
             WINDOW_1 /* manifest */,
@@ -411,6 +423,13 @@ public final class DefaultAnalyticsCollectorTest {
             period0 /* media */,
             period1 /* media */)
         .inOrder();
+    assertThat(listener.getEvents(EVENT_ON_LOAD_STARTED))
+        .containsExactly(
+            WINDOW_0 /* manifest */,
+            WINDOW_1 /* manifest */,
+            period0 /* media */,
+            period1 /* media */)
+        .inOrder();
     assertThat(listener.getEvents(EVENT_LOAD_COMPLETED))
         .containsExactly(
             WINDOW_0 /* manifest */,
@@ -487,6 +506,13 @@ public final class DefaultAnalyticsCollectorTest {
         .containsExactly(period0, period1, period1)
         .inOrder();
     assertThat(listener.getEvents(EVENT_LOAD_STARTED))
+        .containsExactly(
+            WINDOW_0 /* manifest */,
+            WINDOW_1 /* manifest */,
+            period0 /* media */,
+            period1 /* media */)
+        .inOrder();
+    assertThat(listener.getEvents(EVENT_ON_LOAD_STARTED))
         .containsExactly(
             WINDOW_0 /* manifest */,
             WINDOW_1 /* manifest */,
@@ -583,6 +609,14 @@ public final class DefaultAnalyticsCollectorTest {
         .containsExactly(period0, period1Seq2)
         .inOrder();
     assertThat(listener.getEvents(EVENT_LOAD_STARTED))
+        .containsExactly(
+            WINDOW_0 /* manifest */,
+            WINDOW_1 /* manifest */,
+            period0 /* media */,
+            period1Seq1 /* media */,
+            period1Seq2 /* media */)
+        .inOrder();
+    assertThat(listener.getEvents(EVENT_ON_LOAD_STARTED))
         .containsExactly(
             WINDOW_0 /* manifest */,
             WINDOW_1 /* manifest */,
@@ -709,6 +743,13 @@ public final class DefaultAnalyticsCollectorTest {
             WINDOW_0 /* manifest */,
             period0Seq1 /* media */)
         .inOrder();
+    assertThat(listener.getEvents(EVENT_ON_LOAD_STARTED))
+        .containsExactly(
+            WINDOW_0 /* manifest */,
+            period0Seq0 /* media */,
+            WINDOW_0 /* manifest */,
+            period0Seq1 /* media */)
+        .inOrder();
     assertThat(listener.getEvents(EVENT_LOAD_COMPLETED))
         .containsExactly(
             WINDOW_0 /* manifest */,
@@ -803,6 +844,13 @@ public final class DefaultAnalyticsCollectorTest {
             WINDOW_0 /* manifest */,
             period0Seq0 /* media */)
         .inOrder();
+    assertThat(listener.getEvents(EVENT_ON_LOAD_STARTED))
+        .containsExactly(
+            WINDOW_0 /* manifest */,
+            period0Seq0 /* media */,
+            WINDOW_0 /* manifest */,
+            period0Seq0 /* media */)
+        .inOrder();
     assertThat(listener.getEvents(EVENT_LOAD_COMPLETED))
         .containsExactly(
             WINDOW_0 /* manifest */,
@@ -872,6 +920,10 @@ public final class DefaultAnalyticsCollectorTest {
         .containsExactly(window0Period1Seq0, window0Period1Seq0, period1Seq0, period1Seq0);
     assertThat(listener.getEvents(EVENT_TRACKS_CHANGED)).containsExactly(window0Period1Seq0);
     assertThat(listener.getEvents(EVENT_LOAD_STARTED))
+        .containsExactly(
+            WINDOW_0 /* manifest */, window0Period1Seq0 /* media */, window1Period0Seq1 /* media */)
+        .inOrder();
+    assertThat(listener.getEvents(EVENT_ON_LOAD_STARTED))
         .containsExactly(
             WINDOW_0 /* manifest */, window0Period1Seq0 /* media */, window1Period0Seq1 /* media */)
         .inOrder();
@@ -971,6 +1023,9 @@ public final class DefaultAnalyticsCollectorTest {
         .containsExactly(period0Seq0, period0Seq1, period0Seq1)
         .inOrder();
     assertThat(listener.getEvents(EVENT_LOAD_STARTED))
+        .containsExactly(WINDOW_0 /* manifest */, period0Seq0 /* media */, period1Seq1 /* media */)
+        .inOrder();
+    assertThat(listener.getEvents(EVENT_ON_LOAD_STARTED))
         .containsExactly(WINDOW_0 /* manifest */, period0Seq0 /* media */, period1Seq1 /* media */)
         .inOrder();
     assertThat(listener.getEvents(EVENT_LOAD_COMPLETED))
@@ -1178,6 +1233,16 @@ public final class DefaultAnalyticsCollectorTest {
             postrollAd,
             contentAfterPostroll)
         .inOrder();
+    assertThat(listener.getEvents(EVENT_ON_LOAD_STARTED))
+        .containsExactly(
+            WINDOW_0 /* content manifest */,
+            prerollAd,
+            contentAfterPreroll,
+            midrollAd,
+            contentAfterMidroll,
+            postrollAd,
+            contentAfterPostroll)
+        .inOrder();
     assertThat(listener.getEvents(EVENT_LOAD_COMPLETED))
         .containsExactly(
             WINDOW_0 /* content manifest */,
@@ -1330,6 +1395,14 @@ public final class DefaultAnalyticsCollectorTest {
     assertThat(listener.getEvents(EVENT_TRACKS_CHANGED))
         .containsExactly(contentBeforeMidroll, midrollAd, contentAfterMidroll);
     assertThat(listener.getEvents(EVENT_LOAD_STARTED))
+        .containsExactly(
+            WINDOW_0 /* content manifest */,
+            contentBeforeMidroll,
+            midrollAd,
+            contentAfterMidroll,
+            contentAfterMidroll)
+        .inOrder();
+    assertThat(listener.getEvents(EVENT_ON_LOAD_STARTED))
         .containsExactly(
             WINDOW_0 /* content manifest */,
             contentBeforeMidroll,
@@ -1716,6 +1789,10 @@ public final class DefaultAnalyticsCollectorTest {
         ArgumentCaptor.forClass(AnalyticsListener.EventTime.class);
     verify(listener, atLeastOnce())
         .onLoadStarted(individualLoadStartedEventTimes.capture(), any(), any());
+    ArgumentCaptor<AnalyticsListener.EventTime> individualOnLoadStartedEventTimes =
+        ArgumentCaptor.forClass(AnalyticsListener.EventTime.class);
+    verify(listener, atLeastOnce())
+        .onLoadStarted(individualOnLoadStartedEventTimes.capture(), any(), any(), anyInt());
     ArgumentCaptor<AnalyticsListener.EventTime> individualLoadCompletedEventTimes =
         ArgumentCaptor.forClass(AnalyticsListener.EventTime.class);
     verify(listener, atLeastOnce())
@@ -1842,6 +1919,9 @@ public final class DefaultAnalyticsCollectorTest {
         .inOrder();
     assertThat(individualLoadStartedEventTimes.getAllValues())
         .containsAtLeastElementsIn(onEventsEventTimes.get(EVENT_LOAD_STARTED))
+        .inOrder();
+    assertThat(individualOnLoadStartedEventTimes.getAllValues())
+        .containsAtLeastElementsIn(onEventsEventTimes.get(EVENT_ON_LOAD_STARTED))
         .inOrder();
     assertThat(individualLoadCompletedEventTimes.getAllValues())
         .containsAtLeastElementsIn(onEventsEventTimes.get(EVENT_LOAD_COMPLETED))
@@ -2197,6 +2277,15 @@ public final class DefaultAnalyticsCollectorTest {
     public void onLoadStarted(
         EventTime eventTime, LoadEventInfo loadEventInfo, MediaLoadData mediaLoadData) {
       reportedEvents.add(new ReportedEvent(EVENT_LOAD_STARTED, eventTime));
+    }
+
+    @Override
+    public void onLoadStarted(
+        EventTime eventTime,
+        LoadEventInfo loadEventInfo,
+        MediaLoadData mediaLoadData,
+        int retryCount) {
+      reportedEvents.add(new ReportedEvent(EVENT_ON_LOAD_STARTED, eventTime));
     }
 
     @Override

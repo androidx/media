@@ -456,6 +456,17 @@ public class FakeMediaSource extends BaseMediaSource {
               /* loadDurationMs= */ 0,
               /* bytesLoaded= */ 0),
           mediaLoadData);
+      eventDispatcher.loadStarted(
+          new LoadEventInfo(
+              loadTaskId,
+              FAKE_DATA_SPEC,
+              FAKE_DATA_SPEC.uri,
+              /* responseHeaders= */ ImmutableMap.of(),
+              elapsedRealTimeMs,
+              /* loadDurationMs= */ 0,
+              /* bytesLoaded= */ 0),
+          mediaLoadData,
+          /* retryCount= */ 0);
       eventDispatcher.loadCompleted(
           new LoadEventInfo(
               loadTaskId,

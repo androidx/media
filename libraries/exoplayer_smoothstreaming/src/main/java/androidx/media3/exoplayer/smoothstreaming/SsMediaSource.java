@@ -498,6 +498,15 @@ public final class SsMediaSource extends BaseMediaSource
   // Loader.Callback implementation
 
   @Override
+  public void onLoadStarted(ParsingLoadable<SsManifest> loadable, long elapsedRealtimeMs,
+      long loadDurationMs, int retryCount) {
+    manifestEventDispatcher.loadStarted(
+        new LoadEventInfo(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs),
+        loadable.type,
+        /* retryCount= */ 0);
+  }
+
+  @Override
   public void onLoadCompleted(
       ParsingLoadable<SsManifest> loadable, long elapsedRealtimeMs, long loadDurationMs) {
     LoadEventInfo loadEventInfo =

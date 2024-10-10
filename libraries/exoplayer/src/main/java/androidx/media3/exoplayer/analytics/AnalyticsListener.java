@@ -347,6 +347,10 @@ public interface AnalyticsListener {
 
   /** A source started loading data. */
   @UnstableApi
+  int EVENT_ON_LOAD_STARTED = 999;
+
+  /** A source started loading data. */
+  @UnstableApi
   int EVENT_LOAD_STARTED = 1000; // Intentional gap to leave space for new Player events
 
   /** A source started completed loading data. */
@@ -851,8 +855,25 @@ public interface AnalyticsListener {
    * @param mediaLoadData The {@link MediaLoadData} defining the data being loaded.
    */
   @UnstableApi
+  @Deprecated
   default void onLoadStarted(
       EventTime eventTime, LoadEventInfo loadEventInfo, MediaLoadData mediaLoadData) {}
+
+  /**
+   * Called when a media source started loading data.
+   *
+   * @param eventTime The event time.
+   * @param loadEventInfo The {@link LoadEventInfo} defining the load event.
+   * @param mediaLoadData The {@link MediaLoadData} defining the data being loaded.
+   * @param retryCount The number of failed attempts since {@link #onLoadStarted} was called (this
+   *     is zero for the first load attempt).
+   */
+  @UnstableApi
+  default void onLoadStarted(
+      EventTime eventTime,
+      LoadEventInfo loadEventInfo,
+      MediaLoadData mediaLoadData,
+      int retryCount) {}
 
   /**
    * Called when a media source completed loading data.
