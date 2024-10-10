@@ -138,7 +138,10 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
   private static final Pattern REGEX_CLOSED_CAPTIONS = Pattern.compile("CLOSED-CAPTIONS=\"(.+?)\"");
   private static final Pattern REGEX_BANDWIDTH = Pattern.compile("[^-]BANDWIDTH=(\\d+)\\b");
   private static final Pattern REGEX_CHANNELS = Pattern.compile("CHANNELS=\"(.+?)\"");
+  // VIDEO-RANGE attribute: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-15
+  private static final Pattern REGEX_VIDEO_RANGE = Pattern.compile("VIDEO-RANGE=(SDR|PQ|HLG)");
   private static final Pattern REGEX_CODECS = Pattern.compile("CODECS=\"(.+?)\"");
+  private static final Pattern REGEX_SUPPLEMENTAL_CODECS = Pattern.compile("SUPPLEMENTAL-CODECS=\"(.+?)\"");
   private static final Pattern REGEX_RESOLUTION = Pattern.compile("RESOLUTION=(\\d+x\\d+)");
   private static final Pattern REGEX_FRAME_RATE = Pattern.compile("FRAME-RATE=([\\d\\.]+)\\b");
   private static final Pattern REGEX_TARGET_DURATION =
@@ -374,7 +377,23 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
         int roleFlags = isIFrameOnlyVariant ? C.ROLE_FLAG_TRICK_PLAY : 0;
         int peakBitrate = parseIntAttr(line, REGEX_BANDWIDTH);
         int averageBitrate = parseOptionalIntAttr(line, REGEX_AVERAGE_BANDWIDTH, -1);
+        String videoRange = parseOptionalStringAttr(line, REGEX_VIDEO_RANGE, variableDefinitions);
         String codecs = parseOptionalStringAttr(line, REGEX_CODECS, variableDefinitions);
+        String supplementalCodecsStrings =
+            parseOptionalStringAttr(line, REGEX_SUPPLEMENTAL_CODECS, variableDefinitions);
+        String supplementalCodecs = null;
+        String supplementalProfiles = null;  // i.e. Compatibility brand
+        if (supplementalCodecsStrings != null) {
+          String[] supplementalCodecsString = Util.split(supplementalCodecsStrings, ",");
+          if (!supplementalCodecsString[0].isEmpty()) {
+            // TODO: Support more than one element
+            String[] codecsAndProfiles = Util.split(supplementalCodecsString[0], "/");
+            supplementalCodecs = codecsAndProfiles[0];
+            if (codecsAndProfiles.length > 1) {
+              supplementalProfiles = codecsAndProfiles[1];
+            }
+          }
+        }
         String resolutionString =
             parseOptionalStringAttr(line, REGEX_RESOLUTION, variableDefinitions);
         int width;
@@ -421,7 +440,10 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
             new Format.Builder()
                 .setId(variants.size())
                 .setContainerMimeType(MimeTypes.APPLICATION_M3U8)
+                .setVideoRange(videoRange)
                 .setCodecs(codecs)
+                .setSupplementalCodecs(supplementalCodecs)
+                .setSupplementalProfiles(supplementalProfiles)
                 .setAverageBitrate(averageBitrate)
                 .setPeakBitrate(peakBitrate)
                 .setWidth(width)
