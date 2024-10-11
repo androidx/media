@@ -65,8 +65,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
@@ -684,18 +682,6 @@ public class TestUtil {
             : range.upperEndpoint();
 
     return bottom + random.nextFloat() * (top - bottom);
-  }
-
-  /**
-   * Rounds {@code num} to {@code decimalPlaces}, using {@link RoundingMode#HALF_EVEN}.
-   *
-   * <p>The number is converted first into a {@link BigDecimal} on which the scale is set to {@code
-   * decimalPlaces}. Finally, the method returns the {@link BigDecimal#doubleValue()} of the scaled
-   * big decimal.
-   */
-  public static double roundToDecimalPlaces(double num, int decimalPlaces) {
-    BigDecimal bigDecimal = new BigDecimal(Double.toString(num));
-    return bigDecimal.setScale(decimalPlaces, RoundingMode.HALF_EVEN).doubleValue();
   }
 
   private static final class NoUidOrShufflingTimeline extends Timeline {

@@ -16,7 +16,6 @@
 package androidx.media3.common.audio;
 
 import static androidx.media3.test.utils.TestUtil.generateFloatInRange;
-import static androidx.media3.test.utils.TestUtil.roundToDecimalPlaces;
 import static com.google.common.truth.Truth.assertThat;
 import static java.lang.Math.max;
 
@@ -96,15 +95,16 @@ public final class RandomParameterizedSonicTest {
    */
   private static ImmutableList<Object[]> initParams() {
     ImmutableSet.Builder<Object[]> paramsBuilder = new ImmutableSet.Builder<>();
-    ImmutableSet.Builder<Float> speedsBuilder = new ImmutableSet.Builder<>();
+    ImmutableSet.Builder<BigDecimal> speedsBuilder = new ImmutableSet.Builder<>();
 
     for (int i = 0; i < PARAM_COUNT; i++) {
       Range<Float> range = SPEED_RANGES.get(i % SPEED_RANGES.size());
-      speedsBuilder.add(
-          (float)
-              roundToDecimalPlaces(generateFloatInRange(random, range), SPEED_DECIMAL_PRECISION));
+      BigDecimal speed =
+          BigDecimal.valueOf(generateFloatInRange(random, range))
+              .setScale(SPEED_DECIMAL_PRECISION, RoundingMode.HALF_EVEN);
+      speedsBuilder.add(speed);
     }
-    ImmutableSet<Float> speeds = speedsBuilder.build();
+    ImmutableSet<BigDecimal> speeds = speedsBuilder.build();
 
     ImmutableSet<Long> lengths =
         new ImmutableSet.Builder<Long>()
@@ -116,7 +116,7 @@ public final class RandomParameterizedSonicTest {
                     .iterator())
             .build();
     for (long length : lengths) {
-      for (float speed : speeds) {
+      for (BigDecimal speed : speeds) {
         paramsBuilder.add(new Object[] {speed, length});
       }
     }
@@ -124,7 +124,7 @@ public final class RandomParameterizedSonicTest {
   }
 
   @Parameter(0)
-  public float speed;
+  public BigDecimal speed;
 
   @Parameter(1)
   public long streamLength;
@@ -138,8 +138,8 @@ public final class RandomParameterizedSonicTest {
         new Sonic(
             /* inputSampleRateHz= */ SAMPLE_RATE,
             /* channelCount= */ 1,
-            /* speed= */ speed,
-            /* pitch= */ speed,
+            /* speed= */ speed.floatValue(),
+            /* pitch= */ speed.floatValue(),
             /* outputSampleRateHz= */ SAMPLE_RATE);
     long readSampleCount = 0;
 
@@ -164,11 +164,10 @@ public final class RandomParameterizedSonicTest {
     sonic.flush();
 
     BigDecimal bigSampleRate = new BigDecimal(SAMPLE_RATE);
-    BigDecimal bigSpeed = new BigDecimal(String.valueOf(speed));
     BigDecimal bigLength = new BigDecimal(String.valueOf(streamLength));
-    // The scale of expectedSize will always be equal to bigLength. Thus, the result will always
-    // yield an integer.
-    BigDecimal expectedSize = bigLength.divide(bigSpeed, RoundingMode.HALF_EVEN);
+    // The scale of expectedSize will be bigLength.scale() - speed.scale(). Thus, the result should
+    // always yield an integer.
+    BigDecimal expectedSize = bigLength.divide(speed, RoundingMode.HALF_EVEN);
 
     // Calculate number of times that Sonic accumulates truncation error. Set scale to 20 decimal
     // places, so that division doesn't return an integral.
@@ -179,7 +178,7 @@ public final class RandomParameterizedSonicTest {
     // inputSampleRate / speed - (int) inputSampleRate / speed. Set scale to 20 decimal places, so
     // that division doesn't return an integral.
     BigDecimal individualError =
-        bigSampleRate.divide(bigSpeed, /* scale */ 20, RoundingMode.HALF_EVEN);
+        bigSampleRate.divide(speed, /* scale */ 20, RoundingMode.HALF_EVEN);
     individualError =
         individualError.subtract(individualError.setScale(/* newScale= */ 0, RoundingMode.FLOOR));
     // Calculate total accumulated error = (int) floor(errorCount * individualError).
@@ -199,7 +198,7 @@ public final class RandomParameterizedSonicTest {
         new Sonic(
             /* inputSampleRateHz= */ SAMPLE_RATE,
             /* channelCount= */ 1,
-            speed,
+            speed.floatValue(),
             /* pitch= */ 1,
             /* outputSampleRateHz= */ SAMPLE_RATE);
     long readSampleCount = 0;
@@ -221,12 +220,10 @@ public final class RandomParameterizedSonicTest {
     }
     sonic.flush();
 
-    BigDecimal bigSpeed = new BigDecimal(String.valueOf(speed));
     BigDecimal bigLength = new BigDecimal(String.valueOf(streamLength));
-    // The scale of expectedSampleCount will always be equal to bigLength. Thus, the result will
-    // always
-    // yield an integer.
-    BigDecimal expectedSampleCount = bigLength.divide(bigSpeed, RoundingMode.HALF_EVEN);
+    // The scale of expectedSampleCount will be bigLength.scale() - speed.scale(). Thus, the result
+    // should always yield an integer.
+    BigDecimal expectedSampleCount = bigLength.divide(speed, RoundingMode.HALF_EVEN);
 
     // Calculate allowed tolerance and round to nearest integer.
     BigDecimal allowedTolerance =
