@@ -188,7 +188,8 @@ public class FakeAdaptiveMediaPeriod
                 new DrmSessionEventListener.EventDispatcher(),
                 new DefaultLoadErrorHandlingPolicy(/* minimumLoadableRetryCount= */ 3),
                 mediaSourceEventDispatcher,
-                /* canReportInitialDiscontinuity= */ false);
+                /* canReportInitialDiscontinuity= */ false,
+                /* downloadExecutor= */ null);
         streams[i] = sampleStream;
         sampleStreams.add(sampleStream);
         streamResetFlags[i] = true;
