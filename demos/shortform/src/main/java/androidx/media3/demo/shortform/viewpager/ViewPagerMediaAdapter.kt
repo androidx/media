@@ -16,8 +16,6 @@
 package androidx.media3.demo.shortform.viewpager
 
 import android.content.Context
-import android.os.HandlerThread
-import android.os.Process
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.annotation.OptIn
@@ -29,14 +27,9 @@ import androidx.media3.demo.shortform.MediaItemDatabase
 import androidx.media3.demo.shortform.PlayerPool
 import androidx.media3.demo.shortform.R
 import androidx.media3.exoplayer.DefaultLoadControl
-import androidx.media3.exoplayer.DefaultRendererCapabilitiesList
-import androidx.media3.exoplayer.DefaultRenderersFactory
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.preload.DefaultPreloadManager
 import androidx.media3.exoplayer.source.preload.DefaultPreloadManager.Status.STAGE_LOADED_FOR_DURATION_MS
 import androidx.media3.exoplayer.source.preload.TargetPreloadStatusControl
-import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
-import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
 import androidx.recyclerview.widget.RecyclerView
 import kotlin.math.abs
 
@@ -46,8 +39,6 @@ class ViewPagerMediaAdapter(
   numberOfPlayers: Int,
   context: Context,
 ) : RecyclerView.Adapter<ViewPagerMediaHolder>() {
-  private val playbackThread: HandlerThread =
-    HandlerThread("playback-thread", Process.THREAD_PRIORITY_AUDIO)
   private val preloadManager: DefaultPreloadManager
   private val currentMediaItemsAndIndexes: ArrayDeque<Pair<MediaItem, Int>> = ArrayDeque()
   private var playerPool: PlayerPool
@@ -64,7 +55,6 @@ class ViewPagerMediaAdapter(
   }
 
   init {
-    playbackThread.start()
     val loadControl =
       DefaultLoadControl.Builder()
         .setBufferDurationsMs(
@@ -75,29 +65,11 @@ class ViewPagerMediaAdapter(
         )
         .setPrioritizeTimeOverSizeThresholds(true)
         .build()
-    val renderersFactory = DefaultRenderersFactory(context)
-    playerPool =
-      PlayerPool(
-        numberOfPlayers,
-        context,
-        playbackThread.looper,
-        loadControl,
-        renderersFactory,
-        DefaultBandwidthMeter.getSingletonInstance(context),
-      )
+    val preloadManagerBuilder =
+      DefaultPreloadManager.Builder(context, DefaultPreloadControl()).setLoadControl(loadControl)
+    playerPool = PlayerPool(numberOfPlayers, preloadManagerBuilder)
     holderMap = mutableMapOf()
-    val trackSelector = DefaultTrackSelector(context)
-    trackSelector.init({}, DefaultBandwidthMeter.getSingletonInstance(context))
-    preloadManager =
-      DefaultPreloadManager(
-        DefaultPreloadControl(),
-        DefaultMediaSourceFactory(context),
-        trackSelector,
-        DefaultBandwidthMeter.getSingletonInstance(context),
-        DefaultRendererCapabilitiesList.Factory(renderersFactory),
-        loadControl.allocator,
-        playbackThread.looper,
-      )
+    preloadManager = preloadManagerBuilder.build()
     for (i in 0 until MANAGED_ITEM_COUNT) {
       addMediaItem(index = i, isAddingToRightEnd = true)
     }
@@ -157,9 +129,8 @@ class ViewPagerMediaAdapter(
   }
 
   fun onDestroy() {
-    preloadManager.release()
     playerPool.destroyPlayers()
-    playbackThread.quit()
+    preloadManager.release()
   }
 
   fun onPageSelected(position: Int) {

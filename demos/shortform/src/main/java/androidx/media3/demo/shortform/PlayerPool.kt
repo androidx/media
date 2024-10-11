@@ -15,16 +15,13 @@
  */
 package androidx.media3.demo.shortform
 
-import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import androidx.annotation.OptIn
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.LoadControl
-import androidx.media3.exoplayer.RenderersFactory
-import androidx.media3.exoplayer.upstream.BandwidthMeter
+import androidx.media3.exoplayer.source.preload.DefaultPreloadManager.Builder
 import androidx.media3.exoplayer.util.EventLogger
 import com.google.common.collect.BiMap
 import com.google.common.collect.HashBiMap
@@ -34,14 +31,7 @@ import java.util.LinkedList
 import java.util.Queue
 
 @OptIn(UnstableApi::class)
-class PlayerPool(
-  private val numberOfPlayers: Int,
-  context: Context,
-  playbackLooper: Looper,
-  loadControl: LoadControl,
-  renderersFactory: RenderersFactory,
-  bandwidthMeter: BandwidthMeter,
-) {
+class PlayerPool(private val numberOfPlayers: Int, preloadManagerBuilder: Builder) {
 
   /** Creates a player instance to be used by the pool. */
   interface PlayerFactory {
@@ -52,8 +42,7 @@ class PlayerPool(
   private val availablePlayerQueue: Queue<Int> = LinkedList()
   private val playerMap: BiMap<Int, ExoPlayer> = Maps.synchronizedBiMap(HashBiMap.create())
   private val playerRequestTokenSet: MutableSet<Int> = Collections.synchronizedSet(HashSet<Int>())
-  private val playerFactory: PlayerFactory =
-    DefaultPlayerFactory(context, playbackLooper, loadControl, renderersFactory, bandwidthMeter)
+  private val playerFactory: PlayerFactory = DefaultPlayerFactory(preloadManagerBuilder)
 
   fun acquirePlayer(token: Int, callback: (ExoPlayer) -> Unit) {
     synchronized(playerMap) {
@@ -126,23 +115,11 @@ class PlayerPool(
   }
 
   @OptIn(UnstableApi::class)
-  private class DefaultPlayerFactory(
-    private val context: Context,
-    private val playbackLooper: Looper,
-    private val loadControl: LoadControl,
-    private val renderersFactory: RenderersFactory,
-    private val bandwidthMeter: BandwidthMeter,
-  ) : PlayerFactory {
+  private class DefaultPlayerFactory(private val preloadManagerBuilder: Builder) : PlayerFactory {
     private var playerCounter = 0
 
     override fun createPlayer(): ExoPlayer {
-      val player =
-        ExoPlayer.Builder(context)
-          .setPlaybackLooper(playbackLooper)
-          .setLoadControl(loadControl)
-          .setRenderersFactory(renderersFactory)
-          .setBandwidthMeter(bandwidthMeter)
-          .build()
+      val player = preloadManagerBuilder.buildExoPlayer()
       player.addAnalyticsListener(EventLogger("player-$playerCounter"))
       playerCounter++
       player.repeatMode = ExoPlayer.REPEAT_MODE_ONE

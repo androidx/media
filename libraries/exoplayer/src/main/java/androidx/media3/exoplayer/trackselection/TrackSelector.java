@@ -17,6 +17,7 @@ package androidx.media3.exoplayer.trackselection;
 
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 
+import android.content.Context;
 import androidx.annotation.CallSuper;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
@@ -93,6 +94,21 @@ import androidx.media3.exoplayer.upstream.BandwidthMeter;
  */
 @UnstableApi
 public abstract class TrackSelector {
+
+  /**
+   * Factory for creating {@linkplain TrackSelector track selectors} from {@linkplain Context
+   * contexts}.
+   */
+  public interface Factory {
+
+    /**
+     * Creates a new {@link TrackSelector} with the specified {@link Context}.
+     *
+     * @param context The context.
+     * @return The new {@linkplain TrackSelector track selector}.
+     */
+    TrackSelector createTrackSelector(Context context);
+  }
 
   /** Notified when selections previously made by a {@link TrackSelector} are no longer valid. */
   public interface InvalidationListener {

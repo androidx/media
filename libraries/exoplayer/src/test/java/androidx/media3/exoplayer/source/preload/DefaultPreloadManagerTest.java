@@ -39,9 +39,7 @@ import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.datasource.TransferListener;
-import androidx.media3.exoplayer.DefaultRendererCapabilitiesList;
 import androidx.media3.exoplayer.Renderer;
-import androidx.media3.exoplayer.RendererCapabilitiesList;
 import androidx.media3.exoplayer.RenderersFactory;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
@@ -53,11 +51,7 @@ import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.MediaSourceEventListener;
 import androidx.media3.exoplayer.source.ProgressiveMediaSource;
 import androidx.media3.exoplayer.source.TrackGroupArray;
-import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
-import androidx.media3.exoplayer.trackselection.TrackSelector;
 import androidx.media3.exoplayer.upstream.Allocator;
-import androidx.media3.exoplayer.upstream.BandwidthMeter;
-import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.test.utils.FakeAudioRenderer;
@@ -84,19 +78,14 @@ import org.mockito.Mock;
 @RunWith(AndroidJUnit4.class)
 public class DefaultPreloadManagerTest {
 
+  private Context context;
   @Mock private TargetPreloadStatusControl<Integer> mockTargetPreloadStatusControl;
-  private TrackSelector trackSelector;
-  private Allocator allocator;
-  private BandwidthMeter bandwidthMeter;
-  private RendererCapabilitiesList.Factory rendererCapabilitiesListFactory;
+  private RenderersFactory renderersFactory;
 
   @Before
   public void setUp() {
-    trackSelector = new DefaultTrackSelector(ApplicationProvider.getApplicationContext());
-    allocator = new DefaultAllocator(/* trimOnReset= */ true, C.DEFAULT_BUFFER_SEGMENT_SIZE);
-    bandwidthMeter =
-        new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
-    RenderersFactory renderersFactory =
+    context = ApplicationProvider.getApplicationContext();
+    renderersFactory =
         (handler, videoListener, audioListener, textOutput, metadataOutput) ->
             new Renderer[] {
               new FakeVideoRenderer(
@@ -106,21 +95,15 @@ public class DefaultPreloadManagerTest {
                   SystemClock.DEFAULT.createHandler(handler.getLooper(), /* callback= */ null),
                   audioListener)
             };
-    rendererCapabilitiesListFactory = new DefaultRendererCapabilitiesList.Factory(renderersFactory);
-    trackSelector.init(/* listener= */ () -> {}, bandwidthMeter);
   }
 
   @Test
   public void addByMediaItems_getCorrectCountAndSources() {
     DefaultPreloadManager preloadManager =
-        new DefaultPreloadManager(
-            mockTargetPreloadStatusControl,
-            new DefaultMediaSourceFactory((Context) ApplicationProvider.getApplicationContext()),
-            trackSelector,
-            bandwidthMeter,
-            rendererCapabilitiesListFactory,
-            allocator,
-            Util.getCurrentOrMainLooper());
+        new DefaultPreloadManager.Builder(context, mockTargetPreloadStatusControl)
+            .setRenderersFactory(renderersFactory)
+            .setPreloadLooper(Util.getCurrentOrMainLooper())
+            .build();
     MediaItem.Builder mediaItemBuilder = new MediaItem.Builder();
     MediaItem mediaItem1 =
         mediaItemBuilder.setMediaId("mediaId1").setUri("http://exoplayer.dev/video1").build();
@@ -138,14 +121,10 @@ public class DefaultPreloadManagerTest {
   @Test
   public void addByMediaSources_getCorrectCountAndSources() {
     DefaultPreloadManager preloadManager =
-        new DefaultPreloadManager(
-            mockTargetPreloadStatusControl,
-            new DefaultMediaSourceFactory((Context) ApplicationProvider.getApplicationContext()),
-            trackSelector,
-            bandwidthMeter,
-            rendererCapabilitiesListFactory,
-            allocator,
-            Util.getCurrentOrMainLooper());
+        new DefaultPreloadManager.Builder(context, mockTargetPreloadStatusControl)
+            .setRenderersFactory(renderersFactory)
+            .setPreloadLooper(Util.getCurrentOrMainLooper())
+            .build();
     MediaItem.Builder mediaItemBuilder = new MediaItem.Builder();
     MediaItem mediaItem1 =
         mediaItemBuilder.setMediaId("mediaId1").setUri("http://exoplayer.dev/video1").build();
@@ -167,14 +146,10 @@ public class DefaultPreloadManagerTest {
   @Test
   public void getMediaSourceForMediaItemNotAdded() {
     DefaultPreloadManager preloadManager =
-        new DefaultPreloadManager(
-            mockTargetPreloadStatusControl,
-            new DefaultMediaSourceFactory((Context) ApplicationProvider.getApplicationContext()),
-            trackSelector,
-            bandwidthMeter,
-            rendererCapabilitiesListFactory,
-            allocator,
-            Util.getCurrentOrMainLooper());
+        new DefaultPreloadManager.Builder(context, mockTargetPreloadStatusControl)
+            .setRenderersFactory(renderersFactory)
+            .setPreloadLooper(Util.getCurrentOrMainLooper())
+            .build();
     MediaItem mediaItem =
         new MediaItem.Builder()
             .setMediaId("mediaId1")
@@ -206,14 +181,11 @@ public class DefaultPreloadManagerTest {
     HandlerThread preloadThread = new HandlerThread("preload");
     preloadThread.start();
     DefaultPreloadManager preloadManager =
-        new DefaultPreloadManager(
-            targetPreloadStatusControl,
-            mediaSourceFactory,
-            trackSelector,
-            bandwidthMeter,
-            rendererCapabilitiesListFactory,
-            allocator,
-            preloadThread.getLooper());
+        new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .setRenderersFactory(renderersFactory)
+            .setPreloadLooper(preloadThread.getLooper())
+            .build();
     TestPreloadManagerListener preloadManagerListener = new TestPreloadManagerListener();
     preloadManager.addListener(preloadManagerListener);
     MediaItem.Builder mediaItemBuilder = new MediaItem.Builder();
@@ -268,14 +240,11 @@ public class DefaultPreloadManagerTest {
     HandlerThread preloadThread = new HandlerThread("preload");
     preloadThread.start();
     DefaultPreloadManager preloadManager =
-        new DefaultPreloadManager(
-            targetPreloadStatusControl,
-            mediaSourceFactory,
-            trackSelector,
-            bandwidthMeter,
-            rendererCapabilitiesListFactory,
-            allocator,
-            preloadThread.getLooper());
+        new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .setRenderersFactory(renderersFactory)
+            .setPreloadLooper(preloadThread.getLooper())
+            .build();
     TestPreloadManagerListener preloadManagerListener = new TestPreloadManagerListener();
     preloadManager.addListener(preloadManagerListener);
     MediaItem.Builder mediaItemBuilder = new MediaItem.Builder();
@@ -325,14 +294,11 @@ public class DefaultPreloadManagerTest {
     HandlerThread preloadThread = new HandlerThread("preload");
     preloadThread.start();
     DefaultPreloadManager preloadManager =
-        new DefaultPreloadManager(
-            targetPreloadStatusControl,
-            fakeMediaSourceFactory,
-            trackSelector,
-            bandwidthMeter,
-            rendererCapabilitiesListFactory,
-            allocator,
-            preloadThread.getLooper());
+        new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
+            .setMediaSourceFactory(fakeMediaSourceFactory)
+            .setRenderersFactory(renderersFactory)
+            .setPreloadLooper(preloadThread.getLooper())
+            .build();
     TestPreloadManagerListener preloadManagerListener = new TestPreloadManagerListener();
     preloadManager.addListener(preloadManagerListener);
     MediaItem.Builder mediaItemBuilder = new MediaItem.Builder();
@@ -352,7 +318,9 @@ public class DefaultPreloadManagerTest {
     PreloadMediaSource preloadMediaSource0 =
         (PreloadMediaSource) preloadManager.getMediaSource(mediaItem0);
     preloadMediaSource0.prepareSource(
-        (source, timeline) -> {}, bandwidthMeter.getTransferListener(), PlayerId.UNSET);
+        (source, timeline) -> {},
+        DefaultBandwidthMeter.getSingletonInstance(context).getTransferListener(),
+        PlayerId.UNSET);
     wrappedMediaSource0.setAllowPreparation(true);
     wrappedMediaSource1.setAllowPreparation(true);
     shadowOf(preloadThread.getLooper()).idle();
@@ -377,14 +345,11 @@ public class DefaultPreloadManagerTest {
     HandlerThread preloadThread = new HandlerThread("preload");
     preloadThread.start();
     DefaultPreloadManager preloadManager =
-        new DefaultPreloadManager(
-            targetPreloadStatusControl,
-            fakeMediaSourceFactory,
-            trackSelector,
-            bandwidthMeter,
-            rendererCapabilitiesListFactory,
-            allocator,
-            preloadThread.getLooper());
+        new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
+            .setMediaSourceFactory(fakeMediaSourceFactory)
+            .setRenderersFactory(renderersFactory)
+            .setPreloadLooper(preloadThread.getLooper())
+            .build();
     TestPreloadManagerListener preloadManagerListener = new TestPreloadManagerListener();
     preloadManager.addListener(preloadManagerListener);
     MediaItem.Builder mediaItemBuilder = new MediaItem.Builder();
@@ -451,14 +416,11 @@ public class DefaultPreloadManagerTest {
     HandlerThread preloadThread = new HandlerThread("preload");
     preloadThread.start();
     DefaultPreloadManager preloadManager =
-        new DefaultPreloadManager(
-            targetPreloadStatusControl,
-            mediaSourceFactory,
-            trackSelector,
-            bandwidthMeter,
-            rendererCapabilitiesListFactory,
-            allocator,
-            preloadThread.getLooper());
+        new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .setRenderersFactory(renderersFactory)
+            .setPreloadLooper(preloadThread.getLooper())
+            .build();
     TestPreloadManagerListener preloadManagerListener = new TestPreloadManagerListener();
     preloadManager.addListener(preloadManagerListener);
     MediaItem.Builder mediaItemBuilder = new MediaItem.Builder();
@@ -549,14 +511,11 @@ public class DefaultPreloadManagerTest {
     HandlerThread preloadThread = new HandlerThread("preload");
     preloadThread.start();
     DefaultPreloadManager preloadManager =
-        new DefaultPreloadManager(
-            targetPreloadStatusControl,
-            mediaSourceFactory,
-            trackSelector,
-            bandwidthMeter,
-            rendererCapabilitiesListFactory,
-            allocator,
-            preloadThread.getLooper());
+        new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .setRenderersFactory(renderersFactory)
+            .setPreloadLooper(preloadThread.getLooper())
+            .build();
     TestPreloadManagerListener preloadManagerListener = new TestPreloadManagerListener();
     preloadManager.addListener(preloadManagerListener);
     preloadManager.add(mediaItem0, /* rankingData= */ 0);
@@ -633,14 +592,11 @@ public class DefaultPreloadManagerTest {
               };
             });
     DefaultPreloadManager preloadManager =
-        new DefaultPreloadManager(
-            targetPreloadStatusControl,
-            mockMediaSourceFactory,
-            trackSelector,
-            bandwidthMeter,
-            rendererCapabilitiesListFactory,
-            allocator,
-            Util.getCurrentOrMainLooper());
+        new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
+            .setMediaSourceFactory(mockMediaSourceFactory)
+            .setRenderersFactory(renderersFactory)
+            .setPreloadLooper(Util.getCurrentOrMainLooper())
+            .build();
     MediaItem.Builder mediaItemBuilder = new MediaItem.Builder();
     MediaItem mediaItem0 =
         mediaItemBuilder
@@ -685,7 +641,9 @@ public class DefaultPreloadManagerTest {
         (PreloadMediaSource) preloadManager.getMediaSource(mediaItem4);
     // Simulate that preloadMediaSource4 is using by the player.
     preloadMediaSource4.prepareSource(
-        (source, timeline) -> {}, bandwidthMeter.getTransferListener(), PlayerId.UNSET);
+        (source, timeline) -> {},
+        DefaultBandwidthMeter.getSingletonInstance(context).getTransferListener(),
+        PlayerId.UNSET);
     currentPlayingIndex.set(4);
     preloadManager.setCurrentPlayingIndex(4);
 
@@ -706,14 +664,11 @@ public class DefaultPreloadManagerTest {
         rankingData -> new DefaultPreloadManager.Status(STAGE_SOURCE_PREPARED);
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
     DefaultPreloadManager preloadManager =
-        new DefaultPreloadManager(
-            targetPreloadStatusControl,
-            mockMediaSourceFactory,
-            trackSelector,
-            bandwidthMeter,
-            rendererCapabilitiesListFactory,
-            allocator,
-            Util.getCurrentOrMainLooper());
+        new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
+            .setMediaSourceFactory(mockMediaSourceFactory)
+            .setRenderersFactory(renderersFactory)
+            .setPreloadLooper(Util.getCurrentOrMainLooper())
+            .build();
     MediaItem.Builder mediaItemBuilder = new MediaItem.Builder();
     MediaItem mediaItem1 =
         mediaItemBuilder.setMediaId("mediaId1").setUri("http://exoplayer.dev/video1").build();
@@ -757,14 +712,11 @@ public class DefaultPreloadManagerTest {
         rankingData -> new DefaultPreloadManager.Status(STAGE_SOURCE_PREPARED);
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
     DefaultPreloadManager preloadManager =
-        new DefaultPreloadManager(
-            targetPreloadStatusControl,
-            mockMediaSourceFactory,
-            trackSelector,
-            bandwidthMeter,
-            rendererCapabilitiesListFactory,
-            allocator,
-            Util.getCurrentOrMainLooper());
+        new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
+            .setMediaSourceFactory(mockMediaSourceFactory)
+            .setRenderersFactory(renderersFactory)
+            .setPreloadLooper(Util.getCurrentOrMainLooper())
+            .build();
     MediaItem.Builder mediaItemBuilder = new MediaItem.Builder();
     MediaItem mediaItem1 =
         mediaItemBuilder.setMediaId("mediaId1").setUri("http://exoplayer.dev/video1").build();
@@ -834,14 +786,11 @@ public class DefaultPreloadManagerTest {
           return underlyingRenderers.toArray(new Renderer[2]);
         };
     DefaultPreloadManager preloadManager =
-        new DefaultPreloadManager(
-            targetPreloadStatusControl,
-            mockMediaSourceFactory,
-            trackSelector,
-            bandwidthMeter,
-            new DefaultRendererCapabilitiesList.Factory(renderersFactory),
-            allocator,
-            Util.getCurrentOrMainLooper());
+        new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
+            .setMediaSourceFactory(mockMediaSourceFactory)
+            .setRenderersFactory(renderersFactory)
+            .setPreloadLooper(Util.getCurrentOrMainLooper())
+            .build();
     MediaItem.Builder mediaItemBuilder = new MediaItem.Builder();
     MediaItem mediaItem1 =
         mediaItemBuilder.setMediaId("mediaId1").setUri("http://exoplayer.dev/video1").build();
@@ -905,14 +854,11 @@ public class DefaultPreloadManagerTest {
           return underlyingRenderers.toArray(new Renderer[2]);
         };
     DefaultPreloadManager preloadManager =
-        new DefaultPreloadManager(
-            targetPreloadStatusControl,
-            mockMediaSourceFactory,
-            trackSelector,
-            bandwidthMeter,
-            new DefaultRendererCapabilitiesList.Factory(renderersFactory),
-            allocator,
-            Util.getCurrentOrMainLooper());
+        new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
+            .setMediaSourceFactory(mockMediaSourceFactory)
+            .setRenderersFactory(renderersFactory)
+            .setPreloadLooper(Util.getCurrentOrMainLooper())
+            .build();
     MediaItem.Builder mediaItemBuilder = new MediaItem.Builder();
     MediaItem mediaItem1 =
         mediaItemBuilder.setMediaId("mediaId1").setUri("http://exoplayer.dev/video1").build();

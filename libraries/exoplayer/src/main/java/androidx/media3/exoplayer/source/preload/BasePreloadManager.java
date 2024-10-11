@@ -28,6 +28,7 @@ import androidx.media3.common.util.ListenerSet;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.source.MediaSource;
+import com.google.common.base.Supplier;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
@@ -47,15 +48,15 @@ public abstract class BasePreloadManager<T> {
 
     protected final Comparator<T> rankingDataComparator;
     protected final TargetPreloadStatusControl<T> targetPreloadStatusControl;
-    protected final MediaSource.Factory mediaSourceFactory;
+    protected Supplier<MediaSource.Factory> mediaSourceFactorySupplier;
 
     public BuilderBase(
         Comparator<T> rankingDataComparator,
         TargetPreloadStatusControl<T> targetPreloadStatusControl,
-        MediaSource.Factory mediaSourceFactory) {
+        Supplier<MediaSource.Factory> mediaSourceFactorySupplier) {
       this.rankingDataComparator = rankingDataComparator;
       this.targetPreloadStatusControl = targetPreloadStatusControl;
-      this.mediaSourceFactory = mediaSourceFactory;
+      this.mediaSourceFactorySupplier = mediaSourceFactorySupplier;
     }
 
     public abstract BasePreloadManager<T> build();

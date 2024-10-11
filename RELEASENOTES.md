@@ -48,6 +48,9 @@
     *   Add method `MediaSourceEventListener.EventDispatcher.dispatchEvent()` to
         allow invoking events of subclass listeners
         ([1736](https://github.com/androidx/media/pull/1736)).
+    *   Add `DefaultPreloadManager.Builder` that builds the
+        `DefaultPreloadManager` and `ExoPlayer` instances with consistently
+        shared configurations.
 *   Transformer:
     *   Make setting the image duration using
         `MediaItem.Builder.setImageDurationMs` mandatory for image export.
