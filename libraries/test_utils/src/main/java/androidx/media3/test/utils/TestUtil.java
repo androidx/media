@@ -51,7 +51,9 @@ import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.metadata.MetadataInputBuffer;
+import com.google.common.collect.BoundType;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Range;
 import com.google.common.io.ByteStreams;
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.UnsignedBytes;
@@ -63,6 +65,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
@@ -661,6 +665,37 @@ public class TestUtil {
           }
         };
     return checkNotNull(parcel.readBundle(throwingClassLoader));
+  }
+
+  /**
+   * Returns a randomly generated float within the specified range, using {@code random} as random
+   * number generator.
+   *
+   * <p>{@code range} must be a bounded range.
+   */
+  public static float generateFloatInRange(Random random, Range<Float> range) {
+    float bottom =
+        range.lowerBoundType() == BoundType.OPEN
+            ? Math.nextUp(range.lowerEndpoint())
+            : range.lowerEndpoint();
+    float top =
+        range.upperBoundType() == BoundType.OPEN
+            ? Math.nextDown(range.upperEndpoint())
+            : range.upperEndpoint();
+
+    return bottom + random.nextFloat() * (top - bottom);
+  }
+
+  /**
+   * Rounds {@code num} to {@code decimalPlaces}, using {@link RoundingMode#HALF_EVEN}.
+   *
+   * <p>The number is converted first into a {@link BigDecimal} on which the scale is set to {@code
+   * decimalPlaces}. Finally, the method returns the {@link BigDecimal#doubleValue()} of the scaled
+   * big decimal.
+   */
+  public static double roundToDecimalPlaces(double num, int decimalPlaces) {
+    BigDecimal bigDecimal = new BigDecimal(Double.toString(num));
+    return bigDecimal.setScale(decimalPlaces, RoundingMode.HALF_EVEN).doubleValue();
   }
 
   private static final class NoUidOrShufflingTimeline extends Timeline {

@@ -15,6 +15,8 @@
  */
 package androidx.media3.common.audio;
 
+import static androidx.media3.test.utils.TestUtil.generateFloatInRange;
+import static androidx.media3.test.utils.TestUtil.roundToDecimalPlaces;
 import static com.google.common.truth.Truth.assertThat;
 import static java.lang.Math.max;
 
@@ -97,8 +99,10 @@ public final class RandomParameterizedSonicTest {
     ImmutableSet.Builder<Float> speedsBuilder = new ImmutableSet.Builder<>();
 
     for (int i = 0; i < PARAM_COUNT; i++) {
-      Range<Float> r = SPEED_RANGES.get(i % SPEED_RANGES.size());
-      speedsBuilder.add(round(generateFloatInRange(r)));
+      Range<Float> range = SPEED_RANGES.get(i % SPEED_RANGES.size());
+      speedsBuilder.add(
+          (float)
+              roundToDecimalPlaces(generateFloatInRange(random, range), SPEED_DECIMAL_PRECISION));
     }
     ImmutableSet<Float> speeds = speedsBuilder.build();
 
@@ -234,14 +238,5 @@ public final class RandomParameterizedSonicTest {
     long tolerance = max(allowedTolerance.longValue(), 1);
 
     assertThat(readSampleCount).isWithin(tolerance).of(expectedSampleCount.longValueExact());
-  }
-
-  private static float round(float num) {
-    BigDecimal bigDecimal = new BigDecimal(Float.toString(num));
-    return bigDecimal.setScale(SPEED_DECIMAL_PRECISION, RoundingMode.HALF_EVEN).floatValue();
-  }
-
-  private static float generateFloatInRange(Range<Float> r) {
-    return r.lowerEndpoint() + random.nextFloat() * (r.upperEndpoint() - r.lowerEndpoint());
   }
 }
