@@ -20,31 +20,32 @@ cmake_minimum_required(VERSION 3.21.0 FATAL_ERROR)
 set(CMAKE_CXX_STANDARD 11)
 
 # Define project name for your JNI module
-project(libiamfJNI C CXX)
+project(libflacJNI C CXX)
 
-set(libiamf_jni_root "${CMAKE_CURRENT_SOURCE_DIR}")
+set(libflac_jni_root "${CMAKE_CURRENT_SOURCE_DIR}")
 
-# Build libiamf.
-add_subdirectory("${libiamf_jni_root}/libiamf/code"
+# Build libflac.
+add_subdirectory("${libflac_jni_root}/libflac"
                  EXCLUDE_FROM_ALL)
 
-# Add the include directory from libiamf.
-include_directories ("${libiamf_jni_root}/libiamf/code/include")
-
-# Build libiamfJNI.
-add_library(iamfJNI
+# Build libflacJNI.
+add_library(flacJNI
             SHARED
-            iamf_jni.cc)
+            flac_jni.cc
+            flac_parser.cc)
+
+# Add the include directory from libflac.
+include_directories("${libflac_jni_root}/libflac/include")
 
 # Locate NDK log library.
 find_library(android_log_lib log)
 
-# Link libiamfJNI against used libraries.
-target_link_libraries(iamfJNI
+# Link libflacJNI against used libraries.
+target_link_libraries(flacJNI
                       PRIVATE android
-                      PRIVATE iamf
+                      PRIVATE FLAC
                       PRIVATE ${android_log_lib})
 
 # Enable 16 KB ELF alignment.
-target_link_options(iamfJNI
+target_link_options(flacJNI
                     PRIVATE "-Wl,-z,max-page-size=16384")

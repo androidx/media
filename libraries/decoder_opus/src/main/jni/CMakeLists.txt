@@ -39,7 +39,7 @@ add_library(opusV2JNI
 # Locate NDK log library.
 find_library(android_log_lib log)
 
-# Link libgav1JNI against used libraries.
+# Link libopusJNI against used libraries.
 target_link_libraries(opusV2JNI
                       PRIVATE android
                       PRIVATE opus
