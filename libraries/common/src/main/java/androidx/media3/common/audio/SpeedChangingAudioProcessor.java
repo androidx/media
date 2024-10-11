@@ -28,7 +28,6 @@ import androidx.media3.common.util.SpeedProviderUtil;
 import androidx.media3.common.util.TimestampConsumer;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.Queue;
@@ -121,21 +120,33 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
             /* multiplier= */ C.MICROS_PER_SECOND,
             /* divisor= */ (long) inputAudioFormat.sampleRate * inputAudioFormat.bytesPerFrame);
     float newSpeed = speedProvider.getSpeed(currentTimeUs);
+    long nextSpeedChangeTimeUs = speedProvider.getNextSpeedChangeTimeUs(currentTimeUs);
+    long sampleRateAlignedNextSpeedChangeTimeUs =
+        getSampleRateAlignedTimestamp(nextSpeedChangeTimeUs, inputAudioFormat.sampleRate);
+
+    // If next speed change falls between the current sample position and the next sample, then get
+    // the next speed and next speed change from the following sample. If needed, this will ignore
+    // one or more mid-sample speed changes.
+    if (sampleRateAlignedNextSpeedChangeTimeUs == currentTimeUs) {
+      long sampleDuration =
+          Util.sampleCountToDurationUs(/* sampleCount= */ 1, inputAudioFormat.sampleRate);
+      newSpeed = speedProvider.getSpeed(currentTimeUs + sampleDuration);
+      nextSpeedChangeTimeUs =
+          speedProvider.getNextSpeedChangeTimeUs(currentTimeUs + sampleDuration);
+    }
 
     updateSpeed(newSpeed, currentTimeUs);
 
     int inputBufferLimit = inputBuffer.limit();
-    long nextSpeedChangeTimeUs = speedProvider.getNextSpeedChangeTimeUs(currentTimeUs);
     int bytesToNextSpeedChange;
     if (nextSpeedChangeTimeUs != C.TIME_UNSET) {
       bytesToNextSpeedChange =
           (int)
-              Util.scaleLargeValue(
-                  /* timestamp */ nextSpeedChangeTimeUs - currentTimeUs,
+              Util.scaleLargeTimestamp(
+                  /* timestamp= */ nextSpeedChangeTimeUs - currentTimeUs,
                   /* multiplier= */ (long) inputAudioFormat.sampleRate
                       * inputAudioFormat.bytesPerFrame,
-                  /* divisor= */ C.MICROS_PER_SECOND,
-                  RoundingMode.CEILING);
+                  /* divisor= */ C.MICROS_PER_SECOND);
       int bytesToNextFrame =
           inputAudioFormat.bytesPerFrame - bytesToNextSpeedChange % inputAudioFormat.bytesPerFrame;
       if (bytesToNextFrame != inputAudioFormat.bytesPerFrame) {
@@ -409,5 +420,16 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
     //  clear pendingCallbacks and pendingCallbacksInputTimes. We can't do this at the moment
     //  because some clients register callbacks with getSpeedAdjustedTimeAsync before this audio
     //  processor is flushed.
+  }
+
+  /**
+   * Returns the timestamp in microseconds of the sample defined by {@code sampleRate} that is
+   * closest to {@code timestampUs}, using the rounding mode specified in {@link
+   * Util#scaleLargeTimestamp}.
+   */
+  private static long getSampleRateAlignedTimestamp(long timestampUs, int sampleRate) {
+    long exactSamplePosition =
+        Util.scaleLargeTimestamp(timestampUs, sampleRate, C.MICROS_PER_SECOND);
+    return Util.scaleLargeTimestamp(exactSamplePosition, C.MICROS_PER_SECOND, sampleRate);
   }
 }

@@ -67,6 +67,8 @@
     *   Fix pop sounds that may occur during seeks.
     *   Fix truncation error accumulation for Sonic's
         time-stretching/pitch-shifting algorithm.
+    *   Fix bug in `SpeedChangingAudioProcessor` that causes dropped output
+        frames.
 *   Video:
     *   Add workaround for a device issue on Galaxy Tab S7 FE that causes 60fps
         secure H264 streams to be marked as unsupported
