@@ -2317,7 +2317,23 @@ public class TransformerEndToEndTest {
 
   private static boolean shouldSkipDeviceForAacObjectHeProfileEncoding() {
     // These devices claims to have the AACObjectHE profile but the profile never gets applied.
-    return (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Util.MODEL, "cph1803"))
+    return (Util.SDK_INT == 24 && Ascii.equalsIgnoreCase(Util.MODEL, "xt1650"))
+        || (Util.SDK_INT == 25 && Ascii.equalsIgnoreCase(Util.MODEL, "pixel xl"))
+        || (Util.SDK_INT == 26 && Ascii.equalsIgnoreCase(Util.MODEL, "sm-a9200"))
+        || (Util.SDK_INT == 26 && Ascii.equalsIgnoreCase(Util.MODEL, "sm-g960f"))
+        || (Util.SDK_INT == 26 && Ascii.equalsIgnoreCase(Util.MODEL, "sm-n950u"))
+        || (Util.SDK_INT == 26 && Ascii.equalsIgnoreCase(Util.MODEL, "sm-g965u1"))
+        || (Util.SDK_INT == 26 && Ascii.equalsIgnoreCase(Util.MODEL, "sm-g960u1"))
+        || (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Util.MODEL, "tc77"))
+        || (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Util.MODEL, "f-01l"))
+        || (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Util.MODEL, "sm-n960u1"))
+        || (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Util.MODEL, "asus_x00td"))
+        || (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Util.MODEL, "nokia 1"))
+        || (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Util.MODEL, "redmi 6a"))
+        || (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Util.MODEL, "moto e5 play"))
+        || (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Util.MODEL, "sm-g610f"))
+        || (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Util.MODEL, "sm-t580"))
+        || (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Util.MODEL, "cph1803"))
         || (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Util.MODEL, "cph1909"))
         || (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Util.MODEL, "redmi note 5"))
         || (Util.SDK_INT == 26 && isRunningOnEmulator());
