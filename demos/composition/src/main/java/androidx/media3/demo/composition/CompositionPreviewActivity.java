@@ -23,7 +23,10 @@ import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_S
 import android.app.Activity;
 import android.content.DialogInterface;
 import android.os.Bundle;
+import android.view.LayoutInflater;
+import android.view.View;
 import android.widget.ArrayAdapter;
+import android.widget.CheckBox;
 import android.widget.Spinner;
 import android.widget.Toast;
 import androidx.annotation.Nullable;
@@ -34,12 +37,14 @@ import androidx.appcompat.widget.AppCompatCheckBox;
 import androidx.appcompat.widget.AppCompatTextView;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
+import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.LanczosResample;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.RgbFilter;
@@ -50,6 +55,7 @@ import androidx.media3.transformer.EditedMediaItemSequence;
 import androidx.media3.transformer.Effects;
 import androidx.media3.transformer.ExportException;
 import androidx.media3.transformer.ExportResult;
+import androidx.media3.transformer.InAppMuxer;
 import androidx.media3.transformer.JsonUtil;
 import androidx.media3.transformer.Transformer;
 import androidx.media3.ui.PlayerView;
@@ -118,7 +124,7 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
 
     exportInformationTextView = findViewById(R.id.export_information_text);
     exportButton = findViewById(R.id.composition_export_button);
-    exportButton.setOnClickListener(view -> exportComposition());
+    exportButton.setOnClickListener(view -> showExportSettings());
 
     AppCompatCheckBox backgroundAudioCheckBox = findViewById(R.id.background_audio_checkbox);
     backgroundAudioCheckBox.setOnCheckedChangeListener(
@@ -231,7 +237,7 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
     Spinner hdrModeSpinner = findViewById(R.id.hdr_mode_spinner);
     int selectedHdrMode =
         HDR_MODE_DESCRIPTIONS.get(String.valueOf(hdrModeSpinner.getSelectedItem()));
-    return new Composition.Builder(/* sequences= */ compositionSequences)
+    return new Composition.Builder(compositionSequences)
         .setEffects(
             new Effects(
                 /* audioProcessors= */ ImmutableList.of(sampleRateChanger),
@@ -302,7 +308,67 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
     }
   }
 
-  private void exportComposition() {
+  private void showExportSettings() {
+    AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(this);
+    LayoutInflater inflater = this.getLayoutInflater();
+    View exportSettingsDialogView = inflater.inflate(R.layout.export_settings, null);
+
+    alertDialogBuilder
+        .setView(exportSettingsDialogView)
+        .setTitle(R.string.export_settings)
+        .setPositiveButton(
+            R.string.export, (dialog, id) -> exportComposition(exportSettingsDialogView))
+        .setNegativeButton(R.string.cancel, (dialog, id) -> dialog.dismiss());
+
+    ArrayAdapter<String> audioMimeAdapter =
+        new ArrayAdapter<>(/* context= */ this, R.layout.spinner_item);
+    audioMimeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+    Spinner audioMimeSpinner = exportSettingsDialogView.findViewById(R.id.audio_mime_spinner);
+    audioMimeSpinner.setAdapter(audioMimeAdapter);
+    audioMimeAdapter.addAll(
+        SAME_AS_INPUT_OPTION, MimeTypes.AUDIO_AAC, MimeTypes.AUDIO_AMR_NB, MimeTypes.AUDIO_AMR_WB);
+
+    ArrayAdapter<String> videoMimeAdapter =
+        new ArrayAdapter<>(/* context= */ this, R.layout.spinner_item);
+    videoMimeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+    Spinner videoMimeSpinner = exportSettingsDialogView.findViewById(R.id.video_mime_spinner);
+    videoMimeSpinner.setAdapter(videoMimeAdapter);
+    videoMimeAdapter.addAll(
+        SAME_AS_INPUT_OPTION,
+        MimeTypes.VIDEO_H263,
+        MimeTypes.VIDEO_H264,
+        MimeTypes.VIDEO_H265,
+        MimeTypes.VIDEO_MP4V,
+        MimeTypes.VIDEO_AV1);
+
+    CheckBox enableDebugTracingCheckBox =
+        exportSettingsDialogView.findViewById(R.id.enable_debug_tracing_checkbox);
+    enableDebugTracingCheckBox.setOnCheckedChangeListener(
+        (buttonView, isChecked) -> DebugTraceUtil.enableTracing = isChecked);
+
+    // Connect producing fragmented MP4 to using Media3 Muxer
+    CheckBox useMedia3MuxerCheckBox =
+        exportSettingsDialogView.findViewById(R.id.use_media3_muxer_checkbox);
+    CheckBox produceFragmentedMp4CheckBox =
+        exportSettingsDialogView.findViewById(R.id.produce_fragmented_mp4_checkbox);
+    useMedia3MuxerCheckBox.setOnCheckedChangeListener(
+        (buttonView, isChecked) -> {
+          if (!isChecked) {
+            produceFragmentedMp4CheckBox.setChecked(false);
+          }
+        });
+    produceFragmentedMp4CheckBox.setOnCheckedChangeListener(
+        (buttonView, isChecked) -> {
+          if (isChecked) {
+            useMedia3MuxerCheckBox.setChecked(true);
+          }
+        });
+
+    AlertDialog dialog = alertDialogBuilder.create();
+    dialog.show();
+  }
+
+  private void exportComposition(View exportSettingsDialogView) {
     // Cancel and clean up files from any ongoing export.
     cancelExport();
 
@@ -323,8 +389,33 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
     }
     String filePath = outputFile.getAbsolutePath();
 
+    Transformer.Builder transformerBuilder = new Transformer.Builder(/* context= */ this);
+
+    Spinner audioMimeTypeSpinner = exportSettingsDialogView.findViewById(R.id.audio_mime_spinner);
+    String selectedAudioMimeType = String.valueOf(audioMimeTypeSpinner.getSelectedItem());
+    if (!SAME_AS_INPUT_OPTION.equals(selectedAudioMimeType)) {
+      transformerBuilder.setAudioMimeType(selectedAudioMimeType);
+    }
+
+    Spinner videoMimeTypeSpinner = exportSettingsDialogView.findViewById(R.id.video_mime_spinner);
+    String selectedVideoMimeType = String.valueOf(videoMimeTypeSpinner.getSelectedItem());
+    if (!SAME_AS_INPUT_OPTION.equals(selectedVideoMimeType)) {
+      transformerBuilder.setVideoMimeType(selectedVideoMimeType);
+    }
+
+    CheckBox useMedia3MuxerCheckBox =
+        exportSettingsDialogView.findViewById(R.id.use_media3_muxer_checkbox);
+    CheckBox produceFragmentedMp4CheckBox =
+        exportSettingsDialogView.findViewById(R.id.produce_fragmented_mp4_checkbox);
+    if (useMedia3MuxerCheckBox.isChecked()) {
+      transformerBuilder.setMuxerFactory(
+          new InAppMuxer.Factory.Builder()
+              .setOutputFragmentedMp4(produceFragmentedMp4CheckBox.isChecked())
+              .build());
+    }
+
     transformer =
-        new Transformer.Builder(/* context= */ this)
+        transformerBuilder
             .addListener(
                 new Transformer.Listener() {
                   @Override
@@ -333,6 +424,7 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
                     long elapsedTimeMs = exportStopwatch.elapsed(TimeUnit.MILLISECONDS);
                     String details =
                         getString(R.string.export_completed, elapsedTimeMs / 1000.f, filePath);
+                    Log.d(TAG, DebugTraceUtil.generateTraceSummary());
                     Log.i(TAG, details);
                     exportInformationTextView.setText(details);
 
@@ -361,6 +453,7 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
                             Toast.LENGTH_LONG)
                         .show();
                     Log.e(TAG, "Export error", exportException);
+                    Log.d(TAG, DebugTraceUtil.generateTraceSummary());
                     exportInformationTextView.setText(R.string.export_error);
                   }
                 })
