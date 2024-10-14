@@ -83,10 +83,18 @@ public final class StatsDataSource implements DataSource {
     // Reassign defaults in case dataSource.open throws an exception.
     lastOpenedUri = dataSpec.uri;
     lastResponseHeaders = Collections.emptyMap();
-    long availableBytes = dataSource.open(dataSpec);
-    lastOpenedUri = Assertions.checkNotNull(getUri());
-    lastResponseHeaders = getResponseHeaders();
-    return availableBytes;
+    try {
+      return dataSource.open(dataSpec);
+    } finally {
+      // TODO: b/373321956 - Remove this null-tolerance when we've fixed all DataSource
+      //  implementations to return a non-null URI after a failed open() call and before close()
+      //  (and updated the DataSourceContractTest to enforce this).
+      Uri upstreamUri = getUri();
+      if (upstreamUri != null) {
+        lastOpenedUri = upstreamUri;
+      }
+      lastResponseHeaders = getResponseHeaders();
+    }
   }
 
   @Override
