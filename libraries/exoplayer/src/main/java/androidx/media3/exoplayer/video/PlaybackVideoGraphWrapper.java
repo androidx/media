@@ -436,9 +436,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
    *     taken approximately at the time the playback position was {@code positionUs}.
    */
   private void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
-    if (pendingFlushCount == 0) {
-      videoFrameRenderControl.render(positionUs, elapsedRealtimeUs);
-    }
+    videoFrameRenderControl.render(positionUs, elapsedRealtimeUs);
   }
 
   private void flush() {
@@ -446,24 +444,10 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       return;
     }
     pendingFlushCount++;
-    // Flush the render control now to ensure it has no data, eg calling isReady() must return false
-    // and render() should not render any frames.
     videoFrameRenderControl.flush();
-    // Finish flushing after handling pending video graph callbacks to ensure video size changes
-    // reach the video render control.
-    checkStateNotNull(handler).post(this::flushInternal);
-  }
-
-  private void flushInternal() {
-    pendingFlushCount--;
-    if (pendingFlushCount > 0) {
-      // Another flush has been issued.
-      return;
-    } else if (pendingFlushCount < 0) {
-      throw new IllegalStateException(String.valueOf(pendingFlushCount));
-    }
-    // Flush the render control again.
-    videoFrameRenderControl.flush();
+    // Handle pending video graph callbacks to ensure video size changes reach the video render
+    // control.
+    checkStateNotNull(handler).post(() -> pendingFlushCount--);
   }
 
   private void setVideoFrameMetadataListener(
