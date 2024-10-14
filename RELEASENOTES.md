@@ -73,6 +73,11 @@
     *   Improved frame rate calculation by using media duration from the `mdhd`
         box in `Mp4Extractor` and `FragmentedMp4Extractor`
         ([#1531](https://github.com/androidx/media/issues/1531)).
+    *   Fix incorrect scaling of `media_time` in MP4 edit lists. While
+        `segment_duration` was already correctly scaled using the movie
+        timescale, `media_time` is now properly scaled using the track
+        timescale, as specified by the MP4 format standard
+        ([#1792](https://github.com/androidx/media/issues/1792)).
 *   DataSource:
 *   Audio:
     *   Fix pop sounds that may occur during seeks.
