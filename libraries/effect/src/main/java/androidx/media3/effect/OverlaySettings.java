@@ -75,11 +75,15 @@ public final class OverlaySettings {
      * Sets the coordinates for the anchor point of the overlay within the background frame.
      *
      * <p>The coordinates are specified in Normalised Device Coordinates (NDCs) relative to the
-     * background frame. Set to always return {@code (0,0)} (the center of the background frame) by
-     * default.
+     * background frame. The default value is {@code (0,0)}, the center of the background frame.
      *
-     * <p>For example, a value of {@code (+1,+1)} will move the overlay frames's {@linkplain
-     * #setOverlayFrameAnchor anchor point} to the top right corner of the background frame.
+     * <p>The overlay's {@linkplain #setOverlayFrameAnchor(float, float) anchor point} will be
+     * positioned at the anchor point set in this method. For example, setting a value of {@code
+     * (+1,+1)} will move the {@linkplain #setOverlayFrameAnchor overlay's anchor} to the top right
+     * corner. That is, if the overlay's anchor is at {@code (+1,+1)} (the top right corner), the
+     * overlay's top right corner will be aligned with that of the background frame; whereas if the
+     * overlay's anchor is at {@code (0,0)} (the center), the overlay's center will be positioned at
+     * the top right corner of the background frame.
      *
      * @param x The NDC x-coordinate in the range [-1, 1].
      * @param y The NDC y-coordinate in the range [-1, 1].
@@ -94,16 +98,15 @@ public final class OverlaySettings {
     }
 
     /**
-     * Sets the coordinates for the anchor point of the overlay frame.
+     * Sets the coordinates for the anchor point within the overlay.
      *
-     * <p>The anchor point is the point inside the overlay frame that is placed on the {@linkplain
+     * <p>The anchor point is the point inside the overlay that is placed on the {@linkplain
      * #setBackgroundFrameAnchor background frame anchor}
      *
      * <p>The coordinates are specified in Normalised Device Coordinates (NDCs) relative to the
-     * overlay frame. Set to return {@code (0,0)} (the center of the overlay frame) by default.
+     * overlay. The default value is {@code (0,0)}, the center of the overlay.
      *
-     * <p>For example, a value of {@code (+1,-1)} will result in the overlay frame being positioned
-     * with its bottom right corner positioned at the background frame anchor.
+     * <p>See {@link #setBackgroundFrameAnchor} for examples of how to position an overlay.
      *
      * @param x The NDC x-coordinate in the range [-1, 1].
      * @param y The NDC y-coordinate in the range [-1, 1].
