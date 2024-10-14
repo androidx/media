@@ -439,12 +439,12 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     videoFrameRenderControl.render(positionUs, elapsedRealtimeUs);
   }
 
-  private void flush() {
+  private void flush(boolean resetPosition) {
     if (!isInitialized()) {
       return;
     }
     pendingFlushCount++;
-    videoFrameRenderControl.flush();
+    defaultVideoSink.flush(resetPosition);
     // Handle pending video graph callbacks to ensure video size changes reach the video render
     // control.
     checkStateNotNull(handler).post(() -> pendingFlushCount--);
@@ -564,8 +564,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       hasRegisteredFirstInputStream = false;
       finalBufferPresentationTimeUs = C.TIME_UNSET;
       lastBufferPresentationTimeUs = C.TIME_UNSET;
-      PlaybackVideoGraphWrapper.this.flush();
-      defaultVideoSink.flush(resetPosition);
+      PlaybackVideoGraphWrapper.this.flush(resetPosition);
       pendingInputStreamBufferPresentationTimeUs = C.TIME_UNSET;
       // Don't change input stream offset or reset the pending input stream offset change so that
       // it's announced with the next input frame.

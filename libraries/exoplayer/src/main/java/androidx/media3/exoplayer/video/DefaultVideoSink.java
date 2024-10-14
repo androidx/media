@@ -80,6 +80,7 @@ import java.util.concurrent.Executor;
     if (resetPosition) {
       videoFrameReleaseControl.reset();
     }
+    videoFrameRenderControl.flush();
   }
 
   @Override
