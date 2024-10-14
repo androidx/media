@@ -36,7 +36,12 @@ import java.util.Map;
 @UnstableApi
 public interface HlsExtractorFactory {
 
-  HlsExtractorFactory DEFAULT = new DefaultHlsExtractorFactory();
+  /**
+   * @deprecated {@code HlsExtractorFactory} instances are mutable, so sharing one in a static field
+   *     is not safe. Construct a new instance of {@link DefaultHlsExtractorFactory} for each usage
+   *     instead.
+   */
+  @Deprecated HlsExtractorFactory DEFAULT = new DefaultHlsExtractorFactory();
 
   /**
    * Creates an {@link Extractor} for extracting HLS media chunks.
