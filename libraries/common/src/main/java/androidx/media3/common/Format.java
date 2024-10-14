@@ -1191,7 +1191,7 @@ public final class Format {
       }
     }
     if (MimeTypes.VIDEO_DOLBY_VISION.equals(sampleMimeType)) {
-      codecs = manifestFormat.codecs;
+      codecs = Util.getCodecsOfType(manifestFormat.codecs, C.TRACK_TYPE_VIDEO);
     }
 
     @Nullable

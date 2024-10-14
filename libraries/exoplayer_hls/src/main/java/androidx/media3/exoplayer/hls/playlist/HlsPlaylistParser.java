@@ -428,8 +428,20 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
             }
           }
         }
-        if (isDolbyVisionFormat(videoRange, codecs, supplementalCodecs, supplementalProfiles)) {
-          codecs = supplementalCodecs != null ? supplementalCodecs : codecs;
+        String videoCodecs = Util.getCodecsOfType(codecs, C.TRACK_TYPE_VIDEO);
+        if (isDolbyVisionFormat(videoRange, videoCodecs, supplementalCodecs, supplementalProfiles)) {
+          videoCodecs = supplementalCodecs != null ? supplementalCodecs : videoCodecs;
+          String[] codecArray = Util.splitCodecs(codecs);
+          StringBuilder builder = new StringBuilder();
+          for (String codec : codecArray) {
+            if (builder.length() > 0) {
+              builder.append(",");
+            }
+            builder.append(MimeTypes.getTrackTypeOfCodec(codec) == C.TRACK_TYPE_VIDEO
+                ? videoCodecs
+                : codec);
+          }
+          codecs = builder.length() > 0 ? builder.toString() : codecs;
         }
 
         String resolutionString =
