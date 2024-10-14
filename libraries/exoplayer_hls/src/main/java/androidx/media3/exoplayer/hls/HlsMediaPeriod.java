@@ -850,7 +850,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private static Format deriveVideoFormat(Format variantFormat) {
     @Nullable String codecs = Util.getCodecsOfType(variantFormat.codecs, C.TRACK_TYPE_VIDEO);
     @Nullable String sampleMimeType = MimeTypes.getMediaMimeType(codecs);
-
     return new Format.Builder()
         .setId(variantFormat.id)
         .setLabel(variantFormat.label)
