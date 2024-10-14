@@ -326,6 +326,40 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
     return c;
   }
 
+  private static boolean isDolbyVisionFormat(
+      @Nullable String videoRange,
+      @Nullable String codecs,
+      @Nullable String supplementalCodecs,
+      @Nullable String supplementalProfiles) {
+    if (codecs == null) {
+      return false;
+    }
+    if (codecs.startsWith("dvhe") || codecs.startsWith("dvh1")) {
+      // profile 5
+      return true;
+    }
+
+    if (supplementalCodecs == null) {
+      return false;
+    }
+    // For Dolby Vision, the compatibility brand (i.e. supplemental profiles) and the VIDEO-RANGE
+    // attribute act as cross-checks. Leaving out either one is incorrect.
+    if (videoRange == null || supplementalProfiles == null) {
+      return false;
+    }
+    if ((videoRange.equals("PQ") && !supplementalProfiles.equals("db1p")) ||
+        (videoRange.equals("SDR") && !supplementalProfiles.equals("db2g")) ||
+        (videoRange.equals("HLG") && !supplementalProfiles.startsWith("db4"))) { // db4g or db4h
+      return false;
+    }
+
+    return (supplementalCodecs.startsWith("dvhe") && codecs.startsWith("hev1")) || // profile 8
+        (supplementalCodecs.startsWith("dvh1") && codecs.startsWith("hvc1")) ||    // profile 8
+        (supplementalCodecs.startsWith("dvav") && codecs.startsWith("avc3")) ||    // profile 9
+        (supplementalCodecs.startsWith("dva1") && codecs.startsWith("avc1")) ||    // profile 9
+        (supplementalCodecs.startsWith("dav1") && codecs.startsWith("av01"));      // profile 10
+  }
+
   private static HlsMultivariantPlaylist parseMultivariantPlaylist(
       LineIterator iterator, String baseUri) throws IOException {
     HashMap<Uri, ArrayList<VariantInfo>> urlToVariantInfos = new HashMap<>();
@@ -394,6 +428,10 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
             }
           }
         }
+        if (isDolbyVisionFormat(videoRange, codecs, supplementalCodecs, supplementalProfiles)) {
+          codecs = supplementalCodecs != null ? supplementalCodecs : codecs;
+        }
+
         String resolutionString =
             parseOptionalStringAttr(line, REGEX_RESOLUTION, variableDefinitions);
         int width;
@@ -440,10 +478,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
             new Format.Builder()
                 .setId(variants.size())
                 .setContainerMimeType(MimeTypes.APPLICATION_M3U8)
-                .setVideoRange(videoRange)
                 .setCodecs(codecs)
-                .setSupplementalCodecs(supplementalCodecs)
-                .setSupplementalProfiles(supplementalProfiles)
                 .setAverageBitrate(averageBitrate)
                 .setPeakBitrate(peakBitrate)
                 .setWidth(width)

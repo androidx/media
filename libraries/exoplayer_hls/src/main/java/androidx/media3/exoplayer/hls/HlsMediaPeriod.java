@@ -847,51 +847,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     return drmInitDataBySchemeType;
   }
 
-  private static boolean isDolbyVisionFormat(
-      @Nullable String videoRange,
-      @Nullable String codecs,
-      @Nullable String supplementalCodecs,
-      @Nullable String supplementalProfiles) {
-    if (codecs == null) {
-      return false;
-    }
-    if (codecs.startsWith("dvhe") || codecs.startsWith("dvh1")) {
-      // profile 5
-      return true;
-    }
-
-    if (supplementalCodecs == null) {
-      return false;
-    }
-    // For Dolby Vision, the compatibility brand (i.e. supplemental profiles) and the VIDEO-RANGE
-    // attribute act as cross-checks. Leaving out either one is incorrect.
-    if (videoRange == null || supplementalProfiles == null) {
-      return false;
-    }
-    if ((videoRange.equals("PQ") && !supplementalProfiles.equals("db1p")) ||
-        (videoRange.equals("SDR") && !supplementalProfiles.equals("db2g")) ||
-        (videoRange.equals("HLG") && !supplementalProfiles.startsWith("db4"))) { // db4g or db4h
-      return false;
-    }
-
-    return (supplementalCodecs.startsWith("dvhe") && codecs.startsWith("hev1")) || // profile 8
-        (supplementalCodecs.startsWith("dvh1") && codecs.startsWith("hvc1")) ||    // profile 8
-        (supplementalCodecs.startsWith("dvav") && codecs.startsWith("avc3")) ||    // profile 9
-        (supplementalCodecs.startsWith("dva1") && codecs.startsWith("avc1")) ||    // profile 9
-        (supplementalCodecs.startsWith("dav1") && codecs.startsWith("av01"));      // profile 10
-  }
-
   private static Format deriveVideoFormat(Format variantFormat) {
-    @Nullable String videoRange = variantFormat.videoRange;
     @Nullable String codecs = Util.getCodecsOfType(variantFormat.codecs, C.TRACK_TYPE_VIDEO);
-    @Nullable String supplementalCodecs = variantFormat.supplementalCodecs;
-    @Nullable String supplementalProfiles = variantFormat.supplementalProfiles;
     @Nullable String sampleMimeType = MimeTypes.getMediaMimeType(codecs);
-
-    if (isDolbyVisionFormat(videoRange, codecs, supplementalCodecs, supplementalProfiles)) {
-      sampleMimeType = MimeTypes.VIDEO_DOLBY_VISION;
-      codecs = supplementalCodecs != null ? supplementalCodecs : codecs;
-    }
 
     return new Format.Builder()
         .setId(variantFormat.id)
@@ -899,7 +857,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         .setLabels(variantFormat.labels)
         .setContainerMimeType(variantFormat.containerMimeType)
         .setSampleMimeType(sampleMimeType)
-        .setVideoRange(videoRange)
         .setCodecs(codecs)
         .setMetadata(variantFormat.metadata)
         .setAverageBitrate(variantFormat.averageBitrate)
