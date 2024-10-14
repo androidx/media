@@ -85,7 +85,7 @@ import java.util.concurrent.Executor;
 
   @Override
   public boolean isReady(boolean rendererOtherwiseReady) {
-    throw new UnsupportedOperationException();
+    return videoFrameReleaseControl.isReady(rendererOtherwiseReady);
   }
 
   @Override
