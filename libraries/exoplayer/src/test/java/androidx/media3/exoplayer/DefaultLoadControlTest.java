@@ -32,7 +32,6 @@ import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.trackselection.FixedTrackSelection;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
-import androidx.media3.test.utils.FakeRenderer;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Before;
@@ -512,10 +511,16 @@ public class DefaultLoadControlTest {
     loadControl = builder.build();
     loadControl.onPrepared(playerId);
     loadControl.onTracksSelected(
-        playerId,
-        timeline,
-        mediaPeriodId,
-        new Renderer[0],
+        new LoadControl.Parameters(
+            playerId,
+            timeline,
+            mediaPeriodId,
+            /* playbackPositionUs= */ 0L,
+            /* bufferedDurationUs= */ 0L,
+            /* playbackSpeed= */ 1f,
+            /* playWhenReady= */ false,
+            /* rebuffering= */ false,
+            /* targetLiveOffsetUs= */ C.TIME_UNSET),
         TrackGroupArray.EMPTY,
         new ExoTrackSelection[0]);
 
@@ -747,24 +752,34 @@ public class DefaultLoadControlTest {
     TrackGroup videoTrackGroup =
         new TrackGroup(new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build());
     TrackGroupArray videoTrackGroupArray = new TrackGroupArray(videoTrackGroup);
-    Renderer[] videoRenderer = new Renderer[] {new FakeRenderer(C.TRACK_TYPE_VIDEO)};
     TrackGroup audioTrackGroup =
         new TrackGroup(new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).build());
     TrackGroupArray audioTrackGroupArray = new TrackGroupArray(audioTrackGroup);
-    Renderer[] audioRenderer = new Renderer[] {new FakeRenderer(C.TRACK_TYPE_AUDIO)};
 
     loadControl.onTracksSelected(
-        playerId,
-        timeline,
-        mediaPeriodId,
-        videoRenderer,
+        new LoadControl.Parameters(
+            playerId,
+            timeline,
+            mediaPeriodId,
+            /* playbackPositionUs= */ 0,
+            /* bufferedDurationUs= */ 0,
+            /* playbackSpeed= */ 1.0f,
+            /* playWhenReady= */ false,
+            /* rebuffering= */ false,
+            /* targetLiveOffsetUs= */ C.TIME_UNSET),
         videoTrackGroupArray,
         new ExoTrackSelection[] {new FixedTrackSelection(videoTrackGroup, /* track= */ 0)});
     loadControl.onTracksSelected(
-        playerId2,
-        timeline2,
-        mediaPeriodId2,
-        audioRenderer,
+        new LoadControl.Parameters(
+            playerId2,
+            timeline2,
+            mediaPeriodId2,
+            /* playbackPositionUs= */ 0,
+            /* bufferedDurationUs= */ 0,
+            /* playbackSpeed= */ 1.0f,
+            /* playWhenReady= */ false,
+            /* rebuffering= */ false,
+            /* targetLiveOffsetUs= */ C.TIME_UNSET),
         audioTrackGroupArray,
         new ExoTrackSelection[] {new FixedTrackSelection(audioTrackGroup, /* track= */ 0)});
 
@@ -796,10 +811,16 @@ public class DefaultLoadControlTest {
     loadControl = builder.build();
     loadControl.onPrepared(playerId);
     loadControl.onTracksSelected(
-        playerId,
-        timeline,
-        mediaPeriodId,
-        new Renderer[0],
+        new LoadControl.Parameters(
+            playerId,
+            timeline,
+            mediaPeriodId,
+            /* playbackPositionUs= */ 0,
+            /* bufferedDurationUs= */ 0,
+            /* playbackSpeed= */ 1.0f,
+            /* playWhenReady= */ false,
+            /* rebuffering= */ false,
+            /* targetLiveOffsetUs= */ C.TIME_UNSET),
         /* trackGroups= */ null,
         /* trackSelections= */ null);
   }

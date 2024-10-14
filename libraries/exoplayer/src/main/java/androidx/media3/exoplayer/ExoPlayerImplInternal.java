@@ -2008,6 +2008,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
     }
     // Get updated buffered duration as it may have changed since the start of the renderer loop.
     long bufferedDurationUs = getTotalBufferedDurationUs(loadingHolder.getBufferedPositionUs());
+
     return loadControl.shouldStartPlayback(
         new LoadControl.Parameters(
             playerId,
@@ -2907,11 +2908,29 @@ import java.util.concurrent.atomic.AtomicBoolean;
       MediaPeriodId mediaPeriodId,
       TrackGroupArray trackGroups,
       TrackSelectorResult trackSelectorResult) {
+    MediaPeriodHolder loadingPeriodHolder = checkNotNull(queue.getLoadingPeriod());
+    long playbackPositionUs =
+        loadingPeriodHolder == queue.getPlayingPeriod()
+            ? loadingPeriodHolder.toPeriodTime(rendererPositionUs)
+            : loadingPeriodHolder.toPeriodTime(rendererPositionUs)
+                - loadingPeriodHolder.info.startPositionUs;
+    long bufferedDurationUs =
+        getTotalBufferedDurationUs(loadingPeriodHolder.getBufferedPositionUs());
+    long targetLiveOffsetUs =
+        shouldUseLivePlaybackSpeedControl(playbackInfo.timeline, loadingPeriodHolder.info.id)
+            ? livePlaybackSpeedControl.getTargetLiveOffsetUs()
+            : C.TIME_UNSET;
     loadControl.onTracksSelected(
-        playerId,
-        playbackInfo.timeline,
-        mediaPeriodId,
-        renderers,
+        new LoadControl.Parameters(
+            playerId,
+            playbackInfo.timeline,
+            mediaPeriodId,
+            playbackPositionUs,
+            bufferedDurationUs,
+            mediaClock.getPlaybackParameters().speed,
+            playbackInfo.playWhenReady,
+            isRebuffering,
+            targetLiveOffsetUs),
         trackGroups,
         trackSelectorResult.selections);
   }

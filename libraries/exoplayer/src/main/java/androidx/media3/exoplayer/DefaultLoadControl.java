@@ -26,6 +26,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.analytics.PlayerId;
@@ -35,6 +36,7 @@ import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.InlineMe;
 import java.util.HashMap;
 
 /** The default {@link LoadControl} implementation. */
@@ -337,15 +339,12 @@ public class DefaultLoadControl implements LoadControl {
 
   @Override
   public void onTracksSelected(
-      PlayerId playerId,
-      Timeline timeline,
-      MediaPeriodId mediaPeriodId,
-      Renderer[] renderers,
+      LoadControl.Parameters parameters,
       TrackGroupArray trackGroups,
-      ExoTrackSelection[] trackSelections) {
-    checkNotNull(loadingStates.get(playerId)).targetBufferBytes =
+      @NullableType ExoTrackSelection[] trackSelections) {
+    checkNotNull(loadingStates.get(parameters.playerId)).targetBufferBytes =
         targetBufferBytesOverwrite == C.LENGTH_UNSET
-            ? calculateTargetBufferBytes(renderers, trackSelections)
+            ? calculateTargetBufferBytes(trackSelections)
             : targetBufferBytesOverwrite;
     updateAllocator();
   }
@@ -437,19 +436,27 @@ public class DefaultLoadControl implements LoadControl {
    * Calculate target buffer size in bytes based on the selected tracks. The player will try not to
    * exceed this target buffer. Only used when {@code targetBufferBytes} is {@link C#LENGTH_UNSET}.
    *
-   * @param renderers The renderers for which the track were selected.
    * @param trackSelectionArray The selected tracks.
    * @return The target buffer size in bytes.
    */
-  protected int calculateTargetBufferBytes(
-      Renderer[] renderers, ExoTrackSelection[] trackSelectionArray) {
+  protected int calculateTargetBufferBytes(@NullableType ExoTrackSelection[] trackSelectionArray) {
     int targetBufferSize = 0;
-    for (int i = 0; i < renderers.length; i++) {
-      if (trackSelectionArray[i] != null) {
-        targetBufferSize += getDefaultBufferSize(renderers[i].getTrackType());
+    for (ExoTrackSelection exoTrackSelection : trackSelectionArray) {
+      if (exoTrackSelection != null) {
+        targetBufferSize += getDefaultBufferSize(exoTrackSelection.getTrackGroup().type);
       }
     }
     return max(DEFAULT_MIN_BUFFER_SIZE, targetBufferSize);
+  }
+
+  /**
+   * @deprecated Use {@link #calculateTargetBufferBytes(ExoTrackSelection[])} instead.
+   */
+  @InlineMe(replacement = "this.calculateTargetBufferBytes(trackSelectionArray)")
+  @Deprecated
+  protected final int calculateTargetBufferBytes(
+      Renderer[] renderers, ExoTrackSelection[] trackSelectionArray) {
+    return calculateTargetBufferBytes(trackSelectionArray);
   }
 
   @VisibleForTesting
@@ -503,6 +510,7 @@ public class DefaultLoadControl implements LoadControl {
       case C.TRACK_TYPE_NONE:
         return 0;
       case C.TRACK_TYPE_UNKNOWN:
+        return DEFAULT_MIN_BUFFER_SIZE;
       default:
         throw new IllegalArgumentException();
     }

@@ -51,6 +51,14 @@
     *   Add `DefaultPreloadManager.Builder` that builds the
         `DefaultPreloadManager` and `ExoPlayer` instances with consistently
         shared configurations.
+    *   Remove `Renderer[]` parameter from `LoadControl.onTracksSelected()` as
+        `DefaultLoadControl` implementation can retrieve the stream types from
+        `ExoTrackSelection[]`.
+    *   Deprecated `DefaultLoadControl.calculateTargetBufferBytes(Renderer[],
+        ExoTrackSelection[])` and marked method as final to prevent overrides.
+        The new
+        `DefaultLoadControl.calculateTargetBufferBytes(ExoTrackSelection[])`
+        should be used instead.
 *   Transformer:
     *   Make setting the image duration using
         `MediaItem.Builder.setImageDurationMs` mandatory for image export.
