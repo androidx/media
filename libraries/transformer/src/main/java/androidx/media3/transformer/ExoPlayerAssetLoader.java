@@ -41,6 +41,7 @@ import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.ExoPlayer;
@@ -133,6 +134,8 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
           clock);
     }
   }
+
+  private static final String TAG = "ExoPlayerAssetLoader";
 
   /**
    * The timeout value, in milliseconds, to set on the internal {@link ExoPlayer} instance when
@@ -336,6 +339,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
           trackCount++;
         }
 
+        maybeWarnUnsupportedTrackTypes(tracks);
         if (trackCount > 0) {
           assetLoaderListener.onTrackCount(trackCount);
           // Start the renderers after having registered all the tracks to make sure the AssetLoader
@@ -364,6 +368,16 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
               ExportException.NAME_TO_ERROR_CODE.getOrDefault(
                   error.getErrorCodeName(), ERROR_CODE_UNSPECIFIED));
       assetLoaderListener.onError(ExportException.createForAssetLoader(error, errorCode));
+    }
+  }
+
+  private static void maybeWarnUnsupportedTrackTypes(Tracks tracks) {
+    for (int i = 0; i < tracks.getGroups().size(); i++) {
+      @C.TrackType int trackType = tracks.getGroups().get(i).getType();
+      if (trackType == C.TRACK_TYPE_AUDIO || trackType == C.TRACK_TYPE_VIDEO) {
+        continue;
+      }
+      Log.w(TAG, "Unsupported track type: " + trackType);
     }
   }
 
