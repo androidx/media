@@ -420,7 +420,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
   }
 
   private boolean isReady(boolean rendererOtherwiseReady) {
-    return videoFrameRenderControl.isReady(
+    return videoFrameReleaseControl.isReady(
         /* rendererOtherwiseReady= */ rendererOtherwiseReady && pendingFlushCount == 0);
   }
 
