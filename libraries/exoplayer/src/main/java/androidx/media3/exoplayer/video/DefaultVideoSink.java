@@ -105,7 +105,7 @@ import java.util.concurrent.Executor;
 
   @Override
   public void setPlaybackSpeed(float speed) {
-    videoFrameRenderControl.setPlaybackSpeed(speed);
+    videoFrameReleaseControl.setPlaybackSpeed(speed);
   }
 
   @Override
